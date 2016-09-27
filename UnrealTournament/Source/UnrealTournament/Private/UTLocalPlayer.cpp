@@ -1678,7 +1678,6 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 	}
 	else if (FileName == GetProgressionFilename())
 	{
-		LoginProcessComplete();
 		bIsPendingProgressionLoadFromMCP = false;
 
 		UE_LOG(UT, Verbose, TEXT("Progression loaded from MCP %d"), bWasSuccessful ? 1 : 0);
@@ -1713,6 +1712,7 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 						        NSLOCTEXT("UTLocalPlayer", "ProfileTooNew", "Your profile is from a newer version of Unreal Tournament, we could not load your progression data."), 
 								UTDIALOG_BUTTON_OK, FDialogResultDelegate(), FVector2D(0.4, 0.25));
 #endif
+					LoginProcessComplete();
 					return;
 				}
 
@@ -1751,6 +1751,7 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 		ReportStarsToServer();
 
 		InitializeSocial();
+		LoginProcessComplete();
 
 	}
 }
