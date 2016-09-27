@@ -378,6 +378,18 @@ void AUTBasePlayerController::ClientRankedGameAbandoned_Implementation()
 	ConsoleCommand("Disconnect");
 }
 
+void AUTBasePlayerController::ClientMatchmakingGameComplete_Implementation()
+{
+	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
+	if (LP)
+	{
+		LP->LastRankedMatchSessionId.Empty();
+		LP->LastRankedMatchUniqueId.Empty();
+		LP->LastRankedMatchTimeString.Empty();
+		LP->SaveConfig();
+	}
+}
+
 void AUTBasePlayerController::ClientReturnToLobby_Implementation()
 {
 	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);

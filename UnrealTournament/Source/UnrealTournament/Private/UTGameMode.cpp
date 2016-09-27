@@ -2365,6 +2365,16 @@ void AUTGameMode::TravelToNextMap_Implementation()
 	if (bUseMatchmakingSession)
 	{
 		GetWorldTimerManager().ClearTimer(ServerRestartTimerHandle);
+
+		// Make sure no one tried to reconnect to this matchmaking session
+		for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
+		{
+			AUTPlayerController* Controller = Cast<AUTPlayerController>(*Iterator);
+			if (Controller)
+			{
+				Controller->ClientMatchmakingGameComplete();
+			}
+		}
 	}
 
 	if (bRankedSession)

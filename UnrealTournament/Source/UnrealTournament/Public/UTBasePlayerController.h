@@ -114,6 +114,9 @@ public:
 	virtual void CancelConnectViaGUID();
 
 	UFUNCTION(Client, Reliable)
+	virtual void ClientMatchmakingGameComplete();
+
+	UFUNCTION(Client, Reliable)
 	virtual void ClientReturnToLobby();
 
 	UFUNCTION(Client, Reliable)
