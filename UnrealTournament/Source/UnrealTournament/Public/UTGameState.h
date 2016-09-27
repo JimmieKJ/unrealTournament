@@ -80,6 +80,10 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = GameState)
 	uint32 bPlayPlayerIntro : 1;
 
+	/** If true, teammates play status announcements */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameState)
+		uint32 bPlayStatusAnnouncements : 1;
+	
 	/** If true, kill icon messages persist through a round/ */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameState)
 		uint32 bPersistentKillIconMessages : 1;

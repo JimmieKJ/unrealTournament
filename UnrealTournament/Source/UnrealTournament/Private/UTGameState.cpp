@@ -290,6 +290,7 @@ AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 	// more stringent by default
 	UnplayableHitchThresholdInMs = 300;
 	MaxUnplayableHitchesToTolerate = 1;
+	bPlayStatusAnnouncements = true;
 }
 
 void AUTGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLifetimeProps) const

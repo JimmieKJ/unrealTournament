@@ -202,6 +202,10 @@ public:
 	UPROPERTY()
 		float LastNeedHealthTime;
 
+	/** Last time this player received a behind you message. */
+	UPROPERTY()
+		float LastBehindYouTime;
+
 	FTimerHandle PlayKillAnnouncement;
 	FTimerHandle UpdateOldNameHandle;
 

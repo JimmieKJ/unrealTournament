@@ -2092,6 +2092,22 @@ void AUTPlayerController::ClientHearSound_Implementation(USoundBase* TheSound, A
 	}
 }
 
+void AUTPlayerController::ClientWarnEnemyBehind_Implementation(AUTPlayerState* TeamPS, AUTCharacter* Targeter)
+{
+	if ((GetWorld()->GetTimeSeconds() - Targeter->GetLastRenderTime() > 5.f) && TeamPS && TeamPS->CharacterVoice)
+	{
+		int32 Switch = TeamPS->CharacterVoice.GetDefaultObject()->GetStatusIndex(StatusMessage::BehindYou);
+		if (Switch < 0)
+		{
+			UE_LOG(UT, Warning, TEXT("No valid index found for BEHIND YOU"));
+			// no valid index found (NewStatus was not a valid selection)
+			return;
+		}
+
+		ClientReceiveLocalizedMessage(TeamPS->CharacterVoice, Switch, TeamPS, PlayerState, NULL);
+	}
+}
+
 void AUTPlayerController::CheckDodge(float LastTapTime, float MaxClickTime, bool bForward, bool bBack, bool bLeft, bool bRight)
 {
 	UUTCharacterMovement* MyCharMovement = UTCharacter ? UTCharacter->UTCharacterMovement : NULL;

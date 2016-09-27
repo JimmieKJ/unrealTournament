@@ -164,6 +164,7 @@ namespace StatusMessage
 	const FName EnemyThreePlayers = FName(TEXT("EnemyThreePlayers"));
 	const FName NeedRally = FName(TEXT("NeedRally"));
 	const FName NeedHealth = FName(TEXT("NeedHealth"));
+	const FName BehindYou = FName(TEXT("BehindYou"));
 }
 
 namespace HighlightNames

@@ -26,6 +26,7 @@ AUTFlagRunGameState::AUTFlagRunGameState(const FObjectInitializer& ObjectInitial
 	bDefenderLivesLimited = true;
 	FlagRunMessageSwitch = 0;
 	FlagRunMessageTeam = nullptr;
+	bPlayStatusAnnouncements = true;
 }
 
 void AUTFlagRunGameState::BeginPlay()

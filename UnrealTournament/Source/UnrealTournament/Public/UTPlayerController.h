@@ -180,6 +180,9 @@ public:
 
 	virtual void CheckAutoWeaponSwitch(class AUTWeapon* TestWeapon);
 
+	UFUNCTION(Unreliable, Client)
+		void ClientWarnEnemyBehind(AUTPlayerState* TeamPS, AUTCharacter* Targeter);
+
 	UPROPERTY(GlobalConfig)
 	bool bHearsTaunts;
 

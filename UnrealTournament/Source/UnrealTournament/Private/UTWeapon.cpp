@@ -1549,36 +1549,12 @@ void AUTWeapon::GuessPlayerTarget(const FVector& StartFireLoc, const FVector& Fi
 		else if (Cast<AUTBot>(UTOwner->GetController()))
 		{
 			TargetedCharacter = Cast<AUTCharacter>(((AUTBot*)(UTOwner->GetController()))->GetEnemy());
+			PS = Cast<AUTPlayerState>(UTOwner->GetController()->PlayerState);
 		}
 		if (TargetedCharacter)
 		{
 			UTOwner->LastTargetingTime = GetWorld()->GetTimeSeconds();
-			TargetedCharacter->LastTargetedTime = GetWorld()->GetTimeSeconds();
-			AUTCarriedObject* Flag = TargetedCharacter->GetCarriedObject();
-			if (Flag && Flag->bShouldPingFlag)
-			{
-				if (PS && (GetWorld()->GetTimeSeconds() - Flag->LastPingVerbalTime > 12.f) && (GetWorld()->GetTimeSeconds() - Flag->LastPingedTime > Flag->PingedDuration))
-				{
-					Flag->LastPingVerbalTime = GetWorld()->GetTimeSeconds();
-					AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-					if (GS)
-					{
-						GS->LastEnemyLocationReportTime = GetWorld()->GetTimeSeconds();
-					}
-					AUTGameVolume* GV = TargetedCharacter->UTCharacterMovement ? Cast<AUTGameVolume>(TargetedCharacter->UTCharacterMovement->GetPhysicsVolume()) : nullptr;
-					if (GV && (GV->VoiceLinesSet != NAME_None))
-					{
-						PS->AnnounceStatus(GV->VoiceLinesSet, 0);
-						GS->LastEnemyLocationName = GV->VoiceLinesSet;
-					}
-					else
-					{
-						PS->AnnounceStatus(StatusMessage::EnemyFCHere);
-					}
-				}
-				Flag->LastPinger = PS ? PS : Flag->LastPinger;
-				Flag->LastPingedTime = GetWorld()->GetTimeSeconds();
-			}
+			TargetedCharacter->TargetedBy(TargetedCharacter, PS);
 		}
 	}
 }

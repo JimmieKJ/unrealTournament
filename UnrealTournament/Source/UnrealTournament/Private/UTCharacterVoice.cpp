@@ -73,6 +73,7 @@ UUTCharacterVoice::UUTCharacterVoice(const FObjectInitializer& ObjectInitializer
 	StatusOffsets.Add(StatusMessage::EnemyThreePlayers, KEY_CALLOUTS + 5004);
 	StatusOffsets.Add(StatusMessage::NeedRally, KEY_CALLOUTS + 5006);
 	StatusOffsets.Add(StatusMessage::NeedHealth, KEY_CALLOUTS + 5007);
+	StatusOffsets.Add(StatusMessage::BehindYou, KEY_CALLOUTS + 5008);
 
 	StatusOffsets.Add(PickupSpeechType::RedeemerPickup, KEY_CALLOUTS + 5100);
 	StatusOffsets.Add(PickupSpeechType::UDamagePickup, KEY_CALLOUTS + 5200);
@@ -465,6 +466,10 @@ FCharacterSpeech UUTCharacterVoice::GetCharacterSpeech(int32 Switch) const
 			else if (Switch == GetStatusIndex(StatusMessage::NeedHealth))
 			{
 				return (NeedHealthMessages.Num() == 0) ? EmptySpeech : NeedHealthMessages[FMath::RandRange(0, NeedHealthMessages.Num() - 1)];
+			}
+			else if (Switch == GetStatusIndex(StatusMessage::BehindYou))
+			{
+				return (BehindYouMessages.Num() == 0) ? EmptySpeech : BehindYouMessages[FMath::RandRange(0, BehindYouMessages.Num() - 1)];
 			}
 		}
 	}
