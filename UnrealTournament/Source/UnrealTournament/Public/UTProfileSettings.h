@@ -169,7 +169,7 @@ public:
 	uint32 bAutoWeaponSwitch : 1;
 
 	UPROPERTY(BlueprintReadOnly, Category = Weapon)
-	TEnumAsByte<EWeaponHand> WeaponHand;
+	EWeaponHand WeaponHand;
 
 	UPROPERTY(BlueprintReadOnly, Category = Input)
 	FWeaponCustomizationInfo SingleCustomWeaponCrosshair;

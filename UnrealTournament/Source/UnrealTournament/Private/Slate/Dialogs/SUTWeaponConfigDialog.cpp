@@ -1175,7 +1175,7 @@ TSharedRef<SWidget> SUTWeaponConfigDialog::GenerateWeaponHand(UUTProfileSettings
 	TSharedPtr<FText> InitiallySelectedHand = WeaponHandList[0];
 	for (TSharedPtr<FText> TestItem : WeaponHandList)
 	{
-		if (TestItem.Get()->EqualTo(WeaponHandDesc[uint8(Profile->WeaponHand.GetValue())]))
+		if (TestItem.Get()->EqualTo(WeaponHandDesc[uint8(Profile->WeaponHand)]))
 		{
 			InitiallySelectedHand = TestItem;
 		}
