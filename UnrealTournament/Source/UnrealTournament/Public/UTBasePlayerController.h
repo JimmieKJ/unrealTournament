@@ -294,6 +294,8 @@ public:
 	UFUNCTION(BlueprintCallable, Category = OnBoarding)
 	void MarkTutorialAsCompleted(int32 TutorialMask);
 
+	bool SkipTutorialCheck();
+
 protected:
 	// Sends a message directly to a user.  
 	virtual void DirectSay(const FString& Message);

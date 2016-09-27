@@ -94,21 +94,25 @@ void AUTMenuGameMode::ShowMenu(AUTBasePlayerController* PC)
 
 		UUTProfileSettings* ProfileSettings = PC->GetProfileSettings();
 		bool bForceTutorialMenu = false;
-		if (ProfileSettings != nullptr && !FParse::Param(FCommandLine::Get(), TEXT("skiptutcheck")) )
+
+		if (!PC->SkipTutorialCheck())
 		{
-			if (ProfileSettings->TutorialMask == 0 )
+			if (ProfileSettings != nullptr && !FParse::Param(FCommandLine::Get(), TEXT("skiptutcheck")) )
 			{
-				if ( !LastURL.HasOption(TEXT("tutorialmenu")) )
+				if (ProfileSettings->TutorialMask == 0 )
 				{
-#if !PLATFORM_LINUX
-					GetWorld()->ServerTravel(TEXT("/Game/RestrictedAssets/Tutorials/TUT-MovementTraining?game=/Game/RestrictedAssets/Tutorials/Blueprints/UTTutorialGameMode.UTTutorialGameMode_C?timelimit=0?TutorialMask=1"), true, true);
-					return;
-#endif
+					if ( !LastURL.HasOption(TEXT("tutorialmenu")) )
+					{
+	#if !PLATFORM_LINUX
+						GetWorld()->ServerTravel(TEXT("/Game/RestrictedAssets/Tutorials/TUT-MovementTraining?game=/Game/RestrictedAssets/Tutorials/Blueprints/UTTutorialGameMode.UTTutorialGameMode_C?timelimit=0?TutorialMask=1"), true, true);
+						return;
+	#endif
+					}
 				}
-			}
-			else if ( ((ProfileSettings->TutorialMask & 0x07) != 0x07)  || (ProfileSettings->TutorialMask < 8) )
-			{
-				bForceTutorialMenu = true;
+				else if ( ((ProfileSettings->TutorialMask & 0x07) != 0x07)  || (ProfileSettings->TutorialMask < 8) )
+				{
+					bForceTutorialMenu = true;
+				}
 			}
 		}
 

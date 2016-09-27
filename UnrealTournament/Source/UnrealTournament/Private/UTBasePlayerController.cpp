@@ -1172,3 +1172,14 @@ void AUTBasePlayerController::ApplyProfileSettings()
 		LP->ApplyProfileSettings();
 	}
 }
+
+bool AUTBasePlayerController::SkipTutorialCheck()
+{
+	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
+	if (LP)
+	{
+		return LP->SkipTutorialCheck();
+	}
+
+	return false;
+}

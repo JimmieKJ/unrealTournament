@@ -5904,3 +5904,19 @@ void UUTLocalPlayer::InitializeSocial()
 	LoginPhase = ELoginPhase::LoggedIn;
 
 }
+
+bool UUTLocalPlayer::SkipTutorialCheck()
+{
+#if WITH_PROFILE
+	UUtMcpProfile* Profile = GetMcpProfileManager()->GetMcpProfileAs<UUtMcpProfile>(EUtMcpProfile::Profile);
+	if (Profile != NULL && Profile->GetXP() > 300)
+	{
+		return true;
+	}
+#endif
+
+	// Add any additional checks here to abort the tutorial check
+
+	return false;
+}
+

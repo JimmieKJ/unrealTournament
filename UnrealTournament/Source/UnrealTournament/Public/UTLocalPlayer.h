@@ -1122,4 +1122,6 @@ public:
 
 	virtual void InitializeSocial();
 
+	bool SkipTutorialCheck();
+
 };
