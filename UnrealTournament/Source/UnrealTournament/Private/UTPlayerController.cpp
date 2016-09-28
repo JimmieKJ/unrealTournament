@@ -2061,16 +2061,15 @@ void AUTPlayerController::ClientHearSound_Implementation(USoundBase* TheSound, A
 				if (bHit)
 				{
 					if (CustomAmp.OccludedAttenuation != nullptr)
-				{
+					{
 						AttenuationOverride = CustomAmp.OccludedAttenuation;
-				}
-				else
-				{
-						if (0.5f * MaxAudibleDistance > (SoundLocation - GetViewTarget()->GetActorLocation()).Size())
+					}
+					else
+					{
+						if (0.75f * MaxAudibleDistance > (SoundLocation - ViewPoint).Size())
 						{
 							return;
 						}
-						VolumeMultiplier *= 0.75f;
 					}
 				}
 			}
