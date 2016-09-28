@@ -523,9 +523,16 @@ void AUTCTFRoundGame::UpdateTiebreak(int32 Bonus, int32 TeamIndex)
 	AUTCTFRoundGameState* RCTFGameState = Cast<AUTCTFRoundGameState>(CTFGameState);
 	if (RCTFGameState)
 	{
-		while (Bonus > 60)
+		if (Bonus == MaxTimeScoreBonus)
 		{
-			Bonus -= 60;
+			Bonus = 60;
+		}
+		else
+		{
+			while (Bonus > 59)
+			{
+				Bonus -= 60;
+			}
 		}
 		if (TeamIndex == 0)
 		{

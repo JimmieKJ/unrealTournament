@@ -125,11 +125,11 @@ void AUTFlagRunGame::AnnounceWin(AUTTeamInfo* WinningTeam, uint8 Reason)
 	if (Reason == 0)
 	{
 		int32 BonusType = 100 + BronzeScore;
-		if (WinningTeam->RoundBonus > GoldBonusTime)
+		if (WinningTeam->RoundBonus >= GoldBonusTime)
 		{
 			BonusType = 300 + GoldScore;
 		}
-		else if (WinningTeam->RoundBonus > SilverBonusTime)
+		else if (WinningTeam->RoundBonus >= SilverBonusTime)
 		{
 			BonusType = 200 + SilverScore;
 		}
@@ -145,11 +145,11 @@ void AUTFlagRunGame::AnnounceWin(AUTTeamInfo* WinningTeam, uint8 Reason)
 void AUTFlagRunGame::BroadcastCTFScore(APlayerState* ScoringPlayer, AUTTeamInfo* ScoringTeam, int32 OldScore)
 {
 	int32 BonusType = 100 + BronzeScore;
-	if (ScoringTeam->RoundBonus > GoldBonusTime)
+	if (ScoringTeam->RoundBonus >= GoldBonusTime)
 	{
 		BonusType = 300 + GoldScore;
 	}
-	else if (ScoringTeam->RoundBonus > SilverBonusTime)
+	else if (ScoringTeam->RoundBonus >= SilverBonusTime)
 	{
 		BonusType = 200 + SilverScore;
 	}
@@ -199,8 +199,8 @@ void AUTFlagRunGame::CheckRoundTimeVictory()
 		if (FRGS)
 		{
 			uint8 OldBonusLevel = FRGS->BonusLevel;
-			FRGS->BonusLevel = (RemainingTime > GoldBonusTime) ? 3 : 2;
-			if (RemainingTime <= SilverBonusTime)
+			FRGS->BonusLevel = (RemainingTime >= GoldBonusTime) ? 3 : 2;
+			if (RemainingTime < SilverBonusTime)
 			{
 				FRGS->BonusLevel = 1;
 			}

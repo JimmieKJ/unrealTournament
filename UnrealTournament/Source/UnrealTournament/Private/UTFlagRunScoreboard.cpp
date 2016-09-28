@@ -517,9 +517,16 @@ void UUTFlagRunScoreboard::DrawScoringPlayInfo(const FCTFScoringPlay& Play, floa
 	{
 		YPos += 0.82f* MedYL;
 		int32 NetBonus = RoundBonus;
-		while (NetBonus > 60)
+		if (NetBonus == 180)
 		{
-			NetBonus -= 60;
+			NetBonus = 60;
+		}
+		else
+		{
+			while (NetBonus > 59)
+			{
+				NetBonus -= 60;
+			}
 		}
 		FString BonusLine = FString::Printf(TEXT("Bonus Time: %d"), NetBonus);
 		Canvas->TextSize(UTHUDOwner->MediumFont, BonusLine, ScoringOffsetX, ScoringOffsetY, RenderScale, RenderScale);
