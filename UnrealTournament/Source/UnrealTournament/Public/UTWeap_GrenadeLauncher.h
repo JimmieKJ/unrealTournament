@@ -54,4 +54,6 @@ public:
 	bool PutDown() override;
 	void Destroyed() override;
 	void DetachFromOwner_Implementation() override;
+
+	void DropFrom(const FVector& StartLocation, const FVector& TossVelocity) override;
 };

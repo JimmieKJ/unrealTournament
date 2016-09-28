@@ -112,3 +112,10 @@ void AUTWeap_GrenadeLauncher::DetachFromOwner_Implementation()
 
 	Super::DetachFromOwner_Implementation();
 }
+
+void AUTWeap_GrenadeLauncher::DropFrom(const FVector& StartLocation, const FVector& TossVelocity)
+{
+	// Don't preserve grenade references between owners
+	ActiveGrenades.Empty();
+	bHasStickyGrenades = false;
+}
