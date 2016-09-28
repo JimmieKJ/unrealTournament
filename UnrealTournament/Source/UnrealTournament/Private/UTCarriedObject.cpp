@@ -586,7 +586,15 @@ void AUTCarriedObject::TossObject(AUTCharacter* ObjectHolder)
 		}
 		if (bSuccess)
 		{
-			MovementComponent->Velocity = (0.5f * ObjectHolder->GetMovementComponent()->Velocity) + Extra + (218.0f * (0.5f + FMath::FRand()) * FMath::VRand() + FVector(0.0f, 0.0f, 100.0f));
+			if (bGradualAutoReturn && (ObjectHolder->Health <= 0))
+			{
+				MovementComponent->Velocity = FVector::ZeroVector;
+				MovementComponent->Velocity.Z = ObjectHolder->GetMovementComponent()->Velocity.Z;
+			}
+			else
+			{
+				MovementComponent->Velocity = (0.5f * ObjectHolder->GetMovementComponent()->Velocity) + Extra + (218.0f * (0.5f + FMath::FRand()) * FMath::VRand() + FVector(0.0f, 0.0f, 100.0f));
+			}
 		}
 		else
 		{
