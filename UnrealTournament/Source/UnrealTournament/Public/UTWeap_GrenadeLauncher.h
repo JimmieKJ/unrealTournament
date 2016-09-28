@@ -40,6 +40,9 @@ public:
 	}
 	void UpdateLock() {}
 	void SetLockTarget(AActor* NewTarget) {}
+	
+	UFUNCTION(BlueprintImplementableEvent, Category=GrenadeLauncher)
+	void PlayDetonationEffects();
 
 	UFUNCTION(BlueprintImplementableEvent, Category=GrenadeLauncher)
 	void ShowDetonatorUI();

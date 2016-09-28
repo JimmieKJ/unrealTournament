@@ -17,6 +17,11 @@ bool AUTWeap_GrenadeLauncher::BeginFiringSequence(uint8 FireModeNum, bool bClien
 		{
 			DetonateStickyGrenades();
 		}
+		
+		if (UTOwner && UTOwner->IsLocallyViewed())
+		{
+			PlayDetonationEffects();
+		}
 
 		return true;
 	}
