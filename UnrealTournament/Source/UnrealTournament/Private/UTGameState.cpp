@@ -273,6 +273,7 @@ AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 	MapVoteStatus = NSLOCTEXT("UTGameState", "Mapvote", "Map Vote");
 	PreGameStatus = NSLOCTEXT("UTGameState", "PreGame", "Pre-Game");
 	NeedPlayersStatus = NSLOCTEXT("UTGameState", "NeedPlayers", "Need {NumNeeded} More");
+	OvertimeStatus = NSLOCTEXT("UTCTFGameState", "Overtime", "Overtime!");
 
 	bWeightedCharacter = false;
 
@@ -1176,6 +1177,10 @@ FText AUTGameState::GetGameStatusText(bool bForScoreboard)
 		{
 			return PreGameStatus;
 		}
+	}
+	else if (IsMatchInOvertime())
+	{
+		return OvertimeStatus;
 	}
 
 	return FText::GetEmpty();

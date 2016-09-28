@@ -214,9 +214,6 @@ class UNREALTOURNAMENT_API AUTCTFGameState: public AUTGameState
 		FText HalftimeStatus;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameState)
-		FText OvertimeStatus;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameState)
 		FText ExtendedOvertimeStatus;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameState)

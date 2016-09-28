@@ -88,7 +88,6 @@ AUTCTFGameState::AUTCTFGameState(const FObjectInitializer& ObjectInitializer)
 	FullRoundInProgressStatus = NSLOCTEXT("UTCharacter", "CTFRoundDisplay", "Round {RoundNum} / {NumRounds}");
 	IntermissionStatus = NSLOCTEXT("UTCTFGameState", "Intermission", "Intermission");
 	HalftimeStatus = NSLOCTEXT("UTCTFGameState", "HalfTime", "HalfTime");
-	OvertimeStatus = NSLOCTEXT("UTCTFGameState", "Overtime", "Overtime!");
 	ExtendedOvertimeStatus = NSLOCTEXT("UTCTFGameState", "ExtendedOvertime", "Extended Overtime!");
 	FirstHalfStatus = NSLOCTEXT("UTCTFGameState", "FirstHalf", "First Half");
 	SecondHalfStatus = NSLOCTEXT("UTCTFGameState", "SecondHalf", "Second Half");
