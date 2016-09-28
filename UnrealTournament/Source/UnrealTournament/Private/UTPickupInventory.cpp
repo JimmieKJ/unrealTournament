@@ -374,8 +374,9 @@ void AUTPickupInventory::PlayRespawnEffects()
 			if (InventoryType.GetDefaultObject()->PickupSpawnAnnouncement)
 			{
 				GM->BroadcastLocalized(this, InventoryType.GetDefaultObject()->PickupSpawnAnnouncement, InventoryType.GetDefaultObject()->PickupAnnouncementIndex, nullptr, nullptr, InventoryType.GetDefaultObject());
+				bHasEverSpawned = true;
 			}
-			else if (InventoryType.GetDefaultObject()->PickupAnnouncementName != NAME_None)
+			if (InventoryType.GetDefaultObject()->PickupAnnouncementName != NAME_None)
 			{
 				GetWorldTimerManager().SetTimer(SpawnVoiceLineTimer, this, &AUTPickupInventory::PlaySpawnVoiceLine, bHasEverSpawned ? 30.f : 10.f);
 			}
