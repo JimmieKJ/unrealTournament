@@ -155,10 +155,7 @@ void AUTGameVolume::ActorEnteredVolume(class AActor* Other)
 						{
 							((AUTPlayerState *)(P->PlayerState))->AnnounceStatus(VoiceLinesSet, 1);
 						}
-						else
-						{
-							((AUTPlayerState *)(P->PlayerState))->AnnounceStatus(StatusMessage::ImGoingIn);
-						}
+						((AUTPlayerState *)(P->PlayerState))->AnnounceStatus(StatusMessage::ImGoingIn);
 						GS->LastEnteringEnemyBaseTime = GetWorld()->GetTimeSeconds();
 					}
 					if (GetWorld()->GetTimeSeconds() - GS->LastEnemyEnteringBaseTime > 10.f)

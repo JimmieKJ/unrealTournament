@@ -362,7 +362,35 @@ void AUTCTFFlag::Tick(float DeltaTime)
 		if (Holder)
 		{
 			//Update currently pinged
-			bCurrentlyPinged = (bShouldPingFlag && ((GetWorld()->GetTimeSeconds() - LastPingedTime < PingedDuration) || (GV && GV->bIsNoRallyZone)));
+			bCurrentlyPinged = (bShouldPingFlag && (GetWorld()->GetTimeSeconds() - LastPingedTime < PingedDuration));
+			if (bShouldPingFlag && !bCurrentlyPinged && GV && GV->bIsNoRallyZone)
+			{
+				if (GetWorld()->GetTimeSeconds() - EnteredEnemyBaseTime < PingedDuration)
+				{
+					bCurrentlyPinged = true;
+				}
+				else if (HoldingPawn->GetController())
+				{
+					// ping if has LOS to flag base
+					AUTCTFGameState* GameState = GetWorld()->GetGameState<AUTCTFGameState>();
+					if (GameState)
+					{
+						AUTCTFFlagBase* OtherBase = GameState->FlagBases[1 - GetTeamNum()];
+						if (OtherBase)
+						{
+							FVector StartLocation = HoldingPawn->GetActorLocation() + FVector(0.f, 0.f, HoldingPawn->BaseEyeHeight);
+							FVector BaseLoc = OtherBase->GetActorLocation();
+							ECollisionChannel TraceChannel = COLLISION_TRACE_WEAPONNOCHARACTER;
+							FCollisionQueryParams QueryParams(GetClass()->GetFName(), true, HoldingPawn);
+							FHitResult Hit;
+							if (!GetWorld()->LineTraceSingleByChannel(Hit, StartLocation, BaseLoc, TraceChannel, QueryParams) || !GetWorld()->LineTraceSingleByChannel(Hit, StartLocation, BaseLoc + FVector(0.f,0.f, 100.f), TraceChannel, QueryParams))
+							{
+								bCurrentlyPinged = true;;
+							}
+						}
+					}
+				}
+			}
 
 			Holder->bSpecialPlayer = bCurrentlyPinged;
 			if (GetNetMode() != NM_DedicatedServer)
