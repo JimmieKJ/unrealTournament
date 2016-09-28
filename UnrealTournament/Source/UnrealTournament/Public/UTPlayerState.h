@@ -1110,6 +1110,9 @@ public:
 	AUTGameVolume* LastKnownLocation;
 
 	TSubclassOf<UUTCharacterVoice> GetCharacterVoiceClass();
+
+	TMap< UClass*, int32> DamageDelt;
+
 };
 
 USTRUCT()

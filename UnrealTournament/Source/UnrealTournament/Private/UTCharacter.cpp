@@ -914,6 +914,18 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 			AUTPlayerState* EnemyPS = EventInstigator ? Cast<AUTPlayerState>(EventInstigator->PlayerState) : NULL;
 			Game->ScoreDamage(AppliedDamage, MyPS, EnemyPS);
 
+			if (EnemyPS != nullptr)
+			{
+				if (EnemyPS->DamageDelt.Contains(DamageEvent.DamageTypeClass))
+				{
+					EnemyPS->DamageDelt[DamageEvent.DamageTypeClass] += AppliedDamage;
+				}
+				else
+				{
+					EnemyPS->DamageDelt.Add(DamageEvent.DamageTypeClass, AppliedDamage);
+				}
+			}
+
 			bool bIsSelfDamage = (EventInstigator == Controller && Controller != NULL);
 			if (UTDamageTypeCDO != NULL)
 			{
