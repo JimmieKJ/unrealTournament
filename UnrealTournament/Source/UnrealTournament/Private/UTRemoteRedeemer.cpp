@@ -469,10 +469,40 @@ void AUTRemoteRedeemer::ExplodeStage(float RangeMultiplier)
 		{
 			TArray<AActor*> IgnoreActors;
 			StatsHitCredit = 0.f;
+			AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+			AUTPlayerState* StatusPS = ((Role == ROLE_Authority) && GetController() && GS && GS->bPlayStatusAnnouncements) ? Cast<AUTPlayerState>(GetController()->PlayerState) : nullptr;
+			if (StatusPS)
+			{
+				int32 LiveEnemyCount = 0;
+				for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
+				{
+					AController* C = *Iterator;
+					AUTPlayerState* TeamPS = C ? Cast<AUTPlayerState>(C->PlayerState) : nullptr;
+					if (TeamPS && C->GetPawn() && !GS->OnSameTeam(GetController(), C))
+					{
+						LiveEnemyCount++;
+					}
+				}
+				KillCount += LiveEnemyCount;
+			}
 
 			//DrawDebugSphere(GetWorld(), ExplosionCenter, RangeMultiplier*AdjustedDamageParams.OuterRadius, 12, FColor::Green, true, -1.f);
 			UUTGameplayStatics::UTHurtRadius(this, AdjustedDamageParams.BaseDamage, AdjustedDamageParams.MinimumDamage, DefaultRedeemer->Momentum, ExplosionCenter, RangeMultiplier * AdjustedDamageParams.InnerRadius, RangeMultiplier * AdjustedDamageParams.OuterRadius, AdjustedDamageParams.DamageFalloff,
 				DefaultRedeemer->MyDamageType, IgnoreActors, this, DamageInstigator, nullptr, nullptr, DefaultRedeemer->CollisionFreeRadius);
+			if (StatusPS)
+			{
+				int32 LiveEnemyCount = 0;
+				for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
+				{
+					AController* C = *Iterator;
+					AUTPlayerState* TeamPS = C ? Cast<AUTPlayerState>(C->PlayerState) : nullptr;
+					if (TeamPS && C->GetPawn() && !GS->OnSameTeam(GetController(), C))
+					{
+						LiveEnemyCount++;
+					}
+				}
+				KillCount -= LiveEnemyCount;
+			}
 			if ((Role == ROLE_Authority) && (HitsStatsName != NAME_None))
 			{
 				AUTPlayerState* PS = DamageInstigator ? Cast<AUTPlayerState>(DamageInstigator->PlayerState) : NULL;
@@ -541,6 +571,7 @@ void AUTRemoteRedeemer::ExplodeStage5()
 }
 void AUTRemoteRedeemer::ExplodeStage6()
 {
+	AUTPlayerState* StatusPS = ((Role == ROLE_Authority) && GetController()) ? Cast<AUTPlayerState>(GetController()->PlayerState) : nullptr;
 	if (Role == ROLE_Authority)
 	{
 		DriverLeave(true);
@@ -549,6 +580,11 @@ void AUTRemoteRedeemer::ExplodeStage6()
 	if (DefaultRedeemer != nullptr)
 	{
 		ExplodeStage(DefaultRedeemer->ExplosionRadii[5]);
+	}
+
+	if (StatusPS && (KillCount > 0))
+	{
+		StatusPS->AnnounceStatus(StatusMessage::RedeemerKills, KillCount - 1);
 	}
 	ShutDown();
 }

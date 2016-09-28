@@ -276,7 +276,8 @@ void AUTProj_Redeemer::ExplodeStage(float RangeMultiplier)
 		StatsHitCredit = 0.f;
 		//DrawDebugSphere(GetWorld(), ExplodeHitLocation, RangeMultiplier*AdjustedDamageParams.OuterRadius, 12, FColor::Green, true, -1.f);
 		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-		if ((Role == ROLE_Authority) && InstigatorController)
+		AUTPlayerState* StatusPS = ((Role == ROLE_Authority) && InstigatorController && GS && GS->bPlayStatusAnnouncements) ? Cast<AUTPlayerState>(InstigatorController->PlayerState) : nullptr;
+		if (StatusPS)
 		{
 			int32 LiveEnemyCount = 0;
 			for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
@@ -293,7 +294,7 @@ void AUTProj_Redeemer::ExplodeStage(float RangeMultiplier)
 
 		UUTGameplayStatics::UTHurtRadius(this, AdjustedDamageParams.BaseDamage, AdjustedDamageParams.MinimumDamage, AdjustedMomentum, ExplodeHitLocation, RangeMultiplier * AdjustedDamageParams.InnerRadius, RangeMultiplier * AdjustedDamageParams.OuterRadius, AdjustedDamageParams.DamageFalloff,
 			MyDamageType, IgnoreActors, this, InstigatorController, FFInstigatorController, FFDamageType, CollisionFreeRadius);
-		if ((Role == ROLE_Authority) && InstigatorController)
+		if (StatusPS)
 		{
 			int32 LiveEnemyCount = 0;
 			for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
@@ -351,6 +352,13 @@ void AUTProj_Redeemer::ExplodeStage5()
 void AUTProj_Redeemer::ExplodeStage6()
 {
 	ExplodeStage(ExplosionRadii[5]);
+
+	AUTPlayerState* StatusPS = (InstigatorController && (KillCount > 0)) ? Cast<AUTPlayerState>(InstigatorController->PlayerState) : nullptr;
+	if (StatusPS)
+	{
+		StatusPS->AnnounceStatus(StatusMessage::RedeemerKills, KillCount - 1);
+	}
+
 	ShutDown();
 }
 

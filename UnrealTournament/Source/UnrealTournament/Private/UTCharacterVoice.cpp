@@ -479,8 +479,8 @@ FCharacterSpeech UUTCharacterVoice::GetCharacterSpeech(int32 Switch) const
 			}
 			else if (Switch/100 == GetStatusIndex(StatusMessage::RedeemerKills)/100)
 			{
-				int32 Index = Switch - GetStatusIndex(StatusMessage::RedeemerKills);
-				return (RedeemerKillMessages.Num() > Index) ? EmptySpeech : RedeemerKillMessages[Index];
+				int32 Index = FMath::Min(4, Switch - GetStatusIndex(StatusMessage::RedeemerKills));
+				return (RedeemerKillMessages.Num() > Index) ? RedeemerKillMessages[Index] : EmptySpeech;
 			}
 			else if (Switch == GetStatusIndex(StatusMessage::RedeemerSpotted))
 			{

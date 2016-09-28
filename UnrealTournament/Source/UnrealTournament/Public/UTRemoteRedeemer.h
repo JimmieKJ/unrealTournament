@@ -37,6 +37,9 @@ class UNREALTOURNAMENT_API AUTRemoteRedeemer : public APawn, public IUTTeamInter
 	UPROPERTY()
 	int32 LockCount;
 
+	UPROPERTY()
+		int32 KillCount;
+
 	uint8 CachedTeamNum;
 
 protected:
