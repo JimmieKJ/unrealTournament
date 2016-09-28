@@ -16,12 +16,12 @@ private:
 	UPROPERTY()
 	TArray<AUTProj_Grenade_Sticky*> ActiveGrenades;
 
-	UPROPERTY(replicated)
+	UFUNCTION()
+	void OnRep_HasStickyGrenades();
+
+	UPROPERTY(replicatedUsing=OnRep_HasStickyGrenades)
 	bool bHasStickyGrenades;
-
-	UPROPERTY(replicated)
-	int32 ActiveStickyGrenadeCount;
-
+	
 public:
 	AUTWeap_GrenadeLauncher();
 
@@ -38,4 +38,20 @@ public:
 	{
 		return false;
 	}
+	void UpdateLock() {}
+	void SetLockTarget(AActor* NewTarget) {}
+
+	UFUNCTION(BlueprintImplementableEvent, Category=GrenadeLauncher)
+	void ShowDetonatorUI();
+
+	UFUNCTION(BlueprintImplementableEvent, Category = GrenadeLauncher)
+	void HideDetonatorUI();
+
+	UPROPERTY(replicated, BlueprintReadOnly, Category = GrenadeLauncher)
+	int32 ActiveStickyGrenadeCount;
+	
+	void BringUp(float OverflowTime) override;
+	bool PutDown() override;
+	void Destroyed() override;
+	void DetachFromOwner_Implementation() override;
 };

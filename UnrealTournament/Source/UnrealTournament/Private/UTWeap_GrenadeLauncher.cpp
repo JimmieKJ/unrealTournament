@@ -28,6 +28,7 @@ void AUTWeap_GrenadeLauncher::RegisterStickyGrenade(AUTProj_Grenade_Sticky* InGr
 {
 	ActiveGrenades.AddUnique(InGrenade);
 	bHasStickyGrenades = true;
+	OnRep_HasStickyGrenades();
 	ActiveStickyGrenadeCount = ActiveGrenades.Num();
 }
 
@@ -37,6 +38,7 @@ void AUTWeap_GrenadeLauncher::UnregisterStickyGrenade(AUTProj_Grenade_Sticky* In
 	if (ActiveGrenades.Num() == 0)
 	{
 		bHasStickyGrenades = false;
+		OnRep_HasStickyGrenades();
 	}
 	ActiveStickyGrenadeCount = ActiveGrenades.Num();
 }
@@ -52,6 +54,7 @@ void AUTWeap_GrenadeLauncher::DetonateStickyGrenades()
 	}
 	ActiveGrenades.Empty();
 	bHasStickyGrenades = false;
+	OnRep_HasStickyGrenades();
 	ActiveStickyGrenadeCount = ActiveGrenades.Num();
 }
 
@@ -61,4 +64,51 @@ void AUTWeap_GrenadeLauncher::GetLifetimeReplicatedProps(TArray<class FLifetimeP
 
 	DOREPLIFETIME(AUTWeap_GrenadeLauncher, bHasStickyGrenades);
 	DOREPLIFETIME(AUTWeap_GrenadeLauncher, ActiveStickyGrenadeCount);
+}
+
+void AUTWeap_GrenadeLauncher::BringUp(float OverflowTime)
+{
+	Super::BringUp(OverflowTime);
+
+	if (bHasStickyGrenades)
+	{
+		ShowDetonatorUI();
+	}
+}
+
+bool AUTWeap_GrenadeLauncher::PutDown()
+{
+	if (Super::PutDown())
+	{
+		HideDetonatorUI();
+		return true;
+	}
+
+	return false;
+}
+
+void AUTWeap_GrenadeLauncher::OnRep_HasStickyGrenades()
+{
+	if (bHasStickyGrenades)
+	{
+		ShowDetonatorUI();
+	}
+	else
+	{
+		HideDetonatorUI();
+	}
+}
+
+void AUTWeap_GrenadeLauncher::Destroyed()
+{
+	Super::Destroyed();
+
+	HideDetonatorUI();
+}
+
+void AUTWeap_GrenadeLauncher::DetachFromOwner_Implementation()
+{
+	HideDetonatorUI();
+
+	Super::DetachFromOwner_Implementation();
 }
