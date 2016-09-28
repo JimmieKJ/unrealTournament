@@ -827,6 +827,17 @@ void AUTCTFRoundGame::ResetFlags()
 	}
 }
 
+
+void AUTCTFRoundGame::SetPlayerStateInactive(APlayerState* NewPlayerState)
+{
+	Super::SetPlayerStateInactive(NewPlayerState);
+	AUTPlayerState* PS = Cast<AUTPlayerState>(NewPlayerState);
+	if (PS && !PS->bOnlySpectator && UTGameState && UTGameState->IsMatchIntermission())
+	{
+		PS->RemainingLives = RoundLives;
+	}
+}
+
 void AUTCTFRoundGame::InitPlayerForRound(AUTPlayerState* PS)
 {
 	if (PS)

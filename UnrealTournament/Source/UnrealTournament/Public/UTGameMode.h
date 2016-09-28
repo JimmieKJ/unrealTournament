@@ -909,6 +909,9 @@ public:
 	*/
 	virtual void StartToLeaveMap() {}
 
+	/** Change playerstate properties as needed when becoming inactive. */
+	virtual void SetPlayerStateInactive(APlayerState* NewPlayerState);
+
 	/**Overridden to replicate Inactive Player States  */
 	virtual void AddInactivePlayer(APlayerState* PlayerState, APlayerController* PC) override;
 	virtual bool FindInactivePlayer(APlayerController* PC) override;

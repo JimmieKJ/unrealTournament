@@ -133,6 +133,7 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 	virtual bool SkipPlacement(AUTCharacter* UTChar) override;
 	virtual void EndPlayerIntro() override;
 	virtual void InitGameState() override;
+	virtual void SetPlayerStateInactive(APlayerState* NewPlayerState) override;
 
 	virtual void EndTeamGame(AUTTeamInfo* Winner, FName Reason);
 

@@ -4672,6 +4672,12 @@ void AUTGameMode::TallyMapVotes()
 	}
 }
 
+void AUTGameMode::SetPlayerStateInactive(APlayerState* NewPlayerState)
+{
+	// bIsInactive needs to be set now as we are replicating right away
+	NewPlayerState->bIsInactive = true;
+}
+
 //Same as AGameMode except we replicate the new inactive PS
 void AUTGameMode::AddInactivePlayer(APlayerState* PlayerState, APlayerController* PC)
 {
@@ -4683,8 +4689,8 @@ void AUTGameMode::AddInactivePlayer(APlayerState* PlayerState, APlayerController
 		{
 			GetWorld()->GameState->RemovePlayerState(NewPlayerState);
 
-			//AUTGameMode begin - bIsInactive needs to be set now as we are replicating right away
-			NewPlayerState->bIsInactive = true;
+			//AUTGameMode begin 
+			SetPlayerStateInactive(NewPlayerState);
 			//AUTGameMode end
 
 			// delete after some time
