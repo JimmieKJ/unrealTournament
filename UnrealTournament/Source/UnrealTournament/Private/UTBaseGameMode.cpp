@@ -268,7 +268,7 @@ void AUTBaseGameMode::GenericPlayerInitialization(AController* C)
 void AUTBaseGameMode::ChangeName(AController* Other, const FString& S, bool bNameChange)
 {
 	// Cap player name at 15 characters...
-	FString ClampedName = (S.Len() > 15) ? S.Left(15) : S;
+	FString ClampedName = (S.Len() > 16) ? S.Left(16) : S;
 
 	// Unicode 160 is an empty space, not sure what other characters are broken in our font
 	int32 FindCharIndex;
