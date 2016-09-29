@@ -5229,3 +5229,48 @@ void AUTPlayerController::ClientSetIntroCamera_Implementation(UWorld* World, InG
 		SetViewTarget(SpawnPointList->TeamCamera, TransitionParams);
 	}
 }
+
+bool AUTPlayerController::LineOfSightTo(const class AActor* Other, FVector ViewPoint, bool bAlternateChecks) const
+{
+	if (Other == NULL)
+	{
+		return false;
+	}
+	else
+	{
+		const AUTCharacter* CharacterTarget = Cast<AUTCharacter>(Other);
+		const bool bOtherIsRagdoll = CharacterTarget && CharacterTarget->IsRagdoll();
+
+		if (ViewPoint.IsZero())
+		{
+			AActor*	ViewTarg = GetViewTarget();
+			ViewPoint = ViewTarg->GetActorLocation();
+			if (ViewTarg == GetPawn())
+			{
+				ViewPoint.Z += GetPawn()->BaseEyeHeight; //look from eyes
+			}
+		}
+
+		static FName NAME_LineOfSight = FName(TEXT("LineOfSight"));
+		FVector TargetLocation = Other->GetTargetLocation(GetPawn());
+		FCollisionQueryParams CollisionParams(NAME_LineOfSight, true, GetPawn());
+		CollisionParams.AddIgnoredActor(Other);
+
+		bool bHit = GetWorld()->LineTraceTestByChannel(ViewPoint, TargetLocation, ECC_Visibility, CollisionParams);
+		if (bHit && bOtherIsRagdoll)
+		{
+			// actor location will be near/in the ground for ragdolls, push up
+			TargetLocation.Z += Other->GetSimpleCollisionHalfHeight();
+			bHit = GetWorld()->LineTraceTestByChannel(ViewPoint, TargetLocation, ECC_Visibility, CollisionParams);
+		}
+		if (!bHit)
+		{
+			return true;
+		}
+		if (CharacterTarget)
+		{
+			bHit = GetWorld()->LineTraceTestByChannel(ViewPoint, CharacterTarget->GetActorLocation() + FVector(0.0f, 0.0f, CharacterTarget->BaseEyeHeight + (bOtherIsRagdoll ? CharacterTarget->GetSimpleCollisionHalfHeight() : 0.0f)), ECC_Visibility, CollisionParams);
+		}
+		return !bHit;
+	}
+}

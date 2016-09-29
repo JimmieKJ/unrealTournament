@@ -351,6 +351,7 @@ public:
 	virtual void SetCameraMode( FName NewCamMode );
 	virtual void ClientSetCameraMode_Implementation( FName NewCamMode ) override;
 	virtual void ClientGameEnded_Implementation(AActor* EndGameFocus, bool bIsWinner) override;
+	virtual bool LineOfSightTo(const class AActor* Other, FVector ViewPoint = FVector(ForceInit), bool bAlternateChecks = false) const override;
 
 	/** Handles bWantsBehindView. */
 	virtual void ResetCameraMode() override;
