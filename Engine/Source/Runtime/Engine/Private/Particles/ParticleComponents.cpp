@@ -4886,7 +4886,7 @@ void UParticleSystemComponent::WaitForAsyncAndFinalize(EForceAsyncWorkCompletion
 		}
 
 		float ThisTime = float(FPlatformTime::Seconds() - StartTime) * 1000.0f;
-		if (Behavior != SILENT)
+		if (Behavior != SILENT && ThisTime >= 0.01f)
 		{
 			if (bDefinitelyGameThread || IsInGameThread())
 			{
