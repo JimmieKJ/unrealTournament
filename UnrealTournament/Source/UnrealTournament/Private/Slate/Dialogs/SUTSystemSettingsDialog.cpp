@@ -954,7 +954,7 @@ TSharedRef<SWidget> SUTSystemSettingsDialog::BuildAudioTab()
 	bool bPushToTalk = ProfileSettings == nullptr ? true : ProfileSettings->bPushToTalk;
 
 	BotSpeechList.Add(MakeShareable(new FString(NSLOCTEXT("SUTSystemSettingsDialog", "BotSpeechNone", "None").ToString())));
-	BotSpeechList.Add(MakeShareable(new FString(NSLOCTEXT("SUTSystemSettingsDialog", "BotSpeechStatusText", "Status Text").ToString())));
+	BotSpeechList.Add(MakeShareable(new FString(NSLOCTEXT("SUTSystemSettingsDialog", "BotSpeechStatusText", "Status").ToString())));
 	BotSpeechList.Add(MakeShareable(new FString(NSLOCTEXT("SUTSystemSettingsDialog", "BotSpeechAll", "All").ToString())));
 	const int32 SpeechSettingValue = FMath::Clamp<int32>(int32(UserSettings->GetBotSpeech()), 0, BotSpeechList.Num() - 1);
 
