@@ -58,7 +58,7 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 
 	virtual void PlayEndOfMatchMessage() override;
 
-	UPROPERTY()
+	UPROPERTY(BlueprintReadOnly)
 		int32 FlagPickupDelay;
 
 	UPROPERTY()
