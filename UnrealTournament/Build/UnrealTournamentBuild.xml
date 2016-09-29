@@ -197,6 +197,7 @@
 
 			<Tag Files="$(RootDir)/Engine/Build/BatchFiles/*" With="#TrimmedTargets"/>
 			<Tag Files="$(RootDir)/Engine/Build/BatchFiles/BuilderScripts/..." With="#TrimmedTargets"/>
+			<Tag Files="$(RootDir)/Engine/Build/Target.cs.template" With="#TrimmedTargets"/>
 
 			<Tag Files="$(RootDir)/Engine/Config/*" With="#TrimmedTargets"/>
 			<Tag Files="$(RootDir)/Engine/Config/Localization/..." With="#TrimmedTargets"/>
@@ -209,6 +210,7 @@
 
 			<Tag Files="$(RootDir)/UnrealTournament/Config/..." With="#TrimmedTargets"/>
 			<Tag Files="$(RootDir)/UnrealTournament/Content/..." Except=".../Backend/...;.../EpicInternal/..." With="#TrimmedTargets"/>
+			<Tag Files="$(RootDir)/UnrealTournament/Plugins/.../Content/..." Except=".../Backend/...;.../EpicInternal/..." With="#TrimmedTargets"/>
 			<Tag Files="$(RootDir)/UnrealTournament/Releases/..." Filter="*.bin" With="#TrimmedTargets"/>
 
 			<Tag Files="#TrimmedTargets" Except="UE4-*-Shipping.dll;UE4-*-Shipping.pdb" With="#SecondTrim"/>
@@ -333,6 +335,7 @@
 			<Tag Files="$(RootDir)/Engine/Build/BatchFiles/*" With="#TrimmedTargets"/>
 			<Tag Files="$(RootDir)/Engine/Build/BatchFiles/Mac/..." With="#TrimmedTargets"/>
 			<Tag Files="$(RootDir)/Engine/Build/BatchFiles/BuilderScripts/..." With="#TrimmedTargets"/>
+			<Tag Files="$(RootDir)/Engine/Build/Target.cs.template" With="#TrimmedTargets"/>
 
 			<Tag Files="$(RootDir)/Engine/Config/*" With="#TrimmedTargets"/>
 			<Tag Files="$(RootDir)/Engine/Config/Localization/..." With="#TrimmedTargets"/>
@@ -345,6 +348,7 @@
 
 			<Tag Files="$(RootDir)/UnrealTournament/Config/..." With="#TrimmedTargets"/>
 			<Tag Files="$(RootDir)/UnrealTournament/Content/..." Except=".../Backend/...;.../EpicInternal/..." With="#TrimmedTargets"/> 
+			<Tag Files="$(RootDir)/UnrealTournament/Plugins/.../Content/..." Except=".../Backend/...;.../EpicInternal/..." With="#TrimmedTargets"/>
 			<Tag Files="$(RootDir)/UnrealTournament/Releases/..." Filter="*.bin" With="#TrimmedTargets"/>
 
 			<Tag Files="#TrimmedTargets" Except="UE4-*-Shipping.dSYM;UE4-*-Shipping.dylib" With="#SecondTrim"/>
