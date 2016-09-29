@@ -6928,7 +6928,7 @@ void FParticleSystemSceneProxy::DetermineLODDistance(const FSceneView* View, int
 	}
 }
 
-int32 GEnableMacroUVDebugSpam = 1;
+int32 GEnableMacroUVDebugSpam = 0;
 static FAutoConsoleVariableRef EnableMacroUVDebugSpam(
 	TEXT("r.EnableDebugSpam_GetObjectPositionAndScale"),
 	GEnableMacroUVDebugSpam,
