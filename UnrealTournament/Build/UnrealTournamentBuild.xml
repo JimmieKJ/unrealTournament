@@ -125,7 +125,7 @@
 
 	<Agent Name="Make Win32 Build" Type="Win64">
 		<Node Name="Stage WindowsNoEditor Win32" Requires="Compile UT Client Win32;Cook WindowsNoEditor">
-			<Command Name="UnrealTournamentProto_BasicBuild" Arguments="-SkipBuild -SkipCook -SkipPerforce -Chunk -clientconfig=Shipping -serverconfig=None -TargetPlatform=Win32 -StagingDir=&quot;$(LocalStagingDir)&quot;"/>
+			<Command Name="UnrealTournamentProto_BasicBuild" Arguments="-SkipBuild -SkipCook -Chunk -clientconfig=Shipping -serverconfig=None -TargetPlatform=Win32 -StagingDir=&quot;$(LocalStagingDir)&quot;"/>
 			<Tag Files="$(LocalStagingDir)/Engine/Binaries/Win32/..." Filter="*.exe" With="#ToSign"/>
 			<Sign Files="#ToSign" If="$(IsBuildMachine)"/>
 		</Node>
@@ -147,7 +147,7 @@
 
 	<Agent Name="Make Win64 Build" Type="Win64">
 		<Node Name="Stage WindowsNoEditor Win64" Requires="Compile UT Client Win64;Cook WindowsNoEditor">
-			<Command Name="UnrealTournamentProto_BasicBuild" Arguments="-SkipBuild -SkipCook -SkipPerforce -Chunk -clientconfig=Shipping -serverconfig=None -TargetPlatform=Win64 -StagingDir=&quot;$(LocalStagingDir)&quot;"/>
+			<Command Name="UnrealTournamentProto_BasicBuild" Arguments="-SkipBuild -SkipCook -Chunk -clientconfig=Shipping -serverconfig=None -TargetPlatform=Win64 -StagingDir=&quot;$(LocalStagingDir)&quot;"/>
 			<Tag Files="$(LocalStagingDir)/Engine/Binaries/Win64/..." Filter="*.exe" With="#ToSign"/>
 			<Sign Files="#ToSign" If="$(IsBuildMachine)"/>
 		</Node>
@@ -173,7 +173,7 @@
 		</Node>
 		<!-- this stage command does asset registry files for the windows server, so we need to include that -->
 		<Node Name="Stage Windows Server Win64" Requires="Compile UT Server Win64;Cook WindowsServer">
-			<Command Name="UnrealTournamentProto_BasicBuild" Arguments="-SkipBuild -SkipCook -SkipPerforce -Chunk -clientconfig=None -serverconfig=Shipping -TargetPlatform=Win64 -StagingDir=&quot;$(LocalStagingDir)&quot;"/>
+			<Command Name="UnrealTournamentProto_BasicBuild" Arguments="-SkipBuild -SkipCook -Chunk -clientconfig=None -serverconfig=Shipping -TargetPlatform=Win64 -StagingDir=&quot;$(LocalStagingDir)&quot;"/>
 		</Node>
 		<Node Name="Publish WindowsServer Win64" Requires="Stage Windows Server Win64">
 			<Copy Files="..." FromDir="$(LocalStagingDir)/WindowsServer" ToDir="$(BuildDir)/WindowsServer"/>
@@ -303,7 +303,7 @@
 			<Cook Project="$(ProjectFile)" Platform="MacNoEditor"/>
 		</Node>
 		<Node Name="Stage Mac" Requires="Compile UT Mac;Cook Mac">
-			<Command Name="UnrealTournamentProto_BasicBuild" Arguments="-SkipBuild -SkipCook -SkipPerforce -Chunk -serverconfig=None -clientconfig=Shipping -TargetPlatform=Mac -StagingDir=&quot;$(LocalStagingDir)&quot;"/>
+			<Command Name="UnrealTournamentProto_BasicBuild" Arguments="-SkipBuild -SkipCook -Chunk -serverconfig=None -clientconfig=Shipping -TargetPlatform=Mac -StagingDir=&quot;$(LocalStagingDir)&quot;"/>
 			<Tag Files="$(LocalStagingDir)/Engine/Binaries/Mac/..." Filter="*.app;*.dylib" With="#ToSign"/>
 			<Sign Files="#ToSign" If="$(IsBuildMachine)"/>
 		</Node>
@@ -420,7 +420,7 @@
 			<Cook Project="$(ProjectFile)" Platform="LinuxNoEditor"/>
 		</Node>
 		<Node Name="Stage LinuxNoEditor" Requires="Compile UT Linux;Cook LinuxNoEditor">
-			<Command Name="UnrealTournamentProto_BasicBuild" Arguments="-SkipBuild -SkipCook -SkipPerforce -Chunk -clientconfig=Shipping -serverconfig=None -TargetPlatform=Linux -StagingDir=&quot;$(LocalStagingDir)&quot;"/>
+			<Command Name="UnrealTournamentProto_BasicBuild" Arguments="-SkipBuild -SkipCook -Chunk -clientconfig=Shipping -serverconfig=None -TargetPlatform=Linux -StagingDir=&quot;$(LocalStagingDir)&quot;"/>
 		</Node>
 		<Node Name="Publish LinuxNoEditor" Requires="Stage LinuxNoEditor">
 			<Copy Files="..." FromDir="$(LocalStagingDir)/LinuxNoEditor" ToDir="$(BuildDir)/LinuxNoEditor"/>
@@ -436,7 +436,7 @@
 			<Property Name="ClientConfig" Value="None" If="!$(WithLinuxClient)"/>
 			<Property Name="ServerConfig" Value="Shipping"/>
 			<Property Name="ServerConfig" Value="None" If="!$(WithLinuxServer)"/>
-			<Command Name="UnrealTournamentProto_BasicBuild" Arguments="-SkipBuild -SkipCook -SkipPerforce -Chunk -clientconfig=None -serverconfig=Shipping -TargetPlatform=Linux -StagingDir=&quot;$(LocalStagingDir)&quot;"/>
+			<Command Name="UnrealTournamentProto_BasicBuild" Arguments="-SkipBuild -SkipCook -Chunk -clientconfig=None -serverconfig=Shipping -TargetPlatform=Linux -StagingDir=&quot;$(LocalStagingDir)&quot;"/>
 		</Node>
 		<Node Name="Publish LinuxServer" Requires="Stage LinuxServer">
 			<Copy Files="..." FromDir="$(LocalStagingDir)/LinuxServer" ToDir="$(BuildDir)/LinuxServer"/>
