@@ -142,7 +142,7 @@ class UNREALTOURNAMENT_API UUTWeaponStateFiringCharged : public UUTWeaponStateFi
 
 	virtual void PutDown() override
 	{
-		if (!bCharging)
+		if (!bCharging || !GetOuterAUTWeapon()->HasAnyAmmo())
 		{
 			Super::PutDown();
 		}
