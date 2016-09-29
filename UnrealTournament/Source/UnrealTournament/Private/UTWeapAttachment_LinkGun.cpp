@@ -8,7 +8,7 @@ void AUTWeapAttachment_LinkGun::PlayFiringEffects()
 
 	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 
-	AActor* LinkTarget = NULL;
+	LinkTarget = nullptr;
 	if (UTOwner->FireMode == 10)
 	{
 		UTOwner->FireMode = 1;
@@ -63,26 +63,30 @@ void AUTWeapAttachment_LinkGun::FiringExtraUpdated()
 		int32 PulseFlashIndex = WeaponType.GetDefaultObject()->FiringState.Num();
 		if (MuzzleFlash.IsValidIndex(PulseFlashIndex) && MuzzleFlash[PulseFlashIndex] != NULL)
 		{
-			AActor* GuessTarget = NULL;
+			PulseTarget = nullptr;
 			TArray<FOverlapResult> Hits;
 			GetWorld()->OverlapMultiByChannel(Hits, UTOwner->FlashLocation, FQuat::Identity, COLLISION_TRACE_WEAPON, FCollisionShape::MakeSphere(10.0f), FCollisionQueryParams(NAME_None, true, UTOwner));
 			for (const FOverlapResult& Hit : Hits)
 			{
-				if (Cast<APawn>(Hit.Actor.Get()) != NULL)
+				if (Cast<APawn>(Hit.Actor.Get()) != nullptr)
 				{
-					GuessTarget = Hit.Actor.Get();
+					PulseTarget = Hit.Actor.Get();
 				}
 			}
-			if (GuessTarget != NULL)
+			if (PulseTarget != nullptr)
 			{
 				MuzzleFlash[PulseFlashIndex]->SetTemplate(PulseSuccessEffect);
-				MuzzleFlash[PulseFlashIndex]->SetActorParameter(FName(TEXT("Player")), GuessTarget);
+				MuzzleFlash[PulseFlashIndex]->SetActorParameter(FName(TEXT("Player")), PulseTarget);
 			}
 			else
 			{
 				MuzzleFlash[PulseFlashIndex]->SetTemplate(PulseFailEffect);
 			}
 		}
+	}
+	else
+	{
+		PulseTarget = nullptr;
 	}
 }
 

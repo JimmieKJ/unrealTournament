@@ -126,8 +126,12 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
 	virtual void FiringExtraUpdated();
 	/** stops any looping fire effects */
-	UFUNCTION(BlueprintCallable, Category = "Weapon")
-	virtual void StopFiringEffects(bool bIgnoreCurrentMode = false);
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Weapon")
+	void StopFiringEffects(bool bIgnoreCurrentMode = false);
+
+	/** BP hook to firing effects */
+	UFUNCTION(BlueprintImplementableEvent)
+	bool OverrideFiringEffects();
 
 	virtual void AttachToOwnerNative();
 

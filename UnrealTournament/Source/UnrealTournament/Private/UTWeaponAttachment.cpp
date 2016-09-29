@@ -250,6 +250,11 @@ void AUTWeaponAttachment::PlayFiringEffects()
 		Mesh->UpdateComponentToWorld();
 	}
 
+	if (OverrideFiringEffects())
+	{
+		return;
+	}
+
 	// muzzle flash
 	if (MuzzleFlash.IsValidIndex(UTOwner->FireMode) && MuzzleFlash[UTOwner->FireMode] != NULL && MuzzleFlash[UTOwner->FireMode]->Template != NULL)
 	{
@@ -330,7 +335,7 @@ void AUTWeaponAttachment::FiringExtraUpdated()
 {
 }
 
-void AUTWeaponAttachment::StopFiringEffects(bool bIgnoreCurrentMode)
+void AUTWeaponAttachment::StopFiringEffects_Implementation(bool bIgnoreCurrentMode)
 {
 	// we need to default to stopping all modes' firing effects as we can't rely on the replicated value to be correct at this point
 	for (uint8 i = 0; i < MuzzleFlash.Num(); i++)

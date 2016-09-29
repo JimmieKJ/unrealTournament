@@ -152,7 +152,7 @@ void AUTWeapAttachment_Enforcer::PlayFiringEffects()
 	}
 }
 
-void AUTWeapAttachment_Enforcer::StopFiringEffects(bool bIgnoreCurrentMode)
+void AUTWeapAttachment_Enforcer::StopFiringEffects_Implementation(bool bIgnoreCurrentMode)
 {
 	AlternateCount = 0;
 	Super::StopFiringEffects(bIgnoreCurrentMode);
