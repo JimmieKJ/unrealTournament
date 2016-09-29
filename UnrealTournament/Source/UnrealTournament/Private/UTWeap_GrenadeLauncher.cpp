@@ -7,6 +7,8 @@
 AUTWeap_GrenadeLauncher::AUTWeap_GrenadeLauncher()
 {
 	DefaultGroup = 3;
+	Group = 3;
+	WeaponCustomizationTag = EpicWeaponCustomizationTags::GrenadeLauncher;
 }
 
 bool AUTWeap_GrenadeLauncher::BeginFiringSequence(uint8 FireModeNum, bool bClientFired)

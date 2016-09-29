@@ -1593,6 +1593,7 @@ namespace EpicWeaponCustomizationTags
 	const FName ShockRifle		= FName(TEXT("ShockRifle_Settings"));
 	const FName IGShockRifle	= FName(TEXT("IGShockRifle_Settings"));
 	const FName Sniper			= FName(TEXT("Sniper_Settings"));
+	const FName GrenadeLauncher = FName(TEXT("GrenadeLauncher_Settings"));
 };
 
 USTRUCT(BlueprintType)
