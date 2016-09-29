@@ -433,6 +433,7 @@ void AUTPickupInventory::PlaySpawnVoiceLine()
 				}
 			}
 		}
+		GetWorldTimerManager().SetTimer(SpawnVoiceLineTimer, this, &AUTPickupInventory::PlaySpawnVoiceLine, 25.f + 10.f*FMath::FRand());
 	}
 }
 
