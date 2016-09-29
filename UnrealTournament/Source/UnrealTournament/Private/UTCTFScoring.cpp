@@ -299,7 +299,7 @@ bool AUTCTFScoring::WasThreateningFlagCarrier(AUTPlayerState *VictimPS, APawn* K
 			QueryParams.AddIgnoredActor(FlagCarrier);
 			FVector ViewPoint = KilledPawn->GetActorLocation() + FVector(0.f, 0.f, KilledPawn->BaseEyeHeight);
 			FVector TargetLoc = FlagCarrier->GetActorLocation() + FVector(0.f, 0.f, FlagCarrier->BaseEyeHeight);
-			bool bHasClearView = !GetWorld()->LineTraceSingleByChannel(Hit, ViewPoint, TargetLoc, COLLISION_TRACE_WEAPONNOCHARACTER, QueryParams);
+			bool bHasClearView = !GetWorld()->LineTraceSingleByChannel(Hit, ViewPoint, TargetLoc, ECC_Visibility, QueryParams);
 			return bHasClearView;
 		}
 	}

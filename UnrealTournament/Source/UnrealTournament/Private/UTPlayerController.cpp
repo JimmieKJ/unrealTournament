@@ -2057,7 +2057,7 @@ void AUTPlayerController::ClientHearSound_Implementation(USoundBase* TheSound, A
 				static FName NAME_LineOfSight = FName(TEXT("LineOfSight"));
 				FCollisionQueryParams CollisionParms(NAME_LineOfSight, true, SoundPlayer);
 				CollisionParms.AddIgnoredActor(GetViewTarget());
-				bool bHit = GetWorld()->LineTraceTestByChannel(ViewPoint, SoundLocation, COLLISION_TRACE_WEAPONNOCHARACTER, CollisionParms);
+				bool bHit = GetWorld()->LineTraceTestByChannel(ViewPoint, SoundLocation, ECC_Visibility, CollisionParms);
 				if (bHit)
 				{
 					if (CustomAmp.OccludedAttenuation != nullptr)

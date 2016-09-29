@@ -158,7 +158,7 @@ void AUTGhostFlag::OnSetCarriedObject()
 		static FName NAME_GhostTrail = FName(TEXT("GhostTrail"));
 		FCollisionQueryParams CollisionParms(NAME_GhostTrail, true, GhostMaster.MyCarriedObject);
 		// remove unnecessary midpoints
-		bool bHit = GetWorld()->LineTraceSingleByChannel(Hit, GhostMaster.FlagLocation, GetActorLocation(), COLLISION_TRACE_WEAPONNOCHARACTER, CollisionParms);
+		bool bHit = GetWorld()->LineTraceSingleByChannel(Hit, GhostMaster.FlagLocation, GetActorLocation(), ECC_Visibility, CollisionParms);
 		if (!bHit)
 		{
 			for (int32 j = 0; j < NUM_MIDPOINTS; j++)
@@ -172,7 +172,7 @@ void AUTGhostFlag::OnSetCarriedObject()
 			{
 				if (!GhostMaster.MidPoints[i].IsZero())
 				{
-					bHit = GetWorld()->LineTraceSingleByChannel(Hit, GhostMaster.FlagLocation, GhostMaster.MidPoints[i], COLLISION_TRACE_WEAPONNOCHARACTER, CollisionParms);
+					bHit = GetWorld()->LineTraceSingleByChannel(Hit, GhostMaster.FlagLocation, GhostMaster.MidPoints[i], ECC_Visibility, CollisionParms);
 					if (!bHit)
 					{
 						// LOS to this point, remove intermediates
@@ -189,7 +189,7 @@ void AUTGhostFlag::OnSetCarriedObject()
 		{
 			if (!GhostMaster.MidPoints[i].IsZero())
 			{
-				bHit = GetWorld()->LineTraceSingleByChannel(Hit,GhostMaster.MidPoints[i], GetActorLocation(), COLLISION_TRACE_WEAPONNOCHARACTER, CollisionParms);
+				bHit = GetWorld()->LineTraceSingleByChannel(Hit,GhostMaster.MidPoints[i], GetActorLocation(), ECC_Visibility, CollisionParms);
 				if (!bHit)
 				{
 					// LOS to this point, remove intermediates

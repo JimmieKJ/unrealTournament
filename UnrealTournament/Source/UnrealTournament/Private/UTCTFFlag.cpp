@@ -380,7 +380,7 @@ void AUTCTFFlag::Tick(float DeltaTime)
 						{
 							FVector StartLocation = HoldingPawn->GetActorLocation() + FVector(0.f, 0.f, HoldingPawn->BaseEyeHeight);
 							FVector BaseLoc = OtherBase->GetActorLocation();
-							ECollisionChannel TraceChannel = COLLISION_TRACE_WEAPONNOCHARACTER;
+							ECollisionChannel TraceChannel = ECC_Visibility;
 							FCollisionQueryParams QueryParams(GetClass()->GetFName(), true, HoldingPawn);
 							FHitResult Hit;
 							if (!GetWorld()->LineTraceSingleByChannel(Hit, StartLocation, BaseLoc, TraceChannel, QueryParams) || !GetWorld()->LineTraceSingleByChannel(Hit, StartLocation, BaseLoc + FVector(0.f,0.f, 100.f), TraceChannel, QueryParams))
@@ -444,7 +444,7 @@ void AUTCTFFlag::Tick(float DeltaTime)
 				FCollisionQueryParams CollisionParms(NAME_FlagReturnLOS, true, HoldingPawn);
 				FVector TraceEnd = (MidPointPos > 0) ? MidPoints[MidPointPos - 1] : PreviousPos;
 				FHitResult Hit;
-				bool bHit = GetWorld()->LineTraceSingleByChannel(Hit, HoldingPawn->GetActorLocation(), TraceEnd, COLLISION_TRACE_WEAPONNOCHARACTER, CollisionParms);
+				bool bHit = GetWorld()->LineTraceSingleByChannel(Hit, HoldingPawn->GetActorLocation(), TraceEnd, ECC_Visibility, CollisionParms);
 				if (bHit)
 				{
 					MidPointPos++;
