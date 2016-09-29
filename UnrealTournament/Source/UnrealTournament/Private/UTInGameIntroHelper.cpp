@@ -24,14 +24,6 @@ void UUTInGameIntroHelper::HandleIntro(UWorld* World, InGameIntroZoneTypes Intro
 		UTPC->ClientSetIntroCamera(World, IntroType);
 	}
 
-	/*UUTLocalPlayer* UTLP = Cast<UUTLocalPlayer>(World->GetFirstLocalPlayerFromController());
-	if (UTLP)
-	{
-		AUTGameState* UTGS = Cast<AUTGameState>(World->GetGameState());
-		AUTPlayerState* UTPS = Cast<AUTPlayerState>(UTGS->PlayerArray[0]);
-		UTLP->ShowPlayerInfo(UTPS);
-	}*/
-
 	bIsActive = true;
 	LastActiveType = IntroType;
 }
@@ -62,34 +54,55 @@ void UUTInGameIntroHelper::SpawnPlayerClones(UWorld* World, InGameIntroZoneTypes
 		AUTGameState* UTGS = Cast<AUTGameState>(World->GameState);
 		if ((UTGS != nullptr) && (UTGS->ShouldUseInGameSummary(IntroType)))
 		{
+			for (int PlayerIndex = 0; PlayerIndex < UTGS->PlayerArray.Num(); ++PlayerIndex)
+			{
+				AUTPlayerState* UTPS = Cast<AUTPlayerState>(UTGS->PlayerArray[PlayerIndex]);
+				if (UTPS)
+				{
+					SpawnClone(World, UTPS, FTransform());
+				}
+			}
+
+			SortPlayers();
+
 			for (TActorIterator<AUTInGameIntroZone> It(World); It; ++It)
 			{
 				if (It->ZoneType == IntroType)
 				{
-					for (AUTInGameIntroZoneTeamSpawnPointList* SpawnPointList : It->TeamSpawns)
-					{
-						int LastSpawnIndexUsed = 0;
+					const TArray<FTransform>& RedSpawns = It->RedTeamSpawnLocations;
+					const TArray<FTransform>& BlueSpawns = It->BlueTeamSpawnLocations;
+					const TArray<FTransform>& FFASpawns = It->FFATeamSpawnLocations;
 
-						for (int index = 0; index < UTGS->PlayerArray.Num(); ++index)
+					int RedIndex = 0;
+					int BlueIndex = 0;
+					int FFAIndex = 0;
+
+					for (AUTCharacter* PreviewChar : PlayerPreviewCharacters)
+					{
+						if ((PreviewChar->GetTeamNum() == 0) && (RedSpawns.Num() > RedIndex))
 						{
-							AUTPlayerState* UTPS = Cast<AUTPlayerState>(UTGS->PlayerArray[index]);
-							if ((UTPS) && (UTPS->GetTeamNum() == SpawnPointList->TeamNum))
-							{
-								SpawnClone(World, UTPS, SpawnPointList->PlayerSpawnLocations[LastSpawnIndexUsed] + SpawnPointList->GetTransform());
-								++LastSpawnIndexUsed;
-							}
+							PreviewChar->TeleportTo(RedSpawns[RedIndex].GetLocation(), RedSpawns[RedIndex].Rotator());
+							++RedIndex;
+						}
+						else if ((PreviewChar->GetTeamNum() == 1) && (BlueSpawns.Num() > RedIndex))
+						{
+							PreviewChar->TeleportTo(BlueSpawns[BlueIndex].GetLocation(), BlueSpawns[BlueIndex].Rotator());
+							++BlueIndex;
+						}
+						else if (FFASpawns.Num() > FFAIndex)
+						{
+							PreviewChar->TeleportTo(FFASpawns[FFAIndex].GetLocation(), FFASpawns[FFAIndex].Rotator());
+							++FFAIndex;
 						}
 					}
 
-					SortPlayers();
-
-					//We have found a ZoneType that matched our spawn, so don't look at more Zones
 					return;
 				}
 			}
 		}
 	}
 }
+			
 
 void UUTInGameIntroHelper::DestroySpawnedClones()
 {
@@ -197,29 +210,34 @@ void UUTInGameIntroHelper::MovePlayers(UWorld* World, InGameIntroZoneTypes ZoneT
 		
 		SortPlayers();
 
-		int RedIndex = 0;
-		int BlueIndex = 0;
-		int FFAIndex = 0;
-		for (AUTCharacter* UTChar : PlayerPreviewCharacters)
+		AUTInGameIntroZone* SpawnListToUse = GetAppropriateSpawnList(World, ZoneType);
+		if (SpawnListToUse)
 		{
-			AUTInGameIntroZoneTeamSpawnPointList* SpawnListToUse = GetAppropriateSpawnList(World, UTChar->GetTeamNum(), ZoneType);
-			if (SpawnListToUse)
-			{
-				int IndexToUse;
-				if (SpawnListToUse->TeamNum == 0)
-				{
-					IndexToUse = RedIndex++;
-				}
-				else if (SpawnListToUse->TeamNum == 1)
-				{
-					IndexToUse = BlueIndex++;
-				}
-				else
-				{
-					IndexToUse = FFAIndex++;
-				}
+			int RedIndex = 0;
+			int BlueIndex = 0;
+			int FFAIndex = 0;
 
-				UTChar->TeleportTo(SpawnListToUse->PlayerSpawnLocations[IndexToUse].GetTranslation() + SpawnListToUse->GetTransform().GetTranslation(), SpawnListToUse->PlayerSpawnLocations[IndexToUse].Rotator() + SpawnListToUse->GetTransform().Rotator());
+			TArray<FTransform>& RedSpawns = SpawnListToUse->RedTeamSpawnLocations;
+			TArray<FTransform>& BlueSpawns = SpawnListToUse->BlueTeamSpawnLocations;
+			TArray<FTransform>& FFASpawns = SpawnListToUse->FFATeamSpawnLocations;
+
+			for (AUTCharacter* UTChar : PlayerPreviewCharacters)
+			{
+				if ((UTChar->GetTeamNum() == 0) && (RedSpawns.Num() > RedIndex))
+				{
+					UTChar->TeleportTo(RedSpawns[RedIndex].GetLocation(), RedSpawns[RedIndex].Rotator());
+					++RedIndex;
+				}
+				else if ((UTChar->GetTeamNum() == 1) && (BlueSpawns.Num() > BlueIndex))
+				{
+					UTChar->TeleportTo(BlueSpawns[BlueIndex].GetLocation(), BlueSpawns[BlueIndex].Rotator());
+					++BlueIndex;
+				}
+				else if (FFASpawns.Num() > FFAIndex)
+				{
+					UTChar->TeleportTo(FFASpawns[FFAIndex].GetLocation(), FFASpawns[FFAIndex].Rotator());
+					++FFAIndex;
+				}
 			}
 		}
 	}
@@ -240,13 +258,9 @@ InGameIntroZoneTypes UUTInGameIntroHelper::GetIntroTypeToPlay(UWorld* World)
 
 	if (UTGS->GetMatchState() == MatchState::PlayerIntro)
 	{
-		if ((UTGS->Teams.Num() > 0) && (UTGS->ShouldUseInGameSummary(InGameIntroZoneTypes::Team_Intro)))
+		if (UTGS->ShouldUseInGameSummary(InGameIntroZoneTypes::Intro))
 		{
-			ReturnZoneType = InGameIntroZoneTypes::Team_Intro;
-		}
-		else if (UTGS->ShouldUseInGameSummary(InGameIntroZoneTypes::FFA_Intro))
-		{
-			ReturnZoneType = InGameIntroZoneTypes::FFA_Intermission;
+			ReturnZoneType = InGameIntroZoneTypes::Intro;
 		}
 	}
 
@@ -265,19 +279,15 @@ InGameIntroZoneTypes UUTInGameIntroHelper::GetIntroTypeToPlay(UWorld* World)
 			}
 			
 			//Fallback on basic intermission instead of team-specific in case team-specific fails
-			if (UTGS->ShouldUseInGameSummary(InGameIntroZoneTypes::Team_Intermission))
-			{
-				ReturnZoneType = InGameIntroZoneTypes::Team_Intermission;
-			}
+			InGameIntroZoneTypes IntermissionType = InGameIntroZoneTypes::Intermission;
 
-			InGameIntroZoneTypes IntermissionType = InGameIntroZoneTypes::Team_Intermission;
 			if (TeamToWatch == 0)
 			{
-				IntermissionType = InGameIntroZoneTypes::Team_Intermission_RedWin;
+				IntermissionType = InGameIntroZoneTypes::Intermission_RedWin;
 			}
 			else if (TeamToWatch == 1)
 			{
-				IntermissionType = InGameIntroZoneTypes::Team_Intermission_BlueWin;
+				IntermissionType = InGameIntroZoneTypes::Intermission_BlueWin;
 			}
 
 			//Check that we can actually use the team intermission
@@ -288,7 +298,10 @@ InGameIntroZoneTypes UUTInGameIntroHelper::GetIntroTypeToPlay(UWorld* World)
 		}
 		else
 		{
-			ReturnZoneType = InGameIntroZoneTypes::FFA_Intermission;
+			if (UTGS->ShouldUseInGameSummary(InGameIntroZoneTypes::Intermission))
+			{
+				ReturnZoneType = InGameIntroZoneTypes::Intermission;
+			}
 		}
 	}
 
@@ -307,19 +320,15 @@ InGameIntroZoneTypes UUTInGameIntroHelper::GetIntroTypeToPlay(UWorld* World)
 			}
 
 			//Fallback on basic intermission instead of team-specific in case team-specific fails
-			if (UTGS->ShouldUseInGameSummary(InGameIntroZoneTypes::Team_PostMatch))
-			{
-				ReturnZoneType = InGameIntroZoneTypes::Team_PostMatch;
-			}
-
-			InGameIntroZoneTypes IntermissionType = InGameIntroZoneTypes::Team_PostMatch;
+			InGameIntroZoneTypes IntermissionType = InGameIntroZoneTypes::PostMatch;
+			
 			if (TeamToWatch == 0)
 			{
-				IntermissionType = InGameIntroZoneTypes::Team_PostMatch_RedWin;
+				IntermissionType = InGameIntroZoneTypes::PostMatch_RedWin;
 			}
 			else if (TeamToWatch == 1)
 			{
-				IntermissionType = InGameIntroZoneTypes::Team_PostMatch_BlueWin;
+				IntermissionType = InGameIntroZoneTypes::PostMatch_BlueWin;
 			}
 
 			//Check that we can actually use the team intermission
@@ -330,28 +339,23 @@ InGameIntroZoneTypes UUTInGameIntroHelper::GetIntroTypeToPlay(UWorld* World)
 		}
 		else
 		{
-			ReturnZoneType = InGameIntroZoneTypes::FFA_PostMatch;
+			if (UTGS->ShouldUseInGameSummary(InGameIntroZoneTypes::PostMatch))
+			{
+				ReturnZoneType = InGameIntroZoneTypes::PostMatch;
+			}
 		}
 	}
 
 	return ReturnZoneType;
 }
 
-AUTInGameIntroZoneTeamSpawnPointList* UUTInGameIntroHelper::GetAppropriateSpawnList(UWorld* World, int TeamNum, InGameIntroZoneTypes IntermissionType)
+AUTInGameIntroZone* UUTInGameIntroHelper::GetAppropriateSpawnList(UWorld* World, InGameIntroZoneTypes IntermissionType)
 {
-	const int NoTeamSpecialValue = 255; //This is used to designate a team spawn that has no team affiliation. This is consistent with Free For All team nums.
-
 	for (TActorIterator<AUTInGameIntroZone> It(World); It; ++It)
 	{
 		if (It->ZoneType == IntermissionType)
 		{
-			for (int TeamIndex = 0; TeamIndex < It->TeamSpawns.Num(); ++TeamIndex)
-			{
-				if ((It->TeamSpawns[TeamIndex]->TeamNum == TeamNum) || (It->TeamSpawns[TeamIndex]->TeamNum == NoTeamSpecialValue))
-				{
-					return It->TeamSpawns[TeamIndex];
-				}
-			}
+			return *It;
 		}
 	}
 

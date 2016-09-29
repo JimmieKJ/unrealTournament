@@ -54,6 +54,9 @@ public:
 	/* Client metrics */
 	static void FireEvent_UTFPSCharts(AUTPlayerController* UTPC, TArray<FAnalyticsEventAttribute>& InParamArray);
 
+	/* GameMode Metrics*/
+	//static void FireEvent_FlagRunRoundEnd(AUTFlagRunGame* UTGame);
+
 private:
 	/** Initialize the FString Array of Analytic Parameters */
 	static void InitializeAnalyticParameterNames();

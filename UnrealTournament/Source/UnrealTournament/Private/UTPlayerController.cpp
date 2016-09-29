@@ -5216,7 +5216,7 @@ void AUTPlayerController::PlayTutorialAnnouncement(int32 Index, UObject* Optiona
 
 void AUTPlayerController::ClientSetIntroCamera_Implementation(UWorld* World, InGameIntroZoneTypes IntroType)
 {
-	AUTInGameIntroZoneTeamSpawnPointList* SpawnPointList = UUTInGameIntroHelper::GetAppropriateSpawnList(World, GetTeamNum(), IntroType);
+	AUTInGameIntroZone* SpawnPointList = UUTInGameIntroHelper::GetAppropriateSpawnList(World, IntroType);
 	if (SpawnPointList)
 	{
 		FViewTargetTransitionParams TransitionParams;

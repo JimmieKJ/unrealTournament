@@ -28,7 +28,7 @@ class UNREALTOURNAMENT_API UUTInGameIntroHelper : public UObject
 
 	static InGameIntroZoneTypes GetIntroTypeToPlay(UWorld* World);
 
-	static AUTInGameIntroZoneTeamSpawnPointList* GetAppropriateSpawnList(UWorld* World, int TeamNum, InGameIntroZoneTypes IntermissionType);
+	static AUTInGameIntroZone* GetAppropriateSpawnList(UWorld* World, InGameIntroZoneTypes IntermissionType);
 
 protected:
 

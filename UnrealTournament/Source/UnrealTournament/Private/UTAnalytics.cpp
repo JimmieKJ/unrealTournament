@@ -659,3 +659,41 @@ void FUTAnalytics::FireEvent_PlayerContextLocationPerMinute(AUTPlayerController*
 		}
 	}
 }
+
+//void FUTAnalytics::FireEvent_FlagRunRoundEnd(AUTFlagRunGame* UTGame, bool bIsFinalRound)
+//{
+//	if (UTGame)
+//	{
+//		AUTFlagRunGameState* UTGS = UTGame->GetGameState<AUTFlagRunGameState>();
+//		if (UTGS)
+//		{
+//			UTGS->OffenseKills;
+//			UTGS->DefenseKills;
+//
+//			UTGameState->GetRemainingTime() <= 0;
+//
+//			int RemainingDefenseLives = 0;
+//			for (APlayerState* PS : UTGS->PlayerArray)
+//			{
+//				AUTPlayerState* UTPS = Cast<AUTPlayerState>(PS);
+//				if (UTPS)
+//				{
+//					RemainingDefenseLives += UTPS->RemainingLives;
+//				}
+//			}
+//
+//			UTGS->
+//		}
+//	}
+//}
+
+/*
+Points Scored
+Defense Hold Point
+Round Time Remaining
+Team Kills
+Defense Lives Remaining
+Map Name
+If the match ended in a cap vs. a tiebreaker
+Matches that end at 4,5,6 rounds
+*/
