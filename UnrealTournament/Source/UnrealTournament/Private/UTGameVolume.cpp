@@ -149,7 +149,7 @@ void AUTGameVolume::ActorEnteredVolume(class AActor* Other)
 				// possibly announce flag carrier changed zones
 				if (bIsNoRallyZone && !P->GetCarriedObject()->bWasInEnemyBase && (GetWorld()->GetTimeSeconds() - FMath::Max(GS->LastEnemyEnteringBaseTime, GS->LastEnteringEnemyBaseTime) > 10.f))
 				{
-					if ((GetWorld()->GetTimeSeconds() - GS->LastEnteringEnemyBaseTime > 10.f) && Cast<AUTPlayerState>(P->PlayerState))
+					if ((GetWorld()->GetTimeSeconds() - GS->LastEnteringEnemyBaseTime > 6.f) && Cast<AUTPlayerState>(P->PlayerState))
 					{
 						if (VoiceLinesSet != NAME_None)
 						{
@@ -184,7 +184,7 @@ void AUTGameVolume::ActorEnteredVolume(class AActor* Other)
 						}
 					}
 				}
-				else if ((GetWorld()->GetTimeSeconds() - FMath::Max(GS->LastFriendlyLocationReportTime, GS->LastEnemyLocationReportTime) > 3.f))
+				else if ((GetWorld()->GetTimeSeconds() - FMath::Max(GS->LastFriendlyLocationReportTime, GS->LastEnemyLocationReportTime) > 3.f) || bIsWarningZone)
 				{
 					if ((VoiceLinesSet != NAME_None) && (GetWorld()->GetTimeSeconds() - GS->LastFriendlyLocationReportTime > 3.f) && Cast<AUTPlayerState>(P->PlayerState) && (GS->LastFriendlyLocationName != VoiceLinesSet))
 					{
