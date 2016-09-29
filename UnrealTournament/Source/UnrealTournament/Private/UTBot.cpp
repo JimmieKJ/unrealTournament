@@ -704,9 +704,9 @@ void AUTBot::Tick(float DeltaTime)
 		// check current enemy every frame, others on a slightly random timer to avoid hitches
 		if (Enemy != NULL)
 		{
-			if (!FBotEnemyInfo::StaticIsValid(Enemy))
+			if (!FBotEnemyInfo::StaticIsValid(Enemy, this))
 			{
-				// enemy was destroyed directly instead of killed so we didn't get notify
+				// enemy was destroyed or changed team directly instead of killed so we didn't get notify
 				SetEnemy(NULL);
 			}
 			else

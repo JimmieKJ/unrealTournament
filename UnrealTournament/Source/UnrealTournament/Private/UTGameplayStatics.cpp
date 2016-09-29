@@ -103,7 +103,7 @@ void UUTGameplayStatics::UTPlaySound(UWorld* TheWorld, USoundBase* TheSound, AAc
 				{
 					Instigator = Cast<APawn>(SourceActor);
 				}
-				if (Instigator != NULL)
+				if (Instigator != NULL && Instigator->Controller != NULL)
 				{
 					// note: all sound attenuation treated as a sphere
 					float Radius = TheSound->GetMaxAudibleDistance();
