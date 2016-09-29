@@ -106,6 +106,9 @@ class UNREALTOURNAMENT_API AUTWeap_LinkGun : public AUTWeapon
 	/** Location of beam end for link pull attempt. */
 	UPROPERTY()
 		FVector PulseLoc;
+	
+	UPROPERTY(EditDefaultsOnly, Category = LinkGUn)
+		FVector MissedPulseOffset;
 
 	/** Return true if currently in Link Pulse. */
 	virtual bool IsLinkPulsing();
@@ -195,6 +198,12 @@ public:
 	// sound made when link is established another player (played from self)
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = LinkGun)
 	USoundBase* LinkEstablishedSelfSound;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = LinkGun)
+		USoundBase* PullSucceeded;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = LinkGun)
+		USoundBase* PullFailed;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = LinkGun)
 	bool bFeedbackDeath;
