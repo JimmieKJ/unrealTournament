@@ -472,7 +472,7 @@ void AUTWeapon::ResendNextFireEvent()
 		FPendingFireEvent SendEvent = ResendFireEvents[0];
 		if (SendEvent.bIsStartFire)
 		{
-		//	UE_LOG(UT, Warning, TEXT("Resend StartFire %d event %d ZOffset %d"), SendEvent.FireModeNum, SendEvent.FireEventIndex, SendEvent.ZOffset);
+			// UE_LOG(UT, Warning, TEXT("Resend StartFire %d event %d ZOffset %d"), SendEvent.FireModeNum, SendEvent.FireEventIndex, SendEvent.ZOffset);
 			if (SendEvent.ZOffset == 0)
 			{
 				ResendServerStartFire(SendEvent.FireModeNum, SendEvent.FireEventIndex, SendEvent.bClientFired);
@@ -484,7 +484,7 @@ void AUTWeapon::ResendNextFireEvent()
 		}
 		else
 		{
-		//	UE_LOG(UT, Warning, TEXT("Resend StopFire %d event %d"), SendEvent.FireModeNum, SendEvent.FireEventIndex);
+			// UE_LOG(UT, Warning, TEXT("Resend StopFire %d event %d"), SendEvent.FireModeNum, SendEvent.FireEventIndex);
 			ServerStopFire(SendEvent.FireModeNum, SendEvent.FireEventIndex);
 		}
 		ResendFireEvents.RemoveAt(0);
@@ -535,26 +535,22 @@ void AUTWeapon::ClearFireEvents()
 void AUTWeapon::ServerUpdateFiringStates_Implementation(uint8 FireSettings)
 {
 //	UE_LOG(UT, Warning, TEXT("ServerUpdateFiringStates %d"), FireSettings);
-	if (FireSettings != 0)
+	int32 NumModes = FMath::Min(8, int32(GetNumFireModes()));
+	for (int32 i = 0; i < NumModes; i++)
 	{
-		if (!CurrentState->IsFiring())
+		bool bWantsFire = (FireSettings & (1 << i)) != 0;
+		if ( FiringState[i] && (UTOwner->IsPendingFire(i) != bWantsFire))
 		{
-			int32 NumModes = FMath::Min(8, int32(GetNumFireModes()));
-			for (int32 i = 0; i < NumModes; i++)
+			// UE_LOG(UT, Warning, TEXT("%s IN %s Update firing %d to %d"), *GetName(), *CurrentState->GetName(), i, bWantsFire);
+			if (bWantsFire)
 			{
-				if ((FireSettings & (1 << i)) && FiringState[i])
-				{
-					//UE_LOG(UT, Warning, TEXT("IN %s Update firing %d ON"), *CurrentState->GetName(), i);
-					ServerStartFire(i, -1, true);
-					break;
-				}
+				ServerStartFire(i, -1, true);
+			}
+			else
+			{
+				ServerStopFire(i, -1);
 			}
 		}
-	}
-	else if (CurrentState && CurrentState->IsFiring())
-	{
-	//	UE_LOG(UT, Warning, TEXT("Update firing %d OFF"), CurrentFireMode);
-		ServerStopFire(CurrentFireMode, -1);
 	}
 }
 
@@ -602,8 +598,12 @@ void AUTWeapon::ServerStartFire_Implementation(uint8 FireModeNum, uint8 InFireEv
 		}
 		FireZOffsetTime = 0.f;
 		BeginFiringSequence(FireModeNum, bClientFired);
-		//UE_LOG(UT, Warning, TEXT("****StartFire %d"), FireEventIndex);
+		//UE_LOG(UT, Warning, TEXT("**** %s StartFire %d"), *GetName(), FireEventIndex);
 	}
+/*	else
+	{
+		UE_LOG(UT, Warning, TEXT("%s skip serverstartfire %d"), *GetName(), FireEventIndex);
+	}*/
 }
 
 bool AUTWeapon::ServerStartFire_Validate(uint8 FireModeNum, uint8 InFireEventIndex, bool bClientFired)
@@ -622,8 +622,12 @@ void AUTWeapon::ServerStartFireOffset_Implementation(uint8 FireModeNum, uint8 In
 		FireZOffset = ZOffset - 127;
 		FireZOffsetTime = GetWorld()->GetTimeSeconds();
 		BeginFiringSequence(FireModeNum, bClientFired);
-		//UE_LOG(UT, Warning, TEXT("*****StartFireOffset %d"), FireEventIndex);
+		//UE_LOG(UT, Warning, TEXT("***** %s StartFireOffset %d"), *GetName(), FireEventIndex);
 	}
+/*	else
+	{
+		UE_LOG(UT, Warning, TEXT("%s skip serverstartfire offset %d"), *GetName(), FireEventIndex);
+	}*/
 }
 
 bool AUTWeapon::ServerStartFireOffset_Validate(uint8 FireModeNum, uint8 InFireEventIndex, uint8 ZOffset, bool bClientFired)
