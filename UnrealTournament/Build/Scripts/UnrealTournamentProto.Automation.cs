@@ -1619,8 +1619,13 @@ namespace UnrealTournamentGame.Automation
 
 			// Setup source game app
 			UnrealTournamentBuild.UnrealTournamentAppName FromGameApp = UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentBuilds;
-			// Setup source editor app
-			UnrealTournamentBuild.UnrealTournamentEditorAppName FromEditorApp = UnrealTournamentBuild.UnrealTournamentEditorAppName.UnrealTournamentEditorBuilds;
+            if (BuildVersion.Contains("Release"))
+            {
+                FromGameApp = UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentReleaseBuilds;
+            }            
+
+            // Setup source editor app
+            UnrealTournamentBuild.UnrealTournamentEditorAppName FromEditorApp = UnrealTournamentBuild.UnrealTournamentEditorAppName.UnrealTournamentEditorBuilds;
 
 			// Set some simple flags for identifying the type of promotion
 			bool bIsGameDevPromotion = GameDevApps.Contains(ToGameApp);
