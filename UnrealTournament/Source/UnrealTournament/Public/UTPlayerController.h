@@ -458,6 +458,9 @@ public:
 	UPROPERTY(BluePrintReadWrite)
 	bool bTacComView;
 
+	UPROPERTY()
+		float LeftSpawnVolumeTime;
+
 	virtual void UpdateTacComOverlays();
 
 	/** View Flag of team specified by Index. */
