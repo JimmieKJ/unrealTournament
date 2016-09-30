@@ -39,6 +39,7 @@
 #include "UTTaunt.h"
 #include "Animation/AnimInstance.h"
 #include "UTFlagRunGameMessage.h"
+#include "UTAnalytics.h"
 
 AUTFlagRunGame::AUTFlagRunGame(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -1096,5 +1097,25 @@ void AUTFlagRunGame::SendRestartNotifications(AUTPlayerState* PS, AUTPlayerContr
 	if (PC && (PS->GetRemainingBoosts() > 0))
 	{
 		PC->ClientReceiveLocalizedMessage(UUTCTFRoleMessage::StaticClass(), 20);
+	}
+}
+
+void AUTFlagRunGame::ScoreObject_Implementation(AUTCarriedObject* GameObject, AUTCharacter* HolderPawn, AUTPlayerState* Holder, FName Reason)
+{
+	Super::ScoreObject_Implementation(GameObject,HolderPawn,Holder,Reason);
+
+	if (FUTAnalytics::IsAvailable())
+	{
+		FUTAnalytics::FireEvent_FlagRunRoundEnd(this, false, (UTGameState->WinningTeam != nullptr));
+	}
+}
+
+void AUTFlagRunGame::ScoreAlternateWin(int32 WinningTeamIndex, uint8 Reason /* = 0 */)
+{
+	Super::ScoreAlternateWin(WinningTeamIndex, Reason);
+
+	if (FUTAnalytics::IsAvailable())
+	{
+		FUTAnalytics::FireEvent_FlagRunRoundEnd(this, IsTeamOnDefense(WinningTeamIndex), (UTGameState->WinningTeam != nullptr));
 	}
 }

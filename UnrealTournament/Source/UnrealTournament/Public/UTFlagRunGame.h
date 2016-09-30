@@ -114,6 +114,9 @@ public:
 	virtual int32 GetEloFor(AUTPlayerState* PS, bool bRankedSession) const override;
 	virtual void SetEloFor(AUTPlayerState* PS, bool bRankedSession, int32 NewELoValue, bool bIncrementMatchCount) override;
 
+	virtual void ScoreObject_Implementation(AUTCarriedObject* GameObject, AUTCharacter* HolderPawn, AUTPlayerState* Holder, FName Reason) override;
+	virtual void ScoreAlternateWin(int32 WinningTeamIndex, uint8 Reason = 0);
+
 protected:
 
 	virtual void HandlePowerupUnlocks(APawn* Other, AController* Killer);

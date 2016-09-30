@@ -470,18 +470,6 @@ void AUTCTFRoundGame::StopRCTFReplayRecording()
 }
 
 
-//Special markup for Analytics event so they show up properly in grafana. Should be eventually moved to UTAnalytics.
-/*
-* @EventName RCTFRoundResult
-*
-* @Trigger Sent when a round ends in an RCTF game through a capture of a flag
-*
-* @Type Sent by the Server
-*
-* @EventParam FlagCapScore int32 Points that the cap gave
-*
-* @Comments
-*/
 void AUTCTFRoundGame::ScoreObject_Implementation(AUTCarriedObject* GameObject, AUTCharacter* HolderPawn, AUTPlayerState* Holder, FName Reason)
 {
 	for (int32 i = 0; i < Teams.Num(); i++)
@@ -501,16 +489,6 @@ void AUTCTFRoundGame::ScoreObject_Implementation(AUTCarriedObject* GameObject, A
 			{
 				Holder->Team->RoundBonus = FMath::Min(MaxTimeScoreBonus, UTGameState->GetRemainingTime());
 				UpdateTiebreak(Holder->Team->RoundBonus, Holder->Team->TeamIndex);
-			}
-		}
-
-		if (FUTAnalytics::IsAvailable())
-		{
-			if (GetWorld()->GetNetMode() != NM_Standalone)
-			{
-				TArray<FAnalyticsEventAttribute> ParamArray;
-				ParamArray.Add(FAnalyticsEventAttribute(TEXT("FlagCapScore"), GetFlagCapScore()));
-				FUTAnalytics::GetProvider().RecordEvent(TEXT("RCTFRoundResult"), ParamArray);
 			}
 		}
 	}

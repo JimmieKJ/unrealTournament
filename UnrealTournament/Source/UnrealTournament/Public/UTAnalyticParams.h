@@ -40,6 +40,20 @@ namespace EGenericAnalyticParam
 		MaxRequiredTextureSize,
 		QuickMatch,
 
+		FlagRunRoundEnd,
+		OffenseKills,
+		DefenseKills,
+		DefenseLivesRemaining,
+		DefensePlayersEliminated,
+		PointsScored,
+		DefenseWin,
+		TimeRemaining,
+		RoundNumber,
+		FinalRound,
+		EndedInTieBreaker,
+		RedTeamBonusTime,
+		BlueTeamBonusTime,
+
 		NUM_GENERIC_PARAMS
 	};
 }

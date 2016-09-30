@@ -9,6 +9,9 @@
 #include "PerfCountersHelpers.h"
 #include "QosInterface.h"
 
+#include "UTFlagRunGame.h"
+#include "UTFlagRunGameState.h"
+
 #if WITH_PROFILE
 #include "GameServiceMcp.h"
 #include "OnlineSubsystemMcp.h"
@@ -147,6 +150,20 @@ void FUTAnalytics::InitializeAnalyticParameterNames()
 
 	AddGenericParamName(Team);
 	AddGenericParamName(MaxRequiredTextureSize);
+
+	AddGenericParamName(FlagRunRoundEnd);
+	AddGenericParamName(OffenseKills);
+	AddGenericParamName(DefenseKills);
+	AddGenericParamName(DefenseLivesRemaining);
+	AddGenericParamName(DefensePlayersEliminated);
+	AddGenericParamName(PointsScored);
+	AddGenericParamName(DefenseWin);
+	AddGenericParamName(TimeRemaining);
+	AddGenericParamName(RoundNumber);
+	AddGenericParamName(FinalRound);
+	AddGenericParamName(EndedInTieBreaker);
+	AddGenericParamName(RedTeamBonusTime);
+	AddGenericParamName(BlueTeamBonusTime);
 }
 
 void FUTAnalytics::Shutdown()
@@ -660,40 +677,89 @@ void FUTAnalytics::FireEvent_PlayerContextLocationPerMinute(AUTPlayerController*
 	}
 }
 
-//void FUTAnalytics::FireEvent_FlagRunRoundEnd(AUTFlagRunGame* UTGame, bool bIsFinalRound)
-//{
-//	if (UTGame)
-//	{
-//		AUTFlagRunGameState* UTGS = UTGame->GetGameState<AUTFlagRunGameState>();
-//		if (UTGS)
-//		{
-//			UTGS->OffenseKills;
-//			UTGS->DefenseKills;
-//
-//			UTGameState->GetRemainingTime() <= 0;
-//
-//			int RemainingDefenseLives = 0;
-//			for (APlayerState* PS : UTGS->PlayerArray)
-//			{
-//				AUTPlayerState* UTPS = Cast<AUTPlayerState>(PS);
-//				if (UTPS)
-//				{
-//					RemainingDefenseLives += UTPS->RemainingLives;
-//				}
-//			}
-//
-//			UTGS->
-//		}
-//	}
-//}
 
 /*
-Points Scored
-Defense Hold Point
-Round Time Remaining
-Team Kills
-Defense Lives Remaining
-Map Name
+* @EventName FlagRunRoundEnd
+*
+* @Trigger Fires at the end of each round of Flag Run
+*
+* @Type Sent by the Server
+*
+* @EventParam OffenseKills int32 Total Kills on the Offense team this round.
+* @EventParam DefenseKills int32 Total Kills on the Defense team this round.
+* @EventParam DefenseLivesRemaining int32 Total number of lives left among all defenders in a round.
+* @EventParam DefensePlayersEliminated int32 How many eliminated players
+* @EventParam PointsScored int32 How many points were scored this round.
+* @EventParam DefenseWin bool Was this round won by the defense or offense?
+* @EventParam TimeRemaining int32 Time left in the round.
+* @EventParam MapName string What Map we were playing on.
+* @EventParam RoundNumber int32 What Round Number is this
+* @EventParam FinalRound bool Was this the final round? IE: Do we arleady have a winner.
+* @EventParam EndedInTieBreaker bool Was this match ended in a tiebreaker, or by a score descrepency.
+* @EventParam RedTeamBonusTime int32 How much bonus the Red Team had at this round.
+* @EventParam BlueTeamBonusTime int32 How much bonus the Blue Team had at this round.
+*
+* @Comments
+*/
+void FUTAnalytics::FireEvent_FlagRunRoundEnd(AUTFlagRunGame* UTGame, bool bIsDefenseRoundWin, bool bIsFinalRound)
+{
+	if (UTGame)
+	{
+		AUTFlagRunGameState* UTGS = UTGame->GetGameState<AUTFlagRunGameState>();
+		if (UTGS)
+		{
+			const TSharedPtr<IAnalyticsProvider>& AnalyticsProvider = GetProviderPtr();
+			if (AnalyticsProvider.IsValid())
+			{
+				TArray<FAnalyticsEventAttribute> ParamArray;
+		
+				int LivesRemaining = 0;
+				int PlayersEliminated = 0;
+				for (APlayerState* PS : UTGS->PlayerArray)
+				{
+					AUTPlayerState* UTPS = Cast<AUTPlayerState>(PS);
+					if ((UTPS) && (UTGS->IsTeamOnDefense(UTPS->GetTeamNum())))
+					{
+						LivesRemaining += UTPS->RemainingLives;
+						if (UTPS->bOutOfLives)
+						{
+							++PlayersEliminated;
+						}
+					}
+				}
+				
+				bool bEndedInTie = false;
+				int RedTeamBonusTime = 0;
+				int BlueTeamBonusTime = 0;
+				if (UTGS->Teams.Num() > 1)
+				{
+					bEndedInTie = UTGS->Teams[0]->Score == UTGS->Teams[1]->Score;
+					RedTeamBonusTime = UTGS->Teams[0]->RoundBonus;
+					BlueTeamBonusTime = UTGS->Teams[1]->RoundBonus;
+				}
+				
+				ParamArray.Add(FAnalyticsEventAttribute(GetGenericParamName(EGenericAnalyticParam::OffenseKills), UTGS->OffenseKills));
+				ParamArray.Add(FAnalyticsEventAttribute(GetGenericParamName(EGenericAnalyticParam::DefenseKills), UTGS->DefenseKills));
+				ParamArray.Add(FAnalyticsEventAttribute(GetGenericParamName(EGenericAnalyticParam::DefenseLivesRemaining), LivesRemaining));
+				ParamArray.Add(FAnalyticsEventAttribute(GetGenericParamName(EGenericAnalyticParam::DefensePlayersEliminated), PlayersEliminated));
+				ParamArray.Add(FAnalyticsEventAttribute(GetGenericParamName(EGenericAnalyticParam::PointsScored), bIsDefenseRoundWin ? UTGame->GetDefenseScore() : UTGame->GetFlagCapScore()));
+				ParamArray.Add(FAnalyticsEventAttribute(GetGenericParamName(EGenericAnalyticParam::DefenseWin), bIsDefenseRoundWin));
+				ParamArray.Add(FAnalyticsEventAttribute(GetGenericParamName(EGenericAnalyticParam::TimeRemaining), UTGS->GetRemainingTime()));
+				ParamArray.Add(FAnalyticsEventAttribute(GetGenericParamName(EGenericAnalyticParam::MapName), GetMapName(UTGame)));
+				ParamArray.Add(FAnalyticsEventAttribute(GetGenericParamName(EGenericAnalyticParam::RoundNumber), UTGS->CTFRound));
+				ParamArray.Add(FAnalyticsEventAttribute(GetGenericParamName(EGenericAnalyticParam::FinalRound), bIsFinalRound));
+				ParamArray.Add(FAnalyticsEventAttribute(GetGenericParamName(EGenericAnalyticParam::EndedInTieBreaker), bEndedInTie));
+				ParamArray.Add(FAnalyticsEventAttribute(GetGenericParamName(EGenericAnalyticParam::RedTeamBonusTime), RedTeamBonusTime));
+				ParamArray.Add(FAnalyticsEventAttribute(GetGenericParamName(EGenericAnalyticParam::BlueTeamBonusTime), BlueTeamBonusTime));
+
+				AnalyticsProvider->RecordEvent(GetGenericParamName(EGenericAnalyticParam::FlagRunRoundEnd), ParamArray);
+			}
+		}
+	}
+}
+
+/*
+
 If the match ended in a cap vs. a tiebreaker
-Matches that end at 4,5,6 rounds
+
 */

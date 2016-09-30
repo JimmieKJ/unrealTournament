@@ -10,7 +10,6 @@
 DECLARE_LOG_CATEGORY_EXTERN(LogUTAnalytics, Display, All);
 
 class IAnalyticsProvider;
-
 class FUTAnalytics : FNoncopyable
 {
 public:
@@ -55,7 +54,7 @@ public:
 	static void FireEvent_UTFPSCharts(AUTPlayerController* UTPC, TArray<FAnalyticsEventAttribute>& InParamArray);
 
 	/* GameMode Metrics*/
-	//static void FireEvent_FlagRunRoundEnd(AUTFlagRunGame* UTGame);
+	static void FireEvent_FlagRunRoundEnd(class AUTFlagRunGame* UTGame, bool bIsDefenseRoundWin, bool bIsFinalRound);
 
 private:
 	/** Initialize the FString Array of Analytic Parameters */
