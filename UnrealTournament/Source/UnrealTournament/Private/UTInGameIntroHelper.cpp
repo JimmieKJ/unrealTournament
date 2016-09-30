@@ -160,7 +160,7 @@ void UUTInGameIntroHelper::MovePlayers(UWorld* World, InGameIntroZoneTypes ZoneT
 			//All players stored on 1 "team"
 			PlayersToMove.SetNum(1);
 
-			for (FConstPlayerControllerIterator Iterator = World->GetPlayerControllerIterator(); Iterator; ++Iterator)
+			for (FConstControllerIterator Iterator = World->GetControllerIterator(); Iterator; ++Iterator)
 			{
 				AController* Controller = Cast<AController>(*Iterator);
 				if (Controller && PlayersToMove.Num() > 0)

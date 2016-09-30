@@ -535,6 +535,8 @@ void AUTHUD::NotifyMatchStateChange()
 		}
 		else if (GS->GetMatchState() == MatchState::PlayerIntro)
 		{
+			bool bStartedInWorldIntroTimer = false;
+
 			if (GS->InGameIntroHelper)
 			{
 				UUTInGameIntroHelper* HelperCapture = GS->InGameIntroHelper;
@@ -546,11 +548,12 @@ void AUTHUD::NotifyMatchStateChange()
 					TimerCallback.BindLambda([HelperCapture, World, TypeToPlay] {HelperCapture->HandleIntro(World, TypeToPlay); });
 
 					GetWorldTimerManager().SetTimer(MatchSummaryHandle, TimerCallback, 1.7f, false);
+					bStartedInWorldIntroTimer = true;
 				}
 			}	
 			
 			//if InGameIntro didn't start, use old method
-			if (!GS->InGameIntroHelper || !GS->InGameIntroHelper->bIsActive)
+			if (!bStartedInWorldIntroTimer)
 			{
 				if (UTPlayerOwner->UTPlayerState && UTPlayerOwner->UTPlayerState->bIsWarmingUp)
 				{

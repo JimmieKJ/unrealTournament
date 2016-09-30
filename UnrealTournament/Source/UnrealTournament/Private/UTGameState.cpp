@@ -2248,9 +2248,9 @@ bool AUTGameState::ShouldUseInGameSummary(InGameIntroZoneTypes SummaryType)
 				}
 			}
 
-			bool bIsRedTeamSizeLimitMet = RedTeamPlayerCount > 0 ? It->RedTeamSpawnLocations.Num() > RedTeamPlayerCount : true;
-			bool bIsBlueTeamSizeLimitMet = BlueTeamPlayerCount > 0 ? It->BlueTeamSpawnLocations.Num() > BlueTeamPlayerCount : true;
-			bool bIsOtherTeamPlayerCountMet = OtherTeamPlayerCount > 0 ? It->FFATeamSpawnLocations.Num() > OtherTeamPlayerCount :  true;
+			bool bIsRedTeamSizeLimitMet = RedTeamPlayerCount > 0 ? It->RedTeamSpawnLocations.Num() >= RedTeamPlayerCount : true;
+			bool bIsBlueTeamSizeLimitMet = BlueTeamPlayerCount > 0 ? It->BlueTeamSpawnLocations.Num() >= BlueTeamPlayerCount : true;
+			bool bIsOtherTeamPlayerCountMet = OtherTeamPlayerCount > 0 ? It->FFATeamSpawnLocations.Num() >= OtherTeamPlayerCount :  true;
 
 			return bIsRedTeamSizeLimitMet && bIsBlueTeamSizeLimitMet && bIsOtherTeamPlayerCountMet;
 		}
