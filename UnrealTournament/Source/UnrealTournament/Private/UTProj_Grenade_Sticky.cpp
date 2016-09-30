@@ -63,6 +63,6 @@ void AUTProj_Grenade_Sticky::Explode_Implementation(const FVector& HitLocation, 
 {
 	if (bArmed || Role != ROLE_Authority || bTearOff)
 	{
-		Super::Explode_Implementation(HitLocation, HitLocation, HitComp);
+		Super::Explode_Implementation(HitLocation, HitNormal, HitComp);
 	}
 }
