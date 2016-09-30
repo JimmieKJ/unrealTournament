@@ -1739,6 +1739,18 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 			SaveProgression();
 		}
 
+		if (CurrentProfileSettings)
+		{
+			float BestTime;
+			if (CurrentProgression->GetBestTime(FName(TEXT("movementtraining_timingsection")), BestTime) ) CurrentProfileSettings->TutorialMask |= TUTORIAL_Movement;
+			if (CurrentProgression->GetBestTime(FName(TEXT("weapontraining_timingsection")), BestTime) ) CurrentProfileSettings->TutorialMask |= TUTOIRAL_Weapon;
+			if (CurrentProgression->GetBestTime(FName(TEXT("pickuptraining_timingsection")), BestTime) ) CurrentProfileSettings->TutorialMask |= TUTORIAL_Pickups;
+			if (CurrentProgression->GetBestTime(FName(TEXT("deathmatch_timingsection")), BestTime) ) CurrentProfileSettings->TutorialMask |= TUTORIAL_DM;
+			if (CurrentProgression->GetBestTime(FName(TEXT("teamdeathmatch_timingsection")), BestTime) ) CurrentProfileSettings->TutorialMask |= TUTORIAL_TDM;
+			if (CurrentProgression->GetBestTime(FName(TEXT("capturetheflag_timingsection")), BestTime) ) CurrentProfileSettings->TutorialMask |= TUTORIAL_CTF;
+			if (CurrentProgression->GetBestTime(FName(TEXT("duel_timingsection")), BestTime) ) CurrentProfileSettings->TutorialMask |= TUTORIAL_Duel;
+		}
+
 		bProgressionReadFromCloud = true;
 		ReportStarsToServer();
 
