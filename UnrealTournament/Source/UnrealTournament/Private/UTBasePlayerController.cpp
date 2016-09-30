@@ -50,11 +50,6 @@ void AUTBasePlayerController::InitInputSystem()
 	// read profile on every level change so we can detect updates
 	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
 
-	if (LP)
-	{
-		LP->ResetDLCWarning();
-	}
-
 #if WITH_PROFILE
 	if (LP != NULL && LP->IsLoggedIn() && LP->GetMcpProfileManager() && LP->GetMcpProfileManager()->GetMcpProfileAs<UUtMcpProfile>(EUtMcpProfile::Profile))
 	{
@@ -448,12 +443,7 @@ void AUTBasePlayerController::ConnectToServerViaGUID(FString ServerGUID, int32 D
 		// Check to make sure we are not downloading content.  If we are.. stall until it's completed.
 
 		UUTGameViewportClient* ViewportClient = Cast<UUTGameViewportClient>(Cast<ULocalPlayer>(Player)->ViewportClient);
-		if (ViewportClient && ViewportClient->IsDownloadInProgress())
-		{
-			UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);			
-			LP->ShowDownloadDialog(true);
-		}
-		else
+		if (ViewportClient == nullptr || !ViewportClient->IsDownloadInProgress())
 		{
 			StartGUIDJoin();
 		}

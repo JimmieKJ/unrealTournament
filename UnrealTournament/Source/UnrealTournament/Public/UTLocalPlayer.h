@@ -20,7 +20,7 @@ class SUTServerBrowserPanel;
 class SUTFriendsPopupWindow;
 class SUTQuickMatchWindow;
 class SUTLoginDialog;
-class SUTRedirectDialog;
+class SUTDownloadAllDialog;
 class SUTMapVoteDialog;
 class SUTAdminDialog;
 class SUTReplayWindow;
@@ -29,7 +29,6 @@ class AUTPlayerState;
 class SUTJoinInstanceWindow;
 class FServerData;
 class AUTRconAdminInfo;
-class SUTDownloadAllDialog;
 class SUTSpectatorWindow;
 class SUTMatchSummaryPanel;
 class SUTChatEditBox;
@@ -689,22 +688,62 @@ public:
 	bool bSuppressToastsInGame;
 
 protected:
+
 #if !UE_SERVER
 	TWeakPtr<SUTDialogBase> ConnectingDialog;
-	TSharedPtr<SUTRedirectDialog> RedirectDialog;
-
+	TSharedPtr<SUTDownloadAllDialog> DownloadAllDialog;
+	TSharedPtr<SUTDialogBase> DLCWarningDialog;
 #endif
 
+	// Holds a list of servers where the DLC warning has been accepted.  If the current server is in this list
+	// then the DLC content warning will not be displayed this run.
+	TArray<FString> AcceptedDLCServers;
+
 public:
-	// Holds the current status of any ongoing downloads.
-	FText DownloadStatusText;
-	FString Download_CurrentFile;
-	int32 Download_NumBytes;
-	int32 Download_NumFilesLeft;
-	float Download_Percentage;
 
+	virtual void ShowRedirectDownload();
+	virtual void HideRedirectDownload();
 
+	// Checks to see if a redirect exists
+	virtual bool ContentExists(const FPackageRedirectReference& Redirect);
 
+	// Attempt to Accquire redirect content
+	virtual void AcquireContent(TArray<FPackageRedirectReference>& Redirects);
+
+	// Cancel all active downloads.
+	virtual void CancelDownload();
+
+	// Returns an FTEXT with the download status
+	virtual FText GetDownloadStatusText();
+
+	virtual FText GetDownloadFilename();
+
+	virtual int32 GetNumberOfPendingDownloads();
+
+	virtual int32 GetDownloadBytes();
+
+	virtual float GetDownloadProgress();
+
+	// If set to true, the download dialog will be suppressed and the status information
+	// needs to be displayed elsewhere.
+	bool bSuppressDownloadDialog;
+
+	// Returns TRUE if downloads are in progress
+	virtual bool IsDownloadInProgress();
+
+	// On a hub, this will request that the hub send over all of the content needed to download.
+	void RequestServerSendAllRedirects();
+
+	// Shows the DLC warning dialog.  
+	void ShowDLCWarning();
+
+	// returns true if the DLC warning is being displayed
+	bool IsShowingDLCWarning();
+
+	// returns true if this server requires a DLC warning to be shown
+	bool RequiresDLCWarning();
+
+protected:
 
 	virtual void ConnectingDialogCancel(TSharedPtr<SCompoundWidget> Dialog, uint16 ButtonID);
 public:
@@ -732,14 +771,6 @@ public:
 
 	// Holds a list of maps to play in Single player
 	TArray<FString> SinglePlayerMapList;
-
-	virtual void UpdateRedirect(const FString& FileURL, int32 NumBytes, float Progress, int32 NumFilesLeft);
-	virtual bool ContentExists(const FPackageRedirectReference& Redirect);
-	virtual void AccquireContent(TArray<FPackageRedirectReference>& Redirects);
-	virtual void CancelDownload();
-
-	virtual FText GetDownloadStatusText();
-	virtual bool IsDownloadInProgress();
 
 	// Forward any network failure messages to the base player controller so that game specific actions can be taken
 	virtual void HandleNetworkFailureMessage(enum ENetworkFailure::Type FailureType, const FString& ErrorString);
@@ -945,17 +976,6 @@ public:
 #endif
 
 public:
-	void DownloadAll();
-	void CloseDownloadAll();
-
-	bool ShowDownloadDialog(bool bTransitionWhenDone);
-
-protected:
-
-
-#if !UE_SERVER
-	TSharedPtr<SUTDownloadAllDialog> DownloadAllDialog;
-#endif
 	
 	void PostInitProperties() override;
 
@@ -1052,14 +1072,7 @@ public:
 	UPROPERTY()
 	bool bAutoRankLockWarningShown;
 
-	void ResetDLCWarning();
-	// If true, then this client has shown the downloadable content warning since the last travel.
-	bool bHasShownDLCWarning;
-
-	void ShowDLCWarning();
-
 protected:
-	bool bDLCWarningIsVisible;
 
 	UPROPERTY()
 	UUTKillcamPlayback* KillcamPlayback;
@@ -1074,10 +1087,6 @@ protected:
 	bool bJoinSessionInProgress;	
 	FDelegateHandle SpeakerDelegate;
 	void OnPlayerTalkingStateChanged(TSharedRef<const FUniqueNetId> TalkerId, bool bIsTalking);
-
-	// Holds a list of servers where the DLC warning has been accepted.  If the current server is in this list
-	// then the DLC content warning will not be displayed this run.
-	TArray<FGuid> AcceptedDLCServers;
 
 public:
 
@@ -1123,5 +1132,4 @@ public:
 	virtual void InitializeSocial();
 
 	bool SkipTutorialCheck();
-
 };

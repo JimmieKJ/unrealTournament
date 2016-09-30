@@ -46,7 +46,8 @@ class UNREALTOURNAMENT_API UUTGameInstance : public UGameInstance
 
 	/** starts download for pak file from redirect if needed
 	 * @return whether download was required */
-	virtual bool StartRedirectDownload(const FString& PakName, const FString& URL, const FString& Checksum);
+	
+	virtual bool RedirectDownload(const FString& PakName, const FString& URL, const FString& Checksum);
 
 	inline void SetLastTriedDemo(const FString& NewName)
 	{
@@ -88,10 +89,6 @@ protected:
 	virtual bool HandleOpenCommand(const TCHAR* Cmd, FOutputDevice& Ar, UWorld* InWorld) override;
 
 	virtual void HandleDemoPlaybackFailure( EDemoPlayFailure::Type FailureType, const FString& ErrorString ) override;
-
-	virtual void RedirectResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
-
-	TArray<TWeakPtr<class SUTRedirectDialog>> ActiveRedirectDialogs;
 
 	// in order to handle demo redirects, we have to cancel the demo, download, then retry
 	// this tracks the demo we need to retry
@@ -205,10 +202,5 @@ protected:
 
 public:
 	virtual int32 GetBotSkillForTeamElo(int32 TeamElo);
-
-	virtual void CloseAllRedirectDownloadDialogs();
-
-
-
 };
 

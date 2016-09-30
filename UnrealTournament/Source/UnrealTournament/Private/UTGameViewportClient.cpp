@@ -5,11 +5,11 @@
 #include "Dialogs/SUTMessageBoxDialog.h"
 #include "Base/SUTDialogBase.h"
 #include "Dialogs/SUTInputBoxDialog.h"
-#include "Dialogs/SUTRedirectDialog.h"
 #include "SUTGameLayerManager.h"
 #include "Engine/GameInstance.h"
 #include "UTGameEngine.h"
 #include "Engine/Console.h"
+#include "UTLocalPlayer.h"
 
 UUTGameViewportClient::UUTGameViewportClient(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -154,13 +154,7 @@ void UUTGameViewportClient::PeekTravelFailureMessages(UWorld* InWorld, enum ETra
 			}
 			else if (FPaths::GetExtension(URL) == FString(TEXT("pak")))
 			{
-				FirstPlayer->OpenDialog(SNew(SUTRedirectDialog)
-					.OnDialogResult(FDialogResultDelegate::CreateUObject(this, &UUTGameViewportClient::RedirectResult))
-					.DialogTitle(NSLOCTEXT("UTGameViewportClient", "Redirect", "Download"))
-					.RedirectToURL(URL)
-					.PlayerOwner(FirstPlayer)
-					);
-
+				DownloadRedirect(URL);
 				return;
 			}
 		}
@@ -222,12 +216,11 @@ void UUTGameViewportClient::PeekTravelFailureMessages(UWorld* InWorld, enum ETra
 
 			if (FileURLs.Num() > 0)
 			{
-				FirstPlayer->OpenDialog(SNew(SUTRedirectDialog)
-					.OnDialogResult(FDialogResultDelegate::CreateUObject(this, &UUTGameViewportClient::CloudRedirectResult))
-					.DialogTitle(NSLOCTEXT("UTGameViewportClient", "Redirect", "Download"))
-					.RedirectURLs(FileURLs)
-					.PlayerOwner(FirstPlayer)
-					);
+
+				for (int32 i = 0; i < FileURLs.Num(); i++)
+				{
+					DownloadRedirect(FileURLs[i]);
+				}
 			}
 			else if (bMountedPreviousDownload)
 			{
@@ -673,16 +666,6 @@ void UUTGameViewportClient::ReconnectAfterDownloadingContent()
 	}
 }
 
-void UUTGameViewportClient::RedirectResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID)
-{
-#if !UE_SERVER
-	if (ButtonID != UTDIALOG_BUTTON_CANCEL)
-	{
-		ReconnectAfterDownloadingContent();
-	}
-#endif
-}
-
 void UUTGameViewportClient::VerifyFilesToDownloadAndReconnect()
 {
 #if !UE_SERVER
@@ -778,10 +761,11 @@ void UUTGameViewportClient::Tick(float DeltaSeconds)
 void UUTGameViewportClient::UpdateRedirects(float DeltaTime)
 {
 	UUTLocalPlayer* FirstPlayer = Cast<UUTLocalPlayer>(GEngine->GetLocalPlayerFromControllerId(this, 0));	// Grab the first local player.
-	if (FirstPlayer == nullptr || !FirstPlayer->bHasShownDLCWarning) return;
+	if (FirstPlayer == nullptr || FirstPlayer->IsShowingDLCWarning()) return;
 
 	if (PendingDownloads.Num() >0)
 	{
+		FirstPlayer->ShowRedirectDownload();
 		if (PendingDownloads[0].Status == ERedirectStatus::Pending)
 		{
 			PendingDownloads[0].HttpRequest = FHttpModule::Get().CreateRequest();
@@ -837,6 +821,10 @@ void UUTGameViewportClient::UpdateRedirects(float DeltaTime)
 			}
 		}
 	}
+	else
+	{
+		FirstPlayer->HideRedirectDownload();
+	}
 }
 
 bool UUTGameViewportClient::IsDownloadInProgress()
@@ -846,7 +834,6 @@ bool UUTGameViewportClient::IsDownloadInProgress()
 
 bool UUTGameViewportClient::CheckIfRedirectExists(const FPackageRedirectReference& Redirect)
 {
-
 	FString Path = FPaths::Combine(*FPaths::GameSavedDir(), TEXT("Paks"), TEXT("DownloadedPaks"), *Redirect.PackageName) + TEXT(".pak");
 	UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
 	if (UTEngine)
@@ -913,6 +900,20 @@ bool UUTGameViewportClient::CheckIfRedirectExists(const FPackageRedirectReferenc
 	return false;
 }
 
+void UUTGameViewportClient::DownloadRedirect(const FString& URL, const FString& OptionalPakName, const FString& OptionalChecksum)
+{
+	FString WebProtocol = TEXT("");
+	FString WebAddress = TEXT("");
+	int32 Pos = URL.Find(TEXT("://"));
+	if (Pos != INDEX_NONE)
+	{
+		WebProtocol = URL.Left(Pos);
+		WebAddress = URL.RightChop(Pos + 3);
+	}
+
+	DownloadRedirect(FPackageRedirectReference(OptionalPakName, WebProtocol, WebAddress, OptionalChecksum));
+}
+
 void UUTGameViewportClient::DownloadRedirect(FPackageRedirectReference Redirect)
 {
 	if (!CheckIfRedirectExists(Redirect))
@@ -927,6 +928,13 @@ void UUTGameViewportClient::DownloadRedirect(FPackageRedirectReference Redirect)
 		}
 
 		PendingDownloads.Add(FPendingRedirect(Redirect.ToString()));
+
+		UUTLocalPlayer* FirstPlayer = Cast<UUTLocalPlayer>(GEngine->GetLocalPlayerFromControllerId(this, 0));	
+		if (FirstPlayer && FirstPlayer->RequiresDLCWarning() && !FirstPlayer->IsShowingDLCWarning())
+		{
+			FirstPlayer->ShowDLCWarning();
+		}
+
 		// NOTE: The next tick will start the download process...	
 	}
 }
@@ -940,6 +948,7 @@ void UUTGameViewportClient::CancelRedirect(FPackageRedirectReference Redirect)
 			// Broadcast that this has been cancelled.
 
 			ContentDownloadComplete.Broadcast(this, ERedirectStatus::Cancelled, PendingDownloads[i].FileURL);
+
 			// Found it.  If we are in progress.. stop us
 			if (PendingDownloads[i].HttpRequest.IsValid() && PendingDownloads[i].HttpRequest->GetStatus() == EHttpRequestStatus::Processing)
 			{
@@ -979,7 +988,14 @@ void UUTGameViewportClient::HttpRequestProgress(FHttpRequestPtr HttpRequest, int
 		int32 ContentLength = HttpRequest->GetResponse()->GetContentLength();
 
 		float Perc = ContentLength > 0 ? (NumBytesRecv / float(ContentLength)) : 0.0f;
-		FirstPlayer->UpdateRedirect(PendingDownloads[0].FileURL, NumBytesRecv, Perc, PendingDownloads.Num());
+
+		// Create all of the status update strings
+		FString DownloadFileName = FPaths::GetBaseFilename(PendingDownloads[0].FileURL);
+		DownloadStatusText = FText::Format(NSLOCTEXT("UTLocalPlayer","DownloadStatusFormat","Downloading {0} Files: {1} ({2} / {3}) ...."), FText::AsNumber(PendingDownloads.Num()), FText::FromString(DownloadFileName), FText::AsNumber(NumBytesRecv), FText::AsPercent(Perc));
+		Download_NumBytes = NumBytesRecv;
+		Download_CurrentFile = DownloadFileName;
+		Download_Percentage = Perc;
+		Download_NumFilesLeft = PendingDownloads.Num();
 	}
 }
 

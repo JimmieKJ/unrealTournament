@@ -102,6 +102,7 @@ protected:
 	EVisibility GetMapBorderVis() const;
 
 	FSlateDynamicImageBrush* DefaultLevelScreenshot;
+
 protected:
 	TWeakObjectPtr<AUTReplicatedMapInfo> LastMapInfo;
 

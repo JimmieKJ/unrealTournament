@@ -1165,7 +1165,7 @@ void SUTMatchPanel::SetServerData(TSharedPtr<FServerData> inServerData)
 
 FReply SUTMatchPanel::DownloadAllButtonClicked()
 {
-	PlayerOwner->DownloadAll();
+	PlayerOwner->RequestServerSendAllRedirects();
 	return FReply::Handled();
 }
 

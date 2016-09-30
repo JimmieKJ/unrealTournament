@@ -31,7 +31,7 @@
 #include "SUTQuickChatWindow.h"
 #include "SUTJoinInstanceWindow.h"
 #include "SUTFriendsPopupWindow.h"
-#include "SUTRedirectDialog.h"
+#include "SUTDownloadAllDialog.h"
 #include "SUTVideoCompressionDialog.h"
 #include "SUTLoadoutWindow.h"
 #include "SUTBuyWindow.h"
@@ -39,7 +39,6 @@
 #include "SUTReplayWindow.h"
 #include "Menus/SUTReplayMenu.h"
 #include "SUTAdminDialog.h"
-#include "SUTDownloadAllDialog.h"
 #include "SUTSpectatorWindow.h"
 #include "UTAnalytics.h"
 #include "Base64.h"
@@ -95,10 +94,6 @@ UUTLocalPlayer::UUTLocalPlayer(const class FObjectInitializer& ObjectInitializer
 	ServerPingBlockSize = 30;
 	bSuppressToastsInGame = false;
 
-	DownloadStatusText = FText::GetEmpty();
-	Download_CurrentFile = TEXT("");
-	Download_Percentage = 0.0;
-
 	QuickMatchLimitTime = -60.0;
 	RosterUpgradeText = FText::GetEmpty();
 	CurrentSessionTrustLevel = 2;
@@ -120,11 +115,8 @@ UUTLocalPlayer::UUTLocalPlayer(const class FObjectInitializer& ObjectInitializer
 	bJoinSessionInProgress = false;
 
 	KillcamPlayback = ObjectInitializer.CreateDefaultSubobject<UUTKillcamPlayback>(this, TEXT("KillcamPlayback"));
-
-	bHasShownDLCWarning = false;
-	bDLCWarningIsVisible = false;
-
 	LoginPhase = ELoginPhase::Offline;
+	bSuppressDownloadDialog = false;
 }
 
 UUTLocalPlayer::~UUTLocalPlayer()
@@ -3597,88 +3589,20 @@ void UUTLocalPlayer::SendFriendRequest(AUTPlayerState* DesiredPlayerState)
 	}
 }
 
-void UUTLocalPlayer::UpdateRedirect(const FString& FileURL, int32 NumBytes, float Progress, int32 NumFilesLeft)
-{
-	FString FName = FPaths::GetBaseFilename(FileURL);
-	DownloadStatusText = FText::Format(NSLOCTEXT("UTLocalPlayer","DownloadStatusFormat","Downloading {0} Files: {1} ({2} / {3}) ...."), FText::AsNumber(NumFilesLeft), FText::FromString(FName), FText::AsNumber(NumBytes), FText::AsPercent(Progress));
-	Download_NumBytes = NumBytes;
-	Download_CurrentFile = FName;
-	Download_Percentage = Progress;
-	Download_NumFilesLeft = NumFilesLeft;
-
-	UE_LOG(UT,Verbose,TEXT("Redirect: %s %i [%f%%]"), *FileURL, NumBytes, Progress);
-}
 
 bool UUTLocalPlayer::ContentExists(const FPackageRedirectReference& Redirect)
 {
-	FString Path = FPaths::Combine(*FPaths::GameSavedDir(), TEXT("Paks"), TEXT("DownloadedPaks"), *Redirect.PackageName) + TEXT(".pak");
-	UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
-	if (UTEngine)
+
+	UUTGameViewportClient* UTGameViewport = Cast<UUTGameViewportClient>(ViewportClient);
+	if (UTGameViewport)
 	{
-		if (UTEngine->LocalContentChecksums.Contains(Redirect.PackageName))
-		{
-			if (UTEngine->LocalContentChecksums[Redirect.PackageName] == Redirect.PackageChecksum)
-			{
-				return true;
-			}
-			else
-			{
-				// Local content has a non-matching md5, not sure if we should try to unmount/delete it
-				return false;
-			}
-		}
-
-		if (UTEngine->MountedDownloadedContentChecksums.Contains(Redirect.PackageName))
-		{
-			if (UTEngine->MountedDownloadedContentChecksums[Redirect.PackageName] == Redirect.PackageChecksum)
-			{
-				// We've already mounted the content needed and the checksum matches
-				return true;
-			}
-			else
-			{
-				// Unmount the pak
-				if (FCoreDelegates::OnUnmountPak.IsBound())
-				{
-					FCoreDelegates::OnUnmountPak.Execute(Path);
-				}
-
-				// Remove the CRC entry
-				UTEngine->MountedDownloadedContentChecksums.Remove(Redirect.PackageName);
-				UTEngine->DownloadedContentChecksums.Remove(Redirect.PackageName);
-
-				// Delete the original file
-				FPlatformFileManager::Get().GetPlatformFile().DeleteFile(*Path);
-			}
-		}
-
-		if (UTEngine->DownloadedContentChecksums.Contains(Redirect.PackageName))
-		{
-			if (UTEngine->DownloadedContentChecksums[Redirect.PackageName] == Redirect.PackageChecksum)
-			{
-				// Mount the pak
-				if (FCoreDelegates::OnMountPak.IsBound())
-				{
-					FCoreDelegates::OnMountPak.Execute(Path, 0, nullptr);
-					UTEngine->MountedDownloadedContentChecksums.Add(Redirect.PackageName, Redirect.PackageChecksum);
-				}
-
-				return true;
-			}
-			else
-			{
-				UTEngine->DownloadedContentChecksums.Remove(Redirect.PackageName);
-
-				// Delete the original file
-				FPlatformFileManager::Get().GetPlatformFile().DeleteFile(*Path);
-			}
-		}
-		return false;
+		return UTGameViewport->CheckIfRedirectExists(Redirect);
 	}
-	return true;
+
+	return false;
 }
 
-void UUTLocalPlayer::AccquireContent(TArray<FPackageRedirectReference>& Redirects)
+void UUTLocalPlayer::AcquireContent(TArray<FPackageRedirectReference>& Redirects)
 {
 	UUTGameViewportClient* UTGameViewport = Cast<UUTGameViewportClient>(ViewportClient);
 	if (UTGameViewport)
@@ -3691,17 +3615,10 @@ void UUTLocalPlayer::AccquireContent(TArray<FPackageRedirectReference>& Redirect
 			}
 		}
 	}
-
-	ShowDLCWarning();
 }
 
-void UUTLocalPlayer::ShowDLCWarning()
+bool UUTLocalPlayer::RequiresDLCWarning()
 {
-
-	if (bDLCWarningIsVisible) return;
-
-	bool bNeedsToShowWarning = !bHasShownDLCWarning;
-
 	// Look at the trust level of the current session
 	IOnlineSubsystem* OnlineSub = IOnlineSubsystem::Get();
 	if (OnlineSub)
@@ -3714,60 +3631,79 @@ void UUTLocalPlayer::ShowDLCWarning()
 			int32 TrustLevel = 2;
 			if (Settings->Get(SETTING_TRUSTLEVEL, TrustLevel))
 			{
+				// Epic servers never need to show the warning
 				if (TrustLevel == 0)
 				{
-					bNeedsToShowWarning = false;
+					return false;
+				}
+			}
+
+			// Look to see if we have already accepted the warning for this server
+			FString ServerInstanceGUID;
+			if ( Settings->Get(SETTING_SERVERINSTANCEGUID, ServerInstanceGUID) )
+			{
+				if (AcceptedDLCServers.Find(ServerInstanceGUID) != INDEX_NONE)
+				{
+					return false;
 				}
 			}
 		}
 	}
 
-	if (bNeedsToShowWarning)
-	{
-		// Look to see if this server is on the list.
-		AUTGameState* UTGameState = GetWorld()->GetGameState<AUTGameState>();
-		if (UTGameState)
-		{
-			if (AcceptedDLCServers.Find(UTGameState->ServerInstanceGUID) != INDEX_NONE)
-			{
-				bNeedsToShowWarning = false;
-			}
-		}
-	}
+	return true;
 
-	if (bNeedsToShowWarning)
-	{
+}
+
+void UUTLocalPlayer::ShowDLCWarning()
+{
 #if !UE_SERVER
-		bDLCWarningIsVisible = true;
+	// If we are already showing the dialog, then just exit
+	if (DLCWarningDialog.IsValid()) return;
+
+
+	if (RequiresDLCWarning())
+	{
 		// Ask player if they want to try to rejoin last ranked game
-		ShowMessage(NSLOCTEXT("UTLocalPlayer","ContentWarningTitle","!! Content Warning !!"),
+		DLCWarningDialog = ShowMessage(NSLOCTEXT("UTLocalPlayer","ContentWarningTitle","!! Content Warning !!"),
 			NSLOCTEXT("UTLocalPlayer","ContentWarningText","This server is attempting to send you third party content that has not been verified by Epic Games.  You should only accept content from servers that you trust.  Continue download?"),
 			UTDIALOG_BUTTON_YES + UTDIALOG_BUTTON_NO,
 			FDialogResultDelegate::CreateUObject(this, &UUTLocalPlayer::ContentAcceptResult));
-#else
-		bHasShownDLCWarning = true;
+	}
 #endif
-	}
-	else
-	{
-		bHasShownDLCWarning = true;
-	}
+}
+
+bool UUTLocalPlayer::IsShowingDLCWarning()
+{
+#if !UE_SERVER
+	return DLCWarningDialog.IsValid();
+#else
+	return false;
+#endif
 }
 
 #if !UE_SERVER
 void UUTLocalPlayer::ContentAcceptResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID)
 {
-	bDLCWarningIsVisible = false;
+	DLCWarningDialog.Reset();
 
 	if (ButtonID == UTDIALOG_BUTTON_YES)
 	{
-		bHasShownDLCWarning = true;
-
-		// Look to see if this server is on the list.
-		AUTGameState* UTGameState = GetWorld()->GetGameState<AUTGameState>();
-		if (UTGameState)
+		// Find the ServerInstanceGUID and add it to the white list
+		IOnlineSubsystem* OnlineSub = IOnlineSubsystem::Get();
+		if (OnlineSub)
 		{
-			AcceptedDLCServers.Add(UTGameState->ServerInstanceGUID);
+			IOnlineSessionPtr SessionInterface = OnlineSub->GetSessionInterface();
+			FOnlineSessionSettings* Settings = SessionInterface->GetSessionSettings(TEXT("Game"));
+
+			if (Settings != nullptr)
+			{
+				// Look to see if we have already accepted the warning for this server
+				FString ServerInstanceGUID;
+				if ( Settings->Get(SETTING_SERVERINSTANCEGUID, ServerInstanceGUID) )
+				{
+					AcceptedDLCServers.Add(ServerInstanceGUID);
+				}
+			}
 		}
 	}
 	else
@@ -3786,8 +3722,63 @@ void UUTLocalPlayer::ContentAcceptResult(TSharedPtr<SCompoundWidget> Widget, uin
 
 FText UUTLocalPlayer::GetDownloadStatusText()
 {
-	return IsDownloadInProgress() ? DownloadStatusText : FText::GetEmpty();
+	UUTGameViewportClient* UTGameViewport = Cast<UUTGameViewportClient>(ViewportClient);
+	if (UTGameViewport && UTGameViewport->IsDownloadInProgress())
+	{
+		return UTGameViewport->DownloadStatusText;
+	}
+
+	return FText::GetEmpty();
 }
+
+FText UUTLocalPlayer::GetDownloadFilename()
+{
+	UUTGameViewportClient* UTGameViewport = Cast<UUTGameViewportClient>(ViewportClient);
+	if (UTGameViewport && UTGameViewport->IsDownloadInProgress())
+	{
+		return FText::FromString(UTGameViewport->Download_CurrentFile);
+	}
+
+	return FText::GetEmpty();
+}
+
+int32 UUTLocalPlayer::GetNumberOfPendingDownloads()
+{
+	UUTGameViewportClient* UTGameViewport = Cast<UUTGameViewportClient>(ViewportClient);
+	if (UTGameViewport && UTGameViewport->IsDownloadInProgress())
+	{
+		return UTGameViewport->Download_NumFilesLeft;
+	}
+
+	return 0;
+}
+
+int32 UUTLocalPlayer::GetDownloadBytes()
+{
+	UUTGameViewportClient* UTGameViewport = Cast<UUTGameViewportClient>(ViewportClient);
+	if (UTGameViewport && UTGameViewport->IsDownloadInProgress())
+	{
+		return UTGameViewport->Download_NumBytes;
+	}
+
+	return 0;
+}
+
+
+float UUTLocalPlayer::GetDownloadProgress()
+{
+	UUTGameViewportClient* UTGameViewport = Cast<UUTGameViewportClient>(ViewportClient);
+	if (UTGameViewport && UTGameViewport->IsDownloadInProgress())
+	{
+		return UTGameViewport->Download_Percentage;
+	}
+
+	return 0.0f;
+}
+
+
+
+
 
 bool UUTLocalPlayer::IsDownloadInProgress()
 {
@@ -3797,10 +3788,15 @@ bool UUTLocalPlayer::IsDownloadInProgress()
 
 void UUTLocalPlayer::CancelDownload()
 {
-	UUTGameViewportClient* UTGameViewport = Cast<UUTGameViewportClient>(ViewportClient);
-	if (UTGameViewport && UTGameViewport->IsDownloadInProgress())
+	if (IsDownloadInProgress())
 	{
-		UTGameViewport->CancelAllRedirectDownloads();		
+		UUTGameViewportClient* UTGameViewport = Cast<UUTGameViewportClient>(ViewportClient);
+		if (UTGameViewport && UTGameViewport->IsDownloadInProgress())
+		{
+			UTGameViewport->CancelAllRedirectDownloads();		
+		}
+
+		HideRedirectDownload();
 	}
 }
 
@@ -4443,19 +4439,19 @@ void UUTLocalPlayer::CloseAllUI(bool bExceptDialogs)
 	LoginDialog.Reset();
 	ContentLoadingMessage.Reset();
 	FriendsMenu.Reset();
-	RedirectDialog.Reset();
+	DownloadAllDialog.Reset();
 	LoadoutMenu.Reset();
 	ReplayWindow.Reset();
 	YoutubeDialog.Reset();
 	YoutubeConsentDialog.Reset();
-	DownloadAllDialog.Reset();
-
+	
 	AdminDialogClosed();
 	CloseMapVote();
 	CloseMatchSummary();
 	CloseSpectatorWindow();
 	CloseQuickChat();
 	HideHUDSettings();
+	HideRedirectDownload();
 
 	while (WindowStack.Num() > 0)
 	{
@@ -4466,12 +4462,6 @@ void UUTLocalPlayer::CloseAllUI(bool bExceptDialogs)
 	{
 		GEngine->GameViewport->RemoveViewportWidgetContent(ToastList[0].ToSharedRef());
 		ToastList.Empty();
-	}
-
-	UUTGameInstance* UTGameInstance = Cast<UUTGameInstance>(ViewportClient->GetGameInstance());
-	if (UTGameInstance != nullptr)
-	{
-		UTGameInstance->CloseAllRedirectDownloadDialogs();
 	}
 
 #endif
@@ -4905,49 +4895,14 @@ void UUTLocalPlayer::AdminDialogClosed()
 #endif
 }
 
-bool UUTLocalPlayer::ShowDownloadDialog(bool bTransitionWhenDone)
-{
-#if !UE_SERVER
-	if (!DownloadAllDialog.IsValid())
-	{
-		SAssignNew(DownloadAllDialog, SUTDownloadAllDialog)			
-			.PlayerOwner(this)
-			.bTransitionWhenDone(bTransitionWhenDone);
 
-		if (DownloadAllDialog.IsValid())
-		{
-			OpenDialog(DownloadAllDialog.ToSharedRef(),210);
-			return true;
-		}
-	}
-#endif
-
-	return false;
-}
-
-void UUTLocalPlayer::DownloadAll()
+void UUTLocalPlayer::RequestServerSendAllRedirects()
 {
 #if !UE_SERVER
 	AUTLobbyPC* PC = Cast<AUTLobbyPC>(PlayerController);
 	if (PC)
 	{
-		PC->ServerSendRedirectCount();
-
-		if ( ShowDownloadDialog(false) )
-		{
-			PC->GetAllRedirects(DownloadAllDialog);
-		}
-
-	}
-#endif
-}
-// I need to revist closing dialogs and make it require less code.
-void UUTLocalPlayer::CloseDownloadAll()
-{
-#if !UE_SERVER
-	if (DownloadAllDialog.IsValid())
-	{
-		DownloadAllDialog.Reset();
+		PC->RequestServerSendAllRedirects();
 	}
 #endif
 }
@@ -5716,10 +5671,6 @@ void UUTLocalPlayer::UpdateLeagueProgress(const FString& LeagueName, const FRank
 	}
 }
 
-void UUTLocalPlayer::ResetDLCWarning()
-{
-	bHasShownDLCWarning = false;
-}
 
 bool UUTLocalPlayer::HasChatText()
 {
@@ -5922,4 +5873,32 @@ bool UUTLocalPlayer::SkipTutorialCheck()
 
 	return false;
 }
+
+void UUTLocalPlayer::ShowRedirectDownload()
+{
+#if !UE_SERVER
+	if (!bSuppressDownloadDialog && !DownloadAllDialog.IsValid())
+	{
+		SAssignNew(DownloadAllDialog, SUTDownloadAllDialog)
+			.PlayerOwner(this);
+
+		if (DownloadAllDialog.IsValid())
+		{
+			OpenDialog(DownloadAllDialog.ToSharedRef(),240);
+		}
+	}
+#endif
+}
+
+void UUTLocalPlayer::HideRedirectDownload()
+{
+#if !UE_SERVER
+	if (DownloadAllDialog.IsValid())
+	{
+		CloseDialog(DownloadAllDialog.ToSharedRef());
+		DownloadAllDialog.Reset();
+	}
+#endif
+}
+
 

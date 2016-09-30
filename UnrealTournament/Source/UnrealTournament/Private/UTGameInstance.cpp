@@ -3,7 +3,6 @@
 #include "UnrealTournament.h"
 #include "UTGameInstance.h"
 #include "UnrealNetwork.h"
-#include "Dialogs/SUTRedirectDialog.h"
 #include "UTDemoNetDriver.h"
 #include "UTGameEngine.h"
 #include "UTGameViewportClient.h"
@@ -190,70 +189,25 @@ void UUTGameInstance::HandleDemoPlaybackFailure( EDemoPlayFailure::Type FailureT
 bool UUTGameInstance::IsAutoDownloadingContent()
 {
 #if !UE_SERVER
-	for (int32 i = ActiveRedirectDialogs.Num() - 1; i >= 0; i--)
-	{
-		if (!ActiveRedirectDialogs[i].IsValid())
-		{
-			ActiveRedirectDialogs.RemoveAt(i);
-		}
-	}
-	return ActiveRedirectDialogs.Num() > 0;
+	UUTGameViewportClient* Viewport = Cast<UUTGameViewportClient>(GetGameViewportClient());
+	return Viewport && Viewport->IsDownloadInProgress();
 #else
 	return false;
 #endif
 }
 
 
-void UUTGameInstance::CloseAllRedirectDownloadDialogs()
-{
-#if !UE_SERVER
-	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(GetFirstGamePlayer());
-	if (LocalPlayer != NULL)
-	{
-		for (int32 i=0; i < ActiveRedirectDialogs.Num(); i++)
-		{
-			TSharedPtr<SUTRedirectDialog> Dialog = ActiveRedirectDialogs[i].Pin();
-			if (Dialog.IsValid())
-			{
-				LocalPlayer->CloseDialog(Dialog.ToSharedRef());
-			}
-		}
-		ActiveRedirectDialogs.Empty();
-	}
-#endif
-}
-
-
-bool UUTGameInstance::StartRedirectDownload(const FString& PakName, const FString& URL, const FString& Checksum)
+bool UUTGameInstance::RedirectDownload(const FString& PakName, const FString& URL, const FString& Checksum)
 {
 #if !UE_SERVER
 	UUTGameViewportClient* Viewport = Cast<UUTGameViewportClient>(GetGameViewportClient());
 	if (Viewport != NULL && !Viewport->CheckIfRedirectExists(FPackageRedirectReference(PakName, TEXT(""), TEXT(""), Checksum)))
 	{
-		UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(GetFirstGamePlayer());
-		if (LocalPlayer != NULL)
-		{
-			TSharedRef<SUTRedirectDialog> Dialog = SNew(SUTRedirectDialog)
-				.OnDialogResult(FDialogResultDelegate::CreateUObject(this, &UUTGameInstance::RedirectResult))
-				.DialogTitle(NSLOCTEXT("UTGameViewportClient", "Redirect", "Download"))
-				.RedirectToURL(URL)
-				.PlayerOwner(LocalPlayer);
-			ActiveRedirectDialogs.Add(Dialog);
-			LocalPlayer->OpenDialog(Dialog,240);
-
-			LocalPlayer->ShowDLCWarning();
-			return true;
-		}
-		else
-		{
-			return false;
-		}
+		Viewport->DownloadRedirect(URL, PakName, Checksum);
+		return true;
 	}
-	else
 #endif
-	{
-		return false;
-	}
+	return false;
 }
 
 void UUTGameInstance::HandleGameNetControlMessage(class UNetConnection* Connection, uint8 MessageByte, const FString& MessageStr)
@@ -268,7 +222,7 @@ void UUTGameInstance::HandleGameNetControlMessage(class UNetConnection* Connecti
 			if (Pieces.Num() == 3)
 			{
 				// 0: pak name, 1: URL, 2: checksum
-				StartRedirectDownload(Pieces[0], Pieces[1], Pieces[2]);
+				RedirectDownload(Pieces[0], Pieces[1], Pieces[2]);
 			}
 			break;
 		}
@@ -278,26 +232,6 @@ void UUTGameInstance::HandleGameNetControlMessage(class UNetConnection* Connecti
 	}
 }
 
-void UUTGameInstance::RedirectResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID)
-{
-#if !UE_SERVER
-	if (Widget.IsValid())
-	{
-		ActiveRedirectDialogs.Remove(StaticCastSharedPtr<SUTRedirectDialog>(Widget));
-	}
-	if (ButtonID == UTDIALOG_BUTTON_CANCEL)
-	{
-		GEngine->Exec(GetWorld(), TEXT("DISCONNECT"));
-		LastTriedDemo.Empty();
-		bRetriedDemoAfterRedirects = false;
-	}
-	else if (ActiveRedirectDialogs.Num() == 0 && !bRetriedDemoAfterRedirects && !LastTriedDemo.IsEmpty())
-	{
-		bRetriedDemoAfterRedirects = true;
-		GEngine->Exec(GetWorld(), *FString::Printf(TEXT("DEMOPLAY %s"), *LastTriedDemo));
-	}
-#endif
-}
 
 void UUTGameInstance::StartRecordingReplay(const FString& Name, const FString& FriendlyName, const TArray<FString>& AdditionalOptions)
 {

@@ -268,7 +268,7 @@ void SUTLobbyMatchSetupPanel::Tick( const FGeometry& AllottedGeometry, const dou
 		{
 			if (MatchInfo->bRedirectsHaveChanged)
 			{
-				PlayerOwner->AccquireContent(MatchInfo->Redirects);
+				PlayerOwner->AcquireContent(MatchInfo->Redirects);
 				MatchInfo->bRedirectsHaveChanged = false;
 			}
 
@@ -890,5 +890,6 @@ FText SUTLobbyMatchSetupPanel::GetMapName() const
 	
 	return FText::FromString(TEXT("???"));
 }
+
 
 #endif

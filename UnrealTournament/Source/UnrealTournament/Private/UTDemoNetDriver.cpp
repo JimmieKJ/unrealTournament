@@ -70,7 +70,7 @@ bool UUTDemoNetDriver::ProcessGameSpecificDemoHeader(const TArray<FString>& Game
 			if (Pieces.Num() == 3)
 			{
 				// 0: pak name, 1: URL, 2: checksum
-				bDownloading = GI->StartRedirectDownload(Pieces[0], Pieces[1], Pieces[2]) || bDownloading;
+				bDownloading = GI->RedirectDownload(Pieces[0], Pieces[1], Pieces[2]) || bDownloading;
 			}
 		}
 		if (bDownloading)

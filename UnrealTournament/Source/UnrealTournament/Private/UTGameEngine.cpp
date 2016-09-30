@@ -565,6 +565,7 @@ bool UUTGameEngine::CheckVersionOfPakFile(const FString& PakFilename) const
 			if (FFileHelper::LoadFileToString(VersionString, *(FPaths::GameDir() / VersionFilename)))
 			{
 				VersionString = VersionString.LeftChop(2);
+				FNetworkVersion::bHasCachedNetworkChecksum = false;
 				FString CompiledVersionString = FString::FromInt(FNetworkVersion::GetLocalNetworkVersion());
 
 				if (VersionString == CompiledVersionString)
