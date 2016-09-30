@@ -47,9 +47,10 @@ namespace UnrealTournamentGame.Automation
 		{
 			// Dev and release branch game builds source app
 			UnrealTournamentBuilds,
+            UnrealTournamentReleaseBuilds,
 
-			// Dev branch app in gamedev
-			UnrealTournamentDevTesting,
+            // Dev branch app in gamedev
+            UnrealTournamentDevTesting,
 			UnrealTournamentDevStage,
 			UnrealTournamentDevPlaytest,
 
@@ -76,8 +77,8 @@ namespace UnrealTournamentGame.Automation
 			// Dev and release branch editor builds source app
 			UnrealTournamentEditorBuilds,
 
-			// Dev branch promotions
-			UnrealTournamentEditorDevTesting,
+            // Dev branch promotions
+            UnrealTournamentEditorDevTesting,
 			UnrealTournamentEditorDevStage,
 			UnrealTournamentEditorDevPlaytest,
 
@@ -297,7 +298,7 @@ namespace UnrealTournamentGame.Automation
 
 					// Go ahead and post to Testing app in Launcher as well
 					UnrealTournamentBuild.UnrealTournamentAppName TestingApp = UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentDevTesting;
-					if (BranchName.Contains("UT-Releases"))
+					if (BranchName.Contains("Release"))
 					{
 						TestingApp = UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentReleaseTesting;
 					}
@@ -345,7 +346,7 @@ namespace UnrealTournamentGame.Automation
 
 					// Go ahead and post to Testing app in Launcher as well
 					UnrealTournamentBuild.UnrealTournamentAppName TestingApp = UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentDevTesting;
-					if (BranchName.Contains("UT-Releases"))
+					if (BranchName.Contains("Release"))
 					{
 						TestingApp = UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentReleaseTesting;
 					}
@@ -391,7 +392,7 @@ namespace UnrealTournamentGame.Automation
 
 					// Go ahead and post to Testing app in Launcher as well
 					UnrealTournamentBuild.UnrealTournamentAppName TestingApp = UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentDevTesting;
-					if (BranchName.Contains("UT-Releases"))
+					if (BranchName.Contains("Release"))
 					{
 						TestingApp = UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentReleaseTesting;
 					}
@@ -1231,7 +1232,7 @@ namespace UnrealTournamentGame.Automation
 
 					// Auto-post new builds to testing app for testing in the launcher
 					UnrealTournamentBuild.UnrealTournamentEditorAppName TestingApp = UnrealTournamentBuild.UnrealTournamentEditorAppName.UnrealTournamentEditorDevTesting;
-					if (BranchName.Contains("UT-Releases"))
+					if (BranchName.Contains("Release"))
 					{
 						TestingApp = UnrealTournamentBuild.UnrealTournamentEditorAppName.UnrealTournamentEditorReleaseTesting;
 					}
@@ -1321,7 +1322,7 @@ namespace UnrealTournamentGame.Automation
 				GameProj = InGameProj;
 				BranchConfig = InBranchConfig;
 
-				if (CommandUtils.P4Enabled && CommandUtils.P4Env.BuildRootP4 == "//depot/UE4-UT-Releases")
+				if (CommandUtils.P4Enabled && CommandUtils.P4Env.BuildRootP4.Contains("Release"))
 				{
 					AddDependency(GUBP.VersionFilesNode.StaticGetFullName());
 				}
@@ -1509,9 +1510,32 @@ namespace UnrealTournamentGame.Automation
 			ReleaseBranchApps.Add(UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentPublicTest);
 			ReleaseBranchApps.Add(UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentDev); // live public app, stuck on confusing legacy name
 
-			// FromApps
-			List<UnrealTournamentBuild.UnrealTournamentAppName> FromApps = new List<UnrealTournamentBuild.UnrealTournamentAppName>();
-			FromApps.Add(UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentBuilds);
+            string BuildVersion = ParseParamValue("BuildVersion");
+            if (String.IsNullOrEmpty(BuildVersion))
+            {
+                throw new AutomationException("BuildVersion is a required parameter");
+            }
+
+            // Strip platform if it's on there, common mistake/confusion to include it in EC because it's included in the admin portal UI
+            foreach (String platform in Enum.GetNames(typeof(MCPPlatform)))
+            {
+                if (BuildVersion.EndsWith("-" + platform))
+                {
+                    BuildVersion = BuildVersion.Substring(0, BuildVersion.Length - ("-" + platform).Length);
+                    Log("Stripped platform off BuildVersion, resulting in {0}", BuildVersion);
+                }
+            }
+
+            // FromApps
+            List<UnrealTournamentBuild.UnrealTournamentAppName> FromApps = new List<UnrealTournamentBuild.UnrealTournamentAppName>();
+            if (BuildVersion.Contains("Release"))
+            {
+                FromApps.Add(UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentReleaseBuilds);
+            }
+            else
+            {
+                FromApps.Add(UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentBuilds);
+            }
 
 			// All other apps are only for promoting "to"
 			// Map which apps are GameDev only
@@ -1532,21 +1556,6 @@ namespace UnrealTournamentGame.Automation
 			string GameDevMcpConfigString = "MainGameDevNet";
 			string StagingMcpConfigString = "StageNet";
 			string ProdMcpConfigString = "ProdNet";
-
-			string BuildVersion = ParseParamValue("BuildVersion");
-			if (String.IsNullOrEmpty(BuildVersion))
-			{
-				throw new AutomationException("BuildVersion is a required parameter");
-			}
-			// Strip platform if it's on there, common mistake/confusion to include it in EC because it's included in the admin portal UI
-			foreach (String platform in Enum.GetNames(typeof(MCPPlatform)))
-			{
-				if (BuildVersion.EndsWith("-" + platform))
-				{
-					BuildVersion = BuildVersion.Substring(0, BuildVersion.Length - ("-" + platform).Length);
-					Log("Stripped platform off BuildVersion, resulting in {0}", BuildVersion);
-				}
-			}
 
 			// Enforce some restrictions on destination apps
 			UnrealTournamentBuild.UnrealTournamentAppName ToGameApp;
