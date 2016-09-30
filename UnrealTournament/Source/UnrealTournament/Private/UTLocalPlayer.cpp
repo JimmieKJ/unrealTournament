@@ -5901,4 +5901,13 @@ void UUTLocalPlayer::HideRedirectDownload()
 #endif
 }
 
-
+bool UUTLocalPlayer::IsInAnActiveParty()
+{
+	UPartyContext* PartyContext = Cast<UPartyContext>(UBlueprintContextLibrary::GetContext(GetWorld(), UPartyContext::StaticClass()));
+	if (PartyContext)
+	{
+		return PartyContext->GetPartySize() > 1;
+	}
+	
+	return false;
+}

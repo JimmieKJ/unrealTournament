@@ -684,7 +684,7 @@ void AUTBaseGameMode::CheckMapStatus(FString MapPackageName, bool& bIsEpicMap, b
 	else
 	{
 		bHasRights = true;
-		if (bIsEpicMap) 
+		if (!bIsEpicMap) 
 		{
 			bIsMeshedMap = false;
 		}

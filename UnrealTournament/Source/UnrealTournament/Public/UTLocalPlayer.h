@@ -1132,4 +1132,10 @@ public:
 	virtual void InitializeSocial();
 
 	bool SkipTutorialCheck();
+
+	// Returns true if this local player is currently in a party
+	bool IsInAnActiveParty();
+
+
 };
+
