@@ -61,7 +61,7 @@ void AUTProj_Grenade_Sticky::ExplodeDueToTimeout()
 
 void AUTProj_Grenade_Sticky::Explode_Implementation(const FVector& HitLocation, const FVector& HitNormal, UPrimitiveComponent* HitComp)
 {
-	if (bArmed)
+	if (bArmed || Role != ROLE_Authority || bTearOff)
 	{
 		Super::Explode_Implementation(HitLocation, HitLocation, HitComp);
 	}
