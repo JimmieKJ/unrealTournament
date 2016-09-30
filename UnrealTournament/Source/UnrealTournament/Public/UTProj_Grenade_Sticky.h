@@ -18,12 +18,22 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Projectile)
 	float LifeTime;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Projectile)
+	float MinimumLifeTime;
+
+	UPROPERTY()
+	bool bArmed;
+
 	FTimerHandle FLifeTimeHandle;
+	FTimerHandle FArmedHandle;
 
 	virtual void BeginPlay() override;
 	virtual void Destroyed() override;
+	virtual	void Explode_Implementation(const FVector& HitLocation, const FVector& HitNormal, UPrimitiveComponent* HitComp) override;
 
 	UFUNCTION()
 	void ExplodeDueToTimeout();
 
+	UFUNCTION()
+	void ArmGrenade();
 };

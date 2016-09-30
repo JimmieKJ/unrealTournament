@@ -9,6 +9,7 @@ AUTProj_Grenade_Sticky::AUTProj_Grenade_Sticky(const class FObjectInitializer& O
 	: Super(ObjectInitializer)
 {
 	LifeTime = 20.0f;
+	MinimumLifeTime = 0.2f;
 }
 
 void AUTProj_Grenade_Sticky::BeginPlay()
@@ -28,7 +29,13 @@ void AUTProj_Grenade_Sticky::BeginPlay()
 		}
 
 		GetWorldTimerManager().SetTimer(FLifeTimeHandle, this, &ThisClass::ExplodeDueToTimeout, LifeTime, false);
+		GetWorldTimerManager().SetTimer(FArmedHandle, this, &ThisClass::ArmGrenade, MinimumLifeTime, false);
 	}
+}
+
+void AUTProj_Grenade_Sticky::ArmGrenade()
+{
+	bArmed = true;
 }
 
 void AUTProj_Grenade_Sticky::Destroyed()
@@ -48,5 +55,14 @@ void AUTProj_Grenade_Sticky::Destroyed()
 
 void AUTProj_Grenade_Sticky::ExplodeDueToTimeout()
 {
+	ArmGrenade();
 	Explode(GetActorLocation(), FVector(0, 0, 0), nullptr);
+}
+
+void AUTProj_Grenade_Sticky::Explode_Implementation(const FVector& HitLocation, const FVector& HitNormal, UPrimitiveComponent* HitComp)
+{
+	if (bArmed)
+	{
+		Super::Explode_Implementation(HitLocation, HitLocation, HitComp);
+	}
 }

@@ -56,6 +56,7 @@ void AUTWeap_GrenadeLauncher::DetonateStickyGrenades()
 	{
 		if (ActiveGrenades[i] != nullptr)
 		{
+			ActiveGrenades[i]->ArmGrenade();
 			ActiveGrenades[i]->Explode(ActiveGrenades[i]->GetActorLocation(), FVector(0, 0, 1), nullptr);
 		}
 	}
