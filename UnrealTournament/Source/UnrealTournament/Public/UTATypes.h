@@ -167,6 +167,7 @@ namespace StatusMessage
 	const FName BehindYou = FName(TEXT("BehindYou"));
 	const FName RedeemerKills = FName(TEXT("RedeemerKills"));
 	const FName RedeemerSpotted = FName(TEXT("RedeemerSpotted"));
+	const FName GetTheFlag = FName(TEXT("GetTheFlag"));
 }
 
 namespace HighlightNames

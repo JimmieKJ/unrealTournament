@@ -405,6 +405,10 @@ public:
 	virtual void UpdateOutline()
 	{}
 
+	FTimerHandle NeedFlagAnnouncementTimer;
+
+	virtual void SendNeedFlagAnnouncement();
+
 protected:
 	// Server Side - Holds a reference to the pawn that is holding this object
 	UPROPERTY(BlueprintReadOnly, Category = GameObject)
@@ -424,6 +428,9 @@ protected:
 	// keep from playing flag dropped messages too often
 	UPROPERTY(BlueprintReadOnly, Category = GameObject)
 		float LastDroppedMessageTime;
+
+	UPROPERTY(BlueprintReadOnly, Category = GameObject)
+		float LastNeedFlagMessageTime;
 
 	UFUNCTION()
 	virtual void OnObjectStateChanged();

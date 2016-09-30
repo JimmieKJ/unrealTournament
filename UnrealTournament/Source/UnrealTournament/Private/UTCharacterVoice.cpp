@@ -75,6 +75,7 @@ UUTCharacterVoice::UUTCharacterVoice(const FObjectInitializer& ObjectInitializer
 	StatusOffsets.Add(StatusMessage::NeedHealth, KEY_CALLOUTS + 5007);
 	StatusOffsets.Add(StatusMessage::BehindYou, KEY_CALLOUTS + 5008);
 	StatusOffsets.Add(StatusMessage::RedeemerSpotted, KEY_CALLOUTS + 5009);
+	StatusOffsets.Add(StatusMessage::GetTheFlag, KEY_CALLOUTS + 5010);
 
 	StatusOffsets.Add(PickupSpeechType::RedeemerPickup, KEY_CALLOUTS + 5100);
 	StatusOffsets.Add(PickupSpeechType::UDamagePickup, KEY_CALLOUTS + 5200);
@@ -473,9 +474,9 @@ FCharacterSpeech UUTCharacterVoice::GetCharacterSpeech(int32 Switch) const
 			{
 				return (BehindYouMessages.Num() == 0) ? EmptySpeech : BehindYouMessages[FMath::RandRange(0, BehindYouMessages.Num() - 1)];
 			}
-			else if (Switch == GetStatusIndex(StatusMessage::BehindYou))
+			else if (Switch == GetStatusIndex(StatusMessage::GetTheFlag))
 			{
-				return (BehindYouMessages.Num() == 0) ? EmptySpeech : BehindYouMessages[FMath::RandRange(0, BehindYouMessages.Num() - 1)];
+				return (GetTheFlagMessages.Num() == 0) ? EmptySpeech : GetTheFlagMessages[FMath::RandRange(0, GetTheFlagMessages.Num() - 1)];
 			}
 			else if (Switch/100 == GetStatusIndex(StatusMessage::RedeemerKills)/100)
 			{

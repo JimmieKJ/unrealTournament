@@ -796,6 +796,10 @@ void AUTCarriedObject::SendHome()
 			{
 				LastDroppedMessageTime = GetWorld()->GetTimeSeconds();
 				SendGameMessage((Team && (Team->TeamIndex == 0)) ? 0 : 1, NULL, NULL);
+				if (GetWorld()->GetTimeSeconds() - LastNeedFlagMessageTime > 15.f)
+				{
+					SendNeedFlagAnnouncement();
+				}
 			}
 			OnObjectStateChanged();
 			ForceNetUpdate();
@@ -812,6 +816,39 @@ void AUTCarriedObject::SendHome()
 	HomeBase->ObjectReturnedHome(LastHoldingPawn);
 	MoveToHome();
 }
+
+void AUTCarriedObject::SendNeedFlagAnnouncement()
+{
+	if (ObjectState == CarriedObjectState::Held)
+	{
+		GetWorldTimerManager().ClearTimer(NeedFlagAnnouncementTimer);
+		return;
+	}
+	else if (ObjectState == CarriedObjectState::Home)
+	{
+		GetWorldTimerManager().SetTimer(NeedFlagAnnouncementTimer, this, &AUTCarriedObject::SendNeedFlagAnnouncement, 10.f, false);
+	}
+	AUTGameState* UTGameState = GetWorld()->GetGameState<AUTGameState>();
+	if (UTGameState && UTGameState->bPlayStatusAnnouncements)
+	{
+		AUTPlayerState* Speaker = nullptr;
+		for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
+		{
+			AUTPlayerState* TeamPS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
+			if (TeamPS && (TeamPS->Team == Team) && !TeamPS->bIsInactive)
+			{
+				Speaker = TeamPS;
+				break;
+			}
+		}
+		if (Speaker != nullptr)
+		{
+			Speaker->AnnounceStatus(StatusMessage::GetTheFlag);
+			LastNeedFlagMessageTime = GetWorld()->GetTimeSeconds();
+		}
+	}
+}
+
 
 FVector AUTCarriedObject::GetHomeLocation() const
 {

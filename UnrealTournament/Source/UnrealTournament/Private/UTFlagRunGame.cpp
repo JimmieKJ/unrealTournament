@@ -258,6 +258,7 @@ void AUTFlagRunGame::InitFlagForRound(AUTCarriedObject* Flag)
 			Flag->bTeamPickupSendsHome = false;
 			Flag->bEnemyPickupSendsHome = false;
 			Flag->bWaitingForFirstPickup = true;
+			GetWorldTimerManager().SetTimer(Flag->NeedFlagAnnouncementTimer, Flag, &AUTCarriedObject::SendNeedFlagAnnouncement, 5.f, false);
 		}
 		else
 		{
@@ -834,12 +835,12 @@ void AUTFlagRunGame::WarnEnemyRally()
 	if (GS->bAttackersCanRally)
 	{
 		LastEnemyRallyWarning = GetWorld()->GetTimeSeconds();
-		for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
+		for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
 		{
-			AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
-			if (PC && PC->UTPlayerState && PC->UTPlayerState->Team && ((PC->UTPlayerState->Team->TeamIndex == 0) != GS->bRedToCap))
+			AUTPlayerState* UTPS = Cast<AUTPlayerState>((*Iterator)->PlayerState);
+			if (UTPS && UTPS->Team && ((UTPS->Team->TeamIndex == 0) != GS->bRedToCap))
 			{
-				PC->UTPlayerState->AnnounceStatus(StatusMessage::EnemyRally);
+				UTPS->AnnounceStatus(StatusMessage::EnemyRally);
 				break;
 			}
 		}
