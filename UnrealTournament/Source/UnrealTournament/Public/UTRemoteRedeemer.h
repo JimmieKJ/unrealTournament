@@ -216,4 +216,9 @@ public:
 	virtual bool IsRelevancyOwnerFor(const AActor* ReplicatedActor, const AActor* ActorOwner, const AActor* ConnectionActor) const override;
 
 	virtual float TakeDamage(float Damage, const FDamageEvent& DamageEvent, AController* EventInstigator, AActor* DamageCauser) override;
+	
+	virtual void PawnClientRestart() override;
+
+	UFUNCTION(BlueprintImplementableEvent, Category=Pawn)
+	void RedeemerRestarted(AController* NewController);
 };

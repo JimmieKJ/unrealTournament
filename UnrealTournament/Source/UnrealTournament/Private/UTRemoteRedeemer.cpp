@@ -855,3 +855,10 @@ void AUTRemoteRedeemer::PostRender(AUTHUD* HUD, UCanvas* C)
 
 	LockCount = NewLockCount;
 }
+
+void AUTRemoteRedeemer::PawnClientRestart()
+{
+	Super::PawnClientRestart();
+
+	RedeemerRestarted(Controller);
+}
