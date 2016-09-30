@@ -195,6 +195,8 @@
 			<Tag Files="$(RootDir)/Engine/Binaries/DotNET/AutomationScripts/*" Except="BuildGraph.Automation.xml;*.pdb" With="#TrimmedTargets"/>
 			<Tag Files="$(RootDir)/Engine/Binaries/DotNET/AutomationScripts/NoRedist/UnrealTournament.Automation.dll" With="#TrimmedTargets"/>
 
+			<Tag Files="$(RootDir)/Engine/Binaries/Win64/AgentInterface.dll" With="#TrimmedTargets"/>
+			
 			<Tag Files="$(RootDir)/Engine/Build/BatchFiles/*" With="#TrimmedTargets"/>
 			<Tag Files="$(RootDir)/Engine/Build/BatchFiles/BuilderScripts/..." With="#TrimmedTargets"/>
 			<Tag Files="$(RootDir)/Engine/Build/Target.cs.template" With="#TrimmedTargets"/>
