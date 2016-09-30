@@ -480,7 +480,7 @@ void UUTGameInstance::SafeSessionDelete(FName SessionName, FOnDestroySessionComp
 		else
 		{
 			UE_LOG(LogOnlineGame, Verbose, TEXT("SafeSessionDelete called on session %s in state %s, skipping."), *SessionName.ToString(), EOnlineSessionState::ToString(SessionState));
-			DestroySessionComplete.ExecuteIfBound(SessionName, false);
+			DestroySessionComplete.ExecuteIfBound(SessionName, true);
 		}
 
 		return;
