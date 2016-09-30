@@ -60,6 +60,7 @@
 	<Property Name="Platforms" Value="Win32" If="'$(PromoteMac)' == false And '$(PromoteWindows)' == false And '$(PromoteWin32)' == true"/>
 	<Property Name="Platforms" Value="Windows,Mac" If="'$(PromoteMac)' == true And '$(PromoteWindows)' == true And '$(PromoteWin32)' == false"/>
 	<Property Name="Platforms" Value="Win32,Mac" If="'$(PromoteMac)' == true And '$(PromoteWindows)' == false And '$(PromoteWin32)' == true"/>
+	<Property Name="Platforms" Value="Windows,Win32" If="'$(PromoteMac)' == false And '$(PromoteWindows)' == true And '$(PromoteWin32)' == true"/>
 	<Property Name="Platforms" Value="Windows,Win32,Mac" If="'$(PromoteMac)' == true And '$(PromoteWindows)' == true And '$(PromoteWin32)' == true"/>
 	<Option Name="Product_GameClient" DefaultValue="true" Description="Whether to promote the game client"/>
 	<Option Name="Product_Editor" DefaultValue="true" Description="Whether to promote the editor"/>
