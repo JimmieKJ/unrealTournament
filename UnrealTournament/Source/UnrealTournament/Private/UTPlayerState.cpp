@@ -519,7 +519,7 @@ void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bE
 			AnnounceWeaponSpree(UTDamage);
 		}
 		bool bVictimIsLocalPlayer = (Cast<AUTPlayerController>(VictimPS->GetOwner()) != NULL);
-		bShouldTauntKill = bShouldTauntKill || (GM && (GetWorld()->GetTimeSeconds() - GM->LastGlobalTauntTime > 15.f)) || bVictimIsLocalPlayer;
+		bShouldTauntKill = bShouldTauntKill || (GM && (GetWorld()->GetTimeSeconds() - GM->LastGlobalTauntTime > 30.f));
 		bVictimIsLocalPlayer = bVictimIsLocalPlayer && (GetWorld()->GetNetMode() == NM_Standalone);
 		if (bShouldTauntKill && Controller)
 		{
