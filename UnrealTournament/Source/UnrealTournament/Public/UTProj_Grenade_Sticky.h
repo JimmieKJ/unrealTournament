@@ -34,6 +34,6 @@ public:
 	UFUNCTION()
 	void ExplodeDueToTimeout();
 
-	UFUNCTION()
+	UFUNCTION(BlueprintCallable, Category = Projectile)
 	void ArmGrenade();
 };
