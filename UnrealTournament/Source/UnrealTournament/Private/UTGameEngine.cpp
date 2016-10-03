@@ -902,11 +902,16 @@ void UUTGameEngine::PromptForEULAAcceptance()
 		// PasswordStr will be empty if we were not run from the launcher
 		if (PasswordStr.IsEmpty())
 		{
+#if !UE_SERVER
 			if (FPlatformMisc::MessageBoxExt(EAppMsgType::YesNo, *ReadEULAText.ToString(), *ReadEULACaption.ToString()) != EAppReturnType::Yes)
 			{
 				FPlatformMisc::RequestExit(false);
 				return;
 			}
+#else
+			UE_LOG(LogExit, Warning, TEXT("Please accept the EULA before running the dedicated server!"));
+			FPlatformMisc::RequestExit(false);
+#endif
 		}
 
 		bFirstRun = false;
