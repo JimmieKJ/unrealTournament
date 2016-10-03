@@ -179,7 +179,7 @@ class UNREALTOURNAMENT_API UUTWeaponStateFiringChargedRocket : public UUTWeaponS
 	virtual void PutDown()
 	{
 		// don't process putdown while in the middle of burst fire
-		if (!GetOuterAUTWeapon()->GetWorldTimerManager().IsTimerActive(FireLoadedRocketHandle))
+		if (!bCharging && !GetOuterAUTWeapon()->GetWorldTimerManager().IsTimerActive(FireLoadedRocketHandle) && !GetOuterAUTWeapon()->GetWorldTimerManager().IsTimerActive(GraceTimerHandle))
 		{
 			Super::PutDown();
 		}

@@ -112,9 +112,9 @@ void AUTWeap_RocketLauncher::EndLoadRocket()
 	NumLoadedBarrels++;
 	if (Ammo > 0)
 	{
-		ConsumeAmmo(CurrentFireMode);
 		NumLoadedRockets++;
 		SetRocketFlashExtra(CurrentFireMode, NumLoadedRockets + 1, CurrentRocketFireMode, bDrawRocketModeString);
+		ConsumeAmmo(CurrentFireMode);
 	}
 	else
 	{
