@@ -2179,7 +2179,7 @@ void UParticleSystem::PostLoad()
 			// Empty emitter slots are ok with cooked content.
 			if( !FPlatformProperties::RequiresCookedData() )
 			{
-				UE_LOG(LogParticles, Warning, TEXT("ParticleSystem contains empty emitter slots - %s"), *GetFullName());
+				//UE_LOG(LogParticles, Warning, TEXT("ParticleSystem contains empty emitter slots - %s"), *GetFullName());
 			}
 			continue;
 		}
