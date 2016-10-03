@@ -4070,10 +4070,12 @@ void AUTCharacter::UpdateCharOverlays()
 		UMaterialInstanceDynamic* MID = UMaterialInstanceDynamic::Create(FirstOverlay.Material, OverlayMesh);
 		// apply team color, if applicable
 		AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
+		static FName NAME_TeamColor(TEXT("TeamColor"));
+		MID->SetVectorParameterValue(NAME_TeamColor, FVector(1.f, 1.f, 0.f));
 		if (PS != NULL && PS->Team != NULL)
 		{
-			static FName NAME_TeamColor(TEXT("TeamColor"));
-			MID->SetVectorParameterValue(NAME_TeamColor, PS->Team->TeamColor);
+			static FName NAME_Color(TEXT("Color"));
+			MID->SetVectorParameterValue(NAME_Color, PS->Team->TeamColor);
 		}
 		for (int32 i = 0; i < OverlayMesh->GetNumMaterials(); i++)
 		{
@@ -5096,11 +5098,14 @@ void AUTCharacter::UpdateArmorOverlay()
 		if (MID)
 		{
 			static const FName NAME_Fresnel = FName(TEXT("Fresnel"));
-			float FresnelValue = (ArmorAmount > 100) ? 40.f : 2.f;
+			float FresnelValue = (ArmorAmount > 100) ? 15.f : 1.f;
 			MID->SetScalarParameterValue(NAME_Fresnel, FresnelValue);
 			static const FName NAME_PushDistance = FName(TEXT("PushDistance"));
-			float PushValue = (ArmorAmount > 100) ? 2.f : 0.2f;
+			float PushValue = (ArmorAmount > 100) ? 4.f : 0.2f;
 			MID->SetScalarParameterValue(NAME_PushDistance, PushValue);
+			static const FName NAME_Opacity = FName(TEXT("Opacity"));
+			float OpacityValue = -0.3f;
+			MID->SetScalarParameterValue(NAME_Opacity, PushValue);
 		}
 	}
 	else if (ArmorType)
@@ -5109,22 +5114,17 @@ void AUTCharacter::UpdateArmorOverlay()
 	}
 }
 
-void AUTCharacter::OVPAR(FName Param)
-{
-	TestParam = Param;
-}
-
-void AUTCharacter::OV(float value)
+void AUTCharacter::OV(FName InName, float value)
 {
 	UMaterialInstanceDynamic* MID = Cast<UMaterialInstanceDynamic>(OverlayMesh->GetMaterial(0));
-	MID->SetScalarParameterValue(TestParam, value);
+	MID->SetScalarParameterValue(InName, value);
 }
 
-void AUTCharacter::OVV(FVector value)
+void AUTCharacter::OVV(FName InName, FVector value)
 {
-	UE_LOG(UT, Warning, TEXT("%s %f %f %f"), *TestParam.ToString(), value.X, value.Y, value.Z);
+	UE_LOG(UT, Warning, TEXT("%s %f %f %f"), *InName.ToString(), value.X, value.Y, value.Z);
 	UMaterialInstanceDynamic* MID = Cast<UMaterialInstanceDynamic>(OverlayMesh->GetMaterial(0));
-	MID->SetVectorParameterValue(TestParam, value);
+	MID->SetVectorParameterValue(InName, value);
 }
 
 

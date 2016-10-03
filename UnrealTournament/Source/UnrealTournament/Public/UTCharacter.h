@@ -928,15 +928,10 @@ public:
 
 	virtual void NotifyBlockedHeadShot(AUTCharacter* ShotInstigator);
 
-	UPROPERTY()
-		FName TestParam;
-
-		UFUNCTION(exec)
-		void OVPAR(FName Param);
 	UFUNCTION(exec)
-		void OV(float value);
+		void OV(FName InName, float value);
 	UFUNCTION(exec)
-		void OVV(FVector value);
+		void OVV(FName InName, FVector value);
 
 	UFUNCTION(BlueprintCallable, Category = Pawn)
 	void SetHeadScale(float NewHeadScale);
@@ -2018,10 +2013,11 @@ protected:
 	uint16 CharOverlayFlags;
 	UPROPERTY(Replicated, ReplicatedUsing = UpdateWeaponOverlays)
 	uint16 WeaponOverlayFlags;
+public:
 	/** mesh with current active overlay material on it (created dynamically when needed) */
 	UPROPERTY(BlueprintReadOnly, Category = Effects)
 	USkeletalMeshComponent* OverlayMesh;
-
+protected:
 	/** replicated character material override */
 	UPROPERTY(Replicated, ReplicatedUsing = UpdateSkin)
 	UMaterialInterface* ReplicatedBodyMaterial;
