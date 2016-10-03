@@ -102,6 +102,7 @@ SVerticalBox::FSlot& SUTSystemSettingsDialog::AddConsoleVarSliderWidget(TSharedR
 				.Content()
 				[
 					SNew(SSlider)
+					.IndentHandle(false)
 					.Style(SUWindowsStyle::Get(), "UT.Common.Slider")
 					.Value(CVar, &SSlateConsoleVarDelegate::GetForSlider)
 					.OnValueChanged(CVar, &SSlateConsoleVarDelegate::SetFromSlider)
@@ -261,6 +262,7 @@ SVerticalBox::FSlot& SUTSystemSettingsDialog::AddGeneralSliderWidget(const FStri
 			.Content()
 			[
 				SAssignNew(SliderWidget, SSlider)
+				.IndentHandle(false)
 				.Style(SUWindowsStyle::Get(),"UT.Common.Slider")
 				.Orientation(Orient_Horizontal)
 				.Value(SettingValue)
@@ -297,6 +299,7 @@ SVerticalBox::FSlot& SUTSystemSettingsDialog::AddGeneralSliderWithLabelWidget(TS
 			.Content()
 			[
 				SAssignNew(SliderWidget, SSlider)
+				.IndentHandle(false)
 				.Style(SUWindowsStyle::Get(),"UT.Common.Slider")
 				.OnValueChanged(this, SelectionFunc)
 				.Orientation(Orient_Horizontal)

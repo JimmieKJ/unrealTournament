@@ -126,6 +126,7 @@ void SUTReplayWindow::Construct(const FArguments& InArgs)
 						.Padding(0.0f, 0.0f, 0.0f, 10.0f)
 						[
 							SAssignNew(TimeSlider, SUTProgressSlider)
+							.IndentHandle(false)
 							.Value(this, &SUTReplayWindow::GetTimeSlider)
 							.TotalValue(this, &SUTReplayWindow::GetTimeSliderLength)
 							.OnValueChanged(this, &SUTReplayWindow::OnSetTimeSlider)

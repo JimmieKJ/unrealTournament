@@ -253,6 +253,7 @@ SVerticalBox::FSlot& SUTHUDSettingsDialog::AddFloatOption(FName OptionTag, FText
 
 	TSharedPtr<SSlider> Slider;
 	SAssignNew(Slider, SSlider)
+		.IndentHandle(false)
 		.Style(SUTStyle::Get(), "UT.Slider")
 		.Value(Info.Get(), &SHUDSettingInfo::GetSliderValue_float)
 		.OnValueChanged(Info.Get(), &SHUDSettingInfo::FloatValueChanged);
@@ -314,6 +315,7 @@ SVerticalBox::FSlot& SUTHUDSettingsDialog::AddIntOption(FName OptionTag, FText C
 
 	TSharedPtr<SSlider> Slider;
 	SAssignNew(Slider, SSlider)
+		.IndentHandle(false)
 		.Style(SUTStyle::Get(), "UT.Slider")
 		.Value(Info.Get(), &SHUDSettingInfo::GetSliderValue_int32)
 		.OnValueChanged(Info.Get(), &SHUDSettingInfo::Int32ValueChanged);
