@@ -81,6 +81,7 @@ FReply SUTMainMenu::OnFragCenterClick()
 void SUTMainMenu::DeactivatePanel(TSharedPtr<class SUTPanelBase> PanelToDeactivate)
 {
 	if (FragCenterPanel.IsValid()) FragCenterPanel.Reset();
+	if (WebPanel.IsValid()) WebPanel.Reset();
 
 	SUTMenuBase::DeactivatePanel(PanelToDeactivate);
 }
@@ -567,17 +568,19 @@ void SUTMainMenu::ShowCommunity()
 {
 	if ( !WebPanel.IsValid() )
 	{
-		// Create the Web panel
-		SAssignNew(WebPanel, SUTWebBrowserPanel, PlayerOwner);
-	}
+		TSharedPtr<SUTWebBrowserPanel> NewWebPanel;
 
-	if (WebPanel.IsValid())
-	{
-		if (ActivePanel.IsValid() && ActivePanel != WebPanel)
+		// Create the Web panel
+		SAssignNew(NewWebPanel, SUTWebBrowserPanel, PlayerOwner);
+		if (NewWebPanel.IsValid())
 		{
-			ActivatePanel(WebPanel);
+			if (ActivePanel.IsValid() && ActivePanel != NewWebPanel)
+			{
+				ActivatePanel(NewWebPanel);
+			}
+			NewWebPanel->Browse(CommunityVideoURL);
+			WebPanel = NewWebPanel;
 		}
-		WebPanel->Browse(CommunityVideoURL);
 	}
 }
 
