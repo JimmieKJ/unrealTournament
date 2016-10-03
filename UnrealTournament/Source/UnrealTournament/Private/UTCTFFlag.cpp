@@ -58,7 +58,7 @@ void AUTCTFFlag::PostInitializeComponents()
 	}
 	if (GetNetMode() != NM_DedicatedServer)
 	{
-		MeshMID = Mesh->CreateAndSetMaterialInstanceDynamic(1);
+		MeshMID = Mesh->CreateAndSetMaterialInstanceDynamic(0);
 	}
 }
 
@@ -279,7 +279,7 @@ void AUTCTFFlag::PlayReturnedEffects()
 				GetMesh()->bDisableClothSimulation = false;
 			}
 			ReturningMesh->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
-			ReturningMeshMID = ReturningMesh->CreateAndSetMaterialInstanceDynamicFromMaterial(1, GetClass()->GetDefaultObject<AUTCTFFlag>()->Mesh->GetMaterial(1));
+			ReturningMeshMID = ReturningMesh->CreateAndSetMaterialInstanceDynamicFromMaterial(0, GetClass()->GetDefaultObject<AUTCTFFlag>()->Mesh->GetMaterial(0));
 			ReturningMeshMID->SetScalarParameterValue(NAME_Wipe, ReturnParamCurve->GetFloatValue(0.0f));
 			ReturningMesh->RegisterComponent();
 		}
