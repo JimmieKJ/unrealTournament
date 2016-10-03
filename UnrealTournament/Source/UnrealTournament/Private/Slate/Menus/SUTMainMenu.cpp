@@ -823,6 +823,11 @@ void SUTMainMenu::OnOwnerLoginStatusChanged(UUTLocalPlayer* LocalPlayerOwner, EL
 				);
 		}
 	}
+	else
+	{
+		TutorialPanel.Reset();
+		OpenTutorialMenu();
+	}
 
 	SUTMenuBase::OnOwnerLoginStatusChanged(LocalPlayerOwner, NewStatus, UniqueID);
 }

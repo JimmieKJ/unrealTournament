@@ -1233,6 +1233,8 @@ void UUTLocalPlayer::OnLogoutComplete(int32 LocalUserNum, bool bWasSuccessful)
 		}
 	}
 #endif
+	// Reset the progression
+	CurrentProgression = NewObject<UUTProgressionStorage>(GetTransientPackage(),UUTProgressionStorage::StaticClass());
 
 	// If we have pending login creds then try to log right back in.
 	if (bPendingLoginCreds)
