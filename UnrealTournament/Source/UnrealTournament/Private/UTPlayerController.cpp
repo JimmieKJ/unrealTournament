@@ -1135,14 +1135,17 @@ void AUTPlayerController::CheckAutoWeaponSwitch(AUTWeapon* TestWeapon)
 		{
 			// if holding default weapon in player start volumes, force weapon switch 
 			AUTGameVolume* GV = UTCharacter->UTCharacterMovement ? Cast<AUTGameVolume>(UTCharacter->UTCharacterMovement->GetPhysicsVolume()) : nullptr;
-			if (GV && GV->bIsTeamSafeVolume || (GetWorld()->GetTimeSeconds() - LeftSpawnVolumeTime < 0.3f))
+			if (GV)
 			{
-				for (int32 i = 0; i < UTCharacter->DefaultCharacterInventory.Num(); i++)
+				if (GV->bIsTeamSafeVolume || (GetWorld()->GetTimeSeconds() - LeftSpawnVolumeTime < 0.3f))
 				{
-					if (CurWeapon->GetClass() == UTCharacter->DefaultCharacterInventory[i])
+					for (int32 i = 0; i < UTCharacter->DefaultCharacterInventory.Num(); i++)
 					{
-						bAutoWeaponSwitch = true;
-						break;
+						if (CurWeapon->GetClass() == UTCharacter->DefaultCharacterInventory[i])
+						{
+							bAutoWeaponSwitch = true;
+							break;
+						}
 					}
 				}
 			}
