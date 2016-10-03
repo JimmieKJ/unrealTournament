@@ -115,7 +115,7 @@ UUTLocalPlayer::UUTLocalPlayer(const class FObjectInitializer& ObjectInitializer
 	bJoinSessionInProgress = false;
 
 	KillcamPlayback = ObjectInitializer.CreateDefaultSubobject<UUTKillcamPlayback>(this, TEXT("KillcamPlayback"));
-	LoginPhase = ELoginPhase::Offline;
+	LoginPhase = ELoginPhase::FirstRun;
 	bSuppressDownloadDialog = false;
 }
 
