@@ -50,7 +50,7 @@ void AUTMenuGameMode::PostInitializeComponents()
 			MenuMusic = LoadObject<USoundBase>(NULL, *MenuMusicPath, NULL, LOAD_NoWarn | LOAD_Quiet);
 			if (MenuMusic)
 			{
-				UGameplayStatics::PlaySoundAtLocation( this, MenuMusic, FVector(0,0,0), 1.0, 1.0 );
+				UGameplayStatics::SpawnSoundAtLocation( this, MenuMusic, FVector(0,0,0), FRotator(), 1.0, 1.0 );
 			}
 			
 		}
