@@ -475,7 +475,9 @@ FReply SUTLoginDialog::OnCloseClick()
 {
 	PlayerOwner->ClearPendingLoginUserName();
 	PlayerOwner->bPlayingOffline = true;
+	PlayerOwner->LoginPhase = ELoginPhase::Offline;
 	PlayerOwner->CloseAuth();
+	
 	return FReply::Handled();
 }
 
@@ -520,12 +522,12 @@ FReply SUTLoginDialog::OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& I
 
 EVisibility SUTLoginDialog::GetInfoVis() const
 {
-	return (PlayerOwner.IsValid() && PlayerOwner->LoginPhase == ELoginPhase::Offline) ? EVisibility::Visible : EVisibility::Collapsed;
+	return (PlayerOwner.IsValid() && (PlayerOwner->LoginPhase == ELoginPhase::Offline || PlayerOwner->LoginPhase == ELoginPhase::NotLoggedIn) ) ? EVisibility::Visible : EVisibility::Collapsed;
 }
 
 EVisibility SUTLoginDialog::GetLoadingVis() const
 {
-	return (PlayerOwner.IsValid() && PlayerOwner->LoginPhase == ELoginPhase::Offline) ? EVisibility::Collapsed : EVisibility::Visible;
+	return (PlayerOwner.IsValid() && (PlayerOwner->LoginPhase == ELoginPhase::Offline || PlayerOwner->LoginPhase == ELoginPhase::NotLoggedIn) ) ? EVisibility::Collapsed : EVisibility::Visible;
 }
 
 
@@ -556,7 +558,7 @@ void SUTLoginDialog::EndLogin(bool bClose)
 {
 	if (bClose)
 	{
-		float LogoutTime = PlayerOwner->GetWorld()->GetRealTimeSeconds();
+		//float LogoutTime = PlayerOwner->GetWorld()->GetRealTimeSeconds();
 		if (LogoutTime - LoginStartTime < MIN_LOGIN_VIEW_TIME)
 		{
 			bRequestingClose = true;

@@ -1869,7 +1869,7 @@ namespace ELoginPhase
 {
 	enum Type
 	{
-		FirstRun,
+		NotLoggedIn,
 		Offline,
 		Auth,
 		GettingProfile,

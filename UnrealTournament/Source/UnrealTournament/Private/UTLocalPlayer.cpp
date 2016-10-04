@@ -115,7 +115,7 @@ UUTLocalPlayer::UUTLocalPlayer(const class FObjectInitializer& ObjectInitializer
 	bJoinSessionInProgress = false;
 
 	KillcamPlayback = ObjectInitializer.CreateDefaultSubobject<UUTKillcamPlayback>(this, TEXT("KillcamPlayback"));
-	LoginPhase = ELoginPhase::FirstRun;
+	LoginPhase = ELoginPhase::NotLoggedIn;
 	bSuppressDownloadDialog = false;
 }
 
@@ -802,9 +802,9 @@ void UUTLocalPlayer::HideHUDSettings()
 #endif
 }
 
-bool UUTLocalPlayer::IsLoggedIn() const
+bool UUTLocalPlayer::IsLoggedIn(bool bIncludeProfile) const
 { 
-	return OnlineIdentityInterface.IsValid() && OnlineIdentityInterface->GetLoginStatus(GetControllerId());
+	return OnlineIdentityInterface.IsValid() && OnlineIdentityInterface->GetLoginStatus(GetControllerId() && (!bIncludeProfile || LoginPhase == ELoginPhase::LoggedIn));
 }
 
 
@@ -981,8 +981,6 @@ void UUTLocalPlayer::OnLoginComplete(int32 LocalUserNum, bool bWasSuccessful, co
 	}
 	else
 	{
-		LoginPhase = ELoginPhase::Offline;
-
 		// We have enough credentials to auto-login.  So try it, but silently fail if we cant.
 		if (bInitialSignInAttempt)
 		{
@@ -992,13 +990,16 @@ void UUTLocalPlayer::OnLoginComplete(int32 LocalUserNum, bool bWasSuccessful, co
 				LoginOnline(LastEpicIDLogin, LastEpicRememberMeToken, true, true);
 			}
 		}
-
 		// Otherwise if this is the first attempt, then silently fair
-		else if (!bSilentLoginFail)
+		else 
 		{
-			// Broadcast the failure to the UI.
-			PlayerOnlineStatusChanged.Broadcast(this, ELoginStatus::NotLoggedIn, UniqueID);
-			GetAuth(ErrorMessage);
+			if (!bSilentLoginFail)
+			{
+				// Broadcast the failure to the UI.
+				PlayerOnlineStatusChanged.Broadcast(this, ELoginStatus::NotLoggedIn, UniqueID);
+				GetAuth(ErrorMessage);
+			}
+			LoginPhase = ELoginPhase::NotLoggedIn;
 		}
 	}
 }
@@ -1050,7 +1051,6 @@ void UUTLocalPlayer::GetAuth(FString ErrorMessage)
 		LoginDialog->SetErrorText(FText::FromString(ErrorMessage));
 		return;
 	}
-
 	ShowAuth();
 #endif
 }

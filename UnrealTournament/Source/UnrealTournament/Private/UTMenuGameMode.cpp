@@ -70,13 +70,13 @@ void AUTMenuGameMode::GenericPlayerInitialization(AController* C)
 		UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(PC->Player);
 		if (LP != NULL)
 		{
-			if (LP->LoginPhase != ELoginPhase::FirstRun && (LP->IsLoggedIn() || LP->bPlayingOffline))
+			if (LP->IsLoggedIn(true) || LP->LoginPhase == ELoginPhase::Offline)
 			{
 				ShowMenu(PC);
 			}
 			else 
 			{
-				LP->ShowAuth();
+				LP->GetAuth();
 			}
 		}
 	}
