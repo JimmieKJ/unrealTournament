@@ -54,7 +54,7 @@ namespace EGenericAnalyticParam
 		RedTeamBonusTime,
 		BlueTeamBonusTime,
 
-		EnterMatch,
+		UTEnterMatch,
 		EnterMethod,
 
 		NUM_GENERIC_PARAMS

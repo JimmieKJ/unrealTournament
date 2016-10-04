@@ -165,7 +165,7 @@ void FUTAnalytics::InitializeAnalyticParameterNames()
 	AddGenericParamName(RedTeamBonusTime);
 	AddGenericParamName(BlueTeamBonusTime);
 
-	AddGenericParamName(EnterMatch);
+	AddGenericParamName(UTEnterMatch);
 	AddGenericParamName(EnterMethod);
 }
 
@@ -782,6 +782,6 @@ void FUTAnalytics::FireEvent_EnterMatch(AUTPlayerController* UTPC, FString Enter
 
 		ParamArray.Add(FAnalyticsEventAttribute(GetGenericParamName(EGenericAnalyticParam::EnterMethod), EnterMethod));
 
-		AnalyticsProvider->RecordEvent(GetGenericParamName(EGenericAnalyticParam::EnterMatch), ParamArray);
+		AnalyticsProvider->RecordEvent(GetGenericParamName(EGenericAnalyticParam::UTEnterMatch), ParamArray);
 	}
 }
