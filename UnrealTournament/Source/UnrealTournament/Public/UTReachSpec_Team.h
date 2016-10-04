@@ -25,8 +25,15 @@ public:
 
 	virtual int32 CostFor(int32 DefaultCost, const FUTPathLink& OwnerLink, APawn* Asker, const FNavAgentProperties& AgentProps, AController* RequestOwner, NavNodeRef StartPoly, const class AUTRecastNavMesh* NavMesh) override
 	{
-		IUTTeamInterface* TeamOwner = Cast<IUTTeamInterface>(Asker);
-		uint8 TeamNum = (TeamOwner != nullptr) ? TeamOwner->GetTeamNum() : 255;
-		return Arbiter.IsValid() && Arbiter->IsAllowedThrough(TeamNum) ? DefaultCost : BLOCKED_PATH_COST;
+		if (!Arbiter.IsValid())
+		{
+			return DefaultCost;
+		}
+		else
+		{
+			IUTTeamInterface* TeamOwner = Cast<IUTTeamInterface>(Asker);
+			uint8 TeamNum = (TeamOwner != nullptr) ? TeamOwner->GetTeamNum() : 255;
+			return Arbiter->IsAllowedThrough(TeamNum) ? DefaultCost : BLOCKED_PATH_COST;
+		}
 	}
 };
