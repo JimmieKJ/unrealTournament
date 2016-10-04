@@ -558,7 +558,7 @@ void SUTLoginDialog::EndLogin(bool bClose)
 {
 	if (bClose)
 	{
-		//float LogoutTime = PlayerOwner->GetWorld()->GetRealTimeSeconds();
+		float LogoutTime = PlayerOwner->GetWorld()->GetRealTimeSeconds();
 		if (LogoutTime - LoginStartTime < MIN_LOGIN_VIEW_TIME)
 		{
 			bRequestingClose = true;
