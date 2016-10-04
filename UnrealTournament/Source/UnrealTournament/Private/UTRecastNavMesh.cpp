@@ -2041,6 +2041,7 @@ bool AUTRecastNavMesh::FindBestPath(APawn* Asker, const FNavAgentProperties& Age
 		FEvaluatedNode* BestDest = NULL;
 		while (CurrentNode != NULL)
 		{
+			CurrentNode->bAlreadyVisited = true;
 			float ThisWeight = NodeEval.Eval(Asker, AgentProps, RequestOwner, CurrentNode->Node, (CurrentNode->TotalDistance == 0) ? StartLoc : GetPolyCenter(CurrentNode->Poly), CurrentNode->TotalDistance);
 			if (ThisWeight > Weight)
 			{
