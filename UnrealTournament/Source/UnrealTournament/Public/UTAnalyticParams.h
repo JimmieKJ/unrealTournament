@@ -57,6 +57,11 @@ namespace EGenericAnalyticParam
 		UTEnterMatch,
 		EnterMethod,
 
+		UTTutorialPickupToken,
+		TokenID,
+		AnnouncementID,
+		UTTutorialPlayInstruction,
+
 		NUM_GENERIC_PARAMS
 	};
 }

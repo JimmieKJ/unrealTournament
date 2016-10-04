@@ -167,6 +167,11 @@ void FUTAnalytics::InitializeAnalyticParameterNames()
 
 	AddGenericParamName(UTEnterMatch);
 	AddGenericParamName(EnterMethod);
+
+	AddGenericParamName(UTTutorialPickupToken);
+	AddGenericParamName(TokenID);
+	AddGenericParamName(AnnouncementID);
+	AddGenericParamName(UTTutorialPlayInstruction);
 }
 
 void FUTAnalytics::Shutdown()
@@ -783,5 +788,53 @@ void FUTAnalytics::FireEvent_EnterMatch(AUTPlayerController* UTPC, FString Enter
 		ParamArray.Add(FAnalyticsEventAttribute(GetGenericParamName(EGenericAnalyticParam::EnterMethod), EnterMethod));
 
 		AnalyticsProvider->RecordEvent(GetGenericParamName(EGenericAnalyticParam::UTEnterMatch), ParamArray);
+	}
+}
+
+/*
+* @EventName UTTutorialPickupToken
+*
+* @Trigger Fires when a client is given some instruction inside of a tutorial.
+*
+* @Type Sent by the Client
+*
+* @EventParam TokenID string Unique ID of the picked up token.
+*
+* @Comments
+*/
+void FUTAnalytics::FireEvent_UTTutorialPickupToken(FString TokenID)
+{
+	const TSharedPtr<IAnalyticsProvider>& AnalyticsProvider = GetProviderPtr();
+	if (AnalyticsProvider.IsValid())
+	{
+		TArray<FAnalyticsEventAttribute> ParamArray;
+
+		ParamArray.Add(FAnalyticsEventAttribute(GetGenericParamName(EGenericAnalyticParam::TokenID), TokenID));
+
+		AnalyticsProvider->RecordEvent(GetGenericParamName(EGenericAnalyticParam::UTTutorialPickupToken), ParamArray);
+	}
+}
+
+/*
+* @EventName UTTutorialPlayInstruction
+*
+* @Trigger Fires when a client is given some instruction inside of a tutorial.
+*
+* @Type Sent by the Client
+*
+* @EventParam AnnouncementId int32 ID of the announcement that is played in the tutorial.
+*
+* @Comments
+*/
+void FUTAnalytics::FireEvent_UTTutorialPlayInstruction(int32 AnnoucementID)
+{
+	const TSharedPtr<IAnalyticsProvider>& AnalyticsProvider = GetProviderPtr();
+	if (AnalyticsProvider.IsValid())
+	{
+		TArray<FAnalyticsEventAttribute> ParamArray;
+
+		ParamArray.Add(FAnalyticsEventAttribute(GetGenericParamName(EGenericAnalyticParam::AnnouncementID), AnnoucementID));
+
+		AnalyticsProvider->RecordEvent(GetGenericParamName(EGenericAnalyticParam::UTTutorialPlayInstruction), ParamArray);
 	}
 }
