@@ -759,6 +759,9 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
 	virtual bool HasAnyAmmo();
 
+	UFUNCTION(BlueprintCallable, Category = "Weapon")
+	virtual bool CanSwitchTo();
+
 	/** get interval between shots, including any fire rate modifiers */
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
 	virtual float GetRefireTime(uint8 FireModeNum);

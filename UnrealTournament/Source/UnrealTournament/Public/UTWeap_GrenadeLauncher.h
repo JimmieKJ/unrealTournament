@@ -21,7 +21,10 @@ private:
 
 	UPROPERTY(replicatedUsing=OnRep_HasStickyGrenades)
 	bool bHasStickyGrenades;
-	
+
+	UPROPERTY(replicated)
+	bool bHasLoadedStickyGrenades;
+
 public:
 	AUTWeap_GrenadeLauncher();
 
@@ -59,4 +62,8 @@ public:
 	void DetachFromOwner_Implementation() override;
 
 	void DropFrom(const FVector& StartLocation, const FVector& TossVelocity) override;
+	void OnRep_Ammo() override;
+	void ConsumeAmmo(uint8 FireModeNum) override;
+	void FiringInfoUpdated_Implementation(uint8 InFireMode, uint8 FlashCount, FVector InFlashLocation) override;
+	bool CanSwitchTo() override;
 };

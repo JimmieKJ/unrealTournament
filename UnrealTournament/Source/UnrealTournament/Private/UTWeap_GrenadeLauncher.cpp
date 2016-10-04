@@ -71,6 +71,7 @@ void AUTWeap_GrenadeLauncher::GetLifetimeReplicatedProps(TArray<class FLifetimeP
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME(AUTWeap_GrenadeLauncher, bHasStickyGrenades);
+	DOREPLIFETIME(AUTWeap_GrenadeLauncher, bHasLoadedStickyGrenades);	
 	DOREPLIFETIME(AUTWeap_GrenadeLauncher, ActiveStickyGrenadeCount);
 }
 
@@ -126,5 +127,43 @@ void AUTWeap_GrenadeLauncher::DropFrom(const FVector& StartLocation, const FVect
 	// Don't preserve grenade references between owners
 	ActiveGrenades.Empty();
 	bHasStickyGrenades = false;
+	bHasLoadedStickyGrenades = false;
 	Super::DropFrom(StartLocation, TossVelocity);
+}
+
+void AUTWeap_GrenadeLauncher::OnRep_Ammo()
+{
+	// Skip auto weapon switch if there's sticky grenades out
+	if (bHasStickyGrenades || bHasLoadedStickyGrenades)
+	{
+		return;
+	}
+
+	Super::OnRep_Ammo();
+}
+
+void AUTWeap_GrenadeLauncher::ConsumeAmmo(uint8 FireModeNum)
+{
+	if (FireModeNum == 1)
+	{
+		bHasLoadedStickyGrenades = true;
+	}
+
+	Super::ConsumeAmmo(FireModeNum);
+}
+
+void AUTWeap_GrenadeLauncher::FiringInfoUpdated_Implementation(uint8 InFireMode, uint8 FlashCount, FVector InFlashLocation)
+{
+	Super::FiringInfoUpdated_Implementation(InFireMode, FlashCount, InFlashLocation);
+	bHasLoadedStickyGrenades = false;
+}
+
+bool AUTWeap_GrenadeLauncher::CanSwitchTo()
+{
+	if (bHasStickyGrenades)
+	{
+		return true;
+	}
+
+	return Super::CanSwitchTo();
 }

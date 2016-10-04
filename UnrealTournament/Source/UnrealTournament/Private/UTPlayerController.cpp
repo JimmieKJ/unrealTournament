@@ -1072,7 +1072,7 @@ void AUTPlayerController::SwitchWeaponInSequence(bool bPrev)
 			for (TInventoryIterator<AUTWeapon> It(UTCharacter); It; ++It)
 			{
 				AUTWeapon* Weap = *It;
-				if (Weap != CurrentWeapon && Weap->HasAnyAmmo())
+				if (Weap != CurrentWeapon && Weap->CanSwitchTo())
 				{
 					if (Weap->FollowsInList(CurrentWeapon) == bPrev)
 					{
@@ -1199,7 +1199,7 @@ void AUTPlayerController::SwitchWeaponGroup(int32 Group)
 		for (TInventoryIterator<AUTWeapon> It(UTCharacter); It; ++It)
 		{
 			AUTWeapon* Weap = *It;
-			if (Weap != UTCharacter->GetWeapon() && Weap->HasAnyAmmo() && Weap != CurrWeapon)
+			if (Weap != UTCharacter->GetWeapon() && Weap->CanSwitchTo() && Weap != CurrWeapon)
 			{
 				int32 WeapGroup = GetWeaponGroup(Weap);
 				if (WeapGroup == Group)

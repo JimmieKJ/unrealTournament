@@ -2886,3 +2886,7 @@ void AUTWeapon::OnZoomedOut_Implementation()
 	SetZoomState(EZoomState::EZS_NotZoomed);
 }
 
+bool AUTWeapon::CanSwitchTo()
+{
+	return HasAnyAmmo();
+}
