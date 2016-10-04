@@ -164,6 +164,9 @@ void FUTAnalytics::InitializeAnalyticParameterNames()
 	AddGenericParamName(EndedInTieBreaker);
 	AddGenericParamName(RedTeamBonusTime);
 	AddGenericParamName(BlueTeamBonusTime);
+
+	AddGenericParamName(EnterMatch);
+	AddGenericParamName(EnterMethod);
 }
 
 void FUTAnalytics::Shutdown()
@@ -738,7 +741,7 @@ void FUTAnalytics::FireEvent_FlagRunRoundEnd(AUTFlagRunGame* UTGame, bool bIsDef
 					BlueTeamBonusTime = UTGS->Teams[1]->RoundBonus;
 				}
 				
-				ParamArray.Add(FAnalyticsEventAttribute(GetGenericParamName(EGenericAnalyticParam::OffenseKills), UTGS->OffenseKills));
+ 				ParamArray.Add(FAnalyticsEventAttribute(GetGenericParamName(EGenericAnalyticParam::OffenseKills), UTGS->OffenseKills));
 				ParamArray.Add(FAnalyticsEventAttribute(GetGenericParamName(EGenericAnalyticParam::DefenseKills), UTGS->DefenseKills));
 				ParamArray.Add(FAnalyticsEventAttribute(GetGenericParamName(EGenericAnalyticParam::DefenseLivesRemaining), LivesRemaining));
 				ParamArray.Add(FAnalyticsEventAttribute(GetGenericParamName(EGenericAnalyticParam::DefensePlayersEliminated), PlayersEliminated));
@@ -758,8 +761,27 @@ void FUTAnalytics::FireEvent_FlagRunRoundEnd(AUTFlagRunGame* UTGame, bool bIsDef
 	}
 }
 
+
 /*
-
-If the match ended in a cap vs. a tiebreaker
-
+* @EventName UTEntermatch
+*
+* @Trigger Fires when a client enters a game. This is to track the way they entered the game.
+*
+* @Type Sent by the Client
+*
+* @EventParam EnterMethod string String representation of how the game was entered
+*
+* @Comments
 */
+void FUTAnalytics::FireEvent_EnterMatch(AUTPlayerController* UTPC, FString EnterMethod)
+{
+	const TSharedPtr<IAnalyticsProvider>& AnalyticsProvider = GetProviderPtr();
+	if (AnalyticsProvider.IsValid())
+	{
+		TArray<FAnalyticsEventAttribute> ParamArray;
+
+		ParamArray.Add(FAnalyticsEventAttribute(GetGenericParamName(EGenericAnalyticParam::EnterMethod), EnterMethod));
+
+		AnalyticsProvider->RecordEvent(GetGenericParamName(EGenericAnalyticParam::EnterMatch), ParamArray);
+	}
+}

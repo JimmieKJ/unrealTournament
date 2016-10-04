@@ -54,6 +54,9 @@ namespace EGenericAnalyticParam
 		RedTeamBonusTime,
 		BlueTeamBonusTime,
 
+		EnterMatch,
+		EnterMethod,
+
 		NUM_GENERIC_PARAMS
 	};
 }

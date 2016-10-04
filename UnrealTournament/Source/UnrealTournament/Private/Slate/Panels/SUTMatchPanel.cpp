@@ -17,6 +17,7 @@
 #include "UTLobbyPlayerState.h"
 #include "PartyContext.h"
 #include "BlueprintContextLibrary.h"
+#include "UTAnalytics.h"
 
 #if !UE_SERVER
 
@@ -597,6 +598,11 @@ FReply SUTMatchPanel::StartNewMatch()
 				bIsInParty = PartyContext->GetPartySize() > 1;
 			}
 
+			if (FUTAnalytics::IsAvailable())
+			{
+				FUTAnalytics::FireEvent_EnterMatch(Cast<AUTPlayerController>(PlayerOwner->PlayerController), FString("HUB - Created Match"));
+			}
+
 			LobbyPlayerState->ServerCreateMatch(bIsInParty);
 		}
 	}
@@ -1080,6 +1086,11 @@ FReply SUTMatchPanel::JoinMatchButtonClicked(TSharedPtr<FTrackedMatch> InItem)
 					AUTLobbyPlayerState* LobbyPlayerState = Cast<AUTLobbyPlayerState>(PlayerOwner->PlayerController->PlayerState);
 					if (LobbyPlayerState)
 					{
+						if (FUTAnalytics::IsAvailable())
+						{
+							FUTAnalytics::FireEvent_EnterMatch(Cast<AUTPlayerController>(PlayerOwner->PlayerController), FString("HUB - Joined Match"));
+						}
+
 						LobbyPlayerState->ServerJoinMatch(InItem->MatchInfo.Get(),false);
 					}
 				}

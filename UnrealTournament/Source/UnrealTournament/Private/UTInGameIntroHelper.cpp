@@ -142,7 +142,7 @@ void UUTInGameIntroHelper::MovePlayers(UWorld* World, InGameIntroZoneTypes ZoneT
 		AUTTeamGameMode* TeamGM = Cast<AUTTeamGameMode>(World->GetAuthGameMode());
 		AUTGameMode* UTGM = Cast<AUTGameMode>(World->GetAuthGameMode());
 
-		if (TeamGM)
+		if (TeamGM && TeamGM->Teams.Num() > 1)
 		{
 			PlayersToMove.SetNum(TeamGM->Teams.Num());
 

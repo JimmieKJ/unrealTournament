@@ -1082,6 +1082,8 @@ void SUTChallengePanel::StartChallenge(int32 Difficulty)
 			ParamArray.Add(FAnalyticsEventAttribute(TEXT("Challenge"), SelectedChallenge.ToString()));
 			ParamArray.Add(FAnalyticsEventAttribute(TEXT("Difficulty"), Difficulty));
 			FUTAnalytics::GetProvider().RecordEvent( TEXT("StartChallenge"), ParamArray );
+
+			FUTAnalytics::FireEvent_EnterMatch(Cast<AUTPlayerController>(PlayerOwner->PlayerController),"Challenge");
 		}
 
 		FString Options = FString::Printf(TEXT("%s%s?Challenge=%s?ChallengeDiff=%i"), *Challenge.Map, *Challenge.GameURL, *SelectedChallenge.ToString(), Difficulty);

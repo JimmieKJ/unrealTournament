@@ -19,7 +19,7 @@
 #include "UTLobbyPC.h"
 #include "BlueprintContextLibrary.h"
 #include "PartyContext.h"
-
+#include "UTAnalytics.h"
 
 #if !UE_SERVER
 
@@ -613,10 +613,20 @@ FReply SUTLobbyMatchSetupPanel::StartMatchClicked()
 		if (MatchInfo->CurrentState == ELobbyMatchState::WaitingForPlayers)
 		{
 			MatchInfo->ServerStartMatch();
+		
+			if (PlayerOwner.IsValid() && FUTAnalytics::IsAvailable())
+			{
+				FUTAnalytics::FireEvent_EnterMatch(Cast<AUTPlayerController>(PlayerOwner->PlayerController), FString("HUB - Start Match"));
+			}
 		}
 		else
 		{
 			MatchInfo->ServerAbortMatch();
+		
+			if (PlayerOwner.IsValid() && FUTAnalytics::IsAvailable())
+			{
+				FUTAnalytics::FireEvent_EnterMatch(Cast<AUTPlayerController>(PlayerOwner->PlayerController), FString("HUB - Abort Match"));
+			}
 		}
 	}
 

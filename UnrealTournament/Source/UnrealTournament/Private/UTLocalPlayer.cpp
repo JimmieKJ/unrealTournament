@@ -3373,6 +3373,11 @@ void UUTLocalPlayer::StartQuickMatch(FString QuickMatchType)
 			if (MatchmakingContext)
 			{
 				MatchmakingContext->StartMatchmaking(NewPlaylistId);
+
+				if (FUTAnalytics::IsAvailable())
+				{
+					FUTAnalytics::FireEvent_EnterMatch(Cast<AUTPlayerController>(PlayerController), FString::Printf(TEXT("QuickMatch - %s"), *QuickMatchType));
+				}
 			}
 		}
 		else
@@ -3406,6 +3411,11 @@ void UUTLocalPlayer::StartQuickMatch(FString QuickMatchType)
 			{
 				OpenWindow(QuickMatchDialog);
 				QuickMatchDialog->TellSlateIWantKeyboardFocus();
+
+				if (FUTAnalytics::IsAvailable())
+				{
+					FUTAnalytics::FireEvent_EnterMatch(Cast<AUTPlayerController>(PlayerController), FString::Printf(TEXT("QuickMatch - %s"), *QuickMatchType));
+				}
 			}
 		}
 	}

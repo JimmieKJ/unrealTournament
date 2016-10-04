@@ -22,6 +22,7 @@
 #include "UnrealNetwork.h"
 #include "BlueprintContextLibrary.h"
 #include "PartyContext.h"
+#include "UTAnalytics.h"
 
 #if !UE_SERVER
 /** List Sort helpers */
@@ -1734,6 +1735,11 @@ void SUTServerBrowserPanel::RestrictedWarning()
 
 void SUTServerBrowserPanel::ConnectTo(FServerData ServerData,bool bSpectate)
 {
+	if (FUTAnalytics::IsAvailable())
+	{
+		FUTAnalytics::FireEvent_EnterMatch(Cast<AUTPlayerController>(PlayerOwner->PlayerController), FString::Printf(TEXT("Server - %s"), *ServerData.GameModeName));
+	}
+
 	if ((ServerData.Flags & SERVERFLAG_Restricted) > 0)
 	{
 		RestrictedWarning();

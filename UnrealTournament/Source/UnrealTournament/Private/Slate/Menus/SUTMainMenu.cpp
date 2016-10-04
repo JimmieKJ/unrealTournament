@@ -655,18 +655,6 @@ void SUTMainMenu::StartGameWarningComplete(TSharedPtr<SCompoundWidget> Dialog, u
 
 
 
-//Special markup for Analytics event so they show up properly in grafana. Should be eventually moved to UTAnalytics.
-/*
-* @EventName MenuStartGame
-*
-* @Trigger Fires when game is started in the main menu
-*
-* @Type Sent by the client
-*
-* @EventParam StartGameMode string Listen or Standalone based on if this is a LAN game
-*
-* @Comments
-*/
 void SUTMainMenu::StartGame(bool bLanGame)
 {
 	// Kill any existing Dedicated servers
@@ -674,21 +662,6 @@ void SUTMainMenu::StartGame(bool bLanGame)
 	{
 		FPlatformProcess::TerminateProc(PlayerOwner->DedicatedServerProcessHandle,true);
 		PlayerOwner->DedicatedServerProcessHandle.Reset();
-	}
-
-
-	if (FUTAnalytics::IsAvailable())
-	{
-		TArray<FAnalyticsEventAttribute> ParamArray;
-		if (bLanGame)		
-		{
-			ParamArray.Add(FAnalyticsEventAttribute(TEXT("StartGameMode"), TEXT("Listen")));
-		}
-		else
-		{
-			ParamArray.Add(FAnalyticsEventAttribute(TEXT("StartGameMode"), TEXT("Standalone")));
-		}
-		FUTAnalytics::GetProvider().RecordEvent( TEXT("MenuStartGame"), ParamArray );
 	}
 
 	FString StartingMap;
@@ -716,6 +689,14 @@ void SUTMainMenu::StartGame(bool bLanGame)
 		{
 			GameOptions += FString::Printf(TEXT("?BotFill=0?MaxPlayers=%i"), DesiredPlayerCount);
 		}
+
+		if (FUTAnalytics::IsAvailable())
+		{
+			if (PlayerOwner.IsValid() && FUTAnalytics::IsAvailable())
+			{
+				FUTAnalytics::FireEvent_EnterMatch(Cast<AUTPlayerController>(PlayerOwner->PlayerController), FString("MainMenu - Custom Game"));
+			}
+		}
 	}
 	else
 	{
@@ -736,6 +717,11 @@ void SUTMainMenu::StartGame(bool bLanGame)
 		else
 		{
 			GameOptions += TEXT("?BotFill=0");
+		}
+
+		if (PlayerOwner.IsValid() && FUTAnalytics::IsAvailable())
+		{
+			FUTAnalytics::FireEvent_EnterMatch(Cast<AUTPlayerController>(PlayerOwner->PlayerController), FString("MainMenu - Predefined Game Type"));
 		}
 	}
 
