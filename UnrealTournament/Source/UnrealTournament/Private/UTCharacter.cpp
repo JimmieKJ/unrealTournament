@@ -4966,6 +4966,7 @@ void AUTCharacter::ApplyCharacterData(TSubclassOf<AUTCharacterContent> CharType)
 			OverlayMesh->UnregisterComponent();
 			OverlayMesh = NULL;
 			UpdateCharOverlays();
+			UpdateArmorOverlay();
 		}
 		if (CustomDepthMesh != NULL)
 		{
@@ -5104,8 +5105,8 @@ void AUTCharacter::UpdateArmorOverlay()
 			float PushValue = (ArmorAmount > 100) ? 4.f : 0.2f;
 			MID->SetScalarParameterValue(NAME_PushDistance, PushValue);
 			static const FName NAME_Opacity = FName(TEXT("Opacity"));
-			float OpacityValue = -0.3f;
-			MID->SetScalarParameterValue(NAME_Opacity, PushValue);
+			float OpacityValue = -0.2f;
+			MID->SetScalarParameterValue(NAME_Opacity, OpacityValue);
 		}
 	}
 	else if (ArmorType)

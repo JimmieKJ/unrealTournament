@@ -396,6 +396,7 @@ void AUTGameState::OnRep_OverlayEffects()
 		if (UTC != NULL)
 		{
 			UTC->UpdateCharOverlays();
+			UTC->UpdateArmorOverlay();
 			UTC->UpdateWeaponOverlays();
 		}
 	}
