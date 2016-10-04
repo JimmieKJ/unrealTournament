@@ -2309,7 +2309,8 @@ void AUTGameMode::PickMostCoolMoments(bool bClearCoolMoments, int32 CoolMomentsT
 float AUTGameMode::GetTravelDelay()
 {
 	UTGameState->NumWinnersToShow = 0;
-	return EndScoreboardDelay + MainScoreboardDisplayTime + ScoringPlaysDisplayTime + PersonalSummaryDisplayTime + WinnerSummaryDisplayTime * UTGameState->NumWinnersToShow + TeamSummaryDisplayTime;
+	float MatchSummaryTime = bShowMatchSummary ? PersonalSummaryDisplayTime + WinnerSummaryDisplayTime * UTGameState->NumWinnersToShow + TeamSummaryDisplayTime : 0.f;
+	return EndScoreboardDelay + MainScoreboardDisplayTime + ScoringPlaysDisplayTime + MatchSummaryTime;
 }
 
 void AUTGameMode::StopReplayRecording()
