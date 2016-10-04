@@ -28,6 +28,7 @@ private:
 public:
 	AUTWeap_GrenadeLauncher();
 
+	virtual void StartFire(uint8 FireModeNum) override;
 	virtual bool BeginFiringSequence(uint8 FireModeNum, bool bClientFired) override;
 	virtual void GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const override;
 
@@ -65,5 +66,6 @@ public:
 	void OnRep_Ammo() override;
 	void ConsumeAmmo(uint8 FireModeNum) override;
 	void FiringInfoUpdated_Implementation(uint8 InFireMode, uint8 FlashCount, FVector InFlashLocation) override;
+	void ClearLoadedRockets() override;
 	bool CanSwitchTo() override;
 };

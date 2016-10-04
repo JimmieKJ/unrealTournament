@@ -11,6 +11,16 @@ AUTWeap_GrenadeLauncher::AUTWeap_GrenadeLauncher()
 	WeaponCustomizationTag = EpicWeaponCustomizationTags::GrenadeLauncher;
 }
 
+void AUTWeap_GrenadeLauncher::StartFire(uint8 FireModeNum)
+{
+	if (bHasLoadedStickyGrenades && FireModeNum == 1)
+	{
+		return;
+	}
+
+	Super::StartFire(FireModeNum);
+}
+
 bool AUTWeap_GrenadeLauncher::BeginFiringSequence(uint8 FireModeNum, bool bClientFired)
 {
 	if (bHasStickyGrenades && FireModeNum == 1)
@@ -166,4 +176,10 @@ bool AUTWeap_GrenadeLauncher::CanSwitchTo()
 	}
 
 	return Super::CanSwitchTo();
+}
+
+void AUTWeap_GrenadeLauncher::ClearLoadedRockets()
+{
+	Super::ClearLoadedRockets();
+	bHasLoadedStickyGrenades = false;
 }
