@@ -385,6 +385,10 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	UPROPERTY()
 	UAnimMontage* CurrentTaunt;
 
+	// Taunts should only play one sound at a time and cease when taunt is complete
+	UPROPERTY()
+	UAudioComponent* CurrentTauntAudioComponent;
+
 	UPROPERTY()
 	UAnimMontage* CurrentFirstPersonTaunt;
 

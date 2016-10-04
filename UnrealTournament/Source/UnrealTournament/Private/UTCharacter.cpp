@@ -155,7 +155,7 @@ AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 
 	OnActorBeginOverlap.AddDynamic(this, &AUTCharacter::OnOverlapBegin);
 	GetMesh()->OnComponentHit.AddDynamic(this, &AUTCharacter::OnRagdollCollision);
-	GetMesh()->BodyInstance.bNotifyRigidBodyCollision = true; // note: the set function does not work correctly for SkeletalMeshComponent when used in defaults!
+	GetMesh()->SetNotifyRigidBodyCollision(true);
 
 	TeamPlayerIndicatorMaxDistance = 2700.0f;
 	SpectatorIndicatorMaxDistance = 8000.f;
@@ -4966,7 +4966,6 @@ void AUTCharacter::ApplyCharacterData(TSubclassOf<AUTCharacterContent> CharType)
 			OverlayMesh->UnregisterComponent();
 			OverlayMesh = NULL;
 			UpdateCharOverlays();
-			UpdateArmorOverlay();
 		}
 		if (CustomDepthMesh != NULL)
 		{
@@ -5105,8 +5104,8 @@ void AUTCharacter::UpdateArmorOverlay()
 			float PushValue = (ArmorAmount > 100) ? 4.f : 0.2f;
 			MID->SetScalarParameterValue(NAME_PushDistance, PushValue);
 			static const FName NAME_Opacity = FName(TEXT("Opacity"));
-			float OpacityValue = -0.2f;
-			MID->SetScalarParameterValue(NAME_Opacity, OpacityValue);
+			float OpacityValue = -0.3f;
+			MID->SetScalarParameterValue(NAME_Opacity, PushValue);
 		}
 	}
 	else if (ArmorType)
@@ -5728,6 +5727,12 @@ void AUTCharacter::OnEmoteEnded(UAnimMontage* Montage, bool bInterrupted)
 	TauntCount--;
 	if (TauntCount == 0)
 	{
+		if (CurrentTauntAudioComponent)
+		{
+			CurrentTauntAudioComponent->Stop();
+			CurrentTauntAudioComponent = nullptr;
+		}
+
 		if (Hat)
 		{
 			Hat->OnWearerEmoteEnded();
