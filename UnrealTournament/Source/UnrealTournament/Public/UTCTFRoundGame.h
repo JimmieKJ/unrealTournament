@@ -52,6 +52,9 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 	UPROPERTY()
 		bool bFirstRoundInitialized;
 
+	UPROPERTY()
+		bool bHaveAnnouncedRound;
+
 	/*  Victory due to secondary score (best total capture time) */
 	UPROPERTY(BlueprintReadOnly, Category = CTF)
 		bool bSecondaryWin;

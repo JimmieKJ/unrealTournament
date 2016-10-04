@@ -77,6 +77,7 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 	bSlowFlagCarrier = false;
 	bDelayedRally = true;
 	EndOfMatchMessageDelay = 2.5f;
+	bHaveAnnouncedRound = false;
 }
 
 void AUTCTFRoundGame::PostLogin(APlayerController* NewPlayer)
@@ -712,6 +713,7 @@ void AUTCTFRoundGame::InitRound()
 {
 	FlagScorer = nullptr;
 	bFirstBloodOccurred = false;
+	bHaveAnnouncedRound = false;
 	bLastManOccurred = false;
 	bNeedFiveKillsMessage = true;
 	InitGameStateForRound();
@@ -1274,10 +1276,11 @@ void AUTCTFRoundGame::CheckGameTime()
 	AUTCTFRoundGameState* RCTFGameState = Cast<AUTCTFRoundGameState>(CTFGameState);
 	if (CTFGameState->IsMatchIntermission())
 	{
-		if (RCTFGameState && (RCTFGameState->IntermissionTime == 3))
+		if (RCTFGameState && !bHaveAnnouncedRound && (RCTFGameState->IntermissionTime == 3))
 		{
 			int32 MessageIndex = bFirstRoundInitialized ? RCTFGameState->CTFRound + 2001 : 2001;
 			BroadcastLocalized(this, UUTCountDownMessage::StaticClass(), MessageIndex, NULL, NULL, NULL);
+			bHaveAnnouncedRound = true;
 		}
 		if (RCTFGameState && (RCTFGameState->IntermissionTime <= 0))
 		{
