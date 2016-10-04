@@ -210,3 +210,21 @@ bool USelection::Modify(bool bAlwaysMarkDirty/* =true */)
 
 	return Super::Modify(bAlwaysMarkDirty);
 }
+
+#if WITH_EDITOR
+void USelection::PostEditUndo()
+{
+	Super::PostEditUndo();
+
+
+	// The set of selected objects may have changed, so make sure our annotations exactly match the list, otherwise
+	// UObject::IsSelected() could return a result that was different from the list of objects returned by GetSelectedObjects()
+	GSelectedAnnotation.ClearAll();
+
+	for (TWeakObjectPtr<UObject>& ObjectPtr : SelectedObjects)
+	{
+		UObject* Object = ObjectPtr.Get(true);
+		GSelectedAnnotation.Set(Object);
+	}
+}
+#endif
