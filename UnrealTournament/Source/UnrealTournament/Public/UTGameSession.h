@@ -42,9 +42,6 @@ public:
 public:		// Online Subsystem stuff
 
 	virtual void Destroyed() override;
-
-	virtual bool ProcessAutoLogin();
-
 	virtual void InitOptions(const FString& Options);
 
 	virtual void StartMatch() {}

@@ -175,17 +175,6 @@ FString AUTGameSession::ApproveLogin(const FString& Options)
 	return Super::ApproveLogin(Options);
 }
 
-bool AUTGameSession::ProcessAutoLogin()
-{
-	// UT Dedicated servers do not need to login.  
-	if (GetWorld()->GetNetMode() == NM_DedicatedServer) 
-	{
-		// NOTE: Returning true here will effectively bypass the RegisterServer call in the base GameMode.  
-		// UT servers will register elsewhere.
-		return true;
-	}
-	return Super::ProcessAutoLogin();
-}
 
 // We want different behavior than the default engine implementation.  Our matches remain across level switches so don't allow the main game to mess with them.
 

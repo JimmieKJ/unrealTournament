@@ -524,7 +524,7 @@ void AUTGameState::AddAllUsersToInfoQuery()
 
 void AUTGameState::RunAllUserInfoQuery()
 {
-	if (bIsUserQueryNeeded && !bIsAlreadyPendingUserQuery && (GetWorld()->GetNetMode() != NM_DedicatedServer))
+	if (bIsUserQueryNeeded && !bIsAlreadyPendingUserQuery )
 	{
 		bIsAlreadyPendingUserQuery = true;
 		bIsUserQueryNeeded = false;

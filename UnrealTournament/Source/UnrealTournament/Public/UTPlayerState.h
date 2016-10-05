@@ -1113,6 +1113,11 @@ public:
 
 	TMap< UClass*, int32> DamageDelt;
 
+	virtual void SetUniqueId(const TSharedPtr<const FUniqueNetId>& InUniqueId) override;
+
+private:
+	virtual void ForceUpdatePlayerInfo();
+
 };
 
 USTRUCT()
@@ -1203,6 +1208,8 @@ struct FRemotePlayerInfo
 		FJsonObjectConverter::UStructToJsonObject(FRemotePlayerInfo::StaticStruct(), this,JsonObject.ToSharedRef(), 0, 0);
 		JsonObject->SetStringField("PlayerId", PlayerID.ToString());
 	}
+
 };
+
 
 

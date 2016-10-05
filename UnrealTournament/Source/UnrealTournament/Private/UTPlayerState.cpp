@@ -1203,20 +1203,6 @@ void AUTPlayerState::BeginPlay()
 			OnlineUserCloudInterface->AddOnWriteUserFileCompleteDelegate_Handle(OnWriteUserFileCompleteDelegate);
 		}
 	}
-
-	//A new playerstate has been created, the gamestate might need to update the player info query with this new information
-	if (GetWorld())
-	{
-		AUTGameState* UTGS = GetWorld()->GetGameState<AUTGameState>();
-		if (UTGS != nullptr)
-		{
-			TSharedRef<const FUniqueNetId> UserId = MakeShareable(new FUniqueNetIdString(*StatsID));
-			if (UserId->IsValid())
-			{
-				UTGS->AddUserInfoQuery(UserId);
-			}
-		}
-	}
 }
 
 void AUTPlayerState::SetCharacterVoice(const FString& CharacterVoicePath)
@@ -1809,24 +1795,14 @@ void AUTPlayerState::OnRep_UniqueId()
 	Super::OnRep_UniqueId();
 	// Find the current first local player and asks if I'm their friend.  NOTE: the UTLocalPlayer will, when the friends list changes
 	// update these as well.
+
 	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(GEngine->GetLocalPlayerFromControllerId(GetWorld(),0));
 	if (LP != NULL)
 	{
 		bIsFriend = LP->IsAFriend(UniqueId);
 	}
 
-	//The gamestate might need to update the player info query with this new information
-	if (GetWorld())
-	{
-		AUTGameState* UTGS = GetWorld()->GetGameState<AUTGameState>();
-		if (UTGS != nullptr)
-		{
-			if (UniqueId->IsValid())
-			{
-				UTGS->AddUserInfoQuery(UniqueId->AsShared());
-			}
-		}
-	}
+	ForceUpdatePlayerInfo();
 }
 
 void AUTPlayerState::RegisterPlayerWithSession(bool bWasFromInvite)
@@ -3600,5 +3576,31 @@ void AUTPlayerState::AddCoolFactorEvent(float CoolFactorAddition)
 			NewEvent.TimeOccurred = CurrentWorldTime;
 			CoolFactorHistory.Add(NewEvent);
 		}		
+	}
+}
+
+void AUTPlayerState::SetUniqueId(const TSharedPtr<const FUniqueNetId>& InUniqueId)
+{
+	Super::SetUniqueId(InUniqueId); 
+	ForceUpdatePlayerInfo();
+}
+
+
+void AUTPlayerState::ForceUpdatePlayerInfo()
+{
+	if (UniqueId.IsValid())
+	{
+		if (GetWorld())
+		{
+			AUTGameState* UTGS = GetWorld()->GetGameState<AUTGameState>();
+			if (UTGS != nullptr)
+			{
+				TSharedRef<const FUniqueNetId> UserId = UniqueId.GetUniqueNetId().ToSharedRef();
+				if (UserId->IsValid())
+				{
+					UTGS->AddUserInfoQuery(UserId);
+				}
+			}
+		}
 	}
 }
