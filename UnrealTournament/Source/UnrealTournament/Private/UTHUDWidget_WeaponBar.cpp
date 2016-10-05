@@ -5,7 +5,9 @@
 #include "UTWeapon.h"
 #include "UTProfileSettings.h"
 #include "UTWeap_Translocator.h"
+#include "UTWeap_ImpactHammer.h"
 #include "UTHUDWidgetMessage.h"
+
 
 UUTHUDWidget_WeaponBar::UUTHUDWidget_WeaponBar(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
@@ -80,6 +82,8 @@ void UUTHUDWidget_WeaponBar::UpdateGroups(AUTHUD* Hud)
 	KnownWeaponMap.Empty();
 	KnownWeaponMap.SetNumZeroed(11);
 
+	AUTGameMode* DefaultGameModeObject = UTGameState ? UTGameState->GetGameModeClass()->GetDefaultObject<AUTGameMode>() : nullptr;
+
 	// grant all weapons that are in memory
 	for (TObjectIterator<UClass> It; It; ++It)
 	{
@@ -87,6 +91,12 @@ void UUTHUDWidget_WeaponBar::UpdateGroups(AUTHUD* Hud)
 		if (It->IsChildOf(AUTWeapon::StaticClass()) && !It->HasAnyClassFlags(CLASS_Abstract | CLASS_Deprecated | CLASS_NewerVersionExists) && !It->GetName().StartsWith(TEXT("SKEL_")) && !It->IsChildOf(AUTWeap_Translocator::StaticClass()))
 		{
 			UClass* WeaponClass = *It;
+
+			if (DefaultGameModeObject != nullptr && WeaponClass->IsChildOf(AUTWeap_ImpactHammer::StaticClass()) && !DefaultGameModeObject->bGameHasImpactHammer)
+			{
+				continue;
+			}
+
 			if (!WeaponClass->IsPendingKill())
 			{
 				AUTWeapon* DefaultWeaponObj = Cast<AUTWeapon>(WeaponClass->GetDefaultObject());
