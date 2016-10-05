@@ -60,7 +60,15 @@ namespace EGenericAnalyticParam
 		UTTutorialPickupToken,
 		TokenID,
 		AnnouncementID,
+		OptionalObjectName,
 		UTTutorialPlayInstruction,
+
+		UTTutorialStarted,
+		UTTutorialCompleted,
+		TutorialMap,
+		MovementTutorialCompleted,
+		WeaponTutorialCompleted,
+		PickupsTutorialCompleted,
 
 		NUM_GENERIC_PARAMS
 	};

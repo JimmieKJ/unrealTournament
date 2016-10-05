@@ -5214,6 +5214,11 @@ void AUTPlayerController::PlayTutorialAnnouncement(int32 Index, UObject* Optiona
 	{
 		PlayedTutAnnouncements.Add(NewAnnName);
 		ClientReceiveLocalizedMessage(UUTTutorialAnnouncement::StaticClass(), Index, UTPlayerState, nullptr, OptionalObject);
+
+		if (FUTAnalytics::IsAvailable())
+		{
+			FUTAnalytics::FireEvent_UTTutorialPlayInstruction(Index, OptionalObject ? OptionalObject->GetName() : FString());
+		}
 	}
 }
 

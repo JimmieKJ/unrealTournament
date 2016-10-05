@@ -55,10 +55,9 @@ public:
 	static void FireEvent_EnterMatch(AUTPlayerController* UTPC, FString EnterMethod);
 
 	static void FireEvent_UTTutorialPickupToken(FString TokenID);
-	UFUNCTION(BlueprintCallable)
-	static void FireEvent_UTTutorialPlayInstruction(int32 InstructionID);
-	
-
+	static void FireEvent_UTTutorialPlayInstruction(int32 InstructionID, FString OptionalObjectName = FString());
+	static void FireEvent_UTTutorialStarted(AUTPlayerController* UTPC, FString TutorialMap);
+	static void FireEvent_UTTutorialCompleted(FString TutorialMap);
 
 	/* GameMode Metrics*/
 	static void FireEvent_FlagRunRoundEnd(class AUTFlagRunGame* UTGame, bool bIsDefenseRoundWin, bool bIsFinalRound);

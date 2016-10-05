@@ -171,7 +171,15 @@ void FUTAnalytics::InitializeAnalyticParameterNames()
 	AddGenericParamName(UTTutorialPickupToken);
 	AddGenericParamName(TokenID);
 	AddGenericParamName(AnnouncementID);
+	AddGenericParamName(OptionalObjectName);
 	AddGenericParamName(UTTutorialPlayInstruction);
+
+	AddGenericParamName(UTTutorialStarted);
+	AddGenericParamName(UTTutorialCompleted);
+	AddGenericParamName(TutorialMap);
+	AddGenericParamName(MovementTutorialCompleted);
+	AddGenericParamName(WeaponTutorialCompleted);
+	AddGenericParamName(PickupsTutorialCompleted);
 }
 
 void FUTAnalytics::Shutdown()
@@ -823,10 +831,10 @@ void FUTAnalytics::FireEvent_UTTutorialPickupToken(FString TokenID)
 * @Type Sent by the Client
 *
 * @EventParam AnnouncementId int32 ID of the announcement that is played in the tutorial.
-*
+* @EventParam OptionalObjectName FString Name of the object this tutorial is about. IE: If it is a weapon it will be the weapon name
 * @Comments
 */
-void FUTAnalytics::FireEvent_UTTutorialPlayInstruction(int32 AnnoucementID)
+void FUTAnalytics::FireEvent_UTTutorialPlayInstruction(int32 AnnoucementID, FString OptionalObjectName)
 {
 	const TSharedPtr<IAnalyticsProvider>& AnalyticsProvider = GetProviderPtr();
 	if (AnalyticsProvider.IsValid())
@@ -834,7 +842,71 @@ void FUTAnalytics::FireEvent_UTTutorialPlayInstruction(int32 AnnoucementID)
 		TArray<FAnalyticsEventAttribute> ParamArray;
 
 		ParamArray.Add(FAnalyticsEventAttribute(GetGenericParamName(EGenericAnalyticParam::AnnouncementID), AnnoucementID));
+		ParamArray.Add(FAnalyticsEventAttribute(GetGenericParamName(EGenericAnalyticParam::OptionalObjectName), OptionalObjectName));
 
 		AnalyticsProvider->RecordEvent(GetGenericParamName(EGenericAnalyticParam::UTTutorialPlayInstruction), ParamArray);
+	}
+}
+
+
+/*
+* @EventName UTTutorialStarted
+*
+* @Trigger Fires when a client starts a tutorial
+*
+* @Type Sent by the Client
+*
+* @EventParam TutorialMap FString Name of the tutorial map.
+* @EventParam MovementTutorialCompleted bool If the movement tutorial has been previously completed
+* @EventParam WeaponTutorialCompleted bool If the movement tutorial has been previously completed
+* @EventParam PickupsTutorialCompleted If the movement tutorial has been previously completed
+*
+* @Comments
+*/
+void FUTAnalytics::FireEvent_UTTutorialStarted(AUTPlayerController* UTPC, FString TutorialMap)
+{
+	const TSharedPtr<IAnalyticsProvider>& AnalyticsProvider = GetProviderPtr();
+	if (AnalyticsProvider.IsValid())
+	{
+		TArray<FAnalyticsEventAttribute> ParamArray;
+
+		if (UTPC)
+		{
+			UUTProfileSettings* ProfileSettings = UTPC->GetProfileSettings();
+			if (ProfileSettings)
+			{
+				ParamArray.Add(FAnalyticsEventAttribute(GetGenericParamName(EGenericAnalyticParam::MovementTutorialCompleted), ((ProfileSettings->TutorialMask & TUTORIAL_Movement) == TUTORIAL_Movement)));
+				ParamArray.Add(FAnalyticsEventAttribute(GetGenericParamName(EGenericAnalyticParam::WeaponTutorialCompleted), ((ProfileSettings->TutorialMask & TUTOIRAL_Weapon) == TUTOIRAL_Weapon)));
+				ParamArray.Add(FAnalyticsEventAttribute(GetGenericParamName(EGenericAnalyticParam::PickupsTutorialCompleted), ((ProfileSettings->TutorialMask & TUTORIAL_Pickups) == TUTORIAL_Pickups)));
+			}
+		}
+	
+		ParamArray.Add(FAnalyticsEventAttribute(GetGenericParamName(EGenericAnalyticParam::TutorialMap), TutorialMap));
+
+		AnalyticsProvider->RecordEvent(GetGenericParamName(EGenericAnalyticParam::UTTutorialStarted), ParamArray);
+	}
+}
+
+/*
+* @EventName UTTutorialCompleted
+*
+* @Trigger Fires when a client completes a tutorial
+*
+* @Type Sent by the Client
+*
+* @EventParam TutorialMap FString Name of the tutorial map.
+*
+* @Comments
+*/
+void FUTAnalytics::FireEvent_UTTutorialCompleted(FString TutorialMap)
+{
+	const TSharedPtr<IAnalyticsProvider>& AnalyticsProvider = GetProviderPtr();
+	if (AnalyticsProvider.IsValid())
+	{
+		TArray<FAnalyticsEventAttribute> ParamArray;
+
+		ParamArray.Add(FAnalyticsEventAttribute(GetGenericParamName(EGenericAnalyticParam::TutorialMap), TutorialMap));
+
+		AnalyticsProvider->RecordEvent(GetGenericParamName(EGenericAnalyticParam::UTTutorialCompleted), ParamArray);
 	}
 }

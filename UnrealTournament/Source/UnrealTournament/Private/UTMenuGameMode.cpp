@@ -7,6 +7,7 @@
 #include "UTDMGameMode.h"
 #include "UTWorldSettings.h"
 #include "UTProfileSettings.h"
+#include "UTAnalytics.h"
 
 AUTMenuGameMode::AUTMenuGameMode(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -104,6 +105,11 @@ void AUTMenuGameMode::ShowMenu(AUTBasePlayerController* PC)
 					if ( !LastURL.HasOption(TEXT("tutorialmenu")) )
 					{
 	#if !PLATFORM_LINUX
+						if (FUTAnalytics::IsAvailable())
+						{
+							FUTAnalytics::FireEvent_UTTutorialStarted(Cast<AUTPlayerController>(PC),FString("Onboarding"));
+						}
+
 						GetWorld()->ServerTravel(TEXT("/Game/RestrictedAssets/Tutorials/TUT-MovementTraining?game=/Game/RestrictedAssets/Tutorials/Blueprints/UTTutorialGameMode.UTTutorialGameMode_C?timelimit=0?TutorialMask=1"), true, true);
 						return;
 	#endif

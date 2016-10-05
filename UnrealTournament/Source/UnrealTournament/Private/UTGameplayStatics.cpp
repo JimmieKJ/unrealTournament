@@ -3,6 +3,7 @@
 #include "UTGameplayStatics.h"
 #include "Runtime/Engine/Classes/Engine/DemoNetDriver.h"
 #include "PhysicsEngine/PhysicsSettings.h"
+#include "UTAnalytics.h"
 
 void UUTGameplayStatics::UTPlaySound(UWorld* TheWorld, USoundBase* TheSound, AActor* SourceActor, ESoundReplicationType RepType, bool bStopWhenOwnerDestroyed, const FVector& SoundLoc, AUTPlayerController* AmpedListener, APawn* Instigator, bool bNotifyAI, ESoundAmplificationType AmpType)
 {
@@ -898,5 +899,30 @@ bool UUTGameplayStatics::IsPlayInEditor(UObject* WorldContextObject)
 	else
 	{
 		return World->IsPlayInEditor();
+	}
+}
+
+void UUTGameplayStatics::RecordEvent_UTTutorialStarted(AUTPlayerController* UTPC, FString TutorialMap)
+{
+	if (FUTAnalytics::IsAvailable())
+	{
+		FUTAnalytics::FireEvent_UTTutorialStarted(UTPC,TutorialMap);
+	}
+}
+
+
+void UUTGameplayStatics::RecordEvent_UTTutorialCompleted(FString TutorialMap)
+{
+	if (FUTAnalytics::IsAvailable())
+	{
+		FUTAnalytics::FireEvent_UTTutorialCompleted(TutorialMap);
+	}
+}
+
+void UUTGameplayStatics::RecordEvent_UTTutorialPlayInstruction(int32 InstructionID)
+{
+	if (FUTAnalytics::IsAvailable())
+	{
+		FUTAnalytics::FireEvent_UTTutorialPlayInstruction(InstructionID);
 	}
 }
