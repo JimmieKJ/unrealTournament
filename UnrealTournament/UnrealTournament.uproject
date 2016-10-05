@@ -48,7 +48,7 @@
 		},
 		{
 			"Name": "CableComponent",
-			"Enabled": false
+			"Enabled": true
 		},
 		{
 			"Name": "IOSDeviceProfileSelector",
