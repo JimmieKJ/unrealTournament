@@ -14,6 +14,7 @@
 static const uint32 VALID_PROFILESETTINGS_VERSION = 32;
 static const uint32 CURRENT_PROFILESETTINGS_VERSION = 33;
 static const uint32 WEAPONBAR_FIXUP_VERSION = 33;
+static const uint32 COMMENU_FIXUP_VERSION = 34;
 
 class UUTLocalPlayer;
 

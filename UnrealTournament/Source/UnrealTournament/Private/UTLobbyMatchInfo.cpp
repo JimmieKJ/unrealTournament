@@ -495,15 +495,19 @@ void AUTLobbyMatchInfo::LaunchMatch(bool bQuickPlay, int32 DebugCode)
 		{
 			// Custom rules already have their bot info set
 
-			int32 OptimalPlayerCount = CurrentRuleset->bTeamGame ? InitialMapInfo->OptimalTeamPlayerCount : InitialMapInfo->OptimalPlayerCount;
+			// If the BotFill wasn't specified on in the GameOptions section of the rule, then use the map to determine the bot count
+			if ( CurrentRuleset->GameOptions.Find(TEXT("BotFill="),ESearchCase::IgnoreCase) == INDEX_NONE )
+			{
+				int32 OptimalPlayerCount = CurrentRuleset->bTeamGame ? InitialMapInfo->OptimalTeamPlayerCount : InitialMapInfo->OptimalPlayerCount;
 
-			if (BotSkillLevel >= 0)
-			{
-				GameURL += FString::Printf(TEXT("?BotFill=%i?Difficulty=%i"), FMath::Clamp<int32>(OptimalPlayerCount,0, CurrentRuleset->MaxPlayers), FMath::Clamp<int32>(BotSkillLevel,0,7));			
-			}
-			else
-			{
-				GameURL += TEXT("?BotFill=0");
+				if (BotSkillLevel >= 0)
+				{
+					GameURL += FString::Printf(TEXT("?BotFill=%i?Difficulty=%i"), FMath::Clamp<int32>(OptimalPlayerCount,0, CurrentRuleset->MaxPlayers), FMath::Clamp<int32>(BotSkillLevel,0,7));			
+				}
+				else
+				{
+					GameURL += TEXT("?BotFill=0");
+				}
 			}
 		}
 

@@ -563,6 +563,14 @@ bool UUTProfileSettings::VersionFixup()
 		{
 			WeaponWheelIndex = i;
 		}
+		else if (GameActions[i].GameActionTag == FName(TEXT("ComsMenu")))
+		{
+			if (SettingsRevisionNum < COMMENU_FIXUP_VERSION)
+			{
+				GameActions[i].CustomBindings.Empty();
+				GameActions[i].AddActionMapping(FName("ToggleComMenu"));
+			}
+		}
 
 		for (int32 j=0; j < GameActions[i].CustomBindings.Num(); j++)
 		{
