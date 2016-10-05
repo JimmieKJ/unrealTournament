@@ -2578,6 +2578,12 @@ void AUTRecastNavMesh::FindAdjacentPolys(APawn* Asker, const FNavAgentProperties
 #if !UE_SERVER && WITH_EDITOR && WITH_EDITORONLY_DATA
 void AUTRecastNavMesh::ClearRebuildWarning()
 {
+	// Don't call back into slate if already exiting
+	if (GIsRequestingExit)
+	{
+		return;
+	}
+
 	if (NeedsRebuildWarning.IsValid())
 	{
 		NeedsRebuildWarning.Get()->SetCompletionState(SNotificationItem::CS_None);
