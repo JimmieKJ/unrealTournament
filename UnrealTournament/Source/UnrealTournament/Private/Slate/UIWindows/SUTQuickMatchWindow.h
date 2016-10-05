@@ -205,6 +205,7 @@ private:
 	int32 QMStats_NumHubsConsidered;
 	int32 QMStats_NumInstancesConsidered;
 	int32 QMStats_NumRejectedForRank;
+	int32 QMStats_NumRejectedForPartySize;
 	int32 QMStats_NumRejectedForGameType;
 	int32 QMStats_NumRejectedForJoinable;
 	int32 QMStats_NumPingFailures;

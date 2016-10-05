@@ -61,6 +61,7 @@ void SUTQuickMatchWindow::Construct(const FArguments& InArgs, TWeakObjectPtr<UUT
 	QMStats_NumHubsConsidered = 0;
 	QMStats_NumInstancesConsidered = 0;
 	QMStats_NumRejectedForRank = 0;
+	QMStats_NumRejectedForPartySize = 0;
 	QMStats_NumRejectedForGameType = 0;
 	QMStats_NumRejectedForJoinable = 0;
 	QMStats_NumPingFailures = 0;
@@ -563,6 +564,17 @@ void SUTQuickMatchWindow::CollectInstances()
 	AUTPlayerState* PlayerState = Cast<AUTPlayerState>(GetPlayerOwner()->PlayerController->PlayerState);
 	bool bIsBeginner = PlayerState && PlayerState->IsABeginner(DefaultGameModeObject.Get());  
 
+	int32 PartySize = 1;
+	UPartyContext* PartyContext = Cast<UPartyContext>(UBlueprintContextLibrary::GetContext(GetPlayerOwner()->GetWorld(), UPartyContext::StaticClass()));
+	if (PartyContext)
+	{
+		PartySize = PartyContext->GetPartySize();
+		if (PartySize > 1)
+		{
+			bIsBeginner = false;
+		}
+	}
+
 	QMStats_NumInstancesConsidered = FinalList.Num();
 
 	for (int32 i=0; i < FinalList.Num(); i++)
@@ -580,8 +592,12 @@ void SUTQuickMatchWindow::CollectInstances()
 					// for Quick-play.  So we reject them here.
 					if (Instance->MatchData.MatchState != NAME_None)
 					{
+						if (Instance->MaxPlayers - Instance->NumPlayers() < PartySize)
+						{
+							QMStats_NumRejectedForPartySize++;
+						}
 						// Cull any instances that do not match this quickmatch type or is not joinable as a player.
-						if (Instance->RulesTag.Equals(QuickMatchType, ESearchCase::IgnoreCase) && Instance->bJoinableAsPlayer)
+						else if (Instance->RulesTag.Equals(QuickMatchType, ESearchCase::IgnoreCase) && Instance->bJoinableAsPlayer)
 						{
 							// Get the Target Rank based on the quickmatch type
 							if ( AUTPlayerState::CheckRank(MatchTargetRank, FinalList[i]->Beacon->Instances[j]->RankCheck, true) == 0 )
@@ -952,6 +968,7 @@ void SUTQuickMatchWindow::OnClosed()
 		ParamArray.Add(FAnalyticsEventAttribute(TEXT("NumHubsConsidered"), QMStats_NumHubsConsidered));
 		ParamArray.Add(FAnalyticsEventAttribute(TEXT("NumInstancesConsidered"), QMStats_NumInstancesConsidered));
 		ParamArray.Add(FAnalyticsEventAttribute(TEXT("NumRejectedForRank"), QMStats_NumRejectedForRank));
+		ParamArray.Add(FAnalyticsEventAttribute(TEXT("NumRejectedForPartySize"), QMStats_NumRejectedForPartySize));
 		ParamArray.Add(FAnalyticsEventAttribute(TEXT("NumRejectedForGameType"), QMStats_NumRejectedForGameType));
 		ParamArray.Add(FAnalyticsEventAttribute(TEXT("NumRejectedForJoinable"), QMStats_NumRejectedForJoinable));
 		ParamArray.Add(FAnalyticsEventAttribute(TEXT("NumPingFailures"), QMStats_NumPingFailures));
