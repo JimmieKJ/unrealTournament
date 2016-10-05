@@ -809,8 +809,6 @@ void UUTGameEngine::LoadMapRedrawViewports()
 
 	if (GameViewport != NULL)
 	{
-		// required to force Slate to present the frame
-		FSlateApplication::Get().Tick();
 		// now remove the widget
 		if (LoadingScreenImage.IsValid())
 		{
