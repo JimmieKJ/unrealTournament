@@ -157,6 +157,7 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	 */
 	UFUNCTION()
 	virtual void OnRep_Ammo();
+	virtual void SwitchToBestWeaponIfNoAmmo();
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Replicated, Category = "Weapon")
 	int32 MaxAmmo;
 

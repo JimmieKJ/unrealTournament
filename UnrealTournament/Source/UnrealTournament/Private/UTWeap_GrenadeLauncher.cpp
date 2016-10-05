@@ -116,6 +116,8 @@ void AUTWeap_GrenadeLauncher::OnRep_HasStickyGrenades()
 	{
 		HideDetonatorUI();
 	}
+
+	SwitchToBestWeaponIfNoAmmo();
 }
 
 void AUTWeap_GrenadeLauncher::Destroyed()

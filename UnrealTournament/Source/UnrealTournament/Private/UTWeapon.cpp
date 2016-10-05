@@ -1317,7 +1317,7 @@ void AUTWeapon::AddAmmo(int32 Amount)
 	}
 }
 
-void AUTWeapon::OnRep_Ammo()
+void AUTWeapon::SwitchToBestWeaponIfNoAmmo()
 {
 	if (UTOwner != NULL && UTOwner->GetPendingWeapon() == NULL && !HasAnyAmmo())
 	{
@@ -1339,6 +1339,11 @@ void AUTWeapon::OnRep_Ammo()
 			}
 		}
 	}
+}
+
+void AUTWeapon::OnRep_Ammo()
+{
+	SwitchToBestWeaponIfNoAmmo();
 }
 
 void AUTWeapon::OnRep_AttachmentType()
