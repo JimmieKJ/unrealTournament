@@ -1338,10 +1338,11 @@ void FMaterialShaderMap::Compile(
 				}
 			}
   
+			const bool bHasTessellation = Material->GetTessellationMode() != MTM_NoTessellation;
 			for (TLinkedList<FShaderPipelineType*>::TIterator ShaderPipelineIt(FShaderPipelineType::GetTypeList());ShaderPipelineIt;ShaderPipelineIt.Next())
 			{
 				const FShaderPipelineType* Pipeline = *ShaderPipelineIt;
-				if (Pipeline->IsMaterialTypePipeline())
+				if (Pipeline->IsMaterialTypePipeline() && Pipeline->HasTessellation() == bHasTessellation)
 				{
 					auto& StageTypes = Pipeline->GetStages();
 					TArray<FMaterialShaderType*> ShaderStagesToCompile;
@@ -1719,10 +1720,11 @@ bool FMaterialShaderMap::IsComplete(const FMaterial* Material, bool bSilent)
 	}
 
 	// Iterate over all pipeline types
+	const bool bHasTessellation = Material->GetTessellationMode() != MTM_NoTessellation;
 	for (TLinkedList<FShaderPipelineType*>::TIterator ShaderPipelineIt(FShaderPipelineType::GetTypeList());ShaderPipelineIt;ShaderPipelineIt.Next())
 	{
 		const FShaderPipelineType* Pipeline = *ShaderPipelineIt;
-		if (Pipeline->IsMaterialTypePipeline())
+		if (Pipeline->IsMaterialTypePipeline() && Pipeline->HasTessellation() == bHasTessellation)
 		{
 			auto& StageTypes = Pipeline->GetStages();
 
@@ -1790,10 +1792,11 @@ void FMaterialShaderMap::LoadMissingShadersFromMemory(const FMaterial* Material)
 	}
 
 	// Try to find necessary FShaderPipelineTypes in memory
+	const bool bHasTessellation = Material->GetTessellationMode() != MTM_NoTessellation;
 	for (TLinkedList<FShaderPipelineType*>::TIterator ShaderPipelineIt(FShaderPipelineType::GetTypeList());ShaderPipelineIt;ShaderPipelineIt.Next())
 	{
 		const FShaderPipelineType* PipelineType = *ShaderPipelineIt;
-		if (PipelineType && PipelineType->IsMaterialTypePipeline() && !HasShaderPipeline(PipelineType))
+		if (PipelineType && PipelineType->IsMaterialTypePipeline() && !HasShaderPipeline(PipelineType) && PipelineType->HasTessellation() == bHasTessellation)
 		{
 			auto& Stages = PipelineType->GetStages();
 			int32 NumShaders = 0;

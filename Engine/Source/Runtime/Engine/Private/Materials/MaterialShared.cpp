@@ -2130,6 +2130,8 @@ FString FMaterialResource::GetMaterialUsageDescription() const
 
 void FMaterial::GetDependentShaderAndVFTypes(EShaderPlatform Platform, TArray<FShaderType*>& OutShaderTypes, TArray<const FShaderPipelineType*>& OutShaderPipelineTypes, TArray<FVertexFactoryType*>& OutVFTypes) const
 {
+	const bool bHasTessellation = GetTessellationMode() != MTM_NoTessellation;
+
 	// Iterate over all vertex factory types.
 	for (TLinkedList<FVertexFactoryType*>::TIterator VertexFactoryTypeIt(FVertexFactoryType::GetTypeList()); VertexFactoryTypeIt; VertexFactoryTypeIt.Next())
 	{
@@ -2159,7 +2161,7 @@ void FMaterial::GetDependentShaderAndVFTypes(EShaderPlatform Platform, TArray<FS
 			for (TLinkedList<FShaderPipelineType*>::TIterator PipelineTypeIt(FShaderPipelineType::GetTypeList()); PipelineTypeIt; PipelineTypeIt.Next())
 			{
 				auto* PipelineType = *PipelineTypeIt;
-				if (PipelineType->IsMeshMaterialTypePipeline())
+				if (PipelineType->IsMeshMaterialTypePipeline() && PipelineType->HasTessellation() == bHasTessellation)
 				{
 					int32 NumShouldCache = 0;
 					auto& ShaderStages = PipelineType->GetStages();
@@ -2211,7 +2213,7 @@ void FMaterial::GetDependentShaderAndVFTypes(EShaderPlatform Platform, TArray<FS
 	for (TLinkedList<FShaderPipelineType*>::TIterator PipelineTypeIt(FShaderPipelineType::GetTypeList()); PipelineTypeIt; PipelineTypeIt.Next())
 	{
 		auto* PipelineType = *PipelineTypeIt;
-		if (PipelineType->IsMaterialTypePipeline())
+		if (PipelineType->IsMaterialTypePipeline() && PipelineType->HasTessellation() == bHasTessellation)
 		{
 			int32 NumShouldCache = 0;
 			auto& ShaderStages = PipelineType->GetStages();
