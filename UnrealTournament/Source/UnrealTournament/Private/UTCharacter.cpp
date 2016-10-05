@@ -4037,10 +4037,8 @@ void AUTCharacter::UpdateCharOverlays()
 	}
 	else if (GS != NULL)
 	{
-		UE_LOG(UT, Warning, TEXT("UpdateCharOverlays with flags"));
 		if (OverlayMesh == NULL)
 		{
-			UE_LOG(UT, Warning, TEXT("Create overlay mesh"));
 			OverlayMesh = DuplicateObject<USkeletalMeshComponent>(GetMesh(), this);
 			OverlayMesh->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform); // AttachParent gets copied but we don't want it to be
 			
@@ -5091,14 +5089,12 @@ void AUTCharacter::RemoveArmor(int32 Amount)
 
 void AUTCharacter::UpdateArmorOverlay()
 {
-	UE_LOG(UT, Warning, TEXT("UpdateArmorOverlay %d %d"), (ArmorType != nullptr), ArmorAmount);
 	if (ArmorType && (ArmorAmount > 50))
 	{
 		SetCharacterOverlayEffect(ArmorType->OverlayEffect.IsValid() ? ArmorType->OverlayEffect : FOverlayEffect(ArmorType->OverlayMaterial), true);
 		UMaterialInstanceDynamic* MID = OverlayMesh ? Cast<UMaterialInstanceDynamic>(OverlayMesh->GetMaterial(0)) : nullptr;
 		if (MID)
 		{
-			UE_LOG(UT, Warning, TEXT("Have Armor MID"));
 			static const FName NAME_Fresnel = FName(TEXT("Fresnel"));
 			float FresnelValue = (ArmorAmount > 100) ? 15.f : 1.f;
 			MID->SetScalarParameterValue(NAME_Fresnel, FresnelValue);
