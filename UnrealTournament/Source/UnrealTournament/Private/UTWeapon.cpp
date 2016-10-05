@@ -1122,7 +1122,11 @@ void AUTWeapon::PlayFiringEffects()
 			}
 			if ((Ammo <= LowAmmoThreshold) && (Ammo > 0) && (LowAmmoSound != nullptr))
 			{
-				GetWorldTimerManager().SetTimer(PlayLowAmmoSoundHandle, this, &AUTWeapon::PlayLowAmmoSound, LowAmmoSoundDelay, false);
+				AUTGameMode* GameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
+				if (!GameMode || GameMode->bAmmoIsLimited)
+				{
+					GetWorldTimerManager().SetTimer(PlayLowAmmoSoundHandle, this, &AUTWeapon::PlayLowAmmoSound, LowAmmoSoundDelay, false);
+				}
 			}
 		}
 
