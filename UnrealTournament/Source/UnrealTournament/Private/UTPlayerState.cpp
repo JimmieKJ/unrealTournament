@@ -674,6 +674,21 @@ void AUTPlayerState::Tick(float DeltaTime)
 		AUTCharacter* UTChar = GetUTCharacter();
 		bCanRally = (GetWorld()->GetTimeSeconds() > NextRallyTime) && UTChar && (UTChar->bCanRally || UTChar->GetCarriedObject());
 		RemainingRallyDelay = (NextRallyTime > GetWorld()->GetTimeSeconds()) ? FMath::Clamp(int32(NextRallyTime - GetWorld()->GetTimeSeconds()), 0, 255) : 0;
+
+		if (!StatsID.IsEmpty() && !RequestedName.IsEmpty() && Cast<AController>(GetOwner()))
+		{
+			AUTGameState* UTGameState = GetWorld()->GetGameState<AUTGameState>();
+			if (UTGameState)
+			{
+				TSharedRef<const FUniqueNetId> UserId = MakeShareable(new FUniqueNetIdString(*StatsID));
+				FText EpicAccountName = UTGameState->GetEpicAccountNameForAccount(UserId);
+				if (!EpicAccountName.IsEmpty())
+				{
+					GetWorld()->GetAuthGameMode()->ChangeName(Cast<AController>(GetOwner()), RequestedName, false);
+					RequestedName = TEXT("");
+				}
+			}
+		}
 	}
 	// If we are waiting to respawn then count down
 	RespawnTime -= DeltaTime;
@@ -705,11 +720,7 @@ void AUTPlayerState::Tick(float DeltaTime)
 
 	if (CurrentCoolFactor > 0.0f)
 	{
-		CurrentCoolFactor -= CoolFactorBleedSpeed * DeltaTime;
-		if (CurrentCoolFactor < 0.0f)
-		{
-			CurrentCoolFactor = 0.0f;
-		}
+		CurrentCoolFactor = FMath::Max(0.f, CurrentCoolFactor - CoolFactorBleedSpeed * DeltaTime);
 	}
 }
 
@@ -1795,7 +1806,6 @@ void AUTPlayerState::OnRep_UniqueId()
 	Super::OnRep_UniqueId();
 	// Find the current first local player and asks if I'm their friend.  NOTE: the UTLocalPlayer will, when the friends list changes
 	// update these as well.
-
 	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(GEngine->GetLocalPlayerFromControllerId(GetWorld(),0));
 	if (LP != NULL)
 	{

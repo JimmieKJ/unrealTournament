@@ -153,7 +153,6 @@ public:
 	UPROPERTY(BlueprintReadWrite, replicated, Category = PlayerState)
 	uint32 bReadyToPlay:1;
 
-
 	UPROPERTY(BlueprintReadOnly, Replicated, Category = PlayerState)
 		uint32 bIsWarmingUp : 1;
 
@@ -177,6 +176,10 @@ public:
 	/** Persistent so deathmessage can know about it. */
 	UPROPERTY()
 		uint32 bAnnounceWeaponReward : 1;
+
+	/** Set if need to retry name change to account name. */
+	UPROPERTY()
+		FString RequestedName;
 
 	/** Last displayed ready state. */
 	uint8 LastReadyState;

@@ -135,7 +135,6 @@ void AUTBaseGameMode::InitGameState()
 	}
 }
 
-
 FName AUTBaseGameMode::GetNextChatDestination(AUTPlayerState* PlayerState, FName CurrentChatDestination)
 {
 	if (CurrentChatDestination == ChatDestinations::Local) return ChatDestinations::Team;
@@ -290,6 +289,7 @@ void AUTBaseGameMode::ChangeName(AController* Other, const FString& S, bool bNam
 		EpicAccountName = UTGameState->GetEpicAccountNameForAccount(UserId);
 		if (bForceAccountName)
 		{
+			PS->RequestedName = EpicAccountName.IsEmpty() ? ClampedName : TEXT("");
 			ClampedName = EpicAccountName.IsEmpty() ? FString::Printf(TEXT("%s%i"), *DefaultPlayerName.ToString(), PS->PlayerId) : EpicAccountName.ToString();
 		}
 		bNameMatchesAccount = (EpicAccountName.ToString() == ClampedName);
@@ -301,14 +301,18 @@ void AUTBaseGameMode::ChangeName(AController* Other, const FString& S, bool bNam
 	for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
 	{
 		AController* Controller = *Iterator;
-		if (Controller->PlayerState/* && (ControllerPlayerState != PS)*/ && FCString::Stricmp(*Controller->PlayerState->PlayerName, *ClampedName) == 0)
+		if (Controller->PlayerState && (Controller->PlayerState != PS) && (FCString::Stricmp(*Controller->PlayerState->PlayerName, *ClampedName) == 0))
 		{
 			if (bNameMatchesAccount)
 			{
-				Controller->PlayerState->PlayerName = "NOT" + Controller->PlayerState->PlayerName.Left(12);
+				Controller->PlayerState->SetPlayerName("NOT" + Controller->PlayerState->PlayerName.Left(12));
 			}
 			else if (Cast<APlayerController>(Other) != NULL)
 			{
+				if (EpicAccountName.IsEmpty())
+				{
+					PS->RequestedName = ClampedName;
+				}
 				ClampedName = EpicAccountName.IsEmpty() ? FString::Printf(TEXT("%s%i"), *DefaultPlayerName.ToString(), PS->PlayerId) : EpicAccountName.ToString();
 				break;
 			}
