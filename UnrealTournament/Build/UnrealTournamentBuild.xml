@@ -480,6 +480,7 @@
 	<Property Name="Mac Build Targets" Value="$(Mac Build Targets)Publish Mac;" If="$(WithMacClient)"/>
 	<Property Name="Mac Build Targets" Value="$(Mac Build Targets)Post Mac;Chunk Mac;" If="$(WithMacClient) And $(EnableMCP)"/>
 	<Property Name="Mac Build Targets" Value="$(Mac Build Targets)Publish Editor Mac;" If="$(WithMacEditor)"/>
+	<Property Name="Mac Build Targets" Value="$(Mac Build Targets)Chunk Editor Mac;Post Editor Mac;" If="$(WithMacEditor) And $(EnableMCP)"/>
 	<Property Name="Mac Build Targets" Value="$(Mac Build Targets)Compile UT Test Mac;" If="$(IncludeTestExes)"/>
 	<Aggregate Name="Make Mac Game" Requires="$(Mac Build Targets)"/>
 
