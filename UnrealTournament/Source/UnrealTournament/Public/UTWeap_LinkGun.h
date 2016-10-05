@@ -59,6 +59,9 @@ class UNREALTOURNAMENT_API AUTWeap_LinkGun : public AUTWeapon
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = LinkGun)
 	int32 LinkPullDamage;
 
+	UPROPERTY(BlueprintReadWrite, Category = LinkGun)
+		int32 LastFiredPlasmaTime;
+
 	/** clientside pull target; server has extra leeway for hitting this in remote client scenarios to avoid pull success mismatches
 	 * unused if standalone game or bot weapon
 	 */
