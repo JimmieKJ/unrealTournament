@@ -1604,6 +1604,23 @@ void SUTServerBrowserPanel::OnServerBeaconResult(AUTServerBeaconClient* Sender, 
 	{
 		if (PingTrackers[i].Beacon == Sender)
 		{
+			FText ServerGameName = FText::FromString(ServerInfo.CurrentGameMode);
+			// Pull the server info
+			UClass* GameClass = LoadClass<AUTBaseGameMode>(NULL, *ServerInfo.CurrentGameMode, NULL, LOAD_NoWarn | LOAD_Quiet, NULL);
+			if (GameClass != NULL)
+			{
+				ServerGameName = GameClass->GetDefaultObject<AUTBaseGameMode>()->DisplayName;
+			}
+			else
+			{
+				GameClass = LoadClass<AUTBaseGameMode>(NULL, *FString::Printf(TEXT("%s_C"),*ServerInfo.CurrentGameMode), NULL, LOAD_NoWarn | LOAD_Quiet, NULL);
+				if (GameClass != NULL)
+				{
+					ServerGameName = GameClass->GetDefaultObject<AUTBaseGameMode>()->DisplayName;
+				}
+			}
+
+
 			// Matched... store the data.
 			PingTrackers[i].Server->Ping = Sender->Ping;
 			PingTrackers[i].Server->MOTD = ServerInfo.MOTD;
