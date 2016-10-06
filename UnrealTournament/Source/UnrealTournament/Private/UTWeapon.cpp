@@ -23,6 +23,7 @@
 #include "UTCrosshair.h"
 #include "UTDroppedPickup.h"
 #include "UTAnnouncer.h"
+#include "UTProj_ShockBall.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogUTWeapon, Log, All);
 
@@ -102,6 +103,7 @@ AUTWeapon::AUTWeapon(const FObjectInitializer& ObjectInitializer)
 
 	bCheckHeadSphere = false;
 	bCheckMovingHeadSphere = false;
+	bIgnoreShockballs = false;
 
 	WeightSpeedPctModifier = 1.0f;
 
@@ -1590,6 +1592,28 @@ void AUTWeapon::HitScanTrace(const FVector& StartLocation, const FVector& EndTra
 		if (!GetWorld()->LineTraceSingleByChannel(Hit, StartLocation, EndTrace, TraceChannel, QueryParams))
 		{
 			Hit.Location = EndTrace;
+		}
+		else if (bIgnoreShockballs && Hit.Actor.IsValid() && Cast<AUTProj_ShockBall>(Hit.Actor.Get()))
+		{
+			int32 HitShockballCount = 3;
+			QueryParams.AddIgnoredActor(Hit.Actor.Get());
+			while (HitShockballCount > 0)
+			{
+				if (!GetWorld()->LineTraceSingleByChannel(Hit, StartLocation, EndTrace, TraceChannel, QueryParams))
+				{
+					Hit.Location = EndTrace;
+					HitShockballCount = 0;
+				}
+				else if (Hit.Actor.IsValid() && Cast<AUTProj_ShockBall>(Hit.Actor.Get()))
+				{
+					HitShockballCount--;
+					QueryParams.AddIgnoredActor(Hit.Actor.Get());
+				}
+				else
+				{
+					HitShockballCount = 0;
+				}
+			}
 		}
 	}
 	else

@@ -14,6 +14,7 @@ AUTWeap_Minigun::AUTWeap_Minigun(const FObjectInitializer& ObjectInitializer)
 	Ammo = 80;
 	MaxAmmo = 240;
 	FOVOffset = FVector(0.01f, 1.f, 1.6f);
+	bIgnoreShockballs = true;
 
 	AmmoWarningAmount = 25;
 	AmmoDangerAmount = 10;

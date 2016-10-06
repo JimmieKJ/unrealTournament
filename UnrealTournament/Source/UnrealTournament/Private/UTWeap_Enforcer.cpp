@@ -61,6 +61,7 @@ AUTWeap_Enforcer::AUTWeap_Enforcer(const FObjectInitializer& ObjectInitializer)
 	DisplayName = NSLOCTEXT("UTWeap_Enforcer", "DisplayName", "Enforcer");
 	bCheckHeadSphere = true;
 	bCheckMovingHeadSphere = true;
+	bIgnoreShockballs = true;
 
 	WeaponCustomizationTag = EpicWeaponCustomizationTags::Enforcer;
 	WeaponSkinCustomizationTag = EpicWeaponSkinCustomizationTags::Enforcer;

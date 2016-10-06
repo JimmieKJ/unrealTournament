@@ -195,6 +195,10 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
 		bool bCheckMovingHeadSphere;
 
+	/** Whether Hitscan hits should do extra check to ignore shockballs. (only works for traces, not sweeps) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
+		bool bIgnoreShockballs;
+
 	/** Custom Momentum scaling for friendly hitscanned pawns */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
 	float FriendlyMomentumScaling;

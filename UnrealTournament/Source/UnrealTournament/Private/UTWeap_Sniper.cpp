@@ -36,6 +36,7 @@ AUTWeap_Sniper::AUTWeap_Sniper(const FObjectInitializer& ObjectInitializer)
 	ShotsStatsName = NAME_SniperShots;
 	bCheckHeadSphere = true;
 	bCheckMovingHeadSphere = true;
+	bIgnoreShockballs = true;
 
 	WeaponCustomizationTag = EpicWeaponCustomizationTags::Sniper;
 	WeaponSkinCustomizationTag = EpicWeaponSkinCustomizationTags::Sniper;
