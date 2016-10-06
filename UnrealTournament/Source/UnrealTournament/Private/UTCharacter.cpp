@@ -155,7 +155,7 @@ AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 
 	OnActorBeginOverlap.AddDynamic(this, &AUTCharacter::OnOverlapBegin);
 	GetMesh()->OnComponentHit.AddDynamic(this, &AUTCharacter::OnRagdollCollision);
-	GetMesh()->SetNotifyRigidBodyCollision(true);
+	GetMesh()->BodyInstance.bNotifyRigidBodyCollision = true; // note: the set function does not work correctly for SkeletalMeshComponent when used in defaults!
 
 	TeamPlayerIndicatorMaxDistance = 2700.0f;
 	SpectatorIndicatorMaxDistance = 8000.f;
