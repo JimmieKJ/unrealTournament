@@ -168,7 +168,7 @@ void UUTScoreboard::DrawGamePanel(float RenderDelta, float& YOffset)
 			GameName = FText::FromString(DefaultGame->DisplayName.ToString().ToUpper());
 		}
 	}
-	if ((!UTGameState || (UTGameState->IsMatchInProgress() && !UTGameState->IsMatchIntermission())) || ScoreMessageText.IsEmpty())
+	if (ScoreMessageText.IsEmpty())
 	{ 
 		FFormatNamedArguments Args;
 		Args.Add("GameName", FText::AsCultureInvariant(GameName));
