@@ -2519,6 +2519,7 @@ void AUTPlayerController::ServerToggleWarmup_Implementation()
 		return;
 	}
 	UTPlayerState->bIsWarmingUp = !UTPlayerState->bIsWarmingUp;
+	UTPlayerState->ForceNetUpdate();
 	if (UTPlayerState->bIsWarmingUp)
 	{
 		if (!IsFrozen())

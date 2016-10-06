@@ -863,6 +863,7 @@ void AUTCTFRoundGame::InitPlayerForRound(AUTPlayerState* PS)
 			PS->bHasLifeLimit = IsPlayerOnLifeLimitedTeam(PS);
 			PS->SetOutOfLives(false);
 		}
+		PS->ForceNetUpdate();
 	}
 }
 
@@ -979,6 +980,7 @@ void AUTCTFRoundGame::RestartPlayer(AController* aPlayer)
 					}
 					PS->AnnounceStatus(StatusMessage::LastLife, 0, true);
 					PS->RespawnWaitTime = 0.5f;
+					PS->ForceNetUpdate();
 					PS->OnRespawnWaitReceived();
 				}
 				else if (PC)
@@ -1065,6 +1067,7 @@ void AUTCTFRoundGame::ScoreKill_Implementation(AController* Killer, AController*
 				}
 			}
 		}
+		OtherPS->ForceNetUpdate();
 		OtherPS->OnRespawnWaitReceived();
 	}
 	if (OtherPS && IsPlayerOnLifeLimitedTeam(OtherPS) && (OtherPS->RemainingLives > 0))
@@ -1171,6 +1174,7 @@ void AUTCTFRoundGame::ScoreKill_Implementation(AController* Killer, AController*
 			{
 				OtherPS->RespawnWaitTime = FMath::Min(OtherPS->RespawnWaitTime, 2.f);
 			}
+			OtherPS->ForceNetUpdate();
 			OtherPS->OnRespawnWaitReceived();
 		}
 	}

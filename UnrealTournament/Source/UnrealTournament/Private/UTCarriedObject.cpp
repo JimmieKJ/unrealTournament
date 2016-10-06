@@ -528,6 +528,7 @@ void AUTCarriedObject::NoLongerHeld(AController* InstigatedBy)
 			Holder->OnRepSpecialTeamPlayer();
 		}
 		Holder->ClearCarriedObject(this);
+		Holder->ForceNetUpdate();
 	}
 
 	LastHoldingPawn = HoldingPawn;

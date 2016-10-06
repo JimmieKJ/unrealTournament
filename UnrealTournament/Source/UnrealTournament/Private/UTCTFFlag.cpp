@@ -41,7 +41,8 @@ AUTCTFFlag::AUTCTFFlag(const FObjectInitializer& ObjectInitializer)
 	ClothBlendHome = 0.f;
 	ClothBlendHeld = 0.5f;
 	bEnemyCanPickup = true;
-	PingedDuration = 2.f;
+	PingedDuration = 2.f; 
+	TargetPingedDuration = 0.5f;
 	bShouldPingFlag = false;
 
 	AuraSphere = ObjectInitializer.CreateOptionalDefaultSubobject<UStaticMeshComponent>(this, TEXT("AuraSphere"));
@@ -358,6 +359,8 @@ void AUTCTFFlag::Tick(float DeltaTime)
 	}
 	if (Role == ROLE_Authority)
 	{
+		bool bWasPinged = bCurrentlyPinged;
+		bCurrentlyPinged = false;
 		AUTGameVolume* GV = HoldingPawn && HoldingPawn->UTCharacterMovement ? Cast<AUTGameVolume>(HoldingPawn->UTCharacterMovement->GetPhysicsVolume()) : nullptr;
 		if (Holder)
 		{
@@ -393,22 +396,20 @@ void AUTCTFFlag::Tick(float DeltaTime)
 						}
 					}
 				}
-				if (!bCurrentlyPinged && HoldingPawn && (GetWorld()->GetTimeSeconds() - HoldingPawn->LastTargetedTime < PingedDuration))
+				if (!bCurrentlyPinged && HoldingPawn && (GetWorld()->GetTimeSeconds() - HoldingPawn->LastTargetSeenTime < TargetPingedDuration))
 				{
 					bCurrentlyPinged = true;
-					// fixme this is where to recheck visibility at shorter intervals - how do we handle multiple targeters?
 				}
 			}
-
 			Holder->bSpecialPlayer = bCurrentlyPinged;
+			if (bWasPinged != bCurrentlyPinged)
+			{
+				Holder->ForceNetUpdate();
+			}
 			if (GetNetMode() != NM_DedicatedServer)
 			{
 				Holder->OnRepSpecialPlayer();
 			}
-		}
-		else
-		{
-			bCurrentlyPinged = false;
 		}
 		if ((ObjectState == CarriedObjectState::Held) && HoldingPawn)
 		{

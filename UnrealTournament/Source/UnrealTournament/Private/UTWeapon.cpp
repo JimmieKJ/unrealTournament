@@ -1568,8 +1568,7 @@ void AUTWeapon::GuessPlayerTarget(const FVector& StartFireLoc, const FVector& Fi
 		}
 		if (TargetedCharacter)
 		{
-			UTOwner->LastTargetingTime = GetWorld()->GetTimeSeconds();
-			TargetedCharacter->TargetedBy(TargetedCharacter, PS);
+			TargetedCharacter->TargetedBy(UTOwner, PS);
 		}
 	}
 }

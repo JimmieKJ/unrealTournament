@@ -621,6 +621,7 @@ void AUTPlayerState::OnDeathsReceived()
 void AUTPlayerState::SetOutOfLives(bool bNewValue)
 {
 	bOutOfLives = bNewValue;
+	ForceNetUpdate();
 	OnOutOfLives();
 }
 

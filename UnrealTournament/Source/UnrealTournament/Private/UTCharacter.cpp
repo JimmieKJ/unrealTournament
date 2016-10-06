@@ -1292,19 +1292,27 @@ void AUTCharacter::SpawnBloodDecal(const FVector& TraceStart, const FVector& Tra
 
 void AUTCharacter::TargetedBy(APawn* Targeter, AUTPlayerState* PS)
 {
+	AUTCharacter* TargeterChar = Cast<AUTCharacter>(Targeter);
+	if (TargeterChar)
+	{
+		TargeterChar->LastTarget = this;
+		TargeterChar->LastTargetingTime = GetWorld()->GetTimeSeconds();
+		TargeterChar->bHaveTargetVisual = true;
+	}
 	if ((LastTargetedTime == GetWorld()->GetTimeSeconds()) && (PS == LastTargeter))
 	{
 		// skip
 		return;
 	}
 	LastTargetedTime = GetWorld()->GetTimeSeconds();
+	LastTargetSeenTime = GetWorld()->GetTimeSeconds();
 	LastTargeter = PS;
+
 	AUTCarriedObject* Flag = GetCarriedObject();
 	if (Flag && Flag->bShouldPingFlag)
 	{
 		if (PS && (GetWorld()->GetTimeSeconds() - Flag->LastPingVerbalTime > 12.f) && !Flag->bCurrentlyPinged)
 		{
-			Flag->bCurrentlyPinged = true;
 			Flag->LastPingVerbalTime = GetWorld()->GetTimeSeconds();
 			AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 			if (GS)
@@ -1326,11 +1334,10 @@ void AUTCharacter::TargetedBy(APawn* Targeter, AUTPlayerState* PS)
 	}
 
 	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-	if (Targeter && GS && GS->bPlayStatusAnnouncements && Cast<AUTPlayerController>(GetController()))
+	if (TargeterChar && GS && GS->bPlayStatusAnnouncements && Cast<AUTPlayerController>(GetController()))
 	{
 		AUTPlayerState* UTPlayerState = Cast<AUTPlayerState>(PlayerState);
-		AUTCharacter* TargeterChar = Cast<AUTCharacter>(Targeter);
-		if (UTPlayerState && TargeterChar && UTPlayerState->Team && (GetWorld()->GetTimeSeconds() - UTPlayerState->LastBehindYouTime > 12.f))
+		if (UTPlayerState && UTPlayerState->Team && (GetWorld()->GetTimeSeconds() - UTPlayerState->LastBehindYouTime > 12.f))
 		{
 			// announce behind you if attacker is behind this player && teammate can see it
 			FVector ViewDir = GetActorRotation().Vector();
@@ -4367,6 +4374,32 @@ void AUTCharacter::Tick(float DeltaTime)
 	if (Role == ROLE_Authority)
 	{
 		bIsInCombat = (GetWorld()->GetTimeSeconds() - FMath::Max(LastTargetingTime, LastTargetedTime) < 2.5f);
+
+		// If have currently pinged flag carrier target, see if need visual check to extend pinged time.
+		AUTCarriedObject* TargetedFlag = LastTarget ? LastTarget->GetCarriedObject() : nullptr;
+		if (bHaveTargetVisual && GetController() && TargetedFlag && TargetedFlag->bShouldPingFlag && TargetedFlag->bCurrentlyPinged && (GetWorld()->GetTimeSeconds() - LastTargetingTime < TargetedFlag->PingedDuration) && (GetWorld()->GetTimeSeconds() - LastTarget->LastTargetSeenTime > TargetedFlag->TargetPingedDuration - 0.2f))
+		{
+			bHaveTargetVisual = false;
+			FVector Viewpoint = GetActorLocation();
+			Viewpoint.Z += BaseEyeHeight;
+			FVector TargetDir = (LastTarget->GetActorLocation() - Viewpoint).SafeNormal();
+			FVector TargetHeadLoc = LastTarget->GetActorLocation() + FVector(0.0f, 0.0f, LastTarget->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight());
+			FVector ViewDir = GetController()->GetControlRotation().Vector();
+			if (((ViewDir | TargetDir) > 0.93f) || ((ViewDir | (TargetHeadLoc - Viewpoint).SafeNormal()) > 0.93f)) // make 0.9
+			{
+				FCollisionQueryParams TraceParams(FName(TEXT("ChooseBestAimTarget")), false);
+				bool bHit = GetWorld()->LineTraceTestByChannel(Viewpoint, TargetHeadLoc, COLLISION_TRACE_WEAPONNOCHARACTER, TraceParams);
+				if (bHit)
+				{
+					bHit = GetWorld()->LineTraceTestByChannel(Viewpoint, LastTarget->GetActorLocation(), COLLISION_TRACE_WEAPONNOCHARACTER, TraceParams);
+				}
+				if (!bHit)
+				{
+					bHaveTargetVisual = true;
+					LastTarget->LastTargetSeenTime = GetWorld()->GetTimeSeconds();
+				}
+			}
+		}
 	}
 	if (HeadScale < 0.1f)
 	{

@@ -744,9 +744,21 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	UPROPERTY(BlueprintReadOnly, Category = Pawn)
 		float LastTargetedTime;
 
+	/** Last time this character was seen by an enemy that just targeted me. */
+	UPROPERTY(BlueprintReadOnly, Category = Pawn)
+		float LastTargetSeenTime;
+
 	/** Last enemy to target or hit this character. */
 	UPROPERTY(BlueprintReadOnly, Category = Pawn)
 		AUTPlayerState* LastTargeter;
+
+	/** Last enemy targeted or hit by this character. */
+	UPROPERTY(BlueprintReadOnly, Category = Pawn)
+		AUTCharacter* LastTarget;
+
+	/** set true when target or keep eyes on enemy FC. */
+	UPROPERTY(BlueprintReadOnly, Category = Pawn)
+		bool bHaveTargetVisual;
 
 	virtual void TargetedBy(APawn* Targeter, AUTPlayerState* PS);
 
