@@ -117,7 +117,10 @@ void AUTWeap_GrenadeLauncher::OnRep_HasStickyGrenades()
 		HideDetonatorUI();
 	}
 
-	SwitchToBestWeaponIfNoAmmo();
+	if (NumLoadedRockets == 0)
+	{
+		SwitchToBestWeaponIfNoAmmo();
+	}
 }
 
 void AUTWeap_GrenadeLauncher::Destroyed()
