@@ -771,7 +771,6 @@ void UUTGameEngine::IndexExpansionContent()
 void UUTGameEngine::SetupLoadingScreen()
 {
 #if !UE_SERVER
-	/* disabled due to Slate threading fails, doing this in LoadMapRedrawViewports() instead
 	if (IsMoviePlayerEnabled())
 	{
 		FLoadingScreenAttributes LoadingScreen;
@@ -780,44 +779,13 @@ void UUTGameEngine::SetupLoadingScreen()
 		//LoadingScreen.WidgetLoadingScreen = SNew(SImage).Image(&LoadingScreenImage);
 		LoadingScreen.WidgetLoadingScreen = SNew(SImage).Image(SUWindowsStyle::Get().GetBrush("LoadingScreen"));
 		GetMoviePlayer()->SetupLoadingScreen(LoadingScreen);
-		FCoreUObjectDelegates::PreLoadMap.Broadcast();
-	}*/
+		FCoreUObjectDelegates::PreLoadMap.Broadcast(TEXT(""));
+	}
 #endif
 }
 
 static FName UT_DEFAULT_LOADING(TEXT("UT.LoadingScreen"));
 
-
-void UUTGameEngine::LoadMapRedrawViewports()
-{
-#if !UE_SERVER
-
-	FName Background = UT_DEFAULT_LOADING;
-
-	UE_LOG(UT,Log,TEXT("Background: %s"),*Background.ToString());
-	// put up a temporary widget for the loading screen for one frame
-	TSharedPtr<SImage> LoadingScreenImage;
-	if (GameViewport != NULL)
-	{
-		SAssignNew(LoadingScreenImage, SImage).Image(SUTStyle::Get().GetBrush(Background));
-		GameViewport->AddViewportWidgetContent(LoadingScreenImage.ToSharedRef(), MAX_int32);
-	}
-
-#endif
-	Super::LoadMapRedrawViewports();
-#if !UE_SERVER
-
-	if (GameViewport != NULL)
-	{
-		// now remove the widget
-		if (LoadingScreenImage.IsValid())
-		{
-			GameViewport->RemoveViewportWidgetContent(LoadingScreenImage.ToSharedRef());
-		}
-	}
-
-#endif
-}
 
 bool UUTGameEngine::IsCloudAndLocalContentInSync()
 {

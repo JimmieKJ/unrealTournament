@@ -15,7 +15,6 @@ protected:
 public:
 	virtual void StartupModule() override
 	{		
-		return;	// TODO: Disabled until slate handles threads better.
 #if !UE_SERVER
 		FLoadingScreenAttributes LoadingScreen;
 		LoadingScreen.bAutoCompleteWhenLoadingCompletes = false;
