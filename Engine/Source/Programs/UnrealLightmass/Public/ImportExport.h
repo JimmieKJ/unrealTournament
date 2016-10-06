@@ -51,7 +51,7 @@ namespace Lightmass
 	static const int32 LM_DEBUGOUTPUT_VERSION			= 1;
 	static const int32 LM_SCENE_VERSION					= 1;
 	static const int32 LM_STATICMESH_VERSION			= 1;
-	static const int32 LM_MATERIAL_VERSION				= 1;
+	static const int32 LM_MATERIAL_VERSION				= 2;
 
 
 	/** Alert source object type identifiers... */
