@@ -129,14 +129,18 @@ bool AUTRemoteRedeemer::DriverLeave(bool bForceLeave)
 	AController* C = Controller;
 	if (Driver && C)
 	{
-		if (C->PlayerState)
+		if (C->PlayerState) 
 		{
-			for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
+			AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+			if (GS && !GS->IsMatchIntermission() && !GS->HasMatchEnded())
 			{
-				AUTPlayerController* UTPC = Cast<AUTPlayerController>(It->PlayerController);
-				if (UTPC && UTPC->LastSpectatedPlayerState == C->PlayerState)
+				for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
 				{
-					UTPC->ViewPawn(Driver);
+					AUTPlayerController* UTPC = Cast<AUTPlayerController>(It->PlayerController);
+					if (UTPC && UTPC->LastSpectatedPlayerState == C->PlayerState)
+					{
+						UTPC->ViewPawn(Driver);
+					}
 				}
 			}
 		}
@@ -449,12 +453,16 @@ void AUTRemoteRedeemer::OnRep_PlayerState()
 	{
 		CachedTeamNum = PS->GetTeamNum();
 	}
-	for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
+	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+	if (GS && !GS->IsMatchIntermission() && !GS->HasMatchEnded())
 	{
-		AUTPlayerController* UTPC = Cast<AUTPlayerController>(It->PlayerController);
-		if (UTPC && UTPC->LastSpectatedPlayerState == PlayerState)
+		for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
 		{
-			UTPC->ViewPawn(this);
+			AUTPlayerController* UTPC = Cast<AUTPlayerController>(It->PlayerController);
+			if (UTPC && UTPC->LastSpectatedPlayerState == PlayerState)
+			{
+				UTPC->ViewPawn(this);
+			}
 		}
 	}
 }
