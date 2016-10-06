@@ -362,33 +362,41 @@ void AUTCTFFlag::Tick(float DeltaTime)
 		if (Holder)
 		{
 			//Update currently pinged
-			bCurrentlyPinged = (bShouldPingFlag && (GetWorld()->GetTimeSeconds() - LastPingedTime < PingedDuration));
-			if (bShouldPingFlag && !bCurrentlyPinged && GV && GV->bIsNoRallyZone)
+			if (bShouldPingFlag)
 			{
-				if (GetWorld()->GetTimeSeconds() - EnteredEnemyBaseTime < PingedDuration)
+				bCurrentlyPinged = (GetWorld()->GetTimeSeconds() - LastPingedTime < PingedDuration);
+				if (!bCurrentlyPinged && GV && GV->bIsNoRallyZone)
 				{
-					bCurrentlyPinged = true;
-				}
-				else if (HoldingPawn->GetController())
-				{
-					// ping if has LOS to flag base
-					AUTCTFGameState* GameState = GetWorld()->GetGameState<AUTCTFGameState>();
-					if (GameState)
+					if (GetWorld()->GetTimeSeconds() - EnteredEnemyBaseTime < PingedDuration)
 					{
-						AUTCTFFlagBase* OtherBase = GameState->FlagBases[1 - GetTeamNum()];
-						if (OtherBase)
+						bCurrentlyPinged = true;
+					}
+					else if (HoldingPawn->GetController())
+					{
+						// ping if has LOS to flag base
+						AUTCTFGameState* GameState = GetWorld()->GetGameState<AUTCTFGameState>();
+						if (GameState)
 						{
-							FVector StartLocation = HoldingPawn->GetActorLocation() + FVector(0.f, 0.f, HoldingPawn->BaseEyeHeight);
-							FVector BaseLoc = OtherBase->GetActorLocation();
-							ECollisionChannel TraceChannel = ECC_Visibility;
-							FCollisionQueryParams QueryParams(GetClass()->GetFName(), true, HoldingPawn);
-							FHitResult Hit;
-							if (!GetWorld()->LineTraceSingleByChannel(Hit, StartLocation, BaseLoc, TraceChannel, QueryParams) || !GetWorld()->LineTraceSingleByChannel(Hit, StartLocation, BaseLoc + FVector(0.f,0.f, 100.f), TraceChannel, QueryParams))
+							AUTCTFFlagBase* OtherBase = GameState->FlagBases[1 - GetTeamNum()];
+							if (OtherBase)
 							{
-								bCurrentlyPinged = true;;
+								FVector StartLocation = HoldingPawn->GetActorLocation() + FVector(0.f, 0.f, HoldingPawn->BaseEyeHeight);
+								FVector BaseLoc = OtherBase->GetActorLocation();
+								ECollisionChannel TraceChannel = ECC_Visibility;
+								FCollisionQueryParams QueryParams(GetClass()->GetFName(), true, HoldingPawn);
+								FHitResult Hit;
+								if (!GetWorld()->LineTraceSingleByChannel(Hit, StartLocation, BaseLoc, TraceChannel, QueryParams) || !GetWorld()->LineTraceSingleByChannel(Hit, StartLocation, BaseLoc + FVector(0.f, 0.f, 100.f), TraceChannel, QueryParams))
+								{
+									bCurrentlyPinged = true;;
+								}
 							}
 						}
 					}
+				}
+				if (!bCurrentlyPinged && HoldingPawn && (GetWorld()->GetTimeSeconds() - HoldingPawn->LastTargetedTime < PingedDuration))
+				{
+					bCurrentlyPinged = true;
+					// fixme this is where to recheck visibility at shorter intervals - how do we handle multiple targeters?
 				}
 			}
 
@@ -397,6 +405,10 @@ void AUTCTFFlag::Tick(float DeltaTime)
 			{
 				Holder->OnRepSpecialPlayer();
 			}
+		}
+		else
+		{
+			bCurrentlyPinged = false;
 		}
 		if ((ObjectState == CarriedObjectState::Held) && HoldingPawn)
 		{

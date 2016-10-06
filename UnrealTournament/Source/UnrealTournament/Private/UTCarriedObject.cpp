@@ -435,7 +435,7 @@ void AUTCarriedObject::SetHolder(AUTCharacter* NewHolder)
 		OnHolderChanged();
 		if (Holder && bWasHome)
 		{
-			LastPingedTime = GetWorld()->GetTimeSeconds() + 1.5f;
+			LastPingedTime = GetWorld()->GetTimeSeconds();
 			Holder->ModifyStatsValue(NAME_FlagGrabs, 1);
 			if (Holder->Team)
 			{

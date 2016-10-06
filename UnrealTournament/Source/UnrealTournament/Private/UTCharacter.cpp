@@ -1290,14 +1290,21 @@ void AUTCharacter::SpawnBloodDecal(const FVector& TraceStart, const FVector& Tra
 #endif
 }
 
-void AUTCharacter::TargetedBy(AUTCharacter* Targeter, AUTPlayerState* PS)
+void AUTCharacter::TargetedBy(APawn* Targeter, AUTPlayerState* PS)
 {
+	if ((LastTargetedTime == GetWorld()->GetTimeSeconds()) && (PS == LastTargeter))
+	{
+		// skip
+		return;
+	}
 	LastTargetedTime = GetWorld()->GetTimeSeconds();
+	LastTargeter = PS;
 	AUTCarriedObject* Flag = GetCarriedObject();
 	if (Flag && Flag->bShouldPingFlag)
 	{
-		if (PS && (GetWorld()->GetTimeSeconds() - Flag->LastPingVerbalTime > 12.f) && (GetWorld()->GetTimeSeconds() - Flag->LastPingedTime > Flag->PingedDuration))
+		if (PS && (GetWorld()->GetTimeSeconds() - Flag->LastPingVerbalTime > 12.f) && !Flag->bCurrentlyPinged)
 		{
+			Flag->bCurrentlyPinged = true;
 			Flag->LastPingVerbalTime = GetWorld()->GetTimeSeconds();
 			AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 			if (GS)
@@ -1316,32 +1323,30 @@ void AUTCharacter::TargetedBy(AUTCharacter* Targeter, AUTPlayerState* PS)
 			}
 		}
 		Flag->LastPinger = PS ? PS : Flag->LastPinger;
-		Flag->LastPingedTime = GetWorld()->GetTimeSeconds();
 	}
-	else
+
+	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+	if (Targeter && GS && GS->bPlayStatusAnnouncements && Cast<AUTPlayerController>(GetController()))
 	{
-		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-		if (Targeter && GS && GS->bPlayStatusAnnouncements && Cast<AUTPlayerController>(GetController()))
+		AUTPlayerState* UTPlayerState = Cast<AUTPlayerState>(PlayerState);
+		AUTCharacter* TargeterChar = Cast<AUTCharacter>(Targeter);
+		if (UTPlayerState && TargeterChar && UTPlayerState->Team && (GetWorld()->GetTimeSeconds() - UTPlayerState->LastBehindYouTime > 12.f))
 		{
-			AUTPlayerState* UTPlayerState = Cast<AUTPlayerState>(PlayerState);
-			if (UTPlayerState && UTPlayerState->Team && (GetWorld()->GetTimeSeconds() - UTPlayerState->LastBehindYouTime > 12.f))
+			// announce behind you if attacker is behind this player && teammate can see it
+			FVector ViewDir = GetActorRotation().Vector();
+			FVector EnemyDir = (Targeter->GetActorLocation() - GetActorLocation()).GetSafeNormal();
+			if ((ViewDir | EnemyDir) < 0.5f)
 			{
-				// announce behind you if attacker is behind this player && teammate can see it
-				FVector ViewDir = GetActorRotation().Vector();
-				FVector EnemyDir = (Targeter->GetActorLocation() - GetActorLocation()).GetSafeNormal();
-				if ((ViewDir | EnemyDir) < 0.5f)
+				// if teammate nearby, have them announce - send replicated function so client can verify last rendered time
+				for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
 				{
-					// if teammate nearby, have them announce - send replicated function so client can verify last rendered time
-					for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
+					AController* C = *Iterator;
+					AUTPlayerState* TeamPS = C ? Cast<AUTPlayerState>(C->PlayerState) : nullptr;
+					if (TeamPS && (TeamPS != UTPlayerState) && C->GetPawn() && GS->OnSameTeam(this, C) && C->LineOfSightTo(this))
 					{
-						AController* C = *Iterator;
-						AUTPlayerState* TeamPS = C ? Cast<AUTPlayerState>(C->PlayerState) : nullptr;
-						if (TeamPS && (TeamPS != UTPlayerState) && C->GetPawn() && GS->OnSameTeam(this, C) && C->LineOfSightTo(this))
-						{
-							Cast<AUTPlayerController>(GetController())->ClientWarnEnemyBehind(TeamPS, Targeter);
-							UTPlayerState->LastBehindYouTime = GetWorld()->GetTimeSeconds();
-							break;
-						}
+						Cast<AUTPlayerController>(GetController())->ClientWarnEnemyBehind(TeamPS, TargeterChar);
+						UTPlayerState->LastBehindYouTime = GetWorld()->GetTimeSeconds();
+						break;
 					}
 				}
 			}
@@ -1355,22 +1360,12 @@ void AUTCharacter::NotifyTakeHit(AController* InstigatedBy, int32 AppliedDamage,
 	{
 		AUTCarriedObject* Flag = GetCarriedObject();
 		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-		if (InstigatedBy && GS && !GS->OnSameTeam(this, InstigatedBy))
-		{
-			if (Flag)
-			{
-				Flag->LastPingedTime = GetWorld()->GetTimeSeconds();
-				Flag->LastPinger = Cast<AUTPlayerState>(InstigatedBy->PlayerState) ? ((AUTPlayerState*)(InstigatedBy->PlayerState)) : Flag->LastPinger;
-			}
-			LastTargetedTime = GetWorld()->GetTimeSeconds();
-		}
 		AUTPlayerController* InstigatedByPC = Cast<AUTPlayerController>(InstigatedBy);
-		APawn* InstigatorPawn = nullptr;
+		APawn* InstigatorPawn = InstigatedBy ? InstigatedBy->GetPawn() : nullptr;
 		uint8 CompressedDamage = FMath::Clamp(AppliedDamage, 0, 255);
 		if (InstigatedByPC != NULL)
 		{
 			InstigatedByPC->ClientNotifyCausedHit(this, CompressedDamage);
-			InstigatorPawn = InstigatedByPC->GetPawn();
 		}
 		else
 		{
@@ -1378,8 +1373,11 @@ void AUTCharacter::NotifyTakeHit(AController* InstigatedBy, int32 AppliedDamage,
 			if (InstigatedByBot != NULL)
 			{
 				InstigatedByBot->NotifyCausedHit(this, Damage);
-				InstigatorPawn = InstigatedByBot->GetPawn();
 			}
+		}
+		if (InstigatorPawn && GS && !GS->OnSameTeam(this, InstigatedBy))
+		{
+			TargetedBy(InstigatorPawn, Cast<AUTPlayerState>(InstigatedBy->PlayerState));
 		}
 
 		// we do the sound here instead of via PlayTakeHitEffects() so it uses RPCs instead of variable replication which is higher priority
