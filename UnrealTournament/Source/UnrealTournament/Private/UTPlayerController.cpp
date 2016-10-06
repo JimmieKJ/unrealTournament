@@ -2852,7 +2852,8 @@ void AUTPlayerController::SetStylizedPP(int32 NewPP)
 
 void AUTPlayerController::ClientGameEnded_Implementation(AActor* EndGameFocus, bool bIsWinner)
 {
-	ChangeState(FName(TEXT("GameOver")));
+	static const FName NAME_GameOver = FName(TEXT("GameOver"));
+	ChangeState(NAME_GameOver);
 	FinalViewTarget = EndGameFocus;
 	BehindView(true);
 	FTimerHandle TimerHandle;
@@ -3185,12 +3186,20 @@ void AUTPlayerController::ClientViewSpectatorPawn_Implementation(FViewTargetTran
 
 void AUTPlayerController::ClientHalftime_Implementation()
 {
-	// Freeze all of the pawns
+	// Freeze all of the pawns, destroy torn off ones
 	for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
 	{
-		if (*It && !Cast<ASpectatorPawn>((*It).Get()))
+		APawn* TestPawn = *It;
+		if (TestPawn && !Cast<ASpectatorPawn>(TestPawn))
 		{
-			(*It)->TurnOff();
+			if (TestPawn->bTearOff)
+			{
+				TestPawn->Destroy();
+			}
+			else
+			{
+				TestPawn->TurnOff();
+			}
 		}
 	}
 	if (UTCharacter)
@@ -3277,14 +3286,19 @@ void AUTPlayerController::PlayerTick( float DeltaTime )
 {
 	FRotator CurrentRotation = GetControlRotation();
 	Super::PlayerTick(DeltaTime);
-	if (StateName == FName(TEXT("GameOver")))
+	static const FName NAME_GameOver = FName(TEXT("GameOver"));
+	if (StateName == NAME_GameOver)
 	{
 		UpdateRotation(DeltaTime);
 	}
 	else if (IsInState(NAME_Inactive))
 	{
-		// revert any rotation changes
-		SetControlRotation(CurrentRotation);
+		AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
+		if (GameState && !GameState->HasMatchEnded() && !GameState->IsMatchIntermission())
+		{
+			// revert any rotation changes
+			SetControlRotation(CurrentRotation);
+		}
 	}
 
 	// if we have no UTCharacterMovement, we need to apply firing here since it won't happen from the component

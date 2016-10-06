@@ -35,6 +35,7 @@
 #include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
 #include "UTInGameIntroHelper.h"
 #include "UTInGameIntroZone.h"
+#include "UTProjectile.h"
 
 AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -141,33 +142,43 @@ bool AUTCTFRoundGame::SkipPlacement(AUTCharacter* UTChar)
 
 void AUTCTFRoundGame::RemoveLosers(int32 LoserTeam, int32 FlagTeam)
 {
-	// place losing team around attacker base, away from camera
-	if ((Teams.Num() > LoserTeam) && (CTFGameState->FlagBases.Num() > FlagTeam) && (CTFGameState->FlagBases[FlagTeam] != nullptr) && (Teams[LoserTeam] != nullptr))
+	// remove all dead or loser pawns
+	for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
 	{
-		TArray<AController*> Members = Teams[LoserTeam]->GetTeamMembers();
-		FVector PlacementOffset = FVector(200.f, 0.f, 0.f);
-		float StartAngle = 0.f;
-		FVector FlagLoc = CTFGameState->FlagBases[FlagTeam]->GetActorLocation();
-		float AngleSlices = 360.0f / 8;
-		int32 PlacementCounter = 0;
-		for (AController* C : Members)
+		// Detach all controllers from their pawns
+		AController* Controller = *Iterator;
+		AUTPlayerState* PS = Controller ? Cast<AUTPlayerState>(Controller->PlayerState) : nullptr;
+		if (Controller && Controller->GetPawn() && (!PS || !PS->Team || (PS->Team->TeamIndex == LoserTeam)))
 		{
-			AUTCharacter* UTChar = C ? Cast<AUTCharacter>(C->GetPawn()) : NULL;
-			if (UTChar && !UTChar->IsDead() && !SkipPlacement(UTChar))
-			{
-				AUTPlayerState* PS = Cast<AUTPlayerState>(UTChar->PlayerState);
-				if (PS && PS->CarriedObject && PS->CarriedObject->HolderTrail)
-				{
-					PS->CarriedObject->HolderTrail->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
-				}
-				FRotator AdjustmentAngle(0, StartAngle + AngleSlices * PlacementCounter, 0);
-				FVector PlacementLoc = FlagLoc + AdjustmentAngle.RotateVector(PlacementOffset);
-				PlacementLoc.Z += UTChar->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight() * 1.1f;
-				PlacementCounter++;
-				UTChar->bIsTranslocating = true; // hack to get rid of teleport effect
-				UTChar->TeleportTo(PlacementLoc, UTChar->GetActorRotation(), false, true);
-				UTChar->bIsTranslocating = false;
-			}
+			Controller->UnPossess();
+		}
+	}
+
+	TArray<APawn*> PawnsToDestroy;
+	for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
+	{
+		APawn* Pawn = *It;
+		if (Pawn && !Pawn->GetController())
+		{
+			PawnsToDestroy.Add(Pawn);
+		}
+	}
+
+	for (int32 i = 0; i<PawnsToDestroy.Num(); i++)
+	{
+		APawn* Pawn = PawnsToDestroy[i];
+		if (Pawn != NULL && !Pawn->IsPendingKill())
+		{
+			Pawn->Destroy();
+		}
+	}
+
+	for (FActorIterator It(GetWorld()); It; ++It)
+	{
+		AActor* TestActor = *It;
+		if (TestActor && !TestActor->IsPendingKill() && TestActor->IsA<AUTProjectile>())
+		{
+			TestActor->Destroy();
 		}
 	}
 }

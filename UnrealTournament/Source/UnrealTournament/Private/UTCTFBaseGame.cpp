@@ -528,7 +528,8 @@ void AUTCTFBaseGame::PlacePlayersAroundFlagBase(int32 TeamNum, int32 FlagTeamNum
 	// respawn dead pawns
 	for (AController* C : Members)
 	{
-		if (C)
+		AUTPlayerState* PS = C ? Cast<AUTPlayerState>(C->PlayerState) : nullptr;
+		if (PS && PS->Team && (PS->Team->TeamIndex == TeamNum))
 		{
 			AUTCharacter* UTChar = Cast<AUTCharacter>(C->GetPawn());
 			if (!UTChar || UTChar->IsDead() || UTChar->IsRagdoll())
