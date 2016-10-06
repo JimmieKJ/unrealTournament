@@ -12,6 +12,9 @@ class UNREALTOURNAMENT_API AUTWeap_GrenadeLauncher : public AUTWeap_RocketLaunch
 	GENERATED_BODY()
 
 private:
+	
+	UPROPERTY()
+	float LastGrenadeFireTime;
 
 	UPROPERTY()
 	TArray<AUTProj_Grenade_Sticky*> ActiveGrenades;
@@ -22,10 +25,17 @@ private:
 	UPROPERTY(replicatedUsing=OnRep_HasStickyGrenades)
 	bool bHasStickyGrenades;
 
-	UPROPERTY(replicated)
+	UFUNCTION()
+	void OnRep_HasLoadedStickyGrenades();
+
+	UPROPERTY(replicatedUsing=OnRep_HasLoadedStickyGrenades)
 	bool bHasLoadedStickyGrenades;
 
 public:
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GrenadeLauncher)
+	float DetonationAfterFireDelay;
+
 	AUTWeap_GrenadeLauncher();
 
 	virtual void StartFire(uint8 FireModeNum) override;

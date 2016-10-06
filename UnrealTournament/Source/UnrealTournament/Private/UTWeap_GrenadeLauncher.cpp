@@ -9,11 +9,19 @@ AUTWeap_GrenadeLauncher::AUTWeap_GrenadeLauncher()
 	DefaultGroup = 3;
 	Group = 3;
 	WeaponCustomizationTag = EpicWeaponCustomizationTags::GrenadeLauncher;
+
+	DetonationAfterFireDelay = 0.3f;
 }
 
 void AUTWeap_GrenadeLauncher::StartFire(uint8 FireModeNum)
 {
 	if (bHasLoadedStickyGrenades && FireModeNum == 1)
+	{
+		return;
+	}
+
+	// Don't fire until it's time
+	if (GetWorld()->TimeSeconds - LastGrenadeFireTime < DetonationAfterFireDelay)
 	{
 		return;
 	}
@@ -187,4 +195,13 @@ void AUTWeap_GrenadeLauncher::ClearLoadedRockets()
 {
 	Super::ClearLoadedRockets();
 	bHasLoadedStickyGrenades = false;
+	OnRep_HasLoadedStickyGrenades();
+}
+
+void AUTWeap_GrenadeLauncher::OnRep_HasLoadedStickyGrenades()
+{
+	if (!bHasLoadedStickyGrenades)
+	{
+		LastGrenadeFireTime = GetWorld()->TimeSeconds;
+	}
 }
