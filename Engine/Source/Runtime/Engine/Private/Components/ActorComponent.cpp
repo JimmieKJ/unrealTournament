@@ -1095,7 +1095,7 @@ void UActorComponent::SendRenderDynamicData_Concurrent()
 
 void UActorComponent::DestroyRenderState_Concurrent()
 {
-	check(bRenderStateCreated);
+	checkf(bRenderStateCreated, TEXT("%s"), *GetFullName());
 	bRenderStateCreated = false;
 
 #if LOG_RENDER_STATE
