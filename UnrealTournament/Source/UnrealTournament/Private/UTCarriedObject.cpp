@@ -475,7 +475,12 @@ void AUTCarriedObject::SetHolder(AUTCharacter* NewHolder)
 	{
 		Holder->OnRepSpecialTeamPlayer();
 	}
-	UUTGameplayStatics::UTPlaySound(GetWorld(), PickupSound, HoldingPawn);
+	UUTGameplayStatics::UTPlaySound(GetWorld(), PickupSound, HoldingPawn, SRT_AllButOwner);
+	AUTPlayerController* PC = Cast <AUTPlayerController>(HoldingPawn->GetController());
+	if (PC)
+	{
+		PC->UTClientPlaySound(HolderPickupSound);
+	}
 
 	SendGameMessage(4, Holder, NULL);
 

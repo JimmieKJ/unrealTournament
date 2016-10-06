@@ -245,7 +245,11 @@ public:
 	UPROPERTY()
 	float LastGameMessageTime;
 
-	/** sound played when the object is picked up */
+	/** sound played for holder when the object is picked up */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
+		USoundBase* HolderPickupSound;
+
+	/** sound played for other playerswhen the object is picked up */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
 	USoundBase* PickupSound;
 
