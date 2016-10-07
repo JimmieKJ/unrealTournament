@@ -34,6 +34,30 @@ struct FLine
 	}
 };
 
+/** addendum to FNavAgentProperties when pathfinding (FNavAgentProperties doesn't support polymorphism) */
+struct FUTReachParams
+{
+	// size as integer for quick path pass/fail
+	int32 Radius;
+	int32 HalfHeight;
+	// compared with path ReachFlags
+	uint32 MoveFlags;
+	// max allowed falling speed for fall capable paths
+	int32 MaxFallSpeed;
+	// JumpZ available to Asker through standard jump moves/input (no weapon assist)
+	float MaxSimpleJumpZ;
+	// JumpZ available to Asker through standard jump moves/input limitlessly (as default character capabilities, no items/powerups/cooldown required)
+	float MaxSimpleRepeatableJumpZ;
+
+	/** calculates JumpZ available to Asker through standard jump moves (no weapon assist)
+	* @param RepeatableJumpZ - JumpZ that the character can achieve limitlessly
+	* @return JumpZ that the character can achieve one or more times (jump boots, etc)
+	*/
+	static float CalcAvailableSimpleJumpZ(APawn* Asker, float* RepeatableJumpZ = NULL);
+
+	FUTReachParams(APawn* Asker, const FNavAgentProperties& AgentProps);
+};
+
 USTRUCT(BlueprintType)
 struct FRouteCacheItem
 {

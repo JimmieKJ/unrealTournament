@@ -38,7 +38,7 @@ class UNREALTOURNAMENT_API UUTReachSpec : public UObject
 	}
 
 	/** return traversal cost in UU or BLOCKED_PATH_COST to prevent the path from being used */
-	virtual int32 CostFor(int32 DefaultCost, const FUTPathLink& OwnerLink, APawn* Asker, const FNavAgentProperties& AgentProps, AController* RequestOwner, NavNodeRef StartPoly, const class AUTRecastNavMesh* NavMesh)
+	virtual int32 CostFor(int32 DefaultCost, const FUTPathLink& OwnerLink, APawn* Asker, const FNavAgentProperties& AgentProps, const FUTReachParams& ReachParams, AController* RequestOwner, NavNodeRef StartPoly, const class AUTRecastNavMesh* NavMesh)
 	{
 		return DefaultCost;
 	}

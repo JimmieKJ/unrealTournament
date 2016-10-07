@@ -824,8 +824,40 @@ void AUTRecastNavMesh::BuildNodeNetwork()
 								if (!bOffMeshLink && OtherSize == Node->MinPolyEdgeSize && OtherVolume == Node->PhysicsVolume && !PolyToNode.Contains(Link.ref))
 								{
 									ensure(!Node->Polys.Contains(Link.ref)); // should have ended up below if this is the case
-									Node->Polys.Add(Link.ref);
-									PolyToNode.Add(Link.ref, Node);
+									// we only want one walk path connecting the same two pathnodes, so check this poly for other adjacent nodes
+									// if one is found such that this poly would create a second walk connection, put this poly in a new node instead
+									bool bAddedNode = false;
+									const dtPoly* NewPolyData = NULL;
+									const dtMeshTile* NewTileData = NULL;
+									InternalMesh->getTileAndPolyByRef(Link.ref, &NewTileData, &NewPolyData);
+									if (NewPolyData != NULL && NewTileData != NULL)
+									{
+										uint32 j = NewPolyData->firstLink;
+										while (j != DT_NULL_LINK && j < uint32(NewTileData->header->maxLinkCount))
+										{
+											const dtLink& NewLink = InternalMesh->getLink(NewTileData, j);
+											j = NewLink.next;
+											UUTPathNode* TestNode = PolyToNode.FindRef(NewLink.ref);
+											if ( TestNode != NULL && TestNode != Node &&
+												(TestNode->Paths.ContainsByPredicate([Node](const FUTPathLink& TestItem) { return TestItem.End == Node; }) || Node->Paths.ContainsByPredicate([TestNode](const FUTPathLink& TestItem) { return TestItem.End == TestNode; })) )
+											{
+												Node = NewObject<UUTPathNode>(this);
+												Node->PhysicsVolume = OtherVolume;
+												PathNodes.Add(Node);
+												PolyToNode.Add(Link.ref, Node);
+												Node->Polys.Add(Link.ref);
+												Node->MinPolyEdgeSize = OtherSize;
+
+												bAddedNode = true;
+												break;
+											}
+										}
+									}
+									if (!bAddedNode)
+									{
+										Node->Polys.Add(Link.ref);
+										PolyToNode.Add(Link.ref, Node);
+									}
 									bAnyNodeExpanded = true;
 								}
 								else
@@ -1355,6 +1387,8 @@ void AUTRecastNavMesh::BuildSpecialLinks(int32 NumToProcess)
 															JumpSpec->RequiredJumpZ = RequiredJumpZ;
 															JumpSpec->GravityVolume = Node->PhysicsVolume;
 															JumpSpec->OriginalGravityZ = (JumpSpec->GravityVolume != NULL) ? JumpSpec->GravityVolume->GetGravityZ() : GetWorld()->GetGravityZ();
+															JumpSpec->JumpStart = GetPolyCenter(PolyRef);
+															JumpSpec->JumpEnd = GetPolyCenter(It.Key());
 															AllReachSpecs.Add(JumpSpec);
 														}
 														uint32 ReachFlags = R_JUMP;
@@ -1498,6 +1532,8 @@ void AUTRecastNavMesh::BuildSpecialLinks(int32 NumToProcess)
 												}
 												JumpSpec->GravityVolume = GravityVolume;
 												JumpSpec->OriginalGravityZ = GravityZ;
+												JumpSpec->JumpStart = GetPolyCenter(StartPoly);
+												JumpSpec->JumpEnd = GetPolyCenter(EndPoly);
 												AllReachSpecs.Add(JumpSpec);
 												FUTPathLink* NewLink = new(StartNode->Paths) FUTPathLink(StartNode, StartPoly, Node, EndPoly, JumpSpec, PathSize.Radius, PathSize.Height, R_JUMP);
 												CalcJumpPathDistance(*NewLink);
@@ -1945,10 +1981,62 @@ NavNodeRef AUTRecastNavMesh::FindLiftPoly(APawn* Asker, const FNavAgentPropertie
 	}
 }
 
-void AUTRecastNavMesh::CalcReachParams(APawn* Asker, const FNavAgentProperties& AgentProps, AController* RequestOwner, int32& Radius, int32& Height, int32& MaxFallSpeed, uint32& MoveFlags)
+float FUTReachParams::CalcAvailableSimpleJumpZ(APawn* Asker, float* RepeatableJumpZ)
+{
+	AUTCharacter* UTC = Cast<AUTCharacter>(Asker);
+	if (UTC != NULL)
+	{
+		// Repeatable: what we can do by default
+		if (RepeatableJumpZ != NULL)
+		{
+			const UUTCharacterMovement* DefaultMovement = UTC->GetClass()->GetDefaultObject<AUTCharacter>()->UTCharacterMovement;
+			*RepeatableJumpZ = DefaultMovement->JumpZVelocity;
+			if (DefaultMovement->bAllowJumpMultijumps && DefaultMovement->MaxMultiJumpCount > 0)
+			{
+				for (int32 i = 0; i < DefaultMovement->MaxMultiJumpCount; i++)
+				{
+					*RepeatableJumpZ = (*RepeatableJumpZ) * ((*RepeatableJumpZ) / ((*RepeatableJumpZ) + DefaultMovement->MultiJumpImpulse)) + DefaultMovement->MultiJumpImpulse;
+				}
+			}
+		}
+
+		// Best: what we can do now
+		float BestJumpZ = UTC->GetCharacterMovement()->JumpZVelocity;
+		if (UTC->UTCharacterMovement->bAllowJumpMultijumps && UTC->UTCharacterMovement->MaxMultiJumpCount > 0)
+		{
+			for (int32 i = 0; i < UTC->UTCharacterMovement->MaxMultiJumpCount; i++)
+			{
+				BestJumpZ = BestJumpZ * (BestJumpZ / (BestJumpZ + UTC->UTCharacterMovement->MultiJumpImpulse)) + UTC->UTCharacterMovement->MultiJumpImpulse;
+			}
+		}
+		return BestJumpZ;
+	}
+	else
+	{
+		ACharacter* C = Cast<ACharacter>(Asker);
+		if (C == NULL || C->GetCharacterMovement() == NULL)
+		{
+			if (RepeatableJumpZ != NULL)
+			{
+				*RepeatableJumpZ = 0.0f;
+			}
+			return 0.0f;
+		}
+		else
+		{
+			if (RepeatableJumpZ != NULL)
+			{
+				*RepeatableJumpZ = C->GetClass()->GetDefaultObject<ACharacter>()->GetCharacterMovement()->JumpZVelocity;
+			}
+			return C->GetCharacterMovement()->JumpZVelocity;
+		}
+	}
+}
+
+FUTReachParams::FUTReachParams(APawn* Asker, const FNavAgentProperties& AgentProps)
 {
 	Radius = FMath::TruncToInt(AgentProps.AgentRadius);
-	Height = FMath::TruncToInt(AgentProps.AgentHeight * 0.5f);
+	HalfHeight = FMath::TruncToInt(AgentProps.AgentHeight * 0.5f);
 	MaxFallSpeed = 0; // FIXME
 	MoveFlags = 0;
 	if (AgentProps.bCanJump)
@@ -1966,14 +2054,17 @@ void AUTRecastNavMesh::CalcReachParams(APawn* Asker, const FNavAgentProperties& 
 		ACharacter* C = Cast<ACharacter>(Asker);
 		if (C != NULL && C->GetCharacterMovement() != NULL)
 		{
-			Height = FMath::Min<int32>(Height, FMath::TruncToInt(C->GetCharacterMovement()->CrouchedHalfHeight));
+			HalfHeight = FMath::Min<int32>(HalfHeight, FMath::TruncToInt(C->GetCharacterMovement()->CrouchedHalfHeight));
 		}
 	}
 
-	AUTBot* B = Cast<AUTBot>(RequestOwner);
-	if (B != NULL)
+	if (Asker != nullptr)
 	{
-		B->SetupSpecialPathAbilities();
+		MaxSimpleJumpZ = CalcAvailableSimpleJumpZ(Asker, &MaxSimpleRepeatableJumpZ);
+	}
+	else
+	{
+		MaxSimpleJumpZ = MaxSimpleRepeatableJumpZ = 0.0f;
 	}
 }
 
@@ -2023,9 +2114,12 @@ bool AUTRecastNavMesh::FindBestPath(APawn* Asker, const FNavAgentProperties& Age
 	}
 	else
 	{
-		int32 Radius, Height, MaxFallSpeed;
-		uint32 MoveFlags;
-		CalcReachParams(Asker, AgentProps, RequestOwner, Radius, Height, MaxFallSpeed, MoveFlags);
+		FUTReachParams ReachParams(Asker, AgentProps);
+		AUTBot* B = Cast<AUTBot>(RequestOwner);
+		if (B != NULL)
+		{
+			B->SetupSpecialPathAbilities();
+		}
 
 		struct FEvaluatedNode
 		{
@@ -2069,7 +2163,7 @@ bool AUTRecastNavMesh::FindBestPath(APawn* Asker, const FNavAgentProperties& Age
 			int32 NextDistance = 0;
 			for (int32 i = 0; i < CurrentNode->Node->Paths.Num(); i++)
 			{
-				if (CurrentNode->Node->Paths[i].End.IsValid() && CurrentNode->Node->Paths[i].Supports(Radius, Height, MoveFlags))
+				if (CurrentNode->Node->Paths[i].End.IsValid() && CurrentNode->Node->Paths[i].Supports(ReachParams.Radius, ReachParams.HalfHeight, ReachParams.MoveFlags))
 				{
 					FEvaluatedNode* NextNode = NodeMap.FindRef(CurrentNode->Node->Paths[i].End.Get());
 					if (NextNode == NULL)
@@ -2078,7 +2172,7 @@ bool AUTRecastNavMesh::FindBestPath(APawn* Asker, const FNavAgentProperties& Age
 					}
 					if (!NextNode->bAlreadyVisited)
 					{
-						NextDistance = CurrentNode->Node->Paths[i].CostFor(Asker, AgentProps, RequestOwner, CurrentNode->Poly, this);
+						NextDistance = CurrentNode->Node->Paths[i].CostFor(Asker, AgentProps, ReachParams, RequestOwner, CurrentNode->Poly, this);
 						if (NextDistance < BLOCKED_PATH_COST)
 						{
 							NextDistance += NodeEval.GetTransientCost(CurrentNode->Node->Paths[i], Asker, AgentProps, RequestOwner, CurrentNode->Poly, NextDistance + CurrentNode->TotalDistance);
@@ -2219,7 +2313,7 @@ bool AUTRecastNavMesh::FindBestPath(APawn* Asker, const FNavAgentProperties& Age
 				// TODO: get movement speed for non-characters somehow
 				const float MoveSpeed = FMath::Max<float>(1.0f, (Cast<ACharacter>(Asker) != NULL) ? ((ACharacter*)Asker)->GetCharacterMovement()->GetMaxSpeed() : GetDefault<AUTCharacter>()->GetCharacterMovement()->MaxWalkSpeed);
 				MaxDetourDist = FMath::Max<float>(MaxDetourDist, MoveSpeed * 2.0f);
-				AUTBot* B = Cast<AUTBot>(Asker->Controller);
+				const float RespawnPredictionTime = (B != nullptr) ? B->RespawnPredictionTime : 0.0f;
 				AActor* BestDetour = NULL;
 				float BestDetourWeight = 0.0f;
 				for (TWeakObjectPtr<AActor> POI : NextRouteNode->Node->POIs)
@@ -2236,7 +2330,7 @@ bool AUTRecastNavMesh::FindBestPath(APawn* Asker, const FNavAgentProperties& Age
 							if (!bValid && Pickup != NULL)
 							{
 								// we assume detour relevant pickups are close enough to see that they're active so don't skip out on those even for low skill bots
-								bValid = Pickup->State.bActive || Pickup->GetRespawnTimeOffset(Asker) < FMath::Min<float>(Dist / MoveSpeed + 1.0f, B->RespawnPredictionTime);
+								bValid = Pickup->State.bActive || Pickup->GetRespawnTimeOffset(Asker) < FMath::Min<float>(Dist / MoveSpeed + 1.0f, RespawnPredictionTime);
 							}
 							if (bValid)
 							{

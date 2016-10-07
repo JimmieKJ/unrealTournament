@@ -438,7 +438,7 @@ float AUTWeap_Translocator::GetAISelectRating_Implementation()
 	else
 	{
 		UUTReachSpec_HighJump* JumpSpec = Cast<UUTReachSpec_HighJump>(B->GetCurrentPath().Spec.Get());
-		if (JumpSpec != NULL && JumpSpec->CalcAvailableSimpleJumpZ(UTOwner) < JumpSpec->CalcRequiredJumpZ(UTOwner) && (B->GetEnemy() == NULL || B->GetMovePoint() == B->GetMoveTarget().GetLocation(UTOwner) || !B->LineOfSightTo(B->GetEnemy())))
+		if (JumpSpec != NULL && FUTReachParams::CalcAvailableSimpleJumpZ(UTOwner) < JumpSpec->CalcRequiredJumpZ(UTOwner) && (B->GetEnemy() == NULL || B->GetMovePoint() == B->GetMoveTarget().GetLocation(UTOwner) || !B->LineOfSightTo(B->GetEnemy())))
 		{
 			return 9.1f;
 		}

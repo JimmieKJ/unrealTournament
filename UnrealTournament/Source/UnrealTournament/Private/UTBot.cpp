@@ -4157,6 +4157,7 @@ int32 AUTBot::GetRouteDist() const
 			AnchorPoly = RouteCache[0].TargetPoly;
 			Dist = FMath::TruncToInt((RouteCache[0].GetLocation(GetPawn()) - GetPawn()->GetActorLocation()).Size());
 		}
+		FUTReachParams ReachParams(GetPawn(), GetPawn()->GetNavAgentPropertiesRef());
 		for (int32 i = RouteStartIdx; i < RouteCache.Num() && Anchor != NULL; i++)
 		{
 			int32 LinkIndex = Anchor->GetBestLinkTo(AnchorPoly, RouteCache[i], GetPawn(), GetPawn()->GetNavAgentPropertiesRef(), NavData);
@@ -4166,7 +4167,7 @@ int32 AUTBot::GetRouteDist() const
 				return Dist;
 			}
 			const FUTPathLink& Link = Anchor->Paths[LinkIndex];
-			Dist += Link.CostFor(GetPawn(), GetPawn()->GetNavAgentPropertiesRef(), GetPawn()->Controller, AnchorPoly, NavData);
+			Dist += Link.CostFor(GetPawn(), GetPawn()->GetNavAgentPropertiesRef(), ReachParams, GetPawn()->Controller, AnchorPoly, NavData);
 			Anchor = Link.End.Get();
 			AnchorPoly = Link.EndPoly;
 		}

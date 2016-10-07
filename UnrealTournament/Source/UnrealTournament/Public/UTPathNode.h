@@ -192,7 +192,7 @@ struct FUTPathLink
 	}
 
 	// NOTE: Asker and/or RequestOwner may be NULL
-	int32 CostFor(APawn* Asker, const FNavAgentProperties& AgentProps, AController* RequestOwner, NavNodeRef StartPoly, const class AUTRecastNavMesh* NavMesh) const;
+	int32 CostFor(APawn* Asker, const FNavAgentProperties& AgentProps, const struct FUTReachParams& ReachParams, AController* RequestOwner, NavNodeRef StartPoly, const class AUTRecastNavMesh* NavMesh) const;
 
 	bool GetMovePoints(const FVector& StartLoc, APawn* Asker, const FNavAgentProperties& AgentProps, const struct FRouteCacheItem& Target, const TArray<FRouteCacheItem>& FullRoute, const class AUTRecastNavMesh* NavMesh, TArray<FComponentBasedPosition>& MovePoints) const;
 	/** implementation of GetMovePoints() for paths with a jump at the end, split out because some UTReachSpec paths also use it */
