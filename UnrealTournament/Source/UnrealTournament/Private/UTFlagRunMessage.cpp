@@ -128,6 +128,12 @@ void UUTFlagRunMessage::GetEmphasisText(FText& PrefixText, FText& EmphasisText, 
 
 FName UUTFlagRunMessage::GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject, const class APlayerState* RelatedPlayerState_1, const class APlayerState* RelatedPlayerState_2) const
 {
+	int32 TimeNeeded = 0;
+	if (Switch >= 100)
+	{
+		TimeNeeded = Switch / 100;
+		Switch = Switch - 100 * TimeNeeded;
+	}
 	switch (Switch)
 	{
 	case 1: return TEXT("DefendersMustDefendForChance"); break;
