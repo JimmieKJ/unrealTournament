@@ -23,8 +23,21 @@ class UNREALTOURNAMENT_API AUTPickupHealth : public AUTPickup
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Pickup)
 	FName StatsNameCount;
 
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadWrite, Category = Pickup)
+		UMeshComponent* Mesh;
+
+	/** copy of mesh displayed when inventory is not available */
+	UPROPERTY(VisibleInstanceOnly, BlueprintReadWrite, Category = Pickup)
+		UMeshComponent* GhostMesh;
+
+	/** material to be set on GhostMesh */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = PickupDisplay)
+		UMaterialInterface* GhostMeshMaterial;
+
 	virtual bool AllowPickupBy_Implementation(APawn* TouchedBy, bool bDefaultAllowPickup) override;
 	virtual void GiveTo_Implementation(APawn* Target) override;
+	virtual void BeginPlay() override;
+	virtual void SetPickupHidden(bool bNowHidden) override;
 
 	virtual float BotDesireability_Implementation(APawn* Asker, AController* RequestOwner, float PathDistance) override;
 	virtual float DetourWeight_Implementation(APawn* Asker, float PathDistance) override;
