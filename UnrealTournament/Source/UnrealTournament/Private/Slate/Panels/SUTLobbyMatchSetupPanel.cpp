@@ -616,7 +616,7 @@ FReply SUTLobbyMatchSetupPanel::StartMatchClicked()
 		
 			if (PlayerOwner.IsValid() && FUTAnalytics::IsAvailable())
 			{
-				FUTAnalytics::FireEvent_EnterMatch(Cast<AUTPlayerController>(PlayerOwner->PlayerController), FString("HUB - Start Match"));
+				FUTAnalytics::FireEvent_EnterMatch(FString("HUB - Start Match"));
 			}
 		}
 		else
@@ -625,7 +625,7 @@ FReply SUTLobbyMatchSetupPanel::StartMatchClicked()
 		
 			if (PlayerOwner.IsValid() && FUTAnalytics::IsAvailable())
 			{
-				FUTAnalytics::FireEvent_EnterMatch(Cast<AUTPlayerController>(PlayerOwner->PlayerController), FString("HUB - Abort Match"));
+				FUTAnalytics::FireEvent_EnterMatch(FString("HUB - Abort Match"));
 			}
 		}
 	}

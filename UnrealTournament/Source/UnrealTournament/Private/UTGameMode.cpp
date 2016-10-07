@@ -399,6 +399,12 @@ void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FStr
 	{
 		TutorialMask = UGameplayStatics::GetIntOption(Options, TEXT("TutorialMask"), 0);
 	}
+
+	bool bHasAnalyticsLoggedGameStart = EvalBoolOptions(UGameplayStatics::ParseOption(Options, FUTAnalytics::AnalyticsLoggedGameOption), false);
+	if (!bHasAnalyticsLoggedGameStart && FUTAnalytics::IsAvailable())
+	{
+		FUTAnalytics::FireEvent_EnterMatch(FString("Console"));
+	}
 }
 
 void AUTGameMode::AddMutator(const FString& MutatorPath)

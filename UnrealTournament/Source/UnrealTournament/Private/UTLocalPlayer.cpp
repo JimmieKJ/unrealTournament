@@ -3376,7 +3376,7 @@ void UUTLocalPlayer::StartQuickMatch(FString QuickMatchType)
 
 				if (FUTAnalytics::IsAvailable())
 				{
-					FUTAnalytics::FireEvent_EnterMatch(Cast<AUTPlayerController>(PlayerController), FString::Printf(TEXT("QuickMatch - %s"), *QuickMatchType));
+					FUTAnalytics::FireEvent_EnterMatch(FString::Printf(TEXT("QuickMatch - %s"), *QuickMatchType));
 				}
 			}
 		}
@@ -3414,7 +3414,7 @@ void UUTLocalPlayer::StartQuickMatch(FString QuickMatchType)
 
 				if (FUTAnalytics::IsAvailable())
 				{
-					FUTAnalytics::FireEvent_EnterMatch(Cast<AUTPlayerController>(PlayerController), FString::Printf(TEXT("QuickMatch - %s"), *QuickMatchType));
+					FUTAnalytics::FireEvent_EnterMatch(FString::Printf(TEXT("QuickMatch - %s"), *QuickMatchType));
 				}
 			}
 		}

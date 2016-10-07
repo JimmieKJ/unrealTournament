@@ -600,7 +600,7 @@ FReply SUTMatchPanel::StartNewMatch()
 
 			if (FUTAnalytics::IsAvailable())
 			{
-				FUTAnalytics::FireEvent_EnterMatch(Cast<AUTPlayerController>(PlayerOwner->PlayerController), FString("HUB - Created Match"));
+				FUTAnalytics::FireEvent_EnterMatch(FString("HUB - Created Match"));
 			}
 
 			LobbyPlayerState->ServerCreateMatch(bIsInParty);
@@ -1088,7 +1088,7 @@ FReply SUTMatchPanel::JoinMatchButtonClicked(TSharedPtr<FTrackedMatch> InItem)
 					{
 						if (FUTAnalytics::IsAvailable())
 						{
-							FUTAnalytics::FireEvent_EnterMatch(Cast<AUTPlayerController>(PlayerOwner->PlayerController), FString("HUB - Joined Match"));
+							FUTAnalytics::FireEvent_EnterMatch(FString("HUB - Joined Match"));
 						}
 
 						LobbyPlayerState->ServerJoinMatch(InItem->MatchInfo.Get(),false);
