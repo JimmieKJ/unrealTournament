@@ -846,6 +846,10 @@ void SUTQuickMatchWindow::AttemptQuickMatch(TSharedPtr<FServerSearchInfo> Desire
 		if (PartySize > 1)
 		{
 			bIsBeginner = false;
+			if (PlayerRankCheck < ((NUMBER_RANK_LEVELS * 2) - 1))
+			{
+				PlayerRankCheck = ((NUMBER_RANK_LEVELS * 2) - 1);
+			}
 		}
 	}
 
