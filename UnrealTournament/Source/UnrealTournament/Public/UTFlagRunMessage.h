@@ -58,6 +58,11 @@ class UNREALTOURNAMENT_API UUTFlagRunMessage : public UUTLocalMessage
 	virtual void GetEmphasisText(FText& PrefixText, FText& EmphasisText, FText& PostfixText, FLinearColor& EmphasisColor, int32 Switch, class APlayerState* RelatedPlayerState_1, class APlayerState* RelatedPlayerState_2, class UObject* OptionalObject) const override;
 	virtual void SplitPostfixText(FText& PostfixText, FText& SecondPostfixText,int32 Switch, class UObject* OptionalObject) const;
 	virtual FName GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject, const class APlayerState* RelatedPlayerState_1, const class APlayerState* RelatedPlayerState_2) const override;
+
+	virtual bool EnableAnnouncerLogging() const override
+	{
+		return true;
+	}
 };
 
 

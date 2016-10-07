@@ -92,6 +92,11 @@ class UNREALTOURNAMENT_API UUTLocalMessage : public ULocalMessage
 		return 0;
 	}
 
+	virtual bool EnableAnnouncerLogging() const
+	{
+		return false;
+	}
+
 	virtual bool IsOptionalSpoken(int32 MessageIndex) const;
 
 	virtual int32 GetFontSizeIndex(int32 MessageIndex) const;

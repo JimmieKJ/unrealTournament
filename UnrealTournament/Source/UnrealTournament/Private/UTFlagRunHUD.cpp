@@ -26,8 +26,17 @@ AUTFlagRunHUD::AUTFlagRunHUD(const FObjectInitializer& ObjectInitializer)
 void AUTFlagRunHUD::NotifyMatchStateChange()
 {
 	AUTFlagRunGameState* GS = Cast<AUTFlagRunGameState>(GetWorld()->GetGameState());
+	if (!GS)
+	{
+		UE_LOG(UT, Warning, TEXT("NO FRGS!!!!!"));
+	}
+	else
+	{
+		UE_LOG(UT, Warning, TEXT("Got flag run state change to %s with team %s"), *GS->GetMatchState().ToString(), GS->FlagRunMessageTeam ? *GS->FlagRunMessageTeam->GetName() : TEXT("NONE"));
+	}
 	if (GS && GS->GetMatchState() == MatchState::InProgress && GS->FlagRunMessageTeam && UTPlayerOwner)
 	{
+		UE_LOG(UT, Warning, TEXT("PLAY THE MESSAGE"));
 		UTPlayerOwner->ClientReceiveLocalizedMessage(UUTFlagRunMessage::StaticClass(), GS->FlagRunMessageSwitch, nullptr, nullptr, GS->FlagRunMessageTeam);
 	}
 	Super::NotifyMatchStateChange();
