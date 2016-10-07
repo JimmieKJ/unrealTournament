@@ -5035,17 +5035,23 @@ void AUTPlayerController::ClientPlayKillcam_Implementation(AController* KillingC
 	}
 	else if (Cast<AUTCharacter>(PawnToFocus) != nullptr)
 	{
-/*		FActorSpawnParameters Params;
-		Params.Instigator = PawnToFocus;
-		Params.Owner = PawnToFocus;
-		Params.bNoFail = true;
-		AUTKillerTarget* KillerTarget = GetWorld()->SpawnActor<AUTKillerTarget>(AUTKillerTarget::StaticClass(), FocusLoc, PawnToFocus->GetActorRotation(), Params);
-		if (KillerTarget != nullptr)
+		if (LineOfSightTo(PawnToFocus))
 		{
-			KillerTarget->InitFor(Cast<AUTCharacter>(PawnToFocus), this);
+			DeathCamFocus = PawnToFocus;
 		}
-		DeathCamFocus = KillerTarget;*/
-		DeathCamFocus = PawnToFocus;
+		else
+		{
+			FActorSpawnParameters Params;
+			Params.Instigator = PawnToFocus;
+			Params.Owner = PawnToFocus;
+			Params.bNoFail = true;
+			AUTKillerTarget* KillerTarget = GetWorld()->SpawnActor<AUTKillerTarget>(AUTKillerTarget::StaticClass(), FocusLoc, PawnToFocus->GetActorRotation(), Params);
+			if (KillerTarget != nullptr)
+			{
+				KillerTarget->InitFor(Cast<AUTCharacter>(PawnToFocus), this);
+			}
+			DeathCamFocus = KillerTarget;
+		}
 	}
 	else
 	{
