@@ -1623,8 +1623,9 @@ void AUTRecastNavMesh::Tick(float DeltaTime)
 #endif
 }
 
-bool FSingleEndpointEval::InitForPathfinding(APawn* Asker, const FNavAgentProperties& AgentProps, AUTRecastNavMesh* NavData)
+bool FSingleEndpointEval::InitForPathfinding(APawn* Asker, const FNavAgentProperties& AgentProps, const FVector& StartLoc, AUTRecastNavMesh* NavData)
 {
+	StartingDist = (StartLoc - GoalLoc).Size() - 1.0f; // -1 to make sure starting node isn't considered a valid partial "path"
 	GoalNode = NavData->FindNearestNode(GoalLoc, (GoalActor != NULL) ? NavData->GetPOIExtent(GoalActor) : NavData->GetHumanPathSize().GetExtent());
 	if (GoalNode == NULL && GoalActor != NULL)
 	{
@@ -1635,7 +1636,19 @@ bool FSingleEndpointEval::InitForPathfinding(APawn* Asker, const FNavAgentProper
 }
 float FSingleEndpointEval::Eval(APawn* Asker, const FNavAgentProperties& AgentProps, AController* RequestOwner, const UUTPathNode* Node, const FVector& EntryLoc, int32 TotalDistance)
 {
-	return (Node == GoalNode) ? 10.0f : 0.0f;
+	if (Node == GoalNode)
+	{
+		bFoundGoalNode = true;
+		return 10.0f;
+	}
+	else if (bAllowPartial)
+	{
+		return 1.0f - (EntryLoc - GoalLoc).Size() / StartingDist;
+	}
+	else
+	{
+		return 0.0f;
+	}
 }
 
 NavNodeRef AUTRecastNavMesh::UTFindNearestPoly(const FVector& Loc, const FVector& Extent) const
@@ -2004,7 +2017,7 @@ bool AUTRecastNavMesh::FindBestPath(APawn* Asker, const FNavAgentProperties& Age
 		// TODO: should we try to get the location back on the mesh?
 		return false;
 	}
-	else if (!NodeEval.InitForPathfinding(Asker, AgentProps, this))
+	else if (!NodeEval.InitForPathfinding(Asker, AgentProps, StartLoc, this))
 	{
 		return false;
 	}
@@ -2039,6 +2052,9 @@ bool AUTRecastNavMesh::FindBestPath(APawn* Asker, const FNavAgentProperties& Age
 		CurrentNode->TotalDistance = 0;
 		FEvaluatedNode* LastAdd = CurrentNode;
 		FEvaluatedNode* BestDest = NULL;
+		double Cycles = 0.0;
+		CLOCK_CYCLES(Cycles);
+		int32 NumPaths = 0;
 		while (CurrentNode != NULL)
 		{
 			CurrentNode->bAlreadyVisited = true;
@@ -2065,6 +2081,7 @@ bool AUTRecastNavMesh::FindBestPath(APawn* Asker, const FNavAgentProperties& Age
 					}
 					if (!NextNode->bAlreadyVisited)
 					{
+						NumPaths++;
 						NextDistance = CurrentNode->Node->Paths[i].CostFor(Asker, AgentProps, RequestOwner, CurrentNode->Poly, this);
 						if (NextDistance < BLOCKED_PATH_COST)
 						{
@@ -2136,7 +2153,14 @@ bool AUTRecastNavMesh::FindBestPath(APawn* Asker, const FNavAgentProperties& Age
 			}
 			CurrentNode = CurrentNode->NextOrdered;
 		}
-
+		UNCLOCK_CYCLES(Cycles);
+		UE_LOG(UT, Log, TEXT("%i paths in %f"), NumPaths, float(Cycles * FPlatformTime::GetSecondsPerCycle() * 1000.0f));
+		int32 Total = 0;
+		for (const UUTPathNode* Node : PathNodes)
+		{
+			Total += Node->Paths.Num();
+		}
+		UE_LOG(UT, Log, TEXT("(%i total)"), Total);
 		if (BestDest == NULL)
 		{
 			return false;

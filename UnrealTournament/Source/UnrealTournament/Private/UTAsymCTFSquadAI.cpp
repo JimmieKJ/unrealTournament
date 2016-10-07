@@ -131,7 +131,7 @@ bool AUTAsymCTFSquadAI::HuntEnemyFlag(AUTBot* B)
 	}
 	else
 	{
-		return B->TryPathToward(Flag, true, "Camp dropped flag");
+		return B->TryPathToward(Flag, true, true, "Camp dropped flag");
 	}
 }
 
@@ -159,7 +159,7 @@ bool AUTAsymCTFSquadAI::CheckSquadObjectives(AUTBot* B)
 		}
 		else if (Flag->HoldingPawn == NULL) 
 		{
-			return B->TryPathToward(Flag, true, "Get flag");
+			return B->TryPathToward(Flag, true, false, "Get flag");
 		}
 		else if (CurrentOrders == NAME_Defend)
 		{
@@ -169,7 +169,7 @@ bool AUTAsymCTFSquadAI::CheckSquadObjectives(AUTBot* B)
 			}
 			else
 			{
-				return B->TryPathToward(Flag->HoldingPawn, true, "Find flag carrier");
+				return B->TryPathToward(Flag->HoldingPawn, true, false, "Find flag carrier");
 			}
 		}
 		else
@@ -185,7 +185,7 @@ bool AUTAsymCTFSquadAI::CheckSquadObjectives(AUTBot* B)
 			}
 			else
 			{
-				return B->TryPathToward(Flag->HoldingPawn, true, "Find flag carrier");
+				return B->TryPathToward(Flag->HoldingPawn, true, false, "Find flag carrier");
 			}
 		}
 	}
@@ -222,7 +222,7 @@ bool AUTAsymCTFSquadAI::CheckSquadObjectives(AUTBot* B)
 				}
 				else if (B->GetDefensePoint() != NULL)
 				{
-					return B->TryPathToward(B->GetDefensePoint(), true, "Go to defense point");
+					return B->TryPathToward(B->GetDefensePoint(), true, false, "Go to defense point");
 				}
 				else
 				{
@@ -243,11 +243,16 @@ bool AUTAsymCTFSquadAI::CheckSquadObjectives(AUTBot* B)
 			}
 			else if (B->GetDefensePoint() != NULL)
 			{
-				return B->TryPathToward(B->GetDefensePoint(), true, "Go to defense point");
+				return B->TryPathToward(B->GetDefensePoint(), true, false, "Go to defense point");
+			}
+			// TODO: decide between defending flag or defending goal based on situation
+			else if (Flag != NULL)
+			{
+				return HuntEnemyFlag(B);
 			}
 			else if (Objective != NULL)
 			{
-				return B->TryPathToward(Objective, true, "Defend objective");
+				return B->TryPathToward(Objective, true, true, "Defend objective");
 			}
 			else
 			{

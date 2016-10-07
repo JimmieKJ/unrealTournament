@@ -2318,7 +2318,7 @@ bool AUTBot::FindInventoryGoal(float MinWeight)
 	}
 }
 
-bool AUTBot::TryPathToward(AActor* Goal, bool bAllowDetours, const FString& SuccessGoalString)
+bool AUTBot::TryPathToward(AActor* Goal, bool bAllowDetours, bool bAllowPartial, const FString& SuccessGoalString)
 {
 	if (Goal == NULL)
 	{
@@ -2336,7 +2336,7 @@ bool AUTBot::TryPathToward(AActor* Goal, bool bAllowDetours, const FString& Succ
 		{
 			bAllowDetours = false;
 		}
-		FSingleEndpointEval NodeEval(Goal);
+		FSingleEndpointEval NodeEval(Goal, bAllowPartial);
 		float Weight = 0.0f;
 		if (NavData->FindBestPath(GetPawn(), GetPawn()->GetNavAgentPropertiesRef(), this, NodeEval, GetPawn()->GetNavAgentLocation(), Weight, bAllowDetours, RouteCache))
 		{
@@ -2557,6 +2557,10 @@ void AUTBot::WhatToDoNext()
 
 void AUTBot::ExecuteWhatToDoNext()
 {
+	DECLARE_CYCLE_STAT(TEXT("Bot decision time"), STAT_AI_ExecuteWhatToDoNext, STATGROUP_AI);
+
+	SCOPE_CYCLE_COUNTER(STAT_AI_ExecuteWhatToDoNext);
+
 	Target = NULL;
 	TranslocTarget = FVector::ZeroVector;
 	if (GetCharacter() != NULL)
@@ -3666,7 +3670,7 @@ public:
 		TestedPolys.Reserve(100);
 	}
 
-	virtual bool InitForPathfinding(APawn* Asker, const FNavAgentProperties& AgentProps, AUTRecastNavMesh* InNavData) override
+	virtual bool InitForPathfinding(APawn* Asker, const FNavAgentProperties& AgentProps, const FVector& StartLoc, AUTRecastNavMesh* InNavData) override
 	{
 		NavData = InNavData;
 		AskerAnchor = NavData->GetNodeFromPoly(InNavData->FindAnchorPoly(Asker->GetNavAgentLocation(), Asker, AgentProps));

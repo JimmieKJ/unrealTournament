@@ -342,7 +342,7 @@ bool AUTCTFSquadAI::RecoverFriendlyFlag(AUTBot* B)
 	else
 	{
 		// TODO: model of where flag might be, search around for it
-		return B->TryPathToward(FriendlyBase->GetCarriedObject(), bEnemyFlagOut, "Find dropped flag");
+		return B->TryPathToward(FriendlyBase->GetCarriedObject(), bEnemyFlagOut, false, "Find dropped flag");
 	}
 }
 
@@ -390,7 +390,7 @@ bool AUTCTFSquadAI::CheckSquadObjectives(AUTBot* B)
 			}
 			else if (B->GetDefensePoint() != NULL)
 			{
-				return B->TryPathToward(B->GetDefensePoint(), true, "Go to defense point");
+				return B->TryPathToward(B->GetDefensePoint(), true, false, "Go to defense point");
 			}
 			else
 			{
@@ -411,11 +411,11 @@ bool AUTCTFSquadAI::CheckSquadObjectives(AUTBot* B)
 		}
 		else if (B->GetDefensePoint() != NULL)
 		{
-			return B->TryPathToward(B->GetDefensePoint(), true, "Go to defense point");
+			return B->TryPathToward(B->GetDefensePoint(), true, false, "Go to defense point");
 		}
 		else if (Objective != NULL)
 		{
-			return B->TryPathToward(Objective, true, "Defend objective");
+			return B->TryPathToward(Objective, true, true, "Defend objective");
 		}
 		else
 		{
@@ -446,12 +446,12 @@ bool AUTCTFSquadAI::CheckSquadObjectives(AUTBot* B)
 				}
 				else
 				{
-					return B->TryPathToward(GameObjective->GetCarriedObject()->HoldingPawn, true, "Find friendly flag carrier");
+					return B->TryPathToward(GameObjective->GetCarriedObject()->HoldingPawn, true, true, "Find friendly flag carrier");
 				}
 			}
 			else
 			{
-				return B->TryPathToward(GameObjective->GetCarriedObject(), false, "Go pickup flag");
+				return B->TryPathToward(GameObjective->GetCarriedObject(), false, false, "Go pickup flag");
 			}
 		}
 		// prioritize grabbing some powerups just after respawning, less likely to do so after engaging enemy base
@@ -485,7 +485,7 @@ bool AUTCTFSquadAI::CheckSquadObjectives(AUTBot* B)
 		}
 		else
 		{
-			return B->TryPathToward(Leader->GetPawn(), true, "Find leader");
+			return B->TryPathToward(Leader->GetPawn(), true, true, "Find leader");
 		}
 	}
 	else

@@ -466,7 +466,7 @@ bool AUTSquadAI::TryPathTowardObjective(AUTBot* B, AActor* Goal, bool bAllowDeto
 	}
 	else
 	{
-		return B->TryPathToward(Goal, bAllowDetours, SuccessGoalString);
+		return B->TryPathToward(Goal, bAllowDetours, false, SuccessGoalString);
 	}
 }
 
