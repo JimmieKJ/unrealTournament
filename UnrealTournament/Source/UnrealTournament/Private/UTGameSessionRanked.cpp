@@ -123,11 +123,6 @@ void AUTGameSessionRanked::OnEnumerateTitleFilesComplete(bool bWasSuccessful)
 			OnlineTitleFileInterface->ReadFile(GetMCPRankedPlaylistFilename());
 		}
 	}
-	else
-	{
-		// Wait for any other processes to finish/cleanup before we start advertising
-		GetWorldTimerManager().SetTimer(StartServerTimerHandle, this, &ThisClass::StartServerInternal, 0.1f);
-	}
 }
 
 void AUTGameSessionRanked::StartServerInternal()
