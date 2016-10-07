@@ -67,13 +67,9 @@ void AUTRallyPoint::BeginPlay()
 			}
 		}
 	}
-	if (MyGameVolume && MyGameVolume->bIsTeamSafeVolume)
+	if (MyGameVolume)
 	{
 		MyGameVolume->RallyPoints.AddUnique(this);
-	}
-	else
-	{
-		MyGameVolume = nullptr;
 	}
 }
 
