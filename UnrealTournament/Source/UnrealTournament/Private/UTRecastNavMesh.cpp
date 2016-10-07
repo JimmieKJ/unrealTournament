@@ -2078,7 +2078,6 @@ bool AUTRecastNavMesh::FindBestPath(APawn* Asker, const FNavAgentProperties& Age
 					}
 					if (!NextNode->bAlreadyVisited)
 					{
-						NumPaths++;
 						NextDistance = CurrentNode->Node->Paths[i].CostFor(Asker, AgentProps, RequestOwner, CurrentNode->Poly, this);
 						if (NextDistance < BLOCKED_PATH_COST)
 						{
