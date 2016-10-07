@@ -4382,10 +4382,10 @@ void AUTCharacter::Tick(float DeltaTime)
 			bHaveTargetVisual = false;
 			FVector Viewpoint = GetActorLocation();
 			Viewpoint.Z += BaseEyeHeight;
-			FVector TargetDir = (LastTarget->GetActorLocation() - Viewpoint).SafeNormal();
+			FVector TargetDir = (LastTarget->GetActorLocation() - Viewpoint).GetSafeNormal();
 			FVector TargetHeadLoc = LastTarget->GetActorLocation() + FVector(0.0f, 0.0f, LastTarget->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight());
 			FVector ViewDir = GetController()->GetControlRotation().Vector();
-			if (((ViewDir | TargetDir) > 0.9f) || ((ViewDir | (TargetHeadLoc - Viewpoint).SafeNormal()) > 0.9f)) 
+			if (((ViewDir | TargetDir) > 0.9f) || ((ViewDir | (TargetHeadLoc - Viewpoint).GetSafeNormal()) > 0.9f))
 			{
 				FCollisionQueryParams TraceParams(FName(TEXT("ChooseBestAimTarget")), false);
 				bool bHit = GetWorld()->LineTraceTestByChannel(Viewpoint, TargetHeadLoc, COLLISION_TRACE_WEAPONNOCHARACTER, TraceParams);
