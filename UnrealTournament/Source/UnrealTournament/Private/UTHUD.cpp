@@ -929,7 +929,7 @@ void AUTHUD::PawnDamaged(uint8 ShotDirYaw, int32 DamageAmount, bool bFriendlyFir
 	if (UTC != NULL && !UTC->IsDead() && DamageAmount > 0)	// If have a pawn and it's alive...
 	{
 		// Figure out Left/Right....
-		float FinalAng = FRotator::DecompressAxisFromByte(ShotDirYaw) - UTC->GetActorRotation().Yaw;
+		float FinalAng = (DamageTypeClass && DamageTypeClass->GetDefaultObject<UDamageType>()->bCausedByWorld) ? 0.f : FRotator::DecompressAxisFromByte(ShotDirYaw) - UTC->GetActorRotation().Yaw;
 		int32 BestIndex = 0;
 		float BestTime = DamageIndicators[0].FadeTime;
 		for (int32 i = 0; i < MAX_DAMAGE_INDICATORS; i++)
