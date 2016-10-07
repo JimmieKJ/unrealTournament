@@ -214,7 +214,9 @@ void UUTHUDWidget_FlagRunStatus::DrawFlagWorld(AUTCTFGameState* GameState, FVect
 				DroppedIconTemplate.RenderOpacity = CurrentWorldAlpha;
 				RenderObj_TextureAt(DroppedIconTemplate, DrawScreenPosition.X, DrawScreenPosition.Y, 1.25f*DroppedIconTemplate.GetWidth()* InWorldFlagScale, 1.25f*DroppedIconTemplate.GetHeight()* InWorldFlagScale);
 				DroppedIconTemplate.RenderOpacity = DroppedAlpha;
-				DrawText(GetFlagReturnTime(Flag), DrawScreenPosition.X, DrawScreenPosition.Y, TinyFont, true, FVector2D(1.f, 1.f), FLinearColor::Black, false, FLinearColor::Black, 1.5f*InWorldFlagScale, 0.5f + 0.5f*CurrentWorldAlpha, FLinearColor::White, FLinearColor(0.f, 0.f, 0.f, 0.f), ETextHorzPos::Center, ETextVertPos::Center);
+				bool bCloseToFlag = !bIsEnemyFlag && Cast<AUTCharacter>(UTPlayerOwner->GetPawn()) && Flag->IsNearTeammate((AUTCharacter *)(UTPlayerOwner->GetPawn()));
+				FLinearColor TimeColor = bCloseToFlag ? FLinearColor::Green : FLinearColor::White;
+				DrawText(GetFlagReturnTime(Flag), DrawScreenPosition.X, DrawScreenPosition.Y, TinyFont, true, FVector2D(1.f, 1.f), FLinearColor::Black, false, FLinearColor::Black, 1.5f*InWorldFlagScale, 0.5f + 0.5f*CurrentWorldAlpha, TimeColor, FLinearColor(0.f, 0.f, 0.f, 0.f), ETextHorzPos::Center, ETextVertPos::Center);
 			}
 			else if (Flag->ObjectState == CarriedObjectState::Home)
 			{

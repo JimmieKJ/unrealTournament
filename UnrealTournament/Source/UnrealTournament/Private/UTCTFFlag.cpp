@@ -44,6 +44,7 @@ AUTCTFFlag::AUTCTFFlag(const FObjectInitializer& ObjectInitializer)
 	PingedDuration = 2.f; 
 	TargetPingedDuration = 0.5f;
 	bShouldPingFlag = false;
+	NearTeammateDist = 1200.f;
 
 	AuraSphere = ObjectInitializer.CreateOptionalDefaultSubobject<UStaticMeshComponent>(this, TEXT("AuraSphere"));
 	AuraSphere->SetupAttachment(RootComponent);
@@ -134,6 +135,11 @@ void AUTCTFFlag::SendHome()
 	Super::SendHome();
 }
 
+bool AUTCTFFlag::IsNearTeammate(AUTCharacter* TeamChar)
+{
+	return TeamChar && TeamChar->GetController() && ((GetActorLocation() - TeamChar->GetActorLocation()).SizeSquared() < NearTeammateDist*NearTeammateDist) && (((GetActorLocation() - TeamChar->GetActorLocation()).SizeSquared() < 160000.f) || TeamChar->GetController()->LineOfSightTo(this));
+}
+
 void AUTCTFFlag::SendHomeWithNotify()
 {
 	if (bGradualAutoReturn)
@@ -145,8 +151,7 @@ void AUTCTFFlag::SendHomeWithNotify()
 			for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
 			{
 				AUTCharacter* TeamChar = Cast<AUTCharacter>(*It);
-				if (TeamChar && !TeamChar->IsDead() && ((GetActorLocation() - TeamChar->GetActorLocation()).SizeSquared() < 810000.f) && GameState && GameState->OnSameTeam(TeamChar, this) 
-					&& TeamChar->GetController() && (TeamChar->GetController()->LineOfSightTo(this) || ((GetActorLocation() - TeamChar->GetActorLocation()).SizeSquared() < 160000.f)))
+				if (TeamChar && !TeamChar->IsDead() && GameState && GameState->OnSameTeam(TeamChar, this) && IsNearTeammate(TeamChar))
 				{
 					GetWorldTimerManager().SetTimer(SendHomeWithNotifyHandle, this, &AUTCTFFlag::SendHomeWithNotify, 0.2f, false);
 					return;
