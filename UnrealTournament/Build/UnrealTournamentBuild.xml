@@ -465,22 +465,46 @@
 		</Node>
 	</Agent>
 
+	<!-- Chunk auditing -->
+	<Agent Name="Audit Chunked Builds" Type="CompileWin64" If="$(EnableMCP)">
+		<Node Name="Sync PortalPublishingTool">
+			<Spawn Exe="p4.exe" Arguments="print -o &quot;$(RootDir)\LocalBuilds\PortalPublishingTool.zip&quot; &quot;//depot/InternalTools/PortalPublishingTool/Latest.zip&quot;"/>
+			<Unzip ZipFile="$(RootDir)\LocalBuilds\PortalPublishingTool.zip" ToDir="$(RootDir)\LocalBuilds\PortalPublishingTool"/>
+		</Node>
+		<Node Name="Audit Chunks Game Win32" Requires="Sync PortalPublishingTool;Post WindowsNoEditor Win32">
+			<Spawn Exe="$(RootDir)\LocalBuilds\PortalPublishingTool\Engine\Binaries\DotNET\PortalPublishingTool.exe" Arguments="-mode=BuildDiffTelemetry -BuildVersion=&quot;$(BuildVersion)&quot; -Project=&quot;UnrealTournament&quot; -CloudDir=&quot;$(CloudDir)&quot; -Platform=&quot;Win32&quot;  -LocalRoot=&quot;$(RootDir)\LocalBuilds&quot;"/>
+		</Node>
+		<Node Name="Audit Chunks Game Win64" Requires="Sync PortalPublishingTool;Post WindowsNoEditor Win64">
+			<Spawn Exe="$(RootDir)\LocalBuilds\PortalPublishingTool\Engine\Binaries\DotNET\PortalPublishingTool.exe" Arguments="-mode=BuildDiffTelemetry -BuildVersion=&quot;$(BuildVersion)&quot; -Project=&quot;UnrealTournament&quot; -CloudDir=&quot;$(CloudDir)&quot; -Platform=&quot;Win64&quot;  -LocalRoot=&quot;$(RootDir)\LocalBuilds&quot;"/>
+		</Node>
+		<Node Name="Audit Chunks Game Mac" Requires="Sync PortalPublishingTool;Post Mac">
+			<Spawn Exe="$(RootDir)\LocalBuilds\PortalPublishingTool\Engine\Binaries\DotNET\PortalPublishingTool.exe" Arguments="-mode=BuildDiffTelemetry -BuildVersion=&quot;$(BuildVersion)&quot; -Project=&quot;UnrealTournament&quot; -CloudDir=&quot;$(CloudDir)&quot; -Platform=&quot;Mac&quot;  -LocalRoot=&quot;$(RootDir)\LocalBuilds&quot;"/>
+		</Node>
+		<Node Name="Audit Chunks Editor Win64" Requires="Sync PortalPublishingTool;Post Editor Win64">
+			<Spawn Exe="$(RootDir)\LocalBuilds\PortalPublishingTool\Engine\Binaries\DotNET\PortalPublishingTool.exe" Arguments="-mode=BuildDiffTelemetry -BuildVersion=&quot;$(BuildVersion)&quot; -Project=&quot;UnrealTournamentEditor&quot; -CloudDir=&quot;$(CloudDir)&quot; -Platform=&quot;Win64&quot;  -LocalRoot=&quot;$(RootDir)\LocalBuilds&quot;"/>
+		</Node>
+		<Node Name="Audit Chunks Editor Mac" Requires="Sync PortalPublishingTool;Post Editor Mac">
+			<Spawn Exe="$(RootDir)\LocalBuilds\PortalPublishingTool\Engine\Binaries\DotNET\PortalPublishingTool.exe" Arguments="-mode=BuildDiffTelemetry -BuildVersion=&quot;$(BuildVersion)&quot; -Project=&quot;UnrealTournamentEditor&quot; -CloudDir=&quot;$(CloudDir)&quot; -Platform=&quot;Mac&quot;  -LocalRoot=&quot;$(RootDir)\LocalBuilds&quot;"/>
+		</Node>
+	</Agent>
+
+
 	<Property Name="Windows Build Targets" Value=""/>
 	<Property Name="Windows Build Targets" Value="$(Windows Build Targets)Publish WindowsNoEditor Win32;" If="$(WithWin32Client)"/>
-	<Property Name="Windows Build Targets" Value="$(Windows Build Targets)Chunk WindowsNoEditor Win32;Post WindowsNoEditor Win32;" If="$(WithWin32Client) And $(EnableMCP)"/>
+	<Property Name="Windows Build Targets" Value="$(Windows Build Targets)Chunk WindowsNoEditor Win32;Post WindowsNoEditor Win32;Audit Chunks Game Win32;" If="$(WithWin32Client) And $(EnableMCP)"/>
 	<Property Name="Windows Build Targets" Value="$(Windows Build Targets)Publish WindowsNoEditor Win64;" If="$(WithWin64Client)"/>
-	<Property Name="Windows Build Targets" Value="$(Windows Build Targets)Chunk WindowsNoEditor Win64;Post WindowsNoEditor Win64;" If="$(WithWin64Client) And $(EnableMCP)"/>
+	<Property Name="Windows Build Targets" Value="$(Windows Build Targets)Chunk WindowsNoEditor Win64;Post WindowsNoEditor Win64;Audit Chunks Game Win64;" If="$(WithWin64Client) And $(EnableMCP)"/>
 	<Property Name="Windows Build Targets" Value="$(Windows Build Targets)Publish WindowsServer Win64;" If="$(WithWin64Server)"/>
 	<Property Name="Windows Build Targets" Value="$(Windows Build Targets)Publish Editor Win64;" If="$(WithWin64Editor)"/>
-	<Property Name="Windows Build Targets" Value="$(Windows Build Targets)Chunk Editor Win64;Post Editor Win64;" If="$(WithWin64Editor) And $(EnableMCP)"/>
+	<Property Name="Windows Build Targets" Value="$(Windows Build Targets)Chunk Editor Win64;Post Editor Win64;Audit Chunks Editor Win64;" If="$(WithWin64Editor) And $(EnableMCP)"/>
 	<Property Name="Windows Build Targets" Value="$(Windows Build Targets)Compile UT Test Windows;" If="$(IncludeTestExes)"/>
 	<Aggregate Name="Make Windows Game" Requires="$(Windows Build Targets)"/>
 
 	<Property Name="Mac Build Targets" Value=""/>
 	<Property Name="Mac Build Targets" Value="$(Mac Build Targets)Publish Mac;" If="$(WithMacClient)"/>
-	<Property Name="Mac Build Targets" Value="$(Mac Build Targets)Post Mac;Chunk Mac;" If="$(WithMacClient) And $(EnableMCP)"/>
+	<Property Name="Mac Build Targets" Value="$(Mac Build Targets)Post Mac;Chunk Mac;Audit Chunks Game Mac;" If="$(WithMacClient) And $(EnableMCP)"/>
 	<Property Name="Mac Build Targets" Value="$(Mac Build Targets)Publish Editor Mac;" If="$(WithMacEditor)"/>
-	<Property Name="Mac Build Targets" Value="$(Mac Build Targets)Chunk Editor Mac;Post Editor Mac;" If="$(WithMacEditor) And $(EnableMCP)"/>
+	<Property Name="Mac Build Targets" Value="$(Mac Build Targets)Chunk Editor Mac;Post Editor Mac;Audit Chunks Editor Mac;" If="$(WithMacEditor) And $(EnableMCP)"/>
 	<Property Name="Mac Build Targets" Value="$(Mac Build Targets)Compile UT Test Mac;" If="$(IncludeTestExes)"/>
 	<Aggregate Name="Make Mac Game" Requires="$(Mac Build Targets)"/>
 
