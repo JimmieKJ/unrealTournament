@@ -5303,3 +5303,11 @@ bool AUTPlayerController::LineOfSightTo(const class AActor* Other, FVector ViewP
 		return !bHit;
 	}
 }
+
+void AUTPlayerController::RealNames()
+{
+	if (MyUTHUD && MyUTHUD->MyUTScoreboard)
+	{
+		MyUTHUD->MyUTScoreboard->bForceRealNames = !MyUTHUD->MyUTScoreboard->bForceRealNames;
+	}
+}

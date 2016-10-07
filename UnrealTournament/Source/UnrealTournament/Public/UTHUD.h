@@ -420,14 +420,14 @@ public:
 
 	virtual bool ShouldDrawMinimap();
 
+	// The current Scoreboard
+	UPROPERTY()
+		class UUTScoreboard* MyUTScoreboard;
+
 protected:
 
 	// We cache the team color so we only have to look it up once at the start of the render pass
 	FLinearColor CachedTeamColor;
-
-	// The current Scoreboard
-	UPROPERTY()
-	class UUTScoreboard* MyUTScoreboard;
 
 
 public:

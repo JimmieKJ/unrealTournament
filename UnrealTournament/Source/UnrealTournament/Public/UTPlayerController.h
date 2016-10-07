@@ -243,6 +243,10 @@ public:
 	UFUNCTION(Client, Reliable)
 	virtual void ClientGotWeaponStayPickup(AUTPickupWeapon* Pickup, APawn* TouchedBy);
 
+	/** Force real names (Epic account names) on scoreboard. */
+	UFUNCTION(exec)
+		virtual void RealNames();
+
 	UFUNCTION(exec)
 	virtual void NP();
 

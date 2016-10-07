@@ -185,6 +185,11 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
 		bool bDrawMinimapInScoreboard;
 
+	/** If true force Epic account names on scoreboard. */
+	UPROPERTY()
+		bool bForceRealNames;
+
+
 protected:
 	UPROPERTY(BlueprintReadOnly, Category = "Scoreboard")
 	int32 ActualPlayerCount;
