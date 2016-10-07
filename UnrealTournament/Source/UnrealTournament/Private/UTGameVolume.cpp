@@ -8,6 +8,7 @@
 #include "UTTeleporter.h"
 #include "UTFlagRunGameState.h"
 #include "UTCharacterVoice.h"
+#include "UTRallyPoint.h"
 
 AUTGameVolume::AUTGameVolume(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -136,6 +137,10 @@ void AUTGameVolume::ActorEnteredVolume(class AActor* Other)
 									UE_LOG(UT, Warning, TEXT("No VoiceLineSet for %s location %s"), *GetName(), *VolumeName.ToString());
 								}
 								return;*/
+				for (int32 i = 0; i < RallyPoints.Num(); i++)
+				{
+					RallyPoints[i]->FlagCarrierInVolume(true);
+				}
 				if (bIsNoRallyZone && !P->GetCarriedObject()->bWasInEnemyBase)
 				{
 					if (GetWorld()->GetTimeSeconds() - P->GetCarriedObject()->EnteredEnemyBaseTime > 10.f)
@@ -275,6 +280,14 @@ void AUTGameVolume::ActorLeavingVolume(class AActor* Other)
 			if (PC)
 			{
 				PC->LeftSpawnVolumeTime = GetWorld()->GetTimeSeconds();
+			}
+
+			if (UTCharacter->GetCarriedObject())
+			{
+				for (int32 i = 0; i < RallyPoints.Num(); i++)
+				{
+					RallyPoints[i]->FlagCarrierInVolume(true);
+				}
 			}
 		}
 	}
