@@ -1559,14 +1559,6 @@ bool AUTCharacter::Died(AController* EventInstigator, const FDamageEvent& Damage
 				GhostComponent->GhostStopPlaying();
 			}
 
-			// Tell the client to play the killcam
-			AUTPlayerController* DyingGameController = Cast<AUTPlayerController>(ControllerKilled);
-			if (DyingGameController)
-			{
-				APawn* KillcamFocus = EventInstigator ? EventInstigator->GetPawn() : nullptr;
-				FVector FocusLoc = Cast<AUTProjectile>(DamageCauser) ? ((AUTProjectile *)DamageCauser)->ShooterLocation : (KillcamFocus ? KillcamFocus->GetActorLocation() : FVector::ZeroVector);
-				DyingGameController->ClientPlayKillcam(EventInstigator, KillcamFocus, FocusLoc);
-			}
 			return true;
 		}
 	}

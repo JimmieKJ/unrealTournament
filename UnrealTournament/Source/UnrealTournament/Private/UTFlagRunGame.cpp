@@ -1108,6 +1108,15 @@ void AUTFlagRunGame::ScoreObject_Implementation(AUTCarriedObject* GameObject, AU
 	{
 		FUTAnalytics::FireEvent_FlagRunRoundEnd(this, false, (UTGameState->WinningTeam != nullptr));
 	}
+
+	for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
+	{
+		AUTPlayerController* UTPC = Cast<AUTPlayerController>(*Iterator);
+		if (UTPC)
+		{
+			UTPC->ClientPlayInstantReplay(HolderPawn, 10.0f);
+		}
+	}
 }
 
 void AUTFlagRunGame::ScoreAlternateWin(int32 WinningTeamIndex, uint8 Reason /* = 0 */)
