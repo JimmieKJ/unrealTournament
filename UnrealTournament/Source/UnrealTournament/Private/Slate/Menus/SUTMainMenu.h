@@ -72,8 +72,6 @@ protected:
 	TSharedPtr<SUTChallengePanel> ChallengePanel;
 	TSharedPtr<SUTUMGPanel> TutorialPanel;
 
-	virtual void OnOwnerLoginStatusChanged(UUTLocalPlayer* LocalPlayerOwner, ELoginStatus::Type NewStatus, const FUniqueNetId& UniqueID) override;
-
 public:
 	virtual ~SUTMainMenu();
 

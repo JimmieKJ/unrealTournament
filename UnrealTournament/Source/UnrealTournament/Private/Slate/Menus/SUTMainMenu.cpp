@@ -799,26 +799,4 @@ void SUTMainMenu::OnMenuOpened(const FString& Parameters)
 	}
 }
 
-void SUTMainMenu::OnOwnerLoginStatusChanged(UUTLocalPlayer* LocalPlayerOwner, ELoginStatus::Type NewStatus, const FUniqueNetId& UniqueID)
-{
-	if (NewStatus == ELoginStatus::LoggedIn)
-	{
-		if (TutorialPanel.IsValid() && ActivePanel == TutorialPanel)
-		{
-			ShowGamePanel();
-			PlayerOwner->ShowMessage(
-				NSLOCTEXT("SUTMainMenu", "TutorialErrorTitle", "User Changed"),
-				NSLOCTEXT("SUTMainMenu", "TutorialErrorMessage", "User changed. Returning to the main menu."), UTDIALOG_BUTTON_OK, nullptr
-				);
-		}
-	}
-	else
-	{
-		TutorialPanel.Reset();
-		OpenTutorialMenu();
-	}
-
-	SUTMenuBase::OnOwnerLoginStatusChanged(LocalPlayerOwner, NewStatus, UniqueID);
-}
-
 #endif
