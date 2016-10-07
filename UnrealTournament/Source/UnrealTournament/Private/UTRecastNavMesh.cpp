@@ -2052,9 +2052,6 @@ bool AUTRecastNavMesh::FindBestPath(APawn* Asker, const FNavAgentProperties& Age
 		CurrentNode->TotalDistance = 0;
 		FEvaluatedNode* LastAdd = CurrentNode;
 		FEvaluatedNode* BestDest = NULL;
-		double Cycles = 0.0;
-		CLOCK_CYCLES(Cycles);
-		int32 NumPaths = 0;
 		while (CurrentNode != NULL)
 		{
 			CurrentNode->bAlreadyVisited = true;
@@ -2153,14 +2150,7 @@ bool AUTRecastNavMesh::FindBestPath(APawn* Asker, const FNavAgentProperties& Age
 			}
 			CurrentNode = CurrentNode->NextOrdered;
 		}
-		UNCLOCK_CYCLES(Cycles);
-		UE_LOG(UT, Log, TEXT("%i paths in %f"), NumPaths, float(Cycles * FPlatformTime::GetSecondsPerCycle() * 1000.0f));
-		int32 Total = 0;
-		for (const UUTPathNode* Node : PathNodes)
-		{
-			Total += Node->Paths.Num();
-		}
-		UE_LOG(UT, Log, TEXT("(%i total)"), Total);
+
 		if (BestDest == NULL)
 		{
 			return false;
