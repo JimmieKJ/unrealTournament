@@ -470,7 +470,7 @@ void UNavigationSystem::PostInitProperties()
 		FCoreUObjectDelegates::PostLoadMap.AddUObject(this, &UNavigationSystem::OnPostLoadMap);
 		UNavigationSystem::NavigationDirtyEvent.AddUObject(this, &UNavigationSystem::OnNavigationDirtied);
 
-#if WITH_HOT_RELOAD
+#if WITH_HOT_RELOAD && !UE_SERVER
 		IHotReloadInterface& HotReloadSupport = FModuleManager::LoadModuleChecked<IHotReloadInterface>("HotReload");
 		HotReloadDelegateHandle = HotReloadSupport.OnHotReload().AddUObject(this, &UNavigationSystem::OnHotReload);
 #endif
