@@ -2,6 +2,7 @@
 
 #include "UnrealTournament.h"
 #include "UnrealNetwork.h"
+#include "StatNames.h"
 #include "UTWeap_GrenadeLauncher.h"
 
 AUTWeap_GrenadeLauncher::AUTWeap_GrenadeLauncher()
@@ -11,6 +12,9 @@ AUTWeap_GrenadeLauncher::AUTWeap_GrenadeLauncher()
 	WeaponCustomizationTag = EpicWeaponCustomizationTags::GrenadeLauncher;
 
 	DetonationAfterFireDelay = 0.3f;
+
+	ShotsStatsName = NAME_BioLauncherShots;
+	HitsStatsName = NAME_BioLauncherHits;
 }
 
 void AUTWeap_GrenadeLauncher::StartFire(uint8 FireModeNum)
