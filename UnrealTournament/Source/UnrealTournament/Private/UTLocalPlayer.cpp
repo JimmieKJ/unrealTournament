@@ -4463,7 +4463,6 @@ void UUTLocalPlayer::CloseAllUI(bool bExceptDialogs)
 	LoginDialog.Reset();
 	ContentLoadingMessage.Reset();
 	FriendsMenu.Reset();
-	DownloadAllDialog.Reset();
 	LoadoutMenu.Reset();
 	ReplayWindow.Reset();
 	YoutubeDialog.Reset();
