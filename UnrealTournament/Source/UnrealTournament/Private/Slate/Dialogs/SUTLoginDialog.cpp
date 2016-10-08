@@ -544,6 +544,13 @@ void SUTLoginDialog::BeginLogin()
 
 void SUTLoginDialog::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
 {
+	// Failsafe
+	if (PlayerOwner->LoginPhase == ELoginPhase::Offline || PlayerOwner->LoginPhase == ELoginPhase::LoggedIn)
+	{
+		UE_LOG(UT,Log,TEXT("Login Required the failsafe! %i"), int32(PlayerOwner->LoginPhase));
+		bRequestingClose = true;
+	}
+
 	if (bRequestingClose)
 	{
 		HideDelayTime -= InDeltaTime;
@@ -580,7 +587,15 @@ FText SUTLoginDialog::GetLoginPhaseMessage() const
 {
 	if (PlayerOwner.IsValid())
 	{
-		if (PlayerOwner->LoginPhase == ELoginPhase::Auth)
+		if (PlayerOwner->LoginPhase == ELoginPhase::NotLoggedIn)
+		{
+			return NSLOCTEXT("Login","LoadingNotLoggedIn",".. Awaiting Authentication .. ");
+		}
+		else if (PlayerOwner->LoginPhase == ELoginPhase::Offline)
+		{
+			return NSLOCTEXT("Login","LoadingOffline",".. Offline .. ");
+		}
+		else if (PlayerOwner->LoginPhase == ELoginPhase::Auth)
 		{
 			return NSLOCTEXT("Login","LoadingAuth",".. Looking up Account .. ");
 		}
@@ -596,9 +611,13 @@ FText SUTLoginDialog::GetLoginPhaseMessage() const
 		{
 			return NSLOCTEXT("Login","LoadingMMR",".. Loading MMR .. ");
 		}
+		else if (PlayerOwner->LoginPhase == ELoginPhase::LoggedIn)
+		{
+			return NSLOCTEXT("Login","LoadingLoggedIn",".. Finalizing .. ");
+		}
 	}
 
-	return NSLOCTEXT("Login","Loading",".. Loading .. ");
+	return NSLOCTEXT("Login","Loading",".. Contact Epic .. ");
 }
 
 
