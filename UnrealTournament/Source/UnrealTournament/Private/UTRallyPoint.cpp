@@ -1,20 +1,22 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #include "UnrealTournament.h"
 #include "UTCTFFlag.h"
+#include "UTCharacter.h"
 #include "Net/UnrealNetwork.h"
 #include "UTRallyPoint.h"
 
 AUTRallyPoint::AUTRallyPoint(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	Capsule = ObjectInitializer.CreateDefaultSubobject<UCapsuleComponent>(this, TEXT("Capsule"));
-
+	Capsule = CreateDefaultSubobject<UCapsuleComponent>(ACharacter::CapsuleComponentName);
 	Capsule->SetCollisionProfileName(FName(TEXT("Pickup")));
 	Capsule->InitCapsuleSize(92.f, 134.0f);
 	//Capsule->bShouldUpdatePhysicsVolume = false;
 	Capsule->Mobility = EComponentMobility::Static;
 	Capsule->OnComponentBeginOverlap.AddDynamic(this, &AUTRallyPoint::OnOverlapBegin);
 	RootComponent = Capsule;
+
+	PrimaryActorTick.bCanEverTick = true;
 }
 
 void AUTRallyPoint::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
@@ -72,9 +74,10 @@ void AUTRallyPoint::BeginPlay()
 	}
 }
 
-void AUTRallyPoint::FlagCarrierInVolume(bool bFCInVolume)
+void AUTRallyPoint::FlagCarrierInVolume(AUTCharacter* NewFC)
 {
-	bShowAvailableEffect = bFCInVolume;
+	NearbyFC = NewFC;
+	bShowAvailableEffect = (NearbyFC != nullptr);
 	if (GetNetMode() != NM_DedicatedServer)
 	{
 		OnAvailableEffectChanged();
@@ -96,9 +99,21 @@ void AUTRallyPoint::OnAvailableEffectChanged()
 	}
 }
 
+void AUTRallyPoint::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+
+	if (bShowAvailableEffect && (Role == ROLE_Authority))
+	{
+		if (!NearbyFC || NearbyFC->IsPendingKillPending() || !NearbyFC->GetCarriedObject())
+		{
+			UE_LOG(UT, Warning, TEXT("FAILSAFE CLEAR RALLY POINTS"));
+			FlagCarrierInVolume(nullptr);
+		}
+	}
+}
 
 // decal on ground
-// effect that shows up when FC nearby
 // effect when FC touching scales up to full rally enabled in 2 seconds
 // team based effects
 

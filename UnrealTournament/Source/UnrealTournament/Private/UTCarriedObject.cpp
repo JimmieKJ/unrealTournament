@@ -420,7 +420,7 @@ void AUTCarriedObject::SetHolder(AUTCharacter* NewHolder)
 	}
 	bool bWasHome = (ObjectState == CarriedObjectState::Home);
 	ChangeState(CarriedObjectState::Held);
-
+	
 	// Tell the base it's been picked up
 	HomeBase->ObjectWasPickedUp(NewHolder, bWasHome);
 
@@ -433,6 +433,11 @@ void AUTCarriedObject::SetHolder(AUTCharacter* NewHolder)
 	if (Role == ROLE_Authority)
 	{
 		OnHolderChanged();
+		AUTGameVolume* GV = HoldingPawn->UTCharacterMovement ? Cast<AUTGameVolume>(HoldingPawn->UTCharacterMovement->GetPhysicsVolume()) : nullptr;
+		if (GV)
+		{
+			GV->EnableRallyPoints(HoldingPawn);
+		}
 		if (Holder && bWasHome)
 		{
 			LastPingedTime = GetWorld()->GetTimeSeconds();
@@ -515,6 +520,14 @@ void AUTCarriedObject::NoLongerHeld(AController* InstigatedBy)
 	// Have the holding pawn drop the object
 	if (HoldingPawn != NULL)
 	{
+		if (Role == ROLE_Authority)
+		{
+			AUTGameVolume* GV = HoldingPawn->UTCharacterMovement ? Cast<AUTGameVolume>(HoldingPawn->UTCharacterMovement->GetPhysicsVolume()) : nullptr;
+			if (GV)
+			{
+				GV->ClearRallyPoints();
+			}
+		}
 		DetachFrom(HoldingPawn->GetMesh());
 	}
 	LastHolder = Holder;

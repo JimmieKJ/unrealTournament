@@ -90,6 +90,10 @@ class UNREALTOURNAMENT_API AUTGameVolume : public APhysicsVolume, public IUTTeam
 	FTimerHandle HealthTimerHandle;
 
 	virtual void HealthTimer();
+
+	virtual void ClearRallyPoints();
+
+	virtual void EnableRallyPoints(class AUTCharacter* FlagCarrier);
 };
 
 
