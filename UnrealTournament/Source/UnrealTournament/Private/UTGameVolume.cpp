@@ -265,10 +265,10 @@ void AUTGameVolume::ActorEnteredVolume(class AActor* Other)
 
 void AUTGameVolume::ActorLeavingVolume(class AActor* Other)
 {
-	if (Other && bIsTeamSafeVolume)
+	AUTCharacter* UTCharacter = Cast<AUTCharacter>(Other);
+	if (UTCharacter)
 	{
-		AUTCharacter* UTCharacter = Cast<AUTCharacter>(Other);
-		if (UTCharacter)
+		if (bIsTeamSafeVolume)
 		{
 			UTCharacter->bDamageHurtsHealth = true;
 			UTCharacter->bHasLeftSafeVolume = true;
@@ -281,13 +281,12 @@ void AUTGameVolume::ActorLeavingVolume(class AActor* Other)
 			{
 				PC->LeftSpawnVolumeTime = GetWorld()->GetTimeSeconds();
 			}
-
-			if (UTCharacter->GetCarriedObject())
+		}
+		if (UTCharacter->GetCarriedObject())
+		{
+			for (int32 i = 0; i < RallyPoints.Num(); i++)
 			{
-				for (int32 i = 0; i < RallyPoints.Num(); i++)
-				{
-					RallyPoints[i]->FlagCarrierInVolume(true);
-				}
+				RallyPoints[i]->FlagCarrierInVolume(false);
 			}
 		}
 	}

@@ -9,13 +9,12 @@ AUTRallyPoint::AUTRallyPoint(const FObjectInitializer& ObjectInitializer)
 {
 	Capsule = ObjectInitializer.CreateDefaultSubobject<UCapsuleComponent>(this, TEXT("Capsule"));
 
-	// overlap Pawns, no other collision
-	Capsule->SetCollisionResponseToAllChannels(ECR_Ignore);
-	Capsule->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
-	Capsule->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+	Capsule->SetCollisionProfileName(FName(TEXT("Pickup")));
 	Capsule->InitCapsuleSize(92.f, 134.0f);
+	//Capsule->bShouldUpdatePhysicsVolume = false;
+	Capsule->Mobility = EComponentMobility::Static;
 	Capsule->OnComponentBeginOverlap.AddDynamic(this, &AUTRallyPoint::OnOverlapBegin);
-	Capsule->SetupAttachment(RootComponent);
+	RootComponent = Capsule;
 }
 
 void AUTRallyPoint::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
