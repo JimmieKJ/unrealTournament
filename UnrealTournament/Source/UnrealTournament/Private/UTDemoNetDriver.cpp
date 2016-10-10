@@ -30,7 +30,7 @@ bool UUTDemoNetDriver::ShouldSaveCheckpoint()
 		return true;
 	}
 
-	if (TimeElapsed > 300.0)
+	if (TimeElapsed > 120.0)
 	{
 		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 		if (GS && GS->IsMatchIntermission())
@@ -43,7 +43,8 @@ bool UUTDemoNetDriver::ShouldSaveCheckpoint()
 		if (PC)
 		{
 			AUTCharacter* Char = Cast<AUTCharacter>(PC->GetPawn());
-			if ((Char == nullptr && !PC->GetPawn()) || Char->IsDead())
+			if ((Char == nullptr && !PC->GetPawn()) || 
+				(Char != nullptr && Char->IsDead()))
 			{
 				return true;
 			}
