@@ -22,6 +22,10 @@ class UNREALTOURNAMENT_API AUTRallyPoint : public AUTGameObjective
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Objective)
 		float RallyReadyDelay;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Objective)
+		float RallyReadyCountdown;
+
+
 	UPROPERTY(ReplicatedUsing = OnAvailableEffectChanged, BlueprintReadOnly)
 		bool bShowAvailableEffect;
 
@@ -34,8 +38,14 @@ class UNREALTOURNAMENT_API AUTRallyPoint : public AUTGameObjective
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Objective)
 		UParticleSystem* RallyEffect;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Objective)
+		UParticleSystem* RallyBrokenEffect;
+
 	UPROPERTY()
 		UParticleSystemComponent* RallyEffectPSC;
+
+	UPROPERTY()
+		UDecalComponent* AvailableDecal;
 
 	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = AmbientSoundUpdated, Category = "Audio")
 		USoundBase* AmbientSound;
@@ -57,6 +67,18 @@ class UNREALTOURNAMENT_API AUTRallyPoint : public AUTGameObjective
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Objective)
 		USoundBase* EnabledSound;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Objective)
+		USoundBase* RallyEndedSound;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Objective)
+		USoundBase* RallyBrokenSound;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = PickupDisplay)
+		UMaterialInterface* GlowDecalMaterial;
+
+	UPROPERTY(BlueprintReadOnly, Category = PickupDisplay)
+		UMaterialInstanceDynamic* GlowDecalMaterialInstance;
 
 	UFUNCTION()
 		void OnOverlapBegin(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);

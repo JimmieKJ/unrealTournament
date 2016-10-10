@@ -10,15 +10,17 @@ AUTRallyPoint::AUTRallyPoint(const FObjectInitializer& ObjectInitializer)
 {
 	Capsule = CreateDefaultSubobject<UCapsuleComponent>(ACharacter::CapsuleComponentName);
 	Capsule->SetCollisionProfileName(FName(TEXT("Pickup")));
-	Capsule->InitCapsuleSize(92.f, 134.0f);
+	Capsule->InitCapsuleSize(192.f, 192.0f);
 	//Capsule->bShouldUpdatePhysicsVolume = false;
 	Capsule->Mobility = EComponentMobility::Static;
 	Capsule->OnComponentBeginOverlap.AddDynamic(this, &AUTRallyPoint::OnOverlapBegin);
 	RootComponent = Capsule;
 
 	PrimaryActorTick.bCanEverTick = true;
+	bCollideWhenPlacing = true;
 
 	RallyReadyDelay = 2.f;
+	RallyReadyCountdown = RallyReadyDelay;
 }
 
 void AUTRallyPoint::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
@@ -76,6 +78,19 @@ void AUTRallyPoint::BeginPlay()
 	{
 		MyGameVolume->RallyPoints.AddUnique(this);
 	}
+
+	GlowDecalMaterialInstance = GlowDecalMaterial ? UMaterialInstanceDynamic::Create(GlowDecalMaterial, this) : nullptr;
+	if (GlowDecalMaterialInstance)
+	{
+		FRotator DecalRotation = GetActorRotation();
+		DecalRotation.Pitch -= 90.f;
+		AvailableDecal = UGameplayStatics::SpawnDecalAtLocation(this, GlowDecalMaterialInstance, FVector(192.f, 192.f, 192.f), GetActorLocation() - FVector(0.f, 0.f, 190.f), DecalRotation);
+
+		static FName NAME_Color(TEXT("Color"));
+		GlowDecalMaterialInstance->SetVectorParameterValue(NAME_Color, FVector(0.f, 0.f, 0.f));
+		static FName NAME_EmissiveBrightness(TEXT("EmissiveBrightness"));
+		GlowDecalMaterialInstance->SetScalarParameterValue(NAME_EmissiveBrightness, 0.f);
+	}
 }
 
 void AUTRallyPoint::FlagCarrierInVolume(AUTCharacter* NewFC)
@@ -99,9 +114,29 @@ void AUTRallyPoint::OnAvailableEffectChanged()
 	}
 	if (bShowAvailableEffect)
 	{
-		AvailableEffectPSC = UGameplayStatics::SpawnEmitterAtLocation(this, AvailableEffect, GetActorLocation() + FVector(0.f, 0.f, 80.f), GetActorRotation());
+		AvailableEffectPSC = UGameplayStatics::SpawnEmitterAtLocation(this, AvailableEffect, GetActorLocation(), GetActorRotation());
+		static FName NAME_RingColor(TEXT("RingColor"));
+		AvailableEffectPSC->SetVectorParameter(NAME_RingColor, FVector(1.f, 0.f, 0.f));
+		if (GlowDecalMaterialInstance)
+		{
+			static FName NAME_Color(TEXT("Color"));
+			GlowDecalMaterialInstance->SetVectorParameterValue(NAME_Color, FVector(5.f, 0.f, 0.f));
+			static FName NAME_EmissiveBrightness(TEXT("EmissiveBrightness"));
+			GlowDecalMaterialInstance->SetScalarParameterValue(NAME_EmissiveBrightness, 1.f);
+		}
+	}
+	else if (GlowDecalMaterialInstance)
+	{
+		static FName NAME_Color(TEXT("Color"));
+		GlowDecalMaterialInstance->SetVectorParameterValue(NAME_Color, FVector(0.f, 0.f, 0.f));
+		static FName NAME_EmissiveBrightness(TEXT("EmissiveBrightness"));
+		GlowDecalMaterialInstance->SetScalarParameterValue(NAME_EmissiveBrightness, 0.f);
 	}
 }
+
+// RingSize, RingColor
+// replicate FC team, use for coloring etc
+
 
 void AUTRallyPoint::Tick(float DeltaTime)
 {
@@ -114,13 +149,12 @@ void AUTRallyPoint::Tick(float DeltaTime)
 			UE_LOG(UT, Warning, TEXT("FAILSAFE CLEAR RALLY POINTS"));
 			FlagCarrierInVolume(nullptr);
 		}
+		// if fc touching, decrement RallyReadyCountdown else reset to 2.f
 	}
 }
 
-// decal on ground
 // effect when FC touching scales up to full rally enabled in 2 seconds
 // team based effects
-
 
 void AUTRallyPoint::SetAmbientSound(USoundBase* NewAmbientSound, bool bClear)
 {
