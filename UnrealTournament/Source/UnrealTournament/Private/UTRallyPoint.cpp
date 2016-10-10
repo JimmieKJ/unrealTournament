@@ -15,6 +15,7 @@ AUTRallyPoint::AUTRallyPoint(const FObjectInitializer& ObjectInitializer)
 	//Capsule->bShouldUpdatePhysicsVolume = false;
 	Capsule->Mobility = EComponentMobility::Static;
 	Capsule->OnComponentBeginOverlap.AddDynamic(this, &AUTRallyPoint::OnOverlapBegin);
+	Capsule->OnComponentEndOverlap.AddDynamic(this, &AUTRallyPoint::OnOverlapEnd);
 	RootComponent = Capsule;
 
 	PrimaryActorTick.bCanEverTick = true;
@@ -30,24 +31,6 @@ void AUTRallyPoint::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Out
 	DOREPLIFETIME(AUTRallyPoint, bShowAvailableEffect);
 	DOREPLIFETIME(AUTRallyPoint, AmbientSound);
 	DOREPLIFETIME(AUTRallyPoint, AmbientSoundPitch);
-}
-
-
-void AUTRallyPoint::OnOverlapBegin(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
-{
-	AUTCharacter* Character = Cast<AUTCharacter>(OtherActor);
-	if (Role == ROLE_Authority && Character)
-	{
-		AUTCTFFlag* CharFlag = Cast<AUTCTFFlag>(Character->GetCarriedObject());
-		if (CharFlag != NULL)
-		{
-			AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-			if (GS == NULL || (GS->IsMatchInProgress() && !GS->IsMatchIntermission() && !GS->HasMatchEnded()))
-			{
-				CharFlag->PlayCaptureEffect();
-			}
-		}
-	}
 }
 
 void AUTRallyPoint::BeginPlay()
@@ -95,6 +78,54 @@ void AUTRallyPoint::BeginPlay()
 	}
 }
 
+void AUTRallyPoint::OnOverlapBegin(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+{
+	if (Role == ROLE_Authority)
+	{
+		AUTCTFFlag* CharFlag = Cast<AUTCharacter>(OtherActor) ? Cast<AUTCTFFlag>(((AUTCharacter*)OtherActor)->GetCarriedObject()) : nullptr;
+		if (CharFlag != NULL)
+		{
+			AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+			if (GS == NULL || (GS->IsMatchInProgress() && !GS->IsMatchIntermission() && !GS->HasMatchEnded()))
+			{
+				StartRallyCharging();
+			}
+		}
+	}
+}
+
+void AUTRallyPoint::OnOverlapEnd(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
+{
+	if (Role == ROLE_Authority)
+	{
+		AUTCTFFlag* CharFlag = Cast<AUTCharacter>(OtherActor) ? Cast<AUTCTFFlag>(((AUTCharacter*)OtherActor)->GetCarriedObject()) : nullptr;
+		if (CharFlag != NULL)
+		{
+			EndRallyCharging();
+		}
+	}
+}
+
+void AUTRallyPoint::StartRallyCharging()
+{
+	RallyReadyCountdown = RallyReadyDelay;
+	bIsRallyCharging = true;
+	if (GetNetMode() != NM_DedicatedServer)
+	{
+		OnRallyChargingChanged();
+	}
+}
+
+void AUTRallyPoint::EndRallyCharging()
+{
+	RallyReadyCountdown = RallyReadyDelay;
+	bIsRallyCharging = false;
+	if (GetNetMode() != NM_DedicatedServer)
+	{
+		OnRallyChargingChanged();
+	}
+}
+
 void AUTRallyPoint::FlagCarrierInVolume(AUTCharacter* NewFC)
 {
 	NearbyFC = NewFC;
@@ -105,8 +136,39 @@ void AUTRallyPoint::FlagCarrierInVolume(AUTCharacter* NewFC)
 	}
 }
 
+//RallyChargingEffect
+//FCTouchedSound
+//RallyBrokenSound
+//ReadyToRallySound
+
+void AUTRallyPoint::OnRallyChargingChanged()
+{
+	// FIXMESTEVE START AND CLEAR AMBIENTSOUND = poweringupsound
+	if (RallyEffectPSC != nullptr)
+	{
+		// clear it
+		RallyEffectPSC->ActivateSystem(false);
+		RallyEffectPSC->UnregisterComponent();
+		RallyEffectPSC = nullptr;
+	}
+	if (bIsRallyCharging)
+	{
+		UUTGameplayStatics::UTPlaySound(GetWorld(), FCTouchedSound, this, SRT_All);
+		RallyEffectPSC = UGameplayStatics::SpawnEmitterAtLocation(this, RallyChargingEffect, GetActorLocation(), GetActorRotation());
+		AUTFlagRunGameState* UTGS = GetWorld()->GetGameState<AUTFlagRunGameState>();
+		bHaveGameState = (UTGS != nullptr);
+		static FName NAME_Color(TEXT("Color"));
+		RallyEffectPSC->SetVectorParameter(NAME_Color, UTGS && UTGS->bRedToCap ? FVector(1.f, 0.f, 0.f) : FVector(0.f, 0.f, 1.f));
+	}
+	else
+	{
+		UUTGameplayStatics::UTPlaySound(GetWorld(), RallyBrokenSound, this, SRT_All);
+	}
+}
+
 void AUTRallyPoint::OnAvailableEffectChanged()
 {
+	// FIXMESTEVE START AND CLEAR AMBIENTSOUND = poweringupsound
 	if (AvailableEffectPSC != nullptr)
 	{
 		// clear it
@@ -148,12 +210,23 @@ void AUTRallyPoint::Tick(float DeltaTime)
 	{
 		if (Role == ROLE_Authority)
 		{
+			// FIXMESTEVEambientsound up AmbientSoundPitch
 			if (!NearbyFC || NearbyFC->IsPendingKillPending() || !NearbyFC->GetCarriedObject())
 			{
 				UE_LOG(UT, Warning, TEXT("FAILSAFE CLEAR RALLY POINTS"));
 				FlagCarrierInVolume(nullptr);
 			}
-			// if fc touching, decrement RallyReadyCountdown else reset to 2.f
+			else if (bIsRallyCharging)
+			{
+				// if fc touching, decrement RallyReadyCountdown else reset to 2.f
+				RallyReadyCountdown -= DeltaTime;
+				if (RallyReadyCountdown < 0.f)
+				{
+					UUTGameplayStatics::UTPlaySound(GetWorld(), ReadyToRallySound, this, SRT_All);
+					UGameplayStatics::SpawnEmitterAtLocation(this, RallyReadyEffect, GetActorLocation(), GetActorRotation());
+					bIsRallyCharging = false;
+				}
+			}
 		}
 		else if (!bHaveGameState)
 		{

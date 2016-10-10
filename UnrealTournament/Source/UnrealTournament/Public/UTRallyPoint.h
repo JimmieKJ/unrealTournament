@@ -31,6 +31,9 @@ class UNREALTOURNAMENT_API AUTRallyPoint : public AUTGameObjective
 	UPROPERTY()
 		bool bHaveGameState;
 
+	UPROPERTY(ReplicatedUsing = OnRallyChargingChanged, BlueprintReadOnly)
+		bool bIsRallyCharging;
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Objective)
 		UParticleSystem* AvailableEffect;
 
@@ -38,7 +41,10 @@ class UNREALTOURNAMENT_API AUTRallyPoint : public AUTGameObjective
 		UParticleSystemComponent* AvailableEffectPSC;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Objective)
-		UParticleSystem* RallyEffect;
+		UParticleSystem* RallyChargingEffect;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Objective)
+		UParticleSystem* RallyReadyEffect;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Objective)
 		UParticleSystem* RallyBrokenEffect;
@@ -85,14 +91,23 @@ class UNREALTOURNAMENT_API AUTRallyPoint : public AUTGameObjective
 	UFUNCTION()
 		void OnOverlapBegin(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
 
+	UFUNCTION()
+		void OnOverlapEnd(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex);
+
 	virtual void BeginPlay() override;
 	virtual void Tick(float DeltaTime) override;
 
 	virtual void FlagCarrierInVolume(class AUTCharacter* NewFC);
 
+	virtual void StartRallyCharging();
+
+	virtual void EndRallyCharging();
+
 	UFUNCTION()
 	void OnAvailableEffectChanged();
 
+	UFUNCTION()
+		void OnRallyChargingChanged();
 
 	virtual void ChangeAmbientSoundPitch(USoundBase* InAmbientSound, float NewPitch);
 
