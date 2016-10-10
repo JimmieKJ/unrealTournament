@@ -26,7 +26,7 @@ public:
 	UPROPERTY()
 	bool bIsLocalReplay;
 
-//	virtual bool ShouldSaveCheckpoint() override;
+	virtual bool ShouldSaveCheckpoint() override;
 protected:
 	virtual void WriteGameSpecificDemoHeader(TArray<FString>& GameSpecificData) override;
 	virtual bool ProcessGameSpecificDemoHeader(const TArray<FString>& GameSpecificData, FString& Error) override;

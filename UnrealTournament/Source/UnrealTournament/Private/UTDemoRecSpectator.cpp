@@ -20,6 +20,26 @@ void AUTDemoRecSpectator::PlayerTick(float DeltaTime)
 	{
 		ViewPlayerState(QueuedPlayerStateToView);
 	}
+
+	if (QueuedViewTargetGuid.IsValid())
+	{
+		ViewQueuedGuid();
+	}
+}
+
+void AUTDemoRecSpectator::ViewQueuedGuid()
+{
+	if (GetWorld()->DemoNetDriver == nullptr)
+	{
+		return;
+	}
+
+	AActor* ActorForGuid = GetWorld()->DemoNetDriver->GetActorForGUID(QueuedViewTargetGuid);
+	if (ActorForGuid)
+	{
+		QueuedViewTargetGuid.Reset();
+		SetViewTarget(ActorForGuid);
+	}
 }
 
 void AUTDemoRecSpectator::ViewPlayerState(APlayerState* PS)

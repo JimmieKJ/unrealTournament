@@ -363,34 +363,41 @@ void UUTKillcamPlayback::OnKillcamReady(bool bWasSuccessful, FNetworkGUID InKill
 		return;
 	}
 
-	AActor* KillcamActor = KillcamWorld->DemoNetDriver->GetActorForGUID(InKillcamViewTargetGuid);
 	AUTDemoRecSpectator* SpecController = Cast<AUTDemoRecSpectator>(GetKillcamSpectatorController());
-	if (KillcamActor == nullptr || SpecController == nullptr )
+	if (SpecController == nullptr)
 	{
-		UE_LOG(LogUTKillcam, Warning, TEXT("Couldn't find killcam actor for NetGUID %d"), InKillcamViewTargetGuid.Value);
-		KillcamStop();
 		return;
 	}
 
-	// Killcam started and we found the actor we want to follow!
-
-//	SpecController->SetSpectatorCameraType(ESpectatorCameraType::Chase);
-	APawn* KillcamPawn = Cast<APawn>(KillcamActor);
-	if (KillcamPawn && KillcamPawn->PlayerState)
+	AActor* KillcamActor = KillcamWorld->DemoNetDriver->GetActorForGUID(InKillcamViewTargetGuid);
+	if (KillcamActor == nullptr)
 	{
-		UE_LOG(LogUTKillcam, Log, TEXT("Killcam viewing %s"), *KillcamPawn->PlayerState->PlayerName);
+		UE_LOG(LogUTKillcam, Warning, TEXT("Couldn't find killcam actor for NetGUID %d"), InKillcamViewTargetGuid.Value);
+		SpecController->SetQueuedViewTargetGuid(InKillcamViewTargetGuid.Value);
 	}
-	SpecController->bAutoCam = false;
-	SpecController->ViewPawn(KillcamPawn);
-	// Weapon isn't replicated so first person view doesn't have a class to spawn for first person visuals
-	SpecController->bSpectateBehindView = true;
-	SpecController->BehindView(SpecController->bSpectateBehindView);
-	/*
-	UUTSpectatorCamComp_Chase* const SpectatorCameraComponent = KillcamActor->FindComponentByClass<UUTSpectatorCamComp_Chase>();
-	if (SpectatorCameraComponent != nullptr)
+	else
 	{
-		SpectatorCameraComponent->SetAutoFollow(true);
-	}*/
+
+		// Killcam started and we found the actor we want to follow!
+
+	//	SpecController->SetSpectatorCameraType(ESpectatorCameraType::Chase);
+		APawn* KillcamPawn = Cast<APawn>(KillcamActor);
+		if (KillcamPawn && KillcamPawn->PlayerState)
+		{
+			UE_LOG(LogUTKillcam, Log, TEXT("Killcam viewing %s"), *KillcamPawn->PlayerState->PlayerName);
+		}
+		SpecController->bAutoCam = false;
+		SpecController->ViewPawn(KillcamPawn);
+		// Weapon isn't replicated so first person view doesn't have a class to spawn for first person visuals
+		SpecController->bSpectateBehindView = true;
+		SpecController->BehindView(SpecController->bSpectateBehindView);
+		/*
+		UUTSpectatorCamComp_Chase* const SpectatorCameraComponent = KillcamActor->FindComponentByClass<UUTSpectatorCamComp_Chase>();
+		if (SpectatorCameraComponent != nullptr)
+		{
+			SpectatorCameraComponent->SetAutoFollow(true);
+		}*/
+	}
 }
 
 void UUTKillcamPlayback::OnCoolMomentCamReady(bool bWasSuccessful, FUniqueNetIdRepl InCoolMomentViewTargetNetId)
