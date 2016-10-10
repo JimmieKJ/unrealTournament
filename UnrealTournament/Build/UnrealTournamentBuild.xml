@@ -95,6 +95,9 @@
 			<Compile Target="BootstrapPackagedGame" Platform="Win32" Configuration="Shipping"/>
 			<Compile Target="BootstrapPackagedGame" Platform="Win64" Configuration="Shipping"/>
 		</Node>
+	</Agent>
+	
+	<Agent Name="Make Windows Builds" Type="Win64">
 		<Node Name="Compile UT Client Win32" Requires="Compile Tools Windows">
 			<Compile Target="UnrealTournament" Platform="Win32" Tag="#BinaryFiles" Configuration="Shipping"/>
 			
@@ -107,24 +110,9 @@
 			<Tag Files="Engine/Source/...;Engine/Plugins/...;UnrealTournament/Source/...;UnrealTournament/Plugins/..." Filter="*.c;*.h;*.cpp;*.hpp;*.inl" Except="Engine/Source/ThirdParty/..." With="#SourceFiles" If="$(EnableSymStore)"/>
 			<SrcSrv BinaryFiles="#BinaryFiles" SourceFiles="#SourceFiles" Branch="$(Branch)" Change="$(Change)" If="$(EnableSymStore)"/>
 		</Node>
-	</Agent>
-
-	<Agent Name="Monolithics Win64 Server" Type="CompileWin64">
-		<Node Name="Compile UT Server Win64" Requires="Compile Tools Windows">
-			<Compile Target="UnrealTournamentServer" Platform="Win64" Tag="#BinaryFiles" Configuration="Shipping"/>
-
-			<Tag Files="Engine/Source/...;Engine/Plugins/...;UnrealTournament/Source/...;UnrealTournament/Plugins/..." Filter="*.c;*.h;*.cpp;*.hpp;*.inl" Except="Engine/Source/ThirdParty/..." With="#SourceFiles" If="$(EnableSymStore)"/>
-			<SrcSrv BinaryFiles="#BinaryFiles" SourceFiles="#SourceFiles" Branch="$(Branch)" Change="$(Change)" If="$(EnableSymStore)"/>
-		</Node>
-	</Agent>
-
-	<Agent Name="Cook Windows" Type="Win64">
 		<Node Name="Cook WindowsNoEditor" Requires="Compile UnrealTournamentEditor Win64;Compile Tools Windows">
 			<Cook Project="$(ProjectFile)" Platform="WindowsNoEditor"/>
 		</Node>
-	</Agent>
-
-	<Agent Name="Make Win32 Build" Type="Win64">
 		<Node Name="Stage WindowsNoEditor Win32" Requires="Compile UT Client Win32;Cook WindowsNoEditor">
 			<Command Name="UnrealTournamentProto_BasicBuild" Arguments="-SkipBuild -SkipCook -Chunk -clientconfig=Shipping -serverconfig=None -TargetPlatform=Win32 -StagingDir=&quot;$(LocalStagingDir)&quot;"/>
 			<Tag Files="$(LocalStagingDir)/Engine/Binaries/Win32/..." Filter="*.exe" With="#ToSign"/>
@@ -144,9 +132,6 @@
 			<Copy Files="..." FromDir="$(LocalStagingDir)/WindowsNoEditor" ToDir="$(BuildDir)/WindowsNoEditor"/>
 			<SymStore Files="#Compile UT Client Win32" StoreDir="$(WindowsSymbolsDir)" Product="UnrealTournament" If="$(EnableSymStore)"/>
 		</Node>
-	</Agent>
-
-	<Agent Name="Make Win64 Build" Type="Win64">
 		<Node Name="Stage WindowsNoEditor Win64" Requires="Compile UT Client Win64;Cook WindowsNoEditor">
 			<Command Name="UnrealTournamentProto_BasicBuild" Arguments="-SkipBuild -SkipCook -Chunk -clientconfig=Shipping -serverconfig=None -TargetPlatform=Win64 -StagingDir=&quot;$(LocalStagingDir)&quot;"/>
 			<Tag Files="$(LocalStagingDir)/Engine/Binaries/Win64/..." Filter="*.exe" With="#ToSign"/>
@@ -167,12 +152,17 @@
 			<SymStore Files="#Compile UT Client Win64" StoreDir="$(WindowsSymbolsDir)" Product="UnrealTournament" If="$(EnableSymStore)"/>
 		</Node>
 	</Agent>
-
+	
 	<Agent Name="Make Windows Server Build" Type="Win64">
-		<Node Name="Cook WindowsServer" Requires="Compile UnrealTournamentEditor Win64;Compile Tools Windows" After="Publish WindowsNoEditor Win32;Publish WindowsNoEditor Win64">
+		<Node Name="Compile UT Server Win64" Requires="Compile Tools Windows">
+			<Compile Target="UnrealTournamentServer" Platform="Win64" Tag="#BinaryFiles" Configuration="Shipping"/>
+
+			<Tag Files="Engine/Source/...;Engine/Plugins/...;UnrealTournament/Source/...;UnrealTournament/Plugins/..." Filter="*.c;*.h;*.cpp;*.hpp;*.inl" Except="Engine/Source/ThirdParty/..." With="#SourceFiles" If="$(EnableSymStore)"/>
+			<SrcSrv BinaryFiles="#BinaryFiles" SourceFiles="#SourceFiles" Branch="$(Branch)" Change="$(Change)" If="$(EnableSymStore)"/>
+		</Node>
+		<Node Name="Cook WindowsServer" Requires="Compile UnrealTournamentEditor Win64;Compile Tools Windows">
 			<Cook Project="$(ProjectFile)" Platform="WindowsServer"/>
 		</Node>
-		<!-- this stage command does asset registry files for the windows server, so we need to include that -->
 		<Node Name="Stage Windows Server Win64" Requires="Compile UT Server Win64;Cook WindowsServer">
 			<Command Name="UnrealTournamentProto_BasicBuild" Arguments="-SkipBuild -SkipCook -Chunk -clientconfig=None -serverconfig=Shipping -TargetPlatform=Win64 -StagingDir=&quot;$(LocalStagingDir)&quot;"/>
 		</Node>
@@ -183,7 +173,7 @@
 	</Agent>
 
 	<Agent Name="Make Windows Editor Build" Type="Win64">
-		<Node Name="Copy Editor Win64" Requires="Compile Tools Windows" After="Publish WindowsServer Win64">
+		<Node Name="Copy Editor Win64" Requires="Compile Tools Windows">
 			<Property Name="EngineReceiptsDir" Value="$(RootDir)/Engine/Binaries/Win64"/>
 			<Property Name="UTReceiptsDir" Value="$(RootDir)/UnrealTournament/Binaries/Win64"/>
 			
@@ -245,7 +235,7 @@
 	</Agent>	
 
 	<Agent Name="Extra Monolithics Windows" Type="Win64">
-		<Node Name="Compile UT Test Windows"   Requires="Compile Tools Windows" After="Stage WindowsNoEditor Win32;Stage WindowsNoEditor Win64">
+		<Node Name="Compile UT Test Windows"   Requires="Compile Tools Windows" After="Stage WindowsNoEditor Win32;Stage WindowsNoEditor Win64;Stage Windows Server Win64;EditorDDC Win64">
 			<Compile Target="UnrealTournament" Platform="Win32" Tag="#BinaryFiles" Configuration="Test" If="$(WithWin32Client)"/>
 			<Compile Target="UnrealTournament" Platform="Win64" Tag="#BinaryFiles" Configuration="Test" If="$(WithWin64Client)"/>
 			<Compile Target="UnrealTournamentServer" Platform="Win64" Tag="#BinaryFiles_Server" Configuration="Test" If="$(WithWin64Server)"/>
@@ -262,7 +252,7 @@
 	</Agent>
 
 	<Agent Name="NonUnity Compile Win64" Type="CompileWin64">
-		<Node Name="NonUnity Build Win64" Requires="Compile UnrealHeaderTool Win64" After="Stage WindowsNoEditor Win32;Stage WindowsNoEditor Win64">
+		<Node Name="NonUnity Build Win64" Requires="Compile UnrealHeaderTool Win64" After="Stage WindowsNoEditor Win32;Stage WindowsNoEditor Win64;Stage Windows Server Win64;EditorDDC Win64">
 			<Compile Target="UE4Editor" Platform="Win64" Configuration="Development" Arguments="-nodebuginfo -disableunity"/>
 			<Compile Target="UE4Game" Platform="Win64" Configuration="Development" Arguments="-nodebuginfo -disableunity"/>
 			<Compile Target="UE4Client" Platform="Win64" Configuration="Development" Arguments="-nodebuginfo -disableunity"/>
@@ -295,13 +285,10 @@
 		</Node>
 	</Agent>
 
-	<Agent Name="Monolithics Mac" Type="CompileMac">
+	<Agent Name="Make Mac Build" Type="Mac">
 		<Node Name="Compile UT Mac" Requires="Compile Tools Mac">
 			<Compile Target="UnrealTournament" Platform="Mac" Configuration="Shipping"/>
 		</Node>
-	</Agent>
-
-	<Agent Name="Make Mac Build" Type="Mac">
 		<Node Name="Cook Mac" Requires="Compile UnrealTournamentEditor Mac;Compile Tools Mac">
 			<Cook Project="$(ProjectFile)" Platform="MacNoEditor"/>
 		</Node>
@@ -326,7 +313,7 @@
 	</Agent>
 
 	<Agent Name="Make Mac Editor Build" Type="Mac">
-		<Node Name="Copy Editor Mac" Requires="Compile Tools Mac" After="Publish Mac">
+		<Node Name="Copy Editor Mac" Requires="Compile Tools Mac">
 			<Property Name="EngineReceiptsDir" Value="$(RootDir)/Engine/Binaries/Mac"/>
 			<Property Name="UTReceiptsDir" Value="$(RootDir)/UnrealTournament/Binaries/Mac"/>
 
@@ -383,14 +370,14 @@
 	</Agent>
 	
 	<Agent Name="Extra Monolithics Mac" Type="Mac">
-		<Node Name="Compile UT Test Mac" Requires="Compile Tools Mac" After="Stage Mac">
+		<Node Name="Compile UT Test Mac" Requires="Compile Tools Mac" After="Stage Mac;EditorDDC Mac">
 			<Compile Target="UnrealTournament" Platform="Mac" Configuration="Test"/>
 			<Stage Project="$(ProjectFile)" Target="UnrealTournament" Platform="Mac" Configuration="Test" ToDir="$(BuildDir)/MacNoEditor"/>
 		</Node>
 	</Agent>
 
 	<Agent Name="NonUnity Compile Mac" Type="CompileMac">
-		<Node Name="NonUnity Build Mac" Requires="Compile UnrealHeaderTool Mac" After="Stage Mac">
+		<Node Name="NonUnity Build Mac" Requires="Compile UnrealHeaderTool Mac" After="Stage Mac;EditorDDC Mac">
 			<Compile Target="UE4Editor" Platform="Mac" Configuration="Development" Arguments="-nodebuginfo -disableunity"/>
 			<Compile Target="UE4Game" Platform="Mac" Configuration="Development" Arguments="-nodebuginfo -disableunity"/>
 			<Compile Target="UE4Client" Platform="Mac" Configuration="Development" Arguments="-nodebuginfo -disableunity"/>
@@ -406,19 +393,11 @@
 			<Compile Target="UnrealPak" Platform="Linux" Configuration="Development"/>
 		</Node>
 	</Agent>
-
-	<Agent Name="Monolithics Linux" Type="CompileWin64">
+	
+	<Agent Name="Make Linux Client Build" Type="Win64">
 		<Node Name="Compile UT Linux" Requires="Compile Tools Linux">
 			<Compile Target="UnrealTournament" Platform="Linux" Configuration="Shipping"/>
 		</Node>
-	</Agent>
-	<Agent Name="Monolithics Linux Server" Type="CompileWin64">
-		<Node Name="Compile UT Linux Server" Requires="Compile Tools Linux">
-			<Compile Target="UnrealTournamentServer" Platform="Linux" Configuration="Shipping"/>
-		</Node>
-	</Agent>
-	
-	<Agent Name="Make Linux Client Build" Type="Win64">
 		<Node Name="Cook LinuxNoEditor" Requires="Compile UnrealTournamentEditor Win64;Compile Tools Windows;Compile Tools Linux">
 			<Cook Project="$(ProjectFile)" Platform="LinuxNoEditor"/>
 		</Node>
@@ -431,6 +410,9 @@
 	</Agent>
 
 	<Agent Name="Make Linux Server Build" Type="Win64">
+		<Node Name="Compile UT Linux Server" Requires="Compile Tools Linux">
+			<Compile Target="UnrealTournamentServer" Platform="Linux" Configuration="Shipping"/>
+		</Node>
 		<Node Name="Cook LinuxServer" Requires="Compile UnrealTournamentEditor Win64;Compile Tools Windows;Compile Tools Linux" After="Publish LinuxNoEditor">
 			<Cook Project="$(ProjectFile)" Platform="LinuxServer"/>
 		</Node>
