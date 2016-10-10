@@ -336,6 +336,14 @@ bool AUTWeap_Enforcer::StackPickup_Implementation(AUTInventory* ContainedInv)
 
 void AUTWeap_Enforcer::BecomeDual()
 {
+	if (bBecomeDual)
+	{
+		return;
+	}
+	if (Role == ROLE_Authority)
+	{
+		MaxAmmo *= 2;
+	}
 	bBecomeDual = true;
 
 	//For spectators this may not have been set
@@ -355,8 +363,6 @@ void AUTWeap_Enforcer::BecomeDual()
 	//Setup a timer to fire once the equip animation finishes
 	FTimerHandle TempHandle;
 	GetWorldTimerManager().SetTimer(TempHandle, this, &AUTWeap_Enforcer::DualEquipFinished, EnforcerEquippingState->EquipTime);
-	MaxAmmo *= 2;
-	
 }
 
 void AUTWeap_Enforcer::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
