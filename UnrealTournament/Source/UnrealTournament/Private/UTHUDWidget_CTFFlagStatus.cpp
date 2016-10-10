@@ -92,7 +92,7 @@ void UUTHUDWidget_CTFFlagStatus::DrawFlagStatus(AUTCTFGameState* GameState, FVec
 	// draw flag state in HUD
 	float XPos = IndicatorPosition.X;
 	float YPos = (8.f * RenderScale) + 0.5f * FlagIconTemplate.GetHeight();
-	FlagIconTemplate.RenderColor = (GameState && GameState->Teams.IsValidIndex(TeamNum)) ? GameState->Teams[TeamNum]->TeamColor : FLinearColor::Green;
+	FlagIconTemplate.RenderColor = (GameState && GameState->Teams.IsValidIndex(TeamNum) && GameState->Teams[TeamNum] != nullptr) ? GameState->Teams[TeamNum]->TeamColor : FLinearColor::Green;
 
 	// Draw the upper indicator
 	if (Flag)
