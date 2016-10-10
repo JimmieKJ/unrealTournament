@@ -508,13 +508,21 @@ bool AUTSquadAI::ShouldUseTranslocator(AUTBot* B)
 
 void AUTSquadAI::GetPossibleEnemyGoals(AUTBot* B, const FBotEnemyInfo* EnemyInfo, TArray<FPredictedGoal>& Goals)
 {
-	// assume enemy wants super pickups
-	FSuperPickupEval NodeEval(B->RespawnPredictionTime, (EnemyInfo->GetUTChar() != NULL) ? EnemyInfo->GetUTChar()->GetCharacterMovement()->MaxWalkSpeed : GetDefault<AUTCharacter>()->GetCharacterMovement()->MaxWalkSpeed, 10000, 1.0f);
-	float Weight = 0.0f;
-	TArray<FRouteCacheItem> EnemyRouteCache;
-	if (NavData->FindBestPath(EnemyInfo->GetPawn(), EnemyInfo->GetPawn()->GetNavAgentPropertiesRef(), B, NodeEval, EnemyInfo->LastKnownLoc, Weight, false, EnemyRouteCache))
+	if (B != nullptr && EnemyInfo != nullptr && EnemyInfo->GetPawn() != nullptr)
 	{
-		Goals.Add(FPredictedGoal(EnemyRouteCache.Last().GetLocation(NULL), false));
+		float MaxWalkSpeed = GetDefault<AUTCharacter>()->GetCharacterMovement()->MaxWalkSpeed;
+		if (EnemyInfo->GetUTChar() != nullptr)
+		{
+			MaxWalkSpeed = EnemyInfo->GetUTChar()->GetCharacterMovement()->MaxWalkSpeed;
+		}
+		// assume enemy wants super pickups
+		FSuperPickupEval NodeEval(B->RespawnPredictionTime, MaxWalkSpeed, 10000, 1.0f);
+		float Weight = 0.0f;
+		TArray<FRouteCacheItem> EnemyRouteCache;
+		if (NavData->FindBestPath(EnemyInfo->GetPawn(), EnemyInfo->GetPawn()->GetNavAgentPropertiesRef(), B, NodeEval, EnemyInfo->LastKnownLoc, Weight, false, EnemyRouteCache))
+		{
+			Goals.Add(FPredictedGoal(EnemyRouteCache.Last().GetLocation(NULL), false));
+		}
 	}
 }
 
