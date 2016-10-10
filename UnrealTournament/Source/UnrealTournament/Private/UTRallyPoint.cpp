@@ -17,12 +17,16 @@ AUTRallyPoint::AUTRallyPoint(const FObjectInitializer& ObjectInitializer)
 	RootComponent = Capsule;
 
 	PrimaryActorTick.bCanEverTick = true;
+
+	RallyReadyDelay = 2.f;
 }
 
 void AUTRallyPoint::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(AUTRallyPoint, bShowAvailableEffect);
+	DOREPLIFETIME(AUTRallyPoint, AmbientSound);
+	DOREPLIFETIME(AUTRallyPoint, AmbientSoundPitch);
 }
 
 void AUTRallyPoint::OnOverlapBegin(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
@@ -116,4 +120,84 @@ void AUTRallyPoint::Tick(float DeltaTime)
 // decal on ground
 // effect when FC touching scales up to full rally enabled in 2 seconds
 // team based effects
+
+
+void AUTRallyPoint::SetAmbientSound(USoundBase* NewAmbientSound, bool bClear)
+{
+	if (bClear)
+	{
+		if (NewAmbientSound == AmbientSound)
+		{
+			AmbientSound = NULL;
+		}
+	}
+	else
+	{
+		AmbientSound = NewAmbientSound;
+	}
+	AmbientSoundUpdated();
+}
+
+void AUTRallyPoint::AmbientSoundUpdated()
+{
+	if (AmbientSound == NULL)
+	{
+		if (AmbientSoundComp != NULL)
+		{
+			AmbientSoundComp->Stop();
+		}
+	}
+	else
+	{
+		if (AmbientSoundComp == NULL)
+		{
+			AmbientSoundComp = NewObject<UAudioComponent>(this);
+			AmbientSoundComp->bAutoDestroy = false;
+			AmbientSoundComp->bAutoActivate = false;
+			AmbientSoundComp->SetupAttachment(RootComponent);
+			AmbientSoundComp->RegisterComponent();
+		}
+		if (AmbientSoundComp->Sound != AmbientSound)
+		{
+			// don't attenuate/spatialize sounds made by a local viewtarget
+			AmbientSoundComp->bAllowSpatialization = true;
+			AmbientSoundComp->SetPitchMultiplier(1.f);
+
+			if (GEngine->GetMainAudioDevice() && !GEngine->GetMainAudioDevice()->IsHRTFEnabledForAll())
+			{
+				for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
+				{
+					if (It->PlayerController != NULL && It->PlayerController->GetViewTarget() == this)
+					{
+						AmbientSoundComp->bAllowSpatialization = false;
+						break;
+					}
+				}
+			}
+
+			AmbientSoundComp->SetSound(AmbientSound);
+		}
+		if (!AmbientSoundComp->IsPlaying())
+		{
+			AmbientSoundComp->Play();
+		}
+	}
+}
+
+void AUTRallyPoint::ChangeAmbientSoundPitch(USoundBase* InAmbientSound, float NewPitch)
+{
+	if (AmbientSoundComp && AmbientSound && (AmbientSound == InAmbientSound))
+	{
+		AmbientSoundPitch = NewPitch;
+		AmbientSoundPitchUpdated();
+	}
+}
+
+void AUTRallyPoint::AmbientSoundPitchUpdated()
+{
+	if (AmbientSoundComp && AmbientSound)
+	{
+		AmbientSoundComp->SetPitchMultiplier(AmbientSoundPitch);
+	}
+}
 

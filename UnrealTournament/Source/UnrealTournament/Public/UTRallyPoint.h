@@ -25,19 +25,38 @@ class UNREALTOURNAMENT_API AUTRallyPoint : public AUTGameObjective
 	UPROPERTY(ReplicatedUsing = OnAvailableEffectChanged, BlueprintReadOnly)
 		bool bShowAvailableEffect;
 
-	/** effect when this base is being used as a defended objective */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Objective)
 		UParticleSystem* AvailableEffect;
 
 	UPROPERTY()
 		UParticleSystemComponent* AvailableEffectPSC;
 
-	/** effect when this base is being used as a defended objective */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Objective)
 		UParticleSystem* RallyEffect;
 
 	UPROPERTY()
 		UParticleSystemComponent* RallyEffectPSC;
+
+	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = AmbientSoundUpdated, Category = "Audio")
+		USoundBase* AmbientSound;
+
+	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = AmbientSoundPitchUpdated, Category = "Audio")
+		float AmbientSoundPitch;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Audio")
+		UAudioComponent* AmbientSoundComp;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Objective)
+		USoundBase* PoweringUpSound;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Objective)
+		USoundBase* ReadyToRallySound;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Objective)
+		USoundBase* FCTouchedSound;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Objective)
+		USoundBase* EnabledSound;
 
 	UFUNCTION()
 		void OnOverlapBegin(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
@@ -49,5 +68,16 @@ class UNREALTOURNAMENT_API AUTRallyPoint : public AUTGameObjective
 
 	UFUNCTION()
 	void OnAvailableEffectChanged();
+
+
+	virtual void ChangeAmbientSoundPitch(USoundBase* InAmbientSound, float NewPitch);
+
+	UFUNCTION()
+		virtual void AmbientSoundPitchUpdated();
+
+	virtual void SetAmbientSound(USoundBase* NewAmbientSound, bool bClear);
+
+	UFUNCTION()
+		void AmbientSoundUpdated();
 
 };
