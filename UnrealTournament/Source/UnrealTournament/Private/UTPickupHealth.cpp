@@ -19,8 +19,7 @@ void AUTPickupHealth::BeginPlay()
 
 	TArray<UMeshComponent*> MeshComponents;
 	GetComponents<UMeshComponent>(MeshComponents);
-	Mesh = MeshComponents[0];
-
+	Mesh = (MeshComponents.Num() > 0) ? MeshComponents[0] : nullptr;
 	if (GhostMeshMaterial != NULL)
 	{
 		if (GhostMesh != NULL)
