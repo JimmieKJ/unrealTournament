@@ -702,10 +702,15 @@ namespace UnrealTournamentGame.Automation
 			{
 				CopyAssetRegistryFilesFromSavedCookedToReleases(Params);
 				SubmitAssetRegistryFilesToPerforce(Params);
-				if (CommandUtils.P4Enabled && CommandUtils.P4Env.BuildRootP4.Contains("Release"))
-				{
-					SubmitVersionFilesToPerforce();
-				}
+                
+                // Only trust win64 on version files, mac has bad line endings
+                if (Params.ClientTargetPlatforms.Contains(new TargetPlatformDescriptor(UnrealTargetPlatform.Win64)))
+                {
+                    if (CommandUtils.P4Enabled && CommandUtils.P4Env.BuildRootP4.Contains("Release"))
+                    {
+                        SubmitVersionFilesToPerforce();
+                    }
+                }
 			}
 			PrintRunTime();
 			Project.Deploy(Params);
