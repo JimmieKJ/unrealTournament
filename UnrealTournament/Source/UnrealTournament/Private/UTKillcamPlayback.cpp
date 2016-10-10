@@ -10,10 +10,10 @@
 #include "UTDemoRecSpectator.h"
 #include "UTDemoNetDriver.h"
 
-TAutoConsoleVariable<int32> CVarUTEnableKillcam(
-	TEXT("UT.EnableKillcam"),
+TAutoConsoleVariable<int32> CVarUTEnableInstantReplay(
+	TEXT("UT.EnableInstantReplay"),
 	0,
-	TEXT("Enables creation of a separate world for killcam playback.\n"));
+	TEXT("Enables creation of a separate world for instant replay playback.\n"));
 
 TAutoConsoleVariable<float> CVarUTKillcamRewindTime(
 	TEXT("UT.KillcamRewindTime"),
@@ -55,7 +55,7 @@ void UUTKillcamPlayback::BeginDestroy()
 
 void UUTKillcamPlayback::CreateKillcamWorld(const FURL& InURL, const FWorldContext& SourceWorldContext)
 {
-	if (CVarUTEnableKillcam.GetValueOnGameThread() == 0)
+	if (CVarUTEnableInstantReplay.GetValueOnGameThread() == 0)
 	{
 		return;
 	}
@@ -101,7 +101,7 @@ void UUTKillcamPlayback::CreateKillcamWorld(const FURL& InURL, const FWorldConte
 
 void UUTKillcamPlayback::PlayKillcamReplay(const FString& ReplayUniqueName)
 {
-	if (CVarUTEnableKillcam.GetValueOnGameThread() == 0)
+	if (CVarUTEnableInstantReplay.GetValueOnGameThread() == 0)
 	{
 		return;
 	}

@@ -1121,7 +1121,7 @@ void AUTGameState::ReceivedGameModeClass()
 	// Don't record for killcam if this world is already playing back a replay.
 	const UDemoNetDriver* const DemoDriver = World ? World->DemoNetDriver : nullptr;
 	const bool bIsPlayingReplay = DemoDriver ? DemoDriver->IsPlaying() : false;
-	if (!bIsPlayingReplay && GameInstance != nullptr && World->GetNetMode() == NM_Client && CVarUTEnableKillcam->GetInt() == 1)
+	if (!bIsPlayingReplay && GameInstance != nullptr && World->GetNetMode() == NM_Client && CVarUTEnableInstantReplay->GetInt() == 1)
 	{
 		// Since the killcam world will also have ReceivedGameModeClass() called in it, detect that and
 		// don't try to start recording again. Killcam world contexts will have a valid PIEInstance for now.

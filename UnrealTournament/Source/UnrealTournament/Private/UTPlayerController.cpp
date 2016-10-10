@@ -4966,7 +4966,7 @@ void AUTPlayerController::ProcessVoiceDebug(const FString& Command)
 
 void AUTPlayerController::ClientQueueCoolMoment_Implementation(FUniqueNetIdRepl NetId, float TimeToRewind)
 {
-	if (CVarUTEnableKillcam.GetValueOnGameThread() == 0)
+	if (CVarUTEnableInstantReplay.GetValueOnGameThread() == 0)
 	{
 		return;
 	}
