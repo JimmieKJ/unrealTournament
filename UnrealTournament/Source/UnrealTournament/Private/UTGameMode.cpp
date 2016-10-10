@@ -5155,3 +5155,19 @@ int32 AUTGameMode::GetComSwitch(FName CommandTag, AActor* ContextActor, AUTPlaye
 	return INDEX_NONE;
 }
 
+void AUTGameMode::PreLogin(const FString& Options, const FString& Address, const FUniqueNetIdRepl& UniqueId, FString& ErrorMessage)
+{
+	if (UTGameState)
+	{
+		for (int32 i=0; i < UTGameState->PlayerArray.Num(); i++)
+		{
+			if (UTGameState->PlayerArray[i]->UniqueId == UniqueId)
+			{
+				UE_LOG(UT,Warning,TEXT("Rejecting Preloging for a client already in game."));
+				return;
+			}
+		}
+	}
+
+	Super::PreLogin(Options, Address, UniqueId, ErrorMessage);
+}

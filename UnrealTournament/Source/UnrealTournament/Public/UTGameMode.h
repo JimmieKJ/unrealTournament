@@ -783,6 +783,8 @@ public:
 
 	void SendLobbyMessage(const FString& Message, AUTPlayerState* Sender);
 
+	void PreLogin(const FString& Options, const FString& Address, const FUniqueNetIdRepl& UniqueId, FString& ErrorMessage);
+
 protected:
 	UPROPERTY(Config)
 	bool bSkipReportingMatchResults;
