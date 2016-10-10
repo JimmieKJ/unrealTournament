@@ -1060,12 +1060,13 @@ void UUTLocalPlayer::ShowAuth()
 #if !UE_SERVER
 	if (!LoginDialog.IsValid())
 	{
+		LoginPhase = ELoginPhase::InDialog;
 		SAssignNew(LoginDialog, SUTLoginDialog)
 		.OnDialogResult(FDialogResultDelegate::CreateUObject(this, &UUTLocalPlayer::AuthDialogClosed))
 		.UserIDText(PendingLoginUserName)
 		.PlayerOwner(this);
 
-		GEngine->GameViewport->AddViewportWidgetContent(LoginDialog.ToSharedRef(), 160);
+		GEngine->GameViewport->AddViewportWidgetContent(LoginDialog.ToSharedRef(), 500);
 		LoginDialog->SetInitialFocus();
 	}
 #endif

@@ -1871,6 +1871,7 @@ namespace ELoginPhase
 	{
 		NotLoggedIn,
 		Offline,
+		InDialog,
 		Auth,
 		GettingProfile,
 		GettingProgression,		

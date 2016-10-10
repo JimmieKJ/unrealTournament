@@ -522,12 +522,12 @@ FReply SUTLoginDialog::OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& I
 
 EVisibility SUTLoginDialog::GetInfoVis() const
 {
-	return (PlayerOwner.IsValid() && (PlayerOwner->LoginPhase == ELoginPhase::Offline || PlayerOwner->LoginPhase == ELoginPhase::NotLoggedIn) ) ? EVisibility::Visible : EVisibility::Collapsed;
+	return (PlayerOwner.IsValid() && PlayerOwner->LoginPhase == ELoginPhase::InDialog) ? EVisibility::Visible : EVisibility::Collapsed;
 }
 
 EVisibility SUTLoginDialog::GetLoadingVis() const
 {
-	return (PlayerOwner.IsValid() && (PlayerOwner->LoginPhase == ELoginPhase::Offline || PlayerOwner->LoginPhase == ELoginPhase::NotLoggedIn) ) ? EVisibility::Collapsed : EVisibility::Visible;
+	return (PlayerOwner.IsValid() && PlayerOwner->LoginPhase == ELoginPhase::InDialog ) ? EVisibility::Collapsed : EVisibility::Visible;
 }
 
 
