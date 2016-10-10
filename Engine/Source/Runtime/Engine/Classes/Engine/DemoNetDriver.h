@@ -183,6 +183,8 @@ class ENGINE_API UDemoNetDriver : public UNetDriver
 	int32				TotalCheckpointSaveFrames;			// Total number of frames used to save a checkpoint
 	double				LastCheckpointTime;					// Last time a checkpoint was saved
 
+	virtual bool ShouldSaveCheckpoint();
+
 	void		SaveCheckpoint();
 	void		TickCheckpoint();
 	void		LoadCheckpoint( FArchive* GotoCheckpointArchive, int64 GotoCheckpointSkipExtraTimeInMS );
