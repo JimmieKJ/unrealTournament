@@ -366,6 +366,8 @@ void UUTKillcamPlayback::OnKillcamReady(bool bWasSuccessful, FNetworkGUID InKill
 	AUTDemoRecSpectator* SpecController = Cast<AUTDemoRecSpectator>(GetKillcamSpectatorController());
 	if (SpecController == nullptr)
 	{
+		UE_LOG(LogUTKillcam, Warning, TEXT("Couldn't find spectator controller"));
+		KillcamStop();
 		return;
 	}
 
@@ -435,15 +437,16 @@ void UUTKillcamPlayback::OnCoolMomentCamReady(bool bWasSuccessful, FUniqueNetIdR
 	if (PS == nullptr)
 	{
 		UE_LOG(LogUTKillcam, Warning, TEXT("Couldn't find player to view"));
-		KillcamStop();
-		return;
+		SpecController->SetQueuedViewTargetNetId(InCoolMomentViewTargetNetId);
 	}
-
-	SpecController->bAutoCam = false;
-	SpecController->ViewPlayerState(PS);
-	// Weapon isn't replicated so first person view doesn't have a class to spawn for first person visuals
-	SpecController->bSpectateBehindView = true;
-	SpecController->BehindView(SpecController->bSpectateBehindView);
+	else
+	{
+		SpecController->bAutoCam = false;
+		SpecController->ViewPlayerState(PS);
+		// Weapon isn't replicated so first person view doesn't have a class to spawn for first person visuals
+		SpecController->bSpectateBehindView = true;
+		SpecController->BehindView(SpecController->bSpectateBehindView);
+	}
 }
 
 void UUTKillcamPlayback::ShowKillcamToUser()

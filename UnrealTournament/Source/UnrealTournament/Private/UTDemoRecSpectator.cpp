@@ -25,6 +25,29 @@ void AUTDemoRecSpectator::PlayerTick(float DeltaTime)
 	{
 		ViewQueuedGuid();
 	}
+	if (QueuedViewTargetNetId.IsValid())
+	{
+		ViewQueuedNetId();
+	}
+}
+
+void AUTDemoRecSpectator::ViewQueuedNetId()
+{
+	if (GetWorld()->DemoNetDriver == nullptr)
+	{
+		return;
+	}
+
+	APlayerState* PS = nullptr;
+	for (int32 i = 0; i < GetWorld()->GameState->PlayerArray.Num(); i++)
+	{
+		if (GetWorld()->GameState->PlayerArray[i]->UniqueId == QueuedViewTargetNetId)
+		{
+			PS = GetWorld()->GameState->PlayerArray[i];
+			QueuedViewTargetNetId = FUniqueNetIdRepl();
+			ViewPlayerState(PS);
+		}
+	}
 }
 
 void AUTDemoRecSpectator::ViewQueuedGuid()

@@ -62,7 +62,10 @@ class UNREALTOURNAMENT_API AUTDemoRecSpectator : public AUTPlayerController
 	virtual bool IsKillcamSpectator() const;
 
 	FNetworkGUID QueuedViewTargetGuid;
-
 	void SetQueuedViewTargetGuid(FNetworkGUID InViewTargetGuid) { QueuedViewTargetGuid = InViewTargetGuid; }
 	void ViewQueuedGuid();
+
+	FUniqueNetIdRepl QueuedViewTargetNetId;
+	void SetQueuedViewTargetNetId(FUniqueNetIdRepl InViewTargetNetId) { QueuedViewTargetNetId = InViewTargetNetId; }
+	void ViewQueuedNetId();
 };
