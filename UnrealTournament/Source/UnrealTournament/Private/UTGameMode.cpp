@@ -2235,6 +2235,9 @@ bool IsValidCoolMomentTime(float TimeToCheck, TArray<float>& UsedTimes)
 
 void AUTGameMode::PickMostCoolMoments(bool bClearCoolMoments, int32 CoolMomentsToShow)
 {
+	// Turn off cool moments for right now
+	return;
+
 	UE_LOG(UT, Log, TEXT("PickMostCoolMoments"));
 
 	TArray<AUTPlayerState*> CoolestPlayers;
