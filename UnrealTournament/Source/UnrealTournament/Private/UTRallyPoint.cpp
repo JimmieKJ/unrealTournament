@@ -3,6 +3,7 @@
 #include "UTCTFFlag.h"
 #include "UTCharacter.h"
 #include "Net/UnrealNetwork.h"
+#include "UTFlagRunGameState.h"
 #include "UTRallyPoint.h"
 
 AUTRallyPoint::AUTRallyPoint(const FObjectInitializer& ObjectInitializer)
@@ -30,6 +31,7 @@ void AUTRallyPoint::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Out
 	DOREPLIFETIME(AUTRallyPoint, AmbientSound);
 	DOREPLIFETIME(AUTRallyPoint, AmbientSoundPitch);
 }
+
 
 void AUTRallyPoint::OnOverlapBegin(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
@@ -114,13 +116,17 @@ void AUTRallyPoint::OnAvailableEffectChanged()
 	}
 	if (bShowAvailableEffect)
 	{
-		AvailableEffectPSC = UGameplayStatics::SpawnEmitterAtLocation(this, AvailableEffect, GetActorLocation(), GetActorRotation());
+		AvailableEffectPSC = UGameplayStatics::SpawnEmitterAtLocation(this, AvailableEffect, GetActorLocation() - FVector(0.f, 0.f, 64.f), GetActorRotation());
+		AUTFlagRunGameState* UTGS = GetWorld()->GetGameState<AUTFlagRunGameState>();
+		bHaveGameState = (UTGS != nullptr);
 		static FName NAME_RingColor(TEXT("RingColor"));
-		AvailableEffectPSC->SetVectorParameter(NAME_RingColor, FVector(1.f, 0.f, 0.f));
+		AvailableEffectPSC->SetVectorParameter(NAME_RingColor, UTGS && UTGS->bRedToCap ? FVector(1.f, 0.f, 0.f) : FVector(0.f, 0.f, 1.f));
+		//static FName NAME_RingSize(TEXT("RingSize"));
+		//AvailableEffectPSC->SetFloatParameter(NAME_RingSize, 0.2f);
 		if (GlowDecalMaterialInstance)
 		{
 			static FName NAME_Color(TEXT("Color"));
-			GlowDecalMaterialInstance->SetVectorParameterValue(NAME_Color, FVector(5.f, 0.f, 0.f));
+			GlowDecalMaterialInstance->SetVectorParameterValue(NAME_Color, UTGS && UTGS->bRedToCap ? FVector(5.f, 0.f, 0.f) : FVector(0.f,0.f,5.f));
 			static FName NAME_EmissiveBrightness(TEXT("EmissiveBrightness"));
 			GlowDecalMaterialInstance->SetScalarParameterValue(NAME_EmissiveBrightness, 1.f);
 		}
@@ -134,22 +140,39 @@ void AUTRallyPoint::OnAvailableEffectChanged()
 	}
 }
 
-// RingSize, RingColor
-// replicate FC team, use for coloring etc
-
-
 void AUTRallyPoint::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	if (bShowAvailableEffect && (Role == ROLE_Authority))
+	if (bShowAvailableEffect)
 	{
-		if (!NearbyFC || NearbyFC->IsPendingKillPending() || !NearbyFC->GetCarriedObject())
+		if (Role == ROLE_Authority)
 		{
-			UE_LOG(UT, Warning, TEXT("FAILSAFE CLEAR RALLY POINTS"));
-			FlagCarrierInVolume(nullptr);
+			if (!NearbyFC || NearbyFC->IsPendingKillPending() || !NearbyFC->GetCarriedObject())
+			{
+				UE_LOG(UT, Warning, TEXT("FAILSAFE CLEAR RALLY POINTS"));
+				FlagCarrierInVolume(nullptr);
+			}
+			// if fc touching, decrement RallyReadyCountdown else reset to 2.f
 		}
-		// if fc touching, decrement RallyReadyCountdown else reset to 2.f
+		else if (!bHaveGameState)
+		{
+			AUTFlagRunGameState* UTGS = GetWorld()->GetGameState<AUTFlagRunGameState>();
+			bHaveGameState = (UTGS != nullptr);
+			if (bHaveGameState && AvailableEffectPSC)
+			{
+				if (AvailableEffectPSC)
+				{
+					static FName NAME_RingColor(TEXT("RingColor"));
+					AvailableEffectPSC->SetVectorParameter(NAME_RingColor, UTGS->bRedToCap ? FVector(1.f, 0.f, 0.f) : FVector(0.f, 0.f, 1.f));
+				}
+				if (GlowDecalMaterialInstance)
+				{
+					static FName NAME_Color(TEXT("Color"));
+					GlowDecalMaterialInstance->SetVectorParameterValue(NAME_Color, UTGS && UTGS->bRedToCap ? FVector(5.f, 0.f, 0.f) : FVector(0.f, 0.f, 5.f));
+				}
+			}
+		}
 	}
 }
 

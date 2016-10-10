@@ -25,9 +25,11 @@ class UNREALTOURNAMENT_API AUTRallyPoint : public AUTGameObjective
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Objective)
 		float RallyReadyCountdown;
 
-
 	UPROPERTY(ReplicatedUsing = OnAvailableEffectChanged, BlueprintReadOnly)
 		bool bShowAvailableEffect;
+
+	UPROPERTY()
+		bool bHaveGameState;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Objective)
 		UParticleSystem* AvailableEffect;
