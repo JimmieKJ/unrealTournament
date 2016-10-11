@@ -278,23 +278,40 @@ void GetShadowTerms(FGBufferData GBuffer, FDeferredLightData LightData, float3 W
 }
 
 float ShadowRayCast(
-	float3 RayOriginTranslatedWorld, float3 RayDirection, float RayLength,
+	float3 RayOriginTranslatedWorld, float3 RayDirection, float ContactShadowLength, float PixelDepthLength,
 	int NumSteps, float StepOffset
 )
 {
+	const float Epsilon = 0.001;
 	float4 RayStartClip	= mul( float4( RayOriginTranslatedWorld, 1 ), View.TranslatedWorldToClip );
-	float4 RayDirClip	= mul( float4( RayDirection * RayLength, 0 ), View.TranslatedWorldToClip );
+	float4 RayDirClip	= mul( float4( RayDirection * min(PixelDepthLength / length(RayDirection), 1.0 ), 0 ), View.TranslatedWorldToClip );
 	float4 RayEndClip	= RayStartClip + RayDirClip;
 
 	float3 RayStartScreen = RayStartClip.xyz / RayStartClip.w;
 	float3 RayEndScreen = RayEndClip.xyz / RayEndClip.w;
 	
 	float3 RayStepScreen = RayEndScreen - RayStartScreen;
+	float2 AspectRatio = float2(1.0, View.ViewSizeAndInvSize.y * View.ViewSizeAndInvSize.z);
+	RayStepScreen *= min(2.0 * ContactShadowLength / length(RayStepScreen.xy * AspectRatio), 1.0);
+
+	// Clip the ray to the screen borders.
+	{
+		float2 S = (1.0 + (RayStepScreen.xy < 0 ? 1.0.xx : -1.0.xx) * RayStartScreen.xy) / (abs(RayStepScreen.xy) + Epsilon);
+		RayStepScreen *= min(min(S.x, S.y), 1.0);
+	}
+
+	// Avoid self colisions.
+	if (RayStepScreen.z < 0.0)
+	{
+		float2 RayStepPixels = RayStepScreen.xy * 0.5 * View.ViewSizeAndInvSize.xy;
+		RayStartScreen.xy += 2.0 * View.ViewSizeAndInvSize.zw * (1.42 * RayStepPixels / length(RayStepPixels));
+	}
+	RayStartScreen.z += (1.0 - abs(RayDirection.z) / length(RayDirection)) * (0.008 / (PixelDepthLength * ContactShadowLength));
 
 	float3 RayStartUVz = float3( RayStartScreen.xy * View.ScreenPositionScaleBias.xy + View.ScreenPositionScaleBias.wz, RayStartScreen.z );
 	float3 RayStepUVz = float3( RayStepScreen.xy * View.ScreenPositionScaleBias.xy, RayStepScreen.z );
 
-	float4 RayDepthClip	= RayStartClip + mul( float4( 0, 0, RayLength, 0 ), View.ViewToClip );
+	float4 RayDepthClip	= RayStartClip + mul( float4( 0, 0, PixelDepthLength, 0 ), View.ViewToClip );
 	float3 RayDepthScreen = RayDepthClip.xyz / RayDepthClip.w;
 
 	const float Step = 1.0 / NumSteps;
@@ -302,9 +319,9 @@ float ShadowRayCast(
 	// *2 to get less morie pattern in extreme cases, larger values make object appear not grounded in reflections
 	const float CompareTolerance = abs( RayDepthScreen.z - RayStartScreen.z ) * Step * 2;
 
-	float SampleTime = StepOffset * Step + Step;
-	
-	float Coverage = 0;
+	float SampleTime = StepOffset * Step;
+
+	float FirstHitTime = -1.0;
 
 	UNROLL
 	for( int i = 0; i < NumSteps; i++ )
@@ -315,16 +332,16 @@ float ShadowRayCast(
 		float DepthDiff = SampleUVz.z - SampleDepth;
 		bool Hit = abs( DepthDiff + CompareTolerance ) < CompareTolerance;
 
-		Coverage += Hit ? 1.0 : 0.0;
+		FirstHitTime = (Hit && FirstHitTime < 0.0) ? SampleTime : FirstHitTime;
 
 		SampleTime += Step;
 	}
 
-	float Shadow = Coverage > 0 ? 1 : 0;
+	float Shadow = FirstHitTime > 0.0 ? 1.0 : 0.0;
 
 	// Off screen masking
-	float2 Vignette = saturate( abs( RayStartScreen.xy ) * 6 - 5 );
-	//Shadow *= saturate( 1.0 - dot( Vignette, Vignette ) );
+	float2 Vignette = max(6.0 * abs(RayStartScreen.xy + RayStepScreen.xy * FirstHitTime) - 5.0, 0.0);
+	Shadow *= saturate( 1.0 - dot( Vignette, Vignette ) );
 
 	return 1 - Shadow;
 }
@@ -336,8 +353,8 @@ float4 GetDynamicLighting(float3 WorldPosition, float3 CameraVector, FGBufferDat
 
 	float3 V = -CameraVector;
 	float3 N = GBuffer.WorldNormal;
-	float3 ToLight = LightData.LightDirection;
-	float3 L = ToLight;	// no need to normalize
+	float3 L = LightData.LightDirection;	// Already normalized
+	float3 ToLight = L * GBuffer.Depth;
 	float NoL = saturate( dot(N, L) );
 	float DistanceAttenuation = 1;
 	float LightRadiusMask = 1;
@@ -457,12 +474,9 @@ float4 GetDynamicLighting(float3 WorldPosition, float3 CameraVector, FGBufferDat
 			BRANCH
 			if( LightData.ShadowedBits > 1 && LightData.ContactShadowLength > 0 )
 			{
-				uint FrameRandom = View.StateFrameIndexMod8 * 1551;
+				float StepOffset = float( Random.x & 0xffff ) / (1<<16) + 0.1;
 
-				float StepOffset = float( Random.x & 0xffff ) / (1<<16);
-				StepOffset -= 0.5;
-
-				float Shadow = ShadowRayCast( WorldPosition + View.PreViewTranslation, L, LightData.ContactShadowLength * GBuffer.Depth, 8, StepOffset );
+				float Shadow = ShadowRayCast( WorldPosition + View.PreViewTranslation, ToLight, LightData.ContactShadowLength, GBuffer.Depth, 8, StepOffset );
 				
 				SurfaceShadow *= Shadow;
 				//SubsurfaceShadow *= Shadow;
@@ -478,12 +492,9 @@ float4 GetDynamicLighting(float3 WorldPosition, float3 CameraVector, FGBufferDat
 		BRANCH
 		if( LightData.ShadowedBits < 2 && GBuffer.ShadingModelID == SHADINGMODELID_HAIR )
 		{
-			uint FrameRandom = View.StateFrameIndexMod8 * 1551;
+			float StepOffset = float( Random.x & 0xffff ) / (1<<16) + 0.1;
 
-			float StepOffset = float( Random.x & 0xffff ) / (1<<16);
-			StepOffset -= 0.5;
-
-			SubsurfaceShadow = ShadowRayCast( WorldPosition + View.PreViewTranslation, L, 0.1 * GBuffer.Depth, 8, StepOffset );
+			SubsurfaceShadow = ShadowRayCast( WorldPosition + View.PreViewTranslation, L, 0.1, GBuffer.Depth, 8, StepOffset );
 		}
 #endif
 
