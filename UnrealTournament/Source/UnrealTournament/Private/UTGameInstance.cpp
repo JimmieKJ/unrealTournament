@@ -68,8 +68,8 @@ void UUTGameInstance::Init()
 
 	if (!FParse::Param(FCommandLine::Get(), TEXT("server")))
 	{
-		FCoreUObjectDelegates::PreLoadMap.AddUObject(this, &UUTGameInstance::BeginLevelLoading);
-		FCoreUObjectDelegates::PostLoadMap.AddUObject(this, &UUTGameInstance::EndLevelLoading);
+		//FCoreUObjectDelegates::PreLoadMap.AddUObject(this, &UUTGameInstance::BeginLevelLoading);
+		//FCoreUObjectDelegates::PostLoadMap.AddUObject(this, &UUTGameInstance::EndLevelLoading);
 	}
 }
 
