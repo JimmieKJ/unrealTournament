@@ -2815,7 +2815,15 @@ void AUTPlayerState::BuildPlayerInfo(TSharedPtr<SUTTabWidget> TabWidget, TArray<
 	.AutoHeight()
 	[
 		BuildStatsInfo()
-	]);
+	]
+	
+	+ SVerticalBox::Slot()
+	.Padding(10.0f, 20.0f, 10.0f, 5.0f)
+	.AutoHeight()
+	[
+		BuildSeasonInfo()
+	]
+	);
 
 	// Would be great if this worked on remote players
 	if (LP)
@@ -2829,6 +2837,64 @@ void AUTPlayerState::BuildPlayerInfo(TSharedPtr<SUTTabWidget> TabWidget, TArray<
 			BuildLeagueInfo()
 		]);
 	}
+}
+
+TSharedRef<SWidget> AUTPlayerState::BuildSeasonInfo()
+{
+	TSharedRef<SVerticalBox> VBox = SNew(SVerticalBox);
+
+	AUTPlayerController* PC = Cast<AUTPlayerController>(GetOwner());
+	UUTLocalPlayer* LP = PC ? Cast<UUTLocalPlayer>(PC->Player) : NULL;
+
+	static FName FacePumpkins(TEXT("FacePumpkins"));
+	float TotalPumpkins = 0.0f;
+	UUTGameplayStatics::GetBestTime(GetWorld(), FacePumpkins, TotalPumpkins);
+
+	if (GetWorld() && LP)
+	{
+		VBox->AddSlot()
+		.Padding(10.0f, 5.0f, 10.0f, 5.0f)
+		[
+			SNew(SBox)
+			.HeightOverride(2.f)
+			[
+				SNew(SImage)
+				.Image(SUTStyle::Get().GetBrush("UT.Divider"))
+			]
+		];
+		VBox->AddSlot()
+		.Padding(10.0f, 10.0f, 10.0f, 5.0f)
+		.AutoHeight()
+		[
+			SNew(SVerticalBox)
+			+ SVerticalBox::Slot()
+			[
+				SNew(SHorizontalBox)
+				+ SHorizontalBox::Slot()
+				.VAlign(EVerticalAlignment::VAlign_Top)
+				.HAlign(EHorizontalAlignment::HAlign_Center)
+				[
+					SNew(STextBlock)
+					.Text(FText(NSLOCTEXT("AUTPlayerState", "Seasons", "2016 Pre-Alpha Seasonal Stats")))
+					.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
+				]
+			]
+			+ SVerticalBox::Slot()
+			.Padding(10.0f, 10.0f, 10.0f, 5.0f)
+			[
+				SNew(SHorizontalBox)
+				+ SHorizontalBox::Slot()
+				[
+					SNew(STextBlock)
+					.Text(FText::Format(NSLOCTEXT("Halloween", "PumpkinsCollected", "Halloween Pumpkins Collected:   {0}"), FText::AsNumber(TotalPumpkins)))
+					.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
+					.ColorAndOpacity(FLinearColor::Gray)
+				]
+			]
+		];
+	}
+
+	return VBox;
 }
 
 FText AUTPlayerState::GetTrainingLevelText()

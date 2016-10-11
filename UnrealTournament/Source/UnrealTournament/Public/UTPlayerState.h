@@ -950,6 +950,7 @@ public:
 	TSharedRef<SWidget> BuildLeague(AUTBaseGameMode* DefaultGame, FText LeagueName);
 	TSharedRef<SWidget> BuildLeagueDataRow(FText Label, FText Data);
 	TSharedRef<SWidget> BuildLeagueDivision(int32 Tier, int32 Division);
+	TSharedRef<SWidget> BuildSeasonInfo();
 	FText LeagueTierToText(int32 Tier);
 	FString LeagueTierToBrushName(int32 Tier);
 	void EpicIDClicked();
