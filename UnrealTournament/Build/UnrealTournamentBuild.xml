@@ -81,7 +81,7 @@
 		</Node>
 	</Agent>
 	
-	<Agent Name="Monolithics Windows" Type="CompileWin64">
+	<Agent Name="Tools Group Windows" Type="CompileWin64">
 		<Node Name="Compile Tools Windows" Requires="Compile UnrealTournamentEditor Win64">
 			<Compile Target="UnrealEngineLauncherProxy" Platform="Win32" Configuration="Shipping"/>
 			<Compile Target="UnrealEngineLauncherProxy" Platform="Win64" Configuration="Development"/>
@@ -97,7 +97,7 @@
 		</Node>
 	</Agent>
 	
-	<Agent Name="Make Windows Builds" Type="Win64">
+	<Agent Name="Monolithics Windows" Type="CompileWin64">
 		<Node Name="Compile UT Client Win32" Requires="Compile Tools Windows">
 			<Compile Target="UnrealTournament" Platform="Win32" Tag="#BinaryFiles" Configuration="Shipping"/>
 			
@@ -110,6 +110,15 @@
 			<Tag Files="Engine/Source/...;Engine/Plugins/...;UnrealTournament/Source/...;UnrealTournament/Plugins/..." Filter="*.c;*.h;*.cpp;*.hpp;*.inl" Except="Engine/Source/ThirdParty/..." With="#SourceFiles" If="$(EnableSymStore)"/>
 			<SrcSrv BinaryFiles="#BinaryFiles" SourceFiles="#SourceFiles" Branch="$(Branch)" Change="$(Change)" If="$(EnableSymStore)"/>
 		</Node>
+		<Node Name="Compile UT Server Win64" Requires="Compile Tools Windows">
+			<Compile Target="UnrealTournamentServer" Platform="Win64" Tag="#BinaryFiles" Configuration="Shipping"/>
+
+			<Tag Files="Engine/Source/...;Engine/Plugins/...;UnrealTournament/Source/...;UnrealTournament/Plugins/..." Filter="*.c;*.h;*.cpp;*.hpp;*.inl" Except="Engine/Source/ThirdParty/..." With="#SourceFiles" If="$(EnableSymStore)"/>
+			<SrcSrv BinaryFiles="#BinaryFiles" SourceFiles="#SourceFiles" Branch="$(Branch)" Change="$(Change)" If="$(EnableSymStore)"/> 
+		</Node>
+	</Agent>
+	
+	<Agent Name="Make Windows Builds" Type="Win64">
 		<Node Name="Cook WindowsNoEditor" Requires="Compile UnrealTournamentEditor Win64;Compile Tools Windows">
 			<Cook Project="$(ProjectFile)" Platform="WindowsNoEditor"/>
 		</Node>
@@ -154,12 +163,6 @@
 	</Agent>
 	
 	<Agent Name="Make Windows Server Build" Type="Win64">
-		<Node Name="Compile UT Server Win64" Requires="Compile Tools Windows">
-			<Compile Target="UnrealTournamentServer" Platform="Win64" Tag="#BinaryFiles" Configuration="Shipping"/>
-
-			<Tag Files="Engine/Source/...;Engine/Plugins/...;UnrealTournament/Source/...;UnrealTournament/Plugins/..." Filter="*.c;*.h;*.cpp;*.hpp;*.inl" Except="Engine/Source/ThirdParty/..." With="#SourceFiles" If="$(EnableSymStore)"/>
-			<SrcSrv BinaryFiles="#BinaryFiles" SourceFiles="#SourceFiles" Branch="$(Branch)" Change="$(Change)" If="$(EnableSymStore)"/>
-		</Node>
 		<Node Name="Cook WindowsServer" Requires="Compile UnrealTournamentEditor Win64;Compile Tools Windows">
 			<Cook Project="$(ProjectFile)" Platform="WindowsServer"/>
 		</Node>
@@ -217,7 +220,9 @@
 			<Copy Files="#FinalTrim" FromDir="" ToDir="$(LocalStagingDir)/UT-Build/Win64"/>
 		</Node>
 		<Node Name="EditorDDC Win64" Requires="Copy Editor Win64">
+			<Copy Files="UE4Editor-DDCUtils.dll" FromDir="$(RootDir)/Engine/Binaries/Win64/NotForLicensees" ToDir="$(LocalStagingDir)/UT-Build/Win64/Engine/Binaries/Win64/NotForLicensees"/>
 			<Commandlet Name="DerivedDataCache" Project="$(LocalStagingDir)/UT-Build/Win64/UnrealTournament/UnrealTournament.uproject" EditorExe="$(LocalStagingDir)/UT-Build/Win64/Engine/Binaries/Win64/UE4Editor.exe" Arguments="-TargetPlatform=Windows -fill -DDC=CreateInstalledEnginePak -Map=Example_Map"/>
+			<Delete Files="$(LocalStagingDir)/UT-Build/Win64/Engine/Binaries/Win64/NotForLicensees/UE4Editor-DDCUtils.dll" DeleteEmptyDirectories="true"/>
 		</Node>
 		<Node Name="Chunk Editor Win64" Requires="EditorDDC Win64" Token="$(BuildDir)/WindowsEditor/WindowsEditor.token">
 			<Property Name="Launch" Value="Engine\Binaries\Win64\UE4Editor.exe"/>
@@ -284,11 +289,14 @@
 			<Compile Target="MinidumpDiagnostics" Platform="Mac" Configuration="Development" />
 		</Node>
 	</Agent>
-
-	<Agent Name="Make Mac Build" Type="Mac">
+	
+	<Agent Name="Monolithics Mac" Type="CompileMac">
 		<Node Name="Compile UT Mac" Requires="Compile Tools Mac">
 			<Compile Target="UnrealTournament" Platform="Mac" Configuration="Shipping"/>
 		</Node>
+	</Agent>
+
+	<Agent Name="Make Mac Build" Type="Mac">
 		<Node Name="Cook Mac" Requires="Compile UnrealTournamentEditor Mac;Compile Tools Mac">
 			<Cook Project="$(ProjectFile)" Platform="MacNoEditor"/>
 		</Node>
@@ -394,10 +402,16 @@
 		</Node>
 	</Agent>
 	
-	<Agent Name="Make Linux Client Build" Type="Win64">
+	<Agent Name="Monolithics Linux" Type="CompileWin64">
 		<Node Name="Compile UT Linux" Requires="Compile Tools Linux">
 			<Compile Target="UnrealTournament" Platform="Linux" Configuration="Shipping"/>
 		</Node>
+		<Node Name="Compile UT Linux Server" Requires="Compile Tools Linux">
+			<Compile Target="UnrealTournamentServer" Platform="Linux" Configuration="Shipping"/>
+		</Node>
+	</Agent>
+	
+	<Agent Name="Make Linux Client Build" Type="Win64">
 		<Node Name="Cook LinuxNoEditor" Requires="Compile UnrealTournamentEditor Win64;Compile Tools Windows;Compile Tools Linux">
 			<Cook Project="$(ProjectFile)" Platform="LinuxNoEditor"/>
 		</Node>
@@ -410,9 +424,6 @@
 	</Agent>
 
 	<Agent Name="Make Linux Server Build" Type="Win64">
-		<Node Name="Compile UT Linux Server" Requires="Compile Tools Linux">
-			<Compile Target="UnrealTournamentServer" Platform="Linux" Configuration="Shipping"/>
-		</Node>
 		<Node Name="Cook LinuxServer" Requires="Compile UnrealTournamentEditor Win64;Compile Tools Windows;Compile Tools Linux" After="Publish LinuxNoEditor">
 			<Cook Project="$(ProjectFile)" Platform="LinuxServer"/>
 		</Node>
@@ -453,19 +464,19 @@
 			<Spawn Exe="p4.exe" Arguments="print -o &quot;$(RootDir)\LocalBuilds\PortalPublishingTool.zip&quot; &quot;//depot/InternalTools/PortalPublishingTool/Latest.zip&quot;"/>
 			<Unzip ZipFile="$(RootDir)\LocalBuilds\PortalPublishingTool.zip" ToDir="$(RootDir)\LocalBuilds\PortalPublishingTool"/>
 		</Node>
-		<Node Name="Audit Chunks Game Win32" Requires="Sync PortalPublishingTool;Post WindowsNoEditor Win32">
+		<Node Name="Audit Chunks Game Win32" After="Sync PortalPublishingTool;Post WindowsNoEditor Win32">
 			<Spawn Exe="$(RootDir)\LocalBuilds\PortalPublishingTool\Engine\Binaries\DotNET\PortalPublishingTool.exe" Arguments="-mode=BuildDiffTelemetry -BuildVersion=&quot;$(BuildVersion)&quot; -Project=&quot;UnrealTournament&quot; -CloudDir=&quot;$(CloudDir)&quot; -Platform=&quot;Win32&quot;  -LocalRoot=&quot;$(RootDir)\LocalBuilds&quot;"/>
 		</Node>
-		<Node Name="Audit Chunks Game Win64" Requires="Sync PortalPublishingTool;Post WindowsNoEditor Win64">
+		<Node Name="Audit Chunks Game Win64" After="Sync PortalPublishingTool;Post WindowsNoEditor Win64">
 			<Spawn Exe="$(RootDir)\LocalBuilds\PortalPublishingTool\Engine\Binaries\DotNET\PortalPublishingTool.exe" Arguments="-mode=BuildDiffTelemetry -BuildVersion=&quot;$(BuildVersion)&quot; -Project=&quot;UnrealTournament&quot; -CloudDir=&quot;$(CloudDir)&quot; -Platform=&quot;Win64&quot;  -LocalRoot=&quot;$(RootDir)\LocalBuilds&quot;"/>
 		</Node>
-		<Node Name="Audit Chunks Game Mac" Requires="Sync PortalPublishingTool;Post Mac">
+		<Node Name="Audit Chunks Game Mac" After="Sync PortalPublishingTool;Post Mac">
 			<Spawn Exe="$(RootDir)\LocalBuilds\PortalPublishingTool\Engine\Binaries\DotNET\PortalPublishingTool.exe" Arguments="-mode=BuildDiffTelemetry -BuildVersion=&quot;$(BuildVersion)&quot; -Project=&quot;UnrealTournament&quot; -CloudDir=&quot;$(CloudDir)&quot; -Platform=&quot;Mac&quot;  -LocalRoot=&quot;$(RootDir)\LocalBuilds&quot;"/>
 		</Node>
-		<Node Name="Audit Chunks Editor Win64" Requires="Sync PortalPublishingTool;Post Editor Win64">
+		<Node Name="Audit Chunks Editor Win64" After="Sync PortalPublishingTool;Post Editor Win64">
 			<Spawn Exe="$(RootDir)\LocalBuilds\PortalPublishingTool\Engine\Binaries\DotNET\PortalPublishingTool.exe" Arguments="-mode=BuildDiffTelemetry -BuildVersion=&quot;$(BuildVersion)&quot; -Project=&quot;UnrealTournamentEditor&quot; -CloudDir=&quot;$(CloudDir)&quot; -Platform=&quot;Win64&quot;  -LocalRoot=&quot;$(RootDir)\LocalBuilds&quot;"/>
 		</Node>
-		<Node Name="Audit Chunks Editor Mac" Requires="Sync PortalPublishingTool;Post Editor Mac">
+		<Node Name="Audit Chunks Editor Mac" After="Sync PortalPublishingTool;Post Editor Mac">
 			<Spawn Exe="$(RootDir)\LocalBuilds\PortalPublishingTool\Engine\Binaries\DotNET\PortalPublishingTool.exe" Arguments="-mode=BuildDiffTelemetry -BuildVersion=&quot;$(BuildVersion)&quot; -Project=&quot;UnrealTournamentEditor&quot; -CloudDir=&quot;$(CloudDir)&quot; -Platform=&quot;Mac&quot;  -LocalRoot=&quot;$(RootDir)\LocalBuilds&quot;"/>
 		</Node>
 	</Agent>
@@ -508,5 +519,7 @@
 			<Command Name="CleanTempStorage" Arguments="-Days=$(DaysToKeepOldTempStorage) -TempStoragedir=&quot;$(OutputDir)\TempStorage&quot;"/>
 		</Node>
 	</Agent>
+	
+	<Aggregate Name="Nightly Maintenance" Requires="Purge Old Symbols;Clean Temp Storage"/>
 
 	</BuildGraph>
