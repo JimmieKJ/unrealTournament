@@ -61,7 +61,7 @@ class UNREALTOURNAMENT_API UUTFlagRunMessage : public UUTLocalMessage
 
 	virtual bool EnableAnnouncerLogging() const override
 	{
-		return true;
+		return false;
 	}
 };
 
