@@ -224,11 +224,11 @@ struct UNREALTOURNAMENT_API FSingleEndpointEvalWeighted : public FSingleEndpoint
 		return ExtraCosts.FindRef(Link.End);
 	}
 
-	explicit FSingleEndpointEvalWeighted(AActor* InGoalActor)
-		: FSingleEndpointEval(InGoalActor)
+	explicit FSingleEndpointEvalWeighted(AActor* InGoalActor, bool bInAllowPartial = false)
+		: FSingleEndpointEval(InGoalActor, bInAllowPartial)
 	{}
-	explicit FSingleEndpointEvalWeighted(const FVector& InGoalLoc)
-		: FSingleEndpointEval(InGoalLoc)
+	explicit FSingleEndpointEvalWeighted(const FVector& InGoalLoc, bool bInAllowPartial = false)
+		: FSingleEndpointEval(InGoalLoc, bInAllowPartial)
 	{}
 };
 

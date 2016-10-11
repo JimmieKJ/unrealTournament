@@ -180,7 +180,7 @@ public:
 	virtual void SetLeader(AController* NewLeader);
 
 	/** attempt to follow one of the passed in alternate routes to Goal (may generate new if this bot is allowed to do so) */
-	virtual bool FollowAlternateRoute(AUTBot* B, AActor* Goal, TArray<FAlternateRoute>& Routes, bool bAllowDetours, const FString& SuccessGoalString);
+	virtual bool FollowAlternateRoute(AUTBot* B, AActor* Goal, TArray<FAlternateRoute>& Routes, bool bAllowDetours, bool bAllowPartial, const FString& SuccessGoalString);
 	/** try to find and start traversing path towards given objective, possibly taking into account squad alternate routes */
 	virtual bool TryPathTowardObjective(AUTBot* B, AActor* Goal, bool bAllowDetours, const FString& SuccessGoalString);
 

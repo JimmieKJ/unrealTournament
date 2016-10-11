@@ -2287,7 +2287,7 @@ bool AUTRecastNavMesh::FindBestPath(APawn* Asker, const FNavAgentProperties& Age
 
 			FVector RouteGoalLoc = FVector::ZeroVector;
 			AActor* RouteGoal = NULL;
-			if (NodeEval.GetRouteGoal(RouteGoal, RouteGoalLoc))
+			if (NodeEval.GetRouteGoal(RouteGoal, RouteGoalLoc) && (RouteGoal != NULL || NodeRoute.Num() == 0 || NodeRoute.Last().GetLocation(NULL) != RouteGoalLoc))
 			{
 				new(NodeRoute) FRouteCacheItem(RouteGoal, RouteGoalLoc, FindNearestPoly(RouteGoalLoc, FVector(AgentProps.AgentRadius, AgentProps.AgentRadius, AgentProps.AgentHeight)));
 				if (NodeCosts != NULL)

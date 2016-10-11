@@ -104,7 +104,7 @@ void AUTCTFSquadAI::DrawDebugSquadRoute(AUTBot* B) const
 bool AUTCTFSquadAI::TryPathTowardObjective(AUTBot* B, AActor* Goal, bool bAllowDetours, const FString& SuccessGoalString)
 {
 	// maintain a separate list of alternate routes for capturing the taken enemy flag (i.e. from enemy base to home base)
-	if (Goal == FriendlyBase && FollowAlternateRoute(B, Goal, CapRoutes, bAllowDetours, SuccessGoalString))
+	if (Goal == FriendlyBase && FollowAlternateRoute(B, Goal, CapRoutes, bAllowDetours, false, SuccessGoalString))
 	{
 		return true;
 	}
