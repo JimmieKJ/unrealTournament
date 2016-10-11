@@ -46,6 +46,7 @@ AUTProj_Redeemer::AUTProj_Redeemer(const class FObjectInitializer& ObjectInitial
 	bAlwaysShootable = true;
 	ProjHealth = 50;
 	KillCount = 0;
+	bCanHitTeammates = true;
 
 	PrimaryActorTick.bCanEverTick = true;
 	PrimaryActorTick.bStartWithTickEnabled = true;
