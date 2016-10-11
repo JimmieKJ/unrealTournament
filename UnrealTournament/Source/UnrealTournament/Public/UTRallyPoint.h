@@ -55,7 +55,7 @@ class UNREALTOURNAMENT_API AUTRallyPoint : public AUTGameObjective
 	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = AmbientSoundUpdated, Category = "Audio")
 		USoundBase* AmbientSound;
 
-	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = AmbientSoundPitchUpdated, Category = "Audio")
+	UPROPERTY(BlueprintReadWrite, Category = "Audio")
 		float AmbientSoundPitch;
 
 	UPROPERTY(BlueprintReadOnly, Category = "Audio")

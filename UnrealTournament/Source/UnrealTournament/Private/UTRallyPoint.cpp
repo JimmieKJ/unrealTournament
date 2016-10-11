@@ -30,8 +30,8 @@ void AUTRallyPoint::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Out
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(AUTRallyPoint, bShowAvailableEffect);
+	DOREPLIFETIME(AUTRallyPoint, RallyPointState);
 	DOREPLIFETIME(AUTRallyPoint, AmbientSound);
-	DOREPLIFETIME(AUTRallyPoint, AmbientSoundPitch);
 }
 
 void AUTRallyPoint::BeginPlay()
@@ -135,11 +135,18 @@ void AUTRallyPoint::FlagCarrierInVolume(AUTCharacter* NewFC)
 	{
 		OnAvailableEffectChanged();
 	}
+	if (RallyPointState != RallyPointStates::Off)
+	{
+		RallyPointState = RallyPointStates::Off; 
+		OnRallyChargingChanged();
+	}
 }
 
 
 // show rally coming - ghost meshes
 // Fix FC dies while touching
+// ability to enable/disable fixed points
+// actual rally implementation
 
 void AUTRallyPoint::OnRallyChargingChanged()
 {
@@ -252,7 +259,7 @@ void AUTRallyPoint::Tick(float DeltaTime)
 				}
 				else
 				{
-					ChangeAmbientSoundPitch(PoweringUpSound, 1.5f - RallyReadyCountdown/ RallyReadyDelay);
+					ChangeAmbientSoundPitch(PoweringUpSound, 1.5f - RallyReadyCountdown / RallyReadyDelay);
 				}
 			}
 		}
@@ -273,6 +280,10 @@ void AUTRallyPoint::Tick(float DeltaTime)
 					GlowDecalMaterialInstance->SetVectorParameterValue(NAME_Color, UTGS && UTGS->bRedToCap ? FVector(5.f, 0.f, 0.f) : FVector(0.f, 0.f, 5.f));
 				}
 			}
+		}
+		else if (RallyPointState == RallyPointStates::Charging)
+		{
+			ChangeAmbientSoundPitch(PoweringUpSound, AmbientSoundPitch + DeltaTime/RallyReadyDelay);
 		}
 	}
 }
