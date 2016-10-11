@@ -771,6 +771,7 @@ void UUTGameEngine::IndexExpansionContent()
 void UUTGameEngine::SetupLoadingScreen()
 {
 #if !UE_SERVER
+/*
 	if (IsMoviePlayerEnabled())
 	{
 		FLoadingScreenAttributes LoadingScreen;
@@ -781,6 +782,7 @@ void UUTGameEngine::SetupLoadingScreen()
 		GetMoviePlayer()->SetupLoadingScreen(LoadingScreen);
 		FCoreUObjectDelegates::PreLoadMap.Broadcast(TEXT(""));
 	}
+*/
 #endif
 }
 

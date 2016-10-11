@@ -15,7 +15,6 @@ protected:
 public:
 	virtual void StartupModule() override
 	{		
-		return;
 #if !UE_SERVER
 		FLoadingScreenAttributes LoadingScreen;
 		LoadingScreen.bAutoCompleteWhenLoadingCompletes = false;
@@ -40,7 +39,6 @@ public:
 #if !UE_SERVER
 	virtual void PlayMovie(const FString& MovieName, TSharedPtr<SWidget> SlateOverlayWidget, bool bSkippable, bool bAutoComplete, TEnumAsByte<EMoviePlaybackType> PlaybackType, bool bForce) override
 	{
-		return;
 		if ( IsMoviePlayerEnabled() && !MovieName.IsEmpty() && (!GetMoviePlayer()->IsMovieCurrentlyPlaying() || bForce) )
 		{
 			// If we are focing a move to play, stop any existing movie.		

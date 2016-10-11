@@ -68,8 +68,8 @@ void UUTGameInstance::Init()
 
 	if (!FParse::Param(FCommandLine::Get(), TEXT("server")))
 	{
-		//FCoreUObjectDelegates::PreLoadMap.AddUObject(this, &UUTGameInstance::BeginLevelLoading);
-		//FCoreUObjectDelegates::PostLoadMap.AddUObject(this, &UUTGameInstance::EndLevelLoading);
+		FCoreUObjectDelegates::PreLoadMap.AddUObject(this, &UUTGameInstance::BeginLevelLoading);
+		FCoreUObjectDelegates::PostLoadMap.AddUObject(this, &UUTGameInstance::EndLevelLoading);
 	}
 }
 
@@ -651,11 +651,11 @@ EVisibility UUTGameInstance::GetLevelLoadAnyKeyVisibility() const
 
 void UUTGameInstance::PlayLoadingMovie(const FString& MovieName, bool bStopWhenLoadingIsComnpleted, bool bForce) 
 {
-	VerifyMovieOverlay();
-	if (MovieOverlay.IsValid())
-	{
-		PlayMovie(MovieName, MovieOverlay, true, bStopWhenLoadingIsComnpleted, EMoviePlaybackType::MT_LoadingLoop, bForce);
-	}
+	//VerifyMovieOverlay();
+	//if (MovieOverlay.IsValid())
+	//{						 // MovieOverlay
+		PlayMovie(MovieName, SNullWidget::NullWidget, true, bStopWhenLoadingIsComnpleted, EMoviePlaybackType::MT_LoadingLoop, bForce);
+	//}
 }
 
 void UUTGameInstance::VerifyMovieOverlay()
