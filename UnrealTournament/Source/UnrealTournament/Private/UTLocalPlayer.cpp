@@ -926,6 +926,7 @@ void UUTLocalPlayer::OnLoginComplete(int32 LocalUserNum, bool bWasSuccessful, co
 	if (bWasSuccessful)
 	{
 		bPlayingOffline = false;
+		bInitialSignInAttempt = false;
 
 		// Save the creds for the next auto-login
 
@@ -977,10 +978,10 @@ void UUTLocalPlayer::OnLoginComplete(int32 LocalUserNum, bool bWasSuccessful, co
 		}
 
 		PendingLoginUserName = TEXT("");
-		
 	}
 	else
 	{
+
 		// We have enough credentials to auto-login.  So try it, but silently fail if we cant.
 		if (bInitialSignInAttempt)
 		{
@@ -1007,6 +1008,8 @@ void UUTLocalPlayer::OnLoginComplete(int32 LocalUserNum, bool bWasSuccessful, co
 #endif
 		}
 	}
+
+
 }
 
 // When MCP gets the XMPP login, it wipes parties of 1, other games have multiple step logins that mask this race condition, UT does not.
@@ -1065,7 +1068,6 @@ void UUTLocalPlayer::ShowAuth()
 #if !UE_SERVER
 	if (!LoginDialog.IsValid())
 	{
-		LoginPhase = ELoginPhase::InDialog;
 		SAssignNew(LoginDialog, SUTLoginDialog)
 		.OnDialogResult(FDialogResultDelegate::CreateUObject(this, &UUTLocalPlayer::AuthDialogClosed))
 		.UserIDText(PendingLoginUserName)
@@ -1074,12 +1076,14 @@ void UUTLocalPlayer::ShowAuth()
 		GEngine->GameViewport->AddViewportWidgetContent(LoginDialog.ToSharedRef(), 500);
 		LoginDialog->SetInitialFocus();
 	}
+
+	LoginPhase = ELoginPhase::InDialog;
 #endif
 }
 
 void UUTLocalPlayer::OnLoginStatusChanged(int32 LocalUserNum, ELoginStatus::Type PreviousLoginStatus, ELoginStatus::Type LoginStatus, const FUniqueNetId& UniqueID)
 {
-	UE_LOG(UT,Verbose,TEXT("***[LoginStatusChanged]*** - User %i - %i"), LocalUserNum, int32(LoginStatus));
+	UE_LOG(UT,Warning,TEXT("***[LoginStatusChanged]*** - User %i - %i"), LocalUserNum, int32(LoginStatus));
 	
 	// If we have logged out, or started using the local profile, then clear the online profile.
 	if (LoginStatus == ELoginStatus::NotLoggedIn || LoginStatus == ELoginStatus::UsingLocalProfile)

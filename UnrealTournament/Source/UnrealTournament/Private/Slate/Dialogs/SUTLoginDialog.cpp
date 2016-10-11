@@ -18,6 +18,10 @@ const float MIN_LOGIN_VIEW_TIME=0.75f;
 void SUTLoginDialog::Construct(const FArguments& InArgs)
 {
 	PlayerOwner = InArgs._PlayerOwner;
+
+	LoginStartTime = PlayerOwner->GetWorld()->GetRealTimeSeconds();
+	HideDelayTime = 0.0f;
+
 	checkSlow(PlayerOwner != NULL);
 	FVector2D ViewportSize;
 	PlayerOwner->ViewportClient->GetViewportSize(ViewportSize);
@@ -25,7 +29,7 @@ void SUTLoginDialog::Construct(const FArguments& InArgs)
 	FString UserID = InArgs._UserIDText;
 	if (UserID.IsEmpty())
 	{
-		// Attemtp to lookup the current user id.
+		// Attempt to lookup the current user id.
 		UserID = PlayerOwner->GetAccountName();
 	}
 
@@ -488,7 +492,7 @@ void SUTLoginDialog::OnTextCommited(const FText& NewText, ETextCommit::Type Comm
 	{
 		OnSignInClick();
 	}
-}
+} 
 
 FReply SUTLoginDialog::OnSignInClick()
 {
@@ -548,10 +552,9 @@ void SUTLoginDialog::Tick( const FGeometry& AllottedGeometry, const double InCur
 	if (PlayerOwner->LoginPhase == ELoginPhase::Offline || PlayerOwner->LoginPhase == ELoginPhase::LoggedIn)
 	{
 		UE_LOG(UT,Log,TEXT("Login Required the failsafe! %i"), int32(PlayerOwner->LoginPhase));
-		bRequestingClose = true;
+		EndLogin(true);
 	}
-
-	if (bRequestingClose)
+	else if (bRequestingClose)
 	{
 		HideDelayTime -= InDeltaTime;
 		if (HideDelayTime <= 0.0f)
@@ -570,7 +573,6 @@ void SUTLoginDialog::EndLogin(bool bClose)
 		{
 			bRequestingClose = true;
 			HideDelayTime = MIN_LOGIN_VIEW_TIME - (LogoutTime - LoginStartTime);
-			UE_LOG(UT,Log,TEXT("Deferring close until"));
 		}
 		else
 		{
