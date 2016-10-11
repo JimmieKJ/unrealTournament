@@ -139,11 +139,7 @@ void AUTRallyPoint::FlagCarrierInVolume(AUTCharacter* NewFC)
 
 
 // show rally coming - ghost meshes
-// charged effect color and remove
-// louder sounds especially step off
 // Fix FC dies while touching
-// replicate single state rather than multiple bools
-// particlevelocity
 
 void AUTRallyPoint::OnRallyChargingChanged()
 {
@@ -186,6 +182,7 @@ void AUTRallyPoint::OnRallyChargingChanged()
 			UUTGameplayStatics::UTPlaySound(GetWorld(), RallyBrokenSound, this, SRT_All);
 		}
 	}
+	OnAvailableEffectChanged();
 }
 
 void AUTRallyPoint::OnAvailableEffectChanged()
@@ -202,8 +199,13 @@ void AUTRallyPoint::OnAvailableEffectChanged()
 		AvailableEffectPSC = UGameplayStatics::SpawnEmitterAtLocation(this, AvailableEffect, GetActorLocation() - FVector(0.f, 0.f, 64.f), GetActorRotation());
 		AUTFlagRunGameState* UTGS = GetWorld()->GetGameState<AUTFlagRunGameState>();
 		bHaveGameState = (UTGS != nullptr);
+		FVector RingColor(1.f, 1.f, 0.f);
+		if ((RallyPointState != RallyPointStates::Powered) && bHaveGameState)
+		{
+			RingColor = UTGS->bRedToCap ? FVector(1.f, 0.f, 0.f) : FVector(0.f, 0.f, 1.f);
+		}
 		static FName NAME_RingColor(TEXT("RingColor"));
-		AvailableEffectPSC->SetVectorParameter(NAME_RingColor, UTGS && UTGS->bRedToCap ? FVector(1.f, 0.f, 0.f) : FVector(0.f, 0.f, 1.f));
+		AvailableEffectPSC->SetVectorParameter(NAME_RingColor, RingColor);
 		if (GlowDecalMaterialInstance)
 		{
 			static FName NAME_Color(TEXT("Color"));
