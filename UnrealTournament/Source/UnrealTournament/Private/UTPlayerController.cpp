@@ -2487,7 +2487,10 @@ void AUTPlayerController::OnShowScores()
 	else
 	{
 		// toggles on and off during intermissions
-		ToggleScoreboard(!MyUTHUD->bShowScores);
+		if (MyUTHUD)
+		{
+			ToggleScoreboard(!MyUTHUD->bShowScores);
+		}
 	}
 }
 
