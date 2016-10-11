@@ -629,20 +629,27 @@ namespace UnrealTournamentGame.Automation
 				{
 					string ReleasePath = CombinePaths(CmdEnv.LocalRoot, "UnrealTournament", "Releases", Params.CreateReleaseVersion);
 
-					// add in the platforms we just made assetregistry files for.
-					List<string> Platforms = new List<string>();
-					if (Params.ClientTargetPlatforms.Contains(new TargetPlatformDescriptor(UnrealTargetPlatform.Win32)) || Params.ClientTargetPlatforms.Contains(new TargetPlatformDescriptor(UnrealTargetPlatform.Win64)))
-						Platforms.Add("WindowsNoEditor");
-					if (Params.ClientTargetPlatforms.Contains(new TargetPlatformDescriptor(UnrealTargetPlatform.Mac)))
-						Platforms.Add("MacNoEditor");
-					if (Params.ClientTargetPlatforms.Contains(new TargetPlatformDescriptor(UnrealTargetPlatform.Linux)))
-						Platforms.Add("LinuxNoEditor");
-					if (Params.ServerTargetPlatforms.Contains(new TargetPlatformDescriptor(UnrealTargetPlatform.Win32)) || Params.ServerTargetPlatforms.Contains(new TargetPlatformDescriptor(UnrealTargetPlatform.Win64)))
-						Platforms.Add("WindowsServer");
-					if (Params.ServerTargetPlatforms.Contains(new TargetPlatformDescriptor(UnrealTargetPlatform.Linux)))
-						Platforms.Add("LinuxServer");
+                    // add in the platforms we just made assetregistry files for.
+                    List<string> Platforms = new List<string>();
+                    if (Params.ClientConfigsToBuild.Count > 0)
+                    {
+                        if (Params.ClientTargetPlatforms.Contains(new TargetPlatformDescriptor(UnrealTargetPlatform.Win32)) || Params.ClientTargetPlatforms.Contains(new TargetPlatformDescriptor(UnrealTargetPlatform.Win64)))
+                            Platforms.Add("WindowsNoEditor");
+                        if (Params.ClientTargetPlatforms.Contains(new TargetPlatformDescriptor(UnrealTargetPlatform.Mac)))
+                            Platforms.Add("MacNoEditor");
+                        if (Params.ClientTargetPlatforms.Contains(new TargetPlatformDescriptor(UnrealTargetPlatform.Linux)))
+                            Platforms.Add("LinuxNoEditor");
+                    }
 
-					foreach (string Platform in Platforms)
+                    if (Params.ServerConfigsToBuild.Count > 0)
+                    {
+                        if (Params.ServerTargetPlatforms.Contains(new TargetPlatformDescriptor(UnrealTargetPlatform.Win32)) || Params.ServerTargetPlatforms.Contains(new TargetPlatformDescriptor(UnrealTargetPlatform.Win64)))
+                            Platforms.Add("WindowsServer");
+                        if (Params.ServerTargetPlatforms.Contains(new TargetPlatformDescriptor(UnrealTargetPlatform.Linux)))
+                            Platforms.Add("LinuxServer");
+                    }
+
+                    foreach (string Platform in Platforms)
 					{
 						string Filename = CombinePaths(ReleasePath, Platform, "AssetRegistry.bin");
 
