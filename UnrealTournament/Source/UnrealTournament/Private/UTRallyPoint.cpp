@@ -102,6 +102,11 @@ void AUTRallyPoint::OnOverlapEnd(UPrimitiveComponent* OverlappedComponent, AActo
 		if (CharFlag != NULL)
 		{
 			EndRallyCharging();
+			bFullyCharged = false;
+			if (GetNetMode() != NM_DedicatedServer)
+			{
+				OnFullyChargedChanged();
+			}
 		}
 	}
 }
@@ -136,14 +141,12 @@ void AUTRallyPoint::FlagCarrierInVolume(AUTCharacter* NewFC)
 	}
 }
 
-//RallyChargingEffect
-//FCTouchedSound
-//RallyBrokenSound
-//ReadyToRallySound
+
+// show rally coming - ghost meshes
+// Fix FC dies while touching
 
 void AUTRallyPoint::OnRallyChargingChanged()
 {
-	// FIXMESTEVE START AND CLEAR AMBIENTSOUND = poweringupsound
 	if (RallyEffectPSC != nullptr)
 	{
 		// clear it
@@ -153,22 +156,43 @@ void AUTRallyPoint::OnRallyChargingChanged()
 	}
 	if (bIsRallyCharging)
 	{
+		SetAmbientSound(PoweringUpSound, false);
+		ChangeAmbientSoundPitch(PoweringUpSound, 0.5f);
 		UUTGameplayStatics::UTPlaySound(GetWorld(), FCTouchedSound, this, SRT_All);
-		RallyEffectPSC = UGameplayStatics::SpawnEmitterAtLocation(this, RallyChargingEffect, GetActorLocation(), GetActorRotation());
+		RallyEffectPSC = UGameplayStatics::SpawnEmitterAtLocation(this, RallyChargingEffect, GetActorLocation() - FVector(0.f, 0.f, Capsule->GetUnscaledCapsuleHalfHeight()), GetActorRotation());
 		AUTFlagRunGameState* UTGS = GetWorld()->GetGameState<AUTFlagRunGameState>();
 		bHaveGameState = (UTGS != nullptr);
-		static FName NAME_Color(TEXT("Color"));
-		RallyEffectPSC->SetVectorParameter(NAME_Color, UTGS && UTGS->bRedToCap ? FVector(1.f, 0.f, 0.f) : FVector(0.f, 0.f, 1.f));
+		static FName NAME_MoteColor(TEXT("MoteColor"));
+		RallyEffectPSC->SetVectorParameter(NAME_MoteColor, UTGS && UTGS->bRedToCap ? FVector(1.f, 0.f, 0.f) : FVector(0.f, 0.f, 1.f));
 	}
 	else
 	{
+		SetAmbientSound(PoweringUpSound, true);
 		UUTGameplayStatics::UTPlaySound(GetWorld(), RallyBrokenSound, this, SRT_All);
+	}
+}
+
+void AUTRallyPoint::OnFullyChargedChanged()
+{
+	if (ChargedEffectPSC != nullptr)
+	{
+		// clear it
+		ChargedEffectPSC->ActivateSystem(false);
+		ChargedEffectPSC->UnregisterComponent();
+		ChargedEffectPSC = nullptr;
+	}
+	if (bFullyCharged)
+	{
+		ChargedEffectPSC = UGameplayStatics::SpawnEmitterAtLocation(this, AvailableEffect, GetActorLocation() - FVector(0.f, 0.f, 64.f), GetActorRotation());
+		AUTFlagRunGameState* UTGS = GetWorld()->GetGameState<AUTFlagRunGameState>();
+		bHaveGameState = (UTGS != nullptr);
+		static FName NAME_Color(TEXT("Color"));
+		ChargedEffectPSC->SetVectorParameter(NAME_Color, UTGS && UTGS->bRedToCap ? FVector(1.f, 0.f, 0.f) : FVector(0.f, 0.f, 1.f));
 	}
 }
 
 void AUTRallyPoint::OnAvailableEffectChanged()
 {
-	// FIXMESTEVE START AND CLEAR AMBIENTSOUND = poweringupsound
 	if (AvailableEffectPSC != nullptr)
 	{
 		// clear it
@@ -183,8 +207,6 @@ void AUTRallyPoint::OnAvailableEffectChanged()
 		bHaveGameState = (UTGS != nullptr);
 		static FName NAME_RingColor(TEXT("RingColor"));
 		AvailableEffectPSC->SetVectorParameter(NAME_RingColor, UTGS && UTGS->bRedToCap ? FVector(1.f, 0.f, 0.f) : FVector(0.f, 0.f, 1.f));
-		//static FName NAME_RingSize(TEXT("RingSize"));
-		//AvailableEffectPSC->SetFloatParameter(NAME_RingSize, 0.2f);
 		if (GlowDecalMaterialInstance)
 		{
 			static FName NAME_Color(TEXT("Color"));
@@ -216,15 +238,28 @@ void AUTRallyPoint::Tick(float DeltaTime)
 				UE_LOG(UT, Warning, TEXT("FAILSAFE CLEAR RALLY POINTS"));
 				FlagCarrierInVolume(nullptr);
 			}
-			else if (bIsRallyCharging)
+			else if (bIsRallyCharging && !bFullyCharged)
 			{
 				// if fc touching, decrement RallyReadyCountdown else reset to 2.f
 				RallyReadyCountdown -= DeltaTime;
 				if (RallyReadyCountdown < 0.f)
 				{
 					UUTGameplayStatics::UTPlaySound(GetWorld(), ReadyToRallySound, this, SRT_All);
-					UGameplayStatics::SpawnEmitterAtLocation(this, RallyReadyEffect, GetActorLocation(), GetActorRotation());
+					UGameplayStatics::SpawnEmitterAtLocation(this, RallyReadyEffect, GetActorLocation() - FVector(0.f, 0.f, Capsule->GetUnscaledCapsuleHalfHeight()), GetActorRotation());
 					bIsRallyCharging = false;
+					if (GetNetMode() != NM_DedicatedServer)
+					{
+						OnRallyChargingChanged();
+					}
+					bFullyCharged = true;
+					if (GetNetMode() != NM_DedicatedServer)
+					{
+						OnFullyChargedChanged();
+					}
+				}
+				else
+				{
+					ChangeAmbientSoundPitch(PoweringUpSound, 1.5f - RallyReadyCountdown/ RallyReadyDelay);
 				}
 			}
 		}
