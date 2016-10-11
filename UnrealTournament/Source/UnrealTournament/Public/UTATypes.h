@@ -121,13 +121,20 @@ namespace PickupSpeechType
 	const FName ShieldbeltPickup = FName(TEXT("ShieldbeltPickup"));
 }
 
-
 namespace CarriedObjectState
 {
 	const FName Home = FName(TEXT("Home"));
 	const FName Held = FName(TEXT("Held"));
 	const FName Dropped = FName(TEXT("Dropped"));
 	const FName Delivered = FName(TEXT("Delivered"));
+}
+
+namespace RallyPointStates
+{
+	const FName Available = FName(TEXT("Available"));
+	const FName Off = FName(TEXT("Off"));
+	const FName Charging = FName(TEXT("Charging"));
+	const FName Powered = FName(TEXT("Powered"));
 }
 
 namespace InventoryEventName

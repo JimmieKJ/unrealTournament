@@ -4,6 +4,7 @@
 #include "UTCharacter.h"
 #include "Net/UnrealNetwork.h"
 #include "UTFlagRunGameState.h"
+#include "UTATypes.h"
 #include "UTRallyPoint.h"
 
 AUTRallyPoint::AUTRallyPoint(const FObjectInitializer& ObjectInitializer)
@@ -102,11 +103,6 @@ void AUTRallyPoint::OnOverlapEnd(UPrimitiveComponent* OverlappedComponent, AActo
 		if (CharFlag != NULL)
 		{
 			EndRallyCharging();
-			bFullyCharged = false;
-			if (GetNetMode() != NM_DedicatedServer)
-			{
-				OnFullyChargedChanged();
-			}
 		}
 	}
 }
@@ -114,7 +110,7 @@ void AUTRallyPoint::OnOverlapEnd(UPrimitiveComponent* OverlappedComponent, AActo
 void AUTRallyPoint::StartRallyCharging()
 {
 	RallyReadyCountdown = RallyReadyDelay;
-	bIsRallyCharging = true;
+	RallyPointState = RallyPointStates::Charging;
 	if (GetNetMode() != NM_DedicatedServer)
 	{
 		OnRallyChargingChanged();
@@ -124,7 +120,7 @@ void AUTRallyPoint::StartRallyCharging()
 void AUTRallyPoint::EndRallyCharging()
 {
 	RallyReadyCountdown = RallyReadyDelay;
-	bIsRallyCharging = false;
+	RallyPointState = RallyPointStates::Off;
 	if (GetNetMode() != NM_DedicatedServer)
 	{
 		OnRallyChargingChanged();
@@ -143,51 +139,52 @@ void AUTRallyPoint::FlagCarrierInVolume(AUTCharacter* NewFC)
 
 
 // show rally coming - ghost meshes
+// charged effect color and remove
+// louder sounds especially step off
 // Fix FC dies while touching
+// replicate single state rather than multiple bools
+// particlevelocity
 
 void AUTRallyPoint::OnRallyChargingChanged()
 {
-	if (RallyEffectPSC != nullptr)
-	{
-		// clear it
-		RallyEffectPSC->ActivateSystem(false);
-		RallyEffectPSC->UnregisterComponent();
-		RallyEffectPSC = nullptr;
-	}
-	if (bIsRallyCharging)
+	if (RallyPointState == RallyPointStates::Powered)
 	{
 		SetAmbientSound(PoweringUpSound, false);
-		ChangeAmbientSoundPitch(PoweringUpSound, 0.5f);
-		UUTGameplayStatics::UTPlaySound(GetWorld(), FCTouchedSound, this, SRT_All);
-		RallyEffectPSC = UGameplayStatics::SpawnEmitterAtLocation(this, RallyChargingEffect, GetActorLocation() - FVector(0.f, 0.f, Capsule->GetUnscaledCapsuleHalfHeight()), GetActorRotation());
-		AUTFlagRunGameState* UTGS = GetWorld()->GetGameState<AUTFlagRunGameState>();
-		bHaveGameState = (UTGS != nullptr);
+		ChangeAmbientSoundPitch(PoweringUpSound, 1.5f);
+		if (RallyEffectPSC == nullptr)
+		{
+			RallyEffectPSC = UGameplayStatics::SpawnEmitterAtLocation(this, RallyChargingEffect, GetActorLocation() - FVector(0.f, 0.f, Capsule->GetUnscaledCapsuleHalfHeight()), GetActorRotation());
+		}
 		static FName NAME_MoteColor(TEXT("MoteColor"));
-		RallyEffectPSC->SetVectorParameter(NAME_MoteColor, UTGS && UTGS->bRedToCap ? FVector(1.f, 0.f, 0.f) : FVector(0.f, 0.f, 1.f));
+		RallyEffectPSC->SetVectorParameter(NAME_MoteColor, FVector(1.f, 1.f, 0.f));
+		static FName NAME_ParticleVelocity(TEXT("ParticleVelocity"));
+		RallyEffectPSC->SetVectorParameter(NAME_ParticleVelocity, FVector(0.f, 0.f, 1000.f));
 	}
 	else
 	{
-		SetAmbientSound(PoweringUpSound, true);
-		UUTGameplayStatics::UTPlaySound(GetWorld(), RallyBrokenSound, this, SRT_All);
-	}
-}
-
-void AUTRallyPoint::OnFullyChargedChanged()
-{
-	if (ChargedEffectPSC != nullptr)
-	{
-		// clear it
-		ChargedEffectPSC->ActivateSystem(false);
-		ChargedEffectPSC->UnregisterComponent();
-		ChargedEffectPSC = nullptr;
-	}
-	if (bFullyCharged)
-	{
-		ChargedEffectPSC = UGameplayStatics::SpawnEmitterAtLocation(this, AvailableEffect, GetActorLocation() - FVector(0.f, 0.f, 64.f), GetActorRotation());
-		AUTFlagRunGameState* UTGS = GetWorld()->GetGameState<AUTFlagRunGameState>();
-		bHaveGameState = (UTGS != nullptr);
-		static FName NAME_Color(TEXT("Color"));
-		ChargedEffectPSC->SetVectorParameter(NAME_Color, UTGS && UTGS->bRedToCap ? FVector(1.f, 0.f, 0.f) : FVector(0.f, 0.f, 1.f));
+		if (RallyEffectPSC != nullptr)
+		{
+			// clear it
+			RallyEffectPSC->ActivateSystem(false);
+			RallyEffectPSC->UnregisterComponent();
+			RallyEffectPSC = nullptr;
+		}
+		if (RallyPointState == RallyPointStates::Charging)
+		{
+			SetAmbientSound(PoweringUpSound, false);
+			ChangeAmbientSoundPitch(PoweringUpSound, 0.5f);
+			UUTGameplayStatics::UTPlaySound(GetWorld(), FCTouchedSound, this, SRT_All);
+			RallyEffectPSC = UGameplayStatics::SpawnEmitterAtLocation(this, RallyChargingEffect, GetActorLocation() - FVector(0.f, 0.f, Capsule->GetUnscaledCapsuleHalfHeight()), GetActorRotation());
+			AUTFlagRunGameState* UTGS = GetWorld()->GetGameState<AUTFlagRunGameState>();
+			bHaveGameState = (UTGS != nullptr);
+			static FName NAME_MoteColor(TEXT("MoteColor"));
+			RallyEffectPSC->SetVectorParameter(NAME_MoteColor, UTGS && UTGS->bRedToCap ? FVector(1.f, 0.f, 0.f) : FVector(0.f, 0.f, 1.f));
+		}
+		else
+		{
+			SetAmbientSound(PoweringUpSound, true);
+			UUTGameplayStatics::UTPlaySound(GetWorld(), RallyBrokenSound, this, SRT_All);
+		}
 	}
 }
 
@@ -232,30 +229,24 @@ void AUTRallyPoint::Tick(float DeltaTime)
 	{
 		if (Role == ROLE_Authority)
 		{
-			// FIXMESTEVEambientsound up AmbientSoundPitch
 			if (!NearbyFC || NearbyFC->IsPendingKillPending() || !NearbyFC->GetCarriedObject())
 			{
 				UE_LOG(UT, Warning, TEXT("FAILSAFE CLEAR RALLY POINTS"));
 				FlagCarrierInVolume(nullptr);
 			}
-			else if (bIsRallyCharging && !bFullyCharged)
+			else if (RallyPointState == RallyPointStates::Charging)
 			{
 				// if fc touching, decrement RallyReadyCountdown else reset to 2.f
 				RallyReadyCountdown -= DeltaTime;
 				if (RallyReadyCountdown < 0.f)
 				{
 					UUTGameplayStatics::UTPlaySound(GetWorld(), ReadyToRallySound, this, SRT_All);
-					UGameplayStatics::SpawnEmitterAtLocation(this, RallyReadyEffect, GetActorLocation() - FVector(0.f, 0.f, Capsule->GetUnscaledCapsuleHalfHeight()), GetActorRotation());
-					bIsRallyCharging = false;
+					RallyPointState = RallyPointStates::Powered;
 					if (GetNetMode() != NM_DedicatedServer)
 					{
 						OnRallyChargingChanged();
 					}
-					bFullyCharged = true;
-					if (GetNetMode() != NM_DedicatedServer)
-					{
-						OnFullyChargedChanged();
-					}
+					ChangeAmbientSoundPitch(PoweringUpSound, 1.5f);
 				}
 				else
 				{
@@ -283,9 +274,6 @@ void AUTRallyPoint::Tick(float DeltaTime)
 		}
 	}
 }
-
-// effect when FC touching scales up to full rally enabled in 2 seconds
-// team based effects
 
 void AUTRallyPoint::SetAmbientSound(USoundBase* NewAmbientSound, bool bClear)
 {

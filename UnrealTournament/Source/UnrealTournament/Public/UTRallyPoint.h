@@ -32,10 +32,7 @@ class UNREALTOURNAMENT_API AUTRallyPoint : public AUTGameObjective
 		bool bHaveGameState;
 
 	UPROPERTY(ReplicatedUsing = OnRallyChargingChanged, BlueprintReadOnly)
-		bool bIsRallyCharging;
-
-	UPROPERTY(ReplicatedUsing = OnFullyChargedChanged, BlueprintReadOnly)
-		bool bFullyCharged;
+		FName RallyPointState;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Objective)
 		UParticleSystem* AvailableEffect;
@@ -47,16 +44,10 @@ class UNREALTOURNAMENT_API AUTRallyPoint : public AUTGameObjective
 		UParticleSystem* RallyChargingEffect;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Objective)
-		UParticleSystem* RallyReadyEffect;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Objective)
 		UParticleSystem* RallyBrokenEffect;
 
 	UPROPERTY()
 		UParticleSystemComponent* RallyEffectPSC;
-
-	UPROPERTY()
-		UParticleSystemComponent* ChargedEffectPSC;
 
 	UPROPERTY()
 		UDecalComponent* AvailableDecal;
@@ -114,10 +105,6 @@ class UNREALTOURNAMENT_API AUTRallyPoint : public AUTGameObjective
 
 	UFUNCTION()
 		void OnRallyChargingChanged();
-
-	UFUNCTION()
-		void OnFullyChargedChanged();
-
 
 	virtual void ChangeAmbientSoundPitch(USoundBase* InAmbientSound, float NewPitch);
 
