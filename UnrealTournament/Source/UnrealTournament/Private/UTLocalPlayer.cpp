@@ -999,7 +999,8 @@ void UUTLocalPlayer::OnLoginComplete(int32 LocalUserNum, bool bWasSuccessful, co
 				PlayerOnlineStatusChanged.Broadcast(this, ELoginStatus::NotLoggedIn, UniqueID);
 				GetAuth(ErrorMessage);
 			}
-			LoginPhase = ELoginPhase::NotLoggedIn;
+
+			LoginPhase = LoginDialog.IsValid() ? ELoginPhase::InDialog : ELoginPhase::NotLoggedIn;
 		}
 	}
 }
