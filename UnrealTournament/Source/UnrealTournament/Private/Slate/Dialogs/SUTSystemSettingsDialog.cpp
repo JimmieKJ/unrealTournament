@@ -1204,7 +1204,7 @@ FString SUTSystemSettingsDialog::GetDecalLifetimeLabelText(float SliderValue)
 	}
 	
 	int32 NewDecalLifetime = FMath::TruncToInt(SliderValue * (DecalLifetimeRange.Y - DecalLifetimeRange.X) + DecalLifetimeRange.X);
-	return FText::Format(NSLOCTEXT("SUTPlayerSettingsDialog", "DecalLifetime", "Decal Lifetime ({Value} seconds)"), FText::FromString(FString::Printf(TEXT("%i"), NewDecalLifetime))).ToString();
+	return FText::Format(NSLOCTEXT("SUTPlayerSettingsDialog", "DecalLifetime", "Decal Lifetime ({0} seconds)"), FText::FromString(FString::Printf(TEXT("%i"), NewDecalLifetime))).ToString();
 }
 
 void SUTSystemSettingsDialog::OnDecalLifetimeChange(float NewValue)
@@ -1324,7 +1324,7 @@ FReply SUTSystemSettingsDialog::OKClick()
 	UTEngine->SaveConfig();
 
 	// impact effect lifetime - note that 1.0 on the slider is infinite lifetime
-	float NewDecalLifetime = (DecalLifetime->GetValue() * (DecalLifetimeRange.Y - DecalLifetimeRange.X) + DecalLifetimeRange.X);
+	float NewDecalLifetime = (DecalLifetime->GetValue() >= 1.0f) ? 0.0f : (DecalLifetime->GetValue() * (DecalLifetimeRange.Y - DecalLifetimeRange.X) + DecalLifetimeRange.X);
 	AUTWorldSettings* DefaultWS = AUTWorldSettings::StaticClass()->GetDefaultObject<AUTWorldSettings>();
 	DefaultWS->MaxImpactEffectVisibleLifetime = NewDecalLifetime;
 	DefaultWS->MaxImpactEffectInvisibleLifetime = NewDecalLifetime * 0.5f;
