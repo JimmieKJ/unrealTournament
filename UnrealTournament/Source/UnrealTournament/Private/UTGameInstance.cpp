@@ -571,7 +571,13 @@ bool UUTGameInstance::ClientTravelToSession(int32 ControllerId, FName InSessionN
 void UUTGameInstance::BeginLevelLoading(const FString& LevelName)
 {
 #if !UE_SERVER
-	
+
+	AUTBaseGameMode* GM = GetWorld()->GetAuthGameMode<AUTBaseGameMode>();
+	if (GM)
+	{
+		GM->OnLoadingMovieEnd();
+	}
+
 	// Grab just the map name, minus the path
 
 	FString CleanLevelName = FPaths::GetCleanFilename(LevelName);
@@ -634,6 +640,18 @@ void UUTGameInstance::EndLevelLoading()
 	bLevelIsLoading	 = false;
 #if !UE_SERVER
 	StopMovie();
+
+	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(GetFirstGamePlayer());
+	if (LocalPlayer && LocalPlayer->bCloseUICalledDuringMoviePlayback)
+	{
+		LocalPlayer->CloseAllUI(false);
+	}
+
+	AUTBaseGameMode* GM = GetWorld()->GetAuthGameMode<AUTBaseGameMode>();
+	if (GM)
+	{
+		GM->OnLoadingMovieEnd();
+	}
 #endif
 }
 

@@ -60,11 +60,11 @@ void AUTMenuGameMode::PostInitializeComponents()
 	return;
 }
 
-void AUTMenuGameMode::GenericPlayerInitialization(AController* C)
+void AUTMenuGameMode::OnLoadingMovieEnd()
 {
-	Super::GenericPlayerInitialization(C);
+	Super::OnLoadingMovieEnd();
 
-	AUTBasePlayerController* PC = Cast<AUTBasePlayerController>(C);
+	AUTBasePlayerController* PC = Cast<AUTBasePlayerController>(GetWorld()->GetFirstPlayerController());
 	if (PC != NULL)
 	{
 		PC->ClientReturnedToMenus();
@@ -75,7 +75,7 @@ void AUTMenuGameMode::GenericPlayerInitialization(AController* C)
 			{
 				ShowMenu(PC);
 			}
-			else 
+			else
 			{
 				LP->GetAuth();
 			}

@@ -1113,6 +1113,8 @@ public:
 	UPROPERTY(BlueprintReadOnly, Category = Login)
 	bool bPlayingOffline;
 
+	UPROPERTY()
+	bool bCloseUICalledDuringMoviePlayback;
 
 	void AttemptLogin();
 

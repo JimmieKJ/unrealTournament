@@ -4433,6 +4433,17 @@ void UUTLocalPlayer::OnFindSessionByIdComplete(int32 LocalUserNum, bool bWasSuce
 
 void UUTLocalPlayer::CloseAllUI(bool bExceptDialogs)
 {
+#if !UE_SERVER
+	UUTGameInstance* GI = Cast<UUTGameInstance>(GetGameInstance());
+	if (GI && GI->IsMoviePlaying())
+	{
+		bCloseUICalledDuringMoviePlayback = true;
+		return;
+	}
+#endif
+	
+	bCloseUICalledDuringMoviePlayback = false;
+
 	ChatArchive.Empty();
 
 	if (GetWorld()->WorldType == EWorldType::Game)

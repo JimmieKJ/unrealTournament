@@ -46,6 +46,9 @@ public:
 	virtual void PreInitializeComponents() override;
 	virtual void DefaultTimer() { };
 
+	virtual void OnLoadingMovieBegin() { };
+	virtual void OnLoadingMovieEnd() { };
+
 	//Password required to join as a player
 	UPROPERTY(GlobalConfig)
 	FString ServerPassword;
