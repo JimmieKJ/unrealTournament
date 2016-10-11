@@ -1000,7 +1000,11 @@ void UUTLocalPlayer::OnLoginComplete(int32 LocalUserNum, bool bWasSuccessful, co
 				GetAuth(ErrorMessage);
 			}
 
+#if UE_SERVER
+			LoginPhase = ELoginPhase::NotLoggedIn;
+#else
 			LoginPhase = LoginDialog.IsValid() ? ELoginPhase::InDialog : ELoginPhase::NotLoggedIn;
+#endif
 		}
 	}
 }
