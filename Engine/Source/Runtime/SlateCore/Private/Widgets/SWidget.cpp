@@ -47,8 +47,6 @@ SWidget::SWidget()
 
 SWidget::~SWidget()
 {
-	check(GSlateLoadingThreadId == 0 || IsInSlateThread());
-
 	// Unregister all ActiveTimers so they aren't left stranded in the Application's list.
 	if ( FSlateApplicationBase::IsInitialized() )
 	{
