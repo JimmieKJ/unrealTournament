@@ -27,10 +27,6 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 	UPROPERTY(BlueprintReadOnly, Category = CTF)
 		bool bSlowFlagCarrier;
 
-	/*  If true, delay rally teleport */
-	UPROPERTY(BlueprintReadOnly, Category = CTF)
-		bool bDelayedRally;
-
 	/** Respawn wait time for team with no life limit. */
 	UPROPERTY(BlueprintReadOnly, Category = CTF)
 		float UnlimitedRespawnWaitTime;

@@ -94,9 +94,6 @@ void AUTFlagRunGame::InitGame(const FString& MapName, const FString& Options, FS
 	FString InOpt = UGameplayStatics::ParseOption(Options, TEXT("AllowPrototypePowerups"));
 	bAllowPrototypePowerups = EvalBoolOptions(InOpt, bAllowPrototypePowerups);
 
-	InOpt = UGameplayStatics::ParseOption(Options, TEXT("DelayRally"));
-	bDelayedRally = EvalBoolOptions(InOpt, bDelayedRally);
-
 	InOpt = UGameplayStatics::ParseOption(Options, TEXT("Boost"));
 	bAllowBoosts = EvalBoolOptions(InOpt, bAllowBoosts);
 	if (!bAllowBoosts)
@@ -104,6 +101,10 @@ void AUTFlagRunGame::InitGame(const FString& MapName, const FString& Options, FS
 		OffenseKillsNeededForPowerUp = 1000;
 		DefenseKillsNeededForPowerUp = 1000;
 	}
+
+	InOpt = UGameplayStatics::ParseOption(Options, TEXT("FixedRally"));
+	bFixedRally = EvalBoolOptions(InOpt, bFixedRally);
+
 	GameSession->MaxPlayers = 10;
 }
 
@@ -635,21 +636,14 @@ void AUTFlagRunGame::HandleRallyRequest(AUTPlayerController* RequestingPC)
 				}
 				RequestingPC->RallyLocation = BestRecentPosition;
 				RequestingPC->RallyFlagCarrier = FlagCarrier;
-				if (bDelayedRally)
+				UTCharacter->bTriggerRallyEffect = true;
+				UTCharacter->OnTriggerRallyEffect();
+				RequestingPC->BeginRallyTo(FlagCarrier, RequestingPC->RallyLocation, 1.2f);
+				if (UTCharacter->UTCharacterMovement)
 				{
-					UTCharacter->bTriggerRallyEffect = true;
-					UTCharacter->OnTriggerRallyEffect();
-					RequestingPC->BeginRallyTo(FlagCarrier, RequestingPC->RallyLocation, 1.2f);
-					if (UTCharacter->UTCharacterMovement)
-					{
-						UTCharacter->UTCharacterMovement->StopMovementImmediately();
-						UTCharacter->UTCharacterMovement->DisableMovement();
-						UTCharacter->DisallowWeaponFiring(true);
-					}
-				}
-				else
-				{
-					CompleteRallyRequest(RequestingPC);
+					UTCharacter->UTCharacterMovement->StopMovementImmediately();
+					UTCharacter->UTCharacterMovement->DisableMovement();
+					UTCharacter->DisallowWeaponFiring(true);
 				}
 			}
 		}

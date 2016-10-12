@@ -76,7 +76,6 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 
 	bSitOutDuringRound = false;
 	bSlowFlagCarrier = false;
-	bDelayedRally = true;
 	EndOfMatchMessageDelay = 2.5f;
 	bHaveAnnouncedRound = false;
 }

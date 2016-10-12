@@ -31,6 +31,9 @@ class UNREALTOURNAMENT_API AUTRallyPoint : public AUTGameObjective
 	UPROPERTY()
 		bool bHaveGameState;
 
+	UPROPERTY(Replicated, BlueprintReadOnly)
+		bool bIsEnabled;
+
 	UPROPERTY(ReplicatedUsing = OnRallyChargingChanged, BlueprintReadOnly)
 		FName RallyPointState;
 

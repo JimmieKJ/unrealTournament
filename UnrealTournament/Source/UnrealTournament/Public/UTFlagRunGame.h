@@ -52,6 +52,9 @@ public:
 	UPROPERTY()
 		bool bAllowBoosts;
 
+	UPROPERTY()
+		bool bFixedRally;
+
 	UPROPERTY(BlueprintReadOnly, Category = CTF)
 		int OffenseKillsNeededForPowerUp;
 

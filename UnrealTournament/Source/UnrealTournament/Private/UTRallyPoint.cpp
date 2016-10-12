@@ -3,6 +3,7 @@
 #include "UTCTFFlag.h"
 #include "UTCharacter.h"
 #include "Net/UnrealNetwork.h"
+#include "UTFlagRunGame.h"
 #include "UTFlagRunGameState.h"
 #include "UTATypes.h"
 #include "UTRallyPoint.h"
@@ -24,11 +25,13 @@ AUTRallyPoint::AUTRallyPoint(const FObjectInitializer& ObjectInitializer)
 
 	RallyReadyDelay = 2.f;
 	RallyReadyCountdown = RallyReadyDelay;
+	bIsEnabled = true;
 }
 
 void AUTRallyPoint::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+	DOREPLIFETIME(AUTRallyPoint, bIsEnabled);
 	DOREPLIFETIME(AUTRallyPoint, bShowAvailableEffect);
 	DOREPLIFETIME(AUTRallyPoint, RallyPointState);
 	DOREPLIFETIME(AUTRallyPoint, AmbientSound);
@@ -38,6 +41,15 @@ void AUTRallyPoint::BeginPlay()
 {
 	Super::BeginPlay();
 
+	if (Role == ROLE_Authority)
+	{
+		AUTFlagRunGame* GameMode = GetWorld()->GetAuthGameMode<AUTFlagRunGame>();
+		if (!GameMode || !GameMode->bFixedRally)
+		{
+			bIsEnabled = false;
+			return;
+		}
+	}
 	// associate as team locker with team volume I am in
 	TArray<UPrimitiveComponent*> OverlappingComponents;
 	Capsule->GetOverlappingComponents(OverlappingComponents);
@@ -81,7 +93,7 @@ void AUTRallyPoint::BeginPlay()
 
 void AUTRallyPoint::OnOverlapBegin(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
-	if (Role == ROLE_Authority)
+	if ((Role == ROLE_Authority) && bIsEnabled)
 	{
 		AUTCTFFlag* CharFlag = Cast<AUTCharacter>(OtherActor) ? Cast<AUTCTFFlag>(((AUTCharacter*)OtherActor)->GetCarriedObject()) : nullptr;
 		if (CharFlag != NULL)
@@ -97,7 +109,7 @@ void AUTRallyPoint::OnOverlapBegin(UPrimitiveComponent* OverlappedComponent, AAc
 
 void AUTRallyPoint::OnOverlapEnd(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex)
 {
-	if (Role == ROLE_Authority)
+	if ((Role == ROLE_Authority) && bIsEnabled)
 	{
 		AUTCTFFlag* CharFlag = Cast<AUTCharacter>(OtherActor) ? Cast<AUTCTFFlag>(((AUTCharacter*)OtherActor)->GetCarriedObject()) : nullptr;
 		if (CharFlag != NULL)
@@ -142,10 +154,7 @@ void AUTRallyPoint::FlagCarrierInVolume(AUTCharacter* NewFC)
 	}
 }
 
-
 // show rally coming - ghost meshes
-// Fix FC dies while touching
-// ability to enable/disable fixed points
 // actual rally implementation
 
 void AUTRallyPoint::OnRallyChargingChanged()
@@ -201,7 +210,7 @@ void AUTRallyPoint::OnAvailableEffectChanged()
 		AvailableEffectPSC->UnregisterComponent();
 		AvailableEffectPSC = nullptr;
 	}
-	if (bShowAvailableEffect)
+	if (bShowAvailableEffect && bIsEnabled)
 	{
 		AvailableEffectPSC = UGameplayStatics::SpawnEmitterAtLocation(this, AvailableEffect, GetActorLocation() - FVector(0.f, 0.f, 64.f), GetActorRotation());
 		AUTFlagRunGameState* UTGS = GetWorld()->GetGameState<AUTFlagRunGameState>();
@@ -234,7 +243,7 @@ void AUTRallyPoint::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	if (bShowAvailableEffect)
+	if (bShowAvailableEffect && bIsEnabled)
 	{
 		if (Role == ROLE_Authority)
 		{
