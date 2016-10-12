@@ -16,7 +16,6 @@ UUTWeaponStateFiringBurstEnforcer::UUTWeaponStateFiringBurstEnforcer(const FObje
 
 	bFirstVolleyComplete = false;
 	bSecondVolleyComplete = false;
-
 }
 
 void UUTWeaponStateFiringBurstEnforcer::BeginState(const UUTWeaponState* PrevState)
@@ -30,7 +29,10 @@ void UUTWeaponStateFiringBurstEnforcer::BeginState(const UUTWeaponState* PrevSta
 		}
 
 		CurrentShot = 0;
-		GetOuterAUTWeapon()->Spread[GetOuterAUTWeapon()->GetCurrentFireMode()] = 0.f;
+		if (GetOuterAUTWeapon()->Spread.Num() > GetOuterAUTWeapon()->GetCurrentFireMode())
+		{
+			GetOuterAUTWeapon()->Spread[GetOuterAUTWeapon()->GetCurrentFireMode()] = 0.f;
+		}
 		RefireCheckTimer();
 		GetOuterAUTWeapon()->OnStartedFiring();
 	}
