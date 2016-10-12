@@ -68,4 +68,10 @@ class UNREALTOURNAMENT_API AUTDemoRecSpectator : public AUTPlayerController
 	FUniqueNetIdRepl QueuedViewTargetNetId;
 	void SetQueuedViewTargetNetId(FUniqueNetIdRepl InViewTargetNetId) { QueuedViewTargetNetId = InViewTargetNetId; }
 	void ViewQueuedNetId();
+
+#if !UE_SERVER
+	virtual void UpdateInputMode() override {};
+#endif
+
+
 };
