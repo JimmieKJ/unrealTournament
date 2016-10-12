@@ -19,6 +19,9 @@ class UNREALTOURNAMENT_API AUTDemoRecSpectator : public AUTPlayerController
 	virtual void ViewPawn(APawn* PawnToView) override;
 	virtual void ServerViewProjectileShim() override;
 	virtual void SetPlayer(UPlayer* InPlayer) override;
+	virtual void ViewPlayerNum(int32 Index, uint8 TeamNum) override;
+	virtual void EnableAutoCam() override;
+	virtual void ChooseBestCamera() override;
 
 	virtual void ViewAPlayer(int32 dir) override;
 	virtual APlayerState* GetNextViewablePlayer(int32 dir) override;

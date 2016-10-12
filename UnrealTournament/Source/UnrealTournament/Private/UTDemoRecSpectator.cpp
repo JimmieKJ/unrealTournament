@@ -406,3 +406,33 @@ bool AUTDemoRecSpectator::IsKillcamSpectator() const
 
 	return false;
 }
+
+void AUTDemoRecSpectator::ViewPlayerNum(int32 Index, uint8 TeamNum)
+{
+	if (IsKillcamSpectator())
+	{
+		return;
+	}
+
+	Super::ViewPlayerNum(Index, TeamNum);
+}
+
+void AUTDemoRecSpectator::EnableAutoCam()
+{
+	if (IsKillcamSpectator())
+	{
+		return;
+	}
+
+	Super::EnableAutoCam();
+}
+
+void AUTDemoRecSpectator::ChooseBestCamera()
+{
+	if (IsKillcamSpectator())
+	{
+		return;
+	}
+
+	Super::ChooseBestCamera();
+}

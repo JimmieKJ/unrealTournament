@@ -371,6 +371,8 @@ void UUTKillcamPlayback::OnKillcamReady(bool bWasSuccessful, FNetworkGUID InKill
 		return;
 	}
 
+	SpecController->bAutoCam = false;
+
 	AActor* KillcamActor = KillcamWorld->DemoNetDriver->GetActorForGUID(InKillcamViewTargetGuid);
 	if (KillcamActor == nullptr)
 	{
@@ -388,7 +390,6 @@ void UUTKillcamPlayback::OnKillcamReady(bool bWasSuccessful, FNetworkGUID InKill
 		{
 			UE_LOG(LogUTKillcam, Log, TEXT("Killcam viewing %s"), *KillcamPawn->PlayerState->PlayerName);
 		}
-		SpecController->bAutoCam = false;
 		SpecController->ViewPawn(KillcamPawn);
 		// Weapon isn't replicated so first person view doesn't have a class to spawn for first person visuals
 		SpecController->bSpectateBehindView = true;
@@ -434,6 +435,8 @@ void UUTKillcamPlayback::OnCoolMomentCamReady(bool bWasSuccessful, FUniqueNetIdR
 		}
 	}
 
+	SpecController->bAutoCam = false;
+
 	if (PS == nullptr)
 	{
 		UE_LOG(LogUTKillcam, Warning, TEXT("Couldn't find player to view"));
@@ -441,7 +444,6 @@ void UUTKillcamPlayback::OnCoolMomentCamReady(bool bWasSuccessful, FUniqueNetIdR
 	}
 	else
 	{
-		SpecController->bAutoCam = false;
 		SpecController->ViewPlayerState(PS);
 		// Weapon isn't replicated so first person view doesn't have a class to spawn for first person visuals
 		SpecController->bSpectateBehindView = true;
