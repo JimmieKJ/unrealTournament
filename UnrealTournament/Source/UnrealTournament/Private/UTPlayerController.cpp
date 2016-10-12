@@ -5089,6 +5089,9 @@ void AUTPlayerController::OnCoolMomentReplayStart(const FUniqueNetIdRepl NetId, 
 	// Show killcam
 	if (IsLocalController())
 	{
+		// If the player unpresses any keys while inside the other world, they will still be pressed in this one
+		FlushPressedKeys();
+
 		UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(GetLocalPlayer());
 		if (LocalPlayer != nullptr && LocalPlayer->GetKillcamPlaybackManager() != nullptr)
 		{
@@ -5113,6 +5116,9 @@ void AUTPlayerController::OnKillcamStart(const FNetworkGUID InFocusActorGUID, fl
 	// Show killcam
 	if (IsLocalController())
 	{
+		// If the player unpresses any keys while inside the other world, they will still be pressed in this one
+		FlushPressedKeys();
+
 		//if (IsInState(NAME_Spectating) || IsInState(NAME_Inactive))
 		UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(GetLocalPlayer());
 		if (LocalPlayer != nullptr && LocalPlayer->GetKillcamPlaybackManager() != nullptr)
