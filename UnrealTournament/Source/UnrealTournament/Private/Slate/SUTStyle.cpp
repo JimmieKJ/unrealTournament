@@ -245,6 +245,7 @@ void SUTStyle::SetIcons(TSharedRef<FSlateStyleSet> StyleRef)
 
 	Style.Set("UT.Icon.LockedContent", new IMAGE_BRUSH( "UTStyle/Icons/UT.Icon.LockedContent", FVector2D(128.0f, 128.0f)));
 
+	Style.Set("UT.Icon.Pumpkin", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.Pumpkin", FVector2D(64.0, 64.0)));
 }
 
 

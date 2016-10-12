@@ -2880,15 +2880,50 @@ TSharedRef<SWidget> AUTPlayerState::BuildSeasonInfo()
 				]
 			]
 			+ SVerticalBox::Slot()
+			.VAlign(EVerticalAlignment::VAlign_Center)
 			.Padding(10.0f, 10.0f, 10.0f, 5.0f)
 			[
 				SNew(SHorizontalBox)
 				+ SHorizontalBox::Slot()
+				.HAlign(EHorizontalAlignment::HAlign_Left)
+				.VAlign(EVerticalAlignment::VAlign_Center)
+				.AutoWidth()
 				[
 					SNew(STextBlock)
 					.Text(FText::Format(NSLOCTEXT("Halloween", "PumpkinsCollected", "Halloween Pumpkins Collected:   {0}"), FText::AsNumber(TotalPumpkins)))
 					.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
 					.ColorAndOpacity(FLinearColor::Gray)
+				]
+				+ SHorizontalBox::Slot()
+				.HAlign(HAlign_Left)
+				.VAlign(VAlign_Center)
+				.AutoWidth()
+				[
+					//blank space between name and player icon
+					SNew(SBox)
+					.WidthOverride(12.0)
+					.HeightOverride(64.0f)
+					.MaxDesiredWidth(12.0f)
+					.MaxDesiredHeight(64.0f)
+					[
+						SNew(SImage)
+						.Image(SUTStyle::Get().GetBrush("UT.NoStyle"))
+					]
+				]
+				+ SHorizontalBox::Slot()
+				.HAlign(HAlign_Left)
+				.VAlign(VAlign_Center)
+				.AutoWidth()
+				[
+					SNew(SBox)
+					.WidthOverride(45.f)
+					.HeightOverride(45.f)
+					.MaxDesiredWidth(45.f)
+					.MaxDesiredHeight(45.f)
+					[
+						SNew(SImage)
+						.Image(SUTStyle::Get().GetBrush("UT.Icon.Pumpkin"))
+					]
 				]
 			]
 		];
