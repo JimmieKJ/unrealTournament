@@ -7,10 +7,9 @@
 	<Option Name="IsReleaseBranch" DefaultValue="false" Description="True if release branch, false otherwise"/>
 	<Option Name="PreflightChange" DefaultValue="" Description="Preflight CL number if preflight, empty otherwise"/>
 	<Option Name="BuildVersion" DefaultValue="$(EscapedBranch)-CL-$(Change)" Restrict="\+\+.+|Unknown-CL-0" Description="Build Version to Promote.  Should be a fully qualified build name (ex ++Fortnite+Main-CL-123456)"/>
-	<Option Name="WithWin64Client" DefaultValue="false" Description="Whether or not to build the win64 client"/>
 	<Option Name="WithWin64Server" DefaultValue="false" Description="Whether or not to build the win64 server"/>
 	<Option Name="WithWin64Editor" DefaultValue="false" Description="Whether or not to build the win64 editor"/>
-	<Option Name="WithWin32Client" DefaultValue="false" Description="Whether or not to build the win32 client"/>
+	<Option Name="WithWindowsClients" DefaultValue="false" Description="Whether or not to build the win32 client"/>
 	<Option Name="WithMacClient" DefaultValue="false" Description="Whether or not to build the mac client"/>
 	<Option Name="WithMacEditor" DefaultValue="false" Description="Whether or not to build the mac editor"/>
 	<Option Name="WithLinuxClient" DefaultValue="false" Description="Whether or not to build the linux client"/>
@@ -122,44 +121,67 @@
 		<Node Name="Cook WindowsNoEditor" Requires="Compile UnrealTournamentEditor Win64;Compile Tools Windows">
 			<Cook Project="$(ProjectFile)" Platform="WindowsNoEditor"/>
 		</Node>
-		<Node Name="Stage WindowsNoEditor Win32" Requires="Compile UT Client Win32;Cook WindowsNoEditor">
-			<Command Name="UnrealTournamentProto_BasicBuild" Arguments="-SkipBuild -SkipCook -Chunk -clientconfig=Shipping -serverconfig=None -TargetPlatform=Win32 -StagingDir=&quot;$(LocalStagingDir)&quot;"/>
-			<Tag Files="$(LocalStagingDir)/Engine/Binaries/Win32/..." Filter="*.exe" With="#ToSign"/>
+		<Node Name="Stage WindowsNoEditor" Requires="Compile UT Client Win32;Cook WindowsNoEditor">
+			<Command Name="UnrealTournamentProto_BasicBuild" Arguments="-SkipBuild -SkipCook -Chunk -clientconfig=Shipping -serverconfig=None -TargetPlatform=Win32+Win64 -StagingDir=&quot;$(LocalStagingDir)&quot;"/>
+			<Tag Files="$(LocalStagingDir)/Engine/Binaries/Win32/...;$(LocalStagingDir)/UnrealTournament/Binaries/Win32/..." Filter="*.exe;*.dll" With="#ToSign"/>
+			<Tag Files="$(LocalStagingDir)/Engine/Binaries/Win64/...;$(LocalStagingDir)/UnrealTournament/Binaries/Win64/..." Filter="*.exe;*.dll" With="#ToSign"/>
 			<Sign Files="#ToSign" If="$(IsBuildMachine)"/>
 		</Node>
-		<Node Name="Chunk WindowsNoEditor Win32" Requires="Stage WindowsNoEditor Win32" Token="$(BuildDir)/WindowsNoEditor/WindowsNoEditor-Win32.token">
+		<Node Name="Chunk WindowsNoEditor" Requires="Stage WindowsNoEditor" Token="$(BuildDir)/WindowsNoEditor/WindowsNoEditor-Win32.token">
+			<Tag Files="$(LocalStagingDir)/WindowsNoEditor/Engine/Binaries/.../Win32/...;$(LocalStagingDir)/WindowsNoEditor/UnrealTournament/Binaries/.../Win32/..." Except="*.pdb" With="#Win32Binaries"/>
+			<Tag Files="$(LocalStagingDir)/WindowsNoEditor/Engine/Binaries/.../Win64/...;$(LocalStagingDir)/WindowsNoEditor/UnrealTournament/Binaries/.../Win64/..." Except="*.pdb" With="#Win64Binaries"/>
+			<Tag Files="$(LocalStagingDir)/WindowsNoEditor/..." Except="#Win32Binaries;#Win64Binaries;*.pdb" With="#StagingDir"/>
+			
+			<Property Name="Win32Launch" Value="Engine/Binaries/Win32/UE4-Win32-Shipping.exe"/>
+			<Property Name="Win64Launch" Value="Engine/Binaries/Win64/UE4-Win64-Shipping.exe"/>
+			<Property Name="LaunchArgs" Value="UnrealTournament"/>
+			
+			<Chunk AppName="$(AppName)" BuildVersion="$(BuildVersion)-StageDir" Platform="Windows" InputDir="$(LocalStagingDir)/WindowsNoEditor" Files="#StagingDir" Launch="" LaunchArgs="" CloudDir="$(CloudDir)"/>
+			<Chunk AppName="$(AppName)" BuildVersion="$(BuildVersion)-Win32Exe" Platform="Win32" InputDir="$(LocalStagingDir)/WindowsNoEditor" Files="#Win32Binaries" Launch="$(Win32Launch)" LaunchArgs="$(LaunchArgs)" CloudDir="$(CloudDir)"/>
+			<Chunk AppName="$(AppName)" BuildVersion="$(BuildVersion)-Win64Exe" Platform="Windows" InputDir="$(LocalStagingDir)/WindowsNoEditor" Files="#Win64Binaries" Launch="$(Win64Launch)" LaunchArgs="$(LaunchArgs)" CloudDir="$(CloudDir)"/>
+		
+			<Merge AppName="$(AppName)" BaseVersion="$(BuildVersion)-StageDir" PatchVersion="$(BuildVersion)-Win32Exe" FinalVersion="$(BuildVersion)" Platform="Win32" CloudDir="$(CloudDir)"/>
+			<Merge AppName="$(AppName)" BaseVersion="$(BuildVersion)-StageDir" PatchVersion="$(BuildVersion)-Win64Exe" FinalVersion="$(BuildVersion)" Platform="Windows" CloudDir="$(CloudDir)"/>
+		</Node>
+		<Node Name="Post WindowsNoEditor" Requires="Chunk WindowsNoEditor">
+			<PostBuild AppName="$(AppName)" BuildVersion="$(BuildVersion)" Platform="Win32" CloudDir="$(CloudDir)" McpConfig="$(McpConfig)"/>
+			<LabelBuild AppName="$(AppName)" BuildVersion="$(BuildVersion)" Platform="Win32" Label="$(LabelName)" McpConfig="$(McpConfig)"/>
+			<PostBuild AppName="$(AppName)" BuildVersion="$(BuildVersion)" Platform="Windows" CloudDir="$(CloudDir)" McpConfig="$(McpConfig)"/>
+			<LabelBuild AppName="$(AppName)" BuildVersion="$(BuildVersion)" Platform="Windows" Label="$(LabelName)" McpConfig="$(McpConfig)"/>
+		</Node>
+		<Node Name="Publish WindowsNoEditor" Requires="Stage WindowsNoEditor">
+			<Copy Files="..." FromDir="$(LocalStagingDir)/WindowsNoEditor" ToDir="$(BuildDir)/WindowsNoEditor"/>
+			<SymStore Files="#Compile UT Client Win32" StoreDir="$(WindowsSymbolsDir)" Product="UnrealTournament" If="$(EnableSymStore)"/>
+			<SymStore Files="#Compile UT Client Win64" StoreDir="$(WindowsSymbolsDir)" Product="UnrealTournament" If="$(EnableSymStore)"/>
+		</Node>
+		<!--<Node Name="Chunk WindowsNoEditor Win32" Requires="Stage WindowsNoEditor Win32" Token="$(BuildDir)/WindowsNoEditor/WindowsNoEditor-Win32.token">
 			<Property Name="Win32Launch" Value="Engine/Binaries/Win32/UE4-Win32-Shipping.exe"/>
 			<Property Name="LaunchArgs" Value="UnrealTournament"/>
 			<Tag Files="$(LocalStagingDir)/WindowsNoEditor/..." Except="*.pdb" With="#FilesToChunk"/>
-			<Chunk AppName="$(AppName)" BuildVersion="$(BuildVersion)" Platform="Win32" InputDir="$(LocalStagingDir)/WindowsNoEditor" Files="#FilesToChunk" Launch="$(Win32Launch)" LaunchArgs="$(LaunchArgs)" CloudDir="$(CloudDir)" If="$(WithWin32Client)"/>
+			<Chunk AppName="$(AppName)" BuildVersion="$(BuildVersion)" Platform="Win32" InputDir="$(LocalStagingDir)/WindowsNoEditor" Files="#FilesToChunk" Launch="$(Win32Launch)" LaunchArgs="$(LaunchArgs)" CloudDir="$(CloudDir)" If="$(WithWindowsClients)"/>
 		</Node>
 		<Node Name="Post WindowsNoEditor Win32" Requires="Chunk WindowsNoEditor Win32">
-			<PostBuild AppName="$(AppName)" BuildVersion="$(BuildVersion)" Platform="Win32" CloudDir="$(CloudDir)" McpConfig="$(McpConfig)" If="$(WithWin32Client)"/>
-			<LabelBuild AppName="$(AppName)" BuildVersion="$(BuildVersion)" Platform="Win32" Label="$(LabelName)" McpConfig="$(McpConfig)" If="$(WithWin32Client)"/>
+			<PostBuild AppName="$(AppName)" BuildVersion="$(BuildVersion)" Platform="Win32" CloudDir="$(CloudDir)" McpConfig="$(McpConfig)" If="$(WithWindowsClients)"/>
+			<LabelBuild AppName="$(AppName)" BuildVersion="$(BuildVersion)" Platform="Win32" Label="$(LabelName)" McpConfig="$(McpConfig)" If="$(WithWindowsClients)"/>
 		</Node>
 		<Node Name="Publish WindowsNoEditor Win32" Requires="Stage WindowsNoEditor Win32">
 			<Copy Files="..." FromDir="$(LocalStagingDir)/WindowsNoEditor" ToDir="$(BuildDir)/WindowsNoEditor"/>
 			<SymStore Files="#Compile UT Client Win32" StoreDir="$(WindowsSymbolsDir)" Product="UnrealTournament" If="$(EnableSymStore)"/>
 		</Node>
-		<Node Name="Stage WindowsNoEditor Win64" Requires="Compile UT Client Win64;Cook WindowsNoEditor">
-			<Command Name="UnrealTournamentProto_BasicBuild" Arguments="-SkipBuild -SkipCook -Chunk -clientconfig=Shipping -serverconfig=None -TargetPlatform=Win64 -StagingDir=&quot;$(LocalStagingDir)&quot;"/>
-			<Tag Files="$(LocalStagingDir)/Engine/Binaries/Win64/..." Filter="*.exe" With="#ToSign"/>
-			<Sign Files="#ToSign" If="$(IsBuildMachine)"/>
-		</Node>
 		<Node Name="Chunk WindowsNoEditor Win64" Requires="Stage WindowsNoEditor Win64" Token="$(BuildDir)/WindowsNoEditor/WindowsNoEditor-Win64.token">
 			<Property Name="Win64Launch" Value="Engine/Binaries/Win64/UE4-Win64-Shipping.exe"/>
 			<Property Name="LaunchArgs" Value="UnrealTournament"/>
 			<Tag Files="$(LocalStagingDir)/WindowsNoEditor/..." Except="*.pdb" With="#FilesToChunk"/>
-			<Chunk AppName="$(AppName)" BuildVersion="$(BuildVersion)" Platform="Windows" InputDir="$(LocalStagingDir)/WindowsNoEditor" Files="#FilesToChunk" Launch="$(Win64Launch)" LaunchArgs="$(LaunchArgs)" CloudDir="$(CloudDir)" If="$(WithWin64Client)"/>
+			<Chunk AppName="$(AppName)" BuildVersion="$(BuildVersion)" Platform="Windows" InputDir="$(LocalStagingDir)/WindowsNoEditor" Files="#FilesToChunk" Launch="$(Win64Launch)" LaunchArgs="$(LaunchArgs)" CloudDir="$(CloudDir)" If="$(WithWindowsClients)"/>
 		</Node>
 		<Node Name="Post WindowsNoEditor Win64" Requires="Chunk WindowsNoEditor Win64">
-			<PostBuild AppName="$(AppName)" BuildVersion="$(BuildVersion)" Platform="Windows" CloudDir="$(CloudDir)" McpConfig="$(McpConfig)" If="$(WithWin64Client)"/>
-			<LabelBuild AppName="$(AppName)" BuildVersion="$(BuildVersion)" Platform="Windows" Label="$(LabelName)" McpConfig="$(McpConfig)" If="$(WithWin64Client)"/>
+			<PostBuild AppName="$(AppName)" BuildVersion="$(BuildVersion)" Platform="Windows" CloudDir="$(CloudDir)" McpConfig="$(McpConfig)" If="$(WithWindowsClients)"/>
+			<LabelBuild AppName="$(AppName)" BuildVersion="$(BuildVersion)" Platform="Windows" Label="$(LabelName)" McpConfig="$(McpConfig)" If="$(WithWindowsClients)"/>
 		</Node>
 		<Node Name="Publish WindowsNoEditor Win64" Requires="Stage WindowsNoEditor Win64">
 			<Copy Files="..." FromDir="$(LocalStagingDir)/WindowsNoEditor" ToDir="$(BuildDir)/WindowsNoEditor"/>
 			<SymStore Files="#Compile UT Client Win64" StoreDir="$(WindowsSymbolsDir)" Product="UnrealTournament" If="$(EnableSymStore)"/>
-		</Node>
+		</Node>-->
 	</Agent>
 	
 	<Agent Name="Make Windows Server Build" Type="Win64">
@@ -218,11 +240,15 @@
 			<Tag Files="$(RootDir)/UnrealTournament/Plugins/NotForLicensees/Social/..." Filter="*.dll;*.uplugin" With="#FinalTrim"/>
 			
 			<Copy Files="#FinalTrim" FromDir="" ToDir="$(LocalStagingDir)/UT-Build/Win64"/>
+			<Tag Files="$(LocalStagingDir)/UT-Build/Win64/Engine/Binaries/Win64/...;$(LocalStagingDir)/UT-Build/Win64/UnrealTournament/Binaries/Win64/..." Filter="*.exe;*.dll" With="#ToSign"/>
+			<Sign Files="#ToSign" If="$(IsBuildMachine)"/>
 		</Node>
 		<Node Name="EditorDDC Win64" Requires="Copy Editor Win64">
 			<Copy Files="UE4Editor-DDCUtils.dll" FromDir="$(RootDir)/Engine/Binaries/Win64/NotForLicensees" ToDir="$(LocalStagingDir)/UT-Build/Win64/Engine/Binaries/Win64/NotForLicensees"/>
+			<Copy Files="EpicInternal.txt" FromDir="$(RootDir)/Engine/Build/NotForLicensees" ToDir="$(LocalStagingDir)/UT-Build/Win64/Engine/Build/NotForLicensees"/>
 			<Commandlet Name="DerivedDataCache" Project="$(LocalStagingDir)/UT-Build/Win64/UnrealTournament/UnrealTournament.uproject" EditorExe="$(LocalStagingDir)/UT-Build/Win64/Engine/Binaries/Win64/UE4Editor.exe" Arguments="-TargetPlatform=Windows -fill -DDC=CreateInstalledEnginePak -Map=Example_Map"/>
 			<Delete Files="$(LocalStagingDir)/UT-Build/Win64/Engine/Binaries/Win64/NotForLicensees/UE4Editor-DDCUtils.dll" DeleteEmptyDirectories="true"/>
+			<Delete Files="$(LocalStagingDir)/UT-Build/Win64/Engine/Build/NotForLicensees/EpicInternal.txt" DeleteEmptyDirectories="true"/>
 		</Node>
 		<Node Name="Chunk Editor Win64" Requires="EditorDDC Win64" Token="$(BuildDir)/WindowsEditor/WindowsEditor.token">
 			<Property Name="Launch" Value="Engine\Binaries\Win64\UE4Editor.exe"/>
@@ -240,24 +266,24 @@
 	</Agent>	
 
 	<Agent Name="Extra Monolithics Windows" Type="Win64">
-		<Node Name="Compile UT Test Windows"   Requires="Compile Tools Windows" After="Stage WindowsNoEditor Win32;Stage WindowsNoEditor Win64;Stage Windows Server Win64;EditorDDC Win64">
-			<Compile Target="UnrealTournament" Platform="Win32" Tag="#BinaryFiles" Configuration="Test" If="$(WithWin32Client)"/>
-			<Compile Target="UnrealTournament" Platform="Win64" Tag="#BinaryFiles" Configuration="Test" If="$(WithWin64Client)"/>
+		<Node Name="Compile UT Test Windows"   Requires="Compile Tools Windows" After="Stage WindowsNoEditor;Stage Windows Server Win64;EditorDDC Win64">
+			<Compile Target="UnrealTournament" Platform="Win32" Tag="#BinaryFiles" Configuration="Test" If="$(WithWindowsClients)"/>
+			<Compile Target="UnrealTournament" Platform="Win64" Tag="#BinaryFiles" Configuration="Test" If="$(WithWindowsClients)"/>
 			<Compile Target="UnrealTournamentServer" Platform="Win64" Tag="#BinaryFiles_Server" Configuration="Test" If="$(WithWin64Server)"/>
-			<Stage Project="$(ProjectFile)" Target="UnrealTournament" Platform="Win32" Configuration="Test" ToDir="$(BuildDir)/WindowsNoEditor" If="$(WithWin32Client)"/>
-			<Stage Project="$(ProjectFile)" Target="UnrealTournament" Platform="Win64" Configuration="Test" ToDir="$(BuildDir)/WindowsNoEditor" If="$(WithWin64Client)"/>
+			<Stage Project="$(ProjectFile)" Target="UnrealTournament" Platform="Win32" Configuration="Test" ToDir="$(BuildDir)/WindowsNoEditor" If="$(WithWindowsClients)"/>
+			<Stage Project="$(ProjectFile)" Target="UnrealTournament" Platform="Win64" Configuration="Test" ToDir="$(BuildDir)/WindowsNoEditor" If="$(WithWindowsClients)"/>
 			<Stage Project="$(ProjectFile)" Target="UnrealTournamentServer" Platform="Win64" Configuration="Test" ToDir="$(BuildDir)/WindowsServer" If="$(WithWin64Server)"/>
 			
 			<Tag Files="Engine/Source/...;Engine/Plugins/...;UnrealTournament/Source/...;UnrealTournament/Plugins/..." Filter="*.c;*.h;*.cpp;*.hpp;*.inl" Except="Engine/Source/ThirdParty/..." With="#SourceFiles" If="$(EnableSymStore)"/>
-			<SrcSrv BinaryFiles="#BinaryFiles" SourceFiles="#SourceFiles" Branch="$(Branch)" Change="$(Change)" If="'$(EnableSymStore)' == true And ('$(WithWin32Client)' == true Or '$(WithWin64Client)' == true)"/>
+			<SrcSrv BinaryFiles="#BinaryFiles" SourceFiles="#SourceFiles" Branch="$(Branch)" Change="$(Change)" If="'$(EnableSymStore)' == true And ('$(WithWindowsClients)' == true Or '$(WithWindowsClients)' == true)"/>
 			<SrcSrv BinaryFiles="#BinaryFiles_Server" SourceFiles="#SourceFiles" Branch="$(Branch)" Change="$(Change)" If="'$(EnableSymStore)' == true And '$(WithWin64Server)' == true"/>
-			<SymStore Files="#BinaryFiles" StoreDir="$(WindowsSymbolsDir)" Product="UnrealTournament" If="$(EnableSymStore) And ('$(WithWin32Client)' == true Or '$(WithWin64Client)' == true)"/>
+			<SymStore Files="#BinaryFiles" StoreDir="$(WindowsSymbolsDir)" Product="UnrealTournament" If="$(EnableSymStore) And ('$(WithWindowsClients)' == true Or '$(WithWindowsClients)' == true)"/>
 			<SymStore Files="#BinaryFiles_Server" StoreDir="$(WindowsSymbolsDir)" Product="UnrealTournament" If="$(EnableSymStore) And '$(WithWin64Server)' == true"/>
 		</Node>
 	</Agent>
 
 	<Agent Name="NonUnity Compile Win64" Type="CompileWin64">
-		<Node Name="NonUnity Build Win64" Requires="Compile UnrealHeaderTool Win64" After="Stage WindowsNoEditor Win32;Stage WindowsNoEditor Win64;Stage Windows Server Win64;EditorDDC Win64">
+		<Node Name="NonUnity Build Win64" Requires="Compile UnrealHeaderTool Win64" After="Stage WindowsNoEditor;Stage Windows Server Win64;EditorDDC Win64">
 			<Compile Target="UE4Editor" Platform="Win64" Configuration="Development" Arguments="-nodebuginfo -disableunity"/>
 			<Compile Target="UE4Game" Platform="Win64" Configuration="Development" Arguments="-nodebuginfo -disableunity"/>
 			<Compile Target="UE4Client" Platform="Win64" Configuration="Development" Arguments="-nodebuginfo -disableunity"/>
@@ -302,7 +328,7 @@
 		</Node>
 		<Node Name="Stage Mac" Requires="Compile UT Mac;Cook Mac">
 			<Command Name="UnrealTournamentProto_BasicBuild" Arguments="-SkipBuild -SkipCook -Chunk -serverconfig=None -clientconfig=Shipping -TargetPlatform=Mac -StagingDir=&quot;$(LocalStagingDir)&quot;"/>
-			<Tag Files="$(LocalStagingDir)/Engine/Binaries/Mac/..." Filter="*.app;*.dylib" With="#ToSign"/>
+			<Tag Files="$(LocalStagingDir)/Engine/Binaries/Mac/...;$(LocalStagingDir)/UnrealTournament/Binaries/Mac/..." Filter="*.app;*.dylib" With="#ToSign"/>
 			<Sign Files="#ToSign" If="$(IsBuildMachine)"/>
 		</Node>
 		<Node Name="Chunk Mac" Requires="Stage Mac" Token="$(BuildDir)/MacNoEditor/MacNoEditor.token">
@@ -358,6 +384,8 @@
 
 			<Copy Files="#FinalTrim" FromDir="" ToDir="$(LocalStagingDir)/UT-Build/Mac"/>
 
+			<Tag Files="$(LocalStagingDir)/UT-Build/Mac/Engine/Binaries/Mac/...;$(LocalStagingDir)/UT-Build/Mac/UnrealTournament/Binaries/Mac/..." Filter="*.app;*.dylib" With="#ToSign"/>
+			<Sign Files="#ToSign" If="$(IsBuildMachine)"/>
 		</Node>
 		<Node Name="EditorDDC Mac" Requires="Copy Editor Mac">
 			<Commandlet Name="DerivedDataCache" Project="$(LocalStagingDir)/UT-Build/Mac/UnrealTournament/UnrealTournament.uproject" EditorExe="$(LocalStagingDir)/UT-Build/Mac/Engine/Binaries/Mac/UE4Editor.app/Contents/MacOS/UE4Editor" Arguments="-TargetPlatform=Mac -fill -DDC=CreateInstalledEnginePak -Map=Example_Map"/>
@@ -464,10 +492,8 @@
 			<Spawn Exe="p4.exe" Arguments="print -o &quot;$(RootDir)\LocalBuilds\PortalPublishingTool.zip&quot; &quot;//depot/InternalTools/PortalPublishingTool/Latest.zip&quot;"/>
 			<Unzip ZipFile="$(RootDir)\LocalBuilds\PortalPublishingTool.zip" ToDir="$(RootDir)\LocalBuilds\PortalPublishingTool"/>
 		</Node>
-		<Node Name="Audit Chunks Game Win32" After="Sync PortalPublishingTool;Post WindowsNoEditor Win32">
+		<Node Name="Audit Chunks Game Windows" After="Sync PortalPublishingTool;Post WindowsNoEditors">
 			<Spawn Exe="$(RootDir)\LocalBuilds\PortalPublishingTool\Engine\Binaries\DotNET\PortalPublishingTool.exe" Arguments="-mode=BuildDiffTelemetry -BuildVersion=&quot;$(BuildVersion)&quot; -Project=&quot;UnrealTournament&quot; -CloudDir=&quot;$(CloudDir)&quot; -Platform=&quot;Win32&quot;  -LocalRoot=&quot;$(RootDir)\LocalBuilds&quot;"/>
-		</Node>
-		<Node Name="Audit Chunks Game Win64" After="Sync PortalPublishingTool;Post WindowsNoEditor Win64">
 			<Spawn Exe="$(RootDir)\LocalBuilds\PortalPublishingTool\Engine\Binaries\DotNET\PortalPublishingTool.exe" Arguments="-mode=BuildDiffTelemetry -BuildVersion=&quot;$(BuildVersion)&quot; -Project=&quot;UnrealTournament&quot; -CloudDir=&quot;$(CloudDir)&quot; -Platform=&quot;Win64&quot;  -LocalRoot=&quot;$(RootDir)\LocalBuilds&quot;"/>
 		</Node>
 		<Node Name="Audit Chunks Game Mac" After="Sync PortalPublishingTool;Post Mac">
@@ -483,10 +509,8 @@
 
 
 	<Property Name="Windows Build Targets" Value=""/>
-	<Property Name="Windows Build Targets" Value="$(Windows Build Targets)Publish WindowsNoEditor Win32;" If="$(WithWin32Client)"/>
-	<Property Name="Windows Build Targets" Value="$(Windows Build Targets)Chunk WindowsNoEditor Win32;Post WindowsNoEditor Win32;Audit Chunks Game Win32;" If="$(WithWin32Client) And $(EnableMCP)"/>
-	<Property Name="Windows Build Targets" Value="$(Windows Build Targets)Publish WindowsNoEditor Win64;" If="$(WithWin64Client)"/>
-	<Property Name="Windows Build Targets" Value="$(Windows Build Targets)Chunk WindowsNoEditor Win64;Post WindowsNoEditor Win64;Audit Chunks Game Win64;" If="$(WithWin64Client) And $(EnableMCP)"/>
+	<Property Name="Windows Build Targets" Value="$(Windows Build Targets)Publish WindowsNoEditor;" If="$(WithWindowsClients)"/>
+	<Property Name="Windows Build Targets" Value="$(Windows Build Targets)Chunk WindowsNoEditor;Post WindowsNoEditors;Audit Chunks Game Windows;" If="$(WithWindowsClients) And $(EnableMCP)"/>
 	<Property Name="Windows Build Targets" Value="$(Windows Build Targets)Publish WindowsServer Win64;" If="$(WithWin64Server)"/>
 	<Property Name="Windows Build Targets" Value="$(Windows Build Targets)Publish Editor Win64;" If="$(WithWin64Editor)"/>
 	<Property Name="Windows Build Targets" Value="$(Windows Build Targets)Chunk Editor Win64;Post Editor Win64;Audit Chunks Editor Win64;" If="$(WithWin64Editor) And $(EnableMCP)"/>
