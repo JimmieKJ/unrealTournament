@@ -639,6 +639,7 @@ void AUTFlagRunGame::HandleRallyRequest(AUTPlayerController* RequestingPC)
 				UTCharacter->bTriggerRallyEffect = true;
 				UTCharacter->OnTriggerRallyEffect();
 				RequestingPC->BeginRallyTo(FlagCarrier, RequestingPC->RallyLocation, 1.2f);
+				UTCharacter->SpawnRallyDestinationEffectAt(RequestingPC->RallyLocation);  
 				if (UTCharacter->UTCharacterMovement)
 				{
 					UTCharacter->UTCharacterMovement->StopMovementImmediately();

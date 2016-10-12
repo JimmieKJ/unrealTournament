@@ -1215,6 +1215,10 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Effects")
 		TArray< TSubclassOf<class AUTReplicatedEmitter> > RallyEffect;
 
+	/** particle component for rally destination */
+	UPROPERTY(EditAnywhere, Category = "Effects")
+		TArray< TSubclassOf<class AUTReplicatedEmitter> > RallyDestinationEffect;
+
 	UPROPERTY(EditAnywhere, Category = "Effects")
 		TSubclassOf<AUTTaunt>  RallyAnimation;
 
@@ -1225,6 +1229,8 @@ public:
 	virtual void OnTriggerRallyEffect();
 
 	virtual void SpawnRallyEffectAt(FVector EffectLocation);
+
+	virtual void SpawnRallyDestinationEffectAt(FVector EffectLocation);
 
 	/** particle component for normal ground footstep */
 	UPROPERTY(EditAnywhere, Category = "Effects")

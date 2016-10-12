@@ -321,12 +321,6 @@ void AUTPlayerController::ClientStartRally_Implementation(AUTCharacter* RallyTar
 		static FName NAME_RallyCam(TEXT("RallyCam"));
 		SetCameraMode(NAME_RallyCam);
 		SetViewTarget(RallyTarget);
-
-		// effect at rally destination
-		if (UTCharacter)
-		{
-			UTCharacter->SpawnRallyEffectAt(NewRallyLocation);
-		}
 	}
 }
 

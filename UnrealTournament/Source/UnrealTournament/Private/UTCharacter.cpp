@@ -5826,6 +5826,21 @@ void AUTCharacter::SpawnRallyEffectAt(FVector EffectLocation)
 	GetWorld()->SpawnActor<AUTReplicatedEmitter>(PickedEffect, EffectLocation - FVector(0.f, 0.f, GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight()), GetActorRotation(), Params);
 }
 
+void AUTCharacter::SpawnRallyDestinationEffectAt(FVector EffectLocation)
+{
+	TSubclassOf<AUTReplicatedEmitter> PickedEffect = RallyDestinationEffect[0];
+	int32 TeamNum = GetTeamNum();
+	if (TeamNum <RallyEffect.Num() && RallyEffect[TeamNum] != NULL)
+	{
+		PickedEffect = RallyDestinationEffect[TeamNum];
+	}
+
+	FActorSpawnParameters Params;
+	Params.Owner = this;
+	Params.Instigator = this;
+	GetWorld()->SpawnActor<AUTReplicatedEmitter>(PickedEffect, EffectLocation - FVector(0.f, 0.f, GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight()), GetActorRotation(), Params);
+}
+
 float AUTCharacter::GetRemoteViewPitch()
 {
 	float ClampedPitch = (RemoteViewPitch * 360.f / 255.f);
