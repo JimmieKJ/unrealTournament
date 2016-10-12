@@ -87,7 +87,7 @@ void AUTServerBeaconClient::ServerRequestInfo_Implementation()
 	AUTGameMode* GameMode = Cast<AUTGameMode>(GetWorld()->GetAuthGameMode());
 	if (GameMode)
 	{
-		ServerInfo.CurrentGameMode = GameMode->GetFullName();
+		ServerInfo.CurrentGameMode = GameMode->StaticClass()->GetPathName();
 		ServerInfo.ServerRules = TEXT("");
 		GameMode->BuildServerResponseRules(ServerInfo.ServerRules);	
 	}
