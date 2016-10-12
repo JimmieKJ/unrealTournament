@@ -312,48 +312,56 @@ void AUTFlagRunGameState::Tick(float DeltaTime)
 		if (FlagBases.IsValidIndex(OffensiveTeam) && FlagBases[OffensiveTeam] != nullptr)
 		{
 			AUTCTFFlag* Flag = Cast<AUTCTFFlag>(FlagBases[OffensiveTeam]->GetCarriedObject());
-			AUTGameVolume* GV = Flag && Flag->HoldingPawn && Flag->HoldingPawn->UTCharacterMovement ? Cast<AUTGameVolume>(Flag->HoldingPawn->UTCharacterMovement->GetPhysicsVolume()) : nullptr;
-			bool bInFlagRoom = GV && (GV->bIsNoRallyZone || GV->bIsTeamSafeVolume);
-			bHaveEstablishedFlagRunner = (!bInFlagRoom && Flag && Flag->Holder && Flag->HoldingPawn && (GetWorld()->GetTimeSeconds() - Flag->PickedUpTime > 3.f));
-			bool bFlagCarrierPinged = Flag && Flag->HoldingPawn && Flag->HoldingPawn->bIsInCombat;
-			bAttackersCanRally = bHaveEstablishedFlagRunner;
-			if (bAttackersCanRally && (!bFlagCarrierPinged || (GetWorld()->GetTimeSeconds() - LastOffenseRallyTime < 0.4f)))
+			AUTFlagRunGame* Game = GetWorld()->GetAuthGameMode<AUTFlagRunGame>();
+			if (Game && Game->bFixedRally)
 			{
-				if ((GetWorld()->GetTimeSeconds() - LastRallyCompleteTime > 20.f) && (GetWorld()->GetTimeSeconds() - FMath::Max(Flag->PickedUpTime, LastNoRallyTime) > 12.f) && Cast<AUTPlayerController>(Flag->HoldingPawn->GetController()))
-				{
-					// check for rally complete
-					int32 RemainingToRally = 0;
-					int32 AlreadyRallied = 0;
-					for (int32 i = 0; i < PlayerArray.Num() - 1; i++)
-					{
-						AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerArray[i]);
-						if (PS && (PS != Flag->Holder) && (PS->Team == Flag->Holder->Team))
-						{
-							if (PS->NextRallyTime > GetWorld()->GetTimeSeconds() + 12.f)
-							{
-								AlreadyRallied++;
-							}
-							else if ((PS->NextRallyTime < GetWorld()->GetTimeSeconds() + 4.f) && (!PS->GetUTCharacter() || (PS->GetUTCharacter()->bCanRally && ((PS->GetUTCharacter()->GetActorLocation() - Flag->HoldingPawn->GetActorLocation()).Size() > 3500.f))))
-							{
-								RemainingToRally++;
-							}
-						}
-					}
-					if ((RemainingToRally == 0) && (AlreadyRallied > 0))
-					{
-						LastRallyCompleteTime = GetWorld()->GetTimeSeconds();
-						Cast<AUTPlayerController>(Flag->HoldingPawn->GetController())->ClientReceiveLocalizedMessage(UUTCTFMajorMessage::StaticClass(), 25);
-					}
-				}
-				if (!bFlagCarrierPinged)
-				{
-					LastOffenseRallyTime = GetWorld()->GetTimeSeconds();
-				}
+				bAttackersCanRally = (Game->CurrentRallyPoint != nullptr);
 			}
 			else
 			{
-				bAttackersCanRally = false;
-				LastNoRallyTime = GetWorld()->GetTimeSeconds();
+				AUTGameVolume* GV = Flag && Flag->HoldingPawn && Flag->HoldingPawn->UTCharacterMovement ? Cast<AUTGameVolume>(Flag->HoldingPawn->UTCharacterMovement->GetPhysicsVolume()) : nullptr;
+				bool bInFlagRoom = GV && (GV->bIsNoRallyZone || GV->bIsTeamSafeVolume);
+				bHaveEstablishedFlagRunner = (!bInFlagRoom && Flag && Flag->Holder && Flag->HoldingPawn && (GetWorld()->GetTimeSeconds() - Flag->PickedUpTime > 3.f));
+				bool bFlagCarrierPinged = Flag && Flag->HoldingPawn && Flag->HoldingPawn->bIsInCombat;
+				bAttackersCanRally = bHaveEstablishedFlagRunner;
+				if (bAttackersCanRally && (!bFlagCarrierPinged || (GetWorld()->GetTimeSeconds() - LastOffenseRallyTime < 0.4f)))
+				{
+					if ((GetWorld()->GetTimeSeconds() - LastRallyCompleteTime > 20.f) && (GetWorld()->GetTimeSeconds() - FMath::Max(Flag->PickedUpTime, LastNoRallyTime) > 12.f) && Cast<AUTPlayerController>(Flag->HoldingPawn->GetController()))
+					{
+						// check for rally complete
+						int32 RemainingToRally = 0;
+						int32 AlreadyRallied = 0;
+						for (int32 i = 0; i < PlayerArray.Num() - 1; i++)
+						{
+							AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerArray[i]);
+							if (PS && (PS != Flag->Holder) && (PS->Team == Flag->Holder->Team))
+							{
+								if (PS->NextRallyTime > GetWorld()->GetTimeSeconds() + 12.f)
+								{
+									AlreadyRallied++;
+								}
+								else if ((PS->NextRallyTime < GetWorld()->GetTimeSeconds() + 4.f) && (!PS->GetUTCharacter() || (PS->GetUTCharacter()->bCanRally && ((PS->GetUTCharacter()->GetActorLocation() - Flag->HoldingPawn->GetActorLocation()).Size() > 3500.f))))
+								{
+									RemainingToRally++;
+								}
+							}
+						}
+						if ((RemainingToRally == 0) && (AlreadyRallied > 0))
+						{
+							LastRallyCompleteTime = GetWorld()->GetTimeSeconds();
+							Cast<AUTPlayerController>(Flag->HoldingPawn->GetController())->ClientReceiveLocalizedMessage(UUTCTFMajorMessage::StaticClass(), 25);
+						}
+					}
+					if (!bFlagCarrierPinged)
+					{
+						LastOffenseRallyTime = GetWorld()->GetTimeSeconds();
+					}
+				}
+				else
+				{
+					bAttackersCanRally = false;
+					LastNoRallyTime = GetWorld()->GetTimeSeconds();
+				}
 			}
 		}
 	}

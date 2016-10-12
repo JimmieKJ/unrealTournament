@@ -23,8 +23,8 @@ AUTRallyPoint::AUTRallyPoint(const FObjectInitializer& ObjectInitializer)
 	PrimaryActorTick.bCanEverTick = true;
 	bCollideWhenPlacing = true;
 
-	RallyReadyDelay = 2.f;
-	MinimumRallyTime = 1.f;
+	RallyReadyDelay = 3.f;
+	MinimumRallyTime = 3.f;
 	RallyReadyCountdown = RallyReadyDelay;
 	bIsEnabled = true;
 }
@@ -120,10 +120,28 @@ void AUTRallyPoint::OnOverlapEnd(UPrimitiveComponent* OverlappedComponent, AActo
 	}
 }
 
+void AUTRallyPoint::SetRallyPointState(FName NewState)
+{
+	RallyPointState = NewState;
+	AUTFlagRunGame* GameMode = GetWorld()->GetAuthGameMode<AUTFlagRunGame>();
+	if (GameMode && (GameMode->CurrentRallyPoint == this))
+	{
+		if (RallyPointState != RallyPointStates::Powered)
+		{
+			GameMode->CurrentRallyPoint = nullptr;
+		}
+	}
+	else if (GameMode && (RallyPointState == RallyPointStates::Powered))
+	{
+		GameMode->CurrentRallyPoint = this;
+	}
+}
+
+
 void AUTRallyPoint::StartRallyCharging()
 {
 	RallyReadyCountdown = RallyReadyDelay;
-	RallyPointState = RallyPointStates::Charging;
+	SetRallyPointState(RallyPointStates::Charging);
 	if (GetNetMode() != NM_DedicatedServer)
 	{
 		OnRallyChargingChanged();
@@ -141,7 +159,7 @@ void AUTRallyPoint::EndRallyCharging()
 		return;
 	}
 	RallyReadyCountdown = RallyReadyDelay;
-	RallyPointState = RallyPointStates::Off;
+	SetRallyPointState(RallyPointStates::Off);
 	if (GetNetMode() != NM_DedicatedServer)
 	{
 		OnRallyChargingChanged();
@@ -162,7 +180,6 @@ void AUTRallyPoint::FlagCarrierInVolume(AUTCharacter* NewFC)
 	}
 }
 
-// show rally coming - ghost meshes
 // actual rally implementation
 
 void AUTRallyPoint::OnRallyChargingChanged()
@@ -267,7 +284,7 @@ void AUTRallyPoint::Tick(float DeltaTime)
 				if (RallyReadyCountdown < 0.f)
 				{
 					UUTGameplayStatics::UTPlaySound(GetWorld(), ReadyToRallySound, this, SRT_All);
-					RallyPointState = RallyPointStates::Powered;
+					SetRallyPointState(RallyPointStates::Powered);
 					RallyStartTime = GetWorld()->GetTimeSeconds();
 					if (GetNetMode() != NM_DedicatedServer)
 					{

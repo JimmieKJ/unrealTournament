@@ -40,6 +40,7 @@
 #include "Animation/AnimInstance.h"
 #include "UTFlagRunGameMessage.h"
 #include "UTAnalytics.h"
+#include "UTRallyPoint.h"
 
 AUTFlagRunGame::AUTFlagRunGame(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -627,14 +628,22 @@ void AUTFlagRunGame::HandleRallyRequest(AUTPlayerController* RequestingPC)
 			AUTCharacter* FlagCarrier = Flag ? Flag->HoldingPawn : nullptr;
 			if (FlagCarrier != nullptr)
 			{
-				FVector BestRecentPosition = Flag->RecentPosition[0];
-				float OneDist = (FlagCarrier->GetActorLocation() - Flag->RecentPosition[1]).Size();
-				if (OneDist < 400.f)
+				if (bFixedRally && CurrentRallyPoint)
 				{
-					float ZeroDist = (FlagCarrier->GetActorLocation() - Flag->RecentPosition[0]).Size();
-					BestRecentPosition = (OneDist > ZeroDist) ? Flag->RecentPosition[1] : Flag->RecentPosition[0];
+
+					RequestingPC->RallyLocation = CurrentRallyPoint->GetActorLocation();
 				}
-				RequestingPC->RallyLocation = BestRecentPosition;
+				else
+				{
+					FVector BestRecentPosition = Flag->RecentPosition[0];
+					float OneDist = (FlagCarrier->GetActorLocation() - Flag->RecentPosition[1]).Size();
+					if (OneDist < 400.f)
+					{
+						float ZeroDist = (FlagCarrier->GetActorLocation() - Flag->RecentPosition[0]).Size();
+						BestRecentPosition = (OneDist > ZeroDist) ? Flag->RecentPosition[1] : Flag->RecentPosition[0];
+					}
+					RequestingPC->RallyLocation = BestRecentPosition;
+				}
 				RequestingPC->RallyFlagCarrier = FlagCarrier;
 				UTCharacter->bTriggerRallyEffect = true;
 				UTCharacter->OnTriggerRallyEffect();
@@ -688,7 +697,7 @@ void AUTFlagRunGame::CompleteRallyRequest(AUTPlayerController* RequestingPC)
 		// rally to flag carrier
 		AUTCTFFlag* Flag = Cast<AUTCTFFlag>(GS->FlagBases[GS->bRedToCap ? 0 : 1]->GetCarriedObject());
 		AUTCharacter* FlagCarrier = Flag ? Flag->HoldingPawn : nullptr;
-		if ((FlagCarrier == nullptr) || (FlagCarrier != RequestingPC->RallyFlagCarrier))
+		if (!bFixedRally && ((FlagCarrier == nullptr) || (FlagCarrier != RequestingPC->RallyFlagCarrier)))
 		{
 			RequestingPC->ClientPlaySound(RallyFailedSound);
 			return;
