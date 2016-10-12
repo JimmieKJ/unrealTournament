@@ -954,7 +954,10 @@ void SUTQuickMatchWindow::OnClosed()
 {
 	for (int32 i=0; i < FinalList.Num(); i++)
 	{
-		FinalList[i]->Beacon->DestroyBeacon();	
+		if (FinalList[i].IsValid() && FinalList[i]->Beacon.IsValid())
+		{
+			FinalList[i]->Beacon->DestroyBeacon();
+		}
 	}
 
 	Instances.Empty();
