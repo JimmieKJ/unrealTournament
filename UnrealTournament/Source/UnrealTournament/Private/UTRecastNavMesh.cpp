@@ -841,12 +841,12 @@ void AUTRecastNavMesh::BuildNodeNetwork()
 											if ( TestNode != NULL && TestNode != Node &&
 												(TestNode->Paths.ContainsByPredicate([Node](const FUTPathLink& TestItem) { return TestItem.End == Node; }) || Node->Paths.ContainsByPredicate([TestNode](const FUTPathLink& TestItem) { return TestItem.End == TestNode; })) )
 											{
-												Node = NewObject<UUTPathNode>(this);
-												Node->PhysicsVolume = OtherVolume;
-												PathNodes.Add(Node);
-												PolyToNode.Add(Link.ref, Node);
-												Node->Polys.Add(Link.ref);
-												Node->MinPolyEdgeSize = OtherSize;
+												UUTPathNode* NewNode = NewObject<UUTPathNode>(this);
+												NewNode->PhysicsVolume = OtherVolume;
+												PathNodes.Add(NewNode);
+												PolyToNode.Add(Link.ref, NewNode);
+												NewNode->Polys.Add(Link.ref);
+												NewNode->MinPolyEdgeSize = OtherSize;
 
 												bAddedNode = true;
 												break;
