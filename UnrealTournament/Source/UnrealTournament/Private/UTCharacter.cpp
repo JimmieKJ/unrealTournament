@@ -1785,8 +1785,6 @@ void AUTCharacter::PlayDying()
 	TimeOfDeath = GetWorld()->TimeSeconds;
 
 	SetOutlineLocal(false);
-	SetAmbientSound(NULL);
-	SetLocalAmbientSound(NULL);
 	SpawnBloodDecal(GetActorLocation() - FVector(0.0f, 0.0f, GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight()), FVector(0.0f, 0.0f, -1.0f));
 	LastDeathDecalTime = GetWorld()->TimeSeconds;
 
@@ -2141,6 +2139,8 @@ void AUTCharacter::Destroyed()
 {
 	Super::Destroyed();
 
+	SetAmbientSound(NULL);
+	SetLocalAmbientSound(NULL);
 	DiscardAllInventory();
 	if (WeaponAttachment != NULL)
 	{
