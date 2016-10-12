@@ -22,6 +22,16 @@ class UNREALTOURNAMENT_API AUTRallyPoint : public AUTGameObjective
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Objective)
 		float RallyReadyDelay;
 
+	/** When rallypoint was powered up */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Objective)
+		float RallyStartTime;
+
+	FTimerHandle EndRallyHandle;
+
+	/** Minimum powered up time */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Objective)
+		float MinimumRallyTime;
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Objective)
 		float RallyReadyCountdown;
 

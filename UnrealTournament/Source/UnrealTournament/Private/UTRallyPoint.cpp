@@ -24,6 +24,7 @@ AUTRallyPoint::AUTRallyPoint(const FObjectInitializer& ObjectInitializer)
 	bCollideWhenPlacing = true;
 
 	RallyReadyDelay = 2.f;
+	MinimumRallyTime = 1.f;
 	RallyReadyCountdown = RallyReadyDelay;
 	bIsEnabled = true;
 }
@@ -131,6 +132,14 @@ void AUTRallyPoint::StartRallyCharging()
 
 void AUTRallyPoint::EndRallyCharging()
 {
+	if ((RallyPointState == RallyPointStates::Powered) && (GetWorld()->GetTimeSeconds() - RallyStartTime < MinimumRallyTime))
+	{
+		if (!GetWorldTimerManager().IsTimerActive(EndRallyHandle))
+		{
+			GetWorldTimerManager().SetTimer(EndRallyHandle, this, &AUTRallyPoint::EndRallyCharging, RallyStartTime - GetWorld()->GetTimeSeconds() + MinimumRallyTime, false);
+		}
+		return;
+	}
 	RallyReadyCountdown = RallyReadyDelay;
 	RallyPointState = RallyPointStates::Off;
 	if (GetNetMode() != NM_DedicatedServer)
@@ -147,10 +156,9 @@ void AUTRallyPoint::FlagCarrierInVolume(AUTCharacter* NewFC)
 	{
 		OnAvailableEffectChanged();
 	}
-	if (RallyPointState != RallyPointStates::Off)
+	if (NearbyFC == nullptr)
 	{
-		RallyPointState = RallyPointStates::Off; 
-		OnRallyChargingChanged();
+		EndRallyCharging();
 	}
 }
 
@@ -260,6 +268,7 @@ void AUTRallyPoint::Tick(float DeltaTime)
 				{
 					UUTGameplayStatics::UTPlaySound(GetWorld(), ReadyToRallySound, this, SRT_All);
 					RallyPointState = RallyPointStates::Powered;
+					RallyStartTime = GetWorld()->GetTimeSeconds();
 					if (GetNetMode() != NM_DedicatedServer)
 					{
 						OnRallyChargingChanged();
