@@ -500,7 +500,7 @@ public:
 	virtual void FindAndMarkHighScorer();
 	virtual void AdjustLeaderHatFor(AUTCharacter* UTChar);
 	virtual void SetEndGameFocus(AUTPlayerState* Winner);	
-	virtual void PickMostCoolMoments(bool bClearCoolMoments = false, int32 CoolMomentsToShow = 3);
+	virtual void PickMostCoolMoments(bool bClearCoolMoments = false, int32 CoolMomentsToShow = 2);
 
 	UFUNCTION(BlueprintCallable, Category = UTGame)
 	virtual void EndGame(AUTPlayerState* Winner, FName Reason);

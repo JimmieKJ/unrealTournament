@@ -541,7 +541,6 @@ void AUTCTFRoundGame::HandleFlagCapture(AUTCharacter* HolderPawn, AUTPlayerState
 	if (UTGameState && UTGameState->IsMatchInProgress())
 	{
 		Holder->AddCoolFactorEvent(400.0f);
-		PickMostCoolMoments(true);
 
 		SetMatchState(MatchState::MatchIntermission);
 	}
@@ -1260,7 +1259,6 @@ void AUTCTFRoundGame::ScoreAlternateWin(int32 WinningTeamIndex, uint8 Reason)
 		CheckForWinner(LastTeamToScore);
 		if (UTGameState->IsMatchInProgress())
 		{
-			PickMostCoolMoments(true);
 			SetMatchState(MatchState::MatchIntermission);
 		}
 
