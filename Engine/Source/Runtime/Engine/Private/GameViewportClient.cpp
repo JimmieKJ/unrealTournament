@@ -2026,17 +2026,20 @@ void UGameViewportClient::RemoveViewportWidgetForPlayer(ULocalPlayer* Player, TS
 
 void UGameViewportClient::RemoveAllViewportWidgets()
 {
+	// This is unsafe to do while running slate in a thread
+	check(GSlateLoadingThreadId == 0 || IsInSlateThread());
+
 	CursorWidgets.Empty();
 
-	TSharedPtr< SOverlay > PinnedViewportOverlayWidget( ViewportOverlayWidget.Pin() );
-	if( PinnedViewportOverlayWidget.IsValid() )
+	TSharedPtr< SOverlay > PinnedViewportOverlayWidget(ViewportOverlayWidget.Pin());
+	if (PinnedViewportOverlayWidget.IsValid())
 	{
 		PinnedViewportOverlayWidget->ClearChildren();
 	}
 
 	TSharedPtr< IGameLayerManager > GameLayerManager(GameLayerManagerPtr.Pin());
-	if ( GameLayerManager.IsValid() )
-		{
+	if (GameLayerManager.IsValid())
+	{
 		GameLayerManager->ClearWidgets();
 	}
 }
