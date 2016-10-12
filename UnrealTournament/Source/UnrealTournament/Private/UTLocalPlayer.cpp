@@ -341,7 +341,11 @@ void UUTLocalPlayer::PlayerAdded(class UGameViewportClient* InViewportClient, in
 			if (OnlineIdentityInterface.IsValid())
 			{
 				// Attempt to Auto-Login to MCP
-				if (!OnlineIdentityInterface->AutoLogin(GetControllerId()))
+				if (OnlineIdentityInterface->AutoLogin(GetControllerId()))
+				{
+					LoginPhase = ELoginPhase::Auth;
+				}
+				else
 				{
 					bInitialSignInAttempt = false;
 				}
