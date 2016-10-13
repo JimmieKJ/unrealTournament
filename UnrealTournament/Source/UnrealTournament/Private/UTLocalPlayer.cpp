@@ -2922,6 +2922,8 @@ bool UUTLocalPlayer::JoinSession(const FOnlineSessionSearchResult& SearchResult,
 			OnJoinSessionCompleteDelegate = OnlineSessionInterface->AddOnJoinSessionCompleteDelegate_Handle(FOnJoinSessionCompleteDelegate::CreateUObject(this, &ThisClass::OnJoinSessionComplete));
 
 			SearchResult.Session.SessionSettings.Get(SETTING_TRUSTLEVEL, CurrentSessionTrustLevel);
+			bAttemptingForceJoin = false;
+			bCancelJoinSession = false;
 			OnlineSessionInterface->JoinSession(0, GameSessionName, SearchResult);
 		}
 		return true;
@@ -2933,6 +2935,8 @@ void UUTLocalPlayer::JoinPendingSession()
 	if (bDelayedJoinSession)
 	{
 		bDelayedJoinSession = false;
+		bAttemptingForceJoin = false;
+		bCancelJoinSession = false;
 		PendingSession.Session.SessionSettings.Get(SETTING_TRUSTLEVEL, CurrentSessionTrustLevel);
 		OnJoinSessionCompleteDelegate = OnlineSessionInterface->AddOnJoinSessionCompleteDelegate_Handle(FOnJoinSessionCompleteDelegate::CreateUObject(this, &ThisClass::OnJoinSessionComplete));
 		OnlineSessionInterface->JoinSession(0, GameSessionName, PendingSession);
@@ -3266,6 +3270,7 @@ void UUTLocalPlayer::OnFindFriendSessionComplete(int32 LocalUserNum, bool bWasSu
 	{
 		if (SearchResult.Session.SessionInfo.IsValid())
 		{
+			bAttemptingForceJoin = false;
 			JoinSession(SearchResult, false);
 		}
 		else
@@ -4431,6 +4436,7 @@ void UUTLocalPlayer::OnFindSessionByIdComplete(int32 LocalUserNum, bool bWasSuce
 	if (bWasSucessful)
 	{
 		bAttemptingForceJoin = true;
+		bCancelJoinSession = false;
 		OnlineSessionInterface->JoinSession(0, GameSessionName, SearchResult);
 	}
 }
@@ -5286,6 +5292,7 @@ void UUTLocalPlayer::Reconnect(bool bSpectator)
 {
 	if (LastSession.IsValid())
 	{
+		bAttemptingForceJoin = false;
 		JoinSession(LastSession, bSpectator);
 	}
 	else
