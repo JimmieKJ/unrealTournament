@@ -491,7 +491,10 @@ void AUTCarriedObject::SetHolder(AUTCharacter* NewHolder)
 
 	if (Role == ROLE_Authority)
 	{
-		if (bWasHome && MessageClass != NULL)
+		// TODO: currently sending this AI notify even when not home as we do not currently track AI knowledge of dropped flag location
+		//		when that changes, this check should be restored
+		// note: notify for dropped flags here should match conditions for through-walls outline/beacon, see UpdateOutline()
+		if (/*(bWasHome || bGradualAutoReturn) && */MessageClass != NULL)
 		{
 			// the "X flag taken" announcement from home implies the new holder's current location, so update enemy bots
 			for (FConstControllerIterator It = GetWorld()->GetControllerIterator(); It; ++It)
