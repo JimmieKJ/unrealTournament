@@ -27,6 +27,7 @@ AUTRallyPoint::AUTRallyPoint(const FObjectInitializer& ObjectInitializer)
 	MinimumRallyTime = 3.f;
 	RallyReadyCountdown = RallyReadyDelay;
 	bIsEnabled = true;
+	RallyOffset = 0;
 }
 
 void AUTRallyPoint::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
@@ -400,5 +401,38 @@ void AUTRallyPoint::AmbientSoundPitchUpdated()
 	{
 		AmbientSoundComp->SetPitchMultiplier(AmbientSoundPitch);
 	}
+}
+
+FVector AUTRallyPoint::GetRallyLocation(AUTCharacter* TestChar)
+{
+	if (TestChar != nullptr)
+	{
+		RallyOffset++;
+		int32 OldRallyOffset = RallyOffset;
+		for (int32 i = 0; i < 8 - RallyOffset; i++)
+		{
+			FVector Adjust(0.f);
+			FVector NextLocation = GetActorLocation() + 132.f * FVector(FMath::Sin(2.f*PI*RallyOffset*0.125f), FMath::Cos(2.f*PI*RallyOffset*0.125f), 0.f);
+			// check if fits at desired location
+			if (!GetWorld()->EncroachingBlockingGeometry(TestChar, NextLocation, TestChar->GetActorRotation(), &Adjust))
+			{
+				return NextLocation;
+			}
+			RallyOffset++;
+		}
+		RallyOffset = 0;
+		for (int32 i = 0; i < OldRallyOffset; i++)
+		{
+			FVector Adjust(0.f);
+			FVector NextLocation = GetActorLocation() + 80.f * FVector(FMath::Sin(2.f*PI*RallyOffset*0.125f), FMath::Cos(2.f*PI*RallyOffset*0.125f), 0.f);
+			// check if fits at desired location
+			if (!GetWorld()->EncroachingBlockingGeometry(TestChar, NextLocation, TestChar->GetActorRotation(), &Adjust))
+			{
+				return NextLocation;
+			}
+			RallyOffset++;
+		}
+	}
+	return GetActorLocation();
 }
 

@@ -115,6 +115,12 @@ class UNREALTOURNAMENT_API AUTRallyPoint : public AUTGameObjective
 
 	virtual void SetRallyPointState(FName NewState);
 
+	virtual FVector GetRallyLocation(class AUTCharacter* TestChar);
+
+	// increment to give different rally spots to each arriving player
+	UPROPERTY()
+		int32 RallyOffset;
+
 	UFUNCTION()
 	void OnAvailableEffectChanged();
 
