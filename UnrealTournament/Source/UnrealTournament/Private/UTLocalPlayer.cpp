@@ -530,6 +530,16 @@ void UUTLocalPlayer::ShowMenu(const FString& Parameters)
 void UUTLocalPlayer::HideMenu()
 {
 #if !UE_SERVER
+
+	UUTGameInstance* GI = Cast<UUTGameInstance>(GetGameInstance());
+	if (GI && GI->IsMoviePlaying())
+	{
+		bHideMenuCalledDuringMoviePlayback = true;
+		return;
+	}
+	
+	bHideMenuCalledDuringMoviePlayback = false;
+
 	if (ContentLoadingMessage.IsValid())
 	{
 		UE_LOG(UT,Log,TEXT("Can't close menus during loading"));
@@ -4447,6 +4457,7 @@ void UUTLocalPlayer::CloseAllUI(bool bExceptDialogs)
 	UUTGameInstance* GI = Cast<UUTGameInstance>(GetGameInstance());
 	if (GI && GI->IsMoviePlaying())
 	{
+		bDelayedCloseUIExcludesDialogs = bExceptDialogs;
 		bCloseUICalledDuringMoviePlayback = true;
 		return;
 	}

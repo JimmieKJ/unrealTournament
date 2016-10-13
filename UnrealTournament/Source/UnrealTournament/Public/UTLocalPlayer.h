@@ -1116,6 +1116,13 @@ public:
 	UPROPERTY()
 	bool bCloseUICalledDuringMoviePlayback;
 
+	UPROPERTY()
+	bool bDelayedCloseUIExcludesDialogs;
+
+
+	UPROPERTY()
+	bool bHideMenuCalledDuringMoviePlayback;
+
 	void AttemptLogin();
 
 	void ClearPendingLoginUserName();

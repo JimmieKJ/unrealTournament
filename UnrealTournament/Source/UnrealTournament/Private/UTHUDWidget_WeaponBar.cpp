@@ -438,6 +438,9 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 
 			if (Cells[i].Weapon != nullptr)
 			{
+			
+
+
 				FString* GroupKey = UTHUDOwner->UTPlayerOwner->WeaponGroupKeys.Find(Cells[i].WeaponGroup);
 				if ((GroupKey == nullptr) || GroupKey->IsEmpty())
 				{

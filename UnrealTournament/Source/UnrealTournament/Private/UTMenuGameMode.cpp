@@ -161,6 +161,6 @@ void AUTMenuGameMode::Logout( AController* Exiting )
 	AUTBasePlayerController* PC = Cast<AUTBasePlayerController>(Exiting);
 	if (PC != NULL)
 	{
-		PC->ClientCloseAllUI();
+		PC->HideMenu();
 	}
 }

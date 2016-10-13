@@ -642,9 +642,16 @@ void UUTGameInstance::EndLevelLoading()
 	StopMovie();
 
 	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(GetFirstGamePlayer());
-	if (LocalPlayer && LocalPlayer->bCloseUICalledDuringMoviePlayback)
+	if (LocalPlayer)
 	{
-		LocalPlayer->CloseAllUI(false);
+		if (LocalPlayer->bCloseUICalledDuringMoviePlayback)
+		{
+			LocalPlayer->CloseAllUI(LocalPlayer->bDelayedCloseUIExcludesDialogs);
+		}
+		else if (LocalPlayer->bHideMenuCalledDuringMoviePlayback)
+		{
+			LocalPlayer->HideMenu();
+		}
 	}
 
 	AUTBaseGameMode* GM = GetWorld()->GetAuthGameMode<AUTBaseGameMode>();
