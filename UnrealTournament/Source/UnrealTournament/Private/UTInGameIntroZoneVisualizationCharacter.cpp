@@ -10,7 +10,11 @@ AUTInGameIntroZoneVisualizationCharacter::AUTInGameIntroZoneVisualizationCharact
 
 void AUTInGameIntroZoneVisualizationCharacter::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector CameraPosition, FVector CameraDir)
 {
-	PC->SetName(FString("TestName12345"));
+	AUTPlayerState* UTPS = Cast<AUTPlayerState>(PlayerState);
+	if (UTPS)
+	{
+		UTPS->SetPlayerName("TestName12345");
+	}
 	AUTCharacter::PostRenderFor(PC, Canvas, CameraPosition, CameraDir);
 }
 

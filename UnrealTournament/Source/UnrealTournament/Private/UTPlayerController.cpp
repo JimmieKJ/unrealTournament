@@ -2852,7 +2852,25 @@ void AUTPlayerController::ClientGameEnded_Implementation(AActor* EndGameFocus, b
 {
 	static const FName NAME_GameOver = FName(TEXT("GameOver"));
 	ChangeState(NAME_GameOver);
-	FinalViewTarget = EndGameFocus;
+
+	bool bIsInGameIntroHandlingEndGameSummary = false;
+	if (GetWorld() && GetWorld()->GameState)
+	{
+		AUTGameState* UTGS = Cast<AUTGameState>(GetWorld()->GameState);
+		if (UTGS)
+		{
+			if (UTGS->InGameIntroHelper && UTGS->InGameIntroHelper->bIsActive)
+			{
+				bIsInGameIntroHandlingEndGameSummary = UTGS->InGameIntroHelper->bIsActive;
+			}
+		}
+	}
+
+	if (!bIsInGameIntroHandlingEndGameSummary)
+	{
+		FinalViewTarget = EndGameFocus;
+	}
+
 	BehindView(true);
 	FTimerHandle TimerHandle;
 	GetWorldTimerManager().SetTimer(TimerHandle, this, &AUTPlayerController::ShowEndGameScoreboard, 10.f, false);

@@ -5489,12 +5489,17 @@ void AUTCharacter::PostRenderForInGameIntro(APlayerController* PC, UCanvas *Canv
 	{
 		float TextXL, TextYL, MinTextXL;
 		UFont* TinyFont = AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>()->TinyFont;
-		FLinearColor TeamColor = UTPS->Team ? UTPS->Team->TeamColor : FLinearColor::White;
+		FLinearColor TeamColor = UTPS->Team ? UTPS->Team->TeamColor : FLinearColor::Black;
 		float Border = 2.f;
 		float BarWidth, BarHeight;
+		FVector2D Scale(Canvas->ClipX / 1920.f, Canvas->ClipY / 1080.f);
 
 		Canvas->TextSize(TinyFont, PlayerState->PlayerName, TextXL, TextYL, 1.0f, 1.0f);
 		Canvas->TextSize(TinyFont, PlayerState->PlayerName, MinTextXL, TextYL, 1.0f, 1.0f);
+
+		TextXL *= Scale.X;
+		MinTextXL *= Scale.X;
+		TextYL *= Scale.Y;
 
 		BarWidth = Border + ((TextXL > MinTextXL) ? TextXL : MinTextXL);
 		BarHeight = Border + (.5*TextYL);
@@ -5511,7 +5516,7 @@ void AUTCharacter::PostRenderForInGameIntro(APlayerController* PC, UCanvas *Canv
 		FLinearColor BeaconTextColor = FLinearColor::White;
 		BeaconTextColor.A = 0.6f;
 		FUTCanvasTextItem TextItem(FVector2D(FMath::TruncToFloat(Canvas->OrgX + XPos), FMath::TruncToFloat(Canvas->OrgY + YPos - (.75*BarHeight))), FText::FromString(PlayerState->PlayerName), TinyFont, BeaconTextColor, NULL);
-		TextItem.Scale = FVector2D(1.0f, 1.0f);
+		TextItem.Scale = Scale;
 		TextItem.BlendMode = SE_BLEND_Translucent;
 		FLinearColor ShadowColor = FLinearColor::Black;
 		ShadowColor.A = BeaconTextColor.A;
