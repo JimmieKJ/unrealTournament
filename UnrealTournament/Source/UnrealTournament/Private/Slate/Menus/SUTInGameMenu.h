@@ -14,7 +14,7 @@ public:
 	virtual FReply OnReturnToMainMenu();
 
 	virtual void OnMenuOpened(const FString& Parameters);
-
+	virtual FReply OnKeyUp( const FGeometry& MyGeometry, const FKeyEvent& InKeyboardEvent ) override;
 protected:
 
 	virtual void BuildLeftMenuBar();

@@ -28,6 +28,7 @@
 #include "UTGameInstance.h"
 #include "UTParty.h"
 #include "UTGameMode.h"
+#include "SUTChatEditBox.h"
 
 #if !UE_SERVER
 
@@ -562,6 +563,11 @@ void SUTInGameMenu::OnMenuOpened(const FString& Parameters)
 	{
 		StaticCastSharedPtr<SUTInGameHomePanel>(HomePanel)->ShowMatchSummary(true);
 	}
+	else
+	{
+		PlayerOwner->FocusWidget(PlayerOwner->GetChatWidget());
+	}
+
 }
 
 bool SUTInGameMenu::SkipWorldRender()
@@ -569,6 +575,19 @@ bool SUTInGameMenu::SkipWorldRender()
 	return GetMatchSummaryVisibility() == EVisibility::Visible;
 }
 
+FReply SUTInGameMenu::OnKeyUp( const FGeometry& MyGeometry, const FKeyEvent& InKeyboardEvent )
+{
+	if (InKeyboardEvent.GetKey() == EKeys::Escape)
+	{
+		TSharedPtr<SUTChatEditBox> ChatBox = PlayerOwner->GetChatWidget();
+		if (ChatBox.IsValid())
+		{
+			ChatBox->SetText(FText::GetEmpty());
+		}
+	}
+
+	return SUTMenuBase::OnKeyUp(MyGeometry, InKeyboardEvent);
+}
 
 
 #endif
