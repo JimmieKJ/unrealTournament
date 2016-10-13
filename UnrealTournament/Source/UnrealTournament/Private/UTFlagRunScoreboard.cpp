@@ -63,12 +63,12 @@ void UUTFlagRunScoreboard::DrawMinimap(float RenderDelta)
 		const bool bIsOnDefense = GS->IsTeamOnDefenseNextRound(UTPS->Team->TeamIndex);
 		int32 NumLines = bIsOnDefense ? DefendLines.Num() : AttackLines.Num();
 		float Height = RenderScale * (80.f + 32.f*NumLines);
-		DrawTexture(UTHUDOwner->ScoreboardAtlas, LeftCorner.X, LeftCorner.Y, MapSize, Height, 149, 138, 32, 32, 0.75f, FLinearColor::Black);
+		DrawTexture(UTHUDOwner->ScoreboardAtlas, LeftCorner.X + 0.01f*MapSize, LeftCorner.Y, 0.98f*MapSize, Height, 149, 138, 32, 32, 0.75f, FLinearColor::Black);
 
 		FText Title = bIsOnDefense ? DefendTitle : AttackTitle;
 		float TextYPos = MinimapCenter.Y*Canvas->ClipY - 0.48f*MapSize;
 		DrawText(Title, MinimapCenter.X*Canvas->ClipX, TextYPos, UTHUDOwner->MediumFont, RenderScale, 1.0f, FLinearColor::White, ETextHorzPos::Center, ETextVertPos::Center);
-		float TextXPos = MinimapCenter.X*Canvas->ClipX - 0.49f*MapSize;
+		float TextXPos = MinimapCenter.X*Canvas->ClipX - 0.48f*MapSize;
 		TextYPos += 48.f*RenderScale;
 
 		int32 DisplayedParagraphs = 9 - GS->IntermissionTime;
