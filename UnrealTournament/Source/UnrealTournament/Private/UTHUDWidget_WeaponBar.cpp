@@ -453,7 +453,7 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 				}
 				else
 				{
-					GroupText.Text = UTHUDOwner->FindKeyMappingTo(FName(TEXT("ActivateSpecial")));
+					GroupText.Text = UTHUDOwner->BoostLabel;
 				}
 				GroupText.RenderOpacity = 1.0f;
 				GroupText.RenderColor = FLinearColor::White;
