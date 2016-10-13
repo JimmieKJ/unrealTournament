@@ -109,8 +109,6 @@ public:
 	UPROPERTY(Replicated)
 	TArray<FRemotePlayerInfo> PlayersInMatchInstance;
 
-	~AUTLobbyMatchInfo();
-
 	// Cache some data
 	virtual void PreInitializeComponents() override;
 
@@ -371,6 +369,8 @@ public:
 
 	// The time when we last received a beacon communication from this instance
 	float LastInstanceCommunicationTime;
+
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason);
 
 };
 

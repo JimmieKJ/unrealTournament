@@ -11,15 +11,18 @@
 #include "UTReplicatedGameRuleset.h"
 #include "UTServerBeaconLobbyClient.h"
 
-AUTLobbyMatchInfo::~AUTLobbyMatchInfo()
+void AUTLobbyMatchInfo::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
-	// Kill any assoicated instance beacon
+	// Kill any associated instance beacon
 	if (InstanceBeacon)
 	{
 		InstanceBeacon->Destroy();
 		InstanceBeacon = NULL;
 	}
+
+	Super::EndPlay(EndPlayReason);
 }
+
 
 AUTLobbyMatchInfo::AUTLobbyMatchInfo(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer
