@@ -1567,8 +1567,15 @@ void AUTBot::UpdateControlRotation(float DeltaTime, bool bUpdatePawn)
 							TrackingTimeStamp = GetWorld()->GetTimeSeconds();
 							TrackedVelocity = (1.f - VelInterpTime)*TrackedVelocity + VelInterpTime*NewTrackedVelocity;
 							TrackedVelocity.Z = NewTrackedVelocity.Z; // check it doesn't disappear, check vs dodging, adad, faster catch up when stop
-							// fixme more shoot at feet with rocket
 							bLargeTrackedVelocityChange = EnemyUTC && !SavedPositions[i - 1].Velocity.IsNearlyZero() && !SavedPositions[i].Velocity.IsNearlyZero() && (SavedPositions[i - 1].Velocity.Z == 0.f) && (SavedPositions[i].Velocity.Z != 0.f) && (SavedPositions[i].Velocity.Size2D() > 1.2f*EnemyUTC->GetCharacterMovement()->MaxWalkSpeed);
+							// handle the case where the predicted velocity puts the target right through us (e.g. close range enemy is charging)
+							// in that case clamp the prediction to collide with us so that the bot doesn't target the opposite direction
+							if (FMath::PointDistToSegment(GetPawn()->GetActorLocation(), TargetLoc, TargetLoc + TrackedVelocity * (TrackingReactionTime + TrackingPredictionError)) < GetPawn()->GetSimpleCollisionRadius())
+							{
+								float SavedZ = TrackedVelocity.Z;
+								TrackedVelocity = TrackedVelocity.GetSafeNormal2D() * (((TargetLoc - GetPawn()->GetActorLocation()).Size() - GetPawn()->GetSimpleCollisionRadius()) / (TrackingReactionTime + TrackingPredictionError));
+								TrackedVelocity.Z = SavedZ;
+							}
 							FVector SideDir = ((TargetLoc - P->GetActorLocation()) ^ FVector(0.f, 0.f, 1.f)).GetSafeNormal();
 							//DrawDebugSphere(GetWorld(), TargetLoc + NewTrackedVelocity*TrackingReactionTime, 40.f, 8, FColor::White, false);
 							//DrawDebugSphere(GetWorld(), TargetLoc + TrackedVelocity*TrackingReactionTime, 40.f, 8, FColor::Yellow, false);
@@ -2221,7 +2228,20 @@ bool AUTBot::NeedToTurn(const FVector& TargetLoc, bool bForcePrecise)
 		// we're intentionally disregarding the weapon's start position here, since it may change based on its firing offset, nearby geometry if that offset is outside the cylinder, etc
 		// we'll correct for the discrepancy in GetAdjustedAim() while firing
 		const FVector StartLoc = GetPawn()->GetActorLocation();
-		return ((TargetLoc - StartLoc).GetSafeNormal() | GetControlRotation().Vector()) < (bForcePrecise ? 0.997f : (0.92f + 0.01f * FMath::Clamp<float>(Skill + Personality.Accuracy, 0.0f, 7.0f)));
+
+		float Threshold;
+		if (bForcePrecise)
+		{
+			Threshold = 0.997f;
+		}
+		else
+		{
+			Threshold = 0.92f + 0.01f * FMath::Clamp<float>(Skill + Personality.Accuracy, 0.0f, 7.0f);
+			// be more lenient if close range, since will probably hit anyway
+			Threshold *= 0.75f + (0.25f * FMath::Min<float>(1.0f, (TargetLoc - StartLoc).Size() / 512.0f));
+		}
+
+		return ((TargetLoc - StartLoc).GetSafeNormal() | GetControlRotation().Vector()) < Threshold;
 	}
 }
 
