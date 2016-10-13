@@ -438,17 +438,22 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 
 			if (Cells[i].Weapon != nullptr)
 			{
-			
-
-
-				FString* GroupKey = UTHUDOwner->UTPlayerOwner->WeaponGroupKeys.Find(Cells[i].WeaponGroup);
-				if ((GroupKey == nullptr) || GroupKey->IsEmpty())
+				AUTWeap_Translocator* TL = Cast<AUTWeap_Translocator>(Cells[i].Weapon);
+				if (TL == nullptr)
 				{
-					GroupText.Text = (Cells[i].WeaponGroup == 10) ? FText::FromString(TEXT("0")) : FText::AsNumber(Cells[i].WeaponGroup);
+					FString* GroupKey = UTHUDOwner->UTPlayerOwner->WeaponGroupKeys.Find(Cells[i].WeaponGroup);
+					if ((GroupKey == nullptr) || GroupKey->IsEmpty())
+					{
+						GroupText.Text = (Cells[i].WeaponGroup == 10) ? FText::FromString(TEXT("0")) : FText::AsNumber(Cells[i].WeaponGroup);
+					}
+					else
+					{
+						GroupText.Text = (GroupKey->Len() == 1) ? FText::FromString(*GroupKey) : FText::FromString(TEXT(""));
+					}
 				}
 				else
 				{
-					GroupText.Text = (GroupKey->Len() == 1) ? FText::FromString(*GroupKey) : FText::FromString(TEXT(""));
+					GroupText.Text = UTHUDOwner->FindKeyMappingTo(FName(TEXT("ActivateSpecial")));
 				}
 				GroupText.RenderOpacity = 1.0f;
 				GroupText.RenderColor = FLinearColor::White;
