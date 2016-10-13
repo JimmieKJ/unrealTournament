@@ -1415,7 +1415,7 @@ void UUTLocalPlayer::ShowToast(FText ToastText)
 		ToastList.Add(Toast);
 
 		// Auto show if it's the first toast..
-		if (ToastList.Num() == 1)
+		if (ToastList.Num() > 0 && ToastList[0].IsValid())
 		{
 			AddToastToViewport(ToastList[0]);
 		}
