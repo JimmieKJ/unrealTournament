@@ -2682,12 +2682,20 @@ void AUTGameMode::RestartPlayer(AController* aPlayer)
 		UTPC->ClientStopKillcam();
 	}
 
-	// clear spawn choices
-	Cast<AUTPlayerState>(aPlayer->PlayerState)->RespawnChoiceA = nullptr;
-	Cast<AUTPlayerState>(aPlayer->PlayerState)->RespawnChoiceB = nullptr;
+	AUTPlayerState* UTPS = Cast<AUTPlayerState>(aPlayer->PlayerState);
+	if (UTPS)
+	{
+		// clear spawn choices
+		UTPS->RespawnChoiceA = nullptr;
+		UTPS->RespawnChoiceB = nullptr;
 
-	// clear multikill in progress
-	Cast<AUTPlayerState>(aPlayer->PlayerState)->LastKillTime = -100.f;
+		// clear multikill in progress
+		UTPS->LastKillTime = -100.f;
+
+		// clear in life stats
+		UTPS->ThisLifeDamageDone = 0;
+		UTPS->ThisLifeKills = 0;
+	}
 }
 
 void AUTGameMode::GiveDefaultInventory(APawn* PlayerPawn)

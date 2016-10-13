@@ -111,6 +111,9 @@ public:
 	/** Show current 2 pages of scoring stats breakdowns. */
 	virtual void DrawScoringStats(float RenderDelta, float& YOffset);
 
+	/** Draw quickstats for current life. */
+	virtual void DrawCurrentLifeStats(float RenderDelta, float& YOffset);
+
 	virtual void DrawStatsLeft(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom);
 	virtual void DrawStatsRight(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom);
 

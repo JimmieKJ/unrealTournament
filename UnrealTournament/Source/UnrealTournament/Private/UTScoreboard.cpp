@@ -113,6 +113,10 @@ void UUTScoreboard::Draw_Implementation(float RenderDelta)
 	{
 		DrawScoringStats(RenderDelta, YOffset);
 	}
+	else
+	{
+		DrawCurrentLifeStats(RenderDelta, YOffset);
+	}
 	DrawServerPanel(RenderDelta, FooterPosY);
 
 	DrawMinimap(RenderDelta);
@@ -795,6 +799,35 @@ void UUTScoreboard::DrawTextStatsLine(FText StatsName, FString StatValue, FStrin
 		Canvas->DrawText(StatsFontInfo.TextFont, ScoreValue, XOffset + ScoreColumn*ScoreWidth, YPos, NameScale, RenderScale, StatsFontInfo.TextRenderInfo);
 	}
 	YPos += StatsFontInfo.TextHeight;
+}
+
+void UUTScoreboard::DrawCurrentLifeStats(float DeltaTime, float& YPos)
+{
+	return;
+
+	FVector2D SavedRenderPosition = RenderPosition;
+	RenderPosition = FVector2D(0.f, 0.f);
+	float TopYPos = YPos;
+	float ScoreWidth = 1.2f*ScaledCellWidth;
+	float MaxHeight = FooterPosY + SavedRenderPosition.Y - YPos;
+	float PageBottom = TopYPos + MaxHeight;
+
+	// draw left side
+	float XOffset = ScaledEdgeSize + ScaledCellWidth - ScoreWidth;
+	FLinearColor PageColor = FLinearColor::Black;
+	PageColor.A = 0.5f;
+	DrawTexture(UTHUDOwner->ScoreboardAtlas, XOffset, YPos, ScoreWidth, MaxHeight, 149, 138, 32, 32, 0.5f, PageColor);
+
+	DrawText(NSLOCTEXT("UTScoreboard", "THISLIFE", "This Life"), XOffset, YPos, UTHUDOwner->MediumFont, RenderScale, 1.0f, FLinearColor::White, ETextHorzPos::Center, ETextVertPos::Center);
+	float XL, SmallYL;
+	Canvas->TextSize(UTHUDOwner->SmallFont, "TEST", XL, SmallYL, RenderScale, RenderScale);
+	float TinyYL;
+	Canvas->TextSize(UTHUDOwner->TinyFont, "TEST", XL, TinyYL, RenderScale, RenderScale);
+	float MedYL;
+	Canvas->TextSize(UTHUDOwner->MediumFont, "TEST", XL, MedYL, RenderScale, RenderScale);
+
+	DrawText(NSLOCTEXT("UTScoreboard", "Kills", "Kills"), XOffset, YPos + MedYL, UTHUDOwner->MediumFont, RenderScale, 1.0f, FLinearColor::White, ETextHorzPos::Center, ETextVertPos::Center);
+	DrawText( FText::AsNumber(UTHUDOwner->UTPlayerOwner->UTPlayerState->Kills), XOffset + 0.3f*ScoreWidth, YPos + MedYL, UTHUDOwner->MediumFont, RenderScale, 1.0f, FLinearColor::Black, ETextHorzPos::Center, ETextVertPos::Center);
 }
 
 void UUTScoreboard::DrawScoringStats(float DeltaTime, float& YPos)

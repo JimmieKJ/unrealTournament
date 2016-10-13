@@ -246,6 +246,10 @@ public:
 	UPROPERTY(BlueprintReadWrite, replicated, Category = PlayerState)
 	int32 Kills;
 
+	/** Kills by this player.  */
+	UPROPERTY(BlueprintReadWrite, replicated, Category = PlayerState)
+		int32 KillAssists;
+
 	/** Damage done by this player.  Not replicated. */
 	UPROPERTY(BlueprintReadWrite, Category = PlayerState)
 		int32 DamageDone;
@@ -257,6 +261,22 @@ public:
 	/** Enemy kills by this player this round. */
 	UPROPERTY(BlueprintReadWrite, replicated, Category = PlayerState)
 		int32 RoundKills;
+
+	/** Enemy kills by this player this round. */
+	UPROPERTY(BlueprintReadWrite, replicated, Category = PlayerState)
+		int32 RoundKillAssists;
+
+	/** Damage done by this player this life.  Not replicated. */
+	UPROPERTY(BlueprintReadWrite, Category = PlayerState)
+		int32 ThisLifeDamageDone;
+
+	/** Enemy kills by this player this life. */
+	UPROPERTY(BlueprintReadWrite, replicated, Category = PlayerState)
+		int32 ThisLifeKills;
+
+	/** Enemy kills by this player this life. */
+	UPROPERTY(BlueprintReadWrite, replicated, Category = PlayerState)
+		int32 ThisLifeKillAssists;
 
 	/** If limited lives, remaining lives for this player. */
 	/** Enemy kills by this player this round.  Not replicated. */

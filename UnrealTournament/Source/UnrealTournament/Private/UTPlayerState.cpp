@@ -190,6 +190,7 @@ void AUTPlayerState::IncrementDamageDone(int32 AddedDamage)
 {
 	DamageDone += AddedDamage;
 	RoundDamageDone += AddedDamage;
+	ThisLifeDamageDone += AddedDamage;
 }
 
 bool AUTPlayerState::IsFemale()
@@ -513,6 +514,7 @@ void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bE
 		LastKillTime = GetWorld()->TimeSeconds;
 		Kills++;
 		RoundKills++;
+		ThisLifeKills++;
 
 		if (bAnnounceWeaponSpree)
 		{
