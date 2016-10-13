@@ -17,7 +17,7 @@ AUTWeap_Redeemer::AUTWeap_Redeemer(const class FObjectInitializer& ObjectInitial
 	Ammo = 1;
 	MaxAmmo = 1;
 	FiringViewKickback = -50.f;
-	FiringViewKickbackY = 50.f;
+	FiringViewKickbackY = 60.f;
 	bMustBeHolstered = true;
 	BasePickupDesireability = 1.5f;
 	BaseAISelectRating = 1.5f;
