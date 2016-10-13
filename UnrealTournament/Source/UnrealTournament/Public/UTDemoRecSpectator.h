@@ -73,7 +73,14 @@ class UNREALTOURNAMENT_API AUTDemoRecSpectator : public AUTPlayerController
 	void ViewQueuedNetId();
 
 #if !UE_SERVER
-	virtual void UpdateInputMode() override {};
+	virtual void UpdateInputMode() override 
+	{
+		if (!IsKillcamSpectator())
+		{
+			Super::UpdateInputMode();
+		}
+	
+	};
 #endif
 
 
