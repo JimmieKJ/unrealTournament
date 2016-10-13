@@ -4393,6 +4393,11 @@ void AUTCharacter::Tick(float DeltaTime)
 				}
 			}
 		}
+
+		if ((GetNetMode() == NM_Standalone) || (GetNetMode() == NM_ListenServer))
+		{
+			SetRemoteViewPitch(GetControlRotation().Pitch);
+		}
 	}
 	if (HeadScale < 0.1f)
 	{
