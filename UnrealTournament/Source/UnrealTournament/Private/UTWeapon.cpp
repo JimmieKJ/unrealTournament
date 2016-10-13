@@ -49,7 +49,7 @@ AUTWeapon::AUTWeapon(const FObjectInitializer& ObjectInitializer)
 	RefirePutDownTimePercent = 1.0f;
 	WeaponBobScaling = 1.f;
 	FiringViewKickback = -20.f;
-	FiringViewKickbackY = -5.f;
+	FiringViewKickbackY = 7.f;
 	bNetDelayedShot = false;
 
 	bFPFireFromCenter = true;

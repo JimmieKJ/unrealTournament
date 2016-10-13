@@ -33,7 +33,7 @@ AUTWeap_ShockRifle::AUTWeap_ShockRifle(const FObjectInitializer& ObjectInitializ
 	TutorialAnnouncements.Add(TEXT("SecShockRifle"));
 
 	FiringViewKickback = -50.f;
-	FiringViewKickbackY = -10.f;
+	FiringViewKickbackY = 11.f;
 }
 
 void AUTWeap_ShockRifle::AttachToOwner_Implementation()

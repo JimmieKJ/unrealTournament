@@ -20,7 +20,7 @@ AUTProj_FlakShard::AUTProj_FlakShard(const class FObjectInitializer& ObjectIniti
 	Trail = ObjectInitializer.CreateOptionalDefaultSubobject<UParticleSystemComponent>(this, FName(TEXT("Trail")));
 	if (Trail != NULL)
 	{
-		Trail->SetupAttachment(RootComponent);
+		Trail->SetupAttachment(Mesh);
 	}
 
 	HeatFadeTime = 1.0f;
