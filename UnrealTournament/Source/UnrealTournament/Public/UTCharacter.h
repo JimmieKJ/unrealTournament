@@ -1620,6 +1620,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = WeaponBob)
 	FVector EyeOffsetInterpRate;
 
+	/** Small linear eye offset change added to interpolated to speed up end of interp. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = WeaponBob)
+		FVector EyeOffsetDirectRate;
+
 	/** How fast CrouchEyeOffset interpolates to 0. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = WeaponBob)
 	float CrouchEyeOffsetInterpRate;

@@ -57,6 +57,7 @@ AUTWeap_RocketLauncher::AUTWeap_RocketLauncher(const class FObjectInitializer& O
 	BasePickupDesireability = 0.78f;
 	BaseAISelectRating = 0.78f;
 	FiringViewKickback = -50.f;
+	FiringViewKickbackY = -20.f;
 	bRecommendSplashDamage = true;
 
 	KillStatsName = NAME_RocketKills;
@@ -374,6 +375,7 @@ void AUTWeap_RocketLauncher::PlayFiringEffects()
 	if (CurrentFireMode == 1 && UTOwner != NULL)
 	{
 		UTOwner->TargetEyeOffset.X = FiringViewKickback;
+		UTOwner->TargetEyeOffset.Y = FiringViewKickbackY;
 
 		// try and play the sound if specified
 		if (RocketFireModes.IsValidIndex(CurrentRocketFireMode) && RocketFireModes[CurrentRocketFireMode].FireSound != NULL)

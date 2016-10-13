@@ -496,9 +496,13 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "WeaponBob")
 	float WeaponBobScaling;
 
-	/** Scaling for 1st person firing view kickback */
+	/**1st person firing view kickback in Z */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "WeaponBob")
 	float FiringViewKickback;
+
+	/**1st person firing view kickback to the side*/
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "WeaponBob")
+		float FiringViewKickbackY;
 
 	virtual void UpdateViewBob(float DeltaTime);
 

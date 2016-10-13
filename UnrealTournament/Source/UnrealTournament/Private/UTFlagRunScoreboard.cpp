@@ -24,28 +24,28 @@ UUTFlagRunScoreboard::UUTFlagRunScoreboard(const FObjectInitializer& ObjectIniti
 	DefendLines.Add(FText::GetEmpty());
 	DefendLines.Add(NSLOCTEXT("UTScoreboard", "DefenseLine2", "* You have five lives.  The attackers do not have a life limit."));
 	DefendLines.Add(FText::GetEmpty());
-	DefendLines.Add(NSLOCTEXT("UTScoreboard", "DefenseLine3", "* Attackers can earn 1 to 3 stars depending on how quickly they"));
-	DefendLines.Add(NSLOCTEXT("UTScoreboard", "DefenseLine3b", "  score."));
+	DefendLines.Add(NSLOCTEXT("UTScoreboard", "DefenseLine3", "* Attackers can earn 1 to 3 stars depending on how quickly"));
+	DefendLines.Add(NSLOCTEXT("UTScoreboard", "DefenseLine3b", "  they score."));
 	DefendLines.Add(FText::GetEmpty());
-	DefendLines.Add(NSLOCTEXT("UTScoreboard", "DefenseLine4", "* Defenders earn 1 star for preventing the attackers from scoring"));
-	DefendLines.Add(NSLOCTEXT("UTScoreboard", "DefenseLine4b", "  in 5 minutes."));
+	DefendLines.Add(NSLOCTEXT("UTScoreboard", "DefenseLine4", "* Defenders earn 1 star for preventing the attackers from"));
+	DefendLines.Add(NSLOCTEXT("UTScoreboard", "DefenseLine4b", "  scoring in 5 minutes."));
 	DefendLines.Add(FText::GetEmpty());
-	DefendLines.Add(NSLOCTEXT("UTScoreboard", "DefenseLine5", "* When the flag carrier is out of combat, teammates can teleport"));
-	DefendLines.Add(NSLOCTEXT("UTScoreboard", "DefenseLine5b", "  to him by pressing the rally button."));
+	DefendLines.Add(NSLOCTEXT("UTScoreboard", "DefenseLine5", "* When the flag carrier is out of combat, teammates can"));
+	DefendLines.Add(NSLOCTEXT("UTScoreboard", "DefenseLine5b", "  teleport to him by pressing the rally button."));
 
-	AttackLines.Add(NSLOCTEXT("UTScoreboard", "AttackLine1", "* You are attacking.  Your goal is to deliver your flag as fast as"));
-	AttackLines.Add(NSLOCTEXT("UTScoreboard", "AttackLine1b", "possible to the enemy base, or exhaust their lives."));
+	AttackLines.Add(NSLOCTEXT("UTScoreboard", "AttackLine1", "* You are attacking.  Your goal is to deliver your flag as"));
+	AttackLines.Add(NSLOCTEXT("UTScoreboard", "AttackLine1b", "  fast as possible to the enemy base, or exhaust their lives."));
 	AttackLines.Add(FText::GetEmpty());
 	AttackLines.Add(NSLOCTEXT("UTScoreboard", "AttackLine2", "* Defenders have five lives.  You do not have a life limit."));
 	AttackLines.Add(FText::GetEmpty());
-	AttackLines.Add(NSLOCTEXT("UTScoreboard", "DefenseLine3", "* Attackers can earn 1 to 3 stars depending on how quickly they"));
-	AttackLines.Add(NSLOCTEXT("UTScoreboard", "DefenseLine3b", "  score."));
+	AttackLines.Add(NSLOCTEXT("UTScoreboard", "DefenseLine3", "* Attackers can earn 1 to 3 stars depending on how quickly"));
+	AttackLines.Add(NSLOCTEXT("UTScoreboard", "DefenseLine3b", "  they score."));
 	AttackLines.Add(FText::GetEmpty());
-	AttackLines.Add(NSLOCTEXT("UTScoreboard", "DefenseLine4", "* Defenders earn 1 star for preventing the attackers from scoring"));
-	AttackLines.Add(NSLOCTEXT("UTScoreboard", "DefenseLine4b", "  in 5 minutes."));
+	AttackLines.Add(NSLOCTEXT("UTScoreboard", "DefenseLine4", "* Defenders earn 1 star for preventing the attackers from"));
+	AttackLines.Add(NSLOCTEXT("UTScoreboard", "DefenseLine4b", "  scoring in 5 minutes."));
 	AttackLines.Add(FText::GetEmpty());
-	AttackLines.Add(NSLOCTEXT("UTScoreboard", "DefenseLine5", "* When the flag carrier is out of combat, teammates can teleport"));
-	AttackLines.Add(NSLOCTEXT("UTScoreboard", "DefenseLine5b", "  to him by pressing the rally button."));
+	AttackLines.Add(NSLOCTEXT("UTScoreboard", "DefenseLine5", "* When the flag carrier is out of combat, teammates can"));
+	AttackLines.Add(NSLOCTEXT("UTScoreboard", "DefenseLine5b", "  teleport to him by pressing the rally button."));
 }
 
 void UUTFlagRunScoreboard::DrawMinimap(float RenderDelta)
@@ -63,12 +63,12 @@ void UUTFlagRunScoreboard::DrawMinimap(float RenderDelta)
 		const bool bIsOnDefense = GS->IsTeamOnDefenseNextRound(UTPS->Team->TeamIndex);
 		int32 NumLines = bIsOnDefense ? DefendLines.Num() : AttackLines.Num();
 		float Height = RenderScale * (80.f + 32.f*NumLines);
-		DrawTexture(UTHUDOwner->ScoreboardAtlas, LeftCorner.X + 0.01f*MapSize, LeftCorner.Y, 0.98f*MapSize, Height, 149, 138, 32, 32, 0.75f, FLinearColor::Black);
+		DrawTexture(UTHUDOwner->ScoreboardAtlas, LeftCorner.X + 0.04f*MapSize, LeftCorner.Y, 0.92f*MapSize, Height, 149, 138, 32, 32, 0.75f, FLinearColor::Black);
 
 		FText Title = bIsOnDefense ? DefendTitle : AttackTitle;
-		float TextYPos = MinimapCenter.Y*Canvas->ClipY - 0.48f*MapSize;
+		float TextYPos = MinimapCenter.Y*Canvas->ClipY - 0.45f*MapSize;
 		DrawText(Title, MinimapCenter.X*Canvas->ClipX, TextYPos, UTHUDOwner->MediumFont, RenderScale, 1.0f, FLinearColor::White, ETextHorzPos::Center, ETextVertPos::Center);
-		float TextXPos = MinimapCenter.X*Canvas->ClipX - 0.48f*MapSize;
+		float TextXPos = MinimapCenter.X*Canvas->ClipX - 0.45f*MapSize;
 		TextYPos += 48.f*RenderScale;
 
 		int32 DisplayedParagraphs = 9 - GS->IntermissionTime;

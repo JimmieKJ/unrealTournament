@@ -49,6 +49,7 @@ AUTWeapon::AUTWeapon(const FObjectInitializer& ObjectInitializer)
 	RefirePutDownTimePercent = 1.0f;
 	WeaponBobScaling = 1.f;
 	FiringViewKickback = -20.f;
+	FiringViewKickbackY = -5.f;
 	bNetDelayedShot = false;
 
 	bFPFireFromCenter = true;
@@ -1135,6 +1136,7 @@ void AUTWeapon::PlayFiringEffects()
 		if (ShouldPlay1PVisuals() && GetWeaponHand() != EWeaponHand::HAND_Hidden)
 		{
 			UTOwner->TargetEyeOffset.X = FiringViewKickback;
+			UTOwner->TargetEyeOffset.Y = FiringViewKickbackY;
 			// try and play a firing animation if specified
 			PlayWeaponAnim(GetFiringAnim(EffectFiringMode, false), GetFiringAnim(EffectFiringMode, true));
 

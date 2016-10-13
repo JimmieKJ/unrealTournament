@@ -26,6 +26,7 @@ AUTWeap_Sniper::AUTWeap_Sniper(const FObjectInitializer& ObjectInitializer)
 	BaseAISelectRating = 0.7f;
 	BasePickupDesireability = 0.63f;
 	FiringViewKickback = -50.f;
+	FiringViewKickbackY = -20.f;
 	BlockedHeadshotDamage = 45;
 
 	KillStatsName = NAME_SniperKills;

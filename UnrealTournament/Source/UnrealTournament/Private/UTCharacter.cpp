@@ -124,6 +124,7 @@ AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 	CrouchEyeOffset = EyeOffset;
 	TargetEyeOffset = EyeOffset;
 	EyeOffsetInterpRate = FVector(18.f, 9.f, 9.f);
+	EyeOffsetDirectRate = FVector(500.f, 500.f, 500.f);
 	CrouchEyeOffsetInterpRate = 12.f;
 	EyeOffsetDecayRate = FVector(7.f, 7.f, 7.f);
 	EyeOffsetJumpBob = 20.f;
@@ -4570,11 +4571,22 @@ void AUTCharacter::Tick(float DeltaTime)
 	float InterpTimeX = FMath::Min(1.f, EyeOffsetInterpRate.X*DeltaTime);
 	float InterpTimeY = FMath::Min(1.f, EyeOffsetInterpRate.Y*DeltaTime);
 	float InterpTimeZ = FMath::Min(1.f, EyeOffsetInterpRate.Z*DeltaTime);
+
 	EyeOffset.X = (1.f - InterpTimeX)*EyeOffset.X + InterpTimeX*TargetEyeOffset.X;
 	EyeOffset.Y = (1.f - InterpTimeY)*EyeOffset.Y + InterpTimeY*TargetEyeOffset.Y;
 	EyeOffset.Z = (1.f - InterpTimeZ)*EyeOffset.Z + InterpTimeZ*TargetEyeOffset.Z;
+
+	EyeOffset.X = (TargetEyeOffset.X > EyeOffset.X) 
+					? EyeOffset.X + FMath::Min(TargetEyeOffset.X - EyeOffset.X, DeltaTime*EyeOffsetDirectRate.X)
+					: EyeOffset.X + FMath::Max(TargetEyeOffset.X - EyeOffset.X, -1.f * DeltaTime*EyeOffsetDirectRate.X);
+	EyeOffset.Y = (TargetEyeOffset.Y > EyeOffset.Y)
+					? EyeOffset.Y + FMath::Min(TargetEyeOffset.Y - EyeOffset.Y, DeltaTime*EyeOffsetDirectRate.Y)
+					: EyeOffset.Y + FMath::Max(TargetEyeOffset.Y - EyeOffset.Y, -1.f * DeltaTime*EyeOffsetDirectRate.Y);
+	EyeOffset.Z = (TargetEyeOffset.Z > EyeOffset.Z)
+					? EyeOffset.Z + FMath::Min(TargetEyeOffset.Z - EyeOffset.Z, DeltaTime*EyeOffsetDirectRate.Z)
+					: EyeOffset.Z + FMath::Max(TargetEyeOffset.Z - EyeOffset.Z, -1.f * DeltaTime*EyeOffsetDirectRate.Z);
 	float CrouchInterpTime = FMath::Min(1.f, CrouchEyeOffsetInterpRate*DeltaTime);
-	CrouchEyeOffset = (1.f - CrouchInterpTime)*CrouchEyeOffset;
+	CrouchEyeOffset = (1.f - CrouchInterpTime)*CrouchEyeOffset; //FIXME ADD WEAPON XY firing offsets, and big hit offsets
 	if (EyeOffset.Z > 0.f)
 	{
 		// faster decay if positive
