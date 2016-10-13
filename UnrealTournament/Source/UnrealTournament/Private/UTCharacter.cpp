@@ -2544,7 +2544,7 @@ void AUTCharacter::FiringExtraUpdated()
 	{
 		WeaponAttachment->FiringExtraUpdated();
 	}
-	if (Weapon != nullptr && UTPC == nullptr)
+	if (Weapon != nullptr && UTPC == nullptr && Role < ROLE_Authority)
 	{
 		Weapon->FiringExtraUpdated(FlashExtra, FireMode);
 	}
