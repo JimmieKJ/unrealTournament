@@ -214,6 +214,8 @@ void AUTRallyPoint::OnRallyChargingChanged()
 		RallyEffectPSC->SetVectorParameter(NAME_MoteColor, FVector(1.f, 1.f, 0.f));
 		static FName NAME_ParticleVelocity(TEXT("ParticleVelocity"));
 		RallyEffectPSC->SetVectorParameter(NAME_ParticleVelocity, FVector(0.f, 0.f, 1000.f));
+		static FName NAME_SmallParticleVelocity(TEXT("SmallParticleVelocity"));
+		RallyEffectPSC->SetVectorParameter(NAME_SmallParticleVelocity, FVector(0.f, 0.f, 1000.f));
 	}
 	else
 	{
