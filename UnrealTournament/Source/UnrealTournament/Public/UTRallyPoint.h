@@ -19,21 +19,24 @@ class UNREALTOURNAMENT_API AUTRallyPoint : public AUTGameObjective
 		class AUTCharacter* NearbyFC;
 
 	/** how long FC has to be here for rally to start */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Objective)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Objective)
 		float RallyReadyDelay;
 
 	/** When rallypoint was powered up */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Objective)
+	UPROPERTY(BlueprintReadOnly, Category = Objective)
 		float RallyStartTime;
 
 	FTimerHandle EndRallyHandle;
 
 	/** Minimum powered up time */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Objective)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Objective)
 		float MinimumRallyTime;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Objective)
+	UPROPERTY(BlueprintReadOnly, Category = Objective)
 		float RallyReadyCountdown;
+
+	UPROPERTY(BlueprintReadOnly, Replicated, Category = Objective)
+		int32 ReplicatedCountdown;
 
 	UPROPERTY(ReplicatedUsing = OnAvailableEffectChanged, BlueprintReadOnly)
 		bool bShowAvailableEffect;

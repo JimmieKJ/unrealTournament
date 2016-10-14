@@ -76,9 +76,6 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
 		USoundBase* RallyFailedSound;
 
-	UPROPERTY()
-		class AUTRallyPoint* CurrentRallyPoint;
-
 	FTimerHandle EnemyRallyWarningHandle;
 
 	virtual void WarnEnemyRally();

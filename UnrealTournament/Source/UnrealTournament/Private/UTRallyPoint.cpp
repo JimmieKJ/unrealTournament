@@ -26,6 +26,7 @@ AUTRallyPoint::AUTRallyPoint(const FObjectInitializer& ObjectInitializer)
 	RallyReadyDelay = 3.f;
 	MinimumRallyTime = 5.f;
 	RallyReadyCountdown = RallyReadyDelay;
+	ReplicatedCountdown = RallyReadyCountdown;
 	bIsEnabled = true;
 	RallyOffset = 0;
 }
@@ -37,6 +38,7 @@ void AUTRallyPoint::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Out
 	DOREPLIFETIME(AUTRallyPoint, bShowAvailableEffect);
 	DOREPLIFETIME(AUTRallyPoint, RallyPointState);
 	DOREPLIFETIME(AUTRallyPoint, AmbientSound);
+	DOREPLIFETIME(AUTRallyPoint, ReplicatedCountdown);
 }
 
 void AUTRallyPoint::BeginPlay()
@@ -124,17 +126,20 @@ void AUTRallyPoint::OnOverlapEnd(UPrimitiveComponent* OverlappedComponent, AActo
 void AUTRallyPoint::SetRallyPointState(FName NewState)
 {
 	RallyPointState = NewState;
-	AUTFlagRunGame* GameMode = GetWorld()->GetAuthGameMode<AUTFlagRunGame>();
-	if (GameMode && (GameMode->CurrentRallyPoint == this))
+	if (Role == ROLE_Authority)
 	{
-		if (RallyPointState != RallyPointStates::Powered)
+		AUTFlagRunGameState* GameState = GetWorld()->GetGameState<AUTFlagRunGameState>();
+		if (GameState && (GameState->CurrentRallyPoint == this))
 		{
-			GameMode->CurrentRallyPoint = nullptr;
+			if (RallyPointState != RallyPointStates::Powered)
+			{
+				GameState->CurrentRallyPoint = nullptr;
+			}
 		}
-	}
-	else if (GameMode && (RallyPointState == RallyPointStates::Powered))
-	{
-		GameMode->CurrentRallyPoint = this;
+		else if (GameState && ((RallyPointState == RallyPointStates::Powered) || (RallyPointState == RallyPointStates::Charging)))
+		{
+			GameState->CurrentRallyPoint = this;
+		}
 	}
 }
 
@@ -146,6 +151,7 @@ void AUTRallyPoint::StartRallyCharging()
 		return;
 	}
 	RallyReadyCountdown = RallyReadyDelay;
+	ReplicatedCountdown = RallyReadyCountdown;
 	SetRallyPointState(RallyPointStates::Charging);
 	if (GetNetMode() != NM_DedicatedServer)
 	{
@@ -168,6 +174,7 @@ void AUTRallyPoint::RallyChargingComplete()
 		}
 	}
 	RallyReadyCountdown = RallyReadyDelay;
+	ReplicatedCountdown = RallyReadyCountdown;
 	FName NextState = (CharFlag != nullptr) ? RallyPointStates::Charging : RallyPointStates::Off;
 	SetRallyPointState(NextState);
 	if (GetNetMode() != NM_DedicatedServer)
@@ -183,6 +190,7 @@ void AUTRallyPoint::EndRallyCharging()
 		return;
 	}
 	RallyReadyCountdown = RallyReadyDelay;
+	ReplicatedCountdown = RallyReadyCountdown;
 	SetRallyPointState(RallyPointStates::Off);
 	if (GetNetMode() != NM_DedicatedServer)
 	{
@@ -301,7 +309,8 @@ void AUTRallyPoint::Tick(float DeltaTime)
 			{
 				// if fc touching, decrement RallyReadyCountdown else reset to 2.f
 				RallyReadyCountdown -= DeltaTime;
-				if (RallyReadyCountdown < 0.f)
+				ReplicatedCountdown = FMath::Max(0, int32(RallyReadyCountdown));
+				if (RallyReadyCountdown <= 0.f)
 				{
 					UUTGameplayStatics::UTPlaySound(GetWorld(), ReadyToRallySound, this, SRT_All);
 					SetRallyPointState(RallyPointStates::Powered);

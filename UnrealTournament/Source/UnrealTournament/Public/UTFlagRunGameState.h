@@ -67,6 +67,10 @@ class UNREALTOURNAMENT_API AUTFlagRunGameState : public AUTCTFRoundGameState
 	UPROPERTY(Replicated)
 		class AUTTeamInfo* FlagRunMessageTeam;
 
+
+	UPROPERTY(BlueprintReadOnly, Replicated)
+		class AUTRallyPoint* CurrentRallyPoint;
+
 	UFUNCTION()
 		void OnBonusLevelChanged();
 

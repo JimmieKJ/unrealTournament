@@ -10,6 +10,7 @@
 #include "UTCountDownMessage.h"
 #include "UTAnnouncer.h"
 #include "UTCTFMajorMessage.h"
+#include "UTRallyPoint.h"
 
 AUTFlagRunGameState::AUTFlagRunGameState(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -49,6 +50,7 @@ void AUTFlagRunGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty >
 
 	DOREPLIFETIME(AUTFlagRunGameState, bRedToCap);
 	DOREPLIFETIME(AUTFlagRunGameState, BonusLevel);
+	DOREPLIFETIME(AUTFlagRunGameState, CurrentRallyPoint);
 	DOREPLIFETIME(AUTFlagRunGameState, FlagRunMessageSwitch);
 	DOREPLIFETIME(AUTFlagRunGameState, FlagRunMessageTeam);
 	DOREPLIFETIME(AUTFlagRunGameState, bAttackersCanRally);
@@ -315,7 +317,7 @@ void AUTFlagRunGameState::Tick(float DeltaTime)
 			AUTFlagRunGame* Game = GetWorld()->GetAuthGameMode<AUTFlagRunGame>();
 			if (Game && Game->bFixedRally)
 			{
-				bAttackersCanRally = (Game->CurrentRallyPoint != nullptr);
+				bAttackersCanRally = (CurrentRallyPoint != nullptr) && (CurrentRallyPoint->RallyPointState == RallyPointStates::Powered);
 			}
 			else
 			{
