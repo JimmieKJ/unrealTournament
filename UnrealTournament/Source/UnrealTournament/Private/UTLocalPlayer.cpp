@@ -3370,7 +3370,7 @@ void UUTLocalPlayer::StartQuickMatch(FString QuickMatchType)
 {
 	if (IsLoggedIn() && OnlineSessionInterface.IsValid())
 	{
-		if (QuickMatchType == EEpicDefaultRuleTags::CTF)
+		if (0) //QuickMatchType == EEpicDefaultRuleTags::CTF)
 		{
 			// Use matchmaking for quickmatch
 			if (ServerBrowserWidget.IsValid() && ServerBrowserWidget->IsRefreshing())
