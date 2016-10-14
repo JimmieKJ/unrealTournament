@@ -2040,7 +2040,7 @@ bool AUTCharacter::ServerFeignDeath_Validate()
 void AUTCharacter::ServerFeignDeath_Implementation()
 {
 	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-	if (Role == ROLE_Authority && !IsDead() && (!GS || (GS->IsMatchInProgress() && !GS->IsMatchIntermission())) && !BlockFeignDeath())
+	if (Role == ROLE_Authority && !IsDead() && (!GS || (GS->IsMatchInProgress() && !GS->IsMatchIntermission()) || (GS->GetMatchState() == MatchState::WaitingToStart) && Cast<AUTPlayerState>(PlayerState) && ((AUTPlayerState *)PlayerState)->bIsWarmingUp) && !BlockFeignDeath())
 	{
 		if (bFeigningDeath)
 		{
