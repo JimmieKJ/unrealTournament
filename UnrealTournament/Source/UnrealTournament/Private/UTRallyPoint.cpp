@@ -24,7 +24,7 @@ AUTRallyPoint::AUTRallyPoint(const FObjectInitializer& ObjectInitializer)
 	bCollideWhenPlacing = true;
 
 	RallyReadyDelay = 3.f;
-	MinimumRallyTime = 3.f;
+	MinimumRallyTime = 5.f;
 	RallyReadyCountdown = RallyReadyDelay;
 	bIsEnabled = true;
 	RallyOffset = 0;
@@ -141,6 +141,10 @@ void AUTRallyPoint::SetRallyPointState(FName NewState)
 
 void AUTRallyPoint::StartRallyCharging()
 {
+	if (RallyPointState == RallyPointStates::Powered)
+	{
+		return;
+	}
 	RallyReadyCountdown = RallyReadyDelay;
 	SetRallyPointState(RallyPointStates::Charging);
 	if (GetNetMode() != NM_DedicatedServer)
@@ -149,14 +153,33 @@ void AUTRallyPoint::StartRallyCharging()
 	}
 }
 
+void AUTRallyPoint::RallyChargingComplete()
+{
+	// go to either off or start charging again depending on if FC is touching
+	TSet<AActor*> Touching;
+	Capsule->GetOverlappingActors(Touching);
+	AUTCTFFlag* CharFlag = nullptr;
+	for (AActor* TouchingActor : Touching)
+	{
+		CharFlag = Cast<AUTCharacter>(TouchingActor) ? Cast<AUTCTFFlag>(((AUTCharacter*)TouchingActor)->GetCarriedObject()) : nullptr;
+		if (CharFlag)
+		{
+			break;
+		}
+	}
+	RallyReadyCountdown = RallyReadyDelay;
+	FName NextState = (CharFlag != nullptr) ? RallyPointStates::Charging : RallyPointStates::Off;
+	SetRallyPointState(NextState);
+	if (GetNetMode() != NM_DedicatedServer)
+	{
+		OnRallyChargingChanged();
+	}
+}
+
 void AUTRallyPoint::EndRallyCharging()
 {
-	if ((RallyPointState == RallyPointStates::Powered) && (GetWorld()->GetTimeSeconds() - RallyStartTime < MinimumRallyTime))
+	if (RallyPointState == RallyPointStates::Powered)
 	{
-		if (!GetWorldTimerManager().IsTimerActive(EndRallyHandle))
-		{
-			GetWorldTimerManager().SetTimer(EndRallyHandle, this, &AUTRallyPoint::EndRallyCharging, RallyStartTime - GetWorld()->GetTimeSeconds() + MinimumRallyTime, false);
-		}
 		return;
 	}
 	RallyReadyCountdown = RallyReadyDelay;
@@ -175,13 +198,7 @@ void AUTRallyPoint::FlagCarrierInVolume(AUTCharacter* NewFC)
 	{
 		OnAvailableEffectChanged();
 	}
-	if (NearbyFC == nullptr)
-	{
-		EndRallyCharging();
-	}
 }
-
-// actual rally implementation
 
 void AUTRallyPoint::OnRallyChargingChanged()
 {
@@ -287,6 +304,7 @@ void AUTRallyPoint::Tick(float DeltaTime)
 					UUTGameplayStatics::UTPlaySound(GetWorld(), ReadyToRallySound, this, SRT_All);
 					SetRallyPointState(RallyPointStates::Powered);
 					RallyStartTime = GetWorld()->GetTimeSeconds();
+					GetWorldTimerManager().SetTimer(EndRallyHandle, this, &AUTRallyPoint::RallyChargingComplete, MinimumRallyTime, false);
 					if (GetNetMode() != NM_DedicatedServer)
 					{
 						OnRallyChargingChanged();
@@ -412,7 +430,7 @@ FVector AUTRallyPoint::GetRallyLocation(AUTCharacter* TestChar)
 		for (int32 i = 0; i < 8 - RallyOffset; i++)
 		{
 			FVector Adjust(0.f);
-			FVector NextLocation = GetActorLocation() + 132.f * FVector(FMath::Sin(2.f*PI*RallyOffset*0.125f), FMath::Cos(2.f*PI*RallyOffset*0.125f), 0.f);
+			FVector NextLocation = GetActorLocation() + 142.f * FVector(FMath::Sin(2.f*PI*RallyOffset*0.125f), FMath::Cos(2.f*PI*RallyOffset*0.125f), 0.f);
 			// check if fits at desired location
 			if (!GetWorld()->EncroachingBlockingGeometry(TestChar, NextLocation, TestChar->GetActorRotation(), &Adjust))
 			{
@@ -424,7 +442,7 @@ FVector AUTRallyPoint::GetRallyLocation(AUTCharacter* TestChar)
 		for (int32 i = 0; i < OldRallyOffset; i++)
 		{
 			FVector Adjust(0.f);
-			FVector NextLocation = GetActorLocation() + 80.f * FVector(FMath::Sin(2.f*PI*RallyOffset*0.125f), FMath::Cos(2.f*PI*RallyOffset*0.125f), 0.f);
+			FVector NextLocation = GetActorLocation() + 142.f * FVector(FMath::Sin(2.f*PI*RallyOffset*0.125f), FMath::Cos(2.f*PI*RallyOffset*0.125f), 0.f);
 			// check if fits at desired location
 			if (!GetWorld()->EncroachingBlockingGeometry(TestChar, NextLocation, TestChar->GetActorRotation(), &Adjust))
 			{
