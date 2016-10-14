@@ -90,7 +90,7 @@ void UUTHUDWidget_Paperdoll::Draw_Implementation(float DeltaTime)
 	bool bShowTimer = !bPlayerCanRally && PS && PS->Team && GameState && GameState->bAttackersCanRally && ((PS->Team->TeamIndex == 0) == GameState->bRedToCap) && UTC && UTC->bCanRally && (PS->RemainingRallyDelay > 0);
 	if (GameState && GameState->CurrentRallyPoint)
 	{
-		bShowTimer = bShowTimer || (GameState && !GameState->bAttackersCanRally);
+		bShowTimer = bShowTimer || (GameState && !GameState->bAttackersCanRally && PS && PS->Team && ((PS->Team->TeamIndex == 0) == GameState->bRedToCap));
 	}
 	else
 	{
@@ -216,8 +216,8 @@ void UUTHUDWidget_Paperdoll::Draw_Implementation(float DeltaTime)
 		FlagIcon.UVs = FlagHolderIconUVs;
 		FlagIcon.bUseTeamColors = false;
 		FlagIcon.RenderOpacity = 1.0f;
-		FlagIcon.RenderColor = FLinearColor::White;
-
+		FLinearColor TeamColor = (PS && PS->Team && PS->Team->TeamIndex == 1) ? FLinearColor::Blue : FLinearColor::Red;
+		FlagIcon.RenderColor = (bPlayerCanRally|| bShowTimer) ? FLinearColor::Yellow : TeamColor;
 		RenderObj_Texture(FlagIcon);
 
 		if (bPlayerCanRally)

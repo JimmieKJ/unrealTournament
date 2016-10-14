@@ -339,7 +339,7 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 		bool bShowTimer = !bPlayerCanRally && !UTPlayerState->CarriedObject && UTPlayerState->Team && GameState && GameState->bAttackersCanRally && ((UTPlayerState->Team->TeamIndex == 0) == GameState->bRedToCap) && (UTPlayerState->CarriedObject == nullptr) && CharOwner && CharOwner->bCanRally && (UTPlayerState->RemainingRallyDelay > 0);
 		if (GameState && GameState->CurrentRallyPoint)
 		{
-			bShowTimer = bShowTimer || (GameState && !GameState->bAttackersCanRally);
+			bShowTimer = bShowTimer || (GameState && !GameState->bAttackersCanRally && UTPlayerState->Team && ((UTPlayerState->Team->TeamIndex == 0) == GameState->bRedToCap));
 		}
 		else
 		{
