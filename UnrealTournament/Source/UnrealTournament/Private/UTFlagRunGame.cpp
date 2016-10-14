@@ -632,6 +632,7 @@ void AUTFlagRunGame::HandleRallyRequest(AUTPlayerController* RequestingPC)
 				{
 
 					RequestingPC->RallyLocation = GS->CurrentRallyPoint->GetRallyLocation(UTCharacter);
+					RequestingPC->RallyPoint = GS->CurrentRallyPoint;
 				}
 				else
 				{
@@ -711,9 +712,9 @@ void AUTFlagRunGame::CompleteRallyRequest(AUTPlayerController* RequestingPC)
 		{
 			WarpLocation = RequestingPC->RallyLocation;
 		}
-		else if (bFixedRally && GS->CurrentRallyPoint)
+		else if (bFixedRally && RequestingPC->RallyPoint)
 		{
-			WarpLocation = GS->CurrentRallyPoint->GetRallyLocation(UTCharacter);
+			WarpLocation = RequestingPC->RallyPoint->GetRallyLocation(UTCharacter);
 		}
 		else
 		{

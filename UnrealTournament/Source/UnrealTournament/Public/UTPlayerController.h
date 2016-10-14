@@ -280,6 +280,9 @@ public:
 		FVector RallyLocation;
 
 	UPROPERTY()
+		class AUTRallyPoint* RallyPoint;
+
+	UPROPERTY()
 		float EndRallyTime;
 
 	UFUNCTION(server, reliable, withvalidation)
