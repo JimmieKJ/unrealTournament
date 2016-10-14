@@ -2153,7 +2153,7 @@ void AUTGameMode::EndGame(AUTPlayerState* Winner, FName Reason )
 
 	APlayerController* LocalPC = GEngine->GetFirstLocalPlayerController(GetWorld());
 	UUTLocalPlayer* LP = LocalPC ? Cast<UUTLocalPlayer>(LocalPC->Player) : NULL;
-	if (LP)
+	if (LP && UTGameState && UTGameState->IsMatchInProgress())
 	{
 		LP->EarnedStars = 0;
 		LP->RosterUpgradeText = FText::GetEmpty();
