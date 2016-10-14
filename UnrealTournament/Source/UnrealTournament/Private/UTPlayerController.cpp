@@ -5034,21 +5034,7 @@ void AUTPlayerController::ClientPlayInstantReplay_Implementation(APawn* PawnToFo
 void AUTPlayerController::ClientPlayKillcam_Implementation(AController* KillingController, APawn* PawnToFocus, FVector_NetQuantize FocusLoc)
 {
 //	UE_LOG(UT, Log, TEXT("ClientPlayKillcam %d"), (GetWorld()->DemoNetDriver && IsLocalController()));
-	if (GetWorld()->DemoNetDriver && IsLocalController() && PawnToFocus)
-	{
-		FNetworkGUID FocusPawnGuid = GetWorld()->DemoNetDriver->GetGUIDForActor(PawnToFocus);
-		GetWorld()->GetTimerManager().SetTimer(
-			KillcamStartHandle,
-			FTimerDelegate::CreateUObject(this, &AUTPlayerController::OnKillcamStart, FocusPawnGuid, CVarUTKillcamRewindTime.GetValueOnGameThread()),
-			CVarUTKillcamStartDelay.GetValueOnGameThread(),
-			false);
-		GetWorld()->GetTimerManager().SetTimer(
-			KillcamStopHandle,
-			FTimerDelegate::CreateUObject(this, &AUTPlayerController::ClientStopKillcam),
-			CVarUTKillcamRewindTime.GetValueOnGameThread() + CVarUTKillcamStartDelay.GetValueOnGameThread() + 0.5f,
-			false);
-	}
-	else if (Cast<AUTCharacter>(PawnToFocus) != nullptr)
+	if (Cast<AUTCharacter>(PawnToFocus) != nullptr)
 	{
 		if (LineOfSightTo(PawnToFocus))
 		{
