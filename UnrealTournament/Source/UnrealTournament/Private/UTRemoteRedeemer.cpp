@@ -862,6 +862,8 @@ void AUTRemoteRedeemer::PostRender(AUTHUD* HUD, UCanvas* C)
 	}
 
 	LockCount = NewLockCount;
+
+	HUD->DrawKillSkulls();
 }
 
 void AUTRemoteRedeemer::PawnClientRestart()

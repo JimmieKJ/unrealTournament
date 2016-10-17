@@ -109,7 +109,7 @@ AUTHUD::AUTHUD(const class FObjectInitializer& ObjectInitializer) : Super(Object
 	SuffixNth = NSLOCTEXT("UTHUD", "NthPlaceSuffix", "th");
 
 	CachedProfileSettings = nullptr;
-	BuildText = NSLOCTEXT("UTHUD", "info", "PRE-ALPHA Build 0.1.5");
+	BuildText = NSLOCTEXT("UTHUD", "info", "PRE-ALPHA Build 0.1.6");
 	bShowVoiceDebug = false;
 
 	static ConstructorHelpers::FObjectFinder<UMaterialInterface> DamageScreenMatObject(TEXT("/Game/RestrictedAssets/Blueprints/WIP/Nick/CameraAnims/HitScreenEffect.HitScreenEffect"));
@@ -126,7 +126,6 @@ void AUTHUD::Destroyed()
 
 void AUTHUD::ClearIndicators()
 {
-	LastKillTime = -100.f;
 	LastConfirmedHitTime = -100.0f;
 	LastPickupTime = -100.f;
 	for (int32 i = 0; i < DamageIndicators.Num(); i++)
@@ -826,6 +825,33 @@ void AUTHUD::DrawHUD()
 	CachedProfileSettings = nullptr;
 
 	DrawWatermark();
+}
+
+void AUTHUD::DrawKillSkulls()
+{
+	float TimeSinceKill = GetWorld()->GetTimeSeconds() - LastKillTime;
+	float SkullDisplayTime = (LastMultiKillCount > 1) ? 1.1f : 0.8f;
+	if ((TimeSinceKill < SkullDisplayTime) && GetDrawHUDKillIconMsg())
+	{
+		float SkullSmallTime = (LastMultiKillCount > 1) ? 0.5f : 0.2f;
+		float DrawSize = 32.f * (1.f + FMath::Clamp(1.5f*(TimeSinceKill - SkullSmallTime) / SkullDisplayTime, 0.f, 1.f));
+		FLinearColor SkullColor = FLinearColor::White;
+		float DrawOpacity = 255.f * FMath::Clamp(0.7f - 0.6f*(TimeSinceKill - SkullSmallTime) / (SkullDisplayTime - SkullSmallTime), 0.f, 1.f);
+		int32 NumSkulls = (LastMultiKillCount > 1) ? LastMultiKillCount : 1;
+		float StartPos = -0.5f * DrawSize * NumSkulls;
+		const float RenderScale = float(Canvas->SizeY) / 1080.0f;
+
+		Canvas->DrawColor = FColor(255, 255, 255, uint32(DrawOpacity));
+		for (int32 i = 0; i < NumSkulls; i++)
+		{
+			Canvas->DrawTile(HUDAtlas, 0.5f*Canvas->ClipX + StartPos*RenderScale, 0.5f*Canvas->ClipY - 2.f*DrawSize*RenderScale, DrawSize * RenderScale, DrawSize*RenderScale, 725, 0, 28, 36);
+			StartPos += 1.1f * DrawSize;
+		}
+	}
+	else
+	{
+		LastMultiKillCount = 0;
+	}
 }
 
 void AUTHUD::DrawWatermark()

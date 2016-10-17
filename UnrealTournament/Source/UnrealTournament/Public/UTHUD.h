@@ -607,6 +607,8 @@ public:
 	UFUNCTION()
 	virtual void ClientRestart();
 
+	virtual void DrawKillSkulls();
+
 	bool VerifyProfileSettings();
 	virtual void Destroyed();
 

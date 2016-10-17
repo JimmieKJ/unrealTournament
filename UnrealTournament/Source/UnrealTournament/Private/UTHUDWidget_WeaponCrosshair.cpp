@@ -66,27 +66,7 @@ void UUTHUDWidget_WeaponCrosshair::Draw_Implementation(float DeltaTime)
 
 			UTCharacter->GetWeapon()->DrawWeaponCrosshair(this, DeltaTime);
 		}
-
-		float TimeSinceKill = GetWorld()->GetTimeSeconds() - UTHUDOwner->LastKillTime;
-		float SkullDisplayTime = (UTHUDOwner->LastMultiKillCount > 1) ? 1.1f : 0.8f;
-		if ((TimeSinceKill < SkullDisplayTime) && (UTHUDOwner->GetDrawHUDKillIconMsg()))
-		{
-			float SkullSmallTime = (UTHUDOwner->LastMultiKillCount > 1) ? 0.5f : 0.2f;
-			float DrawSize = 32.f * (1.f + FMath::Clamp(1.5f*(TimeSinceKill - SkullSmallTime) / SkullDisplayTime, 0.f, 1.f));
-			FLinearColor SkullColor = FLinearColor::White;
-			float DrawOpacity = 0.7f - 0.6f*(TimeSinceKill - SkullSmallTime)/(SkullDisplayTime - SkullSmallTime);
-			int32 NumSkulls = (UTHUDOwner->LastMultiKillCount > 1) ? UTHUDOwner->LastMultiKillCount : 1;
-			float StartPos = -0.5f * DrawSize * NumSkulls + 0.5f*DrawSize;
-			for (int32 i = 0; i < NumSkulls; i++)
-			{
-				DrawTexture(UTHUDOwner->HUDAtlas, StartPos, -2.f*DrawSize, DrawSize, DrawSize, 725, 0, 28, 36, DrawOpacity, SkullColor, FVector2D(0.5f, 0.5f));
-				StartPos += 1.1f * DrawSize;
-			}
-		}
-		else
-		{
-			UTHUDOwner->LastMultiKillCount = 0;
-		}
+		UTHUDOwner->DrawKillSkulls();
 
 		const float TimeSinceGrab = GetWorld()->GetTimeSeconds() - UTHUDOwner->LastFlagGrabTime;
 		const float FlagDisplayTime = 3.f;

@@ -2996,6 +2996,10 @@ void AUTPlayerController::SetViewTarget(class AActor* NewViewTarget, FViewTarget
 	if (MyUTHUD && (UpdatedViewTarget != OldViewTarget))
 	{
 		MyUTHUD->ClearIndicators();
+		if (StateName == NAME_Spectating)
+		{
+			MyUTHUD->LastKillTime = -100.f;
+		}
 	}
 }
 
