@@ -123,9 +123,22 @@
 		</Node>
 		<Node Name="Stage WindowsNoEditor" Requires="Compile UT Client Win32;Compile UT Client Win64;Cook WindowsNoEditor">
 			<Command Name="UnrealTournamentProto_BasicBuild" Arguments="-SkipBuild -SkipCook -Chunk -clientconfig=Shipping -serverconfig=None -TargetPlatform=Win32+Win64 -StagingDir=&quot;$(LocalStagingDir)&quot;"/>
-			<Tag Files="$(LocalStagingDir)/Engine/Binaries/Win32/...;$(LocalStagingDir)/UnrealTournament/Binaries/Win32/..." Filter="*.exe;*.dll" With="#ToSign"/>
-			<Tag Files="$(LocalStagingDir)/Engine/Binaries/Win64/...;$(LocalStagingDir)/UnrealTournament/Binaries/Win64/..." Filter="*.exe;*.dll" With="#ToSign"/>
-			<Sign Files="#ToSign" If="$(IsBuildMachine)"/>
+			<TagReceipt Files="$(RootDir)/UnrealTournament/Binaries/Win32/UnrealTournament-Win32-Shipping.target" EngineDir="$(LocalStagingDir)/WindowsNoEditor/Engine" ProjectDir="$(LocalStagingDir)/WindowsNoEditor/UnrealTournament" BuildProducts="true" RuntimeDependencies="false" With="#ToSign"/>
+			<TagReceipt Files="$(RootDir)/Engine/Binaries/Win32/UnrealEngineLauncherProxy-Win32-Shipping.target" EngineDir="$(LocalStagingDir)/WindowsNoEditor/Engine" ProjectDir="$(LocalStagingDir)/WindowsNoEditor/UnrealTournament" BuildProducts="true" RuntimeDependencies="false" With="#ToSign"/>
+			<TagReceipt Files="$(RootDir)/Engine/Binaries/Win32/CrashReportClient-Win32-Shipping.target" EngineDir="$(LocalStagingDir)/WindowsNoEditor/Engine" ProjectDir="$(LocalStagingDir)/WindowsNoEditor/UnrealTournament" BuildProducts="true" RuntimeDependencies="false" With="#ToSign"/>
+			<TagReceipt Files="$(RootDir)/Engine/Binaries/Win32/UnrealCEFSubProcess.target" EngineDir="$(LocalStagingDir)/WindowsNoEditor/Engine" ProjectDir="$(LocalStagingDir)/WindowsNoEditor/UnrealTournament" BuildProducts="true" RuntimeDependencies="false" With="#ToSign"/>
+			<TagReceipt Files="$(RootDir)/Engine/Binaries/Win32/BootstrapPackagedGame-Win32-Shipping.target" EngineDir="$(LocalStagingDir)/WindowsNoEditor/Engine" ProjectDir="$(LocalStagingDir)/WindowsNoEditor/UnrealTournament" BuildProducts="true" RuntimeDependencies="false" With="#ToSign"/>
+			
+			<TagReceipt Files="$(RootDir)/UnrealTournament/Binaries/Win64/UnrealTournament-Win64-Shipping.target" EngineDir="$(LocalStagingDir)/WindowsNoEditor/Engine" ProjectDir="$(LocalStagingDir)/WindowsNoEditor/UnrealTournament" BuildProducts="true" RuntimeDependencies="false" With="#ToSign"/>
+			<TagReceipt Files="$(RootDir)/Engine/Binaries/Win64/UnrealEngineLauncherProxy.target" EngineDir="$(LocalStagingDir)/WindowsNoEditor/Engine" ProjectDir="$(LocalStagingDir)/WindowsNoEditor/UnrealTournament" BuildProducts="true" RuntimeDependencies="false" With="#ToSign"/>
+			<TagReceipt Files="$(RootDir)/Engine/Binaries/Win64/CrashReportClient-Win64-Shipping.target" EngineDir="$(LocalStagingDir)/WindowsNoEditor/Engine" ProjectDir="$(LocalStagingDir)/WindowsNoEditor/UnrealTournament" BuildProducts="true" RuntimeDependencies="false" With="#ToSign"/>
+			<TagReceipt Files="$(RootDir)/Engine/Binaries/Win64/UnrealLightmass.target" EngineDir="$(LocalStagingDir)/WindowsNoEditor/Engine" ProjectDir="$(LocalStagingDir)/WindowsNoEditor/UnrealTournament" BuildProducts="true" RuntimeDependencies="false" With="#ToSign"/>
+			<TagReceipt Files="$(RootDir)/Engine/Binaries/Win64/UnrealPak.target" EngineDir="$(LocalStagingDir)/WindowsNoEditor/Engine" ProjectDir="$(LocalStagingDir)/WindowsNoEditor/UnrealTournament" BuildProducts="true" RuntimeDependencies="false" With="#ToSign"/>
+			<TagReceipt Files="$(RootDir)/Engine/Binaries/Win64/UnrealCEFSubProcess.target" EngineDir="$(LocalStagingDir)/WindowsNoEditor/Engine" ProjectDir="$(LocalStagingDir)/WindowsNoEditor/UnrealTournament" BuildProducts="true" RuntimeDependencies="false" With="#ToSign"/>
+			<TagReceipt Files="$(RootDir)/Engine/Binaries/Win64/BootstrapPackagedGame-Win64-Shipping.target" EngineDir="$(LocalStagingDir)/WindowsNoEditor/Engine" ProjectDir="$(LocalStagingDir)/WindowsNoEditor/UnrealTournament" BuildProducts="true" RuntimeDependencies="false" With="#ToSign"/>
+			
+			<Tag Files="#ToSign" Filter="*.exe;*.dll" With="#ToSign_Trimmed"/>
+			<Sign Files="#ToSign_Trimmed" If="$(IsBuildMachine)"/>
 		</Node>
 		<Node Name="Chunk WindowsNoEditor" Requires="Stage WindowsNoEditor" Token="$(BuildDir)/WindowsNoEditor/WindowsNoEditor-Win32.token">
 			<Tag Files="$(LocalStagingDir)/WindowsNoEditor/Engine/Binaries/.../Win32/...;$(LocalStagingDir)/WindowsNoEditor/UnrealTournament/Binaries/.../Win32/..." Except="*.pdb" With="#Win32Binaries"/>
@@ -240,8 +253,11 @@
 			<Tag Files="$(RootDir)/UnrealTournament/Plugins/NotForLicensees/Social/..." Filter="*.dll;*.uplugin" With="#FinalTrim"/>
 			
 			<Copy Files="#FinalTrim" FromDir="" ToDir="$(LocalStagingDir)/UT-Build/Win64"/>
-			<Tag Files="$(LocalStagingDir)/UT-Build/Win64/Engine/Binaries/Win64/...;$(LocalStagingDir)/UT-Build/Win64/UnrealTournament/Binaries/Win64/..." Filter="*.exe;*.dll" With="#ToSign"/>
-			<Sign Files="#ToSign" If="$(IsBuildMachine)"/>
+			
+			<!-- Retag everything in the staged folder to sign it -->
+			<TagReceipt Files="$(UTReceiptsDir)/UnrealTournamentEditor.target;$(EngineReceiptsDir)/UnrealEngineLauncherProxy.target;$(EngineReceiptsDir)/CrashReportClient-Win64-Shipping.target;$(EngineReceiptsDir)/ShaderCompileWorker.target;$(EngineReceiptsDir)/UnrealCEFSubProcess.target;$(EngineReceiptsDir)/UnrealLightmass.target;$(EngineReceiptsDir)/UnrealPak.target;$(EngineReceiptsDir)/BootstrapPackagedGame-Win64-Shipping.target" ProjectDir="$(LocalStagingDir)/UT-Build/Win64/UnrealTournament" EngineDir="$(LocalStagingDir)/UT-Build/Win64/Engine" BuildProducts="true" RuntimeDependencies="false" With="#TargetsToSign"/>
+			<Tag Files="#TargetsToSign" Filter="*.exe;*.dll" With="#TargetsToSign_Trimmed"/>			
+			<Sign Files="#TargetsToSign_Trimmed" If="$(IsBuildMachine)"/>
 		</Node>
 		<Node Name="EditorDDC Win64" Requires="Copy Editor Win64">
 			<Copy Files="UE4Editor-DDCUtils.dll" FromDir="$(RootDir)/Engine/Binaries/Win64/NotForLicensees" ToDir="$(LocalStagingDir)/UT-Build/Win64/Engine/Binaries/Win64/NotForLicensees"/>
@@ -302,17 +318,12 @@
 
 	<Agent Name="Tools Group Mac" Type="CompileMac">
 		<Node Name="Compile Tools Mac" Requires="Compile UnrealTournamentEditor Mac" >
-			<Compile Target="BuildPatchTool" Platform="Mac" Configuration="Development" />
-			<Compile Target="CrashReportClient" Platform="Mac" Configuration="Shipping"  />
-			<Compile Target="DsymExporter" Platform="Mac" Configuration="Development" />
-			<Compile Target="UE4EditorServices" Platform="Mac" Configuration="Development" />
-			<Compile Target="UnrealAtoS" Platform="Mac" Configuration="Development" />
-			<Compile Target="ShaderCompileWorker" Platform="Mac" Configuration="Development" />
-			<Compile Target="UnrealCEFSubProcess" Platform="Mac" Configuration="Development" />
-			<Compile Target="UnrealFrontend" Platform="Mac" Configuration="Development" />
-			<Compile Target="UnrealLightmass" Platform="Mac" Configuration="Development" />
-			<Compile Target="UnrealPak" Platform="Mac" Configuration="Development" />
-			<Compile Target="MinidumpDiagnostics" Platform="Mac" Configuration="Development" />
+			<Compile Target="CrashReportClient" Platform="Mac" Configuration="Shipping"/>
+			<Compile Target="ShaderCompileWorker" Platform="Mac" Configuration="Development"/>
+			<Compile Target="UnrealCEFSubProcess" Platform="Mac" Configuration="Development"/>
+			<Compile Target="UnrealFrontend" Platform="Mac" Configuration="Development"/>
+			<Compile Target="UnrealLightmass" Platform="Mac" Configuration="Development"/>
+			<Compile Target="UnrealPak" Platform="Mac" Configuration="Development"/>
 		</Node>
 	</Agent>
 	
@@ -328,8 +339,15 @@
 		</Node>
 		<Node Name="Stage Mac" Requires="Compile UT Mac;Cook Mac">
 			<Command Name="UnrealTournamentProto_BasicBuild" Arguments="-SkipBuild -SkipCook -Chunk -serverconfig=None -clientconfig=Shipping -TargetPlatform=Mac -StagingDir=&quot;$(LocalStagingDir)&quot;"/>
-			<Tag Files="$(LocalStagingDir)/Engine/Binaries/Mac/...;$(LocalStagingDir)/UnrealTournament/Binaries/Mac/..." Filter="*.app;*.dylib" With="#ToSign"/>
-			<Sign Files="#ToSign" If="$(IsBuildMachine)"/>
+			
+			<TagReceipt Files="$(RootDir)/UnrealTournament/Binaries/Mac/UnrealTournament-Mac-Shipping.target" EngineDir="$(LocalStagingDir)/MacNoEditor/Engine" ProjectDir="$(LocalStagingDir)/MacNoEditor/UnrealTournament" BuildProducts="true" RuntimeDependencies="false" With="#ToSign"/>
+			<TagReceipt Files="$(RootDir)/Engine/Binaries/Mac/CrashReportClient-Mac-Shipping.target.target" EngineDir="$(LocalStagingDir)/MacNoEditor/Engine" ProjectDir="$(LocalStagingDir)/MacNoEditor/UnrealTournament" BuildProducts="true" RuntimeDependencies="false" With="#ToSign"/>
+			<TagReceipt Files="$(RootDir)/Engine/Binaries/Mac/UnrealCEFSubProcess.target" EngineDir="$(LocalStagingDir)/MacNoEditor/Engine" ProjectDir="$(LocalStagingDir)/MacNoEditor/UnrealTournament" BuildProducts="true" RuntimeDependencies="false" With="#ToSign"/>
+			<TagReceipt Files="$(RootDir)/Engine/Binaries/Mac/UnrealLightmass.target" EngineDir="$(LocalStagingDir)/MacNoEditor/Engine" ProjectDir="$(LocalStagingDir)/MacNoEditor/UnrealTournament" BuildProducts="true" RuntimeDependencies="false" With="#ToSign"/>
+			<TagReceipt Files="$(RootDir)/Engine/Binaries/Mac/UnrealPak.target" EngineDir="$(LocalStagingDir)/MacNoEditor/Engine" ProjectDir="$(LocalStagingDir)/MacNoEditor/UnrealTournament" BuildProducts="true" RuntimeDependencies="false" With="#ToSign"/>
+			
+			<Tag Files="#ToSign" Filter="*.app;*.dylib" With="#ToSign_Trimmed"/>
+			<Sign Files="#ToSign_Trimmed" If="$(IsBuildMachine)"/>
 		</Node>
 		<Node Name="Chunk Mac" Requires="Stage Mac" Token="$(BuildDir)/MacNoEditor/MacNoEditor.token">
 			<Property Name="Launch" Value="Engine/Binaries/Mac/UE4-Mac-Shipping.app"/>
@@ -384,8 +402,14 @@
 
 			<Copy Files="#FinalTrim" FromDir="" ToDir="$(LocalStagingDir)/UT-Build/Mac"/>
 
-			<Tag Files="$(LocalStagingDir)/UT-Build/Mac/Engine/Binaries/Mac/...;$(LocalStagingDir)/UT-Build/Mac/UnrealTournament/Binaries/Mac/..." Filter="*.app;*.dylib" With="#ToSign"/>
-			<Sign Files="#ToSign" If="$(IsBuildMachine)"/>
+			<TagReceipt Files="$(RootDir)/UnrealTournament/Binaries/Mac/UnrealTournamentEditor.target" EngineDir="$(LocalStagingDir)/UT-Build/Mac/Engine" ProjectDir="$(LocalStagingDir)/UT-Build/Mac/UnrealTournament" BuildProducts="true" RuntimeDependencies="false" With="#ToSign"/>
+			<TagReceipt Files="$(RootDir)/Engine/Binaries/Mac/CrashReportClient-Mac-Shipping.target.target" EngineDir="$(LocalStagingDir)/UT-Build/Mac/Engine" ProjectDir="$(LocalStagingDir)/UT-Build/Mac/UnrealTournament" BuildProducts="true" RuntimeDependencies="false" With="#ToSign"/>
+			<TagReceipt Files="$(RootDir)/Engine/Binaries/Mac/UnrealCEFSubProcess.target" EngineDir="$(LocalStagingDir)/UT-Build/Mac/Engine" ProjectDir="$(LocalStagingDir)/UT-Build/Mac/UnrealTournament" BuildProducts="true" RuntimeDependencies="false" With="#ToSign"/>
+			<TagReceipt Files="$(RootDir)/Engine/Binaries/Mac/UnrealLightmass.target" EngineDir="$(LocalStagingDir)/UT-Build/Mac/Engine" ProjectDir="$(LocalStagingDir)/UT-Build/Mac/UnrealTournament" BuildProducts="true" RuntimeDependencies="false" With="#ToSign"/>
+			<TagReceipt Files="$(RootDir)/Engine/Binaries/Mac/UnrealPak.target" EngineDir="$(LocalStagingDir)/UT-Build/Mac/Engine" ProjectDir="$(LocalStagingDir)/UT-Build/Mac/UnrealTournament" BuildProducts="true" RuntimeDependencies="false" With="#ToSign"/>
+			
+			<Tag Files="#ToSign" Filter="*.app;*.dylib" With="#ToSign_Trimmed"/>
+			<Sign Files="#ToSign_Trimmed" If="$(IsBuildMachine)"/>
 		</Node>
 		<Node Name="EditorDDC Mac" Requires="Copy Editor Mac">
 			<Commandlet Name="DerivedDataCache" Project="$(LocalStagingDir)/UT-Build/Mac/UnrealTournament/UnrealTournament.uproject" EditorExe="$(LocalStagingDir)/UT-Build/Mac/Engine/Binaries/Mac/UE4Editor.app/Contents/MacOS/UE4Editor" Arguments="-TargetPlatform=Mac -fill -DDC=CreateInstalledEnginePak -Map=Example_Map"/>
