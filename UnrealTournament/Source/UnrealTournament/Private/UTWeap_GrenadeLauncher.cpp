@@ -129,7 +129,7 @@ void AUTWeap_GrenadeLauncher::OnRep_HasStickyGrenades()
 		HideDetonatorUI();
 	}
 
-	if (NumLoadedRockets == 0)
+	if (!bHasStickyGrenades)
 	{
 		SwitchToBestWeaponIfNoAmmo();
 	}
@@ -208,4 +208,14 @@ void AUTWeap_GrenadeLauncher::OnRep_HasLoadedStickyGrenades()
 	{
 		LastGrenadeFireTime = GetWorld()->TimeSeconds;
 	}
+}
+
+void AUTWeap_GrenadeLauncher::FireShot()
+{
+	if (CurrentFireMode == 1)
+	{
+		ConsumeAmmo(CurrentFireMode);
+	}
+
+	Super::FireShot();
 }
