@@ -510,7 +510,7 @@
 
 	<Property Name="Windows Build Targets" Value=""/>
 	<Property Name="Windows Build Targets" Value="$(Windows Build Targets)Publish WindowsNoEditor;" If="$(WithWindowsClients)"/>
-	<Property Name="Windows Build Targets" Value="$(Windows Build Targets)Chunk WindowsNoEditor;Post WindowsNoEditors;Audit Chunks Game Windows;" If="$(WithWindowsClients) And $(EnableMCP)"/>
+	<Property Name="Windows Build Targets" Value="$(Windows Build Targets)Chunk WindowsNoEditor;Post WindowsNoEditor;Audit Chunks Game Windows;" If="$(WithWindowsClients) And $(EnableMCP)"/>
 	<Property Name="Windows Build Targets" Value="$(Windows Build Targets)Publish WindowsServer Win64;" If="$(WithWin64Server)"/>
 	<Property Name="Windows Build Targets" Value="$(Windows Build Targets)Publish Editor Win64;" If="$(WithWin64Editor)"/>
 	<Property Name="Windows Build Targets" Value="$(Windows Build Targets)Chunk Editor Win64;Post Editor Win64;Audit Chunks Editor Win64;" If="$(WithWin64Editor) And $(EnableMCP)"/>
