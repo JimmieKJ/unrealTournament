@@ -1794,7 +1794,10 @@ void AUTHUD::ActivateActualUMGHudWidget(TWeakObjectPtr<UUTUMGHudWidget> WidgetTo
 {
 	UMGHudWidgetStack.Add(WidgetToActivate);
 	WidgetToActivate->AssociateHUD(this);
-	WidgetToActivate->AddToViewport(WidgetToActivate->DisplayZOrder);
+
+	// UMG annoying adds +10 to the zorder (hard coded).  I could just tell the artists to start their DisplayZOrder usage at -11 or something 
+	// similar, but then I'd have to worry about them.  So I just subtract 10,000 from the DisplayZOrder.  
+	WidgetToActivate->AddToViewport(WidgetToActivate->DisplayZOrder - 10000.0f);
 }
 
 void AUTHUD::DeactivateUMGHudWidget(FString UMGHudWidgetClassName)
