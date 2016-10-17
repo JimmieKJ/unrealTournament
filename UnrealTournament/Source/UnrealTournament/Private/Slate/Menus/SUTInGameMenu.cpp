@@ -16,6 +16,7 @@
 #include "../Dialogs/SUTInputBoxDialog.h"
 #include "../Dialogs/SUTMessageBoxDialog.h"
 #include "../Widgets/SUTScaleBox.h"
+#include "../Dialogs/SUTMessageBoxDialog.h"
 #include "UTGameEngine.h"
 #include "../Menus/SUTInGameMenu.h"
 #include "../Panels/SUTInGameHomePanel.h"
@@ -472,14 +473,14 @@ void SUTInGameMenu::ShowHomePanel()
 			}
 		}
 
-		PlayerOwner->OpenDialog(
-								SNew(SUTMessageBoxDialog)
-								.PlayerOwner(PlayerOwner)
-								.DialogTitle(NSLOCTEXT("SUTInGameMenu", "SUTInGameMenuBackTitle", "Confirmation"))
-								.OnDialogResult(this, &SUTInGameMenu::BackResult)
-								.MessageText( Msg )
-								.ButtonMask(UTDIALOG_BUTTON_YES | UTDIALOG_BUTTON_NO)
-								);
+		SAssignNew(MessageDialog, SUTMessageBoxDialog)
+			.PlayerOwner(PlayerOwner)
+			.DialogTitle(NSLOCTEXT("SUTInGameMenu", "SUTInGameMenuBackTitle", "Confirmation"))
+			.OnDialogResult(this, &SUTInGameMenu::BackResult)
+			.MessageText( Msg )
+			.ButtonMask(UTDIALOG_BUTTON_YES | UTDIALOG_BUTTON_NO);
+
+		PlayerOwner->OpenDialog(MessageDialog.ToSharedRef());
 	}
 	else
 	{
@@ -588,6 +589,17 @@ FReply SUTInGameMenu::OnKeyUp( const FGeometry& MyGeometry, const FKeyEvent& InK
 
 	return SUTMenuBase::OnKeyUp(MyGeometry, InKeyboardEvent);
 }
+
+void SUTInGameMenu::OnMenuClosed()
+{
+	if (MessageDialog.IsValid())
+	{
+		PlayerOwner->CloseDialog(MessageDialog.ToSharedRef());
+	}
+
+	SUTMenuBase::OnMenuClosed();
+}
+
 
 
 #endif
