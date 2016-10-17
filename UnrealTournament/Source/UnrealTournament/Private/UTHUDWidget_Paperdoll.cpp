@@ -92,10 +92,6 @@ void UUTHUDWidget_Paperdoll::Draw_Implementation(float DeltaTime)
 	{
 		bShowTimer = bShowTimer || (GameState && !GameState->bAttackersCanRally && PS && PS->Team && ((PS->Team->TeamIndex == 0) == GameState->bRedToCap));
 	}
-	else
-	{
-		bShowTimer = bShowTimer && (GameState->GetRemainingTime() < 270);
-	}
 
 	if (UTC != NULL && !UTC->IsDead())
 	{

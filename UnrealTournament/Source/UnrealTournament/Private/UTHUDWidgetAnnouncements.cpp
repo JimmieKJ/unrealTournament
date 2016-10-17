@@ -84,11 +84,6 @@ void UUTHUDWidgetAnnouncements::AddMessage(int32 InQueueIndex, TSubclassOf<class
 			ClearMessage(MessageQueue[i]);
 		}
 	}
-	// FIXMESTEVE TEMP
-	if (MessageQueue[InQueueIndex].RequestedSlot == -1)
-	{
-		UE_LOG(UT, Warning, TEXT("No slot found for %s"), *MessageClass->GetName());
-	}
 }
 
 FVector2D UUTHUDWidgetAnnouncements::DrawMessage(int32 QueueIndex, float X, float Y)

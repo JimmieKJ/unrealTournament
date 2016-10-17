@@ -45,15 +45,6 @@ void AUTRallyPoint::BeginPlay()
 {
 	Super::BeginPlay();
 
-	if (Role == ROLE_Authority)
-	{
-		AUTFlagRunGame* GameMode = GetWorld()->GetAuthGameMode<AUTFlagRunGame>();
-		if (!GameMode || !GameMode->bFixedRally)
-		{
-			bIsEnabled = false;
-			return;
-		}
-	}
 	// associate as team locker with team volume I am in
 	TArray<UPrimitiveComponent*> OverlappingComponents;
 	Capsule->GetOverlappingComponents(OverlappingComponents);

@@ -341,10 +341,6 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 		{
 			bShowTimer = bShowTimer || (GameState && !GameState->bAttackersCanRally && UTPlayerState->Team && ((UTPlayerState->Team->TeamIndex == 0) == GameState->bRedToCap));
 		}
-		else
-		{
-			bShowTimer = bShowTimer && (GameState->GetRemainingTime() < 270);
-		}
 		if (UTPlayerState->CarriedObject != nullptr || bPlayerCanRally || bShowTimer)
 		{
 			FlagInfo.bCustomIconUnderlay = false;

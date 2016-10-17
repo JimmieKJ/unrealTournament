@@ -165,18 +165,6 @@ class UNREALTOURNAMENT_API AUTCTFGameState: public AUTGameState
 	UPROPERTY(Replicated)
 		uint32 bPlayingAdvantage : 1;
 
-	UPROPERTY()
-		bool bAllowRallies;
-
-	UPROPERTY()
-		float LastOffenseRallyTime;
-
-	UPROPERTY()
-		float LastRallyCompleteTime;
-
-	UPROPERTY()
-		float LastNoRallyTime;
-
 	/** Delay before bringing up scoreboard at halftime. */
 	UPROPERTY(BlueprintReadOnly, Replicated, Category = CTF)
 		float HalftimeScoreDelay;

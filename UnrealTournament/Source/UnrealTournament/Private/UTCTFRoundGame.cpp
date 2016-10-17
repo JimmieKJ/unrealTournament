@@ -207,7 +207,6 @@ void AUTCTFRoundGame::BeginGame()
 	{
 		CTFGameState->CTFRound = 1;
 		CTFGameState->NumRounds = NumRounds;
-		CTFGameState->bAllowRallies = true;
 		CTFGameState->HalftimeScoreDelay = 0.5f;
 	}
 	float RealIntermissionDuration = IntermissionDuration;
@@ -583,7 +582,6 @@ void AUTCTFRoundGame::InitGameState()
 
 	CTFGameState->CTFRound = 1;
 	CTFGameState->NumRounds = NumRounds;
-	CTFGameState->bAllowRallies = true;
 	CTFGameState->HalftimeScoreDelay = 6.f;
 }
 

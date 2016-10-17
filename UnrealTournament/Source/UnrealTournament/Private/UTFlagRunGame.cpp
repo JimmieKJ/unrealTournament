@@ -102,10 +102,6 @@ void AUTFlagRunGame::InitGame(const FString& MapName, const FString& Options, FS
 		OffenseKillsNeededForPowerUp = 1000;
 		DefenseKillsNeededForPowerUp = 1000;
 	}
-
-	InOpt = UGameplayStatics::ParseOption(Options, TEXT("FixedRally"));
-	bFixedRally = EvalBoolOptions(InOpt, bFixedRally);
-
 	GameSession->MaxPlayers = 10;
 }
 
@@ -621,30 +617,15 @@ void AUTFlagRunGame::HandleRallyRequest(AUTPlayerController* RequestingPC)
 				RallyRequestTime = GetWorld()->GetTimeSeconds();
 			}
 		}
-		else
+		else if (GS->CurrentRallyPoint != nullptr)
 		{
 			// rally to flag carrier
 			AUTCTFFlag* Flag = Cast<AUTCTFFlag>(GS->FlagBases[GS->bRedToCap ? 0 : 1]->GetCarriedObject());
 			AUTCharacter* FlagCarrier = Flag ? Flag->HoldingPawn : nullptr;
 			if (FlagCarrier != nullptr)
 			{
-				if (bFixedRally && GS->CurrentRallyPoint)
-				{
-
-					RequestingPC->RallyLocation = GS->CurrentRallyPoint->GetRallyLocation(UTCharacter);
-					RequestingPC->RallyPoint = GS->CurrentRallyPoint;
-				}
-				else
-				{
-					FVector BestRecentPosition = Flag->RecentPosition[0];
-					float OneDist = (FlagCarrier->GetActorLocation() - Flag->RecentPosition[1]).Size();
-					if (OneDist < 400.f)
-					{
-						float ZeroDist = (FlagCarrier->GetActorLocation() - Flag->RecentPosition[0]).Size();
-						BestRecentPosition = (OneDist > ZeroDist) ? Flag->RecentPosition[1] : Flag->RecentPosition[0];
-					}
-					RequestingPC->RallyLocation = BestRecentPosition;
-				}
+				RequestingPC->RallyLocation = GS->CurrentRallyPoint->GetRallyLocation(UTCharacter);
+				RequestingPC->RallyPoint = GS->CurrentRallyPoint;
 				RequestingPC->RallyFlagCarrier = FlagCarrier;
 				UTCharacter->bTriggerRallyEffect = true;
 				UTCharacter->OnTriggerRallyEffect();
@@ -698,65 +679,19 @@ void AUTFlagRunGame::CompleteRallyRequest(AUTPlayerController* RequestingPC)
 		// rally to flag carrier
 		AUTCTFFlag* Flag = Cast<AUTCTFFlag>(GS->FlagBases[GS->bRedToCap ? 0 : 1]->GetCarriedObject());
 		AUTCharacter* FlagCarrier = Flag ? Flag->HoldingPawn : nullptr;
-		if (!bFixedRally && ((FlagCarrier == nullptr) || (FlagCarrier != RequestingPC->RallyFlagCarrier)))
-		{
-			RequestingPC->ClientPlaySound(RallyFailedSound);
-			return;
-		}
 		ECollisionChannel SavedObjectType = UTCharacter->GetCapsuleComponent()->GetCollisionObjectType();
 		UTCharacter->GetCapsuleComponent()->SetCollisionObjectType(COLLISION_TELEPORTING_OBJECT);
 		float Offset = 4.f * Radius;
-		bool bHitFloor = true;
 
 		if (GetWorld()->FindTeleportSpot(UTCharacter, RequestingPC->RallyLocation, WarpRotation))
 		{
 			WarpLocation = RequestingPC->RallyLocation;
 		}
-		else if (bFixedRally && RequestingPC->RallyPoint)
+		else if (RequestingPC->RallyPoint)
 		{
 			WarpLocation = RequestingPC->RallyPoint->GetRallyLocation(UTCharacter);
 		}
 		else
-		{
-			float RecentPosDist = FlagCarrier ? (FlagCarrier->GetActorLocation() - Flag->RecentPosition[0]).Size() : 100.f;
-			if ((RecentPosDist < 400.f) && (RecentPosDist > 50.f) && GetWorld()->FindTeleportSpot(UTCharacter, Flag->RecentPosition[0], WarpRotation))
-			{
-				WarpLocation = Flag->RecentPosition[0];
-			}
-			else
-			{
-				FVector CarrierLocation = RequestingPC->RallyLocation;
-				WarpLocation = CarrierLocation + FVector(0.f, 0.f, HalfHeight);
-				if (FlagCarrier)
-				{
-					WarpLocation += 100.f*(FlagCarrier->GetVelocity().IsNearlyZero() ? FlagCarrier->GetActorRotation().Vector() : -1.f *  FlagCarrier->GetVelocity().GetSafeNormal());
-				}
-				if (GetWorld()->SweepSingleByChannel(Hit, CarrierLocation, WarpLocation, FQuat::Identity, UTCharacter->GetCapsuleComponent()->GetCollisionObjectType(), FCollisionShape::MakeCapsule(Radius, HalfHeight), FCollisionQueryParams(FName(TEXT("Translocation")), false, UTCharacter), UTCharacter->GetCapsuleComponent()->GetCollisionResponseToChannels()))
-				{
-					WarpLocation = Hit.Location;
-					bHitFloor = GetWorld()->SweepSingleByChannel(Hit, WarpLocation, WarpLocation - FVector(0.f, 0.f, 3.f* HalfHeight), FQuat::Identity, UTCharacter->GetCapsuleComponent()->GetCollisionObjectType(), FCollisionShape::MakeSphere(SweepRadius), FCollisionQueryParams(FName(TEXT("Translocation")), false, UTCharacter), UTCharacter->GetCapsuleComponent()->GetCollisionResponseToChannels());
-				}
-
-				// also move off of flag carrier so can watch
-				if (!GetWorld()->FindTeleportSpot(UTCharacter, WarpLocation, WarpRotation) || !bHitFloor)
-				{
-					for (int32 i = 0; i < 4; i++)
-					{
-						WarpLocation = CarrierLocation + FVector(Offset * ((i % 2 == 0) ? 1.f : -1.f), Offset * ((i > 1) ? 1.f : -1.f), HalfHeight);
-						if (GetWorld()->FindTeleportSpot(UTCharacter, WarpLocation, WarpRotation) && !GetWorld()->SweepSingleByChannel(Hit, CarrierLocation, WarpLocation, FQuat::Identity, UTCharacter->GetCapsuleComponent()->GetCollisionObjectType(), FCollisionShape::MakeCapsule(Radius, HalfHeight), FCollisionQueryParams(FName(TEXT("Translocation")), false, UTCharacter), UTCharacter->GetCapsuleComponent()->GetCollisionResponseToChannels()))
-						{
-							bHitFloor = GetWorld()->SweepSingleByChannel(Hit, WarpLocation, WarpLocation - FVector(0.f, 0.f, 3.f* HalfHeight), FQuat::Identity, UTCharacter->GetCapsuleComponent()->GetCollisionObjectType(), FCollisionShape::MakeSphere(SweepRadius), FCollisionQueryParams(FName(TEXT("Translocation")), false, UTCharacter), UTCharacter->GetCapsuleComponent()->GetCollisionResponseToChannels());
-							if (bHitFloor)
-							{
-								break;
-							}
-						}
-					}
-				}
-			}
-
-		}
-		if (!bHitFloor)
 		{
 			RequestingPC->ClientPlaySound(RallyFailedSound);
 			return;
@@ -1098,7 +1033,7 @@ void AUTFlagRunGame::SendRestartNotifications(AUTPlayerState* PS, AUTPlayerContr
 	{
 		LastAttackerSpawnTime = GetWorld()->GetTimeSeconds();
 		AUTFlagRunGameState* FRGS = Cast<AUTFlagRunGameState>(CTFGameState);
-		if (FRGS && (FRGS->GetRemainingTime() < 240) && !FRGS->bAttackersCanRally && (GetWorld()->GetTimeSeconds() > PS->NextRallyTime) && FRGS->bHaveEstablishedFlagRunner)
+		if (FRGS && !FRGS->bAttackersCanRally && (GetWorld()->GetTimeSeconds() > PS->NextRallyTime) && FRGS->bHaveEstablishedFlagRunner)
 		{
 			PS->AnnounceStatus(StatusMessage::NeedRally);
 		}

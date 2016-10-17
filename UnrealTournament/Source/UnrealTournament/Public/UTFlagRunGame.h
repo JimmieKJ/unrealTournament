@@ -52,15 +52,11 @@ public:
 	UPROPERTY()
 		bool bAllowBoosts;
 
-	UPROPERTY()
-		bool bFixedRally;
-
 	UPROPERTY(BlueprintReadOnly, Category = CTF)
 		int OffenseKillsNeededForPowerUp;
 
 	UPROPERTY(BlueprintReadOnly, Category = CTF)
 		int DefenseKillsNeededForPowerUp;
-
 
 	TAssetSubclassOf<class AUTInventory> ActivatedPowerupPlaceholderObject;
 	TAssetSubclassOf<class AUTInventory> RepulsorObject;
