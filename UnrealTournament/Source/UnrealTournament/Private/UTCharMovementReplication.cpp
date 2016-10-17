@@ -213,7 +213,7 @@ void UUTCharacterMovement::SimulateMovement(float DeltaSeconds)
 			if (bZeroAcceleration || bVelocityOverMax)
 			{
 				const FVector OldVelocity = Velocity;
-				ApplyVelocityBraking(DeltaSeconds, GroundFriction, BrakingDecelerationWalking);
+				ApplyVelocityBraking(DeltaTime, GroundFriction, BrakingDecelerationWalking);
 
 				// Don't allow braking to lower us below max speed if we started above it.
 				if (bVelocityOverMax && Velocity.SizeSquared() < FMath::Square(MaxSpeed) && FVector::DotProduct(Acceleration, OldVelocity) > 0.0f)
