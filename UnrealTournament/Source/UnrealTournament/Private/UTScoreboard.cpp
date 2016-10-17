@@ -476,9 +476,6 @@ void UUTScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float R
 		Canvas->TextSize(UTHUDOwner->SmallFont, PlayerState->PlayerName, XL, YL, RenderScale, RenderScale);
 		float StrikeWidth = FMath::Min(0.475f*ScaledCellWidth, XL);
 		DrawTexture(UTHUDOwner->HUDAtlas, XOffset + (ScaledCellWidth * ColumnHeaderPlayerX), YOffset + ColumnY, StrikeWidth, Height, 185.f, 400.f, 4.f, 4.f, 1.0f, FLinearColor::Red);
-
-		// draw skull here
-		DrawTexture(UTHUDOwner->HUDAtlas, XOffset + (ScaledCellWidth * ColumnHeaderPlayerX), YOffset + 0.35f*CellHeight*RenderScale, 0.5f*CellHeight*RenderScale, 0.5f*CellHeight*RenderScale, 725, 0, 28, 36, 1.0, FLinearColor::White);
 	}
 
 	// Draw the talking indicator

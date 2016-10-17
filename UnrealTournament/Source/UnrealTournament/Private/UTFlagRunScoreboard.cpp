@@ -176,9 +176,17 @@ void UUTFlagRunScoreboard::DrawPlayerScore(AUTPlayerState* PlayerState, float XO
 			DrawText(NSLOCTEXT("UTScoreboard", "Dash", "-"), XOffset + (Width * ColumnHeaderPowerupX), YOffset + ColumnY, UTHUDOwner->TinyFont, RenderScale, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
 		}
 
-		if ((CTFState->bAttackerLivesLimited || CTFState->bDefenderLivesLimited) && PlayerState->bHasLifeLimit && (PlayerState->RemainingLives > 0) && (!CTFState->IsMatchIntermission() || (CTFState->OffenseKills > 0) || (CTFState->DefenseKills > 0)))
+		if (PlayerState->bHasLifeLimit && (!CTFState->IsMatchIntermission() || (CTFState->OffenseKills > 0) || (CTFState->DefenseKills > 0)))
 		{
-			DrawText(FText::AsNumber(PlayerState->RemainingLives), XOffset + LivesXOffset, YOffset + ColumnY, UTHUDOwner->TinyFont, RenderScale, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
+			if (PlayerState->RemainingLives > 0)
+			{
+				DrawText(FText::AsNumber(PlayerState->RemainingLives), XOffset + LivesXOffset, YOffset + ColumnY, UTHUDOwner->TinyFont, RenderScale, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
+			}
+			else
+			{
+				// draw skull here
+				DrawTexture(UTHUDOwner->HUDAtlas, XOffset + LivesXOffset - 0.5f*CellHeight*RenderScale, YOffset + ColumnY - 0.45f*CellHeight*RenderScale, CellHeight*RenderScale, CellHeight*RenderScale, 725, 0, 28, 36, 0.75f, FLinearColor::White);
+			}
 		}
 	}
 	else
