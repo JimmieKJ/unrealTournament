@@ -1111,7 +1111,7 @@ bool AUTCharacter::ModifyDamageTaken_Implementation(int32& AppliedDamage, int32&
 
 bool AUTCharacter::ModifyDamageCaused_Implementation(int32& AppliedDamage, int32& Damage, FVector& Momentum, const FHitResult& HitInfo, AActor* Victim, AController* EventInstigator, AActor* DamageCauser, TSubclassOf<UDamageType> DamageType)
 {
-	if (DamageType && !DamageType->GetDefaultObject<UDamageType>()->bCausedByWorld)
+	if (DamageType && !DamageType->GetDefaultObject<UDamageType>()->bCausedByWorld && ((Victim != this) || (DamageScaling < 1.f)))
 	{
 		Damage *= DamageScaling;
 		AppliedDamage *= DamageScaling;
