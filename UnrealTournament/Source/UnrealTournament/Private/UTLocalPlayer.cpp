@@ -812,13 +812,13 @@ void UUTLocalPlayer::HideHUDSettings()
 				PlayerController->SetPause(false);
 			}
 		}
-	}
+	} 
 #endif
 }
 
-bool UUTLocalPlayer::IsLoggedIn(bool bIncludeProfile) const
+bool UUTLocalPlayer::IsLoggedIn() const
 { 
-	return OnlineIdentityInterface.IsValid() && OnlineIdentityInterface->GetLoginStatus(GetControllerId() && (!bIncludeProfile || LoginPhase == ELoginPhase::LoggedIn));
+	return OnlineIdentityInterface.IsValid() && OnlineIdentityInterface->GetLoginStatus(GetControllerId());
 }
 
 
@@ -1091,7 +1091,10 @@ void UUTLocalPlayer::ShowAuth()
 		LoginDialog->SetInitialFocus();
 	}
 
-	LoginPhase = ELoginPhase::InDialog;
+	if (LoginPhase == ELoginPhase::NotLoggedIn || LoginPhase == ELoginPhase::LoggedIn || LoginPhase == ELoginPhase::Offline)
+	{
+		LoginPhase = ELoginPhase::InDialog;
+	}
 #endif
 }
 
@@ -1473,9 +1476,8 @@ void UUTLocalPlayer::LoadProfileSettings()
 		return;
 	}
 
-	if (IsLoggedIn())
+	if ( IsLoggedIn() )
 	{
-
 		LoginPhase = ELoginPhase::GettingProfile;
 
 		TSharedPtr<const FUniqueNetId> UserID = OnlineIdentityInterface->GetUniquePlayerId(GetControllerId());

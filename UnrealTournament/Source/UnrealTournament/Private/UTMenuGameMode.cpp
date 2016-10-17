@@ -76,7 +76,7 @@ void AUTMenuGameMode::OnLoadingMovieEnd()
 		UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(PC->Player);
 		if (LP != NULL)
 		{
-			if (LP->IsLoggedIn(true) || LP->LoginPhase == ELoginPhase::Offline)
+			if (LP->LoginPhase == ELoginPhase::Offline || LP->LoginPhase == ELoginPhase::LoggedIn)
 			{
 				ShowMenu(PC);
 			}

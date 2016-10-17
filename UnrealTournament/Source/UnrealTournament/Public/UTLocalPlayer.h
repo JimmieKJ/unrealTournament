@@ -359,7 +359,7 @@ public:
 
 	// Returns true if this player is logged in to the UT Online Services.  If bIncludeProfile is true, then it will check to see
 	// if the initial read of the profile and progression has completed as well
-	virtual bool IsLoggedIn(bool bIncludeProfile = false) const;
+	virtual bool IsLoggedIn() const;
 
 	virtual FString GetOnlinePlayerNickname();
 
