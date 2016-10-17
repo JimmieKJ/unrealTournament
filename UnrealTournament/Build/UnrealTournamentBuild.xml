@@ -341,9 +341,9 @@
 			<Command Name="UnrealTournamentProto_BasicBuild" Arguments="-SkipBuild -SkipCook -Chunk -serverconfig=None -clientconfig=Shipping -TargetPlatform=Mac -StagingDir=&quot;$(LocalStagingDir)&quot;"/>
 			
 			<TagReceipt Files="$(RootDir)/UnrealTournament/Binaries/Mac/UnrealTournament-Mac-Shipping.target" EngineDir="$(LocalStagingDir)/MacNoEditor/Engine" ProjectDir="$(LocalStagingDir)/MacNoEditor/UnrealTournament" BuildProducts="true" RuntimeDependencies="false" With="#ToSign"/>
-			<TagReceipt Files="$(RootDir)/Engine/Binaries/Mac/CrashReportClient-Mac-Shipping.target.target" EngineDir="$(LocalStagingDir)/MacNoEditor/Engine" ProjectDir="$(LocalStagingDir)/MacNoEditor/UnrealTournament" BuildProducts="true" RuntimeDependencies="false" With="#ToSign"/>
+			<TagReceipt Files="$(RootDir)/Engine/Binaries/Mac/CrashReportClient-Mac-Shipping.target" EngineDir="$(LocalStagingDir)/MacNoEditor/Engine" ProjectDir="$(LocalStagingDir)/MacNoEditor/UnrealTournament" BuildProducts="true" RuntimeDependencies="false" With="#ToSign"/>
 			<TagReceipt Files="$(RootDir)/Engine/Binaries/Mac/UnrealCEFSubProcess.target" EngineDir="$(LocalStagingDir)/MacNoEditor/Engine" ProjectDir="$(LocalStagingDir)/MacNoEditor/UnrealTournament" BuildProducts="true" RuntimeDependencies="false" With="#ToSign"/>
-			<TagReceipt Files="$(RootDir)/Engine/Binaries/Mac/UnrealLightmass.target" EngineDir="$(LocalStagingDir)/MacNoEditor/Engine" ProjectDir="$(LocalStagingDir)/MacNoEditor/UnrealTournament" BuildProducts="true" RuntimeDependencies="false" With="#ToSign"/>
+			<!--<TagReceipt Files="$(RootDir)/Engine/Binaries/Mac/UnrealLightmass.target" EngineDir="$(LocalStagingDir)/MacNoEditor/Engine" ProjectDir="$(LocalStagingDir)/MacNoEditor/UnrealTournament" BuildProducts="true" RuntimeDependencies="false" With="#ToSign"/>-->
 			<TagReceipt Files="$(RootDir)/Engine/Binaries/Mac/UnrealPak.target" EngineDir="$(LocalStagingDir)/MacNoEditor/Engine" ProjectDir="$(LocalStagingDir)/MacNoEditor/UnrealTournament" BuildProducts="true" RuntimeDependencies="false" With="#ToSign"/>
 			
 			<Tag Files="#ToSign" Filter="*.app;*.dylib" With="#ToSign_Trimmed"/>
@@ -403,9 +403,9 @@
 			<Copy Files="#FinalTrim" FromDir="" ToDir="$(LocalStagingDir)/UT-Build/Mac"/>
 
 			<TagReceipt Files="$(RootDir)/UnrealTournament/Binaries/Mac/UnrealTournamentEditor.target" EngineDir="$(LocalStagingDir)/UT-Build/Mac/Engine" ProjectDir="$(LocalStagingDir)/UT-Build/Mac/UnrealTournament" BuildProducts="true" RuntimeDependencies="false" With="#ToSign"/>
-			<TagReceipt Files="$(RootDir)/Engine/Binaries/Mac/CrashReportClient-Mac-Shipping.target.target" EngineDir="$(LocalStagingDir)/UT-Build/Mac/Engine" ProjectDir="$(LocalStagingDir)/UT-Build/Mac/UnrealTournament" BuildProducts="true" RuntimeDependencies="false" With="#ToSign"/>
+			<TagReceipt Files="$(RootDir)/Engine/Binaries/Mac/CrashReportClient-Mac-Shipping.target" EngineDir="$(LocalStagingDir)/UT-Build/Mac/Engine" ProjectDir="$(LocalStagingDir)/UT-Build/Mac/UnrealTournament" BuildProducts="true" RuntimeDependencies="false" With="#ToSign"/>
 			<TagReceipt Files="$(RootDir)/Engine/Binaries/Mac/UnrealCEFSubProcess.target" EngineDir="$(LocalStagingDir)/UT-Build/Mac/Engine" ProjectDir="$(LocalStagingDir)/UT-Build/Mac/UnrealTournament" BuildProducts="true" RuntimeDependencies="false" With="#ToSign"/>
-			<TagReceipt Files="$(RootDir)/Engine/Binaries/Mac/UnrealLightmass.target" EngineDir="$(LocalStagingDir)/UT-Build/Mac/Engine" ProjectDir="$(LocalStagingDir)/UT-Build/Mac/UnrealTournament" BuildProducts="true" RuntimeDependencies="false" With="#ToSign"/>
+			<!--<TagReceipt Files="$(RootDir)/Engine/Binaries/Mac/UnrealLightmass.target" EngineDir="$(LocalStagingDir)/UT-Build/Mac/Engine" ProjectDir="$(LocalStagingDir)/UT-Build/Mac/UnrealTournament" BuildProducts="true" RuntimeDependencies="false" With="#ToSign"/>-->
 			<TagReceipt Files="$(RootDir)/Engine/Binaries/Mac/UnrealPak.target" EngineDir="$(LocalStagingDir)/UT-Build/Mac/Engine" ProjectDir="$(LocalStagingDir)/UT-Build/Mac/UnrealTournament" BuildProducts="true" RuntimeDependencies="false" With="#ToSign"/>
 			
 			<Tag Files="#ToSign" Filter="*.app;*.dylib" With="#ToSign_Trimmed"/>
