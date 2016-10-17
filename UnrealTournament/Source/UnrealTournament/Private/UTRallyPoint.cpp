@@ -131,7 +131,7 @@ void AUTRallyPoint::SetRallyPointState(FName NewState)
 		AUTFlagRunGameState* GameState = GetWorld()->GetGameState<AUTFlagRunGameState>();
 		if (GameState && (GameState->CurrentRallyPoint == this))
 		{
-			if (RallyPointState != RallyPointStates::Powered)
+			if ((RallyPointState != RallyPointStates::Powered) && (RallyPointState != RallyPointStates::Charging))
 			{
 				GameState->CurrentRallyPoint = nullptr;
 			}
@@ -142,7 +142,6 @@ void AUTRallyPoint::SetRallyPointState(FName NewState)
 		}
 	}
 }
-
 
 void AUTRallyPoint::StartRallyCharging()
 {
@@ -202,6 +201,30 @@ void AUTRallyPoint::FlagCarrierInVolume(AUTCharacter* NewFC)
 {
 	NearbyFC = NewFC;
 	bShowAvailableEffect = (NearbyFC != nullptr);
+
+	if (Role == ROLE_Authority)
+	{
+		if (NearbyFC == nullptr)
+		{
+			EndRallyCharging();
+		}
+		else if (RallyPointState == RallyPointStates::Off)
+		{
+			// go to either off or start charging again depending on if FC is touching
+			TSet<AActor*> Touching;
+			Capsule->GetOverlappingActors(Touching);
+			AUTCTFFlag* CharFlag = nullptr;
+			for (AActor* TouchingActor : Touching)
+			{
+				CharFlag = Cast<AUTCharacter>(TouchingActor) ? Cast<AUTCTFFlag>(((AUTCharacter*)TouchingActor)->GetCarriedObject()) : nullptr;
+				if (CharFlag)
+				{
+					SetRallyPointState(RallyPointStates::Charging);
+					break;
+				}
+			}
+		}
+	}
 	if (GetNetMode() != NM_DedicatedServer)
 	{
 		OnAvailableEffectChanged();
@@ -307,7 +330,6 @@ void AUTRallyPoint::Tick(float DeltaTime)
 			}
 			else if (RallyPointState == RallyPointStates::Charging)
 			{
-				// if fc touching, decrement RallyReadyCountdown else reset to 2.f
 				RallyReadyCountdown -= DeltaTime;
 				ReplicatedCountdown = FMath::Max(0, int32(RallyReadyCountdown));
 				if (RallyReadyCountdown <= 0.f)
