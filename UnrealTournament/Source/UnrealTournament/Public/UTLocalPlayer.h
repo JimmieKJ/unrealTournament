@@ -632,6 +632,9 @@ protected:
 	// will be used to attempt the reconnection.
 	FOnlineSessionSearchResult LastSession;
 
+	// Will be true if the last session was a join as spectator
+	bool bLastSessionWasASpectator;
+
 	// friend join functionality
 	virtual void JoinFriendSession(const FUniqueNetId& FriendId, const FUniqueNetId& SessionId);
 	virtual void OnFindFriendSessionComplete(int32 LocalUserNum, bool bWasSuccessful, const FOnlineSessionSearchResult& SearchResult);

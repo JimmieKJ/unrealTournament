@@ -3010,6 +3010,7 @@ void UUTLocalPlayer::OnJoinSessionComplete(FName SessionName, EOnJoinSessionComp
 
 		// Cache the last session.
 		LastSession = PendingSession;
+		bLastSessionWasASpectator = bWantsToConnectAsSpectator;
 
 		UUTGameInstance* GameInstance = CastChecked<UUTGameInstance>(GetGameInstance());
 		UUTParty* Party = GameInstance->GetParties();
@@ -5306,7 +5307,7 @@ void UUTLocalPlayer::Reconnect(bool bSpectator)
 	if (LastSession.IsValid())
 	{
 		bAttemptingForceJoin = false;
-		JoinSession(LastSession, bSpectator);
+		JoinSession(LastSession, bLastSessionWasASpectator);
 	}
 	else
 	{
