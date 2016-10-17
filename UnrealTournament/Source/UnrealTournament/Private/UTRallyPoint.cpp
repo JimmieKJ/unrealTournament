@@ -7,6 +7,7 @@
 #include "UTFlagRunGameState.h"
 #include "UTATypes.h"
 #include "UTRallyPoint.h"
+#include "UTCTFMajorMessage.h"
 
 AUTRallyPoint::AUTRallyPoint(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -171,6 +172,22 @@ void AUTRallyPoint::RallyChargingComplete()
 	{
 		OnRallyChargingChanged();
 	}
+
+	if ( (Role == ROLE_Authority) && (NextState == RallyPointStates::Off))
+	{
+		AUTFlagRunGameState* UTGS = GetWorld()->GetGameState<AUTFlagRunGameState>();
+		if (UTGS != nullptr)
+		{
+			for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
+			{
+				AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
+				if (PC && PC->UTPlayerState && PC->UTPlayerState->Team && (UTGS->bRedToCap == (PC->UTPlayerState->Team->TeamIndex == 0)))
+				{
+					PC->ClientReceiveLocalizedMessage(UUTCTFMajorMessage::StaticClass(), 25, nullptr);
+				}
+			}
+		}
+	}
 }
 
 void AUTRallyPoint::EndRallyCharging()
@@ -258,6 +275,18 @@ void AUTRallyPoint::OnRallyChargingChanged()
 			bHaveGameState = (UTGS != nullptr);
 			static FName NAME_MoteColor(TEXT("MoteColor"));
 			RallyEffectPSC->SetVectorParameter(NAME_MoteColor, UTGS && UTGS->bRedToCap ? FVector(1.f, 0.f, 0.f) : FVector(0.f, 0.f, 1.f));
+			if ((Role == ROLE_Authority) && (UTGS != nullptr))
+			{
+				for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
+				{
+					AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
+					if (PC && PC->UTPlayerState && (PC->GetPawn() !=  NearbyFC) && PC->UTPlayerState->Team && (UTGS->bRedToCap == (PC->UTPlayerState->Team->TeamIndex == 0)))
+					{
+						PC->UTClientPlaySound(FCTouchedSound);
+					}
+				}
+			}
+
 		}
 		else
 		{
@@ -325,6 +354,18 @@ void AUTRallyPoint::Tick(float DeltaTime)
 				ReplicatedCountdown = FMath::Max(0, int32(RallyReadyCountdown));
 				if (RallyReadyCountdown <= 0.f)
 				{
+					AUTFlagRunGameState* UTGS = GetWorld()->GetGameState<AUTFlagRunGameState>();
+					if (UTGS != nullptr)
+					{
+						for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
+						{
+							AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
+							if (PC && UTGS->OnSameTeam(NearbyFC, PC) && PC->UTPlayerState && PC->UTPlayerState->bCanRally)
+							{
+								PC->ClientReceiveLocalizedMessage(UUTCTFMajorMessage::StaticClass(), 22, NearbyFC->PlayerState);
+							}
+						}
+					}
 					UUTGameplayStatics::UTPlaySound(GetWorld(), ReadyToRallySound, this, SRT_All);
 					SetRallyPointState(RallyPointStates::Powered);
 					RallyStartTime = GetWorld()->GetTimeSeconds();

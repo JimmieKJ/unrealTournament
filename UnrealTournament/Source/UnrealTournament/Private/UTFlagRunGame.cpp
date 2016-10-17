@@ -602,20 +602,8 @@ void AUTFlagRunGame::HandleRallyRequest(AUTPlayerController* RequestingPC)
 	{
 		if (UTCharacter->GetCarriedObject())
 		{
-			if (GetWorld()->GetTimeSeconds() - RallyRequestTime > 10.f)
-			{
-				// requesting rally
-				for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
-				{
-					AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
-					if (PC && GS->OnSameTeam(RequestingPC, PC) && PC->UTPlayerState && PC->UTPlayerState->bCanRally)
-					{
-						PC->ClientReceiveLocalizedMessage(UUTCTFMajorMessage::StaticClass(), 22, UTPlayerState);
-					}
-				}
-				UTPlayerState->AnnounceStatus(StatusMessage::NeedBackup);
-				RallyRequestTime = GetWorld()->GetTimeSeconds();
-			}
+			UTPlayerState->AnnounceStatus(StatusMessage::NeedBackup);
+			RallyRequestTime = GetWorld()->GetTimeSeconds();
 		}
 		else if (GS->CurrentRallyPoint != nullptr)
 		{

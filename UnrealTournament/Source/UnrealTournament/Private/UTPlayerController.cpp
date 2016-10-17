@@ -349,7 +349,6 @@ void AUTPlayerController::RequestRally()
 {
 	if (UTPlayerState && UTPlayerState->bCanRally)
 	{
-		LastRallyRequestTime = GetWorld()->GetTimeSeconds();
 		ServerRequestRally();
 	}
 }
@@ -5185,16 +5184,7 @@ void AUTPlayerController::DumpMapVote()
 bool AUTPlayerController::CanPerformRally() const
 {
 	AUTFlagRunGameState* GameState = GetWorld()->GetGameState<AUTFlagRunGameState>();
-
-	if (GameState && UTPlayerState)
-	{
-		if ( UTPlayerState->bCanRally && UTPlayerState->Team && GameState->bAttackersCanRally && ((UTPlayerState->Team->TeamIndex == 0) == GameState->bRedToCap))
-		{
-			return (UTPlayerState->CarriedObject == nullptr || (GetWorld()->GetTimeSeconds() - LastRallyRequestTime >= 10.5f));
-		}
-	}
-
-	return false;
+	return (GameState && UTPlayerState && UTPlayerState->bCanRally && UTPlayerState->Team && GameState->bAttackersCanRally && ((UTPlayerState->Team->TeamIndex == 0) == GameState->bRedToCap));
 }
 
 void AUTPlayerController::InitializeHeartbeatManager()

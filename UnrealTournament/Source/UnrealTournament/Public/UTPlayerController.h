@@ -196,9 +196,6 @@ public:
 	bool bNeedsBoostNotify;
 
 	UPROPERTY()
-		float LastRallyRequestTime;
-
-	UPROPERTY()
 		AUTCharacter* RallyFlagCarrier;
 
 	UFUNCTION(reliable, client, BlueprintCallable, Category = PlayerController)

@@ -367,21 +367,12 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 			if (bPlayerCanRally)
 			{
 				FlagInfo.bCustomIconUnderlay = true;
-				if (UTPlayerState->CarriedObject)
-				{
-					if (InUTHUDOwner && InUTHUDOwner->UTPlayerOwner && (GetWorld()->GetTimeSeconds() - InUTHUDOwner->UTPlayerOwner->LastRallyRequestTime < 10.5f))
-					{
-						FlagInfo.Label = FText::GetEmpty();
-						bWantsPulse = false;
-					}
-				}
 
 				if (UTHUDOwner->UTPlayerOwner->bNeedsRallyNotify)
 				{
 					if (bWantsPulse)
 					{
 						FlagInfo.Animate(StatAnimTypes::Scale, 2.0f, 10.f, 1.0f, true);
-						UTHUDOwner->UTPlayerOwner->ClientReceiveLocalizedMessage(UUTCTFMajorMessage::StaticClass(), 23);
 					}
 					UTHUDOwner->UTPlayerOwner->bNeedsRallyNotify = false;
 				}
