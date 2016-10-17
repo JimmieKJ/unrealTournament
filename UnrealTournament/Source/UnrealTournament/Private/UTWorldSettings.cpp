@@ -5,6 +5,7 @@
 #include "Particles/ParticleSystemComponent.h"
 #include "UTGameEngine.h"
 #include "UTLevelSummary.h"
+#include "UTKillcamPlayback.h"
 
 AUTWorldSettings::AUTWorldSettings(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -105,11 +106,22 @@ void AUTWorldSettings::BeginPlay()
 {
 	if (Music != NULL && GetNetMode() != NM_DedicatedServer)
 	{
-		MusicComp = NewObject<UAudioComponent>(this);
-		MusicComp->bAllowSpatialization = false;
-		MusicComp->bShouldRemainActiveIfDropped = true;
-		MusicComp->SetSound(Music);
-		MusicComp->Play();
+		bool bPlayMusic = true;
+
+		UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(GEngine->GetFirstGamePlayer(GetWorld()));
+		if (LP && LP->GetKillcamPlaybackManager() && LP->GetKillcamPlaybackManager()->GetKillcamWorld() == GetWorld())
+		{
+			bPlayMusic = false;
+		}
+
+		if (bPlayMusic)
+		{
+			MusicComp = NewObject<UAudioComponent>(this);
+			MusicComp->bAllowSpatialization = false;
+			MusicComp->bShouldRemainActiveIfDropped = true;
+			MusicComp->SetSound(Music);
+			MusicComp->Play();
+		}
 	}
 
 	Super::BeginPlay();
