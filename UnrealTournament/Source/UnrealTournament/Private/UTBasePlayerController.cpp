@@ -549,6 +549,10 @@ void AUTBasePlayerController::OnFindSessionsComplete(bool bWasSuccessful)
 				UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
 				if (LP)
 				{
+
+					LP->LastSession = Result;
+					LP->bLastSessionWasASpectator = GUIDJoinWantsToSpectate;
+
 					// Clear the Quickmatch wait timer.
 					LP->QuickMatchLimitTime = 0.0;
 					if (LP->JoinSession(Result, GUIDJoinWantsToSpectate, GUIDJoinDesiredTeam))

@@ -628,12 +628,16 @@ protected:
 	bool bDelayedJoinSession;
 	FOnlineSessionSearchResult PendingSession;
 
+public:
+
 	// Holds the session info of the last session this player tried to join.  If there is a join failure, or the reconnect command is used, this session info
 	// will be used to attempt the reconnection.
 	FOnlineSessionSearchResult LastSession;
 
 	// Will be true if the last session was a join as spectator
 	bool bLastSessionWasASpectator;
+
+protected:
 
 	// friend join functionality
 	virtual void JoinFriendSession(const FUniqueNetId& FriendId, const FUniqueNetId& SessionId);
