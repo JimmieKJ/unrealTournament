@@ -347,7 +347,7 @@ void UUTProfileSettings::GetDefaultGameActions(TArray<FKeyConfigurationInfo>& ou
 	outGameActions.Add(Key);
 
 	Key = FKeyConfigurationInfo("ComsMenu", EControlCategory::UI, EKeys::F, EKeys::Invalid, EKeys::Gamepad_FaceButton_Right, NSLOCTEXT("Keybinds", "ShowComsMenu", "Show Coms Menu"));
-	Key.AddCustomBinding("ToggleComMenu");
+	Key.AddActionMapping("ToggleComMenu");
 	outGameActions.Add(Key);
 
 	// Misc
