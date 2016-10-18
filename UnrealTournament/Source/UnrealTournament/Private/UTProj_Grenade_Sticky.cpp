@@ -10,6 +10,8 @@ AUTProj_Grenade_Sticky::AUTProj_Grenade_Sticky(const class FObjectInitializer& O
 {
 	LifeTime = 20.0f;
 	MinimumLifeTime = 0.2f;
+	bAlwaysShootable = true;
+	CollisionComp->SetCollisionProfileName(TEXT("ProjectileShootable"));
 }
 
 void AUTProj_Grenade_Sticky::BeginPlay()
