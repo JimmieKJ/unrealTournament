@@ -105,6 +105,11 @@ FReply SUTMenuBase::OnKeyUp( const FGeometry& MyGeometry, const FKeyEvent& InKey
 		{
 			CloseMenus();
 		}
+		else
+		{
+			ShowHomePanel();
+		}
+
 	}
 	else if (InKeyboardEvent.GetKey() == EKeys::F9)
 	{
@@ -1070,7 +1075,5 @@ bool SUTMenuBase::SkipWorldRender()
 {
 	return false;
 }
-
-
 
 #endif
