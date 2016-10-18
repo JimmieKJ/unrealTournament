@@ -639,35 +639,36 @@ void SUTCreateGamePanel::OnGameSelected(UClass* NewSelection, ESelectInfo::Type 
 					{
 						bool bHasTitleA = !A->Title.IsEmpty();
 						bool bHasTitleB = !B->Title.IsEmpty();
+
 						if (bHasTitleA && !bHasTitleB)
 						{
 							return true;
 						}
 
-						if (A->bIsEpicMap)
+						if (A->bIsMeshedMap)
 						{
-							if (!B->bIsEpicMap) 
+							if (!B->bIsMeshedMap)
 							{
 								return true;
 							}
-							else if (A->bIsMeshedMap && !B->bIsMeshedMap) 
+							else if (A->bIsEpicMap && !B->bIsEpicMap)
 							{
 								return true;
 							}
-							else if (!A->bIsMeshedMap && B->bIsMeshedMap)
+							else if (!A->bIsEpicMap && B->bIsEpicMap)
 							{
 								return false;
 							}
 						}
-
-						else if (B->bIsEpicMap)
+						else if (B->bIsMeshedMap)
 						{
 							return false;
 						}
-						else if (A->bIsMeshedMap && !B->bIsMeshedMap) 
+						else if (A->bIsEpicMap && !B->bIsEpicMap)
 						{
 							return true;
 						}
+
 						return A->Title < B->Title;
 
 					});
