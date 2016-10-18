@@ -121,12 +121,12 @@ void UUTHUDWidget_FlagRunStatus::DrawFlagBaseWorld(AUTCTFGameState* GameState, F
 void UUTHUDWidget_FlagRunStatus::DrawFlagWorld(AUTCTFGameState* GameState, FVector PlayerViewPoint, FRotator PlayerViewRotation, uint8 TeamNum, AUTCTFFlagBase* FlagBase, AUTCTFFlag* Flag, AUTPlayerState* FlagHolder)
 {
 	bool bSpectating = UTPlayerOwner->PlayerState && UTPlayerOwner->PlayerState->bOnlySpectator;
-	bool bIsEnemyFlag = Flag && !GameState->OnSameTeam(Flag, UTPlayerOwner);
+	bool bIsEnemyFlag = Flag && GameState && !GameState->OnSameTeam(Flag, UTPlayerOwner);
 	bool bShouldDrawFlagIcon = ShouldDrawFlag(Flag, bIsEnemyFlag);
-	if (Flag && (bSpectating || bShouldDrawFlagIcon) && (Flag->Holder != UTHUDOwner->GetScorerPlayerState()))
+	if (Flag && GameState && (bSpectating || bShouldDrawFlagIcon) && (Flag->Holder != UTHUDOwner->GetScorerPlayerState()))
 	{
 		bScaleByDesignedResolution = false;
-		FlagIconTemplate.RenderColor = GameState->Teams.IsValidIndex(TeamNum) ? GameState->Teams[TeamNum]->TeamColor : FLinearColor::Green;
+		FlagIconTemplate.RenderColor = (GameState->Teams.IsValidIndex(TeamNum) && GameState->Teams[TeamNum]) ? GameState->Teams[TeamNum]->TeamColor : FLinearColor::Green;
 
 		// Draw the flag / flag base in the world
 		float Dist = (Flag->GetActorLocation() - PlayerViewPoint).Size();
