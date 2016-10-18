@@ -417,7 +417,10 @@ bool AUTSquadAI::FollowAlternateRoute(AUTBot* B, AActor* Goal, TArray<FAlternate
 			FMultiPathNodeEval NodeEval;
 			for (int32 i = SquadRouteGoalIndex; i < AlternatePath.RouteCache.Num(); i++)
 			{
-				NodeEval.Goals.Add(AlternatePath.RouteCache[i]);
+				if (AlternatePath.RouteCache[i].Node == nullptr || !AlternatePath.RouteCache[i].Node->bDestinationOnly)
+				{
+					NodeEval.Goals.Add(AlternatePath.RouteCache[i]);
+				}
 			}
 			// sanity check the goal is in there
 			{
