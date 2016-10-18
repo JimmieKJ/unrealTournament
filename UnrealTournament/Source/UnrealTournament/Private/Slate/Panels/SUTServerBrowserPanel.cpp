@@ -2531,28 +2531,23 @@ FSlateColor SUTServerBrowserPanel::GetButtonSlateColor(int32 TabIndex) const
 
 EVisibility SUTServerBrowserPanel::JoinEnable() const
 {
-	if (BrowserState == EBrowserState::BrowserIdle) 
-	{
-		TArray<TSharedPtr<FServerData>> Selected;
-		if (bShowingHubs && HUBServerList.IsValid() && HUBServerList->GetNumItemsSelected() > 0) Selected = HUBServerList->GetSelectedItems();
-		else if (!bShowingHubs && InternetServerList.IsValid() && InternetServerList->GetNumItemsSelected() > 0) Selected = InternetServerList->GetSelectedItems();
+	TArray<TSharedPtr<FServerData>> Selected;
+	if (bShowingHubs && HUBServerList.IsValid() && HUBServerList->GetNumItemsSelected() > 0) Selected = HUBServerList->GetSelectedItems();
+	else if (!bShowingHubs && InternetServerList.IsValid() && InternetServerList->GetNumItemsSelected() > 0) Selected = InternetServerList->GetSelectedItems();
 
-		if ( Selected.Num() > 0 && Selected[0].IsValid() && (Selected[0]->Flags & SERVERFLAG_Restricted) == 0 )
-		{
-			return EVisibility::Visible;
-		}
+	if ( Selected.Num() > 0 && Selected[0].IsValid() && (Selected[0]->Flags & SERVERFLAG_Restricted) == 0 )
+	{
+		return EVisibility::Visible;
 	}
 	return EVisibility::Collapsed;
 }
 
 EVisibility SUTServerBrowserPanel::SpectateEnable() const
 {
-	if (!bShowingHubs && BrowserState == EBrowserState::BrowserIdle) 
+	TArray<TSharedPtr<FServerData>> Selected;
+	if (!bShowingHubs)
 	{
-		TArray<TSharedPtr<FServerData>> Selected;
-		if (bShowingHubs && HUBServerList.IsValid() && HUBServerList->GetNumItemsSelected() > 0) Selected = HUBServerList->GetSelectedItems();
-		else if (!bShowingHubs && InternetServerList.IsValid() && InternetServerList->GetNumItemsSelected() > 0) Selected = InternetServerList->GetSelectedItems();
-
+		if (!bShowingHubs && InternetServerList.IsValid() && InternetServerList->GetNumItemsSelected() > 0) Selected = InternetServerList->GetSelectedItems();
 		if ( Selected.Num() > 0 && Selected[0].IsValid() && (Selected[0]->Flags & SERVERFLAG_Restricted) == 0 )
 		{
 			return EVisibility::Visible;
