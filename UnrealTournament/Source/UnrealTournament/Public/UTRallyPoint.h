@@ -142,4 +142,13 @@ class UNREALTOURNAMENT_API AUTRallyPoint : public AUTGameObjective
 	UFUNCTION()
 		void AmbientSoundUpdated();
 
+	/** Arrow component to indicate forward direction of start */
+#if WITH_EDITORONLY_DATA
+	private_subobject :
+						  UPROPERTY()
+						  class UArrowComponent* ArrowComponent;
+public:
+	/** Returns ArrowComponent subobject **/
+	class UArrowComponent* GetArrowComponent() const;
+#endif
 };

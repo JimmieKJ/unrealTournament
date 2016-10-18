@@ -52,6 +52,7 @@
 #include "UTGauntletFlag.h"
 #include "UTTutorialAnnouncement.h"
 #include "UTInGameIntroHelper.h"
+#include "UTRallyPoint.h"
 
 static TAutoConsoleVariable<float> CVarUTKillcamStartDelay(
 	TEXT("UT.KillcamStartDelay"),
@@ -302,7 +303,7 @@ void AUTPlayerController::ServerMutate_Implementation(const FString& MutateStrin
 	}
 }
 
-void AUTPlayerController::BeginRallyTo(AUTCharacter* RallyTarget, const FVector& NewRallyLocation, float Delay)
+void AUTPlayerController::BeginRallyTo(AUTRallyPoint* RallyTarget, const FVector& NewRallyLocation, float Delay)
 {
 	if (!GetWorldTimerManager().IsTimerActive(RallyTimerHandle))
 	{
@@ -311,7 +312,7 @@ void AUTPlayerController::BeginRallyTo(AUTCharacter* RallyTarget, const FVector&
 	ClientStartRally(RallyTarget, NewRallyLocation, Delay);
 }
 
-void AUTPlayerController::ClientStartRally_Implementation(AUTCharacter* RallyTarget, const FVector& NewRallyLocation, float Delay)
+void AUTPlayerController::ClientStartRally_Implementation(AUTRallyPoint* RallyTarget, const FVector& NewRallyLocation, float Delay)
 {
 	if (RallyTarget)
 	{
@@ -321,6 +322,10 @@ void AUTPlayerController::ClientStartRally_Implementation(AUTCharacter* RallyTar
 		static FName NAME_RallyCam(TEXT("RallyCam"));
 		SetCameraMode(NAME_RallyCam);
 		SetViewTarget(RallyTarget);
+		FRotator NewRotation = RallyTarget->GetActorRotation();
+		NewRotation.Pitch = 0.f;
+		NewRotation.Roll = 0.f;
+		SetControlRotation(NewRotation);
 	}
 }
 

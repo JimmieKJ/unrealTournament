@@ -21,16 +21,37 @@ AUTRallyPoint::AUTRallyPoint(const FObjectInitializer& ObjectInitializer)
 	Capsule->OnComponentEndOverlap.AddDynamic(this, &AUTRallyPoint::OnOverlapEnd);
 	RootComponent = Capsule;
 
+#if WITH_EDITORONLY_DATA
+	ArrowComponent = CreateEditorOnlyDefaultSubobject<UArrowComponent>(TEXT("Arrow"));
+
+	if (!IsRunningCommandlet())
+	{
+		if (ArrowComponent)
+		{
+			ArrowComponent->ArrowColor = FColor(150, 200, 255);
+
+			ArrowComponent->ArrowSize = 1.0f;
+			ArrowComponent->SetupAttachment(Capsule);
+			ArrowComponent->bIsScreenSizeScaled = true;
+		}
+	}
+#endif // WITH_EDITORONLY_DATA
+
 	PrimaryActorTick.bCanEverTick = true;
 	bCollideWhenPlacing = true;
 
 	RallyReadyDelay = 3.f;
-	MinimumRallyTime = 5.f;
+	MinimumRallyTime = 10.f;
 	RallyReadyCountdown = RallyReadyDelay;
 	ReplicatedCountdown = RallyReadyCountdown;
 	bIsEnabled = true;
 	RallyOffset = 0;
 }
+
+#if WITH_EDITORONLY_DATA
+/** Returns ArrowComponent subobject **/
+UArrowComponent* AUTRallyPoint::GetArrowComponent() const { return ArrowComponent; }
+#endif
 
 void AUTRallyPoint::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
 {

@@ -195,9 +195,6 @@ public:
 	UPROPERTY()
 	bool bNeedsBoostNotify;
 
-	UPROPERTY()
-		AUTCharacter* RallyFlagCarrier;
-
 	UFUNCTION(reliable, client, BlueprintCallable, Category = PlayerController)
 	void UTClientSetRotation(FRotator NewRotation);
 
@@ -286,7 +283,7 @@ public:
 		virtual void ServerRequestRally();
 
 	UFUNCTION(client, reliable)
-		virtual void ClientStartRally(AUTCharacter* RallyTarget, const FVector& NewRallyLocation, float Delay);
+		virtual void ClientStartRally(AUTRallyPoint* RallyTarget, const FVector& NewRallyLocation, float Delay);
 
 	UFUNCTION(client, reliable)
 		virtual void ClientCompleteRally();
@@ -297,7 +294,7 @@ public:
 	UFUNCTION(client,reliable)
 	virtual void ClientSetIntroCamera(UWorld* World, InGameIntroZoneTypes IntroType);
 
-	virtual void BeginRallyTo(AUTCharacter* RallyTarget, const FVector& NewRallyLocation, float Delay);
+	virtual void BeginRallyTo(AUTRallyPoint* RallyTarget, const FVector& NewRallyLocation, float Delay);
 
 	FTimerHandle RallyTimerHandle;
 

@@ -607,24 +607,17 @@ void AUTFlagRunGame::HandleRallyRequest(AUTPlayerController* RequestingPC)
 		}
 		else if (GS->CurrentRallyPoint != nullptr)
 		{
-			// rally to flag carrier
-			AUTCTFFlag* Flag = Cast<AUTCTFFlag>(GS->FlagBases[GS->bRedToCap ? 0 : 1]->GetCarriedObject());
-			AUTCharacter* FlagCarrier = Flag ? Flag->HoldingPawn : nullptr;
-			if (FlagCarrier != nullptr)
+			RequestingPC->RallyLocation = GS->CurrentRallyPoint->GetRallyLocation(UTCharacter);
+			RequestingPC->RallyPoint = GS->CurrentRallyPoint;
+			UTCharacter->bTriggerRallyEffect = true;
+			UTCharacter->OnTriggerRallyEffect();
+			RequestingPC->BeginRallyTo(RequestingPC->RallyPoint, RequestingPC->RallyLocation, 1.2f);
+			UTCharacter->SpawnRallyDestinationEffectAt(RequestingPC->RallyLocation);  
+			if (UTCharacter->UTCharacterMovement)
 			{
-				RequestingPC->RallyLocation = GS->CurrentRallyPoint->GetRallyLocation(UTCharacter);
-				RequestingPC->RallyPoint = GS->CurrentRallyPoint;
-				RequestingPC->RallyFlagCarrier = FlagCarrier;
-				UTCharacter->bTriggerRallyEffect = true;
-				UTCharacter->OnTriggerRallyEffect();
-				RequestingPC->BeginRallyTo(FlagCarrier, RequestingPC->RallyLocation, 1.2f);
-				UTCharacter->SpawnRallyDestinationEffectAt(RequestingPC->RallyLocation);  
-				if (UTCharacter->UTCharacterMovement)
-				{
-					UTCharacter->UTCharacterMovement->StopMovementImmediately();
-					UTCharacter->UTCharacterMovement->DisableMovement();
-					UTCharacter->DisallowWeaponFiring(true);
-				}
+				UTCharacter->UTCharacterMovement->StopMovementImmediately();
+				UTCharacter->UTCharacterMovement->DisableMovement();
+				UTCharacter->DisallowWeaponFiring(true);
 			}
 		}
 	}
@@ -657,19 +650,11 @@ void AUTFlagRunGame::CompleteRallyRequest(AUTPlayerController* RequestingPC)
 	if (Team && ((Team->TeamIndex == 0) == GS->bRedToCap) && GS->FlagBases.IsValidIndex(Team->TeamIndex) && GS->FlagBases[Team->TeamIndex] != nullptr)
 	{
 		FVector WarpLocation = FVector::ZeroVector;
-		FRotator WarpRotation(0.0f, UTCharacter->GetActorRotation().Yaw, 0.0f);
-		float HalfHeight = UTCharacter->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight();
-		float Radius = UTCharacter->GetCapsuleComponent()->GetUnscaledCapsuleRadius();
-		FCollisionShape PlayerCapsule = FCollisionShape::MakeCapsule(Radius, HalfHeight);
-		FHitResult Hit;
-		float SweepRadius = UTCharacter->GetCapsuleComponent()->GetUnscaledCapsuleRadius();
-		float RallyDelay = 10.f;
-		// rally to flag carrier
-		AUTCTFFlag* Flag = Cast<AUTCTFFlag>(GS->FlagBases[GS->bRedToCap ? 0 : 1]->GetCarriedObject());
-		AUTCharacter* FlagCarrier = Flag ? Flag->HoldingPawn : nullptr;
+		FRotator WarpRotation = RequestingPC->RallyPoint ? RequestingPC->RallyPoint->GetActorRotation() : UTCharacter->GetActorRotation();
+		WarpRotation.Pitch = 0.f;
+		WarpRotation.Roll = 0.f;
 		ECollisionChannel SavedObjectType = UTCharacter->GetCapsuleComponent()->GetCollisionObjectType();
 		UTCharacter->GetCapsuleComponent()->SetCollisionObjectType(COLLISION_TELEPORTING_OBJECT);
-		float Offset = 4.f * Radius;
 
 		if (GetWorld()->FindTeleportSpot(UTCharacter, RequestingPC->RallyLocation, WarpRotation))
 		{
@@ -685,9 +670,7 @@ void AUTFlagRunGame::CompleteRallyRequest(AUTPlayerController* RequestingPC)
 			return;
 		}
 		UTCharacter->GetCapsuleComponent()->SetCollisionObjectType(SavedObjectType);
-		FRotator DesiredRotation = FlagCarrier ? (FlagCarrier->GetActorLocation() - WarpLocation).Rotation() : (Flag->GetActorLocation() - WarpLocation).Rotation();
-		WarpRotation.Yaw = DesiredRotation.Yaw;
-		RallyDelay = 15.f;
+		float RallyDelay = 15.f;
 
 		// teleport
 		UPrimitiveComponent* SavedPlayerBase = UTCharacter->GetMovementBase();
@@ -720,6 +703,9 @@ void AUTFlagRunGame::CompleteRallyRequest(AUTPlayerController* RequestingPC)
 				AUTWeaponRedirector* AfterImage = GetWorld()->SpawnActor<AUTWeaponRedirector>(AfterImageType, SavedPlayerTransform.GetLocation(), SavedPlayerTransform.GetRotation().Rotator(), SpawnParams);
 				if (AfterImage != NULL)
 				{
+					float HalfHeight = UTCharacter->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight();
+					float Radius = UTCharacter->GetCapsuleComponent()->GetUnscaledCapsuleRadius();
+					FCollisionShape PlayerCapsule = FCollisionShape::MakeCapsule(Radius, HalfHeight);
 					AfterImage->InitFor(UTCharacter, FRepCollisionShape(PlayerCapsule), SavedPlayerBase, UTCharacter->GetTransform());
 				}
 			}

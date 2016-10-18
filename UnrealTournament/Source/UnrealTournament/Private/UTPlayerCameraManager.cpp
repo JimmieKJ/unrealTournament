@@ -193,7 +193,7 @@ void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTi
 		OutVT.POV.ProjectionMode = bIsOrthographic ? ECameraProjectionMode::Orthographic : ECameraProjectionMode::Perspective;
 		OutVT.POV.PostProcessBlendWeight = 1.0f;
 		OutVT.POV.Location = UTPC ? UTPC->RallyLocation : PCOwner->GetFocalLocation();
-		OutVT.POV.Rotation = (OutVT.Target->GetActorLocation() - OutVT.POV.Location).Rotation();
+		OutVT.POV.Rotation = UTPC->GetViewTarget()->GetActorRotation();
 		ApplyCameraModifiers(DeltaTime, OutVT.POV);
 
 		// Synchronize the actor with the view target results
