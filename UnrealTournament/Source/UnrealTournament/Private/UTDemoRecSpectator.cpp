@@ -6,6 +6,8 @@
 #include "UTKillcamPlayback.h"
 #include "UTHUD_InstantReplay.h"
 
+DEFINE_LOG_CATEGORY(LogUTDemoRecSpectator);
+
 AUTDemoRecSpectator::AUTDemoRecSpectator(const FObjectInitializer& OI)
 	: Super(OI)
 {
@@ -46,6 +48,7 @@ void AUTDemoRecSpectator::ViewQueuedNetId()
 			PS = GetWorld()->GameState->PlayerArray[i];
 			QueuedViewTargetNetId = FUniqueNetIdRepl();
 			ViewPlayerState(PS);
+			UE_LOG(LogUTDemoRecSpectator, Log, TEXT("Found queued net id!"));
 		}
 	}
 }
@@ -61,7 +64,8 @@ void AUTDemoRecSpectator::ViewQueuedGuid()
 	if (ActorForGuid)
 	{
 		QueuedViewTargetGuid.Reset();
-		SetViewTarget(ActorForGuid);
+		SetViewTarget(ActorForGuid);			
+		UE_LOG(LogUTDemoRecSpectator, Log, TEXT("Found queued guid!"));
 	}
 }
 
@@ -74,6 +78,7 @@ void AUTDemoRecSpectator::ViewPlayerState(APlayerState* PS)
 		{
 			SetViewTarget(It->Get());
 			QueuedPlayerStateToView = nullptr;
+			UE_LOG(LogUTDemoRecSpectator, Log, TEXT("Found queued player state!"));
 			return;
 		}
 	}

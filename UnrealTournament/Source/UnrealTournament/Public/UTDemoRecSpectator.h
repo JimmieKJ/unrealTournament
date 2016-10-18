@@ -5,6 +5,8 @@
 
 #include "UTDemoRecSpectator.generated.h"
 
+UNREALTOURNAMENT_API DECLARE_LOG_CATEGORY_EXTERN(LogUTDemoRecSpectator, Log, All);
+
 UCLASS()
 class UNREALTOURNAMENT_API AUTDemoRecSpectator : public AUTPlayerController
 {
