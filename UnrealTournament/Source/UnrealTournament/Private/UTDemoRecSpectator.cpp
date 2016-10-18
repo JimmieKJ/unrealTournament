@@ -436,3 +436,13 @@ void AUTDemoRecSpectator::ChooseBestCamera()
 
 	Super::ChooseBestCamera();
 }
+
+void AUTDemoRecSpectator::OnAltFire()
+{
+	if (IsKillcamSpectator())
+	{
+		return;
+	}
+
+	Super::OnAltFire();
+}
