@@ -142,8 +142,7 @@ public:
 	void ClientConnectedToServer();
 	
 	/** Allow the base World to be overridden, to support making the killcam the active world. */
-	UPROPERTY()
-	UWorld* ActiveWorldOverride;
+	TWeakObjectPtr<UWorld> ActiveWorldOverride;
 	
 	/**
 	 * Fixes up the UPlayer::PlayerController pointers for ULocalPlayers to point to their associated PlayerController
@@ -154,6 +153,6 @@ public:
 	virtual UWorld* GetWorld() const override;
 	void SetActiveWorldOverride(UWorld* WorldOverride);
 	void ClearActiveWorldOverride();
-	const UWorld* GetActiveWorldOverride() const { return ActiveWorldOverride; }
+	const UWorld* GetActiveWorldOverride() const { return ActiveWorldOverride.Get(); }
 };
 

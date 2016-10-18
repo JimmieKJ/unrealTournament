@@ -1109,7 +1109,7 @@ void UUTGameViewportClient::SetActiveWorldOverride(UWorld* WorldOverride)
 
 void UUTGameViewportClient::ClearActiveWorldOverride()
 {
-	ActiveWorldOverride = nullptr;
+	ActiveWorldOverride.Reset();
 	SetActiveLocalPlayerControllers();
 }
 
@@ -1135,9 +1135,9 @@ void UUTGameViewportClient::SetActiveLocalPlayerControllers()
 
 UWorld* UUTGameViewportClient::GetWorld() const
 {
-	if (ActiveWorldOverride != nullptr)
+	if (ActiveWorldOverride.IsValid())
 	{
-		return ActiveWorldOverride;
+		return ActiveWorldOverride.Get();
 	}
 
 	return Super::GetWorld();
