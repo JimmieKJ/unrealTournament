@@ -2573,7 +2573,7 @@ void AUTPlayerController::ServerRestartPlayer_Implementation()
 				UTPlayerState->ForceNetUpdate();
 			}
 		}
-		else
+		else if ((UTGM->GetMatchState() != MatchState::CountdownToBegin) && (UTGM->GetMatchState() != MatchState::PlayerIntro))
 		{
 			UTPlayerState->SetReadyToPlay(!UTPlayerState->bReadyToPlay);
 			UTPlayerState->bPendingTeamSwitch = false;
