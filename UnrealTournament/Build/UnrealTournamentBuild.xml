@@ -323,6 +323,8 @@
 			<Compile Target="UnrealCEFSubProcess" Platform="Mac" Configuration="Development"/>
 			<Compile Target="UnrealFrontend" Platform="Mac" Configuration="Development"/>
 			<Compile Target="UnrealLightmass" Platform="Mac" Configuration="Development"/>
+            <Compile Target="UnrealAtoS" Platform="Mac" Configuration="Development"/>
+            <Compile Target="DsymExporter" Platform="Mac" Configuration="Development"/>
 			<Compile Target="UnrealPak" Platform="Mac" Configuration="Development"/>
 		</Node>
 	</Agent>
@@ -343,9 +345,6 @@
 			<TagReceipt Files="$(RootDir)/UnrealTournament/Binaries/Mac/UnrealTournament-Mac-Shipping.target" EngineDir="$(LocalStagingDir)/MacNoEditor/Engine" ProjectDir="$(LocalStagingDir)/MacNoEditor/UnrealTournament" BuildProducts="true" RuntimeDependencies="false" With="#ToSign"/>
 			<TagReceipt Files="$(RootDir)/Engine/Binaries/Mac/CrashReportClient-Mac-Shipping.target" EngineDir="$(LocalStagingDir)/MacNoEditor/Engine" ProjectDir="$(LocalStagingDir)/MacNoEditor/UnrealTournament" BuildProducts="true" RuntimeDependencies="false" With="#ToSign"/>
 			<TagReceipt Files="$(RootDir)/Engine/Binaries/Mac/UnrealCEFSubProcess.target" EngineDir="$(LocalStagingDir)/MacNoEditor/Engine" ProjectDir="$(LocalStagingDir)/MacNoEditor/UnrealTournament" BuildProducts="true" RuntimeDependencies="false" With="#ToSign"/>
-			<!--<TagReceipt Files="$(RootDir)/Engine/Binaries/Mac/UnrealLightmass.target" EngineDir="$(LocalStagingDir)/MacNoEditor/Engine" ProjectDir="$(LocalStagingDir)/MacNoEditor/UnrealTournament" BuildProducts="true" RuntimeDependencies="false" With="#ToSign"/>-->
-			<TagReceipt Files="$(RootDir)/Engine/Binaries/Mac/UnrealPak.target" EngineDir="$(LocalStagingDir)/MacNoEditor/Engine" ProjectDir="$(LocalStagingDir)/MacNoEditor/UnrealTournament" BuildProducts="true" RuntimeDependencies="false" With="#ToSign"/>
-			
 			<Tag Files="#ToSign" Filter="*.app;*.dylib" With="#ToSign_Trimmed"/>
 			<Sign Files="#ToSign_Trimmed" If="$(IsBuildMachine)"/>
 		</Node>
@@ -369,9 +368,18 @@
 			<Property Name="EngineReceiptsDir" Value="$(RootDir)/Engine/Binaries/Mac"/>
 			<Property Name="UTReceiptsDir" Value="$(RootDir)/UnrealTournament/Binaries/Mac"/>
 
-			<TagReceipt Files="$(UTReceiptsDir)/UnrealTournamentEditor.target;$(EngineReceiptsDir)/CrashReportClient-Mac-Shipping.target;$(EngineReceiptsDir)/ShaderCompileWorker.target;$(EngineReceiptsDir)/UnrealCEFSubProcess.target;$(EngineReceiptsDir)/UnrealLightmass.target;$(EngineReceiptsDir)/UnrealPak.target" ProjectDir="$(RootDir)/UnrealTournament" BuildProducts="true" RuntimeDependencies="true" With="#TargetsToCopy"/>
-			<Tag Files="#TargetsToCopy" Except=".../*-Simplygon*;.../*-DDCUtils*;.../*-HTML5*.dylib;.../UnrealFrontend*;.../UnrealHeaderTool*;.../ARM/...;.../ImgTec/...;.../IntelISPCTexComp/...;.../Perforce/...;.../Qualcomm/...;.../svn/..." With="#TrimmedTargets"/>
-			<Tag Files="$(EngineReceiptsDir)/*" Filter="*.target" With="#TrimmedTargets"/>
+            <TagReceipt Files="$(UTReceiptsDir)/UnrealTournamentEditor.target" EngineDir="$(RootDir)/Engine" ProjectDir="$(RootDir)/UnrealTournament" BuildProducts="true" RuntimeDependencies="true" With="#TargetsToCopy"/>
+            <TagReceipt Files="$(EngineReceiptsDir)/CrashReportClient-Mac-Shipping.target" EngineDir="$(RootDir)/Engine" ProjectDir="$(RootDir)/UnrealTournament" BuildProducts="true" RuntimeDependencies="true" With="#TargetsToCopy"/>
+            <TagReceipt Files="$(EngineReceiptsDir)/ShaderCompileWorker.target" EngineDir="$(RootDir)/Engine" ProjectDir="$(RootDir)/UnrealTournament" BuildProducts="true" RuntimeDependencies="true" With="#TargetsToCopy"/>
+            <TagReceipt Files="$(EngineReceiptsDir)/UnrealCEFSubProcess.target" EngineDir="$(RootDir)/Engine" ProjectDir="$(RootDir)/UnrealTournament" BuildProducts="true" RuntimeDependencies="true" With="#TargetsToCopy"/>
+            <TagReceipt Files="$(EngineReceiptsDir)/UnrealFrontend.target" EngineDir="$(RootDir)/Engine" ProjectDir="$(RootDir)/UnrealTournament" BuildProducts="true" RuntimeDependencies="true" With="#TargetsToCopy"/>
+            <TagReceipt Files="$(EngineReceiptsDir)/UnrealLightmass.target" EngineDir="$(RootDir)/Engine" ProjectDir="$(RootDir)/UnrealTournament" BuildProducts="true" RuntimeDependencies="true" With="#TargetsToCopy"/>
+            <TagReceipt Files="$(EngineReceiptsDir)/UnrealAtoS.target" EngineDir="$(RootDir)/Engine" ProjectDir="$(RootDir)/UnrealTournament" BuildProducts="true" RuntimeDependencies="true" With="#TargetsToCopy"/>
+            <TagReceipt Files="$(EngineReceiptsDir)/DsymExporter.target" EngineDir="$(RootDir)/Engine" ProjectDir="$(RootDir)/UnrealTournament" BuildProducts="true" RuntimeDependencies="true" With="#TargetsToCopy"/>
+            <TagReceipt Files="$(EngineReceiptsDir)/UnrealPak.target" EngineDir="$(RootDir)/Engine" ProjectDir="$(RootDir)/UnrealTournament" BuildProducts="true" RuntimeDependencies="true" With="#TargetsToCopy"/>
+            
+            <Tag Files="#TargetsToCopy" Except=".../*-Simplygon*;.../*-DDCUtils*;.../*-HTML5*.dylib;.../UnrealFrontend*;.../UnrealFrontEnd/...;.../UnrealHeaderTool*;.../ARM/...;.../ImgTec/...;.../IntelISPCTexComp/...;$(RootDir)/.../Perforce/...;.../Qualcomm/...;.../svn/..." With="#TrimmedTargets"/>
+			<Tag Files="$(EngineReceiptsDir)/*" Filter="*.target" Except="UnrealFrontend*;*UnrealHeaderTool*" With="#TrimmedTargets"/>
 			<Tag Files="$(UTReceiptsDir)/*" Filter="*.target" With="#TrimmedTargets"/>
 
 			<Tag Files="$(RootDir)/Engine/Build/BatchFiles/*" With="#TrimmedTargets"/>
@@ -401,14 +409,17 @@
 			<Tag Files="$(RootDir)/UnrealTournament/Plugins/NotForLicensees/Social/..." Filter="*.dylib;*.uplugin" With="#FinalTrim"/>
 
 			<Copy Files="#FinalTrim" FromDir="" ToDir="$(LocalStagingDir)/UT-Build/Mac"/>
-
-			<TagReceipt Files="$(RootDir)/UnrealTournament/Binaries/Mac/UnrealTournamentEditor.target" EngineDir="$(LocalStagingDir)/UT-Build/Mac/Engine" ProjectDir="$(LocalStagingDir)/UT-Build/Mac/UnrealTournament" BuildProducts="true" RuntimeDependencies="false" With="#ToSign"/>
-			<TagReceipt Files="$(RootDir)/Engine/Binaries/Mac/CrashReportClient-Mac-Shipping.target" EngineDir="$(LocalStagingDir)/UT-Build/Mac/Engine" ProjectDir="$(LocalStagingDir)/UT-Build/Mac/UnrealTournament" BuildProducts="true" RuntimeDependencies="false" With="#ToSign"/>
-			<TagReceipt Files="$(RootDir)/Engine/Binaries/Mac/UnrealCEFSubProcess.target" EngineDir="$(LocalStagingDir)/UT-Build/Mac/Engine" ProjectDir="$(LocalStagingDir)/UT-Build/Mac/UnrealTournament" BuildProducts="true" RuntimeDependencies="false" With="#ToSign"/>
-			<!--<TagReceipt Files="$(RootDir)/Engine/Binaries/Mac/UnrealLightmass.target" EngineDir="$(LocalStagingDir)/UT-Build/Mac/Engine" ProjectDir="$(LocalStagingDir)/UT-Build/Mac/UnrealTournament" BuildProducts="true" RuntimeDependencies="false" With="#ToSign"/>-->
-			<TagReceipt Files="$(RootDir)/Engine/Binaries/Mac/UnrealPak.target" EngineDir="$(LocalStagingDir)/UT-Build/Mac/Engine" ProjectDir="$(LocalStagingDir)/UT-Build/Mac/UnrealTournament" BuildProducts="true" RuntimeDependencies="false" With="#ToSign"/>
-			
-			<Tag Files="#ToSign" Filter="*.app;*.dylib" With="#ToSign_Trimmed"/>
+            <Property Name="StagingDirUTBinaries" Value="$(LocalStagingDir)/UT-Build/Mac/UnrealTournament/Binaries/Mac"/>
+            <Property Name="StagingDirEngineBinaries" Value="$(LocalStagingDir)/UT-Build/Mac/Engine/Binaries/Mac"/>
+            <TagReceipt Files="$(StagingDirUTBinaries)/UnrealTournamentEditor.target" EngineDir="$(LocalStagingDir)/UT-Build/Mac/Engine" ProjectDir="$(LocalStagingDir)/UT-Build/Mac/UnrealTournament" BuildProducts="true" RuntimeDependencies="false" With="#ToSign"/>
+            <TagReceipt Files="$(StagingDirEngineBinaries)/CrashReportClient-Mac-Shipping.target" EngineDir="$(LocalStagingDir)/UT-Build/Mac/Engine" ProjectDir="$(LocalStagingDir)/UT-Build/Mac/UnrealTournament" BuildProducts="false" RuntimeDependencies="false" With="#ToSign"/>
+            <TagReceipt Files="$(StagingDirEngineBinaries)/ShaderCompileWorker.target" EngineDir="$(LocalStagingDir)/UT-Build/Mac/Engine" ProjectDir="$(LocalStagingDir)/UT-Build/Mac/UnrealTournament" BuildProducts="true" RuntimeDependencies="false" With="#ToSign"/>
+            <TagReceipt Files="$(StagingDirEngineBinaries)/UnrealCEFSubProcess.target" EngineDir="$(LocalStagingDir)/UT-Build/Mac/Engine" ProjectDir="$(LocalStagingDir)/UT-Build/Mac/UnrealTournament" BuildProducts="true" RuntimeDependencies="false" With="#ToSign"/>
+            <TagReceipt Files="$(StagingDirEngineBinaries)/UnrealLightmass.target" EngineDir="$(LocalStagingDir)/UT-Build/Mac/Engine" ProjectDir="$(LocalStagingDir)/UT-Build/Mac/UnrealTournament" BuildProducts="true" RuntimeDependencies="false" With="#ToSign"/>
+            <TagReceipt Files="$(StagingDirEngineBinaries)/UnrealAtoS.target" EngineDir="$(LocalStagingDir)/UT-Build/Mac/Engine" ProjectDir="$(LocalStagingDir)/UT-Build/Mac/UnrealTournament" BuildProducts="true" RuntimeDependencies="false" 		With="#ToSign"/>
+            <TagReceipt Files="$(StagingDirEngineBinaries)/DsymExporter.target" EngineDir="$(LocalStagingDir)/UT-Build/Mac/Engine" ProjectDir="$(LocalStagingDir)/UT-Build/Mac/UnrealTournament" BuildProducts="true" RuntimeDependencies="false" With="#ToSign"/>
+            <TagReceipt Files="$(StagingDirEngineBinaries)/UnrealPak.target" EngineDir="$(LocalStagingDir)/UT-Build/Mac/Engine" ProjectDir="$(LocalStagingDir)/UT-Build/Mac/UnrealTournament" BuildProducts="true" RuntimeDependencies="false" With="#ToSign"/>
+			<Tag Files="#ToSign" Filter="*.app;*.dylib" Except=".../NotForLicensees/...;.../Intermediate/...;.../Linux/...;.../Win32/...;.../Win64/...;.../PS4/...;.../IOS/...;.../Android/...;.../HTML5/...;.../Binaries/Win32/...;.../Binaries/Win64/...;.../Binaries/Linux/..." With="#ToSign_Trimmed"/>
 			<Sign Files="#ToSign_Trimmed" If="$(IsBuildMachine)"/>
 		</Node>
 		<Node Name="EditorDDC Mac" Requires="Copy Editor Mac">
