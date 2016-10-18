@@ -336,12 +336,13 @@ bool AUTWeap_Enforcer::StackPickup_Implementation(AUTInventory* ContainedInv)
 
 void AUTWeap_Enforcer::BecomeDual()
 {
-	if (bBecomeDual)
-	{
-		return;
-	}
 	if (Role == ROLE_Authority)
 	{
+		if (bBecomeDual)
+		{
+			return;
+		}
+
 		MaxAmmo *= 2;
 	}
 	bBecomeDual = true;
