@@ -131,7 +131,6 @@ namespace CarriedObjectState
 
 namespace RallyPointStates
 {
-	const FName Available = FName(TEXT("Available"));
 	const FName Off = FName(TEXT("Off"));
 	const FName Charging = FName(TEXT("Charging"));
 	const FName Powered = FName(TEXT("Powered"));

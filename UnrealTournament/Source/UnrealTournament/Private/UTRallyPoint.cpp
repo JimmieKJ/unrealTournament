@@ -46,6 +46,7 @@ AUTRallyPoint::AUTRallyPoint(const FObjectInitializer& ObjectInitializer)
 	ReplicatedCountdown = RallyReadyCountdown;
 	bIsEnabled = true;
 	RallyOffset = 0;
+	RallyPointState = RallyPointStates::Off;
 }
 
 #if WITH_EDITORONLY_DATA
@@ -66,6 +67,15 @@ void AUTRallyPoint::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Out
 void AUTRallyPoint::BeginPlay()
 {
 	Super::BeginPlay();
+
+	if (GetWorld()->GetNetMode() != NM_DedicatedServer)
+	{
+		APlayerController* PC = GEngine->GetFirstLocalPlayerController(GetWorld());
+		if (PC != NULL && PC->MyHUD != NULL)
+		{
+			PC->MyHUD->AddPostRenderedActor(this);
+		}
+	}
 
 	// associate as team locker with team volume I am in
 	TArray<UPrimitiveComponent*> OverlappingComponents;
@@ -539,4 +549,74 @@ FVector AUTRallyPoint::GetRallyLocation(AUTCharacter* TestChar)
 	}
 	return GetActorLocation();
 }
+
+void AUTRallyPoint::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector CameraPosition, FVector CameraDir)
+{
+	AUTPlayerState* ViewerPS = PC ? Cast <AUTPlayerState>(PC->PlayerState) : nullptr;
+	if (!ViewerPS || !ViewerPS->CarriedObject)
+	{
+		return;
+	}
+
+	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+	AUTPlayerController* UTPC = Cast<AUTPlayerController>(PC);
+	const bool bIsViewTarget = (PC->GetViewTarget() == this);
+	float Dist = (CameraPosition - GetActorLocation()).Size();
+	if (UTPC != NULL && (bShowAvailableEffect || (Dist < 3000.f)) && (RallyPointState == RallyPointStates::Off) && GS && !GS->IsMatchIntermission() && !GS->HasMatchEnded() &&
+		FVector::DotProduct(CameraDir, (GetActorLocation() - CameraPosition)) > 0.0f && (UTPC->MyUTHUD == nullptr || !UTPC->MyUTHUD->bShowScores))
+	{
+		float TextXL, YL;
+		float ScaleTime = FMath::Min(1.f, 6.f * GetWorld()->DeltaTimeSeconds);
+		float MinTextScale = 0.75f;
+		// BeaconTextScale = (1.f - ScaleTime) * BeaconTextScale + ScaleTime * ((bRecentlyRendered && !bFarAway) ? 1.f : 0.75f);
+		float Scale = Canvas->ClipX / 1920.f;
+		UFont* SmallFont = AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>()->SmallFont;
+		FText RallyText = NSLOCTEXT("UTRallyPoint", "RallyHere", " RALLY HERE! ");
+		Canvas->TextSize(SmallFont, RallyText.ToString(), TextXL, YL, Scale, Scale);
+		FVector WorldPosition = GetActorLocation();
+		FVector ScreenPosition = Canvas->Project(WorldPosition);
+		float XPos = ScreenPosition.X - 0.5f*TextXL;
+		float YPos = ScreenPosition.Y - YL;
+		if (XPos < Canvas->ClipX || XPos + TextXL < 0.0f)
+		{
+			FLinearColor TeamColor = FLinearColor::Yellow;
+			float CenterFade = 1.f;
+			float PctFromCenter = (ScreenPosition - FVector(0.5f*Canvas->ClipX, 0.5f*Canvas->ClipY, 0.f)).Size() / Canvas->ClipX;
+			CenterFade = CenterFade * FMath::Clamp(10.f*PctFromCenter, 0.15f, 1.f);
+			TeamColor.A = 0.2f * CenterFade;
+			UTexture* BarTexture = AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>()->HUDAtlas;
+
+			Canvas->SetLinearDrawColor(TeamColor);
+			float Border = 2.f*Scale;
+			float Height = 0.75*YL + 0.7f * YL;
+			Canvas->DrawTile(Canvas->DefaultTexture, XPos - Border, YPos - YL - Border, TextXL + 2.f*Border, Height + 2.f*Border, 0, 0, 1, 1);
+			FLinearColor BeaconTextColor = FLinearColor::White;
+			BeaconTextColor.A = 0.6f * CenterFade;
+			FUTCanvasTextItem TextItem(FVector2D(FMath::TruncToFloat(Canvas->OrgX + XPos), FMath::TruncToFloat(Canvas->OrgY + YPos - 1.2f*YL)), RallyText, SmallFont, BeaconTextColor, NULL);
+			TextItem.Scale = FVector2D(Scale, Scale);
+			TextItem.BlendMode = SE_BLEND_Translucent;
+			FLinearColor ShadowColor = FLinearColor::Black;
+			ShadowColor.A = BeaconTextColor.A;
+			TextItem.EnableShadow(ShadowColor);
+			TextItem.FontRenderInfo = Canvas->CreateFontRenderInfo(true, false);
+			Canvas->DrawItem(TextItem);
+
+			FFormatNamedArguments Args;
+			FText NumberText = FText::AsNumber(int32(0.01f*Dist));
+			UFont* TinyFont = AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>()->TinyFont;
+			Canvas->TextSize(TinyFont, TEXT("XX meters"), TextXL, YL, Scale, Scale);
+			Args.Add("Dist", NumberText);
+			FText DistText = NSLOCTEXT("UTRallyPoint", "DistanceText", "{Dist} meters");
+			TextItem.Font = TinyFont;
+			TextItem.Text = FText::Format(DistText, Args);
+			TextItem.Position.X = ScreenPosition.X - 0.5f*TextXL;
+			TextItem.Position.Y += 0.9f*YL;
+
+			Canvas->DrawItem(TextItem);
+		}
+	}
+}
+
+// FIXMESTEVE show distance and triangle
+
 

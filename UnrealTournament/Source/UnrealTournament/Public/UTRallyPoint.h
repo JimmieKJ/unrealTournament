@@ -109,6 +109,7 @@ class UNREALTOURNAMENT_API AUTRallyPoint : public AUTGameObjective
 
 	virtual void BeginPlay() override;
 	virtual void Tick(float DeltaTime) override;
+	virtual void PostRenderFor(APlayerController *PC, UCanvas *Canvas, FVector CameraPosition, FVector CameraDir) override;
 
 	virtual void FlagCarrierInVolume(class AUTCharacter* NewFC);
 
