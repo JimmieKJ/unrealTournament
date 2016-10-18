@@ -198,7 +198,7 @@ FName UUTCTFMajorMessage::GetTeamAnnouncement(int32 Switch, uint8 TeamNum) const
 	case 11: return TEXT("HalfTime"); break;
 	case 12: return TEXT("OverTime"); break;
 	case 21: return TEXT("FlagCanBePickedUp"); break;
-	case 25: return RallyCompleteName; break;
+	//case 25: return RallyCompleteName; break;
 	}
 	return NAME_None;
 }
