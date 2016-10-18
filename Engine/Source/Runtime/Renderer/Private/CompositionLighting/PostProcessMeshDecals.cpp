@@ -473,39 +473,44 @@ private:
 		const auto FeatureLevel = View.GetFeatureLevel();
 
 		const FMaterialRenderProxy* MaterialRenderProxy = Mesh.MaterialRenderProxy;
-		const FMaterial* Material = MaterialRenderProxy->GetMaterial(FeatureLevel);
+		const FMaterial* Material = MaterialRenderProxy->GetMaterialNoFallback(FeatureLevel);
 
-		if(Material->IsDeferredDecal())
+		if (Material->IsDeferredDecal())
 		{
-			EDecalRenderStage LocalDecalRenderStage = FDecalRenderingCommon::ComputeRenderStage(View.GetShaderPlatform(), (EDecalBlendMode)Material->GetDecalBlendMode());
-	
-			// can be optimized (ranges for different decal stages or separate lists)
-			if(DrawingContext.CurrentDecalStage == LocalDecalRenderStage)
+			// We have no special engine material for decals since we don't want to eat the compilation & memory cost, so just skip if it failed to compile
+			if (Material->GetRenderingThreadShaderMap())
 			{
-				DrawingContext.SetState(Material);
+				EDecalRenderStage LocalDecalRenderStage = FDecalRenderingCommon::ComputeRenderStage(View.GetShaderPlatform(), (EDecalBlendMode)Material->GetDecalBlendMode());
 
-				FMeshDecalsDrawingPolicy DrawingPolicy(Mesh.VertexFactory, MaterialRenderProxy, *Material, View.GetFeatureLevel());
-				RHICmdList.BuildAndSetLocalBoundShaderState(DrawingPolicy.GetBoundShaderStateInput(View.GetFeatureLevel()));
-				DrawingPolicy.SetSharedState(RHICmdList, &View, FDepthDrawingPolicy::ContextDataType(bIsInstancedStereo, bNeedsInstancedStereoBias));
-
-				int32 BatchElementIndex = 0;
-				uint64 Mask = BatchElementMask;
-				do
+				// can be optimized (ranges for different decal stages or separate lists)
+				if (DrawingContext.CurrentDecalStage == LocalDecalRenderStage)
 				{
-					if(Mask & 1)
-					{
-						TDrawEvent<FRHICommandList> MeshEvent;
-						BeginMeshDrawEvent(RHICmdList, PrimitiveSceneProxy, Mesh, MeshEvent);
-					
-						DrawingPolicy.SetMeshRenderState(RHICmdList, View,PrimitiveSceneProxy,Mesh,BatchElementIndex,bBackFace,DrawRenderState,FMeshDrawingPolicy::ElementDataType(),FDepthDrawingPolicy::ContextDataType());
-						DrawingPolicy.DrawMesh(RHICmdList, Mesh, BatchElementIndex, bIsInstancedStereo);
-					}
-					Mask >>= 1;
-					BatchElementIndex++;
-				} while(Mask);
+					DrawingContext.SetState(Material);
 
-				bDirty = true;
-			}	
+					FMeshDecalsDrawingPolicy DrawingPolicy(Mesh.VertexFactory, MaterialRenderProxy, *Material, View.GetFeatureLevel());
+					RHICmdList.BuildAndSetLocalBoundShaderState(DrawingPolicy.GetBoundShaderStateInput(View.GetFeatureLevel()));
+					DrawingPolicy.SetSharedState(RHICmdList, &View, FDepthDrawingPolicy::ContextDataType(bIsInstancedStereo, bNeedsInstancedStereoBias));
+
+					int32 BatchElementIndex = 0;
+					uint64 Mask = BatchElementMask;
+					do
+					{
+						if (Mask & 1)
+						{
+							TDrawEvent<FRHICommandList> MeshEvent;
+							BeginMeshDrawEvent(RHICmdList, PrimitiveSceneProxy, Mesh, MeshEvent);
+
+							DrawingPolicy.SetMeshRenderState(RHICmdList, View, PrimitiveSceneProxy, Mesh, BatchElementIndex, bBackFace, DrawRenderState, FMeshDrawingPolicy::ElementDataType(), FDepthDrawingPolicy::ContextDataType());
+							DrawingPolicy.DrawMesh(RHICmdList, Mesh, BatchElementIndex, bIsInstancedStereo);
+						}
+						Mask >>= 1;
+						BatchElementIndex++;
+					}
+					while (Mask);
+
+					bDirty = true;
+				}
+			}
 		}
 
 		return bDirty;
