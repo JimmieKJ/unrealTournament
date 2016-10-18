@@ -6,6 +6,7 @@
 #include "UTViewPlaceholder.h"
 #include "UTNoCameraVolume.h"
 #include "UTRemoteRedeemer.h"
+#include "UTDemoRecSpectator.h"
 
 AUTPlayerCameraManager::AUTPlayerCameraManager(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -115,7 +116,7 @@ void AUTPlayerCameraManager::UpdateCamera(float DeltaTime)
 		// Cache results
 		FillCameraCache(NewPOV);
 	}
-	else
+	else if (!Cast<AUTDemoRecSpectator>(PCOwner))
 	{
 		Super::UpdateCamera(DeltaTime);
 	}
@@ -165,7 +166,7 @@ void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTi
 	static const FName NAME_GameOver = FName(TEXT("GameOver"));
 
 	FName SavedCameraStyle = CameraStyle;
-	CameraStyle = GetCameraStyleWithOverrides();
+	CameraStyle = (CameraStyle == NAME_RallyCam) ? NAME_RallyCam : GetCameraStyleWithOverrides();
 
 	// smooth third person camera all the time
 	if (OutVT.Target == PCOwner)
@@ -192,8 +193,17 @@ void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTi
 		OutVT.POV.bConstrainAspectRatio = false;
 		OutVT.POV.ProjectionMode = bIsOrthographic ? ECameraProjectionMode::Orthographic : ECameraProjectionMode::Perspective;
 		OutVT.POV.PostProcessBlendWeight = 1.0f;
-		OutVT.POV.Location = UTPC ? UTPC->RallyLocation : PCOwner->GetFocalLocation();
-		OutVT.POV.Rotation = UTPC->GetViewTarget()->GetActorRotation();
+
+		if (UTPC)
+		{
+			OutVT.POV.Location = UTPC->RallyLocation;
+			OutVT.POV.Rotation = UTPC->GetViewTarget()->GetActorRotation();
+		}
+		else
+		{
+			OutVT.POV.Location = PCOwner->GetFocalLocation();
+			OutVT.POV.Rotation = PCOwner->GetControlRotation();
+		}
 		ApplyCameraModifiers(DeltaTime, OutVT.POV);
 
 		// Synchronize the actor with the view target results
