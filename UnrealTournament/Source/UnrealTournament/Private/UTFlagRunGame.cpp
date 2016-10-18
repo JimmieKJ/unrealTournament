@@ -170,9 +170,9 @@ void AUTFlagRunGame::InitGameStateForRound()
 		FRGS->bIsOffenseAbleToGainPowerup = true;
 		FRGS->bIsDefenseAbleToGainPowerup = true;
 		FRGS->bRedToCap = !FRGS->bRedToCap;
+		FRGS->CurrentRallyPoint = nullptr;
 	}
 }
-
 
 bool AUTFlagRunGame::AvoidPlayerStart(AUTPlayerStart* P)
 {

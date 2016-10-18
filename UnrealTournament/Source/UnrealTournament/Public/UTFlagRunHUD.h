@@ -13,6 +13,7 @@ class UNREALTOURNAMENT_API AUTFlagRunHUD : public AUTHUD_CTF
 
 	virtual void DrawHUD() override;
 	virtual void NotifyMatchStateChange() override;
+	virtual void BeginPlay() override;
 
 	/** icon for player starts on the minimap (foreground) */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, NoClear)

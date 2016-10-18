@@ -20,6 +20,7 @@ AUTRallyPoint::AUTRallyPoint(const FObjectInitializer& ObjectInitializer)
 	Capsule->OnComponentBeginOverlap.AddDynamic(this, &AUTRallyPoint::OnOverlapBegin);
 	Capsule->OnComponentEndOverlap.AddDynamic(this, &AUTRallyPoint::OnOverlapEnd);
 	RootComponent = Capsule;
+	bShowAvailableEffect = true;
 
 #if WITH_EDITORONLY_DATA
 	ArrowComponent = CreateEditorOnlyDefaultSubobject<UArrowComponent>(TEXT("Arrow"));
@@ -68,15 +69,6 @@ void AUTRallyPoint::BeginPlay()
 {
 	Super::BeginPlay();
 
-	if (GetWorld()->GetNetMode() != NM_DedicatedServer)
-	{
-		APlayerController* PC = GEngine->GetFirstLocalPlayerController(GetWorld());
-		if (PC != NULL && PC->MyHUD != NULL)
-		{
-			PC->MyHUD->AddPostRenderedActor(this);
-		}
-	}
-
 	// associate as team locker with team volume I am in
 	TArray<UPrimitiveComponent*> OverlappingComponents;
 	Capsule->GetOverlappingComponents(OverlappingComponents);
@@ -116,6 +108,14 @@ void AUTRallyPoint::BeginPlay()
 		static FName NAME_EmissiveBrightness(TEXT("EmissiveBrightness"));
 		GlowDecalMaterialInstance->SetScalarParameterValue(NAME_EmissiveBrightness, 0.f);
 	}
+	OnAvailableEffectChanged();
+}
+
+void AUTRallyPoint::Reset_Implementation()
+{
+	bShowAvailableEffect = false;
+	RallyPointState = RallyPointStates::Off;
+	FlagCarrierInVolume(nullptr);
 }
 
 void AUTRallyPoint::OnOverlapBegin(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
@@ -259,12 +259,16 @@ void AUTRallyPoint::FlagCarrierInVolume(AUTCharacter* NewFC)
 				if (CharFlag)
 				{
 					SetRallyPointState(RallyPointStates::Charging);
+					if (GetNetMode() != NM_DedicatedServer)
+					{
+						OnAvailableEffectChanged();
+					}
 					break;
 				}
 			}
 		}
 	}
-	if (GetNetMode() != NM_DedicatedServer)
+	else if (GetNetMode() != NM_DedicatedServer)
 	{
 		OnAvailableEffectChanged();
 	}
@@ -345,14 +349,14 @@ void AUTRallyPoint::OnAvailableEffectChanged()
 		FVector RingColor(1.f, 1.f, 0.f);
 		if ((RallyPointState != RallyPointStates::Powered) && bHaveGameState)
 		{
-			RingColor = UTGS->bRedToCap ? FVector(1.f, 0.f, 0.f) : FVector(0.f, 0.f, 1.f);
+			RingColor = (UTGS->bRedToCap || !UTGS->HasMatchStarted()) ? FVector(1.f, 0.f, 0.f) : FVector(0.f, 0.f, 1.f);
 		}
 		static FName NAME_RingColor(TEXT("RingColor"));
 		AvailableEffectPSC->SetVectorParameter(NAME_RingColor, RingColor);
 		if (GlowDecalMaterialInstance)
 		{
 			static FName NAME_Color(TEXT("Color"));
-			GlowDecalMaterialInstance->SetVectorParameterValue(NAME_Color, UTGS && UTGS->bRedToCap ? FVector(5.f, 0.f, 0.f) : FVector(0.f,0.f,5.f));
+			GlowDecalMaterialInstance->SetVectorParameterValue(NAME_Color, 5.f*RingColor);
 			static FName NAME_EmissiveBrightness(TEXT("EmissiveBrightness"));
 			GlowDecalMaterialInstance->SetScalarParameterValue(NAME_EmissiveBrightness, 1.f);
 		}
@@ -376,8 +380,12 @@ void AUTRallyPoint::Tick(float DeltaTime)
 		{
 			if (!NearbyFC || NearbyFC->IsPendingKillPending() || !NearbyFC->GetCarriedObject())
 			{
-				UE_LOG(UT, Warning, TEXT("FAILSAFE CLEAR RALLY POINTS"));
-				FlagCarrierInVolume(nullptr);
+				AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+				if (GS && GS->HasMatchStarted())
+				{
+					UE_LOG(UT, Warning, TEXT("FAILSAFE CLEAR RALLY POINTS"));
+					FlagCarrierInVolume(nullptr);
+				}
 			}
 			else if (RallyPointState == RallyPointStates::Charging)
 			{

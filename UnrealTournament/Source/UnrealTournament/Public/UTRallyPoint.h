@@ -5,7 +5,7 @@
 #include "UTRallyPoint.generated.h"
 
 UCLASS(Blueprintable)
-class UNREALTOURNAMENT_API AUTRallyPoint : public AUTGameObjective
+class UNREALTOURNAMENT_API AUTRallyPoint : public AUTGameObjective, public IUTResetInterface
 {
 	GENERATED_UCLASS_BODY()
 
@@ -110,6 +110,8 @@ class UNREALTOURNAMENT_API AUTRallyPoint : public AUTGameObjective
 	virtual void BeginPlay() override;
 	virtual void Tick(float DeltaTime) override;
 	virtual void PostRenderFor(APlayerController *PC, UCanvas *Canvas, FVector CameraPosition, FVector CameraDir) override;
+
+	virtual void Reset_Implementation() override;
 
 	virtual void FlagCarrierInVolume(class AUTCharacter* NewFC);
 
