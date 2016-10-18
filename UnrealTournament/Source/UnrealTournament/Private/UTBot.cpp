@@ -1432,8 +1432,6 @@ void AUTBot::ApplyWeaponAimAdjust(FVector TargetLoc, FVector& FocalPoint)
 				{
 					FCollisionQueryParams Params(FName(TEXT("ApplyWeaponAimAdjust")), true, GetPawn());
 					Params.AddIgnoredActor(GetFocusActor());
-					FCollisionObjectQueryParams ResultParams(ECC_WorldStatic);
-					ResultParams.AddObjectTypesToQuery(ECC_WorldDynamic);
 
 					const float TargetHeight = (GetFocusActor() != NULL) ? GetFocusActor()->GetSimpleCollisionHalfHeight() : 0.0f;
 					AUTCharacter* EnemyChar = Cast<AUTCharacter>(GetFocusActor());
@@ -1446,15 +1444,15 @@ void AUTBot::ApplyWeaponAimAdjust(FVector TargetLoc, FVector& FocalPoint)
 							|| (GetPawn()->GetActorLocation().Z + 40.0f >= FocalPoint.Z && (bDefendMelee || Skill > 6.5f * FMath::FRand() - 0.5f)) ) )
 					{
 						FHitResult Hit;
-						bClean = !GetWorld()->LineTraceSingleByObjectType(Hit, TargetLoc, TargetLoc - FVector(0.0f, 0.0f, TargetHeight + 13.0f), ResultParams, Params);
+						bClean = !GetWorld()->LineTraceSingleByChannel(Hit, TargetLoc, TargetLoc - FVector(0.0f, 0.0f, TargetHeight + 13.0f), COLLISION_TRACE_WEAPONNOCHARACTER, Params);
 						if (!bClean)
 						{
 							TargetLoc = Hit.Location + FVector(0.0f, 0.0f, 6.0f);
-							bClean = !GetWorld()->LineTraceTestByObjectType(FireStart, TargetLoc, ResultParams, Params);
+							bClean = !GetWorld()->LineTraceTestByChannel(FireStart, TargetLoc, COLLISION_TRACE_WEAPONNOCHARACTER, Params);
 						}
 						else
 						{
-							bClean = (EnemyChar->GetCharacterMovement()->MovementMode == MOVE_Falling && !GetWorld()->LineTraceTestByObjectType(FireStart, TargetLoc, ResultParams, Params));
+							bClean = (EnemyChar->GetCharacterMovement()->MovementMode == MOVE_Falling && !GetWorld()->LineTraceTestByChannel(FireStart, TargetLoc, COLLISION_TRACE_WEAPONNOCHARACTER, Params));
 						}
 					}
 					bool bCheckedHead = false;
@@ -1478,7 +1476,7 @@ void AUTBot::ApplyWeaponAimAdjust(FVector TargetLoc, FVector& FocalPoint)
 						{
 							// try head
 							TargetLoc.Z = FocalPoint.Z + 0.9f * TargetHeight;
-							bClean = !GetWorld()->LineTraceTestByObjectType(FireStart, TargetLoc, ResultParams, Params);
+							bClean = !GetWorld()->LineTraceTestByChannel(FireStart, TargetLoc, COLLISION_TRACE_WEAPONNOCHARACTER, Params);
 							bCheckedHead = true;
 							bHeadClean = bClean;
 						}
@@ -1488,14 +1486,14 @@ void AUTBot::ApplyWeaponAimAdjust(FVector TargetLoc, FVector& FocalPoint)
 					{
 						// try middle
 						TargetLoc.Z = FocalPoint.Z;
-						bClean = !GetWorld()->LineTraceTestByObjectType(FireStart, TargetLoc, ResultParams, Params);
+						bClean = !GetWorld()->LineTraceTestByChannel(FireStart, TargetLoc, COLLISION_TRACE_WEAPONNOCHARACTER, Params);
 					}
 
 					if (!bClean)
 					{
 						// try head
 						TargetLoc.Z = FocalPoint.Z + 0.9f * TargetHeight;
-						bClean = bCheckedHead ? bHeadClean : !GetWorld()->LineTraceTestByObjectType(FireStart, TargetLoc, ResultParams, Params);
+						bClean = bCheckedHead ? bHeadClean : !GetWorld()->LineTraceTestByChannel(FireStart, TargetLoc, COLLISION_TRACE_WEAPONNOCHARACTER, Params);
 					}
 					if (!bClean && Enemy != NULL && GetFocusActor() == Enemy)
 					{
@@ -1508,10 +1506,10 @@ void AUTBot::ApplyWeaponAimAdjust(FVector TargetLoc, FVector& FocalPoint)
 								TargetLoc.Z -= 0.4f * TargetHeight;
 							}
 							FHitResult Hit;
-							if (GetWorld()->LineTraceSingleByObjectType(Hit, FireStart, TargetLoc, ResultParams, Params))
+							if (GetWorld()->LineTraceSingleByChannel(Hit, FireStart, TargetLoc, COLLISION_TRACE_WEAPONNOCHARACTER, Params))
 							{
 								TargetLoc = EnemyInfo->LastSeenLoc + 2.0f * TargetHeight * Hit.Normal;
-								if (MyWeap != NULL && MyWeap->GetDamageRadius(NextFireMode) > 0.0f && Skill >= 4.0f && GetWorld()->LineTraceSingleByObjectType(Hit, FireStart, TargetLoc, ResultParams, Params))
+								if (MyWeap != NULL && MyWeap->GetDamageRadius(NextFireMode) > 0.0f && Skill >= 4.0f && GetWorld()->LineTraceSingleByChannel(Hit, FireStart, TargetLoc, COLLISION_TRACE_WEAPONNOCHARACTER, Params))
 								{
 									TargetLoc += 2.0f * TargetHeight * Hit.Normal;
 								}
