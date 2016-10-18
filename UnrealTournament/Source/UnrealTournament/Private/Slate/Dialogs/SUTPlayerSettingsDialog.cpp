@@ -944,6 +944,12 @@ void SUTPlayerSettingsDialog::OnNameTextChanged(const FText& NewText)
 			AdjustedText.GetCharArray().RemoveAt(i);
 		}
 	}
+
+	if (AdjustedText.Len() > 16)
+	{
+		AdjustedText = AdjustedText.Left(16);
+	}
+
 	if (AdjustedText != NewText.ToString())
 	{
 		PlayerName->SetText(FText::FromString(AdjustedText));
