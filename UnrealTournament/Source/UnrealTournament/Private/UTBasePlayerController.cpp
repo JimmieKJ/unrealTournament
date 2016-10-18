@@ -246,10 +246,13 @@ void AUTBasePlayerController::ServerSay_Implementation(const FString& Message, b
 	{
 		// Look to see if this message is a direct message to a given player.
 
-		if (Message.Left(1) == TEXT("@"))
+		FString TrimmedMessage = Message;
+		TrimmedMessage = TrimmedMessage.Trim();
+
+		if (TrimmedMessage.Left(1) == TEXT("@"))
 		{
 			// Remove the @
-			FString TrimmedMessage = Message.Right(Message.Len()-1);
+			TrimmedMessage = TrimmedMessage.Right(TrimmedMessage.Len()-1);
 			DirectSay(TrimmedMessage);
 			return;
 		}
@@ -269,7 +272,7 @@ void AUTBasePlayerController::ServerSay_Implementation(const FString& Message, b
 					// Dont send spectator chat to players
 					if (UTPC->PlayerState != nullptr && (!bSpectatorMsg || UTPC->PlayerState->bOnlySpectator) && !bIsMuted)
 					{
-						UTPC->ClientSay(UTPlayerState, Message, (bTeamMessage ? ChatDestinations::Team : ChatDestinations::Local));
+						UTPC->ClientSay(UTPlayerState, TrimmedMessage, (bTeamMessage ? ChatDestinations::Team : ChatDestinations::Local));
 					}
 				}
 			}
