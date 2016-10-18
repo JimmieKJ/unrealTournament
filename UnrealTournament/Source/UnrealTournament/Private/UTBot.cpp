@@ -1570,7 +1570,8 @@ void AUTBot::UpdateControlRotation(float DeltaTime, bool bUpdatePawn)
 							bLargeTrackedVelocityChange = EnemyUTC && !SavedPositions[i - 1].Velocity.IsNearlyZero() && !SavedPositions[i].Velocity.IsNearlyZero() && (SavedPositions[i - 1].Velocity.Z == 0.f) && (SavedPositions[i].Velocity.Z != 0.f) && (SavedPositions[i].Velocity.Size2D() > 1.2f*EnemyUTC->GetCharacterMovement()->MaxWalkSpeed);
 							// handle the case where the predicted velocity puts the target right through us (e.g. close range enemy is charging)
 							// in that case clamp the prediction to collide with us so that the bot doesn't target the opposite direction
-							if (FMath::PointDistToSegment(GetPawn()->GetActorLocation(), TargetLoc, TargetLoc + TrackedVelocity * (TrackingReactionTime + TrackingPredictionError)) < GetPawn()->GetSimpleCollisionRadius())
+							if ( FMath::PointDistToSegment(GetPawn()->GetActorLocation(), TargetLoc, TargetLoc + TrackedVelocity * (TrackingReactionTime + TrackingPredictionError)) < GetPawn()->GetSimpleCollisionRadius() &&
+								((Enemy->GetActorLocation() - GetPawn()->GetActorLocation()).GetSafeNormal2D() | (TargetLoc - GetPawn()->GetActorLocation()).GetSafeNormal2D()) > 0.2f )
 							{
 								float SavedZ = TrackedVelocity.Z;
 								TrackedVelocity = TrackedVelocity.GetSafeNormal2D() * (((TargetLoc - GetPawn()->GetActorLocation()).Size() - GetPawn()->GetSimpleCollisionRadius()) / (TrackingReactionTime + TrackingPredictionError));
