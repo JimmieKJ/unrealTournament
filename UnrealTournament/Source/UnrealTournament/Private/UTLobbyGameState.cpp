@@ -1335,5 +1335,33 @@ void AUTLobbyGameState::GetMatchBans(int32 GameInstanceId, TArray<FUniqueNetIdRe
 
 bool AUTLobbyGameState::IsClientFullyInformed()
 {
-	return (GetNetMode() == NM_Client && AllMapsOnServerCount == AllMapsOnServer.Num() && AvailabelGameRulesetCount == AvailableGameRulesets.Num());
+	if ( GetNetMode() == NM_Client && 
+			AllMapsOnServerCount > 0 && AllMapsOnServerCount == AllMapsOnServer.Num() && 
+			AvailabelGameRulesetCount > 0 && AvailabelGameRulesetCount == AvailableGameRulesets.Num() )
+	{
+		// We need to check the actual data because it's possible that the array length get's replicated before the 
+		// replicated infos. 
+		bool bAllGood = true;
+		for (int32 i=0; i < AllMapsOnServer.Num(); i++)
+		{
+			if (AllMapsOnServer[i] == nullptr)
+			{
+				bAllGood = false;
+				break;
+			}
+		}
+
+		for (int32 i=0; i < AvailableGameRulesets.Num(); i++)
+		{
+			if (AvailableGameRulesets[i] == nullptr)
+			{
+				bAllGood = false;
+				break;
+			}
+		}
+
+		return bAllGood;
+
+	}
+	return false;
 }
