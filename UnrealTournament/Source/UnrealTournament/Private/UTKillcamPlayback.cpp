@@ -9,6 +9,8 @@
 #include "UTGameViewportClient.h"
 #include "UTDemoRecSpectator.h"
 #include "UTDemoNetDriver.h"
+#include "UTProj_Redeemer.h"
+#include "UTRemoteRedeemer.h"
 
 TAutoConsoleVariable<int32> CVarUTEnableInstantReplay(
 	TEXT("UT.EnableInstantReplay"),
@@ -474,6 +476,18 @@ void UUTKillcamPlayback::HideKillcamFromUser()
 	if (KillcamWorld == nullptr)
 	{
 		return;
+	}
+
+	// Clean up actors that have looping sounds
+	for (TActorIterator<AUTProj_Redeemer> It(KillcamWorld); It; ++It)
+	{
+		It->Destroy();
+	}
+
+	// Clean up actors that have looping sounds
+	for (TActorIterator<AUTRemoteRedeemer> It(KillcamWorld); It; ++It)
+	{
+		It->Destroy();
 	}
 
 	UGameInstance* GameInstance = KillcamWorld->GetGameInstance();
