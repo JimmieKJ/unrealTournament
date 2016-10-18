@@ -879,6 +879,12 @@ protected:
 	UPROPERTY(BlueprintReadOnly, Category = Pawn)
 	bool bInRagdollRecovery;
 
+	/** top root speed during ragdoll, used for falling damage
+	 * this is needed because the velocity will have changed by the time we get the physics notify so it's too late to work off that
+	 */
+	UPROPERTY(BlueprintReadOnly, Category = Pawn)
+	float TopRagdollSpeed;
+
 	/** Magnitude of impulse to push ragdoll around if fail to get up from feign. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Pawn)
 	float FeignNudgeMag;

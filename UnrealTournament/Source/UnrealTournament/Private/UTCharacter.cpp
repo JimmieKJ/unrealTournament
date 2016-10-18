@@ -1630,6 +1630,11 @@ void AUTCharacter::StartRagdoll()
 			}
 		}
 		GetCharacterMovement()->ApplyAccumulatedForces(0.0f);
+		// enable CCD on root body to avoid passing through surfaces at high velocity/low framerate (let the other bones clip for perf)
+		if (GetMesh()->GetBodyInstance() != nullptr)
+		{
+			GetMesh()->GetBodyInstance()->bUseCCD = true;
+		}
 		GetMesh()->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones;
 		GetMesh()->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
 		GetMesh()->SetAllBodiesNotifyRigidBodyCollision(true); // note that both the component and the body instance need this set for it to apply
@@ -1671,6 +1676,8 @@ void AUTCharacter::StartRagdoll()
 
 		// set up the custom physics override, if necessary
 		SetRagdollGravityScale(RagdollGravityScale);
+
+		TopRagdollSpeed = 0.0f;
 	}
 }
 
@@ -3883,23 +3890,14 @@ void AUTCharacter::TakeFallingDamage(const FHitResult& Hit, float FallingSpeed)
 
 void AUTCharacter::CheckRagdollFallingDamage(const FHitResult& Hit)
 {
-	FVector MeshVelocity = GetMesh()->GetComponentVelocity();
-	// physics numbers don't seem to match up... biasing towards more falling damage over less to minimize exploits
-	// besides, faceplanting ought to hurt more than landing on your feet, right? :)
-	MeshVelocity.Z *= 2.0f;
-	if (MeshVelocity.Z < -1.f * MaxSafeFallSpeed)
+	if (TopRagdollSpeed > MaxSafeFallSpeed)
 	{
 		FVector SavedVelocity = GetCharacterMovement()->Velocity;
-		GetCharacterMovement()->Velocity = MeshVelocity;
+		GetCharacterMovement()->Velocity = FVector(0.0f, 0.0f, -TopRagdollSpeed);
 		TakeFallingDamage(Hit, GetCharacterMovement()->Velocity.Z);
 		GetCharacterMovement()->Velocity = SavedVelocity;
-		// clear Z velocity on the mesh so that this collision won't happen again unless there's a new fall
-		for (int32 i = 0; i < GetMesh()->Bodies.Num(); i++)
-		{
-			FVector Vel = GetMesh()->Bodies[i]->GetUnrealWorldVelocity();
-			Vel.Z = 0.0f;
-			GetMesh()->Bodies[i]->SetLinearVelocity(Vel, false);
-		}
+		// reset so we don't trigger again off collision events in the same frame
+		TopRagdollSpeed = 0.0f;
 	}
 }
 
@@ -4376,6 +4374,11 @@ AUTPlayerController* AUTCharacter::GetLocalViewer()
 void AUTCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+
+	if (IsRagdoll())
+	{
+		TopRagdollSpeed = FMath::Max<float>(TopRagdollSpeed, GetMesh()->GetComponentVelocity().Size());
+	}
 
 	if (Role == ROLE_Authority)
 	{
