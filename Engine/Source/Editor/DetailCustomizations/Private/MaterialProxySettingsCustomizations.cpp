@@ -37,7 +37,7 @@ void FMaterialProxySettingsCustomizations::CustomizeChildren(TSharedRef<IPropert
 
 		PropertyHandles.Add(PropertyName, ChildHandle);
 	}
-	
+
 	// Retrieve special case properties
 	EnumHandle = PropertyHandles.FindChecked(GET_MEMBER_NAME_CHECKED(FMaterialProxySettings, TextureSizingType));
 	TextureSizeHandle = PropertyHandles.FindChecked(GET_MEMBER_NAME_CHECKED(FMaterialProxySettings, TextureSize));
@@ -47,7 +47,16 @@ void FMaterialProxySettingsCustomizations::CustomizeChildren(TSharedRef<IPropert
 	RoughnessTextureSizeHandle = PropertyHandles.FindChecked(GET_MEMBER_NAME_CHECKED(FMaterialProxySettings, RoughnessTextureSize));
 	SpecularTextureSizeHandle = PropertyHandles.FindChecked(GET_MEMBER_NAME_CHECKED(FMaterialProxySettings, SpecularTextureSize));
 	EmissiveTextureSizeHandle = PropertyHandles.FindChecked(GET_MEMBER_NAME_CHECKED(FMaterialProxySettings, EmissiveTextureSize));
-	OpacityTextureSizeHandle = PropertyHandles.FindChecked(GET_MEMBER_NAME_CHECKED(FMaterialProxySettings, OpacityTextureSize));
+	// Opacity is disabled for now
+	//OpacityTextureSizeHandle = PropertyHandles.FindChecked(GET_MEMBER_NAME_CHECKED(FMaterialProxySettings, OpacityTextureSize));
+	if (PropertyHandles.Contains(GET_MEMBER_NAME_CHECKED(FMaterialProxySettings, MaterialMergeType)))
+	{
+		MergeTypeHandle = PropertyHandles.FindChecked(GET_MEMBER_NAME_CHECKED(FMaterialProxySettings, MaterialMergeType));
+	}
+	
+	GutterSpaceHandle = PropertyHandles.FindChecked(GET_MEMBER_NAME_CHECKED(FMaterialProxySettings, GutterSpace));
+
+	auto Parent = StructPropertyHandle->GetParentHandle();
 	
 	for( auto Iter(PropertyHandles.CreateConstIterator()); Iter; ++Iter  )
 	{
@@ -59,7 +68,7 @@ void FMaterialProxySettingsCustomizations::CustomizeChildren(TSharedRef<IPropert
 			|| Iter.Value() == RoughnessTextureSizeHandle
 			|| Iter.Value() == SpecularTextureSizeHandle
 			|| Iter.Value() == EmissiveTextureSizeHandle
-			|| Iter.Value() == OpacityTextureSizeHandle
+			// Disabled for now || Iter.Value() == OpacityTextureSizeHandle
 			)
 		{
 			IDetailPropertyRow& SizeRow = ChildBuilder.AddChildProperty(Iter.Value().ToSharedRef());
@@ -70,11 +79,18 @@ void FMaterialProxySettingsCustomizations::CustomizeChildren(TSharedRef<IPropert
 			IDetailPropertyRow& SettingsRow = ChildBuilder.AddChildProperty(Iter.Value().ToSharedRef());
 			SettingsRow.Visibility(TAttribute<EVisibility>(this, &FMaterialProxySettingsCustomizations::IsTextureSizeEnabled));
 		}
-		else
+		else if (Iter.Value() == GutterSpaceHandle)
+		{
+			IDetailPropertyRow& SettingsRow = ChildBuilder.AddChildProperty(Iter.Value().ToSharedRef());
+			SettingsRow.Visibility(TAttribute<EVisibility>(this, &FMaterialProxySettingsCustomizations::IsSimplygonMaterialMergingVisible));
+		}
+		// Do not show the merge type property
+		else if (Iter.Value() != MergeTypeHandle)
 		{
 			IDetailPropertyRow& SettingsRow = ChildBuilder.AddChildProperty(Iter.Value().ToSharedRef());
 		}
 	}	
+
 }
 
 EVisibility FMaterialProxySettingsCustomizations::AreManualOverrideTextureSizesEnabled() const
@@ -101,6 +117,17 @@ EVisibility FMaterialProxySettingsCustomizations::IsTextureSizeEnabled() const
 	}
 
 	return EVisibility::Visible;	
+}
+
+EVisibility FMaterialProxySettingsCustomizations::IsSimplygonMaterialMergingVisible() const
+{
+	uint8 MergeType = EMaterialMergeType::MaterialMergeType_Default;
+	if (MergeTypeHandle.IsValid())
+	{
+		MergeTypeHandle->GetValue(MergeType);
+	}
+
+	return ( MergeType == EMaterialMergeType::MaterialMergeType_Simplygon ) ? EVisibility::Visible : EVisibility::Hidden;
 }
 
 #undef LOCTEXT_NAMESPACE

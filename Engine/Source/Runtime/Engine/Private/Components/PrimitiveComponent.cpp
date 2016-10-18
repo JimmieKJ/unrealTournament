@@ -7,6 +7,7 @@
 #include "EnginePrivate.h"
 #include "GameFramework/PhysicsVolume.h"
 #include "PhysicsPublic.h"
+#include "PhysicsEngine/BodySetup.h"
 #include "LevelUtils.h"
 #if WITH_EDITOR
 #include "ShowFlags.h"
@@ -28,6 +29,7 @@
 #include "GameFramework/CheatManager.h"
 #include "GameFramework/DamageType.h"
 #include "Components/ChildActorComponent.h"
+#include "Streaming/TextureStreamingHelpers.h"
 
 #define LOCTEXT_NAMESPACE "PrimitiveComponent"
 
@@ -72,7 +74,6 @@ TAutoConsoleVariable<int32> CVarShowInitialOverlaps(
 static int32 bEnableFastOverlapCheck = 1;
 static FAutoConsoleVariableRef CVarEnableFastOverlapCheck(TEXT("p.EnableFastOverlapCheck"), bEnableFastOverlapCheck, TEXT("Enable fast overlap check against sweep hits, avoiding UpdateOverlaps (for the swept component)."));
 DECLARE_CYCLE_STAT(TEXT("MoveComponent FastOverlap"), STAT_MoveComponent_FastOverlap, STATGROUP_Game);
-
 
 // Predicate to determine if an overlap is with a certain AActor.
 struct FPredicateOverlapHasSameActor
@@ -153,6 +154,7 @@ UPrimitiveComponent::UPrimitiveComponent(const FObjectInitializer& ObjectInitial
 	PostPhysicsComponentTick.TickGroup = TG_PostPhysics;
 
 	LastRenderTime = -1000.0f;
+	LastRenderTimeOnScreen = -1000.0f;
 	BoundsScale = 1.0f;
 	MinDrawDistance = 0.0f;
 	DepthPriorityGroup = SDPG_World;
@@ -172,6 +174,7 @@ UPrimitiveComponent::UPrimitiveComponent(const FObjectInitializer& ObjectInitial
 	AlwaysLoadOnServer = true;
 	SetCollisionProfileName(UCollisionProfile::BlockAll_ProfileName);
 	bAlwaysCreatePhysicsState = false;
+	bVisibleInReflectionCaptures = true;
 	bRenderInMainPass = true;
 	VisibilityId = -1;
 	CanBeCharacterBase_DEPRECATED = ECB_Yes;
@@ -242,14 +245,24 @@ bool UPrimitiveComponent::HasStaticLighting() const
 	return ((Mobility == EComponentMobility::Static) || bLightAsIfStatic) && SupportsStaticLighting();
 }
 
-void UPrimitiveComponent::GetStreamingTextureInfoWithNULLRemoval(TArray<struct FStreamingTexturePrimitiveInfo>& OutStreamingTextures) const
+void UPrimitiveComponent::GetStreamingTextureInfoWithNULLRemoval(FStreamingTextureLevelContext& LevelContext, TArray<struct FStreamingTexturePrimitiveInfo>& OutStreamingTextures) const
 {
-	GetStreamingTextureInfo(OutStreamingTextures);
+	GetStreamingTextureInfo(LevelContext, OutStreamingTextures);
 	for (int32 Index = 0; Index < OutStreamingTextures.Num(); Index++)
 	{
-		if (!OutStreamingTextures[Index].Texture || !Cast<UTexture2D>(OutStreamingTextures[Index].Texture))
+		const FStreamingTexturePrimitiveInfo& Info = OutStreamingTextures[Index];
+		if (!IsStreamingTexture(Info.Texture))
 		{
 			OutStreamingTextures.RemoveAt(Index--);
+		}
+		else
+		{
+			// Other wise check that everything is setup right.
+			const bool bCanBeStreamedByDistance = Info.TexelFactor > SMALL_NUMBER && Info.Bounds.SphereRadius > SMALL_NUMBER && ensure(FMath::IsFinite(Info.TexelFactor));
+			if (!bForceMipStreaming && !bCanBeStreamedByDistance && !(Info.TexelFactor < 0 && Info.Texture->LODGroup == TEXTUREGROUP_Terrain_Heightmap))
+			{
+				OutStreamingTextures.RemoveAt(Index--);
+			}
 		}
 	}
 }
@@ -316,7 +329,8 @@ void UPrimitiveComponent::RegisterComponentTickFunctions(bool bRegister)
 			}
 
 			// Set a prereq for the post physics tick to happen after physics is finished
-			if (World != NULL)
+			UWorld* World = GetWorld();
+			if (World != nullptr)
 			{
 				PostPhysicsComponentTick.AddPrerequisite(World, World->EndPhysicsTickFunction);
 			}
@@ -364,7 +378,7 @@ void UPrimitiveComponent::CreateRenderState_Concurrent()
 	// If the primitive isn't hidden and the detail mode setting allows it, add it to the scene.
 	if (ShouldComponentAddToScene())
 	{
-		World->Scene->AddPrimitive(this);
+		GetWorld()->Scene->AddPrimitive(this);
 	}
 }
 
@@ -377,7 +391,7 @@ void UPrimitiveComponent::SendRenderTransform_Concurrent()
 	if( bDetailModeAllowsRendering && (ShouldRender() || bCastHiddenShadow))
 	{
 		// Update the scene info's transform for this primitive.
-		World->Scene->UpdatePrimitiveTransform(this);
+		GetWorld()->Scene->UpdatePrimitiveTransform(this);
 	}
 
 	Super::SendRenderTransform_Concurrent();
@@ -407,6 +421,7 @@ void UPrimitiveComponent::OnRegister()
 
 void UPrimitiveComponent::OnUnregister()
 {
+	UWorld* World = GetWorld();
 	if (World && World->Scene)
 	{
 		World->Scene->ReleasePrimitive(this);
@@ -489,21 +504,17 @@ FActorComponentInstanceData* UPrimitiveComponent::GetComponentInstanceData() con
 
 void UPrimitiveComponent::OnAttachmentChanged()
 {
+	UWorld* World = GetWorld();
 	if (World && World->Scene)
 	{
 		World->Scene->UpdatePrimitiveAttachment(this);
 	}
 }
 
-void UPrimitiveComponent::OnChildAttached(USceneComponent* ChildComponent)
-{
-	Super::OnChildAttached(ChildComponent);
-}
-
-
 void UPrimitiveComponent::DestroyRenderState_Concurrent()
 {
 	// Remove the primitive from the scene.
+	UWorld* World = GetWorld();
 	if(World && World->Scene)
 	{
 		World->Scene->RemovePrimitive(this);
@@ -516,9 +527,9 @@ void UPrimitiveComponent::DestroyRenderState_Concurrent()
 //////////////////////////////////////////////////////////////////////////
 // Physics
 
-void UPrimitiveComponent::CreatePhysicsState()
+void UPrimitiveComponent::OnCreatePhysicsState()
 {
-	Super::CreatePhysicsState();
+	Super::OnCreatePhysicsState();
 
 	// if we have a scene, we don't want to disable all physics and we have no bodyinstance already
 	if(!BodyInstance.IsValidBodyInstance())
@@ -529,15 +540,19 @@ void UPrimitiveComponent::CreatePhysicsState()
 		if(BodySetup)
 		{
 			// Create new BodyInstance at given location.
-			if(FMath::Abs(ComponentToWorld.GetDeterminant()) < SMALL_NUMBER)
+			FTransform BodyTransform = ComponentToWorld;
+
+			// Here we make sure we don't have zero scale. This still results in a body being made and placed in
+			// world (very small) but is consistent with a body scaled to zero.
+			const FVector BodyScale = BodyTransform.GetScale3D();
+			if(BodyScale.IsNearlyZero())
 			{
-				UE_LOG(LogPrimitiveComponent, Log, TEXT("Zero scaling not supported (%s)"), *GetPathName());
-				return;
+				BodyTransform.SetScale3D(FVector(KINDA_SMALL_NUMBER));
 			}
 
 #if UE_WITH_PHYSICS
 			// Create the body.
-			BodyInstance.InitBody(BodySetup, ComponentToWorld, this, World->GetPhysicsScene());
+			BodyInstance.InitBody(BodySetup, BodyTransform, this, GetWorld()->GetPhysicsScene());
 #endif //UE_WITH_PHYSICS
 
 #if WITH_EDITOR
@@ -570,14 +585,26 @@ void UPrimitiveComponent::EnsurePhysicsStateCreated()
 	}
 }
 
-void UPrimitiveComponent::OnUpdateTransform(bool bSkipPhysicsMove, ETeleportType Teleport)
+bool UPrimitiveComponent::IsWelded() const
 {
-	Super::OnUpdateTransform(bSkipPhysicsMove, Teleport);
+	return GetBodyInstance() != GetBodyInstance(NAME_None, false);
+}
+
+void UPrimitiveComponent::OnUpdateTransform(EUpdateTransformFlags UpdateTransformFlags, ETeleportType Teleport)
+{
+	Super::OnUpdateTransform(UpdateTransformFlags, Teleport);
 
 	// Always send new transform to physics
-	if(bPhysicsStateCreated && !bSkipPhysicsMove)
+	if(bPhysicsStateCreated && !(UpdateTransformFlags & EUpdateTransformFlags::SkipPhysicsUpdate))
 	{
-		SendPhysicsTransform(Teleport);
+		//If we update transform of welded bodies directly (i.e. on the actual component) we need to update the shape transforms of the parent.
+		//If the parent is updated, any welded shapes are automatically updated so we don't need to do this physx update.
+		//If the parent is updated and we are NOT welded, the child still needs to update physx
+		const bool bTransformSetDirectly = !(UpdateTransformFlags & EUpdateTransformFlags::PropagateFromParent);
+		if( bTransformSetDirectly || !IsWelded())
+		{
+			SendPhysicsTransform(Teleport);
+		}
 	}
 }
 
@@ -587,7 +614,7 @@ void UPrimitiveComponent::SendPhysicsTransform(ETeleportType Teleport)
 	BodyInstance.UpdateBodyScale(ComponentToWorld.GetScale3D());
 }
 
-void UPrimitiveComponent::DestroyPhysicsState()
+void UPrimitiveComponent::OnDestroyPhysicsState()
 {
 	// we remove welding related to this component
 	UnWeldFromParent();
@@ -600,7 +627,7 @@ void UPrimitiveComponent::DestroyPhysicsState()
 		BodyInstance.TermBody();
 	}
 
-	Super::DestroyPhysicsState();
+	Super::OnDestroyPhysicsState();
 }
 
 FMatrix UPrimitiveComponent::GetRenderMatrix() const
@@ -693,35 +720,42 @@ bool UPrimitiveComponent::CanEditChange(const UProperty* InProperty) const
 	{
 		const FName PropertyName = InProperty->GetFName();
 
-		if (PropertyName == GET_MEMBER_NAME_CHECKED(UPrimitiveComponent, bLightAsIfStatic))
+		static FName LightAsIfStaticName = GET_MEMBER_NAME_CHECKED(UPrimitiveComponent, bLightAsIfStatic);
+		static FName LightmassSettingsName = TEXT("LightmassSettings");
+		static FName LightingChannelsName = GET_MEMBER_NAME_CHECKED(UPrimitiveComponent, LightingChannels);
+		static FName SingleSampleShadowFromStationaryLightsName = GET_MEMBER_NAME_CHECKED(UPrimitiveComponent, bSingleSampleShadowFromStationaryLights);
+		static FName IndirectLightingCacheQualityName = GET_MEMBER_NAME_CHECKED(UPrimitiveComponent, IndirectLightingCacheQuality);
+		static FName CastCinematicShadowName = GET_MEMBER_NAME_CHECKED(UPrimitiveComponent, bCastCinematicShadow);
+		static FName CastInsetShadowName = GET_MEMBER_NAME_CHECKED(UPrimitiveComponent, bCastInsetShadow);
+		static FName CastShadowName = GET_MEMBER_NAME_CHECKED(UPrimitiveComponent, CastShadow);
+
+		if (PropertyName == LightAsIfStaticName)
 		{
 			// Disable editing bLightAsIfStatic on static components, since it has no effect
 			return Mobility != EComponentMobility::Static;
 		}
 
-		if (PropertyName == TEXT("LightmassSettings"))
+		if (PropertyName == LightmassSettingsName)
 		{
 			return Mobility != EComponentMobility::Movable || bLightAsIfStatic;
 		}
 
-		if (PropertyName == GET_MEMBER_NAME_STRING_CHECKED(UPrimitiveComponent, LightingChannels)
-			|| PropertyName == GET_MEMBER_NAME_STRING_CHECKED(UPrimitiveComponent, bSingleSampleShadowFromStationaryLights))
+		if (PropertyName == SingleSampleShadowFromStationaryLightsName)
 		{
 			return Mobility != EComponentMobility::Static;
 		}
 
-		if (PropertyName == GET_MEMBER_NAME_CHECKED(UPrimitiveComponent, IndirectLightingCacheQuality)
-			|| PropertyName == GET_MEMBER_NAME_CHECKED(UPrimitiveComponent, bCastCinematicShadow))
+		if (PropertyName == IndirectLightingCacheQualityName || PropertyName == CastCinematicShadowName)
 		{
 			return Mobility == EComponentMobility::Movable;
 		}
 
-		if (PropertyName == GET_MEMBER_NAME_CHECKED(UPrimitiveComponent, bCastInsetShadow))
+		if (PropertyName == CastInsetShadowName)
 		{
 			return !bSelfShadowOnly;
 		}
 
-		if (PropertyName == GET_MEMBER_NAME_CHECKED(UPrimitiveComponent, CastShadow))
+		if (PropertyName == CastShadowName)
 		{
 			// Look for any lit materials
 			bool bHasAnyLitMaterials = false;
@@ -997,19 +1031,16 @@ bool UPrimitiveComponent::ShouldCreatePhysicsState() const
 	bool bShouldCreatePhysicsState = IsRegistered() && (bAlwaysCreatePhysicsState || IsCollisionEnabled());
 
 #if WITH_EDITOR
-	if (GIsEditor)
+	if (BodyInstance.bSimulatePhysics && (GetCollisionEnabled() == ECollisionEnabled::NoCollision || GetCollisionEnabled() == ECollisionEnabled::QueryOnly))
 	{
-		if (BodyInstance.bSimulatePhysics && (GetCollisionEnabled() == ECollisionEnabled::NoCollision || GetCollisionEnabled() == ECollisionEnabled::QueryOnly))
-		{
-			FMessageLog("PIE").Warning(FText::Format(LOCTEXT("InvalidSimulateOptions", "Invalid Simulate Options: Body ({0}) is set to simulate physics but Collision Enabled is incompatible"),
-				FText::FromString(GetReadableName())));
-		}
+		FMessageLog("PIE").Warning(FText::Format(LOCTEXT("InvalidSimulateOptions", "Invalid Simulate Options: Body ({0}) is set to simulate physics but Collision Enabled is incompatible"),
+			FText::FromString(GetReadableName())));
+	}
 
-		// if it shouldn't create physics state, but if world wants to enable trace collision for components, allow it
-		if (!bShouldCreatePhysicsState && World && World->bEnableTraceCollision)
-		{
-			bShouldCreatePhysicsState = true;
-		}
+	// if it shouldn't create physics state, but if world wants to enable trace collision for components, allow it
+	if (!bShouldCreatePhysicsState && GetWorld() && GetWorld()->bEnableTraceCollision)
+	{
+		bShouldCreatePhysicsState = true;
 	}
 #endif
 	return bShouldCreatePhysicsState;
@@ -1042,9 +1073,9 @@ bool UPrimitiveComponent::ShouldRenderSelected() const
 			{
 				return true;
 			}
-			else if (UChildActorComponent* ParentComponent = Owner->GetParentComponent())
+			else if (AActor* ParentActor = Owner->GetParentActor())
 			{
-				return ParentComponent->GetOwner()->IsSelected();
+				return ParentActor->IsSelected();
 			}
 		}
 	}
@@ -1598,7 +1629,7 @@ bool UPrimitiveComponent::MoveComponentImpl( const FVector& Delta, const FQuat& 
 
 			// If we had a valid blocking hit, store it.
 			// If we are looking for overlaps, store those as well.
-			uint32 FirstNonInitialOverlapIdx = INDEX_NONE;
+			int32 FirstNonInitialOverlapIdx = INDEX_NONE;
 			if (bHadBlockingHit || bGenerateOverlapEvents)
 			{
 				int32 BlockingHitIndex = INDEX_NONE;
@@ -1685,7 +1716,8 @@ bool UPrimitiveComponent::MoveComponentImpl( const FVector& Delta, const FQuat& 
 					// Remove any pending overlaps after this point, we are not going as far as we swept.
 					if (FirstNonInitialOverlapIdx != INDEX_NONE)
 					{
-						PendingOverlaps.SetNum(FirstNonInitialOverlapIdx);
+						const bool bAllowShrinking = false;
+						PendingOverlaps.SetNum(FirstNonInitialOverlapIdx, bAllowShrinking);
 					}
 				}
 			}
@@ -1843,16 +1875,16 @@ void UPrimitiveComponent::DispatchWakeEvents(int32 WakeEvent, FName BoneName)
 		{
 			if (WakeEvent == SleepEvent::SET_Wakeup)
 			{
-				OnComponentWake.Broadcast(BoneName);
+				OnComponentWake.Broadcast(this, BoneName);
 			}else
 			{
-				OnComponentSleep.Broadcast(BoneName);
+				OnComponentSleep.Broadcast(this, BoneName);
 			}
 		}
 	}
 	
 	//now update children that are welded
-	for(USceneComponent* SceneComp : AttachChildren)
+	for(USceneComponent* SceneComp : GetAttachChildren())
 	{
 		if(UPrimitiveComponent* PrimComp = Cast<UPrimitiveComponent>(SceneComp))
 		{
@@ -2085,13 +2117,13 @@ void UPrimitiveComponent::BeginComponentOverlap(const FOverlapInfo& OtherOverlap
 				// first execute component delegates
 				if (!IsPendingKill())
 				{
-					OnComponentBeginOverlap.Broadcast(OtherActor, OtherComp, OtherOverlap.GetBodyIndex(), OtherOverlap.bFromSweep, OtherOverlap.OverlapInfo);
+					OnComponentBeginOverlap.Broadcast(this, OtherActor, OtherComp, OtherOverlap.GetBodyIndex(), OtherOverlap.bFromSweep, OtherOverlap.OverlapInfo);
 				}
 
 				if (!OtherComp->IsPendingKill())
 				{
 					// Reverse normals for other component. When it's a sweep, we are the one that moved.
-					OtherComp->OnComponentBeginOverlap.Broadcast(MyActor, this, INDEX_NONE, OtherOverlap.bFromSweep, OtherOverlap.bFromSweep ? FHitResult::GetReversedHit(OtherOverlap.OverlapInfo) : OtherOverlap.OverlapInfo);
+					OtherComp->OnComponentBeginOverlap.Broadcast(OtherComp, MyActor, this, INDEX_NONE, OtherOverlap.bFromSweep, OtherOverlap.bFromSweep ? FHitResult::GetReversedHit(OtherOverlap.OverlapInfo) : OtherOverlap.OverlapInfo);
 				}
 
 				// then execute actor notification if this is a new actor touch
@@ -2111,12 +2143,12 @@ void UPrimitiveComponent::BeginComponentOverlap(const FOverlapInfo& OtherOverlap
 					// Then level-script delegates
 					if (IsActorValidToNotify(MyActor))
 					{
-						MyActor->OnActorBeginOverlap.Broadcast(OtherActor);
+						MyActor->OnActorBeginOverlap.Broadcast(MyActor, OtherActor);
 					}
 
 					if (IsActorValidToNotify(OtherActor))
 					{
-						OtherActor->OnActorBeginOverlap.Broadcast(MyActor);
+						OtherActor->OnActorBeginOverlap.Broadcast(OtherActor, MyActor);
 					}
 				}
 			}
@@ -2154,12 +2186,12 @@ void UPrimitiveComponent::EndComponentOverlap(const FOverlapInfo& OtherOverlap, 
 			{
 				if (!bSkipNotifySelf && IsPrimCompValidAndAlive(this))
 				{
-					OnComponentEndOverlap.Broadcast(OtherActor, OtherComp, OtherOverlap.GetBodyIndex());
+					OnComponentEndOverlap.Broadcast(this, OtherActor, OtherComp, OtherOverlap.GetBodyIndex());
 				}
 
 				if (IsPrimCompValidAndAlive(OtherComp))
 				{
-					OtherComp->OnComponentEndOverlap.Broadcast(MyActor, this, INDEX_NONE);
+					OtherComp->OnComponentEndOverlap.Broadcast(OtherComp, MyActor, this, INDEX_NONE);
 				}
 	
 				// if this was the last touch on the other actor by this actor, notify that we've untouched the actor as well
@@ -2168,13 +2200,13 @@ void UPrimitiveComponent::EndComponentOverlap(const FOverlapInfo& OtherOverlap, 
 					if (IsActorValidToNotify(MyActor))
 					{
 						MyActor->NotifyActorEndOverlap(OtherActor);
-						MyActor->OnActorEndOverlap.Broadcast(OtherActor);
+						MyActor->OnActorEndOverlap.Broadcast(MyActor, OtherActor);
 					}
 
 					if (IsActorValidToNotify(OtherActor))
 					{
 						OtherActor->NotifyActorEndOverlap(MyActor);
-						OtherActor->OnActorEndOverlap.Broadcast(MyActor);
+						OtherActor->OnActorEndOverlap.Broadcast(OtherActor, MyActor);
 					}
 				}
 			}
@@ -2182,45 +2214,54 @@ void UPrimitiveComponent::EndComponentOverlap(const FOverlapInfo& OtherOverlap, 
 	}
 }
 
+void UPrimitiveComponent::GetOverlappingActors(TArray<AActor*>& OutOverlappingActors, TSubclassOf<AActor> ClassFilter) const
+{
+	TSet<AActor*> OverlappingActors;
+	GetOverlappingActors(OverlappingActors, ClassFilter);
 
+	OutOverlappingActors.Reset(OverlappingActors.Num());
 
-void UPrimitiveComponent::GetOverlappingActors(TArray<AActor*>& OutOverlappingActors, UClass* ClassFilter) const
+	for (AActor* OverlappingActor : OverlappingActors)
+	{
+		OutOverlappingActors.Add(OverlappingActor);
+	}
+
+}
+
+void UPrimitiveComponent::GetOverlappingActors(TSet<AActor*>& OutOverlappingActors, TSubclassOf<AActor> ClassFilter) const
 {
 	OutOverlappingActors.Reset();
+	OutOverlappingActors.Reserve(OverlappingComponents.Num());
 
-	for (auto CompIt = OverlappingComponents.CreateConstIterator(); CompIt; ++CompIt)
+	for (const FOverlapInfo& OtherOverlap : OverlappingComponents)
 	{
-		const FOverlapInfo& OtherOvelap = *CompIt;
-		
-		if (OtherOvelap.OverlapInfo.Component.IsValid())
+		if (UPrimitiveComponent* OtherComponent = OtherOverlap.OverlapInfo.Component.Get())
 		{
-			AActor* OtherActor = OtherOvelap.OverlapInfo.Component->GetOwner();
+			AActor* OtherActor = OtherComponent->GetOwner();
 			if (OtherActor)
 			{
-				if ( !ClassFilter || OtherActor->IsA(ClassFilter) )
+				if ( (*ClassFilter) == nullptr || OtherActor->IsA(ClassFilter) )
 				{
-					OutOverlappingActors.AddUnique(OtherActor);
+					OutOverlappingActors.Add(OtherActor);
 				}
 			}
 		}
 	}
 }
 
-
 void UPrimitiveComponent::GetOverlappingComponents(TArray<UPrimitiveComponent*>& OutOverlappingComponents) const
 {
 	OutOverlappingComponents.Reset( OverlappingComponents.Num() );
 
-	for (auto CompIt = OverlappingComponents.CreateConstIterator(); CompIt; ++CompIt)
+	for (const FOverlapInfo& OtherOverlap : OverlappingComponents)
 	{
-		UPrimitiveComponent* const OtherComp = (*CompIt).OverlapInfo.Component.Get();
+		UPrimitiveComponent* const OtherComp = OtherOverlap.OverlapInfo.Component.Get();
 		if (OtherComp)
 		{
 			OutOverlappingComponents.Add(OtherComp);
 		}
 	}
 }
-
 
 const TArray<FOverlapInfo>* UPrimitiveComponent::ConvertSweptOverlapsToCurrentOverlaps(
 	TArray<FOverlapInfo>& OverlapsAtEndLocation, const TArray<FOverlapInfo>& SweptOverlaps, int32 SweptOverlapsIndex,
@@ -2306,7 +2347,7 @@ const TArray<FOverlapInfo>* UPrimitiveComponent::ConvertRotationOverlapsToCurren
 bool UPrimitiveComponent::AreAllCollideableDescendantsRelative(bool bAllowCachedValue) const
 {
 	UPrimitiveComponent* MutableThis = const_cast<UPrimitiveComponent*>(this);
-	if (AttachChildren.Num() > 0)
+	if (GetAttachChildren().Num() > 0)
 	{
 		UWorld* MyWorld = GetWorld();
 		check(MyWorld);
@@ -2319,9 +2360,8 @@ bool UPrimitiveComponent::AreAllCollideableDescendantsRelative(bool bAllowCached
 
 		// Check all descendant PrimitiveComponents
 		TInlineComponentArray<USceneComponent*> ComponentStack;
-		ComponentStack.Reserve(FMath::Max<uint32>(NumInlinedActorComponents, AttachChildren.Num()));
 
-		ComponentStack.Append(AttachChildren);
+		ComponentStack.Append(GetAttachChildren());
 		while (ComponentStack.Num() > 0)
 		{
 			USceneComponent* const CurrentComp = ComponentStack.Pop(false);
@@ -2340,7 +2380,7 @@ bool UPrimitiveComponent::AreAllCollideableDescendantsRelative(bool bAllowCached
 					}
 				}
 
-				ComponentStack.Append(CurrentComp->AttachChildren);
+				ComponentStack.Append(CurrentComp->GetAttachChildren());
 			}
 		}
 	}
@@ -2352,21 +2392,24 @@ bool UPrimitiveComponent::AreAllCollideableDescendantsRelative(bool bAllowCached
 void UPrimitiveComponent::BeginPlay()
 {
 	Super::BeginPlay();
-
-	if (BodyInstance.bSimulatePhysics && !BodyInstance.WeldParent)
+	if(FBodyInstance* BI = GetBodyInstance(NAME_None, /*bGetWelded=*/ false))
 	{
-		//Since the object is physically simulated it can't be attached
-		const bool bSavedDisableDetachmentUpdateOverlaps = bDisableDetachmentUpdateOverlaps;
-		bDisableDetachmentUpdateOverlaps = true;
-		DetachFromParent(/*MaintainWorldPosition =*/ true);
-		bDisableDetachmentUpdateOverlaps = bSavedDisableDetachmentUpdateOverlaps;
+		if (BI->bSimulatePhysics && !BI->WeldParent)
+		{
+			//Since the object is physically simulated it can't be attached
+			const bool bSavedDisableDetachmentUpdateOverlaps = bDisableDetachmentUpdateOverlaps;
+			bDisableDetachmentUpdateOverlaps = true;
+			DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
+			bDisableDetachmentUpdateOverlaps = bSavedDisableDetachmentUpdateOverlaps;
+		}
 	}
+	
 }
 
 void UPrimitiveComponent::IgnoreActorWhenMoving(AActor* Actor, bool bShouldIgnore)
 {
 	// Clean up stale references
-	MoveIgnoreActors.RemoveSwap(NULL);
+	MoveIgnoreActors.RemoveSwap(nullptr);
 
 	// Add/Remove the actor from the list
 	if (Actor)
@@ -2384,28 +2427,14 @@ void UPrimitiveComponent::IgnoreActorWhenMoving(AActor* Actor, bool bShouldIgnor
 
 TArray<AActor*> UPrimitiveComponent::CopyArrayOfMoveIgnoreActors()
 {
-	TArray<AActor*> TempMoveIgnoreActors;
-	for (int32 Idx = 0; Idx < MoveIgnoreActors.Num();)
+	for (int32 Index = MoveIgnoreActors.Num() - 1; Index >=0; --Index)
 	{
-		AActor* Actor = MoveIgnoreActors[Idx].Get();
-		if (Actor)
+		const AActor* const MoveIgnoreActor = MoveIgnoreActors[Index];
+		if (MoveIgnoreActor == nullptr || MoveIgnoreActor->IsPendingKill())
 		{
-			TempMoveIgnoreActors.Add(Actor);
-			Idx++;
-		}
-		else
-		{
-			MoveIgnoreActors.RemoveAtSwap(Idx, 1, false);
+			MoveIgnoreActors.RemoveAtSwap(Index,1,false);
 		}
 	}
-	MoveIgnoreActors.Shrink();
-	return TempMoveIgnoreActors;
-}
-
-TArray<TWeakObjectPtr<AActor> > & UPrimitiveComponent::GetMoveIgnoreActors()
-{
-	// Clean up stale references
-	MoveIgnoreActors.RemoveSwap(NULL);
 	return MoveIgnoreActors;
 }
 
@@ -2413,7 +2442,6 @@ void UPrimitiveComponent::ClearMoveIgnoreActors()
 {
 	MoveIgnoreActors.Empty();
 }
-
 
 void UPrimitiveComponent::UpdateOverlaps(const TArray<FOverlapInfo>* NewPendingOverlaps, bool bDoNotifies, const TArray<FOverlapInfo>* OverlapsAtEndLocation)
 {
@@ -2533,8 +2561,9 @@ void UPrimitiveComponent::UpdateOverlaps(const TArray<FOverlapInfo>* NewPendingO
 					}
 					else
 					{
-						// Remove stale item
-						OverlappingComponents.RemoveSingleSwap(OtherOverlap);
+						// Remove stale item. Reclaim memory only if it's getting large, to try to avoid churn but avoid bloating component's memory usage.
+						const bool bAllowShrinking = (OverlappingComponents.Max() >= 24);
+						OverlappingComponents.RemoveSingleSwap(OtherOverlap, bAllowShrinking);
 					}
 				}
 			}
@@ -2559,13 +2588,17 @@ void UPrimitiveComponent::UpdateOverlaps(const TArray<FOverlapInfo>* NewPendingO
 	}
 
 	// now update any children down the chain.
-	for (int32 ChildIdx=0; ChildIdx<AttachChildren.Num(); ++ChildIdx)
+	// since on overlap events could manipulate the child array we need to take a copy
+	// of it to avoid missing any children if one is removed from the middle
+	TInlineComponentArray<USceneComponent*> AttachedChildren;
+	AttachedChildren.Append(GetAttachChildren());
+
+	for (USceneComponent* const ChildComp : AttachedChildren)
 	{
-		USceneComponent* const ChildComp = AttachChildren[ChildIdx];
 		if (ChildComp)
 		{
 			// Do not pass on OverlapsAtEndLocation, it only applied to this component.
-			ChildComp->UpdateOverlaps(NULL, bDoNotifies, NULL);
+			ChildComp->UpdateOverlaps(nullptr, bDoNotifies, nullptr);
 		}
 	}
 
@@ -2667,7 +2700,7 @@ void UPrimitiveComponent::DispatchMouseOverEvents(UPrimitiveComponent* CurrentCo
 					CurrentOwner->NotifyActorEndCursorOver();
 					if (IsActorValidToNotify(CurrentOwner))
 					{
-						CurrentOwner->OnEndCursorOver.Broadcast();
+						CurrentOwner->OnEndCursorOver.Broadcast(CurrentOwner);
 					}
 				}
 			}
@@ -2680,7 +2713,7 @@ void UPrimitiveComponent::DispatchMouseOverEvents(UPrimitiveComponent* CurrentCo
 				NewOwner->NotifyActorBeginCursorOver();
 				if (IsActorValidToNotify(NewOwner))
 				{
-					NewOwner->OnBeginCursorOver.Broadcast();
+					NewOwner->OnBeginCursorOver.Broadcast(NewOwner);
 				}
 			}
 			if (!NewComponent->IsPendingKill())
@@ -2703,7 +2736,7 @@ void UPrimitiveComponent::DispatchMouseOverEvents(UPrimitiveComponent* CurrentCo
 			CurrentOwner->NotifyActorEndCursorOver();
 			if (IsActorValidToNotify(CurrentOwner))
 			{
-				CurrentOwner->OnEndCursorOver.Broadcast();
+				CurrentOwner->OnEndCursorOver.Broadcast(CurrentOwner);
 			}
 		}
 	}
@@ -2738,7 +2771,7 @@ void UPrimitiveComponent::DispatchTouchOverEvents(ETouchIndex::Type FingerIndex,
 					CurrentOwner->NotifyActorOnInputTouchLeave(FingerIndex);
 					if (IsActorValidToNotify(CurrentOwner))
 					{
-						CurrentOwner->OnInputTouchLeave.Broadcast(FingerIndex);
+						CurrentOwner->OnInputTouchLeave.Broadcast(FingerIndex, CurrentOwner);
 					}
 				}
 			}
@@ -2751,7 +2784,7 @@ void UPrimitiveComponent::DispatchTouchOverEvents(ETouchIndex::Type FingerIndex,
 				NewOwner->NotifyActorOnInputTouchEnter(FingerIndex);
 				if (IsActorValidToNotify(NewOwner))
 				{
-					NewOwner->OnInputTouchEnter.Broadcast(FingerIndex);
+					NewOwner->OnInputTouchEnter.Broadcast(FingerIndex, NewOwner);
 				}
 			}
 			if (!NewComponent->IsPendingKill())
@@ -2774,7 +2807,7 @@ void UPrimitiveComponent::DispatchTouchOverEvents(ETouchIndex::Type FingerIndex,
 			CurrentOwner->NotifyActorOnInputTouchLeave(FingerIndex);
 			if (IsActorValidToNotify(CurrentOwner))
 			{
-				CurrentOwner->OnInputTouchLeave.Broadcast(FingerIndex);
+				CurrentOwner->OnInputTouchLeave.Broadcast(FingerIndex, CurrentOwner);
 			}
 		}
 	}
@@ -2787,7 +2820,7 @@ void UPrimitiveComponent::DispatchOnClicked(FKey ButtonPressed)
 		GetOwner()->NotifyActorOnClicked(ButtonPressed);
 		if (IsActorValidToNotify(GetOwner()))
 		{
-			GetOwner()->OnClicked.Broadcast(ButtonPressed);
+			GetOwner()->OnClicked.Broadcast(GetOwner(), ButtonPressed);
 		}
 	}
 
@@ -2804,7 +2837,7 @@ void UPrimitiveComponent::DispatchOnReleased(FKey ButtonReleased)
 		GetOwner()->NotifyActorOnReleased(ButtonReleased);
 		if (IsActorValidToNotify(GetOwner()))
 		{
-			GetOwner()->OnReleased.Broadcast(ButtonReleased);
+			GetOwner()->OnReleased.Broadcast(GetOwner(), ButtonReleased);
 		}
 	}
 
@@ -2821,7 +2854,7 @@ void UPrimitiveComponent::DispatchOnInputTouchBegin(const ETouchIndex::Type Fing
 		GetOwner()->NotifyActorOnInputTouchBegin(FingerIndex);
 		if (IsActorValidToNotify(GetOwner()))
 		{
-			GetOwner()->OnInputTouchBegin.Broadcast(FingerIndex);
+			GetOwner()->OnInputTouchBegin.Broadcast(FingerIndex, GetOwner());
 		}
 	}
 
@@ -2838,7 +2871,7 @@ void UPrimitiveComponent::DispatchOnInputTouchEnd(const ETouchIndex::Type Finger
 		GetOwner()->NotifyActorOnInputTouchEnd(FingerIndex);
 		if (IsActorValidToNotify(GetOwner()))
 		{
-			GetOwner()->OnInputTouchEnd.Broadcast(FingerIndex);
+			GetOwner()->OnInputTouchEnd.Broadcast(FingerIndex, GetOwner());
 		}
 	}
 
@@ -2850,7 +2883,7 @@ void UPrimitiveComponent::DispatchOnInputTouchEnd(const ETouchIndex::Type Finger
 
 SIZE_T UPrimitiveComponent::GetResourceSize( EResourceSizeMode::Type Mode )
 {
-	SIZE_T ResSize = 0;
+	SIZE_T ResSize = Super::GetResourceSize(Mode);
 
 	if (BodyInstance.IsValidBodyInstance())
 	{

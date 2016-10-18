@@ -17,6 +17,10 @@ class UMG_API UGridSlot : public UPanelSlot
 
 public:
 
+	/** The padding area between the slot and the content it contains. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Layout|Grid Slot")
+	FMargin Padding;
+
 	/** The alignment of the object horizontally. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Layout|Grid Slot")
 	TEnumAsByte<EHorizontalAlignment> HorizontalAlignment;
@@ -45,9 +49,14 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Layout|Grid Slot")
 	int32 Layer;
 
-	/** Offset this slot's content by some amount; positive values offset to lower right*/
+	/** Offset this slot's content by some amount; positive values offset to lower right */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Layout|Grid Slot")
 	FVector2D Nudge;
+
+public:
+
+	UFUNCTION(BlueprintCallable, Category="Layout|Border Slot")
+	void SetPadding(FMargin InPadding);
 
 	/** Sets the row index of the slot, this determines what cell the slot is in the panel */
 	UFUNCTION(BlueprintCallable, Category="Layout|Grid Slot")
@@ -68,6 +77,9 @@ public:
 	/** Sets positive values offset this cell to be hit-tested and drawn on top of others. */
 	UFUNCTION(BlueprintCallable, Category = "Layout|Grid Slot")
 	void SetLayer(int32 InLayer);
+
+	/** Sets the offset for this slot's content by some amount; positive values offset to lower right*/
+	void SetNudge(FVector2D InNudge);
 
 	/**  */
 	UFUNCTION(BlueprintCallable, Category="Layout|Grid Slot")

@@ -61,13 +61,13 @@ public:
 	 * When a particular provider module is loaded, it will create an instance and use the
 	 * provided Configuration delegate to configure each provider.
 	 */
-	virtual TSharedPtr<IAnalyticsProvider> CreateAnalyticsProvider(const FAnalytics::FProviderConfigurationDelegate& GetConfigValue) const;
+	virtual TSharedPtr<IAnalyticsProvider> CreateAnalyticsProvider(const FAnalyticsProviderConfigurationDelegate& GetConfigValue) const;
 
 	
 	/** 
 	 * Construct an analytics provider directly from a config object (and a delegate to provide configuration to each configured provider).
 	 */
-	virtual TSharedPtr<IAnalyticsProvider> CreateAnalyticsProvider(const Config& ConfigValues, const FAnalytics::FProviderConfigurationDelegate& GetConfigValue) const;
+	virtual TSharedPtr<IAnalyticsProvider> CreateAnalyticsProvider(const Config& ConfigValues, const FAnalyticsProviderConfigurationDelegate& GetConfigValue) const;
 
 private:
 	virtual void StartupModule() override;

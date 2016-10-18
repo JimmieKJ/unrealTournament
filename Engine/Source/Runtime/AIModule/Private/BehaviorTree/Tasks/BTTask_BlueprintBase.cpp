@@ -2,6 +2,7 @@
 
 #include "AIModulePrivate.h"
 #include "BlueprintNodeHelpers.h"
+#include "BehaviorTree/BehaviorTree.h"
 #include "BehaviorTree/Tasks/BTTask_BlueprintBase.h"
 
 UBTTask_BlueprintBase::UBTTask_BlueprintBase(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
@@ -22,6 +23,15 @@ UBTTask_BlueprintBase::UBTTask_BlueprintBase(const FObjectInitializer& ObjectIni
 	if (HasAnyFlags(RF_ClassDefaultObject))
 	{
 		BlueprintNodeHelpers::CollectPropertyData(this, StopAtClass, PropertyData);
+	}
+}
+
+void UBTTask_BlueprintBase::InitializeFromAsset(UBehaviorTree& Asset)
+{
+	Super::InitializeFromAsset(Asset);
+	if (Asset.BlackboardAsset)
+	{
+		BlueprintNodeHelpers::ResolveBlackboardSelectors(*this, *StaticClass(), *Asset.BlackboardAsset);
 	}
 }
 

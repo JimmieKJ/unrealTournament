@@ -61,7 +61,6 @@ ENGINE_API DECLARE_LOG_CATEGORY_EXTERN(LogAudioDebug, Display, All);
 /**
  * Audio stats
  */
-DECLARE_CYCLE_STAT_EXTERN( TEXT( "Audio Update Time" ), STAT_AudioUpdateTime, STATGROUP_Audio , );
 DECLARE_DWORD_COUNTER_STAT_EXTERN( TEXT( "Active Sounds" ), STAT_ActiveSounds, STATGROUP_Audio , );
 DECLARE_CYCLE_STAT_EXTERN(TEXT("Audio Evaluate Concurrency"), STAT_AudioEvaluateConcurrency, STATGROUP_Audio, );
 DECLARE_DWORD_COUNTER_STAT_EXTERN( TEXT( "Audio Sources" ), STAT_AudioSources, STATGROUP_Audio , );
@@ -87,6 +86,7 @@ DECLARE_CYCLE_STAT_EXTERN( TEXT( "Prepare Audio Decompression" ), STAT_AudioPrep
 DECLARE_CYCLE_STAT_EXTERN( TEXT( "Prepare Vorbis Decompression" ), STAT_VorbisPrepareDecompressionTime, STATGROUP_Audio , );
 DECLARE_CYCLE_STAT_EXTERN( TEXT( "Finding Nearest Location" ), STAT_AudioFindNearestLocation, STATGROUP_Audio , );
 DECLARE_CYCLE_STAT_EXTERN( TEXT( "Decompress Opus" ), STAT_OpusDecompressTime, STATGROUP_Audio , );
+DECLARE_CYCLE_STAT_EXTERN( TEXT( "Buffer Creation" ), STAT_AudioResourceCreationTime, STATGROUP_Audio , );
 
 /**
  * Channel definitions for multistream waves
@@ -312,6 +312,9 @@ struct ENGINE_API FWaveInstance
 	 * Checks whether wave is streaming and streaming is supported
 	 */
 	bool IsStreaming() const;
+
+	/** Returns the name of the contained USoundWave */
+	FString GetName() const;
 };
 
 inline uint32 GetTypeHash( FWaveInstance* A ) { return A->TypeHash; }
@@ -371,6 +374,9 @@ public:
 	/** Returns whether or not a real-time decoding buffer is ready for playback */
 	virtual bool IsRealTimeSourceReady() { return true; }
 
+	/** Forces any pending async realtime source tasks to finish for the buffer */
+	virtual void EnsureRealtimeTaskCompletion() { }
+
 	/** Unique ID that ties this buffer to a USoundWave */
 	int32	ResourceID;
 	/** Cumulative channels from all streams */
@@ -389,6 +395,11 @@ public:
 */
 struct FSpatializationParams
 {
+	FSpatializationParams()
+	{
+		FMemory::Memzero(this, sizeof(*this));
+	}
+
 	FVector ListenerPosition;
 	FVector ListenerOrientation;
 	FVector EmitterPosition;
@@ -551,6 +562,9 @@ public:
 	}
 
 protected:
+
+	/** Returns the volume of the sound source after evaluating debug commands */
+	ENGINE_API float GetDebugVolume(const float InVolume);
 
 	// Variables.	
 	class FAudioDevice*		AudioDevice;

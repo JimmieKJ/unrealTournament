@@ -255,8 +255,13 @@ class ENGINE_API UAudioComponent : public USceneComponent
 	UFUNCTION(BlueprintCallable, Category="Audio|Components|Audio")
 	void AdjustAttenuation(const FAttenuationSettings& InAttenuationSettings);
 
+	static void PlaybackCompleted(uint64 AudioComponentID, bool bFailedToStart);
+
+private:
 	/** Called by the ActiveSound to inform the component that playback is finished */
 	void PlaybackCompleted(bool bFailedToStart);
+
+public:
 
 	/** Sets the sound instance parameter. */
 	void SetSoundParameter(const FAudioComponentParam& Param);
@@ -299,12 +304,13 @@ public:
 #endif // WITH_EDITOR
 	virtual FString GetDetailedInfoInternal() const override;
 	virtual void PostLoad() override;
+	virtual void BeginDestroy() override;
 	//~ End UObject Interface.
 
 	//~ Begin USceneComponent Interface
 	virtual void Activate(bool bReset=false) override;
 	virtual void Deactivate() override;
-	virtual void OnUpdateTransform(bool bSkipPhysicsMove, ETeleportType Teleport = ETeleportType::None) override;
+	virtual void OnUpdateTransform(EUpdateTransformFlags UpdateTransformFlags, ETeleportType Teleport = ETeleportType::None) override;
 	//~ End USceneComponent Interface
 
 	//~ Begin ActorComponent Interface.
@@ -327,6 +333,12 @@ public:
 	/** Returns the active audio device to use for this component based on whether or not the component is playing in a world. */
 	FAudioDevice* GetAudioDevice() const;
 
+	uint64 GetAudioComponentID() const { return AudioComponentID; }
+
+	static UAudioComponent* GetAudioComponentFromID(uint64 AudioComponentID);
+
+	void UpdateInteriorSettings(bool bFullUpdate);
+
 private:
 	
 #if WITH_EDITORONLY_DATA
@@ -339,6 +351,12 @@ private:
 
 	/** A count of how many times we've started playing */
 	int32 ActiveCount;
+
+	static uint64 AudioComponentIDCounter;
+	static TMap<uint64, UAudioComponent*> AudioIDToComponentMap;
+
+	uint64 AudioComponentID;
+
 };
 
 

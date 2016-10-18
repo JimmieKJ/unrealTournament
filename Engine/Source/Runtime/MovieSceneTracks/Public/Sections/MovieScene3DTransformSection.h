@@ -19,6 +19,17 @@ namespace EKey3DTransformChannel
 	};
 }
 
+#if WITH_EDITORONLY_DATA
+/** Visibility options for 3d trajectory. */
+UENUM()
+enum class EShow3DTrajectory
+{
+	EST_OnlyWhenSelected UMETA(DisplayName="Only When Selected"),
+	EST_Always UMETA(DisplayName="Always"),
+	EST_Never UMETA(DisplayName="Never"),
+};
+#endif
+
 /**
 * Stores information about a transform for the purpose of adding keys to a transform section
 */
@@ -216,14 +227,23 @@ public:
 	 */
 	MOVIESCENETRACKS_API FRichCurve& GetScaleCurve( EAxis::Type Axis );
 
+	/**
+	 * Return the trajectory visibility
+	 */
+#if WITH_EDITORONLY_DATA
+	MOVIESCENETRACKS_API EShow3DTrajectory GetShow3DTrajectory() { return Show3DTrajectory; }
+#endif
+
 public:
 
 	// UMovieSceneSection interface
 
 	virtual void MoveSection( float DeltaPosition, TSet<FKeyHandle>& KeyHandles ) override;
 	virtual void DilateSection( float DilationFactor, float Origin, TSet<FKeyHandle>& KeyHandles ) override;
-	virtual void GetKeyHandles(TSet<FKeyHandle>& KeyHandles) const override;
+	virtual void GetKeyHandles(TSet<FKeyHandle>& OutKeyHandles, TRange<float> TimeRange) const override;
 	virtual TSharedPtr<FStructOnScope> GetKeyStruct(const TArray<FKeyHandle>& KeyHandles) override;
+	virtual TOptional<float> GetKeyTime( FKeyHandle KeyHandle ) const override;
+	virtual void SetKeyTime( FKeyHandle KeyHandle, float Time ) override;
 
 public:
 
@@ -247,4 +267,10 @@ private:
 	/** Scale curves */
 	UPROPERTY()
 	FRichCurve Scale[3];
+
+#if WITH_EDITORONLY_DATA
+	/** Whether to show the 3d trajectory */
+	UPROPERTY(EditAnywhere, DisplayName = "Show 3D Trajectory", Category = "Transform")
+	TEnumAsByte<EShow3DTrajectory> Show3DTrajectory;
+#endif
 };

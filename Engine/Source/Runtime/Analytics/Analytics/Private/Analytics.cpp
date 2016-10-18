@@ -1,8 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "AnalyticsPrivatePCH.h"
+#include "Core.h"
 #include "Interfaces/IAnalyticsProviderModule.h"
 #include "Interfaces/IAnalyticsProvider.h"
+#include "Analytics.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogAnalytics, Display, All);
 
@@ -17,7 +18,7 @@ FAnalytics::~FAnalytics()
 }
 
 
-TSharedPtr<IAnalyticsProvider> FAnalytics::CreateAnalyticsProvider( const FName& ProviderModuleName, const FProviderConfigurationDelegate& GetConfigValue )
+TSharedPtr<IAnalyticsProvider> FAnalytics::CreateAnalyticsProvider( const FName& ProviderModuleName, const FAnalyticsProviderConfigurationDelegate& GetConfigValue )
 {
 	// Check if we can successfully load the module.
 	if (ProviderModuleName != NAME_None)
@@ -38,25 +39,6 @@ TSharedPtr<IAnalyticsProvider> FAnalytics::CreateAnalyticsProvider( const FName&
 		UE_LOG(LogAnalytics, Warning, TEXT("CreateAnalyticsProvider called with a module name of None."));
 	}
 	return NULL;
-}
-
-FAnalytics::BuildType FAnalytics::GetBuildType() const
-{
-	// Detect release packaging
-	// @todo - find some way to decide if we're really release mode
-	bool bIsRelease = false;
-#if UE_BUILD_SHIPPING 
-	bIsRelease = true;
-#endif
-	if (bIsRelease) return Release;
-
-	return FParse::Param(FCommandLine::Get(), TEXT("DEBUGANALYTICS")) 
-		? Debug
-		: FParse::Param(FCommandLine::Get(), TEXT("TESTANALYTICS"))
-			? Test
-			: FParse::Param(FCommandLine::Get(), TEXT("RELEASEANALYTICS"))
-				? Release
-				: Development;
 }
 
 FString FAnalytics::GetConfigValueFromIni( const FString& IniName, const FString& SectionName, const FString& KeyName, bool bIsRequired )
@@ -81,4 +63,38 @@ void FAnalytics::StartupModule()
 
 void FAnalytics::ShutdownModule()
 {
+}
+
+ANALYTICS_API EAnalyticsBuildType GetAnalyticsBuildType()
+{
+	// Detect release packaging
+	// @todo - find some way to decide if we're really release mode
+	bool bIsRelease = false;
+#if UE_BUILD_SHIPPING 
+	bIsRelease = true;
+#endif
+	if (bIsRelease) return EAnalyticsBuildType::Release;
+
+	return FParse::Param(FCommandLine::Get(), TEXT("DEBUGANALYTICS"))
+		? EAnalyticsBuildType::Debug
+		: FParse::Param(FCommandLine::Get(), TEXT("TESTANALYTICS"))
+			? EAnalyticsBuildType::Test
+			: FParse::Param(FCommandLine::Get(), TEXT("RELEASEANALYTICS"))
+				? EAnalyticsBuildType::Release
+				: EAnalyticsBuildType::Development;
+}
+
+ANALYTICS_API const TCHAR* AnalyticsBuildTypeToString(EAnalyticsBuildType Type)
+{
+	switch (Type)
+	{
+	case EAnalyticsBuildType::Development:		return TEXT("Development");
+	case EAnalyticsBuildType::Test:				return TEXT("Test");
+	case EAnalyticsBuildType::Debug:			return TEXT("Debug");
+	case EAnalyticsBuildType::Release:			return TEXT("Release");
+	default:
+		break;
+	}
+
+	return TEXT("Undefined");
 }

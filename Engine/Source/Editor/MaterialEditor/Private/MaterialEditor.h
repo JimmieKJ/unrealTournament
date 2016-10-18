@@ -115,7 +115,7 @@ public:
 	virtual bool IsTwoSided() const override { return false; }
 	virtual bool IsDitheredLODTransition() const override { return false; }
 	virtual bool IsLightFunction() const override { return false; }
-	virtual bool IsUsedWithDeferredDecal() const override { return false; }
+	virtual bool IsDeferredDecal() const override { return false; }
 	virtual bool IsSpecialEngineMaterial() const override { return false; }
 	virtual bool IsWireframe() const override { return false; }
 	virtual bool IsMasked() const override { return false; }

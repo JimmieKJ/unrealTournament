@@ -187,7 +187,7 @@ void FTargetDeviceServiceManager::LoadSettings()
 			continue;
 		}
 
-		const FString& ServiceString = *It.Value();
+		const FString& ServiceString = It.Value().GetValue();
 
 		// ... parse device identifier...
 		FString DeviceName;

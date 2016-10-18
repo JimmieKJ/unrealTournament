@@ -306,8 +306,8 @@ public:
 			FVector2D PaintPosition = GraphCoordToPanelCoord(FVector2D::ZeroVector) - (PaintSize*0.5f);
 			float Scale = 0.2f; // Scale down drawing border
 			FSlateLayoutTransform LayoutTransform(Scale, AllottedGeometry.GetAccumulatedLayoutTransform().GetTranslation() + PaintPosition);
-			FSlateRenderTransform RenderTransform(Scale, AllottedGeometry.GetAccumulatedRenderTransform().GetTranslation() + PaintPosition);
-			FPaintGeometry EditableArea(LayoutTransform, RenderTransform, PaintSize/Scale);
+			FSlateRenderTransform SlateRenderTransform(Scale, AllottedGeometry.GetAccumulatedRenderTransform().GetTranslation() + PaintPosition);
+			FPaintGeometry EditableArea(LayoutTransform, SlateRenderTransform, PaintSize/Scale);
 
 			FLinearColor PaintColor = FLinearColor::Yellow;
 			PaintColor.A = 0.4f;

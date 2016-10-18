@@ -255,10 +255,10 @@ void FTextureLODGroupLayout::OnMinLODSizeChanged(uint32 NewValue)
 
 void FTextureLODGroupLayout::OnMinLODSizeCommitted(uint32 NewValue, ETextCommit::Type TextCommitType)
 {
-	if (FEngineAnalytics::IsAvailable())
-	{
+	//if (FEngineAnalytics::IsAvailable())
+	//{
 //		FEngineAnalytics::GetProvider().RecordEvent(TEXT("Editor.Usage.StaticMesh.ReductionSettings"), TEXT("MinLODSize"), FString::Printf(TEXT("%.1f"), NewValue));
-	}
+	//}
 	OnMinLODSizeChanged(NewValue);
 }
 
@@ -275,10 +275,10 @@ void FTextureLODGroupLayout::OnMaxLODSizeChanged(uint32 NewValue)
 
 void FTextureLODGroupLayout::OnMaxLODSizeCommitted(uint32 NewValue, ETextCommit::Type TextCommitType)
 {
-	if (FEngineAnalytics::IsAvailable())
-	{
+	//if (FEngineAnalytics::IsAvailable())
+	//{
 		//		FEngineAnalytics::GetProvider().RecordEvent(TEXT("Editor.Usage.StaticMesh.ReductionSettings"), TEXT("MaxLODSize"), FString::Printf(TEXT("%.1f"), NewValue));
-	}
+	//}
 	OnMaxLODSizeChanged(NewValue);
 }
 
@@ -295,10 +295,10 @@ void FTextureLODGroupLayout::OnLODBiasChanged(uint32 NewValue)
 
 void FTextureLODGroupLayout::OnLODBiasCommitted(uint32 NewValue, ETextCommit::Type TextCommitType)
 {
-	if (FEngineAnalytics::IsAvailable())
-	{
+	//if (FEngineAnalytics::IsAvailable())
+	//{
 		//		FEngineAnalytics::GetProvider().RecordEvent(TEXT("Editor.Usage.StaticMesh.ReductionSettings"), TEXT("LODBias"), FString::Printf(TEXT("%.1f"), NewValue));
-	}
+	//}
 	OnLODBiasChanged(NewValue);
 }
 

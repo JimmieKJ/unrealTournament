@@ -7,8 +7,18 @@
 =============================================================================*/
 
 #pragma once
+#include "AndOr.h"
 #include "AreTypesEqual.h"
 #include "RemoveCV.h"
+
+#include "IsArithmetic.h"
+#include "IsFloatingPoint.h"
+#include "IsIntegral.h"
+#include "IsPODType.h"
+#include "IsPointer.h"
+#include "IsSigned.h"
+#include "IsTriviallyCopyAssignable.h"
+#include "IsTriviallyCopyConstructible.h"
 
 #include "AssertionMacros.h"
 #include "Misc/OutputDevice.h"
@@ -17,9 +27,6 @@
  * Macros to abstract the presence of certain compiler intrinsic type traits 
  -----------------------------------------------------------------------------*/
 #define HAS_TRIVIAL_CONSTRUCTOR(T) __has_trivial_constructor(T)
-#define HAS_TRIVIAL_DESTRUCTOR(T) __has_trivial_destructor(T)
-#define HAS_TRIVIAL_ASSIGN(T) __has_trivial_assign(T)
-#define HAS_TRIVIAL_COPY(T) __has_trivial_copy(T)
 #define IS_POD(T) __is_pod(T)
 #define IS_ENUM(T) __is_enum(T)
 #define IS_EMPTY(T) __is_empty(T)
@@ -54,53 +61,6 @@ struct TIsDerivedFrom
 };
 
 /**
- * TIsFloatType
- */
-template<typename T> struct TIsFloatType { enum { Value = false }; };
-
-template<> struct TIsFloatType<float> { enum { Value = true }; };
-template<> struct TIsFloatType<double> { enum { Value = true }; };
-template<> struct TIsFloatType<long double> { enum { Value = true }; };
-
-/**
- * TIsIntegralType
- */
-template<typename T> struct TIsIntegralType { enum { Value = false }; };
-
-template<> struct TIsIntegralType<uint8> { enum { Value = true }; };
-template<> struct TIsIntegralType<uint16> { enum { Value = true }; };
-template<> struct TIsIntegralType<uint32> { enum { Value = true }; };
-template<> struct TIsIntegralType<uint64> { enum { Value = true }; };
-
-template<> struct TIsIntegralType<int8> { enum { Value = true }; };
-template<> struct TIsIntegralType<int16> { enum { Value = true }; };
-template<> struct TIsIntegralType<int32> { enum { Value = true }; };
-template<> struct TIsIntegralType<int64> { enum { Value = true }; };
-
-template<> struct TIsIntegralType<bool> { enum { Value = true }; };
-
-template<> struct TIsIntegralType<WIDECHAR> { enum { Value = true }; };
-template<> struct TIsIntegralType<ANSICHAR> { enum { Value = true }; };
-
-/**
- * TIsSignedIntegralType
- */
-template<typename T> struct TIsSignedIntegralType { enum { Value = false }; };
-
-template<> struct TIsSignedIntegralType<int8> { enum { Value = true }; };
-template<> struct TIsSignedIntegralType<int16> { enum { Value = true }; };
-template<> struct TIsSignedIntegralType<int32> { enum { Value = true }; };
-template<> struct TIsSignedIntegralType<int64> { enum { Value = true }; };
-
-/**
- * TIsArithmeticType
- */
-template<typename T> struct TIsArithmeticType 
-{ 
-	enum { Value = TIsIntegralType<T>::Value || TIsFloatType<T>::Value } ;
-};
-
-/**
  * TIsSame
  *
  * Unreal implementation of std::is_same trait.
@@ -113,8 +73,8 @@ template<typename T>				struct TIsSame<T, T>	{ enum { Value = true	}; };
  */
 template<typename T> struct TIsCharType           { enum { Value = false }; };
 template<>           struct TIsCharType<ANSICHAR> { enum { Value = true  }; };
-template<>           struct TIsCharType<UCS2CHAR>   { enum { Value = true  }; };
-template<>           struct TIsCharType<WIDECHAR>  { enum { Value = true  }; };
+template<>           struct TIsCharType<UCS2CHAR> { enum { Value = true  }; };
+template<>           struct TIsCharType<WIDECHAR> { enum { Value = true  }; };
 
 /**
  * TFormatSpecifier, only applies to numeric types
@@ -156,18 +116,6 @@ Expose_TFormatSpecifier(double, "%f")
 Expose_TFormatSpecifier(long double, "%f")
 
 
-
-/**
- * TIsPointerType
- * @todo - exclude member pointers
- */
-template<typename T> struct TIsPointerType						{ enum { Value = false }; };
-template<typename T> struct TIsPointerType<T*>					{ enum { Value = true }; };
-template<typename T> struct TIsPointerType<const T*>			{ enum { Value = true }; };
-template<typename T> struct TIsPointerType<const T* const>		{ enum { Value = true }; };
-template<typename T> struct TIsPointerType<T* volatile>			{ enum { Value = true }; };
-template<typename T> struct TIsPointerType<T* const volatile>	{ enum { Value = true }; };
-
 /**
  * TIsReferenceType
  */
@@ -197,29 +145,12 @@ template<> struct TIsVoidType<void volatile> { enum { Value = true }; };
 template<> struct TIsVoidType<void const volatile> { enum { Value = true }; };
 
 /**
- * TIsPODType
- * @todo - POD array and member pointer detection
- */
-// __is_pod changed in VS2015, however the results are still correct for all usages I've been able to locate.
-#if _MSC_VER == 1900
-#pragma warning(push)
-#pragma warning(disable:4647)
-#endif // _MSC_VER == 1900
-template<typename T> struct TIsPODType 
-{ 
-	enum { Value = IS_POD(T) || IS_ENUM(T) || TIsArithmeticType<T>::Value || TIsPointerType<T>::Value }; 
-};
-#if _MSC_VER == 1900
-#pragma warning(pop)
-#endif // _MSC_VER == 1900
-
-/**
  * TIsFundamentalType
  */
 template<typename T> 
 struct TIsFundamentalType 
 { 
-	enum { Value = TIsArithmeticType<T>::Value || TIsVoidType<T>::Value };
+	enum { Value = TOr<TIsArithmetic<T>, TIsVoidType<T>>::Value };
 };
 
 /**
@@ -233,27 +164,11 @@ struct TIsFunction
 	enum { Value = false };
 };
 
-#if PLATFORM_COMPILER_HAS_VARIADIC_TEMPLATES
-
-	template <typename RetType, typename... Params>
-	struct TIsFunction<RetType(Params...)>
-	{
-		enum { Value = true };
-	};
-
-#else
-
-	template <typename RetType                                                                                                        > struct TIsFunction<RetType(                              )> { enum { Value = true }; };
-	template <typename RetType, typename P0                                                                                           > struct TIsFunction<RetType(P0                            )> { enum { Value = true }; };
-	template <typename RetType, typename P0, typename P1                                                                              > struct TIsFunction<RetType(P0, P1                        )> { enum { Value = true }; };
-	template <typename RetType, typename P0, typename P1, typename P2                                                                 > struct TIsFunction<RetType(P0, P1, P2                    )> { enum { Value = true }; };
-	template <typename RetType, typename P0, typename P1, typename P2, typename P3                                                    > struct TIsFunction<RetType(P0, P1, P2, P3                )> { enum { Value = true }; };
-	template <typename RetType, typename P0, typename P1, typename P2, typename P3, typename P4                                       > struct TIsFunction<RetType(P0, P1, P2, P3, P4            )> { enum { Value = true }; };
-	template <typename RetType, typename P0, typename P1, typename P2, typename P3, typename P4, typename P5                          > struct TIsFunction<RetType(P0, P1, P2, P3, P4, P5        )> { enum { Value = true }; };
-	template <typename RetType, typename P0, typename P1, typename P2, typename P3, typename P4, typename P5, typename P6             > struct TIsFunction<RetType(P0, P1, P2, P3, P4, P5, P6    )> { enum { Value = true }; };
-	template <typename RetType, typename P0, typename P1, typename P2, typename P3, typename P4, typename P5, typename P6, typename P7> struct TIsFunction<RetType(P0, P1, P2, P3, P4, P5, P6, P7)> { enum { Value = true }; };
-
-#endif
+template <typename RetType, typename... Params>
+struct TIsFunction<RetType(Params...)>
+{
+	enum { Value = true };
+};
 
 /**
  * TIsZeroConstructType
@@ -261,16 +176,7 @@ struct TIsFunction
 template<typename T> 
 struct TIsZeroConstructType 
 { 
-	enum { Value = IS_ENUM(T) || TIsArithmeticType<T>::Value || TIsPointerType<T>::Value };
-};
-
-/**
- * TNoDestructorType
- */
-template<typename T> 
-struct TNoDestructorType
-{ 
-	enum { Value = TIsPODType<T>::Value || HAS_TRIVIAL_DESTRUCTOR(T) };
+	enum { Value = TOrValue<IS_ENUM(T), TIsArithmetic<T>, TIsPointer<T>>::Value };
 };
 
 /**
@@ -384,7 +290,7 @@ template <typename T>
 struct TCallTraitsBase
 {
 private:
-	enum { PassByValue = TIsArithmeticType<T>::Value || TIsPointerType<T>::Value || (TIsPODType<T>::Value && sizeof(T) <= sizeof(void*)) };
+	enum { PassByValue = TOr<TAndValue<(sizeof(T) <= sizeof(void*)), TIsPODType<T>>, TIsArithmetic<T>, TIsPointer<T>>::Value };
 public:
 	typedef T ValueType;
 	typedef T& Reference;
@@ -445,31 +351,16 @@ public:
 
 /**
  * Helper for array traits. Provides a common base to more easily refine a portion of the traits
- * when specializing. NeedsCopyConstructor/NeedsMoveConstructor/NeedsDestructor is mainly used by the contiguous storage 
- * containers like TArray.
+ * when specializing. Mainly used by MemoryOps.h which is used by the contiguous storage containers like TArray.
  */
 template<typename T> struct TTypeTraitsBase
 {
 	typedef typename TCallTraits<T>::ParamType ConstInitType;
 	typedef typename TCallTraits<T>::ConstPointerType ConstPointerType;
-	// WRH - 2007/11/28 - the compilers we care about do not produce equivalently efficient code when manually
-	// calling the constructors of trivial classes. In array cases, we can call a single memcpy
-	// to initialize all the members, but the compiler will call memcpy for each element individually,
-	// which is slower the more elements you have. 
-	enum { NeedsCopyConstructor = !HAS_TRIVIAL_COPY(T) && !TIsPODType<T>::Value };
-	enum { NeedsCopyAssignment = !HAS_TRIVIAL_ASSIGN(T) && !TIsPODType<T>::Value };
-	// There's currently no good way to detect the need for move construction/assignment so we'll fake it for
-	// now with the copy traits
-	enum { NeedsMoveConstructor = NeedsCopyConstructor };
-	enum { NeedsMoveAssignment = NeedsCopyAssignment };
-	// WRH - 2007/11/28 - the compilers we care about correctly elide the destructor code on trivial classes
-	// (effectively compiling down to nothing), so it is not strictly necessary that we have NeedsDestructor. 
-	// It doesn't hurt, though, and retains for us the ability to skip destructors on classes without trivial ones
-	// if we should choose.
-	enum { NeedsDestructor = !HAS_TRIVIAL_DESTRUCTOR(T) && !TIsPODType<T>::Value };
+
 	// There's no good way of detecting this so we'll just assume it to be true for certain known types and expect
 	// users to customize it for their custom types.
-	enum { IsBytewiseComparable = IS_ENUM(T) || TIsArithmeticType<T>::Value || TIsPointerType<T>::Value };
+	enum { IsBytewiseComparable = TOrValue<IS_ENUM(T), TIsArithmetic<T>, TIsPointer<T>>::Value };
 };
 
 /**
@@ -568,7 +459,7 @@ template <typename T>
 struct TIsBitwiseConstructible<T, T>
 {
 	// Ts can always be bitwise constructed from itself if it is trivially copyable.
-	enum { Value = !TTypeTraits<T>::NeedsCopyConstructor };
+	enum { Value = TIsTriviallyCopyConstructible<T>::Value };
 };
 
 template <typename T, typename U>
@@ -621,7 +512,4 @@ struct TIsEnum
 #undef IS_EMPTY
 #undef IS_ENUM
 #undef IS_POD
-#undef HAS_TRIVIAL_COPY
-#undef HAS_TRIVIAL_ASSIGN
-#undef HAS_TRIVIAL_DESTRUCTOR
 #undef HAS_TRIVIAL_CONSTRUCTOR

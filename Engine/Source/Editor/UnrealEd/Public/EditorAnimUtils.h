@@ -58,17 +58,14 @@ namespace EditorAnimUtils
 
 	private:
 		/** Lists of assets to retarget. Populated from FAssetData supplied to constructor */
-		TArray<UAnimSequence*>		AnimSequencesToRetarget;
-		TArray<UAnimationAsset*>	ComplexAnimsToRetarget;
+		TArray<UAnimationAsset*>	AnimationAssetsToRetarget;
 		TArray<UAnimBlueprint*>		AnimBlueprintsToRetarget;
 
 		/** Lists of original assets map to duplicate assets */
-		TMap<UAnimSequence*, UAnimSequence*>		DuplicatedSequences;
-		TMap<UAnimationAsset*, UAnimationAsset*>	DuplicatedComplexAssets;
+		TMap<UAnimationAsset*, UAnimationAsset*>	DuplicatedAnimAssets;
 		TMap<UAnimBlueprint*, UAnimBlueprint*>		DuplicatedBlueprints;
 
-		TMap<UAnimSequence*, UAnimSequence*>		RemappedSequences;
-		TMap<UAnimationAsset*, UAnimationAsset*>	RemappedComplexAssets;
+		TMap<UAnimationAsset*, UAnimationAsset*>	RemappedAnimAssets;
 
 		/** If we only chose one object to retarget store it here */
 		UObject* SingleTargetObject;
@@ -114,10 +111,10 @@ namespace EditorAnimUtils
 	UNREALED_API UObject* RetargetAnimations(USkeleton* OldSkeleton, USkeleton* NewSkeleton, FAnimationRetargetContext& RetargetContext, bool bRetargetReferredAssets, const FNameDuplicationRule* NameRule);
 
 	// Populates the supplied TArrays with any animation assets that this blueprint refers too
-	void GetAllAnimationSequencesReferredInBlueprint(UAnimBlueprint* AnimBlueprint, TArray<UAnimationAsset*>& ComplexAnims, TArray<UAnimSequence*>& AnimSequences);
+	void GetAllAnimationSequencesReferredInBlueprint(UAnimBlueprint* AnimBlueprint, TArray<UAnimationAsset*>& AnimationAsset);
 
 	// Replaces references to any animations found with the match animation from the map
-	void ReplaceReferredAnimationsInBlueprint(UAnimBlueprint* AnimBlueprint, const TMap<UAnimationAsset*, UAnimationAsset*>& ComplexAnimMap, const TMap<UAnimSequence*, UAnimSequence*>& AnimSequenceMap);
+	void ReplaceReferredAnimationsInBlueprint(UAnimBlueprint* AnimBlueprint, const TMap<UAnimationAsset*, UAnimationAsset*>& AnimAssetReplacementMap);
 
 	/**
 	 * Duplicates the supplied AssetsToDuplicate and returns a map of original asset to duplicate
@@ -155,8 +152,6 @@ namespace EditorAnimUtils
 		}
 		return ReturnMap;
 	}
-
-	void GetBlueprintAssetVariableProperties(UAnimBlueprint* InBlueprint, TArray<UProperty*>& OutSimpleProperties, TArray<UProperty*>& OutComplexProperties);
 
 	template<class AssetType>
 	void GetAssetsFromProperties(TArray<UProperty*> InProperties, UObject* Scope, TArray<AssetType*>& OutAssets)

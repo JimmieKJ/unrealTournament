@@ -6,110 +6,8 @@
 #include "AnimationGraphSchema.h"
 #include "BlueprintNodeSpawner.h"
 #include "BlueprintActionDatabaseRegistrar.h"
-
-/////////////////////////////////////////////////////
-// FA3NodeOptionalPinManager
-
-struct FA3NodeOptionalPinManager : public FOptionalPinManager
-{
-protected:
-	class UAnimGraphNode_Base* BaseNode;
-	TArray<UEdGraphPin*>* OldPins;
-
-	TMap<FString, UEdGraphPin*> OldPinMap;
-
-public:
-	FA3NodeOptionalPinManager(class UAnimGraphNode_Base* Node, TArray<UEdGraphPin*>* InOldPins)
-		: BaseNode(Node)
-		, OldPins(InOldPins)
-	{
-		if (OldPins != NULL)
-		{
-			for (auto PinIt = OldPins->CreateIterator(); PinIt; ++PinIt)
-			{
-				UEdGraphPin* Pin = *PinIt;
-				OldPinMap.Add(Pin->PinName, Pin);
-			}
-		}
-	}
-
-	virtual void GetRecordDefaults(UProperty* TestProperty, FOptionalPinFromProperty& Record) const override
-	{
-		const UAnimationGraphSchema* Schema = GetDefault<UAnimationGraphSchema>();
-
-		// Determine if this is a pose or array of poses
-		UArrayProperty* ArrayProp = Cast<UArrayProperty>(TestProperty);
-		UStructProperty* StructProp = Cast<UStructProperty>((ArrayProp != NULL) ? ArrayProp->Inner : TestProperty);
-		const bool bIsPoseInput = (StructProp != NULL) && (StructProp->Struct->IsChildOf(FPoseLinkBase::StaticStruct()));
-
-		//@TODO: Error if they specified two or more of these flags
-		const bool bAlwaysShow = TestProperty->HasMetaData(Schema->NAME_AlwaysAsPin) || bIsPoseInput;
-		const bool bOptional_ShowByDefault = TestProperty->HasMetaData(Schema->NAME_PinShownByDefault);
-		const bool bOptional_HideByDefault = TestProperty->HasMetaData(Schema->NAME_PinHiddenByDefault);
-		const bool bNeverShow = TestProperty->HasMetaData(Schema->NAME_NeverAsPin);
-		const bool bPropertyIsCustomized = TestProperty->HasMetaData(Schema->NAME_CustomizeProperty);
-
-		Record.bCanToggleVisibility = bOptional_ShowByDefault || bOptional_HideByDefault;
-		Record.bShowPin = bAlwaysShow || bOptional_ShowByDefault;
-		Record.bPropertyIsCustomized = bPropertyIsCustomized;
- 	}
-
-	virtual void CustomizePinData(UEdGraphPin* Pin, FName SourcePropertyName, int32 ArrayIndex, UProperty* Property) const override
-	{
-		if (BaseNode != NULL)
-		{
-			BaseNode->CustomizePinData(Pin, SourcePropertyName, ArrayIndex);
-		}
-	}
-
-	void PostInitNewPin(UEdGraphPin* Pin, FOptionalPinFromProperty& Record, int32 ArrayIndex, UProperty* Property, uint8* PropertyAddress) const override
-	{
-		check(PropertyAddress != NULL);
-		check(Record.bShowPin);
-		
-		if (OldPins == NULL)
-		{
-			// Initial construction of a visible pin; copy values from the struct
-			FBlueprintEditorUtils::ExportPropertyToKismetDefaultValue(Pin, Property, PropertyAddress, BaseNode);
-		}
-		else if (Record.bCanToggleVisibility)
-		{
-			if (UEdGraphPin* OldPin = OldPinMap.FindRef(Pin->PinName))
-			{
-				// Was already visible
-			}
-			else
-			{
-				// Showing a pin that was previously hidden, during a reconstruction
-				// Convert the struct property into DefaultValue/DefaultValueObject
-				FBlueprintEditorUtils::ExportPropertyToKismetDefaultValue(Pin, Property, PropertyAddress, BaseNode);
-			}
-		}
-	}
-
-	void PostRemovedOldPin(FOptionalPinFromProperty& Record, int32 ArrayIndex, UProperty* Property, uint8* PropertyAddress) const override
-	{
-		check(PropertyAddress != NULL);
-		check(!Record.bShowPin);
-
-		if (Record.bCanToggleVisibility && (OldPins != NULL))
-		{
-			const FString OldPinName = (ArrayIndex != INDEX_NONE) ? FString::Printf(TEXT("%s_%d"), *(Record.PropertyName.ToString()), ArrayIndex) : Record.PropertyName.ToString();
-			if (UEdGraphPin* OldPin = OldPinMap.FindRef(OldPinName))
-			{
-				// Pin was visible but it's now hidden
-				// Convert DefaultValue/DefaultValueObject and push back into the struct
-				FBlueprintEditorUtils::ImportKismetDefaultValueToProperty(OldPin, Property, PropertyAddress, BaseNode);
-			}
-		}
-	}
-
-	void AllocateDefaultPins(UStruct* SourceStruct, uint8* StructBasePtr)
-	{
-		RebuildPropertyList(BaseNode->ShowPinForProperties, SourceStruct);
-		CreateVisiblePins(BaseNode->ShowPinForProperties, SourceStruct, EGPD_Input, BaseNode, StructBasePtr);
-	}
-};
+#include "Animation/AnimInstance.h"
+#include "AnimBlueprintNodeOptionalPinManager.h"
 
 /////////////////////////////////////////////////////
 // UAnimGraphNode_Base
@@ -150,7 +48,7 @@ void UAnimGraphNode_Base::InternalPinCreation(TArray<UEdGraphPin*>* OldPins)
 	{
 		// Display any currently visible optional pins
 		{
-			FA3NodeOptionalPinManager OptionalPinManager(this, OldPins);
+			FAnimBlueprintNodeOptionalPinManager OptionalPinManager(this, OldPins);
 			OptionalPinManager.AllocateDefaultPins(NodeStruct->Struct, NodeStruct->ContainerPtrToValuePtr<uint8>(this));
 		}
 
@@ -363,15 +261,10 @@ void UAnimGraphNode_Base::GetPinHoverText(const UEdGraphPin& Pin, FString& Hover
 	}
 }
 
-void UAnimGraphNode_Base::HandleAnimReferenceCollection(UAnimationAsset* AnimAsset, TArray<UAnimationAsset*>& ComplexAnims, TArray<UAnimSequence*>& AnimationSequences) const
+void UAnimGraphNode_Base::HandleAnimReferenceCollection(UAnimationAsset* AnimAsset, TArray<UAnimationAsset*>& AnimationAssets) const
 {
-	if(UAnimSequence* AnimSequence = Cast<UAnimSequence>(AnimAsset))
+	if(AnimAsset)
 	{
-		AnimationSequences.AddUnique(AnimSequence);
-	}
-	else
-	{
-		ComplexAnims.AddUnique(AnimAsset);
-		AnimAsset->GetAllAnimationSequencesReferred(AnimationSequences);
+		AnimAsset->HandleAnimReferenceCollection(AnimationAssets);
 	}
 }

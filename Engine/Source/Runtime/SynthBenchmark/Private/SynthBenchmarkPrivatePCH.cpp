@@ -115,8 +115,10 @@ void FSynthBenchmark::Run(FSynthBenchmarkResults& InOut, bool bGPUBenchmark, flo
 	UE_LOG(LogSynthBenchmark, Display, TEXT("  NumberOfCores (physical): %d"), FPlatformMisc::NumberOfCores());
 	UE_LOG(LogSynthBenchmark, Display, TEXT("  NumberOfCores (logical): %d"), FPlatformMisc::NumberOfCoresIncludingHyperthreads());
 
-	UE_LOG(LogSynthBenchmark, Display, TEXT("  CPU Perf Index 0: %.1f (weight %.2f)"), InOut.CPUStats[0].ComputePerfIndex(), InOut.CPUStats[0].GetWeight());
-	UE_LOG(LogSynthBenchmark, Display, TEXT("  CPU Perf Index 1: %.1f (weight %.2f)"), InOut.CPUStats[1].ComputePerfIndex(), InOut.CPUStats[1].GetWeight());
+	for (uint32 MethodId = 0; MethodId < ARRAY_COUNT(InOut.CPUStats); ++MethodId)
+	{
+		UE_LOG(LogSynthBenchmark, Display, TEXT("  CPU Perf Index %d: %.1f (weight %.2f)"), MethodId, InOut.CPUStats[MethodId].ComputePerfIndex(), InOut.CPUStats[MethodId].GetWeight());
+	}
 	
 	// separator line
 	UE_LOG(LogSynthBenchmark, Display, TEXT(" "));
@@ -125,8 +127,9 @@ void FSynthBenchmark::Run(FSynthBenchmarkResults& InOut, bool bGPUBenchmark, flo
 
 	UE_LOG(LogSynthBenchmark, Display, TEXT("  Adapter Name: '%s'"), *GRHIAdapterName);
 	UE_LOG(LogSynthBenchmark, Display, TEXT("  (On Optimus the name might be wrong, memory should be ok)"));
-	UE_LOG(LogSynthBenchmark, Display, TEXT("  Vendor Id: 0x%x"), GRHIVendorId);
-	UE_LOG(LogSynthBenchmark, Display, TEXT("  Device Id: 0x%x"), GRHIDeviceId);
+	UE_LOG(LogSynthBenchmark, Display, TEXT("  Vendor Id: 0x%X"), GRHIVendorId);
+	UE_LOG(LogSynthBenchmark, Display, TEXT("  Device Id: 0x%X"), GRHIDeviceId);
+	UE_LOG(LogSynthBenchmark, Display, TEXT("  Device Revision: 0x%X"), GRHIDeviceRevision);
 
 	{
 		FTextureMemoryStats Stats;
@@ -204,18 +207,17 @@ void FSynthBenchmark::Run(FSynthBenchmarkResults& InOut, bool bGPUBenchmark, flo
 
 		if(GPUTime > 0.0f)
 		{
-			for(uint32 MethodId = 0; MethodId < sizeof(InOut.GPUStats) / sizeof(InOut.GPUStats[0]); ++MethodId)
+			for(uint32 MethodId = 0; MethodId < ARRAY_COUNT(InOut.GPUStats); ++MethodId)
 			{
 				UE_LOG(LogSynthBenchmark, Display, TEXT("         ... %.3f GigaPix/s, Confidence=%.0f%% '%s'"),
 					1.0f / InOut.GPUStats[MethodId].GetNormalizedTime(), InOut.GPUStats[MethodId].GetConfidence(), InOut.GPUStats[MethodId].GetDesc());
 			}
 			UE_LOG(LogSynthBenchmark, Display, TEXT(""));
 
-			UE_LOG(LogSynthBenchmark, Display, TEXT("  GPU Perf Index 0: %.1f (weight %.2f)"), InOut.GPUStats[0].ComputePerfIndex(), InOut.GPUStats[0].GetWeight());
-			UE_LOG(LogSynthBenchmark, Display, TEXT("  GPU Perf Index 1: %.1f (weight %.2f)"), InOut.GPUStats[1].ComputePerfIndex(), InOut.GPUStats[1].GetWeight());
-			UE_LOG(LogSynthBenchmark, Display, TEXT("  GPU Perf Index 2: %.1f (weight %.2f)"), InOut.GPUStats[2].ComputePerfIndex(), InOut.GPUStats[2].GetWeight());
-			UE_LOG(LogSynthBenchmark, Display, TEXT("  GPU Perf Index 3: %.1f (weight %.2f)"), InOut.GPUStats[3].ComputePerfIndex(), InOut.GPUStats[3].GetWeight());
-			UE_LOG(LogSynthBenchmark, Display, TEXT("  GPU Perf Index 4: %.1f (weight %.2f)"), InOut.GPUStats[4].ComputePerfIndex(), InOut.GPUStats[4].GetWeight());
+			for(uint32 MethodId = 0; MethodId < ARRAY_COUNT(InOut.GPUStats); ++MethodId)
+			{
+				UE_LOG(LogSynthBenchmark, Display, TEXT("  GPU Perf Index %d: %.1f (weight %.2f)"), MethodId, InOut.GPUStats[MethodId].ComputePerfIndex(), InOut.GPUStats[MethodId].GetWeight());
+			}
 		}
 	}
 	

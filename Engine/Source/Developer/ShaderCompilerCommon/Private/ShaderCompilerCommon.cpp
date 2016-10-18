@@ -1,62 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 // .
 
+#include "ShaderCompilerCommonPrivatePCH.h"
 #include "ShaderCompilerCommon.h"
 #include "ModuleManager.h"
 #include "CrossCompilerCommon.h"
 #include "TypeHash.h"
-
+#include "HlslccDefinitions.h"
 
 IMPLEMENT_MODULE(FDefaultModuleImpl, ShaderCompilerCommon);
 
-/**
- * The shader frequency.
- */
-enum EHlslShaderFrequency
-{
-	HSF_VertexShader,
-	HSF_PixelShader,
-	HSF_GeometryShader,
-	HSF_HullShader,
-	HSF_DomainShader,
-	HSF_ComputeShader,
-	HSF_FrequencyCount,
-	HSF_InvalidFrequency = -1
-};
-
-/**
- * Compilation flags. See PackUniformBuffers.h for details on Grouping/Packing uniforms.
- */
-enum EHlslCompileFlag
-{
-	/** Disables validation of the IR. */
-	HLSLCC_NoValidation = 0x1,
-	/** Disabled preprocessing. */
-	HLSLCC_NoPreprocess = 0x2,
-	/** Pack uniforms into typed arrays. */
-	HLSLCC_PackUniforms = 0x4,
-	/** Assume that input shaders output into DX11 clip space,
-	 * and adjust them for OpenGL clip space. */
-	HLSLCC_DX11ClipSpace = 0x8,
-	/** Print AST for debug purposes. */
-	HLSLCC_PrintAST = 0x10,
-	// Removed any structures embedded on uniform buffers flattens them into elements of the uniform buffer (Mostly for ES 2: this implies PackUniforms).
-	HLSLCC_FlattenUniformBufferStructures = 0x20 | HLSLCC_PackUniforms,
-	// Removes uniform buffers and flattens them into globals (Mostly for ES 2: this implies PackUniforms & Flatten Structures).
-	HLSLCC_FlattenUniformBuffers = 0x40 | HLSLCC_PackUniforms | HLSLCC_FlattenUniformBufferStructures,
-	// Groups flattened uniform buffers per uniform buffer source/precision (Implies Flatten UBs)
-	HLSLCC_GroupFlattenedUniformBuffers = 0x80 | HLSLCC_FlattenUniformBuffers,
-	// Remove redundant subexpressions [including texture fetches] (to workaround certain drivers who can't optimize redundant texture fetches)
-	HLSLCC_ApplyCommonSubexpressionElimination = 0x100,
-	// Expand subexpressions/obfuscate (to workaround certain drivers who can't deal with long nested expressions)
-	HLSLCC_ExpandSubexpressions = 0x200,
-	// Generate shaders compatible with the separate_shader_objects extension
-	HLSLCC_SeparateShaderObjects = 0x400,
-	// Finds variables being used as atomics and changes all references to use atomic reads/writes
-	HLSLCC_FixAtomicReferences = 0x800,
-	// Packs global uniforms & flattens structures, and makes each packed array its own uniform buffer
-	HLSLCC_PackUniformsIntoUniformBuffers = 0x1000 | HLSLCC_PackUniforms,
-};
 
 int16 GetNumUniformBuffersUsed(const FShaderCompilerResourceTable& InSRT)
 {
@@ -323,6 +276,57 @@ bool RemoveUniformBuffersFromSource(FString& SourceCode)
 }
 
 
+FString CreateShaderCompilerWorkerDirectCommandLine(const FShaderCompilerInput& Input)
+{
+	FString Text(TEXT("-directcompile -format="));
+	Text += Input.ShaderFormat.GetPlainNameString();
+	Text += TEXT(" -entry=");
+	Text += Input.EntryPointName;
+	switch (Input.Target.Frequency)
+	{
+	case SF_Vertex:		Text += TEXT(" -vs"); break;
+	case SF_Hull:		Text += TEXT(" -hs"); break;
+	case SF_Domain:		Text += TEXT(" -ds"); break;
+	case SF_Geometry:	Text += TEXT(" -gs"); break;
+	case SF_Pixel:		Text += TEXT(" -ps"); break;
+	case SF_Compute:	Text += TEXT(" -cs"); break;
+	default: ensure(0); break;
+	}
+	if (Input.bCompilingForShaderPipeline)
+	{
+		Text += TEXT(" -pipeline");
+	}
+	if (Input.bIncludeUsedOutputs)
+	{
+		Text += TEXT(" -usedoutputs=");
+		for (int32 Index = 0; Index < Input.UsedOutputs.Num(); ++Index)
+		{
+			if (Index != 0)
+			{
+				Text += TEXT("+");
+			}
+			Text += Input.UsedOutputs[Index];
+		}
+	}
+
+	Text += TEXT(" ");
+	Text += Input.DumpDebugInfoPath / Input.SourceFilename + TEXT(".usf");
+
+	uint64 CFlags = 0;
+	for (int32 Index = 0; Index < Input.Environment.CompilerFlags.Num(); ++Index)
+	{
+		CFlags = CFlags | ((uint64)1 << (uint64)Input.Environment.CompilerFlags[Index]);
+	}
+	if (CFlags)
+	{
+		Text += TEXT(" -cflags=");
+		Text += FString::Printf(TEXT("%llu"), CFlags);
+	}
+	
+	return Text;
+}
+
+
 namespace CrossCompiler
 {
 	FString CreateBatchFileContents(const FString& ShaderFile, const FString& OutputFile, uint32 Frequency, const FString& EntryPoint, const FString& VersionSwitch, uint32 CCFlags, const FString& ExtraArguments)
@@ -350,7 +354,8 @@ namespace CrossCompiler
 		CCTCmdLine += ((CCFlags & HLSLCC_ExpandSubexpressions) == HLSLCC_ExpandSubexpressions) ? TEXT(" -xpxpr") : TEXT("");
 		CCTCmdLine += ((CCFlags & HLSLCC_SeparateShaderObjects) == HLSLCC_SeparateShaderObjects) ? TEXT(" -separateshaders") : TEXT("");
 		CCTCmdLine += ((CCFlags & HLSLCC_PackUniformsIntoUniformBuffers) == HLSLCC_PackUniformsIntoUniformBuffers) ? TEXT(" -packintoubs") : TEXT("");
-		CCTCmdLine += ((CCFlags & HLSLCC_FixAtomicReferences) == HLSLCC_PackUniformsIntoUniformBuffers) ? TEXT(" -fixatomics") : TEXT("");
+		CCTCmdLine += ((CCFlags & HLSLCC_FixAtomicReferences) == HLSLCC_FixAtomicReferences) ? TEXT(" -fixatomics") : TEXT("");
+		CCTCmdLine += ((CCFlags & HLSLCC_UseFullPrecisionInPS) == HLSLCC_UseFullPrecisionInPS) ? TEXT(" -usefullprecision") : TEXT("");
 		FString BatchFile;
 		if (PLATFORM_MAC)
 		{

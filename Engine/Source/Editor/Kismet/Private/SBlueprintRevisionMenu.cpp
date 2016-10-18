@@ -139,7 +139,7 @@ void SBlueprintRevisionMenu::OnSourceControlQueryComplete(const FSourceControlOp
 	MenuBuilder.BeginSection("AddDiffRevision", LOCTEXT("Revisions", "Revisions"));
 	if (bIncludeLocalRevision)
 	{
-		FText const ToolTip = LOCTEXT("LocalRevisionToolTip", "The current copy you have saved to disk (locally)");
+		FText const ToolTipText = LOCTEXT("LocalRevisionToolTip", "The current copy you have saved to disk (locally)");
 
 		FOnRevisionSelected OnRevisionSelectedDelegate = OnRevisionSelected;
 		auto OnMenuItemSelected = [OnRevisionSelectedDelegate]()
@@ -147,7 +147,7 @@ void SBlueprintRevisionMenu::OnSourceControlQueryComplete(const FSourceControlOp
 			OnRevisionSelectedDelegate.ExecuteIfBound(FRevisionInfo::InvalidRevision());
 		};
 
-		MenuBuilder.AddMenuEntry(LOCTEXT("LocalRevision", "Local"), ToolTip, FSlateIcon(),
+		MenuBuilder.AddMenuEntry(LOCTEXT("LocalRevision", "Local"), ToolTipText, FSlateIcon(),
 			FUIAction(FExecuteAction::CreateLambda(OnMenuItemSelected)));
 	}
 
@@ -184,7 +184,7 @@ void SBlueprintRevisionMenu::OnSourceControlQueryComplete(const FSourceControlOp
 					Args.Add(TEXT("UserName"), FText::FromString(Revision->GetUserName()));
 					Args.Add(TEXT("DateTime"), FText::AsDate(Revision->GetDate()));
 					Args.Add(TEXT("ChanglistDescription"), FText::FromString(Revision->GetDescription()));
-					const FText ToolTip = FText::Format(LOCTEXT("RevisionToolTip", "CL #{CheckInNumber} {UserName} \n{DateTime} \n{ChanglistDescription}"), Args);
+					const FText ToolTipText = FText::Format(LOCTEXT("RevisionToolTip", "CL #{CheckInNumber} {UserName} \n{DateTime} \n{ChanglistDescription}"), Args);
 
 					if (LatestRevision == Revision->GetRevisionNumber())
 					{
@@ -201,7 +201,7 @@ void SBlueprintRevisionMenu::OnSourceControlQueryComplete(const FSourceControlOp
 					{
 						OnRevisionSelectedDelegate.ExecuteIfBound(RevisionInfo);
 					};
-					MenuBuilder.AddMenuEntry( TAttribute<FText>(Label), ToolTip, FSlateIcon(),
+					MenuBuilder.AddMenuEntry( TAttribute<FText>(Label), ToolTipText, FSlateIcon(),
 						FUIAction(FExecuteAction::CreateLambda(OnMenuItemSelected)) );
 				}
 			}

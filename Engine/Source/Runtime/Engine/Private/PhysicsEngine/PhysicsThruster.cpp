@@ -19,11 +19,11 @@ void UPhysicsThrusterComponent::TickComponent(float DeltaTime, enum ELevelTick T
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
 	// Applied force to the base, so if we don't have one, do nothing.
-	if( bIsActive && AttachParent )
+	if( bIsActive && GetAttachParent())
 	{
 		FVector WorldForce = ThrustStrength * ComponentToWorld.TransformVectorNoScale( FVector(-1.f,0.f,0.f) );
 
-		UPrimitiveComponent* BasePrimComp = Cast<UPrimitiveComponent>(AttachParent);
+		UPrimitiveComponent* BasePrimComp = Cast<UPrimitiveComponent>(GetAttachParent());
 		if(BasePrimComp)
 		{
 			BasePrimComp->AddForceAtLocation(WorldForce, GetComponentLocation(), NAME_None);
@@ -68,7 +68,7 @@ APhysicsThruster::APhysicsThruster(const FObjectInitializer& ObjectInitializer)
 			ArrowComponent->bTreatAsASprite = true;
 			ArrowComponent->SpriteInfo.Category = ConstructorStatics.ID_Physics;
 			ArrowComponent->SpriteInfo.DisplayName = ConstructorStatics.NAME_Physics;
-			ArrowComponent->AttachParent = ThrusterComponent;
+			ArrowComponent->SetupAttachment(ThrusterComponent);
 			ArrowComponent->bIsScreenSizeScaled = true;
 		}
 
@@ -78,7 +78,7 @@ APhysicsThruster::APhysicsThruster(const FObjectInitializer& ObjectInitializer)
 			SpriteComponent->RelativeScale3D = FVector(0.5f, 0.5f, 0.5f);
 			SpriteComponent->SpriteInfo.Category = ConstructorStatics.ID_Physics;
 			SpriteComponent->SpriteInfo.DisplayName = ConstructorStatics.NAME_Physics;
-			SpriteComponent->AttachParent = ThrusterComponent;
+			SpriteComponent->SetupAttachment(ThrusterComponent);
 			SpriteComponent->bIsScreenSizeScaled = true;
 		}
 	}

@@ -72,8 +72,6 @@ protected:
 	const UClass* GetClassForObjectBinding() const;
 
 private:
-
-	UObject* FindRepresentativeObject();
 	
 	TSharedRef<SWidget> HandleAddTrackComboButtonGetMenuContent();
 	

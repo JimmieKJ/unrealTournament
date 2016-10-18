@@ -4,6 +4,7 @@
 LandscapeRender.cpp: New terrain rendering
 =============================================================================*/
 
+#include "LandscapePrivatePCH.h"
 #include "Landscape.h"
 
 #include "Materials/MaterialExpressionTextureCoordinate.h"
@@ -23,12 +24,21 @@ LandscapeRender.cpp: New terrain rendering
 #include "EngineGlobals.h"
 #include "UnrealEngine.h"
 #include "LandscapeLight.h"
+#include "LandscapeLayerInfoObject.h"
 
 IMPLEMENT_UNIFORM_BUFFER_STRUCT(FLandscapeUniformShaderParameters, TEXT("LandscapeParameters"));
 
 #define LANDSCAPE_LOD_DISTANCE_FACTOR 2.f
 #define LANDSCAPE_MAX_COMPONENT_SIZE 255
 #define LANDSCAPE_LOD_SQUARE_ROOT_FACTOR 1.5f
+
+int32 GLandscapeMeshLODBias = 0;
+FAutoConsoleVariableRef CVarLandscapeMeshLODBias(
+	TEXT("r.LandscapeLODBias"),
+	GLandscapeMeshLODBias,
+	TEXT("LOD bias for landscape/terrain meshes."),
+	ECVF_Scalability
+	);
 
 /*------------------------------------------------------------------------------
 	Forsyth algorithm for cache optimizing index buffers.
@@ -442,12 +452,12 @@ LANDSCAPE_API bool GLandscapeEditModeActive = false;
 LANDSCAPE_API ELandscapeViewMode::Type GLandscapeViewMode = ELandscapeViewMode::Normal;
 LANDSCAPE_API int32 GLandscapeEditRenderMode = ELandscapeEditRenderMode::None;
 LANDSCAPE_API int32 GLandscapePreviewMeshRenderMode = 0;
-UMaterial* GLayerDebugColorMaterial = nullptr;
-UMaterialInstanceConstant* GSelectionColorMaterial = nullptr;
-UMaterialInstanceConstant* GSelectionRegionMaterial = nullptr;
-UMaterialInstanceConstant* GMaskRegionMaterial = nullptr;
+UMaterialInterface* GLayerDebugColorMaterial = nullptr;
+UMaterialInterface* GSelectionColorMaterial = nullptr;
+UMaterialInterface* GSelectionRegionMaterial = nullptr;
+UMaterialInterface* GMaskRegionMaterial = nullptr;
 UTexture2D* GLandscapeBlackTexture = nullptr;
-UMaterial* GLandscapeLayerUsageMaterial = nullptr;
+UMaterialInterface* GLandscapeLayerUsageMaterial = nullptr;
 
 // Game thread update
 void FLandscapeEditToolRenderData::Update(UMaterialInterface* InToolMaterial)
@@ -533,8 +543,10 @@ TMap<uint32, FLandscapeSharedBuffers*>FLandscapeComponentSceneProxy::SharedBuffe
 TMap<uint32, FLandscapeSharedAdjacencyIndexBuffer*>FLandscapeComponentSceneProxy::SharedAdjacencyIndexBufferMap;
 TMap<FLandscapeNeighborInfo::FLandscapeKey, TMap<FIntPoint, const FLandscapeNeighborInfo*> > FLandscapeNeighborInfo::SharedSceneProxyMap;
 
+const static FName NAME_LandscapeResourceNameForDebugging(TEXT("Landscape"));
+
 FLandscapeComponentSceneProxy::FLandscapeComponentSceneProxy(ULandscapeComponent* InComponent, FLandscapeEditToolRenderData* InEditToolRenderData)
-	: FPrimitiveSceneProxy(InComponent)
+	: FPrimitiveSceneProxy(InComponent, NAME_LandscapeResourceNameForDebugging)
 	, FLandscapeNeighborInfo(InComponent->GetWorld(), InComponent->GetLandscapeProxy()->GetLandscapeGuid(), InComponent->GetSectionBase() / InComponent->ComponentSizeQuads, InComponent->HeightmapTexture, InComponent->ForcedLOD, InComponent->LODBias)
 	, MaxLOD(FMath::CeilLogTwo(InComponent->SubsectionSizeQuads + 1) - 1)
 	, FirstLOD(0)
@@ -557,7 +569,6 @@ FLandscapeComponentSceneProxy::FLandscapeComponentSceneProxy(ULandscapeComponent
 	, SharedBuffersKey(0)
 	, SharedBuffers(nullptr)
 	, VertexFactory(nullptr)
-	, MaterialInterface(InComponent->MaterialInstance)
 	, EditToolRenderData(InEditToolRenderData)
 	, ComponentLightInfo(nullptr)
 	, LandscapeComponent(InComponent)
@@ -567,7 +578,12 @@ FLandscapeComponentSceneProxy::FLandscapeComponentSceneProxy(ULandscapeComponent
 	, SimpleCollisionMipLevel(InComponent->SimpleCollisionMipLevel)
 	, CollisionResponse(InComponent->GetLandscapeProxy()->BodyInstance.GetResponseToChannels())
 #endif
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	, LightMapResolution(InComponent->GetStaticLightMapResolution())
+#endif
 {
+	MaterialInterfacesByLOD.Append(InComponent->MaterialInstances);
+
 	if (!IsComponentLevelVisible())
 	{
 		bNeedsLevelAddedToWorldNotification = true;
@@ -628,14 +644,24 @@ FLandscapeComponentSceneProxy::FLandscapeComponentSceneProxy(ULandscapeComponent
 	const bool bHasStaticLighting = InComponent->bHasCachedStaticLighting;
 
 	// Check material usage
-	if (MaterialInterface == nullptr ||
-		!MaterialInterface->CheckMaterialUsage(MATUSAGE_Landscape) ||
-		(bHasStaticLighting && !MaterialInterface->CheckMaterialUsage(MATUSAGE_StaticLighting)))
+	if (ensure(MaterialInterfacesByLOD.Num() > 0))
 	{
-		MaterialInterface = UMaterial::GetDefaultMaterial(MD_Surface);
+		for (UMaterialInterface*& MaterialInterface : MaterialInterfacesByLOD)
+		{
+			if (MaterialInterface == nullptr ||
+				(bHasStaticLighting && !MaterialInterface->CheckMaterialUsage(MATUSAGE_StaticLighting)))
+			{
+				MaterialInterface = UMaterial::GetDefaultMaterial(MD_Surface);
+			}
+		}
+	}
+	else
+	{
+		MaterialInterfacesByLOD.Add(UMaterial::GetDefaultMaterial(MD_Surface));
 	}
 
-	MaterialRelevance = MaterialInterface->GetRelevance(FeatureLevel);
+	// TODO - LOD Materials - Currently all LOD materials are instances of [0] so have the same relevance
+	MaterialRelevance = MaterialInterfacesByLOD[0]->GetRelevance(FeatureLevel);
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST) || (UE_BUILD_SHIPPING && WITH_EDITOR)
 	if (GIsEditor)
@@ -654,7 +680,8 @@ FLandscapeComponentSceneProxy::FLandscapeComponentSceneProxy(ULandscapeComponent
 	}
 #endif
 
-	bRequiresAdjacencyInformation = RequiresAdjacencyInformation(MaterialInterface, XYOffsetmapTexture == nullptr ? &FLandscapeVertexFactory::StaticType : &FLandscapeXYOffsetVertexFactory::StaticType, InComponent->GetWorld()->FeatureLevel);
+	// We dissallow tessellation after LOD 0 so bRequiresAdjacencyInformation can only be true if LOD 0 needs it
+	bRequiresAdjacencyInformation = MaterialSettingsRequireAdjacencyInformation_GameThread(MaterialInterfacesByLOD[0], XYOffsetmapTexture == nullptr ? &FLandscapeVertexFactory::StaticType : &FLandscapeXYOffsetVertexFactory::StaticType, InComponent->GetWorld()->FeatureLevel);
 
 	const int8 SubsectionSizeLog2 = FMath::CeilLogTwo(InComponent->SubsectionSizeQuads + 1);
 	SharedBuffersKey = (SubsectionSizeLog2 & 0xf) | ((NumSubsections & 0xf) << 4) |
@@ -759,7 +786,7 @@ void FLandscapeComponentSceneProxy::CreateRenderThreadResources()
 		GrassBatchParams.Empty(NumMips);
 		GrassBatchParams.AddDefaulted(NumMips);
 
-		FMaterialRenderProxy* RenderProxy = MaterialInterface->GetRenderProxy(false);
+		FMaterialRenderProxy* RenderProxy = MaterialInterfacesByLOD[0]->GetRenderProxy(false);
 		GrassMeshBatch.VertexFactory = VertexFactory;
 		GrassMeshBatch.MaterialRenderProxy = RenderProxy;
 		GrassMeshBatch.LCI = nullptr;
@@ -1073,27 +1100,6 @@ void FLandscapeComponentSceneProxy::OnTransformChanged()
 	LandscapeUniformShaderParameters.SetContents(LandscapeParams);
 }
 
-namespace
-{
-	inline bool RequiresAdjacencyInformation(FMaterialRenderProxy* MaterialRenderProxy, ERHIFeatureLevel::Type InFeatureLevel) // Assumes VertexFactory supports tessellation, and rendering thread with this function
-	{
-		if (RHISupportsTessellation(GShaderPlatformForFeatureLevel[InFeatureLevel]) && MaterialRenderProxy)
-		{
-			check(IsInRenderingThread());
-			const FMaterial* MaterialResource = MaterialRenderProxy->GetMaterial(InFeatureLevel);
-			check(MaterialResource);
-			EMaterialTessellationMode TessellationMode = MaterialResource->GetTessellationMode();
-			bool bEnableCrackFreeDisplacement = MaterialResource->IsCrackFreeDisplacementEnabled();
-
-			return TessellationMode == MTM_PNTriangles || (TessellationMode == MTM_FlatTessellation && bEnableCrackFreeDisplacement);
-		}
-		else
-		{
-			return false;
-		}
-	}
-};
-
 /**
 * Draw the scene proxy as a dynamic element
 *
@@ -1103,89 +1109,100 @@ namespace
 
 void FLandscapeComponentSceneProxy::DrawStaticElements(FStaticPrimitiveDrawInterface* PDI)
 {
-	int32 NumBatches = (1 + LastLOD - FirstLOD) * (FMath::Square(NumSubsections) + 1);
+	const int32 NumBatchesPerLOD = (ForcedLOD < 0 && NumSubsections > 1) ? (FMath::Square(NumSubsections) + 1) : 1;
+	int32 NumBatches = (1 + LastLOD - FirstLOD) * NumBatchesPerLOD;
 	StaticBatchParamArray.Empty(NumBatches);
 
-	FMeshBatch MeshBatch;
-	MeshBatch.Elements.Empty(NumBatches);
-
-	FMaterialRenderProxy* RenderProxy = MaterialInterface->GetRenderProxy(false);
-
-	// Could be different from bRequiresAdjacencyInformation during shader compilation
-	bool bCurrentRequiresAdjacencyInformation = RequiresAdjacencyInformation(RenderProxy, GetScene().GetFeatureLevel());
-
-	if (bCurrentRequiresAdjacencyInformation)
+	const int32 LastMaterialLOD = FMath::Min(LastLOD, MaterialInterfacesByLOD.Num() - 1);
+	for (int i = FirstLOD; i <= LastMaterialLOD; ++i)
 	{
-		check(SharedBuffers->AdjacencyIndexBuffers);
-	}
+		// the LastMaterialLOD covers all LODs up to LastLOD
+		const bool bLast = (i == LastMaterialLOD);
 
-	MeshBatch.VertexFactory = VertexFactory;
-	MeshBatch.MaterialRenderProxy = RenderProxy;
-	MeshBatch.LCI = ComponentLightInfo.Get();
-	MeshBatch.ReverseCulling = IsLocalToWorldDeterminantNegative();
-	MeshBatch.CastShadow = true;
-	MeshBatch.Type = bCurrentRequiresAdjacencyInformation ? PT_12_ControlPointPatchList : PT_TriangleList;
-	MeshBatch.DepthPriorityGroup = SDPG_World;
-	MeshBatch.LODIndex = 0;
+		FMeshBatch MeshBatch;
+		MeshBatch.Elements.Empty(bLast ? (1 + LastLOD - LastMaterialLOD) * NumBatchesPerLOD : NumBatchesPerLOD);
 
-	for (int32 LOD = FirstLOD; LOD <= LastLOD; LOD++)
-	{
-		int32 LodSubsectionSizeVerts = SubsectionSizeVerts >> LOD;
+		UMaterialInterface* MaterialInterface = MaterialInterfacesByLOD[i];
 
-		if (ForcedLOD < 0 && NumSubsections > 1)
+		// Could be different from bRequiresAdjacencyInformation during shader compilation
+		bool bCurrentRequiresAdjacencyInformation = MaterialRenderingRequiresAdjacencyInformation_RenderingThread(MaterialInterface, VertexFactory->GetType(), GetScene().GetFeatureLevel());
+
+		if (bCurrentRequiresAdjacencyInformation)
 		{
-			// Per-subsection batch elements
-			for (int32 SubY = 0; SubY < NumSubsections; SubY++)
-			{
-				for (int32 SubX = 0; SubX < NumSubsections; SubX++)
-				{
-					FMeshBatchElement* BatchElement = new(MeshBatch.Elements) FMeshBatchElement;
-					FLandscapeBatchElementParams* BatchElementParams = new(StaticBatchParamArray)FLandscapeBatchElementParams;
-					BatchElement->UserData = BatchElementParams;
-					BatchElement->PrimitiveUniformBufferResource = &GetUniformBuffer();
-					BatchElementParams->LandscapeUniformShaderParametersResource = &LandscapeUniformShaderParameters;
-					BatchElementParams->LocalToWorldNoScalingPtr = &LocalToWorldNoScaling;
-					BatchElementParams->SceneProxy = this;
-					BatchElementParams->SubX = SubX;
-					BatchElementParams->SubY = SubY;
-					BatchElementParams->CurrentLOD = LOD;
-					uint32 NumPrimitives = FMath::Square((LodSubsectionSizeVerts - 1)) * 2;
-					if (bCurrentRequiresAdjacencyInformation)
-					{
-						BatchElement->IndexBuffer = SharedBuffers->AdjacencyIndexBuffers->IndexBuffers[LOD];
-						BatchElement->FirstIndex = (SubX + SubY * NumSubsections) * NumPrimitives * 12;
-					}
-					else
-					{
-						BatchElement->IndexBuffer = SharedBuffers->IndexBuffers[LOD];
-						BatchElement->FirstIndex = (SubX + SubY * NumSubsections) * NumPrimitives * 3;
-					}
-					BatchElement->NumPrimitives = NumPrimitives;
-					BatchElement->MinVertexIndex = SharedBuffers->IndexRanges[LOD].MinIndex[SubX][SubY];
-					BatchElement->MaxVertexIndex = SharedBuffers->IndexRanges[LOD].MaxIndex[SubX][SubY];
-				}
-			}
+			check(SharedBuffers->AdjacencyIndexBuffers);
 		}
 
-		// Combined batch element
-		FMeshBatchElement* BatchElement = new(MeshBatch.Elements) FMeshBatchElement;
-		FLandscapeBatchElementParams* BatchElementParams = new(StaticBatchParamArray)FLandscapeBatchElementParams;
-		BatchElementParams->LocalToWorldNoScalingPtr = &LocalToWorldNoScaling;
-		BatchElement->UserData = BatchElementParams;
-		BatchElement->PrimitiveUniformBufferResource = &GetUniformBuffer();
-		BatchElementParams->LandscapeUniformShaderParametersResource = &LandscapeUniformShaderParameters;
-		BatchElementParams->SceneProxy = this;
-		BatchElementParams->SubX = -1;
-		BatchElementParams->SubY = -1;
-		BatchElementParams->CurrentLOD = LOD;
-		BatchElement->IndexBuffer = bCurrentRequiresAdjacencyInformation ? SharedBuffers->AdjacencyIndexBuffers->IndexBuffers[LOD] : SharedBuffers->IndexBuffers[LOD];
-		BatchElement->NumPrimitives = FMath::Square((LodSubsectionSizeVerts - 1)) * FMath::Square(NumSubsections) * 2;
-		BatchElement->FirstIndex = 0;
-		BatchElement->MinVertexIndex = SharedBuffers->IndexRanges[LOD].MinIndexFull;
-		BatchElement->MaxVertexIndex = SharedBuffers->IndexRanges[LOD].MaxIndexFull;
-	}
+		FMaterialRenderProxy* RenderProxy = MaterialInterface->GetRenderProxy(false);
 
-	PDI->DrawMesh(MeshBatch, FLT_MAX);
+		MeshBatch.VertexFactory = VertexFactory;
+		MeshBatch.MaterialRenderProxy = RenderProxy;
+		MeshBatch.LCI = ComponentLightInfo.Get();
+		MeshBatch.ReverseCulling = IsLocalToWorldDeterminantNegative();
+		MeshBatch.CastShadow = true;
+		MeshBatch.Type = bCurrentRequiresAdjacencyInformation ? PT_12_ControlPointPatchList : PT_TriangleList;
+		MeshBatch.DepthPriorityGroup = SDPG_World;
+		MeshBatch.LODIndex = 0;
+		MeshBatch.bRequiresPerElementVisibility = true;
+
+		for (int32 LOD = i; LOD <= (bLast ? LastLOD : i); LOD++)
+		{
+			int32 LodSubsectionSizeVerts = SubsectionSizeVerts >> LOD;
+
+			if (ForcedLOD < 0 && NumSubsections > 1)
+			{
+				// Per-subsection batch elements
+				for (int32 SubY = 0; SubY < NumSubsections; SubY++)
+				{
+					for (int32 SubX = 0; SubX < NumSubsections; SubX++)
+					{
+						FMeshBatchElement* BatchElement = new(MeshBatch.Elements) FMeshBatchElement;
+						FLandscapeBatchElementParams* BatchElementParams = new(StaticBatchParamArray)FLandscapeBatchElementParams;
+						BatchElement->UserData = BatchElementParams;
+						BatchElement->PrimitiveUniformBufferResource = &GetUniformBuffer();
+						BatchElementParams->LandscapeUniformShaderParametersResource = &LandscapeUniformShaderParameters;
+						BatchElementParams->LocalToWorldNoScalingPtr = &LocalToWorldNoScaling;
+						BatchElementParams->SceneProxy = this;
+						BatchElementParams->SubX = SubX;
+						BatchElementParams->SubY = SubY;
+						BatchElementParams->CurrentLOD = LOD;
+						uint32 NumPrimitives = FMath::Square((LodSubsectionSizeVerts - 1)) * 2;
+						if (bCurrentRequiresAdjacencyInformation)
+						{
+							BatchElement->IndexBuffer = SharedBuffers->AdjacencyIndexBuffers->IndexBuffers[LOD];
+							BatchElement->FirstIndex = (SubX + SubY * NumSubsections) * NumPrimitives * 12;
+						}
+						else
+						{
+							BatchElement->IndexBuffer = SharedBuffers->IndexBuffers[LOD];
+							BatchElement->FirstIndex = (SubX + SubY * NumSubsections) * NumPrimitives * 3;
+						}
+						BatchElement->NumPrimitives = NumPrimitives;
+						BatchElement->MinVertexIndex = SharedBuffers->IndexRanges[LOD].MinIndex[SubX][SubY];
+						BatchElement->MaxVertexIndex = SharedBuffers->IndexRanges[LOD].MaxIndex[SubX][SubY];
+					}
+				}
+			}
+
+			// Combined batch element
+			FMeshBatchElement* BatchElement = new(MeshBatch.Elements) FMeshBatchElement;
+			FLandscapeBatchElementParams* BatchElementParams = new(StaticBatchParamArray)FLandscapeBatchElementParams;
+			BatchElementParams->LocalToWorldNoScalingPtr = &LocalToWorldNoScaling;
+			BatchElement->UserData = BatchElementParams;
+			BatchElement->PrimitiveUniformBufferResource = &GetUniformBuffer();
+			BatchElementParams->LandscapeUniformShaderParametersResource = &LandscapeUniformShaderParameters;
+			BatchElementParams->SceneProxy = this;
+			BatchElementParams->SubX = -1;
+			BatchElementParams->SubY = -1;
+			BatchElementParams->CurrentLOD = LOD;
+			BatchElement->IndexBuffer = bCurrentRequiresAdjacencyInformation ? SharedBuffers->AdjacencyIndexBuffers->IndexBuffers[LOD] : SharedBuffers->IndexBuffers[LOD];
+			BatchElement->NumPrimitives = FMath::Square((LodSubsectionSizeVerts - 1)) * FMath::Square(NumSubsections) * 2;
+			BatchElement->FirstIndex = 0;
+			BatchElement->MinVertexIndex = SharedBuffers->IndexRanges[LOD].MinIndexFull;
+			BatchElement->MaxVertexIndex = SharedBuffers->IndexRanges[LOD].MaxIndexFull;
+		}
+
+		PDI->DrawMesh(MeshBatch, FLT_MAX);
+	}
 }
 
 uint64 FLandscapeVertexFactory::GetStaticBatchElementVisibility(const class FSceneView& View, const struct FMeshBatch* Batch) const
@@ -1221,6 +1238,7 @@ uint64 FLandscapeComponentSceneProxy::GetStaticBatchElementVisibility(const clas
 
 		// Components with positive LODBias don't generate batch elements for unused LODs.
 		int32 LODBiasOffset = FMath::Max<int32>(LODBias, 0);
+		int32 BatchLOD = ((FLandscapeBatchElementParams*)Batch->Elements[0].UserData)->CurrentLOD;
 
 		for (int32 SubY = 0; SubY < NumSubsections; SubY++)
 		{
@@ -1240,8 +1258,8 @@ uint64 FLandscapeComponentSceneProxy::GetStaticBatchElementVisibility(const clas
 		if (bAllSameLOD && NumSubsections > 1 && !GLandscapeDebugOptions.bDisableCombine)
 		{
 			// choose the combined batch element
-			int32 BatchElementIndex = (CombinedLOD - LODBiasOffset + 1)*BatchesPerLOD - 1;
-			if (ensure(Batch->Elements.IsValidIndex(BatchElementIndex)))
+			int32 BatchElementIndex = (CombinedLOD - LODBiasOffset - BatchLOD + 1) * BatchesPerLOD - 1;
+			if (Batch->Elements.IsValidIndex(BatchElementIndex))
 			{
 				BatchesToRenderMask |= (((uint64)1) << BatchElementIndex);
 				INC_DWORD_STAT(STAT_LandscapeDrawCalls);
@@ -1254,8 +1272,8 @@ uint64 FLandscapeComponentSceneProxy::GetStaticBatchElementVisibility(const clas
 			{
 				for (int32 SubX = 0; SubX < NumSubsections; SubX++)
 				{
-					int32 BatchElementIndex = (CalculatedLods[SubX][SubY] - LODBiasOffset) * BatchesPerLOD + SubY*NumSubsections + SubX;
-					if (ensure(Batch->Elements.IsValidIndex(BatchElementIndex)))
+					int32 BatchElementIndex = (CalculatedLods[SubX][SubY] - LODBiasOffset - BatchLOD) * BatchesPerLOD + SubY * NumSubsections + SubX;
+					if (Batch->Elements.IsValidIndex(BatchElementIndex))
 					{
 						BatchesToRenderMask |= (((uint64)1) << BatchElementIndex);
 						INC_DWORD_STAT(STAT_LandscapeDrawCalls);
@@ -1271,7 +1289,7 @@ uint64 FLandscapeComponentSceneProxy::GetStaticBatchElementVisibility(const clas
 	return BatchesToRenderMask;
 }
 
-float FLandscapeComponentSceneProxy::CalcDesiredLOD(const class FSceneView& View, const FVector2D& CameraLocalPos, int32 SubX, int32 SubY) const
+float FLandscapeComponentSceneProxy::CalcDesiredLOD(const FSceneView& View, const FVector2D& CameraLocalPos, int32 SubX, int32 SubY) const
 {
 	int32 OverrideLOD = GetCVarForceLOD();
 #if WITH_EDITOR
@@ -1317,6 +1335,8 @@ float FLandscapeComponentSceneProxy::CalcDesiredLOD(const class FSceneView& View
 		SubsectionForcedLOD = Neighbors[3] ? Neighbors[3]->ForcedLOD : -1;
 		SubsectionLODBias   = Neighbors[3] ? Neighbors[3]->LODBias : 0;
 	}
+
+	SubsectionLODBias = FMath::Clamp<int8>(SubsectionLODBias + GLandscapeMeshLODBias, FirstLOD, LastLOD);
 
 	const int32 MinStreamedLOD = SubsectionHeightmapTexture ? FMath::Min<int32>(((FTexture2DResource*)SubsectionHeightmapTexture->Resource)->GetCurrentFirstMip(), FMath::CeilLogTwo(SubsectionSizeVerts) - 1) : 0;
 
@@ -1370,12 +1390,12 @@ float FLandscapeComponentSceneProxy::CalcDesiredLOD(const class FSceneView& View
 	return fLOD;
 }
 
-int32 FLandscapeComponentSceneProxy::CalcLODForSubsection(const class FSceneView& View, int32 SubX, int32 SubY, const FVector2D& CameraLocalPos) const
+int32 FLandscapeComponentSceneProxy::CalcLODForSubsection(const FSceneView& View, int32 SubX, int32 SubY, const FVector2D& CameraLocalPos) const
 {
 	return FMath::FloorToInt(CalcDesiredLOD(View, CameraLocalPos, SubX, SubY));
 }
 
-void FLandscapeComponentSceneProxy::CalcLODParamsForSubsection(const class FSceneView& View, const FVector2D& CameraLocalPos, int32 SubX, int32 SubY, int32 BatchLOD, float& OutfLOD, FVector4& OutNeighborLODs) const
+void FLandscapeComponentSceneProxy::CalcLODParamsForSubsection(const FSceneView& View, const FVector2D& CameraLocalPos, int32 SubX, int32 SubY, int32 BatchLOD, float& OutfLOD, FVector4& OutNeighborLODs) const
 {
 	OutfLOD = FMath::Max<float>(BatchLOD, CalcDesiredLOD(View, CameraLocalPos, SubX, SubY));
 
@@ -1413,11 +1433,6 @@ void FLandscapeComponentSceneProxy::GetDynamicMeshElements(const TArray<const FS
 			ParameterArray.ElementParams.AddDefaulted(NumSubsections * NumSubsections);
 
 			FMeshBatch& Mesh = Collector.AllocateMesh();
-
-			// Could be different from bRequiresAdjacencyInformation during shader compilation
-			FMaterialRenderProxy* RenderProxy = MaterialInterface->GetRenderProxy(false);
-			bool bCurrentRequiresAdjacencyInformation = RequiresAdjacencyInformation(RenderProxy, View->GetFeatureLevel());
-			Mesh.Type = bCurrentRequiresAdjacencyInformation ? PT_12_ControlPointPatchList : PT_TriangleList;
 			Mesh.LCI = ComponentLightInfo.Get();
 			Mesh.CastShadow = true;
 			Mesh.VertexFactory = VertexFactory;
@@ -1432,12 +1447,16 @@ void FLandscapeComponentSceneProxy::GetDynamicMeshElements(const TArray<const FS
 			MeshTools.ReverseCulling = IsLocalToWorldDeterminantNegative();
 #endif
 
+			// Calculate the LOD to use for the material
+			// TODO: Render different subsections with different material LODs like the static render pass does
+			int32 MaterialLOD = MaterialInterfacesByLOD.Num() - 1;
+
 			// Setup the LOD parameters
+			int32 CalculatedLods[LANDSCAPE_MAX_SUBSECTION_NUM][LANDSCAPE_MAX_SUBSECTION_NUM];
 			for (int32 SubY = 0; SubY < NumSubsections; SubY++)
 			{
 				for (int32 SubX = 0; SubX < NumSubsections; SubX++)
 				{
-					int32 SubSectionIdx = SubX + SubY*NumSubsections;
 					int32 CurrentLOD = CalcLODForSubsection(*View, SubX, SubY, CameraLocalPos);
 #if WITH_EDITOR || !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 					if (bInCollisionView)
@@ -1452,7 +1471,23 @@ void FLandscapeComponentSceneProxy::GetDynamicMeshElements(const TArray<const FS
 						}
 					}
 #endif
+					CalculatedLods[SubY][SubX] = CurrentLOD;
+					MaterialLOD = FMath::Min(MaterialLOD, CurrentLOD);
+				}
+			}
 
+			UMaterialInterface* const MaterialInterface = MaterialInterfacesByLOD[MaterialLOD];
+
+			// Could be different from bRequiresAdjacencyInformation during shader compilation
+			const bool bCurrentRequiresAdjacencyInformation = MaterialRenderingRequiresAdjacencyInformation_RenderingThread(MaterialInterface, VertexFactory->GetType(), View->GetFeatureLevel());
+			Mesh.Type = bCurrentRequiresAdjacencyInformation ? PT_12_ControlPointPatchList : PT_TriangleList;
+
+			for (int32 SubY = 0; SubY < NumSubsections; SubY++)
+			{
+				for (int32 SubX = 0; SubX < NumSubsections; SubX++)
+				{
+					const int32 SubSectionIdx = SubX + SubY*NumSubsections;
+					const int32 CurrentLOD = CalculatedLods[SubY][SubX];
 			#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 					// We simplify this by considering only the biggest LOD index for this mesh element.
 					Mesh.VisualizeLODIndex = (int8)FMath::Max((int32)Mesh.VisualizeLODIndex, CurrentLOD);
@@ -1638,8 +1673,6 @@ void FLandscapeComponentSceneProxy::GetDynamicMeshElements(const TArray<const FS
 
 			default:
 
-#else
-			{
 #endif // WITH_EDITOR
 
 #if WITH_EDITOR || !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
@@ -1689,7 +1722,10 @@ void FLandscapeComponentSceneProxy::GetDynamicMeshElements(const TArray<const FS
 					NumTriangles += Mesh.GetNumPrimitives();
 					NumDrawCalls += Mesh.Elements.Num();
 				}
-			}
+
+#if WITH_EDITOR
+			} // switch
+#endif
 
 #if WITH_EDITOR
 			// Extra render passes for landscape tools
@@ -2231,7 +2267,7 @@ static void BuildLandscapeAdjacencyIndexBuffer(int32 LODSubsectionSizeQuads, int
 
 FLandscapeSharedAdjacencyIndexBuffer::FLandscapeSharedAdjacencyIndexBuffer(FLandscapeSharedBuffers* Buffers)
 {
-	ensure(Buffers && Buffers->IndexBuffers);
+	check(Buffers && Buffers->IndexBuffers);
 
 	// Currently only support PN-AEN-Dominant Corner, which is the only mode for UE4 for now
 	IndexBuffers.Empty(Buffers->NumIndexBuffers);
@@ -2548,16 +2584,138 @@ ULandscapeMaterialInstanceConstant::ULandscapeMaterialInstanceConstant(const FOb
 	bIsLayerThumbnail = false;
 }
 
-void ULandscapeComponent::GetStreamingTextureInfo(TArray<FStreamingTexturePrimitiveInfo>& OutStreamingTextures) const
+class FLandscapeMaterialResource : public FMaterialResource
+{
+	bool bIsLayerThumbnail;
+	bool bDisableTessellation;
+
+public:
+	FLandscapeMaterialResource(ULandscapeMaterialInstanceConstant* Parent)
+		: bIsLayerThumbnail(Parent->bIsLayerThumbnail)
+		, bDisableTessellation(Parent->bDisableTessellation)
+	{
+	}
+
+	bool IsUsedWithLandscape() const override
+	{
+		return !bIsLayerThumbnail;
+	}
+
+	bool IsUsedWithStaticLighting() const override
+	{
+		if (bIsLayerThumbnail)
+		{
+			return false;
+		}
+		return FMaterialResource::IsUsedWithStaticLighting();
+	}
+
+	bool IsUsedWithSkeletalMesh()          const override { return false; }
+	bool IsUsedWithParticleSystem()        const override { return false; }
+	bool IsUsedWithParticleSprites()       const override { return false; }
+	bool IsUsedWithBeamTrails()            const override { return false; }
+	bool IsUsedWithMeshParticles()         const override { return false; }
+	bool IsUsedWithMorphTargets()          const override { return false; }
+	bool IsUsedWithSplineMeshes()          const override { return false; }
+	bool IsUsedWithInstancedStaticMeshes() const override { return false; }
+	bool IsUsedWithAPEXCloth()             const override { return false; }
+	EMaterialTessellationMode GetTessellationMode() const override { return (bIsLayerThumbnail || bDisableTessellation) ? MTM_NoTessellation : FMaterialResource::GetTessellationMode(); };
+
+	bool ShouldCache(EShaderPlatform Platform, const FShaderType* ShaderType, const FVertexFactoryType* VertexFactoryType) const override
+	{
+		//return FMaterialResource::ShouldCache(Platform, ShaderType, VertexFactoryType);
+
+		static const FName LocalVertexFactory = FName(TEXT("FLocalVertexFactory"));
+		static const FName LandscapeVertexFactory = FName(TEXT("FLandscapeVertexFactory"));
+		static const FName LandscapeXYOffsetVertexFactory = FName(TEXT("FLandscapeXYOffsetVertexFactory"));
+		static const FName LandscapeVertexFactoryMobile = FName(TEXT("FLandscapeVertexFactoryMobile"));
+
+		static const FName TBasePassVSFNoLightMapPolicy = FName(TEXT("TBasePassVSFNoLightMapPolicy"));
+		static const FName TBasePassPSFNoLightMapPolicy = FName(TEXT("TBasePassPSFNoLightMapPolicy"));
+		static const FName TBasePassVSFCachedPointIndirectLightingPolicy = FName(TEXT("TBasePassVSFCachedPointIndirectLightingPolicy"));
+		static const FName TBasePassPSFCachedPointIndirectLightingPolicy = FName(TEXT("TBasePassPSFCachedPointIndirectLightingPolicy"));
+		static const FName TShadowDepthVSVertexShadowDepth_OutputDepthfalse = FName(TEXT("TShadowDepthVSVertexShadowDepth_OutputDepthfalse"));
+		static const FName TDepthOnly_PositionOnlyfalse = FName(TEXT("TDepthOnlyVS<false>"));
+		static const FName TDepthOnly_PositionOnlytrue = FName(TEXT("TDepthOnlyVS<true>"));
+		static const FName FDepthOnlyPS = FName(TEXT("FDepthOnlyPS"));
+
+		if (VertexFactoryType)
+		{
+			if (bIsLayerThumbnail)
+			{
+				// Thumbnail MICs are only rendered in the preview scene using a simple LocalVertexFactory
+				if (VertexFactoryType->GetFName() == LocalVertexFactory)
+				{
+					if (ShaderType->GetFName() == TBasePassVSFNoLightMapPolicy ||
+						ShaderType->GetFName() == TBasePassPSFNoLightMapPolicy ||
+						ShaderType->GetFName() == TBasePassVSFCachedPointIndirectLightingPolicy ||
+						ShaderType->GetFName() == TBasePassPSFCachedPointIndirectLightingPolicy ||
+						ShaderType->GetFName() == TShadowDepthVSVertexShadowDepth_OutputDepthfalse ||
+						ShaderType->GetFName() == TDepthOnly_PositionOnlyfalse ||
+						ShaderType->GetFName() == TDepthOnly_PositionOnlytrue ||
+						ShaderType->GetFName() == FDepthOnlyPS)
+					{
+						return true;
+					}
+				}
+			}
+			else
+			{
+				// Landscape MICs are only for use with the Landscape vertex factories
+				// Todo: only compile LandscapeXYOffsetVertexFactory if we are using it
+				if (VertexFactoryType->GetFName() == LandscapeVertexFactory ||
+					VertexFactoryType->GetFName() == LandscapeXYOffsetVertexFactory ||
+					VertexFactoryType->GetFName() == LandscapeVertexFactoryMobile)
+				{
+					return true;
+				}
+			}
+		}
+
+		return false;
+	}
+};
+
+FMaterialResource* ULandscapeMaterialInstanceConstant::AllocatePermutationResource()
+{
+	return new FLandscapeMaterialResource(this);
+}
+
+bool ULandscapeMaterialInstanceConstant::HasOverridenBaseProperties() const
+{
+	if (Parent)
+	{
+		// force a static permutation for ULandscapeMaterialInstanceConstants
+		if (!Parent->IsA<ULandscapeMaterialInstanceConstant>())
+		{
+			return true;
+		}
+		ULandscapeMaterialInstanceConstant* LandscapeMICParent = CastChecked<ULandscapeMaterialInstanceConstant>(Parent);
+		if (bDisableTessellation != LandscapeMICParent->bDisableTessellation)
+		{
+			return true;
+		}
+	}
+
+	return Super::HasOverridenBaseProperties();
+}
+
+//////////////////////////////////////////////////////////////////////////
+
+void ULandscapeComponent::GetStreamingTextureInfo(FStreamingTextureLevelContext& LevelContext, TArray<FStreamingTexturePrimitiveInfo>& OutStreamingTextures) const
 {
 	ALandscapeProxy* Proxy = Cast<ALandscapeProxy>(GetOuter());
 	FSphere BoundingSphere = Bounds.GetSphere();
 	float LocalStreamingDistanceMultiplier = 1.f;
+	float TexelFactor = 0.0f;
 	if (Proxy)
 	{
 		LocalStreamingDistanceMultiplier = FMath::Max(0.0f, Proxy->StreamingDistanceMultiplier);
+		TexelFactor = 0.75f * LocalStreamingDistanceMultiplier * ComponentSizeQuads * FMath::Abs(Proxy->GetRootComponent()->RelativeScale3D.X);
 	}
-	const float TexelFactor = 0.75f * LocalStreamingDistanceMultiplier * ComponentSizeQuads * FMath::Abs(Proxy->GetRootComponent()->RelativeScale3D.X);
+
+	// TODO - LOD Materials - Currently all LOD materials are instances of [0] so have the same textures
+	UMaterialInstance* MaterialInstance = MaterialInstances[0];
 
 	// Normal usage...
 	// Enumerate the textures used by the material.
@@ -2569,10 +2727,13 @@ void ULandscapeComponent::GetStreamingTextureInfo(TArray<FStreamingTexturePrimit
 		// TODO: Take into account which UVIndex is being used.
 		for (int32 TextureIndex = 0; TextureIndex < Textures.Num(); TextureIndex++)
 		{
+			UTexture2D* Texture2D = Cast<UTexture2D>(Textures[TextureIndex]);
+			if (!Texture2D) continue;
+
 			FStreamingTexturePrimitiveInfo& StreamingTexture = *new(OutStreamingTextures)FStreamingTexturePrimitiveInfo;
 			StreamingTexture.Bounds = BoundingSphere;
 			StreamingTexture.TexelFactor = TexelFactor;
-			StreamingTexture.Texture = Textures[TextureIndex];
+			StreamingTexture.Texture = Texture2D;
 		}
 
 		UMaterial* Material = MaterialInstance->GetMaterial();
@@ -2678,7 +2839,7 @@ void ULandscapeComponent::GetStreamingTextureInfo(TArray<FStreamingTexturePrimit
 		StreamingHeightmap.Bounds = BoundingSphere;
 
 		float HeightmapTexelFactor = TexelFactor * (static_cast<float>(HeightmapTexture->GetSizeY()) / (ComponentSizeQuads + 1));
-		StreamingHeightmap.TexelFactor = ForcedLOD >= 0 ? -13 + ForcedLOD : HeightmapTexelFactor; // Minus Value indicate ForcedLOD, 13 for 8k texture
+		StreamingHeightmap.TexelFactor = ForcedLOD >= 0 ? -(1 << (13 - ForcedLOD)) : HeightmapTexelFactor; // Minus Value indicate forced resolution (Mip 13 for 8k texture)
 		StreamingHeightmap.Texture = HeightmapTexture;
 	}
 

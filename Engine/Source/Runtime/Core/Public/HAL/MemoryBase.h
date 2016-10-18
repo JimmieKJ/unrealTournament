@@ -2,8 +2,6 @@
 
 #pragma once
 
-#include "UnrealMemory.h"
-
 enum
 {
 	// Default allocator alignment. If the default is specified, the allocator applies to engine rules.

@@ -153,10 +153,7 @@ TSharedRef< SWidget > FLevelEditorMenu::MakeLevelEditorMenu( const TSharedPtr<FU
 			{
 				MenuBuilder.BeginSection("FileActors", LOCTEXT("ImportExportHeading", "Actors") );
 				{
-					// Import
-					MenuBuilder.AddMenuEntry( FLevelEditorCommands::Get().Import );
-
-					// Import Scene
+					// Import Into Level
 					MenuBuilder.AddMenuEntry(FLevelEditorCommands::Get().ImportScene);
 
 					// Export All
@@ -279,7 +276,7 @@ TSharedRef< SWidget > FLevelEditorMenu::MakeLevelEditorMenu( const TSharedPtr<FU
 
 							const FString CurRecent = MRUFavorites.GetMRUItem( CurRecentIndex );
 
-							const FText ToolTip = FText::Format( LOCTEXT( "RecentFileToolTip", "Opens recent file: {0}" ), FText::FromString( CurRecent ) );
+							const FText ToolTip = FText::Format( LOCTEXT( "RecentLevelToolTip", "Opens recent level: {0}" ), FText::FromString( CurRecent ) );
 							const FText Label = FText::FromString( FPaths::GetBaseFilename( CurRecent ) );
 
 							InMenuBuilder.AddMenuEntry( OpenRecentFile, NAME_None, Label, ToolTip );
@@ -330,6 +327,7 @@ TSharedRef< SWidget > FLevelEditorMenu::MakeLevelEditorMenu( const TSharedPtr<FU
 				{
 					MenuBuilder.AddMenuEntry( FLevelEditorCommands::Get().BrowseAPIReference );
 				}
+				MenuBuilder.AddMenuEntry( FLevelEditorCommands::Get().BrowseCVars );
 
 				MenuBuilder.AddMenuSeparator();
 

@@ -40,8 +40,11 @@ void FD3D12IndexBuffer::Rename(FD3D12ResourceLocation* NewResource)
 {
 	FD3D12CommandContext& DefaultContext = GetParentDevice()->GetDefaultCommandContext();
 
-	// If this resource is bound to the device, unbind it
-	DefaultContext.ConditionalClearShaderResource(ResourceLocation);
+	if (ResourceLocation)
+	{
+		// If this resource is bound to the device, unbind it
+		DefaultContext.ConditionalClearShaderResource(ResourceLocation);
+	}
 
 	ResourceLocation = NewResource;
 }
@@ -55,6 +58,7 @@ FIndexBufferRHIRef FD3D12DynamicRHI::RHICreateIndexBuffer(uint32 Stride, uint32 
 	FD3D12IndexBuffer* NewBuffer = new FD3D12IndexBuffer(GetRHIDevice(), ResourceLocation, Stride, Size, InUsage);
 	UpdateBufferStats(NewBuffer->ResourceLocation, true, D3D12_BUFFER_TYPE_INDEX);
 	NewBuffer->BufferAlignment = Alignment;
+
 	return NewBuffer;
 }
 
@@ -77,6 +81,7 @@ FIndexBufferRHIRef FD3D12DynamicRHI::CreateIndexBuffer_RenderThread(class FRHICo
 	FD3D12IndexBuffer* NewBuffer = new FD3D12IndexBuffer(GetRHIDevice(), ResourceLocation, Stride, Size, InUsage);
 	UpdateBufferStats(NewBuffer->ResourceLocation, true, D3D12_BUFFER_TYPE_INDEX);
 	NewBuffer->BufferAlignment = Alignment;
+
 	return NewBuffer;
 }
 
@@ -92,4 +97,25 @@ void FD3D12DynamicRHI::UnlockIndexBuffer_RenderThread(class FRHICommandListImmed
 	check(IsInRenderingThread());
 
 	UnlockBuffer(&RHICmdList, FD3D12DynamicRHI::ResourceCast(IndexBufferRHI));
+}
+
+FIndexBufferRHIRef FD3D12DynamicRHI::CreateAndLockIndexBuffer_RenderThread(class FRHICommandListImmediate& RHICmdList, uint32 Stride, uint32 Size, uint32 InUsage, FRHIResourceCreateInfo& CreateInfo, void*& OutDataBuffer)
+{
+	const uint32 Alignment = 4;
+
+	FD3D12ResourceLocation* ResourceLocation = nullptr;
+	// If the resource is dynamic, don't bother creating a buffer as one will be created during lock
+	if ((InUsage & BUF_AnyDynamic) == 0)
+	{
+		const D3D12_RESOURCE_DESC Desc = CreateIndexBufferResourceDesc(Size, InUsage);
+		ResourceLocation = CreateBuffer(nullptr, Desc, Size, InUsage, CreateInfo, Alignment);
+		UpdateBufferStats(ResourceLocation, true, D3D12_BUFFER_TYPE_INDEX);
+	}
+
+	FD3D12IndexBuffer* NewBuffer = new FD3D12IndexBuffer(GetRHIDevice(), ResourceLocation, Stride, Size, InUsage);
+	NewBuffer->BufferAlignment = Alignment;
+
+	OutDataBuffer = LockIndexBuffer_RenderThread(RHICmdList, NewBuffer, 0, Size, RLM_WriteOnly);
+
+	return NewBuffer;
 }

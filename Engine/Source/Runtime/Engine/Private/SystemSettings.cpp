@@ -65,37 +65,15 @@ FSystemSettingsData::FSystemSettingsData()
 class FSetCVarFromIni
 {
 public:
-	static void OnEntry(const TCHAR *Key, const TCHAR* Value)
+	const FString& IniFilename;
+
+	FSetCVarFromIni(const FString& InIniFilename)
+		: IniFilename(InIniFilename)
+	{}
+
+	void OnEntry(const TCHAR *Key, const TCHAR* Value)
 	{
-		IConsoleVariable* CVar = IConsoleManager::Get().FindConsoleVariable(Key);
-
-		if(CVar)
-		{
-			if (!CVar->TestFlags(EConsoleVariableFlags::ECVF_Cheat))
-			{
-				// Set if the variable exists.
-
-				// to be more compatible with non console variable boolean system settings we allow verbal values
-
-				if (FCString::Stricmp(Value, TEXT("True")) == 0
-					|| FCString::Stricmp(Value, TEXT("Yes")) == 0
-					|| FCString::Stricmp(Value, TEXT("On")) == 0)
-				{
-					CVar->Set(1, ECVF_SetBySystemSettingsIni);
-				}
-				else
-				if (FCString::Stricmp(Value, TEXT("False")) == 0
-					|| FCString::Stricmp(Value, TEXT("No")) == 0
-					|| FCString::Stricmp(Value, TEXT("Off")) == 0)
-				{
-					CVar->Set(0, ECVF_SetBySystemSettingsIni);
-				}
-				else
-				{
-					CVar->Set(Value, ECVF_SetBySystemSettingsIni);
-				}
-			}
-		}
+		OnSetCVarFromIniEntry(*IniFilename, Key, Value, ECVF_SetBySystemSettingsIni);
 	}
 };
 
@@ -112,7 +90,12 @@ void FSystemSettingsData::LoadFromIni( const TCHAR* IniSection, const FString& I
 
 	// Read all console variables from .ini
 	{
-		GConfig->ForEachEntry(FKeyValueSink::CreateStatic(&FSetCVarFromIni::OnEntry), IniSection, IniFilename);
+		FSetCVarFromIni Delegate(IniFilename);
+		FKeyValueSink Visitor;
+
+		Visitor.BindRaw(&Delegate, &FSetCVarFromIni::OnEntry);
+
+		GConfig->ForEachEntry(Visitor, IniSection, IniFilename);
 
 		IConsoleManager::Get().CallAllConsoleVariableSinks();
 	}
@@ -238,7 +221,7 @@ void FSystemSettings::Initialize( bool bSetupForEditor )
 
 	IConsoleManager::Get().RegisterConsoleVariableSink_Handle(FConsoleCommandDelegate::CreateRaw(this, &FSystemSettings::CVarSink));
 
-	// intialize a critical texture streaming value used by texture loading, etc
+	// initialize a critical texture streaming value used by texture loading, etc
 	int32 MinTextureResidentMipCount = 7;
 	GConfig->GetInt(TEXT("TextureStreaming"), TEXT("MinTextureResidentMipCount"), MinTextureResidentMipCount, GEngineIni);
 	UTexture2D::SetMinTextureResidentMipCount(MinTextureResidentMipCount);

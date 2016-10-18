@@ -10,22 +10,9 @@
 
 namespace SceneOutliner
 {
-	#if PLATFORM_COMPILER_HAS_VARIADIC_TEMPLATES
-
 		template <typename...> struct TMaxSizeof;
 		template <> struct TMaxSizeof<> { static const uint32 Value = 0; };
 		template <typename T, typename... TRest> struct TMaxSizeof<T, TRest...> { static const uint32 Value = sizeof(T) > TMaxSizeof<TRest...>::Value ? sizeof(T) : TMaxSizeof<TRest...>::Value; };
-
-	#else
-
-		template <typename T1, typename T2=void, typename T3=void, typename T4=void, typename T5=void, typename T6=void>
-		struct TMaxSizeof
-		{
-			static const uint32 Value = sizeof(T1) > TMaxSizeof<T2, T3, T4, T5, T6>::Value ? sizeof(T1) : TMaxSizeof<T2, T3, T4, T5, T6>::Value;
-		};
-		template <> struct TMaxSizeof<void,void,void,void,void,void> { static const uint32 Value = 0; };
-		
-	#endif
 
 	/** Variant type that defines an identifier for a tree item. Assumes 'trivial relocatability' as with many unreal containers. */
 	struct FTreeItemID

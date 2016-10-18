@@ -30,7 +30,7 @@ enum class EUIActionRepeatMode
 /**
  * Implements an UI action.
  */
-struct FUIAction
+struct SLATE_API FUIAction
 {
 	/** Holds a delegate that is executed when this action is activated. */
 	FExecuteAction ExecuteAction;
@@ -50,13 +50,7 @@ struct FUIAction
 public:
 
 	/** Default constructor. */
-	FUIAction( )
-		: ExecuteAction()
-		, CanExecuteAction()
-		, GetActionCheckState()
-		, IsActionVisibleDelegate()
-		, RepeatMode(EUIActionRepeatMode::RepeatDisabled)
-	{ }
+	FUIAction();
 
 	/**
 	 * Constructor that takes delegates to initialize the action with
@@ -64,13 +58,7 @@ public:
 	 * @param	ExecuteAction		The delegate to call when the action should be executed
 	 * @param	RepeatMode			Can this action can be repeated if the chord used to call it is held down?
 	 */
-	FUIAction( FExecuteAction InitExecuteAction, EUIActionRepeatMode InitRepeatMode = EUIActionRepeatMode::RepeatDisabled )
-		: ExecuteAction(InitExecuteAction)
-		, CanExecuteAction(FCanExecuteAction::CreateRaw(&FSlateApplication::Get(), &FSlateApplication::IsNormalExecution))
-		, GetActionCheckState()
-		, IsActionVisibleDelegate()
-		, RepeatMode(InitRepeatMode)
-	{ }
+	FUIAction(FExecuteAction InitExecuteAction, EUIActionRepeatMode InitRepeatMode = EUIActionRepeatMode::RepeatDisabled);
 
 	/**
 	 * Constructor that takes delegates to initialize the action with
@@ -79,13 +67,7 @@ public:
 	 * @param	CanExecuteAction	The delegate to call to see if the action can be executed
 	 * @param	RepeatMode			Can this action can be repeated if the chord used to call it is held down?
 	 */
-	FUIAction( FExecuteAction InitExecuteAction, FCanExecuteAction InitCanExecuteAction, EUIActionRepeatMode InitRepeatMode = EUIActionRepeatMode::RepeatDisabled )
-		: ExecuteAction(InitExecuteAction )
-		, CanExecuteAction(InitCanExecuteAction)
-		, GetActionCheckState()
-		, IsActionVisibleDelegate()
-		, RepeatMode(InitRepeatMode)
-	{ }
+	FUIAction(FExecuteAction InitExecuteAction, FCanExecuteAction InitCanExecuteAction, EUIActionRepeatMode InitRepeatMode = EUIActionRepeatMode::RepeatDisabled);
 
 	/**
 	 * Constructor that takes delegates to initialize the action with
@@ -95,13 +77,7 @@ public:
 	 * @param	IsCheckedDelegate	The delegate to call to see if the action should appear checked when visualized
 	 * @param	RepeatMode			Can this action can be repeated if the chord used to call it is held down?
 	 */
-	FUIAction( FExecuteAction InitExecuteAction, FCanExecuteAction InitCanExecuteAction, FIsActionChecked InitIsCheckedDelegate, EUIActionRepeatMode InitRepeatMode = EUIActionRepeatMode::RepeatDisabled )
-		: ExecuteAction(InitExecuteAction)
-		, CanExecuteAction(InitCanExecuteAction)
-		, GetActionCheckState(FGetActionCheckState::CreateStatic(&FUIAction::IsActionCheckedPassthrough, InitIsCheckedDelegate))
-		, IsActionVisibleDelegate()
-		, RepeatMode(InitRepeatMode)
-	{ }
+	FUIAction(FExecuteAction InitExecuteAction, FCanExecuteAction InitCanExecuteAction, FIsActionChecked InitIsCheckedDelegate, EUIActionRepeatMode InitRepeatMode = EUIActionRepeatMode::RepeatDisabled);
 
 	/**
 	 * Constructor that takes delegates to initialize the action with
@@ -111,13 +87,7 @@ public:
 	 * @param	GetActionCheckState	The delegate to call to see what the check state of the action should be
 	 * @param	RepeatMode			Can this action can be repeated if the chord used to call it is held down?
 	 */
-	FUIAction( FExecuteAction InitExecuteAction, FCanExecuteAction InitCanExecuteAction, FGetActionCheckState InitGetActionCheckStateDelegate, EUIActionRepeatMode InitRepeatMode = EUIActionRepeatMode::RepeatDisabled )
-		: ExecuteAction(InitExecuteAction)
-		, CanExecuteAction(InitCanExecuteAction)
-		, GetActionCheckState(InitGetActionCheckStateDelegate)
-		, IsActionVisibleDelegate()
-		, RepeatMode(InitRepeatMode)
-	{ }
+	FUIAction(FExecuteAction InitExecuteAction, FCanExecuteAction InitCanExecuteAction, FGetActionCheckState InitGetActionCheckStateDelegate, EUIActionRepeatMode InitRepeatMode = EUIActionRepeatMode::RepeatDisabled);
 
 	/**
 	 * Constructor that takes delegates to initialize the action with
@@ -128,13 +98,7 @@ public:
 	 * @param	IsActionVisible		The delegate to call to see if the action should be visible
 	 * @param	RepeatMode			Can this action can be repeated if the chord used to call it is held down?
 	 */
-	FUIAction( FExecuteAction InitExecuteAction, FCanExecuteAction InitCanExecuteAction, FIsActionChecked InitIsCheckedDelegate, FIsActionButtonVisible InitIsActionVisibleDelegate, EUIActionRepeatMode InitRepeatMode = EUIActionRepeatMode::RepeatDisabled )
-		: ExecuteAction(InitExecuteAction)
-		, CanExecuteAction(InitCanExecuteAction)
-		, GetActionCheckState(FGetActionCheckState::CreateStatic(&FUIAction::IsActionCheckedPassthrough, InitIsCheckedDelegate))
-		, IsActionVisibleDelegate(InitIsActionVisibleDelegate)
-		, RepeatMode(InitRepeatMode)
-	{ }
+	FUIAction(FExecuteAction InitExecuteAction, FCanExecuteAction InitCanExecuteAction, FIsActionChecked InitIsCheckedDelegate, FIsActionButtonVisible InitIsActionVisibleDelegate, EUIActionRepeatMode InitRepeatMode = EUIActionRepeatMode::RepeatDisabled);
 
 	/**
 	 * Constructor that takes delegates to initialize the action with
@@ -145,13 +109,7 @@ public:
 	 * @param	IsActionVisible		The delegate to call to see if the action should be visible
 	 * @param	RepeatMode			Can this action can be repeated if the chord used to call it is held down?
 	 */
-	FUIAction( FExecuteAction InitExecuteAction, FCanExecuteAction InitCanExecuteAction, FGetActionCheckState InitGetActionCheckStateDelegate, FIsActionButtonVisible InitIsActionVisibleDelegate, EUIActionRepeatMode InitRepeatMode = EUIActionRepeatMode::RepeatDisabled )
-		: ExecuteAction(InitExecuteAction)
-		, CanExecuteAction(InitCanExecuteAction)
-		, GetActionCheckState(InitGetActionCheckStateDelegate)
-		, IsActionVisibleDelegate(InitIsActionVisibleDelegate)
-		, RepeatMode(InitRepeatMode)
-	{ }
+	FUIAction(FExecuteAction InitExecuteAction, FCanExecuteAction InitCanExecuteAction, FGetActionCheckState InitGetActionCheckStateDelegate, FIsActionButtonVisible InitIsActionVisibleDelegate, EUIActionRepeatMode InitRepeatMode = EUIActionRepeatMode::RepeatDisabled);
 
 public:
 

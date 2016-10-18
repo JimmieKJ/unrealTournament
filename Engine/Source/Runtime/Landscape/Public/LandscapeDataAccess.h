@@ -4,8 +4,7 @@
 LandscapeDataAccess.h: Classes for the editor to access to Landscape data
 =============================================================================*/
 
-#ifndef _LANDSCAPEDATAACCESS_H
-#define _LANDSCAPEDATAACCESS_H
+#pragma once
 
 #include "Engine/Texture2D.h"
 
@@ -42,12 +41,6 @@ class ULandscapeLayerInfoObject;
 //
 // FLandscapeDataInterface
 //
-
-//@todo.VC10: Apparent VC10 compiler bug here causes an access violation in UnlockMip in Shipping builds
-#if _MSC_VER
-PRAGMA_DISABLE_OPTIMIZATION
-#endif
-
 struct FLandscapeDataInterface
 {
 private:
@@ -219,8 +212,6 @@ struct FLandscapeComponentDataInterface
 		XYOffsetMipData = NewXYOffsetData;
 	}
 
-	LANDSCAPE_API void UnlockRawHeightData() const;
-
 	/* Return the raw heightmap data exactly same size for Heightmap texture which belong to only this component */
 	LANDSCAPE_API void GetHeightmapTextureData(TArray<FColor>& OutData, bool bOkToFail = false);
 
@@ -332,7 +323,7 @@ struct FLandscapeComponentDataInterface
 	}
 
 private:
-	struct FLandscapeDataInterface* DataInterface;
+	FLandscapeDataInterface DataInterface;
 	ULandscapeComponent* Component;
 
 public:
@@ -349,8 +340,6 @@ private:
 	int32 ComponentSizeVerts;
 	int32 SubsectionSizeVerts;
 	int32 ComponentNumSubsections;
-
-	bool bNeedToDeleteDataInterface;
 public:
 	const int32 MipLevel;
 };
@@ -424,8 +413,4 @@ void FillCornerValues(uint8& CornerSet, T* CornerValues)
 	}
 }
 
-
-
 #endif // WITH_EDITOR
-
-#endif // _LANDSCAPEDATAACCESS_H

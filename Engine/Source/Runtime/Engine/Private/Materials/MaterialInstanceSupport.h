@@ -205,3 +205,41 @@ const ParameterType* GameThread_FindParameterByName(const TArray<ParameterType>&
 	}
 	return NULL;
 }
+
+template <typename ParameterType>
+int32 GameThread_FindParameterIndexByName(const TArray<ParameterType>& Parameters, const FName& Name)
+{
+	for (int32 ParameterIndex = 0; ParameterIndex < Parameters.Num(); ++ParameterIndex)
+	{
+		const ParameterType* Parameter = &Parameters[ParameterIndex];
+		if (Parameter->ParameterName == Name)
+		{
+			return ParameterIndex;
+		}
+	}
+
+	return INDEX_NONE;
+}
+
+/** Finds a parameter by index from the game thread. */
+template <typename ParameterType>
+ParameterType* GameThread_FindParameterByIndex(TArray<ParameterType>& Parameters, int32 Index)
+{
+	if (!Parameters.IsValidIndex(Index))
+	{
+		return nullptr;
+	}
+
+	return &Parameters[Index];
+}
+
+template <typename ParameterType>
+const ParameterType* GameThread_FindParameterByIndex(const TArray<ParameterType>& Parameters, int32 Index)
+{
+	if (!Parameters.IsValidIndex(Index))
+	{
+		return nullptr;
+	}
+
+	return &Parameters[Index];
+}

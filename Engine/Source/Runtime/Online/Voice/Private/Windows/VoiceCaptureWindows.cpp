@@ -72,7 +72,7 @@ bool IsSilence(T* Buffer, int32 BuffSize)
 
 	double AverageMeanSquare = SumMeanSquare / IterSize;
 
-	static double Threshold = 40000.0; //75.0 * 75.0;
+	static double Threshold = 75.0 * 75.0;
 	return AverageMeanSquare < Threshold;
 }
 
@@ -338,6 +338,7 @@ void FVoiceCaptureWindows::ProcessData()
 				FMemory::Memcpy(AudioBuffer + CaptureLength, CaptureData2, CaptureLength2);
 			}
 
+			CA_SUPPRESS(6385);
 			CV->VoiceCaptureBuffer8->Unlock(CaptureData, CaptureLength, CaptureData2, CaptureLength2);
 
 			// Move the capture offset forward.

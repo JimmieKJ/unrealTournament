@@ -57,6 +57,9 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
     partial void InsertUsersMapping(UsersMapping instance);
     partial void UpdateUsersMapping(UsersMapping instance);
     partial void DeleteUsersMapping(UsersMapping instance);
+    partial void InsertCallStackPattern(CallStackPattern instance);
+    partial void UpdateCallStackPattern(CallStackPattern instance);
+    partial void DeleteCallStackPattern(CallStackPattern instance);
     #endregion
 		
 		public CrashReportDataContext() : 
@@ -158,6 +161,14 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 			get
 			{
 				return this.GetTable<UsersMapping>();
+			}
+		}
+		
+		public System.Data.Linq.Table<CallStackPattern> CallStackPatterns
+		{
+			get
+			{
+				return this.GetTable<CallStackPattern>();
 			}
 		}
 	}
@@ -1207,9 +1218,13 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 		
 		private string _UserActivityHint;
 		
+		private System.Nullable<int> _PatternId;
+		
 		private EntitySet<Buggs_Crash> _Buggs_Crashes;
 		
 		private EntityRef<User> _User;
+		
+		private EntityRef<CallStackPattern> _CallStackPattern;
 		
     #region Extensibility Method Definitions
     partial void OnLoaded();
@@ -1271,12 +1286,15 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
     partial void OnEngineVersionChanged();
     partial void OnUserActivityHintChanging(string value);
     partial void OnUserActivityHintChanged();
+    partial void OnPatternIdChanging(System.Nullable<int> value);
+    partial void OnPatternIdChanged();
     #endregion
 		
 		public Crash()
 		{
 			this._Buggs_Crashes = new EntitySet<Buggs_Crash>(new Action<Buggs_Crash>(this.attach_Buggs_Crashes), new Action<Buggs_Crash>(this.detach_Buggs_Crashes));
 			this._User = default(EntityRef<User>);
+			this._CallStackPattern = default(EntityRef<CallStackPattern>);
 			OnCreated();
 		}
 		
@@ -1844,6 +1862,30 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 			}
 		}
 		
+		[global::System.Data.Linq.Mapping.ColumnAttribute(Storage="_PatternId", UpdateCheck=UpdateCheck.Never)]
+		public System.Nullable<int> PatternId
+		{
+			get
+			{
+				return this._PatternId;
+			}
+			set
+			{
+				if ((this._PatternId != value))
+				{
+					if (this._CallStackPattern.HasLoadedOrAssignedValue)
+					{
+						throw new System.Data.Linq.ForeignKeyReferenceAlreadyHasValueException();
+					}
+					this.OnPatternIdChanging(value);
+					this.SendPropertyChanging();
+					this._PatternId = value;
+					this.SendPropertyChanged("PatternId");
+					this.OnPatternIdChanged();
+				}
+			}
+		}
+		
 		[global::System.Data.Linq.Mapping.AssociationAttribute(Name="Crash_Buggs_Crash", Storage="_Buggs_Crashes", ThisKey="Id", OtherKey="CrashId")]
 		public EntitySet<Buggs_Crash> Buggs_Crashes
 		{
@@ -1887,6 +1929,40 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 						this._UserNameId = default(Nullable<int>);
 					}
 					this.SendPropertyChanged("UserById");
+				}
+			}
+		}
+		
+		[global::System.Data.Linq.Mapping.AssociationAttribute(Name="CallStackPattern_Crash", Storage="_CallStackPattern", ThisKey="PatternId", OtherKey="id", IsForeignKey=true)]
+		public CallStackPattern CallStackPattern
+		{
+			get
+			{
+				return this._CallStackPattern.Entity;
+			}
+			set
+			{
+				CallStackPattern previousValue = this._CallStackPattern.Entity;
+				if (((previousValue != value) 
+							|| (this._CallStackPattern.HasLoadedOrAssignedValue == false)))
+				{
+					this.SendPropertyChanging();
+					if ((previousValue != null))
+					{
+						this._CallStackPattern.Entity = null;
+						previousValue.Crashes.Remove(this);
+					}
+					this._CallStackPattern.Entity = value;
+					if ((value != null))
+					{
+						value.Crashes.Add(this);
+						this._PatternId = value.id;
+					}
+					else
+					{
+						this._PatternId = default(Nullable<int>);
+					}
+					this.SendPropertyChanged("CallStackPattern");
 				}
 			}
 		}
@@ -2307,6 +2383,120 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 			{
 				this.PropertyChanged(this, new PropertyChangedEventArgs(propertyName));
 			}
+		}
+	}
+	
+	[global::System.Data.Linq.Mapping.TableAttribute(Name="dbo.CallStackPatterns")]
+	public partial class CallStackPattern : INotifyPropertyChanging, INotifyPropertyChanged
+	{
+		
+		private static PropertyChangingEventArgs emptyChangingEventArgs = new PropertyChangingEventArgs(String.Empty);
+		
+		private int _id;
+		
+		private string _Pattern;
+		
+		private EntitySet<Crash> _Crashes;
+		
+    #region Extensibility Method Definitions
+    partial void OnLoaded();
+    partial void OnValidate(System.Data.Linq.ChangeAction action);
+    partial void OnCreated();
+    partial void OnidChanging(int value);
+    partial void OnidChanged();
+    partial void OnPatternChanging(string value);
+    partial void OnPatternChanged();
+    #endregion
+		
+		public CallStackPattern()
+		{
+			this._Crashes = new EntitySet<Crash>(new Action<Crash>(this.attach_Crashes), new Action<Crash>(this.detach_Crashes));
+			OnCreated();
+		}
+		
+		[global::System.Data.Linq.Mapping.ColumnAttribute(Storage="_id", AutoSync=AutoSync.OnInsert, DbType="Int NOT NULL IDENTITY", IsPrimaryKey=true, IsDbGenerated=true)]
+		public int id
+		{
+			get
+			{
+				return this._id;
+			}
+			set
+			{
+				if ((this._id != value))
+				{
+					this.OnidChanging(value);
+					this.SendPropertyChanging();
+					this._id = value;
+					this.SendPropertyChanged("id");
+					this.OnidChanged();
+				}
+			}
+		}
+		
+		[global::System.Data.Linq.Mapping.ColumnAttribute(Storage="_Pattern", DbType="VarChar(800)")]
+		public string Pattern
+		{
+			get
+			{
+				return this._Pattern;
+			}
+			set
+			{
+				if ((this._Pattern != value))
+				{
+					this.OnPatternChanging(value);
+					this.SendPropertyChanging();
+					this._Pattern = value;
+					this.SendPropertyChanged("Pattern");
+					this.OnPatternChanged();
+				}
+			}
+		}
+		
+		[global::System.Data.Linq.Mapping.AssociationAttribute(Name="CallStackPattern_Crash", Storage="_Crashes", ThisKey="id", OtherKey="PatternId")]
+		public EntitySet<Crash> Crashes
+		{
+			get
+			{
+				return this._Crashes;
+			}
+			set
+			{
+				this._Crashes.Assign(value);
+			}
+		}
+		
+		public event PropertyChangingEventHandler PropertyChanging;
+		
+		public event PropertyChangedEventHandler PropertyChanged;
+		
+		protected virtual void SendPropertyChanging()
+		{
+			if ((this.PropertyChanging != null))
+			{
+				this.PropertyChanging(this, emptyChangingEventArgs);
+			}
+		}
+		
+		protected virtual void SendPropertyChanged(String propertyName)
+		{
+			if ((this.PropertyChanged != null))
+			{
+				this.PropertyChanged(this, new PropertyChangedEventArgs(propertyName));
+			}
+		}
+		
+		private void attach_Crashes(Crash entity)
+		{
+			this.SendPropertyChanging();
+			entity.CallStackPattern = this;
+		}
+		
+		private void detach_Crashes(Crash entity)
+		{
+			this.SendPropertyChanging();
+			entity.CallStackPattern = null;
 		}
 	}
 }

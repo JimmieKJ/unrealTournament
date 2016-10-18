@@ -25,6 +25,7 @@ public:
 	virtual const TArray<FAnimNotifyEvent>& GetAnimNotifies() const = 0;
 	virtual const TArray<UStructProperty*>& GetAnimNodeProperties() const = 0;
 	virtual const TArray<FName>& GetSyncGroupNames() const = 0;
+	virtual const TArray<int32>& GetOrderedSavedPoseNodeIndices() const = 0;
 
 	virtual USkeleton* GetTargetSkeleton() const = 0;
 	virtual int32 GetRootAnimNodeIndex() const = 0;

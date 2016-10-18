@@ -2,7 +2,7 @@
 
 #include "UnrealTournament.h"
 #include "UTHUDWidget_LivesRemaining.h"
-#include "UTCTFGameState.h"
+#include "UTCTFRoundGameState.h"
 
 UUTHUDWidget_LivesRemaining::UUTHUDWidget_LivesRemaining(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
@@ -14,7 +14,7 @@ UUTHUDWidget_LivesRemaining::UUTHUDWidget_LivesRemaining(const class FObjectInit
 
 void UUTHUDWidget_LivesRemaining::Draw_Implementation(float DeltaTime)
 {
-	AUTCTFGameState* GS = Cast<AUTCTFGameState>(UTGameState);
+	AUTCTFRoundGameState* GS = Cast<AUTCTFRoundGameState>(UTGameState);
 	bool bTeamLifePool = false;
 	if (GS && GS->BlueLivesRemaining > 0)
 	{

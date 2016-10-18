@@ -51,31 +51,31 @@ FString FTextureEditorToolkit::GetDocumentationLink( ) const
 }
 
 
-void FTextureEditorToolkit::RegisterTabSpawners( const TSharedRef<class FTabManager>& TabManager )
+void FTextureEditorToolkit::RegisterTabSpawners( const TSharedRef<class FTabManager>& InTabManager )
 {
-	WorkspaceMenuCategory = TabManager->AddLocalWorkspaceMenuCategory(LOCTEXT("WorkspaceMenu_TextureEditor", "Texture Editor"));
+	WorkspaceMenuCategory = InTabManager->AddLocalWorkspaceMenuCategory(LOCTEXT("WorkspaceMenu_TextureEditor", "Texture Editor"));
 	auto WorkspaceMenuCategoryRef = WorkspaceMenuCategory.ToSharedRef();
 
-	FAssetEditorToolkit::RegisterTabSpawners(TabManager);
+	FAssetEditorToolkit::RegisterTabSpawners(InTabManager);
 
-	TabManager->RegisterTabSpawner(ViewportTabId, FOnSpawnTab::CreateSP(this, &FTextureEditorToolkit::HandleTabSpawnerSpawnViewport))
+	InTabManager->RegisterTabSpawner(ViewportTabId, FOnSpawnTab::CreateSP(this, &FTextureEditorToolkit::HandleTabSpawnerSpawnViewport))
 		.SetDisplayName(LOCTEXT("ViewportTab", "Viewport"))
 		.SetGroup(WorkspaceMenuCategoryRef)
 		.SetIcon(FSlateIcon(FEditorStyle::GetStyleSetName(), "LevelEditor.Tabs.Viewports"));
 
-	TabManager->RegisterTabSpawner(PropertiesTabId, FOnSpawnTab::CreateSP(this, &FTextureEditorToolkit::HandleTabSpawnerSpawnProperties))
+	InTabManager->RegisterTabSpawner(PropertiesTabId, FOnSpawnTab::CreateSP(this, &FTextureEditorToolkit::HandleTabSpawnerSpawnProperties))
 		.SetDisplayName(LOCTEXT("PropertiesTab", "Details") )
 		.SetGroup(WorkspaceMenuCategoryRef)
 		.SetIcon(FSlateIcon(FEditorStyle::GetStyleSetName(), "LevelEditor.Tabs.Details"));
 }
 
 
-void FTextureEditorToolkit::UnregisterTabSpawners( const TSharedRef<class FTabManager>& TabManager )
+void FTextureEditorToolkit::UnregisterTabSpawners( const TSharedRef<class FTabManager>& InTabManager )
 {
-	FAssetEditorToolkit::UnregisterTabSpawners(TabManager);
+	FAssetEditorToolkit::UnregisterTabSpawners(InTabManager);
 
-	TabManager->UnregisterTabSpawner(ViewportTabId);
-	TabManager->UnregisterTabSpawner(PropertiesTabId);
+	InTabManager->UnregisterTabSpawner(ViewportTabId);
+	InTabManager->UnregisterTabSpawner(PropertiesTabId);
 }
 
 
@@ -337,6 +337,7 @@ void FTextureEditorToolkit::PopulateQuickInfo( )
 	UTextureRenderTarget2D* Texture2DRT = Cast<UTextureRenderTarget2D>(Texture);
 	UTextureRenderTargetCube* TextureCubeRT = Cast<UTextureRenderTargetCube>(Texture);
 	UTextureCube* TextureCube = Cast<UTextureCube>(Texture);
+	UTexture2DDynamic* Texture2DDynamic = Cast<UTexture2DDynamic>(Texture);
 
 	uint32 ImportedWidth = Texture->Source.GetSizeX();
 	uint32 ImportedHeight = Texture->Source.GetSizeY();
@@ -403,6 +404,10 @@ void FTextureEditorToolkit::PopulateQuickInfo( )
 	{
 		TextureFormatIndex = Texture2DRT->GetFormat();
 	}
+	else if (Texture2DDynamic)
+	{
+		TextureFormatIndex = Texture2DDynamic->Format;
+	}
 
 	if (TextureFormatIndex != PF_MAX)
 	{
@@ -421,6 +426,10 @@ void FTextureEditorToolkit::PopulateQuickInfo( )
 	else if (Texture2DRT)
 	{
 		NumMips = Texture2DRT->GetNumMips();
+	}
+	else if (Texture2DDynamic)
+	{
+		NumMips = Texture2DDynamic->NumMips;
 	}
 
 	NumMipsText->SetText(FText::Format(NSLOCTEXT("TextureEditor", "QuickInfo_NumMips", "Number of Mips: {0}"), FText::AsNumber(NumMips)));

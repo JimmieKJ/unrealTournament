@@ -8,6 +8,7 @@
 
 #include "AssetData.h"
 #include "ContentBrowserModule.h"
+#include "Animation/AnimSequence.h"
 
 #define LOCTEXT_NAMESPACE "AnimSequenceFactory"
 

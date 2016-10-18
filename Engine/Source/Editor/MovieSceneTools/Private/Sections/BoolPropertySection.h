@@ -2,28 +2,31 @@
 
 #pragma once
 
-#include "BoolKeyArea.h"
+#include "PropertySection.h"
+
+
+class FBoolKeyArea;
 
 
 /**
-* An implementation of bool property sections
+* An implementation of bool property sections.
 */
 class FBoolPropertySection
 	: public FPropertySection
 {
 public:
 
-	FBoolPropertySection( UMovieSceneSection& InSectionObject, const FText& SectionName, ISequencer* InSequencer )
-		: FPropertySection( InSectionObject, SectionName )
-		, Sequencer( InSequencer ) {}
+	FBoolPropertySection(UMovieSceneSection& InSectionObject, const FText& SectionName, ISequencer* InSequencer)
+		: FPropertySection(InSectionObject, SectionName)
+		, Sequencer(InSequencer) {}
 
 public:
 
-	// FPropertySection interface
+	//~ FPropertySection interface
 
-	virtual void GenerateSectionLayout( class ISectionLayoutBuilder& LayoutBuilder ) const override;
-	virtual int32 OnPaintSection( FSequencerSectionPainter& Painter ) const override;
-	virtual void SetIntermediateValue( FPropertyChangedParams PropertyChangedParams ) override;
+	virtual void GenerateSectionLayout(class ISectionLayoutBuilder& LayoutBuilder) const override;
+	virtual int32 OnPaintSection(FSequencerSectionPainter& Painter) const override;
+	virtual void SetIntermediateValue(FPropertyChangedParams PropertyChangedParams) override;
 	virtual void ClearIntermediateValue() override;
 
 protected:

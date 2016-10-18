@@ -314,6 +314,13 @@ bool FRenderTargetPool::FindFreeElement(FRHICommandList& RHICmdList, const FPool
 					Desc.NumSamples
 					);
 
+				if (GSupportsRenderTargetWriteMask && Desc.bCreateRenderTargetWriteMask)
+				{
+					Found->RenderTargetItem.RTWriteMaskDataBufferRHI = RHICreateRTWriteMaskBuffer((FTexture2DRHIRef&)Found->RenderTargetItem.TargetableTexture);
+					Found->RenderTargetItem.RTWriteMaskBufferRHI_SRV = RHICreateShaderResourceView(Found->RenderTargetItem.RTWriteMaskDataBufferRHI);
+				}
+
+
 				if( Desc.NumMips > 1 )
 				{
 					Found->RenderTargetItem.MipSRVs.SetNum( Desc.NumMips );
@@ -848,25 +855,7 @@ void FRenderTargetPool::PresentContent(FRHICommandListImmediate& RHICmdList, con
 			RHICmdList.SetRasterizerState(TStaticRasterizerState<>::GetRHI());
 			RHICmdList.SetDepthStencilState(TStaticDepthStencilState<false, CF_Always>::GetRHI());
 
-			// this is a helper class for FCanvas to be able to get screen size
-			class FRenderTargetTemp : public FRenderTarget
-			{
-			public:
-				const FSceneView& View;
-
-				FRenderTargetTemp(const FSceneView& InView) : View(InView)
-				{
-				}
-				virtual FIntPoint GetSizeXY() const
-				{
-					return View.UnscaledViewRect.Size();
-				};
-				virtual const FTexture2DRHIRef& GetRenderTargetTexture() const
-				{
-					return View.Family->RenderTarget->GetRenderTargetTexture();
-				}
-			} TempRenderTarget(View);
-
+			FRenderTargetTemp TempRenderTarget(View, View.UnscaledViewRect.Size());
 			FCanvas Canvas(&TempRenderTarget, NULL, View.Family->CurrentRealTime, View.Family->CurrentWorldTime, View.Family->DeltaWorldTime, View.GetFeatureLevel());
 
 			// TinyFont property
@@ -1456,7 +1445,9 @@ uint32 FPooledRenderTarget::ComputeMemorySize() const
 
 bool FPooledRenderTarget::IsFree() const
 {
-	check(GetRefCount() >= 1);
+	uint32 RefCount = GetRefCount();
+	check(RefCount >= 1);
+
 	// If the only reference to the pooled render target is from the pool, then it's unused.
-	return !bSnapshot && GetRefCount() == 1;
+	return !bSnapshot && RefCount == 1;
 }

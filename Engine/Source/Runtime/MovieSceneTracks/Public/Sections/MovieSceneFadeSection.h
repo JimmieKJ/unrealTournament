@@ -7,7 +7,7 @@
 
 
 /**
- * A single floating point section
+ * A single floating point section.
  */
 UCLASS(MinimalAPI)
 class UMovieSceneFadeSection
@@ -20,11 +20,11 @@ class UMovieSceneFadeSection
 
 public:
 
-	/** Fade color */
-	UPROPERTY(EditAnywhere, Category="Fade")
+	/** Fade color. */
+	UPROPERTY(EditAnywhere, Category="Fade", meta=(InlineColorPicker))
 	FLinearColor FadeColor;
 
-	/** Fade audio */
+	/** Fade audio. */
 	UPROPERTY(EditAnywhere, Category="Fade")
 	uint32 bFadeAudio:1;
 };

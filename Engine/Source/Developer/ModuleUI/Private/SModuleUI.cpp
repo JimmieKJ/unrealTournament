@@ -2,6 +2,7 @@
 
 #include "ModuleUIPrivatePCH.h"
 #include "HotReloadInterface.h"
+#include "SSearchBox.h"
 
 BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
 void SModuleUI::Construct(const SModuleUI::FArguments& InArgs)
@@ -12,6 +13,13 @@ void SModuleUI::Construct(const SModuleUI::FArguments& InArgs)
 		.Padding( FMargin(8) )
 	[
 		SNew( SVerticalBox )
+
+			+ SVerticalBox::Slot()
+				.AutoHeight()
+			[
+				SAssignNew(ModuleNameSearchBox, SSearchBox)
+				.OnTextChanged(this, &SModuleUI::OnFilterTextChanged)
+			]
 
 			// List of modules
 			+ SVerticalBox::Slot()
@@ -53,7 +61,10 @@ SModuleUI::~SModuleUI()
 	FModuleManager::Get().OnModulesChanged().RemoveAll( this );
 }
 
-
+void SModuleUI::OnFilterTextChanged(const FText& InFilterText)
+{
+	UpdateModuleListItems();
+}
 TSharedRef<ITableRow> SModuleUI::OnGenerateWidgetForModuleListView(TSharedPtr< FModuleListItem > InItem, const TSharedRef<STableViewBase>& OwnerTable)
 {
 	#define LOCTEXT_NAMESPACE "ModuleUI"
@@ -163,9 +174,17 @@ void SModuleUI::UpdateModuleListItems()
 
 		FName ModuleName(*ModuleStatus.Name);
 
-		TSharedRef< FModuleListItem > NewItem( new FModuleListItem() );
-		NewItem->ModuleName = ModuleName;
-		ModuleListItems.Add( NewItem );
+		FString ModuleNameStr = ModuleName.ToString();
+		FString FilterStr = ModuleNameSearchBox->GetText().ToString();
+		FilterStr.Trim();
+		FilterStr.TrimTrailing();
+		if ( (!FilterStr.IsEmpty() && ModuleNameStr.Contains(FilterStr)) || 
+			  FilterStr.IsEmpty() )
+		{
+			TSharedRef< FModuleListItem > NewItem(new FModuleListItem());
+			NewItem->ModuleName = ModuleName;
+			ModuleListItems.Add(NewItem);
+		}
 	}
 
 

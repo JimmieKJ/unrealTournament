@@ -285,6 +285,11 @@ bool FSubversionSourceControlState::CanEdit() const
 	return LockState == ELockState::Locked || WorkingCopyState == EWorkingCopyState::Added;
 }
 
+bool FSubversionSourceControlState::CanDelete() const
+{
+	return !IsCheckedOutOther() && IsSourceControlled() && IsCurrent();
+}
+
 bool FSubversionSourceControlState::IsUnknown() const
 {
 	return WorkingCopyState == EWorkingCopyState::Unknown;

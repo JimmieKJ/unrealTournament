@@ -55,6 +55,8 @@ struct FPlatformOpenGLContext
 	uint32					VendorID;
 	/** Renderer ID */
 	GLint					RendererID;
+	/** Renderer Index */
+	int32					RendererIndex;
 	/** Whether the renderer supports depth-fetch during depth-test */
 	bool					SupportsDepthFetchDuringDepthTest;
 };

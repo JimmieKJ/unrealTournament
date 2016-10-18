@@ -74,6 +74,7 @@ public:
 
 	void OnNewSlotClicked();
 	void OnNewSectionClicked(float DataPosX);
+	bool CanAddNewSection();
 
 	void ShowSegmentInDetailsView(int32 AnimSegmentIndex, int32 AnimSlotIndex);
 	void ShowSectionInDetailsView(int32 SectionIndex);

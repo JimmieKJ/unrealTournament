@@ -1,6 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AnalyticsBlueprintLibraryPrivatePCH.h"
+#include "IAnalyticsProvider.h"
+#include "Analytics.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogAnalyticsBPLib, Display, All);
 

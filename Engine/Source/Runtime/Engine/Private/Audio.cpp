@@ -8,6 +8,7 @@
 #include "ActiveSound.h"
 #include "Audio.h"
 #include "AudioDevice.h"
+#include "AudioThread.h"
 #include "Sound/SoundCue.h"
 #include "Sound/SoundWave.h"
 #include "Sound/SoundNodeWavePlayer.h"
@@ -52,7 +53,6 @@ DEFINE_STAT(STAT_AudioSourceCreateTime);
 DEFINE_STAT(STAT_AudioSubmitBuffersTime);
 DEFINE_STAT(STAT_AudioStartSources);
 DEFINE_STAT(STAT_AudioGatherWaveInstances);
-DEFINE_STAT(STAT_AudioUpdateTime);
 DEFINE_STAT(STAT_AudioFindNearestLocation);
 
 
@@ -172,20 +172,10 @@ FString FSoundBuffer::Describe(bool bUseLongName)
 
 FString FSoundSource::Describe(bool bUseLongName)
 {
-	// look for a component and its owner
-	AActor* SoundOwner = NULL;
-	
-	// TODO - Audio Threading. This won't work cross thread.
-	UAudioComponent* AudioComponent = (WaveInstance->ActiveSound ? WaveInstance->ActiveSound->GetAudioComponent() : nullptr);
-	if (AudioComponent)
-	{
-		SoundOwner = AudioComponent->GetOwner();
-	}
-
 	return FString::Printf(TEXT("Wave: %s, Volume: %6.2f, Owner: %s"), 
 		bUseLongName ? *WaveInstance->WaveData->GetPathName() : *WaveInstance->WaveData->GetName(),
 		WaveInstance->GetActualVolume(), 
-		SoundOwner ? *SoundOwner->GetName() : TEXT("None"));
+		WaveInstance->ActiveSound ? *WaveInstance->ActiveSound->GetOwnerName() : TEXT("None"));
 }
 
 void FSoundSource::Stop( void )
@@ -327,40 +317,130 @@ void FSoundSource::UpdateStereoEmitterPositions()
 void FSoundSource::DrawDebugInfo()
 {
 	// Draw 3d Debug information about this source, if enabled
-	// TODO - Audio Threading. This won't work cross thread.
 	FAudioDeviceManager* DeviceManager = GEngine->GetAudioDeviceManager();
 
 	if (DeviceManager && DeviceManager->IsVisualizeDebug3dEnabled())
 	{
-		UAudioComponent* AudioComponent = (WaveInstance->ActiveSound ? WaveInstance->ActiveSound->GetAudioComponent() : nullptr);
-		if (AudioComponent)
+		const uint32 AudioComponentID = WaveInstance->ActiveSound->GetAudioComponentID();
+
+		if (AudioComponentID > 0)
 		{
-			UWorld* SoundWorld = AudioComponent->GetWorld();
-			if (SoundWorld)
+			DECLARE_CYCLE_STAT(TEXT("FAudioThreadTask.DrawSourceDebugInfo"), STAT_AudioDrawSourceDebugInfo, STATGROUP_TaskGraphTasks);
+
+			USoundBase* Sound = WaveInstance->ActiveSound->GetSound();
+			const FVector Location = WaveInstance->Location;
+
+			const bool bSpatialized = Buffer->NumChannels == 2 && WaveInstance->bUseSpatialization;
+			const FVector LeftChannelSourceLoc = LeftChannelSourceLocation;
+			const FVector RightChannelSourceLoc = RightChannelSourceLocation;
+
+			FAudioThread::RunCommandOnGameThread([AudioComponentID, Sound, bSpatialized, Location, LeftChannelSourceLoc, RightChannelSourceLoc]()
 			{
-				FRotator SoundRotation = AudioComponent->GetComponentRotation();
-				DrawDebugCrosshairs(SoundWorld, WaveInstance->Location, SoundRotation, 20.0f, FColor::White, false, -1.0f, SDPG_Foreground);
-
-				FString Name;
-				WaveInstance->ActiveSound->Sound->GetName(Name);
-
-				if (Buffer->NumChannels == 2 && WaveInstance->bUseSpatialization)
+				UAudioComponent* AudioComponent = UAudioComponent::GetAudioComponentFromID(AudioComponentID);
+				if (AudioComponent)
 				{
-					DrawDebugCrosshairs(SoundWorld, LeftChannelSourceLocation, SoundRotation, 20.0f, FColor::Red, false, -1.0f, SDPG_Foreground);
-					DrawDebugCrosshairs(SoundWorld, RightChannelSourceLocation, SoundRotation, 20.0f, FColor::Green, false, -1.0f, SDPG_Foreground);
-				}
+					UWorld* SoundWorld = AudioComponent->GetWorld();
+					if (SoundWorld)
+					{
+						FRotator SoundRotation = AudioComponent->GetComponentRotation();
+						DrawDebugCrosshairs(SoundWorld, Location, SoundRotation, 20.0f, FColor::White, false, -1.0f, SDPG_Foreground);
 
-				DrawDebugString(SoundWorld, AudioComponent->GetComponentLocation() + FVector(0, 0, 32), *Name, nullptr, FColor::White, 0.033, false);
+						if (bSpatialized)
+						{
+							DrawDebugCrosshairs(SoundWorld, LeftChannelSourceLoc, SoundRotation, 20.0f, FColor::Red, false, -1.0f, SDPG_Foreground);
+							DrawDebugCrosshairs(SoundWorld, RightChannelSourceLoc, SoundRotation, 20.0f, FColor::Green, false, -1.0f, SDPG_Foreground);
+						}
+
+						const FString Name = Sound->GetName();
+						DrawDebugString(SoundWorld, AudioComponent->GetComponentLocation() + FVector(0, 0, 32), *Name, nullptr, FColor::White, 0.033, false);
+					}
+				}
+			}, GET_STATID(STAT_AudioDrawSourceDebugInfo));
+		}
+	}
+}
+ 
+float FSoundSource::GetDebugVolume(const float InVolume)
+{
+	float OutVolume = InVolume;
+
+#if !UE_BUILD_SHIPPING
+
+	if (OutVolume != 0.0f)
+	{
+
+		// Check for solo sound class debuging. Mute all sounds that don't substring match their sound class name to the debug solo'd sound class
+		const FString& DebugSoloSoundName = GEngine->GetAudioDeviceManager()->GetDebugSoloSoundWave();
+		if (DebugSoloSoundName != TEXT(""))
+		{
+			bool bMute = true;
+			FString WaveInstanceName = WaveInstance->GetName();
+			if (WaveInstanceName.Contains(DebugSoloSoundName))
+			{
+				bMute = false;
+			}
+			if (bMute)
+			{
+				OutVolume = 0.0f;
 			}
 		}
 	}
+
+	if (OutVolume != 0.0f)
+	{
+		// Check for solo sound class debuging. Mute all sounds that don't substring match their sound class name to the debug solo'd sound class
+		const FString& DebugSoloSoundCue = GEngine->GetAudioDeviceManager()->GetDebugSoloSoundCue();
+		if (DebugSoloSoundCue != TEXT(""))
+		{
+			bool bMute = true;
+			USoundBase* Sound = WaveInstance->ActiveSound->GetSound();
+			if (Sound->IsA<USoundCue>())
+			{
+				FString SoundCueName = Sound->GetName();
+				if (SoundCueName.Contains(DebugSoloSoundCue))
+				{
+					bMute = false;
+				}
+			}
+
+			if (bMute)
+			{
+				OutVolume = 0.0f;
+			}
+		}
+	}
+
+	if (OutVolume != 0.0f)
+	{
+		const FString& DebugSoloSoundClassName = GEngine->GetAudioDeviceManager()->GetDebugSoloSoundClass();
+		if (DebugSoloSoundClassName != TEXT(""))
+		{
+			bool bMute = true;
+			if (WaveInstance->SoundClass)
+			{
+				FString SoundClassName;
+				WaveInstance->SoundClass->GetName(SoundClassName);
+				if (SoundClassName.Contains(DebugSoloSoundClassName))
+				{
+					bMute = false;
+				}
+			}
+			if (bMute)
+			{
+				OutVolume = 0.0f;
+			}
+		}
+	}
+#endif
+
+	return OutVolume;
 }
 
 FSpatializationParams FSoundSource::GetSpatializationParams()
 {
 	FSpatializationParams Params;
 
-		// Calculate direction from listener to sound, where the sound is at the origin if unspatialised.
+		// Calculate direction from listener to sound, where the sound is at the origin if unspatialized.
 	if (WaveInstance->bUseSpatialization)
 	{
 		FVector EmitterPosition = AudioDevice->GetListenerTransformedDirection(WaveInstance->Location, &Params.Distance);
@@ -606,6 +686,16 @@ bool FWaveInstance::IsStreaming() const
 {
 	return FPlatformProperties::SupportsAudioStreaming() && WaveData != nullptr && WaveData->IsStreaming();
 }
+
+FString FWaveInstance::GetName() const
+{
+	if (WaveData)
+	{
+		return WaveData->GetName();
+	}
+	return TEXT("Null");
+}
+
 
 /*-----------------------------------------------------------------------------
 	WaveModInfo implementation - downsampling of wave files.

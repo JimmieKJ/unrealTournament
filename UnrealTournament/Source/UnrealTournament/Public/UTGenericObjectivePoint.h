@@ -21,7 +21,7 @@ public:
 		EditorSprite = CreateEditorOnlyDefaultSubobject<UBillboardComponent>(FName(TEXT("EditorSprite")));
 		if (EditorSprite != NULL)
 		{
-			EditorSprite->AttachParent = RootComponent;
+			EditorSprite->SetupAttachment(RootComponent);
 			if (!IsRunningCommandlet())
 			{
 				ConstructorHelpers::FObjectFinderOptional<UTexture2D> SpriteObj(TEXT("/Game/RestrictedAssets/EditorAssets/Icons/generic_objective.generic_objective"));

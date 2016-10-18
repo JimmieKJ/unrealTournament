@@ -5,8 +5,6 @@
 #include "UTTeamPlayerStart.h"
 #include "SlateBasics.h"
 #include "UTAnalytics.h"
-#include "Runtime/Analytics/Analytics/Public/Analytics.h"
-#include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
 #include "UTGameMessage.h"
 #include "UTCTFGameMessage.h"
 #include "UTCTFMajorMessage.h"
@@ -17,6 +15,8 @@
 #include "StatNames.h"
 #include "UTGameSessionRanked.h"
 #include "UTBotCharacter.h"
+#include "AnalyticsEventAttribute.h"
+#include "IAnalyticsProvider.h"
 
 UUTTeamInterface::UUTTeamInterface(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -51,7 +51,7 @@ void AUTTeamGameMode::InitGame(const FString& MapName, const FString& Options, F
 {
 	Super::InitGame(MapName, Options, ErrorMessage);
 
-	bBalanceTeams = !bOfflineChallenge && EvalBoolOptions(UGameplayStatics::ParseOption(Options, TEXT("BalanceTeams")), bBalanceTeams);
+	bBalanceTeams = !bDevServer && !bOfflineChallenge && EvalBoolOptions(UGameplayStatics::ParseOption(Options, TEXT("BalanceTeams")), bBalanceTeams);
 
 	if (bAllowURLTeamCountOverride)
 	{
@@ -111,13 +111,13 @@ void AUTTeamGameMode::AnnounceMatchStart()
 	}
 }
 
-APlayerController* AUTTeamGameMode::Login(class UPlayer* NewPlayer, ENetRole RemoteRole, const FString& Portal, const FString& Options, const TSharedPtr<const FUniqueNetId>& UniqueId, FString& ErrorMessage)
+APlayerController* AUTTeamGameMode::Login(class UPlayer* NewPlayer, ENetRole InRemoteRole, const FString& Portal, const FString& Options, const FUniqueNetIdRepl& UniqueId, FString& ErrorMessage)
 {
-	APlayerController* PC = Super::Login(NewPlayer, RemoteRole, Portal, Options, UniqueId, ErrorMessage);
+	APlayerController* PC = Super::Login(NewPlayer, InRemoteRole, Portal, Options, UniqueId, ErrorMessage);
 
 	if (PC != NULL && !PC->PlayerState->bOnlySpectator)
 	{
-		if (!bRankedSession)
+		if (!bRankedSession && !bIsQuickMatch)
 		{
 			// FIXMESTEVE Does team get overwritten in postlogin if inactive player?
 			uint8 DesiredTeam = (GetNetMode() == NM_Standalone) ? 1 : uint8(FMath::Clamp<int32>(UGameplayStatics::GetIntOption(Options, TEXT("Team"), 255), 0, 255));
@@ -236,6 +236,16 @@ bool AUTTeamGameMode::ChangeTeam(AController* Player, uint8 NewTeam, bool bBroad
 		
 			if (MovePlayerToTeam(Player, PS, NewTeam))
 			{
+				AUTPlayerController* PC = Cast<AUTPlayerController>(Player);
+				if (PC && !HasMatchStarted() && bUseTeamStarts)
+				{
+					AActor* const StartSpot = FindPlayerStart(PC);
+					if (StartSpot != NULL)
+					{
+						PC->StartSpot = StartSpot;
+						PC->ViewStartSpot();
+					}
+				}
 				return true;
 			}
 
@@ -268,9 +278,9 @@ bool AUTTeamGameMode::MovePlayerToTeam(AController* Player, AUTPlayerState* PS, 
 		// Clear the player's gameplay mute list.
 
 		APlayerController* PlayerController = Cast<APlayerController>(Player);
-		AUTGameState* UTGameState = GetWorld()->GetGameState<AUTGameState>();
+		AUTGameState* MyGameState = GetWorld()->GetGameState<AUTGameState>();
 
-		if (PlayerController && UTGameState)
+		if (PlayerController && MyGameState)
 		{
 			for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
 			{
@@ -280,7 +290,7 @@ bool AUTTeamGameMode::MovePlayerToTeam(AController* Player, AUTPlayerState* PS, 
 					TSharedPtr<const FUniqueNetId> Id = NextPlayer->PlayerState->UniqueId.GetUniqueNetId();
 					bool bIsMuted = Id.IsValid() && PlayerController->IsPlayerMuted(Id.ToSharedRef().Get());
 
-					bool bOnSameTeam = UTGameState->OnSameTeam(PlayerController, NextPlayer);
+					bool bOnSameTeam = MyGameState->OnSameTeam(PlayerController, NextPlayer);
 					if (bIsMuted && bOnSameTeam) 
 					{
 						PlayerController->GameplayUnmutePlayer(NextPlayer->PlayerState->UniqueId);
@@ -839,6 +849,19 @@ void AUTTeamGameMode::PlayEndOfMatchMessage()
 	}
 }
 
+//Special markup for Analytics event so they show up properly in grafana. Should be eventually moved to UTAnalytics.
+/*
+* @EventName EndTeamMatch
+*
+* @Trigger Sent at the end of a game
+*
+* @Type Sent by the server
+*
+* @EventParam Reason string Reason the game ended
+* @EventParam TeamCount int32 number of teams in the game
+*
+* @Comments
+*/
 void AUTTeamGameMode::SendEndOfGameStats(FName Reason)
 {
 	if (FUTAnalytics::IsAvailable())

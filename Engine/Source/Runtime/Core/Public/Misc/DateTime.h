@@ -694,10 +694,7 @@ public:
 	 * @param DateTime The date and time to get the hash for.
 	 * @return Hash value.
 	 */
-	friend uint32 GetTypeHash( const FDateTime& DateTime )
-	{
-		return GetTypeHash(DateTime.Ticks);
-	}
+	friend uint32 GetTypeHash(const FDateTime& DateTime);
 
 protected:
 

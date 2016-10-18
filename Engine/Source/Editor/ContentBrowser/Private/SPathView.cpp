@@ -638,10 +638,11 @@ void SPathView::LoadSettings(const FString& IniFilename, const FString& IniSecti
 
 			// Send the first selected item with the notification
 			const TArray<TSharedPtr<FTreeItem>> SelectedItems = TreeViewPtr->GetSelectedItems();
-			check(SelectedItems.Num() > 0);
-
-			// Signal a single selection changed event to let any listeners know that paths have changed
-			TreeSelectionChanged( SelectedItems[0], ESelectInfo::Direct );
+			if (SelectedItems.Num() > 0)
+			{
+				// Signal a single selection changed event to let any listeners know that paths have changed
+				TreeSelectionChanged( SelectedItems[0], ESelectInfo::Direct );
+			}
 		}
 	}
 }

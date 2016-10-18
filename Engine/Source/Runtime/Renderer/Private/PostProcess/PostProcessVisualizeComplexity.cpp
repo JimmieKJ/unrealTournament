@@ -31,7 +31,7 @@ FVisualizeComplexityApplyPS::FVisualizeComplexityApplyPS(const ShaderMetaType::C
 	ShaderComplexityColors.Bind(Initializer.ParameterMap,TEXT("ShaderComplexityColors"));
 	MiniFontTexture.Bind(Initializer.ParameterMap, TEXT("MiniFontTexture"));
 	ShaderComplexityParams.Bind(Initializer.ParameterMap, TEXT("ShaderComplexityParams"));
-	NumComplexityColors.Bind(Initializer.ParameterMap, TEXT("NumComplexityColors"));
+	ShaderComplexityParams2.Bind(Initializer.ParameterMap, TEXT("ShaderComplexityParams2"));
 	QuadOverdrawTexture.Bind(Initializer.ParameterMap,TEXT("QuadOverdrawTexture"));
 }
 
@@ -78,8 +78,9 @@ void FVisualizeComplexityApplyPS::SetParameters(
 		}
 	}
 
+	FIntPoint UsedQuadBufferSize = (Context.View.ViewRect.Size() + FIntPoint(1, 1)) / 2;
 	SetShaderValue(Context.RHICmdList, ShaderRHI, ShaderComplexityParams, FVector4(bLegend, DebugViewShaderMode, ColorSampling, ComplexityScale));
-	SetShaderValue(Context.RHICmdList, ShaderRHI, NumComplexityColors, Colors.Num());
+	SetShaderValue(Context.RHICmdList, ShaderRHI, ShaderComplexityParams2, FVector4((float)Colors.Num(), 0, (float)UsedQuadBufferSize.X, (float)UsedQuadBufferSize.Y));
 }
 
 IMPLEMENT_SHADER_TYPE(,FVisualizeComplexityApplyPS,TEXT("ShaderComplexityApplyPixelShader"),TEXT("Main"),SF_Pixel);
@@ -141,55 +142,35 @@ void FRCPassPostProcessVisualizeComplexity::Process(FRenderingCompositePassConte
 
 	if(bLegend)
 	{
-		// this is a helper class for FCanvas to be able to get screen size
-		class FRenderTargetTemp : public FRenderTarget
-		{
-		public:
-			const FSceneView& View;
-			const FTexture2DRHIRef Texture;
-
-			FRenderTargetTemp(const FSceneView& InView, const FTexture2DRHIRef InTexture)
-				: View(InView), Texture(InTexture)
-			{
-			}
-			virtual FIntPoint GetSizeXY() const
-			{
-				return View.ViewRect.Size();
-			};
-			virtual const FTexture2DRHIRef& GetRenderTargetTexture() const
-			{
-				return Texture;
-			}
-		} TempRenderTarget(View, (const FTexture2DRHIRef&)DestRenderTarget.TargetableTexture);
-
+		FRenderTargetTemp TempRenderTarget(View, (const FTexture2DRHIRef&)DestRenderTarget.TargetableTexture);
 		FCanvas Canvas(&TempRenderTarget, NULL, ViewFamily.CurrentRealTime, ViewFamily.CurrentWorldTime, ViewFamily.DeltaWorldTime, Context.GetFeatureLevel());
 
-//later?		Canvas.DrawShadowedString(View.ViewRect.Max.X - View.ViewRect.Width() / 3 - 64 + 8, View.ViewRect.Max.Y - 80, TEXT("Overdraw"), GetStatsFont(), FLinearColor(0.7f, 0.7f, 0.7f), FLinearColor(0,0,0,0));
-//later?		Canvas.DrawShadowedString(View.ViewRect.Min.X + 64 + 4, View.ViewRect.Max.Y - 80, TEXT("VS Instructions"), GetStatsFont(), FLinearColor(0.0f, 0.0f, 0.0f), FLinearColor(0,0,0,0));
+//later?		Canvas.DrawShadowedString(DestRect.Max.X - DestRect.Width() / 3 - 64 + 8, DestRect.Max.Y - 80, TEXT("Overdraw"), GetStatsFont(), FLinearColor(0.7f, 0.7f, 0.7f), FLinearColor(0,0,0,0));
+//later?		Canvas.DrawShadowedString(DestRect.Min.X + 64 + 4, DestRect.Max.Y - 80, TEXT("VS Instructions"), GetStatsFont(), FLinearColor(0.0f, 0.0f, 0.0f), FLinearColor(0,0,0,0));
 
 		if (View.Family->GetDebugViewShaderMode() == DVSM_QuadComplexity)
 		{
-			int32 StartX = View.ViewRect.Min.X + 62;
-			int32 EndX = View.ViewRect.Max.X - 66;
+			int32 StartX = DestRect.Min.X + 62;
+			int32 EndX = DestRect.Max.X - 66;
 			int32 NumOffset = (EndX - StartX) / (Colors.Num() - 1);
 			for (int32 PosX = StartX, Number = 0; PosX <= EndX; PosX += NumOffset, ++Number)
 			{
 				FString Line;
 				Line = FString::Printf(TEXT("%d"), Number);
-				Canvas.DrawShadowedString(PosX, View.ViewRect.Max.Y - 87, *Line, GetStatsFont(), FLinearColor(0.5f, 0.5f, 0.5f));
+				Canvas.DrawShadowedString(PosX, DestRect.Max.Y - 87, *Line, GetStatsFont(), FLinearColor(0.5f, 0.5f, 0.5f));
 			}
 		}
 		else
 		{
-			Canvas.DrawShadowedString(View.ViewRect.Min.X + 63, View.ViewRect.Max.Y - 51, TEXT("Good"), GetStatsFont(), FLinearColor(0.5f, 0.5f, 0.5f));
-			Canvas.DrawShadowedString(View.ViewRect.Min.X + 63 + (int32)(View.ViewRect.Width() * 107.0f / 397.0f), View.ViewRect.Max.Y - 51, TEXT("Bad"), GetStatsFont(), FLinearColor(0.5f, 0.5f, 0.5f));
-			Canvas.DrawShadowedString(View.ViewRect.Max.X - 162, View.ViewRect.Max.Y - 51, TEXT("Extremely bad"), GetStatsFont(), FLinearColor(0.5f, 0.5f, 0.5f));
+			Canvas.DrawShadowedString(DestRect.Min.X + 63, DestRect.Max.Y - 51, TEXT("Good"), GetStatsFont(), FLinearColor(0.5f, 0.5f, 0.5f));
+			Canvas.DrawShadowedString(DestRect.Min.X + 63 + (int32)(DestRect.Width() * 107.0f / 397.0f), DestRect.Max.Y - 51, TEXT("Bad"), GetStatsFont(), FLinearColor(0.5f, 0.5f, 0.5f));
+			Canvas.DrawShadowedString(DestRect.Max.X - 162, DestRect.Max.Y - 51, TEXT("Extremely bad"), GetStatsFont(), FLinearColor(0.5f, 0.5f, 0.5f));
 
-			Canvas.DrawShadowedString(View.ViewRect.Min.X + 62, View.ViewRect.Max.Y - 87, TEXT("0"), GetStatsFont(), FLinearColor(0.5f, 0.5f, 0.5f));
+			Canvas.DrawShadowedString(DestRect.Min.X + 62, DestRect.Max.Y - 87, TEXT("0"), GetStatsFont(), FLinearColor(0.5f, 0.5f, 0.5f));
 
 			FString Line;
 			Line = FString::Printf(TEXT("MaxShaderComplexityCount=%d"), (int32)GetMaxShaderComplexityCount(Context.GetFeatureLevel()));
-			Canvas.DrawShadowedString(View.ViewRect.Max.X - 260, View.ViewRect.Max.Y - 88, *Line, GetStatsFont(), FLinearColor(0.5f, 0.5f, 0.5f));
+			Canvas.DrawShadowedString(DestRect.Max.X - 260, DestRect.Max.Y - 88, *Line, GetStatsFont(), FLinearColor(0.5f, 0.5f, 0.5f));
 		}
 
 		Canvas.Flush_RenderThread(Context.RHICmdList);
@@ -207,4 +188,3 @@ FPooledRenderTargetDesc FRCPassPostProcessVisualizeComplexity::ComputeOutputDesc
 
 	return Ret;
 }
-

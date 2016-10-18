@@ -13,12 +13,12 @@ static TRefCountPtr<FVulkanBuffer> AllocateBufferFromPool(FVulkanDevice& Device,
 {
 	if (Usage == UniformBuffer_MultiFrame)
 	{
-		return new FVulkanBuffer(Device, ConstantBufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, false, __FILE__, __LINE__);
+		return new FVulkanBuffer(Device, ConstantBufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, false, __FILE__, __LINE__);
 	}
 
 	int32 BufferIndex = GFrameNumberRenderThread % NUM_SAFE_FRAMES;
 
-	GUBPool[BufferIndex].Add(new FVulkanBuffer(Device, ConstantBufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, false, __FILE__, __LINE__));
+	GUBPool[BufferIndex].Add(new FVulkanBuffer(Device, ConstantBufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, false, __FILE__, __LINE__));
 	return GUBPool[BufferIndex].Last();
 }
 
@@ -32,8 +32,27 @@ void CleanupUniformBufferPool()
 	Uniform buffer RHI object
 -----------------------------------------------------------------------------*/
 
-FVulkanUniformBuffer::FVulkanUniformBuffer(FVulkanDevice& Device, const FRHIUniformBufferLayout& InLayout, const void* Contents, EUniformBufferUsage Usage) :
-	FRHIUniformBuffer(InLayout)
+static FRHIResourceCreateInfo GEmptyCreateInfo;
+
+static inline EBufferUsageFlags UniformBufferToBufferUsage(EUniformBufferUsage Usage)
+{
+	switch (Usage)
+	{
+	default:
+		ensure(0);
+		// fall through...
+	case UniformBuffer_SingleDraw:
+		return BUF_Volatile;
+	case UniformBuffer_SingleFrame:
+		return BUF_Dynamic;
+	case UniformBuffer_MultiFrame:
+		return BUF_Static;
+	}
+}
+
+FVulkanUniformBuffer::FVulkanUniformBuffer(FVulkanDevice& Device, const FRHIUniformBufferLayout& InLayout, const void* Contents, EUniformBufferUsage Usage)
+	: FRHIUniformBuffer(InLayout)
+	, FVulkanResourceMultiBuffer(&Device, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, InLayout.ConstantBufferSize, UniformBufferToBufferUsage(Usage), GEmptyCreateInfo)
 {
 	SCOPE_CYCLE_COUNTER(STAT_VulkanUniformBufferCreateTime);
 
@@ -46,14 +65,18 @@ FVulkanUniformBuffer::FVulkanUniformBuffer(FVulkanDevice& Device, const FRHIUnif
 
 	if (InLayout.ConstantBufferSize)
 	{
-		static auto* CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.Vulkan.UseRealUBs"));
+		static TConsoleVariableData<int32>* CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.Vulkan.UseRealUBs"));
 		if (CVar && CVar->GetValueOnAnyThread() != 0)
 		{
+			check(0);
+			//#todo-rco:...
+#if 0
 			Buffer = AllocateBufferFromPool(Device, InLayout.ConstantBufferSize, Usage);
 
 			void* Data = Buffer->Lock(InLayout.ConstantBufferSize);
 			FMemory::Memcpy(Data, Contents, InLayout.ConstantBufferSize);
 			Buffer->Unlock();
+#endif
 		}
 		else
 		{
@@ -67,9 +90,9 @@ FVulkanUniformBuffer::FVulkanUniformBuffer(FVulkanDevice& Device, const FRHIUnif
 		}
 	}
 
-	// Parse Sampler and Texture resrouces, if necessary
+	// Parse Sampler and Texture resources, if necessary
 	const uint32 NumResources = InLayout.Resources.Num();
-	if(NumResources == 0)
+	if (NumResources == 0)
 	{
 		return;
 	}
@@ -93,7 +116,6 @@ FVulkanUniformBuffer::~FVulkanUniformBuffer()
 FUniformBufferRHIRef FVulkanDynamicRHI::RHICreateUniformBuffer(const void* Contents, const FRHIUniformBufferLayout& Layout, EUniformBufferUsage Usage)
 {
 	SCOPE_CYCLE_COUNTER(STAT_VulkanCreateUniformBufferTime);
-	check(IsInRenderingThread());
 
 	// Emulation: Creates and returns a CPU-Only buffer.
 	// Parts of the buffer are later on copied for each shader stage into the packed uniform buffer
@@ -101,7 +123,7 @@ FUniformBufferRHIRef FVulkanDynamicRHI::RHICreateUniformBuffer(const void* Conte
 }
 
 FVulkanPooledUniformBuffer::FVulkanPooledUniformBuffer(FVulkanDevice& InDevice, uint32 InSize)
-    : Buffer(InDevice, InSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, false, __FILE__, __LINE__)
+    : Buffer(InDevice, InSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, false, __FILE__, __LINE__)
 {
 }
 

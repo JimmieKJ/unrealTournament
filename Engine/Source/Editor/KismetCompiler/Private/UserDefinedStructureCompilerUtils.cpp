@@ -109,37 +109,42 @@ struct FUserDefinedStructureCompilerInner
 			EditorData->CleanDefaultInstance();
 		}
 
-		const FString TransientString = FString::Printf(TEXT("TRASHSTRUCT_%s"), *StructToClean->GetName());
-		const FName TransientName = MakeUniqueObjectName(GetTransientPackage(), UUserDefinedStruct::StaticClass(), FName(*TransientString));
-		UUserDefinedStruct* TransientStruct = NewObject<UUserDefinedStruct>(GetTransientPackage(), TransientName, RF_Public | RF_Transient);
-		
-		TArray<UObject*> SubObjects;
-		GetObjectsWithOuter(StructToClean, SubObjects, true);
-		SubObjects.Remove(StructToClean->EditorData);
-		for( auto SubObjIt = SubObjects.CreateIterator(); SubObjIt; ++SubObjIt )
-		{
-			UObject* CurrSubObj = *SubObjIt;
-			CurrSubObj->Rename(NULL, TransientStruct, REN_DontCreateRedirectors);
-			if( UProperty* Prop = Cast<UProperty>(CurrSubObj) )
-			{
-				FKismetCompilerUtilities::InvalidatePropertyExport(Prop);
-			}
-			else
-			{
-				FLinkerLoad::InvalidateExport(CurrSubObj);
-			}
-		}
+		UUserDefinedStruct* TransientStruct = nullptr;
 
-		StructToClean->SetSuperStruct(NULL);
-		StructToClean->Children = NULL;
-		StructToClean->Script.Empty();
-		StructToClean->MinAlignment = 0;
-		StructToClean->RefLink = NULL;
-		StructToClean->PropertyLink = NULL;
-		StructToClean->DestructorLink = NULL;
-		StructToClean->ScriptObjectReferences.Empty();
-		StructToClean->PropertyLink = NULL;
-		StructToClean->ErrorMessage.Empty();
+		if (FStructureEditorUtils::FStructEditorManager::ActiveChange != FStructureEditorUtils::EStructureEditorChangeInfo::DefaultValueChanged)
+		{
+			const FString TransientString = FString::Printf(TEXT("TRASHSTRUCT_%s"), *StructToClean->GetName());
+			const FName TransientName = MakeUniqueObjectName(GetTransientPackage(), UUserDefinedStruct::StaticClass(), FName(*TransientString));
+			TransientStruct = NewObject<UUserDefinedStruct>(GetTransientPackage(), TransientName, RF_Public | RF_Transient);
+
+			TArray<UObject*> SubObjects;
+			GetObjectsWithOuter(StructToClean, SubObjects, true);
+			SubObjects.Remove(StructToClean->EditorData);
+			for (auto SubObjIt = SubObjects.CreateIterator(); SubObjIt; ++SubObjIt)
+			{
+				UObject* CurrSubObj = *SubObjIt;
+				CurrSubObj->Rename(NULL, TransientStruct, REN_DontCreateRedirectors);
+				if (UProperty* Prop = Cast<UProperty>(CurrSubObj))
+				{
+					FKismetCompilerUtilities::InvalidatePropertyExport(Prop);
+				}
+				else
+				{
+					FLinkerLoad::InvalidateExport(CurrSubObj);
+				}
+			}
+
+			StructToClean->SetSuperStruct(NULL);
+			StructToClean->Children = NULL;
+			StructToClean->Script.Empty();
+			StructToClean->MinAlignment = 0;
+			StructToClean->RefLink = NULL;
+			StructToClean->PropertyLink = NULL;
+			StructToClean->DestructorLink = NULL;
+			StructToClean->ScriptObjectReferences.Empty();
+			StructToClean->PropertyLink = NULL;
+			StructToClean->ErrorMessage.Empty();
+		}
 
 		return TransientStruct;
 	}
@@ -172,45 +177,62 @@ struct FUserDefinedStructureCompilerInner
 				continue;
 			}
 
-			UProperty* NewProperty = FKismetCompilerUtilities::CreatePropertyOnScope(Struct, VarDesc.VarName, VarType, NULL, 0, Schema, MessageLog);
-			if (NewProperty != NULL)
+			UProperty* VarProperty = nullptr;
+
+			bool bIsNewVariable = false;
+			if (FStructureEditorUtils::FStructEditorManager::ActiveChange == FStructureEditorUtils::EStructureEditorChangeInfo::DefaultValueChanged)
 			{
-				NewProperty->SetFlags(RF_LoadCompleted);
-				FKismetCompilerUtilities::LinkAddedProperty(Struct, NewProperty);
+				VarProperty = FindField<UProperty>(Struct, VarDesc.VarName);
+				if (!ensureMsgf(VarProperty, TEXT("Could not find the expected property (%s); was the struct (%s) unexpectedly sanitized?"), *VarDesc.VarName.ToString(), *Struct->GetName()))
+				{
+					VarProperty = FKismetCompilerUtilities::CreatePropertyOnScope(Struct, VarDesc.VarName, VarType, NULL, 0, Schema, MessageLog);
+					bIsNewVariable = true;
+				}
 			}
 			else
+			{
+				VarProperty = FKismetCompilerUtilities::CreatePropertyOnScope(Struct, VarDesc.VarName, VarType, NULL, 0, Schema, MessageLog);
+				bIsNewVariable = true;
+			}
+
+			if (VarProperty == nullptr)
 			{
 				LogError(Struct, MessageLog, FString::Printf(*LOCTEXT("VariableInvalidType_Error", "The variable %s declared in %s has an invalid type %s").ToString(),
 					*VarDesc.VarName.ToString(), *Struct->GetName(), *UEdGraphSchema_K2::TypeToText(VarType).ToString()));
 				continue;
 			}
-
-			NewProperty->SetPropertyFlags(CPF_Edit | CPF_BlueprintVisible);
+			else if (bIsNewVariable)
+			{
+				VarProperty->SetFlags(RF_LoadCompleted);
+				FKismetCompilerUtilities::LinkAddedProperty(Struct, VarProperty);				
+			}
+			
+			VarProperty->SetPropertyFlags(CPF_Edit | CPF_BlueprintVisible);
 			if (VarDesc.bDontEditoOnInstance)
 			{
-				NewProperty->SetPropertyFlags(CPF_DisableEditOnInstance);
+				VarProperty->SetPropertyFlags(CPF_DisableEditOnInstance);
 			}
 			if (VarDesc.bEnableMultiLineText)
 			{
-				NewProperty->SetMetaData("MultiLine", TEXT("true"));
+				VarProperty->SetMetaData("MultiLine", TEXT("true"));
 			}
 			if (VarDesc.bEnable3dWidget)
 			{
-				NewProperty->SetMetaData(FEdMode::MD_MakeEditWidget, TEXT("true"));
+				VarProperty->SetMetaData(FEdMode::MD_MakeEditWidget, TEXT("true"));
 			}
-			NewProperty->SetMetaData(TEXT("DisplayName"), *VarDesc.FriendlyName);
-			NewProperty->SetMetaData(FBlueprintMetadata::MD_Tooltip, *VarDesc.ToolTip);
-			NewProperty->RepNotifyFunc = NAME_None;
+			VarProperty->SetMetaData(TEXT("DisplayName"), *VarDesc.FriendlyName);
+			VarProperty->SetMetaData(FBlueprintMetadata::MD_Tooltip, *VarDesc.ToolTip);
+			VarProperty->RepNotifyFunc = NAME_None;
 
 			if (!VarDesc.DefaultValue.IsEmpty())
 			{
-				NewProperty->SetMetaData(TEXT("MakeStructureDefaultValue"), *VarDesc.DefaultValue);
+				VarProperty->SetMetaData(TEXT("MakeStructureDefaultValue"), *VarDesc.DefaultValue);
 			}
 			VarDesc.CurrentDefaultValue = VarDesc.DefaultValue;
 
 			VarDesc.bInvalidMember = false;
 
-			if (NewProperty->HasAnyPropertyFlags(CPF_InstancedReference | CPF_ContainsInstancedReference))
+			if (VarProperty->HasAnyPropertyFlags(CPF_InstancedReference | CPF_ContainsInstancedReference))
 			{
 				Struct->StructFlags = EStructFlags(Struct->StructFlags | STRUCT_HasInstancedReference);
 			}
@@ -223,12 +245,12 @@ struct FUserDefinedStructureCompilerInner
 				{
 					// prevent Actor variables from having default values (because Blueprint templates are library elements that can 
 					// bridge multiple levels and different levels might not have the actor that the default is referencing).
-					NewProperty->PropertyFlags |= CPF_DisableEditOnTemplate;
+					VarProperty->PropertyFlags |= CPF_DisableEditOnTemplate;
 				}
 				else
 				{
 					// clear the disable-default-value flag that might have been present (if this was an AActor variable before)
-					NewProperty->PropertyFlags &= ~(CPF_DisableEditOnTemplate);
+					VarProperty->PropertyFlags &= ~(CPF_DisableEditOnTemplate);
 				}
 			}
 		}
@@ -242,7 +264,7 @@ struct FUserDefinedStructureCompilerInner
 		Struct->SetMetaData(FBlueprintMetadata::MD_Tooltip, *FStructureEditorUtils::GetTooltip(Struct));
 
 		auto EditorData = CastChecked<UUserDefinedStructEditorData>(Struct->EditorData);
-		Struct->SetSuperStruct(EditorData->NativeBase);
+		Struct->SetSuperStruct(EditorData->NativeBase);	
 
 		CreateVariables(Struct, K2Schema, MessageLog);
 

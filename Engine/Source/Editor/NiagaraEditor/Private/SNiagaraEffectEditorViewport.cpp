@@ -24,7 +24,7 @@ public:
 	virtual void Tick(float DeltaSeconds) override;
 	virtual void Draw(FViewport* Viewport,FCanvas* Canvas) override;
 	virtual bool ShouldOrbitCamera() const override;
-	virtual FSceneView* CalcSceneView(FSceneViewFamily* ViewFamily) override;
+	virtual FSceneView* CalcSceneView(FSceneViewFamily* ViewFamily, const EStereoscopicPass StereoPass = eSSP_FULL) override;
 	
 	void SetShowGrid(bool bShowGrid);
 	
@@ -71,9 +71,9 @@ void FNiagaraEffectEditorViewportClient::Tick(float DeltaSeconds)
 }
 
 
-void FNiagaraEffectEditorViewportClient::Draw(FViewport* Viewport,FCanvas* Canvas)
+void FNiagaraEffectEditorViewportClient::Draw(FViewport* InViewport,FCanvas* Canvas)
 {
-	FEditorViewportClient::Draw(Viewport, Canvas);
+	FEditorViewportClient::Draw(InViewport, Canvas);
 }
 
 bool FNiagaraEffectEditorViewportClient::ShouldOrbitCamera() const
@@ -88,7 +88,7 @@ FLinearColor FNiagaraEffectEditorViewportClient::GetBackgroundColor() const
 	return BackgroundColor;
 }
 
-FSceneView* FNiagaraEffectEditorViewportClient::CalcSceneView(FSceneViewFamily* ViewFamily)
+FSceneView* FNiagaraEffectEditorViewportClient::CalcSceneView(FSceneViewFamily* ViewFamily, const EStereoscopicPass StereoPass)
 {
 	FSceneView* SceneView = FEditorViewportClient::CalcSceneView(ViewFamily);
 	FFinalPostProcessSettings::FCubemapEntry& CubemapEntry = *new(SceneView->FinalPostProcessSettings.ContributingCubemaps) FFinalPostProcessSettings::FCubemapEntry;

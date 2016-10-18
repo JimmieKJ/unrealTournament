@@ -26,6 +26,10 @@ class UNREALED_API UFbxAssetImportData : public UAssetImportData
 	UPROPERTY()
 	bool bImportAsScene;
 
+	/* If check the material indexes will be reimport from the fbx file and materials and texture will be create if they don't exist */
+	UPROPERTY(EditDefaultsOnly, Category = ImportSettings)
+	bool bImportMaterials;
+
 	/* Use by the reimport factory to answer CanReimport, if true only factory for scene reimport will return true */
 	UPROPERTY()
 	UFbxSceneImportData* FbxSceneImportDataReference;

@@ -13,8 +13,8 @@ struct GRAPHEDITOR_API FGraphPinHandle
 	/** The GUID of the node to which this pin belongs */
 	FGuid NodeGuid;
 
-	/** The name of the pin we are referencing */
-	FString PinName;
+	/** The GUID of the pin we are referencing */
+	FGuid PinId;
 
 	/** Constructor */
 	FGraphPinHandle(UEdGraphPin* InPin);

@@ -109,13 +109,15 @@ struct GAMEPLAYABILITIES_API FActiveGameplayEffectHandle
 	GENERATED_USTRUCT_BODY()
 
 	FActiveGameplayEffectHandle()
-		: Handle(INDEX_NONE)
+		: Handle(INDEX_NONE),
+		bPassedFiltersAndWasExecuted(false)
 	{
 
 	}
 
 	FActiveGameplayEffectHandle(int32 InHandle)
-		: Handle(InHandle)
+		: Handle(InHandle),
+		bPassedFiltersAndWasExecuted(true)
 	{
 
 	}
@@ -123,6 +125,11 @@ struct GAMEPLAYABILITIES_API FActiveGameplayEffectHandle
 	bool IsValid() const
 	{
 		return Handle != INDEX_NONE;
+	}
+
+	bool WasSuccessfullyApplied() const
+	{
+		return bPassedFiltersAndWasExecuted;
 	}
 
 	static FActiveGameplayEffectHandle GenerateNewHandle(UAbilitySystemComponent* OwningComponent);
@@ -163,6 +170,9 @@ private:
 
 	UPROPERTY()
 	int32 Handle;
+
+	UPROPERTY()
+	bool bPassedFiltersAndWasExecuted;
 };
 
 USTRUCT()
@@ -833,11 +843,16 @@ struct GAMEPLAYABILITIES_API FGameplayCueParameters
 	UPROPERTY(BlueprintReadWrite, Category = GameplayCue)
 	int32 AbilityLevel;
 
+	/** Could be used to say "attach FX to this component always" */
+	UPROPERTY(BlueprintReadWrite, Category = GameplayCue)
+	TWeakObjectPtr<USceneComponent> TargetAttachComponent;
+
 	bool NetSerialize(FArchive& Ar, class UPackageMap* Map, bool& bOutSuccess);
 
 	bool IsInstigatorLocallyControlled() const;
 
-	bool IsInstigatorLocallyControlledPlayer() const;
+	// Fallback actor is used if the parameters have nullptr for instigator and effect causer
+	bool IsInstigatorLocallyControlledPlayer(AActor* FallbackActor=nullptr) const;
 
 	AActor* GetInstigator() const;
 
@@ -876,6 +891,9 @@ DECLARE_MULTICAST_DELEGATE(FOnActiveGameplayEffectRemoved);
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnGivenActiveGameplayEffectRemoved, const FActiveGameplayEffect&);
 
 DECLARE_MULTICAST_DELEGATE_ThreeParams(FOnActiveGameplayEffectStackChange, FActiveGameplayEffectHandle, int32, int32);
+
+/** FActiveGameplayEffectHandle that is being effect, the start time, duration of the effect */
+DECLARE_MULTICAST_DELEGATE_ThreeParams(FOnActiveGameplayEffectTimeChange, FActiveGameplayEffectHandle, float, float);
 
 DECLARE_MULTICAST_DELEGATE_TwoParams(FOnGameplayAttributeChange, float, const FGameplayEffectModCallbackData*);
 
@@ -1030,6 +1048,23 @@ struct GAMEPLAYABILITIES_API FGameplayTagCountContainer
 		}
 
 		return false;
+	}
+
+	/**
+	* return the count for a specified tag 
+	*
+	* @param Tag			Tag to update
+	*
+	* @return the count of the passed in tag
+	*/
+	FORCEINLINE int32 GetTagCount(const FGameplayTag& Tag) const
+	{
+		if (const int32* Ptr = GameplayTagCountMap.Find(Tag))
+		{
+			return *Ptr;
+		}
+
+		return 0;
 	}
 
 	/**

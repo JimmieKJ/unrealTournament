@@ -6,7 +6,7 @@
 #include "UTPlaceablePowerup.h"
 #include "UTWeapon.h"
 #include "UTTimedPowerup.h"
-#include "UTCTFRoundGameState.h"
+#include "UTFlagRunGameState.h"
 #include "UTCTFMajorMessage.h"
 
 const float BOUNCE_SCALE = 1.6f;			
@@ -179,10 +179,6 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 	
 		ArmorInfo.OverlayTextures.Empty();
 		ArmorInfo.bUseOverlayTexture = true;
-		if (CharOwner && CharOwner->bIsWearingHelmet)
-		{
-			ArmorInfo.OverlayTextures.Add(HelmetIcon);
-		}
 
 		if (bArmorVisible != ArmorInfo.bVisible)
 		{
@@ -236,7 +232,7 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 		PowerupInfo.Value = 0;
 		if (CurrentPowerup != nullptr)
 		{
-			PowerupInfo.Value = int32(CurrentPowerup->TimeRemaining);
+			PowerupInfo.Value = int32(CurrentPowerup->GetHUDValue());
 
 			PowerupIcon.Atlas = CurrentPowerup->HUDIcon.Texture;
 			PowerupIcon.UVs.U = CurrentPowerup->HUDIcon.U;
@@ -287,7 +283,7 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 				AUTTimedPowerup* TimedPowerup = Cast<AUTTimedPowerup>(ActiveBoost);
 				if (TimedPowerup)
 				{
-					BoostProvidedPowerupInfo.Value = static_cast<int>(TimedPowerup->TimeRemaining);
+					BoostProvidedPowerupInfo.Value = TimedPowerup->GetHUDValue();
 				}
 
 				AUTWeapon* WeaponPowerup = Cast<AUTWeapon>(ActiveBoost);
@@ -296,11 +292,7 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 					BoostProvidedPowerupInfo.Value = WeaponPowerup->Ammo;
 				}
 
-				AUTPlaceablePowerup* PlaceablePowerup = Cast<AUTPlaceablePowerup>(ActiveBoost);
-				if (PlaceablePowerup)
-				{
-					BoostProvidedPowerupInfo.Value = UTPlayerState->GetRemainingBoosts();
-				}
+
 			}
 			else
 			{
@@ -325,7 +317,7 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 					BoostProvidedPowerupInfo.Value = 0.0f;
 /*
 					//Show countdown to power up
-					AUTCTFRoundGameState* RoundGameState = GetWorld()->GetGameState<AUTCTFRoundGameState>();
+					AUTFlagRunGameState* RoundGameState = GetWorld()->GetGameState<AUTFlagRunGameState>();
 					if (RoundGameState != NULL && RoundGameState->IsTeamAbleToEarnPowerup(UTPlayerState->GetTeamNum()))
 					{
 						BoostProvidedPowerupInfo.Label = FText::FromString(FString::Printf(TEXT("Kill: %i"), RoundGameState->GetKillsNeededForPowerup(UTPlayerState->GetTeamNum())));
@@ -342,9 +334,9 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 		}
 
 		bool bPlayerCanRally = UTHUDOwner->UTPlayerOwner->CanPerformRally();
-		AUTCTFGameState* GameState = GetWorld()->GetGameState<AUTCTFGameState>();
+		AUTFlagRunGameState* GameState = GetWorld()->GetGameState<AUTFlagRunGameState>();
 		bool bShowTimer = !bPlayerCanRally && !UTPlayerState->CarriedObject && UTPlayerState->Team && GameState && GameState->bAttackersCanRally && ((UTPlayerState->Team->TeamIndex == 0) == GameState->bRedToCap) && (UTPlayerState->CarriedObject == nullptr) && CharOwner && CharOwner->bCanRally && (UTPlayerState->RemainingRallyDelay > 0);
-
+		bShowTimer = bShowTimer && (GameState->GetRemainingTime() < 270);
 		if (UTPlayerState->CarriedObject != nullptr || bPlayerCanRally || bShowTimer)
 		{
 			FlagInfo.bCustomIconUnderlay = false;
@@ -405,7 +397,14 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 				if (CTFFlag != nullptr && CTFFlag->bCurrentlyPinged)
 				{
 					FlagInfo.bUseOverlayTexture = true;
-					FlagInfo.OverlayTextures.Add(DetectedIcon);
+					if (CTFFlag->HoldingPawn && CTFFlag->HoldingPawn->bIsInCombat)
+					{
+						FlagInfo.OverlayTextures.Add(CombatIcon);
+					}
+					else
+					{
+						FlagInfo.OverlayTextures.Add(DetectedIcon);
+					}
 				}
 			}
 		}
@@ -436,15 +435,8 @@ bool UUTHUDWidget_QuickStats::CheckStatForUpdate(float DeltaTime, FStatInfo& Sta
 	return false;
 }
 
-FVector2D UUTHUDWidget_QuickStats::GetBoostLocation()
-{
-	return Layouts[CurrentLayoutIndex].bFollowRotation ? CalcRotOffset(Layouts[CurrentLayoutIndex].BoostProvidedPowerupOffset, DrawAngle) : Layouts[CurrentLayoutIndex].BoostProvidedPowerupOffset;
-}
-
-
 void UUTHUDWidget_QuickStats::Draw_Implementation(float DeltaTime)
 {
-
 	RenderDelta = DeltaTime;
 
 	bool bFollowRotation = Layouts[CurrentLayoutIndex].bFollowRotation;
@@ -454,7 +446,8 @@ void UUTHUDWidget_QuickStats::Draw_Implementation(float DeltaTime)
 
 	if (FlagInfo.Value > 0)
 	{
-		DrawStat(bFollowRotation ? CalcRotOffset(Layouts[CurrentLayoutIndex].FlagOffset, DrawAngle) : Layouts[CurrentLayoutIndex].FlagOffset, FlagInfo, FlagIcon);
+		FVector2D FlagOffset = UTHUDOwner->GetQuickStatsHidden() ? Layouts[CurrentLayoutIndex].AmmoOffset : Layouts[CurrentLayoutIndex].FlagOffset;
+		DrawStat(bFollowRotation ? CalcRotOffset(FlagOffset, DrawAngle) : FlagOffset, FlagInfo, FlagIcon);
 	}
 
 	if (BootsInfo.Value > 0)
@@ -469,7 +462,8 @@ void UUTHUDWidget_QuickStats::Draw_Implementation(float DeltaTime)
 
 	if (BoostProvidedPowerupInfo.Value > 0)
 	{
-		DrawStat(GetBoostLocation(), BoostProvidedPowerupInfo, BoostIcon );
+		FVector2D BoostOffset = UTHUDOwner->GetQuickStatsHidden() ? Layouts[CurrentLayoutIndex].ArmorOffset : Layouts[CurrentLayoutIndex].BoostProvidedPowerupOffset;
+		DrawStat(bFollowRotation ? CalcRotOffset(BoostOffset, DrawAngle) : BoostOffset, BoostProvidedPowerupInfo, BootsIcon);
 	}
 
 	// draw health/armor pips
@@ -695,10 +689,10 @@ void UUTHUDWidget_QuickStats::DrawIconUnderlay(FVector2D StatOffset)
 	{
 		RallyAnimTimers[i] += RenderDelta;
 		if (RallyAnimTimers[i] > RALLY_ANIMATION_TIME) RallyAnimTimers[i] = 0;
-		float Position = (RallyAnimTimers[i] / RALLY_ANIMATION_TIME);
+		float DrawPosition = (RallyAnimTimers[i] / RALLY_ANIMATION_TIME);
 	
-		float XPos = FMath::InterpEaseOut<float>(64.0f, 0.0f, Position, 2.0f);
-		RallyFlagIcon.RenderOpacity = FMath::InterpEaseOut<float>(1.0f, 0.0f, Position, 2.0f);
+		float XPos = FMath::InterpEaseOut<float>(64.0f, 0.0f, DrawPosition, 2.0f);
+		RallyFlagIcon.RenderOpacity = FMath::InterpEaseOut<float>(1.0f, 0.0f, DrawPosition, 2.0f);
 		RenderObj_Texture(RallyFlagIcon,StatOffset + FVector2D(XPos, 0.0f));
 		RenderObj_Texture(RallyFlagIcon,StatOffset + FVector2D(XPos * -1, 0.0f));
 	}

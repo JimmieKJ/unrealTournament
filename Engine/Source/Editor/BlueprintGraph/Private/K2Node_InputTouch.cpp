@@ -75,6 +75,12 @@ FText UK2Node_InputTouch::GetTooltipText() const
 	return NSLOCTEXT("K2Node", "InputTouch_Tooltip", "Event for when a finger presses, releases or is moved on a touch device.");
 }
 
+FSlateIcon UK2Node_InputTouch::GetIconAndTint(FLinearColor& OutColor) const
+{
+	static FSlateIcon Icon("EditorStyle", "GraphEditor.TouchEvent_16x");
+	return Icon;
+}
+
 void UK2Node_InputTouch::GetMenuActions(FBlueprintActionDatabaseRegistrar& ActionRegistrar) const
 {
 	// actions get registered under specific object-keys; the idea is that 
@@ -194,7 +200,7 @@ void UK2Node_InputTouch::ExpandNode(FKismetCompilerContext& CompilerContext, UEd
 		{			
 			UEdGraphPin *EachPin= (*PinIt).Pin;
 			// Create the input touch event
-			UK2Node_InputTouchEvent* InputTouchEvent = CompilerContext.SpawnIntermediateNode<UK2Node_InputTouchEvent>(this, SourceGraph);
+			UK2Node_InputTouchEvent* InputTouchEvent = CompilerContext.SpawnIntermediateEventNode<UK2Node_InputTouchEvent>(this, EachPin, SourceGraph);
 			InputTouchEvent->CustomFunctionName = FName(*FString::Printf(TEXT("InpTchEvt_%s"), *EachPin->GetName()));
 			InputTouchEvent->bConsumeInput = bConsumeInput;
 			InputTouchEvent->bExecuteWhenPaused = bExecuteWhenPaused;
@@ -235,7 +241,7 @@ void UK2Node_InputTouch::ExpandNode(FKismetCompilerContext& CompilerContext, UEd
 		
 		if (InputTouchPin->LinkedTo.Num() > 0)
 		{
-			UK2Node_InputTouchEvent* InputTouchEvent = CompilerContext.SpawnIntermediateNode<UK2Node_InputTouchEvent>(this, SourceGraph);
+			UK2Node_InputTouchEvent* InputTouchEvent = CompilerContext.SpawnIntermediateEventNode<UK2Node_InputTouchEvent>(this, InputTouchPin, SourceGraph);
 			InputTouchEvent->CustomFunctionName = FName( *FString::Printf(TEXT("InpTchEvt_%s"), *InputTouchEvent->GetName()));
 			InputTouchEvent->InputKeyEvent = InputEvent;
 			InputTouchEvent->bConsumeInput = bConsumeInput;

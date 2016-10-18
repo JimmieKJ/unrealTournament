@@ -5,6 +5,8 @@
 #include "AssetData.h"
 #include "SHyperlink.h"
 #include "ScopedTransaction.h"
+#include "Slate/SlateTextureAtlasInterface.h"
+
 /**
  * Slate Brush Preview widget
  */
@@ -379,13 +381,13 @@ private:
 	EWidgetZone FindMouseZone( const FVector2D& LocalMouseCoordinates ) const
 	{
 		EWidgetZone InMouseZone = WZ_NotInWidget;
-		const FVector2D DesiredSize( GetDesiredSize() );
+		const FVector2D DesiredZoneSize( GetDesiredSize() );
 
-		if( LocalMouseCoordinates.X > DesiredSize.X - BorderHitSize )
+		if( LocalMouseCoordinates.X > DesiredZoneSize.X - BorderHitSize )
 		{
-			InMouseZone = LocalMouseCoordinates.Y > DesiredSize.Y - BorderHitSize ? WZ_BottomRightBorder : WZ_RightBorder;
+			InMouseZone = LocalMouseCoordinates.Y > DesiredZoneSize.Y - BorderHitSize ? WZ_BottomRightBorder : WZ_RightBorder;
 		}
-		else if( LocalMouseCoordinates.Y > DesiredSize.Y - BorderHitSize )
+		else if( LocalMouseCoordinates.Y > DesiredZoneSize.Y - BorderHitSize )
 		{
 			InMouseZone = WZ_BottomBorder;
 		}
@@ -589,6 +591,10 @@ private:
 			if( BrushTexture )
 			{
 				CachedTextureSize = FVector2D( BrushTexture->GetSizeX(), BrushTexture->GetSizeY() );
+			}
+			else if ( ISlateTextureAtlasInterface* AtlasedTextureObject = Cast<ISlateTextureAtlasInterface>(ResourceObject) )
+			{
+				CachedTextureSize = AtlasedTextureObject->GetSlateAtlasData().GetSourceDimensions();
 			}
 			else if( CachedTextureSize == FVector2D::ZeroVector )
 			{
@@ -1174,6 +1180,10 @@ private:
 			{
 				CachedTextureSize = FVector2D(BrushTexture->GetSizeX(), BrushTexture->GetSizeY());
 			}
+			else if ( ISlateTextureAtlasInterface* AtlasedTextureObject = Cast<ISlateTextureAtlasInterface>(ResourceObject) )
+			{
+				CachedTextureSize = AtlasedTextureObject->GetSlateAtlasData().GetSourceDimensions();
+			}
 
 			ImageSizeProperty->SetValue(CachedTextureSize);
 		}
@@ -1343,7 +1353,7 @@ EVisibility FSlateBrushStructCustomization::GetMarginPropertyVisibility() const
 bool FSlateBrushStructCustomization::IsImageSizeResetToDefaultVisible(TSharedRef<IPropertyHandle> PropertyHandle) const
 {
 	UObject* ResourceObject;
-	if (FPropertyAccess::Success == ResourceObjectProperty->GetValue(ResourceObject) && ResourceObject && ResourceObject->IsA<UTexture2D>())
+	if (FPropertyAccess::Success == ResourceObjectProperty->GetValue(ResourceObject) && ResourceObject)
 	{
 		// get texture size from ResourceObjectProperty and compare to image size prop value
 		const FVector2D SizeDefault = GetDefaultImageSize();
@@ -1378,7 +1388,7 @@ bool FSlateBrushStructCustomization::IsImageSizeResetToDefaultVisible(TSharedRef
 void FSlateBrushStructCustomization::OnImageSizeResetToDefault(TSharedRef<IPropertyHandle> PropertyHandle) const
 {
 	UObject* ResourceObject;
-	if (FPropertyAccess::Success == ResourceObjectProperty->GetValue(ResourceObject) && ResourceObject && ResourceObject->IsA<UTexture2D>())
+	if (FPropertyAccess::Success == ResourceObjectProperty->GetValue(ResourceObject) && ResourceObject)
 	{
 		// Set image size prop value to the texture size in ResourceObjectProperty
 		const FVector2D SizeDefault = GetDefaultImageSize();
@@ -1416,10 +1426,13 @@ FVector2D FSlateBrushStructCustomization::GetDefaultImageSize() const
 	UObject* ResourceObject;
 	if (FPropertyAccess::Success == ResourceObjectProperty->GetValue(ResourceObject))
 	{
-		UTexture2D* Texture = Cast<UTexture2D>(ResourceObject);
-		if (Texture != nullptr)
+		if ( UTexture2D* Texture = Cast<UTexture2D>(ResourceObject) )
 		{
 			return FVector2D(Texture->GetSizeX(), Texture->GetSizeY());
+		}
+		else if ( ISlateTextureAtlasInterface* AtlasedTextureObject = Cast<ISlateTextureAtlasInterface>(ResourceObject) )
+		{
+			return AtlasedTextureObject->GetSlateAtlasData().GetSourceDimensions();
 		}
 	}
 

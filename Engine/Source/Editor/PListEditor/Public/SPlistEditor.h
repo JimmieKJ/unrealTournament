@@ -11,7 +11,7 @@
 #include "../Private/PListNodeFile.h"
 #include "../Private/PListNodeString.h"
 
-#define LOCTEXT_NAMESPACE ""
+#define LOCTEXT_NAMESPACE "PListEditorCommands"
 
 // Type of notification to spawn
 enum ENTF_Types

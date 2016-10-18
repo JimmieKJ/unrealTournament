@@ -10,6 +10,9 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FTeamSideSwapDelegate, uint8, Offset
 
 class AUTGameMode;
 class AUTReplicatedMapInfo;
+class UUTInGameIntroHelper;
+
+enum class InGameIntroZoneTypes : uint8;
 
 struct FLoadoutInfo;
 
@@ -77,6 +80,10 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = GameState)
 	uint32 bPlayPlayerIntro : 1;
 
+	/** If true, teammates play status announcements */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameState)
+		uint32 bPlayStatusAnnouncements : 1;
+	
 	/** If true, kill icon messages persist through a round/ */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameState)
 		uint32 bPersistentKillIconMessages : 1;
@@ -120,6 +127,9 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameState)
 		FText NeedPlayersStatus;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameState)
+		FText OvertimeStatus;
 
 	/** amount of time between kills to qualify as a multikill */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameState)
@@ -422,10 +432,10 @@ public:
 
 public:
 	// These IDs are banned for the remainder of the match
-	TArray<TSharedPtr<const FUniqueNetId>> TempBans;
+	TArray<FUniqueNetIdRepl> TempBans;
 
 	// Returns true if this player has been temp banned from this server/instance
-	bool IsTempBanned(const TSharedPtr<const FUniqueNetId>& UniqueId);
+	bool IsTempBanned(const FUniqueNetIdRepl& UniqueId);
 
 	// Registers a vote for temp banning a player.  If the player goes above the threashhold, they will be banned for the remainder of the match
 	void VoteForTempBan(AUTPlayerState* BadGuy, AUTPlayerState* Voter);
@@ -592,7 +602,9 @@ public:
 	bool bRestrictPartyJoin;
 
 	virtual bool CanShowBoostMenu(AUTPlayerController* Target);
- 
+	
+	virtual bool ShouldUseInGameSummary(InGameIntroZoneTypes SummaryType);
+
 	UPROPERTY(Replicated, GlobalConfig, EditAnywhere, BlueprintReadWrite, Category = GameState)
 	bool bOnlyTeamCanVoteKick;
 	
@@ -668,6 +680,8 @@ public:
 	UPROPERTY(Replicated)
 	FGuid ServerInstanceGUID;
 
+	UPROPERTY()
+	UUTInGameIntroHelper* InGameIntroHelper;
 };
 
 

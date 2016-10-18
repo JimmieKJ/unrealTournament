@@ -70,8 +70,8 @@ void SGameplayTagContainerGraphPin::ParseDefaultValueData()
 				}
 			}
 			TagString = Remainder;
-			FGameplayTag Tag = IGameplayTagsModule::Get().GetGameplayTagsManager().RequestGameplayTag(FName(*ReadTag));
-			TagContainer->AddTag(Tag);
+			FGameplayTag GameplayTag = IGameplayTagsModule::Get().GetGameplayTagsManager().RequestGameplayTag(FName(*ReadTag));
+			TagContainer->AddTag(GameplayTag);
 		}
 		if (Remainder.IsEmpty())
 		{
@@ -89,8 +89,8 @@ void SGameplayTagContainerGraphPin::ParseDefaultValueData()
 					Remainder = Remainder.RightChop(1);
 				}
 			}
-			FGameplayTag Tag = IGameplayTagsModule::Get().GetGameplayTagsManager().RequestGameplayTag(FName(*Remainder));
-			TagContainer->AddTag(Tag);
+			FGameplayTag GameplayTag = IGameplayTagsModule::Get().GetGameplayTagsManager().RequestGameplayTag(FName(*Remainder));
+			TagContainer->AddTag(GameplayTag);
 		}
 	}
 }
@@ -98,7 +98,7 @@ void SGameplayTagContainerGraphPin::ParseDefaultValueData()
 TSharedRef<SWidget> SGameplayTagContainerGraphPin::GetListContent()
 {
 	EditableContainers.Empty();
-	EditableContainers.Add( SGameplayTagWidget::FEditableGameplayTagContainerDatum( GraphPinObj, TagContainer.Get() ) );
+	EditableContainers.Add( SGameplayTagWidget::FEditableGameplayTagContainerDatum( GraphPinObj->GetOwningNode(), TagContainer.Get() ) );
 
 	return SNew( SVerticalBox )
 		+SVerticalBox::Slot()

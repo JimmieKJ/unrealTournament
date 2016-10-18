@@ -304,44 +304,50 @@ void FParticleTrackEditor::BuildObjectBindingTrackMenu(FMenuBuilder& MenuBuilder
 
 void FParticleTrackEditor::AddParticleKey( const FGuid ObjectGuid )
 {
-	TArray<TWeakObjectPtr<UObject>> OutObjects;
+	TSharedPtr<ISequencer> SequencerPtr = GetSequencer();
+	UObject* Object = SequencerPtr.IsValid() ? SequencerPtr->FindSpawnedObjectOrTemplate(ObjectGuid) : nullptr;
 
-	GetSequencer()->GetRuntimeObjects( GetSequencer()->GetFocusedMovieSceneSequenceInstance(), ObjectGuid, OutObjects );
-	AnimatablePropertyChanged( FOnKeyProperty::CreateRaw( this, &FParticleTrackEditor::AddKeyInternal, OutObjects ) );
+	if (Object)
+	{
+		AnimatablePropertyChanged( FOnKeyProperty::CreateRaw( this, &FParticleTrackEditor::AddKeyInternal, Object ) );
+	}
 }
 
 
-bool FParticleTrackEditor::AddKeyInternal( float KeyTime, const TArray<TWeakObjectPtr<UObject>> Objects )
+bool FParticleTrackEditor::AddKeyInternal( float KeyTime, UObject* Object )
 {
 	bool bHandleCreated = false;
 	bool bTrackCreated = false;
 
-	for( int32 ObjectIndex = 0; ObjectIndex < Objects.Num(); ++ObjectIndex )
+	FFindOrCreateHandleResult HandleResult = FindOrCreateHandleToObject( Object );
+	FGuid ObjectHandle = HandleResult.Handle;
+	bHandleCreated |= HandleResult.bWasCreated;
+
+	if (ObjectHandle.IsValid())
 	{
-		UObject* Object = Objects[ObjectIndex].Get();
+		FFindOrCreateTrackResult TrackResult = FindOrCreateTrackForObject(ObjectHandle, UMovieSceneParticleTrack::StaticClass());
+		UMovieSceneTrack* Track = TrackResult.Track;
+		bTrackCreated |= TrackResult.bWasCreated;
 
-		FFindOrCreateHandleResult HandleResult = FindOrCreateHandleToObject( Object );
-		FGuid ObjectHandle = HandleResult.Handle;
-		bHandleCreated |= HandleResult.bWasCreated;
-
-		if (ObjectHandle.IsValid())
+		if (bTrackCreated && ensure(Track))
 		{
-			FFindOrCreateTrackResult TrackResult = FindOrCreateTrackForObject(ObjectHandle, UMovieSceneParticleTrack::StaticClass());
-			UMovieSceneTrack* Track = TrackResult.Track;
-			bTrackCreated |= TrackResult.bWasCreated;
-
-			if (bTrackCreated && ensure(Track))
-			{
-				UMovieSceneParticleTrack* ParticleTrack = Cast<UMovieSceneParticleTrack>(Track);
-				ParticleTrack->AddNewSection(KeyTime);
-				ParticleTrack->SetDisplayName(LOCTEXT("TrackName", "Particle System"));
-			}
+			UMovieSceneParticleTrack* ParticleTrack = Cast<UMovieSceneParticleTrack>(Track);
+			ParticleTrack->AddNewSection(KeyTime);
+			ParticleTrack->SetDisplayName(LOCTEXT("TrackName", "Particle System"));
 		}
 	}
 
 	return bHandleCreated || bTrackCreated;
 }
 
+
+void CopyInterpParticleTrack(TSharedRef<ISequencer> Sequencer, UInterpTrackToggle* MatineeToggleTrack, UMovieSceneParticleTrack* ParticleTrack)
+{
+	if (FMatineeImportTools::CopyInterpParticleTrack(MatineeToggleTrack, ParticleTrack))
+	{
+		Sequencer.Get().NotifyMovieSceneDataChanged( EMovieSceneDataChangeType::MovieSceneStructureItemAdded );
+	}
+}
 
 void FParticleTrackEditor::BuildTrackContextMenu( FMenuBuilder& MenuBuilder, UMovieSceneTrack* Track )
 {
@@ -360,7 +366,7 @@ void FParticleTrackEditor::BuildTrackContextMenu( FMenuBuilder& MenuBuilder, UMo
 		NSLOCTEXT( "Sequencer", "PasteMatineeToggleTrackTooltip", "Pastes keys from a Matinee particle track into this track." ),
 		FSlateIcon(),
 		FUIAction(
-			FExecuteAction::CreateStatic( &FMatineeImportTools::CopyInterpParticleTrack, GetSequencer().ToSharedRef(), MatineeToggleTrack, ParticleTrack ),
+			FExecuteAction::CreateStatic( &CopyInterpParticleTrack, GetSequencer().ToSharedRef(), MatineeToggleTrack, ParticleTrack ),
 			FCanExecuteAction::CreateLambda( [=]()->bool { return MatineeToggleTrack != nullptr && MatineeToggleTrack->ToggleTrack.Num() > 0 && ParticleTrack != nullptr; } ) ) );
 }
 

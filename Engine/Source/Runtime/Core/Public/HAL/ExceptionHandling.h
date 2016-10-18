@@ -35,3 +35,13 @@ extern CORE_API void NewReportEnsure( const TCHAR* ErrorMessage );
 /** Placeholder functions for checking image integrity. May or may not be used. DO NOT DELETE! */
 extern CORE_API void CheckImageIntegrity();
 extern CORE_API void CheckImageIntegrityAtRuntime();
+
+enum class ECrashType
+{
+	Debug = -1,
+	Normal = 0
+};
+
+/** In debug builds we can crash on demand so we want to let the crash reporting system know about it */
+extern CORE_API void SetCrashType(ECrashType InCrashType);
+extern CORE_API int32 GetCrashType();

@@ -2,7 +2,6 @@
 
 #include "GameplayDebuggerPrivatePCH.h"
 #include "GameplayDebuggerExtension_Spectator.h"
-#include "GameplayDebuggerConfig.h"
 #include "GameplayDebuggerPlayerManager.h"
 #include "Engine/DebugCameraController.h"
 #include "Engine/Player.h"
@@ -11,11 +10,8 @@
 
 FGameplayDebuggerExtension_Spectator::FGameplayDebuggerExtension_Spectator()
 {
-	const UGameplayDebuggerConfig* SettingsCDO = UGameplayDebuggerConfig::StaticClass()->GetDefaultObject<UGameplayDebuggerConfig>();
-
-	bHasInputBinding = BindKeyPress(SettingsCDO->SpectatorKey.GetFName(),
-		SettingsCDO->bUseSpectatorModifiers ? SettingsCDO->SpectatorModifiers.CreateModifier() : FGameplayDebuggerInputModifier::None,
-		this, &FGameplayDebuggerExtension_Spectator::ToggleSpectatorMode);
+	const FGameplayDebuggerInputHandlerConfig KeyConfig(TEXT("Toggle"), EKeys::Tab.GetFName());
+	bHasInputBinding = BindKeyPress(KeyConfig, this, &FGameplayDebuggerExtension_Spectator::ToggleSpectatorMode);
 }
 
 TSharedRef<FGameplayDebuggerExtension> FGameplayDebuggerExtension_Spectator::MakeInstance()

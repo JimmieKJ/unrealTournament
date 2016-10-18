@@ -33,7 +33,7 @@ void SetName(ID3D12Object* const Object, const TCHAR* const Name)
 {
 	if (Object)
 	{
-		VERIFYD3D11RESULT(Object->SetName(Name));
+		VERIFYD3D12RESULT(Object->SetName(Name));
 	}
 }
 
@@ -46,7 +46,7 @@ void SetName(FD3D12Resource* const Resource, const TCHAR* const Name)
 	}
 }
 
-static FString GetD3D11DeviceHungErrorString(HRESULT ErrorCode)
+static FString GetD3D12DeviceHungErrorString(HRESULT ErrorCode)
 {
 	FString ErrorCodeText;
 
@@ -63,7 +63,7 @@ static FString GetD3D11DeviceHungErrorString(HRESULT ErrorCode)
 	return ErrorCodeText;
 }
 
-static FString GetD3D11ErrorString(HRESULT ErrorCode, ID3D12Device* Device)
+static FString GetD3D12ErrorString(HRESULT ErrorCode, ID3D12Device* Device)
 {
 	FString ErrorCodeText;
 
@@ -88,7 +88,7 @@ static FString GetD3D11ErrorString(HRESULT ErrorCode, ID3D12Device* Device)
 	if (ErrorCode == DXGI_ERROR_DEVICE_REMOVED && Device)
 	{
 		HRESULT hResDeviceRemoved = Device->GetDeviceRemovedReason();
-		ErrorCodeText += FString(TEXT(" ")) + GetD3D11DeviceHungErrorString(hResDeviceRemoved);
+		ErrorCodeText += FString(TEXT(" ")) + GetD3D12DeviceHungErrorString(hResDeviceRemoved);
 	}
 
 	return ErrorCodeText;
@@ -98,7 +98,7 @@ static FString GetD3D11ErrorString(HRESULT ErrorCode, ID3D12Device* Device)
 
 namespace D3D12RHI
 {
-	const TCHAR* GetD3D11TextureFormatString(DXGI_FORMAT TextureFormat)
+	const TCHAR* GetD3D12TextureFormatString(DXGI_FORMAT TextureFormat)
 	{
 		static const TCHAR* EmptyString = TEXT("");
 		const TCHAR* TextureFormatText = EmptyString;
@@ -177,7 +177,14 @@ static void TerminateOnDeviceRemoved(HRESULT D3DResult)
 {
 	if (D3DResult == DXGI_ERROR_DEVICE_REMOVED)
 	{
-		FPlatformMisc::MessageBoxExt(EAppMsgType::Ok, *LOCTEXT("DeviceRemoved", "Video driver crashed and was reset!  Make sure your video drivers are up to date.  Exiting...").ToString(), TEXT("Error"));
+		if (!FApp::IsUnattended())
+		{
+			FPlatformMisc::MessageBoxExt(EAppMsgType::Ok, *LOCTEXT("DeviceRemoved", "Video driver crashed and was reset!  Make sure your video drivers are up to date.  Exiting...").ToString(), TEXT("Error"));
+		}
+		else
+		{
+			UE_LOG(LogD3D12RHI, Error, TEXT("%s"), *LOCTEXT("DeviceRemoved", "Video driver crashed and was reset!  Make sure your video drivers are up to date.  Exiting...").ToString());
+		}
 		FPlatformMisc::RequestExit(true);
 	}
 }
@@ -209,11 +216,11 @@ static void TerminateOnOutOfMemory(HRESULT D3DResult, bool bCreatingTextures)
 
 namespace D3D12RHI
 {
-	void VerifyD3D11Result(HRESULT D3DResult, const ANSICHAR* Code, const ANSICHAR* Filename, uint32 Line, ID3D12Device* Device)
+	void VerifyD3D12Result(HRESULT D3DResult, const ANSICHAR* Code, const ANSICHAR* Filename, uint32 Line, ID3D12Device* Device)
 	{
 		check(FAILED(D3DResult));
 
-		const FString& ErrorString = GetD3D11ErrorString(D3DResult, Device);
+		const FString& ErrorString = GetD3D12ErrorString(D3DResult, Device);
 
 		UE_LOG(LogD3D12RHI, Error, TEXT("%s failed \n at %s:%u \n with error %s"), ANSI_TO_TCHAR(Code), ANSI_TO_TCHAR(Filename), Line, *ErrorString);
 
@@ -227,8 +234,8 @@ namespace D3D12RHI
 	{
 		check(FAILED(D3DResult));
 
-		const FString ErrorString = GetD3D11ErrorString(D3DResult, 0);
-		const TCHAR* D3DFormatString = GetD3D11TextureFormatString((DXGI_FORMAT)Format);
+		const FString ErrorString = GetD3D12ErrorString(D3DResult, 0);
+		const TCHAR* D3DFormatString = GetD3D12TextureFormatString((DXGI_FORMAT)Format);
 
 		UE_LOG(LogD3D12RHI, Error,
 			TEXT("%s failed \n at %s:%u \n with error %s, \n Size=%ix%ix%i Format=%s(0x%08X), NumMips=%i, Flags=%s"),
@@ -278,9 +285,14 @@ namespace D3D12RHI
 		{
 			Object->AddRef();
 			NumRefs = Object->Release();
+
+			checkSlow(NumRefs != ExpectedRefs);
+
 			if (NumRefs != ExpectedRefs)
 			{
-				UE_LOG(LogD3D12RHI, Fatal,
+				UE_LOG(
+					LogD3D12RHI,
+					Error,
 					TEXT("%s:(%d): %s has %d refs, expected %d"),
 					Filename,
 					Line,
@@ -469,19 +481,59 @@ FString ConvertToResourceStateString(uint32 ResourceState)
 
 void LogResourceBarriers(uint32 NumBarriers, D3D12_RESOURCE_BARRIER* pBarriers, ID3D12CommandList* const pCommandList)
 {
+	// Configure what resource barriers are logged.
+	const bool bLogAll = false;
+	const bool bLogTransitionDepth = true;
+	const bool bLogTransitionRenderTarget = true;
+	const bool bLogTransitionUAV = true;
+
+	// Create the state bit mask to indicate what barriers should be logged.
+	uint32 ShouldLogMask = bLogAll ? static_cast<uint32>(-1) : 0;
+	ShouldLogMask |= bLogTransitionDepth ? D3D12_RESOURCE_STATE_DEPTH_READ | D3D12_RESOURCE_STATE_DEPTH_WRITE : 0;
+	ShouldLogMask |= bLogTransitionRenderTarget ? D3D12_RESOURCE_STATE_RENDER_TARGET : 0;
+	ShouldLogMask |= bLogTransitionUAV ? D3D12_RESOURCE_STATE_UNORDERED_ACCESS : 0;
+
 	for (uint32 i = 0; i < NumBarriers; i++)
 	{
 		D3D12_RESOURCE_BARRIER &currentBarrier = pBarriers[i];
-		check(currentBarrier.Type == D3D12_RESOURCE_BARRIER_TYPE_TRANSITION);
 
-		FString StateBefore = ConvertToResourceStateString(static_cast<uint32>(currentBarrier.Transition.StateBefore));
-		FString StateAfter = ConvertToResourceStateString(static_cast<uint32>(currentBarrier.Transition.StateAfter));
+		switch (currentBarrier.Type)
+		{
+		case D3D12_RESOURCE_BARRIER_TYPE_TRANSITION:
+		{
+			const FString StateBefore = ConvertToResourceStateString(static_cast<uint32>(currentBarrier.Transition.StateBefore));
+			const FString StateAfter = ConvertToResourceStateString(static_cast<uint32>(currentBarrier.Transition.StateAfter));
 
-		UE_LOG(LogD3D12RHI, Log, TEXT("*** BARRIER (CmdList: %016llX) %u/%u: %016llX (Sub: %u), %s -> %s"), pCommandList, i + 1, NumBarriers,
-			currentBarrier.Transition.pResource,
-			currentBarrier.Transition.Subresource,
-			*StateBefore,
-			*StateAfter);
+			bool bShouldLog = bLogAll;
+			if (!bShouldLog)
+			{
+				// See if we should log this transition.
+				for (uint32 StateIndex = 0; (StateIndex < 2) && !bShouldLog; StateIndex++)
+				{
+					const D3D12_RESOURCE_STATES& State = (StateIndex == 0) ? currentBarrier.Transition.StateBefore : currentBarrier.Transition.StateAfter;
+					bShouldLog = (State & ShouldLogMask) > 0;
+				}
+			}
+
+			if (bShouldLog)
+			{
+				UE_LOG(LogD3D12RHI, Log, TEXT("*** BARRIER (CmdList: %016llX) %u/%u: %016llX (Sub: %u), %s -> %s"), pCommandList, i + 1, NumBarriers,
+					currentBarrier.Transition.pResource,
+					currentBarrier.Transition.Subresource,
+					*StateBefore,
+					*StateAfter);
+			}
+			break;
+		}
+
+		case D3D12_RESOURCE_BARRIER_TYPE_UAV:
+			UE_LOG(LogD3D12RHI, Log, TEXT("*** BARRIER (CmdList: %016llX) %u/%u: UAV Barrier"), pCommandList, i + 1, NumBarriers);
+			break;
+
+		default:
+			check(false);
+			break;
+		}		
 	}
 }
 
@@ -604,6 +656,11 @@ void CResourceState::SetSubresourceState(uint32 SubresourceIndex, D3D12_RESOURCE
 	}
 }
 
+bool FD3D12SyncPoint::IsValid() const
+{
+	return Fence != nullptr;
+}
+
 bool FD3D12SyncPoint::IsComplete() const
 {
 	return (Fence == nullptr) || (Fence->IsFenceComplete(Value));
@@ -666,7 +723,7 @@ bool AssertResourceState(ID3D12CommandList* pCommandList, FD3D12Resource* pResou
 
 	// Get the debug command queue
 	TRefCountPtr<ID3D12DebugCommandList> pDebugCommandList;
-	VERIFYD3D11RESULT(pCommandList->QueryInterface(pDebugCommandList.GetInitReference()));
+	VERIFYD3D12RESULT(pCommandList->QueryInterface(pDebugCommandList.GetInitReference()));
 
 	// Get the underlying resource
 	ID3D12Resource* pD3D12Resource = pResource->GetResource();

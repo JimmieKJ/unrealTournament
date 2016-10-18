@@ -1,0 +1,777 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="DynamicDebug|x64">
+      <Configuration>DynamicDebug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="DynamicRelease|x64">
+      <Configuration>DynamicRelease</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="MinSizeRel|x64">
+      <Configuration>MinSizeRel</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="RelWithDebInfo|x64">
+      <Configuration>RelWithDebInfo</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="StaticDebug|x64">
+      <Configuration>StaticDebug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="StaticRelease|x64">
+      <Configuration>StaticRelease</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGUID>{8781DDCF-1577-43C8-8B70-0572BFBBD4E2}</ProjectGUID>
+    <Keyword>Win32Proj</Keyword>
+    <Platform>x64</Platform>
+    <ProjectName>hdf5</ProjectName>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseOfMfc>false</UseOfMfc>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v140</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='StaticDebug|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseOfMfc>false</UseOfMfc>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v140</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DynamicDebug|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseOfMfc>false</UseOfMfc>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v140</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseOfMfc>false</UseOfMfc>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v140</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='StaticRelease|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseOfMfc>false</UseOfMfc>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v140</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DynamicRelease|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseOfMfc>false</UseOfMfc>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v140</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseOfMfc>false</UseOfMfc>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v140</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseOfMfc>false</UseOfMfc>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v140</PlatformToolset>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup>
+    <_ProjectFileVersion>10.0.20506.1</_ProjectFileVersion>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(SolutionDir)..\..\Deploy\lib\VS2015\$(Platform)\$(Configuration)\</OutDir>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='StaticDebug|x64'">$(SolutionDir)..\..\Deploy\lib\VS2015\$(Platform)\$(Configuration)\</OutDir>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='DynamicDebug|x64'">$(SolutionDir)..\..\Deploy\lib\VS2015\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">hdf5.dir\Debug\</IntDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='StaticDebug|x64'">hdf5.dir\Debug\</IntDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='DynamicDebug|x64'">hdf5.dir\Debug\</IntDir>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">hdf5</TargetName>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='StaticDebug|x64'">hdf5</TargetName>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='DynamicDebug|x64'">hdf5</TargetName>
+    <TargetExt Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">.lib</TargetExt>
+    <TargetExt Condition="'$(Configuration)|$(Platform)'=='StaticDebug|x64'">.lib</TargetExt>
+    <TargetExt Condition="'$(Configuration)|$(Platform)'=='DynamicDebug|x64'">.lib</TargetExt>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(SolutionDir)..\..\Deploy\lib\VS2015\$(Platform)\$(Configuration)\</OutDir>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='StaticRelease|x64'">$(SolutionDir)..\..\Deploy\lib\VS2015\$(Platform)\$(Configuration)\</OutDir>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='DynamicRelease|x64'">$(SolutionDir)..\..\Deploy\lib\VS2015\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Release|x64'">hdf5.dir\Release\</IntDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='StaticRelease|x64'">hdf5.dir\Release\</IntDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='DynamicRelease|x64'">hdf5.dir\Release\</IntDir>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='Release|x64'">hdf5</TargetName>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='StaticRelease|x64'">hdf5</TargetName>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='DynamicRelease|x64'">hdf5</TargetName>
+    <TargetExt Condition="'$(Configuration)|$(Platform)'=='Release|x64'">.lib</TargetExt>
+    <TargetExt Condition="'$(Configuration)|$(Platform)'=='StaticRelease|x64'">.lib</TargetExt>
+    <TargetExt Condition="'$(Configuration)|$(Platform)'=='DynamicRelease|x64'">.lib</TargetExt>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">$(SolutionDir)..\..\Deploy\lib\VS2015\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">hdf5.dir\MinSizeRel\</IntDir>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">hdf5</TargetName>
+    <TargetExt Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">.lib</TargetExt>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">$(SolutionDir)..\..\Deploy\lib\VS2015\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">hdf5.dir\RelWithDebInfo\</IntDir>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">hdf5</TargetName>
+    <TargetExt Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">.lib</TargetExt>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>$(SolutionDir)\..\..\hdf5-1.8.9;$(SolutionDir)\..\..\hdf5-1.8.9\src;$(SolutionDir)\..\..\hdf5-1.8.9\hl\src;$SolutionDir)\..\..\zlib-1.2.5\Inc</AdditionalIncludeDirectories>
+      <AssemblerListingLocation>Debug/</AssemblerListingLocation>
+      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
+      <CompileAs>CompileAsC</CompileAs>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <DisableSpecificWarnings>4047;4101;4102;4108;4090;4244;4267;4334</DisableSpecificWarnings>
+      <ExceptionHandling>
+      </ExceptionHandling>
+      <InlineFunctionExpansion>Disabled</InlineFunctionExpansion>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <Optimization>Disabled</Optimization>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+      <UndefinePreprocessorDefinitions>H5_DEBUG_API</UndefinePreprocessorDefinitions>
+      <WarningLevel>Level3</WarningLevel>
+      <PreprocessorDefinitions>WIN32;_WINDOWS;_DEBUG;_WIN64;WIN64;H5_HAVE_THREADSAFE;BIND_TO_CURRENT_VCLIBS_VERSION=1;_CRT_SECURE_NO_WARNINGS;_CONSOLE;NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ObjectFileName>$(IntDir)</ObjectFileName>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>WIN32;_WINDOWS;_DEBUG;_WIN64;WIN64;H5_HAVE_THREADSAFE;_CRT_SECURE_NO_WARNINGS;_CONSOLE;NDEBUG;CMAKE_INTDIR=\"Debug\";%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ResourceCompile>
+    <Midl>
+      <OutputDirectory>$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+    <PostBuildEvent>
+      <Command>
+      </Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='StaticDebug|x64'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>$(SolutionDir)\..\..\hdf5-1.8.9;$(SolutionDir)\..\..\hdf5-1.8.9\src;$(SolutionDir)\..\..\hdf5-1.8.9\hl\src;$SolutionDir)\..\..\zlib-1.2.5\Inc</AdditionalIncludeDirectories>
+      <AssemblerListingLocation>Debug/</AssemblerListingLocation>
+      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
+      <CompileAs>CompileAsC</CompileAs>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <DisableSpecificWarnings>4047;4101;4102;4108;4090;4244;4267;4334</DisableSpecificWarnings>
+      <ExceptionHandling>
+      </ExceptionHandling>
+      <InlineFunctionExpansion>Disabled</InlineFunctionExpansion>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <Optimization>Disabled</Optimization>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+      <UndefinePreprocessorDefinitions>H5_DEBUG_API</UndefinePreprocessorDefinitions>
+      <WarningLevel>Level3</WarningLevel>
+      <PreprocessorDefinitions>WIN32;_WINDOWS;H5_HAVE_WIN_THREADS;_DEBUG;_WIN64;WIN64;H5_HAVE_THREADSAFE;BIND_TO_CURRENT_VCLIBS_VERSION=1;_CRT_SECURE_NO_WARNINGS;_CONSOLE;NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ObjectFileName>$(IntDir)</ObjectFileName>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>WIN32;_WINDOWS;_DEBUG;_WIN64;WIN64;H5_HAVE_THREADSAFE;_CRT_SECURE_NO_WARNINGS;_CONSOLE;NDEBUG;CMAKE_INTDIR=\"Debug\";%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ResourceCompile>
+    <Midl>
+      <OutputDirectory>$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+    <PostBuildEvent>
+      <Command>
+      </Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='DynamicDebug|x64'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>$(SolutionDir)\..\..\hdf5-1.8.9;$(SolutionDir)\..\..\hdf5-1.8.9\src;$(SolutionDir)\..\..\hdf5-1.8.9\hl\src;$SolutionDir)\..\..\zlib-1.2.5\Inc</AdditionalIncludeDirectories>
+      <AssemblerListingLocation>Debug/</AssemblerListingLocation>
+      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
+      <CompileAs>CompileAsC</CompileAs>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <DisableSpecificWarnings>4047;4101;4102;4108;4090;4244;4267;4334</DisableSpecificWarnings>
+      <ExceptionHandling>
+      </ExceptionHandling>
+      <InlineFunctionExpansion>Disabled</InlineFunctionExpansion>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <Optimization>Disabled</Optimization>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
+      <UndefinePreprocessorDefinitions>H5_DEBUG_API</UndefinePreprocessorDefinitions>
+      <WarningLevel>Level3</WarningLevel>
+      <PreprocessorDefinitions>WIN32;_WINDOWS;H5_HAVE_WIN_THREADS;_DEBUG;_WIN64;WIN64;H5_HAVE_THREADSAFE;BIND_TO_CURRENT_VCLIBS_VERSION=1;_CRT_SECURE_NO_WARNINGS;_CONSOLE;NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ObjectFileName>$(IntDir)</ObjectFileName>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>WIN32;_WINDOWS;_DEBUG;_WIN64;WIN64;H5_HAVE_THREADSAFE;_CRT_SECURE_NO_WARNINGS;_CONSOLE;NDEBUG;CMAKE_INTDIR=\"Debug\";%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ResourceCompile>
+    <Midl>
+      <OutputDirectory>$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+    <PostBuildEvent>
+      <Command>
+      </Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>$(SolutionDir)\..\..\hdf5-1.8.9;$(SolutionDir)\..\..\hdf5-1.8.9\src;$(SolutionDir)\..\..\hdf5-1.8.9\hl\src;$SolutionDir)\..\..\zlib-1.2.5\Inc</AdditionalIncludeDirectories>
+      <AssemblerListingLocation>Release/</AssemblerListingLocation>
+      <CompileAs>CompileAsC</CompileAs>
+      <DisableSpecificWarnings>4047;4101;4102;4108;4090;4244;4267;4334</DisableSpecificWarnings>
+      <ExceptionHandling>
+      </ExceptionHandling>
+      <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <Optimization>MaxSpeed</Optimization>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <UndefinePreprocessorDefinitions>H5_DEBUG_API</UndefinePreprocessorDefinitions>
+      <WarningLevel>Level3</WarningLevel>
+      <PreprocessorDefinitions>WIN32;_WINDOWS;NDEBUG;_WIN64;WIN64;H5_HAVE_THREADSAFE;_CRT_SECURE_NO_WARNINGS;_CONSOLE;NDEBUG;CMAKE_INTDIR="Release";%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ObjectFileName>$(IntDir)</ObjectFileName>
+      <DebugInformationFormat>
+      </DebugInformationFormat>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>WIN32;_WINDOWS;NDEBUG;_WIN64;WIN64;H5_HAVE_THREADSAFE;_CRT_SECURE_NO_WARNINGS;_CONSOLE;NDEBUG;CMAKE_INTDIR=\"Release\";%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ResourceCompile>
+    <Midl>
+      <OutputDirectory>$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+    <PostBuildEvent>
+      <Command>
+      </Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='StaticRelease|x64'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>$(SolutionDir)\..\..\hdf5-1.8.9;$(SolutionDir)\..\..\hdf5-1.8.9\src;$(SolutionDir)\..\..\hdf5-1.8.9\hl\src;$SolutionDir)\..\..\zlib-1.2.5\Inc</AdditionalIncludeDirectories>
+      <AssemblerListingLocation>Release/</AssemblerListingLocation>
+      <CompileAs>CompileAsC</CompileAs>
+      <DisableSpecificWarnings>4047;4101;4102;4108;4090;4244;4267;4334</DisableSpecificWarnings>
+      <ExceptionHandling>
+      </ExceptionHandling>
+      <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <Optimization>MaxSpeed</Optimization>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <UndefinePreprocessorDefinitions>H5_DEBUG_API</UndefinePreprocessorDefinitions>
+      <WarningLevel>Level3</WarningLevel>
+      <PreprocessorDefinitions>WIN32;_WINDOWS;H5_HAVE_WIN_THREADS;NDEBUG;_WIN64;WIN64;H5_HAVE_THREADSAFE;BIND_TO_CURRENT_VCLIBS_VERSION=1;_CRT_SECURE_NO_WARNINGS;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ObjectFileName>$(IntDir)</ObjectFileName>
+      <DebugInformationFormat>
+      </DebugInformationFormat>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>WIN32;_WINDOWS;NDEBUG;_WIN64;WIN64;H5_HAVE_THREADSAFE;_CRT_SECURE_NO_WARNINGS;_CONSOLE;NDEBUG;CMAKE_INTDIR=\"Release\";%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ResourceCompile>
+    <Midl>
+      <OutputDirectory>$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+    <PostBuildEvent>
+      <Command>
+      </Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='DynamicRelease|x64'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>$(SolutionDir)\..\..\hdf5-1.8.9;$(SolutionDir)\..\..\hdf5-1.8.9\src;$(SolutionDir)\..\..\hdf5-1.8.9\hl\src;$SolutionDir)\..\..\zlib-1.2.5\Inc</AdditionalIncludeDirectories>
+      <AssemblerListingLocation>Release/</AssemblerListingLocation>
+      <CompileAs>CompileAsC</CompileAs>
+      <DisableSpecificWarnings>4047;4101;4102;4108;4090;4244;4267;4334</DisableSpecificWarnings>
+      <ExceptionHandling>
+      </ExceptionHandling>
+      <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <Optimization>MaxSpeed</Optimization>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
+      <UndefinePreprocessorDefinitions>H5_DEBUG_API</UndefinePreprocessorDefinitions>
+      <WarningLevel>Level3</WarningLevel>
+      <PreprocessorDefinitions>WIN32;_WINDOWS;H5_HAVE_WIN_THREADS;NDEBUG;_WIN64;WIN64;H5_HAVE_THREADSAFE;BIND_TO_CURRENT_VCLIBS_VERSION=1;_CRT_SECURE_NO_WARNINGS;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ObjectFileName>$(IntDir)</ObjectFileName>
+      <DebugInformationFormat>
+      </DebugInformationFormat>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>WIN32;_WINDOWS;NDEBUG;_WIN64;WIN64;H5_HAVE_THREADSAFE;_CRT_SECURE_NO_WARNINGS;_CONSOLE;NDEBUG;CMAKE_INTDIR=\"Release\";%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ResourceCompile>
+    <Midl>
+      <OutputDirectory>$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+    <PostBuildEvent>
+      <Command>
+      </Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>$(SolutionDir)\..\..\hdf5-1.8.9;$(SolutionDir)\..\..\hdf5-1.8.9\src;$(SolutionDir)\..\..\hdf5-1.8.9\hl\src;$SolutionDir)\..\..\zlib-1.2.5\Inc</AdditionalIncludeDirectories>
+      <AssemblerListingLocation>MinSizeRel/</AssemblerListingLocation>
+      <CompileAs>CompileAsC</CompileAs>
+      <DisableSpecificWarnings>4047;4101;4102;4108;4090;4244;4267;4334</DisableSpecificWarnings>
+      <ExceptionHandling>
+      </ExceptionHandling>
+      <InlineFunctionExpansion>OnlyExplicitInline</InlineFunctionExpansion>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <Optimization>MinSpace</Optimization>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <UndefinePreprocessorDefinitions>H5_DEBUG_API</UndefinePreprocessorDefinitions>
+      <WarningLevel>Level3</WarningLevel>
+      <PreprocessorDefinitions>WIN32;_WINDOWS;NDEBUG;_WIN64;WIN64;H5_HAVE_THREADSAFE;_CRT_SECURE_NO_WARNINGS;_CONSOLE;NDEBUG;CMAKE_INTDIR="MinSizeRel";%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ObjectFileName>$(IntDir)</ObjectFileName>
+      <DebugInformationFormat>
+      </DebugInformationFormat>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>WIN32;_WINDOWS;NDEBUG;_WIN64;WIN64;H5_HAVE_THREADSAFE;_CRT_SECURE_NO_WARNINGS;_CONSOLE;NDEBUG;CMAKE_INTDIR=\"MinSizeRel\";%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ResourceCompile>
+    <Midl>
+      <OutputDirectory>$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+    <PostBuildEvent>
+      <Command>
+      </Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>$(SolutionDir)\..\..\hdf5-1.8.9;$(SolutionDir)\..\..\hdf5-1.8.9\src;$(SolutionDir)\..\..\hdf5-1.8.9\hl\src;$SolutionDir)\..\..\zlib-1.2.5\Inc</AdditionalIncludeDirectories>
+      <AssemblerListingLocation>RelWithDebInfo/</AssemblerListingLocation>
+      <CompileAs>CompileAsC</CompileAs>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <DisableSpecificWarnings>4047;4101;4102;4108;4090;4244;4267;4334</DisableSpecificWarnings>
+      <ExceptionHandling>
+      </ExceptionHandling>
+      <InlineFunctionExpansion>OnlyExplicitInline</InlineFunctionExpansion>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <Optimization>MaxSpeed</Optimization>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+      <UndefinePreprocessorDefinitions>H5_DEBUG_API</UndefinePreprocessorDefinitions>
+      <WarningLevel>Level3</WarningLevel>
+      <PreprocessorDefinitions>WIN32;_WINDOWS;NDEBUG;_WIN64;WIN64;H5_HAVE_THREADSAFE;_CRT_SECURE_NO_WARNINGS;_CONSOLE;NDEBUG;CMAKE_INTDIR="RelWithDebInfo";%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ObjectFileName>$(IntDir)</ObjectFileName>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>WIN32;_WINDOWS;NDEBUG;_WIN64;WIN64;H5_HAVE_THREADSAFE;_CRT_SECURE_NO_WARNINGS;_CONSOLE;NDEBUG;CMAKE_INTDIR=\"RelWithDebInfo\";%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ResourceCompile>
+    <Midl>
+      <OutputDirectory>$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+    <PostBuildEvent>
+      <Command>
+      </Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\..\hdf5-1.8.9\H5Edefin.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\H5version.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\H5overflow.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\hdf5.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5api_adpt.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5public.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5version.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5overflow.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Apkg.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Apublic.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5ACpkg.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5ACpublic.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5B2pkg.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5B2public.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Bpkg.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Bpublic.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Dpkg.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Dpublic.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Edefin.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Einit.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Epkg.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Epubgen.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Epublic.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Eterm.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Fpkg.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Fpublic.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5FDcore.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5FDdirect.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5FDfamily.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5FDlog.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5FDmpi.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5FDmpio.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5FDmpiposix.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5FDmulti.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5FDpkg.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5FDpublic.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5FDsec2.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5FDstdio.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5FSpkg.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5FSpublic.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Gpkg.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Gpublic.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5HFpkg.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5HFpublic.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5HGpkg.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5HGpublic.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5HLpkg.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5HLpublic.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5MPpkg.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Opkg.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Opublic.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Oshared.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Ppkg.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Ppublic.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Spkg.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Spublic.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5SMpkg.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Tpkg.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Tpublic.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Zpkg.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Zpublic.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Cpkg.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Cpublic.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Ipkg.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Ipublic.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Lpkg.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Lpublic.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5MMpublic.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Rpkg.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Rpublic.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5FDwindows.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5private.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Aprivate.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5ACprivate.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5B2private.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Bprivate.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5CSprivate.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Dprivate.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Eprivate.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5FDprivate.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Fprivate.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5FLprivate.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5FOprivate.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5MFprivate.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5MMprivate.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Cprivate.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5FSprivate.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Gprivate.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5HFprivate.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5HGprivate.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5HLprivate.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5HPprivate.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Iprivate.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Lprivate.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5MPprivate.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Oprivate.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Pprivate.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5RCprivate.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Rprivate.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5RSprivate.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5SLprivate.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5SMprivate.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Sprivate.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5STprivate.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Tprivate.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5TSprivate.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Vprivate.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5WBprivate.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Zprivate.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5win32defs.h" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5checksum.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5dbg.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5system.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5timer.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5trace.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5A.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Abtree2.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Adense.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Adeprec.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Aint.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Atest.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5AC.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5B.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5B2.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5B2cache.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5B2dbg.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5B2hdr.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5B2int.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5B2stat.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5B2test.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Bcache.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Bdbg.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5D.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Dcompact.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Dbtree.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Dchunk.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Dcontig.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Ddbg.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Ddeprec.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Defl.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Dfill.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Dint.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Dio.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Dlayout.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Dmpio.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Doh.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Dscatgath.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Dselect.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Dtest.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5E.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Edeprec.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Eint.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5F.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Faccum.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Fcwfs.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Fdbg.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Fefc.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Ffake.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Fio.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Fmount.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Fmpi.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Fquery.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Fsfile.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Fsuper.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Fsuper_cache.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Ftest.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5FD.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5FDcore.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5FDdirect.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5FDfamily.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5FDint.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5FDlog.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5FDmpi.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5FDmpio.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5FDmpiposix.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5FDmulti.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5FDsec2.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5FDspace.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5FDstdio.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5FS.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5FScache.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5FSdbg.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5FSsection.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5FSstat.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5FStest.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5G.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Gbtree2.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Gcache.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Gcompact.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Gdense.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Gdeprec.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Gent.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Gint.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Glink.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Gloc.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Gname.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Gnode.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Gobj.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Goh.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Groot.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Gstab.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Gtest.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Gtraverse.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5HF.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5HFbtree2.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5HFcache.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5HFdbg.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5HFdblock.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5HFdtable.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5HFhdr.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5HFhuge.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5HFiblock.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5HFiter.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5HFman.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5HFsection.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5HFspace.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5HFstat.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5HFtest.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5HFtiny.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5HG.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5HGcache.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5HGdbg.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5HGquery.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5HL.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5HLcache.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5HLdbg.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5HLint.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5MF.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5MFaggr.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5MFdbg.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5MFsection.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5MP.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5MPtest.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5O.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Oainfo.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Oalloc.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Oattr.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Oattribute.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Obogus.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Obtreek.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Ocache.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Ochunk.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Ocont.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Ocopy.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Odbg.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Odrvinfo.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Odtype.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Oefl.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Ofill.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Oginfo.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Olayout.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Olinfo.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Olink.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Omessage.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Omtime.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Oname.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Onull.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Opline.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Orefcount.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Osdspace.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Oshared.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Oshmesg.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Ostab.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Otest.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Ounknown.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5P.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Pacpl.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Pdapl.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Pdcpl.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Pdeprec.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Pdxpl.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Pfapl.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Pfcpl.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Pfmpl.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Pgcpl.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Pint.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Plapl.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Plcpl.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Pocpl.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Pocpypl.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Pstrcpl.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Ptest.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5S.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Sall.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Sdbg.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Shyper.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Smpio.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Snone.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Spoint.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Sselect.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Stest.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5SM.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5SMbtree2.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5SMcache.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5SMmessage.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5SMtest.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5T.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Tarray.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Tbit.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Tcommit.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Tcompound.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Tconv.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Tcset.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Tdbg.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Tdeprec.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Tenum.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Tfields.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Tfixed.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Tfloat.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Tnative.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Toffset.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Toh.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Topaque.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Torder.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Tpad.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Tprecis.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Tstrpad.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Tvisit.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Tvlen.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Z.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Zdeflate.c">
+      <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">H5_ZLIB_HEADER="($SolutionDir)../../zlib-1.2.5/inc/zlib.h";%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='StaticDebug|x64'">H5_ZLIB_HEADER="$(SolutionDir)../../zlib-1.2.5/inc/zlib.h";%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='DynamicDebug|x64'">H5_ZLIB_HEADER="$(SolutionDir)../../zlib-1.2.5/inc/zlib.h";%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Release|x64'">H5_ZLIB_HEADER="$(SolutionDir)../../zlib-1.2.5/inc/zlib.h";%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='StaticRelease|x64'">H5_ZLIB_HEADER="$(SolutionDir)../../zlib-1.2.5/inc/zlib.h";%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='DynamicRelease|x64'">H5_ZLIB_HEADER="$(SolutionDir)../../zlib-1.2.5/inc/zlib.h";%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">H5_ZLIB_HEADER="$(SolutionDir)../../zlib-1.2.5/inc/zlib.h";%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">H5_ZLIB_HEADER="$(SolutionDir)../../zlib-1.2.5/inc/zlib.h";%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Zfletcher32.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Znbit.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Zscaleoffset.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Zshuffle.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Zszip.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Ztrans.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5C.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5CS.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5FL.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5FO.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5HP.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5I.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Itest.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5L.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Lexternal.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5MM.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5R.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5RC.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Rdeprec.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5RS.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5SL.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5ST.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5TS.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5V.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5WB.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5FDwindows.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\H5Tinit.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\H5lib_settings.c" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

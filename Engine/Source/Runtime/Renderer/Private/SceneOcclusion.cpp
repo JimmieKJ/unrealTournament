@@ -12,6 +12,7 @@
 #include "SceneFilterRendering.h"
 #include "SceneUtils.h"
 #include "PostProcessing.h"
+#include "PlanarReflectionSceneProxy.h"
 
 /*-----------------------------------------------------------------------------
 	Globals
@@ -430,9 +431,9 @@ static void IssueProjectedShadowOcclusionQuery(FRHICommandListImmediate& RHICmdL
 		View.ViewMatrices.ViewOrigin + ProjectedShadowInfo.PreShadowTranslation,
 		View.NearClippingDistance * FMath::Sqrt(3.0f)
 		);
+
 	if( !bIntersectsNearClippingPlane )
 	{
-
 		// Allocate an occlusion query for the primitive from the occlusion query pool.
 		const FRenderQueryRHIRef ShadowOcclusionQuery = ViewState->OcclusionQueryPool.AllocateQuery();
 		
@@ -482,8 +483,78 @@ static void IssueProjectedShadowOcclusionQuery(FRHICommandListImmediate& RHICmdL
 	}
 }
 
+static void IssuePlanarReflectionOcclusionQuery(FRHICommandListImmediate& RHICmdList, FViewInfo& View, const FPlanarReflectionSceneProxy* SceneProxy, FOcclusionQueryVS* VertexShader, int32 NumBufferedFrames)
+{
+	FSceneViewState* ViewState = (FSceneViewState*)View.State;
 
+	bool bAllowBoundsTest = false;
 
+	if (View.ViewFrustum.IntersectBox(SceneProxy->WorldBounds.GetCenter(), SceneProxy->WorldBounds.GetExtent()))
+	{
+		const FBoxSphereBounds OcclusionBounds(SceneProxy->WorldBounds);
+
+		if (View.bHasNearClippingPlane)
+		{
+			bAllowBoundsTest = View.NearClippingPlane.PlaneDot(OcclusionBounds.Origin) <
+				-(FVector::BoxPushOut(View.NearClippingPlane, OcclusionBounds.BoxExtent));
+
+		}
+		else if (!View.IsPerspectiveProjection())
+		{
+			// Transform parallel near plane
+			static_assert((int32)ERHIZBuffer::IsInverted != 0, "Check equation for culling!");
+			bAllowBoundsTest = View.WorldToScreen(OcclusionBounds.Origin).Z - View.ViewMatrices.ProjMatrix.M[2][2] * OcclusionBounds.SphereRadius < 1;
+		}
+		else
+		{
+			bAllowBoundsTest = OcclusionBounds.SphereRadius < HALF_WORLD_MAX;
+		}
+	}
+
+	uint32 OcclusionFrameCounter = ViewState->OcclusionFrameCounter;
+	FIndividualOcclusionHistory& OcclusionHistory = ViewState->PlanarReflectionOcclusionHistories.FindOrAdd(SceneProxy->PlanarReflectionId);
+	ViewState->OcclusionQueryPool.ReleaseQuery(OcclusionHistory.GetPastQuery(OcclusionFrameCounter, NumBufferedFrames));
+
+	if (bAllowBoundsTest)
+	{
+		// Allocate an occlusion query for the primitive from the occlusion query pool.
+		const FRenderQueryRHIRef OcclusionQuery = ViewState->OcclusionQueryPool.AllocateQuery();
+
+		VertexShader->SetParameters(RHICmdList, View);
+
+		// Draw the primitive's bounding box, using the occlusion query.
+		RHICmdList.BeginRenderQuery(OcclusionQuery);
+
+		void* VerticesPtr;
+		void* IndicesPtr;
+		// preallocate memory to fill out with vertices and indices
+		RHICmdList.BeginDrawIndexedPrimitiveUP(PT_TriangleList, 12, 8, sizeof(FVector), VerticesPtr, 0, NUM_CUBE_VERTICES, sizeof(uint16), IndicesPtr);
+		float* Vertices = (float*)VerticesPtr;
+		uint16* Indices = (uint16*)IndicesPtr;
+
+		const FVector PrimitiveBoxMin = SceneProxy->WorldBounds.Min + View.ViewMatrices.PreViewTranslation;
+		const FVector PrimitiveBoxMax = SceneProxy->WorldBounds.Max + View.ViewMatrices.PreViewTranslation;
+		Vertices[0] = PrimitiveBoxMin.X; Vertices[1] = PrimitiveBoxMin.Y; Vertices[2] = PrimitiveBoxMin.Z;
+		Vertices[3] = PrimitiveBoxMin.X; Vertices[4] = PrimitiveBoxMin.Y; Vertices[5] = PrimitiveBoxMax.Z;
+		Vertices[6] = PrimitiveBoxMin.X; Vertices[7] = PrimitiveBoxMax.Y; Vertices[8] = PrimitiveBoxMin.Z;
+		Vertices[9] = PrimitiveBoxMin.X; Vertices[10] = PrimitiveBoxMax.Y; Vertices[11] = PrimitiveBoxMax.Z;
+		Vertices[12] = PrimitiveBoxMax.X; Vertices[13] = PrimitiveBoxMin.Y; Vertices[14] = PrimitiveBoxMin.Z;
+		Vertices[15] = PrimitiveBoxMax.X; Vertices[16] = PrimitiveBoxMin.Y; Vertices[17] = PrimitiveBoxMax.Z;
+		Vertices[18] = PrimitiveBoxMax.X; Vertices[19] = PrimitiveBoxMax.Y; Vertices[20] = PrimitiveBoxMin.Z;
+		Vertices[21] = PrimitiveBoxMax.X; Vertices[22] = PrimitiveBoxMax.Y; Vertices[23] = PrimitiveBoxMax.Z;
+
+		FMemory::Memcpy(Indices, GCubeIndices, sizeof(GCubeIndices));
+
+		OcclusionHistory.SetCurrentQuery(OcclusionFrameCounter, OcclusionQuery, NumBufferedFrames);
+
+		RHICmdList.EndDrawIndexedPrimitiveUP();
+		RHICmdList.EndRenderQuery(OcclusionQuery);
+	}
+	else
+	{
+		OcclusionHistory.SetCurrentQuery(OcclusionFrameCounter, NULL, NumBufferedFrames);
+	}
+}
 
 FHZBOcclusionTester::FHZBOcclusionTester()
 	: ResultsBuffer( NULL )
@@ -554,7 +625,7 @@ void FHZBOcclusionTester::MapResults(FRHICommandListImmediate& RHICmdList)
 		int32 Width = 0;
 		int32 Height = 0;
 
-		RHICmdList.MapStagingSurface(ResultsTextureCPU->GetRenderTargetItem().ShaderResourceTexture, (void*&)ResultsBuffer, Width, Height);
+		RHICmdList.MapStagingSurface(ResultsTextureCPU->GetRenderTargetItem().ShaderResourceTexture, *(void**)&ResultsBuffer, Width, Height);
 
 		// RHIMapStagingSurface will block until the results are ready (from the previous frame) so we need to consider this RT idle time
 		GRenderThreadIdle[ERenderThreadIdleTypes::WaitingForGPUQuery] += FPlatformTime::Cycles() - IdleStart;
@@ -1033,7 +1104,7 @@ void BuildHZB( FRHICommandListImmediate& RHICmdList, FViewInfo& View )
 	FIntPoint SrcSize = HZBSize;
 	FIntPoint DstSize = SrcSize / 2;
 	
-	SCOPED_DRAW_EVENTF(RHICmdList, BuildHZB, TEXT("HZB SetupMips 1..%d %dx%d Mips:%d"), NumMips - 1, DstSize.X, DstSize.Y);	
+	SCOPED_DRAW_EVENTF(RHICmdList, BuildHZB, TEXT("HZB SetupMips Mips:1..%d %dx%d"), NumMips - 1, DstSize.X, DstSize.Y);	
 
 	// Downsampling...
 	for( uint8 MipIndex = 1; MipIndex < NumMips; MipIndex++ )
@@ -1097,7 +1168,6 @@ void FDeferredShadingSceneRenderer::BeginOcclusionTests(FRHICommandListImmediate
 	if (bRenderQueries)
 	{
 		RHICmdList.BeginOcclusionQueryBatch();
-
 
 		// Perform occlusion queries for each view
 		for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
@@ -1167,7 +1237,7 @@ void FDeferredShadingSceneRenderer::BeginOcclusionTests(FRHICommandListImmediate
 								continue;
 							}
 
-							if (ProjectedShadowInfo.CascadeSettings.bOnePassPointLightShadow)
+							if (ProjectedShadowInfo.bOnePassPointLightShadow)
 							{
 								FLightSceneProxy& LightProxy = *(ProjectedShadowInfo.GetLightSceneInfo().Proxy);
 
@@ -1206,6 +1276,20 @@ void FDeferredShadingSceneRenderer::BeginOcclusionTests(FRHICommandListImmediate
 							const FProjectedShadowInfo& ProjectedShadowInfo = *VisibleLightInfo.OccludedPerObjectShadows[ShadowIndex];
 							IssueProjectedShadowOcclusionQuery(RHICmdList, View, ProjectedShadowInfo, *VertexShader, NumBufferedFrames);
 						}
+					}
+				}
+
+				if (!View.bIsPlanarReflection &&
+					!View.bIsSceneCapture &&
+					!View.bIsReflectionCapture)
+				{
+					// +1 to buffered frames because the query is submitted late into the main frame, but read at the beginning of a frame
+					const int32 NumReflectionBufferedFrames = FOcclusionQueryHelpers::GetNumBufferedFrames() + 1;
+
+					for (int32 ReflectionIndex = 0; ReflectionIndex < Scene->PlanarReflections.Num(); ReflectionIndex++)
+					{
+						FPlanarReflectionSceneProxy* SceneProxy = Scene->PlanarReflections[ReflectionIndex];
+						IssuePlanarReflectionOcclusionQuery(RHICmdList, View, SceneProxy, *VertexShader, NumReflectionBufferedFrames);
 					}
 				}
 

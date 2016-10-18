@@ -45,7 +45,7 @@ public:
 	const uint32 MaximumAllocationSizeForPooling;
 	D3D12_RESOURCE_FLAGS ResourceFlags;
 
-	void InitializeDefaultBuffer(FD3D12Resource* Destination, uint64 DestinationOffset, const void* Data, uint64 DataSize);
+	static void InitializeDefaultBuffer(FD3D12Device* Device, FD3D12Resource* Destination, uint64 DestinationOffset, const void* Data, uint64 DataSize);
 
 protected:
 
@@ -140,6 +140,8 @@ public:
 
 	inline uint32 GetTotalSizeUsed() const { return TotalSizeUsed; }
 
+	inline FD3D12Heap* GetBackingHeap() { check(AllocationStrategy == kPlacedResourceStrategy); return BackingHeap.GetReference(); }
+
 protected:
 	const uint32 MaxBlockSize;
 	const uint32 MinBlockSize;
@@ -147,12 +149,11 @@ protected:
 	const eBuddyAllocationStrategy AllocationStrategy;
 
 	TRefCountPtr<FD3D12Resource> BackingResource;
-	TRefCountPtr<ID3D12Heap> BackingHeap;
+	TRefCountPtr<FD3D12Heap> BackingHeap;
 
 	void* BaseAddress;
 
 private:
-
 	TArray<FD3D12ResourceBlockInfo*> DeferredDeletionQueue;
 	TArray<TSet<uint32>> FreeBlocks;
 	uint32 MaxOrder;
@@ -179,7 +180,7 @@ private:
 	uint32 AllocateBlock(uint32 order);
 	void DeallocateBlock(uint32 offset, uint32 order);
 
-	bool CanAllocate(uint32 size);
+	bool CanAllocate(uint32 size, uint32 alignment);
 
 	void DeallocateInternal(FD3D12ResourceBlockInfo* Block);
 
@@ -224,7 +225,7 @@ public:
 
 	virtual void Reset() final override;
 
-private:
+protected:
 	const eBuddyAllocationStrategy AllocationStrategy;
 	const D3D12_HEAP_FLAGS HeapFlags;
 	const uint32 MaxBlockSize;
@@ -469,27 +470,22 @@ private:
 //	FD3D12TextureAllocator
 //-----------------------------------------------------------------------------
 
-class FD3D12TextureAllocator : public FD3D12BuddyAllocator
+class FD3D12TextureAllocator : public FD3D12MultiBuddyAllocator
 {
 public:
 	FD3D12TextureAllocator(FD3D12Device* Device, FString Name, uint32 HeapSize, D3D12_HEAP_FLAGS Flags);
 
 	~FD3D12TextureAllocator();
 
-	HRESULT AllocateTexture(D3D12_RESOURCE_DESC Desc, const D3D12_CLEAR_VALUE* ClearValue, FD3D12ResourceLocation* TextureLocation);
+	HRESULT AllocateTexture(D3D12_RESOURCE_DESC Desc, const D3D12_CLEAR_VALUE* ClearValue, FD3D12ResourceLocation* TextureLocation, const D3D12_RESOURCE_STATES InitialState);
 };
-
-#define TEXTURE_POOL_SIZE_READABLE (64 * 1024 * 1024)
 
 class FD3D12TextureAllocatorPool : public FD3D12DeviceChild
 {
 public:
-	FD3D12TextureAllocatorPool(FD3D12Device* Device) :
-		ReadOnlyTexturePool(Device, FString(L"Small Read-Only Texture allocator"), TEXTURE_POOL_SIZE_READABLE, D3D12_HEAP_FLAG_ALLOW_ONLY_NON_RT_DS_TEXTURES),
-		FD3D12DeviceChild(Device)
-	{};
+	FD3D12TextureAllocatorPool(FD3D12Device* Device);
 
-	HRESULT AllocateTexture(D3D12_RESOURCE_DESC Desc, const D3D12_CLEAR_VALUE* ClearValue, uint8 UEFormat, FD3D12ResourceLocation* TextureLocation);
+	HRESULT AllocateTexture(D3D12_RESOURCE_DESC Desc, const D3D12_CLEAR_VALUE* ClearValue, uint8 UEFormat, FD3D12ResourceLocation* TextureLocation, const D3D12_RESOURCE_STATES InitialState);
 
 	void CleanUpAllocations() { ReadOnlyTexturePool.CleanUpAllocations(); }
 
@@ -497,4 +493,121 @@ public:
 
 private:
 	FD3D12TextureAllocator ReadOnlyTexturePool;
+};
+
+//-----------------------------------------------------------------------------
+//	Fast Allocation
+//-----------------------------------------------------------------------------
+
+struct FD3D12FastAllocatorPage
+{
+	FD3D12FastAllocatorPage() :
+		NextFastAllocOffset(0)
+		, PageSize(0)
+		, FastAllocData(nullptr)
+		, FrameFence(0) {};
+
+	FD3D12FastAllocatorPage(uint32 Size) :
+		PageSize(Size)
+		, NextFastAllocOffset(0)
+		, FastAllocData(nullptr)
+		, FrameFence(0) {};
+
+	void Reset()
+	{
+		NextFastAllocOffset = 0;
+	}
+
+	const uint32 PageSize;
+	TRefCountPtr<FD3D12Resource> FastAllocBuffer;
+	uint32 NextFastAllocOffset;
+	void* FastAllocData;
+	uint64 FrameFence;
+};
+
+class FD3D12FastAllocatorPagePool : public FD3D12DeviceChild
+{
+public:
+	FD3D12FastAllocatorPagePool(FD3D12Device* Parent, D3D12_HEAP_TYPE InHeapType, uint32 Size) :
+		PageSize(Size)
+		, HeapType(InHeapType)
+		, FD3D12DeviceChild(Parent)
+		, HeapProperties(CD3DX12_HEAP_PROPERTIES(InHeapType))
+	{};
+
+	FD3D12FastAllocatorPagePool(FD3D12Device* Parent, const D3D12_HEAP_PROPERTIES &InHeapProperties, uint32 Size) :
+		PageSize(Size)
+		, HeapType(InHeapProperties.Type)
+		, HeapProperties(InHeapProperties)
+		, FD3D12DeviceChild(Parent) {};
+
+	virtual FD3D12FastAllocatorPage* RequestFastAllocatorPage();
+	virtual void ReturnFastAllocatorPage(FD3D12FastAllocatorPage* Page);
+	virtual void CleanUpPages(uint64 frameLag, bool force = false);
+
+	inline uint32 GetPageSize() const { return PageSize; }
+
+	inline D3D12_HEAP_TYPE GetHeapType() const { return HeapType; }
+	bool IsCPUWritable() { return ::IsCPUWritable(GetHeapType(), &HeapProperties); }
+
+	void Destroy();
+
+protected:
+	FD3D12FastAllocatorPage* RequestFastAllocatorPageInternal();
+	void ReturnFastAllocatorPageInternal(FD3D12FastAllocatorPage* Page);
+	void CleanUpPagesInternal(uint64 frameLag, bool force = false);
+
+	const uint32 PageSize;
+	const D3D12_HEAP_TYPE HeapType;
+	const D3D12_HEAP_PROPERTIES HeapProperties;
+
+	TArray<FD3D12FastAllocatorPage*> Pool;
+
+};
+
+class FD3D12ThreadSafeFastAllocatorPagePool : public FD3D12FastAllocatorPagePool
+{
+public:
+	FD3D12ThreadSafeFastAllocatorPagePool(FD3D12Device* Parent, D3D12_HEAP_TYPE HeapType, uint32 Size) :
+		FD3D12FastAllocatorPagePool(Parent, HeapType, Size)
+	{}
+
+	virtual FD3D12FastAllocatorPage* RequestFastAllocatorPage() override;
+	virtual void ReturnFastAllocatorPage(FD3D12FastAllocatorPage* Page) override;
+	virtual void CleanUpPages(uint64 frameLag, bool force = false) override;
+
+private:
+	FCriticalSection CS;
+};
+
+class FD3D12FastAllocator : public FD3D12DeviceChild
+{
+public:
+	FD3D12FastAllocator(FD3D12Device* Parent, FD3D12FastAllocatorPagePool* Pool) : FD3D12DeviceChild(Parent), PagePool(Pool), CurrentAllocatorPage(nullptr) {};
+
+	virtual void* Allocate(uint32 size, uint32 alignment, class FD3D12ResourceLocation* ResourceLocation);
+
+	FD3D12FastAllocatorPagePool* GetPool() { return PagePool; }
+
+	void Destroy();
+
+protected:
+	FD3D12FastAllocatorPagePool* PagePool;
+
+	FD3D12FastAllocatorPage* CurrentAllocatorPage;
+
+	void* AllocateInternal(uint32 size, uint32 alignment, class FD3D12ResourceLocation* ResourceLocation);
+};
+
+class FD3D12ThreadSafeFastAllocator : public FD3D12FastAllocator
+{
+public:
+	FD3D12ThreadSafeFastAllocator(FD3D12Device* Parent, FD3D12FastAllocatorPagePool* Pool) : FD3D12FastAllocator(Parent, Pool) {};
+
+	virtual void* Allocate(uint32 size, uint32 alignment, class FD3D12ResourceLocation* ResourceLocation) override;
+
+	FCriticalSection* GetCriticalSection() { return &CS; }
+private:
+
+	FCriticalSection CS;
 };

@@ -16,6 +16,13 @@ namespace UnrealBuildTool.Rules
 				}
 				);
 
+			PrivateIncludePaths.AddRange(
+				new string[] {
+					"../../OculusRift/Source/OculusRift/Private",
+					// ... add other private include paths required here ...
+				}
+				);
+
 			PublicIncludePathModuleNames.AddRange( new string[] {"OculusRift"} );
 
 			PrivateIncludePathModuleNames.AddRange(
@@ -27,11 +34,9 @@ namespace UnrealBuildTool.Rules
 				}
 				);
 
-            // Currently, the Rift is only supported on windows and mac platforms
-            if (Target.Platform == UnrealTargetPlatform.Win32 || Target.Platform == UnrealTargetPlatform.Win64 || Target.Platform == UnrealTargetPlatform.Mac)
-            {
-				Definitions.Add("USE_OVR_MOTION_SDK=1");
-				
+            // Currently, the Rift is only supported on win64
+            if (Target.Platform == UnrealTargetPlatform.Win64 || Target.Platform == UnrealTargetPlatform.Win32)
+            {	
 				PrivateDependencyModuleNames.AddRange(new string[] { "LibOVR" });
             }
 		}

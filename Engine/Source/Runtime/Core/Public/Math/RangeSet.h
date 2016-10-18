@@ -30,7 +30,7 @@ public:
 	 *
 	 * @param Range The range to add.
 	 *//*
-	void Add( RangeType Range )
+	void Add(RangeType Range)
 	{
 		for (int32 Index = 0; Index < Ranges.Num(); ++Index)
 		{
@@ -54,7 +54,7 @@ public:
 	 *
 	 * @param Other The range set to merge.
 	 */
-/*	void Merge( const TRangeSet& Other )
+/*	void Merge(const TRangeSet& Other)
 	{
 		for (typename TArray<RangeType>::TConstIterator It(Other.Ranges); It; ++It)
 		{
@@ -69,7 +69,7 @@ public:
 	 *
 	 * @param Range The range to remove.
 	 */
-/*	void Remove( const RangeType& Range )
+/*	void Remove(const RangeType& Range)
 	{
 		for (int32 Index = 0; Index < Ranges.Num(); ++Index)
 		{
@@ -94,9 +94,7 @@ public:
 		}
 	}*/
 
-	/**
-	 * Removes all ranges from the set.
-	 */
+	/** Removes all ranges from the set. */
 	void Empty()
 	{
 		Ranges.Empty();
@@ -110,7 +108,7 @@ public:
 	 * @param Element The element to check.
 	 * @return true if the element is in the set, false otherwise.
 	 */
-	bool Contains( const ElementType& Element ) const
+	bool Contains(const ElementType& Element) const
 	{
 		for (typename TArray<RangeType>::TConstIterator It(Ranges); It; ++It)
 		{
@@ -129,7 +127,7 @@ public:
 	 * @param Range The range to check.
 	 * @return true if the set contains the range, false otherwise.
 	 */
-	bool Contains( const RangeType& Range ) const
+	bool Contains(const RangeType& Range) const
 	{
 		for (typename TArray<RangeType>::TConstIterator It(Ranges); It; ++It)
 		{
@@ -168,7 +166,7 @@ public:
 	 * @param Range The range to check.
 	 * @return true if this set overlaps with the range, false otherwise.
 	 */
-	bool Overlaps( const RangeType& Range ) const
+	bool Overlaps(const RangeType& Range) const
 	{
 		for (typename TArray<RangeType>::TConstIterator It(Ranges); It; ++It)
 		{
@@ -189,7 +187,7 @@ public:
 	 *
 	 * @todo gmp: This could be optimized to O(n*logn) using a line sweep on a pre-sorted array of bounds.
 	 */
-	bool Overlaps( const TRangeSet& Other ) const
+	bool Overlaps(const TRangeSet& Other) const
 	{
 		for (typename TArray<RangeType>::TConstIterator It(Other.Ranges); It; ++It)
 		{
@@ -211,13 +209,13 @@ public:
 	 * @param RangeSet The range set to serialize.
 	 * @return The archive.
 	 */
-	friend class FArchive& operator<<( class FArchive& Ar, TRangeSet& RangeSet )
+	friend class FArchive& operator<<(class FArchive& Ar, TRangeSet& RangeSet)
 	{
 		return Ar << RangeSet.Ranges;
 	}
 
 private:
 
-	// Holds the set of ranges.
+	/** Holds the set of ranges. */
 	TArray<RangeType> Ranges;
 };

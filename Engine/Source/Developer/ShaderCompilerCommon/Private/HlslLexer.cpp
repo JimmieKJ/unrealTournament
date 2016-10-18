@@ -4,7 +4,7 @@
 	HlslLexer.cpp - Implementation for scanning & tokenizing hlsl
 =============================================================================*/
 
-
+#include "ShaderCompilerCommonPrivatePCH.h"
 #include "ShaderCompilerCommon.h"
 #include "HlslLexer.h"
 

@@ -261,6 +261,7 @@ protected:
 	void FilteringSearchBox_OnTextChanged( const FText& InFilterText );
 	void FilteringSearchBox_OnTextCommitted( const FText& NewText, ETextCommit::Type CommitType );
 	bool FilteringSearchBox_IsEnabled() const;
+	void OnAggressiveFilteringToggled(ECheckBoxState InState);
 
 	TSharedPtr<SWidget> EventGraph_GetMenuContent() const;
 	void EventGraph_BuildSortByMenu( FMenuBuilder& MenuBuilder );
@@ -581,119 +582,129 @@ protected:
 
 	public:
 		/** New event graph state constructor. */
-		FEventGraphState( FEventGraphDataRef InAverageEventGraph, FEventGraphDataRef InMaximumEventGraph )
-			: AverageEventGraph( InAverageEventGraph )
-			, MaximumEventGraph( InMaximumEventGraph )
-			, FakeRoot( FEventGraphSample::CreateNamedEvent( FEventGraphConsts::FakeRoot ) )
-			, CullPropertyName( NAME_None )
-			, CullEventPtr( nullptr )
-			, FilterPropertyName( NAME_None )
-			, FilterEventPtr( nullptr )
-			, CreationTime( FPlatformTime::Seconds() )
-			, HistoryType( EEventHistoryTypes::NewEventGraph )
-			, ViewMode( EEventGraphViewModes::Hierarchical )
-			, EventGraphType( InAverageEventGraph->GetNumFrames() == 1 ? EEventGraphTypes::OneFrame : EEventGraphTypes::Average )
+		FEventGraphState(FEventGraphDataRef InAverageEventGraph, FEventGraphDataRef InMaximumEventGraph)
+			: AverageEventGraph(InAverageEventGraph)
+			, MaximumEventGraph(InMaximumEventGraph)
+			, FakeRoot(FEventGraphSample::CreateNamedEvent(FEventGraphConsts::FakeRoot))
+			, CullPropertyName(NAME_None)
+			, CullEventPtr(nullptr)
+			, FilterPropertyName(NAME_None)
+			, FilterEventPtr(nullptr)
+			, CreationTime(FPlatformTime::Seconds())
+			, HistoryType(EEventHistoryTypes::NewEventGraph)
+			, ViewMode(EEventGraphViewModes::Hierarchical)
+			, EventGraphType(InAverageEventGraph->GetNumFrames() == 1 ? EEventGraphTypes::OneFrame : EEventGraphTypes::Average)
+			, bAggressiveFiltering(false)
 		{
 			CreateOneToOneMapping();
 		}
 
-		FEventGraphState* CreateCopyWithNewRoot( const TArray<FEventGraphSamplePtr>& UniqueLeafs )
+		FEventGraphState* CreateCopyWithNewRoot(const TArray<FEventGraphSamplePtr>& UniqueLeafs)
 		{
-			return new FEventGraphState( *this, UniqueLeafs );
+			return new FEventGraphState(*this, UniqueLeafs);
 		}
 
-		FEventGraphState* CreateCopyWithCulling( const FName InCullPropertyName, const FEventGraphSamplePtr InCullEventPtr )
+		FEventGraphState* CreateCopyWithCulling(const FName InCullPropertyName, const FEventGraphSamplePtr InCullEventPtr)
 		{
-			return new FEventGraphState( *this, InCullPropertyName, InCullEventPtr, FCulledTag() );
+			return new FEventGraphState(*this, InCullPropertyName, InCullEventPtr, FCulledTag());
 		}
 
-		FEventGraphState* CreateCopyWithFiltering( const FName InFilterPropertyName, const FEventGraphSamplePtr InFilterEventPtr )
+		FEventGraphState* CreateCopyWithFiltering(const FName InFilterPropertyName, const FEventGraphSamplePtr InFilterEventPtr)
 		{
-			return new FEventGraphState( *this, InFilterPropertyName, InFilterEventPtr, FFilteredTag() );
+			return new FEventGraphState(*this, InFilterPropertyName, InFilterEventPtr, FFilteredTag());
 		}
 
 		FEventGraphState* CreateCopyWithTextFiltering(const FString& InFilterText)
 		{
-			FEventGraphState* Result = new FEventGraphState( *this, NAME_None, nullptr, FFilteredTag() );
+			FEventGraphState* Result = new FEventGraphState(*this, NAME_None, nullptr, FFilteredTag());
 			InFilterText.ParseIntoArray(Result->TextBasedFilterStringTokens, TEXT(" "));
 			return Result;
 		}
+
+		void SetAggressiveFiltering(bool bInAggressiveFiltering)
+		{
+			bAggressiveFiltering = bInAggressiveFiltering;
+		}
+
 	protected:
 		/** Copy constructor for setting new root. */
-		FEventGraphState( const FEventGraphState& EventGraphState, const TArray<FEventGraphSamplePtr>& UniqueLeafs )
-			: AverageEventGraph( EventGraphState.AverageEventGraph )
-			, MaximumEventGraph( EventGraphState.MaximumEventGraph )
-			, AverageToMaximumMapping( EventGraphState.AverageToMaximumMapping )
-			, MaximumToAverageMapping( EventGraphState.MaximumToAverageMapping )
-			, ExpandedEvents( EventGraphState.ExpandedEvents )
-			, SelectedEvents( EventGraphState.SelectedEvents )
-			, FakeRoot( FEventGraphSample::CreateNamedEvent( FEventGraphConsts::FakeRoot ) )
-			, CullPropertyName( EventGraphState.CullPropertyName )
-			, CullEventPtr( EventGraphState.CullEventPtr )
-			, ExpandedCulledEvents( EventGraphState.ExpandedCulledEvents )
-			, FilterPropertyName( EventGraphState.FilterPropertyName )
-			, FilterEventPtr( EventGraphState.FilterEventPtr )
-			, CreationTime( FPlatformTime::Seconds() )
-			, HistoryType( EEventHistoryTypes::Rooted )
-			, ViewMode( EventGraphState.ViewMode )
-			, EventGraphType( EventGraphState.EventGraphType )
+		FEventGraphState(const FEventGraphState& EventGraphState, const TArray<FEventGraphSamplePtr>& UniqueLeafs)
+			: AverageEventGraph(EventGraphState.AverageEventGraph)
+			, MaximumEventGraph(EventGraphState.MaximumEventGraph)
+			, AverageToMaximumMapping(EventGraphState.AverageToMaximumMapping)
+			, MaximumToAverageMapping(EventGraphState.MaximumToAverageMapping)
+			, ExpandedEvents(EventGraphState.ExpandedEvents)
+			, SelectedEvents(EventGraphState.SelectedEvents)
+			, FakeRoot(FEventGraphSample::CreateNamedEvent(FEventGraphConsts::FakeRoot))
+			, CullPropertyName(EventGraphState.CullPropertyName)
+			, CullEventPtr(EventGraphState.CullEventPtr)
+			, ExpandedCulledEvents(EventGraphState.ExpandedCulledEvents)
+			, FilterPropertyName(EventGraphState.FilterPropertyName)
+			, FilterEventPtr(EventGraphState.FilterEventPtr)
+			, CreationTime(FPlatformTime::Seconds())
+			, HistoryType(EEventHistoryTypes::Rooted)
+			, ViewMode(EventGraphState.ViewMode)
+			, EventGraphType(EventGraphState.EventGraphType)
+			, bAggressiveFiltering(EventGraphState.bAggressiveFiltering)
 		{
 			// Set new root.
-			SetNewRoot( UniqueLeafs );
+			SetNewRoot(UniqueLeafs);
 		}
 
 		/** Copy constructor for culling. */
-		FEventGraphState( const FEventGraphState& EventGraphState, const FName InCullPropertyName, const FEventGraphSamplePtr InCullEventPtr, FCulledTag )
-			: AverageEventGraph( EventGraphState.AverageEventGraph )
-			, MaximumEventGraph( EventGraphState.MaximumEventGraph )
-			, AverageToMaximumMapping( EventGraphState.AverageToMaximumMapping )
-			, MaximumToAverageMapping( EventGraphState.MaximumToAverageMapping )
-			, ExpandedEvents( EventGraphState.ExpandedEvents )
-			, SelectedEvents( EventGraphState.SelectedEvents )
-			, FakeRoot( FEventGraphSample::CreateNamedEvent( FEventGraphConsts::FakeRoot ) )
-			, CullPropertyName( InCullPropertyName )
-			, CullEventPtr( InCullEventPtr )
+		FEventGraphState(const FEventGraphState& EventGraphState, const FName InCullPropertyName, const FEventGraphSamplePtr InCullEventPtr, FCulledTag)
+			: AverageEventGraph(EventGraphState.AverageEventGraph)
+			, MaximumEventGraph(EventGraphState.MaximumEventGraph)
+			, AverageToMaximumMapping(EventGraphState.AverageToMaximumMapping)
+			, MaximumToAverageMapping(EventGraphState.MaximumToAverageMapping)
+			, ExpandedEvents(EventGraphState.ExpandedEvents)
+			, SelectedEvents(EventGraphState.SelectedEvents)
+			, FakeRoot(FEventGraphSample::CreateNamedEvent(FEventGraphConsts::FakeRoot))
+			, CullPropertyName(InCullPropertyName)
+			, CullEventPtr(InCullEventPtr)
 			, ExpandedCulledEvents()
-			, FilterPropertyName( EventGraphState.FilterPropertyName )
-			, FilterEventPtr( EventGraphState.FilterEventPtr )
-			, CreationTime( FPlatformTime::Seconds() )
-			, HistoryType( EEventHistoryTypes::Culled )
-			, ViewMode( EventGraphState.ViewMode )
-			, EventGraphType( EventGraphState.EventGraphType )
+			, FilterPropertyName(EventGraphState.FilterPropertyName)
+			, FilterEventPtr(EventGraphState.FilterEventPtr)
+			, CreationTime(FPlatformTime::Seconds())
+			, HistoryType(EEventHistoryTypes::Culled)
+			, ViewMode(EventGraphState.ViewMode)
+			, EventGraphType(EventGraphState.EventGraphType)
+			, bAggressiveFiltering(EventGraphState.bAggressiveFiltering)
 		{
 			// Copy fake root.
-			SetNewRoot( EventGraphState.FakeRoot->GetChildren() );
+			SetNewRoot(EventGraphState.FakeRoot->GetChildren());
 		}
 
 		/** Copy constructor for filtering. */
-		FEventGraphState( const FEventGraphState& EventGraphState, const FName InFilterPropertyName, const FEventGraphSamplePtr InFilterEventPtr, FFilteredTag )
-			: AverageEventGraph( EventGraphState.AverageEventGraph )
-			, MaximumEventGraph( EventGraphState.MaximumEventGraph )
-			, AverageToMaximumMapping( EventGraphState.AverageToMaximumMapping )
-			, MaximumToAverageMapping( EventGraphState.MaximumToAverageMapping )
-			, ExpandedEvents( EventGraphState.ExpandedEvents )
-			, SelectedEvents( EventGraphState.SelectedEvents )
-			, FakeRoot( FEventGraphSample::CreateNamedEvent( FEventGraphConsts::FakeRoot ) )
-			, CullPropertyName( EventGraphState.CullPropertyName )
-			, CullEventPtr( EventGraphState.CullEventPtr )
-			, ExpandedCulledEvents( EventGraphState.ExpandedCulledEvents )
-			, FilterPropertyName( InFilterPropertyName )
-			, FilterEventPtr( InFilterEventPtr )
-			, CreationTime( FPlatformTime::Seconds() )
-			, HistoryType( EEventHistoryTypes::Filtered )
-			, ViewMode( EventGraphState.ViewMode )
-			, EventGraphType( EventGraphState.EventGraphType )
+		FEventGraphState(const FEventGraphState& EventGraphState, const FName InFilterPropertyName, const FEventGraphSamplePtr InFilterEventPtr, FFilteredTag)
+			: AverageEventGraph(EventGraphState.AverageEventGraph)
+			, MaximumEventGraph(EventGraphState.MaximumEventGraph)
+			, AverageToMaximumMapping(EventGraphState.AverageToMaximumMapping)
+			, MaximumToAverageMapping(EventGraphState.MaximumToAverageMapping)
+			, ExpandedEvents(EventGraphState.ExpandedEvents)
+			, SelectedEvents(EventGraphState.SelectedEvents)
+			, FakeRoot(FEventGraphSample::CreateNamedEvent(FEventGraphConsts::FakeRoot))
+			, CullPropertyName(EventGraphState.CullPropertyName)
+			, CullEventPtr(EventGraphState.CullEventPtr)
+			, ExpandedCulledEvents(EventGraphState.ExpandedCulledEvents)
+			, FilterPropertyName(InFilterPropertyName)
+			, FilterEventPtr(InFilterEventPtr)
+			, CreationTime(FPlatformTime::Seconds())
+			, HistoryType(EEventHistoryTypes::Filtered)
+			, ViewMode(EventGraphState.ViewMode)
+			, EventGraphType(EventGraphState.EventGraphType)
+			, bAggressiveFiltering(EventGraphState.bAggressiveFiltering)
 		{
 			// Copy fake root.
-			SetNewRoot( EventGraphState.FakeRoot->GetChildren() );
+			SetNewRoot(EventGraphState.FakeRoot->GetChildren());
 		}
 
 	public:
 		const FEventGraphDataRef AverageEventGraph;
 		const FEventGraphDataRef MaximumEventGraph;
 
-		TMap<FEventGraphSamplePtr,FEventGraphSamplePtr> AverageToMaximumMapping;
-		TMap<FEventGraphSamplePtr,FEventGraphSamplePtr> MaximumToAverageMapping;
+		TMap<FEventGraphSamplePtr, FEventGraphSamplePtr> AverageToMaximumMapping;
+		TMap<FEventGraphSamplePtr, FEventGraphSamplePtr> MaximumToAverageMapping;
 
 		/** Only for hierarchical events, states for coalesced events are generated on demand. */
 		TSet<FEventGraphSamplePtr> ExpandedEvents;
@@ -726,6 +737,9 @@ protected:
 
 		/** Event graph type. */
 		EEventGraphTypes::Type EventGraphType;
+
+		/** Whether aggressive filtering is currently on */
+		bool bAggressiveFiltering;
 
 		void CreateOneToOneMapping();
 
@@ -777,25 +791,51 @@ protected:
 			return GetEventGraph()->GetRoot();
 		}
 
-		void SetNewRoot( const TArray<FEventGraphSamplePtr>& NewRootEvents )
+		void SetNewRoot(const TArray<FEventGraphSamplePtr>& NewRootEvents)
 		{
-			for( int32 Nx = 0; Nx < NewRootEvents.Num(); ++Nx )
+			for (int32 Nx = 0; Nx < NewRootEvents.Num(); ++Nx)
 			{
-				FakeRoot->AddChildPtr( NewRootEvents[Nx] );
+				FakeRoot->AddChildPtr(NewRootEvents[Nx]);
 			}
+		}
+
+		void SetNewRootFiltered(const TArray<FEventGraphSamplePtr>& NewRootEvents)
+		{
+			for (int32 Nx = 0; Nx < NewRootEvents.Num(); ++Nx)
+			{
+				const FEventGraphSamplePtr &RootEvent = NewRootEvents[Nx];
+
+				bool bAddRoot = !IsChildFiltered(RootEvent);
+				if (bAddRoot)
+				{
+					FakeRoot->AddChildPtr(RootEvent);
+				}
+			}
+		}
+
+		bool IsChildFiltered(const FEventGraphSamplePtr &ChildEvent)
+		{
+			bool bFiltered = ChildEvent->PropertyValueAsBool(EEventPropertyIndex::bIsFiltered);
+
+			for (int32 Cx = 0; Cx < ChildEvent->GetChildren().Num(); Cx++)
+			{
+				bFiltered |= IsChildFiltered(ChildEvent->GetChildren()[Cx]);
+			}
+
+			return bFiltered;
 		}
 
 		void ApplyCulling()
 		{
-			if( IsCulled() )
+			if (IsCulled())
 			{
 				// Apply culling.
 				FEventArrayBooleanOp::ExecuteOperation
-				( 
-					GetRoot(), EEventPropertyIndex::bIsCulled, 
-					CullEventPtr, FEventGraphSample::GetEventPropertyByName(CullPropertyName).Index, 
+					(
+					GetRoot(), EEventPropertyIndex::bIsCulled,
+					CullEventPtr, FEventGraphSample::GetEventPropertyByName(CullPropertyName).Index,
 					EEventCompareOps::Less
-				);
+					);
 
 				// Update not culled children.
 				GetRoot()->SetBooleanStateForAllChildren<EEventPropertyIndex::bNeedNotCulledChildrenUpdate>(true);
@@ -807,18 +847,18 @@ protected:
 			}
 		}
 
-private:
+	private:
 		static bool PassesTokenFilter(const TArray<FString>& FilterTokens, const FString& TestString)
 		{
 			for (const FString& Token : FilterTokens)
 			{
-				if (!TestString.Contains(Token))
+				if (TestString.Contains(Token))
 				{
-					return false;
+					return true;
 				}
 			}
 
-			return true;
+			return false;
 		}
 
 		// Sets the filter and optionally culled properties, returning true if any child passed the filter
@@ -835,7 +875,7 @@ private:
 				bAnyPasses = bAnyPasses || bThisPassesFilter || bChildPassesFilter;
 
 				Node->PropertyValueAsBool(EEventPropertyIndex::bIsFiltered) = !bThisPassesFilter;
-				
+
 				if (bCullAsWell)
 				{
 					const bool bChildSavesFromCull = (ViewMode == EEventGraphViewModes::Hierarchical) && bChildPassesFilter;
@@ -849,29 +889,190 @@ private:
 			return bAnyPasses;
 		}
 
-public:
+
+
+		/* Aggressive filtering - rebuild the stats graph based on the text filter, 
+		* removing all items that don't pass the filter and combining identically 
+		* named stats into single rows
+		*/
+		void RebuildForFilter(TArray< FEventGraphSamplePtr >& Nodes)
+		{
+			FakeRoot->GetChildren().Empty();
+
+			for (auto Node : Nodes)
+			{
+				bool NodePass = NodePassesFilter(Node);
+				bool Pass = RebuildChildrenWhoPassFilter(Node);
+
+				if (Pass || NodePass)
+				{
+					FakeRoot->GetChildren().Add(Node);
+					Node->SetParent(FakeRoot);
+				}
+			}
+
+			for (auto Node : FakeRoot->GetChildren())
+			{
+				CombineLikeNamed(Node->GetChildren());
+				Node->RecalcTimes();
+			}
+		}
+
+		/* Iterates through Nodes, reparents children of nodes with identical names
+		* and updates times to reflect the reparenting; used by aggressive filtering to consolidate as much
+		* of the data as possible in a single tree row and a single number
+		*/
+		void CombineLikeNamed(TArray< FEventGraphSamplePtr >& Nodes)
+		{
+			TArray<FEventGraphSamplePtr> KillNodes;
+
+			for (int32 IdxA = 0; IdxA < Nodes.Num(); IdxA++)
+			{
+				TArray<FEventGraphSamplePtr>& AChildren = Nodes[IdxA]->GetChildren();
+				FString ANodeName = Nodes[IdxA]->_StatName.ToString();
+
+				for (int32 IdxB = IdxA + 1; IdxB < Nodes.Num(); IdxB++)
+				{
+					TArray<FEventGraphSamplePtr>& BChildren = Nodes[IdxB]->GetChildren();
+					FString BNodeName = Nodes[IdxB]->_StatName.ToString();
+
+
+					if (IdxA != IdxB && (&AChildren != &BChildren) && ANodeName == BNodeName)
+					{
+						AChildren.Append(BChildren);
+						for (FEventGraphSamplePtr Child : AChildren)
+						{
+							Child->SetParent(Nodes[IdxA]);
+						}
+						Nodes[IdxA]->RecalcTimes();
+
+						BChildren.Empty();
+						KillNodes.Add(Nodes[IdxB]);
+					}
+				}
+
+				CombineLikeNamed(Nodes[IdxA]->GetChildren());
+			}
+
+			// build a new node array without the ones we want to get rid of
+			TArray<FEventGraphSamplePtr> NewNodes;
+			for (int32 Idx = 0; Idx < Nodes.Num(); Idx++)
+			{
+				bool bFound = false;
+				for (int32 KillIdx = 0; KillIdx < KillNodes.Num(); KillIdx++)
+				{
+					if (Nodes[Idx] == KillNodes[KillIdx])
+					{
+						bFound = true;
+						break;
+					}
+				}
+
+				if (bFound == false)
+				{
+					NewNodes.Add(Nodes[Idx]);
+				}
+			}
+
+			Nodes = NewNodes;
+
+		}
+
+		/* Removes all children of Node that don't pass any of the tokens in the text filter, recursively;
+		* if a node matches, all of its children will be considered to pass as well
+		*/
+		bool RebuildChildrenWhoPassFilter(FEventGraphSamplePtr& Node)
+		{
+			TArray<FEventGraphSamplePtr> PassingChildren;
+
+			bool bAnyChildPasses = false;
+			for (auto Child : Node->GetChildren())
+			{
+				bool& bFilteredState = Node->PropertyValueAsBool(EEventPropertyIndex::bIsFiltered);
+				bool& bCulledState = Node->PropertyValueAsBool(EEventPropertyIndex::bIsCulled);
+				bCulledState = false;
+
+				if (NodePassesFilter(Child))
+				{
+					bFilteredState = false;
+					PassingChildren.Add(Child);
+					bAnyChildPasses = true;
+
+					FilterAllChildren(Child);
+				}
+				else
+				{
+					bool bChildPasses = RebuildChildrenWhoPassFilter(Child);
+					if (bChildPasses)
+					{
+						PassingChildren.Append(Child->GetChildren());
+						Child->GetChildren().Empty();
+					}
+
+					bAnyChildPasses |= bChildPasses;
+				}
+
+			}
+
+			Node->GetChildren() = PassingChildren;
+
+			return bAnyChildPasses;
+		}
+
+		/* Check if Node matches any token out of TextBasedFilterStringTokens
+		*/
+		bool NodePassesFilter(FEventGraphSamplePtr& Node)
+		{
+			return PassesTokenFilter(TextBasedFilterStringTokens, Node->_StatName.ToString());
+		}
+
+		/* Set all children of Node to filtered status
+		*/
+		void FilterAllChildren(FEventGraphSamplePtr &Node)
+		{
+			for (auto Child : Node->GetChildren())
+			{
+				Child->PropertyValueAsBool(EEventPropertyIndex::bIsFiltered) = true;
+				FilterAllChildren(Child);
+			}
+		}
+
+
+	public:
+
 		void ApplyFiltering()
 		{
-			if (TextBasedFilterStringTokens.Num() > 0)
+			// aggressive filtering?
+			if (bAggressiveFiltering && TextBasedFilterStringTokens.Num() > 0)
 			{
-				// Apply text substring filtering (and optionally culling).
-				const bool bAlsoCull = true;
-				ApplyTextBasedFilterInternal(GetRoot()->GetChildren(), bAlsoCull);
-			}
-			else if (IsFiltered())
-			{
-				// Apply filtering.
-				FEventArrayBooleanOp::ExecuteOperation
-				( 
-					GetRoot(), EEventPropertyIndex::bIsFiltered, 
-					FilterEventPtr, FEventGraphSample::GetEventPropertyByName(FilterPropertyName).Index, 
-					EEventCompareOps::Less
-				);
+				FEventGraphData *NewData = new FEventGraphData(GetEventGraph().Get());
+				RebuildForFilter(NewData->GetRoot()->GetChildren());
 			}
 			else
 			{
-				// Reset filtering.
-				GetRoot()->SetBooleanStateForAllChildren<EEventPropertyIndex::bIsFiltered>(false);
+				FakeRoot->GetChildren().Empty();
+
+				if (TextBasedFilterStringTokens.Num() > 0)
+				{
+					// Apply text substring filtering (and optionally culling).
+					const bool bAlsoCull = true;
+					ApplyTextBasedFilterInternal(GetRoot()->GetChildren(), bAlsoCull);
+				}
+				else if (IsFiltered())
+				{
+					// Apply filtering.
+					FEventArrayBooleanOp::ExecuteOperation
+						(
+						GetRoot(), EEventPropertyIndex::bIsFiltered,
+						FilterEventPtr, FEventGraphSample::GetEventPropertyByName(FilterPropertyName).Index,
+						EEventCompareOps::Less
+						);
+				}
+				else
+				{
+					// Reset filtering.
+					GetRoot()->SetBooleanStateForAllChildren<EEventPropertyIndex::bIsFiltered>(false);
+				}
 			}
 		}
 

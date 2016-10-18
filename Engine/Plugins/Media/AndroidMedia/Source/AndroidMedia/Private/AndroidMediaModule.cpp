@@ -2,82 +2,51 @@
 
 #include "AndroidMediaPCH.h"
 #include "AndroidMediaPlayer.h"
-#include "IMediaModule.h"
-#include "IMediaPlayerFactory.h"
+#include "IAndroidMediaModule.h"
 
+
+DEFINE_LOG_CATEGORY(LogAndroidMedia);
 
 #define LOCTEXT_NAMESPACE "FAndroidMediaModule"
 
 
 class FAndroidMediaModule
-	: public IModuleInterface
-	, public IMediaPlayerFactory
+	: public IAndroidMediaModule
 {
 public:
 
-	// IModuleInterface interface
-
-	virtual void StartupModule() override
-	{
-		if (IsSupported())
-		{
-			IMediaModule* MediaModule = FModuleManager::LoadModulePtr<IMediaModule>("Media");
-			if (nullptr != MediaModule)
-			{
-				SupportedFileTypes.Add(TEXT("3gpp"), LOCTEXT("Format3gpp", "3GPP Multimedia File"));
-				SupportedFileTypes.Add(TEXT("aac"), LOCTEXT("FormatAac", "MPEG-2 Advanced Audio Coding File"));
-				SupportedFileTypes.Add(TEXT("mp4"), LOCTEXT("FormatMp4", "MPEG-4 Movie"));
-				MediaModule->RegisterPlayerFactory(*this);
-			}
-		}
-	}
-
-	virtual void ShutdownModule() override
-	{
-		if (IsSupported())
-		{
-			IMediaModule* MediaModule = FModuleManager::GetModulePtr<IMediaModule>("Media");
-			if (nullptr != MediaModule)
-			{
-				MediaModule->UnregisterPlayerFactory(*this);
-			}
-		}
-	}
-
-	// IMediaPlayerFactory interface
+	//~ IAndroidMediaModule interface
 
 	virtual TSharedPtr<IMediaPlayer> CreatePlayer() override
 	{
-		if (IsSupported())
-		{
-			return MakeShareable(new FAndroidMediaPlayer());
-		}
-		else
+		if (!IsSupported())
 		{
 			return nullptr;
 		}
+
+		return MakeShareable(new FAndroidMediaPlayer());
 	}
 
-	virtual const FMediaFileTypes& GetSupportedFileTypes() const override
-	{
-		return SupportedFileTypes;
-	}
+public:
 
-	virtual bool SupportsUrl(const FString& Url) const override
-	{
-		return SupportedFileTypes.Contains(FPaths::GetExtension(Url));
-	}
+	//~ IModuleInterface interface
 
-private:
+	virtual void StartupModule() override { }
+	virtual void ShutdownModule() override { }
 
-	// The collection of supported media file types.
-	FMediaFileTypes SupportedFileTypes;
+protected:
 
+	/**
+	 * Check whether media is supported on the running device.
+	 *
+	 * @return true if media is supported, false otherwise.
+	 */
 	bool IsSupported()
 	{
-		return FAndroidMisc::GetAndroidBuildVersion() >= 14;
+		return (FAndroidMisc::GetAndroidBuildVersion() >= 14);
 	}
 };
+
 
 IMPLEMENT_MODULE(FAndroidMediaModule, AndroidMedia)
 

@@ -3,11 +3,7 @@
 
 #include "Internationalization/Text.h"
 
-#if !UE_ENABLE_ICU
-#include "NumberFormattingRules.h"
-#include "TextFormattingRules.h"
-#include "DateTimeFormattingRules.h"
-#endif
+struct FDecimalNumberFormattingRules;
 
 class CORE_API FCulture
 {
@@ -15,18 +11,20 @@ public:
 #if UE_ENABLE_ICU
 	static FCulturePtr Create(const FString& LocaleName);
 #else
-	static FCulturePtr Create(	const FText& InDisplayName, 
-									const FString& InEnglishName, 
-									const int InKeyboardLayoutId, 
-									const int InLCID, 
-									const FString& InName, 
-									const FString& InNativeName, 
-									const FString& InUnrealLegacyThreeLetterISOLanguageName, 
-									const FString& InThreeLetterISOLanguageName, 
-									const FString& InTwoLetterISOLanguageName, 
-									const FNumberFormattingRules& InNumberFormattingRule, 
-									const FTextFormattingRules& InTextFormattingRule, 
-									const FDateTimeFormattingRules& InDateTimeFormattingRule);
+	static FCulturePtr Create(
+		const FText& InDisplayName, 
+		const FString& InEnglishName, 
+		const int InKeyboardLayoutId, 
+		const int InLCID, 
+		const FString& InName, 
+		const FString& InNativeName, 
+		const FString& InUnrealLegacyThreeLetterISOLanguageName, 
+		const FString& InThreeLetterISOLanguageName, 
+		const FString& InTwoLetterISOLanguageName,
+		const FDecimalNumberFormattingRules& InDecimalNumberFormattingRules,
+		const FDecimalNumberFormattingRules& InPercentFormattingRules,
+		const FDecimalNumberFormattingRules& InBaseCurrencyFormattingRules
+		);
 #endif
 
 	const FString& GetDisplayName() const;
@@ -63,6 +61,28 @@ public:
 
 	const FString& GetVariant() const;
 
+	const FDecimalNumberFormattingRules& GetDecimalNumberFormattingRules() const;
+
+	const FDecimalNumberFormattingRules& GetPercentFormattingRules() const;
+
+	const FDecimalNumberFormattingRules& GetCurrencyFormattingRules(const FString& InCurrencyCode) const;
+
+	/**
+	 * Get the correct plural form to use for the given number
+	 * @param PluralType The type of plural form to get (cardinal or ordinal)
+	 */
+	ETextPluralForm GetPluralForm(float Val,	const ETextPluralType PluralType) const;
+	ETextPluralForm GetPluralForm(double Val,	const ETextPluralType PluralType) const;
+	ETextPluralForm GetPluralForm(int8 Val,		const ETextPluralType PluralType) const;
+	ETextPluralForm GetPluralForm(int16 Val,	const ETextPluralType PluralType) const;
+	ETextPluralForm GetPluralForm(int32 Val,	const ETextPluralType PluralType) const;
+	ETextPluralForm GetPluralForm(int64 Val,	const ETextPluralType PluralType) const;
+	ETextPluralForm GetPluralForm(uint8 Val,	const ETextPluralType PluralType) const;
+	ETextPluralForm GetPluralForm(uint16 Val,	const ETextPluralType PluralType) const;
+	ETextPluralForm GetPluralForm(uint32 Val,	const ETextPluralType PluralType) const;
+	ETextPluralForm GetPluralForm(uint64 Val,	const ETextPluralType PluralType) const;
+	ETextPluralForm GetPluralForm(long Val,		const ETextPluralType PluralType) const;
+
 	void HandleCultureChanged();
 
 public:
@@ -80,26 +100,25 @@ protected:
 #if UE_ENABLE_ICU
 	FCulture(const FString& LocaleName);
 #else
-	FCulture(	const FText& InDisplayName, 
-				const FString& InEnglishName, 
-				const int InKeyboardLayoutId, 
-				const int InLCID, 
-				const FString& InName, 
-				const FString& InNativeName, 
-				const FString& InUnrealLegacyThreeLetterISOLanguageName, 
-				const FString& InThreeLetterISOLanguageName, 
-				const FString& InTwoLetterISOLanguageName, 
-				const FNumberFormattingRules& InNumberFormattingRule, 
-				const FTextFormattingRules& InTextFormattingRule, 
-				const FDateTimeFormattingRules& InDateTimeFormattingRule);
+	FCulture(
+		const FText& InDisplayName, 
+		const FString& InEnglishName, 
+		const int InKeyboardLayoutId, 
+		const int InLCID, 
+		const FString& InName, 
+		const FString& InNativeName, 
+		const FString& InUnrealLegacyThreeLetterISOLanguageName, 
+		const FString& InThreeLetterISOLanguageName, 
+		const FString& InTwoLetterISOLanguageName,
+		const FDecimalNumberFormattingRules& InDecimalNumberFormattingRules,
+		const FDecimalNumberFormattingRules& InPercentFormattingRules,
+		const FDecimalNumberFormattingRules& InBaseCurrencyFormattingRules
+		);
 #endif
 
 private:
 #if !UE_ENABLE_ICU
 	friend class FText;
-	const FDateTimeFormattingRules DateTimeFormattingRule;
-	const FTextFormattingRules TextFormattingRule;
-	const FNumberFormattingRules NumberFormattingRule;
 #endif
 
 	FString CachedDisplayName;
@@ -115,5 +134,3 @@ private:
 	FString CachedScript;
 	FString CachedVariant;
 };
-
-#include "CulturePointer.h"

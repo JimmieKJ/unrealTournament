@@ -635,6 +635,7 @@ public:
 		: _SCSEditor( NULL )
 		, _OnGenerateRow()
 		, _OnGetChildren()
+		, _OnSetExpansionRecursive()
 		, _TreeItemsSource( static_cast< TArray<FSCSEditorTreeNodePtrType>* >(NULL) ) //@todo Slate Syntax: Initializing from NULL without a cast
 		, _ItemHeight(16)
 		, _OnContextMenuOpening()
@@ -653,6 +654,8 @@ public:
 		SLATE_EVENT( FOnItemScrolledIntoView, OnItemScrolledIntoView )
 
 		SLATE_EVENT( FOnGetChildren, OnGetChildren )
+
+		SLATE_EVENT( FOnSetExpansionRecursive, OnSetExpansionRecursive )
 
 		SLATE_ARGUMENT( TArray<FSCSEditorTreeNodePtrType>* , TreeItemsSource )
 
@@ -752,10 +755,11 @@ public:
 	bool IsEditingAllowed() const;
 
 	/** Adds a component to the SCS Table
-	   @param NewComponentClass	(In) The class to add
-	   @param Asset				(In) Optional asset to assign to the component
+	   @param NewComponentClass				(In) The class to add
+	   @param Asset       					(In) Optional asset to assign to the component
+	   @param bSkipMarkBlueprintModified 	(In) Optionally skip marking this blueprint as modified (e.g. if we're handling that externally)
 	   @return The reference of the newly created ActorComponent */
-	UActorComponent* AddNewComponent(UClass* NewComponentClass, UObject* Asset);
+	UActorComponent* AddNewComponent(UClass* NewComponentClass, UObject* Asset, const bool bSkipMarkBlueprintModified = false );
 
 	/** Adds a new SCS Node to the component Table
 	   @param NewNode	(In) The SCS node to add
@@ -908,6 +912,9 @@ public:
 
 	/** Try to handle a drag-drop operation */
 	FReply TryHandleAssetDragDropOperation(const FDragDropEvent& DragDropEvent);
+
+	/** Handler for recursively expanding/collapsing items */
+	void SetItemExpansionRecursive(FSCSEditorTreeNodePtrType Model, bool bInExpansionState);
 
 protected:
 	FString GetSelectedClassText() const;

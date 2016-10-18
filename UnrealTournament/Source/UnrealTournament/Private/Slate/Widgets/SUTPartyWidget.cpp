@@ -525,7 +525,8 @@ FReply SUTPartyWidget::InviteToParty(FString UserId)
 {
 #if WITH_SOCIAL
 	TSharedPtr<IGameAndPartyService> GameAndPartyService = ISocialModule::Get().GetFriendsAndChatManager()->GetGameAndPartyService();
-	GameAndPartyService->SendPartyInvite(FUniqueNetIdString(UserId));
+	TSharedPtr<const FUniqueNetId > UniqueNetId = MakeShareable(new FUniqueNetIdString(*UserId));
+	GameAndPartyService->SendPartyInvite(*UniqueNetId);
 #endif
 
 	return FReply::Handled();

@@ -45,7 +45,7 @@ public:
 	 * @param InValue The bound's value.
 	 * @see Exclusive, Inclusive, Open
 	 */
-	TRangeBound( const ElementType& InValue )
+	TRangeBound(const ElementType& InValue)
 		: Type(ERangeBoundTypes::Inclusive)
 		, Value(InValue)
 	{ }
@@ -58,7 +58,7 @@ public:
 	 * @param Other The bound to compare with.
 	 * @return true if the bounds are equal, false otherwise.
 	 */
-	bool operator==( const TRangeBound& Other ) const
+	bool operator==(const TRangeBound& Other) const
 	{
 		return ((Type == Other.Type) && (IsOpen() || (Value == Other.Value)));
 	}
@@ -69,7 +69,7 @@ public:
 	 * @param Other The bound to compare with.
 	 * @return true if the bounds are not equal, false otherwise.
 	 */
-	bool operator!=( const TRangeBound& Other ) const
+	bool operator!=(const TRangeBound& Other) const
 	{
 		return ((Type != Other.Type) || (!IsOpen() && (Value != Other.Value)));
 	}
@@ -140,7 +140,7 @@ public:
 	 * @param Bound The bound to serialize.
 	 * @return The archive.
 	 */
-	friend class FArchive& operator<<( class FArchive& Ar, TRangeBound& Bound )
+	friend class FArchive& operator<<(class FArchive& Ar, TRangeBound& Bound)
 	{
 		return Ar << (uint8&)Bound.Type << Bound.Value;
 	}
@@ -151,7 +151,7 @@ public:
 	 * @param Bound The bound to get the hash for.
 	 * @return Hash value.
 	 */
-	friend uint32 GetTypeHash( const TRangeBound& Bound )
+	friend uint32 GetTypeHash(const TRangeBound& Bound)
 	{
 		return (GetTypeHash((uint8)Bound.Type) + 23 * GetTypeHash(Bound.Value));
 	}
@@ -164,7 +164,7 @@ public:
 	 * @param Value The bound value.
 	 * @return An exclusive closed bound.
 	 */
-	static FORCEINLINE TRangeBound Exclusive( const ElementType& Value )
+	static FORCEINLINE TRangeBound Exclusive(const ElementType& Value)
 	{
 		TRangeBound Result;
 
@@ -180,7 +180,7 @@ public:
 	 * @param Value The bound value.
 	 * @return An inclusive closed bound.
 	 */
-	static FORCEINLINE TRangeBound Inclusive( const ElementType& Value )
+	static FORCEINLINE TRangeBound Inclusive(const ElementType& Value)
 	{
 		TRangeBound Result;
 
@@ -213,7 +213,7 @@ public:
 	 *
 	 * @return A new bound.
 	 */
-	static FORCEINLINE TRangeBound FlipInclusion( const TRangeBound& Bound )
+	static FORCEINLINE TRangeBound FlipInclusion(const TRangeBound& Bound)
 	{
 		if (Bound.IsExclusive())
 		{
@@ -235,7 +235,7 @@ public:
 	 * @param B The second lower bound.
 	 * @return The greater lower bound.
 	 */
-	static FORCEINLINE const TRangeBound& MaxLower( const TRangeBound& A, const TRangeBound& B )
+	static FORCEINLINE const TRangeBound& MaxLower(const TRangeBound& A, const TRangeBound& B)
 	{
 		if (A.IsOpen()) { return B; }
 		if (B.IsOpen()) { return A; }
@@ -253,7 +253,7 @@ public:
 	 * @param B The second upper bound.
 	 * @return The greater upper bound.
 	 */
-	static FORCEINLINE const TRangeBound& MaxUpper( const TRangeBound& A, const TRangeBound& B )
+	static FORCEINLINE const TRangeBound& MaxUpper(const TRangeBound& A, const TRangeBound& B)
 	{
 		if (A.IsOpen()) { return A; }
 		if (B.IsOpen()) { return B; }
@@ -271,7 +271,7 @@ public:
 	 * @param B The second lower bound.
 	 * @return The lesser lower bound.
 	 */
-	static FORCEINLINE const TRangeBound& MinLower( const TRangeBound& A, const TRangeBound& B )
+	static FORCEINLINE const TRangeBound& MinLower(const TRangeBound& A, const TRangeBound& B)
 	{
 		if (A.IsOpen()) { return A; }
 		if (B.IsOpen()) { return B; }
@@ -289,7 +289,7 @@ public:
 	 * @param B The second upper bound.
 	 * @return The lesser upper bound.
 	 */
-	static FORCEINLINE const TRangeBound& MinUpper( const TRangeBound& A, const TRangeBound& B )
+	static FORCEINLINE const TRangeBound& MinUpper(const TRangeBound& A, const TRangeBound& B)
 	{
 		if (A.IsOpen()) { return B; }
 		if (B.IsOpen()) { return A; }
@@ -302,15 +302,15 @@ public:
 
 private:
 
-	// Holds the type of the bound.
+	/** Holds the type of the bound. */
 	TEnumAsByte<ERangeBoundTypes::Type> Type;
 
-	// Holds the bound's value.
+	/** Holds the bound's value. */
 	ElementType Value;
 };
 
 
-/* Default range bounds for built-in types
+/* Default range bounds for built-in types (for UProperty support)
  *****************************************************************************/
 
 #define DEFINE_RANGEBOUND_WRAPPER_STRUCT(Name, ElementType) \
@@ -322,57 +322,54 @@ private:
 	public: \
 		Name() \
 			: Super() \
-		{ \
-		} \
+		{ } \
 		 \
 		Name(const Super& Other) \
-			: Super( Other ) \
+			: Super(Other) \
+		{ } \
+		 \
+		Name(const int64& InValue) \
+			: Super(InValue) \
+		{ } \
+		 \
+		static FORCEINLINE Name Exclusive(const ElementType& Value) \
 		{ \
+			return static_cast<const Name&>(Super::Exclusive(Value)); \
 		} \
 		 \
-		Name( const int64& InValue ) \
-			: Super( InValue ) \
+		static FORCEINLINE Name Inclusive(const ElementType& Value) \
 		{ \
-		} \
-		 \
-		static FORCEINLINE Name Exclusive( const ElementType& Value ) \
-		{ \
-			return static_cast<const Name&>( Super::Exclusive( Value ) ); \
-		} \
-		 \
-		static FORCEINLINE Name Inclusive( const ElementType& Value ) \
-		{ \
-			return static_cast<const Name&>( Super::Inclusive( Value ) ); \
+			return static_cast<const Name&>(Super::Inclusive(Value)); \
 		} \
 		 \
 		static FORCEINLINE Name Open() \
 		{ \
-			return static_cast<const Name&>( Super::Open() ); \
+			return static_cast<const Name&>(Super::Open()); \
 		} \
 		 \
-		static FORCEINLINE Name FlipInclusion( const Name& Bound ) \
+		static FORCEINLINE Name FlipInclusion(const Name& Bound) \
 		{ \
-			return static_cast<const Name&>( Super::FlipInclusion( Bound ) ); \
+			return static_cast<const Name&>(Super::FlipInclusion(Bound)); \
 		} \
 		 \
-		static FORCEINLINE const Name& MaxLower( const Name& A, const Name& B ) \
+		static FORCEINLINE const Name& MaxLower(const Name& A, const Name& B) \
 		{ \
-			return static_cast<const Name&>( Super::MaxLower( A, B ) ); \
+			return static_cast<const Name&>(Super::MaxLower(A, B)); \
 		} \
 		 \
-		static FORCEINLINE const Name& MaxUpper( const Name& A, const Name& B ) \
+		static FORCEINLINE const Name& MaxUpper(const Name& A, const Name& B) \
 		{ \
-			return static_cast<const Name&>( Super::MaxUpper( A, B ) ); \
+			return static_cast<const Name&>(Super::MaxUpper(A, B)); \
 		} \
 		 \
-		static FORCEINLINE const Name& MinLower( const Name& A, const Name& B ) \
+		static FORCEINLINE const Name& MinLower(const Name& A, const Name& B) \
 		{ \
-			return static_cast<const Name&>( Super::MinLower( A, B ) ); \
+			return static_cast<const Name&>(Super::MinLower(A, B)); \
 		} \
 		 \
-		static FORCEINLINE const Name& MinUpper( const Name& A, const Name& B ) \
+		static FORCEINLINE const Name& MinUpper(const Name& A, const Name& B) \
 		{ \
-			return static_cast<const Name&>( Super::MinUpper( A, B ) ); \
+			return static_cast<const Name&>(Super::MinUpper(A, B)); \
 		} \
 	}; \
 	 \
@@ -387,6 +384,7 @@ private:
 	{ \
 		enum { Value = true }; \
 	};
+
 
 DEFINE_RANGEBOUND_WRAPPER_STRUCT(FDateRangeBound,   FDateTime)
 DEFINE_RANGEBOUND_WRAPPER_STRUCT(FDoubleRangeBound, double)

@@ -97,16 +97,13 @@ END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
 void SReflectorTreeWidgetItem::HandleHyperlinkNavigate()
 {
-	const FName AssetName = WidgetInfo->GetWidgetAssetName();
-	if ( !AssetName.IsNone() )
+	FAssetData AssetData = WidgetInfo->GetWidgetAssetData();
+	if ( AssetData.IsValid() )
 	{
 		if ( OnAccessAsset.IsBound() )
 		{
-			UObject* AssetObject = FindObject<UObject>(ANY_PACKAGE, *AssetName.ToString());
-			if ( AssetObject )
-			{
-				OnAccessAsset.Execute(AssetObject);
-			}
+			AssetData.GetPackage();
+			OnAccessAsset.Execute(AssetData.GetAsset());
 			return;
 		}
 	}

@@ -10,10 +10,12 @@
 #include "IntRect.h"
 #include "Vector.h"
 #include "Vector4.h"
+#include "VectorRegister.h"
 #include "TwoVectors.h"
 #include "Edge.h"
 #include "Plane.h"
 #include "Sphere.h"
+#include "CapsuleShape.h"
 #include "Rotator.h"
 #include "RangeBound.h"
 #include "Range.h"
@@ -47,6 +49,7 @@
 #include "Vector2DHalf.h"
 #include "AlphaBlendType.h"
 #include "ScalarRegister.h"
+#include "Transform.h"
 #include "ConvexHull2d.h"
 
 
@@ -404,75 +407,18 @@ inline FVector FMath::VRand()
 	return Result * (1.0f / Sqrt(L));
 }
 
-FORCEINLINE float FMath::RoundFromZero(float F)
+template<class U>
+FORCEINLINE_DEBUGGABLE FRotator FMath::Lerp(const FRotator& A, const FRotator& B, const U& Alpha)
 {
-	return (F < 0.0f) ? FloorToFloat(F) : CeilToFloat(F);
-}
-
-FORCEINLINE double FMath::RoundFromZero(double F)
-{
-	return (F < 0.0) ? FloorToDouble(F) : CeilToDouble(F);
-}
-
-FORCEINLINE float FMath::RoundToZero(float F)
-{
-	return (F < 0.0f) ? CeilToFloat(F) : FloorToFloat(F);
-}
-
-FORCEINLINE double FMath::RoundToZero(double F)
-{
-	return (F < 0.0) ? CeilToDouble(F) : FloorToDouble(F);
-}
-
-FORCEINLINE float FMath::RoundToNegativeInfinity(float F)
-{
-	return FloorToFloat(F);
-}
-
-FORCEINLINE double FMath::RoundToNegativeInfinity(double F)
-{
-	return FloorToDouble(F);
-}
-
-FORCEINLINE float FMath::RoundToPositiveInfinity(float F)
-{
-	return CeilToFloat(F);
-}
-
-FORCEINLINE double FMath::RoundToPositiveInfinity(double F)
-{
-	return CeilToDouble(F);
-}
-
-inline FString FMath::FormatIntToHumanReadable(int32 Val)
-{
-	FString Src = *FString::Printf( TEXT("%i"), Val );
-	FString Dst;
-
-	if( Val > 999 )
-	{
-		Dst = FString::Printf( TEXT(",%s"), *Src.Mid( Src.Len() - 3, 3 ) );
-		Src = Src.Left( Src.Len() - 3 );
-
-	}
-
-	if( Val > 999999 )
-	{
-		Dst = FString::Printf( TEXT(",%s%s"), *Src.Mid( Src.Len() - 3, 3 ), *Dst );
-		Src = Src.Left( Src.Len() - 3 );
-	}
-
-	Dst = Src + Dst;
-
-	return Dst;
+	return A + (B - A).GetNormalized() * Alpha;
 }
 
 template<class U>
-FORCEINLINE_DEBUGGABLE FRotator FMath::Lerp( const FRotator& A, const FRotator& B, const U& Alpha)
+FORCEINLINE_DEBUGGABLE FRotator FMath::LerpRange(const FRotator& A, const FRotator& B, const U& Alpha)
 {
+	// Similar to Lerp, but does not take the shortest path. Allows interpolation over more than 180 degrees.
 	return (A * (1 - Alpha) + B * Alpha).GetNormalized();
 }
-
 
 template<class U>
 FORCEINLINE_DEBUGGABLE FQuat FMath::Lerp( const FQuat& A, const FQuat& B, const U& Alpha)

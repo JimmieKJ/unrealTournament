@@ -560,6 +560,12 @@ FText UK2Node_Timeline::GetTooltipText() const
 	return LOCTEXT("TimelineTooltip", "Timeline node allows values to be keyframed over time.\nDouble click to open timeline editor.");
 }
 
+FSlateIcon UK2Node_Timeline::GetIconAndTint(FLinearColor& OutColor) const
+{
+	static FSlateIcon Icon("EditorStyle", "GraphEditor.Timeline_16x");
+	return Icon;
+}
+
 FString UK2Node_Timeline::GetDocumentationExcerptName() const
 {
 	return TEXT("UK2Node_Timeline");

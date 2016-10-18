@@ -26,6 +26,7 @@ public:
 	}
 
 	// UProperty interface
+	virtual bool ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8* Data, UStruct* DefaultsStruct, bool& bOutAdvanceProperty) override;
 	virtual bool Identical( const void* A, const void* B, uint32 PortFlags ) const override;
 	virtual void SerializeItem( FArchive& Ar, void* Value, void const* Defaults ) const override;
 	virtual void ExportTextItem( FString& ValueStr, const void* PropertyValue, const void* DefaultValue, UObject* Parent, int32 PortFlags, UObject* ExportRootScope ) const override;
@@ -38,4 +39,6 @@ public:
 
 	/** Generate the correct C++ code for the given text value */
 	static FString GenerateCppCodeForTextValue(const FText& InValue, const FString& Indent);
+
+	static bool Identical_Implementation(const FText& A, const FText& B, uint32 PortFlags);
 };

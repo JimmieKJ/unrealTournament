@@ -172,7 +172,7 @@ FString FKismetBytecodeDisassembler::ReadString8(int32& ScriptIndex)
 
 	do
 	{
-		Result += ReadBYTE(ScriptIndex);
+		Result += (ANSICHAR)ReadBYTE(ScriptIndex);
 	}
 	while (Script[ScriptIndex-1] != 0);
 
@@ -185,7 +185,7 @@ FString FKismetBytecodeDisassembler::ReadString16(int32& ScriptIndex)
 
 	do
 	{
-		Result += ReadWORD(ScriptIndex);
+		Result += (TCHAR)ReadWORD(ScriptIndex);
 	}
 	while ((Script[ScriptIndex-1] != 0) || (Script[ScriptIndex-2] != 0));
 
@@ -869,11 +869,20 @@ void FKismetBytecodeDisassembler::ProcessCommon(int32& ScriptIndex, EExprToken O
 		}
 	case EX_InstrumentationEvent:
 		{
-			const int32 EventType = ReadINT(ScriptIndex);
+			const uint8 EventType = ReadBYTE(ScriptIndex);
 			switch (EventType)
 			{
+				case EScriptInstrumentation::InlineEvent:
+					Ar.Logf(TEXT("%s $%X: .. instrumented inline event .."), *Indents, (int32)Opcode);
+					break;
+				case EScriptInstrumentation::Stop:
+					Ar.Logf(TEXT("%s $%X: .. instrumented event stop .."), *Indents, (int32)Opcode);
+					break;
 				case EScriptInstrumentation::PureNodeEntry:
 					Ar.Logf(TEXT("%s $%X: .. instrumented pure node entry site .."), *Indents, (int32)Opcode);
+					break;
+				case EScriptInstrumentation::NodeDebugSite:
+					Ar.Logf(TEXT("%s $%X: .. instrumented debug site .."), *Indents, (int32)Opcode);
 					break;
 				case EScriptInstrumentation::NodeEntry:
 					Ar.Logf(TEXT("%s $%X: .. instrumented wire entry site .."), *Indents, (int32)Opcode);
@@ -886,6 +895,12 @@ void FKismetBytecodeDisassembler::ProcessCommon(int32& ScriptIndex, EExprToken O
 					break;
 				case EScriptInstrumentation::RestoreState:
 					Ar.Logf(TEXT("%s $%X: .. restore execution state .."), *Indents, (int32)Opcode);
+					break;
+				case EScriptInstrumentation::ResetState:
+					Ar.Logf(TEXT("%s $%X: .. reset execution state .."), *Indents, (int32)Opcode);
+					break;
+				case EScriptInstrumentation::SuspendState:
+					Ar.Logf(TEXT("%s $%X: .. suspend execution state .."), *Indents, (int32)Opcode);
 					break;
 				case EScriptInstrumentation::PopState:
 					Ar.Logf(TEXT("%s $%X: .. pop execution state .."), *Indents, (int32)Opcode);

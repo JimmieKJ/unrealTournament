@@ -155,9 +155,12 @@ void FOutputDeviceLinuxError::HandleError()
 
 		GLog->Flush();
 
-#if !UE_SERVER
-		FPlatformMisc::ClipboardCopy(GErrorHist);
-#endif // !UE_SERVER
+		// do not copy if graphics have not been initialized or if we're on the wrong thread
+		if (FApp::CanEverRender() && IsInGameThread())
+		{
+			FPlatformMisc::ClipboardCopy(GErrorHist);
+		}
+
 		FPlatformMisc::SubmitErrorReport(GErrorHist, EErrorReportMode::Interactive);
 		FCoreDelegates::OnShutdownAfterError.Broadcast();
 #if !PLATFORM_EXCEPTIONS_DISABLED
@@ -215,7 +218,7 @@ void FOutputDeviceConsoleLinux::Serialize(const TCHAR* Data, ELogVerbosity::Type
 				}
 			}
 
-			printf("%ls\n", *FOutputDevice::FormatLogLine(Verbosity, Category, Data, GPrintLogTimes));
+			printf("%ls\n", *FOutputDeviceHelper::FormatLogLine(Verbosity, Category, Data, GPrintLogTimes));
 
 			if (bNeedToResetColor)
 			{

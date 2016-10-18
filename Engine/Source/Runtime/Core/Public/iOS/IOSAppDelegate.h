@@ -32,6 +32,10 @@ namespace FAppEntry
 	void Shutdown();
     void Suspend();
     void Resume();
+	
+	extern bool	gAppLaunchedWithLocalNotification;
+	extern FString	gLaunchLocalNotificationActivationEvent;
+	extern int32	gLaunchLocalNotificationFireDate;
 }
 
 @interface IOSAppDelegate : UIResponder <UIApplicationDelegate,
@@ -46,6 +50,8 @@ UITextFieldDelegate>
 
 /** Main GL View */
 @property (retain) FIOSView* IOSView;
+
+@property class FIOSApplication* IOSApplication;
 
 /** The controller to handle rotation of the view */
 @property (retain) IOSViewController* IOSController;
@@ -110,6 +116,8 @@ UITextFieldDelegate>
 - (void)ToggleSuspend:(bool)bSuspend;
 
 static void interruptionListener(void* ClientData, UInt32 Interruption);
+
+-(UIWindow*)window;
 
 @end
 

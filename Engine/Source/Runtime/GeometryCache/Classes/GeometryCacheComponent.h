@@ -69,6 +69,7 @@ class GEOMETRYCACHE_API UGeometryCacheComponent : public UMeshComponent
 
 	//~ Begin UMeshComponent Interface.
 	virtual int32 GetNumMaterials() const override;
+	virtual UMaterialInterface* GetMaterial(int32 MaterialIndex) const override;
 	//~ End UMeshComponent Interface.
 
 	/**
@@ -198,7 +199,7 @@ protected:
 	/**
 	* ReleaseResources, clears and removes data stored/copied from GeometryCache instance	
 	*/
-	void ReleaseResources();	
+	void ReleaseResources();
 
 	UPROPERTY(EditAnywhere, Category = GeometryCache)
 	bool bRunning;

@@ -140,12 +140,6 @@ void UFont::CacheCharacterCountAndMaxCharHeight()
 	MaxCharHeight.Add( MaxCharHeightForThisFont );
 }
 
-bool UFont::IsLocalizedResource()
-{
-	//@todo: maybe this should be a flag?
-	return true;
-}
-
 TCHAR UFont::RemapChar(TCHAR CharCode) const
 {
 	const uint16 UCode = CharCast<UCS2CHAR>(CharCode);
@@ -417,4 +411,30 @@ SIZE_T UFont::GetResourceSize(EResourceSizeMode::Type Mode)
 	}
 
 	return ResourceSize;
+}
+
+void UFont::ForceLoadFontData()
+{
+	if (FontCacheType == EFontCacheType::Runtime)
+	{
+		auto LoadFontDataForTypeface = [](const FTypeface& InTypeface)
+		{
+			for (const FTypefaceEntry& TypefaceEntry : InTypeface.Fonts)
+			{
+				// Somewhat evil, but ideally this will eventually be replaced by just having the font cache reference the bulk data directly
+				// rather than have the need to unload it to save memory, and then cause potential issues with render-thread loads
+				UFontBulkData* FontData = const_cast<UFontBulkData*>(TypefaceEntry.Font.BulkDataPtr);
+				if (FontData)
+				{
+					FontData->ForceLoadBulkData();
+				}
+			}
+		};
+
+		LoadFontDataForTypeface(CompositeFont.DefaultTypeface);
+		for (const FCompositeSubFont& SubTypeface : CompositeFont.SubTypefaces)
+		{
+			LoadFontDataForTypeface(SubTypeface.Typeface);
+		}
+	}
 }

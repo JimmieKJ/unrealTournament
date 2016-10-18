@@ -4,7 +4,8 @@
 
 #include "Core.h"
 #include "Json.h"
-#include "Analytics.h"
+#include "AnalyticsBuildType.h"
+#include "IAnalyticsProvider.h"
 #include "Http.h"
 #include "EngineVersion.h"
 #include "QoSReporter.h"
@@ -27,7 +28,7 @@ FString FQoSReporterModule::Config::GetDefaultAppVersion()
 
 FString FQoSReporterModule::Config::GetDefaultAppEnvironment() 
 {
-	return FAnalytics::ToString(FAnalytics::Get().GetBuildType()); 
+	return AnalyticsBuildTypeToString(GetAnalyticsBuildType()); 
 }
 
 class FAnalyticsProviderQoSReporter : public IAnalyticsProvider
@@ -99,7 +100,7 @@ void FQoSReporterModule::ShutdownModule()
 	FQoSReporter::Shutdown();
 }
 
-TSharedPtr<IAnalyticsProvider> FQoSReporterModule::CreateAnalyticsProvider(const FAnalytics::FProviderConfigurationDelegate& GetConfigValue) const
+TSharedPtr<IAnalyticsProvider> FQoSReporterModule::CreateAnalyticsProvider(const FAnalyticsProviderConfigurationDelegate& GetConfigValue) const
 {
 	if (GetConfigValue.IsBound())
 	{
@@ -164,7 +165,7 @@ FAnalyticsProviderQoSReporter::FAnalyticsProviderQoSReporter(const FQoSReporterM
 	InstanceId = FGuid::NewGuid();
 	FPlatformMisc::CreateGuid(InstanceId);
 
-	UE_LOG(LogQoSReporter, Log, TEXT("QoSReporter initialized (Guid = '%s')"), *InstanceId.ToString());
+	UE_LOG(LogQoSReporter, Log, TEXT("QoSReporter initialized (InstanceId = '%s', SystemId = '%s')"), *InstanceId.ToString(), *FPlatformMisc::GetOperatingSystemId());
 	UE_LOG(LogQoSReporter, Log, TEXT("APIKey = '%s'. APIServer = '%s'. AppVersion = '%s'. AppEnvironment = '%s'"), *APIKey, *APIServer, *AppVersion, *AppEnvironment);
 }
 

@@ -17,6 +17,8 @@ public:
 	/** Modifies the visibility and enabled attributes of an existing property row */
 	static void ModifyFoliagePropertyRow(IDetailPropertyRow* PropertyRow, const TAttribute<EVisibility>& InVisibility, const TAttribute<bool>& InEnabled);
 
+	static void AddBodyInstanceProperties(IDetailLayoutBuilder& LayoutBuilder);
+		
 	/** Hides all properties in the given category */
 	static void HideFoliageCategory(IDetailLayoutBuilder& DetailLayoutBuilder, FName CategoryName);
 

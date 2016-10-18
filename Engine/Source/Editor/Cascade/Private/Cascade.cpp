@@ -59,42 +59,42 @@ static const FName Cascade_CurveEditorTab("Cascade_CurveEditor");
 
 DEFINE_LOG_CATEGORY(LogCascade);
 
-void FCascade::RegisterTabSpawners(const TSharedRef<class FTabManager>& TabManager)
+void FCascade::RegisterTabSpawners(const TSharedRef<class FTabManager>& InTabManager)
 {
-	WorkspaceMenuCategory = TabManager->AddLocalWorkspaceMenuCategory(NSLOCTEXT("Cascade", "WorkspaceMenu_Cascade", "Cascade"));
+	WorkspaceMenuCategory = InTabManager->AddLocalWorkspaceMenuCategory(NSLOCTEXT("Cascade", "WorkspaceMenu_Cascade", "Cascade"));
 	auto WorkspaceMenuCategoryRef = WorkspaceMenuCategory.ToSharedRef();
 
-	FAssetEditorToolkit::RegisterTabSpawners(TabManager);
+	FAssetEditorToolkit::RegisterTabSpawners(InTabManager);
 
-	TabManager->RegisterTabSpawner( Cascade_PreviewViewportTab, FOnSpawnTab::CreateSP( this, &FCascade::SpawnTab, Cascade_PreviewViewportTab ) )
+	InTabManager->RegisterTabSpawner( Cascade_PreviewViewportTab, FOnSpawnTab::CreateSP( this, &FCascade::SpawnTab, Cascade_PreviewViewportTab ) )
 		.SetDisplayName(NSLOCTEXT("Cascade", "SummonViewport", "Viewport"))
 		.SetGroup( WorkspaceMenuCategoryRef )
 		.SetIcon(FSlateIcon(FEditorStyle::GetStyleSetName(), "LevelEditor.Tabs.Viewports"));
 
-	TabManager->RegisterTabSpawner( Cascade_EmmitterCanvasTab, FOnSpawnTab::CreateSP( this, &FCascade::SpawnTab, Cascade_EmmitterCanvasTab ) )
+	InTabManager->RegisterTabSpawner( Cascade_EmmitterCanvasTab, FOnSpawnTab::CreateSP( this, &FCascade::SpawnTab, Cascade_EmmitterCanvasTab ) )
 		.SetDisplayName(NSLOCTEXT("Cascade", "SummonCanvas", "Emitters"))
 		.SetGroup( WorkspaceMenuCategoryRef )
 		.SetIcon(FSlateIcon(FEditorStyle::GetStyleSetName(), "ClassIcon.Emitter"));
 
-	TabManager->RegisterTabSpawner( Cascade_PropertiesTab, FOnSpawnTab::CreateSP( this, &FCascade::SpawnTab, Cascade_PropertiesTab ) )
+	InTabManager->RegisterTabSpawner( Cascade_PropertiesTab, FOnSpawnTab::CreateSP( this, &FCascade::SpawnTab, Cascade_PropertiesTab ) )
 		.SetDisplayName(NSLOCTEXT("Cascade", "SummonProperties", "Details"))
 		.SetGroup( WorkspaceMenuCategoryRef )
 		.SetIcon(FSlateIcon(FEditorStyle::GetStyleSetName(), "LevelEditor.Tabs.Details"));
 
-	TabManager->RegisterTabSpawner( Cascade_CurveEditorTab, FOnSpawnTab::CreateSP( this, &FCascade::SpawnTab, Cascade_CurveEditorTab ) )
+	InTabManager->RegisterTabSpawner( Cascade_CurveEditorTab, FOnSpawnTab::CreateSP( this, &FCascade::SpawnTab, Cascade_CurveEditorTab ) )
 		.SetDisplayName(NSLOCTEXT("Cascade", "SummonCurveEditor", "CurveEditor"))
 		.SetGroup( WorkspaceMenuCategoryRef )
 		.SetIcon(FSlateIcon(FEditorStyle::GetStyleSetName(), "ClassIcon.CurveBase"));
 }
 
-void FCascade::UnregisterTabSpawners(const TSharedRef<class FTabManager>& TabManager)
+void FCascade::UnregisterTabSpawners(const TSharedRef<class FTabManager>& InTabManager)
 {
-	FAssetEditorToolkit::UnregisterTabSpawners(TabManager);
+	FAssetEditorToolkit::UnregisterTabSpawners(InTabManager);
 
-	TabManager->UnregisterTabSpawner( Cascade_PreviewViewportTab );
-	TabManager->UnregisterTabSpawner( Cascade_EmmitterCanvasTab );
-	TabManager->UnregisterTabSpawner( Cascade_PropertiesTab );
-	TabManager->UnregisterTabSpawner( Cascade_CurveEditorTab );
+	InTabManager->UnregisterTabSpawner( Cascade_PreviewViewportTab );
+	InTabManager->UnregisterTabSpawner( Cascade_EmmitterCanvasTab );
+	InTabManager->UnregisterTabSpawner( Cascade_PropertiesTab );
+	InTabManager->UnregisterTabSpawner( Cascade_CurveEditorTab );
 }
 
 FCascade::~FCascade()
@@ -2163,6 +2163,12 @@ void FCascade::BindCommands()
 		FIsActionChecked::CreateSP(this, &FCascade::IsViewSystemCompletedChecked));
 
 	ToolkitCommands->MapAction(
+		Commands.View_EmitterTickTimes,
+		FExecuteAction::CreateSP(this, &FCascade::OnViewEmitterTickTimes),
+		FCanExecuteAction(),
+		FIsActionChecked::CreateSP(this, &FCascade::IsViewEmitterTickTimesChecked));
+
+	ToolkitCommands->MapAction(
 		Commands.ToggleGeometry,
 		FExecuteAction::CreateSP(this, &FCascade::OnViewGeometry),
 		FCanExecuteAction(),
@@ -3586,6 +3592,17 @@ bool FCascade::IsDrawOptionEnabled(int32 Element) const
 	}
 }
 
+void FCascade::OnViewEmitterTickTimes()
+{
+	ToggleDrawOption(FCascadeEdPreviewViewportClient::EmitterTickTimes);
+}
+
+bool FCascade::IsViewEmitterTickTimesChecked() const
+{
+	return IsDrawOptionEnabled(FCascadeEdPreviewViewportClient::EmitterTickTimes);
+}
+
+
 void FCascade::OnViewOriginAxis()
 {
 	ToggleDrawOption(FCascadeEdPreviewViewportClient::OriginAxis);
@@ -4696,7 +4713,11 @@ void FCascade::OnConvertToSeeded()
 				{
 					UE_LOG(LogCascade, Warning, TEXT("Failed to convert module!"));
 				}
-				EndTransaction( Transaction );
+				EndTransaction(Transaction);
+
+				//Have to reset all existing component using this system.
+				FParticleResetContext ResetCtx;
+				ResetCtx.AddTemplate(ParticleSystem);
 
 				SetSelectedModule(SelectedEmitter, BaseLODLevel->Modules[ConvertModuleIdx]);
 

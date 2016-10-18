@@ -36,7 +36,7 @@ public class MergeActors : ModuleRules
 				"Slate",
 				"SlateCore",
                 "EditorStyle",
-				"UnrealEd",
+				"UnrealEd"
 			}
 		);
 
@@ -46,8 +46,7 @@ public class MergeActors : ModuleRules
                 "ContentBrowser",
                 "Documentation",
                 "LevelEditor",
-                "MeshUtilities",
-                "PropertyEditor"
+                "MeshUtilities"
 			}
 		);
 	}

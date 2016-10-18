@@ -41,7 +41,7 @@ ANote::ANote(const FObjectInitializer& ObjectInitializer)
 			ArrowComponent->SpriteInfo.DisplayName = ConstructorStatics.NAME_Notes;
 			ArrowComponent->Mobility = EComponentMobility::Static;
 			ArrowComponent->bIsScreenSizeScaled = true;
-			ArrowComponent->AttachParent = RootComponent;
+			ArrowComponent->SetupAttachment(RootComponent);
 		}
 
 		if (SpriteComponent)
@@ -50,7 +50,7 @@ ANote::ANote(const FObjectInitializer& ObjectInitializer)
 			SpriteComponent->RelativeScale3D = FVector(0.5f, 0.5f, 0.5f);
 			SpriteComponent->SpriteInfo.Category = ConstructorStatics.ID_Notes;
 			SpriteComponent->SpriteInfo.DisplayName = ConstructorStatics.NAME_Notes;
-			SpriteComponent->AttachParent = RootComponent;
+			SpriteComponent->SetupAttachment(RootComponent);
 			SpriteComponent->Mobility = EComponentMobility::Static;
 		}
 	}

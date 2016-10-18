@@ -50,12 +50,55 @@ FSequencerSelection::FOnSelectionChanged& FSequencerSelection::GetOnNodesWithSel
 	return OnNodesWithSelectedKeysOrSectionsChanged;
 }
 
+FSequencerSelection::FOnSelectionChangedObjectGuids& FSequencerSelection::GetOnOutlinerNodeSelectionChangedObjectGuids()
+{
+	return OnOutlinerNodeSelectionChangedObjectGuids;
+}
+
+TArray<FGuid> FSequencerSelection::GetBoundObjectsGuids()
+{
+	TArray<FGuid> OutGuids;
+	TSet<TSharedRef<FSequencerDisplayNode>> SelectedNodes = GetNodesWithSelectedKeysOrSections();
+	if (SelectedNodes.Num() == 0)
+	{
+		SelectedNodes = GetSelectedOutlinerNodes();
+	}
+	for (TSharedRef<FSequencerDisplayNode> Node : SelectedNodes)
+	{
+		TSharedPtr<FSequencerObjectBindingNode> ObjectNode;
+		if (Node->GetType() == ESequencerNode::Object)
+		{
+			ObjectNode = StaticCastSharedRef<FSequencerObjectBindingNode>(Node);
+		}
+		else
+		{
+			TSharedPtr<FSequencerDisplayNode> ParentNode = Node->GetParent();
+			if (ParentNode.IsValid())
+			{
+				while (ParentNode->GetParent().IsValid() && ParentNode->GetType() != ESequencerNode::Object)
+				{
+					ParentNode = ParentNode->GetParent();
+				}
+				ObjectNode = StaticCastSharedPtr<FSequencerObjectBindingNode>(ParentNode);
+			}
+		}
+
+		if (ObjectNode.IsValid())
+		{
+			OutGuids.Add(ObjectNode->GetObjectBinding());
+		}
+	}
+
+	return OutGuids;
+}
+
 void FSequencerSelection::AddToSelection(FSequencerSelectedKey Key)
 {
 	SelectedKeys.Add(Key);
 	if ( IsBroadcasting() )
 	{
 		OnKeySelectionChanged.Broadcast();
+		OnOutlinerNodeSelectionChangedObjectGuids.Broadcast();
 	}
 
 	// Deselect any outliner nodes that aren't within the trunk of this key
@@ -73,6 +116,7 @@ void FSequencerSelection::AddToSelection(UMovieSceneSection* Section)
 	if ( IsBroadcasting() )
 	{
 		OnSectionSelectionChanged.Broadcast();
+		OnOutlinerNodeSelectionChangedObjectGuids.Broadcast();
 	}
 
 	// Deselect any outliner nodes that aren't within the trunk of this section
@@ -90,6 +134,7 @@ void FSequencerSelection::AddToSelection(TSharedRef<FSequencerDisplayNode> Outli
 	if ( IsBroadcasting() )
 	{
 		OnOutlinerNodeSelectionChanged.Broadcast();
+		OnOutlinerNodeSelectionChangedObjectGuids.Broadcast();
 	}
 	EmptySelectedKeys();
 	EmptySelectedSections();
@@ -102,6 +147,7 @@ void FSequencerSelection::AddToNodesWithSelectedKeysOrSections(TSharedRef<FSeque
 	if ( IsBroadcasting() )
 	{
 		OnNodesWithSelectedKeysOrSectionsChanged.Broadcast();
+		OnOutlinerNodeSelectionChangedObjectGuids.Broadcast();
 	}
 }
 

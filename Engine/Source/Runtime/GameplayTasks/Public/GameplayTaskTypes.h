@@ -2,6 +2,12 @@
 
 #pragma once
 
+namespace FGameplayTasks
+{
+	static const uint8 DefaultPriority = 127;
+	static const uint8 ScriptedPriority = 192;
+}
+
 template<class TInterface>
 struct TWeakInterfacePtr
 {

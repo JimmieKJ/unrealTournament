@@ -46,7 +46,7 @@ class UNREALTOURNAMENT_API AUTJumpBoots : public AUTInventory
 	virtual bool StackPickup_Implementation(AUTInventory* ContainedInv) override;
 	virtual void DropFrom(const FVector& StartLocation, const FVector& TossVelocity) override;
 
-	virtual float BotDesireability_Implementation(APawn* Asker, AActor* Pickup, float PathDistance) const;
+	virtual float BotDesireability_Implementation(APawn* Asker, AController* RequestOwner, AActor* Pickup, float PathDistance) const;
 	virtual float DetourWeight_Implementation(APawn* Asker, AActor* Pickup, float PathDistance) const;
 
 public:

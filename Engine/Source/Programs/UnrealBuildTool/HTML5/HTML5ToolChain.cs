@@ -44,7 +44,7 @@ namespace UnrealBuildTool
 		{
 			string Result = " ";
 
-            if (Architecture == "-win32") // simulator
+			if (Architecture == "-win32") // simulator
 			{
 				return Result;
 			}
@@ -77,7 +77,7 @@ namespace UnrealBuildTool
 			// JavsScript option overrides (see src/settings.js)
 
 			// we have to specify the full amount of memory with Asm.JS (1.5 G)
-			// I wonder if there's a per game way to change this. 
+			// I wonder if there's a per game way to change this.
 			int TotalMemory = 256 * 1024 * 1024;
 			Result += " -s TOTAL_MEMORY=" + TotalMemory.ToString();
 
@@ -85,10 +85,15 @@ namespace UnrealBuildTool
 			Result += " -s DISABLE_EXCEPTION_CATCHING=1";
 			// enable checking for missing functions at link time as opposed to runtime
 			Result += " -s WARN_ON_UNDEFINED_SYMBOLS=1";
-			// we want full ES2
-			Result += " -s FULL_ES2=1 ";
-			// export console command handler. Export main func too because default exports ( e.g Main ) are overridden if we use custom exported functions. 
-			Result += " -s EXPORTED_FUNCTIONS=\"['_main', '_resize_game', '_on_fatal']\" ";
+
+			// enable hardware accelerated and advanced instructions/functions
+//			Result += " -s USE_WEBGL2=1 -s FULL_ES3=1";
+			Result += " -s FULL_ES2=1";
+			Result += " -s SIMD=1";
+//			Result += " -s USE_PTHREADS=2"; // 2:polyfill -- SharedInt\d+Array available by ES7
+
+			// export console command handler. Export main func too because default exports ( e.g Main ) are overridden if we use custom exported functions.
+			Result += " -s EXPORTED_FUNCTIONS=\"['_main', '_on_fatal']\"";
 
 			// NOTE: This may slow down the compiler's startup time!
 			{
@@ -106,7 +111,7 @@ namespace UnrealBuildTool
 		{
 			string Result = GetSharedArguments_Global(CompileEnvironment.Config.Target.Configuration, CompileEnvironment.Config.Target.Architecture, CompileEnvironment.Config.bEnableShadowVariableWarning);
 
-            if (CompileEnvironment.Config.Target.Architecture != "-win32")  // ! simulator
+			if (CompileEnvironment.Config.Target.Architecture != "-win32")  // ! simulator
 			{
 				// do we want debug info?
 				/*			if (CompileEnvironment.Config.bCreateDebugInfo)
@@ -122,32 +127,32 @@ namespace UnrealBuildTool
 					Result += " -s GL_ASSERTIONS=1";
 				}
 
-                if (CompileEnvironment.Config.Target.Configuration == CPPTargetConfiguration.Debug)
-                {
-                    Result += " -O0";
-                }
-                else // development & shipiing
-                {
-                    Result += " -s ASM_JS=1";
+				if (CompileEnvironment.Config.Target.Configuration == CPPTargetConfiguration.Debug)
+				{
+					Result += " -O0";
+				}
+				else // development & shipiing
+				{
+					Result += " -s ASM_JS=1";
 
-                    if (UEBuildConfiguration.bCompileForSize)
-				    {
-					    Result += " -Oz -s OUTLINING_LIMIT=40000";
-				    }
-                    else
-                    {
-                        Result += " -s OUTLINING_LIMIT=110000";
+					if (UEBuildConfiguration.bCompileForSize)
+					{
+						Result += " -Oz -s OUTLINING_LIMIT=40000";
+					}
+					else
+					{
+						Result += " -s OUTLINING_LIMIT=110000";
 
-                        if (CompileEnvironment.Config.Target.Configuration == CPPTargetConfiguration.Development)
-                        {
-                            Result += " -O2";
-                        }
-                        if (CompileEnvironment.Config.Target.Configuration == CPPTargetConfiguration.Shipping)
-                        {
-                            Result += " -O3";
-                        }
-                    }
-                }
+						if (CompileEnvironment.Config.Target.Configuration == CPPTargetConfiguration.Development)
+						{
+							Result += " -O2";
+						}
+						if (CompileEnvironment.Config.Target.Configuration == CPPTargetConfiguration.Shipping)
+						{
+							Result += " -O3";
+						}
+					}
+				}
 			}
 
 			return Result;
@@ -157,7 +162,7 @@ namespace UnrealBuildTool
 		{
 			string Result = "";
 
-            if (CompileEnvironment.Config.Target.Architecture != "-win32") // ! simulator
+			if (CompileEnvironment.Config.Target.Architecture != "-win32") // ! simulator
 			{
 				Result = " -std=c++11";
 			}
@@ -175,7 +180,7 @@ namespace UnrealBuildTool
 		{
 			string Result = GetSharedArguments_Global(LinkEnvironment.Config.Target.Configuration, LinkEnvironment.Config.Target.Architecture, false);
 
-            if (LinkEnvironment.Config.Target.Architecture != "-win32") // ! simulator
+			if (LinkEnvironment.Config.Target.Architecture != "-win32") // ! simulator
 			{
 				// suppress link time warnings
 				Result += " -Wno-ignored-attributes"; // function alias that always gets resolved
@@ -200,30 +205,30 @@ namespace UnrealBuildTool
 				{
 					Result += " -O0";
 				}
-                else // development & shipping
-                {
-                    Result += " -s ASM_JS=1";
+				else // development & shipping
+				{
+					Result += " -s ASM_JS=1";
 
-                    if (UEBuildConfiguration.bCompileForSize)
-                    {
-                        Result += " -Oz -s OUTLINING_LIMIT=40000";
-                    }
-                    else
-                    {
-                        Result += " -s OUTLINING_LIMIT=110000";
+					if (UEBuildConfiguration.bCompileForSize)
+					{
+						Result += " -Oz -s OUTLINING_LIMIT=40000";
+					}
+					else
+					{
+						Result += " -s OUTLINING_LIMIT=110000";
 
-                        if (LinkEnvironment.Config.Target.Configuration == CPPTargetConfiguration.Development)
-                        {
-                            Result += " -O2";
-                        }
-                        if (LinkEnvironment.Config.Target.Configuration == CPPTargetConfiguration.Shipping)
-                        {
-                            Result += " -O3";
-                        }
-                    }
-                }
+						if (LinkEnvironment.Config.Target.Configuration == CPPTargetConfiguration.Development)
+						{
+							Result += " -O2";
+						}
+						if (LinkEnvironment.Config.Target.Configuration == CPPTargetConfiguration.Shipping)
+						{
+							Result += " -O3";
+						}
+					}
+				}
 
-				Result += " -s CASE_INSENSITIVE_FS=1 ";
+				Result += " -s CASE_INSENSITIVE_FS=1";
 			}
 
 			return Result;
@@ -233,7 +238,7 @@ namespace UnrealBuildTool
 		{
 			string Result = "";
 
-            if (LinkEnvironment.Config.Target.Architecture == "-win32") // simulator
+			if (LinkEnvironment.Config.Target.Architecture == "-win32") // simulator
 			{
 				// Prevents the linker from displaying its logo for each invocation.
 				Result += " /NOLOGO";
@@ -312,7 +317,7 @@ namespace UnrealBuildTool
 
 		public override CPPOutput CompileCPPFiles(UEBuildTarget Target, CPPEnvironment CompileEnvironment, List<FileItem> SourceFiles, string ModuleName)
 		{
-            if (CompileEnvironment.Config.Target.Architecture == "-win32") // simulator
+			if (CompileEnvironment.Config.Target.Architecture == "-win32") // simulator
 			{
 				return base.CompileCPPFiles(Target, CompileEnvironment, SourceFiles, ModuleName);
 			}
@@ -381,7 +386,7 @@ namespace UnrealBuildTool
 
 				CompileAction.CommandArguments = HTML5SDKInfo.EmscriptenCompiler() + " " + Arguments + FileArguments + CompileEnvironment.Config.AdditionalArguments;
 
-				//System.Console.WriteLine(CompileAction.CommandArguments); 
+				//System.Console.WriteLine(CompileAction.CommandArguments);
 				CompileAction.StatusDescription = Path.GetFileName(SourceFile.AbsolutePath);
 				CompileAction.OutputEventHandler = new DataReceivedEventHandler(CompileOutputReceivedDataEventHandler);
 
@@ -407,7 +412,7 @@ namespace UnrealBuildTool
 		{
 			CPPOutput Result = new CPPOutput();
 
-            if (Environment.Config.Target.Architecture == "-win32") // simulator
+			if (Environment.Config.Target.Architecture == "-win32") // simulator
 			{
 				return base.CompileRCFiles(Target, Environment, RCFiles);
 			}
@@ -419,7 +424,7 @@ namespace UnrealBuildTool
 		/// Translates clang output warning/error messages into vs-clickable messages
 		/// </summary>
 		/// <param name="sender"> Sending object</param>
-		/// <param name="e">  Event arguments (In this case, the line of string output)</param>
+		/// <param name="e"> Event arguments (In this case, the line of string output)</param>
 		protected void RemoteOutputReceivedEventHandler(object sender, DataReceivedEventArgs e)
 		{
 			var Output = e.Data;
@@ -471,7 +476,7 @@ namespace UnrealBuildTool
 
 		public override FileItem LinkFiles(LinkEnvironment LinkEnvironment, bool bBuildImportLibraryOnly)
 		{
-            if (LinkEnvironment.Config.Target.Architecture == "-win32") // simulator
+			if (LinkEnvironment.Config.Target.Architecture == "-win32") // simulator
 			{
 				return base.LinkFiles(LinkEnvironment, bBuildImportLibraryOnly);
 			}
@@ -481,7 +486,7 @@ namespace UnrealBuildTool
 			// Make the final javascript file
 			Action LinkAction = new Action(ActionType.Link);
 
-			// ResponseFile lines. 
+			// ResponseFile lines.
 			List<string> ReponseLines = new List<string>();
 
 			LinkAction.bCanExecuteRemotely = false;
@@ -500,10 +505,10 @@ namespace UnrealBuildTool
 
 			if (!LinkEnvironment.Config.bIsBuildingLibrary)
 			{
-				// Make sure ThirdParty libs are at the end. 
+				// Make sure ThirdParty libs are at the end.
 				List<string> ThirdParty = (from Lib in LinkEnvironment.Config.AdditionalLibraries
-										   where Lib.Contains("ThirdParty")
-										   select Lib).ToList();
+											where Lib.Contains("ThirdParty")
+											select Lib).ToList();
 
 				LinkEnvironment.Config.AdditionalLibraries.RemoveAll(Element => Element.Contains("ThirdParty"));
 				LinkEnvironment.Config.AdditionalLibraries.AddRange(ThirdParty);
@@ -555,7 +560,7 @@ namespace UnrealBuildTool
 
 		public override void ModifyBuildProducts(UEBuildBinary Binary, Dictionary<FileReference, BuildProductType> BuildProducts)
 		{
-			// we need to include the generated .mem and .symbols file.  
+			// we need to include the generated .mem and .symbols file.
 			if (Binary.Config.Type != UEBuildBinaryType.StaticLibrary)
 			{
 				BuildProducts.Add(Binary.Config.OutputFilePath + ".mem", BuildProductType.RequiredResource);

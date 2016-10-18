@@ -112,3 +112,10 @@ struct CORE_API FParse
 	/** Parses the scheme name from a URI */
 	static bool SchemeNameFromURI(const TCHAR* InURI, FString& OutSchemeName);
 };
+
+#if !UE_BUILD_SHIPPING
+/** Needed for the console command "DumpConsoleCommands" */
+CORE_API void ConsoleCommandLibrary_DumpLibrary(class UWorld* InWorld, FExec& SubSystem, const FString& Pattern, FOutputDevice& Ar);
+/** Needed for the console command "Help" */
+CORE_API void ConsoleCommandLibrary_DumpLibraryHTML(class UWorld* InWorld, FExec& SubSystem, const FString& OutPath);
+#endif // !UE_BUILD_SHIPPING

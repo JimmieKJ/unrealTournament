@@ -20,14 +20,44 @@ class UNREALTOURNAMENT_API UUTCountDownMessage : public UUTLocalMessage
 		FText SilverBonusMessage;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
+		FText RoundPrefix;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
+		FText RoundPostfix;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
+		TArray<FName> RoundName;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
 		USoundBase* TimeWarningSound;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
 		USoundBase* TimeEndingSound;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
+		FName GoldBonusName;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
+		FName SilverBonusName;
 
 	virtual FName GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject, const class APlayerState* RelatedPlayerState_1, const class APlayerState* RelatedPlayerState_2) const override
 	{
+		if (Switch >= 1000)
+		{
+			if (Switch == 4007)
+			{
+				return GoldBonusName;
+			}
+			else if (Switch == 3007)
+			{
+				return SilverBonusName;
+			}
+			else if ((Switch < 2001+RoundName.Num()) && (Switch > 2000))
+			{
+				return RoundName[Switch - 2001];
+			}
+			return NAME_None;
+		}
 		return FName(*FString::Printf(TEXT("CD%i"), Switch));
 	}
 	virtual void GetArgs(FFormatNamedArguments& Args, int32 Switch = 0, bool bTargetsPlayerState1 = false,class APlayerState* RelatedPlayerState_1 = NULL,class APlayerState* RelatedPlayerState_2 = NULL,class UObject* OptionalObject = NULL) const;
@@ -37,5 +67,6 @@ class UNREALTOURNAMENT_API UUTCountDownMessage : public UUTLocalMessage
 	virtual float GetLifeTime(int32 Switch) const override;
 	virtual void GetEmphasisText(FText& PrefixText, FText& EmphasisText, FText& PostfixText, FLinearColor& EmphasisColor, int32 Switch, class APlayerState* RelatedPlayerState_1, class APlayerState* RelatedPlayerState_2, class UObject* OptionalObject) const override;
 	virtual void ClientReceive(const FClientReceiveData& ClientData) const override;
+	virtual bool IsOptionalSpoken(int32 MessageIndex) const override;
 };
 

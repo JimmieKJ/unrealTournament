@@ -25,24 +25,28 @@ extern double GHeaderCodeGenTime;
 enum {MAX_NEST_LEVELS = 16};
 
 /* Code nesting types. */
-enum ENestType
+enum class ENestType
 {
-	NEST_GlobalScope,
-	NEST_Class,
-	NEST_FunctionDeclaration,
-	NEST_Interface,
-	NEST_NativeInterface
+	GlobalScope,
+	Class,
+	FunctionDeclaration,
+	Interface,
+	NativeInterface
 };
 
 /** Types of statements to allow within a particular nesting block. */
-enum ENestAllowFlags
+enum class ENestAllowFlags
 {
-	ALLOW_Function			= 1,	// Allow Event declarations at this level.
-	ALLOW_VarDecl			= 2,	// Allow variable declarations at this level.
-	ALLOW_Class				= 4,	// Allow class definition heading.
-	ALLOW_Return			= 8,	// Allow 'return' within a function.
-	ALLOW_TypeDecl			= 16,	// Allow declarations which do not affect memory layout, such as structs, enums, and consts
+	None                 = 0,
+	Function             = 1,  // Allow Event declarations at this level.
+	VarDecl              = 2,  // Allow variable declarations at this level.
+	Class                = 4,  // Allow class definition heading.
+	Return               = 8,  // Allow 'return' within a function.
+	TypeDecl             = 16, // Allow declarations which do not affect memory layout, such as structs, enums, and consts, but not implicit delegates
+	ImplicitDelegateDecl = 32, // Allow implicit delegates (i.e. those not decorated with UDELEGATE) to be declared
 };
+
+ENUM_CLASS_FLAGS(ENestAllowFlags)
 
 namespace EDelegateSpecifierAction
 {
@@ -92,7 +96,7 @@ public:
 	ENestType NestType;
 
 	/** Types of statements to allow at this nesting level. */
-	int32 Allow;
+	ENestAllowFlags Allow;
 };
 
 struct FIndexRange
@@ -167,7 +171,7 @@ public:
 	//   
 	//  It also splits the buffer up into:
 	//   ScriptText (text outside of #if CPP and #if DEFAULTS blocks)
-	static void SimplifiedClassParse(const TCHAR* Buffer, TArray<FSimplifiedParsingClassInfo>& OutParsedClassArray, TArray<FHeaderProvider>& DependentOn, FStringOutputDevice& ScriptText);
+	static void SimplifiedClassParse(const TCHAR* Filename, const TCHAR* Buffer, TArray<FSimplifiedParsingClassInfo>& OutParsedClassArray, TArray<FHeaderProvider>& DependentOn, FStringOutputDevice& ScriptText);
 
 	/**
 	 * Returns True if the given class name includes a valid Unreal prefix and matches up with the given original class Name.
@@ -243,7 +247,12 @@ protected:
 	FFileScope* GetCurrentFileScope() const
 	{
 		int32 Index = 0;
-		while (TopNest[Index].NestType != NEST_GlobalScope)
+		if (!TopNest)
+		{
+			check(!NestLevel);
+			return nullptr;
+		}
+		while (TopNest[Index].NestType != ENestType::GlobalScope)
 		{
 			--Index;
 		}
@@ -269,7 +278,7 @@ protected:
 	 */
 	FStructScope* GetCurrentClassScope() const
 	{
-		check(TopNest->NestType == NEST_Class || TopNest->NestType == NEST_Interface || TopNest->NestType == NEST_NativeInterface);
+		check(TopNest->NestType == ENestType::Class || TopNest->NestType == ENestType::Interface || TopNest->NestType == ENestType::NativeInterface);
 
 		return (FStructScope*)TopNest->GetScope();
 	}
@@ -280,9 +289,9 @@ protected:
 	bool IsInAClass() const
 	{
 		int32 Index = 0;
-		while (TopNest[Index].NestType != NEST_GlobalScope)
+		while (TopNest[Index].NestType != ENestType::GlobalScope)
 		{
-			if (TopNest[Index].NestType == NEST_Class || TopNest->NestType == NEST_Interface || TopNest->NestType == NEST_NativeInterface)
+			if (TopNest[Index].NestType == ENestType::Class || TopNest->NestType == ENestType::Interface || TopNest->NestType == ENestType::NativeInterface)
 			{
 				return true;
 			}
@@ -475,7 +484,7 @@ protected:
 	void FinalizeScriptExposedFunctions(UClass* Class);
 	UEnum* CompileEnum();
 	UScriptStruct* CompileStructDeclaration(FClasses& AllClasses);
-	bool CompileDeclaration(FClasses& AllClasses, FToken& Token);
+	bool CompileDeclaration(FClasses& AllClasses, TArray<UDelegateFunction*>& DelegatesToFixup, FToken& Token);
 
 	/** Skip C++ (noexport) declaration. */
 	bool SkipDeclaration(FToken& Token);
@@ -510,7 +519,7 @@ protected:
 	UDelegateFunction* CreateDelegateFunction(const FFuncInfo &FuncInfo) const;	
 
 	void CompileClassDeclaration(FClasses& AllClasses);
-	void CompileDelegateDeclaration(FClasses& AllClasses, const TCHAR* DelegateIdentifier, EDelegateSpecifierAction::Type SpecifierAction = EDelegateSpecifierAction::DontParse);
+	UDelegateFunction* CompileDelegateDeclaration(FClasses& AllClasses, const TCHAR* DelegateIdentifier, EDelegateSpecifierAction::Type SpecifierAction = EDelegateSpecifierAction::DontParse);
 	void CompileFunctionDeclaration(FClasses& AllClasses);
 	void CompileVariableDeclaration (FClasses& AllClasses, UStruct* Struct);
 	void CompileInterfaceDeclaration(FClasses& AllClasses);
@@ -518,15 +527,15 @@ protected:
 	FClass* ParseInterfaceNameDeclaration(FClasses& AllClasses, FString& DeclaredInterfaceName, FString& RequiredAPIMacroIfPresent);
 	bool TryParseIInterfaceClass(FClasses& AllClasses);
 
-	bool CompileStatement(FClasses& AllClasses);
+	bool CompileStatement(FClasses& AllClasses, TArray<UDelegateFunction*>& DelegatesToFixup);
 
 	// Checks to see if a particular kind of command is allowed on this nesting level.
-	bool IsAllowedInThisNesting(uint32 AllowFlags);
+	bool IsAllowedInThisNesting(ENestAllowFlags AllowFlags);
 	
 	// Make sure that a particular kind of command is allowed on this nesting level.
 	// If it's not, issues a compiler error referring to the token and the current
 	// nesting level.
-	void CheckAllow(const TCHAR* Thing, uint32 AllowFlags);
+	void CheckAllow(const TCHAR* Thing, ENestAllowFlags AllowFlags);
 
 	UStruct* GetSuperScope( UStruct* CurrentScope, const FName& SearchName );
 

@@ -84,16 +84,9 @@ public:
 
 			if (MaterialQualityLevel < EMaterialQualityLevel::Num)
 			{
-				return	SNew(SBox)
-					.HeightOverride(20)
-					.Padding(FMargin(3, 0))
-					.VAlign(VAlign_Center)
-					[
-						SNew(SCheckBox)
-						.OnCheckStateChanged(this, &SQualityListItem::OnQualityRangeChanged, MaterialQualityLevel)
-						.IsChecked(this, &SQualityListItem::IsQualityRangeSet, MaterialQualityLevel)
-						.IsEnabled(this, &SQualityListItem::IsEnabled, MaterialQualityLevel)
-					];
+				TSharedRef<SWidget> Widget = Item->OverrideHandles.FindChecked(MaterialQualityLevel)->CreatePropertyValueWidget();
+				Widget->SetEnabled(TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateSP(this, &SQualityListItem::IsEnabled, MaterialQualityLevel)));
+				return Widget;
 			}
 		}
 	
@@ -102,32 +95,21 @@ public:
 
 private:
 
-	ECheckBoxState IsQualityRangeSet(EMaterialQualityLevel::Type QualityLevel) const
-	{
-		bool* State = Item->QualityProperty->ContainerPtrToValuePtr<bool>(&Item->SettingContainer->GetQualityOverrides(QualityLevel));
-		return *State ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
-	}
-
-	void OnQualityRangeChanged(ECheckBoxState NewCheckedState, EMaterialQualityLevel::Type QualityLevel)
-	{
-		bool* State = Item->QualityProperty->ContainerPtrToValuePtr<bool>(&Item->SettingContainer->GetQualityOverrides(QualityLevel));
-		*State = NewCheckedState == ECheckBoxState::Checked;
-
-		// save changes.
-		// TODO: use property handles so FSettingSection::Save() does the config saving.
-		Item->SettingContainer->UpdateDefaultConfigFile();
-	}
-
 	bool IsEnabled(EMaterialQualityLevel::Type QualityLevel) const
 	{
-		bool* bEnableOverride = &Item->SettingContainer->GetQualityOverrides(QualityLevel).bEnableOverride;
-		bool* State = Item->QualityProperty->ContainerPtrToValuePtr<bool>(&Item->SettingContainer->GetQualityOverrides(QualityLevel));
+		const TSharedRef<IPropertyHandle> ItemHandle = Item->OverrideHandles.FindChecked(QualityLevel);
 
-		// Enable all if EnableOverride is set,
-		// but also ensure all but the high quality override flag remains enabled.
-		const bool bIsOverrideProperty = bEnableOverride == State;
-		const bool bIsHighQualityOverrideProperty = (bIsOverrideProperty && QualityLevel == EMaterialQualityLevel::High);
-		return (!bIsOverrideProperty && *bEnableOverride == true) || (bIsOverrideProperty && !bIsHighQualityOverrideProperty);
+		// bEnableOverride is always enabled for all levels other than High and disabled for High.
+		if (ItemHandle->GetProperty()->GetFName() == FName("bEnableOverride"))
+		{
+			return QualityLevel != EMaterialQualityLevel::High;
+		}
+
+		// enable only if the enabled checkbox is checked
+		const TSharedRef<IPropertyHandle> EnabledHandle = Item->EnabledHandles.FindChecked(QualityLevel);
+		bool bEnabled = false;
+		EnabledHandle->GetValue(bEnabled);
+		return bEnabled;
 	}
 
 	TSharedPtr< FShaderQualityOverridesListItem > Item;
@@ -136,8 +118,7 @@ private:
 TSharedRef<ITableRow> FMaterialShaderQualitySettingsCustomization::HandleGenerateQualityWidget(TSharedPtr<FShaderQualityOverridesListItem> InItem, const TSharedRef<STableViewBase>& OwnerTable)
 {
 	return SNew(SQualityListItem, OwnerTable)
-		.Item(InItem)
-		;
+		.Item(InItem);
 }
 
 FReply FMaterialShaderQualitySettingsCustomization::UpdatePreviewShaders()
@@ -148,25 +129,44 @@ FReply FMaterialShaderQualitySettingsCustomization::UpdatePreviewShaders()
 
 void FMaterialShaderQualitySettingsCustomization::CustomizeDetails(IDetailLayoutBuilder& DetailLayout)
 {
-	IDetailCategoryBuilder& ForwardRenderingCategory = DetailLayout.EditCategory(TEXT("Forward Rendering overrides"));
-
-	TArray<TWeakObjectPtr<UObject>> ObjectsBeingCustomized;
-	DetailLayout.GetObjectsBeingCustomized(ObjectsBeingCustomized);
-	UShaderPlatformQualitySettings* TargetObject = nullptr;
-
-	if (ObjectsBeingCustomized.Num() >= 1)
-	{
-		TargetObject = Cast<UShaderPlatformQualitySettings>(ObjectsBeingCustomized[0].Get());
-	}
-	check(TargetObject != nullptr);
+	IDetailCategoryBuilder& ForwardRenderingCategory = DetailLayout.EditCategory(TEXT("Forward Rendering Overrides"));
 
 	// Build a list of FShaderQualityRange properties.
 	QualityOverrideListSource.Empty();
-	// iterate through possible override properties
-	for (UBoolProperty* Prop : TFieldRange<UBoolProperty>(FMaterialQualityOverrides::StaticStruct()))
+	const TSharedRef<IPropertyHandle> QualityOverridesArray = DetailLayout.GetProperty(FName(TEXT("QualityOverrides")));
+	DetailLayout.HideProperty(QualityOverridesArray);
+	uint32 NumChildren;
+	QualityOverridesArray->GetNumChildren(NumChildren);
+	check(NumChildren == (uint32)EMaterialQualityLevel::Num);
+
+	// Find the QualityOverrides array property
+	const TSharedRef< IPropertyHandle > QualityOverrides0 = QualityOverridesArray->GetChildHandle(0).ToSharedRef();
+	QualityOverrides0->GetNumChildren(NumChildren);
+
+	// We will store the handles for the bEnableOverride properties for each QL.
+	TMap<EMaterialQualityLevel::Type, TSharedRef<IPropertyHandle>> EnabledHandles;
+
+	for (uint32 OverrideIndex = 0; OverrideIndex < NumChildren; OverrideIndex++)
 	{
-		QualityOverrideListSource.Add(MakeShareable(
-			new FShaderQualityOverridesListItem(Prop->GetMetaData("DisplayName"), Prop, TargetObject)));
+		FString DisplayName;
+		TMap<EMaterialQualityLevel::Type, TSharedRef<IPropertyHandle>> OverrideHandles;
+		for (uint32 QualityIndex = 0; QualityIndex < EMaterialQualityLevel::Num; QualityIndex++)
+		{
+			TSharedRef< IPropertyHandle > OverrideHandle = QualityOverridesArray->GetChildHandle(QualityIndex)->GetChildHandle(OverrideIndex).ToSharedRef();
+			OverrideHandles.Add((EMaterialQualityLevel::Type)QualityIndex, OverrideHandle);
+			if (QualityIndex == 0)
+			{
+				DisplayName = OverrideHandle->GetProperty()->GetMetaData("DisplayName");
+			}
+		}
+
+		// Remember the bEnableOverride properties so they can be referenced when deciding whether to enable the widgets
+		if (OverrideIndex == 0)
+		{
+			EnabledHandles = OverrideHandles;
+		}
+
+		QualityOverrideListSource.Add(MakeShareable(new FShaderQualityOverridesListItem(DisplayName, OverrideHandles, EnabledHandles)));
 	}
 
 	ForwardRenderingCategory.AddCustomRow(LOCTEXT("ForwardRenderingMaterialOverrides", "Forward Rendering Material Overrides"))

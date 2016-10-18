@@ -48,6 +48,9 @@ public:
 	/** Sets properties specific to the processed crash. Used to convert the old data into the crash context format. */
 	void SetPrimaryCrashProperties( FPrimaryCrashProperties& out_PrimaryCrashProperties );
 
+	/** Sets the version string in the error report and saves the change */
+	void SetCrashReportClientVersion(const FString& InVersion);
+
 	/**
 	 * Provide full paths to all the report files
 	 * @return List of paths

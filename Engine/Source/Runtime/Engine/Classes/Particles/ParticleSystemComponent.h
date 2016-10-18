@@ -274,6 +274,8 @@ struct FParticleEventCollideData : public FParticleExistingData
 	/** Name of bone we hit (for skeletal meshes). */
 	FName BoneName;
 
+	/** The physical material for this collision. */
+	UPhysicalMaterial* PhysMat;
 
 	FParticleEventCollideData()
 		: Normal(ForceInit)
@@ -341,6 +343,9 @@ public:
 	/** True if this was active before being unregistered or otherwise reset, if so reactivate it */
 	uint32 bWasActive:1;
 
+	/** If true, someone has requested this component reset. */
+	uint32 bResetTriggered : 1;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Particles)
 	uint32 bResetOnDetach:1;
 
@@ -392,6 +397,11 @@ private:
 	void CancelAutoAttachment(bool bDetachFromParent);
 
 public:
+
+	void ResetNextTick()
+	{
+		bResetTriggered = true;
+	}
 
 	/**
 	 *	Array holding name instance parameters for this ParticleSystemComponent.
@@ -495,7 +505,6 @@ public:
 	uint32 bForceLODUpdateFromRenderer:1;
 
 	/** The view relevance flags for each LODLevel. */
-	UPROPERTY(transient)
 	TArray<FMaterialRelevance> CachedViewRelevanceFlags;
 
 	/** If true, the ViewRelevanceFlags are dirty and should be recached */
@@ -560,21 +569,54 @@ public:
 	FName AutoAttachSocketName;
 
 	/**
-	 * Options for how we handle our location when we attach to the AutoAttachParent, if bAutoManageAttachment is true.
+	 * DEPRECATED: Options for how we handle our location when we attach to the AutoAttachParent, if bAutoManageAttachment is true.
 	 * @see bAutoManageAttachment, EAttachLocation::Type
 	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Attachment, meta=(EditCondition="bAutoManageAttachment"))
-	TEnumAsByte<EAttachLocation::Type> AutoAttachLocationType;
+	UPROPERTY()
+	TEnumAsByte<EAttachLocation::Type> AutoAttachLocationType_DEPRECATED;
 
 	/**
-	 * Set AutoAttachParent, AutoAttachSocketName, AutoAttachLocationType to the specified parameters. Does not change bAutoManageAttachment; that must be set separately.
+	 * Options for how we handle our location when we attach to the AutoAttachParent, if bAutoManageAttachment is true.
+	 * @see bAutoManageAttachment, EAttachmentRule
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Attachment, meta = (EditCondition = "bAutoManageAttachment"))
+	EAttachmentRule AutoAttachLocationRule;
+
+	/**
+	 * Options for how we handle our rotation when we attach to the AutoAttachParent, if bAutoManageAttachment is true.
+	 * @see bAutoManageAttachment, EAttachmentRule
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Attachment, meta = (EditCondition = "bAutoManageAttachment"))
+	EAttachmentRule AutoAttachRotationRule;
+
+	/**
+	 * Options for how we handle our scale when we attach to the AutoAttachParent, if bAutoManageAttachment is true.
+	 * @see bAutoManageAttachment, EAttachmentRule
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Attachment, meta = (EditCondition = "bAutoManageAttachment"))
+	EAttachmentRule AutoAttachScaleRule;
+
+	/**
+	 * DEPRECATED: Set AutoAttachParent, AutoAttachSocketName, AutoAttachLocationType to the specified parameters. Does not change bAutoManageAttachment; that must be set separately.
 	 * @param  Parent			Component to attach to. 
 	 * @param  SocketName		Socket on Parent to attach to.
 	 * @param  LocationType		Option for how we handle our location when we attach to Parent.
 	 * @see bAutoManageAttachment, AutoAttachParent, AutoAttachSocketName, AutoAttachLocationType
 	 */
-	UFUNCTION(BlueprintCallable, Category="Effects|Components|ParticleSystem")
+	UFUNCTION(BlueprintCallable, Category="Effects|Components|ParticleSystem", meta=(DeprecatedFunction, DeprecationMessage="Please use Set Auto Attachment Parameters"))
 	void SetAutoAttachParams(USceneComponent* Parent, FName SocketName = NAME_None, EAttachLocation::Type LocationType = EAttachLocation::KeepRelativeOffset);
+
+	/**
+	 * Set AutoAttachParent, AutoAttachSocketName, AutoAttachLocationRule, AutoAttachRotationRule, AutoAttachScaleRule to the specified parameters. Does not change bAutoManageAttachment; that must be set separately.
+	 * @param  Parent			Component to attach to. 
+	 * @param  SocketName		Socket on Parent to attach to.
+	 * @param  LocationRule		Option for how we handle our location when we attach to Parent.
+	 * @param  RotationRule		Option for how we handle our rotation when we attach to Parent.
+	 * @param  ScaleRule		Option for how we handle our scale when we attach to Parent.
+	 * @see bAutoManageAttachment, AutoAttachParent, AutoAttachSocketName, AutoAttachLocationRule, AutoAttachRotationRule, AutoAttachScaleRule
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Effects|Components|ParticleSystem")
+	void SetAutoAttachmentParameters(USceneComponent* Parent, FName SocketName, EAttachmentRule LocationRule, EAttachmentRule RotationRule, EAttachmentRule ScaleRule);
 
 private:
 
@@ -754,6 +796,95 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Effects|Components|ParticleSystem")
 	virtual void SetBeamTargetStrength(int32 EmitterIndex, float NewTargetStrength, int32 TargetIndex);
 
+	/**
+	*	Get the beam end point
+	*
+	*	@param	EmitterIndex		The index of the emitter to get the value of
+	*
+	*	@return	true		EmitterIndex is valid and End point is set - OutEndPoint is valid
+	*			false		EmitterIndex invalid or End point is not set - OutEndPoint is invalid
+	*/
+	UFUNCTION(BlueprintCallable, Category = "Effects|Components|ParticleSystem")
+	virtual bool GetBeamEndPoint(int32 EmitterIndex, FVector& OutEndPoint) const;
+	
+	/**
+	*	Get the beam source point
+	*
+	*	@param	EmitterIndex		The index of the emitter to get
+	*	@param	SourceIndex			Which beam within the emitter to get
+	*	@param	OutSourcePoint		Value of source point
+	*
+	*	@return	true		EmitterIndex and SourceIndex are valid - OutSourcePoint is valid
+	*			false		EmitterIndex or SourceIndex is invalid - OutSourcePoint is invalid
+	*/
+	UFUNCTION(BlueprintCallable, Category = "Effects|Components|ParticleSystem")
+	virtual bool GetBeamSourcePoint(int32 EmitterIndex, int32 SourceIndex, FVector& OutSourcePoint) const;
+
+	/**
+	*	Get the beam source tangent
+	*
+	*	@param	EmitterIndex		The index of the emitter to get
+	*	@param	SourceIndex			Which beam within the emitter to get
+	*	@param	OutTangentPoint		Value of source tangent
+	*
+	*	@return	true		EmitterIndex and SourceIndex are valid - OutTangentPoint is valid
+	*			false		EmitterIndex or SourceIndex is invalid - OutTangentPoint is invalid
+	*/
+	UFUNCTION(BlueprintCallable, Category = "Effects|Components|ParticleSystem")
+	virtual bool GetBeamSourceTangent(int32 EmitterIndex, int32 SourceIndex, FVector& OutTangentPoint) const;
+
+	/**
+	*	Get the beam source strength
+	*
+	*	@param	EmitterIndex		The index of the emitter to get
+	*	@param	SourceIndex			Which beam within the emitter to get
+	*	@param	OutSourceStrength		Value of source tangent
+	*
+	*	@return	true		EmitterIndex and SourceIndex are valid - OutSourceStrength is valid
+	*			false		EmitterIndex or SourceIndex is invalid - OutSourceStrength is invalid
+	*/
+	UFUNCTION(BlueprintCallable, Category = "Effects|Components|ParticleSystem")
+	virtual bool GetBeamSourceStrength(int32 EmitterIndex, int32 SourceIndex, float& OutSourceStrength) const;
+
+	/**
+	*	Get the beam target point
+	*
+	*	@param	EmitterIndex		The index of the emitter to get
+	*	@param	TargetIndex			Which beam within the emitter to get
+	*	@param	OutTargetPoint		Value of target point
+	*
+	*	@return	true		EmitterIndex and TargetIndex are valid - OutTargetPoint is valid
+	*			false		EmitterIndex or TargetIndex is invalid - OutTargetPoint is invalid
+	*/
+	UFUNCTION(BlueprintCallable, Category = "Effects|Components|ParticleSystem")
+	virtual bool GetBeamTargetPoint(int32 EmitterIndex, int32 TargetIndex, FVector& OutTargetPoint) const;
+
+	/**
+	*	Get the beam target tangent
+	*
+	*	@param	EmitterIndex		The index of the emitter to get
+	*	@param	TargetIndex			Which beam within the emitter to get
+	*	@param	OutTangentPoint		Value of target tangent
+	*
+	*	@return	true		EmitterIndex and TargetIndex are valid - OutTangentPoint is valid
+	*			false		EmitterIndex or TargetIndex is invalid - OutTangentPoint is invalid
+	*/
+	UFUNCTION(BlueprintCallable, Category = "Effects|Components|ParticleSystem")
+	virtual bool GetBeamTargetTangent(int32 EmitterIndex, int32 TargetIndex, FVector& OutTangentPoint) const;
+	
+	/**
+	*	Get the beam target strength
+	*
+	*	@param	EmitterIndex		The index of the emitter to get
+	*	@param	TargetIndex			Which beam within the emitter to get
+	*	@param	OutTargetStrength	Value of target tangent
+	*
+	*	@return	true		EmitterIndex and TargetIndex are valid - OutTargetStrength is valid
+	*			false		EmitterIndex or TargetIndex is invalid - OutTargetStrength is invalid
+	*/
+	UFUNCTION(BlueprintCallable, Category = "Effects|Components|ParticleSystem")
+	virtual bool GetBeamTargetStrength(int32 EmitterIndex, int32 TargetIndex, float& OutTargetStrength) const;
+	
 	/**
 	 *	Enables/Disables a sub-emitter
 	 *
@@ -970,11 +1101,11 @@ public:
 		SILENT, // this would only be appropriate for editor only or other unusual things that we never see in game
 	};
 	/** If there is async work outstanding, force it to be completed now **/
-	FORCEINLINE void ForceAsyncWorkCompletion(EForceAsyncWorkCompletion Behavior) const
+	FORCEINLINE void ForceAsyncWorkCompletion(EForceAsyncWorkCompletion Behavior, bool bDefinitelyGameThread = true) const
 	{
 		if (AsyncWork.GetReference())
 		{
-			WaitForAsyncAndFinalize(Behavior);
+			WaitForAsyncAndFinalize(Behavior, bDefinitelyGameThread);
 		}
 	}
 
@@ -992,7 +1123,7 @@ public:
 
 private:
 	/** Wait on the async task and call finalize on the tick **/
-	void WaitForAsyncAndFinalize(EForceAsyncWorkCompletion Behavior) const;
+	void WaitForAsyncAndFinalize(EForceAsyncWorkCompletion Behavior, bool bDefinitelyGameThread = true) const;
 
 	/** Cache view relevance flags. */
 	void CacheViewRelevanceFlags(class UParticleSystem* TemplateToCache);
@@ -1077,19 +1208,20 @@ protected:
 	 * @param	EmitterInstance		Emitter instance this replay is playing on
 	 * @param	EmitterReplayData	Incoming replay data of any time, cannot be NULL
 	 * @param	bSelected			true if the particle system is currently selected
+	 * @param	InFeatureLevel		The relevant shader feature level
 	 *
 	 * @return	The newly created dynamic data, or NULL on failure
 	 */
-	static FDynamicEmitterDataBase* CreateDynamicDataFromReplay( FParticleEmitterInstance* EmitterInstance, const FDynamicEmitterReplayDataBase* EmitterReplayData, bool bSelected );
+	static FDynamicEmitterDataBase* CreateDynamicDataFromReplay( FParticleEmitterInstance* EmitterInstance, const FDynamicEmitterReplayDataBase* EmitterReplayData, bool bSelected, ERHIFeatureLevel::Type InFeatureLevel );
 
 	/**
 	 * Creates dynamic particle data for rendering the particle system this frame.  This function
 	 * handle creation of dynamic data for regularly simulated particles, but also handles capture
 	 * and playback of particle replay data.
-	 *
+     * @param InFeatureLevel - The relevant shader feature level.
 	 * @return	Returns the dynamic data to render this frame
 	 */
-	FParticleDynamicData* CreateDynamicData();
+	FParticleDynamicData* CreateDynamicData(ERHIFeatureLevel::Type InFeatureLevel);
 
 	/** Orients the Z axis of the ParticleSystemComponent toward the camera while preserving the X axis direction */
 	void OrientZAxisTowardCamera();
@@ -1098,7 +1230,7 @@ protected:
 	void ClearDynamicData();
 
 	// @todo document
-	virtual void UpdateDynamicData(FParticleSystemSceneProxy* Proxy);
+	virtual void UpdateDynamicData();
 
 public:
 	FORCEINLINE int32 GetCurrentLODIndex() const
@@ -1183,7 +1315,7 @@ public:
 	 */
 	void ReportEventCollision(const FName InEventName, const float InEmitterTime, const FVector InLocation,
 		const FVector InDirection, const FVector InVelocity, const TArray<class UParticleModuleEventSendToGame*>& InEventData, 
-		const float InParticleTime, const FVector InNormal, const float InTime, const int32 InItem, const FName InBoneName);
+		const float InParticleTime, const FVector InNormal, const float InTime, const int32 InItem, const FName InBoneName, UPhysicalMaterial* PhysMat);
 
 	/**
 	 *	Record a bursting event.
@@ -1274,6 +1406,15 @@ FORCEINLINE_DEBUGGABLE void UParticleSystemComponent::SetAutoAttachParams(UScene
 {
 	AutoAttachParent = Parent;
 	AutoAttachSocketName = SocketName;
-	AutoAttachLocationType = LocationType;
+
+	USceneComponent::ConvertAttachLocation(LocationType, AutoAttachLocationRule, AutoAttachRotationRule, AutoAttachScaleRule);
 }
 
+FORCEINLINE_DEBUGGABLE void UParticleSystemComponent::SetAutoAttachmentParameters(USceneComponent* Parent, FName SocketName, EAttachmentRule LocationRule, EAttachmentRule RotationRule, EAttachmentRule ScaleRule)
+{
+	AutoAttachParent = Parent;
+	AutoAttachSocketName = SocketName;
+	AutoAttachLocationRule = LocationRule;
+	AutoAttachRotationRule = RotationRule;
+	AutoAttachScaleRule = ScaleRule;
+}

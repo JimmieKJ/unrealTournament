@@ -19,15 +19,15 @@ class UMG_API UScaleBox : public UContentWidget
 
 public:
 
-	/** Controls in what direction content can be scaled */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Stretching")
-	TEnumAsByte<EStretchDirection::Type> StretchDirection;
-
 	/** The stretching rule to apply when content is stretched */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Stretching")
 	TEnumAsByte<EStretch::Type> Stretch;
 
-	/** Optional scale that can be specified by the User. Isn't used if Stretch != EStretch::UserSpecified */
+	/** Controls in what direction content can be scaled */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Stretching")
+	TEnumAsByte<EStretchDirection::Type> StretchDirection;
+
+	/** Optional scale that can be specified by the User. Used only for UserSpecified stretching. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Stretching")
 	float UserSpecifiedScale;
 
@@ -36,12 +36,17 @@ public:
 	bool IgnoreInheritedScale;
 
 public:
+	UFUNCTION(BlueprintCallable, Category = "Appearance")
+	void SetStretch(EStretch::Type InStretch);
 
-	//TODO UMG Add Set Stretch
-	//TODO UMG Add Set Stretch DIrection
-	//TODO UMG Add Set UserSpecifiedScale
-	//TODO UMG Add Set IgnoreInheritedScale
-	
+	UFUNCTION(BlueprintCallable, Category = "Appearance")
+	void SetStretchDirection(EStretchDirection::Type InStretchDirection);
+
+	UFUNCTION(BlueprintCallable, Category = "Appearance")
+	void SetUserSpecifiedScale(float InUserSpecifiedScale);
+
+	UFUNCTION(BlueprintCallable, Category = "Appearance")
+	void SetIgnoreInheritedScale(bool bInIgnoreInheritedScale);
 public:
 
 	// UWidget interface
@@ -52,6 +57,7 @@ public:
 
 #if WITH_EDITOR
 	virtual const FText GetPaletteCategory() override;
+	virtual bool CanEditChange(const UProperty* InProperty) const override;
 #endif
 
 protected:

@@ -24,7 +24,7 @@ class ENGINE_API UAnimationSettings : public UDeveloperSettings
 	UPROPERTY(config, EditAnywhere, Category = Compression)
 	TArray<FString> KeyEndEffectorsMatchNameArray;
 
-	UPROPERTY(config, EditAnywhere, Category = Compression)
+	UPROPERTY(config, EditAnywhere, Category = Compression, NoClear)
 	TSubclassOf<class UAnimCompress>  DefaultCompressionAlgorithm; 
 
 	UPROPERTY(config, EditAnywhere, Category = Compression)

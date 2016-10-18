@@ -44,6 +44,7 @@ public class Core : ModuleRules
                 "Runtime/Core/Private/Internationalization",
 				"Runtime/Core/Private/Internationalization/Cultures",
                 "Runtime/Analytics/Public",
+				"Runtime/Engine/Public",
 			}
 			);
 
@@ -52,7 +53,8 @@ public class Core : ModuleRules
 				"TargetPlatform",
 				"DerivedDataCache",
                 "InputDevice",
-                "Analytics"
+                "Analytics",
+				"RHI"
 			}
 			);
 
@@ -111,6 +113,7 @@ public class Core : ModuleRules
 		{
 			PublicIncludePaths.Add("Runtime/Core/Public/Android");
 			AddEngineThirdPartyPrivateStaticDependencies(Target, 
+				"cxademangle",
 				"zlib"
 				);
 		}
@@ -154,8 +157,6 @@ public class Core : ModuleRules
         }
         Definitions.Add("UE_ENABLE_ICU=" + (UEBuildConfiguration.bCompileICU ? "1" : "0")); // Enable/disable (=1/=0) ICU usage in the codebase. NOTE: This flag is for use while integrating ICU and will be removed afterward.
 
-        Definitions.Add("WITH_STEAMWORKS=" + (UEBuildConfiguration.bCompileSteamOSS ? "1" : "0"));
-
         // If we're compiling with the engine, then add Core's engine dependencies
 		if (UEBuildConfiguration.bCompileAgainstEngine == true)
 		{
@@ -182,9 +183,7 @@ public class Core : ModuleRules
 		}
 
 
-        if ((Target.Platform == UnrealTargetPlatform.XboxOne) ||
-            (Target.Platform == UnrealTargetPlatform.WinRT) ||
-            (Target.Platform == UnrealTargetPlatform.WinRT_ARM))
+        if (Target.Platform == UnrealTargetPlatform.XboxOne)
         {
             Definitions.Add("WITH_DIRECTXMATH=1");
         }

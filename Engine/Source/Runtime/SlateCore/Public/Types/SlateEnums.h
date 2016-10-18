@@ -183,6 +183,9 @@ enum EMenuPlacement
 
 	/** Place the menu's center on top of the menu anchor's center point */
 	MenuPlacement_Center UMETA(DisplayName = "Center"),
+
+	/** Place the menu's vertical center on the left side at the menu anchor's vertical center on the right side */
+	MenuPlacement_RightLeftCenter UMETA(DisplayName = "Right Center, Left Center"),
 };
 
 

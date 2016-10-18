@@ -304,6 +304,12 @@ public class BuildCookRun : BuildCommand
 				else
 				{
 					var OriginalProjectName = ParseParamValue("project", "");
+
+                    if (string.IsNullOrEmpty(OriginalProjectName))
+                    {
+                        throw new AutomationException("No project file specified. Use -project=<project>.");
+                    }
+
 					var ProjectName = OriginalProjectName;
 					ProjectName = ProjectName.Trim(new char[] { '\"' });
 					if (ProjectName.IndexOfAny(new char[] { '\\', '/' }) < 0)

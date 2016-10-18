@@ -13,6 +13,7 @@ UProceduralFoliageSpawner::UProceduralFoliageSpawner(const FObjectInitializer& O
 	: Super(ObjectInitializer)
 {
 	TileSize = 10000;	//100 m
+	MinimumQuadTreeSize = 100.f;
 	NumUniqueTiles = 10;
 	RandomSeed = 42;
 }

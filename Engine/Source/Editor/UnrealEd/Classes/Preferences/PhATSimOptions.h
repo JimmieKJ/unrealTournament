@@ -2,6 +2,7 @@
 
 
 #pragma once
+#include "Components/SkeletalMeshComponent.h"
 #include "PhATSimOptions.generated.h"
 
 UCLASS(hidecategories=Object, config=EditorPerProjectUserSettings)
@@ -16,6 +17,10 @@ class UNREALED_API UPhATSimOptions : public UObject
 	/** Lets you manually control the physics/animation */
 	UPROPERTY(EditAnywhere, transient, Category = Anim)
 	bool bUpdateJointsFromAnimation;
+
+	/** Determines whether simulation of root body updates component transform */
+	UPROPERTY(EditAnywhere, transient, Category = Anim)
+	TEnumAsByte<EPhysicsTransformUpdateMode::Type> PhysicsUpdateMode;
 
 	/** Time between poking ragdoll and starting to blend back. */
 	UPROPERTY(EditAnywhere, config, Category=Anim)

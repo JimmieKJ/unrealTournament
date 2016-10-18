@@ -8,6 +8,9 @@
     <ClInclude Include="..\..\..\src\glslang_exe\StandAlone\Worklist.h">
       <Filter>StandAlone</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\..\src\glslang_exe\StandAlone\ResourceLimits.h">
+      <Filter>StandAlone</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\..\src\glslang_exe\StandAlone\spirv-remap.cpp">
@@ -17,5 +20,8 @@
       <Filter>StandAlone</Filter>
     </ClCompile>
     <ClCompile Include="..\..\..\src\glslang_exe\main.cpp" />
+    <ClCompile Include="..\..\..\src\glslang_exe\StandAlone\ResourceLimits.cpp">
+      <Filter>StandAlone</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

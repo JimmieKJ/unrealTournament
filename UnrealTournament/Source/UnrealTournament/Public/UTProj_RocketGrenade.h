@@ -54,5 +54,5 @@ class UNREALTOURNAMENT_API AUTProj_RocketGrenade : public AUTProj_Rocket
 	
 	/**Spins visual rocket, random bounce, and starts the fuse*/
 	virtual void OnBounce(const struct FHitResult& ImpactResult, const FVector& ImpactVelocity) override;
-
+	virtual void OnRep_Instigator() override;
 };

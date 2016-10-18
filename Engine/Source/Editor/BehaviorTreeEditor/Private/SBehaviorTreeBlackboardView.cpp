@@ -130,7 +130,7 @@ private:
 
 		if(BlackboardEntryAction->Key.KeyType)
 		{
-			OutIconBrush = FClassIconFinder::FindIconForClass(BlackboardEntryAction->Key.KeyType->GetClass());
+			OutIconBrush = FSlateIconFinder::FindIconBrushForClass(BlackboardEntryAction->Key.KeyType->GetClass());
 		}
 	}
 

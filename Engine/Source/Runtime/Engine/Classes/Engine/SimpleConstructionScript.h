@@ -29,6 +29,13 @@ class USimpleConstructionScript : public UObject
 	 * @param bIsDefaultTransform	Indicates whether or not the given transform is a "default" transform, in which case it can be overridden by template defaults.
 	 */
 	void ExecuteScriptOnActor(AActor* Actor, const FTransform& RootTransform, bool bIsDefaultTransform);
+
+	/** Create the map from names to SCS_Nodes to improve FindSCSNode performance during construction script execution */
+	void CreateNameToSCSNodeMap();
+
+	/** Remove the map from names to SCS_Nodes */
+	void RemoveNameToSCSNodeMap();
+
 #if WITH_EDITOR
 	/** Return the Blueprint associated with this SCS instance */
 	ENGINE_API class UBlueprint* GetBlueprint() const;
@@ -167,6 +174,9 @@ private:
 	/** True if we're constructing editable components in the SCS editor */
 	bool bIsConstructingEditorComponents;
 #endif
+
+	/** Quick lookup from name to SCS Node when executing the script */
+	TMap<FName, USCS_Node*> NameToSCSNodeMap;
 
 	friend struct FSCSAllNodesHelper;
 };

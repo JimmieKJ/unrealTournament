@@ -27,7 +27,8 @@ public class AnimGraph : ModuleRules
 				"UnrealEd",
                 "GraphEditor",
 				"PropertyEditor",
-				"EditorStyle"
+				"EditorStyle",
+                "ContentBrowser"
 			}
 		);
 

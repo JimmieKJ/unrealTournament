@@ -4,6 +4,7 @@
 #include "AnimGraphNode_SkeletalControlBase.h"
 #include "AnimationGraphSchema.h"
 #include "Animation/AnimationSettings.h"
+#include "Animation/AnimInstance.h"
 #include "CompilerResultsLog.h"
 #include "AnimNode_SkeletalControlBase.h"
 /////////////////////////////////////////////////////
@@ -69,6 +70,34 @@ void UAnimGraphNode_SkeletalControlBase::CreateOutputPins()
 	const UAnimationGraphSchema* Schema = GetDefault<UAnimationGraphSchema>();
 	CreatePin(EGPD_Output, Schema->PC_Struct, TEXT(""), FComponentSpacePoseLink::StaticStruct(), /*bIsArray=*/ false, /*bIsReference=*/ false, TEXT("Pose"));
 }
+
+FAnimNode_SkeletalControlBase* UAnimGraphNode_SkeletalControlBase::FindDebugAnimNode(USkeletalMeshComponent * PreviewSkelMeshComp) const
+{
+	FAnimNode_SkeletalControlBase* DebugNode = nullptr;
+
+	if (PreviewSkelMeshComp != nullptr && PreviewSkelMeshComp->GetAnimInstance() != nullptr)
+	{
+		// find an anim node index from debug data
+		UAnimBlueprintGeneratedClass* AnimBlueprintClass = Cast<UAnimBlueprintGeneratedClass>(PreviewSkelMeshComp->GetAnimInstance()->GetClass());
+		if (AnimBlueprintClass)
+		{
+			FAnimBlueprintDebugData& DebugData = AnimBlueprintClass->GetAnimBlueprintDebugData();
+			int32* IndexPtr = DebugData.NodePropertyToIndexMap.Find(this);
+
+			if (IndexPtr)
+			{
+				int32 AnimNodeIndex = *IndexPtr;
+				// reverse node index temporarily because of a bug in NodeGuidToIndexMap
+				AnimNodeIndex = AnimBlueprintClass->AnimNodeProperties.Num() - AnimNodeIndex - 1;
+
+				DebugNode = AnimBlueprintClass->AnimNodeProperties[AnimNodeIndex]->ContainerPtrToValuePtr<FAnimNode_SkeletalControlBase>(PreviewSkelMeshComp->GetAnimInstance());
+			}
+		}
+	}
+
+	return DebugNode;
+}
+
 
 void UAnimGraphNode_SkeletalControlBase::ConvertToComponentSpaceTransform(const USkeletalMeshComponent* SkelComp, const FTransform & InTransform, FTransform & OutCSTransform, int32 BoneIndex, EBoneControlSpace Space) const
 {

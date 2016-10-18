@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "BoneIndices.h"
 
 // This contains Reference-skeleton related info
 // Bone transform is saved as FTransform array

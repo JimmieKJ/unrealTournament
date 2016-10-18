@@ -1,8 +1,8 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <TpsData xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
   <Name>Ogg Vorbis Audio Compression</Name>
-  <Location>//depot/UE4/Engine/Source/ThirdParty/Vorbis/ or //depot/UE4/Engine/Binaries/ThirdParty/Vorbis/</Location>
-  <Date>2015-09-04T19:55:34.4799107-04:00</Date>
+  <Location>/Engine/Source/ThirdParty/Vorbis/</Location>
+  <Date>2016-06-10T18:03:27.0563123-04:00</Date>
   <Function>To play sounds in the engine</Function>
   <Justification>To play sounds in the engine</Justification>
   <Platforms>
@@ -18,8 +18,12 @@
     <Product>Bulletstorm</Product>
   </Products>
   <TpsType>Source Code</TpsType>
-  <Eula />
-  <RedistributeTo />
+  <Eula>N/A</Eula>
+  <RedistributeTo>
+    <EndUserGroup>Licensees</EndUserGroup>
+    <EndUserGroup>Git</EndUserGroup>
+    <EndUserGroup>P4</EndUserGroup>
+  </RedistributeTo>
   <Redistribute>false</Redistribute>
   <IsSourceAvailable>false</IsSourceAvailable>
   <NoticeType>Full EULA Text</NoticeType>
@@ -62,5 +66,5 @@ Your fair dealing and other rights are in no way affected by the above.
 
 All trademarks mentioned in the XiphWiki are owned by their respective trademark holders. 
 </Notification>
-  <LicenseFolder />
+  <LicenseFolder>/Engine/Source/ThirdParty/Licenses/OggVorbis1.2.0_License.txt</LicenseFolder>
 </TpsData>

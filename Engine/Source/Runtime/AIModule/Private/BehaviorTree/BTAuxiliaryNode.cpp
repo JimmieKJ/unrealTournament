@@ -1,6 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AIModulePrivate.h"
+#include "BehaviorTree/BTCompositeNode.h"
 #include "BehaviorTree/BTAuxiliaryNode.h"
 
 UBTAuxiliaryNode::UBTAuxiliaryNode(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
@@ -9,6 +10,7 @@ UBTAuxiliaryNode::UBTAuxiliaryNode(const FObjectInitializer& ObjectInitializer) 
 	bNotifyCeaseRelevant = false;
 	bNotifyTick = false;
 	bTickIntervals = false;
+	ChildIndex = BTSpecialChild::OwnedByComposite;
 }
 
 void UBTAuxiliaryNode::WrappedOnBecomeRelevant(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory) const
@@ -116,6 +118,16 @@ void UBTAuxiliaryNode::TickNode(UBehaviorTreeComponent& OwnerComp, uint8* NodeMe
 uint16 UBTAuxiliaryNode::GetSpecialMemorySize() const
 {
 	return bTickIntervals ? sizeof(FBTAuxiliaryMemory) : Super::GetSpecialMemorySize();
+}
+
+void UBTAuxiliaryNode::InitializeParentLink(uint8 MyChildIndex)
+{
+	ChildIndex = MyChildIndex;
+}
+
+const UBTNode* UBTAuxiliaryNode::GetMyNode() const
+{
+	return (ChildIndex == BTSpecialChild::OwnedByComposite) ? GetParentNode() : (GetParentNode() ? GetParentNode()->GetChildNode(ChildIndex) : nullptr);
 }
 
 //----------------------------------------------------------------------//

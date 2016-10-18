@@ -14,7 +14,6 @@ USoundBase::USoundBase(const FObjectInitializer& ObjectInitializer)
 	, Priority(1.0f)
 {
 	MaxConcurrentPlayCount_DEPRECATED = 16;
-	MaxConcurrentResolutionRule_DEPRECATED = EMaxConcurrentResolutionRule::StopQuietest;
 }
 
 void USoundBase::PostInitProperties()
@@ -82,6 +81,10 @@ bool USoundBase::IsLooping()
 	return (GetDuration() >= INDEFINITELY_LOOPING_DURATION); 
 }
 
+bool USoundBase::ShouldApplyInteriorVolumes() const
+{
+	return (SoundClassObject && SoundClassObject->Properties.bApplyAmbientVolumes);
+}
 
 USoundClass* USoundBase::GetSoundClass() const
 {
@@ -125,7 +128,7 @@ void USoundBase::PostLoad()
 	{
 		bOverrideConcurrency = true;
 		ConcurrencyOverrides.bLimitToOwner = false;
-		ConcurrencyOverrides.MaxCount = MaxConcurrentPlayCount_DEPRECATED;
+		ConcurrencyOverrides.MaxCount = FMath::Max(MaxConcurrentPlayCount_DEPRECATED, 1);
 		ConcurrencyOverrides.ResolutionRule = MaxConcurrentResolutionRule_DEPRECATED;
 		ConcurrencyOverrides.VolumeScale = 1.0f;
 	}

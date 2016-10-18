@@ -3,7 +3,7 @@
 #pragma once
 
 #include "ModuleInterface.h"
-#include "ModuleManager.h"		// For inline LoadModuleChecked()
+#include "ModuleManager.h"
 
 
 /**

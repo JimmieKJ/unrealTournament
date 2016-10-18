@@ -65,11 +65,9 @@ public:
 	virtual void InitGameState();
 	virtual void StartMatch();
 	virtual void RestartPlayer(AController* aPlayer);
-	virtual void ChangeName(AController* Other, const FString& S, bool bNameChange);
-
 	
 	virtual void PostLogin( APlayerController* NewPlayer );
-	virtual FString InitNewPlayer(class APlayerController* NewPlayerController, const TSharedPtr<const FUniqueNetId>& UniqueId, const FString& Options, const FString& Portal = TEXT(""));
+	virtual FString InitNewPlayer(class APlayerController* NewPlayerController, const FUniqueNetIdRepl& UniqueId, const FString& Options, const FString& Portal = TEXT(""));
 	virtual void Logout(AController* Exiting);
 	virtual bool PlayerCanRestart_Implementation(APlayerController* Player);
 	virtual TSubclassOf<AGameSession> GetGameSessionClass() const;
@@ -98,7 +96,7 @@ protected:
 	int32 InstanceQueryPort;
 
 public:
-	virtual void PreLogin(const FString& Options, const FString& Address, const TSharedPtr<const FUniqueNetId>& UniqueId, FString& ErrorMessage);
+	virtual void PreLogin(const FString& Options, const FString& Address, const FUniqueNetIdRepl& UniqueId, FString& ErrorMessage);
 	virtual void GetInstanceData(TArray<TSharedPtr<FServerInstanceData>>& InstanceData);
 
 	virtual int32 GetNumPlayers();

@@ -122,20 +122,30 @@ void FDragDropOperation::DestroyCursorDecoratorWindow()
 /* FExternalDragOperation implementation
  *****************************************************************************/
 
-TSharedRef<FExternalDragOperation> FExternalDragOperation::NewText( const FString& InText )
+TSharedRef<FExternalDragOperation> FExternalDragOperation::NewText( FString InText )
 {
 	TSharedRef<FExternalDragOperation> Operation = MakeShareable(new FExternalDragOperation);
 	Operation->DragType = DragText;
-	Operation->DraggedText = InText;
+	Operation->DraggedText = MoveTemp(InText);
 	Operation->Construct();
 	return Operation;
 }
 
-TSharedRef<FExternalDragOperation> FExternalDragOperation::NewFiles( const TArray<FString>& InFileNames )
+TSharedRef<FExternalDragOperation> FExternalDragOperation::NewFiles( TArray<FString> InFileNames )
 {
 	TSharedRef<FExternalDragOperation> Operation = MakeShareable(new FExternalDragOperation);
 	Operation->DragType = DragFiles;
-	Operation->DraggedFileNames = InFileNames;
+	Operation->DraggedFileNames = MoveTemp(InFileNames);
+	Operation->Construct();
+	return Operation;
+}
+
+TSharedRef<FExternalDragOperation> FExternalDragOperation::NewOperation( FString InText, TArray<FString> InFileNames )
+{
+	TSharedRef<FExternalDragOperation> Operation = MakeShareable(new FExternalDragOperation);
+	Operation->DragType = 0 | (InText.IsEmpty() ? 0 : DragText) | (InFileNames.Num() == 0 ? 0 : DragFiles);
+	Operation->DraggedText = MoveTemp(InText);
+	Operation->DraggedFileNames = MoveTemp(InFileNames);
 	Operation->Construct();
 	return Operation;
 }

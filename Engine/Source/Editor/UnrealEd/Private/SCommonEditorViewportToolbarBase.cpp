@@ -226,7 +226,7 @@ TSharedRef<SWidget> SCommonEditorViewportToolbarBase::GenerateCameraMenu() const
 	// Camera types
 	CameraMenuBuilder.AddMenuEntry( FEditorViewportCommands::Get().Perspective );
 
-	CameraMenuBuilder.BeginSection("LevelViewportCameraType_Ortho", LOCTEXT("CameraTypeHeader_Ortho", "Othographic") );
+	CameraMenuBuilder.BeginSection("LevelViewportCameraType_Ortho", LOCTEXT("CameraTypeHeader_Ortho", "Orthographic") );
 		CameraMenuBuilder.AddMenuEntry(FEditorViewportCommands::Get().Top);
 		CameraMenuBuilder.AddMenuEntry(FEditorViewportCommands::Get().Bottom);
 		CameraMenuBuilder.AddMenuEntry(FEditorViewportCommands::Get().Left);
@@ -269,7 +269,7 @@ TSharedRef<SWidget> SCommonEditorViewportToolbarBase::GenerateShowMenu() const
 		if( ShowMenu[SFG_Normal].Num() > 0 )
 		{
 			// Generate entries for the standard show flags
-			ShowMenuBuilder.BeginSection("LevelViewportShowFlagsCommon", LOCTEXT("CommonShowFlagHeader", "Common") );
+			ShowMenuBuilder.BeginSection("LevelViewportShowFlagsCommon", LOCTEXT("CommonShowFlagHeader", "Common Show Flags") );
 			{
 				for( int32 EntryIndex = 0; EntryIndex < ShowMenu[SFG_Normal].Num(); ++EntryIndex )
 				{

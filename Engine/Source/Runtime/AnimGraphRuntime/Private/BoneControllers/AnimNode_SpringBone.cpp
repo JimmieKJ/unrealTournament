@@ -51,11 +51,11 @@ void FAnimNode_SpringBone::UpdateInternal(const FAnimationUpdateContext& Context
 
 void FAnimNode_SpringBone::GatherDebugData(FNodeDebugData& DebugData)
 {
-	const float ActualAlpha = AlphaScaleBias.ApplyTo(Alpha);
+	const float ActualBiasedAlpha = AlphaScaleBias.ApplyTo(Alpha);
 
 	//MDW_TODO Add more output info?
 	FString DebugLine = DebugData.GetNodeName(this);
-	DebugLine += FString::Printf(TEXT("(Alpha: %.1f%% RemainingTime: %.3f)"), ActualAlpha*100.f, RemainingTime);
+	DebugLine += FString::Printf(TEXT("(Alpha: %.1f%% RemainingTime: %.3f)"), ActualBiasedAlpha*100.f, RemainingTime);
 
 	DebugData.AddDebugItem(DebugLine);
 	ComponentPose.GatherDebugData(DebugData);
@@ -79,6 +79,7 @@ FORCEINLINE void CopyToVectorByFlags(FVector& DestVec, const FVector& SrcVec, bo
 
 void FAnimNode_SpringBone::EvaluateBoneTransforms(USkeletalMeshComponent* SkelComp, FCSPose<FCompactPose>& MeshBases, TArray<FBoneTransform>& OutBoneTransforms)
 {
+	check(SkelComp);
 	check(OutBoneTransforms.Num() == 0);
 
 	const bool bNoOffset = !bTranslateX && !bTranslateY && !bTranslateZ;
@@ -92,12 +93,12 @@ void FAnimNode_SpringBone::EvaluateBoneTransforms(USkeletalMeshComponent* SkelCo
 
 	const FCompactPoseBoneIndex SpringBoneIndex = SpringBone.GetCompactPoseIndex(BoneContainer);
 	const FTransform& SpaceBase = MeshBases.GetComponentSpaceTransform(SpringBoneIndex);
-	FTransform BoneTransformInWorldSpace = (SkelComp != NULL) ? SpaceBase * SkelComp->GetComponentToWorld() : SpaceBase;
+	FTransform BoneTransformInWorldSpace = SpaceBase * SkelComp->GetComponentToWorld();
 
 	FVector const TargetPos = BoneTransformInWorldSpace.GetLocation();
 
-	AActor* SkelOwner = (SkelComp != NULL) ? SkelComp->GetOwner() : NULL;
-	if ((SkelComp != NULL) && (SkelComp->GetAttachParent() != NULL) && (SkelOwner == NULL))
+	AActor* SkelOwner = SkelComp->GetOwner();
+	if (SkelComp->GetAttachParent() != NULL && (SkelOwner == NULL))
 	{
 		SkelOwner = SkelComp->GetAttachParent()->GetOwner();
 	}

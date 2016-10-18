@@ -6,10 +6,19 @@
 
 #include "ICUUtilities.h"
 #include "ICUBreakIterator.h"
-#include <unicode/locid.h>
-#include <unicode/timezone.h>
-#include <unicode/uclean.h>
-#include <unicode/udata.h>
+#if defined(_MSC_VER) && USING_CODE_ANALYSIS
+	#pragma warning(push)
+	#pragma warning(disable:28251)
+	#pragma warning(disable:28252)
+	#pragma warning(disable:28253)
+#endif
+	#include <unicode/locid.h>
+	#include <unicode/timezone.h>
+	#include <unicode/uclean.h>
+	#include <unicode/udata.h>
+#if defined(_MSC_VER) && USING_CODE_ANALYSIS
+	#pragma warning(pop)
+#endif
 
 DEFINE_LOG_CATEGORY_STATIC(LogICUInternationalization, Log, All);
 
@@ -131,18 +140,23 @@ bool FICUInternationalization::Initialize()
 	bHasInitializedDisabledCultures = false;
 	ConditionalInitializeDisabledCultures();
 
-	I18N->InvariantCulture = FindOrMakeCulture(TEXT("en-US-POSIX"), false);
+	I18N->InvariantCulture = FindOrMakeCulture(TEXT("en-US-POSIX"), EAllowDefaultCultureFallback::No);
 	if (!I18N->InvariantCulture.IsValid())
 	{
-		I18N->InvariantCulture = FindOrMakeCulture(TEXT(""), true);
+		I18N->InvariantCulture = FindOrMakeCulture(TEXT(""), EAllowDefaultCultureFallback::Yes);
 	}
-	I18N->DefaultCulture = FindOrMakeCulture(FPlatformMisc::GetDefaultLocale(), true);
+	I18N->DefaultCulture = FindOrMakeCulture(FPlatformMisc::GetDefaultLocale(), EAllowDefaultCultureFallback::Yes);
 	SetCurrentCulture( I18N->GetDefaultCulture()->GetName() );
+
+	InitializeInvariantGregorianCalendar();
+
 	return U_SUCCESS(ICUStatus) ? true : false;
 }
 
 void FICUInternationalization::Terminate()
 {
+	InvariantGregorianCalendar.Reset();
+
 	FICUBreakIteratorManager::Destroy();
 	CachedCultures.Empty();
 
@@ -244,6 +258,14 @@ namespace
 }
 #endif
 
+void FICUInternationalization::LoadAllCultureData()
+{
+	for (const FICUCultureData& CultureData : AllAvailableCultures)
+	{
+		FindOrMakeCulture(CultureData.Name, EAllowDefaultCultureFallback::No);
+	}
+}
+
 void FICUInternationalization::InitializeAvailableCultures()
 {
 	// Build up the data about all available locales
@@ -308,6 +330,12 @@ void FICUInternationalization::InitializeAvailableCultures()
 		{
 			AppendCultureData(LanguageCode, ScriptCode, CountryCode);
 		}
+	}
+
+	// Also add our invariant culture if it wasn't found when processing the ICU locales
+	if (!AllAvailableCulturesMap.Contains(TEXT("en-US-POSIX")))
+	{
+		AppendCultureData(TEXT("en"), FString(), TEXT("US-POSIX"));
 	}
 }
 
@@ -473,7 +501,7 @@ bool FICUInternationalization::IsCultureDisabled(const FString& Name)
 
 bool FICUInternationalization::SetCurrentCulture(const FString& Name)
 {
-	FCulturePtr NewCurrentCulture = FindOrMakeCulture(Name);
+	FCulturePtr NewCurrentCulture = FindOrMakeCulture(Name, EAllowDefaultCultureFallback::No);
 
 	if (NewCurrentCulture.IsValid())
 	{
@@ -522,7 +550,7 @@ TArray<FString> FICUInternationalization::GetPrioritizedCultureNames(const FStri
 		}
 		
 		// Failing that, try and find the culture directly (this will cause its resource data to be loaded)
-		FCulturePtr Culture = FindOrMakeCulture(InCultureName);
+		FCulturePtr Culture = FindOrMakeCulture(InCultureName, EAllowDefaultCultureFallback::No);
 		if (Culture.IsValid())
 		{
 			OutCultureData.Name = Culture->GetName();
@@ -602,49 +630,97 @@ TArray<FString> FICUInternationalization::GetPrioritizedCultureNames(const FStri
 		}
 	}
 
+	// Remove any cultures that are explicitly disabled
+	PrioritizedCultureNames.RemoveAll([&](const FString& InPrioritizedCultureName) -> bool
+	{
+		return IsCultureDisabled(InPrioritizedCultureName);
+	});
+
+	// If we have no cultures, fallback to using English
+	if (PrioritizedCultureNames.Num() == 0)
+	{
+		PrioritizedCultureNames.Add(TEXT("en"));
+	}
+
 	return PrioritizedCultureNames;
 }
 
 FCulturePtr FICUInternationalization::GetCulture(const FString& Name)
 {
-	return FindOrMakeCulture(Name);
+	return FindOrMakeCulture(Name, EAllowDefaultCultureFallback::No);
 }
 
-FCulturePtr FICUInternationalization::FindOrMakeCulture(const FString& Name, const bool AllowDefaultFallback)
+FCulturePtr FICUInternationalization::FindOrMakeCulture(const FString& Name, const EAllowDefaultCultureFallback AllowDefaultFallback)
 {
 	const FString CanonicalName = FCulture::GetCanonicalName(Name);
 
 	// Find the cached culture.
-	FCultureRef* FoundCulture = nullptr;
 	{
 		FScopeLock Lock(&CachedCulturesCS);
-		FoundCulture = CachedCultures.Find(CanonicalName);
+		FCultureRef* FoundCulture = CachedCultures.Find(CanonicalName);
+		if (FoundCulture)
+		{
+			return *FoundCulture;
+		}
 	}
 
 	// If no cached culture is found, try to make one.
-	if (!FoundCulture)
-	{
-		UErrorCode ICUStatus = U_ZERO_ERROR;
+	FCulturePtr NewCulture;
 
-		// Confirm if data for the desired culture exists.
+	// Is this in our list of available cultures?
+	if (AllAvailableCulturesMap.Contains(CanonicalName))
+	{
+		NewCulture = FCulture::Create(CanonicalName);
+	}
+	else
+	{
+		// We need to use a resource load in order to get the correct culture
+		UErrorCode ICUStatus = U_ZERO_ERROR;
 		if (UResourceBundle* ICUResourceBundle = ures_open(nullptr, StringCast<char>(*CanonicalName).Get(), &ICUStatus))
 		{
-			// Make the culture only if it actually has some form of data and doesn't fallback to default "root" data, unless overidden to allow it.
-			if (ICUStatus != U_USING_DEFAULT_WARNING || AllowDefaultFallback)
+			if (ICUStatus != U_USING_DEFAULT_WARNING || AllowDefaultFallback == EAllowDefaultCultureFallback::Yes)
 			{
-				FCulturePtr NewCulture = FCulture::Create(CanonicalName);
-				if (NewCulture.IsValid())
-				{
-					FScopeLock Lock(&CachedCulturesCS);
-					FoundCulture = &(CachedCultures.Add(CanonicalName, NewCulture.ToSharedRef()));
-				}
+				NewCulture = FCulture::Create(CanonicalName);
 			}
-
 			ures_close(ICUResourceBundle);
 		}
 	}
 
-	return FoundCulture ? FCulturePtr(*FoundCulture) : FCulturePtr(nullptr);
+	if (NewCulture.IsValid())
+	{
+		FScopeLock Lock(&CachedCulturesCS);
+		CachedCultures.Add(CanonicalName, NewCulture.ToSharedRef());
+	}
+
+	return NewCulture;
+}
+
+void FICUInternationalization::InitializeInvariantGregorianCalendar()
+{
+	UErrorCode ICUStatus = U_ZERO_ERROR;
+	InvariantGregorianCalendar = MakeUnique<icu::GregorianCalendar>(ICUStatus);
+	InvariantGregorianCalendar->setTimeZone(icu::TimeZone::getUnknown());
+}
+
+UDate FICUInternationalization::UEDateTimeToICUDate(const FDateTime& DateTime)
+{
+	// UE4 and ICU have a different time scale for pre-Gregorian dates, so we can't just use the UNIX timestamp from the UE4 DateTime
+	// Instead we have to explode the UE4 DateTime into its component parts, and then use an ICU GregorianCalendar (set to the "unknown" 
+	// timezone so it doesn't apply any adjustment to the time) to reconstruct the DateTime as an ICU UDate in the correct scale
+	int32 Year, Month, Day;
+	DateTime.GetDate(Year, Month, Day);
+	const int32 Hour = DateTime.GetHour();
+	const int32 Minute = DateTime.GetMinute();
+	const int32 Second = DateTime.GetSecond();
+
+	{
+		FScopeLock Lock(&InvariantGregorianCalendarCS);
+
+		InvariantGregorianCalendar->set(Year, Month - 1, Day, Hour, Minute, Second);
+		
+		UErrorCode ICUStatus = U_ZERO_ERROR;
+		return InvariantGregorianCalendar->getTime(ICUStatus);
+	}
 }
 
 UBool FICUInternationalization::OpenDataFile(const void* context, void** fileContext, void** contents, const char* path)

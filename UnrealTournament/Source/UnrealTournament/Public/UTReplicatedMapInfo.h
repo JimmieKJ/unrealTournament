@@ -44,10 +44,9 @@ class UNREALTOURNAMENT_API AUTReplicatedMapInfo : public AInfo
 	UPROPERTY()
 	bool bIsMeshedMap;
 
-	// Wil lbe true if this is an Epic official map
+	// Will be true if this is an Epic official map
 	UPROPERTY()
 	bool bIsEpicMap;
-
 
 	// What rounds are this weapon available in
 	UPROPERTY(Replicated, ReplicatedUsing = OnRep_VoteCount)
@@ -62,11 +61,18 @@ class UNREALTOURNAMENT_API AUTReplicatedMapInfo : public AInfo
 	UPROPERTY()
 	UTexture2D* MapScreenshot;
 
+	UPROPERTY()
+	bool bHasRights;
+
 public:
 	void RegisterVoter(AUTPlayerState* Voter);
 	void UnregisterVoter(AUTPlayerState* Voter);
 
 	virtual bool IsNetRelevantFor(const AActor* RealViewer, const AActor* ViewTarget, const FVector& SrcLocation) const override;
+
+#if !UE_SERVER
+	virtual TSharedRef<SWidget> BuildMapOverlay(FVector2D Size, bool bIgnoreLock = false);
+#endif
 
 protected:
 	TArray<AUTPlayerState*> VoterRegistry;

@@ -7,15 +7,6 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE(FApplyRootMotionMoveToForceDelegate);
 
 class AActor;
 
-UENUM()
-enum class EOrionRootMotionFinishVelocityMode : uint8
-{
-	// Maintain the last velocity root motion gave to the character
-	MaintainLastRootMotionVelocity = 0,
-	// Set Velocity to the specified value (for example, 0,0,0 to stop the character)
-	SetVelocity,
-};
-
 /**
  *	Applies force to character's movement
  */
@@ -34,7 +25,7 @@ class UAbilityTask_ApplyRootMotionMoveToForce : public UAbilityTask
 
 	/** Apply force to character's movement */
 	UFUNCTION(BlueprintCallable, Category = "Ability|Tasks", meta = (HidePin = "WorldContextObject", DefaultToSelf = "WorldContextObject", BlueprintInternalUseOnly = "TRUE"))
-	static UAbilityTask_ApplyRootMotionMoveToForce* ApplyRootMotionMoveToForce(UObject* WorldContextObject, FName TaskInstanceName, FVector TargetLocation, float Duration, bool bSetNewMovementMode, EMovementMode MovementMode, bool bRestrictSpeedToExpected, UCurveVector* PathOffsetCurve, EOrionRootMotionFinishVelocityMode VelocityOnFinishMode, FVector SetVelocityOnFinish);
+	static UAbilityTask_ApplyRootMotionMoveToForce* ApplyRootMotionMoveToForce(UObject* WorldContextObject, FName TaskInstanceName, FVector TargetLocation, float Duration, bool bSetNewMovementMode, EMovementMode MovementMode, bool bRestrictSpeedToExpected, UCurveVector* PathOffsetCurve, ERootMotionFinishVelocityMode VelocityOnFinishMode, FVector SetVelocityOnFinish);
 
 	virtual void Activate() override;
 
@@ -43,8 +34,6 @@ class UAbilityTask_ApplyRootMotionMoveToForce : public UAbilityTask
 
 	virtual void PreDestroyFromReplication() override;
 	virtual void OnDestroy(bool AbilityIsEnding) override;
-
-	void PreReplicatedRemove(const struct FOrionCardArray& InArray);
 
 protected:
 
@@ -77,7 +66,7 @@ protected:
 
 	/** What to do with character's Velocity when root motion finishes */
 	UPROPERTY(Replicated)
-	EOrionRootMotionFinishVelocityMode VelocityOnFinishMode;
+	ERootMotionFinishVelocityMode VelocityOnFinishMode;
 
 	/** If VelocityOnFinish mode is "SetVelocity", character velocity is set to this value when root motion finishes */
 	UPROPERTY(Replicated)

@@ -2,18 +2,44 @@
 
 #pragma once
 
-
-
+#include "SSearchBox.h"
+#include "TextFilterExpressionEvaluator.h"
 
 class SSocketChooserPopup : public SCompoundWidget
 {
 public:
 	DECLARE_DELEGATE_OneParam( FOnSocketChosen, FName );
 
+	/** Filter utility class */
+	class FSocketFilterContext : public ITextFilterExpressionContext
+	{
+	public:
+		explicit FSocketFilterContext(FString&& InString)
+			: String(InString)
+		{
+		}
+
+		virtual bool TestBasicStringExpression(const FTextFilterString& InValue, const ETextFilterTextComparisonMode InTextComparisonMode) const override
+		{
+			return TextFilterUtils::TestBasicStringExpression(String, InValue, InTextComparisonMode);
+		}
+
+		virtual bool TestComplexExpression(const FName& InKey, const FTextFilterString& InValue, const ETextFilterComparisonOperation InComparisonOperation, const ETextFilterTextComparisonMode InTextComparisonMode) const override
+		{
+			return false;
+		}
+
+	private:
+		FString String;
+	};
+
 	/** Info about one socket */
 	struct FSocketInfo
 	{
 		FComponentSocketDescription Description;
+
+		/** Cached filter context for faster comparison */
+		FSocketFilterContext FilterContext;
 
 		static TSharedRef<FSocketInfo> Make(FComponentSocketDescription Description)
 		{
@@ -23,8 +49,10 @@ public:
 	protected:
 		FSocketInfo(FComponentSocketDescription InDescription)
 			: Description(InDescription)
+			, FilterContext(MoveTemp(InDescription.Name.ToString()))
 		{}
 	};
+
 
 	/** The Component that contains the sockets we are choosing from */
 	TWeakObjectPtr<USceneComponent> SceneComponent;
@@ -35,11 +63,20 @@ public:
 	/** Array of shared pointers to socket infos */
 	TArray< TSharedPtr<FSocketInfo> > Sockets;
 
+	/** Filtered list of sockets */
+	TArray< TSharedPtr<FSocketInfo> > FilteredSockets;
+
 	/** Delegate to call when OK button is pressed */
 	FOnSocketChosen OnSocketChosen;
 
 	/** The combo box */
 	TSharedPtr< SListView< TSharedPtr<FSocketInfo> > > SocketListView;
+
+	/** Compiled filter search terms. */
+	TSharedPtr<FTextFilterExpressionEvaluator> TextFilterPtr;
+
+	/** Search box widget */
+	TSharedPtr<SWidget> SearchBox;
 
 	SLATE_BEGIN_ARGS( SSocketChooserPopup )
 		: _SceneComponent(NULL)
@@ -83,15 +120,18 @@ public:
 				+SHorizontalBox::Slot()
 				.AutoWidth()
 				.Padding(2)
+				.VAlign(VAlign_Center)
 				[
 					SNew(SImage)
 					.Image(Brush)
 				]
 				+SHorizontalBox::Slot()
 				.FillWidth(1.f)
+				.VAlign(VAlign_Center)
 				[
 					SNew(STextBlock)
 					.Text(FText::FromName(SocketInfo->Description.Name))
+					.HighlightText_Lambda([this]() { return TextFilterPtr->GetFilterText(); })
 				]
 			];
 	}
@@ -120,6 +160,8 @@ public:
 			Sockets.Add( SSocketChooserPopup::FSocketInfo::Make(FComponentSocketDescription(NAME_None, EComponentSocketType::Invalid)) );
 		}
 
+		TextFilterPtr = MakeShareable(new FTextFilterExpressionEvaluator(ETextFilterExpressionEvaluatorMode::BasicString));
+
 		// Build set of sockets
 		if (SceneComponent != NULL)
 		{
@@ -129,6 +171,8 @@ public:
 			{
 				Sockets.Add( SSocketChooserPopup::FSocketInfo::Make(*DescriptionIt) );
 			}
+
+			FilteredSockets.Append(Sockets);
 		}
 
 		// Then make widget
@@ -142,11 +186,18 @@ public:
 				SNew(SVerticalBox)
 				+SVerticalBox::Slot()
 				.AutoHeight()
-				.Padding(3)
+				.Padding(0.0f, 1.0f)
 				[
 					SNew(STextBlock)
 					.Font( FEditorStyle::GetFontStyle(TEXT("SocketChooser.TitleFont")) )
-					.Text( NSLOCTEXT("SocketChooser", "ChooseSocketOrBoneLabel", "Choose Socket or Bone:") )
+					.Text( NSLOCTEXT("SocketChooser", "ChooseSocketOrBoneLabel", "Choose Socket or Bone") )
+				]
+				+SVerticalBox::Slot()
+				.AutoHeight()
+				.Padding(0.0f, 1.0f)
+				[
+					SAssignNew(SearchBox, SSearchBox)
+					.OnTextChanged(this, &SSocketChooserPopup::HandleSearchTextChanged)
 				]
 				+SVerticalBox::Slot()
 				.AutoHeight()
@@ -157,7 +208,7 @@ public:
 					.Content()
 					[
 						SAssignNew(SocketListView, SListView< TSharedPtr<FSocketInfo> >)
-						.ListItemsSource( &Sockets )
+						.ListItemsSource( &FilteredSockets)
 						.OnGenerateRow( this, &SSocketChooserPopup::MakeItemWidget )
 						.OnSelectionChanged( this, &SSocketChooserPopup::SelectedSocket )
 					]
@@ -194,6 +245,47 @@ public:
 				}
 			}
 		}
+	}
+
+	void HandleSearchTextChanged(const FText& InText)
+	{
+		TextFilterPtr->SetFilterText(InText);
+
+		FilteredSockets.Reset();
+
+		if (InText.IsEmpty())
+		{
+			FilteredSockets.Append(Sockets);
+		}
+		else
+		{
+			for (TSharedPtr<FSocketInfo>& SocketInfo : Sockets)
+			{
+				if (TextFilterPtr->TestTextFilter(SocketInfo->FilterContext))
+				{
+					FilteredSockets.Add(SocketInfo);
+				}
+			}
+		}
+
+		SocketListView->RequestListRefresh();
+	}
+
+	bool SupportsKeyboardFocus() const
+	{
+		return SearchBox->SupportsKeyboardFocus();
+	}
+
+	bool HasKeyboardFocus() const
+	{
+		// Since keyboard focus is forwarded to our editable text, we will test it instead
+		return SearchBox->HasKeyboardFocus();
+	}
+
+	FReply OnFocusReceived(const FGeometry& MyGeometry, const FFocusEvent& InFocusEvent)
+	{
+		// Forward keyboard focus to our editable text widget
+		return FReply::Handled().SetUserFocus(SearchBox.ToSharedRef(), InFocusEvent.GetCause());
 	}
 
 private:

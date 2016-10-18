@@ -22,7 +22,7 @@ public:
 	 */
 	static inline IOculusInputPlugin& Get()
 	{
-		return FModuleManager::LoadModuleChecked< IOculusInputPlugin >( "OculusTouch" );
+		return FModuleManager::LoadModuleChecked< IOculusInputPlugin >( "OculusInput" );
 	}
 
 	/**
@@ -32,7 +32,7 @@ public:
 	 */
 	static inline bool IsAvailable()
 	{
-		return FModuleManager::Get().IsModuleLoaded( "OculusTouch" );
+		return FModuleManager::Get().IsModuleLoaded( "OculusInput" );
 	}
 };
 

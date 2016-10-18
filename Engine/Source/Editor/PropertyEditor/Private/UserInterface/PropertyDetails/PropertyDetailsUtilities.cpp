@@ -39,6 +39,11 @@ bool FPropertyDetailsUtilities::IsPropertyEditingEnabled() const
 	return DetailsView.IsPropertyEditingEnabled();
 }
 
+void FPropertyDetailsUtilities::ForceRefresh()
+{
+	DetailsView.ForceRefresh();
+}
+
 void FPropertyDetailsUtilities::RequestRefresh()
 {
 	DetailsView.RefreshTree();

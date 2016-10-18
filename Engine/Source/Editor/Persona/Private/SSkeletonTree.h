@@ -494,7 +494,7 @@ private:
 	FString SerializeSocketToString( USkeletalMeshSocket* Socket, const FDisplayedSocketInfo* DisplayedSocketInfo ) const;
 
 	/** Function to paste selected sockets from the clipboard */
-	void OnPasteSockets();
+	void OnPasteSockets(bool bPasteToSelectedBone);
 
 	/** Function to add a socket to the selected bone (skeleton, not mesh) */
 	void OnAddSocket();

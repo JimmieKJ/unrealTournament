@@ -30,6 +30,11 @@ struct CORE_API FHTML5Misc : public FGenericPlatformMisc
 		return 1;
 	}
 
+	static bool AllowThreadHeartBeat()
+	{
+		return false;
+	}
+
 	FORCEINLINE static void MemoryBarrier()
 	{
 		// Do nothing on x86; the spec requires load/store ordering even in the absence of a memory barrier.

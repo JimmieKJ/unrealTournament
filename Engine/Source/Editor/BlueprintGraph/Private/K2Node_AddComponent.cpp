@@ -20,6 +20,19 @@ UK2Node_AddComponent::UK2Node_AddComponent(const FObjectInitializer& ObjectIniti
 	bIsPureFunc = false;
 }
 
+void UK2Node_AddComponent::PostDuplicate(bool bDuplicateForPIE)
+{
+	Super::PostDuplicate(bDuplicateForPIE);
+
+	// Determine whether or not this node belongs to a Blueprint context.
+	UBlueprint* Blueprint = FBlueprintEditorUtils::FindBlueprintForNode(this);
+	if (!bDuplicateForPIE && Blueprint != nullptr && !Blueprint->bBeingCompiled)
+	{
+		// Create a unique component template for the duplicated node (this).
+		MakeNewComponentTemplate();
+	}
+}
+
 void UK2Node_AddComponent::AllocateDefaultPins()
 {
 	AllocateDefaultPinsWithoutExposedVariables();
@@ -235,65 +248,9 @@ void UK2Node_AddComponent::PrepareForCopying()
 void UK2Node_AddComponent::PostPasteNode()
 {
 	Super::PostPasteNode();
-
-	// There is a template associated with this node that should be unique, but after a node is pasted, it either points to a
-	// template shared by the copied node, or to nothing (when pasting into a different blueprint)
-	const UEdGraphSchema_K2* K2Schema = GetDefault<UEdGraphSchema_K2>();
-	UBlueprint* Blueprint = GetBlueprint();
-
-	// Find the template name and return type pins
-	UEdGraphPin* TemplateNamePin = GetTemplateNamePin();
-	UEdGraphPin* ReturnPin = GetReturnValuePin();
-	if ((TemplateNamePin != NULL) && (ReturnPin != NULL))
-	{
-		// Find the current template if it exists
-		FString TemplateName = TemplateNamePin->DefaultValue;
-		UActorComponent* SourceTemplate = Blueprint->FindTemplateByName(FName(*TemplateName));
-
-		// Determine the type of the component needed
-		UClass* ComponentClass = Cast<UClass>(ReturnPin->PinType.PinSubCategoryObject.Get());
-			
-		if (ComponentClass)
-		{
-			ensure(NULL != Cast<UBlueprintGeneratedClass>(Blueprint->GeneratedClass));
-			// Create a new template object and update the template pin to point to it
-			UActorComponent* NewTemplate = NewObject<UActorComponent>(Blueprint->GeneratedClass, ComponentClass, NAME_None, RF_ArchetypeObject|RF_Public);
-			Blueprint->ComponentTemplates.Add(NewTemplate);
-
-			TemplateNamePin->DefaultValue = NewTemplate->GetName();
-
-			// Copy the old template data over to the new template if it's compatible
-			if ((SourceTemplate != NULL) && (SourceTemplate->GetClass()->IsChildOf(ComponentClass)))
-			{
-				TArray<uint8> SavedProperties;
-				FObjectWriter Writer(SourceTemplate, SavedProperties);
-				FObjectReader(NewTemplate, SavedProperties);
-			}
-			else if(TemplateBlueprint.Len() > 0)
-			{
-				// try to find/load our blueprint to copy the template
-				UBlueprint* SourceBlueprint = FindObject<UBlueprint>(NULL, *TemplateBlueprint);
-				if(SourceBlueprint != NULL)
-				{
-					SourceTemplate = SourceBlueprint->FindTemplateByName(FName(*TemplateName));
-					if ((SourceTemplate != NULL) && (SourceTemplate->GetClass()->IsChildOf(ComponentClass)))
-					{
-						TArray<uint8> SavedProperties;
-						FObjectWriter Writer(SourceTemplate, SavedProperties);
-						FObjectReader(NewTemplate, SavedProperties);
-					}
-				}
-
-				TemplateBlueprint.Empty();
-			}
-		}
-		else
-		{
-			// Clear the template connection; can't resolve the type of the component to create
-			ensure(false);
-			TemplateNamePin->DefaultValue = TEXT("");
-		}
-	}
+	
+	// Create a unique component template for the pasted node (this).
+	MakeNewComponentTemplate();
 }
 
 FText UK2Node_AddComponent::GetNodeTitle(ENodeTitleType::Type TitleType) const
@@ -440,6 +397,68 @@ void UK2Node_AddComponent::ExpandNode(class FKismetCompilerContext& CompilerCont
 
 		CompilerContext.MovePinLinksToIntermediate(*GetThenPin(), *LastThen);
 		BreakAllNodeLinks();
+	}
+}
+
+void UK2Node_AddComponent::MakeNewComponentTemplate()
+{
+	// There is a template associated with this node that should be unique, but after a node is duplicated, it either points to a
+	// template associated with the original node, or to nothing (when pasting into a different blueprint)
+	const UEdGraphSchema_K2* K2Schema = GetDefault<UEdGraphSchema_K2>();
+	UBlueprint* Blueprint = GetBlueprint();
+
+	// Find the template name and return type pins
+	UEdGraphPin* TemplateNamePin = GetTemplateNamePin();
+	UEdGraphPin* ReturnPin = GetReturnValuePin();
+	if ((TemplateNamePin != NULL) && (ReturnPin != NULL))
+	{
+		// Find the current template if it exists
+		FString TemplateName = TemplateNamePin->DefaultValue;
+		UActorComponent* SourceTemplate = Blueprint->FindTemplateByName(FName(*TemplateName));
+
+		// Determine the type of the component needed
+		UClass* ComponentClass = Cast<UClass>(ReturnPin->PinType.PinSubCategoryObject.Get());
+
+		if (ComponentClass)
+		{
+			ensure(NULL != Cast<UBlueprintGeneratedClass>(Blueprint->GeneratedClass));
+			// Create a new template object and update the template pin to point to it
+			UActorComponent* NewTemplate = NewObject<UActorComponent>(Blueprint->GeneratedClass, ComponentClass, NAME_None, RF_ArchetypeObject | RF_Public);
+			Blueprint->ComponentTemplates.Add(NewTemplate);
+
+			TemplateNamePin->DefaultValue = NewTemplate->GetName();
+
+			// Copy the old template data over to the new template if it's compatible
+			if ((SourceTemplate != NULL) && (SourceTemplate->GetClass()->IsChildOf(ComponentClass)))
+			{
+				TArray<uint8> SavedProperties;
+				FObjectWriter Writer(SourceTemplate, SavedProperties);
+				FObjectReader(NewTemplate, SavedProperties);
+			}
+			else if (TemplateBlueprint.Len() > 0)
+			{
+				// try to find/load our blueprint to copy the template
+				UBlueprint* SourceBlueprint = FindObject<UBlueprint>(NULL, *TemplateBlueprint);
+				if (SourceBlueprint != NULL)
+				{
+					SourceTemplate = SourceBlueprint->FindTemplateByName(FName(*TemplateName));
+					if ((SourceTemplate != NULL) && (SourceTemplate->GetClass()->IsChildOf(ComponentClass)))
+					{
+						TArray<uint8> SavedProperties;
+						FObjectWriter Writer(SourceTemplate, SavedProperties);
+						FObjectReader(NewTemplate, SavedProperties);
+					}
+				}
+
+				TemplateBlueprint.Empty();
+			}
+		}
+		else
+		{
+			// Clear the template connection; can't resolve the type of the component to create
+			ensure(false);
+			TemplateNamePin->DefaultValue = TEXT("");
+		}
 	}
 }
 

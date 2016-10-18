@@ -495,15 +495,19 @@ void AUTLobbyMatchInfo::LaunchMatch(bool bQuickPlay, int32 DebugCode)
 		{
 			// Custom rules already have their bot info set
 
-			int32 OptimalPlayerCount = CurrentRuleset->bTeamGame ? InitialMapInfo->OptimalTeamPlayerCount : InitialMapInfo->OptimalPlayerCount;
+			// If the BotFill wasn't specified on in the GameOptions section of the rule, then use the map to determine the bot count
+			if ( CurrentRuleset->GameOptions.Find(TEXT("BotFill="),ESearchCase::IgnoreCase) == INDEX_NONE )
+			{
+				int32 OptimalPlayerCount = CurrentRuleset->bTeamGame ? InitialMapInfo->OptimalTeamPlayerCount : InitialMapInfo->OptimalPlayerCount;
 
-			if (BotSkillLevel >= 0)
-			{
-				GameURL += FString::Printf(TEXT("?BotFill=%i?Difficulty=%i"), FMath::Clamp<int32>(OptimalPlayerCount,0, CurrentRuleset->MaxPlayers), FMath::Clamp<int32>(BotSkillLevel,0,7));			
-			}
-			else
-			{
-				GameURL += TEXT("?BotFill=0");
+				if (BotSkillLevel >= 0)
+				{
+					GameURL += FString::Printf(TEXT("?BotFill=%i?Difficulty=%i"), FMath::Clamp<int32>(OptimalPlayerCount,0, CurrentRuleset->MaxPlayers), FMath::Clamp<int32>(BotSkillLevel,0,7));			
+				}
+				else
+				{
+					GameURL += TEXT("?BotFill=0");
+				}
 			}
 		}
 
@@ -631,15 +635,15 @@ void AUTLobbyMatchInfo::ServerSetPrivateMatch_Implementation(bool bIsPrivate)
 
 FText AUTLobbyMatchInfo::GetDebugInfo()
 {
-	FText Owner = NSLOCTEXT("UTLobbyMatchInfo","NoOwner","NONE");
+	FText OwnerText = NSLOCTEXT("UTLobbyMatchInfo","NoOwner","NONE");
 	if (OwnerId.IsValid())
 	{
-		if (Players.Num() > 0 && Players[0].IsValid()) Owner = FText::FromString(Players[0]->PlayerName);
-		else Owner = FText::FromString(OwnerId.ToString());
+		if (Players.Num() > 0 && Players[0].IsValid()) OwnerText = FText::FromString(Players[0]->PlayerName);
+		else OwnerText = FText::FromString(OwnerId.ToString());
 	}
 
 	FFormatNamedArguments Args;
-	Args.Add(TEXT("OwnerName"), Owner);
+	Args.Add(TEXT("OwnerName"), OwnerText);
 	Args.Add(TEXT("CurrentState"), FText::FromName(CurrentState));
 	Args.Add(TEXT("CurrentRuleSet"), FText::FromString(CurrentRuleset.IsValid() ? CurrentRuleset->Title : TEXT("None")));
 	Args.Add(TEXT("ShouldShowInDock"), FText::AsNumber(ShouldShowInDock()));
@@ -798,6 +802,7 @@ void AUTLobbyMatchInfo::ServerSetRules_Implementation(const FString&RulesetTag, 
 
 void AUTLobbyMatchInfo::ProcessMatchUpdate(const FMatchUpdate& NewMatchUpdate)
 {
+	LastInstanceCommunicationTime = GetWorld()->GetRealTimeSeconds();
 	MatchUpdate = NewMatchUpdate;
 	OnRep_MatchUpdate();
 }
@@ -1270,6 +1275,11 @@ void AUTLobbyMatchInfo::MakeJsonReport(TSharedPtr<FJsonObject> JsonObject)
 
 	JsonObject->SetNumberField(TEXT("GameInstanceID"), GameInstanceID);
 	JsonObject->SetStringField(TEXT("GameInstanceGUID"), GameInstanceGUID);
+
+#if PLATFORM_LINUX 
+	JsonObject->SetNumberField(TEXT("ProcessId"), GameInstanceProcessHandle.IsValid() ? (int32) GameInstanceProcessHandle.GetProcessInfo()->GetProcessId() : -1);
+#endif
+	JsonObject->SetNumberField(TEXT("TimeSinceLastBeaconUpdate"), GetWorld()->GetRealTimeSeconds() - LastInstanceCommunicationTime);
 
 	if (CurrentRuleset.IsValid())
 	{

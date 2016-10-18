@@ -551,17 +551,20 @@ void FCanvasBorderItem::Draw( class FCanvas* InCanvas )
 		Right =		( Position.X + Size.X ) * Z;
 		Bottom =	( Position.Y + Size.Y ) * Z;		
 
-		const float BorderLeftDrawSizeX = BorderLeftTexture->GetSizeX()*BorderScale.X;
-		const float BorderLeftDrawSizeY = BorderLeftTexture->GetSizeY()*BorderScale.Y;
-		const float BorderTopDrawSizeX = BorderTopTexture->GetSizeX()*BorderScale.X;
-		const float BorderTopDrawSizeY = BorderTopTexture->GetSizeY()*BorderScale.Y;
-		const float BorderRightDrawSizeX = BorderRightTexture->GetSizeX()*BorderScale.X;
-		const float BorderRightDrawSizeY = BorderRightTexture->GetSizeY()*BorderScale.Y;
-		const float BorderBottomDrawSizeX = BorderBottomTexture->GetSizeX()*BorderScale.X;
-		const float BorderBottomDrawSizeY = BorderBottomTexture->GetSizeY()*BorderScale.Y;
+		const float BorderLeftDrawSizeX = LeftTexture->GetSizeX()*BorderScale.X;
+		const float BorderLeftDrawSizeY = LeftTexture->GetSizeY()*BorderScale.Y;
+		const float BorderTopDrawSizeX = TopTexture->GetSizeX()*BorderScale.X;
+		const float BorderTopDrawSizeY = TopTexture->GetSizeY()*BorderScale.Y;
+		const float BorderRightDrawSizeX = RightTexture->GetSizeX()*BorderScale.X;
+		const float BorderRightDrawSizeY = RightTexture->GetSizeY()*BorderScale.Y;
+		const float BorderBottomDrawSizeX = BottomTexture->GetSizeX()*BorderScale.X;
+		const float BorderBottomDrawSizeY = BottomTexture->GetSizeY()*BorderScale.Y;
 
 		const float BackgroundTilingX = (Right-Left)/(BackTexture->GetSizeX()*BackgroundScale.X);
 		const float BackgroundTilingY = (Bottom-Top)/(BackTexture->GetSizeY()*BackgroundScale.Y);
+
+		const int32 NumElements = 9; // for 1 background + 4 corners + 4 borders
+		BatchedElements->ReserveVertices(4 * NumElements); // 4 verts each
 
 		//Draw background
 		int32 V00 = BatchedElements->AddVertex(
@@ -1002,7 +1005,8 @@ void FCanvasTextItem::DrawStringInternal_OfflineCache( FCanvas* InCanvas, const 
 
 	const TArray< TCHAR >& Chars = TextString.GetCharArray();
 	// Draw all characters in string.
-	for( int32 i=0; i < TextString.Len(); i++ )
+	const int32 TextLen = TextString.Len();
+	for( int32 i=0; i < TextLen; i++ )
 	{
 		int32 Ch = (int32)Font->RemapChar(Chars[i]);
 
@@ -1039,13 +1043,15 @@ void FCanvasTextItem::DrawStringInternal_OfflineCache( FCanvas* InCanvas, const 
 		{
 			if( LastTexture != Tex->Resource || BatchedElements == nullptr )
 			{
-				FBatchedElementParameters* BatchedElementParameters = nullptr;
-				BatchedElements = InCanvas->GetBatchedElements(FCanvas::ET_Triangle, BatchedElementParameters, Tex->Resource, BlendMode, FontRenderInfo.GlowInfo);
+				FBatchedElementParameters* BatchedElementParams = nullptr;
+				BatchedElements = InCanvas->GetBatchedElements(FCanvas::ET_Triangle, BatchedElementParams, Tex->Resource, BlendMode, FontRenderInfo.GlowInfo);
 				check(BatchedElements != nullptr);
-				// trade-off between memory and performance by pre-allocating more reserved space 
+				// Trade-off to use memory for performance by pre-allocating more reserved space 
 				// for the triangles/vertices of the batched elements used to render the text tiles
-				//BatchedElements->AddReserveTriangles(TextLen*2,Tex->Resource,BlendMode);
-				//BatchedElements->AddReserveVertices(TextLen*4);
+				// Only reserve initial batch, allow growth afterwards in case there are multiple repeated calls.
+				// Reserving exactly the added amount each time would essentially force an alloc each time on subsequent calls.
+				BatchedElements->ReserveTriangles(TextLen*2,Tex->Resource,BlendMode);
+				BatchedElements->ReserveVertices(TextLen*4);
 
 				InvTextureSize.X = 1.0f / Tex->GetSurfaceWidth();
 				InvTextureSize.Y = 1.0f / Tex->GetSurfaceHeight();
@@ -1149,7 +1155,8 @@ void FCanvasTextItem::DrawStringInternal_RuntimeCache( FCanvas* InCanvas, const 
 
 	float LineX = PosX;
 	
-	for( int32 CharIndex = 0; CharIndex < TextString.Len(); ++CharIndex )
+	const int32 TextLen = TextString.Len();
+	for( int32 CharIndex = 0; CharIndex < TextLen; ++CharIndex )
 	{
 		const TCHAR CurrentChar = TextString[ CharIndex ];
 
@@ -1174,25 +1181,32 @@ void FCanvasTextItem::DrawStringInternal_RuntimeCache( FCanvas* InCanvas, const 
 		{
 			const FCharacterEntry& Entry = CharacterList.GetCharacter(CurrentChar, LegacyFontInfo.FontFallback);
 
-			if( FontTexture == nullptr || Entry.TextureIndex != FontTextureIndex )
+			if( Entry.Valid && (FontTexture == nullptr || Entry.TextureIndex != FontTextureIndex) )
 			{
 				// Font has a new texture for this glyph. Refresh the batch we use and the index we are currently using
 				FontTextureIndex = Entry.TextureIndex;
 				FontTexture = FontCache->GetEngineTextureResource( FontTextureIndex );
 				check(FontTexture);
 
-				FBatchedElementParameters* BatchedElementParameters = nullptr;
-				BatchedElements = InCanvas->GetBatchedElements(FCanvas::ET_Triangle, BatchedElementParameters, FontTexture, BlendMode, FontRenderInfo.GlowInfo);
+				FBatchedElementParameters* BatchedElementParams = nullptr;
+				BatchedElements = InCanvas->GetBatchedElements(FCanvas::ET_Triangle, BatchedElementParams, FontTexture, BlendMode, FontRenderInfo.GlowInfo);
 				check(BatchedElements);
+
+				// Trade-off to use memory for performance by pre-allocating more reserved space 
+				// for the triangles/vertices of the batched elements used to render the text tiles.
+				// Only reserve initial batch, allow growth afterwards in case there are multiple repeated calls.
+				// Reserving exactly the added amount each time would essentially force an alloc each time on subsequent calls.
+				BatchedElements->ReserveTriangles(TextLen*2, FontTexture, BlendMode);
+				BatchedElements->ReserveVertices(TextLen*4);
 
 				InvTextureSizeX = 1.0f/FontTexture->GetSizeX();
 				InvTextureSizeY = 1.0f/FontTexture->GetSizeY();
 			}
 
-			const bool bIsWhitespace = FChar::IsWhitespace(CurrentChar);
+			const bool bIsWhitespace = !Entry.Valid || FChar::IsWhitespace(CurrentChar);
 
 			int32 Kerning = 0;
-			if( !bIsWhitespace && PreviousCharEntry.IsCached() )
+			if( !bIsWhitespace && PreviousCharEntry.Valid )
 			{
 				Kerning = CharacterList.GetKerning( PreviousCharEntry, Entry ) * Scale.X;
 			}
@@ -1318,60 +1332,67 @@ void FCanvasShapedTextItem::DrawStringInternal( FCanvas* InCanvas, const FVector
 		{
 			const FShapedGlyphFontAtlasData GlyphAtlasData = FontCache->GetShapedGlyphFontAtlasData(GlyphToRender);
 
-			if( FontTexture == nullptr || GlyphAtlasData.TextureIndex != FontTextureIndex )
+			if (GlyphAtlasData.Valid)
 			{
-				// Font has a new texture for this glyph. Refresh the batch we use and the index we are currently using
-				FontTextureIndex = GlyphAtlasData.TextureIndex;
-				FontTexture = FontCache->GetEngineTextureResource( FontTextureIndex );
-				check(FontTexture);
+				if( FontTexture == nullptr || GlyphAtlasData.TextureIndex != FontTextureIndex )
+				{
+					// Font has a new texture for this glyph. Refresh the batch we use and the index we are currently using
+					FontTextureIndex = GlyphAtlasData.TextureIndex;
+					FontTexture = FontCache->GetEngineTextureResource( FontTextureIndex );
+					check(FontTexture);
 
-				FBatchedElementParameters* BatchedElementParameters = nullptr;
-				BatchedElements = InCanvas->GetBatchedElements(FCanvas::ET_Triangle, BatchedElementParameters, FontTexture, BlendMode, FontRenderInfo.GlowInfo);
-				check(BatchedElements);
+					FBatchedElementParameters* BatchedElementParams = nullptr;
+					BatchedElements = InCanvas->GetBatchedElements(FCanvas::ET_Triangle, BatchedElementParams, FontTexture, BlendMode, FontRenderInfo.GlowInfo);
+					check(BatchedElements);
 
-				InvTextureSizeX = 1.0f/FontTexture->GetSizeX();
-				InvTextureSizeY = 1.0f/FontTexture->GetSizeY();
+					const int32 NumGlyphs = ShapedGlyphSequence->GetGlyphsToRender().Num();
+					BatchedElements->ReserveVertices(4 * NumGlyphs);
+					BatchedElements->ReserveTriangles(2 * NumGlyphs, FontTexture, BlendMode);
+
+					InvTextureSizeX = 1.0f/FontTexture->GetSizeX();
+					InvTextureSizeY = 1.0f/FontTexture->GetSizeY();
+				}
+
+				const float X = DrawPos.X + LineX + (GlyphAtlasData.HorizontalOffset * Scale.X) + (GlyphToRender.XOffset  * Scale.X);
+				// Note PosX,PosY is the upper left corner of the bounding box representing the string.  This computes the Y position of the baseline where text will sit
+
+				const float Y = DrawPos.Y + PosY - (GlyphAtlasData.VerticalOffset * Scale.Y) + (GlyphToRender.YOffset * Scale.Y) + ScaledBaseline + ScaledMaxHeight;
+				const float U = GlyphAtlasData.StartU * InvTextureSizeX;
+				const float V = GlyphAtlasData.StartV * InvTextureSizeY;
+				const float SizeX = GlyphAtlasData.USize * Scale.X;
+				const float SizeY = GlyphAtlasData.VSize * Scale.Y;
+				const float SizeU = GlyphAtlasData.USize * InvTextureSizeX;
+				const float SizeV = GlyphAtlasData.VSize * InvTextureSizeY;
+
+				const float Left = X * Depth;
+				const float Top = Y * Depth;
+				const float Right = (X + SizeX) * Depth;
+				const float Bottom = (Y + SizeY) * Depth;
+
+				int32 V00 = BatchedElements->AddVertex(
+					FVector4( Left, Top, 0.f, Depth ),
+					FVector2D( U, V ),
+					InColor,
+					HitProxyId );
+				int32 V10 = BatchedElements->AddVertex(
+					FVector4( Right, Top, 0.0f, Depth ),
+					FVector2D( U + SizeU, V ),			
+					InColor,
+					HitProxyId );
+				int32 V01 = BatchedElements->AddVertex(
+					FVector4( Left, Bottom, 0.0f, Depth ),
+					FVector2D( U, V + SizeV ),	
+					InColor,
+					HitProxyId);
+				int32 V11 = BatchedElements->AddVertex(
+					FVector4( Right, Bottom, 0.0f, Depth ),
+					FVector2D( U + SizeU, V + SizeV ),
+					InColor,
+					HitProxyId);
+
+				BatchedElements->AddTriangle(V00, V10, V11, FontTexture, BlendMode, FontRenderInfo.GlowInfo);
+				BatchedElements->AddTriangle(V00, V11, V01, FontTexture, BlendMode, FontRenderInfo.GlowInfo);
 			}
-
-			const float X = DrawPos.X + LineX + (GlyphAtlasData.HorizontalOffset * Scale.X) + (GlyphToRender.XOffset  * Scale.X);
-			// Note PosX,PosY is the upper left corner of the bounding box representing the string.  This computes the Y position of the baseline where text will sit
-
-			const float Y = DrawPos.Y + PosY - (GlyphAtlasData.VerticalOffset * Scale.Y) + (GlyphToRender.YOffset * Scale.Y) + ScaledBaseline + ScaledMaxHeight;
-			const float U = GlyphAtlasData.StartU * InvTextureSizeX;
-			const float V = GlyphAtlasData.StartV * InvTextureSizeY;
-			const float SizeX = GlyphAtlasData.USize * Scale.X;
-			const float SizeY = GlyphAtlasData.VSize * Scale.Y;
-			const float SizeU = GlyphAtlasData.USize * InvTextureSizeX;
-			const float SizeV = GlyphAtlasData.VSize * InvTextureSizeY;
-
-			const float Left = X * Depth;
-			const float Top = Y * Depth;
-			const float Right = (X + SizeX) * Depth;
-			const float Bottom = (Y + SizeY) * Depth;
-
-			int32 V00 = BatchedElements->AddVertex(
-				FVector4( Left, Top, 0.f, Depth ),
-				FVector2D( U, V ),
-				InColor,
-				HitProxyId );
-			int32 V10 = BatchedElements->AddVertex(
-				FVector4( Right, Top, 0.0f, Depth ),
-				FVector2D( U + SizeU, V ),			
-				InColor,
-				HitProxyId );
-			int32 V01 = BatchedElements->AddVertex(
-				FVector4( Left, Bottom, 0.0f, Depth ),
-				FVector2D( U, V + SizeV ),	
-				InColor,
-				HitProxyId);
-			int32 V11 = BatchedElements->AddVertex(
-				FVector4( Right, Bottom, 0.0f, Depth ),
-				FVector2D( U + SizeU, V + SizeV ),
-				InColor,
-				HitProxyId);
-
-			BatchedElements->AddTriangle(V00, V10, V11, FontTexture, BlendMode, FontRenderInfo.GlowInfo);
-			BatchedElements->AddTriangle(V00, V11, V01, FontTexture, BlendMode, FontRenderInfo.GlowInfo);
 		}
 
 		LineX += GlyphToRender.XAdvance * Scale.X;
@@ -1436,7 +1457,14 @@ void FCanvasTriangleItem::Draw( class FCanvas* InCanvas )
 
 		FHitProxyId HitProxyId = InCanvas->GetHitProxyId();
 
-		for (int32 i = 0; i < TriangleList.Num(); i++)
+		const int32 NumTriangles = TriangleList.Num();
+		BatchedElements->ReserveVertices(3 * NumTriangles);
+		if (BatchedElementParameters == nullptr)
+		{
+			BatchedElements->ReserveTriangles(NumTriangles, Texture, BlendMode);
+		}
+
+		for (int32 i = 0; i < NumTriangles; i++)
 		{
 			const FCanvasUVTri& Tri = TriangleList[i];
 			int32 V0 = BatchedElements->AddVertex(FVector4(Tri.V0_Pos.X, Tri.V0_Pos.Y, 0, 1), Tri.V0_UV, Tri.V0_Color, HitProxyId);
@@ -1486,7 +1514,9 @@ void FCanvasTriangleItem::Draw( class FCanvas* InCanvas )
 		FHitProxyId HitProxyId = InCanvas->GetHitProxyId();
 
 		// add the triangles to the triangle render batch
-		for (int32 i = 0; i < TriangleList.Num(); i++)
+		const int32 NumTriangles = TriangleList.Num();
+		RenderBatch->ReserveTriangles(NumTriangles);
+		for (int32 i = 0; i < NumTriangles; i++)
 		{
 			RenderBatch->AddTriangle(TriangleList[i], HitProxyId);
 		}

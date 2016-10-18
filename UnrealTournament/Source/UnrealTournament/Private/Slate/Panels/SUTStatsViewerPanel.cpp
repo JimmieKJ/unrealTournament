@@ -295,6 +295,7 @@ void SUTStatsViewerPanel::DownloadStats()
 		MatchRatingTypes.Add(TEXT("DMSkillRating"));
 		MatchRatingTypes.Add(TEXT("CTFSkillRating"));
 		MatchRatingTypes.Add(TEXT("ShowdownSkillRating"));
+		MatchRatingTypes.Add(TEXT("FlagRunSkillRating"));
 		UUTMcpUtils* McpUtils = UUTMcpUtils::Get(PlayerOwner->GetWorld(), LocalPlayerUserId);
 		TWeakPtr<SUTStatsViewerPanel> StatsPanelPtr(SharedThis(this));
 		FHttpRequestCompleteDelegate Delegate;

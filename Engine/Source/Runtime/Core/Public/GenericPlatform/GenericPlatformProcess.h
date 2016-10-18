@@ -200,15 +200,15 @@ struct CORE_API FGenericPlatformProcess
 	 */
 	static void SetThreadAffinityMask( uint64 AffinityMask );
 
-	/**
-	 * Allow the platform to do anything it needs for game or render thread (this would use the NamedThreads enum if we could forward declare the enum).
-	 *
-	 * @param bIsRenderThread true if setting up the render thread, false for the game thread.
-	 */
-	static void SetupGameOrRenderThread(bool bIsRenderThread)
-	{
-	}
-	
+	/** Allow the platform to do anything it needs for game thread */
+	static void SetupGameThread() { }
+
+	/** Allow the platform to do anything it needs for render thread */
+	static void SetupRenderThread() { }
+
+	/** Allow the platform to do anything it needs for audio thread */
+	static void SetupAudioThread() { }
+
 	/** Get startup directory.  NOTE: Only one return value is valid at a time! **/
 	static const TCHAR* BaseDir();
 
@@ -319,7 +319,14 @@ struct CORE_API FGenericPlatformProcess
 	 * Checks if the platform can launch a uniform resource locator (i.e. http://www.epicgames.com/unreal).
 	 **/
 	static bool CanLaunchURL(const TCHAR* URL);
-
+	
+	/**
+	 * Retrieves the platform-specific bundle identifier or package name of the game
+	 *
+	 * @return The game's bundle identifier or package name.
+	 */
+	static FString GetGameBundleId();
+	
 	/**
 	 * Creates a new process and its primary thread. The new process runs the
 	 * specified executable file in the security context of the calling process.

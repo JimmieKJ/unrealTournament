@@ -14,6 +14,9 @@
 
 #define ALL_SLICES uint32(0xffffffff)
 
+// GL_MAX_DRAW_BUFFERS value
+GLint GMaxOpenGLDrawBuffers = 0;
+
 /**
 * Key used to map a set of unique render/depth stencil target combinations to
 * a framebuffer resource
@@ -717,21 +720,30 @@ void FOpenGLDynamicRHI::ReadSurfaceDataRaw(FOpenGLContextState& ContextState, FT
 		GLubyte* RGBAData = (GLubyte*)FMemory::Malloc(RGBADataSize);
 
 		glReadPixels(Rect.Min.X, Rect.Min.Y, SizeX, SizeY, GL_RGBA, GL_UNSIGNED_BYTE, RGBAData);
-		
-		GLubyte* DataPtr = RGBAData;
+
+		//OpenGL ES reads the pixels "upside down" from what we're expecting (flipped vertically), so we need to transfer the data from the bottom up.
 		uint8* TargetPtr = TargetBuffer;
-		for (int32 PixelIndex = 0; PixelIndex < PixelComponentCount / 4; ++PixelIndex)
+		int32 Stride = SizeX * 4;
+		int32 FlipHeight = SizeY;
+		GLubyte* LinePtr = RGBAData + (SizeY - 1) * Stride;
+
+		while (FlipHeight--)
 		{
-			TargetPtr[0] = DataPtr[2];
-			TargetPtr[1] = DataPtr[1];
-			TargetPtr[2] = DataPtr[0];
-			TargetPtr[3] = DataPtr[3];
-			DataPtr += 4;
-			TargetPtr += 4;
+			GLubyte* DataPtr = LinePtr;
+			int32 Pixels = SizeX;
+			while (Pixels--)
+			{
+				TargetPtr[0] = DataPtr[2];
+				TargetPtr[1] = DataPtr[1];
+				TargetPtr[2] = DataPtr[0];
+				TargetPtr[3] = DataPtr[3];
+				DataPtr += 4;
+				TargetPtr += 4;
+			}
+			LinePtr -= Stride;
 		}
 
 		FMemory::Free(RGBAData);
-
 	}
 #else
 	else
@@ -760,17 +772,27 @@ void FOpenGLDynamicRHI::ReadSurfaceDataRaw(FOpenGLContextState& ContextState, FT
 
 void FOpenGLDynamicRHI::RHIReadSurfaceData(FTextureRHIParamRef TextureRHI,FIntRect Rect,TArray<FColor>& OutData, FReadSurfaceDataFlags InFlags)
 {
+	if (!ensure(TextureRHI))
+	{
+		OutData.Empty();
+		OutData.AddZeroed(Rect.Width() * Rect.Height());
+		return;
+	}
+
 	TArray<uint8> Temp;
 
 	FOpenGLContextState& ContextState = GetContextStateForCurrentContext();
-	ReadSurfaceDataRaw(ContextState, TextureRHI, Rect, Temp, InFlags);
-
-	uint32 Size = Rect.Width() * Rect.Height(); 
-
 	OutData.Empty();
-	OutData.AddUninitialized(Size);
+	if (&ContextState != &InvalidContextState)
+	{
+		ReadSurfaceDataRaw(ContextState, TextureRHI, Rect, Temp, InFlags);
 
-	FMemory::Memcpy(OutData.GetData(), Temp.GetData(), Size * sizeof(FColor));
+		uint32 Size = Rect.Width() * Rect.Height();
+
+		OutData.AddUninitialized(Size);
+
+		FMemory::Memcpy(OutData.GetData(), Temp.GetData(), Size * sizeof(FColor));
+	}
 }
 
 void FOpenGLDynamicRHI::RHIMapStagingSurface(FTextureRHIParamRef TextureRHI,void*& OutData,int32& OutWidth,int32& OutHeight)
@@ -943,11 +965,13 @@ void FOpenGLDynamicRHI::BindPendingFramebuffer( FOpenGLContextState& ContextStat
 			{
 				FOpenGL::ReadBuffer( PendingState.FirstNonzeroRenderTarget >= 0 ? GL_COLOR_ATTACHMENT0 + PendingState.FirstNonzeroRenderTarget : GL_NONE);
 				GLenum DrawFramebuffers[MaxSimultaneousRenderTargets];
-				for (int32 RenderTargetIndex = 0; RenderTargetIndex < MaxSimultaneousRenderTargets; ++RenderTargetIndex)
+				const GLint MaxDrawBuffers = GMaxOpenGLDrawBuffers;
+
+				for (int32 RenderTargetIndex = 0; RenderTargetIndex < MaxDrawBuffers; ++RenderTargetIndex)
 				{
 					DrawFramebuffers[RenderTargetIndex] = PendingState.RenderTargets[RenderTargetIndex] ? GL_COLOR_ATTACHMENT0 + RenderTargetIndex : GL_NONE;
 				}
-				FOpenGL::DrawBuffers( MaxSimultaneousRenderTargets, DrawFramebuffers );
+				FOpenGL::DrawBuffers(MaxDrawBuffers, DrawFramebuffers);
 			}
 		}
 		else

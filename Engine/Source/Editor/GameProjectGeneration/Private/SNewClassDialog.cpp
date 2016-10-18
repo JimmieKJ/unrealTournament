@@ -89,6 +89,10 @@ void SNewClassDialog::Construct( const FArguments& InArgs )
 		TArray<FModuleContextInfo> CurrentModules = GameProjectUtils::GetCurrentProjectModules();
 		check(CurrentModules.Num()); // this should never happen since GetCurrentProjectModules is supposed to add a dummy runtime module if the project currently has no modules
 
+		TArray<FModuleContextInfo> CurrentPluginModules = GameProjectUtils::GetCurrentProjectPluginModules();
+
+		CurrentModules.Append(CurrentPluginModules);
+
 		AvailableModules.Reserve(CurrentModules.Num());
 		for(const FModuleContextInfo& ModuleInfo : CurrentModules)
 		{

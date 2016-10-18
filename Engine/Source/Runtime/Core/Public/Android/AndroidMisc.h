@@ -35,6 +35,10 @@ struct CORE_API FAndroidMisc : public FGenericPlatformMisc
 	static bool AllowRenderThread();
 	static bool HasPlatformFeature(const TCHAR* FeatureName);
 
+	static bool AllowThreadHeartBeat()
+	{
+		return false;
+	}
 
 	struct FCPUStatTime{
 		uint64_t			TotalTime;

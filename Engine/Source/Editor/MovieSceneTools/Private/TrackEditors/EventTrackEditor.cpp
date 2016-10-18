@@ -99,7 +99,7 @@ void FEventTrackEditor::HandleAddEventTrackMenuEntryExecute()
 	NewTrack->AddSection(*NewSection);
 	NewTrack->SetDisplayName(LOCTEXT("TrackName", "Events"));
 
-	GetSequencer()->NotifyMovieSceneDataChanged();
+	GetSequencer()->NotifyMovieSceneDataChanged( EMovieSceneDataChangeType::MovieSceneStructureItemAdded );
 }
 
 

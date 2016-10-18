@@ -79,6 +79,9 @@ struct FActiveGameplayCue : public FFastArraySerializerItem
 	UPROPERTY()
 	FPredictionKey PredictionKey;
 
+	UPROPERTY()
+	FGameplayCueParameters Parameters;
+
 	/** Has this been predictively removed on the client? */
 	UPROPERTY(NotReplicated)
 	bool bPredictivelyRemoved;
@@ -102,7 +105,7 @@ struct FActiveGameplayCueContainer : public FFastArraySerializer
 	/** Should this container only rpelicate in minimal replication mode */
 	bool bMinimalReplication;
 
-	void AddCue(const FGameplayTag& Tag, const FPredictionKey& PredictionKey);
+	void AddCue(const FGameplayTag& Tag, const FPredictionKey& PredictionKey, const FGameplayCueParameters& Parameters);
 	void RemoveCue(const FGameplayTag& Tag);
 
 	/** Marks as predictively removed so that we dont invoke remove event twice due to onrep */

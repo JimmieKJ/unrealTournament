@@ -7,6 +7,7 @@
 #include "VertexFactoryCommon.usf"
 
 #define ES2_MAXLOD	5
+#define VERTEX_FACTORY_MODIFIES_TESSELLATION 1
 
 // Set by FLightMapTexturePolicy
 #include "UniformBuffers/PrecomputedLightingBuffer.usf"
@@ -124,6 +125,8 @@ struct FVertexFactoryInterpolantsVSToDS
 	float3	TangentToWorld0	: VS_To_DS_TangentToWorld0;
 	// Last row of the tangent to world matrix in xyz
 	float4	TangentToWorld2	: VS_To_DS_TangentToWorld2;
+	// LOD of the vertex, used for fading out tessellation
+	float CalculatedLOD : VS_To_DS_CalculatedLOD;
 #endif
 };
 
@@ -137,6 +140,13 @@ float2 VertexFactoryGetTextureCoordinateDS( FVertexFactoryInterpolantsVSToDS Int
 #endif
 }
 
+float VertexFactoryModifyTessellationMultiplier(FVertexFactoryInterpolantsVSToDS Interpolants, float3 CameraLocalWorldPosition, float MaterialTessellationMultiplier)
+{
+	// The 3.0f is a tunable value for falloff speed
+	float TessellationFalloff = saturate((1.0f - Interpolants.CalculatedLOD) * 3.0f);
+
+	return MaterialTessellationMultiplier * TessellationFalloff;
+}
 #endif // #if USING_TESSELLATION
 
 FVertexFactoryInterpolantsVSToPS VertexFactoryAssignInterpolants(FVertexFactoryInterpolantsVSToDS Input)
@@ -225,57 +235,57 @@ float3x3 VertexFactoryGetPerPixelTangentBasis(FVertexFactoryInterpolantsVSToPS I
 /** Converts from vertex factory specific interpolants to a FMaterialTessellationParameters, which is used by material inputs. */
 FMaterialTessellationParameters GetMaterialTessellationParameters(FVertexFactoryInterpolantsVSToDS Interpolants, float3 CameraLocalWorldPosition)
 {
-	FMaterialTessellationParameters	Result;
+	FMaterialTessellationParameters Result;
 
-#if NUM_MATERIAL_TEXCOORDS
+#if NUM_MATERIAL_TEXCOORDS     // XY layer
 	Result.TexCoords[0] = Interpolants.InterpolantsVSToPS.LayerTexCoord.xy;
-#if NUM_MATERIAL_TEXCOORDS > 1
+#if NUM_MATERIAL_TEXCOORDS > 1 // VS calcualted TexCoord 1, default is XZ layer
 	#if (ES2_PROFILE || ES3_1_PROFILE)
 		Result.TexCoords[1] = Interpolants.InterpolantsVSToPS.TransformedTexCoord0.xy;
 	#else
-	Result.TexCoords[1] = Interpolants.InterpolantsVSToPS.TransformedTexCoords.xy;
+		Result.TexCoords[1] = Interpolants.InterpolantsVSToPS.TransformedTexCoords.xy;
 	#endif
-#if NUM_MATERIAL_TEXCOORDS > 2
+#if NUM_MATERIAL_TEXCOORDS > 2 // VS calcualted TexCoord 2, default is YZ layer
 	#if (ES2_PROFILE || ES3_1_PROFILE)
 		Result.TexCoords[2] = Interpolants.InterpolantsVSToPS.TransformedTexCoord1.xy;
 	#else
 		Result.TexCoords[2] = Interpolants.InterpolantsVSToPS.TransformedTexCoords.zw;
 	#endif
-#if NUM_MATERIAL_TEXCOORDS > 3
+#if NUM_MATERIAL_TEXCOORDS > 3 // Weightmap
 	#if (ES2_PROFILE || ES3_1_PROFILE)
 		Result.TexCoords[3] = Interpolants.InterpolantsVSToPS.WeightMapTexCoord;
 	#else
-	Result.TexCoords[3] = Interpolants.InterpolantsVSToPS.WeightHeightMapTexCoord.xy;
+		Result.TexCoords[3] = Interpolants.InterpolantsVSToPS.WeightHeightMapTexCoord.xy;
 	#endif
-#if NUM_MATERIAL_TEXCOORDS > 4
+#if NUM_MATERIAL_TEXCOORDS > 4 // Lightmap
 	#if NEEDS_LIGHTMAP_COORDINATE
 		#if (ES2_PROFILE || ES3_1_PROFILE)
 			Result.TexCoords[4] = Interpolants.InterpolantsVSToPS.LightMapCoordinate[0].xy;
 		#else
-		Result.TexCoords[4] = Interpolants.InterpolantsVSToPS.LightMapCoordinate.xy;
+			Result.TexCoords[4] = Interpolants.InterpolantsVSToPS.LightMapCoordinate.xy;
 		#endif
 	#else
 		Result.TexCoords[4] = float2(0,0);
 	#endif
-#if NUM_MATERIAL_TEXCOORDS > 5
+#if NUM_MATERIAL_TEXCOORDS > 5 // Height map
 	#if (ES2_PROFILE || ES3_1_PROFILE)
-		Result.TexCoords[5] = float2(0, 0);
+		Result.TexCoords[5] = float2(0, 0); // Height map UV not supported
 	#else
 		Result.TexCoords[5] = Interpolants.InterpolantsVSToPS.WeightHeightMapTexCoord.zw;
 	#endif
 #if NUM_MATERIAL_TEXCOORDS > 6
 	UNROLL
-	for(int CoordinateIndex = 6;CoordinateIndex < NUM_MATERIAL_TEXCOORDS;CoordinateIndex ++)
+	for(uint CoordinateIndex = 6;CoordinateIndex < NUM_MATERIAL_TEXCOORDS;CoordinateIndex ++)
 	{
 		Result.TexCoords[CoordinateIndex] = float2(0,0);
 	}
-#endif	// >6
-#endif	// >5
-#endif	// >4
-#endif	// >3
-#endif	// >2
-#endif	// >1
-#endif
+#endif // 6
+#endif // 5
+#endif // 4
+#endif // 3
+#endif // 2
+#endif // 1
+#endif // 0
 
 	// Use interpolated normal from VS.
 #if USING_TESSELLATION
@@ -306,40 +316,40 @@ FMaterialPixelParameters GetMaterialPixelParameters(FVertexFactoryInterpolantsVS
 	float2 LightmapUVs = float2(0, 0);
 #endif
 
-#if NUM_MATERIAL_TEXCOORDS
-	Result.TexCoords[0] = Interpolants.LayerTexCoord.xy;				// XY layer
-#if NUM_MATERIAL_TEXCOORDS > 1
+#if NUM_MATERIAL_TEXCOORDS     // XY layer
+	Result.TexCoords[0] = Interpolants.LayerTexCoord.xy;
+#if NUM_MATERIAL_TEXCOORDS > 1 // VS calcualted TexCoord 1, default is XZ layer
 	#if (ES2_PROFILE || ES3_1_PROFILE)
-		Result.TexCoords[1] = Interpolants.TransformedTexCoord0.xy; // VS calcualted TexCoord 1, default is XZ layer
+		Result.TexCoords[1] = Interpolants.TransformedTexCoord0.xy;
 	#else
-		Result.TexCoords[1] = Interpolants.TransformedTexCoords.xy; // VS calcualted TexCoord 1, default is XZ layer
-	#endif // (ES2_PROFILE || ES3_1_PROFILE)
-#if NUM_MATERIAL_TEXCOORDS > 2
-	#if (ES2_PROFILE || ES3_1_PROFILE)
-		Result.TexCoords[2] = Interpolants.TransformedTexCoord1.xy; // VS calcualted TexCoord 2, default is YZ layer
-	#else
-		Result.TexCoords[2] = Interpolants.TransformedTexCoords.zw;	// VS calcualted TexCoord 2, default is YZ layer
+		Result.TexCoords[1] = Interpolants.TransformedTexCoords.xy;
 	#endif
-#if NUM_MATERIAL_TEXCOORDS > 3
+#if NUM_MATERIAL_TEXCOORDS > 2 // VS calcualted TexCoord 2, default is YZ layer
 	#if (ES2_PROFILE || ES3_1_PROFILE)
-		Result.TexCoords[3] = Interpolants.WeightMapTexCoord;		// Weightmap
+		Result.TexCoords[2] = Interpolants.TransformedTexCoord1.xy;
 	#else
-		Result.TexCoords[3] = Interpolants.WeightHeightMapTexCoord.xy;		// Weightmap
+		Result.TexCoords[2] = Interpolants.TransformedTexCoords.zw;
 	#endif
-#if NUM_MATERIAL_TEXCOORDS > 4
+#if NUM_MATERIAL_TEXCOORDS > 3 // Weightmap
+	#if (ES2_PROFILE || ES3_1_PROFILE)
+		Result.TexCoords[3] = Interpolants.WeightMapTexCoord;
+	#else
+		Result.TexCoords[3] = Interpolants.WeightHeightMapTexCoord.xy;
+	#endif
+#if NUM_MATERIAL_TEXCOORDS > 4 // Lightmap
 	#if NEEDS_LIGHTMAP_COORDINATE
-		Result.TexCoords[4] = LightmapUVs;								// Lightmap
-	#else	//#if NEEDS_LIGHTMAP_COORDINATE
+		Result.TexCoords[4] = LightmapUVs;
+	#else
 		Result.TexCoords[4] = float2(0,0);
-	#endif	//#if NEEDS_LIGHTMAP_COORDINATE
-#if NUM_MATERIAL_TEXCOORDS > 5
+	#endif
+#if NUM_MATERIAL_TEXCOORDS > 5 // Height map
 	#if (ES2_PROFILE || ES3_1_PROFILE)
 		Result.TexCoords[5] = float2(0,0); // Height map UV not supported
 	#else
-	Result.TexCoords[5] = Interpolants.WeightHeightMapTexCoord.zw;	// Height map
+		Result.TexCoords[5] = Interpolants.WeightHeightMapTexCoord.zw;
 	#endif
 #if NUM_MATERIAL_TEXCOORDS > 6
-	for(uint CoordinateIndex = 6;CoordinateIndex < NUM_MATERIAL_TEXCOORDS;CoordinateIndex++)
+	for (uint CoordinateIndex = 6; CoordinateIndex < NUM_MATERIAL_TEXCOORDS; CoordinateIndex++)
 	{
 		Result.TexCoords[CoordinateIndex] = float2(0,0);
 	}
@@ -347,7 +357,7 @@ FMaterialPixelParameters GetMaterialPixelParameters(FVertexFactoryInterpolantsVS
 #endif // 5
 #endif // 4
 #endif // 3
-#endif // 2 
+#endif // 2
 #endif // 1
 #endif // 0
 
@@ -388,42 +398,42 @@ FMaterialVertexParameters GetMaterialVertexParameters(FVertexFactoryInput Input,
 
 	FLandscapeTexCoords LandscapeTexCoords = GetLandscapeTexCoords(Input, Intermediates);
 
-#if NUM_MATERIAL_TEXCOORDS_VERTEX
+#if NUM_MATERIAL_TEXCOORDS_VERTEX     // XY layer
 	Result.TexCoords[0] = LandscapeTexCoords.LayerTexCoord.xy;
-#if (ES2_PROFILE || ES3_1_PROFILE)
-	Result.TexCoordOffset = LodBias.zw;
-#endif
-#if NUM_MATERIAL_TEXCOORDS_VERTEX > 1
+	#if (ES2_PROFILE || ES3_1_PROFILE)
+		Result.TexCoordOffset = LodBias.zw;
+	#endif
+#if NUM_MATERIAL_TEXCOORDS_VERTEX > 1 // XZ layer
 	Result.TexCoords[1] = float2(LandscapeTexCoords.LayerTexCoord.x, Intermediates.LocalPosition.z);
-#if NUM_MATERIAL_TEXCOORDS_VERTEX > 2
+#if NUM_MATERIAL_TEXCOORDS_VERTEX > 2 // YZ layer
 	Result.TexCoords[2] = float2(LandscapeTexCoords.LayerTexCoord.y, Intermediates.LocalPosition.z);
-#if NUM_MATERIAL_TEXCOORDS_VERTEX > 3
+#if NUM_MATERIAL_TEXCOORDS_VERTEX > 3 // Weightmap
 	Result.TexCoords[3] = LandscapeTexCoords.WeightMapTexCoord;
-#if NUM_MATERIAL_TEXCOORDS_VERTEX > 4
+#if NUM_MATERIAL_TEXCOORDS_VERTEX > 4 // Lightmap
 	#if NEEDS_LIGHTMAP_COORDINATE
 		Result.TexCoords[4] = LandscapeTexCoords.LightMapCoordinate.xy;
 	#else
 		Result.TexCoords[4] = float2(0,0);
 	#endif
-#if NUM_MATERIAL_TEXCOORDS_VERTEX > 5
+#if NUM_MATERIAL_TEXCOORDS_VERTEX > 5 // Height map
 	#if (ES2_PROFILE || ES3_1_PROFILE)
-		Result.TexCoords[5] = float2(0,0);
+		Result.TexCoords[5] = float2(0,0); // Height map UV not supported
 	#else
 		Result.TexCoords[5] = LandscapeTexCoords.HeightMapTexCoord;
 	#endif
 #if NUM_MATERIAL_TEXCOORDS_VERTEX > 6
 	UNROLL
-	for(int CoordinateIndex = 6;CoordinateIndex < NUM_MATERIAL_TEXCOORDS_VERTEX;CoordinateIndex ++)
+	for (uint CoordinateIndex = 6; CoordinateIndex < NUM_MATERIAL_TEXCOORDS; CoordinateIndex++)
 	{
 		Result.TexCoords[CoordinateIndex] = float2(0,0);
 	}
-#endif	// >6
-#endif	// >5
-#endif	// >4
-#endif	// >3
-#endif	// >2
-#endif	// >1
-#endif  // >0
+#endif // 6
+#endif // 5
+#endif // 4
+#endif // 3
+#endif // 2
+#endif // 1
+#endif // 0
 
 	return Result;
 }
@@ -537,21 +547,75 @@ FVertexFactoryIntermediates GetVertexFactoryIntermediates(FVertexFactoryInput In
 	float LodValue = floor(LODCalculated);
 	float MorphAlpha = frac(LODCalculated);
 
-	// Base to Actual LOD, Base to Next LOD
-	float2 CoordTranslate = float2( LandscapeParameters.SubsectionSizeVertsLayerUVPan.x * pow(2, -LodValue) - 1, max(LandscapeParameters.SubsectionSizeVertsLayerUVPan.x * pow(2, -LodValue-1), 2) - 1 ) * LandscapeParameters.SubsectionSizeVertsLayerUVPan.y;
-
 	// InputPositionLODAdjusted : Position for actual LOD in base LOD units
+#if FEATURE_LEVEL >= FEATURE_LEVEL_SM4
 	float2 ActualLODCoordsInt = floor(Intermediates.InputPosition.xy * pow(2, -(LodValue - LodValues.x)));
+	float InvLODScaleFactor = pow(2, -LodValue);
+#else
+	// select the height values from the vertex input corresponding to the current and next LOD
+	float InputHeight;
+	float InputHeightNextLOD;
+	// we can hardcode InvLODScaleFactor
+	float InvLODScaleFactor;
+
+	if( LodValue < 1 )
+	{
+		InvLODScaleFactor	= 1.0;
+		InputHeight			= Input.LODHeights[1][0];
+		InputHeightNextLOD	= Input.LODHeights[1][1];
+	}
+	else
+	if( LodValue < 2 )
+	{
+		InvLODScaleFactor	= 0.5;
+		InputHeight			= Input.LODHeights[1][1];
+		InputHeightNextLOD	= Input.LODHeights[1][2];
+	}
+	else
+	if( LodValue < 3 )
+	{
+		InvLODScaleFactor	= 0.25;
+		InputHeight			= Input.LODHeights[1][2];
+		InputHeightNextLOD	= Input.LODHeights[1][3];
+	}
+	else
+	if (LodValue < 4)
+	{
+		InvLODScaleFactor	= 0.125;
+		InputHeight			= Input.LODHeights[1][3];
+		InputHeightNextLOD	= LOD45[0];
+	}
+	else
+	if( LodValue < 5 )
+	{
+		InvLODScaleFactor	= 0.0625;
+		InputHeight			= LOD45[0];
+		InputHeightNextLOD	= LOD45[1];
+	}
+	else
+	{
+		InvLODScaleFactor	= 0.03125;
+		InputHeight			= LOD45[1];
+		InputHeightNextLOD	= LOD45[1];	// clamp to last LOD.
+	}
+
+	float MinHeight = DecodePackedHeight(Input.LODHeights[0].xy);
+	float MaxHeight = DecodePackedHeight(Input.LODHeights[0].zw);
+
+	float Height = lerp(MinHeight, MaxHeight, InputHeight);
+	float HeightNextLOD = lerp(MinHeight, MaxHeight, InputHeightNextLOD);
+
+	// LodValues.x is always 0 on mobile.
+	float2 ActualLODCoordsInt = floor(Intermediates.InputPosition.xy * InvLODScaleFactor);
+#endif
+
+	// Base to Actual LOD, Base to Next LOD
+	float2 CoordTranslate = float2( LandscapeParameters.SubsectionSizeVertsLayerUVPan.x * InvLODScaleFactor - 1, max(LandscapeParameters.SubsectionSizeVertsLayerUVPan.x * 0.5f * InvLODScaleFactor, 2) - 1 ) * LandscapeParameters.SubsectionSizeVertsLayerUVPan.y;
 	float2 InputPositionLODAdjusted = ActualLODCoordsInt / CoordTranslate.x;
 
 	// InputPositionNextLOD : Position for next LOD in base LOD units
 	float2 NextLODCoordsInt = floor(ActualLODCoordsInt * 0.5);
 	float2 InputPositionNextLOD = NextLODCoordsInt / CoordTranslate.y;
-
-	// Adjust MorphAlpha based on actual LOD - Improves multi-LOD transitions
-	//xy = ActualLODCoordsInt / (LandscapeParameters.SubsectionSizeVertsLayerUVPan.x * pow(2, -LodValue) - 1);
-	//LODCalculated = CalcLOD(xy, Intermediates.InputPosition.zw);
-	//MorphAlpha = saturate(LODCalculated - LodValue);
 
 	// Get the height and normal XY for current and next LOD out of the textures
 #if FEATURE_LEVEL >= FEATURE_LEVEL_SM4
@@ -562,54 +626,6 @@ FVertexFactoryIntermediates GetVertexFactoryIntermediates(FVertexFactoryInput In
 	float2 SampleCoordsNextLOD = InputPositionNextLOD * LandscapeParameters.HeightmapUVScaleBias.xy + LandscapeParameters.HeightmapUVScaleBias.zw + 0.5*LandscapeParameters.HeightmapUVScaleBias.xy + Intermediates.InputPosition.zw * LandscapeParameters.SubsectionOffsetParams.xy;
 	float4 SampleValueNextLOD = Texture2DSampleLevel(HeightmapTexture, HeightmapTextureSampler, SampleCoordsNextLOD, LodValue+1-LodBias.z );
 	float HeightNextLOD = DecodePackedHeight(SampleValueNextLOD.xy);
-
-#else
-	// select the height values from the vertex input corresponding to the current and next LOD
-	float SampleLOD = floor(LodValue);
-	float InputHeight;
-	float InputHeightNextLOD;
-	if( SampleLOD < 1 )
-	{
-		InputHeight			= Input.LODHeights[1][0];
-		InputHeightNextLOD	= Input.LODHeights[1][1];
-	}
-	else
-	if( SampleLOD < 2 )
-	{
-		InputHeight			= Input.LODHeights[1][1];
-		InputHeightNextLOD	= Input.LODHeights[1][2];
-	}
-	else
-	if( SampleLOD < 3 )
-	{
-		InputHeight			= Input.LODHeights[1][2];
-		InputHeightNextLOD	= Input.LODHeights[1][3];
-	}
-	else
-	if (SampleLOD < 4)
-	{
-		InputHeight			= Input.LODHeights[1][3];
-		InputHeightNextLOD	= LOD45[0];
-	}
-	else
-	if( SampleLOD < 5 )
-	{
-		InputHeight			= LOD45[0];
-		InputHeightNextLOD	= LOD45[1];
-	}
-	else
-	{
-		InputHeight			= LOD45[1];
-		InputHeightNextLOD	= LOD45[1];	// clamp to last LOD.
-	}
-
-
-	float MinHeight = DecodePackedHeight(Input.LODHeights[0].xy);
-	float MaxHeight = DecodePackedHeight(Input.LODHeights[0].zw);
-
-	float Height = lerp(MinHeight, MaxHeight, InputHeight);
-	float HeightNextLOD = lerp(MinHeight, MaxHeight, InputHeightNextLOD);
-
 #endif
 
 
@@ -624,6 +640,7 @@ FVertexFactoryIntermediates GetVertexFactoryIntermediates(FVertexFactoryInput In
 	InputPositionLODAdjusted = InputPositionLODAdjusted + XYOffset;
 	InputPositionNextLOD = InputPositionNextLOD + XYOffsetNextLOD;
 #endif
+
 	Intermediates.LocalPosition = lerp( float3(InputPositionLODAdjusted, Height), float3(InputPositionNextLOD, HeightNextLOD), MorphAlpha );
 
 #if USING_TESSELLATION
@@ -774,15 +791,17 @@ FVertexFactoryInterpolantsVSToDS VertexFactoryGetInterpolantsVSToDS(FVertexFacto
 	FVertexFactoryInterpolantsVSToDS Interpolants;
 	
 	Interpolants.InterpolantsVSToPS = VertexFactoryGetInterpolantsVSToPS(Input, Intermediates, VertexParameters);
-	
+
 #if USING_TESSELLATION
 	// Calculate LocalToTangent directly from normal map texture.
-	float3x3 TangentToLocal = CalcTangentBasisFromWorldNormal( Intermediates.WorldNormal );
+	float3x3 TangentToLocal = CalcTangentBasisFromWorldNormal(Intermediates.WorldNormal);
 	float3x3 TangentToWorld = mul(TangentToLocal, (float3x3)LandscapeParameters.LocalToWorldNoScaling);
 	
 	Interpolants.TangentToWorld0 = TangentToWorld[0];
 	Interpolants.TangentToWorld2 = float4(TangentToWorld[2], 1);
 
+	float2 xy = Intermediates.InputPosition.xy * LodValues.w;
+	Interpolants.CalculatedLOD = CalcLOD(xy, Intermediates.InputPosition.zw);
 #endif
 	
 	return Interpolants;
@@ -803,11 +822,13 @@ FVertexFactoryInterpolantsVSToDS VertexFactoryInterpolate(FVertexFactoryInterpol
 	TESSELLATION_INTERPOLATE_MEMBER(InterpolantsVSToPS.TransformedTexCoord1);
 #else
 	TESSELLATION_INTERPOLATE_MEMBER(InterpolantsVSToPS.WeightHeightMapTexCoord);
+	TESSELLATION_INTERPOLATE_MEMBER(InterpolantsVSToPS.TransformedTexCoords);
 #endif
 
 #if USING_TESSELLATION
 	TESSELLATION_INTERPOLATE_MEMBER(TangentToWorld0);
 	TESSELLATION_INTERPOLATE_MEMBER(TangentToWorld2);
+	TESSELLATION_INTERPOLATE_MEMBER(CalculatedLOD);
 #endif
 
 	return O;
@@ -816,7 +837,7 @@ FVertexFactoryInterpolantsVSToDS VertexFactoryInterpolate(FVertexFactoryInterpol
 #if USING_TESSELLATION
 float3x3 VertexFactoryGetTangentToLocalDS(FVertexFactoryInterpolantsVSToDS Interpolants)
 {
-	return AssembleTangentToWorld( Interpolants.TangentToWorld0, Interpolants.TangentToWorld2 );
+	return AssembleTangentToWorld(Interpolants.TangentToWorld0, Interpolants.TangentToWorld2);
 }
 #endif // #if USING_TESSELLATION
 
@@ -824,7 +845,7 @@ float3x3 VertexFactoryGetTangentToLocalDS(FVertexFactoryInterpolantsVSToDS Inter
 void VertexFactoryPackInterpolants(inout FVertexFactoryInterpolantsVSToPS Interpolants, float4 PackedInterpolants[NUM_VF_PACKED_INTERPOLANTS])
 {
 	Interpolants.TransformedTexCoord0.zw = PackedInterpolants[0].xy;
-	Interpolants.TransformedTexCoord1.zw = PackedInterpolants[0].zw;    
+	Interpolants.TransformedTexCoord1.zw = PackedInterpolants[0].zw;
 }
 
 void VertexFactoryUnpackInterpolants(FVertexFactoryInterpolantsVSToPS Interpolants, out float4 PackedInterpolants[NUM_VF_PACKED_INTERPOLANTS])

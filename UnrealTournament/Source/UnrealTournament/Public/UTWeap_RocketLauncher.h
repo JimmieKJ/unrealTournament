@@ -90,6 +90,9 @@ class UNREALTOURNAMENT_API AUTWeap_RocketLauncher : public AUTWeapon
 
 	float CurrentRotation;
 
+	/** Whether can switch to grenades. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = RocketLauncher)
+		bool bAllowGrenades;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = RocketLauncher)
 	TArray<FRocketFireMode> RocketFireModes;
@@ -153,6 +156,7 @@ class UNREALTOURNAMENT_API AUTWeap_RocketLauncher : public AUTWeapon
 	virtual float GetLoadTime(int32 InNumLoadedRockets);
 	virtual void BeginLoadRocket();
 	virtual void EndLoadRocket();
+	UFUNCTION(BlueprintCallable, Category = RocketLauncher)
 	virtual void ClearLoadedRockets();
 	/** called by server to tell client to stop loading rockets early, generally because we're out of ammo */
 	UFUNCTION(Reliable, Client)

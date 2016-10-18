@@ -67,10 +67,12 @@ Includes.
 #include "ThreadingBase.h"				// Non-platform specific multi-threaded support.
 #include "Internationalization/Internationalization.h"
 #include "Internationalization/Culture.h"
+#include "Internationalization/CulturePointer.h"
 #include "Guid.h"						// FGuid class
 #include "UnrealMath.h"					// Vector math functions.
 #include "OutputDevices.h"				// Output devices
 #include "CoreStats.h"
+#include "TimeGuard.h"
 #include "MemStack.h"					// Stack based memory management.
 #include "AsyncWork.h"					// Async threaded work
 #include "Archive.h"					// Utility archive classes

@@ -17,6 +17,17 @@ namespace
 /** Convert property to JSON, assuming either the property is not an array or the value is an individual array element */
 TSharedPtr<FJsonValue> ConvertScalarUPropertyToJsonValue(UProperty* Property, const void* Value, int64 CheckFlags, int64 SkipFlags, const FJsonObjectConverter::CustomExportCallback* ExportCb)
 {
+	// See if there's a custom export callback first, so it can override default behavior
+	if (ExportCb && ExportCb->IsBound())
+	{
+		TSharedPtr<FJsonValue> CustomValue = ExportCb->Execute(Property, Value);
+		if (CustomValue.IsValid())
+		{
+			return CustomValue;
+		}
+		// fall through to default cases
+	}
+
 	if (UNumericProperty *NumericProperty = Cast<UNumericProperty>(Property))
 	{
 		// see if it's an enum
@@ -87,17 +98,6 @@ TSharedPtr<FJsonValue> ConvertScalarUPropertyToJsonValue(UProperty* Property, co
 	}
 	else
 	{
-		// see if there's a custom export callback
-		if (ExportCb && ExportCb->IsBound())
-		{
-			TSharedPtr<FJsonValue> CustomValue = ExportCb->Execute(Property, Value);
-			if (CustomValue.IsValid())
-			{
-				return CustomValue;
-			}
-			// fall through and try ToString
-		}
-
 		// Default to export as string for everything else
 		FString StringValue;
 		Property->ExportTextItem(StringValue, Value, NULL, NULL, PPF_None);
@@ -407,9 +407,17 @@ bool ConvertScalarJsonValueToUProperty(TSharedPtr<FJsonValue> JsonValue, UProper
 				// this value's not really meaningful from json serialization (since we don't know timezone) but handle it anyway since we're handling the other keywords
 				DateTimeOut = FDateTime::UtcNow();
 			}
-			else if (!FDateTime::ParseIso8601(*DateString, DateTimeOut))
+			else if (FDateTime::ParseIso8601(*DateString, DateTimeOut))
 			{
-				UE_LOG(LogJson, Error, TEXT("JsonValueToUProperty - Unable to import FDateTime from Iso8601 String for property %s"), *Property->GetNameCPP());
+				// ok
+			}
+			else if (FDateTime::Parse(DateString, DateTimeOut))
+			{
+				// ok
+			}
+			else
+			{
+				UE_LOG(LogJson, Error, TEXT("JsonValueToUProperty - Unable to import FDateTime for property %s"), *Property->GetNameCPP());
 				return false;
 			}
 		}

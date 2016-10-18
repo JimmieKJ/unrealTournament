@@ -18,7 +18,7 @@ private:
 	FText GetDisplayedText(TSharedRef<IPropertyHandle> PropertyHandle) const;
 
 	/** Delegate used to display a directory picker */
-	FReply OnPickDirectory(TSharedRef<IPropertyHandle> PropertyHandle, const bool bRelativeToGameContentDir, const bool bUseRelativePaths) const;
+	FReply OnPickDirectory(TSharedRef<IPropertyHandle> PropertyHandle, const bool bRelativeToGameContentDir, const bool bUseRelativePaths, const bool bLongPackageName) const;
 
 	/** Check whether that the chosen path is valid */
 	bool IsValidPath(const FString& AbsolutePath, const bool bRelativeToGameContentDir, FText* const OutReason = nullptr) const;

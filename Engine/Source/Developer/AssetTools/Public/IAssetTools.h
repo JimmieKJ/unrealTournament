@@ -2,12 +2,15 @@
 
 #pragma once
 
+#include "CoreUObject.h"
 #include "AssetTypeCategories.h"
+
 
 class IAssetTypeActions;
 class IClassTypeActions;
 class FAssetData;
 class UFactory;
+
 
 struct FAssetRenameData
 {
@@ -28,7 +31,9 @@ struct FAssetRenameData
 	}
 };
 
+
 DECLARE_MULTICAST_DELEGATE_OneParam(FAssetPostRenameEvent, const TArray<FAssetRenameData>&);
+
 
 struct FAdvancedAssetCategory
 {
@@ -41,6 +46,7 @@ struct FAdvancedAssetCategory
 	{
 	}
 };
+
 
 class IAssetTools
 {

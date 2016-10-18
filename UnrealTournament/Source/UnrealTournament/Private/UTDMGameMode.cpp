@@ -13,6 +13,7 @@ AUTDMGameMode::AUTDMGameMode(const class FObjectInitializer& ObjectInitializer)
 	HUDClass = AUTHUD_DM::StaticClass();
 	DisplayName = NSLOCTEXT("UTGameMode", "DM", "Deathmatch");
 	XPMultiplier = 3.0f;
+	bGameHasImpactHammer = false;
 }
 
 
@@ -64,17 +65,17 @@ void AUTDMGameMode::PrepareRankedMatchResultGameCustom(FRankedMatchResult& Match
 	}
 }
 
-uint8 AUTDMGameMode::GetNumMatchesFor(AUTPlayerState* PS, bool bRankedSession) const
+uint8 AUTDMGameMode::GetNumMatchesFor(AUTPlayerState* PS, bool InbRankedSession) const
 {
 	return PS ? PS->DMMatchesPlayed : 0;
 }
 
-int32 AUTDMGameMode::GetEloFor(AUTPlayerState* PS, bool bRankedSession) const
+int32 AUTDMGameMode::GetEloFor(AUTPlayerState* PS, bool InbRankedSession) const
 {
-	return PS ? PS->DMRank : Super::GetEloFor(PS, bRankedSession);
+	return PS ? PS->DMRank : Super::GetEloFor(PS, InbRankedSession);
 }
 
-void AUTDMGameMode::SetEloFor(AUTPlayerState* PS, bool bRankedSession, int32 NewEloValue, bool bIncrementMatchCount)
+void AUTDMGameMode::SetEloFor(AUTPlayerState* PS, bool InbRankedSession, int32 NewEloValue, bool bIncrementMatchCount)
 {
 	if (PS)
 	{

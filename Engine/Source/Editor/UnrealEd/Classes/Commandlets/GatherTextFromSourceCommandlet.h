@@ -23,7 +23,7 @@ private:
 
 	struct FSourceFileParseContext
 	{
-		bool AddManifestText( const FString& Token, const FString& Namespace, const FString& SourceText, const FContext& Context );
+		bool AddManifestText( const FString& Token, const FString& Namespace, const FString& SourceText, const FManifestContext& Context );
 
 		void PushMacroBlock( const FString& InBlockCtx );
 
@@ -54,7 +54,7 @@ private:
 		bool ShouldGatherFromEditorOnlyData;
 
 		//Destination location of the parsed FLocTextEntrys
-		TSharedPtr< FManifestInfo > ManifestInfo;
+		TSharedPtr< FLocTextHelper > GatherManifestHelper;
 
 		FSourceFileParseContext()
 			: Filename()
@@ -69,7 +69,7 @@ private:
 			, WithinNamespaceDefine(false)
 			, WithinStartingLine()
 			, ShouldGatherFromEditorOnlyData(false)
-			, ManifestInfo()
+			, GatherManifestHelper()
 			, MacroBlockStack()
 			, CachedMacroBlockState()
 		{
@@ -238,6 +238,7 @@ private:
 
 	static const FString ChangelistName;
 
+	static FString UnescapeLiteralCharacterEscapeSequences(const FString& InString);
 	static FString RemoveStringFromTextMacro(const FString& TextMacro, const FString& IdentForLogging, bool& Error);
 	static FString StripCommentsFromToken(const FString& InToken, FSourceFileParseContext& Context);
 	static bool ParseSourceText(const FString& Text, const TArray<FParsableDescriptor*>& Parsables, FSourceFileParseContext& ParseCtxt);

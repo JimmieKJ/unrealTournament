@@ -25,31 +25,27 @@ struct FFixedZoomLevelsContainer : public FZoomLevelsContainer
 {
 	FFixedZoomLevelsContainer()
 	{
-		// Initialize zoom levels if not done already
-		if (ZoomLevels.Num() == 0)
-		{
-			ZoomLevels.Reserve(20);
-			ZoomLevels.Add(FZoomLevelEntry(0.100f, FText::FromString(TEXT("-12")), EGraphRenderingLOD::LowestDetail));
-			ZoomLevels.Add(FZoomLevelEntry(0.125f, FText::FromString(TEXT("-11")), EGraphRenderingLOD::LowestDetail));
-			ZoomLevels.Add(FZoomLevelEntry(0.150f, FText::FromString(TEXT("-10")), EGraphRenderingLOD::LowestDetail));
-			ZoomLevels.Add(FZoomLevelEntry(0.175f, FText::FromString(TEXT("-9")), EGraphRenderingLOD::LowestDetail));
-			ZoomLevels.Add(FZoomLevelEntry(0.200f, FText::FromString(TEXT("-8")), EGraphRenderingLOD::LowestDetail));
-			ZoomLevels.Add(FZoomLevelEntry(0.225f, FText::FromString(TEXT("-7")), EGraphRenderingLOD::LowDetail));
-			ZoomLevels.Add(FZoomLevelEntry(0.250f, FText::FromString(TEXT("-6")), EGraphRenderingLOD::LowDetail));
-			ZoomLevels.Add(FZoomLevelEntry(0.375f, FText::FromString(TEXT("-5")), EGraphRenderingLOD::MediumDetail));
-			ZoomLevels.Add(FZoomLevelEntry(0.500f, FText::FromString(TEXT("-4")), EGraphRenderingLOD::MediumDetail));
-			ZoomLevels.Add(FZoomLevelEntry(0.675f, FText::FromString(TEXT("-3")), EGraphRenderingLOD::MediumDetail));
-			ZoomLevels.Add(FZoomLevelEntry(0.750f, FText::FromString(TEXT("-2")), EGraphRenderingLOD::DefaultDetail));
-			ZoomLevels.Add(FZoomLevelEntry(0.875f, FText::FromString(TEXT("-1")), EGraphRenderingLOD::DefaultDetail));
-			ZoomLevels.Add(FZoomLevelEntry(1.000f, FText::FromString(TEXT("1:1")), EGraphRenderingLOD::DefaultDetail));
-			ZoomLevels.Add(FZoomLevelEntry(1.250f, FText::FromString(TEXT("+1")), EGraphRenderingLOD::DefaultDetail));
-			ZoomLevels.Add(FZoomLevelEntry(1.375f, FText::FromString(TEXT("+2")), EGraphRenderingLOD::DefaultDetail));
-			ZoomLevels.Add(FZoomLevelEntry(1.500f, FText::FromString(TEXT("+3")), EGraphRenderingLOD::FullyZoomedIn));
-			ZoomLevels.Add(FZoomLevelEntry(1.675f, FText::FromString(TEXT("+4")), EGraphRenderingLOD::FullyZoomedIn));
-			ZoomLevels.Add(FZoomLevelEntry(1.750f, FText::FromString(TEXT("+5")), EGraphRenderingLOD::FullyZoomedIn));
-			ZoomLevels.Add(FZoomLevelEntry(1.875f, FText::FromString(TEXT("+6")), EGraphRenderingLOD::FullyZoomedIn));
-			ZoomLevels.Add(FZoomLevelEntry(2.000f, FText::FromString(TEXT("+7")), EGraphRenderingLOD::FullyZoomedIn));
-		}
+		ZoomLevels.Reserve(20);
+		ZoomLevels.Add(FZoomLevelEntry(0.100f, FText::FromString(TEXT("-12")), EGraphRenderingLOD::LowestDetail));
+		ZoomLevels.Add(FZoomLevelEntry(0.125f, FText::FromString(TEXT("-11")), EGraphRenderingLOD::LowestDetail));
+		ZoomLevels.Add(FZoomLevelEntry(0.150f, FText::FromString(TEXT("-10")), EGraphRenderingLOD::LowestDetail));
+		ZoomLevels.Add(FZoomLevelEntry(0.175f, FText::FromString(TEXT("-9")), EGraphRenderingLOD::LowestDetail));
+		ZoomLevels.Add(FZoomLevelEntry(0.200f, FText::FromString(TEXT("-8")), EGraphRenderingLOD::LowestDetail));
+		ZoomLevels.Add(FZoomLevelEntry(0.225f, FText::FromString(TEXT("-7")), EGraphRenderingLOD::LowDetail));
+		ZoomLevels.Add(FZoomLevelEntry(0.250f, FText::FromString(TEXT("-6")), EGraphRenderingLOD::LowDetail));
+		ZoomLevels.Add(FZoomLevelEntry(0.375f, FText::FromString(TEXT("-5")), EGraphRenderingLOD::MediumDetail));
+		ZoomLevels.Add(FZoomLevelEntry(0.500f, FText::FromString(TEXT("-4")), EGraphRenderingLOD::MediumDetail));
+		ZoomLevels.Add(FZoomLevelEntry(0.675f, FText::FromString(TEXT("-3")), EGraphRenderingLOD::MediumDetail));
+		ZoomLevels.Add(FZoomLevelEntry(0.750f, FText::FromString(TEXT("-2")), EGraphRenderingLOD::DefaultDetail));
+		ZoomLevels.Add(FZoomLevelEntry(0.875f, FText::FromString(TEXT("-1")), EGraphRenderingLOD::DefaultDetail));
+		ZoomLevels.Add(FZoomLevelEntry(1.000f, FText::FromString(TEXT("1:1")), EGraphRenderingLOD::DefaultDetail));
+		ZoomLevels.Add(FZoomLevelEntry(1.250f, FText::FromString(TEXT("+1")), EGraphRenderingLOD::DefaultDetail));
+		ZoomLevels.Add(FZoomLevelEntry(1.375f, FText::FromString(TEXT("+2")), EGraphRenderingLOD::DefaultDetail));
+		ZoomLevels.Add(FZoomLevelEntry(1.500f, FText::FromString(TEXT("+3")), EGraphRenderingLOD::FullyZoomedIn));
+		ZoomLevels.Add(FZoomLevelEntry(1.675f, FText::FromString(TEXT("+4")), EGraphRenderingLOD::FullyZoomedIn));
+		ZoomLevels.Add(FZoomLevelEntry(1.750f, FText::FromString(TEXT("+5")), EGraphRenderingLOD::FullyZoomedIn));
+		ZoomLevels.Add(FZoomLevelEntry(1.875f, FText::FromString(TEXT("+6")), EGraphRenderingLOD::FullyZoomedIn));
+		ZoomLevels.Add(FZoomLevelEntry(2.000f, FText::FromString(TEXT("+7")), EGraphRenderingLOD::FullyZoomedIn));
 	}
 
 	float GetZoomAmount(int32 InZoomLevel) const override
@@ -93,11 +89,10 @@ struct FFixedZoomLevelsContainer : public FZoomLevelsContainer
 		return ZoomLevels[InZoomLevel].LOD;
 	}
 
-	static TArray<FZoomLevelEntry> ZoomLevels;
+	TArray<FZoomLevelEntry> ZoomLevels;
 };
 
 const TCHAR* XSymbol=TEXT("\xD7");
-TArray<FZoomLevelEntry> FFixedZoomLevelsContainer::ZoomLevels;
 
 //////////////////////////////////////////////////////////////////////////
 // FGraphSelectionManager
@@ -436,7 +431,6 @@ EActiveTimerReturnType SNodePanel::HandleZoomToFit(double InCurrentTime, float I
 void SNodePanel::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
 {
 	CachedGeometry = AllottedGeometry;
-	bool bWasActiveTimerRegisteredThisFrame = false;
 	bool bCanMoveToTargetObjectThisFrame = true;
 
 	if(DeferredSelectionTargetObjects.Num() > 0)
@@ -469,14 +463,10 @@ void SNodePanel::Tick( const FGeometry& AllottedGeometry, const double InCurrent
 		if (bCanMoveToTargetObjectThisFrame && GetBoundsForNode(DeferredMovementTargetObject, ZoomTargetTopLeft, ZoomTargetBottomRight, ZoomPadding))
 		{
 			DeferredMovementTargetObject = nullptr;
-			if (!ActiveTimerHandle.IsValid())
-			{
-				ActiveTimerHandle = RegisterActiveTimer(0.f, FWidgetActiveTimerDelegate::CreateSP(this, &SNodePanel::HandleZoomToFit));
-				bWasActiveTimerRegisteredThisFrame = true;
-			}
+			RequestZoomToFit();
 		}
 	}
-	
+
 	// Zoom to node extents
 	if( bDeferredZoomToNodeExtents )
 	{
@@ -485,11 +475,7 @@ void SNodePanel::Tick( const FGeometry& AllottedGeometry, const double InCurrent
 		if( GetBoundsForNodes(bDeferredZoomToSelection, ZoomTargetTopLeft, ZoomTargetBottomRight, ZoomPadding))
 		{
 			bDeferredZoomToSelection = false;
-			if (!ActiveTimerHandle.IsValid())
-			{
-				ActiveTimerHandle = RegisterActiveTimer(0.f, FWidgetActiveTimerDelegate::CreateSP(this, &SNodePanel::HandleZoomToFit));
-				bWasActiveTimerRegisteredThisFrame = true;
-			}
+			RequestZoomToFit();
 		}
 	}
 
@@ -673,6 +659,10 @@ FReply SNodePanel::OnMouseMove(const FGeometry& MyGeometry, const FPointerEvent&
 				this->bIsZoomingWithTrackpad = true;
 				bShowSoftwareCursor = true;
 			}
+
+			// Stop the zoom-to-fit in favor of user control
+			CancelZoomToFit();
+
 			return ReplyState;
 		}
 		else if (bIsRightMouseButtonDown)
@@ -689,6 +679,9 @@ FReply SNodePanel::OnMouseMove(const FGeometry& MyGeometry, const FPointerEvent&
 
 			this->bIsPanning = true;
 			ViewOffset -= CursorDelta / GetZoomAmount();
+
+			// Stop the zoom-to-fit in favor of user control
+			CancelZoomToFit();
 
 			return ReplyState;
 		}
@@ -779,6 +772,9 @@ FReply SNodePanel::OnMouseMove(const FGeometry& MyGeometry, const FPointerEvent&
 				FindNodesAffectedByMarquee( /*out*/ Marquee.AffectedNodes );
 				return FReply::Handled();
 			}
+
+			// Stop the zoom-to-fit in favor of user control
+			CancelZoomToFit();
 		}
 	}
 
@@ -923,6 +919,9 @@ FReply SNodePanel::OnMouseWheel(const FGeometry& MyGeometry, const FPointerEvent
 	const int32 ZoomLevelDelta = FMath::FloorToInt( MouseEvent.GetWheelDelta() );
 	ChangeZoomLevel(ZoomLevelDelta, WidgetSpaceCursorPos, MouseEvent.IsControlDown());
 
+	// Stop the zoom-to-fit in favor of user control
+	CancelZoomToFit();
+
 	return FReply::Handled();
 }
 
@@ -973,6 +972,10 @@ FReply SNodePanel::OnTouchGesture( const FGeometry& MyGeometry, const FPointerEv
 			ChangeZoomLevel(ZoomLevelDelta, WidgetSpaceCursorPos, GestureEvent.IsControlDown());
 			TotalGestureMagnify = 0.0f;
 		}
+
+		// Stop the zoom-to-fit in favor of user control
+		CancelZoomToFit();
+
 		return FReply::Handled();
 	}
 	else if (GestureType == EGestureEvent::Scroll)
@@ -982,6 +985,10 @@ FReply SNodePanel::OnTouchGesture( const FGeometry& MyGeometry, const FPointerEv
 
 		this->bIsPanning = true;
 		ViewOffset -= (bUseDirectionInvertedFromDevice == GestureEvent.IsDirectionInvertedFromDevice() ? GestureDelta : -GestureDelta) / GetZoomAmount();
+		
+		// Stop the zoom-to-fit in favor of user control
+		CancelZoomToFit();
+
 		return FReply::Handled();
 	}
 	return FReply::Unhandled();
@@ -1058,24 +1065,13 @@ void SNodePanel::SelectAndCenterObject(const UObject* ObjectToSelect, bool bCent
 		DeferredMovementTargetObject = ObjectToSelect;
 	}
 
-	auto PinnedActiveTimerHandle = ActiveTimerHandle.Pin();
-	if (PinnedActiveTimerHandle.IsValid())
-	{
-		// Stop zooming for now and let the a new zoom target be established
-		UnRegisterActiveTimer(PinnedActiveTimerHandle.ToSharedRef());
-	}
+	CancelZoomToFit();
 }
 
 void SNodePanel::CenterObject(const UObject* ObjectToCenter)
 {
 	DeferredMovementTargetObject = ObjectToCenter;
-
-	auto PinnedActiveTimerHandle = ActiveTimerHandle.Pin();
-	if (PinnedActiveTimerHandle.IsValid())
-	{
-		// Stop zooming for now and let the a new zoom target be established
-		UnRegisterActiveTimer(PinnedActiveTimerHandle.ToSharedRef());
-	}
+	CancelZoomToFit();
 }
 
 /** Add a slot to the CanvasPanel dynamically */
@@ -1136,11 +1132,7 @@ void SNodePanel::RestoreViewSettings(const FVector2D& InViewOffset, float InZoom
 		ZoomLevel = ZoomLevels->GetNearestZoomLevel(InZoomAmount);
 		bDeferredZoomToNodeExtents = false;
 
-		auto PinnedActiveTimerHandle = ActiveTimerHandle.Pin();
-		if (PinnedActiveTimerHandle.IsValid())
-		{
-			UnRegisterActiveTimer(PinnedActiveTimerHandle.ToSharedRef());
-		}
+		CancelZoomToFit();
 	}
 
 	PostChangedZoom();
@@ -1163,9 +1155,9 @@ void SNodePanel::PaintBackgroundAsLines(const FSlateBrush* BackgroundImage, cons
 	const int32 RulePeriod = (int32)FEditorStyle::GetFloat("Graph.Panel.GridRulePeriod");
 	check(RulePeriod > 0);
 
-	const FLinearColor RegularColor(FEditorStyle::GetColor("Graph.Panel.GridLineColor"));
-	const FLinearColor RuleColor(FEditorStyle::GetColor("Graph.Panel.GridRuleColor"));
-	const FLinearColor CenterColor(FEditorStyle::GetColor("Graph.Panel.GridCenterColor"));
+	const FLinearColor RegularColor(GetDefault<UEditorStyleSettings>()->RegularColor);
+	const FLinearColor RuleColor(GetDefault<UEditorStyleSettings>()->RuleColor);
+	const FLinearColor CenterColor(GetDefault<UEditorStyleSettings>()->CenterColor);
 	const float GraphSmallestGridSize = 8.0f;
 	const float RawZoomFactor = GetZoomAmount();
 	const float NominalGridSize = GetSnapGridSize();
@@ -1200,64 +1192,67 @@ void SNodePanel::PaintBackgroundAsLines(const FSlateBrush* BackgroundImage, cons
 	new (LinePoints) FVector2D(0.0f, 0.0f);
 	new (LinePoints) FVector2D(0.0f, 0.0f);
 
-	// Horizontal bars
-	for (int32 GridIndex = 0; ImageOffsetY < AllottedGeometry.Size.Y; ImageOffsetY += GridCellSize, ++GridIndex)
-	{
-		if (ImageOffsetY >= 0.0f)
+	//If we want to use grid then show grid, otherwise don't render the grid
+	if (GetDefault<UEditorStyleSettings>()->bUseGrid == true){
+
+		// Horizontal bars
+		for (int32 GridIndex = 0; ImageOffsetY < AllottedGeometry.Size.Y; ImageOffsetY += GridCellSize, ++GridIndex)
 		{
-			const bool bIsRuleLine = (GridIndex % RulePeriod) == 0;
-			const int32 Layer = bIsRuleLine ? (DrawLayerId+1) : DrawLayerId;
-
-			const FLinearColor* Color = bIsRuleLine ? &RuleColor : &RegularColor;
-			if (FMath::IsNearlyEqual(ZeroSpace.Y, ImageOffsetY, 1.0f))
+			if (ImageOffsetY >= 0.0f)
 			{
-				Color = &CenterColor;
+				const bool bIsRuleLine = (GridIndex % RulePeriod) == 0;
+				const int32 Layer = bIsRuleLine ? (DrawLayerId + 1) : DrawLayerId;
+
+				const FLinearColor* Color = bIsRuleLine ? &RuleColor : &RegularColor;
+				if (FMath::IsNearlyEqual(ZeroSpace.Y, ImageOffsetY, 1.0f))
+				{
+					Color = &CenterColor;
+				}
+
+				LinePoints[0] = FVector2D(0.0f, ImageOffsetY);
+				LinePoints[1] = FVector2D(AllottedGeometry.Size.X, ImageOffsetY);
+
+				FSlateDrawElement::MakeLines(
+					OutDrawElements,
+					Layer,
+					AllottedGeometry.ToPaintGeometry(),
+					LinePoints,
+					MyClippingRect,
+					ESlateDrawEffect::None,
+					*Color,
+					bAntialias);
 			}
+		}
 
-			LinePoints[0] = FVector2D(0.0f, ImageOffsetY);
-			LinePoints[1] = FVector2D(AllottedGeometry.Size.X, ImageOffsetY);
+		// Vertical bars
+		for (int32 GridIndex = 0; ImageOffsetX < AllottedGeometry.Size.X; ImageOffsetX += GridCellSize, ++GridIndex)
+		{
+			if (ImageOffsetX >= 0.0f)
+			{
+				const bool bIsRuleLine = (GridIndex % RulePeriod) == 0;
+				const int32 Layer = bIsRuleLine ? (DrawLayerId + 1) : DrawLayerId;
 
-			FSlateDrawElement::MakeLines(
-				OutDrawElements,
-				Layer,
-				AllottedGeometry.ToPaintGeometry(),
-				LinePoints,
-				MyClippingRect,
-				ESlateDrawEffect::None,
-				*Color,
-				bAntialias);
+				const FLinearColor* Color = bIsRuleLine ? &RuleColor : &RegularColor;
+				if (FMath::IsNearlyEqual(ZeroSpace.X, ImageOffsetX, 1.0f))
+				{
+					Color = &CenterColor;
+				}
+
+				LinePoints[0] = FVector2D(ImageOffsetX, 0.0f);
+				LinePoints[1] = FVector2D(ImageOffsetX, AllottedGeometry.Size.Y);
+
+				FSlateDrawElement::MakeLines(
+					OutDrawElements,
+					Layer,
+					AllottedGeometry.ToPaintGeometry(),
+					LinePoints,
+					MyClippingRect,
+					ESlateDrawEffect::None,
+					*Color,
+					bAntialias);
+			}
 		}
 	}
-
-	// Vertical bars
-	for (int32 GridIndex = 0; ImageOffsetX < AllottedGeometry.Size.X; ImageOffsetX += GridCellSize, ++GridIndex)
-	{
-		if (ImageOffsetX >= 0.0f)
-		{
-			const bool bIsRuleLine = (GridIndex % RulePeriod) == 0;
-			const int32 Layer = bIsRuleLine ? (DrawLayerId+1) : DrawLayerId;
-
-			const FLinearColor* Color = bIsRuleLine ? &RuleColor : &RegularColor;
-			if (FMath::IsNearlyEqual(ZeroSpace.X, ImageOffsetX, 1.0f))
-			{
-				Color = &CenterColor;
-			}
-
-			LinePoints[0] = FVector2D(ImageOffsetX, 0.0f);
-			LinePoints[1] = FVector2D(ImageOffsetX, AllottedGeometry.Size.Y);
-
-			FSlateDrawElement::MakeLines(
-				OutDrawElements,
-				Layer,
-				AllottedGeometry.ToPaintGeometry(),
-				LinePoints,
-				MyClippingRect,
-				ESlateDrawEffect::None,
-				*Color,
-				bAntialias);
-		}
-	}
-
 	DrawLayerId += 2;
 }
 
@@ -1480,7 +1475,7 @@ bool SNodePanel::ScrollToLocation(const FGeometry& MyGeometry, FVector2D Desired
 	return ((NewPosition - DesiredCenterPosition).SizeSquared() < 1.f);
 }
 
-bool SNodePanel::ZoomToLocation(const FVector2D& CurrentSizeWithoutZoom, const FVector2D& DesiredSize, bool bDoneScrolling)
+bool SNodePanel::ZoomToLocation(const FVector2D& CurrentSizeWithoutZoom, const FVector2D& InDesiredSize, bool bDoneScrolling)
 {
 	if (bAllowContinousZoomInterpolation && ZoomLevelGraphFade.IsPlaying())
 	{
@@ -1495,9 +1490,9 @@ bool SNodePanel::ZoomToLocation(const FVector2D& CurrentSizeWithoutZoom, const F
 	for (int32 Zoom = 0; Zoom < DefaultZoomLevel; ++Zoom)
 	{
 		const FVector2D SizeWithZoom = CurrentSizeWithoutZoom / ZoomLevels->GetZoomAmount(Zoom);
-		const FVector2D LeftOverSize = SizeWithZoom - DesiredSize;
+		const FVector2D LeftOverSize = SizeWithZoom - InDesiredSize;
 		
-		if ((DesiredSize.X > SizeWithZoom.X) || (DesiredSize.Y > SizeWithZoom.Y))
+		if ((InDesiredSize.X > SizeWithZoom.X) || (InDesiredSize.Y > SizeWithZoom.Y))
 		{
 			// Use the previous zoom level, this one is too tight
 			DesiredZoom = FMath::Max<int32>(0, Zoom - 1);
@@ -1555,10 +1550,7 @@ void SNodePanel::ZoomToTarget(const FVector2D& TopLeft, const FVector2D& BottomR
 	ZoomTargetTopLeft = TopLeft;
 	ZoomTargetBottomRight = BottomRight;
 
-	if (!ActiveTimerHandle.IsValid())
-	{
-		ActiveTimerHandle = RegisterActiveTimer(0.f, FWidgetActiveTimerDelegate::CreateSP(this, &SNodePanel::HandleZoomToFit));
-	}
+	RequestZoomToFit();
 }
 
 void SNodePanel::ChangeZoomLevel(int32 ZoomLevelDelta, const FVector2D& WidgetSpaceZoomOrigin, bool bOverrideZoomLimiting)
@@ -1625,6 +1617,22 @@ bool SNodePanel::HasDeferredObjectFocus() const
 void SNodePanel::PostChangedZoom()
 {
 	CurrentLOD = ZoomLevels->GetLOD(ZoomLevel);
+}
+
+void SNodePanel::RequestZoomToFit()
+{
+	if (!ActiveTimerHandle.IsValid())
+	{
+		ActiveTimerHandle = RegisterActiveTimer(0.f, FWidgetActiveTimerDelegate::CreateSP(this, &SNodePanel::HandleZoomToFit));
+	}
+}
+
+void SNodePanel::CancelZoomToFit()
+{
+	if (ActiveTimerHandle.IsValid())
+	{
+		UnRegisterActiveTimer(ActiveTimerHandle.Pin().ToSharedRef());
+	}
 }
 
 bool SNodePanel::HasMoved() const

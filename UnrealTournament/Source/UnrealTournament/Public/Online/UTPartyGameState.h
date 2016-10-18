@@ -125,7 +125,7 @@ private:
 	/**
 	 * Handle matchmaking started delegate
 	 */
-	void OnPartyMatchmakingStarted();
+	void OnPartyMatchmakingStarted(bool bRanked);
 	
 	/**
 	 * Delegate triggered when matchmaking is complete

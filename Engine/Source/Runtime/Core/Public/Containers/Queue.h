@@ -141,7 +141,7 @@ public:
 	 * @return true if an item was returned, false if the queue was empty.
 	 * @see Dequeue, Enqueue, IsEmpty
 	 */
-	bool Peek( ItemType& OutItem )
+	bool Peek( ItemType& OutItem ) const
 	{
 		if (Tail->NextNode == nullptr)
 		{
@@ -182,4 +182,9 @@ private:
 
 	/** Holds a pointer to the tail of the list. */
 	TNode* Tail;
+
+private:
+	// Non-copyable
+	TQueue(const TQueue&);
+	TQueue& operator=(const TQueue&);
 };

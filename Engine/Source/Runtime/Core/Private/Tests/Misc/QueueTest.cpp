@@ -5,52 +5,65 @@
 
 #if WITH_DEV_AUTOMATION_TESTS
 
+
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FQueueTest, "System.Core.Misc.Queue", EAutomationTestFlags::ApplicationContextMask | EAutomationTestFlags::SmokeFilter)
+
 
 bool FQueueTest::RunTest( const FString& Parameters )
 {
 	// empty queues
-	TQueue<int32> q1_1;
-	int32 i1_1 = 666;
-
-	TestTrue(TEXT("A new queue must be empty"), q1_1.IsEmpty());
-
-	TestFalse(TEXT("A new queue must not dequeue anything"), q1_1.Dequeue(i1_1));
-	TestFalse(TEXT("A new queue must not peek anything"), q1_1.Peek(i1_1));
-
-	// insertion & removal
-	TQueue<int32> q2_1;
-	int32 i2_1 = 1;
-	int32 i2_2 = 2;
-	int32 i2_p = 0;
-
-	TestTrue(TEXT("Inserting into a new queue must succeed"), q2_1.Enqueue(i2_1));
-	TestTrue(TEXT("Peek must succeed on a queue with one item"), q2_1.Peek(i2_p));
-	TestEqual(TEXT("Peek must return the first value"), i2_p, i2_1);
-
-	TestTrue(TEXT("Inserting into a non-empty queue must succeed"), q2_1.Enqueue(i2_2));
-	TestTrue(TEXT("Peek must succeed on a queue with two items"), q2_1.Peek(i2_p));
-	TestEqual(TEXT("Peek must return the first value"), i2_p, i2_1);
-
-	TestTrue(TEXT("Dequeue must succeed on a queue with two items"), q2_1.Dequeue(i2_p));
-	TestEqual(TEXT("Dequeue must return the first value"), i2_p, i2_1);
-	TestTrue(TEXT("Dequeue must succeed on a queue with one item"), q2_1.Dequeue(i2_p));
-	TestEqual(TEXT("Dequeue must return the second value"), i2_p, i2_2);
-
-	TestTrue(TEXT("After removing all items, the queue must be empty"), q2_1.IsEmpty());
-
-	// emptying
-	TQueue<int32> q3_1;
 	{
-		q3_1.Enqueue(1);
-		q3_1.Enqueue(2);
-		q3_1.Enqueue(3);
-		q3_1.Empty();
+		TQueue<int32> Queue;
+		int32 OutItem = 0;
+
+		TestTrue(TEXT("A new queue must be empty"), Queue.IsEmpty());
+
+		TestFalse(TEXT("A new queue must not dequeue anything"), Queue.Dequeue(OutItem));
+		TestFalse(TEXT("A new queue must not peek anything"), Queue.Peek(OutItem));
 	}
 
-	TestTrue(TEXT("An emptied queue must be empty"), q3_1.IsEmpty());
+	// insertion & removal
+	{
+		TQueue<int32> Queue;
+		int32 Item1 = 1;
+		int32 Item2 = 2;
+		int32 Item3 = 3;
+		int32 OutItem = 0;
+
+		TestTrue(TEXT("Inserting into a new queue must succeed"), Queue.Enqueue(Item1));
+		TestTrue(TEXT("Peek must succeed on a queue with one item"), Queue.Peek(OutItem));
+		TestEqual(TEXT("Peek must return the first value"), OutItem, Item1);
+
+		TestTrue(TEXT("Inserting into a non-empty queue must succeed"), Queue.Enqueue(Item2));
+		TestTrue(TEXT("Peek must succeed on a queue with two items"), Queue.Peek(OutItem));
+		TestEqual(TEXT("Peek must return the first item"), OutItem, Item1);
+
+		Queue.Enqueue(Item3);
+
+		TestTrue(TEXT("Dequeue must succeed on a queue with three items"), Queue.Dequeue(OutItem));
+		TestEqual(TEXT("Dequeue must return the first item"), OutItem, Item1);
+		TestTrue(TEXT("Dequeue must succeed on a queue with two items"), Queue.Dequeue(OutItem));
+		TestEqual(TEXT("Dequeue must return the second item"), OutItem, Item2);
+		TestTrue(TEXT("Dequeue must succeed on a queue with one item"), Queue.Dequeue(OutItem));
+		TestEqual(TEXT("Dequeue must return the third item"), OutItem, Item3);
+
+		TestTrue(TEXT("After removing all items, the queue must be empty"), Queue.IsEmpty());
+	}
+
+	// emptying
+	{
+		TQueue<int32> Queue;
+
+		Queue.Enqueue(1);
+		Queue.Enqueue(2);
+		Queue.Enqueue(3);
+		Queue.Empty();
+
+		TestTrue(TEXT("An emptied queue must be empty"), Queue.IsEmpty());
+	}
 
 	return true;
 }
+
 
 #endif //WITH_DEV_AUTOMATION_TESTS

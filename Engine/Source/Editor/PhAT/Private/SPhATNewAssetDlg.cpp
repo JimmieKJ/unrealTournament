@@ -1,6 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PhATModule.h"
+#include "PhATPrivatePCH.h"
 #include "SPhATNewAssetDlg.h"
 #include "SNumericEntryBox.h"
 #include "STextComboBox.h"

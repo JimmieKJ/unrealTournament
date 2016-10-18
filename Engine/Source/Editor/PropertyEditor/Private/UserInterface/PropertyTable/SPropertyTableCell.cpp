@@ -112,7 +112,7 @@ void SPropertyTableCell::ExitedEditMode()
 
 EActiveTimerReturnType SPropertyTableCell::TriggerEnterEditingMode(double InCurrentTime, float InDeltaTime)
 {
-	if (Cell->GetTable()->GetCurrentCell() == Cell)
+	if (Cell->GetTable()->GetCurrentCell() == Cell && Cell->InEditMode())
 	{
 		if (Presenter.IsValid())
 		{

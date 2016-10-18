@@ -10,7 +10,7 @@
 #include "BonePose.h"
 #include "AnimTypes.h"
 #include "AnimCurveTypes.h"
-#include "FixedSizeArrayView.h"
+#include "Containers/ArrayView.h"
 
 struct FInputBlendPose;
 struct FA2CSPose;
@@ -21,6 +21,52 @@ struct FBlendedCurve;
 class UBlendSpaceBase;
 typedef TArray<FTransform> FTransformArrayA2;
 
+/////////////////////////////////////////////////////////
+// Templated Transform Blend Functionality
+
+namespace ETransformBlendMode
+{
+	enum Type
+	{
+		Overwrite,
+		Accumulate
+	};
+}
+
+template<int32>
+void BlendTransform(const FTransform& Source, FTransform& Dest, const float BlendWeight)
+{
+	check(false); /// should never call this
+}
+
+template<>
+FORCEINLINE void BlendTransform<ETransformBlendMode::Overwrite>(const FTransform& Source, FTransform& Dest, const float BlendWeight)
+{
+	const ScalarRegister VBlendWeight(BlendWeight);
+	Dest = Source * VBlendWeight;
+}
+
+template<>
+FORCEINLINE void BlendTransform<ETransformBlendMode::Accumulate>(const FTransform& Source, FTransform& Dest, const float BlendWeight)
+{
+	const ScalarRegister VBlendWeight(BlendWeight);
+	Dest.AccumulateWithShortestRotation(Source, VBlendWeight);
+}
+
+FORCEINLINE void BlendCurves(const TArrayView<const FBlendedCurve> SourceCurves, const TArrayView<const float> SourceWeights, FBlendedCurve& OutCurve)
+{
+	if (SourceCurves.Num() > 0)
+	{
+		OutCurve.Override(SourceCurves[0], SourceWeights[0]);
+
+		for (int32 CurveIndex = 1; CurveIndex < SourceCurves.Num(); ++CurveIndex)
+		{
+			OutCurve.Accumulate(SourceCurves[CurveIndex], SourceWeights[CurveIndex]);
+		}
+	}
+}
+
+/////////////////////////////////////////////////////////
 /** Interface used to provide interpolation indices for per bone blends
   *
   */
@@ -53,9 +99,9 @@ public:
 	* @param	ResultPose		Output pose of relative bone transforms.
 	*/
 	static void BlendPosesTogether(
-		const TFixedSizeArrayView<FCompactPose>& SourcePoses,
-		const TFixedSizeArrayView<FBlendedCurve>& SourceCurves,
-		const TFixedSizeArrayView<float>& SourceWeights,
+		TArrayView<const FCompactPose> SourcePoses,
+		TArrayView<const FBlendedCurve> SourceCurves,
+		TArrayView<const float> SourceWeights,
 		/*out*/ FCompactPose& ResultPose, 
 		/*out*/ FBlendedCurve& ResultCurve);
 
@@ -71,10 +117,10 @@ public:
 	* @param	ResultPose		Output pose of relative bone transforms.
 	*/
 	static void BlendPosesTogether(
-		const TFixedSizeArrayView<FCompactPose>& SourcePoses,
-		const TFixedSizeArrayView<FBlendedCurve>& SourceCurves,
-		const TFixedSizeArrayView<float>& SourceWeights,
-		const TFixedSizeArrayView<int32>& SourceWeightsIndices,
+		TArrayView<const FCompactPose> SourcePoses,
+		TArrayView<const FBlendedCurve> SourceCurves,
+		TArrayView<const float> SourceWeights,
+		TArrayView<const int32> SourceWeightsIndices,
 		/*out*/ FCompactPose& ResultPose,
 		/*out*/ FBlendedCurve& ResultCurve);
 
@@ -88,10 +134,10 @@ public:
 	* @param	ResultPose		Output pose of relative bone transforms.
 	*/
 	static void BlendPosesTogetherIndirect(
-		const TFixedSizeArrayView<const FCompactPose*>& SourcePoses,
-		const TFixedSizeArrayView<const FBlendedCurve*>& SourceCurves,
-		const TFixedSizeArrayView<float>& SourceWeights,
-		/*out*/ FCompactPose& ResultPose, 
+		TArrayView<const FCompactPose* const> SourcePoses,
+		TArrayView<const FBlendedCurve* const> SourceCurves,
+		TArrayView<const float> SourceWeights,
+		/*out*/ FCompactPose& ResultPose,
 		/*out*/ FBlendedCurve& ResultCurve);
 
 	/**
@@ -119,12 +165,30 @@ public:
 	*
 	* @param	ResultPose		Output pose of relative bone transforms.
 	*/
+	static void BlendTwoPosesTogetherPerBone(
+		const FCompactPose& SourcePose1,
+		const FCompactPose& SourcePose2,
+		const FBlendedCurve& SourceCurve1,
+		const FBlendedCurve& SourceCurve2,
+		const TArray<float> WeightsOfSource2,
+		/*out*/ FCompactPose& ResultPose,
+		/*out*/ FBlendedCurve& ResultCurve);
+
+
+	/**
+	* Blends together a set of poses, each with a given weight.
+	* This function is for BlendSpace per bone blending. BlendSampleDataCache contains the weight information
+	*
+	* This blends in local space
+	*
+	* @param	ResultPose		Output pose of relative bone transforms.
+	*/
 	static void BlendPosesTogetherPerBone(
-		const TFixedSizeArrayView<FCompactPose>& SourcePoses,
-		const TFixedSizeArrayView<FBlendedCurve>& SourceCurves,
-		const IInterpolationIndexProvider* IndexProvider,
-		const TFixedSizeArrayView<FBlendSampleData>& BlendSampleDataCache,
-		/*out*/ FCompactPose& ResultPose, 
+		TArrayView<const FCompactPose> SourcePoses,
+		TArrayView<const FBlendedCurve> SourceCurves,
+		const IInterpolationIndexProvider* InterpolationIndexProvider,
+		TArrayView<const FBlendSampleData> BlendSampleDataCache,
+		/*out*/ FCompactPose& ResultPose,
 		/*out*/ FBlendedCurve& ResultCurve);
 
 	/**
@@ -136,11 +200,11 @@ public:
 	* @param	ResultPose		Output pose of relative bone transforms.
 	*/
 	static void BlendPosesTogetherPerBone(
-		const TFixedSizeArrayView<FCompactPose>& SourcePoses,
-		const TFixedSizeArrayView<FBlendedCurve>& SourceCurves,
-		const IInterpolationIndexProvider* IndexProvider,
-		const TFixedSizeArrayView<FBlendSampleData>& BlendSampleDataCache,
-		const TFixedSizeArrayView<int32>& BlendSampleDataCacheIndices,
+		TArrayView<const FCompactPose> SourcePoses,
+		TArrayView<const FBlendedCurve> SourceCurves,
+		const IInterpolationIndexProvider* InterpolationIndexProvider,
+		TArrayView<const FBlendSampleData> BlendSampleDataCache,
+		TArrayView<const int32> BlendSampleDataCacheIndices,
 		/*out*/ FCompactPose& ResultPose,
 		/*out*/ FBlendedCurve& ResultCurve);
 
@@ -153,10 +217,10 @@ public:
 	* @param	ResultPose		Output pose of relative bone transforms.
 	*/
 	static void BlendPosesTogetherPerBoneInMeshSpace(
-		TFixedSizeArrayView<FCompactPose>& SourcePoses,
-		const TFixedSizeArrayView<FBlendedCurve>& SourceCurves,
+		TArrayView<FCompactPose> SourcePoses,
+		TArrayView<const FBlendedCurve> SourceCurves,
 		const UBlendSpaceBase* BlendSpace,
-		const TFixedSizeArrayView<FBlendSampleData>& BlendSampleDataCache,
+		TArrayView<const FBlendSampleData> BlendSampleDataCache,
 		/*out*/ FCompactPose& ResultPose,
 		/*out*/ FBlendedCurve& ResultCurve);
 
@@ -197,6 +261,9 @@ public:
 		const FBoneContainer& RequiredBones,
 		/*inout*/ FTransformArrayA2& Atoms);
 
+	/** Get Reference Component Space Transform */
+	static FTransform GetComponentSpaceRefPose(const FCompactPoseBoneIndex& CompactPoseBoneIndex, const FBoneContainer& BoneContainer);
+
 	/** Fill ref pose **/
 	static void FillWithRefPose(TArray<FTransform>& OutAtoms, const FBoneContainer& RequiredBones);
 
@@ -210,6 +277,9 @@ public:
 
 	/** Convert TargetPose into an AdditivePose, by doing TargetPose = TargetPose - BasePose */
 	static void ConvertPoseToAdditive(FCompactPose& TargetPose, const FCompactPose& BasePose);
+
+	/** convert transform to additive */
+	static void ConvertTransformToAdditive(FTransform& TargetTrasnform, const FTransform& BaseTransform);
 
 	/** Convert LocalPose into MeshSpaceRotations. Rotations are NOT normalized. */
 	static void ConvertPoseToMeshRotation(FCompactPose& LocalPose);
@@ -294,9 +364,9 @@ public:
 	static void SetSpaceTransform(FA2CSPose& Pose, int32 Index, FTransform& NewTransform);
 	// space bases
 #if WITH_EDITOR
-	static void FillUpSpaceBases(const FReferenceSkeleton& RefSkeleton, const TArray<FTransform> &LocalAtoms, TArray<FTransform> &SpaceBases);
-	static void FillUpSpaceBasesRefPose(const USkeleton* Skeleton, TArray<FTransform> &SpaceBaseRefPose);
-	static void FillUpSpaceBasesRetargetBasePose(const USkeleton* Skeleton, TArray<FTransform> &SpaceBaseRefPose);
+	static void FillUpComponentSpaceTransforms(const FReferenceSkeleton& RefSkeleton, const TArray<FTransform> &BoneSpaceTransforms, TArray<FTransform> &ComponentSpaceTransforms);
+	static void FillUpComponentSpaceTransformsRefPose(const USkeleton* Skeleton, TArray<FTransform> &ComponentSpaceTransforms);
+	static void FillUpComponentSpaceTransformsRetargetBasePose(const USkeleton* Skeleton, TArray<FTransform> &ComponentSpaceTransforms);
 #endif
 
 	/* Weight utility functions */
@@ -304,10 +374,21 @@ public:
 	static bool HasWeight(float Weight) { return Weight > ZERO_ANIMWEIGHT_THRESH; }
 	
 	/**
-	* Combine CurveKeys (that reference morph targets by name) and ActiveAnims (that reference vertex anims by reference) into the ActiveVertexAnims array.
+	* Combine CurveKeys (that reference morph targets by name) and ActiveAnims (that reference morphs by reference) into the ActiveMorphTargets array.
 	*/
- 	static void AppendActiveVertexAnims(const USkeletalMesh* InSkeletalMesh, const TMap<FName, float>& InMorphCurveAnims, TArray<FActiveVertexAnim>& InOutActiveAnims);
+ 	static void AppendActiveMorphTargets(const USkeletalMesh* InSkeletalMesh, const TMap<FName, float>& InMorphCurveAnims, TArray<FActiveMorphTarget>& InOutActiveMorphTargets, TArray<float>& InOutMorphTargetWeights);
 
+	/**
+	* Retarget a single bone transform, to apply right after extraction.
+	*
+	* @param	MySkeleton			Skeleton this is retargeting
+	* @param	RetargetSource		Retarget Source for the retargeting
+	* @param	BoneTransform		BoneTransform to read/write from.
+	* @param	SkeletonBoneIndex	Bone Index in USkeleton.
+	* @param	BoneIndex			Bone Index in Bone Transform array.
+	* @param	RequiredBones		BoneContainer
+	*/
+	static void RetargetBoneTransform(const USkeleton* MySkeleton, const FName& RetargetSource, FTransform& BoneTransform, const int32& SkeletonBoneIndex, const FCompactPoseBoneIndex& BoneIndex, const FBoneContainer& RequiredBones, const bool bIsBakedAdditive);
 private:
 	/** 
 	* Blend Poses per bone weights : The BasePose + BlendPoses(SourceIndex) * Blend Weights(BoneIndex)
@@ -354,5 +435,13 @@ private:
 			enum ECurveBlendOption::Type CurveBlendOption,
 			/*out*/ FCompactPose& OutPose, 
 			/*out*/ FBlendedCurve& OutCurve);
+public:
+	/** 
+	 * Calculate distance how close two strings are. 
+	 * By close, it calculates how many operations to transform First to Second 
+	 * The return value is [0-MaxLengthString(First, Second)]
+	 * 0 means it's identical, Max means it's completely different
+	 */
+	static int32 GetStringDistance(const FString& First, const FString& Second);
 };
 

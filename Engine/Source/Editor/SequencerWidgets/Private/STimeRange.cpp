@@ -102,7 +102,7 @@ void STimeRange::Construct( const STimeRange::FArguments& InArgs, TSharedRef<ITi
 		[
 			SNew(SBox)
 			.Visibility(InArgs._ShowWorkingRange ? EVisibility::Visible : EVisibility::Collapsed)
-			.WidthOverride(36)
+			.WidthOverride(48)
 			.HAlign(HAlign_Center)
 			[
 				WorkingRangeStart
@@ -115,7 +115,7 @@ void STimeRange::Construct( const STimeRange::FArguments& InArgs, TSharedRef<ITi
 		.Padding(2.f)
 		[
 			SNew(SBox)
-			.WidthOverride(36)
+			.WidthOverride(48)
 			.HAlign(HAlign_Center)
 			.Visibility(InArgs._ShowPlaybackRange ? EVisibility::Visible : EVisibility::Collapsed)
 			[
@@ -136,7 +136,7 @@ void STimeRange::Construct( const STimeRange::FArguments& InArgs, TSharedRef<ITi
 		[
 			SNew(SBox)
 			.Visibility(InArgs._ShowViewRange ? EVisibility::Visible : EVisibility::Collapsed)
-			.WidthOverride(36)
+			.WidthOverride(48)
 			.HAlign(HAlign_Center)
 			[
 				ViewRangeStart
@@ -144,11 +144,12 @@ void STimeRange::Construct( const STimeRange::FArguments& InArgs, TSharedRef<ITi
 		]
 
 		+SHorizontalBox::Slot()
-
-		.Padding(2.0f, 4.0f)
-		[
-			InArgs._CenterContent.Widget
-		]
+			.FillWidth(1.0f)
+			.Padding(2.0f, 4.0f)
+			.VAlign(VAlign_Center)
+			[
+				InArgs._CenterContent.Widget
+			]
 		
 		+SHorizontalBox::Slot()
 		.VAlign(VAlign_Center)
@@ -157,7 +158,7 @@ void STimeRange::Construct( const STimeRange::FArguments& InArgs, TSharedRef<ITi
 		[
 			SNew(SBox)
 			.Visibility(InArgs._ShowViewRange ? EVisibility::Visible : EVisibility::Collapsed)
-			.WidthOverride(36)
+			.WidthOverride(48)
 			.HAlign(HAlign_Center)
 			[
 				ViewRangeEnd
@@ -170,7 +171,7 @@ void STimeRange::Construct( const STimeRange::FArguments& InArgs, TSharedRef<ITi
 		.Padding(2.f)
 		[
 			SNew(SBox)
-			.WidthOverride(36)
+			.WidthOverride(48)
 			.HAlign(HAlign_Center)
 			.Visibility(InArgs._ShowPlaybackRange ? EVisibility::Visible : EVisibility::Collapsed)
 			[
@@ -190,7 +191,7 @@ void STimeRange::Construct( const STimeRange::FArguments& InArgs, TSharedRef<ITi
 		.Padding(2.f)
 		[
 			SNew(SBox)
-			.WidthOverride(36)
+			.WidthOverride(48)
 			.HAlign(HAlign_Center)
 			.Visibility(InArgs._ShowWorkingRange ? EVisibility::Visible : EVisibility::Collapsed)
 			[

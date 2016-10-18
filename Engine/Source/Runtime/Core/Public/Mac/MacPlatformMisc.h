@@ -219,6 +219,9 @@ struct CORE_API FMacPlatformMisc : public FGenericPlatformMisc
 	
 	/** Returns the index of the GPU to use or -1 if we should just use the default. */
 	static int32 GetExplicitRendererIndex();
+    
+    /** Update the driver monitor statistics for the given GPU - called once a frame by the Mac RHI's, no need to call otherwise - use GetPerformanceStatistics instead. */
+    static void UpdateDriverMonitorStatistics(int32 DeviceIndex);
 };
 
 #ifdef __OBJC__

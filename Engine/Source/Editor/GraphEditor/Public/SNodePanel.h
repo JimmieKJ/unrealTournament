@@ -806,6 +806,12 @@ protected:
 
 	// Should be called whenever the zoom level has changed
 	void PostChangedZoom();
+
+	// Fires up a per-tick function to zoom the graph to fit
+	void RequestZoomToFit();
+
+	// Cancels any active zoom-to-fit action
+	void CancelZoomToFit();
 protected:
 	// The interface for mapping ZoomLevel values to actual node scaling values
 	TScopedPointer<FZoomLevelsContainer> ZoomLevels;

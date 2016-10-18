@@ -13,11 +13,11 @@
 #include "Engine/Canvas.h"
 #include "DrawDebugHelpers.h"
 
-
 FGameplayDebuggerCategory_AI::FGameplayDebuggerCategory_AI()
 {
 	bShowOnlyWithDebugActor = false;
 	RawLastPath = nullptr;
+	LastPathUpdateTime = 0.0f;
 
 	SetDataPackReplication<FRepData>(&DataPack);
 	PathDataPackId = SetDataPackReplication<FRepDataPath>(&PathDataPack, EGameplayDebuggerDataPack::ResetOnActorChange);
@@ -28,7 +28,6 @@ TSharedRef<FGameplayDebuggerCategory> FGameplayDebuggerCategory_AI::MakeInstance
 	return MakeShareable(new FGameplayDebuggerCategory_AI());
 }
 
-
 void FGameplayDebuggerCategory_AI::FRepData::Serialize(FArchive& Ar)
 {
 	Ar << ControllerName;
@@ -37,24 +36,33 @@ void FGameplayDebuggerCategory_AI::FRepData::Serialize(FArchive& Ar)
 	Ar << MovementModeInfo;
 	Ar << PathFollowingInfo;
 	Ar << NextPathPointIndex;
+	Ar << PathGoalLocation;
 	Ar << CurrentAITask;
 	Ar << CurrentAIState;
 	Ar << CurrentAIAssets;
 	Ar << NavDataInfo;
 	Ar << MontageInfo;
+	Ar << TaskQueueInfo;
+	Ar << TickingTaskInfo;
+	Ar << NumTasksInQueue;
+	Ar << NumTickingTasks;
 
 	uint32 BitFlags =
 		((bIsUsingPathFollowing ? 1 : 0) << 0) |
 		((bIsUsingCharacter ? 1 : 0) << 1) |
 		((bIsUsingBehaviorTree ? 1 : 0) << 2) |
-		((bHasController ? 1 : 0) << 3);
+		((bIsUsingGameplayTasks ? 1 : 0) << 3) |
+		((bPathHasGoalActor ? 1 : 0) << 4) |
+		((bHasController ? 1 : 0) << 5);
 
 	Ar << BitFlags;
 
 	bIsUsingPathFollowing = (BitFlags & (1 << 0)) != 0;
 	bIsUsingCharacter = (BitFlags & (1 << 1)) != 0;
 	bIsUsingBehaviorTree = (BitFlags & (1 << 2)) != 0;
-	bHasController = (BitFlags & (1 << 3)) != 0;
+	bIsUsingGameplayTasks = (BitFlags & (1 << 3)) != 0;
+	bPathHasGoalActor = (BitFlags & (1 << 4)) != 0;
+	bHasController = (BitFlags & (1 << 5)) != 0;
 }
 
 void FGameplayDebuggerCategory_AI::FRepDataPath::Serialize(FArchive& Ar)
@@ -73,6 +81,18 @@ void FGameplayDebuggerCategory_AI::FRepDataPath::Serialize(FArchive& Ar)
 	}
 
 	Ar << PathPoints;
+}
+
+static FString DescribeTaskHelper(const UGameplayTask& TaskOb)
+{
+	const UObject* OwnerOb = Cast<const UObject>(TaskOb.GetTaskOwner());
+	return FString::Printf(TEXT("\n  {white}%s%s {%s}%s:%d {white}Owner:{yellow}%s {white}Res:{yellow}%s"),
+		*TaskOb.GetName(),
+		TaskOb.GetInstanceName() != NAME_None ? *FString::Printf(TEXT(" {yellow}[%s]"), *TaskOb.GetInstanceName().ToString()) : TEXT(""),
+		TaskOb.IsActive() ? TEXT("green") : TEXT("orange"),
+		*TaskOb.GetTaskStateName(), TaskOb.GetPriority(),
+		*GetNameSafe(OwnerOb),
+		TaskOb.GetRequiredResources().IsEmpty() ? TEXT("None") : *TaskOb.GetRequiredResources().GetDebugDescription());
 }
 
 void FGameplayDebuggerCategory_AI::CollectData(APlayerController* OwnerPC, AActor* DebugActor)
@@ -100,7 +120,7 @@ void FGameplayDebuggerCategory_AI::CollectData(APlayerController* OwnerPC, AActo
 		DataPack.ControllerName = TEXT("No Controller");
 	}
 
-	if (IsValid(MyPawn))
+	if (MyPawn && !MyPawn->IsPendingKill())
 	{
 		UCharacterMovementComponent* CharMovementComp = MyChar ? MyChar->GetCharacterMovement() : nullptr;
 		if (CharMovementComp)
@@ -120,6 +140,31 @@ void FGameplayDebuggerCategory_AI::CollectData(APlayerController* OwnerPC, AActo
 			DataPack.CurrentAIAssets = BehaviorComp->DescribeActiveTrees();
 		}
 
+		UGameplayTasksComponent* TasksComponent = MyController ? MyController->GetGameplayTasksComponent() : nullptr;
+		DataPack.bIsUsingGameplayTasks = (TasksComponent != nullptr);
+		if (TasksComponent)
+		{
+			for (FConstGameplayTaskIterator It = TasksComponent->GetTickingTaskIterator(); It; ++It)
+			{
+				const UGameplayTask* TaskOb = *It;
+				if (TaskOb)
+				{
+					DataPack.TickingTaskInfo += DescribeTaskHelper(*TaskOb);
+					DataPack.NumTickingTasks++;
+				}
+			}
+
+			for (FConstGameplayTaskIterator It = TasksComponent->GetPriorityQueueIterator(); It; ++It)
+			{
+				const UGameplayTask* TaskOb = *It;
+				if (TaskOb)
+				{
+					DataPack.TaskQueueInfo += DescribeTaskHelper(*TaskOb);
+					DataPack.NumTasksInQueue++;
+				}
+			}
+		}
+
 		DataPack.MontageInfo = MyChar ? GetNameSafe(MyChar->GetCurrentMontage()) : FString();
 
 		UNavigationSystem* NavSys = UNavigationSystem::GetCurrent(MyPawn->GetWorld());
@@ -127,6 +172,11 @@ void FGameplayDebuggerCategory_AI::CollectData(APlayerController* OwnerPC, AActo
 		DataPack.NavDataInfo = NavData ? NavData->GetConfig().Name.ToString() : FString();
 
 		CollectPathData(MyController);
+	}
+	else
+	{
+		PathDataPack.PathCorridor.Reset();
+		PathDataPack.PathPoints.Reset();
 	}
 }
 
@@ -170,25 +220,34 @@ void FGameplayDebuggerCategory_AI::CollectPathData(AAIController* DebugAI)
 			}
 		}
 
-		DataPack.NextPathPointIndex = PathComp->GetNextPathIndex();
-
 		FNavigationPath* CurrentPath = PathComp->GetPath().Get();
-		if ((CurrentPath != RawLastPath) || (CurrentPath && (CurrentPath->GetLastUpdateTime() != RawLastPath->GetLastUpdateTime()) ))
+		if (CurrentPath)
+		{
+			DataPack.bPathHasGoalActor = (CurrentPath->GetGoalActor() != nullptr);
+			DataPack.PathGoalLocation = CurrentPath->GetGoalLocation();
+			DataPack.NextPathPointIndex = PathComp->GetNextPathIndex();
+		}
+
+		if ((CurrentPath != RawLastPath) || (CurrentPath && (CurrentPath->GetLastUpdateTime() != LastPathUpdateTime) ))
 		{
 			RawLastPath = CurrentPath;
 			PathDataPack = FRepDataPath();
 
 			if (CurrentPath)
 			{
-				FVisualLogEntry Snapshot;
-				CurrentPath->DescribeSelfToVisLog(&Snapshot);
-				for (FVisualLogShapeElement& CurrentShape : Snapshot.ElementsToDraw)
+				LastPathUpdateTime = CurrentPath->GetLastUpdateTime();
+
+				const FNavMeshPath* NavMeshPath = CurrentPath->CastPath<FNavMeshPath>();
+				const ARecastNavMesh* NavData = Cast<const ARecastNavMesh>(CurrentPath->GetNavigationDataUsed());
+				if (NavMeshPath && NavData)
 				{
-					if (CurrentShape.GetType() == EVisualLoggerShapeElement::Polygon)
+					for (int32 Idx = 0; Idx < NavMeshPath->PathCorridor.Num(); Idx++)
 					{
 						FRepDataPath::FPoly PolyData;
-						PolyData.Color = CurrentShape.GetFColor();
-						PolyData.Points = CurrentShape.Points;
+						NavData->GetPolyVerts(NavMeshPath->PathCorridor[Idx], PolyData.Points);
+						
+						const uint32 AreaId = NavData->GetPolyAreaID(NavMeshPath->PathCorridor[Idx]);
+						PolyData.Color = NavData->GetAreaIDColor(AreaId);
 
 						PathDataPack.PathCorridor.Add(PolyData);
 					}
@@ -218,6 +277,8 @@ void FGameplayDebuggerCategory_AI::DrawData(APlayerController* OwnerPC, FGamepla
 
 	UWorld* MyWorld = OwnerPC->GetWorld();
 	AActor* SelectedActor = FindLocalDebugActor();
+
+	DrawPawnIcons(MyWorld, SelectedActor, OwnerPC ? OwnerPC->GetPawn() : nullptr, CanvasContext);
 	if (bReducedMode)
 	{
 		if (DataPack.bHasController)
@@ -227,7 +288,6 @@ void FGameplayDebuggerCategory_AI::DrawData(APlayerController* OwnerPC, FGamepla
 	}
 	else
 	{
-		DrawPawnIcons(MyWorld, SelectedActor, OwnerPC ? OwnerPC->GetPawn() : nullptr, CanvasContext);
 		if (SelectedActor)
 		{
 			DrawOverheadInfo(*SelectedActor, CanvasContext);
@@ -253,6 +313,16 @@ void FGameplayDebuggerCategory_AI::DrawData(APlayerController* OwnerPC, FGamepla
 	{
 		CanvasContext.Printf(TEXT("Behavior: {yellow}%s{white}, Tree: {yellow}%s"), *DataPack.CurrentAIState, *DataPack.CurrentAIAssets);
 		CanvasContext.Printf(TEXT("Active task: {yellow}%s"), *DataPack.CurrentAITask);
+	}
+
+	if (DataPack.bIsUsingGameplayTasks)
+	{
+		if (DataPack.NumTickingTasks > 0)
+		{
+			CanvasContext.Printf(TEXT("Ticking tasks: {yellow}%d%s"), DataPack.NumTickingTasks, *DataPack.TickingTaskInfo);
+		}
+
+		CanvasContext.Printf(TEXT("Gameplay tasks: {yellow}%d%s"), DataPack.NumTasksInQueue, *DataPack.TaskQueueInfo);
 	}
 
 	if (DataPack.bIsUsingCharacter)
@@ -335,6 +405,7 @@ void FGameplayDebuggerCategory_AI::DrawPath(UWorld* World)
 {
 	static const FColor InactiveColor(100, 100, 100);
 	static const FColor PathColor(192, 192, 192);
+	static const FColor PathGoalColor(255, 255, 255);
 
 	const int32 NumPathVerts = PathDataPack.PathPoints.Num();
 	for (int32 Idx = 0; Idx < NumPathVerts; Idx++)
@@ -349,6 +420,14 @@ void FGameplayDebuggerCategory_AI::DrawPath(UWorld* World)
 		const FVector P1 = PathDataPack.PathPoints[Idx] + NavigationDebugDrawing::PathOffset;
 
 		DrawDebugLine(World, P0, P1, Idx < DataPack.NextPathPointIndex ? InactiveColor : PathColor, false, -1.0f, 0, NavigationDebugDrawing::PathLineThickness);
+	}
+
+	if (NumPathVerts && DataPack.bPathHasGoalActor)
+	{
+		const FVector P0 = PathDataPack.PathPoints.Last() + NavigationDebugDrawing::PathOffset;
+		const FVector P1 = DataPack.PathGoalLocation + NavigationDebugDrawing::PathOffset;
+
+		DrawDebugLine(World, P0, P1, PathGoalColor, false, -1.0f, 0, NavigationDebugDrawing::PathLineThickness);
 	}
 }
 

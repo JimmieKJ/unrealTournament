@@ -212,16 +212,26 @@ uint2 ComputeTileCoordinateFromScreenGrid(uint2 OutputCoordinate)
 	return TileCoordinate;
 }
 
+float2 GetBaseLevelScreenUVFromScreenGrid(uint2 OutputCoordinate, float JitterScale)
+{
+	float2 BaseLevelScreenUV = (OutputCoordinate * TRACE_DOWNSAMPLE_FACTOR + JitterOffset * JitterScale + float2(.5f, .5f)) * BaseLevelTexelSize;
+	return BaseLevelScreenUV;
+}
+
 float2 GetBaseLevelScreenUVFromScreenGrid(uint2 OutputCoordinate)
 {
-	float2 BaseLevelScreenUV = (OutputCoordinate * TRACE_DOWNSAMPLE_FACTOR + JitterOffset + float2(.5f, .5f)) * BaseLevelTexelSize;
-	return BaseLevelScreenUV;
+	return GetBaseLevelScreenUVFromScreenGrid(OutputCoordinate, 1);
+}
+
+float2 GetScreenUVFromScreenGrid(uint2 OutputCoordinate, float JitterScale)
+{
+	float2 ScreenUV = ((OutputCoordinate * TRACE_DOWNSAMPLE_FACTOR + JitterOffset * JitterScale) * AO_DOWNSAMPLE_FACTOR + View.ViewRectMin.xy + float2(.5f, .5f)) * View.BufferSizeAndInvSize.zw;
+	return ScreenUV;
 }
 
 float2 GetScreenUVFromScreenGrid(uint2 OutputCoordinate)
 {
-	float2 ScreenUV = ((OutputCoordinate * TRACE_DOWNSAMPLE_FACTOR + JitterOffset) * AO_DOWNSAMPLE_FACTOR + Frame.ViewRectMin.xy + float2(.5f, .5f)) * Frame.BufferSizeAndInvSize.zw;
-	return ScreenUV;
+	return GetScreenUVFromScreenGrid(OutputCoordinate, 1);
 }
 
 RWBuffer<uint> RWTileHeadDataUnpacked;

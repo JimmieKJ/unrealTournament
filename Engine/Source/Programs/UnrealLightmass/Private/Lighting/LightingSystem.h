@@ -25,12 +25,13 @@ namespace Lightmass
  * The light incident for a point on a surface, in the representation used when gathering lighting. 
  * This representation is additive, and allows for accumulating lighting contributions in-place. 
  */
-class FGatheredLightSample
+template <int32 SHOrder>
+class TGatheredLightSample
 {
-public:
+public:	
 
 	/** World space incident lighting. */
-	FSHVectorRGB2 SHVector;
+	FSHVectorRGB3 SHVector;
 
 	/** Incident lighting including dot(N, L) where N is the smoothed vertex normal. */
 	FLinearColor IncidentLighting;
@@ -44,7 +45,7 @@ public:
 	float AOMaterialMask;
 
 	/** Initialization constructor. */
-	FGatheredLightSample()
+	TGatheredLightSample()
 	{
 		SHCorrection = 0.0f;
 		IncidentLighting = FLinearColor(0, 0, 0, 0);
@@ -52,34 +53,20 @@ public:
 		AOMaterialMask = 0;
 	}
 
-	FGatheredLightSample(EForceInit)
+	TGatheredLightSample(EForceInit)
 	{
 		SHCorrection = 0.0f;
 		IncidentLighting = FLinearColor(0, 0, 0, 0);
 		SkyOcclusion = FVector(0);
 		AOMaterialMask = 0;
-	}
-
-	/**
-	 * Constructs a light sample representing an ambient light.
-	 * Note: Lighting contributed through this method won't have the same final brightness as PointLightWorldSpace, because of the dot(N, L)
-	 * @param Color - The color/intensity of the light at the sample point.
-	 */
-	static FGatheredLightSample AmbientLight(const FLinearColor& Color);
-
-	/**
-	 * Constructs a light sample representing a point light.
-	 * @param Color - The color/intensity of the light at the sample point.
-	 * @param Direction - The direction toward the light at the sample point.
-	 */
-	static FGatheredLightSample PointLightWorldSpace(const FLinearColor& Color, const FVector4& TangentDirection, const FVector4& WorldDirection);
+	}	
 
 	/**
 	 * Adds a weighted light sample to this light sample.
 	 * @param OtherSample - The sample to add.
 	 * @param Weight - The weight to multiply the other sample by before addition.
 	 */
-	void AddWeighted(const FGatheredLightSample& OtherSample,float Weight);
+	void AddWeighted(const TGatheredLightSample& OtherSample, float Weight);
 
 	void ApplyOcclusion(float Occlusion);
 
@@ -90,9 +77,9 @@ public:
 
 	bool AreFloatsValid() const;
 
-	FGatheredLightSample operator*(float Scalar) const
+	TGatheredLightSample operator*(float Scalar) const
 	{
-		FGatheredLightSample Result;
+		TGatheredLightSample Result;
 		Result.SHVector = SHVector * Scalar;
 		Result.SHCorrection = SHCorrection * Scalar;
 		Result.IncidentLighting = IncidentLighting * Scalar;
@@ -101,9 +88,9 @@ public:
 		return Result;
 	}
 
-	FGatheredLightSample operator+(const FGatheredLightSample& SampleB) const
+	TGatheredLightSample operator+(const TGatheredLightSample& SampleB) const
 	{
-		FGatheredLightSample Result;
+		TGatheredLightSample Result;
 		Result.SHVector = SHVector + SampleB.SHVector;
 		Result.SHCorrection = SHCorrection + SampleB.SHCorrection;
 		Result.IncidentLighting = IncidentLighting + SampleB.IncidentLighting;
@@ -112,6 +99,30 @@ public:
 		return Result;
 	}
 };
+
+class FGatheredLightSampleUtil
+{
+public:
+
+	/**
+	* Constructs a light sample representing an ambient light.
+	* Note: Lighting contributed through this method won't have the same final brightness as PointLightWorldSpace, because of the dot(N, L)
+	* @param Color - The color/intensity of the light at the sample point.
+	*/
+	template <int32 SHOrder>
+	static TGatheredLightSample<SHOrder> AmbientLight(const FLinearColor& Color);
+
+	/**
+	* Constructs a light sample representing a point light.
+	* @param Color - The color/intensity of the light at the sample point.
+	* @param Direction - The direction toward the light at the sample point.
+	*/
+	template <int32 SHOrder>
+	static TGatheredLightSample<SHOrder> PointLightWorldSpace(const FLinearColor& Color, const FVector4& TangentDirection, const FVector4& WorldDirection);
+};
+
+typedef TGatheredLightSample<2> FGatheredLightSample;
+typedef TGatheredLightSample<3> FGatheredLightSample3;
 
 class FGatheredLightMapSample
 {
@@ -211,7 +222,8 @@ private:
 };
 
 /** The lighting information gathered for one final gather sample */
-class FFinalGatherSample : public FGatheredLightSample
+template <int32 SHOrder>
+class TFinalGatherSample : public TGatheredLightSample<SHOrder>
 {
 public:
 
@@ -221,16 +233,16 @@ public:
 	/** 
 	 * A light sample for sky lighting.  This has to be stored separately to support stationary sky lights only contributing to low quality lightmaps.
 	 */
-	FGatheredLightSample StationarySkyLighting;
+	TGatheredLightSample<SHOrder> StationarySkyLighting;
 
 	/** Initialization constructor. */
-	FFinalGatherSample() : 
-		FGatheredLightSample(),
+	TFinalGatherSample() :
+		TGatheredLightSample<SHOrder>(),
 		Occlusion(0.0f)
 	{}
 
-	FFinalGatherSample(EForceInit) : 
-		FGatheredLightSample(ForceInit),
+	TFinalGatherSample(EForceInit) :
+		TGatheredLightSample<SHOrder>(ForceInit),
 		Occlusion(0.0f)
 	{}
 
@@ -239,16 +251,17 @@ public:
 	 * @param OtherSample - The sample to add.
 	 * @param Weight - The weight to multiply the other sample by before addition.
 	 */
-	void AddWeighted(const FFinalGatherSample& OtherSample, float Weight);
+	void AddWeighted(const TFinalGatherSample& OtherSample, float Weight);
 
 	/**
 	 * Adds a weighted light sample to this light sample.
 	 * @param OtherSample - The sample to add.
 	 * @param Weight - The weight to multiply the other sample by before addition.
 	 */
-	inline void AddWeighted(const FGatheredLightSample& OtherSample, float Weight)
+	template<int32 OtherOrder>
+	inline void AddWeighted(const TGatheredLightSample<OtherOrder>& OtherSample, float Weight)
 	{
-		FGatheredLightSample::AddWeighted(OtherSample, Weight);
+		TGatheredLightSample<SHOrder>::AddWeighted(OtherSample, Weight);
 	}
 
 	inline void SetOcclusion(float InOcclusion)
@@ -258,34 +271,37 @@ public:
 
 	inline void AddIncomingRadiance(const FLinearColor& IncomingRadiance, float Weight, const FVector4& TangentSpaceDirection, const FVector4& WorldSpaceDirection)
 	{
-		AddWeighted(FGatheredLightSample::PointLightWorldSpace(IncomingRadiance, TangentSpaceDirection, WorldSpaceDirection), Weight);
+		AddWeighted(FGatheredLightSampleUtil::PointLightWorldSpace<SHOrder>(IncomingRadiance, TangentSpaceDirection, WorldSpaceDirection), Weight);
 	}
 
 	inline void AddIncomingStationarySkyLight(const FLinearColor& IncomingSkyLight, float Weight, const FVector4& TangentSpaceDirection, const FVector4& WorldSpaceDirection)
 	{
-		StationarySkyLighting.AddWeighted(FGatheredLightSample::PointLightWorldSpace(IncomingSkyLight, TangentSpaceDirection, WorldSpaceDirection), Weight);
+		StationarySkyLighting.AddWeighted(FGatheredLightSampleUtil::PointLightWorldSpace<SHOrder>(IncomingSkyLight, TangentSpaceDirection, WorldSpaceDirection), Weight);
 	}
 
 	bool AreFloatsValid() const;
 
-	FFinalGatherSample operator*(float Scalar) const
+	TFinalGatherSample operator*(float Scalar) const
 	{
-		FFinalGatherSample Result;
-		(FGatheredLightSample&)Result = (const FGatheredLightSample&)(*this) * Scalar;
+		TFinalGatherSample Result;
+		(TGatheredLightSample<SHOrder>&)Result = (const TGatheredLightSample<SHOrder>&)(*this) * Scalar;
 		Result.Occlusion = Occlusion * Scalar;
 		Result.StationarySkyLighting = StationarySkyLighting * Scalar;
 		return Result;
 	}
 
-	FFinalGatherSample operator+(const FFinalGatherSample& SampleB) const
+	TFinalGatherSample operator+(const TFinalGatherSample& SampleB) const
 	{
-		FFinalGatherSample Result;
-		(FGatheredLightSample&)Result = (const FGatheredLightSample&)(*this) + (const FGatheredLightSample&)SampleB;
+		TFinalGatherSample Result;
+		(TGatheredLightSample<SHOrder>&)Result = (const TGatheredLightSample<SHOrder>&)(*this) + (const TGatheredLightSample<SHOrder>&)SampleB;
 		Result.Occlusion = Occlusion + SampleB.Occlusion;
 		Result.StationarySkyLighting = StationarySkyLighting + SampleB.StationarySkyLighting;
 		return Result;
 	}
 };
+
+typedef TFinalGatherSample<2> FFinalGatherSample;
+typedef TFinalGatherSample<3> FFinalGatherSample3;
 
 struct FFinalGatherInfo
 {
@@ -554,7 +570,7 @@ class FVolumeLightingSample : public FVolumeLightingSampleData
 public:
 	FVolumeLightingSample(const FVector4& InPositionAndRadius)
 	{
-		for (int32 CoefficientIndex = 0; CoefficientIndex < 4; CoefficientIndex++)
+		for (int32 CoefficientIndex = 0; CoefficientIndex < LM_NUM_SH_COEFFICIENTS; CoefficientIndex++)
 		{
 			for (int32 ChannelIndex = 0; ChannelIndex < 3; ChannelIndex++)
 			{
@@ -573,8 +589,9 @@ public:
 	{
 		return PositionAndRadius.W;
 	}
+
 	/** Constructs an SH environment from this lighting sample. */
-	void ToSHVector(FSHVectorRGB2& SHVector) const;
+	void ToSHVector(FSHVectorRGB3& SHVector) const;
 };
 
 struct FVolumeSampleInterpolationElement
@@ -2202,6 +2219,7 @@ private:
 	 * Computes direct lighting for a volume point. 
 	 * Caller is responsible for initializing the outputs to something valid.
 	 */
+	template<int32 SHOrder>
 	void CalculateApproximateDirectLighting(
 		const FStaticLightingVertex& Vertex,
 		float SampleRadius,
@@ -2211,8 +2229,8 @@ private:
 		bool bCalculateForIndirectLighting,
 		bool bDebugThisSample,
 		FStaticLightingMappingContext& MappingContext,
-		FGatheredLightSample& OutStaticDirectLighting,
-		FGatheredLightSample& OutToggleableDirectLighting,
+		TGatheredLightSample<SHOrder>& OutStaticDirectLighting,
+		TGatheredLightSample<SHOrder>& OutToggleableDirectLighting,
 		float& OutToggleableDirectionalLightShadowing) const;
 
 	FGatheredLightSample CalculateApproximateSkyLighting(
@@ -2224,6 +2242,7 @@ private:
 	/** Calculates incident radiance for a given world space position. */
 	void CalculateVolumeSampleIncidentRadiance(
 		const TArray<FVector4>& UniformHemisphereSamples,
+		const TArray<FVector2D>& UniformHemisphereSampleUniforms,
 		float MaxUnoccludedLength,
 		FVolumeLightingSample& LightingSample,
 		FLMRandomStream& RandomStream,
@@ -2334,6 +2353,7 @@ private:
 		float SampleRadius,
 		int32 BounceNumber,
 		bool bSkyLightingOnly,
+		bool bGatheringForCachedDirectLighting,
 		bool bDebugThisTexel,
 		FStaticLightingMappingContext& MappingContext,
 		FLMRandomStream& RandomStream,
@@ -2355,6 +2375,7 @@ private:
 		int32 ElementIndex,
 		int32 BounceNumber,
 		int32 NumAdaptiveRefinementLevels,
+		float BrightnessThresholdScale,
 		const TArray<FVector4>& UniformHemisphereSamples,
 		const TArray<FVector2D>& UniformHemisphereSampleUniforms,
 		float MaxUnoccludedLength,
@@ -2363,6 +2384,7 @@ private:
 		FLMRandomStream& RandomStream,
 		FLightingCacheGatherInfo& GatherInfo,
 		bool bSkyLightingOnly,
+		bool bGatheringForCachedDirectLighting,
 		bool bDebugThisTexel) const;
 
 	/** Final gather using uniform sampling to estimate the incident radiance function. */
@@ -2819,6 +2841,8 @@ extern bool IsLightBehindSurface(const FVector4& TrianglePoint, const FVector4& 
  * @return A map from Lights index to a boolean which is true if the light is in front of the triangle.
  */
 extern TBitArray<> CullBackfacingLights(bool bTwoSidedMaterial, const FVector4& TrianglePoint, const FVector4& TriangleNormal, const TArray<FLight*>& Lights);
+
+#include "LightingSystem.inl"
 
 } //namespace Lightmass
 

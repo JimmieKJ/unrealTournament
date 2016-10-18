@@ -16,12 +16,14 @@ bool FMeshPaintGeometryAdapterForStaticMeshes::Construct(UMeshComponent* InCompo
 	StaticMeshComponent = Cast<UStaticMeshComponent>(InComponent);
 	if (StaticMeshComponent != nullptr)
 	{
+		StaticMeshComponent->OnStaticMeshChanged().AddRaw(this, &FMeshPaintGeometryAdapterForStaticMeshes::OnStaticMeshChanged);
+
 		if (StaticMeshComponent->StaticMesh != nullptr)
 		{
 			ReferencedStaticMesh = StaticMeshComponent->StaticMesh;
 			PaintingMeshLODIndex = InPaintingMeshLODIndex;
 			UVChannelIndex = InUVChannelIndex;
-			StaticMeshComponent->StaticMesh->OnPostMeshBuild().AddRaw(this, &FMeshPaintGeometryAdapterForStaticMeshes::OnPostMeshBuild);
+			ReferencedStaticMesh->OnPostMeshBuild().AddRaw(this, &FMeshPaintGeometryAdapterForStaticMeshes::OnPostMeshBuild);
 			const bool bSuccess = Initialize();
 			return bSuccess;
 		}
@@ -32,15 +34,35 @@ bool FMeshPaintGeometryAdapterForStaticMeshes::Construct(UMeshComponent* InCompo
 
 FMeshPaintGeometryAdapterForStaticMeshes::~FMeshPaintGeometryAdapterForStaticMeshes()
 {
-	if (StaticMeshComponent != nullptr && StaticMeshComponent->StaticMesh != nullptr)
+	if (StaticMeshComponent != nullptr)
 	{
-		StaticMeshComponent->StaticMesh->OnPostMeshBuild().RemoveAll(this);
+		if (ReferencedStaticMesh != nullptr)
+		{
+			ReferencedStaticMesh->OnPostMeshBuild().RemoveAll(this);
+		}
+
+		StaticMeshComponent->OnStaticMeshChanged().RemoveAll(this);
 	}
 }
 
 void FMeshPaintGeometryAdapterForStaticMeshes::OnPostMeshBuild(UStaticMesh* StaticMesh)
 {
+	check(StaticMesh == ReferencedStaticMesh);
 	Initialize();
+}
+
+void FMeshPaintGeometryAdapterForStaticMeshes::OnStaticMeshChanged(UStaticMeshComponent* InStaticMeshComponent)
+{
+	check(StaticMeshComponent == InStaticMeshComponent);
+	OnRemoved();
+	ReferencedStaticMesh->OnPostMeshBuild().RemoveAll(this);
+	ReferencedStaticMesh = InStaticMeshComponent->StaticMesh;
+	if (ReferencedStaticMesh)
+	{
+		ReferencedStaticMesh->OnPostMeshBuild().AddRaw(this, &FMeshPaintGeometryAdapterForStaticMeshes::OnPostMeshBuild);
+		Initialize();
+		OnAdded();
+	}
 }
 
 bool FMeshPaintGeometryAdapterForStaticMeshes::Initialize()
@@ -130,7 +152,7 @@ void FMeshPaintGeometryAdapterForStaticMeshes::OnAdded()
 	));
 
 	// If this is the first attempt to add a temporary body setup to the mesh, do it
-	if (StaticMeshReferencers.NumReferencers == 0)
+	if (StaticMeshReferencers.Referencers.Num() == 0)
 	{
 		// Remember the old body setup (this will be added as a GC reference so that it doesn't get destroyed)
 		StaticMeshReferencers.RestoreBodySetup = ReferencedStaticMesh->BodySetup;
@@ -154,8 +176,6 @@ void FMeshPaintGeometryAdapterForStaticMeshes::OnAdded()
 		ReferencedStaticMesh->BodySetup = TempBodySetupRaw;
 	}
 
-	StaticMeshReferencers.NumReferencers++;
-
 	ECollisionEnabled::Type CachedCollisionType = StaticMeshComponent->BodyInstance.GetCollisionEnabled();
 	StaticMeshReferencers.Referencers.Emplace(StaticMeshComponent, CachedCollisionType);
 
@@ -172,27 +192,37 @@ void FMeshPaintGeometryAdapterForStaticMeshes::OnAdded()
 void FMeshPaintGeometryAdapterForStaticMeshes::OnRemoved()
 {
 	check(StaticMeshComponent);
-	check(ReferencedStaticMesh);
+	
+	// If the referenced static mesh has been destroyed (and nulled by GC), don't try to do anything more.
+	// It should be in the process of removing all global geometry adapters if it gets here in this situation.
+	if (!ReferencedStaticMesh)
+	{
+		return;
+	}
 
 	// Remove a reference from the static mesh map
 	FStaticMeshReferencers* StaticMeshReferencers = MeshToComponentMap.Find(ReferencedStaticMesh);
 	check(StaticMeshReferencers);
 	check(StaticMeshReferencers->Referencers.Num() > 0);
-	check(StaticMeshReferencers->NumReferencers > 0);
-	StaticMeshReferencers->NumReferencers--;
 
-	// If the last reference was removed, restore the body setup for all the mesh components which referenced it.
-	if (StaticMeshReferencers->NumReferencers == 0)
+	int32 Index = StaticMeshReferencers->Referencers.IndexOfByPredicate(
+		[=](const FStaticMeshReferencers::FReferencersInfo& Info)
+		{
+			return Info.StaticMeshComponent == this->StaticMeshComponent;
+		}
+	);
+	check(Index != INDEX_NONE);
+
+	StaticMeshComponent->BodyInstance.SetCollisionEnabled(StaticMeshReferencers->Referencers[Index].CachedCollisionType, false);
+	StaticMeshComponent->RecreatePhysicsState();
+
+	StaticMeshReferencers->Referencers.RemoveAtSwap(Index);
+
+	// If the last reference was removed, restore the body setup for the static mesh
+	if (StaticMeshReferencers->Referencers.Num() == 0)
 	{
 		ReferencedStaticMesh->BodySetup = StaticMeshReferencers->RestoreBodySetup;
-
-		for (const auto& Info : StaticMeshReferencers->Referencers)
-		{
-			Info.StaticMeshComponent->BodyInstance.SetCollisionEnabled(Info.CachedCollisionType, false);
-			Info.StaticMeshComponent->RecreatePhysicsState();
-		}
-
-		StaticMeshReferencers->Referencers.Reset();
+		verify(MeshToComponentMap.Remove(ReferencedStaticMesh) == 1);
 	}
 }
 
@@ -260,12 +290,19 @@ void FMeshPaintGeometryAdapterForStaticMeshes::SetCurrentUVChannelIndex(int32 In
 
 void FMeshPaintGeometryAdapterForStaticMeshes::AddReferencedObjects(FReferenceCollector& Collector)
 {
-	check(StaticMeshComponent);
-	check(ReferencedStaticMesh);
+	if (!ReferencedStaticMesh)
+	{
+		return;
+	}
 
 	FStaticMeshReferencers* StaticMeshReferencers = MeshToComponentMap.Find(ReferencedStaticMesh);
 	check(StaticMeshReferencers);
 	Collector.AddReferencedObject(StaticMeshReferencers->RestoreBodySetup);
+
+	for (auto& Info : StaticMeshReferencers->Referencers)
+	{
+		Collector.AddReferencedObject(Info.StaticMeshComponent);
+	}
 }
 
 

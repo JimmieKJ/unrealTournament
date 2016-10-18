@@ -10,6 +10,7 @@
 #include "ITextLayoutMarshaller.h"
 #include "ISlateEditableTextWidget.h"
 #include "GenericCommands.h"
+#include "BreakIterator.h"
 
 /**
  * Ensure that text transactions are always completed.
@@ -41,23 +42,46 @@ FORCEINLINE FReply BoolToReply(const bool bHandled)
 	return (bHandled) ? FReply::Handled() : FReply::Unhandled();
 }
 
+bool IsCharAllowed(const TCHAR InChar)
+{
+	// Certain characters are not allowed
+	if (InChar == TEXT('\t'))
+	{
+		return true;
+	}
+	else if (InChar <= 0x1F)
+	{
+		return false;
+	}
+	return true;
 }
 
-FSlateEditableTextLayout::FSlateEditableTextLayout(ISlateEditableTextWidget& InOwnerWidget, const TAttribute<FText>& InInitialText, FTextBlockStyle InTextStyle, const TOptional<ETextShapingMethod> InTextShapingMethod, const TOptional<ETextFlowDirection> InTextFlowDirection, TSharedRef<ITextLayoutMarshaller> InTextMarshaller, TSharedRef<ITextLayoutMarshaller> InHintTextMarshaller)
+}
+
+FSlateEditableTextLayout::FSlateEditableTextLayout(ISlateEditableTextWidget& InOwnerWidget, const TAttribute<FText>& InInitialText, FTextBlockStyle InTextStyle, const TOptional<ETextShapingMethod> InTextShapingMethod, const TOptional<ETextFlowDirection> InTextFlowDirection, const FCreateSlateTextLayout& InCreateSlateTextLayout, TSharedRef<ITextLayoutMarshaller> InTextMarshaller, TSharedRef<ITextLayoutMarshaller> InHintTextMarshaller)
 {
+	CreateSlateTextLayout = InCreateSlateTextLayout;
+	if (!CreateSlateTextLayout.IsBound())
+	{
+		CreateSlateTextLayout.BindStatic(&FSlateTextLayout::Create);
+	}
+
 	OwnerWidget = &InOwnerWidget;
 	Marshaller = InTextMarshaller;
 	HintMarshaller = InHintTextMarshaller;
 	TextStyle = InTextStyle;
-	TextLayout = FSlateTextLayout::Create(TextStyle);
+	TextLayout = CreateSlateTextLayout.Execute(TextStyle);
 
 	WrapTextAt = 0.0f;
 	AutoWrapText = false;
+	WrappingPolicy = ETextWrappingPolicy::DefaultWrapping;
 
 	Margin = FMargin(0);
 	Justification = ETextJustify::Left;
 	LineHeightPercentage = 1.0f;
 	DebugSourceInfo = FString();
+
+	GraphemeBreakIterator = FBreakIterator::CreateCharacterBoundaryIterator();
 
 	BoundText = InInitialText;
 
@@ -99,7 +123,7 @@ FSlateEditableTextLayout::FSlateEditableTextLayout(ISlateEditableTextWidget& InO
 
 	CursorLineHighlighter = SlateEditableTextTypes::FCursorLineHighlighter::Create(&CursorInfo);
 	TextCompositionHighlighter = SlateEditableTextTypes::FTextCompositionHighlighter::Create();
-	TextSelectionRunRenderer = SlateEditableTextTypes::FTextSelectionRunRenderer::Create();
+	TextSelectionHighlighter = SlateEditableTextTypes::FTextSelectionHighlighter::Create();
 
 	ScrollOffset = FVector2D::ZeroVector;
 	PreferredCursorScreenOffsetInLine = 0.0f;
@@ -179,6 +203,12 @@ FSlateEditableTextLayout::~FSlateEditableTextLayout()
 
 		TextInputMethodSystem->UnregisterContext(TextInputMethodContextRef);
 	}
+
+	if(FSlateApplication::IsInitialized() && FPlatformMisc::GetRequiresVirtualKeyboard())
+	{
+		FSlateApplication::Get().ShowVirtualKeyboard(false, 0);
+	}
+
 }
 
 void FSlateEditableTextLayout::SetText(const TAttribute<FText>& InText)
@@ -193,14 +223,14 @@ void FSlateEditableTextLayout::SetText(const TAttribute<FText>& InText)
 	const bool bForceRefresh = !EditableText.ToString().Equals(NewText.ToString(), ESearchCase::CaseSensitive);
 
 	// Only emit the "text changed" event if the text has actually been changed
-	const bool bHasTextChanged = OwnerWidget->GetSlateWidget()->HasKeyboardFocus()
+	const bool bHasTextChanged = OwnerWidget->GetSlateWidget()->HasAnyUserFocus().IsSet()
 		? !NewText.ToString().Equals(EditableText.ToString(), ESearchCase::CaseSensitive)
 		: !NewText.ToString().Equals(PreviousText.ToString(), ESearchCase::CaseSensitive);
 
 	if (RefreshImpl(&NewText, bForceRefresh))
 	{
 		// Make sure we move the cursor to the end of the new text if we had keyboard focus
-		if (OwnerWidget->GetSlateWidget()->HasKeyboardFocus())
+		if (OwnerWidget->GetSlateWidget()->HasAnyUserFocus().IsSet())
 		{
 			JumpTo(ETextLocation::EndOfDocument, ECursorAction::MoveCursor);
 		}
@@ -226,7 +256,7 @@ void FSlateEditableTextLayout::SetHintText(const TAttribute<FText>& InHintText)
 	if (HintText.IsBound() || !HintText.Get(FText::GetEmpty()).IsEmpty())
 	{
 		HintTextStyle = TextStyle;
-		HintTextLayout = MakeUnique<FTextBlockLayout>(HintTextStyle, TextLayout->GetTextShapingMethod(), TextLayout->GetTextFlowDirection(), HintMarshaller.ToSharedRef(), nullptr);
+		HintTextLayout = MakeUnique<FTextBlockLayout>(HintTextStyle, TextLayout->GetTextShapingMethod(), TextLayout->GetTextFlowDirection(), CreateSlateTextLayout, HintMarshaller.ToSharedRef(), nullptr);
 		HintTextLayout->SetDebugSourceInfo(DebugSourceInfo);
 	}
 	else
@@ -298,6 +328,9 @@ bool FSlateEditableTextLayout::SetEditableText(const FText& TextToSet, const boo
 		ClearSelection();
 		TextLayout->ClearLines();
 
+		TextLayout->ClearLineHighlights();
+		TextLayout->ClearRunRenderers();
+
 		Marshaller->SetText(TextToSetString, *TextLayout);
 
 		const TArray< FTextLayout::FLineModel >& Lines = TextLayout->GetLineModels();
@@ -368,10 +401,11 @@ void FSlateEditableTextLayout::SetTextFlowDirection(const TOptional<ETextFlowDir
 	TextLayout->SetTextFlowDirection((InTextFlowDirection.IsSet()) ? InTextFlowDirection.GetValue() : GetDefaultTextFlowDirection());
 }
 
-void FSlateEditableTextLayout::SetTextWrapping(const TAttribute<float>& InWrapTextAt, const TAttribute<bool>& InAutoWrapText)
+void FSlateEditableTextLayout::SetTextWrapping(const TAttribute<float>& InWrapTextAt, const TAttribute<bool>& InAutoWrapText, const TAttribute<ETextWrappingPolicy>& InWrappingPolicy)
 {
 	WrapTextAt = InWrapTextAt;
 	AutoWrapText = InAutoWrapText;
+	WrappingPolicy = InWrappingPolicy;
 }
 
 void FSlateEditableTextLayout::SetWrapTextAt(const TAttribute<float>& InWrapTextAt)
@@ -382,6 +416,11 @@ void FSlateEditableTextLayout::SetWrapTextAt(const TAttribute<float>& InWrapText
 void FSlateEditableTextLayout::SetAutoWrapText(const TAttribute<bool>& InAutoWrapText)
 {
 	AutoWrapText = InAutoWrapText;
+}
+
+void FSlateEditableTextLayout::SetWrappingPolicy(const TAttribute<ETextWrappingPolicy>& InWrappingPolicy)
+{
+	WrappingPolicy = InWrappingPolicy;
 }
 
 void FSlateEditableTextLayout::SetMargin(const TAttribute<FMargin>& InMargin)
@@ -427,7 +466,7 @@ bool FSlateEditableTextLayout::Refresh()
 	return RefreshImpl(&TextToSet);
 }
 
-bool FSlateEditableTextLayout::RefreshImpl(const FText* InTextToSet, bool bForce)
+bool FSlateEditableTextLayout::RefreshImpl(const FText* InTextToSet, const bool bForce)
 {
 	bool bHasSetText = false;
 
@@ -454,6 +493,11 @@ bool FSlateEditableTextLayout::RefreshImpl(const FText* InTextToSet, bool bForce
 	}
 
 	bWasPasswordLastTick = bIsPassword;
+
+	if (bHasSetText)
+	{
+		TextLayout->UpdateIfNeeded();
+	}
 
 	return bHasSetText;
 }
@@ -522,9 +566,13 @@ bool FSlateEditableTextLayout::HandleFocusReceived(const FFocusEvent& InFocusEve
 		ITextInputMethodSystem* const TextInputMethodSystem = FSlateApplication::Get().GetTextInputMethodSystem();
 		if (TextInputMethodSystem)
 		{
+			TextInputMethodContext->CacheWindow();
 			TextInputMethodSystem->ActivateContext(TextInputMethodContext.ToSharedRef());
 		}
 	}
+
+	// Make sure we have the correct text (we might have been collapsed and have missed updates due to not being ticked)
+	LoadText();
 
 	// Store undo state to use for escape key reverts
 	MakeUndoState(OriginalText);
@@ -604,6 +652,10 @@ bool FSlateEditableTextLayout::HandleFocusLost(const FFocusEvent& InFocusEvent)
 
 	OwnerWidget->OnTextCommitted(EditedText, TextAction);
 
+	// Reload underlying value now it is committed  (commit may alter the value) 
+	// so it can be re-displayed in the edit box
+	LoadText();
+
 	UpdateCursorHighlight();
 
 	// UpdateCursorHighlight always tries to scroll to the cursor, but we don't want that to happen when we 
@@ -666,49 +718,45 @@ FReply FSlateEditableTextLayout::HandleKeyDown(const FKeyEvent& InKeyEvent)
 
 	if (Key == EKeys::Left)
 	{
-		MoveCursor(FMoveCursor::Cardinal(
+		Reply = BoolToReply(MoveCursor(FMoveCursor::Cardinal(
 			// Ctrl moves a whole word instead of one character.	
 			InKeyEvent.IsControlDown() ? ECursorMoveGranularity::Word : ECursorMoveGranularity::Character,
 			// Move left
 			FIntPoint(-1, 0),
 			// Shift selects text.	
 			InKeyEvent.IsShiftDown() ? ECursorAction::SelectText : ECursorAction::MoveCursor
-			));
-		Reply = FReply::Handled();
+			)));
 	}
 	else if (Key == EKeys::Right)
 	{
-		MoveCursor(FMoveCursor::Cardinal(
+		Reply = BoolToReply(MoveCursor(FMoveCursor::Cardinal(
 			// Ctrl moves a whole word instead of one character.	
 			InKeyEvent.IsControlDown() ? ECursorMoveGranularity::Word : ECursorMoveGranularity::Character,
 			// Move right
 			FIntPoint(+1, 0),
 			// Shift selects text.	
 			InKeyEvent.IsShiftDown() ? ECursorAction::SelectText : ECursorAction::MoveCursor
-			));
-		Reply = FReply::Handled();
+			)));
 	}
 	else if (Key == EKeys::Up)
 	{
-		MoveCursor(FMoveCursor::Cardinal(
+		Reply = BoolToReply(MoveCursor(FMoveCursor::Cardinal(
 			ECursorMoveGranularity::Character,
 			// Move up
 			FIntPoint(0, -1),
 			// Shift selects text.	
 			InKeyEvent.IsShiftDown() ? ECursorAction::SelectText : ECursorAction::MoveCursor
-			));
-		Reply = FReply::Handled();
+			)));
 	}
 	else if (Key == EKeys::Down)
 	{
-		MoveCursor(FMoveCursor::Cardinal(
+		Reply = BoolToReply(MoveCursor(FMoveCursor::Cardinal(
 			ECursorMoveGranularity::Character,
 			// Move down
 			FIntPoint(0, +1),
 			// Shift selects text.	
 			InKeyEvent.IsShiftDown() ? ECursorAction::SelectText : ECursorAction::MoveCursor
-			));
-		Reply = FReply::Handled();
+			)));
 	}
 	else if (Key == EKeys::Home)
 	{
@@ -862,7 +910,7 @@ FReply FSlateEditableTextLayout::HandleMouseButtonDown(const FGeometry& MyGeomet
 			InMouseEvent.GetEffectingButton() == EKeys::RightMouseButton)
 		{
 			// Am I getting focus right now?
-			const bool bIsGettingFocus = !OwnerWidget->GetSlateWidget()->HasKeyboardFocus();
+			const bool bIsGettingFocus = !OwnerWidget->GetSlateWidget()->HasAnyUserFocus().IsSet();
 			if (bIsGettingFocus)
 			{
 				// We might be receiving keyboard focus due to this event.  Because the keyboard focus received callback
@@ -1181,18 +1229,7 @@ bool FSlateEditableTextLayout::HandleTypeChar(const TCHAR InChar)
 	}
 
 	// Certain characters are not allowed
-	bool bIsCharAllowed = true;
-	{
-		if (InChar == TEXT('\t'))
-		{
-			bIsCharAllowed = true;
-		}
-		else if (InChar <= 0x1F)
-		{
-			bIsCharAllowed = false;
-		}
-	}
-
+	const bool bIsCharAllowed = IsCharAllowed(InChar);
 	if (bIsCharAllowed)
 	{
 		const FTextLocation CursorInteractionPosition = CursorInfo.GetCursorInteractionLocation();
@@ -1240,7 +1277,13 @@ bool FSlateEditableTextLayout::HandleCarriageReturn()
 		// so it can be re-displayed in the edit box if it retains focus
 		LoadText();
 
-		// Release input focus
+		// Select all text?
+		if (OwnerWidget->ShouldSelectAllTextOnCommit())
+		{
+			SelectAllText();
+		}
+
+		// Release input focus?
 		if (OwnerWidget->ShouldClearKeyboardFocusOnCommit())
 		{
 			FSlateApplication::Get().ClearKeyboardFocus(EFocusCause::Cleared);
@@ -1596,7 +1639,11 @@ void FSlateEditableTextLayout::PasteTextFromClipboard()
 	FString PastedText;
 	FPlatformMisc::ClipboardPaste(PastedText);
 
-	InsertTextAtCursorImpl(PastedText);
+	if (PastedText.Len() > 0)
+	{
+		InsertTextAtCursorImpl(PastedText);
+		TextLayout->UpdateIfNeeded();
+	}
 }
 
 void FSlateEditableTextLayout::InsertTextAtCursor(const FString& InString)
@@ -1609,27 +1656,74 @@ void FSlateEditableTextLayout::InsertTextAtCursor(const FString& InString)
 	FScopedEditableTextTransaction TextTransaction(*this);
 
 	DeleteSelectedText();
-	InsertTextAtCursorImpl(InString);
+
+	if (InString.Len() > 0)
+	{
+		InsertTextAtCursorImpl(InString);
+		TextLayout->UpdateIfNeeded();
+	}
 }
 
 void FSlateEditableTextLayout::InsertTextAtCursorImpl(const FString& InString)
 {
-	if (InString.Len())
+	if (OwnerWidget->IsTextReadOnly() || InString.Len() == 0)
 	{
-		for (const TCHAR* Character = InString.GetCharArray().GetData(); *Character; ++Character)
+		return;
+	}
+
+	// Sanitize out any invalid characters
+	FString SanitizedString = InString;
+	{
+		const bool bIsMultiLine = OwnerWidget->IsMultiLineTextEdit();
+		SanitizedString.GetCharArray().RemoveAll([&](const TCHAR InChar) -> bool
 		{
-			if (*Character == '\n')
+			const bool bIsCharAllowed = IsCharAllowed(InChar) || (bIsMultiLine || !FChar::IsLinebreak(InChar));
+			return !bIsCharAllowed;
+		});
+	}
+
+	// Split into lines
+	TArray<FTextRange> LineRanges;
+	FTextRange::CalculateLineRangesFromString(SanitizedString, LineRanges);
+
+	if (AnyTextSelected())
+	{
+		// Delete selected text
+		DeleteSelectedText();
+	}
+
+	// Insert each line
+	{
+		bool bIsFirstLine = true;
+		for (const FTextRange& LineRange : LineRanges)
+		{
+			if (!bIsFirstLine)
 			{
-				if (OwnerWidget->IsMultiLineTextEdit())
+				const FTextLocation CursorInteractionPosition = CursorInfo.GetCursorInteractionLocation();
+				if (TextLayout->SplitLineAt(CursorInteractionPosition))
 				{
-					InsertNewLineAtCursorImpl();
+					// Adjust the cursor position to be at the beginning of the new line
+					const FTextLocation NewCursorPosition = FTextLocation(CursorInteractionPosition.GetLineIndex() + 1, 0);
+					CursorInfo.SetCursorLocationAndCalculateAlignment(*TextLayout, NewCursorPosition);
 				}
 			}
-			else
-			{
-				HandleTypeChar(*Character);
-			}
+			bIsFirstLine = false;
+
+			const FString NewLineText = FString(SanitizedString.Mid(LineRange.BeginIndex, LineRange.Len()));
+
+			const FTextLocation CursorInteractionPosition = CursorInfo.GetCursorInteractionLocation();
+			const TArray< FTextLayout::FLineModel >& Lines = TextLayout->GetLineModels();
+			const FTextLayout::FLineModel& Line = Lines[CursorInteractionPosition.GetLineIndex()];
+
+			// Insert character at caret position
+			TextLayout->InsertAt(CursorInteractionPosition, NewLineText);
+
+			// Advance caret position
+			const FTextLocation NewCursorPosition = FTextLocation(CursorInteractionPosition.GetLineIndex(), FMath::Min(CursorInteractionPosition.GetOffset() + NewLineText.Len(), Line.Text->Len()));
+			CursorInfo.SetCursorLocationAndCalculateAlignment(*TextLayout, NewCursorPosition);
 		}
+
+		UpdateCursorHighlight();
 	}
 }
 
@@ -1699,12 +1793,13 @@ void FSlateEditableTextLayout::InsertRunAtCursor(TSharedRef<IRun> InRun)
 	UpdateCursorHighlight();
 }
 
-void FSlateEditableTextLayout::MoveCursor(const FMoveCursor& InArgs)
+bool FSlateEditableTextLayout::MoveCursor(const FMoveCursor& InArgs)
 {
 	// We can't use the keyboard to move the cursor while composing, as the IME has control over it
 	if (TextInputMethodContext->IsComposing() && InArgs.GetMoveMethod() != ECursorMoveMethod::ScreenPosition)
 	{
-		return;
+		// Claim we handled this
+		return true;
 	}
 
 	bool bAllowMoveCursor = true;
@@ -1757,9 +1852,14 @@ void FSlateEditableTextLayout::MoveCursor(const FMoveCursor& InArgs)
 					NewCursorPosition = TranslatedLocation(CursorPosition, InArgs.GetMoveDirection().X);
 					bUpdatePreferredCursorScreenOffsetInLine = true;
 				}
-				else
+				else if (OwnerWidget->IsMultiLineTextEdit())
 				{
 					TranslateLocationVertical(CursorPosition, InArgs.GetMoveDirection().Y, InArgs.GetGeometryScale(), NewCursorPosition, NewCursorAlignment);
+				}
+				else
+				{
+					// Vertical movement not supported on single-line editable text controls - return false so we fallback to generic widget navigation
+					return false;
 				}
 			}
 			else
@@ -1833,9 +1933,12 @@ void FSlateEditableTextLayout::MoveCursor(const FMoveCursor& InArgs)
 		if (TextInputMethodSystem)
 		{
 			TextInputMethodSystem->DeactivateContext(TextInputMethodContext.ToSharedRef());
+			TextInputMethodContext->CacheWindow();
 			TextInputMethodSystem->ActivateContext(TextInputMethodContext.ToSharedRef());
 		}
 	}
+
+	return true;
 }
 
 void FSlateEditableTextLayout::GoTo(const FTextLocation& NewLocation)
@@ -2148,13 +2251,14 @@ void FSlateEditableTextLayout::UpdateCursorHighlight()
 
 	RemoveCursorHighlight();
 
-	static const int32 CompositionRangeZOrder = 1; // draw above the text
-	static const int32 CursorZOrder = 2; // draw above the text and the composition
+	static const int32 SelectionHighlightZOrder = -10; // draw below the text
+	static const int32 CompositionRangeZOrder = 10; // draw above the text
+	static const int32 CursorZOrder = 11; // draw above the text and the composition
 
 	const FTextLocation CursorInteractionPosition = CursorInfo.GetCursorInteractionLocation();
 	const FTextLocation SelectionLocation = SelectionStart.Get(CursorInteractionPosition);
 
-	const bool bHasKeyboardFocus = OwnerWidget->GetSlateWidget()->HasKeyboardFocus();
+	const bool bHasKeyboardFocus = OwnerWidget->GetSlateWidget()->HasAnyUserFocus().IsSet();
 	const bool bIsComposing = TextInputMethodContext->IsComposing();
 	const bool bHasSelection = SelectionLocation != CursorInteractionPosition;
 
@@ -2176,7 +2280,7 @@ void FSlateEditableTextLayout::UpdateCursorHighlight()
 			const bool bCursorInRange = (CompositionBeginLocation.GetLineIndex() == CursorInteractionPosition.GetLineIndex() && Range.InclusiveContains(CursorInteractionPosition.GetOffset()));
 			if (!Range.IsEmpty() && bCursorInRange)
 			{
-				TextLayout->AddLineHighlight(FTextLineHighlight(CompositionBeginLocation.GetLineIndex(), Range, CompositionRangeZOrder, TextCompositionHighlighter.ToSharedRef()));
+				ActiveLineHighlights.Add(FTextLineHighlight(CompositionBeginLocation.GetLineIndex(), Range, CompositionRangeZOrder, TextCompositionHighlighter.ToSharedRef()));
 			}
 		}
 	}
@@ -2190,12 +2294,12 @@ void FSlateEditableTextLayout::UpdateCursorHighlight()
 		const int32 SelectionEndLineIndex = Selection.GetEnd().GetLineIndex();
 		const int32 SelectionEndLineOffset = Selection.GetEnd().GetOffset();
 
-		TextSelectionRunRenderer->SetHasKeyboardFocus(bHasKeyboardFocus);
+		TextSelectionHighlighter->SetHasKeyboardFocus(bHasKeyboardFocus);
 
 		if (SelectionBeginningLineIndex == SelectionEndLineIndex)
 		{
 			const FTextRange Range(SelectionBeginningLineOffset, SelectionEndLineOffset);
-			TextLayout->AddRunRenderer(FTextRunRenderer(SelectionBeginningLineIndex, Range, TextSelectionRunRenderer.ToSharedRef()));
+			ActiveLineHighlights.Add(FTextLineHighlight(SelectionBeginningLineIndex, Range, SelectionHighlightZOrder, TextSelectionHighlighter.ToSharedRef()));
 		}
 		else
 		{
@@ -2206,17 +2310,17 @@ void FSlateEditableTextLayout::UpdateCursorHighlight()
 				if (LineIndex == SelectionBeginningLineIndex)
 				{
 					const FTextRange Range(SelectionBeginningLineOffset, Lines[LineIndex].Text->Len());
-					TextLayout->AddRunRenderer(FTextRunRenderer(LineIndex, Range, TextSelectionRunRenderer.ToSharedRef()));
+					ActiveLineHighlights.Add(FTextLineHighlight(LineIndex, Range, SelectionHighlightZOrder, TextSelectionHighlighter.ToSharedRef()));
 				}
 				else if (LineIndex == SelectionEndLineIndex)
 				{
 					const FTextRange Range(0, SelectionEndLineOffset);
-					TextLayout->AddRunRenderer(FTextRunRenderer(LineIndex, Range, TextSelectionRunRenderer.ToSharedRef()));
+					ActiveLineHighlights.Add(FTextLineHighlight(LineIndex, Range, SelectionHighlightZOrder, TextSelectionHighlighter.ToSharedRef()));
 				}
 				else
 				{
 					const FTextRange Range(0, Lines[LineIndex].Text->Len());
-					TextLayout->AddRunRenderer(FTextRunRenderer(LineIndex, Range, TextSelectionRunRenderer.ToSharedRef()));
+					ActiveLineHighlights.Add(FTextLineHighlight(LineIndex, Range, SelectionHighlightZOrder, TextSelectionHighlighter.ToSharedRef()));
 				}
 			}
 		}
@@ -2232,23 +2336,38 @@ void FSlateEditableTextLayout::UpdateCursorHighlight()
 
 		if (LineTextLength == 0)
 		{
-			TextLayout->AddLineHighlight(FTextLineHighlight(CursorPosition.GetLineIndex(), FTextRange(0, 0), CursorZOrder, CursorLineHighlighter.ToSharedRef()));
+			ActiveLineHighlights.Add(FTextLineHighlight(CursorPosition.GetLineIndex(), FTextRange(0, 0), CursorZOrder, CursorLineHighlighter.ToSharedRef()));
 		}
 		else if (CursorPosition.GetOffset() == LineTextLength)
 		{
-			TextLayout->AddLineHighlight(FTextLineHighlight(CursorPosition.GetLineIndex(), FTextRange(LineTextLength - 1, LineTextLength), CursorZOrder, CursorLineHighlighter.ToSharedRef()));
+			ActiveLineHighlights.Add(FTextLineHighlight(CursorPosition.GetLineIndex(), FTextRange(LineTextLength - 1, LineTextLength), CursorZOrder, CursorLineHighlighter.ToSharedRef()));
 		}
 		else
 		{
-			TextLayout->AddLineHighlight(FTextLineHighlight(CursorPosition.GetLineIndex(), FTextRange(CursorPosition.GetOffset(), CursorPosition.GetOffset() + 1), CursorZOrder, CursorLineHighlighter.ToSharedRef()));
+			ActiveLineHighlights.Add(FTextLineHighlight(CursorPosition.GetLineIndex(), FTextRange(CursorPosition.GetOffset(), CursorPosition.GetOffset() + 1), CursorZOrder, CursorLineHighlighter.ToSharedRef()));
 		}
+	}
+
+	// We don't use SetLineHighlights here as we don't want to remove any line highlights that other code might have added (eg, underlines)
+	for (const FTextLineHighlight& LineHighlight : ActiveLineHighlights)
+	{
+		TextLayout->AddLineHighlight(LineHighlight);
 	}
 }
 
 void FSlateEditableTextLayout::RemoveCursorHighlight()
 {
-	TextLayout->ClearRunRenderers();
-	TextLayout->ClearLineHighlights();
+	const TArray<FTextLayout::FLineModel>& Lines = TextLayout->GetLineModels();
+
+	for (const FTextLineHighlight& LineHighlight : ActiveLineHighlights)
+	{
+		if (Lines.IsValidIndex(LineHighlight.LineIndex))
+		{
+			TextLayout->RemoveLineHighlight(LineHighlight);
+		}
+	}
+
+	ActiveLineHighlights.Empty();
 }
 
 void FSlateEditableTextLayout::UpdatePreferredCursorScreenOffsetInLine()
@@ -2439,31 +2558,40 @@ TArray<TSharedRef<const IRun>> FSlateEditableTextLayout::GetSelectedRuns() const
 
 FTextLocation FSlateEditableTextLayout::TranslatedLocation(const FTextLocation& Location, int8 Direction) const
 {
-	const int32 OffsetInLine = Location.GetOffset() + Direction;
-	const TArray< FTextLayout::FLineModel >& Lines = TextLayout->GetLineModels();
-	const int32 NumberOfLines = Lines.Num();
-	const int32 LineTextLength = Lines[Location.GetLineIndex()].Text->Len();
+	check(Direction != 0);
 
-	if (Location.GetLineIndex() < NumberOfLines - 1 && OffsetInLine > LineTextLength)
+	const TArray< FTextLayout::FLineModel >& Lines = TextLayout->GetLineModels();
+
+	// Move to the previous or next grapheme based upon the requested direction and current position
+	GraphemeBreakIterator->SetString(*Lines[Location.GetLineIndex()].Text);
+	const int32 NewOffsetInLine = (Direction > 0) ? GraphemeBreakIterator->MoveToCandidateAfter(Location.GetOffset()) : GraphemeBreakIterator->MoveToCandidateBefore(Location.GetOffset());
+	GraphemeBreakIterator->ClearString();
+
+	// If our new offset is still invalid then there was no valid grapheme to move to (end or start of line, or an empty line)
+	if (NewOffsetInLine == INDEX_NONE)
 	{
-		// We're going over the end of the line and we aren't on the last line
-		return FTextLocation(Location.GetLineIndex() + 1, 0);
-	}
-	else if (OffsetInLine < 0 && Location.GetLineIndex() > 0)
-	{
-		// We're stepping before the beginning of the line, and we're not on the first line.
-		const int32 NewLineIndex = Location.GetLineIndex() - 1;
-		return FTextLocation(NewLineIndex, Lines[NewLineIndex].Text->Len());
-	}
-	else
-	{
-		if (LineTextLength == 0)
+		if (Direction > 0)
 		{
-			return FTextLocation(Location.GetLineIndex(), 0);
+			// Overflow to the start of the next line if we're not the last line
+			if (Location.GetLineIndex() < Lines.Num() - 1)
+			{
+				return FTextLocation(Location.GetLineIndex() + 1, 0);
+			}
+		}
+		else if (Location.GetLineIndex() > 0)
+		{
+			// Underflow to the end of the previous line if we're not the first line
+			const int32 NewLineIndex = Location.GetLineIndex() - 1;
+			return FTextLocation(NewLineIndex, Lines[NewLineIndex].Text->Len());
 		}
 
-		return FTextLocation(Location.GetLineIndex(), FMath::Clamp(OffsetInLine, 0, LineTextLength));
+		// Could not move onto a new line, just return the same offset we were passed
+		return Location;
 	}
+
+	// Return the new offset within the current line
+	check(NewOffsetInLine >= 0 && NewOffsetInLine <= Lines[Location.GetLineIndex()].Text->Len());
+	return FTextLocation(Location.GetLineIndex(), NewOffsetInLine);
 }
 
 void FSlateEditableTextLayout::TranslateLocationVertical(const FTextLocation& Location, int32 NumLinesToMove, float GeometryScale, FTextLocation& OutCursorPosition, TOptional<SlateEditableTextTypes::ECursorAlignment>& OutCursorAlignment) const
@@ -2550,7 +2678,7 @@ void FSlateEditableTextLayout::RestoreOriginalText()
 {
 	if (HasTextChangedFromOriginal())
 	{
-		SetText(OriginalText.Text);
+		SetEditableText(OriginalText.Text);
 		TextLayout->UpdateIfNeeded();
 
 		// Let outsiders know that the text content has been changed
@@ -2574,9 +2702,13 @@ void FSlateEditableTextLayout::BeginEditTransation()
 	// Never change text on read only controls! 
 	check(!OwnerWidget->IsTextReadOnly());
 
-	// We're starting to (potentially) change text
-	check(!StateBeforeChangingText.IsSet());
+	if (StateBeforeChangingText.IsSet())
+	{
+		// Already within a translation - don't open another
+		return;
+	}
 
+	// We're starting to (potentially) change text
 	// Save off an undo state in case we actually change the text
 	StateBeforeChangingText = SlateEditableTextTypes::FUndoState();
 	MakeUndoState(StateBeforeChangingText.GetValue());
@@ -2584,9 +2716,13 @@ void FSlateEditableTextLayout::BeginEditTransation()
 
 void FSlateEditableTextLayout::EndEditTransaction()
 {
-	// We're no longer changing text
-	check(StateBeforeChangingText.IsSet());
+	if (!StateBeforeChangingText.IsSet())
+	{
+		// No transaction to close
+		return;
+	}
 
+	// We're no longer changing text
 	const FText EditedText = GetEditableText();
 
 	// Has the text changed?
@@ -2805,7 +2941,7 @@ void FSlateEditableTextLayout::Tick(const FGeometry& AllottedGeometry, const dou
 		TextInputMethodChangeNotifier->NotifyLayoutChanged(ITextInputMethodChangeNotifier::ELayoutChangeType::Changed);
 	}
 
-	const bool bShouldAppearFocused = OwnerWidget->GetSlateWidget()->HasKeyboardFocus() || HasActiveContextMenu();
+	const bool bShouldAppearFocused = OwnerWidget->GetSlateWidget()->HasAnyUserFocus().IsSet() || HasActiveContextMenu();
 	if (bShouldAppearFocused)
 	{
 		// If we have focus then we don't allow the editable text itself to update, but we do still need to refresh the password and marshaller state
@@ -2937,6 +3073,7 @@ void FSlateEditableTextLayout::CacheDesiredSize(float LayoutScaleMultiplier)
 
 	TextLayout->SetScale(LayoutScaleMultiplier);
 	TextLayout->SetWrappingWidth(WrappingWidth);
+	TextLayout->SetWrappingPolicy(WrappingPolicy.Get());
 	TextLayout->SetMargin(MarginValue);
 	TextLayout->SetLineHeightPercentage(LineHeightPercentage.Get());
 	TextLayout->SetJustification(Justification.Get());
@@ -2962,7 +3099,7 @@ FVector2D FSlateEditableTextLayout::ComputeDesiredSize(float LayoutScaleMultipli
 		MarginValue.Right += CaretWidth;
 
 		const FVector2D HintTextSize = HintTextLayout->ComputeDesiredSize(
-			FTextBlockLayout::FWidgetArgs(HintText, FText::GetEmpty(), WrapTextAt, AutoWrapText, MarginValue, LineHeightPercentage, Justification),
+			FTextBlockLayout::FWidgetArgs(HintText, FText::GetEmpty(), WrapTextAt, AutoWrapText, WrappingPolicy, MarginValue, LineHeightPercentage, Justification),
 			LayoutScaleMultiplier, HintTextStyle
 			);
 
@@ -3300,10 +3437,15 @@ void FSlateEditableTextLayout::FTextInputMethodContext::GetScreenBounds(FVector2
 	Size = CachedGeometry.GetDrawSize();
 }
 
-TSharedPtr<FGenericWindow> FSlateEditableTextLayout::FTextInputMethodContext::GetWindow()
+void FSlateEditableTextLayout::FTextInputMethodContext::CacheWindow()
 {
 	const TSharedRef<const SWidget> OwningSlateWidgetPtr = OwnerLayout->OwnerWidget->GetSlateWidget();
-	const TSharedPtr<SWindow> SlateWindow = FSlateApplication::Get().FindWidgetWindow(OwningSlateWidgetPtr);
+	CachedParentWindow = FSlateApplication::Get().FindWidgetWindow(OwningSlateWidgetPtr);
+}
+
+TSharedPtr<FGenericWindow> FSlateEditableTextLayout::FTextInputMethodContext::GetWindow()
+{
+	const TSharedPtr<SWindow> SlateWindow = CachedParentWindow.Pin();
 	return SlateWindow.IsValid() ? SlateWindow->GetNativeWindow() : nullptr;
 }
 

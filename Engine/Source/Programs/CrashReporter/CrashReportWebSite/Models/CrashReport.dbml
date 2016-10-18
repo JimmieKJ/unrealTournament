@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?><Database Name="CrashReport" Class="CrashReportDataContext" xmlns="http://schemas.microsoft.com/linqtosql/dbml/2007">
-  <Connection Mode="WebSettings" ConnectionString="Data Source=db-09;Initial Catalog=CrashReport;Integrated Security=True" SettingsObjectName="System.Configuration.ConfigurationManager.ConnectionStrings" SettingsPropertyName="CrashReportConnectionString" Provider="System.Data.SqlClient" />
+  <Connection Mode="WebSettings" ConnectionString="Data Source=db-09;Initial Catalog=CrashReport;Integrated Security=True;Connect Timeout=300" SettingsObjectName="System.Configuration.ConfigurationManager.ConnectionStrings" SettingsPropertyName="CrashReportConnectionString" Provider="System.Data.SqlClient" />
   <Table Name="dbo.Buggs" Member="Buggs">
     <Type Name="Bugg">
       <Column Name="Id" Type="System.Int32" DbType="Int NOT NULL IDENTITY" IsPrimaryKey="true" IsDbGenerated="true" CanBeNull="false" />
@@ -79,8 +79,10 @@
       <Column Name="EpicAccountId" Type="System.String" DbType="varchar(64)" CanBeNull="true" />
       <Column Name="EngineVersion" Type="System.String" DbType="varchar(64)" CanBeNull="true" />
       <Column Name="UserActivityHint" Type="System.String" DbType="VarChar(512)" CanBeNull="true" />
+      <Column Member="PatternId" Type="System.Int32" CanBeNull="true" UpdateCheck="Never" />
       <Association Name="Crash_Buggs_Crash" Member="Buggs_Crashes" ThisKey="Id" OtherKey="CrashId" Type="Buggs_Crash" />
       <Association Name="User_Crash" Member="UserById" Storage="_User" ThisKey="UserNameId" OtherKey="Id" Type="User" IsForeignKey="true" />
+      <Association Name="CallStackPattern_Crash" Member="CallStackPattern" ThisKey="PatternId" OtherKey="id" Type="CallStackPattern" IsForeignKey="true" />
     </Type>
   </Table>
   <Table Name="dbo.FunctionCalls" Member="FunctionCalls">
@@ -104,6 +106,13 @@
       <Column Name="MachineId" Type="System.String" DbType="NChar(32)" CanBeNull="true" />
       <Column Name="EpicAccountId" Type="System.String" DbType="NChar(32)" CanBeNull="true" />
       <Column Name="UserName" Type="System.String" DbType="NVarChar(64)" CanBeNull="true" />
+    </Type>
+  </Table>
+  <Table Name="dbo.CallStackPatterns" Member="CallStackPatterns">
+    <Type Name="CallStackPattern">
+      <Column Name="id" Type="System.Int32" DbType="Int NOT NULL IDENTITY" IsPrimaryKey="true" IsDbGenerated="true" CanBeNull="false" />
+      <Column Name="Pattern" Type="System.String" DbType="VarChar(800)" CanBeNull="true" />
+      <Association Name="CallStackPattern_Crash" Member="Crashes" ThisKey="id" OtherKey="PatternId" Type="Crash" />
     </Type>
   </Table>
 </Database>

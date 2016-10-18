@@ -98,7 +98,7 @@ void FSingleTileEditorViewportClient::TrackingStopped()
 	}
 }
 
-void FSingleTileEditorViewportClient::DrawCanvas(FViewport& Viewport, FSceneView& View, FCanvas& Canvas)
+void FSingleTileEditorViewportClient::DrawCanvas(FViewport& InViewport, FSceneView& View, FCanvas& Canvas)
 {
 	const bool bIsHitTesting = Canvas.IsHitTesting();
 	if (!bIsHitTesting)
@@ -121,7 +121,7 @@ void FSingleTileEditorViewportClient::DrawCanvas(FViewport& Viewport, FSceneView
 				if (TileData->HasCollision())
 				{
 					bHasCollision = true;
-					FSpriteGeometryEditMode::DrawGeometryStats(Viewport, View, Canvas, TileData->CollisionData, false, /*inout*/ YPos);
+					FSpriteGeometryEditMode::DrawGeometryStats(InViewport, View, Canvas, TileData->CollisionData, false, /*inout*/ YPos);
 				}
 			}
 
@@ -134,7 +134,7 @@ void FSingleTileEditorViewportClient::DrawCanvas(FViewport& Viewport, FSceneView
 		}
 	}
 
-	FEditorViewportClient::DrawCanvas(Viewport, View, Canvas);
+	FEditorViewportClient::DrawCanvas(InViewport, View, Canvas);
 }
 
 FVector2D FSingleTileEditorViewportClient::SelectedItemConvertWorldSpaceDeltaToLocalSpace(const FVector& WorldSpaceDelta) const

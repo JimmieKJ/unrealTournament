@@ -63,15 +63,6 @@ public:
 	UPROPERTY()
 	class UWidgetTree* WidgetTree;
 
-#if WITH_EDITORONLY_DATA
-	/**
-	 * A tree of the widget templates to be created.  This is only used by the designer to inject a new 
-	 * tree into a previously compiled class.
-	 */
-	UPROPERTY(Transient)
-	class UWidgetTree* DesignerWidgetTree;
-#endif
-
 	UPROPERTY()
 	TArray< FDelegateRuntimeBinding > Bindings;
 
@@ -104,6 +95,5 @@ public:
 		, bool InCanEverPaint
 		, UWidgetTree* InWidgetTree
 		, const TArray< UWidgetAnimation* >& InAnimations
-		, const TArray< FDelegateRuntimeBinding >& InBindings
-		, UWidgetTree* InDesignerWidgetTree);
+		, const TArray< FDelegateRuntimeBinding >& InBindings);
 };

@@ -85,16 +85,16 @@ void URetainerBox::SynchronizeProperties()
 	MyRetainerWidget->SetTextureParameter(TextureParameter);
 }
 
-void URetainerBox::OnSlotAdded(UPanelSlot* Slot)
+void URetainerBox::OnSlotAdded(UPanelSlot* InSlot)
 {
 	// Add the child to the live slot if it already exists
 	if ( MyRetainerWidget.IsValid() )
 	{
-		MyRetainerWidget->SetContent(Slot->Content ? Slot->Content->TakeWidget() : SNullWidget::NullWidget);
+		MyRetainerWidget->SetContent(InSlot->Content ? InSlot->Content->TakeWidget() : SNullWidget::NullWidget);
 	}
 }
 
-void URetainerBox::OnSlotRemoved(UPanelSlot* Slot)
+void URetainerBox::OnSlotRemoved(UPanelSlot* InSlot)
 {
 	// Remove the widget from the live slot if it exists.
 	if ( MyRetainerWidget.IsValid() )

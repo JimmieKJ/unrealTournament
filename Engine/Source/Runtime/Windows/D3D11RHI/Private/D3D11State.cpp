@@ -173,7 +173,7 @@ FSamplerStateRHIRef FD3D11DynamicRHI::RHICreateSamplerState(const FSamplerStateI
 
 	// D3D11 will return the same pointer if the particular state description was already created
 	TRefCountPtr<ID3D11SamplerState> SamplerStateHandle;
-	VERIFYD3D11RESULT(Direct3DDevice->CreateSamplerState(&SamplerDesc, SamplerStateHandle.GetInitReference()));
+	VERIFYD3D11RESULT_EX(Direct3DDevice->CreateSamplerState(&SamplerDesc, SamplerStateHandle.GetInitReference()), Direct3DDevice);
 
 	FD3D11SamplerState** Found = GSamplerStateCache.Find(SamplerStateHandle);
 	if (Found)
@@ -204,7 +204,7 @@ FRasterizerStateRHIRef FD3D11DynamicRHI::RHICreateRasterizerState(const FRasteri
 	RasterizerDesc.ScissorEnable = true;
 
 	FD3D11RasterizerState* RasterizerState = new FD3D11RasterizerState;
-	VERIFYD3D11RESULT(Direct3DDevice->CreateRasterizerState(&RasterizerDesc,RasterizerState->Resource.GetInitReference()));
+	VERIFYD3D11RESULT_EX(Direct3DDevice->CreateRasterizerState(&RasterizerDesc,RasterizerState->Resource.GetInitReference()), Direct3DDevice);
 	return RasterizerState;
 }
 
@@ -251,7 +251,7 @@ FDepthStencilStateRHIRef FD3D11DynamicRHI::RHICreateDepthStencilState(const FDep
 	const bool bMayWriteStencil = Initializer.StencilWriteMask != 0 && !bStencilOpIsKeep;
 	DepthStencilState->AccessType.SetDepthStencilWrite(Initializer.bEnableDepthWrite, bMayWriteStencil);
 
-	VERIFYD3D11RESULT(Direct3DDevice->CreateDepthStencilState(&DepthStencilDesc,DepthStencilState->Resource.GetInitReference()));
+	VERIFYD3D11RESULT_EX(Direct3DDevice->CreateDepthStencilState(&DepthStencilDesc,DepthStencilState->Resource.GetInitReference()), Direct3DDevice);
 	return DepthStencilState;
 }
 
@@ -285,6 +285,6 @@ FBlendStateRHIRef FD3D11DynamicRHI::RHICreateBlendState(const FBlendStateInitial
 	}
 	
 	FD3D11BlendState* BlendState = new FD3D11BlendState;
-	VERIFYD3D11RESULT(Direct3DDevice->CreateBlendState(&BlendDesc,BlendState->Resource.GetInitReference()));
+	VERIFYD3D11RESULT_EX(Direct3DDevice->CreateBlendState(&BlendDesc,BlendState->Resource.GetInitReference()), Direct3DDevice);
 	return BlendState;
 }

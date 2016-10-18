@@ -448,7 +448,6 @@ void SUTMapVoteDialog::BuildAllVotes()
 				{
 					if ( MapVoteSortCompare(VoteInfo, AlphaSortedList[j]) )
 					{
-						UE_LOG(UT,Log,TEXT("   - Inserting"));
 						AlphaSortedList.Insert(VoteInfo, j);
 						bAdd = false;
 						break;
@@ -457,7 +456,6 @@ void SUTMapVoteDialog::BuildAllVotes()
 
 				if (bAdd)
 				{
-					UE_LOG(UT,Log,TEXT("   - Adding"));
 					AlphaSortedList.Add(VoteInfo);
 				}
 			}
@@ -526,6 +524,10 @@ void SUTMapVoteDialog::BuildAllVotes()
 										[
 											SAssignNew(ImageWidget,SImage)
 											.Image(MapBrush)
+										]
+										+SOverlay::Slot()
+										[
+											MapVoteInfo->BuildMapOverlay(FVector2D(256.0f, 128.0f), true)
 										]
 										+SOverlay::Slot()
 										[

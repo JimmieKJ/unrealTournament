@@ -1,9 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
+using System.IO;
 
 public class UnrealTournament : ModuleRules
 {
+    bool IsLicenseeBuild()
+    {
+        return !Directory.Exists("Runtime/NotForLicensees");
+    }
+
     public UnrealTournament(TargetInfo Target)
     {
         bFasterWithoutUnity = true;
@@ -23,17 +29,16 @@ public class UnrealTournament : ModuleRules
 
 		DynamicallyLoadedModuleNames.AddRange(
 			new string[] {
-				"Analytics",
-				"AnalyticsET",
 				"UTReplayStreamer",
 			}
 		);
         
         PublicDependencyModuleNames.AddRange(new string[] { 
                                                     "Core", 
-                                                    "CoreUObject", 
+                                                    "CoreUObject",
                                                     "Engine", 
-                                                    "InputCore", 
+                                                    "InputCore",
+                                                    "GameplayTasks",
                                                     "AIModule", 
                                                     "OnlineSubsystem", 
                                                     "OnlineSubsystemUtils", 
@@ -58,27 +63,20 @@ public class UnrealTournament : ModuleRules
 													"UnrealTournamentFullScreenMovie"
                                                     });
 
-        PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore", "Sockets" });
+        PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore", "FriendsAndChat", "Sockets", "Analytics", "AnalyticsET" });
         if (Target.Type != TargetRules.TargetType.Server)
         {
             PublicDependencyModuleNames.AddRange(new string[] { "AppFramework", "RHI", "SlateRHIRenderer", "MoviePlayer" });
         }
         if (Target.Type == TargetRules.TargetType.Editor)
         {
-            PublicDependencyModuleNames.AddRange(new string[] { "UnrealEd", "SourceControl", "PropertyEditor", "ShaderCore" });
+            PublicDependencyModuleNames.AddRange(new string[] { "UnrealEd", "SourceControl", "Matinee", "PropertyEditor", "ShaderCore" });
         }
 
         CircularlyReferencedDependentModules.Add("BlueprintContext");
-        
-        if (UEBuildConfiguration.bCompileMcpOSS == true)
-        {
-            // bCompileMcpOSS has become a dumping ground for the detection of external builders, this should get formalized into a real concept
 
-            if (Target.Platform == UnrealTargetPlatform.Win64)
-            {
-                PublicDependencyModuleNames.AddRange(new string[] { "WinDualShock" });
-            }
-
+        if (!IsLicenseeBuild())
+        {            
             Definitions.Add("WITH_PROFILE=1");
             Definitions.Add("WITH_SOCIAL=1");
 
@@ -97,6 +95,14 @@ public class UnrealTournament : ModuleRules
         else
         {
             Definitions.Add("WITH_PROFILE=0");
+            Definitions.Add("WITH_SOCIAL=0");
+         
+            PublicDependencyModuleNames.AddRange(
+                new string[]
+                {
+                    "GithubStubs",
+                }
+            );
         }
     }
 }

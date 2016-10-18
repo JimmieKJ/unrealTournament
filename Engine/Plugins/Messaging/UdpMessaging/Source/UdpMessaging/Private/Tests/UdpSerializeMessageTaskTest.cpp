@@ -85,3 +85,8 @@ bool FUdpSerializeMessageTaskTest::RunTest(const FString& Parameters)
 
 	return ((CompletedMessages == NumMessages) && (FailedMessages == 0));
 }
+
+void EmptyLinkFunctionForStaticInitializationUdpSerializeMessageTaskTest()
+{
+	// This function exists to prevent the object file containing this test from being excluded by the linker, because it has no publically referenced symbols.
+}

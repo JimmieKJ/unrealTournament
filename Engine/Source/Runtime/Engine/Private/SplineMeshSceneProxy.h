@@ -27,7 +27,9 @@ public:
 	/** Modify compile environment to enable spline deformation */
 	static void ModifyCompilationEnvironment(EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment)
 	{
-		FLocalVertexFactory::ModifyCompilationEnvironment(Platform, Material, OutEnvironment);
+		// We don't call this because we don't actually support speed tree wind, and this advertises support for that
+		//FLocalVertexFactory::ModifyCompilationEnvironment(Platform, Material, OutEnvironment);
+
 		OutEnvironment.SetDefine(TEXT("USE_SPLINEDEFORM"), TEXT("1"));
 	}
 

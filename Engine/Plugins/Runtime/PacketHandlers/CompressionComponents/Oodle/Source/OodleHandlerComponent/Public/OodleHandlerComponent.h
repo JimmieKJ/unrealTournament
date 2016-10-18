@@ -6,6 +6,7 @@
 #include "PacketHandler.h"
 #include "ModuleManager.h"
 #include "Core.h"
+#include "CoreUObject.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(OodleHandlerComponentLog, Log, All);
 
@@ -16,7 +17,15 @@ DECLARE_LOG_CATEGORY_EXTERN(OodleHandlerComponentLog, Log, All);
  * This may be useful for multiplayer game mod authors, to optimize netcode compression for their mod (not officially supported).
  * However, Oodle compression makes the games network protocol harder to reverse-engineer - enabling this removes that slight benefit.
  */
+#ifndef OODLE_DEV_SHIPPING
 #define OODLE_DEV_SHIPPING	FALSE
+#endif
+
+// The maximum packet size that this component can handle - UNetConnection's should never allow MaxPacket to exceed MAX_PACKET_SIZE
+#define MAX_OODLE_PACKET_BYTES	MAX_PACKET_SIZE
+
+// The maximum compress/decompress buffer size - overkill, as buffers are statically allocated, and can't use Oodle runtime buffer calc
+#define MAX_OODLE_BUFFER	(MAX_OODLE_PACKET_BYTES * 2)
 
 
 #if HAS_OODLE_SDK
@@ -36,15 +45,8 @@ DECLARE_LOG_CATEGORY_EXTERN(OodleHandlerComponentLog, Log, All);
 
 #if STATS
 
-// @todo #JohnB: Deprecate Oodle in 'stat net' stats, and rely only on 'stat oodle'?
-#define OODLE_STAT_NET 0
-
-#if OODLE_STAT_NET
-// NOTE: These stats can not be compared to normal 'stat net' stats - these stats do not count packet overhead, 'stat net' does
-DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Oodle Out Rate Raw (bytes)"), STAT_Net_Oodle_OutRaw, STATGROUP_Net, );
-DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Oodle Out Rate Compressed (bytes)"), STAT_Net_Oodle_OutCompressed, STATGROUP_Net, );
-DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Oodle In Rate Raw (bytes)"), STAT_Net_Oodle_InRaw, STATGROUP_Net, );
-DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Oodle In Rate Compressed (bytes)"), STAT_Net_Oodle_InCompressed, STATGROUP_Net, );
+#if !UE_BUILD_SHIPPING
+DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Reserved Oodle (bits)"), STAT_PacketReservedOodle, STATGROUP_Packet, );
 #endif
 
 
@@ -60,7 +62,11 @@ DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Oodle In Rate Compressed (bytes)"), 
 DECLARE_FLOAT_ACCUMULATOR_STAT_EXTERN(TEXT("Oodle In Rate Savings %"), STAT_Oodle_InSavings, STATGROUP_Oodle, );
 DECLARE_FLOAT_ACCUMULATOR_STAT_EXTERN(TEXT("Oodle In Total Savings %"), STAT_Oodle_InTotalSavings, STATGROUP_Oodle, );
 
-DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Oodle Packet Overhead (bits)"), STAT_Oodle_PacketOverhead, STATGROUP_Oodle, );
+DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Oodle Compress Fail Num (0% savings)"), STAT_Oodle_CompressFailSavings, STATGROUP_Oodle, );
+DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Oodle Compress Fail Num (size limit)"), STAT_Oodle_CompressFailSize, STATGROUP_Oodle, );
+
+// @todo #JohnB: Implement (e.g. deliberately skipping VOIP)
+//DECLARE_DWORD_ACCUMULATOR_STAT_EXTERN(TEXT("Oodle Compress Skip Num"), STAT_Oodle_CompressSkip, STATGROUP_Oodle, );
 
 #if !UE_BUILD_SHIPPING
 DECLARE_CYCLE_STAT_EXTERN(TEXT("Oodle Out Compress Time"), STAT_Oodle_OutCompressTime, STATGROUP_Oodle, );
@@ -194,6 +200,11 @@ public:
 	 * @param DeltaTime		The exact time since last stats update
 	 */
 	void UpdateStats(float DeltaTime);
+
+	/**
+	 * Resets the stat values
+	 */
+	void ResetStats();
 };
 #endif
 
@@ -278,6 +289,11 @@ public:
 
 
 	/**
+	 * Initializes all required dictionaries
+	 */
+	void InitializeDictionaries();
+
+	/**
 	 * Initializes FOodleDictionary data, from the specified dictionary file
 	 *
 	 * @param FilePath			The dictionary file path
@@ -313,6 +329,17 @@ public:
 	 * @return						Whether or not alternate dictionaries were found
 	 */
 	bool FindFallbackDictionaries(FString& OutServerDictionary, FString& OutClientDictionary, bool bTestOnly=false);
+
+
+	/**
+	 * Initializes the packet capture archives
+	 */
+	void InitializePacketLogs();
+
+	/**
+	 * Frees the packet capture archives
+	 */
+	void FreePacketLogs();
 #endif
 
 	virtual void Initialize() override;
@@ -331,12 +358,7 @@ public:
 	{
 	}
 
-	virtual int32 GetPacketOverheadBits() override;
-
-	virtual uint8 GetBitAlignment() override;
-
-	virtual bool DoesResetBitAlignment() override;
-
+	virtual int32 GetReservedPacketBits() override;
 
 protected:
 	/** Whether or not Oodle is enabled */
@@ -351,10 +373,18 @@ protected:
 
 	/** Search for dictionary files and use them if present - switching mode to Release in process - don't use in shipping */
 	bool bUseDictionaryIfPresent;
+
+	/** Whether or not packet capturing is currently enabled (outputs uncompressed packets to file) */
+	bool bCaptureMode;
 #endif
 
-	/** Modes of the component  */
-	EOodleHandlerMode Mode;
+	/** Cached reserved packet bits for Oodle */
+	uint32 OodleReservedPacketBits;
+
+
+#if !UE_BUILD_SHIPPING
+public:
+#endif
 
 	/** Server (Outgoing) dictionary data */
 	TSharedPtr<FOodleDictionary> ServerDictionary;

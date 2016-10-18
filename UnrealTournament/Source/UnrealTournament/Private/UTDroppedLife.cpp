@@ -29,7 +29,7 @@ AUTDroppedLife::AUTDroppedLife(const FObjectInitializer& ObjectInitializer)
 	MeshComp->SetStaticMesh(SkullMesh.Object);
 	Mesh = MeshComp;
 	Mesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	Mesh->AttachParent = RootComponent;
+	Mesh->SetupAttachment(RootComponent);
 	Mesh->SetRelativeScale3D(FVector(2.0f, 2.0f, 2.0f));
 	Value = 0.0f;
 	InitialLifeSpan = 60.0f;
@@ -68,7 +68,7 @@ void AUTDroppedLife::Init(AUTPlayerState* inOwnerPlayerState, AUTPlayerState* in
 }
 
 
-void AUTDroppedLife::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+void AUTDroppedLife::OnOverlapBegin(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
 	if (Role == ROLE_Authority && OwnerPlayerState)
 	{

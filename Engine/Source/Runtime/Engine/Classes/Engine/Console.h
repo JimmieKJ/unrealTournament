@@ -87,6 +87,12 @@ class ENGINE_API UConsole
 
 	int32 TypedStrPos;    //Current position in TypedStr
 
+	/** The command the user would get if they autocompleted their current input. Empty if no autocompletion entries are available. */
+	FString PrecompletedInputLine;
+
+	/** The most recent input that was autocompleted during this open console session. */
+	FString LastAutoCompletedCommand;
+
 	/**
 	 * Indicates that InputChar events should be captured to prevent them from being passed on to other interactions.  Reset
 	 * when the another keydown event is received.
@@ -255,7 +261,12 @@ private:
 
 	void SetInputLineFromAutoComplete();
 
+	void UpdatePrecompletedInputLine();
+
 	void NormalizeHistoryBuffer();
+
+	// Console settings from BaseInput.ini
+	const UConsoleSettings* ConsoleSettings;
 
 	// Widget that was focused before the console was opened (focus will be restored to this if it's valid after the console closes)
 	TWeakPtr<SWidget> PreviousFocusedWidget;

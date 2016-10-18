@@ -16,7 +16,7 @@ class UNREALTOURNAMENT_API SUTDownloadAllDialog : public SUTDialogBase
 	, _DialogPosition(FVector2D(0.5f,0.5f))
 	, _DialogAnchorPoint(FVector2D(0.5f,0.5f))
 	, _ContentPadding(FVector2D(10.0f, 5.0f))
-	, _ButtonMask(UTDIALOG_BUTTON_CLOSE)
+	, _ButtonMask(UTDIALOG_BUTTON_CANCEL)
 	, _bTransitionWhenDone(false)
 	{}
 	SLATE_ARGUMENT(TWeakObjectPtr<class UUTLocalPlayer>, PlayerOwner)			
@@ -34,9 +34,6 @@ class UNREALTOURNAMENT_API SUTDownloadAllDialog : public SUTDialogBase
 	/** needed for every widget */
 	void Construct(const FArguments& InArgs);
 	void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime );
-	void OnDialogClosed() override;
-	void Start();
-	void Done();
 
 protected:
 

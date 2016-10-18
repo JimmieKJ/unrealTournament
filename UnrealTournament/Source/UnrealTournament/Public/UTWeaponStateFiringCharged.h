@@ -3,6 +3,7 @@
 #pragma once
 
 #include "UTWeaponStateFiring.h"
+#include "Animation/AnimInstance.h"
 
 #include "UTWeaponStateFiringCharged.generated.h"
 
@@ -30,6 +31,10 @@ class UNREALTOURNAMENT_API UUTWeaponStateFiringCharged : public UUTWeaponStateFi
 	{
 		ToggleLoopingEffects(true);
 		GetOuterAUTWeapon()->OnStartedFiring();
+		if (GetUTOwner() == NULL || GetOuterAUTWeapon()->GetCurrentState() != this)
+		{
+			return;
+		}
 		GetOuterAUTWeapon()->DeactivateSpawnProtection();
 		bCharging = true;
 		if (bChargeFlashCount)
@@ -137,7 +142,7 @@ class UNREALTOURNAMENT_API UUTWeaponStateFiringCharged : public UUTWeaponStateFi
 
 	virtual void PutDown() override
 	{
-		if (!bCharging)
+		if (!bCharging || !GetOuterAUTWeapon()->HasAnyAmmo())
 		{
 			Super::PutDown();
 		}

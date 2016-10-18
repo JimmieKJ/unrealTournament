@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "IDetailCustomization.h"
+
 
 /**
  * Implements a details view customization for the UMediaSoundWave class.
@@ -11,9 +13,9 @@ class FMediaSoundWaveCustomization
 {
 public:
 
-	// IDetailCustomization interface
+	//~ IDetailCustomization interface
 
-	virtual void CustomizeDetails( IDetailLayoutBuilder& DetailBuilder ) override;
+	virtual void CustomizeDetails(IDetailLayoutBuilder& DetailBuilder) override;
 
 public:
 

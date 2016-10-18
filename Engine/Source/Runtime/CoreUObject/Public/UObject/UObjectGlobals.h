@@ -4,8 +4,7 @@
 	UnObjGlobals.h: Unreal object system globals.
 =============================================================================*/
 
-#ifndef __UNOBJGLOBALS_H__
-#define __UNOBJGLOBALS_H__
+#pragma once
 
 #include "Script.h"
 
@@ -289,6 +288,17 @@ COREUOBJECT_API void StaticTick( float DeltaTime, bool bUseFullTimeLimit = true,
  * @return	Loaded package if successful, NULL otherwise
  */
 COREUOBJECT_API UPackage* LoadPackage( UPackage* InOuter, const TCHAR* InLongPackageName, uint32 LoadFlags );
+
+/**
+* Scans to determine load order via package dependencies
+*
+* @param	InLongPackageName	Long package name to load
+* @param	InOrderTracker	structure that tracks and returns the load order
+* @param	Order	tracks the current load order
+* @param	InAssetRegistry	asset registry to use for dependency tracking
+*/
+COREUOBJECT_API void ScanPackageDependenciesForLoadOrder(const TCHAR* InLongPackageName, TMap<FName, int32>& InOrderTracker, int32& Order, class IAssetRegistryInterface* InAssetRegistry);
+
 
 /* Async package loading result */
 namespace EAsyncLoadingResult
@@ -708,10 +718,10 @@ public:
 	 * @param	InObj object to initialize, from static allocate object, after construction
 	 * @param	InObjectArchetype object to initialize properties from
 	 * @param	bInCopyTransientsFromClassDefaults - if true, copy transient from the class defaults instead of the pass in archetype ptr (often these are the same)
-	 * @param	bInShouldIntializeProps false is a special case for changing base classes in UCCMake
+	 * @param	bInShouldInitializeProps false is a special case for changing base classes in UCCMake
 	 * @param	InInstanceGraph passed instance graph
 	 */
-	FObjectInitializer(UObject* InObj, UObject* InObjectArchetype, bool bInCopyTransientsFromClassDefaults, bool bInShouldIntializeProps, struct FObjectInstancingGraph* InInstanceGraph = NULL);
+	FObjectInitializer(UObject* InObj, UObject* InObjectArchetype, bool bInCopyTransientsFromClassDefaults, bool bInShouldInitializeProps, struct FObjectInstancingGraph* InInstanceGraph = NULL);
 
 	~FObjectInitializer();
 
@@ -920,6 +930,16 @@ private:
 	 */
 	static void InitPropertiesFromCustomList(const FCustomPropertyListNode* InPropertyList, UStruct* InStruct, uint8* DataPtr, const uint8* DefaultDataPtr);
 
+	/**
+	* Helper method to assist with initializing from an array property with an explicit item list.
+	*
+	* @param	ArrayProperty		the array property for which the given property list applies
+	* @param	InPropertyList		only these properties (indices) will be copied from defaults
+	* @param	DataPtr				destination address (where to start copying values to)
+	* @param	DefaultDataPtr		source address (where to start copying the defaults data from)
+	*/
+	static void InitArrayPropertyFromCustomList(const UArrayProperty* ArrayProperty, const FCustomPropertyListNode* InPropertyList, uint8* DataPtr, const uint8* DefaultDataPtr);
+
 	bool IsInstancingAllowed() const;
 
 	/**
@@ -1052,15 +1072,15 @@ private:
 	UObject* ObjectArchetype;
 	/**  if true, copy the transients from the DefaultsClass defaults, otherwise copy the transients from DefaultData **/
 	bool bCopyTransientsFromClassDefaults;
-	/**  If true, intialize the properties **/
-	bool bShouldIntializePropsFromArchetype;
+	/**  If true, initialize the properties **/
+	bool bShouldInitializePropsFromArchetype;
 	/**  Only true until ObjectInitializer has not reached the base UObject class */
 	bool bSubobjectClassInitializationAllowed;
 	/**  Instance graph **/
 	struct FObjectInstancingGraph* InstanceGraph;
 	/**  List of component classes to override from derived classes **/
 	mutable FOverrides ComponentOverrides;
-	/**  List of component classes to intialize after the C++ constructors **/
+	/**  List of component classes to initialize after the C++ constructors **/
 	mutable FSubobjectsToInit ComponentInits;
 #if !UE_BUILD_SHIPPING
 	/** List of all subobject names constructed for this object */
@@ -1467,7 +1487,7 @@ public:
 		Advance();
 	}
 	/** conversion to "bool" returning true if the iterator is valid. */
-	FORCEINLINE_EXPLICIT_OPERATOR_BOOL() const
+	FORCEINLINE explicit operator bool() const
 	{ 
 		return Index < Array.Num(); 
 	}
@@ -1582,8 +1602,9 @@ public:
 	* @param ReferencingProperty Referencing property (if available).
 	*/
 	template<class UObjectType>
-	void AddReferencedObjects(TArray<UObjectType>& ObjectArray, const UObject* ReferencingObject = NULL, const UProperty* ReferencingProperty = NULL)
+	void AddReferencedObjects(TArray<UObjectType*>& ObjectArray, const UObject* ReferencingObject = NULL, const UProperty* ReferencingProperty = NULL)
 	{
+		static_assert(TPointerIsConvertibleFromTo<UObjectType, const UObject>::Value, "'UObjectType' template parameter to AddReferencedObjects must be derived from UObject");
 		HandleObjectReferences(reinterpret_cast<UObject**>(ObjectArray.GetData()), ObjectArray.Num(), ReferencingObject, ReferencingProperty);
 	}
 
@@ -1875,8 +1896,12 @@ struct COREUOBJECT_API FCoreUObjectDelegates
 	static FOnLoadObjectsOnTop ShouldLoadOnTop;
 
 	/** called when loading a string asset reference */
-	DECLARE_DELEGATE_OneParam(FStringAssetReferenceLoaded, FString const& /*LoadedAssetLongPathname*/);
+	DECLARE_DELEGATE_OneParam(FStringAssetReferenceLoaded, const FString&);
 	static FStringAssetReferenceLoaded StringAssetReferenceLoaded;
+
+	/** called when loading a string asset reference */
+	DECLARE_MULTICAST_DELEGATE_OneParam(FPackageLoadedFromStringAssetReference, const FName&);
+	static FPackageLoadedFromStringAssetReference PackageLoadedFromStringAssetReference;
 
 	/** called when path to world root is changed */
 	DECLARE_MULTICAST_DELEGATE_OneParam(FPackageCreatedForLoad, class UPackage*);
@@ -1905,6 +1930,18 @@ COREUOBJECT_API UPackage* FindOrConstructDynamicTypePackage(const TCHAR* Package
 /** Get names of "virtual" packages, that contain Dynamic types  */
 COREUOBJECT_API TMap<FName, FName>& GetConvertedDynamicPackageNameToTypeName();
 
+struct COREUOBJECT_API FDynamicClassStaticData
+{
+	/** Autogenerated Z_Construct* function pointer */
+	UClass* (*ZConstructFn)();
+	/** StaticClass() function pointer */
+	UClass* (*StaticClassFn)();
+	/** Selected AssetRegistrySearchable values */
+	TMap<FName, FName> SelectedSearchableValues;
+};
+
+COREUOBJECT_API TMap<FName, FDynamicClassStaticData>& GetDynamicClassMap();
+
 #if WITH_EDITOR
 /** 
  * Returns if true if the object is editor-only:
@@ -1918,5 +1955,3 @@ COREUOBJECT_API TMap<FName, FName>& GetConvertedDynamicPackageNameToTypeName();
  */
 COREUOBJECT_API bool IsEditorOnlyObject(const UObject* InObject);
 #endif //WITH_EDITOR
-
-#endif	// __UNOBJGLOBALS_H__

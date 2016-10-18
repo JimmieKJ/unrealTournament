@@ -10,7 +10,8 @@
 #import <QuartzCore/CAMetalLayer.h>
 #endif
 
-@interface FIOSView : UIView
+
+@interface FIOSView : UIView  <UIKeyInput, UITextInput>
 {
 @public
 	// are we initialized?
@@ -41,9 +42,17 @@
 
 	// are we using the Metal API?
 	bool bIsUsingMetal;
+	
+	//// KEYBOARD MEMBERS
+	
+	// whether or not to use the new style virtual keyboard that sends events to the engine instead of using an alert
+	bool bIsUsingIntegratedKeyboard;
+	bool bSendEscapeOnClose;
+
+	// caches for the TextInput
+	NSString* CachedMarkedText;
 }
 
-+(bool)IsDeviceOnIOS8;
 
 //// SHARED FUNCTIONALITY
 @property (nonatomic) GLuint SwapCount;
@@ -66,7 +75,12 @@
 - (id<CAMetalDrawable>)MakeDrawable;
 #endif
 
+
+//// KEYBOARD FUNCTIONALITY
+-(void)InitKeyboard;
+-(void)ActivateKeyboard:(bool)bInSendEscapeOnClose;
 @end
+
 
 /**
  * A view controller subclass that handles loading our IOS view as well as autorotation

@@ -128,11 +128,10 @@ UObject* UPaperTiledImporterFactory::FactoryCreateText(UClass* InClass, UObject*
  
  	bool bLoadedSuccessfully = true;
  
- 	const FString CurrentFilename = UFactory::GetCurrentFilename();
  	FString CurrentSourcePath;
  	FString FilenameNoExtension;
  	FString UnusedExtension;
- 	FPaths::Split(CurrentFilename, CurrentSourcePath, FilenameNoExtension, UnusedExtension);
+ 	FPaths::Split(UFactory::GetCurrentFilename(), CurrentSourcePath, FilenameNoExtension, UnusedExtension);
  
  	const FString LongPackagePath = FPackageName::GetLongPackagePath(InParent->GetOutermost()->GetPathName());
  

@@ -81,7 +81,6 @@ TSharedRef< FSlateStyleSet > FUMGStyle::Create()
 	Style->Set("ClassIcon.NativeWidgetHost", new IMAGE_BRUSH(TEXT("NativeWidgetHost"), Icon16x16));
 	Style->Set("ClassIcon.ScaleBox", new IMAGE_BRUSH(TEXT("ScaleBox"), Icon16x16));
 	Style->Set("ClassIcon.SizeBox", new IMAGE_BRUSH(TEXT("SizeBox"), Icon16x16));
-	Style->Set("ClassIcon.SafeZone", new IMAGE_BRUSH(TEXT("SafeZone"), Icon16x16));
 	Style->Set("ClassIcon.SpinBox", new IMAGE_BRUSH(TEXT("SpinBox"), Icon16x16));
 	Style->Set("ClassIcon.GridPanel", new IMAGE_BRUSH(TEXT("Grid"), Icon16x16));
 	Style->Set("ClassIcon.WrapBox", new IMAGE_BRUSH(TEXT("WrapBox"), Icon16x16));

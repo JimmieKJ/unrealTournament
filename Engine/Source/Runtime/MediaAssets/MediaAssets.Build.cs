@@ -19,6 +19,8 @@ namespace UnrealBuildTool.Rules
 				new string[] {
                     "RenderCore",
                     "RHI",
+					"ShaderCore",
+					"UtilityShaders",
 				}
 			);
 
@@ -26,8 +28,14 @@ namespace UnrealBuildTool.Rules
 				new string[] {
 					"Runtime/MediaAssets/Private",
 					"Runtime/MediaAssets/Private/Assets",
+					"Runtime/MediaAssets/Private/Misc",
 				}
 			);
+
+			if (UEBuildConfiguration.bBuildEditor)
+			{
+				PrivateIncludePathModuleNames.Add("TargetPlatform");
+			}
 		}
 	}
 }

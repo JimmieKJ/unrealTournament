@@ -100,12 +100,11 @@ class UNREALTOURNAMENT_API UUTHUDWidget_CTFFlagStatus : public UUTHUDWidget
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
 	TArray<FVector2D> TeamPositions;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Icons")
-	FHUDRenderObject_Texture DetectedIcon;
-
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
 	FHUDRenderObject_Text RallyText;
 
+	UPROPERTY(BlueprintReadWrite, Category = "RenderObject")
+		bool bAlwaysDrawFlagHolderName;
 
 	UPROPERTY()
 		FName OldFlagState[2];

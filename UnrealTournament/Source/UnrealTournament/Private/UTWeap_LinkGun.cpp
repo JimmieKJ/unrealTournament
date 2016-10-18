@@ -7,6 +7,7 @@
 #include "StatNames.h"
 #include "UTSquadAI.h"
 #include "UTWeaponStateFiring.h"
+#include "Animation/AnimInstance.h"
 
 AUTWeap_LinkGun::AUTWeap_LinkGun(const FObjectInitializer& OI)
 : Super(OI)
@@ -63,6 +64,8 @@ AUTWeap_LinkGun::AUTWeap_LinkGun(const FObjectInitializer& OI)
 	WeaponCustomizationTag = EpicWeaponCustomizationTags::LinkGun;
 	WeaponSkinCustomizationTag = EpicWeaponSkinCustomizationTags::LinkGun;
 
+	TutorialAnnouncements.Add(TEXT("PriLinkGun"));
+	TutorialAnnouncements.Add(TEXT("SecLinkGun"));
 }
 
 void AUTWeap_LinkGun::AttachToOwner_Implementation()
@@ -102,7 +105,7 @@ void AUTWeap_LinkGun::UpdateScreenTexture(UCanvas* C, int32 Width, int32 Height)
 		RenderInfo.GlowInfo.GlowInnerRadius.X = 0.475f;
 		RenderInfo.GlowInfo.GlowInnerRadius.Y = 0.5f;
 
-		FString OverheatText = FString::FromInt(int32(100.f*OverheatFactor));
+		FString OverheatText = bIsInCoolDown ? TEXT("***") : FString::FromInt(int32(100.f*FMath::Clamp(OverheatFactor, 0.1f, 1.f)));
 		float XL, YL;
 		C->TextSize(ScreenFont, OverheatText, XL, YL);
 		if (!WordWrapper.IsValid())
@@ -110,7 +113,7 @@ void AUTWeap_LinkGun::UpdateScreenTexture(UCanvas* C, int32 Width, int32 Height)
 			WordWrapper = MakeShareable(new FCanvasWordWrapper());
 		}
 		FLinearColor ScreenColor = (OverheatFactor <= (IsFiring() ? 0.5f : 0.f)) ? FLinearColor::Green : FLinearColor::Yellow;
-		if (OverheatFactor > 1.f)
+		if (bIsInCoolDown)
 		{
 			ScreenColor = FLinearColor::Red;
 		}
@@ -131,44 +134,12 @@ void AUTWeap_LinkGun::UpdateScreenTexture(UCanvas* C, int32 Width, int32 Height)
 	}
 }
 
-float AUTWeap_LinkGun::GetRefireTime(uint8 FireModeNum)
+void AUTWeap_LinkGun::FireShot()
 {
-	if ((FireModeNum == 0) && (OverheatFactor > 1.f) && FireInterval.IsValidIndex(FireModeNum) && (UTOwner->GetFireRateMultiplier() <= 1.f))
+	if (!bIsInCoolDown)
 	{
-		float Result = FireInterval[FireModeNum] * 5.f * (OverheatFactor - 0.8f);
-		if (UTOwner != NULL)
-		{
-			Result /= UTOwner->GetFireRateMultiplier();
-		}
-		return FMath::Max<float>(0.01f, Result);
-
+		Super::FireShot();
 	}
-	else
-	{
-		return Super::GetRefireTime(FireModeNum);
-	}
-}
-
-bool AUTWeap_LinkGun::HandleContinuedFiring()
-{
-	if (!CanFireAgain() || !GetUTOwner()->IsPendingFire(GetCurrentFireMode()))
-	{
-		GotoActiveState();
-		return false;
-	}
-	if (GetCurrentFireMode() == 0)
-	{
-		if (OverheatFactor > 1.f)
-		{
-			UpdateTiming();
-		}
-		OverheatFactor = (UTOwner->GetFireRateMultiplier() <= 1.f) ? FMath::Min(OverheatFactor + 0.07f, 2.f) : 0.f;
-	}
-
-	LastContinuedFiring = GetWorld()->GetTimeSeconds();
-
-	OnContinuedFiring();
-	return true;
 }
 
 AUTProjectile* AUTWeap_LinkGun::FireProjectile()
@@ -223,23 +194,33 @@ void AUTWeap_LinkGun::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 		if (PulseInstigator != NULL)
 		{
 			PulseTarget = (LinkTarget != NULL) ? LinkTarget : OutHit->Actor.Get();
+			// try CSHD result if it's reasonable
+			if (PulseTarget == NULL && ClientPulseTarget != NULL)
+			{
+				const FVector SpawnLocation = GetFireStartLoc();
+				const FRotator SpawnRotation = GetAdjustedAim(SpawnLocation);
+				const FVector FireDir = SpawnRotation.Vector();
+				const FVector EndTrace = SpawnLocation + FireDir * InstantHitInfo[CurrentFireMode].TraceRange;
+				if (FMath::PointDistToSegment(ClientPulseTarget->GetActorLocation(), SpawnLocation, EndTrace) < 100.0f + ClientPulseTarget->GetSimpleCollisionRadius() && !GetWorld()->LineTraceTestByChannel(SpawnLocation, EndTrace, COLLISION_TRACE_WEAPONNOCHARACTER, FCollisionQueryParams(NAME_None, true)))
+				{
+					PulseTarget = ClientPulseTarget;
+				}
+			}
 			if (PulseTarget != NULL)
 			{
 				// use owner to target direction instead of exactly the weapon orientation so that shooting below center doesn't cause the pull to send them over the shooter's head
 				const FVector Dir = (PulseTarget->GetActorLocation() - PulseStart).GetSafeNormal();
 				PulseTarget->TakeDamage(LinkPullDamage, FUTPointDamageEvent(0.0f, *OutHit, Dir, BeamPulseDamageType, BeamPulseMomentum * Dir), PulseInstigator, this);
 				PulseLoc = PulseTarget->GetActorLocation();
-			}
-			else if (OutHit->bBlockingHit)
-			{
-				PulseLoc = OutHit->Location;
+				UUTGameplayStatics::UTPlaySound(GetWorld(), PullSucceeded, UTOwner, SRT_All, false, FVector::ZeroVector, Cast<AUTPlayerController>(PulseTarget->GetInstigatorController()), UTOwner, true, SAT_WeaponFoley);
 			}
 			else
 			{
 				const FVector SpawnLocation = GetFireStartLoc();
 				const FRotator SpawnRotation = GetAdjustedAim(SpawnLocation);
 				const FVector FireDir = SpawnRotation.Vector();
-				PulseLoc = SpawnLocation + FireDir * InstantHitInfo[CurrentFireMode].TraceRange;
+				PulseLoc = SpawnLocation + GetBaseFireRotation().RotateVector(MissedPulseOffset) + 100.f*FireDir;
+				UUTGameplayStatics::UTPlaySound(GetWorld(), PullFailed, UTOwner, SRT_All, false, FVector::ZeroVector, nullptr, UTOwner, true, SAT_WeaponFoley);
 			}
 		}
 		if (UTOwner != NULL)
@@ -274,18 +255,9 @@ void AUTWeap_LinkGun::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 	}
 }
 
-void AUTWeap_LinkGun::PlayFiringEffects()
-{
-	if (UTOwner && (CurrentFireMode == 0) && Cast<AUTPlayerController>(UTOwner->GetController()) && UTOwner->IsLocallyControlled() && FPFireSound.IsValidIndex(0))
-	{
-		FPFireSound[0] = (OverheatFactor > 0.9f) ? OverheatFPFireSound : NormalFPFireSound;
-	}
-	Super::PlayFiringEffects();
-}
-
 UAnimMontage* AUTWeap_LinkGun::GetFiringAnim(uint8 FireMode, bool bOnHands) const
 {
-	if (FireMode == 0 && (OverheatFactor > 1.f) && OverheatAnim && !bOnHands)
+	if (FireMode == 0 && bIsInCoolDown && OverheatAnim && !bOnHands)
 	{
 		return OverheatAnim;
 	}
@@ -313,6 +285,35 @@ void AUTWeap_LinkGun::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
+	if (bIsInCoolDown)
+	{
+		OverheatFactor -= 2.f * DeltaTime;
+		if (OverheatFactor <= 0.f)
+		{
+			OverheatFactor = 0.f;
+			bIsInCoolDown = false;
+			if (UTOwner)
+			{
+				UTOwner->SetAmbientSound(OverheatSound, true);
+				UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+				if ((AnimInstance != NULL) && (EndOverheatAnimSection != NAME_None))
+				{
+					AnimInstance->Montage_JumpToSection(EndOverheatAnimSection, OverheatAnim);
+				}
+			}
+		}
+		else if (UTOwner && OverheatSound)
+		{
+			UTOwner->SetAmbientSound(OverheatSound, false);
+			UTOwner->ChangeAmbientSoundPitch(OverheatSound, 0.5f + OverheatFactor);
+		}
+	}
+	else
+	{
+		OverheatFactor = (UTOwner && IsFiring() && (CurrentFireMode == 0) && (UTOwner->GetFireRateMultiplier() <= 1.f)) ? OverheatFactor + 0.5f*DeltaTime : FMath::Max(0.f, OverheatFactor - 2.f * DeltaTime);
+		bIsInCoolDown = (OverheatFactor > 1.f);
+
+	}
 	if (ScreenTexture != NULL && Mesh->IsRegistered() && GetWorld()->TimeSeconds - Mesh->LastRenderTime < 0.1f)
 	{
 		ScreenTexture->FastUpdateResource();
@@ -344,7 +345,7 @@ void AUTWeap_LinkGun::Tick(float DeltaTime)
 			const FVector SpawnLocation = GetFireStartLoc();
 			const FRotator SpawnRotation = GetAdjustedAim(SpawnLocation);
 			const FVector FireDir = SpawnRotation.Vector();
-			PulseLoc = (PulseTarget && !PulseTarget->IsPendingKillPending()) ? PulseTarget->GetActorLocation() : PulseLoc - 5.f * DeltaTime * (PulseLoc - (SpawnLocation + 80.f*FireDir));
+			PulseLoc = (PulseTarget && !PulseTarget->IsPendingKillPending()) ? PulseTarget->GetActorLocation() : SpawnLocation + GetBaseFireRotation().RotateVector(MissedPulseOffset) + 100.f*FireDir;
 
 			// don't allow beam to go behind player
 			FVector PulseDir = PulseLoc - SpawnLocation;
@@ -363,29 +364,6 @@ void AUTWeap_LinkGun::Tick(float DeltaTime)
 			if (Hit.Time < 1.f)
 			{
 				PulseLoc = Hit.Location;
-			}
-		}
-	}
-	else
-	{
-		float OldOverheatFactor = OverheatFactor;
-		OverheatFactor = FMath::Clamp(OverheatFactor - 2.f*DeltaTime, 0.f, 2.f);
-		if ((OverheatFactor > 0.f) && UTOwner)
-		{
-			// @TOOD FIXMESTEVE - set this sound when stop firing
-			if (OverheatSound)
-			{
-				UTOwner->SetAmbientSound(OverheatSound, false);
-				UTOwner->ChangeAmbientSoundPitch(OverheatSound, OverheatFactor);
-			}
-		}
-		if ((OldOverheatFactor > 0.f) && (OverheatFactor == 0.f) && UTOwner)
-		{
-			UTOwner->SetAmbientSound(OverheatSound, true);
-			UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
-			if ((AnimInstance != NULL) && (EndOverheatAnimSection != NAME_None))
-			{
-				AnimInstance->Montage_JumpToSection(EndOverheatAnimSection, OverheatAnim);
 			}
 		}
 	}
@@ -453,6 +431,8 @@ bool AUTWeap_LinkGun::LinkedTo(AUTWeap_LinkGun* L)
 
 bool AUTWeap_LinkGun::IsLinkable(AActor* Other)
 {
+	return false;
+
 	APawn* Pawn = Cast<APawn>(Other);
 	if (Pawn != nullptr) // && UTC.bProjTarget ~~~~ && UTC->GetActorEnableCollision()
 	{
@@ -623,8 +603,23 @@ void AUTWeap_LinkGun::OnMultiPress_Implementation(uint8 OtherFireMode)
 	if (CurrentFireMode == 1 && OtherFireMode == 0 && IsFiring() && !IsLinkPulsing())
 	{
 		bPendingBeamPulse = true;
+		if (Role < ROLE_Authority)
+		{
+			FHitResult Hit;
+			Super::FireInstantHit(false, &Hit);
+			ServerSetPulseTarget(Hit.GetActor());
+		}
 	}
 	Super::OnMultiPress_Implementation(OtherFireMode);
+}
+
+bool AUTWeap_LinkGun::ServerSetPulseTarget_Validate(AActor* InTarget)
+{
+	return true;
+}
+void AUTWeap_LinkGun::ServerSetPulseTarget_Implementation(AActor* InTarget)
+{
+	ClientPulseTarget = InTarget;
 }
 
 void AUTWeap_LinkGun::StateChanged()
@@ -725,20 +720,21 @@ void AUTWeap_LinkGun::DrawWeaponCrosshair_Implementation(UUTHUDWidget* WeaponHud
 {
 	Super::DrawWeaponCrosshair_Implementation(WeaponHudWidget, RenderDelta);
 
-	if (WeaponHudWidget && WeaponHudWidget->UTHUDOwner)
+	if ((OverheatFactor > 0.f) && WeaponHudWidget && WeaponHudWidget->UTHUDOwner)
 	{
-		float CircleSize = 76.f;
-		float ScaledCircleSize = CircleSize * GetCrosshairScale(WeaponHudWidget->UTHUDOwner);
-		WeaponHudWidget->DrawTexture(WeaponHudWidget->UTHUDOwner->HUDAtlas, 0, 0, ScaledCircleSize, ScaledCircleSize, 98, 936, CircleSize, CircleSize, 0.2f, FLinearColor::White, FVector2D(0.5f, 0.5f));
-		if (OverheatFactor > 0.f)
+		float Width = 150.f;
+		float Height = 21.f;
+		float WidthScale = WeaponHudWidget->GetRenderScale();
+		float HeightScale = (bIsInCoolDown ? 1.f : 0.5f) * WidthScale;
+		WidthScale *= (bIsInCoolDown ? 0.75f : 0.5f);
+	//	WeaponHudWidget->DrawTexture(WeaponHudWidget->UTHUDOwner->HUDAtlas, 0.f, 96.f, Scale*Width, Scale*Height, 127, 671, Width, Height, 0.7f, FLinearColor::White, FVector2D(0.5f, 0.5f));
+		FLinearColor ChargeColor = FLinearColor::White;
+		float ChargePct = FMath::Clamp(OverheatFactor, 0.f, 1.f);
+		WeaponHudWidget->DrawTexture(WeaponHudWidget->UTHUDOwner->HUDAtlas, 0.f, 32.f, WidthScale*Width*ChargePct, HeightScale*Height, 127, 641, Width, Height, bIsInCoolDown ? OverheatFactor : 0.7f, FLinearColor::White, FVector2D(0.5f, 0.5f));
+		if (bIsInCoolDown)
 		{
-			FLinearColor ChargeColor = FLinearColor::Red;
-			if (OverheatFactor < 1.f)
-			{
-				ChargeColor = (OverheatFactor > 0.8f) ? FLinearColor::Yellow : FLinearColor::White;
-			}
-			float ChargePct = FMath::Clamp(OverheatFactor, 0.f, 1.5f)/1.5F;
-			WeaponHudWidget->DrawTexture(WeaponHudWidget->UTHUDOwner->HUDAtlas, 0, 0.5f * ScaledCircleSize*(1.f - ChargePct), ScaledCircleSize, ScaledCircleSize*ChargePct, 98, 936 + CircleSize*(1.f - ChargePct), CircleSize, CircleSize*ChargePct, 0.7f, ChargeColor, FVector2D(0.5f, 0.5f));
+			WeaponHudWidget->DrawText(NSLOCTEXT("LinkGun", "Overheat", "OVERHEAT"), 0.f, 28.f, WeaponHudWidget->UTHUDOwner->TinyFont, 1.f, FMath::Min(3.f*OverheatFactor, 1.f), FLinearColor::Yellow, ETextHorzPos::Center, ETextVertPos::Center);
 		}
+		WeaponHudWidget->DrawTexture(WeaponHudWidget->UTHUDOwner->HUDAtlas, 0.f, 32.f, WidthScale*Width, HeightScale*Height, 127, 612, Width, Height, 1.f, FLinearColor::White, FVector2D(0.5f, 0.5f));
 	}
 }

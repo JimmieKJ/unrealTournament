@@ -381,7 +381,9 @@
 	EnumMacro(PFNGLGETPROGRAMPIPELINEIVPROC, glGetProgramPipelineiv) \
 	EnumMacro(PFNGLVALIDATEPROGRAMPIPELINEPROC, glValidateProgramPipeline) \
 	EnumMacro(PFNGLGETPROGRAMPIPELINEINFOLOGPROC, glGetProgramPipelineInfoLog) \
-	EnumMacro(PFNGLISPROGRAMPIPELINEPROC, glIsProgramPipeline)
+	EnumMacro(PFNGLISPROGRAMPIPELINEPROC, glIsProgramPipeline) \
+	EnumMacro(PFNGLGETPROGRAMBINARYPROC, glGetProgramBinary) \
+	EnumMacro(PFNGLPROGRAMBINARYPROC, glProgramBinary)
 
 /** List of all OpenGL entry points. */
 #define ENUM_GL_ENTRYPOINTS_ALL(EnumMacro) \
@@ -543,6 +545,17 @@ struct FWindowsOpenGL : public FOpenGL4
 		glUniformHandleui64ARB( Location, Value);
 	}
 
+	static FORCEINLINE bool SupportsProgramBinary() { return glProgramBinary != nullptr; }
+
+	static FORCEINLINE void GetProgramBinary(GLuint Program, GLsizei BufSize, GLsizei *Length, GLenum *BinaryFormat, void *Binary)
+	{
+		glGetProgramBinary(Program, BufSize, Length, BinaryFormat, Binary);
+	}
+
+	static FORCEINLINE void ProgramBinary(GLuint Program, GLenum BinaryFormat, void *Binary, GLsizei Length)
+	{
+		glProgramBinary(Program, BinaryFormat, Binary, Length);
+	}
 };
 
 #else
@@ -575,7 +588,7 @@ struct FWindowsOpenGL : public FOpenGL4
 
 #include "OpenGLES31.h"
 
-struct FWindowsOpenGL : public FOpenGLES31
+struct FWindowsOpenGL : public FOpenGLESDeferred
 {
 	static FORCEINLINE EShaderPlatform GetShaderPlatform()
 	{

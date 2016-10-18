@@ -57,14 +57,14 @@ const float UGeometryCacheTrack::GetMaxSampleTime() const
 		return MatrixSampleTimes.Last();
 	}
 
-	// Otherwise no data/times availabel
+	// Otherwise no data/times available
 	return 0.0f;	
 }
 
 const uint32 UGeometryCacheTrack::FindSampleIndexFromTime(const TArray<float>& SampleTimes, const float Time, const bool bLooping)
 {
 	// No index possible
-	if (SampleTimes.Num() == 0)
+	if (SampleTimes.Num() == 0 || SampleTimes.Num() == 1)
 	{
 		return 0;
 	}
@@ -79,11 +79,11 @@ const uint32 UGeometryCacheTrack::FindSampleIndexFromTime(const TArray<float>& S
 	// Binary searching for closest (floored) SampleIndex 
 	uint32 MinIndex = 0;
 	uint32 MaxIndex = SampleTimes.Num() - 1;
-	if (SampleTime > SampleTimes[MaxIndex])
+	if (SampleTime >= SampleTimes[MaxIndex])
 	{
 		return MaxIndex;
 	}
-	else if (SampleTime < SampleTimes[MinIndex])
+	else if (SampleTime <= SampleTimes[MinIndex])
 	{
 		return MinIndex;
 	}

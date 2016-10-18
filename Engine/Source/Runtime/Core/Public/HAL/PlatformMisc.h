@@ -14,8 +14,6 @@
 #include "IOS/IOSPlatformMisc.h"
 #elif PLATFORM_ANDROID
 #include "Android/AndroidMisc.h"
-#elif PLATFORM_WINRT
-#include "WinRT/WinRTMisc.h"
 #elif PLATFORM_HTML5
 #include "HTML5/HTML5PlatformMisc.h"
 #elif PLATFORM_LINUX

@@ -27,7 +27,7 @@ TSharedRef< ISlateRun > FWidgetDecorator::Create(const TSharedRef<class FTextLay
 {
 	FTextRange ModelRange;
 	ModelRange.BeginIndex = InOutModelText->Len();
-	*InOutModelText += TEXT('\x200B'); // Zero-Width Breaking Space
+	*InOutModelText += TEXT('\u00A0'); // Zero-Width Breaking Space
 	ModelRange.EndIndex = InOutModelText->Len();
 
 	FTextRunInfo RunInfo( RunParseResult.Name, FText::FromString( OriginalText.Mid( RunParseResult.ContentRange.BeginIndex, RunParseResult.ContentRange.EndIndex - RunParseResult.ContentRange.BeginIndex ) ) );

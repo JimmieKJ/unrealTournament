@@ -6,6 +6,7 @@
 #include "UObjectToken.h"
 #include "MessageLog.h"
 #include "MapErrors.h"
+#include "UTAnalytics.h"
 
 AUTPickupToken::AUTPickupToken(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
@@ -83,6 +84,11 @@ void AUTPickupToken::PickedUp()
 	if (TokenUniqueID != NAME_None)
 	{
 		UUTGameplayStatics::TokenPickedUp(GetWorld(), TokenUniqueID);
+
+		if (FUTAnalytics::IsAvailable())
+		{
+			FUTAnalytics::FireEvent_UTTutorialPickupToken(TokenUniqueID.ToString());
+		}
 	}
 }
 

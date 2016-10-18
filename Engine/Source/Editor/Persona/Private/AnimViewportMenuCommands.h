@@ -34,6 +34,9 @@ public:
 	TSharedPtr< FUICommandInfo > UseInGameBound;
 
 	/** Show vertex normals */
+	TSharedPtr< FUICommandInfo > SetCPUSkinning;
+
+	/** Show vertex normals */
 	TSharedPtr< FUICommandInfo > SetShowNormals;
 
 	/** Show vertex tangents */

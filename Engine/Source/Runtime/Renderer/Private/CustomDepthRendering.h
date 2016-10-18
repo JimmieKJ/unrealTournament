@@ -21,15 +21,6 @@ public:
 	bool DrawPrims(FRHICommandListImmediate& RHICmdList, const class FViewInfo& View, bool bWriteCustomStencilValues);
 
 	/**
-	* Add a new primitive to the list of prims
-	* @param PrimitiveSceneProxy - primitive info to add.
-	* @param ViewInfo - used to transform bounds to view space
-	*/
-	void AddScenePrimitive(FPrimitiveSceneProxy* PrimitiveSceneProxy)
-	{
-		Prims.Add(PrimitiveSceneProxy);
-	}
-	/**
 	* Adds a new primitives to the list of distortion prims
 	* @param PrimitiveSceneProxies - primitive info to add.
 	*/

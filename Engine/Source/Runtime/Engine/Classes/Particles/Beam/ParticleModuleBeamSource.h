@@ -91,6 +91,8 @@ class UParticleModuleBeamSource : public UParticleModuleBeamBase
 				FBeam2TypeDataPayload* BeamData, const uint8* ParticleBase, 
 				int32& CurrentOffset, int32	ParticleIndex, bool bSpawning,
 				FBeamParticleModifierPayloadData* ModifierData);
+
+	int32 LastSelectedParticleIndex;
 };
 
 

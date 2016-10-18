@@ -55,8 +55,8 @@ public:
 	IDXGISwapChain3* GetSwapChain() const { return SwapChain3; }
 
 	virtual void* GetNativeSwapChain() const override { return GetSwapChain(); }
-	virtual void* GetNativeBackBufferTexture() const override { return GetBackBuffer()->GetResource(); }
-	virtual void* GetNativeBackBufferRT() const override { return GetBackBuffer()->GetRenderTargetView(0, 0); }
+	virtual void* GetNativeBackBufferTexture() const override;
+	virtual void* GetNativeBackBufferRT() const override;
 
 	virtual void SetCustomPresent(FRHICustomPresent* InCustomPresent) override
 	{
@@ -66,7 +66,7 @@ public:
 
 	virtual void* GetNativeWindow(void** AddParam = nullptr) const override { return (void*)WindowHandle; }
 
-	uint32 GetNumBackBuffers() { return NumBackBuffers; }
+	uint32 GetNumBackBuffers() const { return NumBackBuffers; }
 
 private:
 

@@ -6,20 +6,7 @@
 
 #pragma once
 
-// Actual values are used in the shader so do not change
-enum EDecalRenderStage
-{
-	// for DBuffer decals (get proper baked lighting)
-	DRS_BeforeBasePass = 0,
-	// for volumetrics to update the depth buffer
-	DRS_AfterBasePass = 1,
-	// for normal decals not modifying the depth buffer
-	DRS_BeforeLighting = 2,
-	// for rendering decals in forward shading
-	DRS_ForwardShading = 3,
-
-	// later we could add "after lighting" and multiply
-};
+#include "DecalRenderingCommon.h"
 
 /**
  * Compact decal data for rendering
@@ -44,23 +31,8 @@ typedef TArray<FTransientDecalRenderData, SceneRenderingAllocator> FTransientDec
  */
 struct FDecalRendering
 {
-	enum ERenderTargetMode
-	{
-		RTM_Unknown = -1,
-		RTM_SceneColorAndGBufferWithNormal,
-		RTM_SceneColorAndGBufferNoNormal,
-		RTM_SceneColorAndGBufferDepthWriteWithNormal,
-		RTM_SceneColorAndGBufferDepthWriteNoNormal,
-		RTM_DBuffer, 
-		RTM_GBufferNormal,
-		RTM_SceneColor,
-	};
-	
-	static void BuildVisibleDecalList(const FScene& Scene, const FViewInfo& View, EDecalRenderStage DecalRenderStage, FTransientDecalRenderDataList& OutVisibleDecals);
 	static FMatrix ComputeComponentToClipMatrix(const FViewInfo& View, const FMatrix& DecalComponentToWorld);
-	static ERenderTargetMode ComputeRenderTargetMode(EShaderPlatform Platfrom, EDecalBlendMode DecalBlendMode, bool bHasNormal);
-	static EDecalRenderStage ComputeRenderStage(EShaderPlatform Platfrom, EDecalBlendMode DecalBlendMode);
-	static uint32 ComputeRenderTargetCount(EShaderPlatform Platfrom, ERenderTargetMode RenderTargetMode);
-	static void SetShader(FRHICommandList& RHICmdList, const FViewInfo& View, const FTransientDecalRenderData& DecalData, const FMatrix& FrustumComponentToClip);
 	static void SetVertexShaderOnly(FRHICommandList& RHICmdList, const FViewInfo& View, const FMatrix& FrustumComponentToClip);
+	static void BuildVisibleDecalList(const FScene& Scene, const FViewInfo& View, EDecalRenderStage DecalRenderStage, FTransientDecalRenderDataList& OutVisibleDecals);
+	static void SetShader(FRHICommandList& RHICmdList, const FViewInfo& View, const FTransientDecalRenderData& DecalData, const FMatrix& FrustumComponentToClip);
 };

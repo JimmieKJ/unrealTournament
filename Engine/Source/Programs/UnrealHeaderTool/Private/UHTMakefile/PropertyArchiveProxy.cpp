@@ -87,6 +87,15 @@ FArchive& operator<<(FArchive& Ar, FMapPropertyArchiveProxy& MapPropertyArchiveP
 	return Ar;
 }
 
+FArchive& operator<<(FArchive& Ar, FSetPropertyArchiveProxy& SetPropertyArchiveProxy)
+{
+	Ar << static_cast<FPropertyArchiveProxy&>(SetPropertyArchiveProxy);
+	Ar << SetPropertyArchiveProxy.ElementPropIndex;
+	Ar << SetPropertyArchiveProxy.SetLayout;
+
+	return Ar;
+}
+
 FBytePropertyArchiveProxy::FBytePropertyArchiveProxy(FUHTMakefile& UHTMakefile, const UByteProperty* ByteProperty)
 	: FPropertyArchiveProxy(UHTMakefile, ByteProperty)
 {
@@ -560,6 +569,28 @@ void FMapPropertyArchiveProxy::Resolve(UMapProperty* MapProperty, const FUHTMake
 	MapProperty->KeyProp = UHTMakefile.GetPropertyByIndex(KeyPropIndex);
 	MapProperty->ValueProp = UHTMakefile.GetPropertyByIndex(ValuePropIndex);
 	MapProperty->MapLayout = MapLayout;
+}
+
+FSetPropertyArchiveProxy::FSetPropertyArchiveProxy(FUHTMakefile& UHTMakefile, const USetProperty* SetProperty)
+	: FPropertyArchiveProxy(UHTMakefile, SetProperty)
+{
+	ElementPropIndex = UHTMakefile.GetPropertyIndex(SetProperty->ElementProp);
+	SetLayout = SetProperty->SetLayout;
+}
+
+USetProperty* FSetPropertyArchiveProxy::CreateSetProperty(const FUHTMakefile& UHTMakefile) const
+{
+	UObject* Outer = UHTMakefile.GetObjectByIndex(OuterIndex);
+	USetProperty* SetProperty = new (EC_InternalUseOnlyConstructor, Outer, Name.CreateName(UHTMakefile), (EObjectFlags)ObjectFlagsUint32) USetProperty(FObjectInitializer());
+	PostConstruct(SetProperty, UHTMakefile);
+	return SetProperty;
+}
+
+void FSetPropertyArchiveProxy::Resolve(USetProperty* SetProperty, const FUHTMakefile& UHTMakefile) const
+{
+	FPropertyArchiveProxy::Resolve(SetProperty, UHTMakefile);
+	SetProperty->ElementProp = UHTMakefile.GetPropertyByIndex(ElementPropIndex);
+	SetProperty->SetLayout = SetLayout;
 }
 
 UArrayProperty* FArrayPropertyArchiveProxy::CreateArrayProperty(const FUHTMakefile& UHTMakefile) const

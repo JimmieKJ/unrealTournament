@@ -16,7 +16,7 @@ AUTInventory::AUTInventory(const FObjectInitializer& ObjectInitializer)
 	PickupMesh = ObjectInitializer.CreateOptionalDefaultSubobject<UStaticMeshComponent>(this, TEXT("PickupMesh0"), false);
 	if (PickupMesh != NULL)
 	{
-		PickupMesh->AttachParent = RootComponent;
+		PickupMesh->SetupAttachment(RootComponent);
 		PickupMesh->bAutoRegister = false;
 	}
 
@@ -76,11 +76,11 @@ void AUTInventory::PreInitializeComponents()
 	for (int32 i = 0; i < SerializedComponents.Num(); i++)
 	{
 		USceneComponent* SceneComp = Cast<USceneComponent>(SerializedComponents[i]);
-		if (SceneComp != NULL && SceneComp->AttachParent != NULL && SceneComp->AttachParent == PickupMesh && !SceneComp->AttachParent->IsRegistered())
+		if (SceneComp != NULL && SceneComp->GetAttachParent() != NULL && SceneComp->GetAttachParent() == PickupMesh && !SceneComp->GetAttachParent()->IsRegistered())
 		{
-			TArray<USceneComponent*> Children;
-			SceneComp->GetChildrenComponents(true, Children);
-			for (USceneComponent* Child : Children)
+			TArray<USceneComponent*> ChildComps;
+			SceneComp->GetChildrenComponents(true, ChildComps);
+			for (USceneComponent* Child : ChildComps)
 			{
 				Child->DestroyComponent();
 			}
@@ -280,6 +280,11 @@ void AUTInventory::InitializeDroppedPickup(AUTDroppedPickup* Pickup)
 	Pickup->SetInventory(this);
 }
 
+void AUTInventory::OnViewTargetChange_Implementation(AUTPlayerController* NewViewTarget)
+{
+
+}
+
 bool AUTInventory::StackPickup_Implementation(AUTInventory* ContainedInv)
 {
 	return false;
@@ -329,7 +334,7 @@ void AUTInventory::DrawInventoryHUD_Implementation(UUTHUDWidget* Widget, FVector
 {
 }
 
-float AUTInventory::BotDesireability_Implementation(APawn* Asker, AActor* Pickup, float PathDistance) const
+float AUTInventory::BotDesireability_Implementation(APawn* Asker, AController* RequestOwner, AActor* Pickup, float PathDistance) const
 {
 	return BasePickupDesireability;
 }
@@ -349,4 +354,17 @@ void AUTInventory::UpdateHUDText()
 FText AUTInventory::GetHUDText() const
 {
 	return HUDText;
+}
+
+void AUTInventory::PrecacheTutorialAnnouncements(UUTAnnouncer* Announcer) const
+{
+	for (int32 i = 0; i < TutorialAnnouncements.Num(); i++)
+	{
+		Announcer->PrecacheAnnouncement(TutorialAnnouncements[i]);
+	}
+}
+
+FName AUTInventory::GetTutorialAnnouncement(int32 Switch) const
+{
+	return (Switch < TutorialAnnouncements.Num()) ? TutorialAnnouncements[Switch] : NAME_None;
 }

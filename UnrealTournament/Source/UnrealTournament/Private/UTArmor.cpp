@@ -10,13 +10,15 @@ AUTArmor::AUTArmor(const FObjectInitializer& ObjectInitializer)
 	ArmorAmount = 50;
 	BasePickupDesireability = 1.5f;
 	bDestroyWhenConsumed = true;
+
+	TutorialAnnouncements.Add(TEXT("ArmorPickups"));
 }
 
 bool AUTArmor::AllowPickupBy(AUTCharacter* Other) const
 {
 	if (Other && !Other->IsRagdoll())
 	{
-		if ((Other->GetArmorAmount() < FMath::Max(100,ArmorAmount)) || (ArmorType == ArmorTypeName::Helmet))
+		if (Other->GetArmorAmount() < FMath::Max(100,ArmorAmount))
 		{
 			return true;
 		}
@@ -50,7 +52,7 @@ void AUTArmor::GivenTo(AUTCharacter* NewOwner, bool bAutoActivate)
 	Super::GivenTo(NewOwner, bAutoActivate);
 }
 
-float AUTArmor::BotDesireability_Implementation(APawn* Asker, AActor* Pickup, float PathDistance) const
+float AUTArmor::BotDesireability_Implementation(APawn* Asker, AController* RequestOwner, AActor* Pickup, float PathDistance) const
 {
 	AUTCharacter* P = Cast<AUTCharacter>(Asker);
 	if (P == NULL)

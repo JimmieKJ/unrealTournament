@@ -30,6 +30,7 @@ rem ## Check to see if we're already running under a Visual Studio environment s
 if not "%INCLUDE%" == "" if not "%LIB%" == "" goto ReadyToCompile
 
 rem ## Check for Visual Studio 2015
+for %%P in (%*) do if "%%P" == "-2013" goto NoVisualStudio2015Environment
 
 pushd %~dp0
 call GetVSComnToolsPath 14
@@ -42,7 +43,18 @@ call "%VsComnToolsPath%/../../VC/bin/x86_amd64/vcvarsx86_amd64.bat" >NUL
 goto ReadyToCompile
 
 
+rem ## Check for Visual Studio 2013
 :NoVisualStudio2015Environment
+
+pushd %~dp0
+call GetVSComnToolsPath 12
+popd
+
+if "%VsComnToolsPath%" == "" goto NoVisualStudio2013Environment
+call "%VsComnToolsPath%/../../VC/bin/x86_amd64/vcvarsx86_amd64.bat" >NUL
+goto ReadyToCompile
+
+
 
 rem ## Check for Visual Studio 2013
 
@@ -108,10 +120,6 @@ goto Exit_Failure
 
 :Error_UATFailed
 set RUNUAT_EXITCODE=%ERRORLEVEL%
-echo copying UAT log files...
-if not "%uebp_LogFolder%" == "" copy log*.txt %uebp_LogFolder%\UAT_*.*
-rem if "%uebp_LogFolder%" == "" copy log*.txt c:\LocalBuildLogs\UAT_*.*
-popd
 goto Exit_Failure
 
 :Exit_Failure

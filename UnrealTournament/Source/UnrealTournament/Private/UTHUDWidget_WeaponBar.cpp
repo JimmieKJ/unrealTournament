@@ -5,7 +5,9 @@
 #include "UTWeapon.h"
 #include "UTProfileSettings.h"
 #include "UTWeap_Translocator.h"
+#include "UTWeap_ImpactHammer.h"
 #include "UTHUDWidgetMessage.h"
+
 
 UUTHUDWidget_WeaponBar::UUTHUDWidget_WeaponBar(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
@@ -18,12 +20,10 @@ UUTHUDWidget_WeaponBar::UUTHUDWidget_WeaponBar(const class FObjectInitializer& O
 
 	Position=FVector2D(-8.0f, 0.0f);
 
-	SelectedCellScale=1.1f;
 	SelectedAnimRate=0.3f;
 
 	AmmoBarSizePct = FVector2D(0.8f, 0.20f);
 
-	SelectedCellScale = 1.0f;
 	SelectedAnimRate = 0.0f;
 
 	static ConstructorHelpers::FObjectFinder<UTexture2D> WeaponIconAtlas(TEXT("Texture2D'/Game/RestrictedAssets/UI/WeaponAtlas01.WeaponAtlas01'"));
@@ -35,6 +35,7 @@ UUTHUDWidget_WeaponBar::UUTHUDWidget_WeaponBar(const class FObjectInitializer& O
 
 	ActiveBackgroundUVs = FTextureUVs(13,958, 112, 46);
 	InactiveBackgroundUVs = FTextureUVs(129,958, 112, 46);
+	SelectedBackgroundUVs = FTextureUVs(247,958, 112, 46);
 
 	CellBackground.Atlas = WeaponIconAtlas.Object;
 	CellBackground.RenderColor = FLinearColor(0.0f, 0.0f, 0.0f, 1.0f);
@@ -50,7 +51,6 @@ UUTHUDWidget_WeaponBar::UUTHUDWidget_WeaponBar(const class FObjectInitializer& O
 	InactiveOpacity = 0.3f;
 
 	LastSelectedWeapon = nullptr;
-
 }
 
 void UUTHUDWidget_WeaponBar::InitializeWidget(AUTHUD* Hud)
@@ -82,6 +82,8 @@ void UUTHUDWidget_WeaponBar::UpdateGroups(AUTHUD* Hud)
 	KnownWeaponMap.Empty();
 	KnownWeaponMap.SetNumZeroed(11);
 
+	AUTGameMode* DefaultGameModeObject = UTGameState ? UTGameState->GetGameModeClass()->GetDefaultObject<AUTGameMode>() : nullptr;
+
 	// grant all weapons that are in memory
 	for (TObjectIterator<UClass> It; It; ++It)
 	{
@@ -89,6 +91,12 @@ void UUTHUDWidget_WeaponBar::UpdateGroups(AUTHUD* Hud)
 		if (It->IsChildOf(AUTWeapon::StaticClass()) && !It->HasAnyClassFlags(CLASS_Abstract | CLASS_Deprecated | CLASS_NewerVersionExists) && !It->GetName().StartsWith(TEXT("SKEL_")) && !It->IsChildOf(AUTWeap_Translocator::StaticClass()))
 		{
 			UClass* WeaponClass = *It;
+
+			if (DefaultGameModeObject != nullptr && WeaponClass->IsChildOf(AUTWeap_ImpactHammer::StaticClass()) && !DefaultGameModeObject->bGameHasImpactHammer)
+			{
+				continue;
+			}
+
 			if (!WeaponClass->IsPendingKill())
 			{
 				AUTWeapon* DefaultWeaponObj = Cast<AUTWeapon>(WeaponClass->GetDefaultObject());
@@ -141,12 +149,12 @@ void UUTHUDWidget_WeaponBar::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCan
 	Cells.Empty();
 
 	int32 GroupCount = 0; // How many different weapon groups are there
-	AUTCharacter* UTCharacterOwner = Cast<AUTCharacter>(InUTHUDOwner->UTPlayerOwner->GetPawn());
-	if (UTCharacterOwner != nullptr)
+	AUTCharacter* UTCharOwner = Cast<AUTCharacter>(InUTHUDOwner->UTPlayerOwner->GetViewTarget());
+	if (UTCharOwner != nullptr)
 	{
 		// Look for activity
-		AUTWeapon* CurrentWeapon = UTCharacterOwner->GetPendingWeapon();
-		if (CurrentWeapon == nullptr) CurrentWeapon = UTCharacterOwner->GetWeapon();
+		AUTWeapon* CurrentWeapon = UTCharOwner->GetPendingWeapon();
+		if (CurrentWeapon == nullptr) CurrentWeapon = UTCharOwner->GetWeapon();
 		if (CurrentWeapon != LastSelectedWeapon)
 		{
 			LastActiveTime = InUTHUDOwner->GetWorld()->GetTimeSeconds();
@@ -156,10 +164,10 @@ void UUTHUDWidget_WeaponBar::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCan
 		UUTProfileSettings* PlayerProfile = InUTHUDOwner->UTPlayerOwner->GetProfileSettings();
 		bVerticalLayout = PlayerProfile == nullptr ? UUTProfileSettings::StaticClass()->GetDefaultObject<UUTProfileSettings>()->bVerticalWeaponBar : PlayerProfile->bVerticalWeaponBar;
 
-		AUTGameState* UTGameState = InUTHUDOwner->GetWorld()->GetGameState<AUTGameState>();
-		if (UTGameState)
+		AUTGameState* UTGS = InUTHUDOwner->GetWorld()->GetGameState<AUTGameState>();
+		if (UTGS)
 		{
-			CellBackground.bUseTeamColors = false; // UTGameState->bTeamGame;	
+			CellBackground.bUseTeamColors = false; // UTGS->bTeamGame;	
 		}
 
 		// grabs the coords via the layout
@@ -175,7 +183,7 @@ void UUTHUDWidget_WeaponBar::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCan
 		}
 
 		// Now look at the player's Inventory and find all of the weapons they have and update the map
-		for (TInventoryIterator<AUTWeapon> It(UTCharacterOwner); It; ++It)
+		for (TInventoryIterator<AUTWeapon> It(UTCharOwner); It; ++It)
 		{
 			AUTWeapon* Weapon = *It;
 			if (Weapon != nullptr)
@@ -197,9 +205,6 @@ void UUTHUDWidget_WeaponBar::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCan
 				}
 			}
 		}
-
-
-
 	}
 
 	FVector2D CellSize = FVector2D(0.0f, 0.0f);
@@ -307,7 +312,7 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 	AUTWeapon* CurrentWeapon = nullptr;
 	if (UTHUDOwner && UTHUDOwner->UTPlayerOwner)
 	{
-		AUTCharacter* UTCharacter = Cast<AUTCharacter>(UTHUDOwner->UTPlayerOwner->GetPawn());
+		AUTCharacter* UTCharacter = Cast<AUTCharacter>(UTHUDOwner->UTPlayerOwner->GetViewTarget());
 		CurrentWeapon = UTCharacter != nullptr ? UTCharacter->GetPendingWeapon() : nullptr;
 		if (CurrentWeapon == nullptr)
 		{
@@ -327,38 +332,42 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 			{
 				bIsCurrentWeapon = true;
 				CellBackground.RenderOpacity =  SelectedOpacity;
+				CellBackground.UVs = SelectedBackgroundUVs;
 			}
 			else
 			{
 				CellBackground.RenderOpacity = ActiveOpacity;
+				CellBackground.UVs = ActiveBackgroundUVs;
 			}
-			CellBackground.UVs = ActiveBackgroundUVs;
 		}
 		else
 		{
+			if (i == 0)
+			{
+				// no first cell if no impact hammer
+				continue;
+			}
 			CellBackground.RenderOpacity = InactiveOpacity;
 			CellBackground.UVs = InactiveBackgroundUVs;
 		}
 
 		// Figure out the general opacity of the slot
-
 		FVector2D CurrentWeaponPositionMod = FVector2D(0.0f, 0.0f);
 		FVector2D CurrentWeaponSizeMod = FVector2D(0.0f, 0.0f);
 
 		if (bIsCurrentWeapon)
 		{
 			Opacity = 1.0f;
-			CurrentWeaponPositionMod = bVerticalLayout ? FVector2D(-10.0f, 0.0f) : FVector2D(0.0f, -10.0f);
-			CurrentWeaponSizeMod = bVerticalLayout ? FVector2D(10.0f, 0.0f) : FVector2D(0.0f, 10.0f);
-			CellBackground.RenderColor = FLinearColor(0.25f,0.25f,0.25f,1.0f);
-		
+			CurrentWeaponPositionMod = bVerticalLayout ? FVector2D(-20.0f, 0.0f) : FVector2D(0.0f, -20.0f);
+			CurrentWeaponSizeMod = bVerticalLayout ? FVector2D(20.0f, 0.0f) : FVector2D(0.0f, 20.0f);
+			CellBackground.RenderColor = FLinearColor(0.25f,0.25f,0.05f,1.0f);
 		}
 		else
 		{
 			CellBackground.RenderColor = FLinearColor(0.1f,0.1f,0.1f,1.0f);
 
 			float DesiredOpacity = Cells[i].Weapon == nullptr ? UTHUDOwner->GetHUDWidgetWeaponBarEmptyOpacity() : UTHUDOwner->GetHUDWidgetWeaponbarInactiveOpacity();
-			Opacity =  FMath::Lerp(DesiredOpacity,1.0f, InactiveFadePerc);
+			Opacity = (Cells[i].Weapon != nullptr) ? FMath::Lerp(DesiredOpacity,1.0f, InactiveFadePerc) : DesiredOpacity;
 		}
 
 		// Draw the background
@@ -366,14 +375,12 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 		RenderObj_Texture(CellBackground, Cells[i].DrawPosition + CurrentWeaponPositionMod);
 
 		AUTWeapon* ThisWeapon = Cells[i].Weapon != nullptr ? Cells[i].Weapon : Cells[i].WeaponClass->GetDefaultObject<AUTWeapon>();
-
 		if (ThisWeapon != nullptr)
 		{
 			FVector2D AmmoBarSize = FVector2D(Cells[i].DrawSize.X * AmmoBarSizePct.X, Cells[i].DrawSize.Y * AmmoBarSizePct.Y);
 			FVector2D AmmoBarPosition = FVector2D( (Cells[i].DrawSize.X * 0.5f) -(AmmoBarSize.X * 0.5f), Cells[i].DrawSize.Y - 4 - AmmoBarSize.Y);
 
 			// Draw the fill
-
 			float AmmoPerc = 0.0f;
 			if (Cells[i].Weapon != nullptr)
 			{
@@ -390,28 +397,18 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 				RenderObj_Texture(AmmoBarBackground, Cells[i].DrawPosition + AmmoBarPosition);
 
 				FVector2D FillPosition = AmmoBarPosition;
-				//FillPosition.X += (AmmoBarSize.X - FillSize.X);
 				AmmoBarFill.Size = FillSize;
-		
-				if (AmmoPerc <= 0.33f) AmmoBarFill.RenderColor = FLinearColor(1.0f, 0.0f, 0.0f, 1.0f);
-				else if (AmmoPerc < 0.66f) AmmoBarFill.RenderColor = FLinearColor(1.0f, 1.0f, 0.4f, 1.0f);
-				else AmmoBarFill.RenderColor = FLinearColor(0.0f, 1.0f, 0.0f, 1.0f);
-
-				if (!bIsCurrentWeapon)
-				{
-					AmmoBarFill.RenderColor *= 0.5;
-				}
-
+				AmmoBarFill.RenderColor = bIsCurrentWeapon ? FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) : FLinearColor(0.5f, 0.5f, 0.5f, 1.0f);
 				RenderObj_Texture(AmmoBarFill, Cells[i].DrawPosition + FillPosition);
 			}
 
 			WeaponIcon.UVs = Cells[i].Weapon != nullptr ? ThisWeapon->WeaponBarSelectedUVs : ThisWeapon->WeaponBarSelectedUVs; // ThisWeapon->WeaponBarInactiveUVs;
 			WeaponIcon.RenderColor = UTHUDOwner->GetUseWeaponColors() ? ThisWeapon->IconColor : FLinearColor::White;
-
 			if (Cells[i].Weapon == nullptr)
 			{
-				WeaponIcon.RenderColor = CellBackground.bUseTeamColors ? UTHUDOwner->GetWidgetTeamColor() : CellBackground.RenderColor;
+				WeaponIcon.RenderColor = CellBackground.RenderColor;
 			}
+
 
 			float WeaponIconWidth = WeaponIcon.UVs.UL;
 			float WeaponIconHeight = WeaponIcon.UVs.VL;
@@ -433,103 +430,41 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 					FVector2D( (Cells[i].DrawSize.X * 0.5f) - (WeaponIconWidth * 0.5), (Cells[i].DrawSize.Y * 0.5f) - (WeaponIconHeight * 0.5));
 
 			WeaponIcon.Size = FVector2D(WeaponIconWidth, WeaponIconHeight);
+			if (!bVerticalLayout)
+			{
+				WeaponIconPosition += 0.5f*CurrentWeaponPositionMod;
+			}
 			RenderObj_Texture(WeaponIcon, Cells[i].DrawPosition + WeaponIconPosition);
-		}
-	}
 
-	// Draw the group labels...
-
-
-	float LabelPos = 0;
-	float LabelStart = 0;
-	float LabelEnd = 0;
-	int32 LabelGroup = -1;
-
-	CellBackground.UVs = FTextureUVs(30.0f,970.0f,1.0f,1.0f);
-
-	for (int32 i=0; i < Cells.Num(); i++)
-	{
-		AUTWeapon* ThisWeapon = Cells[i].Weapon != nullptr ? Cells[i].Weapon : Cells[i].WeaponClass->GetDefaultObject<AUTWeapon>();
-		if (ThisWeapon != nullptr)
-		{
-			if (LabelGroup < 0 || Cells[i].WeaponGroup != LabelGroup)
+			if (Cells[i].Weapon != nullptr)
 			{
-				// Draw this label
-				if (LabelGroup >= 0)
+				AUTWeap_Translocator* TL = Cast<AUTWeap_Translocator>(Cells[i].Weapon);
+				if (TL == nullptr)
 				{
-					DrawLabel(LabelPos, LabelStart, LabelEnd, LabelGroup);
+					FString* GroupKey = UTHUDOwner->UTPlayerOwner->WeaponGroupKeys.Find(Cells[i].WeaponGroup);
+					if ((GroupKey == nullptr) || GroupKey->IsEmpty())
+					{
+						GroupText.Text = (Cells[i].WeaponGroup == 10) ? FText::FromString(TEXT("0")) : FText::AsNumber(Cells[i].WeaponGroup);
+					}
+					else
+					{
+						GroupText.Text = (GroupKey->Len() == 1) ? FText::FromString(*GroupKey) : FText::FromString(TEXT(""));
+					}
 				}
-
-				LabelGroup = Cells[i].WeaponGroup;
-				LabelPos = bVerticalLayout ? Cells[i].DrawPosition.X : Cells[i].DrawPosition.Y;
-				LabelStart = bVerticalLayout ? Cells[i].DrawPosition.Y : Cells[i].DrawPosition.X;
-				LabelEnd = bVerticalLayout ? Cells[i].DrawPosition.Y + Cells[i].DrawSize.Y : Cells[i].DrawPosition.X + Cells[i].DrawSize.X;
-			}
-			else if (Cells[i].WeaponGroup == LabelGroup)
-			{
-				LabelEnd = bVerticalLayout ? Cells[i].DrawPosition.Y + Cells[i].DrawSize.Y : Cells[i].DrawPosition.X + Cells[i].DrawSize.X;
+				else
+				{
+					GroupText.Text = UTHUDOwner->BoostLabel;
+				}
+				GroupText.RenderOpacity = 1.0f;
+				GroupText.RenderColor = FLinearColor::White;
+				FVector2D TextPos = Cells[i].DrawPosition;
+				TextPos.X += Cells[i].DrawSize.X - 10.f;
+				TextPos.Y += 0.5f*CurrentWeaponPositionMod.Y;
+				RenderObj_Text(GroupText, TextPos);
 			}
 		}
 	}
-
-	DrawLabel(LabelPos, LabelStart, LabelEnd, LabelGroup);
 }
-
-void UUTHUDWidget_WeaponBar::DrawLabel(float LabelPos, float LabelStart, float LabelEnd, float LabelGroup)
-{
-	Opacity =  FMath::Lerp(UTHUDOwner->GetHUDWidgetWeaponBarEmptyOpacity(),1.0f, InactiveFadePerc);
-
-	CellBackground.RenderColor = FLinearColor(0.25f,0.25f,0.25f,1.0f);
-
-	float CharXSize, CharYSize;
-	GroupText.Font->GetCharSize(TEXT('Q'), CharXSize, CharYSize);
-
-	FVector2D LabelDrawPosition;
-	FVector2D BarAPosition;
-	FVector2D BarBPosition;
-	FVector2D BarSize;
-
-	if (bVerticalLayout)
-	{
-		LabelPos -= CharXSize * 0.5;
-		BarSize = FVector2D( 3.0f, (LabelEnd - LabelStart - CharYSize) * 0.5f);
-		LabelDrawPosition = FVector2D( LabelPos, LabelStart + ( (LabelEnd - LabelStart) * 0.5f));
-		BarAPosition = FVector2D(LabelPos - 1.0f, LabelStart);
-		BarBPosition = FVector2D(LabelPos - 1.0f, LabelDrawPosition.Y + CharYSize * 0.5f);
-	}
-	else
-	{
-		LabelPos -= CharYSize * 0.5;
-		BarSize = FVector2D( (LabelEnd - LabelStart - CharXSize) * 0.5f, 3.0f);
-		LabelDrawPosition = FVector2D( LabelStart + ( (LabelEnd - LabelStart) * 0.5f), LabelPos);
-		BarAPosition = FVector2D(LabelStart, LabelPos - 1.0f);
-		BarBPosition = FVector2D(LabelDrawPosition.X + CharXSize * 0.5f, LabelPos - 1.0f);
-	}
-					
-	// Draw everything...
-
-	CellBackground.Size = BarSize; 
-	CellBackground.RenderOpacity = 1.0;
-	RenderObj_Texture(CellBackground, BarAPosition);
-	RenderObj_Texture(CellBackground, BarBPosition);
-
-	FString* GroupKey = UTHUDOwner->UTPlayerOwner->WeaponGroupKeys.Find(LabelGroup);
-	if ((GroupKey == nullptr) ||GroupKey->IsEmpty())
-	{
-		GroupText.Text = (LabelGroup == 10) ? FText::FromString(TEXT("0")) : FText::AsNumber(LabelGroup);
-	}
-	else
-	{
-		GroupText.Text = (GroupKey->Len() == 1) ? FText::FromString(*GroupKey) : FText::FromString(TEXT(""));
-	}
-
-	GroupText.RenderOpacity = 1.0f;
-	GroupText.RenderColor = FLinearColor::White;
-	RenderObj_Text(GroupText, LabelDrawPosition);
-}
-
-
-
 
 float UUTHUDWidget_WeaponBar::GetDrawScaleOverride()
 {

@@ -34,6 +34,7 @@ AUTShowdownGame::AUTShowdownGame(const FObjectInitializer& OI)
 	bHasRespawnChoices = false; // unique system
 	HUDClass = AUTHUD_Showdown::StaticClass();
 	GameStateClass = AUTShowdownGameState::StaticClass();
+	StartingArmorObject.Reset();
 
 	PowerupBreakerPickupClass.SetPath(TEXT("/Game/RestrictedAssets/Pickups/Powerups/SuperchargeBase.SuperchargeBase_C"));
 	PowerupBreakerItemClass.SetPath(TEXT("/Game/RestrictedAssets/Pickups/Powerups/BP_Supercharge.BP_Supercharge_C"));
@@ -217,9 +218,9 @@ void AUTShowdownGame::HandleMatchHasStarted()
 
 	if (UTIsHandlingReplays() && GetGameInstance() != nullptr)
 	{
-		GetGameInstance()->StartRecordingReplay(GetWorld()->GetMapName(), GetWorld()->GetMapName());
+		GetGameInstance()->StartRecordingReplay(TEXT(""), GetWorld()->GetMapName());
 	}
-
+	
 	SetMatchState(MatchState::MatchIntermission);
 	Cast<AUTShowdownGameState>(GameState)->IntermissionStageTime = 1;
 }
@@ -530,7 +531,7 @@ void AUTShowdownGame::HandleMatchIntermission()
 					FRandomDestEval NodeEval;
 					float Weight = 0.0f;
 					TArray<FRouteCacheItem> Route;					
-					if (NavData->FindBestPath(NULL, FNavAgentProperties(Extent.X, Extent.Z * 2.0f), NodeEval, StartSpot->GetActorLocation(), Weight, false, Route) && Route.Num() > 0)
+					if (NavData->FindBestPath(NULL, FNavAgentProperties(Extent.X, Extent.Z * 2.0f), NULL, NodeEval, StartSpot->GetActorLocation(), Weight, false, Route) && Route.Num() > 0)
 					{
 						SpawnLoc = Route.Last().GetLocation(NULL);
 						// try to pick a better poly for spawning (we'd like to stay away from walls)
@@ -967,6 +968,7 @@ void AUTShowdownGame::Tick(float DeltaTime)
 
 void AUTShowdownGame::CreateGameURLOptions(TArray<TSharedPtr<TAttributePropertyBase>>& MenuProps)
 {
+	MenuProps.Empty();
 	MenuProps.Add(MakeShareable(new TAttributeProperty<int32>(this, &TimeLimit, TEXT("TimeLimit"))));
 	MenuProps.Add(MakeShareable(new TAttributeProperty<int32>(this, &GoalScore, TEXT("GoalScore"))));
 	MenuProps.Add(MakeShareable(new TAttributePropertyBool(this, &bPowerupBreaker, TEXT("PowerupBreaker"))));
@@ -990,9 +992,9 @@ FString AUTShowdownGame::GetRankedLeagueName()
 	return NAME_RankedShowdownSkillRating.ToString();
 }
 
-uint8 AUTShowdownGame::GetNumMatchesFor(AUTPlayerState* PS, bool bRankedSession) const
+uint8 AUTShowdownGame::GetNumMatchesFor(AUTPlayerState* PS, bool InbRankedSession) const
 {
-	if (PS && bRankedSession)
+	if (PS && InbRankedSession)
 	{
 		return PS->RankedShowdownMatchesPlayed;
 	}
@@ -1000,21 +1002,21 @@ uint8 AUTShowdownGame::GetNumMatchesFor(AUTPlayerState* PS, bool bRankedSession)
 	return PS ? PS->ShowdownMatchesPlayed : 0;
 }
 
-int32 AUTShowdownGame::GetEloFor(AUTPlayerState* PS, bool bRankedSession) const
+int32 AUTShowdownGame::GetEloFor(AUTPlayerState* PS, bool InbRankedSession) const
 {
-	if (PS && bRankedSession)
+	if (PS && InbRankedSession)
 	{
 		return PS->RankedShowdownRank;
 	}
 
-	return PS ? PS->ShowdownRank : Super::GetEloFor(PS, bRankedSession);
+	return PS ? PS->ShowdownRank : Super::GetEloFor(PS, InbRankedSession);
 }
 
-void AUTShowdownGame::SetEloFor(AUTPlayerState* PS, bool bRankedSession, int32 NewEloValue, bool bIncrementMatchCount)
+void AUTShowdownGame::SetEloFor(AUTPlayerState* PS, bool InbRankedSession, int32 NewEloValue, bool bIncrementMatchCount)
 {
 	if (PS)
 	{
-		if (bRankedSession)
+		if (InbRankedSession)
 		{
 			PS->RankedShowdownRank = NewEloValue;
 			if (bIncrementMatchCount && (PS->ShowdownMatchesPlayed < 255))
@@ -1037,7 +1039,11 @@ void AUTShowdownGame::SetEloFor(AUTPlayerState* PS, bool bRankedSession, int32 N
 #if !UE_SERVER
 void AUTShowdownGame::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, bool bCreateReadOnly, TArray< TSharedPtr<TAttributePropertyBase> >& ConfigProps, int32 MinimumPlayers)
 {
-	CreateGameURLOptions(ConfigProps);
+	// warning: might have been called by subclass!
+	if (ConfigProps.Num() == 0)
+	{
+		CreateGameURLOptions(ConfigProps);
+	}
 
 	TSharedPtr< TAttributeProperty<int32> > TimeLimitAttr = StaticCastSharedPtr<TAttributeProperty<int32>>(FindGameURLOption(ConfigProps, TEXT("TimeLimit")));
 	TSharedPtr< TAttributeProperty<int32> > GoalScoreAttr = StaticCastSharedPtr<TAttributeProperty<int32>>(FindGameURLOption(ConfigProps, TEXT("GoalScore")));

@@ -4,6 +4,7 @@
 #include "PlainTextLayoutMarshaller.h"
 #include "SlateTextLayout.h"
 #include "SlatePasswordRun.h"
+#include "SlateTextUnderlineLineHighlighter.h"
 
 TSharedRef< FPlainTextLayoutMarshaller > FPlainTextLayoutMarshaller::Create()
 {
@@ -29,9 +30,17 @@ void FPlainTextLayoutMarshaller::SetText(const FString& SourceString, FTextLayou
 	TArray<FTextLayout::FNewLineData> LinesToAdd;
 	LinesToAdd.Reserve(LineRanges.Num());
 
-	const bool bUsePasswordRun = bIsPassword.Get(false);
-	for (const FTextRange& LineRange : LineRanges)
+	TArray<FTextLineHighlight> LineHighlightsToAdd;
+	TSharedPtr<FSlateTextUnderlineLineHighlighter> UnderlineLineHighlighter;
+	if (!DefaultTextStyle.UnderlineBrush.GetResourceName().IsNone())
 	{
+		UnderlineLineHighlighter = FSlateTextUnderlineLineHighlighter::Create(DefaultTextStyle.UnderlineBrush, DefaultTextStyle.Font, DefaultTextStyle.ColorAndOpacity, DefaultTextStyle.ShadowOffset, DefaultTextStyle.ShadowColorAndOpacity);
+	}
+
+	const bool bUsePasswordRun = bIsPassword.Get(false);
+	for (int32 LineIndex = 0; LineIndex < LineRanges.Num(); ++LineIndex)
+	{
+		const FTextRange& LineRange = LineRanges[LineIndex];
 		TSharedRef<FString> LineText = MakeShareable(new FString(SourceString.Mid(LineRange.BeginIndex, LineRange.Len())));
 
 		TArray<TSharedRef<IRun>> Runs;
@@ -44,10 +53,16 @@ void FPlainTextLayoutMarshaller::SetText(const FString& SourceString, FTextLayou
 			Runs.Add(FSlateTextRun::Create(FRunInfo(), LineText, DefaultTextStyle));
 		}
 
+		if (UnderlineLineHighlighter.IsValid())
+		{
+			LineHighlightsToAdd.Add(FTextLineHighlight(LineIndex, FTextRange(0, LineRange.Len()), FSlateTextUnderlineLineHighlighter::DefaultZIndex, UnderlineLineHighlighter.ToSharedRef()));
+		}
+
 		LinesToAdd.Emplace(MoveTemp(LineText), MoveTemp(Runs));
 	}
 
 	TargetTextLayout.AddLines(LinesToAdd);
+	TargetTextLayout.SetLineHighlights(LineHighlightsToAdd);
 }
 
 void FPlainTextLayoutMarshaller::GetText(FString& TargetString, const FTextLayout& SourceTextLayout)

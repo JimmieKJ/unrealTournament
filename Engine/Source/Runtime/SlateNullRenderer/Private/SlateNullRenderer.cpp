@@ -7,8 +7,9 @@ FSlateNullRenderer::FSlateNullRenderer(const TSharedRef<FSlateFontServices>& InS
 {
 }
 
-void FSlateNullRenderer::Initialize()
+bool FSlateNullRenderer::Initialize()
 {
+	return true;
 }
 
 void FSlateNullRenderer::Destroy()

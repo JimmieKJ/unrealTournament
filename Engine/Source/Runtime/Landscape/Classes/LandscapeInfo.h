@@ -6,11 +6,11 @@
 // Forward declarations
 class ALandscapeProxy;
 class ALandscape;
+class ALandscapeStreamingProxy;
 class ULandscapeComponent;
 class ULandscapeLayerInfoObject;
 class UMaterialInstanceConstant;
 struct FLandscapeEditorLayerSettings;
-struct FLandscapeDataInterface;
 
 /** Structure storing Collision for LandscapeComponent Add */
 #if WITH_EDITORONLY_DATA
@@ -83,7 +83,7 @@ struct FLandscapeInfoLayerSettings
 #endif
 };
 
-UCLASS()
+UCLASS(Transient)
 class ULandscapeInfo : public UObject
 {
 	GENERATED_UCLASS_BODY()
@@ -107,16 +107,11 @@ class ULandscapeInfo : public UObject
 	FVector DrawScale;
 	
 #if WITH_EDITORONLY_DATA
-	UPROPERTY(transient)
-	uint32 bIsValid:1;
-
 	UPROPERTY()
 	TArray<FLandscapeInfoLayerSettings> Layers;
 #endif // WITH_EDITORONLY_DATA
 
 public:
-	FLandscapeDataInterface* DataInterface;
-
 	/** Map of the offsets (in component space) to the component. Valid in editor only. */
 	TMap<FIntPoint, ULandscapeComponent*> XYtoComponentMap;
 
@@ -126,33 +121,27 @@ public:
 	TMap<FIntPoint, FLandscapeAddCollision> XYtoAddCollisionMap;
 #endif
 
-	TSet<ALandscapeProxy*> Proxies;
+	UPROPERTY()
+	TSet<ALandscapeStreamingProxy*> Proxies;
 
 private:
 	TSet<ULandscapeComponent*> SelectedComponents;
+
 	TSet<ULandscapeComponent*> SelectedRegionComponents;
 
 public:
-
-	/** True if we're currently editing this landscape */
-	bool bCurrentlyEditing;
-
 	TMap<FIntPoint,float> SelectedRegion;
 
 	//~ Begin UObject Interface.
 	virtual void Serialize(FArchive& Ar) override;
 	virtual void BeginDestroy() override;
-#if WITH_EDITOR
-	virtual void PostEditUndo() override;
 	//~ End UObject Interface
 
+#if WITH_EDITOR
 	// @todo document 
 	// all below.
-	LANDSCAPE_API FLandscapeDataInterface* GetDataInterface();
-
-	LANDSCAPE_API void GetComponentsInRegion(int32 X1, int32 Y1, int32 X2, int32 Y2, TSet<ULandscapeComponent*>& OutComponents) const;
+	LANDSCAPE_API void GetComponentsInRegion(int32 X1, int32 Y1, int32 X2, int32 Y2, TSet<ULandscapeComponent*>& OutComponents, bool bOverlap = true) const;
 	LANDSCAPE_API bool GetLandscapeExtent(int32& MinX, int32& MinY, int32& MaxX, int32& MaxY) const;
-	LANDSCAPE_API void Export(const TArray<ULandscapeLayerInfoObject*>& LayerInfos, const TArray<FString>& Filenames);
 	LANDSCAPE_API void ExportHeightmap(const FString& Filename);
 	LANDSCAPE_API void ExportLayer(ULandscapeLayerInfoObject* LayerInfo, const FString& Filename);
 	LANDSCAPE_API bool ApplySplines(bool bOnlySelected);
@@ -238,10 +227,6 @@ public:
 	 */
 	LANDSCAPE_API void FixupProxiesTransform();
 	
-	/** Fix up component layers, weightmaps for all registered proxies
-	 */
-	LANDSCAPE_API void FixupProxiesWeightmaps();
-
 	// Update per-component layer whitelists to include the currently painted layers
 	LANDSCAPE_API void UpdateComponentLayerWhitelist();
 

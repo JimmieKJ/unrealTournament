@@ -13,31 +13,49 @@ void FScriptInstrumentedEvent::SetData(EScriptInstrumentation::Type InEventType,
 	Time = FPlatformTime::Seconds();
 }
 
+FName FScriptInstrumentedEvent::GetScopedFunctionName() const
+{
+	return FName(*FString::Printf(TEXT("%s::%s"), *FunctionClassScopeName.ToString(), *FunctionName.ToString()));
+}
+
 //////////////////////////////////////////////////////////////////////////
 // FInstrumentationCaptureContext
 
-void FInstrumentationCaptureContext::UpdateContext(const UObject* InContextObject, TArray<FScriptInstrumentedEvent>& InstrumentationQueue)
+void FInstrumentationCaptureContext::UpdateContext(const FScriptInstrumentationSignal& InstrumentSignal, TArray<FScriptInstrumentedEvent>& InstrumentationQueue)
 {
 	// Handle instance context switch
-	if (ContextObject != InContextObject && InContextObject)
+	if (const UObject* NewContextObject = InstrumentSignal.GetContextObject())
 	{
-		// Handle class context switch
-		if (const UClass* NewClass = InContextObject->GetClass())
+		if (NewContextObject != ContextObject)
 		{
-			if (NewClass != ContextClass)
+			// Handle class context switch
+			if (const UClass* NewClass = InstrumentSignal.GetClass())
 			{
-				InstrumentationQueue.Add(FScriptInstrumentedEvent(EScriptInstrumentation::Class, NewClass->GetPathName()));
-				ContextClass = NewClass;
+				if (NewClass != ContextClass)
+				{
+					InstrumentationQueue.Add(FScriptInstrumentedEvent(EScriptInstrumentation::Class, InstrumentSignal.GetFunctionClassScope()->GetFName(), NewClass->GetPathName()));
+					ContextClass = NewClass;
+				}
+			}
+			// Handle instance change
+			InstrumentationQueue.Add(FScriptInstrumentedEvent(EScriptInstrumentation::Instance, ContextClass->GetFName(), NewContextObject->GetPathName()));
+			ContextObject = NewContextObject;
+		}
+		else
+		{
+			// Handle function class scope changes
+			if (ContextFunctionClassScope != InstrumentSignal.GetFunctionClassScope())
+			{
+				ContextFunctionClassScope = InstrumentSignal.GetFunctionClassScope();
+				InstrumentationQueue.Add(FScriptInstrumentedEvent(EScriptInstrumentation::ClassScope, ContextFunctionClassScope->GetFName(), InstrumentSignal.GetFunctionName()));
 			}
 		}
-		// Handle instance change
-		InstrumentationQueue.Add(FScriptInstrumentedEvent(EScriptInstrumentation::Instance, InContextObject->GetPathName()));
-		ContextObject = InContextObject;
 	}
 }
 
 void FInstrumentationCaptureContext::ResetContext()
 {
 	ContextClass.Reset();
+	ContextFunctionClassScope.Reset();
 	ContextObject.Reset();
 }

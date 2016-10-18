@@ -75,8 +75,11 @@
 #include "Particles/ParticleSystemComponent.h"
 #include "Distributions/DistributionFloatUniformCurve.h"
 #include "Engine/InterpCurveEdSetup.h"
+#include "Engine/RendererSettings.h"
 #include "Distributions/DistributionFloatConstantCurve.h"
 #include "Components/PointLightComponent.h"
+#include "DerivedDataCacheInterface.h"
+#include "RenderingObjectVersion.h"
 
 /*-----------------------------------------------------------------------------
 	Abstract base modules used for categorization.
@@ -314,9 +317,9 @@ void UParticleModule::AutoPopulateInstanceProperties(UParticleSystemComponent* P
 			{
 				ParamType = PSPT_Scalar;
 				ParamName = DistFloatParam->ParameterName;
+				
 			}
-			else 
-			if (DistVectorParam != NULL)
+			else if (DistVectorParam != NULL)
 			{
 				ParamType = PSPT_Vector;
 				ParamName = DistVectorParam->ParameterName;
@@ -342,6 +345,18 @@ void UParticleModule::AutoPopulateInstanceProperties(UParticleSystemComponent* P
 					PSysComp->InstanceParameters[NewParamIndex].Name		= ParamName;
 					PSysComp->InstanceParameters[NewParamIndex].ParamType	= ParamType;
 					PSysComp->InstanceParameters[NewParamIndex].Actor		= NULL;
+					// Populate a Vector or Scalar using GetValue. (If we just call GetValue with no parameters we will get the default value based on the setting of the Parameter)
+					switch (ParamType)
+					{
+					case PSPT_Vector:
+						PSysComp->InstanceParameters[NewParamIndex].Vector = DistVectorParam->GetValue();
+						PSysComp->InstanceParameters[NewParamIndex].Vector_Low = DistVectorParam->MinOutput;
+						break;
+					case PSPT_Scalar:
+						PSysComp->InstanceParameters[NewParamIndex].Scalar = DistFloatParam->GetValue();
+						PSysComp->InstanceParameters[NewParamIndex].Scalar_Low = DistFloatParam->MinOutput;
+						break;
+					}
 				}
 			}
 		}
@@ -1037,6 +1052,8 @@ UParticleModuleRequired::UParticleModuleRequired(const FObjectInitializer& Objec
 	NormalsCylinderDirection = FVector(0.0f, 0.0f, 1.0f);
 	bUseLegacyEmitterTime = true;
 	UVFlippingMode = EParticleUVFlipMode::None;
+	BoundingMode = BVC_EightVertices;
+	AlphaThreshold = 0.1f;
 }
 
 void UParticleModuleRequired::InitializeDefaults()
@@ -1050,25 +1067,63 @@ void UParticleModuleRequired::InitializeDefaults()
 void UParticleModuleRequired::PostInitProperties()
 {
 	Super::PostInitProperties();
+
+	if (!HasAnyFlags(RF_ClassDefaultObject))
+	{
+		BoundingGeometryBuffer = new FSubUVBoundingGeometryBuffer(&DerivedData.BoundingGeometry);
+	}
+
 	if (!HasAnyFlags(RF_ClassDefaultObject | RF_NeedLoad))
 	{
-		InitializeDefaults();
+		InitializeDefaults();		
+	}
+}
+
+void UParticleModuleRequired::Serialize(FArchive& Ar)
+{
+	Super::Serialize(Ar);
+
+	Ar.UsingCustomVersion(FRenderingObjectVersion::GUID);
+	if (Ar.CustomVer(FRenderingObjectVersion::GUID) >= FRenderingObjectVersion::MovedParticleCutoutsToRequiredModule)
+	{
+		bool bCooked = Ar.IsCooking();
+
+		// Save a bool indicating whether this is cooked data
+		// This is needed when loading cooked data, to know to serialize differently
+		Ar << bCooked;
+
+		if (FPlatformProperties::RequiresCookedData() && !bCooked && Ar.IsLoading())
+		{
+			UE_LOG(LogParticles, Fatal, TEXT("This platform requires cooked packages, and this SubUV animation does not contain cooked data %s."), *GetName());
+		}
+
+		if (bCooked)
+		{
+			DerivedData.Serialize(Ar);
+		}
 	}
 }
 
 #if WITH_EDITOR
+void UParticleModuleRequired::PreEditChange(UProperty* PropertyThatChanged)
+{
+	Super::PreEditChange(PropertyThatChanged);
+
+	// Particle rendering is reading from this UObject's properties directly, wait until all queued commands are done
+	FlushRenderingCommands();
+}
+
 void UParticleModuleRequired::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
 	InitializeDefaults();
 
-	if (SubImages_Horizontal < 1)
-	{
-		SubImages_Horizontal = 1;
-	}
-	if (SubImages_Vertical < 1)
-	{
-		SubImages_Vertical = 1;
-	}
+	SubImages_Horizontal = FMath::Max(SubImages_Horizontal, 1);
+	SubImages_Vertical = FMath::Max(SubImages_Vertical, 1);
+
+	BeginReleaseResource(BoundingGeometryBuffer);
+
+	// Wait until unregister commands are processed on the RT
+	FlushRenderingCommands();
 
 	UProperty* PropertyThatChanged = PropertyChangedEvent.Property;
 	if (PropertyThatChanged)
@@ -1084,6 +1139,16 @@ void UParticleModuleRequired::PostEditChangeProperty(FPropertyChangedEvent& Prop
 				bUseMaxDrawCount = false;
 			}
 		}
+		else if (AlphaThreshold > 0 && PropertyThatChanged->GetFName() == FName(TEXT("Material")))
+		{
+			GetDefaultCutout();
+		}
+	}
+
+	if (CutoutTexture)
+	{
+		CacheDerivedData();
+		InitBoundingGeometryBuffer();
 	}
 
 	Super::PostEditChangeProperty(PropertyChangedEvent);
@@ -1120,14 +1185,44 @@ void UParticleModuleRequired::PostLoad()
 {
 	Super::PostLoad();
 
-	if (SubImages_Horizontal < 1)
+	SubImages_Horizontal = FMath::Max(SubImages_Horizontal, 1);
+	SubImages_Vertical = FMath::Max(SubImages_Vertical, 1);
+
+	if (!FPlatformProperties::RequiresCookedData())
 	{
-		SubImages_Horizontal = 1;
+		if (CutoutTexture)
+		{
+			CutoutTexture->ConditionalPostLoad();
+			CacheDerivedData();
+		}	
 	}
-	if (SubImages_Vertical < 1)
+
+	InitBoundingGeometryBuffer();
+}
+
+void UParticleModuleRequired::BeginDestroy()
+{
+	Super::BeginDestroy();
+
+	if (BoundingGeometryBuffer)
 	{
-		SubImages_Vertical = 1;
+		BeginReleaseResource(BoundingGeometryBuffer);
+		ReleaseFence.BeginFence();
 	}
+}
+
+bool UParticleModuleRequired::IsReadyForFinishDestroy()
+{
+	bool bReady = Super::IsReadyForFinishDestroy();
+
+	return bReady && ReleaseFence.IsFenceComplete();
+}
+
+void UParticleModuleRequired::FinishDestroy()
+{
+	delete BoundingGeometryBuffer;
+
+	Super::FinishDestroy();
 }
 
 void UParticleModuleRequired::SetToSensibleDefaults(UParticleEmitter* Owner)
@@ -1167,6 +1262,69 @@ bool UParticleModuleRequired::GenerateLODModuleValues(UParticleModule* SourceMod
 	//EmitterEditorColor
 
 	return bResult;
+}
+
+void UParticleModuleRequired::CacheDerivedData()
+{
+#if WITH_EDITORONLY_DATA
+	const FString KeyString = FSubUVDerivedData::GetDDCKeyString(CutoutTexture->Source.GetId(), SubImages_Horizontal, SubImages_Vertical, (int32)BoundingMode, AlphaThreshold, (int32)OpacitySourceMode);
+	TArray<uint8> Data;
+
+	COOK_STAT(auto Timer = SubUVAnimationCookStats::UsageStats.TimeSyncWork());
+	if (GetDerivedDataCacheRef().GetSynchronous(*KeyString, Data))
+	{
+		COOK_STAT(Timer.AddHit(Data.Num()));
+		DerivedData.BoundingGeometry.Empty(Data.Num() / sizeof(FVector2D));
+		DerivedData.BoundingGeometry.AddUninitialized(Data.Num() / sizeof(FVector2D));
+		FPlatformMemory::Memcpy(DerivedData.BoundingGeometry.GetData(), Data.GetData(), Data.Num() * Data.GetTypeSize());
+	}
+	else
+	{
+		DerivedData.Build(CutoutTexture, SubImages_Horizontal, SubImages_Vertical, BoundingMode, AlphaThreshold, OpacitySourceMode);
+
+		Data.Empty(DerivedData.BoundingGeometry.Num() * sizeof(FVector2D));
+		Data.AddUninitialized(DerivedData.BoundingGeometry.Num() * sizeof(FVector2D));
+		FPlatformMemory::Memcpy(Data.GetData(), DerivedData.BoundingGeometry.GetData(), DerivedData.BoundingGeometry.Num() * DerivedData.BoundingGeometry.GetTypeSize());
+		GetDerivedDataCacheRef().Put(*KeyString, Data);
+		COOK_STAT(Timer.AddMiss(Data.Num()));
+	}
+#endif
+}
+
+void UParticleModuleRequired::InitBoundingGeometryBuffer()
+{
+	// The SRV is only needed for platforms that can render particles with instancing
+	if (GRHISupportsInstancing && BoundingGeometryBuffer->Vertices->Num())
+	{
+		BeginInitResource(BoundingGeometryBuffer);
+	}
+}
+
+void UParticleModuleRequired::GetDefaultCutout()
+{
+#if WITH_EDITOR
+	if (Material && GetDefault<URendererSettings>()->bDefaultParticleCutouts)
+	{
+		// Try to find an opacity mask texture to default to, if not try to find an opacity texture
+		TArray<UTexture*> OpacityMaskTextures;
+		Material->GetTexturesInPropertyChain(EMaterialProperty::MP_OpacityMask, OpacityMaskTextures, nullptr, nullptr);
+
+		if (OpacityMaskTextures.Num())
+		{
+			CutoutTexture = (UTexture2D*)OpacityMaskTextures[0];
+		}
+		else
+		{
+			TArray<UTexture*> OpacityTextures;
+			Material->GetTexturesInPropertyChain(EMaterialProperty::MP_Opacity, OpacityTextures, nullptr, nullptr);
+
+			if (OpacityTextures.Num())
+			{
+				CutoutTexture = (UTexture2D*)OpacityTextures[0];
+			}
+		}
+	}
+#endif
 }
 
 /*-----------------------------------------------------------------------------
@@ -1864,6 +2022,16 @@ void UParticleModuleSubUV::InitializeDefaults()
 	{
 		SubImageIndex.Distribution = NewObject<UDistributionFloatConstant>(this, TEXT("DistributionSubImage"));
 	}
+}
+
+void UParticleModuleSubUV::PostLoad()
+{
+	Super::PostLoad();
+
+	if (Animation)
+	{
+		Animation->ConditionalPostLoad();
+	}	
 }
 
 void UParticleModuleSubUV::PostInitProperties()
@@ -2901,24 +3069,35 @@ bool UParticleModuleLight::CanTickInAnyThread()
 	return !bHighQualityLights && BrightnessOverLife.OkForParallel() && ColorScaleOverLife.OkForParallel() && RadiusScale.OkForParallel() && LightExponent.OkForParallel();
 }
 
+static TAutoConsoleVariable<int32> CVarParticleLightQuality(
+	TEXT("r.ParticleLightQuality"),
+	2,
+	TEXT("0: No lights. 1:Only simple lights. 2:Simple+HQ lights"),
+	ECVF_Scalability
+	);
+
 void UParticleModuleLight::SpawnEx(FParticleEmitterInstance* Owner, int32 Offset, float SpawnTime, struct FRandomStream* InRandomStream, FBaseParticle* ParticleBase)
 {
-	SPAWN_INIT;
-	PARTICLE_ELEMENT(FLightParticlePayload, LightData);
-	const float Brightness = BrightnessOverLife.GetValue(Particle.RelativeTime, Owner->Component, InRandomStream);
-	LightData.ColorScale = ColorScaleOverLife.GetValue(Particle.RelativeTime, Owner->Component, 0, InRandomStream) * Brightness;
-	LightData.RadiusScale = RadiusScale.GetValue(Owner->EmitterTime, Owner->Component, InRandomStream);
-	// Exponent of 0 is interpreted by renderer as inverse squared falloff
-	LightData.LightExponent = bUseInverseSquaredFalloff ? 0 : LightExponent.GetValue(Owner->EmitterTime, Owner->Component, InRandomStream);
-	const float RandomNumber = InRandomStream ? InRandomStream->GetFraction() : FMath::SRand();
-	LightData.bValid = RandomNumber < SpawnFraction;
-	LightData.bAffectsTranslucency = bAffectsTranslucency;
-	LightData.bHighQuality = bHighQualityLights;
-	LightData.LightId = 0;
+	int32 ParticleLightQuality = CVarParticleLightQuality.GetValueOnAnyThread();
+	if (ParticleLightQuality > 0)
+	{
+		SPAWN_INIT;
+		PARTICLE_ELEMENT(FLightParticlePayload, LightData);
+		const float Brightness = BrightnessOverLife.GetValue(Particle.RelativeTime, Owner->Component, InRandomStream);
+		LightData.ColorScale = ColorScaleOverLife.GetValue(Particle.RelativeTime, Owner->Component, 0, InRandomStream) * Brightness;
+		LightData.RadiusScale = RadiusScale.GetValue(Owner->EmitterTime, Owner->Component, InRandomStream);
+		// Exponent of 0 is interpreted by renderer as inverse squared falloff
+		LightData.LightExponent = bUseInverseSquaredFalloff ? 0 : LightExponent.GetValue(Owner->EmitterTime, Owner->Component, InRandomStream);
+		const float RandomNumber = InRandomStream ? InRandomStream->GetFraction() : FMath::SRand();
+		LightData.bValid = RandomNumber < SpawnFraction;
+		LightData.bAffectsTranslucency = bAffectsTranslucency;
+		LightData.bHighQuality = bHighQualityLights;
+		LightData.LightId = 0;
 
-	if (bHighQualityLights)
-	{		
-		LightData.LightId = SpawnHQLight(LightData, Particle, Owner);
+		if (bHighQualityLights && ParticleLightQuality > 1)
+		{		
+			LightData.LightId = SpawnHQLight(LightData, Particle, Owner);
+		}
 	}
 }
 
@@ -2949,7 +3128,7 @@ uint64 UParticleModuleLight::SpawnHQLight(const FLightParticlePayload& Payload, 
 		USceneComponent* RootComponent = HQLightContainer->GetRootComponent();
 		if (RootComponent)
 		{
-			PointLightComponent->AttachTo(RootComponent, NAME_None, EAttachLocation::KeepRelativeOffset);
+			PointLightComponent->SetupAttachment(RootComponent);
 		}			
 		PointLightComponent->CreationMethod = EComponentCreationMethod::UserConstructionScript;
 		PointLightComponent->RegisterComponent();
@@ -3215,6 +3394,23 @@ FParticleEmitterInstance* UParticleModuleTypeDataBase::CreateInstance(UParticleE
 /*-----------------------------------------------------------------------------
 	UParticleModuleTypeDataMesh implementation.
 -----------------------------------------------------------------------------*/
+static TAutoConsoleVariable<int32> CVarMinDetailModeForMeshParticleMotionBlur(
+	TEXT("r.MeshParticle.MinDetailModeForMotionBlur"),
+	-1,
+	TEXT("Sets the minimum detail mode before mesh particles emit motion blur (Low  = 0, Med = 1, High = 2, Max = 3). ")
+	TEXT("Set to -1 to disable mesh particles motion blur entirely. Defaults to -1.")
+	);
+
+int32 UParticleModuleTypeDataMesh::GetCurrentDetailMode()
+{
+	return GetCachedScalabilityCVars().DetailMode;
+}
+
+int32 UParticleModuleTypeDataMesh::GetMeshParticleMotionBlurMinDetailMode()
+{
+	return CVarMinDetailModeForMeshParticleMotionBlur.GetValueOnGameThread();
+}
+
 UParticleModuleTypeDataMesh::UParticleModuleTypeDataMesh(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
@@ -3274,6 +3470,16 @@ void UParticleModuleTypeDataMesh::CreateDistribution()
 	}
 }
 
+
+void UParticleModuleTypeDataMesh::PostLoad()
+{
+	Super::PostLoad();
+
+	if (Mesh != nullptr)
+	{
+		Mesh->ConditionalPostLoad();
+	}
+}
 
 
 #if WITH_EDITOR
@@ -4371,7 +4577,7 @@ void UParticleModuleTypeDataGpu::BeginDestroy()
 
 void UParticleModuleTypeDataGpu::Build( FParticleEmitterBuildInfo& EmitterBuildInfo )
 {
-//#if WITH_EDITOR
+#if WITH_EDITOR
 	FVector4Distribution Curve;
 	FComposableFloatDistribution ZeroDistribution;
 	FComposableFloatDistribution OneDistribution;
@@ -4596,7 +4802,7 @@ void UParticleModuleTypeDataGpu::Build( FParticleEmitterBuildInfo& EmitterBuildI
 	EmitterInfo.LocalVectorField.bTileX = EmitterBuildInfo.bLocalVectorFieldTileX;
 	EmitterInfo.LocalVectorField.bTileY = EmitterBuildInfo.bLocalVectorFieldTileY;
 	EmitterInfo.LocalVectorField.bTileZ = EmitterBuildInfo.bLocalVectorFieldTileZ;
-
+	EmitterInfo.LocalVectorField.bUseFixDT = EmitterBuildInfo.bLocalVectorFieldUseFixDT;
 
 	// Vector field scales.
 	FComposableFloatDistribution NormalizedVectorFieldScale(EmitterBuildInfo.VectorFieldScale);
@@ -4666,7 +4872,7 @@ void UParticleModuleTypeDataGpu::Build( FParticleEmitterBuildInfo& EmitterBuildI
 	// Collision flag.
 	EmitterInfo.bEnableCollision = EmitterBuildInfo.bEnableCollision;
 	EmitterInfo.CollisionMode = (EParticleCollisionMode::Type)EmitterBuildInfo.CollisionMode;
-//#endif
+#endif
 
 
 	// Create or update GPU resources.

@@ -39,16 +39,16 @@ TSharedRef<SWidget> UMenuAnchor::RebuildWidget()
 	return BuildDesignTimeWidget( MyMenuAnchor.ToSharedRef() );
 }
 
-void UMenuAnchor::OnSlotAdded(UPanelSlot* Slot)
+void UMenuAnchor::OnSlotAdded(UPanelSlot* InSlot)
 {
 	// Add the child to the live slot if it already exists
 	if ( MyMenuAnchor.IsValid() )
 	{
-		MyMenuAnchor->SetContent(Slot->Content ? Slot->Content->TakeWidget() : SNullWidget::NullWidget);
+		MyMenuAnchor->SetContent(InSlot->Content ? InSlot->Content->TakeWidget() : SNullWidget::NullWidget);
 	}
 }
 
-void UMenuAnchor::OnSlotRemoved(UPanelSlot* Slot)
+void UMenuAnchor::OnSlotRemoved(UPanelSlot* InSlot)
 {
 	// Remove the widget from the live slot if it exists.
 	if ( MyMenuAnchor.IsValid() )

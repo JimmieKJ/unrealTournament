@@ -14,9 +14,22 @@ FCulturePtr FCulture::Create(const FString& LocaleName)
 	return MakeShareable(new FCulture(LocaleName));
 }
 #else
-FCulturePtr FCulture::Create(const FText& InDisplayName, const FString& InEnglishName, const int InKeyboardLayoutId, const int InLCID, const FString& InName, const FString& InNativeName, const FString& InUnrealLegacyThreeLetterISOLanguageName, const FString& InThreeLetterISOLanguageName, const FString& InTwoLetterISOLanguageName, const FNumberFormattingRules& InNumberFormattingRule, const FTextFormattingRules& InTextFormattingRule, const FDateTimeFormattingRules& InDateTimeFormattingRule)
+FCulturePtr FCulture::Create(
+	const FText& InDisplayName, 
+	const FString& InEnglishName, 
+	const int InKeyboardLayoutId, 
+	const int InLCID, 
+	const FString& InName, 
+	const FString& InNativeName, 
+	const FString& InUnrealLegacyThreeLetterISOLanguageName, 
+	const FString& InThreeLetterISOLanguageName, 
+	const FString& InTwoLetterISOLanguageName,
+	const FDecimalNumberFormattingRules& InDecimalNumberFormattingRules,
+	const FDecimalNumberFormattingRules& InPercentFormattingRules,
+	const FDecimalNumberFormattingRules& InBaseCurrencyFormattingRules
+	)
 {
-	return MakeShareable(new FCulture(InDisplayName, InEnglishName, InKeyboardLayoutId, InLCID, InName, InNativeName, InUnrealLegacyThreeLetterISOLanguageName, InThreeLetterISOLanguageName, InTwoLetterISOLanguageName, InNumberFormattingRule, InTextFormattingRule, InDateTimeFormattingRule));
+	return MakeShareable(new FCulture(InDisplayName, InEnglishName, InKeyboardLayoutId, InLCID, InName, InNativeName, InUnrealLegacyThreeLetterISOLanguageName, InThreeLetterISOLanguageName, InTwoLetterISOLanguageName, InDecimalNumberFormattingRules, InPercentFormattingRules, InBaseCurrencyFormattingRules));
 }
 #endif
 
@@ -24,11 +37,21 @@ FCulturePtr FCulture::Create(const FText& InDisplayName, const FString& InEnglis
 FCulture::FCulture(const FString& LocaleName)
 	: Implementation( new FICUCultureImplementation( LocaleName ) )
 #else
-FCulture::FCulture(const FText& InDisplayName, const FString& InEnglishName, const int InKeyboardLayoutId, const int InLCID, const FString& InName, const FString& InNativeName, const FString& InUnrealLegacyThreeLetterISOLanguageName, const FString& InThreeLetterISOLanguageName, const FString& InTwoLetterISOLanguageName, const FNumberFormattingRules& InNumberFormattingRule, const FTextFormattingRules& InTextFormattingRule, const FDateTimeFormattingRules& InDateTimeFormattingRule) 
-	: Implementation( new FLegacyCultureImplementation(InDisplayName, InEnglishName, InKeyboardLayoutId, InLCID, InName, InNativeName, InUnrealLegacyThreeLetterISOLanguageName, InThreeLetterISOLanguageName, InTwoLetterISOLanguageName) )
-	, DateTimeFormattingRule(InDateTimeFormattingRule)
-	, TextFormattingRule(InTextFormattingRule)
-	, NumberFormattingRule(InNumberFormattingRule)
+FCulture::FCulture(
+	const FText& InDisplayName, 
+	const FString& InEnglishName, 
+	const int InKeyboardLayoutId, 
+	const int InLCID, 
+	const FString& InName, 
+	const FString& InNativeName, 
+	const FString& InUnrealLegacyThreeLetterISOLanguageName, 
+	const FString& InThreeLetterISOLanguageName, 
+	const FString& InTwoLetterISOLanguageName,
+	const FDecimalNumberFormattingRules& InDecimalNumberFormattingRules,
+	const FDecimalNumberFormattingRules& InPercentFormattingRules,
+	const FDecimalNumberFormattingRules& InBaseCurrencyFormattingRules
+	) 
+	: Implementation( new FLegacyCultureImplementation(InDisplayName, InEnglishName, InKeyboardLayoutId, InLCID, InName, InNativeName, InUnrealLegacyThreeLetterISOLanguageName, InThreeLetterISOLanguageName, InTwoLetterISOLanguageName, InDecimalNumberFormattingRules, InPercentFormattingRules, InBaseCurrencyFormattingRules) )
 #endif
 	, CachedDisplayName(Implementation->GetDisplayName())
 	, CachedEnglishName(Implementation->GetEnglishName())
@@ -147,6 +170,57 @@ const FString& FCulture::GetScript() const
 const FString& FCulture::GetVariant() const
 {
 	return CachedVariant;
+}
+
+const FDecimalNumberFormattingRules& FCulture::GetDecimalNumberFormattingRules() const
+{
+	return Implementation->GetDecimalNumberFormattingRules();
+}
+
+const FDecimalNumberFormattingRules& FCulture::GetPercentFormattingRules() const
+{
+	return Implementation->GetPercentFormattingRules();
+}
+
+const FDecimalNumberFormattingRules& FCulture::GetCurrencyFormattingRules(const FString& InCurrencyCode) const
+{
+	return Implementation->GetCurrencyFormattingRules(InCurrencyCode);
+}
+
+/**
+ * Get the correct plural form to use for the given number
+ * ICU only supports int32 and double, so we cast larger int values to double to try and keep as much precision as possible
+ */
+
+#define DEF_GETPLURALFORM_CAST(T1, T2) ETextPluralForm FCulture::GetPluralForm(T1 Val, const ETextPluralType PluralType) const { return GetPluralForm((T2)Val, PluralType); }
+DEF_GETPLURALFORM_CAST(float, double)
+DEF_GETPLURALFORM_CAST(int8, int32)
+DEF_GETPLURALFORM_CAST(int16, int32)
+DEF_GETPLURALFORM_CAST(int64, double)
+DEF_GETPLURALFORM_CAST(uint8, int32)
+DEF_GETPLURALFORM_CAST(uint16, int32)
+DEF_GETPLURALFORM_CAST(uint32, double)
+DEF_GETPLURALFORM_CAST(uint64, double)
+#undef DEF_GETPLURALFORM_CAST
+
+ETextPluralForm FCulture::GetPluralForm(int32 Val, const ETextPluralType PluralType) const
+{
+	if (Val < 0)
+	{
+		// Must be positive
+		Val *= -1;
+	}
+	return Implementation->GetPluralForm(Val, PluralType);
+}
+
+ETextPluralForm FCulture::GetPluralForm(double Val, const ETextPluralType PluralType) const
+{
+	if (FMath::IsNegativeDouble(Val))
+	{
+		// Must be positive
+		Val *= -1.0;
+	}
+	return Implementation->GetPluralForm(Val, PluralType);
 }
 
 void FCulture::HandleCultureChanged()

@@ -300,7 +300,7 @@ protected:
 
 	static FBox CalculateQuatACF96Bounds(const FQuat* Points, int32 NumPoints)
 	{
-		FBox Results;
+		FBox Results(ForceInitToZero);
 
 		for (int32 i = 0; i < NumPoints; ++i)
 		{
@@ -982,6 +982,7 @@ UAnimCompress_PerTrackCompression::UAnimCompress_PerTrackCompression(const FObje
 	AllowedScaleFormats.Add(ACF_Fixed48NoW);
 }
 
+#if WITH_EDITOR
 void UAnimCompress_PerTrackCompression::CompressUsingUnderlyingCompressor(
 	UAnimSequence* AnimSeq, 
 	const TArray<FBoneData>& BoneData, 
@@ -1537,3 +1538,45 @@ void UAnimCompress_PerTrackCompression::DoReduction(UAnimSequence* AnimSeq, cons
 		PerReductionCachedData = NULL;
 	}
 }
+
+void WriteEnumArrayToKey(FArchive& Ar, TArray<TEnumAsByte<enum AnimationCompressionFormat> >& EnumArray)
+{
+	for (TEnumAsByte<enum AnimationCompressionFormat>& EnumVal : EnumArray)
+	{
+		uint8 Val = EnumVal.GetValue();
+		Ar << Val;
+	}
+}
+void UAnimCompress_PerTrackCompression::PopulateDDCKey(FArchive& Ar)
+{
+	Super::PopulateDDCKey(Ar);
+
+	Ar << MaxZeroingThreshold;
+	Ar << MaxPosDiffBitwise;
+	Ar << MaxAngleDiffBitwise;
+	Ar << MaxScaleDiffBitwise;
+	
+	WriteEnumArrayToKey(Ar, AllowedRotationFormats);
+	WriteEnumArrayToKey(Ar, AllowedTranslationFormats);
+	WriteEnumArrayToKey(Ar, AllowedScaleFormats);
+	
+	Ar << ResampledFramerate;
+	Ar << MinKeysForResampling;
+	Ar << TrackHeightBias;
+	Ar << ParentingDivisor;
+	Ar << ParentingDivisorExponent;
+	Ar << RotationErrorSourceRatio;
+
+	Ar << TranslationErrorSourceRatio;
+	Ar << ScaleErrorSourceRatio;
+	Ar << MaxErrorPerTrackRatio;
+	Ar << PerturbationProbeSize;
+
+
+	uint8 Flags =	MakeBitForFlag(bResampleAnimation, 0) +
+					MakeBitForFlag(bUseAdaptiveError, 1) +
+					MakeBitForFlag(bUseOverrideForEndEffectors, 2) +
+					MakeBitForFlag(bUseAdaptiveError2, 3);
+	Ar << Flags;
+}
+#endif // WITH_EDITOR

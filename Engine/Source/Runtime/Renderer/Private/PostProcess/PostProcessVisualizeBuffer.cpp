@@ -27,7 +27,7 @@ class FPostProcessVisualizeBufferPS : public FGlobalShader
 	static void ModifyCompilationEnvironment(EShaderPlatform Platform, FShaderCompilerEnvironment& OutEnvironment)
 	{
 		FGlobalShader::ModifyCompilationEnvironment(Platform, OutEnvironment);
-		OutEnvironment.SetDefine(TEXT("DRAWING_TILE"), bDrawingTile ? TEXT("1") : TEXT("0"));
+		OutEnvironment.SetDefine(TEXT("DRAWING_TILE"), bDrawingTile);
 	}
 
 	/** Default constructor. */
@@ -232,27 +232,7 @@ void FRCPassPostProcessVisualizeBuffer::Process(FRenderingCompositePassContext& 
 
 	// Draw tile labels
 
-	// this is a helper class for FCanvas to be able to get screen size
-	class FRenderTargetTemp : public FRenderTarget
-	{
-	public:
-		const FSceneView& View;
-		const FTexture2DRHIRef Texture;
-
-		FRenderTargetTemp(const FSceneView& InView, const FTexture2DRHIRef InTexture)
-			: View(InView), Texture(InTexture)
-		{
-		}
-		virtual FIntPoint GetSizeXY() const
-		{
-			return View.ViewRect.Size();
-		};
-		virtual const FTexture2DRHIRef& GetRenderTargetTexture() const
-		{
-			return Texture;
-		}
-	} TempRenderTarget(View, (const FTexture2DRHIRef&)DestRenderTarget.TargetableTexture);
-
+	FRenderTargetTemp TempRenderTarget(View, (const FTexture2DRHIRef&)DestRenderTarget.TargetableTexture);
 	FCanvas Canvas(&TempRenderTarget, NULL, ViewFamily.CurrentRealTime, ViewFamily.CurrentWorldTime, ViewFamily.DeltaWorldTime, Context.GetFeatureLevel());
 	FLinearColor LabelColor(1, 1, 0);
 	for (auto It = Labels.CreateConstIterator(); It; ++It)

@@ -58,14 +58,9 @@ typedef FWindowsPlatformTypes FPlatformTypes;
 #define PLATFORM_USES_MICROSOFT_LIBC_FUNCTIONS				1
 #define PLATFORM_SUPPORTS_TBB								1
 #define PLATFORM_SUPPORTS_NAMED_PIPES						1
-#if 0 //@todo: VS2015 supports defaulted functions but we have errors in some of our classes we need to fix up before we can enable it
-	#define PLATFORM_COMPILER_HAS_DEFAULTED_FUNCTIONS		1
-#else
+#if _MSC_VER < 1900
 	#define PLATFORM_COMPILER_HAS_DEFAULTED_FUNCTIONS		0
 #endif
-#define PLATFORM_COMPILER_HAS_VARIADIC_TEMPLATES		1
-#define PLATFORM_COMPILER_HAS_EXPLICIT_OPERATORS		1
-#define PLATFORM_COMPILER_HAS_DEFAULT_FUNCTION_TEMPLATE_ARGUMENTS	1
 #define PLATFORM_COMPILER_HAS_TCHAR_WMAIN					1
 
 #define PLATFORM_RHITHREAD_DEFAULT_BYPASS					WITH_EDITOR
@@ -80,24 +75,27 @@ typedef FWindowsPlatformTypes FPlatformTypes;
 #define PLATFORM_USES_ANSI_STRING_FOR_EXTERNAL_PROFILING	0
 
 // Function type macros.
-#define VARARGS     __cdecl														/* Functions with variable arguments */
-#define CDECL	    __cdecl														/* Standard C function */
-#define STDCALL		__stdcall													/* Standard calling convention */
-#define FORCEINLINE __forceinline												/* Force code to be inline */
-#define FORCENOINLINE __declspec(noinline)										/* Force code to NOT be inline */
-#define FUNCTION_CHECK_RETURN(...) __declspec("SAL_checkReturn") __VA_ARGS__	/* Wrap a function signature in this to warn that callers should not ignore the return value. */
+#define VARARGS     __cdecl											/* Functions with variable arguments */
+#define CDECL	    __cdecl											/* Standard C function */
+#define STDCALL		__stdcall										/* Standard calling convention */
+#define FORCEINLINE __forceinline									/* Force code to be inline */
+#define FORCENOINLINE __declspec(noinline)							/* Force code to NOT be inline */
+#define FUNCTION_NO_RETURN_START __declspec(noreturn)				/* Indicate that the function never returns. */
 
 // Hints compiler that expression is true; generally restricted to comparisons against constants
-#if !defined(__clang__)		// Clang doesn't support __assume (Microsoft specific)
+#if !defined(__clang__) || defined(_MSC_VER)	// Clang only supports __assume when using -fms-extensions
 	#define ASSUME(expr) __assume(expr)
 #endif
 
 #define DECLARE_UINT64(x)	x
 
 // Optimization macros (uses __pragma to enable inside a #define).
-#if !defined(__clang__)		// @todo clang: Clang doesn't appear to support optimization pragmas yet
+#if !defined(__clang__)
 	#define PRAGMA_DISABLE_OPTIMIZATION_ACTUAL __pragma(optimize("",off))
 	#define PRAGMA_ENABLE_OPTIMIZATION_ACTUAL  __pragma(optimize("",on))
+#elif defined(_MSC_VER)		// Clang only supports __pragma with -fms-extensions
+	#define PRAGMA_DISABLE_OPTIMIZATION_ACTUAL __pragma(clang optimize off)
+	#define PRAGMA_ENABLE_OPTIMIZATION_ACTUAL  __pragma(clang optimize on)
 #endif
 
 // Backwater of the spec. All compilers support this except microsoft, and they will soon
@@ -107,7 +105,7 @@ typedef FWindowsPlatformTypes FPlatformTypes;
 
 #pragma warning(disable : 4481) // nonstandard extension used: override specifier 'override'
 
-#if defined(__clang__)
+#if defined(__clang__) || _MSC_VER >= 1900
 	#define CONSTEXPR constexpr
 #else
 	#define CONSTEXPR
@@ -122,6 +120,9 @@ typedef FWindowsPlatformTypes FPlatformTypes;
 #if defined(__clang__)
 	#define GCC_PACK(n) __attribute__((packed,aligned(n)))
 	#define GCC_ALIGN(n) __attribute__((aligned(n)))
+	#if defined(_MSC_VER)
+		#define MS_ALIGN(n) __declspec(align(n)) // With -fms-extensions, Clang will accept either alignment attribute
+	#endif
 #else
 	#define MS_ALIGN(n) __declspec(align(n))
 #endif
@@ -142,3 +143,13 @@ typedef FWindowsPlatformTypes FPlatformTypes;
 
 // Include code analysis features
 #include "WindowsPlatformCodeAnalysis.h"
+
+#if USING_CODE_ANALYSIS && _MSC_VER == 1900
+	// Disable this warning as VC2015 Update 1 produces this warning erroneously when placed on variadic templates:
+	//
+	// warning C28216: The checkReturn annotation only applies to postconditions for function 'Func' _Param_(N).
+	#define FUNCTION_CHECK_RETURN_START __pragma(warning(push)) __pragma(warning(disable: 28216)) __declspec("SAL_checkReturn")
+	#define FUNCTION_CHECK_RETURN_END __pragma(warning(pop))
+#else
+	#define FUNCTION_CHECK_RETURN_START __declspec("SAL_checkReturn")	/* Warn that callers should not ignore the return value. */
+#endif

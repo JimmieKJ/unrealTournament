@@ -548,7 +548,7 @@ bool SPropertyBinding::CanRemoveBinding(TSharedRef<IPropertyHandle> PropertyHand
 
 void SPropertyBinding::HandleRemoveBinding(TSharedRef<IPropertyHandle> PropertyHandle)
 {
-	const FScopedTransaction Transaction(LOCTEXT("BindDelegate", "Remove Binding"));
+	const FScopedTransaction Transaction(LOCTEXT("UnbindDelegate", "Remove Binding"));
 
 	Blueprint->Modify();
 

@@ -49,6 +49,17 @@ const ISlateStyle* FSlateStyleRegistry::FindSlateStyle( const FName& InSlateStyl
 	return (SlateStylePtr) ? *SlateStylePtr : nullptr;
 }
 
+bool FSlateStyleRegistry::IterateAllStyles(const TFunctionRef<bool(const ISlateStyle&)>& Iter)
+{
+	for (auto& Pair : SlateStyleRepository)
+	{
+		if (!Iter(*Pair.Value))
+		{
+			return false;
+		}
+	}
+	return true;
+}
 
 void FSlateStyleRegistry::GetAllResources( TArray< const FSlateBrush* >& OutResources )
 {

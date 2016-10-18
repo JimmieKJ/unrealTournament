@@ -195,6 +195,7 @@ FAnimEditAppMode::FAnimEditAppMode(TSharedPtr<FPersona> InPersona)
 					->Split
 					(
 						FTabManager::NewStack()
+						->AddTab(FPersonaTabs::AdvancedPreviewSceneSettingsID, ETabState::OpenedTab)
 						->AddTab( FBlueprintEditorTabs::DetailsID, ETabState::OpenedTab )
 					)
 					->Split

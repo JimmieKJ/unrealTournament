@@ -75,7 +75,7 @@ void ConsoleCommandLibrary_DumpLibrary(UWorld* InWorld, FExec& SubSystem, const 
 	bool bExecuted = SubSystem.Exec( InWorld, *Pattern, Null);
 
 	{
-		IConsoleManager::Get().ForEachConsoleObject(
+		IConsoleManager::Get().ForEachConsoleObjectThatStartsWith(
 			FConsoleObjectVisitor::CreateStatic< TSet<FString>& >(
 			&FConsoleVariableDumpVisitor::OnConsoleVariable,
 			LocalConsoleCommandLibrary.KnownNames ) );
@@ -109,7 +109,7 @@ void ConsoleCommandLibrary_DumpLibraryHTML(UWorld* InWorld, FExec& SubSystem, co
 	bool bExecuted = SubSystem.Exec( InWorld, *LocalConsoleCommandLibrary.Pattern, Null);
 
 	{
-		IConsoleManager::Get().ForEachConsoleObject(
+		IConsoleManager::Get().ForEachConsoleObjectThatStartsWith(
 			FConsoleObjectVisitor::CreateStatic< TSet<FString>& >(
 			&FConsoleVariableDumpVisitor::OnConsoleVariable,
 			LocalConsoleCommandLibrary.KnownNames ) );
@@ -579,7 +579,7 @@ bool FParse::Value( const TCHAR* Stream, const TCHAR* Match, struct FGuid& Guid 
 // skips through the command and blanks past it.  Returns 1 of match,
 // 0 if not.
 //
-bool FParse::Command( const TCHAR** Stream, const TCHAR*  Match, bool bParseMightTriggerExecution )
+bool FParse::Command( const TCHAR** Stream, const TCHAR* Match, bool bParseMightTriggerExecution )
 {
 #if !UE_BUILD_SHIPPING
 	if(GConsoleCommandLibrary)
@@ -594,21 +594,28 @@ bool FParse::Command( const TCHAR** Stream, const TCHAR*  Match, bool bParseMigh
 	}
 #endif // !UE_BUILD_SHIPPING
 
-	while( (**Stream==' ')||(**Stream==9) )
-		(*Stream)++;
-
-	if( FCString::Strnicmp(*Stream,Match,FCString::Strlen(Match))==0 )
+	while (**Stream == TEXT(' ') || **Stream == TEXT('\t'))
 	{
-		*Stream += FCString::Strlen(Match);
+		(*Stream)++;
+	}
+
+	int32 MatchLen = FCString::Strlen(Match);
+	if (FCString::Strnicmp(*Stream, Match, MatchLen) == 0)
+	{
+		*Stream += MatchLen;
 		if( !FChar::IsAlnum(**Stream))
 //		if( !FChar::IsAlnum(**Stream) && (**Stream != '_') && (**Stream != '.'))		// more correct e.g. a cvar called "log.abc" should work but breaks some code so commented out
 		{
-			while ((**Stream==' ')||(**Stream==9)) (*Stream)++;
+			while (**Stream == TEXT(' ') || **Stream == TEXT('\t'))
+			{
+				(*Stream)++;
+			}
+
 			return 1; // Success.
 		}
 		else
 		{
-			*Stream -= FCString::Strlen(Match);
+			*Stream -= MatchLen;
 			return 0; // Only found partial match.
 		}
 	}
@@ -1098,11 +1105,6 @@ bool FParse::Resolution(const TCHAR* InResolution, uint32& OutX, uint32& OutY, i
 				if (WindowFullScreenChars == TEXT("wf"))
 				{
 					WindowMode = EWindowMode::WindowedFullscreen;
-					StringTripLen = 2;
-				}
-				else if (WindowFullScreenChars == TEXT("wm"))
-				{
-					WindowMode = EWindowMode::WindowedMirror;
 					StringTripLen = 2;
 				}
 				else if (FullScreenChar == TEXT("f"))

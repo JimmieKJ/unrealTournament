@@ -114,9 +114,7 @@ static const FPlatformInfo PlatformInfoArray[] = {
 
 	BuildPlatformInfo(TEXT("AllDesktop"),					TEXT("AllDesktop"),			LOCTEXT("DesktopTargetPlatDisplay", "Desktop (Win+Mac+Linux)"),	EPlatformType::Game,	EPlatformFlags::None,			FPlatformIconPaths(TEXT("Launcher/DesktopTarget/Platform_Desktop_24x"), TEXT("Launcher/DesktopTarget/Platform_Desktop_128x")),						TEXT(""),												TEXT(""),			EPlatformSDKStatus::Unknown,	TEXT(""),																							false/*  see SProjectTargetPlatformSettings::Construct !!!! IsAvailableOnWindows || IsAvailableOnMac || IsAvailableOnLinux*/,	TEXT(""), false, true),
 
-	BuildPlatformInfo(TEXT("TVOS"),					TEXT("TVOS"),			LOCTEXT("TVOSTargetPlatDisplay", "AppleTV"),	EPlatformType::Game,	EPlatformFlags::None,			FPlatformIconPaths(TEXT("Launcher/TVOSTarget/Platform_TVOS_24x"), TEXT("Launcher/TVOSTarget/Platform_TVOS_128x")),						TEXT(""),												TEXT(""),			EPlatformSDKStatus::Unknown,	TEXT(""),																							IsAvailableOnWindows || IsAvailableOnMac,	TEXT("TVOS"), false, true),
-	
-	//BuildPlatformInfo(TEXT("WinRT"),					TEXT("WinRT"),				LOCTEXT("WinRT", "Windows RT"),								EPlatformType::Game,		EPlatformFlags::None,			FPlatformIconPaths(TEXT("Launcher/WindowsTarget/Platform_WindowsNoEditor_24x"), TEXT("Launcher/WindowsTarget/Platform_WindowsNoEditor_128x")),		TEXT("")),
+	BuildPlatformInfo(TEXT("TVOS"),					TEXT("TVOS"),			LOCTEXT("TVOSTargetPlatDisplay", "tvOS"),	EPlatformType::Game,	EPlatformFlags::None,			FPlatformIconPaths(TEXT("Launcher/TVOSTarget/Platform_TVOS_24x"), TEXT("Launcher/TVOSTarget/Platform_TVOS_128x")),						TEXT(""),												TEXT(""),			EPlatformSDKStatus::Unknown,	TEXT(""),																							IsAvailableOnWindows || IsAvailableOnMac,	TEXT("TVOS"), false, true),
 };
 
 } // anonymous namespace
@@ -208,6 +206,63 @@ TArray<FVanillaPlatformEntry> BuildPlatformHierarchy(const EPlatformFilter InFil
 	}
 
 	return VanillaPlatforms;
+}
+
+FVanillaPlatformEntry BuildPlatformHierarchy(const FName& InPlatformName, const EPlatformFilter InFilter)
+{
+	FVanillaPlatformEntry VanillaPlatformEntry;
+	const FPlatformInfo* VanillaPlatformInfo = FindVanillaPlatformInfo(InPlatformName);
+	
+	if (VanillaPlatformInfo)
+	{
+		VanillaPlatformEntry.PlatformInfo = VanillaPlatformInfo;
+		
+		for (const FPlatformInfo& PlatformInfo : PlatformInfoArray)
+		{
+			if (!PlatformInfo.IsVanilla() && PlatformInfo.VanillaPlatformName == VanillaPlatformInfo->PlatformInfoName)
+			{
+				const bool bHasBuildFlavor = !!(PlatformInfo.PlatformFlags & EPlatformFlags::BuildFlavor);
+				const bool bHasCookFlavor = !!(PlatformInfo.PlatformFlags & EPlatformFlags::CookFlavor);
+
+				const bool bValidFlavor =
+					InFilter == EPlatformFilter::All ||
+					(InFilter == EPlatformFilter::BuildFlavor && bHasBuildFlavor) ||
+					(InFilter == EPlatformFilter::CookFlavor && bHasCookFlavor);
+
+				if (bValidFlavor)
+				{
+					VanillaPlatformEntry.PlatformFlavors.Add(&PlatformInfo);
+				}
+			}
+		}
+	}
+	
+	return VanillaPlatformEntry;
+}
+
+EPlatformType EPlatformTypeFromString(const FString& PlatformTypeName)
+{
+	if (FCString::Strcmp(*PlatformTypeName, TEXT("Game")) == 0)
+	{
+		return PlatformInfo::EPlatformType::Game;
+	}
+	else if (FCString::Strcmp(*PlatformTypeName, TEXT("Editor")) == 0)
+	{
+		return PlatformInfo::EPlatformType::Editor;
+	}
+	else if (FCString::Strcmp(*PlatformTypeName, TEXT("Client")) == 0)
+	{
+		return PlatformInfo::EPlatformType::Client;
+	}
+	else if (FCString::Strcmp(*PlatformTypeName, TEXT("Server")) == 0)
+	{
+		return PlatformInfo::EPlatformType::Server;
+	}
+	else
+	{
+		UE_LOG(LogDesktopPlatform, Warning, TEXT("Unable to read Platform Type from %s, defaulting to Game"), *PlatformTypeName);
+		return PlatformInfo::EPlatformType::Game;
+	}
 }
 
 } // namespace PlatformFamily

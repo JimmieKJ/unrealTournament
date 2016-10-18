@@ -8,6 +8,8 @@
 class SWindow;
 class FSlateViewportInterface;
 
+DECLARE_MEMORY_STAT_EXTERN(TEXT("Vertex/Index Buffer Pool Memory (CPU)"), STAT_SlateBufferPoolMemory, STATGROUP_SlateMemory, SLATECORE_API );
+
 
 struct FSlateGradientStop
 {
@@ -153,15 +155,10 @@ public:
 		ShapedGlyphSequence = InShapedGlyphSequence;
 	}
 
-	void SetGradientPayloadProperties( const TArray<FSlateGradientStop>& InGradientStops, EOrientation InGradientType, bool bInGammaCorrect )
+	void SetGradientPayloadProperties( const TArray<FSlateGradientStop>& InGradientStops, EOrientation InGradientType )
 	{
 		GradientStops = InGradientStops;
 		GradientType = InGradientType;
-
-		if ( !bInGammaCorrect )
-		{
-			BatchFlags |= ESlateBatchDrawFlag::NoGamma;
-		}
 	}
 
 	void SetSplinePayloadProperties( const FVector2D& InStart, const FVector2D& InStartDir, const FVector2D& InEnd, const FVector2D& InEndDir, float InThickness, const FLinearColor& InTint )
@@ -175,6 +172,17 @@ public:
 		Thickness = InThickness;
 	}
 
+	void SetGradientSplinePayloadProperties( const FVector2D& InStart, const FVector2D& InStartDir, const FVector2D& InEnd, const FVector2D& InEndDir, float InThickness, const TArray<FSlateGradientStop>& InGradientStops )
+	{
+		StartPt = InStart;
+		StartDir = InStartDir;
+		EndPt = InEnd;
+		EndDir = InEndDir;
+		BrushResource = nullptr;
+		Thickness = InThickness;
+		GradientStops = InGradientStops;
+	}
+
 	void SetLinesPayloadProperties( const TArray<FVector2D>& InPoints, const FLinearColor& InTint, bool bInAntialias, ESlateLineJoinType::Type InJoinType, float InThickness )
 	{
 		Tint = InTint;
@@ -184,27 +192,13 @@ public:
 		bAntialias = bInAntialias;
 	}
 
-	void SetViewportPayloadProperties( const TSharedPtr<const ISlateViewport>& InViewport, const FLinearColor& InTint, bool bInGammaCorrect, bool bInAllowBlending )
+	void SetViewportPayloadProperties( const TSharedPtr<const ISlateViewport>& InViewport, const FLinearColor& InTint )
 	{
 		Tint = InTint;
 		ViewportRenderTargetTexture = InViewport->GetViewportRenderTargetTexture();
 		bAllowViewportScaling = InViewport->AllowScaling();
 		bViewportTextureAlphaOnly = InViewport->IsViewportTextureAlphaOnly();
 		bRequiresVSync = InViewport->RequiresVsync();
-
-		if ( !bInGammaCorrect )
-		{
-			BatchFlags |= ESlateBatchDrawFlag::NoGamma;
-		}
-
-		if ( !bInAllowBlending )
-		{
-			BatchFlags |= ESlateBatchDrawFlag::NoBlending;
-		}
-		else
-		{
-			BatchFlags |= ESlateBatchDrawFlag::AlphaCompositing;
-		}
 	}
 
 	void SetCustomDrawerPayloadProperties( const TSharedPtr<ICustomSlateElement, ESPMode::ThreadSafe>& InCustomDrawer )
@@ -376,7 +370,7 @@ public:
 	 * @param InClippingRect           Parts of the element are clipped if it falls outside of this rectangle
 	 * @param InDrawEffects            Optional draw effects to apply
 	 */
-	SLATECORE_API static void MakeGradient( FSlateWindowElementList& ElementList, uint32 InLayer, const FPaintGeometry& PaintGeometry, TArray<FSlateGradientStop> InGradientStops, EOrientation InGradientType, const FSlateRect& InClippingRect, ESlateDrawEffect::Type InDrawEffects = ESlateDrawEffect::None, bool bGammaCorrect = true );
+	SLATECORE_API static void MakeGradient( FSlateWindowElementList& ElementList, uint32 InLayer, const FPaintGeometry& PaintGeometry, TArray<FSlateGradientStop> InGradientStops, EOrientation InGradientType, const FSlateRect& InClippingRect, ESlateDrawEffect::Type InDrawEffects = ESlateDrawEffect::None );
 
 	/**
 	 * Creates a spline element
@@ -396,6 +390,9 @@ public:
 
 	/** Just like MakeSpline but in draw-space coordinates. This is useful for connecting already-transformed widgets together. */
 	SLATECORE_API static void MakeDrawSpaceSpline(FSlateWindowElementList& ElementList, uint32 InLayer, const FVector2D& InStart, const FVector2D& InStartDir, const FVector2D& InEnd, const FVector2D& InEndDir, const FSlateRect InClippingRect, float InThickness = 0.0f, ESlateDrawEffect::Type InDrawEffects = ESlateDrawEffect::None, const FLinearColor& InTint=FLinearColor::White);
+
+	/** Just like MakeSpline but in draw-space coordinates. This is useful for connecting already-transformed widgets together. */
+	SLATECORE_API static void MakeDrawSpaceGradientSpline( FSlateWindowElementList& ElementList, uint32 InLayer, const FVector2D& InStart, const FVector2D& InStartDir, const FVector2D& InEnd, const FVector2D& InEndDir, const FSlateRect InClippingRect, const TArray<FSlateGradientStop>& InGradientStops, float InThickness = 0.0f, ESlateDrawEffect::Type InDrawEffects = ESlateDrawEffect::None );
 
 	/**
 	 * Creates a line defined by the provided points
@@ -424,7 +421,7 @@ public:
 	 * @param InDrawEffects            Optional draw effects to apply
 	 * @param InTint                   Color to tint the element
 	 */
-	SLATECORE_API static void MakeViewport( FSlateWindowElementList& ElementList, uint32 InLayer, const FPaintGeometry& PaintGeometry, TSharedPtr<const ISlateViewport> Viewport, const FSlateRect& InClippingRect, bool bGammaCorrect = true, bool bAllowBlending = true, ESlateDrawEffect::Type InDrawEffects = ESlateDrawEffect::None, const FLinearColor& InTint=FLinearColor::White );
+	SLATECORE_API static void MakeViewport( FSlateWindowElementList& ElementList, uint32 InLayer, const FPaintGeometry& PaintGeometry, TSharedPtr<const ISlateViewport> Viewport, const FSlateRect& InClippingRect, ESlateDrawEffect::Type InDrawEffects = ESlateDrawEffect::None, const FLinearColor& InTint=FLinearColor::White );
 
 	/**
 	 * Creates a custom element which can be used to manually draw into the Slate render target with graphics API calls rather than Slate elements
@@ -447,7 +444,7 @@ public:
 	FORCEINLINE uint32 GetLayer() const { return Layer; }
 	FORCEINLINE const FSlateRenderTransform& GetRenderTransform() const { return RenderTransform; }
 	FORCEINLINE const FVector2D& GetPosition() const { return Position; }
-	FORCEINLINE void SetPosition(const FVector2D& InPosition) { Position = Position; }
+	FORCEINLINE void SetPosition(const FVector2D& InPosition) { Position = InPosition; }
 	FORCEINLINE const FVector2D& GetLocalSize() const { return LocalSize; }
 	FORCEINLINE float GetScale() const { return Scale; }
 	FORCEINLINE const FSlateRect& GetClippingRect() const { return ClippingRect; }
@@ -899,6 +896,60 @@ private:
 	uint32 MaxLayer;
 };
 
+#if STATS
+
+class FSlateStatTrackingMemoryAllocator : public FDefaultAllocator
+{
+public:
+	typedef FDefaultAllocator Super;
+
+	class ForAnyElementType : public FDefaultAllocator::ForAnyElementType
+	{
+	public:
+		typedef FDefaultAllocator::ForAnyElementType Super;
+
+		ForAnyElementType()
+			: AllocatedSize(0)
+		{
+
+		}
+
+		/** Destructor. */
+		~ForAnyElementType()
+		{
+			if(AllocatedSize)
+			{
+				DEC_DWORD_STAT_BY(STAT_SlateBufferPoolMemory, AllocatedSize);
+			}
+		}
+
+		void ResizeAllocation(int32 PreviousNumElements, int32 NumElements, int32 NumBytesPerElement)
+		{
+			const int32 NewSize = NumElements * NumBytesPerElement;
+			INC_DWORD_STAT_BY(STAT_SlateBufferPoolMemory, NewSize - AllocatedSize);
+			AllocatedSize = NewSize;
+
+			Super::ResizeAllocation(PreviousNumElements, NumElements, NumBytesPerElement);
+		}
+
+	private:
+		ForAnyElementType(const ForAnyElementType&);
+		ForAnyElementType& operator=(const ForAnyElementType&);
+	private:
+		int32 AllocatedSize;
+	};
+};
+
+typedef TArray<FSlateVertex, FSlateStatTrackingMemoryAllocator> FSlateVertexArray;
+typedef TArray<SlateIndex, FSlateStatTrackingMemoryAllocator> FSlateIndexArray;
+
+#else
+
+typedef TArray<FSlateVertex> FSlateVertexArray;
+typedef TArray<SlateIndex> FSlateIndexArray;
+
+#endif
+
 
 class FSlateBatchData
 {
@@ -928,10 +979,10 @@ public:
 	void AssignIndexArrayToBatch( FSlateElementBatch& Batch );
 
 	/** @return the list of vertices for a batch */
-	TArray<FSlateVertex>& GetBatchVertexList( FSlateElementBatch& Batch ) { return BatchVertexArrays[Batch.VertexArrayIndex]; }
+	FSlateVertexArray& GetBatchVertexList( FSlateElementBatch& Batch ) { return BatchVertexArrays[Batch.VertexArrayIndex]; }
 
 	/** @return the list of indices for a batch */
-	TArray<SlateIndex>& GetBatchIndexList( FSlateElementBatch& Batch ) { return BatchIndexArrays[Batch.IndexArrayIndex]; }
+	FSlateIndexArray& GetBatchIndexList( FSlateElementBatch& Batch ) { return BatchIndexArrays[Batch.IndexArrayIndex]; }
 
 	/** @return The total number of batched vertices */
 	int32 GetNumBatchedVertices() const { return NumBatchedVertices; }
@@ -963,6 +1014,18 @@ private:
 
 	void AddRenderBatch(uint32 InLayer, const FSlateElementBatch& InElementBatch, int32 InNumVertices, int32 InNumIndices, int32 InVertexOffset, int32 InIndexOffset);
 
+	/**
+	 * Resets an array from the pool of vertex arrays
+	 * This will empty the array and give it a reasonable starting memory amount for when it is reused
+	 */
+	void ResetVertexArray(FSlateVertexArray& InOutVertexArray);
+
+	/**
+	* Resets an array from the pool of index arrays
+	* This will empty the array and give it a reasonable starting memory amount for when it is reused
+	*/
+	void ResetIndexArray(FSlateIndexArray& InOutIndexArray);
+
 private:
 
 	// The associated render data handle if these render batches are not in the default vertex/index buffer
@@ -975,10 +1038,10 @@ private:
 	TArray<uint32> IndexArrayFreeList;
 
 	// Array of vertex lists for batching vertices. We use this method for quickly resetting the arrays without deleting memory.
-	TArray<TArray<FSlateVertex>> BatchVertexArrays;
+	TArray<FSlateVertexArray> BatchVertexArrays;
 
 	// Array of vertex lists for batching indices. We use this method for quickly resetting the arrays without deleting memory.
-	TArray<TArray<SlateIndex>> BatchIndexArrays;
+	TArray<FSlateIndexArray> BatchIndexArrays;
 
 	/** List of element batches sorted by later for use in rendering (for threaded renderers, can only be accessed from the render thread)*/
 	TArray<FSlateRenderBatch> RenderBatches;
@@ -1043,19 +1106,15 @@ public:
 	 */
 	explicit FSlateWindowElementList( TSharedPtr<SWindow> InWindow = TSharedPtr<SWindow>() )
 		: TopLevelWindow( InWindow )
+		, bNeedsDeferredResolve( false )
+		, ResolveToDeferredIndex()
 		, MemManager(0)
 	{
 		DrawStack.Push(&RootDrawLayer);
 	}
 	
 	/** @return Get the window that we will be painting */
-	FORCEINLINE const TSharedPtr<SWindow> GetWindow() const
-	{
-		return TopLevelWindow.Pin();
-	}
-	
-	/** @return Get the window that we will be painting */
-	FORCEINLINE TSharedPtr<SWindow> GetWindow()
+	FORCEINLINE TSharedPtr<SWindow> GetWindow() const
 	{
 		return TopLevelWindow.Pin();
 	}
@@ -1129,14 +1188,19 @@ public:
 	 * Some widgets may want to paint their children after after another, loosely-related widget finished painting.
 	 * Or they may want to paint "after everyone".
 	 */
-	struct FDeferredPaint
+	struct SLATECORE_API FDeferredPaint
 	{
 	public:
-		SLATECORE_API FDeferredPaint( const TSharedRef<const SWidget>& InWidgetToPaint, const FPaintArgs& InArgs, const FGeometry InAllottedGeometry, const FSlateRect InMyClippingRect, const FWidgetStyle& InWidgetStyle, bool InParentEnabled );
+		FDeferredPaint( const TSharedRef<const SWidget>& InWidgetToPaint, const FPaintArgs& InArgs, const FGeometry InAllottedGeometry, const FSlateRect InMyClippingRect, const FWidgetStyle& InWidgetStyle, bool InParentEnabled );
 
 		int32 ExecutePaint( int32 LayerId, FSlateWindowElementList& OutDrawElements ) const;
 
+		FDeferredPaint Copy(const FPaintArgs& InArgs);
+
 	private:
+		// Used for making copies.
+		FDeferredPaint(const FDeferredPaint& Copy, const FPaintArgs& InArgs);
+
 		const TWeakPtr<const SWidget> WidgetToPaintPtr;
 		const FPaintArgs Args;
 		const FGeometry AllottedGeometry;
@@ -1148,6 +1212,13 @@ public:
 	SLATECORE_API void QueueDeferredPainting( const FDeferredPaint& InDeferredPaint );
 
 	int32 PaintDeferred(int32 LayerId);
+
+	bool ShouldResolveDeferred() const { return bNeedsDeferredResolve; }
+
+	SLATECORE_API void BeginDeferredGroup();
+	SLATECORE_API void EndDeferredGroup();
+
+	TArray< TSharedPtr<FDeferredPaint> > GetDeferredPaintList() const { return DeferredPaintList; }
 
 	struct FVolatilePaint
 	{
@@ -1268,6 +1339,9 @@ private:
 	 * We accomplish this by deferring their painting.
 	 */
 	TArray< TSharedPtr<FDeferredPaint> > DeferredPaintList;
+
+	bool bNeedsDeferredResolve;
+	TArray<int32> ResolveToDeferredIndex;
 
 	/** The widgets be cached for a later paint pass when the invalidation host paints. */
 	TArray< TSharedPtr<FVolatilePaint> > VolatilePaintList;

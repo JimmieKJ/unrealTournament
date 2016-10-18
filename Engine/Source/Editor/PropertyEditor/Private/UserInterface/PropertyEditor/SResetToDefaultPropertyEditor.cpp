@@ -32,6 +32,8 @@ void SResetToDefaultPropertyEditor::Construct( const FArguments& InArgs, const T
 	}
 	else
 	{
+		InPropertyEditor->GetPropertyNode()->OnPropertyValueChanged().AddSP(this, &SResetToDefaultPropertyEditor::OnPropertyValueChanged);
+
 		// Indicator for a value that differs from default. Also offers the option to reset to default.
 		ChildSlot
 		[
@@ -49,6 +51,8 @@ void SResetToDefaultPropertyEditor::Construct( const FArguments& InArgs, const T
 			]
 		];
 	}
+
+	UpdateDiffersFromDefaultState();
 }
 
 void SResetToDefaultPropertyEditor::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
@@ -56,10 +60,6 @@ void SResetToDefaultPropertyEditor::Tick( const FGeometry& AllottedGeometry, con
 	if (OptionalCustomResetToDefault.IsSet())
 	{
 		bValueDiffersFromDefault = OptionalCustomResetToDefault.GetValue().IsResetToDefaultVisible(PropertyEditor->GetPropertyHandle());
-	}
-	else
-	{
-		bValueDiffersFromDefault = PropertyEditor->IsResetToDefaultAvailable();
 	}
 }
 
@@ -89,6 +89,23 @@ FReply SResetToDefaultPropertyEditor::OnCustomResetClicked()
 	PropertyEditor->CustomResetToDefault(OptionalCustomResetToDefault.GetValue());
 
 	return FReply::Handled();
+}
+
+void SResetToDefaultPropertyEditor::UpdateDiffersFromDefaultState()
+{
+	if(OptionalCustomResetToDefault.IsSet())
+	{
+		bValueDiffersFromDefault = OptionalCustomResetToDefault.GetValue().IsResetToDefaultVisible(PropertyEditor->GetPropertyHandle());
+	}
+	else
+	{
+		bValueDiffersFromDefault = PropertyEditor->IsResetToDefaultAvailable();
+	}
+}
+
+void SResetToDefaultPropertyEditor::OnPropertyValueChanged()
+{
+	UpdateDiffersFromDefaultState();
 }
 
 EVisibility SResetToDefaultPropertyEditor::GetDiffersFromDefaultAsVisibility() const

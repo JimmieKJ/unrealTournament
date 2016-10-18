@@ -4,6 +4,7 @@
 #include "UTBasePlayerController.h"
 #include "UTPickupWeapon.h"
 #include "UTGameplayStatics.h"
+#include "UTInGameIntroZone.h"
 
 #if WITH_PROFILE
 #include "UTMcpProfile.h"
@@ -168,10 +169,19 @@ public:
 	virtual FRotator GetControlRotation() const override;
 	virtual void SetPlayer(UPlayer* InPlayer) override;
 
+
+	virtual void ViewStartSpot();
+
 	UFUNCTION(Reliable, Client)
 		void ClientReceivePersonalMessage(TSubclassOf<ULocalMessage> Message, int32 Switch = 0, class APlayerState* RelatedPlayerState_1 = NULL, class APlayerState* RelatedPlayerState_2 = NULL, class UObject* OptionalObject = NULL);
 
+	UFUNCTION(Reliable, Client)
+		void ClientSetSpectatorLocation(FVector NewLocation, FRotator NewRotation);
+
 	virtual void CheckAutoWeaponSwitch(class AUTWeapon* TestWeapon);
+
+	UFUNCTION(Unreliable, Client)
+		void ClientWarnEnemyBehind(AUTPlayerState* TeamPS, AUTCharacter* Targeter);
 
 	UPROPERTY(GlobalConfig)
 	bool bHearsTaunts;
@@ -187,6 +197,9 @@ public:
 
 	UPROPERTY()
 		float LastRallyRequestTime;
+
+	UPROPERTY()
+		AUTCharacter* RallyFlagCarrier;
 
 	UFUNCTION(reliable, client, BlueprintCallable, Category = PlayerController)
 	void UTClientSetRotation(FRotator NewRotation);
@@ -223,6 +236,12 @@ public:
 	/** forces SwitchToBestWeapon() call, should only be used after granting startup inventory */
 	UFUNCTION(Client, Reliable)
 	virtual void ClientSwitchToBestWeapon();
+
+	/** called to trigger pickup effects for the given pickup with weapon stay, which handle pickup status per-player
+	 * used to guarantee synced state for local player
+	 */
+	UFUNCTION(Client, Reliable)
+	virtual void ClientGotWeaponStayPickup(AUTPickupWeapon* Pickup, APawn* TouchedBy);
 
 	UFUNCTION(exec)
 	virtual void NP();
@@ -270,6 +289,9 @@ public:
 
 	UFUNCTION(exec)
 	virtual void ToggleScoreboard(bool bShow);
+
+	UFUNCTION(client,reliable)
+	virtual void ClientSetIntroCamera(UWorld* World, InGameIntroZoneTypes IntroType);
 
 	virtual void BeginRallyTo(AUTCharacter* RallyTarget, const FVector& NewRallyLocation, float Delay);
 
@@ -329,6 +351,7 @@ public:
 	virtual void SetCameraMode( FName NewCamMode );
 	virtual void ClientSetCameraMode_Implementation( FName NewCamMode ) override;
 	virtual void ClientGameEnded_Implementation(AActor* EndGameFocus, bool bIsWinner) override;
+	virtual bool LineOfSightTo(const class AActor* Other, FVector ViewPoint = FVector(ForceInit), bool bAlternateChecks = false) const override;
 
 	/** Handles bWantsBehindView. */
 	virtual void ResetCameraMode() override;
@@ -434,6 +457,9 @@ public:
 	/** Enables TacCom for spectators. */
 	UPROPERTY(BluePrintReadWrite)
 	bool bTacComView;
+
+	UPROPERTY()
+		float LeftSpawnVolumeTime;
 
 	virtual void UpdateTacComOverlays();
 
@@ -1103,6 +1129,13 @@ public:
 		ClientShowMapVote();
 	}
 
+	/** Play a tutorial announcement, but make sure to only play it once. */
+	virtual void PlayTutorialAnnouncement(int32 Index, UObject* OptionalObject);
+
+	/** List of names associated with already played tutorial announcements, */
+	UPROPERTY()
+		TArray<FName> PlayedTutAnnouncements;
+
 	/** Make sure no firing and scoreboard hidden before bringing up menu. */
 	virtual void ShowMenu(const FString& Parameters) override;
 
@@ -1198,7 +1231,12 @@ public:
 
 	/** Sent by the server when the possessed pawn is killed */
 	UFUNCTION(Client, Reliable)
-	void ClientPlayKillcam(AController* KillingController, APawn* PawnToFocus);
+	void ClientPlayKillcam(AController* KillingController, APawn* PawnToFocus, FVector_NetQuantize FocusLoc);
+
+	UPROPERTY()
+		AActor* DeathCamFocus;
+
+	virtual float GetFrozenTime();
 
 	/** Sent by the server when the player is about to respawn */
 	UFUNCTION(Client, Reliable)
@@ -1239,8 +1277,7 @@ protected:
 
 public:
 	// Will return true if this player can perform a rally
-	bool CanPerformRally();
-
+	bool CanPerformRally() const;
 
 protected:
 	void InitializeHeartbeatManager();

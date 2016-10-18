@@ -126,21 +126,25 @@ bool FAnalogCursor::HandleKeyDownEvent(FSlateApplication& SlateApp, const FKeyEv
 	}
 
 	// Bottom face button is a click
-	if (Key == EKeys::Gamepad_FaceButton_Bottom && !InKeyEvent.IsRepeat())
+	if (Key == EKeys::Gamepad_FaceButton_Bottom)
 	{
-		FPointerEvent MouseEvent(
-			0,
-			SlateApp.GetCursorPos(),
-			SlateApp.GetLastCursorPos(),
-			SlateApp.PressedMouseButtons,
-			EKeys::LeftMouseButton,
-			0,
-			SlateApp.GetPlatformApplication()->GetModifierKeys()
-			);
+		if ( !InKeyEvent.IsRepeat() )
+		{
+			FPointerEvent MouseEvent(
+				0,
+				SlateApp.GetCursorPos(),
+				SlateApp.GetLastCursorPos(),
+				SlateApp.PressedMouseButtons,
+				EKeys::LeftMouseButton,
+				0,
+				SlateApp.GetPlatformApplication()->GetModifierKeys()
+				);
 
-		TSharedPtr<FGenericWindow> GenWindow;
-		return SlateApp.ProcessMouseButtonDownEvent(GenWindow, MouseEvent);
+			TSharedPtr<FGenericWindow> GenWindow;
+			return SlateApp.ProcessMouseButtonDownEvent(GenWindow, MouseEvent);
+		}
 
+		return true;
 	}
 
 	return false;
@@ -241,6 +245,12 @@ void FAnalogCursor::SetMode(AnalogCursorMode::Type NewMode)
 	Mode = NewMode;
 
 	CurrentSpeed = FVector2D::ZeroVector;
+}
+
+void FAnalogCursor::ClearAnalogValues()
+{
+	AnalogValues[static_cast<uint8>(EAnalogStick::Left)] = FVector2D::ZeroVector;
+	AnalogValues[static_cast<uint8>(EAnalogStick::Right)] = FVector2D::ZeroVector;
 }
 
 void FAnalogCursor::UpdateCursorPosition(FSlateApplication& SlateApp, TSharedRef<ICursor> Cursor, const FVector2D& NewPosition)

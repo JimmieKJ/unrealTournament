@@ -1,0 +1,198 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="..\..\..\alembic-1.5.0\Alembic\AbcGeom\ArchiveBounds.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\alembic-1.5.0\Alembic\AbcGeom\GeometryScope.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\alembic-1.5.0\Alembic\AbcGeom\FilmBackXformOp.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\alembic-1.5.0\Alembic\AbcGeom\CameraSample.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\alembic-1.5.0\Alembic\AbcGeom\ICamera.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\alembic-1.5.0\Alembic\AbcGeom\OCamera.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\alembic-1.5.0\Alembic\AbcGeom\Basis.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\alembic-1.5.0\Alembic\AbcGeom\ICurves.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\alembic-1.5.0\Alembic\AbcGeom\OCurves.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\alembic-1.5.0\Alembic\AbcGeom\OFaceSet.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\alembic-1.5.0\Alembic\AbcGeom\IFaceSet.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\alembic-1.5.0\Alembic\AbcGeom\OLight.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\alembic-1.5.0\Alembic\AbcGeom\ILight.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\alembic-1.5.0\Alembic\AbcGeom\ONuPatch.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\alembic-1.5.0\Alembic\AbcGeom\INuPatch.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\alembic-1.5.0\Alembic\AbcGeom\OPoints.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\alembic-1.5.0\Alembic\AbcGeom\IPoints.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\alembic-1.5.0\Alembic\AbcGeom\OPolyMesh.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\alembic-1.5.0\Alembic\AbcGeom\IPolyMesh.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\alembic-1.5.0\Alembic\AbcGeom\OSubD.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\alembic-1.5.0\Alembic\AbcGeom\ISubD.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\alembic-1.5.0\Alembic\AbcGeom\Visibility.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\alembic-1.5.0\Alembic\AbcGeom\XformOp.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\alembic-1.5.0\Alembic\AbcGeom\XformSample.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\alembic-1.5.0\Alembic\AbcGeom\IXform.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\alembic-1.5.0\Alembic\AbcGeom\OXform.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcGeom\All.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcGeom\Foundation.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcGeom\ArchiveBounds.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcGeom\IGeomBase.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcGeom\OGeomBase.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcGeom\GeometryScope.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcGeom\SchemaInfoDeclarations.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcGeom\OLight.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcGeom\ILight.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcGeom\FilmBackXformOp.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcGeom\CameraSample.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcGeom\ICamera.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcGeom\OCamera.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcGeom\Basis.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcGeom\CurveType.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcGeom\ICurves.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcGeom\OCurves.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcGeom\FaceSetExclusivity.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcGeom\OFaceSet.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcGeom\IFaceSet.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcGeom\ONuPatch.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcGeom\INuPatch.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcGeom\OGeomParam.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcGeom\IGeomParam.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcGeom\OPoints.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcGeom\IPoints.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcGeom\OPolyMesh.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcGeom\IPolyMesh.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcGeom\OSubD.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcGeom\ISubD.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcGeom\Visibility.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcGeom\XformOp.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcGeom\XformSample.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcGeom\IXform.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcGeom\OXform.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{89392D1A-7575-4D02-955C-57341018A270}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{1833F73C-2966-4E61-8211-B6B7A2BB807B}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

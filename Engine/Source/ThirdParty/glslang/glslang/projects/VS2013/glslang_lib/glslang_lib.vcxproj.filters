@@ -109,6 +109,27 @@
     <ClCompile Include="..\..\..\src\glslang_lib\glslang\MachineIndependent\Versions.cpp">
       <Filter>glslang\MachineIndependent</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\..\src\glslang_lib\hlsl\hlslGrammar.cpp">
+      <Filter>hlsl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\glslang_lib\hlsl\hlslOpMap.cpp">
+      <Filter>hlsl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\glslang_lib\hlsl\hlslParseHelper.cpp">
+      <Filter>hlsl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\glslang_lib\hlsl\hlslScanContext.cpp">
+      <Filter>hlsl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\glslang_lib\hlsl\hlslTokenStream.cpp">
+      <Filter>hlsl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\glslang_lib\SPIRV\Logger.cpp">
+      <Filter>SPIRV</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\src\glslang_lib\glslang\MachineIndependent\propagateNoContraction.cpp">
+      <Filter>glslang\MachineIndependent</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\src\glslang_lib\SPIRV\disassemble.h">
@@ -228,6 +249,33 @@
     <ClInclude Include="..\..\..\src\glslang_lib\glslang\MachineIndependent\Versions.h">
       <Filter>glslang\MachineIndependent</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\..\src\glslang_lib\hlsl\hlslGrammar.h">
+      <Filter>hlsl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\glslang_lib\hlsl\hlslOpMap.h">
+      <Filter>hlsl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\glslang_lib\hlsl\hlslParseHelper.h">
+      <Filter>hlsl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\glslang_lib\hlsl\hlslScanContext.h">
+      <Filter>hlsl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\glslang_lib\hlsl\hlslTokens.h">
+      <Filter>hlsl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\glslang_lib\hlsl\hlslTokenStream.h">
+      <Filter>hlsl</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\glslang_lib\SPIRV\Logger.h">
+      <Filter>SPIRV</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\glslang_lib\glslang\MachineIndependent\parseVersions.h">
+      <Filter>glslang\MachineIndependent</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\src\glslang_lib\glslang\MachineIndependent\propagateNoContraction.h">
+      <Filter>glslang\MachineIndependent</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="glslang">
@@ -263,5 +311,12 @@
     <Filter Include="glslang\MachineIndependent\preprocessor">
       <UniqueIdentifier>{1dfaedae-476d-48f3-8f3c-c7f122699c6c}</UniqueIdentifier>
     </Filter>
+    <Filter Include="hlsl">
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\..\src\glslang_lib\glslang\MachineIndependent\glslang.y">
+      <Filter>glslang\MachineIndependent</Filter>
+    </None>
   </ItemGroup>
 </Project>

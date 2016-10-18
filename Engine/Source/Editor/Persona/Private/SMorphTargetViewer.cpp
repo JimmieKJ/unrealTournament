@@ -7,7 +7,8 @@
 #include "AssetRegistryModule.h"
 #include "ScopedTransaction.h"
 #include "SSearchBox.h"
-#include "Animation/VertexAnim/MorphTarget.h"
+#include "Animation/MorphTarget.h"
+#include "Animation/AnimInstance.h"
 
 #define LOCTEXT_NAMESPACE "SMorphTargetViewer"
 
@@ -270,10 +271,13 @@ float SMorphTargetListRow::GetWeight() const
 	if (PersonaPtr.IsValid() && Item->bAutoFillData)
 	{
 		USkeletalMeshComponent* SkelComp = PersonaPtr.Pin()->GetPreviewMeshComponent();
-		if ( SkelComp && SkelComp->GetAnimInstance() )
+		UAnimInstance* AnimInstance = (SkelComp) ? SkelComp->GetAnimInstance() : nullptr;
+		if (AnimInstance)
 		{
 			// make sure if they have value that's not same as saved value
-			float* CurrentValue = SkelComp->GetAnimInstance()->GetMorphTargetCurves().Find(Item->Name);
+			TMap<FName, float> MorphCurves;
+			AnimInstance->GetAnimationCurveList(ACF_DriveMorphTarget, MorphCurves);
+			const float* CurrentValue = MorphCurves.Find(Item->Name);
 			if (CurrentValue && *CurrentValue != 0.f)
 			{
 				return *CurrentValue;
@@ -397,8 +401,8 @@ TSharedPtr<SWidget> SMorphTargetViewer::OnGetContextMenuContent() const
 		FUIAction Action = FUIAction( FExecuteAction::CreateSP( this, &SMorphTargetViewer::OnDeleteMorphTargets ), 
 									  FCanExecuteAction::CreateSP( this, &SMorphTargetViewer::CanPerformDelete ) );
 		const FText Label = LOCTEXT("DeleteMorphTargetButtonLabel", "Delete");
-		const FText ToolTip = LOCTEXT("DeleteMorphTargetButtonTooltip", "Deletes the selected morph targets.");
-		MenuBuilder.AddMenuEntry( Label, ToolTip, FSlateIcon(), Action);
+		const FText ToolTipText = LOCTEXT("DeleteMorphTargetButtonTooltip", "Deletes the selected morph targets.");
+		MenuBuilder.AddMenuEntry( Label, ToolTipText, FSlateIcon(), Action);
 	}
 	MenuBuilder.EndSection();
 
@@ -428,7 +432,7 @@ void SMorphTargetViewer::CreateMorphTargetList( const FString& SearchText )
 			TSharedRef<FDisplayedMorphTargetInfo> Info = FDisplayedMorphTargetInfo::Make( MorphTargets[I]->GetFName(), NumberOfVerts);
 			if(MeshComponent)
 			{
-				float *CurveValPtr = MeshComponent->MorphTargetCurves.Find( MorphTargets[I]->GetFName() );
+				const float *CurveValPtr = MeshComponent->GetMorphTargetCurves().Find( MorphTargets[I]->GetFName() );
 				if(CurveValPtr)
 				{
 					Info.Get().Weight = (*CurveValPtr);

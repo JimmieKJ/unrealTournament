@@ -2,7 +2,8 @@
 
 #pragma once
 
-#include "Core.h"
+#include "AnalyticsProviderConfigurationDelegate.h"
+#include "AnalyticsBuildType.h"
 #include "ModuleManager.h"
 #include "AnalyticsEventAttribute.h"
 
@@ -56,22 +57,12 @@ public:
 	//--------------------------------------------------------------------------
 public:
 	/**
-	 * Analytics providers must be configured when created.
-	 * This delegate provides a generic way to supply this config when creating a provider from this abstract factory function.
-	 * This delegate will be called by the specific analytics provider for each configuration value it requires.
-	 * The first param is the confguration name, the second parameter is a bool that is true if the value is required.
-	 * It is up to the specific provider to define what configuration keys it requires.
-	 * Some providers may provide more typesafe ways of constructing them when the code knows exactly which provider it will be using.
-	 */
-	DECLARE_DELEGATE_RetVal_TwoParams(FString, FProviderConfigurationDelegate, const FString&, bool);
-
-	/**
 	 * Factory function to create a specific analytics provider by providing the string name of the provider module, which will be dynamically loaded.
 	 * @param ProviderModuleName	The name of the module that contains the specific provider. It must be the primary module interface.
 	 * @param GetConfigvalue	Delegate used to configure the provider. The provider will call this delegate once for each key it requires for configuration.
 	 * @returns		the analytics provider instance that was created. Could be NULL if initialization failed.
 	 */
-	virtual TSharedPtr<IAnalyticsProvider> CreateAnalyticsProvider(const FName& ProviderModuleName, const FProviderConfigurationDelegate& GetConfigValue);
+	virtual TSharedPtr<IAnalyticsProvider> CreateAnalyticsProvider(const FName& ProviderModuleName, const FAnalyticsProviderConfigurationDelegate& GetConfigValue);
 
 	/**
 	 * Creates an instance of the default configured analytics provider.
@@ -84,56 +75,10 @@ public:
 		FAnalytics::ConfigFromIni AnalyticsConfig;                     // configure using the default INI sections.
 		return FAnalytics::Get().CreateAnalyticsProvider(              // call the factory function
 			FAnalytics::ConfigFromIni::GetDefaultProviderModuleName(), // use the default config to find the provider name
-			FProviderConfigurationDelegate::CreateRaw(                 // bind to the delegate using default INI sections
+			FAnalyticsProviderConfigurationDelegate::CreateRaw(        // bind to the delegate using default INI sections
 				&AnalyticsConfig,                                      // use default INI config sections
 				&FAnalytics::ConfigFromIni::GetValue));                
 	}
-
-	//--------------------------------------------------------------------------
-	// Analytics Build Type determination.
-	//--------------------------------------------------------------------------
-public:
-	/** Defines the different build types from an analytics perspective. Used to determine how to configure the provider. */
-	enum BuildType
-	{
-		/** 
-		 * Analytics go into a "slush" account that isn't meant to be representative. 
-		 * This is the default mode.
-		 */
-		Development,
-		/**
-		 * Test mode for playtests and other runs where the data collected will be semi-representative of actual gameplay. Should be routed to a test, or "representative data" account. 
-		 * Use -TESTANALYTICS command line to trigger this mode.
-		 */
-		Test,
-		/** 
-		 * Debug mode where analytics should go to the Swrve debug console. Used for feature development and QA testing, since the events are visible on the debug console immediately. 
-		 * Use -DEBUGANALYTICS command line to trigger this mode (overrides -TESTANALYTICS).
-		 */
-		Debug,
-		/**
-		 * BuildType that should be used by the shipping game. UE_BUILD_SHIPPING builds use this mode (or can use -RELEASEANALYTICS cmdline to force it).
-		 */
-		Release,
-	};
-
-	static const TCHAR* ToString(BuildType Type)
-	{
-		switch (Type)
-		{
-			case Development:		return TEXT("Development");
-			case Test:				return TEXT("Test");
-			case Debug:				return TEXT("Debug");
-			case Release:			return TEXT("Release");
-			default:
-				break;
-		}
-
-		return TEXT("Undefined");
-	}
-
-	/** Get the analytics build type. Generally used to determine the keys to use to configure an analytics provider. */
-	virtual BuildType GetBuildType() const;
 
 	//--------------------------------------------------------------------------
 	// Configuration helper classes and methods
@@ -141,7 +86,7 @@ public:
 public:
 	/** 
 	 * A common way of configuring is from Inis, so this class supports that notion directly by providing a
-	 * configuration class with a method suitable to be used as an FProviderConfigurationDelegate
+	 * configuration class with a method suitable to be used as an FAnalyticsProviderConfigurationDelegate
 	 * that reads values from the specified ini and section (based on the BuildType).
 	 * Also provides a default location to store a provider name, accessed via GetDefaultProviderModuleName().
 	 */
@@ -158,11 +103,11 @@ public:
 		ConfigFromIni()
 			:IniName(GEngineIni)
 		{
-			SetSectionNameByBuildType(FAnalytics::Get().GetBuildType());
+			SetSectionNameByBuildType(GetAnalyticsBuildType());
 		}
 
 		/** Create a config AS IF the BuildType matches the one passed in. */
-		explicit ConfigFromIni(FAnalytics::BuildType InBuildType)
+		explicit ConfigFromIni(EAnalyticsBuildType InBuildType)
 			:IniName(GEngineIni)
 		{
 			SetSectionNameByBuildType(InBuildType);
@@ -179,17 +124,17 @@ public:
 		ConfigFromIni(const FString& InIniName, const FString& SectionNameDevelopment, const FString& SectionNameDebug, const FString& SectionNameTest, const FString& SectionNameRelease)
 			:IniName(InIniName)
 		{
-			FAnalytics::BuildType BuildType = FAnalytics::Get().GetBuildType();
-			SectionName = BuildType == FAnalytics::Release 
+			EAnalyticsBuildType BuildType = GetAnalyticsBuildType();
+			SectionName = BuildType == EAnalyticsBuildType::Release
 				? SectionNameRelease
-				: BuildType == FAnalytics::Debug
+				: BuildType == EAnalyticsBuildType::Debug
 					? SectionNameDebug
-					: BuildType == FAnalytics::Test
+					: BuildType == EAnalyticsBuildType::Test
 						? SectionNameTest
 						: SectionNameDevelopment;
 		}
 
-		/** Method that can be bound to an FProviderConfigurationDelegate. */
+		/** Method that can be bound to an FAnalyticsProviderConfigurationDelegate. */
 		FString GetValue(const FString& KeyName, bool bIsRequired) const
 		{
 			return FAnalytics::Get().GetConfigValueFromIni(IniName, SectionName, KeyName, bIsRequired);
@@ -209,13 +154,13 @@ public:
 		}
 
 		/** Allows setting the INI section name based on the build type passed in. Allows access to the default section values when the application chooses the build type itself. */
-		void SetSectionNameByBuildType(FAnalytics::BuildType InBuildType)
+		void SetSectionNameByBuildType(EAnalyticsBuildType InBuildType)
 		{
-			SectionName = InBuildType == FAnalytics::Release 
+			SectionName = InBuildType == EAnalyticsBuildType::Release
 				? TEXT("Analytics") 
-				: InBuildType == FAnalytics::Debug
+				: InBuildType == EAnalyticsBuildType::Debug
 					? TEXT("AnalyticsDebug") 
-					: InBuildType == FAnalytics::Test
+					: InBuildType == EAnalyticsBuildType::Test
 						? TEXT("AnalyticsTest") 
 						: TEXT("AnalyticsDevelopment");
 		}

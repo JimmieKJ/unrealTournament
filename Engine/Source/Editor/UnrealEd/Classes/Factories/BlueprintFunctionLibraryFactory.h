@@ -7,7 +7,7 @@
 #pragma once
 #include "BlueprintFunctionLibraryFactory.generated.h"
 
-UCLASS(hidecategories=Object, collapsecategories)
+UCLASS(MinimalAPI, hidecategories=Object, collapsecategories)
 class UBlueprintFunctionLibraryFactory : public UBlueprintFactory
 {
 	GENERATED_UCLASS_BODY()
@@ -23,6 +23,3 @@ class UBlueprintFunctionLibraryFactory : public UBlueprintFactory
 	virtual FString GetDefaultNewAssetName() const override;
 	// End of UFactory interface
 };
-
-
-

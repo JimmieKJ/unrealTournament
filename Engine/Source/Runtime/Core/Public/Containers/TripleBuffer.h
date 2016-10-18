@@ -29,8 +29,10 @@
  * This class is thread-safe in single-producer, single-consumer scenarios.
  *
  * Based on ideas and C code in "Triple Buffering as a Concurrency Mechanism" (Reddit.com)
+ *
+ * @param BufferType The type of buffered items.
  */
-template<typename ItemType>
+template<typename BufferType>
 class TTripleBuffer
 {
 	/** Enumerates human readable bit values for accessing the Flags field. */
@@ -63,40 +65,52 @@ public:
 	/** Default constructor. */
 	TTripleBuffer()
 	{
-		Buffers[0] = Buffers[1] = Buffers[2] = ItemType();
-		Flags = EBufferFlag::Initial;
+		Initialize();
+		Buffers[0] = Buffers[1] = Buffers[2] = BufferType();
 	}
 
 	/** Default constructor (no initialization). */
 	explicit TTripleBuffer(ENoInit)
 	{
-		Flags = EBufferFlag::Initial;
+		Initialize();
 	}
 
 	/**
-	 * Create and initialize a new instance.
+	 * Create and initialize a new instance with a given buffer value.
 	 *
 	 * @param InValue The initial value of all three buffers.
 	 */
-	explicit TTripleBuffer(const ItemType& InValue)
+	explicit TTripleBuffer(const BufferType& InValue)
 	{
+		Initialize();
 		Buffers[0] = Buffers[1] = Buffers[2] = InValue;
-		Flags = EBufferFlag::Initial;
 	}
 
 	/**
-	 * Create and initialize a new instance.
+	 * Create and initialize a new instance using provided buffers.
 	 *
-	 * @param ReadValue The read buffer's initial value.
-	 * @param WriteValue The write buffer's initial value.
-	 * @param TempValue The temp buffer's initial value.
+	 * The elements of the provided items array are expected to have
+	 * the following initial contents:
+	 *     0 = Temp
+	 *     1 = Write
+	 *     2 = Read
+	 *
+	 * @param InBuffers The buffer memory to use.
 	 */
-	TTripleBuffer(const ItemType& ReadValue, const ItemType& WriteValue, const ItemType& TempValue)
+	TTripleBuffer(BufferType (&InBuffers)[3])
 	{
-		Buffers[0] = TempValue;
-		Buffers[1] = WriteValue;
-		Buffers[2] = ReadValue;
+		Buffers = &InBuffers[0];
 		Flags = EBufferFlag::Initial | EBufferFlag::Dirty;
+		OwnsMemory = false;
+	}
+
+	/** Destructor. */
+	~TTripleBuffer()
+	{
+		if (OwnsMemory)
+		{
+			delete[] Buffers;
+		}
 	}
 
 public:
@@ -117,7 +131,7 @@ public:
 	 * @return Reference to the read buffer's value.
 	 * @see SwapRead, Write
 	 */
-	ItemType& Read()
+	BufferType& Read()
 	{
 		return Buffers[Flags & EBufferFlag::ReaderMask];
 	}
@@ -136,13 +150,13 @@ public:
 			return;
 		}
 
-		int32 OldFlags = 0;
+		int32 CurrentFlags = 0;
 
 		do
 		{
-			OldFlags = Flags;
+			CurrentFlags = Flags;
 		}
-		while (FPlatformAtomics::InterlockedCompareExchange(&Flags, SwapReadWithTempFlags(OldFlags), OldFlags) != OldFlags);
+		while (FPlatformAtomics::InterlockedCompareExchange(&Flags, SwapReadWithTempFlags(CurrentFlags), CurrentFlags) != CurrentFlags);
 	}
 
 public:
@@ -152,7 +166,7 @@ public:
 	 *
 	 * @return Reference to write buffer.
 	 */
-	ItemType& GetWriteBuffer()
+	BufferType& GetWriteBuffer()
 	{
 		return Buffers[(Flags & EBufferFlag::WriterMask) >> EBufferFlag::WriterShift];
 	}
@@ -164,13 +178,13 @@ public:
 	 */
 	void SwapWriteBuffers()
 	{
-		int32 OldFlags = 0;
+		int32 CurrentFlags = 0;
 
 		do
 		{
-			OldFlags = Flags;
+			CurrentFlags = Flags;
 		}
-		while (FPlatformAtomics::InterlockedCompareExchange(&Flags, SwapWriteWithTempFlags(OldFlags), OldFlags) != OldFlags);
+		while (FPlatformAtomics::InterlockedCompareExchange(&Flags, SwapWriteWithTempFlags(CurrentFlags), CurrentFlags) != CurrentFlags);
 	}
 
 	/**
@@ -179,21 +193,18 @@ public:
 	 * @param Value The value to write.
 	 * @see SwapWrite, Read
 	 */
-	void Write(const ItemType Value)
+	void Write(const BufferType Value)
 	{
 		Buffers[(Flags & EBufferFlag::WriterMask) >> EBufferFlag::WriterShift] = Value;
 	}
 
 public:
 
-	/**
-	 * Get read-only access to the underlying buffers.
-	 *
-	 * @return Pointer to the first element of the buffer array,.
-	 */
-	ItemType* GetBuffers()
+	/** Reset the buffer. */
+	void Reset()
 	{
-		return Buffers;
+		Flags = EBufferFlag::Initial;
+		FPlatformMisc::MemoryBarrier();
 	}
 
 	/**
@@ -202,7 +213,7 @@ public:
 	 * @return Reference to the buffer.
 	 * @see SwapRead, Read, WriteAndSwap
 	 */
-	const ItemType& SwapAndRead()
+	const BufferType& SwapAndRead()
 	{
 		SwapReadBuffers();
 		return Read();
@@ -214,10 +225,20 @@ public:
 	 * @param Value The value to write into the buffer.
 	 * @see SwapAndRead, SwapWrite, Write
 	 */
-	void WriteAndSwap(const ItemType Value)
+	void WriteAndSwap(const BufferType Value)
 	{
 		Write(Value);
 		SwapWriteBuffers();
+	}
+
+protected:
+
+	/** Initialize the triple buffer. */
+	void Initialize()
+	{
+		Buffers = new BufferType[3];
+		Flags = EBufferFlag::Initial;
+		OwnsMemory = true;
 	}
 
 private:
@@ -245,8 +266,11 @@ private:
 private:
 
 	/** The three buffers. */
-	ItemType Buffers[3];
+	BufferType* Buffers;
 
 	/** Buffer access flags. */
 	MS_ALIGN(16) int32 volatile Flags GCC_ALIGN(16);
+
+	/** Whether this instance owns the buffer memory. */
+	bool OwnsMemory;
 };

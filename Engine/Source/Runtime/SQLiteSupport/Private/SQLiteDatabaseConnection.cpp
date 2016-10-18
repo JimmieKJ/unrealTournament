@@ -64,6 +64,7 @@ void FSQLiteDatabase::Close()
 	if (DbHandle)
 	{
 		sqlite3_close(DbHandle);
+		DbHandle = nullptr;
 	}
 }
 

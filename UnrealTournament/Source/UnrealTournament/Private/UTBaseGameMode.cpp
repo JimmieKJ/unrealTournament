@@ -7,6 +7,7 @@
 #include "UTGameInstance.h"
 #include "DataChannel.h"
 #include "UTDemoRecSpectator.h"
+#include "UTGameMessage.h"
 #if WITH_PROFILE
 #include "UtMcpProfileManager.h"
 #endif
@@ -134,7 +135,6 @@ void AUTBaseGameMode::InitGameState()
 	}
 }
 
-
 FName AUTBaseGameMode::GetNextChatDestination(AUTPlayerState* PlayerState, FName CurrentChatDestination)
 {
 	if (CurrentChatDestination == ChatDestinations::Local) return ChatDestinations::Team;
@@ -164,7 +164,7 @@ int32 AUTBaseGameMode::GetNumMatches()
 	return 1;
 }
 
-void AUTBaseGameMode::PreLogin(const FString& Options, const FString& Address, const TSharedPtr<const FUniqueNetId>& UniqueId, FString& ErrorMessage)
+void AUTBaseGameMode::PreLogin(const FString& Options, const FString& Address, const FUniqueNetIdRepl& UniqueId, FString& ErrorMessage)
 {
 	Super::PreLogin(Options, Address, UniqueId, ErrorMessage);
 
@@ -184,10 +184,10 @@ void AUTBaseGameMode::PreLogin(const FString& Options, const FString& Address, c
 			IOnlineEntitlementsPtr EntitlementInterface = IOnlineSubsystem::Get()->GetEntitlementsInterface();
 			if (EntitlementInterface.IsValid())
 			{
-				EntitlementInterface->QueryEntitlements(*UniqueId.Get(), TEXT("ut"));
+				EntitlementInterface->QueryEntitlements(*UniqueId.GetUniqueNetId().Get(), TEXT("ut"));
 			}
 #if WITH_PROFILE
-			UMcpProfileGroup* Group = GetMcpProfileManager()->CreateProfileGroup(UniqueId, true, false);
+			UMcpProfileGroup* Group = GetMcpProfileManager()->CreateProfileGroup(UniqueId, UniqueId.GetUniqueNetId(), true, false);
 			UUtMcpProfile* Profile = Group->AddProfile<UUtMcpProfile>(EUtMcpProfile::ToProfileId(EUtMcpProfile::Profile, 0), false);
 			FDedicatedServerUrlContext QueryContext = FDedicatedServerUrlContext::Default; // IMPORTANT to make a copy!
 			Profile->ForceQueryProfile(QueryContext);
@@ -196,7 +196,7 @@ void AUTBaseGameMode::PreLogin(const FString& Options, const FString& Address, c
 	}
 }
 
-APlayerController* AUTBaseGameMode::Login(class UPlayer* NewPlayer, ENetRole RemoteRole, const FString& Portal, const FString& Options, const TSharedPtr<const FUniqueNetId>& UniqueId, FString& ErrorMessage)
+APlayerController* AUTBaseGameMode::Login(class UPlayer* NewPlayer, ENetRole InRemoteRole, const FString& Portal, const FString& Options, const FUniqueNetIdRepl& UniqueId, FString& ErrorMessage)
 {
 	// local players don't go through PreLogin()
 	if (UniqueId.IsValid() && Cast<ULocalPlayer>(NewPlayer) != NULL && IOnlineSubsystem::Get() != NULL)
@@ -205,17 +205,17 @@ APlayerController* AUTBaseGameMode::Login(class UPlayer* NewPlayer, ENetRole Rem
 		if (EntitlementInterface.IsValid())
 		{
 			// note that we need to redundantly query even if we already got this user's entitlements because they might have quit, bought some stuff, then come back
-			EntitlementInterface->QueryEntitlements(*UniqueId.Get(), TEXT("ut"));
+			EntitlementInterface->QueryEntitlements(*UniqueId.GetUniqueNetId().Get(), TEXT("ut"));
 		}
 #if WITH_PROFILE
-		UMcpProfileGroup* Group = GetMcpProfileManager()->CreateProfileGroup(UniqueId, true, false);
+		UMcpProfileGroup* Group = GetMcpProfileManager()->CreateProfileGroup(UniqueId, UniqueId.GetUniqueNetId(), true, false);
 		UUtMcpProfile* Profile = Group->AddProfile<UUtMcpProfile>(EUtMcpProfile::ToProfileId(EUtMcpProfile::Profile, 0), false);
 		FDedicatedServerUrlContext QueryContext = FDedicatedServerUrlContext::Default; // IMPORTANT to make a copy!
 		Profile->ForceQueryProfile(QueryContext);
 #endif
 	}
 
-	APlayerController* PC = Super::Login(NewPlayer, RemoteRole, Portal, Options, UniqueId, ErrorMessage);
+	APlayerController* PC = Super::Login(NewPlayer, InRemoteRole, Portal, Options, UniqueId, ErrorMessage);
 
 #if WITH_PROFILE
 	if (PC != NULL)
@@ -223,7 +223,7 @@ APlayerController* AUTBaseGameMode::Login(class UPlayer* NewPlayer, ENetRole Rem
 		AUTPlayerState* PS = Cast<AUTPlayerState>(PC->PlayerState);
 		if (PS != NULL && PS->UniqueId.IsValid())
 		{
-			UMcpProfileGroup* Group = GetMcpProfileManager()->CreateProfileGroup(UniqueId, true, false);
+			UMcpProfileGroup* Group = GetMcpProfileManager()->CreateProfileGroup(UniqueId, UniqueId.GetUniqueNetId(), true, false);
 			UUtMcpProfile* Profile = Cast<UUtMcpProfile>(Group->GetProfile(EUtMcpProfile::ToProfileId(EUtMcpProfile::Profile, 0)));
 			AUTPlayerState::FMcpProfileSetter::Set(PS, Profile);
 		}
@@ -262,6 +262,63 @@ void AUTBaseGameMode::GenericPlayerInitialization(AController* C)
 	{
 		PC->ClientGenericInitialization();
 	}
+}
+
+void AUTBaseGameMode::ChangeName(AController* Other, const FString& S, bool bNameChange)
+{
+	// Cap player name at 15 characters...
+	FString ClampedName = (S.Len() > 16) ? S.Left(16) : S;
+
+	// Unicode 160 is an empty space, not sure what other characters are broken in our font
+	int32 FindCharIndex;
+	bool bForceAccountName = (ClampedName.FindChar(160, FindCharIndex) || ClampedName.FindChar(38, FindCharIndex)) || (FCString::Stricmp(TEXT("Player"), *ClampedName) == 0);
+
+	AUTPlayerState* PS = Cast<AUTPlayerState>(Other->PlayerState);
+	if (!PS || ((FCString::Stricmp(*PS->PlayerName, *ClampedName) == 0) && !bForceAccountName))
+	{
+		return;
+	}
+
+	// Look to see if someone else is using the the new name
+	bool bNameMatchesAccount = false;
+	AUTGameState* UTGameState = Cast<AUTGameState>(GameState);
+	FText EpicAccountName = FText::GetEmpty();
+	if (UTGameState)
+	{
+		TSharedRef<const FUniqueNetId> UserId = MakeShareable(new FUniqueNetIdString(*PS->StatsID));
+		EpicAccountName = UTGameState->GetEpicAccountNameForAccount(UserId);
+		if (bForceAccountName)
+		{
+			PS->RequestedName = EpicAccountName.IsEmpty() ? ClampedName : TEXT("");
+			ClampedName = EpicAccountName.IsEmpty() ? FString::Printf(TEXT("%s%i"), *DefaultPlayerName.ToString(), PS->PlayerId) : EpicAccountName.ToString();
+		}
+		bNameMatchesAccount = (EpicAccountName.ToString() == ClampedName);
+	}
+	else if (bForceAccountName)
+	{
+		ClampedName = TEXT("JCenaHLR");
+	}
+	for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
+	{
+		AController* Controller = *Iterator;
+		if (Controller->PlayerState && (Controller->PlayerState != PS) && (FCString::Stricmp(*Controller->PlayerState->PlayerName, *ClampedName) == 0))
+		{
+			if (bNameMatchesAccount)
+			{
+				Controller->PlayerState->SetPlayerName("NOT" + Controller->PlayerState->PlayerName.Left(12));
+			}
+			else if (Cast<APlayerController>(Other) != NULL)
+			{
+				if (EpicAccountName.IsEmpty())
+				{
+					PS->RequestedName = ClampedName;
+				}
+				ClampedName = EpicAccountName.IsEmpty() ? FString::Printf(TEXT("%s%i"), *DefaultPlayerName.ToString(), PS->PlayerId) : EpicAccountName.ToString();
+				break;
+			}
+		}
+	}
+	PS->SetPlayerName(ClampedName);
 }
 
 bool AUTBaseGameMode::FindRedirect(const FString& PackageName, FPackageRedirectReference& Redirect)
@@ -527,6 +584,10 @@ int32 AUTBaseGameMode::GetEloFor(AUTPlayerState* PS, bool bRankedSession) const
 		{
 			MaxElo = FMath::Max(MaxElo, PS->CTFRank);
 		}
+		if (PS->FlagRunMatchesPlayed >= 10)
+		{
+			MaxElo = FMath::Max(MaxElo, PS->FlagRunRank);
+		}
 	}
 	else
 	{
@@ -591,17 +652,18 @@ bool AUTBaseGameMode::ProcessConsoleExec(const TCHAR* Cmd, FOutputDevice& Ar, UO
 
 void AUTBaseGameMode::MakeJsonReport(TSharedPtr<FJsonObject> JsonObject)
 {
-	AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
-	if (GameState)
+	AUTGameState* UTGameState = GetWorld()->GetGameState<AUTGameState>();
+	if (UTGameState)
 	{
-		GameState->MakeJsonReport(JsonObject);
+		UTGameState->MakeJsonReport(JsonObject);
 	}
 }
 
-void AUTBaseGameMode::CheckMapStatus(FString MapPackageName, bool& bIsEpicMap, bool& bIsMeshedMap)
+void AUTBaseGameMode::CheckMapStatus(FString MapPackageName, bool& bIsEpicMap, bool& bIsMeshedMap, bool& bHasRights)
 {
 	bIsEpicMap = false;
 	bIsMeshedMap = false;
+	bHasRights = false;
 	
 	for (int32 i=0; i < EpicMapList.Num(); i++)
 	{
@@ -610,6 +672,25 @@ void AUTBaseGameMode::CheckMapStatus(FString MapPackageName, bool& bIsEpicMap, b
 			bIsEpicMap = EpicMapList[i].bIsEpicMap;
 			bIsMeshedMap = EpicMapList[i].bIsMeshedMap;
 			break;
+		}
+	}
+
+	int32 Pos = INDEX_NONE;
+	MapPackageName.FindLastChar('/', Pos);
+	FString AssetName = (Pos == INDEX_NONE) ? MapPackageName : MapPackageName.Right(MapPackageName.Len() - Pos -1);
+	FString EntitlementId = GetRequiredEntitlementFromPackageName(FName(*AssetName)); //GetRequiredEntitlementFromAsset(MapAsset);
+	if ( !EntitlementId.IsEmpty() )
+	{
+		// This is a store map.  Look to see if the user has entitlements
+		bHasRights = LocallyHasEntitlement(EntitlementId);
+		if (!bIsEpicMap) bIsMeshedMap = true;
+	}
+	else
+	{
+		bHasRights = true;
+		if (!bIsEpicMap) 
+		{
+			bIsMeshedMap = false;
 		}
 	}
 }

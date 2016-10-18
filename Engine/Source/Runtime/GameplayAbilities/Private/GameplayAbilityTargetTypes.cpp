@@ -236,7 +236,7 @@ bool FGameplayAbilityTargetData_LocationInfo::NetSerialize(FArchive& Ar, class U
 bool FGameplayAbilityTargetData_ActorArray::NetSerialize(FArchive& Ar, class UPackageMap* Map, bool& bOutSuccess)
 {
 	SourceLocation.NetSerialize(Ar, Map, bOutSuccess);
-	SafeNetSerializeTArray_Default<32>(Ar, TargetActorArray);
+	SafeNetSerializeTArray_Default<31>(Ar, TargetActorArray);
 
 	bOutSuccess = true;
 	return true;

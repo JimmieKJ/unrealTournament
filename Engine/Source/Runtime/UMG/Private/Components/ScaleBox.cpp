@@ -38,6 +38,42 @@ TSharedRef<SWidget> UScaleBox::RebuildWidget()
 	return BuildDesignTimeWidget( MyScaleBox.ToSharedRef() );
 }
 
+void UScaleBox::SetStretch(EStretch::Type InStretch)
+{
+	Stretch = InStretch;
+	if(MyScaleBox.IsValid())
+	{
+		MyScaleBox->SetStretch(InStretch);
+	}
+}
+
+void UScaleBox::SetStretchDirection(EStretchDirection::Type InStretchDirection)
+{
+	StretchDirection = InStretchDirection;
+	if (MyScaleBox.IsValid())
+	{
+		MyScaleBox->SetStretchDirection(InStretchDirection);
+	}
+}
+
+void UScaleBox::SetUserSpecifiedScale(float InUserSpecifiedScale)
+{
+	UserSpecifiedScale = InUserSpecifiedScale;
+	if (MyScaleBox.IsValid())
+	{
+		MyScaleBox->SetUserSpecifiedScale(InUserSpecifiedScale);
+	}
+}
+
+void UScaleBox::SetIgnoreInheritedScale(bool bInIgnoreInheritedScale)
+{
+	IgnoreInheritedScale = bInIgnoreInheritedScale;
+	if (MyScaleBox.IsValid())
+	{
+		MyScaleBox->SetIgnoreInheritedScale(bInIgnoreInheritedScale);
+	}
+}
+
 void UScaleBox::SynchronizeProperties()
 {
 	Super::SynchronizeProperties();
@@ -53,16 +89,16 @@ UClass* UScaleBox::GetSlotClass() const
 	return UScaleBoxSlot::StaticClass();
 }
 
-void UScaleBox::OnSlotAdded(UPanelSlot* Slot)
+void UScaleBox::OnSlotAdded(UPanelSlot* InSlot)
 {
 	// Add the child to the live slot if it already exists
 	if ( MyScaleBox.IsValid() )
 	{
-		Cast<UScaleBoxSlot>(Slot)->BuildSlot(MyScaleBox.ToSharedRef());
+		CastChecked<UScaleBoxSlot>(InSlot)->BuildSlot(MyScaleBox.ToSharedRef());
 	}
 }
 
-void UScaleBox::OnSlotRemoved(UPanelSlot* Slot)
+void UScaleBox::OnSlotRemoved(UPanelSlot* InSlot)
 {
 	// Remove the widget from the live slot if it exists.
 	if ( MyScaleBox.IsValid() )
@@ -76,6 +112,27 @@ void UScaleBox::OnSlotRemoved(UPanelSlot* Slot)
 const FText UScaleBox::GetPaletteCategory()
 {
 	return LOCTEXT("Panel", "Panel");
+}
+
+bool UScaleBox::CanEditChange(const UProperty* InProperty) const
+{
+	bool bIsEditable = Super::CanEditChange(InProperty);
+	if (bIsEditable && InProperty)
+	{
+		const FName PropertyName = InProperty->GetFName();
+
+		if (PropertyName == GET_MEMBER_NAME_CHECKED(UScaleBox, StretchDirection))
+		{
+			return Stretch != EStretch::None && Stretch != EStretch::ScaleBySafeZone && Stretch != EStretch::UserSpecified;
+		}
+
+		if (PropertyName == GET_MEMBER_NAME_CHECKED(UScaleBox, UserSpecifiedScale))
+		{
+			return Stretch == EStretch::UserSpecified;
+		}
+	}
+
+	return bIsEditable;
 }
 
 #endif

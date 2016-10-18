@@ -296,6 +296,7 @@ void SHierarchyView::RebuildTreeView()
 		.OnSelectionChanged(this, &SHierarchyView::WidgetHierarchy_OnSelectionChanged)
 		.OnExpansionChanged(this, &SHierarchyView::WidgetHierarchy_OnExpansionChanged)
 		.OnContextMenuOpening(this, &SHierarchyView::WidgetHierarchy_OnContextMenuOpening)
+		.OnSetExpansionRecursive(this, &SHierarchyView::SetItemExpansionRecursive)
 		.TreeItemsSource(&TreeRootWidgets);
 
 	FilterHandler->SetTreeView(WidgetTreeView.Get());
@@ -324,19 +325,16 @@ void SHierarchyView::RestoreExpandedItems()
 	}
 }
 
-void SHierarchyView::RecursiveExpand(TSharedPtr<FHierarchyModel>& Model)
+void SHierarchyView::RecursiveExpand(TSharedPtr<FHierarchyModel>& Model, bool InShouldExpandItem)
 {
-	if ( Model->IsExpanded() )
+	WidgetTreeView->SetItemExpansion(Model, InShouldExpandItem);
+
+	TArray< TSharedPtr<FHierarchyModel> > Children;
+	Model->GatherChildren(Children);
+
+	for (TSharedPtr<FHierarchyModel>& ChildModel : Children)
 	{
-		WidgetTreeView->SetItemExpansion(Model, true);
-
-		TArray< TSharedPtr<FHierarchyModel> > Children;
-		Model->GatherChildren(Children);
-
-		for ( TSharedPtr<FHierarchyModel>& ChildModel : Children )
-		{
-			RecursiveExpand(ChildModel);
-		}
+		RecursiveExpand(ChildModel, InShouldExpandItem);
 	}
 }
 
@@ -371,6 +369,13 @@ void SHierarchyView::RecursiveSelection(TSharedPtr<FHierarchyModel>& Model)
 	}
 }
 
+void SHierarchyView::SetItemExpansionRecursive(TSharedPtr<FHierarchyModel> Model, bool bInExpansionState)
+{
+	if (Model.IsValid())
+	{
+		RecursiveExpand(Model, bInExpansionState);
+	}
+}
 
 //@TODO UMG Drop widgets onto the tree, when nothing is present, if there is a root node present, what happens then, let the root node attempt to place it?
 

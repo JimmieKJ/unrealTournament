@@ -17,13 +17,14 @@ UUTCTFMajorMessage::UUTCTFMajorMessage(const FObjectInitializer& ObjectInitializ
 	RallyReadyMessage = NSLOCTEXT("CTFGameMessage", "RallyReadyMessage", "Rally Available");
 	EnemyRallyMessage = NSLOCTEXT("CTFGameMessage", "EnemyRallyMessage", "Enemy Rally!");
 	EnemyRallyPrefix = NSLOCTEXT("CTFGameMessage", "EnemyRallyPrefix", "Enemy Rally in ");
-	EnemyRallyPostfix = NSLOCTEXT("CTFGameMessage", "EnemyRallyPostfix", "!");
+	EnemyRallyPostfix = NSLOCTEXT("CTFGameMessage", "EnemyRallyPostfix", "");
 	TeamRallyMessage = NSLOCTEXT("CTFGameMessage", "TeamRallyMessage", "");
 	FallBackToRallyMessage = NSLOCTEXT("CTFGameMessage", "FallBackToRallyMessage", "Fall back to Rally!");
 	RallyCompleteMessage = NSLOCTEXT("CTFGameMessage", "RallyCompleteMessage", "Rally Complete!");
 	bIsStatusAnnouncement = true;
 	bIsPartiallyUnique = true;
 	ScaleInSize = 3.f;
+	RallyCompleteName = TEXT("RallyComplete");
 
 	static ConstructorHelpers::FObjectFinder<USoundBase> FlagWarningSoundFinder(TEXT("SoundWave'/Game/RestrictedAssets/Audio/Stingers/FlagUp_stereo.FlagUp_stereo'"));
 	FlagWarningSound = FlagWarningSoundFinder.Object;
@@ -76,6 +77,20 @@ void UUTCTFMajorMessage::ClientReceive(const FClientReceiveData& ClientData) con
 			PC->UTClientPlaySound(RallyCompleteSound);
 		}
 	}
+}
+
+bool UUTCTFMajorMessage::ShouldDrawMessage(int32 MessageIndex, AUTPlayerController* PC, bool bIsAtIntermission, bool bNoLivePawnTarget) const
+{
+	if (MessageIndex == 23)
+	{
+		// only draw if can still rally
+		if (!PC->CanPerformRally())
+		{
+			return false;
+		}
+	}
+	
+	return Super::ShouldDrawMessage(MessageIndex, PC, bIsAtIntermission, bNoLivePawnTarget);
 }
 
 FLinearColor UUTCTFMajorMessage::GetMessageColor_Implementation(int32 MessageIndex) const
@@ -137,22 +152,22 @@ FText UUTCTFMajorMessage::GetText(int32 Switch, bool bTargetsPlayerState1, APlay
 	return FText::GetEmpty();
 }
 
-float UUTCTFMajorMessage::GetAnnouncementPriority(int32 Switch) const
+float UUTCTFMajorMessage::GetAnnouncementPriority(const FAnnouncementInfo AnnouncementInfo) const
 {
-	return (Switch <13) ? 1.f : 0.f;
+	return (AnnouncementInfo.Switch <13) ? 1.f : 0.f;
 }
 
-bool UUTCTFMajorMessage::InterruptAnnouncement_Implementation(int32 Switch, const UObject* OptionalObject, TSubclassOf<UUTLocalMessage> OtherMessageClass, int32 OtherSwitch, const UObject* OtherOptionalObject) const
+bool UUTCTFMajorMessage::InterruptAnnouncement(const FAnnouncementInfo AnnouncementInfo, const FAnnouncementInfo OtherAnnouncementInfo) const
 {
-	if (OtherMessageClass->GetDefaultObject<UUTLocalMessage>()->IsOptionalSpoken(OtherSwitch))
+	if (OtherAnnouncementInfo.MessageClass->GetDefaultObject<UUTLocalMessage>()->IsOptionalSpoken(OtherAnnouncementInfo.Switch))
 	{
 		return true;
 	}
-	if (GetClass() == OtherMessageClass)
+	if (AnnouncementInfo.MessageClass == OtherAnnouncementInfo.MessageClass)
 	{
 		return false;
 	}
-	if (GetAnnouncementPriority(Switch) > OtherMessageClass->GetDefaultObject<UUTLocalMessage>()->GetAnnouncementPriority(OtherSwitch))
+	if (GetAnnouncementPriority(AnnouncementInfo) > OtherAnnouncementInfo.MessageClass->GetDefaultObject<UUTLocalMessage>()->GetAnnouncementPriority(OtherAnnouncementInfo))
 	{
 		return true;
 	}
@@ -173,6 +188,7 @@ void UUTCTFMajorMessage::PrecacheAnnouncements_Implementation(UUTAnnouncer* Anno
 {
 	Announcer->PrecacheAnnouncement(GetTeamAnnouncement(11, 0));
 	Announcer->PrecacheAnnouncement(GetTeamAnnouncement(12, 0));
+	Announcer->PrecacheAnnouncement(GetTeamAnnouncement(21, 0));
 }
 
 FName UUTCTFMajorMessage::GetTeamAnnouncement(int32 Switch, uint8 TeamNum) const
@@ -181,6 +197,8 @@ FName UUTCTFMajorMessage::GetTeamAnnouncement(int32 Switch, uint8 TeamNum) const
 	{
 	case 11: return TEXT("HalfTime"); break;
 	case 12: return TEXT("OverTime"); break;
+	case 21: return TEXT("FlagCanBePickedUp"); break;
+	case 25: return RallyCompleteName; break;
 	}
 	return NAME_None;
 }

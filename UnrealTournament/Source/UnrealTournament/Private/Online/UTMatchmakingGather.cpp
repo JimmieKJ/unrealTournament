@@ -64,7 +64,7 @@ void UUTMatchmakingGather::FindGatheringSession()
 		MMPass->OnNoSearchResultsFound().BindUObject(this, &ThisClass::OnNoGatheringSessionsFound);
 		MMPass->OnCancelledSearchComplete().BindUObject(this, &ThisClass::OnGatheringSearchCancelled);
 
-		TSharedPtr<FUTOnlineSessionSearchBase> NewSearchSettings = MakeShareable(new FUTOnlineSessionSearchGather(CurrentParams.PlaylistId, CurrentParams.TeamElo, false, false, CurrentParams.SessionIdToSkip));
+		TSharedPtr<FUTOnlineSessionSearchBase> NewSearchSettings = MakeShareable(new FUTOnlineSessionSearchGather(CurrentParams.PlaylistId, CurrentParams.TeamElo, CurrentParams.bRanked, false, false, CurrentParams.SessionIdToSkip));
 		
 		// Order here is important (prefer level match over "closer to full" match for now)
 		NewSearchSettings->QuerySettings.Set(SETTING_NEEDS, CurrentParams.PartySize, EOnlineComparisonOp::GreaterThanEquals);
@@ -93,7 +93,7 @@ void UUTMatchmakingGather::StartGatheringSession()
 	UE_LOG(LogOnlineGame, Log, TEXT("StartGatheringSession"));
 	bool bResult = false;
 
-	FEmptyServerReservation ReservationData(CurrentParams.PlaylistId, CurrentParams.TeamElo);
+	FEmptyServerReservation ReservationData(CurrentParams.PlaylistId, CurrentParams.TeamElo, CurrentParams.bRanked);
 
 	if (ReservationData.IsValid())
 	{
@@ -123,9 +123,9 @@ void UUTMatchmakingGather::StartGatheringSession()
 	}
 }
 
-void UUTMatchmakingGather::OnJoinGatheringSessionComplete(FName SessionName, bool bWasSuccessful)
+void UUTMatchmakingGather::OnJoinGatheringSessionComplete(FName InSessionName, bool bWasSuccessful)
 {
-	UE_LOG(LogOnlineGame, Log, TEXT("OnJoinGatheringSessionComplete %s %d"), *SessionName.ToString(), bWasSuccessful);
+	UE_LOG(LogOnlineGame, Log, TEXT("OnJoinGatheringSessionComplete %s %d"), *InSessionName.ToString(), bWasSuccessful);
 
 	UUTGameInstance* GameInstance = GetUTGameInstance();
 	check(GameInstance);
@@ -139,7 +139,7 @@ void UUTMatchmakingGather::OnJoinGatheringSessionComplete(FName SessionName, boo
 
 	if (!bWillTravel)
 	{
-		UE_LOG(LogOnlineGame, Warning, TEXT("Failed to join session %s"), *SessionName.ToString());
+		UE_LOG(LogOnlineGame, Warning, TEXT("Failed to join session %s"), *InSessionName.ToString());
 		// cleanup session created by search pass
 		CleanupJoinFailure();
 	}
@@ -175,9 +175,9 @@ void UUTMatchmakingGather::OnNoGatheringSessionsFound()
 	}
 }
 
-void UUTMatchmakingGather::OnJoinEmptyGatheringServer(FName SessionName, bool bWasSuccessful)
+void UUTMatchmakingGather::OnJoinEmptyGatheringServer(FName InSessionName, bool bWasSuccessful)
 {
-	UE_LOG(LogOnlineGame, Log, TEXT("OnJoinEmptyGatheringServer %s %d"), *SessionName.ToString(), bWasSuccessful);
+	UE_LOG(LogOnlineGame, Log, TEXT("OnJoinEmptyGatheringServer %s %d"), *InSessionName.ToString(), bWasSuccessful);
 
 	UUTGameInstance* GameInstance = GetUTGameInstance();
 	check(GameInstance);
@@ -191,7 +191,7 @@ void UUTMatchmakingGather::OnJoinEmptyGatheringServer(FName SessionName, bool bW
 
 	if (!bWillTravel)
 	{
-		UE_LOG(LogOnlineGame, Warning, TEXT("Failed to join session %s"), *SessionName.ToString());
+		UE_LOG(LogOnlineGame, Warning, TEXT("Failed to join session %s"), *InSessionName.ToString());
 		// cleanup session created by search pass
 		CleanupJoinFailure();
 	}

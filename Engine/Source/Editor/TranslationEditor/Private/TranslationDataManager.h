@@ -7,8 +7,6 @@ class FInternationalizationArchive;
 class FInternationalizationManifest;
 class UTranslationUnit;
 
-#include "JsonInternationalizationArchiveSerializer.h"
-#include "JsonInternationalizationManifestSerializer.h"
 #include "ILocalizationServiceProvider.h"
 
 class FTranslationDataManager : public TSharedFromThis<FTranslationDataManager>
@@ -90,9 +88,6 @@ public:
 private:
 	void Initialize();
 
-	/** Read text file into a JSON file */
-	static TSharedPtr<FJsonObject> ReadJSONTextFile( const FString& InFilePath ) ;
-
 	/** Take a path and a manifest name and return a manifest data structure */
 	TSharedPtr< FInternationalizationManifest > ReadManifest ( const FString& ManifestFilePath );
 	/** Retrieve an archive data structure from ArchiveFilePath */
@@ -111,11 +106,6 @@ private:
 	TArray<UTranslationUnit*> Complete;
 	TArray<UTranslationUnit*> SearchResults;
 	TArray<UTranslationUnit*> ChangedOnImport;
-
-	/** Serializes and deserializes our Archive */
-	FJsonInternationalizationArchiveSerializer ArchiveSerializer;
-	/** Serializes and deserializes Manifests */
-	FJsonInternationalizationManifestSerializer ManifestSerializer;
 
 	/** Archive for the current project and native language */
 	TSharedPtr< FInternationalizationArchive > NativeArchivePtr;

@@ -2,6 +2,7 @@
 
 #include "UnrealTournament.h"
 #include "UTAudioSettings.h"
+#include "AudioThread.h"
 
 UUTAudioSettings::UUTAudioSettings(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -32,13 +33,17 @@ void UUTAudioSettings::SetSoundClassVolumeByName(const FString& SoundClassName, 
 		FAudioDevice* AudioDevice = GEngine->GetMainAudioDevice();
 		if (AudioDevice != NULL)
 		{
-			for (TMap<USoundClass*, FSoundClassProperties>::TIterator It(AudioDevice->SoundClasses); It; ++It)
+			// This is a hack until UT-1201 is resolved to switch to using the correct SoundMixClassOverride system
+			FAudioThreadSuspendContext AudioThreadSuspend;
+
+			PRAGMA_DISABLE_DEPRECATION_WARNINGS
+			for (TMap<USoundClass*, FSoundClassProperties>::TConstIterator It(AudioDevice->GetSoundClassPropertyMap()); It; ++It)
+			PRAGMA_ENABLE_DEPRECATION_WARNINGS
 			{
 				USoundClass* ThisSoundClass = It.Key();
 				if (ThisSoundClass != NULL && (ThisSoundClass->GetName() == SoundClassName))
 				{
 					// the audiodevice function logspams for some reason
-					//AudioDevice->SetClassVolume(ThisSoundClass, NewVolume);
 					ThisSoundClass->Properties.Volume = NewVolume;
 				}
 			}

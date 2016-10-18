@@ -8,6 +8,7 @@
 #include "SlateBasics.h"
 #include "SlateExtras.h"
 #include "SceneViewport.h"
+#include "AudioDevice.h"
 
 #include "SDockTab.h"
 #include "JsonObjectConverter.h"
@@ -24,6 +25,8 @@
 #include "ISessionInstanceInfo.h"
 #include "ISessionInfo.h"
 #include "ISessionManager.h"
+
+#include "ErrorCodes.h"
 
 #include "SLevelViewport.h"
 
@@ -135,12 +138,35 @@ enum class ECaptureState
 
 DECLARE_DELEGATE_OneParam(FOnCaptureFinished, bool /*bCancelled*/);
 
+// Structure used to store the state of the capture
+struct FCaptureState
+{
+	/** Construction from an enum */
+	explicit FCaptureState(ECaptureState InState = ECaptureState::Pending) : State(InState), Code(0){}
+	/** Construction from a process exit code */
+	explicit FCaptureState(int32 InCode) : State(InCode == 0 ? ECaptureState::Success : ECaptureState::Failure), Code(InCode){}
+
+	/** Get any additional detailed text */
+	FText GetDetailText()
+	{
+		switch(uint32(Code))
+		{
+		case uint32(EMovieSceneCaptureExitCode::WorldNotFound): return LOCTEXT("WorldNotFound", "Specified world does not exist. Did you forget to save it?");
+		}
+
+		return FText();
+	}
+
+	ECaptureState State;
+	int32 Code;
+};
+
 class SCaptureMovieNotification : public SCompoundWidget, public INotificationWidget
 {
 public:
 	SLATE_BEGIN_ARGS(SCaptureMovieNotification){}
 
-		SLATE_ATTRIBUTE(ECaptureState, CaptureState)
+		SLATE_ATTRIBUTE(FCaptureState, CaptureState)
 
 		SLATE_EVENT(FOnCaptureFinished, OnCaptureFinished)
 
@@ -156,7 +182,7 @@ public:
 		OnCaptureFinished = InArgs._OnCaptureFinished;
 		OnCancel = InArgs._OnCancel;
 
-		CachedState = ECaptureState::Pending;
+		CachedState = FCaptureState(ECaptureState::Pending);
 
 		FString CapturePath = FPaths::ConvertRelativePathToFull(InArgs._CapturePath);
 		CapturePath.RemoveFromEnd(TEXT("\\"));
@@ -198,6 +224,16 @@ public:
 
 				+ SVerticalBox::Slot()
 				.AutoHeight()
+				.Padding(FMargin(0,0,0,5.0f))
+				.HAlign(HAlign_Right)
+				[
+					SAssignNew(DetailedTextBlock, STextBlock)
+					.Visibility(EVisibility::Collapsed)
+					.Font(FCoreStyle::Get().GetFontStyle(TEXT("NotificationList.FontLight")))
+				]
+
+				+ SVerticalBox::Slot()
+				.AutoHeight()
 				.HAlign(HAlign_Right)
 				[
 					SNew(SHorizontalBox)
@@ -232,20 +268,26 @@ public:
 			return;
 		}
 
-		ECaptureState StateThisFrame = CaptureState.Get();
+		FCaptureState StateThisFrame = CaptureState.Get();
 
-		if (CachedState != StateThisFrame)
+		if (CachedState.State != StateThisFrame.State)
 		{
 			CachedState = StateThisFrame;
 			
-			if (CachedState == ECaptureState::Success)
+			if (CachedState.State == ECaptureState::Success)
 			{
 				TextBlock->SetText(LOCTEXT("CaptureFinished", "Capture Finished"));
 				OnCaptureFinished.ExecuteIfBound(true);
 			}
-			else if (CachedState == ECaptureState::Failure)
+			else if (CachedState.State == ECaptureState::Failure)
 			{
 				TextBlock->SetText(LOCTEXT("CaptureFailed", "Capture Failed"));
+				FText DetailText = CachedState.GetDetailText();
+				if (!DetailText.IsEmpty())
+				{
+					DetailedTextBlock->SetText(DetailText);
+					DetailedTextBlock->SetVisibility(EVisibility::Visible);
+				}
 				OnCaptureFinished.ExecuteIfBound(false);
 			}
 			else
@@ -285,23 +327,70 @@ private:
 private:
 	TSharedPtr<SWidget> Button, Throbber, Hyperlink;
 	TSharedPtr<STextBlock> TextBlock;
+	TSharedPtr<STextBlock> DetailedTextBlock;
 	SNotificationItem::ECompletionState State;
 
 	FSimpleDelegate OnCancel;
-	ECaptureState CachedState;
-	TAttribute<ECaptureState> CaptureState;
+	FCaptureState CachedState;
+	TAttribute<FCaptureState> CaptureState;
 	FOnCaptureFinished OnCaptureFinished;
 };
 
-struct FInEditorCapture
+struct FInEditorCapture : TSharedFromThis<FInEditorCapture>
 {
-	FInEditorCapture(UMovieSceneCapture* InCaptureObject, TFunction<void()> InOnStarted)
-		: CaptureObject(InCaptureObject)
+
+	static TWeakPtr<FInEditorCapture> CreateInEditorCapture(UMovieSceneCapture* InCaptureObject, const TFunction<void()>& InOnStarted)
 	{
+		// FInEditorCapture owns itself, so should only be kept alive by itself, or a pinned (=> temporary) weakptr
+		FInEditorCapture* Capture = new FInEditorCapture;
+		Capture->Start(InCaptureObject, InOnStarted);
+		return Capture->AsShared();
+	}
+
+	UWorld* GetWorld() const
+	{
+		return CapturingFromWorld;
+	}
+
+private:
+	FInEditorCapture()
+	{
+		CapturingFromWorld = nullptr;
+		CaptureObject = nullptr;
+	}
+
+	void Start(UMovieSceneCapture* InCaptureObject, const TFunction<void()>& InOnStarted)
+	{
+		check(InCaptureObject);
+
+		CapturingFromWorld = nullptr;
+		OnlyStrongReference = MakeShareable(this);
+
+		CaptureObject = InCaptureObject;
+
 		ULevelEditorPlaySettings* PlayInEditorSettings = GetMutableDefault<ULevelEditorPlaySettings>();
 
 		bScreenMessagesWereEnabled = GAreScreenMessagesEnabled;
 		GAreScreenMessagesEnabled = false;
+
+		if (!InCaptureObject->Settings.bEnableTextureStreaming)
+		{
+			const int32 UndefinedTexturePoolSize = -1;
+			IConsoleVariable* CVarStreamingPoolSize = IConsoleManager::Get().FindConsoleVariable(TEXT("r.Streaming.PoolSize"));
+			if (CVarStreamingPoolSize)
+			{
+				BackedUpStreamingPoolSize = CVarStreamingPoolSize->GetInt();
+				CVarStreamingPoolSize->Set(UndefinedTexturePoolSize, ECVF_SetByConsole);
+			}
+
+			IConsoleVariable* CVarUseFixedPoolSize = IConsoleManager::Get().FindConsoleVariable(TEXT("r.Streaming.UseFixedPoolSize"));
+			if (CVarUseFixedPoolSize)
+			{
+				BackedUpUseFixedPoolSize = CVarUseFixedPoolSize->GetInt(); 
+				CVarUseFixedPoolSize->Set(0, ECVF_SetByConsole);
+			}
+		}
+
 		OnStarted = InOnStarted;
 		FObjectWriter(PlayInEditorSettings, BackedUpPlaySettings);
 		OverridePlaySettings(PlayInEditorSettings);
@@ -312,6 +401,13 @@ struct FInEditorCapture
 		UGameViewportClient::OnViewportCreated().AddRaw(this, &FInEditorCapture::OnStart);
 		FEditorDelegates::EndPIE.AddRaw(this, &FInEditorCapture::OnEndPIE);
 		
+		FAudioDevice* AudioDevice = GEngine->GetMainAudioDevice();
+		if (AudioDevice != nullptr)
+		{
+			TransientMasterVolume = AudioDevice->GetTransientMasterVolume();
+			AudioDevice->SetTransientMasterVolume(0.0f);
+		}
+
 		GEditor->RequestPlaySession(true, nullptr, false);
 	}
 
@@ -333,6 +429,8 @@ struct FInEditorCapture
 			.HasCloseButton(true)
 			.SupportsMaximize(false)
 			.SupportsMinimize(true)
+			.MaxWidth( Settings.Resolution.ResX )
+			.MaxHeight( Settings.Resolution.ResY )
 			.SizingRule(ESizingRule::FixedSize);
 
 		FSlateApplication::Get().AddWindow(CustomWindow);
@@ -366,6 +464,8 @@ struct FInEditorCapture
 				FSlatePlayInEditorInfo* SlatePlayInEditorSession = GEditor->SlatePlayInEditorMap.Find(Context.ContextHandle);
 				if (SlatePlayInEditorSession)
 				{
+					CapturingFromWorld = Context.World();
+
 					TSharedPtr<SWindow> Window = SlatePlayInEditorSession->SlatePlayInEditorWindow.Pin();
 
 					const FMovieSceneCaptureSettings& Settings = CaptureObject->GetSettings();
@@ -405,7 +505,28 @@ struct FInEditorCapture
 
 		GAreScreenMessagesEnabled = bScreenMessagesWereEnabled;
 
+		if (!CaptureObject->Settings.bEnableTextureStreaming)
+		{
+			IConsoleVariable* CVarStreamingPoolSize = IConsoleManager::Get().FindConsoleVariable(TEXT("r.Streaming.PoolSize"));
+			if (CVarStreamingPoolSize)
+			{
+				CVarStreamingPoolSize->Set(BackedUpStreamingPoolSize, ECVF_SetByConsole);
+			}
+
+			IConsoleVariable* CVarUseFixedPoolSize = IConsoleManager::Get().FindConsoleVariable(TEXT("r.Streaming.UseFixedPoolSize"));
+			if (CVarUseFixedPoolSize)
+			{
+				CVarUseFixedPoolSize->Set(BackedUpUseFixedPoolSize, ECVF_SetByConsole);
+			}
+		}
+
 		FObjectReader(GetMutableDefault<ULevelEditorPlaySettings>(), BackedUpPlaySettings);
+
+		FAudioDevice* AudioDevice = GEngine->GetMainAudioDevice();
+		if (AudioDevice != nullptr)
+		{
+			AudioDevice->SetTransientMasterVolume(TransientMasterVolume);
+		}
 
 		CaptureObject->Close();
 		CaptureObject->RemoveFromRoot();
@@ -414,25 +535,39 @@ struct FInEditorCapture
 	void OnEndPIE(bool bIsSimulating)
 	{
 		Shutdown();
-		delete this;
+		OnlyStrongReference = nullptr;
 	}
 
 	void OnEnd()
 	{
 		Shutdown();
-		delete this;
+		OnlyStrongReference = nullptr;
 
 		GEditor->RequestEndPlayMap();
 	}
 
+	TSharedPtr<FInEditorCapture> OnlyStrongReference;
+	UWorld* CapturingFromWorld;
+
 	TFunction<void()> OnStarted;
 	bool bScreenMessagesWereEnabled;
+	float TransientMasterVolume;
+	int32 BackedUpStreamingPoolSize;
+	int32 BackedUpUseFixedPoolSize;
 	TArray<uint8> BackedUpPlaySettings;
 	UMovieSceneCapture* CaptureObject;
 };
 
 class FMovieSceneCaptureDialogModule : public IMovieSceneCaptureDialogModule
 {
+	TWeakPtr<FInEditorCapture> CurrentInEditorCapture;
+
+	virtual UWorld* GetCurrentlyRecordingWorld() override
+	{
+		TSharedPtr<FInEditorCapture> Pinned = CurrentInEditorCapture.Pin();
+		return Pinned.IsValid() ? Pinned->GetWorld() : nullptr;
+	}
+
 	virtual void OpenDialog(const TSharedRef<FTabManager>& TabManager, UMovieSceneCapture* CaptureObject) override
 	{
 		// Ensure the session services module is loaded otherwise we won't necessarily receive status updates from the movie capture session
@@ -531,11 +666,7 @@ class FMovieSceneCaptureDialogModule : public IMovieSceneCaptureDialogModule
 			return LOCTEXT("AlreadyCapturing", "There is already a movie scene capture process open. Please close it and try again.");
 		}
 
-		CaptureObject->SaveConfig();
-		if (CaptureObject->ProtocolSettings)
-		{
-			CaptureObject->ProtocolSettings->SaveConfig();
-		}
+		CaptureObject->SaveToConfig();
 
 		return CaptureObject->bUseSeparateProcess ? CaptureInNewProcess(CaptureObject, MapNameToLoad) : CaptureInEditor(CaptureObject, MapNameToLoad);
 	}
@@ -547,11 +678,11 @@ class FMovieSceneCaptureDialogModule : public IMovieSceneCaptureDialogModule
 			{
 				if (Context.WorldType == EWorldType::PIE)
 				{
-					return ECaptureState::Pending;
+					return FCaptureState(ECaptureState::Pending);
 				}
 			}
 
-			return ECaptureState::Success;
+			return FCaptureState(ECaptureState::Success);
 		};
 
 		auto OnCaptureStarted = [=]{
@@ -571,8 +702,7 @@ class FMovieSceneCaptureDialogModule : public IMovieSceneCaptureDialogModule
 			InProgressCaptureNotification->SetCompletionState(SNotificationItem::CS_Pending);
 		};
 
-		// deliberately 'leak' the object, since it owns itself
-		new FInEditorCapture(CaptureObject, OnCaptureStarted);
+		CurrentInEditorCapture = FInEditorCapture::CreateInEditorCapture(CaptureObject, OnCaptureStarted);
 
 		return FText();
 	}
@@ -589,15 +719,9 @@ class FMovieSceneCaptureDialogModule : public IMovieSceneCaptureDialogModule
 			RootObject->SetField(TEXT("Type"), MakeShareable(new FJsonValueString(CaptureObject->GetClass()->GetPathName())));
 			RootObject->SetField(TEXT("Data"), MakeShareable(new FJsonValueObject(Object)));
 
-			if (CaptureObject->ProtocolSettings)
-			{
-				RootObject->SetField(TEXT("ProtocolType"), MakeShareable(new FJsonValueString(CaptureObject->ProtocolSettings->GetClass()->GetPathName())));
-				TSharedRef<FJsonObject> ProtocolDataObject = MakeShareable(new FJsonObject);
-				if (FJsonObjectConverter::UStructToJsonObject(CaptureObject->ProtocolSettings->GetClass(), CaptureObject->ProtocolSettings, ProtocolDataObject, 0, 0))
-				{
-					RootObject->SetField(TEXT("ProtocolData"), MakeShareable(new FJsonValueObject(ProtocolDataObject)));
-				}
-			}
+			TSharedRef<FJsonObject> AdditionalJson = MakeShareable(new FJsonObject);
+			CaptureObject->SerializeJson(*AdditionalJson);
+			RootObject->SetField(TEXT("AdditionalData"), MakeShareable(new FJsonValueObject(AdditionalJson)));
 
 			FString Json;
 			TSharedRef<TJsonWriter<> > JsonWriter = TJsonWriterFactory<>::Create(&Json, 0);
@@ -611,7 +735,7 @@ class FMovieSceneCaptureDialogModule : public IMovieSceneCaptureDialogModule
 			return LOCTEXT("UnableToSaveCaptureManifest", "Unable to save capture manifest");
 		}
 
-		FString EditorCommandLine = FString::Printf(TEXT("%s -MovieSceneCaptureManifest=\"%s\" -game"), *MapNameToLoad, *Filename);
+		FString EditorCommandLine = FString::Printf(TEXT("%s -MovieSceneCaptureManifest=\"%s\" -game -NoLoadingScreen -ForceRes -Windowed"), *MapNameToLoad, *Filename);
 
 		if( CaptureObject->Settings.bCreateTemporaryCopiesOfLevels )
 		{
@@ -642,8 +766,8 @@ class FMovieSceneCaptureDialogModule : public IMovieSceneCaptureDialogModule
 			EditorCommandLine.Append(TEXT(" -NoTextureStreaming"));
 		}
 		
-		// Set the game resolution
-		EditorCommandLine += FString::Printf(TEXT(" -ResX=%d -ResY=%d"), CaptureObject->Settings.Resolution.ResX, CaptureObject->Settings.Resolution.ResY);
+		// Set the game resolution - we always want it windowed
+		EditorCommandLine += FString::Printf(TEXT(" -ResX=%d -ResY=%d -Windowed"), CaptureObject->Settings.Resolution.ResX, CaptureObject->Settings.Resolution.ResY);
 
 		// Ensure game session is correctly set up 
 		EditorCommandLine += FString::Printf(TEXT(" -messaging -SessionName=\"%s\""), MovieCaptureSessionName);
@@ -675,11 +799,11 @@ class FMovieSceneCaptureDialogModule : public IMovieSceneCaptureDialogModule
 				{
 					int32 RetCode = 0;
 					FPlatformProcess::GetProcReturnCode(*SharedProcHandle, &RetCode);
-					return RetCode == 0 ? ECaptureState::Success : ECaptureState::Failure;
+					return FCaptureState(RetCode);
 				}
 				else
 				{
-					return ECaptureState::Pending;
+					return FCaptureState(ECaptureState::Pending);
 				}
 			};
 

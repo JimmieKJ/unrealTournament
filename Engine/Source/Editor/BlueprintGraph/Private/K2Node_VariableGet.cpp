@@ -168,6 +168,8 @@ void UK2Node_VariableGet::ReallocatePinsDuringReconstruction(TArray<UEdGraphPin*
 			}
 		}
 		CreatePinForSelf();
+
+		RestoreSplitPins(OldPins);
 	}
 }
 

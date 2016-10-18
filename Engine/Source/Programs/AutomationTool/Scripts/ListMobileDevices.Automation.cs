@@ -19,7 +19,7 @@ namespace AutomationScripts.Automation
 
 			if (ParseParam("android"))
 			{
-				GetConnectedDevices(GlobalParams, Platform.Platforms[UnrealTargetPlatform.Android]);
+				GetConnectedDevices(GlobalParams, Platform.GetPlatform(UnrealTargetPlatform.Android));
 			}
 
 			if (ParseParam("ios"))

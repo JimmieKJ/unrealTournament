@@ -4,8 +4,8 @@
 #include "ProceduralFoliageBroadphase.h"
 #include "ProceduralFoliageInstance.h"
 
-FProceduralFoliageBroadphase::FProceduralFoliageBroadphase(float TileSize)
-	: QuadTree(FBox2D(FVector2D(-TileSize * 2.f, -TileSize * 2.f), FVector2D(TileSize * 2.f, TileSize * 2.f)))
+FProceduralFoliageBroadphase::FProceduralFoliageBroadphase(float TileSize, float MinimumQuadTreeSize)
+	: QuadTree(FBox2D(FVector2D(-TileSize * 2.f, -TileSize * 2.f), FVector2D(TileSize * 2.f, TileSize * 2.f)), MinimumQuadTreeSize)
 {
 }
 

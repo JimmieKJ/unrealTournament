@@ -49,6 +49,9 @@ public:
 	/** Builds the underlying FSlot for the Slate layout panel. */
 	void BuildSlot(TSharedRef<SWidgetSwitcher> InWidgetSwitcher);
 
+	/** Sets the content of this slot, removing existing content if needed. */
+	void SetContent(UWidget* NewContent);
+
 private:
 	//TODO UMG Slots should hold weak or shared refs to slots.
 

@@ -57,10 +57,10 @@ DECLARE_MULTICAST_DELEGATE(FOnMessageBusShutdown);
  * when message recipients already know about each other and wish to communicate directly, i.e. to exchange commands or events.
  *
  * In the Publish-Subscribe pattern a message is sent to all message recipients on the bus using the see IMessageBus.Publish method.
- * Only recipients that previously subscribed to the type of the sent message using the @IMessageBus.Subscribe method will actually receive
+ * Only recipients that previously subscribed to the type of the sent message using the IMessageBus.Subscribe method will actually receive
  * the message. All other recipients will not receive the message. After a published message is received, the recipients may respond with
  * another message, either directly to the message sender using IMessageBus.Send method, or by publishing another message using the
- * the IMessageBus.Publish method. This pattern is useful for discovering recipients on the message bus and to recipients that are unknown.
+ * the IMessageBus.Publish method. This pattern is useful for discovering recipients on the bus and to message recipients that are unknown.
  *
  * Most applications will often use a combination of both Request-Reply and Publish-Subscribe. A typical implementation of distributed
  * applications involves service providers and service consumers (a service can be any useful functionality provided by a system). The
@@ -75,8 +75,8 @@ DECLARE_MULTICAST_DELEGATE(FOnMessageBusShutdown);
  * of messages that can be inspected for debugging purposes[3].
  *
  * It is possible to intercept messages before they are being routed to recipients by registering so called Message Interceptors (objects
- * implementing the IInterceptMessage interface) with the message bus. This feature enables advanced use cases that require inspection or
- * manipulation of messages contents, such as message filtering and enriching, splitting and aggregating, resequencing or authentication[4].
+ * implementing the IMessageInterceptor interface) with the message bus. This feature enables advanced use cases that require inspection or
+ * manipulation of messages contents, such as message filtering and enriching, splitting and aggregating, re-sequencing or authentication[4].
  *
  * The messaging system also provides a facility for debugging the system itself through the so called Message Tracer (an internal object
  * implementing the see IMessageTracer interface) that can be accessed with the IMessageBus.GetTracer() method. The message tracer is

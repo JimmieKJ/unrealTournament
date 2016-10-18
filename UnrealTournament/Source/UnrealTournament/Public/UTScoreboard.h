@@ -115,6 +115,8 @@ public:
 	virtual void DrawStatsRight(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom);
 
 	virtual FLinearColor GetPlayerColorFor(AUTPlayerState* InPS) const;
+	virtual FLinearColor GetPlayerHighlightColorFor(AUTPlayerState* InPS) const;
+	virtual FLinearColor GetPlayerBackgroundColorFor(AUTPlayerState* InPS) const;
 	virtual FString GetPlayerNameFor(AUTPlayerState* InPS) const
 	{
 		return InPS ? InPS->PlayerName : "";
@@ -199,6 +201,7 @@ protected:
 	virtual void DrawGameOptions(float RenderDelta, float& YOffset);
 
 	virtual void DrawTeamPanel(float RenderDelta, float& YOffset);
+	virtual void DrawMinimap(float RenderDelta);
 
 	virtual void DrawScorePanel(float RenderDelta, float& YOffset);
 	virtual void DrawScoreHeaders(float RenderDelta, float& DrawY);
@@ -315,7 +318,7 @@ public:
 	 *	Allows blueprints to handle a context command.  Should return TRUE if blueprint handles the command.
 	 **/
 	UFUNCTION(BlueprintNativeEvent, Category = "Scoreboard")
-	bool HandleContextCommand(uint8 ContextId, AUTPlayerState* SelectedPlayer);
+	bool HandleContextCommand(uint8 ContextId, AUTPlayerState* InSelectedPlayer);
 
 
 };

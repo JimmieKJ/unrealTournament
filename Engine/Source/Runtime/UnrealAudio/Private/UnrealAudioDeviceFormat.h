@@ -2,9 +2,7 @@
 
 #pragma once 
 
-#include "UnrealAudioModule.h"
-#include "UnrealAudioPrivate.h"
-#include "UnrealAudioDeviceModule.h"
+#include "UnrealAudioTypes.h"
 
 #if ENABLE_UNREAL_AUDIO
 

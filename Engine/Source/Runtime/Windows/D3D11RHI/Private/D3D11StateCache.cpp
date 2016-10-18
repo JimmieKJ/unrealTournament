@@ -7,7 +7,7 @@
 //	Include Files
 //-----------------------------------------------------------------------------
 #include "D3D11RHIPrivate.h"
-#include "D3D11StateCache.h"
+#include "Windows/D3D11StateCache.h"
 
 #if D3D11_ALLOW_STATE_CACHE && D3D11_STATE_CACHE_RUNTIME_TOGGLE
 

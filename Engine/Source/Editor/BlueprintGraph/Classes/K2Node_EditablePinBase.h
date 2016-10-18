@@ -9,6 +9,10 @@ struct FUserPinInfo
 {
 	GENERATED_USTRUCT_BODY()
 
+	FUserPinInfo()
+		: DesiredPinDirection(EGPD_MAX)
+	{}
+
 	/** The name of the pin, as defined by the user */
 	UPROPERTY()
 	FString PinName;

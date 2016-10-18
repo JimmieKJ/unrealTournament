@@ -59,7 +59,7 @@ TSharedRef<ITableRow> FPListNodeString::GenerateWidget(const TSharedRef<STableVi
 }
 
 /** Generate a widget for the specified column name */
-TSharedRef<SWidget> FPListNodeString::GenerateWidgetForColumn(const FName& ColumnName, int32 Depth, ITableRow* RowPtr)
+TSharedRef<SWidget> FPListNodeString::GenerateWidgetForColumn(const FName& ColumnName, int32 InDepth, ITableRow* RowPtr)
 {
 	if(ColumnName == "PListKeyColumn")
 	{
@@ -73,7 +73,7 @@ TSharedRef<SWidget> FPListNodeString::GenerateWidgetForColumn(const FName& Colum
 			+ SHorizontalBox::Slot()
 			[
 				SNew(SSpacer)
-				.Size(FVector2D(20 * Depth, 0))
+				.Size(FVector2D(20 * InDepth, 0))
 			]
 
 			// Editable key value

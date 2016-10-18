@@ -177,7 +177,6 @@ public:
 
 	//~ Begin UObject Interface
 	virtual bool NeedsLoadForClient() const override;
-	virtual bool NeedsLoadForServer() const override;
 	//~ End UObject Interface
 
 public:

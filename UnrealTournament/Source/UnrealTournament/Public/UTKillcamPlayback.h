@@ -1,7 +1,7 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "UObject.h"
+#include "Object.h"
 #include "Engine/DemoNetDriver.h"
 #include "UTKillcamPlayback.generated.h"
 

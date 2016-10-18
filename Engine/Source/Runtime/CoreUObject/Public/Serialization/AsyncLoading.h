@@ -63,6 +63,14 @@ struct FAsyncPackage
 		return Desc.Name;
 	}
 
+	/**
+	 * Returns the name to load of the package.
+	 */
+	FORCEINLINE const FName& GetPackageNameToLoad() const
+	{
+		return Desc.NameToLoad;
+	}
+
 	void AddCompletionCallback(const FLoadPackageAsyncDelegate& Callback, bool bInternal);
 
 	/** Gets the number of references to this package from other packages in the dependency tree. */
@@ -152,6 +160,8 @@ private:
 	int32							ExportIndex;
 	/** Current index into GObjLoaded array used to spread routing PreLoad over several frames			*/
 	static int32					PreLoadIndex;
+	/** Current index into GObjLoaded array used to spread routing PreLoad over several frames			*/
+	static int32					PreLoadSortIndex;
 	/** Current index into GObjLoaded array used to spread routing PostLoad over several frames			*/
 	static int32					PostLoadIndex;
 	/** Current index into DeferredPostLoadObjects array used to spread routing PostLoad over several frames			*/
@@ -184,6 +194,10 @@ private:
 	TArray<UObject*> DeferredFinalizeObjects;
 	/** List of all request handles */
 	TArray<int32> RequestIDs;
+#if WITH_EDITORONLY_DATA
+	/** Index of the meta-data object within the linkers export table (unset if not yet processed, although may still be INDEX_NONE if there is no meta-data) */
+	TOptional<int32> MetaDataIndex;
+#endif // WITH_EDITORONLY_DATA
 	/** Cached async loading thread object this package was created by */
 	class FAsyncLoadingThread& AsyncLoadingThread;
 public:
@@ -249,6 +263,7 @@ private:
 	 * @return true if time limit has been exceeded (and is used), false otherwise
 	 */
 	bool IsTimeLimitExceeded();
+
 	/**
 	 * Begin async loading process. Simulates parts of BeginLoad.
 	 *
@@ -272,13 +287,13 @@ private:
 	 * @return true if linker is finished being created, false otherwise
 	 */
 	EAsyncPackageState::Type FinishLinker();
-	/** 
+	/**
 	 * Loads imported packages..
 	 *
 	 * @return true if we finished loading all imports, false otherwise
 	 */
 	EAsyncPackageState::Type LoadImports();
-	/** 
+	/**
 	 * Create imports till time limit is exceeded.
 	 *
 	 * @return true if we finished creating all imports, false otherwise
@@ -290,6 +305,14 @@ private:
 	 * @return true if all texture allocations have been completed, false otherwise
 	 */
 	EAsyncPackageState::Type FinishTextureAllocations();
+#if WITH_EDITORONLY_DATA
+	/**
+	 * Creates and loads meta-data for the package.
+	 *
+	 * @return true if we finished creating meta-data, false otherwise.
+	 */
+	EAsyncPackageState::Type CreateMetaData();
+#endif // WITH_EDITORONLY_DATA
 	/**
 	 * Create exports till time limit is exceeded.
 	 *
@@ -324,19 +347,19 @@ private:
 	 *
 	 * @param ImportedPackage Package imported either directly or by one of the imported packages
 	 */
-	void AddDependencyTree(int32 CurrentPackageIndex, FAsyncPackage& ImportedPackage, TSet<FAsyncPackage*>& SearchedPackages);
+	void AddDependencyTree(FAsyncPackage& ImportedPackage, TSet<FAsyncPackage*>& SearchedPackages);
 	/**
 	 * Adds a unique package to the list of packages to wait for until their linkers have been created.
 	 *
 	 * @param PendingImport Package imported either directly or by one of the imported packages
 	 */
-	bool AddUniqueLinkerDependencyPackage(int32 CurrentPackageIndex, FAsyncPackage& PendingImport);
+	bool AddUniqueLinkerDependencyPackage(FAsyncPackage& PendingImport);
 	/**
 	 * Adds a package to the list of pending import packages.
 	 *
 	 * @param PendingImport Name of the package imported either directly or by one of the imported packages
 	 */
-	void AddImportDependency(int32 CurrentPackageIndex, const FName& PendingImport);
+	void AddImportDependency(const FName& PendingImport);
 	/**
 	 * Removes references to any imported packages.
 	 */

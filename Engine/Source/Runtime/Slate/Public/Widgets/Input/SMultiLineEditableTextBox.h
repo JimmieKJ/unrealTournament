@@ -36,6 +36,7 @@ public:
 		, _VScrollBar()
 		, _WrapTextAt(0.0f)
 		, _AutoWrapText(false)
+		, _WrappingPolicy(ETextWrappingPolicy::DefaultWrapping)
 		, _SelectAllTextOnCommit( false )
 		, _BackgroundColor()		
 		, _Padding()
@@ -139,6 +140,9 @@ public:
 		/** Menu extender for the right-click context menu */
 		SLATE_EVENT( FMenuExtensionDelegate, ContextMenuExtender )
 
+		/** Delegate used to create text layouts for this widget. If none is provided then FSlateTextLayout will be used. */
+		SLATE_EVENT( FCreateSlateTextLayout, CreateSlateTextLayout )
+
 		/** Whether text wraps onto a new line when it's length exceeds this width; if this value is zero or negative, no wrapping occurs. */
 		SLATE_ATTRIBUTE( float, WrapTextAt )
 
@@ -146,6 +150,9 @@ public:
 			in visual artifacts, as the the wrapped size will computed be at least one frame late!  Consider using WrapTextAt instead.  The initial 
 			desired size will not be clamped.  This works best in cases where the text block's size is not affecting other widget's layout. */
 		SLATE_ATTRIBUTE( bool, AutoWrapText )
+
+		/** The wrapping policy to use */
+		SLATE_ATTRIBUTE( ETextWrappingPolicy, WrappingPolicy )
 
 		/** Whether to select all text when pressing enter to commit changes */
 		SLATE_ATTRIBUTE( bool, SelectAllTextOnCommit )
@@ -250,6 +257,9 @@ public:
 
 	/** See AutoWrapText attribute */
 	void SetAutoWrapText(const TAttribute<bool>& InAutoWrapText);
+
+	/** Set WrappingPolicy attribute */
+	void SetWrappingPolicy(const TAttribute<ETextWrappingPolicy>& InWrappingPolicy);
 
 	/** See LineHeightPercentage attribute */
 	void SetLineHeightPercentage(const TAttribute<float>& InLineHeightPercentage);

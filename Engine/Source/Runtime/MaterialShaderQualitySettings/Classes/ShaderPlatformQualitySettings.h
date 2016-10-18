@@ -15,21 +15,32 @@ struct FMaterialQualityOverrides
 {
 public:
 	GENERATED_USTRUCT_BODY()
+	
+	FMaterialQualityOverrides() 
+		: bEnableOverride(false)
+		, bForceFullyRough(false)
+		, bForceNonMetal(false)
+		, bForceDisableLMDirectionality(false)
+		, bForceLQReflections(false)
+	{
+	}
 
-	UPROPERTY(Config, Meta = (DisplayName = "Enable Quality Override"))
+	UPROPERTY(EditAnywhere, Config, Meta = (DisplayName = "Enable Quality Override"), Category = "Quality")
 	bool bEnableOverride;
 
-	UPROPERTY(Config, Meta = (DisplayName = "Force Fully Rough"))
+	UPROPERTY(EditAnywhere, Config, Meta = (DisplayName = "Force Fully Rough"), Category = "Quality")
 	bool bForceFullyRough;
 
-	UPROPERTY(Config, Meta = (DisplayName = "Force Non-metal"))
+	UPROPERTY(EditAnywhere, Config, Meta = (DisplayName = "Force Non-metal"), Category = "Quality")
 	bool bForceNonMetal;
 
-	UPROPERTY(Config, Meta = (DisplayName = "Disable Lightmap directionality"))
+	UPROPERTY(EditAnywhere, Config, Meta = (DisplayName = "Disable Lightmap directionality"), Category = "Quality")
 	bool bForceDisableLMDirectionality;
 
-	UPROPERTY(Config, Meta = (DisplayName = "Force low quality reflections"))
+	UPROPERTY(EditAnywhere, Config, Meta = (DisplayName = "Force low quality reflections"), Category = "Quality")
 	bool bForceLQReflections;
+
+	bool HasAnyOverridesSet() const;
 };
 
 
@@ -39,7 +50,7 @@ class MATERIALSHADERQUALITYSETTINGS_API UShaderPlatformQualitySettings : public 
 public:
 	GENERATED_UCLASS_BODY()
 
-	UPROPERTY(Config)
+	UPROPERTY(EditAnywhere, Config, Category="Quality")
 	FMaterialQualityOverrides QualityOverrides[EMaterialQualityLevel::Num];
 
 	FMaterialQualityOverrides& GetQualityOverrides(EMaterialQualityLevel::Type QualityLevel)
@@ -53,13 +64,6 @@ public:
 		check(QualityLevel < EMaterialQualityLevel::Num);
 		return QualityOverrides[(int32)QualityLevel];
 	}
-
-#if WITH_EDITOR
-	// UObject interface
-	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent) override;
-	virtual void PostInitProperties() override;
-	// End of UObject interface
-#endif
 
 	void BuildHash(EMaterialQualityLevel::Type QualityLevel, class FSHAHash& OutHash) const;
 	void AppendToHashState(EMaterialQualityLevel::Type QualityLevel, class FSHA1& HashState) const;

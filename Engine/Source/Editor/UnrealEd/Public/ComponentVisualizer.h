@@ -3,6 +3,9 @@
 #pragma once
 
 struct FViewportClick;
+class FLevelEditorViewportClient;
+class FEditorViewportClient;
+
 
 struct HComponentVisProxy : public HHitProxy
 {
@@ -21,6 +24,7 @@ struct HComponentVisProxy : public HHitProxy
 	TWeakObjectPtr<const UActorComponent> Component;
 };
 
+
 /** Base class for a component visualizer, that draw editor information for a particular component class */
 class UNREALED_API FComponentVisualizer : public TSharedFromThis<FComponentVisualizer>
 {
@@ -35,7 +39,7 @@ public:
 	/** Draw HUD on viewport for the supplied component */
 	virtual void DrawVisualizationHUD(const UActorComponent* Component, const FViewport* Viewport, const FSceneView* View, FCanvas* Canvas) {}
 	/** */
-	virtual bool VisProxyHandleClick(FLevelEditorViewportClient* InViewportClient, HComponentVisProxy* VisProxy, const FViewportClick& Click) { return false; }
+	virtual bool VisProxyHandleClick(FEditorViewportClient* InViewportClient, HComponentVisProxy* VisProxy, const FViewportClick& Click) { return false; }
 	/** */
 	virtual void EndEditing() {}
 	/** */
@@ -48,6 +52,8 @@ public:
 	virtual bool HandleInputKey(FEditorViewportClient* ViewportClient,FViewport* Viewport,FKey Key,EInputEvent Event) { return false; }
 	/** */
 	virtual TSharedPtr<SWidget> GenerateContextMenu() const { return TSharedPtr<SWidget>(); }
+	/** */
+	virtual bool IsVisualizingArchetype() const { return false; }
 
 	struct FPropertyNameAndIndex
 	{
@@ -75,6 +81,24 @@ public:
 
 	/** Find the name of the property that points to this component */
 	static FPropertyNameAndIndex GetComponentPropertyName(const UActorComponent* Component);
+
 	/** Get a component pointer from the property name */
 	static UActorComponent* GetComponentFromPropertyName(const AActor* CompOwner, const FPropertyNameAndIndex& Property);
+
+	/** Notify that a component property has been modified */
+	static void NotifyPropertyModified(UActorComponent* Component, UProperty* Property);
+
+	/** Notify that many component properties have been modified */
+	static void NotifyPropertiesModified(UActorComponent* Component, const TArray<UProperty*>& Properties);
+};
+
+struct FCachedComponentVisualizer
+{
+	TWeakObjectPtr<UActorComponent> Component;
+	TSharedPtr<FComponentVisualizer> Visualizer;
+	
+	FCachedComponentVisualizer(UActorComponent* InComponent, TSharedPtr<FComponentVisualizer>& InVisualizer)
+		: Component(InComponent)
+		, Visualizer(InVisualizer)
+	{}
 };

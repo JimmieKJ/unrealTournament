@@ -98,26 +98,26 @@ public:
 		return ( OutBonesToReplace.Num() > 0 );
 	}
 
-	void FixUpChunkBoneMaps( FSkelMeshChunk & Chunk, const TMap<FBoneIndexType, FBoneIndexType> &BonesToRepair ) override
+	void FixUpSectionBoneMaps( FSkelMeshSection & Section, const TMap<FBoneIndexType, FBoneIndexType> &BonesToRepair ) override
 	{
 		// now you have list of bones, remove them from vertex influences
 		{
 			TMap<uint8, uint8> BoneMapRemapTable;
 			// first go through bone map and see if this contains BonesToRemove
-			int32 BoneMapSize = Chunk.BoneMap.Num();
+			int32 BoneMapSize = Section.BoneMap.Num();
 			int32 AdjustIndex=0;
 
 			for (int32 BoneMapIndex=0; BoneMapIndex < BoneMapSize; ++BoneMapIndex )
 			{
 				// look for this bone to be removed or not?
-				const FBoneIndexType* ParentBoneIndex = BonesToRepair.Find(Chunk.BoneMap[BoneMapIndex]);
+				const FBoneIndexType* ParentBoneIndex = BonesToRepair.Find(Section.BoneMap[BoneMapIndex]);
 				if ( ParentBoneIndex  )
 				{
 					// this should not happen, I don't ever remove root
 					check (*ParentBoneIndex!=INDEX_NONE);
 
 					// if Parent already exists in the current BoneMap, we just have to fix up the mapping
-					int32 ParentBoneMapIndex = Chunk.BoneMap.Find(*ParentBoneIndex);
+					int32 ParentBoneMapIndex = Section.BoneMap.Find(*ParentBoneIndex);
 
 					// if it exists
 					if (ParentBoneMapIndex != INDEX_NONE)
@@ -128,15 +128,15 @@ public:
 							--ParentBoneMapIndex;
 						}
 
-						// remove current chunk count, will replace with parent
-						Chunk.BoneMap.RemoveAt(BoneMapIndex);
+						// remove current section count, will replace with parent
+						Section.BoneMap.RemoveAt(BoneMapIndex);
 					}
 					else
 					{
 						// if parent doens't exists, we have to add one
 						// this doesn't change bone map size 
-						Chunk.BoneMap.RemoveAt(BoneMapIndex);
-						ParentBoneMapIndex = Chunk.BoneMap.Add(*ParentBoneIndex);
+						Section.BoneMap.RemoveAt(BoneMapIndex);
+						ParentBoneMapIndex = Section.BoneMap.Add(*ParentBoneIndex);
 					}
 
 					// first fix up all indices of BoneMapRemapTable for the indices higher than BoneMapIndex, since BoneMapIndex is being removed
@@ -183,22 +183,10 @@ public:
 
 			if ( BoneMapRemapTable.Num() > 0 )
 			{
-				// fix up rigid verts
-				for (int32 VertIndex=0; VertIndex < Chunk.RigidVertices.Num(); ++VertIndex)
-				{
-					FRigidSkinVertex & Vert = Chunk.RigidVertices[VertIndex];
-
-					uint8 *RemappedBone = BoneMapRemapTable.Find(Vert.Bone);
-					if (RemappedBone)
-					{
-						Vert.Bone = *RemappedBone;
-					}
-				}
-
 				// fix up soft verts
-				for (int32 VertIndex=0; VertIndex < Chunk.SoftVertices.Num(); ++VertIndex)
+				for (int32 VertIndex=0; VertIndex < Section.SoftVertices.Num(); ++VertIndex)
 				{
-					FSoftSkinVertex & Vert = Chunk.SoftVertices[VertIndex];
+					FSoftSkinVertex & Vert = Section.SoftVertices[VertIndex];
 					bool ShouldRenormalize = false;
 
 					for(int32 InfluenceIndex = 0;InfluenceIndex < MAX_TOTAL_INFLUENCES;InfluenceIndex++)
@@ -274,9 +262,9 @@ public:
 		NewModel->RebuildIndexBuffer( &IndexBufferData, &AdjacencyIndexBufferData );
 
 		// fix up chunks
-		for ( int32 ChunkIndex=0; ChunkIndex< NewModel->Chunks.Num(); ++ChunkIndex )	
+		for ( int32 SectionIndex=0; SectionIndex< NewModel->Sections.Num(); ++SectionIndex)
 		{
-			FixUpChunkBoneMaps(NewModel->Chunks[ChunkIndex], BonesToRemove);
+			FixUpSectionBoneMaps(NewModel->Sections[SectionIndex], BonesToRemove);
 		}
 
 		// fix up RequiredBones/ActiveBoneIndices

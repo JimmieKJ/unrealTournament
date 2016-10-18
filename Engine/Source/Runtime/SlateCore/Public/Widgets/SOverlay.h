@@ -110,7 +110,7 @@ public:
 	 *
 	 * @param	Widget	The widget content to remove
 	 */
-	void RemoveSlot( TSharedRef< SWidget > Widget );
+	bool RemoveSlot( TSharedRef< SWidget > Widget );
 
 	/** Adds a slot at the specified location (ignores Z-order) */
 	FOverlaySlot& AddSlot(int32 ZOrder=INDEX_NONE);

@@ -45,7 +45,7 @@ void FLevelViewportTabContent::Initialize(TSharedPtr<ILevelEditor> InParentLevel
 	ParentLevelEditor = InParentLevelEditor;
 	LayoutString = InLayoutString;
 
-	InParentTab->SetOnPersistVisualState( SDockTab::FOnPersistVisualState::CreateSP(this, &FLevelViewportTabContent::SaveLayoutString, LayoutString) );
+	InParentTab->SetOnPersistVisualState( SDockTab::FOnPersistVisualState::CreateSP(this, &FLevelViewportTabContent::SaveConfig) );
 
 	const FString& IniSection = FLayoutSaveRestore::GetAdditionalLayoutConfigIni();
 
@@ -83,7 +83,7 @@ void FLevelViewportTabContent::SetViewportConfiguration(const FName& Configurati
 
 	if (bSwitchingLayouts)
 	{
-		ActiveLevelViewportLayout->SaveLayoutString(LayoutString);
+		SaveConfig();
 		ActiveLevelViewportLayout.Reset();
 	}
 
@@ -92,6 +92,46 @@ void FLevelViewportTabContent::SetViewportConfiguration(const FName& Configurati
 
 	UpdateViewportTabWidget();
 }
+
+void FLevelViewportTabContent::SaveConfig() const
+{
+	if (ActiveLevelViewportLayout.IsValid())
+	{
+		if (!LayoutString.IsEmpty())
+		{
+			FString LayoutTypeString = ActiveLevelViewportLayout->GetLayoutTypeName().ToString();
+
+			const FString& IniSection = FLayoutSaveRestore::GetAdditionalLayoutConfigIni();
+			GConfig->SetString(*IniSection, *(LayoutString + TEXT(".LayoutType")), *LayoutTypeString, GEditorPerProjectIni);
+		}
+
+		ActiveLevelViewportLayout->SaveLayoutString(LayoutString);
+	}
+}
+
+void FLevelViewportTabContent::RefreshViewportConfiguration()
+{
+	check(ActiveLevelViewportLayout.IsValid());
+
+	FName ConfigurationName = ActiveLevelViewportLayout->GetLayoutTypeName();
+	for (auto& Pair : ActiveLevelViewportLayout->GetViewports())
+	{
+		if (Pair.Value->AsWidget()->HasFocusedDescendants())
+		{
+			PreviouslyFocusedViewport = Pair.Key;
+			break;
+		}
+	}
+
+	ActiveLevelViewportLayout.Reset();
+
+	bool bSwitchingLayouts = false;
+	ActiveLevelViewportLayout = ConstructViewportLayoutByTypeName(ConfigurationName, bSwitchingLayouts);
+	check(ActiveLevelViewportLayout.IsValid());
+
+	UpdateViewportTabWidget();
+}
+
 
 bool FLevelViewportTabContent::IsViewportConfigurationSet(const FName& ConfigurationName) const
 {
@@ -114,20 +154,16 @@ void FLevelViewportTabContent::UpdateViewportTabWidget()
 	if (ParentTabPinned.IsValid() && ActiveLevelViewportLayout.IsValid())
 	{
 		TSharedRef<SWidget> LayoutWidget = ActiveLevelViewportLayout->BuildViewportLayout(ParentTabPinned, SharedThis(this), LayoutString, ParentLevelEditor);
-
 		ParentTabPinned->SetContent(LayoutWidget);
-	}
-}
 
-void FLevelViewportTabContent::SaveLayoutString(const FString InLayoutString) const
-{
-	if (ActiveLevelViewportLayout.IsValid() && !InLayoutString.IsEmpty())
-	{
-		FString LayoutTypeString = ActiveLevelViewportLayout->GetLayoutTypeName().ToString();
-
-		const FString& IniSection = FLayoutSaveRestore::GetAdditionalLayoutConfigIni();
-		GConfig->SetString(*IniSection, *(InLayoutString + TEXT(".LayoutType")), *LayoutTypeString, GEditorPerProjectIni);
-
-		ActiveLevelViewportLayout->SaveLayoutString(InLayoutString);
+		if (PreviouslyFocusedViewport.IsSet())
+		{
+			TSharedPtr<IViewportLayoutEntity> ViewportToFocus = ActiveLevelViewportLayout->GetViewports().FindRef(PreviouslyFocusedViewport.GetValue());
+			if (ViewportToFocus.IsValid())
+			{
+				ViewportToFocus->SetKeyboardFocus();
+			}
+			PreviouslyFocusedViewport = TOptional<FName>();
+		}
 	}
 }

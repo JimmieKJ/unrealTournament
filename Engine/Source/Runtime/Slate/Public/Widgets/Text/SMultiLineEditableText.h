@@ -5,6 +5,7 @@
 #if WITH_FANCY_TEXT
 
 #include "ISlateEditableTextWidget.h"
+#include "SlateTextLayoutFactory.h"
 #include "SScrollBar.h"
 #include "UniquePtr.h"
 
@@ -24,6 +25,7 @@ public:
 		, _Marshaller()
 		, _WrapTextAt( 0.0f )
 		, _AutoWrapText(false)
+		, _WrappingPolicy(ETextWrappingPolicy::DefaultWrapping)
 		, _TextStyle( &FCoreStyle::Get().GetWidgetStyle<FTextBlockStyle>( "NormalText" ) )
 		, _Font()
 		, _Margin( FMargin() )
@@ -59,6 +61,9 @@ public:
 		    in visual artifacts, as the the wrapped size will computed be at least one frame late!  Consider using WrapTextAt instead.  The initial 
 			desired size will not be clamped.  This works best in cases where the text block's size is not affecting other widget's layout. */
 		SLATE_ATTRIBUTE(bool, AutoWrapText)
+
+		/** The wrapping policy to use */
+		SLATE_ATTRIBUTE(ETextWrappingPolicy, WrappingPolicy)
 
 		/** Pointer to a style of the text block, which dictates the font, color, and shadow options. */
 		SLATE_STYLE_ARGUMENT(FTextBlockStyle, TextStyle)
@@ -123,6 +128,9 @@ public:
 		/** Menu extender for the right-click context menu */
 		SLATE_EVENT(FMenuExtensionDelegate, ContextMenuExtender)
 
+		/** Delegate used to create text layouts for this widget. If none is provided then FSlateTextLayout will be used. */
+		SLATE_EVENT(FCreateSlateTextLayout, CreateSlateTextLayout)
+
 		/** The optional modifier key necessary to create a newline when typing into the editor. */
 		SLATE_ARGUMENT(EModifierKey::Type, ModiferKeyForNewLine)
 
@@ -182,6 +190,9 @@ public:
 
 	/** See AutoWrapText attribute */
 	void SetAutoWrapText(const TAttribute<bool>& InAutoWrapText);
+
+	/** Set WrappingPolicy attribute */
+	void SetWrappingPolicy(const TAttribute<ETextWrappingPolicy>& InWrappingPolicy);
 
 	/** See LineHeightPercentage attribute */
 	void SetLineHeightPercentage(const TAttribute<float>& InLineHeightPercentage);
@@ -295,6 +306,7 @@ protected:
 	virtual bool ShouldClearTextSelectionOnFocusLoss() const override;
 	virtual bool ShouldRevertTextOnEscape() const override;
 	virtual bool ShouldClearKeyboardFocusOnCommit() const override;
+	virtual bool ShouldSelectAllTextOnCommit() const override;
 	virtual bool CanInsertCarriageReturn() const override;
 	virtual bool CanTypeCharacter(const TCHAR InChar) const override;
 	virtual void EnsureActiveTick() override;

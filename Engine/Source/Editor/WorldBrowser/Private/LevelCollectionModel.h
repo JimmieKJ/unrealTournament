@@ -599,7 +599,7 @@ struct FTiledLandscapeImportSettings
 
 	TArray<FString>		HeightmapFileList;
 	TArray<FIntPoint>	TileCoordinates;
-	FIntPoint			TilesCoordinatesOffset;	
+	FIntPoint			TilesCoordinatesOffset;
 	int32				SizeX;
 	bool				bFlipYAxis;
 
@@ -609,7 +609,7 @@ struct FTiledLandscapeImportSettings
 	// Landscape layers 
 	struct LandscapeLayerSettings
 	{
-		LandscapeLayerSettings() 
+		LandscapeLayerSettings()
 			: bNoBlendWeight(false)
 		{}
 
@@ -617,6 +617,6 @@ struct FTiledLandscapeImportSettings
 		bool						bNoBlendWeight;
 		TMap<FIntPoint, FString>	WeightmapFiles;
 	};
-	
-	TArray<LandscapeLayerSettings>		LandscapeLayerSettingsList;
+
+	TArray<LandscapeLayerSettings>	LandscapeLayerSettingsList;
 };

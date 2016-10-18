@@ -22,11 +22,14 @@ namespace EMaxConcurrentResolutionRule
 		/** When Max Concurrent sounds are active stop the furthest sound.  If all sounds are the same distance then stop the oldest. */
 		StopFarthestThenOldest,
 
-		/** Stop the lowest volume-weighted priority in the group. */
+		/** Stop the lowest priority sound in the group. If all sounds are the same priority, then it will stop the oldest sound in the group. */
 		StopLowestPriority,
 
 		/** Stop the sound that is quietest in the group. */
 		StopQuietest,
+
+		/** Stop the lowest priority sound in the group. If all sounds are the same priority, then it won't play a new sound. */
+		StopLowestPriorityThenPreventNew,
 	};
 }
 
@@ -161,7 +164,7 @@ class FSoundConcurrencyManager
 {
 public:
 	FSoundConcurrencyManager(class FAudioDevice* InAudioDevice);
-	~FSoundConcurrencyManager();
+	ENGINE_API ~FSoundConcurrencyManager();
 
 	/** Returns a newly allocated active sound given the input active sound struct. Will return nullptr if the active sound concurrency evaluation doesn't allow for it. */
 	FActiveSound* CreateNewActiveSound(const FActiveSound& NewActiveSound);

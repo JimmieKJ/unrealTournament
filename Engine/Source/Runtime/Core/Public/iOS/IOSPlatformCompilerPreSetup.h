@@ -103,3 +103,10 @@
 // since they cannot be caught by all compilers that we support. They are deemed to be relatively safe to be ignored, at least until all SDKs/toolchains start supporting them.
 #pragma clang diagnostic warning "-Wreorder"
 #pragma clang diagnostic warning "-Wparentheses-equality"
+#pragma clang diagnostic ignored "-Wdelete-non-virtual-dtor"
+
+// We can pragma optimisation's on and off as of Apple LLVM 7.3.0 but not before.
+#if __clang_major__ >= 7 && __clang_minor__ >= 3
+#define PRAGMA_DISABLE_OPTIMIZATION_ACTUAL _Pragma("clang optimize off")
+#define PRAGMA_ENABLE_OPTIMIZATION_ACTUAL  _Pragma("clang optimize on")
+#endif

@@ -4,8 +4,7 @@
 	StaticMeshDrawList.h: Static mesh draw list definition.
 =============================================================================*/
 
-#ifndef __STATICMESHDRAWLIST_H__
-#define __STATICMESHDRAWLIST_H__
+#pragma once
 
 extern ENGINE_API bool GDrawListsLocked;
 /** View state for instanced stereo rendering. */
@@ -68,6 +67,8 @@ struct FDrawListStats
 	int32 MedianMeshesPerDrawingPolicy;
 	int32 MaxMeshesPerDrawingPolicy;
 	int32 NumSingleMeshDrawingPolicies;
+	TMap<FString, int32> SingleMeshPolicyMatchFailedReasons;
+	TMap<FName, int32> SingleMeshPolicyVertexFactoryFrequency;
 };
 
 /** Fields in the key used to sort mesh elements in a draw list. */
@@ -270,7 +271,7 @@ private:
 
 		static bool Matches(const DrawingPolicyType& A,const DrawingPolicyType& B)
 		{
-			return A.Matches(B);
+			return A.Matches(B).Result();
 		}
 
 		static uint32 GetKeyHash(const DrawingPolicyType& DrawingPolicy)
@@ -345,7 +346,7 @@ public:
 		FRHICommandList& RHICmdList,
 		const StereoPair& StereoView)
 	{
-		return DrawVisibleInner<InstancedStereoPolicy::Enabled>(RHICmdList, *StereoView.LeftView, typename DrawingPolicyType::ContextDataType(true, false), nullptr, nullptr, &StereoView, 0, OrderedDrawingPolicies.Num() - 1, false);
+		return DrawVisibleInner<InstancedStereoPolicy::Enabled>(RHICmdList, *StereoView.LeftView, typename DrawingPolicyType::ContextDataType(true), nullptr, nullptr, &StereoView, 0, OrderedDrawingPolicies.Num() - 1, false);
 	}
 
 	/**
@@ -390,7 +391,7 @@ public:
 	*/
 	inline void DrawVisibleParallelInstancedStereo(const StereoPair& StereoView, FParallelCommandListSet& ParallelCommandListSet)
 	{
-		DrawVisibleParallelInternal(typename DrawingPolicyType::ContextDataType(true, false), nullptr, nullptr, &StereoView, ParallelCommandListSet);
+		DrawVisibleParallelInternal(typename DrawingPolicyType::ContextDataType(true), nullptr, nullptr, &StereoView, ParallelCommandListSet);
 	}
 
 	/**
@@ -458,6 +459,11 @@ public:
 	FDrawListStats GetStats() const;
 
 private:
+	void CollectClosestMatchingPolicies(
+		typename TArray<FSetElementId>::TConstIterator DrawingPolicyIter,
+		TMap<FString, int32>& MatchFailedReasons
+		) const;
+
 	/** All drawing policies in the draw list, in rendering order. */
 	TArray<FSetElementId> OrderedDrawingPolicies;
 	
@@ -492,4 +498,3 @@ public:
 
 #include "StaticMeshDrawList.inl"
 
-#endif

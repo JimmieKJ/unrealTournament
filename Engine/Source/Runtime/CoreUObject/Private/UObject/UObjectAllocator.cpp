@@ -12,7 +12,7 @@ DEFINE_LOG_CATEGORY_STATIC(LogUObjectAllocator, Log, All);
 COREUOBJECT_API FUObjectAllocator GUObjectAllocator;
 
 /**
- * Allocates and intializes the permanent object pool
+ * Allocates and initializes the permanent object pool
  *
  * @param InPermanentObjectPoolSize size of permanent object pool
  */

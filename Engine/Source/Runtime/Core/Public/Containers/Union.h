@@ -9,7 +9,7 @@
 #include "ArchiveBase.h"
 
 
-DECLARE_LOG_CATEGORY_EXTERN(LogUnion, Log, All);
+CORE_API DECLARE_LOG_CATEGORY_EXTERN(LogUnion, Log, All);
 
 
 /** Used to disambiguate methods that are overloaded for all possible subtypes of a TUnion where the subtypes may not be distinct. */
@@ -105,7 +105,7 @@ public:
 		// Copy the value of the appropriate subtype from the other union
 		switch(Other.CurrentSubtypeIndex)
 		{
-		case -1: break;
+		case (uint8)-1: break;
 		case 0: SetSubtype<TypeA>(Other.GetSubtype<TypeA>()); break;
 		case 1: SetSubtype<TypeB>(Other.GetSubtype<TypeB>()); break;
 		case 2: SetSubtype<TypeC>(Other.GetSubtype<TypeC>()); break;
@@ -249,10 +249,8 @@ public:
 			default: FatalErrorUndefinedSubtype(); break;
 			};
 		}
-		else
-		{
-			return false;
-		}
+
+		return false;
 	}
 
 	friend FArchive& operator<<(FArchive& Ar,TUnion& Union)

@@ -17,7 +17,6 @@ Declarations.
 // Size of a UDP header.
 #define IP_HEADER_SIZE     (20)
 #define UDP_HEADER_SIZE    (IP_HEADER_SIZE+8)
-#define SLIP_HEADER_SIZE   (UDP_HEADER_SIZE+4)
 #define WINSOCK_MAX_PACKET (512)
 
 UWebSocketConnection::UWebSocketConnection(const FObjectInitializer& ObjectInitializer) :
@@ -32,7 +31,7 @@ void UWebSocketConnection::InitBase(UNetDriver* InDriver, class FSocket* InSocke
 	Super::InitBase(InDriver, InSocket, InURL, InState,
 		// Use the default packet size/overhead unless overridden by a child class
 		InMaxPacket == 0 ? WINSOCK_MAX_PACKET : InMaxPacket,
-		InPacketOverhead == 0 ? SLIP_HEADER_SIZE : InPacketOverhead);
+		InPacketOverhead == 0 ? UDP_HEADER_SIZE : InPacketOverhead);
 
 }
 
@@ -41,7 +40,7 @@ void UWebSocketConnection::InitLocalConnection(UNetDriver* InDriver, class FSock
 	InitBase(InDriver, InSocket, InURL, InState,
 		// Use the default packet size/overhead unless overridden by a child class
 		InMaxPacket == 0 ? WINSOCK_MAX_PACKET : InMaxPacket,
-		InPacketOverhead == 0 ? SLIP_HEADER_SIZE : InPacketOverhead);
+		InPacketOverhead == 0 ? UDP_HEADER_SIZE : InPacketOverhead);
 
 	// Figure out IP address from the host URL
 
@@ -54,7 +53,7 @@ void UWebSocketConnection::InitRemoteConnection(UNetDriver* InDriver, class FSoc
 	InitBase(InDriver, InSocket, InURL, InState,
 		// Use the default packet size/overhead unless overridden by a child class
 		InMaxPacket == 0 ? WINSOCK_MAX_PACKET : InMaxPacket,
-		InPacketOverhead == 0 ? SLIP_HEADER_SIZE : InPacketOverhead);
+		InPacketOverhead == 0 ? UDP_HEADER_SIZE : InPacketOverhead);
 
 	// Initialize our send bunch
 	InitSendBuffer();

@@ -98,7 +98,11 @@ protected:
 	EVisibility CancelButtonVisible() const;
 
 	const FSlateBrush* GetMapImage() const;
+	const FSlateBrush* GetMapBorder() const;
+	EVisibility GetMapBorderVis() const;
+
 	FSlateDynamicImageBrush* DefaultLevelScreenshot;
+
 protected:
 	TWeakObjectPtr<AUTReplicatedMapInfo> LastMapInfo;
 

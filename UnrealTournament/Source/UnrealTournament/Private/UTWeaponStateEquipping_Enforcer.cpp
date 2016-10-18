@@ -4,6 +4,8 @@
 #include "UTWeaponStateEquipping_Enforcer.h"
 #include "UTWeaponStateUnequipping_Enforcer.h"
 #include "UTWeap_Enforcer.h"
+#include "Animation/AnimMontage.h"
+#include "Animation/AnimInstance.h"
 
 void UUTWeaponStateUnequipping_Enforcer::BeginState(const UUTWeaponState* PrevState)
 {

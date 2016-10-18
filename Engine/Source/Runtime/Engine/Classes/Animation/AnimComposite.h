@@ -28,12 +28,24 @@ public:
 	//~ Begin UAnimSequenceBase Interface
 	ENGINE_API virtual void HandleAssetPlayerTickedInternal(FAnimAssetTickContext &Context, const float PreviousTime, const float MoveDelta, const FAnimTickRecord &Instance, struct FAnimNotifyQueue& NotifyQueue) const override;
 	virtual void GetAnimationPose(FCompactPose& OutPose, FBlendedCurve& OutCurve, const FAnimExtractContext& ExtractionContext) const override;	
+	virtual EAdditiveAnimationType GetAdditiveAnimType() const override;
+	virtual bool IsValidAdditive() const override { return GetAdditiveAnimType() != AAT_None; }
+	virtual void EnableRootMotionSettingFromMontage(bool bInEnableRootMotion, const ERootMotionRootLock::Type InRootMotionRootLock) override;
+	virtual bool HasRootMotion() const override;
+	virtual void GetAnimNotifiesFromDeltaPositions(const float& PreviousPosition, const float & CurrentPosition, TArray<const FAnimNotifyEvent *>& OutActiveNotifies) const override;
+	virtual bool IsNotifyAvailable() const override;
 	//~ End UAnimSequenceBase Interface
 	//~ Begin UAnimSequence Interface
 #if WITH_EDITOR
-	virtual bool GetAllAnimationSequencesReferred(TArray<UAnimSequence*>& AnimationSequences) override;
-	virtual void ReplaceReferredAnimations(const TMap<UAnimSequence*, UAnimSequence*>& ReplacementMap) override;
+	virtual class UAnimSequence* GetAdditiveBasePose() const override;
+	virtual bool GetAllAnimationSequencesReferred(TArray<UAnimationAsset*>& AnimationAssets) override;
+	virtual void ReplaceReferredAnimations(const TMap<UAnimationAsset*, UAnimationAsset*>& ReplacementMap) override;
 #endif
 	//~ End UAnimSequence Interface
+
+	//~ Begin UAnimCompositeBase Interface
+	virtual void InvalidateRecursiveAsset() override;
+	virtual bool ContainRecursive(TArray<UAnimCompositeBase*>& CurrentAccumulatedList) override;
+	//~End UAnimCompositeBase Interface
 };
 

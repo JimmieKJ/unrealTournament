@@ -59,6 +59,8 @@ namespace UnrealBuildTool.Rules
 			{
 				Log.TraceVerbose("ScriptGenerator LUA Integration NOT enabled");
 			}
+
+			Definitions.Add("HACK_HEADER_GENERATOR=1");
 		}
 	}
 }

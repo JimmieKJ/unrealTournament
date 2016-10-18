@@ -3,6 +3,7 @@
 #include "ComponentVisualizersPrivatePCH.h"
 #include "SplineComponentVisualizer.h"
 #include "ScopedTransaction.h"
+#include "ActorEditorUtils.h"
 
 IMPLEMENT_HIT_PROXY(HSplineVisProxy, HComponentVisProxy);
 IMPLEMENT_HIT_PROXY(HSplineKeyProxy, HSplineVisProxy);
@@ -37,6 +38,7 @@ public:
 		UI_COMMAND(SetKeyToLinear, "Linear", "Set spline point to Linear type", EUserInterfaceActionType::RadioButton, FInputChord());
 		UI_COMMAND(SetKeyToConstant, "Constant", "Set spline point to Constant type", EUserInterfaceActionType::RadioButton, FInputChord());
 		UI_COMMAND(VisualizeRollAndScale, "Visualize Roll and Scale", "Whether the visualization should show roll and scale on this spline.", EUserInterfaceActionType::ToggleButton, FInputChord());
+		UI_COMMAND(DiscontinuousSpline, "Allow Discontinuous Splines", "Whether the visualization allows Arrive and Leave tangents to be set separately.", EUserInterfaceActionType::ToggleButton, FInputChord());
 		UI_COMMAND(ResetToDefault, "Reset to Default", "Reset this spline to its archetype default.", EUserInterfaceActionType::Button, FInputChord());
 	}
 
@@ -68,6 +70,9 @@ public:
 	/** Whether the visualization should show roll and scale */
 	TSharedPtr<FUICommandInfo> VisualizeRollAndScale;
 
+	/** Whether we allow separate Arrive / Leave tangents, resulting in a discontinuous spline */
+	TSharedPtr<FUICommandInfo> DiscontinuousSpline;
+
 	/** Reset this spline to its default */
 	TSharedPtr<FUICommandInfo> ResetToDefault;
 };
@@ -85,6 +90,8 @@ FSplineComponentVisualizer::FSplineComponentVisualizer()
 	FSplineComponentVisualizerCommands::Register();
 
 	SplineComponentVisualizerActions = MakeShareable(new FUICommandList);
+
+	SplineCurvesProperty = FindField<UProperty>(USplineComponent::StaticClass(), GET_MEMBER_NAME_CHECKED(USplineComponent, SplineCurves));
 }
 
 void FSplineComponentVisualizer::OnRegister()
@@ -141,6 +148,12 @@ void FSplineComponentVisualizer::OnRegister()
 		FIsActionChecked::CreateSP(this, &FSplineComponentVisualizer::IsVisualizingRollAndScale));
 
 	SplineComponentVisualizerActions->MapAction(
+		Commands.DiscontinuousSpline,
+		FExecuteAction::CreateSP(this, &FSplineComponentVisualizer::OnSetDiscontinuousSpline),
+		FCanExecuteAction(),
+		FIsActionChecked::CreateSP(this, &FSplineComponentVisualizer::IsDiscontinuousSpline));
+
+	SplineComponentVisualizerActions->MapAction(
 		Commands.ResetToDefault,
 		FExecuteAction::CreateSP(this, &FSplineComponentVisualizer::OnResetToDefault),
 		FCanExecuteAction::CreateSP(this, &FSplineComponentVisualizer::CanResetToDefault));
@@ -169,18 +182,17 @@ void FSplineComponentVisualizer::DrawVisualization(const UActorComponent* Compon
 {
 	if (const USplineComponent* SplineComp = Cast<const USplineComponent>(Component))
 	{
+		const FInterpCurveVector& SplineInfo = SplineComp->GetSplinePointsPosition();
 		const USplineComponent* EditedSplineComp = GetEditedSplineComponent();
 
 		const USplineComponent* Archetype = CastChecked<USplineComponent>(SplineComp->GetArchetype());
-		const bool bIsSplineEditable = SplineComp->bSplineHasBeenEdited || SplineComp->SplineInfo.Points == Archetype->SplineInfo.Points || SplineComp->bInputSplinePointsToConstructionScript;
+		const bool bIsSplineEditable = !SplineComp->bModifiedByConstructionScript; // bSplineHasBeenEdited || SplineInfo == Archetype->SplineCurves.Position || SplineComp->bInputSplinePointsToConstructionScript;
 
 		const FColor ReadOnlyColor = FColor(255, 0, 255, 255);
 		const FColor NormalColor = bIsSplineEditable ? FColor(SplineComp->EditorUnselectedSplineSegmentColor.ToFColor(true)) : ReadOnlyColor;
 		const FColor SelectedColor = bIsSplineEditable ? FColor(SplineComp->EditorSelectedSplineSegmentColor.ToFColor(true)) : ReadOnlyColor;
 		const float GrabHandleSize = 12.0f;
 		const float TangentHandleSize = 10.0f;
-
-		const FInterpCurveVector& SplineInfo = SplineComp->SplineInfo;
 
 		// Draw the tangent handles before anything else so they will not overdraw the rest of the spline
 		if (SplineComp == EditedSplineComp)
@@ -190,33 +202,35 @@ void FSplineComponentVisualizer::DrawVisualization(const UActorComponent* Compon
 				if (SplineInfo.Points[SelectedKey].IsCurveKey())
 				{
 					const FVector Location = SplineComp->GetLocationAtSplinePoint(SelectedKey, ESplineCoordinateSpace::World);
-					const FVector Tangent = SplineComp->GetTangentAtSplinePoint(SelectedKey, ESplineCoordinateSpace::World);
+					const FVector LeaveTangent = SplineComp->GetLeaveTangentAtSplinePoint(SelectedKey, ESplineCoordinateSpace::World);
+					const FVector ArriveTangent = SplineComp->bAllowDiscontinuousSpline ?
+						SplineComp->GetArriveTangentAtSplinePoint(SelectedKey, ESplineCoordinateSpace::World) : LeaveTangent;
 
 					PDI->SetHitProxy(NULL);
 
-					const float DashSize1 = GetDashSize(View, Location, Location + Tangent, 0.01f);
+					const float DashSize1 = GetDashSize(View, Location, Location + LeaveTangent, 0.01f);
 					if (DashSize1 > 0.0f)
 					{
-						DrawDashedLine(PDI, Location, Location + Tangent, SelectedColor, DashSize1, SDPG_Foreground);
+						DrawDashedLine(PDI, Location, Location + LeaveTangent, SelectedColor, DashSize1, SDPG_Foreground);
 					}
 
-					const float DashSize2 = GetDashSize(View, Location, Location - Tangent, 0.01f);
+					const float DashSize2 = GetDashSize(View, Location, Location - ArriveTangent, 0.01f);
 					if (DashSize2 > 0.0f)
 					{
-						DrawDashedLine(PDI, Location, Location - Tangent, SelectedColor, DashSize2, SDPG_Foreground);
+						DrawDashedLine(PDI, Location, Location - ArriveTangent, SelectedColor, DashSize2, SDPG_Foreground);
 					}
 
 					if (bIsSplineEditable)
 					{
 						PDI->SetHitProxy(new HSplineTangentHandleProxy(Component, SelectedKey, false));
 					}
-					PDI->DrawPoint(Location + Tangent, SelectedColor, TangentHandleSize, SDPG_Foreground);
+					PDI->DrawPoint(Location + LeaveTangent, SelectedColor, TangentHandleSize, SDPG_Foreground);
 
 					if (bIsSplineEditable)
 					{
 						PDI->SetHitProxy(new HSplineTangentHandleProxy(Component, SelectedKey, true));
 					}
-					PDI->DrawPoint(Location - Tangent, SelectedColor, TangentHandleSize, SDPG_Foreground);
+					PDI->DrawPoint(Location - ArriveTangent, SelectedColor, TangentHandleSize, SDPG_Foreground);
 
 					PDI->SetHitProxy(NULL);
 				}
@@ -231,7 +245,7 @@ void FSplineComponentVisualizer::DrawVisualization(const UActorComponent* Compon
 		FVector OldKeyScale(0);
 
 		const int32 NumPoints = SplineInfo.Points.Num();
-		const int32 NumSegments = SplineComp->IsClosedLoop() ? NumPoints : NumPoints - 1;
+		const int32 NumSegments = SplineInfo.bIsLooped ? NumPoints : NumPoints - 1;
 		for (int32 KeyIdx = 0; KeyIdx < NumSegments + 1; KeyIdx++)
 		{
 			const FVector NewKeyPos = SplineComp->GetLocationAtSplinePoint(KeyIdx, ESplineCoordinateSpace::World);
@@ -381,7 +395,7 @@ void FSplineComponentVisualizer::ChangeSelectionState(int32 Index, bool bIsCtrlH
 	}
 }
 
-bool FSplineComponentVisualizer::VisProxyHandleClick(FLevelEditorViewportClient* InViewportClient, HComponentVisProxy* VisProxy, const FViewportClick& Click)
+bool FSplineComponentVisualizer::VisProxyHandleClick(FEditorViewportClient* InViewportClient, HComponentVisProxy* VisProxy, const FViewportClick& Click)
 {
 	if(VisProxy && VisProxy->Component.IsValid())
 	{
@@ -515,11 +529,13 @@ bool FSplineComponentVisualizer::GetWidgetLocation(const FEditorViewportClient* 
 	USplineComponent* SplineComp = GetEditedSplineComponent();
 	if (SplineComp != nullptr)
 	{
+		const FInterpCurveVector& Position = SplineComp->GetSplinePointsPosition();
+
 		if (SelectedTangentHandle != INDEX_NONE)
 		{
 			// If tangent handle index is set, use that
-			check(SelectedTangentHandle < SplineComp->SplineInfo.Points.Num());
-			const auto& Point = SplineComp->SplineInfo.Points[SelectedTangentHandle];
+			check(SelectedTangentHandle < Position.Points.Num());
+			const auto& Point = Position.Points[SelectedTangentHandle];
 
 			check(SelectedTangentHandleType != ESelectedTangentHandle::None);
 			if (SelectedTangentHandleType == ESelectedTangentHandle::Leave)
@@ -536,9 +552,9 @@ bool FSplineComponentVisualizer::GetWidgetLocation(const FEditorViewportClient* 
 		else if (LastKeyIndexSelected != INDEX_NONE)
 		{
 			// Otherwise use the last key index set
-			check(LastKeyIndexSelected < SplineComp->SplineInfo.Points.Num());
+			check(LastKeyIndexSelected < Position.Points.Num());
 			check(SelectedKeys.Contains(LastKeyIndexSelected));
-			const auto& Point = SplineComp->SplineInfo.Points[LastKeyIndexSelected];
+			const auto& Point = Position.Points[LastKeyIndexSelected];
 			OutLocation = SplineComp->ComponentToWorld.TransformPosition(Point.OutVal);
 			return true;
 		}
@@ -564,16 +580,23 @@ bool FSplineComponentVisualizer::GetCustomInputCoordinateSystem(const FEditorVie
 }
 
 
+bool FSplineComponentVisualizer::IsVisualizingArchetype() const
+{
+	USplineComponent* SplineComp = GetEditedSplineComponent();
+	return (SplineComp && SplineComp->GetOwner() && FActorEditorUtils::IsAPreviewOrInactiveActor(SplineComp->GetOwner()));
+}
+
+
 bool FSplineComponentVisualizer::HandleInputDelta(FEditorViewportClient* ViewportClient, FViewport* Viewport, FVector& DeltaTranslate, FRotator& DeltaRotate, FVector& DeltaScale)
 {
 	USplineComponent* SplineComp = GetEditedSplineComponent();
 	if (SplineComp != nullptr)
 	{
-		FInterpCurveVector& SplineInfo = SplineComp->SplineInfo;
-		FInterpCurveQuat& SplineRotInfo = SplineComp->SplineRotInfo;
-		FInterpCurveVector& SplineScaleInfo = SplineComp->SplineScaleInfo;
+		FInterpCurveVector& SplinePosition = SplineComp->GetSplinePointsPosition();
+		FInterpCurveQuat& SplineRotation = SplineComp->GetSplinePointsRotation();
+		FInterpCurveVector& SplineScale = SplineComp->GetSplinePointsScale();
 
-		const int32 NumPoints = SplineInfo.Points.Num();
+		const int32 NumPoints = SplinePosition.Points.Num();
 
 		if (SelectedTangentHandle != INDEX_NONE)
 		{
@@ -587,12 +610,27 @@ bool FSplineComponentVisualizer::HandleInputDelta(FEditorViewportClient* Viewpor
 
 				SplineComp->Modify();
 
-				FInterpCurvePoint<FVector>& EditedPoint = SplineInfo.Points[SelectedTangentHandle];
-				const FVector Delta = (SelectedTangentHandleType == ESelectedTangentHandle::Leave) ? DeltaTranslate : -DeltaTranslate;
-				const FVector Tangent = EditedPoint.LeaveTangent + SplineComp->ComponentToWorld.InverseTransformVector(Delta);
+				FInterpCurvePoint<FVector>& EditedPoint = SplinePosition.Points[SelectedTangentHandle];
+				if (SplineComp->bAllowDiscontinuousSpline)
+				{
+					if (SelectedTangentHandleType == ESelectedTangentHandle::Leave)
+					{
+						EditedPoint.LeaveTangent += SplineComp->ComponentToWorld.InverseTransformVector(DeltaTranslate);
+					}
+					else
+					{
+						EditedPoint.ArriveTangent += SplineComp->ComponentToWorld.InverseTransformVector(-DeltaTranslate);
+					}
+				}
+				else
+				{
+					const FVector Delta = (SelectedTangentHandleType == ESelectedTangentHandle::Leave) ? DeltaTranslate : -DeltaTranslate;
+					const FVector Tangent = EditedPoint.LeaveTangent + SplineComp->ComponentToWorld.InverseTransformVector(Delta);
 
-				EditedPoint.LeaveTangent = Tangent;
-				EditedPoint.ArriveTangent = Tangent;
+					EditedPoint.LeaveTangent = Tangent;
+					EditedPoint.ArriveTangent = Tangent;
+				}
+
 				EditedPoint.InterpMode = CIM_CurveUser;
 			}
 		}
@@ -608,16 +646,17 @@ bool FSplineComponentVisualizer::HandleInputDelta(FEditorViewportClient* Viewpor
 
 			if (ViewportClient->IsAltPressed() && bAllowDuplication)
 			{
-				OnDuplicateKey();
+				DuplicateKey();
+
 				// Don't duplicate again until we release LMB
 				bAllowDuplication = false;
 			}
 
 			for (int32 SelectedKeyIndex : SelectedKeys)
 			{
-				FInterpCurvePoint<FVector>& EditedPoint = SplineInfo.Points[SelectedKeyIndex];
-				FInterpCurvePoint<FQuat>& EditedRotPoint = SplineRotInfo.Points[SelectedKeyIndex];
-				FInterpCurvePoint<FVector>& EditedScalePoint = SplineScaleInfo.Points[SelectedKeyIndex];
+				FInterpCurvePoint<FVector>& EditedPoint = SplinePosition.Points[SelectedKeyIndex];
+				FInterpCurvePoint<FQuat>& EditedRotPoint = SplineRotation.Points[SelectedKeyIndex];
+				FInterpCurvePoint<FVector>& EditedScalePoint = SplineScale.Points[SelectedKeyIndex];
 
 				if (!DeltaTranslate.IsZero())
 				{
@@ -672,7 +711,10 @@ bool FSplineComponentVisualizer::HandleInputDelta(FEditorViewportClient* Viewpor
 			}
 		}
 
-		NotifyComponentModified();
+		SplineComp->UpdateSpline();
+		SplineComp->bSplineHasBeenEdited = true;
+
+		NotifyPropertyModified(SplineComp, SplineCurvesProperty);
 		return true;
 	}
 
@@ -726,6 +768,19 @@ void FSplineComponentVisualizer::EndEditing()
 void FSplineComponentVisualizer::OnDuplicateKey()
 {
 	const FScopedTransaction Transaction(LOCTEXT("DuplicateSplinePoint", "Duplicate Spline Point"));
+	
+	USplineComponent* SplineComp = GetEditedSplineComponent();
+	DuplicateKey();
+
+	SplineComp->UpdateSpline();
+	SplineComp->bSplineHasBeenEdited = true;
+
+	NotifyPropertyModified(SplineComp, SplineCurvesProperty);
+}
+
+
+void FSplineComponentVisualizer::DuplicateKey()
+{
 	USplineComponent* SplineComp = GetEditedSplineComponent();
 	check(SplineComp != nullptr);
 	check(LastKeyIndexSelected != INDEX_NONE);
@@ -747,17 +802,25 @@ void FSplineComponentVisualizer::OnDuplicateKey()
 	SelectedKeysSorted.Sort([](int32 A, int32 B) { return A > B; });
 
 	// Insert duplicates into the list, highest index first, so that the lower indices remain the same
-	FInterpCurveVector& SplineInfo = SplineComp->SplineInfo;
-	FInterpCurveQuat& SplineRotInfo = SplineComp->SplineRotInfo;
-	FInterpCurveVector& SplineScaleInfo = SplineComp->SplineScaleInfo;
+	FInterpCurveVector& SplinePosition = SplineComp->SplineCurves.Position;
+	FInterpCurveQuat& SplineRotation = SplineComp->SplineCurves.Rotation;
+	FInterpCurveVector& SplineScale = SplineComp->SplineCurves.Scale;
 
 	for (int32 SelectedKeyIndex : SelectedKeysSorted)
 	{
 		// Insert duplicates into arrays.
 		// It's necessary to take a copy because copying existing array items by reference isn't allowed (the array may reallocate)
-		SplineInfo.Points.Insert(FInterpCurvePoint<FVector>(SplineInfo.Points[SelectedKeyIndex]), SelectedKeyIndex);
-		SplineRotInfo.Points.Insert(FInterpCurvePoint<FQuat>(SplineRotInfo.Points[SelectedKeyIndex]), SelectedKeyIndex);
-		SplineScaleInfo.Points.Insert(FInterpCurvePoint<FVector>(SplineScaleInfo.Points[SelectedKeyIndex]), SelectedKeyIndex);
+		SplinePosition.Points.Insert(FInterpCurvePoint<FVector>(SplinePosition.Points[SelectedKeyIndex]), SelectedKeyIndex);
+		SplineRotation.Points.Insert(FInterpCurvePoint<FQuat>(SplineRotation.Points[SelectedKeyIndex]), SelectedKeyIndex);
+		SplineScale.Points.Insert(FInterpCurvePoint<FVector>(SplineScale.Points[SelectedKeyIndex]), SelectedKeyIndex);
+
+		// Adjust input keys of subsequent points
+		for (int Index = SelectedKeyIndex + 1; Index < SplinePosition.Points.Num(); Index++)
+		{
+			SplinePosition.Points[Index].InVal += 1.0f;
+			SplineRotation.Points[Index].InVal += 1.0f;
+			SplineScale.Points[Index].InVal += 1.0f;
+		}
 	}
 
 	// Repopulate the selected keys
@@ -778,10 +841,6 @@ void FSplineComponentVisualizer::OnDuplicateKey()
 	// Unset tangent handle selection
 	SelectedTangentHandle = INDEX_NONE;
 	SelectedTangentHandleType = ESelectedTangentHandle::None;
-
-	NotifyComponentModified();
-
-//	CachedRotation = SplineComp->GetQuaternionAtSplinePoint(LastKeyIndexSelected, ESplineCoordinateSpace::World);
 }
 
 
@@ -793,7 +852,7 @@ bool FSplineComponentVisualizer::CanAddKey() const
 		return false;
 	}
 
-	const int32 NumPoints = SplineComp->SplineInfo.Points.Num();
+	const int32 NumPoints = SplineComp->SplineCurves.Position.Points.Num();
 	const int32 NumSegments = SplineComp->IsClosedLoop() ? NumPoints : NumPoints - 1;
 
 	return (SelectedSegmentIndex != INDEX_NONE && SelectedSegmentIndex < NumSegments);
@@ -817,23 +876,51 @@ void FSplineComponentVisualizer::OnAddKey()
 		Owner->Modify();
 	}
 
-	FInterpCurveVector& SplineInfo = SplineComp->SplineInfo;
-	FInterpCurveQuat& SplineRotInfo = SplineComp->SplineRotInfo;
-	FInterpCurveVector& SplineScaleInfo = SplineComp->SplineScaleInfo;
+	FInterpCurveVector& SplinePosition = SplineComp->GetSplinePointsPosition();
+	FInterpCurveQuat& SplineRotation = SplineComp->GetSplinePointsRotation();
+	FInterpCurveVector& SplineScale = SplineComp->GetSplinePointsScale();
 
-	FInterpCurvePoint<FVector> NewPoint(0.0f, SplineComp->ComponentToWorld.InverseTransformPosition(SelectedSplinePosition), FVector::ZeroVector, FVector::ZeroVector, CIM_CurveAuto);
-	FInterpCurvePoint<FQuat> NewRotPoint(0.0f, FQuat::Identity, FQuat::Identity, FQuat::Identity, CIM_CurveAuto);
-	FInterpCurvePoint<FVector> NewScalePoint(0.0f, FVector(1.0f), FVector::ZeroVector, FVector::ZeroVector, CIM_CurveAuto);
+	FInterpCurvePoint<FVector> NewPoint(
+		SelectedSegmentIndex,
+		SplineComp->ComponentToWorld.InverseTransformPosition(SelectedSplinePosition),
+		FVector::ZeroVector,
+		FVector::ZeroVector,
+		CIM_CurveAuto);
 
-	SplineInfo.Points.Insert(NewPoint, SelectedSegmentIndex + 1);
-	SplineRotInfo.Points.Insert(NewRotPoint, SelectedSegmentIndex + 1);
-	SplineScaleInfo.Points.Insert(NewScalePoint, SelectedSegmentIndex + 1);
+	FInterpCurvePoint<FQuat> NewRotPoint(
+		SelectedSegmentIndex,
+		FQuat::Identity,
+		FQuat::Identity,
+		FQuat::Identity,
+		CIM_CurveAuto);
+
+	FInterpCurvePoint<FVector> NewScalePoint(
+		SelectedSegmentIndex,
+		FVector(1.0f),
+		FVector::ZeroVector,
+		FVector::ZeroVector,
+		CIM_CurveAuto);
+
+	SplinePosition.Points.Insert(NewPoint, SelectedSegmentIndex + 1);
+	SplineRotation.Points.Insert(NewRotPoint, SelectedSegmentIndex + 1);
+	SplineScale.Points.Insert(NewScalePoint, SelectedSegmentIndex + 1);
+
+	// Adjust input keys of subsequent points
+	for (int Index = SelectedSegmentIndex + 1; Index < SplinePosition.Points.Num(); Index++)
+	{
+		SplinePosition.Points[Index].InVal += 1.0f;
+		SplineRotation.Points[Index].InVal += 1.0f;
+		SplineScale.Points[Index].InVal += 1.0f;
+	}
 
 	// Set selection to 'next' key
 	ChangeSelectionState(SelectedSegmentIndex + 1, false);
 	SelectedSegmentIndex = INDEX_NONE;
 
-	NotifyComponentModified();
+	SplineComp->UpdateSpline();
+	SplineComp->bSplineHasBeenEdited = true;
+
+	NotifyPropertyModified(SplineComp, SplineCurvesProperty);
 
 	CachedRotation = SplineComp->GetQuaternionAtSplinePoint(LastKeyIndexSelected, ESplineCoordinateSpace::World);
 }
@@ -863,15 +950,22 @@ void FSplineComponentVisualizer::OnDeleteKey()
 	SelectedKeysSorted.Sort([](int32 A, int32 B) { return A > B; });
 
 	// Delete selected keys from list, highest index first
-	FInterpCurveVector& SplineInfo = SplineComp->SplineInfo;
-	FInterpCurveQuat& SplineRotInfo = SplineComp->SplineRotInfo;
-	FInterpCurveVector& SplineScaleInfo = SplineComp->SplineScaleInfo;
+	FInterpCurveVector& SplinePosition = SplineComp->SplineCurves.Position;
+	FInterpCurveQuat& SplineRotation = SplineComp->SplineCurves.Rotation;
+	FInterpCurveVector& SplineScale = SplineComp->SplineCurves.Scale;
 
 	for (int32 SelectedKeyIndex : SelectedKeysSorted)
 	{
-		SplineInfo.Points.RemoveAt(SelectedKeyIndex);
-		SplineRotInfo.Points.RemoveAt(SelectedKeyIndex);
-		SplineScaleInfo.Points.RemoveAt(SelectedKeyIndex);
+		SplinePosition.Points.RemoveAt(SelectedKeyIndex);
+		SplineRotation.Points.RemoveAt(SelectedKeyIndex);
+		SplineScale.Points.RemoveAt(SelectedKeyIndex);
+
+		for (int Index = SelectedKeyIndex; Index < SplinePosition.Points.Num(); Index++)
+		{
+			SplinePosition.Points[Index].InVal -= 1.0f;
+			SplineRotation.Points[Index].InVal -= 1.0f;
+			SplineScale.Points[Index].InVal -= 1.0f;
+		}
 	}
 
 	// Select first key
@@ -880,7 +974,10 @@ void FSplineComponentVisualizer::OnDeleteKey()
 	SelectedTangentHandle = INDEX_NONE;
 	SelectedTangentHandleType = ESelectedTangentHandle::None;
 
-	NotifyComponentModified();
+	SplineComp->UpdateSpline();
+	SplineComp->bSplineHasBeenEdited = true;
+
+	NotifyPropertyModified(SplineComp, SplineCurvesProperty);
 
 	CachedRotation = SplineComp->GetQuaternionAtSplinePoint(LastKeyIndexSelected, ESplineCoordinateSpace::World);
 }
@@ -891,7 +988,7 @@ bool FSplineComponentVisualizer::CanDeleteKey() const
 	USplineComponent* SplineComp = GetEditedSplineComponent();
 	return (SplineComp != nullptr &&
 			SelectedKeys.Num() > 0 &&
-			SelectedKeys.Num() != SplineComp->SplineInfo.Points.Num() &&
+			SelectedKeys.Num() != SplineComp->SplineCurves.Position.Points.Num() &&
 			LastKeyIndexSelected != INDEX_NONE);
 }
 
@@ -920,14 +1017,17 @@ void FSplineComponentVisualizer::OnResetToAutomaticTangent(EInterpCurveMode Mode
 
 		for (int32 SelectedKeyIndex : SelectedKeys)
 		{
-			auto& Point = SplineComp->SplineInfo.Points[SelectedKeyIndex];
+			auto& Point = SplineComp->SplineCurves.Position.Points[SelectedKeyIndex];
 			if (Point.IsCurveKey())
 			{
 				Point.InterpMode = Mode;
 			}
 		}
 
-		NotifyComponentModified();
+		SplineComp->UpdateSpline();
+		SplineComp->bSplineHasBeenEdited = true;
+
+		NotifyPropertyModified(SplineComp, SplineCurvesProperty);
 
 		CachedRotation = SplineComp->GetQuaternionAtSplinePoint(LastKeyIndexSelected, ESplineCoordinateSpace::World);
 	}
@@ -941,7 +1041,7 @@ bool FSplineComponentVisualizer::CanResetToAutomaticTangent(EInterpCurveMode Mod
 	{
 		for (int32 SelectedKeyIndex : SelectedKeys)
 		{
-			const auto& Point = SplineComp->SplineInfo.Points[SelectedKeyIndex];
+			const auto& Point = SplineComp->SplineCurves.Position.Points[SelectedKeyIndex];
 			if (Point.IsCurveKey() && Point.InterpMode != Mode)
 			{
 				return true;
@@ -968,10 +1068,13 @@ void FSplineComponentVisualizer::OnSetKeyType(EInterpCurveMode Mode)
 
 		for (int32 SelectedKeyIndex : SelectedKeys)
 		{
-			SplineComp->SplineInfo.Points[SelectedKeyIndex].InterpMode = Mode;
+			SplineComp->SplineCurves.Position.Points[SelectedKeyIndex].InterpMode = Mode;
 		}
 
-		NotifyComponentModified();
+		SplineComp->UpdateSpline();
+		SplineComp->bSplineHasBeenEdited = true;
+
+		NotifyPropertyModified(SplineComp, SplineCurvesProperty);
 
 		CachedRotation = SplineComp->GetQuaternionAtSplinePoint(LastKeyIndexSelected, ESplineCoordinateSpace::World);
 	}
@@ -987,7 +1090,7 @@ bool FSplineComponentVisualizer::IsKeyTypeSet(EInterpCurveMode Mode) const
 
 		for (int32 SelectedKeyIndex : SelectedKeys)
 		{
-			const auto& SelectedPoint = SplineComp->SplineInfo.Points[SelectedKeyIndex];
+			const auto& SelectedPoint = SplineComp->SplineCurves.Position.Points[SelectedKeyIndex];
 			if ((Mode == CIM_CurveAuto && SelectedPoint.IsCurveKey()) || SelectedPoint.InterpMode == Mode)
 			{
 				return true;
@@ -1003,7 +1106,17 @@ void FSplineComponentVisualizer::OnSetVisualizeRollAndScale()
 {
 	USplineComponent* SplineComp = GetEditedSplineComponent();
 	check(SplineComp != nullptr);
+
+	SplineComp->Modify();
+	if (AActor* Owner = SplineComp->GetOwner())
+	{
+		Owner->Modify();
+	}
+
 	SplineComp->bShouldVisualizeScale = !SplineComp->bShouldVisualizeScale;
+
+	NotifyPropertyModified(SplineComp, FindField<UProperty>(USplineComponent::StaticClass(), GET_MEMBER_NAME_CHECKED(USplineComponent, bShouldVisualizeScale)));
+
 	GEditor->RedrawLevelEditingViewports(true);
 }
 
@@ -1013,6 +1126,45 @@ bool FSplineComponentVisualizer::IsVisualizingRollAndScale() const
 	USplineComponent* SplineComp = GetEditedSplineComponent();
 	
 	return SplineComp ? SplineComp->bShouldVisualizeScale : false;
+}
+
+
+void FSplineComponentVisualizer::OnSetDiscontinuousSpline()
+{
+	USplineComponent* SplineComp = GetEditedSplineComponent();
+	check(SplineComp != nullptr);
+
+	SplineComp->Modify();
+	if (AActor* Owner = SplineComp->GetOwner())
+	{
+		Owner->Modify();
+	}
+
+	SplineComp->bAllowDiscontinuousSpline = !SplineComp->bAllowDiscontinuousSpline;
+
+	// If not allowed discontinuous splines, set all ArriveTangents to match LeaveTangents
+	if (!SplineComp->bAllowDiscontinuousSpline)
+	{
+		for (int Index = 0; Index < SplineComp->SplineCurves.Position.Points.Num(); Index++)
+		{
+			SplineComp->SplineCurves.Position.Points[Index].ArriveTangent = SplineComp->SplineCurves.Position.Points[Index].LeaveTangent;
+		}
+	}
+
+	TArray<UProperty*> Properties;
+	Properties.Add(SplineCurvesProperty);
+	Properties.Add(FindField<UProperty>(USplineComponent::StaticClass(), GET_MEMBER_NAME_CHECKED(USplineComponent, bAllowDiscontinuousSpline)));
+	NotifyPropertiesModified(SplineComp, Properties);
+
+	GEditor->RedrawLevelEditingViewports(true);
+}
+
+
+bool FSplineComponentVisualizer::IsDiscontinuousSpline() const
+{
+	USplineComponent* SplineComp = GetEditedSplineComponent();
+
+	return SplineComp ? SplineComp->bAllowDiscontinuousSpline : false;
 }
 
 
@@ -1050,7 +1202,8 @@ bool FSplineComponentVisualizer::CanResetToDefault() const
 {
 	USplineComponent* SplineComp = GetEditedSplineComponent();
 	check(SplineComp != nullptr);
-	return SplineComp->bSplineHasBeenEdited;
+	return SplineComp->SplineCurves != CastChecked<USplineComponent>(SplineComp->GetArchetype())->SplineCurves;
+//	return SplineComp->bSplineHasBeenEdited;
 }
 
 
@@ -1080,7 +1233,7 @@ TSharedPtr<SWidget> FSplineComponentVisualizer::GenerateContextMenu() const
 				{
 					for (int32 SelectedKeyIndex : SelectedKeys)
 					{
-						const auto& Point = SplineComp->SplineInfo.Points[SelectedKeyIndex];
+						const auto& Point = SplineComp->SplineCurves.Position.Points[SelectedKeyIndex];
 						if (Point.IsCurveKey())
 						{
 							MenuBuilder.AddSubMenu(
@@ -1104,6 +1257,7 @@ TSharedPtr<SWidget> FSplineComponentVisualizer::GenerateContextMenu() const
 		MenuBuilder.BeginSection("Visualization", LOCTEXT("Visualization", "Visualization"));
 		{
 			MenuBuilder.AddMenuEntry(FSplineComponentVisualizerCommands::Get().VisualizeRollAndScale);
+			MenuBuilder.AddMenuEntry(FSplineComponentVisualizerCommands::Get().DiscontinuousSpline);
 		}
 		MenuBuilder.EndSection();
 	}
@@ -1125,28 +1279,6 @@ void FSplineComponentVisualizer::GenerateTangentTypeSubMenu(FMenuBuilder& MenuBu
 {
 	MenuBuilder.AddMenuEntry(FSplineComponentVisualizerCommands::Get().ResetToUnclampedTangent);
 	MenuBuilder.AddMenuEntry(FSplineComponentVisualizerCommands::Get().ResetToClampedTangent);
-}
-
-
-void FSplineComponentVisualizer::NotifyComponentModified()
-{
-	USplineComponent* SplineComp = GetEditedSplineComponent();
-
-	SplineComp->bSplineHasBeenEdited = true;
-	SplineComp->UpdateSpline();
-
-	// Notify that the spline info has been modified
-	UProperty* SplineInfoProperty = FindField<UProperty>(USplineComponent::StaticClass(), GET_MEMBER_NAME_CHECKED(USplineComponent, SplineInfo));
-	FPropertyChangedEvent PropertyChangedEvent(SplineInfoProperty);
-	SplineComp->PostEditChangeProperty(PropertyChangedEvent);
-
-	// Notify of change so any CS is re-run
-	if (SplineOwningActor.IsValid())
-	{
-		SplineOwningActor.Get()->PostEditMove(false);
-	}
-
-	GEditor->RedrawLevelEditingViewports(true);
 }
 
 #undef LOCTEXT_NAMESPACE

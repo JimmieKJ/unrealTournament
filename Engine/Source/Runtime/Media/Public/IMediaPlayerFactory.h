@@ -3,17 +3,8 @@
 #pragma once
 
 
+class IMediaOptions;
 class IMediaPlayer;
-
-
-/**
- * Type definition for media container file types.
- *
- * This type is a TMap that maps the file extensions of supported media file containers
- * formats to a human readable description text. The file extensions are stored without
- * a leading dot, i.e. {"avi", "Audio Video Interleave File"}.
- */
-typedef TMap<FString, FText> FMediaFileTypes;
 
 
 /**
@@ -21,13 +12,23 @@ typedef TMap<FString, FText> FMediaFileTypes;
  *
  * Media player factories are used to create instances of media player implementations.
  * Most media players will be implemented inside plug-ins, which will register their
- * factories on startup. The Media module will use the SupportsUrl() method on this
- * interface to determine which media player to instantiate for a given media URL, such
- * as a file path or a resource identifier on the internet.
+ * factories on startup. The Media module will use the CanPlayUrl() method on this
+ * interface to determine which media player to instantiate for a given media source.
  */
 class IMediaPlayerFactory
 {
 public:
+
+	/**
+	 * Whether the player can play the specified source URL.
+	 *
+	 * @param Url The media source URL to check.
+	 * @param Options Optional media player parameters.
+	 * @param OutWarnings Will contain warning messages (optional).
+	 * @param OutErrors will contain error messages (optional).
+	 * @return true if the source can be played, false otherwise.
+	 */
+	virtual bool CanPlayUrl(const FString& Url, const IMediaOptions& Options, TArray<FText>* OutWarnings, TArray<FText>* OutErrors) const = 0;
 
 	/**
 	 * Creates a media player.
@@ -37,26 +38,57 @@ public:
 	virtual TSharedPtr<IMediaPlayer> CreatePlayer() = 0;
 
 	/**
-	 * Gets a read-only collection of supported media file types.
+	 * Get the human readable name of the player.
 	 *
-	 * This function is used for file based media containers that reside on the users
-	 * local hard drive, a shared network drive or a location on the internet. It does
-	 * not take into account support for extension-less streaming media URI schemes,
-	 * such as rtsp:// and udp://
-	 *
-	 * @return A collection of supported file types.
-	 * @see SupportsUrl
+	 * @return Display name text.
+	 * @see GetName
 	 */
-	virtual const FMediaFileTypes& GetSupportedFileTypes() const = 0;
+	virtual FText GetDisplayName() const = 0;
 
 	/**
-	 * Checks whether this factory can create media players that support the given URL.
+	 * Get the unique name of the media player.
 	 *
-	 * @param Url The URL to the media, i.e. a file path or URI.
-	 * @return true if the URL supported, false otherwise.
-	 * @see GetSupportedFileTypes
+	 * @return Player name.
+	 * @see GetDisplayName
 	 */
-	virtual bool SupportsUrl(const FString& Url) const = 0;
+	virtual FName GetName() const = 0;
+
+	/**
+	 * Get the names of platforms that the media player supports.
+	 *
+	 * The returned platforms names must match the ones returned by
+	 * FPlatformProperties::IniPlatformName, i.e. "Windows", "Android", etc.
+	 *
+	 * @return Platform name collection.
+	 * @see GetOptionalParameters, GetRequiredParameters, GetSupportedFileExtensions, GetSupportedUriSchemes
+	 */
+	virtual const TArray<FString>& GetSupportedPlatforms() const = 0;
+
+public:
+
+	/**
+	 * Whether the player can play the specified source URL.
+	 *
+	 * @param Url The media source URL to check.
+	 * @param Options Optional media player parameters.
+	 * @return true if the source can be played, false otherwise.
+	 */
+	bool CanPlayUrl(const FString& Url, const IMediaOptions& Options) const
+	{
+		return CanPlayUrl(Url, Options, nullptr, nullptr);
+	}
+
+	/**
+	 * Whether the player works on the given platform.
+	 *
+	 * @param PlatformName The name of the platform to check.
+	 * @return true if the platform is supported, false otherwise.
+	 * @see GetSupportedPlatforms
+	 */
+	bool SupportsPlatform(const FString& PlatformName) const
+	{
+		return GetSupportedPlatforms().Contains(PlatformName);
+	}
 
 public:
 

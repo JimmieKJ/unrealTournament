@@ -54,13 +54,13 @@ class ENGINE_API UMovementComponent : public UActorComponent
 	 * If this is null at startup and bAutoRegisterUpdatedComponent is true, the owning Actor's root component will automatically be set as our UpdatedComponent at startup.
 	 * @see bAutoRegisterUpdatedComponent, SetUpdatedComponent(), UpdatedPrimitive
 	 */
-	UPROPERTY(BlueprintReadOnly, DuplicateTransient, Category=MovementComponent)
+	UPROPERTY(BlueprintReadOnly, Transient, DuplicateTransient, Category=MovementComponent)
 	USceneComponent* UpdatedComponent;
 
 	/**
 	 * UpdatedComponent, cast as a UPrimitiveComponent. May be invalid if UpdatedComponent was null or not a UPrimitiveComponent.
 	 */
-	UPROPERTY(BlueprintReadOnly, DuplicateTransient, Category=MovementComponent)
+	UPROPERTY(BlueprintReadOnly, Transient, DuplicateTransient, Category=MovementComponent)
 	UPrimitiveComponent* UpdatedPrimitive;
 
 	/**
@@ -155,6 +155,7 @@ public:
 	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction) override;
 	virtual void RegisterComponentTickFunctions(bool bRegister) override;
 	virtual void PostLoad() override;
+	virtual void Serialize(FArchive& Ar) override;
 
 	/** Overridden to auto-register the updated component if it starts NULL, and we can find a root component on our owner. */
 	virtual void InitializeComponent() override;

@@ -152,12 +152,39 @@ static FString GetD3D11TextureFlagString(uint32 TextureFlags)
 }
 
 
-static void TerminateOnDeviceRemoved(HRESULT D3DResult)
+static void TerminateOnDeviceRemoved(HRESULT D3DResult, ID3D11Device* Direct3DDevice)
 {
 	if (D3DResult == DXGI_ERROR_DEVICE_REMOVED)
 	{
-		FPlatformMisc::MessageBoxExt(EAppMsgType::Ok, *LOCTEXT("DeviceRemoved", "Video driver crashed and was reset!  Make sure your video drivers are up to date.  Exiting...").ToString(), TEXT("Error"));
+		if (Direct3DDevice)
+		{
+			HRESULT hRes = Direct3DDevice->GetDeviceRemovedReason();
+
+			const TCHAR* Reason = TEXT("?");
+			switch (hRes)
+			{
+			case DXGI_ERROR_DEVICE_HUNG:			Reason = TEXT("HUNG"); break;
+			case DXGI_ERROR_DEVICE_REMOVED:			Reason = TEXT("REMOVED"); break;
+			case DXGI_ERROR_DEVICE_RESET:			Reason = TEXT("RESET"); break;
+			case DXGI_ERROR_DRIVER_INTERNAL_ERROR:	Reason = TEXT("INTERNAL_ERROR"); break;
+			case DXGI_ERROR_INVALID_CALL:			Reason = TEXT("INVALID_CALL"); break;
+			case S_OK:								Reason = TEXT("S_OK"); break;
+			}
+
+			// We currently don't support removed devices because FTexture2DResource can't recreate its RHI resources from scratch.
+			// We would also need to recreate the viewport swap chains from scratch.
+			UE_LOG(LogD3D11RHI, Fatal, TEXT("Unreal Engine is exiting due to D3D device being lost. (Error: 0x%X - '%s')"), hRes, Reason);
+		}
+		else
+		{
+			UE_LOG(LogD3D11RHI, Fatal, TEXT("Unreal Engine is exiting due to D3D device being lost. D3D device was not available to assertain DXGI cause."));
+		}
+
+		// Workaround for the fact that in non-monolithic builds the exe gets into a weird state and exception handling fails. 
+		// @todo investigate why non-monolithic builds fail to capture the exception when graphics driver crashes.
+#if !IS_MONOLITHIC
 		FPlatformMisc::RequestExit(true);
+#endif
 	}
 }
 
@@ -194,7 +221,7 @@ void VerifyD3D11Result(HRESULT D3DResult,const ANSICHAR* Code,const ANSICHAR* Fi
 
 	UE_LOG(LogD3D11RHI, Error,TEXT("%s failed \n at %s:%u \n with error %s"),ANSI_TO_TCHAR(Code),ANSI_TO_TCHAR(Filename),Line,*ErrorString);
 
-	TerminateOnDeviceRemoved(D3DResult);
+	TerminateOnDeviceRemoved(D3DResult, Device);
 	TerminateOnOutOfMemory(D3DResult, false);
 
 	UE_LOG(LogD3D11RHI, Fatal,TEXT("%s failed \n at %s:%u \n with error %s"),ANSI_TO_TCHAR(Code),ANSI_TO_TCHAR(Filename),Line,*ErrorString);
@@ -210,7 +237,7 @@ void VerifyD3D11ShaderResult(FRHIShader* Shader, HRESULT D3DResult, const ANSICH
 	if (Shader->ShaderName.Len())
 	{
 		UE_LOG(LogD3D11RHI, Error, TEXT("%s failed trying to create shader %s\n at %s:%u \n with error %s"), ANSI_TO_TCHAR(Code), *Shader->ShaderName, ANSI_TO_TCHAR(Filename), Line, *ErrorString);
-		TerminateOnDeviceRemoved(D3DResult);
+		TerminateOnDeviceRemoved(D3DResult, Device);
 		TerminateOnOutOfMemory(D3DResult, false);
 
 		UE_LOG(LogD3D11RHI, Fatal, TEXT("%s failed trying to create shader %s \n at %s:%u \n with error %s"), ANSI_TO_TCHAR(Code), *Shader->ShaderName, ANSI_TO_TCHAR(Filename), Line, *ErrorString);
@@ -222,7 +249,7 @@ void VerifyD3D11ShaderResult(FRHIShader* Shader, HRESULT D3DResult, const ANSICH
 	}
 }
 
-void VerifyD3D11CreateTextureResult(HRESULT D3DResult,const ANSICHAR* Code,const ANSICHAR* Filename,uint32 Line,uint32 SizeX,uint32 SizeY,uint32 SizeZ,uint8 Format,uint32 NumMips,uint32 Flags)
+void VerifyD3D11CreateTextureResult(HRESULT D3DResult,const ANSICHAR* Code,const ANSICHAR* Filename,uint32 Line,uint32 SizeX,uint32 SizeY,uint32 SizeZ,uint8 Format,uint32 NumMips,uint32 Flags, ID3D11Device* Device)
 {
 	check(FAILED(D3DResult));
 
@@ -243,7 +270,7 @@ void VerifyD3D11CreateTextureResult(HRESULT D3DResult,const ANSICHAR* Code,const
 		NumMips,
 		*GetD3D11TextureFlagString(Flags));
 
-	TerminateOnDeviceRemoved(D3DResult);
+	TerminateOnDeviceRemoved(D3DResult, Device);
 	TerminateOnOutOfMemory(D3DResult, true);
 
 	UE_LOG(LogD3D11RHI, Fatal,
@@ -269,9 +296,14 @@ void VerifyComRefCount(IUnknown* Object,int32 ExpectedRefs,const TCHAR* Code,con
 	{
 		Object->AddRef();
 		NumRefs = Object->Release();
+
+		checkSlow(NumRefs == ExpectedRefs);
+
 		if (NumRefs != ExpectedRefs)
 		{
-			UE_LOG(LogD3D11RHI,Fatal,
+			UE_LOG(
+				LogD3D11RHI,
+				Error,
 				TEXT("%s:(%d): %s has %d refs, expected %d"),
 				Filename,
 				Line,
@@ -292,9 +324,12 @@ FD3D11BoundRenderTargets::FD3D11BoundRenderTargets(ID3D11DeviceContext* InDevice
 		&RenderTargetViews[0],
 		&DepthStencilView
 		);
-	for (NumActiveTargets = 0; NumActiveTargets < MaxSimultaneousRenderTargets; ++NumActiveTargets)
+
+	// Find the last non-null rendertarget to determine the max 
+	// We traverse the array backwards, since they can be sparse
+	for (NumActiveTargets = MaxSimultaneousRenderTargets; NumActiveTargets > 0; --NumActiveTargets)
 	{
-		if (RenderTargetViews[NumActiveTargets] == NULL)
+		if (RenderTargetViews[NumActiveTargets-1] != NULL)
 		{
 			break;
 		}
@@ -307,7 +342,10 @@ FD3D11BoundRenderTargets::~FD3D11BoundRenderTargets()
 	// to make a corresponding call to Release.
 	for (int32 TargetIndex = 0; TargetIndex < NumActiveTargets; ++TargetIndex)
 	{
-		RenderTargetViews[TargetIndex]->Release();
+		if (RenderTargetViews[TargetIndex] != nullptr)
+		{
+			RenderTargetViews[TargetIndex]->Release();
+		}
 	}
 	if (DepthStencilView)
 	{
@@ -347,7 +385,7 @@ void FD3D11DynamicBuffer::InitRHI()
 	{
 		TRefCountPtr<ID3D11Buffer> Buffer;
 		Desc.ByteWidth = BufferSizes[Buffers.Num()];
-		VERIFYD3D11RESULT(D3DRHI->GetDevice()->CreateBuffer(&Desc,NULL,Buffer.GetInitReference()));
+		VERIFYD3D11RESULT_EX(D3DRHI->GetDevice()->CreateBuffer(&Desc,NULL,Buffer.GetInitReference()), D3DRHI->GetDevice());
 		UpdateBufferStats(Buffer,true);
 		Buffers.Add(Buffer);
 	}
@@ -384,7 +422,7 @@ void* FD3D11DynamicBuffer::Lock(uint32 Size)
 		Desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
 		Desc.MiscFlags = 0;
 		Desc.ByteWidth = Size;
-		VERIFYD3D11RESULT(D3DRHI->GetDevice()->CreateBuffer(&Desc,NULL,Buffer.GetInitReference()));
+		VERIFYD3D11RESULT_EX(D3DRHI->GetDevice()->CreateBuffer(&Desc,NULL,Buffer.GetInitReference()), D3DRHI->GetDevice());
 		UpdateBufferStats(Buffers[BufferIndex],false);
 		UpdateBufferStats(Buffer,true);
 		Buffers[BufferIndex] = Buffer;
@@ -393,7 +431,7 @@ void* FD3D11DynamicBuffer::Lock(uint32 Size)
 
 	LockedBufferIndex = BufferIndex;
 	D3D11_MAPPED_SUBRESOURCE MappedSubresource;
-	VERIFYD3D11RESULT( D3DRHI->GetDeviceContext()->Map( Buffers[BufferIndex],0,D3D11_MAP_WRITE_DISCARD,0,&MappedSubresource ) );
+	VERIFYD3D11RESULT_EX(D3DRHI->GetDeviceContext()->Map(Buffers[BufferIndex],0,D3D11_MAP_WRITE_DISCARD,0,&MappedSubresource), D3DRHI->GetDevice());
 	return MappedSubresource.pData;
 }
 

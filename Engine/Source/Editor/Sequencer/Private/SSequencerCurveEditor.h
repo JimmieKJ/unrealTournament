@@ -38,8 +38,8 @@ private:
 	/** Builds and assigns a new curve owner to the FCurveEditor. */
 	void UpdateCurveOwner();
 
-	/** Gets whether or not snapping is enabled for the curve editor. */
-	bool GetCurveSnapEnabled() const;
+	/** Gets whether or not snapping is enabled for the input of the curve. */
+	bool GetInputCurveSnapEnabled() const;
 
 	/** Gets time snapping interval. */
 	float GetCurveTimeSnapInterval() const;

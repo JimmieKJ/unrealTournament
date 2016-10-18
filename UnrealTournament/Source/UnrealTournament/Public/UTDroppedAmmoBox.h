@@ -16,7 +16,7 @@ public:
 		: Super(OI)
 	{
 		SMComp = OI.CreateDefaultSubobject<UStaticMeshComponent>(this, FName(TEXT("SMComp")));
-		SMComp->AttachParent = Collision;
+		SMComp->SetupAttachment(Collision);
 		static ConstructorHelpers::FObjectFinder<UStaticMesh> BoxMesh(TEXT("/Game/RestrictedAssets/Proto/UT3_Pickups/Ammo/S_AmmoCrate.S_AmmoCrate"));
 		SMComp->SetStaticMesh(BoxMesh.Object);
 		SMComp->RelativeLocation = FVector(0.0f, 0.0f, -30.0f);

@@ -7,7 +7,12 @@
 #include "NavigationSystemHelpers.h"
 #include "AI/Navigation/NavCollision.h"
 #include "Engine/StaticMeshSocket.h"
+#include "PhysicsEngine/BodySetup.h"
 
+#if WITH_EDITOR
+#include "HierarchicalLODUtilities.h"
+#include "HierarchicalLODUtilitiesModule.h"
+#endif // WITH_EDITOR
 
 //////////////////////////////////////////////////////////////////////////
 // FSplineMeshVertexFactoryShaderParameters
@@ -45,39 +50,42 @@ void FSplineMeshVertexFactoryShaderParameters::SetMesh(FRHICommandList& RHICmdLi
 		check(OverrideColorVertexBuffer);
 		static_cast<const FLocalVertexFactory*>(VertexFactory)->SetColorOverrideStream(RHICmdList, OverrideColorVertexBuffer);
 	}
-	if (Shader->GetVertexShader())
+
+	FVertexShaderRHIRef VertexShader = Shader->GetVertexShader();
+
+	if (VertexShader)
 	{
 		checkSlow(BatchElement.bIsSplineProxy);
 		FSplineMeshSceneProxy* SplineProxy = BatchElement.SplineMeshSceneProxy;
 		FSplineMeshParams& SplineParams = SplineProxy->SplineParams;
 
-		SetShaderValue(RHICmdList, Shader->GetVertexShader(), SplineStartPosParam, SplineParams.StartPos);
-		SetShaderValue(RHICmdList, Shader->GetVertexShader(), SplineStartTangentParam, SplineParams.StartTangent);
-		SetShaderValue(RHICmdList, Shader->GetVertexShader(), SplineStartRollParam, SplineParams.StartRoll);
-		SetShaderValue(RHICmdList, Shader->GetVertexShader(), SplineStartScaleParam, SplineParams.StartScale);
-		SetShaderValue(RHICmdList, Shader->GetVertexShader(), SplineStartOffsetParam, SplineParams.StartOffset);
+		SetShaderValue(RHICmdList, VertexShader, SplineStartPosParam, SplineParams.StartPos);
+		SetShaderValue(RHICmdList, VertexShader, SplineStartTangentParam, SplineParams.StartTangent);
+		SetShaderValue(RHICmdList, VertexShader, SplineStartRollParam, SplineParams.StartRoll);
+		SetShaderValue(RHICmdList, VertexShader, SplineStartScaleParam, SplineParams.StartScale);
+		SetShaderValue(RHICmdList, VertexShader, SplineStartOffsetParam, SplineParams.StartOffset);
 
-		SetShaderValue(RHICmdList, Shader->GetVertexShader(), SplineEndPosParam, SplineParams.EndPos);
-		SetShaderValue(RHICmdList, Shader->GetVertexShader(), SplineEndTangentParam, SplineParams.EndTangent);
-		SetShaderValue(RHICmdList, Shader->GetVertexShader(), SplineEndRollParam, SplineParams.EndRoll);
-		SetShaderValue(RHICmdList, Shader->GetVertexShader(), SplineEndScaleParam, SplineParams.EndScale);
-		SetShaderValue(RHICmdList, Shader->GetVertexShader(), SplineEndOffsetParam, SplineParams.EndOffset);
+		SetShaderValue(RHICmdList, VertexShader, SplineEndPosParam, SplineParams.EndPos);
+		SetShaderValue(RHICmdList, VertexShader, SplineEndTangentParam, SplineParams.EndTangent);
+		SetShaderValue(RHICmdList, VertexShader, SplineEndRollParam, SplineParams.EndRoll);
+		SetShaderValue(RHICmdList, VertexShader, SplineEndScaleParam, SplineParams.EndScale);
+		SetShaderValue(RHICmdList, VertexShader, SplineEndOffsetParam, SplineParams.EndOffset);
 
-		SetShaderValue(RHICmdList, Shader->GetVertexShader(), SplineUpDirParam, SplineProxy->SplineUpDir);
-		SetShaderValue(RHICmdList, Shader->GetVertexShader(), SmoothInterpRollScaleParam, SplineProxy->bSmoothInterpRollScale);
+		SetShaderValue(RHICmdList, VertexShader, SplineUpDirParam, SplineProxy->SplineUpDir);
+		SetShaderValue(RHICmdList, VertexShader, SmoothInterpRollScaleParam, SplineProxy->bSmoothInterpRollScale);
 
-		SetShaderValue(RHICmdList, Shader->GetVertexShader(), SplineMeshMinZParam, SplineProxy->SplineMeshMinZ);
-		SetShaderValue(RHICmdList, Shader->GetVertexShader(), SplineMeshScaleZParam, SplineProxy->SplineMeshScaleZ);
+		SetShaderValue(RHICmdList, VertexShader, SplineMeshMinZParam, SplineProxy->SplineMeshMinZ);
+		SetShaderValue(RHICmdList, VertexShader, SplineMeshScaleZParam, SplineProxy->SplineMeshScaleZ);
 
 		FVector DirMask(0, 0, 0);
 		DirMask[SplineProxy->ForwardAxis] = 1;
-		SetShaderValue(RHICmdList, Shader->GetVertexShader(), SplineMeshDirParam, DirMask);
+		SetShaderValue(RHICmdList, VertexShader, SplineMeshDirParam, DirMask);
 		DirMask = FVector::ZeroVector;
 		DirMask[(SplineProxy->ForwardAxis + 1) % 3] = 1;
-		SetShaderValue(RHICmdList, Shader->GetVertexShader(), SplineMeshXParam, DirMask);
+		SetShaderValue(RHICmdList, VertexShader, SplineMeshXParam, DirMask);
 		DirMask = FVector::ZeroVector;
 		DirMask[(SplineProxy->ForwardAxis + 2) % 3] = 1;
-		SetShaderValue(RHICmdList, Shader->GetVertexShader(), SplineMeshYParam, DirMask);
+		SetShaderValue(RHICmdList, VertexShader, SplineMeshYParam, DirMask);
 	}
 }
 
@@ -97,12 +105,30 @@ FVertexFactoryShaderParameters* FSplineMeshVertexFactory::ConstructShaderParamet
 
 void FSplineMeshSceneProxy::InitVertexFactory(USplineMeshComponent* InComponent, int32 InLODIndex, FColorVertexBuffer* InOverrideColorVertexBuffer)
 {
+	uint32 TangentXOffset = 0;
+	uint32 TangetnZOffset = 0;
+	uint32 UVsBaseOffset = 0;
+
+	auto& RD = InComponent->StaticMesh->RenderData->LODResources[InLODIndex];
+	SELECT_STATIC_MESH_VERTEX_TYPE(
+		RD.VertexBuffer.GetUseHighPrecisionTangentBasis(),
+		RD.VertexBuffer.GetUseFullPrecisionUVs(),
+		RD.VertexBuffer.GetNumTexCoords(),
+		{
+			TangentXOffset = STRUCT_OFFSET(VertexType, TangentX);
+			TangetnZOffset = STRUCT_OFFSET(VertexType, TangentZ);
+			UVsBaseOffset = STRUCT_OFFSET(VertexType, UVs);
+		});
+
 	// Initialize the static mesh's vertex factory.
-	ENQUEUE_UNIQUE_RENDER_COMMAND_THREEPARAMETER(
+	ENQUEUE_UNIQUE_RENDER_COMMAND_SIXPARAMETER(
 		InitSplineMeshVertexFactory,
 		FStaticMeshLODResources*, RenderData, &InComponent->StaticMesh->RenderData->LODResources[InLODIndex],
 		UStaticMesh*, Parent, InComponent->StaticMesh,
 		bool, bOverrideColorVertexBuffer, !!InOverrideColorVertexBuffer,
+		uint32, TangentXOffset, TangentXOffset,
+		uint32, TangetnZOffset, TangetnZOffset,
+		uint32, UVsBaseOffset, UVsBaseOffset,
 		{
 
 		if ((RenderData->SplineVertexFactory && !bOverrideColorVertexBuffer) || (RenderData->SplineVertexFactoryOverrideColorVertexBuffer && bOverrideColorVertexBuffer))
@@ -127,18 +153,25 @@ void FSplineMeshSceneProxy::InitVertexFactory(USplineMeshComponent* InComponent,
 			RenderData->PositionVertexBuffer.GetStride(),
 			VET_Float3
 			);
+
 		Data.TangentBasisComponents[0] = FVertexStreamComponent(
 			&RenderData->VertexBuffer,
-			STRUCT_OFFSET(FStaticMeshFullVertex, TangentX),
+			TangentXOffset,
 			RenderData->VertexBuffer.GetStride(),
-			VET_PackedNormal
+			RenderData->VertexBuffer.GetUseHighPrecisionTangentBasis() ?
+				TStaticMeshVertexTangentTypeSelector<EStaticMeshVertexTangentBasisType::HighPrecision>::VertexElementType : 
+				TStaticMeshVertexTangentTypeSelector<EStaticMeshVertexTangentBasisType::Default>::VertexElementType
 			);
+
 		Data.TangentBasisComponents[1] = FVertexStreamComponent(
 			&RenderData->VertexBuffer,
-			STRUCT_OFFSET(FStaticMeshFullVertex, TangentZ),
+			TangetnZOffset,
 			RenderData->VertexBuffer.GetStride(),
-			VET_PackedNormal
+			RenderData->VertexBuffer.GetUseHighPrecisionTangentBasis() ?
+				TStaticMeshVertexTangentTypeSelector<EStaticMeshVertexTangentBasisType::HighPrecision>::VertexElementType : 
+				TStaticMeshVertexTangentTypeSelector<EStaticMeshVertexTangentBasisType::Default>::VertexElementType
 			);
+
 		if (bOverrideColorVertexBuffer)
 		{
 			Data.ColorComponent = FVertexStreamComponent(
@@ -154,83 +187,56 @@ void FSplineMeshSceneProxy::InitVertexFactory(USplineMeshComponent* InComponent,
 		{
 			FColorVertexBuffer* LODColorVertexBuffer = &RenderData->ColorVertexBuffer;
 			if (LODColorVertexBuffer->GetNumVertices() > 0)
-		{
-			Data.ColorComponent = FVertexStreamComponent(
-				LODColorVertexBuffer,
-				0,	// Struct offset to color
-				LODColorVertexBuffer->GetStride(),
-				VET_Color
-				);
-		}
+			{
+				Data.ColorComponent = FVertexStreamComponent(
+					LODColorVertexBuffer,
+					0,	// Struct offset to color
+					LODColorVertexBuffer->GetStride(),
+					VET_Color
+					);
+			}
 		}
 
 		Data.TextureCoordinates.Empty();
 
-		if (!RenderData->VertexBuffer.GetUseFullPrecisionUVs())
-		{
-			int32 UVIndex;
-			for (UVIndex = 0; UVIndex < (int32)RenderData->VertexBuffer.GetNumTexCoords() - 1; UVIndex += 2)
-			{
-				Data.TextureCoordinates.Add(FVertexStreamComponent(
-					&RenderData->VertexBuffer,
-					STRUCT_OFFSET(TStaticMeshFullVertexFloat16UVs<MAX_STATIC_TEXCOORDS>, UVs) + sizeof(FVector2DHalf) * UVIndex,
-					RenderData->VertexBuffer.GetStride(),
-					VET_Half4
-					));
-			}
-			// possible last UV channel if we have an odd number
-			if (UVIndex < (int32)RenderData->VertexBuffer.GetNumTexCoords())
-			{
-				Data.TextureCoordinates.Add(FVertexStreamComponent(
-					&RenderData->VertexBuffer,
-					STRUCT_OFFSET(TStaticMeshFullVertexFloat16UVs<MAX_STATIC_TEXCOORDS>, UVs) + sizeof(FVector2DHalf) * UVIndex,
-					RenderData->VertexBuffer.GetStride(),
-					VET_Half2
-					));
-			}
+		uint32 UVSizeInBytes = RenderData->VertexBuffer.GetUseFullPrecisionUVs() ?
+			sizeof(TStaticMeshVertexUVsTypeSelector<EStaticMeshVertexUVType::HighPrecision>::UVsTypeT) : sizeof(TStaticMeshVertexUVsTypeSelector<EStaticMeshVertexUVType::Default>::UVsTypeT);
 
-			if (Parent->LightMapCoordinateIndex >= 0 && (uint32)Parent->LightMapCoordinateIndex < RenderData->VertexBuffer.GetNumTexCoords())
-			{
-				Data.LightMapCoordinateComponent = FVertexStreamComponent(
-					&RenderData->VertexBuffer,
-					STRUCT_OFFSET(TStaticMeshFullVertexFloat16UVs<MAX_STATIC_TEXCOORDS>, UVs) + sizeof(FVector2DHalf) * Parent->LightMapCoordinateIndex,
-					RenderData->VertexBuffer.GetStride(),
-					VET_Half2
-					);
-			}
+		EVertexElementType UVDoubleWideVertexElementType = RenderData->VertexBuffer.GetUseFullPrecisionUVs() ?
+			VET_Float4 : VET_Half4;
+
+		EVertexElementType UVVertexElementType = RenderData->VertexBuffer.GetUseFullPrecisionUVs() ?
+			VET_Float2 : VET_Half2;
+
+		int32 UVIndex;
+		for (UVIndex = 0; UVIndex < (int32)RenderData->VertexBuffer.GetNumTexCoords() - 1; UVIndex += 2)
+		{
+			Data.TextureCoordinates.Add(FVertexStreamComponent(
+				&RenderData->VertexBuffer,
+				UVsBaseOffset + UVSizeInBytes * UVIndex,
+				RenderData->VertexBuffer.GetStride(),
+				UVDoubleWideVertexElementType
+				));
 		}
-		else
+		// possible last UV channel if we have an odd number
+		if (UVIndex < (int32)RenderData->VertexBuffer.GetNumTexCoords())
 		{
-			int32 UVIndex;
-			for (UVIndex = 0; UVIndex < (int32)RenderData->VertexBuffer.GetNumTexCoords() - 1; UVIndex += 2)
-			{
-				Data.TextureCoordinates.Add(FVertexStreamComponent(
-					&RenderData->VertexBuffer,
-					STRUCT_OFFSET(TStaticMeshFullVertexFloat32UVs<MAX_STATIC_TEXCOORDS>, UVs) + sizeof(FVector2D) * UVIndex,
-					RenderData->VertexBuffer.GetStride(),
-					VET_Float4
-					));
-			}
-			// possible last UV channel if we have an odd number
-			if (UVIndex < (int32)RenderData->VertexBuffer.GetNumTexCoords())
-			{
-				Data.TextureCoordinates.Add(FVertexStreamComponent(
-					&RenderData->VertexBuffer,
-					STRUCT_OFFSET(TStaticMeshFullVertexFloat32UVs<MAX_STATIC_TEXCOORDS>, UVs) + sizeof(FVector2D) * UVIndex,
-					RenderData->VertexBuffer.GetStride(),
-					VET_Float2
-					));
-			}
+			Data.TextureCoordinates.Add(FVertexStreamComponent(
+				&RenderData->VertexBuffer,
+				UVsBaseOffset + UVSizeInBytes * UVIndex,
+				RenderData->VertexBuffer.GetStride(),
+				UVVertexElementType
+				));
+		}
 
-			if (Parent->LightMapCoordinateIndex >= 0 && (uint32)Parent->LightMapCoordinateIndex < RenderData->VertexBuffer.GetNumTexCoords())
-			{
-				Data.LightMapCoordinateComponent = FVertexStreamComponent(
-					&RenderData->VertexBuffer,
-					STRUCT_OFFSET(TStaticMeshFullVertexFloat32UVs<MAX_STATIC_TEXCOORDS>, UVs) + sizeof(FVector2D) * Parent->LightMapCoordinateIndex,
-					RenderData->VertexBuffer.GetStride(),
-					VET_Float2
-					);
-			}
+		if (Parent->LightMapCoordinateIndex >= 0 && (uint32)Parent->LightMapCoordinateIndex < RenderData->VertexBuffer.GetNumTexCoords())
+		{
+			Data.LightMapCoordinateComponent = FVertexStreamComponent(
+				&RenderData->VertexBuffer,
+				UVsBaseOffset + UVSizeInBytes * Parent->LightMapCoordinateIndex,
+				RenderData->VertexBuffer.GetStride(),
+				UVVertexElementType
+				);
 		}
 
 		VertexFactory->SetData(Data);
@@ -504,13 +510,10 @@ void USplineMeshComponent::UpdateRenderStateAndCollision()
 {
 	MarkRenderStateDirty();
 
-#if WITH_EDITOR
-	if (!GetWorld()->AreActorsInitialized())
-	{
-		DestroyBodySetup();
-		RecreatePhysicsState();
-	}
-#endif // WITH_EDITOR
+#if WITH_EDITOR || WITH_RUNTIME_PHYSICS_COOKING
+	CachedMeshBodySetupGuid.Invalidate();
+	RecreatePhysicsState();
+#endif // WITH_EDITOR || WITH_RUNTIME_PHYSICS_COOKING
 
 	bMeshDirty = false;
 }
@@ -859,34 +862,55 @@ bool USplineMeshComponent::ContainsPhysicsTriMeshData(bool InUseAllTriData) cons
 
 void USplineMeshComponent::GetMeshId(FString& OutMeshId)
 {
+	// First get the base mesh id from the static mesh
+	if (StaticMesh)
+	{
+		StaticMesh->GetMeshId(OutMeshId);
+	}
+
 	// new method: Same guid as the base mesh but with a unique DDC-id based on the spline params.
 	// This fixes the bug where running a blueprint construction script regenerates the guid and uses
 	// a new DDC slot even if the mesh hasn't changed
 	// If BodySetup is null that means we're *currently* duplicating one, and haven't transformed its data
 	// to fit the spline yet, so just use the data from the base mesh by using a blank MeshId
 	// It would be better if we could stop it building data in that case at all...
+
 	if (BodySetup != nullptr && BodySetup->BodySetupGuid == CachedMeshBodySetupGuid)
 	{
-		OutMeshId += FString::Printf(TEXT("(%s,%s,%s,%f,%s)_(%s,%s,%s,%f,%s)_%s_%d_%c"),
-			*SplineParams.StartPos.ToString(),
-			*SplineParams.StartTangent.ToString(),
-			*SplineParams.StartScale.ToString(),
-			SplineParams.StartRoll,
-			SplineParams.StartOffset != FVector2D::ZeroVector ? *SplineParams.StartOffset.ToString() : TEXT(""),
-			*SplineParams.EndPos.ToString(),
-			*SplineParams.EndTangent.ToString(),
-			*SplineParams.EndScale.ToString(),
-			SplineParams.EndRoll,
-			SplineParams.EndOffset != FVector2D::ZeroVector ? *SplineParams.EndOffset.ToString() : TEXT(""),
-			SplineUpDir != FVector::UpVector ? *SplineUpDir.ToString() : TEXT(""),
-			(int32)bSmoothInterpRollScale,
-			TEXT("XYZ")[(int32)ForwardAxis.GetValue()]);
+		TArray<uint8> TempBytes;
+		TempBytes.Reserve(256);
+
+		FMemoryWriter Ar(TempBytes);
+		Ar << SplineParams.StartPos;
+		Ar << SplineParams.StartTangent;
+		Ar << SplineParams.StartScale;
+		Ar << SplineParams.StartRoll;
+		Ar << SplineParams.StartOffset;
+		Ar << SplineParams.EndPos;
+		Ar << SplineParams.EndTangent;
+		Ar << SplineParams.EndScale;
+		Ar << SplineParams.EndRoll;
+		Ar << SplineParams.EndOffset;
+		Ar << SplineUpDir;
+		bool bSmoothInterp = bSmoothInterpRollScale;
+		Ar << bSmoothInterp; // can't write a bitfield member into an archive
+		Ar << ForwardAxis;
+		Ar << SplineBoundaryMin;
+		Ar << SplineBoundaryMax;
+
+		// Now convert the raw bytes to a string.
+		const uint8* SettingsAsBytes = TempBytes.GetData();
+		OutMeshId.Reserve(OutMeshId.Len() + TempBytes.Num() + 1);
+		for (int32 ByteIndex = 0; ByteIndex < TempBytes.Num(); ++ByteIndex)
+		{
+			ByteToHex(SettingsAsBytes[ByteIndex], OutMeshId);
+		}
 	}
 }
 
-void USplineMeshComponent::CreatePhysicsState()
+void USplineMeshComponent::OnCreatePhysicsState()
 {
-#if WITH_EDITOR
+#if WITH_EDITOR || WITH_RUNTIME_PHYSICS_COOKING
 	// With editor code we can recreate the collision if the mesh changes
 	const FGuid MeshBodySetupGuid = (StaticMesh != NULL ? StaticMesh->BodySetup->BodySetupGuid : FGuid());
 	if (CachedMeshBodySetupGuid != MeshBodySetupGuid)
@@ -901,7 +925,7 @@ void USplineMeshComponent::CreatePhysicsState()
 	}
 #endif
 
-	return Super::CreatePhysicsState();
+	return Super::OnCreatePhysicsState();
 }
 
 UBodySetup* USplineMeshComponent::GetBodySetup()
@@ -976,7 +1000,7 @@ void USplineMeshComponent::DestroyBodySetup()
 }
 
 
-#if WITH_EDITOR
+#if WITH_EDITOR || WITH_RUNTIME_PHYSICS_COOKING
 void USplineMeshComponent::RecreateCollision()
 {
 	if (StaticMesh && IsCollisionEnabled())
@@ -1014,8 +1038,6 @@ void USplineMeshComponent::RecreateCollision()
 				SphereElem.Center *= Mask;
 
 				SphereElem.Radius *= SliceTransform.GetMaximumAxisScale();
-
-				SliceTransform.RemoveScaling();
 				SphereElem.Center = SliceTransform.TransformPosition(SphereElem.Center);
 			}
 
@@ -1030,7 +1052,6 @@ void USplineMeshComponent::RecreateCollision()
 				SphylElem.Length = (TM * SliceTransform).TransformVector(FVector(0, 0, SphylElem.Length)).Size();
 				SphylElem.Radius *= SliceTransform.GetMaximumAxisScale();
 
-				SliceTransform.RemoveScaling();
 				SphylElem.SetTransform(TM * SliceTransform);
 			}
 
@@ -1058,11 +1079,17 @@ void USplineMeshComponent::RecreateCollision()
 			// transform the points of the convex hulls into spline space
 			for (FKConvexElem& ConvexElem : BodySetup->AggGeom.ConvexElems)
 			{
+				FTransform TM = ConvexElem.GetTransform();
 				for (FVector& Point : ConvexElem.VertexData)
 				{
-					Point = CalcSliceTransform(GetAxisValue(Point, ForwardAxis)).TransformPosition(Point * Mask);
+					// pretransform the point by its local transform so we are working in untransformed local space
+					FVector TransformedPoint = TM.TransformPosition(Point);
+					// apply the transform to spline space
+					Point = CalcSliceTransform(GetAxisValue(TransformedPoint, ForwardAxis)).TransformPosition(TransformedPoint * Mask);
 				}
 
+				// Set the local transform as an identity as points have already been transformed
+				ConvexElem.SetTransform(FTransform::Identity);
 				ConvexElem.UpdateElemBox();
 			}
 		}
@@ -1161,9 +1188,9 @@ FStaticMeshStaticLightingMesh* USplineMeshComponent::AllocateStaticLightingMesh(
 }
 
 
-bool USplineMeshComponent::GetStreamingTextureFactors(float& OutWorldTexelFactor, float& OutWorldLightmapFactor, FBoxSphereBounds& OutBounds, int32 LODIndex, int32 ElementIndex) const
+bool USplineMeshComponent::GetStreamingTextureFactors(float& OutWorldTexelFactor, float& OutWorldLightmapFactor) const
 {
-	if (UStaticMeshComponent::GetStreamingTextureFactors(OutWorldTexelFactor, OutWorldLightmapFactor, OutBounds, LODIndex, ElementIndex))
+	if (UStaticMeshComponent::GetStreamingTextureFactors(OutWorldTexelFactor, OutWorldLightmapFactor))
 	{
 		// We need to come up with a compensation factor for spline deformed meshes
 
@@ -1195,3 +1222,21 @@ bool USplineMeshComponent::GetStreamingTextureFactors(float& OutWorldTexelFactor
 		return false;
 	}
 }
+
+#if WITH_EDITOR
+void USplineMeshComponent::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
+{
+	UStaticMeshComponent::PostEditChangeProperty(PropertyChangedEvent);
+	UProperty* MemberPropertyThatChanged = PropertyChangedEvent.MemberProperty;
+	if (MemberPropertyThatChanged)
+	{
+		// If the spline params were changed the actual geometry is, so flag the owning HLOD cluster as dirty
+		if (MemberPropertyThatChanged->GetNameCPP() == TEXT("SplineParams"))
+		{
+			IHierarchicalLODUtilitiesModule& Module = FModuleManager::LoadModuleChecked<IHierarchicalLODUtilitiesModule>("HierarchicalLODUtilities");
+			IHierarchicalLODUtilities* Utilities = Module.GetUtilities();
+			Utilities->HandleActorModified(GetOwner());
+		}
+	}
+}
+#endif

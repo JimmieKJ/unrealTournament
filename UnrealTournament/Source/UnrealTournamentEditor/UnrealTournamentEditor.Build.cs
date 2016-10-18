@@ -1,9 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
+using System.IO;
 
 public class UnrealTournamentEditor : ModuleRules
 {
+    bool IsLicenseeBuild()
+    {
+        return !Directory.Exists("Runtime/NotForLicensees");
+    }
+
     public UnrealTournamentEditor(TargetInfo Target)
 	{
         bFasterWithoutUnity = true;
@@ -14,6 +20,7 @@ public class UnrealTournamentEditor : ModuleRules
             "Engine", 
             "InputCore", 
             "UnrealEd", 
+            "Matinee",
             "Slate", 
             "SlateCore", 
             "SlateRHIRenderer", 
@@ -29,7 +36,7 @@ public class UnrealTournamentEditor : ModuleRules
 			"UMGEditor",
             "UMG" });
 
-        if (UEBuildConfiguration.bCompileMcpOSS == true)
+        if (!IsLicenseeBuild())
         {
             PublicDependencyModuleNames.AddRange(
                 new string[]

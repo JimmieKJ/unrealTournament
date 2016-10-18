@@ -278,12 +278,14 @@ struct FShaderMapCompileResults
 	FShaderMapCompileResults() :
 		NumJobsQueued(0),
 		bAllJobsSucceeded(true),
-		bApplyCompletedShaderMapForRendering(true)
+		bApplyCompletedShaderMapForRendering(true),
+		bRecreateComponentRenderStateOnCompletion(false)
 	{}
 
 	int32 NumJobsQueued;
 	bool bAllJobsSucceeded;
 	bool bApplyCompletedShaderMapForRendering;
+	bool bRecreateComponentRenderStateOnCompletion;
 	TArray<FShaderCommonCompileJob*> FinishedJobs;
 };
 
@@ -368,12 +370,19 @@ private:
 	FString ShaderCompileWorkerName;
 	/** Whether the SCW has crashed and we should fall back to calling the compiler dll's directly. */
 	bool bFallBackToDirectCompiles;
+	/** Whether a recreate should be done when compiling is finished. */
+	bool bRecreateComponentRenderStateOutstanding;
 
 	/** 
 	 * Tracks the total time that shader compile workers have been busy since startup.  
 	 * Useful for profiling the shader compile worker thread time.
 	 */
 	double WorkersBusyTime;
+
+	/** 
+	 * Tracks which opt-in shader platforms have their warnings suppressed.
+	 */
+	uint64 SuppressedShaderPlatforms;
 
 	/** Launches the worker, returns the launched process handle. */
 	FProcHandle LaunchWorker(const FString& WorkingDirectory, uint32 ProcessId, uint32 ThreadId, const FString& WorkerInputFile, const FString& WorkerOutputFile);
@@ -385,7 +394,7 @@ private:
 	void BlockOnAllShaderMapCompletion(TMap<int32, FShaderMapFinalizeResults>& CompiledShaderMaps);
 
 	/** Finalizes the given shader map results and optionally assigns the affected shader maps to materials, while attempting to stay within an execution time budget. */
-	void ProcessCompiledShaderMaps(TMap<int32, FShaderMapFinalizeResults>& CompiledShaderMaps, float TimeBudget);
+	void ProcessCompiledShaderMaps(TMap<int32, FShaderMapFinalizeResults>& CompiledShaderMaps, float TimeBudget, bool bRecreateComponentRenderState);
 
 	/** Recompiles shader jobs with errors if requested, and returns true if a retry was needed. */
 	bool HandlePotentialRetryOnError(TMap<int32, FShaderMapFinalizeResults>& CompletedShaderMaps);
@@ -432,12 +441,21 @@ public:
 		return AbsoluteShaderDebugInfoDirectory;
 	}
 
+	bool AreWarningsSuppressed(const EShaderPlatform Platform) const
+	{
+		return (SuppressedShaderPlatforms & (static_cast<uint64>(1) << Platform)) != 0;
+	}
+
+	void SuppressWarnings(const EShaderPlatform Platform)
+	{
+		SuppressedShaderPlatforms |= static_cast<uint64>(1) << Platform;
+	}
 
 	/** 
 	 * Adds shader jobs to be asynchronously compiled. 
 	 * FinishCompilation or ProcessAsyncResults must be used to get the results.
 	 */
-	ENGINE_API void AddJobs(TArray<FShaderCommonCompileJob*>& NewJobs, bool bApplyCompletedShaderMapForRendering, bool bOptimizeForLowLatency);
+	ENGINE_API void AddJobs(TArray<FShaderCommonCompileJob*>& NewJobs, bool bApplyCompletedShaderMapForRendering, bool bOptimizeForLowLatency, bool bRecreateComponentRenderStateOnCompletion);
 
 	/**
 	* Removes all outstanding compile jobs for the passed shader maps.

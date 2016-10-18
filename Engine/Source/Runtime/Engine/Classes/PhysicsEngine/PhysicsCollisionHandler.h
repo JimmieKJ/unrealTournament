@@ -34,22 +34,8 @@ class ENGINE_API UPhysicsCollisionHandler : public UObject
 		return !HasAnyFlags(RF_ClassDefaultObject) ? CastChecked<UWorld>(GetOuter()) : nullptr;
 	}
 
-	/** Gives game-specific ability to handle all physics collisions in one place. This is a good place to play sounds and spawn effects, as it does not require special object-specific code. */
-	DEPRECATED(4.8, "Please call HandlePhysicsCollisions_AssumesLocked and make sure you obtain the appropriate PhysX scene locks")
-	virtual void HandlePhysicsCollisions(const TArray<FCollisionNotifyInfo>& PendingCollisionNotifies)
-	{
-		HandlePhysicsCollisions_AssumesLocked(PendingCollisionNotifies);
-	}
-
-	/** Gives game-specific ability to handle all physics collisions in one place. This is a good place to play sounds and spawn effects, as it does not require special object-specific code. */
-	virtual void HandlePhysicsCollisions_AssumesLocked(const TArray<FCollisionNotifyInfo>& PendingCollisionNotifies);
-
-	/** Handle a single */
-	DEPRECATED(4.8, "Please call DefaultHandleCollision_AssumesLocked and make sure you obtain the appropriate PhysX scene locks")
-	void DefaultHandleCollision(const FRigidBodyCollisionInfo& MyInfo, const FRigidBodyCollisionInfo& OtherInfo, const FCollisionImpactData& RigidCollisionData)
-	{
-		DefaultHandleCollision_AssumesLocked(MyInfo, OtherInfo, RigidCollisionData);
-	}
+	/** Gives game-specific ability to handle and filter all physics collisions in one place. This is a good place to play sounds and spawn effects, as it does not require special object-specific code. */
+	virtual void HandlePhysicsCollisions_AssumesLocked(TArray<FCollisionNotifyInfo>& PendingCollisionNotifies);
 
 	/** Handle a single */
 	void DefaultHandleCollision_AssumesLocked(const FRigidBodyCollisionInfo& MyInfo, const FRigidBodyCollisionInfo& OtherInfo, const FCollisionImpactData& RigidCollisionData);

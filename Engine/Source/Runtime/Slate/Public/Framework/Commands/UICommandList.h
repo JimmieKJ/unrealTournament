@@ -90,6 +90,13 @@ public:
 	void Append( const TSharedRef<FUICommandList>& InCommandsToAppend );
 
 	/**
+	 * Unmaps a command info that was previously mapped
+	 *
+	 * @param InUICommandInfo		The command info to unmap
+	 */
+	void UnmapAction( const TSharedPtr< const FUICommandInfo > InUICommandInfo );
+
+	/**
 	 * Executes the action associated with the provided command info
 	 * Note: It is assumed at this point that CanExecuteAction was already checked
 	 *

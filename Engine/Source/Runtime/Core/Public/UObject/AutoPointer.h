@@ -31,13 +31,7 @@ public:
 		return (const T*)TBASE::Get();
 	}
 
-#if PLATFORM_COMPILER_HAS_EXPLICIT_OPERATORS
 	FORCEINLINE explicit operator bool() const
-#else
-	// Can't use FORCEINLINE_EXPLICIT_OPERATOR_BOOL() due to already having an implicit pointer cast
-	// (which breaks the safe bool idiom it uses when PLATFORM_COMPILER_HAS_EXPLICIT_OPERATORS is 0)
-	FORCEINLINE operator bool() const
-#endif
 	{
 		return TBASE::Get() != nullptr;
 	}

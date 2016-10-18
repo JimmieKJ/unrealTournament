@@ -152,6 +152,7 @@ UPrimitiveComponent* FOverlapResult::GetComponent() const
 FCollisionQueryParams::FCollisionQueryParams(FName InTraceTag, bool bInTraceComplex, const AActor* InIgnoreActor)
 {
 	bTraceComplex = bInTraceComplex;
+	MobilityType = EQueryMobilityType::Any;
 	TraceTag = InTraceTag;
 	bTraceAsyncScene = false;
 	bFindInitialOverlaps = true;
@@ -221,6 +222,11 @@ void FCollisionQueryParams::AddIgnoredActor(const AActor* InIgnoreActor)
 	{	
 		IgnoreActors.Add(InIgnoreActor->GetUniqueID());
 	}
+}
+
+void FCollisionQueryParams::AddIgnoredActor(const uint32 InIgnoreActorID)
+{
+	IgnoreActors.Add(InIgnoreActorID);
 }
 
 void FCollisionQueryParams::AddIgnoredActors(const TArray<AActor*>& InIgnoreActors)

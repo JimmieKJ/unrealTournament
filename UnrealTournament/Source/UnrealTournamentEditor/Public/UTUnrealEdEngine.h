@@ -27,7 +27,7 @@ class UNREALTOURNAMENTEDITOR_API UUTUnrealEdEngine : public UUnrealEdEngine
 		Super::Init(InEngineLoop);
 
 		// remove the priority of "ConsoleVariables.ini" from console variables because it prevents the UI from working
-		IConsoleManager::Get().ForEachConsoleObject(FConsoleObjectVisitor::CreateLambda([](const TCHAR*, IConsoleObject* Obj) { IConsoleVariable* Var = Obj->AsVariable(); if (Var != NULL) { Var->ClearFlags(ECVF_SetByConsoleVariablesIni); } }), TEXT(""));
+		IConsoleManager::Get().ForEachConsoleObjectThatStartsWith(FConsoleObjectVisitor::CreateLambda([](const TCHAR*, IConsoleObject* Obj) { IConsoleVariable* Var = Obj->AsVariable(); if (Var != NULL) { Var->ClearFlags(ECVF_SetByConsoleVariablesIni); } }), TEXT(""));
 
 		FModuleManager::Get().LoadModule("BlueprintContext");
 		FModuleManager::Get().LoadModule("BlueprintContextEditor");

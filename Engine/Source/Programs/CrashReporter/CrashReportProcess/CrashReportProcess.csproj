@@ -20,7 +20,7 @@
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
     <OutputPath>..\..\..\..\Binaries\DotNET\</OutputPath>
-    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <DefineConstants>TRACE;DEBUG;ALLOWOLDCLIENTDATA</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
     <DocumentationFile>..\..\..\..\Binaries\DotNET\CrashReportProcess.xml</DocumentationFile>
@@ -32,7 +32,7 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Development|AnyCPU'">
     <OutputPath>..\..\..\..\Binaries\DotNET\</OutputPath>
-    <DefineConstants>TRACE</DefineConstants>
+    <DefineConstants>TRACE;CODE_ANALYSIS;ALLOWOLDCLIENTDATA</DefineConstants>
     <DocumentationFile>..\..\..\..\Binaries\DotNET\CrashReportProcess.xml</DocumentationFile>
     <Optimize>true</Optimize>
     <DebugType>pdbonly</DebugType>
@@ -51,7 +51,7 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|AnyCPU'">
     <OutputPath>bin\Release\</OutputPath>
-    <DefineConstants>TRACE</DefineConstants>
+    <DefineConstants>TRACE;CODE_ANALYSIS;ALLOWOLDCLIENTDATA</DefineConstants>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <DocumentationFile>..\..\..\..\Binaries\DotNET\CrashReportProcess.xml</DocumentationFile>
     <Optimize>true</Optimize>
@@ -61,7 +61,25 @@
     <ErrorReport>prompt</ErrorReport>
     <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'DebugSlackTesting|AnyCPU'">
+    <DebugSymbols>true</DebugSymbols>
+    <OutputPath>..\..\..\..\Binaries\DotNET\</OutputPath>
+    <DefineConstants>TRACE;DEBUG;SLACKTESTING;ALLOWOLDCLIENTDATA</DefineConstants>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <DocumentationFile>..\..\..\..\Binaries\DotNET\CrashReportProcess.xml</DocumentationFile>
+    <DebugType>full</DebugType>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <ErrorReport>prompt</ErrorReport>
+    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
+  </PropertyGroup>
   <ItemGroup>
+    <Reference Include="AWSSDK, Version=2.3.50.1, Culture=neutral, PublicKeyToken=9f476d3089b52be3, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\..\..\Binaries\ThirdParty\AWSSDK\AWSSDK.dll</HintPath>
+    </Reference>
+    <Reference Include="protobuf-net">
+      <HintPath>..\..\..\..\Binaries\ThirdParty\protobuf-net\protobuf-net.dll</HintPath>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Configuration.Install" />
     <Reference Include="System.Core" />
@@ -75,6 +93,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Config.cs" />
     <Compile Include="CrashReportProcessService.cs">
       <SubType>Component</SubType>
     </Compile>
@@ -87,6 +106,8 @@
     <Compile Include="CrashReportProcessServiceInstaller.Designer.cs">
       <DependentUpon>CrashReportProcessServiceInstaller.cs</DependentUpon>
     </Compile>
+    <Compile Include="DataRouterConsumer.cs" />
+    <Compile Include="DataRouterReportQueue.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="..\..\DotNETCommon\MetaData.cs">
@@ -97,13 +118,20 @@
       <DesignTimeSharedInput>True</DesignTimeSharedInput>
       <DependentUpon>Settings.settings</DependentUpon>
     </Compile>
+    <Compile Include="ReceiverReportQueue.cs" />
+    <Compile Include="ReportIndex.cs" />
     <Compile Include="ReportProcessor.cs" />
     <Compile Include="ReportQueue.cs" />
     <Compile Include="ReportWatcher.cs" />
     <Compile Include="Settings.cs" />
+    <Compile Include="StatusReporting.cs" />
+    <Compile Include="StatusReportingConstants.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config">
+      <SubType>Designer</SubType>
+    </None>
+    <None Include="Config\CrashReportProcess.config">
       <SubType>Designer</SubType>
     </None>
     <None Include="Properties\Settings.settings">
@@ -112,6 +140,9 @@
     </None>
   </ItemGroup>
   <ItemGroup>
+    <None Include="Config\NotForLicensees\CrashReportProcess.config">
+      <SubType>Designer</SubType>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\DotNETCommon\DotNETUtilities\DotNETUtilities.csproj">
@@ -127,10 +158,17 @@
   <ItemGroup>
     <Service Include="{3259AA49-8AA1-44D3-9025-A0B520596A8C}" />
   </ItemGroup>
+  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
-    <PostBuildEvent>
-    </PostBuildEvent>
+    <PostBuildEvent>xcopy "$(ProjectDir)Config\CrashReportProcess.config" "$(ProjectDir)$(OutDir)" /y
+IF EXIST "$(ProjectDir)Config\NotForLicensees\CrashReportProcess.config" (
+xcopy "$(ProjectDir)Config\NotForLicensees\CrashReportProcess.config" "$(ProjectDir)$(OutDir)" /y
+)</PostBuildEvent>
+  </PropertyGroup>
+  <PropertyGroup>
+    <PreBuildEvent>
+    </PreBuildEvent>
   </PropertyGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

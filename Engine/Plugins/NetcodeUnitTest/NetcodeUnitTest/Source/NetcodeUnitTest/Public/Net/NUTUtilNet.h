@@ -358,7 +358,7 @@ struct NUTNet
 	 * @param InWorld	The world that the net driver should be associated with
 	 * @return			Returns the created net driver instance
 	 */
-	static UUnitTestNetDriver* CreateUnitTestNetDriver(UWorld* InWorld);
+	static NETCODEUNITTEST_API UUnitTestNetDriver* CreateUnitTestNetDriver(UWorld* InWorld);
 
 
 	/**
@@ -406,7 +406,7 @@ struct NUTNet
 	 *
 	 * @return	Returns the created UWorld object
 	 */
-	static UWorld* CreateUnitTestWorld(bool bHookTick=true);
+	static NETCODEUNITTEST_API UWorld* CreateUnitTestWorld(bool bHookTick=true);
 
 	/**
 	 * Marks the specified unit test world for cleanup

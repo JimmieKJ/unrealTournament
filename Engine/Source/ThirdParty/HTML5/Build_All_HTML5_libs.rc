@@ -1,22 +1,77 @@
 # main rc file for setting up emscripten toolchain paths
 
-# WARNING: emscripten does not work in Cygwin...
+
+# WARNING: emscripten does not work with PYTHON from Cygwin packages
+#          MUST use the "windows" version of PYTHON (e.g. c:/python27)
+#          (side note: "windows python" version does not play nice within
+#                      Cygwin environment -- i.e. "unix path" vs "drive:")
+#
+# WARNING: due to the windows 2^13 character command line limit -- really really
+#          long Makefile commands will not build in DOS prompt
+#          MUST use OSX
+#          e.g. PhysX
+#
+#
+# WARNING: emscripten does not work if running "configure" in Windows, no "shell
+#          program" available -- also, even with Mingw64, "configure" errors on
+#          compile tests  --  SO: MUST use OSX
+#          e.g. Ogg & ICU
+#
+# basically, build all libs on OSX
+# but, UE4 HTML5 projects can still be built on windows
 
 
 if [ "X$EMSCRIPTEN" == "X" ]; then
-	EMSDK=$(cd "$(dirname $0)" && pwd)/emsdk
+	cd ../../../Extras/ThirdPartyNotUE
+		EMSDK=$(pwd)/emsdk
+	cd -
+	if [ ! -d "$EMSDK" ]; then
+		echo ERROR: emscripten toolchain folder not found
+		exit
+	fi
+
 	HOST=$(uname)
+	# TODO: Linux - emsdk does not have this "archived" yet...
 	if [ $HOST == 'Darwin' ]; then
 		HOST=Mac
+
+		# emscripten uses "python2" explicitly
+		# symlink link to python2.x bin and put path here:
+#		PYTHON=/usr/bin
+		PYTHON=/usr/local/bin
+		if [ ! -d "$PYTHON/python2" ]; then
+			echo ERROR: "python2" not found...
+			exit
+		fi
+
+	else
+		# windows note: can only be used with plain Makefiles or CMake !!!
+		#               i.e. NO "emconfigure ./configure"
+		HOST=Win64
+		PYTHON="$EMSDK/$HOST/python/2.7.5.3_64bit"
+		if [ ! -e "$PYTHON/python2.exe" ]; then
+			cp "$PYTHON/python.exe" "$PYTHON/python2.exe"
+		fi
 	fi
-	export EMSCRIPTEN=$EMSDK/emscripten/1.35.0
-	export PYTHON=/usr/bin/python2.7
-	export NODE=$EMSDK/$HOST/node/4.1.1_64bit/bin/node
-	export LLVM=$EMSDK/$HOST/clang/e1.35.0_64bit
-	export PATH=$EMSCRIPTEN:$NODE:$LLVM:$PATH
+
+	# finally
+	export EMSCRIPTEN="$EMSDK/emscripten/1.35.0"
+	export NODEPATH="$EMSDK/$HOST/node/4.1.1_64bit/bin"
+	export NODE="$NODEPATH/node"
+	export LLVM="$EMSDK/$HOST/clang/e1.35.0_64bit"
+	export PATH=$EMSCRIPTEN:$NODEPATH:$LLVM:$PYTHON:$PATH
 	
 	# run emscripten at least once to warm up the .emscripten rc file
 	rm ~/.emscripten ~/.emscripten_sanity ~/.emscripten_cache__last_clear
-	$EMSCRIPTEN/emcc -v
+	"$EMSCRIPTEN/emcc" -v
 fi
+
+
+# optimization flags used in emscripten and their UE4 equivalents:
+#     -03 release: shipping (higher compile time)
+#     -02 release: development
+#     -0z release: for size (at the cost of performance)
+#     -00 debug
+# for details, see: .../Engine/Source/Programs/UnrealBuildTool/HTML5/HTML5ToolChain.cs
+#     GetCLArguments_Global() & GetLinkArguments()
 

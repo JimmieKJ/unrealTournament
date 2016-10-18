@@ -108,25 +108,9 @@ public:
 	/** See BorderImage attribute */
 	void SetBorderImage(const TAttribute<const FSlateBrush*>& InBorderImage);
 
-	/** See OnMouseButtonDown event */
-	void SetOnMouseButtonDown(FPointerEventHandler EventHandler);
-
-	/** See OnMouseButtonUp event */
-	void SetOnMouseButtonUp(FPointerEventHandler EventHandler);
-
-	/** See OnMouseMove event */
-	void SetOnMouseMove(FPointerEventHandler EventHandler);
-
-	/** See OnMouseDoubleClick event */
-	void SetOnMouseDoubleClick(FPointerEventHandler EventHandler);
-
 public:
 	// SWidget interface
 	virtual int32 OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled ) const override;
-	virtual FReply OnMouseButtonDown( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override;
-	virtual FReply OnMouseButtonUp( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override;
-	virtual FReply OnMouseMove( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override;
-	virtual FReply OnMouseButtonDoubleClick( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override;
 	virtual FVector2D ComputeDesiredSize(float) const override;
 	// End of SWidget interface
 
@@ -137,8 +121,4 @@ public:
 	TAttribute<FVector2D> DesiredSizeScale;
 	/** Whether or not to show the disabled effect when this border is disabled */
 	TAttribute<bool> ShowDisabledEffect;
-	FPointerEventHandler MouseButtonDownHandler;
-	FPointerEventHandler MouseButtonUpHandler;
-	FPointerEventHandler MouseMoveHandler;
-	FPointerEventHandler MouseDoubleClickHandler;
  };

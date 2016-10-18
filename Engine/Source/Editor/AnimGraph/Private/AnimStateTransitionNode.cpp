@@ -143,6 +143,20 @@ void UAnimStateTransitionNode::PostPasteNode()
 		CreateBoundGraph();
 	}
 
+	if(CustomTransitionGraph)
+	{
+		// Needs to be added to the parent graph
+		UEdGraph* ParentGraph = GetGraph();
+
+		if(ParentGraph->SubGraphs.Find(CustomTransitionGraph) == INDEX_NONE)
+		{
+			ParentGraph->SubGraphs.Add(CustomTransitionGraph);
+		}
+
+		// Transactional flag is lost in copy/paste, restore it.
+		CustomTransitionGraph->SetFlags(RF_Transactional);
+	}
+
 	Super::PostPasteNode();
 }
 

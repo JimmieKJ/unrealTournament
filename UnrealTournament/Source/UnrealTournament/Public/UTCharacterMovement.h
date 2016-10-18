@@ -22,6 +22,8 @@ public:
 
 	virtual void UTCallServerMove();
 
+	virtual void UTSimulateMovement(float DeltaTime) { SimulateMovement(DeltaTime); }
+
 	UPROPERTY(Category = "Character Movement", BlueprintReadOnly)
 		float MaxPositionErrorSquared;
 
@@ -757,6 +759,7 @@ public:
 	virtual uint8 GetCompressedFlags() const override;
 	virtual bool CanCombineWith(const FSavedMovePtr& NewMove, ACharacter* Character, float MaxDelta) const override;
 	virtual bool IsImportantMove(const FSavedMovePtr& LastAckedMove) const override;
+	virtual bool IsCriticalMove(const FSavedMovePtr& LastAckedMove) const;
 	virtual void PostUpdate(class ACharacter* C, EPostUpdateMode PostUpdateMode) override;
 	virtual void PrepMoveFor(class ACharacter* C) override;
 };

@@ -16,6 +16,7 @@
 #include "SNotificationList.h"
 #include "NotificationManager.h"
 #include "EngineBuildSettings.h"
+#include "InstalledPlatformInfo.h"
 
 #define LOCTEXT_NAMESPACE "AndroidRuntimeSettings"
 
@@ -49,6 +50,7 @@ FAndroidTargetSettingsCustomization::FAndroidTargetSettingsCustomization()
 	new (IconNames) FPlatformIconInfo(TEXT("res/drawable-xhdpi/icon.png"), LOCTEXT("SettingsIcon_XHDPI", "XHDPI Icon"), FText::GetEmpty(), 96, 96, FPlatformIconInfo::Required);
 
 	new (LaunchImageNames)FPlatformIconInfo(TEXT("res/drawable/downloadimagev.png"), LOCTEXT("SettingsIcon_DownloadImageV", "Download Background Vertical Image"), FText::GetEmpty(), 720, 1280, FPlatformIconInfo::Required);
+	new (LaunchImageNames)FPlatformIconInfo(TEXT("res/drawable/downloadimageh.png"), LOCTEXT("SettingsIcon_DownloadImageH", "Download Background Horizontal Image"), FText::GetEmpty(), 1280, 720, FPlatformIconInfo::Required);
 	new (LaunchImageNames)FPlatformIconInfo(TEXT("res/drawable/splashscreen_portrait.png"), LOCTEXT("LaunchImage_Portrait", "Launch Portrait"), FText::GetEmpty(), 360, 640, FPlatformIconInfo::Required);
 	new (LaunchImageNames)FPlatformIconInfo(TEXT("res/drawable/splashscreen_landscape.png"), LOCTEXT("LaunchImage_Landscape", "Launch Landscape"), FText::GetEmpty(), 640, 360, FPlatformIconInfo::Required);
 }
@@ -200,6 +202,13 @@ void FAndroidTargetSettingsCustomization::BuildAppManifestSection(IDetailLayoutB
 	GooglePlayCategory.AddProperty(GooglePlayLicenseKeyProperty)
 		.EditCondition(SetupForGooglePlayAttribute, NULL);
 
+#define SETUP_ANDROIDARCH_PROP(ArchFragment, PropName, Category, Tip) \
+	{ \
+		TSharedRef<IPropertyHandle> PropertyHandle = DetailLayout.GetProperty(GET_MEMBER_NAME_CHECKED(UAndroidRuntimeSettings, PropName)); \
+		Category.AddProperty(PropertyHandle) \
+			.IsEnabled(FInstalledPlatformInfo::Get().IsValidPlatformArchitecture(TEXT("Android"), ArchFragment)) \
+			.ToolTip(FInstalledPlatformInfo::Get().IsValidPlatformArchitecture(TEXT("Android"), ArchFragment) ? Tip : FAndroidTargetSettingsCustomizationConstants::DisabledTip); \
+	}
 
 #define SETUP_SOURCEONLY_PROP(PropName, Category, Tip) \
 	{ \
@@ -208,11 +217,12 @@ void FAndroidTargetSettingsCustomization::BuildAppManifestSection(IDetailLayoutB
 			.IsEnabled(FEngineBuildSettings::IsSourceDistribution()) \
 			.ToolTip(FEngineBuildSettings::IsSourceDistribution() ? Tip : FAndroidTargetSettingsCustomizationConstants::DisabledTip); \
 	}
-	SETUP_SOURCEONLY_PROP(bBuildForArmV7, BuildCategory, LOCTEXT("BuildForArmV7ToolTip", "Enable ArmV7 CPU architecture support? (this will be used if all CPU architecture types are unchecked)"));
-	SETUP_SOURCEONLY_PROP(bBuildForX86, BuildCategory, LOCTEXT("BuildForX86ToolTip", "Enable X86 CPU architecture support?"));
-	SETUP_SOURCEONLY_PROP(bBuildForX8664, BuildCategory, LOCTEXT("BuildForX8664ToolTip", "Enable X86-64 CPU architecture support?"));
-	SETUP_SOURCEONLY_PROP(bBuildForES2, BuildCategory, LOCTEXT("BuildForES2ToolTip", "Enable OpenGL ES2 rendering support? (this will be used if rendering types are unchecked)"));
-	SETUP_SOURCEONLY_PROP(bBuildForES31, BuildCategory, LOCTEXT("BuildForES31ToolTip", "Enable OpenGL ES31 + AEP (Android Extension Pack) rendering support?"));
+	SETUP_ANDROIDARCH_PROP(TEXT("-armv7"), bBuildForArmV7, BuildCategory, LOCTEXT("BuildForArmV7ToolTip", "Enable ArmV7 CPU architecture support? (this will be used if all CPU architecture types are unchecked)"));
+	SETUP_ANDROIDARCH_PROP(TEXT("-arm64"), bBuildForArm64, BuildCategory, LOCTEXT("BuildForArm64ToolTip", "Enable Arm64 CPU architecture support? (use at least NDK r11c, requires Lollipop (android-21) minimum)"));
+	SETUP_ANDROIDARCH_PROP(TEXT("-x86"), bBuildForX86, BuildCategory, LOCTEXT("BuildForX86ToolTip", "Enable X86 CPU architecture support?"));
+	SETUP_ANDROIDARCH_PROP(TEXT("-x64"), bBuildForX8664, BuildCategory, LOCTEXT("BuildForX8664ToolTip", "Enable X86-64 CPU architecture support?"));
+	SETUP_ANDROIDARCH_PROP(TEXT("-es2"), bBuildForES2, BuildCategory, LOCTEXT("BuildForES2ToolTip", "Enable OpenGL ES2 rendering support? (this will be used if rendering types are unchecked)"));
+	SETUP_ANDROIDARCH_PROP(TEXT("-esdeferred"), bBuildForESDeferred, BuildCategory, LOCTEXT("BuildForESDeferredToolTip", "Enable OpenGL ES31 + AEP (Android Extension Pack) rendering support?"));
 	SETUP_SOURCEONLY_PROP(bSupportsVulkan, BuildCategory, LOCTEXT("SupportsVulkanToolTip", "Enable Vulkan rendering support?"));
 
 	// @todo android fat binary: Put back in when we expose those
@@ -401,17 +411,27 @@ void FAndroidTargetSettingsCustomization::CopyGooglePlayAppIDFileIntoProject()
 
 void FAndroidTargetSettingsCustomization::OnAppIDModified()
 {
-	check(SetupForPlatformAttribute.Get() == true);
-
-
-	FManifestUpdateHelper Updater(GameGooglePlayAppIDPath);
-
-	const FString AppIDTag(TEXT("name=\"app_id\">"));
-	const FString ClosingTag(TEXT("</string>"));
 	const FString NewIDString = GetDefault<UAndroidRuntimeSettings>()->GamesAppID;
-	Updater.ReplaceKey(AppIDTag, ClosingTag, NewIDString);
 
-	Updater.Finalize(GameGooglePlayAppIDPath);
+	if (NewIDString.Len() > 0 && !FCString::IsNumeric(*NewIDString))
+	{
+		FNotificationInfo Info(LOCTEXT("InvalidGamesAppID", "The Games App ID you provided is invalid"));
+		Info.ExpireDuration = 3.0f;
+		FSlateNotificationManager::Get().AddNotification(Info);
+
+		return;
+	}
+
+	if (FPaths::FileExists(GameGooglePlayAppIDPath))
+	{
+		FManifestUpdateHelper Updater(GameGooglePlayAppIDPath);
+
+		const FString AppIDTag(TEXT("name=\"app_id\">"));
+		const FString ClosingTag(TEXT("</string>"));
+		Updater.ReplaceKey(AppIDTag, ClosingTag, NewIDString);
+
+		Updater.Finalize(GameGooglePlayAppIDPath);
+	}
 }
 
 //////////////////////////////////////////////////////////////////////////

@@ -367,7 +367,20 @@ void FLauncherProfileManager::ChangeProfileName(const ILauncherProfileRef& Profi
 	}	
 }
 
+void FLauncherProfileManager::RegisterProfileWizard(const ILauncherProfileWizardPtr& InProfileWizard)
+{
+	ProfileWizards.Add(InProfileWizard);
+}
 
+void FLauncherProfileManager::UnregisterProfileWizard(const ILauncherProfileWizardPtr& InProfileWizard)
+{
+	ProfileWizards.Remove(InProfileWizard);
+}
+
+const TArray<ILauncherProfileWizardPtr>& FLauncherProfileManager::GetProfileWizards() const
+{
+	return ProfileWizards;
+}
 
 void FLauncherProfileManager::SaveSettings( )
 {
@@ -419,7 +432,7 @@ void FLauncherProfileManager::LoadDeviceGroups( )
 			{
 				if (It.Key() == TEXT("DeviceGroup"))
 				{
-					DeviceGroups.Add(ParseDeviceGroup(*It.Value()));
+					DeviceGroups.Add(ParseDeviceGroup(It.Value().GetValue()));
 				}
 			}
 		}

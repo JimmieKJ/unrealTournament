@@ -218,10 +218,16 @@ public:
 		Allow_DeleteOnRender= 1<<1
 	};
 
+	enum ECanvasDrawMode
+	{
+		CDM_DeferDrawing,
+		CDM_ImmediateDrawing
+	};
+
 	/** 
 	* Constructor.
 	*/
-	ENGINE_API FCanvas(FRenderTarget* InRenderTarget,FHitProxyConsumer* InHitProxyConsumer, UWorld* InWorld, ERHIFeatureLevel::Type InFeatureLevel);
+	ENGINE_API FCanvas(FRenderTarget* InRenderTarget,FHitProxyConsumer* InHitProxyConsumer, UWorld* InWorld, ERHIFeatureLevel::Type InFeatureLevel, ECanvasDrawMode DrawMode = CDM_DeferDrawing);
 
 	/** 
 	* Constructor. For situations where a world is not available, but time information is
@@ -410,6 +416,8 @@ public:
 	FHitProxyConsumer* GetHitProxyConsumer() const { return HitProxyConsumer; }
 	bool IsHitTesting() const { return HitProxyConsumer != NULL; }
 	
+	FSceneInterface* GetScene() const { return Scene; }
+
 	/**
 	* Push sort key onto the stack. Rendering is done with the current sort key stack entry.
 	*
@@ -572,6 +580,8 @@ private:
 	FHitProxyConsumer* HitProxyConsumer;
 	/** Current hit proxy object */
 	TRefCountPtr<HHitProxy> CurrentHitProxy;
+	/* Optional scene for rendering. */
+	FSceneInterface* Scene;
 	/** Toggles for various canvas rendering functionality **/
 	uint32 AllowedModes;
 	/** true if the render target has been rendered to since last calling SetRenderTarget() */
@@ -598,6 +608,8 @@ private:
 	/** Cached render target size, depth and ortho-projection matrices for stereo rendering */
 	FMatrix CachedOrthoProjection[2];
 	int32 CachedRTWidth, CachedRTHeight, CachedDrawDepth;
+
+	ECanvasDrawMode DrawMode;
 
 	bool GetOrthoProjectionMatrices(float InDrawDepth, FMatrix OutOrthoProjection[2]);
 
@@ -1128,6 +1140,26 @@ public:
 		return Data->AddTriangle(Tri, HitProxyId);
 	};
 
+	/**
+	 * Reserves space in array for NumTriangles new triangles.
+	 *
+	 * @param NumTriangles Additional number of triangles to reserve space for.
+	 */
+	FORCEINLINE void AddReserveTriangles(int32 NumTriangles)
+	{
+		Data->AddReserveTriangles(NumTriangles);
+	}
+
+	/**
+	* Reserves space in array for at least NumTriangles total triangles.
+	*
+	* @param NumTriangles Additional number of triangles to reserve space for.
+	*/
+	FORCEINLINE void ReserveTriangles(int32 NumTriangles)
+	{
+		Data->ReserveTriangles(NumTriangles);
+	}
+
 private:
 	class FRenderData
 	{
@@ -1153,6 +1185,16 @@ private:
 			FTriangleInst NewTri = { Tri, HitProxyId };
 			return Triangles.Add(NewTri);
 		};
+
+		FORCEINLINE void AddReserveTriangles(int32 NumTriangles)
+		{
+			Triangles.Reserve(Triangles.Num() + NumTriangles);
+		}
+
+		FORCEINLINE void ReserveTriangles(int32 NumTriangles)
+		{
+			Triangles.Reserve(NumTriangles);
+		}
 	};
 	/**
 	* Render data which is allocated when a new FCanvasTriangleRendererItem is added for rendering.

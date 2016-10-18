@@ -31,7 +31,7 @@ void FLandscapeSplineTextObjectFactory::ProcessConstructedObject(UObject* Create
 	CreatedObject->PostEditImport();
 }
 
-bool FLandscapeSplineTextObjectFactory::CanCreateClass(UClass* ObjectClass) const
+bool FLandscapeSplineTextObjectFactory::CanCreateClass(UClass* ObjectClass, bool& bOmitSubObjs) const
 {
 	if (ObjectClass == ULandscapeSplineControlPoint::StaticClass() ||
 		ObjectClass == ULandscapeSplineSegment::StaticClass())

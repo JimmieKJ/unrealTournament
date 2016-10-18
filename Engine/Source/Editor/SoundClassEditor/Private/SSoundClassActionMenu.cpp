@@ -49,7 +49,7 @@ void SSoundClassActionMenuItem::Construct(const FArguments& InArgs, TSharedPtr<F
 	}
 }
 
-TSharedRef<SWidget> SSoundClassActionMenuItem::CreateNewSoundClassWidget( const FText& DisplayText, const FText& ToolTip, const FSlateFontInfo& NameFont, TSharedPtr<FEdGraphSchemaAction>& InAction )
+TSharedRef<SWidget> SSoundClassActionMenuItem::CreateNewSoundClassWidget( const FText& DisplayText, const FText& InToolTip, const FSlateFontInfo& NameFont, TSharedPtr<FEdGraphSchemaAction>& InAction )
 {
 	FString ClassName;
 	FSoundClassGraphSchemaAction_NewNode* Action = static_cast<FSoundClassGraphSchemaAction_NewNode*>(InAction.Get());
@@ -65,7 +65,7 @@ TSharedRef<SWidget> SSoundClassActionMenuItem::CreateNewSoundClassWidget( const 
 			SNew(STextBlock)
 			.Text(DisplayText)
 			.Font(NameFont)
-			.ToolTipText(ToolTip)
+			.ToolTipText(InToolTip)
 		]
 	+SVerticalBox::Slot()
 		.AutoHeight()
@@ -78,7 +78,7 @@ TSharedRef<SWidget> SSoundClassActionMenuItem::CreateNewSoundClassWidget( const 
 			[
 				SNew(SEditableTextBox)
 				.Text(FText::FromString(ClassName))
-				.ToolTipText(ToolTip)
+				.ToolTipText(InToolTip)
 				.OnTextCommitted( this, &SSoundClassActionMenuItem::OnNewSoundClassNameEntered, InAction )
 				.OnTextChanged( this, &SSoundClassActionMenuItem::OnNewSoundClassNameChanged, InAction )
 				.SelectAllTextWhenFocused( true )

@@ -170,10 +170,6 @@ bool FSimpleHMD::Exec( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar )
 	return false;
 }
 
-void FSimpleHMD::OnScreenModeChange(EWindowMode::Type WindowMode)
-{
-}
-
 bool FSimpleHMD::IsPositionalTrackingEnabled() const
 {
 	return false;

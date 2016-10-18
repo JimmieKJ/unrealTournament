@@ -11,7 +11,6 @@
 #include "Editor/UnrealEd/Public/SourceCodeNavigation.h"
 #include "Editor/Matinee/Public/MatineeModule.h"
 
-#include "EngineAnalytics.h"
 #include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
 #include "Particles/ParticleSystem.h"
 #include "EditorTutorialSettings.h"

@@ -39,7 +39,7 @@ public:
 
 		// Set state to FindWorkers to kick off the testing process
 		AutomationTestState = EAutomationTestState::Idle;
-		DelayTimer = 0.0f;
+		DelayTimer = 5.0f;
 
 		// Load the automation controller
 		IAutomationControllerModule* AutomationControllerModule = &FModuleManager::LoadModuleChecked<IAutomationControllerModule>("AutomationController");
@@ -48,14 +48,14 @@ public:
 		AutomationController->Init();
 
 		const bool bSkipScreenshots = FParse::Param(FCommandLine::Get(), TEXT("NoScreenshots"));
+		//TODO AUTOMATION Always use fullsize screenshots.
 		const bool bFullSizeScreenshots = FParse::Param(FCommandLine::Get(), TEXT("FullSizeScreenshots"));
 		const bool bSendAnalytics = FParse::Param(FCommandLine::Get(), TEXT("SendAutomationAnalytics"));
 		AutomationController->SetScreenshotsEnabled(!bSkipScreenshots);
-		AutomationController->SetUsingFullSizeScreenshots(bFullSizeScreenshots);
-
+		AutomationController->SetUsingFullSizeScreenshots(true);
 
 		// Register for the callback that tells us there are tests available
-		AutomationController->OnTestsRefreshed().BindRaw(this, &FAutomationExecCmd::HandleRefreshTestCallback);
+		AutomationController->OnTestsRefreshed().AddRaw(this, &FAutomationExecCmd::HandleRefreshTestCallback);
 
 		TickHandler = FTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateRaw(this, &FAutomationExecCmd::Tick));
 
@@ -74,16 +74,19 @@ public:
 		FilterMaps.Add("Stress", EAutomationTestFlags::StressFilter);
 		FilterMaps.Add("Perf", EAutomationTestFlags::PerfFilter);
 		FilterMaps.Add("Product", EAutomationTestFlags::ProductFilter);
-
 	}
+	
 	void Shutdown()
 	{
-		//IAutomationControllerModule* AutomationControllerModule = &FModuleManager::LoadModuleChecked<IAutomationControllerModule>("AutomationController");
-		//AutomationControllerModule->ShutdownModule();
+		IAutomationControllerModule* AutomationControllerModule = FModuleManager::GetModulePtr<IAutomationControllerModule>("AutomationController");
+		if ( AutomationControllerModule )
+		{
+			AutomationController = AutomationControllerModule->GetAutomationController();
+			AutomationController->OnTestsRefreshed().RemoveAll(this);
+		}
 
 		FTicker::GetCoreTicker().RemoveTicker(TickHandler);
 	}
-
 
 	bool IsTestingComplete()
 	{
@@ -93,6 +96,8 @@ public:
 			// If an actual test was ran we then will let the user know how many of them were ran.
 			if (TestCount > 0)
 			{
+				// TODO AUTOMATION Don't report the wrong number of tests performed.
+				// FAutomationTestFramework::GetInstance().LogQueueEmptyMessage();
 				OutputDevice->Logf(TEXT("...Automation Test Queue Empty %d tests performed."), TestCount);
 				TestCount = 0;
 			}
@@ -101,7 +106,6 @@ public:
 		return false;
 	}
 	
-
 	void GenerateTestNamesFromCommandLine(const TArray<FString>& AllTestNames, TArray<FString>& OutTestNames)
 	{
 		FString AllTestNamesNoWhiteSpaces;
@@ -117,9 +121,9 @@ public:
 			Filters[FilterIndex] = Filters[FilterIndex].Replace(TEXT(" "), TEXT(""));
 		}
 
-		for (int32 TestIndex = 0; TestIndex < AllTestNames.Num(); ++TestIndex)
+		for ( int FilterIndex = 0; FilterIndex < Filters.Num(); ++FilterIndex )
 		{
-			for (int FilterIndex = 0; FilterIndex < Filters.Num(); ++FilterIndex)
+			for (int32 TestIndex = 0; TestIndex < AllTestNames.Num(); ++TestIndex)
 			{
 				AllTestNamesNoWhiteSpaces = AllTestNames[TestIndex];
 				AllTestNamesNoWhiteSpaces = AllTestNamesNoWhiteSpaces.Replace(TEXT(" "), TEXT(""));
@@ -133,17 +137,11 @@ public:
 		}
 	}
 
-
-
-
 	void FindWorkers(float DeltaTime)
 	{
-		// Time to delay requesting workers - ensure they are up and running
-		const float DelayTime = 5.0f;
+		DelayTimer -= DeltaTime;
 
-		DelayTimer += DeltaTime;
-
-		if (DelayTimer > DelayTime)
+		if (DelayTimer <= 0)
 		{
 			// Request the workers
 			AutomationController->RequestAvailableWorkers(SessionID);
@@ -151,10 +149,9 @@ public:
 		}
 	}
 
-
 	void HandleRefreshTestCallback()
 	{
-		TArray <FString> AllTestNames;
+		TArray<FString> AllTestNames;
 
 		// We have found some workers
 		// Create a filter to add to the automation controller, otherwise we don't get any reports
@@ -167,7 +164,6 @@ public:
 
 		if (AutomationCommand == EAutomationCommand::ListAllTests)
 		{
-
 			//TArray<FAutomationTestInfo> TestInfo;
 			//FAutomationTestFramework::GetInstance().GetValidTestNames(TestInfo);
 			for (int TestIndex = 0; TestIndex < AllTestNames.Num(); ++TestIndex)
@@ -184,6 +180,7 @@ public:
 			GenerateTestNamesFromCommandLine(AllTestNames, FilteredTestNames);
 			if (FilteredTestNames.Num())
 			{
+				AutomationController->StopTests();
 				AutomationController->SetEnabledTests(FilteredTestNames);
 				bRunTests = true;
 			}
@@ -227,7 +224,6 @@ public:
 		}
 	}
 
-
 	void MonitorTests()
 	{
 		if (AutomationController->GetTestState() != EAutomationControllerModuleState::Running)
@@ -236,8 +232,6 @@ public:
 			AutomationTestState = EAutomationTestState::Complete;
 		}
 	}
-
-
 
 	bool Tick(float DeltaTime)
 	{
@@ -312,7 +306,8 @@ public:
 		{
 			Cmd = TEXT("Automation RunFilter Product");
 		}
-//figure out if we are handling this request
+
+		//figure out if we are handling this request
 		if (FParse::Command(&Cmd, TEXT("Automation")))
 		{
 			//save off device to send results to
@@ -325,10 +320,8 @@ public:
 			StringCommand.ParseIntoArray(CommandList, TEXT(";"), true);
 
 			//assume we handle this
-			bHandled = true;
 			Init();
-
-			
+			bHandled = true;
 
 			for (int CommandIndex = 0; CommandIndex < CommandList.Num(); ++CommandIndex)
 			{
@@ -339,6 +332,10 @@ public:
 				}
 				else if (FParse::Command(&TempCmd, TEXT("RunTests")))
 				{
+					if ( FParse::Command(&TempCmd, TEXT("Now")) )
+					{
+						DelayTimer = 0.0f;
+					}
 
 					//only one of these should be used
 					StringCommand = TempCmd;
@@ -372,9 +369,7 @@ public:
 				}
 			}
 		}
-
-
-
+		
 		// Shutdown our service
 		return bHandled;
 	}

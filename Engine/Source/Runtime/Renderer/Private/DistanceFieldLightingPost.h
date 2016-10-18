@@ -41,6 +41,7 @@ extern void UpsampleBentNormalAO(
 	const TArray<FViewInfo>& Views, 
 	TRefCountPtr<IPooledRenderTarget>& DistanceFieldAOBentNormal, 
 	TRefCountPtr<IPooledRenderTarget>& DistanceFieldIrradiance,
+	TRefCountPtr<IPooledRenderTarget>& DistanceFieldSpecularOcclusion,
 	bool bModulateSceneColor,
 	bool bVisualizeAmbientOcclusion,
 	bool bVisualizeGlobalIllumination);

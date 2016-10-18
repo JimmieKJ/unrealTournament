@@ -131,8 +131,89 @@ public:
 		int32 NumTrianglesValue,
 		const class FUniformMeshBuffers& UniformMeshBuffers) const;
 
+	void CompositeHeightfieldsIntoGlobalDistanceField(
+		FRHICommandList& RHICmdList,
+		const FScene* Scene,
+		const FViewInfo& View,
+		float MaxOcclusionDistance,
+		const class FGlobalDistanceFieldInfo& GlobalDistanceFieldInfo,
+		int32 ClipmapIndexValue,
+		const class FVolumeUpdateRegion& UpdateRegion) const;
+
 private:
 
 	FHeightfieldDescription Heightfield;
 };
 
+extern FShaderResourceViewRHIParamRef GetHeightfieldDescriptionsSRV();
+
+class FHeightfieldDescriptionParameters
+{
+public:
+	void Bind(const FShaderParameterMap& ParameterMap)
+	{
+		HeightfieldDescriptions.Bind(ParameterMap, TEXT("HeightfieldDescriptions"));
+		NumHeightfields.Bind(ParameterMap, TEXT("NumHeightfields"));
+	}
+
+	friend FArchive& operator<<(FArchive& Ar, FHeightfieldDescriptionParameters& Parameters)
+	{
+		Ar << Parameters.HeightfieldDescriptions;
+		Ar << Parameters.NumHeightfields;
+		return Ar;
+	}
+
+	template<typename ShaderRHIParamRef>
+	void Set(FRHICommandList& RHICmdList, const ShaderRHIParamRef ShaderRHI, FShaderResourceViewRHIParamRef HeightfieldDescriptionsValue, int32 NumHeightfieldsValue)
+	{
+		SetSRVParameter(RHICmdList, ShaderRHI, HeightfieldDescriptions, HeightfieldDescriptionsValue);
+		SetShaderValue(RHICmdList, ShaderRHI, NumHeightfields, NumHeightfieldsValue);
+	}
+
+private:
+	FShaderResourceParameter HeightfieldDescriptions;
+	FShaderParameter NumHeightfields;
+};
+
+class FHeightfieldTextureParameters
+{
+public:
+	void Bind(const FShaderParameterMap& ParameterMap)
+	{
+		HeightfieldTexture.Bind(ParameterMap, TEXT("HeightfieldTexture"));
+		HeightfieldSampler.Bind(ParameterMap, TEXT("HeightfieldSampler"));
+		DiffuseColorTexture.Bind(ParameterMap, TEXT("DiffuseColorTexture"));
+		DiffuseColorSampler.Bind(ParameterMap, TEXT("DiffuseColorSampler"));
+	}
+
+	friend FArchive& operator<<(FArchive& Ar, FHeightfieldTextureParameters& Parameters)
+	{
+		Ar << Parameters.HeightfieldTexture;
+		Ar << Parameters.HeightfieldSampler;
+		Ar << Parameters.DiffuseColorTexture;
+		Ar << Parameters.DiffuseColorSampler;
+		return Ar;
+	}
+
+	template<typename ShaderRHIParamRef>
+	void Set(FRHICommandList& RHICmdList, const ShaderRHIParamRef ShaderRHI, UTexture2D* HeightfieldTextureValue, UTexture2D* DiffuseColorTextureValue)
+	{
+		//@todo - shouldn't filter the heightfield, it's packed
+		SetTextureParameter(RHICmdList, ShaderRHI, HeightfieldTexture, HeightfieldSampler, TStaticSamplerState<SF_Bilinear>::GetRHI(), HeightfieldTextureValue->Resource->TextureRHI);
+
+		if (DiffuseColorTextureValue)
+		{
+			SetTextureParameter(RHICmdList, ShaderRHI, DiffuseColorTexture, DiffuseColorSampler, TStaticSamplerState<SF_Bilinear>::GetRHI(), DiffuseColorTextureValue->Resource->TextureRHI);
+		}
+		else
+		{
+			SetTextureParameter(RHICmdList, ShaderRHI, DiffuseColorTexture, DiffuseColorSampler, TStaticSamplerState<SF_Bilinear>::GetRHI(), GBlackTexture->TextureRHI);
+		}
+	}
+
+private:
+	FShaderResourceParameter HeightfieldTexture;
+	FShaderResourceParameter HeightfieldSampler;
+	FShaderResourceParameter DiffuseColorTexture;
+	FShaderResourceParameter DiffuseColorSampler;
+};

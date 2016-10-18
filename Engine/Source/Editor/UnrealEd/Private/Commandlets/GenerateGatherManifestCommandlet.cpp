@@ -1,10 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealEd.h"
-#include "ISourceControlModule.h"
-#include "Internationalization/InternationalizationManifest.h"
-#include "Json.h"
-#include "JsonInternationalizationManifestSerializer.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogGenerateManifestCommandlet, Log, All);
 
@@ -72,43 +68,26 @@ int32 UGenerateGatherManifestCommandlet::Main( const FString& Params )
 	TArray<FString> ManifestDependenciesList;
 	GetPathArrayFromConfig(*SectionName, TEXT("ManifestDependencies"), ManifestDependenciesList, GatherTextConfigPath);
 
-	if( ManifestDependenciesList.Num() > 0 )
+	for (const FString& ManifestDependency : ManifestDependenciesList)
 	{
-		if( !ManifestInfo->AddManifestDependencies( ManifestDependenciesList ) )
+		FText OutError;
+		if (!GatherManifestHelper->AddDependency(ManifestDependency, &OutError))
 		{
-			UE_LOG(LogGenerateManifestCommandlet, Error, TEXT("The GenerateGatherManifest commandlet couldn't find all the specified manifest dependencies."));
+			UE_LOG(LogGenerateManifestCommandlet, Error, TEXT("The GenerateGatherManifest commandlet couldn't load the specified manifest dependency: '%'. %s"), *ManifestDependency, *OutError.ToString());
 			return -1;
 		}
-	
-		ManifestInfo->ApplyManifestDependencies();
 	}
+
+	// Trim the manifest to remove any entries that came from a dependency
+	GatherManifestHelper->TrimManifest();
 	
 	const FString ManifestPath = FPaths::ConvertRelativePathToFull(DestinationPath) / ManifestName;
-	if( !WriteManifestToFile( ManifestInfo->GetManifest(), ManifestPath ) )
+	FText ManifestSaveError;
+	if (!GatherManifestHelper->SaveManifest(ManifestPath, &ManifestSaveError))
 	{
-		UE_LOG( LogGenerateManifestCommandlet, Error,TEXT("Failed to write manifest to %s."), *ManifestPath );				
+		UE_LOG(LogGenerateManifestCommandlet, Error,TEXT("Failed to write manifest to %s. %s."), *ManifestPath, *ManifestSaveError.ToString());
 		return -1;
 	}
+
 	return 0;
-}
-
-bool UGenerateGatherManifestCommandlet::WriteManifestToFile( const TSharedPtr<FInternationalizationManifest>& InManifest, const FString& OutputFilePath )
-{
-	UE_LOG(LogGenerateManifestCommandlet, Log, TEXT("Writing manifest to %s."), *OutputFilePath);
-
-	// We can not continue if the provided manifest is not valid
-	if( !InManifest.IsValid() )
-	{
-		return false;
-	}
-	FJsonInternationalizationManifestSerializer ManifestSerializer;
-	TSharedRef<FJsonObject> JsonManifestObj = MakeShareable( new FJsonObject );
-	
-	bool bSuccess = ManifestSerializer.SerializeManifest( InManifest.ToSharedRef(), JsonManifestObj );
-	
-	if( bSuccess )
-	{
-		bSuccess = WriteJSONToTextFile( JsonManifestObj, OutputFilePath, SourceControlInfo );
-	}
-	return bSuccess;	
 }

@@ -145,13 +145,18 @@ UEdGraphPin* UK2Node_LatentGameplayTaskCall::GetClassPin(const TArray<UEdGraphPi
 
 UClass* UK2Node_LatentGameplayTaskCall::GetClassToSpawn(const TArray<UEdGraphPin*>* InPinsToSearch) const
 {
-	UClass* UseSpawnClass = NULL;
+	UClass* UseSpawnClass = nullptr;
 	const TArray<UEdGraphPin*>* PinsToSearch = InPinsToSearch ? InPinsToSearch : &Pins;
 
 	UEdGraphPin* ClassPin = GetClassPin(PinsToSearch);
-	if (ClassPin && ClassPin->DefaultObject != NULL && ClassPin->LinkedTo.Num() == 0)
+	if (ClassPin && ClassPin->DefaultObject != nullptr && ClassPin->LinkedTo.Num() == 0)
 	{
 		UseSpawnClass = CastChecked<UClass>(ClassPin->DefaultObject);
+	}
+	else if (ClassPin && (1 == ClassPin->LinkedTo.Num()))
+	{
+		auto SourcePin = ClassPin->LinkedTo[0];
+		UseSpawnClass = SourcePin ? Cast<UClass>(SourcePin->PinType.PinSubCategoryObject.Get()) : nullptr;
 	}
 
 	return UseSpawnClass;
@@ -165,7 +170,7 @@ void UK2Node_LatentGameplayTaskCall::CreatePinsForClass(UClass* InClass)
 
 	const UObject* const ClassDefaultObject = InClass->GetDefaultObject(false);
 
-	SpawnParmPins.Empty();
+	SpawnParamPins.Empty();
 
 	// Tasks can hide spawn parameters by doing meta = (HideSpawnParms="PropertyA,PropertyB")
 	// (For example, hide Instigator in situations where instigator is not relevant to your task)
@@ -202,7 +207,7 @@ void UK2Node_LatentGameplayTaskCall::CreatePinsForClass(UClass* InClass)
 
 			UEdGraphPin* Pin = CreatePin(EGPD_Input, TEXT(""), TEXT(""), NULL, false, false, Property->GetName());
 			const bool bPinGood = (Pin != NULL) && K2Schema->ConvertPropertyToPinType(Property, /*out*/ Pin->PinType);
-			SpawnParmPins.Add(Pin);
+			SpawnParamPins.Add(Pin->PinName);
 
 			if (ClassDefaultObject && Pin && K2Schema->PinDefaultValueIsEditable(*Pin))
 			{
@@ -232,12 +237,16 @@ void UK2Node_LatentGameplayTaskCall::PinDefaultValueChanged(UEdGraphPin* Changed
 		//ResultPin->BreakAllPinLinks();
 
 		// Remove all pins related to archetype variables
-		for (auto OldPin : SpawnParmPins)
+		for (const FString& OldPinReference : SpawnParamPins)
 		{
-			OldPin->BreakAllPinLinks();
-			Pins.Remove(OldPin);
+			UEdGraphPin* OldPin = FindPin(OldPinReference);
+			if(OldPin)
+			{
+				OldPin->MarkPendingKill();
+				Pins.Remove(OldPin);
+			}
 		}
-		SpawnParmPins.Empty();
+		SpawnParamPins.Empty();
 
 		UClass* UseSpawnClass = GetClassToSpawn();
 		if (UseSpawnClass != NULL)
@@ -399,9 +408,10 @@ bool UK2Node_LatentGameplayTaskCall::ValidateActorArraySpawning(class FKismetCom
 bool UK2Node_LatentGameplayTaskCall::ConnectSpawnProperties(UClass* ClassToSpawn, const UEdGraphSchema_K2* Schema, class FKismetCompilerContext& CompilerContext, UEdGraph* SourceGraph, UEdGraphPin*& LastThenPin, UEdGraphPin* SpawnedActorReturnPin)
 {
 	bool bIsErrorFree = true;
-	for (auto SpawnVarPin : SpawnParmPins)
+	for (const FString& OldPinReference : SpawnParamPins)
 	{
-		const bool bHasDefaultValue = !SpawnVarPin->DefaultValue.IsEmpty() || !SpawnVarPin->DefaultTextValue.IsEmpty() || SpawnVarPin->DefaultObject;
+		UEdGraphPin* SpawnVarPin = FindPin(OldPinReference);
+		const bool bHasDefaultValue = SpawnVarPin && (!SpawnVarPin->DefaultValue.IsEmpty() || !SpawnVarPin->DefaultTextValue.IsEmpty() || SpawnVarPin->DefaultObject);
 		if (SpawnVarPin->LinkedTo.Num() > 0 || bHasDefaultValue)
 		{
 			if (SpawnVarPin->LinkedTo.Num() == 0)

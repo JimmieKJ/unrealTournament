@@ -35,10 +35,6 @@ class AGroupActor : public AActor
 	{ 
 		return false; 
 	}
-	virtual bool NeedsLoadForServer() const override
-	{ 
-		return false;
-	}
 	//~ End UObject Interface
 
 	//~ Begin AActor Interface

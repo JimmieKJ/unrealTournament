@@ -144,15 +144,9 @@ public:
 	/** Can we use gizmos? */
 	bool CanUseGizmos() const;
 
-	/** Function to check whether sky is displayed or not */
-	bool IsShowingSky() const;
-
-	/** Function to check whether floor is displayed or not */
-	bool IsShowingFloor() const;
-
 	/** Function to check whether floor is auto aligned or not */
 	bool IsAutoAlignFloor() const;
-
+	
 	/** Clears our reference to Persona, also cleaning up anything that depends on Persona first */
 	void CleanupPersonaReferences();
 
@@ -193,11 +187,6 @@ private:
 
 	/** Preview mode related function **/
 	void SetPreviewMode( int32 PreviewMode );
-
-	/** Show Bones of SkeletalMesh **/
-	void OnShowBones();
-
-	bool IsShowingBones() const;
 
 	/** Show Morphtarget of SkeletalMesh **/
 	void OnShowMorphTargets();
@@ -245,6 +234,12 @@ private:
 	bool IsShowingBoneWeight() const;
 
 	/** Function to set Local axes mode of the specificed type */
+	void OnSetBoneDrawMode(int32 BoneDrawMode);
+
+	/** Local axes mode checking function for the specificed type*/
+	bool IsBoneDrawModeSet(int32 BoneDrawMode) const;
+
+	/** Function to set Local axes mode of the specificed type */
 	void OnSetLocalAxesMode( int32 LocalAxesMode );
 
 	/** Local axes mode checking function for the specificed type*/
@@ -264,15 +259,9 @@ private:
 
 	/** Function to show/hide grid in the viewport */
 	void OnShowGrid();
-
-	/** Function to show/hide floor in the viewport */
-	void OnShowFloor();
-
-	/** Function to enable/disable floor auto align */
+	
+	/** Toggles floor alignment in the preview scene */
 	void OnToggleAutoAlignFloor();
-
-	/** Function to show/hide floor in the viewport */
-	void OnShowSky();
 
 	/** update reference pose with current preview mesh */
 	void UpdateReferencePose();

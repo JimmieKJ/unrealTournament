@@ -47,7 +47,7 @@ void SearchDirectoryRecursive( const FString& SearchPathMask, TArray<FString>& o
  *
  * @return	true if packages were found successfully, false otherwise.
  */
-bool NormalizePackageNames( TArray<FString> PackageNames, TArray<FString>& PackagePathNames, const FString& PackageWildcard=FString(TEXT("*.*")), uint8 PackageFilter=NORMALIZE_DefaultFlags );
+bool UNREALED_API NormalizePackageNames( TArray<FString> PackageNames, TArray<FString>& PackagePathNames, const FString& PackageWildcard=FString(TEXT("*.*")), uint8 PackageFilter=NORMALIZE_DefaultFlags );
 
 
 /** 
@@ -63,7 +63,7 @@ bool NormalizePackageNames( TArray<FString> PackageNames, TArray<FString>& Packa
  *
  * @return true if successful
  */
-bool SavePackageHelper(UPackage* Package, FString Filename,  EObjectFlags KeepObjectFlags = RF_Standalone, FOutputDevice* ErrorDevice=GWarn, FLinkerLoad* LinkerToConformAgainst=NULL, ESaveFlags SaveFlags = SAVE_None);
+bool UNREALED_API SavePackageHelper(UPackage* Package, FString Filename,  EObjectFlags KeepObjectFlags = RF_Standalone, FOutputDevice* ErrorDevice=GWarn, FLinkerLoad* LinkerToConformAgainst=NULL, ESaveFlags SaveFlags = SAVE_None);
 
 
 /**

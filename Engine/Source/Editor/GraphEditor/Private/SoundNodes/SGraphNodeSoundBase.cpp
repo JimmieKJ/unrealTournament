@@ -40,15 +40,15 @@ void SGraphNodeSoundBase::CreateOutputSideAddButton(TSharedPtr<SVerticalBox> Out
 
 EVisibility SGraphNodeSoundBase::IsAddPinButtonVisible() const
 {
-	EVisibility Visibility = SGraphNode::IsAddPinButtonVisible();
-	if (Visibility == EVisibility::Visible)
+	EVisibility ButtonVisibility = SGraphNode::IsAddPinButtonVisible();
+	if (ButtonVisibility == EVisibility::Visible)
 	{
 		if (!SoundNode->CanAddInputPin())
 		{
-			Visibility = EVisibility::Collapsed;
+			ButtonVisibility = EVisibility::Collapsed;
 		}
 	}
-	return Visibility;
+	return ButtonVisibility;
 }
 
 FReply SGraphNodeSoundBase::OnAddPin()

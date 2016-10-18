@@ -259,6 +259,16 @@ struct TCString
 	static FORCEINLINE CharType* Strrstr( CharType* String, const CharType* Find );
 
 	/**
+	 * strspn wrapper
+	 */
+	static FORCEINLINE int32 Strspn( const CharType* String, const CharType* Mask );
+
+	/**
+	 * strcspn wrapper
+	 */
+	static FORCEINLINE int32 Strcspn( const CharType* String, const CharType* Mask );
+
+	/**
 	 * atoi wrapper
 	 */
 	static FORCEINLINE int32 Atoi( const CharType* String );
@@ -334,7 +344,7 @@ typedef TCString<WIDECHAR> FCStringWide;
 	generic TCString implementations
 -----------------------------------------------------------------------------*/
 
-template <typename CharType>
+template <typename CharType = TCHAR>
 struct TCStringSpcHelper
 {
 	/** Number of characters to be stored in string. */
@@ -597,6 +607,46 @@ typename TCString<T>::CharType* TCString<T>::Strrstr( CharType* String, const Ch
 		Result = Found;
 		String = Found + 1;
 	}
+}
+
+template <typename T> FORCEINLINE
+int32 TCString<T>::Strspn( const CharType* String, const CharType* Mask )
+{
+	const TCHAR* StringIt = String;
+	while (*StringIt)
+	{
+		for (const TCHAR* MaskIt = Mask; *MaskIt; ++MaskIt)
+		{
+			if (*StringIt != *MaskIt)
+			{
+				return StringIt - String;
+			}
+		}
+
+		++StringIt;
+	}
+
+	return StringIt - String;
+}
+
+template <typename T> FORCEINLINE
+int32 TCString<T>::Strcspn( const CharType* String, const CharType* Mask )
+{
+	const TCHAR* StringIt = String;
+	while (*StringIt)
+	{
+		for (const TCHAR* MaskIt = Mask; *MaskIt; ++MaskIt)
+		{
+			if (*StringIt == *MaskIt)
+			{
+				return StringIt - String;
+			}
+		}
+
+		++StringIt;
+	}
+
+	return StringIt - String;
 }
 
 template <typename T> FORCEINLINE 

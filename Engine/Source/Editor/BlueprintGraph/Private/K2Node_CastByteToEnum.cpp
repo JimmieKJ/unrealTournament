@@ -55,6 +55,12 @@ FText UK2Node_CastByteToEnum::GetNodeTitle(ENodeTitleType::Type TitleType) const
 	return GetTooltipText();
 }
 
+FSlateIcon UK2Node_CastByteToEnum::GetIconAndTint(FLinearColor& OutColor) const
+{
+	static FSlateIcon Icon("EditorStyle", "GraphEditor.Enum_16x");
+	return Icon;
+}
+
 FText UK2Node_CastByteToEnum::GetCompactNodeTitle() const
 {
 	return NSLOCTEXT("K2Node", "CastSymbol", "\x2022");

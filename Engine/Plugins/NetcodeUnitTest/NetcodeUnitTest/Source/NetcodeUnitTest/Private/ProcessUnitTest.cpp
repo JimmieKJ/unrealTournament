@@ -401,7 +401,9 @@ void UProcessUnitTest::PollProcessOutput()
 				{
 					bProcessedPipeRead = false;
 
-					FPlatformProcess::Sleep(0.01f);
+					// NOTE: This MUST be set to 0.0, because in extreme circumstances (such as DDoS which outputs a lot of log data),
+					//			this can actually block the current thread, due to the sleep being too long
+					FPlatformProcess::Sleep(0.0f);
 				}
 				else
 				{

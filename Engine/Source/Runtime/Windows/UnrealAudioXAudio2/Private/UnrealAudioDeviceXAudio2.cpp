@@ -315,7 +315,7 @@ namespace UAudio
 			WAVEFORMATEXTENSIBLE* WaveFormatExtensible = (WAVEFORMATEXTENSIBLE*)WaveFormatEx;
 			DeviceInfo.Speakers.Reset();
 			uint32 ChanCount = 0;
-			for (uint32 SpeakerTypeIndex = 0; SpeakerTypeIndex < ESpeaker::SPEAKER_TYPE_COUNT, ChanCount < DeviceInfo.NumChannels; ++SpeakerTypeIndex)
+			for (uint32 SpeakerTypeIndex = 0; SpeakerTypeIndex < ESpeaker::SPEAKER_TYPE_COUNT && ChanCount < DeviceInfo.NumChannels; ++SpeakerTypeIndex)
 			{
 				if (WaveFormatExtensible->dwChannelMask & SpeakerMaskMapping[SpeakerTypeIndex].XAudio2SpeakerTypeFlag)
 				{

@@ -9,7 +9,8 @@ public class Landscape : ModuleRules
 	{
 		PrivateIncludePaths.AddRange(
 			new string[] {
-                "Runtime/Engine/Private",
+				"Runtime/Engine/Private", // for Engine/Private/Collision/PhysXCollision.h
+				"Runtime/Landscape/Private"
 			}
 		);
 
@@ -17,8 +18,7 @@ public class Landscape : ModuleRules
 			new string[] {
 				"TargetPlatform",
 				"DerivedDataCache",
-				"ImageWrapper",
-                "Foliage",
+				"Foliage",
 			}
 		);
 
@@ -30,8 +30,8 @@ public class Landscape : ModuleRules
 				"RenderCore", 
 				"RHI",
 				"ShaderCore",
-                "Renderer",
-                "Foliage",
+				"Renderer",
+				"Foliage",
 			}
 		);
 
@@ -53,20 +53,23 @@ public class Landscape : ModuleRules
 
 		if (UEBuildConfiguration.bBuildEditor == true)
 		{
+			// TODO: Remove all landscape editing code from the Landscape module!!!
+			PrivateIncludePathModuleNames.Add("LandscapeEditor");
+
 			PrivateDependencyModuleNames.AddRange(
 				new string[] {
-                    "UnrealEd",
-                    "MaterialUtilities", 
-    				"SlateCore",
-    				"Slate",
-                }
+					"UnrealEd",
+					"MaterialUtilities", 
+					"SlateCore",
+					"Slate",
+				}
 			);
 
 			CircularlyReferencedDependentModules.AddRange(
 				new string[] {
-                    "UnrealEd",
-                    "MaterialUtilities",
-                }
+					"UnrealEd",
+					"MaterialUtilities",
+				}
 			);
 		}
 	}

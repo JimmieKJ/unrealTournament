@@ -1,8 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
+#pragma once
+
 #if WITH_GAMEPLAY_DEBUGGER
 
-#pragma once
 #include "GameplayDebuggerCategory.h"
 
 class FGameplayDebuggerCategory_Abilities : public FGameplayDebuggerCategory

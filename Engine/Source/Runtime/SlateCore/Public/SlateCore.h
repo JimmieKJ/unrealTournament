@@ -10,25 +10,10 @@
 #include "InputCore.h"
 #include "ModuleManager.h"
 
-
 /* Globals
  *****************************************************************************/
 
-SLATECORE_API DECLARE_LOG_CATEGORY_EXTERN(LogSlate, Log, All);
-SLATECORE_API DECLARE_LOG_CATEGORY_EXTERN(LogSlateStyles, Log, All);
-
-DECLARE_STATS_GROUP(TEXT("Slate Memory"), STATGROUP_SlateMemory, STATCAT_Advanced);
-DECLARE_STATS_GROUP(TEXT("Slate"), STATGROUP_Slate, STATCAT_Advanced);
-DECLARE_STATS_GROUP_VERBOSE(TEXT("SlateVerbose"), STATGROUP_SlateVerbose, STATCAT_Advanced);
-
-
-// Compile all the RichText and MultiLine editable text?
-#define WITH_FANCY_TEXT 1
-
-/* Forward declarations
- *****************************************************************************/
-class FActiveTimerHandle;
-enum class EActiveTimerReturnType : uint8;
+#include "SlateGlobals.h"
 
 /* Delegates
  *****************************************************************************/
@@ -56,7 +41,6 @@ enum class EActiveTimerReturnType : uint8;
 #include "ArrangedChildren.h"
 #include "SNullWidget.h"
 #include "Children.h"
-#include "WidgetPath.h"
 #include "LayoutUtils.h"
 
 // Animation
@@ -67,6 +51,7 @@ enum class EActiveTimerReturnType : uint8;
 // Sound
 #include "SlateSound.h"
 #include "ISlateSoundDevice.h"
+#include "NullSlateSoundDevice.h"
 
 // Styling
 #include "WidgetStyle.h"
@@ -131,7 +116,7 @@ enum class EActiveTimerReturnType : uint8;
 #include "SUserWidget.h"
 #include "SLeafWidget.h"
 #include "SPanel.h"
-#include "WidgetPath.inl"
+#include "WidgetPath.h"
 ////
 #include "SBoxPanel.h"
 #include "SOverlay.h"

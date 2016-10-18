@@ -2,36 +2,25 @@
 
 #pragma once
 
-#include "LandscapeInfo.h"
-
-#include "Engine/EngineTypes.h"
-#include "Engine/Texture.h"
-#include "Engine/TextureDefines.h"
-
-#include "GameFramework/Actor.h"
 #include "PhysicsEngine/BodyInstance.h"
-#include "Materials/Material.h"
-#include "Materials/MaterialInstanceConstant.h"
-#include "Components/HierarchicalInstancedStaticMeshComponent.h"
-#include "LandscapeComponent.h"
-#include "LandscapeLayerInfoObject.h"
-#include "LandscapeGrassType.h"
-#include "Tickable.h"
 #include "AI/Navigation/NavigationTypes.h"
-
+#include "Engine/Texture.h"
 #include "LandscapeProxy.generated.h"
 
-class ULandscapeMaterialInstanceConstant;
-class ULandscapeSplinesComponent;
-class ULandscapeHeightfieldCollisionComponent;
-class UMaterialInterface;
-class UTexture2D;
-class ALandscape;
-class ALandscapeProxy;
+class ULandscapeInfo;
 class ULandscapeComponent;
-class USplineComponent;
+class ULandscapeSplinesComponent;
+class ULandscapeGrassType;
+class UHierarchicalInstancedStaticMeshComponent;
+class ULandscapeHeightfieldCollisionComponent;
+class UMaterialInstanceConstant;
+class ULandscapeMaterialInstanceConstant;
+class ALandscapeProxy;
+class ALandscape;
+class ALandscapeStreamingProxy;
 struct FLandscapeInfoLayerSettings;
 struct FAsyncGrassBuilder;
+struct FRawMesh;
 
 /** Structure storing channel usage for weightmap textures */
 USTRUCT()
@@ -44,18 +33,18 @@ struct FLandscapeWeightmapUsage
 
 	FLandscapeWeightmapUsage()
 	{
-		ChannelUsage[0] = NULL;
-		ChannelUsage[1] = NULL;
-		ChannelUsage[2] = NULL;
-		ChannelUsage[3] = NULL;
+		ChannelUsage[0] = nullptr;
+		ChannelUsage[1] = nullptr;
+		ChannelUsage[2] = nullptr;
+		ChannelUsage[3] = nullptr;
 	}
 	friend FArchive& operator<<( FArchive& Ar, FLandscapeWeightmapUsage& U );
 	int32 FreeChannelCount() const
 	{
-		return	((ChannelUsage[0] == NULL) ? 1 : 0) + 
-				((ChannelUsage[1] == NULL) ? 1 : 0) + 
-				((ChannelUsage[2] == NULL) ? 1 : 0) + 
-				((ChannelUsage[3] == NULL) ? 1 : 0);
+		return	((ChannelUsage[0] == nullptr) ? 1 : 0) +
+				((ChannelUsage[1] == nullptr) ? 1 : 0) +
+				((ChannelUsage[2] == nullptr) ? 1 : 0) +
+				((ChannelUsage[3] == nullptr) ? 1 : 0);
 	}
 };
 
@@ -72,7 +61,7 @@ struct FLandscapeEditorLayerSettings
 	FString ReimportLayerFilePath;
 
 	FLandscapeEditorLayerSettings()
-		: LayerInfoObj(NULL)
+		: LayerInfoObj(nullptr)
 		, ReimportLayerFilePath()
 	{
 	}
@@ -100,7 +89,7 @@ struct FLandscapeLayerStruct
 
 #if WITH_EDITORONLY_DATA
 	UPROPERTY(transient)
-	UMaterialInstanceConstant* ThumbnailMIC;
+	ULandscapeMaterialInstanceConstant* ThumbnailMIC;
 
 	UPROPERTY()
 	ALandscapeProxy* Owner;
@@ -116,10 +105,10 @@ struct FLandscapeLayerStruct
 #endif // WITH_EDITORONLY_DATA
 
 	FLandscapeLayerStruct()
-		: LayerInfoObj(NULL)
+		: LayerInfoObj(nullptr)
 #if WITH_EDITORONLY_DATA
-		, ThumbnailMIC(NULL)
-		, Owner(NULL)
+		, ThumbnailMIC(nullptr)
+		, Owner(nullptr)
 		, DebugColorChannel(0)
 		, bSelected(false)
 		, SourceFilePath()
@@ -155,21 +144,17 @@ struct FLandscapeImportLayerInfo
 	UPROPERTY(Category="Import", EditAnywhere)
 	ULandscapeLayerInfoObject* LayerInfo;
 
-	UPROPERTY(Category="Import", VisibleAnywhere)
-	UMaterialInstanceConstant* ThumbnailMIC; // Optional
-
 	UPROPERTY(Category="Import", EditAnywhere)
 	FString SourceFilePath; // Optional
 	
 	// Raw weightmap data
-	TArray<uint8> LayerData;		
+	TArray<uint8> LayerData;
 #endif
 
 #if WITH_EDITOR
 	FLandscapeImportLayerInfo(FName InLayerName = NAME_None)
 	:	LayerName(InLayerName)
-	,	LayerInfo(NULL)
-	,	ThumbnailMIC(NULL)
+	,	LayerInfo(nullptr)
 	,	SourceFilePath("")
 	{
 	}
@@ -246,7 +231,7 @@ struct FCachedLandscapeFoliage
 
 		friend uint32 GetTypeHash(const FGrassCompKey& Key)
 		{
-			return GetTypeHash(Key.BasedOn) ^ GetTypeHash(Key.GrassType) ^ Key.SqrtSubsections ^ Key.CachedMaxInstancesPerComponent ^ (Key.SubsectionX >> 16) ^ (Key.SubsectionY >> 24) ^ (Key.NumVarieties >> 3) ^ (Key.VarietyIndex >> 13);
+			return GetTypeHash(Key.BasedOn) ^ GetTypeHash(Key.GrassType) ^ Key.SqrtSubsections ^ Key.CachedMaxInstancesPerComponent ^ (Key.SubsectionX << 16) ^ (Key.SubsectionY << 24) ^ (Key.NumVarieties << 3) ^ (Key.VarietyIndex << 13);
 		}
 
 	};
@@ -305,12 +290,7 @@ public:
 	FCachedLandscapeFoliage::FGrassCompKey Key;
 	TWeakObjectPtr<UHierarchicalInstancedStaticMeshComponent> Foliage;
 
-	FAsyncGrassTask(FAsyncGrassBuilder* InBuilder, const FCachedLandscapeFoliage::FGrassCompKey& InKey, UHierarchicalInstancedStaticMeshComponent* InFoliage)
-		: Builder(InBuilder)
-		, Key(InKey)
-		, Foliage(InFoliage)
-	{
-	}
+	FAsyncGrassTask(FAsyncGrassBuilder* InBuilder, const FCachedLandscapeFoliage::FGrassCompKey& InKey, UHierarchicalInstancedStaticMeshComponent* InFoliage);
 	void DoWork();
 
 	FORCEINLINE TStatId GetStatId() const
@@ -321,10 +301,13 @@ public:
 	~FAsyncGrassTask();
 };
 
-UCLASS(NotPlaceable, NotBlueprintable, hidecategories=(Display, Attachment, Physics, Debug, Lighting, LOD), showcategories=(Lighting, Rendering, "Utilities|Transformation"), MinimalAPI)
+UCLASS(Abstract, MinimalAPI, hidecategories=(Display, Attachment, Physics, Debug, Lighting, LOD), showcategories=(Lighting, Rendering, "Utilities|Transformation"))
 class ALandscapeProxy : public AActor
 {
-	GENERATED_UCLASS_BODY()
+	GENERATED_BODY()
+
+public:
+	ALandscapeProxy(const FObjectInitializer& ObjectInitializer);
 
 	virtual ~ALandscapeProxy();
 
@@ -341,15 +324,15 @@ public:
 	UPROPERTY()
 	FIntPoint LandscapeSectionOffset;
 
-#if WITH_EDITORONLY_DATA
-	/** To support legacy landscape section offset modification under world composition mode */
-	UPROPERTY()
-	bool bStaticSectionOffset;
-#endif
-
 	/** Max LOD level to use when rendering, -1 means the max available */
 	UPROPERTY(EditAnywhere, Category=LOD)
 	int32 MaxLODLevel;
+
+	UPROPERTY(EditAnywhere, Category=LOD)
+	float LODDistanceFactor;
+
+	UPROPERTY(EditAnywhere, Category=LOD)
+	TEnumAsByte<ELandscapeLODFalloff::Type> LODFalloff;
 
 #if WITH_EDITORONLY_DATA
 	/** LOD level to use when exporting the landscape to obj or FBX */
@@ -381,8 +364,17 @@ public:
 	UPROPERTY(EditAnywhere, Category=Landscape, AdvancedDisplay)
 	UMaterialInterface* LandscapeHoleMaterial;
 
-	UPROPERTY(EditAnywhere, Category=LOD)
-	float LODDistanceFactor;
+	/** Allows overriding the landscape bounds. This is useful if you distort the landscape with world-position-offset, for example
+	 *  Extension value in the negative Z axis, positive value increases bound size
+	 *  Note that this can also be overridden per-component when the component is selected with the component select tool */
+	UPROPERTY(EditAnywhere, Category=Landscape)
+	float NegativeZBoundsExtension;
+
+	/** Allows overriding the landscape bounds. This is useful if you distort the landscape with world-position-offset, for example
+	 *  Extension value in the positive Z axis, positive value increases bound size
+	 *  Note that this can also be overridden per-component when the component is selected with the component select tool */
+	UPROPERTY(EditAnywhere, Category=Landscape)
+	float PositiveZBoundsExtension;
 
 	/** The array of LandscapeComponent that are used by the landscape */
 	UPROPERTY()
@@ -413,9 +405,6 @@ public:
 	UPROPERTY(EditAnywhere, Category=Lighting)
 	float StaticLightingResolution;
 
-	UPROPERTY(EditAnywhere, Category=LandscapeProxy)
-	TLazyObjectPtr<ALandscape> LandscapeActor;
-
 	UPROPERTY(EditAnywhere, Category=Lighting, meta=(DisplayName = "Static Shadow"))
 	uint32 bCastStaticShadow:1;
 
@@ -432,9 +421,6 @@ public:
 		Does not work correctly with an XY offset map (mesh collision) */
 	UPROPERTY(EditAnywhere, AdvancedDisplay, Category=Lighting)
 	uint32 bUseMaterialPositionOffsetInStaticLighting:1;
-
-	UPROPERTY()
-	uint32 bIsProxy:1;
 
 #if WITH_EDITORONLY_DATA
 	UPROPERTY(transient)
@@ -461,6 +447,16 @@ public:
 	/** Collision profile settings for this landscape */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Collision, meta=(ShowOnlyInnerProperties))
 	FBodyInstance BodyInstance;
+
+	/**
+	 * If true, Landscape will generate overlap events when other components are overlapping it (eg Begin Overlap).
+	 * Both the Landscape and the other component must have this flag enabled for overlap events to occur.
+	 *
+	 * @see [Overlap Events](https://docs.unrealengine.com/latest/INT/Engine/Physics/Collision/index.html#overlapandgenerateoverlapevents)
+	 * @see UpdateOverlaps(), BeginComponentOverlap(), EndComponentOverlap()
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Collision)
+	uint32 bGenerateOverlapEvents : 1;
 
 	/** Whether to bake the landscape material's vertical world position offset into the collision heightfield.
 		Note: Only z (vertical) offset is supported. XY offsets are ignored.
@@ -496,16 +492,13 @@ public:
 	UPROPERTY(EditAnywhere, Category = Landscape, AdvancedDisplay)
 	ENavDataGatheringMode NavigationGeometryGatheringMode;
 
-	UPROPERTY(EditAnywhere, Category=LOD)
-	TEnumAsByte<ELandscapeLODFalloff::Type> LODFalloff;
-
 #if WITH_EDITORONLY_DATA
 	UPROPERTY(EditAnywhere, Category=Landscape)
 	int32 MaxPaintedLayersPerComponent; // 0 = disabled
 #endif
 
 	/** Flag whether or not this Landscape's surface can be used for culling hidden triangles **/
-	UPROPERTY(EditAnywhere, Category = HLOD)
+	UPROPERTY(EditAnywhere, Category = HierarchicalLOD)
 	bool bUseLandscapeForCullingInvisibleHLODVertices;
 
 public:
@@ -546,8 +539,8 @@ public:
 	// End blueprint functions
 
 	//~ Begin AActor Interface
-	virtual void UnregisterAllComponents() override;
-	virtual void RegisterAllComponents() override;
+	virtual void PostRegisterAllComponents() override;
+	virtual void UnregisterAllComponents(bool bForReregister = false) override;
 	virtual void RerunConstructionScripts() override {}
 	virtual bool IsLevelBoundsRelevant() const override { return true; }
 
@@ -563,7 +556,7 @@ public:
 
 	FGuid GetLandscapeGuid() const { return LandscapeGuid; }
 	void SetLandscapeGuid(const FGuid& Guid) { LandscapeGuid = Guid; }
-	virtual ALandscape* GetLandscapeActor();
+	virtual ALandscape* GetLandscapeActor() PURE_VIRTUAL(GetLandscapeActor, return nullptr;)
 
 	/* Per-frame call to update dynamic grass placement and render grassmaps */
 	void TickGrass();
@@ -600,16 +593,13 @@ public:
 	//~ End AActor Interface
 
 	//~ Begin UObject Interface.
-	virtual void PreSave() override;
+	virtual void PreSave(const class ITargetPlatform* TargetPlatform) override;
 	virtual void Serialize(FArchive& Ar) override;
 	static void AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector);
 	virtual void PostLoad() override;
 
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
-	virtual void PostEditChangeChainProperty(FPropertyChangedChainEvent& PropertyChangedEvent) override;
-	virtual void PreEditUndo() override;
-	virtual void PostEditUndo() override;
 	virtual void PostEditImport() override;
 	//~ End UObject Interface
 
@@ -618,7 +608,8 @@ public:
 	LANDSCAPE_API static ULandscapeLayerInfoObject* CreateLayerInfo(const TCHAR* LayerName, ULevel* Level);
 	LANDSCAPE_API ULandscapeLayerInfoObject* CreateLayerInfo(const TCHAR* LayerName);
 
-	LANDSCAPE_API ULandscapeInfo* GetLandscapeInfo(bool bSpawnNewActor = true);
+	LANDSCAPE_API ULandscapeInfo* CreateLandscapeInfo();
+	LANDSCAPE_API ULandscapeInfo* GetLandscapeInfo() const;
 
 	// Get Landscape Material assigned to this Landscape
 	virtual UMaterialInterface* GetLandscapeMaterial() const;
@@ -626,14 +617,14 @@ public:
 	// Get Hole Landscape Material assigned to this Landscape
 	virtual UMaterialInterface* GetLandscapeHoleMaterial() const;
 
+	// 
+	void FixupWeightmaps();
+
 	// Remove Invalid weightmaps
 	LANDSCAPE_API void RemoveInvalidWeightmaps();
 
 	// Changed Physical Material
 	LANDSCAPE_API void ChangedPhysMaterial();
-
-	// Check input Landscape actor is match for this LandscapeProxy (by GUID)
-	LANDSCAPE_API bool IsValidLandscapeActor(ALandscape* Landscape);
 
 	// Copy properties from parent Landscape actor
 	LANDSCAPE_API void GetSharedProperties(ALandscapeProxy* Landscape);
@@ -675,6 +666,17 @@ public:
 	LANDSCAPE_API bool ExportToRawMesh(int32 InExportLOD, FRawMesh& OutRawMesh) const;
 
 
+	/**
+	* Exports landscape geometry contained within InBounds into a raw mesh
+	*
+	* @param InExportLOD Landscape LOD level to use while exporting, INDEX_NONE will use ALanscapeProxy::ExportLOD settings
+	* @param OutRawMesh - Resulting raw mesh
+	* @param InBounds - Box/Sphere bounds which limit the geometry exported out into OutRawMesh
+	* @return true if successful
+	*/
+	LANDSCAPE_API bool ExportToRawMesh(int32 InExportLOD, FRawMesh& OutRawMesh, const FBoxSphereBounds& InBounds ) const;
+
+
 	/** @return Current size of bounding rectangle in quads space */
 	LANDSCAPE_API FIntRect GetBoundingRect() const;
 
@@ -697,4 +699,3 @@ public:
 	LANDSCAPE_API void RemoveOverlappingComponent(ULandscapeComponent* Component);
 #endif
 };
-

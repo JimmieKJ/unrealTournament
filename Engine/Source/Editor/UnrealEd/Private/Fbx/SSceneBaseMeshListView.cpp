@@ -96,9 +96,9 @@ void SFbxSSceneBaseMeshListView::RemoveSelectionFromImport()
 
 void SFbxSSceneBaseMeshListView::SetSelectionImportState(bool MarkForImport)
 {
-	TArray<FbxMeshInfoPtr> SelectedItems;
-	GetSelectedItems(SelectedItems);
-	for (auto Item : SelectedItems)
+	TArray<FbxMeshInfoPtr> SelectedFbxMeshes;
+	GetSelectedItems(SelectedFbxMeshes);
+	for (auto Item : SelectedFbxMeshes)
 	{
 		FbxMeshInfoPtr ItemPtr = Item;
 		ItemPtr->bImportAttribute = MarkForImport;
@@ -108,9 +108,9 @@ void SFbxSSceneBaseMeshListView::SetSelectionImportState(bool MarkForImport)
 void SFbxSSceneBaseMeshListView::OnSelectionChanged(FbxMeshInfoPtr Item, ESelectInfo::Type SelectionType)
 {
 	//Change the option selection
-	TArray<FbxMeshInfoPtr> SelectedItems;
-	GetSelectedItems(SelectedItems);
-	for (FbxMeshInfoPtr SelectItem : SelectedItems)
+	TArray<FbxMeshInfoPtr> SelectedFbxMeshes;
+	GetSelectedItems(SelectedFbxMeshes);
+	for (FbxMeshInfoPtr SelectItem : SelectedFbxMeshes)
 	{
 		for (auto kvp : *OverrideNameOptionsMap)
 		{
@@ -151,13 +151,13 @@ void SFbxSSceneBaseMeshListView::AddBakePivotMenu(class FMenuBuilder& MenuBuilde
 
 void SFbxSSceneBaseMeshListView::FillPivotContextMenu(FMenuBuilder& MenuBuilder)
 {
-	TArray<FbxMeshInfoPtr> SelectedItems;
-	int32 SelectCount = GetSelectedItems(SelectedItems);
+	TArray<FbxMeshInfoPtr> SelectedFbxMeshes;
+	int32 SelectCount = GetSelectedItems(SelectedFbxMeshes);
 
 	uint64 InvalidUid = INVALID_UNIQUE_ID;
-	if (SelectedItems.Num() == 1)
+	if (SelectedFbxMeshes.Num() == 1)
 	{
-		FbxMeshInfoPtr Item = SelectedItems[0];
+		FbxMeshInfoPtr Item = SelectedFbxMeshes[0];
 		if (Item->bOriginalTypeChanged)
 			return;
 		MenuBuilder.AddMenuEntry(Item->PivotNodeUid == INVALID_UNIQUE_ID ? LOCTEXT("ResetPivotBakeCurrent", "* No Pivot Bake") : LOCTEXT("ResetPivotBake", "No Pivot Bake"), FText(), FSlateIcon(), FUIAction(FExecuteAction::CreateSP(this, &SFbxSSceneBaseMeshListView::AssignToPivot, InvalidUid)));
@@ -200,9 +200,9 @@ TSharedPtr<FFbxNodeInfo> SFbxSSceneBaseMeshListView::FindNodeInfoByUid(uint64 No
 void SFbxSSceneBaseMeshListView::AssignToPivot(uint64 NodeUid)
 {
 	FbxNodeInfoPtr NodeInfo = FindNodeInfoByUid(NodeUid, SceneInfo);
-	TArray<FbxMeshInfoPtr> SelectedItems;
-	int32 SelectCount = GetSelectedItems(SelectedItems);
-	for (FbxMeshInfoPtr MeshInfo : SelectedItems)
+	TArray<FbxMeshInfoPtr> SelectedFbxMeshes;
+	int32 SelectCount = GetSelectedItems(SelectedFbxMeshes);
+	for (FbxMeshInfoPtr MeshInfo : SelectedFbxMeshes)
 	{
 		if (MeshInfo->bOriginalTypeChanged)
 		{
@@ -239,9 +239,9 @@ void SFbxSSceneBaseMeshListView::AssignToOptions(FString OptionName)
 	{
 		return;
 	}
-	TArray<FbxMeshInfoPtr> SelectedItems;
-	GetSelectedItems(SelectedItems);
-	for (FbxMeshInfoPtr ItemPtr : SelectedItems)
+	TArray<FbxMeshInfoPtr> SelectedFbxMeshes;
+	GetSelectedItems(SelectedFbxMeshes);
+	for (FbxMeshInfoPtr ItemPtr : SelectedFbxMeshes)
 	{
 		if (ItemPtr->bOriginalTypeChanged)
 		{

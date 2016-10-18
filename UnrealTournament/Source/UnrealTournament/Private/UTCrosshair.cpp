@@ -10,7 +10,7 @@ UUTCrosshair::UUTCrosshair(const class FObjectInitializer& ObjectInitializer)
 	OffsetAdjust = FVector2D(0.f, 0.f);
 }
 
-void UUTCrosshair::ActivateCrosshair_Implementation(AUTHUD* TargetHUD, const FWeaponCustomizationInfo& CustomizationsToApply)
+void UUTCrosshair::ActivateCrosshair_Implementation(AUTHUD* TargetHUD, const FWeaponCustomizationInfo& CustomizationsToApply, AUTWeapon* Weapon)
 {
 	if (!UMGClassname.IsEmpty() && TargetHUD != nullptr)
 	{
@@ -25,6 +25,7 @@ void UUTCrosshair::ActivateCrosshair_Implementation(AUTHUD* TargetHUD, const FWe
 
 		if (ActiveUMG.IsValid())
 		{
+			ActiveUMG->AssociatedWeapon = Weapon;
 			ActiveUMG->ApplyCustomizations(CustomizationsToApply);
 		}
 	}

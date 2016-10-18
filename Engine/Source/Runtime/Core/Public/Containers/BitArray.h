@@ -580,9 +580,8 @@ public:
 			}
 			return *this;
 		}
-		SAFE_BOOL_OPERATORS(FIterator)
 		/** conversion to "bool" returning true if the iterator is valid. */
-		FORCEINLINE_EXPLICIT_OPERATOR_BOOL() const
+		FORCEINLINE explicit operator bool() const
 		{ 
 			return Index < Array.Num(); 
 		}
@@ -622,10 +621,8 @@ public:
 			return *this;
 		}
 
-		SAFE_BOOL_OPERATORS(FConstIterator)
-
 		/** conversion to "bool" returning true if the iterator is valid. */
-		FORCEINLINE_EXPLICIT_OPERATOR_BOOL() const
+		FORCEINLINE explicit operator bool() const
 		{ 
 			return Index < Array.Num(); 
 		}
@@ -665,10 +662,8 @@ public:
 			return *this;
 		}
 
-		SAFE_BOOL_OPERATORS(FConstReverseIterator)
-
 		/** conversion to "bool" returning true if the iterator is valid. */
-		FORCEINLINE_EXPLICIT_OPERATOR_BOOL() const
+		FORCEINLINE explicit operator bool() const
 		{ 
 			return Index >= 0; 
 		}
@@ -770,7 +765,7 @@ public:
 	}
 
 	/** conversion to "bool" returning true if the iterator is valid. */
-	FORCEINLINE_EXPLICIT_OPERATOR_BOOL() const
+	FORCEINLINE explicit operator bool() const
 	{ 
 		return CurrentBitIndex < Array.Num(); 
 	}
@@ -877,10 +872,8 @@ public:
 
 	}
 
-	SAFE_BOOL_OPERATORS(TConstDualSetBitIterator<Allocator,OtherAllocator>)
-
 	/** conversion to "bool" returning true if the iterator is valid. */
-	FORCEINLINE_EXPLICIT_OPERATOR_BOOL() const
+	FORCEINLINE explicit operator bool() const
 	{ 
 		return CurrentBitIndex < ArrayA.Num(); 
 	}

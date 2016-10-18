@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Text.RegularExpressions;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using Microsoft.Win32;
 
 namespace UnrealBuildTool
@@ -20,7 +21,7 @@ namespace UnrealBuildTool
 			if (!CrossCompiling())
 			{
 				// use native linux toolchain
-				string[] ClangNames = { "clang++", "clang++-3.7", "clang++-3.6", "clang++-3.5" };
+				string[] ClangNames = { "clang++", "clang++-3.8", "clang++-3.7", "clang++-3.6", "clang++-3.5" };
 				foreach (var ClangName in ClangNames)
 				{
 					ClangPath = Which(ClangName);
@@ -79,7 +80,7 @@ namespace UnrealBuildTool
 			else if ((CompilerVersionMajor * 10 + CompilerVersionMinor) > 38 || (CompilerVersionMajor * 10 + CompilerVersionMinor) < 35)
 			{
 				throw new BuildException(
-					string.Format("This version of the Unreal Engine can only be compiled with clang 3.7, 3.6 and 3.5. clang {0} may not build it - please use a different version.",
+					string.Format("This version of the Unreal Engine can only be compiled with clang 3.8, 3.7, 3.6 and 3.5. clang {0} may not build it - please use a different version.",
 						CompilerVersionString)
 					);
 			}
@@ -295,17 +296,9 @@ namespace UnrealBuildTool
 			Result += " -c";
 			Result += " -pipe";
 
-			if (CrossCompiling())
-			{
-				// There are exceptions used in the code base (e.g. UnrealHeadTool).  @todo: weed out exceptions
-				// So this flag cannot be used, at least not for native Linux builds.
-				Result += " -fno-exceptions";               // no exceptions
-				Result += " -DPLATFORM_EXCEPTIONS_DISABLED=1";
-			}
-			else
-			{
-				Result += " -DPLATFORM_EXCEPTIONS_DISABLED=0";
-			}
+			Result += " -nostdinc++";
+			Result += " -I" + UEBuildConfiguration.UEThirdPartySourceDirectory + "Linux/LibCxx/include/";
+			Result += " -I" + UEBuildConfiguration.UEThirdPartySourceDirectory + "Linux/LibCxx/include/c++/v1";
 
 			Result += " -Wall -Werror";
 			// test without this next line?
@@ -390,19 +383,13 @@ namespace UnrealBuildTool
 				//Result += " -fsanitize=address";            // detect address based errors (support properly and link to libasan)
 			}
 
-			// debug info (bCreateDebugInfo is normally set for all configurations, and we don't want it to affect Shipping performance)
-			if (CompileEnvironment.Config.bCreateDebugInfo && CompileEnvironment.Config.Target.Configuration != CPPTargetConfiguration.Shipping)
+			// debug info 
+			// bCreateDebugInfo is normally set for all configurations, including Shipping - this is needed to enable callstack in Shipping builds (proper resolution: UEPLAT-205, separate files with debug info)
+			if (CompileEnvironment.Config.bCreateDebugInfo)
 			{
-				Result += " -g3";
+				// libdwarf (from elftoolchain 0.6.1) doesn't support DWARF4
+				Result += " -gdwarf-3";
 			}
-			// Applying to all configurations, including Shipping @FIXME: temporary hack for FN to enable callstack in Shipping builds (proper resolution: UEPLAT-205)
-			else
-			{
-				Result += " -gline-tables-only"; // include debug info for meaningful callstacks
-			}
-
-			// libdwarf (from elftoolchain 0.6.1) doesn't support DWARF4
-			Result += " -gdwarf-3";
 
 			// optimization level
 			if (CompileEnvironment.Config.Target.Configuration == CPPTargetConfiguration.Debug)
@@ -422,9 +409,15 @@ namespace UnrealBuildTool
 				Result += " -ftls-model=local-dynamic";
 			}
 
-			if (CompileEnvironment.Config.bEnableExceptions)
+			if (CompileEnvironment.Config.bEnableExceptions || UEBuildConfiguration.bForceEnableExceptions)
 			{
 				Result += " -fexceptions";
+				Result += " -DPLATFORM_EXCEPTIONS_DISABLED=0";
+			}
+			else
+			{
+				Result += " -fno-exceptions";               // no exceptions
+				Result += " -DPLATFORM_EXCEPTIONS_DISABLED=1";
 			}
 
 			//Result += " -v";                            // for better error diagnosis
@@ -440,6 +433,35 @@ namespace UnrealBuildTool
 			}
 
 			return Result;
+		}
+
+		/// <summary>
+		/// Sanitizes a definition argument if needed.
+		/// </summary>
+		/// <param name="definition">A string in the format "foo=bar".</param>
+		/// <returns></returns>
+		internal static string EscapeArgument(string definition)
+		{
+			string[] splitData = definition.Split('=');
+			string myKey = splitData.ElementAtOrDefault(0);
+			string myValue = splitData.ElementAtOrDefault(1);
+
+			if (string.IsNullOrEmpty(myKey)) { return ""; }
+			if (!string.IsNullOrEmpty(myValue))
+			{
+				if (!myValue.StartsWith("\"") && (myValue.Contains(" ") || myValue.Contains("$")))
+				{
+					myValue = myValue.Trim('\"');		// trim any leading or trailing quotes
+					myValue = "\"" + myValue + "\"";	// ensure wrap string with double quotes
+				}
+
+				// replace double quotes to escaped double quotes if exists
+				myValue = myValue.Replace("\"", "\\\"");
+			}
+
+			return myValue == null
+				? string.Format("{0}", myKey)
+				: string.Format("{0}={1}", myKey, myValue);
 		}
 
 		static string GetCompileArguments_CPP()
@@ -511,9 +533,16 @@ namespace UnrealBuildTool
 			Result += " -Wl,-rpath=${ORIGIN}/..";	// for modules that are in sub-folders of the main Engine/Binary/Linux folder
 			// FIXME: really ugly temp solution. Modules need to be able to specify this
 			Result += " -Wl,-rpath=${ORIGIN}/../../../Engine/Binaries/ThirdParty/ICU/icu4c-53_1/Linux/x86_64-unknown-linux-gnu";
-			Result += " -Wl,-rpath=${ORIGIN}/../../../Engine/Binaries/ThirdParty/LinuxNativeDialogs/Linux/x86_64-unknown-linux-gnu";
+			Result += " -Wl,-rpath=${ORIGIN}/../../../Engine/Binaries/ThirdParty/Steamworks/Steamv132/Linux";
 
-			if (CrossCompiling())
+			// Some OS ship ld with new ELF dynamic tags, which use DT_RUNPATH vs DT_RPATH. Since DT_RUNPATH do not propagate to dlopen()ed DSOs,
+			// this breaks the editor on such systems. See https://kenai.com/projects/maxine/lists/users/archive/2011-01/message/12 for details
+			Result += " -Wl,--disable-new-dtags";
+
+            // Improve dlopen performance
+            Result += " -Wl,--as-needed";
+            
+            if (CrossCompiling())
 			{
 				if (UsingClang())
 				{
@@ -531,7 +560,7 @@ namespace UnrealBuildTool
 			return " rc";
 		}
 
-		public static void CompileOutputReceivedDataEventHandler(Object Sender, DataReceivedEventArgs e)
+		public static void CrossCompileOutputReceivedDataEventHandler(Object Sender, DataReceivedEventArgs e)
 		{
 			Debug.Assert(CrossCompiling());
 
@@ -634,7 +663,7 @@ namespace UnrealBuildTool
 			// Add preprocessor definitions to the argument list.
 			foreach (string Definition in CompileEnvironment.Config.Definitions)
 			{
-				Arguments += string.Format(" -D \"{0}\"", Definition);
+				Arguments += string.Format(" -D \"{0}\"", EscapeArgument(Definition));
 			}
 
 			var BuildPlatform = UEBuildPlatform.GetBuildPlatformForCPPTargetPlatform(CompileEnvironment.Config.Target.Platform);
@@ -747,7 +776,7 @@ namespace UnrealBuildTool
 				// piping output through the handler during native builds is unnecessary and reportedly causes problems with tools like octobuild.
 				if (CrossCompiling())
 				{
-					CompileAction.OutputEventHandler = new DataReceivedEventHandler(CompileOutputReceivedDataEventHandler);
+					CompileAction.OutputEventHandler = new DataReceivedEventHandler(CrossCompileOutputReceivedDataEventHandler);
 				}
 			}
 
@@ -813,6 +842,12 @@ namespace UnrealBuildTool
 			// Only execute linking on the local PC.
 			ArchiveAction.bCanExecuteRemotely = false;
 
+			// piping output through the handler during native builds is unnecessary and reportedly causes problems with tools like octobuild.
+			if (CrossCompiling())
+			{
+				ArchiveAction.OutputEventHandler = new DataReceivedEventHandler(CrossCompileOutputReceivedDataEventHandler);
+			}
+
 			return OutputFile;
 		}
 
@@ -860,6 +895,12 @@ namespace UnrealBuildTool
 			PostLinkAction.CommandArguments += bUseCmdExe ? "\"" : "'";
 
 			System.Console.WriteLine("{0} {1}", PostLinkAction.CommandPath, PostLinkAction.CommandArguments);
+
+			// piping output through the handler during native builds is unnecessary and reportedly causes problems with tools like octobuild.
+			if (CrossCompiling())
+			{
+				PostLinkAction.OutputEventHandler = new DataReceivedEventHandler(CrossCompileOutputReceivedDataEventHandler);
+			}
 
 			PostLinkAction.ProducedItems.Add(OutputFile);
 			return OutputFile;
@@ -1013,7 +1054,22 @@ namespace UnrealBuildTool
 			}
 			LinkAction.CommandArguments += " -lrt"; // needed for clock_gettime()
 			LinkAction.CommandArguments += " -lm"; // math
-			LinkAction.CommandArguments += string.Format(" -Wl,--end-group");
+
+			// libc++ and its abi lib
+			LinkAction.CommandArguments += " -nodefaultlibs";
+			LinkAction.CommandArguments += " -L" + UEBuildConfiguration.UEThirdPartySourceDirectory + "Linux/LibCxx/lib/Linux/" + LinkEnvironment.Config.Target.Architecture + "/";
+			LinkAction.CommandArguments += " " + UEBuildConfiguration.UEThirdPartySourceDirectory + "Linux/LibCxx/lib/Linux/" + LinkEnvironment.Config.Target.Architecture + "/libc++.a";
+			LinkAction.CommandArguments += " " + UEBuildConfiguration.UEThirdPartySourceDirectory + "Linux/LibCxx/lib/Linux/" + LinkEnvironment.Config.Target.Architecture + "/libc++abi.a";
+			LinkAction.CommandArguments += " -lm";
+			LinkAction.CommandArguments += " -lc";
+			LinkAction.CommandArguments += " -lgcc_s";
+			LinkAction.CommandArguments += " -lgcc";
+			LinkAction.CommandArguments += " -Wl,--end-group";
+
+			// these can be helpful for understanding the order of libraries or library search directories
+			//LinkAction.CommandArguments += " -Wl,--verbose";
+			//LinkAction.CommandArguments += " -Wl,--trace";
+			//LinkAction.CommandArguments += " -v";
 
 			// Add the additional arguments specified by the environment.
 			LinkAction.CommandArguments += LinkEnvironment.Config.AdditionalArguments;
@@ -1043,7 +1099,10 @@ namespace UnrealBuildTool
 				Writer.WriteLine("         _ZdaPvRKSt9nothrow_t;");
 				Writer.WriteLine("         _ZdlPv;");
 				Writer.WriteLine("         _ZdlPvRKSt9nothrow_t;");
-				
+				// Hide ALL std:: symbols as they can collide
+				// with any c++ library out there (like LLVM)
+				// and this may lead to operator new/delete mismatches
+				Writer.WriteLine("         _ZNSt8*;");
 				// Hide OpenSSL symbols as they can collide with Steam runtime.
 				// @todo: hide all Steam runtime symbols
 				Writer.WriteLine("         DH_OpenSSL;");
@@ -1154,7 +1213,11 @@ namespace UnrealBuildTool
 				FixDepsScript.Close();
 			}
 
-			//LinkAction.CommandArguments += " -v";
+			// piping output through the handler during native builds is unnecessary and reportedly causes problems with tools like octobuild.
+			if (CrossCompiling())
+			{
+				LinkAction.OutputEventHandler = new DataReceivedEventHandler(CrossCompileOutputReceivedDataEventHandler);
+			}
 
 			return OutputFile;
 		}

@@ -6,8 +6,7 @@
 /**
  * Interface for automation test results modules.
  */
-class FAutomationReport
-	: public IAutomationReport
+class FAutomationReport : public IAutomationReport
 {
 public:
 
@@ -18,11 +17,14 @@ public:
 	// IAutomationReport Interface
 
 	virtual void Empty() override;
-	virtual FString GetAssetName() const override;
+	virtual FString GetTestParameter() const override;
+	virtual FString GetAssetPath() const override;
+	virtual FString GetOpenCommand() const override;
 	virtual FString GetCommand() const override;
 	virtual const FString& GetDisplayName() const override;
 	virtual FString GetDisplayNameWithDecoration() const override;
 	virtual int32 GetTotalNumChildren() const override;
+	virtual int32 GetTotalNumFilteredChildren() const override;
 	virtual int32 GetEnabledTestsNum() const override;
 	virtual void GetEnabledTestNames(TArray<FString>& OutEnabledTestNames, FString CurrentPath) const override;
 	virtual void SetEnabledTests(const TArray<FString>& EnabledTests, FString CurrentPath) override;
@@ -32,6 +34,8 @@ public:
 	virtual bool IsSupported(const int32 ClusterIndex) const override;
 	virtual void SetTestFlags(const uint32 TestFlags) override;
 	virtual uint32 GetTestFlags( ) const override;
+	virtual FString GetSourceFile() const override;
+	virtual int32 GetSourceFileLine() const override;
 	virtual const bool IsParent( ) override;
 	virtual const bool IsSmokeTest( ) override;
 	virtual bool SetFilter( TSharedPtr< AutomationFilterCollection > InFilter, const bool ParentPassedFilter = false ) override;

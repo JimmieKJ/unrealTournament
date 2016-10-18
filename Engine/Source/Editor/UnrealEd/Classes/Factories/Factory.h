@@ -1,37 +1,36 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
+#pragma once
+
+#include "CoreUObject.h"
+#include "Factory.generated.h"
+
+
 /**
  * Base class for all factories
  * An object responsible for creating and importing new objects.
  * 
  */
-
-#pragma once
-#include "Factory.generated.h"
-
 UCLASS(abstract)
-class UNREALED_API UFactory : public UObject
+class UNREALED_API UFactory
+	: public UObject
 {
 	GENERATED_UCLASS_BODY()
 
+public:
+
 	/** The class manufactured by this factory. */
 	UPROPERTY()
-	TSubclassOf<class UObject>  SupportedClass;
+	TSubclassOf<UObject>  SupportedClass;
 
 	/** Class of the context object used to help create the object. */
 	UPROPERTY()
-	TSubclassOf<class UObject>  ContextClass;
+	TSubclassOf<UObject>  ContextClass;
 
 	/** List of formats supported by the factory. Each entry is of the form "ext;Description" where ext is the file extension. */
 	UPROPERTY()
 	TArray<FString> Formats;
 
-protected:
-	/** The default value to return from CanCreateNew() */
-	UPROPERTY()
-	uint32 bCreateNew:1;
-
-public:
 	/** true if the associated editor should be opened after creating a new object. */
 	UPROPERTY()
 	uint32 bEditAfterNew:1;
@@ -53,34 +52,82 @@ public:
 	UPROPERTY()
 	int32 ImportPriority;
 
-	/** This is the import priority that all factories are given in the default constructor. */
-	static const int32 DefaultImportPriority;
+public:
 
-	static FString GetCurrentFilename() { return CurrentFilename; }
+	/**
+	 * @return true if the factory can currently create a new object from scratch.
+	 */
+	virtual bool CanCreateNew() const
+	{
+		return bCreateNew;
+	}
 
-	static FString CurrentFilename;
+	/**
+	 * Whether the specified file can be imported by this factory.
+	 *
+	 * @return true if the file is supported, false otherwise.
+	 */
+	virtual bool FactoryCanImport(const FString& Filename);
 
-	/** For interactive object imports, this value indicates whether the user wants objects to be automatically
-		overwritten (See EAppReturnType), or -1 if the user should be prompted. */
-	static int32 OverwriteYesOrNoToAllState;
+	/**
+	 * Create a new object by importing it from a file name.
+	 *
+	 * The default implementation of this method will load the contents of the entire
+	 * file into a byte buffer and call FactoryCreateBinary. User defined factories
+	 * may override this behavior to process the provided file name on their own.
+	 *
+	 * @param InClass
+	 * @param InParent
+	 * @param InName
+	 * @param Flags
+	 * @param Filename
+	 * @param Parms
+	 * @param Warn
+	 * @param bOutOperationCanceled Will indicate whether the user canceled the import.
+	 * @return The new object.
+	 */
+	virtual UObject* FactoryCreateFile(UClass* InClass, UObject* InParent, FName InName, EObjectFlags Flags, const FString& Filename, const TCHAR* Parms, FFeedbackContext* Warn, bool& bOutOperationCanceled);
 
-	/** If this value is true, warning messages will be shown once for all objects being imported at the same time.  
-		This value will be reset to false each time a new import operation is started. */
-	DEPRECATED(4.8, "bAllowOneTimeWarningMessages is due to be removed in future.")
-	static bool bAllowOneTimeWarningMessages;
+	/**
+	 * Create a new object by class.
+	 *
+	 * @param InClass
+	 * @param InParent
+	 * @param InName
+	 * @param Flags
+	 * @param Context
+	 * @param Warn
+	 * @param CallingContext
+	 * @return The new object.
+	 */
+	virtual UObject* FactoryCreateNew(UClass* InClass, UObject* InParent, FName InName, EObjectFlags Flags, UObject* Context, FFeedbackContext* Warn, FName CallingContext)
+	{
+		return FactoryCreateNew(InClass, InParent, InName, Flags, Context, Warn);
+	}
 
-	//~ Begin UObject Interface.
-	static void AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector);
-	//~ End UObject Interface.
+	/**
+	 * Create a new object by class.
+	 *
+	 * @param InClass
+	 * @param InParent
+	 * @param InName
+	 * @param Flags
+	 * @param Context
+	 * @param Warn
+	 * @return The new object.
+	 */
+	virtual UObject* FactoryCreateNew(UClass* InClass, UObject* InParent, FName InName, EObjectFlags Flags, UObject* Context, FFeedbackContext* Warn)
+	{
+		return nullptr;
+	}
 
-	/** Helper function to sort an array of factories by their import priority - use as a predicate for Sort */
-	static bool SortFactoriesByPriority(const UFactory& A, const UFactory& B);
+	virtual UObject* ImportObject(UClass* InClass, UObject* InOuter, FName InName, EObjectFlags Flags, const FString& Filename, const TCHAR* Parms, bool& OutCanceled);
 
 	/** Returns true if this factory should be shown in the New Asset menu (by default calls CanCreateNew). */
 	virtual bool ShouldShowInNewMenu() const;
 
 	/** Returns an optional override brush name for the new asset menu. If this is not specified, the thumbnail for the supported class will be used. */
-	virtual FName GetNewAssetThumbnailOverride() const { return NAME_None; }
+	virtual FName GetNewAssetThumbnailOverride() const;
 
 	/** Returns the name of the factory for menus */
 	virtual FText GetDisplayName() const;
@@ -109,80 +156,169 @@ public:
 
 	/**
 	 * Resolves SupportedClass for factories which support multiple classes.
-	 * Such factories will have a NULL SupportedClass member.
+	 * Such factories will have a nullptr SupportedClass member.
 	 */
 	virtual UClass* ResolveSupportedClass();
 
-	/**
-	 * Resets the saved state of this factory.  The states are used to suppress messages during multiple object import. 
-	 * It needs to be reset each time a new import is started
-	 */
-	static void ResetState();
-
-	/**
-	 * Pop up message to the user asking whether they wish to overwrite existing state or not
-	 */
-	static void DisplayOverwriteOptionsDialog(const FText& Message);
-
 	/** Opens a dialog to configure the factory properties. Return false if user opted out of configuring properties */
-	virtual bool ConfigureProperties() { return true; }
-
-	/**
-	 * @return true if the factory can currently create a new object from scratch.
-	 */
-	virtual bool CanCreateNew() const { return bCreateNew; }
-
-	// @todo document
-	virtual UObject* FactoryCreateText( UClass* InClass, UObject* InParent, FName InName, EObjectFlags Flags, UObject* Context, const TCHAR* Type, const TCHAR*& Buffer, const TCHAR* BufferEnd, FFeedbackContext* Warn ) {return NULL;}
-
-	// @todo document
-	// @param Type must not be 0, e.g. TEXT("TGA")
-	virtual UObject* FactoryCreateBinary( UClass* InClass, UObject* InParent, FName InName, EObjectFlags Flags, UObject* Context, const TCHAR* Type, const uint8*& Buffer, const uint8* BufferEnd, FFeedbackContext* Warn) {return NULL;}
-	// @param Type must not be 0, e.g. TEXT("TGA")
-	virtual UObject* FactoryCreateBinary( UClass* InClass, UObject* InParent, FName InName, EObjectFlags Flags, UObject* Context, const TCHAR* Type, const uint8*& Buffer, const uint8* BufferEnd, FFeedbackContext* Warn, bool& bOutOperationCanceled) { return FactoryCreateBinary(InClass, InParent, InName, Flags, Context, Type, Buffer, BufferEnd, Warn); }
-
-	// @todo document
-	virtual UObject* FactoryCreateNew( UClass* InClass, UObject* InParent, FName InName, EObjectFlags Flags, UObject* Context, FFeedbackContext* Warn, FName CallingContext )
+	virtual bool ConfigureProperties()
 	{
-		return FactoryCreateNew(InClass, InParent, InName, Flags, Context, Warn);
+		return true;
 	}
-	virtual UObject* FactoryCreateNew( UClass* InClass, UObject* InParent, FName InName, EObjectFlags Flags, UObject* Context, FFeedbackContext* Warn ) {return NULL;}
-
-	/**
-	 * @return	true if this factory can deal with the file sent in.
-	 */
-	virtual bool FactoryCanImport( const FString& Filename );
-
 
 	// @todo document
 	virtual bool ImportUntypedBulkDataFromText(const TCHAR*& Buffer, FUntypedBulkData& BulkData);
 
-
-	// @todo document
-	static UObject* StaticImportObject( UClass* Class, UObject* InOuter, FName Name, EObjectFlags Flags, const TCHAR* Filename=TEXT(""), UObject* Context=NULL, UFactory* Factory=NULL, const TCHAR* Parms=NULL, FFeedbackContext* Warn=GWarn, int32 MaxImportFileSize = 0xC100000 );
-	static UObject* StaticImportObject( UClass* Class, UObject* InOuter, FName Name, EObjectFlags Flags, bool& bOutOperationCanceled, const TCHAR* Filename=TEXT(""), UObject* Context=NULL, UFactory* Factory=NULL, const TCHAR* Parms=NULL, FFeedbackContext* Warn=GWarn, int32 MaxImportFileSize = 0xC100000 );
-
 	/** Creates a list of file extensions supported by this factory */
-	void GetSupportedFileExtensions( TArray<FString>& OutExtensions ) const;
+	void GetSupportedFileExtensions(TArray<FString>& OutExtensions) const;
 
-	/** 
-	 * Do clean up after importing is done. Will be called once for multi batch import
-	 */
+	/** Do clean up after importing is done. Will be called once for multi batch import. */
 	virtual void CleanUp() {}
 
 	/**
-	 * Creates an asset if it doesn't exist. If it does exist then it overwrites it if possible. If it can not overwrite then it will delete and replace. If it can not delete, it will return NULL.
+	 * Creates an asset if it doesn't exist. If it does exist then it overwrites it if possible. If it can not overwrite then it will delete and replace. If it can not delete, it will return nullptr.
 	 * 
-	 * @param	InClass		the class of the asset to create
-	 * @param	InPackage	the package to create this object within.
-	 * @param	Name		the name to give the new asset. If no value (NAME_None) is specified, the asset will be given a unique name in the form of ClassName_#.
-	 * @param	InFlags		the ObjectFlags to assign to the new asset.
-	 * @param	Template	if specified, the property values from this object will be copied to the new object, and the new object's ObjectArchetype value will be set to this object.
-	 *						If NULL, the class default object is used instead.
-	 * @return	A pointer to a new asset of the specified type or null if the creation failed.
+	 * @param InClass The class of the asset to create
+	 * @param InPackage The package to create this object within.
+	 * @param Name The name to give the new asset. If no value (NAME_None) is specified, the asset will be given a unique name in the form of ClassName_#.
+	 * @param InFlags The ObjectFlags to assign to the new asset.
+	 * @param Template If specified, the property values from this object will be copied to the new object, and the new object's ObjectArchetype value will be set to this object.
+	 *	               If nullptr, the class default object is used instead.
+	 * @return A pointer to a new asset of the specified type or null if the creation failed.
 	 */
-	UObject* CreateOrOverwriteAsset(UClass* InClass, UObject* InParent, FName InName, EObjectFlags InFlags, UObject* InTemplate = NULL) const;
+	UObject* CreateOrOverwriteAsset(UClass* InClass, UObject* InParent, FName InName, EObjectFlags InFlags, UObject* InTemplate = nullptr) const;
 
 	/** Returns a new starting point name for newly created assets in the content browser */
 	virtual FString GetDefaultNewAssetName() const;
+
+public:
+
+	/**
+	 * Pop up message to the user asking whether they wish to overwrite existing state or not.
+	 *
+	 * @param Message The message text.
+	 **/
+	static void DisplayOverwriteOptionsDialog(const FText& Message);
+
+	/** Get the name of the file currently being imported. */
+	static FString GetCurrentFilename()
+	{
+		return CurrentFilename;
+	}
+
+	/** Get the default import priority for factories. */
+	static int32 GetDefaultImportPriority()
+	{
+		return DefaultImportPriority;
+	}
+
+	/**
+	 * Resets the saved state of this factory.
+	 *
+	 * The states are used to suppress messages during multiple object import. 
+	 * It needs to be reset each time a new import is started
+	 */
+	static void ResetState();
+
+	/** Helper function to sort an array of factories by their import priority - use as a predicate for Sort */
+	static bool SortFactoriesByPriority(const UFactory& A, const UFactory& B);
+
+	// @todo document
+	static UObject* StaticImportObject(UClass* Class, UObject* InOuter, FName Name, EObjectFlags Flags, const TCHAR* Filename = TEXT(""), UObject* Context = nullptr, UFactory* Factory = nullptr, const TCHAR* Parms = nullptr, FFeedbackContext* Warn = GWarn, int32 MaxImportFileSize = 0xC100000);
+	static UObject* StaticImportObject(UClass* Class, UObject* InOuter, FName Name, EObjectFlags Flags, bool& bOutOperationCanceled, const TCHAR* Filename = TEXT(""), UObject* Context = nullptr, UFactory* Factory = nullptr, const TCHAR* Parms = nullptr, FFeedbackContext* Warn = GWarn, int32 MaxImportFileSize = 0xC100000);
+
+public:
+
+	//~ UObject interface
+
+	static void AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector);
+
+protected:
+
+	/** The default value to return from CanCreateNew() */
+	UPROPERTY()
+	uint32 bCreateNew : 1;
+
+protected:
+
+	/**
+	 * Create a new object by importing it from a text buffer.
+	 *
+	 * @param InClass
+	 * @param InParent
+	 * @param InName
+	 * @param Flags
+	 * @param Context
+	 * @param Type (must not be nullptr, i.e. TEXT("TGA"))
+	 * @param Buffer
+	 * @param BufferEnd
+	 * @param Warn
+	 * @return The new object.
+	 */
+	virtual UObject* FactoryCreateText(UClass* InClass, UObject* InParent, FName InName, EObjectFlags Flags, UObject* Context, const TCHAR* Type, const TCHAR*& Buffer, const TCHAR* BufferEnd, FFeedbackContext* Warn)
+	{
+		return nullptr;
+	}
+
+	/**
+	 * Create a new object by importing it from a binary buffer.
+	 *
+	 * @param InClass
+	 * @param InParent
+	 * @param InName
+	 * @param Flags
+	 * @param Context
+	 * @param Type (must not be nullptr, i.e. TEXT("TGA"))
+	 * @param Buffer
+	 * @param BufferEnd
+	 * @param Warn
+	 * @return The new object.
+	 */
+	virtual UObject* FactoryCreateBinary(UClass* InClass, UObject* InParent, FName InName, EObjectFlags Flags, UObject* Context, const TCHAR* Type, const uint8*& Buffer, const uint8* BufferEnd, FFeedbackContext* Warn)
+	{
+		return nullptr;
+	}
+	
+	/**
+	 * Create a new object by importing it from a binary buffer (cancelable).
+	 *
+	 * @param InClass
+	 * @param InParent
+	 * @param InName
+	 * @param Flags
+	 * @param Context
+	 * @param Type (must not be nullptr, i.e. TEXT("TGA"))
+	 * @param Buffer
+	 * @param BufferEnd
+	 * @param Warn
+	 * @param bOutOperationCanceled Will indicate whether the user canceled the import.
+	 * @return The new object.
+	 */
+	virtual UObject* FactoryCreateBinary(UClass* InClass, UObject* InParent, FName InName, EObjectFlags Flags, UObject* Context, const TCHAR* Type, const uint8*& Buffer, const uint8* BufferEnd, FFeedbackContext* Warn, bool& bOutOperationCanceled)
+	{
+		return FactoryCreateBinary(InClass, InParent, InName, Flags, Context, Type, Buffer, BufferEnd, Warn);
+	}
+
+protected:
+
+	/** Name of the file currently being imported. */
+	static FString CurrentFilename;
+
+	/** This is the import priority that all factories are given in the default constructor. */
+	static const int32 DefaultImportPriority;
+
+	/**
+	 * For interactive object imports, this value indicates whether the user wants
+	 * objects to be automatically overwritten (See EAppReturnType), or -1 if the
+	 * user should be prompted.
+	 */
+	static int32 OverwriteYesOrNoToAllState;
+
+	/**
+	 * If this value is true, warning messages will be shown once for all objects
+	 * being imported at the same time. This value will be reset to false each time
+	 * a new import operation is started.
+	 */
+	DEPRECATED(4.8, "bAllowOneTimeWarningMessages is due to be removed in future.")
+	static bool bAllowOneTimeWarningMessages;
 };

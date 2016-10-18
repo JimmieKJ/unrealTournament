@@ -13,6 +13,10 @@ class UNREALTOURNAMENT_API UUTHUDWidget_WeaponCrosshair : public UUTHUDWidget
 	GENERATED_UCLASS_BODY()
 
 public:
-	virtual void Draw_Implementation(float DeltaTime);
+	virtual void Draw_Implementation(float DeltaTime) override;
+	virtual bool ShouldDraw_Implementation(bool bShowScores) override;
+
+protected:
+	AUTWeapon* LastWeapon;
 
 };

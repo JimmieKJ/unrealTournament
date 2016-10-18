@@ -2,6 +2,7 @@
 
 #include "EnginePrivate.h"
 #include "Box2DIntegration.h"
+#include "PhysicsEngine/PhysXSupport.h"
 #include "Collision/PhysicsFiltering.h"
 
 #if WITH_BOX2D
@@ -312,7 +313,7 @@ void FPhysicsIntegration2D::ShutdownPhysics()
 	FWorldDelegates::OnPreWorldInitialization.Remove(OnWorldCreatedDelegateHandle);
 	FWorldDelegates::OnPreWorldFinishDestroy .Remove(OnWorldDestroyedDelegateHandle);
 
-	check(WorldMappings.Num() == 0);
+	//ensureMsgf(WorldMappings.Num() == 0, TEXT("You have some worlds hanging around. Is this a hard shutdown or did the world destroy delegate not fire?"));
 }
 
 TSharedPtr<FPhysicsScene2D> FPhysicsIntegration2D::FindAssociatedScene(UWorld* Source)

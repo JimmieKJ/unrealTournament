@@ -53,7 +53,6 @@ DECLARE_CYCLE_STAT_EXTERN(TEXT("TickAssetPlayerInstance"), STAT_TickAssetPlayerI
 
 #if STATS
 #define ANIM_MT_SCOPE_CYCLE_COUNTER(StatName, bIsMultithreaded) \
-	SCOPE_CYCLE_COUNTER_GUARD \
 	TStatId CycleCountID_##StatName = (bIsMultithreaded ? GET_STATID(STAT_ ## StatName ## _WorkerThread) : GET_STATID(STAT_ ## StatName)); \
 	FScopeCycleCounter CycleCount_##StatName(CycleCountID_##StatName);
 #else

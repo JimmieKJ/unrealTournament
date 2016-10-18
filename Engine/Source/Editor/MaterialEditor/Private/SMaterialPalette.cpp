@@ -38,8 +38,7 @@ void SMaterialPaletteItem::Construct(const FArguments& InArgs, FCreateWidgetForA
 	// Find icons
 	const FSlateBrush* IconBrush = FEditorStyle::GetBrush(TEXT("NoBrush"));
 	FSlateColor IconColor = FSlateColor::UseForeground();
-	FString ToolTip = GraphAction->GetTooltipDescription();
-	FText IconToolTip = FText::FromString(ToolTip);
+	FText IconToolTip = FText::FromString(GraphAction->GetTooltipDescription());
 	bool bIsReadOnly = false;
 
 	TSharedRef<SWidget> IconWidget = CreateIconWidget( IconToolTip, IconBrush, IconColor );

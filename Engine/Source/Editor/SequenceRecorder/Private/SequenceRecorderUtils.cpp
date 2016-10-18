@@ -12,11 +12,11 @@ AActor* GetAttachment(AActor* InActor, FName& SocketName, FName& ComponentName)
 	if(InActor)
 	{
 		USceneComponent* RootComponent = InActor->GetRootComponent();
-		if(RootComponent && RootComponent->AttachParent != nullptr)
+		if(RootComponent && RootComponent->GetAttachParent() != nullptr)
 		{
-			AttachedActor = RootComponent->AttachParent->GetOwner();
-			SocketName = RootComponent->AttachSocketName;
-			ComponentName = RootComponent->AttachParent->GetFName();
+			AttachedActor = RootComponent->GetAttachParent()->GetOwner();
+			SocketName = RootComponent->GetAttachSocketName();
+			ComponentName = RootComponent->GetAttachParent()->GetFName();
 		}
 	}
 

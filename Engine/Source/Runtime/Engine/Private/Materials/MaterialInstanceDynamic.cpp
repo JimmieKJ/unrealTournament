@@ -20,6 +20,14 @@ UMaterialInstanceDynamic* UMaterialInstanceDynamic::Create(UMaterialInterface* P
 	return MID;
 }
 
+UMaterialInstanceDynamic* UMaterialInstanceDynamic::Create(UMaterialInterface* ParentMaterial, UObject* InOuter, FName Name)
+{
+	UObject* Outer = InOuter ? InOuter : GetTransientPackage();
+	UMaterialInstanceDynamic* MID = NewObject<UMaterialInstanceDynamic>(Outer, Name);
+	MID->SetParentInternal(ParentMaterial, false);
+	return MID;
+}
+
 void UMaterialInstanceDynamic::SetVectorParameterValue(FName ParameterName, FLinearColor Value)
 {
 	SetVectorParameterValueInternal(ParameterName,Value);
@@ -35,6 +43,37 @@ FLinearColor UMaterialInstanceDynamic::K2_GetVectorParameterValue(FName Paramete
 void UMaterialInstanceDynamic::SetScalarParameterValue(FName ParameterName, float Value)
 {
 	SetScalarParameterValueInternal(ParameterName,Value);
+}
+
+bool UMaterialInstanceDynamic::InitializeScalarParameterAndGetIndex(const FName& ParameterName, float Value, int32& OutParameterIndex)
+{
+	OutParameterIndex = INDEX_NONE;
+
+	SetScalarParameterValueInternal(ParameterName, Value);
+
+	OutParameterIndex = GameThread_FindParameterIndexByName(ScalarParameterValues, ParameterName);
+
+	return (OutParameterIndex != INDEX_NONE);
+}
+
+bool UMaterialInstanceDynamic::SetScalarParameterByIndex(int32 ParameterIndex, float Value)
+{
+	return SetScalarParameterByIndexInternal(ParameterIndex, Value);
+}
+
+bool UMaterialInstanceDynamic::InitializeVectorParameterAndGetIndex(const FName& ParameterName, const FLinearColor& Value, int32& OutParameterIndex)
+{
+	OutParameterIndex = INDEX_NONE;
+	SetVectorParameterValueInternal(ParameterName, Value);
+
+	OutParameterIndex = GameThread_FindParameterIndexByName(VectorParameterValues, ParameterName);
+
+	return (OutParameterIndex != INDEX_NONE);
+}
+
+bool UMaterialInstanceDynamic::SetVectorParameterByIndex(int32 ParameterIndex, const FLinearColor& Value)
+{
+	return SetVectorParameterByIndexInternal(ParameterIndex, Value);
 }
 
 float UMaterialInstanceDynamic::K2_GetScalarParameterValue(FName ParameterName)
@@ -232,7 +271,15 @@ void UMaterialInstanceDynamic::CopyInterpParameters(UMaterialInstance* Source)
 			SetVectorParameterValue(it.ParameterName, it.ParameterValue);
 		}
 
-		// the other parameters don't interpolate but if we expose this to blueprints we could copy them for consistency
+		for (auto& it : Source->TextureParameterValues)
+		{
+			SetTextureParameterValue(it.ParameterName, it.ParameterValue);
+		}
+
+		for (auto& it : Source->FontParameterValues)
+		{
+			SetFontParameterValue(it.ParameterName, it.FontValue, it.FontPage);
+		}
 	}
 }
 

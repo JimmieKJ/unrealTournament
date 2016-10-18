@@ -16,6 +16,13 @@ public:
 		PrimaryActorTick.bStartWithTickEnabled = true;
 	}
 protected:
+	/** simulated link target, set in PlayFiringEffects() */
+	UPROPERTY(BlueprintReadOnly)
+	AActor* LinkTarget;
+	/** simulated pulse target, set in FiringExtraUpdated() */
+	UPROPERTY(BlueprintReadOnly)
+	AActor* PulseTarget;
+
 	float LastBeamPulseTime;
 public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = LinkGun)

@@ -17,7 +17,6 @@ USelection::USelection(const FObjectInitializer& ObjectInitializer)
 ,	SelectionMutex( 0 )
 ,	bIsBatchDirty(false)
 {
-	SelectedClasses.MaxItems = 5;
 }
 
 
@@ -25,28 +24,32 @@ void USelection::Select(UObject* InObject)
 {
 	check( InObject );
 
-	// Warn if we attempt to select a PIE object.
-	if ( InObject->GetOutermost()->HasAnyPackageFlags(PKG_PlayInEditor) )
-	{
-		UE_LOG(LogSelection, Warning, TEXT("PIE object was selected: \"%s\""), *InObject->GetFullName() );
-	}
-
 	const bool bSelectionChanged = !InObject->IsSelected();
 	GSelectedAnnotation.Set(InObject);
 
-	// Add to selected lists.
-	SelectedObjects.AddUnique( InObject );
-	SelectedClasses.AddUnique( InObject->GetClass() );
+	if(bSelectionChanged)
+	{
+		// Add to selected lists.
+		SelectedObjects.Add(InObject);
+		MarkBatchDirty();
+	}
+
+	FSelectedClassInfo* SelectedClassInfo = SelectedClasses.Find(InObject->GetClass());
+	if( SelectedClassInfo )
+	{
+		++SelectedClassInfo->SelectionCount;
+	}
+	else
+	{
+		// 1 Object with a new class type has been selected
+		FSelectedClassInfo NewInfo(InObject->GetClass(), 1);
+		SelectedClasses.Add(NewInfo);
+	}
 
 	if( !IsBatchSelecting() )
 	{
 		// Call this after the item has been added from the selection set.
 		USelection::SelectObjectEvent.Broadcast( InObject );
-	}
-
-	if ( bSelectionChanged )
-	{
-		MarkBatchDirty();
 	}
 }
 
@@ -66,6 +69,20 @@ void USelection::Deselect(UObject* InObject)
 		// Call this after the item has been removed from the selection set.
 		USelection::SelectObjectEvent.Broadcast( InObject );
 	}
+
+	FSetElementId Id = SelectedClasses.FindId(InObject->GetClass());
+	if(Id.IsValidId())
+	{
+		FSelectedClassInfo& ClassInfo = SelectedClasses[Id];
+		// One less object of this class is selected;
+		--ClassInfo.SelectionCount;
+		// If no more objects of the selected class exists, remove it
+		if(ClassInfo.SelectionCount == 0)
+		{
+			SelectedClasses.Remove(Id);
+		}
+	}
+
 
 	if ( bSelectionChanged )
 	{
@@ -99,24 +116,27 @@ void USelection::DeselectAll( UClass* InClass )
 	// Fast path for deselecting all UObjects with any flags
 	if ( InClass == UObject::StaticClass() )
 	{
-		InClass = NULL;
+		InClass = nullptr;
 	}
 
 	bool bSelectionChanged = false;
 
+	TSet<FSelectedClassInfo> RemovedClasses;
 	// Remove from the end to minimize memmoves.
 	for ( int32 i = SelectedObjects.Num()-1 ; i >= 0 ; --i )
 	{
 		UObject* Object = GetSelectedObject(i);
-		// Remove NULLs from SelectedObjects array.
+
 		if ( !Object )
-		{
+		{		
+			// Remove NULLs from SelectedObjects array.
 			SelectedObjects.RemoveAt( i );
 		}
-		// If its the right class and has the right flags. 
-		// Note that if InFlags is 0, HasAllFlags(0) always returns true.
 		else if( !InClass || Object->IsA( InClass ) )
 		{
+			// if the object is of type InClass then all objects of that same type will be removed
+			RemovedClasses.Add(FSelectedClassInfo(Object->GetClass()));
+
 			GSelectedAnnotation.Clear(Object);
 			SelectedObjects.RemoveAt( i );
 
@@ -125,6 +145,18 @@ void USelection::DeselectAll( UClass* InClass )
 
 			bSelectionChanged = true;
 		}
+	}
+
+	if( InClass == nullptr )
+	{
+		SelectedClasses.Empty();
+	}
+	else
+	{
+		// Remove the passed in class and all child classes that were removed
+		// from the list of currently selected classes
+		RemovedClasses.Add(InClass);
+		SelectedClasses = SelectedClasses.Difference(RemovedClasses);
 	}
 
 	if ( bSelectionChanged )
@@ -178,3 +210,21 @@ bool USelection::Modify(bool bAlwaysMarkDirty/* =true */)
 
 	return Super::Modify(bAlwaysMarkDirty);
 }
+
+#if WITH_EDITOR
+void USelection::PostEditUndo()
+{
+	Super::PostEditUndo();
+
+
+	// The set of selected objects may have changed, so make sure our annotations exactly match the list, otherwise
+	// UObject::IsSelected() could return a result that was different from the list of objects returned by GetSelectedObjects()
+	GSelectedAnnotation.ClearAll();
+
+	for (TWeakObjectPtr<UObject>& ObjectPtr : SelectedObjects)
+	{
+		UObject* Object = ObjectPtr.Get(true);
+		GSelectedAnnotation.Set(Object);
+	}
+}
+#endif

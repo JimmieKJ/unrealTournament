@@ -14,3 +14,4 @@
 #include "IDetailChildrenBuilder.h"
 #include "IDetailCustomization.h"
 #include "IDetailsView.h"
+#include "IDetailRootObjectCustomization.h"

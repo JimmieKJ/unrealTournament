@@ -16,7 +16,7 @@ AUTProj_BioGrenade::AUTProj_BioGrenade(const FObjectInitializer& OI)
 		ProximitySphere->OnComponentBeginOverlap.AddDynamic(this, &AUTProj_BioGrenade::ProximityOverlapBegin);
 		ProximitySphere->bTraceComplexOnMove = false;
 		ProximitySphere->bReceivesDecals = false;
-		ProximitySphere->AttachParent = RootComponent;
+		ProximitySphere->SetupAttachment(RootComponent);
 	}
 
 	TimeBeforeFuseStarts = 2.0f;
@@ -29,6 +29,31 @@ void AUTProj_BioGrenade::BeginPlay()
 	Super::BeginPlay();
 
 	SetTimerUFunc(this, FName(TEXT("StartFuseTimed")), TimeBeforeFuseStarts, false);
+}
+
+void AUTProj_BioGrenade::OnRep_Instigator()
+{
+	Super::OnRep_Instigator();
+	if (Instigator != nullptr)
+	{
+		static FName NAME_TeamColor(TEXT("TeamColor"));
+		TArray<UParticleSystemComponent*> PSCs;
+		GetComponents<UParticleSystemComponent>(PSCs);
+		FVector TeamColor = FVector(0.7f, 0.4f, 0.f);
+		AUTCharacter* UTChar = Cast<AUTCharacter>(Instigator);
+		if (UTChar)
+		{
+			FLinearColor LinearTeamColor = UTChar->GetTeamColor();
+			TeamColor = FVector(LinearTeamColor.R, LinearTeamColor.G, LinearTeamColor.B);
+		}
+		for (int32 i=0; i<PSCs.Num(); i++)
+		{
+			if (PSCs[i] != nullptr)
+			{
+				PSCs[i]->SetColorParameter(NAME_TeamColor, TeamColor);
+			}
+		}
+	}
 }
 
 void AUTProj_BioGrenade::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -51,16 +76,11 @@ void AUTProj_BioGrenade::StartFuse()
 	
 	ProjectileMovement->bRotationFollowsVelocity = false;
 	ProjectileMovement->ProjectileGravityScale *= 0.5f;
-
-	if (FuseEffect != NULL && GetWorld()->GetNetMode() != NM_DedicatedServer)
-	{
-		UGameplayStatics::SpawnEmitterAttached(FuseEffect, RootComponent);
-	}
 	SetTimerUFunc(this, FName(TEXT("FuseExpired")), FuseTime, false);
 	PlayFuseBeep();
-
 	ClearTimerUFunc(this, FName(TEXT("StartFuseTimed")));
 }
+
 void AUTProj_BioGrenade::FuseExpired()
 {
 	if (!bExploded)
@@ -76,7 +96,19 @@ void AUTProj_BioGrenade::PlayFuseBeep()
 		UUTGameplayStatics::UTPlaySound(GetWorld(), FuseBeepSound, this, SRT_IfSourceNotReplicated, false, FVector::ZeroVector, NULL, NULL, true, SAT_WeaponFoley);
 		if (FuseEffect != NULL && GetWorld()->GetNetMode() != NM_DedicatedServer)
 		{
-			UGameplayStatics::SpawnEmitterAttached(FuseEffect, RootComponent);
+			UParticleSystemComponent* FusePSC = UGameplayStatics::SpawnEmitterAttached(FuseEffect, RootComponent);
+			if (FusePSC != nullptr)
+			{
+				static FName NAME_TeamColor(TEXT("TeamColor"));
+				FVector TeamColor = FVector(0.7f, 0.4f, 0.f);
+				AUTCharacter* UTChar = Cast<AUTCharacter>(Instigator);
+				if (UTChar)
+				{
+					FLinearColor LinearTeamColor = UTChar->GetTeamColor();
+					TeamColor = FVector(LinearTeamColor.R, LinearTeamColor.G, LinearTeamColor.B);
+				}
+				FusePSC->SetColorParameter(NAME_TeamColor, TeamColor);
+			}
 		}
 		// if there's enough fuse time left queue another beep
 		float TotalTime, ElapsedTime;
@@ -92,7 +124,7 @@ void AUTProj_BioGrenade::OnStop(const FHitResult& Hit)
 	// intentionally blank
 }
 
-void AUTProj_BioGrenade::ProximityOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+void AUTProj_BioGrenade::ProximityOverlapBegin(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
 	if (OtherActor != NULL && OtherActor != Instigator && !bBeginFuseWarning && GetWorld()->TimeSeconds - CreationTime >= ProximityDelay)
 	{

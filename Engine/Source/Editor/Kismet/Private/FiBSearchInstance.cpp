@@ -225,11 +225,11 @@ void FFiBSearchInstance::BuildFunctionTargets(TSharedPtr<FImaginaryFiBData> InRo
 {
 	for (TSharedPtr<FImaginaryFiBData> ChildData : InRootData->GetAllParsedChildData())
 	{
-		if (ChildData->IsCompatibleWithFilter(InSearchQueryFilter))
+		if (!ChildData->IsCategory() && ChildData->IsCompatibleWithFilter(InSearchQueryFilter))
 		{
 			OutTargetPendingSearchables.Add(ChildData);
 		}
-		else if (ChildData->CanCallFilter(InSearchQueryFilter))
+		else if (ChildData->IsCategory() || ChildData->CanCallFilter(InSearchQueryFilter))
 		{
 			ChildData->ParseAllChildData();
 			BuildFunctionTargets(ChildData, InSearchQueryFilter, OutTargetPendingSearchables);

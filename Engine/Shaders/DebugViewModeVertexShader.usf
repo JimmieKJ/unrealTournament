@@ -5,6 +5,7 @@
 =============================================================================*/
 
 #include "Common.usf"
+
 #include "Material.usf"
 #include "VertexFactory.usf"
 
@@ -56,13 +57,18 @@
 		Output.TangentToWorld2 = TangentToWorld[2];
 
 #if NUM_MATERIAL_TEXCOORDS_VERTEX > 0
-		Output.TexCoord0 = MaterialParameters.TexCoords[0];
+		Output.TexCoord23 = Output.TexCoord01 = MaterialParameters.TexCoords[0].xyxy;
 #else
-		Output.TexCoord0 = 0;
+		Output.TexCoord23 = Output.TexCoord01 = 0;
 #endif
-
-#if INSTANCED_STEREO
-		Output.EyeIndex = Interpolants.FactoryInterpolants.EyeIndex;
+#if NUM_MATERIAL_TEXCOORDS_VERTEX > 1
+		Output.TexCoord01.zw = MaterialParameters.TexCoords[1];
+#endif
+#if NUM_MATERIAL_TEXCOORDS_VERTEX > 2
+		Output.TexCoord23.xy = MaterialParameters.TexCoords[2];
+#endif
+#if NUM_MATERIAL_TEXCOORDS_VERTEX > 3
+		Output.TexCoord23.zw = MaterialParameters.TexCoords[3];
 #endif
 		
 		return Output;
@@ -77,17 +83,27 @@ void Main(
 	FVertexFactoryInput Input,
 	OPTIONAL_VertexID
 	out FDebugVSOutput Output
+#if USE_GLOBAL_CLIP_PLANE && !USING_TESSELLATION
+	, out float OutGlobalClipPlaneDistance : SV_ClipDistance
+#endif
 #if INSTANCED_STEREO
 	, uint InstanceId : SV_InstanceID
-	, out float4 OutClipDistance : SV_ClipDistance
-	, out float4 OutCullDistance : SV_CullDistance
+	#if !MULTI_VIEW
+		, out float OutClipDistance : SV_ClipDistance1
+	#else
+		, out uint ViewportIndex : SV_ViewPortArrayIndex
+	#endif
 #endif
 	)
 {
 #if INSTANCED_STEREO
-	OutCullDistance = OutClipDistance = 0.0;
 	const uint EyeIndex = VertexFactoryGetEyeIndex(InstanceId);
 	ResolvedView = ResolveView(EyeIndex);
+	#if !MULTI_VIEW
+		OutClipDistance = 0.0;
+	#else
+		ViewportIndex = EyeIndex;
+	#endif
 #else
 	ResolvedView = ResolveView();
 #endif
@@ -110,34 +126,31 @@ void Main(
 	// Transformation is done in Domain shader when tessellating
 	Output.Position = WorldPos;
 	Output.FactoryInterpolants = VertexFactoryGetInterpolantsVSToDS(Input, VFIntermediates, VertexParameters);
-
-#if INSTANCED_STEREO
-	Output.FactoryInterpolants.InterpolantsVSToPS.PackedEyeIndex = PackEyeIndex(EyeIndex, bIsInstancedStereo);
-	Output.FactoryInterpolants.EyeIndex = EyeIndex;
-#endif
-
 #else
 	ISOLATE
 	{
 		float4 RasterizedWorldPosition = VertexFactoryGetRasterizedWorldPosition(Input, VFIntermediates, WorldPos);
 		Output.Position = mul(RasterizedWorldPosition, ResolvedView.TranslatedWorldToClip);
-
-		#if INSTANCED_STEREO
-		BRANCH 
-		if (bIsInstancedStereo)  
-		{
-			// Clip at the center of the screen
-			OutCullDistance.x = OutClipDistance.x = dot(Output.Position, EyeClipEdge[EyeIndex]);
-
-			// Scale to the width of a single eye viewport
-			Output.Position.x *= 0.5 * Frame.HMDEyePaddingOffset;
-
-			// Shift to the eye viewport
-			Output.Position.x += (EyeOffsetScale[EyeIndex] * Output.Position.w) * (1.0f - 0.5 * Frame.HMDEyePaddingOffset);
-		}
-		#endif
 	}
 
+	#if INSTANCED_STEREO && !MULTI_VIEW
+	BRANCH 
+	if (bIsInstancedStereo)  
+	{
+		// Clip at the center of the screen
+		OutClipDistance = dot(Output.Position, EyeClipEdge[EyeIndex]);
+
+		// Scale to the width of a single eye viewport
+		Output.Position.x *= 0.5 * ResolvedView.HMDEyePaddingOffset;
+
+		// Shift to the eye viewport
+		Output.Position.x += (EyeOffsetScale[EyeIndex] * Output.Position.w) * (1.0f - 0.5 * ResolvedView.HMDEyePaddingOffset);
+	}
+	#endif
+	
+#if USE_GLOBAL_CLIP_PLANE
+	OutGlobalClipPlaneDistance = dot(ResolvedView.GlobalClippingPlane, float4(WorldPos.xyz - ResolvedView.PreViewTranslation.xyz, 1));
+#endif
 	Output.VertexColor = VertexParameters.VertexColor;
 
 	float3x3 TangentToWorld = VertexParameters.TangentToWorld;
@@ -146,16 +159,29 @@ void Main(
 	Output.TangentToWorld2 = float3(TangentToWorld[2]);
 
 #if NUM_MATERIAL_TEXCOORDS_VERTEX > 0
-	Output.TexCoord0 = VertexParameters.TexCoords[0];
+		Output.TexCoord23 = Output.TexCoord01 = VertexParameters.TexCoords[0].xyxy;
 #else
-	Output.TexCoord0 = 0;
+		Output.TexCoord23 = Output.TexCoord01 = 0;
+#endif
+#if NUM_MATERIAL_TEXCOORDS_VERTEX > 1
+		Output.TexCoord01.zw = VertexParameters.TexCoords[1];
+#endif
+#if NUM_MATERIAL_TEXCOORDS_VERTEX > 2
+		Output.TexCoord23.xy = VertexParameters.TexCoords[2];
+#endif
+#if NUM_MATERIAL_TEXCOORDS_VERTEX > 3
+		Output.TexCoord23.zw = VertexParameters.TexCoords[3];
 #endif
 
-#if INSTANCED_STEREO
-	Output.EyeIndex = EyeIndex;
-#endif
+#endif // USING_TESSELLATION
 
-#endif
+	#if INSTANCED_STEREO
+		#if USING_TESSELLATION	
+			Output.FactoryInterpolants.InterpolantsVSToPS.PackedEyeIndex = PackEyeIndex(EyeIndex, bIsInstancedStereo);
+		#else
+			Output.PackedEyeIndex = PackEyeIndex(EyeIndex, bIsInstancedStereo);
+		#endif
+	#endif
 
 	OutputVertexID( Output );
 }

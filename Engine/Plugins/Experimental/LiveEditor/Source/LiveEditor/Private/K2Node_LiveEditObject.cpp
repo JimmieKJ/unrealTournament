@@ -244,6 +244,7 @@ void UK2Node_LiveEditObject::ReallocatePinsDuringReconstruction(TArray<UEdGraphP
 	{
 		CreatePinsForClass(UseSpawnClass);
 	}
+	RestoreSplitPins(OldPins);
 }
 
 FNodeHandlingFunctor* UK2Node_LiveEditObject::CreateNodeHandler(FKismetCompilerContext& CompilerContext) const
@@ -346,7 +347,7 @@ void UK2Node_LiveEditObject::ExpandNode(class FKismetCompilerContext& CompilerCo
 		//the event itself
 		//
 		UFunction *EventMIDISignature = GetEventMIDISignature();
-		UK2Node_Event* EventNode = CompilerContext.SpawnIntermediateNode<UK2Node_Event>(this, SourceGraph);
+		UK2Node_Event* EventNode = CompilerContext.SpawnIntermediateEventNode<UK2Node_Event>(this, nullptr, SourceGraph);
 		check(EventNode);
 		EventNode->EventReference.SetFromField<UFunction>(EventMIDISignature, false);
 		EventNode->CustomFunctionName = *EventNameGuid;

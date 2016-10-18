@@ -53,7 +53,7 @@ void FActorDetails::CustomizeDetails( IDetailLayoutBuilder& DetailLayout )
 {
 	// Get the list of hidden categories
 	TArray<FString> HideCategories;
-	FEditorCategoryUtils::GetClassHideCategories(DetailLayout.GetDetailsView().GetBaseClass(), HideCategories); 
+	FEditorCategoryUtils::GetClassHideCategories(DetailLayout.GetBaseClass(), HideCategories); 
 
 	// These details only apply when adding an instance of the actor in a level
 	if( !DetailLayout.GetDetailsView().HasClassDefaultObject() && DetailLayout.GetDetailsView().GetSelectedActorInfo().NumSelected > 0 )
@@ -450,7 +450,9 @@ void FActorDetails::AddExperimentalWarningCategory( IDetailLayoutBuilder& Detail
 
 		const FName CategoryName(TEXT("Warning"));
 		const FText CategoryDisplayName = LOCTEXT("WarningCategoryDisplayName", "Warning");
-		const FText WarningText = bExperimental ? LOCTEXT("ExperimentalClassWarning", "Uses experimental class") : LOCTEXT("EarlyAccessClassWarning", "Uses early access class");
+		FString ClassUsed = DetailBuilder.GetTopLevelProperty().ToString();
+		const FText WarningText = bExperimental ? FText::Format( LOCTEXT("ExperimentalClassWarning", "Uses experimental class: {0}") , FText::FromString(ClassUsed) )
+			: FText::Format( LOCTEXT("EarlyAccessClassWarning", "Uses early access class {0}"), FText::FromString(*ClassUsed) );
 		const FText SearchString = WarningText;
 		const FText Tooltip = bExperimental ? LOCTEXT("ExperimentalClassTooltip", "Here be dragons!  Uses one or more unsupported 'experimental' classes") : LOCTEXT("EarlyAccessClassTooltip", "Uses one or more 'early access' classes");
 		const FString ExcerptName = bExperimental ? TEXT("ActorUsesExperimentalClass") : TEXT("ActorUsesEarlyAccessClass");
@@ -461,27 +463,32 @@ void FActorDetails::AddExperimentalWarningCategory( IDetailLayoutBuilder& Detail
 		FDetailWidgetRow& WarningRow = WarningCategory.AddCustomRow(SearchString)
 			.WholeRowContent()
 			[
-				SNew(SHorizontalBox)
-				.ToolTip(IDocumentation::Get()->CreateToolTip(Tooltip, nullptr, TEXT("Shared/LevelEditor"), ExcerptName))
-				.Visibility(EVisibility::Visible)
-
-				+ SHorizontalBox::Slot()
-				.VAlign(VAlign_Center)
-				.AutoWidth()
-				.Padding(4.0f, 0.0f, 0.0f, 0.0f)
+				SNew(SBorder)
+				.BorderImage(FEditorStyle::GetBrush("SettingsEditor.CheckoutWarningBorder"))
+				.BorderBackgroundColor(FColor (166,137,0))
 				[
-					SNew(SImage)
-					.Image(WarningIcon)
-				]
+					SNew(SHorizontalBox)
+					.ToolTip(IDocumentation::Get()->CreateToolTip(Tooltip, nullptr, TEXT("Shared/LevelEditor"), ExcerptName))
+					.Visibility(EVisibility::Visible)
 
-				+SHorizontalBox::Slot()
-				.VAlign(VAlign_Center)
-				.AutoWidth()
-				.Padding(4.0f, 0.0f, 0.0f, 0.0f)
-				[
-					SNew(STextBlock)
-					.Text(WarningText)
-					.Font(IDetailLayoutBuilder::GetDetailFont())
+					+ SHorizontalBox::Slot()
+					.VAlign(VAlign_Center)
+					.AutoWidth()
+					.Padding(4.0f, 0.0f, 0.0f, 0.0f)
+					[
+						SNew(SImage)
+						.Image(WarningIcon)
+					]
+
+					+SHorizontalBox::Slot()
+					.VAlign(VAlign_Center)
+					.AutoWidth()
+					.Padding(4.0f, 0.0f, 0.0f, 0.0f)
+					[
+						SNew(STextBlock)
+						.Text(WarningText)
+						.Font(IDetailLayoutBuilder::GetDetailFont())
+					]
 				]
 			];
 	}

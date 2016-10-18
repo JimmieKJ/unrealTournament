@@ -51,7 +51,7 @@ public:
 
 	virtual ERunAttributes GetRunAttributes() const override;
 
-private:
+protected:
 
 	FSlateImageRun( const FRunInfo& InRunInfo, const TSharedRef< const FString >& InText, const FSlateBrush* InImage, int16 InBaseline );
 

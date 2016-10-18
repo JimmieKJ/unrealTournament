@@ -23,7 +23,8 @@ public class UnrealCEFSubProcessTarget : TargetRules
 		OutPlatforms.Add(UnrealTargetPlatform.Linux);
 		return true;
 	}
-    public override bool ConfigureToolchain(TargetInfo Target)
+    
+	public override bool ConfigureToolchain(TargetInfo Target)
     {
         if (Target.Platform == UnrealTargetPlatform.Win32 || Target.Platform == UnrealTargetPlatform.Win64)
         {
@@ -31,8 +32,8 @@ public class UnrealCEFSubProcessTarget : TargetRules
         }
         return true;
     }
-
-    public override bool ShouldCompileMonolithic(UnrealTargetPlatform InPlatform, UnrealTargetConfiguration InConfiguration)
+	
+	public override bool ShouldCompileMonolithic(UnrealTargetPlatform InPlatform, UnrealTargetConfiguration InConfiguration)
 	{
 		return true;
 	}

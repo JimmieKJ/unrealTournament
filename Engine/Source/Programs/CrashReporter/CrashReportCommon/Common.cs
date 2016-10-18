@@ -2,6 +2,7 @@
 
 using System;
 using System.IO;
+using System.Runtime.Serialization;
 using System.Xml.Serialization;
 using System.Collections;
 using System.Collections.Generic;
@@ -59,6 +60,10 @@ namespace Tools.CrashReporter.CrashReportCommon
 	/// </summary>
 	public class CrashDescription
 	{
+        /// <summary>The type of the crash e.g. crash, assert or ensure. </summary>
+	    [XmlElement] 
+        public string CrashType = "";
+
 		/// <summary>The name of the branch this game was built out of.</summary>
 		[XmlElement]
 		public string BranchName = "";
@@ -139,6 +144,10 @@ namespace Tools.CrashReporter.CrashReportCommon
 		/// <summary>The error message, can be assertion message, ensure message or message from the fatal error.</summary>
 		[XmlElement]
 		public string[] ErrorMessage = null;
+
+		/// <summary>Crash GUID from the crash context.</summary>
+		[XmlElement]
+		public string CrashGUID = "";
 
 		/// <summary>The UTC time the crash occurred.</summary>
 		[XmlElement]
@@ -246,5 +255,40 @@ namespace Tools.CrashReporter.CrashReportCommon
 			string Result = String.Remove( RealLength - 1 );
 			return Result;
 		}
+	}
+
+	/// <summary>
+	/// Base class for Crash Reporter system exceptions
+	/// </summary>
+	[Serializable]
+	public class CrashReporterException : Exception
+	{
+		/// <summary>
+		/// Default constructor
+		/// </summary>
+		public CrashReporterException() {}
+
+		/// <summary>
+		/// Construct from an error message
+		/// </summary>
+		/// <param name="message">The error message</param>
+		public CrashReporterException(string message)
+			: base(message) {}
+
+		/// <summary>
+		/// Construct from an error message and inner exception
+		/// </summary>
+		/// <param name="message">The error message</param>
+		/// <param name="inner">Inner exception</param>
+		public CrashReporterException(string message, Exception inner)
+			: base(message, inner) {}
+
+		/// <summary>
+		/// Protected constructor for serialization
+		/// </summary>
+		/// <param name="info">Serialization info</param>
+		/// <param name="context">Streaming context </param>
+		protected CrashReporterException(SerializationInfo info, StreamingContext context)
+			: base(info, context) {}
 	}
 }

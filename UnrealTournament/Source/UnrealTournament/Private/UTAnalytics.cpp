@@ -3,16 +3,21 @@
 #include "UnrealTournament.h"
 #include "UTGameMode.h"
 #include "UTGameState.h"
-#include "Runtime/Analytics/Analytics/Public/Analytics.h"
-#include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
 #include "UTAnalytics.h"
+#include "AnalyticsET.h"
 #include "Runtime/Launch/Resources/Version.h"
 #include "PerfCountersHelpers.h"
 #include "QosInterface.h"
-#include "GameServiceMcp.h"
 
+#include "UTFlagRunGame.h"
+#include "UTFlagRunGameState.h"
+
+#if WITH_PROFILE
+#include "GameServiceMcp.h"
 #include "OnlineSubsystemMcp.h"
 #include "OnlineHttpRequest.h"
+#endif
+
 #include "OnlineSubsystemUtils.h"
 #include "UTMcpUtils.h"
 
@@ -21,13 +26,16 @@
 #if WITH_QOSREPORTER
 	#include "QoSReporter.h"
 #endif // WITH_QOSREPORTER
+#include "IAnalyticsProvider.h"
+#include "IAnalyticsProviderET.h"
+#include "Analytics.h"
 
 DEFINE_LOG_CATEGORY(LogUTAnalytics);
 
 TArray<FString> FUTAnalytics::GenericParamNames;
 
 bool FUTAnalytics::bIsInitialized = false;
-TSharedPtr<IAnalyticsProvider> FUTAnalytics::Analytics = NULL;
+TSharedPtr<IAnalyticsProviderET> FUTAnalytics::Analytics = NULL;
 // initialize to a dummy value to ensure the first time we set the AccountID it detects it as a change.
 FString FUTAnalytics::CurrentAccountID(TEXT("__UNINITIALIZED__"));
 FUTAnalytics::EAccountSource FUTAnalytics::CurrentAccountSource = FUTAnalytics::EAccountSource::EFromRegistry;
@@ -35,17 +43,19 @@ FUTAnalytics::EAccountSource FUTAnalytics::CurrentAccountSource = FUTAnalytics::
 /**
  * On-demand construction of the singleton. 
  */
-IAnalyticsProvider& FUTAnalytics::GetProvider()
+IAnalyticsProviderET& FUTAnalytics::GetProvider()
 {
 	checkf(bIsInitialized && Analytics.IsValid(), TEXT("FUTAnalytics::GetProvider called outside of Initialize/Shutdown."));
 	return *Analytics.Get();
 }
 
-TSharedPtr<IAnalyticsProvider> FUTAnalytics::GetProviderPtr()
+TSharedPtr<IAnalyticsProviderET> FUTAnalytics::GetProviderPtr()
 {
 	return Analytics;
 }
- 
+
+static const FString SecureAnalyticsEndpoint = TEXT("https://datarouter.ol.epicgames.com/");
+
 void FUTAnalytics::Initialize()
 {
 	if (IsRunningCommandlet())
@@ -54,40 +64,25 @@ void FUTAnalytics::Initialize()
 	}
 
 	checkf(!bIsInitialized, TEXT("FUTAnalytics::Initialize called more than once."));
+	
+	if (!Analytics.IsValid())
+	{
+		FString GameAppId = FString::Printf(TEXT("UnrealTournament.%s"), *GetBuildType());
+		Analytics = FAnalyticsET::Get().CreateAnalyticsProvider(FAnalyticsET::Config(GameAppId, SecureAnalyticsEndpoint, GetDefault<UGeneralProjectSettings>()->ProjectVersion + TEXT(" - %VERSION%")));
+	}
 
-	// Setup some default engine analytics if there is nothing custom bound
-	FAnalytics::FProviderConfigurationDelegate DefaultUTAnalyticsConfig;
-	DefaultUTAnalyticsConfig.BindStatic( 
-		[]( const FString& KeyName, bool bIsValueRequired ) -> FString
-		{
-			static TMap<FString, FString> ConfigMap;
-			if (ConfigMap.Num() == 0)
-			{
-				ConfigMap.Add(TEXT("ProviderModuleName"), TEXT("AnalyticsET"));
-				ConfigMap.Add(TEXT("APIServerET"), TEXT("https://datarouter.ol.epicgames.com/"));
-				ConfigMap.Add(TEXT("APIKeyET"), FString::Printf(TEXT("UnrealTournament.%s"), *GetBuildType()));
-			}
-
-			FString* ConfigValue = ConfigMap.Find(KeyName);
-			return ConfigValue != NULL ? *ConfigValue : TEXT("");
-		} );
-
-	// Connect the engine analytics provider (if there is a configuration delegate installed)
-	Analytics = FAnalytics::Get().CreateAnalyticsProvider(
-		FName(*DefaultUTAnalyticsConfig.Execute(TEXT("ProviderModuleName"), true)), 
-		DefaultUTAnalyticsConfig);
 	// Set the UserID using the AccountID regkey if present.
 	LoginStatusChanged(FString());
 
 	InitializeAnalyticParameterNames();
-
 	bIsInitialized = true;
 }
 
 FString FUTAnalytics::GetBuildType()
 {
 	FString BuildType = FString();
-	
+
+#if WITH_PROFILE
 	FOnlineSubsystemMcp* WorldMcp = (FOnlineSubsystemMcp*)Online::GetSubsystem(nullptr, MCP_SUBSYSTEM);
 	if (WorldMcp)
 	{
@@ -97,10 +92,11 @@ FString FUTAnalytics::GetBuildType()
 			BuildType = MCPService->GetGameBackendName();
 		}
 	}
+#endif
 
 	if (BuildType.IsEmpty())
 	{
-		BuildType = FAnalytics::ToString(FAnalytics::Get().GetBuildType());
+		//BuildType = FAnalytics::ToString(FAnalytics::Get().GetBuildType());
 	}
 
 	return BuildType;
@@ -120,6 +116,7 @@ void FUTAnalytics::InitializeAnalyticParameterNames()
 
 	AddGenericParamName(MatchTime);
 	AddGenericParamName(MapName);
+	AddGenericParamName(GameModeName);
 
 	AddGenericParamName(Hostname);
 	AddGenericParamName(SystemId);
@@ -153,6 +150,36 @@ void FUTAnalytics::InitializeAnalyticParameterNames()
 
 	AddGenericParamName(Team);
 	AddGenericParamName(MaxRequiredTextureSize);
+
+	AddGenericParamName(FlagRunRoundEnd);
+	AddGenericParamName(OffenseKills);
+	AddGenericParamName(DefenseKills);
+	AddGenericParamName(DefenseLivesRemaining);
+	AddGenericParamName(DefensePlayersEliminated);
+	AddGenericParamName(PointsScored);
+	AddGenericParamName(DefenseWin);
+	AddGenericParamName(TimeRemaining);
+	AddGenericParamName(RoundNumber);
+	AddGenericParamName(FinalRound);
+	AddGenericParamName(EndedInTieBreaker);
+	AddGenericParamName(RedTeamBonusTime);
+	AddGenericParamName(BlueTeamBonusTime);
+
+	AddGenericParamName(UTEnterMatch);
+	AddGenericParamName(EnterMethod);
+
+	AddGenericParamName(UTTutorialPickupToken);
+	AddGenericParamName(TokenID);
+	AddGenericParamName(AnnouncementID);
+	AddGenericParamName(OptionalObjectName);
+	AddGenericParamName(UTTutorialPlayInstruction);
+
+	AddGenericParamName(UTTutorialStarted);
+	AddGenericParamName(UTTutorialCompleted);
+	AddGenericParamName(TutorialMap);
+	AddGenericParamName(MovementTutorialCompleted);
+	AddGenericParamName(WeaponTutorialCompleted);
+	AddGenericParamName(PickupsTutorialCompleted);
 }
 
 void FUTAnalytics::Shutdown()
@@ -240,10 +267,16 @@ void FUTAnalytics::SetInitialParameters(AUTPlayerController* UTPC, TArray<FAnaly
 
 void FUTAnalytics::SetMatchInitialParameters(AUTGameMode* UTGM, TArray<FAnalyticsEventAttribute>& ParamArray, bool bNeedMatchTime)
 {
-	if (bNeedMatchTime && UTGM)
+	if (bNeedMatchTime)
 	{
 		ParamArray.Add(FAnalyticsEventAttribute(GetGenericParamName(EGenericAnalyticParam::MatchTime), GetMatchTime(UTGM)));
 	}
+
+	if (UTGM)
+	{
+		ParamArray.Add(FAnalyticsEventAttribute(GetGenericParamName(EGenericAnalyticParam::GameModeName), UTGM->DisplayName.ToString()));
+	}
+
 	FString MapName = GetMapName(UTGM);
 	ParamArray.Add(FAnalyticsEventAttribute(GetGenericParamName(EGenericAnalyticParam::MapName), MapName));
 }
@@ -571,6 +604,21 @@ void FUTAnalytics::FireEvent_ServerUnplayableCondition(AUTGameMode* UTGM, double
 * @Trigger Fires every game
 *
 * @Type Sent by the server
+* @EventParam MatchTime int32 The match time when this event fired
+* @EventParam MapName string The name of the played map
+* @EventParam Hostname string Machine network name (hostname), can also be used to identify VM in the cloud
+* @EventParam SystemId string Unique Id of an operating system install (essentially means "machine id" unless the OS is reinstalled between runs)
+* @EventParam InstanceId string Unique Id of a single server instance (stays the same between matches for the whole lifetime of the server)
+* @EventParam EngineVersion string Engine version string
+* @EventParam MachinePhysicalRAMInGB int32 Total physical memory on the machine in GB
+* @EventParam NumLogicalCoresAvailable int32 Number of logical cores available to the process on the machine
+* @EventParam NumPhysicalCoresAvailable int32 Number of physical cores available to the process on the machine
+* @EventParam MachineCPUSignature int32 CPU signature (CPUID with EAX=1, i.e. family, model, stepping combined).
+* @EventParam MachineCPUBrandName string CPU brand string.
+* @EventParam NumClients int32 Instantaneous number of clients
+*
+* @EventParam WeaponName string the name of the weapon that got the kills
+* @EventParam NumKills int32 the number of kills the weapon got
 *
 * @Comments
 */
@@ -585,8 +633,7 @@ void FUTAnalytics::FireEvent_UTServerWeaponKills(AUTGameMode* UTGM, TMap<TSubcla
 
 		for (auto& KillElement : *KillsArray)
 		{
-			ParamArray.Add(FAnalyticsEventAttribute(GetGenericParamName(EGenericAnalyticParam::WeaponName), *KillElement.Key->GetName()));
-			ParamArray.Add(FAnalyticsEventAttribute(GetGenericParamName(EGenericAnalyticParam::NumKills), KillElement.Value));
+			ParamArray.Add(FAnalyticsEventAttribute(*KillElement.Key->GetName(), KillElement.Value));
 		}
 
 		AnalyticsProvider->RecordEvent(GetGenericParamName(EGenericAnalyticParam::UTServerWeaponKills), ParamArray);
@@ -641,7 +688,225 @@ void FUTAnalytics::FireEvent_PlayerContextLocationPerMinute(AUTPlayerController*
 
 			AnalyticsProvider->RecordEvent(GetGenericParamName(EGenericAnalyticParam::PlayerContextLocationPerMinute), ParamArray);
 		
-			UE_LOG(UT, Log, TEXT("Sending PlayerContext Location Per Minute Event"));
+			//UE_LOG(UT, Log, TEXT("Sending PlayerContext Location Per Minute Event"));
 		}
+	}
+}
+
+
+/*
+* @EventName FlagRunRoundEnd
+*
+* @Trigger Fires at the end of each round of Flag Run
+*
+* @Type Sent by the Server
+*
+* @EventParam OffenseKills int32 Total Kills on the Offense team this round.
+* @EventParam DefenseKills int32 Total Kills on the Defense team this round.
+* @EventParam DefenseLivesRemaining int32 Total number of lives left among all defenders in a round.
+* @EventParam DefensePlayersEliminated int32 How many eliminated players
+* @EventParam PointsScored int32 How many points were scored this round.
+* @EventParam DefenseWin bool Was this round won by the defense or offense?
+* @EventParam TimeRemaining int32 Time left in the round.
+* @EventParam MapName string What Map we were playing on.
+* @EventParam RoundNumber int32 What Round Number is this
+* @EventParam FinalRound bool Was this the final round? IE: Do we arleady have a winner.
+* @EventParam EndedInTieBreaker bool Was this match ended in a tiebreaker, or by a score descrepency.
+* @EventParam RedTeamBonusTime int32 How much bonus the Red Team had at this round.
+* @EventParam BlueTeamBonusTime int32 How much bonus the Blue Team had at this round.
+*
+* @Comments
+*/
+void FUTAnalytics::FireEvent_FlagRunRoundEnd(AUTFlagRunGame* UTGame, bool bIsDefenseRoundWin, bool bIsFinalRound)
+{
+	if (UTGame)
+	{
+		AUTFlagRunGameState* UTGS = UTGame->GetGameState<AUTFlagRunGameState>();
+		if (UTGS)
+		{
+			const TSharedPtr<IAnalyticsProvider>& AnalyticsProvider = GetProviderPtr();
+			if (AnalyticsProvider.IsValid())
+			{
+				TArray<FAnalyticsEventAttribute> ParamArray;
+		
+				int LivesRemaining = 0;
+				int PlayersEliminated = 0;
+				for (APlayerState* PS : UTGS->PlayerArray)
+				{
+					AUTPlayerState* UTPS = Cast<AUTPlayerState>(PS);
+					if ((UTPS) && (UTGS->IsTeamOnDefense(UTPS->GetTeamNum())))
+					{
+						LivesRemaining += UTPS->RemainingLives;
+						if (UTPS->bOutOfLives)
+						{
+							++PlayersEliminated;
+						}
+					}
+				}
+				
+				bool bEndedInTie = false;
+				int RedTeamBonusTime = 0;
+				int BlueTeamBonusTime = 0;
+				if (UTGS->Teams.Num() > 1)
+				{
+					bEndedInTie = UTGS->Teams[0]->Score == UTGS->Teams[1]->Score;
+					RedTeamBonusTime = UTGS->Teams[0]->RoundBonus;
+					BlueTeamBonusTime = UTGS->Teams[1]->RoundBonus;
+				}
+				
+ 				ParamArray.Add(FAnalyticsEventAttribute(GetGenericParamName(EGenericAnalyticParam::OffenseKills), UTGS->OffenseKills));
+				ParamArray.Add(FAnalyticsEventAttribute(GetGenericParamName(EGenericAnalyticParam::DefenseKills), UTGS->DefenseKills));
+				ParamArray.Add(FAnalyticsEventAttribute(GetGenericParamName(EGenericAnalyticParam::DefenseLivesRemaining), LivesRemaining));
+				ParamArray.Add(FAnalyticsEventAttribute(GetGenericParamName(EGenericAnalyticParam::DefensePlayersEliminated), PlayersEliminated));
+				ParamArray.Add(FAnalyticsEventAttribute(GetGenericParamName(EGenericAnalyticParam::PointsScored), bIsDefenseRoundWin ? UTGame->GetDefenseScore() : UTGame->GetFlagCapScore()));
+				ParamArray.Add(FAnalyticsEventAttribute(GetGenericParamName(EGenericAnalyticParam::DefenseWin), bIsDefenseRoundWin));
+				ParamArray.Add(FAnalyticsEventAttribute(GetGenericParamName(EGenericAnalyticParam::TimeRemaining), UTGS->GetRemainingTime()));
+				ParamArray.Add(FAnalyticsEventAttribute(GetGenericParamName(EGenericAnalyticParam::MapName), GetMapName(UTGame)));
+				ParamArray.Add(FAnalyticsEventAttribute(GetGenericParamName(EGenericAnalyticParam::RoundNumber), UTGS->CTFRound));
+				ParamArray.Add(FAnalyticsEventAttribute(GetGenericParamName(EGenericAnalyticParam::FinalRound), bIsFinalRound));
+				ParamArray.Add(FAnalyticsEventAttribute(GetGenericParamName(EGenericAnalyticParam::EndedInTieBreaker), bEndedInTie));
+				ParamArray.Add(FAnalyticsEventAttribute(GetGenericParamName(EGenericAnalyticParam::RedTeamBonusTime), RedTeamBonusTime));
+				ParamArray.Add(FAnalyticsEventAttribute(GetGenericParamName(EGenericAnalyticParam::BlueTeamBonusTime), BlueTeamBonusTime));
+
+				AnalyticsProvider->RecordEvent(GetGenericParamName(EGenericAnalyticParam::FlagRunRoundEnd), ParamArray);
+			}
+		}
+	}
+}
+
+
+/*
+* @EventName UTEntermatch
+*
+* @Trigger Fires when a client enters a game. This is to track the way they entered the game.
+*
+* @Type Sent by the Client
+*
+* @EventParam EnterMethod string String representation of how the game was entered
+*
+* @Comments
+*/
+void FUTAnalytics::FireEvent_EnterMatch(AUTPlayerController* UTPC, FString EnterMethod)
+{
+	const TSharedPtr<IAnalyticsProvider>& AnalyticsProvider = GetProviderPtr();
+	if (AnalyticsProvider.IsValid())
+	{
+		TArray<FAnalyticsEventAttribute> ParamArray;
+
+		ParamArray.Add(FAnalyticsEventAttribute(GetGenericParamName(EGenericAnalyticParam::EnterMethod), EnterMethod));
+
+		AnalyticsProvider->RecordEvent(GetGenericParamName(EGenericAnalyticParam::UTEnterMatch), ParamArray);
+	}
+}
+
+/*
+* @EventName UTTutorialPickupToken
+*
+* @Trigger Fires when a client is given some instruction inside of a tutorial.
+*
+* @Type Sent by the Client
+*
+* @EventParam TokenID string Unique ID of the picked up token.
+*
+* @Comments
+*/
+void FUTAnalytics::FireEvent_UTTutorialPickupToken(FString TokenID)
+{
+	const TSharedPtr<IAnalyticsProvider>& AnalyticsProvider = GetProviderPtr();
+	if (AnalyticsProvider.IsValid())
+	{
+		TArray<FAnalyticsEventAttribute> ParamArray;
+
+		ParamArray.Add(FAnalyticsEventAttribute(GetGenericParamName(EGenericAnalyticParam::TokenID), TokenID));
+
+		AnalyticsProvider->RecordEvent(GetGenericParamName(EGenericAnalyticParam::UTTutorialPickupToken), ParamArray);
+	}
+}
+
+/*
+* @EventName UTTutorialPlayInstruction
+*
+* @Trigger Fires when a client is given some instruction inside of a tutorial.
+*
+* @Type Sent by the Client
+*
+* @EventParam AnnouncementId int32 ID of the announcement that is played in the tutorial.
+* @EventParam OptionalObjectName FString Name of the object this tutorial is about. IE: If it is a weapon it will be the weapon name
+* @Comments
+*/
+void FUTAnalytics::FireEvent_UTTutorialPlayInstruction(int32 AnnoucementID, FString OptionalObjectName)
+{
+	const TSharedPtr<IAnalyticsProvider>& AnalyticsProvider = GetProviderPtr();
+	if (AnalyticsProvider.IsValid())
+	{
+		TArray<FAnalyticsEventAttribute> ParamArray;
+
+		ParamArray.Add(FAnalyticsEventAttribute(GetGenericParamName(EGenericAnalyticParam::AnnouncementID), AnnoucementID));
+		ParamArray.Add(FAnalyticsEventAttribute(GetGenericParamName(EGenericAnalyticParam::OptionalObjectName), OptionalObjectName));
+
+		AnalyticsProvider->RecordEvent(GetGenericParamName(EGenericAnalyticParam::UTTutorialPlayInstruction), ParamArray);
+	}
+}
+
+
+/*
+* @EventName UTTutorialStarted
+*
+* @Trigger Fires when a client starts a tutorial
+*
+* @Type Sent by the Client
+*
+* @EventParam TutorialMap FString Name of the tutorial map.
+* @EventParam MovementTutorialCompleted bool If the movement tutorial has been previously completed
+* @EventParam WeaponTutorialCompleted bool If the movement tutorial has been previously completed
+* @EventParam PickupsTutorialCompleted If the movement tutorial has been previously completed
+*
+* @Comments
+*/
+void FUTAnalytics::FireEvent_UTTutorialStarted(AUTPlayerController* UTPC, FString TutorialMap)
+{
+	const TSharedPtr<IAnalyticsProvider>& AnalyticsProvider = GetProviderPtr();
+	if (AnalyticsProvider.IsValid())
+	{
+		TArray<FAnalyticsEventAttribute> ParamArray;
+
+		if (UTPC)
+		{
+			UUTProfileSettings* ProfileSettings = UTPC->GetProfileSettings();
+			if (ProfileSettings)
+			{
+				ParamArray.Add(FAnalyticsEventAttribute(GetGenericParamName(EGenericAnalyticParam::MovementTutorialCompleted), ((ProfileSettings->TutorialMask & TUTORIAL_Movement) == TUTORIAL_Movement)));
+				ParamArray.Add(FAnalyticsEventAttribute(GetGenericParamName(EGenericAnalyticParam::WeaponTutorialCompleted), ((ProfileSettings->TutorialMask & TUTOIRAL_Weapon) == TUTOIRAL_Weapon)));
+				ParamArray.Add(FAnalyticsEventAttribute(GetGenericParamName(EGenericAnalyticParam::PickupsTutorialCompleted), ((ProfileSettings->TutorialMask & TUTORIAL_Pickups) == TUTORIAL_Pickups)));
+			}
+		}
+	
+		ParamArray.Add(FAnalyticsEventAttribute(GetGenericParamName(EGenericAnalyticParam::TutorialMap), TutorialMap));
+
+		AnalyticsProvider->RecordEvent(GetGenericParamName(EGenericAnalyticParam::UTTutorialStarted), ParamArray);
+	}
+}
+
+/*
+* @EventName UTTutorialCompleted
+*
+* @Trigger Fires when a client completes a tutorial
+*
+* @Type Sent by the Client
+*
+* @EventParam TutorialMap FString Name of the tutorial map.
+*
+* @Comments
+*/
+void FUTAnalytics::FireEvent_UTTutorialCompleted(FString TutorialMap)
+{
+	const TSharedPtr<IAnalyticsProvider>& AnalyticsProvider = GetProviderPtr();
+	if (AnalyticsProvider.IsValid())
+	{
+		TArray<FAnalyticsEventAttribute> ParamArray;
+
+		ParamArray.Add(FAnalyticsEventAttribute(GetGenericParamName(EGenericAnalyticParam::TutorialMap), TutorialMap));
+
+		AnalyticsProvider->RecordEvent(GetGenericParamName(EGenericAnalyticParam::UTTutorialCompleted), ParamArray);
 	}
 }

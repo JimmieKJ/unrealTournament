@@ -25,7 +25,7 @@ void UMovieSceneEventSection::AddKey(float Time, const FName& EventName, FKeyPar
 }
 
 
-void UMovieSceneEventSection::TriggerEvents(UObject* EventContextObject, float Position, float LastPosition)
+void UMovieSceneEventSection::TriggerEvents(float Position, float LastPosition,  IMovieScenePlayer& Player)
 {
 	const TArray<FNameCurveKey>& Keys = Events.GetKeys();
 
@@ -35,7 +35,7 @@ void UMovieSceneEventSection::TriggerEvents(UObject* EventContextObject, float P
 		{
 			if ((Key.Time >= LastPosition) && (Key.Time <= Position))
 			{
-				TriggerEvent(Key.Value, EventContextObject);
+				TriggerEvent(Key.Value, Position, Player);
 			}
 		}
 	}
@@ -47,7 +47,7 @@ void UMovieSceneEventSection::TriggerEvents(UObject* EventContextObject, float P
 
 			if ((Key.Time >= Position) && (Key.Time <= LastPosition))
 			{
-				TriggerEvent(Key.Value, EventContextObject);
+				TriggerEvent(Key.Value, Position, Player);
 			}		
 		}
 	}
@@ -65,12 +65,12 @@ void UMovieSceneEventSection::DilateSection(float DilationFactor, float Origin, 
 }
 
 
-void UMovieSceneEventSection::GetKeyHandles(TSet<FKeyHandle>& KeyHandles) const
+void UMovieSceneEventSection::GetKeyHandles(TSet<FKeyHandle>& KeyHandles, TRange<float> TimeRange) const
 {
 	for (auto It(Events.GetKeyHandleIterator()); It; ++It)
 	{
 		float Time = Events.GetKeyTime(It.Key());
-		if (IsTimeWithinSection(Time))
+		if (TimeRange.Contains(Time))
 		{
 			KeyHandles.Add(It.Key());
 		}
@@ -86,25 +86,64 @@ void UMovieSceneEventSection::MoveSection(float DeltaPosition, TSet<FKeyHandle>&
 }
 
 
+TOptional<float> UMovieSceneEventSection::GetKeyTime( FKeyHandle KeyHandle ) const
+{
+	if ( Events.IsKeyHandleValid( KeyHandle ) )
+	{
+		return TOptional<float>( Events.GetKeyTime( KeyHandle ) );
+	}
+	return TOptional<float>();
+}
+
+
+void UMovieSceneEventSection::SetKeyTime( FKeyHandle KeyHandle, float Time )
+{
+	if ( Events.IsKeyHandleValid( KeyHandle ) )
+	{
+		Events.SetKeyTime( KeyHandle, Time );
+	}
+}
+
+
 /* UMovieSceneSection overrides
  *****************************************************************************/
 
-void UMovieSceneEventSection::TriggerEvent(const FName& Event, UObject* EventContextObject)
+void UMovieSceneEventSection::TriggerEvent(const FName& Event, float Position, IMovieScenePlayer& Player)
 {
-	UFunction* EventFunction = EventContextObject->FindFunction(Event);
+	for (UObject* EventContextObject : Player.GetEventContexts())
+	{
+		UFunction* EventFunction = EventContextObject->FindFunction(Event);
 
-	if (EventFunction == nullptr)
-	{
-		// @todo sequencer: gmp: add external log category for MovieScene
-		//UE_LOG(LogMovieScene, Log, TEXT("UMovieSceneEventSection::TriggerEvent: Unable to find function '%s'"), *Event.ToString());
+		if (EventFunction == nullptr)
+		{
+			// @todo sequencer: gmp: add external log category for MovieScene
+			//UE_LOG(LogMovieScene, Log, TEXT("UMovieSceneEventSection::TriggerEvent: Unable to find function '%s'"), *Event.ToString());
+		}
+		else if (EventFunction->NumParms != 0)
+		{
+			// @todo sequencer: gmp: add external log category for MovieScene
+			//UE_LOG(LogMovieScene, Log, TEXT("UMovieSceneEventSection::TriggerEvent: Function '%s' does not have zero parameters."), *Event.ToString());
+		}
+		else
+		{
+			EventContextObject->ProcessEvent(EventFunction, nullptr);
+		}
 	}
-	else if (EventFunction->NumParms != 0)
+
+#if !UE_BUILD_SHIPPING
+	if (Event == NAME_PerformanceCapture)
 	{
-		// @todo sequencer: gmp: add external log category for MovieScene
-		//UE_LOG(LogMovieScene, Log, TEXT("UMovieSceneEventSection::TriggerEvent: Function '%s' does not have zero parameters."), *Event.ToString());
+		FString PackageName = GetOutermost()->GetName();
+		
+		FString LevelSequenceName;
+		FString FolderName;
+		PackageName.Split(TEXT("/"), &FolderName, &LevelSequenceName, ESearchCase::CaseSensitive, ESearchDir::FromEnd);
+
+		UWorld* PlaybackContext = Cast<UWorld>(Player.GetPlaybackContext());
+
+		FString MapName = PlaybackContext->GetName();
+
+		GEngine->PerformanceCapture(PlaybackContext, MapName, LevelSequenceName, Position);
 	}
-	else
-	{
-		EventContextObject->ProcessEvent(EventFunction, nullptr);
-	}
+#endif	// UE_BUILD_SHIPPING
 }

@@ -7,6 +7,7 @@
 #include "UnrealEd.h"
 
 #include "FbxExporter.h"
+#include "Animation/AnimSequence.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogFbxSkeletalMeshExport, Log, All);
 
@@ -139,7 +140,7 @@ FbxNode* FFbxExporter::CreateMesh(const USkeletalMesh* SkelMesh, const TCHAR* Me
 
 	for (int32 VertIndex = 0; VertIndex < VertexCount; ++VertIndex)
 	{
-		FVector Normal			= (FVector)(Vertices[VertIndex].TangentZ);
+		FVector Normal			= Vertices[VertIndex].TangentZ;
 		FbxVector4 FbxNormal	= Converter.ConvertToFbxPos(Normal);
 
 		LayerElementNormal->GetDirectArray().Add(FbxNormal);
@@ -242,9 +243,9 @@ FbxNode* FFbxExporter::CreateMesh(const USkeletalMesh* SkelMesh, const TCHAR* Me
 		UMaterialInterface* MatInterface = SkelMesh->Materials[MaterialIndex].MaterialInterface;
 
 		FbxSurfaceMaterial* FbxMaterial = NULL;
-		if(MatInterface && !FbxMaterials.Find(MatInterface->GetMaterial()))
+		if(MatInterface && !FbxMaterials.Find(MatInterface))
 		{
-			FbxMaterial = ExportMaterial(MatInterface->GetMaterial());
+			FbxMaterial = ExportMaterial(MatInterface);
 		}
 		else
 		{
@@ -304,33 +305,18 @@ void FFbxExporter::BindMeshToSkeleton(const USkeletalMesh* SkelMesh, FbxNode* Me
 		// list of verts.  The convert the chunk bone index to the mesh bone index, the chunk's
 		// boneMap is needed
 		int32 VertIndex = 0;
-		const int32 ChunkCount = SourceModel.Chunks.Num();
-		for(int32 ChunkIndex = 0; ChunkIndex < ChunkCount; ++ChunkIndex)
+		const int32 SectionCount = SourceModel.Sections.Num();
+		for(int32 SectionIndex = 0; SectionIndex < SectionCount; ++SectionIndex)
 		{
-			const FSkelMeshChunk& Chunk = SourceModel.Chunks[ChunkIndex];
+			const FSkelMeshSection& Section = SourceModel.Sections[SectionIndex];
 
-			for(int32 RigidIndex = 0; RigidIndex < Chunk.NumRigidVertices; ++RigidIndex)
+			for(int32 SoftIndex = 0; SoftIndex < Section.SoftVertices.Num(); ++SoftIndex)
 			{
-				const FRigidSkinVertex& Vert = Chunk.RigidVertices[RigidIndex];
-
-				int32 InfluenceBone		= Chunk.BoneMap[ Vert.Bone ];
-				float InfluenceWeight	= 1.f;
-
-				if(InfluenceBone == BoneIndex && InfluenceWeight > 0.f)
-				{
-					CurrentCluster->AddControlPointIndex(VertIndex, InfluenceWeight);
-				}
-
-				++VertIndex;
-			}
-
-			for(int32 SoftIndex = 0; SoftIndex < Chunk.NumSoftVertices; ++SoftIndex)
-			{
-				const FSoftSkinVertex& Vert = Chunk.SoftVertices[SoftIndex];
+				const FSoftSkinVertex& Vert = Section.SoftVertices[SoftIndex];
 
 				for(int32 InfluenceIndex = 0; InfluenceIndex < MAX_TOTAL_INFLUENCES; ++InfluenceIndex)
 				{
-					int32 InfluenceBone		= Chunk.BoneMap[ Vert.InfluenceBones[InfluenceIndex] ];
+					int32 InfluenceBone		= Section.BoneMap[ Vert.InfluenceBones[InfluenceIndex] ];
 					float InfluenceWeight	= Vert.InfluenceWeights[InfluenceIndex] / 255.f;
 
 					if(InfluenceBone == BoneIndex && InfluenceWeight > 0.f)

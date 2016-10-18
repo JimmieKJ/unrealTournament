@@ -13,7 +13,7 @@
 
 // If this object redirector is pointing to an object that won't be serialized anyway, set the RF_Transient flag
 // so that this redirector is also removed from the package.
-void UObjectRedirector::PreSave()
+void UObjectRedirector::PreSave(const class ITargetPlatform* TargetPlatform)
 {
 	if (DestinationObject == NULL
 	||	DestinationObject->HasAnyFlags(RF_Transient)
@@ -38,11 +38,6 @@ void UObjectRedirector::Serialize( FArchive& Ar )
 }
 
 bool UObjectRedirector::NeedsLoadForClient() const
-{
-	return false;
-}
-
-bool UObjectRedirector::NeedsLoadForServer() const
 {
 	return false;
 }

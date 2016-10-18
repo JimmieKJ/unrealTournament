@@ -112,6 +112,13 @@ public:
 	{
 		return (Resource->GetSize());
 	}
+	
+	/** Frees the resource
+	 * @param Resource The buffer to prepare for release from the pool permanently.
+	 */
+	void FreeResource(FIndexBufferRHIRef Resource)
+	{
+	}
 };
 
 class FGlobalDynamicMeshIndexPool : public TRenderResourcePool<FIndexBufferRHIRef, FGlobalDynamicMeshIndexPolicy, FGlobalDynamicMeshPoolPolicy::CreationArguments>
@@ -162,6 +169,13 @@ public:
 	FGlobalDynamicMeshPoolPolicy::CreationArguments GetCreationArguments(FVertexBufferRHIRef Resource)
 	{
 		return (Resource->GetSize());
+	}
+	
+	/** Frees the resource
+	 * @param Resource The buffer to prepare for release from the pool permanently.
+	 */
+	void FreeResource(FVertexBufferRHIRef Resource)
+	{
 	}
 };
 
@@ -465,6 +479,11 @@ void FDynamicMeshBuilder::GetMesh(const FMatrix& LocalToWorld, const FMaterialRe
 
 void FDynamicMeshBuilder::GetMesh(const FMatrix& LocalToWorld,const FMaterialRenderProxy* MaterialRenderProxy,uint8 DepthPriorityGroup,bool bDisableBackfaceCulling, bool bReceivesDecals, bool bUseSelectionOutline, int32 ViewIndex, FMeshElementCollector& Collector, HHitProxy* HitProxy)
 {
+	GetMesh(LocalToWorld, MaterialRenderProxy, DepthPriorityGroup, bDisableBackfaceCulling, bReceivesDecals, true, ViewIndex, Collector, HitProxy != nullptr ? HitProxy->Id : FHitProxyId());
+}
+
+void FDynamicMeshBuilder::GetMesh(const FMatrix& LocalToWorld,const FMaterialRenderProxy* MaterialRenderProxy,uint8 DepthPriorityGroup,bool bDisableBackfaceCulling, bool bReceivesDecals, bool bUseSelectionOutline, int32 ViewIndex, FMeshElementCollector& Collector, const FHitProxyId HitProxyId )
+{
 	// Only draw non-empty meshes.
 	if(VertexBuffer->Vertices.Num() > 0 && IndexBuffer->Indices.Num() > 0)
 	{
@@ -523,10 +542,7 @@ void FDynamicMeshBuilder::GetMesh(const FMatrix& LocalToWorld,const FMaterialRen
 		Mesh.Type = PT_TriangleList;
 		Mesh.DepthPriorityGroup = DepthPriorityGroup;
 		Mesh.bUseSelectionOutline = bUseSelectionOutline;
-		if (HitProxy != NULL)
-		{
-			Mesh.BatchHitProxyId = HitProxy->Id;
-		}
+		Mesh.BatchHitProxyId = HitProxyId;
 
 		Collector.AddMesh(ViewIndex, Mesh);
 
@@ -537,7 +553,7 @@ void FDynamicMeshBuilder::GetMesh(const FMatrix& LocalToWorld,const FMaterialRen
 	}
 }
 
-void FDynamicMeshBuilder::Draw(FPrimitiveDrawInterface* PDI,const FMatrix& LocalToWorld,const FMaterialRenderProxy* MaterialRenderProxy,uint8 DepthPriorityGroup,bool bDisableBackfaceCulling, bool bReceivesDecals)
+void FDynamicMeshBuilder::Draw(FPrimitiveDrawInterface* PDI,const FMatrix& LocalToWorld,const FMaterialRenderProxy* MaterialRenderProxy,uint8 DepthPriorityGroup,bool bDisableBackfaceCulling, bool bReceivesDecals, const FHitProxyId HitProxyId )
 {
 	// Only draw non-empty meshes.
 	if(VertexBuffer->Vertices.Num() > 0 && IndexBuffer->Indices.Num() > 0)
@@ -592,6 +608,7 @@ void FDynamicMeshBuilder::Draw(FPrimitiveDrawInterface* PDI,const FMatrix& Local
 		Mesh.bDisableBackfaceCulling = bDisableBackfaceCulling;
 		Mesh.Type = PT_TriangleList;
 		Mesh.DepthPriorityGroup = DepthPriorityGroup;
+		Mesh.BatchHitProxyId = HitProxyId;
 		PDI->DrawMesh(Mesh);
 
 		// Clear the resource pointers so they cannot be overwritten accidentally.

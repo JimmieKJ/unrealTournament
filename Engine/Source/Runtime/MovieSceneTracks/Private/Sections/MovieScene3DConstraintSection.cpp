@@ -22,3 +22,15 @@ FGuid UMovieScene3DConstraintSection::GetConstraintId() const
 {
 	return ConstraintId;
 }
+
+
+TOptional<float> UMovieScene3DConstraintSection::GetKeyTime(FKeyHandle KeyHandle) const
+{
+	return TOptional<float>();
+}
+
+
+void UMovieScene3DConstraintSection::SetKeyTime(FKeyHandle KeyHandle, float Time)
+{
+	// do nothing
+}

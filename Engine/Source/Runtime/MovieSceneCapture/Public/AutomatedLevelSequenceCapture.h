@@ -46,17 +46,44 @@ public:
 	UPROPERTY(config, EditAnywhere, Category=Animation, AdvancedDisplay, meta=(Units=Seconds, ClampMin=0))
 	float DelayBeforeWarmUp;
 
+	UPROPERTY(EditAnywhere, Category=CaptureSettings, AdvancedDisplay, meta=(EditInline))
+	ULevelSequenceBurnInOptions* BurnInOptions;
+
+	/** Whether to write edit decision lists (EDLs) if the sequence contains shots */
+	UPROPERTY(config, EditAnywhere, Category=Sequence)
+	bool bWriteEditDecisionList;
+
 public:
 	// UMovieSceneCapture interface
 	virtual void Initialize(TSharedPtr<FSceneViewport> InViewport, int32 PIEInstance = -1) override;
 
+	virtual void LoadFromConfig() override;
+
+	virtual void SaveToConfig() override;
+
+protected:
+
+	virtual void AddFormatMappings(TMap<FString, FStringFormatArg>& OutFormatMappings, const FFrameMetrics& FrameMetrics) const override;
+
+	/** Custom, additional json serialization */
+	virtual void SerializeAdditionalJson(FJsonObject& Object);
+
+	/** Custom, additional json deserialization */
+	virtual void DeserializeAdditionalJson(const FJsonObject& Object);
+
 private:
+
+	/** Update any cached information we need from the level sequence actor */
+	void UpdateFrameState();
 
 	/** Called when the level sequence has updated the world */
 	void SequenceUpdated(const ULevelSequencePlayer& Player, float CurrentTime, float PreviousTime);
 
 	/** Called to set up the player's playback range */
 	void SetupFrameRange();
+
+	/** Export EDL if requested */
+	void ExportEDL();
 
 	/** Delegate binding for the above callback */
 	FDelegateHandle OnPlayerUpdatedBinding;
@@ -88,10 +115,8 @@ private:
 
 	/** The number of warm up frames left before we actually start saving out images */
 	int32 RemainingWarmUpFrames;
-
-	/** The delta of the last sequence updat */
-	float LastSequenceUpdateDelta;
 	
+	FLevelSequencePlayerSnapshot CachedState;
 #endif
 };
 

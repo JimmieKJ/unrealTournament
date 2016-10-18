@@ -2,6 +2,7 @@
 #pragma  once
 
 #include "BlueprintCompilerCppBackendGatherDependencies.h"
+#include "BlueprintCompilerCppBackend.h"
 
 struct FCodeText
 {
@@ -43,6 +44,8 @@ struct FEmitterLocalContext
 
 	EGeneratedCodeType CurrentCodeType;
 
+	TArray<const UObject*> UsedObjectInCurrentClass;
+	TArray<const UUserDefinedEnum*> EnumsInCurrentClass;
 private:
 	int32 LocalNameIndexMax;
 
@@ -87,17 +90,17 @@ public:
 	{
 		if (ListType == EClassSubobjectList::ComponentTemplates)
 		{
-			return TEXT("ComponentTemplates");
+			return GET_MEMBER_NAME_STRING_CHECKED(UDynamicClass, ComponentTemplates);
 		}
 		if (ListType == EClassSubobjectList::Timelines)
 		{
-			return TEXT("Timelines");
+			return GET_MEMBER_NAME_STRING_CHECKED(UDynamicClass, Timelines);
 		}
 		if (ListType == EClassSubobjectList::DynamicBindingObjects)
 		{
-			return TEXT("DynamicBindingObjects");
+			return GET_MEMBER_NAME_STRING_CHECKED(UDynamicClass, DynamicBindingObjects);
 		}
-		return TEXT("MiscConvertedSubobjects");
+		return GET_MEMBER_NAME_STRING_CHECKED(UDynamicClass, MiscConvertedSubobjects);
 	}
 
 	void RegisterClassSubobject(UObject* Object, EClassSubobjectList ListType)
@@ -139,17 +142,7 @@ public:
 
 	UClass* GetFirstNativeOrConvertedClass(UClass* InClass) const
 	{
-		check(InClass);
-		for (UClass* ItClass = InClass; ItClass; ItClass = ItClass->GetSuperClass())
-		{
-			auto BPGC = Cast<UBlueprintGeneratedClass>(ItClass);
-			if (ItClass->HasAnyClassFlags(CLASS_Native) || (ensure(BPGC) && Dependencies.WillClassBeConverted(BPGC)))
-			{
-				return ItClass;
-			}
-		}
-		check(false);
-		return nullptr;
+		return Dependencies.GetFirstNativeOrConvertedClass(InClass);
 	}
 
 	FString GenerateUniqueLocalName();
@@ -195,6 +188,8 @@ struct FEmitHelper
 	// returns an unique number for a structure in structures hierarchy
 	static int32 GetInheritenceLevel(const UStruct* Struct);
 
+	static FString FloatToString(float Value);
+
 	static bool PropertyForConstCast(const UProperty* Property);
 
 	static void ArrayToString(const TArray<FString>& Array, FString& OutString, const TCHAR* Separator);
@@ -229,15 +224,13 @@ struct FEmitHelper
 
 	static void EmitLifetimeReplicatedPropsImpl(FEmitterLocalContext& EmitterContext);
 
-	static FString LiteralTerm(FEmitterLocalContext& EmitterContext, const FEdGraphPinType& Type, const FString& CustomValue, UObject* LiteralObject);
-
-	static FString DefaultValue(FEmitterLocalContext& EmitterContext, const FEdGraphPinType& Type);
+	static FString LiteralTerm(FEmitterLocalContext& EmitterContext, const FEdGraphPinType& Type, const FString& CustomValue, UObject* LiteralObject, const FText* OptionalTextLiteral = nullptr);
 
 	static FString PinTypeToNativeType(const FEdGraphPinType& InType);
 
 	static UFunction* GetOriginalFunction(UFunction* Function);
 
-	static bool ShouldHandleAsNativeEvent(UFunction* Function);
+	static bool ShouldHandleAsNativeEvent(UFunction* Function, bool bOnlyIfOverridden = true);
 
 	static bool ShouldHandleAsImplementableEvent(UFunction* Function);
 
@@ -256,12 +249,14 @@ struct FEmitHelper
 	static FString GenerateGetPropertyByName(FEmitterLocalContext& EmitterContext, const UProperty* Property);
 
 	static FString AccessInaccessibleProperty(FEmitterLocalContext& EmitterContext, const UProperty* Property
-		, const FString& ContextStr, const FString& ContextAdressOp, int32 StaticArrayIdx, bool bGetter);
+		, const FString& ContextStr, const FString& ContextAdressOp, int32 StaticArrayIdx
+		, ENativizedTermUsage TermUsage, FString* CustomSetExpressionEnding);
 
 	// This code works properly as long, as all fields in structures are UProperties!
 	static FString AccessInaccessiblePropertyUsingOffset(FEmitterLocalContext& EmitterContext, const UProperty* Property
 		, const FString& ContextStr, const FString& ContextAdressOp, int32 StaticArrayIdx = 0);
 
+	static const TCHAR* EmptyDefaultConstructor(UScriptStruct* Struct);
 };
 
 struct FNonativeComponentData;
@@ -272,7 +267,9 @@ struct FEmitDefaultValueHelper
 
 	static void GenerateConstructor(FEmitterLocalContext& Context);
 
-	static void GenerateCustomDynamicClassInitialization(FEmitterLocalContext& Context);
+	static void FillCommonUsedAssets(FEmitterLocalContext& Context, TSharedPtr<FGatherConvertedClassDependencies> ParentDependencies);
+
+	static void GenerateCustomDynamicClassInitialization(FEmitterLocalContext& Context, TSharedPtr<FGatherConvertedClassDependencies> ParentDependencies);
 
 	enum class EPropertyAccessOperator
 	{
@@ -293,8 +290,12 @@ struct FEmitDefaultValueHelper
 	static FString HandleClassSubobject(FEmitterLocalContext& Context, UObject* Object, FEmitterLocalContext::EClassSubobjectList ListOfSubobjectsTyp, bool bCreate, bool bInitilize);
 
 	// returns true, and fill OutResult, when the structure is handled in a custom way.
-	static bool SpecialStructureConstructor(const UScriptStruct* Struct, const uint8* ValuePtr, FString* OutResult);
+	static bool SpecialStructureConstructor(const UStruct* Struct, const uint8* ValuePtr, FString* OutResult);
 
+	// Add static initialization functions. Must be call after Context.UsedObjectInCurrentClass is fully filled
+	static void AddStaticFunctionsForDependencies(FEmitterLocalContext& Context, TSharedPtr<FGatherConvertedClassDependencies> ParentDependencies);
+
+	static void AddRegisterHelper(FEmitterLocalContext& Context);
 private:
 	// Returns native term, 
 	// returns empty string if cannot handle
@@ -323,4 +324,14 @@ struct FBackendHelperAnim
 	static void AddHeaders(FEmitterLocalContext& EmitterContext);
 
 	static void CreateAnimClassData(FEmitterLocalContext& Context);
+};
+
+/** this struct helps generate a static function that initializes Static Searchable Values. */
+struct FBackendHelperStaticSearchableValues
+{
+	static bool HasSearchableValues(UClass* Class);
+	static FString GetFunctionName();
+	static FString GenerateClassMetaData(UClass* Class);
+	static void EmitFunctionDeclaration(FEmitterLocalContext& Context);
+	static void EmitFunctionDefinition(FEmitterLocalContext& Context);
 };

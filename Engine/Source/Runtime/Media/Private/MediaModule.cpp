@@ -1,10 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MediaPrivatePCH.h"
+#include "MediaPCH.h"
 #include "IMediaModule.h"
 #include "IMediaPlayerFactory.h"
-#include "IMediaPlayer.h"
-#include "ModuleManager.h"
 
 
 /**
@@ -15,87 +13,53 @@ class FMediaModule
 {
 public:
 
-	// IModuleInterface interface
+	//~ IMediaModule interface
 
-	virtual void StartupModule( ) override { }
-
-	virtual void ShutdownModule( ) override
+	virtual const TArray<IMediaPlayerFactory*>& GetPlayerFactories() const override
 	{
-		MediaPlayerFactories.Reset();
+		return MediaPlayerFactories;
 	}
 
-	virtual bool SupportsDynamicReloading( ) override
+	virtual IMediaPlayerFactory* GetPlayerFactory(const FName& FactoryName) const override
 	{
-		return false;
+		for (IMediaPlayerFactory* Factory : MediaPlayerFactories)
+		{
+			if (Factory->GetName() == FactoryName)
+			{
+				return Factory;
+			}
+		}
+
+		return nullptr;
+	}
+
+	virtual void RegisterPlayerFactory(IMediaPlayerFactory& Factory) override
+	{
+		MediaPlayerFactories.AddUnique(&Factory);
+	}
+
+	virtual void UnregisterPlayerFactory(IMediaPlayerFactory& Factory) override
+	{
+		MediaPlayerFactories.Remove(&Factory);
 	}
 
 public:
 
-	// IMediaModuleInterface
+	//~ IModuleInterface interface
 
-	virtual TSharedPtr<IMediaPlayer> CreatePlayer( const FString& Url ) override
+	virtual void StartupModule() override { }
+
+	virtual void ShutdownModule() override
 	{
-		TSharedPtr<IMediaPlayer> Player;
-
-		for (IMediaPlayerFactory* PlayerFactory : MediaPlayerFactories)
-		{
-			if (PlayerFactory->SupportsUrl(Url))
-			{
-				Player = PlayerFactory->CreatePlayer();
-
-				if (Player.IsValid())
-				{
-					break;
-				}
-			}
-		}
-
-		return Player;
+		MediaPlayerFactories.Reset();
 	}
 
-	virtual int32 GetSupportedFileTypes( FMediaFileTypes& OutFileTypes ) override
+	virtual bool SupportsDynamicReloading() override
 	{
-		OutFileTypes.Reset();
-
-		for (IMediaPlayerFactory* Factory : MediaPlayerFactories)
-		{
-			OutFileTypes.Append(Factory->GetSupportedFileTypes());
-		}
-	
-		return OutFileTypes.Num();
-	}
-
-	DECLARE_DERIVED_EVENT(FMediaModule, IMediaModule::FOnFactoryAdded, FOnFactoryAdded);
-	virtual FOnFactoryAdded& OnFactoryAdded( ) override
-	{
-		return FactoryAddedEvent;
-	}
-
-	DECLARE_DERIVED_EVENT(FMediaModule, IMediaModule::FOnFactoryRemoved, FOnFactoryRemoved);
-	virtual FOnFactoryRemoved& OnFactoryRemoved( ) override
-	{
-		return FactoryRemovedEvent;
-	}
-
-	virtual void RegisterPlayerFactory( IMediaPlayerFactory& Factory ) override
-	{
-		MediaPlayerFactories.AddUnique(&Factory);
-		FactoryAddedEvent.Broadcast();
-	}
-
-	virtual void UnregisterPlayerFactory( IMediaPlayerFactory& Factory ) override
-	{
-		MediaPlayerFactories.Remove(&Factory);
-		FactoryRemovedEvent.Broadcast();
+		return false;
 	}
 
 private:
-
-	/** Holds an event delegate that is invoked after a video player factory has been added. */
-	FOnFactoryAdded FactoryAddedEvent;
-
-	/** Holds an event delegate that is invoked after a video player factory has been removed. */
-	FOnFactoryRemoved FactoryRemovedEvent;
 
 	/** Holds the registered video player factories. */
 	TArray<IMediaPlayerFactory*> MediaPlayerFactories;

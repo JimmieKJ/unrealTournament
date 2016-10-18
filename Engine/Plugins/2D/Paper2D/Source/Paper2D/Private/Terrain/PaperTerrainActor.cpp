@@ -16,8 +16,8 @@ APaperTerrainActor::APaperTerrainActor(const FObjectInitializer& ObjectInitializ
 	SplineComponent = CreateDefaultSubobject<UPaperTerrainSplineComponent>(TEXT("SplineComponent"));
  	RenderComponent = CreateDefaultSubobject<UPaperTerrainComponent>(TEXT("RenderComponent"));
  
-	SplineComponent->AttachParent = DummyRoot;
-	RenderComponent->AttachParent = DummyRoot;
+	SplineComponent->SetupAttachment(DummyRoot);
+	RenderComponent->SetupAttachment(DummyRoot);
 	RenderComponent->AssociatedSpline = SplineComponent;
 	RootComponent = DummyRoot;
 }

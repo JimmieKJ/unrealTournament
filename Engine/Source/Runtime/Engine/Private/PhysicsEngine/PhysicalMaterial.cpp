@@ -7,6 +7,7 @@
 #include "EnginePrivate.h"
 #include "PhysicsPublic.h"
 #include "Vehicles/TireType.h"
+#include "PhysicsEngine/PhysicsSettings.h"
 
 #if WITH_PHYSX
 	#include "PhysXSupport.h"

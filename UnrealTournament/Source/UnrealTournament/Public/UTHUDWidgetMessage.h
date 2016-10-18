@@ -6,7 +6,7 @@
  * This is the basic hud messaging widget.  It's responsible for displaying UTLocalMessages on to the hud.  
  *
  **/
-
+#include "UTAnnouncer.h"
 #include "UTUMGHudWidget.h"
 #include "UTHUDWidgetMessage.generated.h"
 
@@ -102,6 +102,9 @@ struct UNREALTOURNAMENT_API FLocalizedMessageData
 
 	UPROPERTY()
 	TWeakObjectPtr<class UUTUMGHudWidget> UMGWidget;
+
+	UPROPERTY()
+		FAnnouncementInfo AnnouncementInfo;
 
 	virtual bool ShouldDraw_Implementation(bool bShowScores)
 	{

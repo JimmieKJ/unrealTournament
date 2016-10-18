@@ -1,8 +1,8 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <TpsData xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
   <Name>MarkdownMode</Name>
-  <Location>//depot/UE4/Engine/Source/Programs/UnrealDocTool/MarkdownMode/</Location>
-  <Date>2015-09-04T19:32:26.3621128-04:00</Date>
+  <Location>/Engine/Source/Programs/UnrealDocTool/MarkdownMode/</Location>
+  <Date>2016-06-10T17:13:29.7166083-04:00</Date>
   <Function>Extension for Visual Studio which provides support for users writing UDN documentation</Function>
   <Justification>Syntax highlighting of markdown along with previewing output as users type will greatly improve efficency of document writing</Justification>
   <Platforms>
@@ -13,8 +13,12 @@
     <Product>UE4</Product>
   </Products>
   <TpsType>Source Code</TpsType>
-  <Eula />
-  <RedistributeTo />
+  <Eula>https://visualstudiogallery.msdn.microsoft.com/site/0855e23e-4c4c-4c82-8b39-24ab5c5a7f79/eula?licenseType=None</Eula>
+  <RedistributeTo>
+    <EndUserGroup>Licensees</EndUserGroup>
+    <EndUserGroup>Git</EndUserGroup>
+    <EndUserGroup>P4</EndUserGroup>
+  </RedistributeTo>
   <Redistribute>false</Redistribute>
   <IsSourceAvailable>false</IsSourceAvailable>
   <NoticeType>Full EULA Text</NoticeType>
@@ -55,5 +59,5 @@ A "contributor" is any person that distributes its contribution under this licen
 (D) If you distribute any portion of the software in source code form, you may do so only under this license by including a complete copy of this license with your distribution. If you distribute any portion of the software in compiled or object code form, you may only do so under a license that complies with this license.
 
 (E) The software is licensed "as-is." You bear the risk of using it. The contributors give no express warranties, guarantees or conditions. You may have additional consumer rights under your local laws which this license cannot change. To the extent permitted under your local laws, the contributors exclude the implied warranties of merchantability, fitness for a particular purpose and non-infringement.</Notification>
-  <LicenseFolder />
+  <LicenseFolder>/Engine/Source/ThirdParty/Licenses/MarkdownMode_License.txt</LicenseFolder>
 </TpsData>

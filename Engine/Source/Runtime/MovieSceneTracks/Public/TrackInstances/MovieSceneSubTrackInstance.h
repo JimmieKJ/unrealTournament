@@ -37,6 +37,7 @@ protected:
 	TArray<UMovieSceneSection*> GetAllTraversedSectionsWithPreroll( const TArray<UMovieSceneSection*>& Sections, float CurrentTime, float PreviousTime );
 	TArray<UMovieSceneSection*> GetTraversedSectionsWithPreroll( const TArray<UMovieSceneSection*>& Sections, float CurrentTime, float PreviousTime );
 	virtual bool ShouldEvaluateIfOverlapping(const TArray<UMovieSceneSection*>& Sections, UMovieSceneSection* Section) const;
+	void UpdateSection( EMovieSceneUpdateData& UpdateData, class IMovieScenePlayer& Player, UMovieSceneSubSection* SubSection, bool bSectionWasDeactivated );
 	
 protected:
 
@@ -45,4 +46,6 @@ protected:
 
 	/** Mapping of section lookups to instances.  Each section has a movie scene which must be instanced */
 	TMap<TWeakObjectPtr<UMovieSceneSubSection>, TSharedPtr<FMovieSceneSequenceInstance>> SequenceInstancesBySection;
+
+	TMap<EMovieSceneUpdatePass, TArray<TWeakObjectPtr<UMovieSceneSubSection>>> UpdatePassToLastTraversedSectionsMap;
 };

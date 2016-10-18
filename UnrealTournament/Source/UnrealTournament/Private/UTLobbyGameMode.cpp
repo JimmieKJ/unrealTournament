@@ -10,8 +10,6 @@
 #include "UTGameMessage.h"
 #include "UTAnalytics.h"
 #include "UTGameSessionNonRanked.h"
-#include "Runtime/Analytics/Analytics/Public/Analytics.h"
-#include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
 
 
 
@@ -109,41 +107,6 @@ void AUTLobbyGameMode::RestartPlayer(AController* aPlayer)
 	return;
 }
 
-void AUTLobbyGameMode::ChangeName(AController* Other, const FString& S, bool bNameChange)
-{
-	// Cap player name's at 15 characters...
-	FString SMod = S;
-	if (SMod.Len()>15)
-	{
-		SMod = SMod.Left(15);
-	}
-
-    if ( !Other->PlayerState|| FCString::Stricmp(*Other->PlayerState->PlayerName, *SMod) == 0 )
-    {
-		return;
-	}
-
-	// Look to see if someone else is using the the new name
-	for( FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator )
-	{
-		AController* Controller = *Iterator;
-		if (Controller->PlayerState && FCString::Stricmp(*Controller->PlayerState->PlayerName, *SMod) == 0)
-		{
-			if ( Cast<APlayerController>(Other) != NULL )
-			{
-					Cast<APlayerController>(Other)->ClientReceiveLocalizedMessage( GameMessageClass, 5 );
-					if ( FCString::Stricmp(*Other->PlayerState->PlayerName, *DefaultPlayerName.ToString()) == 0 )
-					{
-						Other->PlayerState->SetPlayerName(FString::Printf(TEXT("%s%i"), *DefaultPlayerName.ToString(), Other->PlayerState->PlayerId));
-					}
-				return;
-			}
-		}
-	}
-
-    Other->PlayerState->SetPlayerName(SMod);
-}
-
 void AUTLobbyGameMode::OverridePlayerState(APlayerController* PC, APlayerState* OldPlayerState)
 {
 	Super::OverridePlayerState(PC, OldPlayerState);
@@ -156,7 +119,7 @@ void AUTLobbyGameMode::OverridePlayerState(APlayerController* PC, APlayerState* 
 	}
 }
 
-FString AUTLobbyGameMode::InitNewPlayer(class APlayerController* NewPlayerController, const TSharedPtr<const FUniqueNetId>& UniqueId, const FString& Options, const FString& Portal)
+FString AUTLobbyGameMode::InitNewPlayer(class APlayerController* NewPlayerController, const FUniqueNetIdRepl& UniqueId, const FString& Options, const FString& Portal)
 {
 	FString Result = Super::InitNewPlayer(NewPlayerController, UniqueId, Options, Portal);
 	AUTLobbyPlayerState* PS = Cast<AUTLobbyPlayerState>(NewPlayerController->PlayerState);
@@ -248,7 +211,7 @@ FName AUTLobbyGameMode::GetNextChatDestination(AUTPlayerState* PlayerState, FNam
 	return ChatDestinations::Global;
 }
 
-void AUTLobbyGameMode::PreLogin(const FString& Options, const FString& Address, const TSharedPtr<const FUniqueNetId>& UniqueId, FString& ErrorMessage)
+void AUTLobbyGameMode::PreLogin(const FString& Options, const FString& Address, const FUniqueNetIdRepl& UniqueId, FString& ErrorMessage)
 {
 	if (MinAllowedRank > 0 || MaxAllowedRank > 0)
 	{
@@ -281,7 +244,7 @@ void AUTLobbyGameMode::GetInstanceData(TArray<TSharedPtr<FServerInstanceData>>& 
 			{
 				FString GameModeClassname = MatchInfo->CurrentRuleset.IsValid() ? MatchInfo->CurrentRuleset->GameMode : TEXT("");
 
-				int32 NumPlayers = MatchInfo->NumPlayersInMatch();
+				int32 CurrentNumPlayers = MatchInfo->NumPlayersInMatch();
 				TSharedPtr<FServerInstanceData> Data;
 				if (MatchInfo->bDedicatedMatch)
 				{

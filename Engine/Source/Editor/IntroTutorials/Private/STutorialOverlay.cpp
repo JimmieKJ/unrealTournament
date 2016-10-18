@@ -142,13 +142,13 @@ int32 STutorialOverlay::TraverseWidgets(TSharedRef<SWidget> InWidget, const FGeo
 	}
 
 	// First draw the widget if we should
-	TSharedPtr<FTagMetaData> MetaData = InWidget->GetMetaData<FTagMetaData>();
-	const FName Tag = (MetaData.IsValid() && MetaData->Tag.IsValid()) ? MetaData->Tag : InWidget->GetTag();
-	if (Tag != NAME_None || MetaData.IsValid())
+	TSharedPtr<FTagMetaData> WidgetMetaData = InWidget->GetMetaData<FTagMetaData>();
+	const FName WidgetTag = (WidgetMetaData.IsValid() && WidgetMetaData->Tag.IsValid()) ? WidgetMetaData->Tag : InWidget->GetTag();
+	if (WidgetTag != NAME_None || WidgetMetaData.IsValid())
 	{
 		// we are a named widget - ask it to draw
 		OnPaintNamedWidget.Broadcast(InWidget, InGeometry);
-		OnWidgetWasDrawn.ExecuteIfBound(Tag);
+		OnWidgetWasDrawn.ExecuteIfBound(WidgetTag);
 	}
 
 	// Next check and draw the highlight as appropriate

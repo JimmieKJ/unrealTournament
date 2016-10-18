@@ -6,11 +6,14 @@
 #include "HttpPackage.h"
 
 class IHttpRequest;
+class IHttpThreadedRequest;
+class FHttpThread;
 
 /**
  * Manages Http request that are currently being processed
  */
-class FHttpManager : public FTickerObjectBase
+class FHttpManager
+	: public FTickerObjectBase
 {
 public:
 
@@ -24,7 +27,12 @@ public:
 	/**
 	 * Destructor
 	 */
-	virtual ~FHttpManager();
+	~FHttpManager();
+
+	/**
+	 * Initialize
+	 */
+	void Initialize();
 
 	/**
 	 * Adds an Http request instance to the manager for tracking/ticking
@@ -32,7 +40,7 @@ public:
 	 *
 	 * @param Request - the request object to add
 	 */
-	virtual void AddRequest(const TSharedRef<IHttpRequest>& Request);
+	void AddRequest(const TSharedRef<IHttpRequest>& Request);
 
 	/**
 	 * Removes an Http request instance from the manager
@@ -40,23 +48,23 @@ public:
 	 *
 	 * @param Request - the request object to remove
 	 */
-	virtual void RemoveRequest(const TSharedRef<IHttpRequest>& Request);
+	void RemoveRequest(const TSharedRef<IHttpRequest>& Request);
 
 	/**
 	* Find an Http request in the lists of current valid requests
 	*
 	* @param RequestPtr - ptr to the http request object to find
 	*
-	* @return shared ptr to the request or invalid shared ptr
+	* @return true if the request is being tracked, false if not
 	*/
-	virtual bool IsValidRequest(const IHttpRequest* RequestPtr) const;
+	bool IsValidRequest(const IHttpRequest* RequestPtr) const;
 
 	/**
 	 * Block until all pending requests are finished processing
 	 *
 	 * @param bShutdown true if final flush during shutdown
 	 */
-	virtual void Flush(bool bShutdown);
+	void Flush(bool bShutdown);
 
 	/**
 	 * FTicker callback
@@ -65,30 +73,39 @@ public:
 	 *
 	 * @return false if no longer needs ticking
 	 */
-	virtual bool Tick(float DeltaSeconds) override;
-	
+	bool Tick(float DeltaSeconds) override;
+
+	/** 
+	 * Add a http request to be executed on the http thread
+	 *
+	 * @param Request - the request object to add
+	 */
+	void AddThreadedRequest(const TSharedRef<IHttpThreadedRequest>& Request);
+
+	/**
+	 * Mark a threaded http request as cancelled to be removed from the http thread
+	 *
+	 * @param Request - the request object to cancel
+	 */
+	void CancelThreadedRequest(const TSharedRef<IHttpThreadedRequest>& Request);
+
 	/**
 	 * List all of the Http requests currently being processed
 	 *
 	 * @param Ar - output device to log with
 	 */
-	virtual void DumpRequests(FOutputDevice& Ar) const;
+	void DumpRequests(FOutputDevice& Ar) const;
 
 protected:
-	
-	/** Keep track of an http request while it is being processed */
-	class FActiveHttpRequest
-	{
-	public:
-		FActiveHttpRequest(double InStartTime, const TSharedRef<IHttpRequest>& InHttpRequest)
-			: StartTime(InStartTime)
-			, HttpRequest(InHttpRequest)
-		{}
+	/** 
+	 * Create HTTP thread object
+	 *
+	 * @return the HTTP thread object
+	 */
+	virtual FHttpThread* CreateHttpThread();
 
-		double StartTime;
-		TSharedRef<IHttpRequest> HttpRequest;
-	};
 
+protected:
 	/** List of Http requests that are actively being processed */
 	TArray<TSharedRef<IHttpRequest>> Requests;
 
@@ -112,6 +129,8 @@ protected:
 
 	/** Dead requests that need to be destroyed */
 	TArray<FRequestPendingDestroy> PendingDestroyRequests;
+
+	FHttpThread* Thread;
 
 PACKAGE_SCOPE:
 

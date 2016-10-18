@@ -95,13 +95,8 @@ public:
 	 * Construct from another lazy pointer
 	 * @param Other lazy pointer to copy from
 	 */
-#if !PLATFORM_COMPILER_HAS_DEFAULT_FUNCTION_TEMPLATE_ARGUMENTS
-	template <class U>
-	FORCEINLINE TAssetPtr(const TAssetPtr<U>& Other, typename TEnableIf<TPointerIsConvertibleFromTo<U, T>::Value>::Type* = nullptr)
-#else
 	template <class U, class = typename TEnableIf<TPointerIsConvertibleFromTo<U, T>::Value>::Type>
 	FORCEINLINE TAssetPtr(const TAssetPtr<U>& Other)
-#endif
 		: AssetPtr(Other.AssetPtr)
 	{
 	}
@@ -287,7 +282,7 @@ public:
 	/**  
 	 * Dereference lazy pointer to see if it points somewhere valid.
 	 */
-	FORCEINLINE_EXPLICIT_OPERATOR_BOOL() const
+	FORCEINLINE explicit operator bool() const
 	{
 		return Get() != NULL;
 	}
@@ -498,7 +493,7 @@ public:
 	/**  
 	 * Dereference lazy pointer to see if it points somewhere valid.
 	 */
-	FORCEINLINE_EXPLICIT_OPERATOR_BOOL() const
+	FORCEINLINE explicit operator bool() const
 	{
 		return Get() != NULL;
 	}

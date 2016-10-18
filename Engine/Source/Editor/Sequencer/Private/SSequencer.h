@@ -33,7 +33,7 @@ struct FPaintPlaybackRangeArgs;
 namespace SequencerLayoutConstants
 {
 	/** The amount to indent child nodes of the layout tree */
-	const float IndentAmount = 8.0f;
+	const float IndentAmount = 10.0f;
 
 	/** Height of each folder node */
 	const float FolderNodeHeight = 20.0f;
@@ -100,11 +100,11 @@ public:
 		/** The current clamp range (seconds) */
 		SLATE_ATTRIBUTE( FAnimatedRange, ClampRange )
 
-		/** The in/out selection range */
-		SLATE_ATTRIBUTE( TRange<float>, InOutRange )
-
 		/** The playback range */
 		SLATE_ATTRIBUTE( TRange<float>, PlaybackRange )
+
+		/** The selection selection range */
+		SLATE_ATTRIBUTE(TRange<float>, SelectionRange)
 
 		/** The playback status */
 		SLATE_ATTRIBUTE( EMovieScenePlayerStatus::Type, PlaybackStatus )
@@ -115,17 +115,23 @@ public:
 		/** Called when the user has begun dragging the selection range */
 		SLATE_EVENT( FSimpleDelegate, OnBeginInOutRangeDrag )
 
-		/** Called when the user has finished dragging the selection range */
-		SLATE_EVENT( FSimpleDelegate, OnEndInOutRangeDrag )
-
 		/** Called when the user changes the playback range */
 		SLATE_EVENT( FOnRangeChanged, OnPlaybackRangeChanged )
 
 		/** Called when the user has begun dragging the playback range */
-		SLATE_EVENT( FSimpleDelegate, OnBeginPlaybackRangeDrag )
+		SLATE_EVENT( FSimpleDelegate, OnPlaybackRangeBeginDrag )
 
 		/** Called when the user has finished dragging the playback range */
-		SLATE_EVENT( FSimpleDelegate, OnEndPlaybackRangeDrag )
+		SLATE_EVENT( FSimpleDelegate, OnPlaybackRangeEndDrag )
+
+		/** Called when the user changes the selection range */
+		SLATE_EVENT( FOnRangeChanged, OnSelectionRangeChanged )
+
+		/** Called when the user has begun dragging the selection range */
+		SLATE_EVENT( FSimpleDelegate, OnSelectionRangeBeginDrag )
+
+		/** Called when the user has finished dragging the selection range */
+		SLATE_EVENT( FSimpleDelegate, OnSelectionRangeEndDrag )
 
 		/** The current scrub position in (seconds) */
 		SLATE_ATTRIBUTE( float, ScrubPosition )
@@ -191,6 +197,9 @@ public:
 
 	/** Called when the save-as button is clicked */
 	void OnSaveMovieSceneAsClicked();
+
+	/** Called when the curve editor is shown or hidden */
+	void OnCurveEditorVisibilityChanged();
 
 	/** Access the tree view for this sequencer */
 	TSharedPtr<SSequencerTreeView> GetTreeView() const;
@@ -370,16 +379,25 @@ private:
 	/** Called when a column fill percentage is changed by a splitter slot. */
 	void OnColumnFillCoefficientChanged(float FillCoefficient, int32 ColumnIndex);
 
-	/** Called when the curve editor is shown or hidden */
-	void OnCurveEditorVisibilityChanged();
+	/** Called when the time snap interval is changed. */
+	void OnTimeSnapIntervalChanged();
 
 	/** Gets paint options for painting the playback range on sequencer */
 	FPaintPlaybackRangeArgs GetSectionPlaybackRangeArgs() const;
 
+	/** Called whenever the active sequence instance changes on the FSequencer */
+	void OnSequenceInstanceActivated( FMovieSceneSequenceInstance& ActiveInstance );
+
 public:
+	/** On Paste Command */
+	void OnPaste();
+	bool CanPaste();
+
+	/** Handle Track Paste */
+	void PasteTracks();
 
 	/** Open the paste menu */
-	void Paste();
+	void OpenPasteMenu();
 	
 	/** Open the paste from history menu */
 	void PasteFromHistory();
@@ -440,17 +458,17 @@ private:
 
 	FOnGetAddMenuContent OnGetAddMenuContent;
 
-	/** Called when the user has begun dragging the in/out selection range */
-	FSimpleDelegate OnBeginInOutRangeDrag;
+	/** Called when the user has begun dragging the selection selection range */
+	FSimpleDelegate OnSelectionRangeBeginDrag;
 
-	/** Called when the user has finished dragging the in/out selection range */
-	FSimpleDelegate OnEndInOutRangeDrag;
+	/** Called when the user has finished dragging the selection selection range */
+	FSimpleDelegate OnSelectionRangeEndDrag;
 
 	/** Called when the user has begun dragging the playback range */
-	FSimpleDelegate OnBeginPlaybackRangeDrag;
+	FSimpleDelegate OnPlaybackRangeBeginDrag;
 
 	/** Called when the user has finished dragging the playback range */
-	FSimpleDelegate OnEndPlaybackRangeDrag;
+	FSimpleDelegate OnPlaybackRangeEndDrag;
 
 	/** Cached clamp and view range for unlinking the curve editor time range */
 	TRange<float> CachedClampRange;

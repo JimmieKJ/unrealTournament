@@ -7,7 +7,7 @@
 #include "Matinee/InterpGroupInst.h"
 #include "SubtitleManager.h"
 #include "Net/UnrealNetwork.h"
-#include "OnlineSubsystemUtils.h"
+#include "Net/OnlineEngineInterface.h"
 #include "PhysicsPublic.h"
 
 #include "RenderCore.h"
@@ -223,7 +223,7 @@ bool ULocalPlayer::SpawnPlayActor(const FString& URL,FString& OutError, UWorld* 
 		}
 
 		// Get player unique id
-		TSharedPtr<const FUniqueNetId> UniqueId = GetPreferredUniqueNetId();
+		FUniqueNetIdRepl UniqueId(GetPreferredUniqueNetId());
 
 		PlayerController = InWorld->SpawnPlayActor(this, ROLE_SimulatedProxy, PlayerURL, UniqueId, OutError, GEngine->GetGamePlayers(InWorld).Find(this));
 	}
@@ -638,6 +638,11 @@ void ULocalPlayer::GetViewPoint(FMinimalViewInfo& OutViewInfo, EStereoscopicPass
 			//OutViewInfo.bConstrainAspectRatio = true;
         }
     }
+
+	for (int ViewExt = 0; ViewExt < GEngine->ViewExtensions.Num(); ViewExt++)
+	{
+		GEngine->ViewExtensions[ViewExt]->SetupViewPoint(PlayerController, OutViewInfo);
+	}
 }
 
 bool ULocalPlayer::CalcSceneViewInitOptions(
@@ -734,14 +739,14 @@ FSceneView* ULocalPlayer::CalcSceneView( class FSceneViewFamily* ViewFamily,
 		PlayerController->BuildHiddenComponentList(OutViewLocation, /*out*/ ViewInitOptions.HiddenPrimitives);
 	}
 
+	//@TODO: SPLITSCREEN: This call will have an issue with splitscreen, as the show flags are shared across the view family
+	EngineShowFlagOrthographicOverride( ViewInitOptions.IsPerspectiveProjection(), ViewFamily->EngineShowFlags );
+
 	FSceneView* const View = new FSceneView(ViewInitOptions);
 	
 	View->ViewLocation = OutViewLocation;
 	View->ViewRotation = OutViewRotation;
 
-	//@TODO: SPLITSCREEN: This call will have an issue with splitscreen, as the show flags are shared across the view family
-	EngineShowFlagOrthographicOverride(View->IsPerspectiveProjection(), ViewFamily->EngineShowFlags);
-		
 	ViewFamily->Views.Add(View);
 
 	{
@@ -1025,27 +1030,6 @@ bool ULocalPlayer::HandleExitCommand( const TCHAR* Cmd, FOutputDevice& Ar )
 	return true;
 }
 
-bool ULocalPlayer::HandlePauseCommand( const TCHAR* Cmd, FOutputDevice& Ar, UWorld* InWorld )
-{
-	Super::Exec(InWorld, TEXT("Pause"),Ar);
-
-	if (!InWorld->IsPaused())
-	{
-		if (ViewportClient && ViewportClient->Viewport)
-		{
-			ViewportClient->Viewport->SetUserFocus(true);
-			ViewportClient->Viewport->CaptureMouse(true);
-		}
-	}
-	else
-	{
-		FSlateApplication::Get().ResetToDefaultInputSettings();
-	}
-	
-
-	return true;
-}
-
 bool ULocalPlayer::HandleListMoveBodyCommand( const TCHAR* Cmd, FOutputDevice& Ar )
 {
 	GShouldLogOutAFrameOfSetBodyTransform = true;
@@ -1276,8 +1260,7 @@ bool ULocalPlayer::Exec(UWorld* InWorld, const TCHAR* Cmd,FOutputDevice& Ar)
 			return HandleDNCommand( Cmd, Ar );
 		}
 
-		if( FParse::Command(&Cmd,TEXT("CloseEditorViewport")) 
-		||	FParse::Command(&Cmd,TEXT("Exit")) 
+		if( FParse::Command(&Cmd,TEXT("Exit")) 
 		||	FParse::Command(&Cmd,TEXT("Quit")))
 		{
 			return HandleExitCommand( Cmd, Ar );
@@ -1294,10 +1277,6 @@ bool ULocalPlayer::Exec(UWorld* InWorld, const TCHAR* Cmd,FOutputDevice& Ar)
 			return true;
 		}
 
-		if( FParse::Command(&Cmd,TEXT("Pause") ))
-		{
-			return HandlePauseCommand( Cmd, Ar, InWorld );
-		}
 	}
 #endif // WITH_EDITOR
 
@@ -1331,6 +1310,14 @@ bool ULocalPlayer::Exec(UWorld* InWorld, const TCHAR* Cmd,FOutputDevice& Ar)
 		{
 			FLockedViewState::Get().UnlockView(this);
 		}
+		return true;
+	}
+	else if (FParse::Command(&Cmd, TEXT("r.ResetViewState")))
+	{
+		// Reset some state (e.g. TemporalAA index) to make rendering more deterministic (for automated screenshot verification)
+		FSceneViewStateInterface* Ref = ViewState.GetReference();
+
+		Ref->ResetViewState();
 		return true;
 	}
 #if WITH_PHYSX
@@ -1438,32 +1425,20 @@ void ULocalPlayer::SetControllerId( int32 NewControllerId )
 
 FString ULocalPlayer::GetNickname() const
 {
-	// Try to get platform identity first
-	IOnlineSubsystem* PlatformSubsystem = IOnlineSubsystem::GetByPlatform(false);
-	if (PlatformSubsystem)
-	{
-		IOnlineIdentityPtr OnlineIdentityInt = PlatformSubsystem->GetIdentityInterface();
-		if (OnlineIdentityInt.IsValid())
-		{
-			FString PlayerNickname = OnlineIdentityInt->GetPlayerNickname(ControllerId);
-			if (!PlayerNickname.IsEmpty())
-			{
-				return PlayerNickname;
-			}
-		}
-	}
-
 	UWorld* World = GetWorld();
 	if (World != NULL)
 	{
-		IOnlineIdentityPtr OnlineIdentityInt = Online::GetIdentityInterface(World);
-		if (OnlineIdentityInt.IsValid())
+		// Try to get platform identity first
+		FString PlatformNickname;
+		if (UOnlineEngineInterface::Get()->GetPlayerPlatformNickname(World, ControllerId, PlatformNickname))
 		{
-			auto UniqueId = GetPreferredUniqueNetId();
-			if (UniqueId.IsValid())
-			{
-				return OnlineIdentityInt->GetPlayerNickname(*UniqueId);
-			}
+			return PlatformNickname;
+		}
+
+		auto UniqueId = GetPreferredUniqueNetId();
+		if (UniqueId.IsValid())
+		{
+			return UOnlineEngineInterface::Get()->GetPlayerNickname(World, *UniqueId);
 		}
 	}
 
@@ -1473,20 +1448,12 @@ FString ULocalPlayer::GetNickname() const
 TSharedPtr<const FUniqueNetId> ULocalPlayer::GetUniqueNetIdFromCachedControllerId() const
 {
 	UWorld* World = GetWorld();
-	if (World != NULL)
-	{
-		IOnlineIdentityPtr OnlineIdentityInt = Online::GetIdentityInterface(World);
-		if (OnlineIdentityInt.IsValid())
-		{
-			TSharedPtr<const FUniqueNetId> UniqueId = OnlineIdentityInt->GetUniquePlayerId(ControllerId);
-			if (UniqueId.IsValid())
-			{
-				return UniqueId;
-			}
-		}
+	if (World != nullptr)
+	{		
+		return UOnlineEngineInterface::Get()->GetUniquePlayerId(World, ControllerId);
 	}
 
-	return NULL;
+	return nullptr;
 }
 
 TSharedPtr<const FUniqueNetId> ULocalPlayer::GetCachedUniqueNetId() const

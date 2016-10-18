@@ -4,12 +4,15 @@
 	VulkanConfiguration.h: Vulkan resource RHI definitions.
 =============================================================================*/
 
+// Compiled with 1.0.17.0
+
 #pragma once
 
 #include "RHIDefinitions.h"
 
+// API version we want to target.
 #if PLATFORM_WINDOWS
-	#define UE_VK_API_VERSION	VK_MAKE_VERSION(1, 0, 3)
+	#define UE_VK_API_VERSION	VK_MAKE_VERSION(1, 0, 1)
 #elif PLATFORM_ANDROID
 	#define UE_VK_API_VERSION	VK_MAKE_VERSION(1, 0, 1)
 #else
@@ -23,43 +26,28 @@
 #endif
 
 // constants we probably will change a few times
-#define VULKAN_VBIB_RING_BUFFER_SIZE							(4 * 1024 * 1024)
 #define VULKAN_UB_RING_BUFFER_SIZE								(8 * 1024 * 1024)
-
-//@NOTE: VULKAN_NUM_IMAGE_BUFFERS should be smaller than VULKAN_NUM_COMMAND_BUFFERS, to make sure that we wait for the fence before we reset the cmd buffer
-//@TODO: Clean up VULKAN_NUM_IMAGE_BUFFERS and VULKAN_NUM_COMMAND_BUFFERS once the Vulkan API and SDK stabilizes.
-#define VULKAN_NUM_IMAGE_BUFFERS								3
-
-//@NOTE: VULKAN_NUM_COMMAND_BUFFERS should be larger than NUM_QUEUES_IN_FLIGHT VulkanQueue.h, to make sure that we wait for the fence before we reset the cmd buffer
-#define VULKAN_NUM_COMMAND_BUFFERS								(VULKAN_NUM_IMAGE_BUFFERS + 1)
+#define VULKAN_TEMP_FRAME_ALLOCATOR_SIZE						(8 * 1024 * 1024)
 
 enum class EDescriptorSetStage
 {
-	// Adjusting these requires a full shader rebuild
+	// Adjusting these requires a full shader rebuild (ie modify the guid on VulkanCommon.usf)
 	Vertex		= 0,
 	Pixel		= 1,
-	Compute		= 2,
-	Geometry	= 3,
+	Geometry	= 2,
+	Hull		= 3,
 
+	// Some devices only have 4 descriptor sets max
 	MaxMobileSets	= 4,
 
-	//#todo-rco: ES2 devices only have 4 descriptor sets max...
-	Hull		= 4,
-	Domain		= 5,
+	// This will make Tessellation not available on mobile
+	Domain		= 4,
+
+	// Compute is its own pipeline, so it can all live as set 0
+	Compute		= 0,
 
 	Invalid		= -1,
 };
-
-// VULKAN_HLSLCC_GEN_GLSL_IN_OUT_WITHOUT_STRUCTURES:
-//	0:		"layout(location=%d) struct { vec4 Data; } varname;"
-//	1:		"layout(location=%d) vec4 varname;"
-//
-//	Originally, in/outs are generated with structures, which is fine. However,
-//	when the next shader stage has a compiled-out location and is first location is not starting with "0",
-//	the input is getting messed up. Therefore, we generate in/outs without structures.
-//
-//	NOTE: Changing the flag requires a full shader-rebuild.
-#define VULKAN_HLSLCC_GEN_GLSL_IN_OUT_WITHOUT_STRUCTURES		1
 
 inline EDescriptorSetStage GetDescriptorSetForStage(EShaderFrequency Stage)
 {
@@ -79,9 +67,14 @@ inline EDescriptorSetStage GetDescriptorSetForStage(EShaderFrequency Stage)
 	return EDescriptorSetStage::Invalid;
 }
 
+// Enables the VK_LAYER_LUNARG_api_dump layer and the report VK_DEBUG_REPORT_INFORMATION_BIT_EXT flag
 #define VULKAN_ENABLE_API_DUMP									0
-#define VULKAN_ENABLE_DRAW_MARKERS								(PLATFORM_WINDOWS && (VK_API_VERSION == VK_MAKE_VERSION(1, 0, 3)))
+// Enables logging wrappers per Vulkan call
+#define VULKAN_ENABLE_DUMP_LAYER								0
+#define VULKAN_ENABLE_DRAW_MARKERS								PLATFORM_WINDOWS
 #define VULKAN_ALLOW_MIDPASS_CLEAR								0
+
+#define VULKAN_SINGLE_ALLOCATION_PER_RESOURCE					0
 
 #define VULKAN_CUSTOM_MEMORY_MANAGER_ENABLED					0
 	
@@ -90,45 +83,22 @@ inline EDescriptorSetStage GetDescriptorSetForStage(EShaderFrequency Stage)
 // Please remove this after we are done with testing
 #if PLATFORM_WINDOWS
 	#define VULKAN_DISABLE_DEBUG_CALLBACK						0	/* Disable the DebugReportFunction() callback in VulkanDebug.cpp */
-	#define VULKAN_CLEAR_SURFACE_ON_CREATE						1
-	#define VULKAN_USE_MSAA_RESOLVE_ATTACHMENTS					1	/* 1 = use resolve attachments, 0 = Use a command buffer vkResolveImage for MSAA resolve */
-	#define VULKAN_USE_RING_BUFFER_FOR_GLOBAL_UBS				0	/* For some reason, using this on PC renders black - it may need lock/unlock all the time */
-	#define VULKAN_STRICT_TEXTURE_FLAGS							0	/* Checks the format feature flags when determining usage & flags for surfaces */
-	#define VULKAN_FORCE_WAIT_FOR_QUEUE							0	/* Ensures all work is finished inside the queue, before proceeding to the next frame. This should be only used to test for stability issues. The performance will be garbage, since we are not making use of any double/tripple buffering. */
+	#define VULKAN_USE_MSAA_RESOLVE_ATTACHMENTS					0	/* 1 = use resolve attachments, 0 = Use a command buffer vkResolveImage for MSAA resolve */
+	#define VULKAN_USE_RING_BUFFER_FOR_GLOBAL_UBS				1
 #else
 	#define VULKAN_DISABLE_DEBUG_CALLBACK						1	/* Disable the DebugReportFunction() callback in VulkanDebug.cpp */
-	#define VULKAN_CLEAR_SURFACE_ON_CREATE						0
 	#define VULKAN_USE_MSAA_RESOLVE_ATTACHMENTS					1
 	#define VULKAN_USE_RING_BUFFER_FOR_GLOBAL_UBS				1
-	#define VULKAN_STRICT_TEXTURE_FLAGS							0
-	#define VULKAN_FORCE_WAIT_FOR_QUEUE							0
 #endif
 
 #define VULKAN_ENABLE_AGGRESSIVE_STATS							1
 
 #define VULKAN_ENABLE_PIPELINE_CACHE							1
 
-//#todo-rco: Test on Android
-#define VULKAN_USE_MEMORY_SYSTEM								PLATFORM_WINDOWS	// Enables all vkAllocateMemory/vkFreeMemory to go through one system
-
-//#todo-rco: Test on Android
-#define VULKAN_USE_RESOURCE_ALLOCATIONS							0//PLATFORM_WINDOWS	// Does not directly allocate memory for buffers, instead partitions buffer ranges without reallocating memory
-
-//#todo-rco: Test on Android
-#define VULKAN_USE_NEW_STAGING_BUFFERS							PLATFORM_WINDOWS	// Enables reusing staging buffer memory
-
-//#todo-rco: Test on Android
-#define VULKAN_USE_FENCE_MANAGER								PLATFORM_WINDOWS
-
 #define VULKAN_ENABLE_RHI_DEBUGGING								1
 
-#define VULKAN_IGNORE_EXTENSIONS								(PLATFORM_ANDROID && 1)
-
-#define VULKAN_INVERT_VERTEX_SHADER_Y_AXIS						1	/* Compiles vertex shaders with inverted Y axis 'y=-y'. Note: If changed, requires full shader rebuild */
-
-#define VULKAN_DX11_TO_GLSL_DEPTH								0
-#define VULKAN_GLSL_TO_VULKAN_DEPTH								0	/* Compiles shaders with 'z=(z+w)/2' vertex output. Note: If changed, requires full shader rebuild */
-
+//#todo-rco: While validation is not fixed...
+#define VULKAN_REUSE_FENCES										(VK_HEADER_VERSION < 17)
 
 #if PLATFORM_ANDROID
 	#define VULKAN_SIGNAL_UNIMPLEMENTED()
@@ -142,15 +112,5 @@ inline EDescriptorSetStage GetDescriptorSetForStage(EShaderFrequency Stage)
 	#ifdef VULKAN_DISABLE_DEBUG_CALLBACK
 		#undef VULKAN_DISABLE_DEBUG_CALLBACK
 		#define VULKAN_DISABLE_DEBUG_CALLBACK 0
-	#endif
-#endif
-
-
-#if !VULKAN_USE_MEMORY_SYSTEM
-	#if VULKAN_USE_NEW_STAGING_BUFFERS
-		#error VULKAN_USE_NEW_STAGING_BUFFERS requires VULKAN_USE_MEMORY_SYSTEM enabled!
-	#endif
-	#if VULKAN_USE_BUFFER_HEAPS
-		#error VULKAN_USE_BUFFER_HEAPS requires VULKAN_USE_MEMORY_SYSTEM enabled!
 	#endif
 #endif

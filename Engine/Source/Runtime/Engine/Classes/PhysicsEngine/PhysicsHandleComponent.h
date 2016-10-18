@@ -32,20 +32,29 @@ class UPhysicsHandleComponent : public UActorComponent
 	/** Are we currently constraining the rotation of the grabbed object. */
 	uint32 bRotationConstrained:1;
 
-	/** Linear damping of the handle spring. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=PhysicsHandle)
+	uint32 bSoftAngularConstraint : 1;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = PhysicsHandle)
+	uint32 bSoftLinearConstraint : 1;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = PhysicsHandle)
+	uint32 bInterpolateTarget : 1;
+
+	/** Linear damping of the handle spring. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=PhysicsHandle, meta = (EditCondition = "bSoftConstraint"))
 	float LinearDamping;
 
 	/** Linear stiffness of the handle spring */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=PhysicsHandle)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=PhysicsHandle, meta = (EditCondition = "bSoftConstraint"))
 	float LinearStiffness;
 
 	/** Angular stiffness of the handle spring */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=PhysicsHandle)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=PhysicsHandle, meta = (EditCondition = "bSoftConstraint"))
 	float AngularDamping;
 
 	/** Angular stiffness of the handle spring */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=PhysicsHandle)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=PhysicsHandle, meta = (EditCondition = "bSoftConstraint"))
 	float AngularStiffness;
 
 	/** Target transform */
@@ -54,7 +63,7 @@ class UPhysicsHandleComponent : public UActorComponent
 	FTransform CurrentTransform;
 
 	/** How quickly we interpolate the physics target transform */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=PhysicsHandle)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=PhysicsHandle, meta = (EditCondition = "bInterpolateTarget"))
 	float InterpolationSpeed;
 
 
@@ -65,19 +74,28 @@ protected:
 	physx::PxRigidDynamic* KinActorData;
 
 	//~ Begin UActorComponent Interface.
-	virtual void OnUnregister() override;
-	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction) override;
+	ENGINE_API virtual void OnUnregister() override;
+	ENGINE_API virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction) override;
 	//~ End UActorComponent Interface.
 
 public:
 
 	/** Grab the specified component */
-	UFUNCTION(BlueprintCallable, Category="Physics|Components|PhysicsHandle")
-	ENGINE_API void GrabComponent(class UPrimitiveComponent* Component, FName InBoneName, FVector GrabLocation, bool bConstrainRotation);
+	DEPRECATED(4.14, "Please use GrabComponentAtLocation or GrabComponentAtLocationWithRotation")
+	UFUNCTION(BlueprintCallable, Category="Physics|Components|PhysicsHandle", meta = (DeprecatedFunction, DeprecationMessage = "Please use GrabComponentAtLocation or GrabComponentAtLocationWithRotation"))
+	ENGINE_API virtual void GrabComponent(class UPrimitiveComponent* Component, FName InBoneName, FVector GrabLocation, bool bConstrainRotation);
+
+	/** Grab the specified component at a given location. Does NOT constraint rotation which means the handle will pivot about GrabLocation.*/
+	UFUNCTION(BlueprintCallable, Category = "Physics|Components|PhysicsHandle")
+	ENGINE_API void GrabComponentAtLocation(class UPrimitiveComponent* Component, FName InBoneName, FVector GrabLocation);
+
+	/** Grab the specified component at a given location and rotation. Constrains rotation.*/
+	UFUNCTION(BlueprintCallable, Category = "Physics|Components|PhysicsHandle")
+	ENGINE_API void GrabComponentAtLocationWithRotation(class UPrimitiveComponent* Component, FName InBoneName, FVector Location, FRotator Rotation);
 
 	/** Release the currently held component */
 	UFUNCTION(BlueprintCallable, Category="Physics|Components|PhysicsHandle")
-	ENGINE_API void ReleaseComponent();
+	ENGINE_API virtual void ReleaseComponent();
 
 	/** Set the target location */
 	UFUNCTION(BlueprintCallable, Category="Physics|Components|PhysicsHandle")
@@ -120,7 +138,10 @@ protected:
 	void UpdateHandleTransform(const FTransform& NewTransform);
 
 	/** Update the underlying constraint drive settings from the params in this component */
-	void UpdateDriveSettings();
+	virtual void UpdateDriveSettings();
+
+	ENGINE_API virtual void GrabComponentImp(class UPrimitiveComponent* Component, FName InBoneName, const FVector& Location, const FRotator& Rotation, bool bRotationConstrained);
+
 };
 
 

@@ -51,15 +51,18 @@ bool UAIGraph::UpdateUnknownNodeClasses()
 	for (int32 NodeIdx = 0; NodeIdx < Nodes.Num(); NodeIdx++)
 	{
 		UAIGraphNode* MyNode = Cast<UAIGraphNode>(Nodes[NodeIdx]);
-		const bool bUpdatedNode = MyNode->RefreshNodeClass();
-		bUpdated = bUpdated || bUpdatedNode;
-
-		for (int32 SubNodeIdx = 0; SubNodeIdx < MyNode->SubNodes.Num(); SubNodeIdx++)
+		if (MyNode)
 		{
-			if (MyNode->SubNodes[SubNodeIdx])
+			const bool bUpdatedNode = MyNode->RefreshNodeClass();
+			bUpdated = bUpdated || bUpdatedNode;
+
+			for (int32 SubNodeIdx = 0; SubNodeIdx < MyNode->SubNodes.Num(); SubNodeIdx++)
 			{
-				const bool bUpdatedSubNode = MyNode->SubNodes[SubNodeIdx]->RefreshNodeClass();
-				bUpdated = bUpdated || bUpdatedSubNode;
+				if (MyNode->SubNodes[SubNodeIdx])
+				{
+					const bool bUpdatedSubNode = MyNode->SubNodes[SubNodeIdx]->RefreshNodeClass();
+					bUpdated = bUpdated || bUpdatedSubNode;
+				}
 			}
 		}
 	}
@@ -133,7 +136,6 @@ void UAIGraph::CollectAllNodeInstances(TSet<UObject*>& NodeInstances)
 bool UAIGraph::CanRemoveNestedObject(UObject* TestObject) const
 {
 	return !TestObject->IsA(UEdGraphNode::StaticClass()) &&
-		!TestObject->IsA(UEdGraphPin::StaticClass()) &&
 		!TestObject->IsA(UEdGraph::StaticClass()) &&
 		!TestObject->IsA(UEdGraphSchema::StaticClass());
 }

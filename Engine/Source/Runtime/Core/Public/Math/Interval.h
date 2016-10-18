@@ -8,7 +8,7 @@
  */
 template<typename ElementType> struct TInterval
 {
-	static_assert(TIsArithmeticType<ElementType>::Value, "Interval can be used only with numeric types");
+	static_assert(TIsArithmetic<ElementType>::Value, "Interval can be used only with numeric types");
 	
 	/** Holds the lower bound of the interval. */
 	ElementType Min;

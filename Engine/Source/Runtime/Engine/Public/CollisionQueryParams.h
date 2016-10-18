@@ -11,6 +11,13 @@
 /** Macro to convert from CollisionResponseContainer to bit flag **/
 #define CRC_TO_BITFIELD(x)	(1<<(x))
 
+enum class EQueryMobilityType
+{
+	Any,
+	Static,	//Any shape that is considered static by physx (static mobility)
+	Dynamic	//Any shape that is considered dynamic by physx (movable/stationary mobility)
+};
+
 /** Structure that defines parameters passed into collision function */
 struct ENGINE_API FCollisionQueryParams
 {
@@ -25,6 +32,9 @@ struct ENGINE_API FCollisionQueryParams
 
 	/** Whether we should trace against complex collision */
 	bool bTraceComplex;
+
+	/** Filters query by mobility types (static vs stationary/movable)*/
+	EQueryMobilityType MobilityType;
 
 	/** Whether we want to find out initial overlap or not. If true, it will return if this was initial overlap. */
 	bool bFindInitialOverlaps;
@@ -97,6 +107,7 @@ public:
 	FCollisionQueryParams(bool bInTraceComplex)
 	{
 		bTraceComplex = bInTraceComplex;
+		MobilityType = EQueryMobilityType::Any;
 		TraceTag = NAME_None;
 		bTraceAsyncScene = false;
 		bFindInitialOverlaps = true;
@@ -110,6 +121,7 @@ public:
 	FCollisionQueryParams()
 	{
 		bTraceComplex = false;
+		MobilityType = EQueryMobilityType::Any;
 		TraceTag = NAME_None;
 		bTraceAsyncScene = false;
 		bFindInitialOverlaps = true;
@@ -128,6 +140,9 @@ public:
 
 	/** Add an actor for this trace to ignore */
 	void AddIgnoredActor(const AActor* InIgnoreActor);
+
+	/** Add an actor by ID for this trace to ignore */
+	void AddIgnoredActor(const uint32 InIgnoreActorID);
 
 	/** Add a collection of actors for this trace to ignore */
 	void AddIgnoredActors(const TArray<AActor*>& InIgnoreActors);

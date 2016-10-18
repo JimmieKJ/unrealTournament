@@ -49,11 +49,6 @@ void UNavRelevantComponent::OnRegister()
 			}
 		}
 	}
-	else if (!bBoundsInitialized)
-	{
-		bBoundsInitialized = true;
-		UpdateNavigationBounds();
-	}
 
 	UNavigationSystem::OnComponentRegistered(this);
 }
@@ -67,6 +62,12 @@ void UNavRelevantComponent::OnUnregister()
 
 FBox UNavRelevantComponent::GetNavigationBounds() const
 {
+	if (!bBoundsInitialized)
+	{
+		CalcAndCacheBounds();
+		bBoundsInitialized = true;
+	}
+
 	return Bounds;
 }
 
@@ -78,6 +79,7 @@ bool UNavRelevantComponent::IsNavigationRelevant() const
 void UNavRelevantComponent::UpdateNavigationBounds()
 {
 	CalcAndCacheBounds();
+	bBoundsInitialized = true;
 }
 
 UObject* UNavRelevantComponent::GetNavigationParent() const

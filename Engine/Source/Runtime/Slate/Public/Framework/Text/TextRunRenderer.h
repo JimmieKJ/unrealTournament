@@ -13,6 +13,20 @@ struct SLATE_API FTextRunRenderer
 
 	}
 
+	bool operator==(const FTextRunRenderer& Other) const
+	{
+		return LineIndex == Other.LineIndex
+			&& Range == Other.Range
+			&& Renderer == Other.Renderer;
+	}
+
+	bool operator!=(const FTextRunRenderer& Other) const
+	{
+		return LineIndex != Other.LineIndex
+			|| Range != Other.Range
+			|| Renderer != Other.Renderer;
+	}
+
 	int32 LineIndex;
 	FTextRange Range;
 	TSharedRef< IRunRenderer > Renderer;

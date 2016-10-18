@@ -8,6 +8,7 @@
 USafeZoneSlot::USafeZoneSlot()
 {
 	bIsTitleSafe = true;
+	SafeAreaScale = FMargin(1, 1, 1, 1);
 }
 
 void USafeZoneSlot::SynchronizeProperties()

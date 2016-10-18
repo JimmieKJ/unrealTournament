@@ -63,6 +63,18 @@ class ENGINE_API UAudioSettings : public UDeveloperSettings
 	UPROPERTY(config, EditAnywhere, Category="Quality")
 	TArray<FAudioQualitySettings> QualityLevels;
 
+	/**
+	 * The format string to use when generating the filename for contexts within dialogue waves. This must generate unique names for your project.
+	 * Available format markers:
+	 *   * {DialogueGuid} - The GUID of the dialogue wave. Guaranteed to be unique and stable against asset renames.
+	 *   * {DialogueHash} - The hash of the dialogue wave. Not guaranteed to be unique or stable against asset renames, however may be unique enough if combined with the dialogue name.
+	 *   * {DialogueName} - The name of the dialogue wave. Not guaranteed to be unique or stable against asset renames, however may be unique enough if combined with the dialogue hash.
+	 *   * {ContextId}    - The ID of the context. Guaranteed to be unique within its dialogue wave. Not guaranteed to be stable against changes to the context.
+	 *   * {ContextIndex} - The index of the context within its parent dialogue wave. Guaranteed to be unique within its dialogue wave. Not guaranteed to be stable against contexts being removed.
+	 */
+	UPROPERTY(config, EditAnywhere, Category="Dialogue")
+	FString DialogueFilenameFormat;
+
 	const FAudioQualitySettings& GetQualityLevelSettings(int32 QualityLevel) const;
 
 private:

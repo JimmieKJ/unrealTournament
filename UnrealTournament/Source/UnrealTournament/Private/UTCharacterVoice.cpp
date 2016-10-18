@@ -11,6 +11,7 @@ UUTCharacterVoice::UUTCharacterVoice(const FObjectInitializer& ObjectInitializer
 	bOptionalSpoken = true;
 	FontSizeIndex = 1;
 	Lifetime = 6.0f;
+	bPlayDuringIntermission = false;
 
 	// < 1000 is reserved for taunts
 	SameTeamBaseIndex = 1000;
@@ -44,6 +45,26 @@ UUTCharacterVoice::UUTCharacterVoice(const FObjectInitializer& ObjectInitializer
 	StatusOffsets.Add(GameVolumeSpeechType::GV_Temple, KEY_CALLOUTS + 1300);
 	StatusOffsets.Add(GameVolumeSpeechType::GV_Cave, KEY_CALLOUTS + 1400);
 	StatusOffsets.Add(GameVolumeSpeechType::GV_BaseCamp, KEY_CALLOUTS + 1500);
+	StatusOffsets.Add(GameVolumeSpeechType::GV_Sniper, KEY_CALLOUTS + 1600);
+	StatusOffsets.Add(GameVolumeSpeechType::GV_Arena, KEY_CALLOUTS + 1700);
+	StatusOffsets.Add(GameVolumeSpeechType::GV_Bonsaii, KEY_CALLOUTS + 1800);
+	StatusOffsets.Add(GameVolumeSpeechType::GV_Cliffs, KEY_CALLOUTS + 1900);
+	StatusOffsets.Add(GameVolumeSpeechType::GV_Core, KEY_CALLOUTS + 2000);
+	StatusOffsets.Add(GameVolumeSpeechType::GV_Crossroads, KEY_CALLOUTS + 2100);
+	StatusOffsets.Add(GameVolumeSpeechType::GV_Vents, KEY_CALLOUTS + 2200);
+	StatusOffsets.Add(GameVolumeSpeechType::GV_Pipes, KEY_CALLOUTS + 2300);
+	StatusOffsets.Add(GameVolumeSpeechType::GV_Ramp, KEY_CALLOUTS + 2400);
+	StatusOffsets.Add(GameVolumeSpeechType::GV_Hinge, KEY_CALLOUTS + 2500);
+	StatusOffsets.Add(GameVolumeSpeechType::GV_Tree, KEY_CALLOUTS + 2600);
+	StatusOffsets.Add(GameVolumeSpeechType::GV_Tunnel, KEY_CALLOUTS + 2700);
+	StatusOffsets.Add(GameVolumeSpeechType::GV_Falls, KEY_CALLOUTS + 2800);
+	StatusOffsets.Add(GameVolumeSpeechType::GV_Fort, KEY_CALLOUTS + 2900);
+	StatusOffsets.Add(GameVolumeSpeechType::GV_Fountain, KEY_CALLOUTS + 3000);
+	StatusOffsets.Add(GameVolumeSpeechType::GV_GateHouse, KEY_CALLOUTS + 3100);
+	StatusOffsets.Add(GameVolumeSpeechType::GV_Overlook, KEY_CALLOUTS + 3200);
+	StatusOffsets.Add(GameVolumeSpeechType::GV_Ruins, KEY_CALLOUTS + 3300);
+	StatusOffsets.Add(GameVolumeSpeechType::GV_SniperTower, KEY_CALLOUTS + 3400);
+	StatusOffsets.Add(GameVolumeSpeechType::GV_Flak, KEY_CALLOUTS + 3500);
 
 	StatusOffsets.Add(StatusMessage::EnemyRally, KEY_CALLOUTS + 5000);
 	StatusOffsets.Add(StatusMessage::FindFC, KEY_CALLOUTS + 5001);
@@ -52,10 +73,14 @@ UUTCharacterVoice::UUTCharacterVoice(const FObjectInitializer& ObjectInitializer
 	StatusOffsets.Add(StatusMessage::EnemyThreePlayers, KEY_CALLOUTS + 5004);
 	StatusOffsets.Add(StatusMessage::NeedRally, KEY_CALLOUTS + 5006);
 	StatusOffsets.Add(StatusMessage::NeedHealth, KEY_CALLOUTS + 5007);
+	StatusOffsets.Add(StatusMessage::BehindYou, KEY_CALLOUTS + 5008);
+	StatusOffsets.Add(StatusMessage::RedeemerSpotted, KEY_CALLOUTS + 5009);
+	StatusOffsets.Add(StatusMessage::GetTheFlag, KEY_CALLOUTS + 5010);
 
 	StatusOffsets.Add(PickupSpeechType::RedeemerPickup, KEY_CALLOUTS + 5100);
 	StatusOffsets.Add(PickupSpeechType::UDamagePickup, KEY_CALLOUTS + 5200);
 	StatusOffsets.Add(PickupSpeechType::ShieldbeltPickup, KEY_CALLOUTS + 5300);
+	StatusOffsets.Add(StatusMessage::RedeemerKills, KEY_CALLOUTS + 5400);	
 
 	TauntText = NSLOCTEXT("UTCharacterVoice", "Taunt", ": {TauntMessage}");
 	StatusTextFormat = NSLOCTEXT("UTCharacterVoice", "StatusFormat", " at {LastKnownLocation}: {TauntMessage}");
@@ -79,6 +104,11 @@ FName UUTCharacterVoice::GetFallbackLines(FName InName) const
 bool UUTCharacterVoice::IsOptionalSpoken(int32 MessageIndex) const
 {
 	return bOptionalSpoken && (MessageIndex < KEY_CALLOUTS);
+}
+
+int32 UUTCharacterVoice::GetDestinationIndex(int32 MessageIndex) const
+{
+	return (MessageIndex < 1000) ? 4 : 6;
 }
 
 FText UUTCharacterVoice::GetText(int32 Switch, bool bTargetsPlayerState1, class APlayerState* RelatedPlayerState_1, class APlayerState* RelatedPlayerState_2, class UObject* OptionalObject) const
@@ -311,6 +341,86 @@ FCharacterSpeech UUTCharacterVoice::GetCharacterSpeech(int32 Switch) const
 			{
 				return GetGVLine(BaseCampLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_BaseCamp));
 			}
+			else if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_Sniper) / 100)
+			{
+				return GetGVLine(SniperLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_Sniper));
+			}
+			else if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_Arena) / 100)
+			{
+				return GetGVLine(ArenaLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_Arena));
+			}
+			else if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_Bonsaii) / 100)
+			{
+				return GetGVLine(BonsaiiLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_Bonsaii));
+			}
+			else if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_Cliffs) / 100)
+			{
+				return GetGVLine(CliffsLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_Cliffs));
+			}
+			else if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_Core) / 100)
+			{
+				return GetGVLine(CoreLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_Core));
+			}
+			else if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_Crossroads) / 100)
+			{
+				return GetGVLine(CrossroadsLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_Crossroads));
+			}
+			else if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_Vents) / 100)
+			{
+				return GetGVLine(VentsLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_Vents));
+			}
+			else if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_Pipes) / 100)
+			{
+				return GetGVLine(PipesLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_Pipes));
+			}
+			else if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_Ramp) / 100)
+			{
+				return GetGVLine(RampLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_Ramp));
+			}
+			else if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_Hinge) / 100)
+			{
+				return GetGVLine(HingeLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_Hinge));
+			}
+			else if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_Tree) / 100)
+			{
+				return GetGVLine(TreeLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_Tree));
+			}
+			else if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_Tunnel) / 100)
+			{
+				return GetGVLine(TunnelLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_Tunnel));
+			}
+			else if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_Falls) / 100)
+			{
+				return GetGVLine(WaterfallLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_Falls));
+			}
+			else if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_Fort) / 100)
+			{
+				return GetGVLine(FortLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_Fort));
+			}
+			else if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_Fountain) / 100)
+			{
+				return GetGVLine(FountainLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_Fountain));
+			}
+			else if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_GateHouse) / 100)
+			{
+				return GetGVLine(GateHouseLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_GateHouse));
+			}
+			else if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_Overlook) / 100)
+			{
+				return GetGVLine(OverlookLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_Overlook));
+			}
+			else if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_Ruins) / 100)
+			{
+				return GetGVLine(RuinsLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_Ruins));
+			}
+			else if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_SniperTower) / 100)
+			{
+				return GetGVLine(SniperTowerLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_SniperTower));
+			}
+			else if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_Flak) / 100)
+			{
+				return GetGVLine(FlakLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_Flak));
+			}
 			else if (Switch / 100 == GetStatusIndex(PickupSpeechType::UDamagePickup) / 100)
 			{
 				return (Switch - GetStatusIndex(PickupSpeechType::UDamagePickup) == 0) ? UDamageAvailableLine : UDamagePickupLine;
@@ -360,6 +470,23 @@ FCharacterSpeech UUTCharacterVoice::GetCharacterSpeech(int32 Switch) const
 			{
 				return (NeedHealthMessages.Num() == 0) ? EmptySpeech : NeedHealthMessages[FMath::RandRange(0, NeedHealthMessages.Num() - 1)];
 			}
+			else if (Switch == GetStatusIndex(StatusMessage::BehindYou))
+			{
+				return (BehindYouMessages.Num() == 0) ? EmptySpeech : BehindYouMessages[FMath::RandRange(0, BehindYouMessages.Num() - 1)];
+			}
+			else if (Switch == GetStatusIndex(StatusMessage::GetTheFlag))
+			{
+				return (GetTheFlagMessages.Num() == 0) ? EmptySpeech : GetTheFlagMessages[FMath::RandRange(0, GetTheFlagMessages.Num() - 1)];
+			}
+			else if (Switch/100 == GetStatusIndex(StatusMessage::RedeemerKills)/100)
+			{
+				int32 Index = FMath::Min(4, Switch - GetStatusIndex(StatusMessage::RedeemerKills));
+				return (RedeemerKillMessages.Num() > Index) ? RedeemerKillMessages[Index] : EmptySpeech;
+			}
+			else if (Switch == GetStatusIndex(StatusMessage::RedeemerSpotted))
+			{
+				return (RedeemerSpottedMessages.Num() == 0) ? EmptySpeech : RedeemerSpottedMessages[FMath::RandRange(0, RedeemerSpottedMessages.Num() - 1)];
+			}
 		}
 	}
 	return EmptySpeech;
@@ -401,9 +528,9 @@ bool UUTCharacterVoice::ShouldPlayAnnouncement(const FClientReceiveData& ClientD
 	}
 }
 
-bool UUTCharacterVoice::InterruptAnnouncement_Implementation(int32 Switch, const UObject* OptionalObject, TSubclassOf<UUTLocalMessage> OtherMessageClass, int32 OtherSwitch, const UObject* OtherOptionalObject) const
+bool UUTCharacterVoice::InterruptAnnouncement(const FAnnouncementInfo AnnouncementInfo, const FAnnouncementInfo OtherAnnouncementInfo) const
 {
-	return (GetClass() == OtherMessageClass) && (Switch >= KEY_CALLOUTS) && (OtherSwitch < KEY_CALLOUTS);
+	return (AnnouncementInfo.MessageClass == OtherAnnouncementInfo.MessageClass) && (AnnouncementInfo.Switch >= KEY_CALLOUTS) && (OtherAnnouncementInfo.Switch < KEY_CALLOUTS);
 }
 
 bool UUTCharacterVoice::CancelByAnnouncement_Implementation(int32 Switch, const UObject* OptionalObject, TSubclassOf<UUTLocalMessage> OtherMessageClass, int32 OtherSwitch, const UObject* OtherOptionalObject) const
@@ -418,9 +545,9 @@ bool UUTCharacterVoice::CancelByAnnouncement_Implementation(int32 Switch, const 
 	}
 }
 
-float UUTCharacterVoice::GetAnnouncementPriority(int32 Switch) const
+float UUTCharacterVoice::GetAnnouncementPriority(const FAnnouncementInfo AnnouncementInfo) const
 {
-	return (Switch >= KEY_CALLOUTS) ? 0.5f : 0.1f;
+	return (AnnouncementInfo.Switch >= KEY_CALLOUTS) ? 0.5f : 0.1f;
 }
 
 int32 UUTCharacterVoice::GetStatusIndex(FName NewStatus) const

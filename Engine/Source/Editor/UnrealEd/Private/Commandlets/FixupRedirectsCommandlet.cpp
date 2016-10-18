@@ -120,9 +120,8 @@ int32 UFixupRedirectsCommandlet::Main( const FString& Params )
 		// load all string asset reference targets, and add fake redirectors for them
 		GRedirectCollector.ResolveStringAssetReference();
 
-		for (int32 RedirIndex = 0; RedirIndex < GRedirectCollector.Redirections.Num(); RedirIndex++)
+		for (const auto& Redir : GRedirectCollector.GetRedirections())
 		{
-			FRedirection& Redir = GRedirectCollector.Redirections[RedirIndex];
 			UE_LOG(LogFixupRedirectsCommandlet, Warning, TEXT("Boot redirector can't be cleaned: %s(%s) -> %s(%s)"), *Redir.RedirectorName, *Redir.RedirectorPackageFilename, *Redir.DestinationObjectName, *Redir.PackageFilename);
 			RedirectorsThatCantBeCleaned.AddUnique(Redir.RedirectorName);
 		}
@@ -183,10 +182,8 @@ int32 UFixupRedirectsCommandlet::Main( const FString& Params )
 			// look for any redirects that were followed that are referenced by this package
 			// (may have been loaded earlier if this package was loaded by script code)
 			// any redirectors referenced by script code can't be cleaned up
-			for (int32 RedirIndex = 0; RedirIndex < GRedirectCollector.Redirections.Num(); RedirIndex++)
+			for (const auto& Redir : GRedirectCollector.GetRedirections())
 			{
-				FRedirection& Redir = GRedirectCollector.Redirections[RedirIndex];
-
 				if (Redir.PackageFilename == Filename)
 				{
 					UE_LOG(LogFixupRedirectsCommandlet, Warning, TEXT("   ... references %s [-> %s]"), *Redir.RedirectorName, *Redir.DestinationObjectName);
@@ -507,6 +504,12 @@ int32 UFixupRedirectsCommandlet::Main( const FString& Params )
 			const FString& Filename = PackagesToCleaseOfRedirects[PackageIndex];
 		
 			if (bDeleteOnlyReferencedRedirects && PackagesWithRedirects[PackageIndex] == 0)
+			{
+				continue;
+			}
+
+			// When not updating engine packages, we don't need to spam the log about them.
+			if (!bUpdateEnginePackages && Filename.StartsWith(FPaths::EngineDir()))
 			{
 				continue;
 			}

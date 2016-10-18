@@ -38,8 +38,20 @@ public:
 	/** Attempt to cancel the operation */
 	void Cancel();
 
+	/** Mark the connection to the server as successful */
+	void MarkConnectionAsSuccessful();
+
+	/** Mark as canceled while trying to connect */
+	void CancelWhileTryingToConnect();
+
 	/** Is the operation canceled? */
 	bool IsCanceled() const;
+
+	/** Was the connection to the server successful? */
+	bool WasConnectionSuccessful() const;
+
+	/** Was the operation canceled while trying to connect? */
+	bool WasCanceledWhileTryingToConnect() const;
 
 public:
 	/** Connection parameters, reproduced here because if is not safe to access the provider's settings from another thread */
@@ -59,6 +71,12 @@ public:
 
 	/**If true, this command has been cancelled*/
 	volatile int32 bCancelled;
+
+	/**If true, the source control connection was made successfully */
+	volatile int32 bConnectionWasSuccessful;
+
+	/**If true, this command was cancelled while trying to connect */
+	volatile int32 bCancelledWhileTryingToConnect;
 
 	/**If true, the source control command succeeded*/
 	bool bCommandSuccessful;

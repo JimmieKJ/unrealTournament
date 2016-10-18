@@ -15,6 +15,7 @@ public:
 	virtual void CreateColorPickerWindow( const TSharedRef< class FPropertyEditor >& PropertyEditor, bool bUseAlpha ) const = 0;
 	virtual void EnqueueDeferredAction( FSimpleDelegate DeferredAction ) = 0;
 	virtual bool IsPropertyEditingEnabled() const = 0;
+	virtual void ForceRefresh() = 0;
 	virtual void RequestRefresh() = 0;
 	virtual TSharedPtr<class FAssetThumbnailPool> GetThumbnailPool() const = 0;
 	virtual void NotifyFinishedChangingProperties(const FPropertyChangedEvent& PropertyChangedEvent) = 0;

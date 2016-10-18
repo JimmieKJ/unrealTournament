@@ -106,8 +106,22 @@ public:
 	 *
 	 * @param InDelay Delay until next fire; 0 means "next frame"
 	 * @param Ticker the ticker to register with. Defaults to FTicker::GetCoreTicker().
-	 */
+	*/
+#if ( PLATFORM_WINDOWS && defined(__clang__) )
+	CORE_API FTickerObjectBase()							// @todo clang: non-default argument constructors needed to prevent an ICE in clang
+		: FTickerObjectBase(0.0f, FTicker::GetCoreTicker())	// https://llvm.org/bugs/show_bug.cgi?id=28137
+	{
+	}
+
+	CORE_API FTickerObjectBase(float InDelay)
+		: FTickerObjectBase(InDelay, FTicker::GetCoreTicker())
+	{
+	}
+
+	CORE_API FTickerObjectBase(float InDelay, FTicker& Ticker);
+#else
 	CORE_API FTickerObjectBase(float InDelay = 0.0f, FTicker& Ticker = FTicker::GetCoreTicker());
+#endif
 
 	/** Virtual destructor. */
 	CORE_API virtual ~FTickerObjectBase();

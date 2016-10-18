@@ -459,7 +459,7 @@ void FTimingRelevantElement_Section::GetDescriptionItems(TMap<FString, FText>& I
 	NumberOptions.MinimumFractionalDigits = 3;
 
 	Items.Add(LOCTEXT("SectionName", "Name").ToString(), FText::FromName(Section.SectionName));
-	Items.Add(LOCTEXT("SectionTriggerTime", "Trigger Time").ToString(), FText::Format(LOCTEXT("SectionTriggerTime", "{0}s"), FText::AsNumber(Section.GetTime(), &NumberOptions)));
+	Items.Add(LOCTEXT("SectionTriggerTime", "Trigger Time").ToString(), FText::Format(LOCTEXT("SectionTriggerTimeValue", "{0}s"), FText::AsNumber(Section.GetTime(), &NumberOptions)));
 }
 
 FName FTimingRelevantElement_Notify::GetTypeName()

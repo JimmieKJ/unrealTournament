@@ -5,7 +5,20 @@
  */
 
 #pragma once
+#include "CookStats.h"
 #include "SubUVAnimation.generated.h"
+
+#if ENABLE_COOK_STATS
+class SubUVAnimationCookStats
+{
+public:
+	static FCookStats::FDDCResourceUsageStats UsageStats;
+	static FCookStatsManager::FAutoRegisterCallback RegisterCookStats;
+};
+#endif
+
+// Can change this guid to force SubUV derived data to be regenerated on next load
+#define SUBUV_DERIVEDDATA_VER TEXT("67E9AF86DF8B4D8E97B7A614A73CD4BF")
 
 /** 
  * More bounding vertices results in reduced overdraw, but adds more triangle overhead.
@@ -19,14 +32,24 @@ enum ESubUVBoundingVertexCount
 	BVC_EightVertices
 };
 
+UENUM()
+enum EOpacitySourceMode
+{
+	OSM_Alpha,
+	OSM_ColorBrightness,
+	OSM_RedChannel,
+	OSM_GreenChannel,
+	OSM_BlueChannel
+};
+
 class FSubUVDerivedData
 {
 public:
 	TArray<FVector2D> BoundingGeometry;
 
-	static FString GetDDCKeyString(const FGuid& StateId, int32 SizeX, int32 SizeY, int32 Mode, float AlphaThreshold);
+	static FString GetDDCKeyString(const FGuid& StateId, int32 SizeX, int32 SizeY, int32 Mode, float AlphaThreshold, int32 OpacitySourceMode);
 	void Serialize(FArchive& Ar);
-	void Build(UTexture2D* SubUVTexture, int32 SubImages_Horizontal, int32 SubImages_Vertical, ESubUVBoundingVertexCount BoundingMode, float AlphaThreshold);
+	void Build(UTexture2D* SubUVTexture, int32 SubImages_Horizontal, int32 SubImages_Vertical, ESubUVBoundingVertexCount BoundingMode, float AlphaThreshold, EOpacitySourceMode OpacitySourceMode);
 };
 
 class FSubUVBoundingGeometryBuffer : public FVertexBuffer
@@ -47,6 +70,28 @@ public:
 		FVertexBuffer::ReleaseRHI();
 		ShaderResourceView.SafeRelease();
 	}
+};
+
+/** Resource array to pass  */
+class FSubUVVertexResourceArray : public FResourceArrayInterface
+{
+public:
+	FSubUVVertexResourceArray(void* InData, uint32 InSize)
+		: Data(InData)
+		, Size(InSize)
+	{
+	}
+
+	virtual const void* GetResourceData() const override { return Data; }
+	virtual uint32 GetResourceDataSize() const override { return Size; }
+	virtual void Discard() override { }
+	virtual bool IsStatic() const override { return false; }
+	virtual bool GetAllowCPUAccess() const override { return false; }
+	virtual void SetAllowCPUAccess(bool bInNeedsCPUAccess) override { }
+
+private:
+	void* Data;
+	uint32 Size;
 };
 
 /**
@@ -79,6 +124,9 @@ class USubUVAnimation : public UObject
 	 */
 	UPROPERTY(EditAnywhere, Category=SubUV)
 	TEnumAsByte<enum ESubUVBoundingVertexCount> BoundingMode;
+
+	UPROPERTY(EditAnywhere, Category=SubUV)
+	TEnumAsByte<enum EOpacitySourceMode> OpacitySourceMode;
 
 	/** 
 	 * Alpha channel values larger than the threshold are considered occupied and will be contained in the bounding geometry.
@@ -151,10 +199,6 @@ public:
 	virtual void BeginDestroy() override;
 	virtual bool IsReadyForFinishDestroy() override;
 	virtual void FinishDestroy() override;
-	virtual bool NeedsLoadForServer() const override
-	{
-		return false;
-	}
 	//~ End UObject Interface.
 
 private:

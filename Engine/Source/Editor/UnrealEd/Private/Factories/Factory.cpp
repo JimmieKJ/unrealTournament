@@ -1,25 +1,21 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-
-// Editor includes.
 #include "UnrealEd.h"
 #include "ObjectTools.h"
 #include "AssetToolsModule.h"
 #include "EditorClassUtils.h"
 
+
 DEFINE_LOG_CATEGORY_STATIC(LogFactory, Log, All);
 
-/*----------------------------------------------------------------------------
-	UFactory.
-----------------------------------------------------------------------------*/
+
 FString UFactory::CurrentFilename(TEXT(""));
 
 // This needs to be greater than 0 to allow factories to have both higher and lower priority than the default
 const int32 UFactory::DefaultImportPriority = 100;
-
 int32 UFactory::OverwriteYesOrNoToAllState = -1;
-
 bool UFactory::bAllowOneTimeWarningMessages = true;
+
 
 UFactory::UFactory(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -27,57 +23,151 @@ UFactory::UFactory(const FObjectInitializer& ObjectInitializer)
 	ImportPriority = DefaultImportPriority;
 }
 
+
 void UFactory::AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector)
 {	
 	UFactory* This = CastChecked<UFactory>(InThis);
 	UClass* SupportedClass = *This->SupportedClass;
 	UClass* ContextClass = *This->ContextClass;
-	Collector.AddReferencedObject( SupportedClass, This );
-	Collector.AddReferencedObject( ContextClass, This );
+	Collector.AddReferencedObject(SupportedClass, This);
+	Collector.AddReferencedObject(ContextClass, This);
 
-	Super::AddReferencedObjects( This, Collector );
+	Super::AddReferencedObjects(This, Collector);
+}
+
+
+UObject* UFactory::FactoryCreateFile(UClass* InClass, UObject* InParent, FName InName, EObjectFlags Flags, const FString& Filename, const TCHAR* Parms, FFeedbackContext* Warn, bool& bOutOperationCanceled)
+{
+	FString FileExtension = FPaths::GetExtension(Filename);
+
+	// load as text
+	if (bText)
+	{
+		FString Data;
+		if (!FFileHelper::LoadFileToString(Data, *Filename))
+		{
+			UE_LOG(LogFactory, Error, TEXT("Failed to load file '%s' to string"), *Filename);
+			return nullptr;
+		}
+
+		ParseParms(Parms);
+		const TCHAR* Ptr = *Data;
+			
+		return FactoryCreateText(InClass, InParent, InName, Flags, nullptr, *FileExtension, Ptr, Ptr + Data.Len(), Warn);
+	}
+
+	// load as binary
+	{
+		TArray<uint8> Data;
+		if (!FFileHelper::LoadFileToArray(Data, *Filename))
+		{
+			UE_LOG(LogFactory, Error, TEXT("Failed to load file '%s' to array"), *Filename);
+			return nullptr;
+		}
+
+		Data.Add(0);
+		ParseParms(Parms);
+		const uint8* Ptr = &Data[0];
+
+		return FactoryCreateBinary(InClass, InParent, InName, Flags, nullptr, *FileExtension, Ptr, Ptr + Data.Num() - 1, Warn, bOutOperationCanceled);
+	}
 }
 
 
 bool UFactory::FactoryCanImport( const FString& Filename )
 {
-	//check extension (only do the following for t3d)
-	if (FPaths::GetExtension(Filename) == TEXT("t3d"))
+	// only T3D is supported
+	if (FPaths::GetExtension(Filename) != TEXT("t3d"))
 	{
-		//Open file
-		FString Data;
-		if( FFileHelper::LoadFileToString( Data, *Filename ) )
-		{
-			const TCHAR* Str= *Data;
+		return false;
+	}
 
-			if( FParse::Command(&Str, TEXT("BEGIN") ) && FParse::Command(&Str, TEXT("OBJECT")) )
-			{
-				FString strClass;
-				if (FParse::Value(Str, TEXT("CLASS="), strClass))
-				{
-					//we found the right syntax, so no error if we don't match
-					if (strClass == SupportedClass->GetName())
-					{
-						return true;
-					}
-					return false;
-				}
-			}
-			UE_LOG(LogFactory, Warning, TEXT("Factory import failed due to invalid format: %s"), *Filename);
-		}
-		else
+	// open file
+	FString Data;
+
+	if (FFileHelper::LoadFileToString(Data, *Filename))
+	{
+		const TCHAR* Str= *Data;
+		if (FParse::Command(&Str, TEXT("BEGIN")) && FParse::Command(&Str, TEXT("OBJECT")))
 		{
-			UE_LOG(LogFactory, Warning, TEXT("Factory import failed due to inability to load file %s"), *Filename);
+			FString strClass;
+			if (FParse::Value(Str, TEXT("CLASS="), strClass))
+			{
+				//we found the right syntax, so no error if we don't match
+				if (strClass == SupportedClass->GetName())
+				{
+					return true;
+				}
+
+				return false;
+			}
 		}
+
+		UE_LOG(LogFactory, Warning, TEXT("Factory import failed due to invalid format: %s"), *Filename);
+	}
+	else
+	{
+		UE_LOG(LogFactory, Warning, TEXT("Factory import failed due to inability to load file %s"), *Filename);
 	}
 
 	return false;
 }
 
+
+UObject* UFactory::ImportObject(UClass* InClass, UObject* InOuter, FName InName, EObjectFlags InFlags, const FString& Filename, const TCHAR* Parms, bool& OutCanceled)
+{
+	UObject* Result = nullptr;
+	CurrentFilename = Filename;
+
+	if (CanCreateNew())
+	{
+		UE_LOG(LogFactory, Log, TEXT("FactoryCreateNew: %s with %s (%i %i %s)"), *InClass->GetName(), *GetClass()->GetName(), bCreateNew, bText, *Filename);
+		ParseParms(Parms);
+
+		Result = FactoryCreateNew(InClass, InOuter, InName, InFlags, nullptr, GWarn);
+	}
+	else if (!Filename.IsEmpty())
+	{
+		// sanity check the file size of the impending import and prompt
+		// the user if they wish to continue if the file size is very large
+		const int32 FileSize = IFileManager::Get().FileSize(*Filename);
+
+		if (FileSize == INDEX_NONE)
+		{
+			UE_LOG(LogFactory, Error, TEXT("Can't find file '%s' for import"), *Filename);
+		}
+		else
+		{
+			UE_LOG(LogFactory, Log, TEXT("FactoryCreateFile: %s with %s (%i %i %s)"), *InClass->GetName(), *GetClass()->GetName(), bCreateNew, bText, *Filename);
+
+			Result = FactoryCreateFile(InClass, InOuter, InName, InFlags, *Filename, Parms, GWarn, OutCanceled);
+		}
+	}
+
+	if (Result != nullptr)
+	{
+		Result->MarkPackageDirty();
+		ULevel::LevelDirtiedEvent.Broadcast();
+		Result->PostEditChange();
+	}
+
+	CurrentFilename = TEXT("");
+
+	return Result;
+}
+
+
 bool UFactory::ShouldShowInNewMenu() const
 {
 	return CanCreateNew();
 }
+
+
+FName UFactory::GetNewAssetThumbnailOverride() const
+{
+	return NAME_None;
+}
+
 
 FText UFactory::GetDisplayName() const
 {
@@ -89,8 +179,12 @@ FText UFactory::GetDisplayName() const
 		TWeakPtr<IAssetTypeActions> AssetTypeActions = AssetToolsModule.Get().GetAssetTypeActionsForClass(LocalSupportedClass);
 		if ( AssetTypeActions.IsValid() )
 		{
-			// @todo AssetTypeActions should be returning a FText so we dont have to do this conversion here.
-			return AssetTypeActions.Pin()->GetName();
+			FText Name = AssetTypeActions.Pin()->GetName();
+
+			if (!Name.IsEmpty())
+			{
+				return Name;
+			}
 		}
 
 		// Factories whose classes do not have asset type actions should just display the sanitized class name
@@ -101,15 +195,16 @@ FText UFactory::GetDisplayName() const
 	return FText();
 }
 
+
 uint32 UFactory::GetMenuCategories() const
 {
 	FAssetToolsModule& AssetToolsModule = FModuleManager::LoadModuleChecked<FAssetToolsModule>("AssetTools");
-
 	UClass* LocalSupportedClass = GetSupportedClass();
-	if ( LocalSupportedClass )
+
+	if (LocalSupportedClass)
 	{
 		TWeakPtr<IAssetTypeActions> AssetTypeActions = AssetToolsModule.Get().GetAssetTypeActionsForClass(LocalSupportedClass);
-		if ( AssetTypeActions.IsValid() )
+		if (AssetTypeActions.IsValid())
 		{
 			return AssetTypeActions.Pin()->GetCategories();
 		}
@@ -119,20 +214,24 @@ uint32 UFactory::GetMenuCategories() const
 	return EAssetTypeCategories::Misc;
 }
 
+
 FText UFactory::GetToolTip() const
 {
 	return GetSupportedClass()->GetToolTipText();
 }
+
 
 FString UFactory::GetToolTipDocumentationPage() const
 {
 	return FEditorClassUtils::GetDocumentationPage(GetSupportedClass());
 }
 
+
 FString UFactory::GetToolTipDocumentationExcerpt() const
 {
 	return FEditorClassUtils::GetDocumentationExcerpt(GetSupportedClass());
 }
+
 
 UClass* UFactory::GetSupportedClass() const
 {
@@ -145,13 +244,15 @@ bool UFactory::DoesSupportClass(UClass * Class)
 	return (Class == GetSupportedClass());
 }
 
+
 UClass* UFactory::ResolveSupportedClass()
 {
 	// This check forces factories which support multiple classes to overload this method.
-	// In other words, you can't have a SupportedClass of NULL and not overload this method.
+	// In other words, you can't have a SupportedClass of nullptr and not overload this method.
 	check( SupportedClass );
 	return SupportedClass;
 }
+
 
 void UFactory::ResetState()
 {
@@ -159,6 +260,7 @@ void UFactory::ResetState()
 	// After the reset, the next import collision will always display the prompt.
 	OverwriteYesOrNoToAllState = -1;
 }
+
 
 void UFactory::DisplayOverwriteOptionsDialog(const FText& Message)
 {
@@ -171,14 +273,16 @@ void UFactory::DisplayOverwriteOptionsDialog(const FText& Message)
 	}
 }
 
+
 bool UFactory::SortFactoriesByPriority(const UFactory& A, const UFactory& B)
 {
 	// First sort so that higher priorities are earlier in the list
-	if( A.ImportPriority > B.ImportPriority )
+	if (A.ImportPriority > B.ImportPriority)
 	{
 		return true;
 	}
-	else if( A.ImportPriority < B.ImportPriority )
+
+	if (A.ImportPriority < B.ImportPriority)
 	{
 		return false;
 	}
@@ -186,7 +290,8 @@ bool UFactory::SortFactoriesByPriority(const UFactory& A, const UFactory& B)
 	// Then sort so that factories that only create new assets are tried after those that actually import the file data (when they have an equivalent priority)
 	const bool bFactoryAImportsFiles = !A.CanCreateNew();
 	const bool bFactoryBImportsFiles = !B.CanCreateNew();
-	if( bFactoryAImportsFiles && !bFactoryBImportsFiles )
+
+	if (bFactoryAImportsFiles && !bFactoryBImportsFiles)
 	{
 		return true;
 	}
@@ -194,23 +299,25 @@ bool UFactory::SortFactoriesByPriority(const UFactory& A, const UFactory& B)
 	return false;
 }
 
+
 UObject* UFactory::StaticImportObject
 (
-UClass*				Class,
-UObject*			InOuter,
-FName				Name,
-EObjectFlags		Flags,
-const TCHAR*		Filename,
-UObject*			Context,
-UFactory*			InFactory,
-const TCHAR*		Parms,
-FFeedbackContext*	Warn,
-int32				MaxImportFileSize
+	UClass*				Class,
+	UObject*			InOuter,
+	FName				Name,
+	EObjectFlags		Flags,
+	const TCHAR*		Filename,
+	UObject*			Context,
+	UFactory*			InFactory,
+	const TCHAR*		Parms,
+	FFeedbackContext*	Warn,
+	int32				MaxImportFileSize
 )
 {
 	bool bOperationCanceled = false;
 	return StaticImportObject(Class, InOuter, Name, Flags, bOperationCanceled, Filename, Context, InFactory, Parms, Warn, MaxImportFileSize);
 }
+
 
 UObject* UFactory::StaticImportObject
 (
@@ -229,11 +336,12 @@ UObject* UFactory::StaticImportObject
 {
 	check(Class);
 
-	CurrentFilename = Filename;
-	FString extension = FPaths::GetExtension(CurrentFilename);
-	// Make list of all applicable factories.
+	UObject* Result = nullptr;
+	FString Extension = FPaths::GetExtension(Filename);
 	TArray<UFactory*> Factories;
-	if( InFactory )
+
+	// Make list of all applicable factories.
+	if (InFactory != nullptr)
 	{
 		// Use just the specified factory.
 		if (ensureMsgf( !InFactory->SupportedClass || Class->IsChildOf(InFactory->SupportedClass), 
@@ -245,12 +353,14 @@ UObject* UFactory::StaticImportObject
 	else
 	{
 		auto TransientPackage = GetTransientPackage();
-		// Try all automatic factories, sorted by priority.
-		for( TObjectIterator<UClass> It; It; ++It )
+
+		// try all automatic factories, sorted by priority
+		for (TObjectIterator<UClass> It; It; ++It)
 		{
-			if( It->IsChildOf( UFactory::StaticClass() ) )
+			if (It->IsChildOf(UFactory::StaticClass()))
 			{
 				UFactory* Default = It->GetDefaultObject<UFactory>();
+
 				if (Class->IsChildOf(Default->SupportedClass) && Default->ImportPriority >= 0)
 				{
 					//Add the factory if there is no extension or the factory don't have any supported file extension or the factory support this file extension.
@@ -258,8 +368,11 @@ UObject* UFactory::StaticImportObject
 					//See UFactory::SortFactoriesByPriority
 					TArray<FString> FactoryExtension;
 					Default->GetSupportedFileExtensions(FactoryExtension);
-					if (extension.IsEmpty() || FactoryExtension.Num() == 0 || FactoryExtension.Contains(extension))
+
+					if (Extension.IsEmpty() || (FactoryExtension.Num() == 0) || (FactoryExtension.Contains(Extension)))
+					{
 						Factories.Add(NewObject<UFactory>(TransientPackage, *It));
+					}
 				}
 			}
 		}
@@ -267,94 +380,39 @@ UObject* UFactory::StaticImportObject
 		Factories.Sort(&UFactory::SortFactoriesByPriority);
 	}
 
-	bool bLoadedFile = false;
-
 	// Try each factory in turn.
-	for( int32 i=0; i<Factories.Num(); i++ )
+	for (auto& Factory : Factories)
 	{
-		UFactory* Factory = Factories[i];
-		UObject* Result = NULL;
-		if( Factory->CanCreateNew() )
-		{
-			UE_LOG(LogFactory, Log,  TEXT("FactoryCreateNew: %s with %s (%i %i %s)"), *Class->GetName(), *Factories[i]->GetClass()->GetName(), Factory->bCreateNew, Factory->bText, Filename );
-			Factory->ParseParms( Parms );
-			Result = Factory->FactoryCreateNew( Class, InOuter, Name, Flags, NULL, Warn );
-		}
-		else if( FCString::Stricmp(Filename,TEXT(""))!=0 )
-		{
-			if( Factory->bText )
-			{
-				//UE_LOG(LogFactory, Log,  TEXT("FactoryCreateText: %s with %s (%i %i %s)"), *Class->GetName(), *Factories(i)->GetClass()->GetName(), Factory->bCreateNew, Factory->bText, Filename );
-				FString Data;
-				if( FFileHelper::LoadFileToString( Data, Filename ) )
-				{
-					bLoadedFile = true;
-					const TCHAR* Ptr = *Data;
-					Factory->ParseParms( Parms );
-					Result = Factory->FactoryCreateText( Class, InOuter, Name, Flags, NULL, *extension, Ptr, Ptr+Data.Len(), Warn );
-				}
-			}
-			else
-			{
-				UE_LOG(LogFactory, Log,  TEXT("FactoryCreateBinary: %s with %s (%i %i %s)"), *Class->GetName(), *Factories[i]->GetClass()->GetName(), Factory->bCreateNew, Factory->bText, Filename );
-				
-				// Sanity check the file size of the impending import and prompt the user if they wish to continue if the file size is very large
-				const int32 FileSize = IFileManager::Get().FileSize( Filename );
-				bool bValidFileSize = true;
+		Result = Factory->ImportObject(Class, InOuter, Name, Flags, Filename, Parms, bOutOperationCanceled);
 
-				if ( FileSize == INDEX_NONE )
-				{
-					UE_LOG(LogFactory, Error,TEXT("File '%s' does not exist"), Filename );
-					bValidFileSize = false;
-				}
-
-				TArray<uint8> Data;
-				if( bValidFileSize && FFileHelper::LoadFileToArray( Data, Filename ) )
-				{
-					bLoadedFile = true;
-					Data.Add( 0 );
-					const uint8* Ptr = &Data[ 0 ];
-					Factory->ParseParms( Parms );
-					Result = Factory->FactoryCreateBinary(Class, InOuter, Name, Flags, NULL, *extension, Ptr, Ptr + Data.Num() - 1, Warn, bOutOperationCanceled);
-				}
-			}
-		}
-		if( Result )
+		if (Result != nullptr)
 		{
-			// prevent UTextureCube created from UTextureFactory			check(Result->IsA(Class));
-			Result->MarkPackageDirty();
-			ULevel::LevelDirtiedEvent.Broadcast();
-			Result->PostEditChange();
-
-			CurrentFilename = TEXT("");
-			return Result;
+			break;
 		}
 	}
 
-	if ( !bLoadedFile && !bOutOperationCanceled )
+	if ((Result == nullptr) && !bOutOperationCanceled)
 	{
-		Warn->Logf( *FText::Format( NSLOCTEXT( "UnrealEd", "NoFindImport", "Can't find file '{0}' for import" ), FText::FromString( FString(Filename) ) ).ToString() );
+		Warn->Logf(*FText::Format(NSLOCTEXT("UnrealEd", "ImportFailed", "Failed to import file '{0}'"), FText::FromString(FString(Filename))).ToString());
 	}
 
-	CurrentFilename = TEXT("");
-
-	return NULL;
+	return Result;
 }
 
 
 void UFactory::GetSupportedFileExtensions(TArray<FString>& OutExtensions) const
 {
-	for ( int32 FormatIdx = 0; FormatIdx < Formats.Num(); ++FormatIdx )
+	for (const auto& Format : Formats)
 	{
-		const FString& Format = Formats[FormatIdx];
 		const int32 DelimiterIdx = Format.Find(TEXT(";"));
 
-		if ( DelimiterIdx != INDEX_NONE )
+		if (DelimiterIdx != INDEX_NONE)
 		{
-			OutExtensions.Add( Format.Left(DelimiterIdx) );
+			OutExtensions.Add(Format.Left(DelimiterIdx));
 		}
 	}
 }
+
 
 bool UFactory::ImportUntypedBulkDataFromText(const TCHAR*& Buffer, FUntypedBulkData& BulkData)
 {
@@ -373,16 +431,15 @@ bool UFactory::ImportUntypedBulkDataFromText(const TCHAR*& Buffer, FUntypedBulkD
 			/** Number of elements in bulk data array */
 			ElementCount = FCString::Atoi(*ParsedText);
 		}
-		else
-		if (FParse::Value(Str, TEXT("ELEMENTSIZE="), ParsedText))
+		else if (FParse::Value(Str, TEXT("ELEMENTSIZE="), ParsedText))
 		{
 			/** Serialized flags for bulk data */
 			ElementSize = FCString::Atoi(*ParsedText);
 		}
-		else
-		if (FParse::Value(Str, TEXT("BEGIN "), ParsedText) && (ParsedText.ToUpper() == TEXT("BINARYBLOB")))
+		else if (FParse::Value(Str, TEXT("BEGIN "), ParsedText) && (ParsedText.ToUpper() == TEXT("BINARYBLOB")))
 		{
-			uint8* RawData = NULL;
+			uint8* RawData = nullptr;
+
 			/** The bulk data... */
 			while(FParse::Line(&Buffer,StrLine))
 			{
@@ -399,8 +456,7 @@ bool UFactory::ImportUntypedBulkDataFromText(const TCHAR*& Buffer, FUntypedBulkD
 					RawData = (uint8*)RawBulkData;
 					bBulkDataIsLocked = true;
 				}
-				else
-				if (FParse::Value(Str, TEXT("BEGIN "), ParsedText) && (ParsedText.ToUpper() == TEXT("BINARY")))
+				else if (FParse::Value(Str, TEXT("BEGIN "), ParsedText) && (ParsedText.ToUpper() == TEXT("BINARY")))
 				{
 					uint8* BulkDataPointer = RawData;
 					while(FParse::Line(&Buffer,StrLine))
@@ -435,8 +491,7 @@ bool UFactory::ImportUntypedBulkDataFromText(const TCHAR*& Buffer, FUntypedBulkD
 						}
 					}
 				}
-				else
-				if (FParse::Value(Str, TEXT("END "), ParsedText) && (ParsedText.ToUpper() == TEXT("BINARYBLOB")))
+				else if (FParse::Value(Str, TEXT("END "), ParsedText) && (ParsedText.ToUpper() == TEXT("BINARYBLOB")))
 				{
 					BulkData.Unlock();
 					bBulkDataIsLocked = false;
@@ -444,8 +499,7 @@ bool UFactory::ImportUntypedBulkDataFromText(const TCHAR*& Buffer, FUntypedBulkD
 				}
 			}
 		}
-		else
-		if (FParse::Value(Str, TEXT("END "), ParsedText) && (ParsedText.ToUpper() == TEXT("UNTYPEDBULKDATA")))
+		else if (FParse::Value(Str, TEXT("END "), ParsedText) && (ParsedText.ToUpper() == TEXT("UNTYPEDBULKDATA")))
 		{
 			break;
 		}
@@ -459,58 +513,58 @@ bool UFactory::ImportUntypedBulkDataFromText(const TCHAR*& Buffer, FUntypedBulkD
 	return true;
 }
 
+
 UObject* UFactory::CreateOrOverwriteAsset(UClass* InClass, UObject* InParent, FName InName, EObjectFlags InFlags, UObject* InTemplate) const
 {
-	// Creates an asset if it doesn't exist.
-	UObject* ExistingAsset = StaticFindObject(NULL, InParent, *InName.ToString());
-	if ( !ExistingAsset )
+	// create an asset if it doesn't exist
+	UObject* ExistingAsset = StaticFindObject(nullptr, InParent, *InName.ToString());
+	
+	if (!ExistingAsset)
 	{
 		return NewObject<UObject>(InParent, InClass, InName, InFlags, InTemplate);
 	}
 
-	// If it does exist then it overwrites it if possible.
-	if ( ExistingAsset->GetClass()->IsChildOf(InClass) )
+	// overwrite existing asset, if possible
+	if (ExistingAsset->GetClass()->IsChildOf(InClass))
 	{
 		return NewObject<UObject>(InParent, InClass, InName, InFlags, InTemplate);
 	}
 	
-	// If it can not overwrite then it will delete and replace.
-	if ( ObjectTools::DeleteSingleObject( ExistingAsset ) )
+	// otherwise delete and replace
+	if (!ObjectTools::DeleteSingleObject(ExistingAsset))
 	{
-		// Keep InPackage alive through the GC, in case ExistingAsset was the only reason it was around.
-		const bool bRootedPackage = InParent->IsRooted();
-		if ( !bRootedPackage )
-		{
-			InParent->AddToRoot();
-		}
-
-		// Force GC so we can cleanly create a new asset (and not do an 'in place' replacement)
-		CollectGarbage( GARBAGE_COLLECTION_KEEPFLAGS );
-
-		if ( !bRootedPackage )
-		{
-			InParent->RemoveFromRoot();
-		}
-
-		// Try to find the existing asset again now that the GC has occurred
-		ExistingAsset = StaticFindObject(NULL, InParent, *InName.ToString());
-		if ( ExistingAsset )
-		{
-			// Even after the delete and GC, the object is still around. Fail this operation.
-			return NULL;
-		}
-		else
-		{
-			// We can now create the asset in the package
-			return NewObject<UObject>(InParent, InClass, InName, InFlags, InTemplate);
-		}
+		return nullptr;
 	}
-	else
+
+	// keep InPackage alive through the GC, in case ExistingAsset was the only reason it was around
+	const bool bRootedPackage = InParent->IsRooted();
+
+	if (!bRootedPackage)
 	{
-		// The delete did not succeed. There are still references to the old content.
-		return NULL;
+		InParent->AddToRoot();
 	}
+
+	// force GC so we can cleanly create a new asset (and not do an 'in place' replacement)
+	CollectGarbage(GARBAGE_COLLECTION_KEEPFLAGS);
+
+	if (!bRootedPackage)
+	{
+		InParent->RemoveFromRoot();
+	}
+
+	// try to find the existing asset again now that the GC has occurred
+	ExistingAsset = StaticFindObject(nullptr, InParent, *InName.ToString());
+
+	// if the object is still around after GC, fail this operation
+	if (ExistingAsset)
+	{
+		return nullptr;
+	}
+
+	// create the asset in the package
+	return NewObject<UObject>(InParent, InClass, InName, InFlags, InTemplate);
 }
+
 
 FString UFactory::GetDefaultNewAssetName() const
 {

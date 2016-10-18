@@ -12,6 +12,11 @@ public class AssetTools : ModuleRules
 			new string[] {
 				"Core",
 				"CoreUObject",
+			}
+		);
+
+		PrivateDependencyModuleNames.AddRange(
+			new string[] {
                 "CurveAssetEditor",
 				"Engine",
                 "InputCore",
@@ -24,8 +29,7 @@ public class AssetTools : ModuleRules
 				"PropertyEditor",
 				"Kismet",
 				"Landscape",
-                "Foliage",
-                "Niagara",
+                "Foliage"
 			}
 		);
 
@@ -44,6 +48,7 @@ public class AssetTools : ModuleRules
 				"Kismet",
 				"MainFrame",
 				"MaterialEditor",
+				"MessageLog",
 				"Persona",
 				"FontEditor",
 				"SoundCueEditor",
@@ -67,11 +72,12 @@ public class AssetTools : ModuleRules
                 "ActorPickerMode",
 				"MainFrame",
 				"MaterialEditor",
+				"MessageLog",
 				"Persona",
 				"FontEditor",
 				"SoundCueEditor",
 				"SoundClassEditor"
-			}
+            }
 		);
 	}
 }

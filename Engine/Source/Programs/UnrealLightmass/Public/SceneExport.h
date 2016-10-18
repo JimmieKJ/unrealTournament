@@ -888,7 +888,7 @@ struct FSkyLightData
 struct FMaterialElementData
 {
 	/** Used to find Material on import */
-	FGuid MaterialId;
+	FSHAHash MaterialHash;
 	/** If true, this object will be lit as if it receives light from both sides of its polygons. */
 	uint32 bUseTwoSidedLighting:1;
 	/** If true, this material element will only shadow indirect lighting.  					*/

@@ -80,14 +80,14 @@ struct FMovieSceneBinding
 	const FString& GetName() const
 	{
 		return BindingName;
-	} 
+	}
 
 	/**
 	 * Adds a new track to this binding
 	 *
 	 * @param NewTrack	The track to add
 	 */
-	void AddTrack(UMovieSceneTrack& NewTrack);
+	void MOVIESCENE_API AddTrack(UMovieSceneTrack& NewTrack);
 
 	/**
 	 * Removes a track from this binding
@@ -104,6 +104,15 @@ struct FMovieSceneBinding
 	{
 		return Tracks;
 	}
+
+#if WITH_EDITOR
+	/**
+	 * Perform cook-time optimization on this object binding
+	 * @param bShouldRemoveObject 		(Out) Boolean that will set to true if this whole binding should be considered redundant.
+	 */
+	void PerformCookOptimization(bool& bShouldRemoveObject);
+
+#endif
 
 private:
 

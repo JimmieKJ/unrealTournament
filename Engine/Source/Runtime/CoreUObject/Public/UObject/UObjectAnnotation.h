@@ -4,8 +4,7 @@
 	UObjectAnnotation.h: Unreal object annotation template
 =============================================================================*/
 
-#ifndef __UNOBJANNOTATION_H__
-#define __UNOBJANNOTATION_H__
+#pragma once
 
 /**
 * FUObjectAnnotationSparse is a helper class that is used to store sparse, slow, temporary, editor only, external 
@@ -199,7 +198,7 @@ public:
 	 * Return the annotation map. Caution, this is for low level use 
 	 * @return A mapping from UObjectBase to annotation for non-default annotations
 	 */
-	const TMap<const UObjectBase *,TAnnotation>& GetAnnotationMap()
+	const TMap<const UObjectBase *,TAnnotation>& GetAnnotationMap() const
 	{
 		return AnnotationMap;
 	}
@@ -276,6 +275,7 @@ public:
 	 */
 	UObject *Find(TAnnotation Annotation)
 	{
+		FScopeLock InverseAnntationMapLock(&InverseAnnotationMapCritical);
 		checkSlow(!Annotation.IsDefault()); // it is not legal to search for the default annotation
 		return (UObject *)InverseAnnotationMap.FindRef(Annotation);
 	}
@@ -288,15 +288,21 @@ public:
 	 */
 	void AddAnnotation(const UObjectBase *Object,TAnnotation Annotation)
 	{
+		FScopeLock InverseAnntationMapLock(&InverseAnnotationMapCritical);
 		if (Annotation.IsDefault())
 		{
 			RemoveAnnotation(Object); // adding the default annotation is the same as removing an annotation
 		}
 		else
 		{
+			TAnnotation ExistingAnnotation = this->GetAnnotation(Object);
+			int32 NumExistingRemoved = InverseAnnotationMap.Remove(ExistingAnnotation);
+			checkSlow(NumExistingRemoved == 0);
+
 			Super::AddAnnotation(Object, Annotation);
 			// should not exist in the mapping; we require uniqueness
-			checkSlow(!InverseAnnotationMap.Find(Annotation));
+			int32 NumRemoved = InverseAnnotationMap.Remove(Annotation);
+			checkSlow(NumRemoved == 0);
 			InverseAnnotationMap.Add(Annotation, Object);
 		}
 	}
@@ -307,15 +313,18 @@ public:
 	 */
 	void RemoveAnnotation(const UObjectBase *Object)
 	{
+		FScopeLock InverseAnntationMapLock(&InverseAnnotationMapCritical);
 		TAnnotation Annotation = this->GetAndRemoveAnnotation(Object);
-		for (auto It = InverseAnnotationMap.CreateIterator(); It; ++It)
+		if (Annotation.IsDefault())
 		{
-			if (It->Value == Object)
-			{
-				It.RemoveCurrent();
-			}
+			// should not exist in the mapping
+			checkSlow(!InverseAnnotationMap.Find(Annotation));
 		}
-		checkSlow(!InverseAnnotationMap.Find(Annotation));
+		else
+		{
+			int32 NumRemoved = InverseAnnotationMap.Remove(Annotation);
+			checkSlow(NumRemoved == 1);
+		}
 	}
 	/**
 	 * Removes all annotation from the annotation list. 
@@ -323,6 +332,7 @@ public:
 	 */
 	void RemoveAllAnnotations()
 	{
+		FScopeLock InverseAnntationMapLock(&InverseAnnotationMapCritical);
 		Super::RemoveAllAnnotations();
 		InverseAnnotationMap.Empty();
 	}
@@ -334,6 +344,7 @@ private:
 	 * Inverse Map annotation to live object
 	 */
 	TMap<TAnnotation, const UObjectBase *> InverseAnnotationMap;
+	FCriticalSection InverseAnnotationMapCritical;
 };
 
 
@@ -427,6 +438,11 @@ public:
 	FORCEINLINE void Reserve(int32 ExpectedNumElements)
 	{
 		FUObjectAnnotationSparse<FBoolAnnotation,true>::Reserve(ExpectedNumElements);
+	}
+
+	FORCEINLINE int32 Num() const
+	{
+		return this->GetAnnotationMap().Num();
 	}
 };
 
@@ -767,7 +783,4 @@ private:
 
 // Definition is in UObjectGlobals.cpp
 extern COREUOBJECT_API FUObjectAnnotationSparseBool GSelectedAnnotation;
-
-
-#endif	// __UNOBJANNOTATION_H__
 

@@ -4,6 +4,22 @@
 
 ENGINE_API DECLARE_LOG_CATEGORY_EXTERN(LogDataTable, Log, All);
 
+enum class EDataTableExportFlags : uint8
+{
+	/** No specific options. */
+	None = 0,
+
+	/** Export User Defined Structs using their display name, rather than their internal name. */
+	UsePrettyPropertyNames = 1<<0,
+
+	/** Export User Defined Enums using their display name, rather than their internal name. */
+	UsePrettyEnumNames = 1<<1,
+
+	/** Export nested structs as JSON objects (JSON exporter only), rather than as exported text. */
+	UseJsonObjectsForStructs = 1<<2,
+};
+ENUM_CLASS_FLAGS(EDataTableExportFlags);
+
 namespace DataTableUtils
 {
 	/**
@@ -22,13 +38,13 @@ namespace DataTableUtils
 	 * Util to get a property as a string.
 	 * This always gets a string for only the given property, even if the property itself identifies as a static sized array.
 	 */
-	ENGINE_API FString GetSinglePropertyValueAsString(const UProperty* InProp, uint8* InData);
+	ENGINE_API FString GetSinglePropertyValueAsString(const UProperty* InProp, uint8* InData, const EDataTableExportFlags InDTExportFlags);
 
 	/** 
 	 * Util to get a property as a string.
 	 * When the property is a static sized array, this will return a string containing each element in the array.
 	 */
-	ENGINE_API FString GetPropertyValueAsString(const UProperty* InProp, uint8* InData);
+	ENGINE_API FString GetPropertyValueAsString(const UProperty* InProp, uint8* InData, const EDataTableExportFlags InDTExportFlags);
 
 	/** 
 	 * Util to get a property as text (this will use the display name of the value where available - use GetPropertyValueAsString if you need an internal identifier).
@@ -56,6 +72,16 @@ namespace DataTableUtils
 	 * Util to see if this property is supported in a row struct.
 	 */
 	ENGINE_API bool IsSupportedTableProperty(const UProperty* InProp);
+
+	/**
+	 * Util to get the friendly display unlocalized name of a given property for export to files.
+	 */
+	ENGINE_API FString GetPropertyExportName(const UProperty* Prop, const EDataTableExportFlags InDTExportFlags);
+
+	/**
+	 * Util to get the all variants for export names for backwards compatibility.
+	 */
+	ENGINE_API TArray<FString> GetPropertyImportNames(const UProperty* Prop);
 
 	/**
 	 * Util to get the friendly display name of a given property.

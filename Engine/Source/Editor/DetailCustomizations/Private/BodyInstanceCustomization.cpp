@@ -7,6 +7,7 @@
 #include "Engine/CollisionProfile.h"
 #include "SNumericEntryBox.h"
 #include "PhysicsEngine/BodySetup.h"
+#include "PhysicsEngine/PhysicsSettings.h"
 #include "ObjectEditorUtils.h"
 
 #define LOCTEXT_NAMESPACE "BodyInstanceCustomization"
@@ -21,9 +22,16 @@ FBodyInstanceCustomization::FBodyInstanceCustomization()
 	RefreshCollisionProfiles();
 }
 
-UStaticMeshComponent* GetDefaultCollisionProvider(const FBodyInstance* BI)
+UStaticMeshComponent* FBodyInstanceCustomization::GetDefaultCollisionProvider(const FBodyInstance* BI) const
 {
-	UStaticMeshComponent* SMC = BI ? Cast<UStaticMeshComponent>(BI->OwnerComponent.Get()) : nullptr;
+	UPrimitiveComponent* OwnerComp = BI->OwnerComponent.Get();
+	if(!OwnerComp)
+	{
+		TWeakObjectPtr<UPrimitiveComponent> FoundComp = BodyInstanceToPrimComponent.FindRef(BI);
+		OwnerComp = FoundComp.Get();
+	}
+	
+	UStaticMeshComponent* SMC = Cast<UStaticMeshComponent>(OwnerComp);
 	return SMC && SMC->SupportsDefaultCollision() ? SMC : nullptr;
 }
 
@@ -104,6 +112,7 @@ void FBodyInstanceCustomization::AddCollisionCategory(TSharedRef<class IProperty
 		.Font( IDetailLayoutBuilder::GetDetailFont() )
 	]
 	.ValueContent()
+	.MinDesiredWidth(131.0f)
 	[
 		SNew(SVerticalBox)
 		+ SVerticalBox::Slot()
@@ -120,7 +129,6 @@ void FBodyInstanceCustomization::AddCollisionCategory(TSharedRef<class IProperty
 				.OnSelectionChanged(this, &FBodyInstanceCustomization::OnCollisionProfileChanged, &CollisionGroup)
 				.OnComboBoxOpening(this, &FBodyInstanceCustomization::OnCollisionProfileComboOpening)
 				.InitiallySelectedItem(DisplayName)
-				.ContentPadding(2)
 				.Content()
 				[
 					SNew(STextBlock)
@@ -173,30 +181,38 @@ void FBodyInstanceCustomization::CustomizeChildren( TSharedRef<class IPropertyHa
 		BodyInstances[Iter.GetIndex()] = (FBodyInstance*)(*Iter);
 	}
 
-	RefreshCollisionProfiles();
-	
-	// get all parent instances
-	TSharedPtr<IPropertyHandle> ParentPropertyHandle = StructPropertyHandle->GetParentHandle();
-	bool bFoundValidProperty = false;	//Need to go up root until we find a valid property. This is a bad hack but is needed because GetChildHandle assumes property is always non-null
-	while(ParentPropertyHandle.IsValid() && !bFoundValidProperty)
+	TArray<UObject*> OwningObjects;
+	StructPropertyHandle->GetOuterObjects(OwningObjects);
+
+	PrimComponents.Empty(OwningObjects.Num());
+	for(UObject* Obj : OwningObjects)
 	{
-		if(ParentPropertyHandle->GetProperty())
+		if(UPrimitiveComponent* PrimComponent = Cast<UPrimitiveComponent>(Obj))
 		{
-			bFoundValidProperty = true;
-		}
-		else
-		{
-			ParentPropertyHandle = ParentPropertyHandle->GetParentHandle();
+			PrimComponents.Add(PrimComponent);	
+
+			if(FBodyInstance* BI = PrimComponent->GetBodyInstance())
+			{
+				BodyInstanceToPrimComponent.Add(BI, PrimComponent);
+			}
 		}
 	}
 
+	RefreshCollisionProfiles();
+	
+	// get all parent instances
+	TSharedPtr<IPropertyHandle> CollisionCategoryHandle = StructPropertyHandle->GetParentHandle();
+	TSharedPtr<IPropertyHandle> StaticMeshComponentHandle = CollisionCategoryHandle->GetParentHandle();
 
-	if(ParentPropertyHandle.IsValid())
+	if(CollisionCategoryHandle.IsValid())
 	{
 		
-		UseDefaultCollisionHandle = ParentPropertyHandle->GetChildHandle(GET_MEMBER_NAME_CHECKED(UStaticMeshComponent, bUseDefaultCollision));
-		StaticMeshHandle = ParentPropertyHandle->GetChildHandle(GET_MEMBER_NAME_CHECKED(UStaticMeshComponent, StaticMesh));
+		UseDefaultCollisionHandle = CollisionCategoryHandle->GetChildHandle(GET_MEMBER_NAME_CHECKED(UStaticMeshComponent, bUseDefaultCollision));
+	}
 
+	if (StaticMeshComponentHandle.IsValid())
+	{
+		StaticMeshHandle = StaticMeshComponentHandle->GetChildHandle(GET_MEMBER_NAME_CHECKED(UStaticMeshComponent, StaticMesh));
 		if(StaticMeshHandle.IsValid())
 		{
 			FSimpleDelegate OnStaticMeshChangedDelegate = FSimpleDelegate::CreateSP(this, &FBodyInstanceCustomization::RefreshCollisionProfiles);
@@ -779,13 +795,29 @@ void FBodyInstanceCustomization::OnCollisionProfileComboOpening()
 	}
 }
 
-void MarkAllBodiesDefaultCollision(TArray<FBodyInstance*>& BodyInstances, bool bUseDefaultCollision)
+void FBodyInstanceCustomization::MarkAllBodiesDefaultCollision(bool bUseDefaultCollision)
 {
-	for (const FBodyInstance* BI : BodyInstances)
+	if(PrimComponents.Num())	//If we have prim components we might be coming from bp editor which needs to propagate all instances
 	{
-		if (UStaticMeshComponent* SMC = GetDefaultCollisionProvider(BI))
+		for(UPrimitiveComponent* PrimComp : PrimComponents)
 		{
-			if(SMC->SupportsDefaultCollision())
+			if(UStaticMeshComponent* SMC = Cast<UStaticMeshComponent>(PrimComp))
+			{
+				const bool bOldDefault = SMC->bUseDefaultCollision;
+				const bool bNewDefault = bUseDefaultCollision;
+
+				TSet<USceneComponent*> UpdatedInstances;
+				FComponentEditorUtils::PropagateDefaultValueChange(SMC, UseDefaultCollisionHandle->GetProperty(), bOldDefault, bNewDefault, UpdatedInstances);
+
+				SMC->bUseDefaultCollision = bNewDefault;
+			}
+		}
+	}
+	else
+	{
+		for (const FBodyInstance* BI : BodyInstances)
+		{
+			if (UStaticMeshComponent* SMC = GetDefaultCollisionProvider(BI))
 			{
 				SMC->bUseDefaultCollision = bUseDefaultCollision;
 			}
@@ -808,9 +840,9 @@ void FBodyInstanceCustomization::OnCollisionProfileChanged( TSharedPtr<FString> 
 				// trigget transaction before UpdateCollisionProfile
 				const FScopedTransaction Transaction( LOCTEXT( "ChangeCollisionProfile", "Change Collision Profile" ) );
 				// set profile set up
+				MarkAllBodiesDefaultCollision(false);
 				ensure ( CollisionProfileNameHandle->SetValue(NewValue) ==  FPropertyAccess::Result::Success );
 				UpdateCollisionProfile();
-				MarkAllBodiesDefaultCollision(BodyInstances, false);
 				return;
 			}
 		}
@@ -819,7 +851,7 @@ void FBodyInstanceCustomization::OnCollisionProfileChanged( TSharedPtr<FString> 
 		{
 			if(NewSelection == CollisionProfileComboList[GetDefaultIndex()])
 			{
-				MarkAllBodiesDefaultCollision(BodyInstances, true);
+				MarkAllBodiesDefaultCollision(true);
 				return;
 			}
 		}
@@ -834,7 +866,7 @@ void FBodyInstanceCustomization::OnCollisionProfileChanged( TSharedPtr<FString> 
 		FName Name=UCollisionProfile::CustomCollisionProfileName;
 		ensure ( CollisionProfileNameHandle->SetValue(Name) ==  FPropertyAccess::Result::Success );
 
-		MarkAllBodiesDefaultCollision(BodyInstances, false);
+		MarkAllBodiesDefaultCollision(false);
 	}
 }
 
@@ -885,7 +917,7 @@ FReply FBodyInstanceCustomization::SetToDefaultProfile()
 {
 	// trigger transaction before UpdateCollisionProfile
 	const FScopedTransaction Transaction( LOCTEXT( "ResetCollisionProfile", "Reset Collision Profile" ) );
-	MarkAllBodiesDefaultCollision(BodyInstances, false);
+	MarkAllBodiesDefaultCollision(false);
 	CollisionProfileNameHandle.Get()->ResetToDefault();
 	UpdateCollisionProfile();
 	return FReply::Handled();
@@ -1037,17 +1069,54 @@ void FBodyInstanceCustomization::OnCollisionChannelChanged(ECheckBoxState InNewV
 	}
 }
 
+struct FUpdateCollisionResponseHelper
+{
+	FUpdateCollisionResponseHelper(UPrimitiveComponent* InPrimComp, TSharedPtr<IPropertyHandle> InCollisionResponseHandle)
+	: PrimComp(InPrimComp)
+	, CollisionResponsesHandle(InCollisionResponseHandle)
+	{
+		OldCollision = PrimComp->BodyInstance.GetCollisionResponse();
+	}
+
+	~FUpdateCollisionResponseHelper()
+	{
+		if(CollisionResponsesHandle.IsValid())
+		{
+			const SIZE_T PropertyOffset = (SIZE_T)&((UPrimitiveComponent*)0)->BodyInstance.CollisionResponses;
+			check(PropertyOffset < (int32)(-1));
+			const int32 ProeprtyOffset32 = (int32) PropertyOffset;
+
+			TSet<USceneComponent*> UpdatedInstances;
+			FComponentEditorUtils::PropagateDefaultValueChange(PrimComp, CollisionResponsesHandle->GetProperty(), OldCollision, PrimComp->BodyInstance.GetCollisionResponse(), UpdatedInstances, PropertyOffset);
+		}
+	}
+
+	UPrimitiveComponent* PrimComp;
+	TSharedPtr<IPropertyHandle> CollisionResponsesHandle;
+	FCollisionResponse OldCollision;
+};
+
 void FBodyInstanceCustomization::SetResponse(int32 ValidIndex, ECollisionResponse InCollisionResponse)
 {
 	const FScopedTransaction Transaction( LOCTEXT( "ChangeIndividualChannel", "Change Individual Channel" ) );
 
 	CollisionResponsesHandle->NotifyPreChange();
 
-	for (auto Iter=BodyInstances.CreateIterator(); Iter; ++Iter)
+	if(PrimComponents.Num())	//If we have owning prim components we may be in blueprint editor which means we have to propagate to instances.
 	{
-		FBodyInstance* BodyInstance = *Iter;
-
-		BodyInstance->CollisionResponses.SetResponse(ValidCollisionChannels[ValidIndex].CollisionChannel, InCollisionResponse);
+		for (UPrimitiveComponent* PrimComp : PrimComponents)
+		{
+			FUpdateCollisionResponseHelper UpdateCollisionResponseHelper(PrimComp, CollisionResponsesHandle);
+			FBodyInstance& BodyInstance = PrimComp->BodyInstance;
+			BodyInstance.CollisionResponses.SetResponse(ValidCollisionChannels[ValidIndex].CollisionChannel, InCollisionResponse);
+		}
+	}
+	else
+	{
+		for (FBodyInstance* BodyInstance : BodyInstances)
+		{
+			BodyInstance->CollisionResponses.SetResponse(ValidCollisionChannels[ValidIndex].CollisionChannel, InCollisionResponse);
+		}
 	}
 
 	CollisionResponsesHandle->NotifyPostChange();
@@ -1121,25 +1190,52 @@ ECheckBoxState FBodyInstanceCustomization::IsAllCollisionChannelChecked(ECollisi
 void FBodyInstanceCustomization::SetCollisionResponseContainer(const FCollisionResponseContainer& ResponseContainer)
 {
 	// trigget transaction before UpdateCollisionProfile
-	const FScopedTransaction Transaction( LOCTEXT( "Collision", "Collision Channel Changes" ) );
-
-	CollisionResponsesHandle->NotifyPreChange();
-
 	uint32 TotalNumChildren = ValidCollisionChannels.Num();
-	// only go through valid channels
-	for (uint32 Index = 0; Index < TotalNumChildren; ++Index)
+
+	if(TotalNumChildren)
 	{
-		ECollisionChannel Channel = ValidCollisionChannels[Index].CollisionChannel;
-		ECollisionResponse Response = ResponseContainer.GetResponse(Channel);
+		const FScopedTransaction Transaction(LOCTEXT("Collision", "Collision Channel Changes"));
+
+		CollisionResponsesHandle->NotifyPreChange();
+
 
 		// iterate through bodyinstance and fix it
-		for (FBodyInstance* BodyInstance : BodyInstances)
+		if(PrimComponents.Num())	//If we have owning prim components we may be in blueprint editor which means we have to propagate to instances.
 		{
-			BodyInstance->CollisionResponses.SetResponse(Channel, Response);
-		}
-	}
 
-	CollisionResponsesHandle->NotifyPostChange();
+			for (UPrimitiveComponent* PrimComponent : PrimComponents)
+			{
+				FUpdateCollisionResponseHelper UpdateCollisionResponseHelper(PrimComponent, CollisionResponsesHandle);
+			
+				FBodyInstance& BodyInstance = PrimComponent->BodyInstance;
+				// only go through valid channels
+				for (uint32 Index = 0; Index < TotalNumChildren; ++Index)
+				{
+					ECollisionChannel Channel = ValidCollisionChannels[Index].CollisionChannel;
+					ECollisionResponse Response = ResponseContainer.GetResponse(Channel);
+
+					BodyInstance.CollisionResponses.SetResponse(Channel, Response);
+				}
+			}
+		}
+		else
+		{
+			for (FBodyInstance* BodyInstance : BodyInstances)
+			{
+				// only go through valid channels
+				for (uint32 Index = 0; Index < TotalNumChildren; ++Index)
+				{
+					ECollisionChannel Channel = ValidCollisionChannels[Index].CollisionChannel;
+					ECollisionResponse Response = ResponseContainer.GetResponse(Channel);
+
+					BodyInstance->CollisionResponses.SetResponse(Channel, Response);
+				}
+			}
+		}
+
+		CollisionResponsesHandle->NotifyPostChange();
+	}
+	
 }
 
 FBodyInstanceCustomizationHelper::FBodyInstanceCustomizationHelper(const TArray<TWeakObjectPtr<UObject>>& InObjectsCustomized)
@@ -1213,7 +1309,11 @@ void FBodyInstanceCustomizationHelper::CustomizeDetails( IDetailLayoutBuilder& D
 		AddMaxAngularVelocity(PhysicsCategory, BodyInstanceHandler);
 
 		TSharedRef<IPropertyHandle> AsyncEnabled = BodyInstanceHandler->GetChildHandle(GET_MEMBER_NAME_CHECKED(FBodyInstance, bUseAsyncScene)).ToSharedRef();
-		PhysicsCategory.AddProperty(AsyncEnabled).EditCondition(TAttribute<bool>(this, &FBodyInstanceCustomizationHelper::IsUseAsyncEditable), NULL);
+		if(AsyncEnabled->IsCustomized() == false)	//outer customization already handles it so don't bother adding
+		{
+			PhysicsCategory.AddProperty(AsyncEnabled).EditCondition(TAttribute<bool>(this, &FBodyInstanceCustomizationHelper::IsUseAsyncEditable), NULL);
+		}
+		
 
 		//Add the rest
 		uint32 NumChildren = 0;
@@ -1333,14 +1433,30 @@ bool FBodyInstanceCustomizationHelper::IsBodyMassReadOnly() const
 TOptional<float> FBodyInstanceCustomizationHelper::OnGetBodyMaxAngularVelocity() const
 {
 	UPrimitiveComponent* Comp = nullptr;
-	const float MaxAngularVelocity = UPhysicsSettings::Get()->MaxAngularVelocity;
+
+	const float DefaultMaxAngularVelocity = UPhysicsSettings::Get()->MaxAngularVelocity;
+	float MaxAngularVelocity = DefaultMaxAngularVelocity;
+	bool bFoundComponent = false;
 
 	for (auto ObjectIt = ObjectsCustomized.CreateConstIterator(); ObjectIt; ++ObjectIt)
 	{
 		if (ObjectIt->IsValid() && (*ObjectIt)->IsA(UPrimitiveComponent::StaticClass()))
 		{
 			Comp = Cast<UPrimitiveComponent>(ObjectIt->Get());
-			Comp->BodyInstance.MaxAngularVelocity = MaxAngularVelocity;	//update max angular velocity so that overriding gives the same value initially
+
+			const float CompMaxAngularVelocity = Comp->BodyInstance.bOverrideMaxAngularVelocity ?
+													Comp->BodyInstance.MaxAngularVelocity :
+													DefaultMaxAngularVelocity;
+
+			if (!bFoundComponent)
+			{
+				bFoundComponent = true;
+				MaxAngularVelocity = CompMaxAngularVelocity;
+			}
+			else if (MaxAngularVelocity != CompMaxAngularVelocity)
+			{
+				return TOptional<float>();
+			}
 		}
 	}
 
@@ -1412,7 +1528,10 @@ void FBodyInstanceCustomizationHelper::OnSetBodyMass(float BodyMass, ETextCommit
 {
 	UPrimitiveComponent* Comp = nullptr;
 	UBodySetup* BS = nullptr;
+	
+	FScopedTransaction SetBodyMassTransaction(FText::Format(NSLOCTEXT("PropertyEditor", "EditPropertyTransaction", "Edit {0}"), MassInKgOverrideHandle->GetPropertyDisplayName()));
 
+	MassInKgOverrideHandle->NotifyPreChange();
 	for (auto ObjectIt = ObjectsCustomized.CreateConstIterator(); ObjectIt; ++ObjectIt)
 	{
 		if (ObjectIt->IsValid() && (*ObjectIt)->IsA(UPrimitiveComponent::StaticClass()))
@@ -1426,6 +1545,7 @@ void FBodyInstanceCustomizationHelper::OnSetBodyMass(float BodyMass, ETextCommit
 			BS->DefaultInstance.SetMassOverride(BodyMass);
 		}
 	}
+	MassInKgOverrideHandle->NotifyPostChange();
 }
 
 
@@ -1492,7 +1612,7 @@ void FBodyInstanceCustomizationHelper::AddMassInKg(IDetailCategoryBuilder& Physi
 {
 	if (bDisplayMass)
 	{
-		TSharedRef<IPropertyHandle> MassInKgOverrideHandle = BodyInstanceHandler->GetChildHandle(GET_MEMBER_NAME_CHECKED(FBodyInstance, MassInKgOverride)).ToSharedRef();
+		MassInKgOverrideHandle = BodyInstanceHandler->GetChildHandle(GET_MEMBER_NAME_CHECKED(FBodyInstance, MassInKgOverride)).ToSharedRef();
 		
 		PhysicsCategory.AddProperty(MassInKgOverrideHandle).CustomWidget()
 		.NameContent()

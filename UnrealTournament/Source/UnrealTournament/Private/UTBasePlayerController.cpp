@@ -50,13 +50,8 @@ void AUTBasePlayerController::InitInputSystem()
 	// read profile on every level change so we can detect updates
 	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
 
-	if (LP)
-	{
-		LP->ResetDLCWarning();
-	}
-
 #if WITH_PROFILE
-	if (LP != NULL && LP->IsLoggedIn() && LP->GetMcpProfileManager())
+	if (LP != NULL && LP->IsLoggedIn() && LP->GetMcpProfileManager() && LP->GetMcpProfileManager()->GetMcpProfileAs<UUtMcpProfile>(EUtMcpProfile::Profile))
 	{
 		FClientUrlContext QueryContext = FClientUrlContext::Default; // IMPORTANT to make a copy!
 		LP->GetMcpProfileManager()->GetMcpProfileAs<UUtMcpProfile>(EUtMcpProfile::Profile)->ForceQueryProfile(QueryContext);
@@ -348,7 +343,7 @@ void AUTBasePlayerController::ClientSay_Implementation(AUTPlayerState* Speaker, 
 {
 	FClientReceiveData ClientData;
 	ClientData.LocalPC = this;
-	ClientData.MessageIndex = Destination == ChatDestinations::Team;
+	ClientData.MessageIndex = (Destination == ChatDestinations::Team) ? 1 : 0;
 	ClientData.RelatedPlayerState_1 = Speaker;
 	ClientData.MessageString = Message;
 
@@ -376,6 +371,18 @@ void AUTBasePlayerController::ClientRankedGameAbandoned_Implementation()
 	}
 
 	ConsoleCommand("Disconnect");
+}
+
+void AUTBasePlayerController::ClientMatchmakingGameComplete_Implementation()
+{
+	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
+	if (LP)
+	{
+		LP->LastRankedMatchSessionId.Empty();
+		LP->LastRankedMatchUniqueId.Empty();
+		LP->LastRankedMatchTimeString.Empty();
+		LP->SaveConfig();
+	}
 }
 
 void AUTBasePlayerController::ClientReturnToLobby_Implementation()
@@ -436,12 +443,7 @@ void AUTBasePlayerController::ConnectToServerViaGUID(FString ServerGUID, int32 D
 		// Check to make sure we are not downloading content.  If we are.. stall until it's completed.
 
 		UUTGameViewportClient* ViewportClient = Cast<UUTGameViewportClient>(Cast<ULocalPlayer>(Player)->ViewportClient);
-		if (ViewportClient && ViewportClient->IsDownloadInProgress())
-		{
-			UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);			
-			LP->ShowDownloadDialog(true);
-		}
-		else
+		if (ViewportClient == nullptr || !ViewportClient->IsDownloadInProgress())
 		{
 			StartGUIDJoin();
 		}
@@ -848,10 +850,10 @@ void AUTBasePlayerController::UpdateInputMode()
 				Super::SetInputMode(FInputModeGameOnly());
 				break;
 			case EInputMode::EIM_GameAndUI:
-				Super::SetInputMode(FInputModeGameAndUI().SetLockMouseToViewport(true).SetWidgetToFocus(LocalPlayer->ViewportClient->GetGameViewportWidget()));
+				Super::SetInputMode(FInputModeGameAndUI().SetLockMouseToViewportBehavior(EMouseLockMode::LockOnCapture).SetWidgetToFocus(LocalPlayer->ViewportClient->GetGameViewportWidget()));
 				break;
 			case EInputMode::EIM_UIOnly:
-				Super::SetInputMode(FInputModeUIOnly().SetLockMouseToViewport(true).SetWidgetToFocus(LocalPlayer->ViewportClient->GetGameViewportWidget()));
+				Super::SetInputMode(FInputModeUIOnly().SetLockMouseToViewportBehavior(EMouseLockMode::LockOnCapture).SetWidgetToFocus(LocalPlayer->ViewportClient->GetGameViewportWidget()));
 				break;
 			}
 		}
@@ -1145,3 +1147,41 @@ void AUTBasePlayerController::ImportKeyBinds()
 	}
 }
 
+void AUTBasePlayerController::MarkTutorialAsCompleted(int32 TutorialMask)
+{
+	UUTProfileSettings* ProfileSettings = GetProfileSettings();
+	if (TutorialMask > 0 && ProfileSettings != nullptr)
+	{
+		ProfileSettings->TutorialMask |= TutorialMask;
+		SaveProfileSettings();
+	}
+}
+
+void AUTBasePlayerController::SaveProfileSettings()
+{
+	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
+	if (LP)
+	{
+		LP->SaveProfileSettings();
+	}
+}
+
+void AUTBasePlayerController::ApplyProfileSettings()
+{
+	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
+	if (LP)
+	{
+		LP->ApplyProfileSettings();
+	}
+}
+
+bool AUTBasePlayerController::SkipTutorialCheck()
+{
+	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
+	if (LP)
+	{
+		return LP->SkipTutorialCheck();
+	}
+
+	return false;
+}

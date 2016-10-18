@@ -1,6 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "stdafx.h"
+#include "LightmassPCH.h"
 #include "LightingSystem.h"
  
 // #pragma optimize( "", off )
@@ -131,58 +131,80 @@ struct FEmbreeFilterProcessor
 	}
 
 	/**
-	 * Test if the ray comes from an HLOD (massive LOD) ignore intersection from other LODs of this HLOD.
+	 * Determine ray interaction with HLODs (hierarchical LODs):
 	 *
-	 * @return		true if the ray is rejected.
+	 *				A
+	 *		 /			   \
+	 *		B				E
+	 *	 /	   \		 /	   \
+	 *	C		D		F		G
+	 *
+	 * Above is a HLOD tree where A is tier 2 HLOD, B and E are tier 1 HLODs. C,D,F and G are LOD0 nodes.
+	 * Node range indices are assigned by a depth-first traversal beginning at the largest HLOD, i.e. node A,
+	 * as this allows each HLOD to know the contained children for later rejection. Leaf nodes are always LOD0s.
+	 *
+	 * Stored HLOD data per node:
+	 * HLODTreeIndex:	Unique index assigned to this tree of nodes.
+	 * HLODRange:		Range of nodes that make up this HLOD node (self-inclusive).
+	 * HLODRangeStart:	The index within the tree of this node.
+	 * HLODRangeEnd:	The index within the tree of this node's final child.
+	 *
+	 * @return	true if the ray is rejected.
      */
 	EMBREE_INLINE bool HitRejectedByHLODTest() const
 	{
-		if (Ray.MappingMesh)
+		const uint32 InvalidIndex = 0xFFFF;
+		uint32 GeoHLODTreeIndex = (Geo.Mesh->GetLODIndices() & 0xFFFF0000) >> 16;
+		uint32 RayHLODTreeIndex = Ray.MappingMesh ? (Ray.MappingMesh->GetLODIndices() & 0xFFFF0000) >> 16 : InvalidIndex;
+
+		bool bRejectHit = false;
+
+		// If either Geo or Ray is a HLOD (0xFFFF being invalid HLOD)
+		if (GeoHLODTreeIndex != InvalidIndex || RayHLODTreeIndex != InvalidIndex)
 		{
-			uint32 GeoHLODIndex = (Geo.Mesh->GetLODIndices() & 0xFFFF0000) >> 16;
-			uint32 RayHLODIndex = (Ray.MappingMesh->GetLODIndices() & 0xFFFF0000) >> 16;
+			uint32 GeoHLODRange = Geo.Mesh->GetHLODRange();
+			uint32 GeoHLODRangeStart = GeoHLODRange & 0xFFFF;
+			uint32 GeoHLODRangeEnd = (GeoHLODRange & 0xFFFF0000) >> 16;
 
-			// If either Geo or Ray is a HLOD (0xFFFF being invalid HLOD).
-			if (GeoHLODIndex != 0xFFFF || RayHLODIndex != 0xFFFF)
+			uint32 RayHLODRange = Ray.MappingMesh ? Ray.MappingMesh->GetHLODRange() : 0;
+			uint32 RayHLODRangeStart = RayHLODRange & 0xFFFF;
+			uint32 RayHLODRangeEnd = (RayHLODRange & 0xFFFF0000) >> 16;
+
+			// Different rules if nodes are within the same HLOD tree
+			if (GeoHLODTreeIndex != RayHLODTreeIndex)
 			{
-				uint32 GeoHLODRange = Geo.Mesh->GetHLODRange();
-				uint32 GeoHLODRangeStart = GeoHLODRange & 0xFFFF;
-				uint32 GeoHLODRangeEnd = (GeoHLODRange & 0xFFFF0000) >> 16;
-
-				uint32 RayHLODRange = Ray.MappingMesh->GetHLODRange();
-				uint32 RayHLODRangeStart = RayHLODRange & 0xFFFF;
-				uint32 RayHLODRangeEnd = (RayHLODRange & 0xFFFF0000) >> 16;
-
-				// Different rules apply if we're dealing with the same cluster.
-				if (GeoHLODIndex != RayHLODIndex)
+				// Allow other meshes to interact with this tree's LOD0 nodes, else reject
+				if (GeoHLODRangeStart != GeoHLODRangeEnd)
 				{
-					// Allow HLOD leaf nodes (Start == End) to interact with other meshes, else reject.
-					if (GeoHLODRangeStart != GeoHLODRangeEnd)
-					{
-						return true;
-					}
+					bRejectHit = true;
 				}
-				else
+			}
+			else
+			{
+				// Allow shadowing within HLOD tree if:
+				// * Ray and geo are same node, i.e. self-shadowing
+				// * Geo is LOD0 and not a child of Ray node
+				bool bIsRaySameNodeAsGeo = GeoHLODRange == RayHLODRange;
+				bool bIsGeoLOD0 = GeoHLODRangeStart == GeoHLODRangeEnd;
+				bool bIsGeoOutsideRayRange = GeoHLODRangeStart < RayHLODRangeStart || GeoHLODRangeStart > RayHLODRangeEnd;
+
+				if (!(bIsRaySameNodeAsGeo || (bIsGeoLOD0 && bIsGeoOutsideRayRange)))
 				{
-					// Allow HLOD nodes to self-shadow (identical ranges), else reject where range intersects.
-					if (GeoHLODRange != RayHLODRange && 
-						GeoHLODRangeStart <= RayHLODRangeEnd && RayHLODRangeStart <= GeoHLODRangeEnd)
-					{
-						return true;
-					}
+					bRejectHit = true;
 				}
 			}
 		}
-		return false;
+
+		return bRejectHit;
 	}
 
 	EMBREE_INLINE bool HitRejectedByLODIndexTest() const
 	{
+		uint32 GeoMeshLODIndex = Geo.Mesh->GetLODIndices() & 0xFFFF;
+
 		// Only shadows from appropriate mesh LODs.
 		if (Ray.MappingMesh)
 		{
-			uint32 GeoMeshLODIndex = Geo.Mesh->GetLODIndices() & 0xFFFF;
-
 			// If it is not from the same mesh, then only LOD 0 can cast shadow.
 			if (Ray.MappingMesh->MeshIndex != Geo.Mesh->MeshIndex)
 			{
@@ -194,7 +216,9 @@ struct FEmbreeFilterProcessor
 				return (Ray.MappingMesh->GetLODIndices() & 0xFFFF) != GeoMeshLODIndex;
 			}
 		}
-		return false;
+
+		// If the ray didn't originate from a mesh, only intersect against LOD0
+		return GeoMeshLODIndex != 0;
 	}
 
 	EMBREE_INLINE bool HitRejectedBySelfShadowTest() const
@@ -290,7 +314,7 @@ void EmbreeFilterFunc(void* UserPtr, RTCRay& InRay)
 	}
 
 	// No collision with translucent primitives.
-	if (Proc.Desc.Translucent)
+	if (Proc.Desc.Translucent && !(Proc.Ray.bDirectShadowingRay && Proc.Desc.CastShadowAsMasked))
 	{
 		if (Proc.Ray.bCalculateTransmission)
 		{

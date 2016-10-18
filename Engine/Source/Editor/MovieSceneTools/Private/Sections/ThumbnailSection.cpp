@@ -6,6 +6,8 @@
 #include "PropertyEditorModule.h"
 #include "IDetailsView.h"
 #include "MovieSceneToolsUserSettings.h"
+#include "ThumbnailSection.h"
+
 
 #define LOCTEXT_NAMESPACE "FThumbnailSection"
 
@@ -30,15 +32,18 @@ FThumbnailSection::FThumbnailSection(TSharedPtr<ISequencer> InSequencer, TShared
 	GetMutableDefault<UMovieSceneUserThumbnailSettings>()->OnForceRedraw().AddRaw(this, &FThumbnailSection::RedrawThumbnails);
 }
 
+
 FThumbnailSection::~FThumbnailSection()
 {
 	GetMutableDefault<UMovieSceneUserThumbnailSettings>()->OnForceRedraw().RemoveAll(this);
 }
 
+
 void FThumbnailSection::RedrawThumbnails()
 {
 	ThumbnailCache.ForceRedraw();
 }
+
 
 /* FThumbnailSection interface
  *****************************************************************************/
@@ -64,6 +69,7 @@ void FThumbnailSection::PreDraw(FTrackEditorThumbnail& Thumbnail, FLevelEditorVi
 	}
 }
 
+
 void FThumbnailSection::PostDraw(FTrackEditorThumbnail& Thumbnail, FLevelEditorViewportClient& ViewportClient, FSceneViewport& SceneViewport)
 {
 	TSharedPtr<ISequencer> Sequencer = SequencerPtr.Pin();
@@ -83,6 +89,7 @@ bool FThumbnailSection::AreSectionsConnected() const
 	return true;
 }
 
+
 TSharedRef<SWidget> FThumbnailSection::GenerateSectionWidget()
 {
 	return SNew(SBox)
@@ -98,6 +105,7 @@ TSharedRef<SWidget> FThumbnailSection::GenerateSectionWidget()
 				.IsReadOnly(!CanRename())
 		];
 }
+
 
 void FThumbnailSection::BuildSectionContextMenu(FMenuBuilder& MenuBuilder, const FGuid& ObjectBinding)
 {
@@ -160,6 +168,7 @@ void FThumbnailSection::BuildSectionContextMenu(FMenuBuilder& MenuBuilder, const
 	MenuBuilder.EndSection();
 }
 
+
 float FThumbnailSection::GetSectionGripSize() const
 {
 	return ThumbnailSectionConstants::SectionGripSize;
@@ -190,6 +199,7 @@ FText FThumbnailSection::GetSectionTitle() const
 {
 	return FText::GetEmpty();
 }
+
 
 int32 FThumbnailSection::OnPaintSection( FSequencerSectionPainter& InPainter ) const
 {
@@ -245,22 +255,8 @@ int32 FThumbnailSection::OnPaintSection( FSequencerSectionPainter& InPainter ) c
 				PaintGeometry,
 				Thumbnail,
 				ThumbnailClipRect,
-				false,
-				false,
-				DrawEffects
-				);
-		}
-
-		if (Fade > 0.0f)
-		{
-			FSlateDrawElement::MakeBox(
-				InPainter.DrawElements,
-				LayerId + 1,
-				PaintGeometry,
-				WhiteBrush,
-				ThumbnailClipRect,
-				DrawEffects,
-				FLinearColor(0.0f, 0.0f, 0.0f, Fade)
+				DrawEffects | ESlateDrawEffect::NoGamma,
+				FLinearColor(1.f, 1.f, 1.f, 1.f - Fade)
 				);
 		}
 	}
@@ -281,8 +277,9 @@ void FThumbnailSection::Tick(const FGeometry& AllottedGeometry, const FGeometry&
 		const TRange<float> VisibleRange = SequencerPtr.Pin()->GetViewRange();
 		const TRange<float> SectionRange = Section->IsInfinite() ? VisibleRange : Section->GetRange();
 
-		ThumbnailCache.Update(SectionRange, VisibleRange, AllocatedSize, Settings->ThumbnailSize);
+		ThumbnailCache.Update(SectionRange, VisibleRange, AllocatedSize, Settings->ThumbnailSize, Settings->Quality, InCurrentTime);
 	}
 }
+
 
 #undef LOCTEXT_NAMESPACE

@@ -281,6 +281,9 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	UFUNCTION()
 	virtual void OnRep_UTReplicatedMovement();
 
+	/** Return synchronized time stamp for a shot. */
+	virtual float GetCurrentSynchTime(bool bNetDelayedShot);
+
 	virtual void PreReplication(IRepChangedPropertyTracker & ChangedPropertyTracker) override;
 
 	/** UTCharacter version of GatherMovement(), gathers into UTReplicatedMovement.  Return true if using UTReplicatedMovement rather than ReplicatedMovement */
@@ -382,6 +385,10 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	UPROPERTY()
 	UAnimMontage* CurrentTaunt;
 
+	// Taunts should only play one sound at a time and cease when taunt is complete
+	UPROPERTY()
+	UAudioComponent* CurrentTauntAudioComponent;
+
 	UPROPERTY()
 	UAnimMontage* CurrentFirstPersonTaunt;
 
@@ -431,6 +438,9 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 
 	UPROPERTY(BlueprintReadWrite, Replicated, Category = "Pawn")
 		bool bCanRally;
+
+	UPROPERTY(BlueprintReadOnly, Category = "Pawn")
+		bool bWasInWarningZone;
 
 	protected:
 		UPROPERTY(BlueprintReadWrite, Category = Pawn, ReplicatedUsing=UpdateArmorOverlay)
@@ -607,6 +617,10 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	UPROPERTY(BlueprintReadOnly, Category = "Weapon")
 	class AUTProjectile* LastFiredProjectile;
 
+	/** USed to store delayed auto switch if run over weapon while firing. */
+	UPROPERTY(BlueprintReadOnly, Category = "Weapon")
+		class AUTWeapon* PendingAutoSwitchWeapon;
+
 	/** called by weapon being put down when it has finished being unequipped. Transition PendingWeapon to Weapon and bring it up 
 	 * @param OverflowTime - amount of time past end of timer that previous weapon PutDown() used (due to frame delta) - pass onto BringUp() to keep things in sync
 	 */
@@ -729,6 +743,8 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	/** Last time this character was targeted or hit by an enemy. */
 	UPROPERTY(BlueprintReadOnly, Category = Pawn)
 		float LastTargetedTime;
+
+	virtual void TargetedBy(AUTCharacter* Targeter, AUTPlayerState* PS);
 
 	/** Last time this character targeted or hit  an enemy. */
 	UPROPERTY(BlueprintReadOnly, Replicated, Category = Pawn)
@@ -914,19 +930,12 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Pawn)
 	UParticleSystem* HeadArmorHitEffect;
 
-	/** Replicate if this character has a helmet on (headshot blocking) */
-	UPROPERTY(BlueprintReadOnly, Replicated, Category = Pawn)
-	bool bIsWearingHelmet;
+	virtual void NotifyBlockedHeadShot(AUTCharacter* ShotInstigator);
 
-	UPROPERTY()
-		FName TestParam;
-
-		UFUNCTION(exec)
-		void OVPAR(FName Param);
 	UFUNCTION(exec)
-		void OV(float value);
+		void OV(FName InName, float value);
 	UFUNCTION(exec)
-		void OVV(FVector value);
+		void OVV(FName InName, FVector value);
 
 	UFUNCTION(BlueprintCallable, Category = Pawn)
 	void SetHeadScale(float NewHeadScale);
@@ -996,7 +1005,7 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Meta = (DisplayName = "Died"), Category = Pawn)
 	bool K2_Died(AController* EventInstigator, TSubclassOf<UDamageType> DamageType);
-	virtual bool Died(AController* EventInstigator, const FDamageEvent& DamageEvent);
+	virtual bool Died(AController* EventInstigator, const FDamageEvent& DamageEvent, AActor* DamagerCauser=nullptr);
 
 	/** blueprint override for FellOutOfWorld()
 	 * if you return false, make sure to move the Pawn somewhere valid or you are likely to get spammed with this call
@@ -1185,7 +1194,22 @@ public:
 	/** particle component for teleport */
 	UPROPERTY(EditAnywhere, Category = "Effects")
 	TArray< TSubclassOf<class AUTReplicatedEmitter> > TeleportEffect;
-	
+
+	/** particle component for rally */
+	UPROPERTY(EditAnywhere, Category = "Effects")
+		TArray< TSubclassOf<class AUTReplicatedEmitter> > RallyEffect;
+
+	UPROPERTY(EditAnywhere, Category = "Effects")
+		TSubclassOf<AUTTaunt>  RallyAnimation;
+
+	UPROPERTY(ReplicatedUsing=OnTriggerRallyEffect, BlueprintReadWrite)
+		bool bTriggerRallyEffect;
+
+	UFUNCTION()
+	virtual void OnTriggerRallyEffect();
+
+	virtual void SpawnRallyEffectAt(FVector EffectLocation);
+
 	/** particle component for normal ground footstep */
 	UPROPERTY(EditAnywhere, Category = "Effects")
 		UParticleSystem* GroundFootstepEffect;
@@ -1292,6 +1316,12 @@ public:
 	UPROPERTY(BlueprintReadWrite, Category = UnderWater)
 	float LastDrownTime;
 
+	UPROPERTY(BlueprintReadWrite, Category = Game)
+		float EnteredSafeVolumeTime;
+
+	UPROPERTY(BlueprintReadWrite, Category = Game)
+		bool bHasLeftSafeVolume;
+
 	/** returns true if sound was played. (doesn't allow spamming) */
 	UFUNCTION(BlueprintCallable, Category = Pawn)
 	virtual bool PlayWaterSound(USoundBase* WaterSound);
@@ -1340,6 +1370,9 @@ public:
 	/** Last time we handled  wall hit for gameplay (damage,sound, etc.) */
 	UPROPERTY(BlueprintReadWrite, Category = Sounds)
 	float LastWallHitNotifyTime;
+
+	UPROPERTY(EditAnywhere, Category = Sounds)
+		USoundBase* SpawnSound;
 
 	/** sets character overlay effect; effect must be added to the UTGameState's OverlayEffects at level startup to work correctly (for replication reasons)
 	 * multiple overlays can be active at once, but only one will be displayed at a time
@@ -1674,12 +1707,12 @@ public:
 
 	virtual bool TeleportTo(const FVector& DestLocation, const FRotator& DestRotation, bool bIsATest = false, bool bNoCheck = false) override;
 	UFUNCTION()
-	virtual void OnOverlapBegin(AActor* OtherActor);
+	virtual void OnOverlapBegin(AActor* OverlappedActor, AActor* OtherActor);
 	
 	virtual void CheckRagdollFallingDamage(const FHitResult& Hit);
 
 	UFUNCTION()
-	virtual void OnRagdollCollision(AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit);
+	virtual void OnRagdollCollision(UPrimitiveComponent* HitComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit);
 
 	virtual bool CanPickupObject(AUTCarriedObject* PendingObject);
 	/** @return the current object carried by this pawn */
@@ -1689,6 +1722,8 @@ public:
 	virtual float GetLastRenderTime() const override;
 
 	virtual void PostRenderFor(APlayerController *PC, UCanvas *Canvas, FVector CameraPosition, FVector CameraDir) override;
+
+	virtual void PostRenderForInGameIntro(APlayerController* PC, UCanvas *Canvas, FVector CameraPosition, FVector CameraDir);
 
 	/** returns true if any local PlayerController is viewing this Pawn */
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = PlayerController)
@@ -1780,6 +1815,13 @@ protected:
 	/** RPC to do weapon switch */
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerSwitchWeapon(AUTWeapon* NewWeapon);
+
+	/** error checking for weapon switch to handle edge cases */
+	UFUNCTION(Server, Reliable, WithValidation)
+	virtual void ServerVerifyWeapon(AUTWeapon* NewWeapon);
+public:
+	UFUNCTION(Client, Reliable)
+	virtual void ClientVerifyWeapon();
 
 protected:
 	UFUNCTION(Client, Reliable)
@@ -1954,6 +1996,11 @@ public:
 	{
 		return CustomDepthMesh;
 	}
+
+
+	UPROPERTY(BlueprintReadWrite, EditDefaultsOnly, Category = Effects)
+		UMaterialInstance* GhostMaterial;
+
 protected:
 	/** copy of our mesh rendered to CustomDepth for the outline (which is done in postprocess using the resulting data) */
 	UPROPERTY()
@@ -1970,10 +2017,11 @@ protected:
 	uint16 CharOverlayFlags;
 	UPROPERTY(Replicated, ReplicatedUsing = UpdateWeaponOverlays)
 	uint16 WeaponOverlayFlags;
+public:
 	/** mesh with current active overlay material on it (created dynamically when needed) */
 	UPROPERTY(BlueprintReadOnly, Category = Effects)
 	USkeletalMeshComponent* OverlayMesh;
-
+protected:
 	/** replicated character material override */
 	UPROPERTY(Replicated, ReplicatedUsing = UpdateSkin)
 	UMaterialInterface* ReplicatedBodyMaterial;

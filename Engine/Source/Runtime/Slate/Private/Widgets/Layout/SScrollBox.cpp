@@ -400,9 +400,6 @@ bool SScrollBox::ScrollDescendantIntoView(const FGeometry& MyGeometry, const TSh
 
 	if ( WidgetGeometry )
 	{
-		// @todo: This is a workaround because DesiredScrollOffset can exceed the ScrollMax when mouse dragging on the scroll bar and we need it clamped here or the offset is wrong
-		ScrollBy(MyGeometry, 0, EAllowOverscroll::No, false);
-
 		float ScrollOffset = 0.0f;
 		if ( InDestination == EDescendantScrollDestination::TopOrLeft )
 		{
@@ -568,7 +565,7 @@ void SScrollBox::Tick( const FGeometry& AllottedGeometry, const double InCurrent
 
 	if ( bScrollToEnd )
 	{
-		DesiredScrollOffset = ContentSize;
+		DesiredScrollOffset = FMath::Max(ContentSize - GetScrollComponentFromVector(ScrollPanelGeometry.Size), 0.0f);
 		bScrollToEnd = false;
 	}
 
@@ -768,7 +765,7 @@ bool SScrollBox::ScrollBy(const FGeometry& AllottedGeometry, float ScrollAmount,
 		}
 		else
 		{
-			DesiredScrollOffset = FMath::Clamp(DesiredScrollOffset + ScrollAmount, ScrollMin, ScrollMax);
+			DesiredScrollOffset = FMath::Clamp(ScrollPanel->PhysicalOffset + ScrollAmount, ScrollMin, ScrollMax);
 		}
 	}
 
@@ -813,7 +810,7 @@ FReply SScrollBox::OnTouchMoved(const FGeometry& MyGeometry, const FPointerEvent
 
 		if ( AmountScrolledWhileRightMouseDown > FSlateApplication::Get().GetDragTriggerDistance() )
 		{
-			const float AmountScrolled = this->ScrollBy(MyGeometry, -ScrollByAmount, EAllowOverscroll::Yes, false);
+			const float AmountScrolled = this->ScrollBy(MyGeometry, -ScrollByAmount, EAllowOverscroll::Yes, true);
 
 			// The user has moved the list some amount; they are probably
 			// trying to scroll. From now on, the list assumes the user is scrolling
@@ -939,7 +936,11 @@ int32 SScrollBox::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeom
 
 void SScrollBox::ScrollBar_OnUserScrolled( float InScrollOffsetFraction )
 {
-	DesiredScrollOffset = InScrollOffsetFraction * GetScrollComponentFromVector(ScrollPanel->GetDesiredSize());
+	const float ContentSize = GetScrollComponentFromVector(ScrollPanel->GetDesiredSize());
+	const FGeometry ScrollPanelGeometry = FindChildGeometry(CachedGeometry, ScrollPanel.ToSharedRef());
+
+	// Clamp to max scroll offset
+	DesiredScrollOffset = FMath::Min(InScrollOffsetFraction * ContentSize, ContentSize - GetScrollComponentFromVector(ScrollPanelGeometry.Size));
 	OnUserScrolled.ExecuteIfBound(DesiredScrollOffset);
 }
 

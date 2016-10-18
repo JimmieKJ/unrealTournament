@@ -7,12 +7,13 @@ data that are no longer referenced by the manifests in a given cloud directory.
 
 #include "BuildPatchServicesPrivatePCH.h"
 
-#if WITH_BUILDPATCHGENERATION
+DECLARE_LOG_CATEGORY_EXTERN(LogDataCompactifier, Log, All);
+DEFINE_LOG_CATEGORY(LogDataCompactifier);
 
 /* Constructors
 *****************************************************************************/
 
-FBuildDataCompactifier::FBuildDataCompactifier(const FString& InCloudDir, const bool bInPreview)
+FBuildDataCompactifier::FBuildDataCompactifier(const FString& InCloudDir, bool bInPreview)
 	: CloudDir(InCloudDir)
 	, bPreview(bInPreview)
 {
@@ -21,28 +22,24 @@ FBuildDataCompactifier::FBuildDataCompactifier(const FString& InCloudDir, const 
 /* Public static methods
 *****************************************************************************/
 
-bool FBuildDataCompactifier::CompactifyCloudDirectory(const FString& CloudDir, const TArray<FString>& ManifestsToKeep, const float DataAgeThreshold, const bool bPreview)
+bool FBuildDataCompactifier::CompactifyCloudDirectory(const FString& CloudDir, float DataAgeThreshold, bool bPreview)
 {
 	FBuildDataCompactifier Compactifier(CloudDir, bPreview);
-	return Compactifier.Compactify(ManifestsToKeep, DataAgeThreshold);
+	return Compactifier.Compactify(DataAgeThreshold);
 }
 
-bool FBuildDataCompactifier::CompactifyCloudDirectory(const TArray<FString>& ManifestsToKeep, const float DataAgeThreshold, const bool bPreview)
+bool FBuildDataCompactifier::CompactifyCloudDirectory(float DataAgeThreshold, bool bPreview)
 {
-	return CompactifyCloudDirectory(FBuildPatchServicesModule::GetCloudDirectory(), ManifestsToKeep, DataAgeThreshold, bPreview);
+	return CompactifyCloudDirectory(FBuildPatchServicesModule::GetCloudDirectory(), DataAgeThreshold, bPreview);
 }
 
 /* Private methods
 *****************************************************************************/
 
-bool FBuildDataCompactifier::Compactify(const TArray<FString>& ManifestsToKeep, const float DataAgeThreshold) const
+bool FBuildDataCompactifier::Compactify(float DataAgeThreshold) const
 {
-	GLog->Logf(TEXT("Running Compactify on %s%s"), *CloudDir, bPreview ? TEXT(". Preview mode. NO action will be taken.") : TEXT(""));
-	if (ManifestsToKeep.Num() > 0)
-	{
-		GLog->Logf(TEXT("Preserving manifest files: %s"), *FString::Join(ManifestsToKeep, TEXT(", ")));
-	}
-	GLog->Logf(TEXT("Minimum age of deleted chunks: %.3f days"), DataAgeThreshold);
+	UE_LOG(LogDataCompactifier, Log, TEXT("Running on %s%s"), *CloudDir, bPreview ? TEXT(". Preview mode. NO action will be taken.") : TEXT(""));
+	UE_LOG(LogDataCompactifier, Log, TEXT("Minimum age of deleted chunks: %.3f days."), DataAgeThreshold);
 
 	// We'll work out the date of the oldest unreferenced file we'll keep
 	FDateTime Cutoff = FDateTime::UtcNow() - FTimespan::FromDays(DataAgeThreshold);
@@ -56,42 +53,25 @@ bool FBuildDataCompactifier::Compactify(const TArray<FString>& ManifestsToKeep, 
 	TSet<FGuid> ReferencedGuids; // The master list of *ALL* referenced chunk / file data Guids
 
 	TArray<FString> ManifestFilenames;
-	TArray<FString> DeletedManifestFilenames;
 	TArray<FGuid> DataGuids; // The Guids associated with the data files from a single manifest
 	int32 NumDataFiles = 0;
-	uint64 ManifestBytesDeleted = 0;
 	
 	// Preallocate enough storage in DataGuids, to stop repeatedly expanding the allocation
 	DataGuids.Reserve(AllFiles.Num());
 
 	EnumerateManifests(ManifestFilenames);
 
-	if (!DoAllManifestsExist(ManifestFilenames, ManifestsToKeep))
-	{
-		// At least one of the manifests we want to keep does not exist. This is an error condition
-		GLog->Log(ELogVerbosity::Error, TEXT("Not all manifests to keep exist. Aborting operation"));
-		return false;
-	}
-
-	if (!DeleteNonReferencedManifests(ManifestFilenames, ManifestsToKeep, DeletedManifestFilenames, ManifestBytesDeleted))
-	{
-		// An error occurred deleting one or more of the manifest files. This is an error condition
-		GLog->Log(ELogVerbosity::Error, TEXT("Could not delete one or more manifest files. Aborting operation"));
-		return false;
-	}
-
-	// If we don't have any manifest files, we'll treat that as an error condition
+	// If we don't have any manifest files, notify that we'll continue to delete all mature chunks.
 	if (ManifestFilenames.Num() == 0)
 	{
-		GLog->Log(ELogVerbosity::Warning, TEXT("Could not find any manifest files. Aborting operation."));
-		return true;  // We're still going to return a success code, as this isn't a hard error
+		UE_LOG(LogDataCompactifier, Log, TEXT("Could not find any manifest files. Proceeding to delete all mature chunks."));
 	}
 
 	// Process each remaining manifest, and build up a list of all referenced files
 	for (const auto& ManifestFilename : ManifestFilenames)
 	{
 		const FString ManifestPath = CloudDir / ManifestFilename;
-		GLog->Logf(TEXT("Extracting chunk filenames from %s"), *ManifestFilename);
+		UE_LOG(LogDataCompactifier, Log, TEXT("Extracting chunk filenames from %s."), *ManifestFilename);
 
 		// Load the manifest data from the manifest
 		FBuildPatchAppManifest Manifest;
@@ -101,7 +81,7 @@ bool FBuildDataCompactifier::Compactify(const TArray<FString>& ManifestsToKeep, 
 			DataGuids.Empty();
 			Manifest.GetDataList(DataGuids);
 
-			GLog->Logf(TEXT("Extracted %d chunks from %s. Unioning with %d existing chunks"), DataGuids.Num(), *ManifestFilename, NumDataFiles);
+			UE_LOG(LogDataCompactifier, Log, TEXT("Extracted %d chunks from %s. Unioning with %d existing chunks."), DataGuids.Num(), *ManifestFilename, NumDataFiles);
 			NumDataFiles += DataGuids.Num();
 
 			// We're going to keep all the Guids so we know which files to keep later
@@ -110,22 +90,21 @@ bool FBuildDataCompactifier::Compactify(const TArray<FString>& ManifestsToKeep, 
 		else
 		{
 			// We failed to read from the manifest file.  This is an error which should halt progress and return a non-zero exit code
-			FString ErrorMessage = FString::Printf(TEXT("Could not parse manifest file %s"), *ManifestFilename);
-			GLog->Log(ELogVerbosity::Error, *ErrorMessage);
+			UE_LOG(LogDataCompactifier, Error, TEXT("Could not parse manifest file %s."), *ManifestFilename);
 			return false;
 		}
 	}
 
-	GLog->Logf(TEXT("Compactify walking %s to remove all mature unreferenced chunks and compute statistics."), *CloudDir);
+	UE_LOG(LogDataCompactifier, Log, TEXT("Walking %s to remove all mature unreferenced chunks and compute statistics."), *CloudDir);
 
 	uint32 FilesProcessed = 0;
 	uint32 FilesSkipped = 0;
 	uint32 NonPatchFilesProcessed = 0;
-	uint32 FilesDeleted = DeletedManifestFilenames.Num();
+	uint32 FilesDeleted = 0;
 	uint64 BytesProcessed = 0;
 	uint64 BytesSkipped = 0;
 	uint64 NonPatchBytesProcessed = 0;
-	uint64 BytesDeleted = ManifestBytesDeleted;
+	uint64 BytesDeleted = 0;
 	uint64 CurrentFileSize;
 	FGuid FileGuid;
 
@@ -140,7 +119,7 @@ bool FBuildDataCompactifier::Compactify(const TArray<FString>& ManifestsToKeep, 
 			if (!GetPatchDataGuid(File, FileGuid))
 			{
 				FString CleanFilename = FPaths::GetCleanFilename(File);
-				if (!ManifestFilenames.Contains(CleanFilename) && !DeletedManifestFilenames.Contains(CleanFilename))
+				if (!ManifestFilenames.Contains(CleanFilename))
 				{
 					++NonPatchFilesProcessed;
 					NonPatchBytesProcessed += CurrentFileSize;
@@ -167,18 +146,14 @@ bool FBuildDataCompactifier::Compactify(const TArray<FString>& ManifestsToKeep, 
 		}
 		else
 		{
-			GLog->Logf(TEXT("Warning. Could not determine size of %s. Perhaps it has been removed by another process."), *File);
+			UE_LOG(LogDataCompactifier, Warning, TEXT("Could not determine size of %s. Perhaps it has been removed by another process."), *File);
 		}
 	}
 
-	GLog->Logf(TEXT("Compactify of %s complete!"), *CloudDir);
-	GLog->Logf(TEXT("Compactify found %u files totalling %s."), FilesProcessed, *HumanReadableSize(BytesProcessed));
-	if (NonPatchFilesProcessed > 0)
-	{
-		GLog->Logf(TEXT("Of these, %u (totalling %s) were not chunk/manifest files."), NonPatchFilesProcessed, *HumanReadableSize(NonPatchBytesProcessed));
-	}
-	GLog->Logf(TEXT("Compactify deleted %u chunk/manifest files totalling %s."), FilesDeleted, *HumanReadableSize(BytesDeleted));
-	GLog->Logf(TEXT("Compactify skipped %u unreferenced chunk files (totalling %s) which have not yet aged out."), FilesSkipped, *HumanReadableSize(BytesSkipped));
+	UE_LOG(LogDataCompactifier, Log, TEXT("Found %u files totalling %s."), FilesProcessed, *HumanReadableSize(BytesProcessed));
+	UE_LOG(LogDataCompactifier, Log, TEXT("Of these, %u (totalling %s) were not chunk/manifest files."), NonPatchFilesProcessed, *HumanReadableSize(NonPatchBytesProcessed));
+	UE_LOG(LogDataCompactifier, Log, TEXT("Deleted %u chunk files totalling %s."), FilesDeleted, *HumanReadableSize(BytesDeleted));
+	UE_LOG(LogDataCompactifier, Log, TEXT("Skipped %u unreferenced chunk files (totalling %s) which have not yet aged out."), FilesSkipped, *HumanReadableSize(BytesSkipped));
 	return true;
 }
 
@@ -190,7 +165,7 @@ void FBuildDataCompactifier::DeleteFile(const FString& FilePath) const
 		LogMsg = LogMsg.Append(TEXT(" ... deleted"));
 		IFileManager::Get().Delete(*FilePath);
 	}
-	GLog->Logf(*LogMsg);
+	UE_LOG(LogDataCompactifier, Log, TEXT("%s"), *LogMsg);
 }
 
 void FBuildDataCompactifier::EnumerateManifests(TArray<FString>& OutManifests) const
@@ -198,56 +173,6 @@ void FBuildDataCompactifier::EnumerateManifests(TArray<FString>& OutManifests) c
 	// Get a list of all manifest filenames by using IFileManager
 	FString FilePattern = CloudDir / TEXT("*.manifest");
 	IFileManager::Get().FindFiles(OutManifests, *FilePattern, true, false);
-}
-
-bool FBuildDataCompactifier::DoAllManifestsExist(const TArray<FString>& AllManifests, const TArray<FString>& Manifests) const
-{
-	bool bSuccess = true;
-	for (const auto& Manifest : Manifests)
-	{
-		if (!AllManifests.Contains(Manifest))
-		{
-			GLog->Logf(ELogVerbosity::Error, TEXT("Could not locate specified manifest file %s"), *Manifest);
-			bSuccess = false;
-		}
-	}
-	return bSuccess;
-}
-
-bool FBuildDataCompactifier::DeleteNonReferencedManifests(TArray<FString>& AllManifests, const TArray<FString>& ManifestsToKeep, TArray<FString>& DeletedManifests, uint64& BytesDeleted) const
-{
-	if (ManifestsToKeep.Num() == 0)
-	{
-		return true; // We don't need to delete anything, just return a success response
-	}
-
-	for (const auto& Manifest : AllManifests)
-	{
-		if (!ManifestsToKeep.Contains(Manifest))
-		{
-			FString LogMsg = FString::Printf(TEXT("Found deleteable manifest file %s"), *Manifest);
-			FString ManifestPath = CloudDir / Manifest;
-
-			DeletedManifests.Add(Manifest);
-			BytesDeleted += IFileManager::Get().FileSize(*ManifestPath);
-
-			if (!bPreview)
-			{
-				IFileManager::Get().Delete(*ManifestPath);
-				if (FPlatformFileManager::Get().GetPlatformFile().FileExists(*ManifestPath))
-				{
-					// Something went wrong ... the file still exists!
-					GLog->Logf(ELogVerbosity::Error, TEXT("Compactify could not delete manifest file %s"), *Manifest);
-					return false;
-				}
-				LogMsg.Append(TEXT(" ... deleted"));
-			}
-			GLog->Logf(*LogMsg);
-		}
-	}
-
-	AllManifests = ManifestsToKeep;
-	return true; // None of the manifests we need to get rid of still exist, we succeeded
 }
 
 bool FBuildDataCompactifier::GetPatchDataGuid(const FString& FilePath, FGuid& OutGuid) const
@@ -295,4 +220,3 @@ FString FBuildDataCompactifier::HumanReadableSize(uint64 NumBytes, uint8 Decimal
 
 	return FString::Printf(TEXT("%.*f %s"), DecimalPlaces, DataSize / (FMath::Pow(Base, Index)), Suffixes[bUseBase10 ? 0 : 1][Index]);
 }
-#endif

@@ -34,6 +34,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Config)
 	TEnumAsByte<enum ECurveBlendOption::Type>	CurveBlendOption;
 
+	UPROPERTY(EditAnywhere, Category = Config)
+	bool bBlendRootMotionBasedOnRootBone;
+
 	UPROPERTY(Transient)
 	bool bHasRelevantPoses;
 
@@ -44,6 +47,7 @@ protected:
 public:	
 	FAnimNode_LayeredBoneBlend()
 	{
+		bBlendRootMotionBasedOnRootBone = true;
 	}
 
 	// FAnimNode_Base interface

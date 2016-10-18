@@ -564,7 +564,7 @@ namespace fastJSON
             {
                 myPropInfo p = props[kv.Key];
                 object o = p.getter(obj);
-                Type t = Type.GetType((string)kv.Value);
+                Type t = Reflection.Instance.GetTypeFromCache((string)kv.Value);
                 if (t == typeof(Guid))
                     p.setter(obj, CreateGuid((string)o));
             }
@@ -806,7 +806,7 @@ namespace fastJSON
                 {
                     if (ds.Tables.Contains(ms.Info[i]) == false)
                         ds.Tables.Add(ms.Info[i]);
-                    ds.Tables[ms.Info[i]].Columns.Add(ms.Info[i + 1], Type.GetType(ms.Info[i + 2]));
+                    ds.Tables[ms.Info[i]].Columns.Add(ms.Info[i + 1], Reflection.Instance.GetTypeFromCache(ms.Info[i + 2]));
                 }
             }
         }
@@ -870,7 +870,7 @@ namespace fastJSON
                 dt.TableName = ms.Info[0];
                 for (int i = 0; i < ms.Info.Count; i += 3)
                 {
-                    dt.Columns.Add(ms.Info[i + 1], Type.GetType(ms.Info[i + 2]));
+                    dt.Columns.Add(ms.Info[i + 1], Reflection.Instance.GetTypeFromCache(ms.Info[i + 2]));
                 }
             }
 

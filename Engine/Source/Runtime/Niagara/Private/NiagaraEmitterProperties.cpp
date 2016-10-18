@@ -100,45 +100,6 @@ void UNiagaraEmitterProperties::Init()
 	UpdateScriptProps.Init(this);
 }
 
-void UNiagaraEmitterProperties::InitFromOldStruct(FDeprecatedNiagaraEmitterProperties& OldStruct)
-{
-	EmitterName = OldStruct.Name;
-	bIsEnabled = OldStruct.bIsEnabled;
-	SpawnRate = OldStruct.SpawnRate;
-	UpdateScriptProps.Script = OldStruct.UpdateScript;
-	SpawnScriptProps.Script = OldStruct.SpawnScript;
-	Material = OldStruct.Material;
-	RenderModuleType = OldStruct.RenderModuleType;
-	StartTime = OldStruct.StartTime;
-	EndTime = OldStruct.EndTime;
-	RendererProperties = OldStruct.RendererProperties;
-	NumLoops = OldStruct.NumLoops;
-
-#if WITH_EDITORONLY_DATA
-	//Ensure both scripts are post loaded and compile them so that their constant arrays are correct.
-	if (SpawnScriptProps.Script)
-	{
-		SpawnScriptProps.Script->ConditionalPostLoad();
-		if (SpawnScriptProps.Script->Source)
-			SpawnScriptProps.Script->Source->Compile();
-	}
-	if (UpdateScriptProps.Script)
-	{
-		UpdateScriptProps.Script->ConditionalPostLoad();
-		if (UpdateScriptProps.Script->Source)
-			UpdateScriptProps.Script->Source->Compile();
-	}
-#endif
-
-	UpdateScriptProps.ExternalConstants.InitFromOldMap(OldStruct.ExternalConstants);
-	SpawnScriptProps.ExternalConstants.InitFromOldMap(OldStruct.ExternalSpawnConstants);
-	//Also init the spawn constants with the update constants as they used to combined
-	SpawnScriptProps.ExternalConstants.InitFromOldMap(OldStruct.ExternalConstants);
-	UpdateScriptProps.ExternalConstants.InitFromOldMap(OldStruct.ExternalSpawnConstants);
-
-	Init();
-}
-
 #if WITH_EDITOR
 void UNiagaraEmitterProperties::PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent)
 {

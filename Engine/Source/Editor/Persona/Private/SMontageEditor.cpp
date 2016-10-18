@@ -620,6 +620,25 @@ void SMontageEditor::RemoveMontageSlot(int32 AnimSlotIndex)
 	}
 }
 
+void SMontageEditor::DuplicateMontageSlot(int32 AnimSlotIndex)
+{
+	if (MontageObj != nullptr && MontageObj->SlotAnimTracks.IsValidIndex(AnimSlotIndex))
+	{
+		const FScopedTransaction Transaction(LOCTEXT("DuplicateSlot", "Duplicate Slot"));
+		MontageObj->Modify();
+
+		FSlotAnimationTrack NewTrack; 
+		NewTrack.SlotName = FAnimSlotGroup::DefaultSlotName;
+
+		NewTrack.AnimTrack = MontageObj->SlotAnimTracks[AnimSlotIndex].AnimTrack;
+
+		MontageObj->SlotAnimTracks.Add(NewTrack);
+		MontageObj->MarkPackageDirty();
+
+		AnimMontagePanel->Update();
+	}
+}
+
 void SMontageEditor::ShowSectionInDetailsView(int32 SectionIndex)
 {
 	UEditorCompositeSection *Obj = Cast<UEditorCompositeSection>(ShowInDetailsView(UEditorCompositeSection::StaticClass()));
@@ -635,7 +654,7 @@ void SMontageEditor::RestartPreview()
 	UAnimPreviewInstance * Preview = Cast<UAnimPreviewInstance>(PersonaPtr.Pin()->GetPreviewMeshComponent() ? PersonaPtr.Pin()->GetPreviewMeshComponent()->PreviewInstance:NULL);
 	if (Preview)
 	{
-		Preview->MontagePreview_PreviewNormal();
+		Preview->MontagePreview_PreviewNormal(INDEX_NONE, Preview->IsPlaying());
 	}
 }
 
@@ -644,7 +663,7 @@ void SMontageEditor::RestartPreviewFromSection(int32 FromSectionIdx)
 	UAnimPreviewInstance * Preview = Cast<UAnimPreviewInstance>(PersonaPtr.Pin()->GetPreviewMeshComponent() ? PersonaPtr.Pin()->GetPreviewMeshComponent()->PreviewInstance:NULL);
 	if(Preview)
 	{
-		Preview->MontagePreview_PreviewNormal(FromSectionIdx);
+		Preview->MontagePreview_PreviewNormal(FromSectionIdx, Preview->IsPlaying());
 	}
 }
 
@@ -653,7 +672,7 @@ void SMontageEditor::RestartPreviewPlayAllSections()
 	UAnimPreviewInstance * Preview = Cast<UAnimPreviewInstance>(PersonaPtr.Pin()->GetPreviewMeshComponent() ? PersonaPtr.Pin()->GetPreviewMeshComponent()->PreviewInstance:NULL);
 	if(Preview)
 	{
-		Preview->MontagePreview_PreviewAllSections();
+		Preview->MontagePreview_PreviewAllSections(Preview->IsPlaying());
 	}
 }
 

@@ -465,8 +465,8 @@ void FPrimitiveStatsPage::OnEditorSelectionChanged( UObject* NewSelection, TWeak
 {
 	if(InParentStatsViewer.IsValid())
 	{
-		int32 ObjectSetIndex = InParentStatsViewer.Pin()->GetObjectSetIndex();
-		if( ObjectSetIndex == PrimitiveObjectSets_SelectedObjects )
+		const int32 ObjSetIndex = InParentStatsViewer.Pin()->GetObjectSetIndex();
+		if( ObjSetIndex == PrimitiveObjectSets_SelectedObjects )
 		{
 			InParentStatsViewer.Pin()->Refresh();
 		}
@@ -477,8 +477,8 @@ void FPrimitiveStatsPage::OnEditorNewCurrentLevel( TWeakPtr< IStatsViewer > InPa
 {
 	if(InParentStatsViewer.IsValid())
 	{
-		int32 ObjectSetIndex = InParentStatsViewer.Pin()->GetObjectSetIndex();
-		if( ObjectSetIndex == PrimitiveObjectSets_CurrentLevel )
+		const int32 ObjSetIndex = InParentStatsViewer.Pin()->GetObjectSetIndex();
+		if( ObjSetIndex == PrimitiveObjectSets_CurrentLevel )
 		{
 			InParentStatsViewer.Pin()->Refresh();
 		}

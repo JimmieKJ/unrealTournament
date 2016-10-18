@@ -44,6 +44,7 @@ public class LevelSequenceEditor : ModuleRules
 				"SceneOutliner",
 				"PlacementMode",
                 "Settings",
+                "MovieSceneCaptureDialog",
 			}
 		);
 

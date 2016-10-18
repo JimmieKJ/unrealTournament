@@ -33,10 +33,6 @@
 //POSSIBILITY OF SUCH DAMAGE.
 
 //
-// Author: John Kessenich, LunarG
-//
-
-//
 // Parameterize the SPIR-V enumerants.
 //
 
@@ -67,6 +63,8 @@ const char* SamplerFilterModeString(int);
 const char* ImageFormatString(int);
 const char* ImageChannelOrderString(int);
 const char* ImageChannelTypeString(int);
+const char* ImageChannelDataTypeString(int type);
+const char* ImageOperandsString(int format);
 const char* ImageOperands(int);
 const char* FPFastMathString(int);
 const char* FPRoundingModeString(int);
@@ -81,6 +79,7 @@ const char* KernelEnqueueFlagsString(int);
 const char* KernelProfilingInfoString(int);
 const char* CapabilityString(int);
 const char* OpcodeString(int);
+const char* ScopeString(int mem);
 
 // For grouping opcodes into subsections
 enum OpcodeClass {
@@ -243,7 +242,7 @@ protected:
     int resultPresent : 1;
 };
 
-const int OpcodeCeiling = 320;
+const int OpcodeCeiling = 321;
 
 // The set of objects that hold all the instruction/operand
 // parameterization information.

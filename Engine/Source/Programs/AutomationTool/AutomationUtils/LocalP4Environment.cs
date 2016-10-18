@@ -25,11 +25,7 @@ namespace AutomationTool
 		protected override void InitEnvironment(P4Connection Connection, CommandEnvironment CmdEnv)
 		{
 			var HostName = Environment.MachineName.ToLower();
-			var P4PortEnv = Environment.GetEnvironmentVariable("P4PORT");
-			if (String.IsNullOrEmpty(P4PortEnv))
-			{
-				P4PortEnv = DetectP4Port();
-			}
+			var P4PortEnv = DetectP4Port();
 
 			var UserName = CommandUtils.GetEnvVar(EnvVarNames.User);
 			if (String.IsNullOrEmpty(UserName))
@@ -80,6 +76,16 @@ namespace AutomationTool
 				CommandUtils.ConditionallySetEnvVar(EnvVarNames.Changelist, CLString);
 			}
 
+			var CodeCLString = CommandUtils.GetEnvVar(EnvVarNames.CodeChangelist, null);
+			if (String.IsNullOrEmpty(CodeCLString) && CommandUtils.P4CLRequired)
+			{
+                CodeCLString = DetectCurrentCodeCL(Connection, ClientRootPath);
+			}
+			if (!String.IsNullOrEmpty(CodeCLString))
+			{
+				CommandUtils.ConditionallySetEnvVar(EnvVarNames.CodeChangelist, CodeCLString);
+			}
+
 			CommandUtils.ConditionallySetEnvVar(EnvVarNames.LabelToSync, "");
 			CommandUtils.ConditionallySetEnvVar("P4USER", UserName);
 			CommandUtils.ConditionallySetEnvVar("P4CLIENT", ThisClient.Name);
@@ -128,6 +134,33 @@ namespace AutomationTool
 				throw new AutomationException("Failed to retrieve current changelist.");
 			}
 			return CLString;
+		}
+
+		/// <summary>
+		/// Detects the current code changelist the workspace is synced to.
+		/// </summary>
+		/// <param name="ClientRootPath">Workspace path.</param>
+		/// <returns>Changelist number as a string.</returns>
+		private static string DetectCurrentCodeCL(P4Connection Connection, string ClientRootPath)
+		{
+			CommandUtils.LogVerbose("uebp_CodeCL not set, detecting last code CL...");
+
+			// Retrieve the current changelist 
+			string P4Cmd = String.Format("changes -m 1 \"{0}/....cpp#have\" \"{0}/....h#have\" \"{0}/....inl#have\" \"{0}/....cs#have\" \"{0}/....usf#have\"", CommandUtils.CombinePaths(PathSeparator.Depot, ClientRootPath));
+			ProcessResult P4Result = Connection.P4(P4Cmd, AllowSpew: false);
+
+			// Loop through all the lines of the output. Even though we requested one result, we'll get one for each search pattern.
+			int CL = 0;
+			foreach(string Line in P4Result.Output.Split('\n'))
+			{
+				string[] Tokens = Line.Trim().Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+				if(Tokens.Length >= 2)
+				{
+					int LineCL = Int32.Parse(Tokens[1]);
+					CL = Math.Max(CL, LineCL);
+				}
+			}
+			return CL.ToString();
 		}
 
 		/// <summary>
@@ -297,22 +330,46 @@ namespace AutomationTool
 		/// <returns>Source control server address.</returns>
 		private static string DetectP4Port()
 		{
-			// Try to read the P4PORT environment and check if it is set correctly
-			var P4PortEnv = Environment.GetEnvironmentVariable(EnvVarNames.P4Port);
-
-			// If not, try to fallback to Mapping.P4Port and set this as P4PORT before continueing
-			if (!String.IsNullOrEmpty(P4PortEnv))
+			string P4PortEnv = Environment.GetEnvironmentVariable("P4PORT");
+			if(String.IsNullOrEmpty(P4PortEnv))
 			{
-				Log.TraceWarning("P4PORT is not set. Falling back to {0} which is set to {1}.", EnvVarNames.P4Port, P4PortEnv);
-			}
-			else
-			{
-				// If that fails as well, we just give it a shot with perforce:1666 and hope that this works
-				Log.TraceWarning("P4PORT is not set. Trying to fallback to perforce:1666");
-				P4PortEnv = "perforce:1666";
-			}
-			Environment.SetEnvironmentVariable("P4PORT", P4PortEnv);
+				// If it's not set, spawn Perforce to get the current server port setting
+				ProcessResult Result = CommandUtils.Run(HostPlatform.Current.P4Exe, "set P4PORT", null, CommandUtils.ERunOptions.NoLoggingOfRunCommand);
+				if (Result.ExitCode == 0)
+				{
+					const string KeyName = "P4PORT=";
+					if (Result.Output.StartsWith(KeyName))
+					{
+						int LastIdx = Result.Output.IndexOfAny(new char[] { ' ', '\n' });
+						if (LastIdx == -1)
+						{
+							LastIdx = Result.Output.Length;
+						}
+						P4PortEnv = Result.Output.Substring(KeyName.Length, LastIdx - KeyName.Length);
+					}
+				}
 
+				// Otherwise fallback to the uebp variables, or the default
+				if(String.IsNullOrEmpty(P4PortEnv))
+				{
+					// Try to read the P4PORT environment and check if it is set correctly
+					P4PortEnv = Environment.GetEnvironmentVariable(EnvVarNames.P4Port);
+
+					// If not, try to fallback to Mapping.P4Port and set this as P4PORT before continueing
+					if (!String.IsNullOrEmpty(P4PortEnv))
+					{
+						Log.TraceWarning("P4PORT is not set. Falling back to {0} which is set to {1}.", EnvVarNames.P4Port, P4PortEnv);
+					}
+					else
+					{
+						// If that fails as well, we just give it a shot with perforce:1666 and hope that this works
+						Log.TraceWarning("P4PORT is not set. Trying to fallback to perforce:1666");
+						P4PortEnv = "perforce:1666";
+					}
+				}
+
+				Environment.SetEnvironmentVariable("P4PORT", P4PortEnv);
+			}
 			return P4PortEnv;
 		}
 	}

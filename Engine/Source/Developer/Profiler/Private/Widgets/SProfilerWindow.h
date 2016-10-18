@@ -130,6 +130,8 @@ public:
 	/** Holds all event graphs. */
 	TSharedPtr<SVerticalBox> EventGraphPanel;
 
+	TSharedPtr<SMultiDumpBrowser> MultiDumpBrowser;
+
 	/** Holds the filter and presets widget/slot. */
 	SSplitter::FSlot* FiltersAndPresetsSlot;
 	TSharedPtr<SFiltersAndPresets> FiltersAndPresets;

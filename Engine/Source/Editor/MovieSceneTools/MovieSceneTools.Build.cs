@@ -13,7 +13,8 @@ public class MovieSceneTools : ModuleRules
                 "Editor/MovieSceneTools/Private/TrackEditors",
 				"Editor/MovieSceneTools/Private/TrackEditors/PropertyTrackEditors",
                 "Editor/MovieSceneTools/Private/TrackEditorThumbnail",
-				"Editor/MovieSceneTools/Private/Sections"
+				"Editor/MovieSceneTools/Private/Sections",
+                "Editor/UnrealEd/Private",	//compatibility for FBX importer
             }
         );
 
@@ -31,8 +32,10 @@ public class MovieSceneTools : ModuleRules
 		PrivateDependencyModuleNames.AddRange(
 			new string[] {
                 "ActorPickerMode",
+                "DesktopPlatform",
 				"LevelSequence",
 				"MovieScene",
+                "MovieSceneCapture",
 				"MovieSceneTracks",
 				"BlueprintGraph",
                 "ContentBrowser",
@@ -55,7 +58,9 @@ public class MovieSceneTools : ModuleRules
                 "Settings",
 				"SceneOutliner",
 				"PropertyEditor",
-			}
+                "MainFrame",
+                "UnrealEd",
+            }
 		);
 
 		DynamicallyLoadedModuleNames.AddRange(
@@ -64,9 +69,16 @@ public class MovieSceneTools : ModuleRules
 				"AssetTools",
 				"SceneOutliner",
 				"PropertyEditor",
+                "MainFrame",
 			}
 		);
 
-        CircularlyReferencedDependentModules.Add("Sequencer");
+        CircularlyReferencedDependentModules.AddRange(
+            new string[] {
+                "Sequencer",
+            }
+        );
+
+        AddEngineThirdPartyPrivateStaticDependencies(Target, "FBX");
     }
 }

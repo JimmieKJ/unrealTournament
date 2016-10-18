@@ -7,6 +7,8 @@
 #include "EnginePrivate.h"
 #include "Animation/Rig.h"
 #include "AnimationRuntime.h"
+#include "FrameworkObjectVersion.h"
+
 //@todo should move all this window stuff somewhere else. Persona?
 
 #define LOCTEXT_NAMESPACE "Rig"
@@ -286,9 +288,10 @@ void URig::CreateFromSkeleton(const USkeleton* Skeleton, const TMap<int32, int32
 	if(RequiredBones.Num() >0)
 	{
 		const FReferenceSkeleton& RefSkeleton = Skeleton->GetReferenceSkeleton();
+		SourceSkeleton = RefSkeleton;
 		TArray<FTransform> SpaceBaseRefPose;
 
-		FAnimationRuntime::FillUpSpaceBasesRefPose(Skeleton, SpaceBaseRefPose);
+		FAnimationRuntime::FillUpComponentSpaceTransformsRefPose(Skeleton, SpaceBaseRefPose);
 
 		// once selected, add node to the rig
 		for (auto It = RequiredBones.CreateConstIterator(); It; ++It)
@@ -469,5 +472,30 @@ void URig::SetAllConstraintsToWorld()
 		Control.Constraints[EControlConstraint::Type::Orientation].TransformConstraints[0].ParentSpace = WorldNodeName;
 	}
 }
+
+#if WITH_EDITORONLY_DATA
+void URig::SetSourceReferenceSkeleton(const FReferenceSkeleton& InSrcSkeleton)
+{
+	SourceSkeleton = InSrcSkeleton;
+	MarkPackageDirty();
+}
+#endif // WITH_EDITORONLY_DATA
 #endif // WITH_EDITOR
+
+void URig::Serialize(FArchive& Ar)
+{
+	Super::Serialize(Ar);
+
+	Ar.UsingCustomVersion(FFrameworkObjectVersion::GUID);
+	if (Ar.CustomVer(FFrameworkObjectVersion::GUID) >= FFrameworkObjectVersion::AddSourceReferenceSkeletonToRig)
+	{
+#if WITH_EDITORONLY_DATA
+		Ar << SourceSkeleton;
+#else
+		FReferenceSkeleton Dummy;
+		Ar << Dummy;
+#endif 
+	}
+}
+
 #undef LOCTEXT_NAMESPACE 

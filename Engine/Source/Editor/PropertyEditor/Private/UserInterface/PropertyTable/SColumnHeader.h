@@ -49,14 +49,14 @@ protected:
 			ColumnLabel.ToSharedRef()
 		];
 		
-		TSharedPtr< SToolTip > ToolTip;
+		TSharedPtr< SToolTip > ColumnHeaderToolTip;
 
 		const TWeakObjectPtr< UObject > Object = Column->GetDataSource()->AsUObject();
 		const TSharedPtr< FPropertyPath > PropertyPath = Column->GetDataSource()->AsPropertyPath();
 
 		if( Object.IsValid() )
 		{
-			ToolTip = SNew( SToolTip ).Text( FText::FromString(Object->GetName()) );
+			ColumnHeaderToolTip = SNew( SToolTip ).Text( FText::FromString(Object->GetName()) );
 		}
 		else if ( PropertyPath.IsValid() && PropertyPath->GetNumProperties() > 0 )
 		{
@@ -64,10 +64,10 @@ protected:
 			const FText ToolTipText = PropertyEditorHelpers::GetToolTipText( Property );
 			const FString DocumentationLink = PropertyEditorHelpers::GetDocumentationLink( Property );
 			const FString DocumentationExcerptName = PropertyEditorHelpers::GetDocumentationExcerptName( Property );
-			ToolTip = IDocumentation::Get()->CreateToolTip( ToolTipText, NULL, DocumentationLink, DocumentationExcerptName );
+			ColumnHeaderToolTip = IDocumentation::Get()->CreateToolTip( ToolTipText, NULL, DocumentationLink, DocumentationExcerptName );
 		}
 
-		this->SetToolTip( ToolTip );
+		this->SetToolTip( ColumnHeaderToolTip );
 	}
 
 	virtual FReply OnMouseButtonDown( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override

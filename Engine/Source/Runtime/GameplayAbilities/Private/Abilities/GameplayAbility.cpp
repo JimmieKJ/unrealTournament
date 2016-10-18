@@ -19,15 +19,21 @@
 UGameplayAbility::UGameplayAbility(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+	auto ImplementedInBlueprint = [](const UFunction* Func) -> bool
+	{
+		return Func && ensure(Func->GetOuter())
+			&& (Func->GetOuter()->IsA(UBlueprintGeneratedClass::StaticClass()) || Func->GetOuter()->IsA(UDynamicClass::StaticClass()));
+	};
+
 	{
 		static FName FuncName = FName(TEXT("K2_ShouldAbilityRespondToEvent"));
 		UFunction* ShouldRespondFunction = GetClass()->FindFunctionByName(FuncName);
-		bHasBlueprintShouldAbilityRespondToEvent = ShouldRespondFunction && ensure(ShouldRespondFunction->GetOuter()) && ShouldRespondFunction->GetOuter()->IsA(UBlueprintGeneratedClass::StaticClass());
+		bHasBlueprintShouldAbilityRespondToEvent = ImplementedInBlueprint(ShouldRespondFunction);
 	}
 	{
 		static FName FuncName = FName(TEXT("K2_CanActivateAbility"));
 		UFunction* CanActivateFunction = GetClass()->FindFunctionByName(FuncName);
-		bHasBlueprintCanUse = CanActivateFunction && ensure(CanActivateFunction->GetOuter()) && CanActivateFunction->GetOuter()->IsA(UBlueprintGeneratedClass::StaticClass());
+		bHasBlueprintCanUse = ImplementedInBlueprint(CanActivateFunction);
 	}
 	{
 		static FName FuncName = FName(TEXT("K2_ActivateAbility"));
@@ -35,13 +41,13 @@ UGameplayAbility::UGameplayAbility(const FObjectInitializer& ObjectInitializer)
 		// FIXME: temp to work around crash
 		if (ActivateFunction && (HasAnyFlags(RF_ClassDefaultObject) || ActivateFunction->IsValidLowLevelFast()))
 		{
-			bHasBlueprintActivate = ActivateFunction && ensure(ActivateFunction->GetOuter()) && ActivateFunction->GetOuter()->IsA(UBlueprintGeneratedClass::StaticClass());
+			bHasBlueprintActivate = ImplementedInBlueprint(ActivateFunction);
 		}
 	}
 	{
 		static FName FuncName = FName(TEXT("K2_ActivateAbilityFromEvent"));
 		UFunction* ActivateFunction = GetClass()->FindFunctionByName(FuncName);
-		bHasBlueprintActivateFromEvent = ActivateFunction && ensure(ActivateFunction->GetOuter()) && ActivateFunction->GetOuter()->IsA(UBlueprintGeneratedClass::StaticClass());
+		bHasBlueprintActivateFromEvent = ImplementedInBlueprint(ActivateFunction);
 	}
 	
 #if WITH_EDITOR
@@ -59,6 +65,8 @@ UGameplayAbility::UGameplayAbility(const FObjectInitializer& ObjectInitializer)
 	bServerRespectsRemoteAbilityCancellation = true;
 	bReplicateInputDirectly = false;
 	RemoteInstanceEnded = false;
+
+	InstancingPolicy = EGameplayAbilityInstancingPolicy::InstancedPerExecution;
 
 	ScopeLockCount = 0;
 }
@@ -238,12 +246,17 @@ bool UGameplayAbility::DoesAbilitySatisfyTagRequirements(const UAbilitySystemCom
 	return true;
 }
 
+bool UGameplayAbility::ShouldActivateAbility(ENetRole Role) const
+{
+	return Role != ROLE_SimulatedProxy;
+}
+
 bool UGameplayAbility::CanActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayTagContainer* SourceTags, const FGameplayTagContainer* TargetTags, OUT FGameplayTagContainer* OptionalRelevantTags) const
 {
 	// Don't set the actor info, CanActivate is called on the CDO
 
 	// A valid AvatarActor is required. Simulated proxy check means only authority or autonomous proxies should be executing abilities.
-	if (ActorInfo == nullptr || ActorInfo->AvatarActor == nullptr || ActorInfo->AvatarActor->Role == ROLE_SimulatedProxy)
+	if (ActorInfo == nullptr || ActorInfo->AvatarActor == nullptr || !ShouldActivateAbility(ActorInfo->AvatarActor->Role))
 	{
 		return false;
 	}
@@ -880,11 +893,8 @@ USkeletalMeshComponent* UGameplayAbility::GetOwningComponentFromActorInfo() cons
 	{
 		return nullptr;
 	}
-	if (CurrentActorInfo->AnimInstance.IsValid())
-	{
-		return CurrentActorInfo->AnimInstance.Get()->GetOwningComponent();
-	}
-	return NULL;
+
+	return CurrentActorInfo->SkeletalMeshComponent.Get();
 }
 
 FGameplayEffectSpecHandle UGameplayAbility::MakeOutgoingGameplayEffectSpec(TSubclassOf<UGameplayEffect> GameplayEffectClass, float Level) const
@@ -1055,7 +1065,7 @@ FGameplayAbilityTargetingLocationInfo UGameplayAbility::MakeTargetLocationInfoFr
 {
 	FGameplayAbilityTargetingLocationInfo ReturnLocation;
 	ReturnLocation.LocationType = EGameplayAbilityTargetingLocationType::SocketTransform;
-	ReturnLocation.SourceComponent = GetActorInfo().AnimInstance.IsValid() ? GetActorInfo().AnimInstance.Get()->GetOwningComponent() : NULL;
+	ReturnLocation.SourceComponent = GetActorInfo().SkeletalMeshComponent.Get();
 	ReturnLocation.SourceAbility = this;
 	ReturnLocation.SourceSocketName = SocketName;
 	return ReturnLocation;
@@ -1068,19 +1078,19 @@ UGameplayTasksComponent* UGameplayAbility::GetGameplayTasksComponent(const UGame
 	return GetCurrentActorInfo() ? GetCurrentActorInfo()->AbilitySystemComponent.Get() : nullptr;
 }
 
-AActor* UGameplayAbility::GetOwnerActor(const UGameplayTask* Task) const
+AActor* UGameplayAbility::GetGameplayTaskOwner(const UGameplayTask* Task) const
 {
 	const FGameplayAbilityActorInfo* Info = GetCurrentActorInfo();
 	return Info ? Info->OwnerActor.Get() : nullptr;
 }
 
-AActor* UGameplayAbility::GetAvatarActor(const UGameplayTask* Task) const
+AActor* UGameplayAbility::GetGameplayTaskAvatar(const UGameplayTask* Task) const
 {
 	const FGameplayAbilityActorInfo* Info = GetCurrentActorInfo();
 	return Info ? Info->AvatarActor.Get() : nullptr;
 }
 
-void UGameplayAbility::OnTaskInitialized(UGameplayTask& Task)
+void UGameplayAbility::OnGameplayTaskInitialized(UGameplayTask& Task)
 {
 	UAbilityTask* AbilityTask = Cast<UAbilityTask>(&Task);
 	if (AbilityTask)
@@ -1090,11 +1100,23 @@ void UGameplayAbility::OnTaskInitialized(UGameplayTask& Task)
 	}
 }
 
-void UGameplayAbility::OnTaskActivated(UGameplayTask& Task)
+void UGameplayAbility::OnGameplayTaskActivated(UGameplayTask& Task)
 {
 	ABILITY_VLOG(CastChecked<AActor>(GetOuter()), Log, TEXT("Task Started %s"), *Task.GetName());
 
 	ActiveTasks.Add(&Task);
+}
+
+void UGameplayAbility::OnGameplayTaskDeactivated(UGameplayTask& Task)
+{
+	ABILITY_VLOG(CastChecked<AActor>(GetOuter()), Log, TEXT("Task Ended %s"), *Task.GetName());
+
+	ActiveTasks.Remove(&Task);
+
+	if (ENABLE_ABILITYTASK_DEBUGMSG)
+	{
+		AddAbilityTaskDebugMessage(&Task, TEXT("Ended."));
+	}
 }
 
 void UGameplayAbility::ConfirmTaskByInstanceName(FName InstanceName, bool bEndTask)
@@ -1204,18 +1226,6 @@ void UGameplayAbility::EndAbilityState(FName OptionalStateNameToEnd)
 	}
 }
 
-void UGameplayAbility::OnTaskDeactivated(UGameplayTask& Task)
-{
-	ABILITY_VLOG(CastChecked<AActor>(GetOuter()), Log, TEXT("Task Ended %s"), *Task.GetName());
-
-	ActiveTasks.Remove(&Task);
-
-	if (ENABLE_ABILITYTASK_DEBUGMSG)
-	{
-		AddAbilityTaskDebugMessage(&Task, TEXT("Ended."));
-	}
-}
-
 void UGameplayAbility::AddAbilityTaskDebugMessage(UGameplayTask* AbilityTask, FString DebugMessage)
 {
 	TaskDebugMessages.AddDefaulted();
@@ -1246,6 +1256,13 @@ void UGameplayAbility::K2_ExecuteGameplayCueWithParams(FGameplayTag GameplayCueT
 void UGameplayAbility::K2_AddGameplayCue(FGameplayTag GameplayCueTag, FGameplayEffectContextHandle Context, bool bRemoveOnAbilityEnd)
 {
 	check(CurrentActorInfo);
+
+	// Make default context if nothing is passed in
+	if (Context.IsValid() == false)
+	{
+		Context = MakeEffectContext(CurrentSpecHandle, CurrentActorInfo);
+	}
+
 	Context.SetAbility(this);
 
 	CurrentActorInfo->AbilitySystemComponent->AddGameplayCue(GameplayCueTag, Context);
@@ -1718,7 +1735,7 @@ void UGameplayAbility::NotifyAbilityTaskWaitingOnPlayerData(class UAbilityTask* 
 
 void UGameplayAbility::NotifyAbilityTaskWaitingOnAvatar(class UAbilityTask* AbilityTask)
 {
-	if (!CurrentActorInfo || CurrentActorInfo->AvatarActor.IsValid() == false)
+	if (CurrentActorInfo && CurrentActorInfo->AvatarActor.IsValid() == false)
 	{
 		ABILITY_LOG(Log, TEXT("Ability %s is force cancelling because Task %s has started while there is no valid AvatarActor"), *GetName(), *AbilityTask->GetDebugString());
 		CurrentActorInfo->AbilitySystemComponent->ForceCancelAbilityDueToReplication(this);

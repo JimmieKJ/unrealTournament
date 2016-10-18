@@ -49,6 +49,8 @@
 
 DEFINE_LOG_CATEGORY_STATIC(LogUnrealEdMisc, Log, All);
 
+bool FTickableEditorObject::bCollectionIntact = true;
+
 namespace
 {
 	static const FName LevelEditorName("LevelEditor");

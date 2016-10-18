@@ -382,23 +382,27 @@ void FAudioStreamingManager::UpdateResourceStreaming(float DeltaTime, bool bProc
 
 	for (auto Source : StreamingSoundSources)
 	{
-		USoundWave* Wave = Source->GetWaveInstance() ? Source->GetWaveInstance()->WaveData : NULL;
-		FStreamingWaveData* WaveData = StreamingSoundWaves.Find(Wave);
-
-		if (WaveData && WaveData->PendingChunkChangeRequestStatus.GetValue() == AudioState_ReadyFor_Requests)
+		const FWaveInstance* WaveInstance = Source->GetWaveInstance();
+		USoundWave* Wave = WaveInstance ? WaveInstance->WaveData : nullptr;
+		if (Wave)
 		{
-			// Request the chunk the source is using and the one after that
-			FWaveRequest& WaveRequest = GetWaveRequest(Wave);
-			int32 SourceChunk = Source->GetBuffer()->GetCurrentChunkIndex();
-			if (SourceChunk >= 0 && SourceChunk < Wave->RunningPlatformData->NumChunks)
+			FStreamingWaveData* WaveData = StreamingSoundWaves.Find(Wave);
+	
+			if (WaveData && WaveData->PendingChunkChangeRequestStatus.GetValue() == AudioState_ReadyFor_Requests)
 			{
-				WaveRequest.RequiredIndices.AddUnique(SourceChunk);
-				WaveRequest.RequiredIndices.AddUnique((SourceChunk+1)%Wave->RunningPlatformData->NumChunks);
-				if (!WaveData->LoadedChunkIndices.Contains(SourceChunk)
-				|| Source->GetBuffer()->GetCurrentChunkOffset() > Wave->RunningPlatformData->Chunks[SourceChunk].DataSize / 2)
+				// Request the chunk the source is using and the one after that
+				FWaveRequest& WaveRequest = GetWaveRequest(Wave);
+				int32 SourceChunk = Source->GetBuffer()->GetCurrentChunkIndex();
+				if (SourceChunk >= 0 && SourceChunk < Wave->RunningPlatformData->NumChunks)
 				{
-					// currently not loaded or already read over half, request is high priority
-					WaveRequest.bPrioritiseRequest = true;
+					WaveRequest.RequiredIndices.AddUnique(SourceChunk);
+					WaveRequest.RequiredIndices.AddUnique((SourceChunk+1)%Wave->RunningPlatformData->NumChunks);
+					if (!WaveData->LoadedChunkIndices.Contains(SourceChunk)
+					|| Source->GetBuffer()->GetCurrentChunkOffset() > Wave->RunningPlatformData->Chunks[SourceChunk].DataSize / 2)
+					{
+						// currently not loaded or already read over half, request is high priority
+						WaveRequest.bPrioritiseRequest = true;
+					}
 				}
 			}
 		}
@@ -436,7 +440,7 @@ void FAudioStreamingManager::SetDisregardWorldResourcesForFrames(int32 NumFrames
 {
 }
 
-void FAudioStreamingManager::AddPreparedLevel(class ULevel* Level)
+void FAudioStreamingManager::AddLevel(class ULevel* Level)
 {
 }
 

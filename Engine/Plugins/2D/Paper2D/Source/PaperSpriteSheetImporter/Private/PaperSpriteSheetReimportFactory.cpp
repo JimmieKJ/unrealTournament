@@ -61,7 +61,9 @@ EReimportResult::Type UPaperSpriteSheetReimportFactory::Reimport(UObject* Obj)
 
 	// Run the import again
 	EReimportResult::Type Result = EReimportResult::Failed;
-	if (UFactory::StaticImportObject(SpriteSheet->GetClass(), SpriteSheet->GetOuter(), *SpriteSheet->GetName(), RF_Public | RF_Standalone, *Filename, nullptr, this))
+	bool OutCanceled = false;
+
+	if (ImportObject(SpriteSheet->GetClass(), SpriteSheet->GetOuter(), *SpriteSheet->GetName(), RF_Public | RF_Standalone, Filename, nullptr, OutCanceled) != nullptr)
 	{
 		UE_LOG(LogPaperSpriteSheetImporter, Log, TEXT("Imported successfully"));
 
@@ -80,7 +82,15 @@ EReimportResult::Type UPaperSpriteSheetReimportFactory::Reimport(UObject* Obj)
 	}
 	else
 	{
-		UE_LOG(LogPaperSpriteSheetImporter, Warning, TEXT("-- import failed"));
+		if (OutCanceled)
+		{
+			UE_LOG(LogPaperSpriteSheetImporter, Warning, TEXT("-- import canceled"));
+		}
+		else
+		{
+			UE_LOG(LogPaperSpriteSheetImporter, Warning, TEXT("-- import failed"));
+		}
+
 		Result = EReimportResult::Failed;
 	}
 

@@ -26,7 +26,7 @@ FDelegateHandle FTicker::AddTicker(const FTickerDelegate& InDelegate, float InDe
 void FTicker::RemoveTicker(FDelegateHandle Handle)
 {
 	// must remove the handle from both arrays because we could be in the middle of a tick, 
-	// and may be removing ourselves or soemthing else we've already considered this Tick
+	// and may be removing ourselves or something else we've already considered this Tick
 	auto CompareHandle = [=](const FElement& Element){ return Element.Delegate.GetHandle() == Handle; };
 	// We can remove elements safely even during tick.
 	Elements.RemoveAllSwap(CompareHandle);
@@ -44,6 +44,8 @@ void FTicker::RemoveTicker(FDelegateHandle Handle)
 
 void FTicker::Tick(float DeltaTime)
 {
+	SCOPE_TIME_GUARD(TEXT("FTicker::Tick"));
+
 	QUICK_SCOPE_CYCLE_COUNTER(STAT_FTicker_Tick);
 	if (!Elements.Num())
 	{

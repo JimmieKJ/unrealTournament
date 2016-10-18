@@ -6,13 +6,18 @@ class FDetailCategoryImpl;
 class FDetailLayoutBuilderImpl : public IDetailLayoutBuilder, public TSharedFromThis<FDetailLayoutBuilderImpl>
 {
 public:
-	FDetailLayoutBuilderImpl(FClassToPropertyMap& InPropertyMap, const TSharedRef< class IPropertyUtilities >& InPropertyUtilities, const TSharedRef< IDetailsViewPrivate >& InDetailsView);
+	FDetailLayoutBuilderImpl(
+		TSharedPtr<FComplexPropertyNode>& InRootNode, 
+		FClassToPropertyMap& InPropertyMap, 
+		const TSharedRef< class IPropertyUtilities >& InPropertyUtilities, 
+		const TSharedRef< IDetailsViewPrivate >& InDetailsView);
 
 	/** IDetailLayoutBuilder Interface */
 	virtual const IDetailsView& GetDetailsView() const override;
 	virtual void GetObjectsBeingCustomized( TArray< TWeakObjectPtr<UObject> >& OutObjects ) const override;
 	virtual IDetailCategoryBuilder& EditCategory( FName CategoryName, const FText& NewLocalizedDisplayName = FText::GetEmpty(), ECategoryPriority::Type CategoryType = ECategoryPriority::Default ) override;
 	virtual TSharedRef<IPropertyHandle> GetProperty( const FName PropertyPath, const UClass* ClassOutermost, FName InInstanceName ) override;
+	virtual FName GetTopLevelProperty() override;
 	virtual void HideProperty( const TSharedPtr<IPropertyHandle> Property ) override;
 	virtual void HideProperty( FName PropertyPath, const UClass* ClassOutermost = NULL, FName InstanceName = NAME_None ) override;
 	virtual void ForceRefreshDetails() override;
@@ -21,6 +26,7 @@ public:
 	virtual bool IsPropertyVisible( const struct FPropertyAndParent& PropertyAndParent ) const override;
 	virtual void HideCategory( FName CategoryName ) override;
 	virtual const TSharedRef< IPropertyUtilities >& GetPropertyUtilities() const override; 
+	virtual UClass* GetBaseClass() const override;
 
 	/**
 	 * Creates a default category. The SDetails view will generate widgets in default categories 
@@ -30,7 +36,12 @@ public:
 	FDetailCategoryImpl& DefaultCategory( FName CategoryName );
 
 	/**
-	 * Generates the layout for this detail builder                                                              
+	* Return true if the category exist
+	*/
+	bool HasCategory(FName CategoryName);
+
+	/**
+	 * Generates the layout for this detail builder
 	 */
 	void GenerateDetailLayout();
 
@@ -79,7 +90,7 @@ public:
 	/**
 	 * @return All tree nodes that should be visible in the tree                                                              
 	 */
-	TArray< TSharedRef<IDetailTreeNode> >& GetRootTreeNodes() { return FilteredRootTreeNodes; }
+	FDetailNodeList& GetRootTreeNodes() { return FilteredRootTreeNodes; }
 
 	/**
 	 * @return true if the layout has any details
@@ -142,6 +153,9 @@ public:
 
 	/** @return The details view that owns this layout */
 	IDetailsViewPrivate& GetDetailsView() { return DetailsView; }
+
+	/** @return The root node for this customization */
+	TSharedPtr<FComplexPropertyNode> GetRootNode() const { return RootNode.Pin(); }
 private:
 	/**
 	 * Finds a property node for the current property by searching in a fast lookup map or a path search if required
@@ -159,6 +173,8 @@ private:
 	void BuildCategories( const FCategoryMap& CategoryMap, TArray< TSharedRef<FDetailCategoryImpl> >& OutSimpleCategories, TArray< TSharedRef<FDetailCategoryImpl> >& OutAdvancedCategories );
 
 private:
+	/** The root property node for this customization */
+	TWeakPtr<FComplexPropertyNode> RootNode;
 	/** A mapping of category names to categories which have been customized */
 	FCategoryMap CustomCategoryMap;
 	/** A mapping of category names to categories which have been not customized */
@@ -184,3 +200,4 @@ private:
 	/** The current class being customized */
 	UStruct* CurrentCustomizationClass;
 };
+

@@ -6,6 +6,8 @@
 #include "SNotificationList.h"
 #include "NotificationManager.h"
 #include "SHyperlink.h"
+#include "EngineAnalytics.h"
+#include "IAnalyticsProvider.h"
 
 #define LOCTEXT_NAMESPACE "GameProjectGeneration"
 
@@ -49,17 +51,41 @@ void SGetSuggestedIDEWidget::OnDownloadIDEClicked(FString URL)
 
 FReply SGetSuggestedIDEWidget::OnInstallIDEClicked()
 {
-	FNotificationInfo Info(FText::Format(LOCTEXT("DownloadingIDEInstaller", "Downloading {0} Installer..."), FSourceCodeNavigation::GetSuggestedSourceCodeIDE(true)));
-	Info.bUseLargeFont = false;
-	Info.bFireAndForget = false;
-	Info.bUseSuccessFailIcons = true;
-	Info.bUseThrobber = true;
-	IDEDownloadNotification = FSlateNotificationManager::Get().AddNotification(Info);
-	IDEDownloadNotification->SetCompletionState(SNotificationItem::ECompletionState::CS_Pending);
+	// If the notification faded out, allow it to be deleted.
+	if (IDEDownloadNotification.IsValid() && IDEDownloadNotification->GetCompletionState() == SNotificationItem::CS_None)
+	{
+		IDEDownloadNotification.Reset();
+	}
 
-	FSourceCodeNavigation::DownloadAndInstallSuggestedIDE(FOnIDEInstallerDownloadComplete::CreateSP(this, &SGetSuggestedIDEWidget::OnIDEInstallerDownloadComplete));
+	// If we have a notification already for this task and its corresponding task hasn't yet completed, do nothing.
+	if (!IDEDownloadNotification.IsValid() || IDEDownloadNotification->GetCompletionState() != SNotificationItem::ECompletionState::CS_Pending)
+	{
+		FText MessageText = FText::Format(LOCTEXT("DownloadingIDEInstaller", "Downloading {0} Installer..."), FSourceCodeNavigation::GetSuggestedSourceCodeIDE(true));
 
-	FEngineAnalytics::GetProvider().RecordEvent(TEXT("Editor.Usage.InstalledIDE"));
+		if (!IDEDownloadNotification.IsValid())
+		{
+			FNotificationInfo Info(MessageText);
+			Info.bUseLargeFont = false;
+			Info.bFireAndForget = false;
+			Info.bUseSuccessFailIcons = true;
+			Info.bUseThrobber = true;
+
+			IDEDownloadNotification = FSlateNotificationManager::Get().AddNotification(Info);
+		}
+		else
+		{
+			// Just reuse the same notification, since it hasn't faded offscreen yet.
+			IDEDownloadNotification->SetText(MessageText);
+		}
+		IDEDownloadNotification->SetCompletionState(SNotificationItem::ECompletionState::CS_Pending);
+
+		FSourceCodeNavigation::DownloadAndInstallSuggestedIDE(FOnIDEInstallerDownloadComplete::CreateSP(this, &SGetSuggestedIDEWidget::OnIDEInstallerDownloadComplete));
+
+		if (FEngineAnalytics::IsAvailable())
+		{
+			FEngineAnalytics::GetProvider().RecordEvent(TEXT("Editor.Usage.InstalledIDE"));
+		}
+	}
 
 	return FReply::Handled();
 }

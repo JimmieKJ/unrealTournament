@@ -174,7 +174,7 @@ void UAnimNotifyState_Trail::NotifyBegin(class USkeletalMeshComponent * MeshComp
 			NewParticleComp->RegisterComponentWithWorld(MeshComp->GetWorld());
 		}
 
-		NewParticleComp->AttachTo(MeshComp, NAME_None);
+		NewParticleComp->AttachToComponent(MeshComp, FAttachmentTransformRules::KeepRelativeTransform);
 		NewParticleComp->ActivateSystem(true);
 
 		UParticleSystemComponent::TrailEmitterArray TrailEmitters;

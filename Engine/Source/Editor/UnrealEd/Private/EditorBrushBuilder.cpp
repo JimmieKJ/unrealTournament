@@ -404,17 +404,17 @@ void UCubeBuilder::BuildCube( int32 Direction, float dx, float dy, float dz, boo
 	if( _tessellated )
 	{
 		Poly3i(Direction,n+0,n+1,n+3);
-		Poly3i(Direction,n+0,n+3,n+2);
+		Poly3i(Direction,n+3,n+2,n+0);
 		Poly3i(Direction,n+2,n+3,n+7);
-		Poly3i(Direction,n+2,n+7,n+6);
+		Poly3i(Direction,n+7,n+6,n+2);
 		Poly3i(Direction,n+6,n+7,n+5);
-		Poly3i(Direction,n+6,n+5,n+4);
+		Poly3i(Direction,n+5,n+4,n+6);
 		Poly3i(Direction,n+4,n+5,n+1);
-		Poly3i(Direction,n+4,n+1,n+0);
+		Poly3i(Direction,n+1,n+0,n+4);
 		Poly3i(Direction,n+3,n+1,n+5);
-		Poly3i(Direction,n+3,n+5,n+7);
+		Poly3i(Direction,n+5,n+7,n+3);
 		Poly3i(Direction,n+0,n+2,n+6);
-		Poly3i(Direction,n+0,n+6,n+4);
+		Poly3i(Direction,n+6,n+4,n+0);
 	}
 	else
 	{

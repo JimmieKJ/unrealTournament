@@ -45,6 +45,11 @@ void FEmptyDynamicRHI::RHISetViewport(uint32 MinX,uint32 MinY,float MinZ,uint32 
 
 }
 
+virtual void FEmptyDynamicRHI::RHISetStereoViewport(uint32 LeftMinX, uint32 RightMinX, uint32 MinY, float MinZ, uint32 LeftMaxX, uint32 RightMaxX, uint32 MaxY, float MaxZ)
+{
+
+}
+
 void FEmptyDynamicRHI::RHISetMultipleViewports(uint32 Count, const FViewportBounds* Data) 
 { 
 

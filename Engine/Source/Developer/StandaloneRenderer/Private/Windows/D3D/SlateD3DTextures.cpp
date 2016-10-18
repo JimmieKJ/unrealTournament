@@ -126,6 +126,12 @@ void FSlateD3DTexture::UpdateTextureThreadSafeRaw(uint32 Width, uint32 Height, c
 	}
 }
 
+void FSlateD3DTexture::UpdateTextureThreadSafeWithTextureData(FSlateTextureData* TextureData)
+{
+	UpdateTextureThreadSafeRaw(TextureData->GetWidth(), TextureData->GetHeight(), TextureData->GetRawBytesPtr());
+	delete TextureData; 
+}
+
 
 FSlateTextureAtlasD3D::FSlateTextureAtlasD3D( uint32 Width, uint32 Height, uint32 StrideBytes, ESlateTextureAtlasPaddingStyle PaddingStyle )
 	: FSlateTextureAtlas( Width, Height, StrideBytes, PaddingStyle )

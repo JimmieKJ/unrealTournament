@@ -7,6 +7,8 @@
 #include "UTAntiCheatModularFeature.h"
 #include "UTGameMode.generated.h"
 
+UNREALTOURNAMENT_API DECLARE_LOG_CATEGORY_EXTERN(LogUTGame, Log, All);
+
 /** Defines the current state of the game. */
 
 namespace MatchState
@@ -213,7 +215,7 @@ public:
 	float XPMultiplier;
 
 	/** XP cap/minute */
-	UPROPERTY(GlobalConfig)
+	UPROPERTY()
 	int32 XPCapPerMin;
 
 	/** Will be TRUE if the game has ended */
@@ -350,6 +352,10 @@ public:
 	UPROPERTY(Config)
 	TArray<FString> MapRotation;
 
+	// These maps will be added to the map rotation list.  This is to get around ini parser limitations
+	UPROPERTY(Config)
+	TArray<FString> UserMapRotation;
+
 	UPROPERTY()
 	FString RconNextMapName;
 
@@ -417,6 +423,16 @@ public:
 	UPROPERTY()
 		float EndOfMatchMessageDelay;
 
+
+	TAssetSubclassOf<AUTWeapon> ImpactHammerObject;
+
+	UPROPERTY()
+		TSubclassOf<AUTWeapon> ImpactHammerClass;
+
+	/** Set true to make impact hammer part of default inventory. */
+	UPROPERTY(EditDefaultsOnly, Category = Game)
+		bool bGameHasImpactHammer;
+
 	/** workaround for call chain from engine, SetPlayerDefaults() could be called while pawn is alive to reset its values but we don't want it to do new spawn stuff like spawning inventory unless it's called from RestartPlayer() */
 	UPROPERTY(Transient, BlueprintReadOnly)
 	bool bSetPlayerDefaultsNewSpawn;
@@ -450,7 +466,7 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = Mutator)
 	virtual void AddMutatorClass(TSubclassOf<AUTMutator> MutClass);
 	virtual void InitGameState() override;
-	virtual APlayerController* Login(class UPlayer* NewPlayer, ENetRole RemoteRole, const FString& Portal, const FString& Options, const TSharedPtr<const FUniqueNetId>& UniqueId, FString& ErrorMessage) override;
+	virtual APlayerController* Login(class UPlayer* NewPlayer, ENetRole RemoteRole, const FString& Portal, const FString& Options, const FUniqueNetIdRepl& UniqueId, FString& ErrorMessage) override;
 	virtual void RemoveAllPawns();
 	virtual void RestartGame();
 	virtual void BeginGame();
@@ -459,7 +475,7 @@ public:
 	virtual bool IsEnemy(class AController* First, class AController* Second);
 	virtual void Killed(class AController* Killer, class AController* KilledPlayer, class APawn* KilledPawn, TSubclassOf<UDamageType> DamageType);
 	virtual void NotifyKilled(AController* Killer, AController* Killed, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType);
-	
+
 	UFUNCTION(BlueprintNativeEvent, BlueprintAuthorityOnly)
 	void ScorePickup(AUTPickup* Pickup, AUTPlayerState* PickedUpBy, AUTPlayerState* LastPickedUpBy);
 
@@ -509,13 +525,11 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = UTGame)
 	virtual void SetPlayerDefaults(APawn* PlayerPawn) override;
-	virtual FString InitNewPlayer(class APlayerController* NewPlayerController, const TSharedPtr<const FUniqueNetId>& UniqueId, const FString& Options, const FString& Portal = TEXT("")) override;
+	virtual FString InitNewPlayer(class APlayerController* NewPlayerController, const FUniqueNetIdRepl& UniqueId, const FString& Options, const FString& Portal = TEXT("")) override;
 
 	virtual void GiveDefaultInventory(APawn* PlayerPawn);
 
 	virtual float OverrideRespawnTime(TSubclassOf<AUTInventory> InventoryType);
-
-	virtual void ChangeName(AController* Other, const FString& S, bool bNameChange);
 
 	/** Return true if playerstart P should be avoided for this game mode. */
 	virtual bool AvoidPlayerStart(class AUTPlayerStart* P);
@@ -645,6 +659,8 @@ public:
 
 	UPROPERTY()
 	bool bRankedSession;
+	UPROPERTY()
+	bool bUseMatchmakingSession;
 
 	virtual TSubclassOf<class AGameSession> GetGameSessionClass() const;
 	
@@ -766,6 +782,8 @@ public:
 	bool bDedicatedInstance;
 
 	void SendLobbyMessage(const FString& Message, AUTPlayerState* Sender);
+
+	void PreLogin(const FString& Options, const FString& Address, const FUniqueNetIdRepl& UniqueId, FString& ErrorMessage);
 
 protected:
 	UPROPERTY(Config)
@@ -893,6 +911,9 @@ public:
 	*/
 	virtual void StartToLeaveMap() {}
 
+	/** Change playerstate properties as needed when becoming inactive. */
+	virtual void SetPlayerStateInactive(APlayerState* NewPlayerState);
+
 	/**Overridden to replicate Inactive Player States  */
 	virtual void AddInactivePlayer(APlayerState* PlayerState, APlayerController* PC) override;
 	virtual bool FindInactivePlayer(APlayerController* PC) override;
@@ -954,6 +975,10 @@ public:
 	 *  ContextObject is the object that 
 	 **/
 	virtual void SendComsMessage( AUTPlayerController* Sender, AUTPlayerState* Target, int32 Switch = 0);
+
+	/** Holds the tutorial mask to set when this game completes.  */
+	UPROPERTY(BlueprintReadOnly, Category=Onboarding)
+	int32 TutorialMask;
 
 };
 

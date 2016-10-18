@@ -1,10 +1,30 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreUObjectPrivate.h"
+#include "PropertyTag.h"
 
 /*-----------------------------------------------------------------------------
 	UStrProperty.
 -----------------------------------------------------------------------------*/
+
+bool UStrProperty::ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8* Data, UStruct* DefaultsStruct, bool& bOutAdvanceProperty)
+{
+	// Convert serialized text to string.
+	if (Tag.Type==NAME_TextProperty) 
+	{ 
+		FText Text;  
+		Ar << Text;
+		const FString String = FTextInspector::GetSourceString(Text) ? *FTextInspector::GetSourceString(Text) : TEXT("");
+		SetPropertyValue_InContainer(Data, String, Tag.ArrayIndex);
+		bOutAdvanceProperty = true;
+	}
+	else
+	{
+		bOutAdvanceProperty = false;
+	}
+
+	return bOutAdvanceProperty;
+}
 
 // Necessary to fix Compiler Error C2026 and C1091
 FString UStrProperty::ExportCppHardcodedText(const FString& InSource, const FString& Indent)

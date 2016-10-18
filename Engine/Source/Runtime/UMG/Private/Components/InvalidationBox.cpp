@@ -39,16 +39,16 @@ TSharedRef<SWidget> UInvalidationBox::RebuildWidget()
 	return BuildDesignTimeWidget(MyInvalidationPanel.ToSharedRef());
 }
 
-void UInvalidationBox::OnSlotAdded(UPanelSlot* Slot)
+void UInvalidationBox::OnSlotAdded(UPanelSlot* InSlot)
 {
 	// Add the child to the live slot if it already exists
 	if ( MyInvalidationPanel.IsValid() )
 	{
-		MyInvalidationPanel->SetContent(Slot->Content ? Slot->Content->TakeWidget() : SNullWidget::NullWidget);
+		MyInvalidationPanel->SetContent(InSlot->Content ? InSlot->Content->TakeWidget() : SNullWidget::NullWidget);
 	}
 }
 
-void UInvalidationBox::OnSlotRemoved(UPanelSlot* Slot)
+void UInvalidationBox::OnSlotRemoved(UPanelSlot* InSlot)
 {
 	// Remove the widget from the live slot if it exists.
 	if ( MyInvalidationPanel.IsValid() )

@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "Engine/EngineTypes.h"
 #include "Perception/AIPerceptionSystem.h"
 #include "Perception/AISense.h"
 #include "AISense_Sight.generated.h"
@@ -151,6 +152,8 @@ protected:
 
 	UPROPERTY(EditDefaultsOnly, Category = "AI Perception", config)
 	float SightLimitQueryImportance;
+
+	ECollisionChannel DefaultSightCollisionChannel;
 
 public:
 

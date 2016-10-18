@@ -67,9 +67,9 @@ void SMultiLineEditableText::Construct( const FArguments& InArgs )
 		Marshaller = FPlainTextLayoutMarshaller::Create();
 	}
 
-	EditableTextLayout = MakeUnique<FSlateEditableTextLayout>(*this, InArgs._Text, TextStyle, InArgs._TextShapingMethod, InArgs._TextFlowDirection, Marshaller.ToSharedRef(), Marshaller.ToSharedRef());
+	EditableTextLayout = MakeUnique<FSlateEditableTextLayout>(*this, InArgs._Text, TextStyle, InArgs._TextShapingMethod, InArgs._TextFlowDirection, InArgs._CreateSlateTextLayout, Marshaller.ToSharedRef(), Marshaller.ToSharedRef());
 	EditableTextLayout->SetHintText(InArgs._HintText);
-	EditableTextLayout->SetTextWrapping(InArgs._WrapTextAt, InArgs._AutoWrapText);
+	EditableTextLayout->SetTextWrapping(InArgs._WrapTextAt, InArgs._AutoWrapText, InArgs._WrappingPolicy);
 	EditableTextLayout->SetMargin(InArgs._Margin);
 	EditableTextLayout->SetJustification(InArgs._Justification);
 	EditableTextLayout->SetLineHeightPercentage(InArgs._LineHeightPercentage);
@@ -146,6 +146,11 @@ void SMultiLineEditableText::SetAutoWrapText(const TAttribute<bool>& InAutoWrapT
 	EditableTextLayout->SetAutoWrapText(InAutoWrapText);
 }
 
+void SMultiLineEditableText::SetWrappingPolicy(const TAttribute<ETextWrappingPolicy>& InWrappingPolicy)
+{
+	EditableTextLayout->SetWrappingPolicy(InWrappingPolicy);
+}
+
 void SMultiLineEditableText::SetLineHeightPercentage(const TAttribute<float>& InLineHeightPercentage)
 {
 	EditableTextLayout->SetLineHeightPercentage(InLineHeightPercentage);
@@ -216,6 +221,11 @@ bool SMultiLineEditableText::ShouldRevertTextOnEscape() const
 bool SMultiLineEditableText::ShouldClearKeyboardFocusOnCommit() const
 {
 	return bClearKeyboardFocusOnCommit.Get(false);
+}
+
+bool SMultiLineEditableText::ShouldSelectAllTextOnCommit() const
+{
+	return false;
 }
 
 bool SMultiLineEditableText::CanInsertCarriageReturn() const
@@ -319,7 +329,7 @@ float SMultiLineEditableText::UpdateAndClampVerticalScrollBar(const float InView
 	return EditableTextLayout->GetScrollOffset().Y;
 }
 
-FReply SMultiLineEditableText::OnFocusReceived(const FGeometry& MyGeometry, const FFocusEvent& InFocusEvent)
+FReply SMultiLineEditableText::OnFocusReceived( const FGeometry& MyGeometry, const FFocusEvent& InFocusEvent )
 {
 	EditableTextLayout->HandleFocusReceived(InFocusEvent);
 	return FReply::Handled();

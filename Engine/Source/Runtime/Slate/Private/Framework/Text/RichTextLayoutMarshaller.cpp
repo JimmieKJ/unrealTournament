@@ -4,6 +4,7 @@
 #include "RichTextLayoutMarshaller.h"
 #include "RichTextMarkupProcessing.h"
 #include "SlateTextLayout.h"
+#include "SlateTextUnderlineLineHighlighter.h"
 
 #if WITH_FANCY_TEXT
 
@@ -32,21 +33,27 @@ void FRichTextLayoutMarshaller::SetText(const FString& SourceString, FTextLayout
 	TArray<FTextLayout::FNewLineData> LinesToAdd;
 	LinesToAdd.Reserve(LineParseResultsArray.Num());
 
+	TArray<FTextLineHighlight> LineHighlightsToAdd;
+	TMap<const FTextBlockStyle*, TSharedPtr<FSlateTextUnderlineLineHighlighter>> CachedUnderlineHighlighters;
+
 	// Iterate through parsed line results and create processed lines with runs.
-	for (const FTextLineParseResults& LineParseResults : LineParseResultsArray)
+	for (int32 LineIndex = 0; LineIndex < LineParseResultsArray.Num(); ++LineIndex)
 	{
+		const FTextLineParseResults& LineParseResults = LineParseResultsArray[LineIndex];
+
 		TSharedRef<FString> ModelString = MakeShareable(new FString());
 		TArray< TSharedRef< IRun > > Runs;
 
 		for (const FTextRunParseResults& RunParseResult : LineParseResults.Runs)
 		{
-			AppendRunsForText(RunParseResult, ProcessedString, DefaultTextStyle, ModelString, TargetTextLayout, Runs);
+			AppendRunsForText(LineIndex, RunParseResult, ProcessedString, DefaultTextStyle, ModelString, TargetTextLayout, Runs, LineHighlightsToAdd, CachedUnderlineHighlighters);
 		}
 
 		LinesToAdd.Emplace(MoveTemp(ModelString), MoveTemp(Runs));
 	}
 
 	TargetTextLayout.AddLines(LinesToAdd);
+	TargetTextLayout.SetLineHighlights(LineHighlightsToAdd);
 }
 
 void FRichTextLayoutMarshaller::GetText(FString& TargetString, const FTextLayout& SourceTextLayout)
@@ -113,12 +120,17 @@ TSharedPtr< ITextDecorator > FRichTextLayoutMarshaller::TryGetDecorator(const FS
 	return nullptr;
 }
 
-void FRichTextLayoutMarshaller::AppendRunsForText(const FTextRunParseResults& TextRun,
+void FRichTextLayoutMarshaller::AppendRunsForText(
+	const int32 LineIndex,
+	const FTextRunParseResults& TextRun,
 	const FString& ProcessedString,
 	const FTextBlockStyle& DefaultTextStyle,
 	const TSharedRef<FString>& InOutModelText,
 	FTextLayout& TargetTextLayout,
-	TArray<TSharedRef<IRun>>& Runs)
+	TArray<TSharedRef<IRun>>& Runs,
+	TArray<FTextLineHighlight>& LineHighlights,
+	TMap<const FTextBlockStyle*, TSharedPtr<FSlateTextUnderlineLineHighlighter>>& CachedUnderlineHighlighters
+	)
 {
 	TSharedPtr< ISlateRun > Run;
 	TSharedPtr< ITextDecorator > Decorator = TryGetDecorator(ProcessedString, TextRun);
@@ -153,6 +165,18 @@ void FRichTextLayoutMarshaller::AppendRunsForText(const FTextRunParseResults& Te
 
 		// Create run.
 		Run = FSlateTextRun::Create(RunInfo, InOutModelText, *TextBlockStyle, ModelRange);
+
+		if (!TextBlockStyle->UnderlineBrush.GetResourceName().IsNone())
+		{
+			TSharedPtr<FSlateTextUnderlineLineHighlighter> UnderlineLineHighlighter = CachedUnderlineHighlighters.FindRef(TextBlockStyle);
+			if (!UnderlineLineHighlighter.IsValid())
+			{
+				UnderlineLineHighlighter = FSlateTextUnderlineLineHighlighter::Create(TextBlockStyle->UnderlineBrush, TextBlockStyle->Font, TextBlockStyle->ColorAndOpacity, TextBlockStyle->ShadowOffset, TextBlockStyle->ShadowColorAndOpacity);
+				CachedUnderlineHighlighters.Add(TextBlockStyle, UnderlineLineHighlighter);
+			}
+
+			LineHighlights.Add(FTextLineHighlight(LineIndex, ModelRange, FSlateTextUnderlineLineHighlighter::DefaultZIndex, UnderlineLineHighlighter.ToSharedRef()));
+		}
 	}
 
 	Runs.Add(Run.ToSharedRef());

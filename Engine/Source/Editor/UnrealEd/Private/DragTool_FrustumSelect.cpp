@@ -45,7 +45,6 @@ void FDragTool_ActorFrustumSelect::StartDrag(FEditorViewportClient* InViewportCl
 
 	Start = FVector(InStartScreen.X, InStartScreen.Y, 0);
 	End = EndWk = Start;
-
 }
 
 void FDragTool_ActorFrustumSelect::EndDrag()
@@ -84,7 +83,6 @@ void FDragTool_ActorFrustumSelect::EndDrag()
 			// If the user is selecting, but isn't hold down SHIFT, remove all current selections.
 			GEditor->SelectNone( true, true );
 		}
-		
 
 		const int32 ViewportSizeX = LevelViewportClient->Viewport->GetSizeXY().X;
 		const int32 ViewportSizeY = LevelViewportClient->Viewport->GetSizeXY().Y;
@@ -163,7 +161,6 @@ void FDragTool_ActorFrustumSelect::EndDrag()
 
 				}
 			}
-
 
 			if (HitModels.Num() > 0)
 			{

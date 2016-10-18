@@ -27,23 +27,23 @@ typedef signed long long	int64;		// 64-bit signed.
  * @param	UncompressedSize			Size of uncompressed data in bytes
  * @param	CompressedBuffer			Buffer compressed data is going to be read from
  * @param	CompressedSize				Size of CompressedBuffer data in bytes
- * @return true if compression succeeds, false if it fails because CompressedBuffer was too small or other reasons
+ * @return  Less than zero values are error codes if the uncompress fails, greater than zero is the uncompressed size in bytes
  */
 extern "C"
 {
 
 	__declspec(dllexport)
-	bool __cdecl UE4UncompressMemoryZLIB( void* UncompressedBuffer, int32 UncompressedSize, const void* CompressedBuffer, int32 CompressedSize )
+	int32 __cdecl UE4UncompressMemoryZLIB(void* UncompressedBuffer, int32 UncompressedSize, const void* CompressedBuffer, int32 CompressedSize)
 	{
 		// Zlib wants to use unsigned long.
 		unsigned long ZCompressedSize	= CompressedSize;
 		unsigned long ZUncompressedSize	= UncompressedSize;
 	
 		// Uncompress data.
-		bool bOperationSucceeded = uncompress( (uint8*) UncompressedBuffer, &ZUncompressedSize, (const uint8*) CompressedBuffer, ZCompressedSize ) == Z_OK ? true : false;
+		int32 Result = uncompress((uint8*)UncompressedBuffer, &ZUncompressedSize, (const uint8*)CompressedBuffer, ZCompressedSize);
 
 		// Sanity check to make sure we uncompressed as much data as we expected to.
-		return bOperationSucceeded;
+		return (Result == Z_OK) ? (int32)ZUncompressedSize : Result;
 	}
 
 }

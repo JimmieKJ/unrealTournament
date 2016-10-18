@@ -42,7 +42,7 @@ private:
 	void DrawRectangle(FCanvas* Canvas, const FLinearColor& Color, const FIntRect& Rect);
 };
 
-void FPaperExtractSpritesViewportClient::Draw(FViewport* Viewport, FCanvas* Canvas)
+void FPaperExtractSpritesViewportClient::Draw(FViewport* InViewport, FCanvas* Canvas)
 {
 	// Clear the viewport 
 	Canvas->Clear(GetBackgroundColor());

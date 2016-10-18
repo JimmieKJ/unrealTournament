@@ -22,6 +22,11 @@ void FUProjectDictionary::Refresh()
 	TArray<FString> ProjectDirsFiles;
 	IFileManager::Get().FindFiles(ProjectDirsFiles, *(RootDir / FString(TEXT("*.uprojectdirs"))), true, false);
 
+	// Get the normalized path to the root directory
+	FString NormalizedRootDir = FPaths::ConvertRelativePathToFull(RootDir);
+	FPaths::NormalizeDirectoryName(NormalizedRootDir);
+	FString NormalizedRootDirPrefix = NormalizedRootDir / TEXT("");
+
 	// Add all the project root directories to ProjectRootDirs
 	for(const FString& ProjectDirsFile: ProjectDirsFiles)
 	{
@@ -35,7 +40,14 @@ void FUProjectDictionary::Refresh()
 				{
 					FString DirectoryName = FPaths::ConvertRelativePathToFull(RootDir, Entry);
 					FPaths::NormalizeDirectoryName(DirectoryName);
-					ProjectRootDirs.AddUnique(DirectoryName);
+					if (DirectoryName.StartsWith(NormalizedRootDirPrefix) || DirectoryName == NormalizedRootDir)
+					{
+						ProjectRootDirs.AddUnique(DirectoryName);
+					}
+					else
+					{
+						UE_LOG(LogUProjectInfo, Warning, TEXT("Project search path '%s' is not under root directory, ignoring."), *Entry);
+					}
 				}
 			}
 		}

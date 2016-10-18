@@ -357,13 +357,14 @@ void UParticleModuleParameterDynamic::PostEditChangeProperty(FPropertyChangedEve
 {
 	InitializeDefaults();
 	UpdateUsageFlags();
+	Super::PostEditChangeProperty(PropertyChangedEvent);
 }
 #endif // WITH_EDITOR
 
 void UParticleModuleParameterDynamic::GetCurveObjects(TArray<FParticleCurvePair>& OutCurves)
 {
 	FParticleCurvePair* NewCurve;
-
+	
 	for (int32 ParamIndex = 0; ParamIndex < 4; ParamIndex++)
 	{
 		NewCurve = new(OutCurves) FParticleCurvePair;

@@ -1,15 +1,17 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
-	VulkanVertexBuffer.cpp: Vulkan texture RHI implementation.
+	VulkanTexture.cpp: Vulkan texture RHI implementation.
 =============================================================================*/
 
 #include "VulkanRHIPrivate.h"
 #include "VulkanMemory.h"
 #include "VulkanContext.h"
 #include "VulkanPendingState.h"
+
+
 static FCriticalSection GTextureMapLock;
-static TMap<FRHIResource*, VulkanRHI::FStagingImage*> GTextureMapEntries;
+static TMap<FRHIResource*, VulkanRHI::FStagingBuffer*> GPendingLockedBuffers;
 
 static const VkImageTiling GVulkanViewTypeTilingMode[VK_IMAGE_VIEW_TYPE_RANGE_SIZE] =
 {
@@ -21,6 +23,7 @@ static const VkImageTiling GVulkanViewTypeTilingMode[VK_IMAGE_VIEW_TYPE_RANGE_SI
     VK_IMAGE_TILING_OPTIMAL,		// VK_IMAGE_VIEW_TYPE_2D_ARRAY
     VK_IMAGE_TILING_LINEAR,		// VK_IMAGE_VIEW_TYPE_CUBE_ARRAY
 };
+
 
 VkImage FVulkanSurface::CreateImage(
 	FVulkanDevice& InDevice,
@@ -36,7 +39,7 @@ VkImage FVulkanSurface::CreateImage(
 	VkMemoryRequirements* OutMemoryRequirements,
 	bool bForceLinearTexture)
 {
-	auto& DeviceProperties = InDevice.GetDeviceProperties();
+	const VkPhysicalDeviceProperties& DeviceProperties = InDevice.GetDeviceProperties();
 
 	checkf(GPixelFormats[InFormat].Supported, TEXT("Format %d"), InFormat);
 
@@ -73,21 +76,7 @@ VkImage FVulkanSurface::CreateImage(
 		break;
 	}
 
-	ImageCreateInfo.format = (VkFormat)GPixelFormats[InFormat].PlatformFormat;
-	if ((UEFlags & TexCreate_SRGB) == TexCreate_SRGB)
-	{
-		switch (ImageCreateInfo.format)
-		{
-		case VK_FORMAT_B8G8R8A8_UNORM:			ImageCreateInfo.format = VK_FORMAT_B8G8R8A8_SRGB; break;
-		case VK_FORMAT_R8G8B8A8_UNORM:			ImageCreateInfo.format = VK_FORMAT_R8G8B8A8_SRGB; break;
-		case VK_FORMAT_BC1_RGB_UNORM_BLOCK:		ImageCreateInfo.format = VK_FORMAT_BC1_RGB_SRGB_BLOCK; break;
-		case VK_FORMAT_BC1_RGBA_UNORM_BLOCK:	ImageCreateInfo.format = VK_FORMAT_BC1_RGBA_SRGB_BLOCK; break;
-		case VK_FORMAT_BC2_UNORM_BLOCK:			ImageCreateInfo.format = VK_FORMAT_BC2_SRGB_BLOCK; break;
-		case VK_FORMAT_BC3_UNORM_BLOCK:			ImageCreateInfo.format = VK_FORMAT_BC3_SRGB_BLOCK; break;
-		case VK_FORMAT_BC7_UNORM_BLOCK:			ImageCreateInfo.format = VK_FORMAT_BC7_SRGB_BLOCK; break;
-		default:	break;
-		}
-	}
+	ImageCreateInfo.format = UEToVkFormat(InFormat, (UEFlags & TexCreate_SRGB) == TexCreate_SRGB);
 
 	checkf(ImageCreateInfo.format != VK_FORMAT_UNDEFINED, TEXT("Pixel Format %d not defined!"), InFormat);
 	if (OutFormat)
@@ -120,6 +109,11 @@ VkImage FVulkanSurface::CreateImage(
 	else if (UEFlags & (TexCreate_RenderTargetable | TexCreate_DepthStencilTargetable))
 	{
 		ImageCreateInfo.usage |= (UEFlags & TexCreate_RenderTargetable) ? VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT : VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+		ImageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
+	}
+	else if (UEFlags & (TexCreate_DepthStencilResolveTarget))
+	{
+		ImageCreateInfo.usage |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
 		ImageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
 	}
 	else if (UEFlags & TexCreate_ResolveTargetable)
@@ -175,27 +169,32 @@ VkImage FVulkanSurface::CreateImage(
 		break;
 	}
 
-#if VULKAN_STRICT_TEXTURE_FLAGS
+//#todo-rco: Verify flags work on newer Android drivers
+#if !PLATFORM_ANDROID
 	if (ImageCreateInfo.tiling == VK_IMAGE_TILING_LINEAR)
 	{
 		VkFormatFeatureFlags FormatFlags = InDevice.GetFormatProperties()[ImageCreateInfo.format].linearTilingFeatures;
 		if ((FormatFlags & VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT) == 0)
 		{
+			ensure((ImageCreateInfo.usage & VK_IMAGE_USAGE_SAMPLED_BIT) == 0);
 			ImageCreateInfo.usage &= ~VK_IMAGE_USAGE_SAMPLED_BIT;
 		}
 
 		if ((FormatFlags & VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT) == 0)
 		{
+			ensure((ImageCreateInfo.usage & VK_IMAGE_USAGE_STORAGE_BIT) == 0);
 			ImageCreateInfo.usage &= ~VK_IMAGE_USAGE_STORAGE_BIT;
 		}
 
 		if ((FormatFlags & VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT) == 0)
 		{
+			ensure((ImageCreateInfo.usage & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT) == 0);
 			ImageCreateInfo.usage &= ~VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 		}
 
 		if ((FormatFlags & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT) == 0)
 		{
+			ensure((ImageCreateInfo.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) == 0);
 			ImageCreateInfo.usage &= ~VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
 		}
 	}
@@ -204,33 +203,37 @@ VkImage FVulkanSurface::CreateImage(
 		VkFormatFeatureFlags FormatFlags = InDevice.GetFormatProperties()[ImageCreateInfo.format].optimalTilingFeatures;
 		if ((FormatFlags & VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT) == 0)
 		{
+			ensure((ImageCreateInfo.usage & VK_IMAGE_USAGE_SAMPLED_BIT) == 0);
 			ImageCreateInfo.usage &= ~VK_IMAGE_USAGE_SAMPLED_BIT;
 		}
 
 		if ((FormatFlags & VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT) == 0)
 		{
+			ensure((ImageCreateInfo.usage & VK_IMAGE_USAGE_STORAGE_BIT) == 0);
 			ImageCreateInfo.usage &= ~VK_IMAGE_USAGE_STORAGE_BIT;
 		}
 
 		if ((FormatFlags & VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT) == 0)
 		{
+			ensure((ImageCreateInfo.usage & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT) == 0);
 			ImageCreateInfo.usage &= ~VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 		}
 
 		if ((FormatFlags & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT) == 0)
 		{
+			ensure((ImageCreateInfo.usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT) == 0);
 			ImageCreateInfo.usage &= ~VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
 		}
 	}
 #endif
 
 	VkImage Image;
-	VERIFYVULKANRESULT(vkCreateImage(InDevice.GetInstanceHandle(), &ImageCreateInfo, nullptr, &Image));
+	VERIFYVULKANRESULT(VulkanRHI::vkCreateImage(InDevice.GetInstanceHandle(), &ImageCreateInfo, nullptr, &Image));
 
 	// Fetch image size
 	VkMemoryRequirements tmpMemReq;
 	VkMemoryRequirements& MemReq = OutMemoryRequirements ? *OutMemoryRequirements : tmpMemReq;
-	vkGetImageMemoryRequirements(InDevice.GetInstanceHandle(), Image, &MemReq);
+	VulkanRHI::vkGetImageMemoryRequirements(InDevice.GetInstanceHandle(), Image, &MemReq);
 
 	return Image;
 }
@@ -240,28 +243,25 @@ static TArray<VkFormat> GVulkanPixelFormatKeys;
 
 FVulkanSurface::FVulkanSurface(FVulkanDevice& InDevice, VkImageViewType ResourceType, EPixelFormat InFormat,
 								uint32 SizeX, uint32 SizeY, uint32 SizeZ, bool bArray, uint32 ArraySize, uint32 InNumMips,
-								uint32 InNumSamples, uint32 UEFlags, const FRHIResourceCreateInfo& CreateInfo)
+								uint32 InNumSamples, uint32 InUEFlags, const FRHIResourceCreateInfo& CreateInfo)
 	: Device(&InDevice)
 	, Image(VK_NULL_HANDLE)
-	, ImageLayout(VK_IMAGE_LAYOUT_UNDEFINED)
 	, InternalFormat(VK_FORMAT_UNDEFINED)
 	, Width(SizeX)
 	, Height(SizeY)
 	, Depth(SizeZ)
 	, Format(InFormat)
+	, UEFlags(InUEFlags)
 	, FormatKey(0)
 	, MemProps(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)
 	, Tiling(VK_IMAGE_TILING_MAX_ENUM)	// Can be expanded to a per-platform definition
 	, ViewType(ResourceType)
 	, bIsImageOwner(true)
-#if VULKAN_USE_MEMORY_SYSTEM
 	, Allocation(nullptr)
-#else
-	, DeviceMemory(VK_NULL_HANDLE)
-#endif
 	, NumMips(InNumMips)
 	, NumSamples(InNumSamples)
-	, AspectMask(0)
+	, FullAspectMask(0)
+	, PartialAspectMask(0)
 {
 	VkImageCreateInfo ImageCreateInfo;	// Zeroed inside CreateImage
 	VkMemoryRequirements MemoryRequirements; // Zeroed inside CreateImage
@@ -271,7 +271,8 @@ FVulkanSurface::FVulkanSurface(FVulkanDevice& InDevice, VkImageViewType Resource
 		&InternalFormat,
 		&ImageCreateInfo, &MemoryRequirements);
 
-	AspectMask = GetAspectMask(InternalFormat);
+	FullAspectMask = VulkanRHI::GetAspectMaskFromUEFormat(Format, true, true);
+	PartialAspectMask = VulkanRHI::GetAspectMaskFromUEFormat(Format, false, true);
 
 	// If VK_IMAGE_TILING_OPTIMAL is specified,
 	// memoryTypeBits in vkGetImageMemoryRequirements will become 1
@@ -281,33 +282,21 @@ FVulkanSurface::FVulkanSurface(FVulkanDevice& InDevice, VkImageViewType Resource
 		MemProps |= VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
 	}
 
-#if VULKAN_USE_MEMORY_SYSTEM
-	Allocation = InDevice.GetMemoryManager().Alloc(MemoryRequirements.size, MemoryRequirements.memoryTypeBits, MemProps, __FILE__, __LINE__);
-	VERIFYVULKANRESULT(vkBindImageMemory(Device->GetInstanceHandle(), Image, Allocation->GetHandle(), 0));
-#else
-	VkMemoryAllocateInfo AllocInfo;
-	FMemory::Memzero(AllocInfo);
-	AllocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-	AllocInfo.pNext = nullptr;
-	AllocInfo.allocationSize = MemoryRequirements.size;
-	AllocInfo.memoryTypeIndex = 0;
-	VkResult Result = Device->GetMemoryManager().GetMemoryTypeFromProperties(MemoryRequirements.memoryTypeBits, MemProps, &AllocInfo.memoryTypeIndex);
-	if (Result != VK_SUCCESS)
-	{
-		// We are currently only hitting this case when trying to alloc CPU writable 2d texture arrays
-		if ((MemProps & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) && CreateInfo.BulkData)
-		{
-			// Try again without CPU access, let's assume that since we have BulkData we can fill it in via DMA
-			MemProps &= ~VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
-			Result = Device->GetMemoryManager().GetMemoryTypeFromProperties(MemoryRequirements.memoryTypeBits, MemProps, &AllocInfo.memoryTypeIndex);
-		}
-	}
-	VERIFYVULKANRESULT_EXPANDED(Result);
+	const bool bRenderTarget = (UEFlags & (TexCreate_RenderTargetable | TexCreate_DepthStencilTargetable | TexCreate_ResolveTargetable)) != 0;
+	const bool bCPUReadback = (UEFlags & TexCreate_CPUReadback) != 0;
+	const bool bDynamic = (UEFlags & TexCreate_Dynamic) != 0;
 
-	// Allocate/Free memory should have a wrapper function, which tracks "GVulkanBufferByteBalance"
-	VERIFYVULKANRESULT_EXPANDED(vkAllocateMemory(Device->GetInstanceHandle(), &AllocInfo, nullptr, &DeviceMemory));
-	VERIFYVULKANRESULT(vkBindImageMemory(Device->GetInstanceHandle(), Image, DeviceMemory, 0));
-#endif
+	if (!bDynamic && !bCPUReadback)
+	{
+		ResourceAllocation = InDevice.GetResourceHeapManager().AllocateImageMemory(MemoryRequirements, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, __FILE__, __LINE__);
+		ResourceAllocation->BindImage(Device, Image);
+	}
+	else
+	{
+		Allocation = InDevice.GetMemoryManager().Alloc(MemoryRequirements.size, MemoryRequirements.memoryTypeBits, MemProps, __FILE__, __LINE__);
+		//FPlatformMisc::LowLevelOutputDebugStringf(TEXT("** vkBindImageMemory Buf %p MemHandle %p MemOffset %d Size %u\n"), (void*)Image, (void*)Allocation->GetHandle(), (uint32)0, (uint32)MemoryRequirements.size);
+		VERIFYVULKANRESULT(VulkanRHI::vkBindImageMemory(Device->GetInstanceHandle(), Image, Allocation->GetHandle(), 0));
+	}
 
 
 	Tiling = ImageCreateInfo.tiling;
@@ -334,41 +323,40 @@ FVulkanSurface::FVulkanSurface(FVulkanDevice& InDevice, VkImageViewType Resource
 
 	if ((ImageCreateInfo.usage & VK_IMAGE_USAGE_SAMPLED_BIT) && (UEFlags & (TexCreate_RenderTargetable | TexCreate_DepthStencilTargetable)))
 	{
-		ClearBlocking(CreateInfo.ClearValueBinding);
+		const bool bTransitionToPresentable = ((UEFlags & TexCreate_Presentable) == TexCreate_Presentable);
+		InitialClear(CreateInfo.ClearValueBinding, bTransitionToPresentable);
 	}
 }
 
 // This is usually used for the framebuffer image
 FVulkanSurface::FVulkanSurface(FVulkanDevice& InDevice, VkImageViewType ResourceType, EPixelFormat InFormat,
 								uint32 SizeX, uint32 SizeY, uint32 SizeZ, VkImage InImage,
-								uint32 UEFlags, const FRHIResourceCreateInfo& CreateInfo)
+								uint32 InUEFlags, const FRHIResourceCreateInfo& CreateInfo)
 	: Device(&InDevice)
 	, Image(InImage)
-	, ImageLayout(VK_IMAGE_LAYOUT_UNDEFINED)
 	, InternalFormat(VK_FORMAT_UNDEFINED)
 	, Width(SizeX)
 	, Height(SizeY)
 	, Depth(SizeZ)
 	, Format(InFormat)
+	, UEFlags(InUEFlags)
 	, FormatKey(0)
 	, MemProps(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT)
 	, Tiling(VK_IMAGE_TILING_MAX_ENUM)	// Can be expanded to a per-platform definition
 	, ViewType(ResourceType)
 	, bIsImageOwner(false)
-#if VULKAN_USE_MEMORY_SYSTEM
 	, Allocation(nullptr)
-#else
-	, DeviceMemory(VK_NULL_HANDLE)
-#endif
 	, NumMips(0)
 	, NumSamples(1)	// This is defined by the MSAA setting...
-	, AspectMask(0)
+	, FullAspectMask(0)
+	, PartialAspectMask(0)
 {
 	InternalFormat = (VkFormat)GPixelFormats[Format].PlatformFormat;
-	AspectMask = GetAspectMask(InternalFormat);
+	FullAspectMask = VulkanRHI::GetAspectMaskFromUEFormat(Format, true, true);
+	PartialAspectMask = VulkanRHI::GetAspectMaskFromUEFormat(Format, false, true);
 
 	// Purely informative patching, we know that "TexCreate_Presentable" uses optimal tiling
-	if (UEFlags & TexCreate_Presentable && GetTiling() == VK_IMAGE_TILING_MAX_ENUM)
+	if ((UEFlags & TexCreate_Presentable) == TexCreate_Presentable && GetTiling() == VK_IMAGE_TILING_MAX_ENUM)
 	{
 		Tiling = VK_IMAGE_TILING_OPTIMAL;
 	}
@@ -377,7 +365,8 @@ FVulkanSurface::FVulkanSurface(FVulkanDevice& InDevice, VkImageViewType Resource
 	{
 		if (UEFlags & (TexCreate_RenderTargetable | TexCreate_DepthStencilTargetable))
 		{
-			ClearBlocking(CreateInfo.ClearValueBinding);
+			const bool bTransitionToPresentable = ((UEFlags & TexCreate_Presentable) == TexCreate_Presentable);
+			InitialClear(CreateInfo.ClearValueBinding, bTransitionToPresentable);
 		}
 	}
 }
@@ -407,31 +396,21 @@ void FVulkanSurface::Destroy()
 
 		if (Image != VK_NULL_HANDLE)
 		{
-			vkDestroyImage(Device->GetInstanceHandle(), Image, nullptr);
+			Device->GetDeferredDeletionQueue().EnqueueResource(VulkanRHI::FDeferredDeletionQueue::EType::Image, Image);
 			Image = VK_NULL_HANDLE;
-			ImageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 		}
 
-#if VULKAN_USE_MEMORY_SYSTEM
-		Device->GetMemoryManager().Free(Allocation);
-		Allocation = nullptr;
-#else
-		if (DeviceMemory != VK_NULL_HANDLE)
+		if (Allocation)
 		{
-			vkFreeMemory(Device->GetInstanceHandle(), DeviceMemory, nullptr);
-			DeviceMemory = VK_NULL_HANDLE;
-		}		
-#endif
+			Device->GetMemoryManager().Free(Allocation);
+			Allocation = nullptr;
+		}
 	}
 }
 
+#if 0
 void* FVulkanSurface::Lock(uint32 MipIndex, uint32 ArrayIndex, EResourceLockMode LockMode, uint32& DestStride)
 {
-#if VULKAN_USE_MEMORY_SYSTEM
-#else
-	checkf(DeviceMemory != VK_NULL_HANDLE, TEXT("Attempting to map unallocated image-memory"));
-#endif
-
 	DestStride = 0;
 
 	check((MemProps & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) == 0 ? Tiling == VK_IMAGE_TILING_OPTIMAL : Tiling == VK_IMAGE_TILING_LINEAR);
@@ -451,7 +430,7 @@ void* FVulkanSurface::Lock(uint32 MipIndex, uint32 ArrayIndex, EResourceLockMode
 	// Get buffer size
 	// Pitch can be only retrieved from linear textures.
 	VkSubresourceLayout SubResourceLayout;
-	vkGetImageSubresourceLayout(Device->GetInstanceHandle(), Image, &ImageSubResource, &SubResourceLayout);
+	VulkanRHI::vkGetImageSubresourceLayout(Device->GetInstanceHandle(), Image, &ImageSubResource, &SubResourceLayout);
 
 	// Set linear row-pitch
 	GetMipStride(MipIndex, DestStride);
@@ -462,11 +441,7 @@ void* FVulkanSurface::Lock(uint32 MipIndex, uint32 ArrayIndex, EResourceLockMode
 		check(DestStride == SubResourceLayout.rowPitch);
 
 		// Map buffer to a pointer
-#if VULKAN_USE_MEMORY_SYSTEM
 		Data = Allocation->Map(SubResourceLayout.size, SubResourceLayout.offset);
-#else
-		VERIFYVULKANRESULT(vkMapMemory(Device->GetInstanceHandle(), DeviceMemory, SubResourceLayout.offset, SubResourceLayout.size, 0, &Data));
-#endif
 		return Data;
 	}
 
@@ -485,7 +460,7 @@ void* FVulkanSurface::Lock(uint32 MipIndex, uint32 ArrayIndex, EResourceLockMode
 	Usage |= VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 
 	VkMemoryPropertyFlags Flags = 0;
-	Flags |= VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
+	Flags |= VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT;
 
 	LinearBuffer = new FVulkanBuffer(*Device, Bytes, Usage, Flags, false, __FILE__, __LINE__);
 
@@ -497,23 +472,14 @@ void* FVulkanSurface::Lock(uint32 MipIndex, uint32 ArrayIndex, EResourceLockMode
 
 void FVulkanSurface::Unlock(uint32 MipIndex, uint32 ArrayIndex)
 {
-#if VULKAN_USE_MEMORY_SYSTEM
-#else
-	checkf(DeviceMemory != VK_NULL_HANDLE, TEXT("Attempting to unmap unallocated image-memory"));
-#endif
-
 	check((MemProps & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) == 0 ? Tiling == VK_IMAGE_TILING_OPTIMAL : Tiling == VK_IMAGE_TILING_LINEAR);
 
 	if(Tiling == VK_IMAGE_TILING_LINEAR)
 	{
-		auto& Data = MipMapMapping.FindOrAdd(MipIndex);
+		void*& Data = MipMapMapping.FindOrAdd(MipIndex);
 		checkf(Data != nullptr, TEXT("The buffer needs to be mapped, before it can be unmapped"));
 
-#if VULKAN_USE_MEMORY_SYSTEM
 		Allocation->Unmap();
-#else
-		vkUnmapMemory(Device->GetInstanceHandle(), DeviceMemory);
-#endif
 		Data = nullptr;
 		return;
 	}
@@ -530,7 +496,7 @@ void FVulkanSurface::Unlock(uint32 MipIndex, uint32 ArrayIndex)
 
 	VkSubresourceLayout SubResourceLayout;
 	
-	vkGetImageSubresourceLayout(Device->GetInstanceHandle(), Image, &ImageSubResource, &SubResourceLayout);
+	VulkanRHI::vkGetImageSubresourceLayout(Device->GetInstanceHandle(), Image, &ImageSubResource, &SubResourceLayout);
 
 	VkBufferImageCopy Region;
 	FMemory::Memzero(Region);
@@ -554,13 +520,15 @@ void FVulkanSurface::Unlock(uint32 MipIndex, uint32 ArrayIndex)
 	// Release buffer
 	LinearBuffer = nullptr;
 }
+#endif
 
 uint32 FVulkanSurface::GetMemorySize()
 {
-	VkMemoryRequirements mem_req;
-	vkGetImageMemoryRequirements(Device->GetInstanceHandle(), Image, &mem_req);
+	//#todo-rco: Slow!
+	VkMemoryRequirements MemReqs;
+	VulkanRHI::vkGetImageMemoryRequirements(Device->GetInstanceHandle(), Image, &MemReqs);
 
-	return mem_req.size;
+	return MemReqs.size;
 }
 
 void FVulkanSurface::GetMipStride(uint32 MipIndex, uint32& Stride)
@@ -613,74 +581,45 @@ void FVulkanSurface::GetMipSize(uint32 MipIndex, uint32& MipBytes)
 	MipBytes = NumBlocksX * NumBlocksY * BlockBytes;
 }
 
-VkImageAspectFlags FVulkanSurface::GetAspectMask(VkFormat Format)
+void FVulkanSurface::InitialClear(const FClearValueBinding& ClearValueBinding, bool bTransitionToPresentable)
 {
-	VkImageAspectFlags mask = 0;
+	VkImageSubresourceRange Range;
+	FMemory::Memzero(Range);
+	Range.aspectMask = FullAspectMask;
+	Range.baseMipLevel = 0;
+	Range.levelCount = NumMips;
+	Range.baseArrayLayer = 0;
+	Range.layerCount = ViewType == VK_IMAGE_VIEW_TYPE_CUBE ? 6 : 1;
 
-	// Check for depth and stencil formats
-	mask |= Format == VK_FORMAT_D16_UNORM ? VK_IMAGE_ASPECT_DEPTH_BIT : 0;
-	mask |= Format == VK_FORMAT_X8_D24_UNORM_PACK32 ? VK_IMAGE_ASPECT_DEPTH_BIT : 0;
-	mask |= Format == VK_FORMAT_D32_SFLOAT ? VK_IMAGE_ASPECT_DEPTH_BIT : 0;
-	mask |= Format == VK_FORMAT_S8_UINT ? VK_IMAGE_ASPECT_STENCIL_BIT : 0;
-	mask |= Format == VK_FORMAT_D16_UNORM_S8_UINT ? (VK_IMAGE_ASPECT_STENCIL_BIT | VK_IMAGE_ASPECT_DEPTH_BIT) : 0;
-	mask |= Format == VK_FORMAT_D24_UNORM_S8_UINT ? (VK_IMAGE_ASPECT_STENCIL_BIT | VK_IMAGE_ASPECT_DEPTH_BIT) : 0;
-	mask |= Format == VK_FORMAT_D32_SFLOAT_S8_UINT ? (VK_IMAGE_ASPECT_STENCIL_BIT | VK_IMAGE_ASPECT_DEPTH_BIT) : 0;
+	//#todo-rco: This function is only used during loading currently, if used for regular RHIClear then use the ActiveCmdBuffer
+	FVulkanCmdBuffer* CmdBuffer = Device->GetImmediateContext().GetCommandBufferManager()->GetUploadCmdBuffer();
+	ensure(CmdBuffer->IsOutsideRenderPass());
 
-	// If no depth or stencil is present, then its a color format
-	mask = mask == 0 ? VK_IMAGE_ASPECT_COLOR_BIT : mask;
-
-	return mask;
-}
-
-VkImageAspectFlags FVulkanSurface::GetAspectMask() const
-{
-	check(AspectMask != 0);
-	return AspectMask;
-}
-
-// Fixes the issue:
-//	"vkCmdBeginRenderPass(): Cannot read invalid swapchain image 1243cdf0, please fill the memory before using."
-void FVulkanSurface::ClearBlocking(const FClearValueBinding& ClearValueBinding)
-{
-#if VULKAN_CLEAR_SURFACE_ON_CREATE
-	VkImageSubresourceRange range;
-	FMemory::Memzero(range);
-	range.aspectMask = GetAspectMask();
-	range.baseMipLevel = 0;
-	range.levelCount = NumMips;
-	range.baseArrayLayer = 0;
-	range.layerCount = ViewType == VK_IMAGE_VIEW_TYPE_CUBE ? 6 : 1;
-
-	//#todo-rco: FIX ME!
-	FVulkanCmdBuffer* cmd = Device->GetImmediateContext().GetCommandBufferManager()->Create();
-	cmd->Begin();
-	
-	if(range.aspectMask == VK_IMAGE_ASPECT_COLOR_BIT)
+	if (Range.aspectMask == VK_IMAGE_ASPECT_COLOR_BIT)
 	{
-		VkClearColorValue color;
-		FMemory::Memzero(color);
-		color.float32[0] = ClearValueBinding.Value.Color[0];
-		color.float32[1] = ClearValueBinding.Value.Color[1];
-		color.float32[2] = ClearValueBinding.Value.Color[2];
-		color.float32[3] = ClearValueBinding.Value.Color[3];
-		VulkanSetImageLayout(cmd->GetHandle(), Image, range.aspectMask, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-		vkCmdClearColorImage(cmd->GetHandle(), Image, VK_IMAGE_LAYOUT_GENERAL, &color, 1, &range);
+		VkClearColorValue Color;
+		FMemory::Memzero(Color);
+		Color.float32[0] = ClearValueBinding.Value.Color[0];
+		Color.float32[1] = ClearValueBinding.Value.Color[1];
+		Color.float32[2] = ClearValueBinding.Value.Color[2];
+		Color.float32[3] = ClearValueBinding.Value.Color[3];
+		VulkanSetImageLayoutSimple(CmdBuffer->GetHandle(), Image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+		VulkanRHI::vkCmdClearColorImage(CmdBuffer->GetHandle(), Image, VK_IMAGE_LAYOUT_GENERAL, &Color, 1, &Range);
+		VulkanSetImageLayoutSimple(CmdBuffer->GetHandle(), Image, VK_IMAGE_LAYOUT_GENERAL, bTransitionToPresentable ? VK_IMAGE_LAYOUT_PRESENT_SRC_KHR : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 	}
 	else
 	{
-		check(range.aspectMask & (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT));
-		VkClearDepthStencilValue value;
-		FMemory::Memzero(value);
-		value.depth = ClearValueBinding.Value.DSValue.Depth;
-		value.stencil = ClearValueBinding.Value.DSValue.Stencil;
-		VulkanSetImageLayout(cmd->GetHandle(), Image, range.aspectMask, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
-		vkCmdClearDepthStencilImage(cmd->GetHandle(), Image, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, &value, 1, &range);
+		check(FullAspectMask & (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT));
+		check(!bTransitionToPresentable);
+		VkClearDepthStencilValue Value;
+		FMemory::Memzero(Value);
+		Value.depth = ClearValueBinding.Value.DSValue.Depth;
+		Value.stencil = ClearValueBinding.Value.DSValue.Stencil;
+		VulkanSetImageLayoutSimple(CmdBuffer->GetHandle(), Image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, FullAspectMask);
+		VulkanRHI::vkCmdClearDepthStencilImage(CmdBuffer->GetHandle(), Image, VK_IMAGE_LAYOUT_GENERAL, &Value, 1, &Range);
+		VulkanSetImageLayoutSimple(CmdBuffer->GetHandle(), Image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, FullAspectMask);
 	}
-
-	Device->EndCommandBufferBlock(cmd);
-#endif
 }
-
 
 /*-----------------------------------------------------------------------------
 	Texture allocator support.
@@ -742,7 +681,18 @@ FTexture3DRHIRef FVulkanDynamicRHI::RHICreateTexture3D(uint32 SizeX, uint32 Size
 
 void FVulkanDynamicRHI::RHIGetResourceInfo(FTextureRHIParamRef Ref, FRHIResourceInfo& OutInfo)
 {
-	VULKAN_SIGNAL_UNIMPLEMENTED();
+	if (FRHITexture2D* Tex2D = Ref->GetTexture2D())
+	{
+		OutInfo.VRamAllocation.AllocationSize = ((FVulkanTexture2D*)Tex2D)->Surface.GetMemorySize();
+	}
+	else if (FRHITextureCube* TexCube = Ref->GetTextureCube())
+	{
+		OutInfo.VRamAllocation.AllocationSize = ((FVulkanTextureCube*)TexCube)->Surface.GetMemorySize();
+	}
+	else if (FRHITexture3D* Tex3D = Ref->GetTexture3D())
+	{
+		OutInfo.VRamAllocation.AllocationSize = ((FVulkanTexture3D*)Tex3D)->Surface.GetMemorySize();
+	}
 }
 
 void FVulkanDynamicRHI::RHIGenerateMips(FTextureRHIParamRef SourceSurfaceRHI)
@@ -778,86 +728,21 @@ void* FVulkanDynamicRHI::RHILockTexture2D(FTexture2DRHIParamRef TextureRHI,uint3
 	FVulkanTexture2D* Texture = ResourceCast(TextureRHI);
 	check(Texture);
 
-	EPixelFormat Format = Texture->Surface.Format;
-	uint32 MipWidth = FMath::Max<uint32>(Texture->Surface.Width >> MipIndex, GPixelFormats[Format].BlockSizeX);
-	uint32 MipHeight = FMath::Max<uint32>(Texture->Surface.Height >> MipIndex, GPixelFormats[Format].BlockSizeY);
-#if VULKAN_USE_NEW_STAGING_BUFFERS
-	VulkanRHI::FStagingImage** StagingImage = nullptr;
+	VulkanRHI::FStagingBuffer** StagingBuffer = nullptr;
 	{
 		FScopeLock Lock(&GTextureMapLock);
-		StagingImage = &GTextureMapEntries.FindOrAdd(TextureRHI);
-		checkf(!*StagingImage, TEXT("Can't lock the same texture twice!"));
+		StagingBuffer = &GPendingLockedBuffers.FindOrAdd(TextureRHI);
+		checkf(!*StagingBuffer, TEXT("Can't lock the same texture twice!"));
 	}
 
-	*StagingImage = Device->GetStagingManager().AcquireImage(Texture->Surface.InternalFormat, MipWidth, MipHeight);
+	uint32 BufferSize = 0;
+	DestStride = 0;
+	Texture->Surface.GetMipSize(MipIndex, BufferSize);
+	Texture->Surface.GetMipStride(MipIndex, DestStride);
+	*StagingBuffer = Device->GetStagingManager().AcquireBuffer(BufferSize);
 
-	VkImageSubresource Subresource;
-	FMemory::Memzero(Subresource);
-	Subresource.aspectMask = Texture->Surface.GetAspectMask();
-	Subresource.mipLevel = 0;
-	Subresource.arrayLayer = 0;
-	VkSubresourceLayout SubresourceLayout;
-	vkGetImageSubresourceLayout(Device->GetInstanceHandle(), (*StagingImage)->GetHandle(), &Subresource, &SubresourceLayout);
-	DestStride = SubresourceLayout.rowPitch;
-
-	return (*StagingImage)->Map();
-#else
-	FVulkanDevice* VulkanDevice = Texture->Surface.Device;
-	VkDevice LogicalDevice = VulkanDevice->GetInstanceHandle();
-
-	VkExtent3D StagingExtent;
-	FMemory::Memzero(StagingExtent);
-	StagingExtent.width = MipWidth;
-	StagingExtent.height = MipHeight;
-	StagingExtent.depth = 1;
-
-	VkImageCreateInfo StagingImageCreateInfo;
-	FMemory::Memzero(StagingImageCreateInfo);
-	StagingImageCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-	StagingImageCreateInfo.pNext = nullptr;
-	StagingImageCreateInfo.imageType = VK_IMAGE_TYPE_2D;
-	StagingImageCreateInfo.format = Texture->Surface.InternalFormat;
-	StagingImageCreateInfo.extent = StagingExtent;
-	StagingImageCreateInfo.mipLevels = 1;
-	StagingImageCreateInfo.arrayLayers = 1;
-	StagingImageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-	StagingImageCreateInfo.tiling = VK_IMAGE_TILING_LINEAR;
-	StagingImageCreateInfo.usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-
-	VERIFYVULKANRESULT(vkCreateImage(LogicalDevice, &StagingImageCreateInfo, nullptr, &Texture->StagingImage));
-
-	VkMemoryRequirements MemReqs;
-	vkGetImageMemoryRequirements(LogicalDevice, Texture->StagingImage, &MemReqs);
-
-	VkMemoryAllocateInfo AllocInfo;
-	FMemory::Memzero(AllocInfo);
-	AllocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-	AllocInfo.allocationSize = MemReqs.size;
-
-	VkMemoryPropertyFlags MemoryTypeFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
-	VERIFYVULKANRESULT(VulkanDevice->GetMemoryManager().GetMemoryTypeFromProperties(MemReqs.memoryTypeBits, MemoryTypeFlags, &AllocInfo.memoryTypeIndex));
-	#if VULKAN_USE_MEMORY_SYSTEM
-		check(0);
-	#else
-		VERIFYVULKANRESULT(vkAllocateMemory(LogicalDevice, &AllocInfo, nullptr, &Texture->PixelBufferMemory));
-	#endif
-	VERIFYVULKANRESULT(vkBindImageMemory(LogicalDevice, Texture->StagingImage, Texture->PixelBufferMemory, 0));
-
-	VkImageSubresource Subresource;
-	FMemory::Memzero(Subresource);
-	Subresource.aspectMask = Texture->Surface.GetAspectMask();
-	Subresource.mipLevel = 0;
-	Subresource.arrayLayer = 0;
-
-	VkSubresourceLayout SubresourceLayout;
-	vkGetImageSubresourceLayout(LogicalDevice, Texture->StagingImage, &Subresource, &SubresourceLayout);
-	DestStride = SubresourceLayout.rowPitch;
-
-	void* MappedData = nullptr;
-	VERIFYVULKANRESULT(vkMapMemory(LogicalDevice, Texture->PixelBufferMemory, 0, AllocInfo.allocationSize, 0, &MappedData));
-
-	return MappedData;
-#endif
+	void* Data = (*StagingBuffer)->GetMappedPointer();
+	return Data;
 }
 
 void FVulkanDynamicRHI::RHIUnlockTexture2D(FTexture2DRHIParamRef TextureRHI,uint32 MipIndex,bool bLockWithinMiptail)
@@ -867,192 +752,207 @@ void FVulkanDynamicRHI::RHIUnlockTexture2D(FTexture2DRHIParamRef TextureRHI,uint
 
 	VkDevice LogicalDevice = Device->GetInstanceHandle();
 
-#if VULKAN_USE_FENCE_MANAGER
-	auto* Fence = Device->GetFenceManager().AllocateFence();
-#else
-	VkFence Fence;
-	VkFenceCreateInfo FenceCreateInfo;
-	FMemory::Memzero(FenceCreateInfo);
-	FenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-	VERIFYVULKANRESULT(vkCreateFence(LogicalDevice, &FenceCreateInfo, nullptr, &Fence));
-#endif
-
-#if VULKAN_USE_NEW_STAGING_BUFFERS
-	VulkanRHI::FStagingImage* StagingImage = nullptr;
+	VulkanRHI::FStagingBuffer* StagingBuffer = nullptr;
 	{
 		FScopeLock Lock(&GTextureMapLock);
-		bool bFound = GTextureMapEntries.RemoveAndCopyValue(TextureRHI, StagingImage);
+		bool bFound = GPendingLockedBuffers.RemoveAndCopyValue(TextureRHI, StagingBuffer);
 		checkf(bFound, TEXT("Texture was not locked!"));
 	}
 
-	StagingImage->Unmap();
-
-	//#todo-rco: TEMP!
-	Texture->StagingImage = StagingImage->GetHandle();
-
-	//#todo-rco: Put into immediate cmd list
-	{
-
-	}
-#else
-	//@TODO - share this with other texture unlocks
-	vkUnmapMemory(LogicalDevice, Texture->PixelBufferMemory);
-
-	// @TODO: set image layout?
-#endif
-
-	VkCommandBuffer StagingCommandBuffer;
-	VkCommandBufferAllocateInfo BufferCreateInfo;
-	FMemory::Memzero(BufferCreateInfo);
-	BufferCreateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-	BufferCreateInfo.commandPool = Device->GetImmediateContext().GetCommandBufferManager()->GetHandle();
-	BufferCreateInfo.commandBufferCount = 1;
-	BufferCreateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-	VERIFYVULKANRESULT(vkAllocateCommandBuffers(LogicalDevice, &BufferCreateInfo, &StagingCommandBuffer));
-
-	VkCommandBufferBeginInfo BufferBeginInfo;
-	FMemory::Memzero(BufferBeginInfo);
-	BufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-	VERIFYVULKANRESULT(vkBeginCommandBuffer(StagingCommandBuffer, &BufferBeginInfo));
+	FVulkanCmdBuffer* CmdBuffer = Device->GetImmediateContext().GetCommandBufferManager()->GetUploadCmdBuffer();
+	ensure(CmdBuffer->IsOutsideRenderPass());
+	VkCommandBuffer StagingCommandBuffer = CmdBuffer->GetHandle();
 
 	EPixelFormat Format = Texture->Surface.Format;
 	uint32 MipWidth = FMath::Max<uint32>(Texture->Surface.Width >> MipIndex, GPixelFormats[Format].BlockSizeX);
 	uint32 MipHeight = FMath::Max<uint32>(Texture->Surface.Height >> MipIndex, GPixelFormats[Format].BlockSizeY);
 
-	VkImageCopy Region;
+	VkImageSubresourceRange SubresourceRange;
+	FMemory::Memzero(SubresourceRange);
+	SubresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	SubresourceRange.baseMipLevel = MipIndex;
+	SubresourceRange.levelCount = 1;
+	//SubresourceRange.baseArrayLayer = 0;
+	SubresourceRange.layerCount = 1;
+	VulkanSetImageLayout(StagingCommandBuffer, Texture->Surface.Image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, SubresourceRange);
+
+	VkBufferImageCopy Region;
 	FMemory::Memzero(Region);
+	//#todo-rco: Might need an offset here?
+	//Region.bufferOffset = 0;
+	//Region.bufferRowLength = 0;
+	//Region.bufferImageHeight = 0;
+	Region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	Region.imageSubresource.mipLevel = MipIndex;
+	//Region.imageSubresource.baseArrayLayer = 0;
+	Region.imageSubresource.layerCount = 1;
+	Region.imageExtent.width = MipWidth;
+	Region.imageExtent.height = MipHeight;
+	Region.imageExtent.depth = 1;
+	VulkanRHI::vkCmdCopyBufferToImage(StagingCommandBuffer, StagingBuffer->GetHandle(), Texture->Surface.Image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &Region);
 
-	Region.srcSubresource.aspectMask = Texture->Surface.GetAspectMask();
-	Region.srcSubresource.mipLevel = 0;
-	Region.srcSubresource.baseArrayLayer = 0;
-	Region.srcSubresource.layerCount = 1;
-	Region.srcOffset.x = 0;
-	Region.srcOffset.y = 0;
-	Region.srcOffset.z = 0;
+	VulkanSetImageLayout(StagingCommandBuffer, Texture->Surface.Image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, SubresourceRange);
 
-	// dst image is expected to have the same dimensions/setup
-	Region.dstSubresource = Region.srcSubresource;
-	Region.dstSubresource.mipLevel = MipIndex;
-	
-	Region.extent.width = MipWidth;
-	Region.extent.height = MipHeight;
-	Region.extent.depth = 1;
-
-	vkCmdCopyImage(StagingCommandBuffer, Texture->StagingImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, Texture->Surface.Image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &Region);
-
-	VERIFYVULKANRESULT(vkEndCommandBuffer(StagingCommandBuffer));
-
-	VkSubmitInfo SubmitInfo;
-	FMemory::Memzero(SubmitInfo);
-	SubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-	SubmitInfo.commandBufferCount = 1;
-	SubmitInfo.pCommandBuffers = &StagingCommandBuffer;
-
-#if VULKAN_USE_FENCE_MANAGER
-	VkResult Result = vkQueueSubmit(Device->GetQueue()->GetHandle(), 1, &SubmitInfo, Fence->GetHandle());
-#else
-	VkResult Result = vkQueueSubmit(Device->GetQueue()->GetHandle(), 1, &SubmitInfo, Fence);
-#endif
-	checkf(Result == VK_SUCCESS, TEXT("vkQueueSubmit failed with error %d, on texture with UE format %d, size %dx%d, mip %d"), (int32)Result, (int32)Format, MipWidth, MipHeight, MipIndex);
-
-#if VULKAN_USE_FENCE_MANAGER
-	bool bSuccess = Device->GetFenceManager().WaitForFence(Fence, 0xFFFFFFFF);
-	check(bSuccess);
-
-	Device->GetFenceManager().ReleaseFence(Fence);
-#else
-	VERIFYVULKANRESULT(vkWaitForFences(LogicalDevice, 1, &Fence, true, 0xFFFFFFFF));
-	VERIFYVULKANRESULT(vkResetFences(LogicalDevice, 1, &Fence));
-	vkDestroyFence(LogicalDevice, Fence, nullptr);
-#endif
-
-	VERIFYVULKANRESULT(vkResetCommandBuffer(StagingCommandBuffer, 0x0));
-
-	//#todo-rco: FIX ME!
-	vkFreeCommandBuffers(LogicalDevice, Device->GetImmediateContext().GetCommandBufferManager()->GetHandle(), 1, &StagingCommandBuffer);
-#if VULKAN_USE_NEW_STAGING_BUFFERS
-	Device->GetStagingManager().ReleaseImage(StagingImage);
-#else
-	vkDestroyImage(LogicalDevice, Texture->StagingImage, nullptr);
-	vkFreeMemory(LogicalDevice, Texture->PixelBufferMemory, nullptr);
-#endif
+	Device->GetStagingManager().ReleaseBuffer(CmdBuffer, StagingBuffer);
 }
 
 void* FVulkanDynamicRHI::RHILockTexture2DArray(FTexture2DArrayRHIParamRef TextureRHI,uint32 TextureIndex,uint32 MipIndex,EResourceLockMode LockMode,uint32& DestStride,bool bLockWithinMiptail)
 {
 	FVulkanTexture2DArray* Texture = ResourceCast(TextureRHI);
-	return Texture->Surface.Lock(MipIndex, TextureIndex, LockMode, DestStride);
+	VULKAN_SIGNAL_UNIMPLEMENTED();
+	return nullptr;//Texture->Surface.Lock(MipIndex, TextureIndex, LockMode, DestStride);
 }
 
 void FVulkanDynamicRHI::RHIUnlockTexture2DArray(FTexture2DArrayRHIParamRef TextureRHI,uint32 TextureIndex,uint32 MipIndex,bool bLockWithinMiptail)
 {
 	FVulkanTexture2DArray* Texture = ResourceCast(TextureRHI);
-	Texture->Surface.Unlock(MipIndex, TextureIndex);
+	VULKAN_SIGNAL_UNIMPLEMENTED();
+	//Texture->Surface.Unlock(MipIndex, TextureIndex);
 }
 
 void FVulkanDynamicRHI::RHIUpdateTexture2D(FTexture2DRHIParamRef TextureRHI, uint32 MipIndex, const struct FUpdateTextureRegion2D& UpdateRegion, uint32 SourcePitch, const uint8* SourceData)
 {
-	VULKAN_SIGNAL_UNIMPLEMENTED();
-#if 0
 	FVulkanTexture2D* Texture = ResourceCast(TextureRHI);
-#endif
-
-}
-
-void FVulkanDynamicRHI::RHIUpdateTexture3D(FTexture3DRHIParamRef TextureRHI,uint32 MipIndex,const FUpdateTextureRegion3D& UpdateRegion,uint32 SourceRowPitch,uint32 SourceDepthPitch,const uint8* SourceData)
-{	
 	VULKAN_SIGNAL_UNIMPLEMENTED();
-#if 0
-	FVulkanTexture3D* Texture = ResourceCast(TextureRHI);
-#endif
 }
 
-void FVulkanTextureView::Create(FVulkanDevice& Device, FVulkanSurface& Surface, VkImageViewType ViewType, VkFormat Format, uint32 NumMips)
+void FVulkanDynamicRHI::RHIUpdateTexture3D(FTexture3DRHIParamRef TextureRHI, uint32 MipIndex, const FUpdateTextureRegion3D& UpdateRegion, uint32 SourceRowPitch, uint32 SourceDepthPitch, const uint8* SourceData)
 {
+	FVulkanTexture3D* Texture = ResourceCast(TextureRHI);
+
+	EPixelFormat PixelFormat = Texture->GetFormat();
+	check(GPixelFormats[PixelFormat].BlockSizeX == 1);
+	check(GPixelFormats[PixelFormat].BlockSizeY == 1);
+
+	VkFormat Format = UEToVkFormat(PixelFormat, false);
+
+	// TO DO - add appropriate offsets to source data when necessary
+	check(UpdateRegion.SrcX == 0);
+	check(UpdateRegion.SrcY == 0);
+	check(UpdateRegion.SrcZ == 0);
+
+	FVulkanCommandListContext& Context = Device->GetImmediateContext();
+	const VkPhysicalDeviceLimits& Limits = Device->GetLimits();
+	const uint32 AlignedSourcePitch = Align(SourceRowPitch, Limits.optimalBufferCopyRowPitchAlignment);
+	const uint32 BufferSize = Align(UpdateRegion.Height * UpdateRegion.Depth * AlignedSourcePitch, Limits.minMemoryMapAlignment);
+
+	VulkanRHI::FStagingBuffer* StagingBuffer = Device->GetStagingManager().AcquireBuffer(BufferSize);
+	void* Memory = StagingBuffer->GetMappedPointer();
+
+	uint32 Size = UpdateRegion.Height * UpdateRegion.Depth * SourceRowPitch;
+	check(Size <= BufferSize);
+
+	FVulkanCmdBuffer* CmdBuffer = Device->GetImmediateContext().GetCommandBufferManager()->GetUploadCmdBuffer();
+	VkCommandBuffer StagingCommandBuffer = CmdBuffer->GetHandle();
+
+	VkImageSubresourceRange SubresourceRange;
+	FMemory::Memzero(SubresourceRange);
+	SubresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	SubresourceRange.baseMipLevel = MipIndex;
+	SubresourceRange.levelCount = 1;
+	//SubresourceRange.baseArrayLayer = 0;
+	SubresourceRange.layerCount = 1;
+	VulkanSetImageLayout(StagingCommandBuffer, Texture->Surface.Image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, SubresourceRange);
+
+	//#todo-rco: Probably needs some work (see D3D12)
+	FMemory::Memcpy(Memory, SourceData, Size);
+	//FMemory::Memzero(Memory, Size);
+
+	VkBufferImageCopy Region;
+	FMemory::Memzero(Region);
+	//#todo-rco: Might need an offset here?
+	check(UpdateRegion.SrcX == 0);
+	check(UpdateRegion.SrcY == 0);
+	check(UpdateRegion.SrcZ == 0);
+	//Region.bufferOffset = 0;
+	//Region.bufferRowLength = 0;
+	//Region.bufferImageHeight = 0;
+	Region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	Region.imageSubresource.mipLevel = MipIndex;
+	Region.imageSubresource.baseArrayLayer = 0;
+	Region.imageSubresource.layerCount = 1;
+	Region.imageOffset.x = UpdateRegion.SrcX;
+	Region.imageOffset.y = UpdateRegion.SrcY;
+	Region.imageOffset.z = UpdateRegion.SrcZ;
+	Region.imageExtent.width = UpdateRegion.Width;
+	Region.imageExtent.height = UpdateRegion.Height;
+	Region.imageExtent.depth = UpdateRegion.Depth;
+	VulkanRHI::vkCmdCopyBufferToImage(StagingCommandBuffer, StagingBuffer->GetHandle(), Texture->Surface.Image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &Region);
+
+	VulkanSetImageLayout(StagingCommandBuffer, Texture->Surface.Image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, SubresourceRange);
+
+	Device->GetStagingManager().ReleaseBuffer(nullptr, StagingBuffer);
+}
+
+
+VkImageView FVulkanTextureView::StaticCreate(FVulkanDevice& Device, VkImage Image, VkImageViewType ViewType, VkImageAspectFlags AspectFlags, EPixelFormat UEFormat, VkFormat Format, uint32 FirstMip, uint32 NumMips, uint32 ArraySliceIndex, uint32 NumArraySlices, bool bUseIdentitySwizzle)
+{
+	VkImageView View = VK_NULL_HANDLE;
+
 	VkImageViewCreateInfo ViewInfo;
 	FMemory::Memzero(ViewInfo);
 	ViewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
 	ViewInfo.pNext = nullptr;
-	ViewInfo.image = Surface.Image;
+	ViewInfo.image = Image;
 	ViewInfo.viewType = ViewType;
 	ViewInfo.format = Format;
-	ViewInfo.components = Device.GetFormatComponentMapping(Surface.Format);
+	if (bUseIdentitySwizzle)
+	{
+		// VK_COMPONENT_SWIZZLE_IDENTITY == 0 and this was memzero'd already
+	}
+	else
+	{
+		ViewInfo.components = Device.GetFormatComponentMapping(UEFormat);
+	}
 
-	uint32 ArraySize = 1;	//@TODO: Fix for arrays
 	uint32 FaceCount = (ViewType == VK_IMAGE_VIEW_TYPE_CUBE) ? 6 : 1;
-	ViewInfo.subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, NumMips, 0, ArraySize*FaceCount };
-	ViewInfo.subresourceRange.aspectMask = Surface.GetAspectMask();
+	ViewInfo.subresourceRange.aspectMask = AspectFlags;
+	ViewInfo.subresourceRange.baseMipLevel = FirstMip;
+	ViewInfo.subresourceRange.levelCount = NumMips;
+	ViewInfo.subresourceRange.baseArrayLayer = ArraySliceIndex;
+	ViewInfo.subresourceRange.layerCount = NumArraySlices * FaceCount;
 
-	VERIFYVULKANRESULT(vkCreateImageView(Device.GetInstanceHandle(), &ViewInfo, nullptr, &View));
+	//HACK.  DX11 on PC currently uses a D24S8 depthbuffer and so needs an X24_G8 SRV to visualize stencil.
+	//So take that as our cue to visualize stencil.  In the future, the platform independent code will have a real format
+	//instead of PF_DepthStencil, so the cross-platform code could figure out the proper format to pass in for this.
+	if (UEFormat == PF_X24_G8)
+	{
+		ViewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_STENCIL_BIT;
+	}
+
+	VERIFYVULKANRESULT(VulkanRHI::vkCreateImageView(Device.GetInstanceHandle(), &ViewInfo, nullptr, &View));
+
+	return View;
+}
+
+void FVulkanTextureView::Create(FVulkanDevice& Device, VkImage Image, VkImageViewType ViewType, VkImageAspectFlags AspectFlags, EPixelFormat UEFormat, VkFormat Format, uint32 FirstMip, uint32 NumMips, uint32 ArraySliceIndex, uint32 NumArraySlices)
+{
+	View = StaticCreate(Device, Image, ViewType, AspectFlags, UEFormat, Format, FirstMip, NumMips, ArraySliceIndex, NumArraySlices);
+/*
+	switch (AspectFlags)
+	{
+	case VK_IMAGE_ASPECT_DEPTH_BIT:
+	case VK_IMAGE_ASPECT_STENCIL_BIT:
+	case VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT:
+		Layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+		break;
+	default:
+		ensure(0);
+	case VK_IMAGE_ASPECT_COLOR_BIT:
+		Layout = VK_IMAGE_LAYOUT_GENERAL;
+		break;
+	}
+*/
 }
 
 void FVulkanTextureView::Destroy(FVulkanDevice& Device)
 {
 	if (View)
 	{
-		vkDestroyImageView(Device.GetInstanceHandle(), View, nullptr);
+		Device.GetDeferredDeletionQueue().EnqueueResource(VulkanRHI::FDeferredDeletionQueue::EType::ImageView, View);
 		View = VK_NULL_HANDLE;
 	}
 }
-
-#if VULKAN_HAS_DEBUGGING_ENABLED
-	static int32 GVulkanTextureBaseAllocationCount = 0;
-	static int32 GVulkanAllocationBalance = 0;
-#endif
-
-#if VULKAN_HAS_DEBUGGING_ENABLED
-int32 FVulkanTextureBase::GetAllocatedCount()
-{
-	return GVulkanTextureBaseAllocationCount;
-}
-#endif
-
-#if VULKAN_HAS_DEBUGGING_ENABLED
-int32 FVulkanTextureBase::GetAllocationBalance()
-{
-	return GVulkanAllocationBalance;
-}
-#endif
 
 FVulkanTextureBase* FVulkanTextureBase::Cast(FRHITexture* Texture)
 {
@@ -1085,22 +985,18 @@ FVulkanTextureBase* FVulkanTextureBase::Cast(FRHITexture* Texture)
 	return OutTexture;
 }
 
-FVulkanTextureBase::FVulkanTextureBase(FVulkanDevice& Device, VkImageViewType ResourceType, EPixelFormat InFormat, uint32 SizeX, uint32 SizeY, uint32 SizeZ, bool bArray, uint32 ArraySize, uint32 NumMips, uint32 NumSamples, uint32 UEFlags, const FRHIResourceCreateInfo& CreateInfo) :
+FVulkanTextureBase::FVulkanTextureBase(FVulkanDevice& Device, VkImageViewType ResourceType, EPixelFormat InFormat, uint32 SizeX, uint32 SizeY, uint32 SizeZ, bool bArray, uint32 ArraySize, uint32 NumMips, uint32 NumSamples, uint32 UEFlags, const FRHIResourceCreateInfo& CreateInfo)
 	#if !VULKAN_USE_MSAA_RESOLVE_ATTACHMENTS
-	 Surface(Device, ResourceType, InFormat, SizeX, SizeY, SizeZ, bArray, ArraySize, NumMips, NumSamples, UEFlags, CreateInfo)
+	 : Surface(Device, ResourceType, InFormat, SizeX, SizeY, SizeZ, bArray, ArraySize, NumMips, NumSamples, UEFlags, CreateInfo)
 	#else
-	 Surface(Device, ResourceType, InFormat, SizeX, SizeY, SizeZ, bArray, ArraySize, NumMips, (UEFlags & TexCreate_DepthStencilTargetable) ? NumSamples : 1, UEFlags, CreateInfo)
+	 : Surface(Device, ResourceType, InFormat, SizeX, SizeY, SizeZ, bArray, ArraySize, NumMips, (UEFlags & TexCreate_DepthStencilTargetable) ? NumSamples : 1, UEFlags, CreateInfo)
 	 , MSAASurface(nullptr)
 	#endif
-	, StagingImage(VK_NULL_HANDLE)
-	, PixelBufferMemory(VK_NULL_HANDLE)
-	#if VULKAN_HAS_DEBUGGING_ENABLED
-	, AllocationNumber(0)
-	#endif
+	, PartialView(nullptr)
 {
 	if (ResourceType != VK_IMAGE_VIEW_TYPE_MAX_ENUM)
 	{
-		View.Create(Device, Surface, ResourceType, Surface.InternalFormat, FMath::Max(NumMips, 1u));
+		DefaultView.Create(Device, Surface.Image, ResourceType, Surface.GetFullAspectMask(), Surface.Format, Surface.InternalFormat, 0, FMath::Max(NumMips, 1u), 0, FMath::Max(1u, ArraySize));
 	}
 
 #if VULKAN_USE_MSAA_RESOLVE_ATTACHMENTS
@@ -1110,26 +1006,39 @@ FVulkanTextureBase::FVulkanTextureBase(FVulkanDevice& Device, VkImageViewType Re
 		MSAASurface = new FVulkanSurface(Device, ResourceType, InFormat, SizeX, SizeY, SizeZ, /*bArray=*/ false, 1, NumMips, NumSamples, UEFlags, CreateInfo);
 		if (ResourceType != VK_IMAGE_VIEW_TYPE_MAX_ENUM)
 		{
-			MSAAView.Create(Device, *MSAASurface, ResourceType, MSAASurface->InternalFormat, FMath::Max(NumMips, 1u));
+			MSAAView.Create(Device, MSAASurface->Image, ResourceType, MSAASurface->GetFullAspectMask(), MSAASurface->Format, MSAASurface->InternalFormat, FMath::Max(NumMips, 1u), FMath::Max(1u, ArraySize));
 		}
 	}
 #endif
 
-	#if VULKAN_HAS_DEBUGGING_ENABLED
-		GVulkanAllocationBalance++;
-		AllocationNumber = GVulkanTextureBaseAllocationCount++;
-	#endif
+	if (Surface.FullAspectMask == Surface.PartialAspectMask)
+	{
+		PartialView = &DefaultView;
+	}
+	else
+	{
+		PartialView = new FVulkanTextureView;
+		PartialView->Create(Device, Surface.Image, Surface.ViewType, Surface.PartialAspectMask, Surface.Format, Surface.InternalFormat, 0, FMath::Max(NumMips, 1u), 0, FMath::Max(1u, ArraySize));
+	}
 
-	// For now only 3D textures can have bulk-data parsed on creation time.
-	if(!CreateInfo.BulkData || Surface.GetTiling() != VK_IMAGE_TILING_OPTIMAL)
+	if (!CreateInfo.BulkData)
 	{
 		return;
 	}
 
 	// Transfer bulk data
+	VulkanRHI::FStagingBuffer* StagingBuffer = Device.GetStagingManager().AcquireBuffer(CreateInfo.BulkData->GetResourceBulkDataSize());
+	void* Data = StagingBuffer->GetMappedPointer();
+
+	// Do copy
+	FMemory::Memcpy(Data, CreateInfo.BulkData->GetResourceBulkData(), CreateInfo.BulkData->GetResourceBulkDataSize());
+
+	FVulkanCmdBuffer* CmdBuffer = Device.GetImmediateContext().GetCommandBufferManager()->GetUploadCmdBuffer();
+	ensure(CmdBuffer->IsOutsideRenderPass());
 
 	VkBufferImageCopy Region;
 	FMemory::Memzero(Region);
+	//#todo-rco: Use real Buffer offset when switching to suballocations!
 	Region.bufferOffset = 0;
 	Region.bufferRowLength = Surface.Width;
 	Region.bufferImageHeight = Surface.Height;
@@ -1137,77 +1046,27 @@ FVulkanTextureBase::FVulkanTextureBase(FVulkanDevice& Device, VkImageViewType Re
 	Region.imageSubresource.mipLevel = 0;
 	Region.imageSubresource.baseArrayLayer = 0;
 	Region.imageSubresource.layerCount = ArraySize;
-	Region.imageSubresource.aspectMask = Surface.GetAspectMask();
+	Region.imageSubresource.aspectMask = Surface.GetFullAspectMask();
 
 	Region.imageExtent.width = Region.bufferRowLength;
 	Region.imageExtent.height = Region.bufferImageHeight;
 	Region.imageExtent.depth = Surface.Depth;
 
-	// Temporary buffer which will hold bulkdata
-	VkBufferCreateInfo BufferCreateInfo;
-	FMemory::Memzero(BufferCreateInfo);
-	BufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-	BufferCreateInfo.flags = 0;
-	BufferCreateInfo.pQueueFamilyIndices = NULL;
-	BufferCreateInfo.queueFamilyIndexCount = 0;
-	BufferCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-	BufferCreateInfo.size = CreateInfo.BulkData->GetResourceBulkDataSize();
-	BufferCreateInfo.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-
-	VkBuffer Buffer;
-	VERIFYVULKANRESULT(vkCreateBuffer(Device.GetInstanceHandle(), &BufferCreateInfo, NULL, &Buffer));
-
-	VkMemoryRequirements MemReqs;
-	vkGetBufferMemoryRequirements(Device.GetInstanceHandle(), Buffer, &MemReqs);
-
-	// Allocate device gmem
-	VkDeviceMemory Mem;
-#if 0//VULKAN_USE_NEW_STAGING_BUFFERS
-	//#todo-rco: USe StagingBuffers
-#else
-	#if VULKAN_USE_MEMORY_SYSTEM
-		VulkanRHI::FDeviceMemoryAllocation* Allocation = Device.GetMemoryManager().Alloc(MemReqs.size, MemReqs.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, __FILE__, __LINE__);
-		Mem = Allocation->GetHandle();
-	#else
-		VkMemoryAllocateInfo AllocInfo;
-		FMemory::Memzero(AllocInfo);
-		AllocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-		AllocInfo.pNext = NULL;
-		AllocInfo.allocationSize = MemReqs.size;
-		AllocInfo.memoryTypeIndex = 0;
-
-		VERIFYVULKANRESULT(Device.GetMemoryManager().GetMemoryTypeFromProperties(MemReqs.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, &AllocInfo.memoryTypeIndex));
-		VERIFYVULKANRESULT(vkAllocateMemory(Device.GetInstanceHandle(), &AllocInfo, NULL, &Mem));
-	#endif
-
-	VERIFYVULKANRESULT(vkBindBufferMemory(Device.GetInstanceHandle(), Buffer, Mem, 0));
-
-	void* Data = nullptr;
-	VERIFYVULKANRESULT(vkMapMemory(Device.GetInstanceHandle(), Mem, 0, MemReqs.size, 0, &Data));
-#endif
-	// Do copy
-	FMemory::Memcpy(Data, CreateInfo.BulkData->GetResourceBulkData(), CreateInfo.BulkData->GetResourceBulkDataSize());
-
-	vkUnmapMemory(Device.GetInstanceHandle(), Mem);
-
-	//#todo-rco: FIX ME?
-	FVulkanCmdBuffer* Cmd = Device.GetImmediateContext().GetCommandBufferManager()->Create();
-	Cmd->Begin();
+	VkImageSubresourceRange SubresourceRange;
+	FMemory::Memzero(SubresourceRange);
+	SubresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	//SubresourceRange.baseMipLevel = 0;
+	SubresourceRange.levelCount = Surface.GetNumMips();
+	//SubresourceRange.baseArrayLayer = 0;
+	SubresourceRange.layerCount = ArraySize;
+	VulkanSetImageLayout(CmdBuffer->GetHandle(), Surface.Image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, SubresourceRange);
 
 	// Copy buffer to image
-	vkCmdCopyBufferToImage(Cmd->GetHandle(), Buffer, Surface.Image, Surface.ImageLayout, 1, &Region);
+	VulkanRHI::vkCmdCopyBufferToImage(CmdBuffer->GetHandle(), StagingBuffer->GetHandle(), Surface.Image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &Region);
 
-	Device.GetQueue()->SubmitBlocking(Cmd);
-	//#todo-rco: FIX ME!
-	Device.GetImmediateContext().GetCommandBufferManager()->Destroy(Cmd);
+	VulkanSetImageLayout(CmdBuffer->GetHandle(), Surface.Image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, SubresourceRange);
 
-	vkDestroyBuffer(Device.GetInstanceHandle(), Buffer, nullptr);
-
-	#if VULKAN_USE_MEMORY_SYSTEM
-		Device.GetMemoryManager().Free(Allocation);
-	#else
-		vkFreeMemory(Device.GetInstanceHandle(), Mem, nullptr);
-	#endif
+	Device.GetStagingManager().ReleaseBuffer(CmdBuffer, StagingBuffer);
 }
 
 FVulkanTextureBase::FVulkanTextureBase(FVulkanDevice& Device, VkImageViewType ResourceType, EPixelFormat Format, uint32 SizeX, uint32 SizeY, uint32 SizeZ, VkImage InImage, VkDeviceMemory InMem, uint32 UEFlags, const FRHIResourceCreateInfo& CreateInfo):
@@ -1215,27 +1074,34 @@ FVulkanTextureBase::FVulkanTextureBase(FVulkanDevice& Device, VkImageViewType Re
 	#if VULKAN_USE_MSAA_RESOLVE_ATTACHMENTS
 	, MSAASurface(nullptr)
 	#endif
-	, StagingImage(VK_NULL_HANDLE)
-	, PixelBufferMemory(VK_NULL_HANDLE)
-	#if VULKAN_HAS_DEBUGGING_ENABLED
-	, AllocationNumber(0)
-	#endif
 {
 	check(InMem == VK_NULL_HANDLE);
-	if (ResourceType != VK_IMAGE_VIEW_TYPE_MAX_ENUM)
+	if (ResourceType != VK_IMAGE_VIEW_TYPE_MAX_ENUM && Surface.Image != VK_NULL_HANDLE)
 	{
-		View.Create(Device, Surface, ResourceType, Surface.InternalFormat, 1);
+		DefaultView.Create(Device, Surface.Image, ResourceType, Surface.GetFullAspectMask(), Format, Surface.InternalFormat, 0, 1, 0, 1);
 	}
 
-	#if VULKAN_HAS_DEBUGGING_ENABLED
-		GVulkanAllocationBalance++;
-		AllocationNumber = GVulkanTextureBaseAllocationCount++;
-	#endif
+	if (Surface.FullAspectMask == Surface.PartialAspectMask)
+	{
+		PartialView = &DefaultView;
+	}
+	else
+	{
+		PartialView = new FVulkanTextureView;
+		check(SizeZ == 1 && ResourceType == VK_IMAGE_VIEW_TYPE_2D);
+		PartialView->Create(Device, Surface.Image, Surface.ViewType, Surface.PartialAspectMask, Surface.Format, Surface.InternalFormat, 0, FMath::Max(Surface.NumMips, 1u), 0, 1u);
+	}
 }
 
 FVulkanTextureBase::~FVulkanTextureBase()
 {
-	View.Destroy(*Surface.Device);
+	if (PartialView != &DefaultView)
+	{
+		PartialView->Destroy(*Surface.Device);
+		delete PartialView;
+	}
+
+	DefaultView.Destroy(*Surface.Device);
 
 	#if VULKAN_USE_MSAA_RESOLVE_ATTACHMENTS
 	if (MSAASurface)
@@ -1244,12 +1110,13 @@ FVulkanTextureBase::~FVulkanTextureBase()
 		MSAASurface = nullptr;
 	}
 	#endif
-
-	#if VULKAN_HAS_DEBUGGING_ENABLED
-		GVulkanAllocationBalance--;
-		check(GVulkanAllocationBalance >= 0);
-	#endif
 }
+
+VkImageView FVulkanTextureBase::CreateRenderTargetView(uint32 MipIndex, uint32 ArraySliceIndex)
+{
+	return FVulkanTextureView::StaticCreate(*Surface.Device, Surface.Image, Surface.GetViewType(), Surface.GetFullAspectMask(), Surface.Format, Surface.InternalFormat, MipIndex, 1, ArraySliceIndex, 1, true);
+}
+
 
 FVulkanTexture2D::FVulkanTexture2D(FVulkanDevice& Device, EPixelFormat InFormat, uint32 SizeX, uint32 SizeY, uint32 NumMips, uint32 NumSamples, uint32 UEFlags, const FRHIResourceCreateInfo& CreateInfo)
 :	FRHITexture2D(SizeX, SizeY, FMath::Max(NumMips, 1u), NumSamples, InFormat, UEFlags, CreateInfo.ClearValueBinding)
@@ -1265,19 +1132,30 @@ FVulkanTexture2D::FVulkanTexture2D(FVulkanDevice& Device, EPixelFormat Format, u
 
 FVulkanTexture2D::~FVulkanTexture2D()
 {
-	Destroy(*Surface.Device);
+	if ((GetFlags() & (TexCreate_DepthStencilTargetable | TexCreate_RenderTargetable)) != 0)
+	{
+		Surface.Device->NotifyDeletedRenderTarget(this);
+	}
 }
+
+
+FVulkanBackBuffer::FVulkanBackBuffer(FVulkanDevice& Device, EPixelFormat Format, uint32 SizeX, uint32 SizeY, VkImage Image, uint32 UEFlags)
+	: FVulkanTexture2D(Device, Format, SizeX, SizeY, Image, UEFlags, FRHIResourceCreateInfo())
+{
+}
+
+FVulkanBackBuffer::~FVulkanBackBuffer()
+{
+	DefaultView.View = VK_NULL_HANDLE;
+	Surface.Image = VK_NULL_HANDLE;
+}
+
 
 void FVulkanTextureReference::SetReferencedTexture(FRHITexture* InTexture)
 {
 	FRHITextureReference::SetReferencedTexture(InTexture);
 }
 
-void FVulkanTexture2D::Destroy(FVulkanDevice& Device)
-{
-	View.Destroy(Device);
-	Surface.Destroy();
-}
 
 FVulkanTextureCube::FVulkanTextureCube(FVulkanDevice& Device, EPixelFormat Format, uint32 Size, bool bArray, uint32 ArraySize, uint32 NumMips, uint32 Flags, FResourceBulkDataInterface* BulkData, const FClearValueBinding& InClearValue)
 :	 FRHITextureCube(Size, NumMips, Format, Flags, InClearValue)
@@ -1288,12 +1166,17 @@ FVulkanTextureCube::FVulkanTextureCube(FVulkanDevice& Device, EPixelFormat Forma
 
 FVulkanTextureCube::~FVulkanTextureCube()
 {
+	if ((GetFlags() & (TexCreate_DepthStencilTargetable | TexCreate_RenderTargetable)) != 0)
+	{
+		Surface.Device->NotifyDeletedRenderTarget(this);
+	}
+
 	Destroy(*Surface.Device);
 }
 
 void FVulkanTextureCube::Destroy(FVulkanDevice& Device)
 {
-	View.Destroy(Device);
+	DefaultView.Destroy(Device);
 	Surface.Destroy();
 }
 
@@ -1314,93 +1197,22 @@ void* FVulkanDynamicRHI::RHILockTextureCubeFace(FTextureCubeRHIParamRef TextureC
 {
 	FVulkanTextureCube* Texture = ResourceCast(TextureCubeRHI);
 	check(Texture);
-	
-	EPixelFormat Format = Texture->Surface.Format;
-	uint32 MipWidth = FMath::Max<uint32>(Texture->Surface.Width >> MipIndex, GPixelFormats[Format].BlockSizeX);
-	uint32 MipHeight = FMath::Max<uint32>(Texture->Surface.Height >> MipIndex, GPixelFormats[Format].BlockSizeY);
 
-#if VULKAN_USE_NEW_STAGING_BUFFERS
-		
-	VulkanRHI::FStagingImage** StagingImage = nullptr;
+	VulkanRHI::FStagingBuffer** StagingBuffer = nullptr;
 	{
 		FScopeLock Lock(&GTextureMapLock);
-		StagingImage = &GTextureMapEntries.FindOrAdd(TextureCubeRHI);
-		checkf(!*StagingImage, TEXT("Can't lock the same texture twice!"));
+		StagingBuffer = &GPendingLockedBuffers.FindOrAdd(TextureCubeRHI);
+		checkf(!*StagingBuffer, TEXT("Can't lock the same texture twice!"));
 	}
 
-	*StagingImage = Device->GetStagingManager().AcquireImage(Texture->Surface.InternalFormat, MipWidth, MipHeight);
+	uint32 BufferSize = 0;
+	DestStride = 0;
+	Texture->Surface.GetMipSize(MipIndex, BufferSize);
+	Texture->Surface.GetMipStride(MipIndex, DestStride);
+	*StagingBuffer = Device->GetStagingManager().AcquireBuffer(BufferSize);
 
-	VkImageSubresource Subresource;
-	FMemory::Memzero(Subresource);
-	Subresource.aspectMask = Texture->Surface.GetAspectMask();
-	Subresource.mipLevel = 0;
-	Subresource.arrayLayer = 0;
-	VkSubresourceLayout SubresourceLayout;
-	vkGetImageSubresourceLayout(Device->GetInstanceHandle(), (*StagingImage)->GetHandle(), &Subresource, &SubresourceLayout);
-	DestStride = SubresourceLayout.rowPitch;
-
-	return (*StagingImage)->Map();
-#else
-	//@TODO - share this with other texture locks
-
-	FVulkanDevice* VulkanDevice = Texture->Surface.Device;
-	VkDevice LogicalDevice = VulkanDevice->GetInstanceHandle();
-
-
-	VkExtent3D StagingExtent;
-	FMemory::Memzero(StagingExtent);
-	StagingExtent.width = MipWidth;
-	StagingExtent.height = MipHeight;
-	StagingExtent.depth = 1;
-
-	VkImageCreateInfo StagingImageCreateInfo;
-	FMemory::Memzero(StagingImageCreateInfo);
-	StagingImageCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-	StagingImageCreateInfo.pNext = nullptr;
-	StagingImageCreateInfo.imageType = VK_IMAGE_TYPE_2D; // @TODO: check cube is 2D
-	StagingImageCreateInfo.format = Texture->Surface.InternalFormat;
-	StagingImageCreateInfo.extent = StagingExtent;
-	StagingImageCreateInfo.mipLevels = 1;
-	StagingImageCreateInfo.arrayLayers = 1;
-	StagingImageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-	StagingImageCreateInfo.tiling = VK_IMAGE_TILING_LINEAR;
-	StagingImageCreateInfo.usage = VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-	
-	VERIFYVULKANRESULT(vkCreateImage(LogicalDevice, &StagingImageCreateInfo, nullptr, &Texture->StagingImage));
-
-	VkMemoryRequirements MemReqs;
-	vkGetImageMemoryRequirements(LogicalDevice, Texture->StagingImage, &MemReqs);
-
-	VkMemoryAllocateInfo AllocInfo;
-	FMemory::Memzero(AllocInfo);
-	AllocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-	AllocInfo.allocationSize = MemReqs.size;
-
-	VkMemoryPropertyFlags MemoryTypeFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
-	VERIFYVULKANRESULT(VulkanDevice->GetMemoryManager().GetMemoryTypeFromProperties(MemReqs.memoryTypeBits, MemoryTypeFlags, &AllocInfo.memoryTypeIndex));
-	#if VULKAN_USE_MEMORY_SYSTEM
-		check(0);
-	#else
-		VERIFYVULKANRESULT(vkAllocateMemory(LogicalDevice, &AllocInfo, nullptr, &Texture->PixelBufferMemory));
-	#endif
-
-	VERIFYVULKANRESULT(vkBindImageMemory(LogicalDevice, Texture->StagingImage, Texture->PixelBufferMemory, 0));
-
-	VkImageSubresource Subresource;
-	FMemory::Memzero(Subresource);
-	Subresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-	Subresource.mipLevel = 0;
-	Subresource.arrayLayer = 0;
-
-	VkSubresourceLayout SubresourceLayout;
-	vkGetImageSubresourceLayout(LogicalDevice, Texture->StagingImage, &Subresource, &SubresourceLayout);
-	DestStride = SubresourceLayout.rowPitch;
-
-	void* MappedData = nullptr;
-	VERIFYVULKANRESULT(vkMapMemory(LogicalDevice, Texture->PixelBufferMemory, 0, AllocInfo.allocationSize, 0, &MappedData));
-
-	return MappedData;
-	#endif
+	void* Data = (*StagingBuffer)->GetMappedPointer();
+	return Data;
 }
 
 void FVulkanDynamicRHI::RHIUnlockTextureCubeFace(FTextureCubeRHIParamRef TextureCubeRHI,uint32 FaceIndex,uint32 ArrayIndex,uint32 MipIndex,bool bLockWithinMiptail)
@@ -1410,118 +1222,116 @@ void FVulkanDynamicRHI::RHIUnlockTextureCubeFace(FTextureCubeRHIParamRef Texture
 
 	VkDevice LogicalDevice = Device->GetInstanceHandle();
 
-#if VULKAN_USE_FENCE_MANAGER
-	auto* Fence = Device->GetFenceManager().AllocateFence();
-#else
-	VkFence Fence;
-	VkFenceCreateInfo FenceCreateInfo;
-	FMemory::Memzero(FenceCreateInfo);
-	FenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-	VERIFYVULKANRESULT(vkCreateFence(LogicalDevice, &FenceCreateInfo, nullptr, &Fence));
-#endif
-
-#if VULKAN_USE_NEW_STAGING_BUFFERS
-	VulkanRHI::FStagingImage* StagingImage = nullptr;
+	VulkanRHI::FStagingBuffer* StagingBuffer = nullptr;
 	{
 		FScopeLock Lock(&GTextureMapLock);
-		bool bFound = GTextureMapEntries.RemoveAndCopyValue(TextureCubeRHI, StagingImage);
+		bool bFound = GPendingLockedBuffers.RemoveAndCopyValue(TextureCubeRHI, StagingBuffer);
 		checkf(bFound, TEXT("Texture was not locked!"));
 	}
 
-	StagingImage->Unmap();
-
-	//#todo-rco: TEMP!
-	Texture->StagingImage = StagingImage->GetHandle();
-
-	//#todo-rco: Put into immediate cmd list
-	{
-	}
-
-#else
-	//@TODO - share this with other texture unlocks
-	vkUnmapMemory(LogicalDevice, Texture->PixelBufferMemory);
-
-	// @TODO: set image layout?
-#endif
-
-	VkCommandBuffer StagingCommandBuffer;
-	VkCommandBufferAllocateInfo BufferCreateInfo;
-	FMemory::Memzero(BufferCreateInfo);
-	BufferCreateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-	BufferCreateInfo.commandPool = Device->GetImmediateContext().GetCommandBufferManager()->GetHandle();
-	BufferCreateInfo.commandBufferCount = 1;
-	BufferCreateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-	VERIFYVULKANRESULT(vkAllocateCommandBuffers(LogicalDevice, &BufferCreateInfo, &StagingCommandBuffer));
-
-	VkCommandBufferBeginInfo BufferBeginInfo;
-	FMemory::Memzero(BufferBeginInfo);
-	BufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-	VERIFYVULKANRESULT(vkBeginCommandBuffer(StagingCommandBuffer, &BufferBeginInfo));
-
+	FVulkanCmdBuffer* CmdBuffer = Device->GetImmediateContext().GetCommandBufferManager()->GetUploadCmdBuffer();
+	ensure(CmdBuffer->IsOutsideRenderPass());
+	VkCommandBuffer StagingCommandBuffer = CmdBuffer->GetHandle();
 	EPixelFormat Format = Texture->Surface.Format;
 	uint32 MipWidth = FMath::Max<uint32>(Texture->Surface.Width >> MipIndex, GPixelFormats[Format].BlockSizeX);
 	uint32 MipHeight = FMath::Max<uint32>(Texture->Surface.Height >> MipIndex, GPixelFormats[Format].BlockSizeY);
 
-	VkImageCopy Region;
+	VkImageSubresourceRange SubresourceRange;
+	FMemory::Memzero(SubresourceRange);
+	SubresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	SubresourceRange.baseMipLevel = MipIndex;
+	SubresourceRange.levelCount = 1;
+	SubresourceRange.baseArrayLayer = FaceIndex;
+	SubresourceRange.layerCount = 1;
+	VulkanSetImageLayout(StagingCommandBuffer, Texture->Surface.Image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, SubresourceRange);
+
+	VkBufferImageCopy Region;
 	FMemory::Memzero(Region);
-	Region.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-	Region.srcSubresource.mipLevel = 0;
-	Region.srcSubresource.baseArrayLayer = 0;
-	Region.srcSubresource.layerCount = 1;
-	Region.srcOffset.x = 0;
-	Region.srcOffset.y = 0;
-	Region.srcOffset.z = 0;
-	Region.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-	Region.dstSubresource.mipLevel = MipIndex;
-	Region.dstSubresource.baseArrayLayer = FaceIndex;
-	Region.dstSubresource.layerCount = 1;
-	Region.dstOffset.x = 0;
-	Region.dstOffset.y = 0;
-	Region.dstOffset.z = 0;
-	Region.extent.width = MipWidth;
-	Region.extent.height = MipHeight;
-	Region.extent.depth = 1;
+	//#todo-rco: Might need an offset here?
+	//Region.bufferOffset = 0;
+	//Region.bufferRowLength = 0;
+	//Region.bufferImageHeight = 0;
+	Region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	Region.imageSubresource.mipLevel = MipIndex;
+	Region.imageSubresource.baseArrayLayer = FaceIndex;
+	Region.imageSubresource.layerCount = 1;
+	Region.imageExtent.width = MipWidth;
+	Region.imageExtent.height = MipHeight;
+	Region.imageExtent.depth = 1;
+	VulkanRHI::vkCmdCopyBufferToImage(StagingCommandBuffer, StagingBuffer->GetHandle(), Texture->Surface.Image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &Region);
 
-	vkCmdCopyImage(StagingCommandBuffer, Texture->StagingImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, Texture->Surface.Image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &Region);
+	VulkanSetImageLayout(StagingCommandBuffer, Texture->Surface.Image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, SubresourceRange);
 
-	VERIFYVULKANRESULT(vkEndCommandBuffer(StagingCommandBuffer));
-
-	VkSubmitInfo SubmitInfo;
-	FMemory::Memzero(SubmitInfo);
-	SubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-	SubmitInfo.commandBufferCount = 1;
-	SubmitInfo.pCommandBuffers = &StagingCommandBuffer;
-
-#if VULKAN_USE_FENCE_MANAGER
-	VERIFYVULKANRESULT(vkQueueSubmit(Texture->Surface.Device->GetQueue()->GetHandle(), 1, &SubmitInfo, Fence->GetHandle()));
-
-	bool bSuccess = Device->GetFenceManager().WaitForFence(Fence, 0xFFFFFFFF);
-	check(bSuccess);
-
-	Device->GetFenceManager().ReleaseFence(Fence);
-#else
-	VERIFYVULKANRESULT(vkQueueSubmit(Texture->Surface.Device->GetQueue()->GetHandle(), 1, &SubmitInfo, Fence));
-	
-	VERIFYVULKANRESULT(vkWaitForFences(LogicalDevice, 1, &Fence, true, 0xFFFFFFFF));
-	VERIFYVULKANRESULT(vkResetFences(LogicalDevice, 1, &Fence));
-	vkDestroyFence(LogicalDevice, Fence, nullptr);
-#endif
-
-	VERIFYVULKANRESULT(vkResetCommandBuffer(StagingCommandBuffer, 0x0));
-
-	//#todo-rco: FIX ME!
-	vkFreeCommandBuffers(LogicalDevice, Device->GetImmediateContext().GetCommandBufferManager()->GetHandle(), 1, &StagingCommandBuffer);
-#if VULKAN_USE_NEW_STAGING_BUFFERS
-	Device->GetStagingManager().ReleaseImage(StagingImage);
-#else
-	vkDestroyImage(LogicalDevice, Texture->StagingImage, nullptr);
-	vkFreeMemory(LogicalDevice, Texture->PixelBufferMemory, nullptr);
-#endif
+	Device->GetStagingManager().ReleaseBuffer(CmdBuffer, StagingBuffer);
 }
 
 void FVulkanDynamicRHI::RHIBindDebugLabelName(FTextureRHIParamRef TextureRHI, const TCHAR* Name)
 {
+#if VULKAN_ENABLE_DUMP_LAYER
+	{
+		if (FRHITexture2D* Tex2d = TextureRHI->GetTexture2D())
+		{
+			FVulkanTexture2D* VTex2d = (FVulkanTexture2D*)Tex2d;
+			VulkanRHI::PrintfBegin(FString::Printf(TEXT("vkDebugMarkerSetObjectNameEXT(%p=%s)"), VTex2d->Surface.Image, Name));
+		}
+		else if (FRHITextureCube* TexCube = TextureRHI->GetTextureCube())
+		{
+			FVulkanTextureCube* VTexCube = (FVulkanTextureCube*)TexCube;
+			VulkanRHI::PrintfBegin(FString::Printf(TEXT("vkDebugMarkerSetObjectNameEXT(%p=%s)"), VTexCube->Surface.Image, Name));
+		}
+		else if (FRHITexture3D* Tex3d = TextureRHI->GetTexture3D())
+		{
+			FVulkanTexture3D* VTex3d = (FVulkanTexture3D*)Tex3d;
+			VulkanRHI::PrintfBegin(FString::Printf(TEXT("vkDebugMarkerSetObjectNameEXT(%p=%s)"), VTex3d->Surface.Image, Name));
+		}
 }
+#endif
+
+#if VULKAN_ENABLE_DRAW_MARKERS
+	//if (Device->SupportsDebugMarkers())
+	/*
+	{
+		if (FRHITexture2D* Tex2d = TextureRHI->GetTexture2D())
+		{
+			// Lambda so the char* pointer is valid
+			auto DoCall = [](PFN_vkDebugMarkerSetObjectNameEXT DebugMarkerSetObjectName, VkDevice VulkanDevice, FVulkanTexture2D* VulkanTexture, const char* ObjectName)
+			{
+				VkDebugMarkerObjectNameInfoEXT Info;
+				FMemory::Memzero(Info);
+				Info.sType = VK_STRUCTURE_TYPE_DEBUG_MARKER_OBJECT_NAME_INFO_EXT;
+				Info.objectType = VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT;
+				Info.object = (uint64)VulkanTexture->Surface.Image;
+				Info.pObjectName = ObjectName;
+				DebugMarkerSetObjectName(VulkanDevice, &Info);
+			};
+			FVulkanTexture2D* VulkanTexture = (FVulkanTexture2D*)Tex2d;
+			DoCall(Device->DebugMarkerSetObjectName, Device->GetInstanceHandle(), VulkanTexture, TCHAR_TO_ANSI(Name));
+		}
+	}*/
+#endif
+	FName DebugName(Name);
+	TextureRHI->SetName(DebugName);
+}
+
+void FVulkanDynamicRHI::RHIBindDebugLabelName(FUnorderedAccessViewRHIParamRef UnorderedAccessViewRHI, const TCHAR* Name)
+{
+#if VULKAN_ENABLE_DRAW_MARKERS
+	//if (Device->SupportsDebugMarkers())
+	{
+		//if (FRHITexture2D* Tex2d = UnorderedAccessViewRHI->GetTexture2D())
+		//{
+		//	FVulkanTexture2D* VulkanTexture = (FVulkanTexture2D*)Tex2d;
+		//	VkDebugMarkerObjectTagInfoEXT Info;
+		//	FMemory::Memzero(Info);
+		//	Info.sType = VK_STRUCTURE_TYPE_DEBUG_MARKER_OBJECT_NAME_INFO_EXT;
+		//	Info.objectType = VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT;
+		//	Info.object = VulkanTexture->Surface.Image;
+		//	vkDebugMarkerSetObjectNameEXT(Device->GetInstanceHandle(), &Info);
+		//}
+	}
+#endif
+}
+
 
 void FVulkanDynamicRHI::RHIVirtualTextureSetFirstMipInMemory(FTexture2DRHIParamRef TextureRHI, uint32 FirstMip)
 {
@@ -1551,7 +1361,7 @@ uint64 FVulkanDynamicRHI::RHICalcTexture2DPlatformSize(uint32 SizeX, uint32 Size
 		false, 0, NumMips, Flags,
 		&InternalFormat, &CreateInfo, &MemReq);
 
-	vkDestroyImage(Device->GetInstanceHandle(), TmpImage, nullptr);
+	VulkanRHI::vkDestroyImage(Device->GetInstanceHandle(), TmpImage, nullptr);
 
 	OutAlign = MemReq.alignment;
 

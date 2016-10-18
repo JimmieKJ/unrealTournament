@@ -31,7 +31,7 @@ namespace AutomationTool
 		NameList,
 
 		/// <summary>
-		/// A tag name (a regular name with an optional '#' prefix)
+		/// A tag name (a regular name with '#' prefix)
 		/// </summary>
 		Tag,
 
@@ -39,6 +39,31 @@ namespace AutomationTool
 		/// A list of tag names separated by semicolons
 		/// </summary>
 		TagList,
+
+		/// <summary>
+		/// A standard node/aggregate/agent name or tag name
+		/// </summary>
+		Target,
+
+		/// <summary>
+		/// A list of standard name or tag names separated by semicolons
+		/// </summary>
+		TargetList,
+
+		/// <summary>
+		/// A file specification, which may contain tags and wildcards.
+		/// </summary>
+		FileSpec,
+
+		/// <summary>
+		/// A single file name
+		/// </summary>
+		FileName,
+
+		/// <summary>
+		/// A single directory name
+		/// </summary>
+		DirectoryName,
 	}
 
 	/// <summary>
@@ -90,7 +115,7 @@ namespace AutomationTool
 		public TaskElementAttribute(string InName, Type InParametersType)
 		{
 			Name = InName;
-			ParametersType =  InParametersType;
+			ParametersType = InParametersType;
 		}
 	}
 
@@ -115,6 +140,91 @@ namespace AutomationTool
 		/// <param name="TagNameToFileSet">Mapping from tag names to the set of files they include</param>
 		/// <returns>Whether the task succeeded or not. Exiting with an exception will be caught and treated as a failure.</returns>
 		public abstract bool Execute(JobContext Job, HashSet<FileReference> BuildProducts, Dictionary<string, HashSet<FileReference>> TagNameToFileSet);
+
+		/// <summary>
+		/// Output this task out to an XML writer.
+		/// </summary>
+		public abstract void Write(XmlWriter Writer);
+
+		/// <summary>
+		/// Writes this task to an XML writer, using the given parameters object.
+		/// </summary>
+		/// <param name="Writer">Writer for the XML schema</param>
+		/// <param name="Parameters">Parameters object that this task is constructed with</param>
+		protected void Write(XmlWriter Writer, object Parameters)
+		{
+			TaskElementAttribute Element = GetType().GetCustomAttribute<TaskElementAttribute>();
+			Writer.WriteStartElement(Element.Name);
+
+			foreach (FieldInfo Field in Parameters.GetType().GetFields())
+			{
+				if (Field.MemberType == MemberTypes.Field)
+				{
+					TaskParameterAttribute ParameterAttribute = Field.GetCustomAttribute<TaskParameterAttribute>();
+					if (ParameterAttribute != null)
+					{
+						object Value = Field.GetValue(Parameters);
+						if (Value != null && Field.FieldType == typeof(bool) && (bool)Value == false)
+						{
+							Value = null;
+						}
+						if (Value != null)
+						{
+							Writer.WriteAttributeString(Field.Name, Value.ToString());
+						}
+					}
+				}
+			}
+
+			Writer.WriteEndElement();
+		}
+
+		/// <summary>
+		/// Find all the tags which are used as inputs to this task
+		/// </summary>
+		/// <returns>The tag names which are read by this task</returns>
+		public abstract IEnumerable<string> FindConsumedTagNames();
+
+		/// <summary>
+		/// Find all the tags which are modified by this task
+		/// </summary>
+		/// <returns>The tag names which are modified by this task</returns>
+		public abstract IEnumerable<string> FindProducedTagNames();
+
+		/// <summary>
+		/// Adds tag names from a filespec
+		/// </summary>
+		/// <param name="Filespec">A filespec, as can be passed to ResolveFilespec</param>
+		/// <returns>Tag names from this filespec</returns>
+		protected IEnumerable<string> FindTagNamesFromFilespec(string Filespec)
+		{
+			if(!String.IsNullOrEmpty(Filespec))
+			{
+				foreach(string Pattern in SplitDelimitedList(Filespec))
+				{
+					if(Pattern.StartsWith("#"))
+					{
+						yield return Pattern;
+					}
+				}
+			}
+		}
+
+		/// <summary>
+		/// Enumerates tag names from a list
+		/// </summary>
+		/// <param name="TagList">List of tags separated by semicolons</param>
+		/// <returns>Tag names from this filespec</returns>
+		protected IEnumerable<string> FindTagNamesFromList(string TagList)
+		{
+			if(!String.IsNullOrEmpty(TagList))
+			{
+				foreach(string TagName in SplitDelimitedList(TagList))
+				{
+					yield return TagName;
+				}
+			}
+		}
 
 		/// <summary>
 		/// Resolves a single name to a file reference, resolving relative paths to the root of the current path.
@@ -157,12 +267,22 @@ namespace AutomationTool
 		/// <summary>
 		/// Finds or adds a set containing files with the given tag
 		/// </summary>
-		/// <param name="Name">The tag name to return a set for. An leading '#' character is optional.</param>
+		/// <param name="TagNameToFileSet">Map of tag names to the set of files they contain</param>
+		/// <param name="TagName">The tag name to return a set for. A leading '#' character is required.</param>
 		/// <returns>Set of files</returns>
-		public static HashSet<FileReference> FindOrAddTagSet(Dictionary<string, HashSet<FileReference>> TagNameToFileSet, string Name)
+		public static HashSet<FileReference> FindOrAddTagSet(Dictionary<string, HashSet<FileReference>> TagNameToFileSet, string TagName)
 		{
-			// Get the clean tag name, without the leading '#' character
-			string TagName = Name.StartsWith("#")? Name.Substring(1) : Name;
+			// Make sure the tag name contains a single leading hash
+			if (TagName.LastIndexOf('#') != 0)
+			{
+				throw new AutomationException("Tag name '{0}' is not valid - should contain a single leading '#' character", TagName);
+			}
+
+			// Any spaces should be later than the second char - most likely to be a typo if directly after the # character
+			if (TagName.IndexOf(' ') == 1)
+			{
+				throw new AutomationException("Tag name '{0}' is not valid - spaces should only be used to separate words", TagName);
+			}
 
 			// Find the files which match this tag
 			HashSet<FileReference> Files;
@@ -175,7 +295,7 @@ namespace AutomationTool
 			// If we got a null reference, it's because the tag is not listed as an input for this node (see RunGraph.BuildSingleNode). Fill it in, but only with an error.
 			if(Files == null)
 			{
-				CommandUtils.LogError("Attempt to reference tag '{0}', which is not listed as a dependency of this node.", Name);
+				CommandUtils.LogError("Attempt to reference tag '{0}', which is not listed as a dependency of this node.", TagName);
 				Files = new HashSet<FileReference>();
 				TagNameToFileSet.Add(TagName, Files);
 			}
@@ -196,16 +316,8 @@ namespace AutomationTool
 		/// <returns>Set of matching files.</returns>
 		public static HashSet<FileReference> ResolveFilespec(DirectoryReference DefaultDirectory, string DelimitedPatterns, Dictionary<string, HashSet<FileReference>> TagNameToFileSet)
 		{
-			// Find all the files and directories that are referenced
-			HashSet<DirectoryReference> Directories = new HashSet<DirectoryReference>();
-			HashSet<FileReference> Files = ResolveFilespec(DefaultDirectory, DelimitedPatterns, Directories, TagNameToFileSet);
-
-			// Include all the files underneath the directories
-			foreach(DirectoryReference Directory in Directories)
-			{
-				Files.UnionWith(Directory.EnumerateFileReferences("*", SearchOption.AllDirectories));
-			}
-			return Files;
+			List<string> ExcludePatterns = new List<string>();
+			return ResolveFilespecWithExcludePatterns(DefaultDirectory, DelimitedPatterns, ExcludePatterns, TagNameToFileSet);
 		}
 
 		/// <summary>
@@ -213,81 +325,69 @@ namespace AutomationTool
 		/// </summary>
 		/// <param name="DefaultDirectory">The default directory to resolve relative paths to</param>
 		/// <param name="DelimitedPatterns">List of files, tag names, or file specifications to include separated by semicolons.</param>
-		/// <param name="Directories">Set of directories which are referenced using directory wildcards. Files under these directories are not added to the output set.</param>
+		/// <param name="ExcludePatterns">Set of patterns to apply to directory searches. This can greatly speed up enumeration by earlying out of recursive directory searches if large directories are excluded (eg. .../Intermediate/...).</param>
 		/// <param name="TagNameToFileSet">Mapping of tag name to fileset, as passed to the Execute() method</param>
 		/// <returns>Set of matching files.</returns>
-		public static HashSet<FileReference> ResolveFilespec(DirectoryReference DefaultDirectory, string DelimitedPatterns, HashSet<DirectoryReference> Directories, Dictionary<string, HashSet<FileReference>> TagNameToFileSet)
+		public static HashSet<FileReference> ResolveFilespecWithExcludePatterns(DirectoryReference DefaultDirectory, string DelimitedPatterns, List<string> ExcludePatterns, Dictionary<string, HashSet<FileReference>> TagNameToFileSet)
 		{
 			// Split the argument into a list of patterns
-			string[] Patterns = SplitDelimitedList(DelimitedPatterns);
+			List<string> Patterns = SplitDelimitedList(DelimitedPatterns);
+			return ResolveFilespecWithExcludePatterns(DefaultDirectory, Patterns, ExcludePatterns, TagNameToFileSet);
+		}
 
+		/// <summary>
+		/// Resolve a list of files, tag names or file specifications as above, but preserves any directory references for further processing.
+		/// </summary>
+		/// <param name="DefaultDirectory">The default directory to resolve relative paths to</param>
+		/// <param name="FilePatterns">List of files, tag names, or file specifications to include separated by semicolons.</param>
+		/// <param name="ExcludePatterns">Set of patterns to apply to directory searches. This can greatly speed up enumeration by earlying out of recursive directory searches if large directories are excluded (eg. .../Intermediate/...).</param>
+		/// <param name="TagNameToFileSet">Mapping of tag name to fileset, as passed to the Execute() method</param>
+		/// <returns>Set of matching files.</returns>
+		public static HashSet<FileReference> ResolveFilespecWithExcludePatterns(DirectoryReference DefaultDirectory, List<string> FilePatterns, List<string> ExcludePatterns, Dictionary<string, HashSet<FileReference>> TagNameToFileSet)
+		{
 			// Parse each of the patterns, and add the results into the given sets
 			HashSet<FileReference> Files = new HashSet<FileReference>();
-			foreach(string Pattern in Patterns)
+			foreach(string Pattern in FilePatterns)
 			{
 				// Check if it's a tag name
 				if(Pattern.StartsWith("#"))
 				{
-					Files.UnionWith(FindOrAddTagSet(TagNameToFileSet, Pattern.Substring(1)));
+					Files.UnionWith(FindOrAddTagSet(TagNameToFileSet, Pattern));
 					continue;
 				}
 
-				// List of all wildcards
-				string[] Wildcards = { "?", "*", "..." };
-
-				// Find the first index of a wildcard in the given pattern
-				int WildcardIdx = -1;
-				foreach(string Wildcard in Wildcards)
-				{
-					int Idx = Pattern.IndexOf(Wildcard);
-					if(Idx != -1 && (WildcardIdx == -1 || Idx < WildcardIdx))
-					{
-						WildcardIdx = Idx;
-					}
-				}
-
-				// If we didn't find any wildcards, we can just add the pattern directly.
+				// If it doesn't contain any wildcards, just add the pattern directly
+				int WildcardIdx = FileFilter.FindWildcardIndex(Pattern);
 				if(WildcardIdx == -1)
 				{
 					Files.Add(FileReference.Combine(DefaultDirectory, Pattern));
 					continue;
 				}
 
-				// Check the wildcard is in the last fragment of the path.
-				int LastDirectoryIdx = Pattern.LastIndexOfAny(new char[]{ Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar });
-				if(LastDirectoryIdx != -1 && LastDirectoryIdx > WildcardIdx)
-				{
-					CommandUtils.LogWarning("Invalid pattern '{0}': Path wildcard can only match files");
-					continue;
-				}
+				// Find the base directory for the search. We construct this in a very deliberate way including the directory separator itself, so matches
+				// against the OS root directory will resolve correctly both on Mac (where / is the filesystem root) and Windows (where / refers to the current drive).
+				int LastDirectoryIdx = Pattern.LastIndexOfAny(new char[]{ Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar }, WildcardIdx);
+				DirectoryReference BaseDir = DirectoryReference.Combine(DefaultDirectory, Pattern.Substring(0, LastDirectoryIdx + 1));
 
-				// Check if it's a directory reference (ends with ...) or file reference.
-				int PathWildcardIdx = Pattern.IndexOf("...");
-				if(PathWildcardIdx != -1)
+				// Construct the absolute include pattern to match against, re-inserting the resolved base directory to construct a canonical path.
+				string IncludePattern = BaseDir.FullName.TrimEnd(new char[]{ Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar }) + "/" + Pattern.Substring(LastDirectoryIdx + 1);
+
+				// Construct a filter and apply it to the directory
+				if(BaseDir.Exists())
 				{
-					// Add the base directory to the list of results
-					if(PathWildcardIdx + 3 != Pattern.Length)
-					{
-						CommandUtils.LogWarning("Invalid pattern '{0}': Path wildcard must appear at end of pattern.");
-					}
-					else if(PathWildcardIdx != LastDirectoryIdx + 1)
-					{
-						CommandUtils.LogWarning("Invalid pattern '{0}': Path wildcard cannot partially match a name.");
-					}
-					else
-					{
-						Directories.Add(DirectoryReference.Combine(DefaultDirectory, Pattern.Substring(0, PathWildcardIdx)));
-					}
-				}
-				else
-				{
-					// Construct a file filter and apply it to files in the directory. Don't use the default file enumeration logic for consistency; search patterns
-					// passed to Directory.EnumerateFiles et al have special cases for backwards compatibility that we don't want.
 					FileFilter Filter = new FileFilter();
-					Filter.AddRule("/" + Pattern.Substring(LastDirectoryIdx + 1), FileFilterType.Include);
-					DirectoryReference BaseDir = DirectoryReference.Combine(DefaultDirectory, Pattern.Substring(0, LastDirectoryIdx + 1));
-					Files.UnionWith(Filter.ApplyToDirectory(BaseDir, true));
+					Filter.AddRule(IncludePattern, FileFilterType.Include);
+					Filter.AddRules(ExcludePatterns, FileFilterType.Exclude);
+					Files.UnionWith(Filter.ApplyToDirectory(BaseDir, BaseDir.FullName, true));
 				}
+			}
+
+			// If we have exclude rules, create and run a filter against all the output files to catch things that weren't added from an include
+			if(ExcludePatterns.Count > 0)
+			{
+				FileFilter Filter = new FileFilter(FileFilterType.Include);
+				Filter.AddRules(ExcludePatterns, FileFilterType.Exclude);
+				Files.RemoveWhere(x => !Filter.Matches(x.FullName));
 			}
 			return Files;
 		}
@@ -297,9 +397,9 @@ namespace AutomationTool
 		/// </summary>
 		/// <param name="Text">The input string</param>
 		/// <returns>Array of the parsed items</returns>
-		public static string[] SplitDelimitedList(string Text)
+		public static List<string> SplitDelimitedList(string Text)
 		{
-			return Text.Split(';').Select(x => x.Trim()).Where(x => x.Length > 0).ToArray();
+			return Text.Split(';').Select(x => x.Trim()).Where(x => x.Length > 0).ToList();
 		}
 	}
 }

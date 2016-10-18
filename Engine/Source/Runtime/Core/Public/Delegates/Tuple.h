@@ -3,6 +3,7 @@
 #pragma once
 
 #include "IntegerSequence.h"
+#include "Templates/AndOr.h"
 
 template <int32 N, typename... Types>
 struct TNthTypeFromParameterPack;
@@ -86,13 +87,6 @@ struct TTupleImpl<TIntegerSequence<uint32, Indices...>, Types...> : TTupleElemen
 		return Func(Forward<ArgTypes>(Args)..., Get<Indices>()...);
 	}
 
-	// This exists because VC isn't so great at deducing return types sometimes, so we can specify it if we know it
-	template <typename RetType, typename FuncType, typename... ArgTypes>
-	RetType ApplyAfter_ExplicitReturnType(FuncType&& Func, ArgTypes&&... Args) const
-	{
-		return Func(Forward<ArgTypes>(Args)..., Get<Indices>()...);
-	}
-
 	template <typename FuncType, typename... ArgTypes>
 	auto ApplyBefore(FuncType&& Func, ArgTypes&&... Args) const -> decltype(Func(Get<Indices>()..., Forward<ArgTypes>(Args)...))
 	{
@@ -117,13 +111,6 @@ struct TTupleImpl<TIntegerSequence<uint32, Indices...>, Types...> : TTupleElemen
 
 		template <typename FuncType, typename... ArgTypes>
 		auto ApplyAfter(FuncType&& Func, ArgTypes&&... Args) const -> decltype(Func(Forward<ArgTypes>(Args)...))
-		{
-			return Func(Forward<ArgTypes>(Args)...);
-		}
-
-		// This exists because VC isn't so great at deducing return types sometimes, so we can specify it if we know it
-		template <typename RetType, typename FuncType, typename... ArgTypes>
-		RetType ApplyAfter_ExplicitReturnType(FuncType&& Func, ArgTypes&&... Args) const
 		{
 			return Func(Forward<ArgTypes>(Args)...);
 		}
@@ -153,3 +140,74 @@ struct TTuple : TTupleImpl<TMakeIntegerSequence<uint32, sizeof...(Types)>, Types
 		// This constructor is disabled for TTuple because VC is incorrectly instantiating it as a move/copy constructor.
 	}
 };
+
+
+/**
+ * Makes a TTuple from some arguments.  The type of the TTuple elements are the decayed versions of the arguments.
+ *
+ * @param  Args  The arguments used to construct the tuple.
+ * @return A tuple containing a copy of the arguments.
+ *
+ * Example:
+ *
+ * void Func(const int32 A, FString&& B)
+ * {
+ *     // Equivalent to:
+ *     // TTuple<int32, const TCHAR*, FString> MyTuple(A, TEXT("Hello"), MoveTemp(B));
+ *     auto MyTuple = MakeTuple(A, TEXT("Hello"), MoveTemp(B));
+ * }
+ */
+template <typename... Types>
+TTuple<typename TDecay<Types>::Type...> MakeTuple(Types&&... Args)
+{
+	return TTuple<typename TDecay<Types>::Type...>(Forward<Types>(Args)...);
+}
+
+
+
+template <typename IntegerSequence>
+struct TTransformTuple_Impl;
+
+template <uint32... Indices>
+struct TTransformTuple_Impl<TIntegerSequence<uint32, Indices...>>
+{
+	template <typename TupleType, typename FuncType>
+	static auto Do(TupleType&& Tuple, FuncType Func) -> decltype(MakeTuple(Func(Forward<TupleType>(Tuple).template Get<Indices>())...))
+	{
+		return MakeTuple(Func(Forward<TupleType>(Tuple).template Get<Indices>())...);
+	}
+};
+
+
+/**
+ * Creates a new TTuple by applying a functor to each of the elements.
+ *
+ * @param  Tuple  The tuple to apply the functor to.
+ * @param  Func   The functor to apply.
+ *
+ * @return A new tuple of the transformed elements.
+ *
+ * Example:
+ *
+ * float        Overloaded(int32 Arg);
+ * char         Overloaded(const TCHAR* Arg);
+ * const TCHAR* Overloaded(const FString& Arg);
+ *
+ * void Func(const TTuple<int32, const TCHAR*, FString>& MyTuple)
+ * {
+ *     // Equivalent to:
+ *     // TTuple<float, char, const TCHAR*> TransformedTuple(Overloaded(MyTuple.Get<0>()), Overloaded(MyTuple.Get<1>()), Overloaded(MyTuple.Get<2>())));
+ *     auto TransformedTuple = TransformTuple(MyTuple, [](const auto& Arg) { return Overloaded(Arg); });
+ * }
+ */
+template <typename FuncType, typename... Types>
+auto TransformTuple(TTuple<Types...>&& Tuple, FuncType Func) -> decltype(TTransformTuple_Impl<TMakeIntegerSequence<uint32, sizeof...(Types)>>::Do(MoveTemp(Tuple), MoveTemp(Func)))
+{
+	return TTransformTuple_Impl<TMakeIntegerSequence<uint32, sizeof...(Types)>>::Do(MoveTemp(Tuple), MoveTemp(Func));
+}
+
+template <typename FuncType, typename... Types>
+auto TransformTuple(const TTuple<Types...>& Tuple, FuncType Func) -> decltype(TTransformTuple_Impl<TMakeIntegerSequence<uint32, sizeof...(Types)>>::Do(Tuple, MoveTemp(Func)))
+{
+	return TTransformTuple_Impl<TMakeIntegerSequence<uint32, sizeof...(Types)>>::Do(Tuple, MoveTemp(Func));
+}

@@ -4,11 +4,16 @@
 #include "Commandlets/Commandlet.h"
 #include "ResavePackagesCommandlet.generated.h"
 
+// Log category should be accessible by derived classes
+UNREALED_API DECLARE_LOG_CATEGORY_EXTERN(LogContentCommandlet, Log, All);
+
 UCLASS()
 // Added UNREALED_API to expose this to the save packages test
 class UNREALED_API UResavePackagesCommandlet : public UCommandlet
 {
     GENERATED_UCLASS_BODY()
+
+protected:
 
 	enum EBrevity
 	{
@@ -67,6 +72,9 @@ class UNREALED_API UResavePackagesCommandlet : public UCommandlet
 	/** Should we build lighting for the packages we are saving? **/
 	bool bShouldBuildLighting;
 
+	/** Ignore package version changelist **/
+	bool bIgnoreChangelist;
+
 	// Running count of packages that got modified and will need to be resaved
 	int32 PackagesRequiringResave;
 
@@ -78,7 +86,7 @@ class UNREALED_API UResavePackagesCommandlet : public UCommandlet
 
 	// The list of switches that were passed on the commandline
 	TArray<FString> Switches;
-protected:
+
 	/**
 	 * Evaluates the command-line to determine which maps to check.  By default all maps are checked
 	 * Provides child classes with a chance to initialize any variables, parse the command line, etc.
@@ -103,7 +111,7 @@ protected:
 	 * @param	bSavePackage	[in]	indicates whether the package is currently going to be saved
 	 *							[out]	set to true to resave the package
 	 */
-	virtual bool PerformPreloadOperations( FLinkerLoad* PackageLinker, bool& bSavePackage );
+	virtual void PerformPreloadOperations( FLinkerLoad* PackageLinker, bool& bSavePackage );
 
 	/**
 	 * Allows the commandlet to perform any additional operations on the object before it is resaved.
@@ -148,6 +156,7 @@ protected:
 
 	// Print out a message only if running in very verbose mode
 	void VerboseMessage(const FString& Message);
+
 public:		
 	//~ Begin UCommandlet Interface
 	virtual int32 Main(const FString& Params) override;

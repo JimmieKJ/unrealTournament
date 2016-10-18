@@ -20,6 +20,8 @@ void FAnimTrailNodeDetails::CustomizeDetails( IDetailLayoutBuilder& DetailBuilde
 	TArray<TWeakObjectPtr<UObject> > SelectedObjects;	//the objects we're showing details for
 	DetailBuilder.GetObjectsBeingCustomized(SelectedObjects);
 
+	TSharedPtr<IPropertyHandle> TrailRelaxCurveHandle = DetailBuilder.GetProperty("Node.TrailRelaxationSpeed");
+
 	//we only do fancy customization if we have one vehicle component selected
 	if(SelectedObjects.Num() != 1)
 	{
@@ -27,7 +29,7 @@ void FAnimTrailNodeDetails::CustomizeDetails( IDetailLayoutBuilder& DetailBuilde
 	}
 	else if(UAnimGraphNode_Trail* InGraphNode = Cast<UAnimGraphNode_Trail>(SelectedObjects[0].Get()))
 	{
-		TrailRelaxCurveEditor = FTrailRelaxCurveEditor(InGraphNode);
+		TrailRelaxCurveEditor = FTrailRelaxCurveEditor(InGraphNode, TrailRelaxCurveHandle);
 	}
 	else
 	{
@@ -36,7 +38,6 @@ void FAnimTrailNodeDetails::CustomizeDetails( IDetailLayoutBuilder& DetailBuilde
 
 	//Trail Relax curve
 	IDetailCategoryBuilder& TrailCategory = DetailBuilder.EditCategory("Trail");
-	TSharedRef<IPropertyHandle> TrailRelaxCurveHandle = DetailBuilder.GetProperty("Node.TrailRelaxationSpeed");
 	TSharedPtr<class SCurveEditor> TrailRelaxCurveWidget;
 
 	DetailBuilder.HideProperty(TrailRelaxCurveHandle);
@@ -86,6 +87,10 @@ void FAnimTrailNodeDetails::FTrailRelaxCurveEditor::ModifyOwner()
 	if(GraphNodeOwner)
 	{
 		GraphNodeOwner->Modify();
+		if (TrailRelaxCurveHandle.IsValid())
+		{
+			TrailRelaxCurveHandle->NotifyPostChange();
+		}
 	}
 }
 
@@ -102,9 +107,10 @@ bool FAnimTrailNodeDetails::FTrailRelaxCurveEditor::IsValidCurve(FRichCurveEditI
 	return CurveInfo.CurveToEdit == &GraphNodeOwner->Node.TrailRelaxationSpeed.EditorCurveData;
 }
 
-FAnimTrailNodeDetails::FTrailRelaxCurveEditor::FTrailRelaxCurveEditor(UAnimGraphNode_Trail * InGraphNode)
+FAnimTrailNodeDetails::FTrailRelaxCurveEditor::FTrailRelaxCurveEditor(UAnimGraphNode_Trail * InGraphNode, TSharedPtr<IPropertyHandle> InTrailRelaxCurveHandle)
 {
 	GraphNodeOwner = InGraphNode;
+	TrailRelaxCurveHandle = InTrailRelaxCurveHandle;
 }
 
 #undef LOCTEXT_NAMESPACE

@@ -135,7 +135,7 @@ void USignificanceManager::RegisterObject(UObject* Object, const FName Tag, FSig
 	if (Viewpoints.Num())
 	{
 		SCOPE_CYCLE_COUNTER(STAT_SignificanceManager_InitialSignificanceUpdate);
-		ObjectInfo->UpdateSignificance(Viewpoints);
+		ObjectInfo->UpdateSignificance(Viewpoints,bSortSignificanceAscending);
 	}
 
 	ManagedObjects.Add(Object, ObjectInfo);
@@ -281,18 +281,33 @@ bool USignificanceManager::QuerySignificance(const UObject* Object, float& OutSi
 	}
 }
 
-void USignificanceManager::FManagedObjectInfo::UpdateSignificance(const TArray<FTransform>& InViewpoints)
+void USignificanceManager::FManagedObjectInfo::UpdateSignificance(const TArray<FTransform>& InViewpoints, const bool bSortAscending)
 {
 	float OldSignificance = Significance;
 	if (InViewpoints.Num())
 	{
-		Significance = TNumericLimits<float>::Lowest();
-		for (const FTransform& Viewpoint : InViewpoints)
+		if (bSortAscending)
 		{
-			const float ViewpointSignificance = SignificanceFunction(Object, Viewpoint);
-			if (ViewpointSignificance > Significance)
+			Significance = TNumericLimits<float>::Lowest();
+			for (const FTransform& Viewpoint : InViewpoints)
 			{
-				Significance = ViewpointSignificance;
+				const float ViewpointSignificance = SignificanceFunction(Object, Viewpoint);
+				if (ViewpointSignificance > Significance)
+				{
+					Significance = ViewpointSignificance;
+				}
+			}
+		}
+		else
+		{
+			Significance = TNumericLimits<float>::Max();
+			for (const FTransform& Viewpoint : InViewpoints)
+			{
+				const float ViewpointSignificance = SignificanceFunction(Object, Viewpoint);
+				if (ViewpointSignificance < Significance)
+				{
+					Significance = ViewpointSignificance;
+				}
 			}
 		}
 	}
@@ -319,8 +334,6 @@ void USignificanceManager::Update(const TArray<FTransform>& InViewpoints)
 		TArray<FManagedObjectInfo*> ObjArray;
 		ManagedObjects.GenerateValueArray(ObjArray);
 
-		//TODO: Consider parallel for
-		//for (TPair<UObject*, FManagedObjectInfo*>& ObjectToObjectInfoPair : ManagedObjects)
 		ParallelFor(ObjArray.Num(),
 			[&](int32 Index)
 		{
@@ -328,7 +341,7 @@ void USignificanceManager::Update(const TArray<FTransform>& InViewpoints)
 
 			checkSlow(ObjectInfo->GetObject()->IsValidLowLevel());
 
-			ObjectInfo->UpdateSignificance(Viewpoints);
+			ObjectInfo->UpdateSignificance(Viewpoints,bSortSignificanceAscending);
 		});
 	}
 
@@ -343,14 +356,14 @@ void USignificanceManager::Update(const TArray<FTransform>& InViewpoints)
 
 static int32 GSignificanceManagerObjectsToShow = 15;
 static FAutoConsoleVariableRef CVarSignificanceManagerObjectsToShow(
-	TEXT("SignificanceManager.ObjectsToShow"),
+	TEXT("SigMan.ObjectsToShow"),
 	GSignificanceManagerObjectsToShow,
 	TEXT("How many objects to display when ShowDebug SignificanceManager is enabled.\n"),
 	ECVF_Cheat
 	);
 
 static FAutoConsoleVariable CVarSignificanceManagerFilterTag(
-	TEXT("SignificanceManager.FilterTag"),
+	TEXT("SigMan.FilterTag"),
 	TEXT(""),
 	TEXT("Only display objects with the specified filter tag.  If None objects with any will be displayed.\n"),
 	ECVF_Cheat

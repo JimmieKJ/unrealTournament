@@ -4,7 +4,7 @@
 
 class FSlateShaderResourceProxy;
 
-DECLARE_MEMORY_STAT_EXTERN(TEXT("Texture Data GPU Memory"), STAT_SlateTextureGPUMemory, STATGROUP_SlateMemory, SLATECORE_API);
+DECLARE_MEMORY_STAT_EXTERN(TEXT("Texture Data Memory (GPU)"), STAT_SlateTextureGPUMemory, STATGROUP_SlateMemory, SLATECORE_API);
 
 namespace ESlateShaderResource
 {

@@ -3,7 +3,7 @@
 
 #include "PropertyEditorPrivatePCH.h"
 #include "SDetailNameArea.h"
-#include "ClassIconFinder.h"
+#include "SlateIconFinder.h"
 #include "Editor/EditorWidgets/Public/EditorWidgets.h"
 #include "EditorClassUtils.h"
 
@@ -103,7 +103,7 @@ TSharedRef< SWidget > SDetailNameArea::BuildObjectNameArea( const TArray< TWeakO
 	if (BaseClass)
 	{
 		// Get selection icon based on actor(s) classes and add before the selection label
-		const FSlateBrush* ActorIcon = FClassIconFinder::FindIconForClass(BaseClass);
+		const FSlateBrush* ActorIcon = FSlateIconFinder::FindIconBrushForClass(BaseClass);
 
 		ObjectNameArea->AddSlot()
 		.AutoWidth()

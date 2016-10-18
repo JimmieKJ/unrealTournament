@@ -6,7 +6,7 @@
 #include "UTWeaponLocker.h"
 #include "UTPlayerState.h"
 #include "UTTeleporter.h"
-#include "UTFlagRunGame.h"
+#include "UTFlagRunGameState.h"
 #include "UTCharacterVoice.h"
 
 AUTGameVolume::AUTGameVolume(const FObjectInitializer& ObjectInitializer)
@@ -24,6 +24,9 @@ AUTGameVolume::AUTGameVolume(const FObjectInitializer& ObjectInitializer)
 
 	static ConstructorHelpers::FObjectFinder<USoundBase> AlarmSoundFinder(TEXT("SoundCue'/Game/RestrictedAssets/Audio/Gameplay/A_FlagRunBaseAlarm.A_FlagRunBaseAlarm'"));
 	AlarmSound = AlarmSoundFinder.Object;
+
+	static ConstructorHelpers::FObjectFinder<USoundBase> EarnedSoundFinder(TEXT("SoundCue'/Game/RestrictedAssets/Pickups/Health/Asset/A_Pickups_Health_Small_Cue_Modulated.A_Pickups_Health_Small_Cue_Modulated'"));
+	HealthSound = EarnedSoundFinder.Object;
 }
 
 void AUTGameVolume::Reset_Implementation()
@@ -35,12 +38,43 @@ void AUTGameVolume::PostInitializeComponents()
 {
 	Super::PostInitializeComponents();
 
-	if ((VoiceLinesSet == NAME_None) && !VolumeName.IsEmpty())
+	if (bIsTeamSafeVolume && (Role == ROLE_Authority))
+	{
+		//GetWorldTimerManager().SetTimer(HealthTimerHandle, this, &AUTGameVolume::HealthTimer, 1.f, true);
+	}
+	else if ((VoiceLinesSet == NAME_None) && !VolumeName.IsEmpty() && !bIsTeleportZone)
 	{
 		VoiceLinesSet = UUTCharacterVoice::StaticClass()->GetDefaultObject<UUTCharacterVoice>()->GetFallbackLines(FName(*VolumeName.ToString()));
 		if (VoiceLinesSet == NAME_None)
 		{
 			UE_LOG(UT, Warning, TEXT("No voice lines found for %s"), *VolumeName.ToString());
+		}
+	}
+}
+
+void AUTGameVolume::HealthTimer()
+{
+	TArray<AActor*> TouchingActors;
+	GetOverlappingActors(TouchingActors, AUTCharacter::StaticClass());
+
+	for (int32 iTouching = 0; iTouching < TouchingActors.Num(); ++iTouching)
+	{
+		AUTCharacter* const P = Cast<AUTCharacter>(TouchingActors[iTouching]);
+		if (P && (GetWorld()->GetTimeSeconds() - P->EnteredSafeVolumeTime) > 1.f)
+		{
+			if (P->Health < P->HealthMax)
+			{
+				P->Health = FMath::Max<int32>(P->Health, FMath::Min<int32>(P->Health + 20, P->HealthMax));
+				AUTPlayerController* PC = Cast<AUTPlayerController>(P->GetController());
+				if (PC)
+				{
+					PC->ClientPlaySound(HealthSound);
+				}
+			}
+			if ((TeamLockers.Num() > 0) && TeamLockers[0] && P->bHasLeftSafeVolume)
+			{
+				TeamLockers[0]->ProcessTouch(P);
+			}
 		}
 	}
 }
@@ -64,6 +98,7 @@ void AUTGameVolume::ActorEnteredVolume(class AActor* Other)
 				else
 				{
 					P->bDamageHurtsHealth = false;
+					P->EnteredSafeVolumeTime = GetWorld()->GetTimeSeconds();
 					if ((P->Health < 80) && Cast<AUTPlayerState>(P->PlayerState) && (GetWorld()->GetTimeSeconds() - ((AUTPlayerState*)(P->PlayerState))->LastNeedHealthTime > 20.f))
 					{
 						((AUTPlayerState*)(P->PlayerState))->LastNeedHealthTime = GetWorld()->GetTimeSeconds();
@@ -71,7 +106,7 @@ void AUTGameVolume::ActorEnteredVolume(class AActor* Other)
 					}
 				}
 			}
-			else if (bIsTeleportZone)
+			if (bIsTeleportZone)
 			{
 				if (AssociatedTeleporter == nullptr)
 				{
@@ -86,21 +121,21 @@ void AUTGameVolume::ActorEnteredVolume(class AActor* Other)
 				}
 				if (AssociatedTeleporter)
 				{
-					AssociatedTeleporter->OnOverlapBegin(P);
+					AssociatedTeleporter->OnOverlapBegin(this, P);
 				}
 			}
 			else if (P->GetCarriedObject())
 			{
-/*				if (VoiceLinesSet != NAME_None)
-				{
-					UE_LOG(UT, Warning, TEXT("VoiceLineSet %s for %s location %s"), *VoiceLinesSet.ToString(), *GetName(), *VolumeName.ToString());
-					((AUTPlayerState *)(P->PlayerState))->AnnounceStatus(VoiceLinesSet, 1);
-				}
-				else
-				{
-					UE_LOG(UT, Warning, TEXT("No VoiceLineSet for %s location %s"), *GetName(), *VolumeName.ToString());
-				}
-				return;*/
+				/*				if (VoiceLinesSet != NAME_None)
+								{
+									UE_LOG(UT, Warning, TEXT("VoiceLineSet %s for %s location %s"), *VoiceLinesSet.ToString(), *GetName(), *VolumeName.ToString());
+									((AUTPlayerState *)(P->PlayerState))->AnnounceStatus(VoiceLinesSet, 1);
+								}
+								else
+								{
+									UE_LOG(UT, Warning, TEXT("No VoiceLineSet for %s location %s"), *GetName(), *VolumeName.ToString());
+								}
+								return;*/
 				if (bIsNoRallyZone && !P->GetCarriedObject()->bWasInEnemyBase)
 				{
 					if (GetWorld()->GetTimeSeconds() - P->GetCarriedObject()->EnteredEnemyBaseTime > 10.f)
@@ -110,56 +145,35 @@ void AUTGameVolume::ActorEnteredVolume(class AActor* Other)
 					}
 					P->GetCarriedObject()->EnteredEnemyBaseTime = GetWorld()->GetTimeSeconds();
 				}
-				P->GetCarriedObject()->bWasInEnemyBase = bIsNoRallyZone;
 
 				// possibly announce flag carrier changed zones
-				if (bIsNoRallyZone && (GetWorld()->GetTimeSeconds() - FMath::Max(GS->LastEnemyEnteringBaseTime, GS->LastEnteringEnemyBaseTime) > 10.f))
+				if (bIsNoRallyZone && !P->GetCarriedObject()->bWasInEnemyBase && (GetWorld()->GetTimeSeconds() - FMath::Max(GS->LastEnemyEnteringBaseTime, GS->LastEnteringEnemyBaseTime) > 10.f))
 				{
-					if ((GetWorld()->GetTimeSeconds() - GS->LastEnteringEnemyBaseTime > 10.f) && Cast<AUTPlayerState>(P->PlayerState))
+					if ((GetWorld()->GetTimeSeconds() - GS->LastEnteringEnemyBaseTime > 6.f) && Cast<AUTPlayerState>(P->PlayerState))
 					{
 						if (VoiceLinesSet != NAME_None)
 						{
 							((AUTPlayerState *)(P->PlayerState))->AnnounceStatus(VoiceLinesSet, 1);
 						}
-						else
-						{
-							((AUTPlayerState *)(P->PlayerState))->AnnounceStatus(StatusMessage::ImGoingIn);
-						}
+						((AUTPlayerState *)(P->PlayerState))->AnnounceStatus(StatusMessage::ImGoingIn);
 						GS->LastEnteringEnemyBaseTime = GetWorld()->GetTimeSeconds();
 					}
-					if (GetWorld()->GetTimeSeconds() - GS->LastEnemyEnteringBaseTime > 12.f)
+					if (GetWorld()->GetTimeSeconds() - GS->LastEnemyEnteringBaseTime > 10.f)
 					{
-						bool bHasVisibility = P->GetCarriedObject()->bCurrentlyPinged;
 						AUTPlayerState* PS = P->GetCarriedObject()->LastPinger;
-						if (!bHasVisibility)
+						if (!PS)
 						{
 							for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
 							{
 								AController* C = *Iterator;
-								if (C && !GS->OnSameTeam(P, C) && C->GetPawn() && Cast<AUTPlayerState>(C->PlayerState) && C->LineOfSightTo(P))
-								{
-									PS = ((AUTPlayerState*)(C->PlayerState));
-									if (PS)
-									{
-										bHasVisibility = true;
-										break;
-									}
-								}
-							}
-						}
-						else if (!PS)
-						{
-							for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
-							{
-								AController* C = *Iterator;
-								if (C && !GS->OnSameTeam(P, C) && C->GetPawn() && Cast<AUTPlayerState>(C->PlayerState))
+								if (C && !GS->OnSameTeam(P, C) && Cast<AUTPlayerState>(C->PlayerState))
 								{
 									PS = ((AUTPlayerState*)(C->PlayerState));
 									break;
 								}
 							}
 						}
-						if (bHasVisibility && PS)
+						if (PS)
 						{
 							if (VoiceLinesSet != NAME_None)
 							{
@@ -170,27 +184,57 @@ void AUTGameVolume::ActorEnteredVolume(class AActor* Other)
 						}
 					}
 				}
-				else if ((VoiceLinesSet != NAME_None) && (GetWorld()->GetTimeSeconds() - FMath::Max(GS->LastFriendlyLocationReportTime, GS->LastEnemyLocationReportTime) > 3.f))
+				else if ((GetWorld()->GetTimeSeconds() - FMath::Max(GS->LastFriendlyLocationReportTime, GS->LastEnemyLocationReportTime) > 3.f) || bIsWarningZone)
 				{
-					if ((GetWorld()->GetTimeSeconds() - GS->LastFriendlyLocationReportTime > 3.f) && Cast<AUTPlayerState>(P->PlayerState) && (GS->LastFriendlyLocationName != VoiceLinesSet))
+					if ((VoiceLinesSet != NAME_None) && (GetWorld()->GetTimeSeconds() - GS->LastFriendlyLocationReportTime > 3.f) && Cast<AUTPlayerState>(P->PlayerState) && (GS->LastFriendlyLocationName != VoiceLinesSet))
 					{
 						((AUTPlayerState *)(P->PlayerState))->AnnounceStatus(VoiceLinesSet, 1);
 						GS->LastFriendlyLocationReportTime = GetWorld()->GetTimeSeconds();
 						GS->LastFriendlyLocationName = VoiceLinesSet;
 					}
-					if (P->GetCarriedObject()->bCurrentlyPinged && P->GetCarriedObject()->LastPinger && (GetWorld()->GetTimeSeconds() - GS->LastEnemyLocationReportTime > 3.f) && (GS->LastEnemyLocationName != VoiceLinesSet))
+					if ((VoiceLinesSet != NAME_None) && P->GetCarriedObject()->bCurrentlyPinged && P->GetCarriedObject()->LastPinger && (GetWorld()->GetTimeSeconds() - GS->LastEnemyLocationReportTime > 3.f) && (GS->LastEnemyLocationName != VoiceLinesSet))
 					{
 						P->GetCarriedObject()->LastPinger->AnnounceStatus(VoiceLinesSet, 0);
 						GS->LastEnemyLocationReportTime = GetWorld()->GetTimeSeconds();
 						GS->LastEnemyLocationName = VoiceLinesSet;
 					}
+					else if (bIsWarningZone && !P->bWasInWarningZone && !bIsNoRallyZone)
+					{
+						// force ping if important zone, wasn't already in important zone, report only if 3 seconds since last report
+						// also do if no pinger if important zone
+						P->GetCarriedObject()->LastPingedTime = FMath::Max(P->GetCarriedObject()->LastPingedTime, GetWorld()->GetTimeSeconds() - P->GetCarriedObject()->PingedDuration + 1.f);
+						if (VoiceLinesSet != NAME_None)
+						{
+							AUTPlayerState* Warner = P->GetCarriedObject()->LastPinger;
+							if (Warner == nullptr)
+							{
+								for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
+								{
+									AController* C = *Iterator;
+									if (C && !GS->OnSameTeam(P, C) && Cast<AUTPlayerState>(C->PlayerState))
+									{
+										Warner = ((AUTPlayerState*)(C->PlayerState));
+										break;
+									}
+								}
+							}
+							if (Warner && (GetWorld()->GetTimeSeconds() - GS->LastEnemyLocationReportTime > 3.f))
+							{
+								Warner->AnnounceStatus(VoiceLinesSet, 0);
+								GS->LastEnemyLocationReportTime = GetWorld()->GetTimeSeconds();
+								GS->LastEnemyLocationName = VoiceLinesSet;
+							}
+						}
+					}
 				}
+				P->bWasInWarningZone = bIsWarningZone;
+				P->GetCarriedObject()->bWasInEnemyBase = bIsNoRallyZone;
 			}
 			else if (!bHasBeenEntered && bReportDefenseStatus && (VoiceLinesSet != NAME_None))
 			{
 				AUTPlayerState* PS = Cast<AUTPlayerState>(P->PlayerState);
-				AUTFlagRunGame* Game = GetWorld()->GetAuthGameMode<AUTFlagRunGame>();
-				if (PS && PS->Team && Game && (Game->bRedToCap == (PS->Team->TeamIndex == 1)))
+				AUTFlagRunGameState* FRGS = GetWorld()->GetGameState<AUTFlagRunGameState>();
+				if (PS && PS->Team && FRGS && (FRGS->bRedToCap == (PS->Team->TeamIndex == 1)))
 				{
 					PS->AnnounceStatus(VoiceLinesSet, 2);
 				}
@@ -222,9 +266,15 @@ void AUTGameVolume::ActorLeavingVolume(class AActor* Other)
 		if (UTCharacter)
 		{
 			UTCharacter->bDamageHurtsHealth = true;
-			if ((Role == ROLE_Authority) && UTCharacter->GetController() && TeamLocker)
+			UTCharacter->bHasLeftSafeVolume = true;
+			if (UTCharacter->GetController() && (TeamLockers.Num() > 0) && TeamLockers[0])
 			{
-				TeamLocker->ProcessTouch(UTCharacter);
+				TeamLockers[0]->ProcessTouch(UTCharacter);
+			}
+			AUTPlayerController* PC = Cast<AUTPlayerController>(UTCharacter->GetController());
+			if (PC)
+			{
+				PC->LeftSpawnVolumeTime = GetWorld()->GetTimeSeconds();
 			}
 		}
 	}

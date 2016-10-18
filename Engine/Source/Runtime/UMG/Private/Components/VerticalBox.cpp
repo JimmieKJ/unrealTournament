@@ -28,21 +28,21 @@ UClass* UVerticalBox::GetSlotClass() const
 	return UVerticalBoxSlot::StaticClass();
 }
 
-void UVerticalBox::OnSlotAdded(UPanelSlot* Slot)
+void UVerticalBox::OnSlotAdded(UPanelSlot* InSlot)
 {
 	// Add the child to the live canvas if it already exists
 	if ( MyVerticalBox.IsValid() )
 	{
-		Cast<UVerticalBoxSlot>(Slot)->BuildSlot(MyVerticalBox.ToSharedRef());
+		CastChecked<UVerticalBoxSlot>(InSlot)->BuildSlot(MyVerticalBox.ToSharedRef());
 	}
 }
 
-void UVerticalBox::OnSlotRemoved(UPanelSlot* Slot)
+void UVerticalBox::OnSlotRemoved(UPanelSlot* InSlot)
 {
 	// Remove the widget from the live slot if it exists.
 	if ( MyVerticalBox.IsValid() )
 	{
-		TSharedPtr<SWidget> Widget = Slot->Content->GetCachedWidget();
+		TSharedPtr<SWidget> Widget = InSlot->Content->GetCachedWidget();
 		if ( Widget.IsValid() )
 		{
 			MyVerticalBox->RemoveSlot(Widget.ToSharedRef());
@@ -59,9 +59,9 @@ TSharedRef<SWidget> UVerticalBox::RebuildWidget()
 {
 	MyVerticalBox = SNew(SVerticalBox);
 
-	for ( UPanelSlot* Slot : Slots )
+	for ( UPanelSlot* PanelSlot : Slots )
 	{
-		if ( UVerticalBoxSlot* TypedSlot = Cast<UVerticalBoxSlot>(Slot) )
+		if ( UVerticalBoxSlot* TypedSlot = Cast<UVerticalBoxSlot>(PanelSlot) )
 		{
 			TypedSlot->Parent = this;
 			TypedSlot->BuildSlot(MyVerticalBox.ToSharedRef());

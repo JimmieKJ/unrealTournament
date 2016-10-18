@@ -10,7 +10,7 @@ AUTWeaponAttachment::AUTWeaponAttachment(const FObjectInitializer& ObjectInitial
 {
 	RootComponent = ObjectInitializer.CreateDefaultSubobject<USceneComponent, USceneComponent>(this, TEXT("DummyRoot"), false);
 	Mesh = ObjectInitializer.CreateDefaultSubobject<USkeletalMeshComponent>(this, TEXT("Mesh3P"));
-	Mesh->AttachParent = RootComponent;
+	Mesh->SetupAttachment(RootComponent);
 	Mesh->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered;
 	Mesh->bLightAttachmentsAsGroup = true;
 	Mesh->bReceivesDecals = false;
@@ -25,7 +25,7 @@ AUTWeaponAttachment::AUTWeaponAttachment(const FObjectInitializer& ObjectInitial
 
 	bCopyWeaponImpactEffect = true;
 
-	MaxBulletWhipDist = 200.0f;
+	MaxBulletWhipDist = 240.0f;
 }
 
 void AUTWeaponAttachment::BeginPlay()
@@ -48,6 +48,12 @@ void AUTWeaponAttachment::BeginPlay()
 	else
 	{
 		UE_LOG(UT, Warning, TEXT("UTWeaponAttachment: Bad Instigator: %s"), *GetNameSafe(Instigator));
+	}
+
+	AUTWorldSettings* Settings = Cast<AUTWorldSettings>(GetWorldSettings());
+	if (Mesh && Settings->bUseCapsuleDirectShadowsForCharacter)
+	{
+		Mesh->bCastCapsuleDirectShadow = true;
 	}
 }
 
@@ -82,7 +88,7 @@ void AUTWeaponAttachment::AttachToOwner_Implementation()
 
 void AUTWeaponAttachment::AttachToOwnerNative()
 {
-	Mesh->AttachTo(UTOwner->GetMesh(), AttachSocket);
+	Mesh->AttachToComponent(UTOwner->GetMesh(), FAttachmentTransformRules::KeepRelativeTransform, AttachSocket);
 	Mesh->SetRelativeLocation(AttachOffset);
 	Mesh->bRecentlyRendered = UTOwner->GetMesh()->bRecentlyRendered;
 	Mesh->LastRenderTime = UTOwner->GetMesh()->LastRenderTime;
@@ -97,7 +103,7 @@ void AUTWeaponAttachment::HolsterToOwner_Implementation()
 
 void AUTWeaponAttachment::HolsterToOwnerNative()
 {
-	Mesh->AttachTo(UTOwner->GetMesh(), HolsterSocket);
+	Mesh->AttachToComponent(UTOwner->GetMesh(), FAttachmentTransformRules::KeepRelativeTransform, HolsterSocket);
 	Mesh->SetRelativeLocation(HolsterOffset);
 	Mesh->SetRelativeRotation(HolsterRotation);
 	Mesh->bRecentlyRendered = UTOwner->GetMesh()->bRecentlyRendered;
@@ -107,7 +113,7 @@ void AUTWeaponAttachment::HolsterToOwnerNative()
 
 void AUTWeaponAttachment::DetachFromOwner_Implementation()
 {
-	Mesh->DetachFromParent();
+	Mesh->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
 }
 
 void AUTWeaponAttachment::UpdateOverlays()
@@ -125,7 +131,7 @@ void AUTWeaponAttachment::UpdateOutline(bool bOn, uint8 StencilValue)
 		if (CustomDepthMesh == NULL)
 		{
 			CustomDepthMesh = DuplicateObject<USkeletalMeshComponent>(Mesh, this);
-			CustomDepthMesh->AttachParent = NULL; // this gets copied but we don't want it to be
+			CustomDepthMesh->DetachFromComponent(FDetachmentTransformRules::KeepRelativeTransform);
 			{
 				// TODO: scary that these get copied, need an engine solution and/or safe way to duplicate objects during gameplay
 				CustomDepthMesh->PrimaryComponentTick = CustomDepthMesh->GetClass()->GetDefaultObject<USkeletalMeshComponent>()->PrimaryComponentTick;
@@ -146,7 +152,7 @@ void AUTWeaponAttachment::UpdateOutline(bool bOn, uint8 StencilValue)
 		if (!CustomDepthMesh->IsRegistered())
 		{
 			CustomDepthMesh->RegisterComponent();
-			CustomDepthMesh->AttachTo(Mesh, NAME_None, EAttachLocation::SnapToTarget);
+			CustomDepthMesh->AttachToComponent(Mesh, FAttachmentTransformRules::SnapToTargetNotIncludingScale);
 			CustomDepthMesh->SetWorldScale3D(Mesh->GetComponentScale());
 		}
 	}
@@ -244,6 +250,11 @@ void AUTWeaponAttachment::PlayFiringEffects()
 		Mesh->UpdateComponentToWorld();
 	}
 
+	if (OverrideFiringEffects())
+	{
+		return;
+	}
+
 	// muzzle flash
 	if (MuzzleFlash.IsValidIndex(UTOwner->FireMode) && MuzzleFlash[UTOwner->FireMode] != NULL && MuzzleFlash[UTOwner->FireMode]->Template != NULL)
 	{
@@ -324,7 +335,7 @@ void AUTWeaponAttachment::FiringExtraUpdated()
 {
 }
 
-void AUTWeaponAttachment::StopFiringEffects(bool bIgnoreCurrentMode)
+void AUTWeaponAttachment::StopFiringEffects_Implementation(bool bIgnoreCurrentMode)
 {
 	// we need to default to stopping all modes' firing effects as we can't rely on the replicated value to be correct at this point
 	for (uint8 i = 0; i < MuzzleFlash.Num(); i++)

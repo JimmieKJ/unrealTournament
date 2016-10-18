@@ -14,6 +14,11 @@ class ALight;
 class UInterpTrackInstMove;
 class AMatineeActor;
 
+class UMovieScene;
+class IMovieScenePlayer;
+class UMovieScene3DTransformTrack;
+class UMovieSceneFloatTrack;
+
 namespace UnFbx
 {
 
@@ -48,22 +53,22 @@ public:
 	/**
 	 * Exports the light-specific information for a light actor.
 	 */
-	virtual void ExportLight( ALight* Actor, AMatineeActor* InMatineeActor );
+	virtual void ExportLight( ALight* Actor, INodeNameAdapter& NodeNameAdapter );
 
 	/**
 	 * Exports the camera-specific information for a camera actor.
 	 */
-	virtual void ExportCamera( ACameraActor* Actor, AMatineeActor* InMatineeActor, bool bExportComponents );
+	virtual void ExportCamera( ACameraActor* Actor, bool bExportComponents, INodeNameAdapter& NodeNameAdapter );
 
 	/**
 	 * Exports the mesh and the actor information for a brush actor.
 	 */
-	virtual void ExportBrush(ABrush* Actor, UModel* InModel, bool bConvertToStaticMesh );
+	virtual void ExportBrush(ABrush* Actor, UModel* InModel, bool bConvertToStaticMesh, INodeNameAdapter& NodeNameAdapter );
 
 	/**
 	 * Exports the basic scene information to the FBX document.
 	 */
-	virtual void ExportLevelMesh( ULevel* InLevel, AMatineeActor* InMatineeActor, bool bSelectedOnly );
+	virtual void ExportLevelMesh( ULevel* InLevel, bool bSelectedOnly, INodeNameAdapter& NodeNameAdapter );
 
 	/**
 	 * Exports the given Matinee sequence information into a FBX document.
@@ -71,6 +76,13 @@ public:
 	 * @return	true, if sucessful
 	 */
 	virtual bool ExportMatinee(class AMatineeActor* InMatineeActor);
+
+	/**
+	* Exports the given level sequence information into a FBX document.
+	*
+	* @return	true, if successful
+	*/
+	bool ExportLevelSequence( UMovieScene* MovieScene, const TArray<FGuid>& InBindings, IMovieScenePlayer* MovieScenePlayer );
 
 	/**
 	 * Exports all the animation sequences part of a single Group in a Matinee sequence
@@ -86,7 +98,7 @@ public:
 	/**
 	 * Exports the mesh and the actor information for a static mesh actor.
 	 */
-	virtual void ExportStaticMesh( AActor* Actor, UStaticMeshComponent* StaticMeshComponent, AMatineeActor* InMatineeActor );
+	virtual void ExportStaticMesh( AActor* Actor, UStaticMeshComponent* StaticMeshComponent, INodeNameAdapter& NodeNameAdapter );
 
 	/**
 	 * Exports a static mesh
@@ -115,12 +127,12 @@ public:
 	/**
 	 * Exports the mesh and the actor information for a skeletal mesh actor.
 	 */
-	virtual void ExportSkeletalMesh( AActor* Actor, USkeletalMeshComponent* SkeletalMeshComponent );
+	virtual void ExportSkeletalMesh( AActor* Actor, USkeletalMeshComponent* SkeletalMeshComponent, INodeNameAdapter& NodeNameAdapter );
 	
 	/**
 	 * Exports the mesh and the actor information for a landscape actor.
 	 */
-	void ExportLandscape(ALandscapeProxy* Landscape, bool bSelectedOnly);
+	void ExportLandscape(ALandscapeProxy* Landscape, bool bSelectedOnly, INodeNameAdapter& NodeNameAdapter);
 
 	/**
 	 * Exports a single UAnimSequence, and optionally a skeletal mesh
@@ -132,10 +144,26 @@ public:
 	 */
 	void ExportAnimSequencesAsSingle( USkeletalMesh* SkelMesh, const ASkeletalMeshActor* SkelMeshActor, const FString& ExportName, const TArray<UAnimSequence*>& AnimSeqList, const TArray<FAnimControlTrackKey>& TrackKeys );
 
-	/**
-	 * Export Anim Track of the given SkeletalMeshComponent
-	 */
-	void ExportAnimTrack(class AMatineeActor* MatineeActor, USkeletalMeshComponent* SkeletalMeshComponent);
+	/** A node name adapter for matinee. */
+	class UNREALED_API FMatineeNodeNameAdapter : public INodeNameAdapter
+	{
+	public:
+		FMatineeNodeNameAdapter( AMatineeActor* InMatineeActor );
+		virtual FString GetActorNodeName(const AActor* InActor) override;
+	private:
+		AMatineeActor* MatineeActor;
+	};
+
+	/** A node name adapter for a level sequence. */
+	class UNREALED_API FLevelSequenceNodeNameAdapter : public INodeNameAdapter
+	{
+	public:
+		FLevelSequenceNodeNameAdapter( UMovieScene* InMovieScene, IMovieScenePlayer* InMovieScenePlayer );
+		virtual FString GetActorNodeName(const AActor* InActor) override;
+	private:
+		UMovieScene* MovieScene;
+		IMovieScenePlayer* MovieScenePlayer;
+	};
 
 private:
 	FFbxExporter();
@@ -153,7 +181,7 @@ private:
 	TMap<FString,int32> FbxNodeNameToIndexMap;
 	TMap<const AActor*, FbxNode*> FbxActors;
 	TMap<const USkeletalMeshComponent*, FbxNode*> FbxSkeletonRoots;
-	TMap<const UMaterial*, FbxSurfaceMaterial*> FbxMaterials;
+	TMap<const UMaterialInterface*, FbxSurfaceMaterial*> FbxMaterials;
 	TMap<const UStaticMesh*, FbxMesh*> FbxMeshes;
 
 	/** The frames-per-second (FPS) used when baking transforms */
@@ -162,13 +190,53 @@ private:
 	/** Whether or not to export vertices unwelded */
 	static bool bStaticMeshExportUnWeldedVerts;
 
+
+	/** Adapter interface which allows ExportAnimTrack to act on both sequencer and matinee data. */
+	class IAnimTrackAdapter
+	{
+	public:
+		/** Gets the length of the animation track. */
+		virtual float GetAnimationLength() const = 0;
+		/** Updates the runtime state of the animation track to the specified time. */
+		virtual void UpdateAnimation( float Time ) = 0;
+	};
+
+	/** An anim track adapter for matinee. */
+	class FMatineeAnimTrackAdapter : public IAnimTrackAdapter
+	{
+	public:
+		FMatineeAnimTrackAdapter( AMatineeActor* InMatineeActor );
+		virtual float GetAnimationLength() const override;
+		virtual void UpdateAnimation( float Time ) override;
+
+	private:
+		AMatineeActor* MatineeActor;
+	};
+
+	/** An anim track adapter for a level sequence. */
+	class FLevelSequenceAnimTrackAdapter : public FFbxExporter::IAnimTrackAdapter
+	{
+	public:
+		FLevelSequenceAnimTrackAdapter( IMovieScenePlayer* InMovieScenePlayer );
+		virtual float GetAnimationLength() const override;
+		virtual void UpdateAnimation( float Time ) override;
+
+	private:
+		IMovieScenePlayer* MovieScenePlayer;
+	};
+
+	/**
+	* Export Anim Track of the given SkeletalMeshComponent
+	*/
+	void ExportAnimTrack( IAnimTrackAdapter& AnimTrackAdapter, USkeletalMeshComponent* SkeletalMeshComponent );
+
 	void ExportModel(UModel* Model, FbxNode* Node, const char* Name);
 	
 	/**
 	 * Exports the basic information about an actor and buffers it.
 	 * This function creates one FBX node for the actor with its placement.
 	 */
-	FbxNode* ExportActor(AActor* Actor, AMatineeActor* InMatineeActor, bool bExportComponents = false );
+	FbxNode* ExportActor(AActor* Actor, bool bExportComponents, INodeNameAdapter& NodeNameAdapter);
 	
 	/**
 	 * Exports a static mesh
@@ -287,6 +355,28 @@ private:
 	void ExportAnimatedFloat(FbxProperty* FbxProperty, FInterpCurveFloat* Curve, bool IsCameraFoV);
 
 	/**
+	 * Exports a level sequence 3D transform track into the FBX animation stack.
+	 */
+	void ExportLevelSequence3DTransformTrack( FbxNode& FbxActor, UMovieScene3DTransformTrack& TransformTrack, AActor* Actor );
+
+	/** 
+	 * Exports a level sequence float track into the FBX animation stack. 
+	 */
+	void ExportLevelSequenceFloatTrack( FbxNode& FbxActor, UMovieSceneFloatTrack& FloatTrack );
+
+	/** Defines value export modes for the EportRichCurveToFbxCurve method. */
+	enum class ERichCurveValueMode
+	{
+		/** Export values directly */
+		Default,
+		/** Export fov values which get processed to focal length. */
+		Fov
+	};
+
+	/** Exports an unreal rich curve to an fbx animation curve. */
+	void ExportRichCurveToFbxCurve( FRichCurve& RichCurve, FbxAnimCurve& FbxCurve, TRange<float> InterpolationRange, ERichCurveValueMode ValueMode = ERichCurveValueMode::Default );
+
+	/**
 	 * Finds the given actor in the already-exported list of structures
 	 * @return FbxNode* the FBX node created from the UE4 actor
 	 */
@@ -304,7 +394,7 @@ private:
 	/**
 	 * Exports the profile_COMMON information for a material.
 	 */
-	FbxSurfaceMaterial* ExportMaterial(UMaterial* Material);
+	FbxSurfaceMaterial* ExportMaterial(UMaterialInterface* Material);
 	
 	FbxSurfaceMaterial* CreateDefaultMaterial();
 	

@@ -7,9 +7,6 @@ This is the common bits of the temporal AA shader
 which can be configured via defines for various temporal AA passes.
 =============================================================================*/
 
-// 0 / 1(default) This can be set to 0 to debug the velocity vectors
-#define NEIGHBORHOOD_CLAMPING 1
-
 // 1 = Use tighter AABB clamp for history.
 // 0 = Use simple min/max clamp.
 #ifndef AA_AABB
@@ -116,11 +113,22 @@ which can be configured via defines for various temporal AA passes.
 	#define AA_TONE 1
 #endif
 
+// Neighborhood clamping. Disable for testing reprojection.
+#ifndef AA_CLAMP
+	#define AA_CLAMP 1
+#endif
+
+// Antighosting using dynamic mask
+#ifndef AA_DYNAMIC_ANTIGHOST
+	#define AA_DYNAMIC_ANTIGHOST 0
+#endif
+
+	float2 ScreenPos = ( UV * PostprocessInput0Size.xy - 0.5 - ScreenPosToPixel.zw ) / ScreenPosToPixel.xy;
 
 	// FIND MOTION OF PIXEL AND NEAREST IN NEIGHBORHOOD
     // ------------------------------------------------
 	float3 PosN; // Position of this pixel, possibly later nearest pixel in neighborhood.
-	PosN.xy = SvPositionToScreenPosition(SvPosition).xy;
+	PosN.xy = ScreenPos;
 	PosN.z = SceneDepthTexture.SampleLevel(SceneDepthTextureSampler, UV, 0).r;
 	// Screen position of minimum depth.
 	float2 VelocityOffset = float2(0.0, 0.0);
@@ -161,7 +169,7 @@ which can be configured via defines for various temporal AA passes.
 			// With the assumption that UV position scales between velocity and color.
 			VelocityOffset = DepthOffset * PostprocessInput0Size.zw;
 			// This is [0 to 1] flipped in Y.
-			//PosN.xy = SvPositionToScreenPosition(SvPosition).xy + DepthOffset * ViewportSize.zw * 2.0;
+			//PosN.xy = ScreenPos + DepthOffset * ViewportSize.zw * 2.0;
 			PosN.z = DepthsXYZW;
 		}
 #else
@@ -169,25 +177,11 @@ which can be configured via defines for various temporal AA passes.
 #endif // HAS_INVERTED_Z_BUFFER
 	#endif	// AA_CROSS
 
-#if AA_DOF
-	// temp solution, BrianK knows
-	float4 ThisClip = float4((UV - View.ScreenPositionScaleBias.wz) / View.ScreenPositionScaleBias.xy, PosN.z, 1);
-	float4 ThisTranslatedWorld = mul(ThisClip, View.ClipToTranslatedWorld);
-	ThisTranslatedWorld /= ThisTranslatedWorld.w;
-
-	float3 PrevTranslatedWorld = ThisTranslatedWorld.xyz + (View.PrevPreViewTranslation - View.PreViewTranslation);
-	float4 PrevClip = mul(float4(PrevTranslatedWorld, 1), View.PrevTranslatedWorldToClip);
-	float2 PrevScreen = PrevClip.xy / PrevClip.w;
-	//float2 PrevUV = PrevScreen.xy * Frame.ScreenPositionScaleBias.xy + Frame.ScreenPositionScaleBias.wz;
-
-	float2 BackN =  SvPositionToScreenPosition(SvPosition).xy - PrevScreen - (View.ViewToClip[2].xy - View.PrevProjection[2].xy);
-#else // AA_DOF	
 	// Camera motion for pixel or nearest pixel (in ScreenPos space).
 	float4 ThisClip = float4( PosN.xy, PosN.z, 1 );
 	float4 PrevClip = mul( ThisClip, View.ClipToPrevClip );
 	float2 PrevScreen = PrevClip.xy / PrevClip.w;
 	float2 BackN = PosN.xy - PrevScreen;
-#endif // AA_DOF
 
 	float2 BackTemp = BackN * ViewportSize.xy;
 	#if AA_DYNAMIC
@@ -197,6 +191,7 @@ which can be configured via defines for various temporal AA passes.
 		#else
 			VelocityN = PostprocessInput3.SampleLevel(PostprocessInput3Sampler, UV, 0).xy;
 		#endif
+		VelocityN *= VelocityScaling.x;
 		bool DynamicN = VelocityN.x > 0.0;
 		if(DynamicN)
 		{
@@ -213,7 +208,7 @@ which can be configured via defines for various temporal AA passes.
 	// Easier to do off screen check before conversion.
 	// BackN is in units of 2pixels/viewportWidthInPixels
 	// This converts back projection vector to [-1 to 1] offset in viewport.
-	BackN = SvPositionToScreenPosition(SvPosition).xy - BackN;
+	BackN = ScreenPos - BackN;
 	bool OffScreen = max(abs(BackN.x), abs(BackN.y)) >= 1.0;
 	// Also clamp to be on screen (fixes problem with DOF).
 	// The .z and .w is the 1/width and 1/height.
@@ -260,7 +255,7 @@ which can be configured via defines for various temporal AA passes.
 				Neighbor7 * PlusWeights[4];
 			#if AA_BORDER
 				// Use unfiltered for 1 pixel border.
-				float2 TestPos = abs(SvPositionToScreenPosition(SvPosition).xy);
+				float2 TestPos = abs(ScreenPos);
 				// Add 1 pixel and check if off screen.
 				TestPos += ViewportSize.zw * 2.0;
 				bool FilteredOffScreen = max(TestPos.x, TestPos.y) >= 1.0;
@@ -274,9 +269,23 @@ which can be configured via defines for various temporal AA passes.
 			float4 Filtered = Neighbor4;
 		#endif
 		float4 FilteredLow = Filtered;
+#if 1
 		// Neighborhood seems to only need the "+" pattern.
-		float4 NeighborMin = min(min(min(Neighbor1, Neighbor3), min(Neighbor4, Neighbor5)), Neighbor7);		
-		float4 NeighborMax = max(max(max(Neighbor1, Neighbor3), max(Neighbor4, Neighbor5)), Neighbor7);		
+		float4 NeighborMin = min(min(min(Neighbor1, Neighbor3), min(Neighbor4, Neighbor5)), Neighbor7);
+		float4 NeighborMax = max(max(max(Neighbor1, Neighbor3), max(Neighbor4, Neighbor5)), Neighbor7);
+#else
+		float4 m1, m2;
+		m1  = Neighbor1; m2  = Neighbor1 * Neighbor1;
+		m1 += Neighbor3; m2 += Neighbor3 * Neighbor3;
+		m1 += Neighbor4; m2 += Neighbor4 * Neighbor4;
+		m1 += Neighbor5; m2 += Neighbor5 * Neighbor5;
+		m1 += Neighbor7; m2 += Neighbor7 * Neighbor7;
+
+		float4 mu = m1 * (1.0 / 5.0);
+		float4 Sigma = sqrt( abs(m2 * (1.0 / 5.0) - mu * mu) );
+		float4 NeighborMin = mu - 1.0 * Sigma;
+		float4 NeighborMax = mu + 1.0 * Sigma;
+#endif
 	#else
 		float4 Neighbor0 = PostprocessInput0.SampleLevel(PostprocessInput0Sampler, UV, 0, int2(-1, -1));
 		float4 Neighbor1 = PostprocessInput0.SampleLevel(PostprocessInput0Sampler, UV, 0, int2( 0, -1));
@@ -335,7 +344,7 @@ which can be configured via defines for various temporal AA passes.
 			#endif
 			#if AA_BORDER
 				// Use unfiltered for 1 pixel border.
-				float2 TestPos = abs(SvPositionToScreenPosition(SvPosition).xy);
+				float2 TestPos = abs(ScreenPos);
 				// Add 1 pixel and check if off screen.
 				TestPos += ViewportSize.zw * 2.0;
 				bool FilteredOffScreen = max(TestPos.x, TestPos.y) >= 1.0;
@@ -359,6 +368,21 @@ which can be configured via defines for various temporal AA passes.
 			NeighborMax2 = max(NeighborMax2, NeighborMax);
 			NeighborMin = NeighborMin * 0.5 + NeighborMin2 * 0.5;
 			NeighborMax = NeighborMax * 0.5 + NeighborMax2 * 0.5;
+
+			float4 m1, m2;
+			m1  = Neighbor0; m2  = Neighbor0 * Neighbor0;
+			m1 += Neighbor1; m2 += Neighbor1 * Neighbor1;
+			m1 += Neighbor2; m2 += Neighbor2 * Neighbor2;
+			m1 += Neighbor3; m2 += Neighbor3 * Neighbor3;
+			m1 += Neighbor4; m2 += Neighbor4 * Neighbor4;
+			m1 += Neighbor5; m2 += Neighbor5 * Neighbor5;
+			m1 += Neighbor6; m2 += Neighbor6 * Neighbor6;
+			m1 += Neighbor7; m2 += Neighbor7 * Neighbor7;
+
+			float4 mu = m1 * (1.0 / 8.0);
+			float4 Sigma = sqrt( abs(m2 * (1.0 / 8.0) - mu * mu) );
+			NeighborMin = mu - 1.0 * Sigma;
+			NeighborMax = mu + 1.0 * Sigma;
 		#else
 			float4 NeighborMin = min(min(
 				min(min(Neighbor0, Neighbor1), min(Neighbor2, Neighbor3)),
@@ -389,6 +413,20 @@ which can be configured via defines for various temporal AA passes.
 		OutColor += PostprocessInput1.SampleLevel( PostprocessInput1Sampler, float2( Sample[2].x, Sample[2].y ), 0 ) * Weight[2].x * Weight[2].y;
 	#else
 		OutColor = PostprocessInput1.SampleLevel(PostprocessInput1Sampler, BackN.xy, 0);
+	#endif
+
+	#if AA_DYNAMIC_ANTIGHOST && AA_DYNAMIC && !AA_ALPHA && !AA_DOF
+		bool Dynamic1 = PostprocessInput3.SampleLevel(PostprocessInput3Sampler, UV, 0, int2( 0, -1)).x > 0;
+		bool Dynamic3 = PostprocessInput3.SampleLevel(PostprocessInput3Sampler, UV, 0, int2(-1,  0)).x > 0;
+		bool Dynamic4 = PostprocessInput3.SampleLevel(PostprocessInput3Sampler, UV, 0).x > 0;
+		bool Dynamic5 = PostprocessInput3.SampleLevel(PostprocessInput3Sampler, UV, 0, int2( 1,  0)).x > 0;
+		bool Dynamic7 = PostprocessInput3.SampleLevel(PostprocessInput3Sampler, UV, 0, int2( 0,  1)).x > 0;
+
+		bool Dynamic = DynamicN || Dynamic1 || Dynamic3 || Dynamic4 || Dynamic5 || Dynamic7;
+		if( !Dynamic && OutColor.a > 0 )
+		{
+			OutColor = Filtered;
+		}
 	#endif
 
 	#if AA_DEBUG
@@ -436,31 +474,30 @@ which can be configured via defines for various temporal AA passes.
 		#endif
 	#endif
 	float LumaContrast = LumaMax - LumaMin;
-
-#if NEIGHBORHOOD_CLAMPING
-	#if AA_YCOCG
-		OutColor.rgb = clamp(OutColor.rgb, NeighborMin.rgb, NeighborMax.rgb);
-		#if (AA_ALPHA == 0)
-			OutColor.a = clamp(OutColor.a, NeighborMin.a, NeighborMax.a);
-		#endif
-	#else
-		#if AA_AABB
-			// Clamp history, this uses color AABB intersection for tighter fit.
-			// Clamping works with the low pass (if available) to reduce flicker.
-			float ClampBlend = HistoryClamp(OutColor.rgb, FilteredLow.rgb, NeighborMin.rgb, NeighborMax.rgb);
-			#if AA_ALPHA
-				OutColor.rgb = lerp(OutColor.rgb, FilteredLow.rgb, ClampBlend);
-			#else
-				OutColor.rgba = lerp(OutColor.rgba, FilteredLow.rgba, ClampBlend);
+	#if AA_CLAMP
+		#if AA_YCOCG
+			OutColor.rgb = clamp(OutColor.rgb, NeighborMin.rgb, NeighborMax.rgb);
+			#if (AA_ALPHA == 0)
+				OutColor.a = clamp(OutColor.a, NeighborMin.a, NeighborMax.a);
 			#endif
 		#else
-			OutColor = clamp(OutColor, NeighborMin, NeighborMax);
+			#if AA_AABB
+				// Clamp history, this uses color AABB intersection for tighter fit.
+				// Clamping works with the low pass (if available) to reduce flicker.
+				float ClampBlend = HistoryClamp(OutColor.rgb, FilteredLow.rgb, NeighborMin.rgb, NeighborMax.rgb);
+				#if AA_ALPHA
+					OutColor.rgb = lerp(OutColor.rgb, FilteredLow.rgb, ClampBlend);
+				#else
+					OutColor.rgba = lerp(OutColor.rgba, FilteredLow.rgba, ClampBlend);
+				#endif
+			#else
+				OutColor = clamp(OutColor, NeighborMin, NeighborMax);
+			#endif
 		#endif
 	#endif
 	#if AA_DEBUG
 		OutColor.rg = float2(0.0, 0.0);
 	#endif
-#endif
 
 	// ADD BACK IN ALIASING TO SHARPEN
     // -------------------------------
@@ -556,12 +593,20 @@ which can be configured via defines for various temporal AA passes.
 		// Transform NaNs to black, transform negative colors to black.
 		OutColor.rgb = -min(-OutColor.rgb, 0.0);
 	#endif
+	#if AA_DYNAMIC_ANTIGHOST && AA_DYNAMIC && !AA_ALPHA && !AA_DOF
+		OutColor.a = DynamicN ? 1 : 0;
+	#endif
 	#if AA_DEBUG
 		OutColor.g = abs(DebugDiffPrior - DebugDiffCurrent);
 		OutColor.r = OutColor.a;
 	#endif
 
-
+	#if 0
+		// Test velocity scaling
+		OutColor.r *= VelocityScaling.x*.5+.5;
+		OutColor.g *= (1 - VelocityScaling.x)*.5+.5;
+		OutColor.b *= .5;
+	#endif
 
 #undef AA_AABB
 #undef AA_ALPHA
@@ -581,3 +626,5 @@ which can be configured via defines for various temporal AA passes.
 #undef AA_BICUBIC
 #undef AA_DOF
 #undef AA_TONE
+#undef AA_CLAMP
+#undef AA_DYNAMIC_ANTIGHOST

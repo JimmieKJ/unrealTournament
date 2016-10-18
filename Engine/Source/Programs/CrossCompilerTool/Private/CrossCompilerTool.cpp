@@ -6,7 +6,8 @@
 #include "hlslcc.h"
 #include "MetalBackend.h"
 #include "GlslBackend.h"
-#if !PLATFORM_MAC
+#define PLATFORM_SUPPORTS_VULKAN			PLATFORM_WINDOWS		// for now just Windows
+#if PLATFORM_SUPPORTS_VULKAN
 #include "VulkanBackend.h"
 #endif
 #include "HlslAST.h"
@@ -66,12 +67,13 @@ namespace CCT
 		Flags |= RunInfo.bExpandExpressions ? HLSLCC_ExpandSubexpressions : 0;
 		Flags |= RunInfo.bFixAtomics ? HLSLCC_FixAtomicReferences : 0;
 		Flags |= RunInfo.bSeparateShaders ? HLSLCC_SeparateShaderObjects : 0;
+		Flags |= RunInfo.bUseFullPrecisionInPS ? HLSLCC_UseFullPrecisionInPS : 0;
 
 		FGlslLanguageSpec GlslLanguage(RunInfo.Target == HCT_FeatureLevelES2);
 		FGlslCodeBackend GlslBackend(Flags, RunInfo.Target);
 		FMetalLanguageSpec MetalLanguage;
-		FMetalCodeBackend MetalBackend(Flags, CompileTarget);
-#if !PLATFORM_MAC
+		FMetalCodeBackend MetalBackend(Flags, CompileTarget, (RunInfo.Target >= HCT_FeatureLevelSM4), true, (RunInfo.Target >= HCT_FeatureLevelSM4));
+#if PLATFORM_SUPPORTS_VULKAN
 		FVulkanBindingTable VulkanBindingTable(RunInfo.Frequency);
 		FVulkanLanguageSpec VulkanLanguage(false);
 		FVulkanCodeBackend VulkanBackend(Flags, VulkanBindingTable, CompileTarget);
@@ -91,7 +93,7 @@ namespace CCT
 			Flags |= HLSLCC_DX11ClipSpace;
 			break;
 
-#if !PLATFORM_MAC
+#if PLATFORM_SUPPORTS_VULKAN
 		case CCT::FRunInfo::BE_Vulkan:
 			Language = &VulkanLanguage;
 			Backend = &VulkanBackend;

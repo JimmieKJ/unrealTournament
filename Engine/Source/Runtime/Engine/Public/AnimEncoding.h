@@ -529,7 +529,7 @@ FORCEINLINE float AnimEncoding::TimeToIndex(
 			checkSlow(KeyPos >= 0.0f);
 			const float KeyPosFloor = floorf(KeyPos);
 			PosIndex0Out = FMath::Min( FMath::TruncToInt(KeyPosFloor), NumKeys );
-			Alpha = KeyPos - KeyPosFloor;
+			Alpha = Seq.Interpolation == EAnimInterpolationType::Step ? 0.0f : KeyPos - KeyPosFloor;
 			PosIndex1Out = FMath::Min( PosIndex0Out + 1, NumKeys );
 		}
 	}
@@ -676,7 +676,7 @@ FORCEINLINE float AnimEncoding::TimeToIndex(
 		// compute the blend parameters for the keys we have found
 		int32 Delta= FMath::Max(HighFrame - LowFrame, 1);
 		const float Remainder = (FramePos - (float)LowFrame);
-		Alpha = Remainder / (float)Delta;
+		Alpha = Seq.Interpolation == EAnimInterpolationType::Step ? 0.f : (Remainder / (float)Delta);
 	}
 	
 	return Alpha;

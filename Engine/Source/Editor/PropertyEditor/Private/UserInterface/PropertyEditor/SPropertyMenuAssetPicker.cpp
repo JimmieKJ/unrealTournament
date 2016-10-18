@@ -8,7 +8,7 @@
 #include "ContentBrowserModule.h"
 #include "PropertyEditorAssetConstants.h"
 #include "EditorStyleSet.h"
-#include "ClassIconFinder.h"
+#include "SlateIconFinder.h"
 
 #define LOCTEXT_NAMESPACE "PropertyEditor"
 
@@ -35,7 +35,7 @@ void SPropertyMenuAssetPicker::Construct( const FArguments& InArgs )
 				MenuBuilder.AddMenuEntry(
 					Factory->GetDisplayName(),
 					Factory->GetToolTip(),
-					FSlateIcon(FEditorStyle::GetStyleSetName(), FClassIconFinder::FindIconNameForClass(Factory->GetSupportedClass())),
+					FSlateIconFinder::FindIconForClass(Factory->GetSupportedClass()),
 					FUIAction(FExecuteAction::CreateSP(this, &SPropertyMenuAssetPicker::OnCreateNewAssetSelected, FactoryPtr))
 					);
 			}

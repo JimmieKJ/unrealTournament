@@ -23,6 +23,9 @@
 #include "EditorActorFolders.h"
 #include "UnrealEngine.h"
 
+#include "IHeadMountedDisplay.h"
+#include "IVREditorModule.h"
+
 UUnrealEdEngine* GUnrealEd;
 
 DEFINE_LOG_CATEGORY_STATIC(LogUnrealEd, Log, All);
@@ -106,14 +109,25 @@ int32 EditorInit( IEngineLoop& EngineLoop )
 
 		// Startup Slate main frame and other editor windows
 		{
-			// Always start maximized if -immersive was specified.  NOTE: Currently, if no layout data
-			// exists, the main frame will always start up maximized.
-			const bool bForceMaximizeMainFrame = bIsImmersive;
-			const bool bStartImmersivePIE = bIsImmersive;
-			
-			IMainFrameModule& MainFrameModule = FModuleManager::LoadModuleChecked<IMainFrameModule>(TEXT("MainFrame"));
-			MainFrameModule.CreateDefaultMainFrame( bStartImmersivePIE );
+			const bool bStartImmersive = bIsImmersive;
+			const bool bStartPIE = bIsImmersive;
 
+			IMainFrameModule& MainFrameModule = FModuleManager::LoadModuleChecked<IMainFrameModule>(TEXT("MainFrame"));
+			MainFrameModule.CreateDefaultMainFrame( bStartImmersive, bStartPIE );
+		}
+	}
+
+
+	// Go straight to VR mode if we were asked to
+	{
+		if( !bIsImmersive && FParse::Param( FCommandLine::Get(), TEXT( "VREditor" ) ) )
+		{
+			IVREditorModule& VREditorModule = IVREditorModule::Get();
+			VREditorModule.EnableVREditor( true );
+		}
+		else if( FParse::Param( FCommandLine::Get(), TEXT( "ForceVREditor" ) ) )
+		{
+			GEngine->DeferredCommands.Add( TEXT( "VREd.ForceVRMode" ) );
 		}
 	}
 
@@ -129,19 +143,6 @@ int32 EditorInit( IEngineLoop& EngineLoop )
 
 	// =================== EDITOR STARTUP FINISHED ===================
 	
-	// Don't show welcome screen when in immersive preview mode
-	if( !bDoAutomatedMapBuild && !bIsImmersive ) 
-	{
-		bool bShowWelcomeScreen = false;
-
-		// See if the welcome screen should be displayed based on user settings, and if so, display it
-		// @todo: Check user preferences
-		if ( bShowWelcomeScreen )
-		{
-			// @todo: Display the welcome screen!
-		}
-	}
-
 	// Stat tracking
 	{
 		const float StartupTime = (float)( FPlatformTime::Seconds() - GStartTime );
@@ -175,6 +176,10 @@ void EditorExit()
 	// Save out default file directories
 	FEditorDirectories::Get().SaveLastDirectories();
 
+	// Allow the game thread to finish processing any latent tasks.
+	// Some editor functions may queue tasks that need to be run before the editor is finished.
+	FTaskGraphInterface::Get().ProcessThreadUntilIdle(ENamedThreads::GameThread);
+
 	// Cleanup the misc editor
 	FUnrealEdMisc::Get().OnExit();
 
@@ -183,10 +188,8 @@ void EditorExit()
 		GLogConsole->Show( false );
 	}
 
-
 	delete GDebugToolExec;
 	GDebugToolExec = NULL;
-
 }
 
 IMPLEMENT_MODULE( FDefaultModuleImpl, UnrealEd );

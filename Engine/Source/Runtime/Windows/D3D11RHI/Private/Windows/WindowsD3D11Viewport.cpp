@@ -36,7 +36,7 @@ FD3D11Viewport::FD3D11Viewport(FD3D11DynamicRHI* InD3DRHI,HWND InWindowHandle,ui
 
 	// Create a backbuffer/swapchain for each viewport
 	TRefCountPtr<IDXGIDevice> DXGIDevice;
-	VERIFYD3D11RESULT(D3DRHI->GetDevice()->QueryInterface( IID_IDXGIDevice, (void**)DXGIDevice.GetInitReference() ));
+	VERIFYD3D11RESULT_EX(D3DRHI->GetDevice()->QueryInterface(IID_IDXGIDevice, (void**)DXGIDevice.GetInitReference()), D3DRHI->GetDevice());
 
 	// Create the swapchain.
 	DXGI_SWAP_CHAIN_DESC SwapChainDesc;
@@ -54,7 +54,7 @@ FD3D11Viewport::FD3D11Viewport(FD3D11DynamicRHI* InD3DRHI,HWND InWindowHandle,ui
 	// DXGI_SWAP_EFFECT_DISCARD / DXGI_SWAP_EFFECT_SEQUENTIAL
 	SwapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_DISCARD;
 	SwapChainDesc.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
-	VERIFYD3D11RESULT(D3DRHI->GetFactory()->CreateSwapChain(DXGIDevice,&SwapChainDesc,SwapChain.GetInitReference()));
+	VERIFYD3D11RESULT_EX(D3DRHI->GetFactory()->CreateSwapChain(DXGIDevice,&SwapChainDesc,SwapChain.GetInitReference()), D3DRHI->GetDevice());
 
 	// Set the DXGI message hook to not change the window behind our back.
 	D3DRHI->GetFactory()->MakeWindowAssociation(WindowHandle,DXGI_MWA_NO_WINDOW_CHANGES);

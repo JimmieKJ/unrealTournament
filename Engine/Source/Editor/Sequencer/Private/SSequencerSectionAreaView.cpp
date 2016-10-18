@@ -179,13 +179,13 @@ void SSequencerSectionAreaView::OnArrangeChildren( const FGeometry& AllottedGeom
 
 		int32 RowIndex = SectionInterface->GetSectionObject()->GetRowIndex();
 
-		EVisibility Visibility = Widget->GetVisibility();
-		if( ArrangedChildren.Accepts( Visibility ) )
+		EVisibility WidgetVisibility = Widget->GetVisibility();
+		if( ArrangedChildren.Accepts( WidgetVisibility ) )
 		{
 			FGeometry SectionGeometry = SequencerSectionUtils::GetSectionGeometry( AllottedGeometry, RowIndex, MaxTracks, Widget->GetDesiredSize().Y, SectionInterface, TimeToPixelConverter );
 			
 			ArrangedChildren.AddWidget( 
-				Visibility, 
+				WidgetVisibility, 
 				AllottedGeometry.MakeChild( Widget, SectionGeometry.Position, SectionGeometry.GetDrawSize() )
 				);
 		}

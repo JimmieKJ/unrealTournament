@@ -4,8 +4,7 @@
 	DynamicPrimitiveDrawing.h: Dynamic primitive drawing definitions.
 =============================================================================*/
 
-#ifndef __DYNAMICPRIMITIVEDRAWING_H__
-#define __DYNAMICPRIMITIVEDRAWING_H__
+#pragma once
 
 /**
 * Draws a range of view's elements with the specified drawing policy factory type.
@@ -112,4 +111,3 @@ private:
 
 #include "DynamicPrimitiveDrawing.inl"
 
-#endif

@@ -97,21 +97,22 @@ FText FMetaSettingGatherer::ValueToString(bool Value)
 }
 
 template <>
-FText FMetaSettingGatherer::ValueToString(EAntiAliasingMethodUI::Type Value)
+FText FMetaSettingGatherer::ValueToString(EAntiAliasingMethod Value)
 {
 	switch (Value)
 	{
-	case EAntiAliasingMethodUI::AAM_None:
+	case AAM_None:
 		return LOCTEXT("AA_None", "None");
-	case EAntiAliasingMethodUI::AAM_FXAA:
+	case AAM_FXAA:
 		return LOCTEXT("AA_FXAA", "FXAA");
-	case EAntiAliasingMethodUI::AAM_TemporalAA:
+	case AAM_TemporalAA:
 		return LOCTEXT("AA_TemporalAA", "Temporal AA");
+	case AAM_MSAA:
+		return LOCTEXT("AA_MSAA", "MSAA");
 	default:
 		return FText::AsNumber((int32)Value);
 	}
 }
-
 
 #define UE_META_SETTING_ENTRY(Builder, Class, PropertyName, TargetValue) \
 { \
@@ -228,7 +229,7 @@ void FHardwareTargetingModule::GatherSettings(FMetaSettingGatherer& Builder)
 		// DOF and AA work on mobile but are expensive, keeping them off by default
 		//@TODO: DOF setting doesn't exist yet
 		// UE_META_SETTING_ENTRY(Builder, URendererSettings, bDefaultFeatureDepthOfField, bHighEndPC);
-		UE_META_SETTING_ENTRY(Builder, URendererSettings, DefaultFeatureAntiAliasing, bHighEndPC ? EAntiAliasingMethodUI::AAM_TemporalAA : EAntiAliasingMethodUI::AAM_None);
+		UE_META_SETTING_ENTRY(Builder, URendererSettings, DefaultFeatureAntiAliasing, bHighEndPC ? AAM_TemporalAA : AAM_None);
 	}
 
 	{

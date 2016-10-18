@@ -1,7 +1,8 @@
 ﻿<%-- // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved. --%>
 
 <%@ Page Title="" Language="C#" MasterPageFile="~/Views/Shared/Site.Master" Inherits="System.Web.Mvc.ViewPage<BuggViewModel>" %>
-<%@ Import Namespace="Tools.CrashReporter.CrashReportWebSite.Models" %>
+<%@ Import Namespace="Tools.CrashReporter.CrashReportWebSite.DataModels" %>
+<%@ Import Namespace="Tools.CrashReporter.CrashReportWebSite.ViewModels" %>
 
 <asp:Content ID="StyleSheet" ContentPlaceHolderID="CssContent" runat="server">
 	<link href="../../Content/Site.css" rel="stylesheet" type="text/css" />
@@ -118,14 +119,14 @@
 		<%using( Html.BeginForm( "Show", "Buggs" ) )
 		{	%>
 
-			<%if (string.IsNullOrEmpty( Model.Bugg.Jira ))
+			<%if (string.IsNullOrEmpty( Model.Bugg.TTPID ))
 			{ %>
 				<dd class='even'>
 					<input type="submit" value="CopyToJira" title="<%=Model.Bugg.ToTooltip()%>" id="id <%=Model.Bugg.Id%>" name="CopyToJira-<%=Model.Bugg.Id%>" class="SearchButton CopyToJiraStyle" />
 				</dd>
 			<% } else { %>
 				<dd class='even'>
-					<a href="https://jira.ol.epicgames.net/browse/<%=Model.Bugg.Jira%>" target="_blank"><%=Model.Bugg.Jira%></a>
+					<a href="https://jira.ol.epicgames.net/browse/<%=Model.Bugg.TTPID%>" target="_blank"><%=Model.Bugg.TTPID%></a>
 				</dd>
 			<% } %>
 
@@ -262,7 +263,7 @@
 							<td class="TimeOfCrash">
 								<%=CrashInstance.GetTimeOfCrash()[0]%> &nbsp;
 								<%=CrashInstance.GetTimeOfCrash()[1]%><br />
-								Change: <%= CrashInstance.BuiltFromCL %><br />
+								Change: <%= CrashInstance.ChangeListVersion %><br />
 							</td>
 							<td class="Summary">
 								<%=CrashInstance.UserName%><br />

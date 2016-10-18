@@ -105,7 +105,8 @@ protected:
 	 * @param	MemoryStream		The MemoryReader or MemoryWriter object to read from/write to.
 	 * @param	Offset				The starting offset into the compressed byte stream for this track (can be INDEX_NONE to indicate an identity track)
 	 */
-	static void ByteSwapOneTrack(UAnimSequence& Seq, FMemoryArchive& MemoryStream, int32 Offset);
+	template<class TArchive>
+	static void ByteSwapOneTrack(UAnimSequence& Seq, TArchive& MemoryStream, int32 Offset);
 
 	/**
 	 * Preserves 4 byte alignment within a stream

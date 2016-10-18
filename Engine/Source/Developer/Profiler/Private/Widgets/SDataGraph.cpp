@@ -520,7 +520,7 @@ int32 SDataGraph::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeom
 					continue;
 				}
 
-				// Bottom - Frame numbers, starting from 0.
+				// Top - Frame numbers, starting from 0.
 				const FString AccumulatedFrameNumberStr = FString::Printf(TEXT("%i"), FrameIndex);
 				FSlateDrawElement::MakeText
 				(
@@ -534,7 +534,7 @@ int32 SDataGraph::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeom
 					FLinearColor::White
 				);
 
-				// Top - Time, normalized to the beginning of the capture process.
+				// Bottom - Time, normalized to the beginning of the capture process.
 				const FString ElapseTimeStr = FString::Printf(TEXT("%.1fs"), ElapsedFrameTimeMS * 0.001f );
 				FSlateDrawElement::MakeText
 				(
@@ -585,7 +585,7 @@ int32 SDataGraph::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeom
 					continue;
 				}
 
-				// Bottom - Time, normalized to the beginning of the capture process.
+				// Top - Time, normalized to the beginning of the capture process.
 				const FString ElapsedTimeStr = FString::Printf(TEXT("%.1fs"), ElapsedFrameTimeMS * 0.001f);
 				FSlateDrawElement::MakeText
 				(
@@ -599,7 +599,7 @@ int32 SDataGraph::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeom
 					FLinearColor::White
 				);
 
-				// Top - Frame numbers, starting from 0, for single session current frame counter.
+				// Bottom - Frame numbers, starting from 0, for single session current frame counter.
 				const FString AccumulatedFrameNumberStr = FString::Printf(TEXT("%i"), AccumulatedFrameCounter);
 				FSlateDrawElement::MakeText
 				(

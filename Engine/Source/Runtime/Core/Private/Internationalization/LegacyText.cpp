@@ -11,15 +11,6 @@ bool FText::IsWhitespace( const TCHAR Char )
 	return FChar::IsWhitespace(Char);
 }
 
-FText FText::AsCurrencyBase(int64 BaseVal, const FString& CurrencyCode, const FCulturePtr& TargetCulture)
-{
-	FInternationalization& I18N = FInternationalization::Get();
-	checkf(I18N.IsInitialized() == true, TEXT("FInternationalization is not initialized. An FText formatting method was likely used in static object initialization - this is not supported."));
-	const FCulture& Culture = TargetCulture.IsValid() ? *TargetCulture : *I18N.GetCurrentCulture();
-	double Val = static_cast<double>(BaseVal) / FMath::Pow(10.0f, Culture.NumberFormattingRule.CurrencyDecimalDigits);
-	return FText::CreateNumericalText(MakeShareable(new TGeneratedTextData<FTextHistory_AsCurrency>(Culture.NumberFormattingRule.AsCurrency(Val), FTextHistory_AsCurrency(Val, CurrencyCode, nullptr, TargetCulture))));
-}
-
 FText FText::AsDate( const FDateTime& DateTime, const EDateTimeStyle::Type DateStyle, const FString& TimeZone, const FCulturePtr& TargetCulture )
 {
 	checkf(FInternationalization::Get().IsInitialized() == true, TEXT("FInternationalization is not initialized. An FText formatting method was likely used in static object initialization - this is not supported."));
@@ -75,9 +66,9 @@ bool FText::FSortPredicate::operator()(const FText& A, const FText& B) const
 	return A.ToString() < B.ToString();
 }
 
-bool FText::IsLetter( const TCHAR Char )
+bool FUnicodeChar::CodepointToString(const uint32 InCodepoint, FString& OutString)
 {
-	return (Char>='A' && Char<='Z') || (Char>='a' && Char<='z');
+	return false;
 }
 
 namespace TextBiDi

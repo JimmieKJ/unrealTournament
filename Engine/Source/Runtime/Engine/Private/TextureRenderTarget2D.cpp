@@ -110,8 +110,27 @@ void UTextureRenderTarget2D::UpdateResourceImmediate(bool bClearRenderTarget/*=t
 #if WITH_EDITOR
 void UTextureRenderTarget2D::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
-	const int32 MaxSize = 2048; 
 	EPixelFormat Format = GetFormat();
+
+	const int32 WarnSize = 2048; 
+
+	if (SizeX > WarnSize || SizeY > WarnSize)
+	{
+		const float MemoryMb = SizeX * SizeY * GPixelFormats[Format].BlockBytes / 1024.0f / 1024.0f;
+		FNumberFormattingOptions FloatFormat;
+		FloatFormat.SetMaximumFractionalDigits(1);
+		FText Message = FText::Format( NSLOCTEXT("TextureRenderTarget2D", "LargeTextureRenderTarget2DWarning", "A TextureRenderTarget2D of size {0}x{1} will use {2}Mb ({3}Mb if used with a Scene Capture), which may result in extremely poor performance or an Out Of Video Memory crash.\nAre you sure?"), FText::AsNumber(SizeX), FText::AsNumber(SizeY), FText::AsNumber(MemoryMb, &FloatFormat), FText::AsNumber(10.0f * MemoryMb, &FloatFormat));
+		const EAppReturnType::Type Choice = FMessageDialog::Open(EAppMsgType::YesNo, Message);
+	
+		if (Choice == EAppReturnType::No)
+		{
+			SizeX = FMath::Clamp<int32>(SizeX,1,WarnSize);
+			SizeY = FMath::Clamp<int32>(SizeY,1,WarnSize);
+		}
+	}
+
+	const int32 MaxSize = 8192; 
+	
 	SizeX = FMath::Clamp<int32>(SizeX - (SizeX % GPixelFormats[Format].BlockSizeX),1,MaxSize);
 	SizeY = FMath::Clamp<int32>(SizeY - (SizeY % GPixelFormats[Format].BlockSizeY),1,MaxSize);
 
@@ -145,7 +164,7 @@ FString UTextureRenderTarget2D::GetDesc()
 	return FString::Printf( TEXT("Render to Texture %dx%d[%s]"), SizeX, SizeY, GPixelFormats[GetFormat()].Name );
 }
 
-UTexture2D* UTextureRenderTarget2D::ConstructTexture2D(UObject* Outer, const FString& NewTexName, EObjectFlags ObjectFlags, uint32 Flags, TArray<uint8>* AlphaOverride)
+UTexture2D* UTextureRenderTarget2D::ConstructTexture2D(UObject* Outer, const FString& NewTexName, EObjectFlags InObjectFlags, uint32 Flags, TArray<uint8>* AlphaOverride)
 {
 	UTexture2D* Result = NULL;
 #if WITH_EDITOR
@@ -157,7 +176,7 @@ UTexture2D* UTextureRenderTarget2D::ConstructTexture2D(UObject* Outer, const FSt
 
 	const EPixelFormat PixelFormat = GetFormat();
 	ETextureSourceFormat TextureFormat = TSF_Invalid;
-	TextureCompressionSettings CompressionSettings = TC_Default;
+	TextureCompressionSettings CompressionSettingsForTexture = TC_Default;
 	switch (PixelFormat)
 	{
 		case PF_B8G8R8A8:
@@ -165,7 +184,7 @@ UTexture2D* UTextureRenderTarget2D::ConstructTexture2D(UObject* Outer, const FSt
 		break;
 		case PF_FloatRGBA:
 			TextureFormat = TSF_RGBA16F;
-			CompressionSettings = TC_HDR;
+			CompressionSettingsForTexture = TC_HDR;
 		break;
 	}
 
@@ -176,7 +195,7 @@ UTexture2D* UTextureRenderTarget2D::ConstructTexture2D(UObject* Outer, const FSt
 	}
 
 	// create the 2d texture
-	Result = NewObject<UTexture2D>(Outer, FName(*NewTexName), ObjectFlags);
+	Result = NewObject<UTexture2D>(Outer, FName(*NewTexName), InObjectFlags);
 	// init to the same size as the 2d texture
 	Result->Source.Init(SizeX, SizeY, 1, 1, TextureFormat);
 
@@ -265,7 +284,7 @@ UTexture2D* UTextureRenderTarget2D::ConstructTexture2D(UObject* Outer, const FSt
 		Result->MipGenSettings = TMGS_NoMipmaps;
 	}
 
-	Result->CompressionSettings = CompressionSettings;
+	Result->CompressionSettings = CompressionSettingsForTexture;
 	if (Flags & CTF_Compress)
 	{
 		// Set compression options.
@@ -324,15 +343,16 @@ void FTextureRenderTarget2DResource::InitDynamicRHI()
 {
 	if( TargetSizeX > 0 && TargetSizeY > 0 )
 	{
-		bool bSRGB=true;
+		bool bUseSRGB=true;
 		// if render target gamma used was 1.0 then disable SRGB for the static texture
 		if( FMath::Abs(GetDisplayGamma() - 1.0f) < KINDA_SMALL_NUMBER )
 		{
-			bSRGB = false;
+			bUseSRGB = false;
 		}
 
 		// Create the RHI texture. Only one mip is used and the texture is targetable for resolve.
-		uint32 TexCreateFlags = bSRGB ? TexCreate_SRGB : 0;
+		uint32 TexCreateFlags = bUseSRGB ? TexCreate_SRGB : 0;
+		TexCreateFlags |= Owner->bGPUSharedFlag ? TexCreate_Shared : 0;
 		FRHIResourceCreateInfo CreateInfo = FRHIResourceCreateInfo(FClearValueBinding(ClearColor));
 
 		if (Owner->bAutoGenerateMips)

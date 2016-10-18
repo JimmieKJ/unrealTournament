@@ -114,6 +114,8 @@ void SAnimCompositeEditor::OnCompositeChange(class UObject *EditorAnimBaseObj, b
 	{
 		if(bRebuild && !bIsActiveTimerRegistered)
 		{
+			// sometimes crashes because the timer delay but animation still renders, so invalidating here before calling timer
+			CompositeObj->InvalidateRecursiveAsset();
 			bIsActiveTimerRegistered = true;
 			RegisterActiveTimer(0.f, FWidgetActiveTimerDelegate::CreateSP(this, &SAnimCompositeEditor::TriggerRebuildPanel));
 		} 

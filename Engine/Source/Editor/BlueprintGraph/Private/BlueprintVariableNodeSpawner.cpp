@@ -65,15 +65,15 @@ UBlueprintVariableNodeSpawner* UBlueprintVariableNodeSpawner::Create(TSubclassOf
 		// want to set it to something so we won't end up back in this condition
 		MenuSignature.Keywords = FText::FromString(TEXT(" "));
 	}
-	MenuSignature.IconName = UK2Node_Variable::GetVarIconFromPinType(NodeSpawner->GetVarType(), MenuSignature.IconTint);
+	MenuSignature.Icon = UK2Node_Variable::GetVarIconFromPinType(NodeSpawner->GetVarType(), MenuSignature.IconTint);
 
 	//--------------------------------------
 	// Post-Spawn Setup
 	//--------------------------------------
 
-	auto MemberVarSetupLambda = [](UEdGraphNode* NewNode, UField const* Field)
+	auto MemberVarSetupLambda = [](UEdGraphNode* NewNode, UField const* InField)
 	{
-		if (UProperty const* Property = Cast<UProperty>(Field))
+		if (UProperty const* Property = Cast<UProperty>(InField))
 		{
 			UBlueprint* Blueprint = FBlueprintEditorUtils::FindBlueprintForNodeChecked(NewNode);
 			UClass* OwnerClass = Property->GetOwnerClass();
@@ -137,7 +137,7 @@ UBlueprintVariableNodeSpawner* UBlueprintVariableNodeSpawner::Create(TSubclassOf
 		// want to set it to something so we won't end up back in this condition
 		MenuSignature.Keywords = FText::FromString(TEXT(" "));
 	}
-	MenuSignature.IconName = UK2Node_Variable::GetVarIconFromPinType(NodeSpawner->GetVarType(), MenuSignature.IconTint);
+	MenuSignature.Icon = UK2Node_Variable::GetVarIconFromPinType(NodeSpawner->GetVarType(), MenuSignature.IconTint);
 
 	return NodeSpawner;
 }

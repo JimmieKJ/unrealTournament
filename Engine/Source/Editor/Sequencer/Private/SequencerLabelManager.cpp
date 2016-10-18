@@ -51,6 +51,9 @@ void FSequencerLabelManager::RemoveObjectLabel(const FGuid& ObjectId, const FStr
 		if (ObjectId.IsValid())
 		{
 			ObjectsToLabels.FindOrAdd(ObjectId.ToString()).Strings.Remove(Label);
+
+			// Add to dummy object id so that this label will stick around until intentionally removed by user
+			ObjectsToLabels.FindOrAdd(TEXT("UnusedLabelsDummy")).Strings.Add(Label);
 		}
 		else
 		{

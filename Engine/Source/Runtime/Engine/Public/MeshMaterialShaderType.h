@@ -47,7 +47,7 @@ public:
 		ShouldCacheType InShouldCacheRef,
 		GetStreamOutElementsType InGetStreamOutElementsRef
 		):
-		FShaderType(InName,InSourceFilename,InFunctionName,InFrequency,InConstructSerializedRef,InGetStreamOutElementsRef),
+		FShaderType(EShaderTypeForDynamicCast::MeshMaterial, InName,InSourceFilename,InFunctionName,InFrequency,InConstructSerializedRef,InGetStreamOutElementsRef),
 		ConstructCompiledRef(InConstructCompiledRef),
 		ShouldCacheRef(InShouldCacheRef),
 		ModifyCompilationEnvironmentRef(InModifyCompilationEnvironmentRef)
@@ -104,10 +104,6 @@ public:
 	{
 		return (*ShouldCacheRef)(Platform,Material,VertexFactoryType);
 	}
-
-	// Dynamic casting.
-	virtual FMeshMaterialShaderType* GetMeshMaterialShaderType() override { return this; }
-	virtual const FMeshMaterialShaderType* GetMeshMaterialShaderType() const override { return this; }
 
 protected:
 

@@ -22,16 +22,11 @@ class AIMODULE_API UBTTask_RunBehavior : public UBTTaskNode
 	GENERATED_UCLASS_BODY()
 
 	virtual EBTNodeResult::Type ExecuteTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory) override;
-	virtual uint16 GetInstanceMemorySize() const override;
-	virtual void CleanupMemory(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory, EBTMemoryClear::Type CleanupType) const override;
 	virtual FString GetStaticDescription() const override;
 
 #if WITH_EDITOR
 	virtual FName GetNodeIconName() const override;
 #endif // WITH_EDITOR
-
-	/** called on instance startup, prepares root level nodes to use */
-	void InjectNodes(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory, int32& InstancedIndex) const;
 
 	/** @returns number of injected nodes */
 	int32 GetInjectedNodesCount() const;

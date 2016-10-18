@@ -48,6 +48,9 @@ struct FExternalImagePickerConfiguration
 	/** Does the image need to be a specific size? */
 	bool bRequiresSpecificSize;
 
+	/** The image on disk that we will use if the target does not exist. */
+	TArray<FString> FileExtensions;
+
 	/** A property handle to use if required */
 	TSharedPtr<class IPropertyHandle> PropertyHandle;
 };

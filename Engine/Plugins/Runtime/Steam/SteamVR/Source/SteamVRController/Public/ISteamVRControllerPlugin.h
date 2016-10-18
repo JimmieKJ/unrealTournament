@@ -5,6 +5,8 @@
 #include "ModuleManager.h"
 #include "IInputDeviceModule.h"
 
+#define STEAMVRCONTROLLER_SUPPORTED_PLATFORMS (PLATFORM_WINDOWS && WINVER > 0x0502)
+
 /**
  * The public interface to this module.  In most cases, this interface is only public to sibling modules 
  * within this plugin.

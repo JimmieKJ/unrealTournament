@@ -32,4 +32,5 @@ FText UBehaviorTreeGraphNode_Task::GetNodeTitle(ENodeTitleType::Type TitleType) 
 void UBehaviorTreeGraphNode_Task::GetContextMenuActions(const FGraphNodeContextMenuBuilder& Context) const
 {
 	AddContextMenuActionsDecorators(Context);
+	AddContextMenuActionsServices(Context);
 }

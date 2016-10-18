@@ -149,6 +149,7 @@ void SProjectLauncherSettings::Construct( const FArguments& InArgs, const FProje
 				]
 
 				+ SGridPanel::Slot(0, 6)
+				.Padding(8.0f, 0.0f, 0.0f, 0.0f)
 				.VAlign(VAlign_Top)
 				[
 					SNew(STextBlock)
@@ -157,12 +158,12 @@ void SProjectLauncherSettings::Construct( const FArguments& InArgs, const FProje
 				]
 
 				+ SGridPanel::Slot(1, 6)
-				.Padding(32.0f, 0.0f, 0.0f, 0.0f)
+				.Padding(32.0f, 0.0f, 8.0f, 0.0f)
 				[
 					SNew(SProjectLauncherPackagePage, InModel)
 				]
 
-				// deploy section
+				// archive section
 				+ SGridPanel::Slot(0, 7)
 				.ColumnSpan(3)
 				.Padding(0.0f, 16.0f)
@@ -177,16 +178,16 @@ void SProjectLauncherSettings::Construct( const FArguments& InArgs, const FProje
 				[
 					SNew(STextBlock)
 					.Font(FSlateFontInfo(FPaths::EngineContentDir() / TEXT("Slate/Fonts/Roboto-Bold.ttf"), 13))
-					.Text(LOCTEXT("DeploySectionHeader", "Deploy"))
+					.Text(LOCTEXT("ArchiveSectionHeader", "Archive"))
 				]
 
 				+ SGridPanel::Slot(1, 8)
 				.Padding(32.0f, 0.0f, 8.0f, 0.0f)
 				[
-					SNew(SProjectLauncherDeployPage, InModel)
+					SNew(SProjectLauncherArchivePage, InModel)
 				]
-
-				// launch section
+				
+				// deploy section
 				+ SGridPanel::Slot(0, 9)
 				.ColumnSpan(3)
 				.Padding(0.0f, 16.0f)
@@ -201,10 +202,34 @@ void SProjectLauncherSettings::Construct( const FArguments& InArgs, const FProje
 				[
 					SNew(STextBlock)
 					.Font(FSlateFontInfo(FPaths::EngineContentDir() / TEXT("Slate/Fonts/Roboto-Bold.ttf"), 13))
-					.Text(LOCTEXT("LaunchSectionHeader", "Launch"))
+					.Text(LOCTEXT("DeploySectionHeader", "Deploy"))
 				]
 
 				+ SGridPanel::Slot(1, 10)
+				.Padding(32.0f, 0.0f, 8.0f, 0.0f)
+				[
+					SNew(SProjectLauncherDeployPage, InModel)
+				]
+
+				// launch section
+				+ SGridPanel::Slot(0, 11)
+				.ColumnSpan(3)
+				.Padding(0.0f, 16.0f)
+				[
+					SNew(SSeparator)
+					.Orientation(Orient_Horizontal)
+				]
+
+				+ SGridPanel::Slot(0, 12)
+				.Padding(8.0f, 0.0f, 0.0f, 0.0f)
+				.VAlign(VAlign_Top)
+				[
+					SNew(STextBlock)
+					.Font(FSlateFontInfo(FPaths::EngineContentDir() / TEXT("Slate/Fonts/Roboto-Bold.ttf"), 13))
+					.Text(LOCTEXT("LaunchSectionHeader", "Launch"))
+				]
+
+				+ SGridPanel::Slot(1, 12)
 				.HAlign(HAlign_Fill)
 				.Padding(32.0f, 0.0f, 8.0f, 0.0f)
 				[

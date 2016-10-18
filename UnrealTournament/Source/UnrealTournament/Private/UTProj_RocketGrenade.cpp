@@ -16,7 +16,7 @@ AUTProj_RocketGrenade::AUTProj_RocketGrenade(const class FObjectInitializer& Obj
 	MaxBouncedRotationRate = 1080.0f;
 
 	InitialLifeSpan = 0.0f;
-	FuseTime = 2.0f;
+	FuseTime = 1.5f;
 	RandomFuseMod = 0.5f;
 
 	MaxRandomBounce = 3.0f;
@@ -41,6 +41,24 @@ void AUTProj_RocketGrenade::BeginPlay()
 
 	Super::BeginPlay();
 }
+
+
+void AUTProj_RocketGrenade::OnRep_Instigator()
+{
+	Super::OnRep_Instigator();
+	if (Instigator != nullptr)
+	{
+		TArray<UParticleSystemComponent*> PSCs;
+		GetComponents<UParticleSystemComponent>(PSCs);
+		if (PSCs[0])
+		{
+			static FName NAME_TeamColor(TEXT("TeamColor"));
+			AUTCharacter* UTChar = Cast<AUTCharacter>(Instigator);
+			PSCs[0]->SetColorParameter(NAME_TeamColor, UTChar ? UTChar->GetTeamColor() : FVector(0.7f, 0.4f, 0.f));
+		}
+	}
+}
+
 void AUTProj_RocketGrenade::OnRep_Seed()
 {
 	RNGStream.Initialize(Seed);
@@ -81,7 +99,7 @@ void AUTProj_RocketGrenade::OnBounce(const struct FHitResult& ImpactResult, cons
 	//Random bounce direction
 	FRotator RandRot = GetRandomRotator(MaxRandomBounce);
 	ProjectileMovement->Velocity = RandRot.RotateVector(ProjectileMovement->Velocity);
-
+	ProjectileMovement->Bounciness = 0.3f;
 	Super::OnBounce(ImpactResult, ImpactVelocity);
 }
 

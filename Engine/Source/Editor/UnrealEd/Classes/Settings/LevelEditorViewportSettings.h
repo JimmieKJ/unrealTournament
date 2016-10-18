@@ -230,11 +230,11 @@ class UNREALED_API ULevelEditorViewportSettings
 	uint32 bCenterZoomAroundCursor:1;
 
 	/** Allow translate/rotate widget */
-	UPROPERTY(EditAnywhere, config, Category=Controls, meta=( DisplayName = "Enable Combined Translate/Rotate Widget" ))
+	UPROPERTY(EditAnywhere, config, Category=LookAndFeel, meta=( DisplayName = "Enable Combined Translate/Rotate Widget" ))
 	uint32 bAllowTranslateRotateZWidget:1;
 
 	/** If true, Clicking a BSP selects the brush and ctrl+shift+click selects the surface. If false, vice versa */
-	UPROPERTY(EditAnywhere, config, Category=Controls, meta=( DisplayName = "Clicking BSP Enables Brush" ))
+	UPROPERTY(EditAnywhere, config, Category=LookAndFeel, meta=( DisplayName = "Clicking BSP Enables Brush" ), AdvancedDisplay)
 	uint32 bClickBSPSelectsBrush:1;
 
 	/** How fast the perspective camera moves when flying through the world. */
@@ -246,9 +246,17 @@ class UNREALED_API ULevelEditorViewportSettings
 	int32 MouseScrollCameraSpeed;
 
 	/** The sensitivity of mouse movement when rotating the camera. */
-	UPROPERTY(EditAnywhere, config, Category=Controls, meta=(ClampMin="0.0",ClampMax="1.0") )
+	UPROPERTY(EditAnywhere, config, Category=Controls, meta=(DisplayName="Mouse Sensitivity", ClampMin="0.0",ClampMax="1.0") )
 	float MouseSensitivty;
 	
+	/** Whether or not to invert mouse on the y axis in free look mode */
+	UPROPERTY(EditAnywhere, config, Category = Controls, meta = (DisplayName = "Invert Mouse Look Y Axis"))
+	bool bInvertMouseLookYAxis;
+
+	/** Whether or not to invert mouse on y axis in orbit mode */
+	UPROPERTY(EditAnywhere, config, Category = Controls, meta = (DisplayName = "Invert Orbit Y Axis"))
+	bool bInvertOrbitYAxis;
+
 	/** Whether or not to invert the direction of middle mouse panning in viewports */
 	UPROPERTY(EditAnywhere, config, Category=Controls)
 	bool bInvertMiddleMousePan;
@@ -272,6 +280,10 @@ class UNREALED_API ULevelEditorViewportSettings
 	/** Direction of the scroll gesture for orthographic viewports */
 	UPROPERTY(EditAnywhere, config, Category=Controls, meta=(DisplayName="Scroll gesture direction for orthographic viewports"))
 	EScrollGestureDirection ScrollGestureDirectionForOrthoViewports;
+
+	/** Enables joystick-based camera movement in 3D level editing viewports */
+	UPROPERTY(EditAnywhere, config, Category=Controls, meta=(DisplayName="Level Editor Joystick Controls" ) )
+	bool bLevelEditorJoystickControls;
 
 public:
 

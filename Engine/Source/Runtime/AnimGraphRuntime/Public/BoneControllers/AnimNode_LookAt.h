@@ -102,6 +102,8 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_LookAt : public FAnimNode_SkeletalControlB
 	virtual bool IsValidToEvaluate(const USkeleton* Skeleton, const FBoneContainer& RequiredBones) override;
 	// End of FAnimNode_SkeletalControlBase interface
 
+	void ConditionalDebugDraw(FPrimitiveDrawInterface* PDI, USkeletalMeshComponent* MeshComp);
+
 private:
 	// FAnimNode_SkeletalControlBase interface
 	virtual void InitializeBoneReferences(const FBoneContainer& RequiredBones) override;
@@ -144,4 +146,11 @@ private:
 	int32 CachedLookAtSocketMeshBoneIndex;
 	FCompactPoseBoneIndex CachedLookAtSocketBoneIndex;
 	FTransform CachedSocketLocalTransform;
+
+	/** Debug draw cached data */
+	FVector CachedComponentBoneLocation;
+	FVector CachedPreviousTargetLocation;
+	FVector CachedCurrentTargetLocation;
+	FVector CachedCurrentLookAtLocation;
+	
 };

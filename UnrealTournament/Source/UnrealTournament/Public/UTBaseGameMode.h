@@ -46,6 +46,9 @@ public:
 	virtual void PreInitializeComponents() override;
 	virtual void DefaultTimer() { };
 
+	virtual void OnLoadingMovieBegin() { };
+	virtual void OnLoadingMovieEnd() { };
+
 	//Password required to join as a player
 	UPROPERTY(GlobalConfig)
 	FString ServerPassword;
@@ -97,11 +100,12 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, AssetRegistrySearchable, Category = Game)
 	FText DisplayName;
 
-	virtual void PreLogin(const FString& Options, const FString& Address, const TSharedPtr<const FUniqueNetId>& UniqueId, FString& ErrorMessage) override;
-	virtual APlayerController* Login(class UPlayer* NewPlayer, ENetRole RemoteRole, const FString& Portal, const FString& Options, const TSharedPtr<const FUniqueNetId>& UniqueId, FString& ErrorMessage) override;
+	virtual void PreLogin(const FString& Options, const FString& Address, const FUniqueNetIdRepl& UniqueId, FString& ErrorMessage) override;
+	virtual APlayerController* Login(class UPlayer* NewPlayer, ENetRole RemoteRole, const FString& Portal, const FString& Options, const FUniqueNetIdRepl& UniqueId, FString& ErrorMessage) override;
 	virtual void PostLogin(APlayerController* NewPlayer) override;
 	virtual void GenericPlayerInitialization(AController* C);
-	
+	virtual void ChangeName(AController* Other, const FString& S, bool bNameChange) override;
+
 	virtual void PostInitProperties();
 	virtual void InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage) override;
 	virtual void InitGameState();
@@ -238,7 +242,7 @@ public:
 	/** Build a JSON object that contains information about this game mode. */
 	virtual void MakeJsonReport(TSharedPtr<FJsonObject> JsonObject);
 
-	virtual void CheckMapStatus(FString MapPackageName, bool& bIsEpicMap, bool& bIsMeshedMap);
+	virtual void CheckMapStatus(FString MapPackageName, bool& bIsEpicMap, bool& bIsMeshedMap, bool& bHasRights);
 
 	virtual FString GetRankedLeagueName() { return TEXT(""); }
 

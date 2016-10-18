@@ -42,6 +42,8 @@ class UCookCommandlet
 	bool bCookSinglePackage;
 	/** Should we output additional verbose cooking warnings */
 	bool bVerboseCookerWarnings;
+	/** only clean up objects which are not in use by the cooker when we gc (false will enable full gc) */
+	bool bPartialGC;
 	/** All commandline tokens */
 	TArray<FString> Tokens;
 	/** All commandline switches */

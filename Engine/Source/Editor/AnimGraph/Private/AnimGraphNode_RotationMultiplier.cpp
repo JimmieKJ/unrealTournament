@@ -14,7 +14,7 @@ UAnimGraphNode_RotationMultiplier::UAnimGraphNode_RotationMultiplier(const FObje
 
 FText UAnimGraphNode_RotationMultiplier::GetControllerDescription() const
 {
-	return LOCTEXT("ApplyPercentageOfRotation", "Apply a percentage of Rotation");
+	return LOCTEXT("ApplyPercentageOfRotation", "Apply a Percentage of Rotation");
 }
 
 FText UAnimGraphNode_RotationMultiplier::GetTooltipText() const

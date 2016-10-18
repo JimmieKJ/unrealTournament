@@ -2456,29 +2456,38 @@ bool SMeshPaint::IsPushInstanceVertexColorsToMeshButtonEnabled() const
 		USelection& SelectedActors = *GEditor->GetSelectedActors();
 		for( int32 LeftCompareIndex = 0; (LeftCompareIndex < SelectedActors.Num() - 1) && bIsEnabled; ++LeftCompareIndex )
 		{
-			AActor* LeftCompareActor = CastChecked<AActor>( SelectedActors.GetSelectedObject( LeftCompareIndex ) );
+			AActor* LeftCompareActor = Cast<AActor>( SelectedActors.GetSelectedObject( LeftCompareIndex ) );
+			if (LeftCompareActor == nullptr)
+			{
+				continue;
+			}
 
-			UStaticMeshComponent* LeftStaticMeshComponent = NULL;
+			UStaticMeshComponent* LeftStaticMeshComponent = nullptr;
 			AStaticMeshActor* LeftStaticMeshActor = Cast< AStaticMeshActor >( LeftCompareActor );
-			if( LeftStaticMeshActor != NULL )
+			if( LeftStaticMeshActor != nullptr )
 			{
 				LeftStaticMeshComponent = LeftStaticMeshActor->GetStaticMeshComponent();
 			}
 
-			if( LeftStaticMeshComponent != NULL && LeftStaticMeshComponent->StaticMesh != NULL )
+			if( LeftStaticMeshComponent != nullptr && LeftStaticMeshComponent->StaticMesh != nullptr )
 			{
 				// Check the left static mesh to the static meshes of all the other selected actors for a match
 				for( int32 RightCompareIndex = LeftCompareIndex + 1; (RightCompareIndex < SelectedActors.Num()) && bIsEnabled; ++RightCompareIndex )
 				{
-					AActor* RightCompareActor = CastChecked<AActor>( SelectedActors.GetSelectedObject( RightCompareIndex ) );
-					UStaticMeshComponent* RightStaticMeshComponent = NULL;
+					AActor* RightCompareActor = Cast<AActor>( SelectedActors.GetSelectedObject( RightCompareIndex ) );
+					if (RightCompareActor == nullptr)
+					{
+						continue;
+					}
+
+					UStaticMeshComponent* RightStaticMeshComponent = nullptr;
 					AStaticMeshActor* RightStaticMeshActor = Cast< AStaticMeshActor >( RightCompareActor );
-					if( RightStaticMeshActor != NULL )
+					if( RightStaticMeshActor != nullptr )
 					{
 						RightStaticMeshComponent = RightStaticMeshActor->GetStaticMeshComponent();
 					}
 					
-					if(RightStaticMeshComponent != NULL && RightStaticMeshComponent->StaticMesh != NULL)
+					if(RightStaticMeshComponent != nullptr && RightStaticMeshComponent->StaticMesh != nullptr)
 					{
 						if(LeftStaticMeshComponent->StaticMesh == RightStaticMeshComponent->StaticMesh)
 						{

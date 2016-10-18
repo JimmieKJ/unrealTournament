@@ -82,7 +82,7 @@ void FStateMachineConnectionDrawingPolicy::DetermineLinkGeometry(
 	}
 }
 
-void FStateMachineConnectionDrawingPolicy::Draw(TMap<TSharedRef<SWidget>, FArrangedWidget>& PinGeometries, FArrangedChildren& ArrangedNodes)
+void FStateMachineConnectionDrawingPolicy::Draw(TMap<TSharedRef<SWidget>, FArrangedWidget>& InPinGeometries, FArrangedChildren& ArrangedNodes)
 {
 	// Build an acceleration structure to quickly find geometry for the nodes
 	NodeWidgetMap.Empty();
@@ -94,7 +94,7 @@ void FStateMachineConnectionDrawingPolicy::Draw(TMap<TSharedRef<SWidget>, FArran
 	}
 
 	// Now draw
-	FConnectionDrawingPolicy::Draw(PinGeometries, ArrangedNodes);
+	FConnectionDrawingPolicy::Draw(InPinGeometries, ArrangedNodes);
 }
 
 void FStateMachineConnectionDrawingPolicy::DrawPreviewConnector(const FGeometry& PinGeometry, const FVector2D& StartPoint, const FVector2D& EndPoint, UEdGraphPin* Pin)

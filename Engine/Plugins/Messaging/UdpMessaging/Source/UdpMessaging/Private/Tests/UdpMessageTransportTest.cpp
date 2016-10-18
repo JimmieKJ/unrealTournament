@@ -154,3 +154,8 @@ bool FUdpMessageTransportTest::RunTest(const FString& Parameters)
 
 	return true;
 }
+
+void EmptyLinkFunctionForStaticInitializationUdpMessageTransportTest()
+{
+	// This function exists to prevent the object file containing this test from being excluded by the linker, because it has no publically referenced symbols.
+}

@@ -5,6 +5,8 @@
 #include "AnimGraphNode_BlendSpaceBase.h"
 #include "AnimGraphNode_BlendSpacePlayer.h"
 #include "AnimGraphNode_RotationOffsetBlendSpace.h"
+#include "Animation/AimOffsetBlendSpace.h"
+#include "Animation/AimOffsetBlendSpace1D.h"
 #include "GraphEditorActions.h"
 
 #define LOCTEXT_NAMESPACE "AnimGraphNode_BlendSpaceBase"
@@ -111,4 +113,8 @@ void UAnimGraphNode_BlendSpaceBase::PostProcessPinName(const UEdGraphPin* Pin, F
 	Super::PostProcessPinName(Pin, DisplayName);
 }
 
+FText UAnimGraphNode_BlendSpaceBase::GetMenuCategory() const
+{
+	return LOCTEXT("BlendSpaceCategory_Label", "BlendSpaces");
+}
 #undef LOCTEXT_NAMESPACE

@@ -9,6 +9,7 @@ class UInterpGroupInst;
 class AMatineeActor;
 class AActor;
 class UInterpTrackMove;
+class USubDSurface;
 
 // Temporarily disable a few warnings due to virtual function abuse in FBX source files
 #pragma warning( push )
@@ -126,6 +127,10 @@ struct FBXImportOptions
 	bool	bPreserveLocalTransform;
 	bool	bDeleteExistingMorphTargetCurves;
 	bool	bImportCustomAttribute;
+	bool	bSetMaterialDriveParameterOnCustomAttribute;
+	bool	bRemoveRedundantKeys;
+	bool	bDoNotImportCurveWithZero;
+	TArray<FString> MaterialCurveSuffixes;
 
 	/** This allow to add a prefix to the material name when unreal material get created.	
 	*   This prefix can just modify the name of the asset for materials (i.e. TEXT("Mat"))
@@ -158,6 +163,147 @@ struct FBXImportOptions
 		check(OptionsToReset != nullptr);
 		FMemory::Memzero(OptionsToReset, sizeof(OptionsToReset));
 	}
+};
+
+#define INVALID_UNIQUE_ID 0xFFFFFFFFFFFFFFFF
+
+class FFbxAnimCurveHandle
+{
+public:
+	enum CurveTypeDescription
+	{
+		Transform_Translation_X,
+		Transform_Translation_Y,
+		Transform_Translation_Z,
+		Transform_Rotation_X,
+		Transform_Rotation_Y,
+		Transform_Rotation_Z,
+		Transform_Scaling_X,
+		Transform_Scaling_Y,
+		Transform_Scaling_Z,
+		NotTransform,
+	};
+
+	FFbxAnimCurveHandle()
+	{
+		UniqueId = INVALID_UNIQUE_ID;
+		Name.Empty();
+		ChannelIndex = 0;
+		CompositeIndex = 0;
+		KeyNumber = 0;
+		AnimationTimeSecond = 0.0f;
+		AnimCurve = nullptr;
+		CurveType = NotTransform;
+	}
+
+	FFbxAnimCurveHandle(const FFbxAnimCurveHandle &CurveHandle)
+	{
+		UniqueId = CurveHandle.UniqueId;
+		Name = CurveHandle.Name;
+		ChannelIndex = CurveHandle.ChannelIndex;
+		CompositeIndex = CurveHandle.CompositeIndex;
+		KeyNumber = CurveHandle.KeyNumber;
+		AnimationTimeSecond = CurveHandle.AnimationTimeSecond;
+		AnimCurve = CurveHandle.AnimCurve;
+		CurveType = CurveHandle.CurveType;
+	}
+
+	//Identity Data
+	uint64 UniqueId;
+	FString Name;
+	int32 ChannelIndex;
+	int32 CompositeIndex;
+
+	//Curve Information
+	int32 KeyNumber;
+	float AnimationTimeSecond;
+
+	//Pointer to the curve data
+	FbxAnimCurve* AnimCurve;
+
+	CurveTypeDescription CurveType;
+};
+
+class FFbxAnimPropertyHandle
+{
+public:
+	FFbxAnimPropertyHandle()
+	{
+		Name.Empty();
+		DataType = eFbxFloat;
+	}
+
+	FFbxAnimPropertyHandle(const FFbxAnimPropertyHandle &PropertyHandle)
+	{
+		Name = PropertyHandle.Name;
+		DataType = PropertyHandle.DataType;
+		CurveHandles = PropertyHandle.CurveHandles;
+	}
+
+	FString Name;
+	EFbxType DataType;
+	TArray<FFbxAnimCurveHandle> CurveHandles;
+};
+
+class FFbxAnimNodeHandle
+{
+public:
+	FFbxAnimNodeHandle()
+	{
+		UniqueId = INVALID_UNIQUE_ID;
+		Name.Empty();
+		AttributeUniqueId = INVALID_UNIQUE_ID;
+		AttributeType = FbxNodeAttribute::eUnknown;
+	}
+
+	FFbxAnimNodeHandle(const FFbxAnimNodeHandle &NodeHandle)
+	{
+		UniqueId = NodeHandle.UniqueId;
+		Name = NodeHandle.Name;
+		AttributeUniqueId = NodeHandle.AttributeUniqueId;
+		AttributeType = NodeHandle.AttributeType;
+		NodeProperties = NodeHandle.NodeProperties;
+		AttributeProperties = NodeHandle.AttributeProperties;
+	}
+
+	uint64 UniqueId;
+	FString Name;
+	TMap<FString, FFbxAnimPropertyHandle> NodeProperties;
+
+	uint64 AttributeUniqueId;
+	FbxNodeAttribute::EType AttributeType;
+	TMap<FString, FFbxAnimPropertyHandle> AttributeProperties;
+};
+
+class FFbxCurvesAPI
+{
+public:
+	FFbxCurvesAPI()
+	{
+		Scene = nullptr;
+	}
+	//Name API
+	UNREALED_API void GetAnimatedNodeNameArray(TArray<FString> &AnimatedNodeNames) const;
+	UNREALED_API void GetNodeAnimatedPropertyNameArray(const FString &NodeName, TArray<FString> &AnimatedPropertyNames) const;
+	UNREALED_API void GetCurveData(const FString& NodeName, const FString& PropertyName, int32 ChannelIndex, int32 CompositeIndex, FInterpCurveFloat& CurveData, bool bNegative) const;
+	UNREALED_API void GetBakeCurveData(const FString& NodeName, const FString& PropertyName, int32 ChannelIndex, int32 CompositeIndex, TArray<float>& CurveData, float PeriodTime, float StartTime = 0.0f, float StopTime= -1.0f, bool bNegative = false) const;
+
+	//Handle API
+	UNREALED_API void GetAllNodePropertyCurveHandles(const FString& NodeName, const FString& PropertyName, TArray<FFbxAnimCurveHandle> &PropertyCurveHandles) const;
+	UNREALED_API void GetCurveHandle(const FString& NodeName, const FString& PropertyName, int32 ChannelIndex, int32 CompositeIndex, FFbxAnimCurveHandle &CurveHandle) const;
+	UNREALED_API void GetCurveData(const FFbxAnimCurveHandle &CurveHandle, FInterpCurveFloat& CurveData, bool bNegative) const;
+	UNREALED_API void GetBakeCurveData(const FFbxAnimCurveHandle &CurveHandle, TArray<float>& CurveData, float PeriodTime, float StartTime = 0.0f, float StopTime = -1.0f, bool bNegative = false) const;
+
+	//Conversion API
+	UNREALED_API void GetConvertedTransformCurveData(const FString& NodeName, FInterpCurveFloat& TranslationX, FInterpCurveFloat& TranslationY, FInterpCurveFloat& TranslationZ,
+													 FInterpCurveFloat& EulerRotationX, FInterpCurveFloat& EulerRotationY, FInterpCurveFloat& EulerRotationZ, 
+													 FInterpCurveFloat& ScaleX, FInterpCurveFloat& ScaleY, FInterpCurveFloat& ScaleZ) const;
+
+	FbxScene* Scene;
+	TMap<uint64, FFbxAnimNodeHandle> CurvesData;
+
+private:
+	EInterpCurveMode GetUnrealInterpMode(FbxAnimCurveKey FbxKey) const;
 };
 
 struct FbxMeshInfo
@@ -341,7 +487,16 @@ public:
 	* @param NodeLodGroup	The LOD group fbx node
 	* @param LodIndex		The index of the LOD we search the mesh node
 	*/
-	FbxNode* FindLODGroupNode(FbxNode* NodeLodGroup, int32 LodIndex);
+	FbxNode* FindLODGroupNode(FbxNode* NodeLodGroup, int32 LodIndex, FbxNode *NodeToFind = nullptr);
+
+	/**
+	* Find the all the node containing a mesh attribute for the specified LOD index.
+	*
+	* @param OutNodeInLod   All the mesh node under the lod group
+	* @param NodeLodGroup	The LOD group fbx node
+	* @param LodIndex		The index of the LOD we search the mesh node
+	*/
+	void FindAllLODGroupNode(TArray<FbxNode*> &OutNodeInLod, FbxNode* NodeLodGroup, int32 LodIndex);
 
 	/**
 	* Find the first parent node containing a eLODGroup attribute.
@@ -376,6 +531,14 @@ public:
 	* @returns UObject*	the UStaticMesh object.
 	*/
 	UNREALED_API UStaticMesh* ImportStaticMeshAsSingle(UObject* InParent, TArray<FbxNode*>& MeshNodeArray, const FName InName, EObjectFlags Flags, UFbxStaticMeshImportData* TemplateImportData, UStaticMesh* InStaticMesh, int LODIndex = 0);
+
+	/**
+	* Creates a SubDSurface mesh from all the meshes in FBX scene with the given name and flags.
+	*
+	* @param MeshNodeArray	Fbx Nodes to import
+	* @param InName	the Unreal Mesh name after import
+	*/
+	UNREALED_API bool ImportSubDSurface(USubDSurface* Out, UObject* InParent, TArray<FbxNode*>& MeshNodeArray, const FName InName, EObjectFlags Flags, UFbxStaticMeshImportData* TemplateImportData);
 
 	void ImportStaticMeshSockets( UStaticMesh* StaticMesh );
 
@@ -422,7 +585,7 @@ public:
 	 *
 	 * @return The USkeletalMesh object created
 	 */
-	USkeletalMesh* ImportSkeletalMesh(UObject* InParent, TArray<FbxNode*>& NodeArray, const FName& Name, EObjectFlags Flags, UFbxSkeletalMeshImportData* TemplateImportData, bool* bCancelOperation = nullptr, TArray<FbxShape*> *FbxShapeArray = nullptr, FSkeletalMeshImportData* OutData = nullptr, bool bCreateRenderData = true );
+	USkeletalMesh* ImportSkeletalMesh(UObject* InParent, TArray<FbxNode*>& NodeArray, const FName& Name, EObjectFlags Flags, UFbxSkeletalMeshImportData* TemplateImportData, int32 LodIndex, bool* bCancelOperation = nullptr, TArray<FbxShape*> *FbxShapeArray = nullptr, FSkeletalMeshImportData* OutData = nullptr, bool bCreateRenderData = true );
 
 	/**
 	 * Add to the animation set, the animations contained within the FBX scene, for the given skeletal mesh
@@ -437,7 +600,7 @@ public:
 	/**
 	 * Get Animation Time Span - duration of the animation
 	 */
-	FbxTimeSpan GetAnimationTimeSpan(FbxNode* RootNode, FbxAnimStack* AnimStack);
+	FbxTimeSpan GetAnimationTimeSpan(FbxNode* RootNode, FbxAnimStack* AnimStack, int32 ResampleRate);
 
 	/**
 	 * Import one animation from CurAnimStack
@@ -529,7 +692,7 @@ public:
 	* @param Node Root node to find skeletal meshes
 	* @param outSkelMeshArray return Fbx meshes they are grouped by skeleton
 	*/
-	void FillFbxSkelMeshArrayInScene(FbxNode* Node, TArray< TArray<FbxNode*>* >& outSkelMeshArray, bool ExpandLOD);
+	void FillFbxSkelMeshArrayInScene(FbxNode* Node, TArray< TArray<FbxNode*>* >& outSkelMeshArray, bool ExpandLOD, bool bForceFindRigid = false);
 	
 	/**
 	 * Find FBX meshes that match Unreal skeletal mesh according to the bone of mesh
@@ -630,7 +793,14 @@ private:
 	*
 	* @param Node	The node from which we start the search for the first node containing a mesh attribute
 	*/
-	FbxNode *RecursiveGetFirstMeshNode(FbxNode* Node);
+	FbxNode *RecursiveGetFirstMeshNode(FbxNode* Node, FbxNode* NodeToFind = nullptr);
+
+	/**
+	* Recursive search for a node having a mesh attribute
+	*
+	* @param Node	The node from which we start the search for the first node containing a mesh attribute
+	*/
+	void RecursiveGetAllMeshNode(TArray<FbxNode *> &OutAllNode, FbxNode* Node);
 
 	/**
 	 * ActorX plug-in can export mesh and dummy as skeleton.
@@ -697,6 +867,9 @@ public:
 	FbxScene* Scene;
 	FBXImportOptions* ImportOptions;
 
+	//We cache the hash of the file when we open the file. This is to avoid calculating the hash many time when importing many asset in one fbx file.
+	FMD5Hash Md5Hash;
+
 protected:
 	enum IMPORTPHASE
 	{
@@ -746,7 +919,6 @@ protected:
 	/**
 	 * Set up the static mesh data from Fbx Mesh.
 	 *
-	 * @param FbxMesh  Fbx Mesh object
 	 * @param StaticMesh Unreal static mesh object to fill data into
 	 * @param LODIndex	LOD level to set up for StaticMesh
 	 * @return bool true if set up successfully
@@ -1017,6 +1189,19 @@ protected:
 	*/
 	void TraverseHierarchyNodeRecursively(FbxSceneInfo& SceneInfo, FbxNode *ParentNode, FbxNodeInfo &ParentInfo);
 
+
+	//
+	// for sequencer import
+	//
+public:
+	UNREALED_API void PopulateAnimatedCurveData(FFbxCurvesAPI &CurvesAPI);
+
+protected:
+	void LoadNodeKeyframeAnimationRecursively(FFbxCurvesAPI &CurvesAPI, FbxNode* NodeToQuery);
+	void LoadNodeKeyframeAnimation(FbxNode* NodeToQuery, FFbxCurvesAPI &CurvesAPI);
+	void SetupTransformForNode(FbxNode *Node);
+
+
 	//
 	// for matinee export
 	//
@@ -1157,6 +1342,9 @@ class FFbxLogger
 	/** Error messages **/
 	TArray<TSharedRef<FTokenizedMessage>> TokenizedErrorMessages;
 
+	/* The logger will show the LogMessage only if at least one TokenizedErrorMessage have a severity of Error or CriticalError*/
+	bool ShowLogMessageOnlyIfError;
+
 	friend class FFbxImporter;
 	friend class FFbxLoggerSetter;
 };
@@ -1172,12 +1360,13 @@ class FFbxLoggerSetter
 	FFbxImporter * Importer;
 
 public:
-	FFbxLoggerSetter(FFbxImporter * InImpoter)
+	FFbxLoggerSetter(FFbxImporter * InImpoter, bool ShowLogMessageOnlyIfError = false)
 		: Importer(InImpoter)
 	{
 		// if impoter doesn't have logger, sets it
 		if(Importer->Logger == NULL)
 		{
+			Logger.ShowLogMessageOnlyIfError = ShowLogMessageOnlyIfError;
 			Importer->SetLogger(&Logger);
 		}
 		else

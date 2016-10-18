@@ -17,6 +17,8 @@
 #include "Core.h"
 #include "AndroidApplication.h"
 #include "IHeadMountedDisplayModule.h"
+#include "ISessionServicesModule.h"
+#include "ISessionService.h"
 
 // Function pointer for retrieving joystick events
 // Function has been part of the OS since Honeycomb, but only appeared in the
@@ -113,6 +115,8 @@ static ASensorManager * SensorManager = NULL;
 static const ASensor * SensorAccelerometer = NULL;
 // Gyroscope, i.e. FMotionEvent::GetRotationRate.
 static const ASensor * SensorGyroscope = NULL;
+// Magnetometer
+static const ASensor* SensorMagnetometer = NULL;
 static ASensorEventQueue * SensorQueue = NULL;
 // android.hardware.SensorManager.SENSOR_DELAY_GAME
 static const int32_t SensorDelayGame = 1;
@@ -317,6 +321,19 @@ int32 AndroidMain(struct android_app* state)
 	}
 #endif
 
+#if !UE_BUILD_SHIPPING
+	if (FParse::Param(FCommandLine::Get(), TEXT("Messaging")))
+	{
+		// initialize messaging subsystem
+		FModuleManager::LoadModuleChecked<IMessagingModule>("Messaging");
+		TSharedPtr<ISessionService> SessionService = FModuleManager::LoadModuleChecked<ISessionServicesModule>("SessionServices").GetSessionService();
+		SessionService->Start();
+
+		// Initialize functional testing
+		FModuleManager::Get().LoadModule("FunctionalTesting");
+	}
+#endif
+
 	// tick until done
 	while (!GIsRequestingExit)
 	{
@@ -388,6 +405,8 @@ static void* AndroidEventThreadWorker( void* param )
 			SensorManager, ASENSOR_TYPE_ACCELEROMETER);
 		SensorGyroscope = ASensorManager_getDefaultSensor(
 			SensorManager, ASENSOR_TYPE_GYROSCOPE);
+		SensorMagnetometer = ASensorManager_getDefaultSensor(
+			SensorManager, ASENSOR_TYPE_MAGNETIC_FIELD);
 		// Create the queue for events to arrive.
 		SensorQueue = ASensorManager_createEventQueue(
 			SensorManager, state->looper, LOOPER_ID_USER, HandleSensorEvents, NULL);
@@ -495,6 +514,8 @@ static int32_t HandleInputCB(struct android_app* app, AInputEvent* event)
 			float gas = GetAxes(event, AMOTION_EVENT_AXIS_GAS, 0);
 			FAndroidInputInterface::JoystickAxisEvent(device, AMOTION_EVENT_AXIS_LTRIGGER, ltrigger > brake ? ltrigger : brake);
 			FAndroidInputInterface::JoystickAxisEvent(device, AMOTION_EVENT_AXIS_RTRIGGER, rtrigger > gas ? rtrigger : gas);
+
+			return 1;
 		}
 		else
 		{
@@ -617,7 +638,7 @@ static int32_t HandleInputCB(struct android_app* app, AInputEvent* event)
 #endif
 		}
 
-		return 1;
+		return 0;
 	}
 
 	if (EventType == AINPUT_EVENT_TYPE_KEY)
@@ -737,6 +758,8 @@ static void OnAppCommandCB(struct android_app* app, int32_t cmd)
 				ASensorEventQueue_disableSensor(SensorQueue, SensorAccelerometer);
 			if (NULL != SensorGyroscope)
 				ASensorEventQueue_disableSensor(SensorQueue, SensorGyroscope);
+			if (NULL != SensorMagnetometer)
+				ASensorEventQueue_disableSensor(SensorQueue, SensorMagnetometer);
 		}
 		break;
 	case APP_CMD_GAINED_FOCUS:
@@ -758,6 +781,11 @@ static void OnAppCommandCB(struct android_app* app, int32_t cmd)
 			{
 				ASensorEventQueue_enableSensor(SensorQueue, SensorGyroscope);
 				ASensorEventQueue_setEventRate(SensorQueue, SensorGyroscope, SensorDelayGame);
+			}
+			if (NULL != SensorMagnetometer)
+			{
+				ASensorEventQueue_enableSensor(SensorQueue, SensorMagnetometer);
+				ASensorEventQueue_setEventRate(SensorQueue, SensorMagnetometer, SensorDelayGame);
 			}
 		}
 		break;
@@ -864,6 +892,40 @@ static void OnAppCommandCB(struct android_app* app, int32_t cmd)
 	//FPlatformMisc::LowLevelOutputDebugStringf(L"#### END OF OnAppCommandCB cmd: %u, tid = %d", cmd, gettid());
 }
 
+static void GetRotationMatrix(FVector gravityVec, FVector magneticVec, float outRotationMatrix[])
+{
+	// the the cross product of magnetic vector and gravity to derive a basis
+	// vector pointing East.
+	FVector eastVec = FVector::CrossProduct(magneticVec, gravityVec);
+
+	// Normalize & check the new basis vector
+	const float normEast = eastVec.Size();
+	if (normEast < 0.1f)
+	{
+		// device is close to free fall (or in space?), or close to
+		// magnetic north pole. Typical values are  > 100.
+		return;
+	}
+	float invEastSize = 1.0f / normEast;
+	eastVec.X *= invEastSize;
+	eastVec.Y *= invEastSize;
+	eastVec.Z *= invEastSize;
+
+	// Now normalize the acceleration (assumed = gravity) vector
+	float invGravSize = 1.0f / gravityVec.Size();
+	gravityVec.X *= invGravSize;
+	gravityVec.Y *= invGravSize;
+	gravityVec.Z *= invGravSize;
+
+	// A second cross product of the newly computed East and our measured gravity
+	// vector gives a north vector in the horizontal plane.
+	FVector northVec = FVector::CrossProduct(gravityVec, eastVec);
+
+	outRotationMatrix[0] = eastVec.X;			outRotationMatrix[1] = eastVec.Y;			outRotationMatrix[2] = eastVec.Z;
+	outRotationMatrix[3] = northVec.X;			outRotationMatrix[4] = northVec.Y;			outRotationMatrix[5] = northVec.Z;
+	outRotationMatrix[6] = gravityVec.X;		outRotationMatrix[7] = gravityVec.Y;		outRotationMatrix[8] = gravityVec.Z;
+}
+
 static int HandleSensorEvents(int fd, int events, void* data)
 {
 	// It's not possible to discern sequencing across sensors in
@@ -872,9 +934,12 @@ static int HandleSensorEvents(int fd, int events, void* data)
 	// to synthesize additional information.
 	FVector current_accelerometer(0, 0, 0);
 	FVector current_gyroscope(0, 0, 0);
+	FVector current_magnetometer(0, 0, 0);
 	int32 current_accelerometer_sample_count = 0;
 	int32 current_gyroscope_sample_count = 0;
+	int32 current_magnetometer_sample_count = 0;
 	static FVector last_accelerometer(0, 0, 0);
+	static FVector last_magnetometer(0, 0, 0);
 
 	if (NULL != SensorAccelerometer || NULL != SensorGyroscope)
 	{
@@ -894,6 +959,13 @@ static int HandleSensorEvents(int fd, int events, void* data)
 				current_gyroscope.Y += sensor_event.vector.azimuth;
 				current_gyroscope.Z += sensor_event.vector.roll;
 				current_gyroscope_sample_count += 1;
+			}
+			else if (ASENSOR_TYPE_MAGNETIC_FIELD == sensor_event.type)
+			{
+				current_magnetometer.X += sensor_event.magnetic.x;
+				current_magnetometer.Y += sensor_event.magnetic.y;
+				current_magnetometer.Z += sensor_event.magnetic.z;
+				current_magnetometer_sample_count += 1;
 			}
 		}
 	}
@@ -915,9 +987,21 @@ static int HandleSensorEvents(int fd, int events, void* data)
 		current_gyroscope /= float(current_gyroscope_sample_count);
 	}
 
+	if (current_magnetometer_sample_count > 0)
+	{
+		// Do simple average of the samples we just got.
+		current_magnetometer /= float(current_magnetometer_sample_count);
+		last_magnetometer = current_magnetometer;
+	}
+	else
+	{
+		current_magnetometer = last_magnetometer;
+	}
+
 	// If we have motion samples we generate the single event.
 	if (current_accelerometer_sample_count > 0 ||
-		current_gyroscope_sample_count > 0)
+		current_gyroscope_sample_count > 0 ||
+		current_magnetometer_sample_count > 0)
 	{
 		// The data we compose the motion event from.
 		FVector current_tilt(0, 0, 0);
@@ -940,15 +1024,23 @@ static int HandleSensorEvents(int fd, int events, void* data)
 		}
 		first_acceleration_sample = false;
 
-		// Calc the tilt from the accelerometer as it's not
-		// available directly.
-		FVector accelerometer_dir = -current_accelerometer.GetSafeNormal();
-		float current_pitch
-			= FMath::Atan2(accelerometer_dir.Y, accelerometer_dir.Z);
-		float current_roll
-			= -FMath::Atan2(accelerometer_dir.X, accelerometer_dir.Z);
+		// get the rotation matrix value, the convert those to Euler angle rotation values
+		float outRotationMatrix[9];
+		GetRotationMatrix(current_accelerometer, current_magnetometer, outRotationMatrix);
+
+		float current_yaw = FMath::Atan2(outRotationMatrix[1], outRotationMatrix[4]);
+		float current_roll = FMath::Asin(-1 * outRotationMatrix[7]);
+		float current_pitch = FMath::Atan2(-1 * outRotationMatrix[6], outRotationMatrix[8]);
+
+		//to match up with ipad values for Y, we need to adjust by pi
+		current_yaw += PI;
+		if (current_yaw >= PI)
+		{
+			current_yaw = (current_yaw - PI) + -PI;
+		}
+
 		current_tilt.X = current_pitch;
-		current_tilt.Y = 0;
+		current_tilt.Y = current_yaw;
 		current_tilt.Z = current_roll;
 
 		// And take out the gravity from the accel to get

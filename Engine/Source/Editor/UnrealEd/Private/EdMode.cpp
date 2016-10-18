@@ -509,16 +509,7 @@ bool FEdMode::ShouldDrawWidget() const
 	if (!bHadSelectableComponents)
 	{
 		// when actors are selected, only show the widget when all selected actors have scene components
-		bDrawWidget = Owner->GetSelectedActors()->Num() > 0;
-		for (FSelectionIterator It(*Owner->GetSelectedActors()); It; ++It)
-		{
-			AActor* Actor = Cast<AActor>(*It);
-			if ((Actor == nullptr) || (Actor->FindComponentByClass<USceneComponent>() == nullptr))
-			{
-				bDrawWidget = false;
-				break;
-			}
-		}
+		bDrawWidget = Owner->SelectionHasSceneComponent();
 	}
 
 	return bDrawWidget;

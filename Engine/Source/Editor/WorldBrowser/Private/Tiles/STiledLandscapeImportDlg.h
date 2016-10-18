@@ -7,12 +7,10 @@
 class STiledLandcapeImportDlg
 	: public SCompoundWidget
 {
-public:	
-	/** */		
+public:
+	/** */
 	struct FTileImportConfiguration
 	{
-		int64 ImportFileSize;
-		
 		int32 SizeX;
 		int32 NumComponents;
 		int32 NumSectionsPerComponent;
@@ -22,7 +20,7 @@ public:
 	SLATE_BEGIN_ARGS( STiledLandcapeImportDlg )
 		{}
 	SLATE_END_ARGS()
-	
+
 	void Construct(const FArguments& InArgs, TSharedPtr<SWindow> InParentWindow);
 
 	/** */
@@ -33,7 +31,7 @@ private:
 	/** */
 	TSharedRef<SWidget> HandleTileConfigurationComboBoxGenarateWidget(TSharedPtr<FTileImportConfiguration> InItem) const;
 	FText				GetTileConfigurationText() const;
-	
+
 	/** */
 	TSharedRef<ITableRow> OnGenerateWidgetForLayerDataListView(TSharedPtr<FTiledLandscapeImportSettings::LandscapeLayerSettings> InLayerData, const TSharedRef<STableViewBase>& OwnerTable);
 
@@ -52,16 +50,16 @@ private:
 	/** */
 	ECheckBoxState GetFlipYAxisState() const;
 	void OnFlipYAxisStateChanged(ECheckBoxState NewState);
-		
+
 	/** */
 	void OnSetImportConfiguration(TSharedPtr<FTileImportConfiguration> InTileConfig, ESelectInfo::Type SelectInfo);
 
 	/** */
 	bool IsImportEnabled() const;
-		
+
 	/** */
 	FReply OnClickedSelectHeightmapTiles();
-	FReply OnClickedSelectWeighmapTiles(TSharedPtr<FTiledLandscapeImportSettings::LandscapeLayerSettings> InLayerData);
+	FReply OnClickedSelectWeightmapTiles(TSharedPtr<FTiledLandscapeImportSettings::LandscapeLayerSettings> InLayerData);
 	FReply OnClickedImport();
 	FReply OnClickedCancel();
 
@@ -78,8 +76,8 @@ private:
 	void OnLayerBlendStateChanged(ECheckBoxState NewState, TSharedPtr<FTiledLandscapeImportSettings::LandscapeLayerSettings> InLayerData);
 
 	/** */
-	int32 SetPossibleConfigurationsForFileSize(int64 InFileSize);
-	
+	int32 SetPossibleConfigurationsForFileWidth(int64 TargetFileWidth);
+
 	/** */
 	void GenerateAllPossibleTileConfigurations();
 
@@ -95,22 +93,22 @@ private:
 
 	/** */
 	mutable FText StatusMessage;
-	
+
 	/** */
 	TSharedPtr<SWindow> ParentWindow;
-		
+
 	/** */
 	TSharedPtr<SComboBox<TSharedPtr<FTileImportConfiguration>>> TileConfigurationComboBox;
-	
+
 	TSharedPtr<SListView<TSharedPtr<FTiledLandscapeImportSettings::LandscapeLayerSettings>>>	LayerDataListView;
-	TArray<TSharedPtr<FTiledLandscapeImportSettings::LandscapeLayerSettings>>					LayerDataList;		
-		
+	TArray<TSharedPtr<FTiledLandscapeImportSettings::LandscapeLayerSettings>>					LayerDataList;
+
 	/** */
 	FTiledLandscapeImportSettings ImportSettings;
-	
+
 	/** */
-	FIntRect TotalLandscapeRect;	
-	
+	FIntRect TotalLandscapeRect;
+
 	TArray<FTileImportConfiguration> AllConfigurations;
 	TArray<TSharedPtr<FTileImportConfiguration>> ActiveConfigurations;
 };

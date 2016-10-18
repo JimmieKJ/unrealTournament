@@ -56,13 +56,13 @@ namespace SceneOutliner
 				switch(World->GetNetMode())
 				{
 					case NM_Client:
-						if(WorldContext)
+						if (WorldContext)
 						{
 							PostFix = FText::Format(LOCTEXT("ClientPostfixFormat", "(Client {0})"), FText::AsNumber(WorldContext->PIEInstance - 1));
 						}
 						else
 						{
-							PostFix = LOCTEXT("ClientPostfixFormat", "(Client)");
+							PostFix = LOCTEXT("ClientPostfix", "(Client)");
 						}
 						break;
 					case NM_DedicatedServer:
@@ -330,6 +330,9 @@ namespace SceneOutliner
 
 				// Header for the tree
 				.HeaderRow( HeaderRowWidget )
+
+				// Called when an item is expanded or collapsed with the shift-key pressed down
+				.OnSetExpansionRecursive(this, &SSceneOutliner::SetItemExpansionRecursive)
 			]
 		];
 
@@ -967,6 +970,7 @@ namespace SceneOutliner
 
 		PendingOperations.Empty();
 		TreeItemMap.Reset();
+		PendingTreeItemMap.Empty();
 
 		RootTreeItems.Empty();
 	}
@@ -1107,6 +1111,8 @@ namespace SceneOutliner
 	bool SSceneOutliner::AddItemToTree(FTreeItemRef Item)
 	{
 		const auto ItemID = Item->GetID();
+
+		PendingTreeItemMap.Remove(ItemID);
 
 		// If a tree item already exists that represents the same data, bail
 		if (TreeItemMap.Find(ItemID))
@@ -1978,7 +1984,7 @@ namespace SceneOutliner
 		{
 			if( InActor && SharedData->RepresentingWorld == InActor->GetWorld() && IsActorDisplayable(InActor) )
 			{
-				if (!TreeItemMap.Find(InActor))
+				if (!TreeItemMap.Find(InActor) && !PendingTreeItemMap.Find(InActor))
 				{
 					// Update the total actor count that match the filters
 					if (Filters->PassesAllFilters(FActorTreeItem(InActor)))
@@ -1999,8 +2005,13 @@ namespace SceneOutliner
 			if( InActor && SharedData->RepresentingWorld == InActor->GetWorld() )
 			{
 				ApplicableActors.Remove(InActor);
+				auto* ItemPtr = TreeItemMap.Find(InActor);
+				if (!ItemPtr)
+				{
+					ItemPtr = PendingTreeItemMap.Find(InActor);
+				}
 
-				if (auto* ItemPtr = TreeItemMap.Find(InActor))
+				if (ItemPtr)
 				{
 					PendingOperations.Emplace(FPendingTreeOperation::Removed, ItemPtr->ToSharedRef());
 					Refresh();
@@ -2386,6 +2397,8 @@ namespace SceneOutliner
 						const EEditAction::Type CanProcess = ActiveModes[ModeIndex]->GetActionEditDelete();
 						if (CanProcess == EEditAction::Process)
 						{
+							// We don't consider the return value here, as false is assumed to mean there was an internal error processing delete, not that it should defer to other modes/default behaviour
+							ActiveModes[ModeIndex]->ProcessEditDelete();
 							return FReply::Handled();
 						}
 						else if (CanProcess == EEditAction::Halt)
@@ -2415,9 +2428,9 @@ namespace SceneOutliner
 
 		// Deselect actors in the tree that are no longer selected in the world
 		FItemSelection Selection(*OutlinerTreeView);
-		for (auto* ActorItem : Selection.Actors)
+		for (FActorTreeItem* ActorItem : Selection.Actors)
 		{
-			if (!SelectedActors->IsSelected(ActorItem->Actor.Get()))
+			if(!ActorItem->Actor.Get()->IsSelected())
 			{
 				OutlinerTreeView->SetItemSelection(ActorItem->AsShared(), false);
 			}
@@ -2427,7 +2440,7 @@ namespace SceneOutliner
 		for (FSelectionIterator SelectionIt( *SelectedActors ); SelectionIt; ++SelectionIt)
 		{
 			AActor* Actor = CastChecked< AActor >(*SelectionIt);
-			if (auto* ActorItem = TreeItemMap.Find(Actor))
+			if (FTreeItemPtr* ActorItem = TreeItemMap.Find(Actor))
 			{
 				OutlinerTreeView->SetItemSelection(*ActorItem, true);
 			}
@@ -2562,6 +2575,21 @@ namespace SceneOutliner
 	bool SSceneOutliner::IsWorldChecked(TWeakObjectPtr<UWorld> InWorld)
 	{
 		return (InWorld == SharedData->UserChosenWorld);
+	}
+
+	void SSceneOutliner::SetItemExpansionRecursive(FTreeItemPtr Model, bool bInExpansionState)
+	{
+		if (Model.IsValid())
+		{
+			OutlinerTreeView->SetItemExpansion(Model, bInExpansionState);
+			for (auto& Child : Model->Children)
+			{
+				if (Child.IsValid())
+				{
+					SetItemExpansionRecursive(Child.Pin(), bInExpansionState);
+				}
+			}
+		}
 	}
 }	// namespace SceneOutliner
 

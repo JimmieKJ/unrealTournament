@@ -1,9 +1,15 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 using UnrealBuildTool;
+using System.IO;
 
 public class BlueprintContext : ModuleRules
 {
+    bool IsLicenseeBuild()
+    {
+        return !Directory.Exists("Runtime/NotForLicensees");
+    }
+
     public BlueprintContext(TargetInfo Target)
     {        
         PublicDependencyModuleNames.AddRange( new string[] {
@@ -19,7 +25,7 @@ public class BlueprintContext : ModuleRules
             "Party"
 		});
         
-        if (UEBuildConfiguration.bCompileMcpOSS == true)
+        if (!IsLicenseeBuild())
         {
             PublicIncludePathModuleNames.Add("Social");
 

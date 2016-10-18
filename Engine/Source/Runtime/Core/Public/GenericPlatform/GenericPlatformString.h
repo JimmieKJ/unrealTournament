@@ -108,7 +108,7 @@ struct FGenericPlatformString
 	>::Type Convert(DestEncoding* Dest, int32 DestSize, const SourceEncoding* Src, int32 SrcSize, DestEncoding BogusChar = (DestEncoding)'?')
 	{
 		if (DestSize < SrcSize)
-			return NULL;
+			return nullptr;
 
 		return (DestEncoding*)Memcpy(Dest, Src, SrcSize * sizeof(SourceEncoding)) + SrcSize;
 	}

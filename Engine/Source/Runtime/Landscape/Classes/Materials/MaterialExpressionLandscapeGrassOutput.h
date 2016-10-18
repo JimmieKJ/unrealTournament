@@ -31,8 +31,8 @@ struct FGrassInput
 	{}
 };
 
-UCLASS(collapsecategories, hidecategories=Object, MinimalAPI)
-class UMaterialExpressionLandscapeGrassOutput : public UMaterialExpressionCustomOutput
+UCLASS(collapsecategories, hidecategories=Object)
+class LANDSCAPE_API UMaterialExpressionLandscapeGrassOutput : public UMaterialExpressionCustomOutput
 {
 	GENERATED_UCLASS_BODY()
 

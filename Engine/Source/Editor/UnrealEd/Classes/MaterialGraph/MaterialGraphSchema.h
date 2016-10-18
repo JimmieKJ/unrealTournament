@@ -156,6 +156,14 @@ class UMaterialGraphSchema : public UEdGraphSchema
 	FLinearColor AlphaPinColor;
 
 	/**
+	 *  Add all linked to nodes to this pin to selection
+	 *  
+	 *	@param	Graph			CurrentGraph
+	 *	@param	InGraphPin		Pin clicked on
+	 */
+	void SelectAllInputNodes(UEdGraph* Graph, UEdGraphPin* InGraphPin);
+
+	/**
 	 * Get menu for breaking links to specific nodes
 	 *
 	 * @param	MenuBuilder	MenuBuilder we are populating

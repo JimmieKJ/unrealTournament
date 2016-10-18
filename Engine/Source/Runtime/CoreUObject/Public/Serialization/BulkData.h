@@ -1,7 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#ifndef _UNBULKDATA_H
-#define _UNBULKDATA_H
+#pragma once
 
 #include "Async/Async.h"
 
@@ -30,6 +29,8 @@ enum EBulkDataFlags
 	BULKDATA_ForceStreamPayload = 1 << 7,
 	/** If set, payload is stored in a .upack file alongside the uasset				*/
 	BULKDATA_PayloadInSeperateFile				= 1 << 8,
+	/** If set, payload is compressed using platform specific bit window			*/
+	BULKDATA_SerializeCompressedBitWindow		= 1<<9,
 
 };
 
@@ -100,12 +101,10 @@ private:
 			return Ptr;
 		}
 
-		FORCEINLINE_EXPLICIT_OPERATOR_BOOL() const
+		FORCEINLINE explicit operator bool() const
 		{
 			return bAllocated;
 		}
-
-		SAFE_BOOL_OPERATORS(FAllocatedPtr)
 
 		void Reallocate(int32 Count, int32 Alignment = DEFAULT_ALIGNMENT)
 		{
@@ -638,8 +637,4 @@ public:
 	}
 	COREUOBJECT_API void Serialize(FArchive& Ar, UObject* Owner, const TArray<FName>* FormatsToSave = NULL, bool bSingleUse = true, uint32 InAlignment = DEFAULT_ALIGNMENT);
 };
-
-#endif
-
-
 

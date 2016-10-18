@@ -3,6 +3,7 @@
 #include "UnrealTournament.h"
 #include "UTCharacterMovement.h"
 #include "GameFramework/GameNetworkManager.h"
+#include "Animation/AnimMontage.h"
 
 //======================================================
 // Networking Support
@@ -612,27 +613,46 @@ bool FSavedMove_UTCharacter::NeedsRotationSent() const
 	return (bPressedDodgeForward || bPressedDodgeBack || bPressedDodgeLeft || bPressedDodgeRight || bPressedSlide || bShotSpawned);
 }
 
-bool FSavedMove_UTCharacter::IsImportantMove(const FSavedMovePtr& ComparedMove) const
+bool FSavedMove_UTCharacter::IsCriticalMove(const FSavedMovePtr& ComparedMove) const
 {
 	if (bPressedDodgeForward || bPressedDodgeBack || bPressedDodgeLeft || bPressedDodgeRight || bPressedSlide || bShotSpawned)
+	{
+		//UE_LOG(UT, Warning, TEXT("%f Is important because of dodge/slide/shot"), TimeStamp);
+		return true;
+	}
+
+	if (ComparedMove.IsValid() && (bPressedJump && (bPressedJump != ComparedMove->bPressedJump)))
+	{
+		//UE_LOG(UT, Warning, TEXT("%f Is important because jump"), TimeStamp);
+		return true;
+	}
+	return false;
+}
+
+bool FSavedMove_UTCharacter::IsImportantMove(const FSavedMovePtr& ComparedMove) const
+{
+	if (IsCriticalMove(ComparedMove))
 	{
 		return true;
 	}
 
 	if (!ComparedMove.IsValid())
 	{
+		//UE_LOG(UT, Warning, TEXT("%f Is important because not valid"), TimeStamp);
 		// if no previous move to compare, always send impulses
 		return bPressedJump;
 	}
 
 	// Check if any important movement flags have changed status.
-	if ((bPressedJump && (bPressedJump != ComparedMove->bPressedJump)) || (bWantsToCrouch != ComparedMove->bWantsToCrouch))
+	if (bWantsToCrouch != ComparedMove->bWantsToCrouch)
 	{
+		//UE_LOG(UT, Warning, TEXT("%f Is important because crouch"), TimeStamp);
 		return true;
 	}
 
 	if (MovementMode != ComparedMove->MovementMode)
 	{
+//		UE_LOG(UT, Warning, TEXT("%f Is important because mode change"), TimeStamp);
 		return true;
 	}
 
@@ -642,6 +662,7 @@ bool FSavedMove_UTCharacter::IsImportantMove(const FSavedMovePtr& ComparedMove) 
 		// Compare magnitude and orientation
 		if ((FMath::Abs(AccelMag - ComparedMove->AccelMag) > AccelMagThreshold) || ((AccelNormal | ComparedMove->AccelNormal) < AccelDotThreshold))
 		{
+//			UE_LOG(UT, Warning, TEXT("%f Is important because accel change"), TimeStamp);
 			return true;
 		}
 	}
@@ -684,6 +705,7 @@ void UUTCharacterMovement::UTCallServerMove()
 	FSavedMovePtr OldMovePtr = NULL;
 	if (ClientData->LastAckedMove.IsValid())
 	{
+		bool bHaveCriticalMove = false;
 		for (int32 i = 0; i < ClientData->SavedMoves.Num() - 1; i++)
 		{
 			const FSavedMovePtr& CurrentMove = ClientData->SavedMoves[i];
@@ -694,7 +716,12 @@ void UUTCharacterMovement::UTCallServerMove()
 			}
 			else if (CurrentMove->IsImportantMove(ClientData->LastAckedMove))
 			{
-				OldMovePtr = CurrentMove;
+				bool bNewCriticalMove = ((FSavedMove_UTCharacter*)(CurrentMove.Get()))->IsCriticalMove(ClientData->LastAckedMove);
+				if (bNewCriticalMove || !bHaveCriticalMove)
+				{
+					OldMovePtr = CurrentMove;
+					bHaveCriticalMove = bNewCriticalMove;
+				}
 			}
 		}
 	}
@@ -703,7 +730,7 @@ void UUTCharacterMovement::UTCallServerMove()
 	if (OldMovePtr.IsValid())
 	{
 		const FSavedMove_Character* OldMove = OldMovePtr.Get();
-		//UE_LOG(UTNet, Warning, TEXT("Sending old move %f"), OldMove->TimeStamp);
+		//UE_LOG(UTNet, Warning, TEXT("Sending old move %f %d"), OldMove->TimeStamp, int32(OldMove->GetCompressedFlags()));
 		UTCharacterOwner->UTServerMoveOld(OldMove->TimeStamp, OldMove->Acceleration, OldMove->SavedControlRotation.Yaw, OldMove->GetCompressedFlags());
 	}
 
@@ -712,7 +739,7 @@ void UUTCharacterMovement::UTCallServerMove()
 		const FSavedMovePtr& MoveToSend = ClientData->SavedMoves[i];
 		if (MoveToSend.IsValid() && (MoveToSend->TimeStamp > ClientData->ClientUpdateTime))
 		{
-			//UE_LOG(UTNet, Warning, TEXT("Sending pending %f  flags %d"), MoveToSend->TimeStamp, MoveToSend->GetCompressedFlags());
+			//if (ClientData->LastAckedMove.IsValid() && MoveToSend->IsImportantMove(ClientData->LastAckedMove)) UE_LOG(UTNet, Warning, TEXT("Sending important pending %f  flags %d"), MoveToSend->TimeStamp, int32(MoveToSend->GetCompressedFlags()));
 			ClientData->ClientUpdateTime = MoveToSend->TimeStamp;
 			if (((FSavedMove_UTCharacter*)(MoveToSend.Get()))->NeedsRotationSent())
 			{

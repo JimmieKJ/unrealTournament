@@ -125,4 +125,9 @@ bool FMeshProxyTool::RunMerge(const FString& PackageName)
 }
 
 
+bool FMeshProxyTool::CanMerge() const
+{
+	return true;
+}
+
 #undef LOCTEXT_NAMESPACE

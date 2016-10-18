@@ -10,8 +10,6 @@
 #include "UTLobbyMatchInfo.h"
 #include "UTCharacterMovement.h"
 #include "UTAnalytics.h"
-#include "Runtime/Analytics/Analytics/Public/Analytics.h"
-#include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
 #include "Online.h"
 #include "UTOnlineGameSearchBase.h"
 #include "OnlineSubsystemTypes.h"
@@ -21,6 +19,7 @@ AUTLobbyPC::AUTLobbyPC(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
 	RedirectCount = -1;
+	bReceivedServerContentList = false;
 }
 
 /* Cache a copy of the PlayerState cast'd to AUTPlayerState for easy reference.  Do it both here and when the replicated copy of APlayerState arrives in OnRep_PlayerState */
@@ -155,7 +154,10 @@ void AUTLobbyPC::MatchChanged(AUTLobbyMatchInfo* CurrentMatch)
 void AUTLobbyPC::HandleNetworkFailureMessage(enum ENetworkFailure::Type FailureType, const FString& ErrorString)
 {
 	// If we are in a match and we get a network failure, leave that match.
-	UTLobbyPlayerState->ServerDestroyOrLeaveMatch();	
+	if (UTLobbyPlayerState)
+	{
+		UTLobbyPlayerState->ServerDestroyOrLeaveMatch();
+	}
 }
 
 void AUTLobbyPC::Say(FString Message)
@@ -228,46 +230,19 @@ void AUTLobbyPC::ServerRconKillMatch_Implementation(AUTLobbyMatchInfo* MatchToKi
 
 
 #if !UE_SERVER
-void AUTLobbyPC::GetAllRedirects(TSharedPtr<SUTDownloadAllDialog> inDownloadDialog)
+void AUTLobbyPC::RequestServerSendAllRedirects()
 {
-	DownloadDialog = inDownloadDialog;
-	if (RedirectCount > -1)
-	{
-		DownloadAllContent();
-	}
-	else
+	// If we have already requested all of the content, then we can skip this
+	if (!bReceivedServerContentList)
 	{
 		ServerSendRedirectCount();
 	}
-}
-#endif
-
-void AUTLobbyPC::DownloadAllContent()
-{
-#if !UE_SERVER
-	if (RedirectCount > 0 && AllRedirects.Num() == RedirectCount)
-	{
-		UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(Player);
-		if (LocalPlayer)
-		{
-			LocalPlayer->AccquireContent(AllRedirects);
-			if (DownloadDialog.IsValid())
-			{
-				DownloadDialog->Start();
-				DownloadDialog.Reset();
-			}
-		}
-	}
 	else
 	{
-		if (DownloadDialog.IsValid())
-		{
-			DownloadDialog->Done();
-			DownloadDialog.Reset();
-		}
+		ShowMessage(NSLOCTEXT("UTLocalPlayer", "HasAllContentTitle", "Acquire Content"), NSLOCTEXT("UTLobbyPC", "HasAllMessage", "You have already request all of the content on this server."), UTDIALOG_BUTTON_OK, NULL);
 	}
-#endif
 }
+#endif
 
 bool AUTLobbyPC::ServerSendRedirectCount_Validate() { return true; }
 void AUTLobbyPC::ServerSendRedirectCount_Implementation()
@@ -290,6 +265,7 @@ void AUTLobbyPC::ServerSendAllRedirects_Implementation()
 
 void AUTLobbyPC::ClientReceiveRedirectCount_Implementation(int32 NewCount)
 {
+	bReceivedServerContentList = true;
 	if (NewCount != RedirectCount)
 	{
 		if (NewCount > 0)
@@ -307,7 +283,11 @@ void AUTLobbyPC::ClientReceiveRedirect_Implementation(const FPackageRedirectRefe
 
 	if (AllRedirects.Num() == RedirectCount)
 	{
-		DownloadAllContent();
+		UUTLocalPlayer* UTLocalPlayer = Cast<UUTLocalPlayer>(Player);
+		if (UTLocalPlayer)
+		{
+			UTLocalPlayer->AcquireContent(AllRedirects);
+		}
 	}
 }
 

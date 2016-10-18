@@ -33,23 +33,6 @@ static bool IsBlendModeSupported(EShaderPlatform Platform, EDecalBlendMode Decal
 	return true;
 }
 
-static EDecalBlendMode ComputeFinalDecalBlendMode(EShaderPlatform Platform, EDecalBlendMode DecalBlendMode, bool bUseNormal)
-{
-	if (!bUseNormal)
-	{
-		if(DecalBlendMode == DBM_DBuffer_ColorNormalRoughness)
-		{
-			DecalBlendMode = DBM_DBuffer_ColorRoughness;
-		}
-		else if(DecalBlendMode == DBM_DBuffer_NormalRoughness)
-		{
-			DecalBlendMode = DBM_DBuffer_Roughness;
-		}
-	}
-		
-	return DecalBlendMode;
-}
-
 FTransientDecalRenderData::FTransientDecalRenderData(const FScene& InScene, const FDeferredDecalProxy* InDecalProxy, float InConservativeRadius)
 	: DecalProxy(InDecalProxy)
 	, FadeAlpha(1.0f)
@@ -59,7 +42,7 @@ FTransientDecalRenderData::FTransientDecalRenderData(const FScene& InScene, cons
 	MaterialResource = MaterialProxy->GetMaterial(InScene.GetFeatureLevel());
 	check(MaterialProxy && MaterialResource);
 	bHasNormal = MaterialResource->HasNormalConnected();
-	DecalBlendMode = ComputeFinalDecalBlendMode(InScene.GetShaderPlatform(), (EDecalBlendMode)MaterialResource->GetDecalBlendMode(), bHasNormal);
+	DecalBlendMode = FDecalRenderingCommon::ComputeFinalDecalBlendMode(InScene.GetShaderPlatform(), (EDecalBlendMode)MaterialResource->GetDecalBlendMode(), bHasNormal);
 }
 
 /**
@@ -118,34 +101,12 @@ public:
 	  */
 	static bool ShouldCache(EShaderPlatform Platform, const FMaterial* Material)
 	{
-		return Material->IsUsedWithDeferredDecal();
+		return Material->IsDeferredDecal();
 	}
 
 	static void ModifyCompilationEnvironment( EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment )
 	{
 		FMaterialShader::ModifyCompilationEnvironment(Platform, Material, OutEnvironment);
-
-		check(Material);
-		
-		EDecalBlendMode DecalBlendMode = ComputeFinalDecalBlendMode(Platform, (EDecalBlendMode)Material->GetDecalBlendMode(), Material->HasNormalConnected());
-		FDecalRendering::ERenderTargetMode RenderTargetMode = FDecalRendering::ComputeRenderTargetMode(Platform, DecalBlendMode, Material->HasNormalConnected());
-		uint32 RenderTargetCount = FDecalRendering::ComputeRenderTargetCount(Platform, RenderTargetMode);
-
-		uint32 BindTarget1 = (RenderTargetMode == FDecalRendering::RTM_SceneColorAndGBufferNoNormal || RenderTargetMode == FDecalRendering::RTM_SceneColorAndGBufferDepthWriteNoNormal) ? 0 : 1;
-		OutEnvironment.SetDefine(TEXT("BIND_RENDERTARGET1"), BindTarget1);
-
-		// avoid using the index directly, better use DECALBLENDMODEID_VOLUMETRIC, DECALBLENDMODEID_STAIN, ...
-		OutEnvironment.SetDefine(TEXT("DECAL_BLEND_MODE"), (uint32)DecalBlendMode);
-		OutEnvironment.SetDefine(TEXT("DECAL_PROJECTION"), 1u);
-		OutEnvironment.SetDefine(TEXT("DECAL_RENDERTARGET_COUNT"), RenderTargetCount);
-		OutEnvironment.SetDefine(TEXT("DECAL_RENDERSTAGE"), (uint32)FDecalRendering::ComputeRenderStage(Platform, DecalBlendMode));
-
-		// to compare against DECAL_BLEND_MODE, we can expose more if needed
-		OutEnvironment.SetDefine(TEXT("DECALBLENDMODEID_VOLUMETRIC"), (uint32)DBM_Volumetric_DistanceFunction);
-		OutEnvironment.SetDefine(TEXT("DECALBLENDMODEID_STAIN"), (uint32)DBM_Stain);
-		OutEnvironment.SetDefine(TEXT("DECALBLENDMODEID_NORMAL"), (uint32)DBM_Normal);
-		OutEnvironment.SetDefine(TEXT("DECALBLENDMODEID_EMISSIVE"), (uint32)DBM_Emissive);
-		OutEnvironment.SetDefine(TEXT("DECALBLENDMODEID_TRANSLUCENT"), (uint32)DBM_Translucent);
 	}
 
 	FDeferredDecalPS() {}
@@ -162,7 +123,7 @@ public:
 	{
 		const FPixelShaderRHIParamRef ShaderRHI = GetPixelShader();
 
-		FMaterialShader::SetParameters(RHICmdList, ShaderRHI, MaterialProxy, *MaterialProxy->GetMaterial(View.GetFeatureLevel()), View, true, ESceneRenderTargetsMode::SetTextures);
+		FMaterialShader::SetParameters(RHICmdList, ShaderRHI, MaterialProxy, *MaterialProxy->GetMaterial(View.GetFeatureLevel()), View, View.ViewUniformBuffer, true, ESceneRenderTargetsMode::SetTextures);
 
 		FTransform ComponentTrans = DecalProxy.ComponentTrans;
 
@@ -243,15 +204,9 @@ void FDecalRendering::BuildVisibleDecalList(const FScene& Scene, const FViewInfo
 	{
 		bool bIsShown = true;
 
-		// Handle the decal actor having bHidden set when we are in the editor, in G mode
-#if WITH_EDITOR
-		if (View.Family->EngineShowFlags.Editor)
-#endif
+		if (!DecalProxy->IsShown(&View))
 		{
-			if (!DecalProxy->DrawInGame)
-			{
-				bIsShown = false;
-			}
+			bIsShown = false;
 		}
 
 		const FMatrix ComponentToWorldMatrix = DecalProxy->ComponentTrans.ToMatrixWithScale();
@@ -292,7 +247,7 @@ void FDecalRendering::BuildVisibleDecalList(const FScene& Scene, const FViewInfo
 					Data.FadeAlpha = FMath::Min(Alpha, 1.0f);
 				}
 
-				EDecalRenderStage LocalDecalRenderStage = ComputeRenderStage(ShaderPlatform, Data.DecalBlendMode);
+				EDecalRenderStage LocalDecalRenderStage = FDecalRenderingCommon::ComputeRenderStage(ShaderPlatform, Data.DecalBlendMode);
 
 				// we could do this test earlier to avoid the decal intersection but getting DecalBlendMode also costs
 				if (View.Family->EngineShowFlags.ShaderComplexity || (DecalRenderStage == LocalDecalRenderStage && Data.FadeAlpha>0.0f) )
@@ -343,99 +298,6 @@ FMatrix FDecalRendering::ComputeComponentToClipMatrix(const FViewInfo& View, con
 {
 	FMatrix ComponentToWorldMatrixTrans = DecalComponentToWorld.ConcatTranslation(View.ViewMatrices.PreViewTranslation);
 	return ComponentToWorldMatrixTrans * View.ViewMatrices.TranslatedViewProjectionMatrix;
-}
-
-FDecalRendering::ERenderTargetMode FDecalRendering::ComputeRenderTargetMode(EShaderPlatform Platform, EDecalBlendMode DecalBlendMode, bool bHasNormal)
-{
-	if (IsMobilePlatform(Platform))
-	{
-		return RTM_SceneColor;
-	}
-	
-	switch(DecalBlendMode)
-	{
-		case DBM_Translucent:
-		case DBM_Stain:
-			return bHasNormal ? RTM_SceneColorAndGBufferWithNormal : RTM_SceneColorAndGBufferNoNormal;
-
-		case DBM_Normal:
-			return RTM_GBufferNormal;
-
-		case DBM_Emissive:
-			return RTM_SceneColor;
-
-		case DBM_DBuffer_ColorNormalRoughness:
-		case DBM_DBuffer_Color:
-		case DBM_DBuffer_ColorNormal:
-		case DBM_DBuffer_ColorRoughness:
-		case DBM_DBuffer_Normal:
-		case DBM_DBuffer_NormalRoughness:
-		case DBM_DBuffer_Roughness:
-			// can be optimized using less MRT when possible
-			return RTM_DBuffer;
-
-		case DBM_Volumetric_DistanceFunction:
-			return bHasNormal ? RTM_SceneColorAndGBufferDepthWriteWithNormal : RTM_SceneColorAndGBufferDepthWriteNoNormal;
-	}
-
-	// add the missing decal blend mode to the switch
-	check(0);
-	return RTM_Unknown;
-}
-
-// @return see EDecalRenderStage
-EDecalRenderStage FDecalRendering::ComputeRenderStage(EShaderPlatform Platform, EDecalBlendMode DecalBlendMode)
-{
-	if (IsMobilePlatform(Platform))
-	{
-		return DRS_ForwardShading;
-	}
-		
-	switch(DecalBlendMode)
-	{
-		case DBM_DBuffer_ColorNormalRoughness:
-		case DBM_DBuffer_Color:
-		case DBM_DBuffer_ColorNormal:
-		case DBM_DBuffer_ColorRoughness:
-		case DBM_DBuffer_Normal:
-		case DBM_DBuffer_NormalRoughness:
-		case DBM_DBuffer_Roughness:
-			return DRS_BeforeBasePass;
-
-		case DBM_Translucent:
-		case DBM_Stain:
-		case DBM_Normal:
-		case DBM_Emissive:
-			return DRS_BeforeLighting;
-		
-		case DBM_Volumetric_DistanceFunction:
-			return DRS_AfterBasePass;
-
-		default:
-			check(0);
-	}
-	
-	return DRS_BeforeBasePass;
-}
-
-// @return DECAL_RENDERTARGET_COUNT for the shader
-uint32 FDecalRendering::ComputeRenderTargetCount(EShaderPlatform Platform, ERenderTargetMode RenderTargetMode)
-{
-	// has to be SceneColor on mobile 
-	check(!IsMobilePlatform(Platform) || RenderTargetMode == RTM_SceneColor);
-
-	switch(RenderTargetMode)
-	{
-		case RTM_SceneColorAndGBufferWithNormal:				return 4;
-		case RTM_SceneColorAndGBufferNoNormal:					return 4;
-		case RTM_SceneColorAndGBufferDepthWriteWithNormal:		return 5;
-		case RTM_SceneColorAndGBufferDepthWriteNoNormal:		return 5;
-		case RTM_DBuffer:										return 3;
-		case RTM_GBufferNormal:									return 1;
-		case RTM_SceneColor:									return 1;
-	}
-
-	return 0;
 }
 
 void FDecalRendering::SetShader(FRHICommandList& RHICmdList, const FViewInfo& View, const FTransientDecalRenderData& DecalData, const FMatrix& FrustumComponentToClip)

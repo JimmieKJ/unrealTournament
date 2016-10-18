@@ -3,6 +3,8 @@
 #include "DesktopPlatformPrivatePCH.h"
 #include "LinuxApplication.h"
 #include "FeedbackContextMarkup.h"
+#include "HAL/ThreadHeartBeat.h"
+
 //#include "LinuxNativeFeedbackContext.h"
 // custom dialogs
 #if WITH_LINUX_NATIVE_DIALOGS
@@ -225,7 +227,7 @@ bool FDesktopPlatformLinux::FileDialogShared(bool bSave, const void* ParentWindo
 
 		for (const FString& Extension : ExtensionsArray)
 		{
-			if (AllExtensionsSpaceDelim.Find(Extension, ESearchCase::CaseSensitive) == INDEX_NONE)
+			if (AllExtensionsSpaceDelim.Find(Extension, ESearchCase::IgnoreCase) == INDEX_NONE)
 			{
 				AllExtensionsSpaceDelim += Extension;
 				AllExtensionsSpaceDelim += TEXT(" ");
@@ -346,7 +348,8 @@ void FDesktopPlatformLinux::EnumerateEngineInstallations(TMap<FString, FString> 
 	}
 	else
 	{
-	    SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Unable to write to Settings Directory", TCHAR_TO_UTF8(*UProjectPath), NULL);
+		FSlowHeartBeatScope SuspendHeartBeat;
+		SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Unable to write to Settings Directory", TCHAR_TO_UTF8(*UProjectPath), NULL);
 	}
 
 	FConfigFile ConfigFile;

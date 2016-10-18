@@ -8,6 +8,7 @@
 #pragma once
 #include "PreviewAssetAttachComponent.h"
 #include "SmartName.h"
+#include "ReferenceSkeleton.h"
 #include "Skeleton.generated.h"
 
 class UAnimSequence;
@@ -226,7 +227,7 @@ class USkeleton : public UObject
 {
 	GENERATED_UCLASS_BODY()
 
-private:
+protected:
 	/** Skeleton bone tree - each contains name and parent index**/
 	UPROPERTY(VisibleAnywhere, Category=Skeleton)
 	TArray<struct FBoneNode> BoneTree;
@@ -334,9 +335,13 @@ public:
 	ENGINE_API void RemoveSlotGroup(const FName& InSlotName);
 	ENGINE_API void RenameSlotName(const FName& OldName, const FName& NewName);
 
+	////////////////////////////////////////////////////////////////////////////
+	// Smart Name Interfaces
+	////////////////////////////////////////////////////////////////////////////
 	// Adds a new name to the smart name container and modifies the skeleton so it can be saved
 	// return bool - Whether a name was added (false if already present)
-	ENGINE_API bool AddSmartNameAndModify(FName ContainerName, FName NewName, FSmartNameMapping::UID& NewUid);
+#if WITH_EDITOR
+	ENGINE_API bool AddSmartNameAndModify(FName ContainerName, FName NewDisplayName, FSmartName& NewName);
 
 	// Renames a smartname in the specified container and modifies the skeleton
 	// return bool - Whether the rename was sucessful
@@ -347,13 +352,28 @@ public:
 
 	// Removes smartnames from the specified container and modifies the skeleton
 	ENGINE_API void RemoveSmartnamesAndModify(FName ContainerName, const TArray<FSmartNameMapping::UID>& Uids);
+#endif// WITH_EDITOR
+
+	// quick wrapper function for Find UID by name, if not found, it will return FSmartNameMapping::MaxUID
+	ENGINE_API FSmartNameMapping::UID GetUIDByName(const FName& ContainerName, const FName& Name);
+	ENGINE_API bool GetSmartNameByUID(const FName& ContainerName, FSmartNameMapping::UID UID, FSmartName& OutSmartName);
+	ENGINE_API bool GetSmartNameByName(const FName& ContainerName, const FName& InName, FSmartName& OutSmartName);
+
+	// Adds a new name to the smart name container and modifies the skeleton so it can be saved
+	// return bool - Whether a name was added (false if already present)
+	ENGINE_API bool RenameSmartName(FName ContainerName, const FSmartNameMapping::UID& Uid, FName NewName);
 
 	// Get or add a smartname container with the given name
-	ENGINE_API const FSmartNameMapping* GetOrAddSmartNameContainer(FName ContainerName);
+	ENGINE_API const FSmartNameMapping* GetSmartNameContainer(const FName& ContainerName) const;
 
+	// make sure the smart name has valid UID and so on
+	ENGINE_API void VerifySmartName(const FName&  ContainerName, FSmartName& InOutSmartName);
+	ENGINE_API void VerifySmartNames(const FName&  ContainerName, TArray<FSmartName>& InOutSmartNames);
+private:
 	// Get or add a smartname container with the given name
-	ENGINE_API const FSmartNameMapping* GetSmartNameContainer(FName ContainerName) const;
-
+	FSmartNameMapping* GetOrAddSmartNameContainer(const FName& ContainerName);
+	bool VerifySmartNameInternal(const FName&  ContainerName, FSmartName& InOutSmartName);
+	bool FillSmartNameByDisplayName(FSmartNameMapping* Mapping, const FName& DisplayName, FSmartName& OutSmartName);
 #if WITH_EDITORONLY_DATA
 private:
 	/** The default skeletal mesh to use when previewing this skeleton */
@@ -364,7 +384,7 @@ private:
 	FRigConfiguration RigConfig;
 
 	/** rig property will be saved separately */
-	virtual void GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const override;
+	ENGINE_API virtual void GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const override;
 
 public:
 
@@ -474,7 +494,7 @@ public:
 	ENGINE_API bool IsCompatibleMesh(const USkeletalMesh* InSkelMesh) const;
 
 	/** Clears all cache data **/
-	void ClearCacheData();
+	ENGINE_API void ClearCacheData();
 
 	/** 
 	 * Find a mesh linkup table (mapping of skeleton bone tree indices to refpose indices) for a particular SkeletalMesh
@@ -524,13 +544,13 @@ public:
 	 *	Anybody modifying BoneTree will corrupt animation data, so will need to make sure it's not modifiable outside of Skeleton
 	 *	You can add new BoneNode but you can't modify current list. The index will be referenced by Animation data.
 	 */
-	const TArray<FBoneNode> & GetBoneTree()	const
+	const TArray<FBoneNode>& GetBoneTree()	const
 	{ 
 		return BoneTree;	
 	}
 
 	// @todo document
-	const TArray<FTransform> & GetRefLocalPoses( FName RetargetSource = NAME_None ) const 
+	const TArray<FTransform>& GetRefLocalPoses( FName RetargetSource = NAME_None ) const 
 	{
 		if ( RetargetSource != NAME_None ) 
 		{
@@ -552,7 +572,7 @@ public:
 	 *
 	 * @return	Index of Track of Animation Sequence
 	 */
-	ENGINE_API int32 GetAnimationTrackIndex(const int32& InSkeletonBoneIndex, const UAnimSequence* InAnimSeq);
+	ENGINE_API int32 GetAnimationTrackIndex(const int32& InSkeletonBoneIndex, const UAnimSequence* InAnimSeq, const bool bUseRawData);
 
 	/** 
 	 * Get Bone Tree Index from Reference Bone Index
@@ -584,10 +604,10 @@ public:
 
 	ENGINE_API void SetBoneTranslationRetargetingMode(const int32& BoneIndex, EBoneTranslationRetargetingMode::Type NewRetargetingMode, bool bChildrenToo=false);
 
-	virtual void PostLoad() override;
-	virtual void PostDuplicate(bool bDuplicateForPIE) override;
-	virtual void PostInitProperties() override;
-	virtual void Serialize(FArchive& Ar) override;
+	ENGINE_API virtual void PostLoad() override;
+	ENGINE_API virtual void PostDuplicate(bool bDuplicateForPIE) override;
+	ENGINE_API virtual void PostInitProperties() override;
+	ENGINE_API virtual void Serialize(FArchive& Ar) override;
 
 	ENGINE_API static void AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector);
 

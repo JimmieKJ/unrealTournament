@@ -128,6 +128,7 @@ enum class ESerializedObjectType : uint32
 	EInterfaceProperty,
 	EStructProperty,
 	EMapProperty,
+	ESetProperty,
 	EArrayProperty,
 	EUnrealSourceFile,
 	EFileScope,

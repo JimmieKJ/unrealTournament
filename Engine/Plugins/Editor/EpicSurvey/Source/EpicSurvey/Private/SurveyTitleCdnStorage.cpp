@@ -89,7 +89,7 @@ bool FSurveyTitleCdnStorage::EnumerateFiles(const FPagedQuery& Page)
 
 	// Create the Http request and add to pending request list
 	TSharedRef<class IHttpRequest> HttpRequest = FHttpModule::Get().CreateRequest();
-	EnumerateFilesRequests.Enqueue(&HttpRequest.Get());
+	EnumerateFilesRequests.Enqueue(HttpRequest);
 
 	HttpRequest->OnProcessRequestComplete().BindThreadSafeSP(AsShared(), &FSurveyTitleCdnStorage::EnumerateFiles_HttpRequestComplete);
 	HttpRequest->SetURL( IndexUrl );
@@ -179,7 +179,7 @@ bool FSurveyTitleCdnStorage::ReadFile(const FString& FileName)
 	}
 	
 	// Make sure a file request for this file is not currently pending
-	for (TMap<IHttpRequest*, FPendingFileRequest>::TConstIterator It(FileRequests); It; ++It)
+	for (FFileRequestsMap::TConstIterator It(FileRequests); It; ++It)
 	{
 		if (It.Value() == FPendingFileRequest(FileName))
 		{
@@ -245,7 +245,7 @@ bool FSurveyTitleCdnStorage::ReadFile(const FString& FileName)
 
 	// Create the Http request and add to pending request list
 	TSharedRef<class IHttpRequest> HttpRequest = FHttpModule::Get().CreateRequest();
-	FileRequests.Add(&HttpRequest.Get(), FPendingFileRequest(FileName));
+	FileRequests.Add(HttpRequest, FPendingFileRequest(FileName));
 
 	HttpRequest->OnProcessRequestComplete().BindThreadSafeSP(AsShared(), &FSurveyTitleCdnStorage::ReadFile_HttpRequestComplete);
 	HttpRequest->SetURL( FileName );
@@ -256,8 +256,11 @@ bool FSurveyTitleCdnStorage::ReadFile(const FString& FileName)
 
 void FSurveyTitleCdnStorage::EnumerateFiles_HttpRequestComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded)
 {
-	IHttpRequest* Request;
-	EnumerateFilesRequests.Dequeue(Request);
+	{
+		// Scoped because Request isn't used, if it needs to be used be sure to use Request.Pin() it and check validity
+		TWeakPtr<IHttpRequest> Request;
+		EnumerateFilesRequests.Dequeue(Request);
+	}
 
 	bool bResult = false;
 	FString ResponseStr, ErrorStr;
@@ -360,8 +363,8 @@ void FSurveyTitleCdnStorage::ReadFile_HttpRequestComplete(FHttpRequestPtr HttpRe
 	FString ResponseStr, ErrorStr;
 
 	// should have a pending Http request
-	FPendingFileRequest PendingRequest = FileRequests.FindChecked(HttpRequest.Get());
-	FileRequests.Remove(HttpRequest.Get());
+	FPendingFileRequest PendingRequest = FileRequests.FindChecked(HttpRequest);
+	FileRequests.Remove(HttpRequest);
 
 	// Cloud file being operated on
 	FCloudFile* CloudFile = GetCloudFile(PendingRequest.FileName, true);

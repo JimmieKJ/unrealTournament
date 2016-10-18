@@ -30,6 +30,9 @@ public:
 	/** Gets the tooltip widget for this palette item. */
 	virtual TSharedRef<IToolTip> GetToolTip() const override;
 
+	/** Gets the WidgetClass */
+	TWeakObjectPtr<UClass> GetWidgetClass() const { return WidgetClass; }
+
 protected:
 	/** Creates a widget template class without any class reference */
 	FWidgetTemplateClass();

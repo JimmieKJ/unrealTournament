@@ -1,7 +1,8 @@
 ﻿<%-- // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved. --%>
 
 <%@ Control Language="C#" Inherits="System.Web.Mvc.ViewUserControl<CrashesViewModel>" %>
-<%@ Import Namespace="Tools.CrashReporter.CrashReportWebSite.Models" %>
+<%@ Import Namespace="Tools.CrashReporter.CrashReportWebSite.DataModels" %>
+<%@ Import Namespace="Tools.CrashReporter.CrashReportWebSite.ViewModels" %>
 
 <table id ="CrashesTable">
 	<tr id="SelectBar">
@@ -101,15 +102,15 @@
 					{
 						using( FScopedLogTimer LogTimer2 = new FScopedLogTimer( "CurrentCrash" + "(" + CurrentCrash.Id + ")" ) )
 						{
-							Buggs_Crash BuggCrash = null;
+						    Bugg bugg = null;
+						    
 							try
 							{
-								// This is veeery slow.
-								//BuggCrash = CurrentCrash.Buggs_Crashes.FirstOrDefault();
+                                bugg = CurrentCrash.Buggs.First();
 							}
 							catch
 							{
-								BuggCrash = null;
+                                bugg = null;
 							}
 
 							Iteration++;
@@ -129,7 +130,7 @@
 								CrashColorDescription = "This crash has been fixed in CL# " + CurrentCrash.FixedChangeList;
 							}
 
-							if (( BuggCrash != null ) && !string.IsNullOrWhiteSpace( CurrentCrash.Jira ) && string.IsNullOrWhiteSpace( CurrentCrash.FixedChangeList ))
+                            if ((bugg != null) && !string.IsNullOrWhiteSpace(CurrentCrash.Jira) && string.IsNullOrWhiteSpace(CurrentCrash.FixedChangeList))
 							{
 								CrashRowColor = "#D01F3C"; // red
 								CrashColorDescription = "This crash has occurred more than once and been assigned a JIRA: " + CurrentCrash.Jira + " but has not been fixed.";
@@ -146,15 +147,15 @@
 									<td class="CrashTd" style="background-color: <%=CrashRowColor %>;" title="<%=CrashColorDescription %>">
 										<input type="CHECKBOX" value="<%=Iteration %>" name="<%=CurrentCrash.Id%>" id="<%=CurrentCrash.Id %>" class='input CrashCheckBox'></td>
 									<td class="Id"><%=Html.ActionLink(CurrentCrash.Id.ToString(), "Show", new { controller = "crashes", id = CurrentCrash.Id }, null)%>
-										<br />
-										<em style="font-size: x-small;"><%= ( BuggCrash != null ) ? BuggCrash.BuggId.ToString() : ""  %></em></td>
+										<%--<br />
+										<em style="font-size: x-small;"><%= ( bugg != null ) ? bugg.Id.ToString() : ""  %></em>--%></td>
 											<td class="TimeOfCrash">
 												<%=CurrentCrash.GetTimeOfCrash()[0]%>
 												<br />
 												<%=CurrentCrash.GetTimeOfCrash()[1]%>
 											</td>
 									<td class="Username">
-										<%=Model.RealUserName != null ? Model.RealUserName : CurrentCrash.UserName%>
+										<%=Model.RealUserName ?? CurrentCrash.User.UserName%>
 									</td>
 									<td class="CallStack">
 										<div style="clip: auto;">
@@ -189,8 +190,8 @@
 									<td class="Branch"><%=CurrentCrash.Branch%>&nbsp;</td>
 									<td class="Description"><span class="TableData"><%=CurrentCrash.Description%>&nbsp;</span></td>
 									<td class="Summary"><%=Html.Encode(CurrentCrash.Summary)%></td>
-									<td class="BuiltFromCL"><%=CurrentCrash.BuiltFromCL%></td>
-									<td class="Computer"><%=CurrentCrash.MachineId%></td>
+									<td class="BuiltFromCL"><%=CurrentCrash.ChangeListVersion%></td>
+									<td class="Computer"><%=CurrentCrash.ComputerName%></td>
 									<td class="Platform"><%=CurrentCrash.PlatformName%></td>
 									<td class="Status"><%=CurrentCrash.Status%></td>
 									<td class="Module"><%=CurrentCrash.Module%></td>

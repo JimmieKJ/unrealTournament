@@ -48,10 +48,5 @@ public class PLUGIN_NAME : ModuleRules
 				// ... add any modules that your module loads dynamically here ...
 			}
 			);
-
-		AddThirdPartyPrivateStaticDependencies(Target,
-				"PLUGIN_NAMELibrary"
-				// ... add any third party modules that your module depends on here ...
-				);
 	}
 }

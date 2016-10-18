@@ -163,6 +163,7 @@ void AndroidEGL::TerminateEGL()
 {
 
 	eglTerminate(PImplData->eglDisplay);
+	PImplData->eglDisplay = EGL_NO_DISPLAY;
 	PImplData->Initalized = false;
 }
 
@@ -324,12 +325,12 @@ void AndroidEGL::CreateEGLSurface(ANativeWindow* InWindow, bool bCreateWndSurfac
 void AndroidEGL::InitEGL(APIVariant API)
 {
 	// make sure we only do this once (it's optionally done early for cooker communication)
-	static bool bAlreadyInitialized = false;
-	if (bAlreadyInitialized)
+//	static bool bAlreadyInitialized = false;
+	if (PImplData->Initalized)
 	{
 		return;
 	}
-	bAlreadyInitialized = true;
+//	bAlreadyInitialized = true;
 
 	check(PImplData->eglDisplay == EGL_NO_DISPLAY)
 	PImplData->eglDisplay = eglGetDisplay(EGL_DEFAULT_DISPLAY);
@@ -541,12 +542,15 @@ void AndroidEGL::InitSurface(bool bUseSmallSurface, bool bCreateWndSurface)
 	PImplData->SingleThreadedContext.eglSurface = PImplData->eglSurface;
 }
 
+// call out to JNI to see if the application was packaged for GearVR
+extern bool AndroidThunkCpp_IsGearVRApplication();
 
 void AndroidEGL::ReInit()
 {
 	FPlatformMisc::LowLevelOutputDebugString(TEXT("AndroidEGL::ReInit()"));
 	SetCurrentContext(EGL_NO_CONTEXT, EGL_NO_SURFACE);
-	InitSurface(false, true);
+	bool bCreateSurface = !AndroidThunkCpp_IsGearVRApplication();
+	InitSurface(false, bCreateSurface);
 	SetCurrentSharedContext();
 }
 

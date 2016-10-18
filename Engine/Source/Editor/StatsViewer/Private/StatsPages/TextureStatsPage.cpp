@@ -354,8 +354,8 @@ void FTextureStatsPage::OnEditorSelectionChanged( UObject* NewSelection, TWeakPt
 {
 	if(InParentStatsViewer.IsValid())
 	{
-		int32 ObjectSetIndex = InParentStatsViewer.Pin()->GetObjectSetIndex();
-		if( ObjectSetIndex == TextureObjectSet_SelectedActors || ObjectSetIndex == TextureObjectSet_SelectedMaterials )
+		const int32 ObjSetIndex = InParentStatsViewer.Pin()->GetObjectSetIndex();
+		if( ObjSetIndex == TextureObjectSet_SelectedActors || ObjSetIndex == TextureObjectSet_SelectedMaterials )
 		{
 			InParentStatsViewer.Pin()->Refresh();
 		}
@@ -366,8 +366,8 @@ void FTextureStatsPage::OnEditorNewCurrentLevel( TWeakPtr< IStatsViewer > InPare
 {
 	if(InParentStatsViewer.IsValid())
 	{
-		int32 ObjectSetIndex = InParentStatsViewer.Pin()->GetObjectSetIndex();
-		if( ObjectSetIndex == TextureObjectSet_CurrentStreamingLevel )
+		const int32 ObjSetIndex = InParentStatsViewer.Pin()->GetObjectSetIndex();
+		if( ObjSetIndex == TextureObjectSet_CurrentStreamingLevel )
 		{
 			InParentStatsViewer.Pin()->Refresh();
 		}

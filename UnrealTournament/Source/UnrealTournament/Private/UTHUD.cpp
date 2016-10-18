@@ -30,6 +30,8 @@
 #include "OnlineSubsystemUtils.h"
 #include "UTUMGHudWidget.h"
 #include "UTGameMessage.h"
+#include "UTInGameIntroZone.h"
+#include "UTInGameIntroHelper.h"
 
 static FName NAME_Intensity(TEXT("Intensity"));
 
@@ -107,7 +109,7 @@ AUTHUD::AUTHUD(const class FObjectInitializer& ObjectInitializer) : Super(Object
 	SuffixNth = NSLOCTEXT("UTHUD", "NthPlaceSuffix", "th");
 
 	CachedProfileSettings = nullptr;
-	BuildText = NSLOCTEXT("UTHUD", "info", "PRE-ALPHA Build 0.1.4");
+	BuildText = NSLOCTEXT("UTHUD", "info", "PRE-ALPHA Build 0.1.5");
 	bShowVoiceDebug = false;
 
 	static ConstructorHelpers::FObjectFinder<UMaterialInterface> DamageScreenMatObject(TEXT("/Game/RestrictedAssets/Blueprints/WIP/Nick/CameraAnims/HitScreenEffect.HitScreenEffect"));
@@ -495,6 +497,34 @@ void AUTHUD::NotifyMatchStateChange()
 				}
 			}
 
+			/* 
+			Removed for now. Pending changes to End Game flow
+			
+			const int RedTeam = 0;
+			const int BlueTeam = 1;
+			if (GS->WinningTeam && (GS->WinningTeam->GetTeamNum() == RedTeam))
+			{
+				if (GS->ShouldUseInGameSummary(InGameIntroZoneTypes::Team_PostMatch_RedWin))
+				{
+					GS->InGameIntroHelper->HandleEndMatchSummary(GetWorld(), InGameIntroZoneTypes::Team_PostMatch_RedWin);
+				}
+				else if (GS->ShouldUseInGameSummary(InGameIntroZoneTypes::Team_PostMatch))
+				{
+					GS->InGameIntroHelper->HandleEndMatchSummary(GetWorld(), InGameIntroZoneTypes::Team_PostMatch);
+				}
+			}
+			else if (GS->WinningTeam && (GS->WinningTeam->GetTeamNum() == BlueTeam))
+			{
+				if (GS->ShouldUseInGameSummary(InGameIntroZoneTypes::Team_PostMatch_BlueWin))
+				{
+					GS->InGameIntroHelper->HandleEndMatchSummary(GetWorld(), InGameIntroZoneTypes::Team_PostMatch_BlueWin);
+				}
+				else if (GS->ShouldUseInGameSummary(InGameIntroZoneTypes::Team_PostMatch))
+				{
+					GS->InGameIntroHelper->HandleEndMatchSummary(GetWorld(), InGameIntroZoneTypes::Team_PostMatch);
+				}
+			}*/
+			
 			AUTGameMode* DefaultGame = Cast<AUTGameMode>(GS->GetDefaultGameMode());
 			float MatchSummaryDelay = DefaultGame ? DefaultGame->EndScoreboardDelay + DefaultGame->MainScoreboardDisplayTime + DefaultGame->ScoringPlaysDisplayTime : 10.f;
 			GetWorldTimerManager().SetTimer(MatchSummaryHandle, this, &AUTHUD::OpenMatchSummary, MatchSummaryDelay*GetActorTimeDilation(), false);
@@ -505,12 +535,34 @@ void AUTHUD::NotifyMatchStateChange()
 		}
 		else if (GS->GetMatchState() == MatchState::PlayerIntro)
 		{
-			if (UTPlayerOwner->UTPlayerState && UTPlayerOwner->UTPlayerState->bIsWarmingUp)
+			bool bStartedInWorldIntroTimer = false;
+
+			if (GS->InGameIntroHelper)
 			{
-				UTPlayerOwner->ClientReceiveLocalizedMessage(UUTGameMessage::StaticClass(), 16, nullptr, nullptr, nullptr);
+				UUTInGameIntroHelper* HelperCapture = GS->InGameIntroHelper;
+				InGameIntroZoneTypes TypeToPlay = HelperCapture->GetIntroTypeToPlay(GetWorld());
+				if (TypeToPlay != InGameIntroZoneTypes::Invalid)
+				{
+					UWorld* World = GetWorld();
+					FTimerDelegate TimerCallback;
+					TimerCallback.BindLambda([HelperCapture, World, TypeToPlay] {HelperCapture->HandleIntro(World, TypeToPlay); });
+
+					GetWorldTimerManager().SetTimer(MatchSummaryHandle, TimerCallback, 1.7f, false);
+					bStartedInWorldIntroTimer = true;
+				}
+			}	
+			
+			//if InGameIntro didn't start, use old method
+			if (!bStartedInWorldIntroTimer)
+			{
+				if (UTPlayerOwner->UTPlayerState && UTPlayerOwner->UTPlayerState->bIsWarmingUp)
+				{
+					UTPlayerOwner->ClientReceiveLocalizedMessage(UUTGameMessage::StaticClass(), 16, nullptr, nullptr, nullptr);
+				}
+				GetWorldTimerManager().SetTimer(MatchSummaryHandle, this, &AUTHUD::OpenMatchSummary, 1.7f, false);
 			}
-			GetWorldTimerManager().SetTimer(MatchSummaryHandle, this, &AUTHUD::OpenMatchSummary, 1.7f, false);
 		}
+
 		else if (GS->GetMatchState() != MatchState::MapVoteHappening)
 		{
 			ToggleScoreboard(false);
@@ -521,6 +573,10 @@ void AUTHUD::NotifyMatchStateChange()
 				UTLP->ShowQuickChat(UTPlayerOwner->UTPlayerState->ChatDestination);
 			}
 
+			if (GS->InGameIntroHelper)
+			{
+				GS->InGameIntroHelper->CleanUp();
+			}
 		}
 	}
 }
@@ -605,10 +661,11 @@ void AUTHUD::DrawHUD()
 	{
 		return;
 	}
-	Super::DrawHUD();
 
 	if (!IsPendingKillPending() && !IsPendingKill())
 	{
+		Super::DrawHUD();
+
 		// find center of the Canvas
 		const FVector2D Center(Canvas->ClipX * 0.5f, Canvas->ClipY * 0.5f);
 
@@ -626,6 +683,27 @@ void AUTHUD::DrawHUD()
 			if (UTLP)
 			{
 				UTLP->OpenSpectatorWindow();
+			}
+		}
+
+		if (DamageScreenMID != nullptr)
+		{
+			float Intensity = 0.0f;
+			for (const FDamageHudIndicator& Indicator : DamageIndicators)
+			{
+				if (Indicator.FadeTime > 0.0f && Indicator.DamageAmount > 0.0f)
+				{
+					Intensity = FMath::Max<float>(Intensity, FMath::Min<float>(1.0f, Indicator.FadeTime / DAMAGE_FADE_DURATION));
+				}
+			}
+			if (Cast<AUTCharacter>(PlayerOwner->GetViewTarget()) != nullptr && PlayerOwner->GetViewTarget()->bTearOff)
+			{
+				Intensity = FMath::Max<float>(Intensity, 0.5f);
+			}
+			if (Intensity > 0.0f)
+			{
+				DamageScreenMID->SetScalarParameterValue(NAME_Intensity, Intensity);
+				DrawMaterial(DamageScreenMID, 0.0f, 0.0f, Canvas->ClipX, Canvas->ClipY, 0.0f, 0.0f, 1.0f, 1.0f);
 			}
 		}
 
@@ -702,7 +780,7 @@ void AUTHUD::DrawHUD()
 						A->GetOverlappingActors(PickupClaims, APawn::StaticClass());
 						if (PickupClaims.Num() <= 1)
 						{
-							Canvas->DrawColor = WhiteColor;
+							Canvas->DrawColor = FColor::White;
 							FVector2D Size(256.0f, 64.0f);
 							FVector2D Pos((Canvas->SizeX - Size.X) * 0.5f, Canvas->SizeY * 0.4f - Size.Y * 0.5f);
 							Canvas->K2_DrawBox(Pos, Size, 4.0f);
@@ -710,23 +788,6 @@ void AUTHUD::DrawHUD()
 						}
 					}
 				}
-			}
-		}
-
-		if (DamageScreenMID != nullptr)
-		{
-			float Intensity = 0.0f;
-			for (const FDamageHudIndicator& Indicator : DamageIndicators)
-			{
-				if (Indicator.FadeTime > 0.0f && Indicator.DamageAmount > 0.0f)
-				{
-					Intensity = FMath::Max<float>(Intensity, FMath::Min<float>(1.0f, Indicator.FadeTime / DAMAGE_FADE_DURATION));
-				}
-			}
-			if (Intensity > 0.0f)
-			{
-				DamageScreenMID->SetScalarParameterValue(NAME_Intensity, Intensity);
-				DrawMaterial(DamageScreenMID, 0.0f, 0.0f, Canvas->ClipX, Canvas->ClipY, 0.0f, 0.0f, 1.0f, 1.0f);
 			}
 		}
 
@@ -771,7 +832,7 @@ void AUTHUD::DrawWatermark()
 {
 	float RenderScale = Canvas->ClipX / 1920.0f;
 	FVector2D Size = FVector2D(150.0f * RenderScale, 49.0f * RenderScale);
-	FVector2D Position = FVector2D(Canvas->ClipX - Size.X - 10.0f * RenderScale, Canvas->ClipY - Size.Y - 100.0f * RenderScale);
+	FVector2D Position = FVector2D(Canvas->ClipX - Size.X - 10.0f * RenderScale, Canvas->ClipY - Size.Y - 50.0f * RenderScale);
 	Canvas->DrawColor = FColor(255,255,255,64);
 	Canvas->DrawTile(ScoreboardAtlas, Position.X, Position.Y, Size.X, Size.Y, 162.0f, 14.0f, 301.0f, 98.0f);
 
@@ -1714,6 +1775,19 @@ TWeakObjectPtr<class UUTUMGHudWidget> AUTHUD::ActivateUMGHudWidget(FString UMGHu
 		}
 	}
 	return FinalUMGWidget;
+}
+
+bool AUTHUD::IsUMGWidgetActive(TWeakObjectPtr<UUTUMGHudWidget> TestWidget)
+{
+	for (int i = 0; i < UMGHudWidgetStack.Num(); i++)
+	{
+		if (UMGHudWidgetStack[i].Get() == TestWidget.Get())
+		{
+			return true;
+		}
+	}
+
+	return false;
 }
 
 void AUTHUD::ActivateActualUMGHudWidget(TWeakObjectPtr<UUTUMGHudWidget> WidgetToActivate)

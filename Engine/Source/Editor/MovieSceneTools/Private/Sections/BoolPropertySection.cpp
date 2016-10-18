@@ -1,9 +1,12 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "MovieSceneToolsPrivatePCH.h"
+#include "BoolKeyArea.h"
+#include "BoolPropertySection.h"
+#include "CommonMovieSceneTools.h"
 #include "MovieSceneBoolTrack.h"
 #include "MovieSceneBoolSection.h"
-#include "BoolPropertySection.h"
+
 
 void FBoolPropertySection::GenerateSectionLayout( class ISectionLayoutBuilder& LayoutBuilder ) const
 {
@@ -54,7 +57,7 @@ int32 FBoolPropertySection::OnPaintSection( FSequencerSectionPainter& Painter ) 
 	{
 		float ThisTime = SectionSwitchTimes[i];
 		
-		const FColor Color = BoolSection->Eval(ThisTime) ? FColor(0, 255, 0, 200) : FColor(255, 0, 0, 200);
+		const FColor Color = BoolSection->Eval(ThisTime) ? FColor(0, 255, 0, 125) : FColor(255, 0, 0, 125);
 		
 		FVector2D StartPos(TimeConverter.TimeToPixel(ThisTime), VerticalOffset);
 		FVector2D Size(TimeConverter.TimeToPixel(SectionSwitchTimes[i+1]) - StartPos.X, Height);

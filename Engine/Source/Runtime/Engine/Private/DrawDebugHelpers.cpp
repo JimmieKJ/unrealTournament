@@ -213,12 +213,12 @@ void DrawDebugSolidBox(const UWorld* InWorld, FVector const& Center, FVector con
 	// no debug line drawing on dedicated server
 	if (GEngine->GetNetMode(InWorld) != NM_DedicatedServer)
 	{
-		FTransform Transform(Rotation);
+		FTransform Transform(Rotation, Center, FVector(1.0f, 1.0f, 1.0f));
 		ULineBatchComponent* const LineBatcher = GetDebugLineBatcher( InWorld, bPersistent, LifeTime, false );
 		if(LineBatcher != NULL)
 		{
 			float const ActualLifetime = (LifeTime > 0.f) ? LifeTime : LineBatcher->DefaultLifeTime;
-			FBox Box = FBox::BuildAABB(Center, Extent);
+			FBox Box = FBox::BuildAABB(FVector::ZeroVector, Extent);
 			LineBatcher->DrawSolidBox(Box, Transform, Color, DepthPriority, ActualLifetime);
 		}
 	}

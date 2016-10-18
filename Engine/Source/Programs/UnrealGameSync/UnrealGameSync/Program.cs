@@ -64,6 +64,9 @@ namespace UnrealGameSync
 			bool bUnstable;
 			ParseOption(RemainingArgs, "-unstable", out bUnstable);
 
+            string ProjectFileName;
+            ParseArgument(RemainingArgs, "-project=", out ProjectFileName);
+
 			string UpdateConfigFile = Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), "AutoUpdate.ini");
 			MergeUpdateSettings(UpdateConfigFile, ref UpdatePath, ref UpdateSpawn);
 
@@ -89,7 +92,7 @@ namespace UnrealGameSync
 				{
 					using(UpdateMonitor UpdateMonitor = new UpdateMonitor(new PerforceConnection(null, null, null), UpdatePath))
 					{
-						MainWindow Window = new MainWindow(UpdateMonitor, SqlConnectionString, DataFolder, ActivateEvent, bRestoreState, UpdateSpawn ?? Assembly.GetExecutingAssembly().Location);
+						MainWindow Window = new MainWindow(UpdateMonitor, SqlConnectionString, DataFolder, ActivateEvent, bRestoreState, UpdateSpawn ?? Assembly.GetExecutingAssembly().Location, ProjectFileName);
 						if(bUnstable)
 						{
 							Window.Text += String.Format(" (UNSTABLE BUILD {0})", Assembly.GetExecutingAssembly().GetName().Version);

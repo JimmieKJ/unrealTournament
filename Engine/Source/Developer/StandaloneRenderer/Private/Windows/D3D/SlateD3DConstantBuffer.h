@@ -1,9 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-
-#ifndef __D3DCONSTANT_BUFFER_H__
-#define __D3DCONSTANT_BUFFER_H__
-
+#pragma once
 
 template<typename BufferType>
 class FSlateD3DConstantBuffer
@@ -48,4 +45,3 @@ private:
 	BufferType BufferData;
 };
 
-#endif

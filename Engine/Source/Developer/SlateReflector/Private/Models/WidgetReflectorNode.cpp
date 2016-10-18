@@ -2,6 +2,7 @@
 
 #include "SlateReflectorPrivatePCH.h"
 #include "WidgetReflectorNode.h"
+#include "AssetRegistryModule.h"
 #include "ReflectionMetadata.h"
 
 #define LOCTEXT_NAMESPACE "WidgetReflectorNode"
@@ -121,9 +122,9 @@ int32 FLiveWidgetReflectorNode::GetWidgetLineNumber() const
 	return FWidgetReflectorNodeUtils::GetWidgetLineNumber(Widget.Pin());
 }
 
-FName FLiveWidgetReflectorNode::GetWidgetAssetName() const
+FAssetData FLiveWidgetReflectorNode::GetWidgetAssetData() const
 {
-	return FWidgetReflectorNodeUtils::GetWidgetAssetName(Widget.Pin());
+	return FWidgetReflectorNodeUtils::GetWidgetAssetData(Widget.Pin());
 }
 
 FVector2D FLiveWidgetReflectorNode::GetWidgetDesiredSize() const
@@ -175,7 +176,7 @@ FSnapshotWidgetReflectorNode::FSnapshotWidgetReflectorNode(const FArrangedWidget
 	, CachedWidgetReadableLocation(FWidgetReflectorNodeUtils::GetWidgetReadableLocation(InWidgetGeometry.Widget))
 	, CachedWidgetFile(FWidgetReflectorNodeUtils::GetWidgetFile(InWidgetGeometry.Widget))
 	, CachedWidgetLineNumber(FWidgetReflectorNodeUtils::GetWidgetLineNumber(InWidgetGeometry.Widget))
-	, CachedWidgetAssetName(FWidgetReflectorNodeUtils::GetWidgetAssetName(InWidgetGeometry.Widget))
+	, CachedWidgetAssetData(FWidgetReflectorNodeUtils::GetWidgetAssetData(InWidgetGeometry.Widget))
 	, CachedWidgetDesiredSize(FWidgetReflectorNodeUtils::GetWidgetDesiredSize(InWidgetGeometry.Widget))
 	, CachedWidgetForegroundColor(FWidgetReflectorNodeUtils::GetWidgetForegroundColor(InWidgetGeometry.Widget))
 	, CachedWidgetAddress(FWidgetReflectorNodeUtils::GetWidgetAddress(InWidgetGeometry.Widget))
@@ -218,9 +219,9 @@ int32 FSnapshotWidgetReflectorNode::GetWidgetLineNumber() const
 	return CachedWidgetLineNumber;
 }
 
-FName FSnapshotWidgetReflectorNode::GetWidgetAssetName() const
+FAssetData FSnapshotWidgetReflectorNode::GetWidgetAssetData() const
 {
-	return CachedWidgetAssetName;
+	return CachedWidgetAssetData;
 }
 
 FVector2D FSnapshotWidgetReflectorNode::GetWidgetDesiredSize() const
@@ -325,7 +326,7 @@ TSharedRef<FJsonValue> FSnapshotWidgetReflectorNode::ToJson(const TSharedRef<FSn
 	RootJsonObject->SetStringField(TEXT("WidgetReadableLocation"), RootSnapshotNode->CachedWidgetReadableLocation.ToString());
 	RootJsonObject->SetStringField(TEXT("WidgetFile"), RootSnapshotNode->CachedWidgetFile);
 	RootJsonObject->SetNumberField(TEXT("WidgetLineNumber"), RootSnapshotNode->CachedWidgetLineNumber);
-	RootJsonObject->SetStringField(TEXT("WidgetAssetName"), RootSnapshotNode->CachedWidgetAssetName.ToString());
+	RootJsonObject->SetStringField(TEXT("WidgetAssetPath"), RootSnapshotNode->CachedWidgetAssetData.ObjectPath.ToString());
 	RootJsonObject->SetField(TEXT("WidgetDesiredSize"), Internal::CreateVector2DJsonValue(RootSnapshotNode->CachedWidgetDesiredSize));
 	RootJsonObject->SetField(TEXT("WidgetForegroundColor"), Internal::CreateSlateColorJsonValue(RootSnapshotNode->CachedWidgetForegroundColor));
 	RootJsonObject->SetStringField(TEXT("WidgetAddress"), RootSnapshotNode->CachedWidgetAddress);
@@ -454,11 +455,14 @@ TSharedRef<FSnapshotWidgetReflectorNode> FSnapshotWidgetReflectorNode::FromJson(
 	RootSnapshotNode->CachedWidgetReadableLocation = FText::FromString(RootJsonObject->GetStringField(TEXT("WidgetReadableLocation")));
 	RootSnapshotNode->CachedWidgetFile = RootJsonObject->GetStringField(TEXT("WidgetFile"));
 	RootSnapshotNode->CachedWidgetLineNumber = RootJsonObject->GetIntegerField(TEXT("WidgetLineNumber"));
-	RootSnapshotNode->CachedWidgetAssetName = FName(*RootJsonObject->GetStringField(TEXT("WidgetAssetName")));
 	RootSnapshotNode->CachedWidgetDesiredSize = Internal::ParseVector2DJsonValue(RootJsonObject->GetField<EJson::None>(TEXT("WidgetDesiredSize")));
 	RootSnapshotNode->CachedWidgetForegroundColor = Internal::ParseSlateColorJsonValue(RootJsonObject->GetField<EJson::None>(TEXT("WidgetForegroundColor")));
 	RootSnapshotNode->CachedWidgetAddress = RootJsonObject->GetStringField(TEXT("WidgetAddress"));
 	RootSnapshotNode->CachedWidgetEnabled = RootJsonObject->GetBoolField(TEXT("WidgetEnabled"));
+
+	FName AssetPath(*RootJsonObject->GetStringField(TEXT("WidgetAssetPath")));
+	IAssetRegistry& AssetRegistry = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry")).Get();
+	RootSnapshotNode->CachedWidgetAssetData = AssetRegistry.GetAssetByObjectPath(AssetPath);
 
 	const TArray<TSharedPtr<FJsonValue>>& ChildNodesJsonArray = RootJsonObject->GetArrayField(TEXT("ChildNodes"));
 	for (const TSharedPtr<FJsonValue>& ChildNodeJsonValue : ChildNodesJsonArray)
@@ -567,21 +571,19 @@ int32 FWidgetReflectorNodeUtils::GetWidgetLineNumber(const TSharedPtr<SWidget>& 
 	return (InWidget.IsValid()) ? InWidget->GetCreatedInLocation().GetNumber() : 0;
 }
 
-FName FWidgetReflectorNodeUtils::GetWidgetAssetName(const TSharedPtr<SWidget>& InWidget)
+FAssetData FWidgetReflectorNodeUtils::GetWidgetAssetData(const TSharedPtr<SWidget>& InWidget)
 {
-	FName AssetName;
-
 	if (InWidget.IsValid())
 	{
 		// UMG widgets have meta-data to help track them
 		TSharedPtr<FReflectionMetaData> MetaData = InWidget->GetMetaData<FReflectionMetaData>();
 		if (MetaData.IsValid() && MetaData->Asset.Get() != nullptr)
 		{
-			AssetName = MetaData->Asset->GetFName();
+			return FAssetData(MetaData->Asset.Get());
 		}
 	}
 
-	return AssetName;
+	return FAssetData();
 }
 
 FVector2D FWidgetReflectorNodeUtils::GetWidgetDesiredSize(const TSharedPtr<SWidget>& InWidget)

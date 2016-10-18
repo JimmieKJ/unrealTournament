@@ -1,8 +1,8 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <TpsData xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
   <Name>Microsoft DirectShow</Name>
-  <Location>//depot/UE4/Engine/Source/ThirdParty/DirectShow/</Location>
-  <Date>2014-12-23T11:24:12.6278235-05:00</Date>
+  <Location>/Engine/Source/ThirdParty/DirectShow/</Location>
+  <Date>2016-06-10T17:31:35.6281886-04:00</Date>
   <Function>Captures rendered frames and assembles them into movies</Function>
   <Justification>Requirement for editor functionality to capture movies</Justification>
   <Platforms>
@@ -14,11 +14,15 @@
     <Product>UE4</Product>
   </Products>
   <TpsType>Source Code</TpsType>
-  <Eula />
-  <RedistributeTo />
+  <Eula>See Windows SDK installer EULA</Eula>
+  <RedistributeTo>
+    <EndUserGroup>Licensees</EndUserGroup>
+    <EndUserGroup>Git</EndUserGroup>
+    <EndUserGroup>P4</EndUserGroup>
+  </RedistributeTo>
   <Redistribute>false</Redistribute>
   <IsSourceAvailable>false</IsSourceAvailable>
   <NoticeType>None</NoticeType>
   <Notification />
-  <LicenseFolder />
+  <LicenseFolder>None</LicenseFolder>
 </TpsData>

@@ -36,7 +36,7 @@ public class SimplygonSwarm : ModuleRules
                 "UnrealEd",
                 "MaterialUtilities"
 			}
-        );                
+        );
 
         PrivateIncludePathModuleNames.AddRange(
         new string[] { 
@@ -48,6 +48,7 @@ public class SimplygonSwarm : ModuleRules
 
 		AddEngineThirdPartyPrivateStaticDependencies(Target, "Simplygon");
 		AddEngineThirdPartyPrivateStaticDependencies(Target, "SSF");
+		AddEngineThirdPartyPrivateStaticDependencies(Target, "SPL");
 		AddEngineThirdPartyPrivateDynamicDependencies(Target, "PropertyEditor");
 
 		PrecompileForTargets = PrecompileTargetsType.None;

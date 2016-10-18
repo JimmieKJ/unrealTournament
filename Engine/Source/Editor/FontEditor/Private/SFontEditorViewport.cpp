@@ -223,7 +223,7 @@ void FFontEditorViewportClient::Draw(FViewport* Viewport, FCanvas* Canvas)
 
 				if (bDrawFontMetrics)
 				{
-					// Draw the bounding box for the separate glyphs
+					// Draw the bounding box for the glyphs
 					{
 						float LineX = 0.0f;
 						for (const auto& GlyphToRender : ShapedPreviewText->GetGlyphsToRender())
@@ -244,7 +244,7 @@ void FFontEditorViewportClient::Draw(FViewport* Viewport, FCanvas* Canvas)
 						}
 					}
 
-					// Draw the bounding box for the logical glyphs
+					// Draw the bounding box for the grapheme clusters
 					{
 						float LineX = 0.0f;
 						const auto& GlyphsToRender = ShapedPreviewText->GetGlyphsToRender();
@@ -256,7 +256,7 @@ void FFontEditorViewportClient::Draw(FViewport* Viewport, FCanvas* Canvas)
 							for (;;)
 							{
 								const auto& GlyphToRender = GlyphsToRender[CurrentGlyphIndex];
-								const bool bIsWithinGlyphCluster = GlyphsToRender.IsValidIndex(CurrentGlyphIndex + 1) && GlyphToRender.ClusterIndex == GlyphsToRender[CurrentGlyphIndex + 1].ClusterIndex;
+								const bool bIsWithinGlyphCluster = GlyphsToRender.IsValidIndex(CurrentGlyphIndex + 1) && GlyphToRender.SourceIndex == GlyphsToRender[CurrentGlyphIndex + 1].SourceIndex;
 
 								if (GlyphToRender.bIsVisible)
 								{
@@ -321,8 +321,8 @@ void FFontEditorViewportClient::Draw(FViewport* Viewport, FCanvas* Canvas)
 				static const FKeyDataType KeyDataArray[] = {
 					{ FLinearColor::Red,	LOCTEXT("BaselineKeyLabel", "Baseline") },
 					{ FLinearColor::Green,	LOCTEXT("LineBoundsKeyLabel", "Line Bounds") },
-					{ FLinearColor::Yellow,	LOCTEXT("LogicalGlyphBoundsKeyLabel", "Logical Glyph Bounds") },
-					{ FColor::Orange,		LOCTEXT("IsolatedGlyphBoundsKeyLabel", "Isolated Glyph Bounds") },
+					{ FLinearColor::Yellow,	LOCTEXT("GraphemeClusterBoundsKeyLabel", "Grapheme Cluster Bounds") },
+					{ FColor::Orange,		LOCTEXT("GlyphBoundsKeyLabel", "Glyph Bounds") },
 				};
 
 				for (const FKeyDataType& KeyData : KeyDataArray)
@@ -751,11 +751,11 @@ const FColor& SFontEditorViewport::GetPreviewBackgroundColor() const
 	return FColor::Black;
 }
 
-void SFontEditorViewport::SetPreviewForegroundColor(const FColor& ForegroundColor)
+void SFontEditorViewport::SetPreviewForegroundColor(const FColor& InForegroundColor)
 {
 	if (ViewportClient.IsValid())
 	{
-		ViewportClient->SetForegroundColor(ForegroundColor);
+		ViewportClient->SetForegroundColor(InForegroundColor);
 
 		RefreshViewport();
 	}

@@ -80,7 +80,7 @@ private:
 struct FRenderingCompositePassContext
 {
 	// constructor
-	FRenderingCompositePassContext(FRHICommandListImmediate& RHICmdList, FViewInfo& InView);
+	FRenderingCompositePassContext(FRHICommandListImmediate& RHICmdList, const FViewInfo& InView);
 
 	// destructor
 	~FRenderingCompositePassContext();
@@ -139,7 +139,7 @@ struct FRenderingCompositePassContext
 	TShaderMap<FGlobalShaderType>* GetShaderMap() const { check(ShaderMap); return ShaderMap; }
 
 	//
-	FViewInfo& View;
+	const FViewInfo& View;
 	//
 	FSceneViewState* ViewState;
 	// is updated before each Pass->Process() call

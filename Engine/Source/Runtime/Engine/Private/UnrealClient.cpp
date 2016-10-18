@@ -76,7 +76,7 @@ bool FRenderTarget::ReadPixels(TArray< FColor >& OutImageData, FReadSurfaceDataF
 	});
 	FlushRenderingCommands();
 
-	return true;
+	return OutImageData.Num() > 0;
 }
 
 
@@ -171,6 +171,71 @@ bool FRenderTarget::ReadFloat16Pixels(TArray<FFloat16Color>& OutputBuffer,ECubeF
 	return ReadFloat16Pixels((FFloat16Color*)&(OutputBuffer[0]), CubeFace);
 }
 
+/**
+* Reads the viewport's displayed pixels into a preallocated color buffer.
+* @param OutImageData - LinearColor array to fill!
+* @param CubeFace - optional cube face for when reading from a cube render target
+* @return True if the read succeeded.
+*/
+bool FRenderTarget::ReadLinearColorPixels(TArray<FLinearColor> &OutImageData, FReadSurfaceDataFlags InFlags, FIntRect InRect)
+{
+	if (InRect == FIntRect(0, 0, 0, 0))
+	{
+		InRect = FIntRect(0, 0, GetSizeXY().X, GetSizeXY().Y);
+	}
+
+	// Read the render target surface data back.	
+	struct FReadSurfaceContext
+	{
+		FRenderTarget* SrcRenderTarget;
+		TArray<FLinearColor>* OutData;
+		FIntRect Rect;
+		FReadSurfaceDataFlags Flags;
+	};
+
+	OutImageData.Reset();
+	FReadSurfaceContext ReadSurfaceContext =
+	{
+		this,
+		&OutImageData,
+		InRect,
+		InFlags
+	};
+
+	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
+		ReadSurfaceCommand,
+		FReadSurfaceContext, Context, ReadSurfaceContext,
+		{
+			RHICmdList.ReadSurfaceData(
+			Context.SrcRenderTarget->GetRenderTargetTexture(),
+				Context.Rect,
+				*Context.OutData,
+				Context.Flags
+				);
+		});
+	FlushRenderingCommands();
+
+	return true;
+}
+
+/**
+* Reads the viewport's displayed pixels into a preallocated color buffer.
+* @param OutputBuffer - RGBA8 values will be stored in this buffer
+* @return True if the read succeeded.
+*/
+bool FRenderTarget::ReadLinearColorPixelsPtr(FLinearColor* OutImageBytes, FReadSurfaceDataFlags InFlags, FIntRect InRect)
+{
+	TArray<FLinearColor> SurfaceData;
+
+	bool bResult = ReadLinearColorPixels(SurfaceData, InFlags, InRect);
+	if (bResult)
+	{
+		FMemory::Memcpy(OutImageBytes, &SurfaceData[0], SurfaceData.Num() * sizeof(FLinearColor));
+	}
+
+	return bResult;
+}
+
 /** 
 * @return display gamma expected for rendering to this render target 
 */
@@ -201,7 +266,13 @@ const FTexture2DRHIRef& FRenderTarget::GetRenderTargetTexture() const
 }
 
 
-void FScreenshotRequest::RequestScreenshot( const FString& InFilename, bool bInShowUI, bool bAddUniqueSuffix )
+void FScreenshotRequest::RequestScreenshot(bool bInShowUI)
+{
+	bShowUI = bInShowUI;
+	bIsScreenshotRequested = true;
+}
+
+void FScreenshotRequest::RequestScreenshot(const FString& InFilename, bool bInShowUI, bool bAddUniqueSuffix)
 {
 	FString GeneratedFilename = InFilename;
 	CreateViewportScreenShotFilename(GeneratedFilename);
@@ -217,17 +288,26 @@ void FScreenshotRequest::RequestScreenshot( const FString& InFilename, bool bInS
 		Filename = GeneratedFilename;
 	}
 
-	bShowUI = bInShowUI;
+	// Register the screenshot
+	if (!Filename.IsEmpty())
+	{
+		bShowUI = bInShowUI;
+		bIsScreenshotRequested = true;
+	}
+
+	GScreenMessagesRestoreState = GAreScreenMessagesEnabled;
+	GAreScreenMessagesEnabled = bInShowUI;
 }
 
 
 void FScreenshotRequest::Reset()
 {
+	bIsScreenshotRequested = false;
 	Filename.Empty();
 	bShowUI = false;
 }
 
-void FScreenshotRequest::CreateViewportScreenShotFilename( FString& InOutFilename )
+void FScreenshotRequest::CreateViewportScreenShotFilename(FString& InOutFilename)
 {
 	FString TypeName;
 
@@ -265,6 +345,7 @@ TArray<FColor>* FScreenshotRequest::GetHighresScreenshotMaskColorArray()
 }
 
 
+bool FScreenshotRequest::bIsScreenshotRequested = false;
 FString FScreenshotRequest::Filename;
 FString FScreenshotRequest::NextScreenshotName;
 bool FScreenshotRequest::bShowUI = false;
@@ -359,7 +440,7 @@ int32 FStatUnitData::DrawStat(FViewport* InViewport, FCanvas* InCanvas, int32 In
 #endif // #if !UE_BUILD_SHIPPING
 
 	// Render CPU thread and GPU frame times.
-	const bool bStereoRendering = (GEngine && GEngine->IsStereoscopic3D(InViewport));
+	const bool bStereoRendering = GEngine->IsStereoscopic3D(InViewport);
 	UFont* Font = (!FPlatformProperties::SupportsWindowedMode() && GEngine->GetMediumFont()) ? GEngine->GetMediumFont() : GEngine->GetSmallFont();
 
 	// Note InX should already be within the safe zone
@@ -712,6 +793,7 @@ FViewport::FViewport(FViewportClient* InViewportClient):
 	bHitProxiesCached(false),
 	bHasRequestedToggleFreeze(false),
 	bIsSlateViewport(false),
+	FlushOnDrawCount(0),
 	bTakeHighResScreenShot(false)
 {
 	//initialize the hit proxy kernel
@@ -731,7 +813,7 @@ FViewport::FViewport(FViewportClient* InViewportClient):
 	}
 #endif
 
-	AppVersionString = FString::Printf( TEXT( "Version: %s" ), *FEngineVersion::Current().ToString() );
+	AppVersionString = FString::Printf( TEXT( "Build: %s" ), FApp::GetBuildVersion() );
 
 	bIsPlayInEditorViewport = false;
 }
@@ -1028,8 +1110,6 @@ void FViewport::Draw( bool bShouldPresent /*= true */)
 				const bool bShowUI = false;
 				const bool bAddFilenameSuffix = true;
 				FScreenshotRequest::RequestScreenshot( FString(), bShowUI, bAddFilenameSuffix );
-				GScreenMessagesRestoreState = GAreScreenMessagesEnabled;
-				GAreScreenMessagesEnabled = false;
 				HighResScreenshot();
 			}
 			else if(bAnyScreenshotsRequired && bBufferVisualizationDumpingRequired)
@@ -1126,6 +1206,11 @@ void FViewport::Draw( bool bShouldPresent /*= true */)
 			}
 		}
 
+		if (FlushOnDrawCount != 0)
+		{
+			FlushRenderingCommands();
+		}
+
 		if(GCaptureCompositionNextFrame)
 		{
 			GRenderingThreadSuspension.Reset();
@@ -1160,10 +1245,18 @@ const TArray<FColor>& FViewport::GetRawHitProxyData(FIntRect InRect)
 {
 	FScopedConditionalWorldSwitcher WorldSwitcher(ViewportClient);
 
-	bool bFetchHitProxyBytes = !bHitProxiesCached || (SizeY*SizeX) != CachedHitProxyData.Num();
+	const bool bIsRenderingStereo = GEngine->IsStereoscopic3D( this ) && this->IsStereoRenderingAllowed();
 
+	bool bFetchHitProxyBytes = !bIsRenderingStereo && ( !bHitProxiesCached || (SizeY*SizeX) != CachedHitProxyData.Num() );
+
+	if( bIsRenderingStereo )
+	{
+		// Stereo viewports don't support hit proxies, and we don't want to update them because it will adversely
+		// affect performance.
+		CachedHitProxyData.SetNumZeroed( SizeY * SizeX );
+	}
 	// If the hit proxy map isn't up to date, render the viewport client's hit proxies to it.
-	if (!bHitProxiesCached)
+	else if (!bHitProxiesCached)
 	{
 		EnqueueBeginRenderFrame();
 
@@ -1400,6 +1493,8 @@ FIntRect FViewport::CalculateViewExtents(float AspectRatio, const FIntRect& View
 			const int32 NewSizeY = FMath::Max(1, FMath::RoundToInt( CurrentSizeX / AdjustedAspectRatio ) );
 			Result.Min.Y = FMath::RoundToInt( 0.5f * (CurrentSizeY - NewSizeY) );
 			Result.Max.Y = Result.Min.Y + NewSizeY;
+			Result.Min.Y += ViewRect.Min.Y;
+			Result.Max.Y += ViewRect.Min.Y;
 		}
 		// Otherwise - will place bars on the sides.
 		else
@@ -1407,6 +1502,8 @@ FIntRect FViewport::CalculateViewExtents(float AspectRatio, const FIntRect& View
 			const int32 NewSizeX = FMath::Max(1, FMath::RoundToInt( CurrentSizeY * AdjustedAspectRatio ) );
 			Result.Min.X = FMath::RoundToInt( 0.5f * (CurrentSizeX - NewSizeX) );
 			Result.Max.X = Result.Min.X + NewSizeX;
+			Result.Min.X += ViewRect.Min.X;
+			Result.Max.X += ViewRect.Min.X;
 		}
 	}
 

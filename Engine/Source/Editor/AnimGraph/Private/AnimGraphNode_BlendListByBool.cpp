@@ -14,6 +14,8 @@
 UAnimGraphNode_BlendListByBool::UAnimGraphNode_BlendListByBool(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+	Node.AddPose();
+	Node.AddPose();
 }
 
 FText UAnimGraphNode_BlendListByBool::GetNodeTitle(ENodeTitleType::Type TitleType) const

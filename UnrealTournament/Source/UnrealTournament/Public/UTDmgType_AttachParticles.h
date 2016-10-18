@@ -56,7 +56,7 @@ class UNREALTOURNAMENT_API UUTDmgType_AttachParticles : public UUTDamageType
 				FTimerHandle TempHandle;
 				HitPawn->GetWorldTimerManager().SetTimer(TempHandle, PSC, &UParticleSystemComponent::DeactivateSystem, EffectLifeSpan, false);
 				PSC->RegisterComponent();
-				PSC->AttachTo(HitPawn->GetMesh(), HitPawn->GetMesh()->FindClosestBone(HitPawn->GetActorLocation() + HitPawn->LastTakeHitInfo.RelHitLocation), EAttachLocation::SnapToTarget);
+				PSC->AttachToComponent(HitPawn->GetMesh(), FAttachmentTransformRules::SnapToTargetIncludingScale, HitPawn->GetMesh()->FindClosestBone(HitPawn->GetActorLocation() + HitPawn->LastTakeHitInfo.RelHitLocation));
 			}
 		}
 		Super::PlayHitEffects_Implementation(HitPawn, bPlayedArmorEffect);
@@ -73,7 +73,7 @@ class UNREALTOURNAMENT_API UUTDmgType_AttachParticles : public UUTDamageType
 			FTimerHandle TempHandle;
 			Gib->GetWorldTimerManager().SetTimer(TempHandle, PSC, &UParticleSystemComponent::DeactivateSystem, EffectLifeSpan, false);
 			PSC->RegisterComponent();
-			PSC->AttachTo(Gib->GetRootComponent(), NAME_None, EAttachLocation::SnapToTarget);
+			PSC->AttachToComponent(Gib->GetRootComponent(), FAttachmentTransformRules::SnapToTargetIncludingScale);
 		}
 	}
 };

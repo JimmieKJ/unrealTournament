@@ -1,0 +1,180 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreHDF5\AprImpl.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreHDF5\ApwImpl.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreHDF5\ArImpl.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreHDF5\AwImpl.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreHDF5\CacheImpl.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreHDF5\CprData.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreHDF5\CprImpl.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreHDF5\CpwData.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreHDF5\CpwImpl.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreHDF5\DataTypeRegistry.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreHDF5\HDF5Hierarchy.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreHDF5\HDF5HierarchyReader.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreHDF5\HDF5HierarchyWriter.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreHDF5\HDF5Util.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreHDF5\OrData.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreHDF5\OrImpl.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreHDF5\OwData.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreHDF5\OwImpl.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreHDF5\ReadUtil.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreHDF5\ReadWrite.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreHDF5\SprImpl.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreHDF5\SpwImpl.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreHDF5\StringReadUtil.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreHDF5\StringWriteUtil.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreHDF5\WriteUtil.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreHDF5\All.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreHDF5\AprImpl.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreHDF5\ApwImpl.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreHDF5\ArImpl.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreHDF5\AwImpl.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreHDF5\CacheImpl.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreHDF5\CprData.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreHDF5\CprImpl.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreHDF5\CpwData.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreHDF5\CpwImpl.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreHDF5\DataTypeRegistry.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreHDF5\HDF5Hierarchy.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreHDF5\HDF5HierarchyReader.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreHDF5\HDF5HierarchyWriter.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreHDF5\HDF5Util.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreHDF5\Foundation.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreHDF5\OrData.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreHDF5\OrImpl.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreHDF5\OwData.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreHDF5\OwImpl.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreHDF5\ReadUtil.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreHDF5\ReadWrite.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreHDF5\SimplePrImpl.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreHDF5\SimplePwImpl.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreHDF5\SprImpl.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreHDF5\SpwImpl.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreHDF5\StringReadUtil.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreHDF5\StringWriteUtil.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreHDF5\WriteUtil.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreHDF5\WrittenArraySampleMap.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{89392D1A-7575-4D02-955C-57341018A270}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{1833F73C-2966-4E61-8211-B6B7A2BB807B}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

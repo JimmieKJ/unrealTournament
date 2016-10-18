@@ -225,10 +225,10 @@ class SWidgetPickerFloatingWindow : public SCompoundWidget
 		else
 		{
 			// If we have specified a specific widget to to pick check this one matches
-			TSharedPtr<FTagMetaData> MetaData = InWidget->GetMetaData<FTagMetaData>();
-			if (MetaData.IsValid())
+			TSharedPtr<FTagMetaData> WidgetMetaData = InWidget->GetMetaData<FTagMetaData>();
+			if (WidgetMetaData.IsValid())
 			{
-				PickableName = MetaData->Tag;
+				PickableName = WidgetMetaData->Tag;
 			}
 			else if (SpecificWidgetType != NAME_None)
 			{
@@ -539,12 +539,12 @@ private:
 	{
 		bool bIsPicking = false;
 		bOutShouldHighlight = false;
-		TSharedPtr<FTagMetaData> MetaData = InWidget->GetMetaData<FTagMetaData>();
-		const FName Tag = (MetaData.IsValid() && MetaData->Tag.IsValid()) ? MetaData->Tag : InWidget->GetTag();
+		TSharedPtr<FTagMetaData> WidgetMetaData = InWidget->GetMetaData<FTagMetaData>();
+		const FName WidgetTag = (WidgetMetaData.IsValid() && WidgetMetaData->Tag.IsValid()) ? WidgetMetaData->Tag : InWidget->GetTag();
 		if (PickerWidget.IsValid())
 		{
 			// Is the given widget a candidate
-			if ((Tag != NAME_None) )
+			if ((WidgetTag != NAME_None) )
 			{
 				bIsPicking = true;
 			}

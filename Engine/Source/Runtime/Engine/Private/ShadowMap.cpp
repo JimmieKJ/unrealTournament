@@ -94,9 +94,12 @@ struct FShadowMapAllocation
 		{
 			UInstancedStaticMeshComponent* Component = CastChecked<UInstancedStaticMeshComponent>(Primitive);
 
-			// TODO: We currently only support one LOD of static lighting in foliage
-			// Need to create per-LOD instance data to fix that
-			Component->PerInstanceSMData[InstanceIndex].ShadowmapUVBias = ShadowMap->GetCoordinateBias();
+			if( InstanceIndex < Component->PerInstanceSMData.Num() )
+			{
+				// TODO: We currently only support one LOD of static lighting in foliage
+				// Need to create per-LOD instance data to fix that
+				Component->PerInstanceSMData[InstanceIndex].ShadowmapUVBias = ShadowMap->GetCoordinateBias();
+			}
 
 			Component->ReleasePerInstanceRenderData();
 			Component->MarkRenderStateDirty();
@@ -270,15 +273,15 @@ bool FShadowMapPendingTexture::AddElement(FShadowMapAllocationGroup& AllocationG
 	{
 		auto& Allocation = AllocationGroup.Allocations[iAllocation];
 		uint32 BaseX, BaseY;
-		const uint32 SizeX = Allocation->MappedRect.Width();
-		const uint32 SizeY = Allocation->MappedRect.Height();
-		if (FTextureLayout::AddElement(BaseX, BaseY, SizeX, SizeY))
+		const uint32 AllocationSizeX = Allocation->MappedRect.Width();
+		const uint32 AllocationSizeY = Allocation->MappedRect.Height();
+		if (FTextureLayout::AddElement(BaseX, BaseY, AllocationSizeX, AllocationSizeY))
 		{
 			Allocation->OffsetX = BaseX;
 			Allocation->OffsetY = BaseY;
 
 			// Assumes bAlignByFour
-			NewUnallocatedTexels -= ((SizeX + 3) & ~3) * ((SizeY + 3) & ~3);
+			NewUnallocatedTexels -= ((AllocationSizeX + 3) & ~3) * ((AllocationSizeY + 3) & ~3);
 		}
 		else
 		{
@@ -293,9 +296,9 @@ bool FShadowMapPendingTexture::AddElement(FShadowMapAllocationGroup& AllocationG
 		for (--iAllocation; iAllocation >= 0; --iAllocation)
 		{
 			auto& Allocation = AllocationGroup.Allocations[iAllocation];
-			const uint32 SizeX = Allocation->MappedRect.Width();
-			const uint32 SizeY = Allocation->MappedRect.Height();
-			verify(FTextureLayout::RemoveElement(Allocation->OffsetX, Allocation->OffsetY, SizeX, SizeY));
+			const uint32 AllocationSizeX = Allocation->MappedRect.Width();
+			const uint32 AllocationSizeY = Allocation->MappedRect.Height();
+			verify(FTextureLayout::RemoveElement(Allocation->OffsetX, Allocation->OffsetY, AllocationSizeX, AllocationSizeY));
 		}
 		return false;
 	}
@@ -418,11 +421,10 @@ void FShadowMapPendingTexture::FinishCachingTextures(UWorld* InWorld)
 
 static TArray<FShadowMapAllocationGroup> PendingShadowMaps;
 static uint32 PendingShadowMapSize;
-
-#endif 
-
 /** If true, update the status when encoding light maps */
 bool FShadowMap2D::bUpdateStatus = true;
+
+#endif 
 
 TRefCountPtr<FShadowMap2D> FShadowMap2D::AllocateShadowMap(
 	UObject* Outer, 
@@ -597,7 +599,7 @@ FShadowMapInteraction FShadowMap2D::GetInteraction() const
 }
 
 
-TRefCountPtr<FShadowMap2D> FShadowMap2D::AllocateInstancedShadowMap(UInstancedStaticMeshComponent* Component, TArray<TMap<ULightComponent*, TUniquePtr<FShadowMapData2D>>> InstancedShadowMapData,
+TRefCountPtr<FShadowMap2D> FShadowMap2D::AllocateInstancedShadowMap(UInstancedStaticMeshComponent* Component, TArray<TMap<ULightComponent*, TUniquePtr<FShadowMapData2D>>>&& InstancedShadowMapData,
 	const FBoxSphereBounds& Bounds, ELightMapPaddingType InPaddingType, EShadowMapFlags InShadowmapFlags)
 {
 #if WITH_EDITOR

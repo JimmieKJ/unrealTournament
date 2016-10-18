@@ -228,6 +228,42 @@ void FStructSerializer::Serialize( const void* Struct, UStruct& TypeInfo, IStruc
 			}
 		}
 
+		// sets
+		else if (CurrentState.ValueType == USetProperty::StaticClass())
+		{
+			if (!CurrentState.HasBeenProcessed)
+			{
+				Backend.BeginArray(CurrentState);
+
+				CurrentState.HasBeenProcessed = true;
+				StateStack.Push(CurrentState);
+
+				USetProperty* SetProperty = CastChecked<USetProperty>(CurrentState.ValueProperty);
+				FScriptSetHelper SetHelper(SetProperty, CurrentState.ValueData);
+				UProperty* ValueProperty = SetProperty->ElementProp;
+
+				// push elements on stack
+				for (int Index = SetHelper.Num() - 1; Index >= 0; --Index)
+				{
+					FStructSerializerState NewState;
+					{
+						NewState.HasBeenProcessed = false;
+						NewState.KeyData = nullptr;
+						NewState.KeyProperty = nullptr;
+						NewState.ValueData = SetHelper.GetElementPtr(Index);
+						NewState.ValueProperty = ValueProperty;
+						NewState.ValueType = ValueProperty->GetClass();
+					}
+
+					StateStack.Push(NewState);
+				}
+			}
+			else
+			{
+				Backend.EndArray(CurrentState);
+			}
+		}
+
 		// static arrays
 		else if (CurrentState.ValueProperty->ArrayDim > 1)
 		{

@@ -35,6 +35,7 @@
 #include "GameplayDebuggingComponent.h"
 #include "GameplayDebuggingControllerComponent.h"
 #include "GameplayDebuggingReplicator.h"
+#include "GameplayDebuggerCategory.h"
 
 DEFINE_LOG_CATEGORY(LogGameplayDebugger);
 
@@ -350,6 +351,7 @@ void UGameplayDebuggingComponent::ClientEnableTargetSelection_Implementation(boo
 {
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	bEnabledTargetSelection = bEnable;
+	UWorld* World = GetWorld();
 	if (bEnabledTargetSelection && World && World->GetNetMode() != NM_DedicatedServer)
 	{
 		NextTargrtSelectionTime = 0;
@@ -374,6 +376,7 @@ void UGameplayDebuggingComponent::TickComponent(float DeltaTime, enum ELevelTick
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 
+	UWorld* World = GetWorld();
 	if (World && World->GetNetMode() != NM_DedicatedServer)
 	{
 		if (bEnabledTargetSelection)
@@ -645,14 +648,26 @@ void UGameplayDebuggingComponent::CollectBasicBehaviorData(APawn* MyPawn)
 		CurrentAIAssets = TEXT("");
 	}
 
+	GameplayTasksState = TEXT("");
 	UGameplayTasksComponent* GTComponent = MyPawn->FindComponentByClass<UGameplayTasksComponent>();
 	if (GTComponent)
 	{
-		GameplayTasksState = FString::Printf(TEXT("Ticking Tasks: %s\nTask Queue: %s"), *GTComponent->GetTickingTasksDescription(), *GTComponent->GetTasksPriorityQueueDescription());
-	}
-	else
-	{
-		GameplayTasksState = TEXT("");
+		for (FConstGameplayTaskIterator It = GTComponent->GetPriorityQueueIterator(); It; ++It)
+		{
+			const UGameplayTask* QueueTask = *It;
+			if (QueueTask)
+			{
+				const UObject* OwnerOb = Cast<const UObject>(QueueTask->GetTaskOwner());
+
+				GameplayTasksState += FString::Printf(TEXT("{white}%s%s {%s}%s {white}Owner:{yellow}%s {white}Res:{yellow}%s\n"),
+					*QueueTask->GetName(),
+					QueueTask->GetInstanceName() != NAME_None ? *FString::Printf(TEXT(" {yellow}[%s]"), *QueueTask->GetInstanceName().ToString()) : TEXT(""),
+					QueueTask->IsActive() ? TEXT("green") : TEXT("orange"),
+					*QueueTask->GetTaskStateName(),
+					(OwnerOb == GTComponent) ? TEXT("default") : *GetNameSafe(OwnerOb),
+					*QueueTask->GetRequiredResources().GetDebugDescription());
+			}
+		}
 	}
 #endif //!(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 }
@@ -695,6 +710,7 @@ void UGameplayDebuggingComponent::CollectBehaviorTreeData()
 
 		BlackboardString = MyController->BrainComponent->GetBlackboardComponent() ? MyController->BrainComponent->GetBlackboardComponent()->GetDebugInfoString(EBlackboardDescription::KeyWithValue) : TEXT("");
 
+		UWorld* World = GetWorld();
 		if (World && World->GetNetMode() != NM_Standalone)
 		{
 			TArray<uint8> UncompressedBuffer;
@@ -722,6 +738,7 @@ void UGameplayDebuggingComponent::CollectBehaviorTreeData()
 void UGameplayDebuggingComponent::OnRep_UpdateBlackboard()
 {
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	UWorld* World = GetWorld();
 	if (World && World->GetNetMode() != NM_Standalone)
 	{
 		TArray<uint8> UncompressedBuffer;
@@ -781,6 +798,7 @@ void UGameplayDebuggingComponent::CollectPathData()
 				}
 				CurrentPath = NewPath;
 
+				UWorld* World = GetWorld();
 				if (PathCorridorPolygons.Num() && World && World->GetNetMode() != NM_Client)
 				{
 					PathCorridorData.Reset();
@@ -813,6 +831,7 @@ void UGameplayDebuggingComponent::CollectPathData()
 		}
 	}
 
+	UWorld* World = GetWorld();
 	if (bRefreshRendering && World && World->GetNetMode() != NM_DedicatedServer)
 	{
 		UpdateBounds();
@@ -824,6 +843,7 @@ void UGameplayDebuggingComponent::CollectPathData()
 void UGameplayDebuggingComponent::OnRep_PathCorridorData()
 {
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	UWorld* World = GetWorld();
 	if (World && World->GetNetMode() != NM_DedicatedServer)
 	{
 		FMemoryReader ArReader(PathCorridorData);
@@ -938,6 +958,7 @@ void UGameplayDebuggingComponent::OnRep_UpdateEQS()
 {
 #if  USE_EQS_DEBUGGER
 	// decode scoring data
+	UWorld* World = GetWorld();
 	if (World && World->GetNetMode() == NM_Client)
 	{
 		TArray<uint8> UncompressedBuffer;
@@ -1514,6 +1535,7 @@ void UGameplayDebuggingComponent::ServerCollectNavmeshData_Implementation(FVecto
 		FMath::TruncToInt(100.0f * NavmeshRepData.Num() / UncompressedBuffer.Num()), 1000.0f * (Timer3 - Timer2));
 #endif
 
+	UWorld* World = GetWorld();
 	if (World && World->GetNetMode() != NM_DedicatedServer)
 	{
 		OnRep_UpdateNavmesh();
@@ -1670,17 +1692,18 @@ public:
 
 FPrimitiveSceneProxy* UGameplayDebuggingComponent::CreateSceneProxy()
 {
-	FDebugRenderSceneCompositeProxy* CompositeProxy = NULL;
+	FDebugRenderSceneCompositeProxy* CompositeProxy = nullptr;
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	AGameplayDebuggingReplicator* Replicator = Cast<AGameplayDebuggingReplicator>(GetOwner());
+	UWorld* World = GetWorld();
 	if (!World || World->GetNetMode() == NM_DedicatedServer)
 	{
-		return NULL;
+		return nullptr;
 	}
 
 	if (!Replicator || !Replicator->IsDrawEnabled() || Replicator->IsPendingKill() || IsPendingKill())
 	{
-		return NULL;
+		return nullptr;
 	}
 
 #if WITH_RECAST	
@@ -1698,7 +1721,7 @@ FPrimitiveSceneProxy* UGameplayDebuggingComponent::CreateSceneProxy()
 #endif
 
 #if USE_EQS_DEBUGGER
-	if (ShouldReplicateData(EAIDebugDrawDataView::EQS) && IsClientEQSSceneProxyEnabled() && GetSelectedActor() != NULL)
+	if (ShouldReplicateData(EAIDebugDrawDataView::EQS) && IsClientEQSSceneProxyEnabled() && GetSelectedActor() != nullptr)
 	{
 		const int32 EQSIndex = EQSLocalData.Num() > 0 ? FMath::Clamp(CurrentEQSIndex, 0, EQSLocalData.Num() - 1) : INDEX_NONE;
 		if (EQSLocalData.IsValidIndex(EQSIndex))
@@ -1719,7 +1742,7 @@ FPrimitiveSceneProxy* UGameplayDebuggingComponent::CreateSceneProxy()
 	}
 #endif // USE_EQS_DEBUGGER
 	
-	const bool bDrawFullData = Replicator->GetSelectedActorToDebug() == GetSelectedActor() && GetSelectedActor() != NULL;
+	const bool bDrawFullData = Replicator->GetSelectedActorToDebug() == GetSelectedActor() && GetSelectedActor() != nullptr;
 	if (bDrawFullData && ShouldReplicateData(EAIDebugDrawDataView::Basic))
 	{
 		CompositeProxy = CompositeProxy ? CompositeProxy : (new FDebugRenderSceneCompositeProxy(this));
@@ -1830,7 +1853,6 @@ void UGameplayDebuggingComponent::CollectPerceptionData()
 		return;
 	}
 
-#if 0
 	APawn* MyPawn = Cast<APawn>(GetSelectedActor());
 	if (MyPawn)
 	{
@@ -1844,9 +1866,43 @@ void UGameplayDebuggingComponent::CollectPerceptionData()
 			}
 			if (PerceptionComponent)
 			{
-				TArray<FString> PerceptionTexts;
+				FGameplayDebuggerCategory DummyCategory;
+				PerceptionComponent->DescribeSelfToGameplayDebugger(&DummyCategory);
+
+				TArray<FString> LoggedLines = DummyCategory.GetReplicatedLinesCopy();
+				TArray<FGameplayDebuggerShape> LoggedShapes = DummyCategory.GetReplicatedShapesCopy();
+
 				PerceptionShapeElements.Reset();
-				PerceptionComponent->GrabGameplayDebuggerData(PerceptionTexts, PerceptionShapeElements);
+				for (int32 Idx = 0; Idx < LoggedShapes.Num(); Idx++)
+				{
+					const FGameplayDebuggerShape& ShapeItem = LoggedShapes[Idx];
+					switch (LoggedShapes[Idx].Type)
+					{
+						case EGameplayDebuggerShape::Box:
+							PerceptionShapeElements.Add(FGameplayDebuggerShapeElement::MakeBox(ShapeItem.ShapeData[0], ShapeItem.ShapeData[1], ShapeItem.Color, ShapeItem.Description));
+							break;
+						case EGameplayDebuggerShape::Capsule:
+							PerceptionShapeElements.Add(FGameplayDebuggerShapeElement::MakeCapsule(ShapeItem.ShapeData[0], ShapeItem.ShapeData[1].X, ShapeItem.ShapeData[1].Z, ShapeItem.Color, ShapeItem.Description));
+							break;
+						case EGameplayDebuggerShape::Cone:
+							PerceptionShapeElements.Add(FGameplayDebuggerShapeElement::MakeCone(ShapeItem.ShapeData[0], ShapeItem.ShapeData[1], ShapeItem.ShapeData[2].X, ShapeItem.Color, ShapeItem.Description));
+							break;
+						case EGameplayDebuggerShape::Cylinder:
+							PerceptionShapeElements.Add(FGameplayDebuggerShapeElement::MakeCylinder(ShapeItem.ShapeData[0], ShapeItem.ShapeData[1].X, ShapeItem.ShapeData[1].Z, ShapeItem.Color, ShapeItem.Description));
+							break;
+						case EGameplayDebuggerShape::Point:
+							PerceptionShapeElements.Add(FGameplayDebuggerShapeElement::MakePoint(ShapeItem.ShapeData[0], ShapeItem.ShapeData[1].X, ShapeItem.Color, ShapeItem.Description));
+							break;
+						case EGameplayDebuggerShape::Polygon:
+							PerceptionShapeElements.Add(FGameplayDebuggerShapeElement::MakePolygon(ShapeItem.ShapeData, ShapeItem.Color, ShapeItem.Description));
+							break;
+						case EGameplayDebuggerShape::Segment:
+							PerceptionShapeElements.Add(FGameplayDebuggerShapeElement::MakeSegment(ShapeItem.ShapeData[0], ShapeItem.ShapeData[1], ShapeItem.ShapeData[2].X, ShapeItem.Color, ShapeItem.Description));
+							break;
+						default:
+							break;
+					}
+				}
 
 				DistanceFromPlayer = DistanceFromSensor = -1;
 
@@ -1859,16 +1915,16 @@ void UGameplayDebuggingComponent::CollectPerceptionData()
 					DistanceFromPlayer = (MyPawn->GetActorLocation() - MyPC->GetPawn()->GetActorLocation()).Size();
 					DistanceFromSensor = SensingComponentLocation != FVector::ZeroVector ? (SensingComponentLocation - MyPC->GetPawn()->GetActorLocation()).Size() : -1;
 				}
-			}
 
-			UAIPerceptionSystem* PerceptionSys = UAIPerceptionSystem::GetCurrent(MyPawn->GetWorld());
-			if (PerceptionSys)
-			{
-				PerceptionLegend = PerceptionSys->GetPerceptionDebugLegend();
+				PerceptionLegend = TEXT("\n");
+				for (int32 Idx = 0; Idx < LoggedLines.Num(); Idx++)
+				{
+					PerceptionLegend += LoggedLines[Idx];
+					PerceptionLegend += TEXT('\n');
+				}
 			}
 		}
 	}
 
-#endif
 #endif
 }

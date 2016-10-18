@@ -19,6 +19,7 @@ TMap<UPackage*,  const FManifestModule*> GPackageToManifestModuleMap;
 TMap<UField*, uint32> GGeneratedCodeCRCs;
 TMap<UEnum*,  EPropertyType> GEnumUnderlyingTypes;
 TMap<FName, TSharedRef<FClassDeclarationMetaData> > GClassDeclarations;
+TSet<UProperty*> GUnsizedProperties;
 
 TSharedRef<FUnrealTypeDefinitionInfo> AddTypeDefinition(FUHTMakefile& UHTMakefile, FUnrealSourceFile* SourceFile, UField* Field, int32 Line)
 {

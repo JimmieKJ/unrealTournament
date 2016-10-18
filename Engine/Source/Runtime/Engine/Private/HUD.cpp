@@ -20,7 +20,7 @@ DEFINE_LOG_CATEGORY_STATIC(LogHUD, Log, All);
 
 FOnShowDebugInfo AHUD::OnShowDebugInfo;
 
-// How opaque should the safe zone visualization be?
+// Should we visualize the safe zone? (and if so, title or action?)
 TAutoConsoleVariable<int32> GSafeZoneVisualizationModeCVar(
 	TEXT("r.DebugSafeZone.Mode"),
 	0,
@@ -36,6 +36,10 @@ TAutoConsoleVariable<float> GSafeZoneVisualizationAlphaCVar(
 	TEXT("The alpha value of the safe zone overlay (0..1)\n")
 	TEXT(" default: 0.2"));
 
+const FColor AHUD::WhiteColor(255, 255, 255, 255);
+const FColor AHUD::GreenColor(0, 255, 0, 255);
+const FColor AHUD::RedColor(255, 0, 0, 255);
+
 AHUD::AHUD(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
@@ -44,11 +48,8 @@ AHUD::AHUD(const FObjectInitializer& ObjectInitializer)
 	bHidden = true;
 	bReplicates = false;
 
-	WhiteColor = FColor(255, 255, 255, 255);
-	GreenColor = FColor(0, 255, 0, 255);
-	RedColor = FColor(255, 0, 0, 255);
-
 	bLostFocusPaused = false;
+	bShowHUD = true;
 
 	bCanBeDamaged = false;
 	bEnableDebugTextShadow = false;
@@ -149,7 +150,7 @@ void AHUD::PostRender()
 			ShowDebugInfo(DebugCanvas->DisplayDebugManager.GetMaxCharHeightRef(), DebugCanvas->DisplayDebugManager.GetYPosRef());
 		}
 	}
-	else if ( bShowHUD )
+	else if ( bShowHUD && FApp::CanEverRender() )
 	{
 		DrawHUD();
 		
@@ -428,7 +429,11 @@ void AHUD::ShowDebugInfo(float& YL, float& YPos)
 
 		if (ShouldDisplayDebug(NAME_Game))
 		{
-			GetWorld()->GetAuthGameMode()->DisplayDebug(DebugCanvas, DisplayInfo, YL, YPos);
+			AGameMode* AuthGameMode = GetWorld()->GetAuthGameMode();
+			if (AuthGameMode)
+			{
+				AuthGameMode->DisplayDebug(DebugCanvas, DisplayInfo, YL, YPos);
+			}
 		}
 
 		if (bShowDebugInfo)

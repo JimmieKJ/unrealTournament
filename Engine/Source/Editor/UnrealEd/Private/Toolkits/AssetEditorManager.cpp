@@ -76,20 +76,47 @@ void FAssetEditorManager::OnExit()
 
 void FAssetEditorManager::AddReferencedObjects( FReferenceCollector& Collector )
 {
-	for (TMultiMap<UObject*, IAssetEditorInstance*>::TIterator It(OpenedAssets); It; ++It)
+	TMap<UObject*, UObject*> ModifiedKeys;
+	for ( TMultiMap<UObject*, IAssetEditorInstance*>::TIterator It(OpenedAssets); It; ++It )
 	{
 		UObject* Asset = It.Key();
-		if(Asset != NULL)
+		if ( Asset != nullptr )
 		{
-			Collector.AddReferencedObject( Asset );
+			UObject* MutableReference = Asset;
+			Collector.AddReferencedObject(MutableReference);
+			if ( MutableReference != Asset )
+			{
+				ModifiedKeys.Add(Asset, MutableReference);
+			}
 		}
 	}
+
+	// If the pointer got deleted or swapped out due to hot reload.
+	for ( auto& Entry : ModifiedKeys )
+	{
+		if ( Entry.Value )
+		{
+			// Find the existing editor instances bound to a modified object ptr.
+			TArray<IAssetEditorInstance*> AssetEditors;
+			OpenedAssets.MultiFind(Entry.Key, AssetEditors);
+
+			// Remove the entry for the remapped pointer.
+			OpenedAssets.Remove(Entry.Key);
+
+			// Store all new instances for the moved pointer.
+			for ( IAssetEditorInstance* AssetEditor : AssetEditors )
+			{
+				OpenedAssets.Add(Entry.Value, AssetEditor);
+			}
+		}
+	}
+
 	for (TMultiMap<IAssetEditorInstance*, UObject*>::TIterator It(OpenedEditors); It; ++It)
 	{
-		UObject* Asset = It.Value();
-		if(Asset != NULL)
+		UObject* Asset = It->Value;
+		if ( Asset != nullptr )
 		{
-			Collector.AddReferencedObject( Asset );
+			Collector.AddReferencedObject(It->Value);
 		}
 	}
 }
@@ -367,7 +394,7 @@ bool FAssetEditorManager::OpenEditorForAssets( const TArray< UObject* >& Assets,
 
 			if (AssetTypeActions.IsValid())
 			{
-				GWarn->BeginSlowTask(LOCTEXT("OpenEditor", "Opening Editor(s)..."), true);
+				GWarn->BeginSlowTask(LOCTEXT("OpenEditors", "Opening Editor(s)..."), true);
 
 				// Determine the appropriate toolkit mode for the asset type
 				auto ActualToolkitMode = ToolkitMode;
@@ -676,6 +703,14 @@ void FAssetEditorManager::OpenEditorsForAssets(const TArray<FString>& AssetsToOp
 	for (const FString& AssetName : AssetsToOpen)
 	{
 		OpenEditorForAsset(AssetName);
+	}
+}
+
+void FAssetEditorManager::OpenEditorsForAssets(const TArray<FName>& AssetsToOpen)
+{
+	for (const FName AssetName : AssetsToOpen)
+	{
+		OpenEditorForAsset(AssetName.ToString());
 	}
 }
 

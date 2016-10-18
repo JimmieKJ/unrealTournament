@@ -96,6 +96,12 @@ public:
 	/** @returns braking distance for acceleration driven path following */
 	virtual float GetPathFollowingBrakingDistance(float MaxSpeed) const;
 
+	/** set fixed braking distance */
+	void SetFixedBrakingDistance(float DistanceToEndOfPath);
+
+	/** clears fixed braking distance */
+	void ClearFixedBrakingDistance();
+
 	FORCEINLINE bool UseAccelerationForPathFollowing() const { return bUseAccelerationForPaths; }
 
 	/** @returns the NavAgentProps(const) */

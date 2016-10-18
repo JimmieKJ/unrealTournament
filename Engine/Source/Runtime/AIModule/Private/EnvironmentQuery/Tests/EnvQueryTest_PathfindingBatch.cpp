@@ -75,10 +75,11 @@ void UEnvQueryTest_PathfindingBatch::RunTest(FEnvQueryInstance& QueryInstance) c
 	float RangeMultiplierValue = ScanRangeMultiplier.GetValue();
 
 	UNavigationSystem* NavSys = QueryInstance.World->GetNavigationSystem();
-	if (NavSys == nullptr)
+	if (NavSys == nullptr || QueryOwner == nullptr)
 	{
 		return;
 	}
+
 	ANavigationData* NavData = FindNavigationData(*NavSys, QueryOwner);
 	ARecastNavMesh* NavMeshData = Cast<ARecastNavMesh>(NavData);
 	if (NavMeshData == nullptr)
@@ -96,11 +97,12 @@ void UEnvQueryTest_PathfindingBatch::RunTest(FEnvQueryInstance& QueryInstance) c
 	TArray<float> CollectDistanceSq;
 	CollectDistanceSq.Init(0.0f, ContextLocations.Num());
 
-	FSharedNavQueryFilter NavigationFilter = FilterClass != nullptr
-		? UNavigationQueryFilter::GetQueryFilter(*NavMeshData, FilterClass)->GetCopy()
-		: NavMeshData->GetDefaultQueryFilter()->GetCopy();
-	NavigationFilter->SetBacktrackingEnabled(!bPathToItem);
-	const dtQueryFilter* NavQueryFilter = ((const FRecastQueryFilter*)NavigationFilter->GetImplementation())->GetAsDetourQueryFilter();
+	FSharedNavQueryFilter NavigationFilterCopy = FilterClass ?
+		UNavigationQueryFilter::GetQueryFilter(*NavMeshData, QueryOwner, FilterClass)->GetCopy() :
+		NavMeshData->GetDefaultQueryFilter()->GetCopy();
+
+	NavigationFilterCopy->SetBacktrackingEnabled(!bPathToItem);
+	const dtQueryFilter* NavQueryFilter = ((const FRecastQueryFilter*)NavigationFilterCopy->GetImplementation())->GetAsDetourQueryFilter();
 
 	{
 		// scope for perf timers
@@ -121,7 +123,7 @@ void UEnvQueryTest_PathfindingBatch::RunTest(FEnvQueryInstance& QueryInstance) c
 			}
 		}
 
-		NavMeshData->BatchProjectPoints(TestPoints, NavMeshData->GetDefaultQueryExtent(), NavigationFilter);
+		NavMeshData->BatchProjectPoints(TestPoints, NavMeshData->GetDefaultQueryExtent(), NavigationFilterCopy);
 	}
 
 	TArray<FRecastDebugPathfindingData> NodePoolData;
@@ -138,7 +140,7 @@ void UEnvQueryTest_PathfindingBatch::RunTest(FEnvQueryInstance& QueryInstance) c
 			Polys.Reset();
 			NodePoolData[ContextIdx].Flags = ERecastDebugPathfindingFlags::PathLength;
 
-			NavMeshData->GetPolysWithinPathingDistance(ContextLocations[ContextIdx], MaxPathDistance, Polys, NavigationFilter, nullptr, &NodePoolData[ContextIdx]);
+			NavMeshData->GetPolysWithinPathingDistance(ContextLocations[ContextIdx], MaxPathDistance, Polys, NavigationFilterCopy, nullptr, &NodePoolData[ContextIdx]);
 		}
 	}
 

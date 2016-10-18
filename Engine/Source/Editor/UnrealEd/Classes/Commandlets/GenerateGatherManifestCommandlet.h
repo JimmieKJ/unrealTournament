@@ -15,8 +15,6 @@ class UGenerateGatherManifestCommandlet : public UGatherTextCommandletBase
 public:
 	//~ Begin UCommandlet Interface
 	virtual int32 Main( const FString& Params ) override;
-
-	bool WriteManifestToFile( const TSharedPtr<FInternationalizationManifest>& InManifest, const FString& OutputFilePath );
 	//~ End UCommandlet Interface
 #endif
 };

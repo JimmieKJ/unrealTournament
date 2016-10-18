@@ -3,8 +3,8 @@
 /*=============================================================================
 	CapturePin.h: CapturePin definition
 =============================================================================*/
-#ifndef _CAPTUREPIN_HEADER_
-#define _CAPTUREPIN_HEADER_
+
+#pragma once
 
 #if PLATFORM_WINDOWS && !UE_BUILD_MINIMAL
 
@@ -83,6 +83,4 @@ public:
 };
 #endif //#if PLATFORM_WINDOWS
 
-
-#endif	//#ifndef _CAPTUREPIN_HEADER_
 

@@ -2,8 +2,12 @@
 
 #pragma once
 
-#include "MovieSceneColorTrack.h"
 #include "MovieSceneColorSection.h"
+#include "MovieSceneColorTrack.h"
+#include "PropertyTrackEditor.h"
+
+
+class ISequencer;
 
 
 /**
@@ -15,30 +19,37 @@ class FColorPropertyTrackEditor
 public:
 
 	/**
-	 * Constructor
+	 * Constructor.
 	 *
-	 * @param InSequencer The sequencer instance to be used by this tool
+	 * @param InSequencer The sequencer instance to be used by this tool.
 	 */
-	FColorPropertyTrackEditor( TSharedRef<ISequencer> InSequencer )
-		: FPropertyTrackEditor<UMovieSceneColorTrack, UMovieSceneColorSection, FColorKey>( InSequencer, NAME_Color, NAME_LinearColor, "SlateColor" )
+	FColorPropertyTrackEditor(TSharedRef<ISequencer> InSequencer)
+		: FPropertyTrackEditor<UMovieSceneColorTrack, UMovieSceneColorSection, FColorKey>(InSequencer, NAME_Color, NAME_LinearColor, "SlateColor")
 	{ }
 
 	/**
-	 * Creates an instance of this class.  Called by a sequencer 
+	 * Creates an instance of this class (called by a sequencer).
 	 *
-	 * @param OwningSequencer The sequencer instance to be used by this tool
-	 * @return The new instance of this class
+	 * @param OwningSequencer The sequencer instance to be used by this tool.
+	 * @return The new instance of this class.
 	 */
-	static TSharedRef<ISequencerTrackEditor> CreateTrackEditor( TSharedRef<ISequencer> OwningSequencer );
+	static TSharedRef<ISequencerTrackEditor> CreateTrackEditor(TSharedRef<ISequencer> OwningSequencer);
 
 protected:
 
-	// FPropertyTrackEditor interface
+	//~ FPropertyTrackEditor interface
 
-	virtual TSharedRef<FPropertySection> MakePropertySectionInterface( UMovieSceneSection& SectionObject, UMovieSceneTrack& Track ) override;
-	virtual void GenerateKeysFromPropertyChanged( const FPropertyChangedParams& PropertyChangedParams, TArray<FColorKey>& NewGeneratedKeys, TArray<FColorKey>& DefaultGeneratedKeys ) override;
+	virtual TSharedRef<FPropertySection> MakePropertySectionInterface(UMovieSceneSection& SectionObject, UMovieSceneTrack& Track) override;
+	virtual void GenerateKeysFromPropertyChanged(const FPropertyChangedParams& PropertyChangedParams, TArray<FColorKey>& NewGeneratedKeys, TArray<FColorKey>& DefaultGeneratedKeys) override;
+
+protected:
+
+	//~ ISequencerTrackEditor interface
+
+	virtual void BuildTrackContextMenu(FMenuBuilder& MenuBuilder, UMovieSceneTrack* Track) override;
 
 private:
+
 	static FName RedName;
 	static FName GreenName;
 	static FName BlueName;

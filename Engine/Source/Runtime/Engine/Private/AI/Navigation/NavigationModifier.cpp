@@ -13,6 +13,7 @@
 #include "AI/Navigation/NavAreas/NavAreaMeta.h"
 #include "Components/PrimitiveComponent.h"
 #include "Components/BrushComponent.h"
+#include "PhysicsEngine/BodySetup.h"
 
 // if square distance between two points is less than this the those points
 // will be considered identical when calculating convex hull
@@ -346,7 +347,7 @@ void FAreaNavModifier::SetBox(const FBox& Box, const FTransform& LocalToWorld)
 	TArray<FVector> Corners;
 	for (int32 i = 0; i < 8; i++)
 	{
-		const FVector Dir((i / 4) % 2 ? 1 : -1, (i / 2) % 2 ? 1 : -1, i % 2 ? 1 : -1);
+		const FVector Dir(((i / 4) % 2) ? 1 : -1, ((i / 2) % 2) ? 1 : -1, (i % 2) ? 1 : -1);
 		Corners.Add(LocalToWorld.TransformPosition(BoxOrigin + BoxExtent * Dir));
 	}
 
@@ -703,9 +704,10 @@ void FCompositeNavModifier::CreateAreaModifiers(const UPrimitiveComponent* PrimC
 	for (int32 Idx = 0; Idx < BodySetup->AggGeom.SphylElems.Num(); Idx++)
 	{
 		const FKSphylElem& SphylElem = BodySetup->AggGeom.SphylElems[Idx];
-		const FTransform AreaOffset(FVector(0, 0, -SphylElem.Length));
+		const float CapsuleHeight = SphylElem.Length + SphylElem.Radius;
+		const FTransform AreaOffset(FVector(0, 0, -CapsuleHeight));
 
-		FAreaNavModifier AreaMod(SphylElem.Radius, SphylElem.Length, AreaOffset * PrimComp->ComponentToWorld, AreaClass);
+		FAreaNavModifier AreaMod(SphylElem.Radius, CapsuleHeight, AreaOffset * PrimComp->ComponentToWorld, AreaClass);
 		Add(AreaMod);
 	}
 

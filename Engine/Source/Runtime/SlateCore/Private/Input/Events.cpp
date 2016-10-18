@@ -9,6 +9,16 @@
 const FTouchKeySet FTouchKeySet::StandardSet(EKeys::LeftMouseButton);
 const FTouchKeySet FTouchKeySet::EmptySet(EKeys::Invalid);
 
+FGeometry FInputEvent::FindGeometry(const TSharedRef<SWidget>& WidgetToFind) const
+{
+	return EventPath->FindArrangedWidget(WidgetToFind).Get(FArrangedWidget::NullWidget).Geometry;
+}
+
+TSharedRef<SWindow> FInputEvent::GetWindow() const
+{
+	return EventPath->GetWindow();
+}
+
 FText FInputEvent::ToText() const
 {
 	return NSLOCTEXT("Events", "Unimplemented", "Unimplemented");

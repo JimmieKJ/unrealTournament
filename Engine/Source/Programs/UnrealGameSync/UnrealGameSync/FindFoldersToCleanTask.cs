@@ -16,6 +16,7 @@ namespace UnrealGameSync
 		public DirectoryInfo Directory;
 		public List<FolderToClean> SubFolders = new List<FolderToClean>();
 		public List<FileInfo> FilesToClean = new List<FileInfo>();
+		public bool bEmptyLeaf = false;
 		public bool bEmptyAfterDelete = true;
 
 		public FolderToClean(DirectoryInfo InDirectory)
@@ -115,6 +116,7 @@ namespace UnrealGameSync
 					QueueFolderToPopulate(SubFolder);
 				}
 				Folder.FilesToClean = Folder.Directory.EnumerateFiles().ToList();
+				Folder.bEmptyLeaf = Folder.SubFolders.Count == 0 && Folder.FilesToClean.Count == 0;
 			}
 
 			if(Interlocked.Decrement(ref RemainingFoldersToScan) == 0)
@@ -143,7 +145,7 @@ namespace UnrealGameSync
 			{
 				RemoveEmptyFolders(SubFolder);
 			}
-			Folder.SubFolders.RemoveAll(x => x.SubFolders.Count == 0 && x.FilesToClean.Count == 0);
+			Folder.SubFolders.RemoveAll(x => x.SubFolders.Count == 0 && x.FilesToClean.Count == 0 && !x.bEmptyLeaf);
 		}
 
 		public void Dispose()

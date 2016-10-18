@@ -8,6 +8,7 @@
 #include "Runtime/Engine/Public/AudioDecompress.h"
 #include "MovieSceneAudioTrack.h"
 #include "MovieSceneAudioSection.h"
+#include "AudioThread.h"
 
 
 FMovieSceneAudioTrackInstance::FMovieSceneAudioTrackInstance( UMovieSceneAudioTrack& InAudioTrack )
@@ -38,7 +39,7 @@ void FMovieSceneAudioTrackInstance::Update(EMovieSceneUpdateData& UpdateData, co
 
 	if (Player.GetPlaybackStatus() == EMovieScenePlayerStatus::Playing)
 	{
-		if (UpdateData.Position > UpdateData.LastPosition)
+		if (UpdateData.Position >= UpdateData.LastPosition)
 		{
 			TMap<int32, TArray<UMovieSceneAudioSection*> > AudioSectionsBySectionIndex;
 			for (int32 i = 0; i < AudioSections.Num(); ++i)
@@ -97,23 +98,29 @@ void FMovieSceneAudioTrackInstance::Update(EMovieSceneUpdateData& UpdateData, co
 			for (int32 i = 0; i < AudioSections.Num(); ++i)
 			{
 				auto AudioSection = Cast<UMovieSceneAudioSection>(AudioSections[i]);
-				if (AudioSection->IsActive())
+
+				if (!AudioSection->IsActive())
 				{
-					int32 RowIndex = AudioSection->GetRowIndex();
+					continue;
+				}
+
+				int32 RowIndex = AudioSection->GetRowIndex();
 				
-					for (int32 ActorIndex = 0; ActorIndex < Actors.Num(); ++ActorIndex)
+				for (int32 ActorIndex = 0; ActorIndex < Actors.Num(); ++ActorIndex)
+				{
+					TWeakObjectPtr<UAudioComponent> Component = GetAudioComponent(Player, Actors[ActorIndex], RowIndex);
+
+					if (!Component.IsValid())
 					{
-						TWeakObjectPtr<UAudioComponent> Component = GetAudioComponent(Player, Actors[ActorIndex], RowIndex);
-						if (Component.IsValid())
-						{
-							if (AudioSection->IsTimeWithinAudioRange(UpdateData.Position) && !Component->IsPlaying())
-							{
-								PlaySound(AudioSection, Component, UpdateData.Position);
-								// Fade out the sound at the same volume in order to simply
-								// set a short duration on the sound, far from ideal soln
-								Component->FadeOut(AudioTrackConstants::ScrubDuration, 1.f);
-							}
-						}
+						continue;
+					}
+
+					if (AudioSection->IsTimeWithinAudioRange(UpdateData.Position) && !Component->IsPlaying())
+					{
+						PlaySound(AudioSection, Component, UpdateData.Position);
+						// Fade out the sound at the same volume in order to simply
+						// set a short duration on the sound, far from ideal soln
+						Component->FadeOut(AudioTrackConstants::ScrubDuration, 1.f);
 					}
 				}
 			}
@@ -132,15 +139,23 @@ void FMovieSceneAudioTrackInstance::Update(EMovieSceneUpdateData& UpdateData, co
 		{
 			for (int32 ActorIndex = 0; ActorIndex < Actors.Num(); ++ActorIndex)
 			{
-				TWeakObjectPtr<UAudioComponent> Component = GetAudioComponent(Player, Actors[ActorIndex], RowIndex);
-				if (Component.IsValid())
+				UAudioComponent* Component = GetAudioComponent(Player, Actors[ActorIndex], RowIndex).Get();
+				if (Component && Component->IsPlaying())
 				{
-					if (Component->IsPlaying())
+					if (FAudioDevice* AudioDevice = Component->GetAudioDevice())
 					{
-						FAudioDevice* AudioDevice = Component->GetAudioDevice();
-						FActiveSound* ActiveSound = AudioDevice->FindActiveSound(Component.Get());
-						ActiveSound->bLocationDefined = true;
-						ActiveSound->Transform = Actors[ActorIndex]->GetTransform();
+						DECLARE_CYCLE_STAT(TEXT("FAudioThreadTask.MovieSceneUpdateAudioTransform"), STAT_MovieSceneUpdateAudioTransform, STATGROUP_TaskGraphTasks);
+
+						const FTransform ActorTransform = Actors[ActorIndex]->GetTransform();
+						const uint64 ActorComponentID = Component->GetUniqueID();
+						FAudioThread::RunCommandOnAudioThread([AudioDevice, ActorComponentID, ActorTransform]()
+						{
+							if (FActiveSound* ActiveSound = AudioDevice->FindActiveSound(ActorComponentID))
+							{
+								ActiveSound->bLocationDefined = true;
+								ActiveSound->Transform = ActorTransform;
+							}
+						}, GET_STATID(STAT_MovieSceneUpdateAudioTransform));
 					}
 				}
 			}
@@ -161,7 +176,7 @@ void FMovieSceneAudioTrackInstance::PlaySound(UMovieSceneAudioSection* AudioSect
 	Component->bAllowSpatialization = !AudioTrack->IsAMasterTrack();
 	Component->Stop();
 	Component->SetSound(AudioSection->GetSound());
-	Component->SetVolumeMultiplier(1.f);
+	Component->SetVolumeMultiplier(AudioSection->GetAudioVolume());
 	Component->SetPitchMultiplier(PitchMultiplier);
 	Component->bIsUISound = true;
 	Component->Play(Time - AudioSection->GetAudioStartTime());
@@ -216,8 +231,8 @@ TWeakObjectPtr<UAudioComponent> FMovieSceneAudioTrackInstance::GetAudioComponent
 	if (PlaybackAudioComponents[RowIndex].Find(Actor) == nullptr || !(*PlaybackAudioComponents[RowIndex].Find(Actor)).IsValid())
 	{
 		USoundCue* TempPlaybackAudioCue = NewObject<USoundCue>();
-		
-		UAudioComponent* AudioComponent = FAudioDevice::CreateComponent(TempPlaybackAudioCue, Actor ? Actor->GetWorld() : Player.GetPlaybackContext()->GetWorld(), Actor, false, false);
+		UWorld* World = Actor ? Actor->GetWorld() : (Player.GetPlaybackContext() != nullptr) ? Player.GetPlaybackContext()->GetWorld() : nullptr;
+		UAudioComponent* AudioComponent = FAudioDevice::CreateComponent(TempPlaybackAudioCue, World, Actor, false, false);
 
 		PlaybackAudioComponents[RowIndex].Add(Actor);
 		PlaybackAudioComponents[RowIndex][Actor] = TWeakObjectPtr<UAudioComponent>(AudioComponent);

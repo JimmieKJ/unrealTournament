@@ -14,6 +14,7 @@
 #include "Engine/UserInterfaceSettings.h"
 #include "UTHUDWidget_ReplayTimeSlider.h"
 #include "UTPlayerInput.h"
+#include "StatNames.h"
 
 #if !UE_SERVER
 
@@ -28,10 +29,10 @@ void SUTPlayerInfoDialog::Construct(const FArguments& InArgs)
 
 	TargetPlayerState = InArgs._TargetPlayerState;
 	
-	FText DialogTitle = FText::Format(NSLOCTEXT("SUTMenuBase", "PlayerInfoTitleFormat", "Player Info - {0}"), FText::FromString(InArgs._TargetPlayerState->PlayerName));
+	FText NewDialogTitle = FText::Format(NSLOCTEXT("SUTMenuBase", "PlayerInfoTitleFormat", "Player Info - {0}"), FText::FromString(InArgs._TargetPlayerState->PlayerName));
 	SUTDialogBase::Construct(SUTDialogBase::FArguments()
 							.PlayerOwner(InArgs._PlayerOwner)
-							.DialogTitle(DialogTitle)
+							.DialogTitle(NewDialogTitle)
 							.DialogSize(InArgs._DialogSize)
 							.DialogPosition(InArgs._DialogPosition)
 							.DialogAnchorPoint(InArgs._DialogAnchorPoint)
@@ -784,12 +785,40 @@ void SUTPlayerInfoDialog::UpdatePlayerStateInReplays()
 {
 	if (TargetPlayerState.IsValid() && TargetPlayerState->IsOwnedByReplayController())
 	{
-		UpdatePlayerStateRankingStatsFromLocalPlayer(PlayerOwner->GetRankDuel(), PlayerOwner->GetRankCTF(), PlayerOwner->GetRankTDM(), PlayerOwner->GetRankDM(), PlayerOwner->GetRankShowdown(), PlayerOwner->GetTotalChallengeStars(), FMath::Min(255, PlayerOwner->DuelEloMatches()), FMath::Min(255, PlayerOwner->CTFEloMatches()), FMath::Min(255, PlayerOwner->TDMEloMatches()), FMath::Min(255, PlayerOwner->DMEloMatches()), FMath::Min(255, PlayerOwner->ShowdownEloMatches()));
+		FMMREntry DuelMMR;
+		FMMREntry CTFMMR;
+		FMMREntry TDMMMR;
+		FMMREntry DMMMR;
+		FMMREntry ShowdownMMR;
+		FMMREntry FlagRunMMR;
+
+		PlayerOwner->GetMMREntry(NAME_SkillRating.ToString(), DuelMMR);
+		PlayerOwner->GetMMREntry(NAME_CTFSkillRating.ToString(), CTFMMR);
+		PlayerOwner->GetMMREntry(NAME_TDMSkillRating.ToString(), TDMMMR);
+		PlayerOwner->GetMMREntry(NAME_DMSkillRating.ToString(), DMMMR);
+		PlayerOwner->GetMMREntry(NAME_ShowdownSkillRating.ToString(), ShowdownMMR);
+		PlayerOwner->GetMMREntry(NAME_FlagRunSkillRating.ToString(), FlagRunMMR);
+
+		UpdatePlayerStateRankingStatsFromLocalPlayer(
+			DuelMMR.MMR,
+			CTFMMR.MMR,
+			TDMMMR.MMR,
+			DMMMR.MMR,
+			ShowdownMMR.MMR,
+			FlagRunMMR.MMR,
+			PlayerOwner->GetTotalChallengeStars(), 
+			FMath::Min(255, DuelMMR.MatchesPlayed),
+			FMath::Min(255, CTFMMR.MatchesPlayed),
+			FMath::Min(255, TDMMMR.MatchesPlayed),
+			FMath::Min(255, DMMMR.MatchesPlayed),
+			FMath::Min(255, ShowdownMMR.MatchesPlayed),
+			FMath::Min(255, FlagRunMMR.MatchesPlayed));
+
 		UpdatePlayerCharacterPreviewInReplays();
 	}
 }
 
-void SUTPlayerInfoDialog::UpdatePlayerStateRankingStatsFromLocalPlayer(int32 NewDuelRank, int32 NewCTFRank, int32 NewTDMRank, int32 NewDMRank, int32 NewShowdownRank, int32 TotalStars, uint8 DuelMatchesPlayed, uint8 CTFMatchesPlayed, uint8 TDMMatchesPlayed, uint8 DMMatchesPlayed, uint8 ShowdownMatchesPlayed)
+void SUTPlayerInfoDialog::UpdatePlayerStateRankingStatsFromLocalPlayer(int32 NewDuelRank, int32 NewCTFRank, int32 NewTDMRank, int32 NewDMRank, int32 NewShowdownRank, int32 NewFlagRunRank, int32 TotalStars, uint8 DuelMatchesPlayed, uint8 CTFMatchesPlayed, uint8 TDMMatchesPlayed, uint8 DMMatchesPlayed, uint8 ShowdownMatchesPlayed, uint8 FlagRunMatchesPlayed)
 {
 	if (TargetPlayerState.IsValid())
 	{
@@ -797,12 +826,14 @@ void SUTPlayerInfoDialog::UpdatePlayerStateRankingStatsFromLocalPlayer(int32 New
 		TargetPlayerState->CTFRank = NewCTFRank;
 		TargetPlayerState->TDMRank = NewTDMRank;
 		TargetPlayerState->DMRank = NewDMRank;
+		TargetPlayerState->FlagRunRank = NewFlagRunRank;
 		TargetPlayerState->ShowdownRank = NewShowdownRank;
 		TargetPlayerState->TotalChallengeStars = TotalStars;
 		TargetPlayerState->DuelMatchesPlayed = DuelMatchesPlayed;
 		TargetPlayerState->CTFMatchesPlayed = CTFMatchesPlayed;
 		TargetPlayerState->TDMMatchesPlayed = TDMMatchesPlayed;
 		TargetPlayerState->DMMatchesPlayed = DMMatchesPlayed;
+		TargetPlayerState->FlagRunMatchesPlayed = FlagRunMatchesPlayed;
 		TargetPlayerState->ShowdownMatchesPlayed = ShowdownMatchesPlayed;
 	}
 }

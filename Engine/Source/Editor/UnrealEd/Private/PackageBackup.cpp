@@ -103,6 +103,12 @@ bool FAutoPackageBackup::ShouldBackupPackage( const UPackage& InPackage, FString
 		&& (InPackage.HasAnyPackageFlags(PKG_PlayInEditor) == false)						// Don't back up PIE packages
 		&& (InPackage.HasAnyPackageFlags(PKG_ContainsScript) == false);						// Don't back up script packages
 
+	if (!bShouldBackup)
+	{
+		// Early out here to avoid the call to FileSize below which can be expensive on slower hard drives
+		return false;
+	}
+
 	if( bShouldBackup )
 	{
 		GWarn->StatusUpdate( -1, -1, NSLOCTEXT("UnrealEd", "PackageBackup_ValidityWarning", "Determining asset backup validity...") );

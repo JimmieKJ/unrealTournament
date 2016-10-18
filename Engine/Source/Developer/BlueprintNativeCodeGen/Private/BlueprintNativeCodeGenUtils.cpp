@@ -115,7 +115,7 @@ static bool BlueprintNativeCodeGenUtilsImpl::GeneratePluginDescFile(const FStrin
 	PluginDesc.Modules.Add(RuntimeModuleDesc);
 
 	FText ErrorMessage;
-	bool bSuccess = PluginDesc.Save(TargetPaths.PluginFilePath(), ErrorMessage);
+	bool bSuccess = PluginDesc.Save(TargetPaths.PluginFilePath(), false, ErrorMessage);
 
 	if (!bSuccess)
 	{
@@ -132,6 +132,10 @@ static bool BlueprintNativeCodeGenUtilsImpl::GenerateModuleSourceFiles(const FBl
 	TArray<FString> PchIncludes;
 	PchIncludes.Add(EngineHeaderFile);
 	PchIncludes.Add(TEXT("GeneratedCodeHelpers.h"));
+
+	TArray<FString> FilesToIncludeInModuleHeader;
+	GConfig->GetArray(TEXT("BlueprintNativizationSettings"), TEXT("FilesToIncludeInModuleHeader"), FilesToIncludeInModuleHeader, GEditorIni);
+	PchIncludes.Append(FilesToIncludeInModuleHeader);
 
 	bool bSuccess = GameProjectUtils::GeneratePluginModuleHeaderFile(TargetPaths.RuntimeModuleFile(FBlueprintNativeCodeGenPaths::HFile), PchIncludes, FailureReason);
 
@@ -241,7 +245,7 @@ bool FBlueprintNativeCodeGenUtils::FinalizePlugin(const FBlueprintNativeCodeGenM
 }
 
 //------------------------------------------------------------------------------
-void FBlueprintNativeCodeGenUtils::GenerateCppCode(UObject* Obj, TSharedPtr<FString> OutHeaderSource, TSharedPtr<FString> OutCppSource)
+void FBlueprintNativeCodeGenUtils::GenerateCppCode(UObject* Obj, TSharedPtr<FString> OutHeaderSource, TSharedPtr<FString> OutCppSource, TSharedPtr<FNativizationSummary> NativizationSummary)
 {
 	auto UDEnum = Cast<UUserDefinedEnum>(Obj);
 	auto UDStruct = Cast<UUserDefinedStruct>(Obj);
@@ -282,7 +286,8 @@ void FBlueprintNativeCodeGenUtils::GenerateCppCode(UObject* Obj, TSharedPtr<FStr
 		{
 			FBlueprintDuplicationScopeFlags BPDuplicationFlags(FBlueprintDuplicationScopeFlags::NoExtraCompilation 
 				| FBlueprintDuplicationScopeFlags::TheSameTimelineGuid 
-				| FBlueprintDuplicationScopeFlags::ValidatePinsUsingSourceClass);
+				| FBlueprintDuplicationScopeFlags::ValidatePinsUsingSourceClass
+				| FBlueprintDuplicationScopeFlags::TheSameNodeGuid);
 			DuplicateBP = DuplicateObject<UBlueprint>(InBlueprintObj, TempPackage, *InBlueprintObj->GetName());
 		}
 		ensure((nullptr != DuplicateBP->GeneratedClass) && (InBlueprintObj->GeneratedClass != DuplicateBP->GeneratedClass));
@@ -294,6 +299,7 @@ void FBlueprintNativeCodeGenUtils::GenerateCppCode(UObject* Obj, TSharedPtr<FStr
 
 		IBlueprintCompilerCppBackendModule& CodeGenBackend = (IBlueprintCompilerCppBackendModule&)IBlueprintCompilerCppBackendModule::Get();
 		CodeGenBackend.GetOriginalClassMap().Add(*DuplicateBP->GeneratedClass, *InBlueprintObj->GeneratedClass);
+		CodeGenBackend.NativizationSummary() = NativizationSummary;
 
 		{
 			TSharedPtr<FBlueprintCompileReinstancer> Reinstancer = FBlueprintCompileReinstancer::Create(DuplicateBP->GeneratedClass);

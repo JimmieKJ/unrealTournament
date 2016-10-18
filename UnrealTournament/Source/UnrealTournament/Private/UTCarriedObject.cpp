@@ -1,3 +1,5 @@
+
+
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #include "UnrealTournament.h"
 #include "UTCarriedObject.h"
@@ -10,6 +12,8 @@
 #include "UTGhostFlag.h"
 #include "UTSecurityCameraComponent.h"
 #include "UTGameVolume.h"
+#include "UTCTFRoundGameState.h"
+#include "UTCTFRoundGame.h"
 
 AUTCarriedObject::AUTCarriedObject(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -42,6 +46,8 @@ AUTCarriedObject::AUTCarriedObject(const FObjectInitializer& ObjectInitializer)
 	MinGradualReturnDist = 1400.f;
 	bSendHomeOnScore = true;
 	bSlowsMovement = false;
+	bSingleGhostFlag = true;
+	bWaitingForFirstPickup = true;
 }
 
 void AUTCarriedObject::Destroyed()
@@ -59,11 +65,8 @@ void AUTCarriedObject::Destroyed()
 		Holder->ClearCarriedObject(this);
 		Holder = nullptr;
 	}
-	if (MyGhostFlag)
-	{
-		MyGhostFlag->Destroy();
-		MyGhostFlag = nullptr;
-	}
+
+	ClearGhostFlags();
 }
 
 UUTSecurityCameraComponent* AUTCarriedObject::GetDetectingCamera()
@@ -115,7 +118,7 @@ void AUTCarriedObject::OnStop(const FHitResult& Hit)
 {
 	if (Hit.Actor.IsValid() && Hit.Component.IsValid() && Cast<AUTLift>(Hit.Actor.Get()))
 	{
-		AttachRootComponentTo(Hit.Component.Get(), NAME_None, EAttachLocation::KeepWorldPosition);
+		AttachToComponent(Hit.Component.Get(), FAttachmentTransformRules::KeepWorldTransform);
 	}
 }
 
@@ -150,7 +153,8 @@ void AUTCarriedObject::AttachTo(USkeletalMeshComponent* AttachToMesh)
 	{
 		Collision->SetRelativeLocation(Holder3PTransform);
 		Collision->SetRelativeRotation(Holder3PRotation);
-		AttachRootComponentTo(AttachToMesh, Holder3PSocketName);
+
+		AttachToComponent(AttachToMesh, FAttachmentTransformRules::KeepRelativeTransform, Holder3PSocketName);
 		ClientUpdateAttachment(true);
 	}
 }
@@ -177,7 +181,7 @@ void AUTCarriedObject::ClientUpdateAttachment(bool bNowAttached)
 	}
 	if (bNowAttached)
 	{
-		if (bDisplayHolderTrail && (GetNetMode() != NM_DedicatedServer) && RootComponent && RootComponent->AttachParent)
+		if (bDisplayHolderTrail && (GetNetMode() != NM_DedicatedServer) && RootComponent && RootComponent->GetAttachParent())
 		{
 			HolderTrail = NewObject<UParticleSystemComponent>(this);
 			if (HolderTrail)
@@ -187,7 +191,8 @@ void AUTCarriedObject::ClientUpdateAttachment(bool bNowAttached)
 				HolderTrail->SecondsBeforeInactive = 0.0f;
 				HolderTrail->SetTemplate(HolderTrailEffect);
 				HolderTrail->RegisterComponent();
-				HolderTrail->AttachTo(RootComponent->AttachParent, Holder3PSocketName, EAttachLocation::SnapToTarget);
+
+				HolderTrail->AttachToComponent(RootComponent->GetAttachParent(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, Holder3PSocketName);
 				float TrailLength = 0.f;
 				if (Team)
 				{
@@ -209,7 +214,7 @@ void AUTCarriedObject::ClientUpdateAttachment(bool bNowAttached)
 	}
 }
 
-void AUTCarriedObject::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+void AUTCarriedObject::OnOverlapBegin(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
 	if (bInitialized && !bIsDropping && Role == ROLE_Authority)
 	{
@@ -408,7 +413,7 @@ void AUTCarriedObject::SetHolder(AUTCharacter* NewHolder)
 		return;
 	}
 
-	ClearGhostFlag();
+	ClearGhostFlags();
 	for (int32 i = 0; i < NUM_MIDPOINTS; i++)
 	{
 		MidPoints[i] = FVector::ZeroVector;
@@ -430,11 +435,20 @@ void AUTCarriedObject::SetHolder(AUTCharacter* NewHolder)
 		OnHolderChanged();
 		if (Holder && bWasHome)
 		{
-			LastPingedTime = GetWorld()->GetTimeSeconds() + 2.5f;
+			LastPingedTime = GetWorld()->GetTimeSeconds() + 1.5f;
 			Holder->ModifyStatsValue(NAME_FlagGrabs, 1);
 			if (Holder->Team)
 			{
 				Holder->Team->ModifyStatsValue(NAME_TeamFlagGrabs, 1);
+			}
+			if (bWaitingForFirstPickup)
+			{
+				bWaitingForFirstPickup = false;
+				AUTCTFRoundGame* RCTFGame = GetWorld()->GetAuthGameMode<AUTCTFRoundGame>();
+				if (RCTFGame)
+				{
+					RCTFGame->NotifyFirstPickup(this);
+				}
 			}
 		}
 	}
@@ -572,7 +586,15 @@ void AUTCarriedObject::TossObject(AUTCharacter* ObjectHolder)
 		}
 		if (bSuccess)
 		{
-			MovementComponent->Velocity = (0.5f * ObjectHolder->GetMovementComponent()->Velocity) + Extra + (218.0f * (0.5f + FMath::FRand()) * FMath::VRand() + FVector(0.0f, 0.0f, 100.0f));
+			if (bGradualAutoReturn && (ObjectHolder->Health <= 0))
+			{
+				MovementComponent->Velocity = FVector::ZeroVector;
+				MovementComponent->Velocity.Z = ObjectHolder->GetMovementComponent()->Velocity.Z;
+			}
+			else
+			{
+				MovementComponent->Velocity = (0.5f * ObjectHolder->GetMovementComponent()->Velocity) + Extra + (218.0f * (0.5f + FMath::FRand()) * FMath::VRand() + FVector(0.0f, 0.0f, 100.0f));
+			}
 		}
 		else
 		{
@@ -603,7 +625,7 @@ void AUTCarriedObject::CheckTouching()
 		{
 			if (Touched != LastHoldingPawn)
 			{
-				OnOverlapBegin(Touched, Cast<UPrimitiveComponent>(Touched->GetRootComponent()), INDEX_NONE, false, FHitResult(this, Collision, GetActorLocation(), FVector(0.0f, 0.0f, 1.0f)));
+				OnOverlapBegin(Collision, Touched, Cast<UPrimitiveComponent>(Touched->GetRootComponent()), INDEX_NONE, false, FHitResult(this, Collision, GetActorLocation(), FVector(0.0f, 0.0f, 1.0f)));
 				if (ObjectState != PrevState)
 				{
 					break;
@@ -687,28 +709,44 @@ void AUTCarriedObject::SendHomeWithNotify()
 	SendHome();
 }
 
-void AUTCarriedObject::ClearGhostFlag()
+void AUTCarriedObject::ClearGhostFlags()
 {
-	if (MyGhostFlag != nullptr)
+	for (int32 i = 0; i < MyGhostFlags.Num(); i++)
 	{
-		MyGhostFlag->Destroy();
-		MyGhostFlag = nullptr;
+		if (MyGhostFlags[i] != nullptr)
+		{
+			MyGhostFlags[i]->Destroy();
+			MyGhostFlags[i] = nullptr;
+		}
 	}
+
+	MyGhostFlags.Empty();
 }
 
-void AUTCarriedObject::PutGhostFlagAt(FFlagTrailPos NewPosition)
+AUTGhostFlag* AUTCarriedObject::PutGhostFlagAt(FFlagTrailPos NewPosition, bool bShowTimer, bool bSuppressTrail, uint8 TeamNum)
 {
+	AUTGhostFlag* MyGhostFlag = nullptr;
 	if (GhostFlagClass && !IsPendingKillPending())
 	{
-		ClearGhostFlag();
+		if (bSingleGhostFlag)
+		{
+			ClearGhostFlags();
+		}
+
 		FActorSpawnParameters Params;
 		Params.Owner = this;
 		MyGhostFlag = GetWorld()->SpawnActor<AUTGhostFlag>(GhostFlagClass, NewPosition.Location, GetActorRotation(), Params);
-		if (MyGhostFlag)
+		if (MyGhostFlag != nullptr)
 		{
+			MyGhostFlag->GhostMaster.bSuppressTrails = bSuppressTrail;
+			MyGhostFlag->GhostMaster.TeamNum = TeamNum;
+			MyGhostFlag->GhostMaster.bShowTimer = bShowTimer;
 			MyGhostFlag->SetCarriedObject(this, NewPosition);
+			MyGhostFlags.Add(MyGhostFlag);
 		}
 	}
+
+	return MyGhostFlag;
 }
 
 void AUTCarriedObject::SendHome()
@@ -757,23 +795,60 @@ void AUTCarriedObject::SendHome()
 			if ((GetWorld()->GetTimeSeconds() - LastDroppedMessageTime > AutoReturnTime - 2.f) && GameState && !GameState->IsMatchIntermission() && !GameState->HasMatchEnded())
 			{
 				LastDroppedMessageTime = GetWorld()->GetTimeSeconds();
-				SendGameMessage(3, NULL, NULL);
+				SendGameMessage((Team && (Team->TeamIndex == 0)) ? 0 : 1, NULL, NULL);
+				if (GetWorld()->GetTimeSeconds() - LastNeedFlagMessageTime > 15.f)
+				{
+					SendNeedFlagAnnouncement();
+				}
 			}
 			OnObjectStateChanged();
 			ForceNetUpdate();
 			}
 			if (!bWantsGhostFlag)
 			{
-				ClearGhostFlag();
+				ClearGhostFlags();
 			}
 			return;
 		}
 	}
-	ClearGhostFlag();
+	ClearGhostFlags();
 	ChangeState(CarriedObjectState::Home);
 	HomeBase->ObjectReturnedHome(LastHoldingPawn);
 	MoveToHome();
 }
+
+void AUTCarriedObject::SendNeedFlagAnnouncement()
+{
+	if (ObjectState == CarriedObjectState::Held)
+	{
+		GetWorldTimerManager().ClearTimer(NeedFlagAnnouncementTimer);
+		return;
+	}
+	else if (ObjectState == CarriedObjectState::Home)
+	{
+		GetWorldTimerManager().SetTimer(NeedFlagAnnouncementTimer, this, &AUTCarriedObject::SendNeedFlagAnnouncement, 10.f, false);
+	}
+	AUTGameState* UTGameState = GetWorld()->GetGameState<AUTGameState>();
+	if (UTGameState && UTGameState->bPlayStatusAnnouncements)
+	{
+		AUTPlayerState* Speaker = nullptr;
+		for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
+		{
+			AUTPlayerState* TeamPS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
+			if (TeamPS && (TeamPS->Team == Team) && !TeamPS->bIsInactive)
+			{
+				Speaker = TeamPS;
+				break;
+			}
+		}
+		if (Speaker != nullptr)
+		{
+			Speaker->AnnounceStatus(StatusMessage::GetTheFlag);
+			LastNeedFlagMessageTime = GetWorld()->GetTimeSeconds();
+		}
+	}
+}
+
 
 FVector AUTCarriedObject::GetHomeLocation() const
 {
@@ -874,25 +949,28 @@ void AUTCarriedObject::OnRep_AttachmentReplication()
 	{
 		if (RootComponent)
 		{
-			USceneComponent* ParentComponent = GetAttachmentReplication().AttachParent->GetRootComponent();
+			USceneComponent* NewParentComponent = GetAttachmentReplication().AttachParent->GetRootComponent();
 
 			if (GetAttachmentReplication().AttachComponent != NULL)
 			{
-				ParentComponent = GetAttachmentReplication().AttachComponent;
+				NewParentComponent = GetAttachmentReplication().AttachComponent;
 			}
+			
+			// FIXME: workaround for engine replication bug
+			FName AttachSocket = (GetAttachmentReplication().AttachSocket != NAME_None) ? GetAttachmentReplication().AttachSocket : Holder3PSocketName;
 
-			if (ParentComponent)
+			if (NewParentComponent)
 			{
 				// Calculate scale before attachment as ComponentToWorld will be modified after AttachTo()
 				FVector NewRelativeScale3D = RootComponent->RelativeScale3D;
 				if (!RootComponent->bAbsoluteScale)
 				{
-					FTransform ParentToWorld = ParentComponent->GetSocketTransform(GetAttachmentReplication().AttachSocket);
+					FTransform ParentToWorld = NewParentComponent->GetSocketTransform(AttachSocket);
 					FTransform RelativeTM = RootComponent->ComponentToWorld.GetRelativeTransform(ParentToWorld);
 					NewRelativeScale3D = RelativeTM.GetScale3D();
 				}
 
-				RootComponent->AttachTo(ParentComponent, GetAttachmentReplication().AttachSocket);
+				RootComponent->AttachToComponent(NewParentComponent,  FAttachmentTransformRules::KeepRelativeTransform, AttachSocket);
 				RootComponent->RelativeLocation = GetAttachmentReplication().LocationOffset;
 				RootComponent->RelativeRotation = GetAttachmentReplication().RotationOffset;
 				RootComponent->RelativeScale3D = NewRelativeScale3D;
@@ -934,7 +1012,7 @@ void AUTCarriedObject::GatherCurrentMovement()
 	// force ReplicatedMovement to be replicated even when attached, which is a hack to force the last replicated data to be different when the flag is eventually returned
 	// otherwise an untouched flag capture results in replication fail because this value has never changed in between times it was replicated (only attachment was)
 	// leaving the flag floating at the enemy flag base on clients
-	if (RootComponent != NULL && RootComponent->AttachParent != NULL)
+	if (RootComponent != NULL && RootComponent->GetAttachParent() != NULL)
 	{
 		ReplicatedMovement.Location = RootComponent->GetComponentLocation();
 		ReplicatedMovement.Rotation = RootComponent->GetComponentRotation();
@@ -967,4 +1045,11 @@ FText AUTCarriedObject::GetHUDStatusMessage(AUTHUD* HUD)
 	}
 	LastLocationName = (GV && !GV->VolumeName.IsEmpty()) ? GV->VolumeName : LastLocationName;
 	return LastLocationName;
+}
+
+float AUTCarriedObject::GetGhostFlagTimerTime(AUTGhostFlag* Ghost)
+{
+	AUTCTFRoundGameState* RCTFGameState = GetWorld()->GetGameState<AUTCTFRoundGameState>();
+	float ReturnTime = (RCTFGameState && (RCTFGameState->RemainingPickupDelay > 0.f)) ? RCTFGameState->RemainingPickupDelay : FlagReturnTime;
+	return AutoReturnTime > 0.f ? (1.0f - ReturnTime / 12.f) : 0.f;
 }

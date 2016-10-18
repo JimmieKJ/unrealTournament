@@ -45,5 +45,12 @@ public class WebBrowser : ModuleRules
 				RuntimeDependencies.Add(new RuntimeDependency("$(EngineDir)/Binaries/" + Target.Platform.ToString() + "/UnrealCEFSubProcess.exe"));
 			}
 		}
+
+		if (Target.Platform == UnrealTargetPlatform.PS4)
+		{
+			PrivateDependencyModuleNames.Add("OnlineSubsystem");
+		}
+		
+		bEnableShadowVariableWarnings = false;
 	}
 }

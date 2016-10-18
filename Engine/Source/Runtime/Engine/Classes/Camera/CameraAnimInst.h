@@ -144,9 +144,6 @@ public:
 	UFUNCTION(BlueprintCallable, Category = CameraAnimInst)
 	void SetScale(float NewDuration);
 
-	/** Sets the camera actor that will be modified when this anim is played. (Usually a temporary actor whose data is subsequently harvested). */
-	void SetCameraActor(class AActor* Actor);
-
 	/** Takes the given view and applies the camera anim transform and fov changes to it. Does not affect PostProcess. */
 	void ApplyToView(FMinimalViewInfo& InOutPOV) const;
 

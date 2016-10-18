@@ -5,6 +5,7 @@
 
 #include "Net/UnrealNetwork.h"
 #include "UTCharacter.h"
+#include "UTPlaceablePowerup.h"
 #include "UTProjectile.h"
 #include "UTProjectileMovementComponent.h"
 
@@ -26,7 +27,7 @@ AUTRepulsorBubble::AUTRepulsorBubble(const class FObjectInitializer& ObjectIniti
 	BubbleMesh = ObjectInitializer.CreateOptionalDefaultSubobject<UStaticMeshComponent>(this, TEXT("BubbleMesh"));
 	if (BubbleMesh != NULL)
 	{
-		BubbleMesh->AttachTo(CollisionComp);
+		BubbleMesh->SetupAttachment(CollisionComp);
 	}
 
 	bAlwaysRelevant = true;
@@ -44,6 +45,7 @@ void AUTRepulsorBubble::PostInitializeComponents()
 	if (UTOwner)
 	{
 		TeamNum = UTOwner->GetTeamNum();
+		SetOwner(UTOwner);
 	}
 
 	CollisionComp->SetWorldScale3D(FVector(MaxRepulsorSize,MaxRepulsorSize,MaxRepulsorSize));
@@ -53,6 +55,20 @@ void AUTRepulsorBubble::PostInitializeComponents()
 	{
 		MID_Bubble = UMaterialInstanceDynamic::Create(BubbleMaterial, this);
 		BubbleMesh->SetMaterial(0, MID_Bubble);
+	}
+}
+
+void AUTRepulsorBubble::OnViewTargetChange(AUTPlayerController* NewViewTarget)
+{
+	if (NewViewTarget && (NewViewTarget == Cast<AUTPlayerController>(Instigator)))
+	{
+		//We are spectating the owner of this bubble so fade out the center so we can see too
+		MID_Bubble->SetScalarParameterValue(FName("CenterFade"), 1.0f);
+	}
+	else
+	{
+		//Un fade the center of the bubble
+		MID_Bubble->SetScalarParameterValue(FName("CenterFade"), 0.0f);
 	}
 }
 
@@ -72,13 +88,28 @@ void AUTRepulsorBubble::BeginPlay()
 		}
 	}
 
-	if (Instigator && GEngine)
+	if (Instigator && GEngine && GEngine->GetFirstLocalPlayerController(GetWorld()))
 	{
-		if (Instigator->GetController())
+		//if we instigated this object, or are viewing the player who instigated it, we want to fade out the center so we can see
+		if ((Instigator->GetController() == GEngine->GetFirstLocalPlayerController(GetWorld())) ||
+			(Cast<APawn>(GEngine->GetFirstLocalPlayerController(GetWorld())->GetViewTarget()) == Instigator))
 		{
-			//If we instigated this object then we want to fully fade out the center, so that we can see through the repulsor effects.
-			//Other players should have no center fade effect
-			MID_Bubble->SetScalarParameterValue(FName("CenterFade"), Instigator->GetController() == GEngine->GetFirstLocalPlayerController(GetWorld()) ? 1.0f : 0.0f);
+			MID_Bubble->SetScalarParameterValue(FName("CenterFade"), 1.0f);
+		}
+		else
+		{
+			MID_Bubble->SetScalarParameterValue(FName("CenterFade"), 0.0f);
+		}
+	}
+
+	//Set remaining time on parent item to reflect starting health
+	AUTCharacter* UTChar = Cast<AUTCharacter>(Instigator);
+	if (UTChar)
+	{
+		AUTPlaceablePowerup* ParentItem = Cast<AUTPlaceablePowerup>(UTChar->FindInventoryType(ParentInventoryItemClass));
+		if (ParentItem)
+		{
+			ParentItem->TimeRemaining = Health;
 		}
 	}
 }
@@ -92,7 +123,7 @@ void AUTRepulsorBubble::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > &
 	DOREPLIFETIME(AUTRepulsorBubble, LastHitByType);
 }
 
-void AUTRepulsorBubble::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+void AUTRepulsorBubble::OnOverlapBegin(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
 	FHitResult Hit;
 
@@ -244,9 +275,21 @@ float AUTRepulsorBubble::TakeDamage(float Damage, AActor* DamageCauser)
 			OnHitScanBlocked();
 		}
 
-		Health -= Damage;
+		//Set remaining time on parent item to reflect new health
+		AUTCharacter* UTChar = Cast<AUTCharacter>(Instigator);
+		if (UTChar)
+		{
+			AUTPlaceablePowerup* ParentItem = Cast<AUTPlaceablePowerup>(UTChar->FindInventoryType(ParentInventoryItemClass));
+			if (ParentItem)
+			{
+				ParentItem->TimeRemaining -= Damage;
+				Health = ParentItem->TimeRemaining;
 
-		if (Health <= 0.f)
+				ParentItem->ClientSetTimeRemaining(Health);
+			}
+		}
+
+		if (Health < 0)
 		{
 			Destroy();
 		}

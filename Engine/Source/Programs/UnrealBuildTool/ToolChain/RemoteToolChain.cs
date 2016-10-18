@@ -76,14 +76,14 @@ namespace UnrealBuildTool
 		/// Path to rsync executable and parameters for your rsync utility
 		/// </summary>
 		[XmlConfig]
-		public static string RSyncExe = "${PROGRAM_FILES}\\DeltaCopy\\rsync.exe";
+		public static string RSyncExe = "${ENGINE_ROOT}\\Engine\\Extras\\ThirdPartyNotUE\\DeltaCopy\\Binaries\\rsync.exe";
 		public static string ResolvedRSyncExe = null;
 
 		/// <summary>
 		/// Path to rsync executable and parameters for your rsync utility
 		/// </summary>
 		[XmlConfig]
-		public static string SSHExe = "${PROGRAM_FILES}\\DeltaCopy\\ssh.exe";
+		public static string SSHExe = "${ENGINE_ROOT}\\Engine\\Extras\\ThirdPartyNotUE\\DeltaCopy\\Binaries\\ssh.exe";
 		public static string ResolvedSSHExe = null;
 
 		/// <summary>
@@ -290,7 +290,7 @@ namespace UnrealBuildTool
 		public static void SetUserDevRootFromServer()
 		{
 
-			if (!bUseRPCUtil && BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Mac)
+			if (!bUseRPCUtil && BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Mac && !UEBuildConfiguration.bListBuildFolders)
 			{
 				// Only set relative to the users root when using rsync, for now
 				Hashtable Results = RPCUtilHelper.Command("/", "echo $HOME", null);
@@ -321,7 +321,8 @@ namespace UnrealBuildTool
 				return InitializationErrorCode;
 			}
 
-			if (BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Mac)
+			// don't need to set up the remote environment if we're simply listing build folders.
+			if (BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Mac && !UEBuildConfiguration.bListBuildFolders)
 			{
 				// If we don't care which machine we're going to build on, query and
 				// pick the one with the most free command slots available
@@ -381,7 +382,7 @@ namespace UnrealBuildTool
 				// we need a server name!
 				if (string.IsNullOrEmpty(RemoteServerName))
 				{
-					Log.TraceError("Remote compiling requires a server name. Use the editor to set up your remote compilation settings.");
+					Log.TraceError("Remote compiling requires a server name. Use the editor (Project Settings, IOS) to set up your remote compilation settings.");
 					return RemoteToolChainErrorCode.ServerNameNotSpecified;
 				}
 
@@ -393,7 +394,7 @@ namespace UnrealBuildTool
 
 					if (!File.Exists(ResolvedRSyncExe) || !File.Exists(ResolvedSSHExe))
 					{
-						Log.TraceError("Remote compiling requires Delta Copy to be installed.");
+						Log.TraceError("Remote compiling requires Delta Copy to be installed. Use the editor (Project Settings, IOS) to set up your remote compilation settings.");
 						return RemoteToolChainErrorCode.MissingDeltaCopyInstall;
 					}
 
@@ -401,7 +402,7 @@ namespace UnrealBuildTool
 					ResolvedRSyncUsername = ResolveString(RSyncUsername, false);
 					if (string.IsNullOrEmpty(ResolvedRSyncUsername))
 					{
-						Log.TraceError("Remote compiling requires a user name. Use the editor to set up your remote compilation settings.");
+						Log.TraceError("Remote compiling requires a user name. Use the editor (Project Settings, IOS) to set up your remote compilation settings.");
 						return RemoteToolChainErrorCode.MissingRemoteUserName;
 					}
 
@@ -519,6 +520,10 @@ namespace UnrealBuildTool
 			{
 				if (OriginalPath[1] != ':')
 				{
+                    if (OriginalPath[0] == '/')
+                    {
+                        return OriginalPath.Replace("\\", "/");
+                    }
 					throw new BuildException("Can only convert full paths ({0})", OriginalPath);
 				}
 
@@ -599,11 +604,24 @@ namespace UnrealBuildTool
 			return RemoteFileItem;
 		}
 
-		/// <summary>
-		/// Helper function to sync source files to and from the local system and a remote Mac
-		/// </summary>
-		//This chunk looks to be required to pipe output to VS giving information on the status of a remote build.
-		public static bool OutputReceivedDataEventHandlerEncounteredError = false;
+        public FileItem RemoteToLocalFileItem(FileItem RemoteFileItem)
+        {
+            // Look to see if we've already made a remote FileItem for this local FileItem
+            foreach (var Item in CachedRemoteFileItems)
+            {
+                if (Item.Value.AbsolutePath == RemoteFileItem.AbsolutePath)
+                {
+                    return Item.Key;
+                }
+            }
+            return RemoteFileItem;
+        }
+
+        /// <summary>
+        /// Helper function to sync source files to and from the local system and a remote Mac
+        /// </summary>
+        //This chunk looks to be required to pipe output to VS giving information on the status of a remote build.
+        public static bool OutputReceivedDataEventHandlerEncounteredError = false;
 		public static string OutputReceivedDataEventHandlerEncounteredErrorMessage = "";
 		public static void OutputReceivedDataEventHandler(Object Sender, DataReceivedEventArgs Line)
 		{
@@ -735,6 +753,11 @@ namespace UnrealBuildTool
 				foreach (string Dir in RsyncDirs)
 				{
 					List<string> LocalFilenames = new List<string>();
+
+					if (!Directory.Exists(Dir))
+					{
+						Directory.CreateDirectory(Dir);
+					}
 
 					// look only for useful extensions
 					foreach (string Ext in RsyncExtensions)
@@ -925,7 +948,7 @@ namespace UnrealBuildTool
 
 			SSHProcess.StartInfo.FileName = ResolvedSSHExe;
 			SSHProcess.StartInfo.Arguments = string.Format(
-				"{0} {1}@{2} \"{3}\"",
+				"-o BatchMode=yes {0} {1}@{2} \"{3}\"",
 //				"-o CheckHostIP=no {0} {1}@{2} \"{3}\"",
 				ResolvedSSHAuthentication,
 				RSyncUsername,

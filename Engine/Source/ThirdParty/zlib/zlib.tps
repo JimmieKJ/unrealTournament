@@ -1,8 +1,8 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <TpsData xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
   <Name>zlib</Name>
-  <Location>//depot/UE4/Engine/Source/ThirdParty/zlib/</Location>
-  <Date>2015-09-04T20:52:14.1870585-04:00</Date>
+  <Location>/Engine/Source/ThirdParty/zlib/</Location>
+  <Date>2016-06-16T14:25:49.6177405-04:00</Date>
   <Function>A compression library used by the engine and several other third party items</Function>
   <Justification />
   <Platforms>
@@ -17,7 +17,11 @@
   </Products>
   <TpsType>Source Code</TpsType>
   <Eula>http://www.zlib.net/zlib_license.html</Eula>
-  <RedistributeTo />
+  <RedistributeTo>
+    <EndUserGroup>Licensees</EndUserGroup>
+    <EndUserGroup>Git</EndUserGroup>
+    <EndUserGroup>P4</EndUserGroup>
+  </RedistributeTo>
   <Redistribute>false</Redistribute>
   <IsSourceAvailable>false</IsSourceAvailable>
   <NoticeType>Full EULA Text</NoticeType>
@@ -35,5 +39,5 @@ jloup@gzip.org madler@alumni.caltech.edu
 The data format used by the zlib library is described by RFCs (Request for  Comments) 1950 to 1952 in the files http://www.ietf.org/rfc/rfc1950.txt  (zlib format), rfc1951.txt (deflate format) and rfc1952.txt (gzip format).
  
 </Notification>
-  <LicenseFolder />
+  <LicenseFolder>/Engine/Source/ThirdParty/Licenses/Zlib_License.txt</LicenseFolder>
 </TpsData>

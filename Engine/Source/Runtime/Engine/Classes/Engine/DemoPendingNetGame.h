@@ -4,6 +4,8 @@
 
 #include "DemoPendingNetGame.generated.h"
 
+class UEngine;
+struct FWorldContext;
 
 UCLASS(transient, config=Engine)
 class UDemoPendingNetGame

@@ -180,6 +180,11 @@ void FAssetNameToken::FindAsset(const TSharedRef<IMessageToken>& Token, FString 
 	}
 }
 
+TSharedRef<FAssetNameToken> FAssetNameToken::Create(const FString& InAssetName, const FText& InMessage)
+{
+	return MakeShareable(new FAssetNameToken(InAssetName, InMessage));
+}
+
 FAssetNameToken::FAssetNameToken(const FString& InAssetName, const FText& InMessage)
 	: AssetName(InAssetName)
 {
@@ -200,5 +205,10 @@ FDocumentationToken::FDocumentationToken( const FString& InDocumentationLink, co
 	, PreviewExcerptLink(InPreviewExcerptLink)
 	, PreviewExcerptName(InPreviewExcerptName)
 { }
+
+TSharedRef<FDocumentationToken> FDocumentationToken::Create(const FString& InDocumentationLink, const FString& InPreviewExcerptLink, const FString& InPreviewExcerptName)
+{
+	return MakeShareable(new FDocumentationToken(InDocumentationLink, InPreviewExcerptLink, InPreviewExcerptName));
+}
 
 #undef LOCTEXT_NAMESPACE

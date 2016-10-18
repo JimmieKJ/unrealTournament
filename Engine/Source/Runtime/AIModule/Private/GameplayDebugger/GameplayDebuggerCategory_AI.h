@@ -1,8 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
+#pragma once
+
 #if WITH_GAMEPLAY_DEBUGGER
 
-#pragma once
 #include "GameplayDebuggerCategory.h"
 
 class FGameplayDebuggerCategory_AI : public FGameplayDebuggerCategory
@@ -31,17 +32,28 @@ protected:
 		FString MovementModeInfo;
 		FString PathFollowingInfo;
 		int32 NextPathPointIndex;
+		FVector PathGoalLocation;
 		FString CurrentAITask;
 		FString CurrentAIState;
 		FString CurrentAIAssets;
 		FString NavDataInfo;
 		FString MontageInfo;
+		FString TaskQueueInfo;
+		FString TickingTaskInfo;
+		int16 NumTasksInQueue;
+		int16 NumTickingTasks;
 		uint32 bHasController : 1;
+		uint32 bPathHasGoalActor : 1;
 		uint32 bIsUsingPathFollowing : 1;
 		uint32 bIsUsingCharacter : 1;
 		uint32 bIsUsingBehaviorTree : 1;
+		uint32 bIsUsingGameplayTasks : 1;
 
-		FRepData() : NextPathPointIndex(0), bHasController(false), bIsUsingPathFollowing(false), bIsUsingCharacter(false), bIsUsingBehaviorTree(false) {}
+		FRepData() : NextPathPointIndex(0), NumTasksInQueue(0), NumTickingTasks(0), bHasController(false), bPathHasGoalActor(false),
+			bIsUsingPathFollowing(false), bIsUsingCharacter(false), bIsUsingBehaviorTree(false), bIsUsingGameplayTasks(false)
+		{
+		}
+
 		void Serialize(FArchive& Ar);
 	};
 	FRepData DataPack;
@@ -65,6 +77,7 @@ protected:
 private:
 	// do NOT read from this pointer, it's only for validating if path has changed and can be invalid!
 	FNavigationPath* RawLastPath;
+	float LastPathUpdateTime;
 };
 
 #endif // WITH_GAMEPLAY_DEBUGGER

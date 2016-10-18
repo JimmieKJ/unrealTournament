@@ -21,6 +21,7 @@
 #include "DefaultValueHelper.h"
 #include "ObjectEditorUtils.h"
 #include "ActorEditorUtils.h"
+#include "TextPackageNamespaceUtil.h"
 #include "ComponentTypeRegistry.h"
 #include "BlueprintComponentNodeSpawner.h"
 #include "AssetRegistryModule.h"
@@ -105,6 +106,10 @@ const FName FBlueprintMetadata::MD_DynamicOutputParam(TEXT("DynamicOutputParam")
 const FName FBlueprintMetadata::MD_ArrayParam(TEXT("ArrayParm"));
 const FName FBlueprintMetadata::MD_ArrayDependentParam(TEXT("ArrayTypeDependentParams"));
 
+const FName FBlueprintMetadata::MD_Bitmask(TEXT("Bitmask"));
+const FName FBlueprintMetadata::MD_BitmaskEnum(TEXT("BitmaskEnum"));
+const FName FBlueprintMetadata::MD_Bitflags(TEXT("Bitflags"));
+
 //////////////////////////////////////////////////////////////////////////
 
 #define LOCTEXT_NAMESPACE "KismetSchema"
@@ -131,8 +136,11 @@ struct FUnloadedAssetData
 		, AssetFriendlyName(FText::FromString(FName::NameToDisplayString(InAsset.AssetName.ToString(), false)))
 		, PossibleObjectReferenceTypes(InPossibleObjectReferenceTypes)
 	{
-		const FString* TooltipPtr = InAsset.TagsAndValues.Find(TEXT("Tooltip"));
-		Tooltip = FText::FromString((TooltipPtr && !TooltipPtr->IsEmpty()) ? *TooltipPtr : InAsset.ObjectPath.ToString());
+		InAsset.GetTagValue("Tooltip", Tooltip);
+		if (Tooltip.IsEmpty())
+		{
+			Tooltip = FText::FromString(InAsset.ObjectPath.ToString());
+		}
 	}
 };
 
@@ -306,19 +314,13 @@ public:
 
 					if (Asset.IsValid() && !Asset.IsAssetLoaded())
 					{
-						const FString* BlueprintTypeStr = Asset.TagsAndValues.Find("BlueprintType");
-						const bool bNormalBP = BlueprintTypeStr && (*BlueprintTypeStr == BPNormalTypeAllowed);
-						const bool bInterfaceBP = BlueprintTypeStr && (*BlueprintTypeStr == BPInterfaceTypeAllowed);
+						const FString BlueprintTypeStr = Asset.GetTagValueRef<FString>("BlueprintType");
+						const bool bNormalBP = BlueprintTypeStr == BPNormalTypeAllowed;
+						const bool bInterfaceBP = BlueprintTypeStr == BPInterfaceTypeAllowed;
 
 						if (bNormalBP || bInterfaceBP)
 						{
-							uint32 ClassFlags = 0;
-							const FString* ClassFlagsStr = Asset.TagsAndValues.Find("ClassFlags");
-							if (ClassFlagsStr)
-							{
-								ClassFlags = FCString::Atoi(**ClassFlagsStr);
-							}
-
+							const uint32 ClassFlags = Asset.GetTagValueRef<uint32>("ClassFlags");
 							if (!(ClassFlags & CLASS_Deprecated))
 							{
 								if (bNormalBP)
@@ -553,6 +555,7 @@ const FString UEdGraphSchema_K2::PC_Asset(TEXT("asset"));
 const FString UEdGraphSchema_K2::PC_AssetClass(TEXT("assetclass"));
 const FString UEdGraphSchema_K2::PSC_Self(TEXT("self"));
 const FString UEdGraphSchema_K2::PSC_Index(TEXT("index"));
+const FString UEdGraphSchema_K2::PSC_Bitmask(TEXT("bitmask"));
 const FString UEdGraphSchema_K2::PN_Execute(TEXT("execute"));
 const FString UEdGraphSchema_K2::PN_Then(TEXT("then"));
 const FString UEdGraphSchema_K2::PN_Completed(TEXT("Completed"));
@@ -928,18 +931,25 @@ bool UEdGraphSchema_K2::FunctionHasParamOfType(const UFunction* InFunction, UEdG
 		{
 			// See if this is the direction we want (input or output)
 			const bool bIsFunctionInput = !FuncParam->HasAnyPropertyFlags(CPF_OutParm) || FuncParam->HasAnyPropertyFlags(CPF_ReferenceParm);
-			if ((!bIsFunctionInput && bWantOutput) || (bIsFunctionInput && !bWantOutput))
+			if (bIsFunctionInput != bWantOutput)
 			{
 				// See if this pin has compatible types
 				FEdGraphPinType ParamPinType;
 				bool bConverted = ConvertPropertyToPinType(FuncParam, ParamPinType);
 				if (bConverted)
 				{
-					if (bIsFunctionInput && ArePinTypesCompatible(DesiredPinType, ParamPinType))
+					UClass* Context = nullptr;
+					UBlueprint* Blueprint = Cast<UBlueprint>(InGraph->GetOuter());
+					if (Blueprint)
+					{
+						Context = Blueprint->GeneratedClass;
+					}
+
+					if (bIsFunctionInput && ArePinTypesCompatible(DesiredPinType, ParamPinType, Context))
 					{
 						return true;
 					}
-					else if (!bIsFunctionInput && ArePinTypesCompatible(ParamPinType, DesiredPinType))
+					else if (!bIsFunctionInput && ArePinTypesCompatible(ParamPinType, DesiredPinType, Context))
 					{
 						return true;
 					}
@@ -1283,6 +1293,35 @@ bool UEdGraphSchema_K2::PinDefaultValueIsEditable(const UEdGraphPin& InGraphPin)
 	return true;
 }
 
+void UEdGraphSchema_K2::SelectAllInputNodes(UEdGraph* Graph, UEdGraphPin* InGraphPin)
+{
+	TArray<UEdGraphPin*> AllPins = InGraphPin->LinkedTo;
+
+	if (AllPins.Num() == 0)
+	{
+		return;
+	}
+
+	for (UEdGraphPin* Pin : AllPins)
+	{
+		UEdGraphNode* OwningNode = Pin->GetOwningNode();
+		FKismetEditorUtilities::AddToSelection(Graph, OwningNode);
+
+		TArray<UEdGraphPin*> LinkedPins = Pin->GetOwningNode()->GetAllPins();
+		for (UEdGraphPin* InputPin : LinkedPins)
+		{
+			if (InputPin->Direction == EEdGraphPinDirection::EGPD_Output)
+			{
+				continue;
+			}
+			else
+			{
+				SelectAllInputNodes(Graph, InputPin);
+			}
+		}
+	}
+}
+
 void UEdGraphSchema_K2::GetContextMenuActions(const UEdGraph* CurrentGraph, const UEdGraphNode* InGraphNode, const UEdGraphPin* InGraphPin, FMenuBuilder* MenuBuilder, bool bIsDebugging) const
 {
 	check(CurrentGraph);
@@ -1309,6 +1348,12 @@ void UEdGraphSchema_K2::GetContextMenuActions(const UEdGraph* CurrentGraph, cons
 				// add sub menu for break link to
 				if (InGraphPin->LinkedTo.Num() > 0)
 				{
+					MenuBuilder->AddMenuEntry(
+						LOCTEXT("SelectAllInputNodes", "Select All Input Nodes"),
+						LOCTEXT("SelectAllInputNodesTooltip", "Adds all input Nodes linked to this Pin to selection"),
+						FSlateIcon(),
+						FUIAction(FExecuteAction::CreateUObject((UEdGraphSchema_K2*const)this, &UEdGraphSchema_K2::SelectAllInputNodes, const_cast<UEdGraph*>(CurrentGraph), const_cast<UEdGraphPin*>(InGraphPin))));
+
 					if(InGraphPin->LinkedTo.Num() > 1)
 					{
 						MenuBuilder->AddSubMenu(
@@ -1890,7 +1935,7 @@ void UEdGraphSchema_K2::GetJumpToConnectionSubMenuActions( class FMenuBuilder& M
 	TMap< FString, uint32 > LinkTitleCount;
 
 	// Add all the links we could break from
-	for(auto PinLink : InGraphPin->LinkedTo )
+	for(const UEdGraphPin* PinLink : InGraphPin->LinkedTo )
 	{
 		FText Title = PinLink->GetOwningNode()->GetNodeTitle(ENodeTitleType::ListView);
 		FString TitleString = Title.ToString();
@@ -1923,7 +1968,7 @@ void UEdGraphSchema_K2::GetJumpToConnectionSubMenuActions( class FMenuBuilder& M
 		++Count;
 
 		MenuBuilder.AddMenuEntry( Description, Description, FSlateIcon(), FUIAction(
-		FExecuteAction::CreateStatic(&FKismetEditorUtilities::BringKismetToFocusAttentionOnObject, Cast<const UObject>(PinLink), false)));
+		FExecuteAction::CreateStatic(&FKismetEditorUtilities::BringKismetToFocusAttentionOnPin, PinLink)));
 	}
 }
 
@@ -2190,7 +2235,7 @@ bool UEdGraphSchema_K2::TryCreateConnection(UEdGraphPin* PinA, UEdGraphPin* PinB
 
 	bool bModified = UEdGraphSchema::TryCreateConnection(PinA, PinB);
 
-	if (bModified && !PinA->HasAnyFlags(RF_Transient))
+	if (bModified && !PinA->IsPendingKill())
 	{
 		FBlueprintEditorUtils::MarkBlueprintAsModified(Blueprint);
 	}
@@ -2210,7 +2255,13 @@ private:
 	static FString GenerateTypeData(const FEdGraphPinType& PinType)
 	{
 		auto Obj = PinType.PinSubCategoryObject.Get();
-		return FString::Printf(TEXT("%s;%s;%s"), *PinType.PinCategory, *PinType.PinSubCategory, Obj ? *Obj->GetPathName() : TEXT(""));
+		FString PinSubCategory = PinType.PinSubCategory;
+		if (PinSubCategory.StartsWith(UEdGraphSchema_K2::PSC_Bitmask))
+		{
+			// Exclude the bitmask subcategory string from integral types so that autocast will work.
+			PinSubCategory = TEXT("");
+		}
+		return FString::Printf(TEXT("%s;%s;%s"), *PinType.PinCategory, *PinSubCategory, Obj ? *Obj->GetPathName() : TEXT(""));
 	}
 
 	static FString GenerateCastData(const FEdGraphPinType& InputPinType, const FEdGraphPinType& OutputPinType)
@@ -2571,7 +2622,18 @@ void UEdGraphSchema_K2::AutowireConversionNode(UEdGraphPin* InputPin, UEdGraphPi
 	{
 		UEdGraphPin* TestPin = ConversionNode->Pins[PinIndex];
 
-		if ((TestPin->Direction == EGPD_Input) && (ArePinTypesCompatible(OutputPin->PinType, TestPin->PinType)))
+		UClass* Context = nullptr;
+		UK2Node* K2Node = Cast<UK2Node>(OutputPin->GetOwningNode());
+		if (K2Node != nullptr)
+		{
+			UBlueprint* Blueprint = K2Node->GetBlueprint();
+			if (Blueprint)
+			{
+				Context = Blueprint->GeneratedClass;
+			}
+		}
+
+		if ((TestPin->Direction == EGPD_Input) && (ArePinTypesCompatible(OutputPin->PinType, TestPin->PinType, Context)))
 		{
 			if(bAllowOutputConnections && TryCreateConnection(TestPin, OutputPin))
 			{
@@ -2579,7 +2641,7 @@ void UEdGraphSchema_K2::AutowireConversionNode(UEdGraphPin* InputPin, UEdGraphPi
 				bAllowOutputConnections = false;
 			}
 		}
-		else if ((TestPin->Direction == EGPD_Output) && (ArePinTypesCompatible(TestPin->PinType, InputPin->PinType)))
+		else if ((TestPin->Direction == EGPD_Output) && (ArePinTypesCompatible(TestPin->PinType, InputPin->PinType, Context)))
 		{
 			if(bAllowInputConnections && TryCreateConnection(TestPin, InputPin))
 			{
@@ -2692,226 +2754,6 @@ void UEdGraphSchema_K2::ClearPinWatch(UEdGraphPin const* Pin) const
 {
 	UBlueprint* Blueprint = FBlueprintEditorUtils::FindBlueprintForNodeChecked(Pin->GetOwningNode());
 	FKismetDebugUtilities::RemovePinWatch(Blueprint, Pin);
-}
-
-bool UEdGraphSchema_K2::DefaultValueSimpleValidation(const FEdGraphPinType& PinType, const FString& PinName, const FString& NewDefaultValue, UObject* NewDefaultObject, const FText& InNewDefaultText, FString* OutMsg /*= NULL*/) const
-{
-#ifdef DVSV_RETURN_MSG
-	static_assert(false, "Macro redefinition.");
-#endif
-#define DVSV_RETURN_MSG(Str) if(NULL != OutMsg) { *OutMsg = Str; } return false;
-
-	const FString& PinCategory = PinType.PinCategory;
-	const FString& PinSubCategory = PinType.PinSubCategory;
-	const UObject* PinSubCategoryObject = PinType.PinSubCategoryObject.Get();
-
-	if (PinType.bIsArray)
-	{
-		// arrays are validated separately
-	}
-	//@TODO: FCString::Atoi, FCString::Atof, and appStringToBool will 'accept' any input, but we should probably catch and warn
-	// about invalid input (non numeric for int/byte/float, and non 0/1 or yes/no/true/false for bool)
-
-	else if(PinCategory == PC_Boolean)
-	{
-		// All input is acceptable to some degree
-	}
-	else if (PinCategory == PC_Byte)
-	{
-		const UEnum* EnumPtr = Cast<const UEnum>(PinSubCategoryObject);
-		if (EnumPtr)
-		{
-			if (EnumPtr->FindEnumIndex(*NewDefaultValue) == INDEX_NONE)
-			{
-				DVSV_RETURN_MSG( FString::Printf( TEXT("'%s' is not a valid enumerant of '<%s>'"), *NewDefaultValue, *(EnumPtr->GetName( )) ) );
-			}
-		}
-		else if( !NewDefaultValue.IsEmpty() )
-		{
-			int32 Value;
-			if (!FDefaultValueHelper::ParseInt(NewDefaultValue, Value))
-			{
-				DVSV_RETURN_MSG( TEXT("Expected a valid unsigned number for a byte property") );
-			}
-			if ((Value < 0) || (Value > 255))
-			{
-				DVSV_RETURN_MSG( TEXT("Expected a value between 0 and 255 for a byte property") );
-			}
-		}
-	}
-	else if ((PinCategory == PC_Class) || (PinCategory == PC_AssetClass))
-	{
-		// Should have an object set but no string
-		if(!NewDefaultValue.IsEmpty())
-		{
-			DVSV_RETURN_MSG( FString::Printf(TEXT("String NewDefaultValue '%s' specified on class pin '%s'"), *NewDefaultValue, *(PinName)) );
-		}
-
-		if (NewDefaultObject == NULL)
-		{
-			// Valid self-reference or empty reference
-		}
-		else
-		{
-			// Otherwise, we expect to be able to resolve the type at least
-			const UClass* DefaultClassType = Cast<const UClass>(NewDefaultObject);
-			if (DefaultClassType == NULL)
-			{
-				DVSV_RETURN_MSG( FString::Printf(TEXT("Literal on pin %s is not a class."), *(PinName)) );
-			}
-			else
-			{
-				// @TODO support PinSubCategory == 'self'
-				const UClass* PinClassType = Cast<const UClass>(PinSubCategoryObject);
-				if (PinClassType == NULL)
-				{
-					DVSV_RETURN_MSG( FString::Printf(TEXT("Failed to find class for pin %s"), *(PinName)) );
-				}
-				else
-				{
-					// Have both types, make sure the specified type is a valid subtype
-					if (!DefaultClassType->IsChildOf(PinClassType))
-					{
-						DVSV_RETURN_MSG( FString::Printf(TEXT("%s isn't a valid subclass of %s (specified on pin %s)"), *NewDefaultObject->GetPathName(), *PinClassType->GetName(), *(PinName)) );
-					}
-				}
-			}
-		}
-	}
-	else if (PinCategory == PC_Float)
-	{
-		if(!NewDefaultValue.IsEmpty())
-		{
-			if (!FDefaultValueHelper::IsStringValidFloat(NewDefaultValue))
-			{
-				DVSV_RETURN_MSG( TEXT("Expected a valid number for an float property") );
-			}
-		}
-	}
-	else if (PinCategory == PC_Int)
-	{
-		if(!NewDefaultValue.IsEmpty())
-		{
-			if (!FDefaultValueHelper::IsStringValidInteger(NewDefaultValue))
-			{
-				DVSV_RETURN_MSG( TEXT("Expected a valid number for an integer property") );
-			}
-		}
-	}
-	else if (PinCategory == PC_Name)
-	{
-		// Anything is allowed
-	}
-	else if ((PinCategory == PC_Object) || (PinCategory == PC_Interface) || (PinCategory == PC_Asset))
-	{
-		if (PinSubCategoryObject == NULL && (PinSubCategory != PSC_Self))
-		{
-			DVSV_RETURN_MSG( FString::Printf(TEXT("PinSubCategoryObject on pin '%s' is NULL and PinSubCategory is '%s' not 'self'"), *(PinName), *PinSubCategory) );
-		}
-
-		if(PinSubCategoryObject != NULL && PinSubCategory != TEXT(""))
-		{
-			DVSV_RETURN_MSG( FString::Printf(TEXT("PinSubCategoryObject on pin '%s' is non-NULL but PinSubCategory is '%s', should be empty"), *(PinName), *PinSubCategory) );
-		}
-
-		// Should have an object set but no string - 'self' is not a valid NewDefaultValue for PC_Object pins
-		if(!NewDefaultValue.IsEmpty())
-		{
-			DVSV_RETURN_MSG( FString::Printf(TEXT("String NewDefaultValue '%s' specified on object pin '%s'"), *NewDefaultValue, *(PinName)) );
-		}
-
-		// Check that the object that is set is of the correct class
-		const UClass* ObjectClass = Cast<const UClass>(PinSubCategoryObject);
-		if(NewDefaultObject != NULL && ObjectClass != NULL && !NewDefaultObject->IsA(ObjectClass))
-		{
-			DVSV_RETURN_MSG( FString::Printf(TEXT("%s isn't a %s (specified on pin %s)"), *NewDefaultObject->GetPathName(), *ObjectClass->GetName(), *(PinName)) );		
-		}
-
-		if ((PinCategory == PC_Asset) && NewDefaultObject && !NewDefaultObject->IsAsset())
-		{
-			DVSV_RETURN_MSG(FString::Printf(TEXT("%s is not an asset (specified on pin %s)"), *NewDefaultObject->GetPathName(), *(PinName)));
-		}
-	}
-	else if (PinCategory == PC_String)
-	{
-		// All strings are valid
-	}
-	else if (PinCategory == PC_Text)
-	{
-		// Neither of these should ever be true 
-		if( InNewDefaultText.IsTransient() )
-		{
-			DVSV_RETURN_MSG( TEXT("Invalid text literal, text is transient!") );
-		}
-	}
-	else if (PinCategory == PC_Struct)
-	{
-		if(PinSubCategory != TEXT(""))
-		{
-			DVSV_RETURN_MSG( FString::Printf(TEXT("Invalid PinSubCategory value '%s' (it should be empty)"), *PinSubCategory) );
-		}
-
-		// Only FRotator and FVector properties are currently allowed to have a valid default value
-		const UScriptStruct* StructType = Cast<const UScriptStruct>(PinSubCategoryObject);
-		if (StructType == NULL)
-		{
-			//@TODO: MessageLog.Error(*FString::Printf(TEXT("Failed to find struct named %s (passed thru @@)"), *PinSubCategory), SourceObject);
-			DVSV_RETURN_MSG( FString::Printf(TEXT("No struct specified for pin '%s'"), *(PinName)) );
-		}
-		else if(!NewDefaultValue.IsEmpty())
-		{
-			if (StructType == VectorStruct)
-			{
-				if (!FDefaultValueHelper::IsStringValidVector(NewDefaultValue))
-				{
-					DVSV_RETURN_MSG( TEXT("Invalid value for an FVector") );
-				}
-			}
-			else if (StructType == RotatorStruct)
-			{
-				FRotator Rot;
-				if (!FDefaultValueHelper::IsStringValidRotator(NewDefaultValue))
-				{
-					DVSV_RETURN_MSG( TEXT("Invalid value for an FRotator") );
-				}
-			}
-			else if (StructType == TransformStruct)
-			{
-				FTransform Transform;
-				if ( !Transform.InitFromString(NewDefaultValue))
-				{
-					DVSV_RETURN_MSG( TEXT("Invalid value for an FTransform") );
-				}
-			}
-			else if (StructType == LinearColorStruct)
-			{
-				FLinearColor Color;
-				// Color form: "(R=%f,G=%f,B=%f,A=%f)"
-				if (!Color.InitFromString(NewDefaultValue))
-				{
-					DVSV_RETURN_MSG( TEXT("Invalid value for an FLinearColor") );
-				}
-			}
-			else
-			{
-				// Structs must pass validation at this point, because we need a UStructProperty to run ImportText
-				// They'll be verified in FKCHandler_CallFunction::CreateFunctionCallStatement()
-			}
-		}
-	}
-	else if (PinCategory == TEXT("CommentType"))
-	{
-		// Anything is allowed
-	}
-	else
-	{
-		//@TODO: MessageLog.Error(*FString::Printf(TEXT("Unsupported type %s on @@"), *UEdGraphSchema_K2::TypeToText(Type).ToString()), SourceObject);
-		DVSV_RETURN_MSG( FString::Printf(TEXT("Unsupported type %s on pin %s"), *UEdGraphSchema_K2::TypeToText(PinType).ToString(), *(PinName)) ); 
-	}
-
-#undef DVSV_RETURN_MSG
-
-	return true;
 }
 
 FLinearColor UEdGraphSchema_K2::GetPinTypeColor(const FEdGraphPinType& PinType) const
@@ -3046,7 +2888,7 @@ FText UEdGraphSchema_K2::GetPinDisplayName(const UEdGraphPin* Pin) const
 
 void UEdGraphSchema_K2::ConstructBasicPinTooltip(const UEdGraphPin& Pin, const FText& PinDescription, FString& TooltipOut) const
 {
-	if (Pin.HasAnyFlags(RF_Transient))
+	if (Pin.bWasTrashed)
 	{
 		return;
 	}
@@ -3372,11 +3214,24 @@ bool UEdGraphSchema_K2::ConvertPropertyToPinType(const UProperty* Property, /*ou
 	else if (Cast<const UIntProperty>(TestProperty) != NULL)
 	{
 		TypeOut.PinCategory = PC_Int;
+
+		if (TestProperty->HasMetaData(FBlueprintMetadata::MD_Bitmask))
+		{
+			TypeOut.PinSubCategory = PSC_Bitmask;
+		}
 	}
 	else if (const UByteProperty* ByteProperty = Cast<const UByteProperty>(TestProperty))
 	{
 		TypeOut.PinCategory = PC_Byte;
-		TypeOut.PinSubCategoryObject = ByteProperty->Enum;
+
+		if (TestProperty->HasMetaData(FBlueprintMetadata::MD_Bitmask))
+		{
+			TypeOut.PinSubCategory = PSC_Bitmask;
+		}
+		else
+		{
+			TypeOut.PinSubCategoryObject = ByteProperty->Enum;
+		}
 	}
 	else if (Cast<const UNameProperty>(TestProperty) != NULL)
 	{
@@ -3408,6 +3263,16 @@ bool UEdGraphSchema_K2::ConvertPropertyToPinType(const UProperty* Property, /*ou
 	{
 		TypeOut.PinCategory = TEXT("bad_type");
 		return false;
+	}
+
+	if (TypeOut.PinSubCategory == PSC_Bitmask)
+	{
+		FString BitmaskEnumName = TestProperty->GetMetaData(TEXT("BitmaskEnum"));
+		if(!BitmaskEnumName.IsEmpty())
+		{
+			// @TODO: Potentially replace this with a serialized UEnum reference on the UProperty (e.g. UByteProperty::Enum)
+			TypeOut.PinSubCategoryObject = FindObject<UEnum>(ANY_PACKAGE, *BitmaskEnumName);
+		}
 	}
 
 	return true;
@@ -3534,9 +3399,9 @@ FText UEdGraphSchema_K2::TypeToText(const FEdGraphPinType& Type)
 {
 	FText PropertyText;
 
-	if (Type.PinSubCategoryObject != NULL)
+	const UEdGraphSchema_K2* Schema = GetDefault<UEdGraphSchema_K2>();
+	if (Type.PinSubCategory != Schema->PSC_Bitmask && Type.PinSubCategoryObject != NULL)
 	{
-		const UEdGraphSchema_K2* Schema = GetDefault<UEdGraphSchema_K2>();
 		if (Type.PinCategory == Schema->PC_Byte)
 		{
 			FFormatNamedArguments Args;
@@ -3608,13 +3473,13 @@ FText UEdGraphSchema_K2::TypeToText(const FEdGraphPinType& Type)
 	return PropertyText;
 }
 
-void UEdGraphSchema_K2::GetVariableTypeTree(TArray< TSharedPtr<FPinTypeTreeInfo> >& TypeTree, bool bAllowExec, bool bAllowWildcard) const
+void UEdGraphSchema_K2::GetVariableTypeTree(TArray< TSharedPtr<FPinTypeTreeInfo> >& TypeTree, ETypeTreeFilter TypeTreeFilter) const
 {
-	GetVariableTypeTreeImpl(TypeTree, bAllowExec, bAllowWildcard, false);
-}
+	bool bAllowExec = (TypeTreeFilter & ETypeTreeFilter::AllowExec) == ETypeTreeFilter::AllowExec;
+	bool bAllowWildCard = (TypeTreeFilter & ETypeTreeFilter::AllowWildcard) == ETypeTreeFilter::AllowWildcard;
+	bool bIndexTypesOnly = (TypeTreeFilter & ETypeTreeFilter::IndexTypesOnly) == ETypeTreeFilter::IndexTypesOnly;
+	bool bRootTypesOnly = (TypeTreeFilter & ETypeTreeFilter::RootTypesOnly) == ETypeTreeFilter::RootTypesOnly;
 
-void UEdGraphSchema_K2::GetVariableTypeTreeImpl(TArray< TSharedPtr<FPinTypeTreeInfo> >& TypeTree, bool bAllowExec, bool bAllowWildCard, bool bIndexTypesOnly) const
-{
 #ifdef SCHEMA_K2_GETVARIABLETYPETREE_LOG_TIME
 	static_assert(false, "Macro redefinition.");
 #endif
@@ -3625,13 +3490,21 @@ void UEdGraphSchema_K2::GetVariableTypeTreeImpl(TArray< TSharedPtr<FPinTypeTreeI
 #endif //SCHEMA_K2_GETVARIABLETYPETREE_LOG_TIME
 
 	FTypesDatabase TypesDatabase;
-	FGatherTypesHelper::FillLoadedTypesDatabase(TypesDatabase, bIndexTypesOnly);
+	FTypesDatabase* TypesDatabasePtr = nullptr;
+	if (!bRootTypesOnly)
+	{
+		TypesDatabasePtr = &TypesDatabase;
+		FGatherTypesHelper::FillLoadedTypesDatabase(TypesDatabase, bIndexTypesOnly);
+	}
 
 #if SCHEMA_K2_GETVARIABLETYPETREE_LOG_TIME
 	const auto DatabaseLoadedTime = FPlatformTime::Seconds();
 #endif //SCHEMA_K2_GETVARIABLETYPETREE_LOG_TIME
 
-	FGatherTypesHelper::FillUnLoadedTypesDatabase(TypesDatabase, bIndexTypesOnly);
+	if (!bRootTypesOnly)
+	{
+		FGatherTypesHelper::FillUnLoadedTypesDatabase(TypesDatabase, bIndexTypesOnly);
+	}
 
 #if SCHEMA_K2_GETVARIABLETYPETREE_LOG_TIME
 	const auto DatabaseUnLoadedTime = FPlatformTime::Seconds();
@@ -3656,9 +3529,12 @@ void UEdGraphSchema_K2::GetVariableTypeTreeImpl(TArray< TSharedPtr<FPinTypeTreeI
 		TypeTree.Add(MakeShareable(new FPinTypeTreeInfo(GetCategoryText(PC_Text, true), PC_Text, this, LOCTEXT("TextType", "A localizable text string"))));
 
 		// Add in special first-class struct types
-		TypeTree.Add(MakeShareable(new FPinTypeTreeInfo(PC_Struct, TBaseStructure<FVector>::Get(), LOCTEXT("VectorType", "A 3D vector"))));
-		TypeTree.Add(MakeShareable(new FPinTypeTreeInfo(PC_Struct, TBaseStructure<FRotator>::Get(), LOCTEXT("RotatorType", "A 3D rotation"))));
-		TypeTree.Add(MakeShareable(new FPinTypeTreeInfo(PC_Struct, TBaseStructure<FTransform>::Get(), LOCTEXT("TransformType", "A 3D transformation, including translation, rotation and 3D scale."))));
+		if (!bRootTypesOnly)
+		{
+			TypeTree.Add(MakeShareable(new FPinTypeTreeInfo(PC_Struct, TBaseStructure<FVector>::Get(), LOCTEXT("VectorType", "A 3D vector"))));
+			TypeTree.Add(MakeShareable(new FPinTypeTreeInfo(PC_Struct, TBaseStructure<FRotator>::Get(), LOCTEXT("RotatorType", "A 3D rotation"))));
+			TypeTree.Add(MakeShareable(new FPinTypeTreeInfo(PC_Struct, TBaseStructure<FTransform>::Get(), LOCTEXT("TransformType", "A 3D transformation, including translation, rotation and 3D scale."))));
+		}
 	}
 	// Add wildcard type
 	if (bAllowWildCard)
@@ -3666,14 +3542,23 @@ void UEdGraphSchema_K2::GetVariableTypeTreeImpl(TArray< TSharedPtr<FPinTypeTreeI
 		TypeTree.Add( MakeShareable( new FPinTypeTreeInfo(GetCategoryText(PC_Wildcard, true), PC_Wildcard, this, LOCTEXT("WildcardType", "Wildcard type (unspecified).")) ) );
 	}
 
-	FTypesDatabase* TypesDatabasePtr = &TypesDatabase;
 	// Add the types that have subtrees
 	if (!bIndexTypesOnly)
 	{
 		TypeTree.Add(MakeShareable(new FPinTypeTreeInfo(GetCategoryText(PC_Struct, true), PC_Struct, this, LOCTEXT("StructType", "Struct (value) types."), true, TypesDatabasePtr)));
 		TypeTree.Add(MakeShareable(new FPinTypeTreeInfo(GetCategoryText(PC_Interface, true), PC_Interface, this, LOCTEXT("InterfaceType", "Interface pointer."), true, TypesDatabasePtr)));
 
-		TypeTree.Add(MakeShareable(new FPinTypeTreeInfo(GetCategoryText(AllObjectTypes, true), AllObjectTypes, this, LOCTEXT("ObjectType", "Object pointer."), true, TypesDatabasePtr)));
+		if (!bRootTypesOnly)
+		{
+			TypeTree.Add(MakeShareable(new FPinTypeTreeInfo(GetCategoryText(AllObjectTypes, true), AllObjectTypes, this, LOCTEXT("ObjectType", "Object pointer."), true, TypesDatabasePtr)));
+		}
+		else
+		{
+			TypeTree.Add(MakeShareable(new FPinTypeTreeInfo(GetCategoryText(PC_Object, true), PC_Object, this, LOCTEXT("ObjectType", "Object pointer."), true, TypesDatabasePtr)));
+			TypeTree.Add(MakeShareable(new FPinTypeTreeInfo(GetCategoryText(PC_Class, true), PC_Class, this, LOCTEXT("ClassType", "Class pointer."), true, TypesDatabasePtr)));
+			TypeTree.Add(MakeShareable(new FPinTypeTreeInfo(GetCategoryText(PC_AssetClass, true), PC_AssetClass, this, LOCTEXT("AssetClassType", "Class ID."), true, TypesDatabasePtr)));
+			TypeTree.Add(MakeShareable(new FPinTypeTreeInfo(GetCategoryText(PC_Asset, true), PC_Asset, this, LOCTEXT("AssetType", "Asset ID."), true, TypesDatabasePtr)));
+		}
 	}
 	TypeTree.Add( MakeShareable( new FPinTypeTreeInfo(GetCategoryText(PC_Enum, true), PC_Enum, this, LOCTEXT("EnumType", "Enumeration types."), true, TypesDatabasePtr) ) );
 
@@ -3682,11 +3567,6 @@ void UEdGraphSchema_K2::GetVariableTypeTreeImpl(TArray< TSharedPtr<FPinTypeTreeI
 	UE_LOG(LogBlueprint, Log, TEXT("UEdGraphSchema_K2::GetVariableTypeTree times - LoadedTypesDatabase: %f UnLoadedTypesDatabase: %f FPinTypeTreeInfo: %f"), DatabaseLoadedTime - StartTime, DatabaseUnLoadedTime - DatabaseLoadedTime, EndTime - DatabaseUnLoadedTime);
 #endif //SCHEMA_K2_GETVARIABLETYPETREE_LOG_TIME
 #undef SCHEMA_K2_GETVARIABLETYPETREE_LOG_TIME
-}
-
-void UEdGraphSchema_K2::GetVariableIndexTypeTree( TArray< TSharedPtr<FPinTypeTreeInfo> >& TypeTree, bool bAllowExec, bool bAllowWildcard ) const
-{
-	GetVariableTypeTreeImpl(TypeTree, bAllowExec, bAllowWildcard, true);
 }
 
 bool UEdGraphSchema_K2::DoesTypeHaveSubtypes(const FString& Category) const
@@ -3742,6 +3622,40 @@ namespace
 		return BP ? Cast<UClass>(BP->OriginalClass) : nullptr;
 	}
 
+	// During compilation, pins are moved around for node expansion and the Blueprints may still inherit from REINST_ classes
+	// which causes problems for IsChildOf. Because we do not want to modify IsChildOf we must use a separate function
+	// that can check to see if classes have an AuthoritativeClass that IsChildOf a Target class.
+	static bool IsAuthoritativeChildOf(const UStruct* InSourceStruct, const UStruct* InTargetStruct)
+	{
+		bool bResult = false;
+		bool bIsNonNativeClass = false;
+		if (UClass* SourceAsClass = const_cast<UClass*>(Cast<UClass>(InSourceStruct)))
+		{
+			if (SourceAsClass->ClassGeneratedBy)
+			{
+				// We have a non-native (Blueprint) class which means it can exist in a semi-compiled state and inherit from a REINST_ class.
+				bIsNonNativeClass = true;
+				while (SourceAsClass)
+				{
+					if (SourceAsClass->GetAuthoritativeClass() == InTargetStruct)
+					{
+						bResult = true;
+						break;
+					}
+					SourceAsClass = SourceAsClass->GetSuperClass();
+				}
+			}
+		}
+
+		// We have a native (C++) class, do a normal IsChildOf check
+		if (!bIsNonNativeClass)
+		{
+			bResult = InSourceStruct->IsChildOf(InTargetStruct);
+		}
+
+		return bResult;
+	}
+
 	static bool ExtendedIsChildOf(const UClass* Child, const UClass* Parent)
 	{
 		if (Child->IsChildOf(Parent))
@@ -3787,45 +3701,230 @@ namespace
 	}
 };
 
-bool UEdGraphSchema_K2::ArePinTypesCompatible(const FEdGraphPinType& Output, const FEdGraphPinType& Input, const UClass* CallingContext, bool bIgnoreArray /*= false*/) const
+
+bool UEdGraphSchema_K2::DefaultValueSimpleValidation(const FEdGraphPinType& PinType, const FString& PinName, const FString& NewDefaultValue, UObject* NewDefaultObject, const FText& InNewDefaultText, FString* OutMsg /*= NULL*/) const
 {
-	// During compilation, pins are moved around for node expansion and the Blueprints may still inherit from REINST_ classes
-	// which causes problems for IsChildOf. Because we do not want to modify IsChildOf we must use a separate function
-	// that can check to see if classes have an AuthoritativeClass that IsChildOf a Target class.
-	struct Local
+#ifdef DVSV_RETURN_MSG
+	static_assert(false, "Macro redefinition.");
+#endif
+#define DVSV_RETURN_MSG(Str) if(NULL != OutMsg) { *OutMsg = Str; } return false;
+
+	const FString& PinCategory = PinType.PinCategory;
+	const FString& PinSubCategory = PinType.PinSubCategory;
+	const UObject* PinSubCategoryObject = PinType.PinSubCategoryObject.Get();
+
+	if (PinType.bIsArray)
 	{
-		static bool IsAuthoritativeChildOf(const UStruct* InSourceStruct, const UStruct* InTargetStruct)
+		// arrays are validated separately
+	}
+	//@TODO: FCString::Atoi, FCString::Atof, and appStringToBool will 'accept' any input, but we should probably catch and warn
+	// about invalid input (non numeric for int/byte/float, and non 0/1 or yes/no/true/false for bool)
+
+	else if (PinCategory == PC_Boolean)
+	{
+		// All input is acceptable to some degree
+	}
+	else if (PinCategory == PC_Byte)
+	{
+		const UEnum* EnumPtr = Cast<const UEnum>(PinSubCategoryObject);
+		if (EnumPtr)
 		{
-			bool bResult = false;
-			bool bIsNonNativeClass = false;
-			if (UClass* SourceAsClass = const_cast<UClass*>(Cast<UClass>(InSourceStruct)))
+			if (EnumPtr->FindEnumIndex(*NewDefaultValue) == INDEX_NONE)
 			{
-				if (SourceAsClass->ClassGeneratedBy)
+				DVSV_RETURN_MSG(FString::Printf(TEXT("'%s' is not a valid enumerant of '<%s>'"), *NewDefaultValue, *(EnumPtr->GetName())));
+			}
+		}
+		else if (!NewDefaultValue.IsEmpty())
+		{
+			int32 Value;
+			if (!FDefaultValueHelper::ParseInt(NewDefaultValue, Value))
+			{
+				DVSV_RETURN_MSG(TEXT("Expected a valid unsigned number for a byte property"));
+			}
+			if ((Value < 0) || (Value > 255))
+			{
+				DVSV_RETURN_MSG(TEXT("Expected a value between 0 and 255 for a byte property"));
+			}
+		}
+	}
+	else if ((PinCategory == PC_Class) || (PinCategory == PC_AssetClass))
+	{
+		// Should have an object set but no string
+		if (!NewDefaultValue.IsEmpty())
+		{
+			DVSV_RETURN_MSG(FString::Printf(TEXT("String NewDefaultValue '%s' specified on class pin '%s'"), *NewDefaultValue, *(PinName)));
+		}
+
+		if (NewDefaultObject == NULL)
+		{
+			// Valid self-reference or empty reference
+		}
+		else
+		{
+			// Otherwise, we expect to be able to resolve the type at least
+			const UClass* DefaultClassType = Cast<const UClass>(NewDefaultObject);
+			if (DefaultClassType == NULL)
+			{
+				DVSV_RETURN_MSG(FString::Printf(TEXT("Literal on pin %s is not a class."), *(PinName)));
+			}
+			else
+			{
+				// @TODO support PinSubCategory == 'self'
+				const UClass* PinClassType = Cast<const UClass>(PinSubCategoryObject);
+				if (PinClassType == NULL)
 				{
-					// We have a non-native (Blueprint) class which means it can exist in a semi-compiled state and inherit from a REINST_ class.
-					bIsNonNativeClass = true;
-					while (SourceAsClass)
+					DVSV_RETURN_MSG(FString::Printf(TEXT("Failed to find class for pin %s"), *(PinName)));
+				}
+				else
+				{
+					// Have both types, make sure the specified type is a valid subtype
+					if (!IsAuthoritativeChildOf(DefaultClassType, PinClassType))
 					{
-						if (SourceAsClass->GetAuthoritativeClass() == InTargetStruct)
-						{
-							bResult = true;
-							break;
-						}
-						SourceAsClass = SourceAsClass->GetSuperClass();
+						DVSV_RETURN_MSG(FString::Printf(TEXT("%s isn't a valid subclass of %s (specified on pin %s)"), *NewDefaultObject->GetPathName(), *PinClassType->GetName(), *(PinName)));
 					}
 				}
 			}
-
-			// We have a native (C++) class, do a normal IsChildOf check
-			if (!bIsNonNativeClass)
-			{
-				bResult = InSourceStruct->IsChildOf(InTargetStruct);
-			}
-			
-			return bResult;
 		}
-	};
+	}
+	else if (PinCategory == PC_Float)
+	{
+		if (!NewDefaultValue.IsEmpty())
+		{
+			if (!FDefaultValueHelper::IsStringValidFloat(NewDefaultValue))
+			{
+				DVSV_RETURN_MSG(TEXT("Expected a valid number for an float property"));
+			}
+		}
+	}
+	else if (PinCategory == PC_Int)
+	{
+		if (!NewDefaultValue.IsEmpty())
+		{
+			if (!FDefaultValueHelper::IsStringValidInteger(NewDefaultValue))
+			{
+				DVSV_RETURN_MSG(TEXT("Expected a valid number for an integer property"));
+			}
+		}
+	}
+	else if (PinCategory == PC_Name)
+	{
+		// Anything is allowed
+	}
+	else if ((PinCategory == PC_Object) || (PinCategory == PC_Interface) || (PinCategory == PC_Asset))
+	{
+		if (PinSubCategoryObject == NULL && (PinSubCategory != PSC_Self))
+		{
+			DVSV_RETURN_MSG(FString::Printf(TEXT("PinSubCategoryObject on pin '%s' is NULL and PinSubCategory is '%s' not 'self'"), *(PinName), *PinSubCategory));
+		}
 
+		if (PinSubCategoryObject != NULL && PinSubCategory != TEXT(""))
+		{
+			DVSV_RETURN_MSG(FString::Printf(TEXT("PinSubCategoryObject on pin '%s' is non-NULL but PinSubCategory is '%s', should be empty"), *(PinName), *PinSubCategory));
+		}
+
+		// Should have an object set but no string - 'self' is not a valid NewDefaultValue for PC_Object pins
+		if (!NewDefaultValue.IsEmpty())
+		{
+			DVSV_RETURN_MSG(FString::Printf(TEXT("String NewDefaultValue '%s' specified on object pin '%s'"), *NewDefaultValue, *(PinName)));
+		}
+
+		// Check that the object that is set is of the correct class
+		const UClass* ObjectClass = Cast<const UClass>(PinSubCategoryObject);
+		if (NewDefaultObject != NULL && ObjectClass != NULL && !NewDefaultObject->IsA(ObjectClass))
+		{
+			DVSV_RETURN_MSG(FString::Printf(TEXT("%s isn't a %s (specified on pin %s)"), *NewDefaultObject->GetPathName(), *ObjectClass->GetName(), *(PinName)));
+		}
+
+		if ((PinCategory == PC_Asset) && NewDefaultObject && !NewDefaultObject->IsAsset())
+		{
+			DVSV_RETURN_MSG(FString::Printf(TEXT("%s is not an asset (specified on pin %s)"), *NewDefaultObject->GetPathName(), *(PinName)));
+		}
+	}
+	else if (PinCategory == PC_String)
+	{
+		// All strings are valid
+	}
+	else if (PinCategory == PC_Text)
+	{
+		// Neither of these should ever be true 
+		if (InNewDefaultText.IsTransient())
+		{
+			DVSV_RETURN_MSG(TEXT("Invalid text literal, text is transient!"));
+		}
+	}
+	else if (PinCategory == PC_Struct)
+	{
+		if (PinSubCategory != TEXT(""))
+		{
+			DVSV_RETURN_MSG(FString::Printf(TEXT("Invalid PinSubCategory value '%s' (it should be empty)"), *PinSubCategory));
+		}
+
+		// Only FRotator and FVector properties are currently allowed to have a valid default value
+		const UScriptStruct* StructType = Cast<const UScriptStruct>(PinSubCategoryObject);
+		if (StructType == NULL)
+		{
+			//@TODO: MessageLog.Error(*FString::Printf(TEXT("Failed to find struct named %s (passed thru @@)"), *PinSubCategory), SourceObject);
+			DVSV_RETURN_MSG(FString::Printf(TEXT("No struct specified for pin '%s'"), *(PinName)));
+		}
+		else if (!NewDefaultValue.IsEmpty())
+		{
+			if (StructType == VectorStruct)
+			{
+				if (!FDefaultValueHelper::IsStringValidVector(NewDefaultValue))
+				{
+					DVSV_RETURN_MSG(TEXT("Invalid value for an FVector"));
+				}
+			}
+			else if (StructType == RotatorStruct)
+			{
+				FRotator Rot;
+				if (!FDefaultValueHelper::IsStringValidRotator(NewDefaultValue))
+				{
+					DVSV_RETURN_MSG(TEXT("Invalid value for an FRotator"));
+				}
+			}
+			else if (StructType == TransformStruct)
+			{
+				FTransform Transform;
+				if (!Transform.InitFromString(NewDefaultValue))
+				{
+					DVSV_RETURN_MSG(TEXT("Invalid value for an FTransform"));
+				}
+			}
+			else if (StructType == LinearColorStruct)
+			{
+				FLinearColor Color;
+				// Color form: "(R=%f,G=%f,B=%f,A=%f)"
+				if (!Color.InitFromString(NewDefaultValue))
+				{
+					DVSV_RETURN_MSG(TEXT("Invalid value for an FLinearColor"));
+				}
+			}
+			else
+			{
+				// Structs must pass validation at this point, because we need a UStructProperty to run ImportText
+				// They'll be verified in FKCHandler_CallFunction::CreateFunctionCallStatement()
+			}
+		}
+	}
+	else if (PinCategory == TEXT("CommentType"))
+	{
+		// Anything is allowed
+	}
+	else
+	{
+		//@TODO: MessageLog.Error(*FString::Printf(TEXT("Unsupported type %s on @@"), *UEdGraphSchema_K2::TypeToText(Type).ToString()), SourceObject);
+		DVSV_RETURN_MSG(FString::Printf(TEXT("Unsupported type %s on pin %s"), *UEdGraphSchema_K2::TypeToText(PinType).ToString(), *(PinName)));
+	}
+
+#undef DVSV_RETURN_MSG
+
+	return true;
+}
+
+
+bool UEdGraphSchema_K2::ArePinTypesCompatible(const FEdGraphPinType& Output, const FEdGraphPinType& Input, const UClass* CallingContext, bool bIgnoreArray /*= false*/) const
+{
 	if( !bIgnoreArray && (Output.bIsArray != Input.bIsArray) && (Input.PinCategory != PC_Wildcard || Input.bIsArray) )
 	{
 		return false;
@@ -3841,11 +3940,17 @@ bool UEdGraphSchema_K2::ArePinTypesCompatible(const FEdGraphPinType& Output, con
 		else if (Output.PinCategory == PC_Interface)
 		{
 			UClass const* OutputClass = Cast<UClass const>(Output.PinSubCategoryObject.Get());
-			check(OutputClass && OutputClass->IsChildOf(UInterface::StaticClass()));
-
 			UClass const* InputClass = Cast<UClass const>(Input.PinSubCategoryObject.Get());
-			check(InputClass && InputClass->IsChildOf(UInterface::StaticClass()));
-			
+			if (!OutputClass || !InputClass 
+				|| !OutputClass->IsChildOf(UInterface::StaticClass())
+				|| !InputClass->IsChildOf(UInterface::StaticClass()))
+			{
+				UE_LOG(LogBlueprint, Error,
+					TEXT("UEdGraphSchema_K2::ArePinTypesCompatible invalid interface types - OutputClass: %s, InputClass: %s, CallingContext: %s"),
+					*GetPathNameSafe(OutputClass), *GetPathNameSafe(InputClass), *GetPathNameSafe(CallingContext));
+				return false;
+			}
+
 			return ExtendedIsChildOf(OutputClass, InputClass);
 		}
 		else if (((Output.PinCategory == PC_Asset) && (Input.PinCategory == PC_Asset))
@@ -3891,7 +3996,7 @@ bool UEdGraphSchema_K2::ArePinTypesCompatible(const FEdGraphPinType& Output, con
 					}
 				}				
 
-				return (Local::IsAuthoritativeChildOf(OutputObject, InputObject) || (OutputClass && InputClass && ExtendedIsChildOf(OutputClass, InputClass)))
+				return (IsAuthoritativeChildOf(OutputObject, InputObject) || (OutputClass && InputClass && ExtendedIsChildOf(OutputClass, InputClass)))
 					&& (bInputIsInterface == bOutputIsInterface);
 			}
 		}
@@ -3903,6 +4008,11 @@ bool UEdGraphSchema_K2::ArePinTypesCompatible(const FEdGraphPinType& Output, con
 			{
 				return true;
 			}
+		}
+		else if (PC_Byte == Output.PinCategory || PC_Int == Output.PinCategory)
+		{
+			// Bitmask integral types are compatible with non-bitmask integral types (of the same word size).
+			return Output.PinSubCategory.StartsWith(PSC_Bitmask) || Input.PinSubCategory.StartsWith(PSC_Bitmask);
 		}
 		else if (PC_Delegate == Output.PinCategory || PC_MCDelegate == Output.PinCategory)
 		{
@@ -4039,24 +4149,6 @@ void UEdGraphSchema_K2::BreakSinglePinLink(UEdGraphPin* SourcePin, UEdGraphPin* 
 
 void UEdGraphSchema_K2::ReconstructNode(UEdGraphNode& TargetNode, bool bIsBatchRequest/*=false*/) const
 {
-	{
-		TArray<UObject *> NodeChildren;
-		GetObjectsWithOuter(&TargetNode, NodeChildren, false);
-		for (int32 Iter = 0; Iter < NodeChildren.Num(); ++Iter)
-		{
-			UEdGraphPin* Pin = Cast<UEdGraphPin>(NodeChildren[Iter]);
-			const bool bIsValidPin = !Pin 
-				|| (Pin->IsPendingKill() && !Pin->LinkedTo.Num()) 
-				|| TargetNode.Pins.Contains(Pin);
-			if (!bIsValidPin)
-			{
-				UE_LOG(LogBlueprint, Warning,
-					TEXT("Invalid pin: '%s' thinks it belongs to a node ('%s' - '%s') which doesn't have record of it. Try refreshing the node, then compile and resave the Blueprint to hopefully aleviate the problem."),
-					*Pin->PinName, *TargetNode.GetNodeTitle(ENodeTitleType::MenuTitle).ToString(), *TargetNode.GetFullName());
-			}
-		}
-	}
-
 	Super::ReconstructNode(TargetNode, bIsBatchRequest);
 
 	// If the reconstruction is being handled by something doing a batch (i.e. the blueprint autoregenerating itself), defer marking the blueprint as modified to prevent multiple recompiles
@@ -4130,8 +4222,15 @@ void UEdGraphSchema_K2::TrySetDefaultValue(UEdGraphPin& Pin, const FString& NewD
 	}
 	else if(Pin.PinType.PinCategory == PC_Text)
 	{
+		FString PackageNamespace;
+#if USE_STABLE_LOCALIZATION_KEYS
+		if (GIsEditor)
+		{
+			PackageNamespace = TextNamespaceUtil::EnsurePackageNamespace(Pin.GetOwningNodeUnchecked());
+		}
+#endif // USE_STABLE_LOCALIZATION_KEYS
 		FText NewTextValue;
-		if (!FTextStringHelper::ReadFromString(*NewDefaultValue, NewTextValue))
+		if (!FTextStringHelper::ReadFromString(*NewDefaultValue, NewTextValue, nullptr, *PackageNamespace))
 		{
 			NewTextValue = FText::FromString(NewDefaultValue);
 		}
@@ -4303,7 +4402,14 @@ void UEdGraphSchema_K2::SetPinDefaultValue(UEdGraphPin* Pin, const UFunction* Fu
 		{
 			if (Pin->PinType.PinCategory == PC_Text)
 			{
-				if (!FTextStringHelper::ReadFromString(*Pin->AutogeneratedDefaultValue, Pin->DefaultTextValue))
+				FString PackageNamespace;
+#if USE_STABLE_LOCALIZATION_KEYS
+				if (GIsEditor)
+				{
+					PackageNamespace = TextNamespaceUtil::EnsurePackageNamespace(Pin->GetOwningNodeUnchecked());
+				}
+#endif // USE_STABLE_LOCALIZATION_KEYS
+				if (!FTextStringHelper::ReadFromString(*Pin->AutogeneratedDefaultValue, Pin->DefaultTextValue, nullptr, *PackageNamespace))
 				{
 					Pin->DefaultTextValue = FText::FromString(Pin->AutogeneratedDefaultValue);
 				}
@@ -5423,299 +5529,10 @@ void UEdGraphSchema_K2::BackwardCompatibilityNodeConversion(UEdGraph* Graph, boo
 		{
 			return;
 		}
-
-		const FCustomVersion* CustomVersion = Graph->GetLinker()->GetCustomVersions().GetVersion(FBlueprintsObjectVersion::GUID);
-		if (CustomVersion == nullptr || CustomVersion->Version < FBlueprintsObjectVersion::ArrayGetByRefUpgrade)
-		{
-			// "ForEachLoop" and "ForEachLoopWithBreak" are special case macros that we do not want to add COPY nodes into, we do however want them outside the macro.
-			auto IsGraphForEachLoop = [](UEdGraph* InGraph) -> bool
-			{
-				check(InGraph);
-				return (InGraph->GetName() == TEXT("ForEachLoop") || InGraph->GetName() == TEXT("ForEachLoopWithBreak")) && InGraph->GetOutermost()->GetName() == TEXT("/Engine/EditorBlueprintResources/StandardMacros");
-			};
-
-			UBlueprint* GraphBlueprint = FBlueprintEditorUtils::FindBlueprintForGraph(Graph);
-			check(GraphBlueprint);
-
-			// For collecting upgrade notes and warnings from the upgrade process.
-			FCompilerResultsLog Results;
-			if (!GraphBlueprint->UpgradeNotesLog.IsValid())
-			{
-				GraphBlueprint->UpgradeNotesLog = TSharedPtr<FCompilerResultsLog>(new FCompilerResultsLog);
-				GraphBlueprint->UpgradeNotesLog->bSilentMode = false;
-				GraphBlueprint->UpgradeNotesLog->bAnnotateMentionedNodes = false;
-			}
-
-			// Finding all function nodes that use the "Array_Get" function and replacing them with the new by-ref node.
-			// We also inject Copy and Break nodes as needed to maintain previous functionality (in case by-value returns
-			// were being taken advantage of).
-			TArray<UK2Node_CallFunction*> CallFuncNodes;
-			Graph->GetNodesOfClass<UK2Node_CallFunction>(CallFuncNodes);
-			for (UK2Node_CallFunction* OldCallFuncNode : CallFuncNodes)
-			{
-				if (UFunction* TargetFunction = OldCallFuncNode->GetTargetFunction())
-				{
-					if (TargetFunction == UKismetArrayLibrary::StaticClass()->FindFunctionByName(GET_MEMBER_NAME_CHECKED(UKismetArrayLibrary, Array_Get)))
-					{
-						UK2Node_GetArrayItem* NewArrayGetNode = NewObject<UK2Node_GetArrayItem>(Graph);
-						check(NewArrayGetNode);
-						NewArrayGetNode->SetFlags(RF_Transactional);
-						Graph->AddNode(NewArrayGetNode, false, false);
-						NewArrayGetNode->CreateNewGuid();
-						NewArrayGetNode->PostPlacedNewNode();
-						NewArrayGetNode->AllocateDefaultPins();
-						NewArrayGetNode->NodePosX = OldCallFuncNode->NodePosX;
-						NewArrayGetNode->NodePosY = OldCallFuncNode->NodePosY;
-
-						bool bIsArrayObjectType = false;
-						for (UEdGraphPin* OldPin : OldCallFuncNode->Pins)
-						{
-							UEdGraphPin* TargetPin = nullptr;
-							if (OldPin->PinType.bIsArray)
-							{
-								TargetPin = NewArrayGetNode->GetTargetArrayPin();
-							}
-							else if (OldPin->Direction == EGPD_Input && OldPin->PinType.bIsArray == false && OldPin->PinType.PinCategory == PC_Int)
-							{
-								TargetPin = NewArrayGetNode->GetIndexPin();
-							}
-							else if (OldPin->Direction == EGPD_Output && OldPin->ParentPin == nullptr)
-							{
-								// The target pin is the Get-by-ref node's result pin
-								TargetPin = NewArrayGetNode->GetResultPin();
-
-								bIsArrayObjectType = TargetPin->PinType.PinCategory == PC_Object || TargetPin->PinType.PinCategory == PC_Class || 
-														TargetPin->PinType.PinCategory == PC_Asset || TargetPin->PinType.PinCategory == PC_AssetClass || 
-														TargetPin->PinType.PinCategory == PC_Interface;
-								// If the graph is from the "ForEachLoop" or "ForEachLoopWithBreak" macro, do not add the COPY node
-								if (!IsGraphForEachLoop(Graph) && !bIsArrayObjectType)
-								{
-									UK2Node_Copy* NewCopyNode = NewObject<UK2Node_Copy>(Graph);
-									check(NewCopyNode);
-									NewCopyNode->SetFlags(RF_Transactional);
-									Graph->AddNode(NewCopyNode, false, false);
-									NewCopyNode->CreateNewGuid();
-									NewCopyNode->PostPlacedNewNode();
-									NewCopyNode->AllocateDefaultPins();
-									NewCopyNode->NodePosX = NewArrayGetNode->NodePosX + 175.0f;
-									NewCopyNode->NodePosY = NewArrayGetNode->NodePosY;
-
-									// Add an upgrade note, informing users that the node was auto-injected
-									{
-										FFormatNamedArguments Args;
-										Args.Add(TEXT("CopyNodeName"), NewCopyNode->GetNodeTitle(ENodeTitleType::ListView));
-										Args.Add(TEXT("ArrayGetNodeName"), NewArrayGetNode->GetNodeTitle(ENodeTitleType::ListView));
-										FText UpgradeNoteText = FText::Format(LOCTEXT("ArrayGetByRef_CopyInjection", "This is a \"{CopyNodeName}\" node. It was injected to preserve functionality since the array \"{ArrayGetNodeName}\" node has changed. It outputs a copy of the input element (so modifications don't get applied to the original)."), Args);
-										NewCopyNode->AddNodeUpgradeNote(UpgradeNoteText);
-
-										// Upgrade note for the log
-										GraphBlueprint->UpgradeNotesLog->Note(TEXT("Auto-Upgrade Note: This is a @@ node. It was injected to preserve functionality since the array @@ node has changed. It outputs a copy of the input element (so modifications don't get applied to the original)."), NewCopyNode, NewArrayGetNode);
-									}
-
-									// Connect the Get-by-ref output pin to the copy node's input
-									TargetPin->MakeLinkTo(NewCopyNode->GetInputReferencePin());
-									NewCopyNode->NotifyPinConnectionListChanged(NewCopyNode->GetInputReferencePin());
-
-									if (OldPin->SubPins.Num())
-									{
-										// Make a separate break node!
-										UK2Node_BreakStruct* NewBreakNode = NewObject<UK2Node_BreakStruct>(Graph);
-										check(NewBreakNode);
-										NewBreakNode->SetFlags(RF_Transactional);
-										Graph->AddNode(NewBreakNode, false, false);
-										NewBreakNode->CreateNewGuid();
-										NewBreakNode->PostPlacedNewNode();
-										NewBreakNode->StructType = CastChecked<UScriptStruct>(OldPin->PinType.PinSubCategoryObject.Get());
-										NewBreakNode->AllocateDefaultPins();
-										NewBreakNode->NodePosX = NewCopyNode->NodePosX + 50.0f;
-										NewBreakNode->NodePosY = NewCopyNode->NodePosY;
-
-										// Add an upgrade note, informing users that the node was auto-injected
-										{
-											FFormatNamedArguments Args;
-											Args.Add(TEXT("ArrayGetNodeName"), NewArrayGetNode->GetNodeTitle(ENodeTitleType::ListView));
-											FText UpgradeNoteText = FText::Format(LOCTEXT("ArrayGetByRef_BreakInjection", "Since the array \"{ArrayGetNodeName}\" node has changed, this node was injected to preserve functionality."), Args);
-											NewBreakNode->AddNodeUpgradeNote(UpgradeNoteText);
-
-											// Upgrade note for the log
-											GraphBlueprint->UpgradeNotesLog->Note(TEXT("Auto-Upgrade Note: Since the array @@ node has changed, @@ was injected to preserve functionality."), NewArrayGetNode, NewBreakNode );
-										}
-
-										NewCopyNode->GetCopyResultPin()->MakeLinkTo(NewBreakNode->Pins[0]);
-										int SubPinIdx = 0;
-										for (UEdGraphPin* BreakNodePin : NewBreakNode->Pins)
-										{
-											if (BreakNodePin->Direction == EGPD_Output)
-											{
-												UEdGraphPin* SplitPin = OldPin->SubPins[SubPinIdx++];
-												if (!Graph->GetSchema()->MovePinLinks(*SplitPin, *BreakNodePin).CanSafeConnect())
-												{
-													GraphBlueprint->UpgradeNotesLog->Warning(TEXT("BackwardCompatibilityNodeConversion Error 'cannot safetly move pin @@ to @@' in blueprint: @@"), SplitPin, BreakNodePin, GraphBlueprint);
-												}
-											}
-										}
-									}
-									else
-									{
-										// Move all pins from the OldPin (the result of the Get node) to the output of the Copy Node
-										if (!Graph->GetSchema()->MovePinLinks(*OldPin, *NewCopyNode->GetCopyResultPin()).CanSafeConnect())
-										{
-											GraphBlueprint->UpgradeNotesLog->Warning(TEXT("BackwardCompatibilityNodeConversion Error 'cannot safetly move pin @@ to @@' in blueprint: @@"), OldPin, NewCopyNode, GraphBlueprint);
-										}
-
-										// We have made the connections already
-										TargetPin = nullptr;
-									}
-								}
-							}
-							else if (OldPin->PinName == PN_Self)
-							{
-								// Do not continue, there's just nothing to do
-							}
-							else if (OldPin->ParentPin)
-							{
-								continue;
-							}
-							else
-							{
-								check(0);
-							}
-
-							if (TargetPin && !Graph->GetSchema()->MovePinLinks(*OldPin, *TargetPin).CanSafeConnect())
-							{
-								GraphBlueprint->UpgradeNotesLog->Warning(TEXT("BackwardCompatibilityNodeConversion Error 'cannot safetly move pin @@ to @@' in blueprint: @@"), OldPin, TargetPin, GraphBlueprint);
-							}
-							else if (TargetPin)
-							{
-								NewArrayGetNode->NotifyPinConnectionListChanged(TargetPin);
-							}
-						}
-
-						if (!bIsArrayObjectType)
-						{
-							// Add an upgrade note to the node informing users that the functionality has changed.
-							NewArrayGetNode->AddNodeUpgradeNote(FText::FromString(TEXT("This node has changed! Its output is now a reference - which means modifying the element that this returns is the same as modifying the element stored in the array.")));
-
-							// Upgrade note for the log
-							GraphBlueprint->UpgradeNotesLog->Note(TEXT("Auto-Upgrade Note: @@ has changed! @@ is now a reference - which means modifying the element that this returns is the same as modifying the element stored in the array."), NewArrayGetNode, NewArrayGetNode->GetResultPin());
-						}
-
-						OldCallFuncNode->DestroyNode();
-					}
-				}
-			}
-
-			// We need to look at Macro Instances and upgrade all "ForEachLoop" and "ForEachLoopWithBreak" nodes because those graphs were prevented from having the Copy node injected
-			// because it is desirable for those Macros to return by-ref. However, to keep Blueprints running as they did prior to the upgrade, the instanced Macros need the Copy node.
-			TArray<UK2Node_MacroInstance*> MacroInstanceNodes;
-			Graph->GetNodesOfClass<UK2Node_MacroInstance>(MacroInstanceNodes);
-			for (UK2Node_MacroInstance* MacroInstanceNode : MacroInstanceNodes)
-			{
-				if (IsGraphForEachLoop(MacroInstanceNode->GetMacroGraph()))
-				{
-					UEdGraphPin* ArrayElementPin = MacroInstanceNode->FindPin(TEXT("Array Element"));
-
-					// Because we have a "ForEachLoop" or "ForEachLoopWithBreak" macro instance, we need to add a COPY node at the end, attached to the "Array Element" pin
-					if (ensure(ArrayElementPin) && 
-						ArrayElementPin->PinType.PinCategory != PC_Object && ArrayElementPin->PinType.PinCategory != PC_Class && 
-						ArrayElementPin->PinType.PinCategory != PC_Asset && ArrayElementPin->PinType.PinCategory != PC_AssetClass && 
-						ArrayElementPin->PinType.PinCategory != PC_Interface)
-					{
-						// Add an upgrade note, informing users that the node was auto-injected
-						{
-							FFormatNamedArguments Args;
-							Args.Add(TEXT("ArrayElementPin"), ArrayElementPin->PinFriendlyName);
-							FText UpgradeNoteText = FText::Format(LOCTEXT("ArrayGetByRef_ForEachLoopChanged", "This node has changed! Its output is now a reference - which means modifying the element that this returns in {ArrayElementPin} is the same as modifying the element stored in the array."), Args);
-							MacroInstanceNode->AddNodeUpgradeNote(UpgradeNoteText);
-
-							// Upgrade note for the log
-							GraphBlueprint->UpgradeNotesLog->Note(TEXT("Auto-Upgrade Note: @@ has changed! @@ is now a reference - which means modifying the element that this returns is the same as modifying the element stored in the array."), MacroInstanceNode, ArrayElementPin);
-						}
-
-						UK2Node_Copy* NewCopyNode = NewObject<UK2Node_Copy>(Graph);
-						check(NewCopyNode);
-						NewCopyNode->SetFlags(RF_Transactional);
-						Graph->AddNode(NewCopyNode, false, false);
-						NewCopyNode->CreateNewGuid();
-						NewCopyNode->PostPlacedNewNode();
-						NewCopyNode->AllocateDefaultPins();
-						NewCopyNode->NodePosX = MacroInstanceNode->NodePosX + 200.0f;
-						NewCopyNode->NodePosY = MacroInstanceNode->NodePosY + 50.0f;
-
-						// Add an upgrade note, informing users that the node was auto-injected
-						{
-							FFormatNamedArguments Args;
-							Args.Add(TEXT("CopyNodeName"), NewCopyNode->GetNodeTitle(ENodeTitleType::ListView));
-							Args.Add(TEXT("ForEachLoopName"), MacroInstanceNode->GetNodeTitle(ENodeTitleType::ListView));
-							FText UpgradeNoteText = FText::Format(LOCTEXT("ArrayGetByRef_ForLoopCopyInjection", "This is a \"{CopyNodeName}\" node. It was injected to preserve functionality since the array \"{ArrayGetNodeName}\" node has changed (inside {ForEachLoopName}). It outputs a copy of the input element (so modifications don't get applied to the original)."), Args);
-							NewCopyNode->AddNodeUpgradeNote(UpgradeNoteText);
-
-							// Upgrade note for the log
-							GraphBlueprint->UpgradeNotesLog->Note(TEXT("Auto-Upgrade Note: This is a @@ node. It was injected to preserve functionality since the array \"Get\" node (inside @@) has changed. It outputs a copy of the input element (so modifications don't get applied to the original)."), NewCopyNode, MacroInstanceNode);
-						}
-
-						if (ArrayElementPin->SubPins.Num())
-						{
-							// Make a separate break node!
-							UK2Node_BreakStruct* NewBreakNode = NewObject<UK2Node_BreakStruct>(Graph);
-							check(NewBreakNode);
-							NewBreakNode->SetFlags(RF_Transactional);
-							Graph->AddNode(NewBreakNode, false, false);
-							NewBreakNode->CreateNewGuid();
-							NewBreakNode->PostPlacedNewNode();
-							NewBreakNode->StructType = CastChecked<UScriptStruct>(ArrayElementPin->PinType.PinSubCategoryObject.Get());
-							NewBreakNode->AllocateDefaultPins();
-							NewBreakNode->NodePosX = NewCopyNode->NodePosX + 50.0f;
-							NewBreakNode->NodePosY = NewCopyNode->NodePosY;
-
-							// Add an upgrade note, informing users that the node was auto-injected
-							{
-								FFormatNamedArguments Args;
-								Args.Add(TEXT("ForEachLoopName"), MacroInstanceNode->GetNodeTitle(ENodeTitleType::ListView));
-								FText UpgradeNoteText = FText::Format(LOCTEXT("ArrayGetByRef_ForLoopBreakInjection", "Since the array \"Get\" node has changed (inside {ForEachLoopName}), this node was injected to preserve functionality."), Args);
-								NewBreakNode->AddNodeUpgradeNote(UpgradeNoteText);
-
-								// Upgrade note for the log
-								GraphBlueprint->UpgradeNotesLog->Note(TEXT("Auto-Upgrade Note: Since the array \"Get\" node has changed (inside @@), @@ was injected to preserve functionality. ."), MacroInstanceNode, NewBreakNode);
-							}
-
-							NewCopyNode->GetCopyResultPin()->MakeLinkTo(NewBreakNode->Pins[0]);
-							int SubPinIdx = 0;
-							for (UEdGraphPin* BreakNodePin : NewBreakNode->Pins)
-							{
-								if (BreakNodePin->Direction == EGPD_Output)
-								{
-									UEdGraphPin* SplitPin = ArrayElementPin->SubPins[SubPinIdx++];
-									if (!Graph->GetSchema()->MovePinLinks(*SplitPin, *BreakNodePin).CanSafeConnect())
-									{
-										GraphBlueprint->UpgradeNotesLog->Warning(TEXT("BackwardCompatibilityNodeConversion Error 'cannot safetly move pin @@ to @@' in blueprint: @@"), SplitPin, BreakNodePin, GraphBlueprint);
-									}
-								}
-							}
-
-							// Recombine the array element pin's children
-							RecombinePin(ArrayElementPin->SubPins[0]);
-						}
-						else
-						{
-							// Move all pins from the OldPin (the result of the Get node) to the output of the Copy Node
-							if (!Graph->GetSchema()->MovePinLinks(*ArrayElementPin, *NewCopyNode->GetCopyResultPin()).CanSafeConnect())
-							{
-								GraphBlueprint->UpgradeNotesLog->Warning(TEXT("BackwardCompatibilityNodeConversion Error 'cannot safetly move pin @@ to @@' in blueprint: @@"), ArrayElementPin, NewCopyNode, GraphBlueprint);
-							}
-						}
-
-						// Connect the Get-by-ref output pin to the copy node's input
-						ArrayElementPin->MakeLinkTo(NewCopyNode->GetInputReferencePin());
-						NewCopyNode->NotifyPinConnectionListChanged(NewCopyNode->GetInputReferencePin());
-					}
-				}
-			}
-		} // End FBlueprintsObjectVersion::ArrayGetByRefUpgrade upgrades
 	}
 }
 
-UEdGraphNode* UEdGraphSchema_K2::CreateSubstituteNode(UEdGraphNode* Node, const UEdGraph* Graph, FObjectInstancingGraph* InstanceGraph) const
+UEdGraphNode* UEdGraphSchema_K2::CreateSubstituteNode(UEdGraphNode* Node, const UEdGraph* Graph, FObjectInstancingGraph* InstanceGraph, TArray<FName>& InOutExtraNames) const
 {
 	// If this is an event node, create a unique custom event node as a substitute
 	UK2Node_Event* EventNode = Cast<UK2Node_Event>(Node);
@@ -5738,7 +5555,7 @@ UEdGraphNode* UEdGraphSchema_K2::CreateSubstituteNode(UEdGraphNode* Node, const 
 		if(Blueprint && Blueprint->SkeletonGeneratedClass)
 		{
 			// Gather all names in use by the Blueprint class
-			TArray<FName> ExistingNamesInUse;
+			TArray<FName> ExistingNamesInUse = InOutExtraNames;
 			FBlueprintEditorUtils::GetFunctionNameList(Blueprint, ExistingNamesInUse);
 			FBlueprintEditorUtils::GetClassVariableList(Blueprint, ExistingNamesInUse);
 
@@ -5766,58 +5583,92 @@ UEdGraphNode* UEdGraphSchema_K2::CreateSubstituteNode(UEdGraphNode* Node, const 
 			FString FunctionName;
 			const UK2Node_ActorBoundEvent* ActorBoundEventNode = Cast<const UK2Node_ActorBoundEvent>(EventNode);
 			const UK2Node_ComponentBoundEvent* CompBoundEventNode = Cast<const UK2Node_ComponentBoundEvent>(EventNode);
-			if(ActorBoundEventNode)
-			{
-				FString TargetName = TEXT("None");
-				if(ActorBoundEventNode->EventOwner)
-				{
-					TargetName = ActorBoundEventNode->EventOwner->GetActorLabel();
-				}
 
-				FunctionName = FString::Printf(TEXT("%s_%s"), *ActorBoundEventNode->DelegatePropertyName.ToString(), *TargetName);
-			}
-			else if(CompBoundEventNode)
+			const UEdGraphNode* PreExistingNode = nullptr;
+			
+			if (InstanceGraph)
 			{
-				FunctionName = FString::Printf(TEXT("%s_%s"), *CompBoundEventNode->DelegatePropertyName.ToString(), *CompBoundEventNode->ComponentPropertyName.ToString());
-			}
-			else if(EventNode->CustomFunctionName != NAME_None)
-			{
-				FunctionName = EventNode->CustomFunctionName.ToString();
-			}
-			else if(EventNode->bOverrideFunction)
-			{
-				FunctionName = EventNode->EventReference.GetMemberName().ToString();
+				// Use a generic name for the new custom event
+				FunctionName = TEXT("CustomEvent");
 			}
 			else
 			{
-				FunctionName = CustomEventNode->GetName().Replace(TEXT("K2Node_"), TEXT(""), ESearchCase::CaseSensitive);
+				// Create a name for the custom event based off the original function
+				if (ActorBoundEventNode)
+				{
+					FString TargetName = TEXT("None");
+					if (ActorBoundEventNode->EventOwner)
+					{
+						TargetName = ActorBoundEventNode->EventOwner->GetActorLabel();
+					}
+
+					FunctionName = FString::Printf(TEXT("%s_%s"), *ActorBoundEventNode->DelegatePropertyName.ToString(), *TargetName);
+					PreExistingNode = FKismetEditorUtilities::FindBoundEventForActor(ActorBoundEventNode->GetReferencedLevelActor(), ActorBoundEventNode->DelegatePropertyName);
+				}
+				else if (CompBoundEventNode)
+				{
+					FunctionName = FString::Printf(TEXT("%s_%s"), *CompBoundEventNode->DelegatePropertyName.ToString(), *CompBoundEventNode->ComponentPropertyName.ToString());
+					PreExistingNode = FKismetEditorUtilities::FindBoundEventForComponent(Blueprint, CompBoundEventNode->DelegatePropertyName, CompBoundEventNode->ComponentPropertyName);
+				}
+				else if (EventNode->CustomFunctionName != NAME_None)
+				{
+					FunctionName = EventNode->CustomFunctionName.ToString();
+				}
+				else if (EventNode->bOverrideFunction)
+				{
+					FunctionName = EventNode->EventReference.GetMemberName().ToString();
+				}
+				else
+				{
+					FunctionName = CustomEventNode->GetName().Replace(TEXT("K2Node_"), TEXT(""), ESearchCase::CaseSensitive);
+				}
 			}
 
-			// Ensure that the new event name doesn't already exist as a variable or function name
-			if(InstanceGraph)
+			// Ensure the name does not overlap with other names
+			CustomEventNode->CustomFunctionName = FName(*FunctionName, FNAME_Find);
+			if (CustomEventNode->CustomFunctionName != NAME_None
+				&& ExistingNamesInUse.Contains(CustomEventNode->CustomFunctionName))
 			{
-				FunctionName += TEXT("_Copy");
-				CustomEventNode->CustomFunctionName = FName(*FunctionName, FNAME_Find);
-				if(CustomEventNode->CustomFunctionName != NAME_None
-					&& ExistingNamesInUse.Contains(CustomEventNode->CustomFunctionName))
+				int32 i = 0;
+				FString TempFuncName;
+
+				do
 				{
-					int32 i = 0;
-					FString TempFuncName;
+					TempFuncName = FString::Printf(TEXT("%s_%d"), *FunctionName, ++i);
+					CustomEventNode->CustomFunctionName = FName(*TempFuncName, FNAME_Find);
+				} while (CustomEventNode->CustomFunctionName != NAME_None
+					&& ExistingNamesInUse.Contains(CustomEventNode->CustomFunctionName));
 
-					do 
-					{
-						TempFuncName = FString::Printf(TEXT("%s_%d"), *FunctionName, ++i);
-						CustomEventNode->CustomFunctionName = FName(*TempFuncName, FNAME_Find);
-					}
-					while(CustomEventNode->CustomFunctionName != NAME_None
-						&& ExistingNamesInUse.Contains(CustomEventNode->CustomFunctionName));
+				FunctionName = TempFuncName;
+			}
 
-					FunctionName = TempFuncName;
+			if (ActorBoundEventNode)
+			{
+				PreExistingNode = FKismetEditorUtilities::FindBoundEventForActor(ActorBoundEventNode->GetReferencedLevelActor(), ActorBoundEventNode->DelegatePropertyName);
+			}
+			else if (CompBoundEventNode)
+			{
+				PreExistingNode = FKismetEditorUtilities::FindBoundEventForComponent(Blueprint, CompBoundEventNode->DelegatePropertyName, CompBoundEventNode->ComponentPropertyName);
+			}
+			else
+			{
+				if (Cast<UK2Node_CustomEvent>(EventNode))
+				{
+					PreExistingNode = FBlueprintEditorUtils::FindCustomEventNode(Blueprint, EventNode->CustomFunctionName);
+				}
+				else if (ensure(EventNode->FindEventSignatureFunction() != nullptr))
+				{
+					// EventNode::FindEventSignatureFunction will return null if it is deleted (for instance, someone declared a 
+					// BlueprintImplementableEvent, and some blueprint implements it, but then the declaration is deleted)
+					UClass* ClassOwner = EventNode->FindEventSignatureFunction()->GetOwnerClass()->GetAuthoritativeClass();
+
+					PreExistingNode = FBlueprintEditorUtils::FindOverrideForFunction(Blueprint, ClassOwner, EventNode->FindEventSignatureFunction()->GetFName());
 				}
 			}
 
 			// Should be a unique name now, go ahead and assign it
 			CustomEventNode->CustomFunctionName = FName(*FunctionName);
+			InOutExtraNames.Add(CustomEventNode->CustomFunctionName);
 
 			// Copy the pins from the old node to the new one that's replacing it
 			CustomEventNode->Pins = EventNode->Pins;
@@ -5836,7 +5687,7 @@ UEdGraphNode* UEdGraphSchema_K2::CreateSubstituteNode(UEdGraphNode* Node, const 
 				check(Pin);
 
 				// Reparent the pin to the new custom event node
-				Pin->Rename(*Pin->GetName(), CustomEventNode, RenameFlags | (Pin->HasAnyFlags(RF_NeedLoad | RF_NeedPostLoad | RF_NeedPostLoadSubobjects) ? REN_ForceNoResetLoaders : RF_NoFlags));
+				Pin->SetOwningNode(CustomEventNode);
 
 				// Don't include execution or delegate output pins as user-defined pins
 				if(!bOriginalWasCustomEvent && !IsExecPin(*Pin) && !IsDelegateCategory(Pin->PinType.PinCategory))
@@ -5860,13 +5711,31 @@ UEdGraphNode* UEdGraphSchema_K2::CreateSubstituteNode(UEdGraphNode* Node, const 
 				}
 			}
 
+			if (PreExistingNode)
+			{
+				if (!Blueprint->PreCompileLog.IsValid())
+				{
+					Blueprint->PreCompileLog = TSharedPtr<FCompilerResultsLog>(new FCompilerResultsLog(false));
+					Blueprint->PreCompileLog->bSilentMode = false;
+					Blueprint->PreCompileLog->bAnnotateMentionedNodes = false;
+				}
+
+				// Append a warning to the node and to the logs
+				CustomEventNode->bHasCompilerMessage = true;
+				CustomEventNode->ErrorType = EMessageSeverity::Warning;
+				FFormatNamedArguments Args;
+				Args.Add(TEXT("NodeName"), CustomEventNode->GetNodeTitle(ENodeTitleType::ListView));
+				Args.Add(TEXT("OriginalNodeName"), FText::FromString(PreExistingNode->GetName()));
+				CustomEventNode->ErrorMsg = FText::Format(LOCTEXT("ReverseUpgradeWarning", "Conflicted with {OriginalNodeName} and was replaced as a Custom Event!"), Args).ToString();
+				Blueprint->PreCompileLog->Warning(*LOCTEXT("ReverseUpgradeWarning_Log", "Pasted node @@  conflicted with @@ and was replaced as a Custom Event!").ToString(), CustomEventNode, PreExistingNode);
+			}
 			// Return the new custom event node that we just created as a substitute for the original event node
 			return CustomEventNode;
 		}
 	}
 
 	// Use the default logic in all other cases
-	return UEdGraphSchema::CreateSubstituteNode(Node, Graph, InstanceGraph);
+	return UEdGraphSchema::CreateSubstituteNode(Node, Graph, InstanceGraph, InOutExtraNames);
 }
 
 int32 UEdGraphSchema_K2::GetNodeSelectionCount(const UEdGraph* Graph) const
@@ -6317,6 +6186,14 @@ void UEdGraphSchema_K2::SplitPin(UEdGraphPin* Pin) const
 			{
 				OriginalDefaults.Add(TEXT("0.0"));
 			}
+			
+			// Rotator OriginalDefaults are in the form of Y,Z,X but our pins are in the form of X,Y,Z
+			// so we have to change the OriginalDefaults order here to match our pins
+			if (StructType == TBaseStructure<FRotator>::Get())
+			{
+				OriginalDefaults.Swap(0, 2);
+				OriginalDefaults.Swap(1, 2);
+			}
 		}
 		else if (StructType == TBaseStructure<FVector2D>::Get())
 		{
@@ -6377,7 +6254,7 @@ void UEdGraphSchema_K2::RecombinePin(UEdGraphPin* Pin) const
 		}
 
 		GraphNode->Pins.Remove(SubPin);
-		Blueprint->PinWatches.Remove(SubPin);
+		Blueprint->WatchedPins.Remove(SubPin);
 	}
 
 	if (Pin->Direction == EGPD_Input)
@@ -6385,12 +6262,19 @@ void UEdGraphSchema_K2::RecombinePin(UEdGraphPin* Pin) const
 		UScriptStruct* StructType = CastChecked<UScriptStruct>(ParentPin->PinType.PinSubCategoryObject.Get());
 
 		TArray<FString> OriginalDefaults;
-		if (   StructType == TBaseStructure<FVector>::Get()
-			|| StructType == TBaseStructure<FRotator>::Get())
+		if (StructType == TBaseStructure<FVector>::Get())
 		{
 			ParentPin->DefaultValue = ParentPin->SubPins[0]->DefaultValue + TEXT(",") 
 									+ ParentPin->SubPins[1]->DefaultValue + TEXT(",")
 									+ ParentPin->SubPins[2]->DefaultValue;
+		}
+		else if (StructType == TBaseStructure<FRotator>::Get())
+		{
+			// Our pins are in the form X,Y,Z but the Rotator pin type expects the form Y,Z,X
+			// so we need to make sure they are added in that order here
+			ParentPin->DefaultValue = ParentPin->SubPins[1]->DefaultValue + TEXT(",")
+									+ ParentPin->SubPins[2]->DefaultValue + TEXT(",")
+									+ ParentPin->SubPins[0]->DefaultValue;
 		}
 		else if (StructType == TBaseStructure<FVector2D>::Get())
 		{
@@ -6412,7 +6296,18 @@ void UEdGraphSchema_K2::RecombinePin(UEdGraphPin* Pin) const
 		}
 	}
 
-	ParentPin->SubPins.Empty();	
+	// Clear out subpins:
+	TArray<UEdGraphPin*>& ParentSubPins = ParentPin->SubPins;
+	while (ParentSubPins.Num())
+	{
+		// To ensure that MarkPendingKill does not mutate ParentSubPins, we null out the ParentPin
+		// if we assume that MarkPendingKill *will* mutate ParentSubPins we could introduce an infinite
+		// loop. No known case of this being possible, but it would be trivial to write bad node logic
+		// that introduces this problem:
+		ParentSubPins.Last()->ParentPin = nullptr; 
+		ParentSubPins.Last()->MarkPendingKill();
+		ParentSubPins.RemoveAt(ParentSubPins.Num()-1);
+	}
 
 	Graph->NotifyGraphChanged();
 	FBlueprintEditorUtils::MarkBlueprintAsModified(Blueprint);

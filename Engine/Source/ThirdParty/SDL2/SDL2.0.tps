@@ -1,8 +1,8 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <TpsData xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
   <Name>SDL 2.0</Name>
-  <Location>//depot/UE4/Engine/Source/ThirdParty/SDL2/</Location>
-  <Date>2015-09-04T20:29:09.2108049-04:00</Date>
+  <Location>/Engine/Source/ThirdParty/SDL2/</Location>
+  <Date>2016-06-15T18:33:17.2339311-04:00</Date>
   <Function>Cross-platform library abstracting audio, video and input</Function>
   <Justification>Required for Linux client</Justification>
   <Platforms>
@@ -14,7 +14,11 @@
   </Products>
   <TpsType>Source Code</TpsType>
   <Eula>http://www.libsdl.org/license.php</Eula>
-  <RedistributeTo />
+  <RedistributeTo>
+    <EndUserGroup>Licensees</EndUserGroup>
+    <EndUserGroup>Git</EndUserGroup>
+    <EndUserGroup>P4</EndUserGroup>
+  </RedistributeTo>
   <Redistribute>false</Redistribute>
   <IsSourceAvailable>false</IsSourceAvailable>
   <NoticeType>Full EULA Text</NoticeType>
@@ -39,5 +43,5 @@ freely, subject to the following restrictions:
 3. This notice may not be removed or altered from any source distribution.
 
 </Notification>
-  <LicenseFolder />
+  <LicenseFolder>/Engine/Source/ThirdParty/Licenses/SDL2.0_License.txt</LicenseFolder>
 </TpsData>

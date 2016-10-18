@@ -2,6 +2,7 @@
 
 #pragma once
 #include "Engine/LatentActionManager.h"
+#include "Kismet/KismetSystemLibrary.h"
 #include "Kismet/BlueprintFunctionLibrary.h"
 #include "Sound/DialogueTypes.h"
 #include "GameplayStatics.generated.h"
@@ -77,10 +78,19 @@ class ENGINE_API UGameplayStatics : public UBlueprintFunctionLibrary
 	 *	Find all Actors in the world with the specified interface.
 	 *	This is a slow operation, use with caution e.g. do not use every frame.
 	 *	@param	Interface	Interface to find. Must be specified or result array will be empty.
-	 *	@param	OutActors	Output array of Actors of the specified class.
+	 *	@param	OutActors	Output array of Actors of the specified interface.
 	 */
 	UFUNCTION(BlueprintCallable, Category="Utilities",  meta=(WorldContext="WorldContextObject", DeterminesOutputType="Interface", DynamicOutputParam="OutActors"))
 	static void GetAllActorsWithInterface(UObject* WorldContextObject, TSubclassOf<UInterface> Interface, TArray<AActor*>& OutActors);
+
+	/**
+	*	Find all Actors in the world with the specified tag.
+	*	This is a slow operation, use with caution e.g. do not use every frame.
+	*	@param	Tag			Tag to find. Must be specified or result array will be empty.
+	*	@param	OutActors	Output array of Actors of the specified tag.
+	*/
+	UFUNCTION(BlueprintCallable, Category="Utilities",  meta=(WorldContext="WorldContextObject"))
+	static void GetAllActorsWithTag(UObject* WorldContextObject, FName Tag, TArray<AActor*>& OutActors);
 
 	// --- Player functions ------------------------------
 
@@ -117,6 +127,22 @@ class ENGINE_API UGameplayStatics : public UBlueprintFunctionLibrary
 	 */
 	UFUNCTION(BlueprintCallable, Category="Game", meta=(UnsafeDuringActorConstruction="true"))
 	static void RemovePlayer(APlayerController* Player, bool bDestroyPawn);
+
+	/** 
+	* Gets what controller ID a Player is using
+	* @param Player		The player controller of the player to get the ID of
+	* @return			The ID of the passed in player. -1 if there is no controller for the passed in player
+	*/
+	UFUNCTION(BlueprintCallable, Category="Game", meta=(UnsafeDuringActorConstruction="true"))
+	static int32 GetPlayerControllerID(APlayerController* Player);
+
+	/** 
+	 * Sets what controller ID a Player should be using
+	 * @param Player			The player controller of the player to change the controller ID of
+	 * @param ControllerId		The controller ID to assign to this player
+	 */
+	UFUNCTION(BlueprintCallable, Category="Game", meta=(UnsafeDuringActorConstruction="true"))
+	static void SetPlayerControllerID(APlayerController* Player, int32 ControllerId);
 
 	// --- Level Streaming functions ------------------------
 	
@@ -533,6 +559,20 @@ class ENGINE_API UGameplayStatics : public UBlueprintFunctionLibrary
 		return SpawnDialogueAttached(Dialogue, Context, AttachToComponent, AttachPointName, Location, FRotator::ZeroRotator, LocationType, bStopWhenAttachedToDestroyed, VolumeMultiplier, PitchMultiplier, StartTime, AttenuationSettings);
 	}
 
+	/**
+	 * Will set subtitles to be enabled or disabled.
+	 * @param bEnabled will enable subtitle drawing if true, disable if false.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Audio|Subtitles")
+	static void SetSubtitlesEnabled(bool bEnabled);
+
+	/**
+	 * Returns whether or not subtitles are currently enabled.
+	 * @return true if subtitles are enabled.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Audio|Subtitles")
+	static bool AreSubtitlesEnabled();
+
 	// --- Audio Functions ----------------------------
 	/** Set the sound mix of the audio system for special EQing **/
 	UFUNCTION(BlueprintCallable, Category="Audio", meta=(WorldContext = "WorldContextObject"))
@@ -587,6 +627,12 @@ class ENGINE_API UGameplayStatics : public UBlueprintFunctionLibrary
 	UFUNCTION(BlueprintCallable, Category="Audio", meta=(WorldContext = "WorldContextObject"))
 	static void DeactivateReverbEffect(UObject* WorldContextObject, FName TagName);
 
+	/** 
+	 * Returns the highest priority reverb settings currently active from any source (volumes or manual setting).
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Audio", meta = (WorldContext = "WorldContextObject"))
+	static class UReverbEffect* GetCurrentReverbEffect(UObject* WorldContextObject);
+
 	// --- Decal functions ------------------------------
 
 	/** Spawns a decal at the given location and rotation, fire and forget. Does not replicate.
@@ -626,9 +672,10 @@ class ENGINE_API UGameplayStatics : public UBlueprintFunctionLibrary
 	 * @param HitComponent	PrimitiveComponent hit by the trace.
 	 * @param HitBoneName	Name of the bone hit (valid only if we hit a skeletal mesh).
 	 * @param HitItem		Primitive-specific data recording which item in the primitive was hit
+	 * @param FaceIndex		If colliding with trimesh or landscape, index of face that was hit.
 	 */
 	UFUNCTION(BlueprintPure, Category = "Collision", meta=(NativeBreakFunc))
-	static void BreakHitResult(const struct FHitResult& Hit, bool& bBlockingHit, bool& bInitialOverlap, float& Time, FVector& Location, FVector& ImpactPoint, FVector& Normal, FVector& ImpactNormal, class UPhysicalMaterial*& PhysMat, class AActor*& HitActor, class UPrimitiveComponent*& HitComponent, FName& HitBoneName, int32& HitItem, FVector& TraceStart, FVector& TraceEnd);
+	static void BreakHitResult(const struct FHitResult& Hit, bool& bBlockingHit, bool& bInitialOverlap, float& Time, FVector& Location, FVector& ImpactPoint, FVector& Normal, FVector& ImpactNormal, class UPhysicalMaterial*& PhysMat, class AActor*& HitActor, class UPrimitiveComponent*& HitComponent, FName& HitBoneName, int32& HitItem, int32& FaceIndex, FVector& TraceStart, FVector& TraceEnd);
 
 	/** 
 	 *	Create a HitResult struct
@@ -645,9 +692,10 @@ class ENGINE_API UGameplayStatics : public UBlueprintFunctionLibrary
 	 * @param HitComponent	PrimitiveComponent hit by the trace.
 	 * @param HitBoneName	Name of the bone hit (valid only if we hit a skeletal mesh).
 	 * @param HitItem		Primitive-specific data recording which item in the primitive was hit
+	 * @param FaceIndex		If colliding with trimesh or landscape, index of face that was hit.
 	 */
 	UFUNCTION(BlueprintPure, Category = "Collision", meta = (NativeMakeFunc, Normal="0,0,1", ImpactNormal="0,0,1"))
-	static FHitResult MakeHitResult(bool bBlockingHit, bool bInitialOverlap, float Time, FVector Location, FVector ImpactPoint, FVector Normal, FVector ImpactNormal, class UPhysicalMaterial* PhysMat, class AActor* HitActor, class UPrimitiveComponent* HitComponent, FName HitBoneName, int32 HitItem, FVector TraceStart, FVector TraceEnd);
+	static FHitResult MakeHitResult(bool bBlockingHit, bool bInitialOverlap, float Time, FVector Location, FVector ImpactPoint, FVector Normal, FVector ImpactNormal, class UPhysicalMaterial* PhysMat, class AActor* HitActor, class UPrimitiveComponent* HitComponent, FName HitBoneName, int32 HitItem, int32 FaceIndex, FVector TraceStart, FVector TraceEnd);
 
 
 	/** Returns the EPhysicalSurface type of the given Hit. 
@@ -655,6 +703,12 @@ class ENGINE_API UGameplayStatics : public UBlueprintFunctionLibrary
 	 */
 	UFUNCTION(BlueprintPure, Category="Collision")
 	static EPhysicalSurface GetSurfaceType(const struct FHitResult& Hit);
+
+	/** 
+	 *	Try and find the UV for a collision impact. Note this ONLY works if 'Support UV From Hit Results' is enabled in Physics Settings.
+	 */
+	UFUNCTION(BlueprintPure, Category = "Collision")
+	static bool FindCollisionUV(const struct FHitResult& Hit, int32 UVChannel, FVector2D& UV);
 
 	// --- Save Game functions ------------------------------
 
@@ -693,9 +747,9 @@ class ENGINE_API UGameplayStatics : public UBlueprintFunctionLibrary
 	static bool DoesSaveGameExist(const FString& SlotName, const int32 UserIndex);
 
 	/** 
-	 *	Save the contents of the SaveGameObject to a slot.
-	 *	@param SlotName			Name of save game slot to save to.
-	 *  @param UserIndex		For some platforms, master user index to identify the user doing the saving.
+	 *	Load the contents from a given slot.
+	 *	@param SlotName			Name of the save game slot to load from.
+	 *  @param UserIndex		For some platforms, master user index to identify the user doing the loading.
 	 *	@return SaveGameObject	Object containing loaded game state (NULL if load fails)
 	 */
 	UFUNCTION(BlueprintCallable, Category="Game")
@@ -703,8 +757,8 @@ class ENGINE_API UGameplayStatics : public UBlueprintFunctionLibrary
 
 	/**
 	 * Delete a save game in a particular slot.
-	 *	@param SlotName			Name of save game slot to save to.
-	 *  @param UserIndex		For some platforms, master user index to identify the user doing the saving.
+	 *	@param SlotName			Name of save game slot to delete.
+	 *  @param UserIndex		For some platforms, master user index to identify the user doing the deletion.
 	 *  @return True if a file was actually able to be deleted. use DoesSaveGameExist to distinguish between delete failures and failure due to file not existing.
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Game")
@@ -758,6 +812,43 @@ class ENGINE_API UGameplayStatics : public UBlueprintFunctionLibrary
 
 	/** Native version, has more options than the Blueprint version. */
 	static bool SuggestProjectileVelocity(UObject* WorldContextObject, FVector& TossVelocity, FVector StartLocation, FVector EndLocation, float TossSpeed, bool bHighArc = false, float CollisionRadius = 0.f, float OverrideGravityZ = 0, ESuggestProjVelocityTraceOption::Type TraceOption = ESuggestProjVelocityTraceOption::TraceFullPath, const FCollisionResponseParams& ResponseParam = FCollisionResponseParams::DefaultResponseParam, const TArray<AActor*>& ActorsToIgnore = TArray<AActor*>(), bool bDrawDebug = false);
+
+	/**
+	* Predict the arc of a virtual projectile affected by gravity with collision checks along the arc. Returns a list of positions of the simulated arc and the destination reached by the simulation.
+	* Returns true if it hit something.
+	*
+	* @param OutPathPositions			Predicted projectile path. Ordered series of positions from StartPos to the end. Includes location at point of impact if it hit something.
+	* @param OutHit						Predicted hit result, if the projectile will hit something
+	* @param OutLastTraceDestination	Goal position of the final trace it did. Will not be in the path if there is a hit.
+	* @param StartPos					First start trace location
+	* @param LaunchVelocity				Velocity the "virtual projectile" is launched at
+	* @param bTracePath					Trace along the entire path to look for blocking hits
+	* @param ProjectileRadius			Radius of the virtual projectile to sweep against the environment
+	* @param ObjectTypes				ObjecTypes to trace against
+	* @param bTraceComplex				Use TraceComplex (trace against triangles not primitives)
+	* @param ActorsToIgnore				Actors to exclude from the traces
+	* @param DrawDebugType				Debug type (one-frame, duration, persistent)
+	* @param DrawDebugTime				Duration of debug lines (only relevant for DrawDebugType::Duration)
+	* @param SimFrequency				Determines size of each sub-step in the simulation (chopping up MaxSimTime)
+	* @param MaxSimTime					Maximum simulation time for the virtual projectile.
+	* @param OverrideGravityZ			Optional override of Gravity (default uses WorldGravityZ
+	*/
+	UFUNCTION(BlueprintCallable, Category = "Game", meta = (WorldContext = "WorldContextObject", AutoCreateRefTerm = "ActorsToIgnore", AdvancedDisplay = "DrawDebugTime, DrawDebugType, SimFrequency, MaxSimTime, OverrideGravityZ", TraceChannel = ECC_WorldDynamic, bTracePath = true))
+	static bool PredictProjectilePath(UObject* WorldContextObject, FHitResult& OutHit, TArray<FVector>& OutPathPositions, FVector& OutLastTraceDestination, FVector StartPos, FVector LaunchVelocity, bool bTracePath, float ProjectileRadius, const TArray<TEnumAsByte<EObjectTypeQuery> >& ObjectTypes, bool bTraceComplex, const TArray<AActor*>& ActorsToIgnore, EDrawDebugTrace::Type DrawDebugType, float DrawDebugTime, float SimFrequency = 30.f, float MaxSimTime = 2.f, float OverrideGravityZ = 0);
+
+	/**
+	* Returns the launch velocity needed for a projectile at rest at StartPos to land on EndPos.
+	* Assumes a medium arc (e.g. 45 deg on level ground). Projectile velocity is variable and unconstrained.
+	* Does no tracing.
+	*
+	* @param OutLaunchVelocity			Returns the launch velocity required to reach the EndPos
+	* @param StartPos					Start position of the simulation
+	* @param EndPos						Desired end location for the simulation
+	* @param OverrideGravityZ			Optional override of WorldGravityZ
+	* @param ArcParam					Change height of arc between 0.0-1.0 where 0.5 is the default medium arc
+	*/
+	UFUNCTION(BlueprintCallable, Category = "Game", DisplayName = "SuggestProjectileVelocity Custom Arc", meta = (WorldContext = "WorldContextObject", AdvancedDisplay = "OverrideGravityZ, ArcParam"))
+	static bool SuggestProjectileVelocity_CustomArc(UObject* WorldContextObject, FVector& OutLaunchVelocity, FVector StartPos, FVector EndPos, float OverrideGravityZ = 0, float ArcParam = 0.5f);
 
 	/** Returns world origin current location. */
 	UFUNCTION(BlueprintPure, Category="Game", meta=(WorldContext="WorldContextObject") )

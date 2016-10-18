@@ -16,8 +16,11 @@ struct FBPTerminal
 	bool bIsSavePersistent;
 	bool bPassedByReference;
 
-	// Source node (e.g., pin)
+	// Source node
 	UObject* Source;
+
+	// Source pin
+	UEdGraphPin* SourcePin;
 
 	// Context->
 	FBPTerminal* Context;
@@ -43,6 +46,7 @@ struct FBPTerminal
 		, bIsSavePersistent(false)
 		, bPassedByReference(false)
 		, Source(nullptr)
+		, SourcePin(nullptr)
 		, Context(nullptr)
 		, AssociatedVarProperty(nullptr)
 		, ObjectLiteral(nullptr)

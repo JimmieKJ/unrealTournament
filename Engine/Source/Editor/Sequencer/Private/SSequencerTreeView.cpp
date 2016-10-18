@@ -101,13 +101,13 @@ FReply SSequencerTreeViewRow::OnDragDetected( const FGeometry& InGeometry, const
 	return FReply::Unhandled();
 }
 
-TOptional<EItemDropZone> SSequencerTreeViewRow::OnCanAcceptDrop( const FDragDropEvent& DragDropEvent, EItemDropZone ItemDropZone, FDisplayNodeRef DisplayNode )
+TOptional<EItemDropZone> SSequencerTreeViewRow::OnCanAcceptDrop( const FDragDropEvent& DragDropEvent, EItemDropZone InItemDropZone, FDisplayNodeRef DisplayNode )
 {
 	TSharedPtr<FSequencerDisplayNodeDragDropOp> DragDropOp = DragDropEvent.GetOperationAs<FSequencerDisplayNodeDragDropOp>();
 	if ( DragDropOp.IsValid() )
 	{
 		DragDropOp->ResetToDefaultToolTip();
-		TOptional<EItemDropZone> AllowedDropZone = DisplayNode->CanDrop( *DragDropOp, ItemDropZone );
+		TOptional<EItemDropZone> AllowedDropZone = DisplayNode->CanDrop( *DragDropOp, InItemDropZone );
 		if ( AllowedDropZone.IsSet() == false )
 		{
 			DragDropOp->CurrentIconBrush = FEditorStyle::GetBrush( TEXT( "Graph.ConnectorFeedback.Error" ) );
@@ -117,12 +117,12 @@ TOptional<EItemDropZone> SSequencerTreeViewRow::OnCanAcceptDrop( const FDragDrop
 	return TOptional<EItemDropZone>();
 }
 
-FReply SSequencerTreeViewRow::OnAcceptDrop( const FDragDropEvent& DragDropEvent, EItemDropZone ItemDropZone, FDisplayNodeRef DisplayNode )
+FReply SSequencerTreeViewRow::OnAcceptDrop( const FDragDropEvent& DragDropEvent, EItemDropZone InItemDropZone, FDisplayNodeRef DisplayNode )
 {
 	TSharedPtr<FSequencerDisplayNodeDragDropOp> DragDropOp = DragDropEvent.GetOperationAs<FSequencerDisplayNodeDragDropOp>();
 	if ( DragDropOp.IsValid())
 	{
-		DisplayNode->Drop( DragDropOp->GetDraggedNodes(), ItemDropZone );
+		DisplayNode->Drop( DragDropOp->GetDraggedNodes(), InItemDropZone );
 		return FReply::Handled();
 	}
 	return FReply::Unhandled();
@@ -154,7 +154,6 @@ void SSequencerTreeView::Construct(const FArguments& InArgs, const TSharedRef<FS
 	// We 'leak' these delegates (they'll get cleaned up automatically when the invocation list changes)
 	// It's not safe to attempt their removal in ~SSequencerTreeView because SequencerNodeTree->GetSequencer() may not be valid
 	FSequencer& Sequencer = InNodeTree->GetSequencer();
-	Sequencer.GetSettings()->GetOnShowCurveEditorChanged().AddSP(this, &SSequencerTreeView::UpdateTrackArea);
 	Sequencer.GetSelection().GetOnOutlinerNodeSelectionChanged().AddSP(this, &SSequencerTreeView::SynchronizeTreeSelectionWithSequencerSelection);
 
 	HeaderRow = SNew(SHeaderRow).Visibility(EVisibility::Collapsed);
@@ -411,7 +410,7 @@ void SSequencerTreeView::SetupColumns(const FArguments& InArgs)
 	// Now populate the header row with the columns
 	for (auto& Pair : Columns)
 	{
-		if (Pair.Key != TrackAreaName || !Sequencer.GetSettings()->GetShowCurveEditor())
+		if (Pair.Key != TrackAreaName || !Sequencer.GetShowCurveEditor())
 		{
 			HeaderRow->AddColumn(
 				SHeaderRow::Column(Pair.Key)
@@ -426,7 +425,7 @@ void SSequencerTreeView::UpdateTrackArea()
 	FSequencer& Sequencer = SequencerNodeTree->GetSequencer();
 
 	// Add or remove the column
-	if (Sequencer.GetSettings()->GetShowCurveEditor())
+	if (Sequencer.GetShowCurveEditor())
 	{
 		HeaderRow->RemoveColumn(TrackAreaName);
 	}
@@ -552,7 +551,7 @@ bool SSequencerTreeView::SynchronizeSequencerSelectionWithTreeSelection()
 TSharedPtr<SWidget> SSequencerTreeView::OnContextMenuOpening()
 {
 	const TSet<TSharedRef<FSequencerDisplayNode>> SelectedNodes = SequencerNodeTree->GetSequencer().GetSelection().GetSelectedOutlinerNodes();
-	if ( SelectedNodes.Num() == 1 )
+	if ( SelectedNodes.Num() > 0 )
 	{
 		return SelectedNodes.Array()[0]->OnSummonContextMenu();
 	}

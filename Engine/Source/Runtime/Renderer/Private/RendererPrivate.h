@@ -4,8 +4,7 @@
 	RendererPrivate.h: Renderer interface private definitions.
 =============================================================================*/
 
-#ifndef __RendererPrivate_h__
-#define __RendererPrivate_h__
+#pragma once
 
 #include "Engine.h"
 #include "ShaderCore.h"
@@ -13,6 +12,7 @@
 #include "RHIStaticStates.h"
 #include "ScenePrivate.h"
 #include "RendererInterface.h"
+#include "RenderTargetTemp.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogRenderer, Log, All);
 
@@ -20,6 +20,7 @@ DECLARE_LOG_CATEGORY_EXTERN(LogRenderer, Log, All);
 class FRendererModule : public IRendererModule
 {
 public:
+	FRendererModule();
 	virtual bool SupportsDynamicReloading() override { return true; }
 
 	virtual void BeginRenderingViewFamily(FCanvas* Canvas,FSceneViewFamily* ViewFamily) override;
@@ -75,13 +76,20 @@ public:
 		return PostOpaqueRenderDelegate.IsBound();
 	}
 
+	virtual bool HasPostResolvedSceneColorExtension() const override
+	{
+		return PostResolvedSceneColorCallback != nullptr;
+	}
+	virtual void RegisterPostResolvedSceneColorExtension(TPostResolvedSceneColorCallback InCallback) override;
+	virtual void RenderPostResolvedSceneColorExtension(FRHICommandListImmediate& RHICmdList, class FSceneRenderTargets& SceneContext) override;
+
 private:
 	TSet<FSceneInterface*> AllocatedScenes;
 	ICustomCulling* CustomCullingImpl;
 	FPostOpaqueRenderDelegate PostOpaqueRenderDelegate;
 	FPostOpaqueRenderDelegate OverlayRenderDelegate;
+	TPostResolvedSceneColorCallback PostResolvedSceneColorCallback;
 };
 
 extern ICustomCulling* GCustomCullingImpl;
 
-#endif

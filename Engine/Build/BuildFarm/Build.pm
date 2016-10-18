@@ -24,92 +24,6 @@ sub check_for_changes
 {
 	my ($ec, $ec_project, $ec_job, $stream, $ec_update) = @_;
 	
-	# find the last change submitted by a user
-	my $last_change;
-	my $last_change_by_user;
-	foreach(p4_command("changes -m 50 $stream/..."))
-	{
-		fail("Unexpected output line when querying changes: $_") if !m/^Change (\d+) on [^ ]+ by ([^@]+)@/;
-		$last_change = $1 if !$last_change;
-		if(lc $2 ne 'buildmachine')
-		{
-			$last_change_by_user = $1;
-			last;
-		}
-	}
-	if(!$last_change_by_user)
-	{
-		print "Found no user-submitted changes. Ignoring.\n";
-		return;
-	}
-	print "Latest change in $stream is $last_change (latest user change is $last_change_by_user)\n";
-	
-	# read the stream settings
-	my $settings = read_stream_settings($ec, $ec_project, $stream);
-	my $is_buildgraph = $settings->{"With BuildGraph"};
-	my $build_types = $settings->{'Build Types'};
-
-	# get the escaped stream name
-	my $escaped_stream = $stream;
-	$escaped_stream =~ s/\//+/g;
-	
-	# get the CIS state from electric commander
-	my $cis_state_property = "/projects[$ec_project]/Generated/$escaped_stream/CIS";
-	my $cis_state_json = ec_try_get_property($ec, $cis_state_property);
-	my $cis_state = decode_json($cis_state_json || '{}');
-
-	# get the new cis state, and write it back to ec
-	my ($new_cis_state, $new_build_names) = update_cis_state($build_types, $cis_state, $last_change_by_user, time);
-	ec_set_property($ec, $cis_state_property, encode_json($new_cis_state), $ec_update);
-
-	# start all the new jobs
-	for my $new_build_name(@{$new_build_names})
-	{
-		print "Triggering $new_build_name at change $last_change.\n";
-		if($ec_update)
-		{
-			# find the matching build type
-			my $build_type = (grep { $_->{'Name'} eq $new_build_name } @{$build_types})[0];
-			fail("Couldn't find build type for $new_build_name") if !$build_type;
-
-			# create the new job
-			my $actual_parameters = [];
-			push(@{$actual_parameters}, { actualParameterName => 'Arguments', value => $build_type->{'Arguments'} });
-			if($is_buildgraph)
-			{
-				push(@{$actual_parameters}, { actualParameterName => 'Job Name', value => $new_build_name });
-			}
-			else
-			{
-				push(@{$actual_parameters}, { actualParameterName => 'Build Name', value => $new_build_name });
-			}
-			push(@{$actual_parameters}, { actualParameterName => 'Stream', value => $stream });
-			push(@{$actual_parameters}, { actualParameterName => 'CL', value => $last_change });
-			
-			my $response = $ec->runProcedure($ec_project, { procedureName => $is_buildgraph? 'Run BuildGraph' : 'Run Build', actualParameter => $actual_parameters });
-			my $job_id = $response->findvalue("//response/jobId");
-			fail("Couldn't create CIS job:\n".ec_get_response_string($response)) if !defined $job_id;
-			
-			# Add a link to the new job to the CIS page
-			print "Started job $job_id\n";	
-			my $safe_stream_name = $stream;
-			$safe_stream_name =~ s/^\///g;
-			$safe_stream_name =~ s/\// /g;
-			ec_set_property($ec, "/jobs[$ec_job]/report-urls/Started $new_build_name for $safe_stream_name at CL $last_change", "/commander/link/jobDetails/jobs/$job_id?linkPageType=jobDetails", $ec_update);
-			print "\n";
-		}
-		else
-		{
-			print "Skipped without --ec-update argument.\n";
-		}
-	}
-}
-
-# print the projected build schedule for a given branch
-sub print_schedule
-{
-	my ($ec, $ec_project, $stream) = @_;
-
 	# read the stream settings
 	my $settings = read_stream_settings($ec, $ec_project, $stream);
 	my $build_types = $settings->{'Build Types'};
@@ -123,39 +37,6 @@ sub print_schedule
 	my $cis_state_json = ec_try_get_property($ec, $cis_state_property);
 	my $cis_state = decode_json($cis_state_json || '{}');
 
-	# find the last cl that we've built
-	my $next_change = 1;
-	foreach my $name(keys %{$cis_state})
-	{
-		my $last_change = $cis_state->{$name}->{'CL'};
-		$next_change = max($next_change, $last_change + 1) if $last_change;
-	}
-	
-	# step forward minute by minute
-	print "Projected build schedule for $stream:\n";
-	my $start_time = time;
-	my $num_builds = 0;
-	for(my $next_time = $start_time; $next_time < $start_time + (24 * 60 * 60) && $num_builds < 120; $next_time += 60)
-	{
-		# update the build state
-		my $new_build_names;
-		($cis_state, $new_build_names) = update_cis_state($build_types, $cis_state, ++$next_change, $next_time, { silent => 1 });
-
-		# output the list of new build names
-		foreach(@{$new_build_names})
-		{
-			my ($seconds,$minutes,$hours,$mday,$mon,$year) = localtime($next_time);
-			print "    ".(sprintf("%2d:%02d", $hours, $minutes)).": $_\n";
-			$num_builds++;
-		}
-	}
-}
-
-# perform a single update of the cis state, returning the new state and a list of targets to build
-sub update_cis_state
-{
-	my ($build_types, $cis_state, $latest_change, $time, $optional_arguments) = @_;
-	
 	# make a lookup of name to build types
 	my $name_to_build_type = {};
 	foreach my $build_type(@{$build_types})
@@ -181,128 +62,216 @@ sub update_cis_state
 		}
 		$name_to_included_names->{$included_names[0]} = \@included_names;
 	}
+	
+	# get the current time to figure out whether to start a new build
+	my $time = time;
 
-	# initialize the new cis state, making sure there's an entry for each name
+	# create the new cis state object, making sure there's an entry for each name
 	my $new_cis_state = {};
 	foreach my $name(keys %{$name_to_build_type})
 	{
 		$new_cis_state->{$name}->{'CL'} = $cis_state->{$name}->{'CL'} || 0;
-		$new_cis_state->{$name}->{'Time'} = $cis_state->{$name}->{'Time'} || 0;
+		$new_cis_state->{$name}->{'Time'} = $cis_state->{$name}->{'Time'} || $time;
 	}
 
-	# find the time value for midnight yesterday. we base all interval calculations from this time, to prevent missing builds meant to occur around midnight today.
-	my $local_midnight = get_local_midnight($time) - (24 * 60 * 60);
+	# find the time value for midnight today.
+	my $local_midnight = get_local_midnight($time);
+	
+	# create a cache for the latest change matching each filter
+	my $filter_to_last_change = { };
 	
 	# figure out all the builds we can trigger
-	my $new_build_names = {};
+	my $new_builds = { };
 	foreach my $build_type(@{$build_types})
 	{
-		# skip this build if we've already built the same change
-		my $build_name = $build_type->{'Name'};
-		next if $new_cis_state->{$build_name}->{'CL'} >= $latest_change;
-
-		# get the last time it was built
-		my $last_build_time = $new_cis_state->{$build_name}->{'Time'};
-
 		# check if it's time to do a scheduled build
 		my $schedule = $build_type->{'Schedule'};
-		if($schedule)
-		{
-			# figure out a reference time and interval for the given schedule
-			my ($reference_time, $interval);
-			if($schedule =~ /^\s*Daily\s+At\s+(\d+):(\d\d)\s*$/i)
-			{
-				# specific time every day
-				$reference_time = $local_midnight + (($1 * 60) + $2) * 60;
-				$interval = 24 * 60 * 60;
-			}
-			elsif($schedule =~ /^\s*Every\s+(.*)$/i)
-			{
-				# every X minutes throughout the day
-				$reference_time = $local_midnight;
-				$interval = parse_time_interval($1);
-			}
+		next if !$schedule;
 
-			# check we got something valid
-			if(!$reference_time || !$interval)
+		# get the filter for this build type
+		my $filter = $build_type->{'Filter'} || '...';
+
+		# update the cache with the last change submitted that matches this filter, and the last change submitted by a non-buildmachine user
+		my $last_change = $filter_to_last_change->{$filter}; 
+		if(!$last_change)
+		{
+			# find the last changes submitted
+			my $command = "changes -m 50";
+			foreach(split /;/, $filter)
 			{
-				print "Warning: Couldn't parse schedule value '$schedule' for build type '$build_name'\n";
-				next;
+				$command .= " \"$stream/$_\"";
 			}
-			
-			# find the next scheduled build time, and add it to the list of builds if we're past it
-			my $next_build_time = $reference_time;
-			$next_build_time += $interval while $next_build_time < $last_build_time;
-			if($time > $next_build_time)
+			foreach(p4_command($command))
 			{
-				$new_build_names->{$build_name} = 1;
+				fail("Unexpected output line when querying changes: $_") if !m/^Change (\d+) on [^ ]+ by ([^@]+)@/;
+				$last_change->{'by_any'} = $1 if $1 > ($last_change->{'by_any'} || 0);
+				$last_change->{'by_user'} = $1 if lc $2 ne 'buildmachine' && $1 > ($last_change->{'by_user'} || 0);
 			}
-			else
-			{
-				print "Skipping build of $build_name until ".format_recent_time($next_build_time)."\n" if !$optional_arguments->{'silent'};
-			}
+			next if !$last_change || !$last_change->{'by_user'};
+			$filter_to_last_change->{$filter} = $last_change;
 		}
+			
+		# print the matching change info
+		my $build_name = $build_type->{'Name'};
+		print "$build_name:\n";
+		print "    Last change matching filter '$filter' is $last_change->{'by_any'}".(($last_change->{'by_any'} != $last_change->{'by_user'})? " ($last_change->{'by_user'} excluding buildmachine)" : "")."\n";
+
+		# make sure something has been submitted since the last build that ran
+		if($new_cis_state->{$build_name}->{'CL'} >= $last_change->{'by_user'})
+		{
+			print "    Already ran at CL $new_cis_state->{$build_name}->{'CL'}.\n";
+			next;
+		}
+			
+		# figure out a reference time and interval for the given schedule
+		my ($reference_time, $interval);
+		if($schedule =~ /^\s*Daily\s+At\s+(\d+):(\d\d)\s*$/i)
+		{
+			# specific time every day
+			$reference_time = $local_midnight + (($1 * 60) + $2) * 60;
+			$interval = 24 * 60 * 60;
+		}
+		elsif($schedule =~ /^\s*Every\s+([^ ]*)\s*$/i)
+		{
+			# every X minutes throughout the day
+			$reference_time = $local_midnight;
+			$interval = parse_time_interval($1);
+		}
+		elsif($schedule =~ /^\s*Every\s+([^ ]+)\s+from\s+(\d+):(\d\d)\s*/i)
+		{
+			# every X minutes throughout the day starting at a certain time
+			$reference_time = $local_midnight + (($2 * 60) + $3) * 60;
+			$interval = parse_time_interval($1);
+		}
+
+		# check we got something valid
+		if(!$reference_time || !$interval)
+		{
+			print "Warning: Couldn't parse schedule value '$schedule' for build type '$build_name'\n";
+			next;
+		}
+
+		# find the next scheduled build time
+		my $last_build_time = $new_cis_state->{$build_name}->{'Time'};
+		my $next_build_time = $reference_time;
+		$next_build_time += $interval while $next_build_time < $last_build_time;
+		
+		# check if we're past that time yet
+		if($time < $next_build_time)
+		{
+			print "    Skipping build at CL $last_change->{'by_any'} until ".format_recent_time($next_build_time)."\n";
+			next;
+		}
+		
+		# ready to trigger
+		print "    Ready to build CL $last_change->{'by_any'}.\n";
+		$new_cis_state->{$build_name}->{'Time'} = $time;
+		$new_builds->{$build_name} = $last_change->{'by_any'};
 	}
-	
+
+	# update the time for every build type. we don't want to consider starting a new build again until the next interval elapses.
+	foreach my $name(keys %{$name_to_build_type})
+	{
+		$new_cis_state->{$name}->{'Time'} = $time;
+	}
+
 	# remove everything that's already included as part of a larger build
-	for my $new_build_name(keys %{$new_build_names})
+	for my $new_build_name(keys %{$new_builds})
 	{
 		foreach my $included_name(@{$name_to_included_names->{$new_build_name}})
 		{
-			delete $new_build_names->{$included_name} if $included_name ne $new_build_name;
+			delete $new_builds->{$included_name} if $included_name ne $new_build_name;
 		}
 	}
 
 	# update the CIS state
-	for my $new_build_name(keys %{$new_build_names})
+	for my $new_build_name(keys %{$new_builds})
 	{
 		foreach my $included_name(@{$name_to_included_names->{$new_build_name}})
 		{
-			$new_cis_state->{$included_name} = { 'CL' => $latest_change, 'Time' => $time };
+			$new_cis_state->{$included_name} = { 'CL' => $new_builds->{$new_build_name}, 'Time' => $time };
 		}
 	}
+	
+	# start all the new jobs
+	print "\n";
+	print "New builds: ".(join(", ", keys %{$new_builds}) || "none")."\n";
+	if($ec_update)
+	{
+		# write the new state back to EC
+		ec_set_property($ec, $cis_state_property, encode_json($new_cis_state), $ec_update);
+	
+		# start the jobs
+		for my $new_build_name(keys %{$new_builds})
+		{
+			my $new_build_change = $new_builds->{$new_build_name};
+			print "\n";
+			print "Triggering $new_build_name at change $new_build_change.\n";
+			
+			# find the matching build type
+			my $build_type = (grep { $_->{'Name'} eq $new_build_name } @{$build_types})[0];
+			fail("Couldn't find build type for $new_build_name") if !$build_type;
 
-	# return the new state and list of builds
-	( $new_cis_state, [ keys %{$new_build_names} ] );
+			# create the new job
+			my $actual_parameters = [];
+			push(@{$actual_parameters}, { actualParameterName => 'Arguments', value => $build_type->{'Arguments'} });
+			push(@{$actual_parameters}, { actualParameterName => 'Job Name', value => $new_build_name });
+			push(@{$actual_parameters}, { actualParameterName => 'Stream', value => $stream });
+			push(@{$actual_parameters}, { actualParameterName => 'CL', value => $new_build_change });
+			
+			my $response = $ec->runProcedure($ec_project, { procedureName => 'Run BuildGraph', actualParameter => $actual_parameters });
+			my $job_id = $response->findvalue("//response/jobId");
+			fail("Couldn't create CIS job:\n".ec_get_response_string($response)) if !defined $job_id;
+			
+			# Add a link to the new job to the CIS page
+			print "Started job $job_id\n";	
+			my $safe_stream_name = $stream;
+			$safe_stream_name =~ s/^\///g;
+			$safe_stream_name =~ s/\// /g;
+			ec_set_property($ec, "/jobs[$ec_job]/report-urls/Started $new_build_name for $safe_stream_name at CL $new_build_change", "/commander/link/jobDetails/jobs/$job_id?linkPageType=jobDetails", $ec_update);
+		}
+	}
 }
 
 # runs uat to build the list of steps for this build 
 sub build_setup
 {
-	my ($is_buildgraph, $workspace, $change, $build_script, $target, $trigger, $temp_storage_dir, $pass_through_arguments) = @_;
+	my ($workspace, $change, $code_change, $build_script, $target, $trigger, $temp_storage_dir, $pass_through_arguments) = @_;
 	
 	my $uat_arguments;
-	if($is_buildgraph)
-	{
-		$uat_arguments = "Build -Script=".quote_argument($build_script)." -Target=".quote_argument($target)." -Export=".quote_argument(join_paths(getcwd(), "job.json"))." -SharedStorageDir=".quote_argument($temp_storage_dir);
-		$uat_arguments .= " -Trigger=".quote_argument($trigger) if $trigger;
-	}
-	else
-	{
-		$uat_arguments = "GUBP -CommanderJobSetupOnly -NewEC -Node=$target -TempStorageDir=".quote_argument($temp_storage_dir);
-		$uat_arguments .= " -TriggerNode=".quote_argument($trigger) if $trigger;
-	}
+	$uat_arguments = "BuildGraph -Script=".quote_argument($build_script)." -Target=".quote_argument($target)." -Export=".quote_argument(join_paths(getcwd(), "job.json"))." -SharedStorageDir=".quote_argument($temp_storage_dir);
+	$uat_arguments .= " -Trigger=".quote_argument($trigger) if $trigger;
+	$uat_arguments .= " -TokenSignature=".quote_argument(ec_get_full_url("/commander/link/jobDetails/jobs/$ENV{COMMANDER_JOBID}"));
 	$uat_arguments .= " $pass_through_arguments" if $pass_through_arguments;
 	$uat_arguments .= " CopyUAT -WithLauncher -TargetDir=".quote_argument(join_paths(getcwd(), "UAT"));
-	run_uat($workspace, $change, $uat_arguments);
+	run_uat($workspace, $change, $code_change, $uat_arguments);
 }
 
-# configures the ec job from the job definition created by gubp_setup.
+# configures the ec job from the job definition created by build_setup.
 sub build_job_setup
 {
-	my ($is_buildgraph, $ec, $ec_project, $ec_job, $ec_update, $settings, $workspace, $change, $build_script, $target, $shared_storage_block, $arguments, $pass_through_arguments, $optional_arguments) = @_;
+	my ($ec, $ec_project, $ec_job, $ec_update, $settings, $workspace, $change, $build_script, $target, $shared_storage_block, $arguments, $pass_through_arguments, $optional_arguments) = @_;
 
-	# get the path to the list of jobsteps and copy it into the shared workspace
-	if(!$is_buildgraph)
-	{
-		my $job_definition_filename = join_paths($workspace->{'dir'}, 'Engine', 'Programs', 'AutomationTool', 'Saved', 'Logs', 'job.json');
-		fail("Cannot find $job_definition_filename.") if !-f $job_definition_filename;
-		copy($job_definition_filename, "job.json");
-	}
-	
 	# Read the job definition
 	my $job_definition = read_json('job.json');
-
+	
+	# If the first group is compatible with the current agent type, rename it to the startup group and save out the updated job definition. It
+	# saves switching to a new agent to run the first items.
+	my $group_definitions = $job_definition->{'Groups'};
+	if($#{$group_definitions} >= 0)
+	{
+		my $initial_agent_type = $settings->{'Initial Agent Type'};
+		foreach(@{$group_definitions->[0]->{'Agent Types'}})
+		{
+			if(lc $_ eq lc $initial_agent_type)
+			{
+				$group_definitions->[0]->{'Name'} = 'Startup';
+				write_json('job.json', $job_definition);
+				last;
+			}
+		}
+	}
+	
 	# build a mapping from node to jobstep path
 	my $node_name_to_jobstep = get_node_jobstep_lookup($ec_job, $job_definition);
 
@@ -320,10 +289,22 @@ sub build_job_setup
 		push @{$group_name_to_node_names->{$group_name}}, $node_name;
 	}
 	
+	# make a lookup of node names to their dependencies
+	my $node_name_to_dependencies = {};
+	foreach my $group_definition (@{$group_definitions})
+	{
+		foreach my $node_definition (@{$group_definition->{'Nodes'}})
+		{
+			my $node_name = $node_definition->{'Name'};
+			$node_name_to_dependencies->{$node_name} = $node_definition->{'DependsOn'};
+		}
+	}
+	
 	# update ec with info for the job, to be consumed by the CIS and build pages
 	my $build_info = {};
 	$build_info->{'NodesInJob'} = get_node_name_list($job_definition);
 	$build_info->{'GroupToNodes'} = $group_name_to_node_names;
+	$build_info->{'NodeToDependencies'} = $node_name_to_dependencies;
 	ec_set_property($ec, "/jobs[$ec_job]/BuildInfo", encode_json($build_info), $ec_update);
 
 	# get the agent definitions from the settings
@@ -333,7 +314,6 @@ sub build_job_setup
 	my @jobstep_arguments_array;
 	
 	# create procedures for all the jobsteps
-	my $group_definitions = $job_definition->{'Groups'};
 	foreach my $group_definition (@{$group_definitions})
 	{
 		# get the current group name
@@ -405,18 +385,11 @@ sub build_job_setup
 		}
 
 		# get the command line arguments for this group
-		my $group_arguments = "--group=".quote_argument($group_name)." --agent-type=$group_agent_type";
-		if($is_buildgraph)
-		{
-			$group_arguments .= " --shared-storage-dir=".quote_argument(get_shared_storage_dir($workspace->{'stream'}, $settings, $group_agent_type, $shared_storage_block));
-		}
-		else
-		{
-			$group_arguments .= " --temp-storage-dir=".quote_argument(get_shared_storage_dir($workspace->{'stream'}, $settings, $group_agent_type, $shared_storage_block));
-		}
+		my $group_arguments = "--group=".quote_argument($group_name)." --agent-type=$group_agent_type --build-script=\"$build_script\"";
+		$group_arguments .= " --shared-storage-dir=".quote_argument(get_shared_storage_dir($workspace->{'stream'}, $settings, $group_agent_type, $shared_storage_block));
 		foreach my $argument_key (keys(%{$arguments}))
 		{
-			if($argument_key ne 'node' && $argument_key ne 'resource-name' && $argument_key ne 'agent-type' && $argument_key ne 'temp-storage-block' && $argument_key ne 'shared-storage-block')
+			if($argument_key ne 'node' && $argument_key ne 'resource-name' && $argument_key ne 'agent-type' && $argument_key ne 'temp-storage-block' && $argument_key ne 'shared-storage-block' && $argument_key ne 'build-script')
 			{
 				my $argument_value = $arguments->{$argument_key};
 				$argument_value = "\"$argument_value\"" if $argument_value =~ /\s/;
@@ -429,14 +402,7 @@ sub build_job_setup
 		my $jobstep_arguments = {};
 		$jobstep_arguments->{'parentPath'} = "/jobs[$ec_job]";
 		$jobstep_arguments->{'jobStepName'} = $group_name;
-		if($is_buildgraph)
-		{
-			$jobstep_arguments->{'subprocedure'} = 'Build Agent Setup';
-		}
-		else
-		{
-			$jobstep_arguments->{'subprocedure'} = 'GUBP Agent Setup';
-		}
+		$jobstep_arguments->{'subprocedure'} = 'Build Agent Setup';
 		$jobstep_arguments->{'parallel'} = '1';
 		$jobstep_arguments->{'actualParameter'} = [{ actualParameterName => 'Arguments', value => $group_arguments }, { actualParameterName => 'Resource Pool', value => $group_resource_pool }, { actualParameterName => 'Dependent Triggers', value => join(' ', keys %dependent_trigger_names) }];
 		$jobstep_arguments->{'condition'} = format_javascript_condition(join(' && ', @runconditions)) if $#runconditions >= 0;
@@ -444,61 +410,96 @@ sub build_job_setup
 		push(@jobstep_arguments_array, $jobstep_arguments);
 	}
 	
-	# create the trigger procedures
-	my $trigger_definitions = $job_definition->{'Triggers'};
-	foreach my $trigger_definition (@{$trigger_definitions})
+	# sync the UGS database tool 
+	my $badge_definitions = $job_definition->{'Badges'};
+	if($#{$badge_definitions} >= 0)
 	{
-		my $trigger_name = $trigger_definition->{'Name'};
+		# get the job details
+		my $job = ec_get_job($ec, $ec_job);
+	
+		# use the print command to get the latest version of the executable without needing to sync it.
+		my $post_badge_status_filename = "PostBadgeStatus.exe";
+		my $post_badge_status_syncpath = "//$workspace->{'name'}/Engine/Source/Programs/UnrealGameSync/PostBadgeStatus/bin/Release/PostBadgeStatus.exe";
+		p4_command("-c$workspace->{'name'} print -o \"$post_badge_status_filename\" \"$post_badge_status_syncpath\"");
+		fail("Failed to sync $post_badge_status_syncpath") if !-f $post_badge_status_filename;
+	
+		# create all the badge update monitors
+		foreach my $badge_definition (@{$badge_definitions})
+		{
+			my $badge_name = $badge_definition->{'Name'};
+			
+			# create all the preconditions. we wait for all the external nodes to be complete, OR their parent procedure (in case its preconditions fail)
+			my @preconditions = ();
+			foreach my $node_dependency_name (split /;/, $badge_definition->{'DirectDependencies'})
+			{
+				my $group_dependency_name = $node_name_to_group_name->{$node_dependency_name};
+				push(@preconditions, "(getProperty('".get_group_jobstep($ec_job, $group_dependency_name)."/status') == 'completed' || getProperty('$node_name_to_jobstep->{$node_dependency_name}/status') == 'completed')");
+			}
+
+			# get the badge command line arguments
+			my $arguments = "";
+			$arguments .= " --stream=$workspace->{'stream'}";
+			$arguments .= " --change=$change";
+			$arguments .= " --build-script=$build_script";
+			$arguments .= " --badge-name=\"$badge_definition->{'Name'}\"";
+			$arguments .= " --ec-update";
+
+			# create the procedure
+			my $jobstep_arguments = {};
+			$jobstep_arguments->{'parentPath'} = "/jobs[$ec_job]";
+			$jobstep_arguments->{'jobStepName'} = "Badge: $badge_definition->{'Name'}";
+			$jobstep_arguments->{'subprocedure'} = 'Build Badge Setup';
+			$jobstep_arguments->{'parallel'} = '1';
+			$jobstep_arguments->{'actualParameter'} = { actualParameterName => 'Arguments', value => $arguments };
+			$jobstep_arguments->{'precondition'} = format_javascript_condition(join(' && ', @preconditions)) if $#preconditions >= 0;
+			push(@jobstep_arguments_array, $jobstep_arguments);
+			
+			# set the initial status
+			set_badge_status($badge_definition, $change, $job, "Starting", $settings);
+		}
+	}
+	
+	# create the report procedures
+	my $report_definitions = $job_definition->{'Reports'};
+	foreach my $report_definition (@{$report_definitions})
+	{
+		my $report_name = $report_definition->{'Name'};
 		
 		# create all the preconditions. we wait for all the external nodes to be complete, OR their parent procedure (in case its preconditions fail)
 		my @preconditions = ();
-		foreach my $node_dependency_name (split /;/, $trigger_definition->{'DirectDependencies'})
+		foreach my $node_dependency_name (split /;/, $report_definition->{'DirectDependencies'})
 		{
 			my $group_dependency_name = $node_name_to_group_name->{$node_dependency_name};
 			push(@preconditions, "(getProperty('".get_group_jobstep($ec_job, $group_dependency_name)."/status') == 'completed' || getProperty('$node_name_to_jobstep->{$node_dependency_name}/status') == 'completed')");
 		}
 
-		# get the trigger command line arguments
+		# get the report command line arguments
 		my $arguments = "";
 		$arguments .= " --stream=$workspace->{'stream'}";
 		$arguments .= " --change=$change";
-		if($is_buildgraph)
-		{
-			$arguments .= " --build-script=$build_script";
-		}
-		$arguments .= " --trigger-name=\"$trigger_definition->{'Name'}\"";
-		if($is_buildgraph)
-		{
-			$arguments .= " --shared-storage-block=\"$shared_storage_block\"";
-		}
-		else
-		{
-			$arguments .= " --temp-storage-block=\"$shared_storage_block\"";
-		}
+		$arguments .= " --build-script=$build_script";
+		$arguments .= " --report-name=\"$report_definition->{'Name'}\"";
+		$arguments .= " --shared-storage-block=\"$shared_storage_block\"";
 		$arguments .= " --email-only=$optional_arguments->{'email_only'}" if $optional_arguments->{'email_only'};
 		$arguments .= " --ec-update";
 
 		# create the procedure
 		my $jobstep_arguments = {};
 		$jobstep_arguments->{'parentPath'} = "/jobs[$ec_job]";
-		$jobstep_arguments->{'jobStepName'} = "Trigger: $trigger_definition->{'Name'}";
-		if($is_buildgraph)
-		{
-			$jobstep_arguments->{'subprocedure'} = 'Build Trigger Setup';
-		}
-		else
-		{
-			$jobstep_arguments->{'subprocedure'} = 'GUBP Trigger Setup';
-		}
+		$jobstep_arguments->{'jobStepName'} = ($report_definition->{'IsTrigger'}? "Trigger: " : "Report: ").$report_definition->{'Name'};
+		$jobstep_arguments->{'subprocedure'} = 'Build Report Setup';
 		$jobstep_arguments->{'parallel'} = '1';
 		$jobstep_arguments->{'actualParameter'} = { actualParameterName => 'Arguments', value => $arguments };
 		$jobstep_arguments->{'precondition'} = format_javascript_condition(join(' && ', @preconditions)) if $#preconditions >= 0;
 		push(@jobstep_arguments_array, $jobstep_arguments);
 
-		# add a link to search for all the steps in this trigger. build_agent_setup() sets the 'Dependent Triggers' property on each job step it creates.
-		ec_set_property($ec, "/jobs[$ec_job]/report-urls/Trigger: $trigger_name (Waiting For Dependencies)", get_trigger_search_url($ec_job, $trigger_name), $ec_update);
+		# if it's a trigger, add a link to search for all the steps in this trigger. build_agent_setup() sets the 'Dependent Triggers' property on each job step it creates.
+		if($report_definition->{'IsTrigger'})
+		{
+			ec_set_property($ec, "/jobs[$ec_job]/report-urls/Trigger: $report_name (Waiting For Dependencies)", get_trigger_search_url($ec_job, $report_name), $ec_update);
+		}
 	}
-
+	
 	# create the new jobsteps
 	ec_create_jobsteps($ec, \@jobstep_arguments_array, 'jobsteps.txt', $ec_update);
 }
@@ -506,7 +507,7 @@ sub build_job_setup
 # create all the job steps for a gubp agent sharing group.
 sub build_agent_setup
 {
-	my ($is_buildgraph, $ec, $ec_job, $workspace, $change, $build_script, $target, $group, $resource_name, $shared_storage_dir, $ec_update, $optional_arguments) = @_;
+	my ($ec, $ec_job, $workspace, $change, $code_change, $build_script, $target, $group, $resource_name, $shared_storage_dir, $ec_update, $optional_arguments) = @_;
 
 	my $start_time = time;
 	print "Creating agent job steps...\n";
@@ -527,7 +528,7 @@ sub build_agent_setup
 		if(lc $group_name eq lc $group)
 		{
 			# get commands to setup the environment for running gubp
-			my $environment = get_uat_environment($workspace, $change);
+			my $environment = get_uat_environment($workspace, $change, $code_change);
 			my $environment_commands = "";
 			foreach(keys %{$environment})
 			{
@@ -571,7 +572,7 @@ sub build_agent_setup
 
 				# get the command to run.
 				my $command = $environment_commands;
-				$command .= "ec-perl Main.pl ".($is_buildgraph? "BuildSingleNode" : "GubpNode");
+				$command .= "ec-perl Main.pl BuildSingleNode";
 				$command .= " --stream=$workspace->{'stream'}";
 				$command .= " --change=$change";
 				$command .= " --workspace-name=".quote_argument($workspace->{'name'});
@@ -584,21 +585,10 @@ sub build_agent_setup
 				$command .= " --email-only=$optional_arguments->{'email_only'}" if $optional_arguments->{'email_only'};
 				$command .= " --";
 				$command .= " -NoCompile";
-				if($is_buildgraph)
-				{
-					$command .= " -Script=".quote_argument($build_script);
-					$command .= " -Target=".quote_argument($target);
-					$command .= " -SharedStorageDir=".quote_argument($shared_storage_dir);
-				}
-				else
-				{
-					$command .= " -TempStorageDir=".quote_argument($shared_storage_dir);
-				}
+				$command .= " -Script=".quote_argument($build_script);
+				$command .= " -Target=".quote_argument($target);
+				$command .= " -SharedStorageDir=".quote_argument($shared_storage_dir);
 				$command .= " $optional_arguments->{'pass_through_arguments'}" if $optional_arguments->{'pass_through_arguments'};
-				if(!$is_buildgraph)
-				{
-					$command .= " -NoCopyToSharedStorage" if !$node_definition->{'CopyToSharedStorage'};
-				}
 
 				# create the step
 				my $jobstep_arguments = {};
@@ -643,26 +633,36 @@ sub build_agent_setup
 # execute a buildgraph node
 sub build_single_node
 {
-	my ($is_buildgraph, $ec, $ec_project, $ec_job, $ec_jobstep, $stream, $change_number, $workspace_name, $workspace_dir, $node, $ec_update, $optional_arguments) = @_;
+	my ($ec, $ec_project, $ec_job, $ec_jobstep, $stream, $change_number, $workspace_name, $workspace_dir, $node, $ec_update, $optional_arguments) = @_;
+
+	# print out the log folder we'll be using right at the start. it's often vital for follow-up debugging.
+	my $target_log_folder = join_paths('UAT Logs', $node);
+	if($ENV{'COMMANDER_WORKSPACE_WINUNC'})
+	{
+		print "Logs will be copied to ".join_paths($ENV{'COMMANDER_WORKSPACE_WINUNC'}, $target_log_folder)."\n";
+	}
+
+	# remove any existing telemetry file first
+	my $telemetry_file = join_paths($workspace_dir, $target_log_folder, "Telemetry.json");
+	if(-f $telemetry_file)
+	{
+		unlink $telemetry_file;
+	}
 	
+	# clear out all the local settings
+	delete_engine_user_settings();
+
 	# set EC properties for this job
 	ec_set_property($ec, '/myJobStep/Stream', $stream, $ec_update);
 	ec_set_property($ec, '/myJobStep/CL', $change_number, $ec_update);
 
 	# get the UAT command line
 	my $command;
-	if($is_buildgraph)
-	{
-		$command = "Build";
-		$command .= " -SingleNode=".quote_argument($node);
-	}
-	else
-	{
-		$command = "GUBP";
-		$command .= " -Node=".quote_argument($node);
-		$command .= " -NewEC";
-	}
+	$command = "Build";
+	$command .= " -SingleNode=".quote_argument($node);
+	$command .= " -TokenSignature=".quote_argument(ec_get_full_url("/commander/link/jobDetails/jobs/$ENV{COMMANDER_JOBID}"));
 	$command .= " $optional_arguments->{'pass_through_arguments'}" if $optional_arguments->{'pass_through_arguments'};
+	$command .= " -Telemetry=\"$telemetry_file\"";
 
 	# build the node
 	my $result;
@@ -682,6 +682,24 @@ sub build_single_node
 		$result = get_uat_exit_code($workspace_dir, $command);
 	}
 
+	# copy all the logs to the local folder, so that they're preserved on the network
+	my $log_folder = $ENV{'uebp_LogFolder'};
+	if($log_folder)
+	{
+		mkdir($target_log_folder);
+		copy_recursive($log_folder, $target_log_folder);
+	}
+
+	# update the telemetry for this jobstep
+	if(-f $telemetry_file)
+	{
+		my $json = read_json($telemetry_file);
+		if($json->{'Samples'} && $#{$json->{'Samples'}} >= 0)
+		{
+			ec_set_property($ec, "/myJobStep/Telemetry", encode_json($json), $ec_update);
+		}
+	}
+	
 	# read the job definition
 	my $job_definition = read_json('job.json');
 	
@@ -693,7 +711,7 @@ sub build_single_node
 	if($notifications)
 	{
 		# get the standard recipients
-		my $to_recipients = $notifications->{'fail_causers'} || [];
+		my $to_recipients = $notifications->{'fail_causer_emails'} || [];
 		my $cc_recipients = $notifications->{'default_recipients'} || [];
 		($to_recipients, $cc_recipients) = ($cc_recipients, []) if $#{$to_recipients} < 0;
 		
@@ -728,16 +746,66 @@ sub build_single_node
 			}
 		}
 	}
+
+	# update the latest build in EC, unless we're just doing a build for one person (eg. preflight)
+	if(!$optional_arguments->{'email_only'})
+	{
+		my $fail_causer_emails = ($notifications && $notifications->{'fail_causer_emails'}) || [];
+		my $outcome = ($notifications && $notifications->{'outcome'}) || 'success';
+		set_latest_build($ec, $ec_project, $stream, $change_number, $jobstep, $outcome, $fail_causer_emails, $ec_update);
+	}
 	
 	# if UAT failed, exit with an error code of 1. the result of calling system() is actually the exit code shifted left 8 bits, 
 	# which gets truncated to a byte (giving a value of zero!) if we return it directly.
 	exit ($result? 1 : 0);
 }
 
-# evaluate the conditions for a trigger
-sub build_trigger_setup
+# clears all user engine settings
+sub delete_engine_user_settings
 {
-	my ($is_buildgraph, $ec, $ec_job, $stream, $change, $trigger_name, $temp_storage_block, $ec_update, $optional_arguments) = @_;
+	# clean up the local preferences
+	if(!is_windows())
+	{
+		my $home_dir = $ENV{'HOME'};
+		if($home_dir)
+		{
+			my $settings_dir = "$home_dir/Library/Preferences/Unreal Engine";
+			if($settings_dir && -d $settings_dir)
+			{
+				print "Removing local settings directory ($settings_dir)...\n";
+				safe_delete_directory($settings_dir);
+			}
+		}
+	}
+}
+
+# update the latest build property for a given node
+sub set_latest_build
+{
+	my ($ec, $ec_project, $stream, $change, $jobstep, $outcome, $notified_users, $ec_update) = @_;
+
+	my $latest_path = "/projects[$ec_project]/Generated/".escape_stream_name($stream)."/Latest/$jobstep->{'jobstep_name'}";
+
+	# check there's not already a newer build present
+	my $latest_json = $ec->evalScript("getProperty(\"$latest_path\")")->findvalue("//value")->string_value();
+	if($latest_json)
+	{
+		my $latest = decode_json($latest_json);
+		if($latest->{'change'} && $latest->{'change'} > $change)
+		{
+			return;
+		}
+	}
+
+	# create the new object
+	$latest_json = "{ \"change\": $change, \"job_id\": $jobstep->{'job_id'}, \"job_name\": \"$jobstep->{'job_name'}\", \"jobstep_id\": $jobstep->{'jobstep_id'}, \"jobstep_name\": \"$jobstep->{'jobstep_name'}\", \"outcome\": \"$outcome\", \"time\": ".time.", \"notified_users\": [ ".join(", ", map { "\"$_\"" } @{$notified_users})." ] }";
+	ec_set_property($ec, $latest_path, $latest_json, $ec_update);
+}
+
+# evaluate the conditions for a trigger
+sub build_report_setup
+{
+	my ($ec, $ec_job, $stream, $change, $report_name, $temp_storage_block, $ec_update, $optional_arguments) = @_;
 
 	# get the job details
 	my $job = ec_get_job($ec, $ec_job);
@@ -746,18 +814,18 @@ sub build_trigger_setup
 	my $job_definition = read_json('job.json');
 	
 	# find the trigger definition
-	my $trigger_definition = find_trigger_definition($job_definition, $trigger_name);
+	my $report_definition = find_report_definition($job_definition, $report_name);
 
 	# get all the jobsteps for it
-	my $jobsteps = get_trigger_jobsteps($job, $trigger_definition);
+	my $jobsteps = get_dependency_jobsteps($job, [ split /;/, $report_definition->{'AllDependencies'} ]);
 	
 	# get the overall result
 	my $result = ec_get_combined_result($jobsteps);
 	
-	# print out the trigger state
+	# print out the dependencies
 	my $max_name_length = 20;
 	$max_name_length = max((length $_->{'jobstep_name'}) + 1, $max_name_length) foreach @{$jobsteps};
-	print "Checking dependencies of trigger $trigger_name:\n";
+	print "Dependent job steps:\n";
 	print "\n";
 	foreach my $jobstep (@{$jobsteps})
 	{
@@ -765,39 +833,59 @@ sub build_trigger_setup
 	}
 	print "\n";
 
-	# create the link to start the trigger
-	if($result)
+	# if it's a trigger, update the properties for it
+	my $subject = "[Build] $job->{'job_name'}: $report_name";
+	if($report_definition->{'IsTrigger'})
 	{
-		my $trigger_url = get_trigger_url($is_buildgraph, $ec, $ec_job, $change, $temp_storage_block, $trigger_name);
-		ec_set_property($ec, "/myJob/report-urls/Trigger: $trigger_name", $trigger_url, $ec_update);
-		print "Trigger is ready to run ($trigger_url)\n";
-	}
-	else
-	{
-		my $trigger_search_url = 
-		ec_set_property($ec, "/myJob/report-urls/Trigger: $trigger_name (Failed)", get_trigger_search_url($ec_job, $trigger_name), $ec_update);
-		print "Cannot run trigger due to failures.";
-	}
+		# include the pass/fail state in the subject line
+		$subject = $result? "[Trigger Ready] $subject" : "[Trigger Failure] $subject";
+	
+		# create the link to start the trigger
+		if($result)
+		{
+			my $trigger_url = get_trigger_url($ec, $ec_job, $change, $temp_storage_block, $report_name);
+			ec_set_property($ec, "/myJob/report-urls/Trigger: $report_name", $trigger_url, $ec_update);
+			print "Trigger is ready to run ($trigger_url)\n";
+		}
+		else
+		{
+			my $trigger_search_url = 
+			ec_set_property($ec, "/myJob/report-urls/Trigger: $report_name (Failed)", get_trigger_search_url($ec_job, $report_name), $ec_update);
+			print "Cannot run trigger due to failures.";
+		}
 
-	# remove the existing link to search for all the pending job steps
-	ec_delete_property($ec, "/myJob/report-urls/Trigger: $trigger_name (Waiting For Dependencies)", $ec_update);
+		# remove the existing link to search for all the pending job steps
+		ec_delete_property($ec, "/myJob/report-urls/Trigger: $report_name (Waiting For Dependencies)", $ec_update);
+	}
 
 	# send the notification email
-	my $arguments = {};
-	$arguments->{'configName'} = 'EpicMailer';
-	$arguments->{'subject'} = "[Trigger ".($result? "Ready" : "Failure")."] $job->{'job_name'}";
-	$arguments->{'to'} = $optional_arguments->{'email_only'} || join(' ', @{split_list($trigger_definition->{'Notify'}, ';')});
-	$arguments->{'html'} = get_trigger_notification($trigger_name, $job, $jobsteps);
-	$ec->sendEmail($arguments);
+	my @to = ($optional_arguments->{'email_only'}) || @{split_list($report_definition->{'Notify'}, ';')};
+	if($#to >= 0)
+	{
+	    # send the notification email
+		my $arguments = {};
+		$arguments->{'configName'} = 'EpicMailer';
+		$arguments->{'subject'} = $subject;
+		$arguments->{'to'} = [ @to ];
+		$arguments->{'html'} = get_report_notification($report_definition, $job, $jobsteps);
+		if($ec_update)
+		{
+			$ec->sendEmail($arguments);
+		}
+		else
+		{
+			print "Skipping send of email '$arguments->{subject}' to '".join("', '", @to)."'\n";
+		}
+	}
 
-	# return the trigger exit code, so this jobstep displays correctly in ec
+	# return the exit code, so this jobstep displays correctly in ec
 	exit 1 if !$result;
 }
 
 # gets the url required to start a downstream job from the current one. copies all the same parameters (with the exception of the current trigger parameter)
 sub get_trigger_url
 {
-	my ($is_buildgraph, $ec, $ec_job, $change, $temp_storage_block, $trigger_name) = @_;
+	my ($ec, $ec_job, $change, $temp_storage_block, $trigger_name) = @_;
 	
 	# get the root parent job
 	my $original_job = $ec_job;
@@ -835,24 +923,10 @@ sub get_trigger_url
 		}
 	
 		# insert the trigger parameters into the arguments
-		if($is_buildgraph)
-		{
-			$parameters->{'Arguments'} = "--trigger=\"$trigger_name\" --shared-storage-block=\"$temp_storage_block\" $parameters->{'Arguments'}";
-		}
-		else
-		{
-			$parameters->{'Arguments'} = "--trigger=\"$trigger_name\" --temp-storage-block=\"$temp_storage_block\" $parameters->{'Arguments'}";
-		}
+		$parameters->{'Arguments'} = "--trigger=\"$trigger_name\" --shared-storage-block=\"$temp_storage_block\" $parameters->{'Arguments'}";
 		
 		# add the trigger name to the end of the build name
-		if($is_buildgraph)
-		{
-			$parameters->{'Job Name'} = "$parameters->{'Job Name'} - $trigger_name";
-		}
-		else
-		{
-			$parameters->{'Build Name'} = "$parameters->{'Build Name'} - $trigger_name";
-		}
+		$parameters->{'Job Name'} = "$parameters->{'Job Name'} - $trigger_name";
 
 		# set the changelist number. this may have been set as a property after the job had started (overriding the parameter), so we need to fix it up now.
 		$parameters->{'CL'} = $change;
@@ -871,6 +945,84 @@ sub get_trigger_url
 		last;
 	}
 	$trigger_url;
+}
+
+# evaluate the conditions for a trigger
+sub build_badge_setup
+{
+	my ($ec, $ec_project, $ec_job, $stream, $change, $badge_name, $ec_update) = @_;
+
+	# get the job details
+	my $job = ec_get_job($ec, $ec_job);
+	
+	# read the job definition
+	my $job_definition = read_json('job.json');
+	
+	# find the badge definition
+	my $badge_definition = find_badge_definition($job_definition, $badge_name) || fail("Couldn't find badge definition for $badge_name");
+
+	# get all the dependent jobsteps
+	my $jobsteps = get_dependency_jobsteps($job, [ split /;/, $badge_definition->{'AllDependencies'} ]);
+
+	my $max_name_length = 20;
+	$max_name_length = max((length $_->{'jobstep_name'}) + 1, $max_name_length) foreach @{$jobsteps};
+	print "Dependent steps:\n";
+	foreach my $jobstep (@{$jobsteps})
+	{
+		print sprintf "  %20d %-${max_name_length}s $jobstep->{'result'}\n", $jobstep->{'jobstep_id'}, $jobstep->{'jobstep_name'};
+	}
+	print "\n";
+	
+	# print out the status of each dependent job step in a format that allows the preprocessor to parse it
+	my $has_errors = 0;
+	my $has_warnings = 0;
+	foreach my $jobstep(@{$jobsteps})
+	{
+		my $result = $jobstep->{'result'};
+		if($result ne 'success')
+		{
+			if($result eq 'warning')
+			{
+				$has_warnings = 1;
+			}
+			else
+			{
+				$has_errors = 1;
+			}
+		}
+	}
+	
+	# set the status of this jobstep to match
+	if($ec_update)
+	{
+		if($has_errors)
+		{
+			$ec->setProperty("/myJobStep/outcome", "error");
+		}
+		elsif($has_warnings)
+		{
+			$ec->setProperty("/myJobStep/outcome", "warning");
+		}
+	}
+
+	# get the settings for this branch
+	my $settings = read_stream_settings($ec, $ec_project, $stream);
+	my $status = $has_errors? "Failure" : $has_warnings? "Warning" : "Success";
+	set_badge_status($badge_definition, $change, $job, $status, $settings);
+}
+
+# update the status for a badge
+sub set_badge_status
+{
+	my ($badge_definition, $change, $job, $status, $settings) = @_;
+
+	if($settings->{'Badge Database'})
+	{
+		my $url = ec_get_full_url($job->{'job_url'});
+		my $command = "PostBadgeStatus.exe -Name=\"$badge_definition->{'Name'}\" -Change=$change -Project=\"$badge_definition->{'Project'}\" -Database=\"$settings->{'Badge Database'}\" -Status=$status -Url=\"$url\"";
+		print "Running $command...\n";
+		system($command);
+	}
 }
 
 # determines the temp storage block name from the job name
@@ -1023,9 +1175,9 @@ sub get_trigger_search_url
 # runs UAT with the given arguments
 sub run_uat
 {
-	my ($workspace, $change, $arguments) = @_;
+	my ($workspace, $change, $code_change, $arguments) = @_;
 
-	my $environment = get_uat_environment($workspace, $change);
+	my $environment = get_uat_environment($workspace, $change, $code_change);
 	foreach(keys %{$environment})
 	{
 		$ENV{$_} = $environment->{$_};
@@ -1038,7 +1190,7 @@ sub run_uat
 # gets the UAT environment
 sub get_uat_environment
 {
-	my ($workspace, $change) = @_;
+	my ($workspace, $change, $code_change) = @_;
 
 	my $build_root_escaped = $workspace->{'stream'};
 	$build_root_escaped =~ s/\//+/g;
@@ -1052,6 +1204,7 @@ sub get_uat_environment
 	$environment->{'uebp_BuildRoot_Escaped'} = $build_root_escaped;
 	$environment->{'uebp_CLIENT_ROOT'} = "//$workspace->{'name'}";
 	$environment->{'uebp_CL'} = $change;
+	$environment->{'uebp_CodeCL'} = $code_change;
 	$environment->{'uebp_LogFolder'} = join_paths($workspace->{'dir'}, 'Engine', 'Programs', 'AutomationTool', 'Saved', 'Logs');
 	$environment->{'P4USER'} = 'buildmachine';
 	$environment->{'P4CLIENT'} = $workspace->{'name'};
@@ -1068,7 +1221,6 @@ sub get_uat_exit_code
 {
 	my ($workspace_dir, $arguments) = @_;
 	$arguments .= " -TimeStamps";
-	$arguments .= " -NoXGE";
 
 	my $initial_dir = cwd();
 	my $runuat_script = is_windows()? "$workspace_dir\\Engine\\Build\\BatchFiles\\RunUAT.bat" : "$workspace_dir/Engine/Build/BatchFiles/RunUAT.sh";

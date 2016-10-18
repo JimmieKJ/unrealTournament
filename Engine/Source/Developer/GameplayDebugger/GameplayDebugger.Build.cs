@@ -8,7 +8,7 @@ namespace UnrealBuildTool.Rules
         {
             // change this flag to if you need to use deprecated GameplayDebugger module
             // however, it will be removed in next engine version!
-            const bool bEnableDeprecatedDebugger = true;
+            const bool bEnableDeprecatedDebugger = false;
 
             PublicDependencyModuleNames.AddRange(
 				new string[] {
@@ -21,14 +21,20 @@ namespace UnrealBuildTool.Rules
 				new string[] {
 					"RenderCore",
 					"InputCore",
+					"SlateCore",
 					"Slate",
 				});
 
 			PrivateIncludePaths.Add("Developer/GameplayDebugger/Private");
 
-            if (UEBuildConfiguration.bBuildEditor == true)
+            if (UEBuildConfiguration.bBuildEditor)
 			{
-				PrivateDependencyModuleNames.Add("UnrealEd");
+                PrivateDependencyModuleNames.AddRange(
+                    new string[] {
+                        "EditorStyle",
+                        "UnrealEd",
+                        "PropertyEditor",
+                    });
 			}
 
             Definitions.Add("ENABLE_OLD_GAMEPLAY_DEBUGGER=" + (bEnableDeprecatedDebugger ? "1" : "0"));

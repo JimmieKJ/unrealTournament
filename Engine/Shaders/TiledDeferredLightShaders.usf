@@ -258,16 +258,16 @@ void TiledDeferredLightingMain(
 				LightData.bSpotLight = Value.w > 0;
 				LightData.MinRoughness = abs(Value.w);
 			}
-			LightData.SpotAnglesAndSourceRadius = float4( TiledDeferred2.SpotAnglesAndSourceRadiusAndSimpleLighting[LightIndex].xyz, 0 );
+			LightData.SpotAnglesAndSourceRadius = TiledDeferred2.SpotAnglesAndSourceRadiusAndSimpleLighting[LightIndex];
 			LightData.ShadowMapChannelMask = TiledDeferred2.ShadowMapChannelMask[LightIndex];
 			LightData.bInverseSquared = LightData.LightColorAndFalloffExponent.w == 0;
 			// Only radial lights supported with tiled deferred
 			LightData.bRadialLight = true;
 			// The only type of shadowing supported for lights using tiled is static shadowing, so the light should only compute shadowing if it has static shadowing
-			LightData.bShadowed = dot(LightData.ShadowMapChannelMask, float4(1, 1, 1, 1));
+			LightData.ShadowedBits = dot(LightData.ShadowMapChannelMask, float4(1, 1, 1, 1));
 	
 			// Lights requiring light attenuation are not supported tiled for now
-			CompositedLighting += GetDynamicLighting(WorldPosition, CameraVector, ScreenUV, ScreenSpaceData, InGBufferData.ShadingModelID, LightData, float4(1, 1, 1, 1), uint2(0,0));
+			CompositedLighting += GetDynamicLighting(WorldPosition, CameraVector, ScreenSpaceData.GBuffer, ScreenSpaceData.AmbientOcclusion, InGBufferData.ShadingModelID, LightData, float4(1, 1, 1, 1), uint2(0,0));
 		}
 
 		// The simple shading model does not depend on ShadingModelID, so use it anytime the material is lit

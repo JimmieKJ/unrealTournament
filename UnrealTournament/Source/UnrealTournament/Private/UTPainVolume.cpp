@@ -124,7 +124,7 @@ void AUTPainVolume::PostUnregisterAllComponents()
 	}
 }
 
-void InsertVolume(IInterface_PostProcessVolume* Volume, TArray< IInterface_PostProcessVolume* >& VolumeArray)
+void UTInsertVolume(IInterface_PostProcessVolume* Volume, TArray< IInterface_PostProcessVolume* >& VolumeArray)
 {
 	const int32 NumVolumes = VolumeArray.Num();
 	float TargetPriority = Volume->GetProperties().Priority;
@@ -151,7 +151,7 @@ void AUTPainVolume::PostRegisterAllComponents()
 {
 	// Route update to super first.
 	Super::PostRegisterAllComponents();
-	InsertVolume(this, GetWorld()->PostProcessVolumes);
+	UTInsertVolume(this, GetWorld()->PostProcessVolumes);
 }
 
 void AUTPainVolume::CausePainTo(AActor* Other)

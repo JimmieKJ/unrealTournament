@@ -407,6 +407,6 @@ DEFINE_CONTROL_CHANNEL_MESSAGE_TWOPARAM(GameSpecific, 20, uint8, FString); // cu
 //														Receive<BeaconNetGUIDAck> - connection complete
 
 DEFINE_CONTROL_CHANNEL_MESSAGE_ZEROPARAM(BeaconWelcome, 25); // server tells client they're ok to attempt to join (client sends netspeed/beacontype)
-DEFINE_CONTROL_CHANNEL_MESSAGE_ONEPARAM(BeaconJoin, 26, FString);  // server tries to create beacon type requested by client, sends NetGUID for actor sync
+DEFINE_CONTROL_CHANNEL_MESSAGE_TWOPARAM(BeaconJoin, 26, FString, FUniqueNetIdRepl);  // server tries to create beacon type requested by client, sends NetGUID for actor sync
 DEFINE_CONTROL_CHANNEL_MESSAGE_ONEPARAM(BeaconAssignGUID, 27, FNetworkGUID); // client assigns NetGUID from server to beacon actor, sends NetGUIDAck
 DEFINE_CONTROL_CHANNEL_MESSAGE_ONEPARAM(BeaconNetGUIDAck, 28, FString); // server received NetGUIDAck from client, connection established successfully

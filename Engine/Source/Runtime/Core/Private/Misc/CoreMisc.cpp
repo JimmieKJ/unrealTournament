@@ -204,7 +204,7 @@ bool FFileHelper::LoadFileToString( FString& Result, const TCHAR* Filename, uint
 /**
  * Save a binary array to a file.
  */
-bool FFileHelper::SaveArrayToFile( const TArray<uint8>& Array, const TCHAR* Filename, IFileManager* FileManager /*= &IFileManager::Get()*/, uint32 WriteFlags )
+bool FFileHelper::SaveArrayToFile(TArrayView<const uint8> Array, const TCHAR* Filename, IFileManager* FileManager /*= &IFileManager::Get()*/, uint32 WriteFlags)
 {
 	FArchive* Ar = FileManager->CreateFileWriter( Filename, WriteFlags );
 	if( !Ar )
@@ -629,23 +629,9 @@ void FCommandLine::Append(const TCHAR* AppendString)
 	WhitelistCommandLines();
 }
 
-TArray<FString> FCommandLine::FilterArgsForLogging;
-
-#ifdef FILTER_COMMANDLINE_LOGGING
-/**
-* When overriding this setting make sure that your define looks like the following in your .cs file:
-*
-*		OutCPPEnvironmentConfiguration.Definitions.Add("FILTER_COMMANDLINE_LOGGING=\"-arg1 -arg2 -arg3 -arg4\"");
-*
-* The important part is the \" as they quotes get stripped off by the compiler without them
-*/
-const TCHAR* FilterForLoggingList = TEXT(FILTER_COMMANDLINE_LOGGING);
-#else
-const TCHAR* FilterForLoggingList = TEXT("-AUTH_LOGIN -AUTH_PASSWORD -password");
-#endif
-
 #if WANTS_COMMANDLINE_WHITELIST
 TArray<FString> FCommandLine::ApprovedArgs;
+TArray<FString> FCommandLine::FilterArgsForLogging;
 
 #ifdef OVERRIDE_COMMANDLINE_WHITELIST
 /**
@@ -660,6 +646,45 @@ const TCHAR* OverrideList = TEXT(OVERRIDE_COMMANDLINE_WHITELIST);
 // Default list most conservative restrictions
 const TCHAR* OverrideList = TEXT("-fullscreen /windowed");
 #endif
+
+#ifdef FILTER_COMMANDLINE_LOGGING
+/**
+ * When overriding this setting make sure that your define looks like the following in your .cs file:
+ *
+ *		OutCPPEnvironmentConfiguration.Definitions.Add("FILTER_COMMANDLINE_LOGGING=\"-arg1 -arg2 -arg3 -arg4\"");
+ *
+ * The important part is the \" as they quotes get stripped off by the compiler without them
+ */
+const TCHAR* FilterForLoggingList = TEXT(FILTER_COMMANDLINE_LOGGING);
+#else
+const TCHAR* FilterForLoggingList = TEXT("");
+#endif
+
+void FCommandLine::WhitelistCommandLines()
+{
+	if (ApprovedArgs.Num() == 0)
+	{
+		TArray<FString> Ignored;
+		FCommandLine::Parse(OverrideList, ApprovedArgs, Ignored);
+	}
+	if (FilterArgsForLogging.Num() == 0)
+	{
+		TArray<FString> Ignored;
+		FCommandLine::Parse(FilterForLoggingList, FilterArgsForLogging, Ignored);
+	}
+	// Process the original command line
+	TArray<FString> OriginalList = FilterCommandLine(OriginalCmdLine);
+	BuildWhitelistCommandLine(OriginalCmdLine, ARRAY_COUNT(OriginalCmdLine), OriginalList);
+	// Process the current command line
+	TArray<FString> CmdList = FilterCommandLine(CmdLine);
+	BuildWhitelistCommandLine(CmdLine, ARRAY_COUNT(CmdLine), CmdList);
+	// Process the command line for logging purposes
+	TArray<FString> LoggingCmdList = FilterCommandLineForLogging(LoggingCmdLine);
+	BuildWhitelistCommandLine(LoggingCmdLine, ARRAY_COUNT(LoggingCmdLine), LoggingCmdList);
+	// Process the original command line for logging purposes
+	TArray<FString> LoggingOriginalCmdList = FilterCommandLineForLogging(LoggingOriginalCmdLine);
+	BuildWhitelistCommandLine(LoggingOriginalCmdLine, ARRAY_COUNT(LoggingOriginalCmdLine), LoggingOriginalCmdList);
+}
 
 TArray<FString> FCommandLine::FilterCommandLine(TCHAR* CommandLine)
 {
@@ -687,8 +712,6 @@ TArray<FString> FCommandLine::FilterCommandLine(TCHAR* CommandLine)
 	}
 	return ParsedList;
 }
-
-#endif
 
 TArray<FString> FCommandLine::FilterCommandLineForLogging(TCHAR* CommandLine)
 {
@@ -733,36 +756,7 @@ void FCommandLine::BuildWhitelistCommandLine(TCHAR* CommandLine, uint32 ArrayCou
 		}
 	}
 }
-
-void FCommandLine::WhitelistCommandLines()
-{
-#if WANTS_COMMANDLINE_WHITELIST
-	if (ApprovedArgs.Num() == 0)
-	{
-		TArray<FString> Ignored;
-		FCommandLine::Parse(OverrideList, ApprovedArgs, Ignored);
-	}
-
-	// Process the original command line
-	TArray<FString> OriginalList = FilterCommandLine(OriginalCmdLine);
-	BuildWhitelistCommandLine(OriginalCmdLine, ARRAY_COUNT(OriginalCmdLine), OriginalList);
-	// Process the current command line
-	TArray<FString> CmdList = FilterCommandLine(CmdLine);
-	BuildWhitelistCommandLine(CmdLine, ARRAY_COUNT(CmdLine), CmdList);
 #endif
-
-	if (FilterArgsForLogging.Num() == 0)
-	{
-		TArray<FString> Ignored;
-		FCommandLine::Parse(FilterForLoggingList, FilterArgsForLogging, Ignored);
-	}
-	// Process the command line for logging purposes
-	TArray<FString> LoggingCmdList = FilterCommandLineForLogging(LoggingCmdLine);
-	BuildWhitelistCommandLine(LoggingCmdLine, ARRAY_COUNT(LoggingCmdLine), LoggingCmdList);
-	// Process the original command line for logging purposes
-	TArray<FString> LoggingOriginalCmdList = FilterCommandLineForLogging(LoggingOriginalCmdLine);
-	BuildWhitelistCommandLine(LoggingOriginalCmdLine, ARRAY_COUNT(LoggingOriginalCmdLine), LoggingOriginalCmdList);
-}
 
 void FCommandLine::AddToSubprocessCommandline( const TCHAR* Param )
 {
@@ -841,23 +835,54 @@ void FCommandLine::Parse(const TCHAR* InCmdLine, TArray<FString>& Tokens, TArray
 -----------------------------------------------------------------------------*/
 void FMaintenance::DeleteOldLogs()
 {
-	int32 PurgeLogsDays = 0;
+	int32 PurgeLogsDays = -1; // -1 means don't delete old files
+	int32 MaxLogFilesOnDisk = -1; // -1 means keep all files
 	GConfig->GetInt(TEXT("LogFiles"), TEXT("PurgeLogsDays"), PurgeLogsDays, GEngineIni);
-	if (PurgeLogsDays >= 0)
+	GConfig->GetInt(TEXT("LogFiles"), TEXT("MaxLogFilesOnDisk"), MaxLogFilesOnDisk, GEngineIni);
+	if (PurgeLogsDays >= 0 || MaxLogFilesOnDisk >= 0)
 	{
 		// get a list of files in the log dir
 		TArray<FString> Files;
 		IFileManager::Get().FindFiles(Files, *FString::Printf(TEXT("%s*.*"), *FPaths::GameLogDir()), true, false);
+		for (FString& Filename : Files)
+		{
+			Filename = FPaths::GameLogDir() / Filename;
+		}
+
+		struct FSortByDateNewestFirst
+		{
+			bool operator()(const FString& A, const FString& B) const
+			{
+				const FDateTime TimestampA = IFileManager::Get().GetTimeStamp(*A);
+				const FDateTime TimestampB = IFileManager::Get().GetTimeStamp(*B);
+				return TimestampB < TimestampA;
+			}
+		};
+		Files.Sort(FSortByDateNewestFirst());
 
 		// delete all those with the backup text in their name and that are older than the specified number of days
 		double MaxFileAgeSeconds = 60.0 * 60.0 * 24.0 * double(PurgeLogsDays);
-		for (int32 i = 0; i < Files.Num(); i++)
+		for (int32 FileIndex = Files.Num() - 1; FileIndex >= 0; --FileIndex)
 		{
-			FString FullFileName = FPaths::GameLogDir() + Files[i];
-			if (FullFileName.Contains(BACKUP_LOG_FILENAME_POSTFIX) && IFileManager::Get().GetFileAgeSeconds(*FullFileName) > MaxFileAgeSeconds)
+			const FString& Filename = Files[FileIndex];
+			if (FOutputDeviceFile::IsBackupCopy(*Filename) && IFileManager::Get().GetFileAgeSeconds(*Filename) > MaxFileAgeSeconds)
 			{
-				UE_LOG(LogStreaming, Log, TEXT("Deleting old log file %s"), *Files[i]);
-				IFileManager::Get().Delete(*FullFileName);
+				UE_LOG(LogStreaming, Log, TEXT("Deleting old log file %s"), *Filename);
+				IFileManager::Get().Delete(*Filename);
+				Files.RemoveAt(FileIndex);
+			}
+		}
+
+		// If required, trim the number of files on disk
+		if (MaxLogFilesOnDisk >= 0 && Files.Num() > MaxLogFilesOnDisk)
+		{
+			for (int32 FileIndex = Files.Num() - 1; FileIndex >= 0 && Files.Num() > MaxLogFilesOnDisk; --FileIndex)
+			{
+				if (FOutputDeviceFile::IsBackupCopy(*Files[FileIndex]))
+				{
+					IFileManager::Get().Delete(*Files[FileIndex]);
+					Files.RemoveAt(FileIndex);
+				}
 			}
 		}
 
@@ -865,7 +890,7 @@ void FMaintenance::DeleteOldLogs()
 		TArray<FString> Directories;
 		IFileManager::Get().FindFiles( Directories, *FString::Printf( TEXT( "%s/UE4CC*" ), *FPaths::GameLogDir() ), false, true );
 
-		for (auto Dir : Directories)
+		for (const FString& Dir : Directories)
 		{
 			const FString CrashContextDirectory = FPaths::GameLogDir() / Dir;
 			const FDateTime DirectoryAccessTime = IFileManager::Get().GetTimeStamp( *CrashContextDirectory );
@@ -888,11 +913,11 @@ class FDerivedDataCacheInterface* GetDerivedDataCache()
 	static class FDerivedDataCacheInterface* SingletonInterface = NULL;
 	if (!FPlatformProperties::RequiresCookedData())
 	{
-		static bool bIntialized = false;
-		if (!bIntialized)
+		static bool bInitialized = false;
+		if (!bInitialized)
 		{
 			check(IsInGameThread());
-			bIntialized = true;
+			bInitialized = true;
 			class IDerivedDataCacheModule* Module = FModuleManager::LoadModulePtr<IDerivedDataCacheModule>("DerivedDataCache");
 			if (Module)
 			{
@@ -919,11 +944,11 @@ class ITargetPlatformManagerModule* GetTargetPlatformManager()
 	static class ITargetPlatformManagerModule* SingletonInterface = NULL;
 	if (!FPlatformProperties::RequiresCookedData())
 	{
-		static bool bIntialized = false;
-		if (!bIntialized)
+		static bool bInitialized = false;
+		if (!bInitialized)
 		{
 			check(IsInGameThread());
-			bIntialized = true;
+			bInitialized = true;
 			SingletonInterface = FModuleManager::LoadModulePtr<ITargetPlatformManagerModule>("TargetPlatform");
 		}
 	}
@@ -974,6 +999,8 @@ void SetIsServerForOnlineSubsystemsDelegate(FQueryIsRunningServer NewDelegate)
 	GIsServerDelegate = NewDelegate;
 }
 
+#if UE_EDITOR
+
 /** Checks the command line for the presence of switches to indicate running as "dedicated server only" */
 int32 CORE_API StaticDedicatedServerCheck()
 {
@@ -991,8 +1018,6 @@ int32 CORE_API StaticDedicatedServerCheck()
 	}
 	return HasServerSwitch;
 }
-
-#if UE_EDITOR
 
 /** Checks the command line for the presence of switches to indicate running as "game only" */
 int32 CORE_API StaticGameCheck()
@@ -1152,6 +1177,11 @@ void FBlueprintExceptionTracker::ResetRunaway()
 	Runaway = 0;
 	Recurse = 0;
 	bRanaway = false;
+}
+
+FBlueprintExceptionTracker& FBlueprintExceptionTracker::Get()
+{
+	return TThreadSingleton<FBlueprintExceptionTracker>::Get();
 }
 #endif // DO_BLUEPRINT_GUARD
 

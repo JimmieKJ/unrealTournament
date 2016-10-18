@@ -115,7 +115,7 @@ namespace CrossCompiler
 
 			/* Callers of this ralloc-based new need not call delete. It's
 			* easier to just ralloc_free 'ctx' (or any of its ancestors). */
-			static void* operator new(SIZE_T Size, FLinearAllocator* Allocator)
+			static void* operator new(size_t Size, FLinearAllocator* Allocator)
 			{
 #if USE_UNREAL_ALLOCATOR
 				return FMemory::Malloc(Size);

@@ -31,7 +31,7 @@ DECLARE_DELEGATE_RetVal_TwoParams(bool, FPerfCounterExecCommandCallback, const F
 /**
  * A programming interface for setting/updating performance counters
  */
-class IPerfCounters
+class PERFCOUNTERS_API IPerfCounters
 {
 public:
 
@@ -51,6 +51,28 @@ public:
 
 		FJsonVariant() : Format(Null), NumberValue(0) {}
 	};
+
+	/** Named engine-wide histograms */
+	struct PERFCOUNTERS_API Histograms
+	{
+		/** Frame time histogram for the duration of the match. */
+		static const FName FrameTime;
+		/** Frame time histogram for shorter intervals. */
+		static const FName FrameTimePeriodic;
+		/** Frame time histogram (without sleep) for the duration of the match. */
+		static const FName FrameTimeWithoutSleep;
+		/** ServerReplicateActors time histogram for the duration of the match. */
+		static const FName ServerReplicateActorsTime;
+		/** Sleep time histogram for the duration of the match. */
+		static const FName SleepTime;
+
+		/** Zero load thread frame time histogram. */
+		static const FName ZeroLoadFrameTime;
+	};
+
+	/** Array used to store performance histograms. */
+	typedef TMap<FName, FHistogram>		TPerformanceHistogramMap;
+
 
 	virtual ~IPerfCounters() {};
 
@@ -80,6 +102,18 @@ public:
 
 	/** Clears transient perf counters, essentially marking beginning of a new stats period */
 	virtual void ResetStatsForNextPeriod() = 0;
+
+	/** Returns performance histograms for direct manipulation by the client code. */
+	virtual TPerformanceHistogramMap& PerformanceHistograms() = 0;
+
+	/** Starts tracking overall machine load. */
+	virtual bool StartMachineLoadTracking() = 0;
+
+	/** Stops tracking overall machine load. */
+	virtual bool StopMachineLoadTracking() = 0;
+
+	/** Reports an unplayable condition. */
+	virtual bool ReportUnplayableCondition(const FString& ConditionDescription) = 0;
 
 public:
 

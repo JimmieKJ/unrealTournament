@@ -119,11 +119,11 @@ void UUTJumpPadRenderingComponent::TickComponent(float DeltaTime, enum ELevelTic
 
 FBoxSphereBounds UUTJumpPadRenderingComponent::CalcBounds(const FTransform & LocalToWorld) const
 {
-	FBox Bounds(0);
+	FBox CalculatedBounds(0);
 
-	if (GExitPurge || HasAnyFlags(RF_BeginDestroyed) || World == nullptr)
+	if (GExitPurge || HasAnyFlags(RF_BeginDestroyed) || GetWorld() == nullptr)
 	{
-		return FBoxSphereBounds(Bounds);
+		return FBoxSphereBounds(CalculatedBounds);
 	}
 
 	AUTJumpPad *JumpPad = Cast<AUTJumpPad>(GetOwner());
@@ -136,8 +136,8 @@ FBoxSphereBounds UUTJumpPadRenderingComponent::CalcBounds(const FTransform & Loc
 		float JumpTime = JumpPad->JumpTime;
 		float GravityZ = -GameThreadGravityZ;
 
-		Bounds += JumpPadLocation;
-		Bounds += JumpPad->ActorToWorld().TransformPosition(JumpPadTarget);
+		CalculatedBounds += JumpPadLocation;
+		CalculatedBounds += JumpPad->ActorToWorld().TransformPosition(JumpPadTarget);
 		
 		//Guard divide by zero potential with gravity
 		if (GameThreadGravityZ != 0.0f)
@@ -148,11 +148,11 @@ FBoxSphereBounds UUTJumpPadRenderingComponent::CalcBounds(const FTransform & Loc
 			{
 				FVector Apex = JumpPadLocation + (JumpVelocity * ApexTime);
 				Apex.Z -= (GravityZ * FMath::Pow(ApexTime, 2)) / 2;
-				Bounds += Apex;
+				CalculatedBounds += Apex;
 			}
 		}
 	}
-	return FBoxSphereBounds(Bounds);
+	return FBoxSphereBounds(CalculatedBounds);
 }
 
 FPrimitiveSceneProxy* UUTJumpPadRenderingComponent::CreateSceneProxy()

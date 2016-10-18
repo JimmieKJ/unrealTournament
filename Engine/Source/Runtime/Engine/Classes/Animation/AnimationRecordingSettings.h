@@ -21,6 +21,7 @@ struct FAnimationRecordingSettings
 
 	FAnimationRecordingSettings()
 		: bRecordInWorldSpace(true)
+		, bRemoveRootAnimation(true)
 		, bAutoSaveAsset(false)
 		, SampleRate((float)DefaultSampleRate)
 		, Length((float)DefaultMaximumLength)
@@ -29,6 +30,10 @@ struct FAnimationRecordingSettings
 	/** Whether to record animation in world space, defaults to true */
 	UPROPERTY(EditAnywhere, Category = "Settings")
 	bool bRecordInWorldSpace;
+
+	/** Whether to remove the root bone transform from the animation */
+	UPROPERTY(EditAnywhere, Category = "Settings")
+	bool bRemoveRootAnimation;
 
 	/** Whether to auto-save asset when recording is completed. Defaults to false */
 	UPROPERTY(EditAnywhere, Category = "Settings")

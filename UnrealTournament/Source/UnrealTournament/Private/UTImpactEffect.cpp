@@ -163,7 +163,7 @@ void AUTImpactEffect::ComponentCreated_Implementation(USceneComponent* NewComp, 
 			if (HitComp != NULL && HitComp->Mobility == EComponentMobility::Movable)
 			{
 				Decal->bAbsoluteScale = true;
-				Decal->AttachTo(HitComp, NAME_None, EAttachLocation::KeepWorldPosition);
+				Decal->AttachToComponent(HitComp, FAttachmentTransformRules::KeepWorldTransform);
 			}
 			Decal->UpdateComponentToWorld();
 		}
@@ -193,11 +193,12 @@ void AUTImpactEffect::CreateEffectComponents(UWorld* World, const FTransform& Ba
 	AUTWorldSettings* WS = Cast<AUTWorldSettings>(World->GetWorldSettings());
 	for (int32 i = 0; i < NativeCompList.Num(); i++)
 	{
-		if (NativeCompList[i]->AttachParent == CurrentAttachment && ShouldCreateComponent(NativeCompList[i], NativeCompList[i]->GetFName(), BaseTransform, HitComp, SpawnedBy, InstigatedBy))
+		if (NativeCompList[i]->GetAttachParent() == CurrentAttachment && ShouldCreateComponent(NativeCompList[i], NativeCompList[i]->GetFName(), BaseTransform, HitComp, SpawnedBy, InstigatedBy))
 		{
 			USceneComponent* NewComp = NewObject<USceneComponent>(World, NativeCompList[i]->GetClass(), NAME_None, RF_NoFlags, NativeCompList[i]);
-			NewComp->AttachParent = NULL;
-			NewComp->AttachChildren.Empty();
+			NewComp->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
+			//PLK - HOPEFULLY THIS ISN't BROKEN DUE TO THE PRIVATIZATION OF ATTACHCHILDREN
+			//NewComp->AttachChildren.Empty();
 			UPrimitiveComponent* Prim = Cast<UPrimitiveComponent>(NewComp);
 			if (Prim != NULL)
 			{
@@ -205,7 +206,7 @@ void AUTImpactEffect::CreateEffectComponents(UWorld* World, const FTransform& Ba
 			}
 			if (CurrentAttachment != NULL)
 			{
-				NewComp->AttachTo(CurrentAttachment, NewComp->AttachSocketName);
+				NewComp->AttachToComponent(CurrentAttachment, FAttachmentTransformRules::KeepRelativeTransform, NewComp->GetAttachSocketName());
 			}
 			if (CurrentAttachment == NULL || CurrentAttachment == HitComp)
 			{
@@ -231,8 +232,9 @@ void AUTImpactEffect::CreateEffectComponents(UWorld* World, const FTransform& Ba
 		if (ComponentTemplate != NULL && BPNodes[i]->ParentComponentOrVariableName == TemplateName && ShouldCreateComponent(ComponentTemplate, TemplateName, BaseTransform, HitComp, SpawnedBy, InstigatedBy))
 		{
 			USceneComponent* NewComp = NewObject<USceneComponent>(World, ComponentTemplate->GetClass(), NAME_None, RF_NoFlags, ComponentTemplate);
-			NewComp->AttachParent = NULL;
-			NewComp->AttachChildren.Empty();
+			NewComp->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
+			//PLK - HOPEFULLY THIS ISN't BROKEN DUE TO THE PRIVATIZATION OF ATTACHCHILDREN
+			//NewComp->AttachChildren.Empty();
 			UPrimitiveComponent* Prim = Cast<UPrimitiveComponent>(NewComp);
 			if (Prim != NULL)
 			{
@@ -240,7 +242,7 @@ void AUTImpactEffect::CreateEffectComponents(UWorld* World, const FTransform& Ba
 			}
 			if (CurrentAttachment != NULL)
 			{
-				NewComp->AttachTo(CurrentAttachment, BPNodes[i]->AttachToName);
+				NewComp->AttachToComponent(CurrentAttachment, FAttachmentTransformRules::KeepRelativeTransform, BPNodes[i]->AttachToName);
 			}
 			if (CurrentAttachment == NULL || CurrentAttachment == HitComp)
 			{

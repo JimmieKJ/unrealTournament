@@ -7,7 +7,9 @@ public class VulkanShaderFormat : ModuleRules
 	public VulkanShaderFormat(TargetInfo Target)
 	{
 		PrivateIncludePathModuleNames.Add("TargetPlatform");
-		PrivateIncludePathModuleNames.Add("VulkanRHI"); 
+
+		// Do not link the module (as that would require the vulkan dll), only the include paths
+		PrivateIncludePaths.Add("Runtime/VulkanRHI/Public");
 
 		PrivateDependencyModuleNames.AddRange(
 			new string[] {
@@ -17,6 +19,9 @@ public class VulkanShaderFormat : ModuleRules
 				"ShaderPreprocessor",
 			}
 			);
+
+        // GlsLang has a shadowed variable:
+        bEnableShadowVariableWarnings = false;
 
         AddEngineThirdPartyPrivateStaticDependencies(Target, "HLSLCC");
 		AddEngineThirdPartyPrivateStaticDependencies(Target, "GlsLang");

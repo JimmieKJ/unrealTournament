@@ -6,6 +6,107 @@
 /* FString implementation
  *****************************************************************************/
 
+namespace UE4String_Private
+{
+	struct FCompareCharsCaseSensitive
+	{
+		static FORCEINLINE bool Compare(TCHAR Lhs, TCHAR Rhs)
+		{
+			return Lhs == Rhs;
+		}
+	};
+
+	struct FCompareCharsCaseInsensitive
+	{
+		static FORCEINLINE bool Compare(TCHAR Lhs, TCHAR Rhs)
+		{
+			return FChar::ToLower(Lhs) == FChar::ToLower(Rhs);
+		}
+	};
+
+	template <typename CompareType>
+	bool MatchesWildcardRecursive(const TCHAR* Target, int32 TargetLength, const TCHAR* Wildcard, int32 WildcardLength)
+	{
+		// Skip over common initial non-wildcard-char sequence of Target and Wildcard
+		for (;;)
+		{
+			TCHAR WCh = *Wildcard;
+			if (WCh == TEXT('*') || WCh == TEXT('?'))
+			{
+				break;
+			}
+
+			if (!CompareType::Compare(*Target, WCh))
+			{
+				return false;
+			}
+
+			if (WCh == TEXT('\0'))
+			{
+				return true;
+			}
+
+			++Target;
+			++Wildcard;
+			--TargetLength;
+			--WildcardLength;
+		}
+
+		// Test for common suffix
+		const TCHAR* TPtr = Target   + TargetLength;
+		const TCHAR* WPtr = Wildcard + WildcardLength;
+		for (;;)
+		{
+			--TPtr;
+			--WPtr;
+
+			TCHAR WCh = *WPtr;
+			if (WCh == TEXT('*') || WCh == TEXT('?'))
+			{
+				break;
+			}
+
+			if (!CompareType::Compare(*TPtr, WCh))
+			{
+				return false;
+			}
+
+			--TargetLength;
+			if (TargetLength == 0)
+			{
+				return false;
+			}
+
+			--WildcardLength;
+		}
+
+		// Match * against anything and ? against single (and zero?) chars
+		TCHAR FirstWild = *Wildcard;
+		if (WildcardLength == 1 && (FirstWild == TEXT('*') || TargetLength < 2))
+		{
+			return true;
+		}
+		++Wildcard;
+		--WildcardLength;
+
+		// This routine is very slow, though it does ok with one wildcard
+		int32 MaxNum = TargetLength;
+		if (FirstWild == TEXT('?') && MaxNum > 1)
+		{
+			MaxNum = 1;
+		}
+
+		for (int32 Index = 0; Index <= MaxNum; ++Index)
+		{
+			if (MatchesWildcardRecursive<CompareType>(Target, TargetLength - Index, Wildcard, WildcardLength))
+			{
+				return true;
+			}
+		}
+		return false;
+	}
+}
+
 void FString::TrimToNullTerminator()
 {
 	if( Data.Num() )
@@ -14,7 +115,7 @@ void FString::TrimToNullTerminator()
 		check(DataLen == 0 || DataLen < Data.Num());
 		int32 Len = DataLen > 0 ? DataLen+1 : 0;
 
-		check(Len <= Data.Num())
+		check(Len <= Data.Num());
 		Data.RemoveAt(Len, Data.Num()-Len);
 	}
 }
@@ -112,6 +213,18 @@ void FString::ToLowerInline()
 	}
 }
 
+bool FString::StartsWith(const TCHAR* InPrefix, ESearchCase::Type SearchCase) const
+{
+	if (SearchCase == ESearchCase::IgnoreCase)
+	{
+		return InPrefix && *InPrefix && !FCString::Strnicmp(**this, InPrefix, FCString::Strlen(InPrefix));
+	}
+	else
+	{
+		return InPrefix && *InPrefix && !FCString::Strncmp(**this, InPrefix, FCString::Strlen(InPrefix));
+	}
+}
+
 bool FString::StartsWith(const FString& InPrefix, ESearchCase::Type SearchCase ) const
 {
 	if( SearchCase == ESearchCase::IgnoreCase )
@@ -121,6 +234,31 @@ bool FString::StartsWith(const FString& InPrefix, ESearchCase::Type SearchCase )
 	else
 	{
 		return InPrefix.Len() > 0 && !FCString::Strncmp(**this, *InPrefix, InPrefix.Len());
+	}
+}
+
+bool FString::EndsWith(const TCHAR* InSuffix, ESearchCase::Type SearchCase) const
+{
+	if (!InSuffix || *InSuffix == TEXT('\0'))
+	{
+		return false;
+	}
+
+	int32 ThisLen   = this->Len();
+	int32 SuffixLen = FCString::Strlen(InSuffix);
+	if (SuffixLen > ThisLen)
+	{
+		return false;
+	}
+
+	const TCHAR* StrPtr = Data.GetData() + ThisLen - SuffixLen;
+	if (SearchCase == ESearchCase::IgnoreCase)
+	{
+		return !FCString::Stricmp(StrPtr, InSuffix);
+	}
+	else
+	{
+		return !FCString::Strcmp(StrPtr, InSuffix);
 	}
 }
 
@@ -170,6 +308,44 @@ bool FString::RemoveFromEnd( const FString& InSuffix, ESearchCase::Type SearchCa
 	}
 
 	return false;
+}
+
+/**
+ * Concatenate this path with given path ensuring the / character is used between them
+ *
+ * @param Str       Pointer to an array of TCHARs (not necessarily null-terminated) to be concatenated onto the end of this.
+ * @param StrLength Exact number of characters from Str to append.
+ */
+void FString::PathAppend(const TCHAR* Str, int32 StrLength)
+{
+	int32 DataNum = Data.Num();
+	if (StrLength == 0)
+	{
+		if (DataNum > 1 && Data[DataNum - 2] != TEXT('/') && Data[DataNum - 2] != TEXT('\\'))
+		{
+			Data[DataNum - 1] = TEXT('/');
+			Data.Add(TEXT('\0'));
+		}
+	}
+	else
+	{
+		if (DataNum > 0)
+		{
+			if (DataNum > 1 && Data[DataNum - 2] != TEXT('/') && Data[DataNum - 2] != TEXT('\\') && *Str != TEXT('/'))
+			{
+				Data[DataNum - 1] = TEXT('/');
+			}
+			else
+			{
+				Data.Pop(false);
+				--DataNum;
+			}
+		}
+
+		Data.Reserve(DataNum + StrLength + 1);
+		Data.Append(Str, StrLength);
+		Data.Add(TEXT('\0'));
+	}
 }
 
 FString FString::Trim()

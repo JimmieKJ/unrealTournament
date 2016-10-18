@@ -91,6 +91,9 @@ public:
 	/** Set the scroll offset of this view (in items) */
 	void SetScrollOffset( const float InScrollOffset );
 
+	/** Add the scroll offset of this view (in items) */
+	void AddScrollOffset(const float InScrollOffsetDelta, bool RefreshList = false);
+
 public:
 
 	// SWidget interface
@@ -291,6 +294,9 @@ protected:
 
 	/**	Whether the software cursor should be drawn in the viewport */
 	bool bShowSoftwareCursor;
+
+	/** How much to scroll when using mouse wheel */
+	float WheelScrollMultiplier;
 
 protected:
 

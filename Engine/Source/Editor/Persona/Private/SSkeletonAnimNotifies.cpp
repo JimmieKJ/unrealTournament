@@ -199,16 +199,16 @@ TSharedPtr<SWidget> SSkeletonAnimNotifies::OnGetContextMenuContent() const
 			FUIAction Action = FUIAction( FExecuteAction::CreateSP( this, &SSkeletonAnimNotifies::OnDeleteAnimNotify ), 
 				FCanExecuteAction::CreateSP( this, &SSkeletonAnimNotifies::CanPerformDelete ) );
 			const FText Label = LOCTEXT("DeleteAnimNotifyButtonLabel", "Delete");
-			const FText ToolTip = LOCTEXT("DeleteAnimNotifyButtonTooltip", "Deletes the selected anim notifies.");
-			MenuBuilder.AddMenuEntry( Label, ToolTip, FSlateIcon(), Action);
+			const FText ToolTipText = LOCTEXT("DeleteAnimNotifyButtonTooltip", "Deletes the selected anim notifies.");
+			MenuBuilder.AddMenuEntry( Label, ToolTipText, FSlateIcon(), Action);
 		}
 
 		{
 			FUIAction Action = FUIAction( FExecuteAction::CreateSP( this, &SSkeletonAnimNotifies::OnRenameAnimNotify ), 
 				FCanExecuteAction::CreateSP( this, &SSkeletonAnimNotifies::CanPerformRename ) );
 			const FText Label = LOCTEXT("RenameAnimNotifyButtonLabel", "Rename");
-			const FText ToolTip = LOCTEXT("RenameAnimNotifyButtonTooltip", "Renames the selected anim notifies.");
-			MenuBuilder.AddMenuEntry( Label, ToolTip, FSlateIcon(), Action);
+			const FText ToolTipText = LOCTEXT("RenameAnimNotifyButtonTooltip", "Renames the selected anim notifies.");
+			MenuBuilder.AddMenuEntry( Label, ToolTipText, FSlateIcon(), Action);
 		}
 	}
 	MenuBuilder.EndSection();
@@ -471,7 +471,7 @@ void SSkeletonAnimNotifies::GetCompatibleAnimSequences(TArray<class FAssetData>&
 	for( int32 AssetIndex = 0; AssetIndex < AssetDataList.Num(); ++AssetIndex )
 	{
 		const FAssetData& PossibleAnimSequence = AssetDataList[AssetIndex];
-		if( SkeletonExportName == PossibleAnimSequence.TagsAndValues.FindRef("Skeleton") )
+		if( SkeletonExportName == PossibleAnimSequence.GetTagValueRef<FString>("Skeleton") )
 		{
 			OutAssets.Add( PossibleAnimSequence );
 		}

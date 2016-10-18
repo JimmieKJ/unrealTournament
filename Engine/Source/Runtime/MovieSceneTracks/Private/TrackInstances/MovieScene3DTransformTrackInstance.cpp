@@ -105,8 +105,12 @@ void FMovieScene3DTransformTrackInstance::Update(EMovieSceneUpdateData& UpdateDa
 			if (SceneComponent != nullptr)
 			{
 				if (UpdateData.UpdatePass == MSUP_PreUpdate)
-				{
-					SceneComponent->ResetRelativeTransform();
+				{		
+					// Set the transforms to identity explicitly instead of ResetRelativeTransform so that overlaps aren't evaluated at the origin
+					SceneComponent->RelativeLocation = FVector(FVector::ZeroVector);
+					SceneComponent->RelativeRotation = FRotator(FRotator::ZeroRotator);
+					SceneComponent->RelativeScale3D = FVector(1.f);
+					SceneComponent->UpdateComponentToWorld();
 				}
 				else if (UpdateData.UpdatePass == MSUP_Update)
 				{

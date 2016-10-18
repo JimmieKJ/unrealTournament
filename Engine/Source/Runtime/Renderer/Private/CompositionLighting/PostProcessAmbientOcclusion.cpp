@@ -120,7 +120,7 @@ EAsyncComputeBudget FSSAOHelper::GetAmbientOcclusionAsyncComputeBudget()
 bool FSSAOHelper::IsBasePassAmbientOcclusionRequired(const FViewInfo& View)
 {
 	// the BaseAO pass is only worth with some AO
-	return (View.FinalPostProcessSettings.AmbientOcclusionStaticFraction >= 1 / 100.0f) && !IsSimpleDynamicLightingEnabled();
+	return (View.FinalPostProcessSettings.AmbientOcclusionStaticFraction >= 1 / 100.0f) && !IsAnyForwardShadingEnabled(View.GetShaderPlatform());
 }
 
 bool FSSAOHelper::IsAmbientOcclusionAsyncCompute(const FViewInfo& View, uint32 AOPassCount)

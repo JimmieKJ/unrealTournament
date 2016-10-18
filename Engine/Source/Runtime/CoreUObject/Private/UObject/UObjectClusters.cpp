@@ -645,12 +645,16 @@ public:
 				{
 					// However, clusters need to be referenced by the current cluster otherwise they can also get GC'd too early.
 					const int32 OtherClusterRootIndex = GUObjectArray.ObjectToIndex(Object);
+					const FUObjectItem* OtherClusterRootItem = GUObjectArray.IndexToObjectUnsafeForGC(OtherClusterRootIndex);
+					check(OtherClusterRootItem && OtherClusterRootItem->Object);
+					UObject* OtherClusterRootObject = static_cast<UObject*>(OtherClusterRootItem->Object);
 					UE_CLOG(OtherClusterRootIndex != ClusterRootIndex && !Cluster.ReferencedClusters.Contains(OtherClusterRootIndex), LogObj, Fatal,
-						TEXT("Object %s from source cluster %s is referencing cluster root object 0x%016llx %s which is not referenced by the source cluster."),
+						TEXT("Object %s from source cluster %s is referencing object %s (0x%016llx) from cluster %s which is not referenced by the source cluster."),
 						*ReferencingObject->GetFullName(),
 						*ClusterRootObject->GetFullName(),
+						*Object->GetFullName(),
 						(int64)(PTRINT)Object,
-						*Object->GetFullName());
+						*OtherClusterRootObject->GetFullName());
 				}
 			}
 			else if (ObjectItem->GetOwnerIndex() == ClusterRootIndex)
@@ -666,12 +670,12 @@ public:
 				check(OtherClusterRootItem && OtherClusterRootItem->Object);
 				UObject* OtherClusterRootObject = static_cast<UObject*>(OtherClusterRootItem->Object);
 				UE_CLOG(OtherClusterRootIndex != ClusterRootIndex && !Cluster.ReferencedClusters.Contains(OtherClusterRootIndex), LogObj, Fatal,
-					TEXT("Object %s from source cluster %s is referencing cluster %d object 0x%016llx %s which is not referenced by the source cluster."),
+					TEXT("Object %s from source cluster %s is referencing object %s (0x%016llx) from cluster %s which is not referenced by the source cluster."),
 					*ReferencingObject->GetFullName(),
 					*ClusterRootObject->GetFullName(),
-					*OtherClusterRootObject->GetFullName(),
+					*Object->GetFullName(),
 					(int64)(PTRINT)Object,
-					*Object->GetFullName());
+					*OtherClusterRootObject->GetFullName());
 			}
 		}
 	}

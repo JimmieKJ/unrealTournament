@@ -11,6 +11,7 @@
 	Audio includes.
 ------------------------------------------------------------------------------------*/
 
+#include "XAudio2PrivatePCH.h"
 #include "XAudio2Device.h"
 #include "AudioEffect.h"
 #include "OpusAudioInfo.h"
@@ -25,12 +26,6 @@
 #include "TargetPlatform.h"
 #include "XAudio2Support.h"
 #include "Runtime/HeadMountedDisplay/Public/IHeadMountedDisplayModule.h"
-
-static TAutoConsoleVariable<int32> CVarXAudio2HmdDeviceIndex(
-	TEXT("hmd.XAudio2DeviceIndex"),
-	-1,
-	TEXT("Specifies the XAudio2 device index to use when HMD is connected. (-1 == Unknown)\n"),
-	ECVF_Default);
 
 DEFINE_LOG_CATEGORY(LogXAudio2);
 
@@ -114,7 +109,7 @@ bool FXAudio2Device::InitializeHardware()
 #endif
 
 	// Create a new XAudio2 device object instance
-	if (XAudio2Create(&DeviceProperties->XAudio2, Flags, AUDIO_HWTHREAD) != S_OK)
+	if (XAudio2Create(&DeviceProperties->XAudio2, Flags, (XAUDIO2_PROCESSOR)FPlatformAffinity::GetAudioThreadMask()) != S_OK)
 	{
 		UE_LOG(LogInit, Log, TEXT( "Failed to create XAudio2 interface" ) );
 		return( false );
@@ -137,34 +132,35 @@ bool FXAudio2Device::InitializeHardware()
 	// Initialize the audio device index to 0, which is the windows default device index
 	UINT32 DeviceIndex = 0;
 
+#if XAUDIO_SUPPORTS_DEVICE_DETAILS
 	FString WindowsAudioDeviceName;
 	GConfig->GetString(TEXT("/Script/WindowsTargetPlatform.WindowsTargetSettings"), TEXT("AudioDevice"), WindowsAudioDeviceName, GEngineIni);
 
-	// If the user specified one, try to load the user audio device
-	if (WindowsAudioDeviceName.Len() > 0)
+	// Allow HMD to specify audio device, if one was not specified in settings
+	if (WindowsAudioDeviceName.IsEmpty() && FAudioDevice::CanUseVRAudioDevice() && IHeadMountedDisplayModule::IsAvailable())
 	{
-		TArray<FString> AudioDevices;
-		DeviceProperties->GetAudioDeviceList(AudioDevices);
+		WindowsAudioDeviceName = IHeadMountedDisplayModule::Get().GetAudioOutputDevice();
+	}
+	
+	// If an audio device was specified, try to find it
+	if (!WindowsAudioDeviceName.IsEmpty())
+	{
+		uint32 NumDevices = 0;
+		DeviceProperties->XAudio2->GetDeviceCount(&NumDevices);
 
-		for (int32 i = 0; i < AudioDevices.Num(); ++i)
+		for (uint32 i = 0; i < NumDevices; ++i)
 		{
-			// Find the device index corresponding to the given device name
-			if (AudioDevices[i] == WindowsAudioDeviceName)
+			XAUDIO2_DEVICE_DETAILS Details;
+			DeviceProperties->XAudio2->GetDeviceDetails(i, &Details);
+
+			if (FString(Details.DeviceID) == WindowsAudioDeviceName || FString(Details.DisplayName) == WindowsAudioDeviceName)
 			{
 				DeviceIndex = i;
 				break;
 			}
 		}
 	}
-
-	// Allow HMD to override which audio device is chosen
-	bool bUseHmdDeviceIndex = CVarXAudio2HmdDeviceIndex.GetValueOnGameThread() >= 0 && 
-		IModularFeatures::Get().IsModularFeatureAvailable(IHeadMountedDisplayModule::GetModularFeatureName());
-
-	DeviceIndex = bUseHmdDeviceIndex ? CVarXAudio2HmdDeviceIndex.GetValueOnGameThread() : DeviceIndex;
-
-	if(DeviceIndex >= DeviceCount)
-		DeviceIndex = 0;
+#endif
 
 	// Get the details of the desired device index (0 is default)
 	if (!ValidateAPICall(TEXT("GetDeviceDetails"),
@@ -261,7 +257,6 @@ void FXAudio2Device::TeardownHardware()
 
 void FXAudio2Device::UpdateHardware()
 {
-	DeviceProperties->ProcessPendingTasksToCleanup();
 }
 
 FAudioEffectsManager* FXAudio2Device::CreateEffectsManager()
@@ -295,22 +290,23 @@ class ICompressedAudioInfo* FXAudio2Device::CreateCompressedAudioInfo(USoundWave
 	}
 
 #if WITH_OGGVORBIS
-	if (SoundWave->CompressionName.IsNone() || SoundWave->CompressionName == TEXT("OGG"))
+	static const FName NAME_OGG(TEXT("OGG"));
+	if (FPlatformProperties::RequiresCookedData() ? SoundWave->HasCompressedData(NAME_OGG) : (SoundWave->GetCompressedData(NAME_OGG) != nullptr))
 	{
 		ICompressedAudioInfo* CompressedInfo = new FVorbisAudioInfo();
 		if (!CompressedInfo)
 		{
 			UE_LOG(LogAudio, Error, TEXT("Failed to create new FVorbisAudioInfo for SoundWave %s: out of memory."), *SoundWave->GetName());
-			return NULL;
+			return nullptr;
 		}
 		return CompressedInfo;
 	}
 	else
 	{
-		return NULL;
+		return nullptr;
 	}
 #else
-	return NULL;
+	return nullptr;
 #endif
 	
 }

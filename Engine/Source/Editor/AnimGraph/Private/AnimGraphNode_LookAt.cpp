@@ -2,6 +2,7 @@
 
 #include "AnimGraphPrivatePCH.h"
 #include "AnimGraphNode_LookAt.h"
+#include "Animation/AnimInstance.h"
 
 /////////////////////////////////////////////////////
 // UAnimGraphNode_LookAt
@@ -52,14 +53,13 @@ FText UAnimGraphNode_LookAt::GetNodeTitle(ENodeTitleType::Type TitleType) const
 
 void UAnimGraphNode_LookAt::Draw(FPrimitiveDrawInterface* PDI, USkeletalMeshComponent* SkelMeshComp) const
 {
-	// this is not accurate debugging
-	// since i can't access the transient data of run-time instance, I have to calculate data from other way
-	// this technically means a frame delay, but it would be sufficient for debugging purpose. 
-	FVector BoneLocation = SkelMeshComp->GetSocketLocation(Node.BoneToModify.BoneName);
-	FVector TargetLocation = (Node.LookAtBone.BoneName != NAME_None)? SkelMeshComp->GetSocketLocation(Node.LookAtBone.BoneName) : Node.LookAtLocation;
-
-	DrawWireStar(PDI, TargetLocation, 5.f, FLinearColor(1, 0, 0), SDPG_Foreground);
-	DrawDashedLine(PDI, BoneLocation, TargetLocation, FLinearColor(1, 1, 0), 2.f, SDPG_Foreground);
+	if(SkelMeshComp)
+	{
+		if(FAnimNode_LookAt* ActiveNode = GetActiveInstanceNode<FAnimNode_LookAt>(SkelMeshComp->GetAnimInstance()))
+		{
+			ActiveNode->ConditionalDebugDraw(PDI, SkelMeshComp);
+		}
+	}
 }
 
 #undef LOCTEXT_NAMESPACE

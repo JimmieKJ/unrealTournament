@@ -38,6 +38,8 @@ enum EKismetCompiledStatementType
 	KCST_GotoReturnIfNot = 28, // [if (!TargetObject->TargetProperty)] goto TargetLabel
 	KCST_SwitchValue = 29,
 	// Kismet instrumentation extensions
+	KCST_InstrumentedEvent,			// Instrumented event
+	KCST_InstrumentedEventStop,		// Instrumented event stop
 	KCST_InstrumentedPureNodeEntry,	// Instrumented pure node entry
 	KCST_InstrumentedWireEntry,		// Instrumented wiretrace entry
 	KCST_InstrumentedWireExit,		// Instrumented wiretrace exit

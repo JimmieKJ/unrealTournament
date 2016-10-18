@@ -5,6 +5,12 @@
 #if WITH_UNREALEXR
 
 PRAGMA_DISABLE_SHADOW_VARIABLE_WARNINGS
+#if defined(_MSC_VER) && USING_CODE_ANALYSIS
+	#pragma warning(push)
+	#pragma warning(disable:28251)
+	#pragma warning(disable:28252)
+	#pragma warning(disable:28253)
+#endif
 #include "ThirdParty/openexr/Deploy/include/ImfIO.h"
 #include "ThirdParty/openexr/Deploy/include/ImathBox.h"
 #include "ThirdParty/openexr/Deploy/include/ImfChannelList.h"
@@ -15,6 +21,9 @@ PRAGMA_DISABLE_SHADOW_VARIABLE_WARNINGS
 #include "ThirdParty/openexr/Deploy/include/ImfStdIO.h"
 #include "ThirdParty/openexr/Deploy/include/ImfChannelList.h"
 #include "ThirdParty/openexr/Deploy/include/ImfRgbaFile.h"
+#if defined(_MSC_VER) && USING_CODE_ANALYSIS
+	#pragma warning(pop)
+#endif
 PRAGMA_ENABLE_SHADOW_VARIABLE_WARNINGS
 
 /**
@@ -49,6 +58,8 @@ private:
 	template <Imf::PixelType OutputFormat, typename sourcetype>
 	void CompressRaw(const sourcetype* SrcData, bool bIgnoreAlpha);
 	const char* GetRawChannelName(int ChannelIndex) const;
+	
+	bool bUseCompression;
 };
 
 #endif // WITH_UNREALEXR

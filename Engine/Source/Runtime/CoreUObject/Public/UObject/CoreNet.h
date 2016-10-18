@@ -3,10 +3,13 @@
 #pragma once
 
 #include "ObjectBase.h"
+#include "WeakObjectPtr.h"
+#include "Object.h"
 
 
 DECLARE_DELEGATE_RetVal_OneParam( bool, FNetObjectIsDynamic, const UObject*);
 
+class FOutBunch;
 
 //
 // Information about a field.
@@ -14,13 +17,15 @@ DECLARE_DELEGATE_RetVal_OneParam( bool, FNetObjectIsDynamic, const UObject*);
 class COREUOBJECT_API FFieldNetCache
 {
 public:
-	UField* Field;
-	int32	FieldNetIndex;
-	uint32	FieldChecksum;
+	UField*			Field;
+	int32			FieldNetIndex;
+	uint32			FieldChecksum;
+	mutable bool	bIncompatible;
+
 	FFieldNetCache()
 	{}
 	FFieldNetCache( UField* InField, int32 InFieldNetIndex, uint32 InFieldChecksum )
-		: Field(InField), FieldNetIndex(InFieldNetIndex), FieldChecksum(InFieldChecksum)
+		: Field(InField), FieldNetIndex(InFieldNetIndex), FieldChecksum(InFieldChecksum), bIncompatible(false)
 	{}
 };
 
@@ -81,6 +86,9 @@ public:
 
 	uint32 GetClassChecksum() const { return ClassChecksum; }
 
+	const FClassNetCache* GetSuper() const { return Super; }
+	const TArray< FFieldNetCache >& GetFields() const { return Fields; }
+
 private:
 	int32								FieldsBase;
 	const FClassNetCache*				Super;
@@ -103,7 +111,7 @@ public:
 
 	void				SortProperties( TArray< UProperty* >& Properties ) const;
 	uint32				SortedStructFieldsChecksum( const UStruct* Struct, uint32 Checksum ) const;
-	uint32				GetPropertyChecksum( const UProperty* Property, uint32 Checksum ) const;
+	uint32				GetPropertyChecksum( const UProperty* Property, uint32 Checksum, const bool bIncludeChildren ) const;
 	uint32				GetFunctionChecksum( const UFunction* Function, uint32 Checksum ) const;
 	uint32				GetFieldChecksum( const UField* Field, uint32 Checksum ) const;
 
@@ -136,7 +144,7 @@ class COREUOBJECT_API UPackageMap : public UObject
 
 	virtual void		ReceivedNak( const int32 NakPacketId ) { }
 	virtual void		ReceivedAck( const int32 AckPacketId ) { }
-	virtual void		NotifyBunchCommit( const int32 OutPacketId, const TArray< FNetworkGUID > & ExportNetGUIDs ) { }
+	virtual void		NotifyBunchCommit( const int32 OutPacketId, const FOutBunch* OutBunch ) { }
 
 	virtual void		GetNetGUIDStats(int32& AckCount, int32& UnAckCount, int32& PendingCount) { }
 
@@ -147,8 +155,9 @@ class COREUOBJECT_API UPackageMap : public UObject
 	void				SetDebugContextString( const FString& Str ) { DebugContextString = Str; }
 	void				ClearDebugContextString() { DebugContextString.Empty(); }
 
-	void							ResetTrackedUnmappedGuids( bool bShouldTrack ) { TrackedUnmappedNetGuids.Empty(); bShouldTrackUnmappedGuids = bShouldTrack; }
-	const TArray< FNetworkGUID > &	GetTrackedUnmappedGuids() const { return TrackedUnmappedNetGuids; }
+	void							ResetTrackedGuids( bool bShouldTrack ) { TrackedUnmappedNetGuids.Empty(); TrackedMappedDynamicNetGuids.Empty(); bShouldTrackUnmappedGuids = bShouldTrack; }
+	const TSet< FNetworkGUID > &	GetTrackedUnmappedGuids() const { return TrackedUnmappedNetGuids; }
+	const TSet< FNetworkGUID > &	GetTrackedDynamicMappedGuids() const { return TrackedMappedDynamicNetGuids; }
 
 	virtual void			LogDebugInfo( FOutputDevice & Ar) { }
 	virtual UObject*		GetObjectFromNetGUID( const FNetworkGUID& NetGUID, const bool bIgnoreMustBeMapped ) { return NULL; }
@@ -160,7 +169,8 @@ protected:
 	bool					bSuppressLogs;
 
 	bool					bShouldTrackUnmappedGuids;
-	TArray< FNetworkGUID >	TrackedUnmappedNetGuids;
+	TSet< FNetworkGUID >	TrackedUnmappedNetGuids;
+	TSet< FNetworkGUID >	TrackedMappedDynamicNetGuids;
 
 	FString					DebugContextString;
 };
@@ -185,6 +195,10 @@ struct FPacketIdRange
 /** Information for tracking retirement and retransmission of a property. */
 struct FPropertyRetirement
 {
+	static const uint32 ExpectedSanityTag = 0xDF41C9A3;
+
+	uint32			SanityTag;
+
 	FPropertyRetirement * Next;
 
 	TSharedPtr<class INetDeltaBaseState> DynamicState;
@@ -196,7 +210,8 @@ struct FPropertyRetirement
 	uint32			Config			: 1;
 
 	FPropertyRetirement()
-		:	Next ( NULL )
+		:	SanityTag( ExpectedSanityTag )
+		,	Next( NULL )
 		,	DynamicState ( NULL )
 		,   Reliable( 0 )
 		,   CustomDelta( 0 )
@@ -264,6 +279,7 @@ public:
 
 template <> struct TIsZeroConstructType<FLifetimeProperty> { enum { Value = true }; };
 
+GENERATE_MEMBER_FUNCTION_CHECK(GetLifetimeReplicatedProps, void, const, TArray<FLifetimeProperty>&)
 
 /**
  * FNetBitWriter
@@ -303,6 +319,23 @@ public:
 	virtual FArchive& operator<<(FStringAssetReference& Value) override;
 };
 
+bool FORCEINLINE NetworkGuidSetsAreSame( const TSet< FNetworkGUID >& A, const TSet< FNetworkGUID >& B )
+{
+	if ( A.Num() != B.Num() )
+	{
+		return false;
+	}
+
+	for ( const FNetworkGUID& CompareGuid : A )
+	{
+		if ( !B.Contains( CompareGuid ) )
+		{
+			return false;
+		}
+	}
+
+	return true;
+}
 
 /**
  * INetDeltaBaseState
@@ -366,7 +399,12 @@ struct FNetDeltaSerializeInfo
 		bOutSomeObjectsWereMapped	= false;
 		bCalledPreNetReceive		= false;
 		bOutHasMoreUnmapped			= false;
-		Object						= NULL;
+		bGuidListsChanged			= false;
+		bIsWritingOnClient			= false;
+		Object						= nullptr;
+		GatherGuidReferences		= nullptr;
+		TrackedGuidMemoryBytes		= nullptr;
+		MoveGuidToUnmapped			= nullptr;
 	}
 
 	// Used when writing
@@ -389,7 +427,13 @@ struct FNetDeltaSerializeInfo
 	bool							bOutSomeObjectsWereMapped;
 	bool							bCalledPreNetReceive;
 	bool							bOutHasMoreUnmapped;
+	bool							bGuidListsChanged;
+	bool							bIsWritingOnClient;
 	UObject*						Object;
+
+	TSet< FNetworkGUID >*			GatherGuidReferences;
+	int32*							TrackedGuidMemoryBytes;
+	const FNetworkGUID*				MoveGuidToUnmapped;
 
 	// Debugging variables
 	FString							DebugName;

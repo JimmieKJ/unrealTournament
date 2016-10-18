@@ -55,7 +55,7 @@ namespace Tools.CrashReporter.CrashReportCommon
 		{
 			if (Line != null)
 			{
-				string FullLine = DateTime.Now.ToString( "yyyy/MM/dd HH:mm:ss" ) + " [" + Thread.CurrentThread.ManagedThreadId.ToString( "D3" ) + "] : " + Line;
+				string FullLine = DateTime.UtcNow.ToString( "yyyy/MM/dd HH:mm:ss" ) + "UTC [" + Thread.CurrentThread.ManagedThreadId.ToString( "D3" ) + "] : " + Line;
 				lock( Sync )
 				{
 					LogFile.WriteLine( FullLine );

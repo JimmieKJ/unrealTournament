@@ -153,7 +153,6 @@ public:
 	UPROPERTY(BlueprintReadWrite, replicated, Category = PlayerState)
 	uint32 bReadyToPlay:1;
 
-
 	UPROPERTY(BlueprintReadOnly, Replicated, Category = PlayerState)
 		uint32 bIsWarmingUp : 1;
 
@@ -178,6 +177,10 @@ public:
 	UPROPERTY()
 		uint32 bAnnounceWeaponReward : 1;
 
+	/** Set if need to retry name change to account name. */
+	UPROPERTY()
+		FString RequestedName;
+
 	/** Last displayed ready state. */
 	uint8 LastReadyState;
 
@@ -201,6 +204,10 @@ public:
 	/** Last time this player sent a need health message. */
 	UPROPERTY()
 		float LastNeedHealthTime;
+
+	/** Last time this player received a behind you message. */
+	UPROPERTY()
+		float LastBehindYouTime;
 
 	FTimerHandle PlayKillAnnouncement;
 	FTimerHandle UpdateOldNameHandle;
@@ -609,9 +616,6 @@ public:
 	UPROPERTY(Replicated, BlueprintReadWrite, Category = PlayerState)
 		TSubclassOf<class AUTInventory> BoostClass;
 
-	UPROPERTY(BlueprintReadWrite, Category = PlayerState)
-		bool bIsPowerupSelectWindowOpen;
-
 	/** Last scoreboard position, used by minimap. */
 	UPROPERTY()
 		FVector ScoreCorner;
@@ -719,11 +723,6 @@ private:
 	bool bReadStatsFromCloud;
 	bool bSuccessfullyReadStatsFromCloud;
 	bool bWroteStatsToCloud;
-	int32 DuelSkillRatingThisMatch;
-	int32 CTFSkillRatingThisMatch;
-	int32 TDMSkillRatingThisMatch;
-	int32 DMSkillRatingThisMatch;
-	int32 ShowdownSkillRatingThisMatch;
 	IOnlineIdentityPtr OnlineIdentityInterface;
 	IOnlineUserCloudPtr OnlineUserCloudInterface;
 	FOnReadUserFileCompleteDelegate OnReadUserFileCompleteDelegate;
@@ -760,6 +759,8 @@ public:
 	UPROPERTY(Replicated)
 	int32 ShowdownRank;
 	UPROPERTY(Replicated)
+	int32 FlagRunRank;
+	UPROPERTY(Replicated)
 	int32 RankedDuelRank;
 	UPROPERTY(Replicated)
 	int32 RankedCTFRank;
@@ -777,6 +778,8 @@ public:
 	uint8 DMMatchesPlayed;
 	UPROPERTY(Replicated)
 	uint8 ShowdownMatchesPlayed;
+	UPROPERTY(Replicated)
+	uint8 FlagRunMatchesPlayed;
 	UPROPERTY(Replicated)
 	uint8 RankedDuelMatchesPlayed;
 	UPROPERTY(Replicated)
@@ -947,6 +950,7 @@ public:
 	TSharedRef<SWidget> BuildLeague(AUTBaseGameMode* DefaultGame, FText LeagueName);
 	TSharedRef<SWidget> BuildLeagueDataRow(FText Label, FText Data);
 	TSharedRef<SWidget> BuildLeagueDivision(int32 Tier, int32 Division);
+	TSharedRef<SWidget> BuildSeasonInfo();
 	FText LeagueTierToText(int32 Tier);
 	FString LeagueTierToBrushName(int32 Tier);
 	void EpicIDClicked();
@@ -1110,6 +1114,14 @@ public:
 	AUTGameVolume* LastKnownLocation;
 
 	TSubclassOf<UUTCharacterVoice> GetCharacterVoiceClass();
+
+	TMap< UClass*, int32> DamageDelt;
+
+	virtual void SetUniqueId(const TSharedPtr<const FUniqueNetId>& InUniqueId) override;
+
+private:
+	virtual void ForceUpdatePlayerInfo();
+
 };
 
 USTRUCT()
@@ -1200,6 +1212,8 @@ struct FRemotePlayerInfo
 		FJsonObjectConverter::UStructToJsonObject(FRemotePlayerInfo::StaticStruct(), this,JsonObject.ToSharedRef(), 0, 0);
 		JsonObject->SetStringField("PlayerId", PlayerID.ToString());
 	}
+
 };
+
 
 

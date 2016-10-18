@@ -143,21 +143,19 @@ class ENGINE_API FTimerManager : public FNoncopyable
 {
 public:
 
-	// ----------------------------------
-	// FTickableGameObject interface
-
 	void Tick(float DeltaTime);
 	TStatId GetStatId() const;
-
 
 	// ----------------------------------
 	// Timer API
 
-	FTimerManager()
-		: InternalTime(0.0)
-		, LastTickedFrame(static_cast<uint64>(-1))
-	{}
+	FTimerManager();
+	virtual ~FTimerManager();
 
+	/**
+	 * Called from crash handler to provide more debug information.
+	 */
+	virtual void OnCrash();
 
 	/**
 	 * Sets a timer to call the given native function at a set interval.  If a timer is already set
@@ -237,13 +235,26 @@ public:
 	}
 
 	/**
-	 * Clears a previously set timer, identical to calling SetTimer() with a <= 0.f rate.
+	 * DEPRECATED: Clears a previously set timer, identical to calling SetTimer() with a <= 0.f rate.
 	 *
 	 * @param InHandle The handle of the timer to clear.
 	 */
-	FORCEINLINE void ClearTimer(FTimerHandle InHandle)
+	DEPRECATED(4.12, "This function is deprecated to ensure that timers that are no longer valid are not persisted. Please call this function with a non-const reference.")
+	FORCEINLINE void ClearTimer(const FTimerHandle& InHandle)
 	{
 		InternalClearTimer(InHandle);
+	}
+
+	/**
+	* Clears a previously set timer, identical to calling SetTimer() with a <= 0.f rate.
+	* Invalidates the timer handle as it should no longer be used.
+	*
+	* @param InHandle The handle of the timer to clear.
+	*/
+	FORCEINLINE void ClearTimer(FTimerHandle& InHandle)
+	{
+		InternalClearTimer(InHandle);
+		InHandle.Invalidate();
 	}
 
 	/** Clears all timers that are bound to functions on the given object. */
@@ -254,7 +265,6 @@ public:
 			InternalClearAllTimers( Object );
 		}
 	}
-
 
 	/**
 	 * Pauses a previously set timer.
@@ -377,8 +387,11 @@ public:
 	 */
 	FTimerHandle K2_FindDynamicTimerHandle(FTimerDynamicDelegate InDynamicDelegate) const;
 
-	/** Debug command to output info on all timers curently set to the log. */
+	/** Debug command to output info on all timers currently set to the log. */
 	void ListTimers() const;
+
+	/** Get the current last assigned handle */
+	static void ValidateHandle(FTimerHandle& InOutHandle);
 
 private:
 	void InternalSetTimer( FTimerHandle& InOutHandle, FTimerUnifiedDelegate const& InDelegate, float InRate, bool InbLoop, float InFirstDelay );
@@ -416,5 +429,8 @@ private:
 
 	/** Set this to GFrameCounter when Timer is ticked. To figure out if Timer has been already ticked or not this frame. */
 	uint64 LastTickedFrame;
+
+	/** The last handle we assigned from this timer manager */
+	static uint64 LastAssignedHandle;
 };
 

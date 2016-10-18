@@ -59,6 +59,8 @@ public:
 		return true;
 	}
 
+	virtual void ForceRefresh() override {}
+
 	virtual void RequestRefresh() override {}
 
 	virtual TSharedPtr<class FAssetThumbnailPool> GetThumbnailPool() const override

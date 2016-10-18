@@ -3,6 +3,7 @@
 #include "BlueprintGraphPrivatePCH.h"
 #include "Engine/ComponentDelegateBinding.h"
 #include "K2Node_ComponentBoundEvent.h"
+#include "Kismet2/KismetEditorUtilities.h"
 
 #define LOCTEXT_NAMESPACE "K2Node"
 
@@ -18,6 +19,21 @@ bool UK2Node_ComponentBoundEvent::Modify(bool bAlwaysMarkDirty)
 	return Super::Modify(bAlwaysMarkDirty);
 }
 
+bool UK2Node_ComponentBoundEvent::CanPasteHere(const UEdGraph* TargetGraph) const
+{
+	// By default, to be safe, we don't allow events to be pasted, except under special circumstances (see below)
+	bool bDisallowPaste = !Super::CanPasteHere(TargetGraph);
+	if (!bDisallowPaste)
+	{
+		if (const UK2Node_Event* PreExistingNode = FKismetEditorUtilities::FindBoundEventForComponent(FBlueprintEditorUtils::FindBlueprintForGraph(TargetGraph), DelegatePropertyName, ComponentPropertyName))
+		{
+			//UE_LOG(LogBlueprint, Log, TEXT("Cannot paste event node (%s) directly because it is flagged as an internal event."), *GetFName().ToString());
+			bDisallowPaste = true;
+		}
+	}
+	return !bDisallowPaste;
+
+}
 FText UK2Node_ComponentBoundEvent::GetNodeTitle(ENodeTitleType::Type TitleType) const
 {
 	if (CachedNodeTitle.IsOutOfDate(this))

@@ -9,6 +9,7 @@
 #include "VulkanPendingState.h"
 #include "VulkanManager.h"
 #include "VulkanContext.h"
+#include "VulkanMemory.h"
 
 static FVulkanTimestampQueryPool* GTimestampQueryPool = nullptr;
 
@@ -66,8 +67,12 @@ void FVulkanGPUTiming::StartTiming()
 	{
 		if (StartTimestamp >= 0 && EndTimestamp >= 0)
 		{
-			auto& State = GTimestampQueryPool->Device->GetPendingState();
+#if 1//VULKAN_USE_NEW_COMMAND_BUFFERS
+			check(0);
+#else
+			//FVulkanPendingState& State = GTimestampQueryPool->Device->GetPendingState();
 			GTimestampQueryPool->WriteTimestamp(State.GetCommandBuffer(), StartTimestamp, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
+#endif
 		}
 		bIsTiming = true;
 	}
@@ -84,8 +89,12 @@ void FVulkanGPUTiming::EndTiming()
 	{
 		if (StartTimestamp >= 0 && EndTimestamp >= 0)
 		{
-			auto& State = GTimestampQueryPool->Device->GetPendingState();
+#if 1//VULKAN_USE_NEW_COMMAND_BUFFERS
+			check(0);
+#else
+			//FVulkanPendingState& State = GTimestampQueryPool->Device->GetPendingState();
 			GTimestampQueryPool->WriteTimestamp(State.GetCommandBuffer(), EndTimestamp, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT);
+#endif
 		}
 		bIsTiming = false;
 		bEndTimestampIssued = true;
@@ -337,15 +346,15 @@ void FVulkanDynamicRHI::IssueLongGPUTask()
 	{
 		FVulkanViewport* Viewport = Viewports[LargestViewportIndex];
 
-		const auto FeatureLevel = GMaxRHIFeatureLevel;
+		const ERHIFeatureLevel::Type FeatureLevel = GMaxRHIFeatureLevel;
 
 		FRHICommandList_RecursiveHazardous RHICmdList(&Device->GetImmediateContext());
-		SetRenderTarget(RHICmdList, Viewport->GetBackBuffer(), FTextureRHIRef());
+		SetRenderTarget(RHICmdList, Viewport->GetBackBuffer(RHICmdList), FTextureRHIRef());
 		RHICmdList.SetBlendState(TStaticBlendState<CW_RGBA, BO_Add, BF_One, BF_One>::GetRHI(), FLinearColor::Black);
 		RHICmdList.SetDepthStencilState(TStaticDepthStencilState<false, CF_Always>::GetRHI(), 0);
 		RHICmdList.SetRasterizerState(TStaticRasterizerState<FM_Solid, CM_None>::GetRHI());
 
-		auto ShaderMap = GetGlobalShaderMap(FeatureLevel);
+		TShaderMap<FGlobalShaderType>* ShaderMap = GetGlobalShaderMap(FeatureLevel);
 		TShaderMapRef<TOneColorVS<true> > VertexShader(ShaderMap);
 		TShaderMapRef<FLongGPUTaskPS> PixelShader(ShaderMap);
 
@@ -366,6 +375,23 @@ void FVulkanDynamicRHI::IssueLongGPUTask()
 
 namespace VulkanRHI
 {
+	VkBuffer CreateBuffer(FVulkanDevice* InDevice, VkDeviceSize Size, VkBufferUsageFlags BufferUsageFlags, VkMemoryRequirements& OutMemoryRequirements)
+	{
+		VkDevice Device = InDevice->GetInstanceHandle();
+		VkBuffer Buffer = VK_NULL_HANDLE;
+
+		VkBufferCreateInfo BufferCreateInfo;
+		FMemory::Memzero(BufferCreateInfo);
+		BufferCreateInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+		BufferCreateInfo.size = Size;
+		BufferCreateInfo.usage = BufferUsageFlags;
+		VERIFYVULKANRESULT_EXPANDED(VulkanRHI::vkCreateBuffer(Device, &BufferCreateInfo, nullptr, &Buffer));
+
+		VulkanRHI::vkGetBufferMemoryRequirements(Device, Buffer, &OutMemoryRequirements);
+
+		return Buffer;
+	}
+
 	/**
 	 * Checks that the given result isn't a failure.  If it is, the application exits with an appropriate error message.
 	 * @param	Result - The result code to check
@@ -374,7 +400,7 @@ namespace VulkanRHI
 	 * @param	Filename - The filename of the source file containing Code.
 	 * @param	Line - The line number of Code within Filename.
 	 */
-	void VerifyVulkanResult(VkResult Result, const ANSICHAR* VkFuntion, const ANSICHAR* Filename, uint32 Line)
+	void VerifyVulkanResult(VkResult Result, const ANSICHAR* VkFunction, const ANSICHAR* Filename, uint32 Line)
 	{
 		FString ErrorString;
 		switch (Result)
@@ -408,14 +434,14 @@ namespace VulkanRHI
 		}
 
 		UE_LOG(LogVulkanRHI, Error, TEXT("%s failed, VkResult=%d\n at %s:%u \n with error %s"),
-			ANSI_TO_TCHAR(VkFuntion), (int32)Result, ANSI_TO_TCHAR(Filename), Line, *ErrorString);
+			ANSI_TO_TCHAR(VkFunction), (int32)Result, ANSI_TO_TCHAR(Filename), Line, *ErrorString);
 
 		//#todo-rco: Don't need this yet...
 		//TerminateOnDeviceRemoved(Result);
 		//TerminateOnOutOfMemory(Result, false);
 
 		UE_LOG(LogVulkanRHI, Fatal, TEXT("%s failed, VkResult=%d\n at %s:%u \n with error %s"),
-			ANSI_TO_TCHAR(VkFuntion), (int32)Result, ANSI_TO_TCHAR(Filename), Line, *ErrorString);
+			ANSI_TO_TCHAR(VkFunction), (int32)Result, ANSI_TO_TCHAR(Filename), Line, *ErrorString);
 	}
 }
 
@@ -436,6 +462,9 @@ DEFINE_STAT(STAT_VulkanUPPrepTime);
 DEFINE_STAT(STAT_VulkanUniformBufferCreateTime);
 DEFINE_STAT(STAT_VulkanApplyDSUniformBuffers);
 DEFINE_STAT(STAT_VulkanSRVUpdateTime);
+DEFINE_STAT(STAT_VulkanDeletionQueue);
+DEFINE_STAT(STAT_VulkanQueueSubmit);
+DEFINE_STAT(STAT_VulkanQueuePresent);
 #if VULKAN_ENABLE_AGGRESSIVE_STATS
 DEFINE_STAT(STAT_VulkanApplyDSResources);
 DEFINE_STAT(STAT_VulkanUpdateDescriptorSets);

@@ -5,6 +5,12 @@
 #include "ByteKeyArea.h"
 
 
+struct FIntegralCurve;
+class SWidget;
+class UEnum;
+class UMovieSceneSection;
+
+
 /**
  * A key area for displaying and editing integral curves representing enums.
  */
@@ -21,7 +27,7 @@ public:
 
 public:
 
-	// FByteKeyArea overrides
+	//~ FByteKeyArea interface
 
 	virtual bool CanCreateKeyEditor() override;
 	virtual TSharedRef<SWidget> CreateKeyEditor(ISequencer* Sequencer) override;

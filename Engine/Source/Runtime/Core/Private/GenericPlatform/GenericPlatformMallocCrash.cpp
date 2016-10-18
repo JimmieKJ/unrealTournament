@@ -280,20 +280,21 @@ void* FGenericPlatformMallocCrash::Realloc( void* Ptr, SIZE_T NewSize, uint32 Al
 
 			if( bPreviousMalloc )
 			{
-				// At this moment, we can safely get allocation size only from the binned malloc, this may change in future.
-				if( FCStringWide::Strcmp( PreviousMalloc->GetDescriptiveName(), TEXT("binned") ) == 0 )
+				// We can safely get allocation size only from a few mallocs, this may change in future.
+				if( FCStringWide::Strcmp( PreviousMalloc->GetDescriptiveName(), TEXT("binned") ) == 0 ||
+					FCStringWide::Strcmp( PreviousMalloc->GetDescriptiveName(), TEXT("jemalloc") ) == 0 )
 				{
 					// Realloc from the previous allocator.
-					PreviousMalloc->GetAllocationSize(Ptr,PtrSize);
-					if( PtrSize == 0 )
+					if (!PreviousMalloc->GetAllocationSize(Ptr, PtrSize) || PtrSize == 0)
 					{
-						PtrSize = 0;
+						FPlatformMisc::LowLevelOutputDebugString( TEXT( "Realloc from previous malloc - we were not able to get correct allocation size, exiting...\n" ) );
+						FPlatformMisc::RequestExit( true );
 					}
 				}
 				// There is nothing we can do about it.
 				else
 				{
-					FPlatformMisc::LowLevelOutputDebugString( TEXT( "Realloc from previous malloc, exiting...\n" ) );
+					FPlatformMisc::LowLevelOutputDebugString( TEXT( "Realloc from previous malloc - we don't know how to get allocation size, exiting...\n" ) );
 					FPlatformMisc::RequestExit( true );	
 				}
 			}

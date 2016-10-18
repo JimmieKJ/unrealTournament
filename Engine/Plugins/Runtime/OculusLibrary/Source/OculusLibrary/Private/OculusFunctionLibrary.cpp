@@ -2,9 +2,11 @@
 
 #include "OculusFunctionLibraryPrivatePCH.h"
 #include "OculusFunctionLibrary.h"
+#include "AsyncLoadingSplash.h"
 
 #include "IOculusRiftPlugin.h"
-#include "IGearVRPlugin.h"
+
+#define GEARVR_SUPPORTED_PLATFORMS (PLATFORM_ANDROID && PLATFORM_ANDROID_ARM)
 
 #define OCULUS_SUPPORTED_PLATFORMS (OCULUS_RIFT_SUPPORTED_PLATFORMS || GEARVR_SUPPORTED_PLATFORMS)
 
@@ -62,7 +64,7 @@ void UOculusFunctionLibrary::SetBaseRotationAndBaseOffsetInMeters(FRotator Rotat
 {
 #if OCULUS_SUPPORTED_PLATFORMS
 	FHeadMountedDisplay* OculusHMD = GetOculusHMD();
-	if ((OculusHMD != nullptr) && GEngine->HMDDevice->IsHeadTrackingAllowed())
+	if (OculusHMD != nullptr)
 	{
 		if ((Options == EOrientPositionSelector::Orientation) || (Options == EOrientPositionSelector::OrientationAndPosition))
 		{
@@ -80,7 +82,7 @@ void UOculusFunctionLibrary::GetBaseRotationAndBaseOffsetInMeters(FRotator& OutR
 {
 #if OCULUS_SUPPORTED_PLATFORMS
 	FHeadMountedDisplay* OculusHMD = GetOculusHMD();
-	if ((OculusHMD != nullptr) && GEngine->HMDDevice->IsHeadTrackingAllowed())
+	if (OculusHMD != nullptr)
 	{
 		OutRotation = OculusHMD->GetBaseRotation();
 		OutBaseOffsetInMeters = OculusHMD->GetBaseOffsetInMeters();
@@ -93,7 +95,7 @@ void UOculusFunctionLibrary::GetBaseRotationAndBaseOffsetInMeters(FRotator& OutR
 #endif // OCULUS_SUPPORTED_PLATFORMS
 }
 
-void UOculusFunctionLibrary::GetRawSensorData(FVector& Accelerometer, FVector& Gyro, FVector& Magnetometer, float& Temperature, float& TimeInSeconds)
+void UOculusFunctionLibrary::GetRawSensorData(FVector& AngularAcceleration, FVector& LinearAcceleration, FVector& AngularVelocity, FVector& LinearVelocity, float& TimeInSeconds)
 {
 #if OCULUS_RIFT_SUPPORTED_PLATFORMS
 	FHeadMountedDisplay* OculusHMD = GetOculusHMD();
@@ -102,10 +104,10 @@ void UOculusFunctionLibrary::GetRawSensorData(FVector& Accelerometer, FVector& G
 		FHeadMountedDisplay::SensorData Data;
 		OculusHMD->GetRawSensorData(Data);
 
-		Accelerometer = Data.Accelerometer;
-		Gyro = Data.Gyro;
-		Magnetometer = Data.Magnetometer;
-		Temperature = Data.Temperature;
+		AngularAcceleration = Data.AngularAcceleration;
+		LinearAcceleration = Data.LinearAcceleration;
+		AngularVelocity = Data.AngularVelocity;
+		LinearVelocity = Data.LinearVelocity;
 		TimeInSeconds = Data.TimeInSeconds;
 	}
 #endif // OCULUS_SUPPORTED_PLATFORMS
@@ -200,13 +202,13 @@ void UOculusFunctionLibrary::SetBaseRotationAndPositionOffset(FRotator BaseRot, 
 {
 #if OCULUS_SUPPORTED_PLATFORMS
 	FHeadMountedDisplay* OculusHMD = GetOculusHMD();
-	if (OculusHMD != nullptr && GEngine->HMDDevice->IsHeadTrackingAllowed())
+	if (OculusHMD != nullptr)
 	{
-		if (Options == EOrientPositionSelector::Orientation || EOrientPositionSelector::OrientationAndPosition)
+		if (Options == EOrientPositionSelector::Orientation || Options == EOrientPositionSelector::OrientationAndPosition)
 		{
 			GEngine->HMDDevice->SetBaseRotation(BaseRot);
 		}
-		if (Options == EOrientPositionSelector::Position || EOrientPositionSelector::OrientationAndPosition)
+		if (Options == EOrientPositionSelector::Position || Options == EOrientPositionSelector::OrientationAndPosition)
 		{
 			OculusHMD->GetSettings()->PositionOffset = PosOffset;
 		}
@@ -218,10 +220,225 @@ void UOculusFunctionLibrary::GetBaseRotationAndPositionOffset(FRotator& OutRot, 
 {
 #if OCULUS_SUPPORTED_PLATFORMS
 	FHeadMountedDisplay* OculusHMD = GetOculusHMD();
-	if (OculusHMD != nullptr && GEngine->HMDDevice->IsHeadTrackingAllowed())
+	if (OculusHMD != nullptr)
 	{
 		OutRot = OculusHMD->GetBaseRotation();
 		OutPosOffset = OculusHMD->GetSettings()->PositionOffset;
+	}
+#endif // OCULUS_SUPPORTED_PLATFORMS
+}
+
+void UOculusFunctionLibrary::AddLoadingSplashScreen(class UTexture2D* Texture, FVector TranslationInMeters, FRotator Rotation, FVector2D SizeInMeters, FRotator DeltaRotation, bool bClearBeforeAdd)
+{
+#if OCULUS_SUPPORTED_PLATFORMS
+	FHeadMountedDisplay* OculusHMD = GetOculusHMD();
+	if (OculusHMD != nullptr)
+	{
+		FAsyncLoadingSplash* Splash = OculusHMD->GetAsyncLoadingSplash();
+		if (Splash)
+		{
+			if (bClearBeforeAdd)
+			{
+				Splash->ClearSplashes();
+			}
+			Splash->SetLoadingIconMode(false);
+
+			FAsyncLoadingSplash::FSplashDesc Desc;
+			Desc.LoadingTexture = Texture;
+			Desc.QuadSizeInMeters = SizeInMeters;
+			Desc.TransformInMeters = FTransform(Rotation, TranslationInMeters);
+			Desc.DeltaRotation = FQuat(DeltaRotation);
+			Splash->AddSplash(Desc);
+		}
+	}
+#endif // OCULUS_SUPPORTED_PLATFORMS
+}
+
+void UOculusFunctionLibrary::ClearLoadingSplashScreens()
+{
+#if OCULUS_SUPPORTED_PLATFORMS
+	FHeadMountedDisplay* OculusHMD = GetOculusHMD();
+	if (OculusHMD != nullptr)
+	{
+		FAsyncLoadingSplash* Splash = OculusHMD->GetAsyncLoadingSplash();
+		if (Splash)
+		{
+			Splash->ClearSplashes();
+			Splash->SetLoadingIconMode(false);
+		}
+	}
+#endif // OCULUS_SUPPORTED_PLATFORMS
+}
+
+void UOculusFunctionLibrary::ShowLoadingSplashScreen()
+{
+#if OCULUS_SUPPORTED_PLATFORMS
+	FHeadMountedDisplay* OculusHMD = GetOculusHMD();
+	if (OculusHMD != nullptr)
+	{
+		FAsyncLoadingSplash* Splash = OculusHMD->GetAsyncLoadingSplash();
+		if (Splash)
+		{
+			Splash->SetLoadingIconMode(false);
+			Splash->Show(FAsyncLoadingSplash::ShowManually);
+		}
+	}
+#endif // OCULUS_SUPPORTED_PLATFORMS
+}
+
+void UOculusFunctionLibrary::HideLoadingSplashScreen(bool bClear)
+{
+#if OCULUS_SUPPORTED_PLATFORMS
+	FHeadMountedDisplay* OculusHMD = GetOculusHMD();
+	if (OculusHMD != nullptr)
+	{
+		FAsyncLoadingSplash* Splash = OculusHMD->GetAsyncLoadingSplash();
+		if (Splash)
+		{
+			Splash->Hide(FAsyncLoadingSplash::ShowManually);
+			if (bClear)
+			{
+				Splash->ClearSplashes();
+			}
+		}
+	}
+#endif // OCULUS_SUPPORTED_PLATFORMS
+}
+
+void UOculusFunctionLibrary::EnableAutoLoadingSplashScreen(bool bAutoShowEnabled)
+{
+#if OCULUS_SUPPORTED_PLATFORMS
+	FHeadMountedDisplay* OculusHMD = GetOculusHMD();
+	if (OculusHMD != nullptr)
+	{
+		FAsyncLoadingSplash* Splash = OculusHMD->GetAsyncLoadingSplash();
+		if (Splash)
+		{
+			Splash->SetAutoShow(bAutoShowEnabled);
+		}
+	}
+#endif // OCULUS_SUPPORTED_PLATFORMS
+}
+
+bool UOculusFunctionLibrary::IsAutoLoadingSplashScreenEnabled()
+{
+#if OCULUS_SUPPORTED_PLATFORMS
+	FHeadMountedDisplay* OculusHMD = GetOculusHMD();
+	if (OculusHMD != nullptr)
+	{
+		FAsyncLoadingSplash* Splash = OculusHMD->GetAsyncLoadingSplash();
+		if (Splash)
+		{
+			return Splash->IsAutoShow();
+		}
+	}
+#endif // OCULUS_SUPPORTED_PLATFORMS
+	return false;
+}
+
+void UOculusFunctionLibrary::ShowLoadingIcon(class UTexture2D* Texture)
+{
+#if OCULUS_SUPPORTED_PLATFORMS
+	FHeadMountedDisplay* OculusHMD = GetOculusHMD();
+	if (OculusHMD != nullptr)
+	{
+		FAsyncLoadingSplash* Splash = OculusHMD->GetAsyncLoadingSplash();
+		if (Splash)
+		{
+			Splash->ClearSplashes();
+			FAsyncLoadingSplash::FSplashDesc Desc;
+			Desc.LoadingTexture = Texture;
+			Splash->AddSplash(Desc);
+			Splash->SetLoadingIconMode(true);
+			Splash->Show(FAsyncLoadingSplash::ShowManually);
+		}
+	}
+#endif // OCULUS_SUPPORTED_PLATFORMS
+}
+
+void UOculusFunctionLibrary::HideLoadingIcon()
+{
+#if OCULUS_SUPPORTED_PLATFORMS
+	FHeadMountedDisplay* OculusHMD = GetOculusHMD();
+	if (OculusHMD != nullptr)
+	{
+		FAsyncLoadingSplash* Splash = OculusHMD->GetAsyncLoadingSplash();
+		if (Splash)
+		{
+			Splash->Hide(FAsyncLoadingSplash::ShowManually);
+			Splash->ClearSplashes();
+			Splash->SetLoadingIconMode(false);
+		}
+	}
+#endif // OCULUS_SUPPORTED_PLATFORMS
+}
+
+bool UOculusFunctionLibrary::IsLoadingIconEnabled()
+{
+#if OCULUS_SUPPORTED_PLATFORMS
+	FHeadMountedDisplay* OculusHMD = GetOculusHMD();
+	if (OculusHMD != nullptr)
+	{
+		FAsyncLoadingSplash* Splash = OculusHMD->GetAsyncLoadingSplash();
+		if (Splash)
+		{
+			return Splash->IsLoadingIconMode();
+		}
+	}
+#endif // OCULUS_SUPPORTED_PLATFORMS
+	return false;
+}
+
+
+void UOculusFunctionLibrary::SetLoadingSplashParams(FString TexturePath, FVector DistanceInMeters, FVector2D SizeInMeters, FVector RotationAxis, float RotationDeltaInDeg)
+{
+#if OCULUS_SUPPORTED_PLATFORMS
+	FHeadMountedDisplay* OculusHMD = GetOculusHMD();
+	if (OculusHMD != nullptr)
+	{
+		FAsyncLoadingSplash* Splash = OculusHMD->GetAsyncLoadingSplash();
+		if (Splash)
+		{
+			Splash->ClearSplashes();
+			Splash->SetLoadingIconMode(false);
+			FAsyncLoadingSplash::FSplashDesc Desc;
+			Desc.TexturePath = TexturePath;
+			Desc.QuadSizeInMeters = SizeInMeters;
+			Desc.TransformInMeters = FTransform(DistanceInMeters);
+			Desc.DeltaRotation = FQuat(RotationAxis, FMath::DegreesToRadians(RotationDeltaInDeg));
+			Splash->AddSplash(Desc);
+		}
+	}
+#endif // OCULUS_SUPPORTED_PLATFORMS
+}
+
+void UOculusFunctionLibrary::GetLoadingSplashParams(FString& TexturePath, FVector& DistanceInMeters, FVector2D& SizeInMeters, FVector& RotationAxis, float& RotationDeltaInDeg)
+{
+#if OCULUS_SUPPORTED_PLATFORMS
+	FHeadMountedDisplay* OculusHMD = GetOculusHMD();
+	if (OculusHMD != nullptr)
+	{
+		FAsyncLoadingSplash* Splash = OculusHMD->GetAsyncLoadingSplash();
+		if (Splash)
+		{
+			FAsyncLoadingSplash::FSplashDesc Desc;
+			if (Splash->GetSplash(0, Desc))
+			{
+				if (Desc.LoadingTexture && Desc.LoadingTexture->IsValidLowLevel())
+				{
+					TexturePath = Desc.LoadingTexture->GetPathName();
+				}
+				else
+				{
+					TexturePath = Desc.TexturePath;
+				}
+				DistanceInMeters = Desc.TransformInMeters.GetTranslation();
+				SizeInMeters	 = Desc.QuadSizeInMeters;
+				
+				const FQuat rotation(Desc.DeltaRotation);
+				rotation.ToAxisAndAngle(RotationAxis, RotationDeltaInDeg);
+			}
+		}
 	}
 #endif // OCULUS_SUPPORTED_PLATFORMS
 }

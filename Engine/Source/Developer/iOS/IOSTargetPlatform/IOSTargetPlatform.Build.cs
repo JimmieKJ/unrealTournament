@@ -29,6 +29,8 @@ public class IOSTargetPlatform : ModuleRules
 
 		PlatformSpecificDynamicallyLoadedModuleNames.Add("LaunchDaemonMessages");
 
+		PrivateIncludePaths.Add("Developer/IOS/IOSTargetPlatform/Private");
+
 		//This is somehow necessary for getting iOS to build on, at least, windows. It seems like the target platform is included for cooking, and thus it requirtes a bunch of other info.
 		PublicIncludePaths.AddRange(
 			new string[]

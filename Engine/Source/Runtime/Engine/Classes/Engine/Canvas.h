@@ -145,7 +145,7 @@ public:
 /**
  * A drawing canvas.
  */
-UCLASS(transient)
+UCLASS(transient, BlueprintType)
 class ENGINE_API UCanvas
 	: public UObject
 {

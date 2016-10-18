@@ -2,7 +2,6 @@
 
 #pragma once
 
-
 /**
  * Interface for AutomationController modules.
  */
@@ -23,4 +22,9 @@ public:
 
 	/** Tick function that will execute enabled tests for different device clusters. */
 	virtual void Tick() = 0;
+
+	static IAutomationControllerModule& Get()
+	{
+		return FModuleManager::GetModuleChecked<IAutomationControllerModule>("AutomationController");
+	}
 };

@@ -123,11 +123,6 @@ void AUTGameSessionRanked::OnEnumerateTitleFilesComplete(bool bWasSuccessful)
 			OnlineTitleFileInterface->ReadFile(GetMCPRankedPlaylistFilename());
 		}
 	}
-	else
-	{
-		// Wait for any other processes to finish/cleanup before we start advertising
-		GetWorldTimerManager().SetTimer(StartServerTimerHandle, this, &ThisClass::StartServerInternal, 0.1f);
-	}
 }
 
 void AUTGameSessionRanked::StartServerInternal()
@@ -275,9 +270,9 @@ void AUTGameSessionRanked::CleanUpOnlineSubsystem()
 	Super::CleanUpOnlineSubsystem();
 }
 
-void AUTGameSessionRanked::OnDestroySessionComplete(FName SessionName, bool bWasSuccessful)
+void AUTGameSessionRanked::OnDestroySessionComplete(FName InSessionName, bool bWasSuccessful)
 {
-	if (SessionName == GameSessionName)
+	if (InSessionName == GameSessionName)
 	{
 		IOnlineSubsystem* OnlineSub = IOnlineSubsystem::Get();
 		if (OnlineSub)
@@ -288,7 +283,7 @@ void AUTGameSessionRanked::OnDestroySessionComplete(FName SessionName, bool bWas
 
 		if (!bWasSuccessful)
 		{
-			UE_LOG(LogOnlineGame, Warning, TEXT("Failed to destroy previous game session %s"), *SessionName.ToString());
+			UE_LOG(LogOnlineGame, Warning, TEXT("Failed to destroy previous game session %s"), *InSessionName.ToString());
 		}
 
 		FTimerHandle TempHandle;
@@ -296,11 +291,11 @@ void AUTGameSessionRanked::OnDestroySessionComplete(FName SessionName, bool bWas
 	}
 }
 
-void AUTGameSessionRanked::OnCreateSessionComplete(FName SessionName, bool bWasSuccessful)
+void AUTGameSessionRanked::OnCreateSessionComplete(FName InSessionName, bool bWasSuccessful)
 {
-	if (SessionName == GameSessionName)
+	if (InSessionName == GameSessionName)
 	{
-		UE_LOG(LogOnlineGame, Verbose, TEXT("OnCreateSessionComplete %s bSuccess: %d"), *SessionName.ToString(), bWasSuccessful);
+		UE_LOG(LogOnlineGame, Verbose, TEXT("OnCreateSessionComplete %s bSuccess: %d"), *InSessionName.ToString(), bWasSuccessful);
 
 		IOnlineSubsystem* OnlineSub = IOnlineSubsystem::Get();
 		if (OnlineSub)
@@ -493,14 +488,14 @@ void AUTGameSessionRanked::OnServerConfigurationRequest(const FUniqueNetIdRepl& 
 	{
 		int32 TeamCount = UT_DEFAULT_MAX_TEAM_COUNT;
 		int32 TeamSize = UT_DEFAULT_MAX_TEAM_SIZE;
-		int32 MaxPartySize = UT_DEFAULT_PARTY_SIZE;
+		int32 PlaylistMaxPartySize = UT_DEFAULT_PARTY_SIZE;
 
 		// Get the playlist configuration for team/reservation sizes
 		if (ReservationData.PlaylistId > INDEX_NONE)
 		{
 			UUTGameInstance* UTGameInstance = Cast<UUTGameInstance>(GetGameInstance());
 			if (UTGameInstance && UTGameInstance->GetPlaylistManager() && 
-				UTGameInstance->GetPlaylistManager()->GetMaxTeamInfoForPlaylist(ReservationData.PlaylistId, TeamCount, TeamSize, MaxPartySize))
+				UTGameInstance->GetPlaylistManager()->GetMaxTeamInfoForPlaylist(ReservationData.PlaylistId, TeamCount, TeamSize, PlaylistMaxPartySize))
 			{
 				MaxPlayers = TeamCount * TeamSize;
 				ReservationBeaconHost->ReconfigureTeamAndPlayerCount(TeamCount, TeamSize, MaxPlayers);
@@ -543,7 +538,7 @@ void AUTGameSessionRanked::OnServerConfigurationRequest(const FUniqueNetIdRepl& 
 	}
 }
 
-void AUTGameSessionRanked::SetPlayerNeedsSize(FName SessionName, int32 NeedsSize, bool bUpdateSession)
+void AUTGameSessionRanked::SetPlayerNeedsSize(FName InSessionName, int32 NeedsSize, bool bUpdateSession)
 {
 	IOnlineSubsystem* OnlineSub = IOnlineSubsystem::Get();
 	if (OnlineSub)
@@ -551,16 +546,16 @@ void AUTGameSessionRanked::SetPlayerNeedsSize(FName SessionName, int32 NeedsSize
 		IOnlineSessionPtr SessionInt = OnlineSub->GetSessionInterface();
 		if (SessionInt.IsValid())
 		{
-			FOnlineSessionSettings* SessionSettings = SessionInt->GetSessionSettings(SessionName);
+			FOnlineSessionSettings* SessionSettings = SessionInt->GetSessionSettings(InSessionName);
 			if (SessionSettings)
 			{
-				UE_LOG(LogOnlineGame, Verbose, TEXT("Setting %s player need size to %d"), *SessionName.ToString(), NeedsSize);
-				if (GetPlayerNeedsSize(SessionName) != NeedsSize)
+				UE_LOG(LogOnlineGame, Verbose, TEXT("Setting %s player need size to %d"), *InSessionName.ToString(), NeedsSize);
+				if (GetPlayerNeedsSize(InSessionName) != NeedsSize)
 				{
 					// Two values to overcome query limitation
 					SessionSettings->Set(SETTING_NEEDS, NeedsSize, EOnlineDataAdvertisementType::ViaOnlineService);
 					SessionSettings->Set(SETTING_NEEDSSORT, NeedsSize, EOnlineDataAdvertisementType::ViaOnlineService);
-					SessionInt->UpdateSession(SessionName, *SessionSettings, bUpdateSession);
+					SessionInt->UpdateSession(InSessionName, *SessionSettings, bUpdateSession);
 				}
 				else
 				{
@@ -571,7 +566,7 @@ void AUTGameSessionRanked::SetPlayerNeedsSize(FName SessionName, int32 NeedsSize
 	}
 }
 
-int32 AUTGameSessionRanked::GetPlayerNeedsSize(FName SessionName)
+int32 AUTGameSessionRanked::GetPlayerNeedsSize(FName InSessionName)
 {
 	int32 CurrentNeedsSize = 0;
 
@@ -581,7 +576,7 @@ int32 AUTGameSessionRanked::GetPlayerNeedsSize(FName SessionName)
 		IOnlineSessionPtr SessionInt = OnlineSub->GetSessionInterface();
 		if (SessionInt.IsValid())
 		{
-			FOnlineSessionSettings* SessionSettings = SessionInt->GetSessionSettings(SessionName);
+			FOnlineSessionSettings* SessionSettings = SessionInt->GetSessionSettings(InSessionName);
 			if (SessionSettings)
 			{
 				SessionSettings->Get(SETTING_NEEDS, CurrentNeedsSize);
@@ -602,11 +597,22 @@ const int32 AUTGameSessionRanked::GetPlaylistId() const
 	return INDEX_NONE;
 }
 
+const int32 AUTGameSessionRanked::GetTeamElo() const
+{
+	if (ReservationBeaconHost)
+	{
+		return ReservationBeaconHost->GetTeamElo();
+	}
+
+	return INDEX_NONE;
+}
+
 void AUTGameSessionRanked::CreateServerGame()
 {
 	UWorld* World = GetWorld();
 	check(World);
 	int32 PlaylistId = GetPlaylistId();
+	int32 TeamElo = GetTeamElo();
 	
 	PauseBeaconRequests(true);
 	// Let the beacon get destroyed on actor cleanup.  Allows RPCs to finish during the server travel countdown
@@ -618,9 +624,22 @@ void AUTGameSessionRanked::CreateServerGame()
 	if (UTGameInstance && UTGameInstance->GetPlaylistManager())
 	{
 		UTGameInstance->GetPlaylistManager()->GetURLForPlaylist(PlaylistId, TravelURL);
+
+		if (!TravelURL.IsEmpty())
+		{
+			int32 BotSkill = UTGameInstance->GetBotSkillForTeamElo(TeamElo);
+			TravelURL += FString::Printf(TEXT("?Difficulty=%d"), BotSkill);
+		}
 	}
-		
-	World->ServerTravel(TravelURL, true, false);
+	
+	if (!TravelURL.IsEmpty())
+	{
+		World->ServerTravel(TravelURL, true, false);
+	}
+	else
+	{
+		UE_LOG(LogOnlineGame, Verbose, TEXT("Couldn't create server game URL"));
+	}
 }
 
 void AUTGameSessionRanked::ApplyGameSessionSettings(FOnlineSessionSettings* SessionSettings, int32 PlaylistId, int32 TeamElo) const
@@ -781,7 +800,10 @@ void AUTGameSessionRanked::InitHostBeacon(FOnlineSessionSettings* SessionSetting
 
 void AUTGameSessionRanked::OnBeaconReservationsFull()
 {
-
+	if (ReservationBeaconHost)
+	{
+		ReservationBeaconHost->OnBeaconReservationChange();
+	}
 }
 
 void AUTGameSessionRanked::OnBeaconReservationChange()
@@ -791,6 +813,11 @@ void AUTGameSessionRanked::OnBeaconReservationChange()
 	check(World);
 	
 	UpdatePlayerNeedsStatus();
+
+	if (ReservationBeaconHost)
+	{
+		ReservationBeaconHost->OnBeaconReservationChange();
+	}
 }
 
 void AUTGameSessionRanked::UpdatePlayerNeedsStatus()
@@ -813,6 +840,11 @@ void AUTGameSessionRanked::OnDuplicateReservation(const FPartyReservation& Dupli
 	}
 
 	UpdatePlayerNeedsStatus();
+
+	if (ReservationBeaconHost)
+	{
+		ReservationBeaconHost->OnBeaconReservationDuplicate();
+	}
 }
 
 void AUTGameSessionRanked::CheckForDuplicatePlayer(const FUniqueNetIdRepl& PlayerId)
@@ -844,7 +876,7 @@ bool AUTGameSessionRanked::GetGameSessionSettings(const FOnlineSessionSettings* 
 	return bFound;
 }
 
-void AUTGameSessionRanked::UpdateSession(FName SessionName, FOnlineSessionSettings& SessionSettings)
+void AUTGameSessionRanked::UpdateSession(FName InSessionName, FOnlineSessionSettings& SessionSettings)
 {
 	IOnlineSubsystem* OnlineSub = IOnlineSubsystem::Get();
 	if (OnlineSub)
@@ -853,7 +885,7 @@ void AUTGameSessionRanked::UpdateSession(FName SessionName, FOnlineSessionSettin
 		if (SessionInt.IsValid())
 		{
 			OnUpdateSessionCompleteDelegateHandle = SessionInt->AddOnUpdateSessionCompleteDelegate_Handle(OnUpdateSessionCompleteDelegate);
-			SessionInt->UpdateSession(SessionName, SessionSettings, true);
+			SessionInt->UpdateSession(InSessionName, SessionSettings, true);
 		}
 	}
 }

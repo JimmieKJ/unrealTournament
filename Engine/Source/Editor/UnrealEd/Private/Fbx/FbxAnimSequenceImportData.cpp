@@ -1,13 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealEd.h"
+#include "Animation/AnimSequence.h"
 
 UFbxAnimSequenceImportData::UFbxAnimSequenceImportData(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 	, bImportCustomAttribute(true)
+	, bRemoveRedundantKeys(true)
+	, bDoNotImportCurveWithZero(true)
 {
 	FrameImportRange.Min = 0;
 	FrameImportRange.Max = 0;
+
+	MaterialCurveSuffixes.Add(TEXT("_mat"));
 }
 
 UFbxAnimSequenceImportData* UFbxAnimSequenceImportData::GetImportDataForAnimSequence(UAnimSequence* AnimSequence, UFbxAnimSequenceImportData* TemplateForCreation)

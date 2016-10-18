@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
-	AndroidOpenGLPrivate.h: Code shared betweeen AndroidOpenGL and AndroidGL4OpenGL
+	AndroidOpenGLPrivate.h: Code shared betweeen AndroidOpenGL and AndroidESDeferredOpenGL
 =============================================================================*/
 #pragma once
 
@@ -30,26 +30,6 @@ public:
 private:
 	FAndroidGPUInfo()
 	{
-		if (FAndroidMisc::ShouldUseVulkan())
-		{
-			// hard coded for the time being
-			GPUFamily = "Vulkan Mobile";
-			GLVersion = "3.1.0";
-			bSupportsFloatingPointRenderTargets = true;
-			bSupportsFrameBufferFetch = false;
-			TargetPlatformNames.Add(TEXT("Android_ASTC"));
-			GAndroidGPUInfoReady = true;
-		}
-		else
-		{
-#if PLATFORM_ANDROIDGL4
-		// hard coded for the time being
-		GPUFamily = "NVIDIA Tegra";
-		GLVersion = "4.4.0";
-		bSupportsFloatingPointRenderTargets = true;
-		TargetPlatformNames.Add(TEXT("Android_GL4"));
-			GAndroidGPUInfoReady = true;
-#else
 		// this is only valid in the game thread, make sure we are initialized there before being called on other threads!
 		check(IsInGameThread())
 
@@ -59,11 +39,11 @@ private:
 		if (!EGL->IsInitialized())
 		{
 			FAndroidAppEntry::PlatformInit();
-#if PLATFORM_ANDROIDES31
+#if PLATFORM_ANDROIDESDEFERRED
 			EGL->InitSurface(false, true);
 #endif
 		}
-#if !PLATFORM_ANDROIDES31
+#if !PLATFORM_ANDROIDESDEFERRED
 		// Do not create a window surface if the app is for GearVR (use small buffer)
 		bool bCreateSurface = !AndroidThunkCpp_IsGearVRApplication();
 		FPlatformMisc::LowLevelOutputDebugString(TEXT("FAndroidGPUInfo"));
@@ -84,8 +64,8 @@ private:
 
 		const bool bES30Support = GLVersion.Contains(TEXT("OpenGL ES 3."));
 
-#if PLATFORM_ANDROIDES31
-		TargetPlatformNames.Add(TEXT("Android_ES31"));
+#if PLATFORM_ANDROIDESDEFERRED
+		TargetPlatformNames.Add(TEXT("Android_ESDEFERRED"));
 #else
 		// highest priority is the per-texture version
 		if (ExtensionsString.Contains(TEXT("GL_KHR_texture_compression_astc_ldr")))
@@ -120,10 +100,12 @@ private:
 		TargetPlatformNames.Add(TEXT("Android"));
 
 #endif
-		bSupportsFloatingPointRenderTargets = ExtensionsString.Contains(TEXT("GL_EXT_color_buffer_half_float"));
+		bSupportsFloatingPointRenderTargets = 
+			ExtensionsString.Contains(TEXT("GL_EXT_color_buffer_half_float")) 
+			// According to https://www.khronos.org/registry/gles/extensions/EXT/EXT_color_buffer_float.txt
+			|| (bES30Support && ExtensionsString.Contains(TEXT("GL_EXT_color_buffer_float")));
+
 		bSupportsFrameBufferFetch = ExtensionsString.Contains(TEXT("GL_EXT_shader_framebuffer_fetch")) || ExtensionsString.Contains(TEXT("GL_NV_shader_framebuffer_fetch")) || ExtensionsString.Contains(TEXT("GL_ARM_shader_framebuffer_fetch"));
-#endif
-		}
 		GAndroidGPUInfoReady = true;
 	}
 };

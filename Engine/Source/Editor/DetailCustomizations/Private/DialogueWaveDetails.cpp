@@ -258,7 +258,7 @@ void FDialogueWaveDetails::CustomizeDetails(class IDetailLayoutBuilder& DetailBu
 {
 	DetailLayoutBuilder = &DetailBuilder;
 
-	IDetailCategoryBuilder& ContextMappingsDetailCategoryBuilder = DetailBuilder.EditCategory("DialogueContexts");
+	IDetailCategoryBuilder& ContextMappingsDetailCategoryBuilder = DetailBuilder.EditCategory("DialogueContexts", FText::GetEmpty(), ECategoryPriority::Important);
 
 	// Add Context Button
 	ContextMappingsDetailCategoryBuilder.AddCustomRow(LOCTEXT("AddDialogueContext", "Add Dialogue Context"))

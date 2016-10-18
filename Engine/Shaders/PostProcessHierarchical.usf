@@ -34,7 +34,7 @@ void BuildHCB(float4 RenderTargetUVAndScreenPos : TEXCOORD0, out float4 OutColor
 	
 #endif
 	
-	const float Radius = 2.0 * InvSize;
+	const float Radius = 2.0 * InvSize.x;
 	// sigma = 0.5
 	const float C = 0.468592;
 	const float A = 0.107973;

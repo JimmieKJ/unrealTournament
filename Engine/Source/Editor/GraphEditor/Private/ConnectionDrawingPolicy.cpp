@@ -136,7 +136,7 @@ void FConnectionDrawingPolicy::DrawSplineWithArrow(const FGeometry& StartGeom, c
 }
 
 // Update the drawing policy with the set of hovered pins (which can be empty)
-void FConnectionDrawingPolicy::SetHoveredPins(const TSet< TWeakObjectPtr<UEdGraphPin> >& InHoveredPins, const TArray< TSharedPtr<SGraphPin> >& OverridePins, double HoverTime)
+void FConnectionDrawingPolicy::SetHoveredPins(const TSet< FEdGraphPinReference >& InHoveredPins, const TArray< TSharedPtr<SGraphPin> >& OverridePins, double HoverTime)
 {
 	HoveredPins.Empty();
 

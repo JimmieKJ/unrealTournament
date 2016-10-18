@@ -86,9 +86,9 @@ public:
 	TArray<FStringAssetReference> GrantedBots;
 
 #if WITH_EDITOR
-	virtual void PreSave() override
+	virtual void PreSave(const class ITargetPlatform* TargetPlatform) override
 	{
-		Super::PreSave();
+		Super::PreSave(TargetPlatform);
 
 		// if there's only one granted item, match names
 		if (GIsEditor && !IsTemplate() && GrantedCosmeticItems.Num() + GrantedCharacters.Num() + GrantedBots.Num() == 1)

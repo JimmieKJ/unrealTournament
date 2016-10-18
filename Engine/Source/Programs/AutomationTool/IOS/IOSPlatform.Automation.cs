@@ -9,6 +9,7 @@ using UnrealBuildTool;
 using System.Text.RegularExpressions;
 using Ionic.Zip;
 using Ionic.Zlib;
+using System.Security.Principal; 
 
 static class IOSEnvVarNames
 {
@@ -94,15 +95,26 @@ public class IOSPlatform : Platform
 		return 4;
 	}
 
-	public virtual UnrealBuildTool.UEDeployIOS GetDeployHandler()
+	public virtual UnrealBuildTool.UEDeployIOS GetDeployHandler(FileReference InProject)
 	{
 		Console.WriteLine("Getting IOS Deploy()");
-		return new UnrealBuildTool.UEDeployIOS();
+		return new UnrealBuildTool.UEDeployIOS(InProject);
 	}
 
 	protected string MakeIPAFileName( UnrealTargetConfiguration TargetConfiguration, ProjectParams Params )
 	{
 		string ProjectIPA = Path.Combine(Path.GetDirectoryName(Params.RawProjectPath.FullName), "Binaries", PlatformName, (Params.Distribution ? "Distro_" : "") + Params.ShortProjectName);
+		if (TargetConfiguration != UnrealTargetConfiguration.Development)
+		{
+			ProjectIPA += "-" + PlatformType.ToString() + "-" + TargetConfiguration.ToString();
+		}
+		ProjectIPA += ".ipa";
+		return ProjectIPA;
+	}
+
+	protected string MakeExeFileName( UnrealTargetConfiguration TargetConfiguration, ProjectParams Params )
+	{
+		string ProjectIPA = Path.Combine(Path.GetDirectoryName(Params.RawProjectPath.FullName), "Binaries", PlatformName, Params.ShortProjectName);
 		if (TargetConfiguration != UnrealTargetConfiguration.Development)
 		{
 			ProjectIPA += "-" + PlatformType.ToString() + "-" + TargetConfiguration.ToString();
@@ -162,7 +174,7 @@ public class IOSPlatform : Platform
 		if (UnrealBuildTool.BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Mac)
 		{
 			// copy in all of the artwork and plist
-			var DeployHandler = GetDeployHandler();
+			var DeployHandler = GetDeployHandler(Params.RawProjectPath);
 
 			DeployHandler.PrepForUATPackageOrDeploy(Params.RawProjectPath,
 				Params.ShortProjectName,
@@ -210,11 +222,17 @@ public class IOSPlatform : Platform
 		{
 			throw new AutomationException("iOS is currently only able to package one target configuration at a time, but StageTargetConfigurations contained {0} configurations", SC.StageTargetConfigurations.Count);
 		}
-		bCreatedIPA = false;
+
+        bCreatedIPA = false;
 		bool bNeedsIPA = false;
 		if (Params.IterativeDeploy)
 		{
-			String NonUFSManifestPath = SC.GetNonUFSDeploymentDeltaPath();
+            if (Params.Devices.Count != 1)
+            {
+                throw new AutomationException("Can only interatively deploy to a single device, but {0} were specified", Params.Devices.Count);
+            }
+            
+            String NonUFSManifestPath = SC.GetNonUFSDeploymentDeltaPath(Params.DeviceNames[0]);
 			// check to determine if we need to update the IPA
 			if (File.Exists(NonUFSManifestPath))
 			{
@@ -680,22 +698,16 @@ public class IOSPlatform : Platform
 //				if (!File.Exists(TargetPListFile))
 				{
 					// ensure the plist, entitlements, and provision files are properly copied
-					Console.WriteLine("CookPlat {0}, this {1}", GetCookPlatform(false, false, ""), ToString());
+					Console.WriteLine("CookPlat {0}, this {1}", GetCookPlatform(false, false), ToString());
 					if (!SC.IsCodeBasedProject)
 					{
 						UnrealBuildTool.UnrealBuildTool.SetRemoteIniPath(SC.ProjectRoot);
 					}
-					GetDeployHandler().GeneratePList((SC.IsCodeBasedProject ? SC.ProjectRoot : SC.LocalRoot + "/Engine"), !SC.IsCodeBasedProject, (SC.IsCodeBasedProject ? SC.ShortProjectName : "UE4Game"), SC.ShortProjectName, SC.LocalRoot + "/Engine", (SC.IsCodeBasedProject ? SC.ProjectRoot : SC.LocalRoot + "/Engine") + "/Binaries/" + PlatformName + "/Payload/" + (SC.IsCodeBasedProject ? SC.ShortProjectName : "UE4Game") + ".app");
+					GetDeployHandler(new FileReference(SC.ProjectRoot)).GeneratePList((SC.IsCodeBasedProject ? SC.ProjectRoot : SC.LocalRoot + "/Engine"), !SC.IsCodeBasedProject, (SC.IsCodeBasedProject ? SC.ShortProjectName : "UE4Game"), SC.ShortProjectName, SC.LocalRoot + "/Engine", (SC.IsCodeBasedProject ? SC.ProjectRoot : SC.LocalRoot + "/Engine") + "/Binaries/" + PlatformName + "/Payload/" + (SC.IsCodeBasedProject ? SC.ShortProjectName : "UE4Game") + ".app");
 				}
 
 				SC.StageFiles(StagedFileType.NonUFS, SourcePath, Path.GetFileName(TargetPListFile), false, null, "", false, false, "Info.plist");
 			}
-		}
-
-		// copy the movies from the project
-		{
-			SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.ProjectRoot, "Build/IOS/Resources/Movies"), "*", false, null, "", true, false);
-			SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.ProjectRoot, "Content/Movies"), "*", true, null, "", true, false);
 		}
 	}
 
@@ -714,12 +726,160 @@ public class IOSPlatform : Platform
 			throw new AutomationException("ARCHIVE FAILED - {0} was not found", ProjectIPA);
 		}
 
+		ConfigCacheIni PlatformGameConfig;
+		bool bXCArchive = false;
+		if (Params.EngineConfigs.TryGetValue(SC.StageTargetPlatform.PlatformType, out PlatformGameConfig))
+		{
+			PlatformGameConfig.GetBool("/Script/IOSRuntimeSettings.IOSRuntimeSettings", "bGenerateXCArchive", out bXCArchive);
+		}
+
+		if (bXCArchive && Utils.IsRunningOnMono)
+		{
+			// Always put the archive in the current user's Library/Developer/Xcode/Archives path
+			WindowsIdentity id = WindowsIdentity.GetCurrent(); 
+			string ArchivePath = "/Users/" + id.Name + "/Library/Developer/Xcode/Archives";
+			if (!DirectoryExists(ArchivePath))
+			{
+				CreateDirectory(ArchivePath);
+			}
+
+			Console.WriteLine("Generating xc archive package in " + ArchivePath);
+
+			string ArchiveName = Path.Combine(ArchivePath, Path.GetFileNameWithoutExtension(ProjectIPA) + ".xcarchive");
+			if (!DirectoryExists(ArchiveName))
+			{
+				CreateDirectory(ArchiveName);
+			}
+			DeleteDirectoryContents(ArchiveName);
+
+			// create the Products archive folder
+			CreateDirectory(Path.Combine(ArchiveName, "Products", "Applications"));
+
+			// copy in the application
+			string AppName = Path.GetFileNameWithoutExtension(ProjectIPA) + ".app";
+			using (ZipFile Zip = new ZipFile(ProjectIPA))
+			{
+				Zip.ExtractAll(ArchivePath, ExtractExistingFileAction.OverwriteSilently);
+
+				List<string> Dirs = new List<string>(Directory.EnumerateDirectories(Path.Combine(ArchivePath, "Payload"), "*.app"));
+				AppName = Dirs[0].Substring(Dirs[0].LastIndexOf(UnrealBuildTool.BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Mac ? "\\" : "/") + 1);
+				CopyDirectory_NoExceptions(Path.Combine(ArchivePath, "Payload", AppName), Path.Combine(ArchiveName, "Products", "Applications", AppName));
+			}
+
+			// copy in the dSYM if found
+			var ProjectExe = MakeExeFileName( TargetConfiguration, Params );
+			string dSYMName = (SC.IsCodeBasedProject ? Path.GetFileNameWithoutExtension(ProjectExe) : "UE4Game") + ".dSYM";
+			string dSYMSrcPath = Path.Combine(SC.ProjectBinariesFolder, dSYMName);
+
+			if(DirectoryExists(new string[] { dSYMSrcPath } ))
+			{
+				// Create the dsyms archive folder
+				CreateDirectory(Path.Combine(ArchiveName, "dSYMs"));
+				string dSYMDstPath = Path.Combine(ArchiveName, "dSYMs", dSYMName);
+				// /Volumes/MacOSDrive1/pfEpicWorkspace/Dev-Platform/Samples/Sandbox/PlatformShowcase/Binaries/IOS/PlatformShowcase.dSYM/Contents/Resources/DWARF/PlatformShowcase
+				CopyFile_NoExceptions(Path.Combine(dSYMSrcPath, "Contents", "Resources", "DWARF", SC.IsCodeBasedProject ? Path.GetFileNameWithoutExtension(ProjectExe) : "UE4Game"), dSYMDstPath);
+			}
+			else if (File.Exists(dSYMSrcPath))
+			{
+				// Create the dsyms archive folder
+				CreateDirectory(Path.Combine(ArchiveName, "dSYMs"));
+				string dSYMDstPath = Path.Combine(ArchiveName, "dSYMs", dSYMName);
+				CopyFile_NoExceptions(dSYMSrcPath, dSYMDstPath);
+			}
+
+			// copy in the bitcode symbol maps if found
+			string[] bcmapfiles = Directory.GetFiles(SC.ProjectBinariesFolder, "*.bcsymbolmap");
+			if(bcmapfiles.Length > 0)
+			{
+				// Create the dsyms archive folder
+				CreateDirectory(Path.Combine(ArchiveName, "BCSymbolMaps"));
+				foreach (string symbolSrcFilePath in bcmapfiles)
+				{
+					string symbolLeafFileName = Path.GetFileName(symbolSrcFilePath);
+					string bcDstFilePath = Path.Combine(ArchiveName, "BCSymbolMaps", symbolLeafFileName);
+					CopyFile_NoExceptions(symbolSrcFilePath, bcDstFilePath);
+				}
+			}
+
+			// get the settings from the app plist file
+			string AppPlist = Path.Combine(ArchiveName, "Products", "Applications", AppName, "Info.plist");
+			string OldPListData = File.Exists(AppPlist) ? File.ReadAllText(AppPlist) : "";
+
+			// bundle identifier
+			int index = OldPListData.IndexOf("CFBundleIdentifier");
+			index = OldPListData.IndexOf("<string>", index) + 8;
+			int length = OldPListData.IndexOf("</string>", index) - index;
+			string BundleIdentifier = OldPListData.Substring(index, length);
+
+			// short version
+			index = OldPListData.IndexOf("CFBundleShortVersionString");
+			index = OldPListData.IndexOf("<string>", index) + 8;
+			length = OldPListData.IndexOf("</string>", index) - index;
+			string BundleShortVersion = OldPListData.Substring(index, length);
+
+			// bundle version
+			index = OldPListData.IndexOf("CFBundleVersion");
+			index = OldPListData.IndexOf("<string>", index) + 8;
+			length = OldPListData.IndexOf("</string>", index) - index;
+			string BundleVersion = OldPListData.Substring(index, length);
+
+			// date we made this
+			const string Iso8601DateTimeFormat = "yyyy-MM-ddTHH:mm:ssZ";
+			string TimeStamp = DateTime.UtcNow.ToString(Iso8601DateTimeFormat);
+
+			// create the archive plist
+			StringBuilder Text = new StringBuilder();
+			Text.AppendLine("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
+			Text.AppendLine("<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">");
+			Text.AppendLine("<plist version=\"1.0\">");
+			Text.AppendLine("<dict>");
+			Text.AppendLine("\t<key>ApplicationProperties</key>");
+			Text.AppendLine("\t<dict>");
+			Text.AppendLine("\t\t<key>ApplicationPath</key>");
+			Text.AppendLine("\t\t<string>Applications/" + AppName + "</string>");
+			Text.AppendLine("\t\t<key>CFBundleIdentifier</key>");
+			Text.AppendLine(string.Format("\t\t<string>{0}</string>", BundleIdentifier));
+			Text.AppendLine("\t\t<key>CFBundleShortVersionString</key>");
+			Text.AppendLine(string.Format("\t\t<string>{0}</string>", BundleShortVersion));
+			Text.AppendLine("\t\t<key>CFBundleVersion</key>");
+			Text.AppendLine(string.Format("\t\t<string>{0}</string>", BundleVersion));
+			Text.AppendLine("\t\t<key>SigningIdentity</key>");
+			Text.AppendLine(string.Format("\t\t<string>{0}</string>", Params.Certificate));
+			Text.AppendLine("\t</dict>");
+			Text.AppendLine("\t<key>ArchiveVersion</key>");
+			Text.AppendLine("\t<integer>2</integer>");
+			Text.AppendLine("\t<key>CreationDate</key>");
+			Text.AppendLine(string.Format("\t<date>{0}</date>", TimeStamp));
+			Text.AppendLine("\t<key>DefaultToolchainInfo</key>");
+			Text.AppendLine("\t<dict>");
+			Text.AppendLine("\t\t<key>DisplayName</key>");
+			Text.AppendLine("\t\t<string>Xcode 7.3 Default</string>");
+			Text.AppendLine("\t\t<key>Identifier</key>");
+			Text.AppendLine("\t\t<string>com.apple.dt.toolchain.XcodeDefault</string>");
+			Text.AppendLine("\t</dict>");
+			Text.AppendLine("\t<key>Name</key>");
+			Text.AppendLine(string.Format("\t<string>{0}</string>", SC.ShortProjectName));
+			Text.AppendLine("\t<key>SchemeName</key>");
+			Text.AppendLine(string.Format("\t<string>{0}</string>", SC.ShortProjectName));
+			Text.AppendLine("</dict>");
+			Text.AppendLine("</plist>");
+			File.WriteAllText(Path.Combine(ArchiveName, "Info.plist"), Text.ToString());
+		}
+		else if (bXCArchive && !Utils.IsRunningOnMono)
+		{
+			LogWarning("Can not produce an XCArchive on windows");
+		}
 		SC.ArchiveFiles(Path.GetDirectoryName(ProjectIPA), Path.GetFileName(ProjectIPA));
 	}
 
-	public override bool RetrieveDeployedManifests(ProjectParams Params, DeploymentContext SC, out List<string> UFSManifests, out List<string> NonUFSManifests)
+	public override bool RetrieveDeployedManifests(ProjectParams Params, DeploymentContext SC, string DeviceName, out List<string> UFSManifests, out List<string> NonUFSManifests)
 	{
-		bool Result = true;
+        if (Params.Devices.Count != 1)
+        {
+            throw new AutomationException("Can only retrieve deployed manifests from a single device, but {0} were specified", Params.Devices.Count);
+        }
+
+        bool Result = true;
 		UFSManifests = new List<string>();
 		NonUFSManifests = new List<string>();
 		var DeployServer = CombinePaths(CmdEnv.LocalRoot, "Engine/Binaries/DotNET/IOS/DeploymentServer.exe");
@@ -735,9 +895,9 @@ public class IOSPlatform : Platform
 				int EndPos = Contents.IndexOf("</string>", Pos);
 				BundleIdentifier = Contents.Substring(Pos, EndPos - Pos);
 			}
-			RunAndLog(CmdEnv, DeployServer, "Backup -file \"" + CombinePaths(Params.BaseStageDirectory, "IOS", SC.UFSDeployedManifestFileName) + "\" -file \"" + CombinePaths(Params.BaseStageDirectory, "IOS", SC.NonUFSDeployedManifestFileName) + "\"" + (String.IsNullOrEmpty(Params.Device) ? "" : " -device " + Params.Device.Substring(Params.Device.IndexOf("@") + 1)) + " -bundle " + BundleIdentifier);
+			RunAndLog(CmdEnv, DeployServer, "Backup -file \"" + CombinePaths(Params.BaseStageDirectory, PlatformName, SC.UFSDeployedManifestFileName) + "\" -file \"" + CombinePaths(Params.BaseStageDirectory, PlatformName, SC.NonUFSDeployedManifestFileName) + "\"" + (String.IsNullOrEmpty(Params.DeviceNames[0]) ? "" : " -device " + Params.DeviceNames[0]) + " -bundle " + BundleIdentifier);
 
-			string[] ManifestFiles = Directory.GetFiles(CombinePaths(Params.BaseStageDirectory, "IOS"), "*_Manifest_UFS*.txt");
+			string[] ManifestFiles = Directory.GetFiles(CombinePaths(Params.BaseStageDirectory, PlatformName), "*_Manifest_UFS*.txt");
 			UFSManifests.AddRange(ManifestFiles);
 
 			ManifestFiles = Directory.GetFiles(CombinePaths(Params.BaseStageDirectory, PlatformName), "*_Manifest_NonUFS*.txt");
@@ -759,7 +919,12 @@ public class IOSPlatform : Platform
 
 	public override void Deploy(ProjectParams Params, DeploymentContext SC)
     {
-		if (SC.StageTargetConfigurations.Count != 1)
+        if (Params.Devices.Count != 1)
+        {
+            throw new AutomationException("Can only deploy to a single specified device, but {0} were specified", Params.Devices.Count);
+        }
+
+        if (SC.StageTargetConfigurations.Count != 1)
 		{
 			throw new AutomationException ("iOS is currently only able to package one target configuration at a time, but StageTargetConfigurations contained {0} configurations", SC.StageTargetConfigurations.Count);
 		}
@@ -796,7 +961,7 @@ public class IOSPlatform : Platform
 			}
 
 			// check to determine if we need to update the IPA
-			String NonUFSManifestPath = SC.GetNonUFSDeploymentDeltaPath();
+			String NonUFSManifestPath = SC.GetNonUFSDeploymentDeltaPath(Params.DeviceNames[0]);
 			if (File.Exists(NonUFSManifestPath))
 			{
 				string NonUFSFiles = File.ReadAllText(NonUFSManifestPath);
@@ -816,18 +981,18 @@ public class IOSPlatform : Platform
 		Directory.SetCurrentDirectory(CombinePaths(CmdEnv.LocalRoot, "Engine/Binaries/DotNET/IOS/"));
 		if (!Params.IterativeDeploy || bCreatedIPA || bNeedsIPA)
 		{
-			RunAndLog(CmdEnv, DeployServer, "Install -ipa \"" + Path.GetFullPath(StagedIPA) + "\"" + (String.IsNullOrEmpty(Params.Device) ? "" : " -device " + Params.Device.Substring(Params.Device.IndexOf("@") + 1)) + AdditionalCommandline);
+			RunAndLog(CmdEnv, DeployServer, "Install -ipa \"" + Path.GetFullPath(StagedIPA) + "\"" + (String.IsNullOrEmpty(Params.DeviceNames[0]) ? "" : " -device " + Params.DeviceNames[0]) + AdditionalCommandline);
 		}
 		if (Params.IterativeDeploy)
 		{
 			// push over the changed files
-			RunAndLog(CmdEnv, DeployServer, "Deploy -manifest \"" + CombinePaths(Params.BaseStageDirectory, PlatformName, DeploymentContext.UFSDeployDeltaFileName) + "\"" + (String.IsNullOrEmpty(Params.Device) ? "" : " -device " + Params.Device.Substring(Params.Device.IndexOf("@") + 1)) + AdditionalCommandline + " -bundle " + BundleIdentifier);
+			RunAndLog(CmdEnv, DeployServer, "Deploy -manifest \"" + CombinePaths(Params.BaseStageDirectory, PlatformName, DeploymentContext.UFSDeployDeltaFileName + (Params.Devices.Count == 0 ? "" : Params.DeviceNames[0])) + "\"" + (Params.Devices.Count == 0 ? "" : " -device " + Params.DeviceNames[0]) + AdditionalCommandline + " -bundle " + BundleIdentifier);
 		}
 		Directory.SetCurrentDirectory (CurrentDir);
         PrintRunTime();
     }
 
-	public override string GetCookPlatform(bool bDedicatedServer, bool bIsClientOnly, string CookFlavor)
+	public override string GetCookPlatform(bool bDedicatedServer, bool bIsClientOnly)
 	{
 		return "IOS";
 	}
@@ -873,7 +1038,12 @@ public class IOSPlatform : Platform
 	{
 		if (UnrealBuildTool.BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Mac)
 		{
-			/*			string AppDirectory = string.Format("{0}/Payload/{1}.app",
+            if (Params.Devices.Count != 1)
+            {
+                throw new AutomationException("Can only run on a single specified device, but {0} were specified", Params.Devices.Count);
+            }
+
+            /*			string AppDirectory = string.Format("{0}/Payload/{1}.app",
 				Path.GetDirectoryName(Params.ProjectGameExeFilename), 
 				Path.GetFileNameWithoutExtension(Params.ProjectGameExeFilename));
 			string GameName = Path.GetFileNameWithoutExtension (ClientApp);
@@ -894,7 +1064,7 @@ public class IOSPlatform : Platform
 			Arguments += GameApp;
 			Arguments += "\" BUNDLE_LOADER=\"";
 			Arguments += GameApp + "\"";*/
-			string BundleIdentifier = "";
+            string BundleIdentifier = "";
 			if (File.Exists(Params.BaseStageDirectory + "/"+ PlatformName + "/Info.plist"))
 			{
 				string Contents = File.ReadAllText(Params.BaseStageDirectory + "/" + PlatformName + "/Info.plist");
@@ -904,7 +1074,7 @@ public class IOSPlatform : Platform
 				BundleIdentifier = Contents.Substring(Pos, EndPos - Pos);
 			}
 			string Arguments = "/usr/bin/instruments";
-			Arguments += " -w '" + Params.Device.Substring(Params.Device.IndexOf("@") + 1) + "'";
+			Arguments += " -w '" + Params.DeviceNames[0] + "'";
 			Arguments += " -t 'Activity Monitor'";
 			Arguments += " -D \"" + Params.BaseStageDirectory + "/" + PlatformName + "/launch.trace\"";
 			Arguments += " '" + BundleIdentifier + "'";
@@ -954,7 +1124,7 @@ public class IOSPlatform : Platform
 
 	private static string GetTmpPackagingPath(ProjectParams Params, DeploymentContext SC)
 	{
-		return CombinePaths(Path.GetDirectoryName(Params.RawProjectPath.FullName), "Saved", "TmpPackaging", SC.StageTargetPlatform.GetCookPlatform(SC.DedicatedServer, false, Params.CookFlavor));
+		return CombinePaths(Path.GetDirectoryName(Params.RawProjectPath.FullName), "Saved", "TmpPackaging", SC.StageTargetPlatform.GetCookPlatform(SC.DedicatedServer, false));
 	}
 
 	private static StringBuilder AppendKeyValue(StringBuilder Text, string Key, object Value, int Level)
@@ -1167,7 +1337,7 @@ public class IOSPlatform : Platform
 
 	public override bool StageMovies
 	{
-		get { return false; }
+		get { return true; }
 	}
 
 	public override bool RequiresPackageToDeploy
@@ -1181,12 +1351,19 @@ public class IOSPlatform : Platform
 		FileList.Add("Info.plist");
 		return FileList;
 	}
+    public override bool SupportsMultiDeviceDeploy
+    {
+        get
+        {
+            return true;
+        }
+    }
 
-	#region Hooks
+    #region Hooks
 
-	public override void PreBuildAgenda(UE4Build Build, UE4Build.BuildAgenda Agenda)
+    public override void PreBuildAgenda(UE4Build Build, UE4Build.BuildAgenda Agenda)
 	{
-		if (UnrealBuildTool.BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Mac)
+		if (UnrealBuildTool.BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Mac && !Automation.IsEngineInstalled())
 		{
 			Agenda.DotNetProjects.Add(@"Engine\Source\Programs\IOS\MobileDeviceInterface\MobileDeviceInterface.csproj");
 			Agenda.DotNetProjects.Add(@"Engine\Source\Programs\IOS\iPhonePackager\iPhonePackager.csproj");

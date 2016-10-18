@@ -148,7 +148,15 @@ private:
 	UPROPERTY(EditAnywhere, Category=Rig, EditFixedSize)
 	TArray<FNode> Nodes;
 
+#if WITH_EDITORONLY_DATA
+	// this is source skeleton it's created from. 
+	// since all node data can be modified after, 
+	// to figure out what was original source skeleton, this is better to have it for reset and getting original transform
+	struct FReferenceSkeleton SourceSkeleton;
+#endif
 public:
+
+	virtual void Serialize(FArchive& Ar) override;
 
 #if WITH_EDITOR
 	//~ Begin UObject Interface
@@ -164,7 +172,7 @@ public:
 	const TArray<FNode> & GetNodes() const { return Nodes; }
 
 	// create from skeleton
-	ENGINE_API void CreateFromSkeleton(const USkeleton* Skeleton, const TMap<int32, int32> & RequiredBones);
+	ENGINE_API void CreateFromSkeleton(const USkeleton* Skeleton, const TMap<int32, int32>& RequiredBones);
 	ENGINE_API void SetAllConstraintsToParents();
 	ENGINE_API void SetAllConstraintsToWorld();
 
@@ -175,7 +183,15 @@ public:
 	const FTransformBase* GetTransformBaseByNodeName(FName NodeName) const;
 	int32 FindTransformBaseByNodeName(FName NodeName) const;
 	int32 FindTransformParentNode(int32 NodeIndex, bool bTranslate, int32 Index=0) const;
-#endif
+
+#if WITH_EDITORONLY_DATA
+	// source skeleton related, since this has been added later, it's possible 
+	// some skeletons don't have it
+	bool IsSourceReferenceSkeletonAvailable() const { return SourceSkeleton.GetNum() > 0; }
+	const FReferenceSkeleton& GetSourceReferenceSkeleton() const { return SourceSkeleton;  }
+	ENGINE_API void SetSourceReferenceSkeleton(const FReferenceSkeleton& InSrcSkeleton);
+#endif // WITH_EDITORONLY_DATA
+#endif // WITH_EDITOR
 
 	// not sure if we'd like to keep this
 	ENGINE_API static FName WorldNodeName;

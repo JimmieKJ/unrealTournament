@@ -9,13 +9,7 @@
 
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
-
-#if !PLATFORM_ANDROIDGL4
 #include <GLES2/gl2.h>
-#else
-#include <GL/glcorearb.h>
-#include <GL/glext.h>
-#endif
 
 struct AndroidESPImpl;
 struct ANativeWindow;

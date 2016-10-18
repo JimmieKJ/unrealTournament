@@ -118,7 +118,7 @@ void FMallocStomp::Free(void* InPtr)
 	// why we can do it.
 	munmap(AllocDataPtr->FullAllocationPointer, AllocDataPtr->FullSize);
 #else
-	FPlatformMemory::BinnedFreeToOS(AllocDataPtr->FullAllocationPointer);
+	FPlatformMemory::BinnedFreeToOS(AllocDataPtr->FullAllocationPointer, AllocDataPtr->FullSize);
 #endif // PLATFORM_LINUX || PLATFORM_MAC
 }
 

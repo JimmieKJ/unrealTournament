@@ -67,9 +67,9 @@ void FActorPickerTrackEditor::ShowActorSubMenu(FMenuBuilder& MenuBuilder, FGuid 
 		+SHorizontalBox::Slot()
 		.AutoWidth()
 		[
-			SNew(SVerticalBox)
-			+SVerticalBox::Slot()
-			.MaxHeight(400.0f)
+			SNew(SBox)
+			.MaxDesiredHeight(400.0f)
+			.WidthOverride(300.0f)
 			[
 				SceneOutlinerModule.CreateSceneOutliner(
 					InitOptions,

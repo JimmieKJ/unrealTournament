@@ -9,6 +9,7 @@
 
 // @param xy should be a integer position (e.g. pixel position on the screen), repeats each 128x128 pixels
 // similar to a texture lookup but is only ALU
+// ~13 ALU operations (3 frac, 6 *, 4 mad)
 float PseudoRandom(float2 xy)
 {
 	float2 pos = frac(xy / 128.0f) * 128.0f + float2(-64.340622f, -72.465622f);
@@ -17,6 +18,119 @@ float PseudoRandom(float2 xy)
 	return frac(dot(pos.xyx * pos.xyy, float3(20.390625f, 60.703125f, 2.4281209f)));
 }
 
+// high frequency dither pattern appearing almost random without banding steps
+//note: from "NEXT GENERATION POST PROCESSING IN CALL OF DUTY: ADVANCED WARFARE"
+//      http://advances.realtimerendering.com/s2014/index.html
+// Epic extended by FrameId
+// ~7 ALU operations (2 frac, 3 mad, 2 *)
+// @return 0..1
+float InterleavedGradientNoise( float2 uv, float FrameId )
+{
+	// magic values are found by experimentation
+	uv += FrameId * (float2(47, 17) * 0.695f);
+
+    const float3 magic = float3( 0.06711056f, 0.00583715f, 52.9829189f );
+    return frac(magic.z * frac(dot(uv, magic.xy)));
+}
+
+// [0, 1[
+// ~10 ALU operations (2 frac, 5 *, 3 mad)
+float RandFast( uint2 PixelPos, float Magic = 3571.0 )
+{
+	float2 Random2 = ( 1.0 / 4320.0 ) * PixelPos + float2( 0.25, 0.0 );
+	float Random = frac( dot( Random2 * Random2, Magic ) );
+	Random = frac( Random * Random * (2 * Magic) );
+	return Random;
+}
+
+// This is the largest prime < 2^12 so s*s will fit in a 24-bit floating point mantissa
+#define BBS_PRIME24 4093
+
+// Blum-Blum-Shub-inspired pseudo random number generator
+// http://www.umbc.edu/~olano/papers/mNoise.pdf
+// real BBS uses ((s*s) mod M) with bignums and M as the product of two huge Blum primes
+// instead, we use a single prime M just small enough not to overflow
+// note that the above paper used 61, which fits in a half, but is unusably bad
+// @param Integer valued floating point seed
+// @return random number in range [0,1)
+// ~8 ALU operations (5 *, 3 frac)
+float RandBBSfloat(float seed)
+{
+	float s = frac(seed / BBS_PRIME24);
+	s = frac(s * s * BBS_PRIME24);
+	s = frac(s * s * BBS_PRIME24);
+	return s;
+}
+
+// 3D random number generator inspired by PCGs (permuted congruential generator)
+// Using a **simple** Feistel cipher in place of the usual xor shift permutation step
+// @param v = 3D integer coordinate
+// @return three elements w/ 16 random bits each (0-0xffff).
+// ~8 ALU operations for result.x    (7 mad, 1 >>)
+// ~10 ALU operations for result.xy  (8 mad, 2 >>)
+// ~12 ALU operations for result.xyz (9 mad, 3 >>)
+uint3 Rand3DPCG16(int3 p)
+{
+	// taking a signed int then reinterpreting as unsigned gives good behavior for negatives
+	uint3 v = uint3(p);
+
+	// Linear congruential step. These LCG constants are from Numerical Recipies
+	// For additional #'s, PCG would do multiple LCG steps and scramble each on output
+	// So v here is the RNG state
+	v = v * 1664525u + 1013904223u;
+
+	// PCG uses xorshift for the final shuffle, but it is expensive (and cheap
+	// versions of xorshift have visible artifacts). Instead, use simple MAD Feistel steps
+	//
+	// Feistel ciphers divide the state into separate parts (usually by bits)
+	// then apply a series of permutation steps one part at a time. The permutations
+	// use a reversible operation (usually ^) to part being updated with the result of
+	// a permutation function on the other parts and the key.
+	//
+	// In this case, I'm using v.x, v.y and v.z as the parts, using + instead of ^ for
+	// the combination function, and just multiplying the other two parts (no key) for 
+	// the permutation function.
+	//
+	// That gives a simple mad per round.
+	v.x += v.y*v.z;
+	v.y += v.z*v.x;
+	v.z += v.x*v.y;
+	v.x += v.y*v.z;
+	v.y += v.z*v.x;
+	v.z += v.x*v.y;
+
+	// only top 16 bits are well shuffled
+	return v >> 16u;
+}
+
+// 3D random number generator inspired by PCGs (permuted congruential generator)
+// Using a **simple** Feistel cipher in place of the usual xor shift permutation step
+// @param v = 3D integer coordinate
+// @return three elements w/ 16 random bits each (0-0xffff).
+// ~12 ALU operations for result.x   (10 mad, 3 >>)
+// ~14 ALU operations for result.xy  (11 mad, 3 >>)
+// ~15 ALU operations for result.xyz (12 mad, 3 >>)
+uint3 Rand3DPCG32(int3 p)
+{
+	// taking a signed int then reinterpreting as unsigned gives good behavior for negatives
+	uint3 v = uint3(p);
+
+	// Linear congruential step.
+	v = v * 1664525u + 1013904223u;
+
+	// swapping low and high bits makes all 32 bits pretty good
+	v = v * (1u << 16u) + (v >> 16u);
+
+	// final shuffle
+	v.x += v.y*v.z;
+	v.y += v.z*v.x;
+	v.z += v.x*v.y;
+	v.x += v.y*v.z;
+	v.y += v.z*v.x;
+	v.z += v.x*v.y;
+
+	return v;
+}
 
 /**
  * Find good arbitrary axis vectors to represent U and V axes of a plane,
@@ -58,6 +172,7 @@ void FindBestAxisVectors(float3 In, out float3 Axis1, out float3 Axis2 )
 /*
  * Pseudo random number generator, based on "TEA, a tiny Encrytion Algorithm"
  * http://citeseer.ist.psu.edu/viewdoc/download?doi=10.1.1.45.281&rep=rep1&type=pdf
+ * http://www.umbc.edu/~olano/papers/index.html#GPUTEA
  * @param v - old seed (full 32bit range)
  * @param IterationCount - >=1, bigger numbers cost more performance but improve quality
  * @return new seed
@@ -74,28 +189,21 @@ uint2 ScrambleTEA(uint2 v, uint IterationCount = 3)
 	UNROLL for(uint i = 0; i < IterationCount; ++i)
 	{
 		sum += 0x9e3779b9;
-		y += (z << 4u) + k[0] ^ z + sum ^ (z >> 5u) + k[1];
-		z += (y << 4u) + k[2] ^ y + sum ^ (y >> 5u) + k[3];
+		y += ((z << 4u) + k[0]) ^ (z + sum) ^ ((z >> 5u) + k[1]);
+		z += ((y << 4u) + k[2]) ^ (y + sum) ^ ((y >> 5u) + k[3]);
 	}
 
 	return uint2(y, z);
 }
 
-// Computes a pseudo random number for a given integer 2D position
-// @param v - old seed (full 32bit range)
-// @return random number in the range -1 .. 1
-float ComputeRandomFrom2DPosition(uint2 v)
+// Wraps noise for tiling texture creation
+// @param v = unwrapped texture parameter
+// @param bTiling = true to tile, false to not tile
+// @param RepeatSize = number of units before repeating
+// @return either original or wrapped coord
+float3 NoiseTileWrap(float3 v,  bool bTiling, float RepeatSize)
 {
-	return (ScrambleTEA(v).x & 0xffff ) / (float)(0xffff) * 2 - 1;
-}
-
-// Computes a pseudo random number for a given integer 2D position
-// @param v - old seed (full 32bit range)
-// @return random number in the range -1 .. 1
-float ComputeRandomFrom3DPosition(int3 v) 
-{
-	// numbers found by experimentation
-	return ComputeRandomFrom2DPosition(v.xy ^ (uint2(0x123456, 0x23446) * v.zx) );
+	return bTiling ? (frac(v / RepeatSize) * RepeatSize) : v;
 }
 
 // Evaluate polynomial to get smooth transitions for Perlin noise
@@ -106,138 +214,172 @@ float4 PerlinRamp(float4 t)
 	return t * t * t * (t * (t * 6 - 15) + 10); 
 }
 
-// bilinear filtered 2D noise, can be optimized
-// @param v >0
-// @return random number in the range -1 .. 1
-float2 PerlinNoise2D_ALU(float2 fv)
+// Modified noise gradient term
+// @param seed - random seed for integer lattice position
+// @param offset - [-1,1] offset of evaluation point from lattice point
+// @return gradient contribution from this lattice point
+float MGradient(int seed, float3 offset)
 {
-	// floor is needed to avoid -1..1 getting the same value (int cast always rounds towards 0)
-	int2 iv = int2(floor(fv));
-
-	float2 a = ComputeRandomFrom2DPosition(iv + int2(0, 0));
-	float2 b = ComputeRandomFrom2DPosition(iv + int2(1, 0));
-	float2 c = ComputeRandomFrom2DPosition(iv + int2(0, 1));
-	float2 d = ComputeRandomFrom2DPosition(iv + int2(1, 1));
-	
-	float2 Weights = PerlinRamp(float4(frac(fv), 0, 0)).xy;
-	
-	float2 e = lerp(a, b, Weights.x);
-	float2 f = lerp(c, d, Weights.x);
-
-	return lerp(e, f, Weights.y);
+	uint rand = Rand3DPCG16(int3(seed,0,0)).x;
+	float3 direction = float3(rand & 1, rand & 2, rand & 4) * float3(2, 1, 0.5) - 1;
+	return dot(direction, offset);
 }
 
-// bilinear filtered 2D noise, can be optimized
-// @param v >0
-// @return random number in the range -1 .. 1
-float PerlinNoise3D_ALU(float3 fv)
+// compute Perlin and related noise corner seed values
+// @param v = 3D noise argument, use float3(x,y,0) for 2D or float3(x,0,0) for 1D
+// @param bTiling = true to return seed values for a repeating noise pattern
+// @param RepeatSize = integer units before tiling in each dimension
+// @param seed000-seed111 = hash function seeds for the eight corners
+// @return fractional part of v
+float3 NoiseSeeds(float3 v, bool bTiling, float RepeatSize,
+	out float seed000, out float seed001, out float seed010, out float seed011,
+	out float seed100, out float seed101, out float seed110, out float seed111)
 {
-	// floor is needed to avoid -1..1 getting the same value (int cast always rounds towards 0)
-	int3 iv = int3(floor(fv));
-	
-	float2 a = ComputeRandomFrom3DPosition(iv + int3(0, 0, 0));
-	float2 b = ComputeRandomFrom3DPosition(iv + int3(1, 0, 0));
-	float2 c = ComputeRandomFrom3DPosition(iv + int3(0, 1, 0));
-	float2 d = ComputeRandomFrom3DPosition(iv + int3(1, 1, 0));
-	float2 e = ComputeRandomFrom3DPosition(iv + int3(0, 0, 1));
-	float2 f = ComputeRandomFrom3DPosition(iv + int3(1, 0, 1));
-	float2 g = ComputeRandomFrom3DPosition(iv + int3(0, 1, 1));
-	float2 h = ComputeRandomFrom3DPosition(iv + int3(1, 1, 1));
-	
-	float3 Weights = PerlinRamp(frac(float4(fv, 0))).xyz;
-	
-	float2 i = lerp(lerp(a, b, Weights.x), lerp(c, d, Weights.x), Weights.y);
-	float2 j = lerp(lerp(e, f, Weights.x), lerp(g, h, Weights.x), Weights.y);
+	float3 fv = frac(v);
+	float3 iv = floor(v);
 
+	const float3 primes = float3(19, 47, 101);
+
+	if (bTiling)
+	{	// can't algebraically combine with primes
+		seed000 = dot(primes, NoiseTileWrap(iv, true, RepeatSize));
+		seed100 = dot(primes, NoiseTileWrap(iv + float3(1, 0, 0), true, RepeatSize));
+		seed010 = dot(primes, NoiseTileWrap(iv + float3(0, 1, 0), true, RepeatSize));
+		seed110 = dot(primes, NoiseTileWrap(iv + float3(1, 1, 0), true, RepeatSize));
+		seed001 = dot(primes, NoiseTileWrap(iv + float3(0, 0, 1), true, RepeatSize));
+		seed101 = dot(primes, NoiseTileWrap(iv + float3(1, 0, 1), true, RepeatSize));
+		seed011 = dot(primes, NoiseTileWrap(iv + float3(0, 1, 1), true, RepeatSize));
+		seed111 = dot(primes, NoiseTileWrap(iv + float3(1, 1, 1), true, RepeatSize));
+	}
+	else
+	{	// get to combine offsets with multiplication by primes in this case
+		seed000 = dot(iv, primes);
+		seed100 = seed000 + primes.x;
+		seed010 = seed000 + primes.y;
+		seed110 = seed100 + primes.y;
+		seed001 = seed000 + primes.z;
+		seed101 = seed100 + primes.z;
+		seed011 = seed010 + primes.z;
+		seed111 = seed110 + primes.z;
+	}
+
+	return fv;
+}
+
+// Perlin-style "Modified Noise"
+// http://www.umbc.edu/~olano/papers/index.html#mNoise
+// @param v = 3D noise argument, use float3(x,y,0) for 2D or float3(x,0,0) for 1D
+// @param bTiling = repeat noise pattern
+// @param RepeatSize = integer units before tiling in each dimension
+// @return random number in the range -1 .. 1
+float GradientNoise3D_ALU(float3 v, bool bTiling, float RepeatSize)
+{
+	float seed000, seed001, seed010, seed011, seed100, seed101, seed110, seed111;
+	float3 fv = NoiseSeeds(v, bTiling, RepeatSize, seed000, seed001, seed010, seed011, seed100, seed101, seed110, seed111);
+
+	float rand000 = MGradient(int(seed000), fv - float3(0, 0, 0));
+	float rand100 = MGradient(int(seed100), fv - float3(1, 0, 0));
+	float rand010 = MGradient(int(seed010), fv - float3(0, 1, 0));
+	float rand110 = MGradient(int(seed110), fv - float3(1, 1, 0));
+	float rand001 = MGradient(int(seed001), fv - float3(0, 0, 1));
+	float rand101 = MGradient(int(seed101), fv - float3(1, 0, 1));
+	float rand011 = MGradient(int(seed011), fv - float3(0, 1, 1));
+	float rand111 = MGradient(int(seed111), fv - float3(1, 1, 1));
+
+	float3 Weights = PerlinRamp(float4(fv, 0)).xyz;
+
+	float i = lerp(lerp(rand000, rand100, Weights.x), lerp(rand010, rand110, Weights.x), Weights.y);
+	float j = lerp(lerp(rand001, rand101, Weights.x), lerp(rand011, rand111, Weights.x), Weights.y);
 	return lerp(i, j, Weights.z).x;
 }
 
-// -------- TEX based method ---------
-
-/*
-// 128x128 texture with random values
-Texture2D PerlinNoiseTexture;
-SamplerState PerlinNoiseTextureSampler;
-// bilinear filtered 2D noise, can be optimized
-// @param v >0
+// 3D value noise - used to be incorrectly called Perlin noise
+// @param v = 3D noise argument, use float3(x,y,0) for 2D or float3(x,0,0) for 1D
+// @param bTiling = repeat noise pattern
+// @param RepeatSize = integer units before tiling in each dimension
 // @return random number in the range -1 .. 1
-float PerlinNoise2D_TEX(float2 fv)
+float ValueNoise3D_ALU(float3 v, bool bTiling, float RepeatSize)
 {
-	float2 iv = floor(fv);
-	float2 Frac = fv - iv;
-	
-	float2 Weights = PerlinRamp(float4(Frac, 0, 0)).xy;
-	fv = iv + Weights;
-	
-	float2 Tex = (fv.xy + 0.5f) / 128.0f;
-	
-	float3 Gradient = Texture2DSampleLevel(PerlinNoiseTexture, PerlinNoiseTextureSampler, Tex, 0).xyz * 2 - 1;
+	float seed000, seed001, seed010, seed011, seed100, seed101, seed110, seed111;
+	float3 fv = NoiseSeeds(v, bTiling, RepeatSize, seed000, seed001, seed010, seed011, seed100, seed101, seed110, seed111);
 
-	return Gradient.x;
+	float rand000 = RandBBSfloat(seed000) * 2 - 1;
+	float rand100 = RandBBSfloat(seed100) * 2 - 1;
+	float rand010 = RandBBSfloat(seed010) * 2 - 1;
+	float rand110 = RandBBSfloat(seed110) * 2 - 1;
+	float rand001 = RandBBSfloat(seed001) * 2 - 1;
+	float rand101 = RandBBSfloat(seed101) * 2 - 1;
+	float rand011 = RandBBSfloat(seed011) * 2 - 1;
+	float rand111 = RandBBSfloat(seed111) * 2 - 1;
+	
+	float3 Weights = PerlinRamp(float4(fv, 0)).xyz;
+	
+	float i = lerp(lerp(rand000, rand100, Weights.x), lerp(rand010, rand110, Weights.x), Weights.y);
+	float j = lerp(lerp(rand001, rand101, Weights.x), lerp(rand011, rand111, Weights.x), Weights.y);
+	return lerp(i, j, Weights.z).x;
 }
 
-// bilinear filtered 2D noise, can be optimized
-// @param v >0
-// @return random number in the range -1 .. 1
-float PerlinNoise3D_TEX(float3 fv)
-{
-	float3 iv = floor(fv);
-	float3 Frac = fv - iv;
-	
-	float3 Weights = PerlinRamp(frac(float4(fv, 0))).xyz;
-	fv = iv + Weights;
-	
-	const int2 ZShear = int2(17, 89);
-	
-	float2 OffsetA = iv.z * ZShear;
-	float2 OffsetB = OffsetA + ZShear;
-		
-	float2 TexA = (fv.xy + OffsetA + 0.5f) / 128.0f;
-	float2 TexB = (fv.xy + OffsetB + 0.5f) / 128.0f;
-	
-	float3 GradientA = Texture2DSampleLevel(PerlinNoiseTexture, PerlinNoiseTextureSampler, TexA, 0).xyz * 2 - 1;
-	float3 GradientB = Texture2DSampleLevel(PerlinNoiseTexture, PerlinNoiseTextureSampler, TexB, 0).xyz * 2 - 1;
 
-	return lerp(GradientA, GradientB, Weights.z).x;
-}
-*/
+// -------- TEX based methods ---------
 
 // filtered 3D noise, can be optimized
-// @param v >0
+// @param v = 3D noise argument, use float3(x,y,0) for 2D or float3(x,0,0) for 1D
+// @param bTiling = repeat noise pattern
+// @param RepeatSize = integer units before tiling in each dimension
 // @return random number in the range -1 .. 1
-float GradientNoise3D_TEX(float3 fv)
+float GradientNoise3D_TEX(float3 v, bool bTiling, float RepeatSize)
 {
-	float3 iv = floor(fv);
-	float3 Frac = fv - iv;
+	bTiling = true;
+	float3 fv = frac(v);
+	float3 iv0 = NoiseTileWrap(floor(v), bTiling, RepeatSize);
+	float3 iv1 = NoiseTileWrap(iv0 + 1, bTiling, RepeatSize);
 
 	const int2 ZShear = int2(17, 89);
 	
-	float2 OffsetA = iv.z * ZShear;
-	float2 OffsetB = OffsetA + ZShear;
-		
-	float2 TexA = (iv.xy + OffsetA + 0.5f) / 128.0f;
-	float2 TexB = (iv.xy + OffsetB + 0.5f) / 128.0f;
+	float2 OffsetA = iv0.z * ZShear;
+	float2 OffsetB = OffsetA + ZShear;	// non-tiling, use relative offset
+	if (bTiling)						// tiling, have to compute from wrapped coordinates
+	{
+		OffsetB = iv1.z * ZShear;
+	}
+
+	// Texture size scale factor
+	float ts = 1 / 128.0f;
+
+	// texture coordinates for iv0.xy, as offset for both z slices
+	float2 TexA0 = (iv0.xy + OffsetA + 0.5f) * ts;
+	float2 TexB0 = (iv0.xy + OffsetB + 0.5f) * ts;
+
+	// texture coordinates for iv1.xy, as offset for both z slices
+	float2 TexA1 = TexA0 + ts;	// for non-tiling, can compute relative to existing coordinates
+	float2 TexB1 = TexB0 + ts;
+	if (bTiling)				// for tiling, need to compute from wrapped coordinates
+	{
+		TexA1 = (iv1.xy + OffsetA + 0.5f) * ts;
+		TexB1 = (iv1.xy + OffsetB + 0.5f) * ts;
+	}
+
 
 	// can be optimized to 1 or 2 texture lookups (4 or 8 channel encoded in 8, 16 or 32 bit)
-	float3 A = Texture2DSampleLevel(Frame.PerlinNoiseGradientTexture, Frame.PerlinNoiseGradientTextureSampler, TexA + float2(0, 0) / 128.0f, 0).xyz * 2 - 1;
-	float3 B = Texture2DSampleLevel(Frame.PerlinNoiseGradientTexture, Frame.PerlinNoiseGradientTextureSampler, TexA + float2(1, 0) / 128.0f, 0).xyz * 2 - 1;
-	float3 C = Texture2DSampleLevel(Frame.PerlinNoiseGradientTexture, Frame.PerlinNoiseGradientTextureSampler, TexA + float2(0, 1) / 128.0f, 0).xyz * 2 - 1;
-	float3 D = Texture2DSampleLevel(Frame.PerlinNoiseGradientTexture, Frame.PerlinNoiseGradientTextureSampler, TexA + float2(1, 1) / 128.0f, 0).xyz * 2 - 1;
-	float3 E = Texture2DSampleLevel(Frame.PerlinNoiseGradientTexture, Frame.PerlinNoiseGradientTextureSampler, TexB + float2(0, 0) / 128.0f, 0).xyz * 2 - 1;
-	float3 F = Texture2DSampleLevel(Frame.PerlinNoiseGradientTexture, Frame.PerlinNoiseGradientTextureSampler, TexB + float2(1, 0) / 128.0f, 0).xyz * 2 - 1;
-	float3 G = Texture2DSampleLevel(Frame.PerlinNoiseGradientTexture, Frame.PerlinNoiseGradientTextureSampler, TexB + float2(0, 1) / 128.0f, 0).xyz * 2 - 1;
-	float3 H = Texture2DSampleLevel(Frame.PerlinNoiseGradientTexture, Frame.PerlinNoiseGradientTextureSampler, TexB + float2(1, 1) / 128.0f, 0).xyz * 2 - 1;
+	float3 A = Texture2DSampleLevel(View.PerlinNoiseGradientTexture, View.PerlinNoiseGradientTextureSampler, float2(TexA0.x, TexA0.y), 0).xyz * 2 - 1;
+	float3 B = Texture2DSampleLevel(View.PerlinNoiseGradientTexture, View.PerlinNoiseGradientTextureSampler, float2(TexA1.x, TexA0.y), 0).xyz * 2 - 1;
+	float3 C = Texture2DSampleLevel(View.PerlinNoiseGradientTexture, View.PerlinNoiseGradientTextureSampler, float2(TexA0.x, TexA1.y), 0).xyz * 2 - 1;
+	float3 D = Texture2DSampleLevel(View.PerlinNoiseGradientTexture, View.PerlinNoiseGradientTextureSampler, float2(TexA1.x, TexA1.y), 0).xyz * 2 - 1;
+	float3 E = Texture2DSampleLevel(View.PerlinNoiseGradientTexture, View.PerlinNoiseGradientTextureSampler, float2(TexB0.x, TexB0.y), 0).xyz * 2 - 1;
+	float3 F = Texture2DSampleLevel(View.PerlinNoiseGradientTexture, View.PerlinNoiseGradientTextureSampler, float2(TexB1.x, TexB0.y), 0).xyz * 2 - 1;
+	float3 G = Texture2DSampleLevel(View.PerlinNoiseGradientTexture, View.PerlinNoiseGradientTextureSampler, float2(TexB0.x, TexB1.y), 0).xyz * 2 - 1;
+	float3 H = Texture2DSampleLevel(View.PerlinNoiseGradientTexture, View.PerlinNoiseGradientTextureSampler, float2(TexB1.x, TexB1.y), 0).xyz * 2 - 1;
 
-	float a = dot(A, Frac - float3(0, 0, 0));
-	float b = dot(B, Frac - float3(1, 0, 0));
-	float c = dot(C, Frac - float3(0, 1, 0));
-	float d = dot(D, Frac - float3(1, 1, 0));
-	float e = dot(E, Frac - float3(0, 0, 1));
-	float f = dot(F, Frac - float3(1, 0, 1));
-	float g = dot(G, Frac - float3(0, 1, 1));
-	float h = dot(H, Frac - float3(1, 1, 1));
+	float a = dot(A, fv - float3(0, 0, 0));
+	float b = dot(B, fv - float3(1, 0, 0));
+	float c = dot(C, fv - float3(0, 1, 0));
+	float d = dot(D, fv - float3(1, 1, 0));
+	float e = dot(E, fv - float3(0, 0, 1));
+	float f = dot(F, fv - float3(1, 0, 1));
+	float g = dot(G, fv - float3(0, 1, 1));
+	float h = dot(H, fv - float3(1, 1, 1));
 
-	float3 Weights = PerlinRamp(frac(float4(Frac, 0))).xyz;
+	float3 Weights = PerlinRamp(frac(float4(fv, 0))).xyz;
 	
 	float i = lerp(lerp(a, b, Weights.x), lerp(c, d, Weights.x), Weights.y);
 	float j = lerp(lerp(e, f, Weights.x), lerp(g, h, Weights.x), Weights.y);
@@ -267,7 +409,7 @@ float FastGradientPerlinNoise3D_TEX(float3 xyz)
 	// scalar: 3 add
 	float3 p = p0 + f;
 	// scalar: 3 mad
-	float4 NoiseSample = Texture3DSampleLevel(Frame.PerlinNoise3DTexture, Frame.PerlinNoise3DTextureSampler, p / Extent + 0.5f / Extent, 0);		// +0.5f to get rid of bilinear offset
+	float4 NoiseSample = Texture3DSampleLevel(View.PerlinNoise3DTexture, View.PerlinNoise3DTextureSampler, p / Extent + 0.5f / Extent, 0);		// +0.5f to get rid of bilinear offset
 
 	// reconstruct from 8bit (using mad with 2 constants and dot4 was same instruction count)
 	// scalar: 4 mad, 3 mul, 3 add 
@@ -275,6 +417,112 @@ float FastGradientPerlinNoise3D_TEX(float3 xyz)
 	float d = NoiseSample.w * 255.f - 127;
 	return dot(xyz, n) - d;
 }
+
+
+// 3D jitter offset within a voronoi noise cell
+// @param pos - integer lattice corner
+// @return random offsets vector
+float3 VoronoiCornerSample(float3 pos, int Quality)
+{
+	// random values in [-0.5, 0.5]
+	float3 noise = float3(Rand3DPCG16(int3(pos))) / 0xffff - 0.5;
+
+	// quality level 1 or 2: searches a 2x2x2 neighborhood with points distributed on a sphere
+	// scale factor to guarantee jittered points will be found within a 2x2x2 search
+	if (Quality <= 2)
+	{
+		return normalize(noise) * 0.2588;
+	}
+
+	// quality level 3: searches a 3x3x3 neighborhood with points distributed on a sphere
+	// scale factor to guarantee jittered points will be found within a 3x3x3 search
+	if (Quality == 3)
+	{
+		return normalize(noise) * 0.3090;
+	}
+
+	// quality level 4: jitter to anywhere in the cell, needs 4x4x4 search
+	return noise;
+}
+
+// 220 instruction Worley noise
+float VoronoiNoise3D_ALU(float3 v, int Quality, bool bTiling, float RepeatSize)
+{
+	float3 fv = frac(v),  fv2 = frac(v + 0.5);
+	float3 iv = floor(v), iv2 = floor(v + 0.5);
+
+	// with initial minimum distance = infinity (or at least bigger than 4), first min is optimized away
+	float mindist = 100;
+	float3 p, offset;
+
+	// quality level 3: do a 3x3x3 search
+	if (Quality == 3)
+	{
+		UNROLL for (offset.x = -1; offset.x <= 1; ++offset.x)
+		{
+			UNROLL for (offset.y = -1; offset.y <= 1; ++offset.y)
+			{
+				UNROLL for (offset.z = -1; offset.z <= 1; ++offset.z)
+				{
+					p = fv2 - offset - VoronoiCornerSample(NoiseTileWrap(iv2 + offset, bTiling, RepeatSize), Quality);
+					mindist = min(mindist, dot(p, p));
+				}
+			}
+		}
+	}
+
+	// everybody else searches a base 2x2x2 neighborhood
+	else
+	{
+		UNROLL for (offset.x = 0; offset.x <= 1; ++offset.x)
+		{
+			UNROLL for (offset.y = 0; offset.y <= 1; ++offset.y)
+			{
+				UNROLL for (offset.z = 0; offset.z <= 1; ++offset.z)
+				{
+					p = fv - offset - VoronoiCornerSample(NoiseTileWrap(iv + offset, bTiling, RepeatSize), Quality);
+					mindist = min(mindist, dot(p, p));
+					// quality level 2, do extra set of points, offset by half a cell
+					if (Quality == 2)
+					{
+						// 467 is just an offset to a different area in the random number field to avoid similar neighbor artifacts
+						p = fv2 - offset - VoronoiCornerSample(NoiseTileWrap(iv2 + offset, bTiling, RepeatSize) + 467, Quality);
+						mindist = min(mindist, dot(p, p));
+					}
+				}
+			}
+		}
+	}
+
+	// quality level 4: add extra sets of four cells in each direction
+	if (Quality >= 4)
+	{
+		UNROLL for (offset.x = -1; offset.x <= 2; offset.x += 3)
+		{
+			UNROLL for (offset.y = 0; offset.y <= 1; ++offset.y)
+			{
+				UNROLL for (offset.z = 0; offset.z <= 1; ++offset.z)
+				{
+					// along x axis
+					p = fv - offset.xyz - VoronoiCornerSample(NoiseTileWrap(iv + offset.xyz, bTiling, RepeatSize), Quality);
+					mindist = min(mindist, dot(p, p));
+
+					// along y axis
+					p = fv - offset.yzx - VoronoiCornerSample(NoiseTileWrap(iv + offset.yzx, bTiling, RepeatSize), Quality);
+					mindist = min(mindist, dot(p, p));
+
+					// along z axis
+					p = fv - offset.zxy - VoronoiCornerSample(NoiseTileWrap(iv + offset.zxy, bTiling, RepeatSize), Quality);
+					mindist = min(mindist, dot(p, p));
+				}
+			}
+		}
+	}
+
+	// transform to -1 to 1 range as expected by later OutputMin to OutputMax transform
+	return (sqrt(mindist) * 2 ) - 1;
+}
+
 
 // -------- Simplex method (faster in higher dimensions because less samples are used, uses gradient noise for quality) ---------
 // <Dimensions>D:<Normal>/<Simplex> 1D:2, 2D:4/3, 3D:8/4, 4D:16/5 
@@ -342,7 +590,7 @@ float2 GetPerlinNoiseGradientTextureAt(float2 v)
 	float2 TexA = (v.xy + 0.5f) / 128.0f;
 
 	// todo: storing random 2d unit vectors would be better
-	float3 p = Texture2DSampleLevel(Frame.PerlinNoiseGradientTexture, Frame.PerlinNoiseGradientTextureSampler, TexA, 0).xyz * 2 - 1;
+	float3 p = Texture2DSampleLevel(View.PerlinNoiseGradientTexture, View.PerlinNoiseGradientTextureSampler, TexA, 0).xyz * 2 - 1;
 	return normalize(p.xy + p.z * 0.33f);
 }
 
@@ -353,7 +601,7 @@ float3 GetPerlinNoiseGradientTextureAt(float3 v)
 	float2 OffsetA = v.z * ZShear;
 	float2 TexA = (v.xy + OffsetA + 0.5f) / 128.0f;
 
-	return Texture2DSampleLevel(Frame.PerlinNoiseGradientTexture, Frame.PerlinNoiseGradientTextureSampler, TexA , 0).xyz * 2 - 1;
+	return Texture2DSampleLevel(View.PerlinNoiseGradientTexture, View.PerlinNoiseGradientTextureSampler, TexA , 0).xyz * 2 - 1;
 }
 
 float2 SkewSimplex(float2 In)

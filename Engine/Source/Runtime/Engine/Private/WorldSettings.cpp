@@ -20,6 +20,10 @@
 #include "Editor.h"
 #endif 
 
+// @todo vreditor urgent: Temporary hack to allow world-to-meters to be set before
+// input is polled for motion controller devices each frame.
+ENGINE_API float GNewWorldToMetersScale = 0.0f;
+
 AWorldSettings::AWorldSettings(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer.DoNotCreateDefaultSubobject(TEXT("Sprite")))
 {
@@ -63,7 +67,8 @@ AWorldSettings::AWorldSettings(const FObjectInitializer& ObjectInitializer)
 	bHidden = false;
 
 	DefaultColorScale = FVector(1.0f, 1.0f, 1.0f);
-
+	DefaultMaxDistanceFieldOcclusionDistance = 600;
+	GlobalDistanceFieldViewDistance = 20000;
 	bPlaceCellsOnlyAlongCameraTracks = false;
 	VisibilityCellSize = 200;
 	VisibilityAggressiveness = VIS_LeastAggressive;
@@ -111,6 +116,17 @@ void AWorldSettings::PostInitializeComponents()
 	}
 }
 
+void AWorldSettings::PostRegisterAllComponents()
+{
+	Super::PostRegisterAllComponents();
+
+	UWorld* World = GetWorld();
+	if (FAudioDevice* AudioDevice = World->GetAudioDevice())
+	{
+		AudioDevice->SetDefaultAudioSettings(World, DefaultReverbSettings, DefaultAmbientZoneSettings);
+	}
+}
+
 float AWorldSettings::GetGravityZ() const
 {
 	if (!bWorldGravitySet)
@@ -130,8 +146,19 @@ void AWorldSettings::OnRep_WorldGravityZ()
 
 float AWorldSettings::FixupDeltaSeconds(float DeltaSeconds, float RealDeltaSeconds)
 {
-	// Clamp time between 2000 fps and 2.5 fps.
-	return FMath::Clamp(DeltaSeconds, 0.0005f, 0.4f);	
+	// DeltaSeconds is assumed to be fully dilated at this time, so we will dilate the clamp range as well
+	float const Dilation = GetEffectiveTimeDilation();
+	float const MinFrameTime = MinUndilatedFrameTime * Dilation;
+	float const MaxFrameTime = MaxUndilatedFrameTime * Dilation;
+
+	// clamp frame time according to desired limits
+	return FMath::Clamp(DeltaSeconds, MinFrameTime, MaxFrameTime);	
+}
+
+float AWorldSettings::SetTimeDilation(float NewTimeDilation)
+{
+	TimeDilation = FMath::Clamp(NewTimeDilation, MinGlobalTimeDilation, MaxGlobalTimeDilation);
+	return TimeDilation;
 }
 
 void AWorldSettings::NotifyBeginPlay()
@@ -231,7 +258,8 @@ void AWorldSettings::PostLoad()
 
 	for (FHierarchicalSimplification Entry : HierarchicalLODSetup)
 	{
-		Entry.ProxySetting.PostLoadDeprecated();	
+		Entry.ProxySetting.PostLoadDeprecated();
+		Entry.MergeSetting.LODSelectionType = EMeshLODSelectionType::CalculateLOD;
 	}
 #endif// WITH_EDITOR
 }
@@ -261,17 +289,63 @@ void AWorldSettings::CheckForErrors()
 	}
 }
 
+bool AWorldSettings::CanEditChange(const UProperty* InProperty) const
+{
+	if (InProperty)
+	{
+		FString PropertyName = InProperty->GetName();
+
+		if (InProperty->GetOuter()
+			&& InProperty->GetOuter()->GetName() == TEXT("LightmassWorldInfoSettings"))
+		{
+			if (PropertyName == GET_MEMBER_NAME_STRING_CHECKED(FLightmassWorldInfoSettings, bGenerateAmbientOcclusionMaterialMask)
+				|| PropertyName == GET_MEMBER_NAME_STRING_CHECKED(FLightmassWorldInfoSettings, DirectIlluminationOcclusionFraction)
+				|| PropertyName == GET_MEMBER_NAME_STRING_CHECKED(FLightmassWorldInfoSettings, IndirectIlluminationOcclusionFraction)
+				|| PropertyName == GET_MEMBER_NAME_STRING_CHECKED(FLightmassWorldInfoSettings, OcclusionExponent)
+				|| PropertyName == GET_MEMBER_NAME_STRING_CHECKED(FLightmassWorldInfoSettings, FullyOccludedSamplesFraction)
+				|| PropertyName == GET_MEMBER_NAME_STRING_CHECKED(FLightmassWorldInfoSettings, MaxOcclusionDistance)
+				|| PropertyName == GET_MEMBER_NAME_STRING_CHECKED(FLightmassWorldInfoSettings, bVisualizeAmbientOcclusion))
+			{
+				return LightmassSettings.bUseAmbientOcclusion;
+			}
+
+			if (PropertyName == GET_MEMBER_NAME_STRING_CHECKED(FLightmassWorldInfoSettings, EnvironmentColor))
+			{
+				return LightmassSettings.EnvironmentIntensity > 0;
+			}
+		}
+	}
+
+	return Super::CanEditChange(InProperty);
+}
+
+void AWorldSettings::PostEditChangeChainProperty(FPropertyChangedChainEvent& PropertyChangedEvent)
+{
+	Super::PostEditChangeChainProperty(PropertyChangedEvent);
+
+	const FName MemberPropertyName = PropertyChangedEvent.PropertyChain.GetActiveMemberNode()->GetValue()->GetFName();
+
+	if (MemberPropertyName == GET_MEMBER_NAME_CHECKED(AWorldSettings, DefaultReverbSettings) || MemberPropertyName == GET_MEMBER_NAME_CHECKED(AWorldSettings, DefaultAmbientZoneSettings))
+	{
+		UWorld* World = GetWorld();
+		if (FAudioDevice* AudioDevice = World->GetAudioDevice())
+		{
+			AudioDevice->SetDefaultAudioSettings(World, DefaultReverbSettings, DefaultAmbientZoneSettings);
+		}
+	}
+}
+
 void AWorldSettings::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
 	UProperty* PropertyThatChanged = PropertyChangedEvent.Property;
 	if (PropertyThatChanged)
 	{
-		if (PropertyThatChanged->GetName()==TEXT("bForceNoPrecomputedLighting") && bForceNoPrecomputedLighting)
+		if (PropertyThatChanged->GetFName()==GET_MEMBER_NAME_CHECKED(AWorldSettings,bForceNoPrecomputedLighting) && bForceNoPrecomputedLighting)
 		{
 			FMessageDialog::Open( EAppMsgType::Ok, LOCTEXT("bForceNoPrecomputedLightingIsEnabled", "bForceNoPrecomputedLighting is now enabled, build lighting once to propagate the change (will remove existing precomputed lighting data)."));
 		}
 
-		if (PropertyThatChanged->GetName()==TEXT("bEnableWorldComposition"))
+		else if (PropertyThatChanged->GetFName()==GET_MEMBER_NAME_CHECKED(AWorldSettings,bEnableWorldComposition))
 		{
 			if (UWorldComposition::EnableWorldCompositionEvent.IsBound())
 			{
@@ -308,16 +382,21 @@ void AWorldSettings::PostEditChangeProperty(FPropertyChangedEvent& PropertyChang
 			GEngine->DeferredCommands.AddUnique(TEXT("UpdateLandscapeSetup"));
 		}
 
-		if (PropertyThatChanged->GetName() == TEXT("TransitionScreenSize"))
+		if (PropertyThatChanged->GetFName() == GET_MEMBER_NAME_CHECKED(FHierarchicalSimplification,TransitionScreenSize))
 		{
 			GEditor->BroadcastHLODTransitionScreenSizeChanged();
 		}
 
-		if (PropertyThatChanged->GetName() == TEXT("HierarchicalLODSetup"))
+		else if (PropertyThatChanged->GetFName() == GET_MEMBER_NAME_CHECKED(AWorldSettings,HierarchicalLODSetup))
 		{
 			GEditor->BroadcastHLODLevelsArrayChanged();
 			NumHLODLevels = HierarchicalLODSetup.Num();			
 		}
+	}
+
+	if (PropertyThatChanged != nullptr && GetWorld() != nullptr && GetWorld()->Scene)
+	{
+		GetWorld()->Scene->UpdateSceneSettings(this);
 	}
 
 	Super::PostEditChangeProperty(PropertyChangedEvent);

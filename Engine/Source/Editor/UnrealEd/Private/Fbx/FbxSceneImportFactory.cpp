@@ -253,6 +253,24 @@ static void ExtractMaterialInfoFromNode(UnFbx::FFbxImporter* FbxImporter, FbxNod
 				MaterialInfo->HierarchyPath = CurrentHierarchyPath;
 				MaterialInfo->UniqueId = FbxMaterial->GetUniqueID();
 				MaterialInfo->Name = UTF8_TO_TCHAR(FbxMaterial->GetName());
+				TCHAR IllegalCharacters[7] = { '/', '\\', ' ', '`', '\t', '\r', '\n' };
+				bool DisplayInvalidNameError = false;
+				FString OldMaterialName = MaterialInfo->Name;
+				for (TCHAR IllegalCharacter : IllegalCharacters)
+				{
+					TCHAR IllegalChar[2];
+					IllegalChar[0] = IllegalCharacter;
+					IllegalChar[1] = '\0';
+					if (MaterialInfo->Name.Contains(&IllegalChar[0]))
+					{
+						MaterialInfo->Name = MaterialInfo->Name.Replace(&IllegalChar[0], L"_");
+						DisplayInvalidNameError = true;
+					}
+				}
+				if (DisplayInvalidNameError)
+				{
+					FbxImporter->AddTokenizedErrorMessage(FTokenizedMessage::Create(EMessageSeverity::Warning, FText::Format(LOCTEXT("FoundInvalidCharacterInMaterialName", "Found invalid character in a material name. Original name: {0} New name: {1}"), FText::FromString(OldMaterialName), FText::FromString(MaterialInfo->Name))), FFbxErrors::Generic_InvalidCharacterInName);
+				}
 				ExtractPropertyTextures(FbxMaterial, MaterialInfo, FbxSurfaceMaterial::sDiffuse, ExtractedTextures);
 				ExtractPropertyTextures(FbxMaterial, MaterialInfo, FbxSurfaceMaterial::sEmissive, ExtractedTextures);
 				ExtractPropertyTextures(FbxMaterial, MaterialInfo, FbxSurfaceMaterial::sSpecular, ExtractedTextures);
@@ -443,7 +461,7 @@ TSharedPtr<FFbxSceneInfo> UFbxSceneImportFactory::ConvertSceneInfo(void* VoidFbx
 	UnFbx::FBXImportOptions* FbxImportOptionsPtr = FbxImporter->GetImportOptions();
 	bool OldValueImportMeshesInBoneHierarchy = FbxImportOptionsPtr->bImportMeshesInBoneHierarchy;
 	FbxImportOptionsPtr->bImportMeshesInBoneHierarchy = true;
-	FbxImporter->FillFbxSkelMeshArrayInScene(RootNodeToImport, SkelMeshArray, false);
+	FbxImporter->FillFbxSkelMeshArrayInScene(RootNodeToImport, SkelMeshArray, false, true);
 	FbxImportOptionsPtr->bImportMeshesInBoneHierarchy = OldValueImportMeshesInBoneHierarchy;
 
 	for (int32 i = 0; i < SkelMeshArray.Num(); i++)
@@ -452,12 +470,36 @@ TSharedPtr<FFbxSceneInfo> UFbxSceneImportFactory::ConvertSceneInfo(void* VoidFbx
 		if (NodeArray.Num() < 1)
 			continue;
 		FbxNode* RootNodeArrayNode = NodeArray[0];
+		if (RootNodeArrayNode->GetNodeAttribute() && RootNodeArrayNode->GetNodeAttribute()->GetAttributeType() == FbxNodeAttribute::eLODGroup)
+		{
+			RootNodeArrayNode = FbxImporter->FindLODGroupNode(RootNodeArrayNode, 0);
+		}
 		FbxMesh* Mesh = RootNodeArrayNode->GetMesh();
 		if (Mesh != nullptr)
 		{
 			ValidSkeletalMesh.Add(Mesh->GetUniqueID(), Mesh);
+			for (FbxNode* SkelMeshNode : NodeArray)
+			{
+				uint64 MeshNodeID = SkelMeshNode->GetUniqueID();
+				FbxMesh* SkeletalMeshAttribute = SkelMeshNode->GetMesh();
+				
+				if (SkeletalMeshAttribute != nullptr)
+					MeshNodeID = SkeletalMeshAttribute->GetUniqueID();
+
+				for (UnFbx::FbxMeshInfo &MeshInfo : SceneInfo.MeshInfo)
+				{
+					if (MeshInfo.UniqueId == MeshNodeID)
+					{
+						//We have either a skeletal mesh or a rigid mesh
+						MeshInfo.bIsSkelMesh = true;
+						break;
+					}
+				}
+			}
 		}
 	}
+
+	
 
 	for (const UnFbx::FbxMeshInfo MeshInfo : SceneInfo.MeshInfo)
 	{
@@ -520,12 +562,15 @@ TSharedPtr<FFbxSceneInfo> UFbxSceneImportFactory::ConvertSceneInfo(void* VoidFbx
 
 		//Find the attribute info
 		NodeInfoPtr->AttributeInfo = nullptr;
-		for (TSharedPtr<FFbxMeshInfo> AttributePtr : SceneInfoPtr->MeshInfo)
+		if (NodeInfoPtr->AttributeType.Compare(TEXT("eMesh")) == 0)
 		{
-			if (AttributePtr->UniqueId == NodeInfo.AttributeUniqueId)
+			for (TSharedPtr<FFbxMeshInfo> AttributePtr : SceneInfoPtr->MeshInfo)
 			{
-				NodeInfoPtr->AttributeInfo = AttributePtr;
-				break;
+				if (AttributePtr->UniqueId == NodeInfo.AttributeUniqueId)
+				{
+					NodeInfoPtr->AttributeInfo = AttributePtr;
+					break;
+				}
 			}
 		}
 
@@ -667,6 +712,7 @@ UFbxSceneImportFactory::UFbxSceneImportFactory(const FObjectInitializer& ObjectI
 {
 	SupportedClass = UWorld::StaticClass();
 	Formats.Add(TEXT("fbx;Fbx Scene"));
+	Formats.Add(TEXT("obj;OBJ Scene"));
 
 	bCreateNew = false;
 	bText = false;
@@ -898,12 +944,15 @@ FFeedbackContext*	Warn
 
 	//We are a scene import set the flag for the reimport factory for both static mesh and skeletal mesh
 	StaticMeshImportData->bImportAsScene = true;
+	StaticMeshImportData->bImportMaterials = GlobalImportSettings->bImportMaterials;
 	StaticMeshImportData->FbxSceneImportDataReference = ReimportData;
 
 	SkeletalMeshImportData->bImportAsScene = true;
+	SkeletalMeshImportData->bImportMaterials = GlobalImportSettings->bImportMaterials;
 	SkeletalMeshImportData->FbxSceneImportDataReference = ReimportData;
 
 	AnimSequenceImportData->bImportAsScene = true;
+	AnimSequenceImportData->bImportMaterials = GlobalImportSettings->bImportMaterials;
 	AnimSequenceImportData->FbxSceneImportDataReference = ReimportData;
 
 	//Get the scene root node
@@ -969,7 +1018,7 @@ FFeedbackContext*	Warn
 				FString AssetName = TEXT("FbxScene_") + FPaths::GetBaseFilename(UFactory::CurrentFilename);
 				UPackage *Pkg = CreatePackageForNode(FullnameBP, AssetName);
 				//Create the blueprint from the actor and replace the actor with a blueprintactor that point on the blueprint
-				UBlueprint* SceneBlueprint = FKismetEditorUtilities::CreateBlueprintFromActor(Pkg->GetName(), HierarchyActor, true);
+				UBlueprint* SceneBlueprint = FKismetEditorUtilities::CreateBlueprintFromActor(Pkg->GetName(), HierarchyActor, true, true);
 				if (SceneBlueprint != nullptr && ReimportData != nullptr)
 				{
 					//let the scene blueprint be the return object for this import
@@ -1060,7 +1109,7 @@ USceneComponent *CreateLightComponent(AActor *ParentActor, TSharedPtr<FFbxLightI
 		UPointLightComponent *PointLightComponent = NewObject<UPointLightComponent>(ParentActor, *(LightInfo->Name));
 		PointLightComponent->SetAttenuationRadius(LightInfo->EnableFarAttenuation ? LightInfo->FarAttenuationEnd : 16384.0f);
 		LightComponent = static_cast<ULightComponent*>(PointLightComponent);
-		LightComponent->SetIntensity(LightInfo->Intensity);
+		LightComponent->SetIntensity(LightComponent->Intensity * LightInfo->Intensity / 100.0f);
 	}
 		break;
 	case 1:
@@ -1068,7 +1117,8 @@ USceneComponent *CreateLightComponent(AActor *ParentActor, TSharedPtr<FFbxLightI
 		//Directional light
 		UDirectionalLightComponent *DirectionalLightComponent = NewObject<UDirectionalLightComponent>(ParentActor, *(LightInfo->Name));
 		LightComponent = static_cast<ULightComponent*>(DirectionalLightComponent);
-		LightComponent->SetIntensity(LightInfo->Intensity/100); //In unreal this is a ratio not a lumen value
+		//We cannot convert fbx value to unreal value so we kept the default object value
+		LightComponent->SetIntensity(LightComponent->Intensity * LightInfo->Intensity / 100.0f);
 	}
 		break;
 	case 2:
@@ -1079,7 +1129,8 @@ USceneComponent *CreateLightComponent(AActor *ParentActor, TSharedPtr<FFbxLightI
 		SpotLightComponent->SetOuterConeAngle(LightInfo->OuterAngle/2.0f);
 		SpotLightComponent->SetAttenuationRadius(LightInfo->EnableFarAttenuation ? LightInfo->FarAttenuationEnd : 16384.0f);
 		LightComponent = static_cast<ULightComponent*>(SpotLightComponent);
-		LightComponent->SetIntensity(LightInfo->Intensity);
+		
+		LightComponent->SetIntensity(LightComponent->Intensity * LightInfo->Intensity / 100.0f);
 	}
 		break;
 	case 3:
@@ -1245,6 +1296,7 @@ void UFbxSceneImportFactory::CreateLevelActorHierarchy(TSharedPtr<FFbxSceneInfo>
 
 		if (PlacedActor != nullptr)
 		{
+			PlacedActor->SetFlags(RF_Transactional);
 			//Rename the actor correctly
 			//When importing a scene we don't want to change the actor name even if there is similar label already existing
 			PlacedActor->SetActorLabel(NodeInfo->NodeName);
@@ -1252,6 +1304,7 @@ void UFbxSceneImportFactory::CreateLevelActorHierarchy(TSharedPtr<FFbxSceneInfo>
 			USceneComponent* RootComponent = Cast<USceneComponent>(PlacedActor->GetRootComponent());
 			if (RootComponent)
 			{
+				RootComponent->SetFlags(RF_Transactional);
 				//Set the mobility
 				RootComponent->Mobility = MobilityType;
 				//Map the new actor name with the old name in case the name is changing
@@ -1299,6 +1352,8 @@ void UFbxSceneImportFactory::CreateLevelActorHierarchy(TSharedPtr<FFbxSceneInfo>
 
 				//Apply the hierarchy local transform to the root component
 				ApplyTransformToComponent(RootComponent, &(NodeInfo->Transform), ParentActor == nullptr ? &RootTransform : nullptr, PivotLocation, ParentPivotAccumulation);
+				//Notify people that the component get created/changed
+				RootComponent->PostEditChange();
 			}
 		}
 		//We select only the first actor
@@ -1335,6 +1390,8 @@ AActor *UFbxSceneImportFactory::CreateActorComponentsHierarchy(TSharedPtr<FFbxSc
 	RootActorContainer->AddInstanceComponent(ActorRootComponent);
 	ActorRootComponent->RegisterComponent();
 	RootActorContainer->SetActorLabel(FilenameBase);
+	RootActorContainer->SetFlags(RF_Transactional);
+	ActorRootComponent->SetFlags(RF_Transactional);
 
 	//////////////////////////////////////////////////////////////////////////
 	// iterate the whole hierarchy and create all component
@@ -1436,6 +1493,9 @@ AActor *UFbxSceneImportFactory::CreateActorComponentsHierarchy(TSharedPtr<FFbxSc
 			continue;
 		}
 
+		//Make sure undo/redo is working
+		SceneComponent->SetFlags(RF_Transactional);
+
 		//////////////////////////////////////////////////////////////////////////
 		//Make sure scenecomponent name are unique in the hierarchy of the outer
 		FString NewUniqueName = NodeInfo->NodeName;
@@ -1465,12 +1525,12 @@ AActor *UFbxSceneImportFactory::CreateActorComponentsHierarchy(TSharedPtr<FFbxSc
 			ParentRootComponent = *NewSceneComponentNameMap.Find(ParentUniqueId);
 			if (ParentRootComponent != nullptr)
 			{
-				SceneComponent->AttachTo(ParentRootComponent, NAME_None, EAttachLocation::KeepWorldPosition);
+				SceneComponent->AttachToComponent(ParentRootComponent, FAttachmentTransformRules::KeepWorldTransform);
 			}
 		}
 		else
 		{
-			SceneComponent->AttachTo(ActorRootComponent, NAME_None, EAttachLocation::KeepWorldPosition);
+			SceneComponent->AttachToComponent(ActorRootComponent, FAttachmentTransformRules::KeepWorldTransform);
 		}
 
 		//Find the pivot location
@@ -1494,7 +1554,8 @@ AActor *UFbxSceneImportFactory::CreateActorComponentsHierarchy(TSharedPtr<FFbxSc
 
 		//Apply the local transform to the scene component
 		ApplyTransformToComponent(SceneComponent, &(NodeInfo->Transform), ParentRootComponent != nullptr ? nullptr : &RootTransform, PivotLocation, ParentPivotAccumulation);
-		
+		//Notify people that the component get created/changed
+		SceneComponent->PostEditChange();
 	}
 	// End of iteration of the hierarchy
 	//////////////////////////////////////////////////////////////////////////
@@ -1576,6 +1637,16 @@ UObject* UFbxSceneImportFactory::ImportOneSkeletalMesh(void* VoidRootNodeToImpor
 	if (TotalNumNodes > 0)
 	{
 		FbxNode* RootNodeArrayNode = NodeArray[0];
+		if (RootNodeArrayNode->GetNodeAttribute() && RootNodeArrayNode->GetNodeAttribute()->GetAttributeType() == FbxNodeAttribute::eLODGroup)
+		{
+			//In case we have a LOD group we must have only one node in the array
+			check(NodeArray.Num() == 1);
+			RootNodeArrayNode = FbxImporter->FindLODGroupNode(RootNodeArrayNode, 0);
+			if (RootNodeArrayNode == nullptr)
+			{
+				return nullptr;
+			}
+		}
 		if (!FindSceneNodeInfo(SceneInfo, RootNodeArrayNode->GetUniqueID(), RootNodeInfo))
 		{
 			return nullptr;
@@ -1626,17 +1697,18 @@ UObject* UFbxSceneImportFactory::ImportOneSkeletalMesh(void* VoidRootNodeToImpor
 			FbxNode* Node = NodeArray[j];
 			if (Node->GetNodeAttribute() && Node->GetNodeAttribute()->GetAttributeType() == FbxNodeAttribute::eLODGroup)
 			{
+				TArray<FbxNode*> NodeInLod;
 				if (Node->GetChildCount() > LODIndex)
 				{
-					FbxNode *MeshNode = FbxImporter->FindLODGroupNode(Node, LODIndex);
-					if(MeshNode != nullptr)
-						SkelMeshNodeArray.Add(MeshNode);
+					FbxImporter->FindAllLODGroupNode(NodeInLod, Node, LODIndex);
 				}
 				else // in less some LODGroups have less level, use the last level
 				{
-					FbxNode *MeshNode = FbxImporter->FindLODGroupNode(Node, Node->GetChildCount() - 1);
-					if (MeshNode != nullptr)
-						SkelMeshNodeArray.Add(MeshNode);
+					FbxImporter->FindAllLODGroupNode(NodeInLod, Node, Node->GetChildCount() - 1);
+				}
+				for (FbxNode *MeshNode : NodeInLod)
+				{
+					SkelMeshNodeArray.Add(MeshNode);
 				}
 			}
 			else
@@ -1681,7 +1753,7 @@ UObject* UFbxSceneImportFactory::ImportOneSkeletalMesh(void* VoidRootNodeToImpor
 			RootNodeInfo->AttributeInfo->SetOriginalImportPath(PackageName);
 			FName SkeletalMeshFName = FName(*SkeletalMeshName);
 			//Import the skeletal mesh
-			USkeletalMesh* NewMesh = FbxImporter->ImportSkeletalMesh(Pkg, bUseSkelMeshNodePivotArray ? SkelMeshNodePivotArray : SkelMeshNodeArray, SkeletalMeshFName, Flags, SkeletalMeshImportData);
+			USkeletalMesh* NewMesh = FbxImporter->ImportSkeletalMesh(Pkg, bUseSkelMeshNodePivotArray ? SkelMeshNodePivotArray : SkelMeshNodeArray, SkeletalMeshFName, Flags, SkeletalMeshImportData, LODIndex);
 			NewObject = NewMesh;
 			if (NewMesh)
 			{
@@ -1706,13 +1778,13 @@ UObject* UFbxSceneImportFactory::ImportOneSkeletalMesh(void* VoidRootNodeToImpor
 				RootNodeInfo->AttributeInfo->SetOriginalFullImportName(NewObject->GetPathName());
 			}
 		}
-		else if (NewObject) // the base skeletal mesh is imported successfully
+		else if (NewObject && GlobalImportSettings->bImportSkeletalMeshLODs) // the base skeletal mesh is imported successfully
 		{
 			USkeletalMesh* BaseSkeletalMesh = Cast<USkeletalMesh>(NewObject);
 			FName LODObjectName = NAME_None;
 			//Import skeletal mesh LOD
-			USkeletalMesh *LODObject = FbxImporter->ImportSkeletalMesh(GetTransientPackage(), bUseSkelMeshNodePivotArray ? SkelMeshNodePivotArray : SkelMeshNodeArray, LODObjectName, RF_NoFlags, SkeletalMeshImportData);
-			bool bImportSucceeded = FbxImporter->ImportSkeletalMeshLOD(LODObject, BaseSkeletalMesh, LODIndex, false);
+			USkeletalMesh *LODObject = FbxImporter->ImportSkeletalMesh(BaseSkeletalMesh->GetOutermost(), bUseSkelMeshNodePivotArray ? SkelMeshNodePivotArray : SkelMeshNodeArray, LODObjectName, RF_Transient, SkeletalMeshImportData, LODIndex);
+			bool bImportSucceeded = FbxImporter->ImportSkeletalMeshLOD(LODObject, BaseSkeletalMesh, LODIndex);
 			if (bImportSucceeded)
 			{
 				BaseSkeletalMesh->LODInfo[LODIndex].ScreenSize = 1.0f / (MaxLODLevel * LODIndex);
@@ -1743,7 +1815,7 @@ void UFbxSceneImportFactory::ImportAllSkeletalMesh(void* VoidRootNodeToImport, v
 	FbxNode *RootNodeToImport = (FbxNode *)VoidRootNodeToImport;
 	InterestingNodeCount = 1;
 	TArray< TArray<FbxNode*>* > SkelMeshArray;
-	FbxImporter->FillFbxSkelMeshArrayInScene(RootNodeToImport, SkelMeshArray, false);
+	FbxImporter->FillFbxSkelMeshArrayInScene(RootNodeToImport, SkelMeshArray, false, true);
 	InterestingNodeCount = SkelMeshArray.Num();
 
 	int32 TotalNumNodes = 0;
@@ -1819,7 +1891,7 @@ void UFbxSceneImportFactory::ImportAllStaticMesh(void* VoidRootNodeToImport, voi
 // @todo document
 UObject* UFbxSceneImportFactory::RecursiveImportNode(void* VoidFbxImporter, void* VoidNode, EObjectFlags Flags, int32& NodeIndex, int32 Total, TSharedPtr<FFbxSceneInfo>  SceneInfo, FString PackagePath)
 {
-	UObject* NewObject = nullptr;
+	UObject* FirstBaseObject = nullptr;
 	TSharedPtr<FFbxNodeInfo> OutNodeInfo;
 	UnFbx::FFbxImporter* FFbxImporter = (UnFbx::FFbxImporter*)VoidFbxImporter;
 
@@ -1828,14 +1900,17 @@ UObject* UFbxSceneImportFactory::RecursiveImportNode(void* VoidFbxImporter, void
 	if (Node->GetNodeAttribute() && Node->GetNodeAttribute()->GetAttributeType() == FbxNodeAttribute::eLODGroup && Node->GetChildCount() > 0)
 	{
 		//Find the deepest mesh child for the first LOD
-		FbxNode* MeshChildNode = FFbxImporter->FindLODGroupNode(Node, 0);
-		if (MeshChildNode != nullptr)
+		TArray<FbxNode*> AllNodeInLod;
+		FFbxImporter->FindAllLODGroupNode(AllNodeInLod, Node, 0);
+		//Combine LOD group
+		TArray<void*> TmpVoidArray;
+		for (FbxNode* LodNode : AllNodeInLod)
 		{
-			// import base mesh
-			NewObject = ImportANode(VoidFbxImporter, MeshChildNode, Flags, NodeIndex, SceneInfo, OutNodeInfo, PackagePath, Total);
+			TmpVoidArray.Add(LodNode);
 		}
-
-		if (NewObject)
+		UObject* NewObject = ImportANode(VoidFbxImporter, TmpVoidArray, Flags, NodeIndex, SceneInfo, OutNodeInfo, PackagePath, Total);
+		
+		if(NewObject)
 		{
 			//We should always have a valid attribute if we just create a new asset
 			check(OutNodeInfo.IsValid() && OutNodeInfo->AttributeInfo.IsValid());
@@ -1846,9 +1921,14 @@ UObject* UFbxSceneImportFactory::RecursiveImportNode(void* VoidFbxImporter, void
 				// import LOD meshes
 				for (int32 LODIndex = 1; LODIndex < Node->GetChildCount(); LODIndex++)
 				{
-					FbxNode* ChildNode = FFbxImporter->FindLODGroupNode(Node, LODIndex);
-					if(ChildNode != nullptr)
-						ImportANode(VoidFbxImporter, ChildNode, Flags, NodeIndex, SceneInfo, OutNodeInfo, PackagePath, Total, NewObject, LODIndex);
+					AllNodeInLod.Empty();
+					FFbxImporter->FindAllLODGroupNode(AllNodeInLod, Node, LODIndex);
+					TmpVoidArray.Empty();
+					for (FbxNode* LodNode : AllNodeInLod)
+					{
+						TmpVoidArray.Add(LodNode);
+					}
+					ImportANode(VoidFbxImporter, TmpVoidArray, Flags, NodeIndex, SceneInfo, OutNodeInfo, PackagePath, Total, NewObject, LODIndex);
 				}
 			}
 		}
@@ -1857,14 +1937,16 @@ UObject* UFbxSceneImportFactory::RecursiveImportNode(void* VoidFbxImporter, void
 	{
 		if (Node->GetMesh() && Node->GetMesh()->GetPolygonVertexCount() > 0)
 		{
-			NewObject = ImportANode(VoidFbxImporter, Node, Flags, NodeIndex, SceneInfo, OutNodeInfo, PackagePath, Total);
+			TArray<void*> TmpVoidArray;
+			TmpVoidArray.Add(Node);
+			FirstBaseObject = ImportANode(VoidFbxImporter, TmpVoidArray, Flags, NodeIndex, SceneInfo, OutNodeInfo, PackagePath, Total);
 
-			if (NewObject)
+			if (FirstBaseObject)
 			{
 				//We should always have a valid attribute if we just create a new asset
 				check(OutNodeInfo.IsValid() && OutNodeInfo->AttributeInfo.IsValid());
 
-				AllNewAssets.Add(OutNodeInfo->AttributeInfo, NewObject);
+				AllNewAssets.Add(OutNodeInfo->AttributeInfo, FirstBaseObject);
 			}
 		}
 		
@@ -1880,34 +1962,39 @@ UObject* UFbxSceneImportFactory::RecursiveImportNode(void* VoidFbxImporter, void
 		for (int32 ChildIndex = 0; ChildIndex < Node->GetChildCount(); ++ChildIndex)
 		{
 			UObject* SubObject = RecursiveImportNode(VoidFbxImporter, Node->GetChild(ChildIndex), Flags, NodeIndex, Total, SceneInfo, PackagePath);
-			if (NewObject == nullptr)
+			if (FirstBaseObject == nullptr)
 			{
-				NewObject = SubObject;
+				FirstBaseObject = SubObject;
 			}
 		}
 	}
 
-	return NewObject;
+	return FirstBaseObject;
 }
 
 // @todo document
-UObject* UFbxSceneImportFactory::ImportANode(void* VoidFbxImporter, void* VoidNode, EObjectFlags Flags, int32& NodeIndex, TSharedPtr<FFbxSceneInfo> SceneInfo, TSharedPtr<FFbxNodeInfo> &OutNodeInfo, FString PackagePath, int32 Total, UObject* InMesh, int LODIndex)
+UObject* UFbxSceneImportFactory::ImportANode(void* VoidFbxImporter, TArray<void*> &VoidNodes, EObjectFlags Flags, int32& NodeIndex, TSharedPtr<FFbxSceneInfo> SceneInfo, TSharedPtr<FFbxNodeInfo> &OutNodeInfo, FString PackagePath, int32 Total, UObject* InMesh, int LODIndex)
 {
 	UnFbx::FFbxImporter* FFbxImporter = (UnFbx::FFbxImporter*)VoidFbxImporter;
-	FbxNode* Node = (FbxNode*)VoidNode;
-	FString ParentName;
-	if (Node->GetParent() != nullptr)
+	TArray<FbxNode*> Nodes;
+	for (void* VoidNode : VoidNodes)
 	{
-		ParentName = FFbxImporter->MakeName(Node->GetParent()->GetName());
+		Nodes.Add((FbxNode*)VoidNode);
+	}
+	check(Nodes.Num() > 0 && Nodes[0] != nullptr);
+	FString ParentName;
+	if (Nodes[0]->GetParent() != nullptr)
+	{
+		ParentName = FFbxImporter->MakeName(Nodes[0]->GetParent()->GetName());
 	}
 	else
 	{
 		ParentName.Empty();
 	}
 	
-	FbxString NodeName(FFbxImporter->MakeName(Node->GetName()));
+	FbxString NodeName(FFbxImporter->MakeName(Nodes[0]->GetName()));
 	//Find the scene node info in the hierarchy
-	if (!FindSceneNodeInfo(SceneInfo, Node->GetUniqueID(), OutNodeInfo) || !OutNodeInfo->AttributeInfo.IsValid())
+	if (!FindSceneNodeInfo(SceneInfo, Nodes[0]->GetUniqueID(), OutNodeInfo) || !OutNodeInfo->AttributeInfo.IsValid())
 	{
 		//We cannot instantiate this asset if its not part of the hierarchy
 		return nullptr;
@@ -1951,16 +2038,16 @@ UObject* UFbxSceneImportFactory::ImportANode(void* VoidFbxImporter, void* VoidNo
 	}
 	FName StaticMeshFName = FName(*(OutNodeInfo->AttributeInfo->Name));
 	//Make sure to bake the pivot the user choose to bake
-	if (GlobalImportSettings->bBakePivotInVertex)
+	if (GlobalImportSettings->bBakePivotInVertex && Nodes.Num() == 1)
 	{
 		FbxNode *NodePivot = FindFbxNodeById(FFbxImporter, nullptr, OutNodeInfo->AttributeInfo->PivotNodeUid);
 		if (NodePivot != nullptr)
 		{
-			Node = NodePivot;
+			Nodes[0] = NodePivot;
 		}
 	}
 	
-	NewObject = FFbxImporter->ImportStaticMesh(Pkg, Node, StaticMeshFName, Flags, StaticMeshImportData, Cast<UStaticMesh>(InMesh), LODIndex);
+	NewObject = FFbxImporter->ImportStaticMeshAsSingle(Pkg, Nodes, StaticMeshFName, Flags, StaticMeshImportData, Cast<UStaticMesh>(InMesh), LODIndex);
 
 	OutNodeInfo->AttributeInfo->SetOriginalImportPath(PackageName);
 	OutNodeInfo->AttributeInfo->SetOriginalFullImportName(NewObject->GetPathName());
@@ -1972,6 +2059,11 @@ UObject* UFbxSceneImportFactory::ImportANode(void* VoidFbxImporter, void* VoidNo
 		Args.Add(TEXT("NodeIndex"), NodeIndex);
 		Args.Add(TEXT("ArrayLength"), Total);
 		GWarn->StatusUpdate(NodeIndex, Total, FText::Format(NSLOCTEXT("UnrealEd", "Importingf", "Importing ({NodeIndex} of {ArrayLength})"), Args));
+	}
+	else if(Pkg != nullptr)
+	{
+		Pkg->RemoveFromRoot();
+		Pkg->ConditionalBeginDestroy();
 	}
 
 	GlobalImportSettings->bBakePivotInVertex = Old_bBakePivotInVertex;
@@ -2012,6 +2104,10 @@ UPackage *UFbxSceneImportFactory::CreatePackageForNode(FString PackageName, FStr
 		return nullptr;
 	}
 	bool IsPkgExist = FPackageName::DoesPackageExist(PackageNameOfficial);
+	if (!IsPkgExist)
+	{
+		IsPkgExist = FindObject<UPackage>(nullptr, *PackageNameOfficial) != nullptr;
+	}
 	int32 tryCount = 1;
 	while (IsPkgExist)
 	{
@@ -2020,6 +2116,10 @@ UPackage *UFbxSceneImportFactory::CreatePackageForNode(FString PackageName, FStr
 		PackageNameOfficial += FString::FromInt(tryCount++);
 		PackageNameOfficial = PackageTools::SanitizePackageName(PackageNameOfficial);
 		IsPkgExist = FPackageName::DoesPackageExist(PackageNameOfficial);
+		if (!IsPkgExist)
+		{
+			IsPkgExist = FindObject<UPackage>(nullptr, *PackageNameOfficial) != nullptr;
+		}
 	}
 	UPackage* Pkg = CreatePackage(nullptr, *PackageNameOfficial);
 	if (!ensure(Pkg))

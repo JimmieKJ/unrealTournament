@@ -20,7 +20,7 @@ public:
 
 		WinByHealthMsg = NSLOCTEXT("ShowdownMessage", "WinByHealthMsg", "{0} had the most total remaining health and wins the round.");
 		TieByHealthMsg = NSLOCTEXT("ShowdownMessage", "TieByHealthMsg", "Both players had the same total remaining health and both get a point.");
-		OnDeckAnnounce = FName(TEXT("SUV_OnDeck"));
+		OnDeckAnnounce = FName(TEXT("SelectYourSpawn"));
 		RedTeamRound = FName(TEXT("RedTeamWinsRound"));
 		BlueTeamRound = FName(TEXT("BlueTeamWinsRound"));
 		NewRoundIn = FName(TEXT("NewRoundIn"));

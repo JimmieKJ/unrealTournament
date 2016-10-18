@@ -1105,7 +1105,7 @@ void UUnitTestManager::OpenStatusWindow()
 					StatusLogOutput.OnSerialize.AddStatic(
 						[](const TCHAR* V, ELogVerbosity::Type Verbosity, const FName& Category)
 						{
-							FString LogLine = FOutputDevice::FormatLogLine(Verbosity, Category, V);
+							FString LogLine = FOutputDeviceHelper::FormatLogLine(Verbosity, Category, V);
 
 							STATUS_LOG_BASE(ELogType::OriginConsole, TEXT("%s"), *LogLine);
 						});
@@ -1882,6 +1882,40 @@ static bool UnitTestExec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar)
 		else if (LogLine.Len() == 0)
 		{
 			Ar.Logf(TEXT("Need to specify a log line for tracing."));
+		}
+	}
+	/**
+	 * Special 'LogHex' command, for taking an arbitrary memory location, plus its length, and spitting out a hex byte-dump.
+	 * Access implemented through a console command, so that this can be used without a dependency, throughout the engine.
+	 *
+	 * Usage: (copy-paste into code, at location desired, Pointer is the pointer, Length is the length of data Pointer references)
+	 *	GEngine->Exec(NULL, *FString::Printf(TEXT("LogHex -Data=%llu -DataLen=%u"), (uint64)Pointer, Length));
+	 */
+	else if (FParse::Command(&Cmd, TEXT("LogHex")))
+	{
+		uint64 PointerVal = 0;
+		uint32 DataLen = 0;
+
+		if (FParse::Value(Cmd, TEXT("Data="), PointerVal) && FParse::Value(Cmd, TEXT("DataLen="), DataLen))
+		{
+			uint8* Data = (uint8*)PointerVal;
+
+			if (Data != nullptr || DataLen == 0)
+			{
+				NUTDebug::LogHexDump(Data, DataLen);
+			}
+			else if (Data == nullptr)
+			{
+				Ar.Logf(TEXT("Invalid Data parameter."));
+			}
+			else // if (DataLen == 0)
+			{
+				Ar.Logf(TEXT("Invalid DataLen parameter."));
+			}
+		}
+		else
+		{
+			Ar.Logf(TEXT("Need to specify '-Data=DatAddress' and '-DataLen=Len'."));
 		}
 	}
 

@@ -22,7 +22,10 @@ enum EMaterialPositionTransformSource
 
 	/** Camera space */
 	TRANSFORMPOSSOURCE_Camera  UMETA(DisplayName="Camera Space"),
-	
+
+	/** Particle space */
+	TRANSFORMPOSSOURCE_Particle UMETA(DisplayName = "Mesh Particle Space"),
+
 	TRANSFORMPOSSOURCE_MAX,
 };
 

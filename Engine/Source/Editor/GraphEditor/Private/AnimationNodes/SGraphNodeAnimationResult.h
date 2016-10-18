@@ -2,7 +2,9 @@
 
 #pragma once
 
-class SGraphNodeAnimationResult : public SGraphNode
+#include "SAnimationGraphNode.h"
+
+class SGraphNodeAnimationResult : public SAnimationGraphNode
 {
 public:
 	SLATE_BEGIN_ARGS(SGraphNodeAnimationResult){}

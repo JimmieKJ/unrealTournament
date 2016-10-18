@@ -74,11 +74,19 @@ void UUTPartyGameState::UnregisterFrontendDelegates()
 	}
 }
 
-void UUTPartyGameState::OnPartyMatchmakingStarted()
+void UUTPartyGameState::OnPartyMatchmakingStarted(bool bRanked)
 {
 	if (IsLocalPartyLeader())
 	{
-		PartyState.PartyProgression = EUTPartyState::Matchmaking;
+		if (bRanked)
+		{
+			PartyState.PartyProgression = EUTPartyState::Matchmaking;
+		}
+		else
+		{
+			PartyState.PartyProgression = EUTPartyState::QuickMatching;
+		}
+
 		OnLeaderPartyStateChanged().Broadcast(PartyState.PartyProgression);
 		UpdatePartyData(OwningUserId);
 		SetAcceptingMembers(false, EJoinPartyDenialReason::Busy);

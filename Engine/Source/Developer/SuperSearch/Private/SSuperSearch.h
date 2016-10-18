@@ -22,7 +22,6 @@ public:
 
 	SLATE_BEGIN_ARGS( SSuperSearchBox )
 		: _Style()
-		, _SearchEngineComboBoxStyle()
 		, _SuggestionListPlacement( MenuPlacement_ComboBoxRight )
 		, _SearchEngine(ESearchEngine::Google)
 		{}
@@ -30,17 +29,11 @@ public:
 		/** Style used to draw this search box */
 		SLATE_ARGUMENT( TOptional<const FSearchBoxStyle*>, Style )
 
-		/** Style used to drag the search engine combobox */
-		SLATE_ARGUMENT( TOptional<const FComboBoxStyle*>, SearchEngineComboBoxStyle)
-
 		/** Where to place the suggestion list */
 		SLATE_ARGUMENT( EMenuPlacement, SuggestionListPlacement )
 
 		/** Where to place the suggestion list */
 		SLATE_ARGUMENT( ESearchEngine, SearchEngine)
-
-		/** Called when the user changes the search engine they prefer to use.  You should save this and restore it. */
-		SLATE_EVENT(FOnSearchEngineChanged, OnSearchEngineChanged)
 
 	SLATE_END_ARGS()
 
@@ -59,6 +52,8 @@ public:
 	{
 		return InputText.ToSharedRef();
 	}
+
+	void SetSearchEngine(ESearchEngine SearchEngine);
 		
 protected:
 
@@ -143,6 +138,4 @@ private:
 	TArray< TSharedPtr<ESearchEngine> > SearchEngines;
 
 	ESearchEngine CurrentSearchEngine;
-
-	FOnSearchEngineChanged SearchEngineChanged;
 };

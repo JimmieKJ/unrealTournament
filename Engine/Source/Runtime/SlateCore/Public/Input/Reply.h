@@ -13,7 +13,7 @@ class SWidget;
  * For example, a widget may handle an OnMouseDown event by asking the system to give mouse capture to a specific Widget.
  * To do this, return FReply::CaptureMouse( NewMouseCapture ).
  */
-class FReply : public TReplyBase<FReply>
+class SLATECORE_API FReply : public TReplyBase<FReply>
 {
 public:
 		
@@ -45,15 +45,7 @@ public:
 	}
 
 	/** An event should return FReply::Handled().SetUserFocus( SomeWidget ) as a means of asking the system to set users focus to the provided widget*/
-	FReply& SetUserFocus(TSharedRef<SWidget> GiveMeFocus, EFocusCause ReasonFocusIsChanging = EFocusCause::SetDirectly, bool bInAllUsers = false)
-	{
-		this->bSetUserFocus = true;
-		this->FocusRecipient = GiveMeFocus;
-		this->FocusChangeReason = ReasonFocusIsChanging;
-		this->bReleaseUserFocus = false;
-		this->bAllUsers = bInAllUsers;
-		return Me();
-	}
+	FReply& SetUserFocus(TSharedRef<SWidget> GiveMeFocus, EFocusCause ReasonFocusIsChanging = EFocusCause::SetDirectly, bool bInAllUsers = false);
 	
 	DEPRECATED(4.6, "FReply::CaptureJoystick() is deprecated, use FReply::SetUserFocus() instead.")
 	FReply& CaptureJoystick(TSharedRef<SWidget> InJoystickCaptor, bool bInAllJoysticks = false)
@@ -74,15 +66,7 @@ public:
 	}
 
 	/** An event should return a FReply::Handled().ClearUserFocus() to ask the system to clear user focus*/
-	FReply& ClearUserFocus(EFocusCause ReasonFocusIsChanging, bool bInAllUsers = false)
-	{
-		this->FocusRecipient = nullptr;
-		this->FocusChangeReason = ReasonFocusIsChanging;
-		this->bReleaseUserFocus = true;
-		this->bSetUserFocus = false;
-		this->bAllUsers = bInAllUsers;
-		return Me();
-	}
+	FReply& ClearUserFocus(EFocusCause ReasonFocusIsChanging, bool bInAllUsers = false);
 
 	DEPRECATED(4.6, "FReply::ReleaseJoystickCapture() is deprecated, use FReply::ClearUserFocus() instead.")
 	FReply& ReleaseJoystickCapture(bool bInAllJoysticks = false)

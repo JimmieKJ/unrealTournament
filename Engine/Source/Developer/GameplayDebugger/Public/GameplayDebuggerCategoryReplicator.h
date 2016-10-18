@@ -8,6 +8,7 @@
 class APlayerController;
 class UInputComponent;
 class FGameplayDebuggerCategory;
+class FGameplayDebuggerExtension;
 class AGameplayDebuggerCategoryReplicator;
 class UGameplayDebuggerRenderingComponent;
 
@@ -80,6 +81,12 @@ class GAMEPLAYDEBUGGER_API AGameplayDebuggerCategoryReplicator : public AActor
 	/** [ALL] set actor for debugging */
 	void SetDebugActor(AActor* Actor);
 
+	/** [ALL] send input event to category */
+	void SendCategoryInputEvent(int32 CategoryId, int32 HandlerId);
+
+	/** [ALL] send input event to extension */
+	void SendExtensionInputEvent(int32 ExtensionId, int32 HandlerId);
+
 	/** get current debug actor */
 	AActor* GetDebugActor() const { return IsValid(DebugActor.Actor) ? DebugActor.Actor : nullptr; }
 	
@@ -104,8 +111,17 @@ class GAMEPLAYDEBUGGER_API AGameplayDebuggerCategoryReplicator : public AActor
 	/** get category count */
 	int32 GetNumCategories() const { return Categories.Num(); }
 
+	/** get extension count */
+	int32 GetNumExtensions() const { return Extensions.Num(); }
+
 	/** get category object */
 	TSharedRef<FGameplayDebuggerCategory> GetCategory(int32 CategoryId) const { return Categories[CategoryId]; }
+
+	/** get category object */
+	TSharedRef<FGameplayDebuggerExtension> GetExtension(int32 ExtensionId) const { return Extensions[ExtensionId]; }
+
+	/** returns true if object was created for local player (client / standalone) */
+	bool IsLocal() const { return bIsLocal; }
 
 protected:
 
@@ -130,11 +146,23 @@ protected:
 	/** category objects */
 	TArray<TSharedRef<FGameplayDebuggerCategory> > Categories;
 
+	/** extension objects */
+	TArray<TSharedRef<FGameplayDebuggerExtension> > Extensions;
+
 	uint32 bHasAuthority : 1;
 	uint32 bIsLocal : 1;
 
 	/** notify about changes in known category set */
 	void OnCategoriesChanged();
+
+	/** notify about changes in known extensions set */
+	void OnExtensionsChanged();
+
+	/** send notifies to all categories about current tool state */
+	void NotifyCategoriesToolState(bool bIsActive);
+
+	/** send notifies to all categories about current tool state */
+	void NotifyExtensionsToolState(bool bIsActive);
 
 	UFUNCTION(Server, Reliable, WithValidation, meta = (CallInEditor = "true"))
 	void ServerSetEnabled(bool bEnable);
@@ -144,6 +172,14 @@ protected:
 
 	UFUNCTION(Server, Reliable, WithValidation, meta = (CallInEditor = "true"))
 	void ServerSetCategoryEnabled(int32 CategoryId, bool bEnable);
+
+	/** helper function for replicating input for category handlers */
+	UFUNCTION(Server, Reliable, WithValidation, meta = (CallInEditor = "true"))
+	void ServerSendCategoryInputEvent(int32 CategoryId, int32 HandlerId);
+
+	/** helper function for replicating input for extension handlers */
+	UFUNCTION(Server, Reliable, WithValidation, meta = (CallInEditor = "true"))
+	void ServerSendExtensionInputEvent(int32 ExtensionId, int32 HandlerId);
 
 	/** [LOCAL] notify from CategoryData replication */
 	void OnReceivedDataPackPacket(int32 CategoryId, int32 DataPackId, const FGameplayDebuggerDataPack& DataPacket);

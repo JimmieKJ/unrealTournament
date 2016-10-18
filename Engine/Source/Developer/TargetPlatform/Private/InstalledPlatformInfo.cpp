@@ -2,6 +2,10 @@
 
 #include "TargetPlatformPrivatePCH.h"
 #include "InstalledPlatformInfo.h"
+#include "PlatformInfo.h"
+#include "DesktopPlatformModule.h"
+
+#define LOCTEXT_NAMESPACE "InstalledPlatformInfo"
 
 DEFINE_LOG_CATEGORY_STATIC(LogInstalledPlatforms, Log, All);
 
@@ -65,6 +69,16 @@ void FInstalledPlatformInfo::ParsePlatformConfiguration(FString PlatformConfigur
 		bCanCreateEntry = false;
 	}
 
+	FString PlatformTypeName;
+	PlatformInfo::EPlatformType PlatformType = PlatformInfo::EPlatformType::Game;
+	if (FParse::Value(*PlatformConfiguration, TEXT("PlatformType="), PlatformTypeName))
+	{
+		PlatformType = PlatformInfo::EPlatformTypeFromString(PlatformTypeName);
+	}
+
+	FString Architecture;
+	FParse::Value(*PlatformConfiguration, TEXT("Architecture="), Architecture);
+
 	FString RequiredFile;
 	if (FParse::Value(*PlatformConfiguration, TEXT("RequiredFile="), RequiredFile))
 	{
@@ -88,106 +102,154 @@ void FInstalledPlatformInfo::ParsePlatformConfiguration(FString PlatformConfigur
 	
 	if (bCanCreateEntry)
 	{
-		FInstalledPlatformConfiguration NewConfig = {Configuration, PlatformName, RequiredFile, ProjectType, bCanBeDisplayed};
+		FInstalledPlatformConfiguration NewConfig = {Configuration, PlatformName, PlatformType, Architecture, RequiredFile, ProjectType, bCanBeDisplayed};
 		InstalledPlatformConfigurations.Add(NewConfig);
 	}
 }
 
 bool FInstalledPlatformInfo::IsValidConfiguration(const EBuildConfigurations::Type Configuration, EProjectType ProjectType) const
 {
-	if (FApp::IsEngineInstalled())
-	{
-		for (const FInstalledPlatformConfiguration& PlatformConfiguration : InstalledPlatformConfigurations)
+	return ContainsValidConfiguration(
+		[Configuration, ProjectType](const FInstalledPlatformConfiguration& CurConfig)
 		{
-			if (PlatformConfiguration.Configuration == Configuration)
-			{
-				if (ProjectType == EProjectType::Any || PlatformConfiguration.ProjectType == EProjectType::Any
-				 || PlatformConfiguration.ProjectType == ProjectType)
-				{
-					if (PlatformConfiguration.RequiredFile.IsEmpty()
-						|| FPaths::FileExists(PlatformConfiguration.RequiredFile))
-					{
-						return true;
-					}
-				}
-			}
+			return CurConfig.Configuration == Configuration
+				&& (ProjectType == EProjectType::Any || CurConfig.ProjectType == EProjectType::Any
+					|| CurConfig.ProjectType == ProjectType);
 		}
-
-		return false;
-	}
-	return true;
+	);
 }
 
 bool FInstalledPlatformInfo::IsValidPlatform(const FString& PlatformName, EProjectType ProjectType) const
 {
-	if (FApp::IsEngineInstalled())
-	{
-		for (const FInstalledPlatformConfiguration& PlatformConfiguration : InstalledPlatformConfigurations)
+	return ContainsValidConfiguration(
+		[PlatformName, ProjectType](const FInstalledPlatformConfiguration& CurConfig)
 		{
-			if (PlatformConfiguration.PlatformName == PlatformName)
-			{
-				if (ProjectType == EProjectType::Any || PlatformConfiguration.ProjectType == EProjectType::Any
-				 || PlatformConfiguration.ProjectType == ProjectType)
-				{
-					if (PlatformConfiguration.RequiredFile.IsEmpty()
-						|| FPaths::FileExists(PlatformConfiguration.RequiredFile))
-					{
-						return true;
-					}
-				}
-			}
+			return CurConfig.PlatformName == PlatformName
+				&& (ProjectType == EProjectType::Any || CurConfig.ProjectType == EProjectType::Any
+					|| CurConfig.ProjectType == ProjectType);
 		}
-
-		return false;
-	}
-	return true;
+	);
 }
 
 bool FInstalledPlatformInfo::IsValidPlatformAndConfiguration(const EBuildConfigurations::Type Configuration, const FString& PlatformName, EProjectType ProjectType) const
 {
-	if (FApp::IsEngineInstalled())
-	{
-		for (const FInstalledPlatformConfiguration& PlatformConfiguration : InstalledPlatformConfigurations)
+	return ContainsValidConfiguration(
+		[Configuration, PlatformName, ProjectType](const FInstalledPlatformConfiguration& CurConfig)
 		{
-			if (PlatformConfiguration.Configuration == Configuration
-			 && PlatformConfiguration.PlatformName == PlatformName)
-			{
-				if (ProjectType == EProjectType::Any || PlatformConfiguration.ProjectType == EProjectType::Any
-				 || PlatformConfiguration.ProjectType == ProjectType)
-				{
-					if (PlatformConfiguration.RequiredFile.IsEmpty()
-					 || FPaths::FileExists(PlatformConfiguration.RequiredFile))
-					{
-						return true;
-					}
-				}
-			}
+			return CurConfig.Configuration == Configuration
+				&& CurConfig.PlatformName == PlatformName
+				&& (ProjectType == EProjectType::Any || CurConfig.ProjectType == EProjectType::Any
+					|| CurConfig.ProjectType == ProjectType);
 		}
-
-		return false;
-	}
-	return true;
+	);
 }
 
 bool FInstalledPlatformInfo::CanDisplayPlatform(const FString& PlatformName, EProjectType ProjectType) const
 {
+	return ContainsMatchingConfiguration(
+		[PlatformName, ProjectType](const FInstalledPlatformConfiguration& CurConfig)
+		{
+			return CurConfig.PlatformName == PlatformName && (CurConfig.bCanBeDisplayed
+				|| ProjectType == EProjectType::Any || CurConfig.ProjectType == EProjectType::Any
+				|| CurConfig.ProjectType == ProjectType);
+		}
+	);
+}
+
+bool FInstalledPlatformInfo::IsValidPlatformType(PlatformInfo::EPlatformType PlatformType) const
+{
+	return ContainsValidConfiguration(
+		[PlatformType](const FInstalledPlatformConfiguration& CurConfig)
+		{
+			return CurConfig.PlatformType == PlatformType;
+		}
+	);
+}
+
+bool FInstalledPlatformInfo::IsValidPlatformArchitecture(const FString& PlatformName, const FString& Architecture) const
+{
+	return ContainsValidConfiguration(
+		[PlatformName, Architecture](const FInstalledPlatformConfiguration& CurConfig)
+		{
+			return CurConfig.PlatformName == PlatformName && CurConfig.Architecture.Contains(Architecture);
+		}
+	);
+}
+
+bool FInstalledPlatformInfo::IsPlatformMissingRequiredFile(const FString& PlatformName) const
+{
 	if (FApp::IsEngineInstalled())
 	{
-		for (const FInstalledPlatformConfiguration& PlatformConfiguration : InstalledPlatformConfigurations)
-		{
-			if (PlatformConfiguration.PlatformName == PlatformName)
+		return ContainsMatchingConfiguration(
+			[PlatformName](const FInstalledPlatformConfiguration& CurConfig)
 			{
-				if ( PlatformConfiguration.bCanBeDisplayed
-					|| ProjectType == EProjectType::Any || PlatformConfiguration.ProjectType == EProjectType::Any
-					|| PlatformConfiguration.ProjectType == ProjectType )
+				return CurConfig.PlatformName == PlatformName
+					&& !CurConfig.RequiredFile.IsEmpty()
+					&& !FPaths::FileExists(CurConfig.RequiredFile);
+			}
+		);
+	}
+	return false;
+}
+
+bool FInstalledPlatformInfo::OpenInstallerOptions()
+{
+	IDesktopPlatform* DesktopPlatform = FDesktopPlatformModule::Get();
+
+	if (DesktopPlatform != nullptr)
+	{
+		FString CurrentIdentifier = DesktopPlatform->GetCurrentEngineIdentifier();
+		if (DesktopPlatform->IsStockEngineRelease(CurrentIdentifier))
+		{
+			if (FMessageDialog::Open(EAppMsgType::YesNo, LOCTEXT("NotInstalled_SelectedPlatform", "The Binaries for this Target Platform are not currently installed, would you like to use the Launcher to download them?")) == EAppReturnType::Yes)
+			{
+				// TODO: Ensure that this URL opens the launcher correctly before this is included in a release
+				FString InstallerURL = FString::Printf(TEXT("ue/library/engines/UE_%s/installer"), *DesktopPlatform->GetEngineDescription(CurrentIdentifier));
+				FOpenLauncherOptions OpenOptions(InstallerURL);
+				if (DesktopPlatform->OpenLauncher(OpenOptions))
 				{
 					return true;
 				}
 			}
 		}
+	}
+	return false;
+}
 
+bool FInstalledPlatformInfo::ContainsValidConfiguration(TFunctionRef<bool(const FInstalledPlatformConfiguration)> ConfigFilter) const
+{
+	if (FApp::IsEngineInstalled())
+	{
+		for (const FInstalledPlatformConfiguration& PlatformConfiguration : InstalledPlatformConfigurations)
+		{
+			// Check whether filter accepts this configuration and it has required file
+			if (ConfigFilter(PlatformConfiguration)
+				&& (PlatformConfiguration.RequiredFile.IsEmpty()
+					|| FPaths::FileExists(PlatformConfiguration.RequiredFile)))
+			{
+				return true;
+			}
+		}
 		return false;
 	}
 	return true;
 }
 
+bool FInstalledPlatformInfo::ContainsMatchingConfiguration(TFunctionRef<bool(const FInstalledPlatformConfiguration)> ConfigFilter) const
+{
+	if (FApp::IsEngineInstalled())
+	{
+		for (const FInstalledPlatformConfiguration& PlatformConfiguration : InstalledPlatformConfigurations)
+		{
+			// Check whether filter accepts this configuration
+			if (ConfigFilter(PlatformConfiguration))
+			{
+				return true;
+			}
+		}
+		return false;
+	}
+	return true;
+}
+
+#undef LOCTEXT_NAMESPACE

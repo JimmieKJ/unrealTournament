@@ -87,6 +87,8 @@
 
 #include "EdGraphUtilities.h"
 
+#include "EdGraphSchema_Niagara.h"
+
 TSharedPtr<SGraphNode> FNodeFactory::CreateNodeWidget(UEdGraphNode* InNode)
 {
 	check(InNode != NULL);
@@ -132,6 +134,10 @@ TSharedPtr<SGraphNode> FNodeFactory::CreateNodeWidget(UEdGraphNode* InNode)
 		else if (UAnimGraphNode_LayeredBoneBlend* LayeredBlend = Cast<UAnimGraphNode_LayeredBoneBlend>(InNode))
 		{
 			return SNew(SGraphNodeLayeredBoneBlend, LayeredBlend);
+		}
+		else
+		{
+			return SNew(SAnimationGraphNode, BaseAnimNode);
 		}
 	}
 
@@ -419,29 +425,7 @@ TSharedPtr<SGraphPin> FNodeFactory::CreatePinWidget(UEdGraphPin* InPin)
 			return SNew(SGraphPin, InPin);
 		}
 	}
-
-	if (const UEdGraphSchema_Niagara* NSchema = Cast<const UEdGraphSchema_Niagara>(InPin->GetSchema()))
-	{
-		if (InPin->PinType.PinCategory == NSchema->PC_Float)
-		{
-			return SNew(SGraphPinNum, InPin);
-		}
-		if (InPin->PinType.PinCategory == NSchema->PC_Vector)
-		{
-			return SNew(SGraphPinVector4, InPin);
-		}
-		if (InPin->PinType.PinCategory == NSchema->PC_Matrix)
-		{
-			return SNew(SGraphPin, InPin);
-		}
-		if (InPin->PinType.PinCategory == NSchema->PC_Curve)
-		{
-			return SNew(SGraphPin, InPin);
-		}
-
-	}
-
-
+	
 	// If we didn't pick a custom pin widget, use an uncustomized basic pin
 	return SNew(SGraphPin, InPin);
 }
@@ -499,3 +483,26 @@ FConnectionDrawingPolicy* FNodeFactory::CreateConnectionPolicy(const UEdGraphSch
     // If we never picked a custom policy, use the uncustomized standard policy
     return ConnectionDrawingPolicy;
 }
+
+//////////////////////////////////////////////////////////////////////////
+
+class FNiagaraScriptGraphPanelPinFactory : public FGraphPanelPinFactory
+{
+	virtual TSharedPtr<class SGraphPin> CreatePin(class UEdGraphPin* InPin) const override
+	{
+		const UEdGraphSchema_Niagara* NSchema = GetDefault<UEdGraphSchema_Niagara>();
+		if (InPin->PinType.PinCategory == NSchema->GetFloatName())
+		{
+			return SNew(SGraphPinNum, InPin);
+		}
+		if (InPin->PinType.PinCategory == NSchema->GetVectorName())
+		{
+			return SNew(SGraphPinVector4, InPin);
+		}
+		if (InPin->PinType.PinCategory == NSchema->GetMatrixName())
+		{
+			return SNew(SGraphPin, InPin);
+		}
+		return NULL;
+	}
+};

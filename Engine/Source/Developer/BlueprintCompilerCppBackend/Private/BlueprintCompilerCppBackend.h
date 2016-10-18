@@ -5,6 +5,13 @@
 
 struct FEmitterLocalContext;
 
+enum class ENativizedTermUsage : uint8
+{
+	UnspecifiedOrReference,
+	Setter,
+	Getter,
+};
+
 /** Default implementation of BlueprintCompilerCppBackend. Code generated for function body usually contains a big "switch". */
 class FBlueprintCompilerCppBackend : public FBlueprintCompilerCppBackendBase
 {
@@ -57,5 +64,5 @@ protected:
 	FString EmitArrayGetByRef(FEmitterLocalContext& EmitterContext, FBlueprintCompiledStatement& Statement);
 
 public:
-	FString TermToText(FEmitterLocalContext& EmitterContext, const FBPTerminal* Term, bool bUseSafeContext = true, bool bGetter = true);
+	FString TermToText(FEmitterLocalContext& EmitterContext, const FBPTerminal* Term, const ENativizedTermUsage TermUsage, const bool bUseSafeContext = true, FString* EndCustomSetExpression = nullptr);
 };

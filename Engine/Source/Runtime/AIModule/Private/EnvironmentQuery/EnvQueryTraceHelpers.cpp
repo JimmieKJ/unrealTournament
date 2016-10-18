@@ -177,9 +177,9 @@ void FEQSHelpers::FBatchTrace::DoProject<EEnvTraceShape::Capsule>(TArray<FNavLoc
 }
 
 
-void FEQSHelpers::RunNavRaycasts(const ANavigationData& NavData, const FEnvTraceData& TraceData, const FVector& SourcePt, TArray<FNavLocation>& Points, ETraceMode TraceMode /*= ETraceMode::Keep*/)
+void FEQSHelpers::RunNavRaycasts(const ANavigationData& NavData, const UObject& Querier, const FEnvTraceData& TraceData, const FVector& SourcePt, TArray<FNavLocation>& Points, ETraceMode TraceMode /*= ETraceMode::Keep*/)
 {
-	FSharedConstNavQueryFilter NavigationFilter = UNavigationQueryFilter::GetQueryFilter(NavData, TraceData.NavigationFilter);
+	FSharedConstNavQueryFilter NavigationFilter = UNavigationQueryFilter::GetQueryFilter(NavData, &Querier, TraceData.NavigationFilter);
 
 	TArray<FNavigationRaycastWork> RaycastWorkload;
 	RaycastWorkload.Reserve(Points.Num());
@@ -198,7 +198,7 @@ void FEQSHelpers::RunNavRaycasts(const ANavigationData& NavData, const FEnvTrace
 
 	if (TraceMode == ETraceMode::Discard)
 	{
-		for (int32 Idx = Points.Num() - 1; Idx >= 0; Idx++)
+		for (int32 Idx = Points.Num() - 1; Idx >= 0; --Idx)
 		{
 			if (!RaycastWorkload[Idx].bDidHit)
 			{
@@ -209,9 +209,9 @@ void FEQSHelpers::RunNavRaycasts(const ANavigationData& NavData, const FEnvTrace
 }
 
 
-void FEQSHelpers::RunNavProjection(const ANavigationData& NavData, const FEnvTraceData& TraceData, TArray<FNavLocation>& Points, ETraceMode TraceMode /*= ETraceMode::Discard*/)
+void FEQSHelpers::RunNavProjection(const ANavigationData& NavData, const UObject& Querier, const FEnvTraceData& TraceData, TArray<FNavLocation>& Points, ETraceMode TraceMode /*= ETraceMode::Discard*/)
 {
-	FSharedConstNavQueryFilter NavigationFilter = UNavigationQueryFilter::GetQueryFilter(NavData, TraceData.NavigationFilter);
+	FSharedConstNavQueryFilter NavigationFilter = UNavigationQueryFilter::GetQueryFilter(NavData, &Querier, TraceData.NavigationFilter);
 	TArray<FNavigationProjectionWork> Workload;
 	Workload.Reserve(Points.Num());
 
@@ -351,4 +351,14 @@ void FEQSHelpers::RunPhysProjection(UWorld* World, const FEnvTraceData& TraceDat
 	}
 
 	TraceHits.Append(BatchOb.TraceHits);
+}
+
+void FEQSHelpers::RunNavRaycasts(const ANavigationData& NavData, const FEnvTraceData& TraceData, const FVector& SourcePt, TArray<FNavLocation>& Points, ETraceMode TraceMode)
+{
+	RunNavRaycasts(NavData, NavData, TraceData, SourcePt, Points, TraceMode);
+}
+
+void FEQSHelpers::RunNavProjection(const ANavigationData& NavData, const FEnvTraceData& TraceData, TArray<FNavLocation>& Points, ETraceMode TraceMode)
+{
+	RunNavProjection(NavData, NavData, TraceData, Points, TraceMode);
 }

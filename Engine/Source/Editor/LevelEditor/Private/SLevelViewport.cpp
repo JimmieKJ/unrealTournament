@@ -136,7 +136,7 @@ void SLevelViewport::Construct(const FArguments& InArgs)
 	GetMutableDefault<ULevelEditorViewportSettings>()->OnSettingChanged().AddRaw(this, &SLevelViewport::HandleViewportSettingChanged);
 
 	ParentLayout = InArgs._ParentLayout;
-	ParentLevelEditor = InArgs._ParentLevelEditor;
+	ParentLevelEditor = StaticCastSharedRef<SLevelEditor>( InArgs._ParentLevelEditor.Pin().ToSharedRef() );
 	ConfigKey = InArgs._ConfigKey;
 
 	// Store border brushes for differentiating between active and inactive viewports
@@ -404,6 +404,7 @@ const FSceneViewport* SLevelViewport::GetGameSceneViewport() const
 
 FReply SLevelViewport::OnKeyDown( const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent )
 {
+
 	FReply Reply = FReply::Unhandled();
 
 	if( HasPlayInEditorViewport() || LevelViewportClient->IsSimulateInEditorViewport() )
@@ -971,6 +972,7 @@ void SLevelViewport::OnMapChanged( UWorld* World, EMapChangeType MapChangeType )
 			}
 	
 			ResetNewLevelViewFlags();
+			LevelViewportClient->ResetCamera();
 
 			bool bInitializedOrthoViewport = false;
 			for (int32 ViewportType = 0; ViewportType < LVT_MAX; ViewportType++)
@@ -1122,34 +1124,34 @@ void SLevelViewport::BindCommands()
 	UICommandListRef.SetCanProduceActionForCommand( FUICommandList::FCanProduceActionForCommand::CreateSP(this, &SLevelViewport::CanProduceActionForCommand) );
 }
 	
-void SLevelViewport::BindOptionCommands( FUICommandList& CommandList )
+void SLevelViewport::BindOptionCommands( FUICommandList& OutCommandList )
 {
 	const FLevelViewportCommands& ViewportActions = FLevelViewportCommands::Get();
 
-	CommandList.MapAction( 
+	OutCommandList.MapAction( 
 		ViewportActions.AdvancedSettings,
 		FExecuteAction::CreateSP( this, &SLevelViewport::OnAdvancedSettings ) );
 
-	CommandList.MapAction( 
+	OutCommandList.MapAction( 
 		ViewportActions.ToggleMaximize,
 		FExecuteAction::CreateSP( this, &SLevelViewport::OnToggleMaximizeMode ),
 		FCanExecuteAction::CreateSP( this, &SLevelViewport::CanToggleMaximizeMode ) );
 
 	
-	CommandList.MapAction(
+	OutCommandList.MapAction(
 		ViewportActions.ToggleGameView,
 		FExecuteAction::CreateSP( this, &SLevelViewport::ToggleGameView ),
 		FCanExecuteAction::CreateSP( this, &SLevelViewport::CanToggleGameView ),
 		FIsActionChecked::CreateSP( this, &SLevelViewport::IsInGameView ) );
 
-	CommandList.MapAction(
+	OutCommandList.MapAction(
 		ViewportActions.ToggleImmersive,
 		FExecuteAction::CreateSP( this, &SLevelViewport::OnToggleImmersive),
 		FCanExecuteAction(),
 		FIsActionChecked::CreateSP( this, &SLevelViewport::IsImmersive ) );
 
 
-	CommandList.MapAction(
+	OutCommandList.MapAction(
 		ViewportActions.ToggleCinematicPreview,
 		FExecuteAction::CreateSP( this, &SLevelViewport::OnToggleAllowCinematicPreview ),
 		FCanExecuteAction(),
@@ -1157,20 +1159,20 @@ void SLevelViewport::BindOptionCommands( FUICommandList& CommandList )
 		);
 
 
-	CommandList.MapAction(
+	OutCommandList.MapAction(
 		ViewportActions.CreateCamera,
 		FExecuteAction::CreateSP( this, &SLevelViewport::OnCreateCameraActor ),
 		FCanExecuteAction(),
 		FCanExecuteAction::CreateSP( this, &SLevelViewport::IsPerspectiveViewport ) 
 		);
 
-	CommandList.MapAction(
+	OutCommandList.MapAction(
 		ViewportActions.HighResScreenshot,
 		FExecuteAction::CreateSP( this, &SLevelViewport::OnTakeHighResScreenshot ),
 		FCanExecuteAction()
 		);
 
-	CommandList.MapAction(
+	OutCommandList.MapAction(
 		ViewportActions.ToggleActorPilotCameraView,
 		FExecuteAction::CreateSP(this, &SLevelViewport::ToggleActorPilotCameraView),
 		FCanExecuteAction(),
@@ -1180,28 +1182,28 @@ void SLevelViewport::BindOptionCommands( FUICommandList& CommandList )
 	// Map each bookmark action
 	for( int32 BookmarkIndex = 0; BookmarkIndex < AWorldSettings::MAX_BOOKMARK_NUMBER; ++BookmarkIndex )
 	{
-		CommandList.MapAction( 
+		OutCommandList.MapAction( 
 			ViewportActions.JumpToBookmarkCommands[BookmarkIndex],
 			FExecuteAction::CreateSP( this, &SLevelViewport::OnJumpToBookmark, BookmarkIndex )
 			);
 
-		CommandList.MapAction( 
+		OutCommandList.MapAction( 
 			ViewportActions.SetBookmarkCommands[BookmarkIndex],
 			FExecuteAction::CreateSP( this, &SLevelViewport::OnSetBookmark, BookmarkIndex )
 			);
 
-		CommandList.MapAction( 
+		OutCommandList.MapAction( 
 			ViewportActions.ClearBookmarkCommands[BookmarkIndex],
 			FExecuteAction::CreateSP( this, &SLevelViewport::OnClearBookMark, BookmarkIndex )
 			);
 	}
 
-	CommandList.MapAction(
+	OutCommandList.MapAction(
 		ViewportActions.ClearAllBookMarks,
 		FExecuteAction::CreateSP( this, &SLevelViewport::OnClearAllBookMarks )
 		);
 
-	CommandList.MapAction(
+	OutCommandList.MapAction(
 		ViewportActions.ToggleViewportToolbar,
 		FExecuteAction::CreateSP( this, &SLevelViewport::OnToggleShowFullToolbar ),
 		FCanExecuteAction(),
@@ -1209,104 +1211,104 @@ void SLevelViewport::BindOptionCommands( FUICommandList& CommandList )
 		);
 }
 
-void SLevelViewport::BindViewCommands( FUICommandList& CommandList )
+void SLevelViewport::BindViewCommands( FUICommandList& OutCommandList )
 {
 	const FLevelViewportCommands& ViewportActions = FLevelViewportCommands::Get();
 
-	CommandList.MapAction(
+	OutCommandList.MapAction(
 		ViewportActions.FindInLevelScriptBlueprint,
 		FExecuteAction::CreateSP( this, &SLevelViewport::FindSelectedInLevelScript ),
 		FCanExecuteAction::CreateSP( this, &SLevelViewport::CanFindSelectedInLevelScript ) 
 		);
 
-	CommandList.MapAction(
+	OutCommandList.MapAction(
 		ViewportActions.EjectActorPilot,
 		FExecuteAction::CreateSP( this, &SLevelViewport::OnActorUnlock ),
 		FCanExecuteAction::CreateSP( this, &SLevelViewport::CanExecuteActorUnlock )
 		);
 
-	CommandList.MapAction(
+	OutCommandList.MapAction(
 		ViewportActions.PilotSelectedActor,
 		FExecuteAction::CreateSP( this, &SLevelViewport::OnActorLockSelected ),
 		FCanExecuteAction::CreateSP( this, &SLevelViewport::CanExecuteActorLockSelected )
 		);
 
-	CommandList.MapAction(
+	OutCommandList.MapAction(
 		ViewportActions.ViewportConfig_OnePane,
 		FExecuteAction::CreateSP(this, &SLevelViewport::OnSetViewportConfiguration, LevelViewportConfigurationNames::OnePane),
 		FCanExecuteAction(),
 		FIsActionChecked::CreateSP(this, &SLevelViewport::IsViewportConfigurationSet, LevelViewportConfigurationNames::OnePane));
 
-	CommandList.MapAction(
+	OutCommandList.MapAction(
 		ViewportActions.ViewportConfig_TwoPanesH,
 		FExecuteAction::CreateSP( this, &SLevelViewport::OnSetViewportConfiguration, LevelViewportConfigurationNames::TwoPanesHoriz ),
 		FCanExecuteAction(),
 		FIsActionChecked::CreateSP( this, &SLevelViewport::IsViewportConfigurationSet, LevelViewportConfigurationNames::TwoPanesHoriz ));
 
-	CommandList.MapAction(
+	OutCommandList.MapAction(
 		ViewportActions.ViewportConfig_TwoPanesV,
 		FExecuteAction::CreateSP( this, &SLevelViewport::OnSetViewportConfiguration, LevelViewportConfigurationNames::TwoPanesVert ),
 		FCanExecuteAction(),
 		FIsActionChecked::CreateSP( this, &SLevelViewport::IsViewportConfigurationSet, LevelViewportConfigurationNames::TwoPanesVert ));
 
-	CommandList.MapAction(
+	OutCommandList.MapAction(
 		ViewportActions.ViewportConfig_ThreePanesLeft,
 		FExecuteAction::CreateSP( this, &SLevelViewport::OnSetViewportConfiguration, LevelViewportConfigurationNames::ThreePanesLeft ),
 		FCanExecuteAction(),
 		FIsActionChecked::CreateSP( this, &SLevelViewport::IsViewportConfigurationSet, LevelViewportConfigurationNames::ThreePanesLeft ));
 
-	CommandList.MapAction(
+	OutCommandList.MapAction(
 		ViewportActions.ViewportConfig_ThreePanesRight,
 		FExecuteAction::CreateSP( this, &SLevelViewport::OnSetViewportConfiguration, LevelViewportConfigurationNames::ThreePanesRight ),
 		FCanExecuteAction(),
 		FIsActionChecked::CreateSP( this, &SLevelViewport::IsViewportConfigurationSet, LevelViewportConfigurationNames::ThreePanesRight ));
 
-	CommandList.MapAction(
+	OutCommandList.MapAction(
 		ViewportActions.ViewportConfig_ThreePanesTop,
 		FExecuteAction::CreateSP( this, &SLevelViewport::OnSetViewportConfiguration, LevelViewportConfigurationNames::ThreePanesTop ),
 		FCanExecuteAction(),
 		FIsActionChecked::CreateSP( this, &SLevelViewport::IsViewportConfigurationSet, LevelViewportConfigurationNames::ThreePanesTop ));
 
-	CommandList.MapAction(
+	OutCommandList.MapAction(
 		ViewportActions.ViewportConfig_ThreePanesBottom,
 		FExecuteAction::CreateSP( this, &SLevelViewport::OnSetViewportConfiguration, LevelViewportConfigurationNames::ThreePanesBottom ),
 		FCanExecuteAction(),
 		FIsActionChecked::CreateSP( this, &SLevelViewport::IsViewportConfigurationSet, LevelViewportConfigurationNames::ThreePanesBottom ));
 
-	CommandList.MapAction(
+	OutCommandList.MapAction(
 		ViewportActions.ViewportConfig_FourPanesLeft,
 		FExecuteAction::CreateSP( this, &SLevelViewport::OnSetViewportConfiguration, LevelViewportConfigurationNames::FourPanesLeft ),
 		FCanExecuteAction(),
 		FIsActionChecked::CreateSP( this, &SLevelViewport::IsViewportConfigurationSet, LevelViewportConfigurationNames::FourPanesLeft ));
 
-	CommandList.MapAction(
+	OutCommandList.MapAction(
 		ViewportActions.ViewportConfig_FourPanesRight,
 		FExecuteAction::CreateSP( this, &SLevelViewport::OnSetViewportConfiguration, LevelViewportConfigurationNames::FourPanesRight ),
 		FCanExecuteAction(),
 		FIsActionChecked::CreateSP( this, &SLevelViewport::IsViewportConfigurationSet, LevelViewportConfigurationNames::FourPanesRight ));
 
-	CommandList.MapAction(
+	OutCommandList.MapAction(
 		ViewportActions.ViewportConfig_FourPanesTop,
 		FExecuteAction::CreateSP( this, &SLevelViewport::OnSetViewportConfiguration, LevelViewportConfigurationNames::FourPanesTop ),
 		FCanExecuteAction(),
 		FIsActionChecked::CreateSP( this, &SLevelViewport::IsViewportConfigurationSet, LevelViewportConfigurationNames::FourPanesTop ));
 
-	CommandList.MapAction(
+	OutCommandList.MapAction(
 		ViewportActions.ViewportConfig_FourPanesBottom,
 		FExecuteAction::CreateSP( this, &SLevelViewport::OnSetViewportConfiguration, LevelViewportConfigurationNames::FourPanesBottom ),
 		FCanExecuteAction(),
 		FIsActionChecked::CreateSP( this, &SLevelViewport::IsViewportConfigurationSet, LevelViewportConfigurationNames::FourPanesBottom ));
 
-	CommandList.MapAction(
+	OutCommandList.MapAction(
 		ViewportActions.ViewportConfig_FourPanes2x2,
 		FExecuteAction::CreateSP( this, &SLevelViewport::OnSetViewportConfiguration, LevelViewportConfigurationNames::FourPanes2x2 ),
 		FCanExecuteAction(),
 		FIsActionChecked::CreateSP( this, &SLevelViewport::IsViewportConfigurationSet, LevelViewportConfigurationNames::FourPanes2x2 ));
 
 	auto ProcessViewportTypeActions = [&](FName InViewportTypeName, const FViewportTypeDefinition& InDefinition){
-		if (InDefinition.ToggleCommand.IsValid())
+		if (InDefinition.ActivationCommand.IsValid())
 		{
-			CommandList.MapAction(InDefinition.ToggleCommand, FUIAction(
+			OutCommandList.MapAction(InDefinition.ActivationCommand, FUIAction(
 				FExecuteAction::CreateSP(this, &SLevelViewport::ToggleViewportTypeActivationWithinLayout, InViewportTypeName),
 				FCanExecuteAction(),
 				FIsActionChecked::CreateSP(this, &SLevelViewport::IsViewportTypeWithinLayoutEqual, InViewportTypeName)
@@ -1320,7 +1322,7 @@ void SLevelViewport::BindViewCommands( FUICommandList& CommandList )
 	for (FLevelViewportCommands::TBufferVisualizationModeCommandMap::TConstIterator It = ViewportActions.BufferVisualizationModeCommands.CreateConstIterator(); It; ++It)
 	{
 		const FLevelViewportCommands::FBufferVisualizationRecord& Record = It.Value();
-		CommandList.MapAction(
+		OutCommandList.MapAction(
 			Record.Command,
 			FExecuteAction::CreateSP( this, &SLevelViewport::ChangeBufferVisualizationMode, Record.Name ),
 			FCanExecuteAction(),
@@ -1329,9 +1331,9 @@ void SLevelViewport::BindViewCommands( FUICommandList& CommandList )
 }
 
 
-void SLevelViewport::BindShowCommands( FUICommandList& CommandList )
+void SLevelViewport::BindShowCommands( FUICommandList& OutCommandList )
 {
-	CommandList.MapAction( 
+	OutCommandList.MapAction( 
 		FLevelViewportCommands::Get().UseDefaultShowFlags,
 		FExecuteAction::CreateSP( this, &SLevelViewport::OnUseDefaultShowFlags, false ) );
 
@@ -1343,7 +1345,7 @@ void SLevelViewport::BindShowCommands( FUICommandList& CommandList )
 		const FShowFlagData& SFData = ShowFlagData[ShowFlag];
 
 		// NOTE: There should be one command per show flag so using ShowFlag as the index to ShowFlagCommands is acceptable
-		CommandList.MapAction(
+		OutCommandList.MapAction(
 			FLevelViewportCommands::Get().ShowFlagCommands[ ShowFlag ].ShowMenuItem,
 			FExecuteAction::CreateSP( this, &SLevelViewport::ToggleShowFlag, SFData.EngineShowFlagIndex ),
 			FCanExecuteAction(),
@@ -1353,11 +1355,11 @@ void SLevelViewport::BindShowCommands( FUICommandList& CommandList )
 	// Show Volumes
 	{
 		// Map 'Show All' and 'Hide All' commands
-		CommandList.MapAction(
+		OutCommandList.MapAction(
 			FLevelViewportCommands::Get().ShowAllVolumes,
 			FExecuteAction::CreateSP( this, &SLevelViewport::OnToggleAllVolumeActors, true ) );
 
-		CommandList.MapAction(
+		OutCommandList.MapAction(
 			FLevelViewportCommands::Get().HideAllVolumes,
 			FExecuteAction::CreateSP( this, &SLevelViewport::OnToggleAllVolumeActors, false ) );
 
@@ -1367,7 +1369,7 @@ void SLevelViewport::BindShowCommands( FUICommandList& CommandList )
 
 		for( int32 VolumeClassIndex = 0; VolumeClassIndex < VolumeClasses.Num(); ++VolumeClassIndex )
 		{
-			CommandList.MapAction(
+			OutCommandList.MapAction(
 				FLevelViewportCommands::Get().ShowVolumeCommands[ VolumeClassIndex ].ShowMenuItem,
 				FExecuteAction::CreateSP( this, &SLevelViewport::ToggleShowVolumeClass, VolumeClassIndex ),
 				FCanExecuteAction(),
@@ -1378,11 +1380,11 @@ void SLevelViewport::BindShowCommands( FUICommandList& CommandList )
 	// Show Layers
 	{
 		// Map 'Show All' and 'Hide All' commands
-		CommandList.MapAction(
+		OutCommandList.MapAction(
 			FLevelViewportCommands::Get().ShowAllLayers,
 			FExecuteAction::CreateSP( this, &SLevelViewport::OnToggleAllLayers, true ) );
 
-		CommandList.MapAction(
+		OutCommandList.MapAction(
 			FLevelViewportCommands::Get().HideAllLayers,
 			FExecuteAction::CreateSP( this, &SLevelViewport::OnToggleAllLayers, false ) );
 	}
@@ -1390,18 +1392,18 @@ void SLevelViewport::BindShowCommands( FUICommandList& CommandList )
 	// Show Sprite Categories
 	{
 		// Map 'Show All' and 'Hide All' commands
-		CommandList.MapAction(
+		OutCommandList.MapAction(
 			FLevelViewportCommands::Get().ShowAllSprites,
 			FExecuteAction::CreateSP( this, &SLevelViewport::OnToggleAllSpriteCategories, true ) );
 
-		CommandList.MapAction(
+		OutCommandList.MapAction(
 			FLevelViewportCommands::Get().HideAllSprites,
 			FExecuteAction::CreateSP( this, &SLevelViewport::OnToggleAllSpriteCategories, false ) );
 
 		// Bind each show flag to the same delegate.  We use the delegate payload system to figure out what show flag we are dealing with
 		for( int32 CategoryIndex = 0; CategoryIndex < GUnrealEd->SpriteIDToIndexMap.Num(); ++CategoryIndex )
 		{
-			CommandList.MapAction(
+			OutCommandList.MapAction(
 				FLevelViewportCommands::Get().ShowSpriteCommands[ CategoryIndex ].ShowMenuItem,
 				FExecuteAction::CreateSP( this, &SLevelViewport::ToggleSpriteCategory, CategoryIndex ),
 				FCanExecuteAction(),
@@ -1412,7 +1414,7 @@ void SLevelViewport::BindShowCommands( FUICommandList& CommandList )
 	// Show Stat Categories
 	{
 		// Map 'Hide All' command
-		CommandList.MapAction(
+		OutCommandList.MapAction(
 			FLevelViewportCommands::Get().HideAllStats,
 			FExecuteAction::CreateSP(this, &SLevelViewport::OnToggleAllStatCommands, false));
 
@@ -1431,9 +1433,9 @@ void SLevelViewport::BindShowCommands( FUICommandList& CommandList )
 	}
 }
 
-void SLevelViewport::BindDropCommands( FUICommandList& CommandList )
+void SLevelViewport::BindDropCommands( FUICommandList& OutCommandList )
 {
-	CommandList.MapAction( 
+	OutCommandList.MapAction( 
 		FLevelViewportCommands::Get().ApplyMaterialToActor,
 		FExecuteAction::CreateSP( this, &SLevelViewport::OnApplyMaterialToViewportTarget ) );
 }
@@ -1496,15 +1498,15 @@ const FSlateBrush* SLevelViewport::OnGetViewportBorderBrush() const
 
 FSlateColor SLevelViewport::OnGetViewportBorderColorAndOpacity() const
 {
-	auto ColorAndOpacity = FLinearColor::White;
+	FLinearColor ViewportBorderColorAndOpacity = FLinearColor::White;
 	if( FSlateApplication::Get().IsNormalExecution() )
 	{
 		if( ViewTransitionAnim.IsPlaying() )
 		{
-			ColorAndOpacity = FLinearColor( 1.0f, 1.0f, 1.0f, 1.0f - ViewTransitionAnim.GetLerp() );
+			ViewportBorderColorAndOpacity = FLinearColor( 1.0f, 1.0f, 1.0f, 1.0f - ViewTransitionAnim.GetLerp() );
 		}
 	}
-	return ColorAndOpacity;
+	return ViewportBorderColorAndOpacity;
 }
 
 EVisibility SLevelViewport::OnGetViewportContentVisibility() const
@@ -2484,7 +2486,10 @@ void SLevelViewport::OnActorSelectionChanged(const TArray<UObject*>& NewSelectio
 	// On the first actor selection after entering Game View, enable the selection show flag
 	if (IsVisible() && IsInGameView() && NewSelection.Num() != 0)
 	{
-		LevelViewportClient->EngineShowFlags.SetModeWidgets(true);
+		if( LevelViewportClient->bAlwaysShowModeWidgetAfterSelectionChanges )
+		{
+			LevelViewportClient->EngineShowFlags.SetModeWidgets(true);
+		}
 		LevelViewportClient->EngineShowFlags.SetSelection(true);
 		LevelViewportClient->EngineShowFlags.SetSelectionOutline(GetDefault<ULevelEditorViewportSettings>()->bUseSelectionOutline);
 	}
@@ -3169,6 +3174,16 @@ bool SLevelViewport::IsActorPreviewPinned( TWeakObjectPtr<AActor> PreviewActor )
 
 void SLevelViewport::UpdateActorPreviewViewports()
 {
+	// Remove any previews that are locked to the same actor as the level viewport client's actor lock
+	for( int32 PreviewIndex = 0; PreviewIndex < ActorPreviews.Num(); ++PreviewIndex )
+	{
+		AActor* ExistingActor = ActorPreviews[PreviewIndex].Actor.Get();
+		if (ExistingActor && LevelViewportClient->IsActorLocked(ExistingActor))
+		{
+			RemoveActorPreview( PreviewIndex-- );
+		}
+	}
+
 	// Look for actors that we no longer want to preview
 	for( auto ActorPreviewIt = ActorPreviews.CreateConstIterator(); ActorPreviewIt; ++ActorPreviewIt )
 	{
@@ -3363,21 +3378,27 @@ void SLevelViewport::SetViewportTypeWithinLayout(FName InLayoutType)
 	TSharedPtr<FLevelViewportLayout> LayoutPinned = ParentLayout.Pin();
 	if (LayoutPinned.IsValid() && !ConfigKey.IsEmpty())
 	{
+		// Important - RefreshViewportConfiguration does not save config values. We save its state first, to ensure that .TypeWithinLayout (below) doesn't get overwritten
+		TSharedPtr<FLevelViewportTabContent> ViewportTabPinned = LayoutPinned->GetParentTabContent().Pin();
+		if (ViewportTabPinned.IsValid())
+		{
+			ViewportTabPinned->SaveConfig();
+		}
+
 		const FString& IniSection = FLayoutSaveRestore::GetAdditionalLayoutConfigIni();
 		GConfig->SetString( *IniSection, *( ConfigKey + TEXT(".TypeWithinLayout") ), *InLayoutType.ToString(), GEditorPerProjectIni );
 
 		// Force a refresh of the tab content
-		OnSetViewportConfiguration(LayoutPinned->GetLayoutTypeName());
+		// Viewport clients are going away.  Any current one is invalid.
+		GCurrentLevelEditingViewportClient = nullptr;
+		ViewportTabPinned->RefreshViewportConfiguration();
+		FSlateApplication::Get().DismissAllMenus();
 	}
 }
 
 void SLevelViewport::ToggleViewportTypeActivationWithinLayout(FName InLayoutType)
 {
-	if (GetViewportTypeWithinLayout() == InLayoutType)
-	{
-		SetViewportTypeWithinLayout("Default");
-	}
-	else
+	if (GetViewportTypeWithinLayout() != InLayoutType)
 	{
 		SetViewportTypeWithinLayout(InLayoutType);
 	}
@@ -3408,7 +3429,8 @@ void SLevelViewport::StartPlayInEditorSession(UGameViewportClient* PlayClient, c
 	// Focus will be set when the game viewport is registered
 	FSlateApplication::Get().ClearKeyboardFocus(EFocusCause::SetDirectly);
 
-	ActiveViewport = MakeShareable( new FSceneViewport( PlayClient, ViewportWidget ) );
+	// Attach global play world actions widget to view port
+	ActiveViewport = MakeShareable( new FSceneViewport( PlayClient, ViewportWidget) );
 	ActiveViewport->SetPlayInEditorViewport( true );
 
 	// Whether to start with the game taking mouse control or leaving it shown in the editor
@@ -3428,7 +3450,7 @@ void SLevelViewport::StartPlayInEditorSession(UGameViewportClient* PlayClient, c
 	PlayClient->Viewport = ActiveViewport.Get();
 
 	// Register the new viewport widget with Slate for viewport specific message routing.
-	FSlateApplication::Get().RegisterGameViewport( ViewportWidget.ToSharedRef() ); 
+	FSlateApplication::Get().RegisterGameViewport(ViewportWidget.ToSharedRef() );
 
 	// Kick off a quick transition effect (border graphics)
 	ViewTransitionType = EViewTransition::StartingPlayInEditor;
@@ -3491,23 +3513,16 @@ FText SLevelViewport::GetMouseCaptureLabelText() const
 {
 	if(ActiveViewport->HasMouseCapture())
 	{
-		// Only need to fetch the exec binding once since it can't change
-		// but better than hard coding to the current binding.
+		// Default Shift+F1 if a valid chord is not found
 		static FInputChord Chord(EKeys::F1, EModifierKey::Shift);
-		static bool bInitedChord = false;
-		if(!bInitedChord)
+		TSharedPtr<FUICommandInfo> UICommand = FInputBindingManager::Get().FindCommandInContext(TEXT("PlayWorld"), TEXT("GetMouseControl"));
+		if (UICommand.IsValid())
 		{
-			ULocalPlayer* const TargetPlayer = GEngine->GetLocalPlayerFromControllerId(GetWorld(), 0);
-			if (TargetPlayer && TargetPlayer->PlayerController && TargetPlayer->PlayerController->PlayerInput)
-			{
-				FKeyBind Binding = TargetPlayer->PlayerController->PlayerInput->GetExecBind(TEXT("ShowMouseCursor"));
-				Chord = FInputChord(Binding.Key, EModifierKey::FromBools(Binding.Control, Binding.Alt, Binding.Shift, Binding.Cmd));
-				bInitedChord = true;
-			}
+			TSharedRef<const FInputChord> ActiveChord = UICommand->GetActiveChord();
+			Chord = ActiveChord.Get();
 		}
-
 		FFormatNamedArguments Args;
-		Args.Add( TEXT("InputText"), Chord.GetInputText() );
+		Args.Add(TEXT("InputText"), Chord.GetInputText());
 		return FText::Format( LOCTEXT("ShowMouseCursorLabel", "{InputText} for Mouse Cursor"), Args );
 	}
 	else
@@ -3759,13 +3774,13 @@ EVisibility SLevelViewport::GetLockedIconVisibility() const
 
 FText SLevelViewport::GetLockedIconToolTip() const
 {
-	FText ToolTip;
+	FText ToolTipText;
 	if (IsAnyActorLocked())
 	{
-		ToolTip = FText::Format( LOCTEXT("ActorLockedIcon_ToolTip", "Viewport Locked to {0}"), FText::FromString( LevelViewportClient->GetActiveActorLock().Get()->GetActorLabel() ) );
+		ToolTipText = FText::Format( LOCTEXT("ActorLockedIcon_ToolTip", "Viewport Locked to {0}"), FText::FromString( LevelViewportClient->GetActiveActorLock().Get()->GetActorLabel() ) );
 	}
 
-	return ToolTip;
+	return ToolTipText;
 }
 
 UWorld* SLevelViewport::GetWorld() const

@@ -138,14 +138,14 @@ void UAnimBlueprint::PostLoad()
 	Super::PostLoad();
 #if WITH_EDITOR
 	// Validate animation overrides
-	UAnimBlueprintGeneratedClass* GeneratedClass = GetAnimBlueprintGeneratedClass();
+	UAnimBlueprintGeneratedClass* AnimBPGeneratedClass = GetAnimBlueprintGeneratedClass();
 	
-	if (GeneratedClass)
+	if (AnimBPGeneratedClass)
 	{
 		// If there is no index for the guid, remove the entry.
-		ParentAssetOverrides.RemoveAll([GeneratedClass](const FAnimParentNodeAssetOverride& Element)
+		ParentAssetOverrides.RemoveAll([AnimBPGeneratedClass](const FAnimParentNodeAssetOverride& Element)
 		{
-			if (!GeneratedClass->GetNodePropertyIndexFromGuid(Element.ParentNodeGuid, EPropertySearchMode::Hierarchy))
+			if (!AnimBPGeneratedClass->GetNodePropertyIndexFromGuid(Element.ParentNodeGuid, EPropertySearchMode::Hierarchy))
 			{
 				return true;
 			}

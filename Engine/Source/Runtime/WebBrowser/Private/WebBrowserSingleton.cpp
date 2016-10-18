@@ -10,6 +10,8 @@
 #include "IVirtualKeyboardEntry.h"
 #include "SlateApplication.h"
 #include "Runtime/Launch/Resources/Version.h"
+#include "WebBrowserModule.h"
+#include "IWebBrowserCookieManager.h"
 
 #if WITH_CEF3
 #	if PLATFORM_WINDOWS
@@ -30,6 +32,10 @@
 
 #if PLATFORM_ANDROID
 #	include <Android/AndroidPlatformWebBrowser.h>
+#elif PLATFORM_IOS
+#	include <IOS/IOSPlatformWebBrowser.h>
+#elif PLATFORM_PS4
+#	include <PS4/PS4PlatformWebBrowser.h>
 #endif
 
 // Define some platform-dependent file locations
@@ -117,8 +123,80 @@ namespace {
 #endif
 }
 
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
+class FWebBrowserWindowFactory
+	: public IWebBrowserWindowFactory
+{
+public:
+
+	virtual ~FWebBrowserWindowFactory()
+	{ }
+
+	virtual TSharedPtr<IWebBrowserWindow> Create(
+		TSharedPtr<FWebBrowserWindow>& BrowserWindowParent,
+		TSharedPtr<FWebBrowserWindowInfo>& BrowserWindowInfo) override
+	{
+		return IWebBrowserModule::Get().GetSingleton()->CreateBrowserWindow(
+			BrowserWindowParent,
+			BrowserWindowInfo);
+	}
+
+	virtual TSharedPtr<IWebBrowserWindow> Create(
+		void* OSWindowHandle,
+		FString InitialURL,
+		bool bUseTransparency,
+		bool bThumbMouseButtonNavigation,
+		TOptional<FString> ContentsToLoad = TOptional<FString>(),
+		bool ShowErrorMessage = true,
+		FColor BackgroundColor = FColor(255, 255, 255, 255)) override
+	{
+		return IWebBrowserModule::Get().GetSingleton()->CreateBrowserWindow(
+			OSWindowHandle,
+			InitialURL,
+			bUseTransparency,
+			bThumbMouseButtonNavigation,
+			ContentsToLoad,
+			ShowErrorMessage,
+			BackgroundColor);
+	}
+};
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
+
+class FNoWebBrowserWindowFactory
+	: public IWebBrowserWindowFactory
+{
+public:
+
+	virtual ~FNoWebBrowserWindowFactory()
+	{ }
+
+	virtual TSharedPtr<IWebBrowserWindow> Create(
+		TSharedPtr<FWebBrowserWindow>& BrowserWindowParent,
+		TSharedPtr<FWebBrowserWindowInfo>& BrowserWindowInfo) override
+	{
+		return nullptr;
+	}
+
+	virtual TSharedPtr<IWebBrowserWindow> Create(
+		void* OSWindowHandle,
+		FString InitialURL,
+		bool bUseTransparency,
+		bool bThumbMouseButtonNavigation,
+		TOptional<FString> ContentsToLoad = TOptional<FString>(),
+		bool ShowErrorMessage = true,
+		FColor BackgroundColor = FColor(255, 255, 255, 255)) override
+	{
+		return nullptr;
+	}
+};
+
 FWebBrowserSingleton::FWebBrowserSingleton()
-	: bDevToolsShortcutEnabled(UE_BUILD_DEBUG)
+#if WITH_CEF3
+	: WebBrowserWindowFactory(MakeShareable(new FWebBrowserWindowFactory()))
+#else
+	: WebBrowserWindowFactory(MakeShareable(new FNoWebBrowserWindowFactory()))
+#endif
+	, bDevToolsShortcutEnabled(UE_BUILD_DEBUG)
 {
 #if WITH_CEF3
 	// The FWebBrowserSingleton must be initialized on the game thread
@@ -141,10 +219,6 @@ FWebBrowserSingleton::FWebBrowserSingleton()
 	Settings.no_sandbox = true;
 	Settings.command_line_args_disabled = true;
 
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-	Settings.remote_debugging_port = 8088;
-#endif
-
 	FString CefLogFile(FPaths::Combine(*FPaths::GameLogDir(), TEXT("cef3.log")));
 	CefLogFile = FPaths::ConvertRelativePathToFull(CefLogFile);
 	CefString(&Settings.log_file) = *CefLogFile;
@@ -155,7 +229,7 @@ FWebBrowserSingleton::FWebBrowserSingleton()
 	CefString(&Settings.locale) = *LocaleCode;
 
 	// Append engine version to the user agent string.
-	FString ProductVersion = FString::Printf( TEXT("%s UnrealEngine/%s"), FApp::GetGameName(), ENGINE_VERSION_STRING);
+	FString ProductVersion = FString::Printf( TEXT("%s UnrealEngine/%s"), FApp::GetGameName(), *FEngineVersion::Current().ToString());
 	CefString(&Settings.product_version) = *ProductVersion;
 
 	// Enable on disk cache
@@ -191,7 +265,8 @@ FWebBrowserSingleton::FWebBrowserSingleton()
 	// Specify path to sub process exe
 	FString SubProcessPath(FPaths::Combine(*FPaths::EngineDir(), CEF3_SUBPROCES_EXE));
 	SubProcessPath = FPaths::ConvertRelativePathToFull(SubProcessPath);
-	if (!FPaths::FileExists(SubProcessPath))
+
+	if (!IPlatformFile::GetPlatformPhysical().FileExists(*SubProcessPath))
 	{
 		UE_LOG(LogWebBrowser, Error, TEXT("UnrealCEFSubProcess.exe not found, check that this program has been built and is placed in: %s."), *SubProcessPath);
 	}
@@ -203,6 +278,8 @@ FWebBrowserSingleton::FWebBrowserSingleton()
 
 	// Set the thread name back to GameThread.
 	SetCurrentThreadName(TCHAR_TO_ANSI( *(FName( NAME_GameThread ).GetPlainNameString()) ));
+
+	DefaultCookieManager = FCefWebBrowserCookieManagerFactory::Create(CefCookieManager::GetGlobalManager(nullptr));
 #endif
 }
 
@@ -248,6 +325,11 @@ FWebBrowserSingleton::~FWebBrowserSingleton()
 #endif
 }
 
+TSharedRef<IWebBrowserWindowFactory> FWebBrowserSingleton::GetWebBrowserWindowFactory() const
+{
+	return WebBrowserWindowFactory;
+}
+
 TSharedPtr<IWebBrowserWindow> FWebBrowserSingleton::CreateBrowserWindow(
 	TSharedPtr<FWebBrowserWindow>& BrowserWindowParent,
 	TSharedPtr<FWebBrowserWindowInfo>& BrowserWindowInfo
@@ -271,13 +353,29 @@ TSharedPtr<IWebBrowserWindow> FWebBrowserSingleton::CreateBrowserWindow(
 }
 
 TSharedPtr<IWebBrowserWindow> FWebBrowserSingleton::CreateBrowserWindow(
-	void* OSWindowHandle, 
-	FString InitialURL, 
+	void* OSWindowHandle,
+	FString InitialURL,
 	bool bUseTransparency,
 	bool bThumbMouseButtonNavigation,
-	TOptional<FString> ContentsToLoad, 
+	TOptional<FString> ContentsToLoad,
 	bool ShowErrorMessage,
-	FColor BackgroundColor)
+	FColor BackgroundColor,
+	int BrowserFrameRate )
+{
+	FCreateBrowserWindowSettings Settings;
+	Settings.OSWindowHandle = OSWindowHandle;
+	Settings.InitialURL = InitialURL;
+	Settings.bUseTransparency = bUseTransparency;
+	Settings.bThumbMouseButtonNavigation = bThumbMouseButtonNavigation;
+	Settings.ContentsToLoad = ContentsToLoad;
+	Settings.bShowErrorMessage = ShowErrorMessage;
+	Settings.BackgroundColor = BackgroundColor;
+	Settings.BrowserFrameRate = BrowserFrameRate;
+
+	return CreateBrowserWindow(Settings);
+}
+
+TSharedPtr<IWebBrowserWindow> FWebBrowserSingleton::CreateBrowserWindow(const FCreateBrowserWindowSettings& WindowSettings)
 {
 #if WITH_CEF3
 	static bool AllowCEF = !FParse::Param(FCommandLine::Get(), TEXT("nocef"));
@@ -290,7 +388,7 @@ TSharedPtr<IWebBrowserWindow> FWebBrowserSingleton::CreateBrowserWindow(
 		CefBrowserSettings BrowserSettings;
 
 		// Set max framerate to maximum supported.
-		BrowserSettings.background_color = CefColorSetARGB(BackgroundColor.A, BackgroundColor.R, BackgroundColor.G, BackgroundColor.B);
+		BrowserSettings.background_color = CefColorSetARGB(WindowSettings.BackgroundColor.A, WindowSettings.BackgroundColor.R, WindowSettings.BackgroundColor.G, WindowSettings.BackgroundColor.B);
 
 		// Disable plugins
 		BrowserSettings.plugins = STATE_DISABLED;
@@ -298,38 +396,74 @@ TSharedPtr<IWebBrowserWindow> FWebBrowserSingleton::CreateBrowserWindow(
 
 #if PLATFORM_WINDOWS
 		// Create the widget as a child window on whindows when passing in a parent window
-		if (OSWindowHandle != nullptr)
+		if (WindowSettings.OSWindowHandle != nullptr)
 		{
 			RECT ClientRect = { 0, 0, 0, 0 };
-			WindowInfo.SetAsChild((CefWindowHandle)OSWindowHandle, ClientRect);
+			WindowInfo.SetAsChild((CefWindowHandle)WindowSettings.OSWindowHandle, ClientRect);
 		}
 		else
 #endif
 		{
 			// Use off screen rendering so we can integrate with our windows
-			WindowInfo.SetAsWindowless(nullptr, bUseTransparency);
-			BrowserSettings.windowless_frame_rate = 24;
+			WindowInfo.SetAsWindowless(nullptr, WindowSettings.bUseTransparency);
+			BrowserSettings.windowless_frame_rate = WindowSettings.BrowserFrameRate;
 		}
 
 
 		// WebBrowserHandler implements browser-level callbacks.
-		CefRefPtr<FWebBrowserHandler> NewHandler(new FWebBrowserHandler(bUseTransparency));
+		CefRefPtr<FWebBrowserHandler> NewHandler(new FWebBrowserHandler(WindowSettings.bUseTransparency));
+
+		CefRefPtr<CefRequestContext> RequestContext = nullptr;
+		if (WindowSettings.Context.IsSet())
+		{
+			const FBrowserContextSettings Context = WindowSettings.Context.GetValue();
+			const CefRefPtr<CefRequestContext>* ExistingRequestContext = RequestContexts.Find(Context.Id);
+
+			if (ExistingRequestContext == nullptr)
+			{
+				CefRequestContextSettings RequestContextSettings;
+				CefString(&RequestContextSettings.accept_language_list) = *Context.AcceptLanguageList;
+				CefString(&RequestContextSettings.cache_path) = *Context.CookieStorageLocation;
+				RequestContextSettings.persist_session_cookies = Context.bPersistSessionCookies;
+				RequestContextSettings.ignore_certificate_errors = Context.bIgnoreCertificateErrors;
+
+				//Create a new one
+				RequestContext = CefRequestContext::CreateContext(RequestContextSettings, nullptr);
+				RequestContexts.Add(Context.Id, RequestContext);
+			}
+			else
+			{
+				RequestContext = *ExistingRequestContext;
+			}
+		}
 
 		// Create the CEF browser window.
-		CefRefPtr<CefBrowser> Browser = CefBrowserHost::CreateBrowserSync(WindowInfo, NewHandler.get(), *InitialURL, BrowserSettings, nullptr);
+		CefRefPtr<CefBrowser> Browser = CefBrowserHost::CreateBrowserSync(WindowInfo, NewHandler.get(), *WindowSettings.InitialURL, BrowserSettings, RequestContext);
 		if (Browser.get())
 		{
 			// Create new window
-			TSharedPtr<FWebBrowserWindow> NewBrowserWindow(new FWebBrowserWindow(Browser, NewHandler, InitialURL, ContentsToLoad, ShowErrorMessage, bThumbMouseButtonNavigation, bUseTransparency));
+			TSharedPtr<FWebBrowserWindow> NewBrowserWindow = MakeShareable(new FWebBrowserWindow(
+				Browser, 
+				NewHandler, 
+				WindowSettings.InitialURL, 
+				WindowSettings.ContentsToLoad, 
+				WindowSettings.bShowErrorMessage, 
+				WindowSettings.bThumbMouseButtonNavigation, 
+				WindowSettings.bUseTransparency));
 			NewHandler->SetBrowserWindow(NewBrowserWindow);
 
 			WindowInterfaces.Add(NewBrowserWindow);
 			return NewBrowserWindow;
 		}
 	}
-#elif PLATFORM_ANDROID
+#elif PLATFORM_ANDROID || PLATFORM_IOS || PLATFORM_PS4
 	// Create new window
-	TSharedPtr<FWebBrowserWindow> NewBrowserWindow = MakeShareable(new FWebBrowserWindow(InitialURL, ContentsToLoad, ShowErrorMessage, bThumbMouseButtonNavigation, bUseTransparency));
+	TSharedPtr<FWebBrowserWindow> NewBrowserWindow = MakeShareable(new FWebBrowserWindow(
+		WindowSettings.InitialURL, 
+		WindowSettings.ContentsToLoad, 
+		WindowSettings.bShowErrorMessage, 
+		WindowSettings.bThumbMouseButtonNavigation, 
+		WindowSettings.bUseTransparency));
 
 	//WindowInterfaces.Add(NewBrowserWindow);
 	return NewBrowserWindow;
@@ -359,6 +493,19 @@ bool FWebBrowserSingleton::Tick(float DeltaTime)
 		}
 	}
 	CefDoMessageLoopWork();
+
+	// Update video buffering for any windows that need it
+	for (int32 Index = 0; Index < WindowInterfaces.Num(); Index++)
+	{
+		if (WindowInterfaces[Index].IsValid())
+		{
+			TSharedPtr<FWebBrowserWindow> BrowserWindow = WindowInterfaces[Index].Pin();
+			if (BrowserWindow.IsValid())
+			{
+				BrowserWindow->UpdateVideoBuffering();
+			}
+		}
+	}
 #endif
 	return true;
 }
@@ -375,59 +522,71 @@ FString FWebBrowserSingleton::GetCurrentLocaleCode()
 	return LocaleCode;
 }
 
-#if WITH_CEF3
-namespace
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
+void FWebBrowserSingleton::DeleteBrowserCookies(FString URL, FString CookieName, TFunction<void(int)> Completed)
 {
-	// Task for executing a callback on a given thread.
-	class FDeleteCookiesNotificationTask
-		: public CefTask
+	if (DefaultCookieManager.IsValid())
 	{
-		TFunction<void (int)> Callback;
-		int Value;
-	public:
-		FDeleteCookiesNotificationTask(const TFunction<void (int)>& InCallback, int InValue)
-			: Callback(InCallback)
-			, Value(InValue)
-		{}
-
-		virtual void Execute() override
-		{
-			Callback(Value);
-		}
-
-		IMPLEMENT_REFCOUNTING(FDeleteCookiesNotificationTask);
-
-	};
-
-	// Callback that will invoke the callback with the result on the UI thread.
-	class FDeleteCookiesFunctionCallback
-		: public CefDeleteCookiesCallback
-	{
-		TFunction<void (int)> Callback;
-	public:
-		FDeleteCookiesFunctionCallback(const TFunction<void (int)>& InCallback)
-			: Callback(InCallback)
-		{}
-
-		virtual void OnComplete(int NumDeleted) override
-		{
-			// We're on the IO thread, so we'll have to schedule the callback on the main thread
-			CefPostTask(TID_UI, new FDeleteCookiesNotificationTask(Callback, NumDeleted));
-		}
-
-		IMPLEMENT_REFCOUNTING(FDeleteCookiesFunctionCallback);
-	};
+		DefaultCookieManager->DeleteCookies(URL, CookieName, Completed);
+	}
 }
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
+
+TSharedPtr<IWebBrowserCookieManager> FWebBrowserSingleton::GetCookieManager(TOptional<FString> ContextId) const
+{
+	if (!ContextId.IsSet())
+	{
+		return DefaultCookieManager;
+	}
+
+#if WITH_CEF3
+	const CefRefPtr<CefRequestContext>* ExistingContext = RequestContexts.Find(ContextId.GetValue());
+
+	if (ExistingContext)
+	{
+		// Cache these cookie managers?
+		return FCefWebBrowserCookieManagerFactory::Create((*ExistingContext)->GetDefaultCookieManager(nullptr));
+	}
 #endif
 
-void FWebBrowserSingleton::DeleteBrowserCookies(FString URL, FString CookieName, TFunction<void (int)> Completed)
+	return nullptr;
+}
+
+bool FWebBrowserSingleton::RegisterContext(const FBrowserContextSettings& Settings)
 {
 #if WITH_CEF3
-	CefRefPtr<FDeleteCookiesFunctionCallback> Callback = Completed ? new FDeleteCookiesFunctionCallback(Completed) : nullptr;
-	CefCookieManager::GetGlobalManager(nullptr)->DeleteCookies(*URL, *CookieName, Callback);
+	const CefRefPtr<CefRequestContext>* ExistingContext = RequestContexts.Find(Settings.Id);
+
+	if (ExistingContext != nullptr)
+	{
+		// You can't register the same context twice and 
+		// you can't update the settings for a context that already exists
+		return false;
+	}
+
+	CefRequestContextSettings RequestContextSettings;
+	CefString(&RequestContextSettings.accept_language_list) = *Settings.AcceptLanguageList;
+	CefString(&RequestContextSettings.cache_path) = *Settings.CookieStorageLocation;
+	RequestContextSettings.persist_session_cookies = Settings.bPersistSessionCookies;
+	RequestContextSettings.ignore_certificate_errors = Settings.bIgnoreCertificateErrors;
+
+	//Create a new one
+	CefRefPtr<CefRequestContext> RequestContext = CefRequestContext::CreateContext(RequestContextSettings, nullptr);
+	RequestContexts.Add(Settings.Id, RequestContext);
+	return true;
+#else
+	return false;
 #endif
 }
 
+bool FWebBrowserSingleton::UnregisterContext(const FString& ContextId)
+{
+#if WITH_CEF3
+	return RequestContexts.Remove(ContextId) > 0;
+#else
+	return false;
+#endif
+}
 
 // Cleanup macros to avoid having them leak outside this source file
 #undef CEF3_BIN_DIR

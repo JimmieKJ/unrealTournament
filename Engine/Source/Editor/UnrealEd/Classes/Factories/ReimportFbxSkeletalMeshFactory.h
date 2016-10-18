@@ -7,7 +7,7 @@
 #pragma once
 #include "ReimportFbxSkeletalMeshFactory.generated.h"
 
-UCLASS(collapsecategories)
+UCLASS(MinimalAPI, collapsecategories)
 class UReimportFbxSkeletalMeshFactory : public UFbxFactory, public FReimportHandler
 {
 	GENERATED_UCLASS_BODY()
@@ -24,6 +24,3 @@ class UReimportFbxSkeletalMeshFactory : public UFbxFactory, public FReimportHand
 	virtual bool FactoryCanImport(const FString& Filename) override;
 	//~ End UFactory Interface
 };
-
-
-

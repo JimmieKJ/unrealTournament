@@ -4,14 +4,23 @@
 #include "Developer/AssetTools/Public/IAssetTypeActions.h"
 #include "Runtime/AssetRegistry/Public/ARFilter.h"
 
+
+class FAssetData;
+class FDragDropOperation;
+class FExtender;
+class FReply;
+class SToolTip;
+struct FCollectionNameType;
+
+
 /** Called when a collection is selected in the collections view */
-DECLARE_DELEGATE_OneParam( FOnCollectionSelected, const struct FCollectionNameType& /*SelectedCollection*/);
+DECLARE_DELEGATE_OneParam( FOnCollectionSelected, const FCollectionNameType& /*SelectedCollection*/);
 
 /** Called to retrieve the tooltip for the specified asset */
 DECLARE_DELEGATE_RetVal_OneParam( TSharedRef< SToolTip >, FConstructToolTipForAsset, const FAssetData& /*Asset*/);
 
 /** Called to check if an asset should be filtered out by external code. Return true to exclude the asset from the view. */
-DECLARE_DELEGATE_RetVal_OneParam(bool, FOnShouldFilterAsset, const class FAssetData& /*AssetData*/);
+DECLARE_DELEGATE_RetVal_OneParam(bool, FOnShouldFilterAsset, const FAssetData& /*AssetData*/);
 
 /** Called to check if an asset tag should be display in details view. Return false to exclude the asset from the view. */
 DECLARE_DELEGATE_RetVal_TwoParams(bool, FOnShouldDisplayAssetTag, FName /*AssetType*/, FName /*TagName*/);
@@ -38,19 +47,19 @@ DECLARE_DELEGATE_OneParam(FSetPathPickerPathsDelegate, const TArray<FString>& /*
 DECLARE_DELEGATE_OneParam( FAdjustSelectionDelegate, const int32 /*direction*/ );
 
 /** Called when an asset is selected in the asset view */
-DECLARE_DELEGATE_OneParam(FOnAssetSelected, const class FAssetData& /*AssetData*/);
+DECLARE_DELEGATE_OneParam(FOnAssetSelected, const FAssetData& /*AssetData*/);
 
 /** Called when the user double clicks, presses enter, or presses space on an asset */
 DECLARE_DELEGATE_TwoParams(FOnAssetsActivated, const TArray<FAssetData>& /*ActivatedAssets*/, EAssetTypeActivationMethod::Type /*ActivationMethod*/);
 
 /** Called when an asset has begun being dragged by the user */
-DECLARE_DELEGATE_RetVal_OneParam(FReply, FOnAssetDragged, const TArray<class FAssetData>& /*AssetData*/);
+DECLARE_DELEGATE_RetVal_OneParam(FReply, FOnAssetDragged, const TArray<FAssetData>& /*AssetData*/);
 
 /** Called when an asset is clicked on in the asset view */
-DECLARE_DELEGATE_OneParam( FOnAssetClicked, const class FAssetData& /*AssetData*/ );
+DECLARE_DELEGATE_OneParam( FOnAssetClicked, const FAssetData& /*AssetData*/ );
 
 /** Called when an asset is double clicked in the asset view */
-DECLARE_DELEGATE_OneParam(FOnAssetDoubleClicked, const class FAssetData& /*AssetData*/);
+DECLARE_DELEGATE_OneParam(FOnAssetDoubleClicked, const FAssetData& /*AssetData*/);
 
 /** Called when enter is pressed on an asset in the asset view */
 DECLARE_DELEGATE_OneParam(FOnAssetEnterPressed, const TArray<FAssetData>& /*SelectedAssets*/);
@@ -76,10 +85,10 @@ DECLARE_DELEGATE_RetVal_OneParam(TSharedRef<FExtender>, FContentBrowserMenuExten
 DECLARE_DELEGATE_RetVal_ThreeParams(TSharedPtr<SWidget>, FOnGetFolderContextMenu, const TArray<FString>& /*SelectedPaths*/, FContentBrowserMenuExtender_SelectedPaths /*MenuExtender*/, FOnCreateNewFolder /*CreationDelegate*/);
 
 /** Called to request a custom asset item tooltip */
-DECLARE_DELEGATE_RetVal_OneParam( TSharedRef<SToolTip>, FOnGetCustomAssetToolTip, class FAssetData& /*AssetData*/);
+DECLARE_DELEGATE_RetVal_OneParam( TSharedRef<SToolTip>, FOnGetCustomAssetToolTip, FAssetData& /*AssetData*/);
 
 /** Called when an asset item visualizes its tooltip */
-DECLARE_DELEGATE_RetVal_TwoParams(bool, FOnVisualizeAssetToolTip, const TSharedPtr<SWidget>& /*ToolTipContent*/, class FAssetData& /*AssetData*/);
+DECLARE_DELEGATE_RetVal_TwoParams(bool, FOnVisualizeAssetToolTip, const TSharedPtr<SWidget>& /*ToolTipContent*/, FAssetData& /*AssetData*/);
 
 /** Called from the Asset Dialog when a non-modal dialog is closed or cancelled */
 DECLARE_DELEGATE(FOnAssetDialogCancelled);
@@ -93,6 +102,7 @@ DECLARE_DELEGATE_OneParam(FOnAssetsChosenForOpen, const TArray<FAssetData>& /*Se
 /** Called from the Asset Dialog when an asset name is chosen in non-modal Save dialogs */
 DECLARE_DELEGATE_OneParam(FOnObjectPathChosenForSave, const FString& /*ObjectPath*/);
 
+
 /** Contains the delegates used to handle a custom drag-and-drop in the asset view */
 struct FAssetViewDragAndDropExtender
 {
@@ -102,8 +112,7 @@ struct FAssetViewDragAndDropExtender
 			: DragDropOp(MoveTemp(InDragDropOp))
 			, PackagePaths(InPackagePaths)
 			, Collections(InCollections)
-		{
-		}
+		{ }
 
 		TSharedPtr<FDragDropOperation> DragDropOp;
 		const TArray<FName>& PackagePaths;
@@ -118,22 +127,19 @@ struct FAssetViewDragAndDropExtender
 		: OnDropDelegate(MoveTemp(InOnDropDelegate))
 		, OnDragOverDelegate()
 		, OnDragLeaveDelegate()
-	{
-	}
+	{ }
 
 	FAssetViewDragAndDropExtender(FOnDropDelegate InOnDropDelegate, FOnDragOverDelegate InOnDragOverDelegate)
 		: OnDropDelegate(MoveTemp(InOnDropDelegate))
 		, OnDragOverDelegate(MoveTemp(InOnDragOverDelegate))
 		, OnDragLeaveDelegate()
-	{
-	}
+	{ }
 
 	FAssetViewDragAndDropExtender(FOnDropDelegate InOnDropDelegate, FOnDragOverDelegate InOnDragOverDelegate, FOnDragLeaveDelegate InOnDragLeaveDelegate)
 		: OnDropDelegate(MoveTemp(InOnDropDelegate))
 		, OnDragOverDelegate(MoveTemp(InOnDragOverDelegate))
 		, OnDragLeaveDelegate(MoveTemp(InOnDragLeaveDelegate))
-	{
-	}
+	{ }
 
 	FOnDropDelegate OnDropDelegate;
 	FOnDragOverDelegate OnDragOverDelegate;

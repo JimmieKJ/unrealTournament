@@ -6,6 +6,7 @@
 #include "Sound/SoundNodeWavePlayer.h"
 #include "Sound/SoundNodeAttenuation.h"
 #include "Sound/SoundNodeQualityLevel.h"
+#include "Sound/SoundNodeSoundClass.h"
 #include "Sound/SoundWave.h"
 #include "GameFramework/GameUserSettings.h"
 #if WITH_EDITOR
@@ -112,35 +113,54 @@ void USoundCue::PostLoad()
 	}
 	else
 #endif
+	if (GEngine)
 	{
-		TArray<USoundNode*> NodesToEvaluate;
-		NodesToEvaluate.Push(FirstNode);
+		EvaluateNodes(false);
+	}
+	else
+	{
+		OnPostEngineInitHandle = UEngine::OnPostEngineInit.AddUObject(this, &USoundCue::OnPostEngineInit);
+	}
+}
 
-		while (NodesToEvaluate.Num() > 0)
+void USoundCue::OnPostEngineInit()
+{
+	UEngine::OnPostEngineInit.Remove(OnPostEngineInitHandle);
+	OnPostEngineInitHandle.Reset();
+
+	EvaluateNodes(true);
+}
+
+void USoundCue::EvaluateNodes(bool bAddToRoot)
+{
+	TArray<USoundNode*> NodesToEvaluate;
+	NodesToEvaluate.Push(FirstNode);
+
+	while (NodesToEvaluate.Num() > 0)
+	{
+		if (USoundNode* SoundNode = NodesToEvaluate.Pop(false))
 		{
-			if (USoundNode* SoundNode = NodesToEvaluate.Pop(false))
+			if (USoundNodeAssetReferencer* AssetReferencerNode = Cast<USoundNodeAssetReferencer>(SoundNode))
 			{
-				if (USoundNodeAssetReferencer* AssetReferencerNode = Cast<USoundNodeAssetReferencer>(SoundNode))
+				AssetReferencerNode->LoadAsset(bAddToRoot);
+			}
+			else if (USoundNodeQualityLevel* QualityLevelNode = Cast<USoundNodeQualityLevel>(SoundNode))
+			{
+				// Only pick the node connected for current quality, currently don't support changing audio quality on the fly
+				static const int32 CachedQualityLevel = GEngine->GetGameUserSettings()->GetAudioQualityLevel();
+				if (CachedQualityLevel < QualityLevelNode->ChildNodes.Num())
 				{
-					AssetReferencerNode->LoadAsset();
+					NodesToEvaluate.Add(QualityLevelNode->ChildNodes[CachedQualityLevel]);
 				}
-				else if (USoundNodeQualityLevel* QualityLevelNode = Cast<USoundNodeQualityLevel>(SoundNode))
-				{
-					// Only pick the node connected for current quality, currently don't support changing audio quality on the fly
-					static const int32 CachedQualityLevel = GEngine->GetGameUserSettings()->GetAudioQualityLevel();
-					if (CachedQualityLevel < QualityLevelNode->ChildNodes.Num())
-					{
-						NodesToEvaluate.Add(QualityLevelNode->ChildNodes[CachedQualityLevel]);
-					}
-				}
-				else
-				{
-					NodesToEvaluate.Append(SoundNode->ChildNodes);
-				}
+			}
+			else
+			{
+				NodesToEvaluate.Append(SoundNode->ChildNodes);
 			}
 		}
 	}
 }
+
 
 #if WITH_EDITOR
 
@@ -238,10 +258,10 @@ FString USoundCue::GetDesc()
 	FString Description = TEXT( "" );
 
 	// Display duration
-	const float Duration = GetDuration();
-	if( Duration < INDEFINITELY_LOOPING_DURATION )
+	const float CueDuration = GetDuration();
+	if( CueDuration < INDEFINITELY_LOOPING_DURATION )
 	{
-		Description = FString::Printf( TEXT( "%3.2fs" ), Duration );
+		Description = FString::Printf( TEXT( "%3.2fs" ), CueDuration );
 	}
 	else
 	{
@@ -344,9 +364,34 @@ float USoundCue::GetDuration()
 	return Duration;
 }
 
+bool USoundCue::ShouldApplyInteriorVolumes() const
+{
+	if (Super::ShouldApplyInteriorVolumes())
+	{
+		return true;
+	}
+
+	// TODO: Consider caching this so we only reevaluate in editor
+	TArray<UObject*> Children;
+	GetObjectsWithOuter(this, Children);
+
+	for (UObject* Child : Children)
+	{
+		if (USoundNodeSoundClass* SoundClassNode = Cast<USoundNodeSoundClass>(Child))
+		{
+			if (SoundClassNode->SoundClassOverride && SoundClassNode->SoundClassOverride->Properties.bApplyAmbientVolumes)
+			{
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
 bool USoundCue::IsPlayable() const
 {
-	return FirstNode != NULL;
+	return FirstNode != nullptr;
 }
 
 void USoundCue::Parse( FAudioDevice* AudioDevice, const UPTRINT NodeWaveInstanceHash, FActiveSound& ActiveSound, const FSoundParseParameters& ParseParams, TArray<FWaveInstance*>& WaveInstances )

@@ -1,11 +1,15 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
+#include "LandscapePrivatePCH.h"
 #include "Landscape.h"
 #include "MaterialCompiler.h"
 #include "Materials/MaterialExpressionLandscapeLayerBlend.h"
 #include "EdGraph/EdGraphNode.h"
 #include "Engine/Engine.h"
 #include "EngineGlobals.h"
+#if WITH_EDITOR
+#include "MaterialGraph/MaterialGraphNode.h"
+#endif
 
 #define LOCTEXT_NAMESPACE "Landscape"
 
@@ -311,9 +315,9 @@ void UMaterialExpressionLandscapeLayerBlend::PostEditChangeProperty(FPropertyCha
 		const FName PropertyName = PropertyChangedEvent.MemberProperty->GetFName();
 		if (PropertyName == GET_MEMBER_NAME_CHECKED(UMaterialExpressionLandscapeLayerBlend, Layers))
 		{
-			if (GraphNode)
+			if (UMaterialGraphNode* MatGraphNode = Cast<UMaterialGraphNode>(GraphNode))
 			{
-				GraphNode->ReconstructNode();
+				MatGraphNode->RecreateAndLinkNode();
 			}
 		}
 	}

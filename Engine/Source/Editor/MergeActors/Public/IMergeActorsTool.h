@@ -39,5 +39,11 @@ public:
 	 * @return	true if the merge succeeded
 	 */
 	virtual bool RunMerge(const FString& PackageName) = 0;
-
+	
+	/*
+	* Checks if merge operation is valid
+	*
+	* @return true if merge is valid
+	*/
+	virtual bool CanMerge() const = 0;
 };

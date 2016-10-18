@@ -2,7 +2,7 @@
 
 #pragma once
 
-#define LOCTEXT_NAMESPACE ""
+#define LOCTEXT_NAMESPACE "SessionConsoleCommands"
 
 /**
  * The device details commands.

@@ -115,6 +115,7 @@ private:
 	TSharedRef<SDockTab> SpawnTab_Properties(const FSpawnTabArgs& Args);
 	TSharedRef<SDockTab> SpawnTab_SocketManager(const FSpawnTabArgs& Args);
 	TSharedRef<SDockTab> SpawnTab_Collision(const FSpawnTabArgs& Args);
+	TSharedRef<SDockTab> SpawnTab_PreviewSceneSettings(const FSpawnTabArgs& Args);
 
 private:
 	/** Binds commands associated with the Static Mesh Editor. */
@@ -304,6 +305,9 @@ private:
 	/** Information on the selected collision primitives */
 	TArray<FPrimData> SelectedPrims;
 
+	/** Scene preview settings widget */
+	TSharedPtr< class SAdvancedPreviewDetailsTab> AdvancedPreviewSettingsWidget;
+
 	/** Misc consts */
 	const float MinPrimSize;
 	const FVector OverlapNudge;
@@ -313,4 +317,5 @@ private:
 	static const FName PropertiesTabId;
 	static const FName SocketManagerTabId;
 	static const FName CollisionTabId;
+	static const FName PreviewSceneSettingsTabId;
 };

@@ -99,9 +99,9 @@ void SRotatorInputBox::Construct( const SRotatorInputBox::FArguments& InArgs )
 
 }
 
-TSharedRef<SWidget> SRotatorInputBox::BuildDecoratorLabel(FLinearColor BackgroundColor, FLinearColor ForegroundColor, FText Label)
+TSharedRef<SWidget> SRotatorInputBox::BuildDecoratorLabel(FLinearColor BackgroundColor, FLinearColor InForegroundColor, FText Label)
 {
-	TSharedRef<SWidget> LabelWidget = SNumericEntryBox<float>::BuildLabel(Label, ForegroundColor, BackgroundColor);
+	TSharedRef<SWidget> LabelWidget = SNumericEntryBox<float>::BuildLabel(Label, InForegroundColor, BackgroundColor);
 
 	TSharedRef<SWidget> ResultWidget = LabelWidget;
 
@@ -119,7 +119,7 @@ TSharedRef<SWidget> SRotatorInputBox::BuildDecoratorLabel(FLinearColor Backgroun
 				SNew(SBorder)
 				.BorderImage(FCoreStyle::Get().GetBrush("NumericEntrySpinBox.NarrowDecorator"))
 				.BorderBackgroundColor(BackgroundColor)
-				.ForegroundColor(ForegroundColor)
+				.ForegroundColor(InForegroundColor)
 				.VAlign(VAlign_Center)
 				.HAlign(HAlign_Left)
 				.Padding(FMargin(5.0f, 0.0f, 0.0f, 0.0f))

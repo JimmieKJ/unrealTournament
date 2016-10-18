@@ -59,7 +59,7 @@ public:
 	
 	/** Return the animation composite being edited */
 	UAnimComposite* GetCompositeObj() const { return CompositeObj; }
-	virtual UAnimSequenceBase* GetEditorObject() const override { return GetCompositeObj(); }
+	virtual UAnimationAsset* GetEditorObject() const override { return GetCompositeObj(); }
 
 private:
 	/** Pointer to the animation composite being edited */

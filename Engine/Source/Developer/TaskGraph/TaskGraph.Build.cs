@@ -9,6 +9,7 @@ public class TaskGraph : ModuleRules
 		PrivateDependencyModuleNames.AddRange(
 			new string[] {
 				"Core",
+				"CoreUObject",
 				"Slate",
 				"SlateCore",
                 "EditorStyle",

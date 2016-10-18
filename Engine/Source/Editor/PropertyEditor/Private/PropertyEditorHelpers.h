@@ -150,6 +150,11 @@ namespace PropertyEditorHelpers
 	FString GetDocumentationLink( const UProperty* const Property );
 
 	/**
+	* @return The link to the documentation that describes this enum property in detail
+	*/
+	FString GetEnumDocumentationLink(const UProperty* const Property);
+
+	/**
 	 * @return The name of the excerpt that describes this property in detail in the documentation file linked to this property
 	 */
 	FString GetDocumentationExcerptName( const UProperty* const Property );

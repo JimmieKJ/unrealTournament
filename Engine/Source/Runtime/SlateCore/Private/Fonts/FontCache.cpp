@@ -9,6 +9,7 @@
 #include "LegacySlateFontInfoCache.h"
 
 DECLARE_DWORD_ACCUMULATOR_STAT(TEXT("Num Font Atlases"), STAT_SlateNumFontAtlases, STATGROUP_SlateMemory);
+DECLARE_DWORD_ACCUMULATOR_STAT(TEXT("Num Font Non-Atlased Textures"), STAT_SlateNumFontNonAtlasedTextures, STATGROUP_SlateMemory);
 DECLARE_MEMORY_STAT(TEXT("Font Kerning Table Memory"), STAT_SlateFontKerningTableMemory, STATGROUP_SlateMemory);
 DECLARE_MEMORY_STAT(TEXT("Shaped Glyph Sequence Memory"), STAT_SlateShapedGlyphSequenceMemory, STATGROUP_SlateMemory);
 DEFINE_STAT(STAT_SlateFontMeasureCacheMemory);
@@ -53,42 +54,40 @@ FShapedGlyphEntryKey::FShapedGlyphEntryKey(const TSharedPtr<FShapedGlyphFaceData
 }
 
 
-FShapedGlyphSequence::FShapedGlyphSequence(TArray<FShapedGlyphEntry> InGlyphsToRender, TArray<FShapedGlyphClusterBlock> InGlyphClusterBlocks, const int16 InTextBaseline, const uint16 InMaxTextHeight, const UObject* InFontMaterial, const FSourceTextRange& InSourceTextRange)
+FShapedGlyphSequence::FShapedGlyphSequence(TArray<FShapedGlyphEntry> InGlyphsToRender, const int16 InTextBaseline, const uint16 InMaxTextHeight, const UObject* InFontMaterial, const FSourceTextRange& InSourceTextRange)
 	: GlyphsToRender(MoveTemp(InGlyphsToRender))
-	, GlyphClusterBlocks(MoveTemp(InGlyphClusterBlocks))
 	, TextBaseline(InTextBaseline)
 	, MaxTextHeight(InMaxTextHeight)
 	, FontMaterial(InFontMaterial)
 	, SequenceWidth(0)
 	, GlyphFontFaces()
-	, ClusterIndicesToGlyphData(InSourceTextRange)
+	, SourceIndicesToGlyphData(InSourceTextRange)
 {
-	for (int32 CurrentClusterBlockIndex = 0; CurrentClusterBlockIndex < GlyphClusterBlocks.Num(); ++CurrentClusterBlockIndex)
+	const int32 NumGlyphsToRender = GlyphsToRender.Num();
+	for (int32 CurrentGlyphIndex = 0; CurrentGlyphIndex < NumGlyphsToRender; ++CurrentGlyphIndex)
 	{
-		const FShapedGlyphClusterBlock& CurrentClusterBlock = GlyphClusterBlocks[CurrentClusterBlockIndex];
+		const FShapedGlyphEntry& CurrentGlyph = GlyphsToRender[CurrentGlyphIndex];
 
-		for (int32 CurrentGlyphIndex = CurrentClusterBlock.ShapedGlyphStartIndex; CurrentGlyphIndex < CurrentClusterBlock.ShapedGlyphEndIndex; ++CurrentGlyphIndex)
+		// Track unique font faces
+		if (CurrentGlyph.FontFaceData->FontFace.IsValid())
 		{
-			const FShapedGlyphEntry& CurrentGlyph = GlyphsToRender[CurrentGlyphIndex];
-
-			// Track unique font faces
 			GlyphFontFaces.AddUnique(CurrentGlyph.FontFaceData->FontFace);
+		}
 
-			// Update the measured width
-			SequenceWidth += CurrentGlyph.XAdvance;
+		// Update the measured width
+		SequenceWidth += CurrentGlyph.XAdvance;
 
-			// Track reverse look-up data
-			FClusterIndexToGlyphData* ClusterIndexToGlyphData = ClusterIndicesToGlyphData.GetGlyphData(CurrentGlyph.ClusterIndex);
-			checkSlow(ClusterIndexToGlyphData);
-			if (ClusterIndexToGlyphData->IsValid())
-			{
-				// If this data already exists then it means a single character produced multiple glyphs and we need to track it as an additional glyph (these are always within the same cluster block)
-				ClusterIndexToGlyphData->AdditionalGlyphIndices.Add(CurrentGlyphIndex);
-			}
-			else
-			{
-				*ClusterIndexToGlyphData = FClusterIndexToGlyphData(CurrentClusterBlockIndex, CurrentGlyphIndex);
-			}
+		// Track reverse look-up data
+		FSourceIndexToGlyphData* SourceIndexToGlyphData = SourceIndicesToGlyphData.GetGlyphData(CurrentGlyph.SourceIndex);
+		checkSlow(SourceIndexToGlyphData);
+		if (SourceIndexToGlyphData->IsValid())
+		{
+			// If this data already exists then it means a single character produced multiple glyphs and we need to track it as an additional glyph (these are always within the same cluster block)
+			SourceIndexToGlyphData->AdditionalGlyphIndices.Add(CurrentGlyphIndex);
+		}
+		else
+		{
+			*SourceIndexToGlyphData = FSourceIndexToGlyphData(CurrentGlyphIndex);
 		}
 	}
 
@@ -104,7 +103,7 @@ FShapedGlyphSequence::~FShapedGlyphSequence()
 
 uint32 FShapedGlyphSequence::GetAllocatedSize() const
 {
-	return GlyphsToRender.GetAllocatedSize() + GlyphClusterBlocks.GetAllocatedSize() + GlyphFontFaces.GetAllocatedSize() + ClusterIndicesToGlyphData.GetAllocatedSize();
+	return GlyphsToRender.GetAllocatedSize() + GlyphFontFaces.GetAllocatedSize() + SourceIndicesToGlyphData.GetAllocatedSize();
 }
 
 bool FShapedGlyphSequence::IsDirty() const
@@ -135,12 +134,13 @@ TOptional<int32> FShapedGlyphSequence::GetMeasuredWidth(const int32 InStartIndex
 		MeasuredWidth += Kerning.Get(0);
 	}
 
-	auto GlyphCallback = [&](const FShapedGlyphEntry& CurrentGlyph)
+	auto GlyphCallback = [&](const FShapedGlyphEntry& CurrentGlyph, int32 CurrentGlyphIndex) -> bool
 	{
 		MeasuredWidth += CurrentGlyph.XAdvance;
+		return true;
 	};
 
-	if (EnumerateGlyphsInClusterRange(InStartIndex, InEndIndex, GlyphCallback))
+	if (EnumerateLogicalGlyphsInSourceRange(InStartIndex, InEndIndex, GlyphCallback) == EEnumerateGlyphsResult::EnumerationComplete)
 	{
 		return MeasuredWidth;
 	}
@@ -148,94 +148,49 @@ TOptional<int32> FShapedGlyphSequence::GetMeasuredWidth(const int32 InStartIndex
 	return TOptional<int32>();
 }
 
-FShapedGlyphSequence::FGlyphOffsetResult FShapedGlyphSequence::GetGlyphAtOffset(FSlateFontCache& InFontCache, const int32 InHorizontalOffset) const
+FShapedGlyphSequence::FGlyphOffsetResult FShapedGlyphSequence::GetGlyphAtOffset(FSlateFontCache& InFontCache, const int32 InHorizontalOffset, const int32 InStartOffset) const
 {
 	if (GlyphsToRender.Num() == 0)
 	{
 		return FGlyphOffsetResult();
 	}
 
-	int32 CurrentOffset = 0;
-	int32 MatchedGlyphIndex = INDEX_NONE;
-	TextBiDi::ETextDirection MatchedGlyphTextDirection = TextBiDi::ETextDirection::LeftToRight;
+	int32 CurrentOffset = InStartOffset;
+	const FShapedGlyphEntry* MatchedGlyph = nullptr;
 
-	int32 PreviousGlyphIndex = INDEX_NONE;
-	for (const FShapedGlyphClusterBlock& CurrentClusterBlock : GlyphClusterBlocks)
+	const int32 NumGlyphsToRender = GlyphsToRender.Num();
+	for (int32 CurrentGlyphIndex = 0; CurrentGlyphIndex < NumGlyphsToRender; ++CurrentGlyphIndex)
 	{
-		// Measure all the in-range glyphs from this cluster block
-		for (int32 CurrentGlyphIndex = CurrentClusterBlock.ShapedGlyphStartIndex; CurrentGlyphIndex < CurrentClusterBlock.ShapedGlyphEndIndex; ++CurrentGlyphIndex)
+		const FShapedGlyphEntry& CurrentGlyph = GlyphsToRender[CurrentGlyphIndex];
+
+		if (HasFoundGlyphAtOffset(InFontCache, InHorizontalOffset, CurrentGlyph, CurrentGlyphIndex, /*InOut*/CurrentOffset, /*Out*/MatchedGlyph))
 		{
-			const FShapedGlyphEntry* CurrentGlyphPtr = &GlyphsToRender[CurrentGlyphIndex];
-			const int32 FirstGlyphIndexInGlyphCluster = CurrentGlyphIndex;
-
-			// A single character may produce multiple glyphs which must be treated as a single logic unit
-			int32 TotalGlyphSpacing = 0;
-			for (;;)
-			{
-				const FShapedGlyphFontAtlasData GlyphAtlasData = InFontCache.GetShapedGlyphFontAtlasData(*CurrentGlyphPtr);
-				TotalGlyphSpacing += GlyphAtlasData.HorizontalOffset + CurrentGlyphPtr->XAdvance;
-
-				const bool bIsWithinGlyphCluster = GlyphsToRender.IsValidIndex(CurrentGlyphIndex + 1) && CurrentGlyphPtr->ClusterIndex == GlyphsToRender[CurrentGlyphIndex + 1].ClusterIndex;
-				if (!bIsWithinGlyphCluster)
-				{
-					break;
-				}
-
-				CurrentGlyphPtr = &GlyphsToRender[++CurrentGlyphIndex];
-			}
-
-			// Round our test toward the glyphs center position based on the reading direction of the text
-			const int32 GlyphWidthToTest = (CurrentGlyphPtr->NumCharactersInGlyph > 1) ? TotalGlyphSpacing : TotalGlyphSpacing / 2;
-
-			if (InHorizontalOffset < (CurrentOffset + GlyphWidthToTest))
-			{
-				if (CurrentClusterBlock.TextDirection == TextBiDi::ETextDirection::LeftToRight)
-				{
-					MatchedGlyphIndex = FirstGlyphIndexInGlyphCluster;
-				}
-				else
-				{
-					// Right-to-left text needs to return the previous glyph index, since that is the logical "next" glyph
-					if (PreviousGlyphIndex == INDEX_NONE)
-					{
-						// No previous glyph, so use the end index of the current cluster block since that will draw to the left of this glyph, and will trigger the cursor to move to the opposite side of the current glyph
-						return FGlyphOffsetResult(CurrentClusterBlock.ClusterEndIndex);
-					}
-					else
-					{
-						MatchedGlyphIndex = PreviousGlyphIndex;
-					}
-				}
-				MatchedGlyphTextDirection = CurrentClusterBlock.TextDirection;
-				break;
-			}
-
-			PreviousGlyphIndex = FirstGlyphIndexInGlyphCluster;
-
-			CurrentOffset += CurrentGlyphPtr->XAdvance;
+			break;
 		}
 	}
 
-	if (MatchedGlyphIndex == INDEX_NONE)
+	// Found a valid glyph?
+	if (MatchedGlyph)
 	{
-		// The offset was outside of the current text, so say we hit the rightmost cluster from the last cluster block
-		const FShapedGlyphClusterBlock& LastClusterBlock = GlyphClusterBlocks.Last();
-		return FGlyphOffsetResult((LastClusterBlock.TextDirection == TextBiDi::ETextDirection::LeftToRight) ? LastClusterBlock.ClusterEndIndex : LastClusterBlock.ClusterStartIndex);
+		return FGlyphOffsetResult(MatchedGlyph, CurrentOffset);
 	}
 
-	const FShapedGlyphEntry& MatchedGlyph = GlyphsToRender[MatchedGlyphIndex];
-	return FGlyphOffsetResult(&MatchedGlyph, MatchedGlyphTextDirection, CurrentOffset);
+	// Hit was outside of our measure boundary, so return the start or end source index, depending on the reading direction of the right-most glyph
+	if (GlyphsToRender.Last().TextDirection == TextBiDi::ETextDirection::LeftToRight)
+	{
+		return FGlyphOffsetResult(SourceIndicesToGlyphData.GetSourceTextEndIndex());
+	}
+	else
+	{
+		return FGlyphOffsetResult(SourceIndicesToGlyphData.GetSourceTextStartIndex());
+	}
 }
 
-TOptional<FShapedGlyphSequence::FGlyphOffsetResult> FShapedGlyphSequence::GetGlyphAtOffset(FSlateFontCache& InFontCache, int32 InStartIndex, int32 InEndIndex, const int32 InHorizontalOffset, const bool InIncludeKerningWithPrecedingGlyph) const
+TOptional<FShapedGlyphSequence::FGlyphOffsetResult> FShapedGlyphSequence::GetGlyphAtOffset(FSlateFontCache& InFontCache, const int32 InStartIndex, const int32 InEndIndex, const int32 InHorizontalOffset, const int32 InStartOffset, const bool InIncludeKerningWithPrecedingGlyph) const
 {
-	int32 CurrentOffset = 0;
-	int32 VisuallyRightmostClusterIndex = INDEX_NONE;
-	int32 MatchedGlyphIndex = INDEX_NONE;
-	TextBiDi::ETextDirection MatchedGlyphTextDirection = TextBiDi::ETextDirection::LeftToRight;
-
-	bool bFoundStartGlyph = false;
-	bool bFoundEndGlyph = false;
+	int32 CurrentOffset = InStartOffset;
+	const FShapedGlyphEntry* MatchedGlyph = nullptr;
+	const FShapedGlyphEntry* RightmostGlyph = nullptr;
 
 	if (InIncludeKerningWithPrecedingGlyph && InStartIndex > 0)
 	{
@@ -243,142 +198,108 @@ TOptional<FShapedGlyphSequence::FGlyphOffsetResult> FShapedGlyphSequence::GetGly
 		CurrentOffset += Kerning.Get(0);
 	}
 
-	// Try and work out which cluster block we should start measuring from
-	int32 CurrentClusterBlockIndex = 0;
+	auto GlyphCallback = [&](const FShapedGlyphEntry& CurrentGlyph, int32 CurrentGlyphIndex) -> bool
 	{
-		// The given range is exclusive, but we use an inclusive range when finding the cluster block to start at
-		const FClusterIndexToGlyphData* StartClusterIndexToGlyphData = ClusterIndicesToGlyphData.GetGlyphData(InStartIndex);
-		const FClusterIndexToGlyphData* EndClusterIndexToGlyphData = ClusterIndicesToGlyphData.GetGlyphData(InEndIndex - 1);
-
-		if (StartClusterIndexToGlyphData && StartClusterIndexToGlyphData->IsValid() && EndClusterIndexToGlyphData && EndClusterIndexToGlyphData->IsValid())
+		if (HasFoundGlyphAtOffset(InFontCache, InHorizontalOffset, CurrentGlyph, CurrentGlyphIndex, /*InOut*/CurrentOffset, /*Out*/MatchedGlyph))
 		{
-			CurrentClusterBlockIndex = FMath::Min(StartClusterIndexToGlyphData->ClusterBlockIndex, EndClusterIndexToGlyphData->ClusterBlockIndex);
+			return false; // triggers the enumeration to abort
 		}
-	}
 
-	const TRange<int32> SearchRange(InStartIndex, InEndIndex);
-	int32 PreviousGlyphIndex = INDEX_NONE;
-	for (; CurrentClusterBlockIndex < GlyphClusterBlocks.Num(); ++CurrentClusterBlockIndex)
+		RightmostGlyph = &CurrentGlyph;
+		return true;
+	};
+
+	if (EnumerateVisualGlyphsInSourceRange(InStartIndex, InEndIndex, GlyphCallback) != EEnumerateGlyphsResult::EnumerationFailed)
 	{
-		const FShapedGlyphClusterBlock& CurrentClusterBlock = GlyphClusterBlocks[CurrentClusterBlockIndex];
-
-		const TRange<int32> CurrentClusterBlockRange(CurrentClusterBlock.ClusterStartIndex, CurrentClusterBlock.ClusterEndIndex);
-		if (CurrentClusterBlockRange.Overlaps(SearchRange))
+		// Found a valid glyph?
+		if (MatchedGlyph)
 		{
-			// Measure all the in-range glyphs from this cluster block
-			for (int32 CurrentGlyphIndex = CurrentClusterBlock.ShapedGlyphStartIndex; CurrentGlyphIndex < CurrentClusterBlock.ShapedGlyphEndIndex; ++CurrentGlyphIndex)
+			return FGlyphOffsetResult(MatchedGlyph, CurrentOffset);
+		}
+
+		// Hit was outside of our measure boundary, so return the start or end index (if valid), depending on the reading direction of the right-most glyph we tested
+		if (!RightmostGlyph || RightmostGlyph->TextDirection == TextBiDi::ETextDirection::LeftToRight)
+		{
+			if (InEndIndex >= SourceIndicesToGlyphData.GetSourceTextStartIndex() && InEndIndex <= SourceIndicesToGlyphData.GetSourceTextEndIndex())
 			{
-				const FShapedGlyphEntry* CurrentGlyphPtr = &GlyphsToRender[CurrentGlyphIndex];
-				const int32 FirstGlyphIndexInGlyphCluster = CurrentGlyphIndex;
-
-				if (!bFoundStartGlyph && CurrentGlyphPtr->ClusterIndex == InStartIndex)
-				{
-					bFoundStartGlyph = true;
-				}
-
-				if (!bFoundEndGlyph && CurrentGlyphPtr->ClusterIndex == InEndIndex)
-				{
-					bFoundEndGlyph = true;
-				}
-
-				if (CurrentGlyphPtr->ClusterIndex >= InStartIndex && CurrentGlyphPtr->ClusterIndex < InEndIndex)
-				{
-					// A single character may produce multiple glyphs which must be treated as a single logic unit
-					int32 TotalGlyphSpacing = 0;
-					for (;;)
-					{
-						const FShapedGlyphFontAtlasData GlyphAtlasData = InFontCache.GetShapedGlyphFontAtlasData(*CurrentGlyphPtr);
-						TotalGlyphSpacing += GlyphAtlasData.HorizontalOffset + CurrentGlyphPtr->XAdvance;
-
-						const bool bIsWithinGlyphCluster = GlyphsToRender.IsValidIndex(CurrentGlyphIndex + 1) && CurrentGlyphPtr->ClusterIndex == GlyphsToRender[CurrentGlyphIndex + 1].ClusterIndex;
-						if (!bIsWithinGlyphCluster)
-						{
-							break;
-						}
-
-						CurrentGlyphPtr = &GlyphsToRender[++CurrentGlyphIndex];
-					}
-
-					// Round our test toward the glyphs center position based on the reading direction of the text
-					const int32 GlyphWidthToTest = (CurrentGlyphPtr->NumCharactersInGlyph > 1) ? TotalGlyphSpacing : TotalGlyphSpacing / 2;
-
-					// Round our test toward the glyphs center position based on the reading direction of the text
-					if (InHorizontalOffset < (CurrentOffset + GlyphWidthToTest))
-					{
-						if (CurrentClusterBlock.TextDirection == TextBiDi::ETextDirection::LeftToRight)
-						{
-							MatchedGlyphIndex = CurrentGlyphIndex;
-						}
-						else
-						{
-							// Right-to-left text needs to return the previous glyph index, since that is the logical "next" glyph
-							if (PreviousGlyphIndex == INDEX_NONE)
-							{
-								// No previous glyph, so use the end index of the current cluster block since that will draw to the left of this glyph, and will trigger the cursor to move to the opposite side of the current glyph
-								return FGlyphOffsetResult(FMath::Min(InEndIndex, CurrentClusterBlock.ClusterEndIndex));
-							}
-							else
-							{
-								MatchedGlyphIndex = PreviousGlyphIndex;
-							}
-						}
-						MatchedGlyphTextDirection = CurrentClusterBlock.TextDirection;
-						break;
-					}
-
-					CurrentOffset += CurrentGlyphPtr->XAdvance;
-				}
-
-				PreviousGlyphIndex = FirstGlyphIndexInGlyphCluster;
-
-				// If we found both our end-points, we can bail now
-				if (bFoundStartGlyph && bFoundEndGlyph)
-				{
-					break;
-				}
-			}
-
-			// Update VisuallyRightmostClusterIndex from this cluster based on the text direction
-			VisuallyRightmostClusterIndex = (CurrentClusterBlock.TextDirection == TextBiDi::ETextDirection::LeftToRight)
-				? FMath::Min(InEndIndex, CurrentClusterBlock.ClusterEndIndex)
-				: FMath::Max(InStartIndex, CurrentClusterBlock.ClusterStartIndex);
-
-			// The shaped glyphs don't contain the end cluster block index, so if we matched end of the cluster range, say we measured okay
-			if (CurrentClusterBlock.ClusterEndIndex == InEndIndex)
-			{
-				bFoundEndGlyph = true;
+				return FGlyphOffsetResult(InEndIndex);
 			}
 		}
-
-		if (MatchedGlyphIndex != INDEX_NONE)
+		else
 		{
-			break;
+			if (InStartIndex >= SourceIndicesToGlyphData.GetSourceTextStartIndex() && InStartIndex <= SourceIndicesToGlyphData.GetSourceTextEndIndex())
+			{
+				return FGlyphOffsetResult(InStartIndex);
+			}
 		}
-	}
-
-	if (MatchedGlyphIndex == INDEX_NONE && bFoundEndGlyph)
-	{
-		// The offset was outside of the current text, so say we hit the rightmost cluster that was within range
-		return FGlyphOffsetResult(VisuallyRightmostClusterIndex);
-	}
-
-	// Did we measure okay?
-	if (bFoundStartGlyph && MatchedGlyphIndex != INDEX_NONE)
-	{
-		const FShapedGlyphEntry& MatchedGlyph = GlyphsToRender[MatchedGlyphIndex];
-		return FGlyphOffsetResult(&MatchedGlyph, MatchedGlyphTextDirection, CurrentOffset);
 	}
 
 	return TOptional<FGlyphOffsetResult>();
 }
 
+bool FShapedGlyphSequence::HasFoundGlyphAtOffset(FSlateFontCache& InFontCache, const int32 InHorizontalOffset, const FShapedGlyphEntry& InCurrentGlyph, const int32 InCurrentGlyphIndex, int32& InOutCurrentOffset, const FShapedGlyphEntry*& OutMatchedGlyph) const
+{
+	// Skip any glyphs that don't represent any characters (these are additional glyphs when a character produces multiple glyphs, and we process them below when we find their primary glyph, so can ignore them now)
+	if (InCurrentGlyph.NumCharactersInGlyph == 0)
+	{
+		return false;
+	}
+
+	// A single character may produce multiple glyphs which must be treated as a single logic unit
+	int32 TotalGlyphSpacing = 0;
+	int32 TotalGlyphAdvance = 0;
+	for (int32 SubGlyphIndex = InCurrentGlyphIndex;; ++SubGlyphIndex)
+	{
+		const FShapedGlyphEntry& SubGlyph = GlyphsToRender[SubGlyphIndex];
+		const FShapedGlyphFontAtlasData SubGlyphAtlasData = InFontCache.GetShapedGlyphFontAtlasData(SubGlyph);
+		TotalGlyphSpacing += SubGlyphAtlasData.HorizontalOffset + SubGlyph.XAdvance;
+		TotalGlyphAdvance += SubGlyph.XAdvance;
+
+		const bool bIsWithinGlyphCluster = GlyphsToRender.IsValidIndex(SubGlyphIndex + 1) && SubGlyph.SourceIndex == GlyphsToRender[SubGlyphIndex + 1].SourceIndex;
+		if (!bIsWithinGlyphCluster)
+		{
+			break;
+		}
+	}
+
+	// Round our test toward the glyphs center position, but don't do this for ligatures as they're handled outside of this function
+	const int32 GlyphWidthToTest = (InCurrentGlyph.NumGraphemeClustersInGlyph > 1) ? TotalGlyphSpacing : TotalGlyphSpacing / 2;
+
+	// Did we reach our desired hit-point?
+	if (InHorizontalOffset < (InOutCurrentOffset + GlyphWidthToTest))
+	{
+		if (InCurrentGlyph.TextDirection == TextBiDi::ETextDirection::LeftToRight)
+		{
+			OutMatchedGlyph = &InCurrentGlyph;
+		}
+		else
+		{
+			// Right-to-left text needs to return the previous glyph index, since that is the logical "next" glyph
+			const int32 PreviousGlyphIndex = InCurrentGlyphIndex - 1;
+			if (GlyphsToRender.IsValidIndex(PreviousGlyphIndex))
+			{
+				OutMatchedGlyph = &GlyphsToRender[PreviousGlyphIndex];
+			}
+			else
+			{
+				OutMatchedGlyph = &InCurrentGlyph;
+			}
+		}
+
+		return true;
+	}
+
+	InOutCurrentOffset += TotalGlyphAdvance;
+	return false;
+}
+
 TOptional<int8> FShapedGlyphSequence::GetKerning(const int32 InIndex) const
 {
-	const FClusterIndexToGlyphData* ClusterIndexToGlyphData = ClusterIndicesToGlyphData.GetGlyphData(InIndex);
-	if (ClusterIndexToGlyphData && ClusterIndexToGlyphData->IsValid())
+	const FSourceIndexToGlyphData* SourceIndexToGlyphData = SourceIndicesToGlyphData.GetGlyphData(InIndex);
+	if (SourceIndexToGlyphData && SourceIndexToGlyphData->IsValid())
 	{
-		const FShapedGlyphEntry& CurrentGlyph = GlyphsToRender[ClusterIndexToGlyphData->GlyphIndex];
-		checkSlow(CurrentGlyph.ClusterIndex == InIndex);
+		const FShapedGlyphEntry& CurrentGlyph = GlyphsToRender[SourceIndexToGlyphData->GlyphIndex];
+		checkSlow(CurrentGlyph.SourceIndex == InIndex);
 		return CurrentGlyph.Kerning;
 	}
 
@@ -391,280 +312,135 @@ FShapedGlyphSequencePtr FShapedGlyphSequence::GetSubSequence(const int32 InStart
 	TArray<FShapedGlyphEntry> SubGlyphsToRender;
 	SubGlyphsToRender.Reserve(InEndIndex - InStartIndex);
 
-	TArray<FShapedGlyphClusterBlock> SubGlyphClusterBlocks;
-	SubGlyphClusterBlocks.Reserve(GlyphClusterBlocks.Num());
-
-	int32 CurrentSubClusterBlockIndex = INDEX_NONE;
-
-	auto BeginClusterBlock = [&](const FShapedGlyphClusterBlock& CurrentClusterBlock)
-	{
-		checkSlow(CurrentSubClusterBlockIndex == INDEX_NONE);
-		CurrentSubClusterBlockIndex = SubGlyphClusterBlocks.AddDefaulted();
-
-		FShapedGlyphClusterBlock& SubClusterBlock = SubGlyphClusterBlocks[CurrentSubClusterBlockIndex];
-		SubClusterBlock = FShapedGlyphClusterBlock(CurrentClusterBlock.TextDirection, FMath::Max(CurrentClusterBlock.ClusterStartIndex, InStartIndex), FMath::Min(CurrentClusterBlock.ClusterEndIndex, InEndIndex));
-
-		SubClusterBlock.ShapedGlyphStartIndex = SubGlyphsToRender.Num();
-	};
-
-	auto EndClusterBlock = [&](const FShapedGlyphClusterBlock& CurrentClusterBlock)
-	{
-		FShapedGlyphClusterBlock& SubClusterBlock = SubGlyphClusterBlocks[CurrentSubClusterBlockIndex];
-		SubClusterBlock.ShapedGlyphEndIndex = SubGlyphsToRender.Num();
-
-		checkSlow(CurrentSubClusterBlockIndex != INDEX_NONE);
-		CurrentSubClusterBlockIndex = INDEX_NONE;
-	};
-
-	auto GlyphCallback = [&](const FShapedGlyphEntry& CurrentGlyph)
+	auto GlyphCallback = [&](const FShapedGlyphEntry& CurrentGlyph, int32 CurrentGlyphIndex) -> bool
 	{
 		SubGlyphsToRender.Add(CurrentGlyph);
+		return true;
 	};
 
-	if (EnumerateGlyphsInClusterRange(InStartIndex, InEndIndex, BeginClusterBlock, EndClusterBlock, GlyphCallback))
+	if (EnumerateVisualGlyphsInSourceRange(InStartIndex, InEndIndex, GlyphCallback) == EEnumerateGlyphsResult::EnumerationComplete)
 	{
-		return MakeShareable(new FShapedGlyphSequence(MoveTemp(SubGlyphsToRender), MoveTemp(SubGlyphClusterBlocks), TextBaseline, MaxTextHeight, FontMaterial, FSourceTextRange(InStartIndex, InEndIndex - InStartIndex)));
+		return MakeShareable(new FShapedGlyphSequence(MoveTemp(SubGlyphsToRender), TextBaseline, MaxTextHeight, FontMaterial, FSourceTextRange(InStartIndex, InEndIndex - InStartIndex)));
 	}
 
 	return nullptr;
 }
 
-bool FShapedGlyphSequence::EnumerateGlyphsInClusterRange(const int32 InStartIndex, const int32 InEndIndex, const FForEachShapedGlyphEntryCallback& InGlyphCallback) const
+FShapedGlyphSequence::EEnumerateGlyphsResult FShapedGlyphSequence::EnumerateLogicalGlyphsInSourceRange(const int32 InStartIndex, const int32 InEndIndex, const FForEachShapedGlyphEntryCallback& InGlyphCallback) const
 {
 	if (InStartIndex == InEndIndex)
 	{
 		// Nothing to enumerate, but don't say we failed
-		return true;
+		return EEnumerateGlyphsResult::EnumerationComplete;
 	}
 
-	// The given range is exclusive, but we use an inclusive range when performing all the bounds testing below (as it makes things simpler)
-	const FClusterIndexToGlyphData* StartClusterIndexToGlyphData = ClusterIndicesToGlyphData.GetGlyphData(InStartIndex);
-	const FClusterIndexToGlyphData* EndClusterIndexToGlyphData = ClusterIndicesToGlyphData.GetGlyphData(InEndIndex - 1);
-
-	if (!(StartClusterIndexToGlyphData && StartClusterIndexToGlyphData->IsValid() && EndClusterIndexToGlyphData && EndClusterIndexToGlyphData->IsValid()))
+	// Enumerate the corresponding glyph for each source index in the given range
+	int32 SourceIndex = InStartIndex;
+	while (SourceIndex < InEndIndex)
 	{
-		return false;
-	}
-
-	if (StartClusterIndexToGlyphData->ClusterBlockIndex == EndClusterIndexToGlyphData->ClusterBlockIndex)
-	{
-		// The start and end point are within the same block - this is simple to enumerate
-		const FShapedGlyphClusterBlock& CurrentClusterBlock = GlyphClusterBlocks[StartClusterIndexToGlyphData->ClusterBlockIndex];
-
-		int32 StartGlyphIndex = INDEX_NONE;
-		int32 EndGlyphIndex = INDEX_NONE;
-		if (StartClusterIndexToGlyphData->GlyphIndex <= EndClusterIndexToGlyphData->GlyphIndex)
+		// Get the glyph(s) that correspond to this source index
+		const FSourceIndexToGlyphData* SourceIndexToGlyphData = SourceIndicesToGlyphData.GetGlyphData(SourceIndex);
+		if (!(SourceIndexToGlyphData && SourceIndexToGlyphData->IsValid()))
 		{
-			StartGlyphIndex = StartClusterIndexToGlyphData->GetLowestGlyphIndex();
-			EndGlyphIndex = EndClusterIndexToGlyphData->GetHighestGlyphIndex();
+			return EEnumerateGlyphsResult::EnumerationFailed;
 		}
-		else
-		{
-			StartGlyphIndex = EndClusterIndexToGlyphData->GetLowestGlyphIndex();
-			EndGlyphIndex = StartClusterIndexToGlyphData->GetHighestGlyphIndex();
-		}
-		check(StartGlyphIndex <= EndGlyphIndex);
 
+		// Enumerate each glyph generated by the given source index
+		const int32 StartGlyphIndex = SourceIndexToGlyphData->GetLowestGlyphIndex();
+		const int32 EndGlyphIndex = SourceIndexToGlyphData->GetHighestGlyphIndex();
 		for (int32 CurrentGlyphIndex = StartGlyphIndex; CurrentGlyphIndex <= EndGlyphIndex; ++CurrentGlyphIndex)
 		{
 			const FShapedGlyphEntry& CurrentGlyph = GlyphsToRender[CurrentGlyphIndex];
-			InGlyphCallback(CurrentGlyph);
-		}
-	}
-	else
-	{
-		if (EndClusterIndexToGlyphData->ClusterBlockIndex < StartClusterIndexToGlyphData->ClusterBlockIndex)
-		{
-			Swap(StartClusterIndexToGlyphData, EndClusterIndexToGlyphData);
-		}
 
-		// Enumerate everything from the start point in the start block
-		{
-			const FShapedGlyphClusterBlock& CurrentClusterBlock = GlyphClusterBlocks[StartClusterIndexToGlyphData->ClusterBlockIndex];
-
-			int32 StartGlyphIndex = INDEX_NONE;
-			int32 EndGlyphIndex = INDEX_NONE;
-			if (StartClusterIndexToGlyphData->GlyphIndex <= (CurrentClusterBlock.ShapedGlyphEndIndex - 1))
+			if (!InGlyphCallback(CurrentGlyph, CurrentGlyphIndex))
 			{
-				StartGlyphIndex = StartClusterIndexToGlyphData->GetLowestGlyphIndex();
-				EndGlyphIndex = CurrentClusterBlock.ShapedGlyphEndIndex - 1; // Inclusive bounds test in the loop below
+				return EEnumerateGlyphsResult::EnumerationAborted;
 			}
-			else
-			{
-				StartGlyphIndex = CurrentClusterBlock.ShapedGlyphEndIndex - 1; // Inclusive bounds test in the loop below
-				EndGlyphIndex = StartClusterIndexToGlyphData->GetHighestGlyphIndex();
-			}
-			check(StartGlyphIndex <= EndGlyphIndex);
 
-			for (int32 CurrentGlyphIndex = StartGlyphIndex; CurrentGlyphIndex <= EndGlyphIndex; ++CurrentGlyphIndex)
-			{
-				const FShapedGlyphEntry& CurrentGlyph = GlyphsToRender[CurrentGlyphIndex];
-				InGlyphCallback(CurrentGlyph);
-			}
-		}
-
-		// Enumerate everything in any middle blocks
-		for (int32 CurrentClusterBlockIndex = StartClusterIndexToGlyphData->ClusterBlockIndex + 1; CurrentClusterBlockIndex <= EndClusterIndexToGlyphData->ClusterBlockIndex - 1; ++CurrentClusterBlockIndex)
-		{
-			const FShapedGlyphClusterBlock& CurrentClusterBlock = GlyphClusterBlocks[CurrentClusterBlockIndex];
-
-			for (int32 CurrentGlyphIndex = CurrentClusterBlock.ShapedGlyphStartIndex; CurrentGlyphIndex < CurrentClusterBlock.ShapedGlyphEndIndex; ++CurrentGlyphIndex)
-			{
-				const FShapedGlyphEntry& CurrentGlyph = GlyphsToRender[CurrentGlyphIndex];
-				InGlyphCallback(CurrentGlyph);
-			}
-		}
-
-		// Enumerate everything to the end point in the end block
-		{
-			const FShapedGlyphClusterBlock& CurrentClusterBlock = GlyphClusterBlocks[EndClusterIndexToGlyphData->ClusterBlockIndex];
-
-			int32 StartGlyphIndex = INDEX_NONE;
-			int32 EndGlyphIndex = INDEX_NONE;
-			if (CurrentClusterBlock.ShapedGlyphStartIndex <= EndClusterIndexToGlyphData->GlyphIndex)
-			{
-				StartGlyphIndex = CurrentClusterBlock.ShapedGlyphStartIndex;
-				EndGlyphIndex = EndClusterIndexToGlyphData->GetHighestGlyphIndex();
-			}
-			else
-			{
-				StartGlyphIndex = EndClusterIndexToGlyphData->GetLowestGlyphIndex();
-				EndGlyphIndex = CurrentClusterBlock.ShapedGlyphStartIndex;
-			}
-			check(StartGlyphIndex <= EndGlyphIndex);
-
-			for (int32 CurrentGlyphIndex = StartGlyphIndex; CurrentGlyphIndex <= EndGlyphIndex; ++CurrentGlyphIndex)
-			{
-				const FShapedGlyphEntry& CurrentGlyph = GlyphsToRender[CurrentGlyphIndex];
-				InGlyphCallback(CurrentGlyph);
-			}
+			// Advance the source index by the number of characters within this glyph
+			SourceIndex += CurrentGlyph.NumCharactersInGlyph;
 		}
 	}
 
-	return true;
+	return (SourceIndex == InEndIndex) ? EEnumerateGlyphsResult::EnumerationComplete : EEnumerateGlyphsResult::EnumerationFailed;
 }
 
-bool FShapedGlyphSequence::EnumerateGlyphsInClusterRange(const int32 InStartIndex, const int32 InEndIndex, const FForEachShapedGlyphClusterBlockCallback& InBeginClusterBlockCallback, const FForEachShapedGlyphClusterBlockCallback& InEndClusterBlockCallback, const FForEachShapedGlyphEntryCallback& InGlyphCallback) const
+FShapedGlyphSequence::EEnumerateGlyphsResult FShapedGlyphSequence::EnumerateVisualGlyphsInSourceRange(const int32 InStartIndex, const int32 InEndIndex, const FForEachShapedGlyphEntryCallback& InGlyphCallback) const
 {
 	if (InStartIndex == InEndIndex)
 	{
 		// Nothing to enumerate, but don't say we failed
-		return true;
+		return EEnumerateGlyphsResult::EnumerationComplete;
 	}
 
 	// The given range is exclusive, but we use an inclusive range when performing all the bounds testing below (as it makes things simpler)
-	const FClusterIndexToGlyphData* StartClusterIndexToGlyphData = ClusterIndicesToGlyphData.GetGlyphData(InStartIndex);
-	const FClusterIndexToGlyphData* EndClusterIndexToGlyphData = ClusterIndicesToGlyphData.GetGlyphData(InEndIndex - 1);
+	const FSourceIndexToGlyphData* StartSourceIndexToGlyphData = SourceIndicesToGlyphData.GetGlyphData(InStartIndex);
+	const FSourceIndexToGlyphData* EndSourceIndexToGlyphData = SourceIndicesToGlyphData.GetGlyphData(InEndIndex - 1);
 
-	if (!(StartClusterIndexToGlyphData && StartClusterIndexToGlyphData->IsValid() && EndClusterIndexToGlyphData && EndClusterIndexToGlyphData->IsValid()))
+	// If we found a start glyph but no end glyph, test to see whether the start glyph spans to the end glyph (as may happen with a ligature)
+	if ((StartSourceIndexToGlyphData && StartSourceIndexToGlyphData->IsValid()) && !(EndSourceIndexToGlyphData && EndSourceIndexToGlyphData->IsValid()))
 	{
-		return false;
+		const FShapedGlyphEntry& StartGlyph = GlyphsToRender[StartSourceIndexToGlyphData->GlyphIndex];
+
+		const int32 GlyphEndSourceIndex = StartGlyph.SourceIndex + StartGlyph.NumCharactersInGlyph;
+		if (GlyphEndSourceIndex == InEndIndex)
+		{
+			EndSourceIndexToGlyphData = StartSourceIndexToGlyphData;
+		}
 	}
 
-	if (StartClusterIndexToGlyphData->ClusterBlockIndex == EndClusterIndexToGlyphData->ClusterBlockIndex)
+	// Found valid glyphs to enumerate between?
+	if (!(StartSourceIndexToGlyphData && StartSourceIndexToGlyphData->IsValid() && EndSourceIndexToGlyphData && EndSourceIndexToGlyphData->IsValid()))
 	{
-		// The start and end point are within the same block - this is simple to enumerate
-		const FShapedGlyphClusterBlock& CurrentClusterBlock = GlyphClusterBlocks[StartClusterIndexToGlyphData->ClusterBlockIndex];
+		return EEnumerateGlyphsResult::EnumerationFailed;
+	}
 
-		int32 StartGlyphIndex = INDEX_NONE;
-		int32 EndGlyphIndex = INDEX_NONE;
-		if (StartClusterIndexToGlyphData->GlyphIndex <= EndClusterIndexToGlyphData->GlyphIndex)
-		{
-			StartGlyphIndex = StartClusterIndexToGlyphData->GetLowestGlyphIndex();
-			EndGlyphIndex = EndClusterIndexToGlyphData->GetHighestGlyphIndex();
-		}
-		else
-		{
-			StartGlyphIndex = EndClusterIndexToGlyphData->GetLowestGlyphIndex();
-			EndGlyphIndex = StartClusterIndexToGlyphData->GetHighestGlyphIndex();
-		}
-		check(StartGlyphIndex <= EndGlyphIndex);
-
-		InBeginClusterBlockCallback(CurrentClusterBlock);
-		for (int32 CurrentGlyphIndex = StartGlyphIndex; CurrentGlyphIndex <= EndGlyphIndex; ++CurrentGlyphIndex)
-		{
-			const FShapedGlyphEntry& CurrentGlyph = GlyphsToRender[CurrentGlyphIndex];
-			InGlyphCallback(CurrentGlyph);
-		}
-		InEndClusterBlockCallback(CurrentClusterBlock);
+	// Find the real start and end glyph indices - taking into account characters that may have produced multiple glyphs when shaped
+	int32 StartGlyphIndex = INDEX_NONE;
+	int32 EndGlyphIndex = INDEX_NONE;
+	if (StartSourceIndexToGlyphData->GlyphIndex <= EndSourceIndexToGlyphData->GlyphIndex)
+	{
+		StartGlyphIndex = StartSourceIndexToGlyphData->GetLowestGlyphIndex();
+		EndGlyphIndex = EndSourceIndexToGlyphData->GetHighestGlyphIndex();
 	}
 	else
 	{
-		if (EndClusterIndexToGlyphData->ClusterBlockIndex < StartClusterIndexToGlyphData->ClusterBlockIndex)
+		StartGlyphIndex = EndSourceIndexToGlyphData->GetLowestGlyphIndex();
+		EndGlyphIndex = StartSourceIndexToGlyphData->GetHighestGlyphIndex();
+	}
+	check(StartGlyphIndex <= EndGlyphIndex);
+
+	bool bStartIndexInRange = SourceIndicesToGlyphData.GetSourceTextStartIndex() == InStartIndex;
+	bool bEndIndexInRange = SourceIndicesToGlyphData.GetSourceTextEndIndex() == InEndIndex;
+
+	// Enumerate everything in the found range
+	for (int32 CurrentGlyphIndex = StartGlyphIndex; CurrentGlyphIndex <= EndGlyphIndex; ++CurrentGlyphIndex)
+	{
+		const FShapedGlyphEntry& CurrentGlyph = GlyphsToRender[CurrentGlyphIndex];
+
+		if (!bStartIndexInRange || !bEndIndexInRange)
 		{
-			Swap(StartClusterIndexToGlyphData, EndClusterIndexToGlyphData);
+			const int32 GlyphStartSourceIndex = CurrentGlyph.SourceIndex;
+			const int32 GlyphEndSourceIndex = CurrentGlyph.SourceIndex + CurrentGlyph.NumCharactersInGlyph;
+
+			if (!bStartIndexInRange && GlyphStartSourceIndex == InStartIndex)
+			{
+				bStartIndexInRange = true;
+			}
+
+			if (!bEndIndexInRange && GlyphEndSourceIndex == InEndIndex)
+			{
+				bEndIndexInRange = true;
+			}
 		}
 
-		// Enumerate everything from the start point in the start block
+		if (!InGlyphCallback(CurrentGlyph, CurrentGlyphIndex))
 		{
-			const FShapedGlyphClusterBlock& CurrentClusterBlock = GlyphClusterBlocks[StartClusterIndexToGlyphData->ClusterBlockIndex];
-
-			int32 StartGlyphIndex = INDEX_NONE;
-			int32 EndGlyphIndex = INDEX_NONE;
-			if (StartClusterIndexToGlyphData->GlyphIndex <= (CurrentClusterBlock.ShapedGlyphEndIndex - 1))
-			{
-				StartGlyphIndex = StartClusterIndexToGlyphData->GetLowestGlyphIndex();
-				EndGlyphIndex = CurrentClusterBlock.ShapedGlyphEndIndex - 1; // Inclusive bounds test in the loop below
-			}
-			else
-			{
-				StartGlyphIndex = CurrentClusterBlock.ShapedGlyphEndIndex - 1; // Inclusive bounds test in the loop below
-				EndGlyphIndex = StartClusterIndexToGlyphData->GetHighestGlyphIndex();
-			}
-			check(StartGlyphIndex <= EndGlyphIndex);
-
-			InBeginClusterBlockCallback(CurrentClusterBlock);
-			for (int32 CurrentGlyphIndex = StartGlyphIndex; CurrentGlyphIndex <= EndGlyphIndex; ++CurrentGlyphIndex)
-			{
-				const FShapedGlyphEntry& CurrentGlyph = GlyphsToRender[CurrentGlyphIndex];
-				InGlyphCallback(CurrentGlyph);
-			}
-			InEndClusterBlockCallback(CurrentClusterBlock);
-		}
-
-		// Enumerate everything in any middle blocks
-		for (int32 CurrentClusterBlockIndex = StartClusterIndexToGlyphData->ClusterBlockIndex + 1; CurrentClusterBlockIndex <= EndClusterIndexToGlyphData->ClusterBlockIndex - 1; ++CurrentClusterBlockIndex)
-		{
-			const FShapedGlyphClusterBlock& CurrentClusterBlock = GlyphClusterBlocks[CurrentClusterBlockIndex];
-
-			InBeginClusterBlockCallback(CurrentClusterBlock);
-			for (int32 CurrentGlyphIndex = CurrentClusterBlock.ShapedGlyphStartIndex; CurrentGlyphIndex < CurrentClusterBlock.ShapedGlyphEndIndex; ++CurrentGlyphIndex)
-			{
-				const FShapedGlyphEntry& CurrentGlyph = GlyphsToRender[CurrentGlyphIndex];
-				InGlyphCallback(CurrentGlyph);
-			}
-			InEndClusterBlockCallback(CurrentClusterBlock);
-		}
-
-		// Enumerate everything to the end point in the end block
-		{
-			const FShapedGlyphClusterBlock& CurrentClusterBlock = GlyphClusterBlocks[EndClusterIndexToGlyphData->ClusterBlockIndex];
-
-			int32 StartGlyphIndex = INDEX_NONE;
-			int32 EndGlyphIndex = INDEX_NONE;
-			if (CurrentClusterBlock.ShapedGlyphStartIndex <= EndClusterIndexToGlyphData->GlyphIndex)
-			{
-				StartGlyphIndex = CurrentClusterBlock.ShapedGlyphStartIndex;
-				EndGlyphIndex = EndClusterIndexToGlyphData->GetHighestGlyphIndex();
-			}
-			else
-			{
-				StartGlyphIndex = EndClusterIndexToGlyphData->GetLowestGlyphIndex();
-				EndGlyphIndex = CurrentClusterBlock.ShapedGlyphStartIndex;
-			}
-			check(StartGlyphIndex <= EndGlyphIndex);
-
-			InBeginClusterBlockCallback(CurrentClusterBlock);
-			for (int32 CurrentGlyphIndex = StartGlyphIndex; CurrentGlyphIndex <= EndGlyphIndex; ++CurrentGlyphIndex)
-			{
-				const FShapedGlyphEntry& CurrentGlyph = GlyphsToRender[CurrentGlyphIndex];
-				InGlyphCallback(CurrentGlyph);
-			}
-			InEndClusterBlockCallback(CurrentClusterBlock);
+			return EEnumerateGlyphsResult::EnumerationAborted;
 		}
 	}
 
-	return true;
+	return (bStartIndexInRange && bEndIndexInRange) ? EEnumerateGlyphsResult::EnumerationComplete : EEnumerateGlyphsResult::EnumerationFailed;
 }
 
 
@@ -749,7 +525,7 @@ void FKerningTable::CreateDirectTable()
 	INC_MEMORY_STAT_BY( STAT_SlateFontKerningTableMemory, DirectAccessSizeBytes );
 }
 
-FCharacterList::FCharacterList( const FSlateFontKey& InFontKey, const FSlateFontCache& InFontCache )
+FCharacterList::FCharacterList( const FSlateFontKey& InFontKey, FSlateFontCache& InFontCache )
 	: KerningTable( InFontCache )
 	, FontKey( InFontKey )
 	, FontCache( InFontCache )
@@ -781,7 +557,9 @@ int8 FCharacterList::GetKerning(TCHAR FirstChar, TCHAR SecondChar, const EFontFa
 int8 FCharacterList::GetKerning( const FCharacterEntry& FirstCharacterEntry, const FCharacterEntry& SecondCharacterEntry )
 {
 	// We can only get kerning if both characters are using the same font
-	if( FirstCharacterEntry.FontData && 
+	if (FirstCharacterEntry.Valid &&
+		SecondCharacterEntry.Valid &&
+		FirstCharacterEntry.FontData && 
 		FirstCharacterEntry.FontData->BulkDataPtr && 
 		FirstCharacterEntry.HasKerning && 
 		*FirstCharacterEntry.FontData == *SecondCharacterEntry.FontData )
@@ -839,35 +617,38 @@ bool FCharacterList::CanCacheCharacter(TCHAR Character, const EFontFallback MaxF
 
 FCharacterEntry FCharacterList::GetCharacter(TCHAR Character, const EFontFallback MaxFontFallback)
 {
-	const FCharacterEntry* ReturnVal = nullptr;
-	bool bDirectIndexChar = Character < MaxDirectIndexedEntries;
+	TOptional<FCharacterEntry> ReturnVal;
+	const bool bDirectIndexChar = Character < MaxDirectIndexedEntries;
 
 	// First get a reference to the character, if it is already mapped (mapped does not mean cached though)
 	if (bDirectIndexChar)
 	{
 		if (DirectIndexEntries.IsValidIndex(Character))
 		{
-			ReturnVal = &DirectIndexEntries[Character];
+			ReturnVal = DirectIndexEntries[Character];
 		}
 	}
 	else
 	{
-		ReturnVal = MappedEntries.Find(Character);
+		const FCharacterEntry* const FoundEntry = MappedEntries.Find(Character);
+		if (FoundEntry)
+		{
+			ReturnVal = *FoundEntry;
+		}
 	}
-
 
 	// Determine whether the character needs caching, and map it if needed
 	bool bNeedCaching = false;
 
-	if (ReturnVal)
+	if (ReturnVal.IsSet())
 	{
-		bNeedCaching = !ReturnVal->IsCached();
+		bNeedCaching = !ReturnVal->Valid;
 
 		// If the character needs caching, but can't be cached, reject the character
 		if (bNeedCaching && !CanCacheCharacter(Character, MaxFontFallback))
 		{
 			bNeedCaching = false;
-			ReturnVal = nullptr;
+			ReturnVal.Reset();
 		}
 	}
 	// Only map the character if it can be cached
@@ -878,45 +659,41 @@ FCharacterEntry FCharacterList::GetCharacter(TCHAR Character, const EFontFallbac
 		if (bDirectIndexChar)
 		{
 			DirectIndexEntries.AddZeroed((Character - DirectIndexEntries.Num()) + 1);
-			ReturnVal = &DirectIndexEntries[Character];
+			ReturnVal = DirectIndexEntries[Character];
 		}
 		else
 		{
-			ReturnVal = &(MappedEntries.Add(Character));
+			ReturnVal = MappedEntries.Add(Character);
 		}
 	}
 
-
-	if (ReturnVal)
+	if (ReturnVal.IsSet())
 	{
 		if (bNeedCaching)
 		{
-			ReturnVal = &(CacheCharacter(Character));
+			ReturnVal = CacheCharacter(Character);
 		}
 		// For already-cached characters, reject characters that don't fall within maximum font fallback level requirements
 		else if (Character != SlateFontRendererUtils::InvalidSubChar && MaxFontFallback < ReturnVal->FallbackLevel)
 		{
-			ReturnVal = nullptr;
+			ReturnVal.Reset();
 		}
 	}
 
-	if (ReturnVal)
+	if (ReturnVal.IsSet())
 	{
-		return *ReturnVal;
+		return ReturnVal.GetValue();
 	}
 
-	// The character is not valid, replace with the invalid character substitute
 	return GetCharacter(SlateFontRendererUtils::InvalidSubChar, MaxFontFallback);
 }
 
-const FCharacterEntry& FCharacterList::CacheCharacter( TCHAR Character )
+FCharacterEntry FCharacterList::CacheCharacter(TCHAR Character)
 {
 	FCharacterEntry NewEntry;
-	bool bSuccess = FontCache.AddNewEntry( Character, FontKey, NewEntry );
+	FontCache.AddNewEntry( Character, FontKey, NewEntry );
 
-	check( bSuccess );
-
-	if( Character < MaxDirectIndexedEntries && NewEntry.IsCached() )
+	if( Character < MaxDirectIndexedEntries )
 	{
 		DirectIndexEntries[ Character ] = NewEntry;
 		return DirectIndexEntries[ Character ];
@@ -925,6 +702,8 @@ const FCharacterEntry& FCharacterList::CacheCharacter( TCHAR Character )
 	{
 		return MappedEntries.Add( Character, NewEntry );
 	}
+
+	return NewEntry;
 }
 
 FSlateFontCache::FSlateFontCache( TSharedRef<ISlateFontAtlasFactory> InFontAtlasFactory )
@@ -937,6 +716,9 @@ FSlateFontCache::FSlateFontCache( TSharedRef<ISlateFontAtlasFactory> InFontAtlas
 	, TextShaper( new FSlateTextShaper( FTGlyphCache.Get(), FTAdvanceCache.Get(), FTKerningPairCache.Get(), CompositeFontCache.Get(), FontRenderer.Get(), this ) )
 	, FontAtlasFactory( InFontAtlasFactory )
 	, bFlushRequested( false )
+	, MaxAtlasPagesBeforeFlushRequest( 1 )
+	, MaxNonAtlasedTexturesBeforeFlushRequest( 1 )
+	, FrameCounterLastFlushRequest( 0 )
 {
 	UE_LOG(LogSlate, Log, TEXT("SlateFontCache - WITH_FREETYPE: %d, WITH_HARFBUZZ: %d"), WITH_FREETYPE, WITH_HARFBUZZ);
 
@@ -977,7 +759,7 @@ bool FSlateFontCache::IsAtlasPageResourceAlphaOnly() const
 	return true;
 }
 
-bool FSlateFontCache::AddNewEntry( TCHAR Character, const FSlateFontKey& InKey, FCharacterEntry& OutCharacterEntry ) const
+bool FSlateFontCache::AddNewEntry( TCHAR Character, const FSlateFontKey& InKey, FCharacterEntry& OutCharacterEntry )
 {
 	float SubFontScalingFactor = 1.0f;
 	const FFontData& FontData = CompositeFontCache->GetFontDataForCharacter( InKey.GetFontInfo(), Character, SubFontScalingFactor );
@@ -987,95 +769,140 @@ bool FSlateFontCache::AddNewEntry( TCHAR Character, const FSlateFontKey& InKey, 
 	EFontFallback CharFallbackLevel;
 	const float FontScale = InKey.GetScale() * SubFontScalingFactor;
 
-	FontRenderer->GetRenderData( FontData, InKey.GetFontInfo().Size, Character, RenderData, FontScale, &CharFallbackLevel);
+	const bool bDidRender = FontRenderer->GetRenderData( FontData, InKey.GetFontInfo().Size, Character, RenderData, FontScale, &CharFallbackLevel);
 
-	// the index of the atlas where the character is stored
-	int32 AtlasIndex = 0;
-	const FAtlasedTextureSlot* NewSlot = nullptr;
-	const bool bSuccess = AddNewEntry( RenderData, AtlasIndex, NewSlot );
-
-	if( bSuccess )
+	OutCharacterEntry.Valid = bDidRender && AddNewEntry(RenderData, OutCharacterEntry.TextureIndex, OutCharacterEntry.StartU, OutCharacterEntry.StartV, OutCharacterEntry.USize, OutCharacterEntry.VSize);
+	if (OutCharacterEntry.Valid)
 	{
 		OutCharacterEntry.Character = Character;
 		OutCharacterEntry.GlyphIndex = RenderData.GlyphIndex;
 		OutCharacterEntry.FontData = &FontData;
 		OutCharacterEntry.FontScale = FontScale;
-		OutCharacterEntry.StartU = NewSlot->X + NewSlot->Padding;
-		OutCharacterEntry.StartV = NewSlot->Y + NewSlot->Padding;
-		OutCharacterEntry.USize = NewSlot->Width - 2 * NewSlot->Padding;
-		OutCharacterEntry.VSize = NewSlot->Height - 2 * NewSlot->Padding;
-		OutCharacterEntry.TextureIndex = 0;
 		OutCharacterEntry.XAdvance = RenderData.MeasureInfo.XAdvance;
 		OutCharacterEntry.VerticalOffset = RenderData.MeasureInfo.VerticalOffset;
 		OutCharacterEntry.GlobalDescender = GetBaseline(InKey.GetFontInfo(), InKey.GetScale()); // All fonts within a composite font need to use the baseline of the default font
 		OutCharacterEntry.HorizontalOffset = RenderData.MeasureInfo.HorizontalOffset;
-		OutCharacterEntry.TextureIndex = AtlasIndex;
 		OutCharacterEntry.HasKerning = RenderData.HasKerning;
 		OutCharacterEntry.FallbackLevel = CharFallbackLevel;
-		OutCharacterEntry.Valid = 1;
 	}
 
-	return bSuccess;
+	return OutCharacterEntry.Valid;
 }
 
-bool FSlateFontCache::AddNewEntry( const FShapedGlyphEntry& InShapedGlyph, FShapedGlyphFontAtlasData& OutAtlasData ) const
+bool FSlateFontCache::AddNewEntry( const FShapedGlyphEntry& InShapedGlyph, FShapedGlyphFontAtlasData& OutAtlasData )
 {
 	// Render the glyph
 	FCharacterRenderData RenderData;
-	FontRenderer->GetRenderData(InShapedGlyph, RenderData);
+	const bool bDidRender = FontRenderer->GetRenderData(InShapedGlyph, RenderData);
 
-	// The index of the atlas where the character is stored
-	int32 AtlasIndex = 0;
-	const FAtlasedTextureSlot* NewSlot = nullptr;
-	const bool bSuccess = AddNewEntry(RenderData, AtlasIndex, NewSlot);
-
-	if (bSuccess)
+	OutAtlasData.Valid = bDidRender && AddNewEntry(RenderData, OutAtlasData.TextureIndex, OutAtlasData.StartU, OutAtlasData.StartV, OutAtlasData.USize, OutAtlasData.VSize);
+	if (OutAtlasData.Valid)
 	{
 		OutAtlasData.VerticalOffset = RenderData.MeasureInfo.VerticalOffset;
 		OutAtlasData.HorizontalOffset = RenderData.MeasureInfo.HorizontalOffset;
-		OutAtlasData.StartU = NewSlot->X + NewSlot->Padding;
-		OutAtlasData.StartV = NewSlot->Y + NewSlot->Padding;
-		OutAtlasData.USize = NewSlot->Width - 2 * NewSlot->Padding;
-		OutAtlasData.VSize = NewSlot->Height - 2 * NewSlot->Padding;
-		OutAtlasData.TextureIndex = AtlasIndex;
-		OutAtlasData.Valid = true;
 	}
 
-	return bSuccess;
+	return OutAtlasData.Valid;
 }
 
-bool FSlateFontCache::AddNewEntry( const FCharacterRenderData InRenderData, int32& OutAtlasIndex, const FAtlasedTextureSlot*& OutSlot ) const
+bool FSlateFontCache::AddNewEntry( const FCharacterRenderData InRenderData, uint8& OutTextureIndex, uint16& OutGlyphX, uint16& OutGlyphY, uint16& OutGlyphWidth, uint16& OutGlyphHeight )
 {
-	for( OutAtlasIndex = 0; OutAtlasIndex < FontAtlases.Num(); ++OutAtlasIndex ) 
+	// Will this entry fit within any atlas texture?
+	if (InRenderData.MeasureInfo.SizeX > FontAtlasFactory->GetAtlasSize().X || InRenderData.MeasureInfo.SizeY > FontAtlasFactory->GetAtlasSize().Y)
+	{
+		TSharedPtr<ISlateFontTexture> NonAtlasedTexture = FontAtlasFactory->CreateNonAtlasedTexture(InRenderData.MeasureInfo.SizeX, InRenderData.MeasureInfo.SizeY, InRenderData.RawPixels);
+		if (NonAtlasedTexture.IsValid())
+		{
+			INC_DWORD_STAT_BY(STAT_SlateNumFontNonAtlasedTextures, 1);
+
+			UE_LOG(LogSlate, Warning, TEXT("SlateFontCache - Glyph texture is too large to store in the font atlas, so we're falling back to a non-atlased texture for this glyph. This may have SERIOUS performance implications. Atlas page size: { %d, %d }. Glyph render size: { %d, %d }"),
+				FontAtlasFactory->GetAtlasSize().X, FontAtlasFactory->GetAtlasSize().Y,
+				InRenderData.MeasureInfo.SizeX, InRenderData.MeasureInfo.SizeY
+				);
+
+			NonAtlasedTextures.Add(NonAtlasedTexture.ToSharedRef());
+			OutTextureIndex = AllFontTextures.Add(NonAtlasedTexture.ToSharedRef());
+			OutGlyphX = 0;
+			OutGlyphY = 0;
+			OutGlyphWidth = InRenderData.MeasureInfo.SizeX;
+			OutGlyphHeight = InRenderData.MeasureInfo.SizeY;
+
+			if (NonAtlasedTextures.Num() > MaxNonAtlasedTexturesBeforeFlushRequest && !bFlushRequested)
+			{
+				// If we grew back up to this number of non-atlased textures within the same or next frame of the previous flush request, then we likely legitimately have 
+				// a lot of font data cached. We should update MaxNonAtlasedTexturesBeforeFlushRequest to give us a bit more flexibility before the next flush request
+				if (GFrameCounter == FrameCounterLastFlushRequest || GFrameCounter == FrameCounterLastFlushRequest + 1)
+				{
+					MaxNonAtlasedTexturesBeforeFlushRequest = NonAtlasedTextures.Num();
+					UE_LOG(LogSlate, Warning, TEXT("SlateFontCache - Setting the threshold to trigger a flush to %d non-atlased textures as there is a lot of font data being cached."), MaxNonAtlasedTexturesBeforeFlushRequest);
+				}
+				else
+				{
+					// We've grown beyond our current stable limit - try and request a flush
+					RequestFlushCache();
+				}
+			}
+
+			return true;
+		}
+
+		UE_LOG(LogSlate, Warning, TEXT("SlateFontCache - Glyph texture is too large to store in the font atlas, but we cannot support rendering such a large texture. Atlas page size: { %d, %d }. Glyph render size: { %d, %d }"),
+			FontAtlasFactory->GetAtlasSize().X, FontAtlasFactory->GetAtlasSize().Y,
+			InRenderData.MeasureInfo.SizeX, InRenderData.MeasureInfo.SizeY
+			);
+		return false;
+	}
+
+	auto FillOutputParamsFromAtlasedTextureSlot = [&](const FAtlasedTextureSlot& AtlasedTextureSlot)
+	{
+		OutGlyphX = AtlasedTextureSlot.X + AtlasedTextureSlot.Padding;
+		OutGlyphY = AtlasedTextureSlot.Y + AtlasedTextureSlot.Padding;
+		OutGlyphWidth = AtlasedTextureSlot.Width - (2 * AtlasedTextureSlot.Padding);
+		OutGlyphHeight = AtlasedTextureSlot.Height - (2 * AtlasedTextureSlot.Padding);
+	};
+
+	for( OutTextureIndex = 0; OutTextureIndex < FontAtlases.Num(); ++OutTextureIndex ) 
 	{
 		// Add the character to the texture
-		OutSlot = FontAtlases[OutAtlasIndex]->AddCharacter( InRenderData );
-		if( OutSlot )
+		const FAtlasedTextureSlot* NewSlot = FontAtlases[OutTextureIndex]->AddCharacter(InRenderData);
+		if( NewSlot )
 		{
-			break;
+			FillOutputParamsFromAtlasedTextureSlot(*NewSlot);
+			return true;
 		}
 	}
 
-	if( !OutSlot )
+	TSharedRef<FSlateFontAtlas> FontAtlas = FontAtlasFactory->CreateFontAtlas();
+
+	// Add the character to the texture
+	const FAtlasedTextureSlot* NewSlot = FontAtlas->AddCharacter(InRenderData);
+	if( NewSlot )
 	{
-		TSharedRef<FSlateFontAtlas> FontAtlas = FontAtlasFactory->CreateFontAtlas();
+		FillOutputParamsFromAtlasedTextureSlot(*NewSlot);
+	}
 
-		// Add the character to the texture
-		OutSlot = FontAtlas->AddCharacter( InRenderData );
+	FontAtlases.Add( FontAtlas );
+	OutTextureIndex = AllFontTextures.Add(FontAtlas);
 
-		OutAtlasIndex = FontAtlases.Add( FontAtlas );
+	INC_DWORD_STAT_BY( STAT_SlateNumFontAtlases, 1 );
 
-		INC_DWORD_STAT_BY( STAT_SlateNumFontAtlases, 1 );
-
-		if( FontAtlases.Num() > 1 )
+	if( FontAtlases.Num() > MaxAtlasPagesBeforeFlushRequest && !bFlushRequested )
+	{
+		// If we grew back up to this number of atlas pages within the same or next frame of the previous flush request, then we likely legitimately have 
+		// a lot of font data cached. We should update MaxAtlasPagesBeforeFlushRequest to give us a bit more flexibility before the next flush request
+		if( GFrameCounter == FrameCounterLastFlushRequest || GFrameCounter == FrameCounterLastFlushRequest + 1 )
 		{
-			// There is more than one font atlas which means there is a lot of font data being cached
-			// try to shrink it next time
-			bFlushRequested = true;
+			MaxAtlasPagesBeforeFlushRequest = FontAtlases.Num();
+			UE_LOG(LogSlate, Warning, TEXT("SlateFontCache - Setting the threshold to trigger a flush to %d atlas pages as there is a lot of font data being cached."), MaxAtlasPagesBeforeFlushRequest);
+		}
+		else
+		{
+			// We've grown beyond our current stable limit - try and request a flush
+			RequestFlushCache();
 		}
 	}
 
-	return OutSlot != nullptr;
+	return NewSlot != nullptr;
 }
 
 FShapedGlyphSequenceRef FSlateFontCache::ShapeBidirectionalText( const FString& InText, const FSlateFontInfo &InFontInfo, const float InFontScale, const TextBiDi::ETextDirection InBaseDirection, const ETextShapingMethod InTextShapingMethod ) const
@@ -1098,11 +925,14 @@ FShapedGlyphSequenceRef FSlateFontCache::ShapeUnidirectionalText( const TCHAR* I
 	return TextShaper->ShapeUnidirectionalText(InText, InTextStart, InTextLen, InFontInfo, InFontScale, InTextDirection, InTextShapingMethod);
 }
 
-FCharacterList& FSlateFontCache::GetCharacterList( const FSlateFontInfo &InFontInfo, float FontScale ) const
+FCharacterList& FSlateFontCache::GetCharacterList( const FSlateFontInfo &InFontInfo, float FontScale )
 {
 	// Create a key for looking up each character
 	const FSlateFontKey FontKey( InFontInfo, FontScale );
 
+	//@HSL_BEGIN - Chance.Lyon - A critical section to help make this class thread-safe */
+	FScopeLock ScopeLock(&CacheCriticalSection);
+	//@HSL_END
 	TSharedRef< class FCharacterList >* CachedCharacterList = FontToCharacterListCache.Find( FontKey );
 
 	if( CachedCharacterList )
@@ -1122,7 +952,7 @@ FCharacterList& FSlateFontCache::GetCharacterList( const FSlateFontInfo &InFontI
 	return FontToCharacterListCache.Add( FontKey, MakeShareable( new FCharacterList( FontKey, *this ) ) ).Get();
 }
 
-FShapedGlyphFontAtlasData FSlateFontCache::GetShapedGlyphFontAtlasData( const FShapedGlyphEntry& InShapedGlyph ) const
+FShapedGlyphFontAtlasData FSlateFontCache::GetShapedGlyphFontAtlasData( const FShapedGlyphEntry& InShapedGlyph )
 {
 	check(IsInGameThread() || IsInRenderingThread());
 
@@ -1185,6 +1015,11 @@ int16 FSlateFontCache::GetBaseline( const FSlateFontInfo& InFontInfo, float Font
 	return FontRenderer->GetBaseline(InFontInfo, FontScale);
 }
 
+void FSlateFontCache::GetUnderlineMetrics( const FSlateFontInfo& InFontInfo, const float FontScale, int16& OutUnderlinePos, int16& OutUnderlineThickness ) const
+{
+	FontRenderer->GetUnderlineMetrics(InFontInfo, FontScale, OutUnderlinePos, OutUnderlineThickness);
+}
+
 int8 FSlateFontCache::GetKerning( const FFontData& InFontData, const int32 InSize, TCHAR First, TCHAR Second, float Scale ) const
 {
 	return FontRenderer->GetKerning(InFontData, InSize, First, Second, Scale);
@@ -1200,7 +1035,7 @@ const TSet<FName>& FSlateFontCache::GetFontAttributes( const FFontData& InFontDa
 	return CompositeFontCache->GetFontAttributes(InFontData);
 }
 
-int32 FSlateFontCache::GetLocalizedFallbackFontRevision() const
+uint16 FSlateFontCache::GetLocalizedFallbackFontRevision() const
 {
 	return FLegacySlateFontInfoCache::Get().GetLocalizedFallbackFontRevision();
 }
@@ -1208,6 +1043,9 @@ int32 FSlateFontCache::GetLocalizedFallbackFontRevision() const
 void FSlateFontCache::RequestFlushCache()
 {
 	bFlushRequested = true;
+	MaxAtlasPagesBeforeFlushRequest = 1;
+	MaxNonAtlasedTexturesBeforeFlushRequest = 1;
+	FrameCounterLastFlushRequest = GFrameCounter;
 }
 
 void FSlateFontCache::FlushObject( const UObject* const InObject )
@@ -1218,6 +1056,9 @@ void FSlateFontCache::FlushObject( const UObject* const InObject )
 	}
 
 	bool bHasRemovedEntries = false;
+	//@HSL_BEGIN - Chance.Lyon - A critical section to help make this class thread-safe */
+	FScopeLock ScopeLock(&CacheCriticalSection);
+	//@HSL_END
 	for( auto It = FontToCharacterListCache.CreateIterator(); It; ++It )
 	{
 		if( It.Key().GetFontInfo().FontObject == InObject)
@@ -1253,47 +1094,51 @@ bool FSlateFontCache::ConditionalFlushCache()
 
 void FSlateFontCache::UpdateCache()
 {
-	for( int32 AtlasIndex = 0; AtlasIndex < FontAtlases.Num(); ++AtlasIndex ) 
+	for (const TSharedRef<FSlateFontAtlas>& FontAtlas : FontAtlases)
 	{
-		FontAtlases[AtlasIndex]->ConditionalUpdateTexture();
+		FontAtlas->ConditionalUpdateTexture();
 	}
 }
 
 void FSlateFontCache::ReleaseResources()
 {
-	for( int32 AtlasIndex = 0; AtlasIndex < FontAtlases.Num(); ++AtlasIndex ) 
+	for (const TSharedRef<FSlateFontAtlas>& FontAtlas : FontAtlases)
 	{
-		FontAtlases[AtlasIndex]->ReleaseResources();
+		FontAtlas->ReleaseResources();
+	}
+
+	for (const TSharedRef<ISlateFontTexture>& NonAtlasedTexture : NonAtlasedTextures)
+	{
+		NonAtlasedTexture->ReleaseResources();
 	}
 }
 
-void FSlateFontCache::FlushCache() const
+void FSlateFontCache::FlushCache()
 {
 	if ( DoesThreadOwnSlateRendering() )
 	{
 		FlushData();
-
-		for ( int32 AtlasIndex = 0; AtlasIndex < FontAtlases.Num(); ++AtlasIndex )
-		{
-			FontAtlases[AtlasIndex]->ReleaseResources();
-		}
+		ReleaseResources();
 
 		// hack
 		FSlateApplicationBase::Get().GetRenderer()->FlushCommands();
 
 		SET_DWORD_STAT(STAT_SlateNumFontAtlases, 0);
+		SET_DWORD_STAT(STAT_SlateNumFontNonAtlasedTextures, 0);
 
 		FontAtlases.Empty();
+		NonAtlasedTextures.Empty();
+		AllFontTextures.Empty();
 
 		UE_LOG(LogSlate, Verbose, TEXT("Slate font cache was flushed"));
 	}
 	else
 	{
-		bFlushRequested = true;
+		RequestFlushCache();
 	}
 }
 
-void FSlateFontCache::FlushData() const
+void FSlateFontCache::FlushData()
 {
 	// Ensure all invalidation panels are cleared of cached widgets
 	FSlateApplicationBase::Get().InvalidateAllWidgets();
@@ -1311,5 +1156,5 @@ void FSlateFontCache::HandleCultureChanged()
 {
 	// The culture has changed, so request the font cache be flushed once it is safe to do so
 	// We don't flush immediately as the request may come in from a different thread than the one that owns the font cache
-	bFlushRequested = true;
+	RequestFlushCache();
 }

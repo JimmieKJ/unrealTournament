@@ -44,14 +44,14 @@ struct FRHICommandRenameUploadBuffer : public FRHICommand<FRHICommandRenameUploa
 	void Execute(FRHICommandListBase& CmdList) { Resource->Rename(NewResource); }
 };
 
-FD3D12ResourceLocation* FD3D12DynamicRHI::CreateBuffer(FRHICommandListImmediate* RHICmdList, const D3D12_RESOURCE_DESC Desc, uint32 Size, uint32 InUsage, FRHIResourceCreateInfo& CreateInfo, uint32 Alignment)
+FD3D12ResourceLocation* FD3D12DynamicRHI::CreateBuffer(FRHICommandListImmediate* RHICmdList, const D3D12_RESOURCE_DESC InDesc, uint32 Size, uint32 InUsage, FRHIResourceCreateInfo& CreateInfo, uint32 Alignment)
 {
 	// Explicitly check that the size is nonzero before allowing CreateBuffer to opaquely fail.
 	check(Size > 0);
 
 	const bool bIsDynamic = (InUsage & BUF_AnyDynamic) ? true : false;
 
-	FD3D12ResourceLocation* ResourceLocation = new FD3D12ResourceLocation(GetRHIDevice());
+	FD3D12ResourceLocation* ResourceLocation = new FD3D12ResourceLocation(GetRHIDevice(), Size);
 
 	// If a resource array was provided for the resource, create the resource pre-populated
 	D3D12_SUBRESOURCE_DATA InitData = { 0 };
@@ -83,11 +83,11 @@ FD3D12ResourceLocation* FD3D12DynamicRHI::CreateBuffer(FRHICommandListImmediate*
 			// We only need to synchronize when creating default resource buffers (because we need a command list to initialize them)
 			FScopedRHIThreadStaller StallRHIThread(*RHICmdList);
 
-			VERIFYD3D11RESULT(GetRHIDevice()->GetDefaultBufferAllocator().AllocDefaultResource(Desc, pInitData, ResourceLocation, Alignment));
+			VERIFYD3D12RESULT(GetRHIDevice()->GetDefaultBufferAllocator().AllocDefaultResource(InDesc, pInitData, ResourceLocation, Alignment));
 		}
 		else
 		{
-			VERIFYD3D11RESULT(GetRHIDevice()->GetDefaultBufferAllocator().AllocDefaultResource(Desc, pInitData, ResourceLocation, Alignment));
+			VERIFYD3D12RESULT(GetRHIDevice()->GetDefaultBufferAllocator().AllocDefaultResource(InDesc, pInitData, ResourceLocation, Alignment));
 		}
 		check(ResourceLocation->GetEffectiveBufferSize() == Size);
 	}
@@ -115,19 +115,19 @@ void* FD3D12DynamicRHI::LockBuffer(FRHICommandListImmediate* RHICmdList, BufferT
 	{
 		check(LockMode == RLM_WriteOnly);
 
-		TRefCountPtr<FD3D12ResourceLocation> newLocation = new FD3D12ResourceLocation(GetRHIDevice());
+		TRefCountPtr<FD3D12ResourceLocation> NewLocation = new FD3D12ResourceLocation(GetRHIDevice(), Size);
 
 		// Allocate a new resource
-		Data = GetRHIDevice()->GetDefaultUploadHeapAllocator().AllocUploadResource(Buffer->ResourceLocation->GetEffectiveBufferSize(), Buffer->BufferAlignment, newLocation);
+		Data = GetRHIDevice()->GetDefaultUploadHeapAllocator().AllocUploadResource(Buffer->GetSize(), Buffer->BufferAlignment, NewLocation);
 
 		// If on the RenderThread, queue up a command on the RHIThread to rename this buffer at the correct time
 		if (ShouldDeferBufferLockOperation(RHICmdList))
 		{
-			new (RHICmdList->AllocCommand<FRHICommandRenameUploadBuffer<BufferType>>()) FRHICommandRenameUploadBuffer<BufferType>(Buffer, newLocation);
+			new (RHICmdList->AllocCommand<FRHICommandRenameUploadBuffer<BufferType>>()) FRHICommandRenameUploadBuffer<BufferType>(Buffer, NewLocation);
 		}
 		else
 		{
-			Buffer->Rename(newLocation);
+			Buffer->Rename(NewLocation);
 		}
 	}
 	else
@@ -139,7 +139,7 @@ void* FD3D12DynamicRHI::LockBuffer(FRHICommandListImmediate* RHICmdList, BufferT
 		{
 			// If the static buffer is being locked for reading, create a staging buffer.
 			TRefCountPtr<FD3D12Resource> StagingBuffer;
-			VERIFYD3D11RESULT(GetRHIDevice()->GetResourceHelper().CreateBuffer(D3D12_HEAP_TYPE_READBACK, Offset + Size, StagingBuffer.GetInitReference()));
+			VERIFYD3D12RESULT(GetRHIDevice()->GetResourceHelper().CreateBuffer(D3D12_HEAP_TYPE_READBACK, Offset + Size, StagingBuffer.GetInitReference()));
 			LockedData.StagingResource = StagingBuffer;
 
 			// Copy the contents of the buffer to the staging buffer.
@@ -158,6 +158,9 @@ void* FD3D12DynamicRHI::LockBuffer(FRHICommandListImmediate* RHICmdList, BufferT
 						0,
 						pResource->GetResource(),
 						Offset, Size);
+
+					hCommandList.UpdateResidency(StagingBuffer);
+					hCommandList.UpdateResidency(pResource);
 
 					DefaultContext.FlushCommands(true);
 				};
@@ -178,7 +181,7 @@ void* FD3D12DynamicRHI::LockBuffer(FRHICommandListImmediate* RHICmdList, BufferT
 			}
 
 			// Map the staging buffer's memory for reading.
-			VERIFYD3D11RESULT(StagingBuffer->GetResource()->Map(0, nullptr, &Data));
+			VERIFYD3D12RESULT(StagingBuffer->GetResource()->Map(0, nullptr, &Data));
 		}
 		else
 		{

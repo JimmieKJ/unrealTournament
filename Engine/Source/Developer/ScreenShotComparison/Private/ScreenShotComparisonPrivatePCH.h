@@ -4,8 +4,7 @@
 	ScreenShotComparisonPrivatePCH.h: Pre-compiled header file for the ScreenShotComparison module.
 =============================================================================*/
 
-#ifndef __ScreenShotComparisonPrivatePCH_h__
-#define __ScreenShotComparisonPrivatePCH_h__
+#pragma once
 
 #include "ScreenShotComparison.h"
 
@@ -33,4 +32,3 @@
 #include "SScreenShotBrowser.h"
 #include "SScreenShotImagePopup.h"
 
-#endif // __ScreenShotComparisonPrivatePCH_h__

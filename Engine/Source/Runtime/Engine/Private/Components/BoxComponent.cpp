@@ -3,6 +3,7 @@
 
 #include "EnginePrivate.h"
 #include "Components/BoxComponent.h"
+#include "PhysicsEngine/BodySetup.h"
 
 UBoxComponent::UBoxComponent(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -144,10 +145,13 @@ FPrimitiveSceneProxy* UBoxComponent::CreateSceneProxy()
 
 		virtual FPrimitiveViewRelevance GetViewRelevance(const FSceneView* View) const override
 		{
-			const bool bVisible = !bDrawOnlyIfSelected || IsSelected();
+			const bool bProxyVisible = !bDrawOnlyIfSelected || IsSelected();
+
+			// Should we draw this because collision drawing is enabled, and we have collision
+			const bool bShowForCollision = View->Family->EngineShowFlags.Collision && IsCollisionEnabled();
 
 			FPrimitiveViewRelevance Result;
-			Result.bDrawRelevance = IsShown(View) && bVisible;
+			Result.bDrawRelevance = (IsShown(View) && bProxyVisible) || bShowForCollision;
 			Result.bDynamicRelevance = true;
 			Result.bShadowRelevance = IsShadowCast(View);
 			Result.bEditorPrimitiveRelevance = UseEditorCompositing(View);

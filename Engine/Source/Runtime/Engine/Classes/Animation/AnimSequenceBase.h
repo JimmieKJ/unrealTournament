@@ -59,7 +59,7 @@ class UAnimSequenceBase : public UAnimationAsset
 
 	/** Returns the total play length of the montage, if played back with a speed of 1.0. */
 	UFUNCTION(BlueprintCallable, Category = "Animation")
-	virtual float GetPlayLength();
+	ENGINE_API virtual float GetPlayLength();
 
 	/** Sort the Notifies array by time, earliest first. */
 	ENGINE_API void SortNotifies();	
@@ -70,7 +70,7 @@ class UAnimSequenceBase : public UAnimationAsset
 	 * Supports playing backwards (DeltaTime<0).
 	 * Returns notifies between StartTime (exclusive) and StartTime+DeltaTime (inclusive)
 	 */
-	void GetAnimNotifies(const float& StartTime, const float& DeltaTime, const bool bAllowLooping, TArray<const FAnimNotifyEvent *>& OutActiveNotifies) const;
+	ENGINE_API void GetAnimNotifies(const float& StartTime, const float& DeltaTime, const bool bAllowLooping, TArray<const FAnimNotifyEvent *>& OutActiveNotifies) const;
 
 	/** 
 	 * Retrieves AnimNotifies between two time positions. ]PreviousPosition, CurrentPosition]
@@ -78,20 +78,20 @@ class UAnimSequenceBase : public UAnimationAsset
 	 * Supports playing backwards (CurrentPosition<PreviousPosition).
 	 * Only supports contiguous range, does NOT support looping and wrapping over.
 	 */
-	ENGINE_API void GetAnimNotifiesFromDeltaPositions(const float& PreviousPosition, const float & CurrentPosition, TArray<const FAnimNotifyEvent *>& OutActiveNotifies) const;
+	ENGINE_API virtual void GetAnimNotifiesFromDeltaPositions(const float& PreviousPosition, const float & CurrentPosition, TArray<const FAnimNotifyEvent *>& OutActiveNotifies) const;
 
 	/** Evaluate curve data to Instance at the time of CurrentTime **/
-	ENGINE_API virtual void EvaluateCurveData(FBlendedCurve& OutCurve, float CurrentTime) const;
+	ENGINE_API virtual void EvaluateCurveData(FBlendedCurve& OutCurve, float CurrentTime, bool bForceUseRawData=false) const;
 
 #if WITH_EDITOR
 	/** Return Number of Frames **/
 	virtual int32 GetNumberOfFrames() const;
 
 	/** Get the frame number for the provided time */
-	virtual int32 GetFrameAtTime(const float Time) const;
+	ENGINE_API virtual int32 GetFrameAtTime(const float Time) const;
 
 	/** Get the time at the given frame */
-	virtual float GetTimeAtFrame(const int32 Frame) const;
+	ENGINE_API virtual float GetTimeAtFrame(const int32 Frame) const;
 	
 	// @todo document
 	ENGINE_API void InitializeNotifyTrack();
@@ -100,7 +100,7 @@ class UAnimSequenceBase : public UAnimationAsset
 	ENGINE_API void ClampNotifiesAtEndOfSequence();
 
 	/** Calculates what (if any) offset should be applied to the trigger time of a notify given its display time */ 
-	virtual EAnimEventTriggerOffsets::Type CalculateOffsetForNotify(float NotifyDisplayTime) const;
+	ENGINE_API virtual EAnimEventTriggerOffsets::Type CalculateOffsetForNotify(float NotifyDisplayTime) const;
 
 	virtual void GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const override;
 	
@@ -115,7 +115,7 @@ class UAnimSequenceBase : public UAnimationAsset
 	ENGINE_API virtual void RefreshCacheData();
 
 	//~ Begin UAnimationAsset Interface
-	virtual void TickAssetPlayer(FAnimTickRecord& Instance, struct FAnimNotifyQueue& NotifyQueue, FAnimAssetTickContext& Context) const override;
+	ENGINE_API virtual void TickAssetPlayer(FAnimTickRecord& Instance, struct FAnimNotifyQueue& NotifyQueue, FAnimAssetTickContext& Context) const override;
 
 	void TickByMarkerAsFollower(FMarkerTickRecord &Instance, FMarkerTickContext &MarkerContext, float& CurrentTime, float& OutPreviousTime, const float MoveDelta, const bool bLooping) const;
 
@@ -138,7 +138,7 @@ class UAnimSequenceBase : public UAnimationAsset
 	ENGINE_API virtual void GetAnimationPose(struct FCompactPose& OutPose, FBlendedCurve& OutCurve, const FAnimExtractContext& ExtractionContext) const PURE_VIRTUAL(UAnimSequenceBase::GetAnimationPose, );
 	
 	DEPRECATED(4.11, "This function is deprecated, please use HandleAssetPlayerTickedInternal")
-	virtual void OnAssetPlayerTickedInternal(FAnimAssetTickContext &Context, const float PreviousTime, const float MoveDelta, const FAnimTickRecord &Instance, class UAnimInstance* InAnimInstance) const;
+	ENGINE_API virtual void OnAssetPlayerTickedInternal(FAnimAssetTickContext &Context, const float PreviousTime, const float MoveDelta, const FAnimTickRecord &Instance, class UAnimInstance* InAnimInstance) const;
 
 	virtual void HandleAssetPlayerTickedInternal(FAnimAssetTickContext &Context, const float PreviousTime, const float MoveDelta, const FAnimTickRecord &Instance, struct FAnimNotifyQueue& NotifyQueue) const;
 
@@ -155,8 +155,17 @@ class UAnimSequenceBase : public UAnimationAsset
 	virtual float GetFirstMatchingPosFromMarkerSyncPos(const FMarkerSyncAnimPosition& InMarkerSyncGroupPosition) const { return 0.f; }
 	virtual float GetNextMatchingPosFromMarkerSyncPos(const FMarkerSyncAnimPosition& InMarkerSyncGroupPosition, const float& StartingPosition) const { return 0.f; }
 
+	// default implementation, no additive
+	virtual EAdditiveAnimationType GetAdditiveAnimType() const { return AAT_None; }
+	virtual bool CanBeUsedInMontage() const { return true;  }
+
+	// to support anim sequence base to montage
+	virtual void EnableRootMotionSettingFromMontage(bool bInEnableRootMotion, const ERootMotionRootLock::Type InRootMotionRootLock) {};
 
 #if WITH_EDITOR
+	// Store that our raw data has changed so that we can get correct compressed data later on
+	virtual void MarkRawDataAsModified(bool bForceNewRawDatGuid = true) {}
+
 private:
 	DECLARE_MULTICAST_DELEGATE( FOnNotifyChangedMulticaster );
 	FOnNotifyChangedMulticaster OnNotifyChanged;
@@ -168,10 +177,27 @@ public:
 	ENGINE_API void RegisterOnNotifyChanged(const FOnNotifyChanged& Delegate);
 	ENGINE_API void UnregisterOnNotifyChanged(void* Unregister);
 	ENGINE_API virtual bool IsValidToPlay() const { return true; }
+	// ideally this would be animsequcnebase, but we might have some issue with that. For now, just allow AnimSequence
+	virtual class UAnimSequence* GetAdditiveBasePose() const { return nullptr; }
 
 #endif
+	// return true if anim notify is available 
+	ENGINE_API virtual bool IsNotifyAvailable() const;
 
 protected:
 	template <typename DataType>
-	void VerifyCurveNames(USkeleton* Skeleton, const FName& NameContainer, TArray<DataType>& CurveList);
+	void VerifyCurveNames(USkeleton* Skeleton, const FName& NameContainer, TArray<DataType>& CurveList)
+	{
+		USkeleton* MySkeleton = GetSkeleton();
+
+		if (MySkeleton)
+		{
+			// since this is verify function that makes sure it exists after loaded
+			// we should add it if it doesn't exist
+			for (DataType& Curve : CurveList)
+			{
+				MySkeleton->VerifySmartName(NameContainer, Curve.Name);
+			}
+		}
+	}
 };

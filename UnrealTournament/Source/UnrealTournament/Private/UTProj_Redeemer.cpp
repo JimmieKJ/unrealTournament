@@ -19,7 +19,7 @@ AUTProj_Redeemer::AUTProj_Redeemer(const class FObjectInitializer& ObjectInitial
 		CapsuleComp->bTraceComplexOnMove = true;
 		CapsuleComp->InitCapsuleSize(16.f, 70.0f);
 		CapsuleComp->SetRelativeRotation(FRotator(90.f, 90.f, 90.f));
-		CapsuleComp->AttachParent = RootComponent;
+		CapsuleComp->SetupAttachment(RootComponent);
 	}
 
 	// Movement
@@ -27,24 +27,25 @@ AUTProj_Redeemer::AUTProj_Redeemer(const class FObjectInitializer& ObjectInitial
 	ProjectileMovement->MaxSpeed = 2000.f;
 	ProjectileMovement->ProjectileGravityScale = 0.0f;
 
-	ExplosionTimings[0] = 0.5;
-	ExplosionTimings[1] = 0.2;
-	ExplosionTimings[2] = 0.2;
-	ExplosionTimings[3] = 0.2;
-	ExplosionTimings[4] = 0.2;
+	ExplosionTimings[0] = 0.18f;
+	ExplosionTimings[1] = 0.18f;
+	ExplosionTimings[2] = 0.18f;
+	ExplosionTimings[3] = 0.18f;
+	ExplosionTimings[4] = 0.18f;
 
-	ExplosionRadii[0] = 0.125f;
-	ExplosionRadii[1] = 0.3f;
-	ExplosionRadii[2] = 0.475f;
-	ExplosionRadii[3] = 0.65f;
-	ExplosionRadii[4] = 0.825f;
+	ExplosionRadii[0] = 0.25f;
+	ExplosionRadii[1] = 0.4f;
+	ExplosionRadii[2] = 0.55f;
+	ExplosionRadii[3] = 0.7f;
+	ExplosionRadii[4] = 0.85f;
 	ExplosionRadii[5] = 1.0f;
 
-	CollisionFreeRadius = 1000.f;
+	CollisionFreeRadius = 1200.f;
 
 	InitialLifeSpan = 20.0f;
 	bAlwaysShootable = true;
 	ProjHealth = 50;
+	KillCount = 0;
 
 	PrimaryActorTick.bCanEverTick = true;
 	PrimaryActorTick.bStartWithTickEnabled = true;
@@ -247,7 +248,13 @@ void AUTProj_Redeemer::Explode_Implementation(const FVector& HitLocation, const 
 		
 		if (Role == ROLE_Authority)
 		{
-			ExplodeHitLocation = HitLocation + HitNormal;
+			ECollisionChannel TraceChannel = COLLISION_TRACE_WEAPONNOCHARACTER;
+			FCollisionQueryParams QueryParams(GetClass()->GetFName(), true, Instigator);
+			FHitResult Hit;
+			FVector EndTrace = HitLocation + 100.f * HitNormal; // move up by maxstepheight
+			bool bHitGeometry = GetWorld()->LineTraceSingleByChannel(Hit, HitLocation, EndTrace, TraceChannel, QueryParams);
+			ExplodeHitLocation = bHitGeometry ? 0.5f*(HitLocation + Hit.Location) : EndTrace;
+
 			ExplodeMomentum = Momentum;
 			ExplodeStage1();
 		}
@@ -267,8 +274,40 @@ void AUTProj_Redeemer::ExplodeStage(float RangeMultiplier)
 		}
 
 		StatsHitCredit = 0.f;
+		//DrawDebugSphere(GetWorld(), ExplodeHitLocation, RangeMultiplier*AdjustedDamageParams.OuterRadius, 12, FColor::Green, true, -1.f);
+		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+		AUTPlayerState* StatusPS = ((Role == ROLE_Authority) && InstigatorController && GS && GS->bPlayStatusAnnouncements) ? Cast<AUTPlayerState>(InstigatorController->PlayerState) : nullptr;
+		if (StatusPS)
+		{
+			int32 LiveEnemyCount = 0;
+			for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
+			{
+				AController* C = *Iterator;
+				AUTPlayerState* TeamPS = C ? Cast<AUTPlayerState>(C->PlayerState) : nullptr;
+				if (TeamPS && C->GetPawn() && !GS->OnSameTeam(InstigatorController, C))
+				{
+					LiveEnemyCount++;
+				}
+			}
+			KillCount += LiveEnemyCount;
+		}
+
 		UUTGameplayStatics::UTHurtRadius(this, AdjustedDamageParams.BaseDamage, AdjustedDamageParams.MinimumDamage, AdjustedMomentum, ExplodeHitLocation, RangeMultiplier * AdjustedDamageParams.InnerRadius, RangeMultiplier * AdjustedDamageParams.OuterRadius, AdjustedDamageParams.DamageFalloff,
 			MyDamageType, IgnoreActors, this, InstigatorController, FFInstigatorController, FFDamageType, CollisionFreeRadius);
+		if (StatusPS)
+		{
+			int32 LiveEnemyCount = 0;
+			for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
+			{
+				AController* C = *Iterator;
+				AUTPlayerState* TeamPS = C ? Cast<AUTPlayerState>(C->PlayerState) : nullptr;
+				if (TeamPS && C->GetPawn() && !GS->OnSameTeam(InstigatorController, C))
+				{
+					LiveEnemyCount++;
+				}
+			}
+			KillCount -= LiveEnemyCount;
+		}
 		if ((Role==ROLE_Authority) && (HitsStatsName != NAME_None))
 		{
 			AUTPlayerState* PS = InstigatorController ? Cast<AUTPlayerState>(InstigatorController->PlayerState) : NULL;
@@ -313,6 +352,13 @@ void AUTProj_Redeemer::ExplodeStage5()
 void AUTProj_Redeemer::ExplodeStage6()
 {
 	ExplodeStage(ExplosionRadii[5]);
+
+	AUTPlayerState* StatusPS = (InstigatorController && (KillCount > 0)) ? Cast<AUTPlayerState>(InstigatorController->PlayerState) : nullptr;
+	if (StatusPS)
+	{
+		StatusPS->AnnounceStatus(StatusMessage::RedeemerKills, KillCount - 1);
+	}
+
 	ShutDown();
 }
 

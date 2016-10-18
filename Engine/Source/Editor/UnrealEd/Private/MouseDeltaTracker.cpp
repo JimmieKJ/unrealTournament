@@ -185,7 +185,6 @@ void FMouseDeltaTracker::DetermineCurrentAxis(FEditorViewportClient* InViewportC
 	}
 }
 
-
 /**
  * Begin tracking at the specified location for the specified viewport.
  */
@@ -324,7 +323,7 @@ bool FMouseDeltaTracker::EndTracking(FEditorViewportClient* InViewportClient)
 		}
 	}
 
-	// Do not fade snapping indicators over time if this viewport is not realtime
+	// Do not fade snapping indicators over time if this viewport is not real time
 	bool bClearImmediately = !InViewportClient->IsRealtime();
 	FSnappingUtils::ClearSnappingHelpers( bClearImmediately );
 	return true;
@@ -350,22 +349,29 @@ void FMouseDeltaTracker::ConditionalBeginUsingDragTool( FEditorViewportClient* I
 		{
 
 			// Create a drag tool.
-			if (InViewportClient->IsOrtho())
+			if (!(bAltDown + bShiftDown) && bControlDown && MiddleMouseButtonDown && !LeftMouseButtonDown && !RightMouseButtonDown)
 			{
-				if (LeftMouseButtonDown)
-				{
-					DragTool = InViewportClient->MakeDragTool(EDragTool::BoxSelect);
-				}
-				else if (!(bControlDown + bAltDown + bShiftDown) && MiddleMouseButtonDown)
-				{
-					DragTool = InViewportClient->MakeDragTool(EDragTool::Measure);
-				}
+				DragTool = InViewportClient->MakeDragTool(EDragTool::ViewportChange);
 			}
 			else
 			{
-				if (LeftMouseButtonDown && bControlDown && bAltDown)
+				if (InViewportClient->IsOrtho())
 				{
-					DragTool = InViewportClient->MakeDragTool(EDragTool::FrustumSelect);
+					if (LeftMouseButtonDown)
+					{
+						DragTool = InViewportClient->MakeDragTool(EDragTool::BoxSelect);
+					}
+					else if (!(bControlDown + bAltDown + bShiftDown) && MiddleMouseButtonDown)
+					{
+						DragTool = InViewportClient->MakeDragTool(EDragTool::Measure);
+					}
+				}
+				else
+				{
+					if (LeftMouseButtonDown && bControlDown && bAltDown)
+					{
+						DragTool = InViewportClient->MakeDragTool(EDragTool::FrustumSelect);
+					}
 				}
 			}
 
@@ -553,7 +559,6 @@ void FMouseDeltaTracker::AddDelta(FEditorViewportClient* InViewportClient, FKey 
 				break;
 		}
 	}
-
 }
 
 /**
@@ -581,7 +586,6 @@ const FVector FMouseDeltaTracker::GetDeltaSnapped() const
 	const FVector SnappedDelta( EndSnapped - StartSnapped );
 	return SnappedDelta;
 }
-
 
 /**
 * Returns the absolute delta since dragging started.

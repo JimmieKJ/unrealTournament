@@ -14,9 +14,9 @@ Globals
 -----------------------------------------------------------------------------*/
 
 // smallest blend weight for vertex anims
-const float MinVertexAnimBlendWeight = SMALL_NUMBER;
+const float MinMorphTargetBlendWeight = SMALL_NUMBER;
 // largest blend weight for vertex anims
-const float MaxVertexAnimBlendWeight = 5.0f;
+const float MaxMorphTargetBlendWeight = 5.0f;
 
 /*-----------------------------------------------------------------------------
 FSkeletalMeshObject
@@ -29,13 +29,14 @@ FSkeletalMeshObject::FSkeletalMeshObject(USkinnedMeshComponent* InMeshComponent,
 ,	WorkingMaxDistanceFactor(0.f)
 ,   bHasBeenUpdatedAtLeastOnce(false)
 #if WITH_EDITORONLY_DATA
-,   ChunkIndexPreview(InMeshComponent->ChunkIndexPreview)
 ,   SectionIndexPreview(InMeshComponent->SectionIndexPreview)
 #endif	
 ,	SkeletalMeshResource(InSkeletalMeshResource)
 ,	SkeletalMeshLODInfo(InMeshComponent->SkeletalMesh->LODInfo)
 ,	LastFrameNumber(0)
+#if WITH_EDITORONLY_DATA
 ,	ProgressiveDrawingFraction(InMeshComponent->ProgressiveDrawingFraction)
+#endif
 ,	CustomSortAlternateIndexMode((ECustomSortAlternateIndexMode)InMeshComponent->CustomSortAlternateIndexMode)
 ,	bUsePerBoneMotionBlur(InMeshComponent->bPerBoneMotionBlur)
 ,	StatId(InMeshComponent->SkeletalMesh->GetStatID(true))
@@ -46,7 +47,6 @@ FSkeletalMeshObject::FSkeletalMeshObject(USkinnedMeshComponent* InMeshComponent,
 #if WITH_EDITORONLY_DATA
 	if ( !GIsEditor )
 	{
-		ChunkIndexPreview = -1;
 		SectionIndexPreview = -1;
 	}
 #endif // #if WITH_EDITORONLY_DATA
@@ -64,11 +64,6 @@ FSkeletalMeshObject::FSkeletalMeshObject(USkinnedMeshComponent* InMeshComponent,
 	InitLODInfos(InMeshComponent);
 }
 
-/** 
-*	Given a set of views, update the MinDesiredLODLevel member to indicate the minimum (ie best) LOD we would like to use to render this mesh. 
-*	This is called from the rendering thread (PreRender) so be very careful what you read/write to.
-*	If this is the first render for the frame, will just set MinDesiredLODLevel - otherwise will set it to min of current MinDesiredLODLevel and calculated value.
-*/
 void FSkeletalMeshObject::UpdateMinDesiredLODLevel(const FSceneView* View, const FBoxSphereBounds& Bounds, int32 FrameNumber)
 {
 	static const auto* SkeletalMeshLODRadiusScale = IConsoleManager::Get().FindTConsoleVariableDataFloat(TEXT("r.SkeletalMeshLODRadiusScale"));
@@ -134,10 +129,10 @@ void FSkeletalMeshObject::UpdateMinDesiredLODLevel(const FSceneView* View, const
  * List of chunks to be rendered based on instance weight usage. Full swap of weights will render with its own chunks.
  * @return Chunks to iterate over for rendering
  */
-const TArray<FSkelMeshChunk>& FSkeletalMeshObject::GetRenderChunks(int32 InLODIndex) const
+const TArray<FSkelMeshSection>& FSkeletalMeshObject::GetRenderSections(int32 InLODIndex) const
 {
 	const FStaticLODModel& LOD = SkeletalMeshResource->LODModels[InLODIndex];
-	return LOD.Chunks;
+	return LOD.Sections;
 }
 
 /**
@@ -213,7 +208,7 @@ void UpdateRefToLocalMatrices( TArray<FMatrix>& ReferenceToLocal, const USkinned
 
 	const TArray<FBoneIndexType>* RequiredBoneSets[3] = { &LOD.ActiveBoneIndices, ExtraRequiredBoneIndices, NULL };
 
-	const bool bBoneVisibilityStatesValid = InMeshComponent->BoneVisibilityStates.Num() == InMeshComponent->GetNumSpaceBases();
+	const bool bBoneVisibilityStatesValid = InMeshComponent->BoneVisibilityStates.Num() == InMeshComponent->GetNumComponentSpaceTransforms();
 
 	// Handle case of using ParentAnimComponent for SpaceBases.
 	for( int32 RequiredBoneSetIndex = 0; RequiredBoneSets[RequiredBoneSetIndex]!=NULL; RequiredBoneSetIndex++ )
@@ -234,7 +229,7 @@ void UpdateRefToLocalMatrices( TArray<FMatrix>& ReferenceToLocal, const USkinned
 				{
 					// If valid, use matrix from parent component.
 					const int32 MasterBoneIndex = MasterBoneMap[ThisBoneIndex];
-					if ( MasterComp->GetSpaceBases().IsValidIndex(MasterBoneIndex) )
+					if (MasterComp->GetComponentSpaceTransforms().IsValidIndex(MasterBoneIndex))
 					{
 						const int32 ParentIndex = MasterCompMesh->RefSkeleton.GetParentIndex(MasterBoneIndex);
 						bool bNeedToHideBone = MasterComp->BoneVisibilityStates[MasterBoneIndex] != BVS_Visible;
@@ -244,14 +239,14 @@ void UpdateRefToLocalMatrices( TArray<FMatrix>& ReferenceToLocal, const USkinned
 						}
 						else
 						{
-							checkSlow(MasterComp->GetSpaceBases()[MasterBoneIndex].IsRotationNormalized());
-							ReferenceToLocal[ThisBoneIndex] = MasterComp->GetSpaceBases()[MasterBoneIndex].ToMatrixWithScale();
+							checkSlow(MasterComp->GetComponentSpaceTransforms()[MasterBoneIndex].IsRotationNormalized());
+							ReferenceToLocal[ThisBoneIndex] = MasterComp->GetComponentSpaceTransforms()[MasterBoneIndex].ToMatrixWithScale();
 						}
 					}
 				}
 				else
 				{
-					if (InMeshComponent->GetSpaceBases().IsValidIndex(ThisBoneIndex))
+					if (InMeshComponent->GetComponentSpaceTransforms().IsValidIndex(ThisBoneIndex))
 					{
 						// If we can't find this bone in the parent, we just use the reference pose.
 						if (bBoneVisibilityStatesValid)
@@ -264,14 +259,14 @@ void UpdateRefToLocalMatrices( TArray<FMatrix>& ReferenceToLocal, const USkinned
 							}
 							else
 							{
-								checkSlow(InMeshComponent->GetSpaceBases()[ThisBoneIndex].IsRotationNormalized());
-								ReferenceToLocal[ThisBoneIndex] = InMeshComponent->GetSpaceBases()[ThisBoneIndex].ToMatrixWithScale();
+								checkSlow(InMeshComponent->GetComponentSpaceTransforms()[ThisBoneIndex].IsRotationNormalized());
+								ReferenceToLocal[ThisBoneIndex] = InMeshComponent->GetComponentSpaceTransforms()[ThisBoneIndex].ToMatrixWithScale();
 							}
 						}
 						else
 						{
-							checkSlow(InMeshComponent->GetSpaceBases()[ThisBoneIndex].IsRotationNormalized());
-							ReferenceToLocal[ThisBoneIndex] = InMeshComponent->GetSpaceBases()[ThisBoneIndex].ToMatrixWithScale();
+							checkSlow(InMeshComponent->GetComponentSpaceTransforms()[ThisBoneIndex].IsRotationNormalized());
+							ReferenceToLocal[ThisBoneIndex] = InMeshComponent->GetComponentSpaceTransforms()[ThisBoneIndex].ToMatrixWithScale();
 						}
 					}
 				}
@@ -325,14 +320,14 @@ void UpdateCustomLeftRightVectors( TArray<FTwoVectors>& OutVectors, const USkinn
 			else
 			{
 				int32 SpaceBasesBoneIndex = ThisMesh->RefSkeleton.FindBoneIndex(CustomLeftRightBoneName);
-				const TArray<FTransform>* SpaceBases = &InMeshComponent->GetSpaceBases();
+				const TArray<FTransform>* SpaceBases = &InMeshComponent->GetComponentSpaceTransforms();
 				
 				// Handle case of using MasterPoseComponent for SpaceBases.
 				if( MasterComp && MasterBoneMap.Num() == ThisMesh->RefSkeleton.GetNum() && SpaceBasesBoneIndex != INDEX_NONE )
 				{
 					// If valid, use matrix from parent component.
 					SpaceBasesBoneIndex = MasterBoneMap[SpaceBasesBoneIndex];
-					SpaceBases = &MasterComp->GetSpaceBases();
+					SpaceBases = &MasterComp->GetComponentSpaceTransforms();
 				}
 
 				if (SpaceBases->IsValidIndex(SpaceBasesBoneIndex))

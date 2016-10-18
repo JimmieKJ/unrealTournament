@@ -74,6 +74,7 @@ public class UnrealFrontend : ModuleRules
 				"Networking",
 				"Sockets",
 				"UdpMessaging",
+                "TcpMessaging",
 			}
 		);
 

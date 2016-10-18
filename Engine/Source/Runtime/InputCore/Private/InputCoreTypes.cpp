@@ -358,6 +358,7 @@ FKeyDetails::FKeyDetails(const FKey InKey, const TAttribute<FText>& InDisplayNam
 	}
 }
 
+PRAGMA_DISABLE_OPTIMIZATION
 void EKeys::Initialize()
 {
 	if (bInitialized) return;
@@ -505,7 +506,7 @@ void EKeys::Initialize()
 	AddKey(FKeyDetails(EKeys::LeftParantheses, FText::FromString("(")));
 	AddKey(FKeyDetails(EKeys::RightParantheses, FText::FromString(")")));
 	AddKey(FKeyDetails(EKeys::Ampersand, FText::FromString("&")));
-	AddKey(FKeyDetails(EKeys::Asterix, LOCTEXT("Asterix", "Asterix")));
+	AddKey(FKeyDetails(EKeys::Asterix, LOCTEXT("Asterix", "Asterisk")));
 	AddKey(FKeyDetails(EKeys::Caret, FText::FromString("^")));
 	AddKey(FKeyDetails(EKeys::Dollar, FText::FromString("$")));
 	AddKey(FKeyDetails(EKeys::Exclamation, FText::FromString("!")));
@@ -685,6 +686,7 @@ void EKeys::Initialize()
 	// Initialize the input key manager.  This will cause any additional OEM keys to get added
 	FInputKeyManager::Get();
 }
+PRAGMA_ENABLE_OPTIMIZATION
 
 void EKeys::AddKey(const FKeyDetails& KeyDetails)
 {
@@ -741,6 +743,7 @@ FName EKeys::GetMenuCategoryPaletteIcon(const FName CategoryName)
 
 EConsoleForGamepadLabels::Type EKeys::ConsoleForGamepadLabels = EConsoleForGamepadLabels::None;
 
+PRAGMA_DISABLE_OPTIMIZATION
 FText EKeys::GetGamepadDisplayName(const FKey Key)
 {
 	switch (ConsoleForGamepadLabels)
@@ -926,6 +929,7 @@ FText EKeys::GetGamepadDisplayName(const FKey Key)
 	ensureMsgf(false, TEXT("Unexpected key %s using EKeys::GetGamepadDisplayName"), *Key.ToString());
 	return FText::FromString(Key.ToString());
 }
+PRAGMA_ENABLE_OPTIMIZATION
 
 bool FKey::IsValid() const 
 { 

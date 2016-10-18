@@ -3,6 +3,7 @@
 #pragma once
 
 #include "BaseToolkit.h"
+#include "LayoutService.h"
 #include "TabManager.h"
 #include "Toolkits/AssetEditorManager.h"		// For IAssetEditorInstance derive
 
@@ -271,6 +272,24 @@ private:
 
 	/** If true ViewSizeMap_Execute can be called, also caches ViewableObjects */
 	bool CanViewSizeMap();
+
+private:
+	/**
+	 * Report the references of the EditingObjects to the GC.  The level of indirection necessary 
+	 * so that we don't break compatibility with all the asset editors out there that individually 
+	 * implement FGCObject.
+	 */
+	class UNREALED_API FGCEditingObjects : public FGCObject
+	{
+	public:
+		FGCEditingObjects(FAssetEditorToolkit& InOwnerToolkit) : OwnerToolkit(InOwnerToolkit) {}
+
+		/** FGCObject interface */
+		virtual void AddReferencedObjects(FReferenceCollector& Collector) override;
+
+	private:
+		FAssetEditorToolkit& OwnerToolkit;
+	} GCEditingObjects;
 
 protected:
 

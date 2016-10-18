@@ -89,6 +89,15 @@ struct FSkelMeshMergeSectionMapping
 };
 
 /** 
+* Info to map all the sections about how to transform their UVs
+*/
+struct FSkelMeshMergeUVTransforms
+{
+	/** For each UV channel on each mesh, how the UVS should be transformed. */
+	TArray<TArray<FTransform>> UVTransformsPerMesh;
+};
+
+/** 
 * Utility for merging a list of skeletal meshes into a single mesh.
 */
 class ENGINE_API FSkeletalMeshMerge
@@ -100,12 +109,16 @@ public:
 	* @param InSrcMeshList - array of source meshes to merge
 	* @param InForceSectionMapping - optional array to map sections from the source meshes to merged section entries
 	* @param StripTopLODs - number of high LODs to remove from input meshes
+    * @param bMeshNeedsCPUAccess - (optional) if the resulting mesh needs to be accessed by the CPU for any reason (e.g. for spawning particle effects).
+	* @param UVTransforms - optional array to transform the UVs in each mesh
 	*/
 	FSkeletalMeshMerge( 
 		USkeletalMesh* InMergeMesh, 
 		const TArray<USkeletalMesh*>& InSrcMeshList, 
 		const TArray<FSkelMeshMergeSectionMapping>& InForceSectionMapping,
-		int32 StripTopLODs
+		int32 StripTopLODs,
+        EMeshBufferAccess MeshBufferAccess=EMeshBufferAccess::Default,
+		FSkelMeshMergeUVTransforms* InSectionUVTransforms = nullptr
 		);
 
 	/**
@@ -139,6 +152,9 @@ private:
 	/** Number of high LODs to remove from input meshes. */
 	int32 StripTopLODs;
 
+    /** Whether or not the resulting mesh needs to be accessed by the CPU (e.g. for particle spawning).*/
+    EMeshBufferAccess MeshBufferAccess;
+
 	/** Info about source mesh used in merge. */
 	struct FMergeMeshInfo
 	{
@@ -155,6 +171,9 @@ private:
 	/** array to map sections from the source meshes to merged section entries */
 	const TArray<FSkelMeshMergeSectionMapping>& ForceSectionMapping;
 
+	/** optional array to transform UVs in each source mesh */
+	const FSkelMeshMergeUVTransforms* SectionUVTransforms;
+
 	/** Matches the Materials array in the final mesh - used for creating the right number of Material slots. */
 	TArray<int32>	MaterialIds;
 
@@ -165,15 +184,15 @@ private:
 		const USkeletalMesh* SkelMesh;
 		/** ptr to source section for merging */
 		const FSkelMeshSection* Section;
-		/** ptr to source chunk for this section */
-		const FSkelMeshChunk* Chunk;
 		/** mapping from the original BoneMap for this sections chunk to the new MergedBoneMap */
 		TArray<FBoneIndexType> BoneMapToMergedBoneMap;
+		/** transform from the original UVs */
+		TArray<FTransform> UVTransforms;
 
-		FMergeSectionInfo( const USkeletalMesh* InSkelMesh,const FSkelMeshSection* InSection, const FSkelMeshChunk* InChunk )
+		FMergeSectionInfo( const USkeletalMesh* InSkelMesh,const FSkelMeshSection* InSection, TArray<FTransform> & InUVTransforms )
 			:	SkelMesh(InSkelMesh)
 			,	Section(InSection)
-			,	Chunk(InChunk)
+			,	UVTransforms(InUVTransforms)
 		{}
 	};
 

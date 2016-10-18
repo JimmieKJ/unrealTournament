@@ -276,8 +276,13 @@ void UMovieSceneParameterSection::DilateSection(float DilationFactor, float Orig
 	}
 }
 
-void UMovieSceneParameterSection::GetKeyHandles(TSet<FKeyHandle>& KeyHandles) const
+void UMovieSceneParameterSection::GetKeyHandles(TSet<FKeyHandle>& OutKeyHandles, TRange<float> TimeRange) const
 {
+	if (!TimeRange.Overlaps(GetRange()))
+	{
+		return;
+	}
+
 	TArray<const FRichCurve*> AllCurves;
 	GatherCurves(AllCurves);
 
@@ -286,9 +291,9 @@ void UMovieSceneParameterSection::GetKeyHandles(TSet<FKeyHandle>& KeyHandles) co
 		for (auto It(Curve->GetKeyHandleIterator()); It; ++It)
 		{
 			float Time = Curve->GetKeyTime(It.Key());
-			if (IsTimeWithinSection(Time))
+			if (TimeRange.Contains(Time))
 			{
-				KeyHandles.Add(It.Key());
+				OutKeyHandles.Add(It.Key());
 			}
 		}
 	}
@@ -305,5 +310,37 @@ void UMovieSceneParameterSection::MoveSection(float DeltaPosition, TSet<FKeyHand
 	for (auto Curve : AllCurves)
 	{
 		Curve->ShiftCurve(DeltaPosition, KeyHandles);
+	}
+}
+
+
+TOptional<float> UMovieSceneParameterSection::GetKeyTime( FKeyHandle KeyHandle ) const
+{
+	TArray<const FRichCurve*> AllCurves;
+	GatherCurves( AllCurves );
+
+	for ( auto Curve : AllCurves )
+	{
+		if ( Curve->IsKeyHandleValid( KeyHandle ) )
+		{
+			return TOptional<float>( Curve->GetKeyTime( KeyHandle ) );
+		}
+	}
+	return TOptional<float>();
+}
+
+
+void UMovieSceneParameterSection::SetKeyTime( FKeyHandle KeyHandle, float Time )
+{
+	TArray<FRichCurve*> AllCurves;
+	GatherCurves( AllCurves );
+
+	for ( auto Curve : AllCurves )
+	{
+		if ( Curve->IsKeyHandleValid( KeyHandle ) )
+		{
+			Curve->SetKeyTime( KeyHandle, Time );
+			break;
+		}
 	}
 }

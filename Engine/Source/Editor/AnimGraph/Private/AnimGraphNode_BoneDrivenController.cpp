@@ -162,8 +162,8 @@ void UAnimGraphNode_BoneDrivenController::Draw(FPrimitiveDrawInterface* PDI, USk
 
 	if ((SourceIdx != INDEX_NONE) && (TargetIdx != INDEX_NONE))
 	{
-		const FTransform SourceTM = SkelMeshComp->GetSpaceBases()[SourceIdx] * SkelMeshComp->ComponentToWorld;
-		const FTransform TargetTM = SkelMeshComp->GetSpaceBases()[TargetIdx] * SkelMeshComp->ComponentToWorld;
+		const FTransform SourceTM = SkelMeshComp->GetComponentSpaceTransforms()[SourceIdx] * SkelMeshComp->ComponentToWorld;
+		const FTransform TargetTM = SkelMeshComp->GetComponentSpaceTransforms()[TargetIdx] * SkelMeshComp->ComponentToWorld;
 
 		PDI->DrawLine(TargetTM.GetLocation(), SourceTM.GetLocation(), FLinearColor(0.0f, 0.0f, 1.0f), SDPG_Foreground, 0.5f);
 

@@ -17,7 +17,6 @@ using System.Reflection;
 using System.Threading.Tasks;
 using Tools.DotNETCommon;
 using Tools.DotNETCommon.CaselessDictionary;
-using Tools.DotNETCommon.HarvestEnvVars;
 
 namespace AutomationTool
 {
@@ -948,6 +947,23 @@ namespace AutomationTool
 		}
 
 		/// <summary>
+		/// Determines whether the given file is read-only
+		/// </summary>
+		/// <param name="Filename">Filename</param>
+		/// <returns>True if the file is read-only</returns>
+		public static bool IsReadOnly(string Filename)
+		{
+			Filename = ConvertSeparators(PathSeparator.Default, Filename);
+			if (!File.Exists(Filename))
+			{
+				throw new AutomationException(new FileNotFoundException("File not found.", Filename), "Unable to set attributes for a non-existing file.");
+			}
+
+			FileAttributes Attributes = File.GetAttributes(Filename);
+			return (Attributes & FileAttributes.ReadOnly) != 0;
+		}
+
+		/// <summary>
 		/// Sets file attributes. Will not change attributes that have not been specified.
 		/// </summary>
 		/// <param name="Filename">Filename</param>
@@ -1698,36 +1714,6 @@ namespace AutomationTool
 			}
 		}
 
-		/// <summary>
-		/// Gets environment variables set by a batch file.
-		/// </summary>
-		/// <param name="BatchFileName">Filename that sets the environment variables</param>
-		/// <param name="AlsoSet">True if found variables should be automatically set withing this process.</param>
-		/// <returns>Dictionary of environment variables set by the batch file.</returns>
-		public static CaselessDictionary<string> GetEnvironmentVariablesFromBatchFile(string BatchFileName, bool AlsoSet = false)
-		{
-			CaselessDictionary<string> Result;
-			try
-			{
-				Result = HarvestEnvVars.HarvestEnvVarsFromBatchFile(BatchFileName, "", HarvestEnvVars.EPathOverride.User);
-			}
-			catch (Exception Ex)
-			{
-				throw new AutomationException(Ex, "Failed to harvest environment variables");
-			}
-
-			if (AlsoSet)
-			{
-				// Set the environment variables
-				foreach (var Envvar in Result)
-				{
-					Environment.SetEnvironmentVariable(Envvar.Key, Envvar.Value);
-				}
-			}
-
-			return Result;
-		}
-
 		#endregion
 
 		#region CommandLine
@@ -1868,6 +1854,25 @@ namespace AutomationTool
 		}
 
 		/// <summary>
+		/// Parses the command's Params list for a parameter and reads its value. 
+		/// Ex. ParseParamValue(Args, "map=")
+		/// </summary>
+		/// <param name="Param">Param to read its value.</param>
+		/// <returns>Returns the value or Default if the parameter was not found.</returns>
+		public int? ParseParamNullableInt(string Param)
+		{
+			string Value = ParseParamValue(Params, Param, null);
+			if(Value == null)
+			{
+				return null;
+			}
+			else
+			{
+				return int.Parse(Value);
+			}
+		}
+
+		/// <summary>
 		/// Makes sure path can be used as a command line param (adds quotes if it contains spaces)
 		/// </summary>
 		/// <param name="InPath">Path to convert</param>
@@ -1945,6 +1950,11 @@ namespace AutomationTool
 		{
 			get { return UnrealBuildTool.UnrealBuildTool.RootDirectory; }
 		}
+
+		/// <summary>
+		/// Telemetry data for the current run. Add -WriteTelemetry=<Path> to the command line to export to disk.
+		/// </summary>
+		public static TelemetryData Telemetry = new TelemetryData();
 
 		#endregion
 
@@ -2146,12 +2156,12 @@ namespace AutomationTool
 		/// <returns>List of files written</returns>
 		public static IEnumerable<string> UnzipFiles(string ZipFileName, string BaseDirectory)
 		{
-            // manually extract the files. There was a problem with the Ionic.Zip library that required this on non-PC at one point,
-            // but that problem is now fixed. Leaving this code as is as we need to return the list of created files and fix up their permissions anyway.
-            using (Ionic.Zip.ZipFile Zip = new Ionic.Zip.ZipFile(ZipFileName))
+			// manually extract the files. There was a problem with the Ionic.Zip library that required this on non-PC at one point,
+			// but that problem is now fixed. Leaving this code as is as we need to return the list of created files and fix up their permissions anyway.
+			using (Ionic.Zip.ZipFile Zip = new Ionic.Zip.ZipFile(ZipFileName))
 			{
 				List<string> OutputFileNames = new List<string>();
-				foreach(Ionic.Zip.ZipEntry Entry in Zip.Entries)
+				foreach(Ionic.Zip.ZipEntry Entry in Zip.Entries.Where(x => !x.IsDirectory))
 				{
 					string OutputFileName = Path.Combine(BaseDirectory, Entry.FileName);
 					Directory.CreateDirectory(Path.GetDirectoryName(OutputFileName));
@@ -2168,12 +2178,201 @@ namespace AutomationTool
 				return OutputFileNames;
 			}
 		}
+
+		/// <summary>
+		/// Resolve an arbitrary file specification against a directory. May contain any number of p4 wildcard operators (?, *, ...).
+		/// </summary>
+		/// <param name="DefaultDir">Base directory for relative paths</param>
+		/// <param name="Pattern">Pattern to match</param>
+		/// <param name="ExcludePatterns">List of patterns to be excluded. May be null.</param>
+		/// <returns>Sequence of file references matching the given pattern</returns>
+		public static IEnumerable<FileReference> ResolveFilespec(DirectoryReference DefaultDir, string Pattern, IEnumerable<string> ExcludePatterns)
+		{
+			List<FileReference> Files = new List<FileReference>();
+
+			// Check if it contains any wildcards. If not, we can just add the pattern directly without searching.
+			int WildcardIdx = FileFilter.FindWildcardIndex(Pattern);
+			if(WildcardIdx == -1)
+			{
+				// Construct a filter which removes all the excluded filetypes
+				FileFilter Filter = new FileFilter(FileFilterType.Include);
+				if(ExcludePatterns != null)
+				{
+					Filter.AddRules(ExcludePatterns, FileFilterType.Exclude);
+				}
+
+				// Match it against the given file
+				FileReference File = FileReference.Combine(DefaultDir, Pattern);
+				if(Filter.Matches(File.FullName))
+				{
+					Files.Add(File);
+				}
+			}
+			else
+			{
+				// Find the base directory for the search. We construct this in a very deliberate way including the directory separator itself, so matches
+				// against the OS root directory will resolve correctly both on Mac (where / is the filesystem root) and Windows (where / refers to the current drive).
+				int LastDirectoryIdx = Pattern.LastIndexOfAny(new char[]{ Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar }, WildcardIdx);
+				DirectoryReference BaseDir = DirectoryReference.Combine(DefaultDir, Pattern.Substring(0, LastDirectoryIdx + 1));
+
+				// Construct the absolute include pattern to match against, re-inserting the resolved base directory to construct a canonical path.
+				string IncludePattern = BaseDir.FullName.TrimEnd(new char[]{ Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar }) + "/" + Pattern.Substring(LastDirectoryIdx + 1);
+
+				// Construct a filter and apply it to the directory
+				if(BaseDir.Exists())
+				{
+					FileFilter Filter = new FileFilter();
+					Filter.AddRule(IncludePattern, FileFilterType.Include);
+					if(ExcludePatterns != null)
+					{
+						Filter.AddRules(ExcludePatterns, FileFilterType.Exclude);
+					}
+					Files.AddRange(Filter.ApplyToDirectory(BaseDir, BaseDir.FullName, true));
+				}
+			}
+			return Files;
+		}
 	}
 
-    /// <summary>
-    /// Timer class used for telemetry reporting.
-    /// </summary>
-    public class TelemetryStopwatch : IDisposable
+	/// <summary>
+	/// Valid units for telemetry data
+	/// </summary>
+	public enum TelemetryUnits
+	{
+		Minutes,
+	}
+
+	/// <summary>
+	/// Sample for telemetry data
+	/// </summary>
+	public class TelemetrySample
+	{
+		/// <summary>
+		/// Name of this sample
+		/// </summary>
+		public string Name;
+
+		/// <summary>
+		/// The value for this sample
+		/// </summary>
+		public double Value;
+
+		/// <summary>
+		/// Units for this sample
+		/// </summary>
+		public TelemetryUnits Units;
+	}
+
+	/// <summary>
+	/// Stores a set of key/value telemetry samples which can be read and written to a JSON file
+	/// </summary>
+	public class TelemetryData
+	{
+		/// <summary>
+		/// The current file version
+		/// </summary>
+		const int CurrentVersion = 1;
+
+		/// <summary>
+		/// Maps from a sample name to its value
+		/// </summary>
+		public List<TelemetrySample> Samples = new List<TelemetrySample>();
+
+		/// <summary>
+		/// Adds a telemetry sample
+		/// </summary>
+		/// <param name="Name">Name of the sample</param>
+		/// <param name="Value">Value of the sample</param>
+		/// <param name="Units">Units for the sample value</param>
+		public void Add(string Name, double Value, TelemetryUnits Units)
+		{
+			Samples.RemoveAll(x => x.Name == Name);
+			Samples.Add(new TelemetrySample() { Name = Name, Value = Value, Units = Units });
+		}
+
+		/// <summary>
+		/// Add samples from another telemetry block into this one
+		/// </summary>
+		/// <param name="Prefix">Prefix for the telemetry data</param>
+		/// <param name="Other">The other telemetry data</param>
+		public void Merge(string Prefix, TelemetryData Other)
+		{
+			foreach(TelemetrySample Sample in Other.Samples)
+			{
+				Add(Sample.Name, Sample.Value, Sample.Units);
+			}
+		}
+
+		/// <summary>
+		/// Tries to read the telemetry data from the given file
+		/// </summary>
+		/// <param name="FileName">The file to read from</param>
+		/// <param name="Telemetry">On success, the read telemetry data</param>
+		/// <returns>True if a telemetry object was read</returns>
+		public static bool TryRead(string FileName, out TelemetryData Telemetry)
+		{
+			// Try to read the raw json object
+			JsonObject RawObject;
+			if (!JsonObject.TryRead(FileName, out RawObject))
+			{
+				Telemetry = null;
+				return false;
+			}
+
+			// Check the version is valid
+			int Version;
+			if(!RawObject.TryGetIntegerField("Version", out Version) || Version != CurrentVersion)
+			{
+				Telemetry = null;
+				return false;
+			}
+
+			// Read all the samples
+			JsonObject[] RawSamples;
+			if (!RawObject.TryGetObjectArrayField("Samples", out RawSamples))
+			{
+				Telemetry = null;
+				return false;
+			}
+
+			// Parse out all the samples
+			Telemetry = new TelemetryData();
+			foreach (JsonObject RawSample in RawSamples)
+			{
+				Telemetry.Add(RawSample.GetStringField("Name"), RawSample.GetDoubleField("Value"), RawSample.GetEnumField<TelemetryUnits>("Units"));
+			}
+			return true;
+		}
+
+		/// <summary>
+		/// Writes out the telemetry data to a file
+		/// </summary>
+		/// <param name="FileName"></param>
+		public void Write(string FileName)
+		{
+			using (JsonWriter Writer = new JsonWriter(FileName))
+			{
+				Writer.WriteObjectStart();
+				Writer.WriteValue("Version", CurrentVersion);
+				Writer.WriteArrayStart("Samples");
+				foreach(TelemetrySample Sample in Samples)
+				{
+					Writer.WriteObjectStart();
+					Writer.WriteValue("Name", Sample.Name);
+					Writer.WriteValue("Value", Sample.Value);
+					Writer.WriteValue("Units", Sample.Units.ToString());
+					Writer.WriteObjectEnd();
+				}
+				Writer.WriteArrayEnd();
+				Writer.WriteObjectEnd();
+			}
+		}
+	}
+
+	/// <summary>
+	/// Timer class used for telemetry reporting.
+	/// </summary>
+	public class TelemetryStopwatch : IDisposable
     {
         string Name;
         DateTime StartTime;
@@ -2487,7 +2686,14 @@ namespace AutomationTool
 				return;
 			}
 
-			string SignToolName = "/usr/bin/codesign";
+			// Use the old codesigning tool after the upgrade due to segmentation fault on Sierra
+			string SignToolName = "/usr/local/bin/codesign_old";
+			
+			// unless it doesn't exist, then use the Sierra one.
+			if(!File.Exists(SignToolName))
+			{
+				SignToolName = "/usr/bin/codesign";
+			}
 
 			string CodeSignArgs = String.Format("-f --deep -s \"{0}\" -v \"{1}\" --no-strict", "Developer ID Application", InPath);
 
@@ -2591,11 +2797,10 @@ namespace AutomationTool
 										 "http://timestamp.comodoca.com/authenticode",
 										 "http://www.startssl.com/timestamp"
 									   };
-			int TimestampServerIndex = 0;
 
 			string SpecificStoreArg = bUseMachineStoreInsteadOfUserStore ? " /sm" : "";	
 			
-			DateTime StartTime = DateTime.Now;
+			Stopwatch Stopwatch = Stopwatch.StartNew();
 
 			int NumTrials = 0;
 			for (; ; )
@@ -2603,7 +2808,7 @@ namespace AutomationTool
 				//@TODO: Verbosity choosing
 				//  /v will spew lots of info
 				//  /q does nothing on success and minimal output on failure
-				string CodeSignArgs = String.Format("sign{0} /a /n \"{1}\" /t {2} /v {3}", SpecificStoreArg, SigningIdentity, TimestampServer[TimestampServerIndex], FilesToSign);
+				string CodeSignArgs = String.Format("sign{0} /a /n \"{1}\" /t {2} /v {3}", SpecificStoreArg, SigningIdentity, TimestampServer[NumTrials % TimestampServer.Length], FilesToSign);
 
 				ProcessResult Result = CommandUtils.Run(SignToolName, CodeSignArgs, null, CommandUtils.ERunOptions.AllowSpew);
 				++NumTrials;
@@ -2619,17 +2824,9 @@ namespace AutomationTool
 				}
 				else
 				{
-					// try another timestamp server on the next iteration
-					TimestampServerIndex++;
-					if (TimestampServerIndex >= TimestampServer.Count())
-					{
-						// loop back to the first timestamp server
-						TimestampServerIndex = 0;
-					}
-					
 					// Keep retrying until we run out of time
-					TimeSpan RunTime = DateTime.Now - StartTime;
-					if (RunTime > CodeSignTimeOut)
+					TimeSpan RunTime = Stopwatch.Elapsed;
+					if (RunTime > CodeSignTimeOut && NumTrials >= TimestampServer.Length)
 					{
 						throw new AutomationException("Failed to sign executables {0} times over a period of {1}", NumTrials, RunTime);
 					}

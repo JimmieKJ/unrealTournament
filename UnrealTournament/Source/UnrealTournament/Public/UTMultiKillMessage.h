@@ -61,6 +61,14 @@ class UNREALTOURNAMENT_API UUTMultiKillMessage : public UUTLocalMessage
 		return IsLocalForAnnouncement(ClientData, true, true);
 	}
 
+	virtual void PrecacheAnnouncements_Implementation(UUTAnnouncer* Announcer) const override
+	{
+		for (int32 i = 0; i < AnnouncementNames.Num(); i++)
+		{
+			Announcer->PrecacheAnnouncement(AnnouncementNames[i]);
+		}
+	}
+
 	virtual FName GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject, const class APlayerState* RelatedPlayerState_1, const class APlayerState* RelatedPlayerState_2) const override
 	{
 		// Switch is MultiKillLevel - 1 (e.g. 0 is double kill)

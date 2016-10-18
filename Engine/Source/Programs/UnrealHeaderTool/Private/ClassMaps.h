@@ -14,8 +14,6 @@ struct FManifestModule;
 class FUnrealSourceFile;
 class FUnrealTypeDefinitionInfo;
 
-
-
 extern TMap<FString, TSharedRef<FUnrealSourceFile> > GUnrealSourceFilesMap;
 extern TMap<UField*, TSharedRef<FUnrealTypeDefinitionInfo> > GTypeDefinitionInfoMap;
 extern TMap<UClass*, FString> GClassStrippedHeaderTextMap;
@@ -28,6 +26,7 @@ extern TMap<UPackage*,  const FManifestModule*> GPackageToManifestModuleMap;
 extern TMap<UField*, uint32> GGeneratedCodeCRCs;
 extern TMap<UEnum*,  EPropertyType> GEnumUnderlyingTypes;
 extern TMap<FName, TSharedRef<FClassDeclarationMetaData> > GClassDeclarations;
+extern TSet<UProperty*> GUnsizedProperties;
 
 /** Types access specifiers. */
 enum EAccessSpecifier

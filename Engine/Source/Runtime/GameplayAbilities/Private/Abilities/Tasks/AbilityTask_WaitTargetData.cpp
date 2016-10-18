@@ -122,7 +122,7 @@ bool UAbilityTask_WaitTargetData::ShouldSpawnTargetActor() const
 
 	const AGameplayAbilityTargetActor* CDO = CastChecked<AGameplayAbilityTargetActor>(TargetClass->GetDefaultObject());
 
-	const bool bReplicates = CDO->GetReplicates();
+	const bool bReplicates = CDO->GetIsReplicated();
 	const bool bIsLocallyControlled = Ability->GetCurrentActorInfo()->IsLocallyControlled();
 	const bool bShouldProduceTargetDataOnServer = CDO->ShouldProduceTargetDataOnServer;
 
@@ -209,6 +209,7 @@ void UAbilityTask_WaitTargetData::OnTargetDataReplicatedCallback(const FGameplay
 {
 	check(AbilitySystemComponent);
 
+	FGameplayAbilityTargetDataHandle MutableData = Data;
 	AbilitySystemComponent->ConsumeClientReplicatedTargetData(GetAbilitySpecHandle(), GetActivationPredictionKey());
 
 	/** 
@@ -220,7 +221,6 @@ void UAbilityTask_WaitTargetData::OnTargetDataReplicatedCallback(const FGameplay
 	 *	explicitly, the client is basically just sending a 'confirm' and the server is now going to do the work
 	 *	in OnReplicatedTargetDataReceived.
 	 */
-	FGameplayAbilityTargetDataHandle MutableData = Data;
 	if (TargetActor && !TargetActor->OnReplicatedTargetDataReceived(MutableData))
 	{
 		Cancelled.Broadcast(MutableData);
@@ -282,6 +282,8 @@ void UAbilityTask_WaitTargetData::OnTargetDataReadyCallback(const FGameplayAbili
 void UAbilityTask_WaitTargetData::OnTargetDataCancelledCallback(const FGameplayAbilityTargetDataHandle& Data)
 {
 	check(AbilitySystemComponent);
+
+	FScopedPredictionWindow ScopedPrediction(AbilitySystemComponent, IsPredictingClient());
 
 	if (IsPredictingClient())
 	{

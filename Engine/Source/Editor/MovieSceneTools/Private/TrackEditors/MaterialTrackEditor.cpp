@@ -133,7 +133,7 @@ void FMaterialTrackEditor::AddScalarParameter( FGuid ObjectBinding, UMovieSceneM
 		MaterialTrack->Modify();
 		MaterialTrack->AddScalarParameterKey(ParameterName, KeyTime, ParameterValue);
 	}
-	NotifyMovieSceneDataChanged();
+	GetSequencer()->NotifyMovieSceneDataChanged( EMovieSceneDataChangeType::MovieSceneStructureItemAdded );
 }
 
 
@@ -151,7 +151,7 @@ void FMaterialTrackEditor::AddColorParameter( FGuid ObjectBinding, UMovieSceneMa
 		MaterialTrack->Modify();
 		MaterialTrack->AddColorParameterKey( ParameterName, KeyTime, ParameterValue );
 	}
-	NotifyMovieSceneDataChanged();
+	GetSequencer()->NotifyMovieSceneDataChanged( EMovieSceneDataChangeType::MovieSceneStructureItemAdded );
 }
 
 
@@ -175,8 +175,13 @@ bool FComponentMaterialTrackEditor::SupportsType( TSubclassOf<UMovieSceneTrack> 
 
 UMaterialInterface* FComponentMaterialTrackEditor::GetMaterialInterfaceForTrack( FGuid ObjectBinding, UMovieSceneMaterialTrack* MaterialTrack )
 {
-	UObject* ComponentObject = GetSequencer()->GetFocusedMovieSceneSequenceInstance()->FindObject( ObjectBinding, *GetSequencer() );
-	UPrimitiveComponent* Component = Cast<UPrimitiveComponent>( ComponentObject );
+	TSharedPtr<ISequencer> SequencerPtr = GetSequencer();
+	if (!SequencerPtr.IsValid())
+	{
+		return nullptr;
+	}
+
+	UPrimitiveComponent* Component = Cast<UPrimitiveComponent>(SequencerPtr->FindSpawnedObjectOrTemplate( ObjectBinding ));
 	UMovieSceneComponentMaterialTrack* ComponentMaterialTrack = Cast<UMovieSceneComponentMaterialTrack>( MaterialTrack );
 	if ( Component != nullptr && ComponentMaterialTrack != nullptr )
 	{

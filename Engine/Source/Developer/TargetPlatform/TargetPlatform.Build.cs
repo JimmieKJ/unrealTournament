@@ -35,6 +35,7 @@ public class TargetPlatform : ModuleRules
 
                 // these are needed by multiple platform specific target platforms, so we make sure they are built with the base editor
                 DynamicallyLoadedModuleNames.Add("ShaderFormatD3D");
+				DynamicallyLoadedModuleNames.Add("MetalShaderFormat");
 
                 if (UEBuildConfiguration.bCompileLeanAndMeanUE == false)
 				{
@@ -65,6 +66,10 @@ public class TargetPlatform : ModuleRules
                     DynamicallyLoadedModuleNames.Add("IOSTargetPlatform");
 					DynamicallyLoadedModuleNames.Add("TVOSTargetPlatform");
                     DynamicallyLoadedModuleNames.Add("HTML5TargetPlatform");
+					DynamicallyLoadedModuleNames.Add("MacTargetPlatform");
+					DynamicallyLoadedModuleNames.Add("MacNoEditorTargetPlatform");
+					DynamicallyLoadedModuleNames.Add("MacServerTargetPlatform");
+					DynamicallyLoadedModuleNames.Add("MacClientTargetPlatform");
 				}
 			}
 			else if (Target.Platform == UnrealTargetPlatform.Mac)

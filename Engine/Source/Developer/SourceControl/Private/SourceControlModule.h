@@ -22,6 +22,7 @@ public:
 	virtual void ShutdownModule() override;
 
 	/** ISourceControlModule implementation */
+	virtual void GetProviderNames(TArray<FName>& OutProviderNames) override;
 	virtual void Tick() override;
 	virtual void QueueStatusUpdate(const TArray<UPackage*>& InPackages) override;
 	virtual void QueueStatusUpdate(const TArray<FString>& InFilenames) override;

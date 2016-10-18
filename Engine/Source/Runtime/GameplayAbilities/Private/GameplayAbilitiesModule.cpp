@@ -60,6 +60,11 @@ void FGameplayAbilitiesModule::StartupModule()
 	GameplayDebuggerModule.RegisterCategory("Abilities", IGameplayDebugger::FOnGetCategory::CreateStatic(&FGameplayDebuggerCategory_Abilities::MakeInstance));
 	GameplayDebuggerModule.NotifyCategoriesChanged();
 #endif // WITH_GAMEPLAY_DEBUGGER
+
+	if (!IsRunningDedicatedServer())
+	{
+		AHUD::OnShowDebugInfo.AddStatic(&UAbilitySystemComponent::OnShowDebugInfo);
+	}
 }
 
 void FGameplayAbilitiesModule::ShutdownModule()

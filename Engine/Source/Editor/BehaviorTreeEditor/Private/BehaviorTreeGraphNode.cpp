@@ -184,6 +184,29 @@ void UBehaviorTreeGraphNode::FindDiffs(UEdGraphNode* OtherNode, FDiffResults& Re
 	}
 }
 
+#if WITH_EDITOR
+void UBehaviorTreeGraphNode::PostEditUndo()
+{
+	Super::PostEditUndo();
+
+	UBehaviorTreeGraphNode* MyParentNode = Cast<UBehaviorTreeGraphNode>(ParentNode);
+	if (MyParentNode)
+	{
+		const bool bIsDecorator = (Cast<UBTDecorator>(NodeInstance) != nullptr) || IsA(UBehaviorTreeGraphNode_CompositeDecorator::StaticClass());
+		const bool bIsService = Cast<UBTService>(NodeInstance) != nullptr;
+
+		if (bIsDecorator)
+		{
+			MyParentNode->Decorators.AddUnique(this);
+		}
+		else if (bIsService)
+		{
+			MyParentNode->Services.AddUnique(this);
+		}
+	}
+}
+#endif
+
 void UBehaviorTreeGraphNode::OnSubNodeAdded(UAIGraphNode* NodeTemplate)
 {
 	UBehaviorTreeGraphNode* BTGraphNode = Cast<UBehaviorTreeGraphNode>(NodeTemplate);

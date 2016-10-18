@@ -170,14 +170,14 @@ TSharedRef<SDockTab> SSessionFrontend::HandleTabManagerSpawnTab( const FSpawnTab
 		IAutomationControllerManagerPtr AutomationController = AutomationControllerModule.GetAutomationController();
 		IAutomationWindowModule& AutomationWindowModule = FModuleManager::LoadModuleChecked<IAutomationWindowModule>("AutomationWindow");
 
-		AutomationController->OnShutdown().BindRaw(this, &SSessionFrontend::HandleAutomationModuleShutdown);
+		AutomationController->OnShutdown().AddSP(this, &SSessionFrontend::HandleAutomationModuleShutdown);
 
 		TabWidget = AutomationWindowModule.CreateAutomationWindow(
 			AutomationController.ToSharedRef(),
 			SessionManager.ToSharedRef()
 		);
 
-		AutomationWindowModule.OnShutdown().BindRaw(this, &SSessionFrontend::HandleAutomationModuleShutdown);
+		AutomationWindowModule.OnShutdown().BindSP(this, &SSessionFrontend::HandleAutomationModuleShutdown);
 	}
 	else if (TabIdentifier == ProfilerTabId)
 	{

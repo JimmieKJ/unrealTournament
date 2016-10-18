@@ -71,13 +71,13 @@ FText FGameplayAbilitiesEditor::GetBaseToolkitName() const
 
 FText FGameplayAbilitiesEditor::GetToolkitName() const
 {
-	const auto EditingObjects = GetEditingObjects();
+	const TArray<UObject*>& EditingObjs = GetEditingObjects();
 
-	check(EditingObjects.Num() > 0);
+	check(EditingObjs.Num() > 0);
 
 	FFormatNamedArguments Args;
 
-	const UObject* EditingObject = EditingObjects[0];
+	const UObject* EditingObject = EditingObjs[0];
 
 	const bool bDirtyState = EditingObject->GetOutermost()->IsDirty();
 
@@ -107,12 +107,15 @@ FLinearColor FGameplayAbilitiesEditor::GetWorldCentricTabColorScale() const
 
 UBlueprint* FGameplayAbilitiesEditor::GetBlueprintObj() const
 {
-	auto EditingObjects = GetEditingObjects();
-	for (int32 i = 0; i < EditingObjects.Num(); ++i)
+	const TArray<UObject*>& EditingObjs = GetEditingObjects();
+	for (int32 i = 0; i < EditingObjs.Num(); ++i)
 	{
-		if (EditingObjects[i]->IsA<UGameplayAbilityBlueprint>()) { return (UBlueprint*)EditingObjects[i]; }
+		if (EditingObjs[i]->IsA<UGameplayAbilityBlueprint>()) 
+		{ 
+			return (UBlueprint*)EditingObjs[i]; 
+		}
 	}
-	return NULL;
+	return nullptr;
 }
 
 FString FGameplayAbilitiesEditor::GetDocumentationLink() const

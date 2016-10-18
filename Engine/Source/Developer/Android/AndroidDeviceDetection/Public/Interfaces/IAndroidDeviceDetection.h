@@ -31,12 +31,16 @@ struct FAndroidDeviceInfo
 	int32 GLESVersion;
 
 	// Is the device authorized for USB communication?  If not, then none of the other properties besides the serial number will be valid
-	bool bUnauthorizedDevice;
+	bool bAuthorizedDevice;
+
+	// TCP port number on our local host forwarded over adb to the device
+	uint16 HostMessageBusPort;
 
 	FAndroidDeviceInfo()
 		: SDKVersion(INDEX_NONE)
 		, GLESVersion(INDEX_NONE)
-		, bUnauthorizedDevice(false)
+		, bAuthorizedDevice(true)
+		, HostMessageBusPort(0)
 	{
 	}
 };

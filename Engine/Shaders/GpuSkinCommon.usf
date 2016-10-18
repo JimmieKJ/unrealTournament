@@ -4,10 +4,6 @@
 	GpuSkinCacheCommon.usf: Common properties and defines for GPU Skinning Cache
 =============================================================================*/
 
-#ifndef GPUSKIN_USE_EXTRA_INFLUENCES
-#define GPUSKIN_USE_EXTRA_INFLUENCES 0
-#endif
-
 // These offsets are in uint32/floats; they attempt to match TGPUSkinVertexBase<> & derived classes:
 //	TGPUSkinVertexBase<false>
 //	TGPUSkinVertexBase<true>

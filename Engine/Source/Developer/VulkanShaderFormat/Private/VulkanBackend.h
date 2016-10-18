@@ -8,10 +8,12 @@
 class FVulkanLanguageSpec : public ILanguageSpec
 {
 protected:
-	bool bIsES2;
+	bool bShareSamplers;
 
 public:
-	FVulkanLanguageSpec(bool bInIsES2) : bIsES2(bInIsES2) {}
+	FVulkanLanguageSpec(bool bInShareSamplers)
+		: bShareSamplers(bInShareSamplers)
+	{}
 
 	virtual bool SupportsDeterminantIntrinsic() const override
 	{
@@ -32,13 +34,12 @@ public:
 
 	virtual void SetupLanguageIntrinsics(_mesa_glsl_parse_state* State, exec_list* ir) override;
 
-	//#todo-rco: Enable
-	virtual bool AllowsSharingSamplers() const override { return false; }
+	virtual bool AllowsSharingSamplers() const override { return bShareSamplers; }
 };
 
 class ir_variable;
 
-// Generates GLSL compliant code from IR tokens
+// Generates Vulkan compliant code from IR tokens
 #ifdef __GNUC__
 #pragma GCC visibility push(default)
 #endif // __GNUC__
@@ -47,10 +48,12 @@ struct FVulkanBindingTable
 {
 	enum EBindingType : uint16
 	{
-		TYPE_SAMPLER,
+		TYPE_COMBINED_IMAGE_SAMPLER,
 		TYPE_SAMPLER_BUFFER,
 		TYPE_UNIFORM_BUFFER,
 		TYPE_PACKED_UNIFORM_BUFFER,
+		TYPE_SAMPLER,
+		TYPE_IMAGE,
 
 		TYPE_MAX,
 	};

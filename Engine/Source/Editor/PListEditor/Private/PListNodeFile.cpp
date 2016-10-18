@@ -62,7 +62,7 @@ TSharedRef<ITableRow> FPListNodeFile::GenerateWidget(const TSharedRef<STableView
 }
 
 /** Generate a widget for the specified column name */
-TSharedRef<SWidget> FPListNodeFile::GenerateWidgetForColumn(const FName& ColumnName, int32 Depth, ITableRow* RowPtr) 
+TSharedRef<SWidget> FPListNodeFile::GenerateWidgetForColumn(const FName& ColumnName, int32 InDepth, ITableRow* RowPtr) 
 {
 	return GenerateInvalidRow(NSLOCTEXT("PListNodeArray", "PListNodeFileArrayUsesColumns", "PListNodeFile does not use columns"));
 }

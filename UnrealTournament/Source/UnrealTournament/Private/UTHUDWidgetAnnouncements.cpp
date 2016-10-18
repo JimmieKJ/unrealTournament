@@ -38,8 +38,7 @@ void UUTHUDWidgetAnnouncements::DrawMessages(float DeltaTime)
 	{
 		// skip empty entries
 		if ((MessageQueue[QueueIndex].MessageClass == NULL) || MessageQueue[QueueIndex].bHasBeenRendered 
-			|| (bIsAtIntermission && !GetDefault<UUTLocalMessage>(MessageQueue[QueueIndex].MessageClass)->bDrawAtIntermission)
-			|| (bNoLivePawnTarget && GetDefault<UUTLocalMessage>(MessageQueue[QueueIndex].MessageClass)->bDrawOnlyIfAlive))
+			|| !MessageQueue[QueueIndex].MessageClass.GetDefaultObject()->ShouldDrawMessage(MessageQueue[QueueIndex].MessageIndex, UTPlayerOwner, bIsAtIntermission, bNoLivePawnTarget))
 		{
 			continue;
 		}
@@ -74,9 +73,13 @@ void UUTHUDWidgetAnnouncements::AddMessage(int32 InQueueIndex, TSubclassOf<class
 			break;
 		}
 	}
+
+	FAnnouncementInfo NewAnnouncement(MessageClass, MessageIndex, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject, 0.f);
+	MessageQueue[InQueueIndex].AnnouncementInfo = NewAnnouncement;
 	for (int32 i = 0; i < MessageQueue.Num(); i++)
 	{
-		if ((i != InQueueIndex) && (MessageQueue[i].MessageClass != nullptr) && (MessageQueue[i].RequestedSlot == MessageQueue[InQueueIndex].RequestedSlot) && MessageQueue[InQueueIndex].MessageClass.GetDefaultObject()->InterruptAnnouncement(MessageQueue[InQueueIndex].MessageIndex, MessageQueue[InQueueIndex].OptionalObject, MessageQueue[i].MessageClass, MessageQueue[i].MessageIndex, MessageQueue[i].OptionalObject))
+		if ((i != InQueueIndex) && (MessageQueue[i].MessageClass != nullptr) && (MessageQueue[i].RequestedSlot == MessageQueue[InQueueIndex].RequestedSlot) 
+			&& MessageQueue[InQueueIndex].MessageClass.GetDefaultObject()->InterruptAnnouncement(NewAnnouncement, MessageQueue[i].AnnouncementInfo))
 		{
 			ClearMessage(MessageQueue[i]);
 		}

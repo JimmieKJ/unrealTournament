@@ -5,7 +5,7 @@
 #include "SkeletalRenderPublic.h"
 #include "AnimationRuntime.h"
 #include "AnimPreviewInstance.h"
-#include "Animation/VertexAnim/VertexAnimation.h"
+#include "Animation/AnimComposite.h"
 #include "Animation/AnimInstance.h"
 #include "Animation/BlendSpace.h"
 
@@ -43,8 +43,7 @@ public:
 			// We don't want to draw the mesh geometry to the hit testing render target
 			// so that we can get to triangle strips that are partially obscured by other
 			// triangle strips easier.
-			const bool bSelectable = false;
-			GetMeshElementsConditionallySelectable(Views, ViewFamily, bSelectable, VisibilityMap, Collector);
+			GetMeshElementsConditionallySelectable(Views, ViewFamily, /*bSelectable=*/false, VisibilityMap, Collector);
 		}
 
 		//@todo - the rendering thread should never read from UObjects directly!  These are race conditions, the properties should be mirrored on the proxy
@@ -106,7 +105,7 @@ FBoxSphereBounds UDebugSkelMeshComponent::CalcBounds(const FTransform& LocalToWo
 	{
 		// extend bounds by bones but without root bone
 		FBox BoundingBox(0);
-		const int32 NumBones = GetNumSpaceBases();
+		const int32 NumBones = GetNumComponentSpaceTransforms();
 		for (int32 BoneIndex = 1; BoneIndex < NumBones; ++BoneIndex)
 		{
 			BoundingBox += GetBoneMatrix(BoneIndex).GetOrigin();
@@ -182,7 +181,7 @@ void UDebugSkelMeshComponent::ConsumeRootMotion(const FVector& FloorMin, const F
 	{
 		if (ExtractedRootMotion.bHasRootMotion)
 		{
-			AddLocalTransform(ExtractedRootMotion.RootMotionTransform);
+			AddLocalTransform(ExtractedRootMotion.GetRootMotionTransform());
 
 			//Handle moving component so that it stays within the editor floor
 			FTransform CurrentTransform = GetRelativeTransform();
@@ -247,7 +246,6 @@ FString UDebugSkelMeshComponent::GetPreviewText() const
 	if (IsPreviewOn())
 	{
 		UAnimationAsset* CurrentAsset = PreviewInstance->GetCurrentAsset();
-		UVertexAnimation* CurrentVertexAnim = PreviewInstance->GetCurrentVertexAnimation();
 		if (UBlendSpaceBase* BlendSpace = Cast<UBlendSpaceBase>(CurrentAsset))
 		{
 			return FText::Format( LOCTEXT("BlendSpace", "Blend Space {0}"), FText::FromString(BlendSpace->GetName()) ).ToString();
@@ -263,10 +261,6 @@ FString UDebugSkelMeshComponent::GetPreviewText() const
 		else if (UAnimSequence* Sequence = Cast<UAnimSequence>(CurrentAsset))
 		{
 			return FText::Format( LOCTEXT("Animation", "Animation {0}"), FText::FromString(Sequence->GetName()) ).ToString();
-		}
-		else if (UVertexAnimation* VertAnim = Cast<UVertexAnimation>(CurrentVertexAnim))
-		{
-			return FText::Format( LOCTEXT("VertexAnim", "VertexAnim {0}"), FText::FromString(VertAnim->GetName()) ).ToString();
 		}
 	}
 
@@ -302,7 +296,7 @@ void UDebugSkelMeshComponent::InitAnim(bool bForceReinit)
 
 	// if anim script instance is null because it's not playing a blueprint, set to PreviewInstnace by default
 	// that way if user would like to modify bones or do extra stuff, it will work
-	if ((AnimationMode != EAnimationMode::AnimationBlueprint) && (AnimScriptInstance == NULL))
+	if (AnimScriptInstance == NULL)
 	{
 		AnimScriptInstance = PreviewInstance;
 		AnimScriptInstance->InitializeAnimation();
@@ -314,47 +308,37 @@ bool UDebugSkelMeshComponent::IsWindEnabled() const
 	return bEnableWind;
 }
 
-void UDebugSkelMeshComponent::EnablePreview(bool bEnable, UAnimationAsset* PreviewAsset, UVertexAnimation* PreviewVertexAnim)
+void UDebugSkelMeshComponent::EnablePreview(bool bEnable, UAnimationAsset* PreviewAsset)
 {
 	if (PreviewInstance)
 	{
 		if (bEnable)
 		{
-				// back up current AnimInstance if not currently previewing anything
-				if (!IsPreviewOn())
-				{
-					SavedAnimScriptInstance = AnimScriptInstance;
-				}
+			// back up current AnimInstance if not currently previewing anything
+			if (!IsPreviewOn())
+			{
+				SavedAnimScriptInstance = AnimScriptInstance;
+			}
 
-				AnimScriptInstance = PreviewInstance;
+			AnimScriptInstance = PreviewInstance;
 
 #if WITH_APEX_CLOTHING
-			    // turn off these options when playing animations because max distances / back stops don't have meaning while moving
-			    bDisplayClothMaxDistances = false;
-				bDisplayClothBackstops = false;
-			    // restore previous state
-			    bDisableClothSimulation = bPrevDisableClothSimulation;
+		    // turn off these options when playing animations because max distances / back stops don't have meaning while moving
+		    bDisplayClothMaxDistances = false;
+			bDisplayClothBackstops = false;
+		    // restore previous state
+		    bDisableClothSimulation = bPrevDisableClothSimulation;
 #endif // #if WITH_APEX_CLOTHING
     
-				if(PreviewAsset)
-				{
-					PreviewInstance->SetVertexAnimation(NULL);
-					PreviewInstance->SetAnimationAsset(PreviewAsset);
-				}
-				else
-				{
-					PreviewInstance->SetAnimationAsset(NULL);
-					PreviewInstance->SetVertexAnimation(PreviewVertexAnim);
-				}
-			}
+			PreviewInstance->SetAnimationAsset(PreviewAsset);
+		}
 		else if (IsPreviewOn())
 		{
 			if (PreviewInstance->GetCurrentAsset() == PreviewAsset || PreviewAsset == NULL)
 			{
 				// now recover to saved AnimScriptInstance;
 				AnimScriptInstance = SavedAnimScriptInstance;
-				PreviewInstance->SetAnimationAsset(NULL);
-				PreviewInstance->SetVertexAnimation(NULL);
+				PreviewInstance->SetAnimationAsset(nullptr);
 			}
 		}
 	}
@@ -362,19 +346,19 @@ void UDebugSkelMeshComponent::EnablePreview(bool bEnable, UAnimationAsset* Previ
 
 bool UDebugSkelMeshComponent::ShouldCPUSkin()
 {
-	return bDrawBoneInfluences || bDrawNormals || bDrawTangents || bDrawBinormals;
+	return 	bCPUSkinning || bDrawBoneInfluences || bDrawNormals || bDrawTangents || bDrawBinormals;
 }
 
 
-void UDebugSkelMeshComponent::PostInitMeshObject(FSkeletalMeshObject* MeshObject)
+void UDebugSkelMeshComponent::PostInitMeshObject(FSkeletalMeshObject* InMeshObject)
 {
-	Super::PostInitMeshObject( MeshObject );
+	Super::PostInitMeshObject( InMeshObject );
 
-	if (MeshObject)
+	if (InMeshObject)
 	{
 		if(bDrawBoneInfluences)
 		{
-			MeshObject->EnableBlendWeightRendering(true, BonesOfInterest);
+			InMeshObject->EnableBlendWeightRendering(true, BonesOfInterest);
 		}
 	}
 }
@@ -417,11 +401,13 @@ void UDebugSkelMeshComponent::SetShowBoneWeight(bool bNewShowBoneWeight)
 
 void UDebugSkelMeshComponent::GenSpaceBases(TArray<FTransform>& OutSpaceBases)
 {
-	TArray<FTransform> TempLocalAtoms;
-	TempLocalAtoms.AddUninitialized(OutSpaceBases.Num());
+	TArray<FTransform> TempBoneSpaceTransforms;
+	TempBoneSpaceTransforms.AddUninitialized(OutSpaceBases.Num());
 	FVector TempRootBoneTranslation;
 	FBlendedHeapCurve TempCurve;
-	PerformAnimationEvaluation(SkeletalMesh, AnimScriptInstance, OutSpaceBases, TempLocalAtoms, TempRootBoneTranslation, TempCurve);
+	PreviewInstance->PrePerformAnimationEvaluation();
+	PerformAnimationEvaluation(SkeletalMesh, AnimScriptInstance, OutSpaceBases, TempBoneSpaceTransforms, TempRootBoneTranslation, TempCurve);
+	PreviewInstance->PostPerformAnimationEvaluation();
 }
 
 void UDebugSkelMeshComponent::RefreshBoneTransforms(FActorComponentTickFunction* TickFunction)
@@ -576,7 +562,7 @@ void UDebugSkelMeshComponent::ToggleClothSectionsVisibility(bool bShowOnlyClothS
 				if (bShowOnlyClothSections)
 				{
 					// enables only cloth sections
-					if (LODModel.Chunks[Section.ChunkIndex].HasApexClothData())
+					if (Section.HasApexClothData())
 					{
 						Section.bDisabled = false;
 					}
@@ -587,7 +573,7 @@ void UDebugSkelMeshComponent::ToggleClothSectionsVisibility(bool bShowOnlyClothS
 				}
 				else
 				{   // disables cloth sections and also corresponding original sections
-					if (LODModel.Chunks[Section.ChunkIndex].HasApexClothData())
+					if (Section.HasApexClothData())
 					{
 						Section.bDisabled = true;
 						LODModel.Sections[Section.CorrespondClothSectionIndex].bDisabled = true;
@@ -631,7 +617,7 @@ void UDebugSkelMeshComponent::RestoreClothSectionsVisibility()
 			{
 				FSkelMeshSection& Section = LODModel.Sections[SecIdx];
 
-				if(LODModel.Chunks[Section.ChunkIndex].HasApexClothData())
+				if(Section.HasApexClothData())
 				{
 					LODModel.Sections[Section.CorrespondClothSectionIndex].bDisabled = true;
 				}
@@ -678,7 +664,7 @@ int32 UDebugSkelMeshComponent::FindCurrentSectionDisplayMode()
 		{
 			FSkelMeshSection& Section = LODModel.Sections[SecIdx];
 
-			if (LODModel.Chunks[Section.ChunkIndex].HasApexClothData())
+			if (Section.HasApexClothData())
 			{
 				// Normal state if the cloth section is visible and the corresponding section is disabled
 				if (Section.bDisabled == false &&
@@ -698,7 +684,7 @@ int32 UDebugSkelMeshComponent::FindCurrentSectionDisplayMode()
 			FSkelMeshSection& Section = LODModel.Sections[SecIdx];
 
 			// not related to cloth sections
-			if (!LODModel.Chunks[Section.ChunkIndex].HasApexClothData() &&
+			if (!Section.HasApexClothData() &&
 				Section.CorrespondClothSectionIndex < 0)
 			{
 				bFoundNonClothSection = true;
@@ -737,9 +723,9 @@ void UDebugSkelMeshComponent::TickComponent(float DeltaTime, enum ELevelTick Tic
 		FRotator Rotation = GetRelativeTransform().Rotator();
 		// Take into account time dilation, so it doesn't affect turn table turn rate.
 		float CurrentTimeDilation = 1.0f;
-		if(GetWorld())
+		if (UWorld* MyWorld = GetWorld())
 		{
-			CurrentTimeDilation = GetWorld()->GetWorldSettings()->GetEffectiveTimeDilation();
+			CurrentTimeDilation = MyWorld->GetWorldSettings()->GetEffectiveTimeDilation();
 		}
 		Rotation.Yaw += 36.f * TurnTableSpeedScaling * DeltaTime / FMath::Max(CurrentTimeDilation, KINDA_SMALL_NUMBER);
 		SetRelativeRotation(Rotation);

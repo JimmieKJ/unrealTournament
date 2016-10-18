@@ -15,8 +15,6 @@
 #include "Apple/ApplePlatformAtomics.h"
 #elif PLATFORM_ANDROID
 #include "Android/AndroidAtomics.h"
-#elif PLATFORM_WINRT
-#include "WinRT/WinRTAtomics.h"
 #elif PLATFORM_HTML5
 #include "HTML5/HTML5PlatformAtomics.h"
 #elif PLATFORM_LINUX

@@ -13,8 +13,10 @@
 
 #include "BehaviorTree/TestBTTask_Log.h"
 #include "BehaviorTree/TestBTTask_SetFlag.h"
+#include "BehaviorTree/TestBTTask_SetValue.h"
 #include "BehaviorTree/TestBTTask_LatentWithFlags.h"
 #include "BehaviorTree/TestBTDecorator_DelayedAbort.h"
+#include "BehaviorTree/TestBTService_Log.h"
 
 struct FBTBuilder
 {
@@ -37,6 +39,10 @@ struct FBTBuilder
 
 		KeyData.EntryName = TEXT("Bool4");
 		KeyData.KeyType = NewObject<UBlackboardKeyType_Bool>();
+		BB->Keys.Add(KeyData);
+
+		KeyData.EntryName = TEXT("Int");
+		KeyData.KeyType = NewObject<UBlackboardKeyType_Int>();
 		BB->Keys.Add(KeyData);
 
 		BB->UpdateParentKeys();
@@ -148,6 +154,17 @@ struct FBTBuilder
 		ParentNode.Children[ChildIdx].ChildTask = TaskNode;
 	}
 
+	static void AddTaskValueChange(UBTCompositeNode& ParentNode, int32 Value, EBTNodeResult::Type NodeResult, FName IntKeyName = TEXT("Int"))
+	{
+		UTestBTTask_SetValue* TaskNode = NewObject<UTestBTTask_SetValue>(ParentNode.GetTreeAsset());
+		TaskNode->Value = Value;
+		TaskNode->TaskResult = NodeResult;
+		TaskNode->KeyName = IntKeyName;
+
+		const int32 ChildIdx = ParentNode.Children.AddZeroed(1);
+		ParentNode.Children[ChildIdx].ChildTask = TaskNode;
+	}
+
 	static void AddTaskSubtree(UBTCompositeNode& ParentNode, UBehaviorTree* TreeAsset)
 	{
 		UBTTask_RunBehavior* TaskNode = NewObject<UBTTask_RunBehavior>(ParentNode.GetTreeAsset());
@@ -190,7 +207,7 @@ struct FBTBuilder
 	static void WithDecoratorBlackboard(UBTCompositeNode& ParentNode, EBasicKeyOperation::Type Condition, EBTFlowAbortMode::Type Observer, FName BoolKeyName = TEXT("Bool1"))
 	{
 		UBTDecorator_Blackboard& BBDecorator = WithDecorator<UBTDecorator_Blackboard>(ParentNode);
-		
+
 		UByteProperty* ConditionProp = FindField<UByteProperty>(UBTDecorator_Blackboard::StaticClass(), TEXT("OperationType"));
 		uint8* ConditionPropData = ConditionProp->ContainerPtrToValuePtr<uint8>(&BBDecorator);
 		ConditionProp->SetIntPropertyValue(ConditionPropData, (uint64)Condition);
@@ -204,6 +221,31 @@ struct FBTBuilder
 		KeyPropData->SelectedKeyName = BoolKeyName;
 	}
 
+	static void WithDecoratorBlackboard(UBTCompositeNode& ParentNode, EArithmeticKeyOperation::Type Condition, int32 Value, EBTFlowAbortMode::Type Observer, EBTBlackboardRestart::Type NotifyMode, FName IntKeyName = TEXT("Int"))
+	{
+		UBTDecorator_Blackboard& BBDecorator = WithDecorator<UBTDecorator_Blackboard>(ParentNode);
+
+		UByteProperty* ConditionProp = FindField<UByteProperty>(UBTDecorator_Blackboard::StaticClass(), TEXT("OperationType"));
+		uint8* ConditionPropData = ConditionProp->ContainerPtrToValuePtr<uint8>(&BBDecorator);
+		ConditionProp->SetIntPropertyValue(ConditionPropData, (uint64)Condition);
+
+		UByteProperty* ObserverProp = FindField<UByteProperty>(UBTDecorator_Blackboard::StaticClass(), TEXT("FlowAbortMode"));
+		uint8* ObserverPropData = ObserverProp->ContainerPtrToValuePtr<uint8>(&BBDecorator);
+		ObserverProp->SetIntPropertyValue(ObserverPropData, (uint64)Observer);
+
+		UByteProperty* NotifyModeProp = FindField<UByteProperty>(UBTDecorator_Blackboard::StaticClass(), TEXT("NotifyObserver"));
+		uint8* NotifyModePropData = NotifyModeProp->ContainerPtrToValuePtr<uint8>(&BBDecorator);
+		NotifyModeProp->SetIntPropertyValue(NotifyModePropData, (uint64)NotifyMode);
+
+		UIntProperty* ConditionValueProp = FindField<UIntProperty>(UBTDecorator_Blackboard::StaticClass(), TEXT("IntValue"));
+		uint8* ConditionValuePropData = ConditionValueProp->ContainerPtrToValuePtr<uint8>(&BBDecorator);
+		ConditionValueProp->SetIntPropertyValue(ConditionValuePropData, (uint64)Value);
+
+		UStructProperty* KeyProp = FindField<UStructProperty>(UBTDecorator_Blackboard::StaticClass(), TEXT("BlackboardKey"));
+		FBlackboardKeySelector* KeyPropData = KeyProp->ContainerPtrToValuePtr<FBlackboardKeySelector>(&BBDecorator);
+		KeyPropData->SelectedKeyName = IntKeyName;
+	}
+
 	static void WithDecoratorDelayedAbort(UBTCompositeNode& ParentNode, int32 NumTicks, bool bAbortOnlyOnce = true)
 	{
 		UTestBTDecorator_DelayedAbort& AbortDecorator = WithDecorator<UTestBTDecorator_DelayedAbort>(ParentNode);
@@ -215,5 +257,40 @@ struct FBTBuilder
 	{
 		UBTDecorator_Loop& LoopDecorator = WithDecorator<UBTDecorator_Loop>(ParentNode);
 		LoopDecorator.NumLoops = NumLoops;
+	}
+	
+	template<class T>
+	static T& WithService(UBTCompositeNode& ParentNode, UClass* ServiceClass = T::StaticClass())
+	{
+		T* ServiceOb = NewObject<T>(ParentNode.GetTreeAsset());
+		ParentNode.Services.Add(ServiceOb);
+
+		return *ServiceOb;
+	}
+
+	static void WithServiceLog(UBTCompositeNode& ParentNode, int32 ActivationIndex, int32 DeactivationIndex)
+	{
+		UTestBTService_Log& LogService = WithService<UTestBTService_Log>(ParentNode);
+		LogService.LogActivation = ActivationIndex;
+		LogService.LogDeactivation = DeactivationIndex;
+	}
+
+	template<class T>
+	static T& WithTaskService(UBTCompositeNode& ParentNode, UClass* ServiceClass = T::StaticClass())
+	{
+		UBTTaskNode* TaskNode = ParentNode.Children.Last().ChildTask;
+		check(TaskNode);
+
+		T* ServiceOb = NewObject<T>(ParentNode.GetTreeAsset());
+		TaskNode->Services.Add(ServiceOb);
+
+		return *ServiceOb;
+	}
+
+	static void WithTaskServiceLog(UBTCompositeNode& ParentNode, int32 ActivationIndex, int32 DeactivationIndex)
+	{
+		UTestBTService_Log& LogService = WithTaskService<UTestBTService_Log>(ParentNode);
+		LogService.LogActivation = ActivationIndex;
+		LogService.LogDeactivation = DeactivationIndex;
 	}
 };

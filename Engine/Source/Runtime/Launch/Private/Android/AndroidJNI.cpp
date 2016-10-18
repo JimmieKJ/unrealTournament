@@ -61,6 +61,7 @@ void FJavaWrapper::FindClassesAndMethods(JNIEnv* Env)
 	AndroidThunkJava_GetMetaDataBoolean = FindMethod(Env, GameActivityClassID, "AndroidThunkJava_GetMetaDataBoolean", "(Ljava/lang/String;)Z", bIsOptional);
 	AndroidThunkJava_GetMetaDataInt = FindMethod(Env, GameActivityClassID, "AndroidThunkJava_GetMetaDataInt", "(Ljava/lang/String;)I", bIsOptional);
 	AndroidThunkJava_GetMetaDataString = FindMethod(Env, GameActivityClassID, "AndroidThunkJava_GetMetaDataString", "(Ljava/lang/String;)Ljava/lang/String;", bIsOptional);
+	AndroidThunkJava_ShowHiddenAlertDialog = FindMethod(Env, GameActivityClassID, "AndroidThunkJava_ShowHiddenAlertDialog", "()V", bIsOptional);
 
 	// this is optional - only inserted if GearVR plugin enabled
 	AndroidThunkJava_IsGearVRApplication = FindMethod(Env, GameActivityClassID, "AndroidThunkJava_IsGearVRApplication", "()Z", true);
@@ -84,6 +85,8 @@ void FJavaWrapper::FindClassesAndMethods(JNIEnv* Env)
 	AndroidThunkJava_ShowAdBanner = FindMethod(Env, GoogleServicesClassID, "AndroidThunkJava_ShowAdBanner", "(Ljava/lang/String;Z)V", bIsOptional);
 	AndroidThunkJava_HideAdBanner = FindMethod(Env, GoogleServicesClassID, "AndroidThunkJava_HideAdBanner", "()V", bIsOptional);
 	AndroidThunkJava_CloseAdBanner = FindMethod(Env, GoogleServicesClassID, "AndroidThunkJava_CloseAdBanner", "()V", bIsOptional);
+	AndroidThunkJava_GoogleClientConnect = FindMethod(Env, GoogleServicesClassID, "AndroidThunkJava_GoogleClientConnect", "()V", bIsOptional);
+	AndroidThunkJava_GoogleClientDisconnect = FindMethod(Env, GoogleServicesClassID, "AndroidThunkJava_GoogleClientDisconnect", "()V", bIsOptional);
 
 	// In app purchase functionality
 	jclass localStringClass = Env->FindClass("java/lang/String");
@@ -93,7 +96,7 @@ void FJavaWrapper::FindClassesAndMethods(JNIEnv* Env)
 	AndroidThunkJava_IapQueryInAppPurchases = FindMethod(Env, GoogleServicesClassID, "AndroidThunkJava_IapQueryInAppPurchases", "([Ljava/lang/String;[Z)Z", bIsOptional);
 	AndroidThunkJava_IapBeginPurchase = FindMethod(Env, GoogleServicesClassID, "AndroidThunkJava_IapBeginPurchase", "(Ljava/lang/String;Z)Z", bIsOptional);
 	AndroidThunkJava_IapIsAllowedToMakePurchases = FindMethod(Env, GoogleServicesClassID, "AndroidThunkJava_IapIsAllowedToMakePurchases", "()Z", bIsOptional);
-	AndroidThunkJava_IapRestorePurchases = FindMethod(Env, GoogleServicesClassID, "AndroidThunkJava_IapRestorePurchases", "()Z", bIsOptional);
+	AndroidThunkJava_IapRestorePurchases = FindMethod(Env, GoogleServicesClassID, "AndroidThunkJava_IapRestorePurchases", "([Ljava/lang/String;[Z)Z", bIsOptional);
 
 	// SurfaceView functionality for view scaling on some devices
 	AndroidThunkJava_UseSurfaceViewWorkaround = FindMethod(Env, GameActivityClassID, "AndroidThunkJava_UseSurfaceViewWorkaround", "()V", bIsOptional);
@@ -208,6 +211,7 @@ jmethodID FJavaWrapper::AndroidThunkJava_GetMetaDataBoolean;
 jmethodID FJavaWrapper::AndroidThunkJava_GetMetaDataInt;
 jmethodID FJavaWrapper::AndroidThunkJava_GetMetaDataString;
 jmethodID FJavaWrapper::AndroidThunkJava_IsGearVRApplication;
+jmethodID FJavaWrapper::AndroidThunkJava_ShowHiddenAlertDialog;
 
 jclass FJavaWrapper::InputDeviceInfoClass;
 jfieldID FJavaWrapper::InputDeviceInfo_VendorId;
@@ -222,6 +226,8 @@ jmethodID FJavaWrapper::AndroidThunkJava_ResetAchievements;
 jmethodID FJavaWrapper::AndroidThunkJava_ShowAdBanner;
 jmethodID FJavaWrapper::AndroidThunkJava_HideAdBanner;
 jmethodID FJavaWrapper::AndroidThunkJava_CloseAdBanner;
+jmethodID FJavaWrapper::AndroidThunkJava_GoogleClientConnect;
+jmethodID FJavaWrapper::AndroidThunkJava_GoogleClientDisconnect;
 
 jclass FJavaWrapper::JavaStringClass;
 jmethodID FJavaWrapper::AndroidThunkJava_IapSetupService;
@@ -393,6 +399,14 @@ FString AndroidThunkCpp_GetMetaDataString(const FString& Key)
 	return Result;
 }
 
+void AndroidThunkCpp_ShowHiddenAlertDialog()
+{
+	if (JNIEnv* Env = FAndroidApplication::GetJavaEnv())
+	{
+		FJavaWrapper::CallVoidMethod(Env, FJavaWrapper::GameActivityThis, FJavaWrapper::AndroidThunkJava_ShowHiddenAlertDialog);
+	}
+}
+
 // call out to JNI to see if the application was packaged for GearVR
 bool AndroidThunkCpp_IsGearVRApplication()
 {
@@ -488,6 +502,27 @@ extern "C" void Java_com_epicgames_ue4_GameActivity_nativeVirtualKeyboardResult(
 	VirtualKeyboardWidget = NULL;
 }
 
+//This function is declared in the Java-defined class, GameActivity.java: "public native void nativeVirtualKeyboardChanged(String contents);"
+extern "C" void Java_com_epicgames_ue4_GameActivity_nativeVirtualKeyboardChanged(JNIEnv* jenv, jobject thiz, jstring contents)
+{
+	if (VirtualKeyboardWidget != NULL)
+	{
+		const char* javaChars = jenv->GetStringUTFChars(contents, 0);
+
+		// call to set the widget text on game thread
+		if (FTaskGraphInterface::IsRunning())
+		{
+			FGraphEventRef SetWidgetText = FFunctionGraphTask::CreateAndDispatchWhenReady([&]()
+			{
+				VirtualKeyboardWidget->SetTextFromVirtualKeyboard(FText::FromString(FString(UTF8_TO_TCHAR(javaChars))), ESetTextType::Changed, ETextCommit::OnUserMovedFocus);
+			}, TStatId(), NULL, ENamedThreads::GameThread);
+			FTaskGraphInterface::Get().WaitUntilTaskCompletes(SetWidgetText);
+		}
+		// release string
+		jenv->ReleaseStringUTFChars(contents, javaChars);
+	}
+}
+
 void AndroidThunkCpp_LaunchURL(const FString& URL)
 {
 	if (JNIEnv* Env = FAndroidApplication::GetJavaEnv())
@@ -530,6 +565,22 @@ void AndroidThunkCpp_CloseAdBanner()
  	{
 		FJavaWrapper::CallVoidMethod(Env, FJavaWrapper::GoogleServicesThis, FJavaWrapper::AndroidThunkJava_CloseAdBanner);
  	}
+}
+
+void AndroidThunkCpp_GoogleClientConnect()
+{
+	if (JNIEnv* Env = FAndroidApplication::GetJavaEnv())
+	{
+		FJavaWrapper::CallVoidMethod(Env, FJavaWrapper::GoogleServicesThis, FJavaWrapper::AndroidThunkJava_GoogleClientConnect);
+	}
+}
+
+void AndroidThunkCpp_GoogleClientDisconnect()
+{
+	if (JNIEnv* Env = FAndroidApplication::GetJavaEnv())
+	{
+		FJavaWrapper::CallVoidMethod(Env, FJavaWrapper::GoogleServicesThis, FJavaWrapper::AndroidThunkJava_GoogleClientDisconnect);
+	}
 }
 
 namespace
@@ -661,14 +712,36 @@ bool AndroidThunkCpp_Iap_IsAllowedToMakePurchases()
 	return bResult;
 }
 
-bool AndroidThunkCpp_Iap_RestorePurchases()
+bool AndroidThunkCpp_Iap_RestorePurchases(const TArray<FString>& ProductIDs, const TArray<bool>& bConsumable)
 {
 	FPlatformMisc::LowLevelOutputDebugString(L"[JNI] - AndroidThunkCpp_Iap_RestorePurchases");
 	bool bResult = false;
+
 	if (JNIEnv* Env = FAndroidApplication::GetJavaEnv())
 	{
-		bResult = FJavaWrapper::CallBooleanMethod(Env, FJavaWrapper::GoogleServicesThis, FJavaWrapper::AndroidThunkJava_IapRestorePurchases);
+		// Populate some java types with the provided product information
+		jobjectArray ProductIDArray = (jobjectArray)Env->NewObjectArray(ProductIDs.Num(), FJavaWrapper::JavaStringClass, NULL);
+		jbooleanArray ConsumeArray = (jbooleanArray)Env->NewBooleanArray(ProductIDs.Num());
+
+		jboolean* ConsumeArrayValues = Env->GetBooleanArrayElements(ConsumeArray, 0);
+		for (uint32 Param = 0; Param < ProductIDs.Num(); Param++)
+		{
+			jstring StringValue = Env->NewStringUTF(TCHAR_TO_UTF8(*ProductIDs[Param]));
+			Env->SetObjectArrayElement(ProductIDArray, Param, StringValue);
+			Env->DeleteLocalRef(StringValue);
+
+			ConsumeArrayValues[Param] = bConsumable[Param];
+		}
+		Env->ReleaseBooleanArrayElements(ConsumeArray, ConsumeArrayValues, 0);
+
+		// Execute the java code for this operation
+		bResult = FJavaWrapper::CallBooleanMethod(Env, FJavaWrapper::GoogleServicesThis, FJavaWrapper::AndroidThunkJava_IapRestorePurchases, ProductIDArray, ConsumeArray);
+
+		// clean up references
+		Env->DeleteLocalRef(ProductIDArray);
+		Env->DeleteLocalRef(ConsumeArray);
 	}
+
 	return bResult;
 }
 
@@ -717,7 +790,8 @@ JNIEXPORT jint JNI_OnLoad(JavaVM* InJavaVM, void* InReserved)
 	// hook signals
 	if (!FPlatformMisc::IsDebuggerPresent() || GAlwaysReportCrash)
 	{
-		FPlatformMisc::SetCrashHandler(EngineCrashHandler);
+		// disable crash handler.. getting better stack traces from system for now
+		//FPlatformMisc::SetCrashHandler(EngineCrashHandler);
 	}
 
 	// Cache path to external storage

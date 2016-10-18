@@ -187,24 +187,68 @@ void SetupTileCullingData(
 	float3 ViewTileMin2;
 	float3 ViewTileMax2;
 
-	float ExpandRadius = 0;
+	bool bCenteredProjection = abs(View.ViewToClip[1][0]) < .00001f && abs(View.ViewToClip[2][0]) < .00001f;
 
-	float2 TanViewFOV = float2(1 / View.ViewToClip[0][0], 1 / View.ViewToClip[1][1]);
-	// tan(FOV) = HalfUnitPlaneWidth / 1, so TanViewFOV * 2 is the size of the whole unit view plane
-	// We are operating on a subset of that defined by ScissorRectMinAndSize
-	float2 TileSize = TanViewFOV * 2 * ScissorRectMinAndSize.zw / ((float2)Frame.ViewSizeAndInvSize.xy * NumGroups);
-	float2 UnitPlaneMin = -TanViewFOV + TanViewFOV * 2 * (ScissorRectMinAndSize.xy - Frame.ViewRectMin.xy) * Frame.ViewSizeAndInvSize.zw;
-	float2 UnitPlaneTileMin = (GroupId.xy * TileSize + UnitPlaneMin) * float2(1, -1);
-	float2 UnitPlaneTileMax = ((GroupId.xy + 1) * TileSize + UnitPlaneMin) * float2(1, -1);
+	BRANCH
+	// Off center projection path uses 37 more asm instructions
+	if (bCenteredProjection)
+	{
+		float2 TanViewFOV = GetTanHalfFieldOfView();
+		// tan(FOV) = HalfUnitPlaneWidth / 1, so TanViewFOV * 2 is the size of the whole unit view plane
+		// We are operating on a subset of that defined by ScissorRectMinAndSize
+		float2 TileSize = TanViewFOV * 2 * ScissorRectMinAndSize.zw / ((float2)View.ViewSizeAndInvSize.xy * NumGroups);
+		float2 UnitPlaneMin = -TanViewFOV + TanViewFOV * 2 * (ScissorRectMinAndSize.xy - View.ViewRectMin.xy) * View.ViewSizeAndInvSize.zw;
 
-	ViewTileMin.xy = min(MinTileZ * UnitPlaneTileMin, MaxTileZ2 * UnitPlaneTileMin) - ExpandRadius;
-	ViewTileMax.xy = max(MinTileZ * UnitPlaneTileMax, MaxTileZ2 * UnitPlaneTileMax) + ExpandRadius;
-	ViewTileMin.z = MinTileZ - ExpandRadius;
-	ViewTileMax.z = MaxTileZ2 + ExpandRadius;
-	ViewTileMin2.xy = min(MinTileZ2 * UnitPlaneTileMin, MaxTileZ * UnitPlaneTileMin) - ExpandRadius;
-	ViewTileMax2.xy = max(MinTileZ2 * UnitPlaneTileMax, MaxTileZ * UnitPlaneTileMax) + ExpandRadius;
-	ViewTileMin2.z = MinTileZ2 - ExpandRadius;
-	ViewTileMax2.z = MaxTileZ + ExpandRadius;
+		float2 UnitPlaneTileMin = (GroupId.xy * TileSize + UnitPlaneMin) * float2(1, -1);
+		float2 UnitPlaneTileMax = ((GroupId.xy + 1) * TileSize + UnitPlaneMin) * float2(1, -1);
+
+		ViewTileMin.xy = min(MinTileZ * UnitPlaneTileMin, MaxTileZ2 * UnitPlaneTileMin);
+		ViewTileMax.xy = max(MinTileZ * UnitPlaneTileMax, MaxTileZ2 * UnitPlaneTileMax);
+		ViewTileMin.z = MinTileZ;
+		ViewTileMax.z = MaxTileZ2;
+		ViewTileMin2.xy = min(MinTileZ2 * UnitPlaneTileMin, MaxTileZ * UnitPlaneTileMin);
+		ViewTileMax2.xy = max(MinTileZ2 * UnitPlaneTileMax, MaxTileZ * UnitPlaneTileMax);
+		ViewTileMin2.z = MinTileZ2;
+		ViewTileMax2.z = MaxTileZ;
+	}
+	else
+	{
+		float2 TileSize = 2 * ScissorRectMinAndSize.zw / ((float2)View.ViewSizeAndInvSize.xy * NumGroups);
+		float2 UnitPlaneMin = -1 + 2 * (ScissorRectMinAndSize.xy - View.ViewRectMin.xy) * View.ViewSizeAndInvSize.zw;
+
+		float2 UnitPlaneTileMin = (GroupId.xy * TileSize + UnitPlaneMin) * float2(1, -1);
+		float2 UnitPlaneTileMax = ((GroupId.xy + 1) * TileSize + UnitPlaneMin) * float2(1, -1);
+
+		{
+			float MinTileDeviceZ = ConvertToDeviceZ(MinTileZ);
+			float4 MinDepthMinCorner = mul(float4(UnitPlaneTileMin.x, UnitPlaneTileMin.y, MinTileDeviceZ, 1), View.ClipToView);
+			float4 MinDepthMaxCorner = mul(float4(UnitPlaneTileMax.x, UnitPlaneTileMax.y, MinTileDeviceZ, 1), View.ClipToView);
+	
+			float MaxTileDeviceZ = ConvertToDeviceZ(MaxTileZ2);
+			float4 MaxDepthMinCorner = mul(float4(UnitPlaneTileMin.x, UnitPlaneTileMin.y, MaxTileDeviceZ, 1), View.ClipToView);
+			float4 MaxDepthMaxCorner = mul(float4(UnitPlaneTileMax.x, UnitPlaneTileMax.y, MaxTileDeviceZ, 1), View.ClipToView);
+
+			ViewTileMin.xy = min(MinDepthMinCorner.xy / MinDepthMinCorner.w, MaxDepthMinCorner.xy / MaxDepthMinCorner.w);
+			ViewTileMax.xy = max(MinDepthMaxCorner.xy / MinDepthMaxCorner.w, MaxDepthMaxCorner.xy / MaxDepthMaxCorner.w);
+			ViewTileMin.z = MinTileZ;
+			ViewTileMax.z = MaxTileZ2;
+		}
+
+		{
+			float MinTileDeviceZ = ConvertToDeviceZ(MinTileZ2);
+			float4 MinDepthMinCorner = mul(float4(UnitPlaneTileMin.x, UnitPlaneTileMin.y, MinTileDeviceZ, 1), View.ClipToView);
+			float4 MinDepthMaxCorner = mul(float4(UnitPlaneTileMax.x, UnitPlaneTileMax.y, MinTileDeviceZ, 1), View.ClipToView);
+	
+			float MaxTileDeviceZ = ConvertToDeviceZ(MaxTileZ);
+			float4 MaxDepthMinCorner = mul(float4(UnitPlaneTileMin.x, UnitPlaneTileMin.y, MaxTileDeviceZ, 1), View.ClipToView);
+			float4 MaxDepthMaxCorner = mul(float4(UnitPlaneTileMax.x, UnitPlaneTileMax.y, MaxTileDeviceZ, 1), View.ClipToView);
+
+			ViewTileMin2.xy = min(MinDepthMinCorner.xy / MinDepthMinCorner.w, MaxDepthMinCorner.xy / MaxDepthMinCorner.w);
+			ViewTileMax2.xy = max(MinDepthMaxCorner.xy / MinDepthMaxCorner.w, MaxDepthMaxCorner.xy / MaxDepthMaxCorner.w);
+			ViewTileMin2.z = MinTileZ2;
+			ViewTileMax2.z = MaxTileZ;
+		}
+	}
 
 	float3 ViewGroup0Center = (ViewTileMax + ViewTileMin) / 2;
 	TileCullingData0.BoundingSphere.xyz = mul(float4(ViewGroup0Center, 1), View.ViewToTranslatedWorld).xyz - View.PreViewTranslation;
@@ -247,6 +291,11 @@ void SetupTileCullingData(
 	GroupIndex = SceneDepth > MaxTileZ2 ? 1 : 0;
 }
 
+// Scaled sphere intersection allows capsule shadows to blend together better when penumbras are large, so use for indirect.
+// Otherwise an occluder sphere will be extracted from the capsule and used for shadowing.  
+// This maintains shadow silhouette shapes better but has a discontinuity when the capsule direction is nearly parallel to the light direction.
+#define USE_SCALED_SPHERE_INTERSECTION (LIGHT_SOURCE_MODE != LIGHT_SOURCE_PUNCTUAL)
+
 uint CullCapsuleShapesToTile(
 	uint ThreadIndex,
 	uint GroupIndex, 
@@ -283,13 +332,61 @@ uint CullCapsuleShapesToTile(
 		#endif
 
 		float4 SphereCenterAndRadius = ShadowCapsuleShapes[ShapeIndex * 2];
-		// Add half capsule length to bounding sphere
-		SphereCenterAndRadius.w += .5f * ShadowCapsuleShapes[ShapeIndex * 2 + 1].w;
+		float3 TransformedSphereCenter = SphereCenterAndRadius.xyz;
+		float TransformedSphereRadius = SphereCenterAndRadius.w;
+		float3 TransformedTileBoundingSphereCenter0 = TileCullingData0.BoundingSphere.xyz;
+		float3 TransformedTileBoundingSphereCenter1 = TileCullingData1.BoundingSphere.xyz;
+
+		#if LIGHT_SOURCE_MODE != LIGHT_SOURCE_FROM_RECEIVER
+			float3 TransformedConeAxis0 = ConeAxis0;
+			float3 TransformedConeAxis1 = ConeAxis1;
+		#endif
+
+		#if USE_SCALED_SPHERE_INTERSECTION
+			
+			float4 CapsuleCenterAndRadius = SphereCenterAndRadius;
+			float4 CapsuleOrientationAndLength = ShadowCapsuleShapes[ShapeIndex * 2 + 1];
+
+			float3 CapsuleSpaceX;
+			float3 CapsuleSpaceY;
+			float3 CapsuleSpaceZ = CapsuleOrientationAndLength.xyz;
+			GenerateCoordinateSystem(CapsuleSpaceZ, CapsuleSpaceX, CapsuleSpaceY);
+
+			// Scale required along the capsule's axis to turn it into a sphere (assuming it was originally a scaled sphere instead of a capsule)
+			float CapsuleZScale = CapsuleCenterAndRadius.w / (.5f * CapsuleOrientationAndLength.w + CapsuleCenterAndRadius.w);
+			CapsuleSpaceZ *= CapsuleZScale;
+
+			// The capsule is centered at 0 in the scaled sphere space
+			TransformedSphereCenter = 0;
+
+			// After scaling along the capsule axis it will become a sphere with the original radius
+			TransformedSphereRadius = SphereCenterAndRadius.w;
+
+			// Transform the sphere center and cone axis into the scaled sphere space
+			float3 CapsuleCenterToTileCenter0 = TileCullingData0.BoundingSphere.xyz - CapsuleCenterAndRadius.xyz;
+			TransformedTileBoundingSphereCenter0 = float3(dot(CapsuleCenterToTileCenter0, CapsuleSpaceX), dot(CapsuleCenterToTileCenter0, CapsuleSpaceY), dot(CapsuleCenterToTileCenter0, CapsuleSpaceZ));
+			
+			float3 CapsuleCenterToTileCenter1 = TileCullingData1.BoundingSphere.xyz - CapsuleCenterAndRadius.xyz;
+			TransformedTileBoundingSphereCenter1 = float3(dot(CapsuleCenterToTileCenter1, CapsuleSpaceX), dot(CapsuleCenterToTileCenter1, CapsuleSpaceY), dot(CapsuleCenterToTileCenter1, CapsuleSpaceZ));
+
+			#if LIGHT_SOURCE_MODE != LIGHT_SOURCE_FROM_RECEIVER
+				// Renormalize the cone axis as it went through a non-uniformly scaled transform
+				TransformedConeAxis0 = normalize(float3(dot(ConeAxis0, CapsuleSpaceX), dot(ConeAxis0, CapsuleSpaceY), dot(ConeAxis0, CapsuleSpaceZ)));
+				TransformedConeAxis1 = normalize(float3(dot(ConeAxis1, CapsuleSpaceX), dot(ConeAxis1, CapsuleSpaceY), dot(ConeAxis1, CapsuleSpaceZ)));
+			#endif
+
+		#else
+
+			float CapsuleLength = ShadowCapsuleShapes[ShapeIndex * 2 + 1].w;
+
+			// Add half capsule length to bounding sphere
+			TransformedSphereRadius = SphereCenterAndRadius.w + .5f * CapsuleLength;
+		#endif
 
 		BRANCH
-		if (SphereIntersectSphere(float4(SphereCenterAndRadius.xyz, SphereCenterAndRadius.w + MaxOcclusionDistance), TileCullingData0.BoundingSphere)
+		if (SphereIntersectSphere(float4(TransformedSphereCenter, TransformedSphereRadius + MaxOcclusionDistance), float4(TransformedTileBoundingSphereCenter0, TileCullingData0.BoundingSphere.w))
 			#if LIGHT_SOURCE_MODE != LIGHT_SOURCE_FROM_RECEIVER
-			&& SphereIntersectConeWithMaxDistance(float4(SphereCenterAndRadius.xyz, SphereCenterAndRadius.w + TileCullingData0.BoundingSphere.w), TileCullingData0.BoundingSphere.xyz, ConeAxis0, ConeAngleCos0, ConeAngleSin0, MaxOcclusionDistance)
+				&& SphereIntersectConeWithMaxDistance(float4(TransformedSphereCenter, TransformedSphereRadius + TileCullingData0.BoundingSphere.w), TransformedTileBoundingSphereCenter0, TransformedConeAxis0, ConeAngleCos0, ConeAngleSin0, MaxOcclusionDistance)
 			#endif
 			)
 		{
@@ -301,9 +398,9 @@ uint CullCapsuleShapesToTile(
 		}
 
 		BRANCH
-		if (SphereIntersectSphere(float4(SphereCenterAndRadius.xyz, SphereCenterAndRadius.w + MaxOcclusionDistance), TileCullingData1.BoundingSphere)
+		if (SphereIntersectSphere(float4(TransformedSphereCenter, TransformedSphereRadius + MaxOcclusionDistance), float4(TransformedTileBoundingSphereCenter1, TileCullingData1.BoundingSphere.w))
 			#if LIGHT_SOURCE_MODE != LIGHT_SOURCE_FROM_RECEIVER
-			&& SphereIntersectConeWithMaxDistance(float4(SphereCenterAndRadius.xyz, SphereCenterAndRadius.w + TileCullingData1.BoundingSphere.w), TileCullingData1.BoundingSphere.xyz, ConeAxis1, ConeAngleCos1, ConeAngleSin1, MaxOcclusionDistance)
+				&& SphereIntersectConeWithMaxDistance(float4(TransformedSphereCenter, TransformedSphereRadius + TileCullingData1.BoundingSphere.w), TransformedTileBoundingSphereCenter1, TransformedConeAxis1, ConeAngleCos1, ConeAngleSin1, MaxOcclusionDistance)
 			#endif
 			)
 		{
@@ -383,41 +480,69 @@ float ShadowConeTraceAgainstCulledCapsuleShapes(
 			AreaOfLight = 6.283185308f - 6.283185308f * cos(LightAngle);
 		#endif
 
+		#define OVERRIDE_LIGHT_DEBUG 0
+		#if OVERRIDE_LIGHT_DEBUG
+			//UnitRayDirection = normalize(float3(.2f, .2f, .8f));
+			UnitRayDirection = float3(0, 0, 1);
+			LightAngle = .3f;
+		#endif
+
 		float4 CapsuleCenterAndRadius = ShadowCapsuleShapes[ObjectIndex * 2];
 		float4 CapsuleOrientationAndLength = ShadowCapsuleShapes[ObjectIndex * 2 + 1];
 
 		float DistanceToShadowSphere;
 		float3 UnitVectorToShadowSphere;
+		float3 UnitRayDirectionInCorrectSpace = UnitRayDirection;
 
 		BRANCH
 		if (CapsuleOrientationAndLength.w > 0)
 		{
-		float3 VectorToCapsuleCenter = CapsuleCenterAndRadius.xyz - WorldRayStart;
+#if USE_SCALED_SPHERE_INTERSECTION
 
-		// Closest point on line segment to ray
-		float3 L01 = CapsuleOrientationAndLength.xyz * CapsuleOrientationAndLength.w;
-		float3 L0 = VectorToCapsuleCenter - 0.5 * L01;
-		float3 L1 = VectorToCapsuleCenter + 0.5 * L01;
+			float3 CapsuleSpaceX;
+			float3 CapsuleSpaceY;
+			float3 CapsuleSpaceZ = CapsuleOrientationAndLength.xyz;
+			GenerateCoordinateSystem(CapsuleSpaceZ, CapsuleSpaceX, CapsuleSpaceY);
 
-		// The below is computing the shortest distance between capsule line segment and ray
-		float CapsuleOrientationProjectedOntoRay = dot(UnitRayDirection, L01);
-		// Vector that spans L01 perpendicular to the ray
-		float3 PerpendicularSpanningVector = CapsuleOrientationProjectedOntoRay * UnitRayDirection - L01;
-		// Length of PerpendicularSpanningVector using the right triangle formed by L01 and UnitRayDirection * CapsuleOrientationProjectedOntoRay
-		float PerpendicularDistance = Square(CapsuleOrientationAndLength.w) - CapsuleOrientationProjectedOntoRay * CapsuleOrientationProjectedOntoRay;
-		// Project the vector to a capsule endpoint onto the perpendicular spanning vector, normalized
-		float t = saturate(dot(L0, PerpendicularSpanningVector) / PerpendicularDistance);
-		// Compute the vector to the shadow sphere which best approximates the capsule's shadowing 
-		float3 VectorToShadowSphere = L0 + t * L01;
+			float CapsuleZScale = CapsuleCenterAndRadius.w / (.5f * CapsuleOrientationAndLength.w + CapsuleCenterAndRadius.w);
+			CapsuleSpaceZ *= CapsuleZScale;
+
+			float3 CapsuleCenterToRayStart = WorldRayStart - CapsuleCenterAndRadius.xyz;
+			float3 CapsuleSpaceRayStart = float3(dot(CapsuleCenterToRayStart, CapsuleSpaceX), dot(CapsuleCenterToRayStart, CapsuleSpaceY), dot(CapsuleCenterToRayStart, CapsuleSpaceZ));
+
+			float3 CapsuleSpaceRayDirection = float3(dot(UnitRayDirection, CapsuleSpaceX), dot(UnitRayDirection, CapsuleSpaceY), dot(UnitRayDirection, CapsuleSpaceZ));
+
+			DistanceToShadowSphere = length(CapsuleSpaceRayStart);
+			UnitVectorToShadowSphere = -CapsuleSpaceRayStart / DistanceToShadowSphere;
+			UnitRayDirectionInCorrectSpace = normalize(CapsuleSpaceRayDirection);
+#else
+			float3 VectorToCapsuleCenter = CapsuleCenterAndRadius.xyz - WorldRayStart;
+
+			// Closest point on line segment to ray
+			float3 L01 = CapsuleOrientationAndLength.xyz * CapsuleOrientationAndLength.w;
+			float3 L0 = VectorToCapsuleCenter - 0.5 * L01;
+			float3 L1 = VectorToCapsuleCenter + 0.5 * L01;
+
+			// The below is computing the shortest distance between capsule line segment and ray
+			float CapsuleOrientationProjectedOntoRay = dot(UnitRayDirection, L01);
+			// Vector that spans L01 perpendicular to the ray
+			float3 PerpendicularSpanningVector = CapsuleOrientationProjectedOntoRay * UnitRayDirection - L01;
+			// Length of PerpendicularSpanningVector using the right triangle formed by L01 and UnitRayDirection * CapsuleOrientationProjectedOntoRay
+			float PerpendicularDistance = Square(CapsuleOrientationAndLength.w) - CapsuleOrientationProjectedOntoRay * CapsuleOrientationProjectedOntoRay;
+			// Project the vector to a capsule endpoint onto the perpendicular spanning vector, normalized
+			float t = saturate(dot(L0, PerpendicularSpanningVector) / PerpendicularDistance);
+			// Compute the vector to the shadow sphere which best approximates the capsule's shadowing 
+			float3 VectorToShadowSphere = L0 + t * L01;
 
 			DistanceToShadowSphere = length(VectorToShadowSphere);
 			UnitVectorToShadowSphere = VectorToShadowSphere / DistanceToShadowSphere;
 		
-		// The above 'best shadow sphere' calculation doesn't take into account the project solid angle of the potential shadow spheres
-		// As a result, there's a discontinuity when the capsule and the ray point in nearly the same direction, where the far end of the capsule gets chosen
-		// Here we mitigate the effect by overriding the distance to shadow sphere if one of the capsule end points was closer
-		DistanceToShadowSphere = min(DistanceToShadowSphere, length(L0));
-		DistanceToShadowSphere = min(DistanceToShadowSphere, length(L1));
+			// The above 'best shadow sphere' calculation doesn't take into account the projected solid angle of the potential shadow spheres
+			// As a result, there's a discontinuity when the capsule and the ray point in nearly the same direction, where the far end of the capsule gets chosen
+			// Here we mitigate the effect by overriding the distance to shadow sphere if one of the capsule end points was closer
+			DistanceToShadowSphere = min(DistanceToShadowSphere, length(L0));
+			DistanceToShadowSphere = min(DistanceToShadowSphere, length(L1));
+#endif
 		}
 		else
 		{
@@ -425,7 +550,7 @@ float ShadowConeTraceAgainstCulledCapsuleShapes(
 			UnitVectorToShadowSphere = (CapsuleCenterAndRadius.xyz - WorldRayStart) / DistanceToShadowSphere;
 		}
 
-		float AngleBetween = acosFast(dot(UnitVectorToShadowSphere, UnitRayDirection));
+		float AngleBetween = acosFast(dot(UnitVectorToShadowSphere, UnitRayDirectionInCorrectSpace));
 		float ConeConeIntersection = 1 - saturate(SphericalCapIntersectionAreaFast(LightAngle, atanFastPos(CapsuleCenterAndRadius.w / DistanceToShadowSphere), AngleBetween) / AreaOfLight);
 		float DistanceFadeAlpha = saturate(DistanceToShadowSphere * InvMaxOcclusionDistance * 3 - 2);
 		ConeConeIntersection = lerp(ConeConeIntersection, 1, DistanceFadeAlpha);
@@ -441,7 +566,7 @@ Texture2D ReceiverBentNormalTexture;
 RWTexture2D<float4> RWBentNormalTexture;
 #endif
 
-float ReduceSelfShadowingIntensity;
+float IndirectCapsuleSelfShadowingIntensity;
 uint DownsampleFactor;
 RWTexture2D<float2> RWShadowFactors;
 float MaxOcclusionDistance;
@@ -458,7 +583,7 @@ void CapsuleShadowingCS(
 {
 	uint ThreadIndex = GroupThreadId.y * THREADGROUP_SIZEX + GroupThreadId.x;
 
-	float2 ScreenUV = float2((DispatchThreadId.xy * DownsampleFactor + ScissorRectMinAndSize.xy + .5f) * Frame.BufferSizeAndInvSize.zw);
+	float2 ScreenUV = float2((DispatchThreadId.xy * DownsampleFactor + ScissorRectMinAndSize.xy + .5f) * View.BufferSizeAndInvSize.zw);
 	float2 ScreenPosition = (ScreenUV.xy - View.ScreenPositionScaleBias.wz) / View.ScreenPositionScaleBias.xy;
 
 #if LIGHT_SOURCE_MODE == LIGHT_SOURCE_FROM_RECEIVER
@@ -535,6 +660,9 @@ void CapsuleShadowingCS(
 				TileCullingData0,
 				TileCullingData1);
 
+			NumTileIntersectingShapes = TileNumCapsules0 + TileNumCapsules1;
+		#else
+			NumTileIntersectingShapes = NumShadowCapsules;
 		#endif
 			
 		NumPixelIntersectingShapes += NumIntersectingCapsules;
@@ -548,8 +676,6 @@ void CapsuleShadowingCS(
 			NumIntersectingCapsules,
 			USE_CULLING ? true : false);
 
-		NumTileIntersectingShapes = TileNumCapsules0 + TileNumCapsules1;
-
 #if !APPLY_TO_BENT_NORMAL
 		if (all(GroupThreadId.xy == 0) && all(GroupId.xy < TileDimensions))
 		{
@@ -558,13 +684,13 @@ void CapsuleShadowingCS(
 #endif
 	}
 
-#if LIGHT_SOURCE_MODE == LIGHT_SOURCE_FROM_CAPSULE
+#if LIGHT_SOURCE_MODE == LIGHT_SOURCE_FROM_CAPSULE && !FORWARD_SHADING
 	BRANCH
-	if (ReduceSelfShadowingIntensity > 0)
+	if (IndirectCapsuleSelfShadowingIntensity < 1)
 	{
-	FGBufferData GBufferData = GetGBufferData(ScreenUV);
-	// Reduce self shadowing intensity
-	Visibility = lerp(Visibility, 1, HasDistanceFieldRepresentation(GBufferData) ? .8f : 0);
+		FGBufferData GBufferData = GetGBufferData(ScreenUV);
+		// Reduce self shadowing intensity
+		Visibility = lerp(1, Visibility, HasDistanceFieldRepresentation(GBufferData) ? IndirectCapsuleSelfShadowingIntensity : 1);
 	}
 #endif
 
@@ -606,7 +732,7 @@ void CapsuleShadowingUpsampleVS(
 	uint NumCapsulesAffectingTile = TileIntersectionCounts[EffectiveInstanceId];
 	uint TileY = InstanceId / TileDimensions.x;
 	uint2 TileCoordinate = uint2(EffectiveInstanceId - TileY * TileDimensions.x, TileY);
-	float2 ScreenUV = ((TileCoordinate + TexCoord) * TileSize + ScissorRectMinAndSize.xy) * Frame.BufferSizeAndInvSize.zw;
+	float2 ScreenUV = ((TileCoordinate + TexCoord) * TileSize + ScissorRectMinAndSize.xy) * View.BufferSizeAndInvSize.zw;
 	float2 ScreenPosition = (ScreenUV.xy - View.ScreenPositionScaleBias.wz) / View.ScreenPositionScaleBias.xy;
 	OutPosition = float4(ScreenPosition, 0, 1);
 
@@ -631,12 +757,12 @@ void CapsuleShadowingUpsamplePS(
 	)
 {
 	// Distance field shadowing was computed at 0,0 regardless of viewrect min
-	float2 DistanceFieldUVs = SvPositionToBufferUV(SVPos) - ScissorRectMinAndSize.xy * Frame.BufferSizeAndInvSize.zw;
+	float2 DistanceFieldUVs = SvPositionToBufferUV(SVPos) - ScissorRectMinAndSize.xy * View.BufferSizeAndInvSize.zw;
 	float SceneDepth = CalcSceneDepth(SvPositionToBufferUV(SVPos));
 
 #define BILATERAL_UPSAMPLE 1
 #if BILATERAL_UPSAMPLE && UPSAMPLE_REQUIRED
-	float2 LowResBufferSize = floor(Frame.RenderTargetSize / DOWNSAMPLE_FACTOR);
+	float2 LowResBufferSize = floor(View.BufferSizeAndInvSize.xy / DOWNSAMPLE_FACTOR);
 	float2 LowResTexelSize = 1.0f / LowResBufferSize;
 	float2 Corner00UV = floor(DistanceFieldUVs * LowResBufferSize - .5f) / LowResBufferSize + .5f * LowResTexelSize;
 	float2 BilinearWeights = (DistanceFieldUVs - Corner00UV) * LowResBufferSize;
@@ -673,8 +799,7 @@ void CapsuleShadowingUpsamplePS(
 
 	if (OutputtingToLightAttenuation > 0)
 	{
-		OutColor.xy = 1;
-		OutColor.zw = EncodeLightAttenuation(Output).xx;
+		OutColor = EncodeLightAttenuation(Output).xxxx;
 	}
 	else
 	{

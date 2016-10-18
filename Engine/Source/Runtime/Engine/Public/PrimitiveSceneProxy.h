@@ -18,6 +18,8 @@ class FLightSceneProxy;
 class FLightSceneInfo;
 class FPrimitiveDrawInterface;
 
+struct FStreamingSectionBuildInfo;
+
 /** Data for a simple dynamic light. */
 class FSimpleLightEntry
 {
@@ -103,6 +105,8 @@ public:
 		LocalToWorld(InLocalToWorld)
 	{}
 };
+
+extern bool CacheShadowDepthsFromPrimitivesUsingWPO();
 
 /**
  * Encapsulates the data which is mirrored to render a UPrimitiveComponent parallel to the game thread.
@@ -275,12 +279,6 @@ public:
 	}
 
 	/**
-	 * Called to notify the proxy when its actor position has been updated.
-	 * Called in the thread that owns the proxy; game or rendering.
-	 */
-	virtual void OnActorPositionChanged() {}
-
-	/**
 	 * Called to notify the proxy that the level has been fully added to
 	 * the world and the primitive will now be rendered.
 	 * Only called if bNeedsLevelAddedToWorldNotification is set to true.
@@ -369,9 +367,21 @@ public:
 	inline int32 GetVisibilityId() const { return VisibilityId; }
 	inline int16 GetTranslucencySortPriority() const { return TranslucencySortPriority; }
 	inline bool HasMotionBlurVelocityMeshes() const { return bHasMotionBlurVelocityMeshes; }
-	inline bool IsMovable() const { return !IsStatic(); }
-	inline bool IsOftenMoving() const { return bOftenMoving; }
-	inline bool IsStatic() const { return bStatic; }
+
+	inline bool IsMovable() const 
+	{ 
+		// Note: primitives with EComponentMobility::Stationary can still move (as opposed to lights with EComponentMobility::Stationary)
+		return Mobility == EComponentMobility::Movable || Mobility == EComponentMobility::Stationary; 
+	}
+
+	inline bool IsOftenMoving() const { return Mobility == EComponentMobility::Movable; }
+
+	inline bool IsMeshShapeOftenMoving() const 
+	{ 
+		return Mobility == EComponentMobility::Movable || !bGoodCandidateForCachedShadowmap; 
+	}
+
+	inline bool IsStatic() const { return Mobility == EComponentMobility::Static; }
 	inline bool IsSelectable() const { return bSelectable; }
 	inline bool IsParentSelected() const { return bParentSelected; }
 	inline bool IsIndividuallySelected() const { return bIndividuallySelected; }
@@ -385,6 +395,7 @@ public:
 		// Flip the default channel bit so that the default value is 0, to align with the default stencil clear value and GBlackTexture value
 		return (LightingChannelMask & 0x6) | (~LightingChannelMask & 0x1); 
 	}
+	inline bool IsVisibleInReflectionCaptures() const { return bVisibleInReflectionCaptures; }
 	inline bool ShouldRenderInMainPass() const { return bRenderInMainPass; }
 	inline bool IsCollisionEnabled() const { return bCollisionEnabled; }
 	inline bool IsHovered() const { return bHovered; }
@@ -393,7 +404,6 @@ public:
 	inline bool HasStaticLighting() const { return bStaticLighting; }
 	inline bool NeedsUnbuiltPreviewLighting() const { return bNeedsUnbuiltPreviewLighting; }
 	inline bool CastsStaticShadow() const { return bCastStaticShadow; }
-	inline bool IsVisibleInPlanarReflection() const { return bVisibleInPlanarReflection; }
 	inline bool CastsDynamicShadow() const { return bCastDynamicShadow; }
 	inline bool AffectsDynamicIndirectLighting() const { return bAffectDynamicIndirectLighting; }
 	inline bool AffectsDistanceFieldLighting() const { return bAffectDistanceFieldLighting; }
@@ -410,7 +420,7 @@ public:
 	inline bool CastsFarShadow() const { return bCastFarShadow; }
 	inline bool LightAsIfStatic() const { return bLightAsIfStatic; }
 	inline bool LightAttachmentsAsGroup() const { return bLightAttachmentsAsGroup; }
-	inline bool UseSingleSampleShadowFromStationaryLights() const { return bSingleSampleShadowFromStationaryLights; }
+	ENGINE_API bool UseSingleSampleShadowFromStationaryLights() const;
 	inline bool StaticElementsAlwaysUseProxyPrimitiveUniformBuffer() const { return bStaticElementsAlwaysUseProxyPrimitiveUniformBuffer; }
 	inline bool ShouldUseAsOccluder() const { return bUseAsOccluder; }
 	inline bool AllowApproximateOcclusion() const { return bAllowApproximateOcclusion; }
@@ -432,13 +442,10 @@ public:
 	inline bool NeedsLevelAddedToWorldNotification() const { return bNeedsLevelAddedToWorldNotification; }
 	inline bool IsComponentLevelVisible() const { return bIsComponentLevelVisible; }
 	inline bool IsStaticPathAvailable() const { return !bDisableStaticPath; }
-	inline bool ShouldRenderCSMForDynamicObjects() const { return bReceiveCSMFromDynamicObjects; }
+	inline bool ShouldReceiveCombinedCSMAndStaticShadowsFromStationaryLights() const { return bReceiveCombinedCSMAndStaticShadowsFromStationaryLights; }
 
 #if WITH_EDITOR
 	inline int32 GetNumUncachedStaticLightingInteractions() { return NumUncachedStaticLightingInteractions; }
-
-	void SetHierarchicalLOD_GameThread(const int32 InLODLevel);
-	void SetHierarchicalLOD_RenderThread(const int32 InLODLevel);
 #endif
 
 	inline FLinearColor GetWireframeColor() const { return WireframeColor; }
@@ -519,9 +526,19 @@ public:
 	ENGINE_API virtual void GetLCIs(FLCIArray& LCIs) {}
 
 	/**
-	 * Get the texture streaming texel factor and bound for this primitive.
+	 * Get the temp data used in the texture streaming build. Used to debug accuracy.
+	 * @param OutComponentExtraScale The component streaming resolution extra scale.
+	 * @param OutMeshExtraScale	The mesh streaming resolution extra scale.
+	 * @param LODIndex			LOD index of the query. INDEX_NONE for a value for all LODs.
+	 * @param ElementIndex		Element index of the query. INDEX_NONE for a value for all elements.
+	 * @return					The section data built in the texture streaming build.
 	 */
-	virtual bool GetStreamingTextureInfo(struct FStreamingTexturePrimitiveInfo& OutInfo, int32 LODIndex, int32 ElementIndex) const { return false; }
+	virtual const FStreamingSectionBuildInfo* GetStreamingSectionData(float& OutComponentExtraScale, float& OutMeshExtraScale, int32 LODIndex, int32 ElementIndex) const { return nullptr; }
+
+	/**
+	* Get the lightmap resolution for this primitive. Used in VMI_LightmapDensity.
+	*/
+	virtual int32 GetLightMapResolution() const { return 0; }
 
 protected:
 
@@ -538,13 +555,14 @@ protected:
 private:
 	friend class FScene;
 
+	EComponentMobility::Type Mobility;
+
 	uint32 bIsLocalToWorldDeterminantNegative : 1;
 	uint32 DrawInGame : 1;
 	uint32 DrawInEditor : 1;
 	uint32 bReceivesDecals : 1;
 	uint32 bOnlyOwnerSee : 1;
 	uint32 bOwnerNoSee : 1;
-	uint32 bStatic : 1;
 	uint32 bOftenMoving : 1;
 	/** Parent Actor is selected */
 	uint32 bParentSelected : 1;
@@ -569,6 +587,9 @@ private:
 	/** True if the primitive will cache static lighting. */
 	uint32 bStaticLighting : 1;
 
+	/** True if the primitive should be visible in reflection captures. */
+	uint32 bVisibleInReflectionCaptures : 1;
+
 	/** If true this primitive Renders in the mainPass */
 	uint32 bRenderInMainPass : 1;
 
@@ -587,7 +608,11 @@ private:
 	friend class FLightPrimitiveInteraction;
 	/** Whether the renderer needs us to temporarily use only the dynamic drawing path */
 	uint32 bDisableStaticPath : 1;
+
 protected:
+
+	/** Whether this proxy's mesh is unlikely to be constantly changing. */
+	uint32 bGoodCandidateForCachedShadowmap : 1;
 
 	/** Whether the primitive should be statically lit but has unbuilt lighting, and a preview should be used. */
 	uint32 bNeedsUnbuiltPreviewLighting : 1;
@@ -608,9 +633,6 @@ protected:
 
 	/** True if the primitive casts static shadows. */
 	uint32 bCastStaticShadow : 1;
-
-	/** True if the primitive is rendered into the planar reflection pass. */
-	uint32 bVisibleInPlanarReflection : 1;
 
 	/** 
 	 * Whether the object should cast a volumetric translucent shadow.
@@ -708,7 +730,7 @@ private:
 	uint32 bUseEditorCompositing : 1;
 
 	/** Should this primitive receive dynamic-only CSM shadows */
-	uint32 bReceiveCSMFromDynamicObjects : 1;
+	uint32 bReceiveCombinedCSMAndStaticShadowsFromStationaryLights : 1;
 		
 	/** This primitive has bRenderCustomDepth enabled */
 	uint32 bRenderCustomDepth : 1;
@@ -797,13 +819,7 @@ private:
 	*	How many invalid lights for this primitive, just refer for scene outliner
 	*/
 	int32 NumUncachedStaticLightingInteractions;
-
-	/** this is used if world setting has EnableHierarchical LOD true */
-	int32 HierarchicalLODOverride;
 #endif
-
-	/** Updates the proxy's actor position, called from the game thread. */
-	ENGINE_API void UpdateActorPosition(FVector InActorPosition);
 
 	/**
 	 * Updates the primitive proxy's cached transforms, and calls OnUpdateTransform to notify it of the change.

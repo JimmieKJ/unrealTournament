@@ -59,15 +59,13 @@ typedef FLinuxPlatformTypes FPlatformTypes;
 #endif // defined(_M_IX86) || defined(__i386__) || defined(_M_X64) || defined(__x86_64__) || defined (__amd64__) 
 
 // Function type macros.
-#define VARARGS																		/* Functions with variable arguments */
-#define CDECL																		/* Standard C function */
-#define STDCALL																		/* Standard calling convention */
-#define FORCEINLINE inline __attribute__ ((always_inline))							/* Force code to be inline */
-#define FORCENOINLINE __attribute__((noinline))										/* Force code to NOT be inline */
-#define FUNCTION_CHECK_RETURN(...) __VA_ARGS__ __attribute__ ((warn_unused_result))	/* Wrap a function signature in this to warn that callers should not ignore the return value. */
-
-#define TEXT_HELPER(a,b)	a ## b
-#define TEXT(s)				TEXT_HELPER(L, s)
+#define VARARGS															/* Functions with variable arguments */
+#define CDECL															/* Standard C function */
+#define STDCALL															/* Standard calling convention */
+#define FORCEINLINE inline __attribute__ ((always_inline))				/* Force code to be inline */
+#define FORCENOINLINE __attribute__((noinline))							/* Force code to NOT be inline */
+#define FUNCTION_CHECK_RETURN_END __attribute__ ((warn_unused_result))	/* Wrap a function signature in this to warn that callers should not ignore the return value. */
+#define FUNCTION_NO_RETURN_END __attribute__ ((noreturn))				/* Wrap a function signature in this to indicate that the function never returns. */
 
 // Optimization macros (uses _Pragma to enable inside a #define).
 // @todo linux: do these actually work with clang?  (no, they do not, but keeping in in case we switch to gcc)

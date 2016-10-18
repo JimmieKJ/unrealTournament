@@ -8,6 +8,9 @@
 
 #include "RenderingCompositionGraph.h"
 
+// return Depth of Field Scale if Gaussian DoF mode is active. 0.0f otherwise.
+float GetMobileDepthOfFieldScale(const FViewInfo& View);
+
 class FRCPassPostProcessBloomSetupES2 : public TRenderingCompositePassBase<1, 1>
 {
 public:

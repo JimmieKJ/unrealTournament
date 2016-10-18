@@ -63,6 +63,13 @@ void FSlateOpenGLTexture::UpdateTextureThreadSafeRaw(uint32 Width, uint32 Height
 	UpdateTextureRaw(Buffer, Dirty);
 }
 
+void FSlateOpenGLTexture::UpdateTextureThreadSafeWithTextureData(FSlateTextureData* TextureData)
+{
+	UpdateTextureThreadSafeRaw(TextureData->GetWidth(), TextureData->GetHeight(), TextureData->GetRawBytesPtr());
+	delete TextureData;
+}
+
+
 void FSlateOpenGLTexture::UpdateTextureRaw(const void* Buffer, const FIntRect& Dirty)
 {
 #if PLATFORM_MAC

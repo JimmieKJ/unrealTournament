@@ -61,7 +61,7 @@ class ENGINE_API AGameSession : public AInfo
 	virtual bool ProcessAutoLogin();
 
     /** Delegate triggered on auto login completion */
-	virtual void OnLoginComplete(int32 LocalUserNum, bool bWasSuccessful, const FUniqueNetId& UserId, const FString& Error);
+	virtual void OnAutoLoginComplete(int32 LocalUserNum, bool bWasSuccessful, const FString& Error);
 
 	/** 
 	 * Called from GameMode.PreLogin() and Login().
@@ -254,12 +254,6 @@ private:
 	 */
 	virtual void OnEndSessionComplete(FName InSessionName, bool bWasSuccessful);
 
-	/** Handle to outstanding start session call */
-	FDelegateHandle StartSessionCompleteHandle;
-	/** Handle to outstanding end session call */
-	FDelegateHandle EndSessionCompleteHandle;
-
-	FDelegateHandle OnLoginCompleteDelegateHandle;
 };
 
 /** 

@@ -28,13 +28,14 @@ public:
 	virtual bool IsProfilerEnabled() const override { return bProfilerActive; }
 	virtual bool IsProfilingCaptureActive() const { return bProfilingCaptureActive; }
 	virtual void ToggleProfilingCapture() override;
-	virtual void InstrumentEvent(const EScriptInstrumentationEvent& Event) override;
+	virtual void InstrumentEvent(const FScriptInstrumentationSignal& Event) override;
 
 #if WITH_EDITOR
+	virtual void AddInstrumentedBlueprint(UBlueprint* InstrumentedBlueprint) override;
 	virtual FOnBPStatGraphLayoutChanged& GetGraphLayoutChangedDelegate() { return GraphLayoutChangedDelegate; }
 	virtual TSharedPtr<FBlueprintExecutionContext> GetBlueprintContext(const FString& BlueprintClassPath) override;
 	virtual TSharedPtr<FScriptExecutionNode> GetProfilerDataForNode(const UEdGraphNode* GraphNode) override;
-	virtual FName MapBlueprintInstance(TSharedPtr<FBlueprintExecutionContext> BlueprintContext, const FString& InstancePath) override;
+	virtual TSharedPtr<FScriptExecutionBlueprint> GetProfilerDataForBlueprint(const UBlueprint* Blueprint) override;
 	virtual bool HasDataForInstance(const UObject* Instance) const override;
 	virtual void ProcessEventProfilingData() override;
 #endif
@@ -81,10 +82,12 @@ protected:
 #if WITH_EDITOR
 	/** PIE Active */
 	bool bPIEActive;
-	/** Suspended script events */
-	TMap<FName, TSharedPtr<FScriptEventPlayback>> SuspendedEvents;
+	/** Suspended script events, the key is the latent LinkId */
+	TMap<FName, TMap<int32, TSharedPtr<FScriptEventPlayback>>> SuspendedEvents;
 	/** Cached object path and code offset lookup to UObjects */
 	TMap<FString, TSharedPtr<FBlueprintExecutionContext>> PathToBlueprintContext;
+	/** The profiler connection factory */
+	TSharedPtr<struct FGraphPanelPinConnectionFactory> ConnectionFactory;
 #endif
 	
 };

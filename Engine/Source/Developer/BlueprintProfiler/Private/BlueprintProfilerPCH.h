@@ -14,6 +14,9 @@
 #include "Editor/Kismet/Public/Profiler/ScriptPerfData.h"
 #include "Editor/BlueprintGraph/Public/BlueprintGraphDefinitions.h"
 #include "Editor/UnrealEd/Public/Kismet2/KismetEditorUtilities.h"
+#include "Editor/GraphEditor/Public/GraphEditorSettings.h"
+#include "Editor/UnrealEd/Public/EdGraphUtilities.h"
+#include "Private/BlueprintProfilerConnectionDrawingPolicy.h"
 #endif // WITH_EDITOR
 
 #include "BlueprintProfilerModule.h"

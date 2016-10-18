@@ -1462,7 +1462,7 @@ public:
 				Name = FString::Printf(TEXT("TaskGraphThreadNP %d"), ThreadIndex - (LastExternalThread + 1));
 				ThreadPri = TPri_BelowNormal; // we want normal tasks below normal threads like the game thread
 			}
-			uint32 StackSize = 256 * 1024;
+			uint32 StackSize = 384 * 1024;
 			WorkerThreads[ThreadIndex].RunnableThread = FRunnableThread::Create(&Thread(ThreadIndex), *Name, StackSize, ThreadPri, FPlatformAffinity::GetTaskGraphThreadMask()); // these are below normal threads so that they sleep when the named threads are active
 			WorkerThreads[ThreadIndex].bAttached = true;
 		}
@@ -2671,11 +2671,13 @@ public:
 		Function(CurrentThread);
 		if (StallForTaskThread)
 		{
-			StallForTaskThread->Decrement();
-			// we wait for the others to finish here so that we do all task threads
-			while (StallForTaskThread->GetValue())
+			if (StallForTaskThread->Decrement())
 			{
-				FPlatformProcess::SleepNoStats(.0002f);
+				// we wait for the others to finish here so that we do all task threads
+				while (StallForTaskThread->GetValue())
+				{
+					FPlatformProcess::SleepNoStats(.0002f);
+				}
 			}
 		}
 	}
@@ -2697,18 +2699,18 @@ void FTaskGraphInterface::BroadcastSlow_OnlyUseForSpecialPurposes(bool bDoBackgr
 		return;
 	}
 
-	// these are static because we don't actually wait for the tasks to clear
-	static FThreadSafeCounter StallForTaskThread;
+	FThreadSafeCounter StallForTaskThread;
 
 	int32 Workers = FTaskGraphInterface::Get().GetNumWorkerThreads();
 	StallForTaskThread.Reset();
 	StallForTaskThread.Add(Workers * (1 + (bDoBackgroundThreads && ENamedThreads::bHasBackgroundThreads) + !!(ENamedThreads::bHasHighPriorityThreads)));
 
+	FGraphEventArray TaskThreadTasks;
 	{
 
 		for (int32 Index = 0; Index < Workers; Index++)
 		{
-			TGraphTask<FBroadcastTask>::CreateTask().ConstructAndDispatchWhenReady(Callback, ENamedThreads::AnyNormalThreadHiPriTask, &StallForTaskThread);
+			TaskThreadTasks.Add(TGraphTask<FBroadcastTask>::CreateTask().ConstructAndDispatchWhenReady(Callback, ENamedThreads::AnyNormalThreadHiPriTask, &StallForTaskThread));
 		}
 
 	}
@@ -2716,14 +2718,14 @@ void FTaskGraphInterface::BroadcastSlow_OnlyUseForSpecialPurposes(bool bDoBackgr
 	{
 		for (int32 Index = 0; Index < Workers; Index++)
 		{
-			TGraphTask<FBroadcastTask>::CreateTask().ConstructAndDispatchWhenReady(Callback, ENamedThreads::AnyHiPriThreadHiPriTask, &StallForTaskThread);
+			TaskThreadTasks.Add(TGraphTask<FBroadcastTask>::CreateTask().ConstructAndDispatchWhenReady(Callback, ENamedThreads::AnyHiPriThreadHiPriTask, &StallForTaskThread));
 		}
 	}
 	if (bDoBackgroundThreads && ENamedThreads::bHasBackgroundThreads)
 	{
 		for (int32 Index = 0; Index < Workers; Index++)
 		{
-			TGraphTask<FBroadcastTask>::CreateTask().ConstructAndDispatchWhenReady(Callback, ENamedThreads::AnyBackgroundHiPriTask, &StallForTaskThread);
+			TaskThreadTasks.Add(TGraphTask<FBroadcastTask>::CreateTask().ConstructAndDispatchWhenReady(Callback, ENamedThreads::AnyBackgroundHiPriTask, &StallForTaskThread));
 		}
 	}
 	FGraphEventArray Tasks;
@@ -2752,9 +2754,10 @@ void FTaskGraphInterface::BroadcastSlow_OnlyUseForSpecialPurposes(bool bDoBackgr
 		else if (FPlatformTime::Seconds() - StartTime > 3.0)
 		{
 			StartTime = FPlatformTime::Seconds();
-			UE_LOG(LogTaskGraph, Error, TEXT("Broadcast failed after three seconds"));
+			UE_LOG(LogTaskGraph, Error, TEXT("FTaskGraphInterface::BroadcastSlow_OnlyUseForSpecialPurposes Broadcast failed after three seconds"));
 		}
 	}
+	FTaskGraphInterface::Get().WaitUntilTasksComplete(TaskThreadTasks, ENamedThreads::GameThread_Local);
 }
 
 

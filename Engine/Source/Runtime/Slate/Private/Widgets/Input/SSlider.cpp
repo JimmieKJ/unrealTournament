@@ -38,15 +38,17 @@ int32 SSlider::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeometr
 	FVector2D SliderEndPoint;
 
 	// calculate slider geometry as if it's a horizontal slider (we'll rotate it later if it's vertical)
-	const FVector2D HalfHandleSize = 0.5f * Style->NormalThumbImage.ImageSize;
-	const float Indentation = IndentHandle.Get() ? Style->NormalThumbImage.ImageSize.X : 0.0f;
+	const FVector2D HandleSize = Style->NormalThumbImage.ImageSize;
+	const FVector2D HalfHandleSize = 0.5f * HandleSize;
+	const float Indentation = IndentHandle.Get() ? HandleSize.X : 0.0f;
 
 	const float SliderLength = AllottedWidth - Indentation;
-	const float SliderHandleOffset = ValueAttribute.Get() * SliderLength;
+	const float SliderPercent = ValueAttribute.Get();
+	const float SliderHandleOffset = SliderPercent * SliderLength;
 	const float SliderY = 0.5f * AllottedHeight;
-	
+
 	HandleRotation = 0.0f;
-	HandleTopLeftPoint = FVector2D(SliderHandleOffset - HalfHandleSize.X + 0.5f * Indentation, SliderY - HalfHandleSize.Y);
+	HandleTopLeftPoint = FVector2D(SliderHandleOffset - ( HandleSize.X * SliderPercent ) + 0.5f * Indentation, SliderY - HalfHandleSize.Y);
 
 	SliderStartPoint = FVector2D(HalfHandleSize.X, SliderY);
 	SliderEndPoint = FVector2D(AllottedWidth - HalfHandleSize.X, SliderY);
@@ -80,8 +82,8 @@ int32 SSlider::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeometr
 	const ESlateDrawEffect::Type DrawEffects = bEnabled ? ESlateDrawEffect::None : ESlateDrawEffect::DisabledEffect;
 
 	// draw slider bar
-	auto BarTopLeft = FVector2D(SliderStartPoint.X, SliderStartPoint.Y - 1);
-	auto BarSize = FVector2D(SliderEndPoint.X - SliderStartPoint.X, 2);
+	auto BarTopLeft = FVector2D(SliderStartPoint.X, SliderStartPoint.Y - Style->BarThickness * 0.5f);
+	auto BarSize = FVector2D(SliderEndPoint.X - SliderStartPoint.X, Style->BarThickness);
 	FSlateDrawElement::MakeBox(
 		OutDrawElements,
 		LayerId,
@@ -117,12 +119,14 @@ FVector2D SSlider::ComputeDesiredSize( float ) const
 		return SSliderDesiredSize;
 	}
 
+	const float Thickness = FMath::Max(Style->BarThickness, Style->NormalThumbImage.ImageSize.Y);
+
 	if (Orientation == Orient_Vertical)
 	{
-		return FVector2D(Style->NormalThumbImage.ImageSize.Y, SSliderDesiredSize.Y);
+		return FVector2D(Thickness, SSliderDesiredSize.Y);
 	}
 
-	return FVector2D(SSliderDesiredSize.X, Style->NormalThumbImage.ImageSize.Y);
+	return FVector2D(SSliderDesiredSize.X, Thickness);
 }
 
 
@@ -157,13 +161,11 @@ FReply SSlider::OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& InKeyEve
 
 	if (IsInteractable())
 	{
-
 		// The controller's bottom face button must be pressed once to begin manipulating the slider's value.
 		// Navigation away from the widget is prevented until the button has been pressed again or focus is lost.
 		// The value can be manipulated by using the game pad's directional arrows ( relative to slider orientation ).
 		if (KeyPressed == EKeys::Enter || KeyPressed == EKeys::SpaceBar || KeyPressed == EKeys::Gamepad_FaceButton_Bottom)
 		{
-
 			if (bControllerInputCaptured == false)
 			{
 				// Begin capturing controller input and allow user to modify the slider's value.
@@ -183,22 +185,22 @@ FReply SSlider::OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& InKeyEve
 			float NewValue = ValueAttribute.Get();
 			if (Orientation == EOrientation::Orient_Horizontal)
 			{
-				if (KeyPressed == EKeys::Left || KeyPressed == EKeys::Gamepad_DPad_Left)
+				if (KeyPressed == EKeys::Left || KeyPressed == EKeys::Gamepad_DPad_Left || KeyPressed == EKeys::Gamepad_LeftStick_Left)
 				{
 					NewValue -= StepSize.Get();
 				}
-				else if (KeyPressed == EKeys::Right || KeyPressed == EKeys::Gamepad_DPad_Right)
+				else if (KeyPressed == EKeys::Right || KeyPressed == EKeys::Gamepad_DPad_Right || KeyPressed == EKeys::Gamepad_LeftStick_Right)
 				{
 					NewValue += StepSize.Get();
 				}
 			}
 			else
 			{
-				if (KeyPressed == EKeys::Down || KeyPressed == EKeys::Gamepad_DPad_Down)
+				if (KeyPressed == EKeys::Down || KeyPressed == EKeys::Gamepad_DPad_Down || KeyPressed == EKeys::Gamepad_LeftStick_Down)
 				{
 					NewValue -= StepSize.Get();
 				}
-				else if (KeyPressed == EKeys::Up || KeyPressed == EKeys::Gamepad_DPad_Up)
+				else if (KeyPressed == EKeys::Up || KeyPressed == EKeys::Gamepad_DPad_Up || KeyPressed == EKeys::Gamepad_LeftStick_Up)
 				{
 					NewValue += StepSize.Get();
 				}
@@ -207,6 +209,14 @@ FReply SSlider::OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& InKeyEve
 			CommitValue(FMath::Clamp(NewValue, 0.0f, 1.0f));
 			Reply = FReply::Handled();
 		}
+		else
+		{
+			Reply = SLeafWidget::OnKeyDown(MyGeometry, InKeyEvent);
+		}
+	}
+	else
+	{
+		Reply = SLeafWidget::OnKeyDown(MyGeometry, InKeyEvent);
 	}
 
 	return Reply;

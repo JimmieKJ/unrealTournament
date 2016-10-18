@@ -235,7 +235,7 @@ void FAutomationReportManager::AddResultReport(TSharedPtr< IAutomationReport > I
 				{
 					for ( int32 ErrorIndex = 0; ErrorIndex < TestResults.Errors.Num(); ++ErrorIndex )
 					{
-						ResultsLog.Add( ErrorPrefixText + TestResults.Errors[ ErrorIndex ] + ErrorSufixText );
+						ResultsLog.Add( ErrorPrefixText + TestResults.Errors[ ErrorIndex ].ToString() + ErrorSufixText );
 					}
 				}
 				if ( EFileExportType::IsSet( FileExportTypeMask, EFileExportType::FET_All ) || EFileExportType::IsSet( FileExportTypeMask, EFileExportType::FET_Warnings ) )

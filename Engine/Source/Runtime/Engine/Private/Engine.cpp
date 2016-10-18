@@ -10,6 +10,10 @@
 #include "EditorSupportDelegates.h"
 #include "ComponentReregisterContext.h"
 
+#if !UE_BUILD_SHIPPING && PLATFORM_DESKTOP 
+#include "ISlateReflectorModule.h"
+#endif
+
 /*-----------------------------------------------------------------------------
 	Globals.
 -----------------------------------------------------------------------------*/
@@ -171,3 +175,48 @@ FAutoConsoleCommand ReattachComponentsCmd(
 
 
 #endif // !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+
+
+#if !UE_BUILD_SHIPPING && PLATFORM_DESKTOP
+
+static void ShowWidgetReflector()
+{
+	static const FName SlateReflectorModuleName("SlateReflector");
+	FModuleManager::LoadModuleChecked<ISlateReflectorModule>(SlateReflectorModuleName).DisplayWidgetReflector();
+}
+
+static void ShowTextureAtlasVisualizer()
+{
+	static const FName SlateReflectorModuleName("SlateReflector");
+	FModuleManager::LoadModuleChecked<ISlateReflectorModule>(SlateReflectorModuleName).DisplayTextureAtlasVisualizer();
+}
+
+static void ShowFontAtlasVisualizer()
+{
+	static const FName SlateReflectorModuleName("SlateReflector");
+	FModuleManager::LoadModuleChecked<ISlateReflectorModule>(SlateReflectorModuleName).DisplayFontAtlasVisualizer();
+
+}
+
+static FAutoConsoleCommand GShowWidgetReflector
+(
+	TEXT("WidgetReflector"),
+	TEXT("Displays the Slate widget reflector"),
+	FConsoleCommandDelegate::CreateStatic(ShowWidgetReflector)
+);
+
+static FAutoConsoleCommand GShowTextureAtlasReflector
+(
+	TEXT("TextureAtlasVisualizer"),
+	TEXT("Displays the Slate texture atlas visualizer"),
+	FConsoleCommandDelegate::CreateStatic(ShowTextureAtlasVisualizer)
+);
+
+static FAutoConsoleCommand GShowFontAtlasReflector
+(
+	TEXT("FontAtlasVisualizer"),
+	TEXT("Displays the Slate font atlas visualizer"),
+	FConsoleCommandDelegate::CreateStatic(ShowFontAtlasVisualizer)
+);
+
+#endif

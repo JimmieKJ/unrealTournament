@@ -190,6 +190,16 @@ public:
 			this->Bones = SrcPoseBones;
 		}
 	}
+
+	template <typename OtherAllocator>
+	void CopyBonesTo(TArray<FTransform, OtherAllocator>& DestPoseBones)
+	{
+		// this won't work if you're copying to FBaseCompactPose without BoneContainer data
+		// you'll like to make CopyBonesTo(FBaseCompactPose<OtherAllocator>& DestPose) to fix this properly
+		// if you need bone container
+		DestPoseBones = this->Bones;
+	}
+
 	// Sets this pose to its ref pose
 	void ResetToRefPose()
 	{
@@ -226,11 +236,12 @@ public:
 	}
 
 	// Sets every bone transform to Identity
-	void ResetToIdentity()
+	void ResetToAdditiveIdentity()
 	{
 		for (FTransform& Bone : this->Bones)
 		{
 			Bone.SetIdentity();
+			Bone.SetScale3D(FVector::ZeroVector);
 		}
 	}
 
@@ -248,7 +259,7 @@ public:
 		return true;
 	}
 
-	// Returns true if any bone rotation contains NaN
+	// Returns true if any bone rotation contains NaN or Inf
 	bool ContainsNaN() const
 	{
 		for (const FTransform& Bone : this->Bones)
@@ -472,7 +483,7 @@ struct FCSPose
 	void LocalBlendCSBoneTransforms(const TArray<struct FBoneTransform>& BoneTransforms, float Alpha);
 
 	// Convert any component space transforms back to local space
-	void ConvertToLocalPoses(PoseType& OutPose);
+	void ConvertToLocalPoses(PoseType& OutPose) const;
 
 protected:
 	PoseType Pose;
@@ -559,6 +570,7 @@ void FCSPose<PoseType>::CalculateComponentSpaceTransform(BoneIndexType BoneIndex
 	FTransform& ParentBone = Pose[ParentIndex];
 	check(!Pose[BoneIndex].ContainsNaN());
 	check(!Pose[ParentIndex].ContainsNaN());
+
 	FTransform ComponentTransform = Pose[BoneIndex] * Pose[ParentIndex];
 	check(!ComponentTransform.ContainsNaN());
 	Pose[BoneIndex] = ComponentTransform;
@@ -771,7 +783,7 @@ void FCSPose<PoseType>::LocalBlendCSBoneTransforms(const TArray<struct FBoneTran
 }
 
 template<class PoseType>
-void FCSPose<PoseType>::ConvertToLocalPoses(PoseType& OutPose)
+void FCSPose<PoseType>::ConvertToLocalPoses(PoseType& OutPose) const
 {
 	checkSlow(Pose.IsValid());
 	OutPose = Pose;

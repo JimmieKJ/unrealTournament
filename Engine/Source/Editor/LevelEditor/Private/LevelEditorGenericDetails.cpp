@@ -9,6 +9,8 @@
 #include "Runtime/AssetRegistry/Public/AssetRegistryModule.h"
 #include "SurfaceIterators.h"
 #include "ScopedTransaction.h"
+#include "FunctionalTest.h"
+#include "FunctionalTestingModule.h"
 
 #include "PropertyCustomizationHelpers.h"
 
@@ -27,6 +29,66 @@ void FLevelEditorGenericDetails::CustomizeDetails( IDetailLayoutBuilder& DetailL
 	{
 		AddSurfaceDetails( DetailLayout );
 	}
+
+#if 0
+	TArray< TWeakObjectPtr<UObject> > CustomizedObjects;
+	DetailLayout.GetObjectsBeingCustomized(CustomizedObjects);
+
+	TArray< AFunctionalTest* > FunctionalTests;
+	for ( auto& CustomizedObject : CustomizedObjects )
+	{
+		AFunctionalTest* FunctionalTest = Cast<AFunctionalTest>(CustomizedObject.Get());
+		if ( FunctionalTest )
+		{
+			FunctionalTests.Add(FunctionalTest);
+		}
+	}
+	
+	if ( FunctionalTests.Num() > 0 )
+	{
+		FString TestNames;
+
+		for ( int32 TestIndex = 0; TestIndex < FunctionalTests.Num(); TestIndex++ )
+		{
+			AFunctionalTest* FunctionalTest = FunctionalTests[TestIndex];
+
+			FString TestName = FunctionalTest->GetName();
+			FString MapName = FunctionalTest->GetLevel()->GetWorld()->GetMapName();
+
+			// Project.Maps.Client Functional Testing
+			TestNames += TEXT("Project.Maps.Functional Tests.");
+			TestNames += MapName;
+			TestNames += TEXT(".");
+			TestNames += TestName;
+
+			// If we're not at the end, add the test name delimiter.
+			if ( TestIndex < ( FunctionalTests.Num() - 1 ) )
+			{
+				TestNames += TEXT("+");
+			}
+		}
+
+		IDetailCategoryBuilder& Category = DetailLayout.EditCategory("Run", LOCTEXT("RunFunctionalTestingTitle", "Run"));
+		Category.AddCustomRow(FText::GetEmpty())
+		[
+			SNew(SButton)
+			.OnClicked_Lambda([TestNames] {
+				FString Command = TEXT("Automation RunTests Now ");
+				Command += TestNames;
+
+				GEditor->Exec(GWorld, *Command);
+
+				return FReply::Handled();
+			})
+			.HAlign(HAlign_Center)
+			[
+				SNew(STextBlock)
+				.Text(LOCTEXT("Run Test", "Run Selected Tests"))
+				.Font(IDetailLayoutBuilder::GetDetailFont())
+			]
+		];
+	}
+#endif
 }
 
 void FLevelEditorGenericDetails::GetSelectedSurfaceMaterials(IMaterialListBuilder& MaterialList) const

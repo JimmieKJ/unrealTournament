@@ -447,13 +447,13 @@ protected:
 	/** 
 	 * A mapping from old pin name to new pin name for each K2 node.  Get primed from INI files, and should contain entries for node class, and old param name and new param name
 	 */
-	static TMultiMap<UClass*, FParamRemapInfo> ParamRedirectMap;
+	ENGINE_API static TMultiMap<UClass*, FParamRemapInfo> ParamRedirectMap;
 
-	/** Has the field map been intialized this run */
+	/** Has the field map been initialized this run */
 	static bool bFieldRedirectMapInitialized;
 
 	/** Init the field redirect map (if not already done) from .ini file entries */
-	static void InitFieldRedirectMap();
+	ENGINE_API static void InitFieldRedirectMap();
 
 	/** 
 	 * Searches the field replacement map for an appropriately named field in the specified scope, and returns an updated name if this property has been listed in the remapping table

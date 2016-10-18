@@ -64,7 +64,14 @@ struct FMetalRenderPipelineDesc
 	/**
 	 * @return an pipeline state object that matches the current state and the BSS
 	 */
-	id<MTLRenderPipelineState> CreatePipelineStateForBoundShaderState(FMetalBoundShaderState* BSS) const;
+	id<MTLRenderPipelineState> CreatePipelineStateForBoundShaderState(FMetalBoundShaderState* BSS, FMetalHashedVertexDescriptor const& VertexDesc, MTLRenderPipelineReflection** Reflection = nil) const;
+
+#if !UE_BUILD_SHIPPING
+	/**
+	 * @return a reflection object that matches the current state and the BSS
+	 */
+	MTLRenderPipelineReflection* GetReflectionData(FMetalBoundShaderState* BSS, FMetalHashedVertexDescriptor const& VertexDesc) const;
+#endif
 
 	MTLRenderPipelineDescriptor* PipelineDescriptor;
 	uint32 SampleCount;
@@ -72,8 +79,26 @@ struct FMetalRenderPipelineDesc
 	// running hash of the pipeline state
 	FMetalRenderPipelineHash Hash;
 
+	struct FMetalRenderPipelineKey
+	{
+		FMetalRenderPipelineHash RenderPipelineHash;
+		FMetalHashedVertexDescriptor VertexDescriptorHash;
+		id<MTLFunction> VertexFunction;
+		id<MTLFunction> PixelFunction;
+		
+		bool operator==(FMetalRenderPipelineKey const& Other) const;
+		
+		friend uint32 GetTypeHash(FMetalRenderPipelineKey const& Key)
+		{
+			return GetTypeHash(Key.RenderPipelineHash) ^ GetTypeHash(Key.VertexDescriptorHash) ^ GetTypeHash(Key.VertexFunction) ^ GetTypeHash(Key.PixelFunction);
+		}
+	};
+	
 	static FCriticalSection MetalPipelineMutex;
-	static NSMutableDictionary* MetalPipelineCache;
+	static TMap<FMetalRenderPipelineKey, id<MTLRenderPipelineState>> MetalPipelineCache;
 	static uint32 BlendBitOffsets[6];
 	static uint32 RTBitOffsets[6];
+#if !UE_BUILD_SHIPPING
+	static TMap<FMetalRenderPipelineKey, MTLRenderPipelineReflection*> MetalReflectionCache;
+#endif
 };

@@ -46,6 +46,8 @@ public:
 
 	virtual void Cancel( ) override;
 
+	virtual void CancelAndWait( ) override;
+
 	virtual ELauncherWorkerStatus::Type GetStatus( ) const  override
 	{
 		return Status;

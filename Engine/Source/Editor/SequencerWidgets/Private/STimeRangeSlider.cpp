@@ -60,6 +60,13 @@ void STimeRangeSlider::ComputeHandleOffsets(float& LeftHandleOffset, float& Hand
 	RightHandleOffset = HandleOffset + (OutTime - InTime) * UnitsToPixel;
 }
 
+
+FVector2D STimeRangeSlider::ComputeDesiredSize(float) const
+{
+	return FVector2D(4.0f * TimeRangeSliderConstants::HandleSize, TimeRangeSliderConstants::HandleSize);
+}
+
+
 int32 STimeRangeSlider::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled ) const
 {
 	const int32 BackgroundLayer = LayerId+1;

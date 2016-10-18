@@ -23,23 +23,11 @@ public:
 	{
 	}
 
-#if PLATFORM_COMPILER_HAS_VARIADIC_TEMPLATES
-
 	template <typename... Args>
 	explicit TUniqueObj(Args&&... args)
 		: Obj(MakeUnique<T>(Forward<Args>(args)...))
 	{
 	}
-
-#else
-
-	                                                                      explicit TUniqueObj(                                                  ) : Obj(MakeUnique<T>(                                                                                  )) {}
-	template <typename Arg0                                             > explicit TUniqueObj(Arg0&& arg0                                       ) : Obj(MakeUnique<T>(Forward<Arg0>(arg0)                                                               )) {}
-	template <typename Arg0, typename Arg1                              > explicit TUniqueObj(Arg0&& arg0, Arg1&& arg1                          ) : Obj(MakeUnique<T>(Forward<Arg0>(arg0), Forward<Arg1>(arg1)                                          )) {}
-	template <typename Arg0, typename Arg1, typename Arg2               > explicit TUniqueObj(Arg0&& arg0, Arg1&& arg1, Arg2&& arg2             ) : Obj(MakeUnique<T>(Forward<Arg0>(arg0), Forward<Arg1>(arg1), Forward<Arg2>(arg2)                     )) {}
-	template <typename Arg0, typename Arg1, typename Arg2, typename Arg3> explicit TUniqueObj(Arg0&& arg0, Arg1&& arg1, Arg2&& arg2, Arg3&& arg3) : Obj(MakeUnique<T>(Forward<Arg0>(arg0), Forward<Arg1>(arg1), Forward<Arg2>(arg2), Forward<Arg3>(arg3))) {}
-
-#endif
 
 	// Disallow copy-assignment
 #if PLATFORM_COMPILER_HAS_DEFAULTED_FUNCTIONS

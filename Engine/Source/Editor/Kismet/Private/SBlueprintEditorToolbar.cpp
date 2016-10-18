@@ -338,7 +338,7 @@ void FFullBlueprintEditorCommands::RegisterCommands()
 	
 	UI_COMMAND(SaveOnCompile_Never, "Never", "Sets the save-on-compile option to 'Never', meaning that your Blueprints will not be saved when they are compiled", EUserInterfaceActionType::RadioButton, FInputChord());
 	UI_COMMAND(SaveOnCompile_SuccessOnly, "On Success Only", "Sets the save-on-compile option to 'Success Only', meaning that your Blueprints will be saved whenever they are successfully compiled", EUserInterfaceActionType::RadioButton, FInputChord());
-	UI_COMMAND(SaveOnCompile_Always, "Always", "Sets the save-on-compile option to 'Always', meaning that your Blueprints will be saved whenever they ar compiled (even if there were errors)", EUserInterfaceActionType::RadioButton, FInputChord());
+	UI_COMMAND(SaveOnCompile_Always, "Always", "Sets the save-on-compile option to 'Always', meaning that your Blueprints will be saved whenever they are compiled (even if there were errors)", EUserInterfaceActionType::RadioButton, FInputChord());
 
 	UI_COMMAND(SwitchToScriptingMode, "Graph", "Switches to Graph Editing Mode", EUserInterfaceActionType::ToggleButton, FInputChord());
 	UI_COMMAND(SwitchToBlueprintDefaultsMode, "Defaults", "Switches to Class Defaults Mode", EUserInterfaceActionType::ToggleButton, FInputChord());
@@ -404,16 +404,7 @@ static void BlueprintEditorToolbarImpl::MakeCompileDeveloperSubMenu(FMenuBuilder
 
 void FBlueprintEditorToolbar::AddBlueprintEditorModesToolbar(TSharedPtr<FExtender> Extender)
 {
-	if ( !GetDefault<UEditorExperimentalSettings>()->bUnifiedBlueprintEditor )
-	{
-		TSharedPtr<FBlueprintEditor> BlueprintEditorPtr = BlueprintEditor.Pin();
-
-		Extender->AddToolBarExtension(
-			"Asset",
-			EExtensionHook::After,
-			BlueprintEditorPtr->GetToolkitCommands(),
-			FToolBarExtensionDelegate::CreateSP(this, &FBlueprintEditorToolbar::FillBlueprintEditorModesToolbar));
-	}
+	
 }
 
 void FBlueprintEditorToolbar::AddBlueprintGlobalOptionsToolbar(TSharedPtr<FExtender> Extender)
@@ -520,11 +511,7 @@ void FBlueprintEditorToolbar::FillBlueprintGlobalOptionsToolbar(FToolBarBuilder&
 	if(BlueprintObj != NULL)
 	{
 		ToolbarBuilder.AddToolBarButton(Commands.EditGlobalOptions);
-
-		if ( GetDefault<UEditorExperimentalSettings>()->bUnifiedBlueprintEditor )
-		{
-			ToolbarBuilder.AddToolBarButton(Commands.EditClassDefaults);
-		}
+		ToolbarBuilder.AddToolBarButton(Commands.EditClassDefaults);
 	}
 	
 	ToolbarBuilder.EndSection();
@@ -671,7 +658,14 @@ FSlateIcon FBlueprintEditorToolbar::GetStatusImage() const
 	case BS_Error:
 		return FSlateIcon(FEditorStyle::GetStyleSetName(), "Kismet.Status.Error");
 	case BS_UpToDate:
-		return FSlateIcon(FEditorStyle::GetStyleSetName(), "Kismet.Status.Good");
+	{
+		const bool bInstrumented = BlueprintObj->GeneratedClass->HasInstrumentation();
+		if (BlueprintEditor.Pin()->IsProfilerActive())
+		{
+			return bInstrumented ? FSlateIcon(FEditorStyle::GetStyleSetName(), "Kismet.Status.Instrumented") : FSlateIcon(FEditorStyle::GetStyleSetName(), "Kismet.Status.NotInstrumented");
+		}
+		return bInstrumented ? FSlateIcon(FEditorStyle::GetStyleSetName(), "Kismet.Status.Instrumented") : FSlateIcon(FEditorStyle::GetStyleSetName(), "Kismet.Status.Good");
+	}
 	case BS_UpToDateWithWarnings:
 		return FSlateIcon(FEditorStyle::GetStyleSetName(), "Kismet.Status.Warning");
 	}
@@ -698,7 +692,14 @@ FText FBlueprintEditorToolbar::GetStatusTooltip() const
 	case BS_Error:
 		return LOCTEXT("CompileError_Status", "There was an error during compilation, see the log for details");
 	case BS_UpToDate:
-		return LOCTEXT("GoodToGo_Status", "Good to go");
+	{
+		const bool bInstrumented = BlueprintObj->GeneratedClass->HasInstrumentation();
+		if (BlueprintEditor.Pin()->IsProfilerActive())
+		{
+			return bInstrumented ? LOCTEXT("GoodToGoInstrumented_Status", "Instrumentation is active") : LOCTEXT("GoodToGoNotInstrumented_Status", "Compile to add instrumentation");
+		}
+		return bInstrumented ? LOCTEXT("GoodToGoInstrumented_Status", "Instrumentation is active") : LOCTEXT("GoodToGo_Status", "Good to go");
+	}
 	case BS_UpToDateWithWarnings:
 		return LOCTEXT("GoodToGoWarning_Status", "There was a warning during compilation, see the log for details");
 	}
@@ -706,7 +707,7 @@ FText FBlueprintEditorToolbar::GetStatusTooltip() const
 
 FText FBlueprintEditorToolbar::GetProfilerStatusTooltip() const
 {
-	return BlueprintEditor.Pin()->IsProfilerActive() ? LOCTEXT("Profiling_Enabled", "Profiling Active") :
+	return BlueprintEditor.Pin()->IsProfilerActive() ?	LOCTEXT("Profiling_Enabled", "Profiling Active") :
 														LOCTEXT("Profiling_Disabled", "Profiling Inactive");
 }
 

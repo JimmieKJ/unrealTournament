@@ -1,6 +1,6 @@
 #include "UnrealTournament.h"
 
-#include "UTActivatedPowerupPlaceholder.h"
+#include "UTActivatedPowerUpPlaceholder.h"
 #include "UTHUDWidget_Powerups.h"
 
 AUTActivatedPowerUpPlaceholder::AUTActivatedPowerUpPlaceholder(const FObjectInitializer& ObjectInitializer)

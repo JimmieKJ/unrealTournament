@@ -55,7 +55,7 @@ struct FBlueprintActionUiSpec
 	FText   Category;
 	FText   Tooltip;
 	FText	Keywords;
-	FName   IconName;
+	FSlateIcon Icon;
 	FLinearColor IconTint;
 	FString DocLink;
 	FString DocExcerptTag;
@@ -67,7 +67,7 @@ private:
 		Category = MoveTemp(Other.Category);
 		Tooltip = MoveTemp(Other.Tooltip);
 		Keywords = MoveTemp(Other.Keywords);
-		IconName = MoveTemp(Other.IconName);
+		Icon = MoveTemp(Other.Icon);
 		IconTint = MoveTemp(Other.IconTint);
 		DocLink = MoveTemp(Other.DocLink);
 		DocExcerptTag = MoveTemp(Other.DocExcerptTag);
@@ -79,7 +79,7 @@ private:
 		Category = Other.Category;
 		Tooltip = Other.Tooltip;
 		Keywords = Other.Keywords;
-		IconName = Other.IconName;
+		Icon = Other.Icon;
 		IconTint = Other.IconTint;
 		DocLink = Other.DocLink;
 		DocExcerptTag = Other.DocExcerptTag;

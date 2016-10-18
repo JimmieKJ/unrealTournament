@@ -50,7 +50,7 @@ TSharedRef<ITableRow> FPListNodeDictionary::GenerateWidget(const TSharedRef<STab
 }
 
 /** Generate a widget for the specified column name */
-TSharedRef<SWidget> FPListNodeDictionary::GenerateWidgetForColumn(const FName& ColumnName, int32 Depth, ITableRow* RowPtr)
+TSharedRef<SWidget> FPListNodeDictionary::GenerateWidgetForColumn(const FName& ColumnName, int32 InDepth, ITableRow* RowPtr)
 {
 	TableRow = RowPtr;
 	check(TableRow);
@@ -71,7 +71,7 @@ TSharedRef<SWidget> FPListNodeDictionary::GenerateWidgetForColumn(const FName& C
 				+ SHorizontalBox::Slot()
 				[
 					SNew(SSpacer)
-					.Size(FVector2D(20 * Depth, 0))
+					.Size(FVector2D(20 * InDepth, 0))
 				]
 
 				+ SHorizontalBox::Slot()
@@ -100,7 +100,7 @@ TSharedRef<SWidget> FPListNodeDictionary::GenerateWidgetForColumn(const FName& C
 				[
 					// Space before expander
 					SNew(SSpacer)
-					.Size(FVector2D(20 * (Depth - 1), 0))
+					.Size(FVector2D(20 * (InDepth - 1), 0))
 				]
 
 				+ SHorizontalBox::Slot()

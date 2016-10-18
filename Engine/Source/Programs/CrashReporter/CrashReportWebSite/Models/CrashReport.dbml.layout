@@ -32,16 +32,16 @@
         <elementListCompartment Id="77c436bb-7563-449c-a08a-8c417bcde3fa" absoluteBounds="3.3900000000000006, 6.3350000000000009, 1.9700000000000002, 0.8262939453125" name="DataPropertiesCompartment" titleTextColor="Black" itemTextColor="Black" />
       </nestedChildShapes>
     </classShape>
-    <classShape Id="f1204ef8-6660-48ce-8c1d-131c49e2dd25" absoluteBounds="6.125, 1.125, 2, 6.1938297526041657">
+    <classShape Id="f1204ef8-6660-48ce-8c1d-131c49e2dd25" absoluteBounds="6.125, 1.125, 2, 6.3861311848958326">
       <DataClassMoniker Name="/CrashReportDataContext/Crash" />
       <nestedChildShapes>
-        <elementListCompartment Id="53c11757-f0be-47da-bcae-7d20a571002e" absoluteBounds="6.1400000000000006, 1.5850000000000009, 1.9700000000000002, 5.6338297526041661" name="DataPropertiesCompartment" titleTextColor="Black" itemTextColor="Black" />
+        <elementListCompartment Id="53c11757-f0be-47da-bcae-7d20a571002e" absoluteBounds="6.1400000000000006, 1.5850000000000009, 1.9700000000000002, 5.826131184895833" name="DataPropertiesCompartment" titleTextColor="Black" itemTextColor="Black" />
       </nestedChildShapes>
     </classShape>
-    <classShape Id="01d6823d-5d7e-435f-99a2-7d6fac1e698d" absoluteBounds="8.75, 4, 2, 1.193992513020838">
+    <classShape Id="01d6823d-5d7e-435f-99a2-7d6fac1e698d" absoluteBounds="8.875, 4.875, 2, 1.193992513020838">
       <DataClassMoniker Name="/CrashReportDataContext/FunctionCall" />
       <nestedChildShapes>
-        <elementListCompartment Id="73947671-715f-488a-95d7-cbbc50fb3643" absoluteBounds="8.765, 4.4600000000000009, 1.9700000000000002, 0.63399251302083326" name="DataPropertiesCompartment" titleTextColor="Black" itemTextColor="Black" />
+        <elementListCompartment Id="73947671-715f-488a-95d7-cbbc50fb3643" absoluteBounds="8.89, 5.3350000000000009, 1.9700000000000002, 0.63399251302083326" name="DataPropertiesCompartment" titleTextColor="Black" itemTextColor="Black" />
       </nestedChildShapes>
     </classShape>
     <classShape Id="1c5391f5-da91-47be-98d9-babd61dc2a47" absoluteBounds="0.625, 3.25, 2, 1.1939925130208344">
@@ -98,5 +98,18 @@
         <elementListCompartment Id="74a56d7a-d2a7-480f-8a79-9cfe3115cae7" absoluteBounds="2.7649999999999997, 8.21, 1.9700000000000002, 1.2108968098958333" name="DataPropertiesCompartment" titleTextColor="Black" itemTextColor="Black" />
       </nestedChildShapes>
     </classShape>
+    <classShape Id="3b95ffa2-59f4-4d1e-aa94-a2bd1270737c" absoluteBounds="8.875, 3.25, 2, 1.1939925130208333">
+      <DataClassMoniker Name="/CrashReportDataContext/CallStackPattern" />
+      <nestedChildShapes>
+        <elementListCompartment Id="291e7f8d-fcbd-44d8-b24b-fabdef63ff37" absoluteBounds="8.89, 3.71, 1.9700000000000002, 0.63399251302083326" name="DataPropertiesCompartment" titleTextColor="Black" itemTextColor="Black" />
+      </nestedChildShapes>
+    </classShape>
+    <associationConnector edgePoints="[(8.875 : 3.59375); (8.125 : 3.59375)]" fixedFrom="Algorithm" fixedTo="Algorithm">
+      <AssociationMoniker Name="/CrashReportDataContext/CallStackPattern/CallStackPattern_Crash" />
+      <nodes>
+        <classShapeMoniker Id="3b95ffa2-59f4-4d1e-aa94-a2bd1270737c" />
+        <classShapeMoniker Id="f1204ef8-6660-48ce-8c1d-131c49e2dd25" />
+      </nodes>
+    </associationConnector>
   </nestedChildShapes>
 </ordesignerObjectsDiagram>

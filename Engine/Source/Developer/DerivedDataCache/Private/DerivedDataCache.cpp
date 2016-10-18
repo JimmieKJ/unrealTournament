@@ -24,52 +24,15 @@ DEFINE_STAT(STAT_DDC_ExistTime);
 #include "DerivedDataCacheUsageStats.h"
 namespace DerivedDataCacheCookStats
 {
-	static void CollectStats(FCookStatsManager::AddStatFuncRef AddStat)
+	FCookStatsManager::FAutoRegisterCallback RegisterCookStats([](FCookStatsManager::AddStatFuncRef AddStat)
 	{
 		TMap<FString, FDerivedDataCacheUsageStats> DDCStats;
 		GetDerivedDataCacheRef().GatherUsageStats(DDCStats);
 		{
 			const FString StatName(TEXT("DDC.Usage"));
-
-			auto LogDDCNodeStats = [&](const TPair<FString, FDerivedDataCacheUsageStats>& StatPair)
-			{
-				auto LogDDCNodeCallStats = [&](const FString& NodeName, const FDerivedDataCacheUsageStats::CallStats& CallStat, const TCHAR* CallName)
-				{
-					auto LogDDCNodeCallStat = [&](const FString& InnerNodeName, const FDerivedDataCacheUsageStats::CallStats& InnerCallStat, const TCHAR* InnerCallName, FDerivedDataCacheUsageStats::CallStats::EHitOrMiss HitOrMiss, bool bGameThread)
-					{
-						// only report the stat if it's non-zero
-						if (CallStat.GetAccumulatedValue(HitOrMiss, FDerivedDataCacheUsageStats::CallStats::EStatType::Cycles, bGameThread) > 0)
-						{
-							AddStat(StatName, FCookStatsManager::CreateKeyValueArray(
-								TEXT("ThreadName"), bGameThread ? TEXT("GameThread") : TEXT("OthrThread"),
-								TEXT("Call"), InnerCallName,
-								TEXT("HitOrMiss"), HitOrMiss == FDerivedDataCacheUsageStats::CallStats::EHitOrMiss::Hit ? TEXT("Hit") : TEXT("Miss"),
-								TEXT("Count"), InnerCallStat.GetAccumulatedValue(HitOrMiss, FDerivedDataCacheUsageStats::CallStats::EStatType::Counter, bGameThread),
-								TEXT("TimeSec"), InnerCallStat.GetAccumulatedValue(HitOrMiss, FDerivedDataCacheUsageStats::CallStats::EStatType::Cycles, bGameThread) * FPlatformTime::GetSecondsPerCycle(),
-								TEXT("MB"), InnerCallStat.GetAccumulatedValue(HitOrMiss, FDerivedDataCacheUsageStats::CallStats::EStatType::Bytes, bGameThread) / (1024.0 * 1024.0),
-								TEXT("MB/s"), InnerCallStat.GetAccumulatedValue(HitOrMiss, FDerivedDataCacheUsageStats::CallStats::EStatType::Cycles, bGameThread) == 0
-									? 0.0
-									: InnerCallStat.GetAccumulatedValue(HitOrMiss, FDerivedDataCacheUsageStats::CallStats::EStatType::Bytes, bGameThread) / (1024.0 * 1024.0) /
-									(InnerCallStat.GetAccumulatedValue(HitOrMiss, FDerivedDataCacheUsageStats::CallStats::EStatType::Cycles, bGameThread) * FPlatformTime::GetSecondsPerCycle()),
-									TEXT("Node"), InnerNodeName
-								));
-						}
-					};
-
-					LogDDCNodeCallStat(NodeName, CallStat, CallName, FDerivedDataCacheUsageStats::CallStats::EHitOrMiss::Hit, true);
-					LogDDCNodeCallStat(NodeName, CallStat, CallName, FDerivedDataCacheUsageStats::CallStats::EHitOrMiss::Miss, true);
-					LogDDCNodeCallStat(NodeName, CallStat, CallName, FDerivedDataCacheUsageStats::CallStats::EHitOrMiss::Hit, false);
-					LogDDCNodeCallStat(NodeName, CallStat, CallName, FDerivedDataCacheUsageStats::CallStats::EHitOrMiss::Miss, false);
-				};
-
-				LogDDCNodeCallStats(StatPair.Key, StatPair.Value.GetStats, TEXT("Get"));
-				LogDDCNodeCallStats(StatPair.Key, StatPair.Value.PutStats, TEXT("Put"));
-				LogDDCNodeCallStats(StatPair.Key, StatPair.Value.ExistsStats, TEXT("Exists"));
-			};
-
 			for (const auto& UsageStatPair : DDCStats)
 			{
-				LogDDCNodeStats(UsageStatPair);
+				UsageStatPair.Value.LogStats(AddStat, StatName, UsageStatPair.Key);
 			}
 		}
 
@@ -90,11 +53,11 @@ namespace DerivedDataCacheCookStats
 			{
 				const FDerivedDataCacheUsageStats& RootStats = DDCStats[*RootKey];
 				int64 TotalGetHits =
-					RootStats.GetStats.GetAccumulatedValue(FDerivedDataCacheUsageStats::CallStats::EHitOrMiss::Hit, FDerivedDataCacheUsageStats::CallStats::EStatType::Counter, true) +
-					RootStats.GetStats.GetAccumulatedValue(FDerivedDataCacheUsageStats::CallStats::EHitOrMiss::Hit, FDerivedDataCacheUsageStats::CallStats::EStatType::Counter, false);
+					RootStats.GetStats.GetAccumulatedValue(FCookStats::CallStats::EHitOrMiss::Hit, FCookStats::CallStats::EStatType::Counter, true) +
+					RootStats.GetStats.GetAccumulatedValue(FCookStats::CallStats::EHitOrMiss::Hit, FCookStats::CallStats::EStatType::Counter, false);
 				int64 TotalGetMisses =
-					RootStats.GetStats.GetAccumulatedValue(FDerivedDataCacheUsageStats::CallStats::EHitOrMiss::Miss, FDerivedDataCacheUsageStats::CallStats::EStatType::Counter, true) +
-					RootStats.GetStats.GetAccumulatedValue(FDerivedDataCacheUsageStats::CallStats::EHitOrMiss::Miss, FDerivedDataCacheUsageStats::CallStats::EStatType::Counter, false);
+					RootStats.GetStats.GetAccumulatedValue(FCookStats::CallStats::EHitOrMiss::Miss, FCookStats::CallStats::EStatType::Counter, true) +
+					RootStats.GetStats.GetAccumulatedValue(FCookStats::CallStats::EHitOrMiss::Miss, FCookStats::CallStats::EStatType::Counter, false);
 				int64 TotalGets = TotalGetHits + TotalGetMisses;
 
 				int64 LocalHits = 0;
@@ -102,8 +65,8 @@ namespace DerivedDataCacheCookStats
 				{
 					const FDerivedDataCacheUsageStats& LocalDDCStats = DDCStats[*LocalDDCKey];
 					LocalHits =
-						LocalDDCStats.GetStats.GetAccumulatedValue(FDerivedDataCacheUsageStats::CallStats::EHitOrMiss::Hit, FDerivedDataCacheUsageStats::CallStats::EStatType::Counter, true) +
-						LocalDDCStats.GetStats.GetAccumulatedValue(FDerivedDataCacheUsageStats::CallStats::EHitOrMiss::Hit, FDerivedDataCacheUsageStats::CallStats::EStatType::Counter, false);
+						LocalDDCStats.GetStats.GetAccumulatedValue(FCookStats::CallStats::EHitOrMiss::Hit, FCookStats::CallStats::EStatType::Counter, true) +
+						LocalDDCStats.GetStats.GetAccumulatedValue(FCookStats::CallStats::EHitOrMiss::Hit, FCookStats::CallStats::EStatType::Counter, false);
 				}
 				int64 SharedHits = 0;
 				if (SharedDDCKey)
@@ -111,8 +74,8 @@ namespace DerivedDataCacheCookStats
 					// The shared DDC is only queried if the local one misses (or there isn't one). So it's hit rate is technically 
 					const FDerivedDataCacheUsageStats& SharedDDCStats = DDCStats[*SharedDDCKey];
 					SharedHits =
-						SharedDDCStats.GetStats.GetAccumulatedValue(FDerivedDataCacheUsageStats::CallStats::EHitOrMiss::Hit, FDerivedDataCacheUsageStats::CallStats::EStatType::Counter, true) +
-						SharedDDCStats.GetStats.GetAccumulatedValue(FDerivedDataCacheUsageStats::CallStats::EHitOrMiss::Hit, FDerivedDataCacheUsageStats::CallStats::EStatType::Counter, false);
+						SharedDDCStats.GetStats.GetAccumulatedValue(FCookStats::CallStats::EHitOrMiss::Hit, FCookStats::CallStats::EStatType::Counter, true) +
+						SharedDDCStats.GetStats.GetAccumulatedValue(FCookStats::CallStats::EHitOrMiss::Hit, FCookStats::CallStats::EStatType::Counter, false);
 				}
 				AddStat(TEXT("DDC.Summary"), FCookStatsManager::CreateKeyValueArray(
 					TEXT("TotalGetHits"), TotalGetHits,
@@ -125,8 +88,7 @@ namespace DerivedDataCacheCookStats
 					));
 			}
 		}
-	}
-	FCookStatsManager::FAutoRegisterCallback RegisterCookStats(&CollectStats);
+	});
 }
 #endif
 
@@ -152,6 +114,7 @@ class FDerivedDataCache : public FDerivedDataCacheInterface
 		FBuildAsyncWorker(FDerivedDataPluginInterface* InDataDeriver, const TCHAR* InCacheKey, bool bInSynchronousForStats)
 		: bSuccess(false)
 		, bSynchronousForStats(bInSynchronousForStats)
+		, bDataWasBuilt(false)
 		, DataDeriver(InDataDeriver)
 		, CacheKey(InCacheKey)
 		{
@@ -185,6 +148,7 @@ class FDerivedDataCache : public FDerivedDataCacheInterface
 					{
 						SCOPE_SECONDS_COUNTER(ThisTime);
 						bSuccess = DataDeriver->Build(Data);
+						bDataWasBuilt = true;
 					}
 					INC_FLOAT_STAT_BY(STAT_DDC_SyncBuildTime, bSynchronousForStats ? (float)ThisTime : 0.0f);
 				}
@@ -218,6 +182,8 @@ class FDerivedDataCache : public FDerivedDataCacheInterface
 		bool							bSuccess;
 		/** true if we should record the timing **/
 		bool							bSynchronousForStats;
+		/** true if we had to build the data */
+		bool							bDataWasBuilt;
 		/** Data dervier we are operating on **/
 		FDerivedDataPluginInterface*	DataDeriver;
 		/** Cache key associated with this build **/
@@ -247,7 +213,7 @@ public:
 		PendingTasks.Empty();
 	}
 
-	virtual bool GetSynchronous(FDerivedDataPluginInterface* DataDeriver, TArray<uint8>& OutData) override
+	virtual bool GetSynchronous(FDerivedDataPluginInterface* DataDeriver, TArray<uint8>& OutData, bool* bDataWasBuilt = nullptr) override
 	{
 		QUICK_SCOPE_CYCLE_COUNTER(STAT_DDC_GetSynchronous);
 		check(DataDeriver);
@@ -257,6 +223,10 @@ public:
 		AddToAsyncCompletionCounter(1);
 		PendingTask.StartSynchronousTask();
 		OutData = PendingTask.GetTask().Data;
+		if (bDataWasBuilt)
+		{
+			*bDataWasBuilt = PendingTask.GetTask().bDataWasBuilt;
+		}
 		return PendingTask.GetTask().bSuccess;
 	}
 
@@ -314,7 +284,7 @@ public:
 		INC_FLOAT_STAT_BY(STAT_DDC_ASyncWaitTime,(float)ThisTime);
 	}
 
-	virtual bool GetAsynchronousResults(uint32 Handle, TArray<uint8>& OutData) override
+	virtual bool GetAsynchronousResults(uint32 Handle, TArray<uint8>& OutData, bool* bDataWasBuilt = nullptr) override
 	{
 		QUICK_SCOPE_CYCLE_COUNTER(STAT_DDC_GetAsynchronousResults);
 		FAsyncTask<FBuildAsyncWorker>* AsyncTask = NULL;
@@ -323,6 +293,10 @@ public:
 			PendingTasks.RemoveAndCopyValue(Handle,AsyncTask);
 		}
 		check(AsyncTask);
+		if (bDataWasBuilt)
+		{
+			*bDataWasBuilt = AsyncTask->GetTask().bDataWasBuilt;
+		}
 		if (!AsyncTask->GetTask().bSuccess)
 		{
 			delete AsyncTask;
@@ -820,7 +794,7 @@ public:
 	 * @param OutData	returned payload
 	 * @return			true if the payload contains data and everything is peachy
 	 **/
-	bool GetAsynchronousResults(uint32 Handle, TArray<uint8>& OutData)
+	bool GetAsynchronousResults(uint32 Handle, TArray<uint8>& OutData, bool* bDataWasBuilt)
 	{
 		check(Contains(Handle));
 		FRollupItem& Item = FindItem(Handle);
@@ -828,13 +802,17 @@ public:
 		OutData.Empty();
 		if (CurrentPhase == EPhase::AsyncRollupGetSucceed)
 		{
+			if (bDataWasBuilt)
+			{
+				*bDataWasBuilt = false;
+			}
 			OutData = Item.Payload;
 			CheckForDone();
 			return !!OutData.Num();
 		}
 		if (CurrentPhase == EPhase::AsyncRollupGetFailed_GettingItemsAndWaitingForPuts)
 		{
-			if (InternalSingleton().FDerivedDataCache::GetAsynchronousResults(Handle, OutData))
+			if (InternalSingleton().FDerivedDataCache::GetAsynchronousResults(Handle, OutData, bDataWasBuilt))
 			{
 				Item.Payload = OutData;
 				CheckForPut();
@@ -926,14 +904,14 @@ public:
 		Super::WaitAsynchronousCompletion(Handle);
 	}
 
-	virtual bool GetAsynchronousResults(uint32 Handle, TArray<uint8>& OutData) override
+	virtual bool GetAsynchronousResults(uint32 Handle, TArray<uint8>& OutData, bool* bDataWasBuilt = nullptr) override
 	{
 		FScopeLock ScopeLock(&SynchronizationObject);
 		for (TSet<FDerivedDataRollup*>::TIterator Iter(PendingRollups); Iter; ++Iter)
 		{
 			if ((*Iter)->Contains(Handle))
 			{
-				bool Result = (*Iter)->GetAsynchronousResults(Handle, OutData);
+				bool Result = (*Iter)->GetAsynchronousResults(Handle, OutData, bDataWasBuilt);
 				if ((*Iter)->IsDone())
 				{
 					delete *Iter;
@@ -942,7 +920,7 @@ public:
 				return Result;
 			}
 		}
-		return Super::GetAsynchronousResults(Handle, OutData);
+		return Super::GetAsynchronousResults(Handle, OutData, bDataWasBuilt);
 	}
 
 	virtual IDerivedDataRollup* StartRollup() override
@@ -975,11 +953,11 @@ public:
 		{
 			FScopeLock ScopeLock(&SynchronizationObject);
 			UE_LOG(LogDerivedDataCache, Verbose, TEXT("GetAsynchronous (Rollup) %s"), CacheKey);
-			uint32 CurrentHandle = NextHandle();
-			((FDerivedDataRollup*)Rollup)->Add(CacheKey, CurrentHandle);
-			return CurrentHandle;
+			const uint32 RollupHandle = NextHandle();
+			((FDerivedDataRollup*)Rollup)->Add(CacheKey, RollupHandle);
+			return RollupHandle;
 		}
-		return Super::GetAsynchronous(CacheKey, NULL);
+		return Super::GetAsynchronous(CacheKey, nullptr);
 	}
 
 	virtual void Put(const TCHAR* CacheKey, TArray<uint8>& Data, bool bPutEvenIfExists = false) override

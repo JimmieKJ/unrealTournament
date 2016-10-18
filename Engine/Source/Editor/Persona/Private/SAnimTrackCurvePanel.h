@@ -9,7 +9,7 @@
 #include "SAnimTrackPanel.h"
 #include "SCurveEditor.h"
 #include "SAnimNotifyPanel.h"
-#include "Animation/AnimSequenceBase.h"
+#include "Animation/AnimSequence.h"
 
 //////////////////////////////////////////////////////////////////////////
 // SAnimTrackCurvePanel

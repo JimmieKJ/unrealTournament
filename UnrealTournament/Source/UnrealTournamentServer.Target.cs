@@ -2,9 +2,15 @@
 
 using UnrealBuildTool;
 using System.Collections.Generic;
+using System.IO;
 
 public class UnrealTournamentServerTarget : TargetRules
 {
+    bool IsLicenseeBuild()
+    {
+        return !Directory.Exists("Runtime/NotForLicensees");
+    }
+
     public UnrealTournamentServerTarget(TargetInfo Target)
 	{
         Type = TargetType.Server;
@@ -12,13 +18,15 @@ public class UnrealTournamentServerTarget : TargetRules
 
         // Turn on shipping logging
         UEBuildConfiguration.bUseLoggingInShipping = true;
+        UEBuildConfiguration.bUseChecksInShipping = true;
         UEBuildConfiguration.bCompileBox2D = false;
 	}
 
     //
     // TargetRules interface.
     //
-    public override bool ConfigureToolchain(TargetInfo Target)
+    
+	public override bool ConfigureToolchain(TargetInfo Target)
     {
         if (Target.Platform == UnrealTargetPlatform.Win32 || Target.Platform == UnrealTargetPlatform.Win64)
         {
@@ -26,6 +34,7 @@ public class UnrealTournamentServerTarget : TargetRules
         }
         return true;
     }
+	
     public override void SetupBinaries(
 		TargetInfo Target,
 		ref List<UEBuildBinaryConfiguration> OutBuildBinaryConfigurations,
@@ -33,7 +42,7 @@ public class UnrealTournamentServerTarget : TargetRules
 		)
 	{
         OutExtraModuleNames.Add("UnrealTournament");
-        if (UEBuildConfiguration.bCompileMcpOSS == true)
+        if (!IsLicenseeBuild())
         {
             OutExtraModuleNames.Add("OnlineSubsystemMcp");
         }
@@ -56,6 +65,6 @@ public class UnrealTournamentServerTarget : TargetRules
     public override List<UnrealTargetConfiguration> GUBP_GetConfigs_MonolithicOnly(UnrealTargetPlatform HostPlatform, UnrealTargetPlatform Platform)
     {
         // ORDER HERE MATTERS, THE FIRST ENTRY IS PUT IN Manifest_NonUFSFiles.txt AND THE FOLLOWING ARE PUT IN Manifest_DebugFiles.txt
-        return new List<UnrealTargetConfiguration> { UnrealTargetConfiguration.Shipping };
+        return new List<UnrealTargetConfiguration> { UnrealTargetConfiguration.Shipping, UnrealTargetConfiguration.Test };
     }
 }

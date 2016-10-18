@@ -3,7 +3,7 @@
 #include "UnrealEd.h"
 #include "SoundCueGraphEditorCommands.h"
 
-#define LOCTEXT_NAMESPACE ""
+#define LOCTEXT_NAMESPACE "SoundCueGraphEditorCommands"
 
 void FSoundCueGraphEditorCommands::RegisterCommands()
 {

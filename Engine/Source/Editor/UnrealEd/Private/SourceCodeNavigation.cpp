@@ -29,6 +29,9 @@ DEFINE_LOG_CATEGORY(LogSelectionDetails);
 
 #define LOCTEXT_NAMESPACE "SourceCodeNavigation"
 
+#define SOURCECODENAVIGATOR_SHOW_CONSTRUCTOR_AND_DESTRUCTOR 0 // @todo editcode: Not sure if we want this by default (make user-configurable?)
+#define SOURCECODENAVIGATOR_GATHER_LOW_LEVEL_CLASSES        0 // @todo editcode: Always skip these?  Make optional in UI?
+
 namespace SourceCodeNavigationDefs
 {
 	FString IDEInstallerFilename("UE4_SuggestedIDEInstaller");
@@ -847,9 +850,6 @@ void FSourceCodeNavigationImpl::GatherFunctions( const FString& ModuleName, cons
 			// Filter out symbols that aren't pretty to look at
 			bool bPassedFilter = true;
 			{
-				// @todo editcode: Not sure if we want this by default (make user-configurable?)
-				const bool bShowConstructorAndDestructor = false;
-
 				// Filter compiler-generated functions
 				if( FunctionName.StartsWith( TEXT( "`" ) ) )
 				{
@@ -876,19 +876,21 @@ void FSourceCodeNavigationImpl::GatherFunctions( const FString& ModuleName, cons
 					bPassedFilter = false;
 				}
 
+#if !SOURCECODENAVIGATOR_SHOW_CONSTRUCTOR_AND_DESTRUCTOR
 				// Filter class constructor
-				else if( !bShowConstructorAndDestructor && FunctionName == FoundClassName ) //-V560 //Remove this when todo will be implemented
+				else if( FunctionName == FoundClassName )
 				{
 					// <class>
 					bPassedFilter = false;
 				}
 
 				// Filter class destructor
-				else if( !bShowConstructorAndDestructor && FunctionName.StartsWith( TEXT( "~" ) ) ) //-V560 //Remove this when todo will be implemented
+				else if( FunctionName.StartsWith( TEXT( "~" ) ) )
 				{
 					// ~<class>
 					bPassedFilter = false;
 				}
+#endif
 
 				// Filter various macro-generated Unreal methods and static member functions
 				else if( FunctionName == TEXT( "Default" ) ||
@@ -1273,7 +1275,6 @@ void FSourceCodeNavigation::GatherFunctionsForActors( TArray< AActor* >& Actors,
 
 	// Skip low-level classes that we never want users to see.  These usually have a lot of symbols
 	// that slow down digestion times and clutter the UI too.
-	const bool bGatherLowLevelClasses = false;	// @todo editcode: Always skip these?  Make optional in UI?
 
 	TSet< FString > ClassesWithIncompleteFunctionLists;
 
@@ -1291,13 +1292,14 @@ void FSourceCodeNavigation::GatherFunctionsForActors( TArray< AActor* >& Actors,
 		{
 			// Skip low-level classes if we were asked to do that.  Here, we'll require the class to have
 			// been derived from a low level actor/pawn class.
-			if( !bGatherLowLevelClasses &&		// @todo editcode: A bit hacky here, hard-coding types //-V560 //remove after implementing todo
-				( !CurClass->IsChildOf( AActor::StaticClass() ) ||
-				  CurClass == AActor::StaticClass() ) ||
+#if !SOURCECODENAVIGATOR_GATHER_LOW_LEVEL_CLASSES
+			if( !CurClass->IsChildOf( AActor::StaticClass() ) || // @todo editcode: A bit hacky here, hard-coding types
+				  CurClass == AActor::StaticClass() ||
 				  CurClass == APawn::StaticClass() )
 			{
 				continue;
 			}
+#endif
 
 			const FString CPlusPlusClassName( FString( CurClass->GetPrefixCPP() ) + CurClass->GetName() );
 
@@ -1746,7 +1748,7 @@ void FSourceCodeNavigationImpl::OnSuggestedIDEInstallerDownloadComplete(FHttpReq
 		// Copy the content from the response into the installer file
 		auto InstallerContent = Response->GetContent();
 
-		bool bWriteSucceeded = InstallerFileHandle->Write(InstallerContent.GetData(), InstallerContent.Num());
+		bool bWriteSucceeded = InstallerFileHandle ? InstallerFileHandle->Write(InstallerContent.GetData(), InstallerContent.Num()) : false;
 		delete InstallerFileHandle;
 
 		if (bWriteSucceeded)

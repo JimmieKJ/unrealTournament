@@ -300,7 +300,7 @@ static const TCHAR* ImportProperties(
 
 				// Create model.
 				UModelFactory* ModelFactory = NewObject<UModelFactory>();
-				ModelFactory->FactoryCreateText( UModel::StaticClass(), SubobjectRoot, FName(BrushName, FNAME_Add, true), RF_NoFlags, NULL, TEXT("t3d"), SourceText, SourceText+FCString::Strlen(SourceText), Warn );
+				ModelFactory->FactoryCreateText(UModel::StaticClass(), SubobjectRoot, FName(BrushName, FNAME_Add), RF_NoFlags, NULL, TEXT("t3d"), SourceText, SourceText+FCString::Strlen(SourceText), Warn);
 				ImportedBrush = 1;
 			}
 		}
@@ -558,6 +558,7 @@ static const TCHAR* ImportProperties(
 
 					// Make sure desired flags are set - existing object could be pending kill
 					ComponentTemplate->ClearFlags(RF_AllFlags);
+					ComponentTemplate->ClearInternalFlags(EInternalObjectFlags::AllFlags);
 					ComponentTemplate->SetFlags(NewFlags);
 				}
 

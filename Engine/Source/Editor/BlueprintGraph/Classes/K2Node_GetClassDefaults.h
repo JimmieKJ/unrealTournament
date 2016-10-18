@@ -35,10 +35,18 @@ class UK2Node_GetClassDefaults : public UK2Node
 
 public:
 	/** Finds and returns the class input pin from the current set of pins. */
-	UEdGraphPin* FindClassPin() const
+	BLUEPRINTGRAPH_API UEdGraphPin* FindClassPin() const
 	{
 		return FindClassPin(Pins);
 	}
+
+	/** Retrieves the current input class type. */
+	BLUEPRINTGRAPH_API UClass* GetInputClass() const
+	{
+		return GetInputClass(FindClassPin());
+	}
+
+	void OnBlueprintClassModified(UBlueprint* TargetBlueprint);
 
 protected:
 	/**
@@ -46,14 +54,14 @@ protected:
 	 *
 	 * @param FromPins	A list of pins to search.
 	 */
-	UEdGraphPin* FindClassPin(const TArray<UEdGraphPin*>& FromPins) const;
+	BLUEPRINTGRAPH_API UEdGraphPin* FindClassPin(const TArray<UEdGraphPin*>& FromPins) const;
 
 	/**
-	 * Determines the input class type from the given pin.
-	 *
-	 * @param FromPin	Input class pin. If not set (default), then it will fall back to using FindClassPin().
-	 */
-	UClass* GetInputClass(const UEdGraphPin* FromPin = nullptr) const;
+	* Determines the input class type from the given pin.
+	*
+	* @param FromPin	Input class pin.
+	*/
+	BLUEPRINTGRAPH_API UClass* GetInputClass(const UEdGraphPin* FromPin) const;
 
 	/**
 	 * Creates the full set of output pins (properties) from the given input class.
@@ -68,6 +76,16 @@ protected:
 private:
 	/** Class pin name */
 	static FString ClassPinName;
+
+	/** Blueprint that we subscribed OnBlueprintChangedDelegate and OnBlueprintCompiledDelegate to */
+	UPROPERTY()
+	UBlueprint* BlueprintSubscribedTo;
+
+	/** Blueprint.OnChanged delegate handle */
+	FDelegateHandle OnBlueprintChangedDelegate;
+
+	/** Blueprint.OnCompiled delegate handle */
+	FDelegateHandle OnBlueprintCompiledDelegate;
 
 	/** Output pin visibility control */
 	UPROPERTY(EditAnywhere, Category=PinOptions, EditFixedSize)

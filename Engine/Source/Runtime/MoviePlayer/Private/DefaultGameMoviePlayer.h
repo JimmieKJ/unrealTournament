@@ -27,7 +27,10 @@ public:
 	virtual bool IsMovieCurrentlyPlaying() const override;
 	virtual bool LoadingScreenIsPrepared() const override;
 	virtual void SetupLoadingScreenFromIni() override;
+
+	virtual FOnPrepareLoadingScreen& OnPrepareLoadingScreen() override { return OnPrepareLoadingScreenDelegate; }
 	virtual FOnMoviePlaybackFinished& OnMoviePlaybackFinished() override { return OnMoviePlaybackFinishedDelegate; }
+
 	/** FTickableObjectRenderThread interface */
 	virtual void Tick( float DeltaTime ) override;
 	virtual TStatId GetStatId() const override;
@@ -99,6 +102,9 @@ private:
 	
 	/** Attributes of the loading screen we are currently displaying */
 	FLoadingScreenAttributes LoadingScreenAttributes;
+
+	/** Called before a movie is queued up to play to configure the movie player accordingly. */
+	FOnPrepareLoadingScreen OnPrepareLoadingScreenDelegate;
 	
 	FOnMoviePlaybackFinished OnMoviePlaybackFinishedDelegate;
 

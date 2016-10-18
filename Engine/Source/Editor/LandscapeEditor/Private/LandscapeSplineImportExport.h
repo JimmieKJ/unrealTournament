@@ -15,5 +15,5 @@ protected:
 	TArray<UObject*> OutObjects;
 
 	virtual void ProcessConstructedObject(UObject* CreatedObject) override;
-	virtual bool CanCreateClass(UClass* ObjectClass) const override;
+	virtual bool CanCreateClass(UClass* ObjectClass, bool& bOmitSubObjs) const override;
 };

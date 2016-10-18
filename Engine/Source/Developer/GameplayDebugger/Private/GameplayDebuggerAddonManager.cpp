@@ -3,6 +3,7 @@
 #include "GameplayDebuggerPrivatePCH.h"
 #include "GameplayDebuggerExtension.h"
 #include "GameplayDebuggerAddonManager.h"
+#include "GameplayDebuggerConfig.h"
 
 FGameplayDebuggerAddonManager::FGameplayDebuggerAddonManager()
 {
@@ -12,10 +13,21 @@ void FGameplayDebuggerAddonManager::RegisterCategory(FName CategoryName, IGamepl
 {
 	FGameplayDebuggerCategoryInfo NewInfo;
 	NewInfo.MakeInstanceDelegate = MakeInstanceDelegate;
-	NewInfo.CategoryState = CategoryState;
+	NewInfo.DefaultCategoryState = CategoryState;
+
+	UGameplayDebuggerConfig* MutableToolConfig = UGameplayDebuggerConfig::StaticClass()->GetDefaultObject<UGameplayDebuggerConfig>();
+	uint8 NewCategoryState = (uint8)CategoryState;
+	MutableToolConfig->UpdateCategoryConfig(CategoryName, SlotIdx, NewCategoryState);
+
+	NewInfo.CategoryState = (EGameplayDebuggerCategoryState)NewCategoryState;
 	NewInfo.SlotIdx = SlotIdx;
 
 	CategoryMap.Add(CategoryName, NewInfo);
+
+	// create and destroy single instance to handle input configurators
+	FGameplayDebuggerInputHandlerConfig::CurrentCategoryName = CategoryName;
+	TSharedRef<FGameplayDebuggerCategory> DummyRef = MakeInstanceDelegate.Execute();
+	FGameplayDebuggerInputHandlerConfig::CurrentCategoryName = NAME_None;
 }
 
 void FGameplayDebuggerAddonManager::UnregisterCategory(FName CategoryName)
@@ -39,14 +51,20 @@ void FGameplayDebuggerAddonManager::NotifyCategoriesChanged()
 	int32 CategoryId = 0;
 	for (auto It : CategoryMap)
 	{
+		const int32 SanitizedSlotIdx = (It.Value.SlotIdx < 0) ? INDEX_NONE : FMath::Min(100, It.Value.SlotIdx);
+
 		FSlotInfo SlotInfo;
 		SlotInfo.CategoryId = CategoryId;
 		SlotInfo.CategoryName = It.Key;
-		SlotInfo.SlotIdx = It.Value.SlotIdx;
+		SlotInfo.SlotIdx = SanitizedSlotIdx;
 		CategoryId++;
 
 		AssignList.Add(SlotInfo);
-		OccupiedSlots.Add(It.Value.SlotIdx);
+
+		if (SanitizedSlotIdx >= 0)
+		{
+			OccupiedSlots.Add(SanitizedSlotIdx);
+		}
 	}
 
 	AssignList.Sort();
@@ -102,6 +120,8 @@ void FGameplayDebuggerAddonManager::CreateCategories(AGameplayDebuggerCategoryRe
 	TArray<TSharedRef<FGameplayDebuggerCategory> > UnsortedCategories;
 	for (auto It : CategoryMap)
 	{
+		FGameplayDebuggerInputHandlerConfig::CurrentCategoryName = It.Key;
+
 		TSharedRef<FGameplayDebuggerCategory> CategoryObjectRef = It.Value.MakeInstanceDelegate.Execute();
 		FGameplayDebuggerCategory& CategoryObject = CategoryObjectRef.Get();
 		CategoryObject.RepOwner = &Owner;
@@ -117,7 +137,10 @@ void FGameplayDebuggerAddonManager::CreateCategories(AGameplayDebuggerCategoryRe
 		UnsortedCategories.Add(CategoryObjectRef);
 	}
 
+	FGameplayDebuggerInputHandlerConfig::CurrentCategoryName = NAME_None;
+
 	// sort by slots for drawing order
+	CategoryObjects.Reset();
 	for (int32 SlotIdx = 0; SlotIdx < SlotMap.Num(); SlotIdx++)
 	{
 		for (int32 Idx = 0; Idx < SlotMap[SlotIdx].Num(); Idx++)
@@ -130,7 +153,22 @@ void FGameplayDebuggerAddonManager::CreateCategories(AGameplayDebuggerCategoryRe
 
 void FGameplayDebuggerAddonManager::RegisterExtension(FName ExtensionName, IGameplayDebugger::FOnGetExtension MakeInstanceDelegate)
 {
-	ExtensionMap.Add(ExtensionName, MakeInstanceDelegate);
+	FGameplayDebuggerExtensionInfo NewInfo;
+	NewInfo.MakeInstanceDelegate = MakeInstanceDelegate;
+	NewInfo.bDefaultEnabled = true;
+
+	uint8 UseExtension = NewInfo.bDefaultEnabled ? 1 : 0;
+	UGameplayDebuggerConfig* MutableToolConfig = UGameplayDebuggerConfig::StaticClass()->GetDefaultObject<UGameplayDebuggerConfig>();
+	MutableToolConfig->UpdateExtensionConfig(ExtensionName, UseExtension);
+
+	NewInfo.bEnabled = UseExtension > 0;
+
+	ExtensionMap.Add(ExtensionName, NewInfo);
+
+	// create and destroy single instance to handle input configurators
+	FGameplayDebuggerInputHandlerConfig::CurrentExtensionName = ExtensionName;
+	TSharedRef<FGameplayDebuggerExtension> DummyRef = MakeInstanceDelegate.Execute();
+	FGameplayDebuggerInputHandlerConfig::CurrentExtensionName = NAME_None;
 }
 
 void FGameplayDebuggerAddonManager::UnregisterExtension(FName ExtensionName)
@@ -145,12 +183,83 @@ void FGameplayDebuggerAddonManager::NotifyExtensionsChanged()
 
 void FGameplayDebuggerAddonManager::CreateExtensions(AGameplayDebuggerCategoryReplicator& Replicator, TArray<TSharedRef<FGameplayDebuggerExtension> >& ExtensionObjects)
 {
+	ExtensionObjects.Reset();
 	for (auto It : ExtensionMap)
 	{
-		TSharedRef<FGameplayDebuggerExtension> ExtensionObjectRef = It.Value.Execute();
-		FGameplayDebuggerExtension& ExtensionObject = ExtensionObjectRef.Get();
-		ExtensionObject.RepOwner = &Replicator;
+		if (It.Value.bEnabled)
+		{
+			FGameplayDebuggerInputHandlerConfig::CurrentExtensionName = It.Key;
 
-		ExtensionObjects.Add(ExtensionObjectRef);
+			TSharedRef<FGameplayDebuggerExtension> ExtensionObjectRef = It.Value.MakeInstanceDelegate.Execute();
+			FGameplayDebuggerExtension& ExtensionObject = ExtensionObjectRef.Get();
+			ExtensionObject.RepOwner = &Replicator;
+
+			ExtensionObjects.Add(ExtensionObjectRef);
+		}
+	}
+
+	FGameplayDebuggerInputHandlerConfig::CurrentExtensionName = NAME_None;
+}
+
+void FGameplayDebuggerAddonManager::UpdateFromConfig()
+{
+	UGameplayDebuggerConfig* ToolConfig = UGameplayDebuggerConfig::StaticClass()->GetDefaultObject<UGameplayDebuggerConfig>();
+	if (ToolConfig == nullptr)
+	{
+		return;
+	}
+
+	bool bCategoriesChanged = false;
+	for (auto& It : CategoryMap)
+	{
+		for (int32 Idx = 0; Idx < ToolConfig->Categories.Num(); Idx++)
+		{
+			const FGameplayDebuggerCategoryConfig& ConfigData = ToolConfig->Categories[Idx];
+			if (*ConfigData.CategoryName == It.Key)
+			{
+				const bool bDefaultActiveInGame = (It.Value.DefaultCategoryState == EGameplayDebuggerCategoryState::EnabledInGame) || (It.Value.DefaultCategoryState == EGameplayDebuggerCategoryState::EnabledInGameAndSimulate);
+				const bool bDefaultActiveInSimulate = (It.Value.DefaultCategoryState == EGameplayDebuggerCategoryState::EnabledInSimulate) || (It.Value.DefaultCategoryState == EGameplayDebuggerCategoryState::EnabledInGameAndSimulate);
+
+				const bool bActiveInGame = (ConfigData.ActiveInGame == EGameplayDebuggerOverrideMode::UseDefault) ? bDefaultActiveInGame : (ConfigData.ActiveInGame == EGameplayDebuggerOverrideMode::Enable);
+				const bool bActiveInSimulate = (ConfigData.ActiveInSimulate == EGameplayDebuggerOverrideMode::UseDefault) ? bDefaultActiveInSimulate : (ConfigData.ActiveInSimulate == EGameplayDebuggerOverrideMode::Enable);
+
+				EGameplayDebuggerCategoryState NewCategoryState =
+					bActiveInGame && bActiveInSimulate ? EGameplayDebuggerCategoryState::EnabledInGameAndSimulate :
+					bActiveInGame ? EGameplayDebuggerCategoryState::EnabledInGame :
+					bActiveInSimulate ? EGameplayDebuggerCategoryState::EnabledInSimulate :
+					EGameplayDebuggerCategoryState::Disabled;
+
+				bCategoriesChanged = bCategoriesChanged || (It.Value.SlotIdx != ConfigData.SlotIdx) || (It.Value.CategoryState != NewCategoryState);
+				It.Value.SlotIdx = ConfigData.SlotIdx;
+				It.Value.CategoryState = NewCategoryState;
+				break;
+			}
+		}
+	}
+
+	bool bExtensionsChanged = false;
+	for (auto& It : ExtensionMap)
+	{
+		for (int32 Idx = 0; Idx < ToolConfig->Extensions.Num(); Idx++)
+		{
+			const FGameplayDebuggerExtensionConfig& ConfigData = ToolConfig->Extensions[Idx];
+			if (*ConfigData.ExtensionName == It.Key)
+			{
+				const bool bWantsEnabled = (ConfigData.UseExtension == EGameplayDebuggerOverrideMode::UseDefault) ? It.Value.bDefaultEnabled : (ConfigData.UseExtension == EGameplayDebuggerOverrideMode::Enable);
+				bExtensionsChanged = bExtensionsChanged || (It.Value.bEnabled != bWantsEnabled);
+				It.Value.bEnabled = bWantsEnabled;
+				break;
+			}
+		}
+	}
+
+	if (bCategoriesChanged)
+	{
+		NotifyCategoriesChanged();
+	}
+	
+	if (bExtensionsChanged)
+	{
+		NotifyExtensionsChanged();
 	}
 }

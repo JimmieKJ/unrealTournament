@@ -2,11 +2,8 @@
 
 #pragma once 
 
-#include "UnrealAudioModule.h"
-#include "UnrealAudioPrivate.h"
 #include "UnrealAudioTypes.h"
 #include "UnrealAudioEmitter.h"
-#include "UnrealAudioPrivate.h"
 #include "UnrealAudioEntityManager.h"
 #include "UnrealAudioUtilities.h"
 

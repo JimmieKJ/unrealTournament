@@ -65,6 +65,7 @@ namespace UnrealBuildTool
 				{
 					Rules.DynamicallyLoadedModuleNames.Add("LinuxTargetPlatform");
 					Rules.DynamicallyLoadedModuleNames.Add("LinuxNoEditorTargetPlatform");
+					Rules.DynamicallyLoadedModuleNames.Add("LinuxClientTargetPlatform");
 					Rules.DynamicallyLoadedModuleNames.Add("LinuxServerTargetPlatform");
 					Rules.DynamicallyLoadedModuleNames.Add("AllDesktopTargetPlatform");
 				}
@@ -97,6 +98,7 @@ namespace UnrealBuildTool
 		public override void ValidateBuildConfiguration(CPPTargetConfiguration Configuration, CPPTargetPlatform Platform, bool bCreateDebugInfo)
 		{
 			UEBuildConfiguration.bCompileSimplygon = false;
+            UEBuildConfiguration.bCompileSimplygonSSF = false;
 		}
 
 		/// <summary>
@@ -144,6 +146,7 @@ namespace UnrealBuildTool
 			if (InBuildTarget.GlobalCompileEnvironment.Config.Definitions.Contains("USE_NULL_RHI=1"))
 			{
 				UEBuildConfiguration.bCompileSimplygon = false;
+                UEBuildConfiguration.bCompileSimplygonSSF = false;
 			}
 
 			if (InBuildTarget.TargetType == TargetRules.TargetType.Server)
@@ -301,6 +304,7 @@ namespace UnrealBuildTool
 						{
 							Rules.PlatformSpecificDynamicallyLoadedModuleNames.Add("LinuxTargetPlatform");
 							Rules.PlatformSpecificDynamicallyLoadedModuleNames.Add("LinuxNoEditorTargetPlatform");
+							Rules.PlatformSpecificDynamicallyLoadedModuleNames.Add("LinuxClientTargetPlatform");
 							Rules.PlatformSpecificDynamicallyLoadedModuleNames.Add("LinuxServerTargetPlatform");
 						}
 					}
@@ -311,6 +315,7 @@ namespace UnrealBuildTool
 				{
 					Rules.PlatformSpecificDynamicallyLoadedModuleNames.Add("LinuxTargetPlatform");
 					Rules.PlatformSpecificDynamicallyLoadedModuleNames.Add("LinuxNoEditorTargetPlatform");
+					Rules.PlatformSpecificDynamicallyLoadedModuleNames.Add("LinuxClientTargetPlatform");
 					Rules.PlatformSpecificDynamicallyLoadedModuleNames.Add("LinuxServerTargetPlatform");
 				}
 			}

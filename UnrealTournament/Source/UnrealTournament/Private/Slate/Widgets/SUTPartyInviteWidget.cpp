@@ -13,6 +13,8 @@
 #include "Social.h"
 #endif
 
+DEFINE_LOG_CATEGORY_STATIC(LogUTPartyInviteWidget, Log, All);
+
 #if !UE_SERVER
 
 void SUTPartyInviteWidget::Construct(const FArguments& InArgs, const FLocalPlayerContext& InCtx)
@@ -144,7 +146,24 @@ FReply SUTPartyInviteWidget::AcceptInvite()
 			TSharedPtr< IFriendItem > User = FriendsService->FindUser(FUniqueNetIdString(LastInviteUniqueID));
 			if (User.IsValid())
 			{
+				UE_LOG(LogUTPartyInviteWidget, Log, TEXT("Accepting invite from user %s"), *LastInviteUniqueID);
 				GameAndPartyService->AcceptGameInvite(User);
+			}
+			else
+			{
+				UE_LOG(LogUTPartyInviteWidget, Warning, TEXT("Invalid inviting user %s"), *LastInviteUniqueID);
+				TArray< TSharedPtr< IFriendItem > > OutFriendsList;
+				if (FriendsService->GetFilteredFriendsList(OutFriendsList))
+				{
+					for (auto& Friend : OutFriendsList)
+					{
+						UE_LOG(LogUTPartyInviteWidget, Warning, TEXT("%s %s"), *Friend->GetOnlineUser()->GetDisplayName(), *Friend->GetUniqueID()->ToString());
+					}
+				}
+				else
+				{
+					UE_LOG(LogUTPartyInviteWidget, Warning, TEXT("No friends downloaded, so invitation accept failed"));
+				}
 			}
 		}
 	}
@@ -168,7 +187,8 @@ FReply SUTPartyInviteWidget::RejectInvite()
 			TSharedPtr< IFriendItem > User = FriendsService->FindUser(FUniqueNetIdString(LastInviteUniqueID));
 			if (User.IsValid())
 			{
-				GameAndPartyService->RejectGameInvite(User);
+				// Not exposed right now
+//				GameAndPartyService->RejectGameInvite(User);
 			}
 		}
 	}

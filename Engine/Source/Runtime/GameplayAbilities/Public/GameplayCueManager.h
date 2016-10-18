@@ -2,13 +2,16 @@
 
 #pragma once
 
-class UGameplayCueSet;
-
 #include "GameplayTags.h"
 #include "GameplayEffect.h"
 #include "GameplayCueNotify_Actor.h"
 #include "GameplayCue_Types.h"
+#include "AssetData.h"
+#include "Engine/DataAsset.h"
+#include "Engine/StreamableManager.h"
 #include "GameplayCueManager.generated.h"
+
+class UGameplayCueSet;
 
 /**
  *	
@@ -49,6 +52,8 @@ class UGameplayCueSet;
 
 DECLARE_DELEGATE_OneParam(FOnGameplayCueNotifySetLoaded, TArray<FStringAssetReference>);
 DECLARE_DELEGATE_RetVal_OneParam(bool, FShouldLoadGCNotifyDelegate, const FAssetData&);
+
+class UObjectLibrary;
 
 UCLASS()
 class GAMEPLAYABILITIES_API UGameplayCueManager : public UDataAsset
@@ -102,8 +107,6 @@ class GAMEPLAYABILITIES_API UGameplayCueManager : public UDataAsset
 
 	/** Prespawns a single actor for gameplaycue notify actor classes that need prespawning (should be called by outside gamecode, such as gamestate) */
 	void UpdatePreallocation(UWorld* World);
-
-	void OnWorldCreated(UWorld* NewWorld, const UWorld::InitializationValues);
 
 	void OnWorldCleanup(UWorld* World, bool bSessionEnded, bool bCleanupResources);
 
@@ -177,6 +180,8 @@ class GAMEPLAYABILITIES_API UGameplayCueManager : public UDataAsset
 
 	static UWorld* PreviewWorld;
 #endif
+
+	static bool IsGameplayCueRecylingEnabled();
 	
 	virtual bool ShouldAsyncLoadObjectLibrariesAtStart() const { return true; }
 
@@ -193,7 +198,7 @@ protected:
 
 	virtual bool ShouldAsyncLoadAtStartup() const { return true; }
 
-	void BuildCuesToAddToGlobalSet(const TArray<FAssetData>& AssetDataList, FName TagPropertyName, bool bAsyncLoadAfterAdd, TArray<struct FGameplayCueReferencePair>& OutCuesToAdd, FOnGameplayCueNotifySetLoaded OnLoaded = FOnGameplayCueNotifySetLoaded(), FShouldLoadGCNotifyDelegate = FShouldLoadGCNotifyDelegate());
+	void BuildCuesToAddToGlobalSet(const TArray<FAssetData>& AssetDataList, FName TagPropertyName, TArray<struct FGameplayCueReferencePair>& OutCuesToAdd, TArray<FStringAssetReference>& OutAssetsToLoad, FShouldLoadGCNotifyDelegate = FShouldLoadGCNotifyDelegate());
 
 	/** The cue manager has a tendency to produce a lot of RPCs. This logs out when we are attempting to fire more RPCs than will actually go off */
 	void CheckForTooManyRPCs(FName FuncName, const FGameplayCuePendingExecute& PendingCue, const FString& CueID, const FGameplayEffectContext* EffectContext);
@@ -227,7 +232,4 @@ protected:
 
 	UPROPERTY(transient)
 	TArray<FPreallocationInfo>	PreallocationInfoList_Internal;
-
-	UPROPERTY(transient)
-	FPreallocationInfo	PreallocationInfo_Internal;
 };

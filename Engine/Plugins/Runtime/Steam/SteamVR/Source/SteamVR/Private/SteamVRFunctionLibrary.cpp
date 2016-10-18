@@ -9,6 +9,7 @@ USteamVRFunctionLibrary::USteamVRFunctionLibrary(const FObjectInitializer& Objec
 {
 }
 
+#if STEAMVR_SUPPORTED_PLATFORMS
 FSteamVRHMD* GetSteamVRHMD()
 {
 	if (GEngine->HMDDevice.IsValid() && (GEngine->HMDDevice->GetHMDDeviceType() == EHMDDeviceType::DT_SteamVR))
@@ -18,9 +19,11 @@ FSteamVRHMD* GetSteamVRHMD()
 
 	return nullptr;
 }
+#endif // STEAMVR_SUPPORTED_PLATFORMS
 
 void USteamVRFunctionLibrary::GetValidTrackedDeviceIds(TEnumAsByte<ESteamVRTrackedDeviceType> DeviceType, TArray<int32>& OutTrackedDeviceIds)
 {
+#if STEAMVR_SUPPORTED_PLATFORMS
 	OutTrackedDeviceIds.Empty();
 
 	FSteamVRHMD* SteamVRHMD = GetSteamVRHMD();
@@ -28,12 +31,14 @@ void USteamVRFunctionLibrary::GetValidTrackedDeviceIds(TEnumAsByte<ESteamVRTrack
 	{
 		SteamVRHMD->GetTrackedDeviceIds(DeviceType, OutTrackedDeviceIds);
 	}
+#endif // STEAMVR_SUPPORTED_PLATFORMS
 }
 
 bool USteamVRFunctionLibrary::GetTrackedDevicePositionAndOrientation(int32 DeviceId, FVector& OutPosition, FRotator& OutOrientation)
 {
 	bool RetVal = false;
 
+#if STEAMVR_SUPPORTED_PLATFORMS
 	FSteamVRHMD* SteamVRHMD = GetSteamVRHMD();
 	if (SteamVRHMD)
 	{
@@ -41,6 +46,7 @@ bool USteamVRFunctionLibrary::GetTrackedDevicePositionAndOrientation(int32 Devic
 		RetVal = SteamVRHMD->GetTrackedObjectOrientationAndPosition(DeviceId, DeviceOrientation, OutPosition);
 		OutOrientation = DeviceOrientation.Rotator();
 	}
+#endif // STEAMVR_SUPPORTED_PLATFORMS
 
 	return RetVal;
 }
@@ -49,6 +55,7 @@ bool USteamVRFunctionLibrary::GetHandPositionAndOrientation(int32 ControllerInde
 {
 	bool RetVal = false;
 
+#if STEAMVR_SUPPORTED_PLATFORMS
 	FSteamVRHMD* SteamVRHMD = GetSteamVRHMD();
 	if (SteamVRHMD)
 	{
@@ -56,6 +63,7 @@ bool USteamVRFunctionLibrary::GetHandPositionAndOrientation(int32 ControllerInde
 		RetVal = SteamVRHMD->GetControllerHandPositionAndOrientation(ControllerIndex, Hand, OutPosition, DeviceOrientation);
 		OutOrientation = DeviceOrientation.Rotator();
 	}
+#endif // STEAMVR_SUPPORTED_PLATFORMS
 
 	return RetVal;
 }

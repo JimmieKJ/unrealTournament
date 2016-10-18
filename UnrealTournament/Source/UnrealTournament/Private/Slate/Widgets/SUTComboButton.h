@@ -139,7 +139,7 @@ public:
 
 	int32 GetSubMenuItemCount();
 
-	virtual void SetIsOpen( bool InIsOpen, const bool bFocusMenu = true ) override;
+	virtual void SetIsOpen( bool InIsOpen, const bool bFocusMenu = true, const int32 FocusUserIndex = 0 ) override;
 
 protected:
 

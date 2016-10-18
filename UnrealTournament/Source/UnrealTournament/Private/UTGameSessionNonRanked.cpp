@@ -4,9 +4,9 @@
 #include "UTGameEngine.h"
 #include "UTOnlineGameSettingsBase.h"
 #include "UTAnalytics.h"
-#include "Runtime/Analytics/Analytics/Public/Analytics.h"
-#include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
 #include "UTGameSessionNonRanked.h"
+#include "AnalyticsEventAttribute.h"
+#include "IAnalyticsProvider.h"
 
 void AUTGameSessionNonRanked::CleanUpOnlineSubsystem()
 {
@@ -198,7 +198,7 @@ void AUTGameSessionNonRanked::UnRegisterServer(bool bShuttingDown)
 	Super::UnRegisterServer(bShuttingDown);
 }
 
-void AUTGameSessionNonRanked::ValidatePlayer(const FString& Address, const TSharedPtr<const FUniqueNetId>& UniqueId, FString& ErrorMessage, bool bValidateAsSpectator)
+void AUTGameSessionNonRanked::ValidatePlayer(const FString& Address, const FUniqueNetIdRepl& UniqueId, FString& ErrorMessage, bool bValidateAsSpectator)
 {
 	if (UniqueId.IsValid())
 	{
@@ -229,12 +229,12 @@ void AUTGameSessionNonRanked::ValidatePlayer(const FString& Address, const TShar
 	Super::ValidatePlayer(Address, UniqueId, ErrorMessage, bValidateAsSpectator);
 }
 
-void AUTGameSessionNonRanked::OnCreateSessionComplete(FName SessionName, bool bWasSuccessful)
+void AUTGameSessionNonRanked::OnCreateSessionComplete(FName InSessionName, bool bWasSuccessful)
 {
 	// If we were not successful, then clear the online game settings member and move on
 	if (bWasSuccessful)
 	{
-		UE_LOG(UT, Verbose, TEXT("Session %s Created!"), *SessionName.ToString());
+		UE_LOG(UT, Verbose, TEXT("Session %s Created!"), *InSessionName.ToString());
 		UpdateSessionJoinability(GameSessionName, true, true, true, false);
 
 		// Immediately start the online session
@@ -269,15 +269,15 @@ void AUTGameSessionNonRanked::OnCreateSessionComplete(FName SessionName, bool bW
 
 }
 
-void AUTGameSessionNonRanked::OnStartSessionComplete(FName SessionName, bool bWasSuccessful)
+void AUTGameSessionNonRanked::OnStartSessionComplete(FName InSessionName, bool bWasSuccessful)
 {
 	if (!bWasSuccessful)
 	{
-		UE_LOG(UT, Log, TEXT("Failed to start the session '%s' so this match will not be visible.  See the logs!"), *SessionName.ToString());
+		UE_LOG(UT, Log, TEXT("Failed to start the session '%s' so this match will not be visible.  See the logs!"), *InSessionName.ToString());
 	}
 	else
 	{
-		UE_LOG(UT, Verbose, TEXT("Session %s Started!"), *SessionName.ToString());
+		UE_LOG(UT, Verbose, TEXT("Session %s Started!"), *InSessionName.ToString());
 		bSessionValid = true;
 
 		// Our session has started, if we are a lobby instance, tell the lobby to go.  NOTE: We don't use the cached version of UTGameMode here
@@ -301,16 +301,16 @@ void AUTGameSessionNonRanked::OnStartSessionComplete(FName SessionName, bool bWa
 	}
 }
 
-void AUTGameSessionNonRanked::OnEndSessionComplete(FName SessionName, bool bWasSuccessful)
+void AUTGameSessionNonRanked::OnEndSessionComplete(FName InSessionName, bool bWasSuccessful)
 {
 	if (!bWasSuccessful)
 	{
-		UE_LOG(UT, Log, TEXT("Failed to end the session '%s' so match stats will not save.  See the logs!"), *SessionName.ToString());
+		UE_LOG(UT, Log, TEXT("Failed to end the session '%s' so match stats will not save.  See the logs!"), *InSessionName.ToString());
 		IOnlineSubsystem::Get()->GetSessionInterface()->DumpSessionState();
 	}
 	else
 	{
-		UE_LOG(UT, Verbose, TEXT("OnEndSessionComplete %s"), *SessionName.ToString());
+		UE_LOG(UT, Verbose, TEXT("OnEndSessionComplete %s"), *InSessionName.ToString());
 	}
 
 	const auto OnlineSub = IOnlineSubsystem::Get();
@@ -324,15 +324,15 @@ void AUTGameSessionNonRanked::OnEndSessionComplete(FName SessionName, bool bWasS
 	}
 }
 
-void AUTGameSessionNonRanked::OnDestroySessionComplete(FName SessionName, bool bWasSuccessful)
+void AUTGameSessionNonRanked::OnDestroySessionComplete(FName InSessionName, bool bWasSuccessful)
 {
 	if (!bWasSuccessful)
 	{
-		UE_LOG(UT, Log, TEXT("Failed to destroy the session '%s'!  Matchmaking will be broken until restart.  See the logs!"), *SessionName.ToString());
+		UE_LOG(UT, Log, TEXT("Failed to destroy the session '%s'!  Matchmaking will be broken until restart.  See the logs!"), *InSessionName.ToString());
 	}
 	else
 	{
-		UE_LOG(UT, Verbose, TEXT("OnDestroySessionComplete %s"), *SessionName.ToString());
+		UE_LOG(UT, Verbose, TEXT("OnDestroySessionComplete %s"), *InSessionName.ToString());
 	}
 
 	const auto OnlineSub = IOnlineSubsystem::Get();
@@ -379,7 +379,7 @@ void AUTGameSessionNonRanked::UpdateGameState()
 	Super::UpdateGameState();
 }
 
-void AUTGameSessionNonRanked::OnUpdateSessionComplete(FName SessionName, bool bWasSuccessful)
+void AUTGameSessionNonRanked::OnUpdateSessionComplete(FName InSessionName, bool bWasSuccessful)
 {
 	// workaround for the online service sometimes losing sessions
 	// if we lost our session and have no players, restart to try to acquire a new session
@@ -393,6 +393,20 @@ void AUTGameSessionNonRanked::OnUpdateSessionComplete(FName SessionName, bool bW
 	}
 }
 
+//Special markup for Analytics event so they show up properly in grafana. Should be eventually moved to UTAnalytics.
+/*
+* @EventName AdminBan
+*
+* @Trigger Sent when a player is banned from a server by an admin
+*
+* @Type Sent by the Server
+*
+* @EventParam UserName string Current User Name In Use
+* @EventParam UniqueId string Unique ID 
+* @EventParam Reason string Reason for the ban
+*
+* @Comments
+*/
 bool AUTGameSessionNonRanked::BanPlayer(class APlayerController* BannedPlayer, const FText& BanReason)
 {
 	APlayerState* PS = BannedPlayer->PlayerState;

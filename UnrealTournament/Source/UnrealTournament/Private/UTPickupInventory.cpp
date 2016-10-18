@@ -5,7 +5,7 @@
 #include "UnrealNetwork.h"
 #include "UTPickupMessage.h"
 #include "UTWorldSettings.h"
-#include "UTCTFGameState.h"
+#include "UTFlagRunGameState.h"
 
 AUTPickupInventory::AUTPickupInventory(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -124,11 +124,17 @@ static void CreatePickupMeshAttachments(AActor* Pickup, UClass* PickupInventoryT
 {
 	for (int32 i = 0; i < NativeCompList.Num(); i++)
 	{
-		if (NativeCompList[i]->AttachParent == CurrentAttachment)
+		if (NativeCompList[i]->GetAttachParent() == CurrentAttachment)
 		{
-			USceneComponent* NewComp = NewObject<USceneComponent>(Pickup, NativeCompList[i]->GetClass(), NAME_None, RF_NoFlags, NativeCompList[i]);
-			NewComp->AttachParent = NULL;
-			NewComp->AttachChildren.Empty();
+			USceneComponent* NewComp = NewObject<USceneComponent>(Pickup, NativeCompList[i]->GetClass(), NAME_None, RF_NoFlags, NativeCompList[i]);			
+			NewComp->DetachFromComponent(FDetachmentTransformRules::KeepRelativeTransform);
+						
+			TArray<USceneComponent*> ChildComps = NewComp->GetAttachChildren();
+			for (USceneComponent* Child : ChildComps)
+			{
+				Child->DetachFromComponent(FDetachmentTransformRules::KeepRelativeTransform);
+			}
+
 			UPrimitiveComponent* Prim = Cast<UPrimitiveComponent>(NewComp);
 			if (Prim != NULL)
 			{
@@ -136,7 +142,7 @@ static void CreatePickupMeshAttachments(AActor* Pickup, UClass* PickupInventoryT
 				Prim->bShouldUpdatePhysicsVolume = false;
 			}
 			NewComp->RegisterComponent();
-			NewComp->AttachTo(CurrentAttachment, NewComp->AttachSocketName);
+			NewComp->AttachToComponent(CurrentAttachment, FAttachmentTransformRules::KeepRelativeTransform, NewComp->GetAttachSocketName());
 			// recurse
 			CreatePickupMeshAttachments(Pickup, PickupInventoryType, NewComp, NativeCompList[i]->GetFName(), NativeCompList, BPNodes);
 		}
@@ -146,9 +152,15 @@ static void CreatePickupMeshAttachments(AActor* Pickup, UClass* PickupInventoryT
 		USceneComponent* ComponentTemplate = Cast<USceneComponent>(BPNodes[i]->GetActualComponentTemplate(Cast<UBlueprintGeneratedClass>(PickupInventoryType)));
 		if (BPNodes[i]->ComponentTemplate != NULL && BPNodes[i]->ParentComponentOrVariableName == TemplateName)
 		{
-			USceneComponent* NewComp = NewObject<USceneComponent>(Pickup, BPNodes[i]->ComponentTemplate->GetClass(), NAME_None, RF_NoFlags, BPNodes[i]->ComponentTemplate);
-			NewComp->AttachParent = NULL;
-			NewComp->AttachChildren.Empty();
+			USceneComponent* NewComp = NewObject<USceneComponent>(Pickup, BPNodes[i]->ComponentTemplate->GetClass(), NAME_None, RF_NoFlags, BPNodes[i]->ComponentTemplate);			
+			NewComp->DetachFromComponent(FDetachmentTransformRules::KeepRelativeTransform);
+
+			TArray<USceneComponent*> ChildComps = NewComp->GetAttachChildren();
+			for (USceneComponent* Child : ChildComps)
+			{
+				Child->DetachFromComponent(FDetachmentTransformRules::KeepRelativeTransform);
+			}
+
 			UPrimitiveComponent* Prim = Cast<UPrimitiveComponent>(NewComp);
 			if (Prim != NULL)
 			{
@@ -157,9 +169,16 @@ static void CreatePickupMeshAttachments(AActor* Pickup, UClass* PickupInventoryT
 			}
 			NewComp->bAutoRegister = false;
 			NewComp->RegisterComponent();
-			NewComp->AttachTo(CurrentAttachment, BPNodes[i]->AttachToName);
+			NewComp->AttachToComponent(CurrentAttachment, FAttachmentTransformRules::KeepRelativeTransform, BPNodes[i]->AttachToName);
 			// recurse
 			CreatePickupMeshAttachments(Pickup, PickupInventoryType, NewComp, BPNodes[i]->VariableName, NativeCompList, BPNodes);
+
+			// The behavior of PIE has changed in 4.13. When the object was duplicated for PIE in previous versions, it would not have the particle system components.
+			// Just make the editor ones invisible, it breaks real time preview, but would rather have PIE work.
+			if (Cast<UParticleSystemComponent>(NewComp) && Pickup->GetWorld()->WorldType == EWorldType::Editor)
+			{
+				Cast<UParticleSystemComponent>(NewComp)->SetVisibility(false, true);
+			}
 		}
 	}
 }
@@ -203,8 +222,14 @@ void AUTPickupInventory::CreatePickupMesh(AActor* Pickup, UMeshComponent*& Picku
 				PickupMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 				PickupMesh->bShouldUpdatePhysicsVolume = false;
 				PickupMesh->bUseAttachParentBound = false;
-				PickupMesh->AttachParent = NULL;
-				PickupMesh->AttachChildren.Empty();
+				PickupMesh->DetachFromComponent(FDetachmentTransformRules::KeepRelativeTransform);
+
+				TArray<USceneComponent*> ChildComps = PickupMesh->GetAttachChildren();
+				for (USceneComponent* Child : ChildComps)
+				{
+					Child->DetachFromComponent(FDetachmentTransformRules::KeepRelativeTransform);
+				}
+
 				PickupMesh->RelativeRotation = FRotator::ZeroRotator;
 				PickupMesh->RelativeLocation.Z += MeshFloatHeight;
 				if (!OverrideScale.IsZero())
@@ -217,7 +242,7 @@ void AUTPickupInventory::CreatePickupMesh(AActor* Pickup, UMeshComponent*& Picku
 				}
 				PickupMesh->bAutoRegister = false;
 				PickupMesh->RegisterComponent();
-				PickupMesh->AttachTo(Pickup->GetRootComponent());
+				PickupMesh->AttachToComponent(Pickup->GetRootComponent(), FAttachmentTransformRules::KeepRelativeTransform);
 				FVector Offset = Pickup->GetRootComponent()->ComponentToWorld.InverseTransformVectorNoScale(PickupMesh->Bounds.Origin - PickupMesh->GetComponentToWorld().GetLocation());
 				PickupMesh->SetRelativeLocation(PickupMesh->GetRelativeTransform().GetLocation() - Offset);
 				PickupMesh->SetRelativeRotation(PickupMesh->RelativeRotation + RotationOffset);
@@ -251,9 +276,9 @@ void AUTPickupInventory::CreatePickupMesh(AActor* Pickup, UMeshComponent*& Picku
 				}
 				CreatePickupMeshAttachments(Pickup, PickupInventoryType, PickupMesh, NewMesh->GetFName(), NativeCompList, ConstructionNodes);
 			}
-			else if (PickupMesh->AttachParent != Pickup->GetRootComponent())
+			else if (PickupMesh->GetAttachParent() != Pickup->GetRootComponent())
 			{
-				PickupMesh->AttachTo(Pickup->GetRootComponent(), NAME_None, EAttachLocation::SnapToTarget);
+				PickupMesh->AttachToComponent(Pickup->GetRootComponent(), FAttachmentTransformRules::SnapToTargetNotIncludingScale);
 				FVector Offset = Pickup->GetRootComponent()->ComponentToWorld.InverseTransformVectorNoScale(PickupMesh->Bounds.Origin - PickupMesh->GetComponentToWorld().GetLocation());
 				PickupMesh->SetRelativeLocation(PickupMesh->GetRelativeTransform().GetLocation() - Offset + FVector(0.0f, 0.0f, MeshFloatHeight));
 			}
@@ -278,8 +303,14 @@ void AUTPickupInventory::InventoryTypeUpdated_Implementation()
 		if (Mesh != NULL)
 		{
 			GhostMesh = DuplicateObject<UMeshComponent>(Mesh, this);
-			GhostMesh->AttachParent = NULL;
-			GhostMesh->AttachChildren.Empty();
+			GhostMesh->DetachFromComponent(FDetachmentTransformRules::KeepRelativeTransform);
+
+			TArray<USceneComponent*> ChildComps = GhostMesh->GetAttachChildren();
+			for (USceneComponent* Child : ChildComps)
+			{
+				Child->DetachFromComponent(FDetachmentTransformRules::KeepRelativeTransform);
+			}
+
 			GhostMesh->bRenderCustomDepth = false;
 			GhostMesh->bRenderInMainPass = true;
 			GhostMesh->CastShadow = false;
@@ -296,7 +327,7 @@ void AUTPickupInventory::InventoryTypeUpdated_Implementation()
 				}
 			}
 			GhostMesh->RegisterComponent();
-			GhostMesh->AttachTo(Mesh, NAME_None, EAttachLocation::SnapToTargetIncludingScale);
+			GhostMesh->AttachToComponent(Mesh, FAttachmentTransformRules::SnapToTargetIncludingScale);
 			if (GhostMesh->bAbsoluteScale) // SnapToTarget doesn't handle absolute...
 			{
 				GhostMesh->SetWorldScale3D(Mesh->GetComponentScale());
@@ -343,8 +374,9 @@ void AUTPickupInventory::PlayRespawnEffects()
 			if (InventoryType.GetDefaultObject()->PickupSpawnAnnouncement)
 			{
 				GM->BroadcastLocalized(this, InventoryType.GetDefaultObject()->PickupSpawnAnnouncement, InventoryType.GetDefaultObject()->PickupAnnouncementIndex, nullptr, nullptr, InventoryType.GetDefaultObject());
+				bHasEverSpawned = true;
 			}
-			else if (InventoryType.GetDefaultObject()->PickupAnnouncementName != NAME_None)
+			if (InventoryType.GetDefaultObject()->PickupAnnouncementName != NAME_None)
 			{
 				GetWorldTimerManager().SetTimer(SpawnVoiceLineTimer, this, &AUTPickupInventory::PlaySpawnVoiceLine, bHasEverSpawned ? 30.f : 10.f);
 			}
@@ -370,11 +402,11 @@ void AUTPickupInventory::PlaySpawnVoiceLine()
 		bool bHasPlayedForBlue = false;
 
 		// maybe don't announce for one team
-		AUTCTFGameState* CTFGameState = GetWorld()->GetGameState<AUTCTFGameState>();
-		if (CTFGameState)
+		AUTFlagRunGameState* FRGameState = GetWorld()->GetGameState<AUTFlagRunGameState>();
+		if (FRGameState)
 		{
-			bHasPlayedForRed = CTFGameState->bRedToCap ? !bNotifySpawnForOffense : !bNotifySpawnForDefense;
-			bHasPlayedForBlue = CTFGameState->bRedToCap ? !bNotifySpawnForDefense : !bNotifySpawnForOffense;
+			bHasPlayedForRed = FRGameState->bRedToCap ? !bNotifySpawnForOffense : !bNotifySpawnForDefense;
+			bHasPlayedForBlue = FRGameState->bRedToCap ? !bNotifySpawnForDefense : !bNotifySpawnForOffense;
 			if (bHasPlayedForRed && bHasPlayedForBlue)
 			{
 				return;
@@ -401,6 +433,7 @@ void AUTPickupInventory::PlaySpawnVoiceLine()
 				}
 			}
 		}
+		GetWorldTimerManager().SetTimer(SpawnVoiceLineTimer, this, &AUTPickupInventory::PlaySpawnVoiceLine, 25.f + 10.f*FMath::FRand());
 	}
 }
 
@@ -420,7 +453,7 @@ void AUTPickupInventory::SetPickupHidden(bool bNowHidden)
 				Mesh->SetRenderInMainPass(!bNowHidden);
 				Mesh->SetRenderCustomDepth(bNowHidden);
 				Mesh->CastShadow = !bNowHidden;
-				for (USceneComponent* Child : Mesh->AttachChildren)
+				for (USceneComponent* Child : Mesh->GetAttachChildren())
 				{
 					Child->SetVisibility(!bNowHidden, true);
 				}
@@ -433,11 +466,11 @@ void AUTPickupInventory::SetPickupHidden(bool bNowHidden)
 			}
 
 			// toggle audio components
-			TArray<USceneComponent*> Children;
-			Mesh->GetChildrenComponents(true, Children);
-			for (int32 i = 0; i < Children.Num(); i++)
+			TArray<USceneComponent*> ChildComps;
+			Mesh->GetChildrenComponents(true, ChildComps);
+			for (int32 i = 0; i < ChildComps.Num(); i++)
 			{
-				UAudioComponent* AC = Cast<UAudioComponent>(Children[i]);
+				UAudioComponent* AC = Cast<UAudioComponent>(ChildComps[i]);
 				if (AC != NULL)
 				{
 					if (bNowHidden)
@@ -535,11 +568,23 @@ void AUTPickupInventory::PlayTakenEffects(bool bReplicate)
 void AUTPickupInventory::AnnouncePickup(AUTCharacter* P)
 {
 	GetWorldTimerManager().ClearTimer(SpawnVoiceLineTimer);
-	if (Cast<APlayerController>(P->GetController()))
-	{
-		Cast<APlayerController>(P->GetController())->ClientReceiveLocalizedMessage(UUTPickupMessage::StaticClass(), 0, P->PlayerState, NULL, InventoryType);
-	}
 	AUTGameMode* GM = GetWorld()->GetAuthGameMode<AUTGameMode>();
+	AUTPlayerController* UTPC = (P != nullptr) ? Cast<AUTPlayerController>(P->GetController()) : nullptr;
+	if (UTPC)
+	{
+		UTPC->ClientReceiveLocalizedMessage(UUTPickupMessage::StaticClass(), 0, P->PlayerState, NULL, InventoryType);
+		if (GM && GM->bBasicTrainingGame && !GM->bDamageHurtsHealth)
+		{
+			for (int32 Index = 0; Index < TutorialAnnouncements.Num(); Index++)
+			{
+				UTPC->PlayTutorialAnnouncement(Index, this);
+			}
+			for (int32 Index = 0; Index < InventoryType->GetDefaultObject<AUTInventory>()->TutorialAnnouncements.Num(); Index++)
+			{
+				UTPC->PlayTutorialAnnouncement(Index, InventoryType->GetDefaultObject());
+			}
+		}
+	}
 	if (GM && GM->bAllowPickupAnnouncements && InventoryType && (InventoryType.GetDefaultObject()->PickupAnnouncementName != NAME_None))
 	{
 		AUTPlayerState* PS = Cast<AUTPlayerState>(P->PlayerState);

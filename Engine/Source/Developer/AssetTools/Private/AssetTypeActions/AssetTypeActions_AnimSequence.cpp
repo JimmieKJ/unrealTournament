@@ -2,8 +2,15 @@
 
 #include "AssetToolsPrivatePCH.h"
 #include "ContentBrowserModule.h"
+#include "Animation/AnimSequence.h"
+
 
 #define LOCTEXT_NAMESPACE "AssetTypeActions"
+
+UClass* FAssetTypeActions_AnimSequence::GetSupportedClass() const
+{ 
+	return UAnimSequence::StaticClass(); 
+}
 
 void FAssetTypeActions_AnimSequence::GetActions( const TArray<UObject*>& InObjects, FMenuBuilder& MenuBuilder )
 {
@@ -48,6 +55,16 @@ void FAssetTypeActions_AnimSequence::FillCreateMenu(FMenuBuilder& MenuBuilder, c
 			FExecuteAction::CreateSP(this, &FAssetTypeActions_AnimSequence::ExecuteNewAnimMontage, Sequences),
 			FCanExecuteAction()
 			)
+		);
+
+	MenuBuilder.AddMenuEntry(
+		LOCTEXT("AnimSequence_NewPoseAsset", "Create PoseAsset"),
+		LOCTEXT("AnimSequence_NewPoseAssetTooltip", "Creates an PoseAsset using the selected anim sequence."),
+		FSlateIcon(FEditorStyle::GetStyleSetName(), "ClassIcon.PoseAsset"),
+		FUIAction(
+		FExecuteAction::CreateSP(this, &FAssetTypeActions_AnimSequence::ExecuteNewPoseAsset, Sequences),
+		FCanExecuteAction()
+		)
 		);
 }
 
@@ -101,6 +118,13 @@ void FAssetTypeActions_AnimSequence::ExecuteNewAnimMontage(TArray<TWeakObjectPtr
 	CreateAnimationAssets(Objects, UAnimMontage::StaticClass(), Factory, DefaultSuffix, FOnConfigureFactory::CreateSP(this, &FAssetTypeActions_AnimSequence::ConfigureFactoryForAnimMontage));
 }
 
+void FAssetTypeActions_AnimSequence::ExecuteNewPoseAsset(TArray<TWeakObjectPtr<UAnimSequence>> Objects) const
+{
+	const FString DefaultSuffix = TEXT("_PoseAsset");
+	UPoseAssetFactory* Factory = NewObject<UPoseAssetFactory>();
+	CreateAnimationAssets(Objects, UPoseAsset::StaticClass(), Factory, DefaultSuffix, FOnConfigureFactory::CreateSP(this, &FAssetTypeActions_AnimSequence::ConfigureFactoryForPoseAsset));
+}
+
 void FAssetTypeActions_AnimSequence::ConfigureFactoryForAnimComposite(UFactory* AssetFactory, UAnimSequence* SourceAnimation) const
 {
 	UAnimCompositeFactory* CompositeFactory = CastChecked<UAnimCompositeFactory>(AssetFactory);
@@ -113,6 +137,11 @@ void FAssetTypeActions_AnimSequence::ConfigureFactoryForAnimMontage(UFactory* As
 	MontageFactory->SourceAnimation = SourceAnimation;
 }
 
+void FAssetTypeActions_AnimSequence::ConfigureFactoryForPoseAsset(UFactory* AssetFactory, UAnimSequence* SourceAnimation) const
+{
+	UPoseAssetFactory* CompositeFactory = CastChecked<UPoseAssetFactory>(AssetFactory);
+	CompositeFactory->SourceAnimation = SourceAnimation;
+}
 void FAssetTypeActions_AnimSequence::CreateAnimationAssets(const TArray<TWeakObjectPtr<UAnimSequence>>& AnimSequences, TSubclassOf<UAnimationAsset> AssetClass, UFactory* AssetFactory, const FString& InSuffix, FOnConfigureFactory OnConfigureFactory) const
 {
 	if ( AnimSequences.Num() == 1 )

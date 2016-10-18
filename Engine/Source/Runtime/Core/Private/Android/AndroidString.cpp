@@ -6,6 +6,19 @@
 
 #include "CorePrivatePCH.h"
 
+// This is a full copy of iswspace function from Android sources
+// For some reason function from libc does not work correctly for some korean characters like: 0xBE0C
+int iswspace(wint_t wc)
+{
+	static const wchar_t spaces[] = {
+		' ', '\t', '\n', '\r', 11, 12,  0x0085,
+		0x2000, 0x2001, 0x2002, 0x2003, 0x2004, 0x2005,
+		0x2006, 0x2008, 0x2009, 0x200a,
+		0x2028, 0x2029, 0x205f, 0x3000, 0
+	};
+	return wc && wcschr(spaces, wc);
+}
+
 int vswprintf( TCHAR *buf, int max, const TCHAR *fmt, va_list args )
 {
 	if (fmt == NULL)

@@ -731,8 +731,11 @@ struct AIMODULE_API FEnvQueryInstance : public FEnvQueryResult
 {
 	typedef float FNamedParamValueType;
 
-	/** short name of query template */
+	/** short name of query template - friendly name for debugging */
 	FString QueryName;
+
+	/** unique name of query template - object name */
+	FName UniqueName;
 
 	/** world owning this query instance */
 	UWorld* World;
@@ -1075,10 +1078,10 @@ public:
 		/** Force state and score of item
 		 *  Any following SetScore calls for current item will be ignored
 		 */
-		void ForceItemState(EEnvItemStatus::Type Status, float Score = UEnvQueryTypes::SkippedItemValue)
+		void ForceItemState(EEnvItemStatus::Type InStatus, float Score = UEnvQueryTypes::SkippedItemValue)
 		{
 			bForced = true;
-			bPassed = (Status == EEnvItemStatus::Passed);
+			bPassed = (InStatus == EEnvItemStatus::Passed);
 			ItemScore = Score;
 		}
 
@@ -1111,7 +1114,7 @@ public:
 			return GetIndex();
 		}
 
-		FORCEINLINE_EXPLICIT_OPERATOR_BOOL() const
+		FORCEINLINE explicit operator bool() const
 		{
 			return CurrentItem < Instance->Items.Num() && !Instance->bFoundSingleResult && (Deadline < 0 || FPlatformTime::Seconds() < Deadline);
 		}

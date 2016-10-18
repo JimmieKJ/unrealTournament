@@ -18,6 +18,8 @@
 #include "Engine/DemoNetDriver.h"
 #include "UTCTFScoreboard.h"
 #include "UTAssistMessage.h"
+#include "UTInGameIntroHelper.h"
+#include "UTInGameIntroZone.h"
 
 AUTCTFBaseGame::AUTCTFBaseGame(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -42,13 +44,10 @@ AUTCTFBaseGame::AUTCTFBaseGame(const FObjectInitializer& ObjectInitializer)
 
 void AUTCTFBaseGame::InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage)
 {
-	if (!TranslocatorObject.IsNull())
+	if (bGameHasTranslocator && !TranslocatorObject.IsNull())
 	{
 		TranslocatorClass = Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *TranslocatorObject.ToStringReference().ToString(), NULL, LOAD_NoWarn));
-		if (bGameHasTranslocator)
-		{
-			DefaultInventory.Add(TranslocatorClass);
-		}
+		DefaultInventory.Add(TranslocatorClass);
 	}
 
 	Super::InitGame(MapName, Options, ErrorMessage);
@@ -210,7 +209,7 @@ void AUTCTFBaseGame::ScoreKill_Implementation(AController* Killer, AController* 
 void AUTCTFBaseGame::GameObjectiveInitialized(AUTGameObjective* Obj)
 {
 	AUTCTFFlagBase* FlagBase = Cast<AUTCTFFlagBase>(Obj);
-	if (FlagBase != NULL && FlagBase->MyFlag)
+	if (FlagBase != NULL)
 	{
 		CTFGameState->CacheFlagBase(FlagBase);
 	}
@@ -335,21 +334,35 @@ void AUTCTFBaseGame::HandleMatchIntermission()
 	//UTGameState->UpdateMatchHighlights();
 	CTFGameState->ResetFlags();
 
-	// Init targets
-	for (int32 i = 0; i<Teams.Num(); i++)
+	bool bWasInGameSucessful = false;
+	if (CTFGameState->InGameIntroHelper)
 	{
-		PlacePlayersAroundFlagBase(i, i);
+		InGameIntroZoneTypes ZoneType = CTFGameState->InGameIntroHelper->GetIntroTypeToPlay(GetWorld());
+		if (ZoneType != InGameIntroZoneTypes::Invalid)
+		{
+			CTFGameState->InGameIntroHelper->HandleIntermission(GetWorld(), ZoneType);
+			bWasInGameSucessful = true;
+		}
 	}
 
-	// Tell the controllers to look at own team flag
-	for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
+	if (!bWasInGameSucessful)
 	{
-		AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
-		if (PC != NULL)
+		// Init targets
+		for (int32 i = 0; i < Teams.Num(); i++)
 		{
-			PC->ClientHalftime();
-			int32 TeamToWatch = IntermissionTeamToView(PC);
-			PC->SetViewTarget(CTFGameState->FlagBases[TeamToWatch]);
+			PlacePlayersAroundFlagBase(i, i);
+		}
+
+		// Tell the controllers to look at own team flag
+		for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
+		{
+			AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
+			if (PC != NULL)
+			{
+				PC->ClientHalftime();
+				int32 TeamToWatch = IntermissionTeamToView(PC);
+				PC->SetViewTarget(CTFGameState->FlagBases[TeamToWatch]);
+			}
 		}
 	}
 
@@ -361,6 +374,7 @@ void AUTCTFBaseGame::HandleMatchIntermission()
 			(*It)->TurnOff();
 		}
 	}
+	
 
 	CTFGameState->bIsAtIntermission = true;
 	CTFGameState->OnIntermissionChanged();
@@ -483,6 +497,20 @@ bool AUTCTFBaseGame::SkipPlacement(AUTCharacter* UTChar)
 	return false;
 }
 
+void AUTCTFBaseGame::RestartPlayer(AController* aPlayer)
+{
+	if ((!IsMatchInProgress() && bPlacingPlayersAtIntermission) || (GetMatchState() == MatchState::MatchIntermission))
+	{
+		// placing players during intermission
+		if (bPlacingPlayersAtIntermission)
+		{
+			AGameMode::RestartPlayer(aPlayer);
+		}
+		return;
+	}
+	Super::RestartPlayer(aPlayer);
+}
+
 void AUTCTFBaseGame::PlacePlayersAroundFlagBase(int32 TeamNum, int32 FlagTeamNum)
 {
 	if ((CTFGameState == NULL) || (FlagTeamNum >= CTFGameState->FlagBases.Num()) || (CTFGameState->FlagBases[FlagTeamNum] == NULL))
@@ -510,6 +538,10 @@ void AUTCTFBaseGame::PlacePlayersAroundFlagBase(int32 TeamNum, int32 FlagTeamNum
 					C->UnPossess();
 				}
 				RestartPlayer(C);
+				if (C->GetPawn())
+				{
+					C->GetPawn()->TurnOff();
+				}
 			}
 		}
 	}
@@ -527,7 +559,7 @@ void AUTCTFBaseGame::PlacePlayersAroundFlagBase(int32 TeamNum, int32 FlagTeamNum
 				AUTPlayerState* PS = Cast<AUTPlayerState>(UTChar->PlayerState);
 				if (PS && PS->CarriedObject && PS->CarriedObject->HolderTrail)
 				{
-					PS->CarriedObject->HolderTrail->DetachFromParent();
+					PS->CarriedObject->HolderTrail->DetachFromComponent(FDetachmentTransformRules::KeepRelativeTransform);
 				}
 				FRotator AdjustmentAngle(0, StartAngle + AngleSlices * PlacementCounter, 0);
 				FVector PlacementLoc = FlagLoc + AdjustmentAngle.RotateVector(PlacementOffset);
@@ -546,6 +578,7 @@ void AUTCTFBaseGame::PlacePlayersAroundFlagBase(int32 TeamNum, int32 FlagTeamNum
 					break;
 				}
 				UTChar->bIsTranslocating = false;
+				UTChar->TurnOff();
 			}
 			if (PlacementCounter == 8)
 			{
@@ -621,15 +654,15 @@ void AUTCTFBaseGame::BuildScoreInfo(AUTPlayerState* PlayerState, TSharedPtr<clas
 	NewPlayerInfoLine(BotLeftPane, NSLOCTEXT("AUTGameMode", "KegPickups", "Keg Pickups"), MakeShareable(new TAttributeStat(PlayerState, NAME_KegCount)), StatList);
 	BotLeftPane->AddSlot().AutoHeight()[SNew(SBox).HeightOverride(30.0f)];
 	NewPlayerInfoLine(BotLeftPane, NSLOCTEXT("AUTGameMode", "BeltPickups", "Shield Belt Pickups"), MakeShareable(new TAttributeStat(PlayerState, NAME_ShieldBeltCount)), StatList);
-	NewPlayerInfoLine(BotLeftPane, NSLOCTEXT("AUTGameMode", "VestPickups", "Armor Vest Pickups"), MakeShareable(new TAttributeStat(PlayerState, NAME_ArmorVestCount)), StatList);
-	NewPlayerInfoLine(BotLeftPane, NSLOCTEXT("AUTGameMode", "PadPickups", "Thigh Pad Pickups"), MakeShareable(new TAttributeStat(PlayerState, NAME_ArmorPadsCount)), StatList);
+	NewPlayerInfoLine(BotLeftPane, NSLOCTEXT("AUTGameMode", "LargeArmorPickups", "Large Armor Pickups"), MakeShareable(new TAttributeStat(PlayerState, NAME_ArmorVestCount)), StatList);
+	NewPlayerInfoLine(BotLeftPane, NSLOCTEXT("AUTGameMode", "MediumArmorPickups", "Medium Armor Pickups"), MakeShareable(new TAttributeStat(PlayerState, NAME_ArmorPadsCount)), StatList);
 
 	NewPlayerInfoLine(BotRightPane, NSLOCTEXT("AUTGameMode", "UDamage", "UDamage Control"), MakeShareable(new TAttributeStat(PlayerState, NAME_UDamageTime, nullptr, ToTime)), StatList);
 	NewPlayerInfoLine(BotRightPane, NSLOCTEXT("AUTGameMode", "Berserk", "Berserk Control"), MakeShareable(new TAttributeStat(PlayerState, NAME_BerserkTime, nullptr, ToTime)), StatList);
 	NewPlayerInfoLine(BotRightPane, NSLOCTEXT("AUTGameMode", "Invisibility", "Invisibility Control"), MakeShareable(new TAttributeStat(PlayerState, NAME_InvisibilityTime, nullptr, ToTime)), StatList);
 
 	BotRightPane->AddSlot().AutoHeight()[SNew(SBox).HeightOverride(60.0f)];
-	NewPlayerInfoLine(BotRightPane, NSLOCTEXT("AUTGameMode", "HelmetPickups", "Helmet Pickups"), MakeShareable(new TAttributeStat(PlayerState, NAME_HelmetCount)), StatList);
+	NewPlayerInfoLine(BotRightPane, NSLOCTEXT("AUTGameMode", "SmallArmorPickups", "Small Armor Pickups"), MakeShareable(new TAttributeStat(PlayerState, NAME_HelmetCount)), StatList);
 	NewPlayerInfoLine(BotRightPane, NSLOCTEXT("AUTGameMode", "JumpBootJumps", "JumpBoot Jumps"), MakeShareable(new TAttributeStat(PlayerState, NAME_BootJumps)), StatList);
 
 	NewPlayerInfoLine(TopRightPane, NSLOCTEXT("AUTCTFGameMode", "FlagCaps", "Flag Captures"), MakeShareable(new TAttributeStat(PlayerState, NAME_None, [](const AUTPlayerState* PS, const TAttributeStat* Stat) -> float { return PS->FlagCaptures; })), StatList);
@@ -660,17 +693,17 @@ void AUTCTFBaseGame::SetBlueScore(int32 NewScore)
 	}
 }
 
-uint8 AUTCTFBaseGame::GetNumMatchesFor(AUTPlayerState* PS, bool bRankedSession) const
+uint8 AUTCTFBaseGame::GetNumMatchesFor(AUTPlayerState* PS, bool InbRankedSession) const
 {
 	return PS ? PS->CTFMatchesPlayed : 0;
 }
 
-int32 AUTCTFBaseGame::GetEloFor(AUTPlayerState* PS, bool bRankedSession) const
+int32 AUTCTFBaseGame::GetEloFor(AUTPlayerState* PS, bool InbRankedSession) const
 {
-	return PS ? PS->CTFRank : Super::GetEloFor(PS, bRankedSession);
+	return PS ? PS->CTFRank : Super::GetEloFor(PS, InbRankedSession);
 }
 
-void AUTCTFBaseGame::SetEloFor(AUTPlayerState* PS, bool bRankedSession, int32 NewEloValue, bool bIncrementMatchCount)
+void AUTCTFBaseGame::SetEloFor(AUTPlayerState* PS, bool InbRankedSession, int32 NewEloValue, bool bIncrementMatchCount)
 {
 	if (PS)
 	{
@@ -682,12 +715,12 @@ void AUTCTFBaseGame::SetEloFor(AUTPlayerState* PS, bool bRankedSession, int32 Ne
 	}
 }
 
-int32 AUTCTFBaseGame::GetComSwitch(FName CommandTag, AActor* ContextActor, AUTPlayerController* Instigator, UWorld* World)
+int32 AUTCTFBaseGame::GetComSwitch(FName CommandTag, AActor* ContextActor, AUTPlayerController* InInstigator, UWorld* World)
 {
 	if (CommandTag == CommandTags::Distress)
 	{
 		return UNDER_HEAVY_ATTACK_SWITCH_INDEX;
 	}
 
-	return Super::GetComSwitch(CommandTag, ContextActor, Instigator, World);
+	return Super::GetComSwitch(CommandTag, ContextActor, InInstigator, World);
 }

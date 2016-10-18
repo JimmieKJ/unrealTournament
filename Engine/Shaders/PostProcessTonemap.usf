@@ -1,4 +1,4 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	PostProcessTonemap.usf: PostProcessing tone mapping
@@ -9,6 +9,9 @@
 #include "TonemapCommon.usf"
 #include "GammaCorrectionCommon.usf"
 #include "EyeAdaptationCommon.usf"
+
+// 0 / 1(slower, visualize multiple internals side by side for the same image portion, see DebugTile)
+#define DEBUG_TONEMAPPER 0
 
 // 64x64 tiling noise texture, optimized to have mostly high frequency content
 Texture2D NoiseTexture;
@@ -22,7 +25,7 @@ float4 ColorScale1;
 // to scale UV (with border) to NormaizedUV (without border)
 float2 TexScale;
 
-// from the postprocess settings, x:VignetteIntensity, y:Sharpen
+// from the postprocess settings, x:VignetteIntensity, y:SharpenDiv6
 float2 TonemapperParams;
 
 // Fine film grain
@@ -30,7 +33,7 @@ float3 GrainRandomFull;
 float3 GrainScaleBiasJitter;
 
 #if EYEADAPTATION_EXPOSURE_FIX != 1
- // Default value used when eye adaption is not avalible
+// Default value used when eye adaptation is disabled (e.g fixed exposure) or not available.
 float DefaultEyeExposure;
 #endif
 
@@ -38,6 +41,21 @@ half GrainFromUV(float2 GrainUV)
 {
 	half Grain = frac(sin(GrainUV.x + GrainUV.y * 543.31) *  493013.0);
 	return Grain;
+}
+
+uint InvertTonemapping;
+uint ACESInversion;
+
+uint OutputDevice;
+
+uint GetOutputDevice()
+{
+#if FEATURE_LEVEL > FEATURE_LEVEL_ES3_1
+	return OutputDevice;
+#else
+	// Only sRGB output for Mobile
+	return 0;
+#endif 
 }
 
 // LUT for color grading
@@ -50,18 +68,15 @@ static const float LUTSize = 32;
 
 half3 ColorLookupTable( half3 LinearColor )
 {
-	float LinearRange = 14;
-	float LinearGrey = 0.18;
-	float ExposureGrey = 444;
-
-	float3 LogColor = log2(LinearColor) / LinearRange - log2(LinearGrey) / LinearRange + ExposureGrey / 1023.0;	// scalar: 3log2 3mad
-	//float3 LogColor = (log2(LinearColor) - log2(LinearGrey)) / LinearRange + ExposureGrey / 1023.0;
-	//float3 LogColor = log2( LinearColor / LinearGrey ) / LinearRange + ExposureGrey / 1023.0;
-	//float3 LogColor = (0.432699 * log10(0.5 * LinearColor + 0.037584) + 0.616596) + 0.03;	// SLog
-	//float3 LogColor = ( 300 * log10( LinearColor * (1 - .0108) + .0108 ) + 685 ) / 1023;	// Cineon
-	LogColor = saturate( LogColor );
+	float3 LUTEncodedColor;
+	// Encode as ST-2084 (Dolby PQ) values
+	if( GetOutputDevice() >= 3 )
+		LUTEncodedColor = LinearToST2084( LinearColor );
+	// Encode as log values
+	else
+		LUTEncodedColor = LinToLog( LinearColor );
 	
-	float3 UVW = LogColor * ((LUTSize - 1) / LUTSize) + (0.5f / LUTSize);
+	float3 UVW = LUTEncodedColor * ((LUTSize - 1) / LUTSize) + (0.5f / LUTSize);
 
 #if USE_VOLUME_LUT == 1
 	half3 OutDeviceColor = ColorGradingLUT.Sample( ColorGradingLUTSampler, UVW ).rgb;
@@ -82,16 +97,30 @@ float PseudoRandomTex(float2 xy)
 
 float SwitchVerticalAxis;
 
-float4 FringeUVParams;
+#define NEEDTOSWITCHVERTICLEAXIS (ES2_PROFILE && COMPILER_GLSL_ES2) || (ES3_1_PROFILE && COMPILER_GLSL_ES3_1)
 
-// @param ViewportPos in viewport -1..1 1..-1
-// @return UV in PostprocessInput
-float2 ViewportPosToUV(float2 ViewportPos)
+// can be optimized
+float2 ScreenPosToUV(float2 ScreenPos)
 {
-	float2 ViewportUV = ViewportPos * float2(0.5f, -0.5f) + 0.5f;
+	float2 UV = (ScreenPos * ScreenPosToPixel.xy + ScreenPosToPixel.zw) * PostprocessInput0Size.zw;
 
-	return (ViewportUV * Frame.ViewSizeAndInvSize.xy + Frame.ViewRectMin.xy) * Frame.BufferSizeAndInvSize.zw;
+#if NEEDTOSWITCHVERTICLEAXIS
+	UV.y = 1.0 - UV.y;
+#endif
+
+	return UV;
 }
+
+float2 UVToScreenPos(float2 UV)
+{
+#if NEEDTOSWITCHVERTICLEAXIS
+	UV.y = 1.0 - UV.y;
+#endif
+
+	return (UV * PostprocessInput0Size.xy - ScreenPosToPixel.zw) / ScreenPosToPixel.xy;
+}
+
+float4 FringeUVParams;
 
 // vertex shader entry point
 void MainVS(
@@ -105,20 +134,18 @@ void MainVS(
 	out 				float4 OutPosition 				: SV_POSITION
 	)
 {
-	DrawRectangle(InPosition, InTexCoord, OutPosition, OutTexCoord.xy);
-
-#if ES2_PROFILE && COMPILER_GLSL_ES2
+#if NEEDTOSWITCHVERTICLEAXIS
 	// This is currently the last pass, so flip the texture on V to match D3D
-	float2 FlipEdge;
-	DrawRectangle(InPosition, float2(1, 1), OutPosition, FlipEdge.xy);
-	OutTexCoord.y = FlipEdge.y - OutTexCoord.y;
+	InTexCoord.y = 1.0 - InTexCoord.y;
 #endif
+
+	DrawRectangle(InPosition, InTexCoord, OutPosition, OutTexCoord.xy);
 
 	// Forward renderer uses view size texture
 	// TODO: Looks to be Ronin specific.. check this:
 	OutFullViewUV.xy = OutPosition.xy * float2(0.5,-0.5) + 0.5;
 
-#if ES2_PROFILE && COMPILER_GLSL_ES2
+#if NEEDTOSWITCHVERTICLEAXIS
 	OutFullViewUV.y = 1.0 - OutFullViewUV.y;
 #endif
 
@@ -126,24 +153,21 @@ void MainVS(
 	// texture can be GWhiteTexture which is 1x1. It's important we don't read outside bounds.
 	OutExposureScaleVignette.x = EyeAdaptation.Load(int3(0, 0, 0)).r;
 #else
-	// Eye adaptation is not yet supported, use the default value.
+	// If eye adaptation is disabled (e.g. fixed exposure level ) or  not available.  
 	OutExposureScaleVignette.x = DefaultEyeExposure;
 #endif
-	
-	// -1..1 1..-1 in the viewport
-	float2 ViewportPos = OutPosition.xy;
 
 	// Scale vignette to always be a circle with consistent corner intensity.
-	float2 VignetteSpacePos = VignetteSpace(ViewportPos);
-	OutExposureScaleVignette.yz = VignetteSpacePos;
+	OutExposureScaleVignette.yz = VignetteSpace(OutPosition.xy);
 
 	// Grain
 	OutGrainUV.xy = OutTexCoord + PostprocessInput0Size.zw * float2(-0.5,0.5);
 	OutGrainUV.zw = OutTexCoord + GrainRandomFull.xy;
 
 	// Fringe
-	OutFringe.xy = ViewportPosToUV(ViewportPos * FringeUVParams.r);
-	OutFringe.zw = ViewportPosToUV(ViewportPos * FringeUVParams.g);
+	float2 ScreenPos = UVToScreenPos(OutTexCoord);
+	OutFringe.xy = ScreenPosToUV(ScreenPos * FringeUVParams.r);
+	OutFringe.zw = ScreenPosToUV(ScreenPos * FringeUVParams.g);
 }
 
 // Function graphing
@@ -211,6 +235,87 @@ float RemapScalar(float Low, float High, float x)
 	return (x - Low) / (High - Low);
 }
 
+uint OutputGamut;
+
+// Doesn't work with PQ output
+float3 InvertACESTonemapping( float3 OutColor )
+{
+	const float3x3 AP1_2_sRGB    = mul( XYZ_2_sRGB_MAT, mul( D60_2_D65_CAT, AP1_2_XYZ_MAT ) );
+	const float3x3 sRGB_2_AP1    = mul( XYZ_2_AP1_MAT, mul( D65_2_D60_CAT, sRGB_2_XYZ_MAT ) );
+
+	const float3x3 AP1_2_Output = OuputGamutMappingMatrix( OutputGamut );
+	const float3x3 Output_2_AP1  = OuputInverseGamutMappingMatrix( OutputGamut );
+
+	const float3x3 sRGB_2_Output = mul( AP1_2_Output, sRGB_2_AP1 );
+	const float3x3 Output_2_sRGB = mul( AP1_2_Output, Output_2_AP1 );
+
+	half3 PseudoLinearColor, Approach0, Approach1;
+	PseudoLinearColor = saturate(sRGBToLinear( OutColor.rgb ));
+
+	// Approximate inversion
+	//Approach0 = mul( Output_2_AP1, PseudoLinearColor );
+
+	// FIXME: Workaround for UE-29935, pushing all colors with a 0 component to black output
+	// Workaround in PostProcessCombineLUTs.usf mean that the output color is always in the
+	// sRGB gamut. Once that is resolved, the matrix multiply above should be re-enabled.
+	Approach0 = PseudoLinearColor;
+
+	Approach0 = aces100nitFitInverse( Approach0 );
+	Approach0 = max(0, mul( AP1_2_Output, Approach0 ));
+
+	// Exact inversion
+	//Approach1 = mul(Output_2_sRGB, PseudoLinearColor);
+
+	// FIXME: Workaround for UE-29935, pushing all colors with a 0 component to black output
+	// Workaround in PostProcessCombineLUTs.usf mean that the output color is always in the
+	// sRGB gamut. Once that is resolved, the matrix multiply above should be re-enabled.
+	Approach1 = PseudoLinearColor;
+
+	Approach1 = InverseACESOutputTransformsRGBD65( Approach1 );
+	Approach1 = max(0, mul( sRGB_2_Output, Approach1 ));
+
+	return lerp(Approach0, Approach1, ACESInversion);
+}
+
+float max4(float4 x)
+{
+	return max(max(x.r, x.g), max(x.b, x.a));
+}
+
+// useful debug helper (not optimized), could be moved into a more common place
+// @param DebugTile 0,0 is center, -1,0 is left, 1,0 is right, ...
+float2 ComputeCounterStepForTileDebugging(float4 SvPosition, int2 TileSize, out int2 DebugTile, out int2 LocalDebugTilePosition)
+{
+	// ViewportRect is defined for postprocessing passes
+	float2 CenterPos = (ViewportRect.xy + ViewportRect.zw) / 2.0f;
+	float2 LeftTopPos = CenterPos - TileSize / 2;
+
+	float2 LocalPos = SvPosition.xy - LeftTopPos;
+
+	DebugTile = floor(LocalPos / TileSize);
+
+	LocalDebugTilePosition = LocalPos - DebugTile * TileSize;
+
+	float2 CounterStep = -DebugTile * TileSize;
+
+	return CounterStep;
+}
+// useful debug helper (works with ComputeCounterStepForTileDebugging()), could be moved into a more common place
+#define OffsetInterpolator(CounterStep, InterpolatorName) \
+		InterpolatorName += ddx(InterpolatorName) * CounterStep.x + ddy(InterpolatorName) * CounterStep.y;
+
+half3 LookupSceneColor(float2 SceneUV, int2 PixelOffset)
+{
+#if (ES2_PROFILE && COMPILER_GLSL_ES2) || (ES3_1_PROFILE && COMPILER_GLSL_ES3_1)
+	// slower but always works
+	// to prevent "error: Texture offset not supported on GLSL ES"
+	return Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, SceneUV + PixelOffset * PostprocessInput0Size.zw).rgb;
+#else
+	// faster
+	return PostprocessInput0.SampleLevel(PostprocessInput0Sampler, SceneUV, 0, PixelOffset).rgb;
+#endif
+}
+
 // pixel shader entry point
 void MainPS(
 	in noperspective float2 UV : TEXCOORD0,
@@ -223,6 +328,30 @@ void MainPS(
 	)
 {
 	OutColor = 0;
+
+#if DEBUG_TONEMAPPER
+	// @param DebugTile 0,0 is center, -1,0 is left, 1,0 is right, ...
+	int2 DebugTile;
+	int2 LocalDebugTilePosition;
+	bool bOutputDebugTile = false;
+	{
+		// split the screen in a 3x3 layout and add some border (0.3)
+		int2 TileSize = floor(ViewportSize.xy / float2(3.3f, 3.3f));
+		bool bBorder;
+
+		float2 CounterStep = ComputeCounterStepForTileDebugging(SvPosition, TileSize, DebugTile, LocalDebugTilePosition);
+
+		OffsetInterpolator(CounterStep, UV);
+		OffsetInterpolator(CounterStep, GrainUV);
+		OffsetInterpolator(CounterStep, FringeUV);
+		OffsetInterpolator(CounterStep, FullViewUV);
+	}
+	if (all(DebugTile == int2(0, 0)))
+	{
+		// center is unaltered tonemapper output
+		bOutputDebugTile = true;
+	}
+#endif
 
 	#if USE_GRAIN_JITTER || USE_GRAIN_INTENSITY || USE_GRAIN_QUANTIZATION
 		half Grain = GrainFromUV(GrainUV.zw);
@@ -248,42 +377,76 @@ void MainPS(
 
 	float ExposureScale = InExposureScaleVignette.x;
 
+#if DEBUG_TONEMAPPER
+	if (all(DebugTile == int2(-1, 1)))
+	{
+		// left below to the center is: no ExposureScale
+		ExposureScale = 1.0f;
+		bOutputDebugTile = true;
+	}
+#endif
+
+	// 0..x, 0:no effect .. 1:strong, from r.Tonemapper.Sharpen
+	// Div6 is to save one instruction
+	float SharpenMultiplierDiv6 = TonemapperParams.y;
+
+#if DEBUG_TONEMAPPER
+	if (all(DebugTile == int2(0, -1)) || all(DebugTile == int2(-1, -1)))
+	{
+		// top row: no sharpen
+		SharpenMultiplierDiv6 = 0;
+		bOutputDebugTile = true;
+	}
+#endif //DEBUG_TONEMAPPER
+
 #if USE_SHARPEN
 	{
-		// can be optimized a bit further, is combined with othr features so with more shader permutations we can save more performance
-		half3 SurroundingSceneColor = (
-			Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, SceneUV + float2(-1, 0) * PostprocessInput0Size.zw).rgb +
-			Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, SceneUV + float2( 1, 0) * PostprocessInput0Size.zw).rgb +
-			Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, SceneUV + float2( 0,-1) * PostprocessInput0Size.zw).rgb + 
-			Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, SceneUV + float2( 0, 1) * PostprocessInput0Size.zw).rgb) * 0.25f;
+		half3 C1 = LookupSceneColor(SceneUV, int2(-1,  0));
+		half3 C2 = LookupSceneColor(SceneUV, int2( 1,  0));
+		half3 C3 = LookupSceneColor(SceneUV, int2(-1, -1));
+		half3 C4 = LookupSceneColor(SceneUV, int2(-1,  1));
 
-		// 0..x, 0:no effect .. 1:strong from r.Tonemapper.Sharpen
-		float SharpenMultiplier = TonemapperParams.y;
-		// can be replaced by View.GeneralPurposeTweak for tweaking, 1.0 to avoid the multiplication (faster), 0.0f to be off (fastest)
-		const float BleedTweak = 1.0f;
+		// reference solution
+//		half A0 = max3(SceneColor);
+//		half4 LuminanceNeightbors = half4(max3(C1), max3(C2), max3(C3), max3(C4));
+		// 5 instructiopns less than reference
+//		half A0 = Luminance(SceneColor);
+//		half4 LuminanceNeightbors = half4(Luminance(C1), Luminance(C2), Luminance(C3), Luminance(C4));
+		// 9 instructions less than reference (green is often a good approximation for the luminance)
+		half A0 = SceneColor.g;
+		half4 LuminanceNeightbors = half4(C1.g, C2.g, C3.g, C4.g);
 
-		// -1:full sharpen, 0:no effect, 1: full blur
-		float LerpFactor;
+		// compute mask to not sharpen near very bright HDR content
+		// Note: using max instead of summming up saves 1 instruction
+		// Note: We could multiply this to tweak the edge weight but it might instroduce a cost
+//		half HDREdge = ExposureScale * max4(abs(A0 - LuminanceNeightbors));
+		// 3 instructions less but less accurate (faint black dots near bright edges)
+		half HDREdge = ExposureScale * max(abs(A0 * 2 - (LuminanceNeightbors.r + LuminanceNeightbors.g)), abs(A0 * 2 - (LuminanceNeightbors.b + LuminanceNeightbors.a)));
+
+		// 0..1
+		half EdgeMask = saturate(1.0f - HDREdge);
+
+#if DEBUG_TONEMAPPER
+		if (all(DebugTile == int2(1, 0)))
 		{
-			float NeighborHDRLum = max3(SurroundingSceneColor) * ExposureScale;
-			float CenterHDRLum = max3(SceneColor) * ExposureScale;
-			half SurroundingLDRLum = SimpleToneMap(NeighborHDRLum).r;
-			half LDRLum = SimpleToneMap(CenterHDRLum).r;
-
-			// cheaper
-			float Sharpen = (saturate(max(SurroundingLDRLum, LDRLum)) - 1) * SharpenMultiplier;
-
-			// 0:no effect, 1:full bleed
-			float Bleed = saturate(NeighborHDRLum * NeighborHDRLum * BleedTweak);
-
-			// bloom out highlights, clamped to be less than 1 to avoid a flat colored star shape (+) from a single bright pixel source
-			LerpFactor = lerp(Sharpen, 0.75f, Bleed);
+			// right to the center is: Sharpen EdgeMask
+			OutColor = EdgeMask; return;
 		}
+#endif //DEBUG_TONEMAPPER
 
-		// uncomment to visualize/debug the LerpFactor (red is sharpen, green is blur, black is untouched)
-//		OutColor = saturate(float4(-LerpFactor, LerpFactor, 0, 0)); return;
 
-		SceneColor = lerp(SceneColor, SurroundingSceneColor, LerpFactor);
+		// -1:sharpen, 0:no effect, 1:blur
+		float LerpFactor = -EdgeMask * SharpenMultiplierDiv6;
+
+
+
+		// reference
+		// same instruction count as if the center weight is 1.0
+//		half3 BlurredSceneColor = ((C1 + C2 + C3 + C4) + SceneColor * 2) / 6;
+//		SceneColor = lerp(SceneColor, BlurredSceneColor, LerpFactor);
+		// optimized, Div6 went into the C++ code
+		half3 DeltaColor = (C1 + C2 + C3 + C4) - SceneColor * 4;
+		SceneColor += DeltaColor * LerpFactor;
 	}
 #endif
 
@@ -302,7 +465,27 @@ void MainPS(
 			#endif
 			float4 CombinedBloom = Texture2DSample(PostprocessInput1, PostprocessInput1Sampler, BloomUV);
 			float3 BloomDirtMaskColor = Texture2DSample(BloomDirtMask.Mask, BloomDirtMask.MaskSampler, SvPositionToViewportUV(SvPosition)).rgb * BloomDirtMask.Tint.rgb;
+
+#if DEBUG_TONEMAPPER
+			if (all(DebugTile == int2(-1, -1)))
+			{
+				// left to the center is: no bloom
+				CombinedBloom = 0;
+				bOutputDebugTile = true;
+			}
+			if (all(DebugTile == int2(1, -1)))
+			{
+				// right to the center is: bloom only
+				LinearColor = 0;
+				bOutputDebugTile = true;
+			}
+#endif //DEBUG_TONEMAPPER
+
 			LinearColor += CombinedBloom.rgb * (ColorScale1.rgb + BloomDirtMaskColor); 
+		#endif
+
+		#if NO_EYEADAPTATION_EXPOSURE_FIX == 1
+			ExposureScale = BloomDirtMask.Tint.w;
 		#endif
 
 		LinearColor *= ExposureScale;
@@ -331,13 +514,37 @@ void MainPS(
 		#endif
 
 		// RETURN_COLOR not needed unless writing to SceneColor
-		OutColor = float4(OutDeviceColor, LuminanceForPostProcessAA);
+		OutColor = float4(OutDeviceColor, saturate(LuminanceForPostProcessAA));
+
+		#if USE_INVERSE_TONEMAPPING
+			// Post-tonemap linearization. Used when writing out EXRs
+			OutColor.rgb = InvertACESTonemapping( OutColor.rgb );
+		#endif
 	#endif
+
+
+#if DEBUG_TONEMAPPER
+	if (!bOutputDebugTile)
+	{
+		// the original tonemapped color is only in the center
+		// other tiles can output like this:
+		//  if(all(DebugTile == int2(1, 0)))
+		//    { OutColor = ..; return; }
+		// or
+		//  if(all(DebugTile == int2(1, 0)))
+		//    { ..; bOutputDebugTile = true; }
+		OutColor = 0;
+	}
+	if (any(LocalDebugTilePosition == int2(0, 0)))
+	{
+		// border grid
+		OutColor = 1;
+	}
+#endif //DEBUG_TONEMAPPER
 }
 
 
 // ES2 version
-
 // TODO: Convert float to half.
 
 float FringeIntensity;
@@ -355,29 +562,19 @@ void MainVS_ES2(
 	out float4 OutPosition : SV_POSITION
 	)
 {
+#if NEEDTOSWITCHVERTICLEAXIS
+	// This is currently the last pass, so flip the texture on V to match D3D
+	InTexCoord.y = 1.0-InTexCoord.y;
+#endif
+
 	DrawRectangle(InPosition, InTexCoord, OutPosition, OutTexCoord.xy);
 	OutTexCoord = float4(OutTexCoord.xy, OutPosition.xy);
-
-	// Avoiding a permutation.
-	if(GrainRandomFull.z > 0.0)
-	{
-		// Framebuffer fetch hardware uses the standard possibly non-full rectangle.
-		// Other hardware gets a full texture source.
-		OutTexCoord.xy = OutPosition.xy * float2(0.5,-0.5) + 0.5;
-	}
-
-	#if ES2_PROFILE && COMPILER_GLSL_ES2
-		// This is currently the last pass, so flip the texture on V to match D3D
-		float2 FlipEdge;
-		DrawRectangle(InPosition, float2(1, 1), OutPosition, FlipEdge.xy);
-		OutTexCoord.y = FlipEdge.y - OutTexCoord.y;
-	#endif
 
 	// Fine adjustment is inside the possible non-full viewport in the full resolution texture.
 	OutFineDofGrain.xy = OutTexCoord.xy + PostprocessInput0Size.zw * float2(-0.5,0.5);
 	// Want grain and a second UV based on the knowledge that the source texture has a full viewport.
 	OutFullViewUV.xy = OutPosition.xy * float2(0.5,-0.5) + 0.5;
-	#if ES2_PROFILE && COMPILER_GLSL_ES2
+	#if NEEDTOSWITCHVERTICLEAXIS
 		// This is currently the last pass, so flip the texture on V to match D3D
 		OutFullViewUV.y = 1.0 - OutFullViewUV.y;
 	#endif
@@ -459,6 +656,7 @@ void MainPS_ES2(
 
 	half4 SceneColor;
 	
+#if !USE_32BPP_HDR
 	BRANCH
 	if (FringeIntensity > 0.0)
 	{
@@ -468,6 +666,7 @@ void MainPS_ES2(
 		SceneColor.a = 1.0;
 	}
 	else
+#endif
 	{
 		SceneColor = PostprocessInput0.Sample(PostprocessInput0Sampler, UV);
 	}
@@ -517,6 +716,8 @@ void MainPS_ES2(
 		#if USE_MSAA
 			// Do after jitter for grain as an optimization.
 			SceneColor.rgb *= rcp(SceneColor.r*(-0.299) + SceneColor.g*(-0.587) + SceneColor.b*(-0.114) + 1.0);
+			// Try to kill negatives and NaNs here
+			SceneColor.rgb = max(SceneColor.rgb, 0);
 		#endif
 
 		#if USE_32BPP_HDR
@@ -538,7 +739,7 @@ void MainPS_ES2(
 				{
 					SceneColorH = SceneColorV;
 				}
-				SceneColor.rgb = Decode32BPPHDR(SceneColor, SceneColorH, SvPosition.xy);
+				SceneColor.rgb = Decode32BPPHDR(SceneColor, SceneColorH, SvPosition.xy).rgb;
 				SceneColor.a = 0.0;
 			#endif
 		}
@@ -564,7 +765,7 @@ void MainPS_ES2(
 			if (GetHDR32bppEncodeMode() != HDR_ENCODE_MOSAIC)
 			{
 				#if USE_32BPP_HDR
-					CombinedBloomSunVignette.rgb = Decode32BPPHDR(CombinedBloomSunVignette);
+					CombinedBloomSunVignette.rgb = Decode32BPPHDR(CombinedBloomSunVignette).rgb;
 					LinearColor.rgb = LinearColor.rgb + CombinedBloomSunVignette.rgb;
 				#else
 					LinearColor.rgb = LinearColor.rgb * CombinedBloomSunVignette.a + CombinedBloomSunVignette.rgb;

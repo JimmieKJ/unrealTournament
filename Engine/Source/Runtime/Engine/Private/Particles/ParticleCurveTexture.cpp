@@ -18,7 +18,7 @@
 
 /** The texture size allocated for particle curves. */
 extern const int32 GParticleCurveTextureSizeX = 512;
-extern const int32 GParticleCurveTextureSizeY = 256;
+extern const int32 GParticleCurveTextureSizeY = 512;
 
 /** The texel allocator uses 16-bit integers internally. */
 static_assert(GParticleCurveTextureSizeX <= 0xffff, "Curve texture wider than sixteen bits.");

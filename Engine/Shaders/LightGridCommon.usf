@@ -1,0 +1,16 @@
+/*=============================================================================
+	LightGridCommon.usf
+=============================================================================*/
+
+Buffer<uint> NumCulledLightsGrid;
+Buffer<uint> CulledLightDataGrid;
+Buffer<float4> ForwardLocalLightBuffer;
+
+uint ComputeLightGridCellIndex(uint2 PixelPos, float SceneDepth)
+{
+	uint ZSlice = (uint)(max(0, log2(SceneDepth * ForwardGlobalLightData.LightGridZParams.x + ForwardGlobalLightData.LightGridZParams.y) * ForwardGlobalLightData.LightGridZParams.z));
+	ZSlice = min(ZSlice, (uint)(ForwardGlobalLightData.CulledGridSize.z - 1));
+	uint3 GridCoordinate = uint3(PixelPos >> ForwardGlobalLightData.LightGridPixelSizeShift, ZSlice);
+	uint GridIndex = (GridCoordinate.z * ForwardGlobalLightData.CulledGridSize.y + GridCoordinate.y) * ForwardGlobalLightData.CulledGridSize.x + GridCoordinate.x;
+	return GridIndex;
+}

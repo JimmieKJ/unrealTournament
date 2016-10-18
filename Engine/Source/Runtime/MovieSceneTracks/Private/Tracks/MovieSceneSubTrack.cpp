@@ -17,7 +17,7 @@ UMovieSceneSubTrack::UMovieSceneSubTrack( const FObjectInitializer& ObjectInitia
 	: Super(ObjectInitializer)
 {
 #if WITH_EDITORONLY_DATA
-	TrackTint = FColor(255, 0, 0, 65);
+	TrackTint = FColor(180, 0, 40, 65);
 #endif
 }
 

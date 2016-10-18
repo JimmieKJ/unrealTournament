@@ -109,8 +109,9 @@ void AActor::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 		}
 		else
 		{
-			ReregisterAllComponents();
+			UnregisterAllComponents();
 			RerunConstructionScripts();
+			ReregisterAllComponents();
 		}
 	}
 
@@ -271,11 +272,11 @@ void AActor::DebugShowOneComponentHierarchy( USceneComponent* SceneComp, int32& 
 	}
 }
 
-AActor::FActorTransactionAnnotation::FActorTransactionAnnotation(const AActor* Actor)
+AActor::FActorTransactionAnnotation::FActorTransactionAnnotation(const AActor* Actor, const bool bCacheRootComponentData)
 	: ComponentInstanceData(Actor)
 {
 	USceneComponent* ActorRootComponent = Actor->GetRootComponent();
-	if (ActorRootComponent && ActorRootComponent->IsCreatedByConstructionScript())
+	if (bCacheRootComponentData && ActorRootComponent && ActorRootComponent->IsCreatedByConstructionScript())
 	{
 		bRootComponentDataCached = true;
 		RootComponentData.Transform = ActorRootComponent->ComponentToWorld;
@@ -322,12 +323,17 @@ bool AActor::FActorTransactionAnnotation::HasInstanceData() const
 
 TSharedPtr<ITransactionObjectAnnotation> AActor::GetTransactionAnnotation() const
 {
+	if (CurrentTransactionAnnotation.IsValid())
+	{
+		return CurrentTransactionAnnotation;
+	}
+
 	TSharedPtr<FActorTransactionAnnotation> TransactionAnnotation = MakeShareable(new FActorTransactionAnnotation(this));
 
 	if (!TransactionAnnotation->HasInstanceData())
 	{
 		// If there is nothing in the annotation don't bother storing it.
-		TransactionAnnotation = NULL;
+		TransactionAnnotation = nullptr;
 	}
 
 	return TransactionAnnotation;
@@ -446,7 +452,9 @@ void AActor::EditorApplyTranslation(const FVector& DeltaTranslation, bool bAltDo
 {
 	if( RootComponent != NULL )
 	{
-		GetRootComponent()->SetWorldLocation( GetRootComponent()->GetComponentLocation() + DeltaTranslation );
+		FTransform NewTransform = GetRootComponent()->GetComponentTransform();
+		NewTransform.SetTranslation(NewTransform.GetTranslation() + DeltaTranslation);
+		GetRootComponent()->SetWorldTransform(NewTransform);
 	}
 	else
 	{
@@ -513,11 +521,13 @@ void AActor::EditorApplyScale( const FVector& DeltaScale, const FVector* PivotLo
 										   CurrentScale.Y ? CurrentScale.Y : 1.0f,
 										   CurrentScale.Z ? CurrentScale.Z : 1.0f);
 
-			FVector Loc = GetActorLocation();
-			Loc -= *PivotLocation;
-			Loc *= (ScaleToApply / CurrentScaleSafe);
-			Loc += *PivotLocation;
-			GetRootComponent()->SetWorldLocation(Loc);
+			const FRotator ActorRotation = GetActorRotation();
+			const FVector WorldDelta = GetActorLocation() - (*PivotLocation);
+			const FVector LocalDelta = (ActorRotation.GetInverse()).RotateVector(WorldDelta);
+			const FVector LocalScaledDelta = LocalDelta * (ScaleToApply / CurrentScaleSafe);
+			const FVector WorldScaledDelta = ActorRotation.RotateVector(LocalScaledDelta);
+
+			GetRootComponent()->SetWorldLocation(WorldScaledDelta + (*PivotLocation));
 		}
 	}
 	else

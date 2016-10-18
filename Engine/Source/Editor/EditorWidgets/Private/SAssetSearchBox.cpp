@@ -8,6 +8,7 @@ void SAssetSearchBox::Construct( const FArguments& InArgs )
 {
 	OnTextChanged = InArgs._OnTextChanged;
 	OnTextCommitted = InArgs._OnTextCommitted;
+	OnKeyDownHandler = InArgs._OnKeyDownHandler;
 	PossibleSuggestions = InArgs._PossibleSuggestions;
 	PreCommittedText = InArgs._InitialText.Get();
 	bMustMatchPossibleSuggestions = InArgs._MustMatchPossibleSuggestions.Get();
@@ -24,6 +25,7 @@ void SAssetSearchBox::Construct( const FArguments& InArgs )
 				.OnTextCommitted(this, &SAssetSearchBox::HandleTextCommitted)
 				.SelectAllTextWhenFocused( false )
 				.DelayChangeNotificationsWhileTyping( InArgs._DelayChangeNotificationsWhileTyping )
+				.OnKeyDownHandler(this, &SAssetSearchBox::HandleKeyDown)
 			]
 			.MenuContent
 				(
@@ -76,7 +78,7 @@ FReply SAssetSearchBox::OnPreviewKeyDown( const FGeometry& MyGeometry, const FKe
 	return FReply::Unhandled();
 }
 
-FReply SAssetSearchBox::OnKeyDown( const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent )
+FReply SAssetSearchBox::HandleKeyDown( const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent )
 {
 	if ( SuggestionBox->IsOpen() && (InKeyEvent.GetKey() == EKeys::Up || InKeyEvent.GetKey() == EKeys::Down) )
 	{
@@ -116,6 +118,11 @@ FReply SAssetSearchBox::OnKeyDown( const FGeometry& MyGeometry, const FKeyEvent&
 		}
 
 		return FReply::Handled();
+	}
+
+	if (OnKeyDownHandler.IsBound())
+	{
+		return OnKeyDownHandler.Execute(MyGeometry, InKeyEvent);
 	}
 
 	return FReply::Unhandled();

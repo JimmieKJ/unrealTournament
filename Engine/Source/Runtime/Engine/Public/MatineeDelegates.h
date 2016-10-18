@@ -1,8 +1,5 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#ifndef __MatineeDelegates_h__
-#define __MatineeDelegates_h__
-
 #pragma once
 
 /** 
@@ -44,5 +41,3 @@ public:
 	DECLARE_MULTICAST_DELEGATE_TwoParams(FOnEventKeyframeRemoved, const class AMatineeActor*, const TArray<FName>&);
 	FOnEventKeyframeRemoved OnEventKeyframeRemoved;
 };
-
-#endif// __MatineeDelegates_h__

@@ -85,6 +85,7 @@ public:
 		, _DisplayGamma(2.2f)
 		, _sRGBOverride()
 		, _DisplayInlineVersion(false)
+		, _OverrideColorPickerCreation(false)
 		, _ExpandAdvancedSection(false)
 	{ }
 		
@@ -142,6 +143,9 @@ public:
 		/** If true, this color picker will be a stripped down version of the full color picker */
 		SLATE_ARGUMENT(bool, DisplayInlineVersion)
 
+		/** If true, this color picker will have non-standard creation behavior */
+		SLATE_ARGUMENT(bool, OverrideColorPickerCreation)
+
 		/** If true, the Advanced section will be expanded, regardless of the remembered state */
 		SLATE_ARGUMENT(bool, ExpandAdvancedSection)
 
@@ -161,6 +165,13 @@ public:
 	 * @param InArgs Declaration from which to construct the widget.
 	 */
 	void Construct(const FArguments& InArgs );
+
+	/** Delegate to override color picker creation behavior */
+	DECLARE_DELEGATE_OneParam(FOnColorPickerCreationOverride, const TSharedRef<SColorPicker>&);
+	static FOnColorPickerCreationOverride OnColorPickerNonModalCreateOverride;
+	/** Delegate to override color picker destruction behavior */
+	DECLARE_DELEGATE(FOnColorPickerDestructionOverride);
+	static FOnColorPickerDestructionOverride OnColorPickerDestroyOverride;
 
 protected:
 
@@ -269,7 +280,7 @@ private:
 	void HandleColorSpinBoxValueChanged( float NewValue, EColorPickerChannels Channel );
 
 	// Callback for completed eye dropper interactions.
-	void HandleEyeDropperButtonComplete();
+	void HandleEyeDropperButtonComplete(bool bCancelled);
 
 	// Callback for getting the text in the hex linear box.
 	FText HandleHexLinearBoxText() const;
@@ -423,8 +434,15 @@ private:
 	/** True if this color picker is an inline color picker */
 	bool bColorPickerIsInlineVersion;
 
+	/** True if something has overridden the color picker's creation behavior */
+	bool bColorPickerCreationIsOverridden;
+
 	/** Tracks whether the user is moving a value spin box, the color wheel and the dropper */
 	bool bIsInteractive;
+
+	/** Is true if the color picker creation behavior can be overridden */
+	bool bValidCreationOverrideExists;
+
 
 private:
 

@@ -1,2 +1,0 @@
-"One or more textures in the sample content have been created with images from CGTextures.com. These images may not be redistributed by default. Please visit www.cgtextures.com for more information."
-

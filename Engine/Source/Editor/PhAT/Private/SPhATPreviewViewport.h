@@ -44,6 +44,7 @@ public:
 	TWeakPtr<SDockTab> ParentTab;
 
 	void SetViewportType(ELevelViewportType ViewType);
+	void RotateViewportType();
 
 protected:
 	/** SEditorViewport interface */

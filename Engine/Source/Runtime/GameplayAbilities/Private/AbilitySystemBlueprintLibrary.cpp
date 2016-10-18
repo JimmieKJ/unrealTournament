@@ -38,6 +38,11 @@ void UAbilitySystemBlueprintLibrary::SendGameplayEventToActor(AActor* Actor, FGa
 	}
 }
 
+bool UAbilitySystemBlueprintLibrary::IsValid(FGameplayAttribute Attribute)
+{
+	return Attribute.IsValid();
+}
+
 float UAbilitySystemBlueprintLibrary::GetFloatAttribute(const class AActor* Actor, FGameplayAttribute Attribute, bool& bSuccessfullyFoundAttribute)
 {
 	const UAbilitySystemComponent* const AbilitySystem = UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(Actor);
@@ -56,6 +61,26 @@ float UAbilitySystemBlueprintLibrary::GetFloatAttributeFromAbilitySystemComponen
 	}
 
 	const float Result = AbilitySystem->GetNumericAttribute(Attribute);
+	return Result;
+}
+
+float UAbilitySystemBlueprintLibrary::GetFloatAttributeBase(const AActor* Actor, FGameplayAttribute Attribute, bool& bSuccessfullyFoundAttribute)
+{
+	const UAbilitySystemComponent* const AbilitySystem = UAbilitySystemGlobals::GetAbilitySystemComponentFromActor(Actor);
+	return GetFloatAttributeBaseFromAbilitySystemComponent(AbilitySystem, Attribute, bSuccessfullyFoundAttribute);
+}
+
+float UAbilitySystemBlueprintLibrary::GetFloatAttributeBaseFromAbilitySystemComponent(const UAbilitySystemComponent* AbilitySystemComponent, FGameplayAttribute Attribute, bool& bSuccessfullyFoundAttribute)
+{
+	float Result = 0.f;
+	bSuccessfullyFoundAttribute = false;
+
+	if (AbilitySystemComponent && AbilitySystemComponent->HasAttributeSetForAttribute(Attribute))
+	{
+		bSuccessfullyFoundAttribute = true;
+		Result = AbilitySystemComponent->GetNumericAttributeBase(Attribute);
+	}
+
 	return Result;
 }
 
@@ -79,6 +104,30 @@ float UAbilitySystemBlueprintLibrary::EvaluateAttributeValueWithTags(UAbilitySys
 	EvalParams.TargetTags = &TargetTags;
 
 	bSuccess = CaptureSpec.AttemptCalculateAttributeMagnitude(EvalParams, RetVal);
+
+	return RetVal;
+}
+
+float UAbilitySystemBlueprintLibrary::EvaluateAttributeValueWithTagsAndBase(UAbilitySystemComponent* AbilitySystem, FGameplayAttribute Attribute, const FGameplayTagContainer& SourceTags, const FGameplayTagContainer& TargetTags, float BaseValue, bool& bSuccess)
+{
+	float RetVal = 0.f;
+	if (!AbilitySystem || !AbilitySystem->HasAttributeSetForAttribute(Attribute))
+	{
+		bSuccess = false;
+		return RetVal;
+	}
+
+	FGameplayEffectAttributeCaptureDefinition Capture(Attribute, EGameplayEffectAttributeCaptureSource::Source, true);
+
+	FGameplayEffectAttributeCaptureSpec CaptureSpec(Capture);
+	AbilitySystem->CaptureAttributeForGameplayEffect(CaptureSpec);
+
+	FAggregatorEvaluateParameters EvalParams;
+
+	EvalParams.SourceTags = &SourceTags;
+	EvalParams.TargetTags = &TargetTags;
+
+	bSuccess = CaptureSpec.AttemptCalculateAttributeMagnitudeWithBase(EvalParams, BaseValue, RetVal);
 
 	return RetVal;
 }
@@ -128,7 +177,7 @@ FGameplayAbilityTargetDataHandle UAbilitySystemBlueprintLibrary::AbilityTargetDa
 		FGameplayAbilityTargetDataHandle Handle;
 		for (int32 i = 0; i < ActorArray.Num(); ++i)
 		{
-			if (IsValid(ActorArray[i]))
+			if (::IsValid(ActorArray[i]))
 			{
 				FGameplayAbilityTargetDataHandle TempHandle = AbilityTargetDataFromActor(ActorArray[i]);
 				Handle.Append(TempHandle);
@@ -415,6 +464,11 @@ FHitResult UAbilitySystemBlueprintLibrary::EffectContextGetHitResult(FGameplayEf
 bool UAbilitySystemBlueprintLibrary::EffectContextHasHitResult(FGameplayEffectContextHandle EffectContext)
 {
 	return EffectContext.GetHitResult() != NULL;
+}
+
+void UAbilitySystemBlueprintLibrary::EffectContextAddHitResult(FGameplayEffectContextHandle EffectContext, FHitResult HitResult, bool bReset)
+{
+	EffectContext.AddHitResult(HitResult, bReset);
 }
 
 AActor*	UAbilitySystemBlueprintLibrary::EffectContextGetInstigatorActor(FGameplayEffectContextHandle EffectContext)

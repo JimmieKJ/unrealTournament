@@ -4,6 +4,7 @@
 	VertexFactory.cpp: Vertex factory implementation
 =============================================================================*/
 
+#include "ShaderCorePrivatePCH.h"
 #include "ShaderCore.h"
 #include "Shader.h"
 #include "VertexFactory.h"

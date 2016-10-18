@@ -4,8 +4,7 @@
 	RendererInterface.h: Renderer interface definition.
 =============================================================================*/
 
-#ifndef __RendererInterface_H__
-#define __RendererInterface_H__
+#pragma once
 
 #include "ModuleInterface.h"
 #include "ModuleManager.h"
@@ -47,6 +46,7 @@ public:
 		, bForceSeparateTargetAndShaderResource(false)
 		, DebugName(TEXT("UnknownTexture"))
 		, AutoWritable(true)
+		, bCreateRenderTargetWriteMask(false)
 	{
 		check(!IsValid());
 	}
@@ -63,7 +63,8 @@ public:
 		uint32 InTargetableFlags,
 		bool bInForceSeparateTargetAndShaderResource,
 		uint16 InNumMips = 1,
-		bool InAutowritable = true)
+		bool InAutowritable = true,
+		bool InCreateRTWriteMask = false)
 	{
 		check(InExtent.X);
 		check(InExtent.Y);
@@ -82,6 +83,7 @@ public:
 		NewDesc.bForceSeparateTargetAndShaderResource = bInForceSeparateTargetAndShaderResource;
 		NewDesc.DebugName = TEXT("UnknownTexture2D");
 		NewDesc.AutoWritable = InAutowritable;
+		NewDesc.bCreateRenderTargetWriteMask = InCreateRTWriteMask;
 		check(NewDesc.Is2DTexture());
 		return NewDesc;
 	}
@@ -328,6 +330,8 @@ public:
 	const TCHAR *DebugName;
 	/** automatically set to writable via barrier during */
 	bool AutoWritable;
+	/** create render target write mask (supported only on specific platforms) */
+	bool bCreateRenderTargetWriteMask;
 };
 
 
@@ -373,6 +377,9 @@ struct FSceneRenderTargetItem
 	FUnorderedAccessViewRHIRef UAV;
 	/** only created if requested through the flag  */
 	TArray< FShaderResourceViewRHIRef > MipSRVs;
+
+	FShaderResourceViewRHIRef RTWriteMaskBufferRHI_SRV;
+	FStructuredBufferRHIRef RTWriteMaskDataBufferRHI;
 };
 
 /**
@@ -507,7 +514,56 @@ public:
 	virtual ICustomVisibilityQuery* CreateQuery (const FSceneView& View) = 0;
 };
 
+/**
+ * Class use to add FScene pixel inspect request
+ */
+class FPixelInspectorRequest
+{
+public:
+	FPixelInspectorRequest()
+	{
+		SourcePixelPosition = FIntPoint(-1, -1);
+		BufferIndex = -1;
+		RenderingCommandSend = false;
+		RequestComplete = true;
+		ViewId = -1;
+		GBufferPrecision = 1;
+		AllowStaticLighting = true;
+		FrameCountAfterRenderingCommandSend = 0;
+		RequestTickSinceCreation = 0;
+	}
 
+	void SetRequestData(FIntPoint SrcPixelPosition, int32 TargetBufferIndex, int32 ViewUniqueId, int32 GBufferFormat, bool StaticLightingEnable)
+	{
+		SourcePixelPosition = SrcPixelPosition;
+		BufferIndex = TargetBufferIndex;
+		RenderingCommandSend = false;
+		RequestComplete = false;
+		ViewId = ViewUniqueId;
+		GBufferPrecision = GBufferFormat;
+		AllowStaticLighting = StaticLightingEnable;
+		FrameCountAfterRenderingCommandSend = 0;
+		RequestTickSinceCreation = 0;
+	}
+
+	void MarkSendToRendering() { RenderingCommandSend = true; }
+
+	~FPixelInspectorRequest()
+	{
+	}
+
+	bool RenderingCommandSend;
+	int32 FrameCountAfterRenderingCommandSend;
+	int32 RequestTickSinceCreation;
+	bool RequestComplete;
+	FIntPoint SourcePixelPosition;
+	int32 BufferIndex;
+	int32 ViewId;
+
+	//GPU state at capture time
+	int32 GBufferPrecision;
+	bool AllowStaticLighting;
+};
 
 /**
  * The public interface of the renderer module.
@@ -615,8 +671,10 @@ public:
 	virtual void RenderPostOpaqueExtensions(const FSceneView& View, FRHICommandListImmediate& RHICmdList, class FSceneRenderTargets& SceneContext) = 0;
 	virtual void RenderOverlayExtensions(const FSceneView& View, FRHICommandListImmediate& RHICmdList, FSceneRenderTargets& SceneContext) = 0;
 	virtual bool HasPostOpaqueExtentions() const = 0;
+
+	typedef void(*TPostResolvedSceneColorCallback)(FRHICommandListImmediate& RHICmdList, class FSceneRenderTargets& SceneContext);
+	virtual bool HasPostResolvedSceneColorExtension() const = 0;
+	virtual void RegisterPostResolvedSceneColorExtension(TPostResolvedSceneColorCallback Callback) = 0;
+	virtual void RenderPostResolvedSceneColorExtension(FRHICommandListImmediate& RHICmdList, class FSceneRenderTargets& SceneContext) = 0;
 };
 
-
-
-#endif

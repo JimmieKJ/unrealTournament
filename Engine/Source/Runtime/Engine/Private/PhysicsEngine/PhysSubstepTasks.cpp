@@ -267,7 +267,7 @@ void FPhysSubstepTask::SubstepInterpolation(float InAlpha, float DeltaTime)
 	PxScene * PScene = PAScene;
 	SCOPED_SCENE_WRITE_LOCK(PScene);
 #endif
-	
+
 	/** Note: We lock the entire scene before iterating. The assumption is that removing an FBodyInstance from the map will also be wrapped by this lock */
 	
 	
@@ -289,14 +289,14 @@ void FPhysSubstepTask::SubstepInterpolation(float InAlpha, float DeltaTime)
 
 		if (!IsKinematicHelper(PRigidBody))
 		{
-			ApplyCustomPhysics(PhysTarget, BodyInstance, DeltaTime);
-			ApplyForces_AssumesLocked(PhysTarget, BodyInstance);
-			ApplyTorques_AssumesLocked(PhysTarget, BodyInstance);
-			ApplyRadialForces_AssumesLocked(PhysTarget, BodyInstance);
+		ApplyCustomPhysics(PhysTarget, BodyInstance, DeltaTime);
+		ApplyForces_AssumesLocked(PhysTarget, BodyInstance);
+		ApplyTorques_AssumesLocked(PhysTarget, BodyInstance);
+		ApplyRadialForces_AssumesLocked(PhysTarget, BodyInstance);
 		}else
 		{
-			InterpolateKinematicActor_AssumesLocked(PhysTarget, BodyInstance, InAlpha);
-		}
+		InterpolateKinematicActor_AssumesLocked(PhysTarget, BodyInstance, InAlpha);
+	}
 	}
 
 	/** Final substep */
@@ -346,14 +346,6 @@ void FPhysSubstepTask::StepSimulation(PhysXCompletionTask * Task)
 DECLARE_CYCLE_STAT(TEXT("Phys SubstepStart"), STAT_SubstepSimulationStart, STATGROUP_Physics);
 DECLARE_CYCLE_STAT(TEXT("Phys SubstepEnd"), STAT_SubstepSimulationEnd, STATGROUP_Physics);
 
-FAutoConsoleTaskPriority CPrio_PhyXSubstepSimulationEnd(
-	TEXT("TaskGraph.TaskPriorities.PhyXSubstepSimulationEnd"),
-	TEXT("Task and thread priority for FPhysSubstepTask::SubstepSimulationEnd."),
-	ENamedThreads::HighThreadPriority, // if we have high priority task threads, then use them...
-	ENamedThreads::NormalTaskPriority, // .. at normal task priority
-	ENamedThreads::HighTaskPriority // if we don't have hi pri threads, then use normal priority threads at high task priority instead
-	);
-
 void FPhysSubstepTask::SubstepSimulationStart()
 {
 	SCOPE_CYCLE_COUNTER(STAT_TotalPhysicsTime);
@@ -367,7 +359,7 @@ void FPhysSubstepTask::SubstepSimulationStart()
 	PhysXCompletionTask* SubstepTask = new PhysXCompletionTask(CompletionEvent,
 		 PST_MAX //we don't care about sub-step time. The full time is recorded by FullSimulationTask
 		,PAScene->getTaskManager());
-	ENamedThreads::Type NamedThread = PhysSingleThreadedMode() ? ENamedThreads::GameThread : CPrio_PhyXSubstepSimulationEnd.Get();
+	ENamedThreads::Type NamedThread = PhysSingleThreadedMode() ? ENamedThreads::GameThread : ENamedThreads::SetTaskPriority(ENamedThreads::GameThread, ENamedThreads::HighTaskPriority);
 
 	DECLARE_CYCLE_STAT(TEXT("FDelegateGraphTask.ProcessPhysSubstepSimulation"),
 		STAT_FDelegateGraphTask_ProcessPhysSubstepSimulation,
@@ -375,7 +367,7 @@ void FPhysSubstepTask::SubstepSimulationStart()
 
 	FDelegateGraphTask::CreateAndDispatchWhenReady(
 		FDelegateGraphTask::FDelegate::CreateRaw(this, &FPhysSubstepTask::SubstepSimulationEnd),
-		GET_STATID(STAT_FDelegateGraphTask_ProcessPhysSubstepSimulation), CompletionEvent, ENamedThreads::AnyThread, NamedThread);
+		GET_STATID(STAT_FDelegateGraphTask_ProcessPhysSubstepSimulation), CompletionEvent, ENamedThreads::GameThread, NamedThread);
 
 	++CurrentSubStep;	
 
@@ -400,14 +392,11 @@ void FPhysSubstepTask::SubstepSimulationStart()
 
 	SubstepInterpolation(Interpolation, DeltaTime);
 
-	extern uint32 GSimulateScratchMemorySize;
-	extern uint8* GSimulateScratchMemory;
-
 #if WITH_APEX
-	PAScene->simulate(DeltaTime, bLastSubstep, SubstepTask, GSimulateScratchMemory, GSimulateScratchMemorySize);
+	PAScene->simulate(DeltaTime, bLastSubstep, SubstepTask, FullSimulationTask->GetScratchBufferData(), FullSimulationTask->GetScratchBufferSize());
 #else
 	PAScene->lockWrite();
-	PAScene->simulate(DeltaTime, SubstepTask, GSimulateScratchMemory, GSimulateScratchMemorySize);
+	PAScene->simulate(DeltaTime, SubstepTask, FullSimulationTask->GetScratchBufferData(), FullSimulationTask->GetScratchBufferSize());
 	PAScene->unlockWrite();
 #endif
 	SubstepTask->removeReference();

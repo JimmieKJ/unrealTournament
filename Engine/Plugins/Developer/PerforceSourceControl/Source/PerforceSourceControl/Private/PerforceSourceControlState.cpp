@@ -266,6 +266,11 @@ bool FPerforceSourceControlState::CanEdit() const
 	return State == EPerforceState::CheckedOut || State == EPerforceState::OpenForAdd || State == EPerforceState::Branched;
 }
 
+bool FPerforceSourceControlState::CanDelete() const
+{
+	return !IsCheckedOutOther() && IsSourceControlled() && IsCurrent();
+}
+
 bool FPerforceSourceControlState::IsUnknown() const
 {
 	return State == EPerforceState::DontCare;

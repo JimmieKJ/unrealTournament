@@ -13,9 +13,6 @@ class UNREALTOURNAMENT_API AUTProj_StingerShard : public AUTProjectile
 
 	/**Overridden to do the stick*/
 	virtual void ProcessHit_Implementation(AActor* OtherActor, UPrimitiveComponent* OtherComp, const FVector& HitLocation, const FVector& HitNormal) override;
-	virtual void Explode_Implementation(const FVector& HitLocation, const FVector& HitNormal, UPrimitiveComponent* HitComp) override;
-
-	virtual void AttachToRagdoll(AUTCharacter* HitChar, const FVector& HitLocation);
 
 	virtual float TakeDamage(float DamageAmount, struct FDamageEvent const& DamageEvent, class AController* EventInstigator, class AActor* DamageCauser) override;
 
@@ -36,12 +33,4 @@ class UNREALTOURNAMENT_API AUTProj_StingerShard : public AUTProjectile
 	/** Visible static mesh - will collide when shard sticks. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Effects)
 	UStaticMeshComponent* ShardMesh;
-
-	/** Pawns we've attached via constraint (to avoid duplicate hits) */
-	UPROPERTY()
-	TArray<AUTCharacter*> AttachedPawns;
-
-	/** detaches any currently attached ragdolls if still moving */
-	UFUNCTION()
-	virtual void DetachRagdollsInFlight();
 };

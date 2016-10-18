@@ -60,7 +60,7 @@ public:
 
 	void StopExporting()
 	{
-		LoadingPhase = EUHTMakefileLoadingPhase::Export;
+		LoadingPhase = EUHTMakefileLoadingPhase::Max;
 	}
 
 	bool IsExporting()

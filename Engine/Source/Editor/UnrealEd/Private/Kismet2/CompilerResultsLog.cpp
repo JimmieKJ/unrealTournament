@@ -33,11 +33,25 @@ void FBacktrackMap::NotifyIntermediateObjectCreation(UObject* NewObject, UObject
 	SourceBacktrackMap.Add(Cast<UObject const>(NewObject), SourceObject);
 }
 
+/** Update the pin source backtrack map to note that NewPin was most closely generated/caused by the SourcePin */
+void FBacktrackMap::NotifyIntermediatePinCreation(UEdGraphPin* NewPin, UEdGraphPin* SourcePin)
+{
+	check(NewPin->GetOwningNode() && SourcePin->GetOwningNode());
+	// Chase the source to make sure it's really a top-level ('source code') node
+	while (UEdGraphPin** SourceOfSource = PinSourceBacktrackMap.Find(SourcePin))
+	{
+		SourcePin = *SourceOfSource;
+	}
+
+	// Record the backtrack link
+	PinSourceBacktrackMap.Add(NewPin, SourcePin);
+}
+
 /** Returns the true source object for the passed in object */
 UObject* FBacktrackMap::FindSourceObject(UObject* PossiblyDuplicatedObject)
 {
 	UObject** RemappedIfExisting = SourceBacktrackMap.Find(Cast<UObject const>(PossiblyDuplicatedObject));
-	if (RemappedIfExisting != NULL)
+	if (RemappedIfExisting != nullptr)
 	{
 		return *RemappedIfExisting;
 	}
@@ -48,12 +62,12 @@ UObject* FBacktrackMap::FindSourceObject(UObject* PossiblyDuplicatedObject)
 	}
 }
 
-UObject const* FBacktrackMap::FindSourceObject(UObject const* PossiblyDuplicatedObject)
+UObject const* FBacktrackMap::FindSourceObject(UObject const* PossiblyDuplicatedObject) const
 {
-	UObject** RemappedIfExisting = SourceBacktrackMap.Find(PossiblyDuplicatedObject);
-	if (RemappedIfExisting != NULL)
+	UObject *const* RemappedIfExisting = SourceBacktrackMap.Find(PossiblyDuplicatedObject);
+	if (RemappedIfExisting != nullptr)
 	{
-		return Cast<UObject const>(*RemappedIfExisting);
+		return *RemappedIfExisting;
 	}
 	else
 	{
@@ -62,10 +76,48 @@ UObject const* FBacktrackMap::FindSourceObject(UObject const* PossiblyDuplicated
 	}
 }
 
+UEdGraphPin* FBacktrackMap::FindSourcePin(UEdGraphPin* PossiblyDuplicatedPin)
+{
+	UEdGraphPin** RemappedIfExisting = PinSourceBacktrackMap.Find(PossiblyDuplicatedPin);
+	if (RemappedIfExisting != nullptr)
+	{
+		return *RemappedIfExisting;
+	}
+	else
+	{
+		// Not in the map, maybe its owning node was duplicated - and then maybe he GUID matches
+		// some node on the original node:
+		if (PossiblyDuplicatedPin)
+		{
+			if (UObject* OriginalOwner = FindSourceObject(PossiblyDuplicatedPin->GetOwningNode()))
+			{
+				if (UEdGraphNode* AsNode = Cast<UEdGraphNode>(OriginalOwner))
+				{
+					FGuid TargetGuid = PossiblyDuplicatedPin->PinId;
+					UEdGraphPin** ExistingPin = AsNode->Pins.FindByPredicate([TargetGuid](const UEdGraphPin* TargetPin) { return TargetPin && TargetPin->PinId == TargetGuid; });
+					if (ExistingPin != nullptr)
+					{
+						return *ExistingPin;
+					}
+				}
+			}
+		}
+		
+		// No source object found, just return itself:
+		return PossiblyDuplicatedPin;
+	}
+}
+
+UEdGraphPin const* FBacktrackMap::FindSourcePin(UEdGraphPin const* PossiblyDuplicatedPin) const
+{
+	return const_cast<FBacktrackMap*>(this)->FindSourcePin(const_cast<UEdGraphPin*>(PossiblyDuplicatedPin));
+}
+
+
 //////////////////////////////////////////////////////////////////////////
 // FCompilerResultsLog
 
-FCompilerResultsLog::FCompilerResultsLog()
+FCompilerResultsLog::FCompilerResultsLog(bool bIsCompatibleWithEvents/* = true*/)
 	: NumErrors(0)
 	, NumWarnings(0)
 	, bSilentMode(false)
@@ -75,7 +127,7 @@ FCompilerResultsLog::FCompilerResultsLog()
 	, EventDisplayThresholdMs(0)
 {
 	CurrentEventScope = nullptr;
-	if(CurrentEventTarget == nullptr)
+	if(bIsCompatibleWithEvents && CurrentEventTarget == nullptr)
 	{
 		CurrentEventTarget = this;
 	}
@@ -187,109 +239,59 @@ void FCompilerResultsLog::NotifyIntermediateObjectCreation(UObject* NewObject, U
 	SourceBacktrackMap.NotifyIntermediateObjectCreation(NewObject, SourceObject);
 }
 
+void FCompilerResultsLog::NotifyIntermediatePinCreation(UEdGraphPin* NewPin, UEdGraphPin* SourcePPin)
+{
+	SourceBacktrackMap.NotifyIntermediatePinCreation(NewPin, SourcePPin);
+}
+
 /** Returns the true source object for the passed in object */
 UObject* FCompilerResultsLog::FindSourceObject(UObject* PossiblyDuplicatedObject)
 {
 	return SourceBacktrackMap.FindSourceObject(PossiblyDuplicatedObject);
 }
 
-UObject const* FCompilerResultsLog::FindSourceObject(UObject const* PossiblyDuplicatedObject)
+UObject const* FCompilerResultsLog::FindSourceObject(UObject const* PossiblyDuplicatedObject) const
 {
 	return SourceBacktrackMap.FindSourceObject(PossiblyDuplicatedObject);
 }
 
-/** Create a tokenized message record from a message containing @@ indicating where each UObject* in the ArgPtr list goes and place it in the MessageLog. */
-void FCompilerResultsLog::InternalLogMessage(const EMessageSeverity::Type& Severity, const TCHAR* Message, va_list ArgPtr)
+UEdGraphPin* FCompilerResultsLog::FindSourcePin(UEdGraphPin* PossiblyDuplicatedPin)
 {
-	UEdGraphNode* OwnerNode = nullptr;
+	return SourceBacktrackMap.FindSourcePin(PossiblyDuplicatedPin);
+}
 
-	// Create the tokenized message
-	TSharedRef<FTokenizedMessage> Line = FTokenizedMessage::Create( Severity );
-	Messages.Add(Line);
+const UEdGraphPin* FCompilerResultsLog::FindSourcePin(const UEdGraphPin* PossiblyDuplicatedPin) const
+{
+	return SourceBacktrackMap.FindSourcePin(PossiblyDuplicatedPin);
+}
 
-	const TCHAR* DelimiterStr = TEXT("@@");
-	int32 DelimLength = FCString::Strlen(DelimiterStr);
+void FCompilerResultsLog::InternalLogMessage(const TSharedRef<FTokenizedMessage>& Message, UEdGraphNode* SourceNode)
+{
+	const EMessageSeverity::Type Severity = Message->GetSeverity();
+	Messages.Add(Message);
+	AnnotateNode(SourceNode, Message);
 
-	const TCHAR* Start = Message;
-	if (Start && DelimLength)
+	if (!bSilentMode && (!bLogInfoOnly || (Severity == EMessageSeverity::Info)))
 	{
-		while (const TCHAR* At = FCString::Strstr(Start, DelimiterStr))
+		if (Severity == EMessageSeverity::CriticalError || Severity == EMessageSeverity::Error)
 		{
-			// Found a delimiter, create a token from the preceding text
-			Line->AddToken( FTextToken::Create( FText::FromString( FString(At - Start, Start) ) ) );
-			Start += DelimLength + (At - Start);
-
-			// And read the object and add another token for the object
-			UObject* ObjectArgument = va_arg(ArgPtr, UObject*);
-
-			FText ObjText;
-			if (ObjectArgument)
+			if (IsRunningCommandlet())
 			{
-				// Remap object references to the source nodes
-				ObjectArgument = FindSourceObject(ObjectArgument);
-
-				if (ObjectArgument)
-				{
-					UEdGraphNode* Node = Cast<UEdGraphNode>(ObjectArgument);
-					const UEdGraphPin* Pin = (Node? nullptr : Cast<UEdGraphPin>(ObjectArgument));
-
-					//Get owner node reference, consider the first 
-					if (OwnerNode == nullptr)
-					{
-						OwnerNode = (Pin ? Pin->GetOwningNodeUnchecked() : Node);
-					}
-
-					if (ObjectArgument->GetOutermost() == GetTransientPackage())
-					{
-						ObjText = LOCTEXT("Transient", "(transient)");					
-					}
-					else if (Node != NULL)
-					{
-						ObjText = Node->GetNodeTitle(ENodeTitleType::ListView);
-					}
-					else if (Pin != NULL)
-					{
-						ObjText = Pin->GetDisplayName();
-					}
-					else
-					{
-						ObjText = FText::FromString( ObjectArgument->GetName() );
-					}
-				}
-				else
-				{
-					ObjText = LOCTEXT("None", "(none)");
-				}
-
+				UE_LOG(LogBlueprint, Error, TEXT("[Compiler %s] %s from Source: %s"), *FPackageName::ObjectPathToObjectName(SourcePath), *Message->ToText().ToString(), *SourcePath);
 			}
 			else
 			{
-				ObjText = LOCTEXT("None", "(none)");
+				// in editor the compiler log is 'rich' and we don't need to annotate with the full blueprint path, just the name:
+				UE_LOG(LogBlueprint, Error, TEXT("[Compiler %s] %s"), *FPackageName::ObjectPathToObjectName(SourcePath), *Message->ToText().ToString());
 			}
-			
-			Line->AddToken( FUObjectToken::Create( ObjectArgument, ObjText ) );
 		}
-		Line->AddToken( FTextToken::Create( FText::FromString( Start ) ) );
-	}
-
-	va_end(ArgPtr);
-
-	// Register node error/warning.
-	AnnotateNode(OwnerNode, Line);
-
-	if( !bSilentMode && (!bLogInfoOnly || (Severity == EMessageSeverity::Info)) )
-	{
-		if(Severity == EMessageSeverity::CriticalError || Severity == EMessageSeverity::Error)
+		else if (Severity == EMessageSeverity::Warning || Severity == EMessageSeverity::PerformanceWarning)
 		{
-			UE_LOG(LogBlueprint, Error, TEXT("Compiler %s"), *Line->ToText().ToString());
-		}
-		else if(Severity == EMessageSeverity::Warning || Severity == EMessageSeverity::PerformanceWarning)
-		{
-			UE_LOG(LogBlueprint, Warning, TEXT("Compiler %s"), *Line->ToText().ToString());
+			UE_LOG(LogBlueprint, Warning, TEXT("[Compiler %s] %s"), *FPackageName::ObjectPathToObjectName(SourcePath), *Message->ToText().ToString());
 		}
 		else
 		{
-			UE_LOG(LogBlueprint, Log, TEXT("Compiler %s"), *Line->ToText().ToString());
+			UE_LOG(LogBlueprint, Log, TEXT("[Compiler %s] %s"), *FPackageName::ObjectPathToObjectName(SourcePath), *Message->ToText().ToString());
 		}
 	}
 }
@@ -450,47 +452,6 @@ void FCompilerResultsLog::GetGlobalModuleCompilerDump(const FString& LogDump, EC
 	MessageLog.AddMessages(ParseCompilerLogDump(LogDump));
 }
 
-// Note: Message is not a fprintf string!  It should be preformatted, but can contain @@ to indicate object references, which are the varargs
-void FCompilerResultsLog::Error(const TCHAR* Message, ...)
-{
-	va_list ArgPtr;
-	va_start(ArgPtr, Message);
-	ErrorVA(Message, ArgPtr);
-}
-
-// Note: Message is not a fprintf string!  It should be preformatted, but can contain @@ to indicate object references, which are the varargs
-void FCompilerResultsLog::Warning(const TCHAR* Message, ...)
-{
-	va_list ArgPtr;
-	va_start(ArgPtr, Message);
-	WarningVA(Message, ArgPtr);
-}
-
-// Note: Message is not a fprintf string!  It should be preformatted, but can contain @@ to indicate object references, which are the varargs
-void FCompilerResultsLog::Note(const TCHAR* Message, ...)
-{
-	va_list ArgPtr;
-	va_start(ArgPtr, Message);
-	NoteVA(Message, ArgPtr);
-}
-
-void FCompilerResultsLog::ErrorVA(const TCHAR* Message, va_list ArgPtr)
-{
-	++NumErrors;
-	InternalLogMessage(EMessageSeverity::Error, Message, ArgPtr);
-}
-
-void FCompilerResultsLog::WarningVA(const TCHAR* Message, va_list ArgPtr)
-{
-	++NumWarnings;
-	InternalLogMessage(EMessageSeverity::Warning, Message, ArgPtr);
-}
-
-void FCompilerResultsLog::NoteVA(const TCHAR* Message, va_list ArgPtr)
-{
-	InternalLogMessage(EMessageSeverity::Info, Message, ArgPtr);
-}
-
 void FCompilerResultsLog::Append(FCompilerResultsLog const& Other)
 {
 	for (TSharedRef<FTokenizedMessage> const& Message : Other.Messages)
@@ -514,22 +475,31 @@ void FCompilerResultsLog::Append(FCompilerResultsLog const& Other)
 		UEdGraphNode* OwnerNode = nullptr;
 		for (TSharedRef<IMessageToken> const& Token : Message->GetMessageTokens())
 		{
-			if (Token->GetType() != EMessageToken::Object)
+			if (Token->GetType() == EMessageToken::Object)
 			{
-				continue;
+				FWeakObjectPtr ObjectPtr = ((FUObjectToken&)Token.Get()).GetObject();
+				if (!ObjectPtr.IsValid())
+				{
+					continue;
+				}
+				UObject* ObjectArgument = ObjectPtr.Get();
+
+				OwnerNode = Cast<UEdGraphNode>(ObjectArgument);
+				break;
 			}
-			
-			FWeakObjectPtr ObjectPtr = ((FUObjectToken&)Token.Get()).GetObject();
-			if (!ObjectPtr.IsValid())
+			else if (Token->GetType() == EMessageToken::EdGraph)
 			{
-				continue;
-			}
-			UObject* ObjectArgument = ObjectPtr.Get();
-			
-			OwnerNode = Cast<UEdGraphNode>(ObjectArgument);
-			if (UEdGraphPin const* Pin = Cast<UEdGraphPin>(ObjectArgument))
-			{
-				OwnerNode = Pin->GetOwningNodeUnchecked();
+				FEdGraphToken& AsEdGraphToken = ((FEdGraphToken&)Token.Get());
+				const UEdGraphPin* PinBeingReferenced = AsEdGraphToken.GetPin();
+				OwnerNode = Cast<UEdGraphNode>((UObject*)AsEdGraphToken.GetGraphObject());
+				if (OwnerNode == nullptr)
+				{
+					if (PinBeingReferenced)
+					{
+						OwnerNode = PinBeingReferenced->GetOwningNodeUnchecked();
+					}
+				}
+				break;
 			}
 		}
 		AnnotateNode(OwnerNode, Message);

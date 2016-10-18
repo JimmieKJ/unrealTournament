@@ -4,6 +4,7 @@
 #include "MovieSceneColorTrack.h"
 #include "MovieSceneColorSection.h"
 #include "ColorPropertySection.h"
+#include "CommonMovieSceneTools.h"
 #include "MovieSceneSequence.h"
 #include "FloatCurveKeyArea.h"
 
@@ -22,6 +23,7 @@ void FColorPropertySection::GenerateSectionLayout( class ISectionLayoutBuilder& 
 	LayoutBuilder.AddKeyArea( "B", NSLOCTEXT( "FColorPropertySection", "BlueArea", "Blue" ), BlueKeyArea.ToSharedRef() );
 	LayoutBuilder.AddKeyArea( "A", NSLOCTEXT( "FColorPropertySection", "OpacityArea", "Opacity" ), AlphaKeyArea.ToSharedRef() );
 }
+
 
 int32 FColorPropertySection::OnPaintSection( FSequencerSectionPainter& Painter ) const
 {
@@ -62,6 +64,11 @@ int32 FColorPropertySection::OnPaintSection( FSequencerSectionPainter& Painter )
 		{
 			float Time = ColorKeys[i].Key;
 			FLinearColor Color = ColorKeys[i].Value;
+
+			// HACK: The color is converted to SRgb and then reinterpreted as linear here because gradients are converted to FColor
+			// without the SRgb conversion before being passed to the renderer for some reason.
+			Color = Color.ToFColor( true ).ReinterpretAsLinear();
+
 			float TimeFraction = (Time - StartTime) / SectionDuration;
 
 			GradientStops.Add( FSlateGradientStop( FVector2D( TimeFraction * Painter.SectionGeometry.Size.X, 0 ),
@@ -195,12 +202,13 @@ FLinearColor FColorPropertySection::FindSlateColor(const FName& ColorName) const
 				return *Property->ContainerPtrToValuePtr<FLinearColor>(RuntimeObject);
 			}
 
-			return Property->ContainerPtrToValuePtr<FColor>(RuntimeObject)->ReinterpretAsLinear();
+			return *Property->ContainerPtrToValuePtr<FColor>(RuntimeObject);
 		}
 	}
 
 	return FLinearColor(0.0f, 0.0f, 0.0f, 0.0f);
 }
+
 
 void FColorPropertySection::SetIntermediateValue( FPropertyChangedParams PropertyChangedParams )
 {
@@ -214,7 +222,7 @@ void FColorPropertySection::SetIntermediateValue( FPropertyChangedParams Propert
 
 	if ( bIsFColor )
 	{
-		ColorValue = PropertyChangedParams.GetPropertyValue<FColor>().ReinterpretAsLinear();
+		ColorValue = PropertyChangedParams.GetPropertyValue<FColor>();
 	}
 	else
 	{
@@ -227,6 +235,7 @@ void FColorPropertySection::SetIntermediateValue( FPropertyChangedParams Propert
 	BlueKeyArea->SetIntermediateValue(ColorValue.B);
 	AlphaKeyArea->SetIntermediateValue(ColorValue.A);
 }
+
 
 void FColorPropertySection::ClearIntermediateValue()
 {

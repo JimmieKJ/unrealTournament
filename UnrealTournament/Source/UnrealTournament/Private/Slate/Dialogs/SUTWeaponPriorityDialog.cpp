@@ -71,27 +71,30 @@ void SUTWeaponPriorityDialog::InitializeList(TArray<FWeaponInfo>& AllWeapons)
 {
 	for (int32 i=0; i < AllWeapons.Num(); i++)
 	{
-		bool bAdd = true;
-		FWeaponInfo* WeaponInfoPtr = &(AllWeapons[i]);
-
-		UE_LOG(UT,Log,TEXT("IL: %s %f"),*GetNameSafe(AllWeapons[i].WeaponClass), AllWeapons[i].WeaponCustomizationInfo->WeaponAutoSwitchPriority)
-		if (WeaponList.Num() > 0)
+		if (AllWeapons[i].WeaponDefaultObject.IsValid())
 		{
-			// Insert Sort to find it's place.
-			for (int32 j = 0; j < WeaponList.Num(); j++)
+			bool bAdd = true;
+			FWeaponInfo* WeaponInfoPtr = &(AllWeapons[i]);
+
+			UE_LOG(UT,Log,TEXT("IL: %s %f"),*GetNameSafe(AllWeapons[i].WeaponClass), AllWeapons[i].WeaponCustomizationInfo->WeaponAutoSwitchPriority)
+			if (WeaponList.Num() > 0)
 			{
-				if (WeaponList[j]->WeaponInfoPtr->WeaponCustomizationInfo->WeaponAutoSwitchPriority < AllWeapons[i].WeaponCustomizationInfo->WeaponAutoSwitchPriority)
+				// Insert Sort to find it's place.
+				for (int32 j = 0; j < WeaponList.Num(); j++)
 				{
-					WeaponList.Insert(FWeaponListEntry::Make(AllWeapons[i].WeaponDefaultObject, WeaponInfoPtr), j);
-					bAdd = false;
-					break;
+					if (WeaponList[j]->WeaponInfoPtr->WeaponCustomizationInfo->WeaponAutoSwitchPriority < AllWeapons[i].WeaponCustomizationInfo->WeaponAutoSwitchPriority)
+					{
+						WeaponList.Insert(FWeaponListEntry::Make(AllWeapons[i].WeaponDefaultObject, WeaponInfoPtr), j);
+						bAdd = false;
+						break;
+					}
 				}
 			}
-		}
 
-		if (bAdd)
-		{
-			WeaponList.Add(FWeaponListEntry::Make(AllWeapons[i].WeaponDefaultObject, WeaponInfoPtr));
+			if (bAdd)
+			{
+				WeaponList.Add(FWeaponListEntry::Make(AllWeapons[i].WeaponDefaultObject, WeaponInfoPtr));
+			}
 		}
 	}
 }

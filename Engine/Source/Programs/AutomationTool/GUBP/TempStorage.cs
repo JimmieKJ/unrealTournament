@@ -63,7 +63,7 @@ namespace AutomationTool
 					// this is a bit of a hack, but UAT itself creates these, so we need to allow them to be 
 					bool bOkToBeDifferent = Name.Contains("Engine/Binaries/DotNET/");
 					// Lets just allow all mac warnings to be silent
-					bOkToBeDifferent = bOkToBeDifferent || Name.Contains("Engine/Binaries/Mac/");
+					bOkToBeDifferent = bOkToBeDifferent || Name.Contains("/Binaries/Mac/");
 					// this is a problem with mac compiles
 					bOkToBeDifferent = bOkToBeDifferent || Name.EndsWith("MacOS/libogg.dylib");
 					bOkToBeDifferent = bOkToBeDifferent || Name.EndsWith("MacOS/libvorbis.dylib");
@@ -1266,83 +1266,6 @@ namespace AutomationTool
 
 			TempStorage.TestTempStorage(CmdEnv);
 
-		}
-	}
-
-	[Help("Removes folders in a given temp storage directory that are older than a certain time.")]
-	class CleanTempStorage : BuildCommand
-	{
-		public override void ExecuteBuild()
-		{
-			string TempStorageDir = ParseParamValue("TempStorageDir", null);
-			if(TempStorageDir == null)
-			{
-				throw new AutomationException("Missing -TempStorageDir parameter");
-			}
-
-			string Days = ParseParamValue("Days", null);
-			if(Days == null)
-			{
-				throw new AutomationException("Missing -Days parameter");
-			}
-
-			double DaysValue;
-			if(!Double.TryParse(Days, out DaysValue))
-			{
-				throw new AutomationException("'{0}' is not a valid value for the -Days parameter", Days);
-			}
-
-			DateTime DeleteTime = DateTime.UtcNow - TimeSpan.FromDays(DaysValue);
-
-			// Enumerate all the build directories
-			CommandUtils.Log("Scanning {0}...", TempStorageDir);
-			int NumBuilds = 0;
-			List<DirectoryInfo> BuildsToDelete = new List<DirectoryInfo>();
-			foreach(DirectoryInfo StreamDirectory in new DirectoryInfo(TempStorageDir).EnumerateDirectories())
-			{
-				foreach(DirectoryInfo BuildDirectory in StreamDirectory.EnumerateDirectories())
-				{
-					FileInfo ManifestFile = BuildDirectory.EnumerateFiles("*.TempManifest", SearchOption.AllDirectories).FirstOrDefault();
-					if(ManifestFile != null && ManifestFile.LastWriteTimeUtc < DeleteTime)
-					{
-						BuildsToDelete.Add(BuildDirectory);
-					}
-					NumBuilds++;
-				}
-			}
-			CommandUtils.Log("Found {0} builds; {1} to delete.", NumBuilds, BuildsToDelete.Count);
-
-			// Loop through them all, checking for files older than the delete time
-			for(int Idx = 0; Idx < BuildsToDelete.Count; Idx++)
-			{
-				try
-				{
-					CommandUtils.Log("[{0}/{1}] Deleting {2}...", Idx + 1, BuildsToDelete.Count, BuildsToDelete[Idx].FullName);
-					BuildsToDelete[Idx].Delete(true);
-				}
-				catch (Exception Ex)
-				{
-					CommandUtils.LogWarning("Failed to delete old manifest folder; will try one file at a time: {0}", Ex);
-					CommandUtils.DeleteDirectory_NoExceptions(true, BuildsToDelete[Idx].FullName);
-				}
-			}
-
-			// Try to delete any empty branch folders
-			foreach(DirectoryInfo StreamDirectory in new DirectoryInfo(TempStorageDir).EnumerateDirectories())
-			{
-				try
-				{
-					StreamDirectory.Delete();
-				}
-				catch (IOException)
-				{
-					// only catch "directory is not empty type exceptions, if possible. Best we can do is check for IOException.
-				}
-				catch (Exception Ex)
-				{
-					CommandUtils.LogWarning("Unexpected failure trying to delete (potentially empty) stream directory {0}: {1}", StreamDirectory.FullName, Ex);
-				}
-			}
 		}
 	}
 }

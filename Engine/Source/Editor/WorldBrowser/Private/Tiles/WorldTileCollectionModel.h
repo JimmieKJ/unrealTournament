@@ -159,9 +159,6 @@ private:
 	/** Called when world has new current level */
 	void OnNewCurrentLevel();
 
-	/** @return shared pointer to added level */
-	TSharedPtr<FWorldTileModel> AddLevelFromTile(int32 TileIdx);
-
 	/** @return shared pointer to FStreamingLevelModel associated with provided ULevel object*/
 	TSharedPtr<FWorldTileModel> GetCorrespondingModel(ULevel* InLevel);
 

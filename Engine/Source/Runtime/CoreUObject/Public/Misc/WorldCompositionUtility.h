@@ -6,9 +6,6 @@
 
 #pragma once
 
-#ifndef __WorldCompositionUtility_h__
-#define __WorldCompositionUtility_h__
-
 #define WORLDTILE_LOD_PACKAGE_SUFFIX	TEXT("_LOD")
 #define WORLDTILE_LOD_MAX_INDEX			4
 
@@ -141,5 +138,3 @@ public:
 	int32				ZOrder;
 };
 
-
-#endif	// __WorldCompositionUtility_h__

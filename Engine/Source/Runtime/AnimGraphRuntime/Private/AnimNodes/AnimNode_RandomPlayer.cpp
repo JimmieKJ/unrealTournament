@@ -94,12 +94,15 @@ void FAnimNode_RandomPlayer::Update(const FAnimationUpdateContext& Context)
 			// We've looped, update remaining
 			--CurrentData->RemainingLoops;
 
-			// Special case for same entry - we don't do any blending so need to switch the data over here
-			if(CurrentData->RemainingLoops < 0 && CurrentEntry == NextEntry)
+			if(CurrentData->RemainingLoops < 0)
 			{
-				// Need to switch to the next anim, but first put our accumulator in the next data we're about to switch
-				// to so we don't see a pop
-				NextData->InternalTimeAccumulator = CurrentData->InternalTimeAccumulator;
+				// If we're switching to the same anim
+				if(CurrentEntry == NextEntry)
+				{
+					// Need to switch to the next anim, but first put our accumulator in the next data we're about to switch
+					// to so we don't see a pop
+					NextData->InternalTimeAccumulator = CurrentData->InternalTimeAccumulator;
+				}
 
 				SwitchNextToCurrent();
 
@@ -195,7 +198,7 @@ void FAnimNode_RandomPlayer::Evaluate(FPoseContext& Output)
 					CurrentSequence->GetAnimationPose(Poses[0], Curves[0], FAnimExtractContext(CurrentData.InternalTimeAccumulator, AnimProxy->ShouldExtractRootMotion()));
 					NextSequence->GetAnimationPose(Poses[1], Curves[1], FAnimExtractContext(NextData.InternalTimeAccumulator, AnimProxy->ShouldExtractRootMotion()));
 
-					FAnimationRuntime::BlendPosesTogether(TFixedSizeArrayView<FCompactPose>(Poses, 2), TFixedSizeArrayView<FBlendedCurve>(Curves, 2), TFixedSizeArrayView<float>(Weights, 2), Output.Pose, Output.Curve);
+					FAnimationRuntime::BlendPosesTogether(Poses, Curves, Weights, Output.Pose, Output.Curve);
 				}
 				else
 				{
@@ -319,5 +322,16 @@ void FAnimNode_RandomPlayer::BuildShuffleList()
 	{
 		int32 SwapIdx = RandomStream.RandRange(i, NumShuffles);
 		ShuffleList.Swap(i, SwapIdx);
+	}
+
+	if(ShuffleList.Num() > 1)
+	{
+		// Make sure we don't play the same thing twice, one at the end and one at the beginning of
+		// the list
+		if(ShuffleList.Last() == CurrentEntry)
+		{
+			// Swap first and last
+			ShuffleList.Swap(0, ShuffleList.Num() - 1);
+		}
 	}
 }

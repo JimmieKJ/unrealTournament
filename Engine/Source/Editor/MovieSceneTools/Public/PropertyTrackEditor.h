@@ -90,10 +90,10 @@ public:
 
 	~FPropertyTrackEditor()
 	{
-		TSharedPtr<ISequencer> Sequencer = FMovieSceneTrackEditor::GetSequencer();
-		if ( Sequencer.IsValid() )
+		TSharedPtr<ISequencer> SequencerPtr = FMovieSceneTrackEditor::GetSequencer();
+		if ( SequencerPtr.IsValid() )
 		{
-			ISequencerObjectChangeListener& ObjectChangeListener = Sequencer->GetObjectChangeListener();
+			ISequencerObjectChangeListener& ObjectChangeListener = SequencerPtr->GetObjectChangeListener();
 			for ( FName WatchedPropertyTypeName : WatchedPropertyTypeNames )
 			{
 				ObjectChangeListener.GetOnAnimatablePropertyChanged( WatchedPropertyTypeName ).RemoveAll( this );

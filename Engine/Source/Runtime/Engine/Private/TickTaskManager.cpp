@@ -111,7 +111,6 @@ public:
 	typedef InElementType ElementType;
 	typedef InAllocator   Allocator;
 
-#if PLATFORM_COMPILER_HAS_VARIADIC_TEMPLATES
 	template <typename... ArgsType>
 	int32 EmplaceThreadsafe(ArgsType&&... Args)
 	{
@@ -119,16 +118,6 @@ public:
 		new(this->GetData() + Index) ElementType(Forward<ArgsType>(Args)...);
 		return Index;
 	}
-
-#else
-	template <typename Arg0Type>
-	int32 EmplaceThreadsafe(Arg0Type&& Arg0)
-	{
-		const int32 Index = AddUninitializedThreadsafe(1);
-		new(this->GetData() + Index) ElementType(Forward<Arg0Type>(Arg0));
-		return Index;
-	}
-#endif
 
 
 	/**
@@ -524,6 +513,7 @@ public:
 			SCOPE_CYCLE_COUNTER(STAT_ReleaseTickGroup_Block);
 			for (ETickingGroup Block = WaitForTickGroup; Block <= WorldTickGroup; Block = ETickingGroup(Block + 1))
 			{
+				CA_SUPPRESS(6385);
 				if (TickCompletionEvents[Block].Num())
 				{
 					FTaskGraphInterface::Get().WaitUntilTasksComplete(TickCompletionEvents[Block], ENamedThreads::GameThread);
@@ -761,8 +751,8 @@ public:
 				CumulativeCooldown += TickFunction->RelativeTickCooldown;
 
 				TickFunction->TickState = FTickFunction::ETickState::Enabled;
-				// we store a bit in here if this came from an interval queue 
-				AllTickFunctions.Add((FTickFunction*)(UPTRINT(TickFunction) | 1));
+				TickFunction->bWasInterval = true;
+				AllTickFunctions.Add(TickFunction);
 
 				TickFunctionsToReschedule.Add(FTickScheduleDetails(TickFunction, TickFunction->TickInterval - (Context.DeltaSeconds - CumulativeCooldown))); // Give credit for any overrun
 
@@ -815,7 +805,7 @@ public:
 		{
 			SCOPE_CYCLE_COUNTER(STAT_ScheduleCooldowns);
 
-				TickFunctionsToReschedule.Sort([](const FTickScheduleDetails& A, const FTickScheduleDetails& B)
+			TickFunctionsToReschedule.Sort([](const FTickScheduleDetails& A, const FTickScheduleDetails& B)
 			{
 				return A.Cooldown < B.Cooldown;
 			});
@@ -830,13 +820,54 @@ public:
 				if ((CumulativeCooldown + ComparisonTickFunction->RelativeTickCooldown) > CooldownTime)
 				{
 					FTickFunction* TickFunction = TickFunctionsToReschedule[RescheduleIndex].TickFunction;
+					if (TickFunction->TickState != FTickFunction::ETickState::Disabled)
+					{
+						if (TickFunctionsToReschedule[RescheduleIndex].bDeferredRemove)
+						{
+							verify(AllEnabledTickFunctions.Remove(TickFunction) == 1);
+						}
+						TickFunction->TickState = FTickFunction::ETickState::CoolingDown;
+						TickFunction->RelativeTickCooldown = CooldownTime - CumulativeCooldown;
+
+						if (PrevComparisonTickFunction)
+						{
+							PrevComparisonTickFunction->Next = TickFunction;
+						}
+						else
+						{
+							check(ComparisonTickFunction == AllCoolingDownTickFunctions.Head);
+							AllCoolingDownTickFunctions.Head = TickFunction;
+						}
+						TickFunction->Next = ComparisonTickFunction;
+						PrevComparisonTickFunction = TickFunction;
+						ComparisonTickFunction->RelativeTickCooldown -= TickFunction->RelativeTickCooldown;
+						CumulativeCooldown += TickFunction->RelativeTickCooldown;
+					}
+					++RescheduleIndex;
+				}
+				else
+				{
+					CumulativeCooldown += ComparisonTickFunction->RelativeTickCooldown;
+					PrevComparisonTickFunction = ComparisonTickFunction;
+					ComparisonTickFunction = ComparisonTickFunction->Next;
+				}
+			}
+			for ( ; RescheduleIndex < TickFunctionsToReschedule.Num(); ++RescheduleIndex)
+			{
+				FTickFunction* TickFunction = TickFunctionsToReschedule[RescheduleIndex].TickFunction;
+				checkSlow(TickFunction);
+				if (TickFunction->TickState != FTickFunction::ETickState::Disabled)
+				{
 					if (TickFunctionsToReschedule[RescheduleIndex].bDeferredRemove)
 					{
 						verify(AllEnabledTickFunctions.Remove(TickFunction) == 1);
 					}
+					const float CooldownTime = TickFunctionsToReschedule[RescheduleIndex].Cooldown;
+
 					TickFunction->TickState = FTickFunction::ETickState::CoolingDown;
 					TickFunction->RelativeTickCooldown = CooldownTime - CumulativeCooldown;
 
+					TickFunction->Next = nullptr;
 					if (PrevComparisonTickFunction)
 					{
 						PrevComparisonTickFunction->Next = TickFunction;
@@ -846,47 +877,13 @@ public:
 						check(ComparisonTickFunction == AllCoolingDownTickFunctions.Head);
 						AllCoolingDownTickFunctions.Head = TickFunction;
 					}
-					TickFunction->Next = ComparisonTickFunction;
 					PrevComparisonTickFunction = TickFunction;
-					ComparisonTickFunction->RelativeTickCooldown -= TickFunction->RelativeTickCooldown;
+
 					CumulativeCooldown += TickFunction->RelativeTickCooldown;
-					++RescheduleIndex;
 				}
-				else
-				{
-					CumulativeCooldown += ComparisonTickFunction->RelativeTickCooldown;
-					PrevComparisonTickFunction = ComparisonTickFunction;
-					ComparisonTickFunction = ComparisonTickFunction->Next;
-				}
-	}
-			for ( ; RescheduleIndex < TickFunctionsToReschedule.Num(); ++RescheduleIndex)
-			{
-				FTickFunction* TickFunction = TickFunctionsToReschedule[RescheduleIndex].TickFunction;
-				if (TickFunctionsToReschedule[RescheduleIndex].bDeferredRemove)
-				{
-					verify(AllEnabledTickFunctions.Remove(TickFunction) == 1);
-				}
-				const float CooldownTime = TickFunctionsToReschedule[RescheduleIndex].Cooldown;
-
-				TickFunction->TickState = FTickFunction::ETickState::CoolingDown;
-				TickFunction->RelativeTickCooldown = CooldownTime - CumulativeCooldown;
-
-				TickFunction->Next = nullptr;
-				if (PrevComparisonTickFunction)
-				{
-					PrevComparisonTickFunction->Next = TickFunction;
-				}
-				else
-				{
-					check(ComparisonTickFunction == AllCoolingDownTickFunctions.Head);
-					AllCoolingDownTickFunctions.Head = TickFunction;
-				}
-				PrevComparisonTickFunction = TickFunction;
-
-				CumulativeCooldown += TickFunction->RelativeTickCooldown;
 			}
 			TickFunctionsToReschedule.Reset();
-	}
+		}
 	}
 
 	/* Queue all tick functions for execution */
@@ -1341,10 +1338,13 @@ public:
 		
 		int32 NumWorkerThread = 0;
 		bool bConcurrentQueue = false;
+#if !PLATFORM_WINDOWS
+		// the windows scheduler will hang for seconds trying to do this algorithm, threads starve even though other threads are calling sleep(0)
 		if (!FTickTaskSequencer::SingleThreadedMode())
 		{
 			bConcurrentQueue = !!CVarAllowConcurrentQueue.GetValueOnGameThread();
 		}
+#endif
 
 		if (!bConcurrentQueue)
 		{
@@ -1375,13 +1375,10 @@ public:
 			ParallelFor(AllTickFunctions.Num(), 
 				[this](int32 Index)
 				{
-					// we store a bit in here if this came from an interval queue 
 					FTickFunction* TickFunction = AllTickFunctions[Index];
-					bool bWasInterval = !!(UPTRINT(TickFunction) & 1);
-					TickFunction = (FTickFunction*)(UPTRINT(TickFunction) & ~1);
 
 					TArray<FTickFunction*, TInlineAllocator<8> > StackForCycleDetection;
-					TickFunction->QueueTickFunctionParallel(Context, StackForCycleDetection, bWasInterval);
+					TickFunction->QueueTickFunctionParallel(Context, StackForCycleDetection);
 				}
 			);
 		    for( int32 LevelIndex = 0; LevelIndex < LevelList.Num(); LevelIndex++ )
@@ -1587,6 +1584,7 @@ FTickFunction::FTickFunction()
 	, bHighPriority(false)
 	, bRunOnAnyThread(false)
 	, bRegistered(false)
+	, bWasInterval(false)
 	, TickState(ETickState::Enabled)
 	, TickVisitedGFrameCounter(0)
 	, TickQueuedGFrameCounter(0)
@@ -1778,7 +1776,7 @@ void FTickFunction::QueueTickFunction(FTickTaskSequencer& TTS, const struct FTic
 	}
 }
 
-void FTickFunction::QueueTickFunctionParallel(const struct FTickContext& TickContext, TArray<FTickFunction*, TInlineAllocator<8> >& StackForCycleDetection, bool bWasInterval)
+void FTickFunction::QueueTickFunctionParallel(const struct FTickContext& TickContext, TArray<FTickFunction*, TInlineAllocator<8> >& StackForCycleDetection)
 {
 
 	bool bProcessTick;
@@ -1812,7 +1810,7 @@ void FTickFunction::QueueTickFunctionParallel(const struct FTickContext& TickCon
 					else if (Prereq->bRegistered)
 					{
 						// recursive call to make sure my prerequisite is set up so I can use its completion handle
-						Prereq->QueueTickFunctionParallel(TickContext, StackForCycleDetection, false);
+						Prereq->QueueTickFunctionParallel(TickContext, StackForCycleDetection);
 						if (!Prereq->TaskPointer)
 						{
 							//ok UE_LOG(LogTick, Warning, TEXT("While processing prerequisites for %s, could use %s because it is disabled."),*DiagnosticMessage(), *Prereq->DiagnosticMessage());
@@ -1862,6 +1860,8 @@ void FTickFunction::QueueTickFunctionParallel(const struct FTickContext& TickCon
 				}
 			}
 		}
+		bWasInterval = false;
+
 		FPlatformMisc::MemoryBarrier();
 		TickQueuedGFrameCounter = GFrameCounter;
 	}

@@ -14,6 +14,8 @@
 #include "ReimportFeedbackContext.h"
 #include "MessageLogModule.h"
 #include "AssetSourceFilenameCache.h"
+#include "NotificationManager.h"
+#include "SNotificationList.h"
 
 #define LOCTEXT_NAMESPACE "AutoReimportManager"
 #define yield if (TimeLimit.Exceeded()) return
@@ -84,7 +86,7 @@ private:
 /** Enum and value to specify the current state of our processing */
 enum class ECurrentState
 {
-	Idle, Paused, Aborting, ProcessAdditions, ProcessModifications, ProcessDeletions, SavePackages
+	Idle, Paused, Aborting, PromptUser, Initializing, ProcessAdditions, ProcessModifications, ProcessDeletions, SavePackages
 };
 uint32 GetTypeHash(ECurrentState State)
 {
@@ -97,6 +99,7 @@ class FAutoReimportManager : public FTickableEditorObject, public FGCObject, pub
 public:
 
 	FAutoReimportManager();
+	~FAutoReimportManager();
 
 	/** Get a list of currently monitored directories */
 	TArray<FPathAndMountPoint> GetMonitoredDirectories() const;
@@ -144,6 +147,9 @@ private:
 	/** Get the number of unprocessed changes that are not part of the current processing operation */
 	int32 GetNumUnprocessedChanges() const;
 
+	/** Populate the message log with a list of pending changes to files */
+	void PopupateMessageLogWithPendingChanges(FMessageLog& MessageLog) const;
+
 private:
 
 	/** A state machine holding information about the current state of the manager */
@@ -153,7 +159,13 @@ private:
 
 	/** Idle processing */
 	TOptional<ECurrentState> Idle();
-	
+
+	/** Prompt the user whether they would like to import the changes */
+	TOptional<ECurrentState> PromptUser();
+
+	/** Set up the initial work for the import operation */
+	TOptional<ECurrentState> InitializeOperation();
+
 	/** Process any remaining pending additions we have */
 	TOptional<ECurrentState> ProcessAdditions(const DirectoryWatcher::FTimeLimit& TimeLimit);
 
@@ -178,6 +190,9 @@ private:
 	/** Check whether we should pause the operation or not */
 	TOptional<ECurrentState> HandlePauseAbort(ECurrentState InCurrentState);
 
+	/** Get the text to display on the confirmation notification */
+	FText GetConfirmNotificationText() const;
+
 private:
 
 	/** Feedback context that can selectively override the global context to consume progress events for saving of assets */
@@ -194,6 +209,9 @@ private:
 
 	/** A timeout used to refresh directory monitors when the user has made an interactive change to the settings */
 	DirectoryWatcher::FTimeLimit ResetMonitorsTimeout;
+
+	/** User confirmation popup */
+	TSharedPtr<SNotificationItem> ConfirmNotification;
 
 	/** The paused state of the state machine */
 	ECurrentState PausedState;
@@ -240,14 +258,26 @@ FAutoReimportManager::FAutoReimportManager()
 	{
 		SetUpDirectoryMonitors();
 	}
+	
+	State = EProcessState::Running;
 
 	StateMachine.Add(ECurrentState::Idle,					EStateMachineNode::CallOnce,	[this](const DirectoryWatcher::FTimeLimit& T){ return this->Idle();					});
 	StateMachine.Add(ECurrentState::Paused,					EStateMachineNode::CallOnce,	[this](const DirectoryWatcher::FTimeLimit& T){ return this->Paused();					});
 	StateMachine.Add(ECurrentState::Aborting,				EStateMachineNode::CallOnce,	[this](const DirectoryWatcher::FTimeLimit& T){ return this->Abort();					});
+	StateMachine.Add(ECurrentState::PromptUser,				EStateMachineNode::CallOnce,	[this](const DirectoryWatcher::FTimeLimit& T){ return this->PromptUser();				});
+	StateMachine.Add(ECurrentState::Initializing,			EStateMachineNode::CallOnce,	[this](const DirectoryWatcher::FTimeLimit& T){ return this->InitializeOperation();		});
 	StateMachine.Add(ECurrentState::ProcessAdditions,		EStateMachineNode::CallMany,	[this](const DirectoryWatcher::FTimeLimit& T){ return this->ProcessAdditions(T);		});
 	StateMachine.Add(ECurrentState::ProcessModifications,	EStateMachineNode::CallMany,	[this](const DirectoryWatcher::FTimeLimit& T){ return this->ProcessModifications(T);	});
 	StateMachine.Add(ECurrentState::ProcessDeletions,		EStateMachineNode::CallMany,	[this](const DirectoryWatcher::FTimeLimit& T){ return this->ProcessDeletions();		});
 	StateMachine.Add(ECurrentState::SavePackages,			EStateMachineNode::CallOnce,	[this](const DirectoryWatcher::FTimeLimit& T){ return this->SavePackages();			});
+}
+
+FAutoReimportManager::~FAutoReimportManager()
+{
+	if (ConfirmNotification.IsValid())
+	{
+		ConfirmNotification->SetText(FText());
+	}
 }
 
 TArray<FPathAndMountPoint> FAutoReimportManager::GetMonitoredDirectories() const
@@ -317,9 +347,11 @@ void FAutoReimportManager::IgnoreDeletedFile(const FString& Filename)
 
 void FAutoReimportManager::Destroy()
 {
-	if (auto* AssetRegistryModule = FModuleManager::GetModulePtr<FAssetRegistryModule>("AssetRegistry"))
+	FAssetRegistryModule* AssetRegistryModule = FModuleManager::GetModulePtr<FAssetRegistryModule>("AssetRegistry");
+	if (AssetRegistryModule)
 	{
 		FAssetSourceFilenameCache::Get().OnAssetRenamed().RemoveAll(this);
+		AssetRegistryModule->Get().OnInMemoryAssetDeleted().RemoveAll(this);
 	}
 	
 	if (auto* Settings = GetMutableDefault<UEditorLoadingSavingSettings>())
@@ -329,11 +361,6 @@ void FAutoReimportManager::Destroy()
 
 	FPackageName::OnContentPathMounted().RemoveAll(this);
 	FPackageName::OnContentPathDismounted().RemoveAll(this);
-
-	if (FAssetRegistryModule* AssetRegistryModule = FModuleManager::GetModulePtr<FAssetRegistryModule>("AssetRegistry"))
-	{
-		AssetRegistryModule->Get().OnInMemoryAssetDeleted().RemoveAll(this);
-	}
 
 	// Force a save of all the caches
 	DirectoryMonitors.Empty();
@@ -429,6 +456,183 @@ int32 FAutoReimportManager::GetNumUnprocessedChanges() const
 	}, 0);
 }
 
+void FAutoReimportManager::PopupateMessageLogWithPendingChanges(FMessageLog& MessageLog) const
+{
+	for (const FContentDirectoryMonitor& Monitor : DirectoryMonitors)
+	{
+		const FString& BasePath = Monitor.GetDirectory();
+
+		Monitor.IterateUnprocessedChanges([&](const DirectoryWatcher::FUpdateCacheTransaction& Transaction, const FDateTime& TimeOfChange){
+			FText ThisMessage;
+			FString FullFilename = BasePath / Transaction.Filename.Get();
+			switch(Transaction.Action)
+			{
+				case DirectoryWatcher::EFileAction::Added:
+					ThisMessage = FText::Format(LOCTEXT("PendingChange_Add", "'{0}' has been created."), FText::FromString(FullFilename));
+					break;
+
+				case DirectoryWatcher::EFileAction::Removed:
+					ThisMessage = FText::Format(LOCTEXT("PendingChange_Delete", "'{0}' has been deleted."), FText::FromString(FullFilename));
+					break;
+
+				case DirectoryWatcher::EFileAction::Modified:
+					ThisMessage = FText::Format(LOCTEXT("PendingChange_Modified", "'{0}' has been modified."), FText::FromString(FullFilename));
+					break;
+
+				case DirectoryWatcher::EFileAction::Moved:
+					ThisMessage = FText::Format(LOCTEXT("PendingChange_Moved", "'{0}' has been moved/renamed to {1}."), FText::FromString(BasePath / Transaction.MovedFromFilename.Get()), FText::FromString(FullFilename));
+					break;
+			}
+			MessageLog.Message(EMessageSeverity::Info, ThisMessage);
+			return true;
+		});
+	}
+}
+
+FText FAutoReimportManager::GetConfirmNotificationText() const
+{
+	const int32 TotalWork = GetNumUnprocessedChanges();
+	if (TotalWork == 1)
+	{
+		return LOCTEXT("UserConfirmationTextSingle", "A change to a source content file has been detected.\nWould you like to import it?");
+	}
+	else if (TotalWork > 1)
+	{
+		return FText::Format(LOCTEXT("UserConfirmationTextMultiple", "{0} changes to source content files have been detected.\nWould you like to import them?"), FText::AsNumber(TotalWork));
+	}
+	return FText();
+}
+
+TOptional<ECurrentState> FAutoReimportManager::PromptUser()
+{
+	UEditorLoadingSavingSettings* Settings = GetMutableDefault<UEditorLoadingSavingSettings>();
+
+	// Send out a notification asking for confirmation
+	if (Settings->bPromptBeforeAutoImporting && !ConfirmNotification.IsValid())
+	{
+		FNotificationInfo Info(FText::GetEmpty());
+		Info.bFireAndForget = false;
+		Info.bUseLargeFont = false;
+
+		Info.ButtonDetails.Add(FNotificationButtonInfo(
+			LOCTEXT("ImportButtonText", "Import"),
+			FText(),
+			FSimpleDelegate::CreateLambda([this, Settings]{
+				Settings->PostEditChange();
+				State = EProcessState::Running;
+			}),
+			SNotificationItem::CS_None
+		));
+		Info.ButtonDetails.Add(FNotificationButtonInfo(
+			LOCTEXT("DontImportButtonText", "Don't Import"),
+			FText(),
+			FSimpleDelegate::CreateLambda([this, Settings]{
+				// going back into idle
+				PausedState = ECurrentState::Aborting;
+				State = EProcessState::Running;
+
+				if (!Settings->bPromptBeforeAutoImporting)
+				{
+					// User clicked Don't import, with a don't show again. Disable auto reimport
+					Settings->bMonitorContentDirectories = false;
+					Settings->PostEditChange();
+				}
+			}),
+			SNotificationItem::CS_None
+		));
+
+		Info.CheckBoxText = LOCTEXT("DontAskAgain", "Don't ask again");
+		Info.CheckBoxState = TAttribute<ECheckBoxState>::Create(TAttribute<ECheckBoxState>::FGetter::CreateStatic([]{
+			return GetDefault<UEditorLoadingSavingSettings>()->bPromptBeforeAutoImporting ? ECheckBoxState::Unchecked : ECheckBoxState::Checked;
+		}));
+		Info.CheckBoxStateChanged = FOnCheckStateChanged::CreateStatic([](ECheckBoxState NewState){
+			GetMutableDefault<UEditorLoadingSavingSettings>()->bPromptBeforeAutoImporting = NewState == ECheckBoxState::Unchecked;
+		});
+
+		Info.Hyperlink = FSimpleDelegate::CreateLambda([this]{
+			FMessageLogModule& MessageLogModule = FModuleManager::LoadModuleChecked<FMessageLogModule>("MessageLog");
+
+			FMessageLog MessageLog("AssetReimport");
+			MessageLog.NewPage(FText::Format(LOCTEXT("WhatChangedMessageLogPageLabel", "Detailed File System Changes from {0}"), FText::AsTime(FDateTime::UtcNow())));
+			PopupateMessageLogWithPendingChanges(MessageLog);
+			MessageLogModule.OpenMessageLog("AssetReimport");
+		});
+		Info.HyperlinkText = LOCTEXT("UserConfirmationHyperlink", "What Changed?");
+
+		ConfirmNotification = FSlateNotificationManager::Get().AddNotification(Info);
+
+		State = EProcessState::Paused;
+	}
+
+	// Keep ticking the monitors
+	for (auto& Monitor : DirectoryMonitors)
+	{
+		Monitor.Tick();
+	}
+
+	if (ConfirmNotification.IsValid())
+	{
+		ConfirmNotification->SetText(GetConfirmNotificationText());
+	}
+
+	// Keep ticking this if we're paused
+	if (State == EProcessState::Paused)
+	{
+		return TOptional<ECurrentState>();
+	}
+
+	if (ConfirmNotification.IsValid())
+	{
+		ConfirmNotification->SetEnabled(false);
+		ConfirmNotification->SetCompletionState(SNotificationItem::CS_Success);
+		ConfirmNotification->ExpireAndFadeout();
+		ConfirmNotification = nullptr;
+	}
+
+	if (PausedState != ECurrentState::PromptUser)
+	{
+		return PausedState;
+	}
+
+	PausedState = ECurrentState::Idle;
+
+	// This can get set by the user while we're prompting for action
+	if (!Settings->bMonitorContentDirectories)
+	{
+		return ECurrentState::Aborting;
+	}
+	else
+	{
+		return ECurrentState::Initializing;
+	}
+}
+
+TOptional<ECurrentState> FAutoReimportManager::InitializeOperation()
+{
+	int32 TotalWork = 0;
+	for (auto& Monitor : DirectoryMonitors)
+	{
+		TotalWork += Monitor.StartProcessing();
+	}
+
+	if (TotalWork > 0)
+	{
+		if (!FeedbackContextOverride.IsValid())
+		{
+			// Create a new feedback context override
+			FeedbackContextOverride = MakeShareable(new FReimportFeedbackContext(
+				FSimpleDelegate::CreateSP(this, &FAutoReimportManager::OnPauseClicked),
+				FSimpleDelegate::CreateSP(this, &FAutoReimportManager::OnAbortClicked))
+			);
+		}
+
+		FeedbackContextOverride->Show(TotalWork);
+		return ECurrentState::ProcessAdditions;
+	}
+
+	return ECurrentState::Idle;
+}
+
 TOptional<ECurrentState> FAutoReimportManager::ProcessAdditions(const DirectoryWatcher::FTimeLimit& TimeLimit)
 {
 	auto NewState = HandlePauseAbort(ECurrentState::ProcessAdditions);
@@ -473,11 +677,9 @@ TOptional<ECurrentState> FAutoReimportManager::ProcessAdditions(const DirectoryW
 		Pair.Value.Sort([](const UFactory& A, const UFactory& B) { return A.ImportPriority > B.ImportPriority; });
 	}
 
-	const IAssetRegistry& Registry = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry").Get();
-
 	for (auto& Monitor : DirectoryMonitors)
 	{
-		Monitor.ProcessAdditions(Registry, TimeLimit, PackagesToSave, Factories, *FeedbackContextOverride);
+		Monitor.ProcessAdditions(TimeLimit, PackagesToSave, Factories, *FeedbackContextOverride);
 		yield TOptional<ECurrentState>();
 	}
 
@@ -496,11 +698,9 @@ TOptional<ECurrentState> FAutoReimportManager::ProcessModifications(const Direct
 	TGuardValue<FFeedbackContext*> ScopedContextOverride(GWarn, FeedbackContextOverride.Get());
 	TGuardValue<bool> ScopedAssetChangesGuard(bGuardAssetChanges, true);
 
-	const IAssetRegistry& Registry = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry").Get();
-
 	for (auto& Monitor : DirectoryMonitors)
 	{
-		Monitor.ProcessModifications(Registry, TimeLimit, PackagesToSave, *FeedbackContextOverride);
+		Monitor.ProcessModifications(TimeLimit, PackagesToSave, *FeedbackContextOverride);
 		yield TOptional<ECurrentState>();
 	}
 
@@ -517,13 +717,11 @@ TOptional<ECurrentState> FAutoReimportManager::ProcessDeletions()
 
 	TGuardValue<bool> ScopedAssetChangesGuard(bGuardAssetChanges, true);
 
-	const IAssetRegistry& Registry = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry").Get();
-
 	TArray<FAssetData> AssetsToDelete;
 
 	for (auto& Monitor : DirectoryMonitors)
 	{
-		Monitor.ExtractAssetsToDelete(Registry, AssetsToDelete);
+		Monitor.ExtractAssetsToDelete(AssetsToDelete);
 	}
 
 	FeedbackContextOverride->MainTask->EnterProgressFrame(AssetsToDelete.Num());
@@ -635,35 +833,13 @@ TOptional<ECurrentState> FAutoReimportManager::Idle()
 	const IAssetRegistry& AssetRegistry = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry").Get();
 	if (AssetRegistry.IsLoadingAssets())
 	{
-		return TOptional<ECurrentState>();		
+		return TOptional<ECurrentState>();
 	}
 
 	if (GetNumUnprocessedChanges() > 0)
 	{
-		State = EProcessState::Running;
-
-		int32 TotalWork = 0;
-		// We have some changes so kick off the process
-		for (auto& Monitor : DirectoryMonitors)
-		{
-			TotalWork += Monitor.StartProcessing();
-		}
-
-		if (TotalWork > 0)
-		{
-			if (!FeedbackContextOverride.IsValid())
-			{
-				// Create a new feedback context override
-				FeedbackContextOverride = MakeShareable(new FReimportFeedbackContext(
-					FSimpleDelegate::CreateSP(this, &FAutoReimportManager::OnPauseClicked),
-					FSimpleDelegate::CreateSP(this, &FAutoReimportManager::OnAbortClicked))
-				);
-			}
-
-			FeedbackContextOverride->Show(TotalWork);
-
-			return ECurrentState::ProcessAdditions;
-		}
+		PausedState = ECurrentState::PromptUser;
+		return ECurrentState::PromptUser;
 	}
 
 	return TOptional<ECurrentState>();
@@ -671,7 +847,10 @@ TOptional<ECurrentState> FAutoReimportManager::Idle()
 
 void FAutoReimportManager::Cleanup()
 {
-	FeedbackContextOverride->Hide();
+	if (FeedbackContextOverride.IsValid())
+	{
+		FeedbackContextOverride->Hide();
+	}
 }
 
 void FAutoReimportManager::Tick(float DeltaTime)

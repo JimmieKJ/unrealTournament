@@ -33,7 +33,7 @@ public:
 	virtual void Tick(float DeltaSeconds) override;
 	virtual void Draw(FViewport* Viewport,FCanvas* Canvas) override;
 	virtual bool ShouldOrbitCamera() const override;
-	virtual FSceneView* CalcSceneView(FSceneViewFamily* ViewFamily) override;
+	virtual FSceneView* CalcSceneView(FSceneViewFamily* ViewFamily, const EStereoscopicPass StereoPass) override;
 	
 	void SetShowGrid(bool bShowGrid);
 
@@ -92,10 +92,10 @@ void FMaterialEditorViewportClient::Tick(float DeltaSeconds)
 }
 
 
-void FMaterialEditorViewportClient::Draw(FViewport* Viewport,FCanvas* Canvas)
+void FMaterialEditorViewportClient::Draw(FViewport* InViewport,FCanvas* Canvas)
 {
-	FEditorViewportClient::Draw(Viewport, Canvas);
-	MaterialEditorPtr.Pin()->DrawMessages(Viewport, Canvas);
+	FEditorViewportClient::Draw(InViewport, Canvas);
+	MaterialEditorPtr.Pin()->DrawMessages(InViewport, Canvas);
 }
 
 bool FMaterialEditorViewportClient::ShouldOrbitCamera() const
@@ -124,7 +124,7 @@ FLinearColor FMaterialEditorViewportClient::GetBackgroundColor() const
 			{
 				BackgroundColor = FLinearColor::White;
 			}
-			else if(PreviewBlendMode == BLEND_Translucent)
+			else if(PreviewBlendMode == BLEND_Translucent || PreviewBlendMode == BLEND_AlphaComposite)
 			{
 				BackgroundColor = FColor(64, 64, 64);
 			}
@@ -134,9 +134,9 @@ FLinearColor FMaterialEditorViewportClient::GetBackgroundColor() const
 }
 
 
-FSceneView* FMaterialEditorViewportClient::CalcSceneView(FSceneViewFamily* ViewFamily)
+FSceneView* FMaterialEditorViewportClient::CalcSceneView(FSceneViewFamily* ViewFamily, const EStereoscopicPass StereoPass)
 {
-	FSceneView* SceneView = FEditorViewportClient::CalcSceneView(ViewFamily);
+	FSceneView* SceneView = FEditorViewportClient::CalcSceneView(ViewFamily, StereoPass);
 	FFinalPostProcessSettings::FCubemapEntry& CubemapEntry = *new(SceneView->FinalPostProcessSettings.ContributingCubemaps) FFinalPostProcessSettings::FCubemapEntry;
 	CubemapEntry.AmbientCubemap = GUnrealEd->GetThumbnailManager()->AmbientCubemap;
 	CubemapEntry.AmbientCubemapTintMulScaleValue = FLinearColor::White;

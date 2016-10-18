@@ -13,9 +13,9 @@
  *
  * A trivial use case appear below:
  *
- *   Given: TArray< FString* > Items;
+ *   Given: TArray< TSharedPtr<FString> > Items;
  *
- *   SNew( SListView< FString* > )
+ *   SNew( SListView< TSharedPtr<FString> > )
  *     .ItemHeight(24)
  *     .ListItemsSource( &Items )
  *     .OnGenerateRow( SListView< TSharedPtr<FString> >::MakeOnGenerateWidget( this, &MyClass::OnGenerateRowForList ) )
@@ -25,7 +25,7 @@
  *
  * A sample implementation of OnGenerateWidgetForList would simply return a TextBlock with the corresponding text:
  *
- * TSharedRef<ITableRow> OnGenerateWidgetForList( FString* InItem, const TSharedRef<STableViewBase>& OwnerTable )
+ * TSharedRef<ITableRow> OnGenerateWidgetForList( TSharedPtr<FString> InItem, const TSharedRef<STableViewBase>& OwnerTable )
  * {
  *     return SNew(STextBlock).Text( (*InItem) )
  * }
@@ -43,9 +43,12 @@ public:
 	typedef typename TSlateDelegates< ItemType >::FOnMouseButtonClick FOnMouseButtonClick;
 	typedef typename TSlateDelegates< ItemType >::FOnMouseButtonDoubleClick FOnMouseButtonDoubleClick;
 
+	DECLARE_DELEGATE_OneParam( FOnWidgetToBeRemoved, const TSharedRef<ITableRow>& );
+
 public:
 	SLATE_BEGIN_ARGS( SListView<ItemType> )
 		: _OnGenerateRow()
+		, _OnRowReleased()
 		, _ListItemsSource( static_cast<const TArray<ItemType>*>(nullptr) ) //@todo Slate Syntax: Initializing from nullptr without a cast
 		, _ItemHeight(16)
 		, _OnContextMenuOpening()
@@ -53,13 +56,17 @@ public:
 		, _OnMouseButtonDoubleClick()
 		, _OnSelectionChanged()
 		, _SelectionMode(ESelectionMode::Multi)
-		, _ClearSelectionOnClick(false)
+		, _ClearSelectionOnClick(true)
 		, _ExternalScrollbar()
-		, _AllowOverscroll(EAllowOverscroll::No)
+		, _AllowOverscroll(EAllowOverscroll::Yes)
 		, _ConsumeMouseWheel( EConsumeMouseWheel::WhenScrollingPossible )
+		, _WheelScrollMultiplier( WheelScrollAmount )
+		, _HandleGamepadEvents( true )
 		{ }
 
 		SLATE_EVENT( FOnGenerateRow, OnGenerateRow )
+
+		SLATE_EVENT( FOnWidgetToBeRemoved, OnRowReleased )
 
 		SLATE_EVENT( FOnTableViewScrolled, OnListViewScrolled )
 
@@ -91,6 +98,10 @@ public:
 
 		SLATE_ARGUMENT( EConsumeMouseWheel, ConsumeMouseWheel );
 
+		SLATE_ARGUMENT( float, WheelScrollMultiplier );
+
+		SLATE_ARGUMENT( bool, HandleGamepadEvents );
+
 	SLATE_END_ARGS()
 
 	/**
@@ -101,6 +112,7 @@ public:
 	void Construct( const typename SListView<ItemType>::FArguments& InArgs )
 	{
 		this->OnGenerateRow = InArgs._OnGenerateRow;
+		this->OnRowReleased = InArgs._OnRowReleased;
 		this->OnItemScrolledIntoView = InArgs._OnItemScrolledIntoView;
 
 		this->ItemsSource = InArgs._ListItemsSource;
@@ -114,6 +126,9 @@ public:
 
 		this->AllowOverscroll = InArgs._AllowOverscroll;
 		this->ConsumeMouseWheel = InArgs._ConsumeMouseWheel;
+
+		this->WheelScrollMultiplier = InArgs._WheelScrollMultiplier;
+		this->bHandleGamepadEvents = InArgs._HandleGamepadEvents;
 
 		// Check for any parameters that the coder forgot to specify.
 		FString ErrorString;
@@ -237,7 +252,7 @@ public:
 
 				bWasHandled = true;
 			}
-			else if (InKeyEvent.GetKey() == EKeys::Up || InKeyEvent.GetKey() == EKeys::Gamepad_DPad_Up || InKeyEvent.GetKey() == EKeys::Gamepad_LeftStick_Up)
+			else if (InKeyEvent.GetKey() == EKeys::Up || ( bHandleGamepadEvents && ( InKeyEvent.GetKey() == EKeys::Gamepad_DPad_Up || InKeyEvent.GetKey() == EKeys::Gamepad_LeftStick_Up ) ) )
 			{
 				int32 SelectionIndex = 0;
 				if( TListTypeTraits<ItemType>::IsPtrValid(SelectorItem) )
@@ -255,7 +270,7 @@ public:
 
 				bWasHandled = true;
 			}
-			else if (InKeyEvent.GetKey() == EKeys::Down || InKeyEvent.GetKey() == EKeys::Gamepad_DPad_Down || InKeyEvent.GetKey() == EKeys::Gamepad_LeftStick_Down)
+			else if (InKeyEvent.GetKey() == EKeys::Down || ( bHandleGamepadEvents && ( InKeyEvent.GetKey() == EKeys::Gamepad_DPad_Down || InKeyEvent.GetKey() == EKeys::Gamepad_LeftStick_Down ) ) )
 			{
 				// Begin at INDEX_NONE so the first item will get selected
 				int32 SelectionIndex = INDEX_NONE;
@@ -461,6 +476,8 @@ private:
 		 */
 		void OnEndGenerationPass()
 		{
+			ensureMsgf( OwnerList, TEXT( "OwnerList is null, something is wrong." ) );
+
 			for( int32 ItemIndex = 0; ItemIndex < ItemsToBeCleanedUp.Num(); ++ItemIndex )
 			{
 				ItemType ItemToBeCleanedUp = ItemsToBeCleanedUp[ItemIndex];
@@ -470,11 +487,23 @@ private:
 					const TSharedRef<ITableRow> WidgetToCleanUp = *FindResult;
 					ItemToWidgetMap.Remove( ItemToBeCleanedUp );
 					WidgetMapToItem.Remove( &WidgetToCleanUp.Get() );
+
+					// broadcast here
+					if ( OwnerList )
+					{
+						OwnerList->OnRowReleased.ExecuteIfBound( WidgetToCleanUp );
+					}
 				}				
 			}
 
-			checkf(ItemToWidgetMap.Num() == WidgetMapToItem.Num(), TEXT("ItemToWidgetMap length (%d) does not match WidgetMapToItem length (%d).  %s"), ItemToWidgetMap.Num(), WidgetMapToItem.Num(), *OwnerList->ToString());
-			checkf(WidgetMapToItem.Num() == ItemsWithGeneratedWidgets.Num(), TEXT("WidgetMapToItem length (%d) does not match ItemsWithGeneratedWidgets length (%d). This is often because the same item is in the list more than once.  %s"), WidgetMapToItem.Num(), ItemsWithGeneratedWidgets.Num(), *OwnerList->ToString());
+			checkf( ItemToWidgetMap.Num() == WidgetMapToItem.Num(),
+			        TEXT( "ItemToWidgetMap length (%d) does not match WidgetMapToItem length (%d).  %s" ), ItemToWidgetMap.Num(),
+			        WidgetMapToItem.Num(), OwnerList ? *OwnerList->ToString() : TEXT( "null" ) );
+
+			checkf( WidgetMapToItem.Num() == ItemsWithGeneratedWidgets.Num(),
+			        TEXT( "WidgetMapToItem length (%d) does not match ItemsWithGeneratedWidgets length (%d). This is often because the same item is in the list more than once.  %s" ),
+			        WidgetMapToItem.Num(), ItemsWithGeneratedWidgets.Num(), OwnerList ? *OwnerList->ToString() : TEXT( "null" ) );
+
 			ItemsToBeCleanedUp.Reset();
 		}
 
@@ -1024,6 +1053,13 @@ public:
 		return SelectedItems.Num();
 	}
 
+	/** Deletes all items and rebuilds the list */
+	void RebuildList()
+	{
+		WidgetGenerator.Clear();
+		RequestListRefresh();
+	}
+
 	/**
 	 * Returns a list of selected item indices, or an empty array if nothing is selected
 	 *
@@ -1375,6 +1411,9 @@ protected:
 	/** Delegate to be invoked when the list needs to generate a new widget from a data item. */
 	FOnGenerateRow OnGenerateRow;
 
+	/**/
+	FOnWidgetToBeRemoved OnRowReleased;
+
 	/** Delegate to be invoked when an item has come into view after it was requested to come into view. */
 	FOnItemScrolledIntoView OnItemScrolledIntoView;
 
@@ -1407,6 +1446,9 @@ protected:
 
 	/** If true, the selection will be cleared if the user clicks in empty space (not on an item) */
 	bool bClearSelectionOnClick;
+
+	/** Should gamepad nav be supported */
+	bool bHandleGamepadEvents;
 
 private:
 

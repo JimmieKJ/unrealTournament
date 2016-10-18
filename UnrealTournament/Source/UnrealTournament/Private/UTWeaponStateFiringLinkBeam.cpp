@@ -2,6 +2,7 @@
 #include "UnrealTournament.h"
 #include "UTWeap_LinkGun.h"
 #include "UTWeaponStateFiringLinkBeam.h"
+#include "Animation/AnimInstance.h"
 
 UUTWeaponStateFiringLinkBeam::UUTWeaponStateFiringLinkBeam(const FObjectInitializer& OI)
 : Super(OI)

@@ -33,21 +33,21 @@ FString UK2Node_FunctionTerminator::CreateUniquePinName(FString InSourcePinName)
 
 bool UK2Node_FunctionTerminator::CanCreateUserDefinedPin(const FEdGraphPinType& InPinType, EEdGraphPinDirection InDesiredDirection, FText& OutErrorMessage)
 {
-	const bool bIsEditable = IsEditable();
+	const bool bIsNodeEditable = IsEditable();
 
 	// Make sure that if this is an exec node we are allowed one.
 	const UEdGraphSchema_K2* Schema = GetDefault<UEdGraphSchema_K2>();
-	if (bIsEditable && InPinType.PinCategory == Schema->PC_Exec && !CanModifyExecutionWires())
+	if (bIsNodeEditable && InPinType.PinCategory == Schema->PC_Exec && !CanModifyExecutionWires())
 	{
 		OutErrorMessage = LOCTEXT("MultipleExecPinError", "Cannot support more exec pins!");
 		return false;
 	}
-	else if (!bIsEditable)
+	else if (!bIsNodeEditable)
 	{
 		OutErrorMessage = LOCTEXT("NotEditableError", "Cannot edit this node!");
 	}
 
-	return bIsEditable;
+	return bIsNodeEditable;
 }
 
 bool UK2Node_FunctionTerminator::HasExternalDependencies(TArray<class UStruct*>* OptionalOutput) const

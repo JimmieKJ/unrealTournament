@@ -1,11 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "MovieSceneToolsPrivatePCH.h"
+#include "CameraCutSection.h"
 #include "ISectionLayoutBuilder.h"
 #include "Runtime/MovieSceneTracks/Public/Sections/MovieSceneCameraCutSection.h"
 #include "Runtime/Engine/Public/Slate/SceneViewport.h"
 #include "SInlineEditableTextBlock.h"
 #include "MovieSceneToolsUserSettings.h"
+
 
 #define LOCTEXT_NAMESPACE "FCameraCutSection"
 
@@ -107,7 +109,7 @@ void FCameraCutSection::BuildSectionContextMenu(FMenuBuilder& MenuBuilder, const
 
 FText FCameraCutSection::GetDisplayName() const
 {
-	return NSLOCTEXT("FCameraCutSection", "", "CameraCuts");
+	return NSLOCTEXT("FCameraCutSection", "CameraCuts", "CameraCuts");
 }
 
 
@@ -133,7 +135,7 @@ const AActor* FCameraCutSection::GetCameraForFrame(float Time) const
 			FMovieSceneSpawnable* Spawnable = SequenceInstance->GetSequence()->GetMovieScene()->FindSpawnable(CameraCutSection->GetCameraGuid());
 			if (Spawnable)
 			{
-				return GetDefault<AActor>(Spawnable->GetClass());
+				return Cast<AActor>(Spawnable->GetObjectTemplate());
 			}
 		}
 	}
@@ -192,7 +194,7 @@ void FCameraCutSection::HandleSetCameraMenuEntryExecute(AActor* InCamera)
 	
 		CameraCutSection->SetCameraGuid(ObjectGuid);
 	
-		Sequencer->NotifyMovieSceneDataChanged();
+		Sequencer->NotifyMovieSceneDataChanged( EMovieSceneDataChangeType::TrackValueChanged );
 	}
 }
 

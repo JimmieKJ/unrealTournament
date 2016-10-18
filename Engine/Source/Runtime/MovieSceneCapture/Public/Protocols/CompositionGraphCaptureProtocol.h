@@ -6,6 +6,18 @@
 #include "MovieSceneCaptureProtocolSettings.h"
 #include "CompositionGraphCaptureProtocol.generated.h"
 
+/** Used by UCompositionGraphCaptureSettings. Matches gamut oreder in TonemapCommon.usf OuputGamutMappingMatrix()*/
+UENUM()
+enum EHDRCaptureGamut
+{
+	HCGM_Rec709 UMETA(DisplayName = "Rec.709 / sRGB"),
+	HCGM_P3DCI UMETA(DisplayName = "P3 D65"),
+	HCGM_Rec2020 UMETA(DisplayName = "Rec.2020"),
+	HCGM_ACES UMETA(DisplayName = "ACES"),
+	HCGM_ACEScg UMETA(DisplayName = "ACEScg"),
+	HCGM_MAX,
+};
+
 USTRUCT()
 struct MOVIESCENECAPTURE_API FCompositionGraphCapturePasses
 {
@@ -32,6 +44,14 @@ public:
 	/** Whether to capture the frames as HDR textures (*.exr format) */
 	UPROPERTY(config, EditAnywhere, Category="Composition Graph Options")
 	bool bCaptureFramesInHDR;
+
+	/** Compression Quality for HDR Frames (0 for no compression, 1 for default compression which can be slow) */
+	UPROPERTY(config, EditAnywhere, Category="Composition Graph Options", meta = (EditCondition = "bCaptureFramesInHDR"))
+	int32 HDRCompressionQuality;
+
+	/** The color gamut to use when storing HDR captured data. The gamut depends on whether the bCaptureFramesInHDR option is enabled. */
+	UPROPERTY(config, EditAnywhere, Category="Composition Graph Options", meta = (EditCondition = "bCaptureFramesInHDR"))
+	TEnumAsByte<enum EHDRCaptureGamut> CaptureGamut;
 
 	/** Custom post processing material to use for rendering */
 	UPROPERTY(config, EditAnywhere, Category="Composition Graph Options", meta=(AllowedClasses=""))

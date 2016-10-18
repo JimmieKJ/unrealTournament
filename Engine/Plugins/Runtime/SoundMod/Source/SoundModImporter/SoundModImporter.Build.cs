@@ -11,7 +11,8 @@ public class SoundModImporter : ModuleRules
 				"Core",
 				"CoreUObject",
 				"Engine",
-				"Slate",
+				"SlateCore",
+                "Slate",
 				"SoundMod",
 				"UnrealEd"
 			});

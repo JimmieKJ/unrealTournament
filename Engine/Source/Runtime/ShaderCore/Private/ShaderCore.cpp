@@ -4,6 +4,7 @@
 	ShaderCore.h: Shader core module implementation.
 =============================================================================*/
 
+#include "ShaderCorePrivatePCH.h"
 #include "ShaderCore.h"
 #include "SecureHash.h"
 #include "Shader.h"
@@ -426,14 +427,18 @@ void GetShaderIncludes(const TCHAR* Filename, TArray<FString>& IncludeFilenames,
 						ExtractedIncludeFilename = TEXT("MaterialTemplate.usf");
 					}
 
-					// Ignore uniform buffer and vertex factory includes
+					// Ignore uniform buffer, vertex factory and instanced stereo includes
 					bool bIgnoreInclude = ExtractedIncludeFilename == TEXT("VertexFactory.usf")
 						|| ExtractedIncludeFilename == TEXT("GeneratedUniformBuffers.usf")
+						|| ExtractedIncludeFilename == TEXT("GeneratedInstancedStereo.usf")
 						|| ExtractedIncludeFilename.StartsWith(TEXT("UniformBuffers/"));
 			
 					// Some headers aren't required to be found (platforms that the user doesn't have access to)
 					// @todo: Is there some way to generalize this"
-					const bool bIsOptionalInclude = (ExtractedIncludeFilename == TEXT("PS4/PS4Common.usf") || ExtractedIncludeFilename == TEXT("PS4/PostProcessHMDMorpheus.usf"));
+					const bool bIsOptionalInclude = (ExtractedIncludeFilename == TEXT("PS4/PS4Common.usf") 
+						|| ExtractedIncludeFilename == TEXT("PS4/PostProcessHMDMorpheus.usf")
+						|| ExtractedIncludeFilename == TEXT("PS4/RTWriteMaskProcessing.usf")
+						);
 					// ignore the header if it's optional and doesn't exist
 					if (bIsOptionalInclude)
 					{

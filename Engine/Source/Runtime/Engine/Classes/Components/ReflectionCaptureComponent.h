@@ -5,7 +5,7 @@
 
 class FReflectionCaptureProxy;
 
-class FReflectionCaptureFullHDRDerivedData
+class FReflectionCaptureFullHDR
 {
 public:
 	/** 
@@ -15,12 +15,13 @@ public:
 	 * Because it is used with a texture array so must support multiple uploads.
 	 */
 	TArray<uint8> CompressedCapturedData;
+	int32 CubemapSize;
 
 	/** Destructor. */
-	~FReflectionCaptureFullHDRDerivedData();
+	~FReflectionCaptureFullHDR();
 
 	/** Initializes the compressed data from an uncompressed source. */
-	ENGINE_API void InitializeFromUncompressedData(const TArray<uint8>& UncompressedData);
+	ENGINE_API void InitializeFromUncompressedData(const TArray<uint8>& UncompressedData, int32 CubmapSize);
 
 	/** Decompresses the capture data. */
 	ENGINE_API void GetUncompressedData(TArray<uint8>& UncompressedData) const;
@@ -30,10 +31,6 @@ public:
 		GetUncompressedData(CapturedDataForSM4Load);
 		return CapturedDataForSM4Load;
 	}
-
-	/** Constructs a key string for the DDC that uniquely identifies a FReflectionCaptureFullHDRDerivedData. */
-	static FString GetDDCKeyString(const FGuid& StateId);
-	static FString GetLegacyDDCKeyString(const FGuid& StateId);
 
 private:
 
@@ -55,16 +52,35 @@ struct FReflectionCaptureEncodedHDRDerivedData : FRefCountedObject
 	/** Destructor. */
 	virtual ~FReflectionCaptureEncodedHDRDerivedData();
 
+	FORCEINLINE int32 CalculateCubemapDimension() const
+	{
+		// top mip size of the encoded data is given by the eq:
+		// Data / (6 cubemaps * sizeof(FColor)) = (1/4 + 1/4^2 + 1/4^3 ...) - fractional pixel of the last mip
+		// Data / (6 cubemaps * sizeof(FColor)) = (4*topMip - lastMip)/3
+		// when lastMip = 1 simplifies to the following:
+		// see https://en.wikipedia.org/wiki/1/4_%2B_1/16_%2B_1/64_%2B_1/256_%2B_%E2%8B%AF for maths
+		return (int32)sqrt((float)(2 * sizeof(FColor) + CapturedData.Num()) / (float)(8 * sizeof(FColor)));
+	}
+
 	/** Generates encoded HDR data from full HDR data and saves it in the DDC, or loads an already generated version from the DDC. */
-	static TRefCountPtr<FReflectionCaptureEncodedHDRDerivedData> GenerateEncodedHDRData(const FReflectionCaptureFullHDRDerivedData& FullHDRData, const FGuid& StateId, float Brightness);
+	static TRefCountPtr<FReflectionCaptureEncodedHDRDerivedData> GenerateEncodedHDRData(const FReflectionCaptureFullHDR& FullHDRData, const FGuid& StateId, float Brightness);
 
 private:
 
 	/** Constructs a key string for the DDC that uniquely identifies a FReflectionCaptureEncodedHDRDerivedData. */
-	static FString GetDDCKeyString(const FGuid& StateId);
+	static FString GetDDCKeyString(const FGuid& StateId, int32 CubemapDimension);
 
-	/** Encodes the full HDR data of FullHDRDerivedData. */
-	void GenerateFromDerivedDataSource(const FReflectionCaptureFullHDRDerivedData& FullHDRDerivedData, float Brightness);
+	/** Encodes the full HDR data of FullHDRData. */
+	void GenerateFromDerivedDataSource(const FReflectionCaptureFullHDR& FullHDRData, float Brightness);
+};
+
+UENUM()
+enum class EReflectionSourceType
+{
+	/** Construct the reflection source from the captured scene*/
+	CapturedScene,
+	/** Construct the reflection source from the specified cubemap. */
+	SpecifiedCubemap,
 };
 
 // -> will be exported to EngineDecalClasses.h
@@ -73,9 +89,28 @@ class UReflectionCaptureComponent : public USceneComponent
 {
 	GENERATED_UCLASS_BODY()
 
+	UPROPERTY()
+	UBillboardComponent* CaptureOffsetComponent;
+
+	/** Indicates where to get the reflection source from. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=ReflectionCapture)
+	TEnumAsByte<EReflectionSourceType> ReflectionSourceType;
+
+	/** Cubemap to use for reflection if ReflectionSourceType is set to RS_SpecifiedCubemap. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=ReflectionCapture)
+	class UTextureCube* Cubemap;
+
+	/** Angle to rotate the source cubemap when SourceType is set to SLS_SpecifiedCubemap. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=ReflectionCapture, meta = (UIMin = "0", UIMax = "360"))
+	float SourceCubemapAngle;
+
 	/** A brightness control to scale the captured scene's reflection intensity. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=ReflectionCapture, meta=(UIMin = ".5", UIMax = "4"))
 	float Brightness;
+	
+	/** World space offset to apply before capturing. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=ReflectionCapture, AdvancedDisplay)
+	FVector CaptureOffset;
 
 	/** The rendering thread's mirror of this reflection capture. */
 	FReflectionCaptureProxy* SceneProxy;
@@ -84,7 +119,7 @@ class UReflectionCaptureComponent : public USceneComponent
 	ENGINE_API FReflectionCaptureProxy* CreateSceneProxy();
 
 	/** Called to update the preview shapes when something they are dependent on has changed. */
-	virtual void UpdatePreviewShape() {}
+	virtual void UpdatePreviewShape();
 
 	/** Indicates that the capture needs to recapture the scene, adds it to the recapture queue. */
 	ENGINE_API void SetCaptureIsDirty();
@@ -93,7 +128,7 @@ class UReflectionCaptureComponent : public USceneComponent
 	 * Reads reflection capture contents back from the scene and saves the results to the DDC.
 	 * Note: this requires a valid scene and RHI and therefore can't be done while cooking.
 	 */
-	void ReadbackFromGPUAndSaveDerivedData(UWorld* WorldToUpdate);
+	void ReadbackFromGPU(UWorld* WorldToUpdate);
 
 	/** Marks this component has having been recaptured. */
 	void SetCaptureCompleted() { bCaptureDirty = false; }
@@ -104,10 +139,21 @@ class UReflectionCaptureComponent : public USceneComponent
 	/** Called each tick to recapture and queued reflection captures. */
 	ENGINE_API static void UpdateReflectionCaptureContents(UWorld* WorldToUpdate);
 
-	ENGINE_API const FReflectionCaptureFullHDRDerivedData* GetCachedFullHDRDerivedData() const
+	ENGINE_API const FReflectionCaptureFullHDR* GetFullHDRData() const
 	{
-		return FullHDRDerivedData;
+		return FullHDRData;
 	}
+
+	inline float GetAverageBrightness() const 
+	{ 
+		return AverageBrightness; 
+	}
+
+	inline float* GetAverageBrightnessPtr() { return &AverageBrightness; }
+	inline const float* GetAverageBrightnessPtr() const { return &AverageBrightness; }
+
+	ENGINE_API static int32 GetReflectionCaptureSize_GameThread();
+	ENGINE_API static int32 GetReflectionCaptureSize_RenderThread();
 
 	//~ Begin UActorComponent Interface
 	virtual void CreateRenderState_Concurrent() override;
@@ -119,9 +165,10 @@ class UReflectionCaptureComponent : public USceneComponent
 	virtual void PostInitProperties() override;	
 	virtual void Serialize(FArchive& Ar) override;
 	virtual void PostLoad() override;
-	virtual void PreSave() override;
+	virtual void PreSave(const class ITargetPlatform* TargetPlatform) override;
 	virtual void PostDuplicate(bool bDuplicateForPIE) override;
 #if WITH_EDITOR
+	virtual bool CanEditChange(const UProperty* Property) const override;
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 	virtual void PostEditImport() override;
 	virtual void PreFeatureLevelChange(ERHIFeatureLevel::Type PendingFeatureLevel) override;
@@ -129,10 +176,6 @@ class UReflectionCaptureComponent : public USceneComponent
 	virtual void BeginDestroy() override;
 	virtual bool IsReadyForFinishDestroy() override;
 	virtual void FinishDestroy() override;
-	virtual bool NeedsLoadForServer() const override
-	{
-		return false;
-	}
 	//~ End UObject Interface
 
 private:
@@ -146,14 +189,16 @@ private:
 	UPROPERTY()
 	FGuid StateId;
 
+	/** Average brightness of the captured data, read back to the CPU after the capture. */
+	float AverageBrightness;
+
 	/**
 	 * The full HDR capture data to use for rendering.
-	 * If loading cooked, this will be loaded from inlined data.
-	 * If loading uncooked, this will be loaded from the DDC.
+	 * This will be loaded from inlined data.
 	 * Can be NULL, which indicates there is no up-to-date cached derived data
 	 * The rendering thread reads directly from the contents of this object to avoid an extra data copy, so it must be deleted in a thread safe way.
 	 */
-	FReflectionCaptureFullHDRDerivedData* FullHDRDerivedData;
+	FReflectionCaptureFullHDR* FullHDRData;
 
 	/** Only used in SM4, since cubemap texture arrays are not available. */
 	class FReflectionTextureCubeResource* SM4FullHDRCubemapTexture;
@@ -161,7 +206,7 @@ private:
 	/**
 	 * The encoded HDR capture data to use for rendering.
 	 * If loading cooked, this will be loaded from inlined data.
-	 * If loading uncooked, this will be generated from FullHDRDerivedData or loaded from the DDC.
+	 * If loading uncooked, this will be generated from FullHDRData or loaded from the DDC.
 	 * The rendering thread reads directly from the contents of this object to avoid an extra data copy, so it must be deleted in a thread safe way.
 	 */
 	TRefCountPtr<FReflectionCaptureEncodedHDRDerivedData> EncodedHDRDerivedData;
@@ -186,7 +231,7 @@ private:
 	 */
 	static TArray<UReflectionCaptureComponent*> ReflectionCapturesToUpdateForLoad;
 
-	void UpdateDerivedData(FReflectionCaptureFullHDRDerivedData* NewDerivedData);
+	void UpdateDerivedData(FReflectionCaptureFullHDR* NewDerivedData);
 	void SerializeSourceData(FArchive& Ar);
 
 	friend class FReflectionCaptureProxy;

@@ -142,11 +142,11 @@ private:
 	void DrawTicks( FSlateWindowElementList& OutDrawElements, const struct FScrubRangeToScreen& RangeToScreen, struct FDrawTickArgs& InArgs ) const;
 
 	/**
-	 * Draw the in/out selection range.
+	 * Draw the selection range.
 	 *
 	 * @return The new layer ID.
 	 */
-	int32 DrawInOutRange(const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FScrubRangeToScreen& RangeToScreen, const FPaintPlaybackRangeArgs& Args) const;
+	int32 DrawSelectionRange(const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FScrubRangeToScreen& RangeToScreen, const FPaintPlaybackRangeArgs& Args) const;
 
 	/**
 	 * Draw the playback range.
@@ -174,34 +174,45 @@ private:
 
 private:
 	FTimeSliderArgs TimeSliderArgs;
+
 	/** The size of the scrub handle */
 	float ScrubHandleSize;
+	
 	/** Brush for drawing an upwards facing scrub handle */
 	const FSlateBrush* ScrubHandleUp;
+	
 	/** Brush for drawing a downwards facing scrub handle */
 	const FSlateBrush* ScrubHandleDown;
+	
 	/** Total mouse delta during dragging **/
 	float DistanceDragged;
-	/** If we are dragging the scrubber or dragging to set the time range */
+	
+	/** If we are dragging a scrubber or dragging to set the time range */
 	enum DragType
 	{
 		DRAG_SCRUBBING_TIME,
 		DRAG_SETTING_RANGE,
-		DRAG_START_RANGE,
-		DRAG_END_RANGE,
-		DRAG_IN_RANGE,
-		DRAG_OUT_RANGE,
+		DRAG_PLAYBACK_START,
+		DRAG_PLAYBACK_END,
+		DRAG_SELECTION_START,
+		DRAG_SELECTION_END,
 		DRAG_NONE
 	};
+	
 	DragType MouseDragType;
+	
 	/** If we are currently panning the panel */
 	bool bPanning;
+	
 	/** Mouse down time range */
 	FVector2D MouseDownRange;
+	
 	/** Range stack */
 	TArray<FVector2D> RangeStack;
+	
 	/** When > 0, we should not show context menus */
 	int32 ContextMenuSuppression;
+	
 	friend FContextMenuSuppressor;
 };
 

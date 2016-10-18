@@ -747,7 +747,7 @@ namespace BlueprintEditorPromotionTestHelper
 			{
 				for (int32 ErrorIndex = LastErrorCount; ErrorIndex < TestExecutionInfo->Errors.Num(); ++ErrorIndex)
 				{
-					TestExecutionInfo->Errors[ErrorIndex] = FString::Printf(TEXT("%s: %s"), *NewLogTag, *TestExecutionInfo->Errors[ErrorIndex]);
+					TestExecutionInfo->Errors[ErrorIndex].Message = FString::Printf(TEXT("%s: %s"), *NewLogTag, *TestExecutionInfo->Errors[ErrorIndex].Message);
 				}
 				for (int32 WarningIndex = LastWarningCount; WarningIndex < TestExecutionInfo->Warnings.Num(); ++WarningIndex)
 				{
@@ -805,7 +805,7 @@ namespace BlueprintEditorPromotionTestHelper
 					if (!bSuccessful)
 					{
 						//Clear references to the object so we can delete it
-						AutomationEditorCommonUtils::NullReferencesToObject(LoadedAsset);
+						FAutomationEditorCommonUtils::NullReferencesToObject(LoadedAsset);
 
 						bSuccessful = ObjectTools::DeleteSingleObject(LoadedAsset, false);
 					}
@@ -835,21 +835,21 @@ namespace BlueprintEditorPromotionTestHelper
 			const FString FirstMeshPath = AutomationTestSettings->BlueprintEditorPromotionTest.FirstMeshPath.FilePath;
 			if (FirstMeshPath.Len() > 0)
 			{
-				AssetData = FEditorAutomationTestUtilities::GetAssetDataFromPackagePath(FirstMeshPath);
+				AssetData = FAutomationEditorCommonUtils::GetAssetDataFromPackagePath(FirstMeshPath);
 				FirstBlueprintMesh = Cast<UStaticMesh>(AssetData.GetAsset());
 			}
 
 			const FString SecondMeshPath = AutomationTestSettings->BlueprintEditorPromotionTest.SecondMeshPath.FilePath;
 			if (SecondMeshPath.Len() > 0)
 			{
-				AssetData = FEditorAutomationTestUtilities::GetAssetDataFromPackagePath(SecondMeshPath);
+				AssetData = FAutomationEditorCommonUtils::GetAssetDataFromPackagePath(SecondMeshPath);
 				SecondBlueprintMesh = Cast<UStaticMesh>(AssetData.GetAsset());
 			}
 
 			const FString ParticleSystemPath = AutomationTestSettings->BlueprintEditorPromotionTest.DefaultParticleAsset.FilePath;
 			if (ParticleSystemPath.Len() > 0)
 			{
-				AssetData = FEditorAutomationTestUtilities::GetAssetDataFromPackagePath(ParticleSystemPath);
+				AssetData = FAutomationEditorCommonUtils::GetAssetDataFromPackagePath(ParticleSystemPath);
 				LoadedParticleSystem = Cast<UParticleSystem>(AssetData.GetAsset());
 			}
 

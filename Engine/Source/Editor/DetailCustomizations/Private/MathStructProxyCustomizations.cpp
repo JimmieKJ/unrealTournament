@@ -17,7 +17,7 @@ void FMathStructProxyCustomization::MakeHeaderRow( TSharedRef<class IPropertyHan
 }
 
 template<typename ProxyType, typename NumericType>
-TSharedRef<SWidget> FMathStructProxyCustomization::MakeNumericProxyWidget(TSharedRef<IPropertyHandle>& StructPropertyHandle, TSharedRef< TProxyProperty<ProxyType, NumericType> >& ProxyValue, const FText& Label, const FLinearColor& LabelColor, const FLinearColor& LabelBackgroundColor)
+TSharedRef<SWidget> FMathStructProxyCustomization::MakeNumericProxyWidget(TSharedRef<IPropertyHandle>& StructPropertyHandle, TSharedRef< TProxyProperty<ProxyType, NumericType> >& ProxyValue, const FText& Label, bool bRotationInDegrees, const FLinearColor& LabelColor, const FLinearColor& LabelBackgroundColor)
 {
 	TWeakPtr<IPropertyHandle> WeakHandlePtr = StructPropertyHandle;
 
@@ -36,8 +36,8 @@ TSharedRef<SWidget> FMathStructProxyCustomization::MakeNumericProxyWidget(TShare
 		.AllowSpin( StructPropertyHandle->GetNumOuterObjects() == 1 )
 		.MinValue(TOptional<NumericType>())
 		.MaxValue(TOptional<NumericType>())
-		.MaxSliderValue(TOptional<NumericType>())
-		.MinSliderValue(TOptional<NumericType>())
+		.MaxSliderValue(bRotationInDegrees ? 360.0f : TOptional<NumericType>())
+		.MinSliderValue(bRotationInDegrees ? 0.0f : TOptional<NumericType>())
 		.Label()
 		[
 			SNumericEntryBox<float>::BuildLabel( Label, LabelColor, LabelBackgroundColor )
@@ -110,98 +110,119 @@ void FMatrixStructCustomization::MakeHeaderRow(TSharedRef<class IPropertyHandle>
 	];
 }
 
+void FMatrixStructCustomization::CustomizeLocation(TSharedRef<class IPropertyHandle> StructPropertyHandle, FDetailWidgetRow& Row)
+{
+	TWeakPtr<IPropertyHandle> WeakHandlePtr = StructPropertyHandle;
+
+	Row
+	.CopyAction(FUIAction(FExecuteAction::CreateSP(this, &FMatrixStructCustomization::OnCopy, FTransformField::Location, WeakHandlePtr)))
+	.PasteAction(FUIAction(FExecuteAction::CreateSP(this, &FMatrixStructCustomization::OnPaste, FTransformField::Location, WeakHandlePtr)))
+	.NameContent()
+	[
+		StructPropertyHandle->CreatePropertyNameWidget(LOCTEXT("LocationLabel", "Location"))
+	]
+	.ValueContent()
+	.MinDesiredWidth(375.0f)
+	.MaxDesiredWidth(375.0f)
+	[
+		SNew(SHorizontalBox)
+		+ SHorizontalBox::Slot()
+		.Padding(FMargin(0.0f, 2.0f, 3.0f, 2.0f))
+		[
+			MakeNumericProxyWidget<FVector, float>(StructPropertyHandle, CachedTranslationX, LOCTEXT("TranslationX", "X"), false, FLinearColor::White, SNumericEntryBox<float>::RedLabelBackgroundColor)
+		]
+		+ SHorizontalBox::Slot()
+		.Padding(FMargin(0.0f, 2.0f, 3.0f, 2.0f))
+		[
+			MakeNumericProxyWidget<FVector, float>(StructPropertyHandle, CachedTranslationY, LOCTEXT("TranslationY", "Y"), false, FLinearColor::White, SNumericEntryBox<float>::GreenLabelBackgroundColor)
+		]
+		+ SHorizontalBox::Slot()
+		.Padding(FMargin(0.0f, 2.0f, 0.0f, 2.0f))
+		[
+			MakeNumericProxyWidget<FVector, float>(StructPropertyHandle, CachedTranslationZ, LOCTEXT("TranslationZ", "Z"), false, FLinearColor::White, SNumericEntryBox<float>::BlueLabelBackgroundColor)
+		]
+	];
+}
+
+
+void FMatrixStructCustomization::CustomizeRotation(TSharedRef<class IPropertyHandle> StructPropertyHandle, FDetailWidgetRow& Row)
+{
+	TWeakPtr<IPropertyHandle> WeakHandlePtr = StructPropertyHandle;
+
+	Row
+	.CopyAction(FUIAction(FExecuteAction::CreateSP(this, &FMatrixStructCustomization::OnCopy, FTransformField::Rotation, WeakHandlePtr)))
+	.PasteAction(FUIAction(FExecuteAction::CreateSP(this, &FMatrixStructCustomization::OnPaste, FTransformField::Rotation, WeakHandlePtr)))
+	.NameContent()
+	[
+		StructPropertyHandle->CreatePropertyNameWidget(LOCTEXT("RotationLabel", "Rotation"))
+	]
+	.ValueContent()
+	.MinDesiredWidth(375.0f)
+	.MaxDesiredWidth(375.0f)
+	[
+		SNew(SHorizontalBox)
+		+ SHorizontalBox::Slot()
+		.Padding(FMargin(0.0f, 2.0f, 3.0f, 2.0f))
+		[
+			MakeNumericProxyWidget<FRotator, float>(StructPropertyHandle, CachedRotationRoll, LOCTEXT("RotationRoll", "X"), true, FLinearColor::White, SNumericEntryBox<float>::RedLabelBackgroundColor)
+		]
+		+ SHorizontalBox::Slot()
+		.Padding(FMargin(0.0f, 2.0f, 3.0f, 2.0f))
+		[
+			MakeNumericProxyWidget<FRotator, float>(StructPropertyHandle, CachedRotationPitch, LOCTEXT("RotationPitch", "Y"), true, FLinearColor::White, SNumericEntryBox<float>::GreenLabelBackgroundColor)
+		]
+		+ SHorizontalBox::Slot()
+		.Padding(FMargin(0.0f, 2.0f, 0.0f, 2.0f))
+		[
+			MakeNumericProxyWidget<FRotator, float>(StructPropertyHandle, CachedRotationYaw, LOCTEXT("RotationYaw", "Z"), true, FLinearColor::White, SNumericEntryBox<float>::BlueLabelBackgroundColor)
+		]
+	];
+}
+
+
+void FMatrixStructCustomization::CustomizeScale(TSharedRef<class IPropertyHandle> StructPropertyHandle, FDetailWidgetRow& Row)
+{
+	TWeakPtr<IPropertyHandle> WeakHandlePtr = StructPropertyHandle;
+
+	Row
+	.CopyAction(FUIAction(FExecuteAction::CreateSP(this, &FMatrixStructCustomization::OnCopy, FTransformField::Scale, WeakHandlePtr)))
+	.PasteAction(FUIAction(FExecuteAction::CreateSP(this, &FMatrixStructCustomization::OnPaste, FTransformField::Scale, WeakHandlePtr)))
+	.NameContent()
+	[
+		StructPropertyHandle->CreatePropertyNameWidget(LOCTEXT("ScaleLabel", "Scale"))
+	]
+	.ValueContent()
+	.MinDesiredWidth(375.0f)
+	.MaxDesiredWidth(375.0f)
+	[
+		SNew(SHorizontalBox)
+		+ SHorizontalBox::Slot()
+		.Padding(FMargin(0.0f, 2.0f, 3.0f, 2.0f))
+		[
+			MakeNumericProxyWidget<FVector, float>(StructPropertyHandle, CachedScaleX, LOCTEXT("ScaleX", "X"), false, FLinearColor::White, SNumericEntryBox<float>::RedLabelBackgroundColor)
+		]
+		+ SHorizontalBox::Slot()
+		.Padding(FMargin(0.0f, 2.0f, 3.0f, 2.0f))
+		[
+			MakeNumericProxyWidget<FVector, float>(StructPropertyHandle, CachedScaleY, LOCTEXT("ScaleY", "Y"), false, FLinearColor::White, SNumericEntryBox<float>::GreenLabelBackgroundColor)
+		]
+		+ SHorizontalBox::Slot()
+		.Padding(FMargin(0.0f, 2.0f, 0.0f, 2.0f))
+		[
+			MakeNumericProxyWidget<FVector, float>(StructPropertyHandle, CachedScaleZ, LOCTEXT("ScaleZ", "Z"), false, FLinearColor::White, SNumericEntryBox<float>::BlueLabelBackgroundColor)
+		]
+	];
+}
+
 void FMatrixStructCustomization::CustomizeChildren(TSharedRef<class IPropertyHandle> StructPropertyHandle, class IDetailChildrenBuilder& StructBuilder, IPropertyTypeCustomizationUtils& StructCustomizationUtils)
 {
 	FMathStructProxyCustomization::CustomizeChildren(StructPropertyHandle, StructBuilder, StructCustomizationUtils);
 
 	TWeakPtr<IPropertyHandle> WeakHandlePtr = StructPropertyHandle;
 
-	StructBuilder.AddChildContent(LOCTEXT("LocationLabel", "Location"))
-		.CopyAction(FUIAction(FExecuteAction::CreateSP(this, &FMatrixStructCustomization::OnCopy, FTransformField::Location, WeakHandlePtr)))
-		.PasteAction(FUIAction(FExecuteAction::CreateSP(this, &FMatrixStructCustomization::OnPaste, FTransformField::Location, WeakHandlePtr)))
-		.NameContent()
-		[
-			StructPropertyHandle->CreatePropertyNameWidget(LOCTEXT("LocationLabel", "Location"))
-		]
-		.ValueContent()
-		.MinDesiredWidth(375.0f)
-		.MaxDesiredWidth(375.0f)
-		[
-			SNew(SHorizontalBox)
-			+ SHorizontalBox::Slot()
-			.Padding(FMargin(0.0f, 2.0f, 3.0f, 2.0f))
-			[
-				MakeNumericProxyWidget<FVector, float>(StructPropertyHandle, CachedTranslationX, LOCTEXT("TranslationX", "X"), FLinearColor::White, SNumericEntryBox<float>::RedLabelBackgroundColor)
-			]
-			+ SHorizontalBox::Slot()
-			.Padding(FMargin(0.0f, 2.0f, 3.0f, 2.0f))
-			[
-				MakeNumericProxyWidget<FVector, float>(StructPropertyHandle, CachedTranslationY, LOCTEXT("TranslationY", "Y"), FLinearColor::White, SNumericEntryBox<float>::GreenLabelBackgroundColor)
-			]
-			+ SHorizontalBox::Slot()
-			.Padding(FMargin(0.0f, 2.0f, 0.0f, 2.0f))
-			[
-				MakeNumericProxyWidget<FVector, float>(StructPropertyHandle, CachedTranslationZ, LOCTEXT("TranslationZ", "Z"), FLinearColor::White, SNumericEntryBox<float>::BlueLabelBackgroundColor)
-			]
-		];
-
-	StructBuilder.AddChildContent(LOCTEXT("RotationLabel", "Rotation"))
-		.CopyAction(FUIAction(FExecuteAction::CreateSP(this, &FMatrixStructCustomization::OnCopy, FTransformField::Rotation, WeakHandlePtr)))
-		.PasteAction(FUIAction(FExecuteAction::CreateSP(this, &FMatrixStructCustomization::OnPaste, FTransformField::Rotation, WeakHandlePtr)))
-		.NameContent()
-		[
-			StructPropertyHandle->CreatePropertyNameWidget(LOCTEXT("RotationLabel", "Rotation"))
-		]
-		.ValueContent()
-		.MinDesiredWidth(375.0f)
-		.MaxDesiredWidth(375.0f)
-		[
-			SNew(SHorizontalBox)
-			+ SHorizontalBox::Slot()
-			.Padding(FMargin(0.0f, 2.0f, 3.0f, 2.0f))
-			[
-				MakeNumericProxyWidget<FRotator, float>(StructPropertyHandle, CachedRotationRoll, LOCTEXT("RotationRoll", "X"), FLinearColor::White, SNumericEntryBox<float>::RedLabelBackgroundColor)
-			]
-			+ SHorizontalBox::Slot()
-			.Padding(FMargin(0.0f, 2.0f, 3.0f, 2.0f))
-			[
-				MakeNumericProxyWidget<FRotator, float>(StructPropertyHandle, CachedRotationPitch, LOCTEXT("RotationPitch", "Y"), FLinearColor::White, SNumericEntryBox<float>::GreenLabelBackgroundColor)
-			]
-			+ SHorizontalBox::Slot()
-			.Padding(FMargin(0.0f, 2.0f, 0.0f, 2.0f))
-			[
-				MakeNumericProxyWidget<FRotator, float>(StructPropertyHandle, CachedRotationYaw, LOCTEXT("RotationYaw", "Z"), FLinearColor::White, SNumericEntryBox<float>::BlueLabelBackgroundColor)
-			]
-		];
-
-	StructBuilder.AddChildContent(LOCTEXT("ScaleLabel", "Scale"))
-		.CopyAction(FUIAction(FExecuteAction::CreateSP(this, &FMatrixStructCustomization::OnCopy, FTransformField::Scale, WeakHandlePtr)))
-		.PasteAction(FUIAction(FExecuteAction::CreateSP(this, &FMatrixStructCustomization::OnPaste, FTransformField::Scale, WeakHandlePtr)))
-		.NameContent()
-		[
-			StructPropertyHandle->CreatePropertyNameWidget(LOCTEXT("ScaleLabel", "Scale"))
-		]
-		.ValueContent()
-		.MinDesiredWidth(375.0f)
-		.MaxDesiredWidth(375.0f)
-		[
-			SNew(SHorizontalBox)
-			+ SHorizontalBox::Slot()
-			.Padding(FMargin(0.0f, 2.0f, 3.0f, 2.0f))
-			[
-				MakeNumericProxyWidget<FVector, float>(StructPropertyHandle, CachedScaleX, LOCTEXT("ScaleX", "X"), FLinearColor::White, SNumericEntryBox<float>::RedLabelBackgroundColor)
-			]
-			+ SHorizontalBox::Slot()
-			.Padding(FMargin(0.0f, 2.0f, 3.0f, 2.0f))
-			[
-				MakeNumericProxyWidget<FVector, float>(StructPropertyHandle, CachedScaleY, LOCTEXT("ScaleY", "Y"), FLinearColor::White, SNumericEntryBox<float>::GreenLabelBackgroundColor)
-			]
-			+ SHorizontalBox::Slot()
-			.Padding(FMargin(0.0f, 2.0f, 0.0f, 2.0f))
-			[
-				MakeNumericProxyWidget<FVector, float>(StructPropertyHandle, CachedScaleZ, LOCTEXT("ScaleZ", "Z"), FLinearColor::White, SNumericEntryBox<float>::BlueLabelBackgroundColor)
-			]
-		];
+	CustomizeLocation(StructPropertyHandle, StructBuilder.AddChildContent(LOCTEXT("RotationLabel", "Rotation")));
+	CustomizeRotation(StructPropertyHandle, StructBuilder.AddChildContent(LOCTEXT("LocationLabel", "Location")));
+	CustomizeScale(StructPropertyHandle, StructBuilder.AddChildContent(LOCTEXT("ScaleLabel", "Scale")));
 }
 
 void FMatrixStructCustomization::OnCopy(FTransformField::Type Type, TWeakPtr<IPropertyHandle> PropertyHandlePtr)
@@ -462,3 +483,87 @@ bool FTransformStructCustomization::FlushValues( TWeakPtr<IPropertyHandle> Prope
 
 	return true;
 }
+
+
+TSharedRef<IPropertyTypeCustomization> FQuatStructCustomization::MakeInstance()
+{
+	return MakeShareable(new FQuatStructCustomization);
+}
+
+
+void FQuatStructCustomization::MakeHeaderRow(TSharedRef<class IPropertyHandle>& InStructPropertyHandle, FDetailWidgetRow& Row)
+{
+	CustomizeRotation(InStructPropertyHandle, Row);
+}
+
+
+void FQuatStructCustomization::CustomizeChildren(TSharedRef<class IPropertyHandle> StructPropertyHandle, class IDetailChildrenBuilder& StructBuilder, IPropertyTypeCustomizationUtils& StructCustomizationUtils)
+{
+	FMathStructProxyCustomization::CustomizeChildren(StructPropertyHandle, StructBuilder, StructCustomizationUtils);
+}
+
+
+bool FQuatStructCustomization::CacheValues(TWeakPtr<IPropertyHandle> PropertyHandlePtr) const
+{
+	auto PropertyHandle = PropertyHandlePtr.Pin();
+
+	if (!PropertyHandle.IsValid())
+	{
+		return false;
+	}
+
+	TArray<void*> RawData;
+	PropertyHandle->AccessRawData(RawData);
+
+	if (RawData.Num() == 1)
+	{
+		FQuat* QuatValue = reinterpret_cast<FQuat*>(RawData[0]);
+		if (QuatValue != NULL)
+		{
+			CachedRotation->Set(QuatValue->Rotator());
+			return true;
+		}
+	}
+
+	return false;
+}
+
+bool FQuatStructCustomization::FlushValues(TWeakPtr<IPropertyHandle> PropertyHandlePtr) const
+{
+	auto PropertyHandle = PropertyHandlePtr.Pin();
+
+	if (!PropertyHandle.IsValid())
+	{
+		return false;
+	}
+
+	TArray<void*> RawData;
+	PropertyHandle->AccessRawData(RawData);
+
+	PropertyHandle->NotifyPreChange();
+	for (int32 ValueIndex = 0; ValueIndex < RawData.Num(); ValueIndex++)
+	{
+		FQuat* QuatValue = reinterpret_cast<FQuat*>(RawData[0]);
+		if (QuatValue != NULL)
+		{
+			const FRotator CurrentRotation = QuatValue->Rotator();
+
+			FRotator Rotation(
+				CachedRotationPitch->IsSet() ? CachedRotationPitch->Get() : CurrentRotation.Pitch,
+				CachedRotationYaw->IsSet() ? CachedRotationYaw->Get() : CurrentRotation.Yaw,
+				CachedRotationRoll->IsSet() ? CachedRotationRoll->Get() : CurrentRotation.Roll
+				);
+			*QuatValue = Rotation.Quaternion();
+		}
+	}
+	PropertyHandle->NotifyPostChange();
+
+	if (PropertyUtilities.IsValid() && !bIsUsingSlider)
+	{
+		FPropertyChangedEvent ChangeEvent(PropertyHandle->GetProperty(), EPropertyChangeType::ValueSet);
+		PropertyUtilities->NotifyFinishedChangingProperties(ChangeEvent);
+	}
+
+	return true;
+}
+

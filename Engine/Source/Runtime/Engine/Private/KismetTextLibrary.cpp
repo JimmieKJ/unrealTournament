@@ -2,6 +2,7 @@
 
 #include "EnginePrivate.h"
 #include "Kismet/KismetTextLibrary.h"
+#include "TextFormatter.h"
 
 #define LOCTEXT_NAMESPACE "Kismet"
 
@@ -16,6 +17,62 @@ UKismetTextLibrary::UKismetTextLibrary(const FObjectInitializer& ObjectInitializ
 
 /* UKismetTextLibrary static functions
  *****************************************************************************/
+
+FText UKismetTextLibrary::Conv_VectorToText(FVector InVec)
+{
+	FFormatNamedArguments Args;
+	Args.Add(TEXT("X"), InVec.X);
+	Args.Add(TEXT("Y"), InVec.Y);
+	Args.Add(TEXT("Z"), InVec.Z);
+
+	return FText::Format(NSLOCTEXT("Core", "Vector3", "X={X} Y={Y} Z={Z}"), Args);
+}
+
+
+FText UKismetTextLibrary::Conv_Vector2dToText(FVector2D InVec)
+{
+	FFormatNamedArguments Args;
+	Args.Add(TEXT("X"), InVec.X);
+	Args.Add(TEXT("Y"), InVec.Y);
+
+	return FText::Format(NSLOCTEXT("Core", "Vector2", "X={X} Y={Y}"), Args);
+}
+
+
+FText UKismetTextLibrary::Conv_RotatorToText(FRotator InRot)
+{
+	FFormatNamedArguments Args;
+	Args.Add(TEXT("P"), InRot.Pitch);
+	Args.Add(TEXT("Y"), InRot.Yaw);
+	Args.Add(TEXT("R"), InRot.Roll);
+
+	return FText::Format(NSLOCTEXT("Core", "Rotator", "P={P} Y={Y} R={R}"), Args);
+}
+
+
+FText UKismetTextLibrary::Conv_TransformToText(const FTransform& InTrans)
+{
+	return FText::FromString(InTrans.ToString());
+}
+
+
+FText UKismetTextLibrary::Conv_ObjectToText(class UObject* InObj)
+{
+	return FText::FromString((InObj != NULL) ? InObj->GetName() : FString(TEXT("None")));
+}
+
+
+FText UKismetTextLibrary::Conv_ColorToText(FLinearColor InColor)
+{
+	FFormatNamedArguments Args;
+	Args.Add(TEXT("R"), InColor.R);
+	Args.Add(TEXT("G"), InColor.G);
+	Args.Add(TEXT("B"), InColor.B);
+	Args.Add(TEXT("A"), InColor.A);
+
+	return FText::Format(NSLOCTEXT("Core", "LinearColor", "R={R} G={G} B={B} A={A}"), Args);
+}
+
 
 FString UKismetTextLibrary::Conv_TextToString(const FText& InText)
 {
@@ -196,15 +253,33 @@ FText UKismetTextLibrary::AsDate_DateTime(const FDateTime& InDateTime)
 }
 
 
+FText UKismetTextLibrary::AsTimeZoneDate_DateTime(const FDateTime& InDateTime, const FString& InTimeZone)
+{
+	return FText::AsDate(InDateTime, EDateTimeStyle::Default, InTimeZone);
+}
+
+
 FText UKismetTextLibrary::AsDateTime_DateTime(const FDateTime& InDateTime)
 {
 	return FText::AsDateTime(InDateTime, EDateTimeStyle::Default, EDateTimeStyle::Default, FText::GetInvariantTimeZone());
 }
 
 
+FText UKismetTextLibrary::AsTimeZoneDateTime_DateTime(const FDateTime& InDateTime, const FString& InTimeZone)
+{
+	return FText::AsDateTime(InDateTime, EDateTimeStyle::Default, EDateTimeStyle::Default, InTimeZone);
+}
+
+
 FText UKismetTextLibrary::AsTime_DateTime(const FDateTime& InDateTime)
 {
 	return FText::AsTime(InDateTime, EDateTimeStyle::Default, FText::GetInvariantTimeZone());
+}
+
+
+FText UKismetTextLibrary::AsTimeZoneTime_DateTime(const FDateTime& InDateTime, const FString& InTimeZone)
+{
+	return FText::AsTime(InDateTime, EDateTimeStyle::Default, InTimeZone);
 }
 
 
@@ -216,7 +291,7 @@ FText UKismetTextLibrary::AsTimespan_Timespan(const FTimespan& InTimespan)
 
 FText UKismetTextLibrary::Format(FText InPattern, TArray<FFormatArgumentData> InArgs)
 {
-	return FText::Format(MoveTemp(InPattern), MoveTemp(InArgs));
+	return FTextFormatter::Format(MoveTemp(InPattern), MoveTemp(InArgs), false, false);
 }
 
 

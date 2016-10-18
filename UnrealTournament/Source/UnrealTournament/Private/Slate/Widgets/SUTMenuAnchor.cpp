@@ -124,11 +124,11 @@ void SUTMenuAnchor::RebuildSubMenu()
 		];
 }
 
-FReply SUTMenuAnchor::SubMenuButtonClicked(FName Tag)
+FReply SUTMenuAnchor::SubMenuButtonClicked(FName InTag)
 {
 	if (OnSubMenuSelect.IsBound())
 	{
-		OnSubMenuSelect.Execute(Tag);
+		OnSubMenuSelect.Execute(InTag);
 	}
 
 	SetIsOpen(false);

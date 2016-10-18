@@ -5,7 +5,7 @@
 #include "PlacementMode.h"
 #include "AssetToolsModule.h"
 #include "KismetEditorUtilities.h"
-
+#include "Classes/ActorFactories/ActorFactoryPlanarReflection.h"
 
 struct FPlacementCategory : FPlacementCategoryInfo
 {
@@ -79,6 +79,7 @@ public:
 		FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
 		AssetRegistryModule.Get().OnAssetRemoved().AddRaw( this, &FPlacementModeModule::OnAssetRemoved );
 		AssetRegistryModule.Get().OnAssetRenamed().AddRaw( this, &FPlacementModeModule::OnAssetRenamed );
+		AssetRegistryModule.Get().OnAssetAdded().AddRaw( this, &FPlacementModeModule::OnAssetAdded );
 
 		TOptional<FLinearColor> BasicShapeColorOverride = GetBasicShapeColorOverride();
 
@@ -112,13 +113,13 @@ public:
 			Category->Items.Add(CreateID(), MakeShareable( new FPlaceableItem(*UActorFactoryPointLight::StaticClass(), SortOrder+=10)) );
 			Category->Items.Add(CreateID(), MakeShareable( new FPlaceableItem(*UActorFactoryPlayerStart::StaticClass(), SortOrder+=10)) );
 			// Cube
-			Category->Items.Add(CreateID(), MakeShareable( new FPlaceableItem(*UActorFactoryBasicShape::StaticClass(), FAssetData(LoadObject<UStaticMesh>(nullptr,*UActorFactoryBasicShape::BasicCube.ToString())), FName("ClassThumbnail.Cube"), BasicShapeColorOverride, SortOrder+=10)) );
+			Category->Items.Add(CreateID(), MakeShareable( new FPlaceableItem(*UActorFactoryBasicShape::StaticClass(), FAssetData(LoadObject<UStaticMesh>(nullptr,*UActorFactoryBasicShape::BasicCube.ToString())), FName("ClassThumbnail.Cube"), BasicShapeColorOverride, SortOrder+=10, NSLOCTEXT("PlacementMode", "Cube", "Cube") )) );
 			// Sphere
-			Category->Items.Add(CreateID(), MakeShareable( new FPlaceableItem(*UActorFactoryBasicShape::StaticClass(), FAssetData(LoadObject<UStaticMesh>(nullptr,*UActorFactoryBasicShape::BasicSphere.ToString())), FName("ClassThumbnail.Sphere"), BasicShapeColorOverride, SortOrder+=10 )) );
+			Category->Items.Add(CreateID(), MakeShareable( new FPlaceableItem(*UActorFactoryBasicShape::StaticClass(), FAssetData(LoadObject<UStaticMesh>(nullptr,*UActorFactoryBasicShape::BasicSphere.ToString())), FName("ClassThumbnail.Sphere"), BasicShapeColorOverride, SortOrder+=10, NSLOCTEXT("PlacementMode", "Sphere", "Sphere") )) );
 			// Cylinder
-			Category->Items.Add(CreateID(), MakeShareable( new FPlaceableItem(*UActorFactoryBasicShape::StaticClass(), FAssetData(LoadObject<UStaticMesh>(nullptr,*UActorFactoryBasicShape::BasicCylinder.ToString())), FName("ClassThumbnail.Cylinder"), BasicShapeColorOverride, SortOrder+=10 )) );
+			Category->Items.Add(CreateID(), MakeShareable( new FPlaceableItem(*UActorFactoryBasicShape::StaticClass(), FAssetData(LoadObject<UStaticMesh>(nullptr,*UActorFactoryBasicShape::BasicCylinder.ToString())), FName("ClassThumbnail.Cylinder"), BasicShapeColorOverride, SortOrder+=10, NSLOCTEXT("PlacementMode", "Cylinder", "Cylinder") )) );
 			// Cone
-			Category->Items.Add(CreateID(), MakeShareable( new FPlaceableItem(*UActorFactoryBasicShape::StaticClass(), FAssetData(LoadObject<UStaticMesh>(nullptr,*UActorFactoryBasicShape::BasicCone.ToString())), FName("ClassThumbnail.Cone"), BasicShapeColorOverride, SortOrder+=10 )) );
+			Category->Items.Add(CreateID(), MakeShareable( new FPlaceableItem(*UActorFactoryBasicShape::StaticClass(), FAssetData(LoadObject<UStaticMesh>(nullptr,*UActorFactoryBasicShape::BasicCone.ToString())), FName("ClassThumbnail.Cone"), BasicShapeColorOverride, SortOrder+=10, NSLOCTEXT("PlacementMode", "Cone", "Cone") )) );
 			Category->Items.Add(CreateID(), MakeShareable( new FPlaceableItem(*UActorFactoryTriggerBox::StaticClass(), SortOrder+=10)) );
 			Category->Items.Add(CreateID(), MakeShareable( new FPlaceableItem(*UActorFactoryTriggerSphere::StaticClass(), SortOrder+=10)) );
 		}
@@ -162,6 +163,7 @@ public:
 			Category->Items.Add(CreateID(), MakeShareable( new FPlaceableItem(*UActorFactoryExponentialHeightFog::StaticClass(), SortOrder+=10)) );
 			Category->Items.Add(CreateID(), MakeShareable( new FPlaceableItem(*UActorFactorySphereReflectionCapture::StaticClass(), SortOrder+=10)) );
 			Category->Items.Add(CreateID(), MakeShareable( new FPlaceableItem(*UActorFactoryBoxReflectionCapture::StaticClass(), SortOrder+=10)) );
+			Category->Items.Add(CreateID(), MakeShareable( new FPlaceableItem(*UActorFactoryPlanarReflection::StaticClass(), SortOrder += 10)));
 			Category->Items.Add(CreateID(), MakeShareable( new FPlaceableItem(*UActorFactoryDeferredDecal::StaticClass(), SortOrder+=10)) );
 		}
 
@@ -208,10 +210,14 @@ public:
 		FAssetRegistryModule& AssetRegistryModule = FModuleManager::GetModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
 		AssetRegistryModule.Get().OnAssetRemoved().RemoveAll( this );
 		AssetRegistryModule.Get().OnAssetRenamed().RemoveAll( this );
+		AssetRegistryModule.Get().OnAssetAdded().RemoveAll( this );
 	}
 
 	DECLARE_DERIVED_EVENT( FPlacementModeModule, IPlacementModeModule::FOnRecentlyPlacedChanged, FOnRecentlyPlacedChanged );
 	virtual FOnRecentlyPlacedChanged& OnRecentlyPlacedChanged() override { return RecentlyPlacedChanged; }
+
+	DECLARE_DERIVED_EVENT( FPlacementModeModule, IPlacementModeModule::FOnAllPlaceableAssetsChanged, FOnAllPlaceableAssetsChanged );
+	virtual FOnAllPlaceableAssetsChanged& OnAllPlaceableAssetsChanged() override { return AllPlaceableAssetsChanged; }
 
 	/**
 	 * Add the specified assets to the recently placed items list
@@ -285,6 +291,7 @@ public:
 	void OnAssetRemoved(const FAssetData& /*InRemovedAssetData*/)
 	{
 		RecentlyPlacedChanged.Broadcast(RecentlyPlaced);
+		AllPlaceableAssetsChanged.Broadcast();
 	}
 
 	void OnAssetRenamed(const FAssetData& AssetData, const FString& OldObjectPath)
@@ -299,6 +306,12 @@ public:
 		}
 
 		RecentlyPlacedChanged.Broadcast(RecentlyPlaced);
+		AllPlaceableAssetsChanged.Broadcast();
+	}
+
+	void OnAssetAdded(const FAssetData& AssetData)
+	{
+		AllPlaceableAssetsChanged.Broadcast();
 	}
 
 	/**
@@ -598,6 +611,8 @@ private:
 
 	TArray< FActorPlacementInfo >	RecentlyPlaced;
 	FOnRecentlyPlacedChanged		RecentlyPlacedChanged;
+
+	FOnAllPlaceableAssetsChanged	AllPlaceableAssetsChanged;
 
 	FOnStartedPlacingEvent			StartedPlacingEvent;
 	FOnStoppedPlacingEvent			StoppedPlacingEvent;

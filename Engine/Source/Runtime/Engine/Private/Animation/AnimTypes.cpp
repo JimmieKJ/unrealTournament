@@ -63,7 +63,12 @@ float FAnimNotifyEvent::GetTriggerTime() const
 
 float FAnimNotifyEvent::GetEndTriggerTime() const
 {
-	return GetTriggerTime() + GetDuration() + EndTriggerTimeOffset;
+	if (!NotifyStateClass && (EndTriggerTimeOffset != 0.f))
+	{
+		UE_LOG(LogAnimNotify, Log, TEXT("Anim Notify %s is non state, but has an EndTriggerTimeOffset %f!"), *NotifyName.ToString(), EndTriggerTimeOffset);
+	}
+
+	return NotifyStateClass ? (GetTriggerTime() + GetDuration() + EndTriggerTimeOffset) : GetTriggerTime();
 }
 
 float FAnimNotifyEvent::GetDuration() const

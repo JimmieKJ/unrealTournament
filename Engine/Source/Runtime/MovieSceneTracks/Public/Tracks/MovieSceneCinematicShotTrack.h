@@ -34,7 +34,6 @@ public:
 	virtual UMovieSceneSection* CreateNewSection() override;
 	virtual void RemoveSection(UMovieSceneSection& Section) override;
 	virtual bool SupportsMultipleRows() const override;
-	virtual bool AddsSectionBoundsToPlayRange() const override;
 
 #if WITH_EDITOR
 	virtual void OnSectionMoved(UMovieSceneSection& Section) override;

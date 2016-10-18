@@ -669,6 +669,20 @@ bool FReferenceChainSearch::ProcessObject( UObject* CurrentObject )
 				AddToReferenceList(ReferenceList, Ref);
 			}
 		}
+		else if( REFERENCE_INFO.Type == GCRT_AddTSetReferencedObjects )
+		{
+			void*         Set         = StackEntryData + REFERENCE_INFO.Offset;
+			USetProperty* SetProperty = (USetProperty*)TokenStream->ReadPointer( TokenStreamIndex );
+			TokenReturnCount = REFERENCE_INFO.ReturnCount;
+			FFindReferencerCollector ReferenceCollector(this, EReferenceType::SetProperty, (void*)SetProperty, CurrentObject);
+			FSimpleObjectReferenceCollectorArchive CollectorArchive(CurrentObject, ReferenceCollector);
+			SetProperty->SerializeItem(CollectorArchive, Set, nullptr);
+
+			for (const FReferenceChainLink& Ref : ReferenceCollector.References)
+			{
+				AddToReferenceList(ReferenceList, Ref);
+			}
+		}
 		else if (REFERENCE_INFO.Type == GCRT_EndOfPointer)
 		{
 			TokenReturnCount = REFERENCE_INFO.ReturnCount;

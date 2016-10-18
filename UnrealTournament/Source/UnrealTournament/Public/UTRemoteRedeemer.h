@@ -37,6 +37,9 @@ class UNREALTOURNAMENT_API AUTRemoteRedeemer : public APawn, public IUTTeamInter
 	UPROPERTY()
 	int32 LockCount;
 
+	UPROPERTY()
+		int32 KillCount;
+
 	uint8 CachedTeamNum;
 
 protected:
@@ -49,7 +52,7 @@ public:
 	virtual void OnStop(const FHitResult& Hit);
 
 	UFUNCTION()
-	virtual void OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
+	virtual void OnOverlapBegin(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
 	
 	UFUNCTION()
 	virtual void ExplodeTimed();
@@ -76,7 +79,7 @@ public:
 	virtual bool DriverLeave(bool bForceLeave);
 	
 	UFUNCTION()
-	void BlowUp();
+	void BlowUp(FVector HitNormal=FVector::ZeroVector);
 
 	UFUNCTION(BlueprintCallable, Category = Team)
 	virtual uint8 GetTeamNum() const;
@@ -167,9 +170,8 @@ public:
 	UPROPERTY()
 	float RollSmoothingMultiplier;
 
-	float ExplosionTimings[5];
-	float ExplosionRadii[6];
-	float CollisionFreeRadius;
+	UPROPERTY()
+		FVector ExplosionCenter;
 
 	bool bExploded;
 	/** set when we were shot down by an enemy instead of exploding on contact with the big boom */
@@ -214,4 +216,9 @@ public:
 	virtual bool IsRelevancyOwnerFor(const AActor* ReplicatedActor, const AActor* ActorOwner, const AActor* ConnectionActor) const override;
 
 	virtual float TakeDamage(float Damage, const FDamageEvent& DamageEvent, AController* EventInstigator, AActor* DamageCauser) override;
+	
+	virtual void PawnClientRestart() override;
+
+	UFUNCTION(BlueprintImplementableEvent, Category=Pawn)
+	void RedeemerRestarted(AController* NewController);
 };

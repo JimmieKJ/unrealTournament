@@ -47,13 +47,13 @@ FKismetConnectionDrawingPolicy::FKismetConnectionDrawingPolicy(int32 InBackLayer
 	LatestTimeDiscovered = 0.0;
 }
 
-void FKismetConnectionDrawingPolicy::Draw(TMap<TSharedRef<SWidget>, FArrangedWidget>& PinGeometries, FArrangedChildren& ArrangedNodes)
+void FKismetConnectionDrawingPolicy::Draw(TMap<TSharedRef<SWidget>, FArrangedWidget>& InPinGeometries, FArrangedChildren& ArrangedNodes)
 {
 	// Build the execution roadmap (also populates execution times)
 	BuildExecutionRoadmap();
 
 	// Draw everything
-	FConnectionDrawingPolicy::Draw(PinGeometries, ArrangedNodes);
+	FConnectionDrawingPolicy::Draw(InPinGeometries, ArrangedNodes);
 }
 
 bool FKismetConnectionDrawingPolicy::CanBuildRoadmap() const

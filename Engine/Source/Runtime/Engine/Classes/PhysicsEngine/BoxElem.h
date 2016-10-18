@@ -16,20 +16,24 @@ struct FKBoxElem : public FKShapeElem
 	UPROPERTY()
 	FMatrix TM_DEPRECATED;
 
-	UPROPERTY(Category=KBoxElem, VisibleAnywhere)
+	/** Position of the box's origin */
+	UPROPERTY(Category=Box, EditAnywhere)
 	FVector Center;
 
-	UPROPERTY(Category=KBoxElem, VisibleAnywhere)
+	/** Orientation of the box */
+	UPROPERTY(Category= Box, EditAnywhere)
 	FQuat Orientation;
 
-	UPROPERTY(Category=KBoxElem, VisibleAnywhere)
+	/** Extent of the box along the y-axis */
+	UPROPERTY(Category= Box, EditAnywhere, meta =(DisplayName = "X Extent"))
 	float X;
 
-	UPROPERTY(Category=KBoxElem, VisibleAnywhere)
+	/** Extent of the box along the y-axis */
+	UPROPERTY(Category= Box, EditAnywhere, meta = (DisplayName = "Y Extent"))
 	float Y;
 
-	/** length (not radius) */
-	UPROPERTY(Category=KBoxElem, VisibleAnywhere)
+	/** Extent of the box along the z-axis */
+	UPROPERTY(Category= Box, EditAnywhere, meta = (DisplayName = "Z Extent"))
 	float Z;
 
 

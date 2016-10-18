@@ -59,6 +59,7 @@
 #include "Engine/Selection.h"
 #include "Sound/SoundBase.h"
 #include "Camera/CameraAnim.h"
+#include "Animation/AnimSequence.h"
 
 #include "IMenu.h"
 
@@ -3854,9 +3855,11 @@ void FMatinee::OnMenuExport()
 				const bool bKeepHierarchy = GetDefault<UEditorPerProjectUserSettings>()->bKeepAttachHierarchy;
 				Exporter->SetKeepHierarchy(bKeepHierarchy);
 
+				UnFbx::FFbxExporter::FMatineeNodeNameAdapter NodeNameAdapter(MatineeActor);
+
 				const bool bSelectedOnly = false;
 				// Export the persistent level and all of it's actors
-				Exporter->ExportLevelMesh(MatineeActor->GetWorld()->PersistentLevel, MatineeActor, bSelectedOnly );
+				Exporter->ExportLevelMesh(MatineeActor->GetWorld()->PersistentLevel, bSelectedOnly, NodeNameAdapter );
 
 				// Export streaming levels and actors
 				for( int32 CurLevelIndex = 0; CurLevelIndex < MatineeActor->GetWorld()->GetNumLevels(); ++CurLevelIndex )
@@ -3864,7 +3867,7 @@ void FMatinee::OnMenuExport()
 					ULevel* CurLevel = MatineeActor->GetWorld()->GetLevel(CurLevelIndex);
 					if( CurLevel != NULL && CurLevel != (MatineeActor->GetWorld()->PersistentLevel ))
 					{
-						Exporter->ExportLevelMesh( CurLevel, MatineeActor, bSelectedOnly );
+						Exporter->ExportLevelMesh( CurLevel, bSelectedOnly, NodeNameAdapter );
 					}
 				}
 

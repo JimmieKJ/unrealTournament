@@ -105,6 +105,7 @@
 #pragma clang diagnostic ignored "-Winconsistent-missing-override"
 #pragma clang diagnostic ignored "-Wundefined-bool-conversion"
 #pragma clang diagnostic ignored "-Wunused-local-typedef"
+#pragma clang diagnostic ignored "-Wdelete-non-virtual-dtor"
 
 // We can pragma optimisation's on and off as of Apple LLVM 7.3.0 but not before.
 #if __clang_major__ >= 7 && __clang_minor__ >= 3

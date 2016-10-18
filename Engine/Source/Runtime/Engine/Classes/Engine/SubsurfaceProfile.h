@@ -158,10 +158,10 @@ private:
 
 // If you change this you need to recompile the SSS shaders.
 // Required if we use a texture format with limited size but want to express a larger radius
-#define SUBSURFACE_RADIUS_SCALE 1024.0f
+static const int32 SUBSURFACE_RADIUS_SCALE = 1024;
 
  // The kernels range from -3 to 3
-#define SUBSURFACE_KERNEL_SIZE 3.0f
+static const int32 SUBSURFACE_KERNEL_SIZE = 3;
 
 // lives on the render thread
 extern ENGINE_API TGlobalResource<FSubsurfaceProfileTexture> GSubsurfaceProfileTextureObject;

@@ -86,7 +86,7 @@ FUniformBufferRHIRef FD3D12DynamicRHI::RHICreateUniformBuffer(const void* Conten
 			GetRHIDevice()->GetViewDescriptorAllocator<D3D12_CONSTANT_BUFFER_VIEW_DESC>().AllocateHeapSlot(NewUniformBuffer->OfflineHeapIndex);
 
 		D3D12_CONSTANT_BUFFER_VIEW_DESC CBView;
-		CBView.BufferLocation = ResourceLocation->GetResource()->GetResource()->GetGPUVirtualAddress() + ResourceLocation->GetOffset();
+		CBView.BufferLocation = ResourceLocation->GetGPUVirtualAddress();
 		CBView.SizeInBytes = NumBytes;
 		check(ResourceLocation->GetOffset() % 256 == 0);
 		check(CBView.SizeInBytes <= 4096 * 16);

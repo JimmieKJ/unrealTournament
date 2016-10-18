@@ -54,7 +54,6 @@ UGameplayCueManager::UGameplayCueManager(const FObjectInitializer& PCIP)
 
 void UGameplayCueManager::OnCreated()
 {
-	FWorldDelegates::OnPostWorldInitialization.AddUObject(this, &UGameplayCueManager::OnWorldCreated);
 	FWorldDelegates::OnWorldCleanup.AddUObject(this, &UGameplayCueManager::OnWorldCleanup);
 	FWorldDelegates::OnPreWorldFinishDestroy.AddUObject(this, &UGameplayCueManager::OnWorldCleanup, true, true);
 
@@ -159,7 +158,7 @@ void UGameplayCueManager::EndGameplayCuesFor(AActor* TargetActor)
 			AGameplayCueNotify_Actor* InstancedCue = It.Value().Get();
 			if (InstancedCue)
 			{
-				InstancedCue->OnOwnerDestroyed();
+				InstancedCue->OnOwnerDestroyed(TargetActor);
 			}
 			It.RemoveCurrent();
 		}
@@ -170,7 +169,12 @@ int32 GameplayCueActorRecycle = 1;
 static FAutoConsoleVariableRef CVarGameplayCueActorRecycle(TEXT("AbilitySystem.GameplayCueActorRecycle"), GameplayCueActorRecycle, TEXT("Allow recycling of GameplayCue Actors"), ECVF_Default );
 
 int32 GameplayCueActorRecycleDebug = 0;
-static FAutoConsoleVariableRef CVarGameplayCueActorRecycleDebug(TEXT("AbilitySystem.GameplayCueActorRecycleDebug"), GameplayCueActorRecycle, TEXT("Prints logs for GC actor recycling debugging"), ECVF_Default );
+static FAutoConsoleVariableRef CVarGameplayCueActorRecycleDebug(TEXT("AbilitySystem.GameplayCueActorRecycleDebug"), GameplayCueActorRecycleDebug, TEXT("Prints logs for GC actor recycling debugging"), ECVF_Default );
+
+bool UGameplayCueManager::IsGameplayCueRecylingEnabled()
+{
+	return GameplayCueActorRecycle > 0;
+}
 
 AGameplayCueNotify_Actor* UGameplayCueManager::GetInstancedCueActor(AActor* TargetActor, UClass* CueClass, const FGameplayCueParameters& Parameters)
 {
@@ -201,7 +205,12 @@ AGameplayCueNotify_Actor* UGameplayCueManager::GetInstancedCueActor(AActor* Targ
 				return SpawnedCue;
 			}
 		}
+
+		// We aren't going to use this existing cue notify actor, so clear it.
+		SpawnedCue = nullptr;
 	}
+
+	UWorld* World = GetWorld();
 
 	// We don't have an instance for this, and we need one, so make one
 	if (ensure(TargetActor) && ensure(CueClass))
@@ -215,16 +224,36 @@ AGameplayCueNotify_Actor* UGameplayCueManager::GetInstancedCueActor(AActor* Targ
 		// Look to reuse an existing one that is stored on the CDO:
 		if (GameplayCueActorRecycle > 0)
 		{
-			FPreallocationInfo& Info = GetPreallocationInfo(GetWorld());
+			FPreallocationInfo& Info = GetPreallocationInfo(World);
 			TArray<AGameplayCueNotify_Actor*>* PreallocatedList = Info.PreallocatedInstances.Find(CueClass);
 			if (PreallocatedList && PreallocatedList->Num() > 0)
 			{
-				SpawnedCue = PreallocatedList->Pop(false);
-				checkf(SpawnedCue && SpawnedCue->IsPendingKill() == false, TEXT("Spawned Cue is pending kill or null: %s"), *GetNameSafe(SpawnedCue));
-				SpawnedCue->bInRecycleQueue = false;				
-				SpawnedCue->SetActorHiddenInGame(false);
-				SpawnedCue->SetOwner(NewOwnerActor);
-				SpawnedCue->SetActorLocationAndRotation(TargetActor->GetActorLocation(), TargetActor->GetActorRotation());
+				SpawnedCue = nullptr;
+				while (true)
+				{
+					SpawnedCue = PreallocatedList->Pop(false);
+					if (SpawnedCue && SpawnedCue->IsPendingKill() == false)
+					{
+						break;
+					}
+					
+					// outside of replays, this should not happen. GC Notifies should not be actually destroyed.
+					checkf(World->DemoNetDriver, TEXT("Spawned Cue is pending kill or null: %s."), *GetNameSafe(SpawnedCue));
+
+					if (PreallocatedList->Num() <= 0)
+					{
+						// Ran out of preallocated instances... break and create a new one.
+						break;
+					}
+				}
+
+				if (SpawnedCue)
+				{
+					SpawnedCue->bInRecycleQueue = false;
+					SpawnedCue->SetOwner(NewOwnerActor);
+					SpawnedCue->SetActorLocationAndRotation(TargetActor->GetActorLocation(), TargetActor->GetActorRotation());
+					SpawnedCue->ReuseAfterRecycle();					
+				}
 
 				UE_CLOG((GameplayCueActorRecycleDebug>0), LogAbilitySystem, Display, TEXT("GetInstancedCueActor Popping Recycled %s (Target: %s). Using GC Actor: %s"), *GetNameSafe(CueClass), *GetNameSafe(TargetActor), *GetNameSafe(SpawnedCue));
 #if WITH_EDITOR
@@ -277,20 +306,25 @@ void UGameplayCueManager::NotifyGameplayCueActorFinished(AGameplayCueNotify_Acto
 		AGameplayCueNotify_Actor* CDO = Actor->GetClass()->GetDefaultObject<AGameplayCueNotify_Actor>();
 		if (CDO && Actor->Recycle())
 		{
-			ensure(Actor->IsPendingKill() == false);
+			if (Actor->IsPendingKill())
+			{
+				ensureMsgf(GetWorld()->DemoNetDriver, TEXT("GameplayCueNotify %s is pending kill in ::NotifyGameplayCueActorFinished (and not in network demo)"), *GetNameSafe(Actor));
+				return;
+			}
 			Actor->bInRecycleQueue = true;
 
 			// Remove this now from our internal map so that it doesn't get reused like a currently active cue would
 			if (TWeakObjectPtr<AGameplayCueNotify_Actor>* WeakPtrPtr = NotifyMapActor.Find(Actor->NotifyKey))
 			{
-				WeakPtrPtr->Reset();
+				// Only remove if this is the current actor in the map!
+				// This could happen if a GC notify actor has a delayed removal and another GC event happens before the delayed removal happens (the old GC actor could replace the latest one in the map)
+				if (WeakPtrPtr->Get() == Actor)
+				{
+					WeakPtrPtr->Reset();
+				}
 			}
 
 			UE_CLOG((GameplayCueActorRecycleDebug>0), LogAbilitySystem, Display, TEXT("NotifyGameplayCueActorFinished %s"), *GetNameSafe(Actor));
-
-			Actor->SetOwner(nullptr);
-			Actor->SetActorHiddenInGame(true);
-			Actor->DetachRootComponentFromParent();
 
 			FPreallocationInfo& Info = GetPreallocationInfo(Actor->GetWorld());
 			TArray<AGameplayCueNotify_Actor*>& PreAllocatedList = Info.PreallocatedInstances.FindOrAdd(Actor->GetClass());
@@ -321,10 +355,18 @@ void UGameplayCueManager::LoadObjectLibraryFromPaths(const TArray<FString>& InPa
 	if (!GameplayCueNotifyActorObjectLibrary)
 	{
 		GameplayCueNotifyActorObjectLibrary = UObjectLibrary::CreateLibrary(AGameplayCueNotify_Actor::StaticClass(), true, GIsEditor && !IsRunningCommandlet());
+		if (GIsEditor)
+		{
+			GameplayCueNotifyActorObjectLibrary->bIncludeOnlyOnDiskAssets = false;
+		}
 	}
 	if (!GameplayCueNotifyStaticObjectLibrary)
 	{
 		GameplayCueNotifyStaticObjectLibrary = UObjectLibrary::CreateLibrary(UGameplayCueNotify_Static::StaticClass(), true, GIsEditor && !IsRunningCommandlet());
+		if (GIsEditor)
+		{
+			GameplayCueNotifyStaticObjectLibrary->bIncludeOnlyOnDiskAssets = false;
+		}
 	}
 
 	LoadedPaths = InPaths;
@@ -363,9 +405,58 @@ void UGameplayCueManager::LoadObjectLibrary_Internal()
 	InitObjectLibraries(LoadedPaths, GameplayCueNotifyActorObjectLibrary, GameplayCueNotifyStaticObjectLibrary, OnLoadDelegate);
 }
 
+static void SearchDynamicClassCues(const FName PropertyName, const TArray<FString>& Paths, TArray<FGameplayCueReferencePair>& CuesToAdd, TArray<FStringAssetReference>& AssetsToLoad)
+{
+	// Iterate over all Dynamic Classes (nativized Blueprints). Search for ones with GameplayCueName tag.
+
+	IGameplayTagsModule& GameplayTagsModule = IGameplayTagsModule::Get();
+	TMap<FName, FDynamicClassStaticData>& DynamicClassMap = GetDynamicClassMap();
+	for (auto PairIter : DynamicClassMap)
+	{
+		const FName* FoundGameplayTag = PairIter.Value.SelectedSearchableValues.Find(PropertyName);
+		if (!FoundGameplayTag)
+		{
+			continue;
+		}
+
+		const FString ClassPath = PairIter.Key.ToString();
+		for (const FString& Path : Paths)
+		{
+			const bool PathContainsClass = ClassPath.StartsWith(Path); // TODO: is it enough?
+			if (!PathContainsClass)
+			{
+				continue;
+			}
+
+			ABILITY_LOG(Log, TEXT("GameplayCueManager Found a Dynamic Class: %s / %s"), *FoundGameplayTag->ToString(), *ClassPath);
+
+			FGameplayTag  GameplayCueTag = GameplayTagsModule.GetGameplayTagsManager().RequestGameplayTag(*FoundGameplayTag, false);
+			if (GameplayCueTag.IsValid())
+			{
+				FStringAssetReference StringRef(ClassPath); // TODO: is there any translation needed?
+				ensure(StringRef.IsValid());
+
+				CuesToAdd.Add(FGameplayCueReferencePair(GameplayCueTag, StringRef));
+				AssetsToLoad.Add(StringRef);
+			}
+			else
+			{
+				ABILITY_LOG(Warning, TEXT("Found GameplayCue tag %s in Dynamic Class %s but there is no corresponding tag in the GameplayTagManager."), *FoundGameplayTag->ToString(), *ClassPath);
+			}
+
+			break;
+		}
+	}
+}
+
 void UGameplayCueManager::InitObjectLibraries(TArray<FString> Paths, UObjectLibrary* ActorObjectLibrary, UObjectLibrary* StaticObjectLibrary, FOnGameplayCueNotifySetLoaded OnLoadDelegate, FShouldLoadGCNotifyDelegate ShouldLoadDelegate)
 {
 	DECLARE_SCOPE_CYCLE_COUNTER(TEXT("Loading Library"), STAT_ObjectLibrary, STATGROUP_LoadTime);
+
+	if (ActorObjectLibrary==nullptr || StaticObjectLibrary==nullptr)
+	{
+		return;
+	}
 
 #if WITH_EDITOR
 	bAccelerationMapOutdated = false;
@@ -407,19 +498,45 @@ void UGameplayCueManager::InitObjectLibraries(TArray<FString> Paths, UObjectLibr
 	StaticObjectLibrary->GetAssetDataList(StaticAssetDatas);
 
 	TArray<FGameplayCueReferencePair> CuesToAdd;
-	BuildCuesToAddToGlobalSet(ActorAssetDatas, GET_MEMBER_NAME_CHECKED(AGameplayCueNotify_Actor, GameplayCueName), bAsyncLoadAtStartup, CuesToAdd, OnLoadDelegate, ShouldLoadDelegate);
-	BuildCuesToAddToGlobalSet(StaticAssetDatas, GET_MEMBER_NAME_CHECKED(UGameplayCueNotify_Static, GameplayCueName), bAsyncLoadAtStartup, CuesToAdd, OnLoadDelegate, ShouldLoadDelegate);
+	TArray<FStringAssetReference> AssetsToLoad;
 
+	// Build Cue lists for loading. Determines what from the obj library needs to be loaded
+	BuildCuesToAddToGlobalSet(ActorAssetDatas, GET_MEMBER_NAME_CHECKED(AGameplayCueNotify_Actor, GameplayCueName), CuesToAdd, AssetsToLoad, ShouldLoadDelegate);
+	BuildCuesToAddToGlobalSet(StaticAssetDatas, GET_MEMBER_NAME_CHECKED(UGameplayCueNotify_Static, GameplayCueName), CuesToAdd, AssetsToLoad, ShouldLoadDelegate);
+
+	const FName PropertyName = GET_MEMBER_NAME_CHECKED(AGameplayCueNotify_Actor, GameplayCueName);
+	check(PropertyName == GET_MEMBER_NAME_CHECKED(UGameplayCueNotify_Static, GameplayCueName));
+	SearchDynamicClassCues(PropertyName, Paths, CuesToAdd, AssetsToLoad);
+
+	// Add these cues to the global set
 	check(GlobalCueSet);
 	GlobalCueSet->AddCues(CuesToAdd);
+
+	// Start loading them if necessary
+	if (bAsyncLoadAtStartup)
+	{
+		auto ForwardLambda = [](TArray<FStringAssetReference> AssetList, FOnGameplayCueNotifySetLoaded OnLoadedDelegate)
+		{
+			OnLoadedDelegate.ExecuteIfBound(AssetList);
+		};
+
+		if (AssetsToLoad.Num() > 0)
+		{			
+			StreamableManager.RequestAsyncLoad(AssetsToLoad, FStreamableDelegate::CreateStatic( ForwardLambda, AssetsToLoad, OnLoadDelegate));
+		}
+		else
+		{
+			// Still fire the delegate even if nothing was found to load
+			OnLoadDelegate.ExecuteIfBound(AssetsToLoad);
+		}
+	}
 }
 
-void UGameplayCueManager::BuildCuesToAddToGlobalSet(const TArray<FAssetData>& AssetDataList, FName TagPropertyName, bool bAsyncLoadAfterAdd, TArray<FGameplayCueReferencePair>& OutCuesToAdd, FOnGameplayCueNotifySetLoaded OnLoaded, FShouldLoadGCNotifyDelegate ShouldLoad)
+void UGameplayCueManager::BuildCuesToAddToGlobalSet(const TArray<FAssetData>& AssetDataList, FName TagPropertyName, TArray<FGameplayCueReferencePair>& OutCuesToAdd, TArray<FStringAssetReference>& OutAssetsToLoad, FShouldLoadGCNotifyDelegate ShouldLoad)
 {
 	IGameplayTagsModule& GameplayTagsModule = IGameplayTagsModule::Get();
 
-	TArray<FStringAssetReference> AssetsToLoad;
-	AssetsToLoad.Reserve(AssetDataList.Num());
+	OutAssetsToLoad.Reserve(OutAssetsToLoad.Num() + AssetDataList.Num());
 
 	for (FAssetData Data: AssetDataList)
 	{
@@ -429,19 +546,19 @@ void UGameplayCueManager::BuildCuesToAddToGlobalSet(const TArray<FAssetData>& As
 			continue;
 		}
 
-		const FString* FoundGameplayTag = Data.TagsAndValues.Find(TagPropertyName);
-		if (FoundGameplayTag && FoundGameplayTag->Equals(TEXT("None")) == false)
+		const FName FoundGameplayTag = Data.GetTagValueRef<FName>(TagPropertyName);
+		if (!FoundGameplayTag.IsNone())
 		{
-			const FString* GeneratedClassTag = Data.TagsAndValues.Find(TEXT("GeneratedClass"));
-			if (GeneratedClassTag == nullptr)
+			const FString GeneratedClassTag = Data.GetTagValueRef<FString>("GeneratedClass");
+			if (GeneratedClassTag.IsEmpty())
 			{
 				ABILITY_LOG(Warning, TEXT("Unable to find GeneratedClass value for AssetData %s"), *Data.ObjectPath.ToString());
 				continue;
 			}
 
-			ABILITY_LOG(Log, TEXT("GameplayCueManager Found: %s / %s"), **FoundGameplayTag, **GeneratedClassTag);
+			ABILITY_LOG(Log, TEXT("GameplayCueManager Found: %s / %s"), *FoundGameplayTag.ToString(), **GeneratedClassTag);
 
-			FGameplayTag  GameplayCueTag = GameplayTagsModule.GetGameplayTagsManager().RequestGameplayTag(FName(**FoundGameplayTag), false);
+			FGameplayTag  GameplayCueTag = GameplayTagsModule.GetGameplayTagsManager().RequestGameplayTag(FoundGameplayTag, false);
 			if (GameplayCueTag.IsValid())
 			{
 				// Add a new NotifyData entry to our flat list for this one
@@ -450,30 +567,12 @@ void UGameplayCueManager::BuildCuesToAddToGlobalSet(const TArray<FAssetData>& As
 
 				OutCuesToAdd.Add(FGameplayCueReferencePair(GameplayCueTag, StringRef));
 
-				AssetsToLoad.Add(StringRef);
+				OutAssetsToLoad.Add(StringRef);
 			}
 			else
 			{
-				ABILITY_LOG(Warning, TEXT("Found GameplayCue tag %s in asset %s but there is no corresponding tag in the GameplayTagManager."), **FoundGameplayTag, *Data.PackageName.ToString());
+				ABILITY_LOG(Warning, TEXT("Found GameplayCue tag %s in asset %s but there is no corresponding tag in the GameplayTagManager."), *FoundGameplayTag.ToString(), *Data.PackageName.ToString());
 			}
-		}
-	}
-
-	if (bAsyncLoadAfterAdd)
-	{
-		auto ForwardLambda = [](TArray<FStringAssetReference> AssetList, FOnGameplayCueNotifySetLoaded OnLoadedDelegate)
-		{
-			OnLoadedDelegate.ExecuteIfBound(AssetList);
-		};
-
-		if (AssetsToLoad.Num() > 0)
-		{			
-			StreamableManager.RequestAsyncLoad(AssetsToLoad, FStreamableDelegate::CreateStatic( ForwardLambda, AssetsToLoad, OnLoaded));
-		}
-		else
-		{
-			// Still fire the delegate even if nothing was found to load
-			OnLoaded.ExecuteIfBound(AssetsToLoad);
 		}
 	}
 }
@@ -636,11 +735,9 @@ void UGameplayCueManager::HandleAssetDeleted(UObject *Object)
 /** Handles cleaning up an object library if it matches the passed in object */
 void UGameplayCueManager::HandleAssetRenamed(const FAssetData& Data, const FString& String)
 {
-	const FString* ParentClassNamePtr = Data.TagsAndValues.Find(TEXT("ParentClass"));
-	if (ParentClassNamePtr)
+	const FString ParentClassName = Data.GetTagValueRef<FString>("ParentClass");
+	if (!ParentClassName.IsEmpty())
 	{
-		FString ParentClassName = *ParentClassNamePtr;
-		
 		UClass* DataClass = FindObject<UClass>(nullptr, *ParentClassName);
 		if (DataClass)
 		{
@@ -1076,14 +1173,11 @@ void UGameplayCueManager::CheckForPreallocation(UClass* GCClass)
 			GameplayCueClassesForPreallocation.Add(InstancedCue);
 
 			// Add it to any world specific lists
-#if WITH_EDITOR
 			for (FPreallocationInfo& Info : PreallocationInfoList_Internal)
 			{
+				ensure(Info.ClassesNeedingPreallocation.Contains(InstancedCue)==false);
 				Info.ClassesNeedingPreallocation.Push(InstancedCue);
 			}
-#else
-			PreallocationInfo_Internal.ClassesNeedingPreallocation.Push(InstancedCue);
-#endif
 		}
 	}
 }
@@ -1108,9 +1202,10 @@ void UGameplayCueManager::UpdatePreallocation(UWorld* World)
 		TArray<AGameplayCueNotify_Actor*>& PreallocatedList = Info.PreallocatedInstances.FindOrAdd(CDO->GetClass());
 
 		AGameplayCueNotify_Actor* PrespawnedInstance = Cast<AGameplayCueNotify_Actor>(World->SpawnActor(CDO->GetClass()));
-		ensureMsgf(PrespawnedInstance, TEXT("Failed to prespawn GC notify for: %s"), *GetNameSafe(CDO));
-		if (PrespawnedInstance)
+		if (ensureMsgf(PrespawnedInstance, TEXT("Failed to prespawn GC notify for: %s"), *GetNameSafe(CDO)))
 		{
+			ensureMsgf(PrespawnedInstance->IsPendingKill() == false, TEXT("Newly spawned GC is PendingKILL: %s"), *GetNameSafe(CDO));
+
 			if (LogGameplayCueActorSpawning)
 			{
 				ABILITY_LOG(Warning, TEXT("Prespawning GC %s"), *GetNameSafe(CDO));
@@ -1130,62 +1225,36 @@ void UGameplayCueManager::UpdatePreallocation(UWorld* World)
 
 FPreallocationInfo& UGameplayCueManager::GetPreallocationInfo(UWorld* World)
 {
-#if WITH_EDITOR
 	for (FPreallocationInfo& Info : PreallocationInfoList_Internal)
 	{
-		if (World == Info.OwningWorld)
+		if (FObjectKey(World) == Info.OwningWorldKey)
 		{
 			return Info;
 		}
 	}
 
 	FPreallocationInfo NewInfo;
-	NewInfo.OwningWorld = World;
+	NewInfo.OwningWorldKey = FObjectKey(World);
 
 	PreallocationInfoList_Internal.Add(NewInfo);
 	return PreallocationInfoList_Internal.Last();
-
-#else
-	return PreallocationInfo_Internal;
-#endif
-
-}
-
-void UGameplayCueManager::OnWorldCreated(UWorld* NewWorld, const UWorld::InitializationValues IV )
-{
-	// Attempting to track down rare GC error where PreallocationInfo_Internal.OwningWorld is not cleaned up.
-	ABILITY_LOG(Display, TEXT("UGameplayCueManager::OnWorldCreated %s. Current PreallocationInfo_Internal: %s"), *GetNameSafe(NewWorld), *GetNameSafe(PreallocationInfo_Internal.OwningWorld));
-
-	PreallocationInfo_Internal.PreallocatedInstances.Reset();
-	PreallocationInfo_Internal.OwningWorld = NewWorld;
 }
 
 void UGameplayCueManager::OnWorldCleanup(UWorld* World, bool bSessionEnded, bool bCleanupResources)
 {
-	// Attempting to track down rare GC error where PreallocationInfo_Internal.OwningWorld is not cleaned up.
-	ABILITY_LOG(Display, TEXT("UGameplayCueManager::OnWorldCleanup %s. Current PreallocationInfo_Internal: %s"), *GetNameSafe(World), *GetNameSafe(PreallocationInfo_Internal.OwningWorld));
-
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	DumpPreallocationStats(World);
 #endif
 
-	if (PreallocationInfo_Internal.OwningWorld == World)
-	{
-		// Reset PreallocationInfo_Internal
-		OnWorldCreated(nullptr, UWorld::InitializationValues());
-	}
-
-#if WITH_EDITOR
 	for (int32 idx=0; idx < PreallocationInfoList_Internal.Num(); ++idx)
 	{
-		if (PreallocationInfoList_Internal[idx].OwningWorld == World)
+		if (PreallocationInfoList_Internal[idx].OwningWorldKey == FObjectKey(World))
 		{
+			ABILITY_LOG(Display, TEXT("UGameplayCueManager::OnWorldCleanup Removing PreallocationInfoList_Internal element %d"), idx);
 			PreallocationInfoList_Internal.RemoveAtSwap(idx, 1, false);
-			break;
+			idx--;
 		}
 	}
-#endif	
-	
 }
 
 void UGameplayCueManager::DumpPreallocationStats(UWorld* World)

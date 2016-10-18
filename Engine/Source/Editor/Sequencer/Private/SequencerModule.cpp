@@ -65,8 +65,9 @@ public:
 				false);
 		}
 
-		MenuExtensibilityManager = MakeShareable( new FExtensibilityManager );
-		ToolBarExtensibilityManager = MakeShareable( new FExtensibilityManager );
+		ObjectBindingContextMenuExtensibilityManager = MakeShareable( new FExtensibilityManager );
+		AddTrackMenuExtensibilityManager = MakeShareable( new FExtensibilityManager );
+		ToolBarExtensibilityManager = MakeShareable(new FExtensibilityManager);
 	}
 
 	virtual void ShutdownModule() override
@@ -79,7 +80,8 @@ public:
 		}
 	}
 
-	virtual TSharedPtr<FExtensibilityManager> GetMenuExtensibilityManager() const override { return MenuExtensibilityManager; }
+	virtual TSharedPtr<FExtensibilityManager> GetObjectBindingContextMenuExtensibilityManager() const override { return ObjectBindingContextMenuExtensibilityManager; }
+	virtual TSharedPtr<FExtensibilityManager> GetAddTrackMenuExtensibilityManager() const override { return AddTrackMenuExtensibilityManager; }
 	virtual TSharedPtr<FExtensibilityManager> GetToolBarExtensibilityManager() const override { return ToolBarExtensibilityManager; }
 
 private:
@@ -87,7 +89,8 @@ private:
 	/** List of auto-key handler delegates sequencers will execute when they are created */
 	TArray< FOnCreateTrackEditor > TrackEditorDelegates;
 
-	TSharedPtr<FExtensibilityManager> MenuExtensibilityManager;
+	TSharedPtr<FExtensibilityManager> ObjectBindingContextMenuExtensibilityManager;
+	TSharedPtr<FExtensibilityManager> AddTrackMenuExtensibilityManager;
 	TSharedPtr<FExtensibilityManager> ToolBarExtensibilityManager;
 };
 

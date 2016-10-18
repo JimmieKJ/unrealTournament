@@ -5,7 +5,7 @@
 #include "SlateWidgetStyleAssetFactory.generated.h"
 
 /** Factory for creating SlateStyles */
-UCLASS(hidecategories=Object)
+UCLASS(MinimalAPI, hidecategories=Object)
 class USlateWidgetStyleAssetFactory : public UFactory
 {
 	GENERATED_UCLASS_BODY()
@@ -19,6 +19,3 @@ class USlateWidgetStyleAssetFactory : public UFactory
 	virtual UObject* FactoryCreateNew(UClass* Class,UObject* InParent,FName Name,EObjectFlags Flags,UObject* Context,FFeedbackContext* Warn) override;
 	//~ Begin UFactory Interface
 };
-
-
-

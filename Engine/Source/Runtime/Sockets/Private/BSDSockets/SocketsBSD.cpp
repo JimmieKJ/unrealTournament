@@ -92,7 +92,7 @@ bool FSocketBSD::HasPendingData(uint32& PendingDataSize)
 }
 
 
-FSocket* FSocketBSD::Accept(const FString& SocketDescription)
+FSocket* FSocketBSD::Accept(const FString& InSocketDescription)
 {
 	SOCKET NewSocket = accept(Socket, NULL, NULL);
 
@@ -101,14 +101,14 @@ FSocket* FSocketBSD::Accept(const FString& SocketDescription)
 		// we need the subclass to create the actual FSocket object
 		check(SocketSubsystem);
 		FSocketSubsystemBSD* BSDSystem = static_cast<FSocketSubsystemBSD*>(SocketSubsystem);
-		return BSDSystem->InternalBSDSocketFactory(NewSocket, SocketType, SocketDescription);
+		return BSDSystem->InternalBSDSocketFactory(NewSocket, SocketType, InSocketDescription);
 	}
 
 	return NULL;
 }
 
 
-FSocket* FSocketBSD::Accept(FInternetAddr& OutAddr, const FString& SocketDescription)
+FSocket* FSocketBSD::Accept(FInternetAddr& OutAddr, const FString& InSocketDescription)
 {
 	SOCKLEN SizeOf = sizeof(sockaddr_in);
 	SOCKET NewSocket = accept(Socket, *(FInternetAddrBSD*)(&OutAddr), &SizeOf);
@@ -118,7 +118,7 @@ FSocket* FSocketBSD::Accept(FInternetAddr& OutAddr, const FString& SocketDescrip
 		// we need the subclass to create the actual FSocket object
 		check(SocketSubsystem);
 		FSocketSubsystemBSD* BSDSystem = static_cast<FSocketSubsystemBSD*>(SocketSubsystem);
-		return BSDSystem->InternalBSDSocketFactory(NewSocket, SocketType, SocketDescription);
+		return BSDSystem->InternalBSDSocketFactory(NewSocket, SocketType, InSocketDescription);
 	}
 
 	return NULL;
@@ -167,10 +167,14 @@ bool FSocketBSD::RecvFrom(uint8* Data, int32 BufferSize, int32& BytesRead, FInte
 	BytesRead = recvfrom(Socket, (char*)Data, BufferSize, TranslatedFlags, &Addr, &Size);
 //	NETWORK_PROFILER(FSocket::RecvFrom(Data,BufferSize,BytesRead,Source));
 
-	if (BytesRead < 0)
+	if (BytesRead < 0 && SocketSubsystem->TranslateErrorCode(BytesRead) == SE_EWOULDBLOCK)
+	{
+		// EWOULDBLOCK is not an error condition
+		BytesRead = 0;
+	}
+	else if (BytesRead <= 0) // 0 means gracefully closed
 	{
 		BytesRead = 0;
-
 		return false;
 	}
 
@@ -187,12 +191,20 @@ bool FSocketBSD::Recv(uint8* Data, int32 BufferSize, int32& BytesRead, ESocketRe
 
 //	NETWORK_PROFILER(FSocket::Recv(Data,BufferSize,BytesRead));
 
-	bool Result = BytesRead >= 0;
-	if (Result)
+	if (BytesRead < 0 && SocketSubsystem->TranslateErrorCode(BytesRead) == SE_EWOULDBLOCK)
 	{
-		LastActivityTime = FDateTime::UtcNow();
+		// EWOULDBLOCK is not an error condition
+		BytesRead = 0;
 	}
-	return Result;
+	else if (BytesRead <= 0) // 0 means gracefully closed
+	{
+		BytesRead = 0;
+		return false;
+	}
+
+	LastActivityTime = FDateTime::UtcNow();
+
+	return true;
 }
 
 
@@ -426,7 +438,7 @@ ESocketBSDReturn FSocketBSD::HasState(ESocketBSDParam State, FTimespan WaitTime)
 	// convert WaitTime to a timeval
 	timeval Time;
 	Time.tv_sec = (int32)WaitTime.GetTotalSeconds();
-	Time.tv_usec = WaitTime.GetMilliseconds() * 1000;
+	Time.tv_usec = WaitTime.GetMilliseconds() * 1000 + WaitTime.GetMicroseconds();
 
 	fd_set SocketSet;
 

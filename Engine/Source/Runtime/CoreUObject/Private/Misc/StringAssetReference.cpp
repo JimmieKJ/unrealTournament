@@ -26,13 +26,25 @@ const FString& FStringAssetReference::ToString() const
 
 void FStringAssetReference::SetPath(FString Path)
 {
-	if (!FPackageName::IsShortPackageName(Path))
+	if (Path.IsEmpty())
 	{
-		AssetLongPathname = MoveTemp(Path);
+		// Empty path, just empty the pathname.
+		AssetLongPathname.Empty();
+	}
+	else if (FPackageName::IsShortPackageName(Path))
+	{
+		// Short package name. Try to expand it.
+		AssetLongPathname = FPackageName::GetNormalizedObjectPath(Path); 
+	}
+	else if (Path[0] != '/')
+	{
+		// Possibly an ExportText path. Trim the ClassName.
+		AssetLongPathname = FPackageName::ExportTextPathToObjectPath(Path);
 	}
 	else
 	{
-		AssetLongPathname = FPackageName::GetNormalizedObjectPath(Path);
+		// Normal object path. Fast path set directly.
+		AssetLongPathname = MoveTemp(Path);
 	}
 }
 PRAGMA_POP
@@ -56,6 +68,7 @@ bool FStringAssetReference::Serialize(FArchive& Ar)
 	if (Ar.IsLoading() && (Ar.GetPortFlags()&PPF_DuplicateForPIE))
 	{
 		// Remap unique ID if necessary
+		// only for fixing up cross-level references, inter-level references handled in FDuplicateDataReader
 		FixupForPIE();
 	}
 

@@ -7,6 +7,7 @@
 #include "UTLift.h"
 #include "UTProjectileMovementComponent.h"
 #include "PhysicsEngine/BodySetup.h"
+#include "PhysicsEngine/PhysicsConstraintComponent.h"
 
 AUTProj_StingerShard::AUTProj_StingerShard(const class FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -15,7 +16,7 @@ AUTProj_StingerShard::AUTProj_StingerShard(const class FObjectInitializer& Objec
 	if (ShardMesh != NULL)
 	{
 		ShardMesh->SetCollisionProfileName(FName(TEXT("NoCollision")));
-		ShardMesh->AttachParent = RootComponent;
+		ShardMesh->SetupAttachment(RootComponent);
 	}
 	if (PawnOverlapSphere != NULL)
 	{
@@ -46,14 +47,10 @@ void AUTProj_StingerShard::ProcessHit_Implementation(AActor* OtherActor, UPrimit
 		return;
 	}
 
-	APawn* HitPawn = Cast<APawn>(OtherActor);
-	if (AttachedPawns.Contains(HitPawn))
+	AUTCharacter* HitChar = Cast<AUTCharacter>(OtherActor);
+	if (HitChar != NULL || Cast<AUTProjectile>(OtherActor) != NULL || (OtherActor && OtherActor->bCanBeDamaged))
 	{
-		return;
-	}
-	else if (HitPawn != NULL || Cast<AUTProjectile>(OtherActor) != NULL || (OtherActor && OtherActor->bCanBeDamaged))
-	{
-		if (HitPawn != NULL)
+		if (HitChar != NULL)
 		{
 			if (ProjectileMovement->Velocity.IsZero())
 			{
@@ -64,21 +61,17 @@ void AUTProj_StingerShard::ProcessHit_Implementation(AActor* OtherActor, UPrimit
 				ProjectileMovement->Velocity = MomentumDir.GetSafeNormal();
 
 				// clamp player z vel
-				AUTCharacter* HitChar = Cast<AUTCharacter>(HitPawn);
-				if (HitChar)
+				UUTCharacterMovement* UTMove = Cast<UUTCharacterMovement>(HitChar->GetCharacterMovement());
+				if (UTMove)
 				{
-					UUTCharacterMovement* UTMove = Cast<UUTCharacterMovement>(HitChar->GetCharacterMovement());
-					if (UTMove)
+					float CurrentVelZ = UTMove->Velocity.Z;
+					if (CurrentVelZ > -1.5f * UTMove->JumpZVelocity)
 					{
-						float CurrentVelZ = UTMove->Velocity.Z;
-						if (CurrentVelZ > -1.5f * UTMove->JumpZVelocity)
-						{
-							CurrentVelZ = FMath::Min(0.f, 3.f * (CurrentVelZ + UTMove->JumpZVelocity));
-						}
-						UTMove->Velocity.Z = CurrentVelZ;
-						UTMove->ClearPendingImpulse();
-						UTMove->NeedsClientAdjustment();
+						CurrentVelZ = FMath::Min(0.f, 3.f * (CurrentVelZ + UTMove->JumpZVelocity));
 					}
+					UTMove->Velocity.Z = CurrentVelZ;
+					UTMove->ClearPendingImpulse();
+					UTMove->NeedsClientAdjustment();
 				}
 
 				Explode(GetActorLocation(), ImpactNormal, OtherComp);
@@ -87,22 +80,18 @@ void AUTProj_StingerShard::ProcessHit_Implementation(AActor* OtherActor, UPrimit
 				float AdjustedMomentum = ImpactedShardMomentum;
 				Event.Damage = ImpactedShardDamage;
 				Event.DamageTypeClass = MyDamageType;
-				Event.HitInfo = FHitResult(HitPawn, OtherComp, HitLocation, HitNormal);
+				Event.HitInfo = FHitResult(HitChar, OtherComp, HitLocation, HitNormal);
 				Event.ShotDirection = ProjectileMovement->Velocity;
 				Event.Momentum = Event.ShotDirection * AdjustedMomentum;
-				HitPawn->TakeDamage(Event.Damage, Event, InstigatorController, this);
+				HitChar->TakeDamage(Event.Damage, Event, InstigatorController, this);
 			}
 			else
 			{
-				AUTCharacter* HitChar = Cast<AUTCharacter>(HitPawn);
-				if (HitChar != NULL && HitChar->IsDead() && HitChar->IsRagdoll())
+				if (HitChar->IsDead())
 				{
-					AttachToRagdoll(HitChar, HitLocation);
+					Momentum = 20000.f;
 				}
-				else
-				{
-					Super::ProcessHit_Implementation(OtherActor, OtherComp, HitLocation, HitNormal);
-				}
+				Super::ProcessHit_Implementation(OtherActor, OtherComp, HitLocation, HitNormal);
 			}
 		}
 		else
@@ -129,7 +118,7 @@ void AUTProj_StingerShard::ProcessHit_Implementation(AActor* OtherActor, UPrimit
 		AUTLift* Lift = Cast<AUTLift>(OtherActor);
 		if (Lift != NULL && Lift->GetEncroachComponent())
 		{
-			AttachRootComponentTo(Lift->GetEncroachComponent(), NAME_None, EAttachLocation::KeepWorldPosition);
+			AttachToComponent(Lift->GetEncroachComponent(), FAttachmentTransformRules::KeepWorldTransform);
 		}
 
 		// turn off in-flight sound and particle system
@@ -155,85 +144,6 @@ void AUTProj_StingerShard::ProcessHit_Implementation(AActor* OtherActor, UPrimit
 				ParticleComponents[i]->SetTemplate(NULL);
 				ParticleComponents[i]->SetTemplate(SavedTemplate);
 			}
-		}
-	}
-}
-
-void AUTProj_StingerShard::AttachToRagdoll(AUTCharacter* HitChar, const FVector& HitLocation)
-{
-	// create a physics constraint to the ragdoll to drag it and ultimately pin it
-	const FBodyInstance* ClosestRagdollPart = NULL;
-	float BestDist = FLT_MAX;
-	for (const FBodyInstance* TestBody : HitChar->GetMesh()->Bodies)
-	{
-		if (TestBody->BodySetup.IsValid())
-		{
-			float TestDist = (TestBody->GetUnrealWorldTransform().GetLocation() - HitLocation).SizeSquared();
-			if (TestDist < BestDist)
-			{
-				ClosestRagdollPart = TestBody;
-				BestDist = TestDist;
-			}
-		}
-	}
-	if (ClosestRagdollPart != NULL)
-	{
-		if (HitChar->RagdollConstraint != NULL)
-		{
-			HitChar->RagdollConstraint->BreakConstraint();
-			HitChar->RagdollConstraint->DestroyComponent();
-			HitChar->RagdollConstraint = NULL;
-		}
-		UPhysicsConstraintComponent* NewConstraint = NewObject<UPhysicsConstraintComponent>(this);
-		NewConstraint->OnComponentCreated();
-		NewConstraint->SetWorldLocation(HitLocation); // note: important! won't work right if not in the proper location
-		NewConstraint->RegisterComponent();
-		NewConstraint->ConstraintInstance.bDisableCollision = true;
-		NewConstraint->SetConstrainedComponents(HitChar->GetMesh(), ClosestRagdollPart->BodySetup.Get()->BoneName, Cast<UPrimitiveComponent>(ProjectileMovement->UpdatedComponent), NAME_None);
-		NewConstraint->ConstraintInstance.ProjectionLinearTolerance = 0.05f;
-		//NewConstraint->ConstraintInstance.EnableProjection();
-		HitChar->RagdollConstraint = NewConstraint;
-		ProjectileMovement->Velocity *= 0.3f;
-	}
-	AttachedPawns.Add(HitChar);
-	SetTimerUFunc(this, FName(TEXT("DetachRagdollsInFlight")), 0.5f);
-}
-
-void AUTProj_StingerShard::DetachRagdollsInFlight()
-{
-	if (ProjectileMovement != NULL && !ProjectileMovement->Velocity.IsZero() && ProjectileMovement->UpdatedComponent != NULL)
-	{
-		for (AUTCharacter* HitChar : AttachedPawns)
-		{
-			if (HitChar != NULL && !HitChar->IsPendingKillPending() && HitChar->RagdollConstraint != NULL && HitChar->RagdollConstraint->GetOuter() == this)
-			{
-				HitChar->RagdollConstraint->DestroyComponent();
-				HitChar->RagdollConstraint = NULL;
-			}
-		}
-		AttachedPawns.Empty();
-	}
-}
-
-void AUTProj_StingerShard::Explode_Implementation(const FVector& HitLocation, const FVector& HitNormal, UPrimitiveComponent* HitComp)
-{
-	// if the impacted actor is a corpse (or became so as a result of our direct damage) then don't explode and keep going
-	APawn* HitPawn = Cast<APawn>(ImpactedActor);
-	if (HitPawn == NULL || ProjectileMovement->Velocity.IsZero())
-	{
-		Super::Explode_Implementation(HitLocation, HitNormal, HitComp);
-	}
-	else if (!AttachedPawns.Contains(HitPawn))
-	{
-		// note: dedicated servers don't create ragdolls, but they also turn off corpse collision immediately, so in effect the client's "pass through" behavior here actually matches the server, however unintuitive
-		AUTCharacter* UTC = Cast<AUTCharacter>(HitPawn);
-		if (UTC == NULL || !UTC->IsDead() || !UTC->IsRagdoll())
-		{
-			Super::Explode_Implementation(HitLocation, HitNormal, HitComp);
-		}
-		else
-		{
-			AttachToRagdoll(UTC, HitLocation);
 		}
 	}
 }

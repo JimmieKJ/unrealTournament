@@ -4,7 +4,6 @@
 #include "Toolkits/IToolkit.h"
 #include "Toolkits/ToolkitManager.h"
 #include "Toolkits/SStandaloneAssetEditorToolkitHost.h"
-#include "Toolkits/SAssetEditorCommon.h"
 #include "Toolkits/AssetEditorToolkit.h"
 #include "SuperSearchModule.h"
 #include "MainFrame.h"
@@ -126,9 +125,8 @@ void SStandaloneAssetEditorToolkitHost::RestoreFromLayout( const TSharedRef<FTab
 	checkf(RestoredUI.IsValid(), TEXT("The layout must have a primary dock area") );
 
 #if !PLATFORM_MAC
-	FSuperSearchModule& SuperSearchModule = FModuleManager::LoadModuleChecked< FSuperSearchModule >(TEXT("SuperSearch"));
 	TSharedPtr< SEditableTextBox > ExposedEditableTextBox;
-	TSharedRef<SWidget> SuperSearchWidget = SuperSearchModule.MakeSearchBox(ExposedEditableTextBox, GEditorSettingsIni);
+	TSharedRef<SWidget> SuperSearchWidget = FSuperSearchModule::Get().MakeSearchBox(ExposedEditableTextBox);
 #endif
 	
 	MenuOverlayWidgetContent.Reset();

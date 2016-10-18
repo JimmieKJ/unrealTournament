@@ -49,6 +49,20 @@ public:
 	void ExecuteDelete();
 
 private:
+	struct FSourceAssetsState
+	{
+		TSet<FName> SelectedAssets;
+		TSet<FName> CurrentAssets;
+	};
+
+	struct FLocalizedAssetsState
+	{
+		FCulturePtr Culture;
+		TSet<FName> NewAssets;
+		TSet<FName> CurrentAssets;
+	};
+
+private:
 	/** Helper to load selected assets and sort them by UClass */
 	void GetSelectedAssetsByClass(TMap<UClass*, TArray<UObject*> >& OutSelectedAssetsByClass) const;
 
@@ -94,6 +108,27 @@ private:
 
 	/** Handler to check to see if "Asset Actions" are allowed */
 	bool CanExecuteAssetActions() const;
+
+	/** Adds Asset Localization sub-menu to a menu builder. */
+	void MakeAssetLocalizationSubMenu(FMenuBuilder& MenuBuilder);
+
+	/** Adds the Create Localized Asset sub-menu to a menu builder. */
+	void MakeCreateLocalizedAssetSubMenu(FMenuBuilder& MenuBuilder, TSet<FName> InSelectedSourceAssets, TArray<FLocalizedAssetsState> InLocalizedAssetsState);
+
+	/** Adds the Show Localized Assets sub-menu to a menu builder. */
+	void MakeShowLocalizedAssetSubMenu(FMenuBuilder& MenuBuilder, TArray<FLocalizedAssetsState> InLocalizedAssetsState);
+
+	/** Adds the Edit Localized Assets sub-menu to a menu builder. */
+	void MakeEditLocalizedAssetSubMenu(FMenuBuilder& MenuBuilder, TArray<FLocalizedAssetsState> InLocalizedAssetsState);
+
+	/** Create new localized assets for the given culture */
+	void ExecuteCreateLocalizedAsset(TSet<FName> InSelectedSourceAssets, FLocalizedAssetsState InLocalizedAssetsStateForCulture);
+
+	/** Find the given assets in the Content Browser */
+	void ExecuteFindInAssetTree(TArray<FName> InAssets);
+
+	/** Open the given assets in their respective editors */
+	void ExecuteOpenEditorsForAssets(TArray<FName> InAssets);
 
 	/** Adds asset reference menu options to a menu builder. Returns true if any options were added. */
 	bool AddReferenceMenuOptions(FMenuBuilder& MenuBuilder);

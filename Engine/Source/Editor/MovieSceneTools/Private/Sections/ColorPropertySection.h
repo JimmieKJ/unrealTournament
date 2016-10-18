@@ -3,9 +3,15 @@
 #pragma once
 
 #include "FloatCurveKeyArea.h"
+#include "PropertySection.h"
 
 
+class FFloatCurveKeyArea;
+class ISequencer;
 class UMovieSceneColorSection;
+class UMovieSceneColorTrack;
+class UMovieSceneSection;
+class UMovieSceneTrack;
 
 
 /**

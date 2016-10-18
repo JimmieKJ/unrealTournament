@@ -3,6 +3,7 @@
 #include "LevelEditor.h"
 #include "LevelViewportLayoutFourPanes.h"
 #include "SLevelViewport.h"
+#include "SLevelEditor.h"
 
 namespace ViewportLayoutFourPanesDefs
 {

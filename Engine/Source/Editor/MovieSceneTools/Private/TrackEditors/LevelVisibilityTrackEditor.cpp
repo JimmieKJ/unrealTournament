@@ -104,7 +104,7 @@ void FLevelVisibilityTrackEditor::OnAddTrack()
 
 	AddNewSection( FocusedMovieScene, NewTrack, ELevelVisibility::Visible );
 
-	GetSequencer()->NotifyMovieSceneDataChanged();
+	GetSequencer()->NotifyMovieSceneDataChanged( EMovieSceneDataChangeType::MovieSceneStructureItemAdded );
 }
 
 
@@ -140,7 +140,7 @@ void FLevelVisibilityTrackEditor::OnAddNewSection( UMovieSceneTrack* LevelVisibi
 	}
 
 	AddNewSection( FocusedMovieScene, LevelVisibilityTrack, Visibility );
-	GetSequencer()->NotifyMovieSceneDataChanged();
+	GetSequencer()->NotifyMovieSceneDataChanged( EMovieSceneDataChangeType::MovieSceneStructureItemAdded );
 }
 
 #undef LOCTEXT_NAMESPACE

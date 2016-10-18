@@ -36,9 +36,7 @@ void UGameplayDebuggerLocalController::Initialize(AGameplayDebuggerCategoryRepli
 	}
 
 	FGameplayDebuggerAddonManager& AddonManager = FGameplayDebuggerAddonManager::GetCurrent();
-	AddonManager.OnExtensionsChanged.AddUObject(this, &UGameplayDebuggerLocalController::OnExtensionsChanged);
 	AddonManager.OnCategoriesChanged.AddUObject(this, &UGameplayDebuggerLocalController::OnCategoriesChanged);
-	AddonManager.CreateExtensions(Replicator, Extensions);
 	OnCategoriesChanged();
 
 	const UGameplayDebuggerConfig* SettingsCDO = UGameplayDebuggerConfig::StaticClass()->GetDefaultObject<UGameplayDebuggerConfig>();
@@ -144,7 +142,8 @@ void UGameplayDebuggerLocalController::DrawHeader(FGameplayDebuggerCanvasContext
 {
 	const int32 NumRows = (NumCategorySlots + 9) / 10;
 	const float LineHeight = CanvasContext.GetLineHeight();
-	const int32 NumExtensionRows = (Extensions.Num() > 0) ? 1 : 0;
+	const int32 NumExtensions = CachedReplicator->GetNumExtensions();
+	const int32 NumExtensionRows = (NumExtensions > 0) ? 1 : 0;
 	const float CanvasSizeX = CanvasContext.Canvas->SizeX - PaddingLeft - PaddingRight;
 	
 	const float BackgroundPadding = 5.0f;
@@ -194,9 +193,10 @@ void UGameplayDebuggerLocalController::DrawHeader(FGameplayDebuggerCanvasContext
 	if (NumExtensionRows)
 	{
 		FString ExtensionRowDesc;
-		for (int32 ExtensionIdx = 0; ExtensionIdx < Extensions.Num(); ExtensionIdx++)
+		for (int32 ExtensionIdx = 0; ExtensionIdx < NumExtensions; ExtensionIdx++)
 		{
-			FString ExtensionDesc = Extensions[ExtensionIdx]->GetDescription();
+			TSharedRef<FGameplayDebuggerExtension> Extension = CachedReplicator->GetExtension(ExtensionIdx);
+			FString ExtensionDesc = Extension->GetDescription();
 			ExtensionDesc.ReplaceInline(TEXT("\n"), TEXT(""));
 
 			if (ExtensionDesc.Len())
@@ -280,7 +280,10 @@ void UGameplayDebuggerLocalController::DrawCategoryHeader(int32 CategoryId, TSha
 {
 	FString DataPackDesc;
 	
-	if (DataPackMap.IsValidIndex(CategoryId) && !Category->IsCategoryAuth() && !Category->ShouldDrawReplicationStatus())
+	if (DataPackMap.IsValidIndex(CategoryId) &&
+		!Category->IsCategoryAuth() &&
+		!Category->ShouldDrawReplicationStatus() &&
+		Category->GetNumDataPacks() > 0)
 	{
 		// collect brief data pack status, detailed info is displayed only when ShouldDrawReplicationStatus is true
 		const int32 CurrentSyncCounter = CachedReplicator->GetDebugActorCounter();
@@ -383,9 +386,10 @@ void UGameplayDebuggerLocalController::BindInput(UInputComponent& InputComponent
 			}
 		}
 
-		for (int32 Idx = 0; Idx < Extensions.Num(); Idx++)
+		const int32 NumExtentions = CachedReplicator->GetNumExtensions();
+		for (int32 Idx = 0; Idx < NumExtentions; Idx++)
 		{
-			TSharedRef<FGameplayDebuggerExtension> Extension = Extensions[Idx];
+			TSharedRef<FGameplayDebuggerExtension> Extension = CachedReplicator->GetExtension(Idx);
 			const int32 NumInputHandlers = Extension->GetNumInputHandlers();
 
 			for (int32 HandlerIdx = 0; HandlerIdx < NumInputHandlers; HandlerIdx++)
@@ -454,23 +458,16 @@ void UGameplayDebuggerLocalController::OnActivationReleased()
 
 		World->GetTimerManager().ClearTimer(StartSelectingActorHandle);
 		World->GetTimerManager().ClearTimer(SelectActorTickHandle);
+
+		CachedReplicator->MarkComponentsRenderStateDirty();
 	}
 
 	StartSelectingActorHandle.Invalidate();
 	SelectActorTickHandle.Invalidate();
 	bIsSelectingActor = false;
 
-	if (bPrevLocallyEnabled != bIsLocallyEnabled)
+	if (CachedReplicator && (bPrevLocallyEnabled != bIsLocallyEnabled))
 	{
-		if (bIsLocallyEnabled)
-		{
-			NotifyExtensionsActivation();
-		}
-		else
-		{
-			NotifyExtensionsDeactivation();
-		}
-
 		CachedPlayerManager->RefreshInputBindings(*CachedReplicator);
 	}
 }
@@ -541,22 +538,15 @@ void UGameplayDebuggerLocalController::OnCategoryBindingEvent(int32 CategoryId, 
 {
 	if (CachedReplicator)
 	{
-		TSharedRef<FGameplayDebuggerCategory> Category = CachedReplicator->GetCategory(CategoryId);
-		if (Category->IsCategoryEnabled())
-		{
-			FGameplayDebuggerInputHandler& InputHandler = Category->GetInputHandler(HandlerId);
-			InputHandler.Delegate.ExecuteIfBound();
-		}
+		CachedReplicator->SendCategoryInputEvent(CategoryId, HandlerId);
 	}
 }
 
 void UGameplayDebuggerLocalController::OnExtensionBindingEvent(int32 ExtensionId, int32 HandlerId)
 {
-	if (Extensions.IsValidIndex(ExtensionId))
+	if (CachedReplicator)
 	{
-		TSharedRef<FGameplayDebuggerExtension> Extension = Extensions[ExtensionId];
-		FGameplayDebuggerInputHandler& InputHandler = Extension->GetInputHandler(HandlerId);
-		InputHandler.Delegate.ExecuteIfBound();
+		CachedReplicator->SendExtensionInputEvent(ExtensionId, HandlerId);
 	}
 }
 
@@ -677,46 +667,6 @@ void UGameplayDebuggerLocalController::OnSelectionChanged(UObject* Object)
 		}
 
 		CachedReplicator->SetDebugActor(SelectedPawn);
-	}
-}
-
-void UGameplayDebuggerLocalController::NotifyExtensionsActivation()
-{
-	for (int32 Idx = 0; Idx < Extensions.Num(); Idx++)
-	{
-		Extensions[Idx]->OnActivated();
-	}
-}
-
-void UGameplayDebuggerLocalController::NotifyExtensionsDeactivation()
-{
-	for (int32 Idx = 0; Idx < Extensions.Num(); Idx++)
-	{
-		Extensions[Idx]->OnDeactivated();
-	}
-}
-
-void UGameplayDebuggerLocalController::OnExtensionsChanged()
-{
-	if (CachedReplicator == nullptr || CachedPlayerManager == nullptr)
-	{
-		return;
-	}
-
-	if (bIsLocallyEnabled)
-	{
-		NotifyExtensionsDeactivation();
-	}
-
-	Extensions.Reset();
-	
-	FGameplayDebuggerAddonManager& AddonManager = FGameplayDebuggerAddonManager::GetCurrent();
-	AddonManager.CreateExtensions(*CachedReplicator, Extensions);
-
-	if (bIsLocallyEnabled)
-	{
-		NotifyExtensionsActivation();
-		CachedPlayerManager->RefreshInputBindings(*CachedReplicator);
 	}
 }
 

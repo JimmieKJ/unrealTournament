@@ -9,7 +9,7 @@
 // Forward declarations
 //
 class FSkeletalMeshResource;
-struct FSkelMeshChunk;
+struct FSkelMeshSection;
 class FSkeletalMeshVertexBuffer;
 
 DECLARE_DELEGATE_OneParam(FOnAnimUpdateRateParamsCreated, FAnimUpdateRateParameters*)
@@ -74,53 +74,33 @@ namespace EBoneSpaces
 	};
 }
 
-//
-// Vertex Anim
-//
-
-/** Struct used to indicate one active vertex animation that should be applied to this USkeletalMesh when rendered. */
-USTRUCT()
-struct FActiveVertexAnim
+/** Struct used to indicate one active morph target that should be applied to this USkeletalMesh when rendered. */
+struct FActiveMorphTarget
 {
-	GENERATED_USTRUCT_BODY()
+	/** The Morph Target that we want to apply. */
+	class UMorphTarget* MorphTarget;
 
-	/** The animation that we want to apply. */
-	UPROPERTY()
-	class UVertexAnimBase* VertAnim;
+	/** Index into the array of weights for the Morph target, between 0.0 and 1.0. */
+	int32 WeightIndex;
 
-	/** Strength of the vertex animation, between 0.0 and 1.0. */
-	UPROPERTY()
-	float Weight;
-
-	/** Time to evaluate the animation at. */
-	UPROPERTY()
-	float Time;
-
-	FActiveVertexAnim()
-		: VertAnim(NULL)
-		, Weight(0)
-		, Time(0.f)
+	FActiveMorphTarget()
+		: MorphTarget(nullptr)
+		, WeightIndex(-1)
 	{
 	}
 
-	FActiveVertexAnim(class UVertexAnimBase* InTarget, float InWeight)
-	:	VertAnim(InTarget)
-	,	Weight(InWeight)
-	,	Time(0.f)
-	{}
+	FActiveMorphTarget(class UMorphTarget* InTarget, int32 InWeightIndex)
+	:	MorphTarget(InTarget)
+	,	WeightIndex(InWeightIndex)
+	{
+	}
 
-	FActiveVertexAnim(class UVertexAnimBase* InTarget, float InWeight, float InTime)
-		:	VertAnim(InTarget)
-		,	Weight(InWeight)
-		,	Time(InTime)
-	{}
-
-	bool operator==(const FActiveVertexAnim& Other) const
+	bool operator==(const FActiveMorphTarget& Other) const
 	{
 		// if target is same, we consider same 
 		// any equal operator to check if it's same, 
 		// we just check if this is same anim
-		return VertAnim == Other.VertAnim;
+		return MorphTarget == Other.MorphTarget;
 	}
 };
 
@@ -165,7 +145,7 @@ class ENGINE_API USkinnedMeshComponent : public UMeshComponent
 	
 	/**
 	 *	If set, this SkeletalMeshComponent will not use its SpaceBase for bone transform, but will
-	 *	use the SpaceBases array in the MasterPoseComponent. This is used when constructing a character using multiple skeletal meshes sharing the same
+	 *	use the component space transforms from the MasterPoseComponent. This is used when constructing a character using multiple skeletal meshes sharing the same
 	 *	skeleton within the same Actor.
 	 */
 	UPROPERTY(BlueprintReadOnly, Category="Mesh")
@@ -173,17 +153,17 @@ class ENGINE_API USkinnedMeshComponent : public UMeshComponent
 
 private:
 	/** Temporary array of of component-space bone matrices, update each frame and used for rendering the mesh. */
-	TArray<FTransform> SpaceBasesArray[2];
+	TArray<FTransform> ComponentSpaceTransformsArray[2];
 
 protected:
-	/** The index for the space bases buffer we can currently write to */
-	int32 CurrentEditableSpaceBases;
+	/** The index for the ComponentSpaceTransforms buffer we can currently write to */
+	int32 CurrentEditableComponentTransforms;
 
-	/** The index for the space bases buffer we can currently read from */
-	int32 CurrentReadSpaceBases;
+	/** The index for the ComponentSpaceTransforms buffer we can currently read from */
+	int32 CurrentReadComponentTransforms;
 protected:
-	/** Are we using double buffered blend spaces */
-	bool bDoubleBufferedBlendSpaces;
+	/** Are we using double buffered ComponentSpaceTransforms */
+	bool bDoubleBufferedComponentSpaceTransforms;
 
 	/** 
 	 * If set, this component has slave pose components that are associated with this 
@@ -203,6 +183,9 @@ public:
 
 	const TArray<int32>& GetMasterBoneMap() const { return MasterBoneMap; }
 
+	/** update Recalculate Normal flag in matching section */
+	void UpdateRecomputeTangent(int32 MaterialIndex);
+
 	/** 
 	 * When true, we will just using the bounds from our MasterPoseComponent.  This is useful for when we have a Mesh Parented
 	 * to the main SkelMesh (e.g. outline mesh or a full body overdraw effect that is toggled) that is always going to be the same
@@ -211,9 +194,11 @@ public:
 	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Category = SkeletalMesh)
 	uint32 bUseBoundsFromMasterPoseComponent:1;
 
-	/** Array indicating all active vertex animations. This array is updated inside RefreshBoneTransforms based on the Anim Blueprint. */
-	UPROPERTY(transient)
-	TArray<struct FActiveVertexAnim> ActiveVertexAnims;
+	/** Array indicating all active morph targets. This array is updated inside RefreshBoneTransforms based on the Anim Blueprint. */
+	TArray<FActiveMorphTarget> ActiveMorphTargets;
+
+	/** Array of weights for all morph targets. This array is updated inside RefreshBoneTransforms based on the Anim Blueprint. */
+	TArray<float> MorphTargetWeights;
 
 #if WITH_EDITORONLY_DATA
 	/** Index of the chunk to preview... If set to -1, all chunks will be rendered */
@@ -254,15 +239,12 @@ public:
 	 *	Best LOD that was 'predicted' by UpdateSkelPose. 
 	 *	This is what bones were updated based on, so we do not allow rendering at a better LOD than this. 
 	 */
-	UPROPERTY()
 	int32 PredictedLODLevel;
 
 	/** LOD level from previous frame, so we can detect changes in LOD to recalc required bones. */
-	UPROPERTY()
 	int32 OldPredictedLODLevel;
 
 	/**	High (best) DistanceFactor that was desired for rendering this USkeletalMesh last frame. Represents how big this mesh was in screen space   */
-	UPROPERTY()
 	float MaxDistanceFactor;
 
 	/** LOD array info. Each index will correspond to the LOD index **/
@@ -352,11 +334,13 @@ public:
 	UPROPERTY(transient)
 	uint32 bRecentlyRendered:1;
 
+#if WITH_EDITORONLY_DATA
 	/** Editor only. Used for visualizing drawing order in Animset Viewer. If < 1.0,
 	  * only the specified fraction of triangles will be rendered
 	  */
 	UPROPERTY(transient)
 	float ProgressiveDrawingFraction;
+#endif
 
 	/** Editor only. Used for manually selecting the alternate indices for
 	  * TRISORT_CustomLeftRight sections.
@@ -402,6 +386,12 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category="Components|SkinnedMesh")
 	void SetForcedLOD(int32 InNewForcedLOD);
+
+	/**
+	*  Returns the number of bones in the skeleton.
+	*/
+	UFUNCTION(BlueprintCallable, Category = "Components|SkinnedMesh")
+	int32 GetNumBones() const;
 
 	/**
 	 * Find the index of bone by name. Looks in the current SkeletalMesh being used by this SkeletalMeshComponent.
@@ -455,7 +445,7 @@ public:
 	FName GetParentBone(FName BoneName) const;
 
 public:
-	/** Object responsible for sending bone transforms, vertex anim state etc. to render thread. */
+	/** Object responsible for sending bone transforms, morph target state etc. to render thread. */
 	class FSkeletalMeshObject*	MeshObject;
 
 	/** Gets the skeletal mesh resource used for rendering the component. */
@@ -499,7 +489,7 @@ public:
 	virtual UMaterialInterface* GetMaterial(int32 MaterialIndex) const override;
 	virtual FPrimitiveSceneProxy* CreateSceneProxy() override;
 	virtual void GetUsedMaterials(TArray<UMaterialInterface*>& OutMaterials) const override;
-	virtual void GetStreamingTextureInfo(TArray<FStreamingTexturePrimitiveInfo>& OutStreamingTextures) const override;
+	virtual void GetStreamingTextureInfo(FStreamingTextureLevelContext& LevelContext, TArray<FStreamingTexturePrimitiveInfo>& OutStreamingTextures) const override;
 	virtual int32 GetNumMaterials() const override;
 	//~ End UPrimitiveComponent Interface
 
@@ -559,7 +549,7 @@ public:
 	 */
 
 	/** 
-	 * Refresh Bone Transform (SpaceBases)
+	 * Refresh Bone Transforms
 	 * Each class will need to implement this function
 	 * Ideally this function should be atomic (not relying on Tick or any other update.) 
 	 * 
@@ -605,24 +595,51 @@ public:
 	 */
 	void RebuildVisibilityArray();
 
-	/** Vertex anim */
-
 	/**
 	 * Checks/updates material usage on proxy based on current morph target usage
 	 */
 	void UpdateMorphMaterialUsageOnProxy();
 	
-	/** Access Space Bases for reading */
-	const TArray<FTransform>& GetSpaceBases() const { return SpaceBasesArray[CurrentReadSpaceBases]; }
+
+	/** Access ComponentSpaceTransforms for reading */
+	const TArray<FTransform>& GetComponentSpaceTransforms() const 
+	{ 
+		return ComponentSpaceTransformsArray[CurrentReadComponentTransforms]; 
+	}
 
 	/** Get Access to the current editable space bases */
-	TArray<FTransform>& GetEditableSpaceBases() { return SpaceBasesArray[CurrentEditableSpaceBases]; }
-	const TArray<FTransform>& GetEditableSpaceBases() const { return SpaceBasesArray[CurrentEditableSpaceBases]; }
+	TArray<FTransform>& GetEditableComponentSpaceTransforms() 
+	{ 
+		return ComponentSpaceTransformsArray[CurrentEditableComponentTransforms];
+	}
+	const TArray<FTransform>& GetEditableComponentSpaceTransforms() const
+	{ 
+		return ComponentSpaceTransformsArray[CurrentEditableComponentTransforms];
+	}
 
-	/** Get the number of space bases */
-	int32 GetNumSpaceBases() const { return GetSpaceBases().Num(); }
+	/** Get current number of component space transorms */
+	int32 GetNumComponentSpaceTransforms() const 
+	{ 
+		return GetComponentSpaceTransforms().Num(); 
+	}
 
-	void SetSpaceBaseDoubleBuffering(bool bInDoubleBufferedBlendSpaces);
+	void SetComponentSpaceTransformsDoubleBuffering(bool bInDoubleBufferedComponentSpaceTransforms);
+
+
+	DEPRECATED(4.13, "GetComponentSpaceTransforms is now renamed GetComponentSpaceTransforms")
+	const TArray<FTransform>& GetSpaceBases() const { return GetComponentSpaceTransforms(); }
+
+	DEPRECATED(4.13, "GetEditableSpaceBases is now renamed GetEditableComponentSpaceTransforms")
+	TArray<FTransform>& GetEditableSpaceBases() { return GetEditableComponentSpaceTransforms(); }
+
+	DEPRECATED(4.13, "GetEditableSpaceBases is now renamed GetEditableComponentSpaceTransforms")
+	const TArray<FTransform>& GetEditableSpaceBases() const { return GetEditableComponentSpaceTransforms(); }
+
+	DEPRECATED(4.13, "GetNumSpaceBases is now renamed GetNumComponentSpaceTransforms")
+	int32 GetNumSpaceBases() const { return GetNumComponentSpaceTransforms(); }
+
+	DEPRECATED(4.13, "SetSpaceBaseDoubleBuffering is now renamed SetComponentSpaceTransformsDoubleBuffering")
+	void SetSpaceBaseDoubleBuffering(bool bInDoubleBufferedBlendSpaces) { SetComponentSpaceTransformsDoubleBuffering(bInDoubleBufferedBlendSpaces);  }
 
 protected:
 
@@ -941,12 +958,12 @@ private:
 	 * Simple, CPU evaluation of a vertex's skinned position helper function
 	 */
 	template <bool bExtraBoneInfluencesT, bool bCachedMatrices>
-	FVector GetTypedSkinnedVertexPosition(const FSkelMeshChunk& Chunk, const FSkeletalMeshVertexBuffer& VertexBufferGPUSkin, int32 VertIndex, bool bSoftVertex, const TArray<FMatrix> & RefToLocals = TArray<FMatrix>()) const;
+	FVector GetTypedSkinnedVertexPosition(const FSkelMeshSection& Section, const FSkeletalMeshVertexBuffer& VertexBufferGPUSkin, int32 VertIndex, const TArray<FMatrix> & RefToLocals = TArray<FMatrix>()) const;
 
 	/**
-	 * Gets called when register, verifies all ActiveVertexAnimation is still valid 
-	 */
-	virtual void RefreshActiveVertexAnims() {};
+	* This refresh all morphtarget curves including SetMorphTarget as well as animation curves
+	*/
+	virtual void RefreshMorphTargets() {};
 
 	// Animation update rate control.
 public:

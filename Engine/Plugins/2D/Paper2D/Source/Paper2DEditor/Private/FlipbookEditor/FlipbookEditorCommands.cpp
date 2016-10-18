@@ -6,7 +6,7 @@
 //////////////////////////////////////////////////////////////////////////
 // FFlipbookEditorCommands
 
-#define LOCTEXT_NAMESPACE ""
+#define LOCTEXT_NAMESPACE "FlipbookEditorCommands"
 
 void FFlipbookEditorCommands::RegisterCommands()
 {

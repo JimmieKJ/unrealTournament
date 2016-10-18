@@ -11,10 +11,9 @@
 // Global constants
 namespace
 {
-	const int256 One(1);
-	const int256 Two(2);
-	const int256 IterationStep(1000);
-	TArray<int256> PrimeLookupTable;
+	const TEncryptionInt Two(2);
+	const TEncryptionInt IterationStep(1000);
+	TArray<TEncryptionInt> PrimeLookupTable;
 }
 
 /**
@@ -25,24 +24,24 @@ class FPrimeCheckRunnable : public FRunnable
 	/** Flag indicating if a factor has been found. Shared across multiple threads. */
 	FThreadSafeCounter&	FoundFactor;
 	/** Candidate for a prime number */
-	int256 PotentialPrime;
+	TEncryptionInt PotentialPrime;
 	/** Start of a range to check for factors */
-	int256 InitialValue;
+	TEncryptionInt InitialValue;
 	/** End of a range to check for factors */
-	int256 MaxValue;
+	TEncryptionInt MaxValue;
 	/** This thread */
 	FRunnableThread* Thread;
 
 public:
 
-	FPrimeCheckRunnable(FThreadSafeCounter& InFoundFactor, int256 Candidate, int256 InInitialValue, int256 InMaxValue)
+	FPrimeCheckRunnable(FThreadSafeCounter& InFoundFactor, TEncryptionInt Candidate, TEncryptionInt InInitialValue, TEncryptionInt InMaxValue)
 		: FoundFactor(InFoundFactor)
 		, PotentialPrime(Candidate)
 		, InitialValue(InInitialValue)
 		, MaxValue(InMaxValue)
 	{
 		// Must be odd number
-		check(!(Candidate & One).IsZero());
+		check(!(Candidate & TEncryptionInt::One).IsZero());
 		Thread = FRunnableThread::Create(this, TEXT("FPrimeCheckRunnable"));
 	}
 
@@ -61,11 +60,11 @@ public:
 	virtual bool Init() override { return true; }
 	virtual uint32 Run() override
 	{
-		int256 Remainder;
+		TEncryptionInt Remainder;
 		int32 FactorCheckTimer = 0;
-		for (int256 Factor = InitialValue; InitialValue <= MaxValue; Factor += Two)
+		for (TEncryptionInt Factor = InitialValue; InitialValue <= MaxValue; Factor += Two)
 		{
-			int256 Dividend(PotentialPrime);
+			TEncryptionInt Dividend(PotentialPrime);
 			Dividend.DivideWithRemainder(Factor, Remainder);
 			if (Remainder.IsZero())
 			{
@@ -93,21 +92,21 @@ public:
 /**
  * Checks if the value is a prime number.
  */
-bool IsPrime(const int256& InValue, bool bUseTasks)
+bool IsPrime(const TEncryptionInt& InValue, bool bUseTasks)
 {
 	// 2 is but we don't care about small numbers here.
-	if ((InValue & One) == 0)
+	if ((InValue & TEncryptionInt::One) == 0)
 	{
 		return false;
 	}
 
-	int256 Remainder;
+	TEncryptionInt Remainder;
 
 	// Check against known prime factors
 	int32 Index;
 	for (Index = 0; Index < PrimeLookupTable.Num() && PrimeLookupTable[Index] < InValue; ++Index)
 	{
-		int256 Dividend(InValue);
+		TEncryptionInt Dividend(InValue);
 		Dividend.DivideWithRemainder(PrimeLookupTable[Index], Remainder);
 		if (Remainder.IsZero())
 		{
@@ -121,9 +120,9 @@ bool IsPrime(const int256& InValue, bool bUseTasks)
 	}
 
 	// Brute force, check all odd numbers > MaxKnownPrime < sqrt(Number)
-	int256 MaxFactorValue(InValue);
+	TEncryptionInt MaxFactorValue(InValue);
 	MaxFactorValue.Sqrt();
-	int256 Factor(PrimeLookupTable[PrimeLookupTable.Num() - 1] + Two); 
+	TEncryptionInt Factor(PrimeLookupTable[PrimeLookupTable.Num() - 1] + Two); 
 	if (bUseTasks)
 	{
 		// Mutithreaded path. Split the range we look for factors over multiple threads. If one thread finds a factor
@@ -136,16 +135,16 @@ bool IsPrime(const int256& InValue, bool bUseTasks)
 		Tasks.Reserve(TaskCount);
 		FThreadSafeCounter FoundFactors(0);
 
-		int256 Range(MaxFactorValue - Factor);
+		TEncryptionInt Range(MaxFactorValue - Factor);
 		Range /= TaskCount;
 
 		// Spawn threads
 		for (int32 TaskIndex = 0; TaskIndex < TaskCount; ++TaskIndex)
 		{
-			int256 MaxValue(Factor + Range);
+			TEncryptionInt MaxValue(Factor + Range);
 			Tasks.Add(new FPrimeCheckRunnable(FoundFactors, InValue, Factor, MaxValue)); 
 			Factor = MaxValue;
-			if ((Factor & One) == 0)
+			if ((Factor & TEncryptionInt::One) == 0)
 			{
 				++Factor;
 			}
@@ -172,7 +171,7 @@ bool IsPrime(const int256& InValue, bool bUseTasks)
 		// Single threaded path (used for generating prime table)
 		while (Factor < MaxFactorValue)
 		{
-			int256 Dividend(InValue);
+			TEncryptionInt Dividend(InValue);
 			Dividend.DivideWithRemainder(Factor, Remainder);
 			if (Remainder.IsZero())
 			{
@@ -187,7 +186,7 @@ bool IsPrime(const int256& InValue, bool bUseTasks)
 /**
  * Generate two random prime numbers
  */
-void GeneratePrimeNumbers(int256& P, int256& Q)
+void GeneratePrimeNumbers(TEncryptionInt& P, TEncryptionInt& Q)
 {
 	// Generate a random odd number
 	FRandomStream Rand((int32)(FDateTime::Now().GetTicks() % (int64)MAX_int32));
@@ -199,10 +198,10 @@ void GeneratePrimeNumbers(int256& P, int256& Q)
 		0, //(uint32)Rand.RandRange(0, MAX_int32 - 1) | 0xa0ff0000, 
 		0, 0, 0, 0 
 	};
-	int256 InitialValue(RandBits);
+	TEncryptionInt InitialValue(RandBits);
 
 	// We need two primes
-	TArray<int256> DiscoveredPrimes;
+	TArray<TEncryptionInt> DiscoveredPrimes;
 
 	int64 IterationCounter = 0;
 	double TimeAccumulator = 0.0;
@@ -218,7 +217,7 @@ void GeneratePrimeNumbers(int256& P, int256& Q)
 
 		const double IterationStartTime = FPlatformTime::Seconds();
 
-		int256 MinValue(InitialValue - IterationStep);
+		TEncryptionInt MinValue(InitialValue - IterationStep);
 		while (InitialValue >= MinValue && DiscoveredPrimes.Num() < 2)
 		{
 			if (IsPrime(InitialValue, true))
@@ -256,7 +255,7 @@ void GeneratePrimeNumberTable(int64 MaxValue, const TCHAR* Filename)
 
 	UE_LOG(LogPakFile, Display, TEXT("Generating prime number table <= %lld: %s."), MaxValue, Filename);
 
-	FString PrimeTableString(TEXT("// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.\nint256 PrimeTable[] = \n{\n\t2, "));
+	FString PrimeTableString(TEXT("// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.\nTEncryptionInt PrimeTable[] = \n{\n\t2, "));
 	int64 PrimeCount = 1;
 	const double StartTime = FPlatformTime::Seconds();
 	for (int64 SmallNumber = 3; SmallNumber <= MaxValue; SmallNumber += 2)
@@ -284,22 +283,22 @@ void GeneratePrimeNumberTable(int64 MaxValue, const TCHAR* Filename)
 class FPrimeFinderRunnable : public FRunnable
 {
 	/** Range start */
-	int256 MinValue;
+	TEncryptionInt MinValue;
 	/** Range end */
-	int256 MaxValue;
+	TEncryptionInt MaxValue;
 	/** This thread */
 	FRunnableThread* Thread;
 	/** All primes found in the given range */
-	TArray<int256> FoundPrimes;
+	TArray<TEncryptionInt> FoundPrimes;
 
 public:
 
-	FPrimeFinderRunnable(int256 InMinValue, int256 InMaxValue)
+	FPrimeFinderRunnable(TEncryptionInt InMinValue, TEncryptionInt InMaxValue)
 		: MinValue(InMinValue)
 		, MaxValue(InMaxValue)
 	{
 		// Must be an odd number
-		check(!(MinValue & One).IsZero());
+		check(!(MinValue & TEncryptionInt::One).IsZero());
 		Thread = FRunnableThread::Create(this, TEXT("FPrimeFinderRunnable"));
 	}
 
@@ -314,7 +313,7 @@ public:
 		return Thread;
 	}
 
-	const TArray<int256>& GetFoundPrimes() const
+	const TArray<TEncryptionInt>& GetFoundPrimes() const
 	{
 		return FoundPrimes;
 	}
@@ -323,9 +322,9 @@ public:
 	virtual bool Init() override { return true; }
 	virtual uint32 Run() override
 	{
-		int256 Remainder;
+		TEncryptionInt Remainder;
 		int32 FactorCheckTimer = 0;
-		for (int256 Candidate = MinValue; Candidate <= MaxValue; Candidate += Two)
+		for (TEncryptionInt Candidate = MinValue; Candidate <= MaxValue; Candidate += Two)
 		{
 			if (IsPrime(Candidate, false))
 			{
@@ -352,29 +351,29 @@ void GeneratePrimeNumberLookupTable()
 
 	FillPrimeLookupTableWithPrecompiledNumbers();
 
-	int256 MinPrimeValue(PrimeLookupTable[PrimeLookupTable.Num() - 1] + Two);
-	int256 MaxPrimeValue(MinPrimeValue);
+	TEncryptionInt MinPrimeValue(PrimeLookupTable[PrimeLookupTable.Num() - 1] + Two);
+	TEncryptionInt MaxPrimeValue(MinPrimeValue);
 	MaxPrimeValue *= 100;
 
 	const int32 TaskCount = FPlatformMisc::NumberOfCoresIncludingHyperthreads();
 	TArray<FPrimeFinderRunnable*> Tasks;
 	Tasks.Reserve(TaskCount);
 
-	int256 Range(MaxPrimeValue - MinPrimeValue);
+	TEncryptionInt Range(MaxPrimeValue - MinPrimeValue);
 	Range /= TaskCount;
 
 	for (int32 TaskIndex = 0; TaskIndex < TaskCount; ++TaskIndex)
 	{
-		int256 MaxValue(MinPrimeValue + Range);
+		TEncryptionInt MaxValue(MinPrimeValue + Range);
 		Tasks.Add(new FPrimeFinderRunnable(MinPrimeValue, MaxValue)); 
 		MinPrimeValue = MaxValue;
-		if ((MinPrimeValue & One) == 0)
+		if ((MinPrimeValue & TEncryptionInt::One) == 0)
 		{
 			++MinPrimeValue;
 		}
 	}
 
-	TArray<int256> NewPrimes;
+	TArray<TEncryptionInt> NewPrimes;
 	for (int32 TaskIndex = 0; TaskIndex < Tasks.Num(); ++TaskIndex)
 	{
 		Tasks[TaskIndex]->GetThread()->WaitForCompletion();
@@ -392,27 +391,32 @@ bool GenerateKeys(const TCHAR* KeyFilename)
 
 	GeneratePrimeNumberLookupTable();
 
-	int256 P;
-	int256 Q;
+	TEncryptionInt P;
+	TEncryptionInt Q;
 
-	int64 CmdLineP = 0;
-	int64 CmdLineQ = 0;
+	FString CmdLineP;
+	FString CmdLineQ;
 	FParse::Value(FCommandLine::Get(), TEXT("P="), CmdLineP);
 	FParse::Value(FCommandLine::Get(), TEXT("Q="), CmdLineQ);
 
+	const bool bNoVerifyPrimes = FParse::Param(FCommandLine::Get(), TEXT("NoVerifyPrimes"));
+
+	P.Parse(CmdLineP);
+	Q.Parse(CmdLineQ);
+
 	// Check if we have valid primes in the command line.
 	// @todo: IsPrime check should probably go when we start to use big primes
-	bool bGeneratePrimes = !(CmdLineP > 2 && CmdLineQ > 2);
-	if (!bGeneratePrimes)
+	bool bGeneratePrimes = !(P > Two && Q > Two);
+	if (!bGeneratePrimes && !bNoVerifyPrimes)
 	{
-		if (!IsPrime(CmdLineP, false))
+		if (!IsPrime(P, false))
 		{
-			UE_LOG(LogPakFile, Warning, TEXT("P=%lld is not prime!"), CmdLineP);
+			UE_LOG(LogPakFile, Warning, TEXT("P=%s is not prime!"), *CmdLineP);
 			bGeneratePrimes = true;
 		}
-		if (!IsPrime(CmdLineQ, false))
+		if (!IsPrime(Q, false))
 		{
-			UE_LOG(LogPakFile, Warning, TEXT("Q=%lld is not prime!"), CmdLineQ);
+			UE_LOG(LogPakFile, Warning, TEXT("Q=%s is not prime!"), *CmdLineQ);
 			bGeneratePrimes = true;
 		}
 	}
@@ -427,8 +431,6 @@ bool GenerateKeys(const TCHAR* KeyFilename)
 	{
 		// Use predefined primes
 		UE_LOG(LogPakFile, Display, TEXT("Using predefined values to generate keys."));
-		P = CmdLineP;
-		Q = CmdLineQ;
 	}
 
 	// Generate key pair
@@ -436,7 +438,14 @@ bool GenerateKeys(const TCHAR* KeyFilename)
 	FKeyPair Keys;
 	FEncryption::GenerateKeyPair(P, Q, Keys.PublicKey, Keys.PrivateKey);
 
-	return SaveKeysToFile(Keys, KeyFilename);
+	if (TestKeys(Keys))
+	{
+		return SaveKeysToFile(Keys, KeyFilename);
+	}
+	else
+	{
+		return false;
+	}
 }
 
 bool SaveKeysToFile(const FKeyPair& Keys, const TCHAR* KeyFilename)
@@ -474,4 +483,42 @@ bool ReadKeysFromFile(const TCHAR* KeyFilename, FKeyPair& OutKeys)
 	}
 
 	return bResult;
+}
+
+
+bool TestKeys(FKeyPair& Pair)
+{
+	UE_LOG(LogPakFile, Display, TEXT("Testing signature keys."));
+
+	// Just some random values
+	static TEncryptionInt TestData[] =
+	{
+		11,
+		253,
+		128,
+		234,
+		56,
+		89,
+		34,
+		179,
+		29,
+		1024,
+		(int64)(MAX_int32),
+		(int64)(MAX_uint32) - 1
+	};
+
+	for (int32 TestIndex = 0; TestIndex < ARRAY_COUNT(TestData); ++TestIndex)
+	{
+		TEncryptionInt EncryptedData = FEncryption::ModularPow(TestData[TestIndex], Pair.PrivateKey.Exponent, Pair.PrivateKey.Modulus);
+		TEncryptionInt DecryptedData = FEncryption::ModularPow(EncryptedData, Pair.PublicKey.Exponent, Pair.PublicKey.Modulus);
+		if (TestData[TestIndex] != DecryptedData)
+		{
+			UE_LOG(LogPakFile, Error, TEXT("Keys do not properly encrypt/decrypt data (failed test with %lld)"), TestData[TestIndex].ToInt());
+			return false;
+		}
+	}
+
+	UE_LOG(LogPakFile, Display, TEXT("Signature keys check completed successfuly."));
+
+	return true;
 }

@@ -207,6 +207,8 @@ void FLandscapeEditorDetails::OnChangeTargetLandscape(TWeakObjectPtr<ULandscapeI
 	{
 		LandscapeEdMode->CurrentToolTarget.LandscapeInfo = LandscapeInfo.Get();
 		LandscapeEdMode->UpdateTargetList();
+		// force a Leave and Enter the current tool, in case it has something about the current landscape cached
+		LandscapeEdMode->SetCurrentTool(LandscapeEdMode->CurrentToolIndex);
 		if (LandscapeEdMode->CurrentGizmoActor.IsValid())
 		{
 			LandscapeEdMode->CurrentGizmoActor->SetTargetLandscape(LandscapeEdMode->CurrentToolTarget.LandscapeInfo.Get());

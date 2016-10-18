@@ -2,11 +2,13 @@
 
 #pragma once
 
+#define STEAMVR_SUPPORTED_PLATFORMS (PLATFORM_WINDOWS && WINVER > 0x0502)
+
 #include "ModuleManager.h"
 #include "IHeadMountedDisplayModule.h"
+#if STEAMVR_SUPPORTED_PLATFORMS
 #include "openvr.h"
-
-#define STEAMVR_SUPPORTED_PLATFORMS (PLATFORM_WINDOWS)
+#endif // STEAMVR_SUPPORTED_PLATFORMS
 
 /** Up to 8 motion controller devices supported (two VR motion controllers per Unreal controller, one for either the left or right hand.) */
 #define MAX_STEAMVR_CONTROLLER_PAIRS 4
@@ -42,6 +44,7 @@ public:
 		return FModuleManager::Get().IsModuleLoaded( "SteamVR" );
 	}
 
+#if STEAMVR_SUPPORTED_PLATFORMS
 	/**
 	 * Get the IVRSystem* that was previously set by the HMD implemenentation.
 	 *
@@ -50,16 +53,16 @@ public:
 	virtual vr::IVRSystem* GetVRSystem() const=0;
 
 	/**
-	 * Set the cached IVRSystem pointer so that the controller can retrieve it.
-	 * The HMD passes this to the controller.
+	 * Resets the plugin, in case of early VR system shutdown
 	 */
-	virtual void SetVRSystem(vr::IVRSystem* VRSystem)=0;
+	virtual void Reset() = 0;
 
 	/**
 	 * Update the Controller to Device mapping.
 	 * The controller passes this to the HMD.
 	 */
 	virtual void SetUnrealControllerIdAndHandToDeviceIdMap(int32 InUnrealControllerIdAndHandToDeviceIdMap[ MAX_STEAMVR_CONTROLLER_PAIRS ][ 2 ] ) = 0;
+#endif // STEAMVR_SUPPORTED_PLATFORMS
 
 private:
 };

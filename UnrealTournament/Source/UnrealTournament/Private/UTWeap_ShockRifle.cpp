@@ -28,6 +28,9 @@ AUTWeap_ShockRifle::AUTWeap_ShockRifle(const FObjectInitializer& ObjectInitializ
 
 	WeaponCustomizationTag = EpicWeaponCustomizationTags::ShockRifle;
 	WeaponSkinCustomizationTag= EpicWeaponSkinCustomizationTags::ShockRifle;
+
+	TutorialAnnouncements.Add(TEXT("PriShockRifle"));
+	TutorialAnnouncements.Add(TEXT("SecShockRifle"));
 }
 
 void AUTWeap_ShockRifle::AttachToOwner_Implementation()

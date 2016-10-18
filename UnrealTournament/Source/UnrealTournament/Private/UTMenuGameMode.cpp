@@ -6,6 +6,8 @@
 #include "UTGameMode.h"
 #include "UTDMGameMode.h"
 #include "UTWorldSettings.h"
+#include "UTProfileSettings.h"
+#include "UTAnalytics.h"
 
 AUTMenuGameMode::AUTMenuGameMode(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -14,7 +16,12 @@ AUTMenuGameMode::AUTMenuGameMode(const class FObjectInitializer& ObjectInitializ
 	PlayerStateClass = AUTPlayerState::StaticClass();
 	PlayerControllerClass = AUTPlayerController::StaticClass();
 
-	static ConstructorHelpers::FObjectFinder<USoundBase> DefaultMusicRef[] = { TEXT("/Game/RestrictedAssets/Audio/Music/Music_UTMuenu_New01.Music_UTMuenu_New01"), TEXT("/Game/RestrictedAssets/Audio/Music/Music_FragCenterIntro.Music_FragCenterIntro") };
+	static ConstructorHelpers::FObjectFinder<USoundBase> DefaultMusicRef[] = 
+		{ 
+				TEXT("/Game/RestrictedAssets/Audio/Music/Music_HaveAnUnrealHalloween.Music_HaveAnUnrealHalloween"),
+//				TEXT("/Game/RestrictedAssets/Audio/Music/Music_UTMuenu_New01.Music_UTMuenu_New01"), 
+				TEXT("/Game/RestrictedAssets/Audio/Music/Music_FragCenterIntro.Music_FragCenterIntro") 
+		};
 	
 
 	for (int32 i = 0; i < ARRAY_COUNT(DefaultMusicRef); i++)
@@ -49,7 +56,7 @@ void AUTMenuGameMode::PostInitializeComponents()
 			MenuMusic = LoadObject<USoundBase>(NULL, *MenuMusicPath, NULL, LOAD_NoWarn | LOAD_Quiet);
 			if (MenuMusic)
 			{
-				UGameplayStatics::PlaySoundAtLocation( this, MenuMusic, FVector(0,0,0), 1.0, 1.0 );
+				UGameplayStatics::SpawnSoundAtLocation( this, MenuMusic, FVector(0,0,0), FRotator::ZeroRotator, 1.0, 1.0 );
 			}
 			
 		}
@@ -58,23 +65,75 @@ void AUTMenuGameMode::PostInitializeComponents()
 	return;
 }
 
-void AUTMenuGameMode::GenericPlayerInitialization(AController* C)
+void AUTMenuGameMode::OnLoadingMovieEnd()
 {
-	Super::GenericPlayerInitialization(C);
-	AUTBasePlayerController* PC = Cast<AUTBasePlayerController>(C);
+	Super::OnLoadingMovieEnd();
+
+	AUTBasePlayerController* PC = Cast<AUTBasePlayerController>(GetWorld()->GetFirstPlayerController());
 	if (PC != NULL)
 	{
+		PC->ClientReturnedToMenus();
+		UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(PC->Player);
+		if (LP != NULL)
+		{
+			if (LP->IsLoggedIn(true) || LP->LoginPhase == ELoginPhase::Offline)
+			{
+				ShowMenu(PC);
+			}
+			else
+			{
+				LP->GetAuth();
+			}
+		}
+	}
+}
+
+void AUTMenuGameMode::ShowMenu(AUTBasePlayerController* PC)
+{
+	if (PC != NULL)
+	{
+		PC->ClientReturnedToMenus();
 		FURL& LastURL = GEngine->GetWorldContextFromWorld(GetWorld())->LastURL;
 
-		PC->ClientReturnedToMenus();
 		bool bReturnedFromChallenge = LastURL.HasOption(TEXT("showchallenge"));
 		PC->ShowMenu((bReturnedFromChallenge ? TEXT("showchallenge") : TEXT("")));
+
+		UUTProfileSettings* ProfileSettings = PC->GetProfileSettings();
+		bool bForceTutorialMenu = false;
+
+		if (!PC->SkipTutorialCheck())
+		{
+			if (ProfileSettings != nullptr && !FParse::Param(FCommandLine::Get(), TEXT("skiptutcheck")) )
+			{
+				if (ProfileSettings->TutorialMask == 0 )
+				{
+					if ( !LastURL.HasOption(TEXT("tutorialmenu")) )
+					{
+	#if !PLATFORM_LINUX
+						if (FUTAnalytics::IsAvailable())
+						{
+							FUTAnalytics::FireEvent_UTTutorialStarted(Cast<AUTPlayerController>(PC),FString("Onboarding"));
+						}
+
+						GetWorld()->ServerTravel(TEXT("/Game/RestrictedAssets/Tutorials/TUT-MovementTraining?game=/Game/RestrictedAssets/Tutorials/Blueprints/UTTutorialGameMode.UTTutorialGameMode_C?timelimit=0?TutorialMask=1"), true, true);
+						return;
+	#endif
+					}
+				}
+				else if ( ((ProfileSettings->TutorialMask & 0x07) != 0x07)  || (ProfileSettings->TutorialMask < 8) )
+				{
+					bForceTutorialMenu = true;
+				}
+			}
+		}
+
 #if !UE_SERVER
 		// start with tutorial menu if requested
-		if (LastURL.HasOption(TEXT("tutorialmenu")))
+		if (bForceTutorialMenu || LastURL.HasOption(TEXT("tutorialmenu")))
 		{
 			UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(PC->Player);
-			if (LP != NULL)
+			// NOTE: If we are in a party, never return to the tutorial menu
+			if (LP != NULL && !LP->IsInAnActiveParty())
 			{
 				LP->OpenTutorialMenu();
 			}
@@ -83,7 +142,10 @@ void AUTMenuGameMode::GenericPlayerInitialization(AController* C)
 		}
 #endif
 	}
+
 }
+
+
 
 void AUTMenuGameMode::RestartPlayer(AController* aPlayer)
 {

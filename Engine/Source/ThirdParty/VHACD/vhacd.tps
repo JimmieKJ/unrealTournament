@@ -1,22 +1,23 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <TpsData xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
   <Name>V-HACD</Name>
-  <Location>//depot/UE4/Engine/Source/ThirdParty/VHACD/</Location>
-  <Date>2015-09-04T20:42:19.7076165-04:00</Date>
+  <Location>/Engine/Source/ThirdParty/VHACD/</Location>
+  <Date>2016-06-16T14:04:45.8313745-04:00</Date>
   <Function>Decomposes tri mesh into convex hull approximation for collision</Function>
   <Justification>Currently we use HACD which doesn't work that well, this is an improvement.</Justification>
   <Platforms>
     <Platform>PC</Platform>
-    <Platform>Max</Platform>
     <Platform>Windows 8</Platform>
     <Platform>Linux</Platform>
+    <Platform>Max</Platform>
   </Platforms>
   <Products>
+    <Product>UDK4</Product>
     <Product>UE4</Product>
     <Product>Unreal Tournament</Product>
     <Product>Fortnite</Product>
-    <Product>Creo</Product>
     <Product>Orion</Product>
+    <Product>Creo</Product>
   </Products>
   <TpsType>lib</TpsType>
   <Eula>http://opensource.org/licenses/BSD-3-Clause</Eula>
@@ -40,5 +41,5 @@
  3. The names of the contributors may not be used to endorse or promote products derived from this software without specific prior written permission.
  
  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.</Notification>
-  <LicenseFolder />
+  <LicenseFolder>/Engine/Source/ThirdParty/Licenses/V-hacd_license.txt</LicenseFolder>
 </TpsData>

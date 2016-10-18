@@ -3,6 +3,7 @@
 
 #include "SlateBasics.h"
 #include "IWebBrowserDialog.h"
+#include "IWebBrowserSingleton.h"
 
 enum class EWebBrowserDocumentState;
 class IWebBrowserWindow;
@@ -37,6 +38,7 @@ public:
 		, _SupportsThumbMouseButtonNavigation(false)
 		, _BackgroundColor(255,255,255,255)
 		, _PopupMenuMethod(TOptional<EPopupMethod>())
+		, _ContextSettings()
 		, _ViewportSize(FVector2D::ZeroVector)
 	{ }
 
@@ -63,6 +65,9 @@ public:
 
 		/** Override the popup menu method used for popup menus. If not set, parent widgets will be queried instead. */
 		SLATE_ARGUMENT(TOptional<EPopupMethod>, PopupMenuMethod)
+
+		/** Override the default global context settings for this specific window. If not set, the global default will be used. */
+		SLATE_ARGUMENT(TOptional<FBrowserContextSettings>, ContextSettings)
 
 		/** Desired size of the web browser viewport. */
 		SLATE_ATTRIBUTE(FVector2D, ViewportSize);
@@ -208,6 +213,8 @@ public:
 
 private:
 
+	void SetupParentWindowHandlers();
+
 	/** Callback for document loading state changes. */
 	void HandleBrowserWindowDocumentStateChanged(EWebBrowserDocumentState NewState);
 
@@ -271,11 +278,14 @@ private:
 			: FPopupMethodReply::Unhandled();
 	}
 
+	void HandleWindowDeactivated();
+
 private:
 
 	/** Interface for dealing with a web browser window. */
 	TSharedPtr<IWebBrowserWindow> BrowserWindow;
-
+	/** The slate window that contains this widget. */
+	TSharedPtr<SWindow> SlateParentWindow;
 	/** Viewport interface for rendering the web page. */
 	TSharedPtr<FWebBrowserViewport> BrowserViewport;
 	/** Viewport interface for rendering popup menus. */
@@ -332,4 +342,6 @@ private:
 
 	/** A delegate that is invoked when when the browser needs to dismiss all dialogs */
 	FSimpleDelegate OnDismissAllDialogs;
+
+	FDelegateHandle SlateParentWindowSetupTickHandle;
 };

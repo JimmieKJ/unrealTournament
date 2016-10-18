@@ -20,13 +20,13 @@ bool UPoseableMeshComponent::AllocateTransformData()
 	// Allocate transforms if not present.
 	if ( Super::AllocateTransformData() )
 	{
-		if( LocalAtoms.Num() != SkeletalMesh->RefSkeleton.GetNum() )
+		if(BoneSpaceTransforms.Num() != SkeletalMesh->RefSkeleton.GetNum() )
 		{
-			LocalAtoms = SkeletalMesh->RefSkeleton.GetRefBonePose();
+			BoneSpaceTransforms = SkeletalMesh->RefSkeleton.GetRefBonePose();
 
 			TArray<FBoneIndexType> RequiredBoneIndexArray;
-			RequiredBoneIndexArray.AddUninitialized(LocalAtoms.Num());
-			for(int32 BoneIndex = 0; BoneIndex < LocalAtoms.Num(); ++BoneIndex)
+			RequiredBoneIndexArray.AddUninitialized(BoneSpaceTransforms.Num());
+			for(int32 BoneIndex = 0; BoneIndex < BoneSpaceTransforms.Num(); ++BoneIndex)
 			{
 				RequiredBoneIndexArray[BoneIndex] = BoneIndex;
 			}
@@ -34,13 +34,13 @@ bool UPoseableMeshComponent::AllocateTransformData()
 			RequiredBones.InitializeTo(RequiredBoneIndexArray, *SkeletalMesh);
 		}
 
-		FillSpaceBases();
+		FillComponentSpaceTransforms();
 		FinalizeBoneTransform();
 
 		return true;
 	}
 
-	LocalAtoms.Empty();
+	BoneSpaceTransforms.Empty();
 
 	return false;
 }
@@ -56,21 +56,21 @@ void UPoseableMeshComponent::RefreshBoneTransforms(FActorComponentTickFunction* 
 	}
 
 	// Do nothing more if no bones in skeleton.
-	if( GetNumSpaceBases() == 0 )
+	if( GetNumComponentSpaceTransforms() == 0 )
 	{
 		return;
 	}
 
 	// We need the mesh space bone transforms now for renderer to get delta from ref pose:
-	FillSpaceBases();
+	FillComponentSpaceTransforms();
 	FinalizeBoneTransform();
 
 	MarkRenderDynamicDataDirty();
 }
 
-void UPoseableMeshComponent::FillSpaceBases()
+void UPoseableMeshComponent::FillComponentSpaceTransforms()
 {
-	ANIM_MT_SCOPE_CYCLE_COUNTER(FillSpaceBases, IsRunningParallelEvaluation());
+	ANIM_MT_SCOPE_CYCLE_COUNTER(FillComponentSpaceTransforms, IsRunningParallelEvaluation());
 
 	if( !SkeletalMesh )
 	{
@@ -78,11 +78,11 @@ void UPoseableMeshComponent::FillSpaceBases()
 	}
 
 	// right now all this does is to convert to SpaceBases
-	check( SkeletalMesh->RefSkeleton.GetNum() == LocalAtoms.Num() );
-	check( SkeletalMesh->RefSkeleton.GetNum() == GetNumSpaceBases());
+	check( SkeletalMesh->RefSkeleton.GetNum() == BoneSpaceTransforms.Num() );
+	check( SkeletalMesh->RefSkeleton.GetNum() == GetNumComponentSpaceTransforms());
 	check( SkeletalMesh->RefSkeleton.GetNum() == BoneVisibilityStates.Num() );
 
-	const int32 NumBones = LocalAtoms.Num();
+	const int32 NumBones = BoneSpaceTransforms.Num();
 
 #if DO_GUARD_SLOW
 	/** Keep track of which bones have been processed for fast look up */
@@ -90,15 +90,15 @@ void UPoseableMeshComponent::FillSpaceBases()
 	BoneProcessed.AddZeroed(NumBones);
 #endif
 	// Build in 3 passes.
-	FTransform* LocalTransformsData = LocalAtoms.GetData(); 
-	FTransform* SpaceBasesData = GetEditableSpaceBases().GetData();
+	FTransform* LocalTransformsData = BoneSpaceTransforms.GetData();
+	FTransform* SpaceBasesData = GetEditableComponentSpaceTransforms().GetData();
 	
-	GetEditableSpaceBases()[0] = LocalAtoms[0];
+	GetEditableComponentSpaceTransforms()[0] = BoneSpaceTransforms[0];
 #if DO_GUARD_SLOW
 	BoneProcessed[0] = 1;
 #endif
 
-	for(int32 BoneIndex=1; BoneIndex<LocalAtoms.Num(); BoneIndex++)
+	for(int32 BoneIndex=1; BoneIndex<BoneSpaceTransforms.Num(); BoneIndex++)
 	{
 		FPlatformMisc::Prefetch(SpaceBasesData + BoneIndex);
 
@@ -116,8 +116,8 @@ void UPoseableMeshComponent::FillSpaceBases()
 #endif
 		FTransform::Multiply(SpaceBasesData + BoneIndex, LocalTransformsData + BoneIndex, SpaceBasesData + ParentIndex);
 
-		checkSlow(GetEditableSpaceBases()[BoneIndex].IsRotationNormalized());
-		checkSlow(!GetEditableSpaceBases()[BoneIndex].ContainsNaN());
+		checkSlow(GetEditableComponentSpaceTransforms()[BoneIndex].IsRotationNormalized());
+		checkSlow(!GetEditableComponentSpaceTransforms()[BoneIndex].ContainsNaN());
 	}
 	bNeedToFlipSpaceBaseBuffers = true;
 }
@@ -132,25 +132,25 @@ void UPoseableMeshComponent::SetBoneTransformByName(FName BoneName, const FTrans
 	check(!MasterPoseComponent.IsValid()); //Shouldn't call set bone functions when we are using MasterPoseComponent
 
 	int32 BoneIndex = GetBoneIndex(BoneName);
-	if(BoneIndex >=0 && BoneIndex < LocalAtoms.Num())
+	if(BoneIndex >=0 && BoneIndex < BoneSpaceTransforms.Num())
 	{
-		LocalAtoms[BoneIndex] = InTransform;
+		BoneSpaceTransforms[BoneIndex] = InTransform;
 
 		// If we haven't requested local space we need to transform the position passed in
 		//if(BoneSpace != EBoneSpaces::LocalSpace)
 		{
 			if(BoneSpace == EBoneSpaces::WorldSpace)
 			{
-				LocalAtoms[BoneIndex].SetToRelativeTransform(GetComponentToWorld());
+				BoneSpaceTransforms[BoneIndex].SetToRelativeTransform(GetComponentToWorld());
 			}
 
 			int32 ParentIndex = RequiredBones.GetParentBoneIndex(BoneIndex);
 			if(ParentIndex >=0)
 			{
 				FA2CSPose CSPose;
-				CSPose.AllocateLocalPoses(RequiredBones, LocalAtoms);
+				CSPose.AllocateLocalPoses(RequiredBones, BoneSpaceTransforms);
 
-				LocalAtoms[BoneIndex].SetToRelativeTransform(CSPose.GetComponentSpaceTransform(ParentIndex));
+				BoneSpaceTransforms[BoneIndex].SetToRelativeTransform(CSPose.GetComponentSpaceTransform(ParentIndex));
 			}
 
 			// Need to send new state to render thread
@@ -193,11 +193,11 @@ FTransform GetBoneTransformByNameHelper(FName BoneName, EBoneSpaces::Type BoneSp
 
 	/*if(BoneSpace == EBoneSpaces::LocalSpace)
 	{
-		return Component->LocalAtoms[i];
+		return Component->BoneSpaceTransforms[i];
 	}*/
 
 	FA2CSPose CSPose;
-	CSPose.AllocateLocalPoses(RequiredBones, Component->LocalAtoms);
+	CSPose.AllocateLocalPoses(RequiredBones, Component->BoneSpaceTransforms);
 
 	if (BoneSpace == EBoneSpaces::ComponentSpace)
 	{
@@ -264,7 +264,7 @@ void UPoseableMeshComponent::ResetBoneTransformByName(FName BoneName)
 	const int32 BoneIndex = GetBoneIndex(BoneName);
 	if( BoneIndex != INDEX_NONE )
 	{
-		LocalAtoms[BoneIndex] = SkeletalMesh->RefSkeleton.GetRefBonePose()[BoneIndex];
+		BoneSpaceTransforms[BoneIndex] = SkeletalMesh->RefSkeleton.GetRefBonePose()[BoneIndex];
 	}
 	else
 	{
@@ -279,17 +279,17 @@ void UPoseableMeshComponent::CopyPoseFromSkeletalComponent(const USkeletalMeshCo
 	{
 		if(this->SkeletalMesh == InComponentToCopy->SkeletalMesh)
 		{
-			check(LocalAtoms.Num() == InComponentToCopy->LocalAtoms.Num());
+			check(BoneSpaceTransforms.Num() == InComponentToCopy->BoneSpaceTransforms.Num());
 
 			// Quick path, we know everything matches, just copy the local atoms
-			LocalAtoms = InComponentToCopy->LocalAtoms;
+			BoneSpaceTransforms = InComponentToCopy->BoneSpaceTransforms;
 		}
 		else
 		{
 			// The meshes don't match, search bone-by-bone (slow path)
 
 			// first set the localatoms to ref pose from our current mesh
-			LocalAtoms = SkeletalMesh->RefSkeleton.GetRefBonePose();
+			BoneSpaceTransforms = SkeletalMesh->RefSkeleton.GetRefBonePose();
 
 			// Now overwrite any matching bones
 			const int32 NumSourceBones = InComponentToCopy->SkeletalMesh->RefSkeleton.GetNum();
@@ -301,9 +301,10 @@ void UPoseableMeshComponent::CopyPoseFromSkeletalComponent(const USkeletalMeshCo
 
 				if(TargetBoneIndex != INDEX_NONE)
 				{
-					LocalAtoms[TargetBoneIndex] = InComponentToCopy->LocalAtoms[SourceBoneIndex];
+					BoneSpaceTransforms[TargetBoneIndex] = InComponentToCopy->BoneSpaceTransforms[SourceBoneIndex];
 				}
 			}
 		}
+		RefreshBoneTransforms();
 	}
 }

@@ -14,7 +14,7 @@ FUObjectArray::FUObjectArray()
 : ObjFirstGCIndex(0)
 , ObjLastNonGCIndex(INDEX_NONE)
 , MaxObjectsNotConsideredByGC(0)
-, OpenForDisregardForGC(!IS_PROGRAM)
+, OpenForDisregardForGC(!HACK_HEADER_GENERATOR)
 , MasterSerialNumber(START_SERIAL_NUMBER)
 {
 	FCoreDelegates::GetObjectArrayForDebugVisualizersDelegate().BindStatic(GetObjectArrayForDebugVisualizers);
@@ -33,6 +33,7 @@ void FUObjectArray::AllocateObjectPool(int32 InMaxUObjects, int32 InMaxObjectsNo
 
 	// Pre-size array.
 	check(ObjObjects.Num() == 0);
+	UE_CLOG(InMaxUObjects <= 0, LogUObjectArray, Fatal, TEXT("Max UObject count is invalid. It must be a number that is greater than 0."));
 	ObjObjects.PreAllocate(InMaxUObjects);
 
 	if (MaxObjectsNotConsideredByGC > 0)
@@ -54,23 +55,7 @@ void FUObjectArray::CloseDisregardForGC()
 	check(IsInGameThread());
 	check(OpenForDisregardForGC);
 
-	// Iterate over all class objects and force the default objects to be created. Additionally also
-	// assembles the token reference stream at this point. This is required for class objects that are
-	// not taken into account for garbage collection but have instances that are.
-
-	for (FRawObjectIterator It(false); It; ++It) // GetDefaultObject can create a new class, that need to be handled as well, so we cannot use TObjectIterator
-	{
-		if (UClass* Class = Cast<UClass>((UObject*)(It->Object)))
-		{
-			// Force the default object to be created.
-			Class->GetDefaultObject(); // Force the default object to be constructed if it isn't already
-			// Assemble reference token stream for garbage collection/ RTGC.
-			if (!Class->HasAnyClassFlags(CLASS_TokenStreamAssembled))
-			{
-				Class->AssembleReferenceTokenStream();
-			}
-		}
-	}
+	UClass::AssembleReferenceTokenStreams();
 
 	if (GIsInitialLoad)
 	{
@@ -116,7 +101,6 @@ void FUObjectArray::DisableDisregardForGC()
 {
 	MaxObjectsNotConsideredByGC = 0;
 	ObjFirstGCIndex = 0;
-	ObjLastNonGCIndex = INDEX_NONE;
 	if (IsOpenForDisregardForGC())
 	{
 		CloseDisregardForGC();
@@ -202,7 +186,8 @@ void FUObjectArray::FreeUObjectIndex(UObjectBase* Object)
 	}
 
 	// @todo: threading: delete listeners should be locked while we're doing this
-	for (int32 ListenerIndex = 0; ListenerIndex < UObjectDeleteListeners.Num(); ListenerIndex++)
+	// Iterate in reverse order so that when one of the listeners removes itself from the array inside of NotifyUObjectDeleted we don't skip the next listener.
+	for (int32 ListenerIndex = UObjectDeleteListeners.Num() - 1; ListenerIndex >= 0; --ListenerIndex)
 	{
 		UObjectDeleteListeners[ListenerIndex]->NotifyUObjectDeleted(Object, Index);
 	}

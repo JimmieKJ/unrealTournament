@@ -3,7 +3,6 @@
 #include "UnrealTournament.h"
 #include "UTGameInstance.h"
 #include "UnrealNetwork.h"
-#include "Dialogs/SUTRedirectDialog.h"
 #include "UTDemoNetDriver.h"
 #include "UTGameEngine.h"
 #include "UTGameViewportClient.h"
@@ -12,6 +11,7 @@
 #include "UTPartyGameState.h"
 #include "UTPlaylistManager.h"
 #include "UnrealTournamentFullScreenMovie.h"
+#include "OnlineSubsystemUtils.h"
 
 #if !UE_SERVER
 #include "SUTStyle.h"
@@ -76,11 +76,10 @@ void UUTGameInstance::Init()
 
 bool UUTGameInstance::PerfExecCmd(const FString& ExecCmd, FOutputDevice& Ar)
 {
-
-	FWorldContext* WorldContext = GetWorldContext();
-	if (WorldContext)
+	FWorldContext* CurrentWorldContext = GetWorldContext();
+	if (CurrentWorldContext)
 	{
-		UWorld* World = WorldContext->World();
+		UWorld* World = CurrentWorldContext->World();
 		if (World)
 		{
 			if (GEngine->Exec(World, *ExecCmd, Ar))
@@ -190,70 +189,25 @@ void UUTGameInstance::HandleDemoPlaybackFailure( EDemoPlayFailure::Type FailureT
 bool UUTGameInstance::IsAutoDownloadingContent()
 {
 #if !UE_SERVER
-	for (int32 i = ActiveRedirectDialogs.Num() - 1; i >= 0; i--)
-	{
-		if (!ActiveRedirectDialogs[i].IsValid())
-		{
-			ActiveRedirectDialogs.RemoveAt(i);
-		}
-	}
-	return ActiveRedirectDialogs.Num() > 0;
+	UUTGameViewportClient* Viewport = Cast<UUTGameViewportClient>(GetGameViewportClient());
+	return Viewport && Viewport->IsDownloadInProgress();
 #else
 	return false;
 #endif
 }
 
 
-void UUTGameInstance::CloseAllRedirectDownloadDialogs()
-{
-#if !UE_SERVER
-	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(GetFirstGamePlayer());
-	if (LocalPlayer != NULL)
-	{
-		for (int32 i=0; i < ActiveRedirectDialogs.Num(); i++)
-		{
-			TSharedPtr<SUTRedirectDialog> Dialog = ActiveRedirectDialogs[i].Pin();
-			if (Dialog.IsValid())
-			{
-				LocalPlayer->CloseDialog(Dialog.ToSharedRef());
-			}
-		}
-		ActiveRedirectDialogs.Empty();
-	}
-#endif
-}
-
-
-bool UUTGameInstance::StartRedirectDownload(const FString& PakName, const FString& URL, const FString& Checksum)
+bool UUTGameInstance::RedirectDownload(const FString& PakName, const FString& URL, const FString& Checksum)
 {
 #if !UE_SERVER
 	UUTGameViewportClient* Viewport = Cast<UUTGameViewportClient>(GetGameViewportClient());
 	if (Viewport != NULL && !Viewport->CheckIfRedirectExists(FPackageRedirectReference(PakName, TEXT(""), TEXT(""), Checksum)))
 	{
-		UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(GetFirstGamePlayer());
-		if (LocalPlayer != NULL)
-		{
-			TSharedRef<SUTRedirectDialog> Dialog = SNew(SUTRedirectDialog)
-				.OnDialogResult(FDialogResultDelegate::CreateUObject(this, &UUTGameInstance::RedirectResult))
-				.DialogTitle(NSLOCTEXT("UTGameViewportClient", "Redirect", "Download"))
-				.RedirectToURL(URL)
-				.PlayerOwner(LocalPlayer);
-			ActiveRedirectDialogs.Add(Dialog);
-			LocalPlayer->OpenDialog(Dialog,240);
-
-			LocalPlayer->ShowDLCWarning();
-			return true;
-		}
-		else
-		{
-			return false;
-		}
+		Viewport->DownloadRedirect(URL, PakName, Checksum);
+		return true;
 	}
-	else
 #endif
-	{
-		return false;
-	}
+	return false;
 }
 
 void UUTGameInstance::HandleGameNetControlMessage(class UNetConnection* Connection, uint8 MessageByte, const FString& MessageStr)
@@ -268,7 +222,7 @@ void UUTGameInstance::HandleGameNetControlMessage(class UNetConnection* Connecti
 			if (Pieces.Num() == 3)
 			{
 				// 0: pak name, 1: URL, 2: checksum
-				StartRedirectDownload(Pieces[0], Pieces[1], Pieces[2]);
+				RedirectDownload(Pieces[0], Pieces[1], Pieces[2]);
 			}
 			break;
 		}
@@ -278,26 +232,6 @@ void UUTGameInstance::HandleGameNetControlMessage(class UNetConnection* Connecti
 	}
 }
 
-void UUTGameInstance::RedirectResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID)
-{
-#if !UE_SERVER
-	if (Widget.IsValid())
-	{
-		ActiveRedirectDialogs.Remove(StaticCastSharedPtr<SUTRedirectDialog>(Widget));
-	}
-	if (ButtonID == UTDIALOG_BUTTON_CANCEL)
-	{
-		GEngine->Exec(GetWorld(), TEXT("DISCONNECT"));
-		LastTriedDemo.Empty();
-		bRetriedDemoAfterRedirects = false;
-	}
-	else if (ActiveRedirectDialogs.Num() == 0 && !bRetriedDemoAfterRedirects && !LastTriedDemo.IsEmpty())
-	{
-		bRetriedDemoAfterRedirects = true;
-		GEngine->Exec(GetWorld(), *FString::Printf(TEXT("DEMOPLAY %s"), *LastTriedDemo));
-	}
-#endif
-}
 
 void UUTGameInstance::StartRecordingReplay(const FString& Name, const FString& FriendlyName, const TArray<FString>& AdditionalOptions)
 {
@@ -546,7 +480,7 @@ void UUTGameInstance::SafeSessionDelete(FName SessionName, FOnDestroySessionComp
 		else
 		{
 			UE_LOG(LogOnlineGame, Verbose, TEXT("SafeSessionDelete called on session %s in state %s, skipping."), *SessionName.ToString(), EOnlineSessionState::ToString(SessionState));
-			DestroySessionComplete.ExecuteIfBound(SessionName, false);
+			DestroySessionComplete.ExecuteIfBound(SessionName, true);
 		}
 
 		return;
@@ -562,7 +496,7 @@ void UUTGameInstance::OnDeleteSessionComplete(FName SessionName, bool bWasSucces
 	UE_LOG(LogOnlineGame, Verbose, TEXT("OnDeleteSessionComplete %s bSuccess: %d"), *SessionName.ToString(), bWasSuccessful);
 	SafeSessionDeleteTimerHandle.Invalidate();
 
-	IOnlineSessionPtr SessionInt = Online::GetSessionInterface(/*GetWorld()*/);
+	IOnlineSessionPtr SessionInt = Online::GetSessionInterface(GetWorld());
 	if (SessionInt.IsValid())
 	{
 		SessionInt->ClearOnDestroySessionCompleteDelegate_Handle(DeleteSessionDelegateHandle);
@@ -637,7 +571,13 @@ bool UUTGameInstance::ClientTravelToSession(int32 ControllerId, FName InSessionN
 void UUTGameInstance::BeginLevelLoading(const FString& LevelName)
 {
 #if !UE_SERVER
-	
+
+	AUTBaseGameMode* GM = GetWorld()->GetAuthGameMode<AUTBaseGameMode>();
+	if (GM)
+	{
+		GM->OnLoadingMovieEnd();
+	}
+
 	// Grab just the map name, minus the path
 
 	FString CleanLevelName = FPaths::GetCleanFilename(LevelName);
@@ -700,6 +640,25 @@ void UUTGameInstance::EndLevelLoading()
 	bLevelIsLoading	 = false;
 #if !UE_SERVER
 	StopMovie();
+
+	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(GetFirstGamePlayer());
+	if (LocalPlayer)
+	{
+		if (LocalPlayer->bCloseUICalledDuringMoviePlayback)
+		{
+			LocalPlayer->CloseAllUI(LocalPlayer->bDelayedCloseUIExcludesDialogs);
+		}
+		else if (LocalPlayer->bHideMenuCalledDuringMoviePlayback)
+		{
+			LocalPlayer->HideMenu();
+		}
+	}
+
+	AUTBaseGameMode* GM = GetWorld()->GetAuthGameMode<AUTBaseGameMode>();
+	if (GM)
+	{
+		GM->OnLoadingMovieEnd();
+	}
 #endif
 }
 
@@ -717,11 +676,11 @@ EVisibility UUTGameInstance::GetLevelLoadAnyKeyVisibility() const
 
 void UUTGameInstance::PlayLoadingMovie(const FString& MovieName, bool bStopWhenLoadingIsComnpleted, bool bForce) 
 {
-	VerifyMovieOverlay();
-	if (MovieOverlay.IsValid())
-	{
-		PlayMovie(MovieName, MovieOverlay, true, bStopWhenLoadingIsComnpleted, EMoviePlaybackType::MT_LoadingLoop, bForce);
-	}
+	//VerifyMovieOverlay();
+	//if (MovieOverlay.IsValid())
+	//{						 // MovieOverlay
+		PlayMovie(MovieName, SNullWidget::NullWidget, true, bStopWhenLoadingIsComnpleted, EMoviePlaybackType::MT_LoadingLoop, bForce);
+	//}
 }
 
 void UUTGameInstance::VerifyMovieOverlay()
@@ -807,5 +766,19 @@ bool UUTGameInstance::IsMoviePlaying()
 }
 
 #endif
+
+int32 UUTGameInstance::GetBotSkillForTeamElo(int32 TeamElo)
+{
+	if (TeamElo > 1500)
+	{
+		return 3 + FMath::Clamp((float(TeamElo) - 1500.f)/60.f , 0.f, 4.f);
+	}
+	else if (TeamElo > 1400)
+	{
+		return 2;
+	}
+
+	return 1;
+}
 
 

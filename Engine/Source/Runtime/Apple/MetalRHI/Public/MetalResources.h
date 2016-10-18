@@ -15,6 +15,26 @@
 
 class FMetalContext;
 
+/** The MTLVertexDescriptor and a pre-calculated hash value used to simplify comparisons (as vendor MTLVertexDescriptor implementations aren't all comparable) */
+struct FMetalHashedVertexDescriptor
+{
+	NSUInteger VertexDescHash;
+	MTLVertexDescriptor* VertexDesc;
+	
+	FMetalHashedVertexDescriptor();
+	FMetalHashedVertexDescriptor(MTLVertexDescriptor* Desc);
+	FMetalHashedVertexDescriptor(FMetalHashedVertexDescriptor const& Other);
+	~FMetalHashedVertexDescriptor();
+	
+	FMetalHashedVertexDescriptor& operator=(FMetalHashedVertexDescriptor const& Other);
+	bool operator==(FMetalHashedVertexDescriptor const& Other) const;
+	
+	friend uint32 GetTypeHash(FMetalHashedVertexDescriptor const& Hash)
+	{
+		return Hash.VertexDescHash;
+	}
+};
+
 /** This represents a vertex declaration that hasn't been combined with a specific shader to create a bound shader. */
 class FMetalVertexDeclaration : public FRHIVertexDeclaration
 {
@@ -28,7 +48,7 @@ public:
 	FVertexDeclarationElementList Elements;
 
 	/** This is the layout for the vertex elements */
-	MTLVertexDescriptor* Layout;
+	FMetalHashedVertexDescriptor Layout;
 
 protected:
 	void GenerateLayout(const FVertexDeclarationElementList& Elements);
@@ -77,9 +97,11 @@ public:
 	// List of memory copies from RHIUniformBuffer to packed uniforms
 	TArray<CrossCompiler::FUniformBufferCopyInfo> UniformBuffersCopyInfo;
 	
-	TArray<ANSICHAR> GlslCode;
+	/** The binding for the buffer side-table if present */
+	int32 SideTableBinding;
+	
+	/** The debuggable text source */
 	NSString* GlslCodeNSString;
-	const ANSICHAR*  GlslCodeString; // make it easier in VS to see shader code in debug mode; points to begin of GlslCode
 };
 
 typedef TMetalBaseShader<FRHIVertexShader, SF_Vertex> FMetalVertexShader;
@@ -92,6 +114,7 @@ class FMetalComputeShader : public TMetalBaseShader<FRHIComputeShader, SF_Comput
 {
 public:
 	FMetalComputeShader(const TArray<uint8>& InCode);
+	virtual ~FMetalComputeShader();
 	
 	// the state object for a compute shader
 	id <MTLComputePipelineState> Kernel;
@@ -109,7 +132,7 @@ typedef uint64 FMetalRenderPipelineHash;
 #endif
 
 /**
- * Combined shader state and vertex definition for rendering geometry. 
+ * Combined shader state and vertex definition for rendering geometry.
  * Each unique instance consists of a vertex decl, vertex shader, and pixel shader.
  */
 class FMetalBoundShaderState : public FRHIBoundShaderState
@@ -149,10 +172,11 @@ public:
 	/**
 	 * Prepare a pipeline state object for the current state right before drawing
 	 */
-	void PrepareToDraw(FMetalContext* Context, const struct FMetalRenderPipelineDesc& RenderPipelineDesc);
+	void PrepareToDraw(FMetalContext* Context, FMetalHashedVertexDescriptor const& VertexDesc, const struct FMetalRenderPipelineDesc& RenderPipelineDesc, MTLRenderPipelineReflection** Reflection = nil);
 
 protected:
-	TMap<FMetalRenderPipelineHash, id<MTLRenderPipelineState> > PipelineStates;
+	FCriticalSection PipelineMutex;
+	TMap<FMetalRenderPipelineHash, TMap<FMetalHashedVertexDescriptor, id<MTLRenderPipelineState>>> PipelineStates;
 };
 
 
@@ -175,6 +199,9 @@ public:
 	 */
 	~FMetalSurface();
 
+	/** Prepare for texture-view support - need only call this once on the source texture which is to be viewed. */
+	void PrepareTextureView();
+	
 	/**
 	 * Locks one of the texture's mip-maps.
 	 * @param ArrayIndex Index of the texture array/face in the form Index*6+Face
@@ -190,7 +217,7 @@ public:
 	/**
 	 * Returns how much memory a single mip uses, and optionally returns the stride
 	 */
-	uint32 GetMipSize(uint32 MipIndex, uint32* Stride, bool bSingleLayer);
+	uint32 GetMipSize(uint32 MipIndex, uint32* Stride, bool bSingleLayer, bool bBlitAligned);
 
 	/**
 	 * Returns how much memory is used by the surface
@@ -203,8 +230,10 @@ public:
 	/** Gets the drawable texture if this is a back-buffer surface. */
 	id<MTLTexture> GetDrawableTexture();
 	
-	/** Updates an SRV surface's internal data if required. */
-	void UpdateSRV();
+	/** Updates an SRV surface's internal data if required.
+	 *  @param SourceTex Source textures that the UAV/SRV was created from.
+	 */
+	void UpdateSRV(FTextureRHIRef SourceTex);
 
 	ERHIResourceType Type;
 	EPixelFormat PixelFormat;
@@ -214,6 +243,7 @@ public:
 	id<MTLTexture> StencilTexture;
 	uint32 SizeX, SizeY, SizeZ;
 	bool bIsCubemap;
+	bool bWritten;
 	
 	uint32 Flags;
 	// one per mip
@@ -227,11 +257,14 @@ public:
 	class FMetalViewport* Viewport;
 
 private:
-	// The movie playback IOSurface wrapper to avoid page-off
-	CVImageBufferRef IB;
+	// The movie playback IOSurface/CVTexture wrapper to avoid page-off
+	CFTypeRef CoreVideoImageRef;
 	
 	// next format for the pixel format mapping
 	static uint8 NextKey;
+	
+	// Count of outstanding async. texture uploads
+	static int32 ActiveUploads;
 };
 
 class FMetalTexture2D : public FRHITexture2D
@@ -582,9 +615,6 @@ class FMetalUnorderedAccessView : public FRHIUnorderedAccessView
 {
 public:
 
-	/** Set it into the compute context */
-	void Set(FMetalContext* Context, uint32 ResourceIndex);
-	
 	// the potential resources to refer to with the UAV object
 	TRefCountPtr<FMetalStructuredBuffer> SourceStructuredBuffer;
 	TRefCountPtr<FMetalVertexBuffer> SourceVertexBuffer;
@@ -598,6 +628,9 @@ public:
 
 	// The vertex buffer this SRV comes from (can be null)
 	TRefCountPtr<FMetalVertexBuffer> SourceVertexBuffer;
+	
+	// The index buffer this SRV comes from (can be null)
+	TRefCountPtr<FMetalIndexBuffer> SourceIndexBuffer;
 
 	// The texture that this SRV come from
 	TRefCountPtr<FRHITexture> SourceTexture;
@@ -653,6 +686,36 @@ private:
 	uint8* PackedUniformsScratch[CrossCompiler::PACKED_TYPEINDEX_MAX];
 
 	int32 GlobalUniformArraySize;
+};
+
+class FMetalComputeFence : public FRHIComputeFence
+{
+public:
+	
+	FMetalComputeFence(FName InName)
+	: FRHIComputeFence(InName)
+	, CommandBuffer(nil)
+	{}
+	
+	virtual void Reset() final override
+	{
+		FRHIComputeFence::Reset();
+		[CommandBuffer release];
+		CommandBuffer = nil;
+	}
+	
+	void Write(id<MTLCommandBuffer> Buffer)
+	{
+		check(CommandBuffer == nil);
+		check(Buffer != nil);
+		CommandBuffer = [Buffer retain];
+		FRHIComputeFence::WriteFence();
+	}
+	
+	void Wait();
+	
+private:
+	id<MTLCommandBuffer> CommandBuffer;
 };
 
 template<class T>
@@ -774,4 +837,9 @@ template<>
 struct TMetalResourceTraits<FRHIBlendState>
 {
 	typedef FMetalBlendState TConcreteType;
+};
+template<>
+struct TMetalResourceTraits<FRHIComputeFence>
+{
+	typedef FMetalComputeFence TConcreteType;
 };

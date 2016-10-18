@@ -60,6 +60,16 @@ void UAIAsyncTaskBlueprintProxy::OnNoPath()
 	}
 }
 
+void UAIAsyncTaskBlueprintProxy::OnAtGoal()
+{
+	OnSuccess.Broadcast(EPathFollowingResult::Success);
+	UAISystem* const AISystem = UAISystem::GetCurrentSafe(MyWorld.Get());
+	if (AISystem)
+	{
+		AISystem->RemoveReferenceToProxyObject(this);
+	}
+}
+
 void UAIAsyncTaskBlueprintProxy::BeginDestroy()
 {
 	UAISystem* const AISystem = UAISystem::GetCurrentSafe(MyWorld.Get());
@@ -96,7 +106,7 @@ UAIAsyncTaskBlueprintProxy* UAIBlueprintHelperLibrary::CreateMoveToProxyObject(U
 		FAIMoveRequest MoveReq;
 		MoveReq.SetUsePathfinding(true);
 		MoveReq.SetAcceptanceRadius(AcceptanceRadius);
-		MoveReq.SetStopOnOverlap(bStopOnOverlap);
+		MoveReq.SetReachTestIncludesAgentRadius(bStopOnOverlap);
 		if (TargetActor)
 		{
 			MoveReq.SetGoalActor(TargetActor);
@@ -106,22 +116,23 @@ UAIAsyncTaskBlueprintProxy* UAIBlueprintHelperLibrary::CreateMoveToProxyObject(U
 			MoveReq.SetGoalLocation(Destination);
 		}
 		
-		FPathFindingQuery Query;
-		const bool bValidQuery = AIController->PreparePathfinding(MoveReq, Query);
-
-		if (bValidQuery)
+		FPathFollowingRequestResult ResultData = AIController->MoveTo(MoveReq);
+		switch (ResultData.Code)
 		{
-			const FAIRequestID RequestID = AIController->RequestPathAndMove(MoveReq, Query);
-			if (RequestID.IsValid())
-			{
-				MyObj->AIController = AIController;
-				MyObj->AIController->ReceiveMoveCompleted.AddDynamic(MyObj, &UAIAsyncTaskBlueprintProxy::OnMoveCompleted);
-				MyObj->MoveRequestId = RequestID;
-			}
-			else
-			{
-				World->GetTimerManager().SetTimer(MyObj->TimerHandle_OnNoPath, MyObj, &UAIAsyncTaskBlueprintProxy::OnNoPath, 0.1f, false);
-			}
+		case EPathFollowingRequestResult::RequestSuccessful:
+			MyObj->AIController = AIController;
+			MyObj->AIController->ReceiveMoveCompleted.AddDynamic(MyObj, &UAIAsyncTaskBlueprintProxy::OnMoveCompleted);
+			MyObj->MoveRequestId = ResultData.MoveId;
+			break;
+
+		case EPathFollowingRequestResult::AlreadyAtGoal:
+			World->GetTimerManager().SetTimer(MyObj->TimerHandle_OnInstantFinish, MyObj, &UAIAsyncTaskBlueprintProxy::OnAtGoal, 0.1f, false);
+			break;
+
+		case EPathFollowingRequestResult::Failed:
+		default:
+			World->GetTimerManager().SetTimer(MyObj->TimerHandle_OnInstantFinish, MyObj, &UAIAsyncTaskBlueprintProxy::OnNoPath, 0.1f, false);
+			break;
 		}
 	}
 	return MyObj;

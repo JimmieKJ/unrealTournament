@@ -11,10 +11,16 @@ class ISequencer;
 class UWidgetAnimation;
 class UUserWidget;
 
+struct FNamedSlotSelection
+{
+	FWidgetReference NamedSlotHostWidget;
+	FName SlotName;
+};
+
 /**
  * widget blueprint editor (extends Blueprint editor)
  */
-class FWidgetBlueprintEditor : public FBlueprintEditor
+class UMGEDITOR_API FWidgetBlueprintEditor : public FBlueprintEditor
 {
 public:
 	DECLARE_MULTICAST_DELEGATE_OneParam(FOnHoveredWidgetSet, const FWidgetReference&)
@@ -25,6 +31,9 @@ public:
 
 	/** Called after the widget preview has been updated */
 	DECLARE_MULTICAST_DELEGATE(FOnWidgetPreviewUpdated)
+
+	DECLARE_EVENT(FWidgetBlueprintEditor, FOnEnterWidgetDesigner)
+
 public:
 	FWidgetBlueprintEditor();
 
@@ -36,6 +45,7 @@ public:
 	virtual void Tick(float DeltaTime) override;
 	virtual void PostUndo(bool bSuccessful) override;
 	virtual void PostRedo(bool bSuccessful) override;
+	virtual void Compile() override;
 
 	/** FGCObjectInterface */
 	virtual void AddReferencedObjects( FReferenceCollector& Collector ) override;
@@ -56,7 +66,7 @@ public:
 	void SetIsSimulating(bool bSimulating);
 
 	/** Causes the preview to be destroyed and a new one to be created next tick */
-	void InvalidatePreview();
+	void InvalidatePreview(bool bViewOnly = false);
 
 	/** Immediately rebuilds the preview widget. */
 	void RefreshPreview();
@@ -73,6 +83,9 @@ public:
 	/** Changes the currently viewed animation in Sequencer to the new one*/
 	void ChangeViewedAnimation( UWidgetAnimation& InAnimationToView );
 
+	/** Get the current animation*/
+	UWidgetAnimation* GetCurrentAnimation() { return CurrentAnimation.Get(); }
+
 	/** Updates the current animation if it is invalid */
 	const UWidgetAnimation* RefreshCurrentAnimation();
 
@@ -82,17 +95,32 @@ public:
 	/** Sets the currently selected set of objects */
 	void SelectObjects(const TSet<UObject*>& Objects);
 
+	/** Sets the selected named slot */
+	void SetSelectedNamedSlot(TOptional<FNamedSlotSelection> SelectedNamedSlot);
+
 	/** Removes removed widgets from the selection set. */
 	void CleanSelection();
 
 	/** @return The selected set of widgets */
 	const TSet<FWidgetReference>& GetSelectedWidgets() const;
 
+	/** @return The selected named slot */
+	TOptional<FNamedSlotSelection> GetSelectedNamedSlot() const;
+
 	/** @return The selected set of Objects */
 	const TSet< TWeakObjectPtr<UObject> >& GetSelectedObjects() const;
 
-	/** @return Notification for when the preview widget has been updated */
-	FOnWidgetPreviewUpdated& GetOnWidgetPreviewUpdated() { return OnWidgetPreviewUpdated; }
+	/** @return the selected template widget */
+	const TWeakObjectPtr<UClass> GetSelectedTemplate() const { return SelectedTemplate; }
+
+	/** @return the selected user widget */
+	const FAssetData GetSelectedUserWidget() const { return SelectedUserWidget; }
+
+	/** Set the selected template widget */
+	void SetSelectedTemplate(TWeakObjectPtr<UClass> TemplateClass) { SelectedTemplate = TemplateClass; }
+
+	/** Set the selected user widget */
+	void SetSelectedUserWidget(FAssetData InSelectedUserWidget) { SelectedUserWidget = InSelectedUserWidget; }
 
 	TSharedPtr<class FWidgetBlueprintEditorToolbar> GetWidgetToolbarBuilder() { return WidgetToolbar; }
 
@@ -119,6 +147,8 @@ public:
 
 	void AddPostDesignerLayoutAction(TFunction<void()> Action);
 
+	void OnEnteringDesigner();
+
 	TArray< TFunction<void()> >& GetQueuedDesignerActions();
 
 	/** Get the current designer flags that are in effect for the current user widget we're editing. */
@@ -137,6 +167,12 @@ public:
 	/** Fires whenever the selected set of widgets changes */
 	FOnSelectedWidgetsChanged OnSelectedWidgetsChanged;
 
+	/** Notification for when the preview widget has been updated */
+	FOnWidgetPreviewUpdated OnWidgetPreviewUpdated;
+
+	/** Fires after the mode change to Designer*/
+	FOnEnterWidgetDesigner OnEnterWidgetDesigner;
+
 	/** Command list for handling widget actions in the WidgetBlueprintEditor */
 	TSharedPtr< FUICommandList > DesignerCommandList;
 
@@ -147,6 +183,7 @@ protected:
 	// Begin FBlueprintEditor
 	virtual void RegisterApplicationModes(const TArray<UBlueprint*>& InBlueprints, bool bShouldOpenInDefaultsMode, bool bNewlyCreated = false) override;
 	virtual FGraphAppearanceInfo GetGraphAppearance(class UEdGraph* InGraph) const override;
+	virtual void AppendExtraCompilerResults(TSharedPtr<class IMessageLogListing> ResultsListing) override;
 	// End FBlueprintEditor
 
 private:
@@ -182,13 +219,30 @@ private:
 	void AddObjectToAnimation(UObject* ObjectToAnimate);
 
 	/** Gets the extender to use for sequencers context sensitive menus and toolbars. */
-	TSharedRef<FExtender> GetContextSensitiveSequencerExtender( const TSharedRef<FUICommandList> CommandList, const TArray<UObject*> ContextSensitiveObjects );
+	TSharedRef<FExtender> GetAddTrackSequencerExtender(const TSharedRef<FUICommandList> CommandList, const TArray<UObject*> ContextSensitiveObjects);
+
+	TSharedRef<FExtender> GetObjectBindingContextMenuExtender(const TSharedRef<FUICommandList> CommandList, const TArray<UObject*> ContextSensitiveObjects);
 
 	/** Extends the sequencer add track menu. */
 	void ExtendSequencerAddTrackMenu( FMenuBuilder& AddTrackMenuBuilder, const TArray<UObject*> ContextObjects );
 
+	/** Replace track with selected widget function */
+	void ReplaceTrackWithSelectedWidget(FWidgetReference SelectedWidget, UWidget* BoundWidget);
+
+	/** Extends the sequencer add track menu. */
+	void ExtendSequencerObjectBindingMenu(FMenuBuilder& ObjectBindingMenuBuilder, const TArray<UObject*> ContextObjects);
+
 	/** Add an animation track for the supplied slot to the current animation. */
 	void AddSlotTrack( UPanelSlot* Slot );
+
+	/** Add an animation track for the supplied material property path to the current animation. */
+	void AddMaterialTrack( UWidget* Widget, TArray<UProperty*> MaterialPropertyPath, FText MaterialPropertyDisplayName );
+
+	/** Handler which is called whenever sequencer movie scene data changes. */
+	void OnMovieSceneDataChanged();
+
+	/** Fire off when sequencer selection changed */
+	void SyncSelectedWidgetsWithSequencerSelection(TArray<FGuid> ObjectGuids);
 
 private:
 	/** The preview scene that owns the preview GUI */
@@ -212,11 +266,17 @@ private:
 	/** The currently selected objects in the designer */
 	TSet< TWeakObjectPtr<UObject> > SelectedObjects;
 
+	/** The last selected template widget in the palette view */
+	TWeakObjectPtr<UClass> SelectedTemplate;
+
+	/** AssetData of Selected UserWidget */
+	FAssetData SelectedUserWidget;
+
+	/** The currently selected named slot */
+	TOptional<FNamedSlotSelection> SelectedNamedSlot;
+
 	/** The preview GUI object */
 	mutable TWeakObjectPtr<UUserWidget> PreviewWidgetPtr;
-
-	/** Notification for when the preview widget has been updated */
-	FOnWidgetPreviewUpdated OnWidgetPreviewUpdated;
 
 	/** Delegate called when a undo/redo transaction happens */
 	FOnWidgetBlueprintTransaction OnWidgetBlueprintTransaction;
@@ -244,5 +304,13 @@ private:
 	/** The currently viewed animation, if any. */
 	TWeakObjectPtr<UWidgetAnimation> CurrentAnimation;
 
-	FDelegateHandle SequencerExtenderHandle;
+	FDelegateHandle SequencerAddTrackExtenderHandle;
+
+	FDelegateHandle SequencerObjectBindingExtenderHandle;
+
+	/** Messages we want to append to the compiler results. */
+	TArray< TSharedRef<class FTokenizedMessage> > DesignerCompilerMessages;
+
+	/** When true the animation data in the generated class should be replaced with the current animation data. */
+	bool bRefreshGeneratedClassAnimations;
 };

@@ -8,6 +8,8 @@
 #include "ScenePrivate.h"
 #include "SceneUtils.h"
 
+DECLARE_FLOAT_COUNTER_STAT(TEXT("Fog"), Stat_GPU_Fog, STATGROUP_GPU);
+
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 static TAutoConsoleVariable<float> CVarFogStartDistance(
 	TEXT("r.FogStartDistance"),
@@ -28,11 +30,19 @@ static TAutoConsoleVariable<float> CVarFogDensity(
 	ECVF_Cheat | ECVF_RenderThreadSafe);
 #endif
 
+static TAutoConsoleVariable<int32> CVarFog(
+	TEXT("r.Fog"),
+	1,
+	TEXT(" 0: disabled\n")
+	TEXT(" 1: enabled (default)"),
+	ECVF_RenderThreadSafe | ECVF_Scalability);
+
 /** Binds the parameters. */
 void FExponentialHeightFogShaderParameters::Bind(const FShaderParameterMap& ParameterMap)
 {
-	ExponentialFogParameters.Bind(ParameterMap,TEXT("SharedFogParameter0"));
-	ExponentialFogColorParameter.Bind(ParameterMap,TEXT("SharedFogParameter1"));
+	ExponentialFogParameters.Bind(ParameterMap,TEXT("ExponentialFogParameters"));
+	ExponentialFogColorParameter.Bind(ParameterMap,TEXT("ExponentialFogColorParameter"));
+	ExponentialFogParameters3.Bind(ParameterMap,TEXT("ExponentialFogParameters3"));
 	InscatteringLightDirection.Bind(ParameterMap,TEXT("InscatteringLightDirection"));
 	DirectionalInscatteringColor.Bind(ParameterMap,TEXT("DirectionalInscatteringColor"));
 	DirectionalInscatteringStartDistance.Bind(ParameterMap,TEXT("DirectionalInscatteringStartDistance"));
@@ -43,6 +53,7 @@ FArchive& operator<<(FArchive& Ar,FExponentialHeightFogShaderParameters& Paramet
 {
 	Ar << Parameters.ExponentialFogParameters;
 	Ar << Parameters.ExponentialFogColorParameter;
+	Ar << Parameters.ExponentialFogParameters3;
 	Ar << Parameters.InscatteringLightDirection;
 	Ar << Parameters.DirectionalInscatteringColor;
 	Ar << Parameters.DirectionalInscatteringStartDistance;
@@ -242,6 +253,7 @@ void FSceneRenderer::InitFogConstants()
 				View.ExponentialFogParameters = FVector4(CollapsedFogParameter, FogInfo.FogHeightFalloff, CosTerminatorAngle, FogInfo.StartDistance);
 				View.ExponentialFogColor = FVector(FogInfo.FogColor.R, FogInfo.FogColor.G, FogInfo.FogColor.B);
 				View.FogMaxOpacity = FogInfo.FogMaxOpacity;
+				View.ExponentialFogParameters3 = FVector2D(FogInfo.FogDensity, FogInfo.FogHeight);
 
 				View.DirectionalInscatteringExponent = FogInfo.DirectionalInscatteringExponent;
 				View.DirectionalInscatteringStartDistance = FogInfo.DirectionalInscatteringStartDistance;
@@ -288,7 +300,7 @@ void SetFogShaders(FRHICommandList& RHICmdList, FScene* Scene, const FViewInfo& 
 
 bool FDeferredShadingSceneRenderer::RenderFog(FRHICommandListImmediate& RHICmdList, const FLightShaftsOutput& LightShaftsOutput)
 {
-	if (Scene->ExponentialFogs.Num() > 0)
+	if (Scene->ExponentialFogs.Num() > 0 && !Scene->ReadOnlyCVARCache.bEnableVertexFoggingForOpaque)
 	{
 		static const FVector2D Vertices[4] =
 		{
@@ -310,6 +322,7 @@ bool FDeferredShadingSceneRenderer::RenderFog(FRHICommandListImmediate& RHICmdLi
 			const FViewInfo& View = Views[ViewIndex];
 
 			SCOPED_DRAW_EVENTF(RHICmdList, Fog, TEXT("ExponentialHeightFog %dx%d"), View.ViewRect.Width(), View.ViewRect.Height());
+			SCOPED_GPU_STAT(RHICmdList, Stat_GPU_Fog);
 
 			if (View.IsPerspectiveProjection() == false)
 			{
@@ -342,8 +355,6 @@ bool FDeferredShadingSceneRenderer::RenderFog(FRHICommandListImmediate& RHICmdLi
 				);
 		}
 
-		//no need to resolve since we used alpha blending
-		SceneContext.FinishRenderingSceneColor(RHICmdList, false);
 		return true;
 	}
 
@@ -357,8 +368,8 @@ bool ShouldRenderFog(const FSceneViewFamily& Family)
 
 	return EngineShowFlags.Fog
 		&& EngineShowFlags.Materials 
-		&& Family.GetDebugViewShaderMode() == DVSM_None
+		&& !Family.UseDebugViewPS()
+		&& CVarFog.GetValueOnRenderThread() == 1
 		&& !EngineShowFlags.StationaryLightOverlap 
-		&& !EngineShowFlags.VertexDensities
 		&& !EngineShowFlags.LightMapDensity;
 }

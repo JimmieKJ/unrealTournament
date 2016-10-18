@@ -9,15 +9,7 @@
 
 
 /**
- *	A self contained handler of a GameplayCue. These are similiar to AnimNotifies in implementation.
- *	Instanced GameplayCueNotify which runs arbitrary blueprint code. (TODO: This should be the NON-instanced version!)
- *	
- *	
- *	TODO/Fixme:
- *		-Unsure: Leave K2_HandleGameplayCue in as generic function?
- *		-OnExecute/Active/Remove are more clear, easy to use. Make it harder to share info between events.
- *	
- *	
+ *	An instantiated Actor that acts as a handler of a GameplayCue. Since they are instantiated, they can maintain state and tick/update every frame if necessary. 
  */
 
 UCLASS(Blueprintable, meta = (ShowWorldContextPin), hidecategories = (Replication))
@@ -29,7 +21,7 @@ class GAMEPLAYABILITIES_API AGameplayCueNotify_Actor : public AActor
 	virtual bool HandlesEvent(EGameplayCueEvent::Type EventType) const;
 
 	UFUNCTION()
-	virtual void OnOwnerDestroyed();
+	virtual void OnOwnerDestroyed(AActor* DestroyedActor);
 
 	virtual void BeginPlay() override;
 
@@ -41,12 +33,16 @@ class GAMEPLAYABILITIES_API AGameplayCueNotify_Actor : public AActor
 
 	virtual void HandleGameplayCue(AActor* MyTarget, EGameplayCueEvent::Type EventType, const FGameplayCueParameters& Parameters);
 
+	/** Called when the GC is finished. It may be about to go back to the recyle pool, or it may be about to be destroyed. */
 	virtual void GameplayCueFinishedCallback();
 
 	virtual bool GameplayCuePendingRemove();
 
-	/** Reset all state so that it can be reused. Return false if this class connot be recycled */
+	/** Called when returning to the recycled pool. Reset all state so that it can be reused. Return false if this class cannot be recycled. */
 	virtual bool Recycle();
+
+	/** Called when we are about to reuse the GC. Should undo anything done in Recycle like hiding the actor */
+	virtual void ReuseAfterRecycle();
 
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
@@ -75,9 +71,13 @@ class GAMEPLAYABILITIES_API AGameplayCueNotify_Actor : public AActor
 	UPROPERTY(AssetRegistrySearchable)
 	FName GameplayCueName;
 
+	/** If true, attach this GameplayCue Actor to the target actor while it is active. Attaching is slightly more expensive than not attaching, so only enable when you need to. */
+	UPROPERTY(EditDefaultsOnly, Category = GameplayCue)
+	bool bAutoAttachToOwner;
+
 	/** We will auto destroy this GameplayCueActor when the OnRemove event fires (after OnRemove is called). */
 	UPROPERTY(EditDefaultsOnly, Category = GameplayCue)
-	bool	bAutoDestroyOnRemove;
+	bool bAutoDestroyOnRemove;
 
 	/** If bAutoDestroyOnRemove is true, the actor will stay alive for this many seconds before being auto destroyed. */
 	UPROPERTY(EditAnywhere, Category = GameplayCue)
@@ -135,5 +135,7 @@ protected:
 
 private:
 	virtual void DeriveGameplayCueTagFromAssetName();
+
+	void AttachToOwnerIfNecessary();
 
 };

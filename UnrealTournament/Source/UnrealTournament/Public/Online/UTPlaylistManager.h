@@ -14,6 +14,8 @@ struct FPlaylistItem
 	UPROPERTY()
 	int32 PlaylistId;
 	UPROPERTY()
+	bool bRanked;
+	UPROPERTY()
 	int32 MaxTeamCount;
 	UPROPERTY()
 	int32 MaxTeamSize;
@@ -34,13 +36,13 @@ class UNREALTOURNAMENT_API UUTPlaylistManager : public UObject
 {
 	GENERATED_BODY()
 
-	UPROPERTY(Config)
-	TArray<FPlaylistItem> Playlist;
-	
+		UPROPERTY(Config)
+		TArray<FPlaylistItem> Playlist;
+
 public:
 	/**
 	 * Get the largest team count and team size for any zoneids on the specified playlist
-	 * 
+	 *
 	 * @param PlaylistId playlist to query
 	 * @param MaxTeamCount largest number of possible teams in the game
 	 * @param MaxTeamSize largest number of possible players on a team
@@ -57,4 +59,6 @@ public:
 	int32 GetNumPlaylists() { return Playlist.Num(); }
 
 	bool GetPlaylistName(int32 PlaylistId, FString& OutPlaylistName);
+
+	bool IsPlaylistRanked(int32 PlaylistId);
 };

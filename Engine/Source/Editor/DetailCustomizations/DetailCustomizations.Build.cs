@@ -39,7 +39,6 @@ public class DetailCustomizations : ModuleRules
                 "InternationalizationSettings",
 				"SourceCodeAccess",
 				"RHI",
-                "MediaAssets",
                 "HardwareTargeting",
 				"SharedSettingsWidgets",
                 "LightPropagationVolumeRuntime",
@@ -48,6 +47,7 @@ public class DetailCustomizations : ModuleRules
 				"ConfigEditor",
                 "Persona",
                 "CinematicCamera",
+                "ComponentVisualizers"
 			}
 		);
 
@@ -59,6 +59,8 @@ public class DetailCustomizations : ModuleRules
 				"LandscapeEditor",
 				"PropertyEditor",
 				"GameProjectGeneration",
+                "ComponentVisualizers",
+				"GraphEditor"
 			}
 		);
 

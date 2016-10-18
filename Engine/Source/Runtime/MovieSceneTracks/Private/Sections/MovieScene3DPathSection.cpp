@@ -129,14 +129,19 @@ void UMovieScene3DPathSection::DilateSection( float DilationFactor, float Origin
 }
 
 
-void UMovieScene3DPathSection::GetKeyHandles(TSet<FKeyHandle>& KeyHandles) const
+void UMovieScene3DPathSection::GetKeyHandles(TSet<FKeyHandle>& OutKeyHandles, TRange<float> TimeRange) const
 {
+	if (!TimeRange.Overlaps(GetRange()))
+	{
+		return;
+	}
+
 	for (auto It(TimingCurve.GetKeyHandleIterator()); It; ++It)
 	{
 		float Time = TimingCurve.GetKeyTime(It.Key());
-		if (IsTimeWithinSection(Time))
+		if (TimeRange.Contains(Time))
 		{
-			KeyHandles.Add(It.Key());
+			OutKeyHandles.Add(It.Key());
 		}
 	}
 }

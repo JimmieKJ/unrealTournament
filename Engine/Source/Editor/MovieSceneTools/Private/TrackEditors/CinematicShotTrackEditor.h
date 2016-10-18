@@ -4,6 +4,7 @@
 
 
 class FTrackEditorThumbnailPool;
+class UMovieSceneCinematicShotSection;
 class UMovieSceneCinematicShotTrack;
 class UMovieSceneSubSection;
 
@@ -48,6 +49,7 @@ public:
 	virtual bool HandleAssetAdded(UObject* Asset, const FGuid& TargetObjectGuid) override;
 	virtual bool SupportsType(TSubclassOf<UMovieSceneTrack> Type ) const override;
 	virtual void Tick(float DeltaTime) override;
+	virtual void BuildTrackContextMenu( FMenuBuilder& MenuBuilder, UMovieSceneTrack* Track ) override;
 	virtual const FSlateBrush* GetIconBrush() const override;
 
 
@@ -70,6 +72,13 @@ public:
 	void DuplicateShot(UMovieSceneCinematicShotSection* Section);
 
 	/*
+	 * Render shot. 
+	 *
+	 * @param Section The section to render
+	 */
+	void RenderShot(UMovieSceneCinematicShotSection* Section);
+
+	/*
 	 * Rename shot. 
 	 *
 	 * @param Section The section to rename.
@@ -90,7 +99,6 @@ public:
 	* @param TakeNumber The take number to switch to.
 	*/
 	void SwitchTake(UMovieSceneCinematicShotSection* Section, uint32 TakeNumber);
-
 
 private:
 
@@ -151,6 +159,12 @@ private:
 
 	/** Callback for AnimatablePropertyChanged in HandleAssetAdded. */
 	bool HandleSequenceAdded(float KeyTime, UMovieSceneSequence* Sequence);
+
+	/** Callback for ImportEDL. */
+	void ImportEDL();
+	
+	/** Callback for ExportEDL. */
+	void ExportEDL();
 
 private:
 

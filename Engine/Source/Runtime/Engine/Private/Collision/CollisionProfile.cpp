@@ -61,6 +61,14 @@ UCollisionProfile* UCollisionProfile::Get()
 	return CollisionProfile;
 }
 
+void UCollisionProfile::PostReloadConfig(UProperty* PropertyThatWasLoaded)
+{
+	if (HasAnyFlags(RF_ClassDefaultObject))
+	{
+		LoadProfileConfig();
+	}
+}
+
 void UCollisionProfile::GetProfileNames(TArray<TSharedPtr<FName>>& OutNameList)
 {
 	const UCollisionProfile* CollisionProfile = UCollisionProfile::Get();
@@ -182,11 +190,7 @@ bool UCollisionProfile::ReadConfig(FName ProfileName, FBodyInstance& BodyInstanc
 		BodyInstance.CollisionResponses.SetCollisionResponseContainer(Template.ResponseToChannels);
 		BodyInstance.ResponseToChannels_DEPRECATED = Template.ResponseToChannels;
 
-		// if valid instance, make sure to update physics filter data
-		if (BodyInstance.IsValidBodyInstance())
-		{
-			BodyInstance.UpdatePhysicsFilterData();
-		}
+		BodyInstance.UpdatePhysicsFilterData();
 		return true;
 	}
 
@@ -356,10 +360,22 @@ void UCollisionProfile::LoadProfileConfig(bool bForceInit)
 	// Now Load Channel setups, and set display names if customized
 	// also initialize DefaultResposneContainer with default response for each channel
 	FCollisionResponseContainer::DefaultResponseContainer.SetAllChannels(ECR_Block);
+	FCollisionResponseContainer::DefaultResponseContainer.SetResponse( COLLISION_GIZMO, ECR_Ignore );
 
-	for (auto Iter=DefaultChannelResponses.CreateConstIterator(); Iter; ++Iter)
+	// we can't guarantee that DefaultChannelResponses was loaded ordered (from
+	// config) - in the following loop, we fill out TraceTypeMapping and 
+	// ObjectTypeMapping from DefaultChannelResponses, and those mappings expect 
+	// to be ordered (since we reinterpret the index to be an enum value itself 
+	// in functions like ConvertToCollisionChannel(), etc.)
+	DefaultChannelResponses.Sort([](const FCustomChannelSetup& Rhs, const FCustomChannelSetup& Lhs)->bool 
+		{ 
+			return (Rhs.Channel < Lhs.Channel);
+		}
+	);
+
+	for (int32 ChannelResponseIndex = 0; ChannelResponseIndex < DefaultChannelResponses.Num(); ++ChannelResponseIndex)
 	{
-		const FCustomChannelSetup& CustomChannel = *Iter;
+		const FCustomChannelSetup& CustomChannel = DefaultChannelResponses[ChannelResponseIndex];
 		int32 EnumIndex = CustomChannel.Channel;
 		// make sure it is the range of channels we allow to change
 		if ( IS_VALID_COLLISIONCHANNEL(EnumIndex) )
@@ -370,6 +386,15 @@ void UCollisionProfile::LoadProfileConfig(bool bForceInit)
 				// ECollisionResponseContainer variables meta data
 				FString VariableName = ChannelDisplayNames[EnumIndex].ToString();
 				FString DisplayValue = CustomChannel.Name.ToString();
+
+				if (TraceTypeMapping.Contains(EnumIndex) || ObjectTypeMapping.Contains(EnumIndex))
+				{
+					UE_LOG(LogCollisionProfile, Warning, TEXT("Cannot map multiple responses to the same collision channel (%d); ignoring '%s' "), EnumIndex, *DisplayValue);
+					DefaultChannelResponses.RemoveAt(ChannelResponseIndex);
+					// decrement iterator so this index gets processed again (since we just removed an entry)
+					--ChannelResponseIndex;
+					continue;
+				}
 
 				// also has to set this for internal use
 				ChannelDisplayNames[EnumIndex] = FName(*DisplayValue);
@@ -433,8 +458,8 @@ void UCollisionProfile::LoadProfileConfig(bool bForceInit)
 #if WITH_EDITOR
 	// now propagate all changes to the channels to EObjectTypeQuery and ETraceTypeQuery for blueprint accessibility
 	// this code is to show in editor more friendly, so it doesn't have to be set if it's not for editor
-	int32 ObjectTypeEnumIndex = 0;
-	int32 TraceTypeEnumIndex = 0;
+	int32 ObjectTypeMappingCount = 0;
+	int32 TraceTypeMappingCount  = 0;
 
 	// first go through fill up ObjectType Enum
 	for ( int32 EnumIndex=0; EnumIndex<NumEnum; ++EnumIndex )
@@ -449,23 +474,31 @@ void UCollisionProfile::LoadProfileConfig(bool bForceInit)
 				// find out trace type or object type
 				if (Enum->GetMetaData(*TraceType, EnumIndex) == TraceValue)
 				{
-					TraceTypeEnum->RemoveMetaData(*HiddenMeta, TraceTypeEnumIndex);
-					TraceTypeEnum->SetMetaData(*KeyName, *DisplayName, TraceTypeEnumIndex);
-					++TraceTypeEnumIndex;
+					int32 TraceTypeIndex = TraceTypeMapping.Find((ECollisionChannel)EnumIndex);
+					if (ensure(TraceTypeIndex != INDEX_NONE))
+					{
+						TraceTypeEnum->RemoveMetaData(*HiddenMeta, TraceTypeIndex);
+						TraceTypeEnum->SetMetaData(*KeyName, *DisplayName, TraceTypeIndex);
+						++TraceTypeMappingCount;
+					}
 				}
 				else
 				{
-					ObjectTypeEnum->RemoveMetaData(*HiddenMeta, ObjectTypeEnumIndex);
-					ObjectTypeEnum->SetMetaData(*KeyName, *DisplayName, ObjectTypeEnumIndex);
-					++ObjectTypeEnumIndex;
+					int32 ObjectTypeIndex = ObjectTypeMapping.Find((ECollisionChannel)EnumIndex);
+					if (ensure(ObjectTypeIndex != INDEX_NONE))
+					{
+						ObjectTypeEnum->RemoveMetaData(*HiddenMeta, ObjectTypeIndex);
+						ObjectTypeEnum->SetMetaData(*KeyName, *DisplayName, ObjectTypeIndex);
+						++ObjectTypeMappingCount;
+					}
 				}
 			}
 		}
 	}
 
 	// make sure TraceTypeEnumIndex matches TraceTypeMapping
-	check (TraceTypeMapping.Num() == TraceTypeEnumIndex);
-	check (ObjectTypeMapping.Num() == ObjectTypeEnumIndex);
+	check (TraceTypeMapping.Num()  == TraceTypeMappingCount);
+	check (ObjectTypeMapping.Num() == ObjectTypeMappingCount);
 #endif
 
 	// collision redirector has to be loaded before profile

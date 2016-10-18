@@ -15,6 +15,11 @@ namespace AutomationTool
 {
 	public class Program
 	{
+		/// <summary>
+		/// Keep a persistent reference to the delegate for handling Ctrl-C events. Since it's passed to non-managed code, we have to prevent it from being garbage collected.
+		/// </summary>
+		static ProcessManager.CtrlHandlerDelegate CtrlHandlerDelegateInstance = CtrlHandler;
+
 		[STAThread]
 		public static int Main()
 		{
@@ -45,7 +50,7 @@ namespace AutomationTool
 				var Domain = AppDomain.CurrentDomain;
 				Domain.ProcessExit += Domain_ProcessExit;
 				Domain.DomainUnload += Domain_ProcessExit;
-				HostPlatform.Current.SetConsoleCtrlHandler(CtrlHandler);
+				HostPlatform.Current.SetConsoleCtrlHandler(CtrlHandlerDelegateInstance);
 
 				var Version = AssemblyUtils.ExecutableVersion;
 				Log.TraceVerbose("{0} ver. {1}", Version.ProductName, Version.ProductVersion);
@@ -118,7 +123,6 @@ namespace AutomationTool
 		static void Domain_ProcessExit(object sender, EventArgs e)
 		{
 			// Kill all spawned processes (Console instead of Log because logging is closed at this time anyway)
-			Console.WriteLine("Domain_ProcessExit");
 			if (ShouldKillProcesses && !Utils.IsRunningOnMono)
 			{			
 				ProcessManager.KillAll();

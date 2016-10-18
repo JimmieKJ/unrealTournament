@@ -88,8 +88,5 @@ private:
 
 	static void EmitStructProperties(FEmitterLocalContext& EmitterContext, UStruct* SourceClass);
 
-	/** Emits local variable declarations for a function */
-	static void DeclareLocalVariables(FEmitterLocalContext& EmitterContext, TArray<UProperty*>& LocalVariables);
-
 	static void DeclareDelegates(FEmitterLocalContext& EmitterContext, TIndirectArray<FKismetFunctionContext>& Functions);
 };

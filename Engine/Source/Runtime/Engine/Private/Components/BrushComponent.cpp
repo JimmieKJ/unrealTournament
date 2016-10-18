@@ -16,6 +16,7 @@
 #endif
 #include "DebuggingDefines.h"
 #include "ActorEditorUtils.h"
+#include "PhysicsEngine/BodySetup.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogBrushComponent, Log, All);
 

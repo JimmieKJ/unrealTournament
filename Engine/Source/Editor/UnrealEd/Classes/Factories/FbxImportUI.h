@@ -17,6 +17,9 @@ enum EFBXImportType
 	FBXIT_SkeletalMesh UMETA(DisplayName="Skeletal Mesh"),
 	/** Select Animation if you'd like to import only animation. */
 	FBXIT_Animation UMETA(DisplayName="Animation"),
+	/** Subdivision Surface (Experimental, Early work in progress) */
+	FBXIT_SubDSurface UMETA(DisplayName="SubDSurface"),
+
 	FBXIT_MAX,
 };
 
@@ -46,8 +49,12 @@ class UFbxImportUI : public UObject
 	uint32 bConvertScene:1;
 
 	/** Whether to import the incoming FBX as a skeletal object */
-	UPROPERTY(EditAnywhere, Category = Mesh, meta = (ImportType = "StaticMesh|SkeletalMesh"))
+	UPROPERTY(EditAnywhere, Category = Mesh, meta = (ImportType = "StaticMesh|SkeletalMesh", DisplayName="Skeletal Mesh"))
 	bool bImportAsSkeletal;
+	
+	/** Whether to import the incoming FBX as a Subdivision Surface (could be made a combo box together with bImportAsSkeletal) (Experimental, Early work in progress) */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = Mesh, meta = (ImportType = "StaticMesh|SkeletalMesh", DisplayName="Subdivison Surface"))
+	bool bImportAsSubDSurface;
 
 	/** Whether to import the mesh. Allows animation only import when importing a skeletal mesh. */
 	UPROPERTY(EditAnywhere, Category=Mesh, meta=(ImportType="SkeletalMesh"))
@@ -73,9 +80,9 @@ class UFbxImportUI : public UObject
 	UPROPERTY(EditAnywhere, config, Category=Animation, meta=(ImportType="SkeletalMesh|Animation"))
 	uint32 bImportAnimations:1;
 
-	/** Override for the name of the animation to import **/
+	/** Override for the name of the animation to import. By default, it will be the name of FBX **/
 	UPROPERTY(EditAnywhere, AdvancedDisplay, Category=Animation, meta=(editcondition="bImportAnimations", ImportType="SkeletalMesh")) 
-	FString AnimationName;
+	FString OverrideAnimationName;
 
 	/** Enables importing of 'rigid skeletalmesh' (unskinned, hierarchy-based animation) from this FBX file, no longer shown, used behind the scenes */
 	UPROPERTY()
@@ -108,6 +115,17 @@ class UFbxImportUI : public UObject
 	//~ Begin UObject Interface
 	virtual bool CanEditChange( const UProperty* InProperty ) const override;
 	//~ End UObject Interface
+
+	/** sets MeshTypeToImport */
+	void SetMeshTypeToImport()
+	{
+		MeshTypeToImport = bImportAsSkeletal ? FBXIT_SkeletalMesh : FBXIT_StaticMesh;
+
+		if(bImportAsSubDSurface)
+		{
+			MeshTypeToImport = FBXIT_SubDSurface;
+		}
+	}
 };
 
 

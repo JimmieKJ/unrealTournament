@@ -1114,6 +1114,26 @@ public:
 		_MaxNumCallsPerFrame = FMath::Max( _MaxNumCallsPerFrame, Other->_MaxNumCallsPerFrame );
 	}
 
+	void RecalcTimes()
+	{
+		_FrameDurationMS = 0;
+		_ThreadDurationMS = 0;
+		_InclusiveTimeMS = 0;
+
+		for (auto Child : GetChildren())
+		{
+			_FrameDurationMS += Child->_FrameDurationMS;
+			_ThreadDurationMS += Child->_ThreadDurationMS;
+			_InclusiveTimeMS += Child->_InclusiveTimeMS;
+		}
+
+		for (auto Child : GetChildren())
+		{
+			Child->_InclusiveTimePct = (Child->_InclusiveTimeMS * 100) / _InclusiveTimeMS;
+			Child->_ThreadPct = (Child->_ThreadDurationMS * 100) / _ThreadDurationMS;
+			Child->_FramePct = (Child->_FrameDurationMS * 100) / _FrameDurationMS;
+		}
+	}
 protected:
 
 	/** For creating per-frame average event graph. */
@@ -1154,13 +1174,16 @@ protected:
 			_ThreadDurationMS = GetThread()->_InclusiveTimeMS;
 
 			FEventGraphSample* Parent = GetParent().Get();
-			if (IsSelf())
+			if (Parent)
 			{
-				Parent->_ExclusiveTimeMS = _InclusiveTimeMS;
-				Parent->_ExclusiveTimePct = 100.0f * Parent->_ExclusiveTimeMS / Parent->_InclusiveTimeMS;
-			}
+				if (IsSelf())
+				{
+					Parent->_ExclusiveTimeMS = _InclusiveTimeMS;
+					Parent->_ExclusiveTimePct = 100.0f * Parent->_ExclusiveTimeMS / Parent->_InclusiveTimeMS;
+				}
 
-			_InclusiveTimePct = 100.0f * _InclusiveTimeMS / Parent->_InclusiveTimeMS;
+				_InclusiveTimePct = 100.0f * _InclusiveTimeMS / Parent->_InclusiveTimeMS;
+			}
 
 			FixFrameThreadPcts();
 		}
@@ -1174,7 +1197,6 @@ protected:
 		_AvgInclusiveTimeMS = _InclusiveTimeMS / NumFrames;
 		_AvgNumCallsPerFrame = _NumCallsPerFrame / NumFrames;
 	}
-
 
 	void FixFrameThreadPcts()
 	{
@@ -1382,6 +1404,14 @@ public:
 	FORCEINLINE FEventGraphSamplePtr GetParent() const 
 	{ 
 		return _ParentPtr.Pin(); 
+	}
+
+	/**
+	* @Reparent this event
+	*/
+	FORCEINLINE void SetParent(FEventGraphSamplePtr NewParent)
+	{
+		_ParentPtr = NewParent;
 	}
 
 	/**
@@ -2111,6 +2141,9 @@ public:
 	FORCEINLINE_DEBUGGABLE ~FEventGraphData()
 	{}
 
+	/** Copy constructor, create a full duplication of the source event graph data. */
+	FEventGraphData(const FEventGraphData& Source);
+
 protected:
 	/**
 	 * Initialization constructor, hidden on purpose, may be only called from the FProfilerSession class.
@@ -2120,9 +2153,6 @@ protected:
 	 *
 	 */
 	FEventGraphData( const FProfilerSession * const InProfilerSession, const uint32 InFrameIndex );
-
-	/** Copy constructor, create a full duplication of the source event graph data. */
-	FEventGraphData( const FEventGraphData& Source );
 
 	/**
 	 * Recursively populates the hierarchy of the event graph samples.

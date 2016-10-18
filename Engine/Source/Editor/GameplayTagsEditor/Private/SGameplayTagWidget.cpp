@@ -335,7 +335,7 @@ void SGameplayTagWidget::OnTagChecked(TSharedPtr<FGameplayTagNode> NodeChecked)
 
 			while (CurNode.IsValid())
 			{
-				FGameplayTag Tag = TagsManager.RequestGameplayTag(CurNode.Pin()->GetCompleteTag());
+				FGameplayTag GameplayTag = TagsManager.RequestGameplayTag(CurNode.Pin()->GetCompleteTag());
 
 				if (bRemoveParents == false)
 				{
@@ -344,11 +344,11 @@ void SGameplayTagWidget::OnTagChecked(TSharedPtr<FGameplayTagNode> NodeChecked)
 					{
 						EditableContainer.RemoveAllTags();
 					}
-					EditableContainer.AddTag(Tag);
+					EditableContainer.AddTag(GameplayTag);
 				}
 				else
 				{
-					EditableContainer.RemoveTag(Tag);
+					EditableContainer.RemoveTag(GameplayTag);
 				}
 
 				CurNode = CurNode.Pin()->GetParentTagNode();
@@ -369,12 +369,12 @@ void SGameplayTagWidget::OnTagUnchecked(TSharedPtr<FGameplayTagNode> NodeUncheck
 		{
 			UObject* OwnerObj = TagContainers[ContainerIdx].TagContainerOwner.Get();
 			FGameplayTagContainer* Container = TagContainers[ContainerIdx].TagContainer;
-			FGameplayTag Tag = TagsManager.RequestGameplayTag(NodeUnchecked->GetCompleteTag());
+			FGameplayTag GameplayTag = TagsManager.RequestGameplayTag(NodeUnchecked->GetCompleteTag());
 
 			if (Container)
 			{
 				FGameplayTagContainer EditableContainer = *Container;
-				EditableContainer.RemoveTag(Tag);
+				EditableContainer.RemoveTag(GameplayTag);
 
 				TWeakPtr<FGameplayTagNode> ParentNode = NodeUnchecked->GetParentTagNode();
 				if (ParentNode.IsValid())
@@ -383,8 +383,8 @@ void SGameplayTagWidget::OnTagUnchecked(TSharedPtr<FGameplayTagNode> NodeUncheck
 					bool bOtherSiblings = false;
 					for (auto It = ParentNode.Pin()->GetChildTagNodes().CreateConstIterator(); It; ++It)
 					{
-						Tag = TagsManager.RequestGameplayTag(It->Get()->GetCompleteTag());
-						if (EditableContainer.HasTag(Tag, EGameplayTagMatchType::Explicit, EGameplayTagMatchType::Explicit))
+						GameplayTag = TagsManager.RequestGameplayTag(It->Get()->GetCompleteTag());
+						if (EditableContainer.HasTag(GameplayTag, EGameplayTagMatchType::Explicit, EGameplayTagMatchType::Explicit))
 						{
 							bOtherSiblings = true;
 							break;
@@ -393,8 +393,8 @@ void SGameplayTagWidget::OnTagUnchecked(TSharedPtr<FGameplayTagNode> NodeUncheck
 					// Add Parent
 					if (!bOtherSiblings)
 					{
-						Tag = TagsManager.RequestGameplayTag(ParentNode.Pin()->GetCompleteTag());
-						EditableContainer.AddTag(Tag);
+						GameplayTag = TagsManager.RequestGameplayTag(ParentNode.Pin()->GetCompleteTag());
+						EditableContainer.AddTag(GameplayTag);
 					}
 				}
 
@@ -415,8 +415,8 @@ void SGameplayTagWidget::UncheckChildren(TSharedPtr<FGameplayTagNode> NodeUnchec
 {
 	UGameplayTagsManager& TagsManager = IGameplayTagsModule::GetGameplayTagsManager();
 
-	FGameplayTag Tag = TagsManager.RequestGameplayTag(NodeUnchecked->GetCompleteTag());
-	EditableContainer.RemoveTag(Tag);
+	FGameplayTag GameplayTag = TagsManager.RequestGameplayTag(NodeUnchecked->GetCompleteTag());
+	EditableContainer.RemoveTag(GameplayTag);
 
 	// Uncheck Children
 	for (const auto& ChildNode : NodeUnchecked->GetChildTagNodes())
@@ -440,10 +440,10 @@ ECheckBoxState SGameplayTagWidget::IsTagChecked(TSharedPtr<FGameplayTagNode> Nod
 			if (Container)
 			{
 				NumValidAssets++;
-				FGameplayTag Tag = TagsManager.RequestGameplayTag(Node->GetCompleteTag(), false);
-				if (Tag.IsValid())
+				FGameplayTag GameplayTag = TagsManager.RequestGameplayTag(Node->GetCompleteTag(), false);
+				if (GameplayTag.IsValid())
 				{
-					if (Container->HasTag(Tag, EGameplayTagMatchType::Explicit, EGameplayTagMatchType::Explicit))
+					if (Container->HasTag(GameplayTag, EGameplayTagMatchType::IncludeParentTags, EGameplayTagMatchType::Explicit))
 					{
 						++NumAssetsTagIsAppliedTo;
 					}
@@ -454,15 +454,6 @@ ECheckBoxState SGameplayTagWidget::IsTagChecked(TSharedPtr<FGameplayTagNode> Nod
 
 	if (NumAssetsTagIsAppliedTo == 0)
 	{
-		// Check if any children are tagged
-		for (auto It = Node->GetChildTagNodes().CreateConstIterator(); It; ++It)
-		{
-			if (IsTagChecked(*It) == ECheckBoxState::Checked)
-			{
-				return ECheckBoxState::Checked;
-			}
-		}
-
 		return ECheckBoxState::Unchecked;
 	}
 	else if (NumAssetsTagIsAppliedTo == NumValidAssets)

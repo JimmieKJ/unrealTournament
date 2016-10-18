@@ -3,16 +3,15 @@
 #pragma once
 #include "AITypes.h"
 #include "AI/Navigation/NavigationTypes.h"
+#include "GameFramework/NavMovementComponent.h"
 #include "Components/ActorComponent.h"
 #include "AIResourceInterface.h"
 #include "PathFollowingComponent.generated.h"
 
 AIMODULE_API DECLARE_LOG_CATEGORY_EXTERN(LogPathFollowing, Warning, All);
 
-class UNavMovementComponent;
 class UCanvas;
 class AActor;
-class APawn;
 class INavLinkCustomInterface;
 class INavAgentInterface;
 class UNavigationComponent;
@@ -53,15 +52,77 @@ namespace EPathFollowingResult
 		/** Aborted and stopped (failure) */
 		Aborted,
 
-		/** Aborted and replaced with new request */
-		Skipped,
+		/** DEPRECATED, use Aborted result instead */
+		Skipped_DEPRECATED UMETA(Hidden),
 
 		/** Request was invalid */
 		Invalid,
 	};
 }
 
-// left for now, will be removed soon! please use EPathFollowingStatus instead
+namespace FPathFollowingResultFlags
+{
+	typedef uint16 Type;
+
+	const Type None = 0;
+
+	/** Reached destination (EPathFollowingResult::Success) */
+	const Type Success = (1 << 0);
+
+	/** Movement was blocked (EPathFollowingResult::Blocked) */
+	const Type Blocked = (1 << 1);
+
+	/** Agent is not on path (EPathFollowingResult::OffPath) */
+	const Type OffPath = (1 << 2);
+
+	/** Aborted (EPathFollowingResult::Aborted) */
+	const Type UserAbort = (1 << 3);
+
+	/** Abort details: owner no longer wants to move */
+	const Type OwnerFinished = (1 << 4);
+
+	/** Abort details: path is no longer valid */
+	const Type InvalidPath = (1 << 5);
+
+	/** Abort details: unable to move */
+	const Type MovementStop = (1 << 6);
+
+	/** Abort details: new movement request was received */
+	const Type NewRequest = (1 << 7);
+
+	/** Abort details: blueprint MoveTo function was called */
+	const Type ForcedScript = (1 << 8);
+
+	/** Finish details: never started, agent was already at goal */
+	const Type AlreadyAtGoal = (1 << 9);
+
+	/** Can be used to create project specific reasons */
+	const Type FirstGameplayFlagShift = 10;
+
+	const Type UserAbortFlagMask = ~(Success | Blocked | OffPath);
+
+	FString ToString(uint16 Value);
+}
+
+struct AIMODULE_API FPathFollowingResult
+{
+	FPathFollowingResultFlags::Type Flags;
+	TEnumAsByte<EPathFollowingResult::Type> Code;
+
+	FPathFollowingResult() : Flags(0), Code(EPathFollowingResult::Invalid)  {}
+	FPathFollowingResult(FPathFollowingResultFlags::Type InFlags);
+	FPathFollowingResult(EPathFollowingResult::Type ResultCode, FPathFollowingResultFlags::Type ExtraFlags);
+
+	bool HasFlag(FPathFollowingResultFlags::Type Flag) const { return (Flags & Flag) != 0; }
+
+	bool IsSuccess() const { return HasFlag(FPathFollowingResultFlags::Success); }
+	bool IsFailure() const { return !HasFlag(FPathFollowingResultFlags::Success); }
+	bool IsInterrupted() const { return HasFlag(FPathFollowingResultFlags::UserAbort | FPathFollowingResultFlags::NewRequest); }
+	
+	FString ToString() const;
+};
+
+// DEPRECATED, will be removed with GetPathActionType function
 UENUM(BlueprintType)
 namespace EPathFollowingAction
 {
@@ -86,6 +147,15 @@ namespace EPathFollowingRequestResult
 	};
 }
 
+struct AIMODULE_API FPathFollowingRequestResult
+{
+	FAIRequestID MoveId;
+	TEnumAsByte<EPathFollowingRequestResult::Type> Code;
+
+	FPathFollowingRequestResult() : MoveId(FAIRequestID::InvalidRequest), Code(EPathFollowingRequestResult::Failed) {}
+	operator EPathFollowingRequestResult::Type() const { return Code; }
+};
+
 namespace EPathFollowingDebugTokens
 {
 	enum Type
@@ -97,17 +167,36 @@ namespace EPathFollowingDebugTokens
 	};
 }
 
+// DEPRECATED, please use EPathFollowingResultDetails instead, will be removed with deprecated override of AbortMove function
 namespace EPathFollowingMessage
 {
 	enum Type
 	{
-		/** Aborted because no path was found */
 		NoPath,
-
-		/** Aborted because another request came in */
 		OtherRequest,
 	};
 }
+
+enum class EPathFollowingVelocityMode : uint8
+{
+	Reset,
+	Keep,
+};
+
+enum class EPathFollowingReachMode : uint8
+{
+	/** reach test uses only AcceptanceRadius */
+	ExactLocation,
+
+	/** reach test uses AcceptanceRadius increased by modified agent radius */
+	OverlapAgent,
+
+	/** reach test uses AcceptanceRadius increased by goal actor radius */
+	OverlapGoal,
+
+	/** reach test uses AcceptanceRadius increased by modified agent radius AND goal actor radius */
+	OverlapAgentAndGoal,
+};
 
 UCLASS(config=Engine)
 class AIMODULE_API UPathFollowingComponent : public UActorComponent, public IAIResourceInterface
@@ -117,12 +206,13 @@ class AIMODULE_API UPathFollowingComponent : public UActorComponent, public IAIR
 	DECLARE_DELEGATE_TwoParams(FPostProcessMoveSignature, UPathFollowingComponent* /*comp*/, FVector& /*velocity*/);
 	DECLARE_DELEGATE_OneParam(FRequestCompletedSignature, EPathFollowingResult::Type /*Result*/);
 	DECLARE_MULTICAST_DELEGATE_TwoParams(FMoveCompletedSignature, FAIRequestID /*RequestID*/, EPathFollowingResult::Type /*Result*/);
+	DECLARE_MULTICAST_DELEGATE_TwoParams(FMoveComplete, FAIRequestID /*RequestID*/, const FPathFollowingResult& /*Result*/);
 
 	/** delegate for modifying path following velocity */
 	FPostProcessMoveSignature PostProcessMove;
 
 	/** delegate for move completion notify */
-	FMoveCompletedSignature OnMoveFinished;
+	FMoveComplete OnRequestFinished;
 
 	//~ Begin UActorComponent Interface
 	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction) override;
@@ -138,41 +228,35 @@ class AIMODULE_API UPathFollowingComponent : public UActorComponent, public IAIR
 	virtual void UpdateCachedComponents();
 
 	/** start movement along path
-	 *  @returns request ID or 0 when failed */
-	virtual FAIRequestID RequestMove(FNavPathSharedPtr Path, FRequestCompletedSignature OnComplete, const AActor* DestinationActor = NULL, float AcceptanceRadius = UPathFollowingComponent::DefaultAcceptanceRadius, bool bStopOnOverlap = true, FCustomMoveSharedPtr GameData = NULL);
+	  * @return MoveId of requested move
+	  */
+	virtual FAIRequestID RequestMove(const FAIMoveRequest& RequestData, FNavPathSharedPtr InPath);
 
-	/** start movement along path
-	 *  @returns request ID or 0 when failed */
-	FORCEINLINE FAIRequestID RequestMove(FNavPathSharedPtr InPath, const AActor* InDestinationActor = NULL, float InAcceptanceRadius = UPathFollowingComponent::DefaultAcceptanceRadius, bool InStopOnOverlap = true, FCustomMoveSharedPtr InGameData = NULL)
-	{
-		return RequestMove(InPath, UnboundRequestDelegate, InDestinationActor, InAcceptanceRadius, InStopOnOverlap, InGameData);
-	}
+	/** aborts following path */
+	virtual void AbortMove(const UObject& Instigator, FPathFollowingResultFlags::Type AbortFlags, FAIRequestID RequestID = FAIRequestID::CurrentRequest, EPathFollowingVelocityMode VelocityMode = EPathFollowingVelocityMode::Reset);
 
-	/** update path for specified request
-	 *  @param RequestID - request to update */
-	virtual bool UpdateMove(FNavPathSharedPtr Path, FAIRequestID RequestID = FAIRequestID::CurrentRequest);
-
-	/** aborts following path
-	 *  @param RequestID - request to abort, 0 = current
-	 *  @param bResetVelocity - try to stop movement component
-	 *  @param bSilent - finish with Skipped result instead of Aborted */
-	virtual void AbortMove(const FString& Reason, FAIRequestID RequestID = FAIRequestID::CurrentRequest, bool bResetVelocity = true, bool bSilent = false, uint8 MessageFlags = 0);
+	/** create new request and finish it immediately (e.g. already at goal)
+	 *  @return MoveId of requested (and already finished) move
+	 */
+	FAIRequestID RequestMoveWithImmediateFinish(EPathFollowingResult::Type Result, EPathFollowingVelocityMode VelocityMode = EPathFollowingVelocityMode::Reset);
 
 	/** pause path following
 	*  @param RequestID - request to pause, FAIRequestID::CurrentRequest means pause current request, regardless of its ID */
-	virtual void PauseMove(FAIRequestID RequestID = FAIRequestID::CurrentRequest, bool bResetVelocity = true);
+	virtual void PauseMove(FAIRequestID RequestID = FAIRequestID::CurrentRequest, EPathFollowingVelocityMode VelocityMode = EPathFollowingVelocityMode::Reset);
 
 	/** resume path following
-	*  @param RequestID - request to resume, FAIRequestID::CurrentRequest means restor current request, regardless of its ID*/
+	*  @param RequestID - request to resume, FAIRequestID::CurrentRequest means restor current request, regardless of its ID */
 	virtual void ResumeMove(FAIRequestID RequestID = FAIRequestID::CurrentRequest);
 
 	/** notify about finished movement */
-	virtual void OnPathFinished(EPathFollowingResult::Type Result);
+	virtual void OnPathFinished(const FPathFollowingResult& Result);
+
+	FORCEINLINE void OnPathFinished(EPathFollowingResult::Type ResultCode, uint16 ExtraResultFlags) { OnPathFinished(FPathFollowingResult(ResultCode, ExtraResultFlags)); }
 
 	/** notify about finishing move along current path segment */
 	virtual void OnSegmentFinished();
 
-	/** notify about changing current path */
+	/** notify about changing current path: new pointer or update from path event */
 	virtual void OnPathUpdated();
 
 	/** set associated movement component */
@@ -184,17 +268,20 @@ class AIMODULE_API UPathFollowingComponent : public UActorComponent, public IAIR
 	/** simple test for stationary agent (used as early finish condition), check if reached given point
 	 *  @param TestPoint - point to test
 	 *  @param AcceptanceRadius - allowed 2D distance
-	 *  @param bExactSpot - false: increase AcceptanceRadius with agent's radius
+	 *  @param ReachMode - modifiers for AcceptanceRadius
 	 */
-	bool HasReached(const FVector& TestPoint, float AcceptanceRadius = UPathFollowingComponent::DefaultAcceptanceRadius, bool bExactSpot = false) const;
+	bool HasReached(const FVector& TestPoint, EPathFollowingReachMode ReachMode, float AcceptanceRadius = UPathFollowingComponent::DefaultAcceptanceRadius) const;
 
 	/** simple test for stationary agent (used as early finish condition), check if reached given goal
 	 *  @param TestGoal - actor to test
 	 *  @param AcceptanceRadius - allowed 2D distance
-	 *  @param bExactSpot - false: increase AcceptanceRadius with agent's radius
+	 *  @param ReachMode - modifiers for AcceptanceRadius
 	 *  @param bUseNavAgentGoalLocation - true: if the goal is a nav agent, we will use their nav agent location rather than their actual location
 	 */
-	bool HasReached(const AActor& TestGoal, float AcceptanceRadius = UPathFollowingComponent::DefaultAcceptanceRadius, bool bExactSpot = false, bool bUseNavAgentGoalLocation = true) const;
+	bool HasReached(const AActor& TestGoal, EPathFollowingReachMode ReachMode, float AcceptanceRadius = UPathFollowingComponent::DefaultAcceptanceRadius, bool bUseNavAgentGoalLocation = true) const;
+
+	/** simple test for stationary agent (used as early finish condition), check if reached target specified in move request */
+	bool HasReached(const FAIMoveRequest& MoveRequest) const;
 
 	/** update state of block detection */
 	void SetBlockDetectionState(bool bEnable);
@@ -214,7 +301,7 @@ class AIMODULE_API UPathFollowingComponent : public UActorComponent, public IAIR
 	/** set threshold for precise reach tests in intermediate goals (minimal test radius)  */
 	void SetPreciseReachThreshold(float AgentRadiusMultiplier, float AgentHalfHeightMultiplier);
 
-	/** set status of last requested move */
+	/** set status of last requested move, works only in Idle state */
 	void SetLastMoveAtGoal(bool bFinishedAtGoal);
 
 	/** @returns estimated cost of unprocessed path segments
@@ -238,15 +325,14 @@ class AIMODULE_API UPathFollowingComponent : public UActorComponent, public IAIR
 	FORCEINLINE UObject* GetCurrentCustomLinkOb() const { return CurrentCustomLinkOb.Get(); }
 	FORCEINLINE FVector GetCurrentTargetLocation() const { return *CurrentDestination; }
 	FORCEINLINE FBasedPosition GetCurrentTargetLocationBased() const { return CurrentDestination; }
+	bool HasStartedNavLinkMove() const { return bWalkingNavLinkStart; }
+	bool IsCurrentSegmentNavigationLink() const;
 	FVector GetCurrentDirection() const;
+	/** note that CurrentMoveInput is only valid if MovementComp->UseAccelerationForPathFollowing() == true */
+	FVector GetCurrentMoveInput() const { return CurrentMoveInput; }
 
-	/** will be deprecated soon, please use AIController.GetMoveStatus instead! */
-	UFUNCTION(BlueprintCallable, Category="AI|Components|PathFollowing")
-	EPathFollowingAction::Type GetPathActionType() const;
-
-	/** will be deprecated soon, please use AIController.GetImmediateMoveDestination instead! */
-	UFUNCTION(BlueprintCallable, Category="AI|Components|PathFollowing")
-	FVector GetPathDestination() const;
+	/** check if path following has authority over movement (e.g. not falling) and can update own state */
+	FORCEINLINE bool HasMovementAuthority() const { return (MovementComp == nullptr) || MovementComp->CanStopPathFollowing(); }
 
 	FORCEINLINE const FNavPathSharedPtr GetPath() const { return Path; }
 	FORCEINLINE bool HasValidPath() const { return Path.IsValid() && Path->IsValid(); }
@@ -278,6 +364,9 @@ class AIMODULE_API UPathFollowingComponent : public UActorComponent, public IAIR
 	/** Called when movement is blocked by a collision with another actor.  */
 	virtual void OnMoveBlockedBy(const FHitResult& BlockingImpact) {}
 
+	/** Called when falling movement starts. */
+	virtual void OnStartedFalling();
+
 	/** Called when falling movement ends. */
 	virtual void OnLanded() {}
 
@@ -297,11 +386,48 @@ class AIMODULE_API UPathFollowingComponent : public UActorComponent, public IAIR
 	virtual bool IsResourceLocked() const override;
 	// IAIResourceInterface end
 
-	void OnPathEvent(FNavigationPath* InvalidatedPath, ENavPathEvent::Type Event);
+	/** path observer */
+	void OnPathEvent(FNavigationPath* InPath, ENavPathEvent::Type Event);
 
 	/** helper function for sending a path for visual log */
 	static void LogPathHelper(const AActor* LogOwner, FNavPathSharedPtr InLogPath, const AActor* LogGoalActor);
 	static void LogPathHelper(const AActor* LogOwner, FNavigationPath* InLogPath, const AActor* LogGoalActor);
+
+	DEPRECATED(4.12, "This function is now deprecated and replaced with HandlePathUpdateEvent. Receiving new path pointer for the same move request is no longer supported, please either update data within current path and call FNavigationPath::DoneUpdating or start new move request.")
+	virtual bool UpdateMove(FNavPathSharedPtr Path, FAIRequestID RequestID = FAIRequestID::CurrentRequest);
+
+	DEPRECATED(4.13, "This function is now deprecated, please use version with FAIMoveRequest parameter instead. Any observers needs to register with OnRequestFinished mutlicast delegate now.")
+	virtual FAIRequestID RequestMove(FNavPathSharedPtr Path, FRequestCompletedSignature OnComplete, const AActor* DestinationActor = NULL, float AcceptanceRadius = UPathFollowingComponent::DefaultAcceptanceRadius, bool bStopOnOverlap = true, FCustomMoveSharedPtr GameData = NULL);
+
+	DEPRECATED(4.13, "This function is now deprecated, please use version with FAIMoveRequest parameter instead.")
+	FAIRequestID RequestMove(FNavPathSharedPtr InPath, const AActor* InDestinationActor = NULL, float InAcceptanceRadius = UPathFollowingComponent::DefaultAcceptanceRadius, bool InStopOnOverlap = true, FCustomMoveSharedPtr InGameData = NULL);
+
+	DEPRECATED(4.13, "This function is now deprecated, please use version with EPathFollowingResultDetails parameter instead.")
+	virtual void AbortMove(const FString& Reason, FAIRequestID RequestID = FAIRequestID::CurrentRequest, bool bResetVelocity = true, bool bSilent = false, uint8 MessageFlags = 0);
+
+	DEPRECATED(4.13, "This function is now deprecated, please use version with EPathFollowingVelocityMode parameter instead.")
+	virtual void PauseMove(FAIRequestID RequestID = FAIRequestID::CurrentRequest, bool bResetVelocity = true);
+
+	UFUNCTION(BlueprintCallable, Category="AI|Components|PathFollowing", meta = (DeprecatedFunction, DeprecationMessage = "This function is now deprecated, please use AIController.GetMoveStatus instead"))
+	EPathFollowingAction::Type GetPathActionType() const;
+
+	UFUNCTION(BlueprintCallable, Category="AI|Components|PathFollowing", meta = (DeprecatedFunction, DeprecationMessage = "This function is now deprecated, please use AIController.GetImmediateMoveDestination instead"))
+	FVector GetPathDestination() const;
+
+	DEPRECATED(4.13, "This function is now deprecated, please version with FPathFollowingResult parameter instead.")
+	virtual void OnPathFinished(EPathFollowingResult::Type Result);
+
+	DEPRECATED(4.13, "This function is now deprecated and no longer supported.")
+	int32 OptimizeSegmentVisibility(int32 StartIndex) { return StartIndex + 1; }
+
+	DEPRECATED(4.13, "This function is now deprecated, please use version with EPathFollowingReachMode parameter instead.")
+	bool HasReached(const FVector& TestPoint, float AcceptanceRadius = UPathFollowingComponent::DefaultAcceptanceRadius, bool bExactSpot = false) const;
+
+	DEPRECATED(4.13, "This function is now deprecated, please use version with EPathFollowingReachMode parameter instead.")
+	bool HasReached(const AActor& TestGoal, float AcceptanceRadius = UPathFollowingComponent::DefaultAcceptanceRadius, bool bExactSpot = false, bool bUseNavAgentGoalLocation = true) const;
+
+	// This delegate is now deprecated, please use OnRequestFinished instead
+	FMoveCompletedSignature OnMoveFinished_DEPRECATED;
 
 protected:
 
@@ -340,9 +466,6 @@ protected:
 	/** game specific data */
 	FCustomMoveSharedPtr GameData;
 
-	/** current request observer */
-	FRequestCompletedSignature OnRequestFinished;
-
 	/** destination actor. Use SetDestinationActor to set this */
 	TWeakObjectPtr<AActor> DestinationActor;
 
@@ -351,6 +474,9 @@ protected:
 
 	/** destination for current path segment */
 	FBasedPosition CurrentDestination;
+
+	/** last MoveInput calculated and passed over to MovementComponent. Valid only if MovementComp->UseAccelerationForPathFollowing() == true */
+	FVector CurrentMoveInput;
 
 	/** relative offset from goal actor's location to end of path */
 	FVector MoveOffset;
@@ -361,12 +487,11 @@ protected:
 	/** timestamp of path update when movement was paused */
 	float PathTimeWhenPaused;
 
-	/** set when paths simplification using visibility tests are needed  (disabled by default because of performance) */
-	UPROPERTY(config)
-	uint32 bUseVisibilityTestsSimplification : 1;
-
 	/** increase acceptance radius with agent's radius */
-	uint32 bStopOnOverlap : 1;
+	uint32 bReachTestIncludesAgentRadius : 1;
+
+	/** increase acceptance radius with goal's radius */
+	uint32 bReachTestIncludesGoalRadius : 1;
 
 	/** if set, movement block detection will be used */
 	uint32 bUseBlockDetection : 1;
@@ -379,6 +504,12 @@ protected:
 
 	/** if set, movement will be stopped on finishing path */
 	uint32 bStopMovementOnFinish : 1;
+
+	/** if set, path following is using FMetaNavMeshPath */
+	uint32 bIsUsingMetaPath : 1;
+
+	/** gets set when agent starts following a navigation link. Cleared after agent starts falling or changes segment to a non-link one */
+	uint32 bWalkingNavLinkStart : 1;
 
 	/** timeout for Waiting state, negative value = infinite */
 	float WaitingTimeout;
@@ -456,8 +587,6 @@ protected:
 	bool HasReachedCurrentTarget(const FVector& CurrentLocation) const;
 
 	/** check if moving agent has reached goal defined by cylinder */
-	DEPRECATED(4.8, "Please use override with AgentRadiusMultiplier instead of this.")
-	bool HasReachedInternal(const FVector& GoalLocation, float GoalRadius, float GoalHalfHeight, const FVector& AgentLocation, float RadiusThreshold, bool bSuccessOnRadiusOverlap) const;
 	bool HasReachedInternal(const FVector& GoalLocation, float GoalRadius, float GoalHalfHeight, const FVector& AgentLocation, float RadiusThreshold, float AgentRadiusMultiplier) const;
 
 	/** check if agent is on path */
@@ -469,8 +598,10 @@ protected:
 	/** switch to next segment on path */
 	FORCEINLINE void SetNextMoveSegment() { SetMoveSegment(GetNextPathIndex()); }
 
-	FORCEINLINE static uint32 GetNextRequestId() { return NextRequestId++; }
+	/** assign new request Id */
 	FORCEINLINE void StoreRequestId() { CurrentRequestId = UPathFollowingComponent::GetNextRequestId(); }
+
+	FORCEINLINE static uint32 GetNextRequestId() { return NextRequestId++; }
 
 	/** Checks if this PathFollowingComponent is already on path, and
 	*	if so determines index of next path point
@@ -481,14 +612,13 @@ protected:
 	/** @return index of path point, that should be target of current move segment */
 	virtual int32 DetermineCurrentTargetPathPoint(int32 StartIndex);
 
-	/** Visibility tests to skip some path points if possible
-	@param NextSegmentStartIndex Selected next segment to follow
-	@return  better path segment to follow, to use as MoveSegmentEndIndex */
-	int32 OptimizeSegmentVisibility(int32 StartIndex);
-
 	/** check if movement component is valid or tries to grab one from owner 
 	 *	@param bForce results in looking for owner's movement component even if pointer to one is already cached */
 	virtual bool UpdateMovementComponent(bool bForce = false);
+
+	/** called after receiving update event from current path
+	 *  @return false if path was not accepted and move request needs to be aborted */
+	virtual bool HandlePathUpdateEvent();
 
 	/** called from timer if component spends too much time in Waiting state */
 	virtual void OnWaitingPathTimeout();
@@ -523,8 +653,8 @@ private:
 	/** timer handle for OnWaitingPathTimeout function */
 	FTimerHandle WaitingForPathTimer;
 
-	/** empty delegate for RequestMove */
-	static FRequestCompletedSignature UnboundRequestDelegate;
+	/** DEPRECATED, use bReachTestIncludesAgentRadius instead */
+	uint32 bStopOnOverlap : 1;
 
 public:
 	/** special float constant to symbolize "use default value". This does not contain 

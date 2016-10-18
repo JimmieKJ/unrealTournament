@@ -58,7 +58,7 @@ public:
 
 
 #if !UE_SERVER
-	virtual void GetAllRedirects(TSharedPtr<SUTDownloadAllDialog> inDownloadDialog);
+	virtual void RequestServerSendAllRedirects();
 #endif
 
 	UFUNCTION(server, reliable, withvalidation)
@@ -73,22 +73,18 @@ public:
 	UFUNCTION(client, reliable)
 	virtual void ClientReceiveRedirect(const FPackageRedirectReference& Redirect);
 
+
 protected:
 	// Will be true when the initial player replication is completed.  At that point it's safe to bring up the menu
 	bool bInitialReplicationCompleted;
 
-	void DownloadAllContent();
-
 	int32 RedirectCount;
 
 	virtual bool ForwardDirectSay(AUTPlayerState* SenderPlayerState, FString& Message);
-
 public:
+	
+	bool bReceivedServerContentList;
 	TArray<FPackageRedirectReference> AllRedirects;
-
-#if !UE_SERVER
-	TSharedPtr<SUTDownloadAllDialog> DownloadDialog;
-#endif
 
 
 };

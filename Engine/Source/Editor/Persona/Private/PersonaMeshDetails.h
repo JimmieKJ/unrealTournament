@@ -60,7 +60,7 @@ private:
 	float GetPercentTriangles() const;
 	float GetMaxDeviation() const;
 	float GetWeldingThreshold() const;
-	ECheckBoxState ShouldRecalculateNormals() const;
+	ECheckBoxState ShouldRecomputeTangents() const;
 	float GetHardAngleThreshold() const;
 	int32 GetMaxBonesPerVertex() const;
 	int32 GetBaseLOD() const;
@@ -68,7 +68,7 @@ private:
 	void OnPercentTrianglesChanged(float NewValue);
 	void OnMaxDeviationChanged(float NewValue);
 	void OnReductionAmountChanged(float NewValue);
-	void OnRecalculateNormalsChanged(ECheckBoxState NewValue);
+	void OnRecomputeTangentsChanged(ECheckBoxState NewValue);
 	void OnWeldingThresholdChanged(float NewValue);
 	void OnHardAngleThresholdChanged(float NewValue);
 	void OnMaxBonesPerVertexChanged(int32 NewValue);
@@ -170,7 +170,7 @@ private:
 	*/
 	void OnSectionIsolatedChanged(ECheckBoxState NewState, int32 SectionIndex);
 
-		/**
+	/**
 	 * Handler for check box display based on whether the material has shadow casting enabled
 	 *
 	 * @param MaterialIndex	The material index which a section in a specific LOD model has
@@ -183,6 +183,20 @@ private:
 	 * @param MaterialIndex	The material index which a section in a specific LOD model has
 	 */
 	void OnShadowCastingChanged(ECheckBoxState NewState, int32 MaterialIndex);
+
+	/**
+	* Handler for check box display based on whether this section does recalculate normal or not
+	*
+	* @param MaterialIndex	The material index which a section in a specific LOD model has
+	*/
+	ECheckBoxState IsRecomputeTangentEnabled(int32 MaterialIndex) const;
+
+	/**
+	* Handler for changing recalulate normal status on a material
+	*
+	* @param MaterialIndex	The material index which a section in a specific LOD model has
+	*/
+	void OnRecomputeTangentChanged(ECheckBoxState NewState, int32 MaterialIndex);
 
 	/**
 	 * Handler for enabling delete button on materials

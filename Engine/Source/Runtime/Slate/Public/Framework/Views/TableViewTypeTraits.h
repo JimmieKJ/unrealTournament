@@ -7,15 +7,71 @@
  * Lists/Trees only work with shared pointer types, and UObjbectBase*.
  * Type traits to ensure that the user does not accidentally make a List/Tree of value types.
  */
-template<typename T, typename Enable = void> struct TIsValidListItem					{ enum { Value = false }; };
-template<typename T> struct TIsValidListItem< TSharedRef<T, ESPMode::NotThreadSafe> >	{ enum { Value = true }; };
-template<typename T> struct TIsValidListItem< TSharedRef<T, ESPMode::ThreadSafe> >		{ enum { Value = true }; };
-template<typename T> struct TIsValidListItem< TSharedPtr<T, ESPMode::NotThreadSafe> >	{ enum { Value = true }; };
-template<typename T> struct TIsValidListItem< TSharedPtr<T, ESPMode::ThreadSafe> >		{ enum { Value = true }; };
-template<typename T> struct TIsValidListItem< T*, typename TEnableIf<TPointerIsConvertibleFromTo<T, UObjectBase>::Value>::Type >
- 																						{ enum { Value = true }; };
-template<typename T> struct TIsValidListItem< TWeakObjectPtr<T> >						{ enum { Value = true }; };
-					 
+template <typename T, typename Enable = void>
+struct TIsValidListItem
+{
+	enum
+	{
+		Value = false
+	};
+};
+template <typename T>
+struct TIsValidListItem<TSharedRef<T, ESPMode::NotThreadSafe>>
+{
+	enum
+	{
+		Value = true
+	};
+};
+template <typename T>
+struct TIsValidListItem<TSharedRef<T, ESPMode::ThreadSafe>>
+{
+	enum
+	{
+		Value = true
+	};
+};
+template <typename T>
+struct TIsValidListItem<TSharedPtr<T, ESPMode::NotThreadSafe>>
+{
+	enum
+	{
+		Value = true
+	};
+};
+template <typename T>
+struct TIsValidListItem<TSharedPtr<T, ESPMode::ThreadSafe>>
+{
+	enum
+	{
+		Value = true
+	};
+};
+template <typename T>
+struct TIsValidListItem<T*, typename TEnableIf<TPointerIsConvertibleFromTo<T, UObjectBase>::Value>::Type>
+{
+	enum
+	{
+		Value = true
+	};
+};
+
+template <typename T>
+struct TIsValidListItem<const T*, typename TEnableIf<TPointerIsConvertibleFromTo<T, UObjectBase>::Value>::Type>
+{
+	enum
+	{
+		Value = true
+	};
+};
+template <typename T>
+struct TIsValidListItem<TWeakObjectPtr<T>>
+{
+	enum
+	{
+		Value = true
+	};
+};
 
 /**
  * Furthermore, ListViews of TSharedPtr<> work differently from lists of UObject*.
@@ -204,46 +260,68 @@ public:
  * In addition to testing and setting the pointers to null, Lists of UObjects
  * will serialize the objects they are holding onto.
  */
-template <typename T> struct TListTypeTraits< T*, typename TEnableIf<TPointerIsConvertibleFromTo<T, UObjectBase>::Value>::Type >
+template <typename T>
+struct TListTypeTraits<T*, typename TEnableIf<TPointerIsConvertibleFromTo<T, UObjectBase>::Value>::Type>
 {
 public:
 	typedef T* NullableType;
 
-	static void AddReferencedObjects( FReferenceCollector& Collector, TArray< T* >& ItemsWithGeneratedWidgets, TSet< T* >& SelectedItems )
+	static void AddReferencedObjects( FReferenceCollector& Collector, TArray<T*>& ItemsWithGeneratedWidgets, TSet<T*>& SelectedItems )
 	{
 		// Serialize generated items
 		const int32 NumGeneratedWidgets = ItemsWithGeneratedWidgets.Num();
 		for ( int32 ItemIndex = 0; ItemIndex < NumGeneratedWidgets; ++ItemIndex )
 		{
-			Collector.AddReferencedObject( ItemsWithGeneratedWidgets[ItemIndex] );
+			Collector.AddReferencedObject( ItemsWithGeneratedWidgets[ ItemIndex ] );
 		}
-		
+
 		// Serialize the selected items
-		for( typename TSet< T* >::TIterator SelecteItemIt(SelectedItems); SelecteItemIt; ++SelecteItemIt )
+		for ( typename TSet<T*>::TIterator SelecteItemIt( SelectedItems ); SelecteItemIt; ++SelecteItemIt )
 		{
 			Collector.AddReferencedObject( *SelecteItemIt );
 		}
 	}
 
-	static bool IsPtrValid( T* InPtr )
+	static bool IsPtrValid( T* InPtr ) { return InPtr != NULL; }
+
+	static void ResetPtr( T*& InPtr ) { InPtr = NULL; }
+
+	static T* MakeNullPtr() { return NULL; }
+
+	static T* NullableItemTypeConvertToItemType( T* InPtr ) { return InPtr; }
+
+	typedef FGCObject SerializerType;
+};
+
+template <typename T>
+struct TListTypeTraits<const T*, typename TEnableIf<TPointerIsConvertibleFromTo<T, UObjectBase>::Value>::Type>
+{
+public:
+	typedef const T* NullableType;
+
+	static void AddReferencedObjects( FReferenceCollector& Collector, TArray<const T*>& ItemsWithGeneratedWidgets, TSet<const T*>& SelectedItems )
 	{
-		return InPtr != NULL;
+		// Serialize generated items
+		const int32 NumGeneratedWidgets = ItemsWithGeneratedWidgets.Num();
+		for ( int32 ItemIndex = 0; ItemIndex < NumGeneratedWidgets; ++ItemIndex )
+		{
+			Collector.AddReferencedObject( ItemsWithGeneratedWidgets[ ItemIndex ] );
+		}
+
+		// Serialize the selected items
+		for ( typename TSet<const T*>::TIterator SelecteItemIt( SelectedItems ); SelecteItemIt; ++SelecteItemIt )
+		{
+			Collector.AddReferencedObject( *SelecteItemIt );
+		}
 	}
 
-	static void ResetPtr( T*& InPtr )
-	{
-		InPtr = NULL;
-	}
+	static bool IsPtrValid( const T* InPtr ) { return InPtr != NULL; }
 
-	static T* MakeNullPtr()
-	{
-		return NULL;
-	}
+	static void ResetPtr( const T*& InPtr ) { InPtr = NULL; }
 
-	static T* NullableItemTypeConvertToItemType( T* InPtr )
-	{
-		return InPtr;
-	}
+	static const T* MakeNullPtr() { return NULL; }
+
+	static const T* NullableItemTypeConvertToItemType( const T* InPtr ) { return InPtr; }
 
 	typedef FGCObject SerializerType;
 };

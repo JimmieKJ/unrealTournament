@@ -24,6 +24,7 @@ UInterpToMovementComponent::UInterpToMovementComponent(const FObjectInitializer&
 	CurrentDirection = 1.0f;
 	CurrentTime = 0.0f;
 	bStopped = false;
+	bPointsFinalized = false;
 }
 
 void UInterpToMovementComponent::InitializeComponent()
@@ -199,7 +200,7 @@ float UInterpToMovementComponent::CalculateNewTime( float TimeNow, float Delta, 
 			if (BehaviourType == EInterpToBehaviourType::OneShot_Reverse)
 			{
 				NewTime = 0.0f;
-				bStopped = true;
+				OutStopped = true;
 				if (InBroadcastEvent == true)
 				{
 					OnInterpToStop.Broadcast(HitResult, NewTime);
@@ -258,7 +259,10 @@ FVector UInterpToMovementComponent::ComputeMoveDelta(float InTime) const
 	}
 
 	FVector CurrentPosition = UpdatedComponent->GetComponentLocation();
-	MoveDelta = NewPosition - CurrentPosition;
+	if (CurrentPosition != NewPosition)
+	{
+		MoveDelta = NewPosition - CurrentPosition;
+	}
 	return MoveDelta;
 }
 
@@ -462,14 +466,23 @@ void UInterpToMovementComponent::UpdateControlPoints(bool InForceUpdate)
 					TotalDistance += ControlPoints[ControlPoint].DistanceToNext;
 					CurrentPos = NextPosition;
 				}
+				else
+				{
+					ControlPoints[ControlPoint].DistanceToNext = 0.0f;
+					ControlPoints[ControlPoint].Percentage = 1.0f;
+					ControlPoints[ControlPoint].StartTime = 1.0f;
+				}
 			}
 			float Percent = 0.0f;
 			// Use the distance to determine what % of time to spend going from each point
 			for (int32 ControlPoint = 0; ControlPoint < ControlPoints.Num(); ControlPoint++)
 			{
 				ControlPoints[ControlPoint].StartTime = Percent;
-				ControlPoints[ControlPoint].Percentage = ControlPoints[ControlPoint].DistanceToNext / TotalDistance;
-				Percent += ControlPoints[ControlPoint].Percentage;
+				if(ControlPoints[ControlPoint].DistanceToNext != 0.0f)
+				{
+					ControlPoints[ControlPoint].Percentage = ControlPoints[ControlPoint].DistanceToNext / TotalDistance;
+					Percent += ControlPoints[ControlPoint].Percentage;
+				}
 			}
 		}
 	}
@@ -494,13 +507,24 @@ float UInterpToMovementComponent::ReverseDirection(const FHitResult& Hit, float 
 
 void UInterpToMovementComponent::AddControlPointPosition(FVector Pos,bool bPositionIsRelative)
 {
-	UE_LOG(LogInterpToMovementComponent, Warning, TEXT("Pos:%s"),*Pos.ToString());
+	UE_LOG(LogInterpToMovementComponent, Verbose, TEXT("Pos:%s"),*Pos.ToString());
 	ControlPoints.Add( FInterpControlPoint(Pos,bPositionIsRelative));
+}
+
+void UInterpToMovementComponent::ResetControlPoints()
+{
+	bStopped = true;
+	ControlPoints.Empty();
+	bPointsFinalized = false;
 }
 
 void UInterpToMovementComponent::FinaliseControlPoints()
 {
 	if (UpdatedComponent == nullptr)
+	{
+		return;
+	}
+	if(bPointsFinalized == true)
 	{
 		return;
 	}
@@ -514,7 +538,9 @@ void UInterpToMovementComponent::FinaliseControlPoints()
 		FRotator CurrentRotation = UpdatedComponent->GetComponentRotation();
 		FHitResult Hit(1.f);
 		UpdatedComponent->MoveComponent(MoveDelta, CurrentRotation, false, &Hit);
-	} 
+		bPointsFinalized = true;
+	}
+	
 }
 
 void UInterpToMovementComponent::RestartMovement(float InitialDirection)

@@ -5,7 +5,9 @@
 #include "GameplayDebuggerAddonManager.h"
 #include "GameplayDebuggerCategoryReplicator.h"
 #include "GameplayDebuggerLocalController.h"
+#include "Engine/DebugCameraController.h"
 #include "Components/InputComponent.h"
+#include "Engine/DebugCameraController.h"
 
 AGameplayDebuggerPlayerManager::AGameplayDebuggerPlayerManager(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
@@ -27,6 +29,7 @@ AGameplayDebuggerPlayerManager::AGameplayDebuggerPlayerManager(const FObjectInit
 #endif
 
 	bIsLocal = false;
+	bInitialized = false;
 }
 
 void AGameplayDebuggerPlayerManager::BeginPlay()
@@ -38,12 +41,20 @@ void AGameplayDebuggerPlayerManager::BeginPlay()
 	
 	bHasAuthority = (NetMode != NM_Client);
 	bIsLocal = (NetMode != NM_DedicatedServer);
+	bInitialized = true;
 
 	if (bHasAuthority)
 	{
 		UpdateAuthReplicators();
 		SetActorTickEnabled(true);
 	}
+	
+	for (int32 Idx = 0; Idx < PendingRegistrations.Num(); Idx++)
+	{
+		RegisterReplicator(*PendingRegistrations[Idx]);
+	}
+
+	PendingRegistrations.Empty();
 }
 
 void AGameplayDebuggerPlayerManager::EndPlay(const EEndPlayReason::Type Reason)
@@ -93,7 +104,7 @@ void AGameplayDebuggerPlayerManager::UpdateAuthReplicators()
 	for (FConstPlayerControllerIterator It = World->GetPlayerControllerIterator(); It; It++)
 	{
 		APlayerController* TestPC = *It;
-		if (TestPC)
+		if (TestPC && !TestPC->IsA<ADebugCameraController>())
 		{
 			const bool bNeedsReplicator = (GetReplicator(*TestPC) == nullptr);
 			if (bNeedsReplicator)
@@ -113,6 +124,12 @@ void AGameplayDebuggerPlayerManager::RegisterReplicator(AGameplayDebuggerCategor
 	APlayerController* OwnerPC = Replicator.GetReplicationOwner();
 	if (OwnerPC == nullptr)
 	{
+		return;
+	}
+
+	if (!bInitialized)
+	{
+		PendingRegistrations.Add(&Replicator);
 		return;
 	}
 

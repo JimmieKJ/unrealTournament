@@ -18,6 +18,8 @@ void FGameplayAbilityActorInfo::InitFromActor(AActor *InOwnerActor, AActor *InAv
 	AvatarActor = InAvatarActor;
 	AbilitySystemComponent = InAbilitySystemComponent;
 
+	APlayerController* OldPC = PlayerController.Get();
+
 	// Look for a player controller or pawn in the owner chain.
 	AActor *TestActor = InOwnerActor;
 	while (TestActor)
@@ -37,21 +39,22 @@ void FGameplayAbilityActorInfo::InitFromActor(AActor *InOwnerActor, AActor *InAv
 		TestActor = TestActor->GetOwner();
 	}
 
+	// Notify ASC if PlayerController was found for first time
+	if (OldPC == nullptr && PlayerController.IsValid())
+	{
+		InAbilitySystemComponent->OnPlayerControllerSet();
+	}
+
 	if (AvatarActor.Get())
 	{
 		// Grab Components that we care about
-		USkeletalMeshComponent * SkelMeshComponent = AvatarActor->FindComponentByClass<USkeletalMeshComponent>();
-		if (SkelMeshComponent)
-		{
-			this->AnimInstance = SkelMeshComponent->GetAnimInstance();
-		}
-
+		SkeletalMeshComponent = AvatarActor->FindComponentByClass<USkeletalMeshComponent>();
 		MovementComponent = AvatarActor->FindComponentByClass<UMovementComponent>();
 	}
 	else
 	{
-		MovementComponent = NULL;
-		AnimInstance = NULL;
+		SkeletalMeshComponent = nullptr;
+		MovementComponent = nullptr;
 	}
 }
 
@@ -62,11 +65,11 @@ void FGameplayAbilityActorInfo::SetAvatarActor(AActor *InAvatarActor)
 
 void FGameplayAbilityActorInfo::ClearActorInfo()
 {
-	OwnerActor = NULL;
-	AvatarActor = NULL;
-	PlayerController = NULL;
-	AnimInstance = NULL;
-	MovementComponent = NULL;
+	OwnerActor = nullptr;
+	AvatarActor = nullptr;
+	PlayerController = nullptr;
+	SkeletalMeshComponent = nullptr;
+	MovementComponent = nullptr;
 }
 
 bool FGameplayAbilityActorInfo::IsLocallyControlled() const

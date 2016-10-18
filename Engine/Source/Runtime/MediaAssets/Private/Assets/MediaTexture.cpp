@@ -1,8 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MediaAssetsPrivatePCH.h"
-#include "IMediaVideoTrack.h"
-#include "MediaSampleBuffer.h"
+#include "MediaAssetsPCH.h"
+#include "MediaTexture.h"
+#include "MediaTextureResource.h"
 
 
 /* UMediaTexture structors
@@ -10,43 +10,165 @@
 
 UMediaTexture::UMediaTexture(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
+	, AddressX(TA_Clamp)
+	, AddressY(TA_Clamp)
 	, ClearColor(FLinearColor::Black)
-	, VideoTrackIndex(INDEX_NONE)
-	, MediaPlayer(nullptr)
-	, CurrentMediaPlayer(nullptr)
-	, VideoBuffer(MakeShareable(new FMediaSampleBuffer))
+	, SinkDimensions(FIntPoint(1, 1))
+	, SinkFormat(EMediaTextureSinkFormat::CharBGRA)
+	, SinkMode(EMediaTextureSinkMode::Unbuffered)
 {
-	bDelegatesAdded = false;
 	NeverStream = true;
-	UpdateResource();
 }
 
 
-/* UMediaTexture interface
+/* FTickerObjectBase interface
  *****************************************************************************/
 
-TSharedPtr<class IMediaPlayer> UMediaTexture::GetPlayer() const
+bool UMediaTexture::Tick(float DeltaTime)
 {
-	return (MediaPlayer != nullptr)
-		? MediaPlayer->GetPlayer()
-		: nullptr;
+	// process deferred tasks
+	TFunction<void()> Task;
+
+	while (GameThreadTasks.Dequeue(Task))
+	{
+		Task();
+	}
+
+	return true;
 }
 
 
-void UMediaTexture::SetMediaPlayer(UMediaPlayer* InMediaPlayer)
-{
-	MediaPlayer = InMediaPlayer;
+/* IMediaTextureSink interface
+ *****************************************************************************/
 
-	InitializeTrack();
+void* UMediaTexture::AcquireTextureSinkBuffer()
+{
+	FScopeLock Lock(&CriticalSection);
+
+	return (Resource != nullptr) ? ((FMediaTextureResource*)Resource)->AcquireBuffer() : nullptr;
 }
 
 
-/* UTexture  overrides
+void UMediaTexture::DisplayTextureSinkBuffer(FTimespan /*Time*/)
+{
+	FScopeLock Lock(&CriticalSection);
+
+	if (Resource != nullptr)
+	{
+		((FMediaTextureResource*)Resource)->DisplayBuffer();
+	}
+}
+
+
+FIntPoint UMediaTexture::GetTextureSinkDimensions() const
+{
+	FScopeLock Lock(&CriticalSection);
+
+	return (Resource != nullptr) ? ((FMediaTextureResource*)Resource)->GetSizeXY() : FIntPoint::ZeroValue;
+}
+
+
+EMediaTextureSinkFormat UMediaTexture::GetTextureSinkFormat() const
+{
+	return SinkFormat;
+}
+
+
+EMediaTextureSinkMode UMediaTexture::GetTextureSinkMode() const
+{
+	return SinkMode;
+}
+
+
+FRHITexture* UMediaTexture::GetTextureSinkTexture()
+{
+	FScopeLock Lock(&CriticalSection);
+
+	return (Resource != nullptr) ? ((FMediaTextureResource*)Resource)->GetTexture() : nullptr;
+}
+
+
+bool UMediaTexture::InitializeTextureSink(FIntPoint Dimensions, EMediaTextureSinkFormat Format, EMediaTextureSinkMode Mode)
+{
+	UE_LOG(LogMediaAssets, Verbose, TEXT("MediaTexture initializing sink with %i x %i pixels %s."), Dimensions.X, Dimensions.Y, (Mode == EMediaTextureSinkMode::Buffered) ? TEXT("Buffered") : TEXT("Unbuffered"));
+
+	SinkDimensions = Dimensions;
+	SinkFormat = Format;
+	SinkMode = Mode;
+
+	FScopeLock Lock(&CriticalSection);
+
+	if (Resource == nullptr)
+	{
+		return false;
+	}
+
+	((FMediaTextureResource*)Resource)->InitializeBuffer(Dimensions, Format, Mode);
+
+	return true;
+}
+
+
+void UMediaTexture::ReleaseTextureSinkBuffer()
+{
+	FScopeLock Lock(&CriticalSection);
+
+	if (Resource != nullptr)
+	{
+		((FMediaTextureResource*)Resource)->ReleaseBuffer();
+	}
+}
+
+
+void UMediaTexture::ShutdownTextureSink()
+{
+	if (ClearColor.A != 0.0f)
+	{
+		SinkDimensions = FIntPoint(1, 1);
+		SinkFormat = EMediaTextureSinkFormat::CharBGRA;
+		SinkMode = EMediaTextureSinkMode::Unbuffered;
+
+		GameThreadTasks.Enqueue([=]() {
+			UpdateResource();
+		});
+	}
+}
+
+
+bool UMediaTexture::SupportsTextureSinkFormat(EMediaTextureSinkFormat Format) const
+{
+	return true; // all formats are supported
+}
+
+
+void UMediaTexture::UpdateTextureSinkBuffer(const uint8* Data, uint32 Pitch)
+{
+	FScopeLock Lock(&CriticalSection);
+
+	if (Resource != nullptr)
+	{
+		((FMediaTextureResource*)Resource)->UpdateBuffer(Data, Pitch);
+	}
+}
+
+
+void UMediaTexture::UpdateTextureSinkResource(FRHITexture* RenderTarget, FRHITexture* ShaderResource)
+{
+	FScopeLock Lock(&CriticalSection);
+
+	if (Resource != nullptr)
+	{
+		((FMediaTextureResource*)Resource)->UpdateTextures(RenderTarget, ShaderResource);
+	}
+}
+
+
+/* UTexture interface
  *****************************************************************************/
 
 FTextureResource* UMediaTexture::CreateResource()
 {
-	return new FMediaTextureResource(this, VideoBuffer);
+	return new FMediaTextureResource(*this, ClearColor, SinkDimensions, SinkFormat, SinkMode);
 }
 
 
@@ -58,216 +180,72 @@ EMaterialValueType UMediaTexture::GetMaterialType()
 
 float UMediaTexture::GetSurfaceWidth() const
 {
-	return CachedDimensions.X;
+	return (Resource != nullptr) ? Resource->GetSizeX() : 0.0f;
 }
 
 
 float UMediaTexture::GetSurfaceHeight() const
 {
-	return CachedDimensions.Y;
+	return (Resource != nullptr) ? Resource->GetSizeY() : 0.0f;
 }
+
 
 void UMediaTexture::UpdateResource()
 {
-#if WITH_ENGINE
-	if (VideoTrack.IsValid() && Resource)
-	{		
-		VideoTrack->UnbindTexture(Resource->TextureRHI.GetReference());
-	}
-#endif
-	UTexture::UpdateResource();
+	FScopeLock Lock(&CriticalSection);
+
+	Super::UpdateResource();
 }
 
 
-/* UObject  overrides
+/* UObject interface
  *****************************************************************************/
 
 void UMediaTexture::BeginDestroy()
 {
 	Super::BeginDestroy();
 
-	// synchronize with the rendering thread by inserting a fence
- 	if (!ReleasePlayerFence)
- 	{
- 		ReleasePlayerFence = new FRenderCommandFence();
- 	}
-
- 	ReleasePlayerFence->BeginFence();
-}
-
-
-void UMediaTexture::FinishDestroy()
-{
-	delete ReleasePlayerFence;
-	ReleasePlayerFence = nullptr;
-
-	if (VideoTrack.IsValid())
-	{
-		VideoTrack->GetStream().RemoveSink(VideoBuffer);
-		VideoTrack.Reset();
-	}
-
-	if (CurrentMediaPlayer.IsValid())
-	{
-		CurrentMediaPlayer->OnTracksChanged().RemoveAll(this);
-		CurrentMediaPlayer.Reset();
-	}
-
-	Super::FinishDestroy();
+	BeginDestroyEvent.Broadcast(*this);
 }
 
 
 FString UMediaTexture::GetDesc()
 {
-	TSharedPtr<IMediaPlayer> MediaPlayerPtr = GetPlayer();
-
-	if (!MediaPlayerPtr.IsValid())
-	{
-		return FString();
-	}
-
-	return FString::Printf(TEXT("%dx%d [%s]"), CachedDimensions.X, CachedDimensions.Y, GPixelFormats[GetFormat()].Name);
+	return FString::Printf(TEXT("%dx%d [%s]"), GetSurfaceWidth(),  GetSurfaceHeight(), GPixelFormats[PF_B8G8R8A8].Name);
 }
 
 
 SIZE_T UMediaTexture::GetResourceSize(EResourceSizeMode::Type Mode)
 {
-	return CachedDimensions.X * CachedDimensions.Y * 4;
-}
-
-
-bool UMediaTexture::IsReadyForFinishDestroy()
-{
-	// ready to call FinishDestroy if the flushing fence has been hit
-	return (Super::IsReadyForFinishDestroy() && ReleasePlayerFence && ReleasePlayerFence->IsFenceComplete());
-}
-
-
-void UMediaTexture::PostLoad()
-{
-	Super::PostLoad();
-
-	if (!HasAnyFlags(RF_ClassDefaultObject) && !GIsBuildMachine)
-	{
-		InitializeTrack();
-	}
+	return (Resource != nullptr) ? ((FMediaTextureResource*)Resource)->GetResourceSize() : 0;
 }
 
 
 #if WITH_EDITOR
 
+void UMediaTexture::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
+{
+	const FName PropertyName = (PropertyChangedEvent.Property != nullptr)
+		? PropertyChangedEvent.Property->GetFName()
+		: NAME_None;
+
+	if ((PropertyName == GET_MEMBER_NAME_CHECKED(UMediaTexture, ClearColor)) &&
+		(PropertyChangedEvent.ChangeType != EPropertyChangeType::ValueSet))
+	{
+		UObject::PostEditChangeProperty(PropertyChangedEvent);
+	}
+	else
+	{
+		Super::PostEditChangeProperty(PropertyChangedEvent);
+	}
+}
+
+
 void UMediaTexture::PreEditChange(UProperty* PropertyAboutToChange)
 {
-	// this will release the FMediaTextureResource
 	Super::PreEditChange(PropertyAboutToChange);
 
 	FlushRenderingCommands();
 }
 
-
-void UMediaTexture::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
-{
-	InitializeTrack();
-
-	// this will recreate the FMediaTextureResource
-	Super::PostEditChangeProperty(PropertyChangedEvent);
-}
-
 #endif // WITH_EDITOR
-
-
-/* UMediaTexture implementation
- *****************************************************************************/
-
-void UMediaTexture::InitializeTrack()
-{
-	// assign new media player asset
-	if ((CurrentMediaPlayer != MediaPlayer) || !bDelegatesAdded)
-	{
-		if (CurrentMediaPlayer != nullptr)
-		{
-			CurrentMediaPlayer->OnTracksChanged().RemoveAll(this);
-		}
-
-		CurrentMediaPlayer = MediaPlayer;
-
-		if (MediaPlayer != nullptr)
-		{
-			MediaPlayer->OnTracksChanged().AddUObject(this, &UMediaTexture::HandleMediaPlayerTracksChanged);
-		}
-
-		bDelegatesAdded = true;
-	}
-
-	// disconnect from current track
-	if (VideoTrack.IsValid())
-	{
-		VideoTrack->GetStream().RemoveSink(VideoBuffer);
-
-#if WITH_ENGINE
-		if ((Resource != nullptr) && Resource->TextureRHI.IsValid())
-		{
-			VideoTrack->UnbindTexture(Resource->TextureRHI.GetReference());
-		}
-#endif
-
-		VideoTrack.Reset();
-	}
-
-	// initialize from new track
-	if (MediaPlayer != nullptr)
-	{
-		IMediaPlayerPtr Player = MediaPlayer->GetPlayer();
-
-		if (Player.IsValid())
-		{
-			auto VideoTracks = Player->GetVideoTracks();
-
-			if (VideoTracks.IsValidIndex(VideoTrackIndex))
-			{
-				VideoTrack = VideoTracks[VideoTrackIndex];
-			}
-			else if (VideoTracks.Num() > 0)
-			{
-				VideoTrack = VideoTracks[0];
-				VideoTrackIndex = 0;
-			}
-		}
-	}
-
-	if (VideoTrack.IsValid())
-	{
-		CachedDimensions = VideoTrack->GetDimensions();
-	}
-	else
-	{
-		CachedDimensions = FIntPoint(ForceInit);
-	}
-
-	UpdateResource();
-
-	// connect to new track
-	if (VideoTrack.IsValid())
-	{
-		VideoTrack->GetStream().AddSink(VideoBuffer);
-
-#if WITH_ENGINE
-		FlushRenderingCommands();
-
-		if ((Resource != nullptr) && Resource->TextureRHI.IsValid())
-		{
-			IMediaVideoTrack* VideoTrackPtr = static_cast<IMediaVideoTrack*>(VideoTrack.Get());
-			VideoTrackPtr->BindTexture((Resource->TextureRHI.GetReference()));
-		}
-#endif
-	}
-}
-
-
-/* UMediaTexture callbacks
- *****************************************************************************/
-
-void UMediaTexture::HandleMediaPlayerTracksChanged()
-{
-	InitializeTrack();
-}

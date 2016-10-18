@@ -30,7 +30,7 @@ public:
 
 	// The base engine ApproveLogin doesn't pass the Address and UniqueId to the approve login process.  So we have
 	// a second layer.
-	virtual void ValidatePlayer(const FString& Address, const TSharedPtr<const FUniqueNetId>& UniqueId, FString& ErrorMessage, bool bValidateAsSpectator);
+	virtual void ValidatePlayer(const FString& Address, const FUniqueNetIdRepl& UniqueId, FString& ErrorMessage, bool bValidateAsSpectator);
 
 	// Cached reference to the Game Mode
 	UPROPERTY()
@@ -42,9 +42,6 @@ public:
 public:		// Online Subsystem stuff
 
 	virtual void Destroyed() override;
-
-	virtual bool ProcessAutoLogin();
-
 	virtual void InitOptions(const FString& Options);
 
 	virtual void StartMatch() {}

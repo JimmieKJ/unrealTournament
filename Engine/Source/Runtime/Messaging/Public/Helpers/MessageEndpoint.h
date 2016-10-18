@@ -31,7 +31,7 @@ DECLARE_DELEGATE_RetVal_OneParam(bool, FOnMessageEndpointReceiveMessage, const I
 /**
  * Implements a message endpoint for sending and receiving messages on a message bus.
  *
- * This class provides a convenient implementation of the IRecieveMessages and ISendMessages interfaces,
+ * This class provides a convenient implementation of the IReceiveMessages and ISendMessages interfaces,
  * which allow consumers to send and receive messages on a message bus. The endpoint allows for receiving
  * messages asynchronously as they arrive, as well as synchronously through an inbox that can be polled.
  *

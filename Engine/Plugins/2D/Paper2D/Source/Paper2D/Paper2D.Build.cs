@@ -17,14 +17,14 @@ public class Paper2D : ModuleRules
 				"RenderCore",
 				"RHI",
 			}
-			);
+		);
 
 		PrivateDependencyModuleNames.AddRange(
 			new string[] {
 				"Slate",
 				"Renderer",
 			}
-			);
+		);
 
 		if (UEBuildConfiguration.bBuildEditor == true)
 		{

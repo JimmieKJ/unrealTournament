@@ -428,4 +428,19 @@ public:
 	}
 	void HandleDumpCommand(const TCHAR* Cmd, FOutputDevice& Ar);
 #endif
+#if USE_NEW_ASYNC_IO
+	virtual IAsyncReadFileHandle* OpenAsyncRead(const TCHAR* Filename) override
+	{
+		FString DataStr = FString::Printf(TEXT("OpenAsyncRead %s"), Filename);
+		FScopedNamedEvent NamedEvent(FColor::Emerald, *DataStr);
+		FILE_LOG(LogPlatformFile, Log, TEXT("%s"), *DataStr);
+		double StartTime = FPlatformTime::Seconds();
+		IAsyncReadFileHandle* Result = LowerLevel->OpenAsyncRead(Filename);
+		float ThisTime = (FPlatformTime::Seconds() - StartTime) / 1000.0;
+		FILE_LOG(LogPlatformFile, Log, TEXT("OpenAsyncRead return %llx [%fms]"), uint64(Result), ThisTime);
+		//@todo no wrapped logging for async file handles (yet)
+		return Result;
+	}
+#endif // USE_NEW_ASYNC_IO
+
 };

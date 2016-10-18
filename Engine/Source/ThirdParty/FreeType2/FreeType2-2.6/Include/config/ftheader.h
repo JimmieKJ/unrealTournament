@@ -245,7 +245,7 @@
    *   It is included by @FT_FREETYPE_H.
    *
    */
-#define FT_TYPES_H  <fttypes.h>
+#define FT_TYPES_H  "fttypes.h"
 
 
   /*************************************************************************

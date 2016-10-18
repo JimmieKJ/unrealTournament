@@ -23,11 +23,12 @@ STextBlock::~STextBlock()
 
 void STextBlock::Construct( const FArguments& InArgs )
 {
-	TextStyle = InArgs._TextStyle;
+	TextStyle = *InArgs._TextStyle;
 
 	HighlightText = InArgs._HighlightText;
 	WrapTextAt = InArgs._WrapTextAt;
 	AutoWrapText = InArgs._AutoWrapText;
+	WrappingPolicy = InArgs._WrappingPolicy;
 	Margin = InArgs._Margin;
 	LineHeightPercentage = InArgs._LineHeightPercentage;
 	Justification = InArgs._Justification;
@@ -45,38 +46,38 @@ void STextBlock::Construct( const FArguments& InArgs )
 	BoundText = InArgs._Text;
 
 	// We use a dummy style here (as it may not be safe to call the delegates used to compute the style), but the correct style is set by ComputeDesiredSize
-	TextLayoutCache = MakeUnique<FTextBlockLayout>(FTextBlockStyle::GetDefault(), InArgs._TextShapingMethod, InArgs._TextFlowDirection, FPlainTextLayoutMarshaller::Create(), InArgs._LineBreakPolicy);
+	TextLayoutCache = MakeUnique<FTextBlockLayout>(FTextBlockStyle::GetDefault(), InArgs._TextShapingMethod, InArgs._TextFlowDirection, FCreateSlateTextLayout(), FPlainTextLayoutMarshaller::Create(), InArgs._LineBreakPolicy);
 	TextLayoutCache->SetDebugSourceInfo(TAttribute<FString>::Create(TAttribute<FString>::FGetter::CreateLambda([this]{ return FReflectionMetaData::GetWidgetDebugInfo(this); })));
 }
 
 FSlateFontInfo STextBlock::GetFont() const
 {
-	return Font.IsSet() ? Font.Get() : TextStyle->Font;
+	return Font.IsSet() ? Font.Get() : TextStyle.Font;
 }
 
 FSlateColor STextBlock::GetColorAndOpacity() const
 {
-	return ColorAndOpacity.IsSet() ? ColorAndOpacity.Get() : TextStyle->ColorAndOpacity;
+	return ColorAndOpacity.IsSet() ? ColorAndOpacity.Get() : TextStyle.ColorAndOpacity;
 }
 
 FVector2D STextBlock::GetShadowOffset() const
 {
-	return ShadowOffset.IsSet() ? ShadowOffset.Get() : TextStyle->ShadowOffset;
+	return ShadowOffset.IsSet() ? ShadowOffset.Get() : TextStyle.ShadowOffset;
 }
 
 FLinearColor STextBlock::GetShadowColorAndOpacity() const
 {
-	return ShadowColorAndOpacity.IsSet() ? ShadowColorAndOpacity.Get() : TextStyle->ShadowColorAndOpacity;
+	return ShadowColorAndOpacity.IsSet() ? ShadowColorAndOpacity.Get() : TextStyle.ShadowColorAndOpacity;
 }
 
 FLinearColor STextBlock::GetHighlightColor() const
 {
-	return HighlightColor.IsSet() ? HighlightColor.Get() : TextStyle->HighlightColor;
+	return HighlightColor.IsSet() ? HighlightColor.Get() : TextStyle.HighlightColor;
 }
 
 const FSlateBrush* STextBlock::GetHighlightShape() const
 {
-	return HighlightShape.IsSet() ? HighlightShape.Get() : &TextStyle->HighlightShape;
+	return HighlightShape.IsSet() ? HighlightShape.Get() : &TextStyle.HighlightShape;
 }
 
 void STextBlock::SetText( const TAttribute< FString >& InText )
@@ -173,7 +174,7 @@ FVector2D STextBlock::ComputeDesiredSize(float LayoutScaleMultiplier) const
 
 	// ComputeDesiredSize will also update the text layout cache if required
 	const FVector2D TextSize = TextLayoutCache->ComputeDesiredSize(
-		FTextBlockLayout::FWidgetArgs(BoundText, HighlightText, WrapTextAt, AutoWrapText, Margin, LineHeightPercentage, Justification), 
+		FTextBlockLayout::FWidgetArgs(BoundText, HighlightText, WrapTextAt, AutoWrapText, WrappingPolicy, Margin, LineHeightPercentage, Justification),
 		LayoutScaleMultiplier, GetComputedTextStyle()
 		);
 
@@ -194,7 +195,7 @@ void STextBlock::SetFont(const TAttribute< FSlateFontInfo >& InFont)
 
 void STextBlock::SetColorAndOpacity(const TAttribute<FSlateColor>& InColorAndOpacity)
 {
-	if ( !ColorAndOpacity.IdenticalTo(InColorAndOpacity) )
+	if ( !ColorAndOpacity.IsSet() || !ColorAndOpacity.IdenticalTo(InColorAndOpacity) )
 	{
 		ColorAndOpacity = InColorAndOpacity;
 		Invalidate(EInvalidateWidget::Layout);
@@ -203,12 +204,14 @@ void STextBlock::SetColorAndOpacity(const TAttribute<FSlateColor>& InColorAndOpa
 
 void STextBlock::SetTextStyle(const FTextBlockStyle* InTextStyle)
 {
-	TextStyle = InTextStyle;
-
-	if (TextStyle == nullptr)
+	if (InTextStyle)
+	{
+		TextStyle = *InTextStyle;
+	}
+	else
 	{
 		FArguments Defaults;
-		TextStyle = Defaults._TextStyle;
+		TextStyle = *Defaults._TextStyle;
 	}
 
 	Invalidate(EInvalidateWidget::Layout);
@@ -235,6 +238,12 @@ void STextBlock::SetWrapTextAt(const TAttribute<float>& InWrapTextAt)
 void STextBlock::SetAutoWrapText(const TAttribute<bool>& InAutoWrapText)
 {
 	AutoWrapText = InAutoWrapText;
+	Invalidate(EInvalidateWidget::Layout);
+}
+
+void STextBlock::SetWrappingPolicy(const TAttribute<ETextWrappingPolicy>& InWrappingPolicy)
+{
+	WrappingPolicy = InWrappingPolicy;
 	Invalidate(EInvalidateWidget::Layout);
 }
 
@@ -276,7 +285,7 @@ void STextBlock::SetJustification(const TAttribute<ETextJustify::Type>& InJustif
 
 FTextBlockStyle STextBlock::GetComputedTextStyle() const
 {
-	FTextBlockStyle ComputedStyle = *TextStyle;
+	FTextBlockStyle ComputedStyle = TextStyle;
 	ComputedStyle.SetFont( GetFont() );
 	ComputedStyle.SetColorAndOpacity( GetColorAndOpacity() );
 	ComputedStyle.SetShadowOffset( GetShadowOffset() );

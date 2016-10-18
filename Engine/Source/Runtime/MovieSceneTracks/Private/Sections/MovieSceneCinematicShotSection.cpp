@@ -10,4 +10,3 @@
 
 UMovieSceneCinematicShotSection::UMovieSceneCinematicShotSection() : UMovieSceneSubSection()
 { }
-

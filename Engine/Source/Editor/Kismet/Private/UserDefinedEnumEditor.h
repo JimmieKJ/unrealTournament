@@ -77,6 +77,10 @@ private:
 	/** Handles new enum element request */
 	FReply OnAddNewEnumerator();
 
+	/** Handles the optional bitmask flags attribute */
+	ECheckBoxState OnGetBitmaskFlagsAttributeState() const;
+	void OnBitmaskFlagsAttributeStateChanged(ECheckBoxState InNewState);
+
 private:
 	TSharedPtr<class FUserDefinedEnumLayout> Layout;
 	/** The target node that this argument is on */

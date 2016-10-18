@@ -2,7 +2,7 @@
 #pragma once
 
 #include "UTHUD_TeamDM.h"
-#include "SUTHudWindow.h"
+#include "SUTHUDWindow.h"
 
 #include "UTHUD_Showdown.generated.h"
 
@@ -60,6 +60,7 @@ class UNREALTOURNAMENT_API AUTHUD_Showdown : public AUTHUD_TeamDM
 
 	virtual void DrawMinimap(const FColor& DrawColor, float MapSize, FVector2D DrawPos) override;
 	virtual void DrawHUD() override;
+	virtual void DrawActorOverlays(FVector Viewpoint, FRotator ViewRotation) override;
 
 	/** Show players in order of spawn selection. */
 	virtual void DrawPlayerList();

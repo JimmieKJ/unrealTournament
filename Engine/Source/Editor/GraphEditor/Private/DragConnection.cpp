@@ -222,9 +222,9 @@ FReply FDragConnection::DroppedOnPin(FVector2D ScreenPosition, FVector2D GraphPo
 FReply FDragConnection::DroppedOnNode(FVector2D ScreenPosition, FVector2D GraphPosition)
 {
 	bool bHandledPinDropOnNode = false;
-	UEdGraphNode* HoveredNode = GetHoveredNode();
+	UEdGraphNode* NodeOver = GetHoveredNode();
 
-	if (HoveredNode)
+	if (NodeOver)
 	{
 		// Gather any source drag pins
 		TArray<UEdGraphPin*> ValidSourcePins;
@@ -237,7 +237,7 @@ FReply FDragConnection::DroppedOnNode(FVector2D ScreenPosition, FVector2D GraphP
 			{
 				// Check for pin drop support
 				FText ResponseText;
-				if (SourcePin->GetOwningNode() != HoveredNode && SourcePin->GetSchema()->SupportsDropPinOnNode(HoveredNode, SourcePin->PinType, SourcePin->Direction, ResponseText))
+				if (SourcePin->GetOwningNode() != NodeOver && SourcePin->GetSchema()->SupportsDropPinOnNode(NodeOver, SourcePin->PinType, SourcePin->Direction, ResponseText))
 				{
 					bHandledPinDropOnNode = true;
 
@@ -246,7 +246,7 @@ FReply FDragConnection::DroppedOnNode(FVector2D ScreenPosition, FVector2D GraphP
 
 					const FScopedTransaction Transaction( NSLOCTEXT("UnrealEd", "AddInParam", "Add In Parameter" ) );
 
-					UEdGraphPin* EdGraphPin = HoveredNode->GetSchema()->DropPinOnNode(GetHoveredNode(), PinName, SourcePin->PinType, SourcePin->Direction);
+					UEdGraphPin* EdGraphPin = NodeOver->GetSchema()->DropPinOnNode(GetHoveredNode(), PinName, SourcePin->PinType, SourcePin->Direction);
 
 					if(EdGraphPin)
 					{

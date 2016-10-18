@@ -3,7 +3,7 @@
 #pragma once
 #include "ObjectLibraryFactory.generated.h"
 
-UCLASS(hidecategories=Object)
+UCLASS(MinimalAPI, hidecategories=Object)
 class UObjectLibraryFactory : public UFactory
 {
 	GENERATED_UCLASS_BODY()

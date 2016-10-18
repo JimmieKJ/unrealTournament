@@ -1,0 +1,49 @@
+CC=emcc
+CFLAGS= -O3 -c -Wall
+SOURCES= adler32.c \
+		crc32.c \
+		gzlib.c \
+		gzwrite.c \
+		inffast.c \
+		inftrees.c \
+		trees.c \
+		zutil.c \
+		compress.c \
+		deflate.c \
+		gzclose.c \
+		gzread.c \
+		infback.c \
+		inflate.c \
+		uncompr.c \
+
+OBJECTS=$(SOURCES:.c=.bc)
+
+ZLIB=zlib.bc
+
+zlib: $(ZLIB)
+
+$(ZLIB): $(OBJECTS) 
+	$(CC) $(LDFLAGS) $(OBJECTS) -o $@
+
+all: zlib example minigzip test
+
+.c.bc:
+	$(CC) $(CFLAGS) $< -o $@
+	
+example: example.bc $(ZLIB)
+	$(CC) -O2 -o example.js example.bc $(ZLIB)
+	
+minigzip: minigzip.bc $(ZLIB)
+	$(CC) -O2 -o minigzip.js minigzip.bc $(ZLIB)
+
+install: zlib 
+		xcopy $(ZLIB) "..\Lib\HTML5\" /F /R /Y /I
+
+uninstall: 
+		del "..\Lib\HTML5\$(ZLIB)" /F 
+
+clean: 
+	del /s *.bc *.js 
+
+test: example
+	node example.js 

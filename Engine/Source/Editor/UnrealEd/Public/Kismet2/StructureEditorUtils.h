@@ -9,7 +9,13 @@ class UNREALED_API FStructureEditorUtils
 public:
 	enum EStructureEditorChangeInfo
 	{
-		Changed,
+		Unknown,
+		AddedVariable,
+		RemovedVariable,
+		RenamedVariable,
+		VariableTypeChanged,
+		MovedVariable,
+		DefaultValueChanged,
 	};
 
 	class FStructEditorManager : public FListenerManager<UUserDefinedStruct, EStructureEditorChangeInfo>
@@ -21,6 +27,9 @@ public:
 		class UNREALED_API ListenerType : public InnerListenerType<FStructEditorManager>
 		{
 		};
+
+		/** The current reason why a structure is being updated */
+		UNREALED_API static EStructureEditorChangeInfo ActiveChange;
 	};
 
 	typedef FStructEditorManager::ListenerType INotifyOnStructChanged;
@@ -173,7 +182,7 @@ public:
 	static EStructureError IsStructureValid(const UScriptStruct* Struct, const UStruct* RecursionParent = NULL, FString* OutMsg = NULL);
 
 	/** called after UDS was changed by editor*/
-	static void OnStructureChanged(UUserDefinedStruct* Struct);
+	static void OnStructureChanged(UUserDefinedStruct* Struct, EStructureEditorChangeInfo ChangeReason = EStructureEditorChangeInfo::Unknown);
 
 	static void BroadcastPreChange(UUserDefinedStruct* Struct);
 	static void BroadcastPostChange(UUserDefinedStruct* Struct);

@@ -154,8 +154,6 @@ const double FChunkFile::GetLastAccessTime() const
 	return LastAccessTime;
 }
 
-#if WITH_BUILDPATCHGENERATION
-
 /* FQueuedChunkWriter implementation
 *****************************************************************************/
 FChunkWriter::FQueuedChunkWriter::FQueuedChunkWriter()
@@ -198,9 +196,6 @@ uint32 FChunkWriter::FQueuedChunkWriter::Run()
 		{
 			const FGuid& ChunkGuid = ChunkFile->ChunkHeader.Guid;
 			const uint64& ChunkHash = ChunkFile->ChunkHeader.RollingHash;
-#if SAVE_OLD_CHUNKDATA_FILENAMES
-			const FString OldChunkFilename = FBuildPatchUtils::GetChunkOldFilename( ChunkDirectory, ChunkGuid );
-#endif
 			const FString NewChunkFilename = FBuildPatchUtils::GetChunkNewFilename( EBuildPatchAppManifestVersion::GetLatestVersion(), ChunkDirectory, ChunkGuid, ChunkHash );
 
 			// To be a bit safer, make a few attempts at writing chunks
@@ -210,9 +205,7 @@ uint32 FChunkWriter::FQueuedChunkWriter::Run()
 			{
 				// Write out chunks
 				bChunkSaveSuccess = WriteChunkData( NewChunkFilename, ChunkFile, ChunkGuid );
-#if SAVE_OLD_CHUNKDATA_FILENAMES
-				bChunkSaveSuccess = bChunkSaveSuccess && WriteChunkData( OldChunkFilename, ChunkFile, ChunkGuid );
-#endif
+
 				// Check success
 				if( bChunkSaveSuccess )
 				{
@@ -313,7 +306,7 @@ const bool FChunkWriter::FQueuedChunkWriter::WriteChunkData(const FString& Chunk
 		FStatsCollector::AccumulateTimeEnd(StatSerlialiseTime, TempTimer);
 		FStatsCollector::Accumulate(StatChunksSaved, 1);
 		FStatsCollector::Accumulate(StatDataWritten, NewChunkFilesSize);
-		FStatsCollector::SetAsPercentage(StatCompressionRatio, 1.0 - (*StatDataWritten / double(*StatChunksSaved * FBuildPatchData::ChunkDataSize)));
+		FStatsCollector::SetAsPercentage(StatCompressionRatio, *StatDataWritten / double(*StatChunksSaved * (Header.HeaderSize + FBuildPatchData::ChunkDataSize)));
 
 		ChunkFileSizesCS.Lock();
 		ChunkFileSizes.Add(ChunkGuid, NewChunkFilesSize);
@@ -414,6 +407,8 @@ FChunkWriter::FChunkWriter(const FString& ChunkDirectory, FStatsCollectorRef Sta
 
 FChunkWriter::~FChunkWriter()
 {
+	NoMoreChunks();
+	WaitForThread();
 	if( WriterThread != NULL )
 	{
 		delete WriterThread;
@@ -443,6 +438,3 @@ void FChunkWriter::GetChunkFilesizes(TMap<FGuid, int64>& OutChunkFileSizes)
 {
 	QueuedChunkWriter.GetChunkFilesizes(OutChunkFileSizes);
 }
-
-#endif // WITH_BUILDPATCHGENERATION
-

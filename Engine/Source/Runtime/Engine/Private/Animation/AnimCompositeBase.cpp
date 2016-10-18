@@ -8,6 +8,7 @@
 #include "AnimationUtils.h"
 #include "Animation/AnimCompositeBase.h"
 #include "Animation/AnimSequence.h"
+#include "Animation/AnimComposite.h"
 #include "AnimationRuntime.h"
 
 ///////////////////////////////////////////////////////
@@ -16,7 +17,7 @@
 
 UAnimSequenceBase * FAnimSegment::GetAnimationData(float PositionInTrack, float& PositionInAnim, float& Weight) const
 {
-	if( IsInRange(PositionInTrack) )
+	if( bValid && IsInRange(PositionInTrack) )
 	{
 		if( AnimReference )
 		{
@@ -86,8 +87,8 @@ void FAnimSegment::GetAnimNotifiesFromTrackPositions(const float& PreviousTrackP
 		)
 	{
 		// Only allow AnimSequences for now. Other types will need additional support.
-		UAnimSequence * AnimSequence = Cast<UAnimSequence>(AnimReference);
-		if( AnimSequence )
+		UAnimSequenceBase* AnimSequenceBase = AnimReference;
+		if(AnimSequenceBase)
 		{
 			const float ValidPlayRate = GetValidPlayRate();
 			const float AbsValidPlayRate = FMath::Abs(ValidPlayRate);
@@ -115,14 +116,14 @@ void FAnimSegment::GetAnimNotifiesFromTrackPositions(const float& PreviousTrackP
 				{
 					const float PlayRate = ValidPlayRate * (bTrackPlayingBackwards ? -1.f : 1.f);
 					const float AnimEndPosition = (TrackTimeToGo * PlayRate) + AnimStartPosition;
-					AnimSequence->GetAnimNotifiesFromDeltaPositions(AnimStartPosition, AnimEndPosition, OutActiveNotifies);
+					AnimSequenceBase->GetAnimNotifiesFromDeltaPositions(AnimStartPosition, AnimEndPosition, OutActiveNotifies);
 					break;
 				}
 				// Otherwise we hit the end point of the animation first...
 				else
 				{
 					// Add that piece for extraction.
-					AnimSequence->GetAnimNotifiesFromDeltaPositions(AnimStartPosition, AnimEndPoint, OutActiveNotifies);
+					AnimSequenceBase->GetAnimNotifiesFromDeltaPositions(AnimStartPosition, AnimEndPoint, OutActiveNotifies);
 
 					// decrease our TrackTimeToGo if we have to do another iteration.
 					// and put ourselves back at the beginning of the animation.
@@ -146,38 +147,45 @@ void FAnimSegment::GetRootMotionExtractionStepsForTrackRange(TArray<FRootMotionE
 		return;
 	}
 
-	// Only allow AnimSequences for now. Other types will need additional support.
-	UAnimSequence * AnimSequence = Cast<UAnimSequence>(AnimReference);
-	if( AnimSequence )
+	if (!bValid || !AnimReference)
 	{
-		const bool bTrackPlayingBackwards = (StartTrackPosition > EndTrackPosition);
+		return;
+	}
 
-		const float SegmentStartPos = StartPos;
-		const float SegmentEndPos = StartPos + GetLength();
+	const bool bTrackPlayingBackwards = (StartTrackPosition > EndTrackPosition);
 
-		// if range overlaps segment
-		if (bTrackPlayingBackwards
-			? ((EndTrackPosition < SegmentEndPos) && (StartTrackPosition > SegmentStartPos)) 
-			: ((StartTrackPosition < SegmentEndPos) && (EndTrackPosition > SegmentStartPos)) 
-			)
+	const float SegmentStartPos = StartPos;
+	const float SegmentEndPos = StartPos + GetLength();
+
+	// if range overlaps segment
+	if (bTrackPlayingBackwards
+		? ((EndTrackPosition < SegmentEndPos) && (StartTrackPosition > SegmentStartPos)) 
+		: ((StartTrackPosition < SegmentEndPos) && (EndTrackPosition > SegmentStartPos)) 
+		)
+	{
+		const float ValidPlayRate = GetValidPlayRate();
+		const float AbsValidPlayRate = FMath::Abs(ValidPlayRate);
+
+		// Get starting position, closest overlap.
+		float AnimStartPosition = ConvertTrackPosToAnimPos(bTrackPlayingBackwards ? FMath::Min(StartTrackPosition, SegmentEndPos) : FMath::Max(StartTrackPosition, SegmentStartPos));
+		AnimStartPosition = FMath::Clamp(AnimStartPosition, AnimStartTime, AnimEndTime);
+		//check( (AnimStartPosition >= AnimStartTime) && (AnimStartPosition <= AnimEndTime) );
+		float TrackTimeToGo = FMath::Abs(EndTrackPosition - StartTrackPosition);
+
+		// The track can be playing backwards and the animation can be playing backwards, so we
+		// need to combine to work out what direction we are traveling through the animation
+		bool bAnimPlayingBackwards = bTrackPlayingBackwards ^ (ValidPlayRate < 0.f);
+		const float ResetStartPosition = bAnimPlayingBackwards ? AnimEndTime : AnimStartTime;
+
+		// Abstract out end point since animation can be playing forward or backward.
+		const float AnimEndPoint = bAnimPlayingBackwards ? AnimStartTime : AnimEndTime;
+
+		// Only allow AnimSequences for now. Other types will need additional support.
+		UAnimSequence* AnimSequence = Cast<UAnimSequence>(AnimReference);
+		UAnimComposite* AnimComposite = Cast<UAnimComposite>(AnimReference);
+
+		if (AnimSequence || AnimComposite)
 		{
-			const float ValidPlayRate = GetValidPlayRate();
-			const float AbsValidPlayRate = FMath::Abs(ValidPlayRate);
-
-			// Get starting position, closest overlap.
-			float AnimStartPosition = ConvertTrackPosToAnimPos(bTrackPlayingBackwards ? FMath::Min(StartTrackPosition, SegmentEndPos) : FMath::Max(StartTrackPosition, SegmentStartPos));
-			AnimStartPosition = FMath::Clamp(AnimStartPosition, AnimStartTime, AnimEndTime);
-			//check( (AnimStartPosition >= AnimStartTime) && (AnimStartPosition <= AnimEndTime) );
-			float TrackTimeToGo = FMath::Abs(EndTrackPosition - StartTrackPosition);
-
-			// The track can be playing backwards and the animation can be playing backwards, so we
-			// need to combine to work out what direction we are traveling through the animation
-			bool bAnimPlayingBackwards = bTrackPlayingBackwards ^ (ValidPlayRate < 0.f);
-			const float ResetStartPosition = bAnimPlayingBackwards ? AnimEndTime : AnimStartTime;
-
-			// Abstract out end point since animation can be playing forward or backward.
-			const float AnimEndPoint = bAnimPlayingBackwards ? AnimStartTime : AnimEndTime;
-
 			for(int32 IterationsLeft=FMath::Max(LoopingCount, 1); ((IterationsLeft > 0) && (TrackTimeToGo > 0.f)); --IterationsLeft)
 			{
 				// Track time left to reach end point of animation.
@@ -188,14 +196,28 @@ void FAnimSegment::GetRootMotionExtractionStepsForTrackRange(TArray<FRootMotionE
 				{
 					const float PlayRate = ValidPlayRate * (bTrackPlayingBackwards ? -1.f : 1.f);
 					const float AnimEndPosition = (TrackTimeToGo * PlayRate) + AnimStartPosition;
-					RootMotionExtractionSteps.Add(FRootMotionExtractionStep(AnimSequence, AnimStartPosition, AnimEndPosition));
+					if (AnimSequence)
+					{
+						RootMotionExtractionSteps.Add(FRootMotionExtractionStep(AnimSequence, AnimStartPosition, AnimEndPosition));
+					}
+					else if (AnimComposite)
+					{
+						AnimComposite->AnimationTrack.GetRootMotionExtractionStepsForTrackRange(RootMotionExtractionSteps, AnimStartPosition, AnimEndPosition);
+					}
 					break;
 				}
 				// Otherwise we hit the end point of the animation first...
 				else
 				{
 					// Add that piece for extraction.
-					RootMotionExtractionSteps.Add(FRootMotionExtractionStep(AnimSequence, AnimStartPosition, AnimEndPoint));
+					if (AnimSequence)
+					{
+						RootMotionExtractionSteps.Add(FRootMotionExtractionStep(AnimSequence, AnimStartPosition, AnimEndPoint));
+					}
+					else if (AnimComposite)
+					{
+						AnimComposite->AnimationTrack.GetRootMotionExtractionStepsForTrackRange(RootMotionExtractionSteps, AnimStartPosition, AnimEndPoint);
+					}
 
 					// decrease our TrackTimeToGo if we have to do another iteration.
 					// and put ourselves back at the beginning of the animation.
@@ -207,17 +229,38 @@ void FAnimSegment::GetRootMotionExtractionStepsForTrackRange(TArray<FRootMotionE
 	}
 }
 
+///////////////////////////////////////////////////////
+// FAnimTrack
+///////////////////////////////////////////////////////
 bool FAnimTrack::HasRootMotion() const
 {
 	for (const FAnimSegment& AnimSegment : AnimSegments)
 	{
-		if (AnimSegment.AnimReference && AnimSegment.AnimReference->HasRootMotion())
+		if (AnimSegment.bValid && AnimSegment.AnimReference && AnimSegment.AnimReference->HasRootMotion())
 		{
 			return true;
 		}
 	}
 	return false;
 }
+
+#if WITH_EDITOR
+class UAnimSequence* FAnimTrack::GetAdditiveBasePose() const
+{
+	if (IsAdditive())
+	{
+		for (const FAnimSegment& AnimSegment : AnimSegments)
+		{
+			UAnimSequence* BasePose = (AnimSegment.AnimReference) ? (AnimSegment.AnimReference->GetAdditiveBasePose()) : nullptr;
+			if (BasePose)
+			{
+				return BasePose;
+			}
+		}
+	}
+	return nullptr;
+}
+#endif
 
 /** 
  * Given a Track delta position [StartTrackPosition, EndTrackPosition]
@@ -246,10 +289,6 @@ void FAnimTrack::GetRootMotionExtractionStepsForTrackRange(TArray<FRootMotionExt
 	}
 }
 
-
-///////////////////////////////////////////////////////
-// FAnimTrack
-///////////////////////////////////////////////////////
 float FAnimTrack::GetLength() const
 {
 	float TotalLength = 0.f;
@@ -280,7 +319,7 @@ bool FAnimTrack::IsAdditive() const
 	for ( int32 I=0; I<AnimSegments.Num(); ++I )
 	{
 		const struct FAnimSegment & Segment = AnimSegments[I];
-		return ( Segment.AnimReference && Segment.AnimReference->IsValidAdditive() ); //-V612
+		return ( Segment.AnimReference && Segment.bValid && Segment.AnimReference->IsValidAdditive() ); //-V612
 	}
 
 	return false;
@@ -299,10 +338,10 @@ bool FAnimTrack::IsRotationOffsetAdditive() const
 		const struct FAnimSegment & Segment = AnimSegments[I];
 		if ( Segment.AnimReference && Segment.AnimReference->IsValidAdditive() )
 		{
-			UAnimSequence * Sequence = Cast<UAnimSequence>(Segment.AnimReference);
-			if ( Sequence )
+			UAnimSequenceBase* SequenceBase = Segment.AnimReference;
+			if (SequenceBase)
 			{
-				return (Sequence->AdditiveAnimType == AAT_RotationOffsetMeshSpace);
+				return (SequenceBase->GetAdditiveAnimType() == AAT_RotationOffsetMeshSpace);
 			}
 			else
 			{
@@ -329,10 +368,10 @@ int32 FAnimTrack::GetTrackAdditiveType() const
 	if( AnimSegments.Num() > 0 )
 	{
 		const struct FAnimSegment & Segment = AnimSegments[0];
-		UAnimSequence * Sequence = Cast<UAnimSequence>(Segment.AnimReference);
-		if ( Sequence )
+		UAnimSequenceBase* SequenceBase = Segment.AnimReference;
+		if ( SequenceBase )
 		{
-			return Sequence->AdditiveAnimType;
+			return SequenceBase->GetAdditiveAnimType();
 		}
 	}
 	return -1;
@@ -365,7 +404,7 @@ FAnimSegment* FAnimTrack::GetSegmentAtTime(float InTime)
 	FAnimSegment* Result = nullptr;
 	for(FAnimSegment& Segment : AnimSegments)
 	{
-		if(Segment.AnimStartTime <= InTime && InTime <= Segment.StartPos + Segment.GetLength())
+		if(Segment.StartPos <= InTime && InTime <= Segment.StartPos + Segment.GetLength())
 		{
 			Result = &Segment;
 			break;
@@ -380,7 +419,7 @@ int32 FAnimTrack::GetSegmentIndexAtTime(float InTime)
 	for(int32 Idx = 0 ; Idx < AnimSegments.Num() ; ++Idx)
 	{
 		FAnimSegment& Segment = AnimSegments[Idx];
-		if(Segment.AnimStartTime <= InTime && InTime <= Segment.StartPos + Segment.GetLength())
+		if(Segment.StartPos <= InTime && InTime <= Segment.StartPos + Segment.GetLength())
 		{
 			Result = Idx;
 			break;
@@ -390,42 +429,45 @@ int32 FAnimTrack::GetSegmentIndexAtTime(float InTime)
 }
 
 #if WITH_EDITOR
-bool FAnimTrack::GetAllAnimationSequencesReferred(TArray<UAnimSequence*>& AnimationSequences) const
+bool FAnimTrack::GetAllAnimationSequencesReferred(TArray<UAnimationAsset*>& AnimationAssets) const
 {
 	for ( int32 I=0; I<AnimSegments.Num(); ++I )
 	{
 		const struct FAnimSegment & Segment = AnimSegments[I];
-		if ( Segment.AnimReference  )
+		if ( Segment.bValid && Segment.AnimReference  )
 		{
-			UAnimSequence * Sequence = Cast<UAnimSequence>(Segment.AnimReference);
-			if ( Sequence )
-			{
-				AnimationSequences.Add(Sequence);
-			}
+			Segment.AnimReference->HandleAnimReferenceCollection(AnimationAssets);
 		}
 	}
 
-	return ( AnimationSequences.Num() > 0 );
+	return (AnimationAssets.Num() > 0 );
 }
 
-void FAnimTrack::ReplaceReferredAnimations(const TMap<UAnimSequence*, UAnimSequence*>& ReplacementMap)
+void FAnimTrack::ReplaceReferredAnimations(const TMap<UAnimationAsset*, UAnimationAsset*>& ReplacementMap)
 {
 	TArray<FAnimSegment> NewAnimSegments;
 	for ( int32 I=0; I<AnimSegments.Num(); ++I )
 	{
 		struct FAnimSegment & Segment = AnimSegments[I];
-		UAnimSequence * Sequence = Cast<UAnimSequence>(Segment.AnimReference);
 
-		if ( Sequence  )
+		if (Segment.IsValid())
 		{
-			UAnimSequence* const* ReplacementAsset = (UAnimSequence*const*)ReplacementMap.Find(Sequence);
-			if(ReplacementAsset)
+			// now fix everythign else
+			UAnimSequenceBase* SequenceBase = Segment.AnimReference;
+			if (SequenceBase)
 			{
-				Segment.AnimReference = *ReplacementAsset;
-				NewAnimSegments.Add(Segment);
+				UAnimationAsset* const* ReplacementAsset = ReplacementMap.Find(SequenceBase);
+				if(ReplacementAsset)
+				{
+					Segment.AnimReference = Cast<UAnimSequenceBase>(*ReplacementAsset);
+					NewAnimSegments.Add(Segment);
+				}
+
+				SequenceBase->ReplaceReferredAnimations(ReplacementMap);
 			}
 		}
 	}
+
 	AnimSegments = NewAnimSegments;
 }
 
@@ -496,28 +538,35 @@ void FAnimTrack::GetAnimationPose(/*out*/ FCompactPose& OutPose, /*out*/ FBlende
 	{
 		const FAnimSegment& AnimSegment = AnimSegments[I];
 
-		float PositionInAnim = 0.f;
-		float Weight = 0.f;
-		UAnimSequenceBase* AnimRef = AnimSegment.GetAnimationData(CurrentTime, PositionInAnim, Weight);
-
-		// make this to be 1 function
-		if(AnimRef && (Weight > ZERO_ANIMWEIGHT_THRESH))
+		if (AnimSegment.bValid)
 		{
-			// todo anim: hack - until we fix animcomposite
-			const int32 NewIndex = SourceWeights.AddUninitialized(1);
-			SourcePoses.Add(FCompactPose());
-			SourceCurves.Add(FBlendedCurve());
-			SourcePoses[NewIndex].SetBoneContainer(&OutPose.GetBoneContainer());
-			SourceCurves[NewIndex].InitFrom(OutCurve);
-			SourceWeights[NewIndex] = Weight;
-			TotalWeight += Weight;
+			float PositionInAnim = 0.f;
+			float Weight = 0.f;
+			UAnimSequenceBase* AnimRef = AnimSegment.GetAnimationData(CurrentTime, PositionInAnim, Weight);
 
-			// Copy passed in Extraction Context, but override position and looping parameters.
-			FAnimExtractContext SequenceExtractionContext(ExtractionContext);
-			SequenceExtractionContext.CurrentTime = PositionInAnim;
-			SequenceExtractionContext.bExtractRootMotion &= AnimRef->HasRootMotion();
-				
-			AnimRef->GetAnimationPose(SourcePoses[NewIndex], SourceCurves[NewIndex], SequenceExtractionContext);
+			// make this to be 1 function
+			if (AnimRef && (Weight > ZERO_ANIMWEIGHT_THRESH))
+			{
+				// todo anim: hack - until we fix animcomposite
+				const int32 NewIndex = SourceWeights.AddUninitialized(1);
+				SourcePoses.Add(FCompactPose());
+				SourceCurves.Add(FBlendedCurve());
+				SourcePoses[NewIndex].SetBoneContainer(&OutPose.GetBoneContainer());
+				SourceCurves[NewIndex].InitFrom(OutCurve);
+				SourceWeights[NewIndex] = Weight;
+				TotalWeight += Weight;
+
+				// Copy passed in Extraction Context, but override position and looping parameters.
+				FAnimExtractContext SequenceExtractionContext(ExtractionContext);
+				SequenceExtractionContext.CurrentTime = PositionInAnim;
+				SequenceExtractionContext.bExtractRootMotion &= AnimRef->HasRootMotion();
+
+				AnimRef->GetAnimationPose(SourcePoses[NewIndex], SourceCurves[NewIndex], SequenceExtractionContext);
+			}
+		}
+		else
+		{
+			OutPose.ResetToRefPose();
 		}
 	}
 
@@ -541,6 +590,124 @@ void FAnimTrack::GetAnimationPose(/*out*/ FCompactPose& OutPose, /*out*/ FBlende
 		}
 		FAnimationRuntime::BlendPosesTogether(SourcePoses, SourceCurves, SourceWeights, OutPose, OutCurve);
 	}
+}
+
+void FAnimTrack::EnableRootMotionSettingFromMontage(bool bInEnableRootMotion, const ERootMotionRootLock::Type InRootMotionRootLock)
+{
+	for (int32 I = 0; I < AnimSegments.Num(); ++I)
+	{
+		const FAnimSegment& AnimSegment = AnimSegments[I];
+		if (AnimSegment.AnimReference)
+		{
+			AnimSegment.AnimReference->EnableRootMotionSettingFromMontage(bInEnableRootMotion, InRootMotionRootLock);
+		}
+	}
+}
+
+// this is to prevent anybody adding recursive asset to anim composite
+// as a result of anim composite being a part of anim sequence base
+void FAnimTrack::InvalidateRecursiveAsset(class UAnimCompositeBase* CheckAsset)
+{
+	for (int32 I = 0; I < AnimSegments.Num(); ++I)
+	{
+		FAnimSegment& AnimSegment = AnimSegments[I];
+		UAnimCompositeBase* CompositeBase = Cast<UAnimCompositeBase>(AnimSegment.AnimReference);
+		if (CompositeBase)
+		{
+			// add owner
+			TArray<UAnimCompositeBase*> CompositeBaseRecurisve;
+			CompositeBaseRecurisve.Add(CheckAsset);
+
+			if (CompositeBase->ContainRecursive(CompositeBaseRecurisve))
+			{
+				AnimSegment.bValid = false;
+			}
+			else
+			{
+				AnimSegment.bValid = IsValidToAdd(CompositeBase);
+			}
+		}
+		else
+		{
+			AnimSegment.bValid = IsValidToAdd(AnimSegment.AnimReference);
+		}
+	}
+}
+
+// this is recursive function that look thorough internal assets 
+// and return true if it finds nested same assets
+bool FAnimTrack::ContainRecursive(const TArray<UAnimCompositeBase*>& CurrentAccumulatedList)
+{
+	for (int32 I = 0; I < AnimSegments.Num(); ++I)
+	{
+		FAnimSegment& AnimSegment = AnimSegments[I];
+
+		// we don't want to send this list broad widely (but in depth search)
+		// to do that, we copy the current accumulated list, and send that only, not the siblings
+		TArray<UAnimCompositeBase*> LocalCurrentAccumulatedList = CurrentAccumulatedList;
+		UAnimCompositeBase* CompositeBase = Cast<UAnimCompositeBase>(AnimSegment.AnimReference);
+		if (CompositeBase && CompositeBase->ContainRecursive(LocalCurrentAccumulatedList))
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
+
+void FAnimTrack::GetAnimNotifiesFromTrackPositions(const float& PreviousTrackPosition, const float& CurrentTrackPosition, TArray<const FAnimNotifyEvent *> & OutActiveNotifies) const
+{
+	for (int32 SegmentIndex = 0; SegmentIndex<AnimSegments.Num(); ++SegmentIndex)
+	{
+		if (AnimSegments[SegmentIndex].IsValid())
+		{
+			AnimSegments[SegmentIndex].GetAnimNotifiesFromTrackPositions(PreviousTrackPosition, CurrentTrackPosition, OutActiveNotifies);
+		}
+	}
+}
+
+bool FAnimTrack::IsNotifyAvailable() const
+{
+	for (int32 SegmentIndex = 0; SegmentIndex < AnimSegments.Num(); ++SegmentIndex)
+	{
+		if (AnimSegments[SegmentIndex].IsNotifyAvailable())
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
+
+bool FAnimTrack::IsValidToAdd(const UAnimSequenceBase* SequenceBase) const
+{
+	bool bValid = false;
+	// remove asset if invalid
+	if (SequenceBase)
+	{
+		if (SequenceBase->SequenceLength <= 0.f)
+		{
+			UE_LOG(LogAnimation, Warning, TEXT("Remove Empty Sequence (%s)"), *SequenceBase->GetFullName());
+		}
+		else if (!SequenceBase->CanBeUsedInMontage())
+		{
+			UE_LOG(LogAnimation, Warning, TEXT("Remove Invalid Sequence (%s)"), *SequenceBase->GetFullName());
+		}
+		else
+		{
+			int32 TrackType = GetTrackAdditiveType();
+			if ((TrackType == -1) || (TrackType == SequenceBase->GetAdditiveAnimType()))
+			{
+				bValid = true;
+			}
+			else
+			{
+				UE_LOG(LogAnimation, Warning, TEXT("Additivie type (%s) does not match. Make sure you add same type of additive animation."), *SequenceBase->GetFullName());
+			}
+		}
+	}
+
+	return bValid;
 }
 ///////////////////////////////////////////////////////
 // UAnimCompositeBase
@@ -583,3 +750,9 @@ void UAnimCompositeBase::ExtractRootMotionFromTrack(const FAnimTrack &SlotAnimTr
 	}
 }
 
+void UAnimCompositeBase::PostLoad()
+{
+	Super::PostLoad();
+
+	InvalidateRecursiveAsset();
+}

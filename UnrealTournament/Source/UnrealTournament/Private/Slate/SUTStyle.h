@@ -29,6 +29,8 @@ private:
 	static void SetContextMenus(TSharedRef<FSlateStyleSet> StyleRef);
 	static void SetServerBrowser(TSharedRef<FSlateStyleSet> StyleRef);
 	static void SetTextChatStyle(TSharedRef<FSlateStyleSet> StyleRef);
+	static void SetLoginStyle(TSharedRef<FSlateStyleSet> StyleRef);
+
 	static FSlateSound ButtonPressSound;
 	static FSlateSound ButtonHoverSound;
 	static FSlateColor DefaultForeground;

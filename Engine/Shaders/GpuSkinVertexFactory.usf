@@ -64,7 +64,7 @@ struct FVertexFactoryInput
 	// TangentZ.w contains sign of tangent basis determinant
 	half4	TangentZ		: ATTRIBUTE2;	
 
-#if FEATURE_LEVEL >= FEATURE_LEVEL_ES3_1
+#if FEATURE_LEVEL >= FEATURE_LEVEL_ES3_1 || COMPILER_METAL
 	uint4	BlendIndices	: ATTRIBUTE3;
 	#if GPUSKIN_USE_EXTRA_INFLUENCES
 	uint4	BlendIndicesExtra	: ATTRIBUTE14;
@@ -562,11 +562,16 @@ FVertexFactoryInterpolantsVSToPS VertexFactoryGetInterpolantsVSToPS(FVertexFacto
 // @return previous translated world position
 float4 VertexFactoryGetPreviousWorldPosition(FVertexFactoryInput Input, FVertexFactoryIntermediates Intermediates)
 {
-	float4 PrevSkinPosInWorld = mul(float4(SkinPreviousPosition(Input, Intermediates),1), PreviousLocalToWorld);
+	float4x4 PreviousLocalToWorldTranslated = PreviousLocalToWorld;
+	PreviousLocalToWorldTranslated[3][0] += ResolvedView.PrevPreViewTranslation.x;
+	PreviousLocalToWorldTranslated[3][1] += ResolvedView.PrevPreViewTranslation.y;
+	PreviousLocalToWorldTranslated[3][2] += ResolvedView.PrevPreViewTranslation.z;
+
+	float4 PrevSkinPosInWorld = mul(float4(SkinPreviousPosition(Input, Intermediates),1), PreviousLocalToWorldTranslated);
 #if GPUSKIN_APEX_CLOTH
 	if( IsSimulatedVertex(Input) )
 	{
-		float3 PrevSimulatedPos = Intermediates.PreviousSimulatedPosition + View.PrevPreViewTranslation;
+		float3 PrevSimulatedPos = Intermediates.PreviousSimulatedPosition + ResolvedView.PrevPreViewTranslation;
 		float3 BlendedPrevPos = lerp(PrevSkinPosInWorld.xyz, PrevSimulatedPos.xyz, ClothBlendWeight);
 		return float4(BlendedPrevPos, 1);
 	}

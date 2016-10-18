@@ -47,6 +47,11 @@ class ISourceControlModule : public IModuleInterface
 public:
 
 	/**
+	 * Returns a list of the registered source control providers
+	 */
+	virtual void GetProviderNames(TArray<FName>& OutProviderNames) = 0;
+
+	/**
 	 * Tick the source control module.
 	 * This is responsible for dispatching batched/queued status requests & for calling ISourceControlProvider::Tick()
 	 */

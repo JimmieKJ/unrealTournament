@@ -97,7 +97,7 @@ static bool CanMacroBeDropped(TSharedPtr<FEdGraphSchemaAction> /*DropActionIn*/,
 //------------------------------------------------------------------------------
 void FKismetDragDropAction::HoverTargetChanged()
 {
-	UEdGraph* HoveredGraph = GetHoveredGraph();
+	UEdGraph* TheHoveredGraph = GetHoveredGraph();
 
 	FText CannotDropReason = FText::GetEmpty();
 	if (ActionWillShowExistingNode())
@@ -107,7 +107,7 @@ void FKismetDragDropAction::HoverTargetChanged()
 		SetSimpleFeedbackMessage(ShowsExistingIcon, FLinearColor::White, DragingText);
 	}
 	// it should be obvious that we can't drop on anything but a graph, so no need to point that out
-	else if ((HoveredGraph == NULL) || !CanBeDroppedDelegate.IsBound() || CanBeDroppedDelegate.Execute(ActionNode, HoveredGraph, CannotDropReason))
+	else if ((TheHoveredGraph == nullptr) || !CanBeDroppedDelegate.IsBound() || CanBeDroppedDelegate.Execute(ActionNode, TheHoveredGraph, CannotDropReason))
 	{
 		FGraphSchemaActionDragDropAction::HoverTargetChanged();
 	}
@@ -142,8 +142,8 @@ bool FKismetDragDropAction::ActionWillShowExistingNode() const
 {
 	bool bWillFocusOnExistingNode = false;
 
-	UEdGraph* HoveredGraph = GetHoveredGraph();
-	if (ActionNode.IsValid() && (HoveredGraph != NULL))
+	UEdGraph* TheHoveredGraph = GetHoveredGraph();
+	if (ActionNode.IsValid() && (TheHoveredGraph != nullptr))
 	{
 		bWillFocusOnExistingNode = (ActionNode->GetTypeId() == FEdGraphSchemaAction_K2TargetNode::StaticGetTypeId()) ||
 			(ActionNode->GetTypeId() == FEdGraphSchemaAction_K2InputAction::StaticGetTypeId());
@@ -153,7 +153,7 @@ bool FKismetDragDropAction::ActionWillShowExistingNode() const
 			if (ActionNode->GetTypeId() == FEdGraphSchemaAction_K2AddEvent::StaticGetTypeId())
 			{
 				FEdGraphSchemaAction_K2AddEvent* AddEventAction = (FEdGraphSchemaAction_K2AddEvent*)ActionNode.Get();
-				bWillFocusOnExistingNode = AddEventAction->EventHasAlreadyBeenPlaced(FBlueprintEditorUtils::FindBlueprintForGraph(HoveredGraph));
+				bWillFocusOnExistingNode = AddEventAction->EventHasAlreadyBeenPlaced(FBlueprintEditorUtils::FindBlueprintForGraph(TheHoveredGraph));
 			}
 			else if (ActionNode->GetTypeId() == FEdGraphSchemaAction_K2Event::StaticGetTypeId())
 			{
@@ -247,7 +247,7 @@ FReply FKismetFunctionDragDropAction::DroppedOnPanel(TSharedRef<SWidget> const& 
 //------------------------------------------------------------------------------
 UFunction const* FKismetFunctionDragDropAction::GetFunctionProperty() const
 {
-	check(OwningClass != NULL);
+	check(OwningClass != nullptr);
 	check(FunctionName != NAME_None);
 
 	UFunction* Function = FindField<UFunction>(OwningClass, FunctionName);
@@ -257,9 +257,9 @@ UFunction const* FKismetFunctionDragDropAction::GetFunctionProperty() const
 //------------------------------------------------------------------------------
 UBlueprintFunctionNodeSpawner* FKismetFunctionDragDropAction::GetDropAction(UEdGraph& Graph) const
 {
-	if (UEdGraph const* const HoveredGraph = &Graph)
+	if (UEdGraph const* const TheHoveredGraph = &Graph)
 	{
-		if (UBlueprint* DropOnBlueprint = FBlueprintEditorUtils::FindBlueprintForGraph(HoveredGraph))
+		if (UBlueprint* DropOnBlueprint = FBlueprintEditorUtils::FindBlueprintForGraph(TheHoveredGraph))
 		{
 			// make temp list builder
 			FGraphActionListBuilderBase TempListBuilder;
@@ -267,7 +267,7 @@ UBlueprintFunctionNodeSpawner* FKismetFunctionDragDropAction::GetDropAction(UEdG
 			TempListBuilder.OwnerOfTemporaries->SetFlags(RF_Transient);
 
 			UEdGraphSchema_K2 const* K2Schema = GetDefault<UEdGraphSchema_K2>();
-			check(K2Schema != NULL);
+			check(K2Schema != nullptr);
 
 			if (UFunction const* Function = GetFunctionProperty())
 			{
@@ -314,11 +314,11 @@ FKismetMacroDragDropAction::FKismetMacroDragDropAction()
 //------------------------------------------------------------------------------
 void FKismetMacroDragDropAction::HoverTargetChanged() 
 {
-	UEdGraph* HoveredGraph = GetHoveredGraph();
+	UEdGraph* TheHoveredGraph = GetHoveredGraph();
 
 	FText CannotDropReason = FText::GetEmpty();
 	// it should be obvious that we can't drop on anything but a graph, so no need to point that out
-	if ((HoveredGraph == NULL) || !CanBeDroppedDelegate.IsBound() || CanBeDroppedDelegate.Execute(ActionNode, HoveredGraph, CannotDropReason))
+	if ((TheHoveredGraph == NULL) || !CanBeDroppedDelegate.IsBound() || CanBeDroppedDelegate.Execute(ActionNode, TheHoveredGraph, CannotDropReason))
 	{
 		FSlateBrush const* DropPreventedIcon = FEditorStyle::GetBrush(TEXT("Graph.ConnectorFeedback.NewNode"));
 		SetSimpleFeedbackMessage(DropPreventedIcon, FLinearColor::White, FText::FromName(MacroName));

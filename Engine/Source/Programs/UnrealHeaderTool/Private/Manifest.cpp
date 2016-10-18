@@ -242,6 +242,6 @@ bool FManifestModule::IsCompatibleWith(const FManifestModule& ManifestModule)
 		&& PrivateUObjectHeaders == ManifestModule.PrivateUObjectHeaders
 		&& PCH == ManifestModule.PCH
 		&& GeneratedCPPFilenameBase == ManifestModule.GeneratedCPPFilenameBase
-		&& SaveExportedHeaders == SaveExportedHeaders
-		&& GeneratedCodeVersion == GeneratedCodeVersion;
+		&& SaveExportedHeaders == ManifestModule.SaveExportedHeaders
+		&& GeneratedCodeVersion == ManifestModule.GeneratedCodeVersion;
 }

@@ -120,7 +120,10 @@ namespace UnrealBuildTool
 		{
 			base.SetUpGlobalEnvironment();
 
-			SetupXcodePaths(true);
+			if (!UEBuildConfiguration.bListBuildFolders)
+			{
+				SetupXcodePaths(true);
+			}
 		}
 
 		public override void ModifyBuildProducts(UEBuildBinary Binary, Dictionary<FileReference, BuildProductType> BuildProducts)
@@ -129,6 +132,11 @@ namespace UnrealBuildTool
 			{
 				FileReference StubFile = FileReference.Combine(Binary.Config.OutputFilePath.Directory, Binary.Config.OutputFilePath.GetFileNameWithoutExtension() + ".stub");
 				BuildProducts.Add(StubFile, BuildProductType.Executable);
+                if (CppPlatform == CPPTargetPlatform.TVOS)
+                {
+                    FileReference AssetFile = FileReference.Combine(Binary.Config.OutputFilePath.Directory, "Assets.car");
+                    BuildProducts.Add(AssetFile, BuildProductType.Executable);
+                }
 			}
 		}
 
@@ -188,6 +196,11 @@ namespace UnrealBuildTool
 			{
 				Result += " -Wno-inconsistent-missing-override"; // too many missing overrides...
 				Result += " -Wno-unused-local-typedef"; // PhysX has some, hard to remove
+			}
+
+			if (PlatformContext.IsBitcodeCompilingEnabled(CompileEnvironment.Config.Target.Configuration))
+			{
+				Result += " -fembed-bitcode";
 			}
 
 			Result += " -c";
@@ -366,11 +379,25 @@ namespace UnrealBuildTool
 			bool bIsDevice = (LinkEnvironment.Config.Target.Architecture != "-simulator");
 			Result += String.Format(" -isysroot {0}Platforms/{1}.platform/Developer/SDKs/{1}{2}.sdk",
 				XcodeDeveloperDir, PlatformContext.GetXcodePlatformName(bIsDevice), IOSSDKVersion);
-			
+
+			if(PlatformContext.IsBitcodeCompilingEnabled(LinkEnvironment.Config.Target.Configuration))
+			{
+				FileItem OutputFile = FileItem.GetItemByFileReference(LinkEnvironment.Config.OutputFilePath);
+				FileItem RemoteOutputFile = LocalToRemoteFileItem(OutputFile, false);
+
+				Result += " -fembed-bitcode -Xlinker -bitcode_verify -Xlinker -bitcode_hide_symbols -Xlinker -bitcode_symbol_map ";
+				Result += " -Xlinker " + Path.GetDirectoryName(RemoteOutputFile.AbsolutePath);
+			}
+
 			Result += " -dead_strip";
 			Result += " -m" + PlatformContext.GetXcodeMinVersionParam() + "=" + PlatformContext.GetRunTimeVersion();
-			Result += " -Wl,-no_pie";
+			Result += " -Wl";
+			if(!PlatformContext.IsBitcodeCompilingEnabled(LinkEnvironment.Config.Target.Configuration))
+			{
+				Result += "-no_pie";
+			}
 			Result += " -stdlib=libc++";
+			Result += " -ObjC";
 			//			Result += " -v";
 
 			Result += " " + PlatformContext.GetAdditionalLinkerFlags(LinkEnvironment.Config.Target.Configuration);
@@ -554,8 +581,8 @@ namespace UnrealBuildTool
 				string SourceText = System.IO.File.ReadAllText(SourceFile.AbsolutePath);
 				if (UEBuildConfiguration.bCompileForSize && (SourceFile.AbsolutePath.Contains("ElementBatcher.cpp") || SourceText.Contains("ElementBatcher.cpp") || SourceFile.AbsolutePath.Contains("AnimationRuntime.cpp") || SourceText.Contains("AnimationRuntime.cpp")
 					|| SourceFile.AbsolutePath.Contains("AnimEncoding.cpp") || SourceText.Contains("AnimEncoding.cpp") || SourceFile.AbsolutePath.Contains("TextRenderComponent.cpp") || SourceText.Contains("TextRenderComponent.cpp")
-					|| SourceFile.AbsolutePath.Contains("SWidget.cpp") || SourceText.Contains("SWidget.cpp") || SourceFile.AbsolutePath.Contains("SCanvas.cpp") || SourceText.Contains("SCanvas.cpp")
-					|| SourceFile.AbsolutePath.Contains("ParticleSystemRender.cpp") || SourceText.Contains("ParticleSystemRender.cpp")))
+					|| SourceFile.AbsolutePath.Contains("SWidget.cpp") || SourceText.Contains("SWidget.cpp") || SourceFile.AbsolutePath.Contains("SCanvas.cpp") || SourceText.Contains("SCanvas.cpp") || SourceFile.AbsolutePath.Contains("ShaderCore.cpp") || SourceText.Contains("ShaderCore.cpp")
+                    || SourceFile.AbsolutePath.Contains("ParticleSystemRender.cpp") || SourceText.Contains("ParticleSystemRender.cpp")))
 				{
 					Console.WriteLine("Forcing {0} to --O3!", SourceFile.AbsolutePath);
 
@@ -591,17 +618,16 @@ namespace UnrealBuildTool
 
 			// RPC utility parameters are in terms of the Mac side
 			LinkAction.WorkingDirectory = GetMacDevSrcRoot();
-			LinkAction.CommandPath = LinkerPath;
 
 			// build this up over the rest of the function
-			LinkAction.CommandArguments = LinkEnvironment.Config.bIsBuildingLibrary ? GetArchiveArguments_Global(LinkEnvironment) : GetLinkArguments_Global(LinkEnvironment);
+			string LinkCommandArguments = LinkEnvironment.Config.bIsBuildingLibrary ? GetArchiveArguments_Global(LinkEnvironment) : GetLinkArguments_Global(LinkEnvironment);
 
 			if (!LinkEnvironment.Config.bIsBuildingLibrary)
 			{
 				// Add the library paths to the argument list.
 				foreach (string LibraryPath in LinkEnvironment.Config.LibraryPaths)
 				{
-					LinkAction.CommandArguments += string.Format(" -L\"{0}\"", LibraryPath);
+					LinkCommandArguments += string.Format(" -L\"{0}\"", LibraryPath);
 				}
 
 				// Add the additional libraries to the argument list.
@@ -616,11 +642,11 @@ namespace UnrealBuildTool
 						LinkAction.PrerequisiteItems.Add(RemoteLibFile);
 
 						// and add to the commandline
-						LinkAction.CommandArguments += string.Format(" \"{0}\"", ConvertPath(Path.GetFullPath(AdditionalLibrary)));
+						LinkCommandArguments += string.Format(" \"{0}\"", ConvertPath(Path.GetFullPath(AdditionalLibrary)));
 					}
 					else
 					{
-						LinkAction.CommandArguments += string.Format(" -l\"{0}\"", AdditionalLibrary);
+						LinkCommandArguments += string.Format(" -l\"{0}\"", AdditionalLibrary);
 					}
 				}
 			}
@@ -695,12 +721,12 @@ namespace UnrealBuildTool
 			{
 				foreach (string Filename in InputFileNames)
 				{
-					LinkAction.CommandArguments += " " + Filename;
+					LinkCommandArguments += " " + Filename;
 				}
 				// @todo rocket lib: the -filelist command should take a response file (see else condition), except that it just says it can't
 				// find the file that's in there. Rocket.lib may overflow the commandline by putting all files on the commandline, so this 
 				// may be needed:
-				// LinkAction.CommandArguments += string.Format(" -filelist \"{0}\"", ConvertPath(ResponsePath));
+				// LinkCommandArguments += string.Format(" -filelist \"{0}\"", ConvertPath(ResponsePath));
 			}
 			else
 			{
@@ -715,52 +741,111 @@ namespace UnrealBuildTool
 				{
 					ResponseFile.Create(new FileReference(ConvertPath(ResponsePath.FullName)), InputFileNames);
 				}
-				LinkAction.CommandArguments += string.Format(" @\"{0}\"", ConvertPath(ResponsePath.FullName));
+				LinkCommandArguments += string.Format(" @\"{0}\"", ConvertPath(ResponsePath.FullName));
 			}
 
 			// Add the output file to the command-line.
-			LinkAction.CommandArguments += string.Format(" -o \"{0}\"", RemoteOutputFile.AbsolutePath);
+			LinkCommandArguments += string.Format(" -o \"{0}\"", RemoteOutputFile.AbsolutePath);
 
 			// Add the additional arguments specified by the environment.
-			LinkAction.CommandArguments += LinkEnvironment.Config.AdditionalArguments;
+			LinkCommandArguments += LinkEnvironment.Config.AdditionalArguments;
 
 			// Only execute linking on the local PC.
 			LinkAction.bCanExecuteRemotely = false;
 
 			LinkAction.StatusDescription = string.Format("{0}", OutputFile.AbsolutePath);
 			LinkAction.OutputEventHandler = new DataReceivedEventHandler(RemoteOutputReceivedEventHandler);
-			// For iPhone, generate the dSYM file if the config file is set to do so
-			if (BuildConfiguration.bGeneratedSYMFile == true && Path.GetExtension(OutputFile.AbsolutePath) != ".a")
+
+			LinkAction.CommandPath = "sh";
+			if(LinkEnvironment.Config.Target.Configuration == CPPTargetConfiguration.Shipping && Path.GetExtension(RemoteOutputFile.AbsolutePath) != ".a")
 			{
-				Log.TraceInformation("Generating the dSYM file - this will add some time to your build...");
-				RemoteOutputFile = GenerateDebugInfo(RemoteOutputFile);
+				// When building a shipping package, symbols are stripped from the exe as the last build step. This is a problem
+				// when re-packaging and no source files change because the linker skips symbol generation and dsymutil will 
+				// recreate a new .dsym file from a symboless exe file. It's just sad. To make things happy we need to delete 
+				// the output file to force the linker to recreate it with symbols again.
+				string	linkCommandArguments = "-c '";
+
+				linkCommandArguments += string.Format("rm -f \"{0}\";", RemoteOutputFile.AbsolutePath);
+				linkCommandArguments += string.Format("rm -f \"{0}\\*.bcsymbolmap\";", Path.GetDirectoryName(RemoteOutputFile.AbsolutePath));
+				linkCommandArguments += LinkerPath + " " + LinkCommandArguments + ";";
+
+				linkCommandArguments += "'";
+
+				LinkAction.CommandArguments = linkCommandArguments;
+			}
+			else
+			{
+				// This is not a shipping build so no need to delete the output file since symbols will not have been stripped from it.
+				LinkAction.CommandArguments = string.Format("-c '{0} {1}'", LinkerPath, LinkCommandArguments);
 			}
 
 			return RemoteOutputFile;
 		}
 
-		/// <summary>
-		/// Generates debug info for a given executable
-		/// </summary>
-		/// <param name="Executable">FileItem describing the executable to generate debug info for</param>
-		public FileItem GenerateDebugInfo(FileItem Executable)
+        public FileItem CompileAssetCatalog(FileItem Executable, string EngineDir, string BuildDir, string IntermediateDir)
+        {
+            // Make a file item for the source and destination files
+            FileItem LocalExecutable = RemoteToLocalFileItem(Executable);
+            string FullDestPathRoot = Path.Combine(Path.GetDirectoryName(LocalExecutable.AbsolutePath), "Assets.car");
+
+            FileItem OutputFile;
+/*            if (!Utils.IsRunningOnMono && BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Mac)
+            {
+                OutputFile = FileItem.GetRemoteItemByPath(FullDestPathRoot, UnrealTargetPlatform.IOS);
+            }
+            else*/
+            {
+                OutputFile = FileItem.GetItemByPath(FullDestPathRoot);
+            }
+
+            // Make the compile action
+            Action CompileAssetAction = new Action(ActionType.CreateAppBundle);
+            if (!Utils.IsRunningOnMono)
+            {
+                CompileAssetAction.ActionHandler = new Action.BlockingActionHandler(RPCUtilHelper.RPCActionHandler);
+            }
+
+            CompileAssetAction.WorkingDirectory = GetMacDevSrcRoot();
+            CompileAssetAction.CommandPath = "/usr/bin/xcrun";
+
+            FileItem AssetCat = FileItem.GetItemByPath(Path.Combine(IntermediateDir, "Assets.xcassets"));
+            FileItem DestFile = LocalToRemoteFileItem(OutputFile, false);
+            FileItem InputFile = LocalToRemoteFileItem(AssetCat, BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Mac);
+
+            string Arguments = "";
+            Arguments += " actool --output-format human-readable-text --notices --warnings";
+            Arguments += " --output-partial-info-plist \"";
+            Arguments += Path.GetDirectoryName(DestFile.AbsolutePath).Replace("\\", "/") + "/assetcatalog_generated_info.plist\"";
+            Arguments += " --app-icon AppIcon --launch-image LaunchImage --compress-pngs";
+            Arguments += " --enable-on-demand-resources YES --filter-for-device-model AppleTV5,3 --filter-for-device-os-version 9.2";
+            Arguments += " --target-device tv --minimum-deployment-target 9.2 --platform appletvos --compile \"";
+            Arguments += Path.GetDirectoryName(DestFile.AbsolutePath).Replace("\\", "/") + "\" \"" + InputFile.AbsolutePath + "\"";
+
+            CompileAssetAction.CommandArguments = Arguments;
+            CompileAssetAction.PrerequisiteItems.Add(Executable);
+            CompileAssetAction.ProducedItems.Add(DestFile);
+            CompileAssetAction.StatusDescription = CompileAssetAction.CommandArguments;// string.Format("Generating debug info for {0}", Path.GetFileName(Executable.AbsolutePath));
+            CompileAssetAction.bCanExecuteRemotely = false;
+
+            return DestFile;
+        }
+
+        /// <summary>
+        /// Generates debug info for a given executable
+        /// </summary>
+        /// <param name="Executable">FileItem describing the executable to generate debug info for</param>
+        public FileItem GenerateDebugInfo(FileItem Executable)
 		{
-			// Make a file item for the source and destination files
-			string FullDestPathRoot = Executable.AbsolutePath + ".dSYM";
-			string FullDestPath = FullDestPathRoot;
+            // Make a file item for the source and destination files
+            FileItem LocalExecutable = RemoteToLocalFileItem(Executable);
+			string FullDestPathRoot = Path.Combine(Path.GetDirectoryName(LocalExecutable.AbsolutePath), Path.GetFileName(LocalExecutable.AbsolutePath) + ".dSYM");
 
-			FileItem DestFile;
-			if (!Utils.IsRunningOnMono && BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Mac)
-			{
-				DestFile = FileItem.GetRemoteItemByPath(FullDestPath, UnrealTargetPlatform.IOS);
-			}
-			else
-			{
-				DestFile = FileItem.GetItemByPath(FullDestPath);
-			}
+            FileItem OutputFile;
+            OutputFile = FileItem.GetItemByPath(FullDestPathRoot);
+            FileItem DestFile = LocalToRemoteFileItem(OutputFile, false);
 
-			// Make the compile action
-			Action GenDebugAction = new Action(ActionType.GenerateDebugInfo);
+            // Make the compile action
+            Action GenDebugAction = new Action(ActionType.GenerateDebugInfo);
 			if (!Utils.IsRunningOnMono)
 			{
 				GenDebugAction.ActionHandler = new Action.BlockingActionHandler(RPCUtilHelper.RPCActionHandler);
@@ -768,22 +853,19 @@ namespace UnrealBuildTool
 
 			GenDebugAction.WorkingDirectory = GetMacDevSrcRoot();
 			GenDebugAction.CommandPath = "sh";
-
-			// note that the source and dest are switched from a copy command
-			if (!Utils.IsRunningOnMono && BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Mac)
+			if(BuildConfiguration.bGeneratedSYMBundle)
 			{
-				GenDebugAction.CommandArguments = string.Format("-c '/usr/bin/dsymutil \"{0}\" -f -o \"{1}\"; cd \"{1}/..\"; zip -r -y -1 {2}.dSYM.zip {2}.dSYM'",
+				GenDebugAction.CommandArguments = string.Format("-c 'rm -rf \"{1}\"; /usr/bin/dsymutil \"{0}\" -o \"{1}\"; cd \"{1}/..\"; zip -r -y -1 {2}.zip {2}'",
 					Executable.AbsolutePath,
-					FullDestPathRoot,
-					Path.GetFileName(Executable.AbsolutePath));
+                    DestFile.AbsolutePath,
+					Path.GetFileName(FullDestPathRoot));
 			}
 			else
 			{
-				GenDebugAction.CommandArguments = string.Format("-c '/usr/bin/dsymutil \"{0}\" -f -o \"{1}\"'",
-					Executable.AbsolutePath,
-					FullDestPathRoot);
+				GenDebugAction.CommandArguments = string.Format("-c 'rm -rf \"{1}\"; /usr/bin/dsymutil \"{0}\" -f -o \"{1}\"'",
+						Executable.AbsolutePath,
+						DestFile.AbsolutePath);
 			}
-
 			GenDebugAction.PrerequisiteItems.Add(Executable);
 			GenDebugAction.ProducedItems.Add(DestFile);
 			GenDebugAction.StatusDescription = GenDebugAction.CommandArguments;// string.Format("Generating debug info for {0}", Path.GetFileName(Executable.AbsolutePath));
@@ -946,9 +1028,120 @@ namespace UnrealBuildTool
 					}
 				}
 			}
-		}
+        }
 
-		public override void PostBuildSync(UEBuildTarget Target)
+        public void GenerateAssetCatalog(string EngineDir, string BuildDir, string IntermediateDir)
+        {
+            string[] Directories = { "Assets.xcassets",
+                                            Path.Combine("Assets.xcassets", "AppIcon.brandassets"),
+                                            Path.Combine("Assets.xcassets", "AppIcon.brandassets", "AppIconLarge.imagestack"),
+                                            Path.Combine("Assets.xcassets", "AppIcon.brandassets", "AppIconLarge.imagestack", "Back.imagestacklayer"),
+                                            Path.Combine("Assets.xcassets", "AppIcon.brandassets", "AppIconLarge.imagestack", "Back.imagestacklayer", "Content.imageset"),
+                                            Path.Combine("Assets.xcassets", "AppIcon.brandassets", "AppIconLarge.imagestack", "Front.imagestacklayer"),
+                                            Path.Combine("Assets.xcassets", "AppIcon.brandassets", "AppIconLarge.imagestack", "Front.imagestacklayer", "Content.imageset"),
+                                            Path.Combine("Assets.xcassets", "AppIcon.brandassets", "AppIconLarge.imagestack", "Middle.imagestacklayer"),
+                                            Path.Combine("Assets.xcassets", "AppIcon.brandassets", "AppIconLarge.imagestack", "Middle.imagestacklayer", "Content.imageset"),
+                                            Path.Combine("Assets.xcassets", "AppIcon.brandassets", "AppIconSmall.imagestack"),
+                                            Path.Combine("Assets.xcassets", "AppIcon.brandassets", "AppIconSmall.imagestack", "Back.imagestacklayer"),
+                                            Path.Combine("Assets.xcassets", "AppIcon.brandassets", "AppIconSmall.imagestack", "Back.imagestacklayer", "Content.imageset"),
+                                            Path.Combine("Assets.xcassets", "AppIcon.brandassets", "AppIconSmall.imagestack", "Front.imagestacklayer"),
+                                            Path.Combine("Assets.xcassets", "AppIcon.brandassets", "AppIconSmall.imagestack", "Front.imagestacklayer", "Content.imageset"),
+                                            Path.Combine("Assets.xcassets", "AppIcon.brandassets", "AppIconSmall.imagestack", "Middle.imagestacklayer"),
+                                            Path.Combine("Assets.xcassets", "AppIcon.brandassets", "AppIconSmall.imagestack", "Middle.imagestacklayer", "Content.imageset"),
+                                            Path.Combine("Assets.xcassets", "AppIcon.brandassets", "TopShelf.imageset"),
+                                            Path.Combine("Assets.xcassets", "LaunchImage.launchimage"),
+            };
+            string[] Contents = { "{\n\t\"info\" : {\n\t\t\"version\" : 1,\n\t\t\"author\" : \"xcode\"\n\t}\n}",
+                                    "{\n\t\"assets\" : [\n\t\t{\n\t\t\t\"size\" : \"1280x768\",\n\t\t\t\"idiom\" : \"tv\",\n\t\t\t\"filename\" : \"AppIconLarge.imagestack\",\n\t\t\t\"role\" : \"primary-app-icon\"\n\t\t},\n\t\t{\n\t\t\t\"size\" : \"400x240\",\n\t\t\t\"idiom\" : \"tv\",\n\t\t\t\"filename\" : \"AppIconSmall.imagestack\",\n\t\t\t\"role\" : \"primary-app-icon\"\n\t\t},\n\t\t{\n\t\t\t\"size\" : \"1920x720\",\n\t\t\t\"idiom\" : \"tv\",\n\t\t\t\"filename\" : \"TopShelf.imageset\",\n\t\t\t\"role\" : \"top-shelf-image\"\n\t\t}\n\t],\n\t\"info\" : {\n\t\t\"version\" : 1,\n\t\t\"author\" : \"xcode\"\n\t}\n}",
+                                    "{\n\t\"layers\" : [\n\t\t{\n\t\t\t\"filename\" : \"Front.imagestacklayer\"\n\t\t},\n\t\t{\n\t\t\t\"filename\" : \"Middle.imagestacklayer\"\n\t\t},\n\t\t{\n\t\t\t\"filename\" : \"Back.imagestacklayer\"\n\t\t}\n\t],\n\t\"info\" : {\n\t\t\"version\" : 1,\n\t\t\"author\" : \"xcode\"\n\t}\n}",
+                                    "{\n\t\"info\" : {\n\t\t\"version\" : 1,\n\t\t\"author\" : \"xcode\"\n\t}\n}",
+                                    "{\n\t\"images\" : [\n\t\t{\n\t\t\t\"idiom\" : \"tv\",\n\t\t\t\"filename\" : \"Icon_Large_Back.png\",\n\t\t\t\"scale\" : \"1x\"\n\t\t}\n\t],\n\t\"info\" : {\n\t\t\"version\" : 1,\n\t\t\"author\" : \"xcode\"\n\t}\n}",
+                                    "{\n\t\"info\" : {\n\t\t\"version\" : 1,\n\t\t\"author\" : \"xcode\"\n\t}\n}",
+                                    "{\n\t\"images\" : [\n\t\t{\n\t\t\t\"idiom\" : \"tv\",\n\t\t\t\"filename\" : \"Icon_Large_Front.png\",\n\t\t\t\"scale\" : \"1x\"\n\t\t}\n\t],\n\t\"info\" : {\n\t\t\"version\" : 1,\n\t\t\"author\" : \"xcode\"\n\t}\n}",
+                                    "{\n\t\"info\" : {\n\t\t\"version\" : 1,\n\t\t\"author\" : \"xcode\"\n\t}\n}",
+                                    "{\n\t\"images\" : [\n\t\t{\n\t\t\t\"idiom\" : \"tv\",\n\t\t\t\"filename\" : \"Icon_Large_Middle.png\",\n\t\t\t\"scale\" : \"1x\"\n\t\t}\n\t],\n\t\"info\" : {\n\t\t\"version\" : 1,\n\t\t\"author\" : \"xcode\"\n\t}\n}",
+                                    "{\n\t\"layers\" : [\n\t\t{\n\t\t\t\"filename\" : \"Front.imagestacklayer\"\n\t\t},\n\t\t{\n\t\t\t\"filename\" : \"Middle.imagestacklayer\"\n\t\t},\n\t\t{\n\t\t\t\"filename\" : \"Back.imagestacklayer\"\n\t\t}\n\t],\n\t\"info\" : {\n\t\t\"version\" : 1,\n\t\t\"author\" : \"xcode\"\n\t}\n}",
+                                    "{\n\t\"info\" : {\n\t\t\"version\" : 1,\n\t\t\"author\" : \"xcode\"\n\t}\n}",
+                                    "{\n\t\"images\" : [\n\t\t{\n\t\t\t\"idiom\" : \"tv\",\n\t\t\t\"filename\" : \"Icon_Small_Back.png\",\n\t\t\t\"scale\" : \"1x\"\n\t\t}\n\t],\n\t\"info\" : {\n\t\t\"version\" : 1,\n\t\t\"author\" : \"xcode\"\n\t}\n}",
+                                    "{\n\t\"info\" : {\n\t\t\"version\" : 1,\n\t\t\"author\" : \"xcode\"\n\t}\n}",
+                                    "{\n\t\"images\" : [\n\t\t{\n\t\t\t\"idiom\" : \"tv\",\n\t\t\t\"filename\" : \"Icon_Small_Front.png\",\n\t\t\t\"scale\" : \"1x\"\n\t\t}\n\t],\n\t\"info\" : {\n\t\t\"version\" : 1,\n\t\t\"author\" : \"xcode\"\n\t}\n}",
+                                    "{\n\t\"info\" : {\n\t\t\"version\" : 1,\n\t\t\"author\" : \"xcode\"\n\t}\n}",
+                                    "{\n\t\"images\" : [\n\t\t{\n\t\t\t\"idiom\" : \"tv\",\n\t\t\t\"filename\" : \"Icon_Small_Middle.png\",\n\t\t\t\"scale\" : \"1x\"\n\t\t}\n\t],\n\t\"info\" : {\n\t\t\"version\" : 1,\n\t\t\"author\" : \"xcode\"\n\t}\n}",
+                                    "{\n\t\"images\" : [\n\t\t{\n\t\t\t\"idiom\" : \"tv\",\n\t\t\t\"filename\" : \"TopShelf.png\",\n\t\t\t\"scale\" : \"1x\"\n\t\t}\n\t],\n\t\"info\" : {\n\t\t\"version\" : 1,\n\t\t\"author\" : \"xcode\"\n\t}\n}",
+                                    "{\n\t\"images\" : [\n\t\t{\n\t\t\t\"orientation\" : \"landscape\",\n\t\t\t\"idiom\" : \"tv\",\n\t\t\t\"filename\" : \"Launch.png\",\n\t\t\t\"extent\" : \"full-screen\",\n\t\t\t\"minimum-system-version\" : \"9.0\",\n\t\t\t\"scale\" : \"1x\"\n\t\t}\n\t],\n\t\"info\" : {\n\t\t\"version\" : 1,\n\t\t\"author\" : \"xcode\"\n\t}\n}",
+            };
+            string[] Images = { null,
+                                null,
+                                null,
+                                null,
+                                "Icon_Large_Back.png",
+                                null,
+                                "Icon_Large_Front.png",
+                                null,
+                                "Icon_Large_Middle.png",
+                                null,
+                                null,
+                                "Icon_Small_Back.png",
+                                null,
+                                "Icon_Small_Front.png",
+                                null,
+                                "Icon_Small_Middle.png",
+                                "TopShelf.png",
+                                "Launch.png"
+            };
+
+            // create asset catalog for images
+            for (int i = 0; i < Directories.Length; ++i)
+            {
+                string Dir = Path.Combine(IntermediateDir, Directories[i]);
+                if (!Directory.Exists(Dir))
+                {
+                    Directory.CreateDirectory(Dir);
+                }
+                File.WriteAllText(Path.Combine(Dir, "Contents.json"), Contents[i]);
+                LocalToRemoteFileItem(FileItem.GetItemByPath(Path.Combine(Dir, "Contents.json")), BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Mac);
+                if (Images[i] != null)
+                {
+                    string Image = Path.Combine((Directory.Exists(Path.Combine(BuildDir, "Resource", "Graphics")) ? (BuildDir) : (Path.Combine(EngineDir,"Build", "TVOS"))), "Resources", "Graphics", Images[i]);
+                    if (File.Exists(Image))
+                    {
+                        File.Copy(Image, Path.Combine(Dir, Images[i]), true);
+                        LocalToRemoteFileItem(FileItem.GetItemByPath(Path.Combine(Dir, Images[i])), BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Mac);
+                        FileInfo DestFileInfo = new FileInfo(Path.Combine(Dir, Images[i]));
+                        DestFileInfo.Attributes = DestFileInfo.Attributes & ~FileAttributes.ReadOnly;
+                    }
+                }
+            }
+        }
+
+        public override ICollection<FileItem> PostBuild(FileItem Executable, LinkEnvironment BinaryLinkEnvironment)
+        {
+            var OutputFiles = base.PostBuild(Executable, BinaryLinkEnvironment);
+
+            if (BinaryLinkEnvironment.Config.bIsBuildingLibrary)
+            {
+                return OutputFiles;
+            }
+
+            // For IOS/tvOS, generate the dSYM file if the config file is set to do so
+			if ((BuildConfiguration.bGeneratedSYMFile == true || BuildConfiguration.bGeneratedSYMBundle == true || BuildConfiguration.bUsePDBFiles == true) && (!BinaryLinkEnvironment.Config.bIsBuildingLibrary || BinaryLinkEnvironment.Config.bIsBuildingDLL))
+            {
+                OutputFiles.Add(GenerateDebugInfo(Executable));
+            }
+
+            // for tvOS generate the asset catalog
+            if (CppPlatform == CPPTargetPlatform.TVOS)
+            {
+                string EngineDir = UnrealBuildTool.EngineDirectory.ToString();
+                string BuildDir = (((ProjectFile != null) ? ProjectFile.Directory : UnrealBuildTool.EngineDirectory)) + "/Build/TVOS";
+                string IntermediateDir = (((ProjectFile != null) ? ProjectFile.Directory : UnrealBuildTool.EngineDirectory)) + "/Intermediate/TVOS";
+                GenerateAssetCatalog(EngineDir, BuildDir, IntermediateDir);
+                OutputFiles.Add(CompileAssetCatalog(Executable, EngineDir, BuildDir, IntermediateDir));
+            }
+
+            return OutputFiles;
+        }
+        public override void PostBuildSync(UEBuildTarget Target)
 		{
 			base.PostBuildSync(Target);
 
@@ -1007,7 +1200,7 @@ namespace UnrealBuildTool
 					if (Directory.Exists(Project))
 					{
 						// ensure the plist, entitlements, and provision files are properly copied
-						var DeployHandler = (CppPlatform == CPPTargetPlatform.IOS ? new UEDeployIOS() : new UEDeployTVOS());
+						var DeployHandler = (CppPlatform == CPPTargetPlatform.IOS ? new UEDeployIOS(new FileReference(Project)) : new UEDeployTVOS(new FileReference(Project)));
 						DeployHandler.PrepTargetForDeployment(Target);
 
 						var ConfigName = Target.Configuration.ToString();
@@ -1122,9 +1315,17 @@ namespace UnrealBuildTool
 					{
 						RPCUtilHelper.CopyFile(RemoteExecutablePath, FilePath.FullName, false);
 
-						if (BuildConfiguration.bGeneratedSYMFile == true)
+						if ((BuildConfiguration.bGeneratedSYMFile == true || BuildConfiguration.bGeneratedSYMBundle == true) && Path.GetExtension(FilePath.FullName) != ".a")
 						{
-							string DSYMExt = ".app.dSYM.zip";
+							string DSYMExt;
+							if(BuildConfiguration.bGeneratedSYMBundle)
+							{
+								DSYMExt = ".dSYM.zip";
+							}
+							else
+							{
+								DSYMExt = ".dSYM";
+							}
 							RPCUtilHelper.CopyFile(RemoteExecutablePath + DSYMExt, FilePath.FullName + DSYMExt, false);
 						}
 					}
@@ -1134,7 +1335,7 @@ namespace UnrealBuildTool
 				if (BuildConfiguration.bCreateStubIPA || bUseDangerouslyFastMode)
 				{
 					// ensure the plist, entitlements, and provision files are properly copied
-					var DeployHandler = (CppPlatform == CPPTargetPlatform.IOS ? new UEDeployIOS() : new UEDeployTVOS());
+					var DeployHandler = (CppPlatform == CPPTargetPlatform.IOS ? new UEDeployIOS(Target.ProjectFile) : new UEDeployTVOS(Target.ProjectFile));
 					DeployHandler.PrepTargetForDeployment(Target);
 
 					if (!bUseDangerouslyFastMode)
@@ -1303,8 +1504,15 @@ namespace UnrealBuildTool
 					}
 				}
 
-				// If it is requested, send the app bundle back to the platform executing these commands.
-				if (BuildConfiguration.bCopyAppBundleBackToDevice)
+                if (CppPlatform == CPPTargetPlatform.TVOS)
+                {
+                    // copy back the built asset catalog
+                    string CatPath = Path.GetDirectoryName(Target.OutputPath.FullName) + "\\Assets.car";
+                    RPCUtilHelper.CopyFile(ConvertPath(CatPath), CatPath, false);
+                }
+
+                // If it is requested, send the app bundle back to the platform executing these commands.
+                if (BuildConfiguration.bCopyAppBundleBackToDevice)
 				{
 					Log.TraceInformation("Copying binaries back to this device...");
 

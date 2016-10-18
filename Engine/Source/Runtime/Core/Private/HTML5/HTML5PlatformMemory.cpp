@@ -64,7 +64,7 @@ void* FHTML5PlatformMemory::BinnedAllocFromOS( SIZE_T Size )
 #endif 
 }
 
-void FHTML5PlatformMemory::BinnedFreeToOS( void* Ptr )
+void FHTML5PlatformMemory::BinnedFreeToOS( void* Ptr, SIZE_T Size )
 {
 #if PLATFORM_HTML5_WIN32 
 	_aligned_free ( Ptr );

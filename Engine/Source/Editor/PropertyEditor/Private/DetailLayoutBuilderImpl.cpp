@@ -5,13 +5,15 @@
 #include "PropertyHandleImpl.h"
 #include "PropertyEditorHelpers.h"
 #include "IPropertyUtilities.h"
+#include "DetailMultiTopLevelObjectRootNode.h"
+#include "IDetailRootObjectCustomization.h"
 
-
-FDetailLayoutBuilderImpl::FDetailLayoutBuilderImpl(FClassToPropertyMap& InPropertyMap, const TSharedRef< class IPropertyUtilities >& InPropertyUtilities, const TSharedRef< IDetailsViewPrivate >& InDetailsView)
-	: PropertyMap( InPropertyMap )
+FDetailLayoutBuilderImpl::FDetailLayoutBuilderImpl(TSharedPtr<FComplexPropertyNode>& InRootNode, FClassToPropertyMap& InPropertyMap, const TSharedRef< class IPropertyUtilities >& InPropertyUtilities, const TSharedRef< IDetailsViewPrivate >& InDetailsView)
+	: RootNode( InRootNode )
+	, PropertyMap( InPropertyMap )
 	, PropertyDetailsUtilities( InPropertyUtilities )
 	, DetailsView( *InDetailsView )
-	, CurrentCustomizationClass( NULL )
+	, CurrentCustomizationClass( nullptr )
 {
 
 }
@@ -74,6 +76,15 @@ TSharedRef<IPropertyHandle> FDetailLayoutBuilderImpl::GetProperty( const FName P
 
 }
 
+FName FDetailLayoutBuilderImpl::GetTopLevelProperty()
+{
+	for (auto It = PropertyMap.CreateConstIterator(); It; ++It)
+	{
+		return It.Key();
+	}
+	return NAME_None;
+}
+
 void FDetailLayoutBuilderImpl::HideProperty( const TSharedPtr<IPropertyHandle> PropertyHandle )
 {
 	if( PropertyHandle.IsValid() && PropertyHandle->IsValidHandle() )
@@ -119,13 +130,22 @@ FDetailCategoryImpl& FDetailLayoutBuilderImpl::DefaultCategory( FName CategoryNa
 	return *CategoryImpl;
 }
 
+bool FDetailLayoutBuilderImpl::HasCategory(FName CategoryName)
+{
+	return DefaultCategoryMap.Contains(CategoryName);
+}
+
 void FDetailLayoutBuilderImpl::BuildCategories( const FCategoryMap& CategoryMap, TArray< TSharedRef<FDetailCategoryImpl> >& OutSimpleCategories, TArray< TSharedRef<FDetailCategoryImpl> >& OutAdvancedCategories )
 {
 	for( FCategoryMap::TConstIterator It(CategoryMap); It; ++It )
 	{
 		TSharedRef<FDetailCategoryImpl> DetailCategory = It.Value().ToSharedRef();
-
-		const bool bCategoryHidden = GetDetailsView().IsCategoryHiddenByClass( DetailCategory->GetCategoryName() ) || ForceHiddenCategories.Contains( DetailCategory->GetCategoryName() );
+		//If there is a delimiter in the name it mean its a sub category, we dont show sub category at the root level
+		FString CategoryDelimiterString;
+		CategoryDelimiterString.AppendChar(FPropertyNodeConstants::CategoryDelimiterChar);
+		TSharedPtr<FComplexPropertyNode> RootPropertyNode = GetRootNode();
+		const bool bCategoryHidden = GetDetailsView().IsCategoryHiddenByClass(RootPropertyNode, DetailCategory->GetCategoryName()) 
+			|| ForceHiddenCategories.Contains(DetailCategory->GetCategoryName()) || DetailCategory->GetCategoryName().ToString().Contains(CategoryDelimiterString);
 
 		if( !bCategoryHidden )
 		{
@@ -169,37 +189,52 @@ void FDetailLayoutBuilderImpl::GenerateDetailLayout()
 	SimpleCategories.Sort( FCompareFDetailCategoryImpl() );
 	AdvancedOnlyCategories.Sort( FCompareFDetailCategoryImpl() );
 
-	/** Merge the two category lists in sorted order */
-	for( int32 CategoryIndex = 0; CategoryIndex < SimpleCategories.Num(); ++CategoryIndex )
+	FDetailNodeList CategoryNodes;
+
+	// Merge the two category lists in sorted order
+	for (int32 CategoryIndex = 0; CategoryIndex < SimpleCategories.Num(); ++CategoryIndex)
 	{
-		AllRootTreeNodes.Add( SimpleCategories[CategoryIndex] );
+		CategoryNodes.Add(SimpleCategories[CategoryIndex]);
 	}
 
-	for( int32 CategoryIndex = 0; CategoryIndex < AdvancedOnlyCategories.Num(); ++CategoryIndex )
+	for (int32 CategoryIndex = 0; CategoryIndex < AdvancedOnlyCategories.Num(); ++CategoryIndex)
 	{
-		AllRootTreeNodes.Add( AdvancedOnlyCategories[CategoryIndex] );
+		CategoryNodes.Add(AdvancedOnlyCategories[CategoryIndex]);
 	}
 
+	if(DetailsView.ContainsMultipleTopLevelObjects())
+	{
+		// This should always exist here
+		UObject* RootObject = RootNode.Pin()->AsObjectNode()->GetUObject(0);
+		check(RootObject);
 
+		TSharedPtr<IDetailRootObjectCustomization> RootObjectCustomization = DetailsView.GetRootObjectCustomization();
+
+		// there are multiple objects in the details panel.  Separate each one with a unique object name node to differentiate them
+		AllRootTreeNodes.Add( MakeShareable( new FDetailMultiTopLevelObjectRootNode( CategoryNodes, RootObjectCustomization, DetailsView, *RootObject) ) );
+	}
+	else
+	{
+		// The categories are the root in this case
+		AllRootTreeNodes = CategoryNodes;
+	}
 }
 
 void FDetailLayoutBuilderImpl::FilterDetailLayout( const FDetailFilter& InFilter )
 {
 	CurrentFilter = InFilter;
-	FilteredRootTreeNodes.Empty();
+	FilteredRootTreeNodes.Reset();
 
-	for( int32 RootNodeIndex = 0; RootNodeIndex < AllRootTreeNodes.Num(); ++RootNodeIndex )
+	for(int32 RootNodeIndex = 0; RootNodeIndex < AllRootTreeNodes.Num(); ++RootNodeIndex)
 	{
-		TSharedRef<IDetailTreeNode>& RootNode = AllRootTreeNodes[RootNodeIndex];
+		TSharedRef<IDetailTreeNode>& RootTreeNode = AllRootTreeNodes[RootNodeIndex];
 
-		// No parent
-		const bool bParentVisibleDueToFiltering = false;
-		RootNode->FilterNode( InFilter );
+		RootTreeNode->FilterNode(InFilter);
 
-		if( RootNode->GetVisibility() == ENodeVisibility::Visible )
+		if(RootTreeNode->GetVisibility() == ENodeVisibility::Visible)
 		{
-			FilteredRootTreeNodes.Add( RootNode );
-			DetailsView.RequestItemExpanded( RootNode, RootNode->ShouldBeExpanded() );
+			FilteredRootTreeNodes.Add(RootTreeNode);
+			DetailsView.RequestItemExpanded(RootTreeNode, RootTreeNode->ShouldBeExpanded());
 		}
 	}
 }
@@ -247,7 +282,7 @@ static void GetPropertyAndIndex( const FString& PathNode, FString& OutProperty, 
  */
 static TSharedPtr<FPropertyNode> FindChildPropertyNode( FPropertyNode& InParentNode, const FString& PropertyName, int32 Index )
 {
-	TSharedPtr<FPropertyNode> FoundNode(NULL);
+	TSharedPtr<FPropertyNode> FoundNode(nullptr);
 
 	// search each child for a property with the provided name
 	for( int32 ChildIndex = 0; ChildIndex < InParentNode.GetNumChildNodes(); ++ChildIndex )
@@ -273,7 +308,7 @@ static TSharedPtr<FPropertyNode> FindChildPropertyNode( FPropertyNode& InParentN
 
 TSharedPtr<FPropertyNode> FDetailLayoutBuilderImpl::GetPropertyNode( TSharedPtr<IPropertyHandle> PropertyHandle ) const
 {
-	TSharedPtr<FPropertyNode> PropertyNode = NULL;
+	TSharedPtr<FPropertyNode> PropertyNode = nullptr;
 	if( PropertyHandle->IsValidHandle() )
 	{
 		PropertyNode = StaticCastSharedPtr<FPropertyHandleBase>(PropertyHandle)->GetPropertyNode();
@@ -303,7 +338,7 @@ TSharedPtr<FPropertyNode> FDetailLayoutBuilderImpl::GetPropertyNodeInternal( con
 	}
 	// The class to find properties in defaults to the class currently being customized
 	FName ClassName = CurrentCustomizationClass ? CurrentCustomizationClass->GetFName() : NAME_None;
-	if( ClassOutermost != NULL )
+	if( ClassOutermost != nullptr)
 	{
 		// The requested a different class
 		ClassName = ClassOutermost->GetFName();
@@ -379,7 +414,7 @@ TSharedPtr<FPropertyNode> FDetailLayoutBuilderImpl::GetPropertyNodeInternal( con
 		}
 	}
 
-	return NULL;
+	return nullptr;
 }
 
 
@@ -396,7 +431,7 @@ TSharedRef<IPropertyHandle> FDetailLayoutBuilderImpl::GetPropertyHandle( TShared
 	else
 	{
 		// Invalid handle
-		PropertyHandle = MakeShareable( new FPropertyHandleBase( NULL, NULL, NULL) ); 
+		PropertyHandle = MakeShareable( new FPropertyHandleBase(nullptr, nullptr, nullptr) );
 	}	
 
 	return PropertyHandle.ToSharedRef();
@@ -443,27 +478,28 @@ void FDetailLayoutBuilderImpl::GetObjectsBeingCustomized( TArray< TWeakObjectPtr
 {
 	OutObjects.Empty();
 
+	FObjectPropertyNode* RootObjectNode = RootNode.IsValid() ? RootNode.Pin()->AsObjectNode() : nullptr;
 	// The class to find properties in defaults to the class currently being customized
 	FName ClassName = CurrentCustomizationClass ? CurrentCustomizationClass->GetFName() : NAME_None;
-	
-	if( ClassName != NAME_None && CurrentCustomizationVariableName != NAME_None )
+
+	if(ClassName != NAME_None && CurrentCustomizationVariableName != NAME_None)
 	{
 		// If this fails there are no properties associated with the class name provided
-		FClassInstanceToPropertyMap* ClassInstanceToPropertyMapPtr = PropertyMap.Find( ClassName );
+		FClassInstanceToPropertyMap* ClassInstanceToPropertyMapPtr = PropertyMap.Find(ClassName);
 
-		if( ClassInstanceToPropertyMapPtr )
+		if(ClassInstanceToPropertyMapPtr)
 		{
 			FClassInstanceToPropertyMap& ClassInstanceToPropertyMap = *ClassInstanceToPropertyMapPtr;
-		
-			FPropertyNodeMap* PropertyNodeMapPtr = ClassInstanceToPropertyMap.Find( CurrentCustomizationVariableName );
 
-			if( PropertyNodeMapPtr )
+			FPropertyNodeMap* PropertyNodeMapPtr = ClassInstanceToPropertyMap.Find(CurrentCustomizationVariableName);
+
+			if(PropertyNodeMapPtr)
 			{
 				FPropertyNodeMap& PropertyNodeMap = *PropertyNodeMapPtr;
 				FObjectPropertyNode* ParentObjectProperty = PropertyNodeMap.ParentProperty ? PropertyNodeMap.ParentProperty->AsObjectNode() : NULL;
-				if (ParentObjectProperty)
+				if(ParentObjectProperty)
 				{
-					for (int32 ObjectIndex = 0; ObjectIndex < ParentObjectProperty->GetNumObjects(); ++ObjectIndex)
+					for(int32 ObjectIndex = 0; ObjectIndex < ParentObjectProperty->GetNumObjects(); ++ObjectIndex)
 					{
 						OutObjects.Add(ParentObjectProperty->GetUObject(ObjectIndex));
 					}
@@ -471,9 +507,12 @@ void FDetailLayoutBuilderImpl::GetObjectsBeingCustomized( TArray< TWeakObjectPtr
 			}
 		}
 	}
-	else
+	else if(RootObjectNode)
 	{
-		OutObjects = DetailsView.GetSelectedObjects();
+		for (int32 ObjectIndex = 0; ObjectIndex < RootObjectNode->GetNumObjects(); ++ObjectIndex)
+		{
+			OutObjects.Add(RootObjectNode->GetUObject(ObjectIndex));
+		}
 	}
 }
 
@@ -482,6 +521,10 @@ const TSharedRef< IPropertyUtilities >& FDetailLayoutBuilderImpl::GetPropertyUti
 	return PropertyDetailsUtilities;
 }
 
+UClass* FDetailLayoutBuilderImpl::GetBaseClass() const
+{
+	return RootNode.IsValid() ? Cast<UClass>(RootNode.Pin()->GetBaseStructure()) : nullptr;
+}
 void FDetailLayoutBuilderImpl::SetCustomProperty( const TSharedPtr<FPropertyNode>& PropertyNode ) 
 {
 	PropertyNode->SetNodeFlags( EPropertyNodeFlags::IsCustomized, true );

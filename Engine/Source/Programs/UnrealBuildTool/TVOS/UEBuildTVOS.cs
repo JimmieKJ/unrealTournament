@@ -113,7 +113,7 @@ namespace UnrealBuildTool
 		/// <returns>True if the platform requires a deployment handler, false otherwise</returns>
 		public override UEBuildDeploy CreateDeploymentHandler()
 		{
-			return new UEDeployTVOS();
+			return new UEDeployTVOS(ProjectFile);
 		}
 
 	}

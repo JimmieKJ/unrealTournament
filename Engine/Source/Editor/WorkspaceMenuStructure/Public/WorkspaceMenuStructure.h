@@ -16,6 +16,7 @@
  *  +-Tools Tabs
  *    |-Tab
  *    |-...
+ *    \ Automation >
  *    \ Developer Tools >
  */
 
@@ -50,6 +51,12 @@ public:
 
 	/** See diagram above */
 	virtual TSharedRef<FWorkspaceItem> GetDeveloperToolsMiscCategory() const = 0;
+
+	/** See diagram above */
+	virtual TSharedRef<FWorkspaceItem> GetAutomationCategory() const = 0;
+
+	/** See diagram above */
+	virtual TSharedRef<FWorkspaceItem> GetAutomationToolsCategory() const = 0;
 
 	/** Get the root of the edit menu structure. Pass this into PopulateTabSpawnerMenu() */
 	virtual TSharedRef<FWorkspaceItem> GetEditOptions() const = 0;

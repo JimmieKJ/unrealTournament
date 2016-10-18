@@ -18,7 +18,7 @@ public:
 	FMobilityCustomization()
 	{}
 
-	void CreateMobilityCustomization(IDetailCategoryBuilder& InCategoryBuilder, TSharedPtr<IPropertyHandle> InMobilityHandle, uint8 InRestrictedMobilityBits);
+	void CreateMobilityCustomization(IDetailCategoryBuilder& InCategoryBuilder, TSharedPtr<IPropertyHandle> InMobilityHandle, uint8 InRestrictedMobilityBits, bool bForLight);
 
 private:
 

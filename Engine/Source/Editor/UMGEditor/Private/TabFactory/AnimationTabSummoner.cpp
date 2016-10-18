@@ -34,6 +34,43 @@ FAnimationTabSummoner::FAnimationTabSummoner(TSharedPtr<class FWidgetBlueprintEd
 	ViewMenuTooltip = LOCTEXT("Animations_ViewMenu_ToolTip", "Opens a tab to manage animations");
 }
 
+
+bool VerifyAnimationRename( UWidgetBlueprint* Blueprint, UWidgetAnimation* Animation, FString NewAnimationName, FText& OutErrorMessage )
+{
+	if ( FindObject<UWidgetAnimation>( Blueprint, *NewAnimationName, true ) )
+	{
+		OutErrorMessage = LOCTEXT( "NameInUseByAnimation", "An animation with this name already exists" );
+		return false;
+	}
+
+	FName NewAnimationNameAsName( *NewAnimationName );
+	if ( Blueprint->WidgetTree->FindWidget<UWidget>( NewAnimationNameAsName ) != nullptr )
+	{
+		OutErrorMessage = LOCTEXT( "NameInUseByWidget", "A widget with this name already exists" );
+		return false;
+	}
+
+	FName FunctionName(*NewAnimationName);
+	if (Animation->GetPreviewWidget().IsValid() && Animation->GetPreviewWidget().Get()->FindFunction(FunctionName))
+	{
+		OutErrorMessage = LOCTEXT("NameInUseByFunction", "A function with this name already exists");
+		return false;
+	}
+
+	FKismetNameValidator Validator( Blueprint );
+	EValidatorResult ValidationResult = Validator.IsValid( NewAnimationName );
+
+	if ( ValidationResult != EValidatorResult::Ok )
+	{
+		FString ErrorString = FKismetNameValidator::GetErrorString( NewAnimationName, ValidationResult );
+		OutErrorMessage = FText::FromString( ErrorString );
+		return false;
+	}
+
+	return true;
+}
+
+
 struct FWidgetAnimationListItem
 {
 	FWidgetAnimationListItem(UWidgetAnimation* InAnimation, bool bInRenameRequestPending = false, bool bInNewAnimation = false )
@@ -102,21 +139,7 @@ private:
 		if ( Animation->GetName() != NewName )
 		{
 			UWidgetBlueprint* Blueprint = BlueprintEditor.Pin()->GetWidgetBlueprintObj();
-			if ( FindObject<UWidgetAnimation>(Blueprint, *NewName, true) )
-			{
-				OutErrorMessage = LOCTEXT("ExistingMovieSceneError", "An animation with this name already exists");
-				return false;
-			}
-
-			FKismetNameValidator Validator(Blueprint);
-			EValidatorResult ValidationResult = Validator.IsValid(NewName);
-
-			if ( ValidationResult != EValidatorResult::Ok )
-			{
-				FString ErrorString = FKismetNameValidator::GetErrorString(NewName, ValidationResult);
-				OutErrorMessage = FText::FromString(ErrorString);
-				return false;
-			}
+			return VerifyAnimationRename( Blueprint, Animation, NewName, OutErrorMessage );
 		}
 
 		return true;
@@ -181,6 +204,7 @@ public:
 		BlueprintEditor = InBlueprintEditor;
 
 		InBlueprintEditor->GetOnWidgetBlueprintTransaction().AddSP( this, &SUMGAnimationList::OnWidgetBlueprintTransaction );
+		InBlueprintEditor->OnEnterWidgetDesigner.AddSP(this, &SUMGAnimationList::OnEnteringDesignerMode);
 
 		SAssignNew(AnimationListView, SWidgetAnimationListView)
 			.ItemHeight(20.0f)
@@ -287,6 +311,28 @@ private:
 		AnimationListView->RequestListRefresh();
 	}
 
+	void OnEnteringDesignerMode()
+	{
+		UpdateAnimationList();
+
+
+		TSharedPtr<FWidgetBlueprintEditor> WidgetBlueprintEditorPin = BlueprintEditor.Pin();
+		const UWidgetAnimation* ViewedAnim = WidgetBlueprintEditorPin->RefreshCurrentAnimation();
+
+		if (ViewedAnim)
+		{
+			const TSharedPtr<FWidgetAnimationListItem>* FoundListItemPtr = Animations.FindByPredicate([&](const TSharedPtr<FWidgetAnimationListItem>& ListItem) { return ListItem->Animation == ViewedAnim; });
+
+			if (FoundListItemPtr != nullptr)
+			{
+				AnimationListView->SetSelection(*FoundListItemPtr);
+			}
+		}
+
+		UWidgetAnimation* CurrentAnim = WidgetBlueprintEditorPin->GetCurrentAnimation();
+		WidgetBlueprintEditorPin->ChangeViewedAnimation(*CurrentAnim);
+	}
+
 	void OnWidgetBlueprintTransaction()
 	{
 		UpdateAnimationList();
@@ -323,7 +369,19 @@ private:
 
 		UWidgetBlueprint* WidgetBlueprint = BlueprintEditor.Pin()->GetWidgetBlueprintObj();
 
-		UWidgetAnimation* NewAnimation = NewObject<UWidgetAnimation>(WidgetBlueprint, MakeUniqueObjectName(WidgetBlueprint, UWidgetAnimation::StaticClass(), "NewAnimation"), RF_Transactional);
+		FString BaseName = "NewAnimation";
+		UWidgetAnimation* NewAnimation = NewObject<UWidgetAnimation>(WidgetBlueprint, *BaseName, RF_Transactional);
+
+		FString UniqueName = BaseName;
+		int32 NameIndex = 1;
+		FText Unused;
+		while ( VerifyAnimationRename( WidgetBlueprint, NewAnimation, UniqueName, Unused ) == false )
+		{
+			UniqueName = FString::Printf( TEXT( "%s_%i" ), *BaseName, NameIndex );
+			NameIndex++;
+		}
+		NewAnimation->Rename( *UniqueName );
+
 		NewAnimation->MovieScene = NewObject<UMovieScene>(NewAnimation, NewAnimation->GetFName(), RF_Transactional);
 
 		NewAnimation->MovieScene->SetPlaybackRange(InTime, OutTime);
@@ -529,7 +587,7 @@ TSharedRef<SWidget> FAnimationTabSummoner::CreateTabBody(const FWorkflowTabSpawn
 	TSharedPtr<FWidgetBlueprintEditor> BlueprintEditorPinned = BlueprintEditor.Pin();
 
 	return SNew( SUMGAnimationList, BlueprintEditorPinned );
-		
+	
 }
 
 #undef LOCTEXT_NAMESPACE 

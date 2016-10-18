@@ -39,12 +39,20 @@ public class GraphEditor : ModuleRules
 				"UnrealEd",
 				"AssetRegistry",
 				"ClassViewer",
+                "Kismet",
 				"KismetWidgets",
 				"BlueprintGraph",
 				"AnimGraph",
 				"Documentation",
 				"RenderCore",
 				"RHI",
+			}
+		);
+
+		// TODO: Move niagara code to niagara modules.  This is temporarily necessary to fix the public include issues.
+		PrivateIncludePathModuleNames.AddRange(
+			new string[] {
+				"NiagaraEditor"
 			}
 		);
 

@@ -13,7 +13,7 @@ void Main(
 	out float4 OutPosition : SV_POSITION
 	)
 {
-	float3 WorldPosition = InPosition * StencilingGeometryPosAndScale.w + StencilingGeometryPosAndScale.xyz;
+	float3 WorldPosition = InPosition.xyz * StencilingGeometryPosAndScale.w + StencilingGeometryPosAndScale.xyz;
 	OutPosition = mul(float4(WorldPosition,1), View.TranslatedWorldToClip);
 }
 

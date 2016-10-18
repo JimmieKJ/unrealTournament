@@ -5,15 +5,32 @@ using System.Collections.Generic;
 
 public class BuildPatchToolTarget : TargetRules
 {
-	public BuildPatchToolTarget( TargetInfo Target )
+	public BuildPatchToolTarget(TargetInfo Target)
 	{
 		Type = TargetType.Program;
 		bOutputPubliclyDistributable = true;
+		UndecoratedConfiguration = UnrealTargetConfiguration.Shipping;
 	}
 
 	//
 	// TargetRules interface.
 	//
+	public override bool GetSupportedPlatforms(ref List<UnrealTargetPlatform> OutPlatforms)
+	{
+		OutPlatforms.Add(UnrealTargetPlatform.Win32);
+		OutPlatforms.Add(UnrealTargetPlatform.Win64);
+		OutPlatforms.Add(UnrealTargetPlatform.Mac);
+		OutPlatforms.Add(UnrealTargetPlatform.Linux);
+		return true;
+	}
+
+	public override bool GetSupportedConfigurations(ref List<UnrealTargetConfiguration> OutConfigurations, bool bIncludeTestAndShippingConfigs)
+	{
+		OutConfigurations.Add(UnrealTargetConfiguration.Debug);
+		OutConfigurations.Add(UnrealTargetConfiguration.Development);
+		OutConfigurations.Add(UnrealTargetConfiguration.Shipping);
+		return true;
+	}
 
 	public override void SetupBinaries(
 		TargetInfo Target,
@@ -44,17 +61,17 @@ public class BuildPatchToolTarget : TargetRules
 		UEBuildConfiguration.bCompileAgainstEngine = false;
 		UEBuildConfiguration.bCompileAgainstCoreUObject = false;
 		UEBuildConfiguration.bCompileLeanAndMeanUE = true;
-
-		OutCPPEnvironmentConfiguration.Definitions.Add("WITH_BUILDPATCHGENERATION=1");
-
+		UEBuildConfiguration.bUseLoggingInShipping = true;
+		UEBuildConfiguration.bUseChecksInShipping = true;
 		OutLinkEnvironmentConfiguration.bIsBuildingConsoleApplication = true;
 		OutLinkEnvironmentConfiguration.bHasExports = false;
 	}
-    public override bool GUBP_AlwaysBuildWithTools(UnrealTargetPlatform InHostPlatform, out bool bInternalToolOnly, out bool SeparateNode, out bool CrossCompile)
-    {
-        bInternalToolOnly = true;
-        SeparateNode = true;
+
+	public override bool GUBP_AlwaysBuildWithTools(UnrealTargetPlatform InHostPlatform, out bool bInternalToolOnly, out bool SeparateNode, out bool CrossCompile)
+	{
+		bInternalToolOnly = true;
+		SeparateNode = true;
 		CrossCompile = false;
-        return true;
-    }
+		return true;
+	}
 }

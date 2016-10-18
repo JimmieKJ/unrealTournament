@@ -44,14 +44,14 @@ ULeapFinger::~ULeapFinger()
 	delete Private;
 }
 
-ULeapBone *ULeapFinger::Bone(LeapBoneType Type)
+ULeapBone *ULeapFinger::Bone(LeapBoneType InType)
 {
 	Leap::Bone::Type RType;
 	Leap::Bone RBone;
 	ULeapBone *Bone;
 
 	Bone = NewObject<ULeapBone>(this, ULeapBone::StaticClass());
-	switch(Type)
+	switch(InType)
 	{
 	case TYPE_METACARPAL:
 		RType = Leap::Bone::TYPE_METACARPAL;

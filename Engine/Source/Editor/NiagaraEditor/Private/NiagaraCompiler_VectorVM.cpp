@@ -9,6 +9,12 @@
 #include "ComponentReregisterContext.h"
 #include "NiagaraCompiler_VectorVM.h"
 
+#include "NiagaraNodeOutput.h"
+#include "NiagaraNodeInput.h"
+#include "NiagaraNodeFunctionCall.h"
+#include "NiagaraNodeReadDataSet.h"
+#include "NiagaraNodeWriteDataSet.h"
+
 #define LOCTEXT_NAMESPACE "NiagaraCompiler_VectorVM"
 
 DEFINE_LOG_CATEGORY_STATIC(LogNiagaraCompiler_VectorVM, All, All);
@@ -504,26 +510,23 @@ bool FNiagaraCompiler_VectorVM::CompileScript(UNiagaraScript* InScript)
 	Source = CastChecked<UNiagaraScriptSource>(Script->Source);
 
 	//Clear previous graph errors.
-	if (Script->ByteCode.Num() == 0)
+	bool bHasClearedGraphErrors = false;
+	for (UEdGraphNode* Node : Source->NodeGraph->Nodes)
 	{
-		bool bChanged = false;
-		for (UEdGraphNode* Node : Source->NodeGraph->Nodes)
+		if (Node->bHasCompilerMessage)
 		{
-			if (Node->bHasCompilerMessage)
-			{
-				Node->ErrorMsg.Empty();
-				Node->ErrorType = EMessageSeverity::Info;
-				Node->bHasCompilerMessage = false;
-				Node->Modify(true);
-				bChanged = true;
-			}
-		}
-		if (bChanged)
-		{
-			Source->NodeGraph->NotifyGraphChanged();
+			Node->ErrorMsg.Empty();
+			Node->ErrorType = EMessageSeverity::Info;
+			Node->bHasCompilerMessage = false;
+			Node->Modify(true);
+			bHasClearedGraphErrors = true;
 		}
 	}
-	
+	if (bHasClearedGraphErrors)
+	{
+		Source->NodeGraph->NotifyGraphChanged();
+	}
+
 	//Should we roll our own message/error log and put it in a window somewhere?
 	MessageLog.SetSourcePath(InScript->GetPathName());
 
@@ -1036,18 +1039,6 @@ bool FNiagaraCompiler_VectorVM::GreaterThan_Internal(TArray<TNiagaraExprPtr>& In
 bool FNiagaraCompiler_VectorVM::Select_Internal(TArray<TNiagaraExprPtr>& InputExpressions, TArray<TNiagaraExprPtr>& OutputExpressions)
 {
 	OutputExpressions.Add(Expression_VMNative(EVectorVMOp::select, InputExpressions));
-	return true;
-}
-
-bool FNiagaraCompiler_VectorVM::Sample_Internal(TArray<TNiagaraExprPtr>& InputExpressions, TArray<TNiagaraExprPtr>& OutputExpressions)
-{
-	OutputExpressions.Add(Expression_VMNative(EVectorVMOp::sample, InputExpressions));
-	return true;
-}
-
-bool FNiagaraCompiler_VectorVM::Write_Internal(TArray<TNiagaraExprPtr>& InputExpressions, TArray<TNiagaraExprPtr>& OutputExpressions)
-{
-	OutputExpressions.Add(Expression_VMNative(EVectorVMOp::bufferwrite, InputExpressions));
 	return true;
 }
 

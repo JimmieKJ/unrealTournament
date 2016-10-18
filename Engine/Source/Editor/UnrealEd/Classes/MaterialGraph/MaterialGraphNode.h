@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "MaterialGraph.h"
+#include "MaterialGraphNode_Base.h"
 #include "MaterialGraphNode.generated.h"
 
 UCLASS(MinimalAPI)

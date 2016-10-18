@@ -13,9 +13,9 @@
 
 UUTScoreboard::UUTScoreboard(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
-	DesignedResolution = 1080;
+	DesignedResolution = 1920.f;
 	Position = FVector2D(0.f, 0.f);
-	Size = FVector2D(1900.0f, 1080.0f);
+	Size = FVector2D(1920.0f, 1080.0f);
 	ScreenPosition = FVector2D(0.f, 0.f);
 	Origin = FVector2D(0.f, 0.f);
 	bScaleByDesignedResolution = false;
@@ -84,7 +84,7 @@ void UUTScoreboard::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas* InCa
 		}
 	}
 
-	RenderScale = Canvas->ClipY / DesignedResolution;
+	RenderScale = Canvas->ClipX / DesignedResolution;
 	RenderScale *= GetDrawScaleOverride();
 
 	// Apply any scaling
@@ -104,7 +104,7 @@ void UUTScoreboard::Draw_Implementation(float RenderDelta)
 	Super::Draw_Implementation(RenderDelta);
 
 	bHaveWarmup = false;
-	float YOffset = 64.f*RenderScale;
+	float YOffset = 16.f*RenderScale;
 	DrawGamePanel(RenderDelta, YOffset);
 	DrawTeamPanel(RenderDelta, YOffset);
 	DrawScorePanel(RenderDelta, YOffset);
@@ -114,14 +114,24 @@ void UUTScoreboard::Draw_Implementation(float RenderDelta)
 	}
 	DrawServerPanel(RenderDelta, FooterPosY);
 
+	DrawMinimap(RenderDelta);
+	if (bHaveWarmup)
+	{
+		DrawText(WarmupWarningText, 16.f * RenderScale, 16.f*RenderScale, UTHUDOwner->SmallFont, RenderScale, 1.f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
+	}
+}
+
+void UUTScoreboard::DrawMinimap(float RenderDelta)
+{
 	if (bDrawMinimapInScoreboard && UTGameState && UTHUDOwner && !UTHUDOwner->IsPendingKillPending())
 	{
 		bool bToggledMinimap = !UTGameState->HasMatchStarted() && (!UTPlayerOwner || !UTPlayerOwner->UTPlayerState || !UTPlayerOwner->UTPlayerState->bIsWarmingUp);
-		float MapScale = 0.62f;
-		const float MapSize = float(Canvas->SizeY) * MapScale;
+		const float MapSize = (UTGameState && UTGameState->bTeamGame) ? FMath::Min(Canvas->ClipX - 2.f*ScaledEdgeSize - 2.f*ScaledCellWidth, 0.9f*Canvas->ClipY - 120.f * RenderScale)
+			: FMath::Min(0.5f*Canvas->ClipX, 0.9f*Canvas->ClipY - 120.f * RenderScale);
 		if (!bToggledMinimap || !UTHUDOwner->bShowScores)
 		{
-			FVector2D LeftCorner = FVector2D(MinimapCenter.X*Canvas->ClipX - 0.5f*MapSize, MinimapCenter.Y*Canvas->ClipY - 0.5f*MapSize + 16.f*RenderScale);
+			float MapYPos = FMath::Max(120.f*RenderScale, MinimapCenter.Y*Canvas->ClipY - 0.5f*MapSize);
+			FVector2D LeftCorner = FVector2D(MinimapCenter.X*Canvas->ClipX - 0.5f*MapSize, MapYPos);
 			DrawTexture(UTHUDOwner->ScoreboardAtlas, LeftCorner.X, LeftCorner.Y, MapSize, MapSize, 149, 138, 32, 32, 0.5f, FLinearColor::Black);
 			UTHUDOwner->DrawMinimap(FColor(192, 192, 192, 220), MapSize, LeftCorner);
 		}
@@ -130,12 +140,9 @@ void UUTScoreboard::Draw_Implementation(float RenderDelta)
 			FFormatNamedArguments Args;
 			Args.Add("key", UTHUDOwner->ShowScoresLabel);
 			FText MinimapMessage = FText::Format(MinimapToggleText, Args);
-			DrawText(MinimapMessage, MinimapCenter.X*Canvas->ClipX - 0.5f*MapSize, MinimapCenter.Y*Canvas->ClipY + 0.5f*MapSize, UTHUDOwner->TinyFont, RenderScale, 1.f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
+			float YPos = (UTGameState && UTGameState->bTeamGame) ? MinimapCenter.Y*Canvas->ClipY + 0.51f*MapSize : MinimapCenter.Y*Canvas->ClipY + 0.49f*MapSize;
+			DrawText(MinimapMessage, MinimapCenter.X*Canvas->ClipX - 0.5f*MapSize, YPos, UTHUDOwner->TinyFont, RenderScale, 1.f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
 		}
-	}
-	if (bHaveWarmup)
-	{
-		DrawText(WarmupWarningText, 16.f * RenderScale, 16.f*RenderScale, UTHUDOwner->SmallFont, RenderScale, 1.f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
 	}
 }
 
@@ -292,13 +299,31 @@ void UUTScoreboard::DrawPlayerScores(float RenderDelta, float& YOffset)
 
 FLinearColor UUTScoreboard::GetPlayerColorFor(AUTPlayerState* InPS) const
 {
+	return FLinearColor::White;
+}
+
+FLinearColor UUTScoreboard::GetPlayerBackgroundColorFor(AUTPlayerState* InPS) const
+{
 	if (UTHUDOwner->UTPlayerOwner->UTPlayerState == InPS)
 	{
-		return FLinearColor(0.0f, 0.92f, 1.0f, 1.0f);
+		return FLinearColor::Gray;
 	}
 	else
 	{
-		return FLinearColor::White;
+		return FLinearColor::Black;
+	}
+}
+
+FLinearColor UUTScoreboard::GetPlayerHighlightColorFor(AUTPlayerState* InPS) const
+{
+	//RedTeam
+	if (InPS->GetTeamNum() == 0)
+	{
+		return FLinearColor::Red;
+	}
+	else // Blue, or unknown team
+	{
+		return FLinearColor::Blue;
 	}
 }
 
@@ -337,7 +362,7 @@ void UUTScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float R
 	}
 	
 	// Draw the background border.
-	FLinearColor BarColor = FLinearColor::Black;
+	FLinearColor BarColor = GetPlayerBackgroundColorFor(PlayerState);
 	float FinalBarOpacity = BarOpacity;
 	if (bIsUnderCursor) 
 	{
@@ -346,7 +371,7 @@ void UUTScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float R
 	}
 	if (PlayerState == SelectedPlayer) 
 	{
-		BarColor = FLinearColor(0.0,0.3,0.3,1.0);
+		BarColor = FLinearColor(0.0, 0.3, 0.3, 1.0);
 		FinalBarOpacity = 0.75f;
 	}
 
@@ -384,8 +409,19 @@ void UUTScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float R
 		DrawTexture(NewFlagAtlas, XOffset + (ScaledCellWidth * FlagX), YOffset + 14.f*RenderScale, FlagUV.UL*RenderScale, FlagUV.VL*RenderScale, FlagUV.U, FlagUV.V, 36, 26, 1.0, FLinearColor::White, FVector2D(0.0f, 0.5f));
 	}
 
-	// Draw the Text
-	FVector2D NameSize = DrawText(FText::FromString(PlayerState->PlayerName), XOffset + (ScaledCellWidth * ColumnHeaderPlayerX), YOffset + ColumnY, NameFont, FMath::Min(RenderScale, MaxNameWidth/FMath::Max(NameXL, 1.f)), 1.0f, DrawColor, ETextHorzPos::Left, ETextVertPos::Center);
+	FVector2D NameSize;
+
+	TSharedRef<const FUniqueNetId> UserId = MakeShareable(new FUniqueNetIdString(*PlayerState->StatsID));
+	FText EpicAccountName = UTGameState->GetEpicAccountNameForAccount(UserId);
+	const bool bNameMatchesAccount = (EpicAccountName.ToString() == PlayerState->PlayerName);
+	if (bNameMatchesAccount)
+	{
+		NameSize = DrawText(FText::FromString(PlayerState->PlayerName), XOffset + (ScaledCellWidth * ColumnHeaderPlayerX), YOffset + ColumnY, NameFont, false, FVector2D(0.f, 0.f), FLinearColor::Black, true, GetPlayerHighlightColorFor(PlayerState), FMath::Min(RenderScale, MaxNameWidth / FMath::Max(NameXL, 1.f)), 1.0f, DrawColor, FLinearColor(0.0f,0.0f,0.0f,0.0f), ETextHorzPos::Left, ETextVertPos::Center);
+	}
+	else
+	{
+		NameSize = DrawText(FText::FromString(PlayerState->PlayerName), XOffset + (ScaledCellWidth * ColumnHeaderPlayerX), YOffset + ColumnY, NameFont, FMath::Min(RenderScale, MaxNameWidth / FMath::Max(NameXL, 1.f)), 1.0f, DrawColor, ETextHorzPos::Left, ETextVertPos::Center);
+	}
 
 	if (PlayerState->bIsFriend)
 	{
@@ -544,14 +580,14 @@ void UUTScoreboard::DrawServerPanel(float RenderDelta, float YOffset)
 	}
 }
 
-int32 UUTScoreboard::SelectionHitTest(FVector2D Position)
+int32 UUTScoreboard::SelectionHitTest(FVector2D InPosition)
 {
 	if (bIsInteractive)
 	{
 		for (int32 i = 0; i < SelectionStack.Num(); i++)
 		{
-			if (Position.X >= SelectionStack[i].ScoreBounds.X && Position.X <= SelectionStack[i].ScoreBounds.Z &&
-				  Position.Y >= SelectionStack[i].ScoreBounds.Y && Position.Y <= SelectionStack[i].ScoreBounds.W && SelectionStack[i].ScoreOwner.IsValid())
+			if (InPosition.X >= SelectionStack[i].ScoreBounds.X && InPosition.X <= SelectionStack[i].ScoreBounds.Z &&
+				InPosition.Y >= SelectionStack[i].ScoreBounds.Y && InPosition.Y <= SelectionStack[i].ScoreBounds.W && SelectionStack[i].ScoreOwner.IsValid())
 			{
 				return i;
 			}
@@ -757,16 +793,16 @@ void UUTScoreboard::DrawScoringStats(float DeltaTime, float& YPos)
 	FVector2D SavedRenderPosition = RenderPosition;
 	RenderPosition = FVector2D(0.f, 0.f);
 	float TopYPos = YPos;
-	float ScoreWidth = ScaledCellWidth;
+	float ScoreWidth = 1.2f*ScaledCellWidth;
 	float MaxHeight = FooterPosY + SavedRenderPosition.Y - YPos;
 	float PageBottom = TopYPos + MaxHeight;
 
 	// draw left side
-	float XOffset = ScaledEdgeSize;
+	float XOffset = ScaledEdgeSize + ScaledCellWidth - ScoreWidth;
 	DrawStatsLeft(DeltaTime, YPos, XOffset, ScoreWidth, PageBottom);
 
 	// draw right side
-	XOffset = Canvas->ClipX - ScoreWidth - ScaledEdgeSize;
+	XOffset = Canvas->ClipX - XOffset;
 	YPos = TopYPos;
 	DrawStatsRight(DeltaTime, YPos, XOffset, ScoreWidth, PageBottom);
 
@@ -795,7 +831,7 @@ void UUTScoreboard::GetContextMenuItems_Implementation(TArray<FScoreboardContext
 {
 }
 
-bool UUTScoreboard::HandleContextCommand_Implementation(uint8 ContextId, AUTPlayerState* SelectedPlayer)
+bool UUTScoreboard::HandleContextCommand_Implementation(uint8 ContextId, AUTPlayerState* InSelectedPlayer)
 {
 	return false;
 }

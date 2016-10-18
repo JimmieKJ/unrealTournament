@@ -208,10 +208,12 @@ namespace UnrealTournamentGame.Automation
 						Deployment2Command("deployment_create", AwsArgsNa1, "true", 1);
 						Deployment2Command("deployment_create", AwsArgsEu1, "true", 1);
 						Deployment2Command("deployment_create", AwsNaHub1, "true", 1);
+						Deployment2Command("deployment_create", AwsEuHub1, "true", 1);
 
 						Deployment2Command("deployment_create", AwsArgsNa1, "get_pending", MaxRetries);
 						Deployment2Command("deployment_create", AwsArgsEu1, "get_pending", MaxRetries);
 						Deployment2Command("deployment_create", AwsNaHub1, "get_pending", MaxRetries);
+						Deployment2Command("deployment_create", AwsEuHub1, "get_pending", MaxRetries);
 						break;
 					default:
 						Deployment2Command("deployment_create", AwsArgsNa1, "true", 1);
@@ -353,6 +355,7 @@ namespace UnrealTournamentGame.Automation
 				"epic_game_buildstr_base64=" + System.Convert.ToBase64String(BuildStringBytes) + "&" +
 				"epic_game_cpu_budget=" + LocalCpuBudget +"&" +
 				"epic_game_ram_budget=" + RamBudget + "&" +
+				"epic_game_environment=" + AppName.ToString() + "&" +
 				"epic_instance_size=" + InstanceSize.ToString() + "&" +
 				"epic_instance_min=" + InstanceSizeMin.ToString() + "&" +
 				"epic_instance_max=" + InstanceSizeMax.ToString() + "&" +
@@ -447,6 +450,7 @@ namespace UnrealTournamentGame.Automation
 				"epic_game_cpu_budget=" + LocalCpuBudget +"&" +
 				"epic_game_ram_budget=" + RamBudget + "&" +
 				"epic_game_buildstr_base64=" + System.Convert.ToBase64String(BuildStringBytes) + "&" +
+				"epic_game_environment=" + LocalAppName.ToString() + "&" +
 				"epic_instance_size=" + InstanceSize.ToString() + "&" +
 				"epic_instance_min=" + InstanceSizeMin.ToString() + "&" +
 				"epic_instance_max=" + InstanceSizeMax.ToString() + "&" +

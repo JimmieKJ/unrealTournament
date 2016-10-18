@@ -93,8 +93,20 @@ namespace Tools.CrashReporter.CrashReportCommon
 		/// <summary>Generic parameter</summary>
 		public string Parameter9 = "";
 
-		/// <summary> Whether the user allowed us to be contacted. </summary>
+		/// <summary>Whether the user allowed us to be contacted</summary>
 		public bool bAllowToBeContacted = false;
+
+		/// <summary>Deployment name of the crashed app, if any</summary>
+		public string DeploymentName = "";
+
+		/// <summary>Was the "crash" a non-fatal event?</summary>
+		public bool IsEnsure = false;
+
+		/// <summary>Was the "crash" an assert or check that failed?</summary>
+		public bool IsAssert = false;
+
+		/// <summary>Crash type string</summary>
+		public string CrashType = "";
 
 		/// <summary>A simple default constructor to allow Xml serialisation.</summary>
 		public WERReportMetadataDynamicSignatures()

@@ -1,16 +1,18 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "WmfMediaPrivatePCH.h"
-#include "IMediaModule.h"
-#include "IMediaPlayerFactory.h"
-#include "ModuleInterface.h"
-#include "ModuleManager.h"
+#include "WmfMediaPCH.h"
+#include "IWmfMediaModule.h"
 
-#pragma comment(lib, "mf")
-#pragma comment(lib, "mfplat")
-#pragma comment(lib, "mfplay")
-#pragma comment(lib, "mfuuid")
-#pragma comment(lib, "shlwapi")
+#if WMFMEDIA_SUPPORTED_PLATFORM
+	#include "WmfMediaPlayer.h"
+	#include "WmfMediaSettings.h"
+
+	#pragma comment(lib, "mf")
+	#pragma comment(lib, "mfplat")
+	#pragma comment(lib, "mfplay")
+	#pragma comment(lib, "mfuuid")
+	#pragma comment(lib, "shlwapi")
+#endif
 
 
 DEFINE_LOG_CATEGORY(LogWmfMedia);
@@ -22,8 +24,7 @@ DEFINE_LOG_CATEGORY(LogWmfMedia);
  * Implements the WmfMedia module.
  */
 class FWmfMediaModule
-	: public IModuleInterface
-	, public IMediaPlayerFactory
+	: public IWmfMediaModule
 {
 public:
 
@@ -34,20 +35,28 @@ public:
 
 public:
 
-	// IModuleInterface interface
+	//~ IWmfMediaModule interface
+
+	virtual TSharedPtr<IMediaPlayer> CreatePlayer() override
+	{
+#if WMFMEDIA_SUPPORTED_PLATFORM
+		if (Initialized)
+		{
+			return MakeShareable(new FWmfMediaPlayer());
+		}
+#endif
+
+		return nullptr;
+	}
+
+public:
+
+	//~ IModuleInterface interface
 
 	virtual void StartupModule() override
 	{
+#if WMFMEDIA_SUPPORTED_PLATFORM
 		// load required libraries
-		IMediaModule* MediaModule = FModuleManager::LoadModulePtr<IMediaModule>("Media");
-
-		if (MediaModule == nullptr)
-		{
-			UE_LOG(LogWmfMedia, Log, TEXT("Failed to load Media module"));
-
-			return;
-		}
-
 		if (!LoadRequiredLibraries())
 		{
 			UE_LOG(LogWmfMedia, Log, TEXT("Failed to load required Windows Media Foundation libraries"));
@@ -65,99 +74,36 @@ public:
 			return;
 		}
 
-		// initialize supported media formats
-		SupportedFileTypes.Add(TEXT("3g2"), LOCTEXT("Format3g2", "3G2 Multimedia Stream"));
-		SupportedFileTypes.Add(TEXT("3gp"), LOCTEXT("Format3gp", "3GP Video Stream"));
-		SupportedFileTypes.Add(TEXT("3gp2"), LOCTEXT("Format3gp2", "3GPP2 Multimedia File"));
-		SupportedFileTypes.Add(TEXT("3gpp"), LOCTEXT("Format3gpp", "3GPP Multimedia File"));
-		SupportedFileTypes.Add(TEXT("aac"), LOCTEXT("FormatAac", "MPEG-2 Advanced Audio Coding File"));
-		SupportedFileTypes.Add(TEXT("adts"), LOCTEXT("FormatAdts", "Audio Data Transport Stream"));
-		SupportedFileTypes.Add(TEXT("asf"), LOCTEXT("FormatAsf", "ASF Media File"));
-		SupportedFileTypes.Add(TEXT("avi"), LOCTEXT("FormatAvi", "Audio Video Interleave File"));
-		SupportedFileTypes.Add(TEXT("m4a"), LOCTEXT("FormatM4a", "Apple MPEG-4 Audio"));
-		SupportedFileTypes.Add(TEXT("m4v"), LOCTEXT("FormatM4v", "Apple MPEG-4 Video"));
-		SupportedFileTypes.Add(TEXT("mov"), LOCTEXT("FormatMov", "Apple QuickTime Movie"));
-		SupportedFileTypes.Add(TEXT("mp3"), LOCTEXT("FormatMp3", "MPEG-2 Audio"));
-		SupportedFileTypes.Add(TEXT("mp4"), LOCTEXT("FormatMp4", "MPEG-4 Movie"));
-		SupportedFileTypes.Add(TEXT("sami"), LOCTEXT("FormatSami", "Synchronized Accessible Media Interchange (SAMI) File"));
-		SupportedFileTypes.Add(TEXT("smi"), LOCTEXT("FormatSmi", "Synchronized Multimedia Integration (SMIL) File"));
-		SupportedFileTypes.Add(TEXT("wav"), LOCTEXT("FormatWav", "Wave Audio File"));
-		SupportedFileTypes.Add(TEXT("wma"), LOCTEXT("FormatWma", "Windows Media Audio"));
-		SupportedFileTypes.Add(TEXT("wmv"), LOCTEXT("FormatWmv", "Windows Media Video"));
+#if WITH_EDITOR
+		// register settings
+		ISettingsModule* SettingsModule = FModuleManager::GetModulePtr<ISettingsModule>("Settings");
 
-		// initialize supported URI schemes
-		SupportedUriSchemes.Add(TEXT("http://"));
-		SupportedUriSchemes.Add(TEXT("httpd://"));
-		SupportedUriSchemes.Add(TEXT("https://"));
-		SupportedUriSchemes.Add(TEXT("mms://"));
-		SupportedUriSchemes.Add(TEXT("rtsp://"));
-		SupportedUriSchemes.Add(TEXT("rtspt://"));
-		SupportedUriSchemes.Add(TEXT("rtspu://"));
-
-		// register factory
-		MediaModule->RegisterPlayerFactory(*this);
+		if (SettingsModule != nullptr)
+		{
+			ISettingsSectionPtr SettingsSection = SettingsModule->RegisterSettings("Project", "Plugins", "WmfMedia",
+				LOCTEXT("WmfMediaSettingsName", "WMF Media"),
+				LOCTEXT("WmfMediaSettingsDescription", "Configure the WMF Media plug-in."),
+				GetMutableDefault<UWmfMediaSettings>()
+			);
+		}
+#endif //WITH_EDITOR
 
 		Initialized = true;
+
+#endif //WMFMEDIA_SUPPORTED_PLATFORM
 	}
 
 	virtual void ShutdownModule() override
 	{
-		if (!Initialized)
-		{
-			return;
-		}
-
+#if WMFMEDIA_SUPPORTED_PLATFORM
 		Initialized = false;
 
-		// unregister video player factory
-		IMediaModule* MediaModule = FModuleManager::GetModulePtr<IMediaModule>("Media");
-
-		if (MediaModule != nullptr)
-		{
-			MediaModule->UnregisterPlayerFactory(*this);
-		}		
-
-		// shutdown Windows Media Foundation
-		MFShutdown();
-	}
-
-public:
-
-	// IMediaPlayerFactory interface
-
-	virtual TSharedPtr<IMediaPlayer> CreatePlayer() override
-	{
 		if (Initialized)
 		{
-			return MakeShareable(new FWmfMediaPlayer());
+			// shutdown Windows Media Foundation
+			MFShutdown();
 		}
-
-		return nullptr;
-	}
-
-	virtual const FMediaFileTypes& GetSupportedFileTypes() const override
-	{
-		return SupportedFileTypes;
-	}
-
-	virtual bool SupportsUrl(const FString& Url) const override
-	{
-		const FString Extension = FPaths::GetExtension(Url);
-
-		if (!Extension.IsEmpty() && SupportedFileTypes.Contains(Extension))
-		{
-			return true;
-		}
-
-		for (const FString& Scheme : SupportedUriSchemes)
-		{
-			if (Url.StartsWith(Scheme))
-			{
-				return true;
-			}
-		}
-
-		return false;
+#endif
 	}
 
 protected:
@@ -204,12 +150,6 @@ private:
 
 	/** Whether the module has been initialized. */
 	bool Initialized;
-
-	/** The collection of supported media file types. */
-	FMediaFileTypes SupportedFileTypes;
-
-	/** The collection of supported URI schemes. */
-	TArray<FString> SupportedUriSchemes;
 };
 
 

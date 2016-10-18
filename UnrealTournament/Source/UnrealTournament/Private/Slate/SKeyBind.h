@@ -175,6 +175,11 @@ protected:
 	{
 		if (bWaitingForKey)
 		{
+			if (InKeyEvent.GetKey() == EKeys::Escape)
+			{
+				return AbortClicked();
+			}
+
 			SetKey(InKeyEvent.GetKey());
 			return FReply::Handled();
 		}

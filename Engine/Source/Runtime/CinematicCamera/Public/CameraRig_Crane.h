@@ -9,7 +9,7 @@
 class USceneComponent;
 
 /** 
- * 
+ * A simple rig for to simulate crane-like camera movements.
  */
 UCLASS(Blueprintable)
 class CINEMATICCAMERA_API ACameraRig_Crane : public AActor
@@ -24,12 +24,15 @@ public:
 	virtual void Tick(float DeltaTime) override;
 	virtual bool ShouldTickIfViewportsOnly() const override;
 
+	/** Controls the pitch of the crane arm (but does not affect the rotation of the mount). */
 	UPROPERTY(Interp, EditAnywhere, BlueprintReadWrite, Category = "Crane Controls", meta = (UIMin = "-360", UIMax = "360", Units = deg))
 	float CranePitch;
 	
+	/** Controls the yaw of the crane arm. */
 	UPROPERTY(Interp, EditAnywhere, BlueprintReadWrite, Category = "Crane Controls", meta = (UIMin = "-360", UIMax = "360", Units = deg))
 	float CraneYaw;
 	
+	/** Controls the length of the crane arm. */
 	UPROPERTY(Interp, EditAnywhere, BlueprintReadWrite, Category = "Crane Controls", meta = (ClampMin=0, Units = cm))
 	float CraneArmLength;
 
@@ -39,7 +42,6 @@ public:
 #endif
 	
 private:
-
 	void UpdatePreviewMeshes();
 	void UpdateCraneComponents();
 
@@ -47,15 +49,19 @@ private:
 	UPROPERTY(EditDefaultsOnly, Category = "Crane Components")
 	USceneComponent* TransformComponent;
 
+	/** Component to control Yaw. */
 	UPROPERTY(EditDefaultsOnly, Category = "Crane Components")
 	USceneComponent* CraneYawControl;
 
+	/** Component to control Pitch. */
 	UPROPERTY(EditDefaultsOnly, Category = "Crane Components")
 	USceneComponent* CranePitchControl;
 
+	/** Component to define the attach point for cameras. */
 	UPROPERTY(EditDefaultsOnly, Category = "Crane Components")
 	USceneComponent* CraneCameraMount;
 
+	/** Preview meshes for visualization */
 	UPROPERTY()
 	UStaticMeshComponent* PreviewMesh_CraneArm;
 

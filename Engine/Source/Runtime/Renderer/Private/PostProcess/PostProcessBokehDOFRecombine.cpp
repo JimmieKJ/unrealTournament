@@ -55,7 +55,7 @@ class FPostProcessBokehDOFRecombinePS : public FGlobalShader
 	{
 		FGlobalShader::ModifyCompilationEnvironment(Platform, OutEnvironment);
 		OutEnvironment.SetDefine(TEXT("RECOMBINE_METHOD"), GetCombineFeatureMethod());
-		OutEnvironment.SetDefine(TEXT("NEAREST_DEPTH_NEIGHBOR_UPSAMPLE"), (UseNearestDepthNeighborUpsample() ? 1 : 0));
+		OutEnvironment.SetDefine(TEXT("NEAREST_DEPTH_NEIGHBOR_UPSAMPLE"), UseNearestDepthNeighborUpsample());
 	}
 
 	/** Default constructor. */

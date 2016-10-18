@@ -24,7 +24,7 @@ void FAIGraphConnectionDrawingPolicy::DetermineWiringStyle(UEdGraphPin* OutputPi
 	}
 }
 
-void FAIGraphConnectionDrawingPolicy::Draw(TMap<TSharedRef<SWidget>, FArrangedWidget>& PinGeometries, FArrangedChildren& ArrangedNodes)
+void FAIGraphConnectionDrawingPolicy::Draw(TMap<TSharedRef<SWidget>, FArrangedWidget>& InPinGeometries, FArrangedChildren& ArrangedNodes)
 {
 	// Build an acceleration structure to quickly find geometry for the nodes
 	NodeWidgetMap.Empty();
@@ -36,7 +36,7 @@ void FAIGraphConnectionDrawingPolicy::Draw(TMap<TSharedRef<SWidget>, FArrangedWi
 	}
 
 	// Now draw
-	FConnectionDrawingPolicy::Draw(PinGeometries, ArrangedNodes);
+	FConnectionDrawingPolicy::Draw(InPinGeometries, ArrangedNodes);
 }
 
 void FAIGraphConnectionDrawingPolicy::DrawPreviewConnector(const FGeometry& PinGeometry, const FVector2D& StartPoint, const FVector2D& EndPoint, UEdGraphPin* Pin)

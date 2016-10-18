@@ -136,6 +136,12 @@ public:
 	}
 };
 
+typedef TSharedPtr<class IXmppPresence, ESPMode::ThreadSafe> IXmppPresencePtr;
+typedef TSharedPtr<class IXmppPubSub, ESPMode::ThreadSafe> IXmppPubSubPtr;
+typedef TSharedPtr<class IXmppMessages, ESPMode::ThreadSafe> IXmppMessagesPtr;
+typedef TSharedPtr<class IXmppMultiUserChat, ESPMode::ThreadSafe> IXmppMultiUserChatPtr;
+typedef TSharedPtr<class IXmppChat, ESPMode::ThreadSafe> IXmppChatPtr;
+
 /**
  * Base interface for connecting to Xmpp
  */
@@ -229,14 +235,14 @@ public:
 	virtual FOnXmppLogoutComplete& OnLogoutComplete() = 0;
 
 	/** @return Presence interface if available. NULL otherwise */
-	virtual TSharedPtr<class IXmppPresence> Presence() = 0;
+	virtual IXmppPresencePtr Presence() = 0;
 	/** @return PubSub interface if available. NULL otherwise */
-	virtual TSharedPtr<class IXmppPubSub> PubSub() = 0;
+	virtual IXmppPubSubPtr PubSub() = 0;
 	/** @return Messages interface if available. NULL otherwise */
-	virtual TSharedPtr<class IXmppMessages> Messages() = 0;
+	virtual IXmppMessagesPtr Messages() = 0;
 	/** @return MultiUserChat interface if available. NULL otherwise */
-	virtual TSharedPtr<class IXmppMultiUserChat> MultiUserChat() = 0;
+	virtual IXmppMultiUserChatPtr MultiUserChat() = 0;
 	/** @return PrivateChat interface if available. NULL otherwise */
-	virtual TSharedPtr<class IXmppChat> PrivateChat() = 0;
+	virtual IXmppChatPtr PrivateChat() = 0;
 };
 

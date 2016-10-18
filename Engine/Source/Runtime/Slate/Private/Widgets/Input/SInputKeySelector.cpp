@@ -12,6 +12,7 @@ void SInputKeySelector::Construct( const FArguments& InArgs )
 	ColorAndOpacity = InArgs._ColorAndOpacity;
 	OnIsSelectingKeyChanged = InArgs._OnIsSelectingKeyChanged;
 	bAllowModifierKeys = InArgs._AllowModifierKeys;
+	bEscapeCancelsSelection = InArgs._EscapeCancelsSelection;
 
 	DefaultFont = FCoreStyle::Get().GetWidgetStyle<FTextBlockStyle>( "NormalText" ).Font;
 
@@ -172,6 +173,12 @@ FReply SInputKeySelector::OnKeyUp( const FGeometry& MyGeometry, const FKeyEvent&
 	if ( bIsSelectingKey && KeyUp.IsGamepadKey() == false && ( KeyUp.IsModifierKey() == false || ModifierKey == EModifierKey::None ) )
 	{
 		SetIsSelectingKey( false );
+
+		if ( KeyUp == EKeys::Escape && bEscapeCancelsSelection )
+		{
+			return FReply::Handled();
+		}
+
 		SelectKey(
 			KeyUp,
 			ModifierKey == EModifierKey::Shift,

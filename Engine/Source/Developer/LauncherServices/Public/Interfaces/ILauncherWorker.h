@@ -54,6 +54,11 @@ public:
 	virtual void Cancel( ) = 0;
 
 	/**
+	 * Cancels the operation and waits for the thread to finish any remaining work.
+	 */
+	virtual void CancelAndWait( ) = 0;
+
+	/**
 	 * Gets the worker's status.
 	 *
 	 * @return Worker status.

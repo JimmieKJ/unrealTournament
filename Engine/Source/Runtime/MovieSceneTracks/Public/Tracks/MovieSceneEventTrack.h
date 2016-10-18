@@ -23,7 +23,7 @@ public:
 		, bFireEventsWhenBackwards(true)
 	{
 #if WITH_EDITORONLY_DATA
-		TrackTint = FColor(0, 255, 128);
+		TrackTint = FColor(41, 98, 41, 150);
 #endif
 	}
 
@@ -45,8 +45,9 @@ public:
 	 *
 	 * @param Position The current position in time.
 	 * @param LastPosition The time at the last update.
+	 * @param Player The movie scene player that has the event contexts where the events should be invoked from.
 	 */
-	void TriggerEvents(float Position, float LastPosition, UObject* EventContextObject);
+	void TriggerEvents(float Position, float LastPosition, IMovieScenePlayer& Player);
 
 public:
 

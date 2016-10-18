@@ -69,6 +69,8 @@ struct KISMET_API FFindInBlueprintSearchTags
 	static const FText FiB_IsReference;
 	/** Glyph icon tag */
 	static const FText FiB_Glyph;
+	/** Style set the glyph belongs to */
+	static const FText FiB_GlyphStyleSet;
 	/** Glyph icon color tag */
 	static const FText FiB_GlyphColor;
 

@@ -191,7 +191,7 @@ struct FAudioStreamingManager : public IAudioStreamingManager
 	virtual void CancelForcedResources() override;
 	virtual void NotifyLevelChange() override;
 	virtual void SetDisregardWorldResourcesForFrames( int32 NumFrames ) override;
-	virtual void AddPreparedLevel( class ULevel* Level ) override;
+	virtual void AddLevel( class ULevel* Level ) override;
 	virtual void RemoveLevel( class ULevel* Level ) override;
 	// End IStreamingManager interface
 

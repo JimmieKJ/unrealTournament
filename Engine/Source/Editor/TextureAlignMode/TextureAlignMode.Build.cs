@@ -11,6 +11,7 @@ public class TextureAlignMode : ModuleRules
 				"Core",
 				"CoreUObject",
 				"Engine",
+				"SlateCore",
 				"Slate",
 				"UnrealEd",
 				"RenderCore",

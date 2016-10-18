@@ -270,6 +270,7 @@ protected:
 	uint32 bPruneStartedOffmeshConnections : 1;
 	uint32 bSingleAreaVisibilityOptimization : 1;
 	uint32 bEarlyReachTestOptimization : 1;
+	uint32 bAllowPathReplan : 1;
 	
 	/** should crowd simulation resolve collisions between agents? if not, this will be handled by their movement components */
 	UPROPERTY(config, EditAnywhere, Category = Config)
@@ -315,7 +316,7 @@ protected:
 	void PrepareAgentStep(const ICrowdAgentInterface* Agent, FCrowdAgentData& AgentData, float DeltaTime) const;
 
 	/** pass new velocity to movement components */
-	void ApplyVelocity(UCrowdFollowingComponent* AgentComponent, int32 AgentIndex) const;
+	virtual void ApplyVelocity(UCrowdFollowingComponent* AgentComponent, int32 AgentIndex) const;
 
 	/** check changes in crowd simulation and adjust UE specific properties (smart links, poly updates) */
 	void UpdateAgentPaths();

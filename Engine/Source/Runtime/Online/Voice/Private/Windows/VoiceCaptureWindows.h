@@ -61,10 +61,8 @@ public:
 	/** DirectSound8 Interface */
 	LPDIRECTSOUND8 DirectSound;
 
-	/** HMD voice capture device index, -1 if unused */
-	int HmdVoiceCaptureDeviceIndex;
-	/** Count of enumerated voice capture devices */
-	int VoiceCaptureDeviceCount;
+	/** HMD audio input device to use */
+	FString HMDAudioInputDevice;
 	/** GUID of selected voice capture device */
 	GUID VoiceCaptureDeviceGuid;
 

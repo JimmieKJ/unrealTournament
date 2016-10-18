@@ -290,6 +290,6 @@ void UGameplayCueSet::BuildAccelerationMap_Internal()
 
 FGameplayTag UGameplayCueSet::BaseGameplayCueTag()
 {
-	static FGameplayTag BaseGameplayCueTag = IGameplayTagsModule::Get().GetGameplayTagsManager().RequestGameplayTag(TEXT("GameplayCue"), false);
-	return BaseGameplayCueTag;
+	// Note we should not cache this off as a static variable, since for new projects the GameplayCue tag will not be found until one is created.
+	return IGameplayTagsModule::Get().GetGameplayTagsManager().RequestGameplayTag(TEXT("GameplayCue"), false);
 }

@@ -218,7 +218,7 @@ int32 UUnitTestCommandlet::Main(const FString& Params)
 	}
 #endif
 
-	return (GWarn->Errors.Num() == 0 ? 0 : 1);
+	return (GWarn->GetNumErrors() == 0 ? 0 : 1);
 }
 
 void UUnitTestCommandlet::CreateCustomEngine(const FString& Params)

@@ -89,7 +89,7 @@ private:
 	FString FileUrl;
 
 	/** List of pending Http requests for enumerating files */
-	TQueue<IHttpRequest*> EnumerateFilesRequests;
+	TQueue<TWeakPtr<class IHttpRequest>> EnumerateFilesRequests;
 	
 	/** Info used to send request for a file */
 	struct FPendingFileRequest
@@ -114,9 +114,10 @@ private:
 		/** File being operated on by the pending request */
 		FString FileName;
 	};
-
+	typedef TMap<TWeakPtr<class IHttpRequest>, FPendingFileRequest> FFileRequestsMap;
+	
 	/** List of pending Http requests for reading files */
-	TMap<class IHttpRequest*, FPendingFileRequest> FileRequests;
+	FFileRequestsMap FileRequests;
 
 	TArray<FCloudFileHeader> FileHeaders;
 	TArray<FCloudFile> Files;

@@ -1,5 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
+#include "LandscapePrivatePCH.h"
 #include "Landscape.h"
 #include "LandscapeInfoMap.h"
 
@@ -19,7 +20,7 @@ void ULandscapeInfoMap::Serialize(FArchive& Ar)
 {
 	Super::Serialize(Ar);
 
-	if (!Ar.IsLoading() && !Ar.IsSaving())
+	if (Ar.IsTransacting() || Ar.IsObjectReferenceCollector())
 	{
 		Ar << Map;
 	}

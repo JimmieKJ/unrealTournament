@@ -19,7 +19,7 @@ public:
 	~FMetalViewport();
 
 	void Resize(uint32 InSizeX, uint32 InSizeY, bool bInIsFullscreen);
-
+	
 	FMetalTexture2D* GetBackBuffer() const { return BackBuffer; }
 	id<MTLDrawable> GetDrawable();
 	id<MTLTexture> GetDrawableTexture();

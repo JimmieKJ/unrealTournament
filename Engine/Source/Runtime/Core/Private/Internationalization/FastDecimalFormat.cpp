@@ -206,27 +206,24 @@ void FractionalToString_SplitAndRoundNumber(const bool bIsNegative, const double
 	}
 }
 
-FString BuildFinalString(const bool bIsNegative, const FDecimalNumberFormattingRules& InFormattingRules, const TCHAR* InIntegralBuffer, const int32 InIntegralLen, const TCHAR* InFractionalBuffer, const int32 InFractionalLen)
+void BuildFinalString(const bool bIsNegative, const FDecimalNumberFormattingRules& InFormattingRules, const TCHAR* InIntegralBuffer, const int32 InIntegralLen, const TCHAR* InFractionalBuffer, const int32 InFractionalLen, FString& OutString)
 {
 	const FString& FinalPrefixStr = (bIsNegative) ? InFormattingRules.NegativePrefixString : InFormattingRules.PositivePrefixString;
 	const FString& FinalSuffixStr = (bIsNegative) ? InFormattingRules.NegativeSuffixString : InFormattingRules.PositiveSuffixString;
 
-	FString FinalStr;
-	FinalStr.Reserve(FinalPrefixStr.Len() + InIntegralLen + 1 + InFractionalLen + FinalSuffixStr.Len());
+	OutString.Reserve(OutString.Len() + FinalPrefixStr.Len() + InIntegralLen + 1 + InFractionalLen + FinalSuffixStr.Len());
 
-	FinalStr.Append(FinalPrefixStr);
-	FinalStr.AppendChars(InIntegralBuffer, InIntegralLen);
+	OutString.Append(FinalPrefixStr);
+	OutString.AppendChars(InIntegralBuffer, InIntegralLen);
 	if (InFractionalLen > 0)
 	{
-		FinalStr.AppendChar(InFormattingRules.DecimalSeparatorCharacter);
-		FinalStr.AppendChars(InFractionalBuffer, InFractionalLen);
+		OutString.AppendChar(InFormattingRules.DecimalSeparatorCharacter);
+		OutString.AppendChars(InFractionalBuffer, InFractionalLen);
 	}
-	FinalStr.Append(FinalSuffixStr);
-
-	return FinalStr;
+	OutString.Append(FinalSuffixStr);
 }
 
-FString IntegralToString(const bool bIsNegative, const uint64 InVal, const FDecimalNumberFormattingRules& InFormattingRules, FNumberFormattingOptions InFormattingOptions)
+void IntegralToString(const bool bIsNegative, const uint64 InVal, const FDecimalNumberFormattingRules& InFormattingRules, FNumberFormattingOptions InFormattingOptions, FString& OutString)
 {
 	SanitizeNumberFormattingOptions(InFormattingOptions);
 
@@ -247,16 +244,17 @@ FString IntegralToString(const bool bIsNegative, const uint64 InVal, const FDeci
 	}
 	FractionalPartBuffer[FractionalPartLen] = 0;
 
-	return BuildFinalString(bIsNegative, InFormattingRules, IntegralPartBuffer, IntegralPartLen, FractionalPartBuffer, FractionalPartLen);
+	BuildFinalString(bIsNegative, InFormattingRules, IntegralPartBuffer, IntegralPartLen, FractionalPartBuffer, FractionalPartLen, OutString);
 }
 
-FString FractionalToString(const double InVal, const FDecimalNumberFormattingRules& InFormattingRules, FNumberFormattingOptions InFormattingOptions)
+void FractionalToString(const double InVal, const FDecimalNumberFormattingRules& InFormattingRules, FNumberFormattingOptions InFormattingOptions, FString& OutString)
 {
 	SanitizeNumberFormattingOptions(InFormattingOptions);
 
 	if (FMath::IsNaN(InVal))
 	{
-		return InFormattingRules.NaNString;
+		OutString.Append(InFormattingRules.NaNString);
+		return;
 	}
 
 	const bool bIsNegative = FMath::IsNegativeDouble(InVal);
@@ -316,7 +314,7 @@ FString FractionalToString(const double InVal, const FDecimalNumberFormattingRul
 		FractionalPartBuffer[FractionalPartLen] = 0;
 	}
 
-	return BuildFinalString(bIsNegative, InFormattingRules, IntegralPartBuffer, IntegralPartLen, FractionalPartBuffer, FractionalPartLen);
+	BuildFinalString(bIsNegative, InFormattingRules, IntegralPartBuffer, IntegralPartLen, FractionalPartBuffer, FractionalPartLen, OutString);
 }
 
 } // namespace Internal

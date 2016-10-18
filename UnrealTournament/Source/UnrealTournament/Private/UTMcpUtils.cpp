@@ -13,7 +13,6 @@
 
 #include "UTMcpUtils.h"
 
-
 template<typename USTRUCT_T>
 static FString JsonSerialize(const USTRUCT_T& Params)
 {
@@ -88,12 +87,13 @@ TSharedRef<FOnlineHttpRequest> UUTMcpUtils::CreateRequest(const FString& Verb, c
 #endif
 
 #if WITH_PROFILE
-void UUTMcpUtils::SendRequest(const TSharedRef<IHttpRequest>& HttpRequest, const TFunction<bool(const FHttpResponsePtr& HttpResponse)>& OnComplete)
+void UUTMcpUtils::SendRequest(TSharedRef<FOnlineHttpRequest>& HttpRequest, const TFunction<bool(const FHttpResponsePtr& HttpResponse)>& OnComplete)
 {
 	check(McpSubsystem);
 
 	// bind the callback delegate
 	HttpRequest->OnProcessRequestComplete().BindUObject(this, &ThisClass::HttpRequestComplete, OnComplete);
+
 	UE_LOG(LogOnlineGame, Verbose, TEXT("MCP-Utils: Dispatching request to %s"), *HttpRequest->GetURL());
 	
 	// dispatch with User or Client auth
@@ -163,7 +163,10 @@ static TFunction<bool(const FHttpResponsePtr&)> SimpleResponseHandler(const TFun
 
 #if WITH_PROFILE
 		// parse the result
-		auto JsonValue = FMcpQueryResult::Parse(Result, HttpResponse);
+		FMcpQueryResult McpResult;
+		auto JsonValue = McpResult.Parse(HttpResponse);
+		Result.bSucceeded = McpResult.bSucceeded;
+
 		if (Result.bSucceeded)
 		{
 			if (!JsonValue.IsValid() || !FJsonObjectConverter::JsonObjectToUStruct(JsonValue->AsObject().ToSharedRef(), &Response, 0, 0))
@@ -450,8 +453,10 @@ void UUTMcpUtils::ReportRankedMatchResult(const FRankedMatchResult& MatchResult,
 	HttpRequest->SetContentAsString(JsonSerialize(MatchResult));
 	SendRequest(HttpRequest, [Callback](const FHttpResponsePtr& HttpResponse) {
 		// parse the result
-		FOnlineError Result;
-		FMcpQueryResult::Parse(Result, HttpResponse);
+		FMcpQueryResult QueryResult;
+		QueryResult.Parse(HttpResponse);
+
+		FOnlineError Result(QueryResult.bSucceeded);
 
 		// fire the callback
 		Callback(Result);

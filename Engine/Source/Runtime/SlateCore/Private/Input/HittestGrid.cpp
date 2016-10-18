@@ -93,12 +93,13 @@ struct FHittestGrid::FGridTestingParams
 
 struct FHittestGrid::FCachedWidget
 {
-	FCachedWidget(int32 InParentIndex, const FArrangedWidget& InWidget, const FSlateRect& InClippingRect)
+	FCachedWidget(int32 InParentIndex, const FArrangedWidget& InWidget, const FSlateRect& InClippingRect, int32 InLayerId)
 	: WidgetPtr(InWidget.Widget)
 	, CachedGeometry(InWidget.Geometry)
 	, ClippingRect(InClippingRect)
 	, Children()
 	, ParentIndex(InParentIndex)
+	, LayerId(InLayerId)
 	{}
 
 	void AddChild(const int32 ChildIndex)
@@ -114,6 +115,8 @@ struct FHittestGrid::FCachedWidget
 	FSlateRect ClippingRect;
 	TArray<int32, TInlineAllocator<16> > Children;
 	int32 ParentIndex;
+	/** This is needed to be able to pick the best of the widgets within the virtual cursor's radius. */
+	int32 LayerId;
 };
 
 
@@ -122,6 +125,14 @@ FHittestGrid::FHittestGrid()
 {
 }
 
+
+FHittestGrid::~FHittestGrid()
+{
+	// Logging to track down window shutdown issues with movie loading threads. Too spammy in editor builds with all the windows
+#if !WITH_EDITOR
+	UE_LOG(LogSlate, Log, TEXT("HittestGrid destroyed"));
+#endif
+}
 
 TArray<FWidgetAndPointer> FHittestGrid::GetBubblePath(FVector2D DesktopSpaceCoordinate, float CursorRadius, bool bIgnoreEnabledStatus)
 {
@@ -197,14 +208,31 @@ TArray<FWidgetAndPointer> FHittestGrid::GetBubblePath(FVector2D DesktopSpaceCoor
 				return A.DistToTopWidgetSq < B.DistToTopWidgetSq;
 			});
 
+			const FWidgetPathAndDist* BestCandidateByDistance = nullptr;
 			for (const FWidgetPathAndDist& TestPath : PathsAndDistances)
 			{
 				if (ContainsInteractableWidget(TestPath.BubblePath))
 				{
-					return TestPath.BubblePath;
+					BestCandidateByDistance = &TestPath;
+					break;
+				}
+			}
+
+			if (BestCandidateByDistance != nullptr)
+			{
+				const FGeometry& LeafmostGeometry = BestCandidateByDistance->BubblePath.Last().Geometry;
+				const int32 LeafmostLayerId = BestCandidateByDistance->LayerId;
+				if (DirectBubblePathInfo.LayerId > LeafmostLayerId)
+				{
+					return DirectBubblePathInfo.BubblePath;
+				}
+				else
+				{
+					return BestCandidateByDistance->BubblePath;
 				}
 			}
 		}
+
 
 		return DirectBubblePathInfo.BubblePath;
 	}
@@ -241,18 +269,27 @@ void FHittestGrid::ClearGridForNewFrame( const FSlateRect& HittestArea )
 	}
 }
 
-int32 FHittestGrid::InsertWidget( const int32 ParentHittestIndex, const EVisibility& Visibility, const FArrangedWidget& Widget, const FVector2D InWindowOffset, const FSlateRect& InClippingRect )
+int32 FHittestGrid::InsertWidget(const int32 ParentHittestIndex, const EVisibility& Visibility, const FArrangedWidget& Widget, const FVector2D InWindowOffset, const FSlateRect& InClippingRect, int32 LayerId)
 {
-	if ( ensureMsgf( ParentHittestIndex < WidgetsCachedThisFrame->Num(), TEXT("Widget '%s' being drawn before its parent."), *Widget.ToString() ) )
+	if ( ensureMsgf(ParentHittestIndex < WidgetsCachedThisFrame->Num(), TEXT("Widget '%s' being drawn before its parent."), *Widget.ToString()) )
 	{
 		// Update the FGeometry to transform into desktop space.
 		FArrangedWidget WindowAdjustedWidget(Widget);
 		WindowAdjustedWidget.Geometry.AppendTransform(FSlateLayoutTransform(InWindowOffset));
 		const FSlateRect WindowAdjustedRect = InClippingRect.OffsetBy(InWindowOffset);
 
+#if 0
+		// Enable this code if you're trying to make sure a widget is only ever added to the hit test grid once.
+		const FCachedWidget* ExistingCachedWidget = 
+			WidgetsCachedThisFrame->FindByPredicate([Widget] (const FCachedWidget& CachedWidget) {
+				return CachedWidget.WidgetPtr.Pin() == Widget.Widget;
+			});
+
+		ensure(ExistingCachedWidget == nullptr);
+#endif
 
 		// Remember this widget, its geometry, and its place in the logical hierarchy.
-		const int32 WidgetIndex = WidgetsCachedThisFrame->Add( FCachedWidget( ParentHittestIndex, WindowAdjustedWidget, WindowAdjustedRect ) );
+		const int32 WidgetIndex = WidgetsCachedThisFrame->Add(FCachedWidget(ParentHittestIndex, WindowAdjustedWidget, WindowAdjustedRect, LayerId));
 		check( WidgetIndex < WidgetsCachedThisFrame->Num() ); 
 		if (ParentHittestIndex != INDEX_NONE)
 		{
@@ -619,13 +656,13 @@ FHittestGrid::FWidgetPathAndDist FHittestGrid::GetWidgetPathAndDist(const FGridT
 			TArray<FWidgetAndPointer> LogicalBubblePath = GetBubblePathFromHitIndex(HitIndex.WidgetIndex, bIgnoreEnabledStatus);
 			const TArray<FWidgetAndPointer> BubblePathExtension = PhysicallyHitWidget.CustomPath.Pin()->GetBubblePathAndVirtualCursors(PhysicallyHitWidget.CachedGeometry, DesktopSpaceCoordinate, bIgnoreEnabledStatus);
 			LogicalBubblePath.Append(BubblePathExtension);
-			return FWidgetPathAndDist(LogicalBubblePath, 0.0);
+			return FWidgetPathAndDist(LogicalBubblePath, 0.0, PhysicallyHitWidget.LayerId);
 		}
 		else
 		{
 			//get the path from the hit index, check if anything came back
 			const TArray<FWidgetAndPointer> BubblePath = GetBubblePathFromHitIndex(HitIndex.WidgetIndex, bIgnoreEnabledStatus);
-			return FWidgetPathAndDist(BubblePath, BubblePath.Num() > 0 ? HitIndex.DistanceSqToWidget : -1.0f);
+			return FWidgetPathAndDist(BubblePath, BubblePath.Num() > 0 ? HitIndex.DistanceSqToWidget : -1.0f, PhysicallyHitWidget.LayerId);
 		}
 	}
 

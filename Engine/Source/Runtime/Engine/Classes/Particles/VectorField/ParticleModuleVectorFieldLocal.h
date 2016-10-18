@@ -49,6 +49,9 @@ class UParticleModuleVectorFieldLocal : public UParticleModuleVectorFieldBase
 	/** Tile vector field in z axis? */
 	UPROPERTY(EditAnywhere, Category=VectorField)
 	uint32 bTileZ:1;
+	/** Use fix delta time in the simulation? */
+	UPROPERTY(EditAnywhere, Category=VectorField)
+	uint32 bUseFixDT:1;
 
 	//~ Begin UParticleModule Interface
 	virtual void CompileModule(struct FParticleEmitterBuildInfo& EmitterInfo) override;

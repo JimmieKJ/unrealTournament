@@ -20,6 +20,7 @@ public:
 	virtual TMap<TWeakObjectPtr<UClass>, TWeakObjectPtr<UClass> >& GetOriginalClassMap() override;
 	virtual FMarkUnconvertedBlueprintAsNecessary& OnIncludingUnconvertedBP() override;
 	virtual FIsFunctionUsedInADelegate& GetIsFunctionUsedInADelegateCallback() override;
+	virtual TSharedPtr<FNativizationSummary>& NativizationSummary() override;
 	//~ End IBlueprintCompilerCppBackendModule interface
 
 private: 
@@ -28,11 +29,17 @@ private:
 	FMarkUnconvertedBlueprintAsNecessary MarkUnconvertedBlueprintAsNecessary;
 	FIsFunctionUsedInADelegate IsFunctionUsedInADelegate;
 	TMap<TWeakObjectPtr<UClass>, TWeakObjectPtr<UClass> > OriginalClassMap;
+	TSharedPtr<FNativizationSummary> NativizationSummaryPtr;
 };
 
 IBlueprintCompilerCppBackend* FBlueprintCompilerCppBackendModule::Create()
 {
 	return new FBlueprintCompilerCppBackend();
+}
+
+TSharedPtr<FNativizationSummary>& FBlueprintCompilerCppBackendModule::NativizationSummary()
+{
+	return NativizationSummaryPtr;
 }
 
 FString FBlueprintCompilerCppBackendModule::ConstructBaseFilename(const UObject* AssetObj)

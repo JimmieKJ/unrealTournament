@@ -15,13 +15,13 @@ SUTUMGPanel::~SUTUMGPanel()
 	UMGWidget.Reset();
 }
 
-void SUTUMGPanel::Construct(const FArguments& InArgs, TWeakObjectPtr<UUTLocalPlayer> PlayerOwner)
+void SUTUMGPanel::Construct(const FArguments& InArgs, TWeakObjectPtr<UUTLocalPlayer> InPlayerOwner)
 {
 	UMGClass = InArgs._UMGClass;
 	bShowBackButton = InArgs._bShowBackButton;
 
 	// The SlateContainer will be created in ConstructPanel
-	SUTPanelBase::Construct( SUTPanelBase::FArguments(), PlayerOwner );
+	SUTPanelBase::Construct( SUTPanelBase::FArguments(), InPlayerOwner);
 
 	if (SlateContainer.IsValid() && !UMGClass.IsEmpty())
 	{

@@ -3,14 +3,14 @@
 #include "AutomationWorkerPrivatePCH.h"
 #include "AutomationAnalytics.h"
 #include "EngineBuildSettings.h"
-#include "Runtime/Analytics/Analytics/Public/Analytics.h"
-#include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
+#include "IAnalyticsProvider.h"
 #include "AnalyticsET.h"
+#include "IAnalyticsProviderET.h"
 
 DEFINE_LOG_CATEGORY(LogAutomationAnalytics);
 
 bool FAutomationAnalytics::bIsInitialized;
-TSharedPtr<IAnalyticsProvider> FAutomationAnalytics::Analytics;
+TSharedPtr<IAnalyticsProviderET> FAutomationAnalytics::Analytics;
 TArray<FString> FAutomationAnalytics::AutomationEventNames;
 TArray<FString> FAutomationAnalytics::AutomationParamNames;
 FString FAutomationAnalytics::MachineSpec;
@@ -30,10 +30,7 @@ void FAutomationAnalytics::Initialize()
 	checkf(!bIsInitialized, TEXT("FAutomationAnalytics::Initialize called more than once."));
 
 	//Set the config for Analytics
-	FAnalyticsET::Config Config;
-	Config.APIKeyET = FString::Printf(TEXT("AutomationAnalytics.%s"), GInternalGameName);
-	Config.APIServerET = TEXT("https://datarouter.ol.epicgames.com/");
-	Analytics = FAnalyticsET::Get().CreateAnalyticsProvider(Config);
+	Analytics = FAnalyticsET::Get().CreateAnalyticsProvider(FAnalyticsET::Config(FString::Printf(TEXT("AutomationAnalytics.%s"), GInternalGameName), TEXT("https://datarouter.ol.epicgames.com/")));
 	if (Analytics.IsValid())
 	{
 		Analytics->SetUserID(FString::Printf(TEXT("%s|%s|%s"), *FPlatformMisc::GetMachineId().ToString(EGuidFormats::Digits).ToLower(), *FPlatformMisc::GetEpicAccountId(), *FPlatformMisc::GetOperatingSystemId()));

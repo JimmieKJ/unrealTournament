@@ -7,8 +7,9 @@
 #include "IDocumentation.h"
 #include "SAnimBlueprintParentPlayerList.h"
 #include "SSkeletonSlotNames.h"
-#include "SSkeletonSmartNameManager.h"
 #include "SSkeletonBlendProfiles.h"
+#include "SDockTab.h"
+#include "SAdvancedPreviewDetailsTab.h"
 
 #define LOCTEXT_NAMESPACE "PersonaModes"
 
@@ -17,6 +18,7 @@
 
 // Tab constants
 const FName FPersonaTabs::MorphTargetsID("MorphTargetsTab");
+const FName FPersonaTabs::AnimCurveViewID("AnimCurveViewerTab");
 const FName FPersonaTabs::SkeletonTreeViewID("SkeletonTreeView");		//@TODO: Name
 // Skeleton Pose manager
 const FName FPersonaTabs::RetargetManagerID("RetargetManager");
@@ -40,8 +42,9 @@ const FName FPersonaTabs::PreviewManagerID("AnimPreviewSetup");		//@TODO: Name
 const FName FPersonaTabs::SkeletonAnimNotifiesID("SkeletonAnimNotifies");
 const FName FPersonaTabs::SkeletonSlotNamesID("SkeletonSlotNames");
 const FName FPersonaTabs::SkeletonSlotGroupNamesID("SkeletonSlotGroupNames");
-const FName FPersonaTabs::CurveNameManagerID("CurveNameManager");
 const FName FPersonaTabs::BlendProfileManagerID("BlendProfileManager");
+
+const FName FPersonaTabs::AdvancedPreviewSceneSettingsID("AdvancedPreviewTab");
 
 /////////////////////////////////////////////////////
 // FPersonaMode
@@ -65,21 +68,22 @@ FPersonaAppMode::FPersonaAppMode(TSharedPtr<class FPersona> InPersona, FName InM
 	PersonaTabFactories.RegisterFactory(MakeShareable(new FAnimationAssetBrowserSummoner(InPersona)));
 	PersonaTabFactories.RegisterFactory(MakeShareable(new FPreviewViewportSummoner(InPersona)));
 	PersonaTabFactories.RegisterFactory(MakeShareable(new FMorphTargetTabSummoner(InPersona)));
+	PersonaTabFactories.RegisterFactory(MakeShareable(new FAnimCurveViewerTabSummoner(InPersona)));
 	PersonaTabFactories.RegisterFactory(MakeShareable(new FSkeletonAnimNotifiesSummoner(InPersona)));
 	PersonaTabFactories.RegisterFactory(MakeShareable(new FRetargetManagerTabSummoner(InPersona)));
 	PersonaTabFactories.RegisterFactory(MakeShareable(new FSkeletonSlotNamesSummoner(InPersona)));
-	PersonaTabFactories.RegisterFactory(MakeShareable(new FSkeletonCurveNameManagerSummoner(InPersona)));
 	PersonaTabFactories.RegisterFactory(MakeShareable(new FSkeletonBlendProfilesSummoner(InPersona)));
+	PersonaTabFactories.RegisterFactory(MakeShareable(new FAdvancedPreviewSceneTabSummoner(InPersona)));
 }
 
 void FPersonaAppMode::RegisterTabFactories(TSharedPtr<FTabManager> InTabManager)
 {
-	TSharedPtr<FBlueprintEditor> BP = MyPersona.Pin();
+	TSharedPtr<FPersona> Persona = MyPersona.Pin();
 	
-	BP->RegisterToolbarTab(InTabManager.ToSharedRef());
-
 	// Mode-specific setup
-	BP->PushTabFactories(PersonaTabFactories);
+	Persona->PushTabFactories(PersonaTabFactories);
+
+	Persona->RegisterToolbarTab(InTabManager.ToSharedRef());
 }
 
 void FPersonaAppMode::PostActivateMode()
@@ -153,6 +157,29 @@ FMorphTargetTabSummoner::FMorphTargetTabSummoner(TSharedPtr<class FAssetEditorTo
 TSharedRef<SWidget> FMorphTargetTabSummoner::CreateTabBody(const FWorkflowTabSpawnInfo& Info) const
 {
 	return SNew(SMorphTargetViewer)
+		.Persona(StaticCastSharedPtr<FPersona>(HostingApp.Pin()));
+}
+/////////////////////////////////////////////////////
+// FAnimCurveViewerTabSummoner
+
+#include "SAnimCurveViewer.h"
+
+FAnimCurveViewerTabSummoner::FAnimCurveViewerTabSummoner(TSharedPtr<class FAssetEditorToolkit> InHostingApp)
+	: FWorkflowTabFactory(FPersonaTabs::AnimCurveViewID, InHostingApp)
+{
+	TabLabel = LOCTEXT("AnimCurveViewTabTitle", "Anim Curves");
+	TabIcon = FSlateIcon(FEditorStyle::GetStyleSetName(), "Persona.Tabs.AnimCurvePreviewer");
+
+	EnableTabPadding();
+	bIsSingleton = true;
+
+	ViewMenuDescription = LOCTEXT("AnimCurveTabView", "Animation Curves");
+	ViewMenuTooltip = LOCTEXT("AnimCurveTabView_ToolTip", "Shows the animation curve viewer");
+}
+
+TSharedRef<SWidget> FAnimCurveViewerTabSummoner::CreateTabBody(const FWorkflowTabSpawnInfo& Info) const
+{
+	return SNew(SAnimCurveViewer)
 		.Persona(StaticCastSharedPtr<FPersona>(HostingApp.Pin()));
 }
 
@@ -407,4 +434,30 @@ FText FAnimBlueprintParentPlayerEditorSummoner::GetTabToolTipText(const FWorkflo
 	return LOCTEXT("AnimSubClassTabToolTip", "Editor for overriding the animation assets referenced by the parent animation graph.");
 }
 
+/////////////////////////////////////////////////////
+// FAdvancedPreviewSceneTabSummoner
+
+FAdvancedPreviewSceneTabSummoner::FAdvancedPreviewSceneTabSummoner(TSharedPtr<class FAssetEditorToolkit> InHostingApp)
+	: FWorkflowTabFactory(FPersonaTabs::AdvancedPreviewSceneSettingsID, InHostingApp)
+{
+	TabLabel = LOCTEXT("PreviewSceneSettingsTab", "Preview Scene Settings");
+	TabIcon = FSlateIcon(FEditorStyle::GetStyleSetName(), "LevelEditor.Tabs.Details");	
+	bIsSingleton = true;
+	
+	ViewMenuDescription = LOCTEXT("AdvancedPreviewScene", "Preview Scene Settings");
+	ViewMenuTooltip = LOCTEXT("AdvancedPreviewScene_ToolTip", "Shows the advanced preview scene settings");
+}
+
+TSharedRef<SWidget> FAdvancedPreviewSceneTabSummoner::CreateTabBody(const FWorkflowTabSpawnInfo& Info) const
+{
+	TSharedPtr<FPersona> PersonaPtr = StaticCastSharedPtr<FPersona>(HostingApp.Pin());	
+	return SNew(SAdvancedPreviewDetailsTab).PreviewScenePtr(&(PersonaPtr->GetPreviewScene()));
+}
+
+FText FAdvancedPreviewSceneTabSummoner::GetTabToolTipText(const FWorkflowTabSpawnInfo& Info) const
+{
+	return LOCTEXT("AdvancedPreviewSettingsToolTip", "The Advanced Preview Settings tab will let you alter the preview scene's settings.");
+}
+
 #undef LOCTEXT_NAMESPACE
+

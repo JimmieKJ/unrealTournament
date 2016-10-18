@@ -11,10 +11,10 @@
 /* SSequencerLabelEditor interface
  *****************************************************************************/
 
-void SSequencerLabelEditor::Construct(const FArguments& InArgs, FSequencer& InSequencer, const FGuid& InObjectId)
+void SSequencerLabelEditor::Construct(const FArguments& InArgs, FSequencer& InSequencer, const TArray<FGuid>& InObjectIds)
 {
 	Sequencer = &InSequencer;
-	ObjectId = InObjectId;
+	ObjectIds = InObjectIds;
 
 	ChildSlot
 	[
@@ -81,7 +81,10 @@ void SSequencerLabelEditor::Construct(const FArguments& InArgs, FSequencer& InSe
 
 void SSequencerLabelEditor::CreateLabelFromFilterText()
 {
-	Sequencer->GetLabelManager().AddObjectLabel(ObjectId, FilterBox->GetText().ToString());
+	for (auto ObjectId : ObjectIds)
+	{
+		Sequencer->GetLabelManager().AddObjectLabel(ObjectId, FilterBox->GetText().ToString());
+	}
 	FilterBox->SetText(FText::GetEmpty());
 	ReloadLabelList(true);
 }
@@ -179,11 +182,17 @@ void SSequencerLabelEditor::HandleLabelListViewRowCheckedStateChanged(ECheckBoxS
 
 	if (State == ECheckBoxState::Checked)
 	{
-		LabelManager.AddObjectLabel(ObjectId, *Label);
+		for (auto ObjectId : ObjectIds)
+		{
+			LabelManager.AddObjectLabel(ObjectId, *Label);
+		}
 	}
 	else
 	{
-		LabelManager.RemoveObjectLabel(ObjectId, *Label);
+		for (auto ObjectId : ObjectIds)
+		{
+			LabelManager.RemoveObjectLabel(ObjectId, *Label);
+		}
 	}
 }
 
@@ -196,10 +205,25 @@ FText SSequencerLabelEditor::HandleLabelListViewRowHighlightText() const
 
 ECheckBoxState SSequencerLabelEditor::HandleLabelListViewRowIsChecked(TSharedPtr<FString> Label) const
 {
-	const FMovieSceneTrackLabels* Labels = Sequencer->GetLabelManager().GetObjectLabels(ObjectId);
-	return ((Labels != nullptr) && Labels->Strings.Contains(*Label))
-		? ECheckBoxState::Checked
-		: ECheckBoxState::Unchecked;
+	int32 NumChecked = 0;
+	for (auto ObjectId : ObjectIds)
+	{
+		const FMovieSceneTrackLabels* Labels = Sequencer->GetLabelManager().GetObjectLabels(ObjectId);
+		if (Labels != nullptr)
+		{
+			if (Labels->Strings.Contains(*Label))
+			{
+				++NumChecked;
+			}
+		}
+	}
+
+	if (NumChecked == ObjectIds.Num())
+	{
+		return ECheckBoxState::Checked;
+	}
+
+	return ECheckBoxState::Unchecked;
 }
 
 

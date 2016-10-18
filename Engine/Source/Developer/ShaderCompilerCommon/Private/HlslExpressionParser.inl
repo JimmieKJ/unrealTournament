@@ -461,7 +461,7 @@ namespace CrossCompiler
 
 		if (Result == EParseResult::Error && (TypeFlags & ETF_ERROR_IF_NOT_USER_TYPE))
 		{
-			Scanner.SourceError(*FString::Printf(TEXT("Unknown type '%s'!"), *Token->String));
+			Scanner.SourceError(*FString::Printf(TEXT("Unknown type '%s'!"), Token ? *Token->String : TEXT("<null>")));
 			return Result;
 		}
 

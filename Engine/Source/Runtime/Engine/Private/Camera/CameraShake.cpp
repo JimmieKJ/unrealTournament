@@ -183,8 +183,8 @@ void UCameraShake::PlayShake(APlayerCameraManager* Camera, float Scale, ECameraA
 					if (AnimInst)
 					{
 						// note: we don't have a temp camera actor necessary for evaluating a camera anim.
-						// caller is responsible in this case for providing one by calling SetCameraACtor(??) on the CamAnimInst
-						AnimInst->Play(Anim, nullptr, AnimPlayRate, FinalAnimScale, AnimBlendInTime, AnimBlendOutTime, bLoop, bRandomStart, Duration);
+						// caller is responsible in this case for providing one by calling SetTempCameraAnimActor() on the shake instance before playing the shake
+						AnimInst->Play(Anim, TempCameraActorForCameraAnims, AnimPlayRate, FinalAnimScale, AnimBlendInTime, AnimBlendOutTime, bLoop, bRandomStart, Duration);
 						AnimInst->SetPlaySpace(InPlaySpace, UserPlaySpaceRot);
 					}
 				}

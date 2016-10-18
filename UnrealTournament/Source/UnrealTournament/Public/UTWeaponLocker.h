@@ -36,11 +36,17 @@ public:
 	UPROPERTY(BlueprintReadOnly)
 	TArray<UMeshComponent*> WeaponMeshes;
 
+	UPROPERTY(BlueprintReadOnly)
+		class AUTGameVolume* MyGameVolume;
+
 	UFUNCTION(BlueprintCallable, Category = WeaponLocker)
 	void SetWeaponList(TArray<FWeaponLockerItem> InList);
 
 	UFUNCTION()
 	virtual void WeaponListUpdated();
+
+	/* Handle turning off this weapon locker due to touch by TouchedBy*/
+	virtual void DisabledByTouchBy(APawn* TouchedBy);
 
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
@@ -82,6 +88,10 @@ public:
 		}
 	}
 
-	virtual float BotDesireability_Implementation(APawn* Asker, float TotalDistance) override;
+	virtual float BotDesireability_Implementation(APawn* Asker, AController* RequestOwner, float TotalDistance) override;
 	virtual float DetourWeight_Implementation(APawn* Asker, float TotalDistance) override;
+	virtual bool IsSuperDesireable_Implementation(AController* RequestOwner, float CalculatedDesire) override
+	{
+		return false;
+	}
 };

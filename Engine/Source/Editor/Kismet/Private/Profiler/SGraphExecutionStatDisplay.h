@@ -17,6 +17,7 @@ public:
 		{}
 
 		SLATE_ARGUMENT(TWeakPtr<FBlueprintEditor>, AssetEditor)
+		SLATE_ARGUMENT(TSharedPtr<struct FBlueprintProfilerStatOptions>, DisplayOptions)
 	SLATE_END_ARGS()
 
 
@@ -50,39 +51,11 @@ protected:
 	/** Called to generate children for given profiler stat */
 	void OnGetChildren(FBPStatWidgetPtr InParent, TArray<FBPStatWidgetPtr>& OutChildren);
 
-	/** Called to evaluate the graph filter checkbox */
-	ECheckBoxState GetGraphFilterCheck() const { return bFilterEventsToGraph ? ECheckBoxState::Checked : ECheckBoxState::Unchecked; }
-
-	/** Called to update the instance filter state */
-	void OnGraphFilterCheck(ECheckBoxState NewState);
-
-	/** Called to evaluate the instance filter checkbox */
-	ECheckBoxState GetInstanceFilterCheck() const { return bDisplayInstances && bScopeToActiveDebugInstance ? ECheckBoxState::Checked : ECheckBoxState::Unchecked; }
-
-	/** Called to update the instance filter state */
-	void OnInstanceFilterCheck(ECheckBoxState NewState);
-
-	/** Called to evaluate the display instances checkbox */
-	ECheckBoxState GetDisplayByInstanceCheck() const { return bDisplayInstances ? ECheckBoxState::Checked : ECheckBoxState::Unchecked; }
-
-	/** Called to update the display instances state */
-	void OnDisplayByInstanceCheck(ECheckBoxState NewState);
-
-	/** Called to evaluate the auto expansion checkbox */
-	ECheckBoxState GetAutoExpansionCheck() const { return bAutoExpandStats ? ECheckBoxState::Checked : ECheckBoxState::Unchecked; }
-
-	/** Called to update the auto expansion state */
-	void OnAutoExpansionCheck(ECheckBoxState NewState);
-
 	/** On double click statistic */
 	void OnDoubleClickStatistic(FBPStatWidgetPtr Item);
 
 	/** On statistic expansion state changed */
 	void OnStatisticExpansionChanged(FBPStatWidgetPtr Item, bool bExpanded);
-
-	/** Auto expand statistics */
-	void AutoExpandStatistics();
-
 
 protected:
 
@@ -101,22 +74,6 @@ protected:
 	/** Current blueprint to display stats for */
 	TWeakObjectPtr<UBlueprint> CurrentBlueprint;
 
-	/** Current graph we filtered stats on */
-	TWeakObjectPtr<UEdGraph> CurrentGraph;
-
-	/** Current instance to display stats for */
-	FName CurrentInstancePath;
-
-	/** Display instances state */
-	bool bDisplayInstances;
-
-	/** Current instance filter state */
-	bool bScopeToActiveDebugInstance;
-
-	/** Current statistic expansion state */
-	bool bAutoExpandStats;
-
-	/** Filter events to graph */
-	bool bFilterEventsToGraph;
-
+	/** Current display options */
+	TSharedPtr<struct FBlueprintProfilerStatOptions> DisplayOptions;
 };

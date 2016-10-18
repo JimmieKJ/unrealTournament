@@ -6,6 +6,8 @@
 
 #include "UnrealEd.h"
 
+#include "EdGraph/EdGraphPin.h"
+
 /////////////////////////////////////////////////////
 // USoundCueGraphNode_Base
 
@@ -180,13 +182,7 @@ void USoundCueGraphNode_Base::ReconstructNode()
 		OldPin->Modify();
 		OldPin->BreakAllPinLinks();
 
-#if 0
-		UEdGraphNode::ReturnPinToPool(OldPin);
-#else
-		OldPin->Rename(NULL, GetTransientPackage(), REN_None);
-		OldPin->RemoveFromRoot();
-		OldPin->MarkPendingKill();
-#endif
+		UEdGraphNode::DestroyPin(OldPin);
 	}
 	OldPins.Empty();
 }

@@ -233,8 +233,8 @@ namespace UnrealBuildTool
 			// By default VS2015 doesn't install the C++ toolchain. Help developers out with a special message.
 			if (ProjectFileFormat == VCProjectFileFormat.VisualStudio2015)
 			{
-				string CompilerExe = Path.Combine(WindowsPlatform.GetVSComnToolsPath(WindowsCompiler.VisualStudio2015), "../../VC/bin/cl.exe");
-				if (!File.Exists(CompilerExe))
+				string ToolsPath = WindowsPlatform.GetVSComnToolsPath(WindowsCompiler.VisualStudio2015);
+				if(String.IsNullOrEmpty(ToolsPath) || !File.Exists(Path.Combine(ToolsPath, "../../VC/bin/cl.exe")))
 				{
 					Log.TraceInformation("Visual C++ 2015 toolchain does not appear to be correctly installed. Please verify that \"Common Tools for Visual C++ 2015\" was selected when installing Visual Studio 2015.");
 				}
@@ -281,19 +281,6 @@ namespace UnrealBuildTool
 						if (BuildPlatform.HasRequiredSDKsInstalled() == SDKStatus.Valid)
 						{
 							VCProjectFileFormat ProposedFormat = ProjectFileFormat;
-
-							// Visual Studio 2015 is not supported by PS4 VSI
-							if( SupportedPlatform == UnrealTargetPlatform.PS4 )
-							{
-								Log.TraceInformation("Forcing Visual Studio max version to 2013 projects for PS4 compatibility (use '-2015' to override.)");
-								ProposedFormat = VCProjectFileFormat.VisualStudio2013;
-							}
-
-							// Visual Studio 2015 is not supported by the Android debugger we currently furnish
-							if (SupportedPlatform == UnrealTargetPlatform.Android)
-							{
-								Log.TraceInformation("The default Android debugger does not support Visual Studio 2015. Please use an updated debugger or use -2013 to generate compatible project files.");
-							}
 
 							// Reduce the Visual Studio version to the max supported by each platform we plan to include.
 							if (ProposedFormat < ProjectFileFormat)
@@ -664,7 +651,7 @@ namespace UnrealBuildTool
 										!IsProgramProject && SolutionConfigCombination.TargetConfigurationName != TargetRules.TargetType.Program.ToString())
 									{
 										string TargetConfigurationName = SolutionConfigCombination.TargetConfigurationName;
-										if (IsProgramProject && TargetConfigurationName == TargetRules.TargetType.Game.ToString())
+										if (IsProgramProject)
 										{
 											TargetConfigurationName = TargetRules.TargetType.Program.ToString();
 										}

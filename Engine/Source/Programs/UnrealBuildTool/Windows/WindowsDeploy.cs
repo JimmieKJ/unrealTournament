@@ -6,8 +6,6 @@ using System.Text;
 using System.IO;
 using System.Diagnostics;
 
-// @todo UWP: this file is a work in progress and is not yet complete for the F5 scenario for UWP
-
 namespace UnrealBuildTool
 {
 	/// <summary>

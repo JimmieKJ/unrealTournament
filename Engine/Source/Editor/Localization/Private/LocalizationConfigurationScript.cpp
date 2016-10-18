@@ -168,19 +168,29 @@ namespace LocalizationConfigurationScript
 		{
 			FConfigSection& ConfigSection = Script.CommonSettings();
 
+			TArray<ULocalizationTarget*> AllLocalizationTargets;
+
+			ULocalizationTargetSet* EngineTargetSet = ULocalizationSettings::GetEngineTargetSet();
+			if (EngineTargetSet)
+			{
+				AllLocalizationTargets.Append(EngineTargetSet->TargetObjects);
+			}
+
+			// Engine targets may not depend on game targets
+			if (!Target->IsMemberOfEngineTargetSet())
+			{
+				ULocalizationTargetSet* GameTargetSet = ULocalizationSettings::GetGameTargetSet();
+				if (GameTargetSet)
+				{
+					AllLocalizationTargets.Append(GameTargetSet->TargetObjects);
+				}
+			}
+
 			const ULocalizationTargetSet* const LocalizationTargetSet = GetDefault<ULocalizationTargetSet>(ULocalizationTargetSet::StaticClass());
 			for (const FGuid& TargetDependencyGuid : Target->Settings.TargetDependencies)
 			{
-				TArray<ULocalizationTarget*> AllLocalizationTargets;
-				ULocalizationTargetSet* EngineTargetSet = ULocalizationSettings::GetEngineTargetSet();
-				if (EngineTargetSet != LocalizationTargetSet)
-				{
-					AllLocalizationTargets.Append(EngineTargetSet->TargetObjects);
-				}
-				AllLocalizationTargets.Append(LocalizationTargetSet->TargetObjects);
-
-				ULocalizationTarget* const * OtherTarget = AllLocalizationTargets.FindByPredicate([&TargetDependencyGuid](ULocalizationTarget* const InOtherTarget)->bool{return InOtherTarget->Settings.Guid == TargetDependencyGuid;});
-				if (OtherTarget)
+				const ULocalizationTarget* const * OtherTarget = AllLocalizationTargets.FindByPredicate([&TargetDependencyGuid](ULocalizationTarget* const InOtherTarget)->bool{return InOtherTarget->Settings.Guid == TargetDependencyGuid;});
+				if (OtherTarget && Target != *OtherTarget)
 				{
 					ConfigSection.Add( TEXT("ManifestDependencies"), MakePathRelativeForCommandletProcess(GetManifestPath(*OtherTarget), !Target->IsMemberOfEngineTargetSet()) );
 				}
@@ -409,7 +419,7 @@ namespace LocalizationConfigurationScript
 			// Do not use culture subdirectories if importing a single culture from a specific directory.
 			if (CultureName.IsSet() && ImportPathOverride.IsSet())
 			{
-				ConfigSection.Add( TEXT("bUseCultureDirectory"), "false" );
+				ConfigSection.Add( TEXT("bUseCultureDirectory"), TEXT("false") );
 			}
 
 			ConfigSection.Add( TEXT("ManifestName"), GetManifestFileName(Target) );
@@ -522,7 +532,7 @@ namespace LocalizationConfigurationScript
 			// Do not use culture subdirectories if exporting a single culture to a specific directory.
 			if (CultureName.IsSet() && ExportPathOverride.IsSet())
 			{
-				ConfigSection.Add( TEXT("bUseCultureDirectory"), "false" );
+				ConfigSection.Add( TEXT("bUseCultureDirectory"), TEXT("false") );
 			}
 
 			ConfigSection.Add( TEXT("ManifestName"), GetManifestFileName(Target) );
@@ -640,7 +650,7 @@ namespace LocalizationConfigurationScript
 			// Do not use culture subdirectories if importing a single culture from a specific directory.
 			if (CultureName.IsSet() && ImportPathOverride.IsSet())
 			{
-				ConfigSection.Add(TEXT("bUseCultureDirectory"), "false");
+				ConfigSection.Add(TEXT("bUseCultureDirectory"), TEXT("false"));
 			}
 
 			ConfigSection.Add(TEXT("ManifestName"), GetManifestFileName(Target));
@@ -751,7 +761,7 @@ namespace LocalizationConfigurationScript
 			// Do not use culture subdirectories if exporting a single culture to a specific directory.
 			if (CultureName.IsSet() && ExportPathOverride.IsSet())
 			{
-				ConfigSection.Add(TEXT("bUseCultureDirectory"), "false");
+				ConfigSection.Add(TEXT("bUseCultureDirectory"), TEXT("false"));
 			}
 
 			ConfigSection.Add(TEXT("ManifestName"), GetManifestFileName(Target));
@@ -933,7 +943,10 @@ namespace LocalizationConfigurationScript
 			ConfigSection.Add( TEXT("DestinationPath"), DestinationPath );
 
 			ConfigSection.Add( TEXT("ManifestName"), GetManifestFileName(Target) );
+			ConfigSection.Add( TEXT("ArchiveName"), GetArchiveFileName(Target) );
 			ConfigSection.Add( TEXT("ResourceName"), GetLocResFileName(Target) );
+
+			ConfigSection.Add( TEXT("bSkipSourceCheck"), Target->Settings.CompileSettings.SkipSourceCheck ? TEXT("true") : TEXT("false") );
 
 			if (Target->Settings.SupportedCulturesStatistics.IsValidIndex(Target->Settings.NativeCultureIndex))
 			{
@@ -1010,7 +1023,7 @@ namespace LocalizationConfigurationScript
 			ConfigSection.Add(TEXT("DestinationPath"), DestinationPath);
 
 			ConfigSection.Add(TEXT("ManifestName"), GetManifestFileName(Target));
-
+			ConfigSection.Add(TEXT("ArchiveName"), GetArchiveFileName(Target));
 			ConfigSection.Add(TEXT("ResourceName"), GetLocResFileName(Target));
 
 		}

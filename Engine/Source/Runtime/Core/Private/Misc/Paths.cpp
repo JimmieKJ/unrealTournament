@@ -7,7 +7,7 @@
 
 DEFINE_LOG_CATEGORY_STATIC(LogPaths, Log, All);
 
-
+ 
 /*-----------------------------------------------------------------------------
 	Path helpers for retrieving game dir, engine dir, etc.
 -----------------------------------------------------------------------------*/
@@ -45,10 +45,37 @@ namespace UE4Paths_Private
 
 		return Result;
 	}
+
+	FString ConvertRelativePathToFullInternal(FString&& BasePath, FString&& InPath)
+	{
+		FString FullyPathed;
+		if ( FPaths::IsRelative(InPath) )
+		{
+			FullyPathed  = MoveTemp(BasePath);
+			FullyPathed /= MoveTemp(InPath);
+		}
+		else
+		{
+			FullyPathed = MoveTemp(InPath);
+		}
+
+		FPaths::NormalizeFilename(FullyPathed);
+		FPaths::CollapseRelativeDirectories(FullyPathed);
+
+		if (FullyPathed.Len() == 0)
+		{
+			// Empty path is not absolute, and '/' is the best guess across all the platforms.
+			// This substituion is not valid for Windows of course; however CollapseRelativeDirectories() will not produce an empty
+			// absolute path on Windows as it takes care not to remove the drive letter.
+			FullyPathed = TEXT("/");
+		}
+
+		return FullyPathed;
+	}
 }
 
 bool FPaths::ShouldSaveToUserDir()
-{ 
+{
 	static bool bShouldSaveToUserDir = FApp::IsInstalled() || FParse::Param(FCommandLine::Get(), TEXT("SaveToUserDir"));
 	return bShouldSaveToUserDir;
 }
@@ -456,6 +483,19 @@ FString FPaths::GetCleanFilename(const FString& InPath)
 	return Result;
 }
 
+FString FPaths::GetCleanFilename(FString&& InPath)
+{
+	static_assert(INDEX_NONE == -1, "INDEX_NONE assumed to be -1");
+
+	int32 EndPos   = InPath.FindLastCharByPredicate(UE4Paths_Private::IsNotSlashOrBackslash) + 1;
+	int32 StartPos = InPath.FindLastCharByPredicate(UE4Paths_Private::IsSlashOrBackslash, EndPos) + 1;
+
+	InPath.RemoveAt(EndPos, InPath.Len() - EndPos, false);
+	InPath.RemoveAt(0, StartPos, false);
+
+	return MoveTemp(InPath);
+}
+
 FString FPaths::GetBaseFilename( const FString& InPath, bool bRemovePath )
 {
 	FString Wk = bRemovePath ? GetCleanFilename(InPath) : InPath;
@@ -486,6 +526,20 @@ FString FPaths::GetPath(const FString& InPath)
 	if (Pos != INDEX_NONE)
 	{
 		Result = InPath.Left(Pos);
+	}
+
+	return Result;
+}
+
+FString FPaths::GetPath(FString&& InPath)
+{
+	int32 Pos = InPath.FindLastCharByPredicate(UE4Paths_Private::IsSlashOrBackslash);
+
+	FString Result;
+	if (Pos != INDEX_NONE)
+	{
+		InPath.RemoveAt(Pos, InPath.Len() - Pos, false);
+		Result = MoveTemp(InPath);
 	}
 
 	return Result;
@@ -815,31 +869,32 @@ bool FPaths::MakePathRelativeTo( FString& InPath, const TCHAR* InRelativeTo )
 
 FString FPaths::ConvertRelativePathToFull(const FString& InPath)
 {
-	return FPaths::ConvertRelativePathToFull(FString(FPlatformProcess::BaseDir()), InPath);
+	return UE4Paths_Private::ConvertRelativePathToFullInternal(FString(FPlatformProcess::BaseDir()), FString(InPath));
+}
+
+FString FPaths::ConvertRelativePathToFull(FString&& InPath)
+{
+	return UE4Paths_Private::ConvertRelativePathToFullInternal(FString(FPlatformProcess::BaseDir()), MoveTemp(InPath));
 }
 
 FString FPaths::ConvertRelativePathToFull(const FString& BasePath, const FString& InPath)
 {
-	FString FullyPathed;
-	if ( FPaths::IsRelative(InPath) )
-	{
-		FullyPathed = BasePath;
-	}
-	
-	FullyPathed /= InPath;
+	return UE4Paths_Private::ConvertRelativePathToFullInternal(CopyTemp(BasePath), CopyTemp(InPath));
+}
 
-	FPaths::NormalizeFilename(FullyPathed);
-	FPaths::CollapseRelativeDirectories(FullyPathed);
+FString FPaths::ConvertRelativePathToFull(const FString& BasePath, FString&& InPath)
+{
+	return UE4Paths_Private::ConvertRelativePathToFullInternal(CopyTemp(BasePath), MoveTemp(InPath));
+}
 
-	if (FullyPathed.Len() == 0)
-	{
-		// Empty path is not absolute, and '/' is the best guess across all the platforms.
-		// This substituion is not valid for Windows of course; however CollapseRelativeDirectories() will not produce an empty
-		// absolute path on Windows as it takes care not to remove the drive letter.
-		FullyPathed = TEXT("/");
-	}
+FString FPaths::ConvertRelativePathToFull(FString&& BasePath, const FString& InPath)
+{
+	return UE4Paths_Private::ConvertRelativePathToFullInternal(MoveTemp(BasePath), CopyTemp(InPath));
+}
 
-	return FullyPathed;
+FString FPaths::ConvertRelativePathToFull(FString&& BasePath, FString&& InPath)
+{
+	return UE4Paths_Private::ConvertRelativePathToFullInternal(MoveTemp(BasePath), MoveTemp(InPath));
 }
 
 FString FPaths::ConvertToSandboxPath( const FString& InPath, const TCHAR* InSandboxName )

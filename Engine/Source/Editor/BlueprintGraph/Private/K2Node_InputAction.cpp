@@ -76,6 +76,12 @@ FText UK2Node_InputAction::GetTooltipText() const
 	return CachedTooltip;
 }
 
+FSlateIcon UK2Node_InputAction::GetIconAndTint(FLinearColor& OutColor) const
+{
+	static FSlateIcon Icon("EditorStyle", "GraphEditor.Event_16x");
+	return Icon;
+}
+
 bool UK2Node_InputAction::IsCompatibleWithGraph(UEdGraph const* Graph) const
 {
 	// This node expands into event nodes and must be placed in a Ubergraph
@@ -156,7 +162,7 @@ void UK2Node_InputAction::ExpandNode(FKismetCompilerContext& CompilerContext, UE
 		{			
 			UEdGraphPin *EachPin = (*PinIt).Pin;
 			// Create the input touch event
-			UK2Node_InputActionEvent* InputActionEvent = CompilerContext.SpawnIntermediateNode<UK2Node_InputActionEvent>(this, SourceGraph);
+			UK2Node_InputActionEvent* InputActionEvent = CompilerContext.SpawnIntermediateEventNode<UK2Node_InputActionEvent>(this, EachPin, SourceGraph);
 			InputActionEvent->CustomFunctionName = FName( *FString::Printf(TEXT("InpActEvt_%s_%s"), *InputActionName.ToString(), *InputActionEvent->GetName()));
 			InputActionEvent->InputActionName = InputActionName;
 			InputActionEvent->bConsumeInput = bConsumeInput;
@@ -189,7 +195,7 @@ void UK2Node_InputAction::ExpandNode(FKismetCompilerContext& CompilerContext, UE
 	
 		if (InputActionPin->LinkedTo.Num() > 0)
 		{
-			UK2Node_InputActionEvent* InputActionEvent = CompilerContext.SpawnIntermediateNode<UK2Node_InputActionEvent>(this, SourceGraph);
+			UK2Node_InputActionEvent* InputActionEvent = CompilerContext.SpawnIntermediateEventNode<UK2Node_InputActionEvent>(this, InputActionPin, SourceGraph);
 			InputActionEvent->CustomFunctionName = FName( *FString::Printf(TEXT("InpActEvt_%s_%s"), *InputActionName.ToString(), *InputActionEvent->GetName()));
 			InputActionEvent->InputActionName = InputActionName;
 			InputActionEvent->bConsumeInput = bConsumeInput;

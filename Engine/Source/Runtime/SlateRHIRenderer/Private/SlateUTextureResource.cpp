@@ -3,11 +3,36 @@
 #include "SlateRHIRendererPrivatePCH.h"
 #include "SlateUTextureResource.h"
 
+FSlateBaseUTextureResource::FSlateBaseUTextureResource(UTexture* InTexture)
+	: TextureObject(InTexture)
+{
+}
+
+FSlateBaseUTextureResource::~FSlateBaseUTextureResource()
+{
+}
+
+uint32 FSlateBaseUTextureResource::GetWidth() const
+{
+	return TextureObject->GetSurfaceWidth();
+}
+
+uint32 FSlateBaseUTextureResource::GetHeight() const
+{
+	return TextureObject->GetSurfaceHeight();
+}
+
+ESlateShaderResource::Type FSlateBaseUTextureResource::GetType() const
+{
+	return ESlateShaderResource::TextureObject;
+}
+
+
 TSharedPtr<FSlateUTextureResource> FSlateUTextureResource::NullResource = MakeShareable( new FSlateUTextureResource(nullptr) );
 
 FSlateUTextureResource::FSlateUTextureResource(UTexture* InTexture)
-	: Proxy(new FSlateShaderResourceProxy)
-	, TextureObject(InTexture)
+	: FSlateBaseUTextureResource(InTexture)
+	, Proxy(new FSlateShaderResourceProxy)
 {
 	if(TextureObject)
 	{
@@ -33,20 +58,4 @@ void FSlateUTextureResource::UpdateRenderResource(FTexture* InFTexture)
 		// the texture will continue to render using the wrong size.
 		Proxy->ActualSize = FIntPoint(InFTexture->GetSizeX(), InFTexture->GetSizeY());
 	}
-}
-
-
-uint32 FSlateUTextureResource::GetWidth() const
-{ 
-	return TextureObject->GetSurfaceWidth();
-}
-
-uint32 FSlateUTextureResource::GetHeight() const 
-{ 
-	return TextureObject->GetSurfaceHeight(); 
-}
-
-ESlateShaderResource::Type FSlateUTextureResource::GetType() const
-{ 
-	return ESlateShaderResource::TextureObject;
 }

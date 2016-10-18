@@ -21,7 +21,7 @@ void Main(
 {
 	#if USE_TRANSFORM
 		// Transform geometry to clip space
-		float3 WorldPosition = InPosition * StencilingGeometryPosAndScale.w + StencilingGeometryPosAndScale.xyz;
+		float3 WorldPosition = InPosition.xyz * StencilingGeometryPosAndScale.w + StencilingGeometryPosAndScale.xyz;
 		OutPosition = mul(float4(WorldPosition,1),View.TranslatedWorldToClip);
 	#else
 		// Pass position straight through, as geometry is defined in clip space already.

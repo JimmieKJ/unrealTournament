@@ -3,7 +3,7 @@
 #include "SizeMapModule.h"
 #include "SizeMapActions.h"
 
-#define LOCTEXT_NAMESPACE ""
+#define LOCTEXT_NAMESPACE "SizeMapActions"
 
 void FSizeMapActions::RegisterCommands()
 {

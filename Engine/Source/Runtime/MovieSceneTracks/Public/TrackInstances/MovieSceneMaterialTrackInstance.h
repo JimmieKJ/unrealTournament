@@ -12,7 +12,7 @@ class UMovieSceneComponentMaterialTrack;
 /**
  * A movie scene track instance for material tracks.
  */
-class FMovieSceneMaterialTrackInstance
+class MOVIESCENETRACKS_API FMovieSceneMaterialTrackInstance
 	: public IMovieSceneTrackInstance
 {
 public:

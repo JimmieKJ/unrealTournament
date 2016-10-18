@@ -20,7 +20,9 @@ enum ELauncherVersion
 	LAUNCHERSERVICES_FIXCOMPRESSIONSERIALIZE=20,
 	LAUNCHERSERVICES_SHAREABLEPROJECTPATHS = 21,
 	LAUNCHERSERVICES_FILEFORMATCHANGE = 22,
-
+	LAUNCHERSERVICES_ADDARCHIVE = 23,
+	LAUNCHERSERVICES_ADDEDENCRYPTINIFILES = 24,
+	
 	//ADD NEW STUFF HERE
 
 
@@ -563,6 +565,16 @@ public:
 		return PackageDir;
 	}
 
+	virtual bool IsArchiving( ) const override
+	{
+		return bArchive;
+	}
+
+	virtual FString GetArchiveDirectory( ) const override
+	{
+		return ArchiveDir;
+	}
+
 	virtual bool HasProjectSpecified() const override
 	{
 		return ProjectSpecified;
@@ -638,6 +650,16 @@ public:
 	virtual bool IsCompressed() const override
 	{
 		return Compressed;
+	}
+
+	virtual bool IsEncryptingIniFiles() const override
+	{
+		return EncryptIniFiles;
+	}
+
+	virtual bool IsForDistribution() const override
+	{
+		return ForDistribution;
 	}
 
 	virtual bool IsCookingUnversioned( ) const override
@@ -793,6 +815,11 @@ public:
 		{
 			Archive << Compressed;
 		}
+		if ( Version>= LAUNCHERSERVICES_ADDEDENCRYPTINIFILES)
+		{
+			Archive << EncryptIniFiles;
+			Archive << ForDistribution;
+		}
 		if (Version >= LAUNCHERSERVICES_ADDEDDEFAULTDEPLOYPLATFORM)
 		{
 			Archive << DeployPlatformString;
@@ -839,6 +866,11 @@ public:
 			Archive << bGenerateHttpChunkData;
 			Archive << HttpChunkDataDirectory;
 			Archive << HttpChunkDataReleaseName;
+		}
+		if (Version >= LAUNCHERSERVICES_ADDARCHIVE)
+		{
+			Archive << bArchive;
+			Archive << ArchiveDir;
 		}
 		
 		DefaultLaunchRole->Serialize(Archive);
@@ -953,6 +985,8 @@ public:
 		Writer.WriteValue("ForceClose", ForceClose);
 		Writer.WriteValue("Timeout", (int32)Timeout);
 		Writer.WriteValue("Compressed", Compressed);
+		Writer.WriteValue("EncryptIniFiles", EncryptIniFiles);
+		Writer.WriteValue("ForDistribution", ForDistribution);
 		Writer.WriteValue("DeployPlatform", DefaultDeployPlatform.ToString());
 		Writer.WriteValue("NumCookersToSpawn", NumCookersToSpawn);
 		Writer.WriteValue("SkipCookingEditorContent", bSkipCookingEditorContent);
@@ -968,6 +1002,8 @@ public:
 		Writer.WriteValue("GenerateHttpChunkData", bGenerateHttpChunkData);
 		Writer.WriteValue("HttpChunkDataDirectory", HttpChunkDataDirectory);
 		Writer.WriteValue("HttpChunkDataReleaseName", HttpChunkDataReleaseName);
+		Writer.WriteValue("Archive", bArchive);
+		Writer.WriteValue("ArchiveDirectory", ArchiveDir);
 
 		// serialize the default launch role
 		DefaultLaunchRole->Save(Writer, TEXT("DefaultRole"));
@@ -1186,6 +1222,12 @@ public:
 					Writer.WriteValue("chunkinstallversion", GetHttpChunkDataReleaseName());
 				}
 
+				if (IsArchiving())
+				{
+					Writer.WriteValue("archive", true);
+					Writer.WriteValue("archivedirectory", GetArchiveDirectory());
+				}
+
 				if (GetNumCookersToSpawn() > 0)
 				{
 					Writer.WriteValue("numcookerstospawn", GetNumCookersToSpawn());
@@ -1226,6 +1268,8 @@ public:
 		Writer.WriteValue("iterativecooking", IsCookingIncrementally());
 		Writer.WriteValue("skipcookingeditorcontent", GetSkipCookingEditorContent());
 		Writer.WriteValue("compressed", IsCompressed());
+		Writer.WriteValue("EncryptIniFiles", IsEncryptingIniFiles());
+		Writer.WriteValue("ForDistribution", IsForDistribution());
 
 		// stage/package/deploy
 		if (GetDeploymentMode() != ELauncherProfileDeploymentModes::DoNotDeploy)
@@ -1550,6 +1594,18 @@ public:
 		ForceClose = Object.GetBoolField("ForceClose");
 		Timeout = (uint32)Object.GetNumberField("Timeout");
 		Compressed = Object.GetBoolField("Compressed");
+
+		if (Version >= LAUNCHERSERVICES_ADDEDENCRYPTINIFILES)
+		{
+			EncryptIniFiles = Object.GetBoolField("EncryptIniFiles");
+			ForDistribution = Object.GetBoolField("ForDistribution");
+		}
+		else
+		{
+			EncryptIniFiles = false;
+			ForDistribution = false;
+		}
+
 		DefaultDeployPlatform = *(Object.GetStringField("DeployPlatform"));
 		NumCookersToSpawn = (int32)Object.GetNumberField("NumCookersToSpawn");
 		bSkipCookingEditorContent = Object.GetBoolField("SkipCookingEditorContent");
@@ -1565,6 +1621,17 @@ public:
 		bGenerateHttpChunkData = Object.GetBoolField("GenerateHttpChunkData");
 		HttpChunkDataDirectory = Object.GetStringField("HttpChunkDataDirectory");
 		HttpChunkDataReleaseName = Object.GetStringField("HttpChunkDataReleaseName");
+
+		if (Version >= LAUNCHERSERVICES_ADDARCHIVE)
+		{
+			bArchive = Object.GetBoolField("Archive");
+			ArchiveDir = Object.GetStringField("ArchiveDirectory");
+		}
+		else
+		{
+			bArchive = false;
+			ArchiveDir = TEXT("");
+		}
 
 		// load the default launch role
 		TSharedPtr<FJsonObject> Role = Object.GetObjectField("DefaultRole");
@@ -1634,6 +1701,8 @@ public:
 		CookIncremental = false;
 		CookUnversioned = true;
 		Compressed = true;
+		EncryptIniFiles = false;
+		ForDistribution = false;
 		CookedCultures.Reset();
 		CookedCultures.Add(I18N.GetCurrentCulture()->GetName());
 		CookedMaps.Reset();
@@ -1647,6 +1716,9 @@ public:
 		{
 			CookedPlatforms.Add(GetTargetPlatformManager()->GetRunningTargetPlatform()->PlatformName());
 		}*/	
+
+		bArchive = false;
+		ArchiveDir = TEXT("");
 
 		// default deploy settings
 		DeployedDeviceGroup.Reset();
@@ -1916,6 +1988,26 @@ public:
 		}
 	}
 
+	virtual void SetForDistribution(bool Enabled)override
+	{
+		if (ForDistribution != Enabled)
+		{
+			ForDistribution = Enabled;
+
+			Validate();
+		}
+	}
+
+	virtual void SetEncryptingIniFiles(bool Enabled) override
+	{
+		if (EncryptIniFiles != Enabled)
+		{
+			EncryptIniFiles = Enabled;
+
+			Validate();
+		}
+	}
+
 	virtual void SetIncrementalDeploying( bool Incremental ) override
 	{
 		if (DeployIncremental != Incremental)
@@ -1976,6 +2068,26 @@ public:
 		if (PackageDir != Dir)
 		{
 			PackageDir = Dir;
+
+			Validate();
+		}
+	}
+
+	virtual void SetArchive( bool bInArchive ) override
+	{
+		if (bInArchive != bArchive)
+		{
+			bArchive = bInArchive;
+
+			Validate();
+		}
+	}
+
+	virtual void SetArchiveDirectory( const FString& Dir ) override
+	{
+		if (ArchiveDir != Dir)
+		{
+			ArchiveDir = Dir;
 
 			Validate();
 		}
@@ -2189,7 +2301,7 @@ protected:
 			ValidationErrors.Add(ELauncherProfileValidationErrors::GeneratingChunksRequiresUnrealPak);
 		}
 
-		if (IsGenerateHttpChunkData() && !IsGeneratingChunks())
+		if (IsGenerateHttpChunkData() && !IsGeneratingChunks() && !IsCreatingDLC())
 		{
 			ValidationErrors.Add(ELauncherProfileValidationErrors::GeneratingHttpChunkDataRequiresGeneratingChunks);
 		}
@@ -2200,7 +2312,7 @@ protected:
 		}
 
 		// Launch: when launching, all devices that the build is launched on must have content cooked for their platform
-		if ((LaunchMode != ELauncherProfileLaunchModes::DoNotLaunch) && (CookMode != ELauncherProfileCookModes::OnTheFly || CookMode != ELauncherProfileCookModes::OnTheFlyInEditor))
+		if (LaunchMode != ELauncherProfileLaunchModes::DoNotLaunch && CookMode != ELauncherProfileCookModes::OnTheFly && CookMode != ELauncherProfileCookModes::OnTheFlyInEditor)
 		{
 			// @todo ensure that launched devices have cooked content
 		}
@@ -2215,6 +2327,26 @@ protected:
 
 		}
 
+		
+
+		if (CookMode == ELauncherProfileCookModes::OnTheFly)
+		{
+
+			for (auto const& CookedPlatform : CookedPlatforms)
+			{
+				if (CookedPlatform.Contains("Server"))
+				{
+					ValidationErrors.Add(ELauncherProfileValidationErrors::CookOnTheFlyDoesntSupportServer);
+				}
+			}
+			
+
+		}
+
+		if (bArchive && ArchiveDir.IsEmpty())
+		{
+			ValidationErrors.Add(ELauncherProfileValidationErrors::NoArchiveDirectorySpecified);
+		}
 
 		ValidatePlatformSDKs();
 	}
@@ -2324,6 +2456,10 @@ private:
 	// Generate compressed content
 	bool Compressed;
 
+	// encrypt ini files in the pak file
+	bool EncryptIniFiles;
+	// is this build for distribution
+	bool ForDistribution;
 	// Holds a flag indicating whether only modified content should be cooked.
 	bool CookIncremental;
 
@@ -2430,6 +2566,12 @@ private:
 
 	// Holds the package directory
 	FString PackageDir;
+
+	// Whether to run archive step	
+	bool bArchive;
+
+	// Holds the archive directory
+	FString ArchiveDir;
 
 	// Holds a flag indicating whether the project is specified by this profile.
 	bool ProjectSpecified;

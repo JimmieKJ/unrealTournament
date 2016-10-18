@@ -2,6 +2,8 @@
 #include "UnrealTournament.h"
 #include "UTGameplayStatics.h"
 #include "Runtime/Engine/Classes/Engine/DemoNetDriver.h"
+#include "PhysicsEngine/PhysicsSettings.h"
+#include "UTAnalytics.h"
 
 void UUTGameplayStatics::UTPlaySound(UWorld* TheWorld, USoundBase* TheSound, AActor* SourceActor, ESoundReplicationType RepType, bool bStopWhenOwnerDestroyed, const FVector& SoundLoc, AUTPlayerController* AmpedListener, APawn* Instigator, bool bNotifyAI, ESoundAmplificationType AmpType)
 {
@@ -102,7 +104,7 @@ void UUTGameplayStatics::UTPlaySound(UWorld* TheWorld, USoundBase* TheSound, AAc
 				{
 					Instigator = Cast<APawn>(SourceActor);
 				}
-				if (Instigator != NULL)
+				if (Instigator != NULL && Instigator->Controller != NULL)
 				{
 					// note: all sound attenuation treated as a sphere
 					float Radius = TheSound->GetMaxAudibleDistance();
@@ -669,7 +671,7 @@ class UAudioComponent* UUTGameplayStatics::PlaySoundTeamAdjusted(USoundCue* Soun
 
 		if (Attached)
 		{
-			AudioComponent->AttachTo(SoundTarget->GetRootComponent());
+			AudioComponent->AttachToComponent(SoundTarget->GetRootComponent(), FAttachmentTransformRules::KeepRelativeTransform);
 		}
 		else
 		{
@@ -897,5 +899,30 @@ bool UUTGameplayStatics::IsPlayInEditor(UObject* WorldContextObject)
 	else
 	{
 		return World->IsPlayInEditor();
+	}
+}
+
+void UUTGameplayStatics::RecordEvent_UTTutorialStarted(AUTPlayerController* UTPC, FString TutorialMap)
+{
+	if (FUTAnalytics::IsAvailable())
+	{
+		FUTAnalytics::FireEvent_UTTutorialStarted(UTPC,TutorialMap);
+	}
+}
+
+
+void UUTGameplayStatics::RecordEvent_UTTutorialCompleted(FString TutorialMap)
+{
+	if (FUTAnalytics::IsAvailable())
+	{
+		FUTAnalytics::FireEvent_UTTutorialCompleted(TutorialMap);
+	}
+}
+
+void UUTGameplayStatics::RecordEvent_UTTutorialPlayInstruction(int32 InstructionID)
+{
+	if (FUTAnalytics::IsAvailable())
+	{
+		FUTAnalytics::FireEvent_UTTutorialPlayInstruction(InstructionID);
 	}
 }

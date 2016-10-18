@@ -80,7 +80,7 @@ CORE_API void TrackSlack(int32 NumElements, int32 NumAllocatedElements, SIZE_T B
 FORCEINLINE int32 DefaultCalculateSlackShrink(int32 NumElements, int32 NumAllocatedElements, SIZE_T BytesPerElement, bool bAllowQuantize, uint32 Alignment = DEFAULT_ALIGNMENT)
 {
 	int32 Retval;
-	check(NumElements < NumAllocatedElements);
+	checkSlow(NumElements < NumAllocatedElements);
 
 	// If the container has too much slack, shrink it to exactly fit the number of elements.
 	const uint32 CurrentSlackElements = NumAllocatedElements - NumElements;
@@ -111,7 +111,7 @@ FORCEINLINE int32 DefaultCalculateSlackShrink(int32 NumElements, int32 NumAlloca
 FORCEINLINE int32 DefaultCalculateSlackGrow(int32 NumElements, int32 NumAllocatedElements, SIZE_T BytesPerElement, bool bAllowQuantize, uint32 Alignment = DEFAULT_ALIGNMENT)
 {
 	int32 Retval;
-	check(NumElements > NumAllocatedElements && NumElements > 0);
+	checkSlow(NumElements > NumAllocatedElements && NumElements > 0);
 
 	SIZE_T Grow = 4; // this is the amount for the first alloc
 	if (NumAllocatedElements || SIZE_T(NumElements) > Grow)
@@ -142,7 +142,7 @@ FORCEINLINE int32 DefaultCalculateSlackGrow(int32 NumElements, int32 NumAllocate
 FORCEINLINE int32 DefaultCalculateSlackReserve(int32 NumElements, SIZE_T BytesPerElement, bool bAllowQuantize, uint32 Alignment = DEFAULT_ALIGNMENT)
 {
 	int32 Retval = NumElements;
-	check(NumElements > 0);
+	checkSlow(NumElements > 0);
 	if (bAllowQuantize)
 	{
 		Retval = FMemory::QuantizeSize(SIZE_T(Retval) * SIZE_T(BytesPerElement), Alignment) / BytesPerElement;
@@ -340,7 +340,7 @@ public:
 		 */
 		FORCEINLINE void MoveToEmpty(ForAnyElementType& Other)
 		{
-			check(this != &Other);
+			checkSlow(this != &Other);
 
 			if (Data)
 			{
@@ -467,7 +467,7 @@ public:
 		 */
 		FORCEINLINE void MoveToEmpty(ForAnyElementType& Other)
 		{
-			check(this != &Other);
+			checkSlow(this != &Other);
 
 			if (Data)
 			{
@@ -587,7 +587,7 @@ public:
 		 */
 		FORCEINLINE void MoveToEmpty(ForElementType& Other)
 		{
-			check(this != &Other);
+			checkSlow(this != &Other);
 
 			if (!Other.SecondaryData.GetAllocation())
 			{
@@ -725,7 +725,7 @@ public:
 		 */
 		FORCEINLINE void MoveToEmpty(ForElementType& Other)
 		{
-			check(this != &Other);
+			checkSlow(this != &Other);
 
 			// Relocate objects from other inline storage
 			RelocateConstructItems<ElementType>((void*)InlineData, Other.GetInlineElements(), NumInlineElements);
@@ -740,25 +740,25 @@ public:
 		void ResizeAllocation(int32 PreviousNumElements,int32 NumElements,SIZE_T NumBytesPerElement)
 		{
 			// Ensure the requested allocation will fit in the inline data area.
-			check(NumElements <= NumInlineElements);
+			checkSlow(NumElements <= NumInlineElements);
 		}
 
 		FORCEINLINE int32 CalculateSlackReserve(int32 NumElements, SIZE_T NumBytesPerElement) const
 		{
 			// Ensure the requested allocation will fit in the inline data area.
-			check(NumElements <= NumInlineElements);
+			checkSlow(NumElements <= NumInlineElements);
 			return NumInlineElements;
 		}
 		FORCEINLINE int32 CalculateSlackShrink(int32 NumElements, int32 NumAllocatedElements, int32 NumBytesPerElement) const
 		{
 			// Ensure the requested allocation will fit in the inline data area.
-			check(NumAllocatedElements <= NumInlineElements);
+			checkSlow(NumAllocatedElements <= NumInlineElements);
 			return NumInlineElements;
 		}
 		FORCEINLINE int32 CalculateSlackGrow(int32 NumElements, int32 NumAllocatedElements, int32 NumBytesPerElement) const
 		{
 			// Ensure the requested allocation will fit in the inline data area.
-			check(NumElements <= NumInlineElements);
+			checkSlow(NumElements <= NumInlineElements);
 			return NumInlineElements;
 		}
 

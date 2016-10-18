@@ -237,7 +237,7 @@ void FRCPassPostProcessCompositeEditorPrimitives::Process(FRenderingCompositePas
 		}
 		else
 		{
-			RenderPrimitivesToComposite<FBasePassForwardOpaqueDrawingPolicyFactory>(Context.RHICmdList, View);
+			RenderPrimitivesToComposite<FMobileBasePassOpaqueDrawingPolicyFactory>(Context.RHICmdList, View);
 		}
 
 		GRenderTargetPool.VisualizeTexture.SetCheckPoint(Context.RHICmdList, SceneContext.EditorPrimitivesColor);
@@ -334,7 +334,7 @@ void FRCPassPostProcessCompositeEditorPrimitives::RenderPrimitivesToComposite(FR
 	{
 		const FMeshBatchAndRelevance& MeshBatchAndRelevance = View.DynamicEditorMeshElements[MeshBatchIndex];
 
-		if (MeshBatchAndRelevance.bHasOpaqueOrMaskedMaterial || View.Family->EngineShowFlags.Wireframe)
+		if (MeshBatchAndRelevance.GetHasOpaqueOrMaskedMaterial() || View.Family->EngineShowFlags.Wireframe)
 		{
 			const FMeshBatch& MeshBatch = *MeshBatchAndRelevance.Mesh;
 			TBasePass::DrawDynamicMesh(RHICmdList, View, Context, MeshBatch, false, true, MeshBatchAndRelevance.PrimitiveSceneProxy, MeshBatch.BatchHitProxyId);

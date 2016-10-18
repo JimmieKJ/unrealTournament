@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "IAnalyticsProvider.h"
+
 class FAnalyticsProviderFlurry :
 	public IAnalyticsProvider
 {

@@ -49,4 +49,6 @@ private:
 
 	// Holds a pointer to the data model.
 	FProjectLauncherModelPtr Model;
+
+	TSharedPtr<SProjectLauncherPackagingSettings> ProjectLauncherPackagingSettings;
 };

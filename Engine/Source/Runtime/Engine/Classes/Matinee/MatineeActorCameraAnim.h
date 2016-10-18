@@ -23,10 +23,5 @@ class AMatineeActorCameraAnim : public AMatineeActor
 	{ 
 		return false; 
 	}
-
-	virtual bool NeedsLoadForServer() const override
-	{ 
-		return false;
-	}
 	//~ End UObject Interface
 };

@@ -92,7 +92,7 @@ void FBatchedElements::AddTranslucentLine(const FVector& Start, const FVector& E
 		ThickLine->HitProxyId = HitProxyId;
 		ThickLine->DepthBias = DepthBias;
 		ThickLine->bScreenSpace = bScreenSpace;
-		
+
 	}
 }
 
@@ -134,6 +134,9 @@ void FBatchedElements::AddTriangle(int32 V0,int32 V1,int32 V2,const FTexture* Te
 		break;
 	case BLEND_Modulate:
 		SimpleElementBlendMode = SE_BLEND_Modulate; 
+		break;
+	case BLEND_AlphaComposite:
+		SimpleElementBlendMode = SE_BLEND_AlphaComposite;
 		break;
 	};	
 	AddTriangle(V0,V1,V2,Texture,SimpleElementBlendMode);
@@ -224,6 +227,11 @@ void FBatchedElements::AddReserveVertices(int32 NumMeshVerts)
 	MeshVertices.Reserve( MeshVertices.Num() + NumMeshVerts );
 }
 
+void FBatchedElements::ReserveVertices(int32 NumMeshVerts)
+{
+	MeshVertices.Reserve( NumMeshVerts );
+}
+
 /** 
  * Reserves space in line vertex array
  * 
@@ -272,6 +280,22 @@ void FBatchedElements::AddReserveTriangles(int32 NumMeshTriangles,const FTexture
 			break;
 		}
 	}	
+}
+
+void FBatchedElements::ReserveTriangles(int32 NumMeshTriangles, const FTexture* Texture, ESimpleElementBlendMode BlendMode)
+{
+	for (int32 MeshIndex = 0; MeshIndex < MeshElements.Num(); MeshIndex++)
+	{
+		FBatchedMeshElement& CurMeshElement = MeshElements[MeshIndex];
+		if (CurMeshElement.Texture == Texture &&
+		   CurMeshElement.BatchedElementParameters.GetReference() == NULL &&
+		   CurMeshElement.BlendMode == BlendMode &&
+		   (CurMeshElement.Indices.Num()+3) < MaxMeshIndicesAllowed)
+		{
+			CurMeshElement.Indices.Reserve( NumMeshTriangles );
+			break;
+		}
+	}
 }
 
 void FBatchedElements::AddSprite(
@@ -771,6 +795,11 @@ void FBatchedElements::DrawPointElements(FRHICommandList& RHICmdList, const FMat
 
 bool FBatchedElements::Draw(FRHICommandList& RHICmdList, ERHIFeatureLevel::Type FeatureLevel, bool bNeedToSwitchVerticalAxis, const FMatrix& Transform, uint32 ViewportSizeX, uint32 ViewportSizeY, bool bHitTesting, float Gamma, const FSceneView* View, FTexture2DRHIRef DepthTexture, EBlendModeFilter::Type Filter) const
 {
+	if (UNLIKELY(!FApp::CanEverRender()))
+	{
+		return false;
+	}
+
 	if( HasPrimsToDraw() )
 	{
 		FMatrix InvTransform = Transform.Inverse();
@@ -810,49 +839,6 @@ bool FBatchedElements::Draw(FRHICommandList& RHICmdList, ERHIFeatureLevel::Type 
 
 			// Draw points
 			DrawPointElements(RHICmdList, Transform, ViewportSizeX, ViewportSizeY, CameraX, CameraY);
-
-			// Draw the wireframe triangles.
-			if (WireTris.Num() > 0)
-			{
-				check(WireTriVerts.Num() == WireTris.Num() * 3);
-
-				const bool bEnableMSAA = true;
-				const bool bEnableLineAA = false;
-				FRasterizerStateInitializerRHI Initializer = { FM_Wireframe, CM_None, 0, 0, bEnableMSAA, bEnableLineAA };
-
-				int32 MaxVerticesAllowed = ((GDrawUPVertexCheckCount / sizeof(FSimpleElementVertex)) / 3) * 3;
-				/*
-				hack to avoid a crash when trying to render large numbers of line segments.
-				*/
-				MaxVerticesAllowed = FMath::Min(MaxVerticesAllowed, 64 * 1024);
-
-				const int32 MaxTrisAllowed = MaxVerticesAllowed / 3;
-
-				int32 MinTri = 0;
-				int32 TotalTris = WireTris.Num();
-				while (MinTri < TotalTris)
-				{
-					int32 MaxTri = FMath::Min(MinTri + MaxTrisAllowed, TotalTris);
-					float DepthBias = WireTris[MinTri].DepthBias;
-					for (int32 i = MinTri + 1; i < MaxTri; ++i)
-					{
-						if (DepthBias != WireTris[i].DepthBias)
-						{
-							MaxTri = i;
-							break;
-						}
-					}
-
-					Initializer.DepthBias = DepthBias;
-					RHICmdList.SetRasterizerState(RHICreateRasterizerState(Initializer).GetReference());
-
-					int32 NumTris = MaxTri - MinTri;
-					DrawPrimitiveUP(RHICmdList, PT_TriangleList, NumTris, &WireTriVerts[MinTri * 3], sizeof(FSimpleElementVertex));
-					MinTri = MaxTri;
-				}
-
-				RHICmdList.SetRasterizerState(TStaticRasterizerState<FM_Solid, CM_None>::GetRHI());
-			}
 
 			if ( ThickLines.Num() > 0 )
 			{
@@ -962,6 +948,48 @@ bool FBatchedElements::Draw(FRHICommandList& RHICmdList, ERHIFeatureLevel::Type 
 						ThickVertices += 24;
 					}
 					RHICmdList.EndDrawPrimitiveUP();
+				}
+
+				RHICmdList.SetRasterizerState(TStaticRasterizerState<FM_Solid, CM_None>::GetRHI());
+			}
+			// Draw the wireframe triangles.
+			if (WireTris.Num() > 0)
+			{
+				check(WireTriVerts.Num() == WireTris.Num() * 3);
+
+				const bool bEnableMSAA = true;
+				const bool bEnableLineAA = false;
+				FRasterizerStateInitializerRHI Initializer = { FM_Wireframe, CM_None, 0, 0, bEnableMSAA, bEnableLineAA };
+
+				int32 MaxVerticesAllowed = ((GDrawUPVertexCheckCount / sizeof(FSimpleElementVertex)) / 3) * 3;
+				/*
+				hack to avoid a crash when trying to render large numbers of line segments.
+				*/
+				MaxVerticesAllowed = FMath::Min(MaxVerticesAllowed, 64 * 1024);
+
+				const int32 MaxTrisAllowed = MaxVerticesAllowed / 3;
+
+				int32 MinTri=0;
+				int32 TotalTris = WireTris.Num();
+				while( MinTri < TotalTris )
+				{
+					int32 MaxTri = FMath::Min(MinTri + MaxTrisAllowed, TotalTris);
+					float DepthBias = WireTris[MinTri].DepthBias;
+					for (int32 i = MinTri + 1; i < MaxTri; ++i)
+					{
+						if (DepthBias != WireTris[i].DepthBias)
+						{
+							MaxTri = i;
+							break;
+						}
+					}
+
+					Initializer.DepthBias = DepthBias;
+					RHICmdList.SetRasterizerState(RHICreateRasterizerState(Initializer).GetReference());
+
+					int32 NumTris = MaxTri - MinTri;
+					DrawPrimitiveUP(RHICmdList, PT_TriangleList, NumTris, &WireTriVerts[MinTri * 3], sizeof(FSimpleElementVertex));
+					MinTri = MaxTri;
 				}
 
 				RHICmdList.SetRasterizerState(TStaticRasterizerState<FM_Solid, CM_None>::GetRHI());

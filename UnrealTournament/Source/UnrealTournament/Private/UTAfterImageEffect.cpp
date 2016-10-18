@@ -2,6 +2,7 @@
 #include "UnrealTournament.h"
 #include "UTAfterImageEffect.h"
 #include "UnrealNetwork.h"
+#include "Animation/AnimInstance.h"
 
 void AUTAfterImageEffect::OnRep_Instigator()
 {

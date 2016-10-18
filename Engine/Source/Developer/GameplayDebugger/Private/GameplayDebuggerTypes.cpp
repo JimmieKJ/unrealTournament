@@ -2,6 +2,7 @@
 
 #include "GameplayDebuggerPrivatePCH.h"
 #include "GameplayDebuggerTypes.h"
+#include "GameplayDebuggerConfig.h"
 #include "DrawDebugHelpers.h"
 #include "Engine/Canvas.h"
 #include "Engine/Font.h"
@@ -735,4 +736,37 @@ FString FGameplayDebuggerInputHandler::ToString() const
 	}
 
 	return KeyDesc;
+}
+
+//////////////////////////////////////////////////////////////////////////
+// FGameplayDebuggerInputHandlerConfig
+
+FName FGameplayDebuggerInputHandlerConfig::CurrentCategoryName;
+FName FGameplayDebuggerInputHandlerConfig::CurrentExtensionName;
+
+FGameplayDebuggerInputHandlerConfig::FGameplayDebuggerInputHandlerConfig(const FName ConfigName, const FName DefaultKeyName)
+{
+	KeyName = DefaultKeyName;
+	UpdateConfig(ConfigName);
+}
+
+FGameplayDebuggerInputHandlerConfig::FGameplayDebuggerInputHandlerConfig(const FName ConfigName, const FName DefaultKeyName, const FGameplayDebuggerInputModifier& DefaultModifier)
+{
+	KeyName = DefaultKeyName;
+	Modifier = DefaultModifier;
+	UpdateConfig(ConfigName);
+}
+
+void FGameplayDebuggerInputHandlerConfig::UpdateConfig(const FName ConfigName)
+{
+	if (FGameplayDebuggerInputHandlerConfig::CurrentCategoryName != NAME_None)
+	{
+		UGameplayDebuggerConfig* MutableToolConfig = UGameplayDebuggerConfig::StaticClass()->GetDefaultObject<UGameplayDebuggerConfig>();
+		MutableToolConfig->UpdateCategoryInputConfig(FGameplayDebuggerInputHandlerConfig::CurrentCategoryName, ConfigName, KeyName, Modifier);
+	}
+	else if (FGameplayDebuggerInputHandlerConfig::CurrentExtensionName != NAME_None)
+	{
+		UGameplayDebuggerConfig* MutableToolConfig = UGameplayDebuggerConfig::StaticClass()->GetDefaultObject<UGameplayDebuggerConfig>();
+		MutableToolConfig->UpdateExtensionInputConfig(FGameplayDebuggerInputHandlerConfig::CurrentExtensionName, ConfigName, KeyName, Modifier);
+	}
 }

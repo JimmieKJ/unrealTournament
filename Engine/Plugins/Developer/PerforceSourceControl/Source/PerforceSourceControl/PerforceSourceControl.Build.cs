@@ -24,6 +24,7 @@ public class PerforceSourceControl : ModuleRules
 		if (Target.Platform == UnrealTargetPlatform.Win64 || Target.Platform == UnrealTargetPlatform.Mac)
 		{
 			AddEngineThirdPartyPrivateStaticDependencies(Target, "OpenSSL");
+            AddEngineThirdPartyPrivateStaticDependencies(Target, "zlib");
 		}
 	}
 }

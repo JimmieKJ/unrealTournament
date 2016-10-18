@@ -7,6 +7,8 @@
 #include "RawMesh.h"
 #include "MeshMergingTool/MeshMergingTool.h"
 
+#include "IDetailsView.h"
+
 #define LOCTEXT_NAMESPACE "SMeshMergingDialog"
 
 //////////////////////////////////////////////////////////////////////////
@@ -14,425 +16,159 @@
 
 SMeshMergingDialog::SMeshMergingDialog()
 {
+	bRefreshListView = false;
+	NumSelectedMeshComponents = 0;
+}
+
+SMeshMergingDialog::~SMeshMergingDialog()
+{
+	// Remove all delegates
+	USelection::SelectionChangedEvent.RemoveAll(this);
+	USelection::SelectObjectEvent.RemoveAll(this);	
+	FEditorDelegates::MapChange.RemoveAll(this);
+	FEditorDelegates::NewCurrentLevel.RemoveAll(this);
 }
 
 BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
 void SMeshMergingDialog::Construct(const FArguments& InArgs, FMeshMergingTool* InTool)
 {
+	checkf(InTool != nullptr, TEXT("Invalid owner tool supplied"));
 	Tool = InTool;
-	check(Tool != nullptr);
 
-	// Setup available resolutions for lightmap and merged materials
-	const int32 MinTexResolution = 1 << FTextureLODGroup().MinLODMipCount;
-	const int32 MaxTexResolution = 1 << FTextureLODGroup().MaxLODMipCount;
-	for (int32 TexRes = MinTexResolution; TexRes <= MaxTexResolution; TexRes*=2)
-	{
-		LightMapResolutionOptions.Add(MakeShareable(new FString(TTypeToString<int32>::ToString(TexRes))));
-		MergedMaterialResolutionOptions.Add(MakeShareable(new FString(TTypeToString<int32>::ToString(TexRes))));
-	}
-
-	Tool->MergingSettings.TargetLightMapResolution = FMath::Clamp(Tool->MergingSettings.TargetLightMapResolution, MinTexResolution, MaxTexResolution);
-	Tool->MergingSettings.MaterialSettings.TextureSize.X = FMath::Clamp(Tool->MergingSettings.MaterialSettings.TextureSize.X, MinTexResolution, MaxTexResolution);
-	Tool->MergingSettings.MaterialSettings.TextureSize.Y = FMath::Clamp(Tool->MergingSettings.MaterialSettings.TextureSize.Y, MinTexResolution, MaxTexResolution);
-		
-	// Setup available UV channels for an atlased lightmap
-	for (int32 Index = 0; Index < MAX_MESH_TEXTURE_COORDS; Index++)
-	{
-		LightMapChannelOptions.Add(MakeShareable(new FString(TTypeToString<int32>::ToString(Index))));
-	}
-
-	for (int32 Index = 0; Index < MAX_STATIC_MESH_LODS; Index++)
-	{
-		ExportLODOptions.Add(MakeShareable(new FString(TTypeToString<int32>::ToString(Index))));
-	}
-
+	NumSelectedMeshComponents = 0;
+	UpdateSelectedStaticMeshComponents();
+	CreateSettingsView();
+	
 	// Create widget layout
 	this->ChildSlot
 	[
 		SNew(SVerticalBox)
-
-		+SVerticalBox::Slot()
+		+ SVerticalBox::Slot()
 		.AutoHeight()
-		.Padding(0,2,0,0)
-		[
-			// Lightmap settings
-			SNew(SBorder)
-			.BorderImage(FEditorStyle::GetBrush("ToolPanel.GroupBorder"))
-			[
-				SNew(SVerticalBox)
-									
-				// Enable atlasing
-				+SVerticalBox::Slot()
-				.AutoHeight()
-				.Padding(FEditorStyle::GetMargin("StandardDialog.ContentPadding"))
-				[
-					SNew(SCheckBox)
-					.Type(ESlateCheckBoxType::CheckBox)
-					.IsChecked(this, &SMeshMergingDialog::GetGenerateLightmapUV)
-					.OnCheckStateChanged(this, &SMeshMergingDialog::SetGenerateLightmapUV)
-					.Content()
-					[
-						SNew(STextBlock)
-						.Text(LOCTEXT("AtlasLightmapUVLabel", "Generate Lightmap UVs"))
-						.Font(FEditorStyle::GetFontStyle("StandardDialog.SmallFont"))
-					]
-				]
-					
-				// Target lightmap channel / Max lightmap resolution
-				+SVerticalBox::Slot()
-				.AutoHeight()
-				.Padding(FEditorStyle::GetMargin("StandardDialog.ContentPadding"))
-				[
-					SNew(SHorizontalBox)
-
-					+SHorizontalBox::Slot()
-					.AutoWidth()
-					.VAlign(VAlign_Center)
-					[
-						SNew(STextBlock)
-						.IsEnabled(this, &SMeshMergingDialog::IsLightmapChannelEnabled)
-						.Text(LOCTEXT("TargetLightMapChannelLabel", "Target Channel:"))
-						.Font(FEditorStyle::GetFontStyle("StandardDialog.SmallFont"))
-					]
-
-					+SHorizontalBox::Slot()
-					.AutoWidth()
-					.VAlign(VAlign_Center)
-					.Padding(4,0,4,0)
-					[
-						SNew(STextComboBox)
-						.IsEnabled( this, &SMeshMergingDialog::IsLightmapChannelEnabled )
-						.OptionsSource(&LightMapChannelOptions)
-						.InitiallySelectedItem(LightMapChannelOptions[Tool->MergingSettings.TargetLightMapUVChannel])
-						.OnSelectionChanged(this, &SMeshMergingDialog::SetTargetLightMapChannel)
-						.Font(FEditorStyle::GetFontStyle("StandardDialog.SmallFont"))
-					]
-
-					+SHorizontalBox::Slot()
-					.AutoWidth()
-					.VAlign(VAlign_Center)
-					[
-						SNew(STextBlock)
-						.IsEnabled(this, &SMeshMergingDialog::IsLightmapChannelEnabled)
-						.Text(LOCTEXT("TargetLightMapResolutionLabel", "Target Resolution:"))
-						.Font(FEditorStyle::GetFontStyle("StandardDialog.SmallFont"))
-					]
-												
-					+SHorizontalBox::Slot()
-					.AutoWidth()
-					.VAlign(VAlign_Center)
-					.Padding(4,0,4,0)
-					[
-						SNew(STextComboBox)
-						.IsEnabled( this, &SMeshMergingDialog::IsLightmapChannelEnabled )
-						.OptionsSource(&LightMapResolutionOptions)
-						.InitiallySelectedItem(LightMapResolutionOptions[FMath::FloorLog2(Tool->MergingSettings.TargetLightMapResolution)])
-						.OnSelectionChanged(this, &SMeshMergingDialog::SetTargetLightMapResolution)
-						.Font(FEditorStyle::GetFontStyle("StandardDialog.SmallFont"))
-					]
-				]
-			]
-		]
-
-		// Other merging settings
-		+SVerticalBox::Slot()
-		.AutoHeight()
-		.Padding(0,2,0,0)
+		.Padding(0, 10, 0, 0)
 		[
 			SNew(SBorder)
 			.BorderImage(FEditorStyle::GetBrush("ToolPanel.GroupBorder"))
 			[
 				SNew(SVerticalBox)
-
-				// LOD to export
+				// Static mesh component selection
 				+SVerticalBox::Slot()
 				.AutoHeight()
 				.Padding(FEditorStyle::GetMargin("StandardDialog.ContentPadding"))
 				[
 					SNew(SHorizontalBox)
-
-					+SHorizontalBox::Slot()
-					.AutoWidth()
-					.VAlign(VAlign_Center)
-					[
-						SNew(SCheckBox)
-						.Type(ESlateCheckBoxType::CheckBox)
-						.IsChecked(this, &SMeshMergingDialog::GetExportSpecificLODEnabled)
-						.OnCheckStateChanged(this, &SMeshMergingDialog::SetExportSpecificLODEnabled)
-						.Content()
-						[
-							SNew(STextBlock)
-							.IsEnabled(this, &SMeshMergingDialog::IsExportSpecificLODEnabled)
-							.Text(LOCTEXT("TargetMeshLODIndexLabel", "Export specific LOD:"))
-							.Font(FEditorStyle::GetFontStyle("StandardDialog.SmallFont"))
-						]
-					]
-					
-					+SHorizontalBox::Slot()
-					.AutoWidth()
-					.VAlign(VAlign_Center)
-					.Padding(4,0,4,0)
-					[
-						SNew(STextComboBox)
-						.IsEnabled(this, &SMeshMergingDialog::IsExportSpecificLODEnabled)
-						.OptionsSource(&ExportLODOptions)
-						.InitiallySelectedItem(ExportLODOptions[Tool->ExportLODIndex])
-						.OnSelectionChanged(this, &SMeshMergingDialog::SetExportSpecificLODIndex)
-						.Font(FEditorStyle::GetFontStyle("StandardDialog.SmallFont"))
-					]
-				]
-					
-				// Vertex colors
-				+SVerticalBox::Slot()
-				.AutoHeight()
-				.Padding(FEditorStyle::GetMargin("StandardDialog.ContentPadding"))
-				[
-					SNew(SCheckBox)
-					.Type(ESlateCheckBoxType::CheckBox)
-					.IsChecked(this, &SMeshMergingDialog::GetImportVertexColors)
-					.OnCheckStateChanged(this, &SMeshMergingDialog::SetImportVertexColors)
-					.Content()
-					[
-						SNew(STextBlock)
-						.Text(LOCTEXT("ImportVertexColorsLabel", "Import Vertex Colors"))
-						.Font(FEditorStyle::GetFontStyle("StandardDialog.SmallFont"))
-					]
-				]
-
-				// Pivot at zero
-				+SVerticalBox::Slot()
-				.AutoHeight()
-				.Padding(FEditorStyle::GetMargin("StandardDialog.ContentPadding"))
-				[
-					SNew(SCheckBox)
-					.Type(ESlateCheckBoxType::CheckBox)
-					.IsChecked(this, &SMeshMergingDialog::GetPivotPointAtZero)
-					.OnCheckStateChanged(this, &SMeshMergingDialog::SetPivotPointAtZero)
-					.Content()
-					[
-						SNew(STextBlock)
-						.Text(LOCTEXT("PivotPointAtZeroLabel", "Pivot Point At (0,0,0)"))
-						.Font(FEditorStyle::GetFontStyle("StandardDialog.SmallFont"))
-					]
-				]
-
-				// Replace source actors
-				+SVerticalBox::Slot()
-				.AutoHeight()
-				.Padding(FEditorStyle::GetMargin("StandardDialog.ContentPadding"))
-				[
-					SNew(SCheckBox)
-					.Type(ESlateCheckBoxType::CheckBox)
-					.IsChecked(this, &SMeshMergingDialog::GetReplaceSourceActors)
-					.OnCheckStateChanged(this, &SMeshMergingDialog::SetReplaceSourceActors)
-					.Content()
-					[
-						SNew(STextBlock)
-						.Text(LOCTEXT("ReplaceSourceActorsLabel", "Replace Source Actors"))
-						.Font(FEditorStyle::GetFontStyle("StandardDialog.SmallFont"))
-					]
-				]
-				
-				// Merge physics data
-				+SVerticalBox::Slot()
-				.AutoHeight()
-				.Padding(FEditorStyle::GetMargin("StandardDialog.ContentPadding"))
-				[
-					SNew(SCheckBox)
-					.Type(ESlateCheckBoxType::CheckBox)
-					.IsChecked(this, &SMeshMergingDialog::GetMergePhyisicData)
-					.OnCheckStateChanged(this, &SMeshMergingDialog::SetMergePhyisicData)
-					.Content()
-					[
-						SNew(STextBlock)
-						.Text(LOCTEXT("MergePhysicsDataLabel", "Merge Physics Data"))
-						.Font(FEditorStyle::GetFontStyle("StandardDialog.SmallFont"))
-					]
-				]
-
-				// Merge materials
-				+SVerticalBox::Slot()
-				.AutoHeight()
-				.Padding(FEditorStyle::GetMargin("StandardDialog.ContentPadding"))
-				[
-					SNew(SCheckBox)
-					.Type(ESlateCheckBoxType::CheckBox)
-					.IsChecked(this, &SMeshMergingDialog::GetMergeMaterials)
-					.OnCheckStateChanged(this, &SMeshMergingDialog::SetMergeMaterials)
-					.Content()
-					[
-						SNew(STextBlock)
-						.Text(LOCTEXT("MergeMaterialsLabel", "Merge Materials"))
-						.Font(FEditorStyle::GetFontStyle("StandardDialog.SmallFont"))
-					]
-				]
-				// Export normal map
-				+SVerticalBox::Slot()
-				.AutoHeight()
-				.Padding(FEditorStyle::GetMargin("StandardDialog.ContentPadding"))
-				[
-					SNew(SCheckBox)
-					.Type(ESlateCheckBoxType::CheckBox)
-					.IsChecked(this, &SMeshMergingDialog::GetExportNormalMap)
-					.OnCheckStateChanged(this, &SMeshMergingDialog::SetExportNormalMap)
-					.IsEnabled(this, &SMeshMergingDialog::IsMaterialMergingEnabled)
-					.Content()
-					[
-						SNew(STextBlock)
-						.Text(LOCTEXT("ExportNormalMapLabel", "Export Normal Map"))
-						.Font(FEditorStyle::GetFontStyle("StandardDialog.SmallFont"))
-					]
-				]
-				// Export metallic map
-				+SVerticalBox::Slot()
-				.AutoHeight()
-				.Padding(FEditorStyle::GetMargin("StandardDialog.ContentPadding"))
-				[
-					SNew(SCheckBox)
-					.Type(ESlateCheckBoxType::CheckBox)
-					.IsChecked(this, &SMeshMergingDialog::GetExportMetallicMap)
-					.OnCheckStateChanged(this, &SMeshMergingDialog::SetExportMetallicMap)
-					.IsEnabled(this, &SMeshMergingDialog::IsMaterialMergingEnabled)
-					.Content()
-					[
-						SNew(STextBlock)
-						.Text(LOCTEXT("ExportMetallicMapLabel", "Export Metallic Map"))
-						.Font(FEditorStyle::GetFontStyle("StandardDialog.SmallFont"))
-					]
-				]
-				// Export roughness map
-				+SVerticalBox::Slot()
-				.AutoHeight()
-				.Padding(FEditorStyle::GetMargin("StandardDialog.ContentPadding"))
-				[
-					SNew(SCheckBox)
-					.Type(ESlateCheckBoxType::CheckBox)
-					.IsChecked(this, &SMeshMergingDialog::GetExportRoughnessMap)
-					.OnCheckStateChanged(this, &SMeshMergingDialog::SetExportRoughnessMap)
-					.IsEnabled(this, &SMeshMergingDialog::IsMaterialMergingEnabled)
-					.Content()
-					[
-						SNew(STextBlock)
-						.Text(LOCTEXT("ExportRoughnessMapLabel", "Export Roughness Map"))
-						.Font(FEditorStyle::GetFontStyle("StandardDialog.SmallFont"))
-					]
-				]
-				// Export specular map
-				+SVerticalBox::Slot()
-				.AutoHeight()
-				.Padding(FEditorStyle::GetMargin("StandardDialog.ContentPadding"))
-				[
-					SNew(SCheckBox)
-					.Type(ESlateCheckBoxType::CheckBox)
-					.IsChecked(this, &SMeshMergingDialog::GetExportSpecularMap)
-					.OnCheckStateChanged(this, &SMeshMergingDialog::SetExportSpecularMap)
-					.IsEnabled(this, &SMeshMergingDialog::IsMaterialMergingEnabled)
-					.Content()
-					[
-						SNew(STextBlock)
-						.Text(LOCTEXT("ExportSpecularMapLabel", "Export Specular Map"))
-						.Font(FEditorStyle::GetFontStyle("StandardDialog.SmallFont"))
-					]
-				]
-				
-				// Merged texture size
-				+SVerticalBox::Slot()
-				.AutoHeight()
-				.Padding(FEditorStyle::GetMargin("StandardDialog.ContentPadding"))
-				[
-					SNew(SHorizontalBox)
-					+SHorizontalBox::Slot()
+					+ SHorizontalBox::Slot()
 					.AutoWidth()
 					.VAlign(VAlign_Center)
 					[
 						SNew(STextBlock)
-						.IsEnabled(this, &SMeshMergingDialog::IsMaterialMergingEnabled)
-						.Text(LOCTEXT("MergedMaterialAtlasResolutionLabel", "Merged Material Atlas Resolution:"))
-						.Font(FEditorStyle::GetFontStyle("StandardDialog.SmallFont"))
+						.Text(LOCTEXT("MergeStaticMeshComponentsLabel", "Mesh Components to be incorporated in the merge:"))						
 					]
-												
-					+SHorizontalBox::Slot()
-					.AutoWidth()
-					.VAlign(VAlign_Center)
-					.Padding(4,0,4,0)
+				]
+				+ SVerticalBox::Slot()
+					.AutoHeight()
+					.Padding(FEditorStyle::GetMargin("StandardDialog.ContentPadding"))
 					[
-						SNew(STextComboBox)
-						.IsEnabled(this, &SMeshMergingDialog::IsMaterialMergingEnabled)
-						.OptionsSource(&MergedMaterialResolutionOptions)
-						.InitiallySelectedItem(MergedMaterialResolutionOptions[FMath::FloorLog2(Tool->MergingSettings.MaterialSettings.TextureSize.X)])
-						.OnSelectionChanged(this, &SMeshMergingDialog::SetMergedMaterialAtlasResolution)
-						.Font(FEditorStyle::GetFontStyle("StandardDialog.SmallFont"))
+						SAssignNew(MeshComponentsListView, SListView<TSharedPtr<FMeshComponentData>>)
+						.ListItemsSource(&SelectedMeshComponents)
+						.OnGenerateRow(this, &SMeshMergingDialog::MakeComponentListItemWidget)
+						.ToolTipText(LOCTEXT("SelectedComponentsListBoxToolTip", "The selected mesh components will be incorporated into the merged mesh"))
 					]
-				]														
 			]
 		]
-	];
-}
-END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
-ECheckBoxState SMeshMergingDialog::GetGenerateLightmapUV() const
-{
-	return (Tool->MergingSettings.bGenerateLightMapUV ? ECheckBoxState::Checked : ECheckBoxState::Unchecked);
+		+ SVerticalBox::Slot()
+		.Padding(0, 10, 0, 0)
+		[
+			SNew(SBorder)
+			.BorderImage(FEditorStyle::GetBrush("ToolPanel.GroupBorder"))
+			[
+				SNew(SVerticalBox)
+				// Static mesh component selection
+				+ SVerticalBox::Slot()
+				.Padding(FEditorStyle::GetMargin("StandardDialog.ContentPadding"))
+				[
+					SNew(SHorizontalBox)
+					+ SHorizontalBox::Slot()
+					.VAlign(VAlign_Center)
+					[
+						SettingsView->AsShared()
+					]
+				]
+			]
+		]
+
+		// Replace source actors
+		+ SVerticalBox::Slot()
+		.AutoHeight()
+		.Padding(FEditorStyle::GetMargin("StandardDialog.ContentPadding"))
+		[
+			SNew(SCheckBox)
+			.Type(ESlateCheckBoxType::CheckBox)
+			.IsChecked(this, &SMeshMergingDialog::GetReplaceSourceActors)
+			.OnCheckStateChanged(this, &SMeshMergingDialog::SetReplaceSourceActors)
+			.ToolTipText(LOCTEXT("ReplaceSourceActorsToolTip", "When enabled the Source Actors will be replaced with the newly generated merged mesh"))
+			.Content()
+			[
+				SNew(STextBlock)
+				.Text(LOCTEXT("ReplaceSourceActorsLabel", "Replace Source Actors"))
+				.Font(FEditorStyle::GetFontStyle("StandardDialog.SmallFont"))
+			]
+		]
+
+		+ SVerticalBox::Slot()
+		.AutoHeight()
+		.Padding(10)
+		[
+			SNew(SBorder)
+			.BorderBackgroundColor(FLinearColor::Yellow)
+			.BorderImage(FEditorStyle::GetBrush("ToolPanel.GroupBorder"))
+			.Visibility_Lambda([this]()->EVisibility { return this->GetContentEnabledState() ? EVisibility::Collapsed : EVisibility::Visible; })
+			[
+				SNew(STextBlock)
+				.Text(LOCTEXT("DeleteUndo", "Insufficient mesh components found for merging."))
+			]
+		]
+	];	
+
+
+	// Selection change
+	USelection::SelectionChangedEvent.AddRaw(this, &SMeshMergingDialog::OnLevelSelectionChanged);
+	USelection::SelectObjectEvent.AddRaw(this, &SMeshMergingDialog::OnLevelSelectionChanged);
+	FEditorDelegates::MapChange.AddSP(this, &SMeshMergingDialog::OnMapChange);
+	FEditorDelegates::NewCurrentLevel.AddSP(this, &SMeshMergingDialog::OnNewCurrentLevel);
+
+	MergeSettings = UMeshMergingSettingsObject::Get();
+	SettingsView->SetObject(MergeSettings);
 }
 
-void SMeshMergingDialog::SetGenerateLightmapUV(ECheckBoxState NewValue)
+void SMeshMergingDialog::OnMapChange(uint32 MapFlags)
 {
-	Tool->MergingSettings.bGenerateLightMapUV = (ECheckBoxState::Checked == NewValue);
+	Reset();
 }
 
-bool SMeshMergingDialog::IsLightmapChannelEnabled() const
+void SMeshMergingDialog::OnNewCurrentLevel()
 {
-	return Tool->MergingSettings.bGenerateLightMapUV;
+	Reset();
 }
 
-void SMeshMergingDialog::SetTargetLightMapChannel(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo)
+void SMeshMergingDialog::Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
 {
-	TTypeFromString<int32>::FromString(Tool->MergingSettings.TargetLightMapUVChannel, **NewSelection);
+	// Check if we need to update selected components and the listbox
+	if (bRefreshListView == true)
+	{
+		StoreCheckBoxState();
+		NumSelectedMeshComponents = 0;
+		UpdateSelectedStaticMeshComponents();
+		MeshComponentsListView->ClearSelection();
+		MeshComponentsListView->RequestListRefresh();
+		bRefreshListView = false;		
+	}
 }
 
-void SMeshMergingDialog::SetTargetLightMapResolution(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo)
-{
-	TTypeFromString<int32>::FromString(Tool->MergingSettings.TargetLightMapResolution, **NewSelection);
-}
-
-ECheckBoxState SMeshMergingDialog::GetExportSpecificLODEnabled() const
-{
-	return (Tool->bExportSpecificLOD ? ECheckBoxState::Checked : ECheckBoxState::Unchecked);
-}
-
-void SMeshMergingDialog::SetExportSpecificLODEnabled(ECheckBoxState NewValue)
-{
-	Tool->bExportSpecificLOD = (NewValue == ECheckBoxState::Checked);
-}
-
-bool SMeshMergingDialog::IsExportSpecificLODEnabled() const
-{
-	return Tool->bExportSpecificLOD;
-}
-
-void SMeshMergingDialog::SetExportSpecificLODIndex(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo)
-{
-	TTypeFromString<int32>::FromString(Tool->ExportLODIndex, **NewSelection);
-}
-
-ECheckBoxState SMeshMergingDialog::GetImportVertexColors() const
-{
-	return (Tool->MergingSettings.bBakeVertexData ? ECheckBoxState::Checked : ECheckBoxState::Unchecked);
-}
-
-void SMeshMergingDialog::SetImportVertexColors(ECheckBoxState NewValue)
-{
-	Tool->MergingSettings.bBakeVertexData = (ECheckBoxState::Checked == NewValue);
-}
-
-ECheckBoxState SMeshMergingDialog::GetPivotPointAtZero() const
-{
-	return (Tool->MergingSettings.bPivotPointAtZero ? ECheckBoxState::Checked : ECheckBoxState::Unchecked);
-}
-
-void SMeshMergingDialog::SetPivotPointAtZero(ECheckBoxState NewValue)
-{
-	Tool->MergingSettings.bPivotPointAtZero = (ECheckBoxState::Checked == NewValue);
+void SMeshMergingDialog::Reset()
+{	
+	bRefreshListView = true;
 }
 
 ECheckBoxState SMeshMergingDialog::GetReplaceSourceActors() const
@@ -445,76 +181,147 @@ void SMeshMergingDialog::SetReplaceSourceActors(ECheckBoxState NewValue)
 	Tool->bReplaceSourceActors = (ECheckBoxState::Checked == NewValue);
 }
 
-ECheckBoxState SMeshMergingDialog::GetMergePhyisicData() const
+bool SMeshMergingDialog::GetContentEnabledState() const
 {
-	return (Tool->MergingSettings.bMergePhysicsData ? ECheckBoxState::Checked : ECheckBoxState::Unchecked);
+	return (GetNumSelectedMeshComponents() >= 1);
 }
 
-void SMeshMergingDialog::SetMergePhyisicData(ECheckBoxState NewValue)
-{
-	Tool->MergingSettings.bMergePhysicsData = (ECheckBoxState::Checked == NewValue);
+void SMeshMergingDialog::UpdateSelectedStaticMeshComponents()
+{	
+	// Retrieve selected actors
+	USelection* SelectedActors = GEditor->GetSelectedActors();
+	TArray<AActor*> Actors;
+	TArray<ULevel*> UniqueLevels;
+	for (FSelectionIterator Iter(*SelectedActors); Iter; ++Iter)
+	{
+		AActor* Actor = Cast<AActor>(*Iter);
+		if (Actor)
+		{
+			Actors.Add(Actor);
+			UniqueLevels.AddUnique(Actor->GetLevel());
+		}
+	}
+
+	// Retrieve static mesh components from selected actors
+	SelectedMeshComponents.Empty();
+	for (AActor* Actor : Actors)
+	{
+		check(Actor != nullptr);
+
+		TArray<UStaticMeshComponent*> StaticMeshComponents;
+		Actor->GetComponents<UStaticMeshComponent>(StaticMeshComponents);
+		for (UStaticMeshComponent* MeshComponent : StaticMeshComponents)
+		{
+			SelectedMeshComponents.Add(TSharedPtr<FMeshComponentData>(new FMeshComponentData(MeshComponent)));
+		}		
+	}
 }
 
-bool SMeshMergingDialog::IsMaterialMergingEnabled() const
+TSharedRef<ITableRow> SMeshMergingDialog::MakeComponentListItemWidget(TSharedPtr<FMeshComponentData> MeshComponentData, const TSharedRef<STableViewBase>& OwnerTable)
 {
-	return Tool->MergingSettings.bMergeMaterials;
+	check(MeshComponentData->MeshComponent != nullptr);
+
+	// Retrieve information about the mesh component
+	const FString OwningActorName = MeshComponentData->MeshComponent->GetOwner()->GetName();
+	const FString StaticMeshName = (MeshComponentData->MeshComponent->StaticMesh != nullptr) ? MeshComponentData->MeshComponent->StaticMesh->GetName() : TEXT("No Static Mesh Available");
+	// Only static mesh components with valid static mesh data should be incorporated	
+	MeshComponentData->bShouldIncorporate = (MeshComponentData->MeshComponent->StaticMesh != nullptr);
+	const FString ComponentName = MeshComponentData->MeshComponent->GetName();
+
+	// See if we stored a checkbox state for this mesh component, and set accordingly
+	ECheckBoxState State = (MeshComponentData->MeshComponent->StaticMesh != nullptr) ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+	auto StoredState = StoredCheckBoxStates.Find(MeshComponentData->MeshComponent.Get());
+	if (StoredState)
+	{
+		State = *StoredState;
+		MeshComponentData->bShouldIncorporate = (State == ECheckBoxState::Checked);
+		
+		NumSelectedMeshComponents += (MeshComponentData->bShouldIncorporate) ? 1 : 0;
+	}
+	else if (MeshComponentData->bShouldIncorporate == true)
+	{
+		NumSelectedMeshComponents++;
+	}
+
+	return SNew(STableRow<TSharedPtr<FMeshComponentData>>, OwnerTable)
+		[
+			SNew(SBox)
+			[
+				// Disable UI element if this static mesh component has invalid static mesh data
+				SNew(SHorizontalBox)				
+				.IsEnabled((MeshComponentData->MeshComponent->StaticMesh != nullptr))
+				+ SHorizontalBox::Slot()
+				.AutoWidth()
+				[
+					SNew(SCheckBox)
+					.IsChecked(State)
+					.ToolTipText(LOCTEXT("IncorporateCheckBoxToolTip", "When ticked the Mesh Component will be incorporated into the merge"))
+					
+					.OnCheckStateChanged_Lambda([=](ECheckBoxState NewState)
+					{
+						MeshComponentData->bShouldIncorporate = (NewState == ECheckBoxState::Checked);
+						this->NumSelectedMeshComponents += (NewState == ECheckBoxState::Checked) ? 1 : -1;
+					})
+				]
+
+				+ SHorizontalBox::Slot()
+				.Padding(5.0, 0, 0, 0)
+				.AutoWidth()
+				[
+					SNew(STextBlock)
+					.Text(FText::FromString(OwningActorName + " - " + StaticMeshName + " - " + ComponentName))
+				]
+			]
+		];
+
 }
 
-ECheckBoxState SMeshMergingDialog::GetMergeMaterials() const
+void SMeshMergingDialog::CreateSettingsView()
 {
-	return (Tool->MergingSettings.bMergeMaterials ? ECheckBoxState::Checked : ECheckBoxState::Unchecked);
+	// Create a property view
+	FPropertyEditorModule& EditModule = FModuleManager::Get().GetModuleChecked<FPropertyEditorModule>("PropertyEditor");
+
+	FDetailsViewArgs DetailsViewArgs;
+	DetailsViewArgs.bUpdatesFromSelection = true;
+	DetailsViewArgs.bLockable = true;
+	DetailsViewArgs.NameAreaSettings = FDetailsViewArgs::ComponentsAndActorsUseNameArea;
+	DetailsViewArgs.bCustomNameAreaLocation = false;
+	DetailsViewArgs.bCustomFilterAreaLocation = true;
+	DetailsViewArgs.DefaultsOnlyVisibility = FDetailsViewArgs::EEditDefaultsOnlyNodeVisibility::Hide;
+	
+		
+	// Tiny hack to hide this setting, since we have no way / value to go off to 
+	struct Local
+	{
+		/** Delegate to show all properties */
+		static bool IsPropertyVisible(const FPropertyAndParent& PropertyAndParent, bool bInShouldShowNonEditable)
+		{
+			return (PropertyAndParent.Property.GetFName() != GET_MEMBER_NAME_CHECKED(FMaterialProxySettings, GutterSpace));
+		}
+	};
+
+	SettingsView = EditModule.CreateDetailView(DetailsViewArgs);
+	SettingsView->SetIsPropertyVisibleDelegate(FIsPropertyVisible::CreateStatic(&Local::IsPropertyVisible, true));
 }
 
-void SMeshMergingDialog::SetMergeMaterials(ECheckBoxState NewValue)
+END_SLATE_FUNCTION_BUILD_OPTIMIZATION
+
+void SMeshMergingDialog::OnLevelSelectionChanged(UObject* Obj)
 {
-	Tool->MergingSettings.bMergeMaterials = (ECheckBoxState::Checked == NewValue);
+	Reset();
 }
 
-ECheckBoxState SMeshMergingDialog::GetExportNormalMap() const
+void SMeshMergingDialog::StoreCheckBoxState()
 {
-	return (Tool->MergingSettings.MaterialSettings.bNormalMap ? ECheckBoxState::Checked : ECheckBoxState::Unchecked);
-}
+	StoredCheckBoxStates.Empty();
 
-void SMeshMergingDialog::SetExportNormalMap(ECheckBoxState NewValue)
-{
-	Tool->MergingSettings.MaterialSettings.bNormalMap = (ECheckBoxState::Checked == NewValue);
+	// Loop over selected mesh component and store its checkbox state
+	for (TSharedPtr<FMeshComponentData> SelectedComponent : SelectedMeshComponents )
+	{
+		UStaticMeshComponent* MeshComponent = SelectedComponent->MeshComponent.Get();
+		const ECheckBoxState State = SelectedComponent->bShouldIncorporate ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+		StoredCheckBoxStates.Add(MeshComponent, State);
+	}
 }
-
-ECheckBoxState SMeshMergingDialog::GetExportMetallicMap() const
-{
-	return (Tool->MergingSettings.MaterialSettings.bMetallicMap ? ECheckBoxState::Checked : ECheckBoxState::Unchecked);
-}
-
-void SMeshMergingDialog::SetExportMetallicMap(ECheckBoxState NewValue)
-{
-	Tool->MergingSettings.MaterialSettings.bMetallicMap = (ECheckBoxState::Checked == NewValue);
-}
-
-ECheckBoxState SMeshMergingDialog::GetExportRoughnessMap() const
-{
-	return (Tool->MergingSettings.MaterialSettings.bRoughnessMap ? ECheckBoxState::Checked : ECheckBoxState::Unchecked);
-}
-
-void SMeshMergingDialog::SetExportRoughnessMap(ECheckBoxState NewValue)
-{
-	Tool->MergingSettings.MaterialSettings.bRoughnessMap = (ECheckBoxState::Checked == NewValue);
-}
-
-ECheckBoxState SMeshMergingDialog::GetExportSpecularMap() const
-{
-	return (Tool->MergingSettings.MaterialSettings.bSpecularMap ? ECheckBoxState::Checked : ECheckBoxState::Unchecked);
-}
-
-void SMeshMergingDialog::SetExportSpecularMap(ECheckBoxState NewValue)
-{
-	Tool->MergingSettings.MaterialSettings.bSpecularMap = (ECheckBoxState::Checked == NewValue);
-}
-
-void SMeshMergingDialog::SetMergedMaterialAtlasResolution(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo)
-{
-	TTypeFromString<int32>::FromString(Tool->MergingSettings.MaterialSettings.TextureSize.X, **NewSelection);
-	TTypeFromString<int32>::FromString(Tool->MergingSettings.MaterialSettings.TextureSize.Y, **NewSelection);
-}
-
 
 #undef LOCTEXT_NAMESPACE

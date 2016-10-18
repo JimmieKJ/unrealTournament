@@ -3,7 +3,7 @@
 #include "UnrealEd.h"
 #include "AssetEditorCommonCommands.h"
 
-#define LOCTEXT_NAMESPACE ""
+#define LOCTEXT_NAMESPACE "AssetEditorCommonCommands"
 
 void FAssetEditorCommonCommands::RegisterCommands()
 {

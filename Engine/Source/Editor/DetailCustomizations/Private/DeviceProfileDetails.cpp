@@ -315,7 +315,7 @@ void SCVarSelectionPanel::Construct(const FArguments& InArgs, const FString& CVa
 
 	TArray<TSharedPtr<FString>> UnprocessedCVars;
 
-	IConsoleManager::Get().ForEachConsoleObject(
+	IConsoleManager::Get().ForEachConsoleObjectThatStartsWith(
 		FConsoleObjectVisitor::CreateStatic< TArray<TSharedPtr<FString>>& >(
 		&FConsoleVariablesAvailableVisitor::OnConsoleVariable,
 		UnprocessedCVars), *CVarPrefix);

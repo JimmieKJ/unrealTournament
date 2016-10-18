@@ -7,6 +7,7 @@
 #include "KismetEditorUtilities.h"	// for CreateBlueprint()
 #include "BlueprintNodeSpawner.h"   // for NodeClass/Invoke()
 #include "BlueprintEditorSettings.h"
+#include "Animation/AnimInstance.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogBlueprintNodeCache, Log, All);
 

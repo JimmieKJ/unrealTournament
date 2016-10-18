@@ -5,6 +5,8 @@
 #include "GenericOctree.h"
 #include "GenericOctreePublic.h"
 #include "Engine/StaticMesh.h"
+#include "IVREditorModule.h"
+
 
 class IMeshPaintGeometryAdapter;
 
@@ -396,8 +398,13 @@ public:
 	virtual bool ShouldDrawWidget() const override { return false; }
 	virtual bool UsesTransformWidget() const override { return false; }
 	virtual void Tick( FEditorViewportClient* ViewportClient, float DeltaTime ) override;
+	virtual EEditAction::Type GetActionEditDelete() override { return EEditAction::Process; }
+	virtual bool ProcessEditDelete() override;
 	// End of FEdMode interface
 
+
+	/** Called when an editor mode is entered or exited */
+	void OnEditorModeChanged( FEdMode* EditorMode, bool bEntered );
 
 	/** Returns true if we need to force a render/update through based fill/copy */
 	bool IsForceRendered (void) const;
@@ -694,25 +701,50 @@ private:
 	/** Returns valid MeshComponents in the current selection */
 	TArray<UMeshComponent*> GetSelectedMeshComponents() const;
 
-	/** Finds an existing geometry adapter for the given component, or creates a new one */
-	IMeshPaintGeometryAdapter* FindOrAddGeometryAdapter(UMeshComponent* MeshComponent);
+	/** Create geometry adapters for selected components */
+	void CreateGeometryAdaptersForSelectedComponents();
 
-	/** Removes stale geometry adapters from the cache (those associated with unselected components) */
-	void CleanStaleGeometryAdapters(const TArray<UMeshComponent*>& ValidComponents);
+	/** Create a new geometry adapter */
+	IMeshPaintGeometryAdapter* AddGeometryAdapter(UMeshComponent* MeshComponent);
+
+	/** Finds an existing geometry adapter for the given component */
+	IMeshPaintGeometryAdapter* FindGeometryAdapter(UMeshComponent* MeshComponent);
+
+	/** Remove a geometry adapter */
+	void RemoveGeometryAdapter(UMeshComponent* MeshComponent);
 
 	/** Removes all geometry adapters from the cache */
 	void RemoveAllGeometryAdapters();
 
-	/** Called when an asset is about to be imported */
-	void OnPreImportAsset(UFactory* Factory, UClass* Class, UObject* Object, const FName& Name, const TCHAR* Type);
+	/** Called prior to saving a level */
+	void OnPreSaveWorld(uint32 SaveFlags, UWorld* World);
 
-	/** Called when an asset is about to be reimported */
-	void OnPreReimportAsset(UObject* Object);
+	/** Called after saving a level */
+	void OnPostSaveWorld(uint32 SaveFlags, UWorld* World, bool bSuccess);
+
+	/** Called when an asset has just been imported */
+	void OnPostImportAsset(UFactory* Factory, UObject* Object);
+
+	/** Called when an asset has just been reimported */
+	void OnPostReimportAsset(UObject* Object, bool bSuccess);
+
+	/** Called when an asset is deleted */
+	void OnAssetRemoved(const FAssetData& AssetData);
+
+	/** Called when the user presses a button on their motion controller device */
+	void OnVRAction( class FEditorViewportClient& ViewportClient, class UViewportInteractor* Interactor,
+	const struct FViewportActionKeyInput& Action, bool& bOutIsInputCaptured, bool& bWasHandled );
+
+	/** Called when rerunning a construction script causes objects to be replaced */
+	void OnObjectsReplaced(const TMap<UObject*, UObject*>& OldToNewInstanceMap);
 
 private:
 
 	/** Whether we're currently painting */
 	bool bIsPainting;
+
+	/** When painting in VR, this is the hand index that we're painting with.  Otherwise INDEX_NONE. */
+	class UViewportInteractor* PaintingWithInteractorInVR;
 
 	/** Whether we are doing a flood fill the next render */
 	bool bIsFloodFill;

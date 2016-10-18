@@ -16,6 +16,7 @@
 #include "MallocVerify.h"
 #include "MallocLeakDetection.h"
 #include "PlatformMallocCrash.h"
+#include "MallocPoisonProxy.h"
 
 #if MALLOC_GT_HOOKS
 
@@ -276,8 +277,8 @@ void FMemory::GCreateMalloc()
 	FPlatformMallocCrash::Get( GMalloc );
 
 #if PLATFORM_USES_FIXED_GMalloc_CLASS
-#if USE_MALLOC_PROFILER || MALLOC_VERIFY || MALLOC_LEAKDETECTION
-#error "Turn of PLATFORM_USES_FIXED_GMalloc_CLASS in order to use special allocator proxies"
+#if USE_MALLOC_PROFILER || MALLOC_VERIFY || MALLOC_LEAKDETECTION || UE_USE_MALLOC_FILL_BYTES
+#error "Turn off PLATFORM_USES_FIXED_GMalloc_CLASS in order to use special allocator proxies"
 #endif
 	if (!GMalloc->IsInternallyThreadSafe())
 	{
@@ -309,6 +310,12 @@ void FMemory::GCreateMalloc()
 #if MALLOC_LEAKDETECTION
 	GMalloc = new FMallocLeakDetectionProxy(GMalloc);
 #endif
+
+	// poison memory allocations in Debug and Development non-editor/non-editoronly data builds
+#if UE_USE_MALLOC_FILL_BYTES
+	GMalloc = new FMallocPoisonProxy(GMalloc);
+#endif
+
 #endif
 }
 

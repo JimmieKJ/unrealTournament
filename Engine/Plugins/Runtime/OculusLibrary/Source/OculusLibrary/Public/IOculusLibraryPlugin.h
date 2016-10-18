@@ -49,13 +49,13 @@ public:
 	/**
 	* Reports raw sensor data. If HMD doesn't support any of the parameters then it will be set to zero.
 	*
-	* @param Accelerometer	(out) Acceleration reading in m/s^2.
-	* @param Gyro			(out) Rotation rate in rad/s.
-	* @param Magnetometer	(out) Magnetic field in Gauss.
-	* @param Temperature	(out) Temperature of the sensor in degrees Celsius.
-	* @param TimeInSeconds	(out) Time when the reported IMU reading took place, in seconds.
+	* @param AngularAcceleration	(out) Angular acceleration in radians per second per second.
+	* @param LinearAcceleration		(out) Acceleration in meters per second per second.
+	* @param AngularVelocity		(out) Angular velocity in radians per second.
+	* @param LinearVelocity			(out) Velocity in meters per second.
+	* @param TimeInSeconds			(out) Time when the reported IMU reading took place, in seconds.
 	*/
-	virtual void GetRawSensorData(FVector& Accelerometer, FVector& Gyro, FVector& Magnetometer, float& Temperature, float& TimeInSeconds) = 0;
+	virtual void GetRawSensorData(FVector& AngularAcceleration, FVector& LinearAcceleration, FVector& AngularVelocity, FVector& LinearVelocity, float& TimeInSeconds) = 0;
 
 	/**
 	* Returns current user profile.

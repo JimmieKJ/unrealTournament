@@ -32,13 +32,28 @@ public struct ProjectImportExportInfo
 	public bool bUseCultureDirectory;
 };
 
+public struct ProjectStepInfo
+{
+	public ProjectStepInfo(string InName, string InLocalizationConfigFile)
+	{
+		Name = InName;
+		LocalizationConfigFile = InLocalizationConfigFile;
+	}
+	
+	/** The name of this localization step */
+	public string Name;
+
+	/** Absolute path to this steps localization config file */
+	public string LocalizationConfigFile;
+};
+
 public struct ProjectInfo
 {
 	/** The name of this project */
 	public string ProjectName;
 
-	/** Path to this projects localization config files (relative to the root working directory for the commandlet) - ordered so that iterating them runs in the correct order */
-	public List<string> LocalizationConfigFiles;
+	/** Path to this projects localization step data - ordered so that iterating them runs in the correct order */
+	public List<ProjectStepInfo> LocalizationSteps;
 
 	/** Config data used by the PO file import process */
 	public ProjectImportExportInfo ImportInfo;
@@ -52,12 +67,14 @@ public abstract class LocalizationProvider
 	public struct LocalizationProviderArgs
 	{
 		public string RootWorkingDirectory;
+		public string RemoteFilenamePrefix;
 		public CommandUtils CommandUtils;
 	};
 
 	public LocalizationProvider(LocalizationProviderArgs InArgs)
 	{
 		RootWorkingDirectory = InArgs.RootWorkingDirectory;
+		RemoteFilenamePrefix = InArgs.RemoteFilenamePrefix;
 		CommandUtils = InArgs.CommandUtils;
 
 		LocalizationBranchName = CommandUtils.ParseParamValue("LocalizationBranch");
@@ -131,7 +148,7 @@ public abstract class LocalizationProvider
 		}
 		else
 		{
-			throw new AutomationException("Could not find a localization provider for: '" + InLocalizationProviderId + "'");
+			BuildCommand.LogWarning("Could not find a localization provider for '{0}'", InLocalizationProviderId);
 		}
 
 		return null;
@@ -139,6 +156,7 @@ public abstract class LocalizationProvider
 
 	protected string RootWorkingDirectory;
 	protected string LocalizationBranchName;
+	protected string RemoteFilenamePrefix;
 	protected bool bUploadAllCultures;
 	protected CommandUtils CommandUtils;
 

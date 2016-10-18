@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "GameplayAbility.h"
 #include "GameplayAbilitiesBlueprintFactory.generated.h"
 
 UCLASS(HideCategories=Object, MinimalAPI)

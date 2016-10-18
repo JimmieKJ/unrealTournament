@@ -3,6 +3,7 @@
 #pragma once
 #include "Interfaces/Interface_CollisionDataProvider.h"
 #include "Interfaces/Interface_AssetUserData.h"
+#include "MeshMerging.h"
 #include "StaticMesh.generated.h"
 
 /** The maximum number of static mesh LODs allowed. */
@@ -382,6 +383,13 @@ class UStaticMesh : public UObject, public IInterface_CollisionDataProvider, pub
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=StaticMesh, meta=(UIMin = "0.0", UIMax = "3.0"))
 	float LpvBiasMultiplier;
 
+	/** 
+	 *	If true, will keep geometry data CPU-accessible in cooked builds, rather than uploading to GPU memory and releasing it from CPU memory.
+	 *	This is required if you wish to access StaticMesh geometry data on the CPU at runtime in cooked builds (e.g. to convert StaticMesh to ProceduralMeshComponent)
+	 */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, Category = StaticMesh)
+	bool bAllowCPUAccess;
+
 	/** A fence which is used to keep track of the rendering thread releasing the static mesh resources. */
 	FRenderCommandFence ReleaseResourcesFence;
 
@@ -480,7 +488,6 @@ public:
 	ENGINE_API virtual void GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const override;
 	ENGINE_API virtual FString GetDesc() override;
 	ENGINE_API virtual SIZE_T GetResourceSize(EResourceSizeMode::Type Mode) override;
-	static void AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector);
 	//~ End UObject Interface.
 
 	/**
@@ -528,6 +535,7 @@ public:
 	/**
 	 * Returns the number of LODs used by the mesh.
 	 */
+	UFUNCTION(BlueprintCallable, Category = "StaticMesh")
 	ENGINE_API int32 GetNumLODs() const;
 
 	/**
@@ -537,12 +545,19 @@ public:
 
 	/**
 	 * Returns the number of bounds of the mesh.
+	 *
+	 * @return	The bounding box represented as box origin with extents and also a sphere that encapsulates that box
 	 */
+	UFUNCTION( BlueprintPure, Category="StaticMesh" )
 	ENGINE_API FBoxSphereBounds GetBounds() const;
 
 	/** Returns the bounding box, in local space including bounds extension(s), of the StaticMesh asset */
 	UFUNCTION(BlueprintCallable, Category="StaticMesh")
 	ENGINE_API FBox GetBoundingBox() const;
+
+	/** Returns number of Sections that this StaticMesh has, in the supplied LOD (LOD 0 is the highest) */
+	UFUNCTION(BlueprintCallable, Category = "StaticMesh")
+	ENGINE_API int32 GetNumSections(int32 InLOD) const;
 
 	/**
 	 * Gets a Material given a Material Index and an LOD number
@@ -577,6 +592,9 @@ public:
 	}
 	ENGINE_API virtual void GetMeshId(FString& OutMeshId) override;
 	//~ End Interface_CollisionDataProvider Interface
+
+	/** Return the number of sections of the StaticMesh with collision enabled */
+	int32 GetNumSectionsWithCollision() const;
 
 	//~ Begin IInterface_AssetUserData Interface
 	virtual void AddAssetUserData(UAssetUserData* InUserData) override;
@@ -637,6 +655,9 @@ public:
 
 	void EnforceLightmapRestrictions();
 
+	/** Calculates the extended bounds */
+	ENGINE_API void CalculateExtendedBounds();
+
 #if WITH_EDITOR
 
 	/**
@@ -678,8 +699,6 @@ private:
 	 */
 	void CacheDerivedData();
 
-	/** Calculates the extended bounds */
-	void CalculateExtendedBounds();
 
 	FOnPreMeshBuild PreMeshBuild;
 	FOnPostMeshBuild PostMeshBuild;

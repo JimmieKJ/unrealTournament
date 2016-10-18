@@ -70,7 +70,8 @@ static FSlateRotatedClipRectType ToSnappedRotatedRect(const FSlateRect& ClipRect
 //---------------------------------------------------
 
 SRetainerWidget::SRetainerWidget()
-	: WidgetRenderer( /* bUseGammaCorrection */ true)
+	: CachedWindowToDesktopTransform(0, 0)
+	, WidgetRenderer( /* bUseGammaCorrection */ true)
 	, DynamicEffect(nullptr)
 {
 }
@@ -79,8 +80,10 @@ SRetainerWidget::~SRetainerWidget()
 {
 	if( FSlateApplication::IsInitialized() )
 	{
-		FSlateApplication::Get().OnPreTick().RemoveAll( this );
-
+		if (FApp::CanEverRender())
+		{
+			FSlateApplication::Get().OnPreTick().RemoveAll( this );
+		}
 
 #if !UE_BUILD_SHIPPING
 		OnRetainerModeChangedDelegate.RemoveAll( this );
@@ -95,7 +98,10 @@ void SRetainerWidget::Construct(const FArguments& InArgs)
 
 	if( FSlateApplication::IsInitialized() )
 	{
-		FSlateApplication::Get().OnPreTick().AddRaw(this, &SRetainerWidget::OnTickRetainers);
+		if (FApp::CanEverRender())
+		{
+			FSlateApplication::Get().OnPreTick().AddRaw(this, &SRetainerWidget::OnTickRetainers);
+		}
 
 #if !UE_BUILD_SHIPPING
 		OnRetainerModeChangedDelegate.AddRaw( this, &SRetainerWidget::OnRetainerModeChanged );
@@ -118,6 +124,7 @@ void SRetainerWidget::Construct(const FArguments& InArgs)
 	SurfaceBrush.SetResourceObject(RenderTarget);
 
 	Window = SNew(SVirtualWindow);
+	Window->SetShouldResolveDeferred(false);
 	HitTestGrid = MakeShareable(new FHittestGrid());
 
 	WidgetRenderer.SetIsPrepassNeeded(false);
@@ -262,7 +269,10 @@ void SRetainerWidget::OnTickRetainers(float DeltaTime)
 {
 	STAT(FScopeCycleCounter TickCycleCounter(MyStatId);)
 
-	bool bShouldRenderAtAnything = GetVisibility().IsVisible() && ChildSlot.GetWidget()->GetVisibility().IsVisible(); 
+	// we should not be added to tick if we're not rendering
+	checkSlow(FApp::CanEverRender());
+
+	bool bShouldRenderAtAnything = GetVisibility().IsVisible() && ChildSlot.GetWidget()->GetVisibility().IsVisible();
 	if ( bRenderingOffscreen && bShouldRenderAtAnything )
 	{
 		SCOPE_CYCLE_COUNTER( STAT_SlateRetainerWidgetTick );
@@ -273,6 +283,8 @@ void SRetainerWidget::OnTickRetainers(float DeltaTime)
 
 			FPaintGeometry PaintGeometry = CachedAllottedGeometry.ToPaintGeometry();
 
+			//const FSlateRenderTransform& RenderTransform = PaintGeometry.GetAccumulatedRenderTransform()
+
 			// extract the layout transform from the draw element
 			FSlateLayoutTransform InverseLayoutTransform(Inverse(FSlateLayoutTransform(PaintGeometry.DrawScale, PaintGeometry.DrawPosition)));
 			// The clip rect is NOT subject to the rotations specified by MakeRotatedBox.
@@ -282,8 +294,13 @@ void SRetainerWidget::OnTickRetainers(float DeltaTime)
 			//const uint32 RenderTargetWidth  = FMath::RoundToInt(ScaledSize.X);
 			//const uint32 RenderTargetHeight = FMath::RoundToInt(ScaledSize.Y);
 
+			float OffsetX = PaintGeometry.DrawPosition.X - ( (int32)PaintGeometry.DrawPosition.X );
+			float OffsetY = PaintGeometry.DrawPosition.Y - ( (int32)PaintGeometry.DrawPosition.Y );
+
 			const uint32 RenderTargetWidth  = FMath::RoundToInt(RenderClipRect.ExtentX.X);
 			const uint32 RenderTargetHeight = FMath::RoundToInt(RenderClipRect.ExtentY.Y);
+
+			FVector2D ViewOffset = FVector2D(FMath::RoundToInt(PaintGeometry.DrawPosition.X), FMath::RoundToInt(PaintGeometry.DrawPosition.Y));
 
 			// Keep the visibilities the same, the proxy window should maintain the same visible/non-visible hit-testing of the retainer.
 			Window->SetVisibility(GetVisibility());
@@ -315,10 +332,12 @@ void SRetainerWidget::OnTickRetainers(float DeltaTime)
 
 					const FVector2D DrawSize = FVector2D(RenderTargetWidth, RenderTargetHeight);
 					//const FVector2D DrawSize = PaintGeometry.GetLocalSize();
-					const FGeometry WindowGeometry = FGeometry::MakeRoot(DrawSize * ( 1 / Scale ), FSlateLayoutTransform(Scale) );
+					const FGeometry WindowGeometry = FGeometry::MakeRoot(DrawSize * ( 1 / Scale ), FSlateLayoutTransform(Scale, PaintGeometry.DrawPosition));
 
 					// Update the surface brush to match the latest size.
 					SurfaceBrush.ImageSize = DrawSize;
+
+					WidgetRenderer.ViewOffset = -ViewOffset;
 
 					WidgetRenderer.DrawWindow(
 						RenderTarget,
@@ -348,11 +367,14 @@ int32 SRetainerWidget::OnPaint(const FPaintArgs& Args, const FGeometry& Allotted
 	{
 		SCOPE_CYCLE_COUNTER( STAT_SlateRetainerWidgetPaint );
 		CachedAllottedGeometry = AllottedGeometry;
+		CachedWindowToDesktopTransform = Args.GetWindowToDesktopTransform();
 		CachedClippingRect = MyClippingRect;
 
 		if ( RenderTarget->GetSurfaceWidth() >= 1 && RenderTarget->GetSurfaceHeight() >= 1 )
 		{
-			const FLinearColor FinalColorAndOpacity(InWidgetStyle.GetColorAndOpacityTint() * ColorAndOpacity.Get() * SurfaceBrush.GetTint(InWidgetStyle));
+			const FLinearColor ComputedColorAndOpacity(InWidgetStyle.GetColorAndOpacityTint() * ColorAndOpacity.Get() * SurfaceBrush.GetTint(InWidgetStyle));
+			// Retainer widget uses premultiplied alpha, so premultiply the color by the alpha to respect opactiy.
+			const FLinearColor PremultipliedColorAndOpacity(ComputedColorAndOpacity*ComputedColorAndOpacity.A);
 
 			if ( DynamicEffect )
 			{
@@ -365,11 +387,17 @@ int32 SRetainerWidget::OnPaint(const FPaintArgs& Args, const FGeometry& Allotted
 				AllottedGeometry.ToPaintGeometry(),
 				&SurfaceBrush,
 				MyClippingRect,
-				ESlateDrawEffect::NoGamma | ESlateDrawEffect::AlphaCompositing,
-				FinalColorAndOpacity);
+				ESlateDrawEffect::NoGamma | ESlateDrawEffect::PreMultipliedAlpha,
+				FLinearColor(PremultipliedColorAndOpacity.R, PremultipliedColorAndOpacity.G, PremultipliedColorAndOpacity.B, PremultipliedColorAndOpacity.A)
+				);
 			
 			TSharedRef<SRetainerWidget> SharedMutableThis = SharedThis(MutableThis);
 			Args.InsertCustomHitTestPath(SharedMutableThis, Args.GetLastHitTestIndex());
+
+			for ( auto& DeferredPaint : WidgetRenderer.DeferredPaints )
+			{
+				OutDrawElements.QueueDeferredPainting(DeferredPaint->Copy(Args));
+			}
 		}
 		
 		return LayerId;
@@ -396,8 +424,8 @@ FVector2D SRetainerWidget::ComputeDesiredSize(float LayoutScaleMuliplier) const
 
 TArray<FWidgetAndPointer> SRetainerWidget::GetBubblePathAndVirtualCursors(const FGeometry& InGeometry, FVector2D DesktopSpaceCoordinate, bool bIgnoreEnabledStatus) const
 {
-	const FVector2D LocalPosition = InGeometry.AbsoluteToLocal(DesktopSpaceCoordinate) * InGeometry.Scale;
-	const FVector2D LastLocalPosition = InGeometry.AbsoluteToLocal(DesktopSpaceCoordinate) * InGeometry.Scale;
+	const FVector2D LocalPosition = DesktopSpaceCoordinate - CachedWindowToDesktopTransform;// InGeometry.AbsoluteToLocal(DesktopSpaceCoordinate) * InGeometry.Scale;
+	const FVector2D LastLocalPosition = DesktopSpaceCoordinate - CachedWindowToDesktopTransform;// InGeometry.AbsoluteToLocal(DesktopSpaceCoordinate) * InGeometry.Scale;
 
 	TSharedRef<FVirtualPointerPosition> VirtualMouseCoordinate = MakeShareable(new FVirtualPointerPosition(LocalPosition, LastLocalPosition));
 
@@ -422,8 +450,8 @@ void SRetainerWidget::ArrangeChildren(FArrangedChildren& ArrangedChildren) const
 
 TSharedPtr<struct FVirtualPointerPosition> SRetainerWidget::TranslateMouseCoordinateFor3DChild(const TSharedRef<SWidget>& ChildWidget, const FGeometry& InGeometry, const FVector2D& ScreenSpaceMouseCoordinate, const FVector2D& LastScreenSpaceMouseCoordinate) const
 {
-	const FVector2D LocalPosition = InGeometry.AbsoluteToLocal(ScreenSpaceMouseCoordinate);
-	const FVector2D LastLocalPosition = InGeometry.AbsoluteToLocal(LastScreenSpaceMouseCoordinate);
+	//const FVector2D LocalPosition = InGeometry.AbsoluteToLocal(ScreenSpaceMouseCoordinate);
+	//const FVector2D LastLocalPosition = InGeometry.AbsoluteToLocal(LastScreenSpaceMouseCoordinate);
 
-	return MakeShareable(new FVirtualPointerPosition(LocalPosition, LastLocalPosition));
+	return MakeShareable(new FVirtualPointerPosition(ScreenSpaceMouseCoordinate, LastScreenSpaceMouseCoordinate));
 }

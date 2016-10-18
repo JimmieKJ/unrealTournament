@@ -217,7 +217,7 @@ bool UK2Node_BaseAsyncTask::FBaseAsyncTaskHelper::HandleDelegateImplementation(
 		return false;
 	}
 
-	UK2Node_CustomEvent* CurrentCENode = CompilerContext.SpawnIntermediateNode<UK2Node_CustomEvent>(CurrentNode, SourceGraph);
+	UK2Node_CustomEvent* CurrentCENode = CompilerContext.SpawnIntermediateEventNode<UK2Node_CustomEvent>(CurrentNode, PinForCurrentDelegateProperty, SourceGraph);
 	{
 	UK2Node_AddDelegate* AddDelegateNode = CompilerContext.SpawnIntermediateNode<UK2Node_AddDelegate>(CurrentNode, SourceGraph);
 	AddDelegateNode->SetFromProperty(CurrentProperty, false);
@@ -477,9 +477,9 @@ UK2Node::ERedirectType UK2Node_BaseAsyncTask::DoPinsMatchForReconstruction(const
 					FString OldPinString;
 					FString NewPinString;
 
-					FParse::Value(*It.Value(), TEXT("ProxyClassName="), ProxyClassString);
-					FParse::Value(*It.Value(), TEXT("OldPinName="), OldPinString);
-					FParse::Value(*It.Value(), TEXT("NewPinName="), NewPinString);
+					FParse::Value(*It.Value().GetValue(), TEXT("ProxyClassName="), ProxyClassString);
+					FParse::Value(*It.Value().GetValue(), TEXT("OldPinName="), OldPinString);
+					FParse::Value(*It.Value().GetValue(), TEXT("NewPinName="), NewPinString);
 
 					UClass* RedirectProxyClass = FindObject<UClass>(ANY_PACKAGE, *ProxyClassString);
 					if (RedirectProxyClass)

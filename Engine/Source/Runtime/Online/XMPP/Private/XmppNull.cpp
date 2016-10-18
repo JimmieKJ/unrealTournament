@@ -37,11 +37,11 @@ public:
 	virtual FOnXmppLogingChanged& OnLoginChanged() override { return OnXmppLogingChangedDelegate; }
 	virtual FOnXmppLogoutComplete& OnLogoutComplete() override { return OnXmppLogoutCompleteDelegate; }
 
-	virtual TSharedPtr<class IXmppPresence> Presence() override { return NULL; }
-	virtual TSharedPtr<class IXmppPubSub> PubSub() override { return NULL; }
-	virtual TSharedPtr<class IXmppMessages> Messages() override { return NULL; }
-	virtual TSharedPtr<class IXmppMultiUserChat> MultiUserChat() override { return NULL; }
-	virtual TSharedPtr<class IXmppChat> PrivateChat() override { return NULL; }
+	virtual IXmppPresencePtr Presence() override { return NULL; }
+	virtual IXmppPubSubPtr PubSub() override { return NULL; }
+	virtual IXmppMessagesPtr Messages() override { return NULL; }
+	virtual IXmppMultiUserChatPtr MultiUserChat() override { return NULL; }
+	virtual IXmppChatPtr PrivateChat() override { return NULL; }
 
 	// FXmppConnectionNull
 

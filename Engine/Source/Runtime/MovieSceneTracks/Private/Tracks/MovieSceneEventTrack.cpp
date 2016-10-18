@@ -37,9 +37,17 @@ bool UMovieSceneEventTrack::AddKeyToSection(float Time, FName EventName, FKeyPar
 }
 
 
-void UMovieSceneEventTrack::TriggerEvents(float Position, float LastPosition, UObject* EventContextObject)
+void UMovieSceneEventTrack::TriggerEvents(float Position, float LastPosition, IMovieScenePlayer& Player)
 {
 	if ((Sections.Num() == 0) || (Position == LastPosition))
+	{
+		return;
+	}
+
+	// Don't allow events to fire when playback is in a stopped state. This can occur when stopping 
+	// playback and returning the current position to the start of playback. It's not desireable to have 
+	// all the events from the last playback position to the start of playback be fired.
+	if (Player.GetPlaybackStatus() == EMovieScenePlayerStatus::Stopped)
 	{
 		return;
 	}
@@ -52,15 +60,10 @@ void UMovieSceneEventTrack::TriggerEvents(float Position, float LastPosition, UO
 		return;
 	}
 
-	if (EventContextObject == nullptr)
-	{
-		return;
-	}
-
 	TArray<UMovieSceneSection*> TraversedSections = MovieSceneHelpers::GetTraversedSections(Sections, Position, LastPosition);
 	for (auto EventSection : TraversedSections)
 	{
-		CastChecked<UMovieSceneEventSection>(EventSection)->TriggerEvents(EventContextObject, Position, LastPosition);
+		CastChecked<UMovieSceneEventSection>(EventSection)->TriggerEvents(Position, LastPosition, Player);
 	}
 }
 

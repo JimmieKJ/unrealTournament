@@ -2,6 +2,7 @@
 
 #include "CoreUObjectPrivate.h"
 #include "PropertyHelper.h"
+#include "PropertyTag.h"
 
 /*-----------------------------------------------------------------------------
 	UBoolProperty.
@@ -184,6 +185,81 @@ FString UBoolProperty::GetCPPMacroType( FString& ExtendedTypeText ) const
 	}
 	return TEXT("UBOOL32");
 }
+
+template<typename T>
+void LoadFromType(UBoolProperty* Property, const FPropertyTag& Tag, FArchive& Ar, uint8* Data)
+{
+	T IntValue;
+	Ar << IntValue;
+
+	if (IntValue != 0)
+	{
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+		if (IntValue != 1)
+		{
+			UE_LOG(LogClass, Log, TEXT("Loading %s property (%s) that is now a bool - value '%d', expecting 0 or 1. Value set to true."), *Tag.Type.ToString(), *Property->GetPathName(), IntValue);
+		}
+#endif
+		Property->SetPropertyValue_InContainer(Data, true, Tag.ArrayIndex);
+	}
+	else
+	{
+		Property->SetPropertyValue_InContainer(Data, false, Tag.ArrayIndex);
+	}
+}
+
+bool UBoolProperty::ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8* Data, UStruct* DefaultsStruct, bool& bOutAdvanceProperty)
+{
+	bOutAdvanceProperty = true;
+
+	if (Tag.Type == NAME_IntProperty)
+	{
+		LoadFromType<int32>(this, Tag, Ar, Data);
+	}
+	else if (Tag.Type == NAME_Int8Property)
+	{
+		LoadFromType<int8>(this, Tag, Ar, Data);
+	}
+	else if (Tag.Type == NAME_Int16Property)
+	{
+		LoadFromType<int16>(this, Tag, Ar, Data);
+	}
+	else if (Tag.Type == NAME_Int64Property)
+	{
+		LoadFromType<int64>(this, Tag, Ar, Data);
+	}
+	else if (Tag.Type == NAME_ByteProperty)
+	{
+		// if the byte property was an enum we won't allow a conversion to bool
+		if (Tag.EnumName == NAME_None)
+		{
+			LoadFromType<uint8>(this, Tag, Ar, Data);
+		}
+		else
+		{
+			bOutAdvanceProperty = false;
+		}
+	}
+	else if (Tag.Type == NAME_UInt16Property)
+	{
+		LoadFromType<uint16>(this, Tag, Ar, Data);
+	}
+	else if (Tag.Type == NAME_UInt32Property)
+	{
+		LoadFromType<uint32>(this, Tag, Ar, Data);
+	}
+	else if (Tag.Type == NAME_UInt64Property)
+	{
+		LoadFromType<uint64>(this, Tag, Ar, Data);
+	}
+	else
+	{
+		bOutAdvanceProperty = false;
+	}
+			
+	return bOutAdvanceProperty;
+}
+
 void UBoolProperty::ExportTextItem( FString& ValueStr, const void* PropertyValue, const void* DefaultValue, UObject* Parent, int32 PortFlags, UObject* ExportRootScope ) const
 {
 	check(FieldSize != 0);

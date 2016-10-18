@@ -1,6 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "stdafx.h"
+#include "LightmassPCH.h"
 #include "LightmassScene.h"
 #include "Importer.h"
 #include "MonteCarlo.h"
@@ -282,32 +282,32 @@ FBoxSphereBounds FScene::GetImportanceBounds() const
 	return ImportanceBoundSphere;
 }
 
-const FLight* FScene::FindLightByGuid(const FGuid& Guid) const
+const FLight* FScene::FindLightByGuid(const FGuid& InGuid) const
 {
 	for (int32 i = 0; i < DirectionalLights.Num(); i++)
 	{
-		if (DirectionalLights[i].Guid == Guid)
+		if (DirectionalLights[i].Guid == InGuid)
 		{
 			return &DirectionalLights[i];
 		}
 	}
 	for (int32 i = 0; i < PointLights.Num(); i++)
 	{
-		if (PointLights[i].Guid == Guid)
+		if (PointLights[i].Guid == InGuid)
 		{
 			return &PointLights[i];
 		}
 	}
 	for (int32 i = 0; i < SpotLights.Num(); i++)
 	{
-		if (SpotLights[i].Guid == Guid)
+		if (SpotLights[i].Guid == InGuid)
 		{
 			return &SpotLights[i];
 		}
 	}
 	for (int32 i = 0; i < SkyLights.Num(); i++)
 	{
-		if (SkyLights[i].Guid == Guid)
+		if (SkyLights[i].Guid == InGuid)
 		{
 			return &SkyLights[i];
 		}

@@ -4,6 +4,7 @@
 
 #include "KismetCompiler.h"
 #include "EventEntryHandler.h"
+#include "Kismet2/KismetEditorUtilities.h"
 
 #define LOCTEXT_NAMESPACE "K2Node_ActorBoundEvent"
 
@@ -79,6 +80,31 @@ void UK2Node_ActorBoundEvent::DestroyNode()
 	}
 
 	Super::DestroyNode();
+}
+
+bool UK2Node_ActorBoundEvent::CanPasteHere(const UEdGraph* TargetGraph) const
+{
+	// By default, to be safe, we don't allow events to be pasted, except under special circumstances (see below)
+	bool bDisallowPaste = !Super::CanPasteHere(TargetGraph);
+	if (!bDisallowPaste)
+	{
+		const AActor* ReferencedLevelActor = GetReferencedLevelActor();
+		ULevel* Level = ReferencedLevelActor ? ReferencedLevelActor->GetLevel() : nullptr;
+		const UBlueprint* LevelBP = Level ? Level->GetLevelScriptBlueprint(true) : nullptr;
+		if (FBlueprintEditorUtils::FindBlueprintForGraph(TargetGraph) == LevelBP)
+		{
+			if (const UK2Node_Event* PreExistingNode = FKismetEditorUtilities::FindBoundEventForActor(GetReferencedLevelActor(), DelegatePropertyName))
+			{
+				//UE_LOG(LogBlueprint, Log, TEXT("Cannot paste event node (%s) directly because it is flagged as an internal event."), *GetFName().ToString());
+				bDisallowPaste = true;
+			}
+		}
+		else
+		{
+			///UE_LOG(LogBlueprint, Log, TEXT("Cannot paste event node (%s) directly because it is flagged as an internal event."), *GetFName().ToString());
+		}
+	}
+	return !bDisallowPaste;
 }
 
 FText UK2Node_ActorBoundEvent::GetNodeTitle(ENodeTitleType::Type TitleType) const

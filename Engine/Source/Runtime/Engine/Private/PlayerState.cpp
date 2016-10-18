@@ -7,7 +7,7 @@
 #include "EnginePrivate.h"
 #include "GameFramework/EngineMessage.h"
 #include "Net/UnrealNetwork.h"
-#include "OnlineSubsystemUtils.h"
+#include "Net/OnlineEngineInterface.h"
 #include "GameFramework/GameState.h"
 #include "GameFramework/PlayerState.h"
 
@@ -75,6 +75,17 @@ void APlayerState::RecalculateAvgPing()
 	Ping = FMath::Min(255, (int32)(ExactPing * 0.25f));
 }
 
+void APlayerState::DispatchOverrideWith(APlayerState* PlayerState)
+{
+	OverrideWith(PlayerState);
+	ReceiveOverrideWith(PlayerState);
+}
+
+void APlayerState::DispatchCopyProperties(APlayerState* PlayerState)
+{
+	CopyProperties(PlayerState);
+	ReceiveCopyProperties(PlayerState);
+}
 
 void APlayerState::OverrideWith(APlayerState* PlayerState)
 {
@@ -271,12 +282,11 @@ void APlayerState::RegisterPlayerWithSession(bool bWasFromInvite)
 {
 	if (GetNetMode() != NM_Standalone)
 	{
-		IOnlineSessionPtr SessionInt = Online::GetSessionInterface(GetWorld());
-		if (SessionInt.IsValid() && UniqueId.IsValid())
+		if (UniqueId.IsValid()) // May not be valid if this is was created via DebugCreatePlayer
 		{
 			// Register the player as part of the session
 			const APlayerState* PlayerState = GetDefault<APlayerState>();
-			SessionInt->RegisterPlayer(PlayerState->SessionName, *UniqueId, bWasFromInvite);
+			UOnlineEngineInterface::Get()->RegisterPlayer(GetWorld(), PlayerState->SessionName, *UniqueId, bWasFromInvite);
 		}
 	}
 }
@@ -288,12 +298,7 @@ void APlayerState::UnregisterPlayerWithSession()
 		const APlayerState* PlayerState = GetDefault<APlayerState>();
 		if (PlayerState->SessionName != NAME_None)
 		{
-			IOnlineSessionPtr SessionInt = Online::GetSessionInterface(GetWorld());
-			if (SessionInt.IsValid())
-			{
-				// Remove the player from the session
-				SessionInt->UnregisterPlayer(PlayerState->SessionName, *UniqueId);
-			}
+			UOnlineEngineInterface::Get()->UnregisterPlayer(GetWorld(), PlayerState->SessionName, *UniqueId);
 		}
 	}
 }
@@ -308,14 +313,14 @@ APlayerState* APlayerState::Duplicate()
 	// Can fail in case of multiplayer PIE teardown
 	if (NewPlayerState)
 	{
-		CopyProperties(NewPlayerState);
+		DispatchCopyProperties(NewPlayerState);
 	}
 	return NewPlayerState;
 }
 
 void APlayerState::SeamlessTravelTo(APlayerState* NewPlayerState)
 {
-	CopyProperties(NewPlayerState);
+	DispatchCopyProperties(NewPlayerState);
 	NewPlayerState->bOnlySpectator = bOnlySpectator;
 }
 
@@ -325,7 +330,7 @@ bool APlayerState::IsPrimaryPlayer() const
 	return true;
 }
 
-void APlayerState::GetLifetimeReplicatedProps( TArray< FLifetimeProperty > & OutLifetimeProps ) const
+void APlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps( OutLifetimeProps );
 

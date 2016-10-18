@@ -2,6 +2,7 @@
 
 using UnrealBuildTool;
 using System;
+using System.IO;
 
 public class VulkanRHI : ModuleRules
 {
@@ -10,7 +11,8 @@ public class VulkanRHI : ModuleRules
 		PrivateIncludePaths.Add("Runtime/Vulkan/Private");
 
 		PrivateDependencyModuleNames.AddRange(
-			new string[] {
+			new string[]
+            {
 				"Core", 
 				"CoreUObject", 
 				"Engine", 
@@ -19,51 +21,99 @@ public class VulkanRHI : ModuleRules
 				"ShaderCore",
 				"UtilityShaders",
 			}
-			);
+		);
 
-        if (Target.Platform != UnrealTargetPlatform.Android)
-        {
-            //PrivateDependencyModuleNames.Add("VulkanShaderFormat");
-            //AddEngineThirdPartyPrivateStaticDependencies(Target, "HLSLCC");
-        }
-
-		string VulkanSDKPath = Environment.GetEnvironmentVariable("VK_SDK_PATH");
-		if (!String.IsNullOrEmpty(VulkanSDKPath))
+		if (Target.Platform == UnrealTargetPlatform.Win32 || Target.Platform == UnrealTargetPlatform.Win64)
 		{
-			PrivateIncludePaths.Add(VulkanSDKPath + "/Include");
+			string VulkanSDKPath = Environment.GetEnvironmentVariable("VULKAN_SDK");
+			bool bSDKInstalled = !String.IsNullOrEmpty(VulkanSDKPath);
+			if (bSDKInstalled)
+			{
+				// If the user has an installed SDK, use that instead
+				PrivateIncludePaths.Add(VulkanSDKPath + "/Include");
 
-			//#todo-rco: Using /Source/lib instead of /bin as we want pdb's for now
-			PublicLibraryPaths.Add(VulkanSDKPath + "/Source/lib");
+				if (Target.Platform == UnrealTargetPlatform.Win32)
+				{
+					PublicLibraryPaths.Add(VulkanSDKPath + "/Source/lib32");
+				}
+				else
+				{
+					PublicLibraryPaths.Add(VulkanSDKPath + "/Source/lib");
+				}
 
-            if (Target.Platform == UnrealTargetPlatform.Android)
-            {
-                PublicAdditionalLibraries.Add(System.IO.Path.Combine(VulkanSDKPath, "Source/lib/libvulkan.so"));
-            }
-            else
-            {
-                if (VulkanSDKPath.Contains("1.0"))
-                {
-                    PublicAdditionalLibraries.Add("vulkan-1.lib");
-                }
-                else
-                {
-                    PublicAdditionalLibraries.Add("vulkan-0.lib");
-                }
-            }
-
-            if (Target.Configuration != UnrealTargetConfiguration.Shipping)
-            {
-                    PrivateIncludePathModuleNames.AddRange(
-                            new string[]
-                            {
-                                    "TaskGraph",
-                            }
-                    );
-            }
+				PublicAdditionalLibraries.Add("vulkan-1.lib");
+				PublicAdditionalLibraries.Add("vkstatic.1.lib");
+			}
+			else
+			{
+				AddEngineThirdPartyPrivateStaticDependencies(Target, "Vulkan");
+			}
 		}
 		else
 		{
-			PrecompileForTargets = PrecompileTargetsType.None;
+			string VulkanSDKPath = Environment.GetEnvironmentVariable("VULKAN_SDK");
+
+			bool bHaveVulkan = false;
+			if (Target.Platform == UnrealTargetPlatform.Android)
+			{
+				// Note: header is the same for all architectures so just use arch-arm
+				string NDKPath = Environment.GetEnvironmentVariable("NDKROOT");
+				string NDKVulkanIncludePath = NDKPath + "/platforms/android-24/arch-arm/usr/include/vulkan";
+
+				// Use NDK Vulkan header if discovered, or VulkanSDK if available
+				if (File.Exists(NDKVulkanIncludePath + "/vulkan.h"))
+				{
+					bHaveVulkan = true;
+					PrivateIncludePaths.Add(NDKVulkanIncludePath);
+				}
+				else
+				if (!String.IsNullOrEmpty(VulkanSDKPath))
+				{
+					// If the user has an installed SDK, use that instead
+					bHaveVulkan = true;
+					PrivateIncludePaths.Add(VulkanSDKPath + "/Include/vulkan");
+				}
+				else
+				{
+					// Fall back to the Windows Vulkan SDK (the headers are the same)
+					bHaveVulkan = true;
+					PrivateIncludePaths.Add(UEBuildConfiguration.UEThirdPartySourceDirectory + "Vulkan/Windows/Include/vulkan");
+				}
+			}
+			else if (!String.IsNullOrEmpty(VulkanSDKPath))
+			{
+				bHaveVulkan = true;
+				PrivateIncludePaths.Add(VulkanSDKPath + "/Include");
+
+				if (Target.Platform == UnrealTargetPlatform.Win32)
+				{
+					PublicLibraryPaths.Add(VulkanSDKPath + "/Bin32");
+				}
+				else
+				{
+					PublicLibraryPaths.Add(VulkanSDKPath + "/Bin");
+				}
+
+				PublicAdditionalLibraries.Add("vulkan-1.lib");
+				PublicAdditionalLibraries.Add("vkstatic.1.lib");
+			}
+
+			if (bHaveVulkan)
+			{
+				if (Target.Configuration != UnrealTargetConfiguration.Shipping)
+				{
+					PrivateIncludePathModuleNames.AddRange(
+						new string[]
+						{
+                            "TaskGraph",
+						}
+					);
+				}
+			}
+			else
+			{
+				PrecompileForTargets = PrecompileTargetsType.None;
+			}
 		}
-    }
+	}
 }

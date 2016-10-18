@@ -20,9 +20,17 @@ public:
 
 	bool IsSearchDepthLimited() const;
 	bool IsSearchBreadthLimited() const;
+	bool IsShowSoftReferences() const;
+	bool IsShowSoftDependencies() const;
+	bool IsShowHardReferences() const;
+	bool IsShowHardDependencies() const;
 
 	void SetSearchDepthLimitEnabled(bool newEnabled);
 	void SetSearchBreadthLimitEnabled(bool newEnabled);
+	void SetShowSoftReferencesEnabled(bool newEnabled);
+	void SetShowSoftDependenciesEnabled(bool newEnabled);
+	void SetShowHardReferencesEnabled(bool newEnabled);
+	void SetShowHardDependenciesEnabled(bool newEnabled);
 
 	int32 GetSearchDepthLimit() const;
 	int32 GetSearchBreadthLimit() const;
@@ -59,5 +67,9 @@ private:
 
 	bool bLimitSearchDepth;
 	bool bLimitSearchBreadth;
+	bool bIsShowSoftReferences;
+	bool bIsShowSoftDependencies;
+	bool bIsShowHardReferences;
+	bool bIsShowHardDependencies;
 };
 

@@ -33,9 +33,9 @@ CXX = clang++
 CPPFLAGS = -fPIC -Wno-switch -Wno-unused-value -I$(ROOT_DIR)/hlslcc_lib -fvisibility=hidden
 CXXFLAGS = -std=c++11
 ifeq ($(DEBUG),1)
-CPPFLAGS += -g -O0
+CPPFLAGS += -g -O0 -nostdinc++ -I$(ROOT_DIR)/../../../Linux/LibCxx/include/c++/v1
 else
-CPPFLAGS += -O2
+CPPFLAGS += -DNDEBUG -g -O2 -nostdinc++ -I$(ROOT_DIR)/../../../Linux/LibCxx/include/c++/v1
 endif
 
 

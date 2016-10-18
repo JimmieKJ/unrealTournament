@@ -97,19 +97,19 @@ void FWidgetBlueprintCompiler::CreateFunctionList()
 
 void FWidgetBlueprintCompiler::ValidateWidgetNames()
 {
-	UWidgetBlueprint* Blueprint = WidgetBlueprint();
+	UWidgetBlueprint* WidgetBP = WidgetBlueprint();
 
 	TSharedPtr<FKismetNameValidator> ParentBPNameValidator;
-	if ( Blueprint->ParentClass != NULL )
+	if ( WidgetBP->ParentClass != nullptr )
 	{
-		UBlueprint* ParentBP = Cast<UBlueprint>(Blueprint->ParentClass->ClassGeneratedBy);
-		if ( ParentBP != NULL )
+		UBlueprint* ParentBP = Cast<UBlueprint>(WidgetBP->ParentClass->ClassGeneratedBy);
+		if ( ParentBP != nullptr )
 		{
 			ParentBPNameValidator = MakeShareable(new FKismetNameValidator(ParentBP));
 		}
 	}
 
-	Blueprint->WidgetTree->ForEachWidget([&] (UWidget* Widget) {
+	WidgetBP->WidgetTree->ForEachWidget([&] (UWidget* Widget) {
 		if ( ParentBPNameValidator.IsValid() && ParentBPNameValidator->IsValid(Widget->GetName()) != EValidatorResult::Ok )
 		{
 			// TODO Support renaming items, similar to timelines.
@@ -117,9 +117,9 @@ void FWidgetBlueprintCompiler::ValidateWidgetNames()
 			//// Use the viewer displayed Timeline name (without the _Template suffix) because it will be added later for appropriate checks.
 			//FString TimelineName = UTimelineTemplate::TimelineTemplateNameToVariableName(TimelineTemplate->GetFName());
 
-			//FName NewName = FBlueprintEditorUtils::FindUniqueKismetName(Blueprint, TimelineName);
+			//FName NewName = FBlueprintEditorUtils::FindUniqueKismetName(WidgetBP, TimelineName);
 			//MessageLog.Warning(*FString::Printf(*LOCTEXT("TimelineConflictWarning", "Found a timeline with a conflicting name (%s) - changed to %s.").ToString(), *TimelineTemplate->GetName(), *NewName.ToString()));
-			//FBlueprintEditorUtils::RenameTimeline(Blueprint, FName(*TimelineName), NewName);
+			//FBlueprintEditorUtils::RenameTimeline(WidgetBP, FName(*TimelineName), NewName);
 		}
 	});
 }
@@ -153,11 +153,6 @@ void FWidgetBlueprintCompiler::CleanAndSanitizeClass(UBlueprintGeneratedClass* C
 		NewWidgetBlueprintClass->WidgetTree->Rename(nullptr, GetTransientPackage(), REN_ForceNoResetLoaders | REN_DontCreateRedirectors);
 		NewWidgetBlueprintClass->WidgetTree = nullptr;
 	}
-	if ( NewWidgetBlueprintClass->DesignerWidgetTree )
-	{
-		NewWidgetBlueprintClass->DesignerWidgetTree->Rename(nullptr, GetTransientPackage(), REN_ForceNoResetLoaders | REN_DontCreateRedirectors);
-		NewWidgetBlueprintClass->DesignerWidgetTree = nullptr;
-	}
 
 	for ( UWidgetAnimation* Animation : NewWidgetBlueprintClass->Animations )
 	{
@@ -174,11 +169,11 @@ void FWidgetBlueprintCompiler::SaveSubObjectsFromCleanAndSanitizeClass(FSubobjec
 	check(ClassToClean == NewClass);
 	NewWidgetBlueprintClass = CastChecked<UWidgetBlueprintGeneratedClass>((UObject*)NewClass);
 
-	UWidgetBlueprint* Blueprint = WidgetBlueprint();
+	UWidgetBlueprint* WidgetBP = WidgetBlueprint();
 
 	// We need to save the widget tree to survive the initial sub-object clean blitz, 
 	// otherwise they all get renamed, and it causes early loading errors.
-	SubObjectsToSave.AddObject(Blueprint->WidgetTree);
+	SubObjectsToSave.AddObject(WidgetBP->WidgetTree);
 
 	// We need to save all the animations to survive the initial sub-object clean blitz, 
 	// otherwise they all get renamed, and it causes early loading errors.
@@ -193,14 +188,14 @@ void FWidgetBlueprintCompiler::CreateClassVariablesFromBlueprint()
 {
 	Super::CreateClassVariablesFromBlueprint();
 
-	UWidgetBlueprint* Blueprint = WidgetBlueprint();
-	UClass* ParentClass = Blueprint->ParentClass;
+	UWidgetBlueprint* WidgetBP = WidgetBlueprint();
+	UClass* ParentClass = WidgetBP->ParentClass;
 
 	ValidateWidgetNames();
 
 	// Build the set of variables based on the variable widgets in the widget tree.
 	TArray<UWidget*> Widgets;
-	Blueprint->WidgetTree->GetAllWidgets(Widgets);
+	WidgetBP->WidgetTree->GetAllWidgets(Widgets);
 
 	// Sort the widgets alphabetically
 	Widgets.Sort( []( const UWidget& Lhs, const UWidget& Rhs ) { return Rhs.GetFName() < Lhs.GetFName(); } );
@@ -237,7 +232,7 @@ void FWidgetBlueprintCompiler::CreateClassVariablesFromBlueprint()
 		{
 			const FString VariableName = Widget->IsGeneratedName() ? Widget->GetName() : Widget->GetLabelText().ToString();
 			WidgetProperty->SetMetaData(TEXT("DisplayName"), *VariableName);
-			WidgetProperty->SetMetaData(TEXT("Category"), *Blueprint->GetName());
+			WidgetProperty->SetMetaData(TEXT("Category"), *WidgetBP->GetName());
 			
 			WidgetProperty->SetPropertyFlags(CPF_BlueprintVisible);
 			WidgetProperty->SetPropertyFlags(CPF_Transient);
@@ -248,7 +243,7 @@ void FWidgetBlueprintCompiler::CreateClassVariablesFromBlueprint()
 	}
 
 	// Add movie scenes variables here
-	for(UWidgetAnimation* Animation : Blueprint->Animations)
+	for(UWidgetAnimation* Animation : WidgetBP->Animations)
 	{
 		FEdGraphPinType WidgetPinType(Schema->PC_Object, TEXT(""), Animation->GetClass(), false, true);
 		UProperty* AnimationProperty = CreateVariable(Animation->GetFName(), WidgetPinType);
@@ -266,19 +261,19 @@ void FWidgetBlueprintCompiler::CreateClassVariablesFromBlueprint()
 
 void FWidgetBlueprintCompiler::FinishCompilingClass(UClass* Class)
 {
-	UWidgetBlueprint* Blueprint = WidgetBlueprint();
+	UWidgetBlueprint* WidgetBP = WidgetBlueprint();
 
 	// Don't do a bunch of extra work on the skeleton generated class
-	if ( Blueprint->SkeletonGeneratedClass != Class )
+	if ( WidgetBP->SkeletonGeneratedClass != Class )
 	{
 		UWidgetBlueprintGeneratedClass* BPGClass = CastChecked<UWidgetBlueprintGeneratedClass>(Class);
-		if( !Blueprint->bHasBeenRegenerated )
+		if( !WidgetBP->bHasBeenRegenerated )
 		{
-			FBlueprintEditorUtils::ForceLoadMembers(Blueprint->WidgetTree);
+			FBlueprintEditorUtils::ForceLoadMembers(WidgetBP->WidgetTree);
 		}
-		BPGClass->WidgetTree = BPGClass->DesignerWidgetTree = DuplicateObject<UWidgetTree>(Blueprint->WidgetTree, BPGClass);
+		BPGClass->WidgetTree = DuplicateObject<UWidgetTree>(WidgetBP->WidgetTree, BPGClass);
 
-		for ( const UWidgetAnimation* Animation : Blueprint->Animations )
+		for ( const UWidgetAnimation* Animation : WidgetBP->Animations )
 		{
 			UWidgetAnimation* ClonedAnimation = DuplicateObject<UWidgetAnimation>(Animation, BPGClass, *( Animation->GetName() + TEXT("_INST") ));
 
@@ -288,16 +283,16 @@ void FWidgetBlueprintCompiler::FinishCompilingClass(UClass* Class)
 		// Only check bindings on a full compile.  Also don't check them if we're regenerating on load,
 		// that has a nasty tendency to fail because the other dependent classes that may also be blueprints
 		// might not be loaded yet.
-		const bool bIsLoading = Blueprint->bIsRegeneratingOnLoad;
+		const bool bIsLoading = WidgetBP->bIsRegeneratingOnLoad;
 		if ( bIsFullCompile )
 		{
 			// Convert all editor time property bindings into a list of bindings
 			// that will be applied at runtime.  Ensure all bindings are still valid.
-			for ( const FDelegateEditorBinding& EditorBinding : Blueprint->Bindings )
+			for ( const FDelegateEditorBinding& EditorBinding : WidgetBP->Bindings )
 			{
-				if ( bIsLoading || EditorBinding.IsBindingValid(Class, Blueprint, MessageLog) )
+				if ( bIsLoading || EditorBinding.IsBindingValid(Class, WidgetBP, MessageLog) )
 				{
-					BPGClass->Bindings.Add(EditorBinding.ToRuntimeBinding(Blueprint));
+					BPGClass->Bindings.Add(EditorBinding.ToRuntimeBinding(WidgetBP));
 				}
 			}
 		}
@@ -312,7 +307,7 @@ void FWidgetBlueprintCompiler::FinishCompilingClass(UClass* Class)
 		});
 	}
 
-	UClass* ParentClass = Blueprint->ParentClass;
+	UClass* ParentClass = WidgetBP->ParentClass;
 	for ( TUObjectPropertyBase<UWidget*>* WidgetProperty : TFieldRange<TUObjectPropertyBase<UWidget*>>( ParentClass ) )
 	{
 		if ( WidgetProperty->HasMetaData( "BindWidget" ) && ( !WidgetProperty->HasMetaData( "OptionalWidget" ) || !WidgetProperty->GetBoolMetaData( "OptionalWidget" ) ) )
@@ -320,13 +315,29 @@ void FWidgetBlueprintCompiler::FinishCompilingClass(UClass* Class)
 			UWidget* const* Widget = WidgetToMemberVariableMap.FindKey( WidgetProperty );
 			if ( !Widget )
 			{
-				MessageLog.Error( *LOCTEXT( "RequiredWidget_NotBound", "Non-optional widget binding @@ not found." ).ToString(),
-				                    WidgetProperty );
+				if (Blueprint->bIsNewlyCreated)
+				{
+					MessageLog.Warning(*LOCTEXT("RequiredWidget_NotBound", "Non-optional widget binding @@ not found.").ToString(),
+						WidgetProperty);
+				}
+				else
+				{
+					MessageLog.Error(*LOCTEXT("RequiredWidget_NotBound", "Non-optional widget binding @@ not found.").ToString(),
+						WidgetProperty);
+				}
 			}
 			else if ( !( *Widget )->IsA( WidgetProperty->PropertyClass ) )
 			{
-				MessageLog.Error( *LOCTEXT( "IncorrectWidgetTypes", "@@ is of type @@ property is of type @@." ).ToString(), *Widget,
-				                    ( *Widget )->GetClass(), WidgetProperty->PropertyClass );
+				if (Blueprint->bIsNewlyCreated)
+				{
+					MessageLog.Warning(*LOCTEXT("IncorrectWidgetTypes", "@@ is of type @@ property is of type @@.").ToString(), *Widget,
+						(*Widget)->GetClass(), WidgetProperty->PropertyClass);
+				}
+				else
+				{
+					MessageLog.Error(*LOCTEXT("IncorrectWidgetTypes", "@@ is of type @@ property is of type @@.").ToString(), *Widget,
+						(*Widget)->GetClass(), WidgetProperty->PropertyClass);
+				}
 			}
 		}
 	}

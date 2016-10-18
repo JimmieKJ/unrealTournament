@@ -165,23 +165,8 @@ class UNREALTOURNAMENT_API AUTCTFGameState: public AUTGameState
 	UPROPERTY(Replicated)
 		uint32 bPlayingAdvantage : 1;
 
-	UPROPERTY(Replicated)
-		uint32 bOneFlagGameMode : 1;
-
-	UPROPERTY(Replicated)
-		uint32 bRedToCap : 1;
-
-	UPROPERTY(Replicated)
-		bool bAttackerLivesLimited;
-
-	UPROPERTY(Replicated)
-		bool bDefenderLivesLimited;
-
 	UPROPERTY()
 		bool bAllowRallies;
-
-	UPROPERTY(Replicated)
-		bool bAttackersCanRally;
 
 	UPROPERTY()
 		float LastOffenseRallyTime;
@@ -210,12 +195,6 @@ class UNREALTOURNAMENT_API AUTCTFGameState: public AUTGameState
 	UPROPERTY(Replicated)
 		int32 NumRounds;
 
-	UPROPERTY(Replicated)
-		int32 RedLivesRemaining;
-
-	UPROPERTY(Replicated)
-		int32 BlueLivesRemaining;
-
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameState)
 		FText RedAdvantageStatus;
 
@@ -233,9 +212,6 @@ class UNREALTOURNAMENT_API AUTCTFGameState: public AUTGameState
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameState)
 		FText HalftimeStatus;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameState)
-		FText OvertimeStatus;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameState)
 		FText ExtendedOvertimeStatus;
@@ -269,7 +245,6 @@ class UNREALTOURNAMENT_API AUTCTFGameState: public AUTGameState
 	virtual bool IsMatchInOvertime() const override;
 	virtual bool IsMatchIntermission() const override;
 	virtual void OnRep_MatchState() override;
-	virtual void Tick(float DeltaTime) override;
 
 	virtual FName OverrideCameraStyle(APlayerController* PCOwner, FName CurrentCameraStyle);
 	
@@ -303,10 +278,4 @@ public:
 	virtual uint8 NearestTeamSide(AActor* InActor) override;
 
 	bool GetImportantPickups_Implementation(TArray<AUTPickup*>& PickupList);
-
-	// Returns a pointer to the most important flag, or nullptr if there isn't one
-	virtual void GetImportantFlag(int32 TeamNum, TArray<AUTCTFFlag*>& ImportantFlags);
-
-	// Returns a pointer to the most important flag base or nullptr if there isn't one
-	virtual void GetImportantFlagBase(int32 TeamNum, TArray<AUTCTFFlagBase*>& ImportantBases);
 };

@@ -411,3 +411,11 @@ inline void CurveFindIntervalBounds( const FInterpCurvePoint<FLinearColor>& Star
 {
 	CurveLinearColorFindIntervalBounds(Start, End, CurrentMin, CurrentMax);
 }
+
+// Native implementation of NOEXPORT FInterpCurvePoint structures
+typedef FInterpCurvePoint<float> FInterpCurvePointFloat;
+typedef FInterpCurvePoint<FVector2D> FInterpCurvePointVector2D;
+typedef FInterpCurvePoint<FVector> FInterpCurvePointVector;
+typedef FInterpCurvePoint<FQuat> FInterpCurvePointQuat;
+typedef FInterpCurvePoint<FTwoVectors> FInterpCurvePointTwoVectors;
+typedef FInterpCurvePoint<FLinearColor> FInterpCurvePointLinearColor;

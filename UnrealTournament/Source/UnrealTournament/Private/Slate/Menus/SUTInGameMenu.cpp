@@ -165,6 +165,7 @@ void SUTInGameMenu::BuildLeftMenuBar()
 
 void SUTInGameMenu::BuildExitMenu(TSharedPtr<SUTComboButton> ExitButton)
 {
+	ExitButton->AddSubMenuItem(NSLOCTEXT("SUTInGameMenu", "MenuBar_ReturnToMainMenu", "Return to Main Menu"), FOnClicked::CreateSP(this, &SUTInGameMenu::OnReturnToMainMenu));
 	ExitButton->AddSubMenuItem(NSLOCTEXT("SUTMenuBase", "MenuBar_Exit_ReturnToGame", "Close Menu"), FOnClicked::CreateSP(this, &SUTInGameMenu::OnCloseMenu));
 	ExitButton->AddSpacer();
 	AUTGameState* GameState = PlayerOwner->GetWorld()->GetGameState<AUTGameState>();
@@ -172,8 +173,6 @@ void SUTInGameMenu::BuildExitMenu(TSharedPtr<SUTComboButton> ExitButton)
 	{
 		ExitButton->AddSubMenuItem(NSLOCTEXT("SUTInGameMenu", "MenuBar_ReturnToLobby", "Return to Hub"), FOnClicked::CreateSP(this, &SUTInGameMenu::OnReturnToLobby));
 	}
-
-	ExitButton->AddSubMenuItem(NSLOCTEXT("SUTInGameMenu","MenuBar_ReturnToMainMenu","Return to Main Menu"), FOnClicked::CreateSP(this, &SUTInGameMenu::OnReturnToMainMenu));
 }
 
 FReply SUTInGameMenu::OnCloseMenu()
@@ -200,6 +199,20 @@ FReply SUTInGameMenu::OnReturnToLobby()
 	return FReply::Handled();
 }
 
+//Special markup for Analytics event so they show up properly in grafana. Should be eventually moved to UTAnalytics.
+/*
+* @EventName QuitMidGame
+*
+* @Trigger Fires when a user quits an in-progress game
+*
+* @Type Sent by the client
+*
+* @EventParam FPS string float User's average FPS in game
+* @EventParam Kills int32 number of kills the user got this game
+* @EventParam Deaths int32 number of deaths the user got this game
+*
+* @Comments
+*/
 void SUTInGameMenu::WriteQuitMidGameAnalytics()
 {
 	if (FUTAnalytics::IsAvailable() && PlayerOwner->GetWorld()->GetNetMode() != NM_Standalone)
@@ -347,6 +360,27 @@ void SUTInGameMenu::ShowExitDestinationMenu()
 
 	QP->AddOption(
 		SNew(SVerticalBox)
+		+ SVerticalBox::Slot()
+		.AutoHeight()
+		.HAlign(HAlign_Center)
+		[
+			SNew(STextBlock)
+			.Text(NSLOCTEXT("ExitMenu", "MainMenuTitle", "MAIN MENU"))
+		.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Large")
+		]
+	+ SVerticalBox::Slot()
+		.AutoHeight()
+		.HAlign(HAlign_Center)
+		[
+			SNew(STextBlock)
+			.Text(NSLOCTEXT("ExitMenu", "MainMenuMessage", "Leave the current online game and return to the main menu."))
+		.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
+		.AutoWrapText(true)
+		]
+	);
+
+	QP->AddOption(
+		SNew(SVerticalBox)
 		+SVerticalBox::Slot()
 		.AutoHeight()
 		.HAlign(HAlign_Center)
@@ -361,28 +395,6 @@ void SUTInGameMenu::ShowExitDestinationMenu()
 		[
 			SNew(STextBlock)
 			.Text(NSLOCTEXT("ExitMenu", "ExitGameMessage", "Exit the game and return to the desktop."))
-			.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
-			.AutoWrapText(true)
-		]
-	);		
-
-
-	QP->AddOption(
-		SNew(SVerticalBox)
-		+SVerticalBox::Slot()
-		.AutoHeight()
-		.HAlign(HAlign_Center)
-		[
-			SNew(STextBlock)
-			.Text(NSLOCTEXT("ExitMenu", "MainMenuTitle", "MAIN MENU"))
-			.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Large")
-		]
-		+SVerticalBox::Slot()
-		.AutoHeight()
-		.HAlign(HAlign_Center)
-		[
-			SNew(STextBlock)
-			.Text(NSLOCTEXT("ExitMenu", "MainMenuMessage", "Leave the current online game and return to the main menu."))
 			.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
 			.AutoWrapText(true)
 		]
@@ -427,8 +439,8 @@ void SUTInGameMenu::OnDestinationResult(int32 PickedIndex)
 {
 	switch(PickedIndex)
 	{
-		case 0 : PlayerOwner->ConsoleCommand(TEXT("quit")); break;
-		case 1 : OnReturnToMainMenu(); break;
+		case 0: OnReturnToMainMenu(); break;
+		case 1 : PlayerOwner->ConsoleCommand(TEXT("quit")); break;
 		case 2 : OnReturnToLobby(); break;
 	}
 }

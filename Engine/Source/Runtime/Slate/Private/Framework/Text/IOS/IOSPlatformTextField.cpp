@@ -2,6 +2,7 @@
 
 #include "SlatePrivatePCH.h"
 #include "IOSAppDelegate.h"
+#include "IOSView.h"
 
 
 FIOSPlatformTextField::FIOSPlatformTextField()
@@ -21,17 +22,31 @@ FIOSPlatformTextField::~FIOSPlatformTextField()
 void FIOSPlatformTextField::ShowVirtualKeyboard(bool bShow, int32 UserIndex, TSharedPtr<IVirtualKeyboardEntry> TextEntryWidget)
 {
 #if !PLATFORM_TVOS
-	if(TextField == nullptr)
+	
+	FIOSView* View = [IOSAppDelegate GetDelegate].IOSView;
+	if (View->bIsUsingIntegratedKeyboard)
 	{
-		TextField = [SlateTextField alloc];
+		if (bShow)
+		{
+			dispatch_async(dispatch_get_main_queue(),^ {
+				[View ActivateKeyboard:false];
+			});
+		}
 	}
-
-	if(bShow)
+	else
 	{
-		// these functions must be run on the main thread
-		dispatch_async(dispatch_get_main_queue(),^ {
-			[TextField show: TextEntryWidget];
-		});
+		if(TextField == nullptr)
+		{
+			TextField = [SlateTextField alloc];
+		}
+		
+		if(bShow)
+		{
+			// these functions must be run on the main thread
+			dispatch_async(dispatch_get_main_queue(),^ {
+				[TextField show: TextEntryWidget];
+			});
+		}
 	}
 #endif
 }

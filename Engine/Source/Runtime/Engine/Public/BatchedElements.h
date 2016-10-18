@@ -4,8 +4,7 @@
 	BatchedElements.h: Batched element rendering.
 =============================================================================*/
 
-#ifndef _INC_BATCHEDELEMENTS
-#define _INC_BATCHEDELEMENTS
+#pragma once
 
 #include "HitProxies.h"
 #include "StaticBoundShaderState.h"
@@ -104,13 +103,13 @@ public:
 	{
 	}
 
-	/** Adds a line to the batch. */
+	/** Adds a line to the batch. Note only SE_BLEND_Opaque will be used for batched line rendering. */
 	void AddLine(const FVector& Start,const FVector& End,const FLinearColor& Color,FHitProxyId HitProxyId, float Thickness = 0.0f, float DepthBias = 0.0f, bool bScreenSpace = false);
 
 	/** Adds a translucent line to the batch. */
 	void AddTranslucentLine(const FVector& Start, const FVector& End, const FLinearColor& Color, FHitProxyId HitProxyId, float Thickness = 0.0f, float DepthBias = 0.0f, bool bScreenSpace = false);
 
-	/** Adds a point to the batch. */
+	/** Adds a point to the batch. Note only SE_BLEND_Opaque will be used for batched point rendering. */
 	void AddPoint(const FVector& Position,float Size,const FLinearColor& Color,FHitProxyId HitProxyId);
 
 	/** Adds a mesh vertex to the batch. */
@@ -126,21 +125,40 @@ public:
 	void AddTriangle(int32 V0,int32 V1,int32 V2,FBatchedElementParameters* BatchedElementParameters,ESimpleElementBlendMode BlendMode);
 
 	/** 
-	* Reserves space in index array for a mesh element
+	* Reserves space in index array for a mesh element for current number plus expected number.
 	* 
 	* @param NumMeshTriangles - number of triangles to reserve space for
 	* @param Texture - used to find the mesh element entry
 	* @param BlendMode - used to find the mesh element entry
 	*/
 	void AddReserveTriangles(int32 NumMeshTriangles,const FTexture* Texture,ESimpleElementBlendMode BlendMode);
+
 	/** 
-	* Reserves space in mesh vertex array
+	* Reserves space in index array for a mesh element
+	* 
+	* @param NumMeshTriangles - number of triangles to reserve space for
+	* @param Texture - used to find the mesh element entry
+	* @param BlendMode - used to find the mesh element entry
+	*/
+	void ReserveTriangles(int32 NumMeshTriangles,const FTexture* Texture,ESimpleElementBlendMode BlendMode);
+	
+	/** 
+	* Reserves space in mesh vertex array for current number plus expected number.
 	* 
 	* @param NumMeshVerts - number of verts to reserve space for
 	* @param Texture - used to find the mesh element entry
 	* @param BlendMode - used to find the mesh element entry
 	*/
 	void AddReserveVertices(int32 NumMeshVerts);
+
+	/** 
+	* Reserves space in mesh vertex array for at least this many total verts.
+	* 
+	* @param NumMeshVerts - number of verts to reserve space for
+	* @param Texture - used to find the mesh element entry
+	* @param BlendMode - used to find the mesh element entry
+	*/
+	void ReserveVertices(int32 NumMeshVerts);
 
 	/** 
 	 * Reserves space in line vertex array
@@ -283,7 +301,7 @@ private:
 	/** Max number of mesh vertices that will fit in a DrawPriUP call */
 	int32 MaxMeshVerticesAllowed;
 
-	TArray<FBatchedMeshElement,TInlineAllocator<1> > MeshElements;
+	TArray<FBatchedMeshElement,TInlineAllocator<2> > MeshElements;
 	TArray<FSimpleElementVertex,TInlineAllocator<4> > MeshVertices;
 
 	/** bound shader state for the fast path */
@@ -344,4 +362,3 @@ private:
 		) const;
 };
 
-#endif

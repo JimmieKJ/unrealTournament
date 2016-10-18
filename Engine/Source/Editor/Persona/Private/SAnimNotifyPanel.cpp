@@ -16,6 +16,7 @@
 #include "BlueprintActionDatabase.h"
 #include "Animation/AnimNotifies/AnimNotifyState.h"
 #include "Animation/AnimNotifies/AnimNotify.h"
+#include "Animation/AnimSequence.h"
 #include "SAnimTimingPanel.h"
 
 // Track Panel drawing
@@ -2310,6 +2311,11 @@ void SAnimNotifyTrack::FillNewNotifyStateMenu(FMenuBuilder& MenuBuilder, bool bI
 	{
 		for(UClass* Class : NotifyStateClasses)
 		{
+			if (Class->HasAllClassFlags(CLASS_Abstract))
+			{
+				continue; // skip abstract classes
+			}
+
 			const FText Description = LOCTEXT("NewNotifyStateSubMenu_NativeToolTip", "Add an existing native notify state");
 			const FText LabelText = Class->GetDisplayNameText();
 			const FString Label = LabelText.ToString();
@@ -2377,6 +2383,11 @@ void SAnimNotifyTrack::FillNewNotifyMenu(FMenuBuilder& MenuBuilder, bool bIsRepl
 	{
 		for(UClass* Class : NativeNotifyClasses)
 		{
+			if (Class->HasAllClassFlags(CLASS_Abstract))
+			{
+				continue; // skip abstract classes
+			}
+
 			const FText LabelText = Class->GetDisplayNameText();
 			const FString Label = LabelText.ToString();
 
@@ -2881,12 +2892,12 @@ TSharedPtr<SWidget> SAnimNotifyTrack::SummonContextMenu(const FGeometry& MyGeome
 					NewAction.ExecuteAction.BindRaw(
 						this, &SAnimNotifyTrack::OnPasteNotifyClicked, ENotifyPasteMode::MousePosition, ENotifyPasteMultipleMode::Relative);
 
-					MenuBuilder.AddMenuEntry(LOCTEXT("PasteMultRel", "Paste Multiple Relative"), LOCTEXT("PasteToolTip", "Paste multiple notifies beginning at the mouse cursor, maintaining the same relative spacing as the source."), FSlateIcon(), NewAction);
+					MenuBuilder.AddMenuEntry(LOCTEXT("PasteMultRel", "Paste Multiple Relative"), LOCTEXT("PasteMultRelToolTip", "Paste multiple notifies beginning at the mouse cursor, maintaining the same relative spacing as the source."), FSlateIcon(), NewAction);
 
 					NewAction.ExecuteAction.BindRaw(
 						this, &SAnimNotifyTrack::OnPasteNotifyClicked, ENotifyPasteMode::MousePosition, ENotifyPasteMultipleMode::Absolute);
 
-					MenuBuilder.AddMenuEntry(LOCTEXT("PasteMultAbs", "Paste Multiple Absolute"), LOCTEXT("PasteToolTip", "Paste multiple notifies beginning at the mouse cursor, maintaining absolute spacing."), FSlateIcon(), NewAction);
+					MenuBuilder.AddMenuEntry(LOCTEXT("PasteMultAbs", "Paste Multiple Absolute"), LOCTEXT("PasteMultAbsToolTip", "Paste multiple notifies beginning at the mouse cursor, maintaining absolute spacing."), FSlateIcon(), NewAction);
 				}
 
 				if(OriginalTime < Sequence->SequenceLength)
@@ -2916,7 +2927,7 @@ TSharedPtr<SWidget> SAnimNotifyTrack::SummonContextMenu(const FGeometry& MyGeome
 
 				NewAction.ExecuteAction.BindRaw(
 					this, &SAnimNotifyTrack::OnOpenNotifySource, Blueprint);
-				MenuBuilder.AddMenuEntry(LOCTEXT("OpenNotifyBlueprint", "Open Notify Blueprint"), LOCTEXT("OpenNotifyBlueprint", "Opens the source blueprint for this notify"), FSlateIcon(), NewAction);
+				MenuBuilder.AddMenuEntry(LOCTEXT("OpenNotifyBlueprint", "Open Notify Blueprint"), LOCTEXT("OpenNotifyBlueprintTooltip", "Opens the source blueprint for this notify"), FSlateIcon(), NewAction);
 
 				MenuBuilder.EndSection(); //ViewSource
 			}
@@ -3497,6 +3508,7 @@ void SAnimNotifyTrack::PasteSingleNotify(FString& NotifyString, float PasteTime)
 			// Clamp duration into the sequence
 			NewNotify.SetDuration(FMath::Clamp(NewNotify.GetDuration(), 1 / 30.0f, Sequence->SequenceLength - NewNotify.GetTime()));
 			NewNotify.EndTriggerTimeOffset = GetTriggerTimeOffsetForType(Sequence->CalculateOffsetForNotify(NewNotify.GetTime() + NewNotify.GetDuration()));
+			NewNotify.EndLink.Link(Sequence, NewNotify.EndLink.GetTime());
 		}
 	}
 	else
@@ -4380,7 +4392,7 @@ void SAnimNotifyPanel::OnReplaceSelectedWithNotify(FString NewNotifyName, UClass
 	// Sort these since order is important for deletion
 	SelectedNodes.Sort();
 
-	const FScopedTransaction Transaction(LOCTEXT("AddNotifyEvent", "Replace Anim Notify"));
+	const FScopedTransaction Transaction(LOCTEXT("ReplaceAnimNotify", "Replace Anim Notify"));
 	Sequence->Modify(true);
 
 	for (INodeObjectInterface* NodeObject : SelectedNodes)
@@ -4731,11 +4743,11 @@ void SAnimNotifyPanel::OnGetNotifyBlueprintData(TArray<FAssetData>& OutNotifyDat
 		for(int32 AssetIndex = 0; AssetIndex < AssetDataList.Num(); ++AssetIndex)
 		{
 			FAssetData& AssetData = AssetDataList[AssetIndex];
-			FString TagValue = AssetData.TagsAndValues.FindRef(BPParentClassName);
+			FString TagValue = AssetData.GetTagValueRef<FString>(BPParentClassName);
 
 			if(InOutAllowedClassNames->Contains(TagValue))
 			{
-				FString GenClass = AssetData.TagsAndValues.FindRef(BPGenClassName);
+				FString GenClass = AssetData.GetTagValueRef<FString>(BPGenClassName);
 
 				if(!OutNotifyData.Contains(AssetData))
 				{
@@ -4785,7 +4797,7 @@ void SAnimNotifyPanel::OnGetNativeNotifyData(TArray<UClass*>& OutClasses, UClass
 	{
 		UClass* Class = *It;
 
-		if(Class->IsChildOf(NotifyOutermost) && Class->HasAllClassFlags(CLASS_Native) && !Class->HasAllClassFlags(CLASS_Abstract) && !Class->IsInBlueprint())
+		if(Class->IsChildOf(NotifyOutermost) && Class->HasAllClassFlags(CLASS_Native) && !Class->IsInBlueprint())
 		{
 			OutClasses.Add(Class);
 			// Form class name to search later

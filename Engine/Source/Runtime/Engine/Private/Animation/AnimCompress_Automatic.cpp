@@ -21,14 +21,15 @@ UAnimCompress_Automatic::UAnimCompress_Automatic(const FObjectInitializer& Objec
 	bRaiseMaxErrorToExisting = AnimationSettings->bRaiseMaxErrorToExisting;
 }
 
-
+#if WITH_EDITOR
 void UAnimCompress_Automatic::DoReduction(UAnimSequence* AnimSeq, const TArray<FBoneData>& BoneData)
 {
+	FAnimCompressContext CompressContext(MaxEndEffectorError > 0.0f, false);
 #if WITH_EDITORONLY_DATA
 	FAnimationUtils::CompressAnimSequenceExplicit(
 		AnimSeq,
+		CompressContext,
 		MaxEndEffectorError,
-		false, // bOutput
 		bRunCurrentDefaultCompressor,
 		bAutoReplaceIfExistingErrorTooGreat,
 		bRaiseMaxErrorToExisting,
@@ -39,3 +40,21 @@ void UAnimCompress_Automatic::DoReduction(UAnimSequence* AnimSeq, const TArray<F
 	AnimSeq->CompressionScheme = static_cast<UAnimCompress*>( StaticDuplicateObject( AnimSeq->CompressionScheme, AnimSeq) );
 #endif // WITH_EDITORONLY_DATA
 }
+
+void UAnimCompress_Automatic::PopulateDDCKey(FArchive& Ar)
+{
+	Super::PopulateDDCKey(Ar);
+
+	Ar << MaxEndEffectorError;
+
+	uint8 Flags =	MakeBitForFlag(bTryFixedBitwiseCompression, 0) +
+					MakeBitForFlag(bTryPerTrackBitwiseCompression, 1) +
+					MakeBitForFlag(bTryLinearKeyRemovalCompression, 2) +
+					MakeBitForFlag(bTryIntervalKeyRemoval, 3) +
+					MakeBitForFlag(bRunCurrentDefaultCompressor, 4) +
+					MakeBitForFlag(bAutoReplaceIfExistingErrorTooGreat, 5) +
+					MakeBitForFlag(bRaiseMaxErrorToExisting, 6);
+	Ar << Flags;
+}
+
+#endif // WITH_EDITOR

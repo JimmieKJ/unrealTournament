@@ -4,15 +4,24 @@
 #include "UTLocalPlayer.h"
 #include "SUTLoginDialog.h"
 #include "SUTMessageBoxDialog.h"
-#include "../SUWindowsStyle.h"
 #include "../SUTStyle.h"
 #include "Engine/UserInterfaceSettings.h"
 
 #if !UE_SERVER
 
+#include "SUTStyle.h"
+#include "SlateBasics.h"
+#include "SlateExtras.h"
+
+const float MIN_LOGIN_VIEW_TIME=0.75f;
+
 void SUTLoginDialog::Construct(const FArguments& InArgs)
 {
 	PlayerOwner = InArgs._PlayerOwner;
+
+	LoginStartTime = PlayerOwner->GetWorld()->GetRealTimeSeconds();
+	HideDelayTime = 0.0f;
+
 	checkSlow(PlayerOwner != NULL);
 	FVector2D ViewportSize;
 	PlayerOwner->ViewportClient->GetViewportSize(ViewportSize);
@@ -20,7 +29,7 @@ void SUTLoginDialog::Construct(const FArguments& InArgs)
 	FString UserID = InArgs._UserIDText;
 	if (UserID.IsEmpty())
 	{
-		// Attemtp to lookup the current user id.
+		// Attempt to lookup the current user id.
 		UserID = PlayerOwner->GetAccountName();
 	}
 
@@ -68,7 +77,7 @@ void SUTLoginDialog::Construct(const FArguments& InArgs)
 					.HeightOverride(DesignedSize.Y - 48)
 					[
 						SNew(SImage)
-						.Image(SUWindowsStyle::Get().GetBrush("UT.Login.Dialog.Background"))
+						.Image(SUTStyle::Get().GetBrush("UT.Login.Dialog.Background"))
 					]
 				]
 
@@ -92,37 +101,7 @@ void SUTLoginDialog::Construct(const FArguments& InArgs)
 						.HeightOverride(126)
 						[
 							SNew(SImage)
-							.Image(SUWindowsStyle::Get().GetBrush("UT.Login.EpicLogo"))
-						]
-					]
-				]
-			]
-
-			+ SOverlay::Slot()
-			.VAlign(VAlign_Fill)
-			.HAlign(HAlign_Right)
-			[
-				SNew(SVerticalBox)
-				+ SVerticalBox::Slot()
-				.Padding(10.0f, 56.0f, 10.0f, 0.0f)
-				.AutoHeight()
-				.HAlign(HAlign_Center)
-				[
-					SNew(SHorizontalBox)
-					+SHorizontalBox::Slot()
-					.AutoWidth()
-					[
-						SNew(SButton)
-						.ButtonStyle(SUWindowsStyle::Get(), "UT.Login.EmptyButton")
-						.OnClicked(this, &SUTLoginDialog::OnCloseClick)
-						[
-							SNew(SBox)
-							.WidthOverride(32)
-							.HeightOverride(32)
-							[
-								SNew(SImage)
-								.Image(SUTStyle::Get().GetBrush("UT.Icon.Exit"))
-							]
+							.Image(SUTStyle::Get().GetBrush("UT.Login.EpicLogo"))
 						]
 					]
 				]
@@ -132,7 +111,8 @@ void SUTLoginDialog::Construct(const FArguments& InArgs)
 			.VAlign(VAlign_Fill)
 			.HAlign(HAlign_Center)
 			[
-				SNew(SVerticalBox)
+				SAssignNew(InfoBox,SVerticalBox)
+				.Visibility(this, &SUTLoginDialog::GetInfoVis)
 				+ SVerticalBox::Slot()
 				.Padding(10.0f,150.0f, 10.0f, 0.0f)
 				.AutoHeight()
@@ -140,7 +120,7 @@ void SUTLoginDialog::Construct(const FArguments& InArgs)
 				[
 					SNew(STextBlock)
 					.Text(NSLOCTEXT("Login","TeaserText","Enter the Field of Battle!"))
-					.TextStyle(SUWindowsStyle::Get(), "UT.Login.TextStyle")
+					.TextStyle(SUTStyle::Get(), "UT.Login.TextStyle")
 				]
 
 				// User Name
@@ -163,7 +143,7 @@ void SUTLoginDialog::Construct(const FArguments& InArgs)
 							.VAlign(VAlign_Fill)
 							[
 								SNew(SImage)
-								.Image(SUWindowsStyle::Get().GetBrush("UT.Login.Editbox.Background"))
+								.Image(SUTStyle::Get().GetBrush("UT.Login.Editbox.Background"))
 							]
 							+ SOverlay::Slot()
 							.VAlign(VAlign_Bottom)
@@ -176,7 +156,7 @@ void SUTLoginDialog::Construct(const FArguments& InArgs)
 									SAssignNew(UserEditBox, SEditableTextBox)
 									.MinDesiredWidth(425)
 									.Text(FText::FromString(UserID))
-									.Style(SUWindowsStyle::Get(), "UT.Login.Editbox")
+									.Style(SUTStyle::Get(), "UT.Login.Editbox")
 								]
 							]
 							+ SOverlay::Slot()
@@ -189,7 +169,7 @@ void SUTLoginDialog::Construct(const FArguments& InArgs)
 								[
 									SNew(STextBlock)
 									.Text(NSLOCTEXT("Login", "Email", "Email"))
-									.TextStyle(SUWindowsStyle::Get(), "UT.Login.Label.TextStyle")
+									.TextStyle(SUTStyle::Get(), "UT.Login.Label.TextStyle")
 								]
 							]
 						]
@@ -211,13 +191,13 @@ void SUTLoginDialog::Construct(const FArguments& InArgs)
 						SNew(SBox)
 						.WidthOverride(DesignedSize.X * 0.9)
 						[
-							SNew(SRichTextBlock)
-							.TextStyle(SUWindowsStyle::Get(), "UT.Login.Error.TextStyle")
+							SAssignNew(ErrorText, SRichTextBlock)
+							.TextStyle(SUTStyle::Get(), "UT.Login.Error.TextStyle")
 							.Justification(ETextJustify::Center)
-							.DecoratorStyleSet( &SUWindowsStyle::Get() )
+							.DecoratorStyleSet( &SUTStyle::Get() )
 							.AutoWrapText( true )
-							.WrapTextAt(DesignedSize.X * 0.9)
-							.Text(InArgs._ErrorText)
+							.WrapTextAt(DesignedSize.X * 0.7)
+							.Text(FText::GetEmpty())
 						]
 					]
 				]
@@ -242,7 +222,7 @@ void SUTLoginDialog::Construct(const FArguments& InArgs)
 							.VAlign(VAlign_Fill)
 							[
 								SNew(SImage)
-								.Image(SUWindowsStyle::Get().GetBrush("UT.Login.Editbox.Background"))
+								.Image(SUTStyle::Get().GetBrush("UT.Login.Editbox.Background"))
 							]
 							+ SOverlay::Slot()
 							.VAlign(VAlign_Bottom)
@@ -256,7 +236,7 @@ void SUTLoginDialog::Construct(const FArguments& InArgs)
 									.IsPassword(true)
 									.OnTextCommitted(this, &SUTLoginDialog::OnTextCommited)
 									.MinDesiredWidth(425)
-									.Style(SUWindowsStyle::Get(), "UT.Login.Editbox")
+									.Style(SUTStyle::Get(), "UT.Login.Editbox")
 								]
 							]
 							+ SOverlay::Slot()
@@ -269,7 +249,7 @@ void SUTLoginDialog::Construct(const FArguments& InArgs)
 								[
 									SNew(STextBlock)
 									.Text(NSLOCTEXT("Login", "Password", "Password"))
-									.TextStyle(SUWindowsStyle::Get(), "UT.Login.Label.TextStyle")
+									.TextStyle(SUTStyle::Get(), "UT.Login.Label.TextStyle")
 								]
 							]
 						]
@@ -293,13 +273,13 @@ void SUTLoginDialog::Construct(const FArguments& InArgs)
 						.HAlign(HAlign_Right)
 						[
 							SNew(SButton)
-							.ButtonStyle(SUWindowsStyle::Get(), "UT.Login.EmptyButton")
+							.ButtonStyle(SUTStyle::Get(), "UT.Login.EmptyButton")
 							.OnClicked(this, &SUTLoginDialog::OnForgotPasswordClick)
 							.ContentPadding(FMargin(0.0f, 0.0f, 0.0f, 0.0f))
 							[
 								SNew(STextBlock)
 								.Text(NSLOCTEXT("Login", "PasswordRecovery", "Forgot Your Password?"))
-								.TextStyle(SUWindowsStyle::Get(), "UT.Login.EmptyButton.TextStyle")
+								.TextStyle(SUTStyle::Get(), "UT.Login.EmptyButton.TextStyle")
 							]
 						]
 					]
@@ -318,10 +298,10 @@ void SUTLoginDialog::Construct(const FArguments& InArgs)
 					[
 						SNew(SBox)
 						.WidthOverride(390.0f)
-						.HeightOverride(44.0)
+						.HeightOverride(56.0)
 						[
 							SNew(SButton)
-							.ButtonStyle(SUWindowsStyle::Get(), "UT.Login.Button")
+							.ButtonStyle(SUTStyle::Get(), "UT.Login.Button")
 							.OnClicked(this, &SUTLoginDialog::OnSignInClick)
 							.ContentPadding(FMargin(25.0, 0.0, 25.0, 5.0))
 							[
@@ -332,9 +312,29 @@ void SUTLoginDialog::Construct(const FArguments& InArgs)
 								[
 									SNew(STextBlock)
 									.Text(NSLOCTEXT("Login", "LoginButtonText", "Sign In"))
-									.TextStyle(SUWindowsStyle::Get(), "UT.Login.Button.TextStyle")
+									.TextStyle(SUTStyle::Get(), "UT.Login.Button.TextStyle")
 								]
 							]
+						]
+					]
+				]
+
+				+SVerticalBox::Slot()
+				.AutoHeight()
+				.HAlign(HAlign_Center)
+				[
+					SNew(SHorizontalBox)
+					+ SHorizontalBox::Slot()
+					.AutoWidth()
+					[
+						SNew(SButton)
+						.ButtonStyle(SUTStyle::Get(), "UT.Login.EmptyButton")
+						.OnClicked(this, &SUTLoginDialog::OnCloseClick)
+						.ContentPadding(FMargin(0.0f, 0.0f, 0.0f, 0.0f))
+						[
+							SNew(STextBlock)
+							.Text(NSLOCTEXT("Login", "PlayOffline", "Play Offline"))
+							.TextStyle(SUTStyle::Get(), "UT.Login.Offline.TextStyle")
 						]
 					]
 				]
@@ -342,7 +342,7 @@ void SUTLoginDialog::Construct(const FArguments& InArgs)
 				// New Account
 
 				+SVerticalBox::Slot()
-				.Padding(10.0f, 16.0f, 10.0f, 0.0f)
+				.Padding(10.0f, 66.0f, 10.0f, 0.0f)
 				.AutoHeight()
 				.HAlign(HAlign_Center)
 				[
@@ -352,7 +352,7 @@ void SUTLoginDialog::Construct(const FArguments& InArgs)
 					[
 						SNew(STextBlock)
 						.Text(NSLOCTEXT("Login", "NoAccountMsg", "Need an Epic Games Account?"))
-						.TextStyle(SUWindowsStyle::Get(), "UT.Login.TextStyle")
+						.TextStyle(SUTStyle::Get(), "UT.Login.TextStyle")
 					]
 				]
 
@@ -367,16 +367,49 @@ void SUTLoginDialog::Construct(const FArguments& InArgs)
 					.AutoWidth()
 					[
 						SNew(SButton)
-						.ButtonStyle(SUWindowsStyle::Get(), "UT.Login.EmptyButton")
+						.ButtonStyle(SUTStyle::Get(), "UT.Login.EmptyButton")
 						.OnClicked(this, &SUTLoginDialog::OnNewAccountClick)
 						.ContentPadding(FMargin(0.0f, 0.0f, 0.0f, 0.0f))
 						[
 							SNew(STextBlock)
 							.Text(NSLOCTEXT("Login", "SignUp", "Sign Up!"))
-							.TextStyle(SUWindowsStyle::Get(), "UT.Login.EmptyButton.TextStyle")
+							.TextStyle(SUTStyle::Get(), "UT.Login.EmptyButton.TextStyle")
 						]
 					]
 				]
+			]
+			+SOverlay::Slot()
+			.VAlign(VAlign_Fill)
+			.HAlign(HAlign_Center)
+			[
+				SAssignNew(LoadingBox,SVerticalBox)
+				.Visibility(this, &SUTLoginDialog::GetLoadingVis)
+				+ SVerticalBox::Slot()
+				.Padding(10.0f,150.0f, 10.0f, 0.0f)
+				.AutoHeight()
+				.HAlign(HAlign_Center)
+				[
+					SNew(STextBlock)
+					.Text(NSLOCTEXT("Login","TeaserText","Enter the Field of Battle!"))
+					.TextStyle(SUTStyle::Get(), "UT.Login.TextStyle")
+				]
+				+ SVerticalBox::Slot()
+				.Padding(10.0f,150.0f, 10.0f, 0.0f)
+				.AutoHeight()
+				.HAlign(HAlign_Center)
+				[
+					SNew(STextBlock)
+					.Text(this, &SUTLoginDialog::GetLoginPhaseMessage)
+					.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium.Link")
+				]
+				+ SVerticalBox::Slot()
+				.Padding(10.0f,150.0f, 10.0f, 0.0f)
+				.AutoHeight()
+				.HAlign(HAlign_Center)
+				[
+					SNew(SThrobber)
+				]
+
 			]
 		]
 	];
@@ -415,7 +448,7 @@ FReply SUTLoginDialog::OnNewAccountClick()
 	{
 		PlayerOwner->MessageBox(NSLOCTEXT("SUTMenuBase", "HTTPBrowserError", "Error Launching Browser"), FText::FromString(Error));
 	}
-	return FReply::Handled();
+	return FReply::Handled(); 
 }
 
 FReply SUTLoginDialog::OnForgotPasswordClick()
@@ -444,7 +477,11 @@ FReply SUTLoginDialog::OnKeyUp(const FGeometry& MyGeometry, const FKeyEvent& InK
 
 FReply SUTLoginDialog::OnCloseClick()
 {
-	OnDialogResult.ExecuteIfBound(SharedThis(this), UTDIALOG_BUTTON_CANCEL);
+	PlayerOwner->ClearPendingLoginUserName();
+	PlayerOwner->bPlayingOffline = true;
+	PlayerOwner->LoginPhase = ELoginPhase::Offline;
+	PlayerOwner->CloseAuth();
+	
 	return FReply::Handled();
 }
 
@@ -455,14 +492,14 @@ void SUTLoginDialog::OnTextCommited(const FText& NewText, ETextCommit::Type Comm
 	{
 		OnSignInClick();
 	}
-}
+} 
 
 FReply SUTLoginDialog::OnSignInClick()
 {
 
 	if ( GetEpicID() != TEXT("") && GetPassword() != TEXT("") )  
 	{
-		OnDialogResult.ExecuteIfBound(SharedThis(this), UTDIALOG_BUTTON_OK);
+		PlayerOwner->AttemptLogin();
 	}
 
 	return FReply::Handled();
@@ -486,6 +523,105 @@ FReply SUTLoginDialog::OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& I
 
 
 }
+
+EVisibility SUTLoginDialog::GetInfoVis() const
+{
+	return (PlayerOwner.IsValid() && PlayerOwner->LoginPhase == ELoginPhase::InDialog) ? EVisibility::Visible : EVisibility::Collapsed;
+}
+
+EVisibility SUTLoginDialog::GetLoadingVis() const
+{
+	return (PlayerOwner.IsValid() && PlayerOwner->LoginPhase == ELoginPhase::InDialog ) ? EVisibility::Collapsed : EVisibility::Visible;
+}
+
+
+void SUTLoginDialog::SetErrorText(FText NewErrorText)
+{
+	ErrorText->SetText(NewErrorText);
+}
+
+void SUTLoginDialog::BeginLogin()
+{
+	bIsLoggingIn = true;
+	LoginStartTime = PlayerOwner->GetWorld()->GetRealTimeSeconds();
+}
+
+void SUTLoginDialog::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
+{
+	// Failsafe
+	if (PlayerOwner->LoginPhase == ELoginPhase::Offline || PlayerOwner->LoginPhase == ELoginPhase::LoggedIn)
+	{
+		UE_LOG(UT,Log,TEXT("Login Required the failsafe! %i"), int32(PlayerOwner->LoginPhase));
+		EndLogin(true);
+	}
+	else if (bRequestingClose)
+	{
+		HideDelayTime -= InDeltaTime;
+		if (HideDelayTime <= 0.0f)
+		{
+			PlayerOwner->CloseAuth();
+		}
+	}
+}
+
+void SUTLoginDialog::EndLogin(bool bClose)
+{
+	if (bClose)
+	{
+		float LogoutTime = PlayerOwner->GetWorld()->GetRealTimeSeconds();
+		if (LogoutTime - LoginStartTime < MIN_LOGIN_VIEW_TIME)
+		{
+			bRequestingClose = true;
+			HideDelayTime = MIN_LOGIN_VIEW_TIME - (LogoutTime - LoginStartTime);
+		}
+		else
+		{
+			PlayerOwner->CloseAuth();
+		}
+	}
+	else
+	{
+		bIsLoggingIn = false;
+	}
+}
+
+FText SUTLoginDialog::GetLoginPhaseMessage() const
+{
+	if (PlayerOwner.IsValid())
+	{
+		if (PlayerOwner->LoginPhase == ELoginPhase::NotLoggedIn)
+		{
+			return NSLOCTEXT("Login","LoadingNotLoggedIn",".. Awaiting Authentication .. ");
+		}
+		else if (PlayerOwner->LoginPhase == ELoginPhase::Offline)
+		{
+			return NSLOCTEXT("Login","LoadingOffline",".. Offline .. ");
+		}
+		else if (PlayerOwner->LoginPhase == ELoginPhase::Auth)
+		{
+			return NSLOCTEXT("Login","LoadingAuth",".. Looking up Account .. ");
+		}
+		else if (PlayerOwner->LoginPhase == ELoginPhase::GettingProfile)
+		{
+			return NSLOCTEXT("Login","LoadingProifile",".. Loading Settings .. ");
+		}
+		else if (PlayerOwner->LoginPhase == ELoginPhase::GettingProgression)
+		{
+			return NSLOCTEXT("Login","LoadingProgression",".. Loading Progression .. ");
+		}
+		else if (PlayerOwner->LoginPhase == ELoginPhase::GettingMMR)
+		{
+			return NSLOCTEXT("Login","LoadingMMR",".. Loading MMR .. ");
+		}
+		else if (PlayerOwner->LoginPhase == ELoginPhase::LoggedIn)
+		{
+			return NSLOCTEXT("Login","LoadingLoggedIn",".. Finalizing .. ");
+		}
+	}
+
+	return NSLOCTEXT("Login","Loading",".. Contact Epic .. ");
+}
+
 
 
 #endif

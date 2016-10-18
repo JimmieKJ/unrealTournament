@@ -2,6 +2,7 @@
 
 #pragma once
 #include "AnimNodeBase.h"
+#include "Animation/AnimInstance.h"
 #include "AnimStateMachineTypes.h"
 #include "AnimNode_StateMachine.generated.h"
 
@@ -54,9 +55,7 @@ struct FAnimationActiveTransitionEntry
 	// Blend data used for per-bone animation evaluation
 	TArray<FBlendSampleData> StateBlendData;
 
-#if WITH_EDITORONLY_DATA
 	TArray<int32, TInlineAllocator<3>> SourceTransitionIndices;
-#endif
 
 	// Blend profile to use for this transition. Specifying this will make the transition evaluate per-bone
 	UPROPERTY()
@@ -92,9 +91,7 @@ struct FAnimationPotentialTransition
 
 	const FBakedStateExitTransition* TransitionRule;
 
-#if WITH_EDITORONLY_DATA
 	TArray<int32, TInlineAllocator<3>> SourceTransitionIndices;
-#endif
 
 public:
 	FAnimationPotentialTransition();
@@ -138,9 +135,7 @@ public:
 
 	FName GetCurrentStateName() const;
 
-#if WITH_EDITORONLY_DATA
 	bool IsTransitionActive(int32 TransIndex) const;
-#endif
 
 protected:
 	// The state machine description this is an instance of

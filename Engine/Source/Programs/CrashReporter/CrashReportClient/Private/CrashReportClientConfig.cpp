@@ -1,6 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "CrashReportClientApp.h"
+#include "GenericPlatformCrashContext.h"
 
 FCrashReportClientConfig::FCrashReportClientConfig()
 	: DiagnosticsFilename( TEXT( "Diagnostics.txt" ) )
@@ -13,19 +14,39 @@ FCrashReportClientConfig::FCrashReportClientConfig()
 		FApp::IsUnattended();
 #endif // CRASH_REPORT_UNATTENDED_ONLY
 
+	if (!GConfig->GetString(*SectionName, TEXT("CrashReportClientVersion"), CrashReportClientVersion, GEngineIni))
+	{
+		CrashReportClientVersion = TEXT("0.0.0");
+	}
+	UE_LOG(CrashReportClientLog, Log, TEXT("CrashReportClientVersion=%s"), *CrashReportClientVersion);
+
 	if (!GConfig->GetString( *SectionName, TEXT( "CrashReportReceiverIP" ), CrashReportReceiverIP, GEngineIni ))
 	{
-		// Use the default value.
-		CrashReportReceiverIP = TEXT( "http://crashreporter.epicgames.com:57005" );
+		// Use the default value (blank/disabled)
+		CrashReportReceiverIP = TEXT("");
 	}
-	UE_LOG(CrashReportClientLog, Log, TEXT("CrashReportReceiverIP: %s"), *CrashReportReceiverIP);
+	if (CrashReportReceiverIP.IsEmpty())
+	{
+		UE_LOG(CrashReportClientLog, Log, TEXT("CrashReportReceiver disabled"));
+	}
+	else
+	{
+		UE_LOG(CrashReportClientLog, Log, TEXT("CrashReportReceiverIP: %s"), *CrashReportReceiverIP);
+	}
 
 	if (!GConfig->GetString(*SectionName, TEXT("DataRouterUrl"), DataRouterUrl, GEngineIni))
 	{
 		// Use the default value.
 		DataRouterUrl = TEXT("");
 	}
-	UE_LOG(CrashReportClientLog, Log, TEXT("DataRouterUrl: %s"), *DataRouterUrl);
+	if (DataRouterUrl.IsEmpty())
+	{
+		UE_LOG(CrashReportClientLog, Log, TEXT("DataRouter disabled"));
+	}
+	else
+	{
+		UE_LOG(CrashReportClientLog, Log, TEXT("DataRouterUrl: %s"), *DataRouterUrl);
+	}
 
 	if (!GConfig->GetBool( TEXT( "CrashReportClient" ), TEXT( "bAllowToBeContacted" ), bAllowToBeContacted, GEngineIni ))
 	{
@@ -45,17 +66,8 @@ FCrashReportClientConfig::FCrashReportClientConfig()
 		}
 	}
 
-	if (!GConfig->GetBool(TEXT("CrashReportClient"), TEXT("bHideLogFilesOption"), bHideLogFilesOption, GEngineIni))
-	{
-		// Default to false (show the option) when config is missing.
-		bHideLogFilesOption = false;
-	}
-	
-	if (!GConfig->GetBool(TEXT("CrashReportClient"), TEXT("bIsAllowedToCloseWithoutSending"), bIsAllowedToCloseWithoutSending, GEngineIni))
-	{
-		// Default to true (Allow the user to close without sending) when config is missing.
-		bIsAllowedToCloseWithoutSending = true;
-	}
+	FConfigFile EmptyConfigFile;
+	SetProjectConfigOverrides(EmptyConfigFile);
 
 	ReadFullCrashDumpConfigurations();
 }
@@ -70,6 +82,33 @@ void FCrashReportClientConfig::SetSendLogFile( bool bNewValue )
 {
 	bSendLogFile = bNewValue;
 	GConfig->SetBool( *SectionName, TEXT( "bSendLogFile" ), bSendLogFile, GEngineIni );
+}
+
+void FCrashReportClientConfig::SetProjectConfigOverrides(const FConfigFile& InConfigFile)
+{
+	const FConfigSection* Section = InConfigFile.Find(FGenericCrashContext::ConfigSectionName);
+
+	// Default to false (show the option) when config is missing.
+	bHideLogFilesOption = false;
+
+	// Default to true (Allow the user to close without sending) when config is missing.
+	bIsAllowedToCloseWithoutSending = true;
+
+	// Try to read values from override config file
+	if (Section != nullptr)
+	{
+		const FConfigValue* HideLogFilesOptionValue = Section->Find(TEXT("bHideLogFilesOption"));
+		if (HideLogFilesOptionValue != nullptr)
+		{
+			bHideLogFilesOption = FCString::ToBool(*HideLogFilesOptionValue->GetValue());
+		}
+
+		const FConfigValue* IsAllowedToCloseWithoutSendingValue = Section->Find(TEXT("bIsAllowedToCloseWithoutSending"));
+		if (IsAllowedToCloseWithoutSendingValue != nullptr)
+		{
+			bIsAllowedToCloseWithoutSending = FCString::ToBool(*IsAllowedToCloseWithoutSendingValue->GetValue());
+		}
+	}
 }
 
 const FString FCrashReportClientConfig::GetFullCrashDumpLocationForBranch( const FString& BranchName ) const

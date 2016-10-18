@@ -2,6 +2,7 @@
 
 #include "Paper2DPrivatePCH.h"
 #include "Paper2DModule.h"
+#include "PaperRenderSceneProxy.h"
 
 DEFINE_STAT(STAT_PaperRender_SetSpriteRT);
 
@@ -25,6 +26,8 @@ public:
 		}
 
 		PaperAxisZ = FVector::CrossProduct(PaperAxisX, PaperAxisY);
+
+		FPaperSpriteVertex::SetTangentsFromPaperAxes();
 	}
 
 	virtual void ShutdownModule() override

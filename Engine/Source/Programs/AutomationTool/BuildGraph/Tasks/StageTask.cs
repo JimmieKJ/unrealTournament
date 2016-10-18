@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Xml;
 using UnrealBuildTool;
 
 namespace BuildGraph.Tasks
@@ -16,7 +17,7 @@ namespace BuildGraph.Tasks
 		/// <summary>
 		/// The project that this target belongs to
 		/// </summary>
-		[TaskParameter(Optional = true)]
+		[TaskParameter(Optional = true, ValidationType = TaskParameterValidationType.FileName)]
 		public string Project;
 
 		/// <summary>
@@ -44,26 +45,26 @@ namespace BuildGraph.Tasks
 		public string Architecture;
 
 		/// <summary>
-		/// Subset of files which should be staged. This filter is run against the source directory.
-		/// </summary>
-		[TaskParameter(Optional = true)]
-		public string Files;
-
-		/// <summary>
-		/// Files which should not be staged. This filter is run against the source directory.
-		/// </summary>
-		[TaskParameter(Optional = true)]
-		public string Exclude;
-
-		/// <summary>
 		/// Directory the receipt files should be staged to
 		/// </summary>
 		[TaskParameter]
-		public string To;
+		public string ToDir;
+
+		/// <summary>
+		/// Whether to overwrite existing files
+		/// </summary>
+		[TaskParameter(Optional = true)]
+		public bool Overwrite;
+
+		/// <summary>
+		/// Tag to be applied to build products of this task
+		/// </summary>
+		[TaskParameter(Optional = true, ValidationType = TaskParameterValidationType.TagList)]
+		public string Tag;
 	}
 
 	/// <summary>
-	/// Stages files from a receipt to an output directory
+	/// Stages files listed in a build receipt to an output directory.
 	/// </summary>
 	[TaskElement("Stage", typeof(StageTaskParameters))]
 	public class StageTask : CustomTask
@@ -108,7 +109,7 @@ namespace BuildGraph.Tasks
 			DirectoryReference SourceProjectDir = (ProjectFile == null)? SourceEngineDir : ProjectFile.Directory;
 
 			// Get the output directories. We flatten the directory structure on output.
-			DirectoryReference TargetDir = ResolveDirectory(Parameters.To);
+			DirectoryReference TargetDir = ResolveDirectory(Parameters.ToDir);
 			DirectoryReference TargetEngineDir = DirectoryReference.Combine(TargetDir, "Engine");
 			DirectoryReference TargetProjectDir = DirectoryReference.Combine(TargetDir, ProjectFile.GetFileNameWithoutExtension());
 
@@ -128,16 +129,17 @@ namespace BuildGraph.Tasks
 			
 			// Stage all the build products needed at runtime
 			HashSet<FileReference> SourceFiles = new HashSet<FileReference>();
-			foreach(BuildProduct BuildProduct in Receipt.BuildProducts)
+			foreach(BuildProduct BuildProduct in Receipt.BuildProducts.Where(x => x.Type != BuildProductType.StaticLibrary && x.Type != BuildProductType.ImportLibrary))
 			{
 				SourceFiles.Add(new FileReference(BuildProduct.Path));
 			}
-			foreach(RuntimeDependency RuntimeDependency in Receipt.RuntimeDependencies)
+			foreach(RuntimeDependency RuntimeDependency in Receipt.RuntimeDependencies.Where(x => x.Type != StagedFileType.UFS))
 			{
-				SourceFiles.Add(new FileReference(RuntimeDependency.Path));
+				SourceFiles.UnionWith(CommandUtils.ResolveFilespec(CommandUtils.RootDirectory, RuntimeDependency.Path, new string[]{ ".../*.umap", ".../*.uasset" }));
 			}
 
-			// Copy them all to the output directory
+			// Get all the target files
+			List<FileReference> TargetFiles = new List<FileReference>();
 			foreach(FileReference SourceFile in SourceFiles)
 			{
 				// Get the destination file to copy to, mapping to the new engine and project directories as appropriate
@@ -152,13 +154,51 @@ namespace BuildGraph.Tasks
 				}
 
 				// Only copy the output file if it doesn't already exist. We can stage multiple targets to the same output directory.
-				if(!TargetFile.Exists())
+				if(Parameters.Overwrite || !TargetFile.Exists())
 				{
 					TargetFile.Directory.CreateDirectory();
 					CommandUtils.CopyFile(SourceFile.FullName, TargetFile.FullName);
 				}
+
+				// Add it to the list of target files
+				TargetFiles.Add(TargetFile);
 			}
+
+			// Apply the optional tag to the build products
+			foreach(string TagName in FindTagNamesFromList(Parameters.Tag))
+			{
+				FindOrAddTagSet(TagNameToFileSet, TagName).UnionWith(TargetFiles);
+			}
+
+			// Add the target file to the list of build products
+			BuildProducts.UnionWith(TargetFiles);
 			return true;
+		}
+
+		/// <summary>
+		/// Output this task out to an XML writer.
+		/// </summary>
+		public override void Write(XmlWriter Writer)
+		{
+			Write(Writer, Parameters);
+		}
+
+		/// <summary>
+		/// Find all the tags which are used as inputs to this task
+		/// </summary>
+		/// <returns>The tag names which are read by this task</returns>
+		public override IEnumerable<string> FindConsumedTagNames()
+		{
+			yield break;
+		}
+
+		/// <summary>
+		/// Find all the tags which are modified by this task
+		/// </summary>
+		/// <returns>The tag names which are modified by this task</returns>
+		public override IEnumerable<string> FindProducedTagNames()
+		{
+			return FindTagNamesFromList(Parameters.Tag);
 		}
 	}
 }

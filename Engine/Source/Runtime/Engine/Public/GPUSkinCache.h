@@ -7,8 +7,8 @@
 
 // Requirements
 // * Compute shader support (with Atomics)
-// * Project settings needs to be enabled (r.SkinCacheShaders)
-// * feature need to be enabled (r.SkinCaching)
+// * Project settings needs to be enabled (r.SkinCache.CompileShaders)
+// * feature need to be enabled (r.SkinCache.Mode)
 
 // Features
 // * Skeletal mesh, 4 / 8 weights per vertex, 16/32 index buffer
@@ -18,12 +18,12 @@
 // * RecomputeTangents results in improved tangent space for WorldPosOffset animation and morph target animation
 // * fixed amount of memory (r.MaxGPUSkinCacheElementsPerFrame, r.SkinCache.BufferSize)
 // * Velocity Rendering for MotionBlur and TemporalAA (test Velocity in BasePass)
-// * r.SkinCaching and r.SkinCaching.RecomputeTangents can be toggled at runtime
+// * r.SkinCache.Mode and r.SkinCache.RecomputeTangents can be toggled at runtime
 
 // TODO:
 // * Test: Tessellation
 // * Quality/Optimization: increase TANGENT_RANGE for better quality or accumulate two components in one 32bit value
-// * Feature: RecomputeTangents should be a per section setting, the cvar (r.SkinCaching.RecomputeTangents) can stay but should be on by default
+// * Feature: RecomputeTangents should be a per section setting, the cvar (r.SkinCache.RecomputeTangents) can stay but should be on by default
 // * Bug: We iterate through all chunks and try to find the Section. This is costly and might fail (Seems the section has a StartChunkIndex but it's called ChunkIndex)
 // * Bug: UpdateMorphVertexBuffer needs to handle SkinCacheObjects that have been rejected by the SkinCache (e.g. because it was running out of memory)
 // * Refactor: Unify the 3 compute shaders to use the same C++ setup code for the variables
@@ -63,11 +63,13 @@ public:
 		RWTangentXOffsetInFloats = 3,	// Packed U8x4N
 		RWTangentZOffsetInFloats = 4,	// Packed U8x4N
 
+		// stride in float(4 bytes) in the SkinCache buffer
 		RWStrideInFloats = 5,
 		// 3 ints for normal, 3 ints for tangent, 1 for orientation = 7, rounded up to 8 as it should result in faster math and caching
 		IntermediateAccumBufferNumInts = 8,
 		// max vertex count we support once the r.SkinCache.RecomputeTangents feature is used (GPU memory in bytes = n * sizeof(int) * IntermediateAccumBufferNumInts)
-		IntermediateAccumBufferSizeInKB = 1024,
+		// 4*1024 is the conservative size needed for Senua in CharDemo with NinjaTheory (this should be a cvar and project specific or dynamic, with only using the feature on RecomputeTangents it can be much less)
+		IntermediateAccumBufferSizeInKB = 4 * 1024,
 	};
 
 	FGPUSkinCache();
@@ -79,14 +81,15 @@ public:
 	void Initialize(FRHICommandListImmediate& RHICmdList);
 	void Cleanup();
 
-	inline bool IsElementProcessed(int32 Key) const
+	// @param FrameNumber from GFrameNumber or better ViewFamily.FrameNumber
+	inline bool IsElementProcessed(uint32 FrameNumber, int32 Key) const
 	{
 		if (!GEnableGPUSkinCache)
 		{
 			return false;
 		}
 
-		return InternalIsElementProcessed(Key);
+		return InternalIsElementProcessed(FrameNumber, Key);
 	}
 
 	// For each SkeletalMeshObject:
@@ -94,48 +97,74 @@ public:
 	//	For each Chunk:
 	//		Call Add*
 	//	Call End*
+	// @param FrameNumber from GFrameNumber or better ViewFamily.FrameNumber
+	// @param Key index in CachedElements[] (redundant, could be computed)
 	// @param MorphVertexBuffer if no morph targets are used
 	// @returns -1 if failed, otherwise index into CachedElements[]
-	int32 StartCacheMesh(FRHICommandListImmediate& RHICmdList, int32 Key, class FGPUBaseSkinVertexFactory* VertexFactory,
-		class FGPUSkinPassthroughVertexFactory* TargetVertexFactory, const struct FSkelMeshChunk& BatchElement, FSkeletalMeshObjectGPUSkin* Skin,
+	int32 StartCacheMesh(FRHICommandListImmediate& RHICmdList, uint32 FrameNumber, int32 Key, class FGPUBaseSkinVertexFactory* VertexFactory,
+		class FGPUSkinPassthroughVertexFactory* TargetVertexFactory, const struct FSkelMeshSection& BatchElement, FSkeletalMeshObjectGPUSkin* Skin,
 		const class FMorphVertexBuffer* MorphVertexBuffer);
 
-	inline bool SetVertexStreamFromCache(FRHICommandList& RHICmdList, int32 Key, FShader* Shader, const FGPUSkinPassthroughVertexFactory* VertexFactory, uint32 BaseVertexIndex, FShaderParameter PreviousStreamFloatOffset, FShaderResourceParameter PreviousStreamBuffer)
+	// @param FrameNumber from GFrameNumber or better ViewFamily.FrameNumber
+	inline void SetVertexStreamFromCache(FRHICommandList& RHICmdList, uint32 FrameNumber, int32 Key, FShader* Shader, const FGPUSkinPassthroughVertexFactory* VertexFactory,
+		uint32 BaseVertexIndex, FShaderParameter PreviousStreamFloatOffset, FShaderResourceParameter PreviousStreamBuffer)
 	{
 		if (Key >= 0 && Key < CachedElements.Num())
 		{
-			return InternalSetVertexStreamFromCache(RHICmdList, Key, Shader, VertexFactory, BaseVertexIndex, PreviousStreamFloatOffset, PreviousStreamBuffer);
+			InternalSetVertexStreamFromCache(RHICmdList, FrameNumber, Key, Shader, VertexFactory, BaseVertexIndex, PreviousStreamFloatOffset, PreviousStreamBuffer);
+			return;
 		}
 
-		return false;
+		ensure(0);
+		// should never happen but better we render garbage than crash
 	}
 
 	struct FElementCacheStatusInfo
 	{
-		const FSkelMeshChunk* BatchElement;
-		const FVertexFactory* VertexFactory;
-		const FVertexFactory* TargetVertexFactory;
+		// key section -------------
+
+		// TODO: using a pointer as key is dangerous
+		const FSkelMeshSection* BatchElement;
+		// TODO: using a pointer as key is dangerous
 		const FSkeletalMeshObjectGPUSkin* Skin;
 
+		// value section -------------
+
+		// index in CachedElements[] (redundant, could be computed)
 		int32	Key;
-	
+		// from GFrameNumber
 		uint32	FrameUpdated;
+		// start index in SkinCacheBuffer[UAVIndex]
+		uint32 StreamOffset;
+		// for velocity rendering (previous StreamOffset), start index in SkinCacheBuffer[UAVIndex]
+		uint32 PreviousFrameStreamOffset;
+		// from GFrameNumber
+		uint32 PreviousFrameUpdated;
 
+		// debugging section -------------
+
+		//
+		uint32 NumVertices;
+		//
+		uint32 BaseVertexIndex;
+		// input stride in bytes
 		uint32	InputVBStride;
-		// for non velocity rendering
-		uint32	StreamOffset;
-		// for velocity rendering (previous StreamOffset)
-		uint32	PreviousFrameStreamOffset;
+		//
+		bool bExtraBoneInfluences;
+		//
+		const FVertexFactory* VertexFactory;
+		//
+		const FVertexFactory* TargetVertexFactory;
 
-		bool	bExtraBoneInfluences;
+		// -----------------------------
 
 		struct FSearchInfo
 		{
 			const FSkeletalMeshObjectGPUSkin* Skin;
-			const FSkelMeshChunk* BatchElement;
+			const FSkelMeshSection* BatchElement;
 
 			FSearchInfo()  { BatchElement = nullptr; Skin = nullptr; }
-			FSearchInfo(const FSkeletalMeshObjectGPUSkin* InSkin, const FSkelMeshChunk* InBatchElement) { BatchElement = InBatchElement; Skin = InSkin; }
+			FSearchInfo(const FSkeletalMeshObjectGPUSkin* InSkin, const FSkelMeshSection* InBatchElement) { BatchElement = InBatchElement; Skin = InSkin; }
 		};
 
 		// to support FindByKey()
@@ -145,7 +174,7 @@ public:
 		}
 
 		// to support == (confusing usage, better: IsSameBatchElement)
-		bool operator == (const FSkelMeshChunk& OtherBatchElement) const 
+		bool operator == (const FSkelMeshSection& OtherBatchElement) const
 		{
 			return (BatchElement == &OtherBatchElement);
 		}
@@ -155,7 +184,9 @@ public:
 	struct FDispatchData 
 	{
 		FRHICommandListImmediate& RHICmdList;
-		const FSkelMeshChunk& Chunk;
+		const FSkelMeshSection& Section;
+		// for debugging / draw events, -1 if not set
+		uint32 SectionIdx;
 		ERHIFeatureLevel::Type FeatureLevel;
 		
 		// must not be 0
@@ -163,14 +194,19 @@ public:
 
 		// 0:normal, 1:with morph target, 2:with APEX cloth (not yet implemented)
 		uint32 SkinType;
+		//
+		bool bExtraBoneInfluences;
 
 		// SkinCache output input for RecomputeSkinTagents
 		// 0 if no morph
 		FRWBuffer* SkinCacheBuffer;
-		uint32 OutputBufferFloatOffset;
+		// in floats (4 bytes)
+		uint32 SkinCacheStart;
 		uint32 NumVertices;
 
-		uint32 InputStreamFloatOffset;
+		// if floats (4 bytes)
+		uint32 InputStreamStart;
+		// in bytes
 		uint32 InputStreamStride;
 		FShaderResourceViewRHIRef InputVertexBufferSRV;
 
@@ -183,16 +219,18 @@ public:
 		uint32 IndexBufferOffsetValue;
 		uint32 NumTriangles;
 		
-		FDispatchData(FRHICommandListImmediate& InRHICmdList, const FSkelMeshChunk& InChunk, ERHIFeatureLevel::Type InFeatureLevel, FSkeletalMeshObjectGPUSkin* InGPUSkin)
+		FDispatchData(FRHICommandListImmediate& InRHICmdList, const FSkelMeshSection& InSection, ERHIFeatureLevel::Type InFeatureLevel, FSkeletalMeshObjectGPUSkin* InGPUSkin)
 			: RHICmdList(InRHICmdList)
-			, Chunk(InChunk)
+			, Section(InSection)
+			, SectionIdx(-1)
 			, FeatureLevel(InFeatureLevel)
 			, GPUSkin(InGPUSkin)
 			, SkinType(0)
+			, bExtraBoneInfluences(false)
 			, SkinCacheBuffer(0)
-			, OutputBufferFloatOffset(0)
+			, SkinCacheStart(0)
 			, NumVertices(0)
-			, InputStreamFloatOffset(0)
+			, InputStreamStart(0)
 			, InputStreamStride(0)
 			, MorphBuffer(0)
 			, MorphBufferOffset(0)
@@ -209,19 +247,25 @@ public:
 
 
 private:
-	FElementCacheStatusInfo* FindEvictableCacheStatusInfo();
+	// @param FrameNumber from GFrameNumber or better ViewFamily.FrameNumber
+	FElementCacheStatusInfo* FindEvictableCacheStatusInfo(uint32 FrameNumber);
 
 	void DispatchSkinCacheProcess(
 		const struct FVertexBufferAndSRV& BoneBuffer, FUniformBufferRHIRef UniformBuffer,
-		const FVector& MeshOrigin, const FVector& MeshExtension, bool bUseExtraBoneInfluences,
+		const FVector& MeshOrigin, const FVector& MeshExtension,
 		const FDispatchData& DispatchData);
-
+	
 	void DispatchUpdateSkinTangents(const FDispatchData& DispatchData);
 
-	bool InternalSetVertexStreamFromCache(FRHICommandList& RHICmdList, int32 Key, FShader* Shader, const class FGPUSkinPassthroughVertexFactory* VertexFactory, uint32 BaseVertexIndex, FShaderParameter PreviousStreamFloatOffset, FShaderResourceParameter PreviousStreamBuffer);
+	// @param FrameNumber from GFrameNumber or better ViewFamily.FrameNumber
+	void InternalSetVertexStreamFromCache(FRHICommandList& RHICmdList, uint32 FrameNumber, int32 Key, FShader* Shader, const class FGPUSkinPassthroughVertexFactory* VertexFactory,
+		uint32 BaseVertexIndex, FShaderParameter PreviousStreamFloatOffset, FShaderResourceParameter PreviousStreamBuffer);
 
 	void TransitionAllToWriteable(FRHICommandList& RHICmdList);
-	bool InternalIsElementProcessed(int32 Key) const;
+
+	// @param FrameNumber from GFrameNumber or better ViewFamily.FrameNumber
+	bool InternalIsElementProcessed(uint32 FrameNumber, int32 Key) const;
+
 
 	uint32 ComputeRecomputeTangentMaxVertexCount() const
 	{
@@ -229,9 +273,10 @@ private:
 		return IntermediateAccumBufferSizeInB / (sizeof(int32) * FGPUSkinCache::IntermediateAccumBufferNumInts);
 	}
 
+	// from GFrameNumber or better ViewFamily.FrameNumber
 	bool bInitialized : 1;
 
-	uint32	FrameCounter;
+	uint32	SkinCacheFrameNumber;
 
 	int		CacheMaxVectorCount;
 	int		CacheCurrentFloatOffset;
@@ -260,6 +305,7 @@ DECLARE_STATS_GROUP(TEXT("GPU Skin Cache"), STATGROUP_GPUSkinCache, STATCAT_Adva
 DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Total Num Chunks"), STAT_GPUSkinCache_TotalNumChunks, STATGROUP_GPUSkinCache,);
 DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Total Num Vertices"), STAT_GPUSkinCache_TotalNumVertices, STATGROUP_GPUSkinCache,);
 DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Total Memory Used"), STAT_GPUSkinCache_TotalMemUsed, STATGROUP_GPUSkinCache,);
+DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Total Memory Wasted"), STAT_GPUSkinCache_TotalMemWasted, STATGROUP_GPUSkinCache,);
 DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Skipped for Max Chunks Per LOD"), STAT_GPUSkinCache_SkippedForMaxChunksPerLOD, STATGROUP_GPUSkinCache,);
 DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Skipped for Num Chunks Per Frame"), STAT_GPUSkinCache_SkippedForChunksPerFrame, STATGROUP_GPUSkinCache,);
 DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Skipped for zero influences"), STAT_GPUSkinCache_SkippedForZeroInfluences, STATGROUP_GPUSkinCache,);

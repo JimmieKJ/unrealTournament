@@ -80,11 +80,21 @@ public:
 	static const ANSICHAR* CrashContextRuntimeXMLNameA;
 	static const TCHAR* CrashContextRuntimeXMLNameW;
 
+	static const ANSICHAR* CrashConfigFileNameA;
+	static const TCHAR* CrashConfigFileNameW;
+	static const FString CrashConfigExtension;
+	static const FString ConfigSectionName;
+
 	static const FString CrashContextExtension;
 	static const FString RuntimePropertiesTag;
 	static const FString PlatformPropertiesTag;
 	static const FString UE4MinidumpName;
 	static const FString NewLineTag;
+	static const int32 CrashGUIDLength = 128;
+
+	static const FString CrashTypeCrash;
+	static const FString CrashTypeAssert;
+	static const FString CrashTypeEnsure;
 
 	/** Initializes crash context related platform specific data that can be impossible to obtain after a crash. */
 	static void Initialize();
@@ -114,17 +124,17 @@ public:
 	/**
 	 * @return a globally unique crash name.
 	 */
-	const FString& GetUniqueCrashName();
+	void GetUniqueCrashName(TCHAR* GUIDBuffer, int32 BufferSize) const;
 
 	/**
 	 * @return whether this crash is a full memory minidump
 	 */
-	const bool IsFullCrashDump();
+	const bool IsFullCrashDump() const;
 
 	/**
 	 * @return whether this crash is a full memory minidump if the crash context is for an ensure
 	 */
-	const bool IsFullCrashDumpOnEnsure();
+	const bool IsFullCrashDumpOnEnsure() const;
 
 	/** Serializes crash's informations to the specified filename. Should be overridden for platforms where using FFileHelper is not safe, all POSIX platforms. */
 	virtual void SerializeAsXML( const TCHAR* Filename );
@@ -144,6 +154,12 @@ public:
 
 	/** Unescapes a specified XML string, naive implementation. */
 	static FString UnescapeXMLString( const FString& Text );
+
+	/** Helper to get the standard string for the crash type based on crash event bool values. */
+	static const TCHAR* GetCrashTypeString(bool InIsEnsure, bool InIsAssert);
+
+	/** Helper to get the crash report client config filepath saved by this instance and copied to each crash report folder. */
+	static const TCHAR* GetCrashConfigFilePath();
 
 	/**
 	 * @return whether this crash is a non-crash event
@@ -166,11 +182,20 @@ private:
 	void BeginSection( const TCHAR* SectionName );
 	void EndSection( const TCHAR* SectionName );
 
+	/** Called once when GConfig is initialized. Opportunity to cache values from config. */
+	static void InitializeFromConfig();
+
 	/**	Whether the Initialize() has been called */
 	static bool bIsInitialized;
 
+	/**	Static counter records how many crash contexts have been constructed */
+	static int32 StaticCrashContextIndex;
+
 	/** The buffer used to store the crash's properties. */
 	FString CommonBuffer;
+
+	/**	Records which crash context we were using the StaticCrashContextIndex counter */
+	int32 CrashContextIndex;
 
 	// FNoncopyable
 	FGenericCrashContext( const FGenericCrashContext& );

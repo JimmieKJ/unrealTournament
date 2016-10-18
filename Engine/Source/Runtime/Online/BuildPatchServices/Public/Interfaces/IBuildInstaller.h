@@ -48,7 +48,32 @@ enum class EBuildPatchInstallError
 	PathLengthExceeded = 10,
 
 	// An error occurred creating a file due to their not being enough space left on the disk
-	OutOfDiskSpace = 11
+	OutOfDiskSpace = 11,
+
+	// Used to help verify logic
+	NumInstallErrors
+};
+
+/**
+ * Declares the error code prefixes for each error type enum
+ */
+namespace InstallErrorPrefixes
+{
+	static const TCHAR* ErrorTypeStrings[] =
+	{
+		TEXT("OK"), // NoError
+		TEXT("DL"), // DownloadError
+		TEXT("FC"), // FileConstructionFail
+		TEXT("MF"), // MoveFileToInstall
+		TEXT("BV"), // BuildVerifyFail
+		TEXT("SD"), // ApplicationClosing
+		TEXT("FA"), // ApplicationError
+		TEXT("UC"), // UserCanceled
+		TEXT("PQ"), // PrerequisiteError
+		TEXT("IZ"), // InitializationError
+		TEXT("PL"), // PathLengthExceeded
+		TEXT("DS"), // OutOfDiskSpace
+	};
 };
 
 // Enum describing download health. The actual percentage values used are configurable in the engine ini.
@@ -86,10 +111,13 @@ struct FBuildInstallStats
 		, NumChunksRecycled(0)
 		, NumChunksCacheBooted(0)
 		, NumDriveCacheChunkLoads(0)
+		, NumFailedDownloads(0)
+		, NumBadDownloads(0)
 		, NumRecycleFailures(0)
 		, NumDriveCacheLoadFailures(0)
 		, TotalDownloadedData(0)
 		, AverageDownloadSpeed(0.0)
+		, FinalDownloadSpeed(-1.0)
 		, TheoreticalDownloadTime(0.0f)
 		, VerifyTime(0.0f)
 		, CleanUpTime(0.0f)
@@ -97,7 +125,19 @@ struct FBuildInstallStats
 		, ProcessExecuteTime(0.0f)
 		, ProcessPausedTime(0.0f)
 		, ProcessSuccess(false)
+		, NumInstallRetries(0)
 		, FailureType(EBuildPatchInstallError::InitializationError)
+		, RetryFailureTypes()
+		, ErrorCode()
+		, RetryErrorCodes()
+		, FailureReasonText()
+		, FinalProgress(0.0f)
+		, OverallRequestSuccessRate(0.0f)
+		, ExcellentDownloadHealthTime(0.0f)
+		, GoodDownloadHealthTime(0.0f)
+		, OkDownloadHealthTime(0.0f)
+		, PoorDownloadHealthTime(0.0f)
+		, DisconnectedDownloadHealthTime(0.0f)
 	{}
 
 	// The name of the app being installed
@@ -128,6 +168,10 @@ struct FBuildInstallStats
 	uint32 NumChunksCacheBooted;
 	// The number of chunks that had to be loaded from the drive cache
 	uint32 NumDriveCacheChunkLoads;
+	// The number of chunks we did not successfully receive
+	uint32 NumFailedDownloads;
+	// The number of chunks we received but were determined bad data
+	uint32 NumBadDownloads;
 	// The number of chunks that failed to be recycled from existing build
 	uint32 NumRecycleFailures;
 	// The number of chunks that failed to load from the drive cache
@@ -136,6 +180,8 @@ struct FBuildInstallStats
 	int64 TotalDownloadedData;
 	// The average chunk download speed
 	double AverageDownloadSpeed;
+	// The download speed registered at the end of the installation
+	double FinalDownloadSpeed;
 	// The theoretical download time (data/speed)
 	float TheoreticalDownloadTime;
 	// The total time that the install verification took to complete
@@ -150,12 +196,32 @@ struct FBuildInstallStats
 	float ProcessPausedTime;
 	// Whether the process was successful
 	bool ProcessSuccess;
-	// The reason for failure, or "SUCCESS"
-	FString FailureReason;
-	// The localised, more generic failure reason
-	FText FailureReasonText;
+	// The number of times the system looped to retry
+	uint32 NumInstallRetries;
 	// The failure type for the install
 	EBuildPatchInstallError FailureType;
+	// If NumInstallRetries > 0, this will contain the list of retry reasons for retrying
+	TArray<EBuildPatchInstallError> RetryFailureTypes;
+	// The error code. No error results in 'OK'
+	FString ErrorCode;
+	// If NumInstallRetries > 0, this will contain the list of error codes for each retry
+	TArray<FString> RetryErrorCodes;
+	// The localised, more generic failure reason
+	FText FailureReasonText;
+	// Final progress state, this is the progress of the current retry attempt.
+	float FinalProgress;
+	// The overall rate of success for download requests
+	float OverallRequestSuccessRate;
+	// The amount of time that was spent with Excellent download health
+	float ExcellentDownloadHealthTime;
+	// The amount of time that was spent with Good download health
+	float GoodDownloadHealthTime;
+	// The amount of time that was spent with OK download health
+	float OkDownloadHealthTime;
+	// The amount of time that was spent with Poor download health
+	float PoorDownloadHealthTime;
+	// The amount of time that was spent with Disconnected download health
+	float DisconnectedDownloadHealthTime;
 };
 
 /**
@@ -240,11 +306,10 @@ public:
 	virtual int64 GetTotalDownloaded() const = 0;
 
 	/**
-	 * Get the text for status of the install process
-	 * @param ShortError		The truncated version of the error
-	 * @return	status of the install process text
+	 * Get the text for status of the install process.
+	 * @return Status of the install process.
 	 */
-	virtual FText GetStatusText(bool ShortError = false) = 0;
+	virtual FText GetStatusText() = 0;
 
 	/**
 	 * Get the update progress
@@ -280,5 +345,12 @@ public:
 	 * @return true if the installer is now paused
 	 */
 	virtual bool TogglePauseInstall() = 0;
+
+	/**
+	 * Get the installation error code. This includes the failure type as well as specific code associated. The value is alphanumeric.
+	 * This is only guaranteed to be set once the installation has completed.
+	 * @returns the code as a string.
+	 */
+	virtual FString GetErrorCode() = 0;
 };
 

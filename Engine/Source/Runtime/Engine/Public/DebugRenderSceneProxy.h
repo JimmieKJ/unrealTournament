@@ -2,12 +2,9 @@
 
 /*=============================================================================
 	DebugRenderSceneProxy.h: Useful scene proxy for rendering non performance-critical information.
-
-
 =============================================================================*/
 
-#ifndef _INC_DEBUGRENDERSCENEPROXY
-#define _INC_DEBUGRENDERSCENEPROXY
+#pragma once
 
 #include "PrimitiveSceneProxy.h"
 #include "DynamicMeshBuilder.h"
@@ -248,4 +245,3 @@ public:
 	TWeakObjectPtr<class UMaterial> SolidMeshMaterial;
 };
 
-#endif

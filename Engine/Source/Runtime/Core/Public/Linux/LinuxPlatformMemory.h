@@ -51,7 +51,7 @@ struct CORE_API FLinuxPlatformMemory : public FGenericPlatformMemory
 	static const FPlatformMemoryConstants& GetConstants();
 	static bool PageProtect(void* const Ptr, const SIZE_T Size, const bool bCanRead, const bool bCanWrite);
 	static void* BinnedAllocFromOS( SIZE_T Size );
-	static void BinnedFreeToOS( void* Ptr );
+	static void BinnedFreeToOS( void* Ptr, SIZE_T Size );
 	static FSharedMemoryRegion * MapNamedSharedMemoryRegion(const FString& InName, bool bCreate, uint32 AccessMode, SIZE_T Size);
 	static bool UnmapNamedSharedMemoryRegion(FSharedMemoryRegion * MemoryRegion);
 	//~ End FGenericPlatformMemory Interface

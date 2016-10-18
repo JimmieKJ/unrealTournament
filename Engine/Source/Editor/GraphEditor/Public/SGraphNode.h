@@ -126,6 +126,12 @@ public:
 	/** @return the tint for the node's title text */
 	FLinearColor GetNodeTitleTextColor() const;
 
+	/** @return the tint for the node's indicator overlay */
+	virtual FSlateColor GetNodeIndicatorOverlayColor() const { return FLinearColor::Transparent; }
+
+	/** @return visibility state of the indicator overlay */
+	virtual EVisibility GetNodeIndicatorOverlayVisibility() const { return EVisibility::Collapsed; }
+
 	/** @return the tooltip to display when over the node */
 	FText GetNodeTooltip() const;
 	
@@ -184,9 +190,9 @@ public:
 	/** Set event when the user generates a warning tooltip because a connection was invalid */
 	void SetDisallowedPinConnectionEvent(SGraphEditor::FOnDisallowedPinConnection InOnDisallowedPinConnection);
 	/** called to replace this nodes comment text */
-	void OnCommentTextCommitted(const FText& NewComment, ETextCommit::Type CommitInfo);
+	virtual void OnCommentTextCommitted(const FText& NewComment, ETextCommit::Type CommitInfo);
 	/** called when the node's comment bubble is toggled */
-	void OnCommentBubbleToggled(bool bInCommentBubbleVisible);
+	virtual void OnCommentBubbleToggled(bool bInCommentBubbleVisible);
 	/** returns true if a rename is pending on this node */
 	bool IsRenamePending() const { return bRenameIsPending; }
 

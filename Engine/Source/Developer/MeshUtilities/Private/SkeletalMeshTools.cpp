@@ -350,10 +350,10 @@ namespace SkeletalMeshTools
 		}
 		OutData.MeshToImportVertexMap = Model.MeshToImportVertexMap;
 		OutData.Sections = Model.Sections;
-		for (int32 ChunkIndex = 0; ChunkIndex < Model.Chunks.Num(); ++ChunkIndex)
+		for (int32 SectionIndex = 0; SectionIndex < Model.Sections.Num(); ++SectionIndex)
 		{
 			TArray<FBoneIndexType>& DestBoneMap = *new(OutData.BoneMaps) TArray<FBoneIndexType>();
-			DestBoneMap = Model.Chunks[ChunkIndex].BoneMap;
+			DestBoneMap = Model.Sections[SectionIndex].BoneMap;
 		}
 		OutData.NumTexCoords = Model.NumTexCoords;
 	#endif // #if WITH_EDITORONLY_DATA
@@ -459,28 +459,16 @@ namespace SkeletalMeshTools
 		Infos.AddZeroed( SkeletalMesh->RefSkeleton.GetNum() );
 
 		FStaticLODModel* LODModel = &ImportedResource->LODModels[0];
-		for(int32 ChunkIndex = 0;ChunkIndex < LODModel->Chunks.Num();ChunkIndex++)
+		for(int32 SectionIndex = 0; SectionIndex < LODModel->Sections.Num(); SectionIndex++)
 		{
-			FSkelMeshChunk& Chunk = LODModel->Chunks[ChunkIndex];
-			for(int32 i=0; i<Chunk.RigidVertices.Num(); i++)
+			FSkelMeshSection& Section = LODModel->Sections[SectionIndex];
+			for(int32 i=0; i<Section.SoftVertices.Num(); i++)
 			{
-				FRigidSkinVertex* RigidVert = &Chunk.RigidVertices[i];
-				int32 BoneIndex = Chunk.BoneMap[RigidVert->Bone];
-
-				FVector LocalPos = SkeletalMesh->RefBasesInvMatrix[BoneIndex].TransformPosition(RigidVert->Position);
-				Infos[BoneIndex].Positions.Add(LocalPos);
-
-				FVector LocalNormal = SkeletalMesh->RefBasesInvMatrix[BoneIndex].TransformVector(RigidVert->TangentZ);
-				Infos[BoneIndex].Normals.Add(LocalNormal);
-			}
-
-			for(int32 i=0; i<Chunk.SoftVertices.Num(); i++)
-			{
-				FSoftSkinVertex* SoftVert = &Chunk.SoftVertices[i];
+				FSoftSkinVertex* SoftVert = &Section.SoftVertices[i];
 
 				if(bOnlyDominant)
 				{
-					int32 BoneIndex = Chunk.BoneMap[GetDominantBoneIndex(SoftVert)];
+					int32 BoneIndex = Section.BoneMap[GetDominantBoneIndex(SoftVert)];
 
 					FVector LocalPos = SkeletalMesh->RefBasesInvMatrix[BoneIndex].TransformPosition(SoftVert->Position);
 					Infos[BoneIndex].Positions.Add(LocalPos);
@@ -494,7 +482,7 @@ namespace SkeletalMeshTools
 					{
 						if(SoftVert->InfluenceWeights[j] > 0)
 						{
-							int32 BoneIndex = Chunk.BoneMap[SoftVert->InfluenceBones[j]];
+							int32 BoneIndex = Section.BoneMap[SoftVert->InfluenceBones[j]];
 
 							FVector LocalPos = SkeletalMesh->RefBasesInvMatrix[BoneIndex].TransformPosition(SoftVert->Position);
 							Infos[BoneIndex].Positions.Add(LocalPos);

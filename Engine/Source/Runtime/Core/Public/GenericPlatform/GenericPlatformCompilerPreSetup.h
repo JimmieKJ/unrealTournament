@@ -83,3 +83,7 @@
 	#define EMIT_CUSTOM_WARNING(Warning) \
 		EMIT_CUSTOM_WARNING_AT_LINE(__LINE__, Warning)
 #endif // EMIT_CUSTOM_WARNING
+
+#ifndef DEPRECATED_MACRO
+	#define DEPRECATED_MACRO(Version, Message) EMIT_CUSTOM_WARNING(Message " Please update your code to the new API before upgrading to the next release, otherwise your project will no longer compile.")
+#endif

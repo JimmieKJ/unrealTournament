@@ -2,7 +2,6 @@
 
 #include "GeometryCacheModulePrivatePCH.h"
 #include "GeometryCacheActor.h"
-#include "UnrealEd.h"
 #include "GeometryCacheComponent.h"
 
 AGeometryCacheActor::AGeometryCacheActor(const FObjectInitializer& ObjectInitializer)
@@ -17,6 +16,7 @@ GEOMETRYCACHE_API UGeometryCacheComponent* AGeometryCacheActor::GetGeometryCache
 	return GeometryCacheComponent;
 }
 
+#if WITH_EDITOR
 bool AGeometryCacheActor::GetReferencedContentObjects(TArray<UObject*>& Objects) const
 {
 	Super::GetReferencedContentObjects(Objects);
@@ -28,3 +28,4 @@ bool AGeometryCacheActor::GetReferencedContentObjects(TArray<UObject*>& Objects)
 
 	return true;
 }
+#endif

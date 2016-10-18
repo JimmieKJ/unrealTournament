@@ -76,12 +76,13 @@ public:
 
 		const FString WildCard = FString::Printf(TEXT("*%s"), *FPackageName::GetMapPackageExtension());
 
-		IFileManager::Get().FindFilesRecursive(ProjectMapNames, *FPaths::Combine(*FPaths::RootDir(), *GameName, TEXT("Content"), TEXT("Maps")), *WildCard, true, false);
+		// Scan all Content folder, because not all projects follow Content/Maps convention
+		IFileManager::Get().FindFilesRecursive(ProjectMapNames, *FPaths::Combine(*FPaths::RootDir(), *GameName, TEXT("Content")), *WildCard, true, false);
 
 		// didn't find any, let's check the base GameName just in case it is a full path
 		if (ProjectMapNames.Num() == 0)
 		{
-			IFileManager::Get().FindFilesRecursive(ProjectMapNames, *FPaths::Combine(*GameName, TEXT("Content"), TEXT("Maps")), *WildCard, true, false);
+			IFileManager::Get().FindFilesRecursive(ProjectMapNames, *FPaths::Combine(*GameName, TEXT("Content")), *WildCard, true, false);
 		}
 
 		for (int32 i = 0; i < ProjectMapNames.Num(); i++)

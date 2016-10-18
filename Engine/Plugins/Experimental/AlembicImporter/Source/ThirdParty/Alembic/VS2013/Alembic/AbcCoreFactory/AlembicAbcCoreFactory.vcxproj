@@ -1,0 +1,409 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="DynamicDebug|x64">
+      <Configuration>DynamicDebug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="DynamicRelease|x64">
+      <Configuration>DynamicRelease</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="MinSizeRel|x64">
+      <Configuration>MinSizeRel</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="RelWithDebInfo|x64">
+      <Configuration>RelWithDebInfo</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="StaticDebug|x64">
+      <Configuration>StaticDebug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="StaticRelease|x64">
+      <Configuration>StaticRelease</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGUID>{7ABE694D-9B60-4DAE-B294-57209E7152AD}</ProjectGUID>
+    <Keyword>Win32Proj</Keyword>
+    <Platform>x64</Platform>
+    <ProjectName>AlembicAbcCoreFactory</ProjectName>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseOfMfc>false</UseOfMfc>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v120</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='StaticDebug|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseOfMfc>false</UseOfMfc>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v120</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DynamicDebug|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseOfMfc>false</UseOfMfc>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v120</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseOfMfc>false</UseOfMfc>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v120</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='StaticRelease|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseOfMfc>false</UseOfMfc>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v120</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DynamicRelease|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseOfMfc>false</UseOfMfc>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v120</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseOfMfc>false</UseOfMfc>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v110</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseOfMfc>false</UseOfMfc>
+    <CharacterSet>MultiByte</CharacterSet>
+    <PlatformToolset>v110</PlatformToolset>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup>
+    <_ProjectFileVersion>10.0.20506.1</_ProjectFileVersion>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(SolutionDir)..\..\Deploy\lib\VS2013\$(Platform)\$(Configuration)\</OutDir>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='StaticDebug|x64'">$(SolutionDir)..\..\Deploy\lib\VS2013\$(Platform)\$(Configuration)\</OutDir>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='DynamicDebug|x64'">$(SolutionDir)..\..\Deploy\lib\VS2013\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">AlembicAbcCoreFactory.dir\Debug\</IntDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='StaticDebug|x64'">AlembicAbcCoreFactory.dir\Debug\</IntDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='DynamicDebug|x64'">AlembicAbcCoreFactory.dir\Debug\</IntDir>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">AlembicAbcCoreFactory</TargetName>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='StaticDebug|x64'">AlembicAbcCoreFactory</TargetName>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='DynamicDebug|x64'">AlembicAbcCoreFactory</TargetName>
+    <TargetExt Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">.lib</TargetExt>
+    <TargetExt Condition="'$(Configuration)|$(Platform)'=='StaticDebug|x64'">.lib</TargetExt>
+    <TargetExt Condition="'$(Configuration)|$(Platform)'=='DynamicDebug|x64'">.lib</TargetExt>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(SolutionDir)..\..\Deploy\lib\VS2013\$(Platform)\$(Configuration)\</OutDir>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='StaticRelease|x64'">$(SolutionDir)..\..\Deploy\lib\VS2013\$(Platform)\$(Configuration)\</OutDir>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='DynamicRelease|x64'">$(SolutionDir)..\..\Deploy\lib\VS2013\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='Release|x64'">AlembicAbcCoreFactory.dir\Release\</IntDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='StaticRelease|x64'">AlembicAbcCoreFactory.dir\Release\</IntDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='DynamicRelease|x64'">AlembicAbcCoreFactory.dir\Release\</IntDir>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='Release|x64'">AlembicAbcCoreFactory</TargetName>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='StaticRelease|x64'">AlembicAbcCoreFactory</TargetName>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='DynamicRelease|x64'">AlembicAbcCoreFactory</TargetName>
+    <TargetExt Condition="'$(Configuration)|$(Platform)'=='Release|x64'">.lib</TargetExt>
+    <TargetExt Condition="'$(Configuration)|$(Platform)'=='StaticRelease|x64'">.lib</TargetExt>
+    <TargetExt Condition="'$(Configuration)|$(Platform)'=='DynamicRelease|x64'">.lib</TargetExt>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">$(SolutionDir)..\..\Deploy\lib\VS2013\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">AlembicAbcCoreFactory.dir\MinSizeRel\</IntDir>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">AlembicAbcCoreFactory</TargetName>
+    <TargetExt Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">.lib</TargetExt>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">$(SolutionDir)..\..\Deploy\lib\VS2013\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">AlembicAbcCoreFactory.dir\RelWithDebInfo\</IntDir>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">AlembicAbcCoreFactory</TargetName>
+    <TargetExt Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">.lib</TargetExt>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>$(SolutionDir)\..\..\hdf5-1.8.9;$(SolutionDir)\..\..\hdf5-1.8.9\src;$(SolutionDir)\..\..\hdf5-1.8.9\hl\src;$(SolutionDir)\..\..\hdf5-1.8.9\hl\c++\src;$(SolutionDir)\..\..\hdf5-1.8.9\c++\src;$(SolutionDir)..\..\Deploy\include\;$SolutionDir)\..\..\zlib-1.2.5\Inc; $(SolutionDir)..\..\alembic-1.5.0;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AssemblerListingLocation>Debug/</AssemblerListingLocation>
+      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
+      <CompileAs>CompileAsCpp</CompileAs>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <InlineFunctionExpansion>Disabled</InlineFunctionExpansion>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <Optimization>Disabled</Optimization>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WarningLevel>Level3</WarningLevel>
+      <PreprocessorDefinitions>WIN32;_WINDOWS;PLATFORM_WINDOWS;_DEBUG;_WIN64;WIN64;H5_HAVE_THREADSAFE;crate_MAJOR_VERSION=1;crate_MINOR_VERSION=1;crate_BUILD_VERSION=145;alembic_ver=Shared/alembic-1.5.0;hdf_ver=Shared/hdf5-1.8.9;crate_ver=crate-1.1.145;NOMINMAX;CMAKE_INTDIR="Debug";%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ObjectFileName>$(IntDir)</ObjectFileName>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>WIN32;_WINDOWS;PLATFORM_WINDOWS;_DEBUG;_WIN64;WIN64;H5_HAVE_THREADSAFE;crate_MAJOR_VERSION=1;crate_MINOR_VERSION=1;crate_BUILD_VERSION=145;alembic_ver=Shared/alembic-1.5.0;hdf_ver=Shared/hdf5-1.8.9;crate_ver=crate-1.1.145;NOMINMAX;CMAKE_INTDIR=\"Debug\";%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ResourceCompile>
+    <Midl>
+      <OutputDirectory>$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+    <PostBuildEvent>
+      <Command>
+      </Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='StaticDebug|x64'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>$(SolutionDir)\..\..\hdf5-1.8.9;$(SolutionDir)\..\..\hdf5-1.8.9\src;$(SolutionDir)\..\..\hdf5-1.8.9\hl\src;$(SolutionDir)\..\..\hdf5-1.8.9\hl\c++\src;$(SolutionDir)\..\..\hdf5-1.8.9\c++\src;$(SolutionDir)..\..\Deploy\include\;$SolutionDir)\..\..\zlib-1.2.5\Inc; $(SolutionDir)..\..\alembic-1.5.0;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AssemblerListingLocation>Debug/</AssemblerListingLocation>
+      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
+      <CompileAs>CompileAsCpp</CompileAs>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <InlineFunctionExpansion>Disabled</InlineFunctionExpansion>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <Optimization>Disabled</Optimization>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WarningLevel>Level3</WarningLevel>
+      <PreprocessorDefinitions>WIN32;_WINDOWS;PLATFORM_WINDOWS;_DEBUG;_WIN64;WIN64;H5_HAVE_THREADSAFE;crate_MAJOR_VERSION=1;crate_MINOR_VERSION=1;crate_BUILD_VERSION=145;alembic_ver=Shared/alembic-1.5.0;hdf_ver=Shared/hdf5-1.8.9;crate_ver=crate-1.1.145;NOMINMAX;CMAKE_INTDIR="Debug";%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ObjectFileName>$(IntDir)</ObjectFileName>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>WIN32;_WINDOWS;PLATFORM_WINDOWS;_DEBUG;_WIN64;WIN64;H5_HAVE_THREADSAFE;crate_MAJOR_VERSION=1;crate_MINOR_VERSION=1;crate_BUILD_VERSION=145;alembic_ver=Shared/alembic-1.5.0;hdf_ver=Shared/hdf5-1.8.9;crate_ver=crate-1.1.145;NOMINMAX;CMAKE_INTDIR=\"Debug\";%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ResourceCompile>
+    <Midl>
+      <OutputDirectory>$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+    <PostBuildEvent>
+      <Command>SET name=AbcCoreFactory
+if not exist $(SolutionDir)..\..\Deploy\include\Alembic\%name% ( mkdir $(SolutionDir)..\..\Deploy\include\Alembic\%name% ) 
+xcopy /Y $(ProjectDir)..\..\..\alembic-1.5.0\alembic\%name%\*.h $(SolutionDir)..\..\Deploy\include\Alembic\%name%</Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='DynamicDebug|x64'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>$(SolutionDir)\..\..\hdf5-1.8.9;$(SolutionDir)\..\..\hdf5-1.8.9\src;$(SolutionDir)\..\..\hdf5-1.8.9\hl\src;$(SolutionDir)\..\..\hdf5-1.8.9\hl\c++\src;$(SolutionDir)\..\..\hdf5-1.8.9\c++\src;$(SolutionDir)..\..\Deploy\include\;$SolutionDir)\..\..\zlib-1.2.5\Inc; $(SolutionDir)..\..\alembic-1.5.0;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AssemblerListingLocation>Debug/</AssemblerListingLocation>
+      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
+      <CompileAs>CompileAsCpp</CompileAs>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <InlineFunctionExpansion>Disabled</InlineFunctionExpansion>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <Optimization>Disabled</Optimization>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WarningLevel>Level3</WarningLevel>
+      <PreprocessorDefinitions>WIN32;_WINDOWS;PLATFORM_WINDOWS;_DEBUG;_WIN64;WIN64;H5_HAVE_THREADSAFE;crate_MAJOR_VERSION=1;crate_MINOR_VERSION=1;crate_BUILD_VERSION=145;alembic_ver=Shared/alembic-1.5.0;hdf_ver=Shared/hdf5-1.8.9;crate_ver=crate-1.1.145;NOMINMAX;CMAKE_INTDIR="Debug";%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ObjectFileName>$(IntDir)</ObjectFileName>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>WIN32;_WINDOWS;PLATFORM_WINDOWS;_DEBUG;_WIN64;WIN64;H5_HAVE_THREADSAFE;crate_MAJOR_VERSION=1;crate_MINOR_VERSION=1;crate_BUILD_VERSION=145;alembic_ver=Shared/alembic-1.5.0;hdf_ver=Shared/hdf5-1.8.9;crate_ver=crate-1.1.145;NOMINMAX;CMAKE_INTDIR=\"Debug\";%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ResourceCompile>
+    <Midl>
+      <OutputDirectory>$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+    <PostBuildEvent>
+      <Command>SET name=AbcCoreFactory
+if not exist $(SolutionDir)..\..\Deploy\include\Alembic\%name% ( mkdir $(SolutionDir)..\..\Deploy\include\Alembic\%name% ) 
+xcopy /Y $(ProjectDir)..\..\..\alembic-1.5.0\alembic\%name%\*.h $(SolutionDir)..\..\Deploy\include\Alembic\%name%</Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>$(SolutionDir)\..\..\hdf5-1.8.9;$(SolutionDir)\..\..\hdf5-1.8.9\src;$(SolutionDir)\..\..\hdf5-1.8.9\hl\src;$(SolutionDir)\..\..\hdf5-1.8.9\hl\c++\src;$(SolutionDir)\..\..\hdf5-1.8.9\c++\src;$(SolutionDir)..\..\Deploy\include\;$SolutionDir)\..\..\zlib-1.2.5\Inc; $(SolutionDir)..\..\alembic-1.5.0;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AssemblerListingLocation>Release/</AssemblerListingLocation>
+      <CompileAs>CompileAsCpp</CompileAs>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <Optimization>MaxSpeed</Optimization>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WarningLevel>Level3</WarningLevel>
+      <PreprocessorDefinitions>WIN32;_WINDOWS;PLATFORM_WINDOWS;NDEBUG;_WIN64;WIN64;H5_HAVE_THREADSAFE;crate_MAJOR_VERSION=1;crate_MINOR_VERSION=1;crate_BUILD_VERSION=145;alembic_ver=Shared/alembic-1.5.0;hdf_ver=Shared/hdf5-1.8.9;crate_ver=crate-1.1.145;NOMINMAX;CMAKE_INTDIR="Release";%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ObjectFileName>$(IntDir)</ObjectFileName>
+      <DebugInformationFormat>
+      </DebugInformationFormat>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>WIN32;_WINDOWS;PLATFORM_WINDOWS;NDEBUG;_WIN64;WIN64;H5_HAVE_THREADSAFE;crate_MAJOR_VERSION=1;crate_MINOR_VERSION=1;crate_BUILD_VERSION=145;alembic_ver=Shared/alembic-1.5.0;hdf_ver=Shared/hdf5-1.8.9;crate_ver=crate-1.1.145;NOMINMAX;CMAKE_INTDIR=\"Release\";%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ResourceCompile>
+    <Midl>
+      <OutputDirectory>$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+    <PostBuildEvent>
+      <Command>
+      </Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='StaticRelease|x64'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>$(SolutionDir)\..\..\hdf5-1.8.9;$(SolutionDir)\..\..\hdf5-1.8.9\src;$(SolutionDir)\..\..\hdf5-1.8.9\hl\src;$(SolutionDir)\..\..\hdf5-1.8.9\hl\c++\src;$(SolutionDir)\..\..\hdf5-1.8.9\c++\src;$(SolutionDir)..\..\Deploy\include\;$SolutionDir)\..\..\zlib-1.2.5\Inc; $(SolutionDir)..\..\alembic-1.5.0;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AssemblerListingLocation>Release/</AssemblerListingLocation>
+      <CompileAs>CompileAsCpp</CompileAs>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <Optimization>MaxSpeed</Optimization>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WarningLevel>Level3</WarningLevel>
+      <PreprocessorDefinitions>WIN32;_WINDOWS;PLATFORM_WINDOWS;NDEBUG;_WIN64;WIN64;H5_HAVE_THREADSAFE;crate_MAJOR_VERSION=1;crate_MINOR_VERSION=1;crate_BUILD_VERSION=145;alembic_ver=Shared/alembic-1.5.0;hdf_ver=Shared/hdf5-1.8.9;crate_ver=crate-1.1.145;NOMINMAX;CMAKE_INTDIR="Release";%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ObjectFileName>$(IntDir)</ObjectFileName>
+      <DebugInformationFormat>
+      </DebugInformationFormat>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>WIN32;_WINDOWS;PLATFORM_WINDOWS;NDEBUG;_WIN64;WIN64;H5_HAVE_THREADSAFE;crate_MAJOR_VERSION=1;crate_MINOR_VERSION=1;crate_BUILD_VERSION=145;alembic_ver=Shared/alembic-1.5.0;hdf_ver=Shared/hdf5-1.8.9;crate_ver=crate-1.1.145;NOMINMAX;CMAKE_INTDIR=\"Release\";%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ResourceCompile>
+    <Midl>
+      <OutputDirectory>$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+    <PostBuildEvent>
+      <Command>SET name=AbcCoreFactory
+if not exist $(SolutionDir)..\..\Deploy\include\Alembic\%name% ( mkdir $(SolutionDir)..\..\Deploy\include\Alembic\%name% ) 
+xcopy /Y $(ProjectDir)..\..\..\alembic-1.5.0\alembic\%name%\*.h $(SolutionDir)..\..\Deploy\include\Alembic\%name%</Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='DynamicRelease|x64'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>$(SolutionDir)\..\..\hdf5-1.8.9;$(SolutionDir)\..\..\hdf5-1.8.9\src;$(SolutionDir)\..\..\hdf5-1.8.9\hl\src;$(SolutionDir)\..\..\hdf5-1.8.9\hl\c++\src;$(SolutionDir)\..\..\hdf5-1.8.9\c++\src;$(SolutionDir)..\..\Deploy\include\;$SolutionDir)\..\..\zlib-1.2.5\Inc; $(SolutionDir)..\..\alembic-1.5.0;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AssemblerListingLocation>Release/</AssemblerListingLocation>
+      <CompileAs>CompileAsCpp</CompileAs>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <Optimization>MaxSpeed</Optimization>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WarningLevel>Level3</WarningLevel>
+      <PreprocessorDefinitions>WIN32;_WINDOWS;PLATFORM_WINDOWS;NDEBUG;_WIN64;WIN64;H5_HAVE_THREADSAFE;crate_MAJOR_VERSION=1;crate_MINOR_VERSION=1;crate_BUILD_VERSION=145;alembic_ver=Shared/alembic-1.5.0;hdf_ver=Shared/hdf5-1.8.9;crate_ver=crate-1.1.145;NOMINMAX;CMAKE_INTDIR="Release";%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ObjectFileName>$(IntDir)</ObjectFileName>
+      <DebugInformationFormat>
+      </DebugInformationFormat>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>WIN32;_WINDOWS;PLATFORM_WINDOWS;NDEBUG;_WIN64;WIN64;H5_HAVE_THREADSAFE;crate_MAJOR_VERSION=1;crate_MINOR_VERSION=1;crate_BUILD_VERSION=145;alembic_ver=Shared/alembic-1.5.0;hdf_ver=Shared/hdf5-1.8.9;crate_ver=crate-1.1.145;NOMINMAX;CMAKE_INTDIR=\"Release\";%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ResourceCompile>
+    <Midl>
+      <OutputDirectory>$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+    <PostBuildEvent>
+      <Command>SET name=AbcCoreFactory
+if not exist $(SolutionDir)..\..\Deploy\include\Alembic\%name% ( mkdir $(SolutionDir)..\..\Deploy\include\Alembic\%name% ) 
+xcopy /Y $(ProjectDir)..\..\..\alembic-1.5.0\alembic\%name%\*.h $(SolutionDir)..\..\Deploy\include\Alembic\%name%</Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>$(SolutionDir)\..\..\hdf5-1.8.9;$(SolutionDir)\..\..\hdf5-1.8.9\src;$(SolutionDir)\..\..\hdf5-1.8.9\hl\src;$(SolutionDir)\..\..\hdf5-1.8.9\hl\c++\src;$(SolutionDir)\..\..\hdf5-1.8.9\c++\src;$(SolutionDir)..\..\Deploy\include\;$SolutionDir)\..\..\zlib-1.2.5\Inc; $(SolutionDir)..\..\alembic-1.5.0;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AssemblerListingLocation>MinSizeRel/</AssemblerListingLocation>
+      <CompileAs>CompileAsCpp</CompileAs>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <InlineFunctionExpansion>OnlyExplicitInline</InlineFunctionExpansion>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <Optimization>MinSpace</Optimization>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WarningLevel>Level3</WarningLevel>
+      <PreprocessorDefinitions>WIN32;_WINDOWS;PLATFORM_WINDOWS;NDEBUG;_WIN64;WIN64;H5_HAVE_THREADSAFE;crate_MAJOR_VERSION=1;crate_MINOR_VERSION=1;crate_BUILD_VERSION=145;alembic_ver=Shared/alembic-1.5.0;hdf_ver=Shared/hdf5-1.8.9;crate_ver=crate-1.1.145;NOMINMAX;CMAKE_INTDIR="MinSizeRel";%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ObjectFileName>$(IntDir)</ObjectFileName>
+      <DebugInformationFormat>
+      </DebugInformationFormat>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>WIN32;_WINDOWS;PLATFORM_WINDOWS;NDEBUG;_WIN64;WIN64;H5_HAVE_THREADSAFE;crate_MAJOR_VERSION=1;crate_MINOR_VERSION=1;crate_BUILD_VERSION=145;alembic_ver=Shared/alembic-1.5.0;hdf_ver=Shared/hdf5-1.8.9;crate_ver=crate-1.1.145;NOMINMAX;CMAKE_INTDIR=\"MinSizeRel\";%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ResourceCompile>
+    <Midl>
+      <OutputDirectory>$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+    <PostBuildEvent>
+      <Command>
+      </Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>$(SolutionDir)\..\..\hdf5-1.8.9;$(SolutionDir)\..\..\hdf5-1.8.9\src;$(SolutionDir)\..\..\hdf5-1.8.9\hl\src;$(SolutionDir)\..\..\hdf5-1.8.9\hl\c++\src;$(SolutionDir)\..\..\hdf5-1.8.9\c++\src;$(SolutionDir)..\..\Deploy\include\;$SolutionDir)\..\..\zlib-1.2.5\Inc; $(SolutionDir)..\..\alembic-1.5.0;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AssemblerListingLocation>RelWithDebInfo/</AssemblerListingLocation>
+      <CompileAs>CompileAsCpp</CompileAs>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <ExceptionHandling>Sync</ExceptionHandling>
+      <InlineFunctionExpansion>OnlyExplicitInline</InlineFunctionExpansion>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <Optimization>MaxSpeed</Optimization>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <RuntimeTypeInfo>true</RuntimeTypeInfo>
+      <WarningLevel>Level3</WarningLevel>
+      <PreprocessorDefinitions>WIN32;_WINDOWS;PLATFORM_WINDOWS;NDEBUG;_WIN64;WIN64;H5_HAVE_THREADSAFE;crate_MAJOR_VERSION=1;crate_MINOR_VERSION=1;crate_BUILD_VERSION=145;alembic_ver=Shared/alembic-1.5.0;hdf_ver=Shared/hdf5-1.8.9;crate_ver=crate-1.1.145;NOMINMAX;CMAKE_INTDIR="RelWithDebInfo";%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ObjectFileName>$(IntDir)</ObjectFileName>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>WIN32;_WINDOWS;PLATFORM_WINDOWS;NDEBUG;_WIN64;WIN64;H5_HAVE_THREADSAFE;crate_MAJOR_VERSION=1;crate_MINOR_VERSION=1;crate_BUILD_VERSION=145;alembic_ver=Shared/alembic-1.5.0;hdf_ver=Shared/hdf5-1.8.9;crate_ver=crate-1.1.145;NOMINMAX;CMAKE_INTDIR=\"RelWithDebInfo\";%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ResourceCompile>
+    <Midl>
+      <OutputDirectory>$(IntDir)</OutputDirectory>
+      <HeaderFileName>%(Filename).h</HeaderFileName>
+      <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
+      <InterfaceIdentifierFileName>%(Filename)_i.c</InterfaceIdentifierFileName>
+      <ProxyFileName>%(Filename)_p.c</ProxyFileName>
+    </Midl>
+    <PostBuildEvent>
+      <Command>
+      </Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreFactory\All.h" />
+    <ClInclude Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreFactory\IFactory.h" />
+    <ClCompile Include="..\..\..\alembic-1.5.0\Alembic\AbcCoreFactory\IFactory.cpp" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

@@ -62,6 +62,9 @@ public:
 	/** Returns true if this class can be used as a filter in the content browser */
 	virtual bool CanFilter() = 0;
 
+	/** Returns true if this class can be localized */
+	virtual bool CanLocalize() const = 0;
+
 	/** Returns true if this class can be merged (either manually or automatically) */
 	virtual bool CanMerge() const = 0;
 

@@ -94,7 +94,7 @@ protected:
 	void RegisterGeneralSettings( ISettingsModule& SettingsModule )
 	{
 		// automation
-		SettingsModule.RegisterSettings("Editor", "General", "AutomationTest",
+		SettingsModule.RegisterSettings("Editor", "Advanced", "AutomationTest",
 			LOCTEXT("AutomationSettingsName", "Automation"),
 			LOCTEXT("AutomationSettingsDescription", "Set up automation test assets."),
 			GetMutableDefault<UAutomationTestSettings>()
@@ -141,7 +141,7 @@ protected:
 		);
 
 		// Crash Reporter settings
-		SettingsModule.RegisterSettings("Editor", "General", "CrashReporter",
+		SettingsModule.RegisterSettings("Editor", "Advanced", "CrashReporter",
 			LOCTEXT("CrashReporterSettingsName", "Crash Reporter"),
 			LOCTEXT("CrashReporterSettingsDescription", "Various Crash Reporter related settings."),
 			GetMutableDefault<UCrashReporterSettings>()

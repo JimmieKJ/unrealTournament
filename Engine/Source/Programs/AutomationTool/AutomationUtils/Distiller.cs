@@ -146,7 +146,8 @@ namespace AutomationTool
 
         public static bool IsSymbolFile(UnrealTargetPlatform ForPlatform, string FileToCopy)
         {
-            var DebugExts = Platform.Platforms[ForPlatform].GetDebugFileExtentions();
+            TargetPlatformDescriptor PlatformDesc = new TargetPlatformDescriptor(ForPlatform);
+            var DebugExts = Platform.Platforms[PlatformDesc].GetDebugFileExtentions();
             foreach (var DebugExt in DebugExts)
             {
                 if (Path.GetExtension(FileToCopy).Equals(DebugExt, StringComparison.InvariantCultureIgnoreCase))

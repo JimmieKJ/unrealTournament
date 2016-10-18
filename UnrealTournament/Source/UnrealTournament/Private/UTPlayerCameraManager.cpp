@@ -70,17 +70,17 @@ FName AUTPlayerCameraManager::GetCameraStyleWithOverrides() const
 	static const FName NAME_FirstPerson = FName(TEXT("FirstPerson"));
 	static const FName NAME_Default = FName(TEXT("Default"));
 
-	AActor* ViewTarget = GetViewTarget();
-	ACameraActor* CameraActor = Cast<ACameraActor>(ViewTarget);
+	AActor* CurrentViewTarget = GetViewTarget();
+	ACameraActor* CameraActor = Cast<ACameraActor>(CurrentViewTarget);
 	if (CameraActor)
 	{
 		return NAME_Default;
 	}
 
-	AUTCharacter* UTCharacter = Cast<AUTCharacter>(ViewTarget);
+	AUTCharacter* UTCharacter = Cast<AUTCharacter>(CurrentViewTarget);
 	if (UTCharacter == NULL)
 	{
-		return ((ViewTarget == PCOwner->GetPawn()) || (ViewTarget == PCOwner->GetSpectatorPawn())) ? NAME_FirstPerson : NAME_FreeCam;
+		return ((CurrentViewTarget == PCOwner->GetPawn()) || (CurrentViewTarget == PCOwner->GetSpectatorPawn())) ? NAME_FirstPerson : NAME_FreeCam;
 	}
 	else if (UTCharacter->IsDead() || UTCharacter->IsRagdoll() || UTCharacter->IsThirdPersonTaunting())
 	{
@@ -270,8 +270,51 @@ void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTi
 		FRotator Rotator = (!UTPC || UTPC->bSpectatorMouseChangesView) ? PCOwner->GetControlRotation() : UTPC->GetSpectatingRotation(Loc, DeltaTime);
 		if (bUseDeathCam)
 		{
-			Rotator.Pitch = FRotator::NormalizeAxis(Rotator.Pitch);
-			Rotator.Pitch = FMath::Clamp(Rotator.Pitch, -85.f, -5.f);
+			if (UTPC && UTPC->IsInState(NAME_Inactive) && UTPC->DeathCamFocus && !UTPC->DeathCamFocus->IsPendingKillPending() && (UTPC->DeathCamFocus != TargetActor)
+				&& (!UTPC->IsFrozen() || (UTPC->GetFrozenTime() > 0.25f)))
+			{
+				bool bZoomIn = ((GetWorld()->GetTimeSeconds() - UTPC->DeathCamFocus->GetLastRenderTime() < 0.2f) && (UTPC->GetFrozenTime() > 0.5f));
+				float ZoomFactor = FMath::Clamp(2.f*UTPC->GetFrozenTime() - 1.f, 0.f, 1.f);
+				float DistanceScaling = bZoomIn ? 1.f - ZoomFactor : 1.f;
+				CameraOffset.Z = CameraOffset.Z * (1.f - ZoomFactor) + 90.f*ZoomFactor;
+				FVector Pos = Loc + FRotationMatrix(Rotator).TransformVector(CameraOffset) - Rotator.Vector() * CameraDistance * DistanceScaling;
+
+				FHitResult Result;
+				CheckCameraSweep(Result, TargetActor, Loc, Pos);
+				OutVT.POV.Location = !Result.bBlockingHit ? Pos : Result.Location;
+
+				// custom camera control for dead players
+				// still for a short while, then look at killer
+				FRotator ViewRotation = UTPC->GetControlRotation();
+				ViewRotation.Yaw = FMath::UnwindDegrees(ViewRotation.Yaw);
+				ViewRotation.Pitch = FMath::UnwindDegrees(ViewRotation.Pitch);
+				ViewRotation.Roll = 0.f;
+				FRotator DesiredViewRotation = (UTPC->DeathCamFocus->GetActorLocation() + FVector(0.f,0.f, 83.f) - OutVT.POV.Location).Rotation();
+				DesiredViewRotation.Yaw = FMath::UnwindDegrees(DesiredViewRotation.Yaw);
+				if (bZoomIn)
+				{
+					// zoom in
+					float ViewDist = (UTPC->DeathCamFocus->GetActorLocation() - OutVT.POV.Location).SizeSquared();
+					float ZoomedFOV = DefaultFOV * FMath::Clamp(360000.f/FMath::Max(1.f, ViewDist), 0.2f, 1.f);
+					OutVT.POV.FOV = DefaultFOV * (1.f - ZoomFactor) + ZoomedFOV*ZoomFactor;
+					DesiredViewRotation.Pitch = FMath::UnwindDegrees(DesiredViewRotation.Pitch);
+				}
+				else
+				{
+					DesiredViewRotation.Pitch = FMath::Clamp(FMath::UnwindDegrees(DesiredViewRotation.Pitch), -8.f, -5.f);
+				}
+				float DeltaYaw = FMath::RadiansToDegrees(FMath::FindDeltaAngleRadians(FMath::DegreesToRadians(ViewRotation.Yaw), FMath::DegreesToRadians(DesiredViewRotation.Yaw)));
+				ViewRotation.Yaw += 15.f*DeltaTime*DeltaYaw;
+				float DeltaPitch = FMath::RadiansToDegrees(FMath::FindDeltaAngleRadians(FMath::DegreesToRadians(ViewRotation.Pitch), FMath::DegreesToRadians(DesiredViewRotation.Pitch)));
+				ViewRotation.Pitch += 15.f*DeltaTime*DeltaPitch;
+				UTPC->SetControlRotation(ViewRotation);
+				Rotator = ViewRotation;
+			}
+			else
+			{
+				Rotator.Pitch = FRotator::NormalizeAxis(Rotator.Pitch);
+				Rotator.Pitch = FMath::Clamp(Rotator.Pitch, -85.f, -5.f);
+			}
 		}
 		if (Cast<AUTProjectile>(TargetActor) && !TargetActor->IsPendingKillPending())
 		{

@@ -48,8 +48,11 @@ enum class ETargetPlatformFeatures
 	/** User credentials are required to use the device. */
 	UserCredentials,
 
-	/** Vertex Shader Texture Sampling. */
-	VertexShaderTextureSampling,
+	/** The platform uses the mobile forward pipeline */
+	MobileRendering,
+
+	/** The platform uses the deferred pipeline, typically PC/Console platforms */
+	DeferredRendering,
 
 	/** Should use compressed cooked packages */
 	ShouldUseCompressedCookedPackages, 
@@ -81,6 +84,9 @@ namespace ETargetPlatformReadyStatus
 
 	/** Manifest Not Found */
 	const int32 ManifestNotFound = 32;
+
+	/** Remote Server Name Empty */
+	const int32 RemoveServerNameEmpty = 64;
 };
 
 
@@ -158,7 +164,14 @@ public:
 	 */
 	virtual ECompressionFlags GetBaseCompressionMethod() const = 0;
 
-	/** 
+	/**
+	 * Gets the bit window for compressor for this platform.
+	 *
+	 * @return Compression bit window.
+	 */
+	virtual int32 GetCompressionBitWindow() const = 0;
+
+	/**
 	 * Generates a platform specific asset manifest given an array of FAssetData.
 	 *
 	 * @param ChunkMap A map of asset path to ChunkIDs for all of the assets.

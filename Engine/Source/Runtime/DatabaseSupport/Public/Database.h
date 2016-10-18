@@ -168,10 +168,8 @@ public:
 			RecordSet->MoveToNext();	
 		}
 
-		SAFE_BOOL_OPERATORS(TIterator)
-
 		/** Conversion to "bool" returning true if the iterator is valid. */
-		FORCEINLINE_EXPLICIT_OPERATOR_BOOL() const
+		FORCEINLINE explicit operator bool() const
 		{ 
 			return !RecordSet->IsAtEnd(); 
 		}

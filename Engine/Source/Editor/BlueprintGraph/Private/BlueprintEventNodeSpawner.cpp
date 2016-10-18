@@ -14,16 +14,6 @@
 namespace UBlueprintEventNodeSpawnerImpl
 {
 	/**
-	 * Helper function for scanning a blueprint for a certain, custom named,
-	 * event.
-	 * 
-	 * @param  Blueprint	The blueprint you want to look through
-	 * @param  CustomName	The event name you want to check for.
-	 * @return Null if no event was found, otherwise a pointer to the named event.
-	 */
-	static UK2Node_Event* FindCustomEventNode(UBlueprint* Blueprint, FName const CustomName);
-
-	/**
 	 * Helper function for removing all disabled nodes connected to a 
 	 * disabled source node
 	 *
@@ -31,28 +21,6 @@ namespace UBlueprintEventNodeSpawnerImpl
 	 * @param InParentGraph		The graph to remove the nodes from
 	 */
 	static void RemoveAllDisabledNodes(UEdGraphNode* InNode, UEdGraph* InParentGraph);
-}
-
-//------------------------------------------------------------------------------
-UK2Node_Event* UBlueprintEventNodeSpawnerImpl::FindCustomEventNode(UBlueprint* Blueprint, FName const CustomName)
-{
-	UK2Node_Event* FoundNode = nullptr;
-
-	if (CustomName != NAME_None)
-	{
-		TArray<UK2Node_Event*> AllEvents;
-		FBlueprintEditorUtils::GetAllNodesOfClass<UK2Node_Event>(Blueprint, AllEvents);
-
-		for (UK2Node_Event* EventNode : AllEvents)
-		{
-			if (EventNode->CustomFunctionName == CustomName)
-			{
-				FoundNode = EventNode;
-				break;
-			}
-		}
-	}	
-	return FoundNode;
 }
 
 //------------------------------------------------------------------------------
@@ -105,7 +73,7 @@ UBlueprintEventNodeSpawner* UBlueprintEventNodeSpawner::Create(UFunction const* 
 	{
 		MenuSignature.Keywords = FText::FromString(TEXT(" "));
 	}
-	MenuSignature.IconName = TEXT("GraphEditor.Event_16x");
+	MenuSignature.Icon = FSlateIcon("EditorStyle", "GraphEditor.Event_16x");
 
 	return NodeSpawner;
 }
@@ -126,13 +94,13 @@ UBlueprintEventNodeSpawner* UBlueprintEventNodeSpawner::Create(TSubclassOf<UK2No
 	if (CustomEventName.IsNone())
 	{
 		MenuSignature.MenuName = LOCTEXT("AddCustomEvent", "Add Custom Event...");
-		MenuSignature.IconName = TEXT("GraphEditor.CustomEvent_16x");
+		MenuSignature.Icon = FSlateIcon("EditorStyle", "GraphEditor.CustomEvent_16x");
 	}
 	else
 	{
 		FText const EventName = FText::FromName(CustomEventName);
 		MenuSignature.MenuName = FText::Format(LOCTEXT("EventWithSignatureName", "Event {0}"), EventName);
-		MenuSignature.IconName = TEXT("GraphEditor.Event_16x");
+		MenuSignature.Icon = FSlateIcon("EditorStyle", "GraphEditor.Event_16x");
 	}
 	//MenuSignature.Category, will be pulled from the node template
 	//MenuSignature.Tooltip,  will be pulled from the node template 
@@ -239,7 +207,7 @@ UK2Node_Event const* UBlueprintEventNodeSpawner::FindPreExistingEvent(UBlueprint
 	check(Blueprint != nullptr);
 	if (IsForCustomEvent())
 	{
-		PreExistingNode = UBlueprintEventNodeSpawnerImpl::FindCustomEventNode(Blueprint, CustomEventName);
+		PreExistingNode = FBlueprintEditorUtils::FindCustomEventNode(Blueprint, CustomEventName);
 	}
 	else
 	{

@@ -7,7 +7,7 @@
 #include "TessellationRendering.h"
 #include "NvTriStrip.h"
 #include "forsythtriangleorderoptimizer.h"
-#include "ThirdParty/nvtesslib/inc/nvtess.h"
+#include "nvtess.h"
 #include "SkeletalMeshTools.h"
 #include "ImageUtils.h"
 #include "Textures/TextureAtlas.h"
@@ -19,14 +19,17 @@
 #include "PhysicsEngine/BodySetup.h"
 #include "MaterialUtilities.h"
 #include "HierarchicalLODUtilities.h"
+#include "HierarchicalLODUtilitiesModule.h"
 #include "MeshBoneReduction.h"
 #include "MeshMergeData.h"
 #include "Editor/EditorPerProjectUserSettings.h"
+#include "GPUSkinVertexFactory.h"
 
 #include "Landscape.h"
 #include "LandscapeProxy.h"
 #include "LandscapeHeightfieldCollisionComponent.h"
 #include "Engine/HLODMeshCullingVolume.h"
+#include "ProxyMaterialUtilities.h"
 
 //@todo - implement required vector intrinsics for other implementations
 #if PLATFORM_ENABLE_VECTORINTRINSICS
@@ -148,6 +151,7 @@ private:
 	virtual void StartupModule() override;
 	virtual void ShutdownModule() override;
 
+	DEPRECATED(4.12, "Please use MergeActor with new signature instead")
 	virtual void MergeActors(
 		const TArray<AActor*>& SourceActors,
 		const FMeshMergingSettings& InSettings,
@@ -158,7 +162,17 @@ private:
 		FVector& OutMergedActorLocation,
 		bool bSilent = false) const override;
 
+	virtual void MergeActors(
+		const TArray<AActor*>& SourceActors,
+		const FMeshMergingSettings& InSettings,
+		UPackage* InOuter,
+		const FString& InBasePackageName,
+		TArray<UObject*>& OutAssetsToSync,
+		FVector& OutMergedActorLocation,
+		bool bSilent = false) const override;
 
+
+	DEPRECATED(4.12, "Please use MergeStaticMeshComponents with new signature instead") 
 	virtual void MergeStaticMeshComponents(
 		const TArray<UStaticMeshComponent*>& ComponentsToMerge,
 		UWorld* World,
@@ -166,6 +180,17 @@ private:
 		UPackage* InOuter,
 		const FString& InBasePackageName,
 		int32 UseLOD, // does not build all LODs but only use this LOD to create base mesh
+		TArray<UObject*>& OutAssetsToSync,
+		FVector& OutMergedActorLocation,
+		const float ScreenAreaSize,
+		bool bSilent = false) const override;
+
+	virtual void MergeStaticMeshComponents(
+		const TArray<UStaticMeshComponent*>& ComponentsToMerge,
+		UWorld* World,
+		const FMeshMergingSettings& InSettings,
+		UPackage* InOuter,
+		const FString& InBasePackageName,
 		TArray<UObject*>& OutAssetsToSync,
 		FVector& OutMergedActorLocation,
 		const float ScreenAreaSize,
@@ -216,12 +241,13 @@ private:
 
 	virtual bool RemoveBonesFromMesh(USkeletalMesh* SkeletalMesh, int32 LODIndex, const TArray<FName>* BoneNamesToRemove) const override;
 
+	virtual void CalculateTangents(const TArray<FVector>& InVertices, const TArray<uint32>& InIndices, const TArray<FVector2D>& InUVs, const TArray<uint32>& InSmoothingGroupIndices, const uint32 InTangentOptions, TArray<FVector>& OutTangentX, TArray<FVector>& OutTangentY, TArray<FVector>& OutNormals) const override;
+
 	// Need to call some members from this class, (which is internal to this module)
 	friend class FStaticMeshUtilityBuilder;
 };
 
 IMPLEMENT_MODULE(FMeshUtilities, MeshUtilities);
-
 
 class FProxyGenerationProcessor : FTickerObjectBase
 {
@@ -287,6 +313,20 @@ public:
 		}
 	}
 
+	void ProxyGenerationFailed(const FGuid OutJobGUID, const FString& ErrorMessage )
+	{
+		FScopeLock Lock(&StateLock);
+		FMergeCompleteData** FindData = ProxyMeshJobs.Find(OutJobGUID);
+		if (FindData)
+		{
+			ProxyMeshJobs.Remove(OutJobGUID);
+			if (*FindData)
+			{
+				UE_LOG(LogMeshUtilities, Log, TEXT("Failed to generate proxy mesh for cluster %s, %s"), *(*FindData)->ProxyBasePackageName, *ErrorMessage);
+			}
+		}
+	}
+
 protected:
 	/** Called when the map has changed*/
 	void OnMapChange(uint32 MapFlags)
@@ -322,23 +362,25 @@ protected:
 		TArray<UObject*> OutAssetsToSync;
 		const FString AssetBaseName = FPackageName::GetShortName(Data->MergeData->ProxyBasePackageName);
 		const FString AssetBasePath = Data->MergeData->InOuter ? TEXT("") : FPackageName::GetLongPackagePath(Data->MergeData->ProxyBasePackageName) + TEXT("/");
+
+		// Retrieve flattened material data
+		FFlattenMaterial& FlattenMaterial = Data->Material;
 		
 		// Resize flattened material
-		FMaterialUtilities::ResizeFlattenMaterial(Data->Material, Data->MergeData->InProxySettings);
+		FMaterialUtilities::ResizeFlattenMaterial(FlattenMaterial, Data->MergeData->InProxySettings);
 
 		// Optimize flattened material
-		FMaterialUtilities::OptimizeFlattenMaterial(Data->Material);
+		FMaterialUtilities::OptimizeFlattenMaterial(FlattenMaterial);
 
-		// Construct proxy material
-		UMaterial* ProxyMaterial = FMaterialUtilities::CreateMaterial(Data->Material, Data->MergeData->InOuter, Data->MergeData->ProxyBasePackageName, RF_Public | RF_Standalone, Data->MergeData->InProxySettings.MaterialSettings, OutAssetsToSync, TEXTUREGROUP_HierarchicalLOD);
+		// Create a new proxy material instance
+		UMaterialInstanceConstant* ProxyMaterial = ProxyMaterialUtilities::CreateProxyMaterialInstance(Data->MergeData->InOuter, Data->MergeData->InProxySettings.MaterialSettings, FlattenMaterial, AssetBasePath, AssetBaseName);
 
 		// Set material static lighting usage flag if project has static lighting enabled
 		static const auto AllowStaticLightingVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.AllowStaticLighting"));
 		const bool bAllowStaticLighting = (!AllowStaticLightingVar || AllowStaticLightingVar->GetValueOnGameThread() != 0);
 		if (bAllowStaticLighting)
 		{
-			bool bNeedsRecompile;
-			ProxyMaterial->SetMaterialUsage(bNeedsRecompile, MATUSAGE_StaticLighting);
+			ProxyMaterial->CheckMaterialUsage(MATUSAGE_StaticLighting);
 		}
 
 		// Construct proxy static mesh
@@ -368,6 +410,7 @@ protected:
 		SrcModel->BuildSettings.bRecomputeNormals = false;
 		SrcModel->BuildSettings.bRecomputeTangents = false;
 		SrcModel->BuildSettings.bRemoveDegenerates = false;
+		SrcModel->BuildSettings.bUseHighPrecisionTangentBasis = false;
 		SrcModel->BuildSettings.bUseFullPrecisionUVs = false;
 		SrcModel->RawMeshBulkData->SaveRawMesh(Data->RawMesh);
 
@@ -382,7 +425,6 @@ protected:
 		// Execute the delegate received from the user
 		Data->MergeData->CallbackDelegate.ExecuteIfBound(JobGuid, OutAssetsToSync);
 	}
-
 protected:
 	/** Holds Proxy mesh job data together with the job Guid */
 	TMap<FGuid, FMergeCompleteData*> ProxyMeshJobs;
@@ -1171,7 +1213,6 @@ void FMeshUtilities::RechunkSkeletalMeshModels(USkeletalMesh* SrcMesh, int32 Max
 		check(SectionSortOptions.Num() == Chunks.Num());
 
 		BuildSkeletalModelFromChunks(DestModel, RefSkeleton, Chunks, PointToOriginalMap);
-		check(DestModel.Sections.Num() == DestModel.Chunks.Num());
 		check(DestModel.Sections.Num() == SectionSortOptions.Num());
 
 		DestModel.NumTexCoords = SrcModel.NumTexCoords;
@@ -1207,7 +1248,6 @@ void FMeshUtilities::BuildSkeletalModelFromChunks(FStaticLODModel& LODModel, con
 #if WITH_EDITORONLY_DATA
 	// Clear out any data currently held in the LOD model.
 	LODModel.Sections.Empty();
-	LODModel.Chunks.Empty();
 	LODModel.NumVertices = 0;
 	if (LODModel.MultiSizeIndexContainer.IsIndexBufferValid())
 	{
@@ -1221,15 +1261,12 @@ void FMeshUtilities::BuildSkeletalModelFromChunks(FStaticLODModel& LODModel, con
 
 		FSkelMeshSection& Section = *new(LODModel.Sections) FSkelMeshSection();
 		Section.MaterialIndex = SrcChunk->MaterialIndex;
-		Section.ChunkIndex = ChunkIndex;
-
-		FSkelMeshChunk& Chunk = *new(LODModel.Chunks) FSkelMeshChunk();
-		Exchange(Chunk.BoneMap, SrcChunk->BoneMap);
+		Exchange(Section.BoneMap, SrcChunk->BoneMap);
 
 		// Update the active bone indices on the LOD model.
-		for (int32 BoneIndex = 0; BoneIndex < Chunk.BoneMap.Num(); ++BoneIndex)
+		for (int32 BoneIndex = 0; BoneIndex < Section.BoneMap.Num(); ++BoneIndex)
 		{
-			LODModel.ActiveBoneIndices.AddUnique(Chunk.BoneMap[BoneIndex]);
+			LODModel.ActiveBoneIndices.AddUnique(Section.BoneMap[BoneIndex]);
 		}
 	}
 
@@ -1305,14 +1342,12 @@ void FMeshUtilities::BuildSkeletalModelFromChunks(FStaticLODModel& LODModel, con
 	for (int32 SectionIndex = 0; SectionIndex < LODModel.Sections.Num(); SectionIndex++)
 	{
 		FSkelMeshSection& Section = LODModel.Sections[SectionIndex];
-		int32 ChunkIndex = Section.ChunkIndex;
-		FSkelMeshChunk& Chunk = LODModel.Chunks[ChunkIndex];
-		TArray<FSoftSkinBuildVertex>& ChunkVertices = Chunks[ChunkIndex]->Vertices;
+		TArray<FSoftSkinBuildVertex>& ChunkVertices = Chunks[SectionIndex]->Vertices;
 
 		if (IsInGameThread())
 		{
 			// Only update status if in the game thread.  When importing morph targets, this function can run in another thread
-			GWarn->StatusUpdate(ChunkIndex, LODModel.Chunks.Num(), NSLOCTEXT("UnrealEd", "ProcessingChunks", "Processing Chunks"));
+			GWarn->StatusUpdate(SectionIndex, LODModel.Sections.Num(), NSLOCTEXT("UnrealEd", "ProcessingChunks", "Processing Chunks"));
 		}
 
 		CurrentVertexIndex = 0;
@@ -1320,7 +1355,7 @@ void FMeshUtilities::BuildSkeletalModelFromChunks(FStaticLODModel& LODModel, con
 		PrevMaterialIndex = Section.MaterialIndex;
 
 		// Calculate the offset to this chunk's vertices in the vertex buffer.
-		Chunk.BaseVertexIndex = CurrentChunkBaseVertexIndex = LODModel.NumVertices;
+		Section.BaseVertexIndex = CurrentChunkBaseVertexIndex = LODModel.NumVertices;
 
 		// Update the size of the vertex buffer.
 		LODModel.NumVertices += ChunkVertices.Num();
@@ -1328,80 +1363,51 @@ void FMeshUtilities::BuildSkeletalModelFromChunks(FStaticLODModel& LODModel, con
 		// Separate the section's vertices into rigid and soft vertices.
 		TArray<uint32>& ChunkVertexIndexRemap = *new(VertexIndexRemap)TArray<uint32>();
 		ChunkVertexIndexRemap.AddUninitialized(ChunkVertices.Num());
+
 		for (int32 VertexIndex = 0; VertexIndex < ChunkVertices.Num(); VertexIndex++)
 		{
 			const FSoftSkinBuildVertex& SoftVertex = ChunkVertices[VertexIndex];
-			if (SoftVertex.InfluenceWeights[1] == 0)
+
+			FSoftSkinVertex NewVertex;
+			NewVertex.Position = SoftVertex.Position;
+			NewVertex.TangentX = SoftVertex.TangentX;
+			NewVertex.TangentY = SoftVertex.TangentY;
+			NewVertex.TangentZ = SoftVertex.TangentZ;
+			FMemory::Memcpy(NewVertex.UVs, SoftVertex.UVs, sizeof(FVector2D)*MAX_TEXCOORDS);
+			NewVertex.Color = SoftVertex.Color;
+			for (int32 i = 0; i < MAX_TOTAL_INFLUENCES; ++i)
 			{
-				FRigidSkinVertex RigidVertex;
-				RigidVertex.Position = SoftVertex.Position;
-				RigidVertex.TangentX = SoftVertex.TangentX;
-				RigidVertex.TangentY = SoftVertex.TangentY;
-				RigidVertex.TangentZ = SoftVertex.TangentZ;
-				FMemory::Memcpy(RigidVertex.UVs, SoftVertex.UVs, sizeof(FVector2D)*MAX_TEXCOORDS);
-				RigidVertex.Color = SoftVertex.Color;
-				RigidVertex.Bone = SoftVertex.InfluenceBones[0];
-				// make sure it exists in bone map
-				check(Chunk.BoneMap.IsValidIndex(SoftVertex.InfluenceBones[0]));
-				Chunk.RigidVertices.Add(RigidVertex);
-				ChunkVertexIndexRemap[VertexIndex] = (uint32)(Chunk.BaseVertexIndex + CurrentVertexIndex);
-				CurrentVertexIndex++;
-				// add the index to the original wedge point source of this vertex
-				RawPointIndices.Add(SoftVertex.PointWedgeIdx);
-				// Also remember import index
-				const int32 RawVertIndex = PointToOriginalMap[SoftVertex.PointWedgeIdx];
-				LODModel.MeshToImportVertexMap.Add(RawVertIndex);
-				LODModel.MaxImportVertex = FMath::Max<float>(LODModel.MaxImportVertex, RawVertIndex);
-			}
-		}
-		for (int32 VertexIndex = 0; VertexIndex < ChunkVertices.Num(); VertexIndex++)
-		{
-			const FSoftSkinBuildVertex& SoftVertex = ChunkVertices[VertexIndex];
-			if (SoftVertex.InfluenceWeights[1] > 0)
-			{
-				FSoftSkinVertex NewVertex;
-				NewVertex.Position = SoftVertex.Position;
-				NewVertex.TangentX = SoftVertex.TangentX;
-				NewVertex.TangentY = SoftVertex.TangentY;
-				NewVertex.TangentZ = SoftVertex.TangentZ;
-				FMemory::Memcpy(NewVertex.UVs, SoftVertex.UVs, sizeof(FVector2D)*MAX_TEXCOORDS);
-				NewVertex.Color = SoftVertex.Color;
-				for (int32 i = 0; i < MAX_TOTAL_INFLUENCES; ++i)
+				// it only adds to the bone map if it has weight on it
+				// BoneMap contains only the bones that has influence with weight of >0.f
+				// so here, just make sure it is included before setting the data
+				if (Section.BoneMap.IsValidIndex(SoftVertex.InfluenceBones[i]))
 				{
-					// it only adds to the bone map if it has weight on it
-					// BoneMap contains only the bones that has influence with weight of >0.f
-					// so here, just make sure it is included before setting the data
-					if (Chunk.BoneMap.IsValidIndex(SoftVertex.InfluenceBones[i]))
-					{
-						NewVertex.InfluenceBones[i] = SoftVertex.InfluenceBones[i];
-						NewVertex.InfluenceWeights[i] = SoftVertex.InfluenceWeights[i];
-					}
+					NewVertex.InfluenceBones[i] = SoftVertex.InfluenceBones[i];
+					NewVertex.InfluenceWeights[i] = SoftVertex.InfluenceWeights[i];
 				}
-				Chunk.SoftVertices.Add(NewVertex);
-				ChunkVertexIndexRemap[VertexIndex] = (uint32)(Chunk.BaseVertexIndex + CurrentVertexIndex);
-				CurrentVertexIndex++;
-				// add the index to the original wedge point source of this vertex
-				RawPointIndices.Add(SoftVertex.PointWedgeIdx);
-				// Also remember import index
-				const int32 RawVertIndex = PointToOriginalMap[SoftVertex.PointWedgeIdx];
-				LODModel.MeshToImportVertexMap.Add(RawVertIndex);
-				LODModel.MaxImportVertex = FMath::Max<float>(LODModel.MaxImportVertex, RawVertIndex);
 			}
+			Section.SoftVertices.Add(NewVertex);
+			ChunkVertexIndexRemap[VertexIndex] = (uint32)(Section.BaseVertexIndex + CurrentVertexIndex);
+			CurrentVertexIndex++;
+			// add the index to the original wedge point source of this vertex
+			RawPointIndices.Add(SoftVertex.PointWedgeIdx);
+			// Also remember import index
+			const int32 RawVertIndex = PointToOriginalMap[SoftVertex.PointWedgeIdx];
+			LODModel.MeshToImportVertexMap.Add(RawVertIndex);
+			LODModel.MaxImportVertex = FMath::Max<float>(LODModel.MaxImportVertex, RawVertIndex);
 		}
 
-		// update total num of verts added
-		Chunk.NumRigidVertices = Chunk.RigidVertices.Num();
-		Chunk.NumSoftVertices = Chunk.SoftVertices.Num();
+		// update NumVertices
+		Section.NumVertices = Section.SoftVertices.Num();
 
 		// update max bone influences
-		Chunk.CalcMaxBoneInfluences();
+		Section.CalcMaxBoneInfluences();
 
 		// Log info about the chunk.
-		UE_LOG(LogSkeletalMesh, Log, TEXT("Chunk %u: %u rigid vertices, %u soft vertices, %u active bones"),
-			ChunkIndex,
-			Chunk.RigidVertices.Num(),
-			Chunk.SoftVertices.Num(),
-			Chunk.BoneMap.Num()
+		UE_LOG(LogSkeletalMesh, Log, TEXT("Section %u: %u vertices, %u active bones"),
+			SectionIndex,
+			Section.GetNumVertices(),
+			Section.BoneMap.Num()
 			);
 	}
 
@@ -1430,7 +1436,7 @@ void FMeshUtilities::BuildSkeletalModelFromChunks(FStaticLODModel& LODModel, con
 		FRawStaticIndexBuffer16or32Interface* IndexBuffer = LODModel.MultiSizeIndexContainer.GetIndexBuffer();
 		Section.BaseIndex = IndexBuffer->Num();
 		const int32 NumIndices = SectionIndices.Num();
-		const TArray<uint32>& SectionVertexIndexRemap = VertexIndexRemap[Section.ChunkIndex];
+		const TArray<uint32>& SectionVertexIndexRemap = VertexIndexRemap[SectionIndex];
 		for (int32 Index = 0; Index < NumIndices; Index++)
 		{
 			uint32 VertexIndex = SectionVertexIndexRemap[SectionIndices[Index]];
@@ -1725,17 +1731,19 @@ public:
 };
 
 static void ComputeTriangleTangents(
-	TArray<FVector>& TriangleTangentX,
-	TArray<FVector>& TriangleTangentY,
-	TArray<FVector>& TriangleTangentZ,
-	FRawMesh const& RawMesh,
+	const TArray<FVector>& InVertices,
+	const TArray<uint32>& InIndices,
+	const TArray<FVector2D>& InUVs,
+	TArray<FVector>& OutTangentX,
+	TArray<FVector>& OutTangentY,
+	TArray<FVector>& OutTangentZ,
 	float ComparisonThreshold
 	)
 {
-	int32 NumTriangles = RawMesh.WedgeIndices.Num() / 3;
-	TriangleTangentX.Empty(NumTriangles);
-	TriangleTangentY.Empty(NumTriangles);
-	TriangleTangentZ.Empty(NumTriangles);
+	const int32 NumTriangles = InIndices.Num() / 3;
+	OutTangentX.Empty(NumTriangles);
+	OutTangentY.Empty(NumTriangles);
+	OutTangentZ.Empty(NumTriangles);
 
 	for (int32 TriangleIndex = 0; TriangleIndex < NumTriangles; TriangleIndex++)
 	{
@@ -1744,7 +1752,7 @@ static void ComputeTriangleTangents(
 		FVector P[3];
 		for (int32 i = 0; i < 3; ++i)
 		{
-			P[i] = GetPositionForWedge(RawMesh, TriangleIndex * 3 + i);
+			P[i] = InVertices[InIndices[TriangleIndex * 3 + i]];
 		}
 
 		const FVector Normal = ((P[1] - P[2]) ^ (P[0] - P[2])).GetSafeNormal(ComparisonThreshold);
@@ -1755,9 +1763,10 @@ static void ComputeTriangleTangents(
 			FPlane(0, 0, 0, 1)
 			);
 
-		FVector2D T1 = RawMesh.WedgeTexCoords[UVIndex][TriangleIndex * 3 + 0];
-		FVector2D T2 = RawMesh.WedgeTexCoords[UVIndex][TriangleIndex * 3 + 1];
-		FVector2D T3 = RawMesh.WedgeTexCoords[UVIndex][TriangleIndex * 3 + 2];
+		const FVector2D T1 = InUVs[TriangleIndex * 3 + 0];
+		const FVector2D T2 = InUVs[TriangleIndex * 3 + 1];
+		const FVector2D T3 = InUVs[TriangleIndex * 3 + 2];
+
 		FMatrix ParameterToTexture(
 			FPlane(T2.X - T1.X, T2.Y - T1.Y, 0, 0),
 			FPlane(T3.X - T1.X, T3.Y - T1.Y, 0, 0),
@@ -1768,20 +1777,82 @@ static void ComputeTriangleTangents(
 		// Use InverseSlow to catch singular matrices.  Inverse can miss this sometimes.
 		const FMatrix TextureToLocal = ParameterToTexture.Inverse() * ParameterToLocal;
 
-		TriangleTangentX.Add(TextureToLocal.TransformVector(FVector(1, 0, 0)).GetSafeNormal());
-		TriangleTangentY.Add(TextureToLocal.TransformVector(FVector(0, 1, 0)).GetSafeNormal());
-		TriangleTangentZ.Add(Normal);
+		OutTangentX.Add(TextureToLocal.TransformVector(FVector(1, 0, 0)).GetSafeNormal());
+		OutTangentY.Add(TextureToLocal.TransformVector(FVector(0, 1, 0)).GetSafeNormal());
+		OutTangentZ.Add(Normal);
 
 		FVector::CreateOrthonormalBasis(
-			TriangleTangentX[TriangleIndex],
-			TriangleTangentY[TriangleIndex],
-			TriangleTangentZ[TriangleIndex]
+			OutTangentX[TriangleIndex],
+			OutTangentY[TriangleIndex],
+			OutTangentZ[TriangleIndex]
 			);
+	}
+
+	check(OutTangentX.Num() == NumTriangles);
+	check(OutTangentY.Num() == NumTriangles);
+	check(OutTangentZ.Num() == NumTriangles);
+}
+
+static void ComputeTriangleTangents(
+	TArray<FVector>& OutTangentX,
+	TArray<FVector>& OutTangentY,
+	TArray<FVector>& OutTangentZ,
+	FRawMesh const& RawMesh,
+	float ComparisonThreshold
+	)
+{
+	ComputeTriangleTangents(RawMesh.VertexPositions, RawMesh.WedgeIndices, RawMesh.WedgeTexCoords[0], OutTangentX, OutTangentY, OutTangentZ, ComparisonThreshold);
+
+	/*int32 NumTriangles = RawMesh.WedgeIndices.Num() / 3;
+	TriangleTangentX.Empty(NumTriangles);
+	TriangleTangentY.Empty(NumTriangles);
+	TriangleTangentZ.Empty(NumTriangles);
+
+	for (int32 TriangleIndex = 0; TriangleIndex < NumTriangles; TriangleIndex++)
+	{
+	int32 UVIndex = 0;
+
+	FVector P[3];
+	for (int32 i = 0; i < 3; ++i)
+	{
+	P[i] = GetPositionForWedge(RawMesh, TriangleIndex * 3 + i);
+	}
+
+	const FVector Normal = ((P[1] - P[2]) ^ (P[0] - P[2])).GetSafeNormal(ComparisonThreshold);
+	FMatrix	ParameterToLocal(
+	FPlane(P[1].X - P[0].X, P[1].Y - P[0].Y, P[1].Z - P[0].Z, 0),
+	FPlane(P[2].X - P[0].X, P[2].Y - P[0].Y, P[2].Z - P[0].Z, 0),
+	FPlane(P[0].X, P[0].Y, P[0].Z, 0),
+	FPlane(0, 0, 0, 1)
+	);
+
+	FVector2D T1 = RawMesh.WedgeTexCoords[UVIndex][TriangleIndex * 3 + 0];
+	FVector2D T2 = RawMesh.WedgeTexCoords[UVIndex][TriangleIndex * 3 + 1];
+	FVector2D T3 = RawMesh.WedgeTexCoords[UVIndex][TriangleIndex * 3 + 2];
+	FMatrix ParameterToTexture(
+	FPlane(T2.X - T1.X, T2.Y - T1.Y, 0, 0),
+	FPlane(T3.X - T1.X, T3.Y - T1.Y, 0, 0),
+	FPlane(T1.X, T1.Y, 1, 0),
+	FPlane(0, 0, 0, 1)
+	);
+
+	// Use InverseSlow to catch singular matrices.  Inverse can miss this sometimes.
+	const FMatrix TextureToLocal = ParameterToTexture.Inverse() * ParameterToLocal;
+
+	TriangleTangentX.Add(TextureToLocal.TransformVector(FVector(1, 0, 0)).GetSafeNormal());
+	TriangleTangentY.Add(TextureToLocal.TransformVector(FVector(0, 1, 0)).GetSafeNormal());
+	TriangleTangentZ.Add(Normal);
+
+	FVector::CreateOrthonormalBasis(
+	TriangleTangentX[TriangleIndex],
+	TriangleTangentY[TriangleIndex],
+	TriangleTangentZ[TriangleIndex]
+	);
 	}
 
 	check(TriangleTangentX.Num() == NumTriangles);
 	check(TriangleTangentY.Num() == NumTriangles);
-	check(TriangleTangentZ.Num() == NumTriangles);
+	check(TriangleTangentZ.Num() == NumTriangles);*/
 }
 
 /**
@@ -1791,18 +1862,19 @@ static void ComputeTriangleTangents(
 */
 static void FindOverlappingCorners(
 	TMultiMap<int32, int32>& OutOverlappingCorners,
-	FRawMesh const& RawMesh,
+	const TArray<FVector>& InVertices,
+	const TArray<uint32>& InIndices,
 	float ComparisonThreshold
 	)
 {
-	int32 NumWedges = RawMesh.WedgeIndices.Num();
+	const int32 NumWedges = InIndices.Num();
 
 	// Create a list of vertex Z/index pairs
 	TArray<FIndexAndZ> VertIndexAndZ;
-	VertIndexAndZ.Empty(NumWedges);
+	VertIndexAndZ.Reserve(NumWedges);
 	for (int32 WedgeIndex = 0; WedgeIndex < NumWedges; WedgeIndex++)
 	{
-		new(VertIndexAndZ)FIndexAndZ(WedgeIndex, GetPositionForWedge(RawMesh, WedgeIndex));
+		new(VertIndexAndZ)FIndexAndZ(WedgeIndex, InVertices[InIndices[WedgeIndex]]);
 	}
 
 	// Sort the vertices by z value
@@ -1817,8 +1889,8 @@ static void FindOverlappingCorners(
 			if (FMath::Abs(VertIndexAndZ[j].Z - VertIndexAndZ[i].Z) > ComparisonThreshold)
 				break; // can't be any more dups
 
-			FVector PositionA = GetPositionForWedge(RawMesh, VertIndexAndZ[i].Index);
-			FVector PositionB = GetPositionForWedge(RawMesh, VertIndexAndZ[j].Index);
+			const FVector& PositionA = InVertices[InIndices[VertIndexAndZ[i].Index]];
+			const FVector& PositionB = InVertices[InIndices[VertIndexAndZ[j].Index]];
 
 			if (PointsEqual(PositionA, PositionB, ComparisonThreshold))
 			{
@@ -1829,15 +1901,19 @@ static void FindOverlappingCorners(
 	}
 }
 
-namespace ETangentOptions
+/**
+* Create a table that maps the corner of each face to its overlapping corners.
+* @param OutOverlappingCorners - Maps a corner index to the indices of all overlapping corners.
+* @param RawMesh - The mesh for which to compute overlapping corners.
+*/
+static void FindOverlappingCorners(
+	TMultiMap<int32, int32>& OutOverlappingCorners,
+	FRawMesh const& RawMesh,
+	float ComparisonThreshold
+	)
 {
-	enum Type
-	{
-		None = 0,
-		BlendOverlappingNormals = 0x1,
-		IgnoreDegenerateTriangles = 0x2,
-	};
-};
+	FindOverlappingCorners(OutOverlappingCorners, RawMesh.VertexPositions, RawMesh.WedgeIndices, ComparisonThreshold);
+}
 
 /**
 * Smoothing group interpretation helper structure.
@@ -1852,9 +1928,15 @@ struct FFanFace
 };
 
 static void ComputeTangents(
-	FRawMesh& RawMesh,
+	const TArray<FVector>& InVertices,
+	const TArray<uint32>& InIndices,
+	const TArray<FVector2D>& InUVs,
+	const TArray<uint32>& SmoothingGroupIndices,
 	TMultiMap<int32, int32> const& OverlappingCorners,
-	uint32 TangentOptions
+	TArray<FVector>& OutTangentX,
+	TArray<FVector>& OutTangentY,
+	TArray<FVector>& OutTangentZ,
+	const uint32 TangentOptions
 	)
 {
 	bool bBlendOverlappingNormals = (TangentOptions & ETangentOptions::BlendOverlappingNormals) != 0;
@@ -1867,10 +1949,12 @@ static void ComputeTangents(
 	TArray<FVector> TriangleTangentZ;
 
 	ComputeTriangleTangents(
+		InVertices,
+		InIndices,
+		InUVs,
 		TriangleTangentX,
 		TriangleTangentY,
 		TriangleTangentZ,
-		RawMesh,
 		bIgnoreDegenerateTriangles ? SMALL_NUMBER : 0.0f
 		);
 
@@ -1879,24 +1963,24 @@ static void ComputeTangents(
 	TArray<int32> AdjacentFaces;
 	TArray<int32> DupVerts;
 
-	int32 NumWedges = RawMesh.WedgeIndices.Num();
+	int32 NumWedges = InIndices.Num();
 	int32 NumFaces = NumWedges / 3;
 
 	// Allocate storage for tangents if none were provided.
-	if (RawMesh.WedgeTangentX.Num() != NumWedges)
+	if (OutTangentX.Num() != NumWedges)
 	{
-		RawMesh.WedgeTangentX.Empty(NumWedges);
-		RawMesh.WedgeTangentX.AddZeroed(NumWedges);
+		OutTangentX.Empty(NumWedges);
+		OutTangentX.AddZeroed(NumWedges);
 	}
-	if (RawMesh.WedgeTangentY.Num() != NumWedges)
+	if (OutTangentY.Num() != NumWedges)
 	{
-		RawMesh.WedgeTangentY.Empty(NumWedges);
-		RawMesh.WedgeTangentY.AddZeroed(NumWedges);
+		OutTangentY.Empty(NumWedges);
+		OutTangentY.AddZeroed(NumWedges);
 	}
-	if (RawMesh.WedgeTangentZ.Num() != NumWedges)
+	if (OutTangentZ.Num() != NumWedges)
 	{
-		RawMesh.WedgeTangentZ.Empty(NumWedges);
-		RawMesh.WedgeTangentZ.AddZeroed(NumWedges);
+		OutTangentZ.Empty(NumWedges);
+		OutTangentZ.AddZeroed(NumWedges);
 	}
 
 	for (int32 FaceIndex = 0; FaceIndex < NumFaces; FaceIndex++)
@@ -1912,7 +1996,7 @@ static void ComputeTangents(
 			CornerTangentX[CornerIndex] = FVector::ZeroVector;
 			CornerTangentY[CornerIndex] = FVector::ZeroVector;
 			CornerTangentZ[CornerIndex] = FVector::ZeroVector;
-			CornerPositions[CornerIndex] = GetPositionForWedge(RawMesh, WedgeOffset + CornerIndex);
+			CornerPositions[CornerIndex] = InVertices[InIndices[WedgeOffset + CornerIndex]];
 			RelevantFacesForCorner[CornerIndex].Reset();
 		}
 
@@ -1928,9 +2012,9 @@ static void ComputeTangents(
 		bool bCornerHasTangents[3] = { 0 };
 		for (int32 CornerIndex = 0; CornerIndex < 3; CornerIndex++)
 		{
-			bCornerHasTangents[CornerIndex] = !RawMesh.WedgeTangentX[WedgeOffset + CornerIndex].IsZero()
-				&& !RawMesh.WedgeTangentY[WedgeOffset + CornerIndex].IsZero()
-				&& !RawMesh.WedgeTangentZ[WedgeOffset + CornerIndex].IsZero();
+			bCornerHasTangents[CornerIndex] = !OutTangentX[WedgeOffset + CornerIndex].IsZero()
+				&& !OutTangentY[WedgeOffset + CornerIndex].IsZero()
+				&& !OutTangentZ[WedgeOffset + CornerIndex].IsZero();
 		}
 		if (bCornerHasTangents[0] && bCornerHasTangents[1] && bCornerHasTangents[2])
 		{
@@ -1987,7 +2071,7 @@ static void ComputeTangents(
 					{
 						if (PointsEqual(
 							CornerPositions[OurCornerIndex],
-							GetPositionForWedge(RawMesh, OtherFaceIndex * 3 + OtherCornerIndex),
+							InVertices[InIndices[OtherFaceIndex * 3 + OtherCornerIndex]],
 							ComparisonThreshold
 							))
 						{
@@ -2032,7 +2116,7 @@ static void ComputeTangents(
 							if (!NextFace.bFilled) // && !NextFace.bBlendTangents)
 							{
 								if ((NextFaceIndex != OtherFaceIdx)
-									&& (RawMesh.FaceSmoothingMasks[NextFace.FaceIndex] & RawMesh.FaceSmoothingMasks[OtherFace.FaceIndex]))
+									&& (SmoothingGroupIndices[NextFace.FaceIndex] & SmoothingGroupIndices[OtherFace.FaceIndex]))
 								{
 									int32 CommonVertices = 0;
 									int32 CommonTangentVertices = 0;
@@ -2041,17 +2125,20 @@ static void ComputeTangents(
 									{
 										for (int32 NextCornerIndex = 0; NextCornerIndex < 3; NextCornerIndex++)
 										{
-											int32 NextVertexIndex = RawMesh.WedgeIndices[NextFace.FaceIndex * 3 + NextCornerIndex];
-											int32 OtherVertexIndex = RawMesh.WedgeIndices[OtherFace.FaceIndex * 3 + OtherCornerIndex];
+											int32 NextVertexIndex = InIndices[NextFace.FaceIndex * 3 + NextCornerIndex];
+											int32 OtherVertexIndex = InIndices[OtherFace.FaceIndex * 3 + OtherCornerIndex];
 											if (PointsEqual(
-												RawMesh.VertexPositions[NextVertexIndex],
-												RawMesh.VertexPositions[OtherVertexIndex],
+												InVertices[NextVertexIndex],
+												InVertices[OtherVertexIndex],
 												ComparisonThreshold))
 											{
 												CommonVertices++;
-												if (UVsEqual(
-													RawMesh.WedgeTexCoords[0][NextFace.FaceIndex * 3 + NextCornerIndex],
-													RawMesh.WedgeTexCoords[0][OtherFace.FaceIndex * 3 + OtherCornerIndex]))
+
+
+												const FVector2D& UVOne = InUVs[NextFace.FaceIndex * 3 + NextCornerIndex];
+												const FVector2D& UVTwo = InUVs[OtherFace.FaceIndex * 3 + OtherCornerIndex];
+
+												if (UVsEqual(UVOne, UVTwo))
 												{
 													CommonTangentVertices++;
 												}
@@ -2089,8 +2176,7 @@ static void ComputeTangents(
 						}
 					}
 				}
-			}
-			while (NewConnections > 0);
+			} while (NewConnections > 0);
 		}
 
 		// Vertex normal construction.
@@ -2098,9 +2184,9 @@ static void ComputeTangents(
 		{
 			if (bCornerHasTangents[CornerIndex])
 			{
-				CornerTangentX[CornerIndex] = RawMesh.WedgeTangentX[WedgeOffset + CornerIndex];
-				CornerTangentY[CornerIndex] = RawMesh.WedgeTangentY[WedgeOffset + CornerIndex];
-				CornerTangentZ[CornerIndex] = RawMesh.WedgeTangentZ[WedgeOffset + CornerIndex];
+				CornerTangentX[CornerIndex] = OutTangentX[WedgeOffset + CornerIndex];
+				CornerTangentY[CornerIndex] = OutTangentY[WedgeOffset + CornerIndex];
+				CornerTangentZ[CornerIndex] = OutTangentZ[WedgeOffset + CornerIndex];
 			}
 			else
 			{
@@ -2121,17 +2207,17 @@ static void ComputeTangents(
 						}
 					}
 				}
-				if (!RawMesh.WedgeTangentX[WedgeOffset + CornerIndex].IsZero())
+				if (!OutTangentX[WedgeOffset + CornerIndex].IsZero())
 				{
-					CornerTangentX[CornerIndex] = RawMesh.WedgeTangentX[WedgeOffset + CornerIndex];
+					CornerTangentX[CornerIndex] = OutTangentX[WedgeOffset + CornerIndex];
 				}
-				if (!RawMesh.WedgeTangentY[WedgeOffset + CornerIndex].IsZero())
+				if (!OutTangentY[WedgeOffset + CornerIndex].IsZero())
 				{
-					CornerTangentY[CornerIndex] = RawMesh.WedgeTangentY[WedgeOffset + CornerIndex];
+					CornerTangentY[CornerIndex] = OutTangentY[WedgeOffset + CornerIndex];
 				}
-				if (!RawMesh.WedgeTangentZ[WedgeOffset + CornerIndex].IsZero())
+				if (!OutTangentZ[WedgeOffset + CornerIndex].IsZero())
 				{
-					CornerTangentZ[CornerIndex] = RawMesh.WedgeTangentZ[WedgeOffset + CornerIndex];
+					CornerTangentZ[CornerIndex] = OutTangentZ[WedgeOffset + CornerIndex];
 				}
 			}
 		}
@@ -2156,15 +2242,26 @@ static void ComputeTangents(
 		// Copy back to the mesh.
 		for (int32 CornerIndex = 0; CornerIndex < 3; CornerIndex++)
 		{
-			RawMesh.WedgeTangentX[WedgeOffset + CornerIndex] = CornerTangentX[CornerIndex];
-			RawMesh.WedgeTangentY[WedgeOffset + CornerIndex] = CornerTangentY[CornerIndex];
-			RawMesh.WedgeTangentZ[WedgeOffset + CornerIndex] = CornerTangentZ[CornerIndex];
+			OutTangentX[WedgeOffset + CornerIndex] = CornerTangentX[CornerIndex];
+			OutTangentY[WedgeOffset + CornerIndex] = CornerTangentY[CornerIndex];
+			OutTangentZ[WedgeOffset + CornerIndex] = CornerTangentZ[CornerIndex];
 		}
 	}
 
-	check(RawMesh.WedgeTangentX.Num() == NumWedges);
-	check(RawMesh.WedgeTangentY.Num() == NumWedges);
-	check(RawMesh.WedgeTangentZ.Num() == NumWedges);
+	check(OutTangentX.Num() == NumWedges);
+	check(OutTangentY.Num() == NumWedges);
+	check(OutTangentZ.Num() == NumWedges);
+}
+
+
+static void ComputeTangents(
+	FRawMesh& RawMesh,
+	TMultiMap<int32, int32> const& OverlappingCorners,
+	uint32 TangentOptions
+	)
+{
+	const float ComparisonThreshold = (TangentOptions & ETangentOptions::IgnoreDegenerateTriangles) ? THRESH_POINTS_ARE_SAME : 0.0f;
+	ComputeTangents(RawMesh.VertexPositions, RawMesh.WedgeIndices, RawMesh.WedgeTexCoords[0], RawMesh.FaceSmoothingMasks, OverlappingCorners, RawMesh.WedgeTangentX, RawMesh.WedgeTangentY, RawMesh.WedgeTangentZ, TangentOptions);
 }
 
 /*------------------------------------------------------------------------------
@@ -2315,7 +2412,7 @@ static void MikkSetTSpaceBasic_Skeletal(const SMikkTSpaceContext* Context, const
 	FVector Bitangent;
 	// Get different normals depending on whether they've been calculated or not.
 	if (UserData->bComputeNormals) {
-		Bitangent = BitangentSign * FVector::CrossProduct(UserData->TangentsZ[UserData->wedges[UserData->faces[FaceIdx].iWedge[VertIdx]].iVertex], VertexTangent);
+		Bitangent = BitangentSign * FVector::CrossProduct(UserData->TangentsZ[FaceIdx * 3 + VertIdx], VertexTangent);
 	}
 	else
 	{
@@ -2392,7 +2489,7 @@ static void ComputeTangents_MikkTSpace(
 		RawMesh.WedgeTangentZ.AddZeroed(NumWedges);
 
 		// we need to calculate normals for MikkTSpace
-		UE_LOG(LogMeshUtilities, Warning, TEXT("Invalid vertex normals found for mesh. Forcing recomputation of vertex normals for MikkTSpace. Fix mesh or disable \"Use MikkTSpace Tangent Space\" to avoid forced recomputation of normals."));
+		UE_LOG(LogMeshUtilities, Log, TEXT("Invalid vertex normals found for mesh. Forcing recomputation of vertex normals for MikkTSpace. Fix mesh or disable \"Use MikkTSpace Tangent Space\" to avoid forced recomputation of normals."));
 
 		for (int32 FaceIndex = 0; FaceIndex < NumFaces; FaceIndex++)
 		{
@@ -3201,8 +3298,11 @@ public:
 				}
 			}
 
+			verifyf(Vertices.Num() != 0, TEXT("No valid vertices found for the mesh."));
+
 			// Initialize the vertex buffer.
 			int32 NumTexCoords = ComputeNumTexCoords(RawMesh, MAX_STATIC_TEXCOORDS);
+			LODModel.VertexBuffer.SetUseHighPrecisionTangentBasis(LODBuildSettings[LODIndex].bUseHighPrecisionTangentBasis);
 			LODModel.VertexBuffer.SetUseFullPrecisionUVs(LODBuildSettings[LODIndex].bUseFullPrecisionUVs);
 			LODModel.VertexBuffer.Init(Vertices, NumTexCoords);
 			LODModel.PositionVertexBuffer.Init(Vertices);
@@ -4565,8 +4665,8 @@ public:
 		SkeletalMeshTools::BuildSkeletalMeshChunks(BuildData.Faces, RawVertices, VertIndexAndZ, BuildData.BuildOptions.bKeepOverlappingVertices, BuildData.Chunks, BuildData.bTooManyVerts);
 
 		// Chunk vertices to satisfy the requested limit.
-		static const auto MaxBonesVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("Compat.MAX_GPUSKIN_BONES"));
-		const int32 MaxGPUSkinBones = MaxBonesVar->GetValueOnAnyThread();
+		const uint32 MaxGPUSkinBones = FGPUBaseSkinVertexFactory::GetMaxGPUSkinBones();
+		check(MaxGPUSkinBones <= FGPUBaseSkinVertexFactory::GHardwareMaxGPUSkinBones);
 		SkeletalMeshTools::ChunkSkinnedVertices(BuildData.Chunks, MaxGPUSkinBones);
 
 		EndSlowTask();
@@ -4658,10 +4758,9 @@ bool FMeshUtilities::BuildSkeletalMesh(FStaticLODModel& LODModel, const FReferen
 			bHasBadSections |= (Section.NumTriangles == 0);
 
 			// Log info about the section.
-			UE_LOG(LogSkeletalMesh, Log, TEXT("Section %u: Material=%u, Chunk=%u, %u triangles"),
+			UE_LOG(LogSkeletalMesh, Log, TEXT("Section %u: Material=%u, %u triangles"),
 				SectionIndex,
 				Section.MaterialIndex,
-				Section.ChunkIndex,
 				Section.NumTriangles
 				);
 		}
@@ -5092,8 +5191,8 @@ bool FMeshUtilities::BuildSkeletalMesh_Legacy(FStaticLODModel& LODModel, const F
 	SkeletalMeshTools::BuildSkeletalMeshChunks(Faces, RawVertices, VertIndexAndZ, bKeepOverlappingVertices, Chunks, bTooManyVerts);
 
 	// Chunk vertices to satisfy the requested limit.
-	static const auto MaxBonesVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("Compat.MAX_GPUSKIN_BONES"));
-	const int32 MaxGPUSkinBones = MaxBonesVar->GetValueOnAnyThread();
+	const uint32 MaxGPUSkinBones = FGPUBaseSkinVertexFactory::GetMaxGPUSkinBones();
+	check(MaxGPUSkinBones <= FGPUBaseSkinVertexFactory::GHardwareMaxGPUSkinBones);
 	SkeletalMeshTools::ChunkSkinnedVertices(Chunks, MaxGPUSkinBones);
 
 	// Build the skeletal model from chunks.
@@ -5115,10 +5214,9 @@ bool FMeshUtilities::BuildSkeletalMesh_Legacy(FStaticLODModel& LODModel, const F
 			bHasBadSections |= (Section.NumTriangles == 0);
 
 			// Log info about the section.
-			UE_LOG(LogSkeletalMesh, Log, TEXT("Section %u: Material=%u, Chunk=%u, %u triangles"),
+			UE_LOG(LogSkeletalMesh, Log, TEXT("Section %u: Material=%u, %u triangles"),
 				SectionIndex,
 				Section.MaterialIndex,
-				Section.ChunkIndex,
 				Section.NumTriangles
 				);
 		}
@@ -5206,7 +5304,6 @@ static void RetrieveValidStaticMeshComponentsForMerging(AActor* InActor, TArray<
 	OutComponents.Append(Components);
 }
 
-
 void FMeshUtilities::CreateProxyMesh(const TArray<AActor*>& InActors, const struct FMeshProxySettings& InMeshProxySettings, UPackage* InOuter, const FString& InProxyBasePackageName, const FGuid InGuid, FCreateProxyDelegate InProxyCreatedDelegate, const bool bAllowAsync, const float ScreenAreaSize)
 {
 	FScopedSlowTask MainTask(100, (LOCTEXT("MeshUtilities_CreateProxyMesh", "Creating Proxy Mesh")));
@@ -5256,7 +5353,7 @@ void FMeshUtilities::CreateProxyMesh(const TArray<AActor*>& InActors, const stru
 	}
 
 	MainTask.EnterProgressFrame(10.0f);
-
+	
 	// Check if there are actually any static mesh components to merge
 	if (ComponentsToMerge.Num() == 0)
 	{
@@ -5279,25 +5376,30 @@ void FMeshUtilities::CreateProxyMesh(const TArray<AActor*>& InActors, const stru
 
 	static const float FOVRad = 90.0f * (float)PI / 360.0f;
 	static const FMatrix ProjectionMatrix = FPerspectiveMatrix(FOVRad, 1920, 1080, 0.01f);
-	float EstimatedDistance = FHierarchicalLODUtilities::CalculateDrawDistanceFromScreenSize(EstimatedBounds.SphereRadius, ScreenAreaSize, ProjectionMatrix);
+	FHierarchicalLODUtilitiesModule& Module = FModuleManager::LoadModuleChecked<FHierarchicalLODUtilitiesModule>("HierarchicalLODUtilities");
+	IHierarchicalLODUtilities* Utilities = Module.GetUtilities();
+	float EstimatedDistance = Utilities->CalculateDrawDistanceFromScreenSize(EstimatedBounds.SphereRadius, ScreenAreaSize, ProjectionMatrix);
 	
 	// Retrieve mesh / material data
 	for (const UStaticMeshComponent* StaticMeshComponent : ComponentsToMerge)
 	{
 		TArray<int32> StaticMeshGlobalMaterialMap;
-		FRawMesh RawMesh;		
+		FRawMesh* RawMesh = new FRawMesh();
+		FMemory::Memzero(RawMesh, sizeof(FRawMesh));
 		
-		const int32 ProxyMeshSourceLODLevel = InMeshProxySettings.bCalculateLODSourceModels ? FHierarchicalLODUtilities::GetLODLevelForScreenAreaSize(StaticMeshComponent, FHierarchicalLODUtilities::CalculateScreenSizeFromDrawDistance(StaticMeshComponent->Bounds.SphereRadius, ProjectionMatrix, EstimatedDistance)) : 0;
+		const int32 ProxyMeshSourceLODLevel = InMeshProxySettings.bCalculateCorrectLODModel ? Utilities->GetLODLevelForScreenAreaSize(StaticMeshComponent, Utilities->CalculateScreenSizeFromDrawDistance(StaticMeshComponent->Bounds.SphereRadius, ProjectionMatrix, EstimatedDistance)) : 0;
 		// Proxy meshes should always propagate vertex colours for material baking
 		static const bool bPropagateVertexColours = true;
 
-		const bool bValidRawMesh = ConstructRawMesh(StaticMeshComponent, ProxyMeshSourceLODLevel, bPropagateVertexColours, RawMesh, GlobalUniqueMaterialList, StaticMeshGlobalMaterialMap);
+		const bool bValidRawMesh = ConstructRawMesh(StaticMeshComponent, ProxyMeshSourceLODLevel, bPropagateVertexColours, *RawMesh, GlobalUniqueMaterialList, StaticMeshGlobalMaterialMap);
 
 		if ( bValidRawMesh )
 		{
 			// Add constructed raw mesh to source mesh array
 			const int32 SourceMeshIndex = SourceMeshes.AddZeroed();
 			SourceMeshes[SourceMeshIndex].MeshLODData[ProxyMeshTargetLODLevel].RawMesh = RawMesh;
+			SourceMeshes[SourceMeshIndex].bShouldExportLOD[ProxyMeshSourceLODLevel] = true;
+			SourceMeshes[SourceMeshIndex].ExportLODIndex = ProxyMeshSourceLODLevel;
 
 			// Append retrieved materials for this static mesh component to the global material map
 			GlobalMaterialMap.Add(FMeshIdAndLOD(SourceMeshIndex, ProxyMeshTargetLODLevel), StaticMeshGlobalMaterialMap);
@@ -5318,8 +5420,8 @@ void FMeshUtilities::CreateProxyMesh(const TArray<AActor*>& InActors, const stru
 		SourceMeshes,
 		GlobalMaterialMap,
 		InMeshProxySettings.MaterialSettings,
-		true,
-		true,
+		true, // Always need vertex data for baking materials
+		true, // Always want to merge materials
 		MeshShouldBakeVertexData,
 		NewGlobalMaterialMap,
 		NewGlobalUniqueMaterialList);
@@ -5331,11 +5433,16 @@ void FMeshUtilities::CreateProxyMesh(const TArray<AActor*>& InActors, const stru
 	TArray<FFlattenMaterial> FlattenedMaterials;
 	FlattenMaterialsWithMeshData(GlobalUniqueMaterialList, SourceMeshes, GlobalMaterialMap, MeshShouldBakeVertexData, InMeshProxySettings.MaterialSettings, FlattenedMaterials);
 
+	for (FFlattenMaterial& InMaterial : FlattenedMaterials)
+	{
+		FMaterialUtilities::OptimizeFlattenMaterial(InMaterial);
+	}
+
 	//For each raw mesh, re-map the material indices from Local to Global material indices space
 	for (int32 RawMeshIndex = 0; RawMeshIndex < SourceMeshes.Num(); ++RawMeshIndex)
 	{
 		const TArray<int32>& GlobalMaterialIndices = *GlobalMaterialMap.Find(FMeshIdAndLOD(RawMeshIndex, ProxyMeshTargetLODLevel));
-		TArray<int32>& MaterialIndices = SourceMeshes[RawMeshIndex].MeshLODData[ProxyMeshTargetLODLevel].RawMesh.FaceMaterialIndices;
+		TArray<int32>& MaterialIndices = SourceMeshes[RawMeshIndex].MeshLODData[ProxyMeshTargetLODLevel].RawMesh->FaceMaterialIndices;
 		int32 MaterialIndicesCount = MaterialIndices.Num();
 
 		for (int32 TriangleIndex = 0; TriangleIndex < MaterialIndicesCount; ++TriangleIndex)
@@ -5350,14 +5457,58 @@ void FMeshUtilities::CreateProxyMesh(const TArray<AActor*>& InActors, const stru
 
 	// Build proxy mesh
 	MainTask.EnterProgressFrame(10.0f);
+	
+	// Landscape culling
+	TArray<FRawMesh*> LandscapeRawMeshes;
+	if (InMeshProxySettings.bUseLandscapeCulling)
+	{
+		// Extract landscape proxies from the world
+		TArray<ALandscapeProxy*> LandscapeActors;		
+		UWorld* InWorld = InActors.Num() ? InActors[0]->GetWorld() : nullptr;
 
+		uint32 MaxLandscapeExportLOD = 0;
+		if (InWorld->IsValidLowLevel())
+		{
+			for (FConstLevelIterator Iterator = InWorld->GetLevelIterator(); Iterator; ++Iterator)
+			{
+				for (AActor* Actor : (*Iterator)->Actors)
+				{
+					if (Actor)
+					{
+						ALandscapeProxy* LandscapeProxy = Cast<ALandscapeProxy>(Actor);
+						if (LandscapeProxy && LandscapeProxy->bUseLandscapeForCullingInvisibleHLODVertices)
+						{
+							// Retrieve highest landscape LOD level possible
+							MaxLandscapeExportLOD = FMath::Max(MaxLandscapeExportLOD, FMath::CeilLogTwo(LandscapeProxy->SubsectionSizeQuads + 1) - 1);
+							LandscapeActors.Add(LandscapeProxy);
+						}
+					}
+				}
+			}
+		}
+
+		// Setting determines the precision at which we should export the landscape for culling (highest, half or lowest)
+		const uint32 LandscapeExportLOD = ((float)MaxLandscapeExportLOD * (0.5f * (float)InMeshProxySettings.LandscapeCullingPrecision));
+		for (ALandscapeProxy* Landscape : LandscapeActors)
+		{
+			// Export the landscape to raw mesh format
+			FRawMesh* LandscapeRawMesh = new FRawMesh();
+			FBoxSphereBounds LandscapeBounds = EstimatedBounds;
+			Landscape->ExportToRawMesh(LandscapeExportLOD, *LandscapeRawMesh, LandscapeBounds);
+			if (LandscapeRawMesh->VertexPositions.Num())
+			{
+				LandscapeRawMeshes.Add(LandscapeRawMesh);
+			}
+		}
+	}	
+	
 	// Allocate merge complete data
 	FMergeCompleteData* Data = new FMergeCompleteData();
 	Data->InOuter = InOuter;
 	Data->InProxySettings = InMeshProxySettings;
 	Data->ProxyBasePackageName = InProxyBasePackageName;
 	Data->CallbackDelegate = InProxyCreatedDelegate;
-
+	
 	// Add this proxy job to map	
 	Processor->AddProxyJob(InGuid, Data);
 
@@ -5368,15 +5519,29 @@ void FMeshUtilities::CreateProxyMesh(const TArray<AActor*>& InActors, const stru
 		MergeData.Add(SourceMesh.MeshLODData[ProxyMeshTargetLODLevel]);
 	}
 
+	// Populate landscape clipping geometry
+	for (FRawMesh* RawMesh : LandscapeRawMeshes)
+	{
+		FMeshMergeData ClipData;
+		ClipData.bIsClippingMesh = true;
+		ClipData.RawMesh = RawMesh;
+		MergeData.Add(ClipData);
+	}
+
 	// Choose Simplygon Swarm (if available) or local proxy lod method
 	if (DistributedMeshMerging != nullptr && GetDefault<UEditorPerProjectUserSettings>()->bUseSimplygonSwarm && bAllowAsync)
 	{
-		DistributedMeshMerging->ProxyLOD(MergeData, InMeshProxySettings, FlattenedMaterials, InGuid);
+		DistributedMeshMerging->ProxyLOD(MergeData, Data->InProxySettings, FlattenedMaterials, InGuid);
 	}
 	else
 	{
-		MeshMerging->ProxyLOD(MergeData, InMeshProxySettings, FlattenedMaterials, InGuid);
+		MeshMerging->ProxyLOD(MergeData, Data->InProxySettings, FlattenedMaterials, InGuid);
 		Processor->Tick(0); // make sure caller gets merging results
+	}
+	
+	for (FMeshMergeData& DataToRelease : MergeData)
+	{
+		DataToRelease.ReleaseData();
 	}
 }
 
@@ -5433,34 +5598,24 @@ void FMeshUtilities::FlattenMaterialsWithMeshData(TArray<UMaterialInterface*>& I
 		int32 LocalMaterialIndex = 0;
 		int32 LocalTextureBoundIndex = 0;
 		FMeshMergeData* MergeData = nullptr;
-		for (int32 LODIndex = 0; LODIndex < MAX_STATIC_MESH_LODS; ++LODIndex)
+		for (int32 MeshIndex = 0; MeshIndex < InSourceMeshes.Num() && MergeData == nullptr; MeshIndex++)
 		{
-			bool bFound = false;
-			for (int32 MeshIndex = 0; MeshIndex < InSourceMeshes.Num() && MergeData == nullptr; MeshIndex++)
+			const int32 LODIndex = InSourceMeshes[MeshIndex].ExportLODIndex;
+			if (InSourceMeshes[MeshIndex].MeshLODData[LODIndex].RawMesh->VertexPositions.Num())
 			{
-				if (InSourceMeshes[MeshIndex].MeshLODData[LODIndex].RawMesh.VertexPositions.Num())
+				const TArray<int32>& GlobalMaterialIndices = *InMaterialIndexMap.Find(FMeshIdAndLOD(MeshIndex, LODIndex));
+				for (LocalMaterialIndex = 0; LocalMaterialIndex < GlobalMaterialIndices.Num(); LocalMaterialIndex++)
 				{
-					const TArray<int32>& GlobalMaterialIndices = *InMaterialIndexMap.Find(FMeshIdAndLOD(MeshIndex, LODIndex));
-					for (LocalMaterialIndex = 0; LocalMaterialIndex < GlobalMaterialIndices.Num(); LocalMaterialIndex++)
+					if (GlobalMaterialIndices[LocalMaterialIndex] == MaterialIndex)
 					{
-						if (GlobalMaterialIndices[LocalMaterialIndex] == MaterialIndex)
-						{
-							UsedMeshIndex = MeshIndex;
-							MergeData = &InSourceMeshes[MeshIndex].MeshLODData[LODIndex];
-							LocalTextureBoundIndex = LocalMaterialIndex;
-							bFound = true;
-							break;
-						}
+						UsedMeshIndex = MeshIndex;
+						MergeData = &InSourceMeshes[MeshIndex].MeshLODData[LODIndex];
+						LocalTextureBoundIndex = LocalMaterialIndex;		
+						break;
 					}
 				}
-				else
-				{
-					break;
-				}
 			}
-
-			// Early out if we found the mesh we need
-			if (bFound == true)
+			else
 			{
 				break;
 			}
@@ -5473,16 +5628,16 @@ void FMeshUtilities::FlattenMaterialsWithMeshData(TArray<UMaterialInterface*>& I
 			if (MergeData->TexCoordBounds.Num() == 0)
 			{
 				// Calculate the max bounds for this raw mesh 
-				CalculateTextureCoordinateBoundsForRawMesh(MergeData->RawMesh, MergeData->TexCoordBounds);
+				CalculateTextureCoordinateBoundsForRawMesh(*MergeData->RawMesh, MergeData->TexCoordBounds);
 
 				// Generate unique UVs
-				GenerateUniqueUVsForStaticMesh(MergeData->RawMesh, InMaterialProxySettings.TextureSize.GetMax(), MergeData->NewUVs);
+				GenerateUniqueUVsForStaticMesh(*MergeData->RawMesh, InMaterialProxySettings.TextureSize.GetMax(), MergeData->NewUVs);
 			}
 
 			// Export the material using mesh data to support vertex based material properties
 			FMaterialUtilities::ExportMaterial(
 				CurrentMaterial,
-				&MergeData->RawMesh,
+				MergeData->RawMesh,
 				LocalMaterialIndex,
 				MergeData->TexCoordBounds[LocalTextureBoundIndex],
 				MergeData->NewUVs,
@@ -5490,7 +5645,7 @@ void FMeshUtilities::FlattenMaterialsWithMeshData(TArray<UMaterialInterface*>& I
 				CachedShader);
 		}
 		else
-		{
+		{		
 			// Export the material without vertex data
 			FMaterialUtilities::ExportMaterial(
 				CurrentMaterial,
@@ -5657,17 +5812,18 @@ static void ExportStaticMeshLOD(const FStaticMeshLODResources& StaticMeshLOD, FR
 	}
 }
 
-const bool IsLandscapeHit(const FVector& RayOrigin, const FVector& RayEndPoint, const UWorld* World, const TArray<ALandscapeProxy*>& LandscapeProxies)
+
+
+const bool IsLandscapeHit(const FVector& RayOrigin, const FVector& RayEndPoint, const UWorld* World, const TArray<ALandscapeProxy*>& LandscapeProxies, FVector& OutHitLocation)
 {
 	static FName TraceTag = FName(TEXT("LandscapeTrace"));
 	TArray<FHitResult> Results;
 	// Each landscape component has 2 collision shapes, 1 of them is specific to landscape editor
 	// Trace only ECC_Visibility channel, so we do hit only Editor specific shape
 	World->LineTraceMultiByObjectType(Results, RayOrigin, RayEndPoint, FCollisionObjectQueryParams(ECollisionChannel::ECC_Visibility), FCollisionQueryParams(TraceTag, true));
-	
+
 	bool bHitLandscape = false;
-	FVector OutHitLocation;
-	
+
 	for (const FHitResult& HitResult : Results)
 	{
 		ULandscapeHeightfieldCollisionComponent* CollisionComponent = Cast<ULandscapeHeightfieldCollisionComponent>(HitResult.Component.Get());
@@ -5686,6 +5842,7 @@ const bool IsLandscapeHit(const FVector& RayOrigin, const FVector& RayEndPoint, 
 
 	return bHitLandscape;
 }
+
 
 void CullTrianglesFromVolumesAndUnderLandscapes(const UStaticMeshComponent* InMeshComponent, FRawMesh &OutRawMesh)
 {
@@ -5724,14 +5881,13 @@ void CullTrianglesFromVolumesAndUnderLandscapes(const UStaticMeshComponent* InMe
 					CullVolumes.Add(Volume);
 				}
 			}
-
 		}
 	}
 
 	TArray<bool> VertexVisible;
 	VertexVisible.AddZeroed(OutRawMesh.VertexPositions.Num());
 	int32 Index = 0;
-	
+
 	for (const FVector& Position : OutRawMesh.VertexPositions)
 	{
 		// Start with setting visibility to true on all vertices
@@ -5754,10 +5910,11 @@ void CullTrianglesFromVolumesAndUnderLandscapes(const UStaticMeshComponent* InMe
 			{
 				const FVector Start = Position;
 				FVector End = Position - (WORLD_MAX * FVector::UpVector);
-				const bool IsAboveLandscape = IsLandscapeHit(Start, End, World, Landscapes);
+				FVector OutHit;
+				const bool IsAboveLandscape = IsLandscapeHit(Start, End, World, Landscapes, OutHit);
 
 				End = Position + (WORLD_MAX * FVector::UpVector);
-				const bool IsUnderneathLandscape = IsLandscapeHit(Start, End, World, Landscapes);
+				const bool IsUnderneathLandscape = IsLandscapeHit(Start, End, World, Landscapes, OutHit);
 
 				// Vertex is visible when above landscape (with actual landscape underneath) or if there is no landscape beneath or above the vertex (falls outside of landscape bounds)
 				VertexVisible[Index] = (IsAboveLandscape && !IsUnderneathLandscape) || (!IsAboveLandscape && !IsUnderneathLandscape);
@@ -5798,13 +5955,6 @@ void CullTrianglesFromVolumesAndUnderLandscapes(const UStaticMeshComponent* InMe
 		TriangleVisible[TriangleIndex] = AboveLandscape;
 		bCreateNewMesh |= !AboveLandscape;
 
-		for (int32 WedgeIndex = 0; WedgeIndex < 3; ++WedgeIndex)
-		{
-			AboveLandscape |= VertexVisible[OutRawMesh.WedgeIndices[(TriangleIndex * 3) + WedgeIndex]];
-		}
-		TriangleVisible[TriangleIndex] = AboveLandscape;
-		bCreateNewMesh |= !AboveLandscape;
-		
 	}
 
 	// Check whether or not we have to create a new mesh
@@ -5857,9 +6007,7 @@ void CullTrianglesFromVolumesAndUnderLandscapes(const UStaticMeshComponent* InMe
 
 		OutRawMesh = NewRawMesh;
 	}
-
 }
-
 
 void PropagateSplineDeformationToRawMesh(const USplineMeshComponent* InSplineMeshComponent, FRawMesh &OutRawMesh) 
 {
@@ -6072,18 +6220,15 @@ bool FMeshUtilities::ConstructRawMesh(
 		ComponentToWorldTransform.SetScale3D(ComponentToWorldTransform.GetScale3D()*BuildSettings.BuildScale3D);
 	}
 
-	// Transform raw mesh vertex data by the Static Mesh Component's component to world transformation	
-	TransformRawMeshVertexData(ComponentToWorldTransform, OutRawMesh);
-	
 	// If specified propagate painted vertex colors into our raw mesh
 	if (bPropagateVertexColours)
 	{
 		PropagatePaintedColorsToRawMesh(InMeshComponent, InLODIndex, OutRawMesh);
 	}
 
-	// Remove all triangles underneath terrain
-	CullTrianglesFromVolumesAndUnderLandscapes(InMeshComponent, OutRawMesh);
-	
+	// Transform raw mesh vertex data by the Static Mesh Component's component to world transformation	
+	TransformRawMeshVertexData(ComponentToWorldTransform, OutRawMesh);	
+
 	// Culling triangles could lead to an entirely empty RawMesh (all vertices culled)
 	if (!OutRawMesh.IsValid())
 	{
@@ -6414,7 +6559,9 @@ void FMeshUtilities::CalculateTextureCoordinateBoundsForSkeletalMesh(const FStat
 		const int32 MaterialIndex = Section.MaterialIndex;
 
 		if (OutBounds.Num() <= MaterialIndex)
+		{
 			OutBounds.SetNumZeroed(MaterialIndex + 1);
+		}
 
 		for (uint32 Index = FirstIndex; Index < LastIndex; ++Index)
 		{
@@ -6714,6 +6861,7 @@ static void MergeFlattenedMaterials(TArray<struct FFlattenMaterial>& InMaterialL
 	bool bExportRoughness = (OutMergedMaterial.RoughnessSize != FIntPoint::ZeroValue);
 	bool bExportSpecular = (OutMergedMaterial.SpecularSize != FIntPoint::ZeroValue);
 	bool bExportEmissive = (OutMergedMaterial.EmissiveSize != FIntPoint::ZeroValue);
+	bool bExportOpacity = (OutMergedMaterial.OpacitySize != FIntPoint::ZeroValue);
 
 	// Pre-allocate buffers for texture atlas
 	OutMergedMaterial.DiffuseSamples.Reserve(AtlasNumSamples);
@@ -6747,6 +6895,13 @@ static void MergeFlattenedMaterials(TArray<struct FFlattenMaterial>& InMaterialL
 		check(OutMergedMaterial.EmissiveSize == OutMergedMaterial.EmissiveSize);
 		OutMergedMaterial.EmissiveSamples.Reserve(AtlasNumSamples);
 		OutMergedMaterial.EmissiveSamples.SetNumZeroed(AtlasNumSamples);
+	}
+
+	if (bExportOpacity)
+	{
+		check(OutMergedMaterial.OpacitySize == OutMergedMaterial.OpacitySize);
+		OutMergedMaterial.OpacitySamples.Reserve(AtlasNumSamples);
+		OutMergedMaterial.OpacitySamples.SetNumZeroed(AtlasNumSamples);
 	}
 
 
@@ -6819,6 +6974,17 @@ static void MergeFlattenedMaterials(TArray<struct FFlattenMaterial>& InMaterialL
 			SetTextureRect(FlatMaterial.EmissiveSamples[0], ExportTextureSize, OutMergedMaterial.EmissiveSamples.GetData(), AtlasTextureSize, AtlasTargetPos);
 		}
 
+		if (FlatMaterial.OpacitySamples.Num() >= 1)
+		{
+			FlatMaterial.SpecularSize = bExportOpacity ? ConditionalImageResize(FlatMaterial.OpacitySize, ExportTextureSize, FlatMaterial.OpacitySamples, false) : FIntPoint::ZeroValue;
+			CopyTextureRect(FlatMaterial.OpacitySamples.GetData(), ExportTextureSize, OutMergedMaterial.OpacitySamples.GetData(), AtlasTextureSize, AtlasTargetPos);
+		}
+		else if (FlatMaterial.OpacitySamples.Num() == 1)
+		{
+			SetTextureRect(FlatMaterial.OpacitySamples[0], ExportTextureSize, OutMergedMaterial.OpacitySamples.GetData(), AtlasTextureSize, AtlasTargetPos);
+		}
+
+
 		check(OutUVTransforms.IsValidIndex(MatIdx));
 
 		OutUVTransforms[MatIdx].Offset = FVector2D(
@@ -6850,9 +7016,22 @@ void FMeshUtilities::MergeActors(
 	FVector& OutMergedActorLocation,
 	bool bSilent) const
 {
+	MergeActors(SourceActors, InSettings, InOuter, InBasePackageName, OutAssetsToSync, OutMergedActorLocation, bSilent);
+}
+
+void FMeshUtilities::MergeActors(
+	const TArray<AActor*>& SourceActors,
+	const FMeshMergingSettings& InSettings,
+	UPackage* InOuter,
+	const FString& InBasePackageName,
+	TArray<UObject*>& OutAssetsToSync,
+	FVector& OutMergedActorLocation,
+	bool bSilent) const
+{
+	checkf(SourceActors.Num(), TEXT("No actors supplied for merging"));
+	
 	TArray<UStaticMeshComponent*> ComponentsToMerge;
 	ComponentsToMerge.Reserve(SourceActors.Num());
-
 	// Collect static mesh components
 	for (AActor* Actor : SourceActors)
 	{
@@ -6870,13 +7049,56 @@ void FMeshUtilities::MergeActors(
 		}
 	}
 
-	UWorld* World = SourceActors[0]->GetWorld();
-	float ViewDistance = TNumericLimits<float>::Max();
+	checkf(SourceActors.Num(), TEXT("No valid components found in actors supplied for merging"));
 
-	MergeStaticMeshComponents(ComponentsToMerge, World, InSettings, InOuter, InBasePackageName, UseLOD, OutAssetsToSync, OutMergedActorLocation, ViewDistance, bSilent);
+	UWorld* World = SourceActors[0]->GetWorld();
+	checkf(World != nullptr, TEXT("Invalid world retrieved from Actor"));
+	const float ScreenAreaSize = TNumericLimits<float>::Max();
+	MergeStaticMeshComponents(ComponentsToMerge, World, InSettings, InOuter, InBasePackageName, OutAssetsToSync, OutMergedActorLocation, ScreenAreaSize, bSilent);
 }
 
-void FMeshUtilities::MergeStaticMeshComponents(const TArray<UStaticMeshComponent*>& ComponentsToMerge, UWorld* World, const FMeshMergingSettings& InSettings, UPackage* InOuter, const FString& InBasePackageName, int32 UseLOD, /* does not build all LODs but only use this LOD to create base mesh */ TArray<UObject*>& OutAssetsToSync, FVector& OutMergedActorLocation, const float ScreenAreaSize, bool bSilent /*= false*/) const
+static void CheckWrappingUVs(TArray<FRawMeshExt>& SourceMeshes, TArray<bool>& MeshShouldBakeVertexData)
+{
+	const uint32 MeshCount = SourceMeshes.Num();
+	for (uint32 MeshIndex = 0; MeshIndex < MeshCount; ++MeshIndex)
+	{
+		FRawMeshExt& SourceMesh = SourceMeshes[MeshIndex];
+		const int32 LODIndex = SourceMeshes[MeshIndex].ExportLODIndex;
+		if (SourceMesh.bShouldExportLOD[LODIndex])
+		{
+			FRawMesh* RawMesh = SourceMesh.MeshLODData[LODIndex].RawMesh;
+			check(RawMesh);
+
+			for (uint32 ChannelIndex = 0; ChannelIndex < MAX_MESH_TEXTURE_COORDS; ++ChannelIndex)
+			{
+				bool bProcessed = false;
+				bool bHasCoordinates = (RawMesh->WedgeTexCoords[ChannelIndex].Num() != 0);
+
+				if (bHasCoordinates)
+				{
+					FVector2D Min(FLT_MAX, FLT_MAX);
+					FVector2D Max(-FLT_MAX, -FLT_MAX);
+					for (const FVector2D& Coordinate : RawMesh->WedgeTexCoords[ChannelIndex])
+					{						
+						if ((FMath::IsNegativeFloat(Coordinate.X) || FMath::IsNegativeFloat(Coordinate.Y)) || (Coordinate.X > ( 1.0f + KINDA_SMALL_NUMBER) || Coordinate.Y > (1.0f + KINDA_SMALL_NUMBER)))
+						{
+							MeshShouldBakeVertexData[MeshIndex] = true;
+							bProcessed = true;
+							break;
+						}
+					}
+				}
+
+				if (bProcessed)
+				{
+					break;
+				}
+			}
+		}
+	}
+}
+
+void FMeshUtilities::MergeStaticMeshComponents(const TArray<UStaticMeshComponent*>& ComponentsToMerge, UWorld* World, const FMeshMergingSettings& InSettings, UPackage* InOuter, const FString& InBasePackageName, TArray<UObject*>& OutAssetsToSync, FVector& OutMergedActorLocation, const float ScreenAreaSize, bool bSilent /*= false*/) const
 {
 	TArray<UMaterialInterface*>						UniqueMaterials;
 	TMap<FMeshIdAndLOD, TArray<int32>>				MaterialMap;
@@ -6884,14 +7106,10 @@ void FMeshUtilities::MergeStaticMeshComponents(const TArray<UStaticMeshComponent
 	bool											bWithVertexColors[MAX_STATIC_MESH_LODS] = {};
 	bool											bOcuppiedUVChannels[MAX_STATIC_MESH_LODS][MAX_MESH_TEXTURE_COORDS] = {};
 	UBodySetup*										BodySetupSource = nullptr;
-
-	if (ComponentsToMerge.Num() == 0)
-	{
-		return;
-	}
+	
+	checkf(ComponentsToMerge.Num(), TEXT("No valid components supplied for merging"));
 
 	SourceMeshes.AddZeroed(ComponentsToMerge.Num());
-	//SourceMeshes.SetNum(ComponentsToMerge.Num());
 
 	FScopedSlowTask MainTask(100, LOCTEXT("MeshUtilities_MergeStaticMeshComponents", "Merging StaticMesh Components"));
 	MainTask.MakeDialog();
@@ -6900,12 +7118,12 @@ void FMeshUtilities::MergeStaticMeshComponents(const TArray<UStaticMeshComponent
 	FString MergedAssetPackageName;
 	FVector MergedAssetPivot;
 
-	int32 NumMaxLOD = 0;
-	// Convert collected static mesh components into raw meshes
+	int32 NumMaxLOD = 0;	
 	for (int32 MeshId = 0; MeshId < ComponentsToMerge.Num(); ++MeshId)
 	{
 		UStaticMeshComponent* MeshComponent = ComponentsToMerge[MeshId];
-		// How many LOD entries merged mesh will have
+	
+		// Determine the maximum number of LOD levels found in the source meshes
 		NumMaxLOD = FMath::Max(NumMaxLOD, MeshComponent->StaticMesh->SourceModels.Num());
 
 		// Save the pivot and asset package name of the first mesh, will later be used for creating merged mesh asset 
@@ -6918,67 +7136,77 @@ void FMeshUtilities::MergeStaticMeshComponents(const TArray<UStaticMeshComponent
 		}
 	}
 
+	// Cap the number of LOD levels to the max
 	NumMaxLOD = FMath::Min(NumMaxLOD, MAX_STATIC_MESH_LODS);
 
-	int32 StartLODIndex = 0;
-	if (UseLOD >= 0)
+	int32 BaseLODIndex = 0;
+	// Are we going to export a single LOD or not
+	if (InSettings.LODSelectionType == EMeshLODSelectionType::SpecificLOD && InSettings.SpecificLOD >= 0)
 	{
-		// Will export only one specified LOD as base mesh
-		StartLODIndex = FMath::Min(UseLOD, NumMaxLOD - 1);
-		NumMaxLOD = StartLODIndex + 1;
+		// Will export only one specified LOD as LOD0 for the merged mesh
+		BaseLODIndex = FMath::Max(0, FMath::Min(InSettings.SpecificLOD, MAX_STATIC_MESH_LODS));
 	}
 
+	const bool bMergeAllAvailableLODs = InSettings.LODSelectionType == EMeshLODSelectionType::AllLODs;
 	MainTask.EnterProgressFrame(10, LOCTEXT("MeshUtilities_MergeStaticMeshComponents_RetrievingRawMesh", "Retrieving Raw Meshes"));
-
-	// Make sure if we are merging materials, that we will only export LOD0 (currently no support for baking out multiple textures and materials per LOD)
-	StartLODIndex = 0;// (InSettings.bMergeMaterials) ? 0 : StartLODIndex;
-	NumMaxLOD = 1; // (InSettings.bMergeMaterials) ? 1 : NumMaxLOD;
-
-	int32 RawMeshLODIdx = 0;
-	for (int32 LODIndex = StartLODIndex; LODIndex < NumMaxLOD; ++LODIndex, ++RawMeshLODIdx)
+		
+	for (int32 MeshId = 0; MeshId < ComponentsToMerge.Num(); ++MeshId)
 	{
-		for (int32 MeshId = 0; MeshId < ComponentsToMerge.Num(); ++MeshId)
+		UStaticMeshComponent* StaticMeshComponent = ComponentsToMerge[MeshId];
+
+		// LOD index will be overridden if the user has chosen to pick it according to the viewing distance
+		int32 CalculatedLODIndex = -1;
+		if (InSettings.LODSelectionType == EMeshLODSelectionType::CalculateLOD && ScreenAreaSize > 0.0f && ScreenAreaSize < 1.0f)
 		{
-			UStaticMeshComponent* StaticMeshComponent = ComponentsToMerge[MeshId];
+			FHierarchicalLODUtilitiesModule& Module = FModuleManager::LoadModuleChecked<FHierarchicalLODUtilitiesModule>("HierarchicalLODUtilities");
+			IHierarchicalLODUtilities* Utilities = Module.GetUtilities();
+			CalculatedLODIndex = Utilities->GetLODLevelForScreenAreaSize(StaticMeshComponent, ScreenAreaSize);
+		}
 
-			// We duplicate lower LOD in case this mesh has no LOD we want
-			int32 ExportLODIndex = FMath::Min(LODIndex, StaticMeshComponent->StaticMesh->SourceModels.Num() - 1);
+		// Retrieve the lowest available LOD level from the mesh 
+		int32 StartLODIndex = InSettings.LODSelectionType == EMeshLODSelectionType::CalculateLOD ? CalculatedLODIndex : FMath::Min(BaseLODIndex, StaticMeshComponent->StaticMesh->SourceModels.Num() - 1);
+		int32 EndLODIndex = bMergeAllAvailableLODs ? FMath::Min(StaticMeshComponent->StaticMesh->SourceModels.Num(), MAX_STATIC_MESH_LODS) : StartLODIndex + 1;
 
-			// Determining which Source LOD level to pick according to the viewing distance
-			if (UseLOD == -1 && ScreenAreaSize > 0.0f && ScreenAreaSize < TNumericLimits<float>::Max())
-			{
-				ExportLODIndex = FHierarchicalLODUtilities::GetLODLevelForScreenAreaSize(StaticMeshComponent, ScreenAreaSize);
-			}
+		SourceMeshes[MeshId].MaxLODExport = EndLODIndex - 1;
+
+		// Set export LOD index if we are exporting one specifically
+		SourceMeshes[MeshId].ExportLODIndex = !bMergeAllAvailableLODs ? StartLODIndex : -1;
+
+		for (int32 LODIndex = StartLODIndex; LODIndex < EndLODIndex; ++LODIndex)
+		{
+			// Store source static mesh and set LOD export flag
+			SourceMeshes[MeshId].SourceStaticMesh = StaticMeshComponent->StaticMesh;
+			SourceMeshes[MeshId].bShouldExportLOD[LODIndex] = true;
 
 			TArray<int32> MeshMaterialMap;
-
-			SourceMeshes[MeshId].MeshLODData[LODIndex].SourceStaticMesh = StaticMeshComponent->StaticMesh;
-
-			FRawMesh& RawMeshLOD = SourceMeshes[MeshId].MeshLODData[LODIndex].RawMesh;
-
-			if (ConstructRawMesh(StaticMeshComponent, ExportLODIndex, InSettings.bBakeVertexData, RawMeshLOD, UniqueMaterials, MeshMaterialMap))
+			// Retrieve and construct raw mesh from source meshes
+			SourceMeshes[MeshId].MeshLODData[LODIndex].RawMesh = new FRawMesh();
+			FRawMesh* RawMeshLOD = SourceMeshes[MeshId].MeshLODData[LODIndex].RawMesh;
+			if (ConstructRawMesh(StaticMeshComponent, LODIndex, InSettings.bBakeVertexDataToMesh || InSettings.bUseVertexDataForBakingMaterial, *RawMeshLOD, UniqueMaterials, MeshMaterialMap))
 			{
-				MaterialMap.Add(FMeshIdAndLOD(MeshId, RawMeshLODIdx), MeshMaterialMap);
+				MaterialMap.Add(FMeshIdAndLOD(MeshId, LODIndex), MeshMaterialMap);
 
-				// Check if vertex colours are propagated
-				if (InSettings.bBakeVertexData)
+				// Check if vertex colours should be propagated
+				if (InSettings.bBakeVertexDataToMesh)
 				{
 					// Whether at least one of the meshes has vertex colors
-					bWithVertexColors[RawMeshLODIdx] |= (RawMeshLOD.WedgeColors.Num() != 0);
+					bWithVertexColors[LODIndex] |= (RawMeshLOD->WedgeColors.Num() != 0);
 				}
 
 				// Which UV channels has data at least in one mesh
 				for (int32 ChannelIdx = 0; ChannelIdx < MAX_MESH_TEXTURE_COORDS; ++ChannelIdx)
 				{
-					bOcuppiedUVChannels[RawMeshLODIdx][ChannelIdx] |= (RawMeshLOD.WedgeTexCoords[ChannelIdx].Num() != 0);
+					bOcuppiedUVChannels[LODIndex][ChannelIdx] |= (RawMeshLOD->WedgeTexCoords[ChannelIdx].Num() != 0);
 				}
-
-
+				if (InSettings.bUseLandscapeCulling)
+				{
+					// Landscape / volume culling
+					CullTrianglesFromVolumesAndUnderLandscapes(StaticMeshComponent, *RawMeshLOD);
+				}
 			}
-
 		}
 	}
-
+	
 	if (InSettings.bMergePhysicsData)
 	{
 		for (int32 MeshId = 0; MeshId < ComponentsToMerge.Num(); ++MeshId)
@@ -6994,35 +7222,33 @@ void FMeshUtilities::MergeStaticMeshComponents(const TArray<UStaticMeshComponent
 		}
 	}
 
-	
-
 	MainTask.EnterProgressFrame(20);
 
-	FRawMeshExt MergedMesh;
-	FMemory::Memset(&MergedMesh, 0, sizeof(MergedMesh));
+	// Remap material indices regardless of baking out materials or not (could give a draw call decrease)
+	TArray<bool> MeshShouldBakeVertexData;
+	TMap<FMeshIdAndLOD, TArray<int32> > NewMaterialMap;
+	TArray<UMaterialInterface*> NewStaticMeshMaterials;
+	FMaterialUtilities::RemapUniqueMaterialIndices(
+		UniqueMaterials,
+		SourceMeshes,
+		MaterialMap,
+		InSettings.MaterialSettings,
+		InSettings.bUseVertexDataForBakingMaterial,
+		InSettings.bMergeMaterials,
+		MeshShouldBakeVertexData,
+		NewMaterialMap,
+		NewStaticMeshMaterials);
+	// Use shared material data.
+	Exchange(MaterialMap, NewMaterialMap);
+	Exchange(UniqueMaterials, NewStaticMeshMaterials);
 
-	if (InSettings.bMergeMaterials)
+	if (InSettings.bMergeMaterials && !bMergeAllAvailableLODs)
 	{
-		TArray<bool> MeshShouldBakeVertexData;
-		TMap<FMeshIdAndLOD, TArray<int32> > NewMaterialMap;
-		TArray<UMaterialInterface*> NewStaticMeshMaterials;
-		FMaterialUtilities::RemapUniqueMaterialIndices(
-			UniqueMaterials,
-			SourceMeshes,
-			MaterialMap,
-			InSettings.MaterialSettings,
-			InSettings.bBakeVertexData,
-			InSettings.bMergeMaterials,
-			MeshShouldBakeVertexData,
-			NewMaterialMap,
-			NewStaticMeshMaterials);
-		// Use shared material data.
-		Exchange(MaterialMap, NewMaterialMap);
-		Exchange(UniqueMaterials, NewStaticMeshMaterials);
-
-
 		// Should merge flattened materials into one texture
 		MainTask.EnterProgressFrame(20, LOCTEXT("MeshUtilities_MergeStaticMeshComponents_MergingMaterials", "Merging Materials"));
+		
+		// If we have UVs outside of the UV boundaries we should use unique UVs to render out the materials
+		CheckWrappingUVs(SourceMeshes, MeshShouldBakeVertexData);
 
 		// Flatten Materials
 		TArray<FFlattenMaterial> FlattenedMaterials;
@@ -7036,58 +7262,66 @@ void FMeshUtilities::MergeStaticMeshComponents(const TArray<UStaticMeshComponent
 		MergedFlatMaterial.RoughnessSize = InSettings.MaterialSettings.bRoughnessMap ? AtlasTextureSize : FIntPoint::ZeroValue;
 		MergedFlatMaterial.SpecularSize = InSettings.MaterialSettings.bSpecularMap ? AtlasTextureSize : FIntPoint::ZeroValue;
 		MergedFlatMaterial.EmissiveSize = InSettings.MaterialSettings.bEmissiveMap ? AtlasTextureSize : FIntPoint::ZeroValue;
+		MergedFlatMaterial.OpacitySize = InSettings.MaterialSettings.bOpacityMap ? AtlasTextureSize : FIntPoint::ZeroValue;
 
 		TArray<FRawMeshUVTransform> UVTransforms;
-
 		MergeFlattenedMaterials(FlattenedMaterials, MergedFlatMaterial, UVTransforms);
+
+		FMaterialUtilities::OptimizeFlattenMaterial(MergedFlatMaterial);
 
 		// Adjust UVs and remap material indices
 		for (int32 MeshIndex = 0; MeshIndex < SourceMeshes.Num(); ++MeshIndex)
 		{
-			for (int32 LODIndex = 0; LODIndex < MAX_STATIC_MESH_LODS; ++LODIndex)
+			const int32 LODIndex = SourceMeshes[MeshIndex].ExportLODIndex;
+			FRawMesh& RawMesh = *SourceMeshes[MeshIndex].MeshLODData[LODIndex].RawMesh;
+			if (RawMesh.VertexPositions.Num())
 			{
-				FRawMesh& RawMesh = SourceMeshes[MeshIndex].MeshLODData[LODIndex].RawMesh;
+				const TArray<int32> MaterialIndices = MaterialMap[FMeshIdAndLOD(MeshIndex, LODIndex)];
 
-				if (RawMesh.VertexPositions.Num())
+				// If we end up in the situation where we have two of the same meshes which require baking vertex data (thus unique UVs), the first one to be found in the array will be used to bake out the material and generate new uvs for it. The other one however will not have the new UVs and thus the baked out material does not match up with its uvs which makes the mesh be UVed incorrectly with the new baked material.
+				if (!SourceMeshes[MeshIndex].MeshLODData[LODIndex].NewUVs.Num() && MeshShouldBakeVertexData[MeshIndex])
 				{
-					const TArray<int32> MaterialIndices = MaterialMap[FMeshIdAndLOD(MeshIndex, LODIndex)];
+					// Calculate the max bounds for this raw mesh 
+					CalculateTextureCoordinateBoundsForRawMesh(*SourceMeshes[MeshIndex].MeshLODData[LODIndex].RawMesh, SourceMeshes[MeshIndex].MeshLODData[LODIndex].TexCoordBounds);
 
-					for (int32 UVChannelIdx = 0; UVChannelIdx < MAX_MESH_TEXTURE_COORDS; ++UVChannelIdx)
+					// Generate unique UVs
+					GenerateUniqueUVsForStaticMesh(*SourceMeshes[MeshIndex].MeshLODData[LODIndex].RawMesh, InSettings.MaterialSettings.TextureSize.GetMax(), SourceMeshes[MeshIndex].MeshLODData[LODIndex].NewUVs);
+				}
+
+				for (int32 UVChannelIdx = 0; UVChannelIdx < MAX_MESH_TEXTURE_COORDS; ++UVChannelIdx)
+				{
+					// Determine if we should use original or non-overlapping generated UVs
+					TArray<FVector2D>& UVs = SourceMeshes[MeshIndex].MeshLODData[LODIndex].NewUVs.Num() ? SourceMeshes[MeshIndex].MeshLODData[LODIndex].NewUVs : RawMesh.WedgeTexCoords[UVChannelIdx];
+					if (RawMesh.WedgeTexCoords[UVChannelIdx].Num() > 0)
 					{
-						// Determine if we should use original or non-overlapping generated UVs
-						TArray<FVector2D>& UVs = SourceMeshes[MeshIndex].MeshLODData[LODIndex].NewUVs.Num() ? SourceMeshes[MeshIndex].MeshLODData[LODIndex].NewUVs : RawMesh.WedgeTexCoords[UVChannelIdx];
-						if (RawMesh.WedgeTexCoords[UVChannelIdx].Num() > 0)
+						int32 UVIdx = 0;
+						for (int32 FaceMaterialIndex : RawMesh.FaceMaterialIndices)
 						{
-							int32 UVIdx = 0;
-							for (int32 FaceMaterialIndex : RawMesh.FaceMaterialIndices)
+							const FRawMeshUVTransform& UVTransform = UVTransforms[MaterialIndices[FaceMaterialIndex]];
+							if (UVTransform.IsValid())
 							{
-								const FRawMeshUVTransform& UVTransform = UVTransforms[MaterialIndices[FaceMaterialIndex]];
-								if (UVTransform.IsValid())
-								{
-									FVector2D UV0 = GetValidUV(UVs[UVIdx + 0]);
-									FVector2D UV1 = GetValidUV(UVs[UVIdx + 1]);
-									FVector2D UV2 = GetValidUV(UVs[UVIdx + 2]);
-									RawMesh.WedgeTexCoords[UVChannelIdx][UVIdx + 0] = UV0 * UVTransform.Scale + UVTransform.Offset;
-									RawMesh.WedgeTexCoords[UVChannelIdx][UVIdx + 1] = UV1 * UVTransform.Scale + UVTransform.Offset;
-									RawMesh.WedgeTexCoords[UVChannelIdx][UVIdx + 2] = UV2 * UVTransform.Scale + UVTransform.Offset;
-								}
-
-								UVIdx += 3;
+								FVector2D UV0 = GetValidUV(UVs[UVIdx + 0]);
+								FVector2D UV1 = GetValidUV(UVs[UVIdx + 1]);
+								FVector2D UV2 = GetValidUV(UVs[UVIdx + 2]);
+								RawMesh.WedgeTexCoords[UVChannelIdx][UVIdx + 0] = UV0 * UVTransform.Scale + UVTransform.Offset;
+								RawMesh.WedgeTexCoords[UVChannelIdx][UVIdx + 1] = UV1 * UVTransform.Scale + UVTransform.Offset;
+								RawMesh.WedgeTexCoords[UVChannelIdx][UVIdx + 2] = UV2 * UVTransform.Scale + UVTransform.Offset;
 							}
+
+							UVIdx += 3;
 						}
-					}
-
-					// Reset material indexes
-					for (int32& FaceMaterialIndex : RawMesh.FaceMaterialIndices)
-					{
-						FaceMaterialIndex = 0;
-					}
+					} 
 				}
-				else
+
+				// Reset material indexes
+				for (int32& FaceMaterialIndex : RawMesh.FaceMaterialIndices)
 				{
-					break;
+					FaceMaterialIndex = 0;
 				}
-
+			}
+			else
+			{
+				break;
 			}
 		}
 
@@ -7114,15 +7348,13 @@ void FMeshUtilities::MergeStaticMeshComponents(const TArray<UStaticMeshComponent
 			MaterialPackage->Modify();
 		}
 
-		UMaterial* MergedMaterial = FMaterialUtilities::CreateMaterial(MergedFlatMaterial, MaterialPackage, MaterialAssetName, RF_Public | RF_Standalone, InSettings.MaterialSettings, OutAssetsToSync);
-
+		UMaterialInstanceConstant* MergedMaterial = ProxyMaterialUtilities::CreateProxyMaterialInstance(MaterialPackage, InSettings.MaterialSettings, MergedFlatMaterial, MaterialAssetName, MaterialPackageName);
 		// Set material static lighting usage flag if project has static lighting enabled
 		static const auto AllowStaticLightingVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.AllowStaticLighting"));
 		const bool bAllowStaticLighting = (!AllowStaticLightingVar || AllowStaticLightingVar->GetValueOnGameThread() != 0);
 		if (bAllowStaticLighting)
 		{
-			bool bNeedsRecompile;
-			MergedMaterial->SetMaterialUsage(bNeedsRecompile, MATUSAGE_StaticLighting);
+			MergedMaterial->CheckMaterialUsage(MATUSAGE_StaticLighting);
 		}
 
 		// Only end up with one material so clear array first
@@ -7132,36 +7364,52 @@ void FMeshUtilities::MergeStaticMeshComponents(const TArray<UStaticMeshComponent
 
 	MainTask.EnterProgressFrame(20, LOCTEXT("MeshUtilities_MergeStaticMeshComponents_MergingMeshes", "Merging Meshes"));
 
+	FRawMeshExt MergedMesh;
+	FMemory::Memset(&MergedMesh, 0, sizeof(MergedMesh));
+
+	int32 MaxExportLODs = bMergeAllAvailableLODs ? NumMaxLOD : 1;
 	// Merge meshes into single mesh
 	for (int32 SourceMeshIdx = 0; SourceMeshIdx < SourceMeshes.Num(); ++SourceMeshIdx)
-	{
-		for (int32 LODIndex = 0; LODIndex < MAX_STATIC_MESH_LODS; ++LODIndex)
+	{	
+		for (int32 TargetLODIndex = 0; TargetLODIndex < MaxExportLODs; ++TargetLODIndex)
 		{
+			int32 SourceLODIndex = SourceMeshes[SourceMeshIdx].bShouldExportLOD[TargetLODIndex] ? TargetLODIndex : (SourceMeshes[SourceMeshIdx].MaxLODExport);
+
+			if (!bMergeAllAvailableLODs)
+			{
+				SourceLODIndex = SourceMeshes[SourceMeshIdx].ExportLODIndex;
+			}
+			
+			// Allocate raw meshes where needed 
+			if (MergedMesh.MeshLODData[TargetLODIndex].RawMesh == nullptr)
+			{
+				MergedMesh.MeshLODData[TargetLODIndex].RawMesh = new FRawMesh();
+			}
+
 			// Merge vertex data from source mesh list into single mesh
-			const FRawMesh& SourceRawMesh = SourceMeshes[SourceMeshIdx].MeshLODData[LODIndex].RawMesh;
+			const FRawMesh& SourceRawMesh = *SourceMeshes[SourceMeshIdx].MeshLODData[SourceLODIndex].RawMesh;
 
 			if (SourceRawMesh.VertexPositions.Num() == 0)
 			{
 				continue;
 			}
 
-			const TArray<int32> MaterialIndices = MaterialMap[FMeshIdAndLOD(SourceMeshIdx, LODIndex)];
+			const TArray<int32> MaterialIndices = MaterialMap[FMeshIdAndLOD(SourceMeshIdx, SourceLODIndex)];
 			check(MaterialIndices.Num() > 0);
 
-			FRawMesh& TargetRawMesh = MergedMesh.MeshLODData[LODIndex].RawMesh;
-
+			FRawMesh& TargetRawMesh = *MergedMesh.MeshLODData[TargetLODIndex].RawMesh;
 			TargetRawMesh.FaceSmoothingMasks.Append(SourceRawMesh.FaceSmoothingMasks);
 
-			if (!InSettings.bMergeMaterials)
+			if (InSettings.bMergeMaterials && !bMergeAllAvailableLODs)
+			{
+				TargetRawMesh.FaceMaterialIndices.AddZeroed(SourceRawMesh.FaceMaterialIndices.Num());
+			}
+			else
 			{
 				for (const int32 Index : SourceRawMesh.FaceMaterialIndices)
 				{
 					TargetRawMesh.FaceMaterialIndices.Add(MaterialIndices[Index]);
 				}
-			}
-			else
-			{
-				TargetRawMesh.FaceMaterialIndices.Append(SourceRawMesh.FaceMaterialIndices);
 			}
 
 			int32 IndicesOffset = TargetRawMesh.VertexPositions.Num();
@@ -7182,7 +7430,7 @@ void FMeshUtilities::MergeStaticMeshComponents(const TArray<UStaticMeshComponent
 
 			// Deal with vertex colors
 			// Some meshes may have it, in this case merged mesh will be forced to have vertex colors as well
-			if (bWithVertexColors[LODIndex])
+			if (bWithVertexColors[SourceLODIndex] && InSettings.bBakeVertexDataToMesh)
 			{
 				if (SourceRawMesh.WedgeColors.Num())
 				{
@@ -7202,7 +7450,7 @@ void FMeshUtilities::MergeStaticMeshComponents(const TArray<UStaticMeshComponent
 			for (int32 ChannelIdx = 0; ChannelIdx < MAX_MESH_TEXTURE_COORDS; ++ChannelIdx)
 			{
 				// Whether this channel has data
-				if (bOcuppiedUVChannels[LODIndex][ChannelIdx])
+				if (bOcuppiedUVChannels[SourceLODIndex][ChannelIdx])
 				{
 					const TArray<FVector2D>& SourceChannel = SourceRawMesh.WedgeTexCoords[ChannelIdx];
 					TArray<FVector2D>& TargetChannel = TargetRawMesh.WedgeTexCoords[ChannelIdx];
@@ -7222,8 +7470,7 @@ void FMeshUtilities::MergeStaticMeshComponents(const TArray<UStaticMeshComponent
 						}
 					}
 				}
-			}
-
+			}			
 		}
 	}
 
@@ -7236,15 +7483,16 @@ void FMeshUtilities::MergeStaticMeshComponents(const TArray<UStaticMeshComponent
 			TransformPhysicsGeometry(PivotTM, SourceMesh.AggGeom);
 		}
 	}
-
+	
 	// Compute target lightmap channel for each LOD
 	// User can specify any index, but there are should not be empty gaps in UV channel list
 	int32 TargetLightMapUVChannel[MAX_STATIC_MESH_LODS];
 	for (int32 LODIndex = 0; LODIndex < MAX_STATIC_MESH_LODS; ++LODIndex)
-	{
-		int32 ChannelIdx = 0;
-		for (; ChannelIdx < MAX_MESH_TEXTURE_COORDS && bOcuppiedUVChannels[LODIndex][ChannelIdx]; ++ChannelIdx);
-		TargetLightMapUVChannel[LODIndex] = FMath::Min(InSettings.TargetLightMapUVChannel, ChannelIdx);
+	{		
+		for (int32 ChannelIdx = 0; ChannelIdx < MAX_MESH_TEXTURE_COORDS && bOcuppiedUVChannels[LODIndex][ChannelIdx]; ++ChannelIdx)
+		{
+			TargetLightMapUVChannel[LODIndex] = FMath::Min(InSettings.TargetLightMapUVChannel, ChannelIdx);
+		}
 	}
 
 	MainTask.EnterProgressFrame(20, LOCTEXT("MeshUtilities_MergeStaticMeshComponents_CreatingMergedMeshAsset", "Creating Merged Mesh Asset"));
@@ -7285,27 +7533,42 @@ void FMeshUtilities::MergeStaticMeshComponents(const TArray<UStaticMeshComponent
 		if (InSettings.bGenerateLightMapUV)
 		{
 			StaticMesh->LightMapResolution = InSettings.TargetLightMapResolution;
-			StaticMesh->LightMapCoordinateIndex = TargetLightMapUVChannel[0];
+
+			int32 TargetLightMapIndex = InSettings.TargetLightMapUVChannel;	
+			for (int32 LODIndex = 0; LODIndex < MAX_STATIC_MESH_LODS; ++LODIndex)
+			{
+				for (int32 ChannelIdx = 0; ChannelIdx < MAX_MESH_TEXTURE_COORDS && bOcuppiedUVChannels[LODIndex][ChannelIdx]; ++ChannelIdx)
+				{
+					TargetLightMapIndex = FMath::Max(TargetLightMapIndex, ChannelIdx);
+				}
+			}
+
+			StaticMesh->LightMapCoordinateIndex = TargetLightMapIndex + 1;
 		}
 
 		for (int32 LODIndex = 0; LODIndex < NumMaxLOD; ++LODIndex)
 		{
-			FRawMesh& MergedMeshLOD = MergedMesh.MeshLODData[LODIndex].RawMesh;
-			if (MergedMeshLOD.VertexPositions.Num() > 0)
+			if (MergedMesh.MeshLODData[LODIndex].RawMesh != nullptr)
 			{
-				FStaticMeshSourceModel* SrcModel = new (StaticMesh->SourceModels) FStaticMeshSourceModel();
-				/*Don't allow the engine to recalculate normals*/
-				SrcModel->BuildSettings.bRecomputeNormals = false;
-				SrcModel->BuildSettings.bRecomputeTangents = false;
-				SrcModel->BuildSettings.bRemoveDegenerates = false;
-				SrcModel->BuildSettings.bUseFullPrecisionUVs = false;
-				SrcModel->BuildSettings.bGenerateLightmapUVs = InSettings.bGenerateLightMapUV;
-				SrcModel->BuildSettings.MinLightmapResolution = InSettings.TargetLightMapResolution;
-				SrcModel->BuildSettings.SrcLightmapIndex = 0;
-				SrcModel->BuildSettings.DstLightmapIndex = TargetLightMapUVChannel[LODIndex];
+				FRawMesh& MergedMeshLOD = *MergedMesh.MeshLODData[LODIndex].RawMesh;
+				if (MergedMeshLOD.VertexPositions.Num() > 0)
+				{
+					FStaticMeshSourceModel* SrcModel = new (StaticMesh->SourceModels) FStaticMeshSourceModel();
+					/*Don't allow the engine to recalculate normals*/
+					SrcModel->BuildSettings.bRecomputeNormals = false;
+					SrcModel->BuildSettings.bRecomputeTangents = false;
+					SrcModel->BuildSettings.bRemoveDegenerates = false;
+					SrcModel->BuildSettings.bUseHighPrecisionTangentBasis = false;
+					SrcModel->BuildSettings.bUseFullPrecisionUVs = false;
+					SrcModel->BuildSettings.bGenerateLightmapUVs = InSettings.bGenerateLightMapUV;
+					SrcModel->BuildSettings.MinLightmapResolution = InSettings.TargetLightMapResolution;
+					SrcModel->BuildSettings.SrcLightmapIndex = 0;
+					SrcModel->BuildSettings.DstLightmapIndex = StaticMesh->LightMapCoordinateIndex;
 
-				SrcModel->RawMeshBulkData->SaveRawMesh(MergedMeshLOD);
+					SrcModel->RawMeshBulkData->SaveRawMesh(MergedMeshLOD);
+				}
 			}
+			
 		}
 
 		// Assign materials
@@ -7319,15 +7582,23 @@ void FMeshUtilities::MergeStaticMeshComponents(const TArray<UStaticMeshComponent
 			StaticMesh->Materials.Add(Material);
 		}
 
-		if (InSettings.bMergePhysicsData && BodySetupSource)
+		if (InSettings.bMergePhysicsData)
 		{
 			StaticMesh->CreateBodySetup();
-			StaticMesh->BodySetup->CopyBodyPropertiesFrom(BodySetupSource);
-			StaticMesh->BodySetup->AggGeom = FKAggregateGeom();
+			if (BodySetupSource)
+			{
+				StaticMesh->BodySetup->CopyBodyPropertiesFrom(BodySetupSource);
+			}
 
+			StaticMesh->BodySetup->AggGeom = FKAggregateGeom();
 			for (const FRawMeshExt& SourceMesh : SourceMeshes)
 			{
 				StaticMesh->BodySetup->AddCollisionFrom(SourceMesh.AggGeom);
+				// Copy section/collision info from first LOD level in source static mesh
+				if (SourceMesh.SourceStaticMesh)
+				{
+					StaticMesh->SectionInfoMap.CopyFrom(SourceMesh.SourceStaticMesh->SectionInfoMap);
+				}
 			}
 		}
 
@@ -7339,6 +7610,24 @@ void FMeshUtilities::MergeStaticMeshComponents(const TArray<UStaticMeshComponent
 		OutAssetsToSync.Add(StaticMesh);
 		OutMergedActorLocation = MergedAssetPivot;
 	}
+
+	for (FRawMeshExt& SourceMesh : SourceMeshes)
+	{
+		for (FMeshMergeData& Mergedata : SourceMesh.MeshLODData)
+		{
+			Mergedata.ReleaseData();
+		}
+	}
+
+	for (FMeshMergeData& Mergedata : MergedMesh.MeshLODData)
+	{
+		Mergedata.ReleaseData();
+	}
+}
+
+void FMeshUtilities::MergeStaticMeshComponents(const TArray<UStaticMeshComponent*>& ComponentsToMerge, UWorld* World, const FMeshMergingSettings& InSettings, UPackage* InOuter, const FString& InBasePackageName, int32 UseLOD, /* does not build all LODs but only use this LOD to create base mesh */ TArray<UObject*>& OutAssetsToSync, FVector& OutMergedActorLocation, const float ScreenAreaSize, bool bSilent /*= false*/) const
+{
+	MergeStaticMeshComponents(ComponentsToMerge, World, InSettings, InOuter, InBasePackageName, OutAssetsToSync, OutMergedActorLocation, ScreenAreaSize, bSilent);
 }
 
 bool FMeshUtilities::RemoveBonesFromMesh(USkeletalMesh* SkeletalMesh, int32 LODIndex, const TArray<FName>* BoneNamesToRemove) const
@@ -7445,6 +7734,7 @@ void FMeshUtilities::StartupModule()
 		else
 		{
 			MeshMerging->CompleteDelegate.BindRaw(Processor, &FProxyGenerationProcessor::ProxyGenerationComplete);
+			MeshMerging->FailedDelegate.BindRaw(Processor, &FProxyGenerationProcessor::ProxyGenerationFailed);
 		}
 
 		if (!DistributedMeshMerging)
@@ -7454,6 +7744,7 @@ void FMeshUtilities::StartupModule()
 		else
 		{
 			DistributedMeshMerging->CompleteDelegate.BindRaw(Processor, &FProxyGenerationProcessor::ProxyGenerationComplete);
+			DistributedMeshMerging->FailedDelegate.BindRaw(Processor, &FProxyGenerationProcessor::ProxyGenerationFailed);
 		}
 	}
 
@@ -7571,6 +7862,15 @@ bool FMeshUtilities::GenerateUniqueUVsForSkeletalMesh(const FStaticLODModel& LOD
 		OutTexCoords = TempMesh.WedgeTexCoords[1];
 	}
 	return bPackSuccess;
+}
+
+void FMeshUtilities::CalculateTangents(const TArray<FVector>& InVertices, const TArray<uint32>& InIndices, const TArray<FVector2D>& InUVs, const TArray<uint32>& InSmoothingGroupIndices, const uint32 InTangentOptions, TArray<FVector>& OutTangentX, TArray<FVector>& OutTangentY, TArray<FVector>& OutNormals) const
+{
+	const float ComparisonThreshold = (InTangentOptions & ETangentOptions::IgnoreDegenerateTriangles ) ? THRESH_POINTS_ARE_SAME : 0.0f;
+
+	TMultiMap<int32, int32> OverlappingCorners;
+	FindOverlappingCorners(OverlappingCorners, InVertices, InIndices, ComparisonThreshold);
+	ComputeTangents(InVertices, InIndices, InUVs, InSmoothingGroupIndices, OverlappingCorners, OutTangentX, OutTangentY, OutNormals, InTangentOptions);
 }
 
 

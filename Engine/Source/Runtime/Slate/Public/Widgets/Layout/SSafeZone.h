@@ -27,6 +27,7 @@ class SLATE_API SSafeZone : public SBox
 		, _Padding( 0.0f )
 		, _Content()
 		, _IsTitleSafe( false )
+		, _SafeAreaScale(1,1,1,1)
 		{}
 
 		/** Horizontal alignment of content in the area allotted to the SBox by its parent */
@@ -44,6 +45,12 @@ class SLATE_API SSafeZone : public SBox
 		/** True if the zone is TitleSafe, otherwise it's ActionSafe */
 		SLATE_ARGUMENT( bool, IsTitleSafe )
 
+		/**
+		 * The scalar to apply to each side we want to have safe padding for.  This is a handy way 
+		 * to ignore the padding along certain areas by setting it to 0, if you only care about asymmetric safe areas.
+		 */
+		SLATE_ARGUMENT(FMargin, SafeAreaScale)
+
 	SLATE_END_ARGS()
 
 public:
@@ -51,11 +58,14 @@ public:
 	void Construct( const FArguments& InArgs );
 
 	void SetTitleSafe( bool bIsTitleSafe );
+	void SetSafeAreaScale(FMargin InSafeAreaScale);
 
 	virtual void OnArrangeChildren( const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren ) const override;
+	virtual FVector2D ComputeDesiredSize(float LayoutScale) const override;
 
 private:
 	/** Cached values from the args */
 	TAttribute<FMargin> Padding;
+	FMargin SafeAreaScale;
 	FMargin SafeMargin;
 };

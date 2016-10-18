@@ -142,6 +142,7 @@ void SUTScreenshotConfigDialog::Construct(const FArguments& InArgs)
 					.Padding(ValueColumnPadding)
 					[
 						SAssignNew(BloomIntensitySlider, SSlider)
+						.IndentHandle(false)
 						.Value(ReplayCustomBloomIntensity)
 					]
 					+ SGridPanel::Slot(0, 3)
@@ -155,6 +156,7 @@ void SUTScreenshotConfigDialog::Construct(const FArguments& InArgs)
 					.Padding(ValueColumnPadding)
 					[
 						SAssignNew(MotionBlurAmountSlider, SSlider)
+						.IndentHandle(false)
 						.Value(ReplayCustomMotionBlurAmount)
 					]
 					+ SGridPanel::Slot(0, 4)
@@ -168,6 +170,7 @@ void SUTScreenshotConfigDialog::Construct(const FArguments& InArgs)
 					.Padding(ValueColumnPadding)
 					[
 						SAssignNew(MotionBlurMaxSlider, SSlider)
+						.IndentHandle(false)
 						.Value(ReplayCustomMotionBlurMax)
 					]
 					+ SGridPanel::Slot(0, 5)
@@ -181,6 +184,7 @@ void SUTScreenshotConfigDialog::Construct(const FArguments& InArgs)
 					.Padding(ValueColumnPadding)
 					[
 						SAssignNew(DOFAmountSlider, SSlider)
+						.IndentHandle(false)
 						.Value(ReplayCustomDOFAmount)
 					]
 					+ SGridPanel::Slot(0, 6)
@@ -194,6 +198,7 @@ void SUTScreenshotConfigDialog::Construct(const FArguments& InArgs)
 					.Padding(ValueColumnPadding)
 					[
 						SAssignNew(DOFDistanceSlider, SSlider)
+						.IndentHandle(false)
 						.Value(ReplayCustomDOFDistance)
 					]
 					+ SGridPanel::Slot(0, 7)
@@ -207,6 +212,7 @@ void SUTScreenshotConfigDialog::Construct(const FArguments& InArgs)
 					.Padding(ValueColumnPadding)
 					[
 						SAssignNew(DOFScaleSlider, SSlider)
+						.IndentHandle(false)
 						.Value(ReplayCustomDOFScale)
 					]
 					+ SGridPanel::Slot(0, 8)
@@ -220,6 +226,7 @@ void SUTScreenshotConfigDialog::Construct(const FArguments& InArgs)
 					.Padding(ValueColumnPadding)
 					[
 						SAssignNew(DOFNearBlurSlider, SSlider)
+						.IndentHandle(false)
 						.Value(ReplayCustomDOFNearBlur)
 					]
 					+ SGridPanel::Slot(0, 9)
@@ -233,6 +240,7 @@ void SUTScreenshotConfigDialog::Construct(const FArguments& InArgs)
 					.Padding(ValueColumnPadding)
 					[
 						SAssignNew(DOFFarBlurSlider, SSlider)
+						.IndentHandle(false)
 						.Value(ReplayCustomDOFFarBlur)
 					]
 				]

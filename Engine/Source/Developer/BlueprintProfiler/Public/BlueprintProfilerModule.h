@@ -24,9 +24,12 @@ public:
 	virtual void ToggleProfilingCapture() {}
 
 	/** Instruments and add a profiling event to the data */
-	virtual void InstrumentEvent(const EScriptInstrumentationEvent& Event) {}
+	virtual void InstrumentEvent(const FScriptInstrumentationSignal& Event) {}
 
 #if WITH_EDITOR
+
+	/** Adds an instrumented blueprint directly */
+	virtual void AddInstrumentedBlueprint(UBlueprint* InstrumentedBlueprint) = 0;
 
 	/** Returns the multicast delegate to signal blueprint layout changes to stats */
 	virtual FOnBPStatGraphLayoutChanged& GetGraphLayoutChangedDelegate() = 0;
@@ -37,8 +40,8 @@ public:
 	/** Returns the current profiling event data for node */
 	virtual TSharedPtr<class FScriptExecutionNode> GetProfilerDataForNode(const UEdGraphNode* GraphNode) = 0;
 
-	/** Maps a blueprint instance and links to blueprint profiling data, returns the correct instance name */
-	virtual FName MapBlueprintInstance(TSharedPtr<FBlueprintExecutionContext> BlueprintContext, const FString& InstancePath) = 0;
+	/** Returns the current profiling event data for the given Blueprint */
+	virtual TSharedPtr<class FScriptExecutionBlueprint> GetProfilerDataForBlueprint(const UBlueprint* Blueprint) = 0;
 
 	/** Returns if the profiler currently retains any data for the specified instance */
 	virtual bool HasDataForInstance(const UObject* Instance) const { return false; }

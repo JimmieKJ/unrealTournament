@@ -7,9 +7,7 @@
 #include "EnginePrivate.h"
 #include "Model.h"
 
-#if WITH_EDITOR
 #include "GeomTools.h"
-#endif
 #include "Engine/Polys.h"
 
 
@@ -65,6 +63,7 @@ FPoly::FPoly()
 	, Actor(nullptr)
 	, Material(nullptr)
 	, iLink(INDEX_NONE)
+	, iLinkSurf(INDEX_NONE)
 	, iBrushPoly(INDEX_NONE)
 	, SmoothingMask(0)
 	, LightMapScale(32.0f)
@@ -85,6 +84,7 @@ void FPoly::Init()
 	RulesetVariation= NAME_None;
 	ItemName        = NAME_None;
 	iLink           = INDEX_NONE;
+	iLinkSurf		= INDEX_NONE;
 	iBrushPoly		= INDEX_NONE;
 	SmoothingMask	= 0;
 	LightMapScale	= 32.0f;
@@ -754,7 +754,7 @@ int32 FPoly::Triangulate( ABrush* InOwnerBrush, TArray<FPoly>& OutTriangles )
 
 	// Attempt to triangulate this polygon
 	TArray<FClipSMTriangle> Triangles;
-	if( TriangulatePoly( Triangles, Polygon ) )
+	if( FGeomTools::TriangulatePoly( Triangles, Polygon ) )
 	{
 		// Create a set of FPolys from the triangles
 
@@ -778,7 +778,6 @@ int32 FPoly::Triangulate( ABrush* InOwnerBrush, TArray<FPoly>& OutTriangles )
 			}
 		}
 	}
-
 #endif
 
 	return OutTriangles.Num();
@@ -918,25 +917,22 @@ int32 FPoly::Finalize( ABrush* InOwner, int32 NoError )
 		}
 	}
 
-	// If no normal, compute from cross-product and normalize it.
-	if( Normal.IsZero() && Vertices.Num()>=3 )
+	// Compute normal from cross-product and normalize it.
+	if( CalcNormal() )
 	{
-		if( CalcNormal() )
+// 		UE_LOG(LogPolygon, Warning, TEXT("FPoly::Finalize: Normalization failed, verts=%i, size=%f"), Vertices.Num(), Normal.Size() );
+		if( NoError )
 		{
-// 			UE_LOG(LogPolygon, Warning, TEXT("FPoly::Finalize: Normalization failed, verts=%i, size=%f"), Vertices.Num(), Normal.Size() );
-			if( NoError )
+			return -1;
+		}
+		else
+		{
+			UE_LOG(LogPolygon, Error, TEXT("FPoly::Finalize: Normalization failed, verts=%d, size=%d"), Vertices.Num(), Normal.Size());
+			for (int32 VertIdx = 0; VertIdx < Vertices.Num(); ++VertIdx)
 			{
-				return -1;
+				UE_LOG(LogPolygon, Error, TEXT("Vertex %d: <%.6f, %.6f, %.6f>"), VertIdx, Vertices[VertIdx].X, Vertices[VertIdx].Y, Vertices[VertIdx].Z);
 			}
-			else
-			{
-				UE_LOG(LogPolygon, Error, TEXT("FPoly::Finalize: Normalization failed, verts=%d, size=%d"), Vertices.Num(), Normal.Size());
-				for (int32 VertIdx = 0; VertIdx < Vertices.Num(); ++VertIdx)
-				{
-					UE_LOG(LogPolygon, Error, TEXT("Vertex %d: <%.6f, %.6f, %.6f>"), VertIdx, Vertices[VertIdx].X, Vertices[VertIdx].Y, Vertices[VertIdx].Z);
-				}
-				ensure(false);
-			}
+			ensure(false);
 		}
 	}
 

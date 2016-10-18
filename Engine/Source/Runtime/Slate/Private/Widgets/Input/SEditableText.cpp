@@ -54,7 +54,7 @@ void SEditableText::Construct( const FArguments& InArgs )
 	// We use a separate marshaller for the hint text, as that should never be displayed as a password
 	TSharedRef<FPlainTextLayoutMarshaller> HintTextMarshaller = FPlainTextLayoutMarshaller::Create();
 
-	EditableTextLayout = MakeUnique<FSlateEditableTextLayout>(*this, InArgs._Text, TextStyle, InArgs._TextShapingMethod, InArgs._TextFlowDirection, PlainTextMarshaller.ToSharedRef(), HintTextMarshaller);
+	EditableTextLayout = MakeUnique<FSlateEditableTextLayout>(*this, InArgs._Text, TextStyle, InArgs._TextShapingMethod, InArgs._TextFlowDirection, FCreateSlateTextLayout(), PlainTextMarshaller.ToSharedRef(), HintTextMarshaller);
 	EditableTextLayout->SetHintText(InArgs._HintText);
 	EditableTextLayout->SetCursorBrush(InArgs._CaretImage.IsSet() ? InArgs._CaretImage : &InArgs._Style->CaretImage);
 	EditableTextLayout->SetCompositionBrush(InArgs._BackgroundImageComposing.IsSet() ? InArgs._BackgroundImageComposing : &InArgs._Style->BackgroundImageComposing);
@@ -404,6 +404,11 @@ bool SEditableText::ShouldRevertTextOnEscape() const
 bool SEditableText::ShouldClearKeyboardFocusOnCommit() const
 {
 	return bClearKeyboardFocusOnCommit.Get(false);
+}
+
+bool SEditableText::ShouldSelectAllTextOnCommit() const
+{
+	return bSelectAllTextOnCommit.Get(false);
 }
 
 bool SEditableText::CanInsertCarriageReturn() const

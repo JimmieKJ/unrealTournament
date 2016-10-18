@@ -7,6 +7,19 @@
 #pragma once
 
 class FRepState;
+class FNetFieldExportGroup;
+
+bool FORCEINLINE IsCustomDeltaProperty( const UProperty* Property )
+{
+	const UStructProperty * StructProperty = Cast< UStructProperty >( Property );
+
+	if ( StructProperty != NULL && StructProperty->Struct->StructFlags & STRUCT_NetDeltaSerializeNative )
+	{
+		return true;
+	}
+
+	return false;
+}
 
 /** struct containing property and offset for replicated actor properties */
 struct FReplicatedActorProperty
@@ -62,7 +75,8 @@ public:
 	TWeakObjectPtr< UObject >						ObjectPtr;
 
 	TArray<FPropertyRetirement>						Retirement;					// Property retransmission.
-	TMap<int32, TSharedPtr<INetDeltaBaseState> >	RecentCustomDeltaState;		// Stores dynamic properties such as TArray which can't fit in the Recent buffer
+	TMap<int32, TSharedPtr<INetDeltaBaseState> >	RecentCustomDeltaState;		// This is the delta state we need to compare with when determining what to send to a client for custom delta properties
+	TMap<int32, TSharedPtr<INetDeltaBaseState> >	CDOCustomDeltaState;		// Same as RecentCustomDeltaState, but this will always remain as the initial CDO version. We use this to send all properties since channel was first opened (for bResendAllDataSinceOpen)
 
 	TArray< int32 >									LifetimeCustomDeltaProperties;
 	TArray< ELifetimeCondition >					LifetimeCustomDeltaPropertyConditions;
@@ -80,6 +94,9 @@ public:
 
 	TSharedPtr< FRepLayout >						RepLayout;
 	FRepState *										RepState;
+
+	TSet< FNetworkGUID >							ReferencedGuids;
+	int32											TrackedGuidMemoryBytes;
 
 	struct FRPCCallInfo 
 	{
@@ -103,7 +120,7 @@ public:
 	/** Takes Data, and compares against shadow state to log differences */
 	bool ValidateAgainstState( const UObject* ObjectState );
 
-	static bool SerializeCustomDeltaProperty( UNetConnection * Connection, void* Src, UProperty * Property, int32 ArrayDim, FNetBitWriter & OutBunch, TSharedPtr<INetDeltaBaseState> & NewFullState, TSharedPtr<INetDeltaBaseState> & OldState );
+	static bool SerializeCustomDeltaProperty( UNetConnection * Connection, void* Src, UProperty * Property, uint32 ArrayIndex, FNetBitWriter & OutBunch, TSharedPtr<INetDeltaBaseState> & NewFullState, TSharedPtr<INetDeltaBaseState> & OldState );
 
 	/** Packet was dropped */
 	void	ReceivedNak( int32 NakPacketId );
@@ -111,13 +128,13 @@ public:
 	void	Serialize(FArchive& Ar);
 
 	/** Writes dirty properties to bunch */
-	void	ReplicateCustomDeltaProperties( FOutBunch & Bunch, FReplicationFlags RepFlags, bool & bContentBlockWritten );
+	void	ReplicateCustomDeltaProperties( FNetBitWriter & Bunch, FReplicationFlags RepFlags );
 	bool	ReplicateProperties( FOutBunch & Bunch, FReplicationFlags RepFlags );
 	void	PostSendBunch(FPacketIdRange & PacketRange, uint8 bReliable);
 	
-	const FFieldNetCache* ReadField( const FClassNetCache* ClassCache, FInBunch& Bunch ) const;
-
-	bool	ReceivedBunch( FInBunch & Bunch, const FReplicationFlags& RepFlags, bool & bOutHasUnmapped );
+	bool	ReceivedBunch( FNetBitReader& Bunch, const FReplicationFlags& RepFlags, const bool bHasRepLayout, bool& bOutHasUnmapped );
+	void	UpdateGuidToReplicatorMap();
+	bool	MoveMappedObjectToUnmapped( const FNetworkGUID& GUID );
 	void	PostReceivedBunch();
 
 	void	ForceRefreshUnreliableProperties();
@@ -156,4 +173,11 @@ public:
 	}
 
 	void QueuePropertyRepNotify( UObject* Object, UProperty * Property, const int32 ElementIndex, TArray< uint8 > & MetaData );
+
+	void WritePropertyHeaderAndPayload(
+		UObject*				Object,
+		UProperty*				Property,
+		FNetFieldExportGroup*	NetFieldExportGroup,
+		FNetBitWriter&			Bunch,
+		FNetBitWriter&			Payload ) const;
 };

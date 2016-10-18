@@ -72,7 +72,7 @@ public partial class Project : CommandUtils
 		if (Params.DedicatedServer)
 		{
 			ProjectParams ServerParams = new ProjectParams(Params);
-			ServerParams.Device = ServerParams.ServerDevice;
+			ServerParams.Devices = new ParamList<string>(ServerParams.ServerDevice);
 			var DeployContextList = CreateDeploymentContext(ServerParams, true, false);
 			foreach ( var SC in DeployContextList )
 			{

@@ -373,3 +373,113 @@ struct FOpenGLBindlessSamplerInfo
 	GLuint Slot;	// Texture unit
 	GLuint Handle;	// Sampler slot
 };
+
+class FOpenGLLinkedProgramConfiguration
+{
+public:
+
+	struct ShaderInfo
+	{
+		FOpenGLShaderBindings Bindings;
+		FSHAHash Hash;
+		GLuint Resource;
+
+	}
+	Shaders[CrossCompiler::NUM_SHADER_STAGES];
+
+	FOpenGLLinkedProgramConfiguration()
+	{
+		for (int32 Stage = 0; Stage < CrossCompiler::NUM_SHADER_STAGES; Stage++)
+		{
+			Shaders[Stage].Resource = 0;
+		}
+	}
+
+	friend bool operator ==(const FOpenGLLinkedProgramConfiguration& A, const FOpenGLLinkedProgramConfiguration& B)
+	{
+		bool bEqual = true;
+		for (int32 Stage = 0; Stage < CrossCompiler::NUM_SHADER_STAGES && bEqual; Stage++)
+		{
+			bEqual &= A.Shaders[Stage].Resource == B.Shaders[Stage].Resource;
+			bEqual &= A.Shaders[Stage].Bindings == B.Shaders[Stage].Bindings;
+		}
+		return bEqual;
+	}
+
+	friend uint32 GetTypeHash(const FOpenGLLinkedProgramConfiguration &Config)
+	{
+		uint32 Hash = 0;
+		for (int32 Stage = 0; Stage < CrossCompiler::NUM_SHADER_STAGES; Stage++)
+		{
+			Hash ^= GetTypeHash(Config.Shaders[Stage].Bindings);
+			Hash ^= Config.Shaders[Stage].Resource;
+		}
+		return Hash;
+	}
+
+	friend FArchive& operator<<(FArchive& Ar, FOpenGLLinkedProgramConfiguration& Config)
+	{
+		for (int32 Stage = 0; Stage < CrossCompiler::NUM_SHADER_STAGES; Stage++)
+		{
+			Ar << Config.Shaders[Stage].Bindings << Config.Shaders[Stage].Hash;
+		}
+		return Ar;
+	}
+};
+
+class FOpenGLProgramBinaryCache
+{
+public:
+	static void Initialize();
+	static void Shutdown();
+
+	static bool IsEnabled();
+	
+	/** Defer shader compilation until we link a program, so we will have a chance to load cached binary and skip compilation  */
+	static bool DeferShaderCompilation(GLuint Shader, const TArray<ANSICHAR>& GlslCode);
+	
+	/** Compile required shaders for a program, only in case binary program was not found in the cache   */
+	static void CompilePendingShaders(const FOpenGLLinkedProgramConfiguration& Config);
+	
+	/** Try to find and load program binary from cache */
+	static bool UseCachedProgram(GLuint Program, const FOpenGLLinkedProgramConfiguration& Config);
+	
+	/** Store program binary on disk in case ProgramBinaryCache is enabled */
+	static void CacheProgram(GLuint Program, const FOpenGLLinkedProgramConfiguration& Config);
+	
+private:
+	FOpenGLProgramBinaryCache(const FString& InCachePath);
+	~FOpenGLProgramBinaryCache();
+
+	/** Composes program file name using shader hash values */
+	FString GetProgramBinaryFilename(const FOpenGLLinkedProgramConfiguration& Config) const;
+	
+	/** Loads program binary from disk. */
+	bool LoadProgramBinary(const FOpenGLLinkedProgramConfiguration& Config, TArray<uint8>& OutBinary) const;
+	
+	/** Saves program binary to disk. */
+	void SaveProgramBinary(const FOpenGLLinkedProgramConfiguration& Config, const TArray<uint8>& InBinary) const;
+
+	struct FPendingShaderCode
+	{
+		TArray<ANSICHAR> GlslCode;
+		int32 UncompressedSize;
+		bool bCompressed;
+	};
+
+	static void CompressShader(const TArray<ANSICHAR>& InGlslCode, FPendingShaderCode& OutCompressedShader);
+	static void UncompressShader(const FPendingShaderCode& InCompressedShader, TArray<ANSICHAR>& OutGlslCode);
+
+private:
+	static TAutoConsoleVariable<int32> CVarUseProgramBinaryCache;
+	static FOpenGLProgramBinaryCache* CachePtr;
+	
+	/**  Path to directory where binary programs will be stored */
+	FString CachePath;
+	
+	/**
+	* Shaders that were requested for compilation
+	* They will be compiled just before linking a program only in case when there is no saved binary program
+	*/
+	TMap<GLuint, FPendingShaderCode> ShadersPendingCompilation;
+};

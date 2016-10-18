@@ -132,6 +132,7 @@ const TCHAR* FPropertyBase::GetPropertyTypeText( EPropertyType Type )
 		CASE_TEXT(CPT_WeakObjectReference);
 		CASE_TEXT(CPT_LazyObjectReference);
 		CASE_TEXT(CPT_Map);
+		CASE_TEXT(CPT_Set);
 		CASE_TEXT(CPT_MAX);
 	}
 

@@ -6,6 +6,9 @@
 #include "Factories.h"
 #include "Editor/UnrealEd/Public/Kismet2/BlueprintEditorUtils.h"
 #include "UnrealExporter.h"
+#include "SNotificationList.h"
+#include "NotificationManager.h"
+#include "K2Node_TunnelBoundary.h"
 
 /////////////////////////////////////////////////////
 // FGraphObjectTextFactory
@@ -15,7 +18,9 @@ struct FGraphObjectTextFactory : public FCustomizableTextObjectFactory
 {
 public:
 	TSet<UEdGraphNode*> SpawnedNodes;
+	TSet<UEdGraphNode*> SubstituteNodes;
 	const UEdGraph* DestinationGraph;
+	TArray<FName> ExtraNamesInUse;
 public:
 	FGraphObjectTextFactory(const UEdGraph* InDestinationGraph)
 		: FCustomizableTextObjectFactory(GWarn)
@@ -24,10 +29,14 @@ public:
 	}
 
 protected:
-	virtual bool CanCreateClass(UClass* ObjectClass) const override
+	virtual bool CanCreateClass(UClass* ObjectClass, bool& bOmitSubObjs) const override
 	{
 		if (const UEdGraphNode* DefaultNode = Cast<UEdGraphNode>(ObjectClass->GetDefaultObject()))
 		{
+			// if the root node can't be created, don't continue to check sub-
+			// objects (for like collapsed graphs, or anim state-machine nodes)
+			bOmitSubObjs = true;
+
 			if (DefaultNode->CanDuplicateNode())
 			{
 				if (DestinationGraph != NULL)
@@ -51,24 +60,43 @@ protected:
 	{
 		if (UEdGraphNode* Node = Cast<UEdGraphNode>(CreatedObject))
 		{
-			if(!Node->CanPasteHere(DestinationGraph))
+			if (!Node->CanPasteHere(DestinationGraph))
 			{
 				// Attempt to create a substitute node if it cannot be pasted (note: the return value can be NULL, indicating that the node cannot be pasted into the graph)
-				Node = DestinationGraph->GetSchema()->CreateSubstituteNode(Node, DestinationGraph, &InstanceGraph);
+				Node = DestinationGraph->GetSchema()->CreateSubstituteNode(Node, DestinationGraph, &InstanceGraph, ExtraNamesInUse);
+				SubstituteNodes.Add(Node);
 			}
 
-			if(Node != CreatedObject)
+			if (Node != CreatedObject)
 			{
 				// Move the old node into the transient package so that it is GC'd
 				CreatedObject->Rename(NULL, GetTransientPackage());
 				CreatedObject->MarkPendingKill();
 			}
 
-			if(Node)
+			if (Node)
 			{
 				SpawnedNodes.Add(Node);
 
 				Node->GetGraph()->Nodes.Add(Node);
+			}
+		}
+
+	}
+
+	virtual void PostProcessConstructedObjects() override
+	{
+		if (SubstituteNodes.Num() > 0)
+		{
+			// Display a notification to inform the user that the variable type was invalid (likely due to corruption), it should no longer appear in the list.
+			FNotificationInfo Info(NSLOCTEXT("EdGraphUtilities", "SubstituteNodesWarning", "Conflicting nodes substituted during paste!"));
+			Info.ExpireDuration = 3.0f;
+			Info.bUseLargeFont = false;
+			Info.Image = FCoreStyle::Get().GetBrush(TEXT("MessageLog.Warning"));
+			TSharedPtr<SNotificationItem> Notification = FSlateNotificationManager::Get().AddNotification(Info);
+			if (Notification.IsValid())
+			{
+				Notification->SetCompletionState(SNotificationItem::CS_None);
 			}
 		}
 	}
@@ -182,12 +210,22 @@ UEdGraph* FEdGraphUtilities::CloneGraph(UEdGraph* InSource, UObject* NewOuter, F
 
 			MessageLog->NotifyIntermediateObjectCreation(Dest, Source);
 
-			// During compilation, set cloned nodes to a non-conditional enabled state.
-			if (bCloningForCompile)
+			UEdGraphNode* SrcNode = Cast<UEdGraphNode>(Source);
+			UEdGraphNode* DstNode = Cast<UEdGraphNode>(Dest);
+			if (SrcNode && DstNode)
 			{
-				const UEdGraphNode* SrcNode = Cast<UEdGraphNode>(Source);
-				UEdGraphNode* DstNode = Cast<UEdGraphNode>(Dest);
-				if(SrcNode && DstNode)
+				// associate pins, no known case of StaticDuplicateObjectEx resulting in a different number of pins, but
+				// if that does happen we just associate as many pins as we can:
+				ensure(SrcNode->Pins.Num() == DstNode->Pins.Num());
+				for (int32 I = 0; I < SrcNode->Pins.Num() && I < DstNode->Pins.Num(); ++I)
+				{
+					if (ensure(DstNode->Pins[I] && SrcNode->Pins[I]))
+					{
+						MessageLog->NotifyIntermediatePinCreation(DstNode->Pins[I], SrcNode->Pins[I]);
+					}
+				}
+
+				if (bCloningForCompile)
 				{
 					DstNode->EnabledState = SrcNode->IsNodeEnabled() ? ENodeEnabledState::Enabled : ENodeEnabledState::Disabled;
 				}
@@ -199,11 +237,11 @@ UEdGraph* FEdGraphUtilities::CloneGraph(UEdGraph* InSource, UObject* NewOuter, F
 }
 
 // Clones the content from SourceGraph and merges it into MergeTarget; including merging/flattening all of the children from the SourceGraph into MergeTarget
-void FEdGraphUtilities::CloneAndMergeGraphIn(UEdGraph* MergeTarget, UEdGraph* SourceGraph, FCompilerResultsLog& MessageLog, bool bRequireSchemaMatch, bool bInIsCompiling/* = false*/, TArray<UEdGraphNode*>* OutClonedNodes)
+void FEdGraphUtilities::CloneAndMergeGraphIn(UEdGraph* MergeTarget, UEdGraph* SourceGraph, FCompilerResultsLog& MessageLog, bool bRequireSchemaMatch, bool bInIsCompiling/* = false*/, bool bCreateBoundaryNodes/* = false*/, TArray<UEdGraphNode*>* OutClonedNodes)
 {
 	// Clone the graph, then move all of it's children
 	UEdGraph* ClonedGraph = CloneGraph(SourceGraph, NULL, &MessageLog, true);
-	MergeChildrenGraphsIn(ClonedGraph, ClonedGraph, bRequireSchemaMatch);
+	MergeChildrenGraphsIn(ClonedGraph, ClonedGraph, bRequireSchemaMatch, false, &MessageLog, bCreateBoundaryNodes);
 
 	// Duplicate the list of cloned nodes
 	if (OutClonedNodes != NULL)
@@ -220,7 +258,7 @@ void FEdGraphUtilities::CloneAndMergeGraphIn(UEdGraph* MergeTarget, UEdGraph* So
 }
 
 // Moves the contents of all of the children graphs (recursively) into the target graph.  This does not clone, it's destructive to the source
-void FEdGraphUtilities::MergeChildrenGraphsIn(UEdGraph* MergeTarget, UEdGraph* ParentGraph, bool bRequireSchemaMatch, bool bInIsCompiling/* = false*/)
+void FEdGraphUtilities::MergeChildrenGraphsIn(UEdGraph* MergeTarget, UEdGraph* ParentGraph, bool bRequireSchemaMatch, bool bInIsCompiling/* = false*/, FCompilerResultsLog* MessageLog/* = nullptr*/, bool bWantBoundaryNodes/* = false*/)
 {
 	// Determine if we are regenerating a blueprint on load
 	UBlueprint* Blueprint = FBlueprintEditorUtils::FindBlueprintForGraph(MergeTarget);
@@ -230,6 +268,12 @@ void FEdGraphUtilities::MergeChildrenGraphsIn(UEdGraph* MergeTarget, UEdGraph* P
 	for (int32 Index = 0; Index < ParentGraph->SubGraphs.Num(); ++Index)
 	{
 		UEdGraph* ChildGraph = ParentGraph->SubGraphs[Index];
+
+		if (bWantBoundaryNodes)
+		{
+			// Create boundary nodes around tunnels for debugging/profiling if requested.
+			UK2Node_TunnelBoundary::CreateBoundaryNodesForGraph(ChildGraph, *MessageLog);
+		}
 
 		auto NodeOwner = Cast<const UEdGraphNode>(ChildGraph ? ChildGraph->GetOuter() : nullptr);
 		const bool bNonVirtualGraph = NodeOwner ? NodeOwner->ShouldMergeChildGraphs() : true;
@@ -247,7 +291,7 @@ void FEdGraphUtilities::MergeChildrenGraphsIn(UEdGraph* MergeTarget, UEdGraph* P
 				ChildGraph->MoveNodesToAnotherGraph(MergeTarget, IsAsyncLoading() || bIsLoading, bInIsCompiling);
 			}
 
-			MergeChildrenGraphsIn(MergeTarget, ChildGraph, bRequireSchemaMatch, bInIsCompiling);
+			MergeChildrenGraphsIn(MergeTarget, ChildGraph, bRequireSchemaMatch, bInIsCompiling, MessageLog, bWantBoundaryNodes);
 		}
 	}
 }
@@ -396,13 +440,39 @@ void FEdGraphUtilities::UnregisterVisualPinConnectionFactory(TSharedPtr<FGraphPa
     VisualPinConnectionFactories.Remove(OldFactory);
 }
 
+void FEdGraphUtilities::FNodeVisitor::TraverseNodes(UEdGraphNode* Node)
+{
+	VisitedNodes.Add(Node);
+	TouchNode(Node);
+
+	// Follow every pin
+	for (int32 i = 0; i < Node->Pins.Num(); ++i)
+	{
+		UEdGraphPin* MyPin = Node->Pins[i];
+
+		// And every connection to the pin
+		for (int32 j = 0; j < MyPin->LinkedTo.Num(); ++j)
+		{
+			UEdGraphPin* OtherPin = MyPin->LinkedTo[j];
+			if (OtherPin)
+			{
+				UEdGraphNode* OtherNode = OtherPin->GetOwningNodeUnchecked();
+				if (OtherNode && !VisitedNodes.Contains(OtherNode))
+				{
+					TraverseNodes(OtherNode);
+				}
+			}
+		}
+	}
+}
+
 //////////////////////////////////////////////////////////////////////////
 // FWeakGraphPinPtr
 
 void FWeakGraphPinPtr::operator=(const class UEdGraphPin* Pin)
 {
-	PinObjectPtr = Pin;
-	if(PinObjectPtr.IsValid())
+	PinReference = Pin;
+	if(Pin && !Pin->IsPendingKill())
 	{
 		PinName = Pin->PinName;
 		NodeObjectPtr = Pin->GetOwningNode();
@@ -419,7 +489,7 @@ UEdGraphPin* FWeakGraphPinPtr::Get()
 	if(Node != NULL)
 	{
 		// If pin is no longer valid or has a different owner, attempt to fix up the reference
-		UEdGraphPin* Pin = PinObjectPtr.Get();
+		UEdGraphPin* Pin = PinReference.Get();
 		if(Pin == NULL || Pin->GetOuter() != Node)
 		{
 			for(auto PinIter = Node->Pins.CreateConstIterator(); PinIter; ++PinIter)
@@ -428,7 +498,7 @@ UEdGraphPin* FWeakGraphPinPtr::Get()
 				if(TestPin->PinName.Equals(PinName))
 				{
 					Pin = TestPin;
-					PinObjectPtr = Pin;
+					PinReference = Pin;
 					break;
 				}
 			}

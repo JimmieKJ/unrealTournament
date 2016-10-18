@@ -10,8 +10,10 @@ class FSignedArchiveWriter : public FArchive
 	TArray<uint8> Buffer;
 	/** Buffer writer */
 	FMemoryWriter BufferArchive;
-	/** The actuall pak archive */
+	/** The actual pak archive */
 	FArchive& PakWriter;
+	/** The filename of the signature file that accompanies the pak */
+	FString PakSignaturesFilename;
 	/** Size of the archive on disk (including signatures) */
 	int64 SizeOnDisk;
 	/** Data size (excluding signatures) */
@@ -21,12 +23,8 @@ class FSignedArchiveWriter : public FArchive
 	/** Encryption key */
 	FEncryptionKey PrivateKey;
 	/** Signatures */
-	TArray<FEncryptedSignature<GPakFileChunkHashSize>> ChunkSignatures;
+	TArray<FEncryptedSignature> ChunkSignatures;
 
-	/** 
-	 * Encrypts a signature 
-	 */
-	void Encrypt(int256* EncryptedData, const uint8* Data, const int64 DataLength, const FEncryptionKey EncryptionKey);
 	/** 
 	 * Serializes and signs a buffer
 	 */
@@ -34,7 +32,7 @@ class FSignedArchiveWriter : public FArchive
 
 public:
 
-	FSignedArchiveWriter(FArchive& Pak, const FEncryptionKey& InPublicKey, const FEncryptionKey& InPrivateKey);
+	FSignedArchiveWriter(FArchive& InPak, const FString& InPakFilename, const FEncryptionKey& InPublicKey, const FEncryptionKey& InPrivateKey);
 	virtual ~FSignedArchiveWriter();
 
 	// FArchive interface

@@ -1364,11 +1364,13 @@ bool ExpandArrayAssignments(exec_list* ir, _mesa_glsl_parse_state* State)
 
 struct FSamplerNameVisitor : public ir_rvalue_visitor
 {
+	_mesa_glsl_parse_state* ParseState;
 	TStringToSetMap SamplerToTextureMap;
 	TStringToSetMap& TextureToSamplerMap;
 
-	FSamplerNameVisitor(TStringToSetMap& InTextureToSamplerMap) :
-		TextureToSamplerMap(InTextureToSamplerMap)
+	FSamplerNameVisitor(_mesa_glsl_parse_state* InParseState, TStringToSetMap& InTextureToSamplerMap)
+		: ParseState(InParseState)
+		, TextureToSamplerMap(InTextureToSamplerMap)
 	{
 	}
 
@@ -1388,7 +1390,7 @@ struct FSamplerNameVisitor : public ir_rvalue_visitor
 					TextureToSamplerMap[SamplerVar->name].insert(SamplerStateVar->name);
 
 					check(SamplerStateVar->name);
-					TextureIR->SamplerStateName = SamplerStateVar->name;
+					TextureIR->SamplerStateName = ralloc_strdup(ParseState, SamplerStateVar->name);
 
 					// Remove the reference to the hlsl sampler
 					ralloc_free(TextureIR->SamplerState);
@@ -1407,7 +1409,7 @@ struct FSamplerNameVisitor : public ir_rvalue_visitor
 bool ExtractSamplerStatesNameInformation(exec_list* Instructions, _mesa_glsl_parse_state* ParseState)
 {
 	//IRDump(Instructions);
-	FSamplerNameVisitor SamplerNameVisitor(ParseState->TextureToSamplerMap);
+	FSamplerNameVisitor SamplerNameVisitor(ParseState, ParseState->TextureToSamplerMap);
 	SamplerNameVisitor.run(Instructions);
 
 	bool bFail = false;

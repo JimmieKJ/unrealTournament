@@ -41,6 +41,8 @@ private:
 
 	void SelectAllKeys();
 
+	void CopyAllKeys();
+
 	bool CanSelectAllKeys() const;
 
 	void TogglePrimeForRecording() const;

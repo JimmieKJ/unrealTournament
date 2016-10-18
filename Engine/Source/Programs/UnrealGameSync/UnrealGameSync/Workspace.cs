@@ -258,8 +258,9 @@ namespace UnrealGameSync
 							StatusMessage = String.Format("Couldn't find open files matching {0}.", SyncPath);
 							return WorkspaceUpdateResult.FailedToSync;
 						}
-                        // don't force a sync on added files
-						SyncFiles.AddRange(OpenRecords.Where(x => x.Action != "add").Select(x => x.DepotPath));
+
+						// don't force a sync on added files
+						SyncFiles.AddRange(OpenRecords.Where(x => x.Action != "add" && x.Action != "branch" && x.Action != "move/add").Select(x => x.DepotPath));
 					}
 
 					// Filter out all the binaries that we don't want
@@ -348,7 +349,7 @@ namespace UnrealGameSync
 							Dictionary<string, string> BuildVersionStrings = new Dictionary<string,string>();
 							BuildVersionStrings["\"Changelist\":"] = String.Format(" {0},", VersionChangeNumber);
 							BuildVersionStrings["\"BranchName\":"] = String.Format(" \"{0}\"", BranchOrStreamName.Replace('/', '+'));
-							if(!UpdateVersionFile(ClientRootPath + BuildVersionFileName, BuildVersionStrings))
+							if(!UpdateVersionFile(ClientRootPath + BuildVersionFileName, BuildVersionStrings, PendingChangeNumber))
 							{
 								StatusMessage = String.Format("Failed to update {0}.", BuildVersionFileName);
 								return WorkspaceUpdateResult.FailedToSync;
@@ -358,12 +359,12 @@ namespace UnrealGameSync
 							VersionHeaderStrings["#define ENGINE_IS_PROMOTED_BUILD"] = " (0)";
 							VersionHeaderStrings["#define BUILT_FROM_CHANGELIST"] = " 0";
 							VersionHeaderStrings["#define BRANCH_NAME"] = " \"" + BranchOrStreamName.Replace('/', '+') + "\"";
-							if(!UpdateVersionFile(ClientRootPath + VersionHeaderFileName, VersionHeaderStrings))
+							if(!UpdateVersionFile(ClientRootPath + VersionHeaderFileName, VersionHeaderStrings, PendingChangeNumber))
 							{
 								StatusMessage = String.Format("Failed to update {0}.", VersionHeaderFileName);
 								return WorkspaceUpdateResult.FailedToSync;
 							}
-							if(!UpdateVersionFile(ClientRootPath + ObjectVersionFileName, new Dictionary<string,string>()))
+							if(!UpdateVersionFile(ClientRootPath + ObjectVersionFileName, new Dictionary<string,string>(), PendingChangeNumber))
 							{
 								StatusMessage = String.Format("Failed to update {0}.", ObjectVersionFileName);
 								return WorkspaceUpdateResult.FailedToSync;
@@ -371,7 +372,7 @@ namespace UnrealGameSync
 						}
 						else
 						{
-							if(!UpdateVersionFile(ClientRootPath + BuildVersionFileName, new Dictionary<string, string>()))
+							if(!UpdateVersionFile(ClientRootPath + BuildVersionFileName, new Dictionary<string, string>(), PendingChangeNumber))
 							{
 								StatusMessage = String.Format("Failed to update {0}", BuildVersionFileName);
 								return WorkspaceUpdateResult.FailedToSync;
@@ -382,12 +383,12 @@ namespace UnrealGameSync
 							VersionStrings["#define ENGINE_IS_PROMOTED_BUILD"] = " (0)";
 							VersionStrings["#define BUILT_FROM_CHANGELIST"] = " " + VersionChangeNumber.ToString();
 							VersionStrings["#define BRANCH_NAME"] = " \"" + BranchOrStreamName.Replace('/', '+') + "\"";
-							if(!UpdateVersionFile(ClientRootPath + VersionHeaderFileName, VersionStrings))
+							if(!UpdateVersionFile(ClientRootPath + VersionHeaderFileName, VersionStrings, PendingChangeNumber))
 							{
 								StatusMessage = String.Format("Failed to update {0}", VersionHeaderFileName);
 								return WorkspaceUpdateResult.FailedToSync;
 							}
-							if(!UpdateVersionFile(ClientRootPath + ObjectVersionFileName, VersionStrings))
+							if(!UpdateVersionFile(ClientRootPath + ObjectVersionFileName, VersionStrings, PendingChangeNumber))
 							{
 								StatusMessage = String.Format("Failed to update {0}", ObjectVersionFileName);
 								return WorkspaceUpdateResult.FailedToSync;
@@ -796,7 +797,7 @@ namespace UnrealGameSync
 			Log.WriteLine("p4>   {0} {1}", Record.Action, Record.ClientPath);
 		}
 
-		bool UpdateVersionFile(string LocalPath, Dictionary<string, string> VersionStrings)
+		bool UpdateVersionFile(string LocalPath, Dictionary<string, string> VersionStrings, int ChangeNumber)
 		{
 			PerforceWhereRecord WhereRecord;
 			if(!Perforce.Where(LocalPath, out WhereRecord, Log))
@@ -806,7 +807,7 @@ namespace UnrealGameSync
 			}
 
 			List<string> Lines;
-			if(!Perforce.Print(WhereRecord.DepotPath, out Lines, Log))
+			if(!Perforce.Print(String.Format("{0}@{1}", WhereRecord.DepotPath, ChangeNumber), out Lines, Log))
 			{
 				Log.WriteLine("Couldn't get default contents of {0}", WhereRecord.DepotPath);
 				return false;

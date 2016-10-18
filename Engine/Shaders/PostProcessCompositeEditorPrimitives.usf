@@ -152,14 +152,14 @@ void MainPS(noperspective float4 UVAndScreenPos : TEXCOORD0, out float4 OutColor
 //	OutColor = SrcColor.a;	return;
 
 	// dejitter the sample position and make a filtered lookup - for planes this allows to reconstruct a much less jittery depth comparison function, it however doesn't fix silhuetes
-	float DeviceZ = Texture2DSampleLevel(FilteredSceneDepthTexture, FilteredSceneDepthTextureSampler, (PixelPosF - Frame.TemporalAAParams.zw) * Frame.BufferSizeAndInvSize.zw, 0).r;
+	float DeviceZ = Texture2DSampleLevel(FilteredSceneDepthTexture, FilteredSceneDepthTextureSampler, (PixelPosF - View.TemporalAAParams.zw) * View.BufferSizeAndInvSize.zw, 0).r;
 
 	// Soft Bias with DeviceZ for best quality
 	const float DeviceDepthFade = 0.00005f;
 	float DepthMask = saturate(1.0f - (DeviceZ - MaxDeviceZ) / DeviceDepthFade);
 
 	// moving diagonal lines
-//	float PatternMask = saturate(sin((PixelPos.x + PixelPos.y) * 0.8f + 8.0f * Frame.RealTime * EditorRenderParams.g));
+//	float PatternMask = saturate(sin((PixelPos.x + PixelPos.y) * 0.8f + 8.0f * View.RealTime * EditorRenderParams.g));
 	// non moving high frequency pattern
 //	float PatternMask = ((PixelPos.x + PixelPos.y) % 2) * 0.7f;
 	float PatternMask = ((PixelPos.x/2 + PixelPos.y/2) % 2) * 0.7f;

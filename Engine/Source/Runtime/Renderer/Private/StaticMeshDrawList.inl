@@ -24,6 +24,9 @@ void TStaticMeshDrawList<DrawingPolicyType>::FElementHandle::Remove()
 
 	checkSlow(LocalDrawingPolicyLink->SetId == SetId);
 
+	check(LocalDrawingPolicyLink->Elements[ElementIndex].Mesh->MaterialRenderProxy);
+	LocalDrawingPolicyLink->Elements[ElementIndex].Mesh->MaterialRenderProxy->SetUnreferencedInDrawList();
+
 	// Unlink the mesh from this draw list.
 	LocalDrawingPolicyLink->Elements[ElementIndex].Mesh->UnlinkDrawList(this);
 	LocalDrawingPolicyLink->Elements[ElementIndex].Mesh = NULL;
@@ -216,6 +219,9 @@ void TStaticMeshDrawList<DrawingPolicyType>::AddMesh(
 	new(DrawingPolicyLink->CompactElements) FElementCompact(Mesh->Id);
 	TotalBytesUsed += DrawingPolicyLink->Elements.GetAllocatedSize() - PreviousElementsSize + DrawingPolicyLink->CompactElements.GetAllocatedSize() - PreviousCompactElementsSize;
 	Mesh->LinkDrawList(Element->Handle);
+
+	check(Element->Mesh->MaterialRenderProxy);
+	Element->Mesh->MaterialRenderProxy->SetReferencedInDrawList();
 }
 
 template<typename DrawingPolicyType>
@@ -287,7 +293,7 @@ bool TStaticMeshDrawList<DrawingPolicyType>::DrawVisible(
 				const FElement& Element = DrawingPolicyLink->Elements[ElementIndex];
 				STAT(StatInc +=  Element.Mesh->GetNumPrimitives();)
 				// Avoid the virtual call looking up batch visibility if there is only one element.
-				uint32 BatchElementMask = Element.Mesh->Elements.Num() == 1 ? 1 : Element.Mesh->VertexFactory->GetStaticBatchElementVisibility(View,Element.Mesh);
+				uint64 BatchElementMask = Element.Mesh->bRequiresPerElementVisibility ? Element.Mesh->VertexFactory->GetStaticBatchElementVisibility(View, Element.Mesh) : ((1ull << Element.Mesh->Elements.Num()) - 1);
 				DrawElement<InstancedStereoPolicy::Disabled>(View, PolicyContext, Element, BatchElementMask, DrawingPolicyLink, bDrawnShared);
 				bDirty = true;
 			}
@@ -330,12 +336,13 @@ bool TStaticMeshDrawList<DrawingPolicyType>::DrawVisibleInner(
 			// Single view
 			if (InstancedStereo == InstancedStereoPolicy::Disabled)
 			{
-				if (StaticMeshVisibilityMap->AccessCorrespondingBit(FRelativeBitReference(CompactElementPtr->MeshId))) {
+				if (StaticMeshVisibilityMap->AccessCorrespondingBit(FRelativeBitReference(CompactElementPtr->MeshId)))
+				{
 					const FElement& Element = DrawingPolicyLink->Elements[ElementIndex];
 					STAT(StatInc += Element.Mesh->GetNumPrimitives();)
 					int32 SubCount = Element.Mesh->Elements.Num();
 					// Avoid the cache miss looking up batch visibility if there is only one element.
-					uint64 BatchElementMask = SubCount == 1 ? 1 : (*BatchVisibilityArray)[Element.Mesh->Id];
+					uint64 BatchElementMask = Element.Mesh->bRequiresPerElementVisibility ? (*BatchVisibilityArray)[Element.Mesh->Id] : ((1ull << SubCount) - 1);
 					Count += DrawElement<InstancedStereoPolicy::Disabled>(RHICmdList, View, PolicyContext, Element, BatchElementMask, DrawingPolicyLink, bDrawnShared);
 				}
 			}
@@ -360,7 +367,7 @@ bool TStaticMeshDrawList<DrawingPolicyType>::DrawVisibleInner(
 					    STAT(StatInc += Element.Mesh->GetNumPrimitives();)
 				    int32 SubCount = Element.Mesh->Elements.Num();
 				    // Avoid the cache miss looking up batch visibility if there is only one element.
-					uint64 BatchElementMask = SubCount == 1 ? 1 : (*ResolvedVisiblityArray)[Element.Mesh->Id];
+					uint64 BatchElementMask = Element.Mesh->bRequiresPerElementVisibility ? (*ResolvedVisiblityArray)[Element.Mesh->Id] : ((1ull << SubCount) - 1);
 					Count += DrawElement<InstancedStereoPolicy::Enabled>(RHICmdList, View, PolicyContext, Element, BatchElementMask, DrawingPolicyLink, bDrawnShared);
 				}
 			}
@@ -487,21 +494,13 @@ public:
 };
 
  
-extern MS_ALIGN(64) uint8 CountBitsTable[64] GCC_ALIGN(64);
-
 static FORCEINLINE int32 CountBits(uint64 Bits)
 {
-	int32 Count = 0;
-	while (true)
-	{
-		Count += CountBitsTable[Bits & 63];
-		if (!(Bits & ~63))
-		{
-			break;
-		}
-		Bits >>= 6;
-	}
-	return Count;
+	// https://en.wikipedia.org/wiki/Hamming_weight
+	Bits -= (Bits >> 1) & 0x5555555555555555ull;
+	Bits = (Bits & 0x3333333333333333ull) + ((Bits >> 2) & 0x3333333333333333ull);
+	Bits = (Bits + (Bits >> 4)) & 0x0f0f0f0f0f0f0f0full;
+	return (Bits * 0x0101010101010101) >> 56;
 }
 
 template<typename DrawingPolicyType>
@@ -819,10 +818,11 @@ int32 TStaticMeshDrawList<DrawingPolicyType>::DrawVisibleFrontToBack(
 			bDrawnShared = false;
 		}
 
+		CA_SUPPRESS(6011);
 		const FElement& Element = DrawingPolicyLink->Elements[ElementIndex];
 		STAT(StatInc +=  Element.Mesh->GetNumPrimitives();)
 		// Avoid the cache miss looking up batch visibility if there is only one element.
-		uint64 BatchElementMask = Element.Mesh->Elements.Num() == 1 ? 1 : BatchVisibilityArray[Element.Mesh->Id];
+		uint64 BatchElementMask = Element.Mesh->bRequiresPerElementVisibility ? BatchVisibilityArray[Element.Mesh->Id] : ((1ull << Element.Mesh->Elements.Num()) - 1);
 		DrawElement<InstancedStereoPolicy::Disabled>(RHICmdList, View, PolicyContext, Element, BatchElementMask, DrawingPolicyLink, bDrawnShared);
 		NumDraws++;
 	}
@@ -883,7 +883,7 @@ void TStaticMeshDrawList<DrawingPolicyType>::SortFrontToBack(FVector ViewPositio
 }
 
 template<typename DrawingPolicyType>
-void TStaticMeshDrawList<DrawingPolicyType>::GetUsedPrimitivesBasedOnMaterials(ERHIFeatureLevel::Type FeatureLevel, const TArray<const FMaterial*>& Materials, TArray<FPrimitiveSceneInfo*>& PrimitivesToUpdate)
+void TStaticMeshDrawList<DrawingPolicyType>::GetUsedPrimitivesBasedOnMaterials(ERHIFeatureLevel::Type InFeatureLevel, const TArray<const FMaterial*>& Materials, TArray<FPrimitiveSceneInfo*>& PrimitivesToUpdate)
 {
 	for (typename TDrawingPolicySet::TIterator DrawingPolicyIt(DrawingPolicySet); DrawingPolicyIt; ++DrawingPolicyIt)
 	{
@@ -900,7 +900,7 @@ void TStaticMeshDrawList<DrawingPolicyType>::GetUsedPrimitivesBasedOnMaterials(E
 			if (Proxy)
 			{
 				check(!Proxy->IsDeleted());
-				FMaterial* MaterialResource = Proxy->GetMaterialNoFallback(FeatureLevel);
+				FMaterial* MaterialResource = Proxy->GetMaterialNoFallback(InFeatureLevel);
 
 				if (Materials.Contains(MaterialResource))
 				{
@@ -935,7 +935,26 @@ FDrawListStats TStaticMeshDrawList<DrawingPolicyType>::GetStats() const
 		Stats.NumDrawingPolicies++;
 		Stats.NumMeshes += NumMeshes;
 		MeshCounts.Add(NumMeshes);
+
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+		if (NumMeshes == 1)
+		{
+			CollectClosestMatchingPolicies(PolicyIt, Stats.SingleMeshPolicyMatchFailedReasons);
+			
+			auto VertexFactoryName = DrawingPolicyLink->DrawingPolicy.GetVertexFactory()->GetType()->GetFName();
+
+			if (Stats.SingleMeshPolicyVertexFactoryFrequency.Contains(VertexFactoryName))
+			{
+				++Stats.SingleMeshPolicyVertexFactoryFrequency[VertexFactoryName];
+			}
+			else
+			{
+				Stats.SingleMeshPolicyVertexFactoryFrequency.Add(VertexFactoryName, 1);
+			}
+		}
+#endif
 	}
+
 	if (MeshCounts.Num())
 	{
 		MeshCounts.Sort();
@@ -966,3 +985,51 @@ void TStaticMeshDrawList<DrawingPolicyType>::ApplyWorldOffset(FVector InOffset)
 	}
 }
 
+template<typename DrawingPolicyType>
+void TStaticMeshDrawList<DrawingPolicyType>::CollectClosestMatchingPolicies(
+	typename TArray<FSetElementId>::TConstIterator DrawingPolicyIter, 
+	TMap<FString, int32>& MatchFailedReasons
+	) const
+{
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	int32 ClosestMatchCount = -1;
+	FDrawingPolicyMatchResult ClosestMatch;
+
+	const FDrawingPolicyLink* DrawingPolicyLink = &DrawingPolicySet[*DrawingPolicyIter];
+
+	for (auto It = OrderedDrawingPolicies.CreateConstIterator(); It; ++It)
+	{
+		if (It == DrawingPolicyIter)
+		{
+			continue;
+		}
+
+		const auto* OtherPolicyLink = &DrawingPolicySet[*It];
+		auto Res = DrawingPolicyLink->DrawingPolicy.Matches(OtherPolicyLink->DrawingPolicy);
+
+		if (Res.MatchCount() > ClosestMatchCount)
+		{
+			ClosestMatchCount = Res.MatchCount();
+			ClosestMatch = Res;
+		}
+	}
+
+	if (ClosestMatchCount > -1)
+	{
+		for (int32 i = 0; i < ClosestMatch.TestResults.Num(); ++i)
+		{
+			if (!ClosestMatch.TestResults[i])
+			{
+				if (MatchFailedReasons.Contains(ClosestMatch.TestCondition[i]))
+				{
+					++MatchFailedReasons[ClosestMatch.TestCondition[i]];
+				}
+				else
+				{
+					MatchFailedReasons.Add(ClosestMatch.TestCondition[i], 1);
+				}
+			}
+		}
+	}
+#endif
+}

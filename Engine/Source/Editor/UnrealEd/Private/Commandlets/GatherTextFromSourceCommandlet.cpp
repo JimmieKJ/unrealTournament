@@ -202,11 +202,14 @@ int32 UGatherTextFromSourceCommandlet::Main( const FString& Params )
 	TArray<FString> ManifestDependenciesList;
 	GetPathArrayFromConfig(*SectionName, TEXT("ManifestDependencies"), ManifestDependenciesList, GatherTextConfigPath);
 	
-
-	if( !ManifestInfo->AddManifestDependencies( ManifestDependenciesList ) )
+	for (const FString& ManifestDependency : ManifestDependenciesList)
 	{
-		UE_LOG(LogGatherTextFromSourceCommandlet, Error, TEXT("The GatherTextFromSource commandlet couldn't find all the specified manifest dependencies."));
-		return -1;
+		FText OutError;
+		if (!GatherManifestHelper->AddDependency(ManifestDependency, &OutError))
+		{
+			UE_LOG(LogGatherTextFromSourceCommandlet, Error, TEXT("The GatherTextFromSource commandlet couldn't load the specified manifest dependency: '%'. %s"), *ManifestDependency, *OutError.ToString());
+			return -1;
+		}
 	}
 
 	// Get the loc macros and their syntax
@@ -243,7 +246,7 @@ int32 UGatherTextFromSourceCommandlet::Main( const FString& Params )
 
 	// Init a parse context to track the state of the file parsing 
 	FSourceFileParseContext ParseCtxt;
-	ParseCtxt.ManifestInfo = ManifestInfo;
+	ParseCtxt.GatherManifestHelper = GatherManifestHelper;
 
 	// Get whether we should gather editor-only data. Typically only useful for the localization of UE4 itself.
 	if (!GetBoolFromConfig(*SectionName, TEXT("ShouldGatherFromEditorOnlyData"), ParseCtxt.ShouldGatherFromEditorOnlyData, GatherTextConfigPath))
@@ -307,6 +310,192 @@ int32 UGatherTextFromSourceCommandlet::Main( const FString& Params )
 	return 0;
 }
 
+FString UGatherTextFromSourceCommandlet::UnescapeLiteralCharacterEscapeSequences(const FString& InString)
+{
+	// We need to un-escape any octal, hex, or universal character sequences that exist in this string to mimic what happens when the string is processed by the compiler
+	enum class EParseState : uint8
+	{
+		Idle,		// Not currently parsing a sequence
+		InOct,		// Within an octal sequence (\012)
+		InHex,		// Within an hexadecimal sequence (\xBEEF)
+		InUTF16,	// Within a UTF-16 sequence (\u1234)
+		InUTF32,	// Within a UTF-32 sequence (\U12345678)
+	};
+
+	FString RetString;
+	RetString.Reserve(InString.Len());
+
+	EParseState ParseState = EParseState::Idle;
+	FString EscapedLiteralCharacter;
+	for (const TCHAR* CharPtr = *InString; *CharPtr; ++CharPtr)
+	{
+		const TCHAR CurChar = *CharPtr;
+
+		switch (ParseState)
+		{
+		case EParseState::Idle:
+			{
+				const TCHAR NextChar = *(CharPtr + 1);
+				if (CurChar == TEXT('\\') && NextChar)
+				{
+					if (FChar::IsOctDigit(NextChar))
+					{
+						ParseState = EParseState::InOct;
+					}
+					else if (NextChar == TEXT('x'))
+					{
+						// Skip the format marker
+						++CharPtr;
+						ParseState = EParseState::InHex;
+					}
+					else if (NextChar == TEXT('u'))
+					{
+						// Skip the format marker
+						++CharPtr;
+						ParseState = EParseState::InUTF16;
+					}
+					else if (NextChar == TEXT('U'))
+					{
+						// Skip the format marker
+						++CharPtr;
+						ParseState = EParseState::InUTF32;
+					}
+				}
+				
+				if (ParseState == EParseState::Idle)
+				{
+					RetString.AppendChar(CurChar);
+				}
+				else
+				{
+					EscapedLiteralCharacter.Reset();
+				}
+			}
+			break;
+
+		case EParseState::InOct:
+			{
+				if (FChar::IsOctDigit(CurChar))
+				{
+					EscapedLiteralCharacter.AppendChar(CurChar);
+
+					// Octal sequences can only be up-to 3 digits long
+					check(EscapedLiteralCharacter.Len() <= 3);
+					if (EscapedLiteralCharacter.Len() == 3)
+					{
+						RetString.AppendChar((TCHAR)FCString::Strtoi(*EscapedLiteralCharacter, nullptr, 8));
+						ParseState = EParseState::Idle;
+						// Deliberately not appending the current character here, as it was already pushed into the escaped literal character string
+					}
+				}
+				else
+				{
+					RetString.AppendChar((TCHAR)FCString::Strtoi(*EscapedLiteralCharacter, nullptr, 8));
+					ParseState = EParseState::Idle;
+					RetString.AppendChar(CurChar);
+				}
+			}
+			break;
+
+		case EParseState::InHex:
+			{
+				if (FChar::IsHexDigit(CurChar))
+				{
+					EscapedLiteralCharacter.AppendChar(CurChar);
+				}
+				else
+				{
+					RetString.AppendChar((TCHAR)FCString::Strtoi(*EscapedLiteralCharacter, nullptr, 16));
+					ParseState = EParseState::Idle;
+					RetString.AppendChar(CurChar);
+				}
+			}
+			break;
+
+		case EParseState::InUTF16:
+			{
+				if (FChar::IsHexDigit(CurChar))
+				{
+					EscapedLiteralCharacter.AppendChar(CurChar);
+
+					// UTF-16 sequences can only be up-to 4 digits long
+					check(EscapedLiteralCharacter.Len() <= 4);
+					if (EscapedLiteralCharacter.Len() == 4)
+					{
+						const uint32 UnicodeCodepoint = (uint32)FCString::Strtoi(*EscapedLiteralCharacter, nullptr, 16);
+
+						FString UnicodeString;
+						if (FUnicodeChar::CodepointToString(UnicodeCodepoint, UnicodeString))
+						{
+							RetString.Append(MoveTemp(UnicodeString));
+						}
+
+						ParseState = EParseState::Idle;
+						// Deliberately not appending the current character here, as it was already pushed into the escaped literal character string
+					}
+				}
+				else
+				{
+					const uint32 UnicodeCodepoint = (uint32)FCString::Strtoi(*EscapedLiteralCharacter, nullptr, 16);
+
+					FString UnicodeString;
+					if (FUnicodeChar::CodepointToString(UnicodeCodepoint, UnicodeString))
+					{
+						RetString.Append(MoveTemp(UnicodeString));
+					}
+
+					ParseState = EParseState::Idle;
+					RetString.AppendChar(CurChar);
+				}
+			}
+			break;
+
+		case EParseState::InUTF32:
+			{
+				if (FChar::IsHexDigit(CurChar))
+				{
+					EscapedLiteralCharacter.AppendChar(CurChar);
+
+					// UTF-32 sequences can only be up-to 8 digits long
+					check(EscapedLiteralCharacter.Len() <= 8);
+					if (EscapedLiteralCharacter.Len() == 8)
+					{
+						const uint32 UnicodeCodepoint = (uint32)FCString::Strtoui64(*EscapedLiteralCharacter, nullptr, 16);
+
+						FString UnicodeString;
+						if (FUnicodeChar::CodepointToString(UnicodeCodepoint, UnicodeString))
+						{
+							RetString.Append(MoveTemp(UnicodeString));
+						}
+
+						ParseState = EParseState::Idle;
+						// Deliberately not appending the current character here, as it was already pushed into the escaped literal character string
+					}
+				}
+				else
+				{
+					const uint32 UnicodeCodepoint = (uint32)FCString::Strtoui64(*EscapedLiteralCharacter, nullptr, 16);
+
+					FString UnicodeString;
+					if (FUnicodeChar::CodepointToString(UnicodeCodepoint, UnicodeString))
+					{
+						RetString.Append(MoveTemp(UnicodeString));
+					}
+
+					ParseState = EParseState::Idle;
+					RetString.AppendChar(CurChar);
+				}
+			}
+			break;
+
+		default:
+			break;
+		}
+	}
+
+	return RetString;
+}
+
 FString UGatherTextFromSourceCommandlet::RemoveStringFromTextMacro(const FString& TextMacro, const FString& IdentForLogging, bool& Error)
 {
 	FString Text;
@@ -317,21 +506,21 @@ FString UGatherTextFromSourceCommandlet::RemoveStringFromTextMacro(const FString
 	{
 		Error = false;
 		//UE_LOG(LogGatherTextFromSourceCommandlet, Warning, TEXT("Missing TEXT macro in %s"), *IdentForLogging);
-		return TextMacro.TrimQuotes();
+		Text = TextMacro.TrimQuotes();
 	}
 	else
 	{
 		int32 OpenQuoteIdx = TextMacro.Find(TEXT("\""), ESearchCase::CaseSensitive);
 		if (0 > OpenQuoteIdx || TextMacro.Len() - 1 == OpenQuoteIdx)
 		{
-			UE_LOG(LogGatherTextFromSourceCommandlet, Warning, TEXT("Missing quotes in %s"), *MungeLogOutput(IdentForLogging));
+			UE_LOG(LogGatherTextFromSourceCommandlet, Warning, TEXT("Missing quotes in %s"), *FLocTextHelper::SanitizeLogOutput(IdentForLogging));
 		}
 		else
 		{
 			int32 CloseQuoteIdx = TextMacro.Find(TEXT("\""), ESearchCase::CaseSensitive, ESearchDir::FromStart, OpenQuoteIdx+1);
 			if (0 > CloseQuoteIdx)
 			{
-				UE_LOG(LogGatherTextFromSourceCommandlet, Warning, TEXT("Missing quotes in %s"), *MungeLogOutput(IdentForLogging));
+				UE_LOG(LogGatherTextFromSourceCommandlet, Warning, TEXT("Missing quotes in %s"), *FLocTextHelper::SanitizeLogOutput(IdentForLogging));
 			}
 			else
 			{
@@ -340,6 +529,12 @@ FString UGatherTextFromSourceCommandlet::RemoveStringFromTextMacro(const FString
 			}
 		}
 	}
+
+	if (!Error)
+	{
+		Text = UnescapeLiteralCharacterEscapeSequences(Text);
+	}
+
 	return Text;
 }
 
@@ -656,7 +851,7 @@ bool UGatherTextFromSourceCommandlet::ParseSourceText(const FString& Text, const
 	return true;
 }
 
-bool UGatherTextFromSourceCommandlet::FSourceFileParseContext::AddManifestText( const FString& Token, const FString& InNamespace, const FString& SourceText, const FContext& Context )
+bool UGatherTextFromSourceCommandlet::FSourceFileParseContext::AddManifestText( const FString& Token, const FString& InNamespace, const FString& SourceText, const FManifestContext& Context )
 {
 	const bool bIsEditorOnly = EvaluateMacroStack() == EMacroBlockState::EditorOnly;
 
@@ -668,7 +863,7 @@ bool UGatherTextFromSourceCommandlet::FSourceFileParseContext::AddManifestText( 
 			LineNumber, 
 			*LineText);
 		FLocItem Source( SourceText.ReplaceEscapedCharWithChar() );
-		return ManifestInfo->AddEntry(EntryDescription, InNamespace, Source, Context);
+		return GatherManifestHelper->AddSourceText(InNamespace, Source, Context, &EntryDescription);
 	}
 
 	return false;
@@ -926,7 +1121,7 @@ bool UGatherTextFromSourceCommandlet::FMacroDescriptor::ParseArgsFromMacro(const
 	int32 OpenBracketIdx = RemainingText.Find(TEXT("("));
 	if (0 > OpenBracketIdx)
 	{
-		UE_LOG(LogGatherTextFromSourceCommandlet, Warning, TEXT("Missing bracket '(' in %s macro in %s(%d):%s"), *GetToken(), *Context.Filename, Context.LineNumber, *MungeLogOutput(Context.LineText));
+		UE_LOG(LogGatherTextFromSourceCommandlet, Warning, TEXT("Missing bracket '(' in %s macro in %s(%d):%s"), *GetToken(), *Context.Filename, Context.LineNumber, *FLocTextHelper::SanitizeLogOutput(Context.LineText));
 		//Dont assume this is an error. It's more likely trying to parse something it shouldn't be.
 		return false;
 	}
@@ -983,7 +1178,7 @@ bool UGatherTextFromSourceCommandlet::FMacroDescriptor::ParseArgsFromMacro(const
 
 				if (0 > BracketStack)
 				{
-					UE_LOG(LogGatherTextFromSourceCommandlet, Warning, TEXT("Unexpected bracket ')' in %s macro in %s(%d):%s"), *GetToken(), *Context.Filename, Context.LineNumber, *MungeLogOutput(Context.LineText));
+					UE_LOG(LogGatherTextFromSourceCommandlet, Warning, TEXT("Unexpected bracket ')' in %s macro in %s(%d):%s"), *GetToken(), *Context.Filename, Context.LineNumber, *FLocTextHelper::SanitizeLogOutput(Context.LineText));
 					return false;
 				}
 			}
@@ -1021,6 +1216,7 @@ bool UGatherTextFromSourceCommandlet::FMacroDescriptor::PrepareArgument(FString&
 	else
 	{
 		Argument = Argument.TrimTrailing().TrimQuotes(&OutHasQuotes);
+		Argument = UnescapeLiteralCharacterEscapeSequences(Argument);
 	}
 	return Error ? false : true;
 }
@@ -1037,7 +1233,7 @@ void UGatherTextFromSourceCommandlet::FCommandMacroDescriptor::TryParse(const FS
 		{
 			if (Arguments.Num() != 5)
 			{
-				UE_LOG(LogGatherTextFromSourceCommandlet, Warning, TEXT("Too many arguments in command %s macro in %s(%d):%s"), *GetToken(), *Context.Filename, Context.LineNumber, *MungeLogOutput(Context.LineText));
+				UE_LOG(LogGatherTextFromSourceCommandlet, Warning, TEXT("Too many arguments in command %s macro in %s(%d):%s"), *GetToken(), *Context.Filename, Context.LineNumber, *FLocTextHelper::SanitizeLogOutput(Context.LineText));
 			}
 			else
 			{
@@ -1062,7 +1258,7 @@ void UGatherTextFromSourceCommandlet::FCommandMacroDescriptor::TryParse(const FS
 					if ( HasQuotes && !Identifier.IsEmpty() && !SourceText.IsEmpty() )
 					{
 						// First create the command entry
-						FContext CommandContext;
+						FManifestContext CommandContext;
 						CommandContext.Key = Identifier;
 						CommandContext.SourceLocation = SourceLocation;
 
@@ -1076,7 +1272,7 @@ void UGatherTextFromSourceCommandlet::FCommandMacroDescriptor::TryParse(const FS
 							if (HasQuotes && !TooltipSourceText.IsEmpty())
 							{
 								// Create the tooltip entry
-								FContext CommandTooltipContext;
+								FManifestContext CommandTooltipContext;
 								CommandTooltipContext.Key = Identifier + TEXT("_ToolTip");
 								CommandTooltipContext.SourceLocation = SourceLocation;
 
@@ -1104,7 +1300,7 @@ void UGatherTextFromSourceCommandlet::FStringMacroDescriptor::TryParse(const FSt
 
 			if (NumArgs != Arguments.Num())
 			{
-				UE_LOG(LogGatherTextFromSourceCommandlet, Warning, TEXT("Too many arguments in %s macro in %s(%d):%s"), *GetToken(), *Context.Filename, Context.LineNumber, *MungeLogOutput(Context.LineText));
+				UE_LOG(LogGatherTextFromSourceCommandlet, Warning, TEXT("Too many arguments in %s macro in %s(%d):%s"), *GetToken(), *Context.Filename, Context.LineNumber, *FLocTextHelper::SanitizeLogOutput(Context.LineText));
 			}
 			else
 			{
@@ -1120,7 +1316,7 @@ void UGatherTextFromSourceCommandlet::FStringMacroDescriptor::TryParse(const FSt
 					FString ArgText = ArgArray[ArgIdx].Trim();
 
 					bool HasQuotes;
-					FString MacroDesc = FString::Printf(TEXT("argument %d of %d in localization macro %s %s(%d):%s"), ArgIdx+1, Arguments.Num(), *GetToken(), *Context.Filename, Context.LineNumber, *MungeLogOutput(Context.LineText));
+					FString MacroDesc = FString::Printf(TEXT("argument %d of %d in localization macro %s %s(%d):%s"), ArgIdx+1, Arguments.Num(), *GetToken(), *Context.Filename, Context.LineNumber, *FLocTextHelper::SanitizeLogOutput(Context.LineText));
 					if (!PrepareArgument(ArgText, Arg.IsAutoText, MacroDesc, HasQuotes))
 					{
 						ArgParseError = true;
@@ -1156,7 +1352,7 @@ void UGatherTextFromSourceCommandlet::FStringMacroDescriptor::TryParse(const FSt
 
 				if (!ArgParseError && !Identifier.IsEmpty() && !SourceText.IsEmpty())
 				{
-					FContext MacroContext;
+					FManifestContext MacroContext;
 					MacroContext.Key = Identifier;
 					MacroContext.SourceLocation = SourceLocation;
 

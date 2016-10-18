@@ -54,7 +54,7 @@ struct FDebugTraceInfo
 
 };
 
-UCLASS(Within=PlayerController)
+UCLASS(Within=PlayerController, Blueprintable)
 class ENGINE_API UCheatManager : public UObject
 {
 	GENERATED_UCLASS_BODY()
@@ -63,8 +63,11 @@ class ENGINE_API UCheatManager : public UObject
 	UPROPERTY()
 	class ADebugCameraController* DebugCameraControllerRef;
 
-	/** Debug camera - used to have independent camera without stopping gameplay */
-	UPROPERTY()
+	/** 
+	* Debug camera - used to have independent camera without stopping gameplay. 
+	* If the Outer PlayerController::DebugCameraClass is valid then it is used instead of default DebugCameraController class. 
+	*/
+	UPROPERTY(Category="Debug Camera", EditDefaultsOnly, BlueprintReadOnly)
 	TSubclassOf<class ADebugCameraController>  DebugCameraControllerClass;
 
 	// Trace/Sweep debug start
@@ -138,9 +141,9 @@ class ENGINE_API UCheatManager : public UObject
 	UFUNCTION(exec)
 	virtual void God();
 
-	/** Modify time dilation to change apparent speed of passage of time.  Slomo 0.1 makes everything move very slowly, Slomo 10 makes everything move very fast. */
+	/** Modify time dilation to change apparent speed of passage of time. e.g. "Slomo 0.1" makes everything move very slowly, while "Slomo 10" makes everything move very fast. */
 	UFUNCTION(exec)
-	virtual void Slomo(float T);
+	virtual void Slomo(float NewTimeDilation);
 
 	/** Damage the actor you're looking at (sourced from the player). */
 	UFUNCTION(exec)
@@ -241,18 +244,6 @@ class ENGINE_API UCheatManager : public UObject
 	UFUNCTION(exec)
 	virtual void TestCollisionDistance();
 
-	/** Spawns a Slate Widget Inspector in game **/
-	UFUNCTION(exec)
-	virtual void WidgetReflector();
-
-	/** Spawns a Slate texture atlas visualizer in game */
-	UFUNCTION(exec)
-	virtual void TextureAtlasVisualizer();
-
-	/** Spawns a Slate font atlas visualizer in game */
-	UFUNCTION(exec)
-	virtual void FontAtlasVisualizer();
-
 	/** Builds the navigation mesh (or rebuilds it). **/
 	UFUNCTION(exec)
 	virtual void RebuildNavigation();
@@ -323,6 +314,10 @@ class ENGINE_API UCheatManager : public UObject
 	UFUNCTION(exec)
 	void InvertMouse();
 
+	/** Executes commands listed in CheatScript.ScriptName ini section of DefaultGame.ini */
+	UFUNCTION(exec)
+	void CheatScript(FString ScriptName);
+
 	/**
 	 * This will move the player and set their rotation to the passed in values.
 	 * This actually does the location / rotation setting.  Additionally it will set you as ghost as the level may have
@@ -354,6 +349,10 @@ class ENGINE_API UCheatManager : public UObject
 
 	/** streaming level debugging */
 	virtual void SetLevelStreamingStatus(FName PackageName, bool bShouldBeLoaded, bool bShouldBeVisible);
+
+	/** Called when the Cheat Manager is first initialized. */
+	UFUNCTION(BlueprintImplementableEvent, meta=(DisplayName = "Init Cheat Manager", Keywords="Begin Play"))
+	void ReceiveInitCheatManager();
 
 	/** 
 	 * Called when CheatManager is created to allow any needed initialization.  

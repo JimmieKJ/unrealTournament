@@ -9,35 +9,37 @@
 #include "InputCoreTypes.h"
 #include "RenderCommandFence.h"
 #include "TimerManager.h"
+#include "Engine/Level.h"
+
+#include "Actor.generated.h"
 
 struct FHitResult;
 class AActor;
 class FTimerManager; 
 class UNetDriver;
-
-#include "Actor.generated.h"
+struct FNetViewer;
 
 ENGINE_API DECLARE_LOG_CATEGORY_EXTERN(LogActor, Log, Warning);
  
 
 // Delegate signatures
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_FourParams( FTakeAnyDamageSignature, float, Damage, const class UDamageType*, DamageType, class AController*, InstigatedBy, AActor*, DamageCauser );
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_EightParams( FTakePointDamageSignature, float, Damage, class AController*, InstigatedBy, FVector, HitLocation, class UPrimitiveComponent*, FHitComponent, FName, BoneName, FVector, ShotFromDirection, const class UDamageType*, DamageType, AActor*, DamageCauser );
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam( FActorBeginOverlapSignature, AActor*, OtherActor );
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam( FActorEndOverlapSignature, AActor*, OtherActor );
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_FiveParams( FTakeAnyDamageSignature, AActor*, DamagedActor, float, Damage, const class UDamageType*, DamageType, class AController*, InstigatedBy, AActor*, DamageCauser );
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_NineParams( FTakePointDamageSignature, AActor*, DamagedActor, float, Damage, class AController*, InstigatedBy, FVector, HitLocation, class UPrimitiveComponent*, FHitComponent, FName, BoneName, FVector, ShotFromDirection, const class UDamageType*, DamageType, AActor*, DamageCauser );
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams( FActorBeginOverlapSignature, AActor*, OverlappedActor, AActor*, OtherActor );
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams( FActorEndOverlapSignature, AActor*, OverlappedActor, AActor*, OtherActor );
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_FourParams( FActorHitSignature, AActor*, SelfActor, AActor*, OtherActor, FVector, NormalImpulse, const FHitResult&, Hit );
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE( FActorBeginCursorOverSignature );
-DECLARE_DYNAMIC_MULTICAST_DELEGATE( FActorEndCursorOverSignature );
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam( FActorOnClickedSignature, FKey, ButtonPressed );
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam( FActorOnReleasedSignature, FKey, ButtonReleased );
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam( FActorOnInputTouchBeginSignature, ETouchIndex::Type, FingerIndex );
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam( FActorOnInputTouchEndSignature, ETouchIndex::Type, FingerIndex );
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam( FActorBeginTouchOverSignature, ETouchIndex::Type, FingerIndex );
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam( FActorEndTouchOverSignature, ETouchIndex::Type, FingerIndex );
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam( FActorBeginCursorOverSignature, AActor*, TouchedActor );
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam( FActorEndCursorOverSignature, AActor*, TouchedActor );
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams( FActorOnClickedSignature, AActor*, TouchedActor , FKey, ButtonPressed );
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams( FActorOnReleasedSignature, AActor*, TouchedActor , FKey, ButtonReleased );
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams( FActorOnInputTouchBeginSignature, ETouchIndex::Type, FingerIndex, AActor*, TouchedActor );
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams( FActorOnInputTouchEndSignature, ETouchIndex::Type, FingerIndex, AActor*, TouchedActor );
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams( FActorBeginTouchOverSignature, ETouchIndex::Type, FingerIndex, AActor*, TouchedActor );
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams( FActorEndTouchOverSignature, ETouchIndex::Type, FingerIndex, AActor*, TouchedActor );
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE(FActorDestroyedSignature);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FActorEndPlaySignature, EEndPlayReason::Type, EndPlayReason);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FActorDestroyedSignature, AActor*, DestroyedActor );
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FActorEndPlaySignature, AActor*, Actor , EEndPlayReason::Type, EndPlayReason);
 
 DECLARE_DELEGATE_SixParams(FMakeNoiseDelegate, AActor*, float /*Loudness*/, class APawn*, const FVector&, float /*MaxRange*/, FName /*Tag*/);
 
@@ -248,7 +250,7 @@ public:
 	 * @param bInReplicates Whether this Actor replicates to network clients.
 	 * @see https://docs.unrealengine.com/latest/INT/Gameplay/Networking/Replication/
 	 */
-	UFUNCTION(BlueprintCallable, Category = "Replication")
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Replication")
 	void SetReplicates(bool bInReplicates);
 
 	/**
@@ -272,7 +274,7 @@ public:
 	UPROPERTY(EditDefaultsOnly, ReplicatedUsing=OnRep_ReplicatedMovement, Category=Replication, AdvancedDisplay)
 	struct FRepMovement ReplicatedMovement;
 
-public:
+private:
 	/**
 	 * Used for replicating attachment of this actor's RootComponent to another actor.
 	 * This is filled in via GatherCurrentMovement() when the RootComponent has an AttachParent.
@@ -294,6 +296,12 @@ public:
 
 	/** Dormancy setting for actor to take itself off of the replication list without being destroyed on clients. */
 	TEnumAsByte<enum ENetDormancy> NetDormancy;
+
+	/** Gives the actor a chance to pause replication to a player represented by the passed in actor - only called on server */
+	virtual bool IsReplicationPausedForConnection(const FNetViewer& ConnectionOwnerNetViewer);
+
+	/** Called on the client when the replication paused value is changed */
+	virtual void OnReplicationPausedChanged(bool bIsReplicationPaused);
 
 	/** Automatically registers this actor to receive input from a player. */
 	UPROPERTY(EditAnywhere, Category=Input)
@@ -396,6 +404,10 @@ public:
 	/** If true, this actor will be replicated to network replays (default is true) */
 	UPROPERTY()
 	uint8 bRelevantForNetworkReplays:1;
+	
+    /** If true, this actor will generate overlap events when spawned as part of level streaming. You might enable this is in the case where a streaming level loads around an actor and you want overlaps to trigger. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Actor)
+	uint8 bGenerateOverlapEventsDuringLevelStreaming:1;
 
 	/** Controls how to handle spawning this actor in a situation where it's colliding with something else. "Default" means AlwaysSpawn here. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Actor)
@@ -423,7 +435,7 @@ protected:
 	 * Collision primitive that defines the transform (location, rotation, scale) of this Actor.
 	 */
 	UPROPERTY()
-	class USceneComponent* RootComponent;
+	USceneComponent* RootComponent;
 
 #if WITH_EDITORONLY_DATA
 	/** Local space pivot offset for the actor */
@@ -562,7 +574,7 @@ public:
 	UPROPERTY()
 	uint8 bActorSeamlessTraveled:1;
 
-	/** Whether this actor should no be affected by world origin shifting. */
+	/** Whether this actor should not be affected by world origin shifting. */
 	UPROPERTY(EditAnywhere, AdvancedDisplay, Category=Actor)
 	uint8 bIgnoresOriginShifting:1;
 	
@@ -754,7 +766,7 @@ public:
 
 	/** Returns the RootComponent of this Actor */
 	UFUNCTION(BlueprintCallable, meta=(DisplayName = "GetRootComponent"), Category="Utilities|Transformation")
-	class USceneComponent* K2_GetRootComponent() const;
+	USceneComponent* K2_GetRootComponent() const;
 
 	/** Returns velocity (in cm/s (Unreal Units/second) of the rootcomponent if it is either using physics or has an associated MovementComponent */
 	UFUNCTION(BlueprintCallable, Category="Utilities|Transformation")
@@ -766,9 +778,9 @@ public:
 	 * @param NewLocation	The new location to teleport the Actor to.
 	 * @param bSweep		Whether we sweep to the destination location, triggering overlaps along the way and stopping short of the target if blocked by something.
 	 *						Only the root component is swept and checked for blocking collision, child components move without sweeping. If collision is off, this has no effect.
-	 * @param bTeleport		Whether we teleport the physics state (if physics collision is enabled for this object).
-	 *						If true, physics velocity for this object is unchanged (so ragdoll parts are not affected by change in location).
-	 *						If false, physics velocity is updated based on the change in position (affecting ragdoll parts).
+	 * @param Teleport		How we teleport the physics state (if physics collision is enabled for this object).
+	 *						If equal to ETeleportType::TeleportPhysics, physics velocity for this object is unchanged (so ragdoll parts are not affected by change in location).
+	 *						If equal to ETeleportType::None, physics velocity is updated based on the change in position (affecting ragdoll parts).
 	 *						If CCD is on and not teleporting, this will affect objects along the entire swept volume.
 	 * @param OutSweepHitResult The hit result from the move if swept.
 	 * @return	Whether the location was successfully set if not swept, or whether movement occurred if swept.
@@ -779,11 +791,25 @@ public:
 	 * Set the Actor's rotation instantly to the specified rotation.
 	 * 
 	 * @param	NewRotation	The new rotation for the Actor.
+	 * @param	bTeleportPhysics Whether we teleport the physics state (if physics collision is enabled for this object).
+	 *			If true, physics velocity for this object is unchanged (so ragdoll parts are not affected by change in location).
+	 *			If false, physics velocity is updated based on the change in position (affecting ragdoll parts).
 	 * @return	Whether the rotation was successfully set.
 	 */
-	UFUNCTION(BlueprintCallable, Category="Utilities|Transformation")
-	bool SetActorRotation(FRotator NewRotation);
-	bool SetActorRotation(const FQuat& NewRotation);
+	UFUNCTION(BlueprintCallable, meta=(DisplayName = "SetActorRotation"), Category="Utilities|Transformation")
+	bool K2_SetActorRotation(FRotator NewRotation, bool bTeleportPhysics);
+	
+	/**
+	* Set the Actor's rotation instantly to the specified rotation.
+	*
+	* @param	NewRotation	The new rotation for the Actor.
+	* @param	Teleport	How we teleport the physics state (if physics collision is enabled for this object).
+	*						If equal to ETeleportType::TeleportPhysics, physics velocity for this object is unchanged (so ragdoll parts are not affected by change in location).
+	*						If equal to ETeleportType::None, physics velocity is updated based on the change in position (affecting ragdoll parts).
+	* @return	Whether the rotation was successfully set.
+	*/
+	bool SetActorRotation(FRotator NewRotation, ETeleportType Teleport = ETeleportType::None);
+	bool SetActorRotation(const FQuat& NewRotation, ETeleportType Teleport = ETeleportType::None);
 
 	/** 
 	 * Move the actor instantly to the specified location and rotation.
@@ -1070,15 +1096,34 @@ public:
 	 *  Attaches the RootComponent of this Actor to the supplied component, optionally at a named socket. It is not valid to call this on components that are not Registered. 
 	 *   @param AttachLocationType	Type of attachment, AbsoluteWorld to keep its world position, RelativeOffset to keep the object's relative offset and SnapTo to snap to the new parent.
 	 */
-	void AttachRootComponentTo(class USceneComponent* InParent, FName InSocketName = NAME_None, EAttachLocation::Type AttachLocationType = EAttachLocation::KeepRelativeOffset, bool bWeldSimulatedBodies = false);
+	DEPRECATED(4.12, "Please use AttachToComponent.")
+	void AttachRootComponentTo(USceneComponent* InParent, FName InSocketName = NAME_None, EAttachLocation::Type AttachLocationType = EAttachLocation::KeepRelativeOffset, bool bWeldSimulatedBodies = false);
 
 	/**
-	*  Attaches the RootComponent of this Actor to the supplied component, optionally at a named socket. It is not valid to call this on components that are not Registered.
-	*   @param AttachLocationType	Type of attachment, AbsoluteWorld to keep its world position, RelativeOffset to keep the object's relative offset and SnapTo to snap to the new parent.
-	*/
+	 *  Attaches the RootComponent of this Actor to the supplied component, optionally at a named socket. It is not valid to call this on components that are not Registered.
+	 *   @param AttachLocationType	Type of attachment, AbsoluteWorld to keep its world position, RelativeOffset to keep the object's relative offset and SnapTo to snap to the new parent.
+	 */
+	UFUNCTION(BlueprintCallable, meta = (DisplayName = "AttachActorToComponent (Deprecated)", AttachLocationType = "KeepRelativeOffset"), Category = "Utilities|Transformation")
+	void K2_AttachRootComponentTo(USceneComponent* InParent, FName InSocketName = NAME_None, EAttachLocation::Type AttachLocationType = EAttachLocation::KeepRelativeOffset, bool bWeldSimulatedBodies = true);
 
-	UFUNCTION(BlueprintCallable, meta = (DisplayName = "AttachActorToComponent", AttachLocationType = "KeepRelativeOffset"), Category = "Utilities|Transformation")
-	void K2_AttachRootComponentTo(class USceneComponent* InParent, FName InSocketName = NAME_None, EAttachLocation::Type AttachLocationType = EAttachLocation::KeepRelativeOffset, bool bWeldSimulatedBodies = true);
+
+	/**
+	 * Attaches the RootComponent of this Actor to the supplied component, optionally at a named socket. It is not valid to call this on components that are not Registered.
+	 * @param  Parent					Parent to attach to.
+	 * @param  SocketName				Optional socket to attach to on the parent.
+	 * @param  AttachmentRules			How to handle transforms when attaching.
+	 * @param  bWeldSimulatedBodies		Whether to weld together simulated physics bodies.
+	 */
+	UFUNCTION(BlueprintCallable, meta = (DisplayName = "AttachToComponent", bWeldSimulatedBodies = true), Category = "Utilities|Transformation")
+	void K2_AttachToComponent(USceneComponent* Parent, FName SocketName, EAttachmentRule LocationRule, EAttachmentRule RotationRule, EAttachmentRule ScaleRule, bool bWeldSimulatedBodies);
+
+	/**
+	 * Attaches the RootComponent of this Actor to the supplied component, optionally at a named socket. It is not valid to call this on components that are not Registered.
+	 * @param  Parent					Parent to attach to.
+	 * @param  AttachmentRules			How to handle transforms and welding when attaching.
+	 * @param  SocketName				Optional socket to attach to on the parent.
+	 */
+	void AttachToComponent(USceneComponent* Parent, const FAttachmentTransformRules& AttachmentRules, FName SocketName = NAME_None);
 
 	/**
 	 * Attaches the RootComponent of this Actor to the RootComponent of the supplied actor, optionally at a named socket.
@@ -1086,6 +1131,7 @@ public:
 	 * @param InSocketName				Socket name to attach to, if any
 	 * @param AttachLocationType	Type of attachment, AbsoluteWorld to keep its world position, RelativeOffset to keep the object's relative offset and SnapTo to snap to the new parent.
 	 */
+	DEPRECATED(4.12, "Please use AttachToActor.")
 	void AttachRootComponentToActor(AActor* InParentActor, FName InSocketName = NAME_None, EAttachLocation::Type AttachLocationType = EAttachLocation::KeepRelativeOffset, bool bWeldSimulatedBodies = false);
 
 	/**
@@ -1093,29 +1139,72 @@ public:
 	*   @param AttachLocationType	Type of attachment, AbsoluteWorld to keep its world position, RelativeOffset to keep the object's relative offset and SnapTo to snap to the new parent.
 	*/
 
-	UFUNCTION(BlueprintCallable, meta = (DisplayName = "AttachActorToActor", AttachLocationType = "KeepRelativeOffset"), Category = "Utilities|Transformation")
+	UFUNCTION(BlueprintCallable, meta = (DisplayName = "AttachActorToActor (Deprecated)", AttachLocationType = "KeepRelativeOffset"), Category = "Utilities|Transformation")
 	void K2_AttachRootComponentToActor(AActor* InParentActor, FName InSocketName = NAME_None, EAttachLocation::Type AttachLocationType = EAttachLocation::KeepRelativeOffset, bool bWeldSimulatedBodies = true);
+
+	/**
+	 * Attaches the RootComponent of this Actor to the RootComponent of the supplied actor, optionally at a named socket.
+	 * @param ParentActor				Actor to attach this actor's RootComponent to
+	 * @param AttachmentRules			How to handle transforms and modification when attaching.
+	 * @param SocketName				Socket name to attach to, if any
+	 */
+	void AttachToActor(AActor* ParentActor, const FAttachmentTransformRules& AttachmentRules, FName SocketName = NAME_None);
+
+	/**
+	 * Attaches the RootComponent of this Actor to the supplied component, optionally at a named socket. It is not valid to call this on components that are not Registered.
+	 * @param ParentActor				Actor to attach this actor's RootComponent to
+	 * @param SocketName				Socket name to attach to, if any
+	 * @param LocationRule				How to handle translation when attaching.
+	 * @param RotationRule				How to handle rotation when attaching.
+	 * @param ScaleRule					How to handle scale when attaching.
+	 * @param bWeldSimulatedBodies		Whether to weld together simulated physics bodies.
+	 */
+	UFUNCTION(BlueprintCallable, meta = (DisplayName = "AttachToActor", bWeldSimulatedBodies=true), Category = "Utilities|Transformation")
+	void K2_AttachToActor(AActor* ParentActor, FName SocketName, EAttachmentRule LocationRule, EAttachmentRule RotationRule, EAttachmentRule ScaleRule, bool bWeldSimulatedBodies);
 
 	/** 
 	 *  Snap the RootComponent of this Actor to the supplied Actor's root component, optionally at a named socket. It is not valid to call this on components that are not Registered. 
 	 *  If InSocketName == NAME_None, it will attach to origin of the InParentActor. 
 	 */
 	UFUNCTION(BlueprintCallable, meta=(DeprecatedFunction, DeprecationMessage = "Use AttachRootComponentTo with EAttachLocation::SnapToTarget option instead", DisplayName = "SnapActorTo"), Category="Utilities|Transformation")
-	void SnapRootComponentTo(AActor* InParentActor, FName InSocketName = NAME_None);
+	void SnapRootComponentTo(AActor* InParentActor, FName InSocketName);
 
 	/** 
 	 *  Detaches the RootComponent of this Actor from any SceneComponent it is currently attached to. 
 	 *   @param bMaintainWorldTransform	If true, update the relative location/rotation of this component to keep its world position the same
 	 */
-	UFUNCTION(BlueprintCallable, meta=(DisplayName = "DetachActorFromActor"), Category="Utilities|Transformation")
+	UFUNCTION(BlueprintCallable, meta=(DisplayName = "DetachActorFromActor (Deprecated)"), Category="Utilities|Transformation")
 	void DetachRootComponentFromParent(bool bMaintainWorldPosition = true);
 
 	/** 
-	 *	Detaches all SceneComponents in this Actor from the supplied parent SceneComponent. 
+	 * Detaches the RootComponent of this Actor from any SceneComponent it is currently attached to. 
+	 * @param  LocationRule				How to handle translation when detaching.
+	 * @param  RotationRule				How to handle rotation when detaching.
+	 * @param  ScaleRule				How to handle scale when detaching.
+	 */
+	UFUNCTION(BlueprintCallable, meta=(DisplayName = "DetachFromActor"), Category="Utilities|Transformation")
+	void K2_DetachFromActor(EDetachmentRule LocationRule = EDetachmentRule::KeepRelative, EDetachmentRule RotationRule = EDetachmentRule::KeepRelative, EDetachmentRule ScaleRule = EDetachmentRule::KeepRelative);
+
+	/** 
+	 * Detaches the RootComponent of this Actor from any SceneComponent it is currently attached to. 
+	 * @param  DetachmentRules			How to handle transforms when detaching.
+	 */
+	void DetachFromActor(const FDetachmentTransformRules& DetachmentRules);
+
+	/** 
+	 *	DEPRECATED: Detaches all SceneComponents in this Actor from the supplied parent SceneComponent. 
 	 *	@param InParentComponent		SceneComponent to detach this actor's components from
 	 *	@param bMaintainWorldTransform	If true, update the relative location/rotation of this component to keep its world position the same
 	 */
-	void DetachSceneComponentsFromParent(class USceneComponent* InParentComponent, bool bMaintainWorldPosition = true);
+	DEPRECATED(4.12, "Please use DetachAllSceneComponents")
+	void DetachSceneComponentsFromParent(USceneComponent* InParentComponent, bool bMaintainWorldPosition = true);
+
+	/**
+	*	Detaches all SceneComponents in this Actor from the supplied parent SceneComponent.
+	*	@param InParentComponent		SceneComponent to detach this actor's components from
+	*	@param DetachmentRules			Rules to apply when detaching components
+	*/
+	void DetachAllSceneComponents(class USceneComponent* InParentComponent, const FDetachmentTransformRules& DetachmentRules);
 
 	//~==============================================================================
 	// Tags
@@ -1165,6 +1254,10 @@ public:
 	/** Allocate a MID for a given parent material. */
 	UFUNCTION(BlueprintCallable, meta=(DeprecatedFunction, DeprecationMessage="Use PrimitiveComponent.CreateAndSetMaterialInstanceDynamic instead.", BlueprintProtected = "true"), Category="Rendering|Material")
 	class UMaterialInstanceDynamic* MakeMIDForMaterial(class UMaterialInterface* Parent);
+
+	/** The number of seconds (in game time) since this Actor was created, relative to Get Game Time In Seconds. */
+	UFUNCTION(BlueprintPure, Category = Actor)
+	float GetGameTimeSinceCreation();
 
 	//~=============================================================================
 	// AI functions.
@@ -1307,11 +1400,21 @@ public:
 	 * @param ClassFilter			[optional] If set, only returns actors of this class or subclasses
 	 */
 	UFUNCTION(BlueprintCallable, Category="Collision", meta=(UnsafeDuringActorConstruction="true"))
-	void GetOverlappingActors(TArray<AActor*>& OverlappingActors, UClass* ClassFilter=NULL) const;
+	void GetOverlappingActors(TArray<AActor*>& OverlappingActors, TSubclassOf<AActor> ClassFilter=nullptr) const;
+
+	/** 
+	 * Returns set of actors this actor is overlapping (any component overlapping any component). Does not return itself.
+	 * @param OverlappingActors		[out] Returned list of overlapping actors
+	 * @param ClassFilter			[optional] If set, only returns actors of this class or subclasses
+	 */
+	void GetOverlappingActors(TSet<AActor*>& OverlappingActors, TSubclassOf<AActor> ClassFilter=nullptr) const;
 
 	/** Returns list of components this actor is overlapping. */
 	UFUNCTION(BlueprintCallable, Category="Collision", meta=(UnsafeDuringActorConstruction="true"))
 	void GetOverlappingComponents(TArray<UPrimitiveComponent*>& OverlappingComponents) const;
+
+	/** Returns set of components this actor is overlapping. */
+	void GetOverlappingComponents(TSet<UPrimitiveComponent*>& OverlappingComponents) const;
 
 	/** 
 	 * Event when this actor bumps into a blocking object, or blocks another actor that bumps into it.
@@ -1424,7 +1527,7 @@ public:
 	class FActorTransactionAnnotation : public ITransactionObjectAnnotation
 	{
 	public:
-		FActorTransactionAnnotation(const AActor* Actor);
+		FActorTransactionAnnotation(const AActor* Actor, const bool bCacheRootComponentData = true);
 
 		virtual void AddReferencedObjects(FReferenceCollector& Collector) override;
 
@@ -1522,13 +1625,13 @@ public:
 	}
 
 	/** Returns this actor's root component. */
-	FORCEINLINE class USceneComponent* GetRootComponent() const { return RootComponent; }
+	FORCEINLINE USceneComponent* GetRootComponent() const { return RootComponent; }
 
 	/**
 	 * Returns this actor's default attachment component for attaching children to
 	 * @return The scene component to be used as parent
 	 */
-	virtual class USceneComponent* GetDefaultAttachComponent() const { return GetRootComponent(); }
+	virtual USceneComponent* GetDefaultAttachComponent() const { return GetRootComponent(); }
 
 	/** Returns this actor's root component cast to a primitive component */
 	DEPRECATED(4.5, "Use GetRootComponent() and cast manually if needed")
@@ -1538,7 +1641,7 @@ public:
 	 * Sets root component to be the specified component.  NewRootComponent's owner should be this actor.
 	 * @return true if successful
 	 */
-	bool SetRootComponent(class USceneComponent* NewRootComponent);
+	bool SetRootComponent(USceneComponent* NewRootComponent);
 
 	/** Returns the transform of the RootComponent of this Actor*/ 
 	FORCEINLINE FTransform GetActorTransform() const
@@ -1759,6 +1862,18 @@ public:
 	DEPRECATED(4.8, "GetNetPriority now takes a ViewTarget, please override that version.")
 	virtual float GetNetPriority(const FVector& ViewPos, const FVector& ViewDir, class APlayerController* Viewer, UActorChannel* InChannel, float Time, bool bLowBandwidth);
 
+	/**
+	 * Similar to GetNetPriority, but will only be used for prioritizing actors while recording a replay.
+	 *
+	 * @param ViewPos		Position of the viewer
+	 * @param ViewDir		Vector direction of viewer
+	 * @param Viewer		"net object" owned by the client for whom net priority is being determined (typically player controller)
+	 * @param ViewTarget	The actor that is currently being viewed/controlled by Viewer, usually a pawn
+	 * @param InChannel		Channel on which this actor is being replicated.
+	 * @param Time			Time since actor was last replicated
+	 */
+	virtual float GetReplayPriority(const FVector& ViewPos, const FVector& ViewDir, class AActor* Viewer, AActor* ViewTarget, UActorChannel* const InChannel, float Time);
+
 	/** Returns true if the actor should be dormant for a specific net connection. Only checked for DORM_DormantPartial */
 	virtual bool GetNetDormancy(const FVector& ViewPos, const FVector& ViewDir, class AActor* Viewer, AActor* ViewTarget, UActorChannel* InChannel, float Time, bool bLowBandwidth);
 
@@ -1808,7 +1923,7 @@ public:
 	/** 
 	 * Set this actor's tick functions to be enabled or disabled. Only has an effect if the function is registered
 	 * This only modifies the tick function on actor itself
-	 * @param	bEnabled - Rather it should be enabled or not
+	 * @param	bEnabled	Whether it should be enabled or not
 	 */
 	UFUNCTION(BlueprintCallable, Category="Utilities")
 	void SetActorTickEnabled(bool bEnabled);
@@ -1816,6 +1931,17 @@ public:
 	/**  Returns whether this actor has tick enabled or not	 */
 	UFUNCTION(BlueprintCallable, Category="Utilities")
 	bool IsActorTickEnabled() const;
+
+	/** 
+	* Sets the tick interval of this actor's primary tick function. Will not enable a disabled tick function. Takes effect on next tick. 
+	* @param TickInterval	The rate at which this actor should be ticking
+	*/
+	UFUNCTION(BlueprintCallable, Category="Utilities")
+	void SetActorTickInterval(float TickInterval);
+
+	/**  Returns the tick interval of this actor's primary tick function */
+	UFUNCTION(BlueprintCallable, Category="Utilities")
+	float GetActorTickInterval() const;
 
 	/**
 	 *	ticks the actor
@@ -2029,9 +2155,17 @@ public:
 	virtual bool DestroyNetworkActorHandled();
 
 	/**
-	 * Gets the net mode for this actor, indicating whether it is a client or server (including standalone/not networked).
+	 * Get the network mode (dedicated server, client, standalone, etc) for this actor.
+	 * @see IsNetMode()
 	 */
 	ENetMode GetNetMode() const;
+
+	/**
+	* Test whether net mode is the given mode.
+	* In optimized non-editor builds this can be more efficient than GetNetMode()
+	* because it can check the static build flags without considering PIE.
+	*/
+	bool IsNetMode(ENetMode Mode) const;
 
 	class UNetDriver * GetNetDriver() const;
 
@@ -2046,8 +2180,15 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Actor")
 	bool IsChildActor() const;
 
+	/** Returns a list of all child actors, including children of children */
+	UFUNCTION(BlueprintCallable, Category="Actor")
+	void GetAllChildActors(TArray<AActor*>& ChildActors, bool bIncludeDescendants = true) const;
+
 	UFUNCTION(BlueprintCallable, Category="Actor")
 	UChildActorComponent* GetParentComponent() const;
+
+	UFUNCTION(BlueprintCallable, Category="Actor")
+	AActor* GetParentActor() const;
 
 	/** Ensure that all the components in the Components array are registered */
 	virtual void RegisterAllComponents();
@@ -2059,7 +2200,7 @@ public:
 	bool HasValidRootComponent();
 
 	/** Unregister all currently registered components */
-	virtual void UnregisterAllComponents();
+	virtual void UnregisterAllComponents(bool bForReregister = false);
 
 	/** Called after all currently registered components are cleared */
 	virtual void PostUnregisterAllComponents() {}
@@ -2168,7 +2309,7 @@ public:
 	bool IsInLevel(const class ULevel *TestLevel) const;
 
 	/** Return the ULevel that this Actor is part of. */
-	ULevel* GetLevel() const;
+	ULevel* GetLevel() const { return Cast<ULevel>(GetOuter()); }
 
 	/**	Do anything needed to clear out cross level references; Called from ULevel::PreSave	 */
 	virtual void ClearCrossLevelReferences();
@@ -2225,8 +2366,10 @@ public:
 	 * @param	Transform			The transform to construct the actor at.
 	 * @param	InstanceDataCache	Optional cache of state to apply to newly created components (e.g. precomputed lighting)
 	 * @param	bIsDefaultTransform	Whether or not the given transform is a "default" transform, in which case it can be overridden by template defaults
+	 *
+	 * @return Returns false if the hierarchy was not error free and we've put the Actor is disaster recovery mode
 	 */
-	void ExecuteConstruction(const FTransform& Transform, const class FComponentInstanceDataCache* InstanceDataCache, bool bIsDefaultTransform = false);
+	bool ExecuteConstruction(const FTransform& Transform, const class FComponentInstanceDataCache* InstanceDataCache, bool bIsDefaultTransform = false);
 
 	/**
 	 * Called when an instance of this class is placed (in editor) or spawned.
@@ -2312,10 +2455,16 @@ public:
 	virtual void OutsideWorldBounds();
 
 	/** 
-	 *	Returns the bounding box of all components in this Actor.
+	 *	Returns the world space bounding box of all components in this Actor.
 	 *	@param bNonColliding Indicates that you want to include non-colliding components in the bounding box
 	 */
 	virtual FBox GetComponentsBoundingBox(bool bNonColliding = false) const;
+
+	/** 
+	 *	Calculates the actor space bounding box of all components in this Actor.  This is slower than GetComponentsBoundingBox(), because the local bounds of the components are not cached -- they are recalculated every time this function is called.
+	 *	@param bNonColliding Indicates that you want to include non-colliding components in the bounding box
+	 */
+	virtual FBox CalculateComponentsBoundingBoxInLocalSpace(bool bNonColliding = false) const;
 
 	/* Get half-height/radius of a big axis-aligned cylinder around this actors registered colliding components, or all registered components if bNonColliding is false. */
 	virtual void GetComponentsBoundingCylinder(float& CollisionRadius, float& CollisionHalfHeight, bool bNonColliding = false) const;
@@ -2504,12 +2653,12 @@ public:
 	virtual UActorComponent* FindComponentByClass(const TSubclassOf<UActorComponent> ComponentClass) const;
 	
 	/** Script exposed version of FindComponentByClass */
-	UFUNCTION()
-	UActorComponent* GetComponentByClass(TSubclassOf<UActorComponent> ComponentClass);
+	UFUNCTION(BlueprintCallable, Category = "Actor", meta = (ComponentClass = "ActorComponent"), meta = (DeterminesOutputType = "ComponentClass"))
+	UActorComponent* GetComponentByClass(TSubclassOf<UActorComponent> ComponentClass) const;
 
 	/* Gets all the components that inherit from the given class.
-		Currently returns an array of UActorComponent which must be cast to the correct type. */
-	UFUNCTION(BlueprintCallable, Category = "Actor", meta = (ComponentClass = "ActorComponent"), meta=(DeterminesOutputType="ComponentClass"))
+	Currently returns an array of UActorComponent which must be cast to the correct type. */
+	UFUNCTION(BlueprintCallable, Category = "Actor", meta = (ComponentClass = "ActorComponent"), meta = (DeterminesOutputType = "ComponentClass"))
 	TArray<UActorComponent*> GetComponentsByClass(TSubclassOf<UActorComponent> ComponentClass) const;
 
 	/* Gets all the components that inherit from the given class with a given tag. */
@@ -2577,11 +2726,11 @@ public:
 	}
 
 	/**
-	 * Get a direct reference to the Components array rather than a copy with the null pointers removed.
+	 * Get a direct reference to the Components set rather than a copy with the null pointers removed.
 	 * WARNING: anything that could cause the component to change ownership or be destroyed will invalidate
-	 * this array, so use caution when iterating this list!
+	 * this array, so use caution when iterating this set!
 	 */
-	const TArray<UActorComponent*>& GetComponents() const
+	const TSet<UActorComponent*>& GetComponents() const
 	{
 		return OwnedComponents;
 	}
@@ -2615,19 +2764,28 @@ public:
 	 */
 	void UpdateAllReplicatedComponents();
 
-	/** Returns a constant reference to the replicated components array
+	/** Returns whether replication is enabled or not. */
+	FORCEINLINE bool GetIsReplicated() const
+	{
+		return bReplicates;
+	}
+
+	/** Returns a constant reference to the replicated components set
 	 */
-	const TArray<UActorComponent*>& GetReplicatedComponents() const;
+	const TSet<UActorComponent*>& GetReplicatedComponents() const 
+	{ 
+		return ReplicatedComponents; 
+	}
 
 private:
 	/**
 	 * All ActorComponents owned by this Actor.
 	 * @see GetComponents()
 	 */
-	TArray<UActorComponent*> OwnedComponents;
+	TSet<UActorComponent*> OwnedComponents;
 
-	/** List of replicated components. */
-	TArray<UActorComponent*> ReplicatedComponents;
+	/** Set of replicated components. */
+	TSet<UActorComponent*> ReplicatedComponents;
 
 #if WITH_EDITOR
 	/** Maps natively-constructed components to properties that reference them. */
@@ -2717,6 +2875,9 @@ private:
 
 	// Helper that already assumes the Hit info is reversed, and avoids creating a temp FHitResult if possible.
 	void InternalDispatchBlockingHit(UPrimitiveComponent* MyComp, UPrimitiveComponent* OtherComp, bool bSelfMoved, FHitResult const& Hit);
+
+	/** Private version without inlining that does *not* check Dedicated server build flags (which should already have been done). */
+	ENetMode InternalGetNetMode() const;
 
 	friend struct FMarkActorIsBeingDestroyed;
 	friend struct FActorParentComponentSetter;
@@ -2831,9 +2992,66 @@ FORCEINLINE_DEBUGGABLE ENetRole AActor::GetRemoteRole() const
 	return RemoteRole;
 }
 
+FORCEINLINE_DEBUGGABLE ENetMode AActor::GetNetMode() const
+{
+	// IsRunningDedicatedServer() is a compile-time check in optimized non-editor builds.
+	if (IsRunningDedicatedServer() && (NetDriverName == NAME_None || NetDriverName == NAME_GameNetDriver))
+	{
+		// Only normal net driver actors can have this optimization
+		return NM_DedicatedServer;
+	}
+
+	return InternalGetNetMode();
+}
+
+FORCEINLINE_DEBUGGABLE bool AActor::IsNetMode(ENetMode Mode) const
+{
+#if UE_EDITOR
+	// Editor builds are special because of PIE, which can run a dedicated server without the app running with -server.
+	return GetNetMode() == Mode;
+#else
+	// IsRunningDedicatedServer() is a compile-time check in optimized non-editor builds.
+	if (Mode == NM_DedicatedServer)
+	{
+		return IsRunningDedicatedServer();
+	}
+	else if (NetDriverName == NAME_None || NetDriverName == NAME_GameNetDriver)
+	{
+		// Only normal net driver actors can have this optimization
+		return !IsRunningDedicatedServer() && (InternalGetNetMode() == Mode);
+	}
+	else
+	{
+		return (InternalGetNetMode() == Mode);
+	}
+#endif
+}
+
 FORCEINLINE_DEBUGGABLE void AActor::SetNetUpdateTime(float NewUpdateTime)
 {
 	NetUpdateTime = NewUpdateTime;
+}
+
+//////////////////////////////////////////////////////////////////////////
+// UActorComponent inlines
+
+FORCEINLINE_DEBUGGABLE class AActor* UActorComponent::GetOwner() const
+{
+#if WITH_EDITOR
+	// During undo/redo the cached owner is unreliable so just used GetTypedOuter
+	if (bCanUseCachedOwner)
+	{
+		checkSlow(OwnerPrivate == GetTypedOuter<AActor>()); // verify cached value is correct
+		return OwnerPrivate;
+	}
+	else
+	{
+		return GetTypedOuter<AActor>();
+	}
+#else
+	checkSlow(OwnerPrivate == GetTypedOuter<AActor>()); // verify cached value is correct
+	return OwnerPrivate;
+#endif
 }
 
 //////////////////////////////////////////////////////////////////////////

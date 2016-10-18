@@ -5,6 +5,7 @@
 #include "GameplayDebuggerAddonManager.h"
 #include "GameplayDebuggerPlayerManager.h"
 #include "GameplayDebuggerRenderingComponent.h"
+#include "GameplayDebuggerExtension.h"
 #include "Net/UnrealNetwork.h"
 
 //////////////////////////////////////////////////////////////////////////
@@ -13,7 +14,7 @@
 DEFINE_LOG_CATEGORY_STATIC(LogGameplayDebugReplication, Display, All);
 
 static TAutoConsoleVariable<int32> CVarGameplayDebuggerRepDetails(
-	TEXT("ai.vd.DetailedReplicationLogs"),
+	TEXT("ai.debug.DetailedReplicationLogs"),
 	0,
 	TEXT("Enable or disable very verbose replication logs for gameplay debugger"),
 	ECVF_Cheat);
@@ -69,13 +70,13 @@ public:
 		for (int32 CategoryIdx = 0; CategoryIdx < CategoryStates.Num(); CategoryIdx++)
 		{
 			const FCategoryState& CategoryData = CategoryStates[CategoryIdx];
-			UE_LOG(LogGameplayDebugReplication, VeryVerbose, TEXT("category[%d] TextLinesRepCounter:%d ShapesRepCounter:%d"),
+			UE_LOG(LogGameplayDebugReplication, Verbose, TEXT("category[%d] TextLinesRepCounter:%d ShapesRepCounter:%d"),
 				CategoryIdx, CategoryData.TextLinesRepCounter, CategoryData.ShapesRepCounter);
 
 			for (int32 DataPackIdx = 0; DataPackIdx < CategoryData.DataPackStates.Num(); DataPackIdx++)
 			{
 				const FDataPackState& DataPack = CategoryData.DataPackStates[DataPackIdx];
-				UE_LOG(LogGameplayDebugReplication, VeryVerbose, TEXT(">>    data[%d] DataVersion:%d SyncCounter:%d DataOffset:%d"),
+				UE_LOG(LogGameplayDebugReplication, Verbose, TEXT(">>    data[%d] DataVersion:%d SyncCounter:%d DataOffset:%d"),
 					DataPackIdx, DataPack.DataVersion, DataPack.SyncCounter, DataPack.DataOffset);
 			}
 		}
@@ -146,7 +147,9 @@ bool FGameplayDebuggerNetPack::NetDeltaSerialize(FNetDeltaSerializeInfo& DeltaPa
 				for (int32 DataIdx = 0; DataIdx < CategoryOb.ReplicatedDataPacks.Num(); DataIdx++)
 				{
 					FGameplayDebuggerDataPack& DataPack = CategoryOb.ReplicatedDataPacks[DataIdx];
-					if (DataPack.bNeedsConfirmation && !DataPack.bReceived && !bMissingOldState && OldState->CategoryStates[Idx].DataPackStates.IsValidIndex(DataIdx))
+					const bool bHasOldStatePack = !bMissingOldState && OldState->CategoryStates[Idx].DataPackStates.IsValidIndex(DataIdx);
+
+					if (DataPack.bNeedsConfirmation && !DataPack.bReceived && bHasOldStatePack)
 					{
 						FNetFastCategoryBaseState::FDataPackState& OldDataPackState = OldState->CategoryStates[Idx].DataPackStates[DataIdx];
 						UE_LOG(LogGameplayDebugReplication, Verbose, TEXT("Checking packet confirmation for Category[%d].DataPack[%d] OldState(DataVersion:%d DataOffset:%d complete:%s) current(DataVersion:%d DataOffset:%d)"),
@@ -164,6 +167,15 @@ bool FGameplayDebuggerNetPack::NetDeltaSerialize(FNetDeltaSerializeInfo& DeltaPa
 					{
 						SavedCategory.DataPacks[DataIdx] = DataPack.Header;
 						ChangedCategories[Idx]++;
+					}
+					else if (bHasOldStatePack)
+					{
+						FNetFastCategoryBaseState::FDataPackState& OldDataPackState = OldState->CategoryStates[Idx].DataPackStates[DataIdx];
+						const bool bDataPackNotUpdatedOnClient = (OldDataPackState != DataPack.Header);
+						if (bDataPackNotUpdatedOnClient)
+						{
+							ChangedCategories[Idx]++;
+						}
 					}
 				}
 
@@ -383,10 +395,12 @@ void AGameplayDebuggerCategoryReplicator::BeginPlay()
 	bHasAuthority = (NetMode != NM_Client);
 	bIsLocal = (NetMode != NM_DedicatedServer);
 
-	FGameplayDebuggerAddonManager& CategoryManager = FGameplayDebuggerAddonManager::GetCurrent();
-	CategoryManager.OnCategoriesChanged.AddUObject(this, &AGameplayDebuggerCategoryReplicator::OnCategoriesChanged);
-	
+	FGameplayDebuggerAddonManager& AddonManager = FGameplayDebuggerAddonManager::GetCurrent();
+	AddonManager.OnCategoriesChanged.AddUObject(this, &AGameplayDebuggerCategoryReplicator::OnCategoriesChanged);
+	AddonManager.OnExtensionsChanged.AddUObject(this, &AGameplayDebuggerCategoryReplicator::OnExtensionsChanged);
+
 	OnCategoriesChanged();
+	OnExtensionsChanged();
 
 	AGameplayDebuggerPlayerManager& PlayerManager = AGameplayDebuggerPlayerManager::GetCurrent(GetWorld());
 	PlayerManager.RegisterReplicator(*this);
@@ -409,16 +423,29 @@ void AGameplayDebuggerCategoryReplicator::Destroyed()
 {
 	Super::Destroyed();
 
-	FGameplayDebuggerAddonManager& CategoryManager = FGameplayDebuggerAddonManager::GetCurrent();
-	CategoryManager.OnCategoriesChanged.RemoveAll(this);
+	FGameplayDebuggerAddonManager& AddonManager = FGameplayDebuggerAddonManager::GetCurrent();
+	AddonManager.OnCategoriesChanged.RemoveAll(this);
+	AddonManager.OnExtensionsChanged.RemoveAll(this);
 }
 
 void AGameplayDebuggerCategoryReplicator::OnCategoriesChanged()
 {
-	FGameplayDebuggerAddonManager& CategoryManager = FGameplayDebuggerAddonManager::GetCurrent();
-	CategoryManager.CreateCategories(*this, Categories);
+	FGameplayDebuggerAddonManager& AddonManager = FGameplayDebuggerAddonManager::GetCurrent();
+	AddonManager.CreateCategories(*this, Categories);
 
 	ReplicatedData.OnCategoriesChanged();
+
+	if (bIsLocal)
+	{
+		AGameplayDebuggerPlayerManager& PlayerManager = AGameplayDebuggerPlayerManager::GetCurrent(GetWorld());
+		PlayerManager.RefreshInputBindings(*this);
+	}
+}
+
+void AGameplayDebuggerCategoryReplicator::OnExtensionsChanged()
+{
+	FGameplayDebuggerAddonManager& AddonManager = FGameplayDebuggerAddonManager::GetCurrent();
+	AddonManager.CreateExtensions(*this, Extensions);
 
 	if (bIsLocal)
 	{
@@ -475,6 +502,26 @@ bool AGameplayDebuggerCategoryReplicator::ServerSetCategoryEnabled_Validate(int3
 void AGameplayDebuggerCategoryReplicator::ServerSetCategoryEnabled_Implementation(int32 CategoryId, bool bEnable)
 {
 	SetCategoryEnabled(CategoryId, bEnable);
+}
+
+bool AGameplayDebuggerCategoryReplicator::ServerSendCategoryInputEvent_Validate(int32 CategoryId, int32 HandlerId)
+{
+	return true;
+}
+
+void AGameplayDebuggerCategoryReplicator::ServerSendCategoryInputEvent_Implementation(int32 CategoryId, int32 HandlerId)
+{
+	SendCategoryInputEvent(CategoryId, HandlerId);
+}
+
+bool AGameplayDebuggerCategoryReplicator::ServerSendExtensionInputEvent_Validate(int32 ExtensionId, int32 HandlerId)
+{
+	return true;
+}
+
+void AGameplayDebuggerCategoryReplicator::ServerSendExtensionInputEvent_Implementation(int32 ExtensionId, int32 HandlerId)
+{
+	SendExtensionInputEvent(ExtensionId, HandlerId);
 }
 
 void AGameplayDebuggerCategoryReplicator::OnReceivedDataPackPacket(int32 CategoryId, int32 DataPackId, const FGameplayDebuggerDataPack& DataPacket)
@@ -579,6 +626,12 @@ void AGameplayDebuggerCategoryReplicator::TickActor(float DeltaTime, enum ELevel
 					{
 						CategoryOb.OnDataPackReplicated(DataPackIdx);
 					}
+
+					if (CategoryOb.bHasAuthority)
+					{
+						// update sync counter for local & auth packs (no data replication), otherwise they can be reset
+						DataPack.Header.SyncCounter = DebugActor.SyncCounter;
+					}
 				}
 				else
 				{
@@ -622,6 +675,11 @@ void AGameplayDebuggerCategoryReplicator::SetEnabled(bool bEnable)
 	}
 
 	MarkComponentsRenderStateDirty();
+	NotifyCategoriesToolState(bEnable);
+
+	// extensions will NOT work with simulate mode, they are meant to handle additional input
+	const bool bEnableExtensions = bEnable && !FGameplayDebuggerAddonBase::IsSimulateInEditor();
+	NotifyExtensionsToolState(bEnableExtensions);
 }
 
 void AGameplayDebuggerCategoryReplicator::SetDebugActor(AActor* Actor)
@@ -648,6 +706,7 @@ void AGameplayDebuggerCategoryReplicator::SetCategoryEnabled(int32 CategoryId, b
 	{
 		if (Categories.IsValidIndex(CategoryId))
 		{
+			UE_LOG(LogGameplayDebugReplication, Log, TEXT("SetCategoryEnabled[%d]:%d (%s)"), CategoryId, bEnable ? 1 : 0, *Categories[CategoryId]->GetCategoryName().ToString());
 			Categories[CategoryId]->bIsEnabled = bEnable;
 		}
 	}
@@ -657,6 +716,76 @@ void AGameplayDebuggerCategoryReplicator::SetCategoryEnabled(int32 CategoryId, b
 	}
 
 	MarkComponentsRenderStateDirty();
+}
+
+void AGameplayDebuggerCategoryReplicator::SendCategoryInputEvent(int32 CategoryId, int32 HandlerId)
+{
+	if (HandlerId >= 0 && Categories.IsValidIndex(CategoryId) &&
+		HandlerId < Categories[CategoryId]->GetNumInputHandlers())
+	{
+		// check enabled category only on local (instigating) side
+		if (!bIsLocal || IsCategoryEnabled(CategoryId))
+		{
+			FGameplayDebuggerInputHandler& InputHandler = Categories[CategoryId]->GetInputHandler(HandlerId);
+			if (InputHandler.Mode == EGameplayDebuggerInputMode::Local || bHasAuthority)
+			{
+				InputHandler.Delegate.ExecuteIfBound();
+			}
+			else
+			{
+				ServerSendCategoryInputEvent(CategoryId, HandlerId);
+			}
+		}
+	}
+}
+
+void AGameplayDebuggerCategoryReplicator::SendExtensionInputEvent(int32 ExtensionId, int32 HandlerId)
+{
+	if (HandlerId >= 0 && Extensions.IsValidIndex(ExtensionId) &&
+		HandlerId < Extensions[ExtensionId]->GetNumInputHandlers())
+	{
+		FGameplayDebuggerInputHandler& InputHandler = Extensions[ExtensionId]->GetInputHandler(HandlerId);
+		if (InputHandler.Mode == EGameplayDebuggerInputMode::Local || bHasAuthority)
+		{
+			InputHandler.Delegate.ExecuteIfBound();
+		}
+		else
+		{
+			ServerSendExtensionInputEvent(ExtensionId, HandlerId);
+		}
+	}
+}
+
+void AGameplayDebuggerCategoryReplicator::NotifyCategoriesToolState(bool bIsActive)
+{
+	for (int32 Idx = 0; Idx < Categories.Num(); Idx++)
+	{
+		FGameplayDebuggerCategory& CategoryOb = Categories[Idx].Get();
+		if (bIsActive)
+		{
+			CategoryOb.OnGameplayDebuggerActivated();
+		}
+		else
+		{
+			CategoryOb.OnGameplayDebuggerDeactivated();
+		}
+	}
+}
+
+void AGameplayDebuggerCategoryReplicator::NotifyExtensionsToolState(bool bIsActive)
+{
+	for (int32 Idx = 0; Idx < Extensions.Num(); Idx++)
+	{
+		FGameplayDebuggerExtension& ExtensionOb = Extensions[Idx].Get();
+		if (bIsActive)
+		{
+			ExtensionOb.OnGameplayDebuggerActivated();
+		}
+		else
+		{
+			ExtensionOb.OnGameplayDebuggerDeactivated();
+		}
+	}
 }
 
 bool AGameplayDebuggerCategoryReplicator::IsCategoryEnabled(int32 CategoryId) const

@@ -19,7 +19,7 @@
 #include "UTLobbyPC.h"
 #include "BlueprintContextLibrary.h"
 #include "PartyContext.h"
-
+#include "UTAnalytics.h"
 
 #if !UE_SERVER
 
@@ -86,6 +86,14 @@ void SUTLobbyMatchSetupPanel::Construct(const FArguments& InArgs)
 					SNew(SImage)
 					.Image(this, &SUTLobbyMatchSetupPanel::GetMapImage)
 				]
+
+				+SOverlay::Slot()
+				[
+					SNew(SImage)
+					.Image(this, &SUTLobbyMatchSetupPanel::GetMapBorder)
+					.Visibility(this, &SUTLobbyMatchSetupPanel::GetMapBorderVis)
+				]
+
 				+SOverlay::Slot()
 				[
 					SNew(SVerticalBox)
@@ -260,7 +268,7 @@ void SUTLobbyMatchSetupPanel::Tick( const FGeometry& AllottedGeometry, const dou
 		{
 			if (MatchInfo->bRedirectsHaveChanged)
 			{
-				PlayerOwner->AccquireContent(MatchInfo->Redirects);
+				PlayerOwner->AcquireContent(MatchInfo->Redirects);
 				MatchInfo->bRedirectsHaveChanged = false;
 			}
 
@@ -605,10 +613,20 @@ FReply SUTLobbyMatchSetupPanel::StartMatchClicked()
 		if (MatchInfo->CurrentState == ELobbyMatchState::WaitingForPlayers)
 		{
 			MatchInfo->ServerStartMatch();
+		
+			if (PlayerOwner.IsValid() && FUTAnalytics::IsAvailable())
+			{
+				FUTAnalytics::FireEvent_EnterMatch(Cast<AUTPlayerController>(PlayerOwner->PlayerController), FString("HUB - Start Match"));
+			}
 		}
 		else
 		{
 			MatchInfo->ServerAbortMatch();
+		
+			if (PlayerOwner.IsValid() && FUTAnalytics::IsAvailable())
+			{
+				FUTAnalytics::FireEvent_EnterMatch(Cast<AUTPlayerController>(PlayerOwner->PlayerController), FString("HUB - Abort Match"));
+			}
 		}
 	}
 
@@ -843,6 +861,36 @@ const FSlateBrush* SUTLobbyMatchSetupPanel::GetMapImage() const
 	return DefaultLevelScreenshot;
 }
 
+const FSlateBrush* SUTLobbyMatchSetupPanel::GetMapBorder() const
+{
+	if ( MatchInfo.IsValid() && MatchInfo->InitialMapInfo.IsValid() )
+	{
+		if (MatchInfo->InitialMapInfo->bIsEpicMap && !MatchInfo->InitialMapInfo->bIsMeshedMap)
+		{
+			return SUTStyle::Get().GetBrush("UT.MapOverlay.Epic.WIP");
+		}
+		else
+		{
+			return !MatchInfo->InitialMapInfo->bIsMeshedMap ? 
+				SUTStyle::Get().GetBrush("UT.MapOverlay.Community.WIP") :
+				SUTStyle::Get().GetBrush("UT.MapOverlay.Community");
+		}
+
+	}
+
+	return DefaultLevelScreenshot;
+}
+
+EVisibility SUTLobbyMatchSetupPanel::GetMapBorderVis() const
+{
+	if (MatchInfo.IsValid() && MatchInfo->InitialMapInfo.IsValid() && (!MatchInfo->InitialMapInfo->bIsEpicMap || !MatchInfo->InitialMapInfo->bIsMeshedMap))
+	{
+		return EVisibility::Visible;
+	}
+	return EVisibility::Collapsed;
+}
+
+
 FText SUTLobbyMatchSetupPanel::GetMapName() const
 {
 	if (MatchInfo.IsValid() && MatchInfo->InitialMapInfo.IsValid())
@@ -852,5 +900,6 @@ FText SUTLobbyMatchSetupPanel::GetMapName() const
 	
 	return FText::FromString(TEXT("???"));
 }
+
 
 #endif

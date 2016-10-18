@@ -15,10 +15,6 @@ public:
 	FPerforceSourceControlProvider()
 		: bServerAvailable(false)
 		, PersistentConnection(NULL)
-#if PLATFORM_WINDOWS
-		, Module_libeay32(NULL)
-		, Module_ssleay32(NULL)
-#endif
 	{
 	}
 
@@ -108,16 +104,6 @@ private:
 	 */
 	ECommandResult::Type IssueCommand(class FPerforceSourceControlCommand& InCommand, const bool bSynchronous);
 
-	/**
-	 * Load the OpenSSL libraries needed to support SSL (currently windows only)
-	 */
-	void LoadSSLLibraries();
-
-	/**
-	 * Unload the OpenSSL libraries needed to support SSL (currently windows only)
-	 */
-	void UnloadSSLLibraries();
-
 private:
 
 	/** The ticket we use for login. */
@@ -131,12 +117,6 @@ private:
 
 	/** A pointer to the persistent P4 connection for synchronous operations */
 	class FPerforceConnection* PersistentConnection;
-
-#if PLATFORM_WINDOWS
-	/** Module handles for OpenSSL dlls */
-	HMODULE Module_libeay32;
-	HMODULE Module_ssleay32;
-#endif
 
 	/** State cache */
 	TMap<FString, TSharedRef<class FPerforceSourceControlState, ESPMode::ThreadSafe> > StateCache;

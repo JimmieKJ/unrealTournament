@@ -7,7 +7,7 @@
 #pragma once
 #include "BlueprintMacroFactory.generated.h"
 
-UCLASS(hidecategories=Object, collapsecategories)
+UCLASS(MinimalAPI, hidecategories=Object, collapsecategories)
 class UBlueprintMacroFactory : public UBlueprintFactory
 {
 	GENERATED_UCLASS_BODY()
@@ -27,6 +27,3 @@ protected:
 	virtual bool IsMacroFactory() const override { return true; }
 	// End of UBlueprintFactory interface
 };
-
-
-

@@ -55,13 +55,25 @@ static bool RunCommandInternalRaw(const FString& InCommand, const FString& InPat
 
 	if(!InRepositoryRoot.IsEmpty())
 	{
+		FString RepositoryRoot = InRepositoryRoot;
+
+		// Detect a "migrate asset" scenario (a "git add" command is applied to files outside the current project)
+		if ( (InFiles.Num() > 0) && !FPaths::IsRelative(InFiles[0]) && !InFiles[0].StartsWith(InRepositoryRoot) )
+		{
+			// in this case, find the git repository (if any) of the destination Project
+			FString DestinationRepositoryRoot;
+			if(FindRootDirectory(FPaths::GetPath(InFiles[0]), DestinationRepositoryRoot))
+			{
+				RepositoryRoot = DestinationRepositoryRoot; // if found use it for the "add" command (else not, to avoid producing one more error in logs)
+			}
+		}
+
 		// Specify the working copy (the root) of the git repository (before the command itself)
 		FullCommand  = TEXT("--work-tree=\"");
-		FullCommand += InRepositoryRoot;
+		FullCommand += RepositoryRoot;
 		// and the ".git" subdirectory in it (before the command itself)
 		FullCommand += TEXT("\" --git-dir=\"");
-		FullCommand += InRepositoryRoot;
-		FullCommand += TEXT(".git\" ");
+		FullCommand += FPaths::Combine(*RepositoryRoot, TEXT(".git\" "));
 	}
 	// then the git command itself ("status", "log", "commit"...)
 	LogableCommand += InCommand;
@@ -82,9 +94,18 @@ static bool RunCommandInternalRaw(const FString& InCommand, const FString& InPat
 
 	FullCommand += LogableCommand;
 
-// @todo: temporary debug logs
-//	UE_LOG(LogSourceControl, Log, TEXT("RunCommandInternalRaw: 'git %s'"), *FullCommand);
+	// @todo: temporary debug logs
+	//UE_LOG(LogSourceControl, Log, TEXT("RunCommandInternalRaw: 'git %s'"), *FullCommand);
+	
 	FPlatformProcess::ExecProcess(*InPathToGitBinary, *FullCommand, &ReturnCode, &OutResults, &OutErrors);
+	
+	//// @todo: temporary debug logs
+	//UE_LOG(LogSourceControl, Log, TEXT("RunCommandInternalRaw: 'OutResults=\n%s'"), *OutResults);
+	//if (ReturnCode != 0)
+	//{
+	//	// @todo: temporary debug logs
+	//	UE_LOG(LogSourceControl, Warning, TEXT("RunCommandInternalRaw: 'OutErrors=\n%s'"), *OutErrors);
+	//}
 
 	return ReturnCode == 0;
 }
@@ -198,25 +219,37 @@ bool CheckGitAvailability(const FString& InPathToGitBinary)
 	return bGitAvailable;
 }
 
-// Find the root of the Git repository, looking from the GameDir and upward in its parent directories.
-bool FindRootDirectory(const FString& InPathToGameDir, FString& OutRepositoryRoot)
+// Find the root of the Git repository, looking from the provided path and upward in its parent directories.
+bool FindRootDirectory(const FString& InPath, FString& OutRepositoryRoot)
 {
 	bool bFound = false;
 	FString PathToGitSubdirectory;
-	OutRepositoryRoot = InPathToGameDir;
+	OutRepositoryRoot = InPath;
+
+	auto TrimTrailing = [](FString& Str, const TCHAR Char)
+	{
+		int32 Len = Str.Len();
+		while(Len && Str[Len - 1] == Char)
+		{
+			Str = Str.LeftChop(1);
+			Len = Str.Len();
+		}
+	};
+
+	TrimTrailing(OutRepositoryRoot, '\\');
+	TrimTrailing(OutRepositoryRoot, '/');
 
 	while(!bFound && !OutRepositoryRoot.IsEmpty())
 	{
-		PathToGitSubdirectory = OutRepositoryRoot;
-		PathToGitSubdirectory += TEXT(".git"); // Look for the ".git" subdirectory present at the root of every Git repository
+		// Look for the ".git" subdirectory present at the root of every Git repository
+		PathToGitSubdirectory = OutRepositoryRoot / TEXT(".git");
 		bFound = IFileManager::Get().DirectoryExists(*PathToGitSubdirectory);
 		if(!bFound)
 		{
 			int32 LastSlashIndex;
-			OutRepositoryRoot = OutRepositoryRoot.LeftChop(5);
 			if(OutRepositoryRoot.FindLastChar('/', LastSlashIndex))
 			{
-				OutRepositoryRoot = OutRepositoryRoot.Left(LastSlashIndex + 1);
+				OutRepositoryRoot = OutRepositoryRoot.Left(LastSlashIndex);
 			}
 			else
 			{
@@ -226,7 +259,7 @@ bool FindRootDirectory(const FString& InPathToGameDir, FString& OutRepositoryRoo
 	}
 	if (!bFound)
 	{
-		OutRepositoryRoot = InPathToGameDir; // If not found, return the GameDir as best possible root.
+		OutRepositoryRoot = InPath; // If not found, return the provided dir as best possible root.
 	}
 	return bFound;
 }
@@ -604,12 +637,11 @@ bool RunDumpToFile(const FString& InPathToGitBinary, const FString& InRepository
 	if(!InRepositoryRoot.IsEmpty())
 	{
 		// Specify the working copy (the root) of the git repository (before the command itself)
-		FullCommand = TEXT("--work-tree=\"");
+		FullCommand  = TEXT("--work-tree=\"");
 		FullCommand += InRepositoryRoot;
 		// and the ".git" subdirectory in it (before the command itself)
 		FullCommand += TEXT("\" --git-dir=\"");
-		FullCommand += InRepositoryRoot;
-		FullCommand += TEXT(".git\" ");
+		FullCommand += FPaths::Combine(*InRepositoryRoot, TEXT(".git\" "));
 	}
 	// then the git command itself
 	FullCommand += TEXT("show ");

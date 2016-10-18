@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Xml;
 using UnrealBuildTool;
 
 namespace AutomationTool.Tasks
@@ -19,10 +20,22 @@ namespace AutomationTool.Tasks
 		public int Change;
 
 		/// <summary>
+		/// The engine compatible changelist to set in the version files
+		/// </summary>
+		[TaskParameter(Optional = true)]
+		public int CompatibleChange;
+
+		/// <summary>
 		/// The branch string
 		/// </summary>
 		[TaskParameter]
 		public string Branch;
+
+		/// <summary>
+		/// The build version string
+		/// </summary>
+		[TaskParameter(Optional = true)]
+		public string Build;
 
 		/// <summary>
 		/// Whether to set the IS_LICENSEE_VERSION flag to true
@@ -35,10 +48,16 @@ namespace AutomationTool.Tasks
 		/// </summary>
 		[TaskParameter(Optional = true)]
 		public bool SkipWrite;
+
+		/// <summary>
+		/// Tag to be applied to build products of this task
+		/// </summary>
+		[TaskParameter(Optional = true, ValidationType = TaskParameterValidationType.TagList)]
+		public string Tag;
 	}
 
 	/// <summary>
-	/// Task which updates the version files in the current branch
+	/// Updates the local version files (Engine/Source/Runtime/Launch/Resources/Version.h, Engine/Build/Build.version, and Engine/Source/Programs/DotNETCommon/Metadata.cs) with the given version information.
 	/// </summary>
 	[TaskElement("SetVersion", typeof(SetVersionTaskParameters))]
 	public class SetVersionTask : CustomTask
@@ -66,9 +85,45 @@ namespace AutomationTool.Tasks
 		/// <returns>True if the task succeeded</returns>
 		public override bool Execute(JobContext Job, HashSet<FileReference> BuildProducts, Dictionary<string, HashSet<FileReference>> TagNameToFileSet)
 		{
-			List<string> FileNames = UE4Build.StaticUpdateVersionFiles(Parameters.Change, Parameters.Branch, Parameters.Licensee, !Parameters.SkipWrite);
-			BuildProducts.UnionWith(FileNames.Select(x => new FileReference(x)));
+			// Update the version files
+			List<string> FileNames = UE4Build.StaticUpdateVersionFiles(Parameters.Change, Parameters.CompatibleChange, Parameters.Branch, Parameters.Build, Parameters.Licensee, !Parameters.SkipWrite);
+			List<FileReference> VersionFiles = FileNames.Select(x => new FileReference(x)).ToList();
+
+			// Apply the optional tag to them
+			foreach(string TagName in FindTagNamesFromList(Parameters.Tag))
+			{
+				FindOrAddTagSet(TagNameToFileSet, TagName).UnionWith(VersionFiles);
+			}
+
+			// Add them to the list of build products
+			BuildProducts.UnionWith(VersionFiles);
 			return true;
+		}
+
+		/// <summary>
+		/// Output this task out to an XML writer.
+		/// </summary>
+		public override void Write(XmlWriter Writer)
+		{
+			Write(Writer, Parameters);
+		}
+
+		/// <summary>
+		/// Find all the tags which are used as inputs to this task
+		/// </summary>
+		/// <returns>The tag names which are read by this task</returns>
+		public override IEnumerable<string> FindConsumedTagNames()
+		{
+			yield break;
+		}
+
+		/// <summary>
+		/// Find all the tags which are modified by this task
+		/// </summary>
+		/// <returns>The tag names which are modified by this task</returns>
+		public override IEnumerable<string> FindProducedTagNames()
+		{
+			return FindTagNamesFromList(Parameters.Tag);
 		}
 	}
 }

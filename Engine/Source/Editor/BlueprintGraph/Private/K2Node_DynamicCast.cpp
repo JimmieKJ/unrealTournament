@@ -76,6 +76,12 @@ FLinearColor UK2Node_DynamicCast::GetNodeTitleColor() const
 	return FLinearColor(0.0f, 0.55f, 0.62f);
 }
 
+FSlateIcon UK2Node_DynamicCast::GetIconAndTint(FLinearColor& OutColor) const
+{
+	static FSlateIcon Icon("EditorStyle", "GraphEditor.Cast_16x");
+	return Icon;
+}
+
 FText UK2Node_DynamicCast::GetNodeTitle(ENodeTitleType::Type TitleType) const
 {
 	if (TargetType == nullptr)

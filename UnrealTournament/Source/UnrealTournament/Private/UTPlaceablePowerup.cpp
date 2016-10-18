@@ -37,19 +37,65 @@ void AUTPlaceablePowerup::Destroyed()
 
 void AUTPlaceablePowerup::DrawInventoryHUD_Implementation(UUTHUDWidget* Widget, FVector2D Pos, FVector2D Size)
 {
-	if (HUDIcon.Texture != NULL)
+	//Only overwrite paused behavior
+	if (!bTimerPaused)
 	{
-		FText Text = GetHUDText();
+		Super::DrawInventoryHUD_Implementation(Widget, Pos, Size);
+	}
+	else
+	{
+		//Display icon (but no timer text like default) if our placeable is paused.
+		if (HUDIcon.Texture != NULL)
+		{
+			UFont* MediumFont = Widget->UTHUDOwner->MediumFont;
+			float Xl, YL;
+			Widget->GetCanvas()->StrLen(MediumFont, FString(TEXT("000")), Xl, YL);
 
-		UFont* MediumFont = Widget->UTHUDOwner->MediumFont;
-		float Xl, YL;
-		Widget->GetCanvas()->StrLen(MediumFont, FString(TEXT("000")), Xl, YL);
+			// icon left aligned, time remaining right aligned
+			Widget->DrawTexture(HUDIcon.Texture, Xl * -1, Pos.Y, Size.X, Size.Y, HUDIcon.U, HUDIcon.V, HUDIcon.UL, HUDIcon.VL, 1.0, FLinearColor::White, FVector2D(1.0, 0.0));
+		}
+	}
+}
 
-		// Draws the Timer first 
-		Widget->DrawText(Text, 0, Pos.Y + (Size.Y * 0.5f) , Widget->UTHUDOwner->MediumFont, 1.0f, 1.0f, FLinearColor::White, ETextHorzPos::Right, ETextVertPos::Center);
+FText AUTPlaceablePowerup::GetHUDText() const
+{
+	if (!bTimerPaused)
+	{
+		return Super::GetHUDText();
+	}
+	else
+	{
+		if (UTOwner && UTOwner->PlayerState)
+		{
+			AUTPlayerState* UTPS = Cast<AUTPlayerState>(UTOwner->PlayerState);
+			if (UTPS)
+			{
+				return FText::AsNumber(UTPS->GetRemainingBoosts());
+			}
+		}
 
-		// icon left aligned, time remaining right aligned
-		Widget->DrawTexture(HUDIcon.Texture, Xl * -1, Pos.Y, Size.X, Size.Y, HUDIcon.U, HUDIcon.V, HUDIcon.UL, HUDIcon.VL,1.0, FLinearColor::White, FVector2D(1.0,0.0));
+		return FText::GetEmpty();
+	}
+}
+
+int32 AUTPlaceablePowerup::GetHUDValue() const
+{
+	if (!bTimerPaused)
+	{
+		return Super::GetHUDValue();
+	}
+	else
+	{
+		if (UTOwner && UTOwner->PlayerState)
+		{
+			AUTPlayerState* UTPS = Cast<AUTPlayerState>(UTOwner->PlayerState);
+			if (UTPS)
+			{
+				return static_cast<int32>(UTPS->GetRemainingBoosts());
+			}
+		}
+
+		return 0;
 	}
 }
 
@@ -80,7 +126,9 @@ void AUTPlaceablePowerup::SpawnPowerup()
 
 		if (bAttachToOwner)
 		{
-			NewlySpawnedActor->AttachRootComponentToActor(UTOwner, NAME_None, EAttachLocation::SnapToTarget, true);
+			FAttachmentTransformRules AttachmentRules = FAttachmentTransformRules::SnapToTargetNotIncludingScale;
+			AttachmentRules.bWeldSimulatedBodies = true;			
+			NewlySpawnedActor->AttachToActor(UTOwner, AttachmentRules, NAME_None);
 		}
 	}
 

@@ -22,7 +22,7 @@ FAutoConsoleVariableRef CVarSurfelDensity(
 	TEXT("r.SurfelDensity"),
 	GSurfelDensity,
 	TEXT(""),
-	ECVF_Cheat | ECVF_RenderThreadSafe
+	ECVF_RenderThreadSafe
 	);
 
 int32 GMaxSurfelsPerObject = 10000;
@@ -30,7 +30,7 @@ FAutoConsoleVariableRef CVarMaxSurfelsPerObject(
 	TEXT("r.SurfelMaxPerObject"),
 	GMaxSurfelsPerObject,
 	TEXT(""),
-	ECVF_Cheat | ECVF_RenderThreadSafe
+	ECVF_RenderThreadSafe
 	);
 
 float GSurfelLODDensityFraction = .2f;
@@ -38,7 +38,7 @@ FAutoConsoleVariableRef CVarSurfelLODDensityFraction(
 	TEXT("r.SurfelLODDensityFraction"),
 	GSurfelLODDensityFraction,
 	TEXT(""),
-	ECVF_Cheat | ECVF_RenderThreadSafe
+	ECVF_RenderThreadSafe
 	);
 
 class FComputeTriangleAreasCS : public FGlobalShader

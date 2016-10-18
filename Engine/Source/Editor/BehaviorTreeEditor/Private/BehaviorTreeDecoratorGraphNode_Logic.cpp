@@ -76,7 +76,7 @@ UEdGraphPin* UBehaviorTreeDecoratorGraphNode_Logic::AddInputPin()
 
 void UBehaviorTreeDecoratorGraphNode_Logic::RemoveInputPin(class UEdGraphPin* Pin)
 {
-	Pin->BreakAllPinLinks();
+	Pin->MarkPendingKill();
 	Pins.Remove(Pin);
 }
 

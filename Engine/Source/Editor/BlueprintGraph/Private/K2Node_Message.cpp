@@ -322,7 +322,7 @@ void UK2Node_Message::ExpandNode(class FKismetCompilerContext& CompilerContext, 
 		UFunction* ArrayClearFunction = UKismetArrayLibrary::StaticClass()->FindFunctionByName(FName(TEXT("Array_Clear")));
 		check(ArrayClearFunction);
 
-		bool const bIsPureFunc = Super::IsNodePure();
+		bool const bIsPureMessageFunc = Super::IsNodePure();
 		// Variable pins - Try to associate variable inputs to the message node with the variable inputs and outputs to the call function node
 		for( int32 i = 0; i < Pins.Num(); i++ )
 		{
@@ -340,7 +340,7 @@ void UK2Node_Message::ExpandNode(class FKismetCompilerContext& CompilerContext, 
 					if (EEdGraphPinDirection::EGPD_Output == CurrentPin->Direction)
 					{
 						UEdGraphPin* VarOutPin = FunctionCallPin;
-						if (bIsPureFunc)
+						if (bIsPureMessageFunc)
 						{
 							// since we cannot directly use the output from the
 							// function call node (since it is pure, and invoking

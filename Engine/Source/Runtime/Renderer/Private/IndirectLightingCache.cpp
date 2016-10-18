@@ -473,8 +473,10 @@ void FIndirectLightingCache::UpdateCachePrimitivesInternal(FScene* Scene, FScene
 
 				// If it was already dirty, then the primitive is already in one of the view dirty primitive list at this point.
 				// This also ensures that a primitive does not get added twice to the list, which could create an array reallocation.
-				if (!bPrecomputedLightingBufferWasDirty && PrimitiveSceneInfo->NeedsPrecomputedLightingBufferUpdate())
+				if (!bPrecomputedLightingBufferWasDirty)
 				{
+					PrimitiveSceneInfo->MarkPrecomputedLightingBufferDirty();
+
 					// Check if it is visible otherwise, it will be updated next time it is visible.
 					for (int32 ViewIndex = 0; ViewIndex < Renderer.Views.Num(); ViewIndex++)
 					{
@@ -506,6 +508,13 @@ void FIndirectLightingCache::UpdateCachePrimitivesInternal(FScene* Scene, FScene
 					{
 						uint32 PrimitiveIndex = BitIt.GetIndex();
 						SetBitIndices[ViewIndex].Add(PrimitiveIndex);					
+					}
+
+					// Any visible primitives with an indirect shadow need their ILC updated, since that determines the indirect shadow direction
+					for (int32 IndirectPrimitiveIndex = 0; IndirectPrimitiveIndex < View.IndirectShadowPrimitives.Num(); IndirectPrimitiveIndex++)
+					{
+						int32 PrimitiveIndex = View.IndirectShadowPrimitives[IndirectPrimitiveIndex]->GetIndex();
+						SetBitIndices[ViewIndex].AddUnique(PrimitiveIndex);
 					}
 				}			
 			}
@@ -571,7 +580,7 @@ void FIndirectLightingCache::FinalizeUpdateInternal_RenderThread(FScene* Scene, 
 	}
 }
 
-void FIndirectLightingCache::UpdateCacheAllocation(
+bool FIndirectLightingCache::UpdateCacheAllocation(
 	const FBoxSphereBounds& Bounds,
 	int32 BlockSize,
 	bool bPointSample,
@@ -580,6 +589,8 @@ void FIndirectLightingCache::UpdateCacheAllocation(
 	TMap<FIntVector, FBlockUpdateInfo>& BlocksToUpdate,
 	TArray<FIndirectLightingCacheAllocation*>& TransitionsOverTimeToUpdate)
 {
+	bool bUpdated = false;
+
 	if (Allocation && Allocation->IsValid())
 	{
 		FIndirectLightingCacheBlock& Block = FindBlock(Allocation->MinTexel);
@@ -604,11 +615,15 @@ void FIndirectLightingCache::UpdateCacheAllocation(
 
 			Allocation->SetParameters(Allocation->MinTexel, Allocation->AllocationTexelSize, NewScale, NewAdd, MinUV, MaxUV, bPointSample, bUnbuiltPreview);
 			BlocksToUpdate.Add(Block.MinTexel, FBlockUpdateInfo(Block, Allocation));
-		}
 
-		if ((Allocation->SingleSamplePosition - Allocation->TargetPosition).SizeSquared() > DELTA)
+			// Updating the block will also update the target position, meaning the ILC must be updated too.
+			TransitionsOverTimeToUpdate.AddUnique(Allocation);
+			bUpdated = true;
+		}
+		else if ((Allocation->SingleSamplePosition - Allocation->TargetPosition).SizeSquared() > DELTA)
 		{
 			TransitionsOverTimeToUpdate.AddUnique(Allocation);
+			bUpdated = true;
 		}
 	}
 	else
@@ -621,7 +636,10 @@ void FIndirectLightingCache::UpdateCacheAllocation(
 			// Must interpolate lighting for this new block
 			BlocksToUpdate.Add(Allocation->MinTexel, FBlockUpdateInfo(VolumeBlocks.FindChecked(Allocation->MinTexel), Allocation));
 		}
+		bUpdated = true;
 	}
+
+	return bUpdated;
 }
 
 void FIndirectLightingCache::UpdateCachePrimitive(
@@ -655,12 +673,13 @@ void FIndirectLightingCache::UpdateCachePrimitive(
 			}
 		}
 
-		const FIndirectLightingCacheAllocation* OriginalPrimitiveAllocation = PrimitiveSceneInfo->IndirectLightingCacheAllocation;
-
 		if (AttachmentParentAllocation)
 		{
 			// Reuse the attachment parent's lighting allocation if part of an attachment group
 			PrimitiveSceneInfo->IndirectLightingCacheAllocation = AttachmentParentAllocation;
+
+			// Don't know here if this parent ILC is or will be dirty or not. Always update.
+			PrimitiveSceneInfo->MarkPrecomputedLightingBufferDirty();
 		}
 		else
 		{
@@ -670,7 +689,7 @@ void FIndirectLightingCache::UpdateCachePrimitive(
 			const int32 BlockSize = bPointSample ? 1 : GLightingCacheMovableObjectAllocationSize;
 
 			// Light with the cumulative bounds of the entire attachment group
-			UpdateCacheAllocation(PrimitiveSceneInfo->GetAttachmentGroupBounds(), BlockSize, bPointSample, bUnbuiltPreview, PrimitiveAllocation, BlocksToUpdate, TransitionsOverTimeToUpdate);
+			const bool bUpdated = UpdateCacheAllocation(PrimitiveSceneInfo->GetAttachmentGroupBounds(), BlockSize, bPointSample, bUnbuiltPreview, PrimitiveAllocation, BlocksToUpdate, TransitionsOverTimeToUpdate);
 
 			// Cache the primitive allocation pointer on the FPrimitiveSceneInfo for base pass rendering
 			PrimitiveSceneInfo->IndirectLightingCacheAllocation = PrimitiveAllocation;
@@ -685,11 +704,11 @@ void FIndirectLightingCache::UpdateCachePrimitive(
 				// Allocate space in the atlas for this primitive and add it to a map, whose key is the component, so the allocation will persist through a re-register
 				PrimitiveAllocations.Add(PrimitiveSceneInfo->PrimitiveComponentId, PrimitiveAllocation);
 			}
-		}
 
-		if (OriginalPrimitiveAllocation != PrimitiveSceneInfo->IndirectLightingCacheAllocation)
-		{
-			PrimitiveSceneInfo->MarkPrecomputedLightingBufferDirty();
+			if (bUpdated)
+			{
+				PrimitiveSceneInfo->MarkPrecomputedLightingBufferDirty();
+			}
 		}
 	}
 }
@@ -723,11 +742,12 @@ void FIndirectLightingCache::UpdateTransitionsOverTime(const TArray<FIndirectLig
 			const float LerpFactor = FMath::Clamp(GSingleSampleTransitionSpeed * DeltaWorldTime / TransitionDistance, 0.0f, 1.0f);
 			Allocation->SingleSamplePosition = FMath::Lerp(Allocation->SingleSamplePosition, Allocation->TargetPosition, LerpFactor);
 
-			for (int32 VectorIndex = 0; VectorIndex < ARRAY_COUNT(Allocation->SingleSamplePacked); VectorIndex++)
+			for (int32 VectorIndex = 0; VectorIndex < 3; VectorIndex++) // RGB
 			{
-				Allocation->SingleSamplePacked[VectorIndex] = FMath::Lerp(Allocation->SingleSamplePacked[VectorIndex], Allocation->TargetSamplePacked[VectorIndex], LerpFactor);
+				Allocation->SingleSamplePacked0[VectorIndex] = FMath::Lerp(Allocation->SingleSamplePacked0[VectorIndex], Allocation->TargetSamplePacked0[VectorIndex], LerpFactor);
+				Allocation->SingleSamplePacked1[VectorIndex] = FMath::Lerp(Allocation->SingleSamplePacked1[VectorIndex], Allocation->TargetSamplePacked1[VectorIndex], LerpFactor);
 			}
-
+			Allocation->SingleSamplePacked2 = FMath::Lerp(Allocation->SingleSamplePacked2, Allocation->TargetSamplePacked2, LerpFactor);
 			Allocation->CurrentDirectionalShadowing = FMath::Lerp(Allocation->CurrentDirectionalShadowing, Allocation->TargetDirectionalShadowing, LerpFactor);
 
 			const FVector CurrentSkyBentNormal = FMath::Lerp(
@@ -757,10 +777,13 @@ void FIndirectLightingCache::SetLightingCacheDirty()
 void FIndirectLightingCache::UpdateBlock(FScene* Scene, FViewInfo* DebugDrawingView, FBlockUpdateInfo& BlockInfo)
 {
 	const int32 NumSamplesPerBlock = BlockInfo.Block.TexelSize * BlockInfo.Block.TexelSize * BlockInfo.Block.TexelSize;
+	FSHVectorRGB3 SingleSample;
 
-	FSHVectorRGB2 SingleSample;
 	float DirectionalShadowing = 1;
 	FVector SkyBentNormal(0, 0, 1);
+
+	//always do point interpolation to get valid 3band single sample and directional data.
+	InterpolatePoint(Scene, BlockInfo.Block, DirectionalShadowing, SingleSample, SkyBentNormal);
 
 	if (CanIndirectLightingCacheUseVolumeTexture(GetFeatureLevel()) && !BlockInfo.Allocation->bPointSample)
 	{
@@ -768,12 +791,14 @@ void FIndirectLightingCache::UpdateBlock(FScene* Scene, FViewInfo* DebugDrawingV
 		AccumulatedWeight.Reset(NumSamplesPerBlock);
 		AccumulatedWeight.AddZeroed(NumSamplesPerBlock);
 
+		//volume textures are encoded as two band, so no reason to waste perf interpolating 3 bands.
 		static TArray<FSHVectorRGB2> AccumulatedIncidentRadiance;
+
 		AccumulatedIncidentRadiance.Reset(NumSamplesPerBlock);
 		AccumulatedIncidentRadiance.AddZeroed(NumSamplesPerBlock);
 
 		// Interpolate SH samples from precomputed lighting samples and accumulate lighting data for an entire block
-		InterpolateBlock(Scene, BlockInfo.Block, AccumulatedWeight, AccumulatedIncidentRadiance, SkyBentNormal, DirectionalShadowing);
+		InterpolateBlock(Scene, BlockInfo.Block, AccumulatedWeight, AccumulatedIncidentRadiance);
 
 		static TArray<FFloat16Color> Texture0Data;
 		static TArray<FFloat16Color> Texture1Data;
@@ -790,7 +815,7 @@ void FIndirectLightingCache::UpdateBlock(FScene* Scene, FViewInfo* DebugDrawingV
 
 		// Encode the SH samples into a texture format
 		// Note the single sample is updated even if this is a volume allocation, because translucent materials only use the single sample
-		EncodeBlock(DebugDrawingView, BlockInfo.Block, AccumulatedWeight, AccumulatedIncidentRadiance, Texture0Data, Texture1Data, Texture2Data, SingleSample);
+		EncodeBlock(DebugDrawingView, BlockInfo.Block, AccumulatedWeight, AccumulatedIncidentRadiance, Texture0Data, Texture1Data, Texture2Data);
 
 		// Setup an update region
 		const FUpdateTextureRegion3D UpdateRegion(
@@ -811,8 +836,6 @@ void FIndirectLightingCache::UpdateBlock(FScene* Scene, FViewInfo* DebugDrawingV
 	}
 	else
 	{
-		InterpolatePoint(Scene, BlockInfo.Block, DirectionalShadowing, SingleSample, SkyBentNormal);
-
 		if (GCacheDrawInterpolationPoints != 0 && DebugDrawingView)
 		{
 			FViewElementPDI DebugPDI(DebugDrawingView, NULL);
@@ -823,9 +846,15 @@ void FIndirectLightingCache::UpdateBlock(FScene* Scene, FViewInfo* DebugDrawingV
 
 	// Record the position that the sample was taken at
 	BlockInfo.Allocation->TargetPosition = BlockInfo.Block.Min + BlockInfo.Block.Size / 2;
-	BlockInfo.Allocation->TargetSamplePacked[0] = FVector4(SingleSample.R.V[0], SingleSample.R.V[1], SingleSample.R.V[2], SingleSample.R.V[3]) / PI;
-	BlockInfo.Allocation->TargetSamplePacked[1] = FVector4(SingleSample.G.V[0], SingleSample.G.V[1], SingleSample.G.V[2], SingleSample.G.V[3]) / PI;
-	BlockInfo.Allocation->TargetSamplePacked[2] = FVector4(SingleSample.B.V[0], SingleSample.B.V[1], SingleSample.B.V[2], SingleSample.B.V[3]) / PI;
+
+	BlockInfo.Allocation->TargetSamplePacked0[0] = FVector4(SingleSample.R.V[0], SingleSample.R.V[1], SingleSample.R.V[2], SingleSample.R.V[3]) / PI;
+	BlockInfo.Allocation->TargetSamplePacked0[1] = FVector4(SingleSample.G.V[0], SingleSample.G.V[1], SingleSample.G.V[2], SingleSample.G.V[3]) / PI;
+	BlockInfo.Allocation->TargetSamplePacked0[2] = FVector4(SingleSample.B.V[0], SingleSample.B.V[1], SingleSample.B.V[2], SingleSample.B.V[3]) / PI;
+	BlockInfo.Allocation->TargetSamplePacked1[0] = FVector4(SingleSample.R.V[4], SingleSample.R.V[5], SingleSample.R.V[6], SingleSample.R.V[7]) / PI;
+	BlockInfo.Allocation->TargetSamplePacked1[1] = FVector4(SingleSample.G.V[4], SingleSample.G.V[5], SingleSample.G.V[6], SingleSample.G.V[7]) / PI;
+	BlockInfo.Allocation->TargetSamplePacked1[2] = FVector4(SingleSample.B.V[4], SingleSample.B.V[5], SingleSample.B.V[6], SingleSample.B.V[7]) / PI;
+	BlockInfo.Allocation->TargetSamplePacked2 = FVector4(SingleSample.R.V[8], SingleSample.G.V[8], SingleSample.B.V[8], 0) / PI;
+
 	BlockInfo.Allocation->TargetDirectionalShadowing = DirectionalShadowing;
 
 	const float BentNormalLength = SkyBentNormal.Size();
@@ -837,11 +866,12 @@ void FIndirectLightingCache::UpdateBlock(FScene* Scene, FViewInfo* DebugDrawingV
 		//@todo - detect and handle teleports in the same way
 		BlockInfo.Allocation->SingleSamplePosition = BlockInfo.Allocation->TargetPosition;
 
-		for (int32 VectorIndex = 0; VectorIndex < ARRAY_COUNT(BlockInfo.Allocation->SingleSamplePacked); VectorIndex++)
+		for (int32 VectorIndex = 0; VectorIndex < 3; VectorIndex++) // RGB
 		{
-			BlockInfo.Allocation->SingleSamplePacked[VectorIndex] = BlockInfo.Allocation->TargetSamplePacked[VectorIndex];
+			BlockInfo.Allocation->SingleSamplePacked0[VectorIndex] = BlockInfo.Allocation->TargetSamplePacked0[VectorIndex];
+			BlockInfo.Allocation->SingleSamplePacked1[VectorIndex] = BlockInfo.Allocation->TargetSamplePacked1[VectorIndex];
 		}
-
+		BlockInfo.Allocation->SingleSamplePacked2 = BlockInfo.Allocation->TargetSamplePacked2;
 		BlockInfo.Allocation->CurrentDirectionalShadowing = BlockInfo.Allocation->TargetDirectionalShadowing;
 		BlockInfo.Allocation->CurrentSkyBentNormal = BlockInfo.Allocation->TargetSkyBentNormal;
 
@@ -851,13 +881,14 @@ void FIndirectLightingCache::UpdateBlock(FScene* Scene, FViewInfo* DebugDrawingV
 	BlockInfo.Block.bHasEverBeenUpdated = true;
 }
 
-static void ReduceSHRinging(FSHVectorRGB2& IncidentRadiance)
+template <int32 SHOrder>
+static void ReduceSHRinging(TSHVectorRGB<SHOrder>& IncidentRadiance)
 {
 	const FVector BrightestDirection = IncidentRadiance.GetLuminance().GetMaximumDirection();
-	FSHVector2 BrigthestDiffuseTransferSH = FSHVector2::CalcDiffuseTransfer(BrightestDirection);
+	TSHVector<SHOrder> BrigthestDiffuseTransferSH = TSHVector<SHOrder>::CalcDiffuseTransfer(BrightestDirection);
 	FLinearColor BrightestLighting = Dot(IncidentRadiance, BrigthestDiffuseTransferSH);
 
-	FSHVector2 OppositeDiffuseTransferSH = FSHVector2::CalcDiffuseTransfer(-BrightestDirection);
+	TSHVector<SHOrder> OppositeDiffuseTransferSH = TSHVector<SHOrder>::CalcDiffuseTransfer(-BrightestDirection);
 	FLinearColor OppositeLighting = Dot(IncidentRadiance, OppositeDiffuseTransferSH);
 
 	// Try to maintain 5% of the brightest side on the opposite side
@@ -866,17 +897,17 @@ static void ReduceSHRinging(FSHVectorRGB2& IncidentRadiance)
 	FVector NegativeAmount = (MinOppositeLighting - FVector(OppositeLighting)).ComponentMax(FVector(0));
 
 	//@todo - do this in a way that preserves energy and doesn't change hue
-	IncidentRadiance.AddAmbient(FLinearColor(NegativeAmount) * FSHVector2::ConstantBasisIntegral);
+	IncidentRadiance.AddAmbient(FLinearColor(NegativeAmount) * TSHVector<SHOrder>::ConstantBasisIntegral);
 }
 
 void FIndirectLightingCache::InterpolatePoint(
 	FScene* Scene, 
 	const FIndirectLightingCacheBlock& Block,
 	float& OutDirectionalShadowing, 
-	FSHVectorRGB2& OutIncidentRadiance,
+	FSHVectorRGB3& OutIncidentRadiance,
 	FVector& OutSkyBentNormal)
 {
-	FSHVectorRGB2 AccumulatedIncidentRadiance;
+	FSHVectorRGB3 AccumulatedIncidentRadiance;
 	FVector AccumulatedSkyBentNormal(0, 0, 0);
 	float AccumulatedDirectionalShadowing = 0;
 	float AccumulatedWeight = 0;
@@ -919,15 +950,10 @@ void FIndirectLightingCache::InterpolateBlock(
 	FScene* Scene, 
 	const FIndirectLightingCacheBlock& Block, 
 	TArray<float>& AccumulatedWeight, 
-	TArray<FSHVectorRGB2>& AccumulatedIncidentRadiance,
-	FVector& OutCenterSkyBentNormal,
-	float& OutCenterDirectionalLightShadowing)
+	TArray<FSHVectorRGB2>& AccumulatedIncidentRadiance)
 {
 	const FBoxCenterAndExtent BlockBoundingBox(Block.Min + Block.Size / 2, Block.Size / 2);
-	const FVector HalfTexelWorldOffset = BlockBoundingBox.Extent / FVector(Block.TexelSize);
-	FVector AccumulatedCenterSkyBentNormal = FVector::ZeroVector;
-	float AccumulatedCenterDirectionalLightShadowing = 0;
-	float AccumulatedCenterWeight = 0;
+	const FVector HalfTexelWorldOffset = BlockBoundingBox.Extent / FVector(Block.TexelSize);	
 
 	if (GCacheLimitQuerySize && Block.TexelSize > 2)
 	{
@@ -1016,19 +1042,13 @@ void FIndirectLightingCache::InterpolateBlock(
 							&& CellIndex.Z + NumQueryStepCells.Z <= Block.TexelSize);
 
 						// Interpolate from the SH volume lighting samples that Lightmass computed
-						if (PrecomputedLightVolume)
-						{
-							PrecomputedLightVolume->InterpolateIncidentRadianceBlock(
-								BoundingBox,
-								NumQueryStepCells,
-								FIntVector(Block.TexelSize),
-								CellIndex,
-								AccumulatedWeight,
-								AccumulatedIncidentRadiance,
-								AccumulatedCenterSkyBentNormal,
-								AccumulatedCenterDirectionalLightShadowing,
-								AccumulatedCenterWeight);
-						}
+						PrecomputedLightVolume->InterpolateIncidentRadianceBlock(
+							BoundingBox,
+							NumQueryStepCells,
+							FIntVector(Block.TexelSize),
+							CellIndex,
+							AccumulatedWeight,
+							AccumulatedIncidentRadiance);
 					}
 				}
 			}
@@ -1050,24 +1070,9 @@ void FIndirectLightingCache::InterpolateBlock(
 				FIntVector(Block.TexelSize), 
 				FIntVector(0), 
 				AccumulatedWeight, 
-				AccumulatedIncidentRadiance,
-				AccumulatedCenterSkyBentNormal,
-				AccumulatedCenterDirectionalLightShadowing,
-				AccumulatedCenterWeight);
+				AccumulatedIncidentRadiance);
 		}
-	}
-
-	if (AccumulatedCenterWeight > 0)
-	{
-		OutCenterDirectionalLightShadowing = AccumulatedCenterDirectionalLightShadowing / AccumulatedCenterWeight;
-		OutCenterSkyBentNormal = AccumulatedCenterSkyBentNormal / AccumulatedCenterWeight;
-	}
-	else
-	{
-		OutCenterDirectionalLightShadowing = 1;
-		// Use an unoccluded vector if no valid samples were found for interpolation
-		OutCenterSkyBentNormal = FVector(0, 0, 1);
-	}
+	}	
 }
 
 void FIndirectLightingCache::EncodeBlock(
@@ -1077,8 +1082,8 @@ void FIndirectLightingCache::EncodeBlock(
 	const TArray<FSHVectorRGB2>& AccumulatedIncidentRadiance,
 	TArray<FFloat16Color>& Texture0Data,
 	TArray<FFloat16Color>& Texture1Data,
-	TArray<FFloat16Color>& Texture2Data,
-	FSHVectorRGB2& SingleSample)
+	TArray<FFloat16Color>& Texture2Data	
+	)
 {
 	FViewElementPDI DebugPDI(DebugDrawingView, NULL);
 
@@ -1101,20 +1106,14 @@ void FIndirectLightingCache::EncodeBlock(
 					{
 						ReduceSHRinging(IncidentRadiance);
 					}
-				}
-
-				// Populate single sample from center
-				if (X == Block.TexelSize / 2 && Y == Block.TexelSize / 2 && Z == Block.TexelSize / 2)
-				{
-					SingleSample = IncidentRadiance;
-				}
+				}				
 
 				if (GCacheDrawInterpolationPoints != 0 && DebugDrawingView)
 				{
 					const FVector WorldPosition = Block.Min + (FVector(X, Y, Z) + .5f) / Block.TexelSize * Block.Size;
 					DebugPDI.DrawPoint(WorldPosition, FLinearColor(0, 0, 1), 10, SDPG_World);
 				}
-
+				
 				Texture0Data[LinearIndex] = FLinearColor(IncidentRadiance.R.V[0], IncidentRadiance.G.V[0], IncidentRadiance.B.V[0], IncidentRadiance.R.V[3]);
 				Texture1Data[LinearIndex] = FLinearColor(IncidentRadiance.R.V[1], IncidentRadiance.G.V[1], IncidentRadiance.B.V[1], IncidentRadiance.G.V[3]);
 				Texture2Data[LinearIndex] = FLinearColor(IncidentRadiance.R.V[2], IncidentRadiance.G.V[2], IncidentRadiance.B.V[2], IncidentRadiance.B.V[3]);

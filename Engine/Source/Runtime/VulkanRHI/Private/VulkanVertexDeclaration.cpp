@@ -19,7 +19,7 @@ struct FVulkanVertexDeclarationKey
     }
 };
 
-uint32 GetTypeHash(const FVulkanVertexDeclarationKey& Key)
+inline uint32 GetTypeHash(const FVulkanVertexDeclarationKey& Key)
 {
     return Key.Hash;
 }

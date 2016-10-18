@@ -23,8 +23,5 @@ public:
 	//~ End UCommandlet Interface
 
 private:
-	bool ImportDialogueScriptForCulture(const FString& InDialogueScriptFileName, const FString& InCultureArchiveFileName, const FString& InCultureName, const bool bIsNativeCulture);
-
-	TSharedPtr<FInternationalizationManifest> InternationalizationManifest;
-	TSharedPtr<FInternationalizationArchive> NativeArchive;
+	bool ImportDialogueScriptForCulture(FLocTextHelper& InLocTextHelper, const FString& InDialogueScriptFileName, const FString& InCultureName, const bool bIsNativeCulture);
 };

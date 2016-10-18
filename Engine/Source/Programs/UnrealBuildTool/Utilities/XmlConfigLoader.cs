@@ -76,54 +76,56 @@ namespace UnrealBuildTool
 		/// <returns>Default config XML.</returns>
 		public static string GetDefaultXML()
 		{
-			string Comment = @"
-	#########################################################################
-	#																		#
-	#	This is an XML with default UBT configuration. If you want to		#
-	#	override it, create the same file in the locations c. or d.			#
-	#	(see below). DONT'T CHANGE CONTENTS OF THIS FILE!					#	
-	#																		#
-	#########################################################################
-	
-	The syntax of this file is:
-	<Configuration>
-		<ClassA>
-			<Field1>Value</Field2>
-			<ArrayField2>
-				<Item>First item</Item>
-				<Item>Second item</Item>
-				...
-				<Item>Last item</Item>
-			</ArrayField2>
-			
-			...
-			
-		</ClassA>
-		<ClassB>
-			...
-		</ClassB>
-
-		...
-
-		<ClassN>
-			...
-		</ClassN>
-	</Configuration>
-	
-	There are four possible location for this file:
-		a. UE4/Engine/Programs/UnrealBuildTool
-		b. UE4/Engine/Programs/NotForLicensees/UnrealBuildTool
-		c. UE4/Engine/Saved/UnrealBuildTool
-		d. My Documents/Unreal Engine/UnrealBuildTool
-	
-	The UBT is looking for it in all four places in the given order and
-	overrides already read data with the loaded ones, hence d. has the
-	priority. Not defined classes and fields are left alone.
-";
+			string[] Comment =
+			{
+				"	#########################################################################",
+				"	#                                                                       #",
+				"	#	This is an XML with default UBT configuration. If you want to		#",
+				"	#	override it, create the same file in the locations c. or d.			#",
+				"	#	(see below). DO NOT CHANGE THE CONTENTS OF THIS FILE!				#",
+				"	#																		#",
+				"	#########################################################################",
+				"",
+				"	The syntax of this file is:",
+				"		<Configuration>",
+				"			<ClassA>",
+				"				<Field1>Value</Field2>",
+				"				<ArrayField2>",
+				"					<Item>First item</Item>",
+				"					<Item>Second item</Item>",
+				"					...",
+				"					<Item>Last item</Item>",
+				"				</ArrayField2>",
+				"",
+				"				...",
+				"",
+				"			</ClassA>",
+				"			<ClassB>",
+				"				...",
+				"			</ClassB>",
+				"",	
+				"			...",
+				"",
+				"			<ClassN>",
+				"				...",
+				"			</ClassN>",
+				"		</Configuration>",
+				"",
+				"	There are four possible location for this file:",
+				"		a. UE4/Engine/Programs/UnrealBuildTool",
+				"		b. UE4/Engine/Programs/NotForLicensees/UnrealBuildTool",
+				"		c. UE4/Engine/Saved/UnrealBuildTool",
+				"		d. AppData/Roaming/Unreal Engine/UnrealBuildTool",
+				"		e. My Documents/Unreal Engine/UnrealBuildTool",
+				"",
+				"	UBT looks in each location in the order above, overriding previously read settings with data from subsequent files (hence e. has the highest priority).",
+				"	Classes and fields which are not defined are ignored.",
+				""
+			};
 
 			XDocument DefaultXml = GetConfigXML();
 
-			DefaultXml.AddFirst(new XComment(Comment));
+			DefaultXml.AddFirst(new XComment(String.Join("\n", Comment)));
 
 			return WriteToBuffer(DefaultXml);
 		}
@@ -337,49 +339,6 @@ namespace UnrealBuildTool
 		/// </summary>
 		public class XmlConfigLocation
 		{
-			/// <summary>
-			/// Returns location of the BuildConfiguration.xml.
-			/// </summary>
-			/// <returns>Location of the BuildConfiguration.xml.</returns>
-			private static string GetConfigLocation(IEnumerable<string> PossibleLocations, out bool bExists)
-			{
-				if (PossibleLocations.Count() == 0)
-				{
-					throw new ArgumentException("Empty possible locations", "PossibleLocations");
-				}
-
-				const string ConfigXmlFileName = "BuildConfiguration.xml";
-
-				// Filter out non-existing
-				List<string> ExistingLocations = new List<string>();
-
-				foreach (string PossibleLocation in PossibleLocations)
-				{
-					string FilePath = Path.Combine(PossibleLocation, ConfigXmlFileName);
-
-					if (File.Exists(FilePath))
-					{
-						ExistingLocations.Add(FilePath);
-					}
-				}
-
-				if (ExistingLocations.Count == 0)
-				{
-					bExists = false;
-					return Path.Combine(PossibleLocations.First(), ConfigXmlFileName);
-				}
-
-				bExists = true;
-
-				if (ExistingLocations.Count == 1)
-				{
-					return ExistingLocations.First();
-				}
-
-				// Choose most recently used from existing.
-				return ExistingLocations.OrderBy(Location => File.GetLastWriteTime(Location)).Last();
-			}
-
 			// Possible location of the config file in the file system.
 			public string FSLocation { get; private set; }
 
@@ -395,14 +354,12 @@ namespace UnrealBuildTool
 			// Timestamp of file.
 			public DateTime Timestamp { get; protected set; }
 
-			public XmlConfigLocation(string[] FSLocations, string IDEFolderName, bool bCreateIfDoesNotExist = false)
+			public XmlConfigLocation(string DirectoryLocation, string IDEFolderName, bool bCreateIfDoesNotExist = false)
 			{
-				bool bExists;
-
-				this.FSLocation = GetConfigLocation(FSLocations, out bExists);
+				this.FSLocation = Path.Combine(DirectoryLocation, "BuildConfiguration.xml");
 				this.IDEFolderName = IDEFolderName;
 				this.bCreateIfDoesNotExist = bCreateIfDoesNotExist;
-				this.bExists = bExists;
+				this.bExists = File.Exists(FSLocation);
 				if (bExists)
 				{
 					try
@@ -416,11 +373,6 @@ namespace UnrealBuildTool
 				}
 			}
 
-			public XmlConfigLocation(string FSLocation, string IDEFolderName, bool bCreateIfDoesNotExist = false)
-				: this(new string[] { FSLocation }, IDEFolderName, bCreateIfDoesNotExist)
-			{
-			}
-
 			/// <summary>
 			/// Creates template file in the FS location.
 			/// </summary>
@@ -432,14 +384,16 @@ namespace UnrealBuildTool
 
 					string FilePath = Path.Combine(FSLocation);
 
-					const string TemplateContent =
-						"<?xml version=\"1.0\" encoding=\"utf-8\" ?>" +
-						"<Configuration xmlns=\"https://www.unrealengine.com/BuildConfiguration\">\n" +
-						"	<BuildConfiguration>\n" +
-						"	</BuildConfiguration>\n" +
-						"</Configuration>\n";
+					string[] TemplateContent =
+					{
+						"<?xml version=\"1.0\" encoding=\"utf-8\" ?>",
+						"<Configuration xmlns=\"https://www.unrealengine.com/BuildConfiguration\">",
+						"	<BuildConfiguration>",
+						"	</BuildConfiguration>",
+						"</Configuration>"
+					};
 
-					File.WriteAllText(FilePath, TemplateContent);
+					File.WriteAllLines(FilePath, TemplateContent);
 					bExists = true;
 				}
 				catch (Exception)
@@ -503,18 +457,15 @@ namespace UnrealBuildTool
 
 		static XmlConfigLoader()
 		{
-			/*
-			 *	There are four possible location for this file:
-			 *		a. UE4/Engine/Programs/UnrealBuildTool
-			 *		b. UE4/Engine/Programs/NotForLicensees/UnrealBuildTool
-			 *		c. UE4/Engine/Saved/UnrealBuildTool
-			 *		d. <AppData or My Documents>/Unreal Engine/UnrealBuildTool -- the location is
-			 *		   chosen by existence and if both exist most recently used.
-			 *
-			 *	The UBT is looking for it in all four places in the given order and
-			 *	overrides already read data with the loaded ones, hence d. has the
-			 *	priority. Not defined classes and fields are left alone.
-			 */
+			// There are five possible location for this file:
+			//      a. UE4/Engine/Programs/UnrealBuildTool
+			//      b. UE4/Engine/Programs/NotForLicensees/UnrealBuildTool
+			//      c. UE4/Engine/Saved/UnrealBuildTool
+			//      d. AppData/Unreal Engine/UnrealBuildTool
+			//      e. My Documents/Unreal Engine/UnrealBuildTool
+			//
+			// UBT looks in each location in the order above, overriding previously read settings with data from subsequent files (hence e. has the highest priority).
+			// Classes and fields which are not defined are left alone.
 
 			string UE4EnginePath = new FileInfo(Path.Combine(Path.GetDirectoryName(Assembly.GetEntryAssembly().GetOriginalLocation()), "..", "..")).FullName;
 
@@ -523,10 +474,8 @@ namespace UnrealBuildTool
 				new XmlDefaultConfigLocation(Path.Combine(UE4EnginePath, "Programs", "UnrealBuildTool")),
 				new XmlConfigLocation(Path.Combine(UE4EnginePath, "Programs", "NotForLicensees", "UnrealBuildTool"), "NotForLicensees"),
 				new XmlConfigLocation(Path.Combine(UE4EnginePath, "Saved", "UnrealBuildTool"), "User", true),
-				new XmlConfigLocation(new string[] {
-					Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Unreal Engine", "UnrealBuildTool"),
-					Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Personal), "Unreal Engine", "UnrealBuildTool")
-				}, "Global", true)
+				new XmlConfigLocation(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Unreal Engine", "UnrealBuildTool"), "Global (AppData)", true),
+				new XmlConfigLocation(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Personal), "Unreal Engine", "UnrealBuildTool"), "Global (Documents)", false)
 			};
 		}
 

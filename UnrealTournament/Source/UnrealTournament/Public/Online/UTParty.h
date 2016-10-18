@@ -24,7 +24,7 @@ public:
 	virtual void HandlePendingJoin() override;
 	// End UParty interface
 
-	void AddPendingJoin(TSharedRef<const FUniqueNetId> InLocalUserId, const FPartyDetails& InPartyDetails, const UPartyDelegates::FOnJoinUPartyComplete& InDelegate);
+	void AddPendingJoin(TSharedRef<const FUniqueNetId> InLocalUserId, TSharedRef<const FPartyDetails> InPartyDetails, const UPartyDelegates::FOnJoinUPartyComplete& InDelegate);
 
 	/** @return the party state for the persistent party */
 	UUTPartyGameState* GetUTPersistentParty() const;

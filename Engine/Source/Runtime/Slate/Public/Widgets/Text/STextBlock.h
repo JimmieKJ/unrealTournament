@@ -38,6 +38,7 @@ public:
 		, _HighlightText()
 		, _WrapTextAt(0.0f)
 		, _AutoWrapText(false)
+		, _WrappingPolicy(ETextWrappingPolicy::DefaultWrapping)
 		, _Margin()
 		, _LineHeightPercentage(1.0f)
 		, _Justification(ETextJustify::Left)
@@ -81,6 +82,9 @@ public:
 		    in visual artifacts, as the the wrapped size will computed be at least one frame late!  Consider using WrapTextAt instead.  The initial 
 			desired size will not be clamped.  This works best in cases where the text block's size is not affecting other widget's layout. */
 		SLATE_ATTRIBUTE( bool, AutoWrapText )
+
+		/** The wrapping policy to use */
+		SLATE_ATTRIBUTE( ETextWrappingPolicy, WrappingPolicy )
 
 		/** The amount of blank space left around the edges of text area. */
 		SLATE_ATTRIBUTE( FMargin, Margin )
@@ -176,6 +180,9 @@ public:
 	/** See AutoWrapText attribute */
 	void SetAutoWrapText(const TAttribute<bool>& InAutoWrapText);
 
+	/** Set WrappingPolicy attribute */
+	void SetWrappingPolicy(const TAttribute<ETextWrappingPolicy>& InWrappingPolicy);
+
 	/** See ShadowOffset attribute */
 	void SetShadowOffset(const TAttribute<FVector2D>& InShadowOffset);
 
@@ -235,7 +242,7 @@ private:
 	TUniquePtr< FTextBlockLayout > TextLayoutCache;
 
 	/** Default style used by the TextLayout */
-	const FTextBlockStyle* TextStyle;
+	FTextBlockStyle TextStyle;
 
 	/** Sets the font used to draw the text */
 	TAttribute< FSlateFontInfo > Font;
@@ -261,6 +268,9 @@ private:
 
 	/** True if we're wrapping text automatically based on the computed horizontal space for this widget */
 	TAttribute<bool> AutoWrapText;
+
+	/** The wrapping policy we're using */
+	TAttribute<ETextWrappingPolicy> WrappingPolicy;
 
 	/** The amount of blank space left around the edges of text area. */
 	TAttribute< FMargin > Margin;

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using System.Reflection.Emit;
 using System.Reflection;
@@ -52,7 +53,7 @@ namespace fastJSON
                 return val;
             else
             {
-                Type t = Type.GetType(typename);
+                Type t = LoadType(typename);
                 _typecache.Add(typename, t);
                 return t;
             }
@@ -300,6 +301,35 @@ namespace fastJSON
             return getters;
         }
 
-        #endregion
-    }
+		private Type LoadType(string TypeName)
+		{
+			Type t = Type.GetType(TypeName);
+			if (t == null && TypeName.Contains(","))
+			{
+				// Split our assembly on first comma, which gives us namespaced typename, and assembly name / version / culture / public key info
+				// E.g. this class' qualified name would be "fastJSON.Reflection, UnrealBuildTool, Version=4.0.0.0, Culture=neutral, PublicKeyToken=null".
+				// This will be split into the type "jastJSON.Reflection" and the assembly "UnrealBuildTool, Version=4.0.0.0, Culture=neutral, PublicKeyToken=null".
+				string[] TypeParts = TypeName.Split(new char[] { ',' }, 2, StringSplitOptions.RemoveEmptyEntries).Select(x => x.Trim()).ToArray();
+				if (TypeParts.Length != 2)
+				{
+					return null;
+				}
+				Assembly Asm = null;
+				try
+				{
+					Asm = Assembly.Load(TypeParts[1]);
+				}
+				catch (System.IO.FileNotFoundException)
+				{
+					Asm = AppDomain.CurrentDomain.GetAssemblies().FirstOrDefault(x => x.FullName == TypeParts[1]);
+				}
+				if (Asm != null)
+				{
+					t = Asm.GetType(TypeParts[0]);
+				}
+			}
+			return t;
+		}
+		#endregion
+	}
 }

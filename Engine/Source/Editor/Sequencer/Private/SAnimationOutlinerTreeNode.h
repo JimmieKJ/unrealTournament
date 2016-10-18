@@ -22,6 +22,7 @@ public:
 	SLATE_BEGIN_ARGS(SAnimationOutlinerTreeNode){}
 		SLATE_ATTRIBUTE(const FSlateBrush*, IconBrush)
 		SLATE_ATTRIBUTE(const FSlateBrush*, IconOverlayBrush)
+		SLATE_ATTRIBUTE(FSlateColor, IconColor)
 		SLATE_ATTRIBUTE(FText, IconToolTipText)
 		SLATE_NAMED_SLOT(FArguments, CustomContent)
 	SLATE_END_ARGS()
@@ -64,6 +65,11 @@ private:
 	FSlateColor GetNodeBackgroundTint() const;
 
 	/**
+	* @return The tint to apply to the border image for the inner portion of the node.
+	*/
+	FSlateColor GetNodeInnerBackgroundTint() const;
+
+	/**
 	 * @return The expander visibility of this node.
 	 */
 	EVisibility GetExpanderVisibility() const;
@@ -103,14 +109,20 @@ private:
 	/** Holds the editable text label widget. */
 	TSharedPtr<SEditableLabel> EditableLabel;
 
-	/** True if this node is a top level node, false otherwise */
-	bool bIsTopLevelNode;
+	/** True if this node is a top level node, at the root of the tree, false otherwise */
+	bool bIsOuterTopLevelNode;
+
+	/** True if this is a top level node inside or a folder, otherwise false. */
+	bool bIsInnerTopLevelNode;
 
 	/** Default background brush for this node when expanded */
 	const FSlateBrush* ExpandedBackgroundBrush;
 
 	/** Default background brush for this node when collapsed */
 	const FSlateBrush* CollapsedBackgroundBrush;
+
+	/** The brush to use when drawing the background for the inner portion of the node. */
+	const FSlateBrush* InnerBackgroundBrush;
 
 	/** The table row style used for nodes in the tree. This is required as we don't actually use the tree for selection. */
 	const FTableRowStyle* TableRowStyle;

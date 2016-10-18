@@ -26,6 +26,7 @@ namespace UnrealBuildTool.Rules
 			PrivateIncludePaths.AddRange(
 				new string[] {
 					"AndroidMedia/Private",
+					"AndroidMedia/Private/Player",
 				});
 		}
 	}

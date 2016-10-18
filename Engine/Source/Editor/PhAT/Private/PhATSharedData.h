@@ -7,7 +7,6 @@
 
 class UPhATEdSkeletalMeshComponent;
 class UPhysicsHandleComponent;
-
 #define DEBUG_CLICK_VIEWPORT 0
 
 /*-----------------------------------------------------------------------------
@@ -168,6 +167,9 @@ public:
 
 	/** PhAT specific skeletal mesh component */
 	UPhATEdSkeletalMeshComponent* EditorSkelComp;
+
+	/** PhAT specific physical animation component */
+	class UPhysicalAnimationComponent* PhysicalAnimationComponent;
 
 	/** The skeletal mesh being used to preview the physics asset */
 	USkeletalMesh* EditorSkelMesh;

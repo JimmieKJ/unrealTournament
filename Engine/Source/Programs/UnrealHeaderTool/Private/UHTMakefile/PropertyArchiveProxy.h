@@ -401,6 +401,25 @@ struct FMapPropertyArchiveProxy : public FPropertyArchiveProxy
 	FScriptMapLayout MapLayout;
 };
 
+struct FSetPropertyArchiveProxy : public FPropertyArchiveProxy
+{
+	FSetPropertyArchiveProxy() { }
+	FSetPropertyArchiveProxy(FUHTMakefile& UHTMakefile, const USetProperty* SetProperty);
+
+	USetProperty* CreateSetProperty(const FUHTMakefile& UHTMakefile) const;
+	static void AddReferencedNames(const USetProperty* Property, FUHTMakefile& UHTMakefile)
+	{
+		FPropertyArchiveProxy::AddReferencedNames(Property, UHTMakefile);
+	}
+
+	void Resolve(USetProperty* SetProperty, const FUHTMakefile& UHTMakefile) const;
+
+	friend FArchive& operator<<(FArchive& Ar, FSetPropertyArchiveProxy& SetPropertyArchiveProxy);
+
+	int32 ElementPropIndex;
+	FScriptSetLayout SetLayout;
+};
+
 struct FArrayPropertyArchiveProxy : public FPropertyArchiveProxy
 {
 	FArrayPropertyArchiveProxy() { }

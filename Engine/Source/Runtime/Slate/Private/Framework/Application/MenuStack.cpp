@@ -104,7 +104,7 @@ namespace
 			];
 		}
 
-		virtual void OnFocusChanging(const FWeakWidgetPath& PreviousFocusPath, const FWidgetPath& NewWidgetPath) override
+		virtual void OnFocusChanging(const FWeakWidgetPath& PreviousFocusPath, const FWidgetPath& NewWidgetPath, const FFocusEvent& InFocusEvent) override
 		{
 			// if focus changed and this menu content had focus (or one of its children did) then inform the stack via the OnMenuLostFocus event
 			if (OnMenuLostFocus.IsBound() && PreviousFocusPath.ContainsWidget(AsShared()))
@@ -213,9 +213,11 @@ TSharedRef<IMenu> FMenuStack::Push(const FWidgetPath& InOwnerPath, const TShared
 		ActiveMethod = InMethod.IsSet() ? FPopupMethodReply::UseMethod(InMethod.GetValue()) : QueryPopupMethod(InOwnerPath);
 
 		// The host window is determined when a new root menu is pushed
-		SetHostWindow(InOwnerPath.GetWindow());
+		// This must be set prior to PushInternal below, as it will be referenced if the menu being created is a new root menu.
+		SetHostPath(InOwnerPath);
 	}
 
+	TGuardValue<bool> Guard(bHostWindowGuard, true);
 	return PushInternal(ParentMenu, InContent, Anchor, TransitionEffect, bFocusImmediately, ActiveMethod.GetShouldThrottle(), bIsCollapsedByParent, bEnablePerPixelTransparency);
 }
 
@@ -248,7 +250,7 @@ TSharedRef<IMenu> FMenuStack::PushHosted(const FWidgetPath& InOwnerPath, const T
 		ActiveMethod = FPopupMethodReply::UseMethod(EPopupMethod::UseCurrentWindow);
 
 		// The host window is determined when a new root menu is pushed
-		SetHostWindow(InOwnerPath.GetWindow());
+		SetHostPath(InOwnerPath);
 	}
 
 	return PushHosted(ParentMenu, InMenuHost, InContent, OutWrappedContent, TransitionEffect, ShouldThrottle);
@@ -577,33 +579,46 @@ void FMenuStack::DismissAll()
 void FMenuStack::DismissInternal(int32 FirstStackIndexToRemove)
 {
 	// Dismiss the stack in reverse order so we destroy children before parents (causes focusing issues if done the other way around)
-	for (int32 StackIndex = Stack.Num() - 1; StackIndex >= FirstStackIndexToRemove; --StackIndex)
+	for ( int32 StackIndex = Stack.Num() - 1; StackIndex >= FirstStackIndexToRemove; --StackIndex )
 	{
-		Stack[StackIndex]->Dismiss();
+		if ( Stack.IsValidIndex(StackIndex) )
+		{
+			Stack[StackIndex]->Dismiss();
+		}
 	}
 }
 
-void FMenuStack::SetHostWindow(TSharedPtr<SWindow> InWindow)
+void FMenuStack::SetHostPath(const FWidgetPath& InOwnerPath)
 {
-	if (HostWindow != InWindow)
+	if (bHostWindowGuard)
 	{
-		// If the host window is changing, remove the popup panel from the previous host
-		if (HostWindow.IsValid() && HostWindowPopupPanel.IsValid())
+		return;
+	}
+
+	if ( HostPopupLayer.IsValid() )
+	{
+		if ( !InOwnerPath.ContainsWidget(HostPopupLayer->GetHost()) )
 		{
-			HostWindow->RemoveOverlaySlot(HostWindowPopupPanel.ToSharedRef());
+			HostPopupLayer->Remove();
+			HostPopupLayer.Reset();
 			HostWindowPopupPanel.Reset();
 		}
+	}
 
-		HostWindow = InWindow;
+	HostWindow = InOwnerPath.IsValid() ? InOwnerPath.GetWindow() : TSharedPtr<SWindow>();
 
-		// If the host window is changing, add a popup panel to the new host
-		if (HostWindow.IsValid())
+	if ( HostWindow.IsValid() && !HostWindowPopupPanel.IsValid() )
+	{
+		TSharedRef<SMenuPanel> NewHostWindowPopupPanel = SNew(SMenuPanel);
+		for ( int i = InOwnerPath.Widgets.Num() - 1; i >= 0; i-- )
 		{
-			// setup a popup layer on the new window
-			HostWindow->AddOverlaySlot()
-			[
-				SAssignNew(HostWindowPopupPanel, SMenuPanel)
-			];
+			const TSharedRef<SWidget>& HostWidget = InOwnerPath.Widgets[i].Widget;
+			HostPopupLayer = HostWidget->OnVisualizePopup(NewHostWindowPopupPanel);
+			if ( HostPopupLayer.IsValid() )
+			{
+				HostWindowPopupPanel = NewHostWindowPopupPanel;
+				break;
+			}
 		}
 	}
 }
@@ -634,7 +649,7 @@ void FMenuStack::OnMenuDestroyed(TSharedRef<IMenu> InMenu)
 				FSlateThrottleManager::Get().LeaveResponsiveMode(ThrottleHandle);
 			}
 
-			SetHostWindow(TSharedPtr<SWindow>());
+			SetHostPath(FWidgetPath());
 		}
 	}
 }
@@ -716,7 +731,7 @@ void FMenuStack::OnWindowDestroyed(TSharedRef<SWindow> InWindow)
 		Stack.Empty();
 		CachedContentMap.Empty();
 
-		SetHostWindow(TSharedPtr<SWindow>());
+		SetHostPath(FWidgetPath());
 	}
 	else
 	{

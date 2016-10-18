@@ -56,7 +56,7 @@ FText SGraphNodeK2CreateDelegate::GetCurrentFunctionDescription() const
 
 	if(!FunctionSignature || !ScopeClass)
 	{
-		return NSLOCTEXT("GraphNodeK2Create", "NoneLabel", "None");
+		return NSLOCTEXT("GraphNodeK2Create", "NoneLabel", "");
 	}
 
 	if (const auto Func = FindField<UFunction>(ScopeClass, Node->GetFunctionName()))
@@ -69,7 +69,7 @@ FText SGraphNodeK2CreateDelegate::GetCurrentFunctionDescription() const
 		return FText::Format(NSLOCTEXT("GraphNodeK2Create", "ErrorLabelFmt", "Error? {0}"), FText::FromName(Node->GetFunctionName()));
 	}
 
-	return NSLOCTEXT("GraphNodeK2Create", "SelectFunctionLabel", "Select Function");
+	return NSLOCTEXT("GraphNodeK2Create", "SelectFunctionLabel", "Select Function...");
 }
 
 TSharedRef<ITableRow> SGraphNodeK2CreateDelegate::HandleGenerateRowFunction(TSharedPtr<FFunctionItemData> FunctionItemData, const TSharedRef<STableViewBase>& OwnerTable)
@@ -109,6 +109,7 @@ void SGraphNodeK2CreateDelegate::CreateBelowWidgetControls(TSharedPtr<SVerticalB
 		if(FunctionSignature && ScopeClass)
 		{
 			FunctionDataItems.Empty();
+
 			for(TFieldIterator<UFunction> It(ScopeClass); It; ++It)
 			{
 				UFunction* Func = *It;
@@ -120,6 +121,14 @@ void SGraphNodeK2CreateDelegate::CreateBelowWidgetControls(TSharedPtr<SVerticalB
 					ItemData->Description = FunctionDescription(Func);
 					FunctionDataItems.Add(ItemData);
 				}
+			}
+
+			if (FunctionDataItems.Num() == 0)
+			{
+				// add an empty row, so the user can clear the selection if they want
+				TSharedPtr<FFunctionItemData> EmptyEntry = MakeShareable(new FFunctionItemData());
+				EmptyEntry->Description = NSLOCTEXT("GraphNodeK2Create", "EmptyFunctionLabel", "[NONE]").ToString();
+				FunctionDataItems.Add(EmptyEntry);
 			}
 
 			TSharedRef<SComboButton> SelectFunctionWidgetRef = SNew(SComboButton)

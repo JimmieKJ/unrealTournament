@@ -36,14 +36,38 @@ void UMovieSceneParticleSection::DilateSection( float DilationFactor, float Orig
 	ParticleKeys.ScaleCurve( Origin, DilationFactor, KeyHandles );
 }
 
-void UMovieSceneParticleSection::GetKeyHandles( TSet<FKeyHandle>& KeyHandles ) const
+void UMovieSceneParticleSection::GetKeyHandles( TSet<FKeyHandle>& OutKeyHandles, TRange<float> TimeRange ) const
 {
+	if (!TimeRange.Overlaps(GetRange()))
+	{
+		return;
+	}
+
 	for ( auto It( ParticleKeys.GetKeyHandleIterator() ); It; ++It )
 	{
 		float Time = ParticleKeys.GetKeyTime( It.Key() );
-		if ( IsTimeWithinSection( Time ) )
+		if (TimeRange.Contains(Time))
 		{
-			KeyHandles.Add( It.Key() );
+			OutKeyHandles.Add( It.Key() );
 		}
+	}
+}
+
+
+TOptional<float> UMovieSceneParticleSection::GetKeyTime( FKeyHandle KeyHandle ) const
+{
+	if ( ParticleKeys.IsKeyHandleValid( KeyHandle ) )
+	{
+		return TOptional<float>( ParticleKeys.GetKeyTime( KeyHandle ) );
+	}
+	return TOptional<float>();
+}
+
+
+void UMovieSceneParticleSection::SetKeyTime( FKeyHandle KeyHandle, float Time )
+{
+	if ( ParticleKeys.IsKeyHandleValid( KeyHandle ) )
+	{
+		ParticleKeys.SetKeyTime( KeyHandle, Time );
 	}
 }

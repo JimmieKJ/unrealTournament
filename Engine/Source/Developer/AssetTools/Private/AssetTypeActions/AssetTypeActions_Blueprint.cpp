@@ -76,7 +76,7 @@ void FAssetTypeActions_Blueprint::OpenAssetEditor( const TArray<UObject*>& InObj
 			bool bLetOpen = true;
 			if (!Blueprint->SkeletonGeneratedClass || !Blueprint->GeneratedClass)
 			{
-				bLetOpen = EAppReturnType::Yes == FMessageDialog::Open(EAppMsgType::YesNoCancel, LOCTEXT("FailedToLoadBlueprint", "Blueprint could not be loaded because it derives from an invalid class.  Check to make sure the parent class for this blueprint hasn't been removed! Do you want to continue (it can crash the editor)?"));
+				bLetOpen = EAppReturnType::Yes == FMessageDialog::Open(EAppMsgType::YesNoCancel, LOCTEXT("FailedToLoadBlueprintWithContinue", "Blueprint could not be loaded because it derives from an invalid class.  Check to make sure the parent class for this blueprint hasn't been removed! Do you want to continue (it can crash the editor)?"));
 			}
 			if (bLetOpen)
 			{
@@ -238,7 +238,7 @@ void FAssetTypeActions_Blueprint::PerformAssetDiff(UObject* OldAsset, UObject* N
 	bool bIsSingleAsset = (NewBlueprint->GetName() == OldBlueprint->GetName());
 
 	FText WindowTitle = LOCTEXT("NamelessBlueprintDiff", "Blueprint Diff");
-	// if we're diff'ing one asset against itself 
+	// if we're diffing one asset against itself 
 	if (bIsSingleAsset)
 	{
 		// identify the assumed single asset in the window's title
@@ -284,13 +284,11 @@ UThumbnailInfo* FAssetTypeActions_Blueprint::GetThumbnailInfo(UObject* Asset) co
 
 FText FAssetTypeActions_Blueprint::GetAssetDescription(const FAssetData& AssetData) const
 {
-	if (const FString* pDescription = AssetData.TagsAndValues.Find(GET_MEMBER_NAME_CHECKED(UBlueprint, BlueprintDescription)))
+	FString Description = AssetData.GetTagValueRef<FString>(GET_MEMBER_NAME_CHECKED(UBlueprint, BlueprintDescription));
+	if (!Description.IsEmpty())
 	{
-		if (!pDescription->IsEmpty())
-		{
-			const FString DescriptionStr(*pDescription);
-			return FText::FromString(DescriptionStr.Replace(TEXT("\\n"), TEXT("\n")));
-		}
+		Description.ReplaceInline(TEXT("\\n"), TEXT("\n"));
+		return FText::FromString(MoveTemp(Description));
 	}
 
 	return FText::GetEmpty();
@@ -303,15 +301,14 @@ TWeakPtr<IClassTypeActions> FAssetTypeActions_Blueprint::GetClassTypeActions(con
 
 	// Blueprints get the class type actions for their parent native class - this avoids us having to load the blueprint
 	UClass* ParentClass = nullptr;
-	const FString* ParentClassNamePtr = AssetData.TagsAndValues.Find(NativeParentClassTag);
-	if(!ParentClassNamePtr)
+	FString ParentClassName;
+	if(!AssetData.GetTagValue(NativeParentClassTag, ParentClassName))
 	{
-		ParentClassNamePtr = AssetData.TagsAndValues.Find(ParentClassTag);
+		AssetData.GetTagValue(ParentClassTag, ParentClassName);
 	}
-	if(ParentClassNamePtr && !ParentClassNamePtr->IsEmpty())
+	if(!ParentClassName.IsEmpty())
 	{
 		UObject* Outer = nullptr;
-		FString ParentClassName = *ParentClassNamePtr;
 		ResolveName(Outer, ParentClassName, false, false);
 		ParentClass = FindObject<UClass>(ANY_PACKAGE, *ParentClassName);
 	}

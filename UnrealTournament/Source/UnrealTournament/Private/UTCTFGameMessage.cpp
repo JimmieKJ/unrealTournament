@@ -14,6 +14,7 @@ UUTCTFGameMessage::UUTCTFGameMessage(const FObjectInitializer& ObjectInitializer
 	ReturnedMessage = NSLOCTEXT("CTFGameMessage","ReturnedMessage","The {OptionalTeam} Flag was returned!");
 	DroppedMessage = NSLOCTEXT("CTFGameMessage","DroppedMessage","{Player1Name} dropped the {OptionalTeam} Flag!");
 	HasMessage = NSLOCTEXT("CTFGameMessage","HasMessage","{Player1Name} took the {OptionalTeam} Flag!");
+	YouHaveMessage = NSLOCTEXT("CTFGameMessage", "YouHaveMessage", "YOU HAVE THE FLAG!");
 	KilledMessage = NSLOCTEXT("CTFGameMessage","KilledMessage","{Player1Name} killed the {OptionalTeam} flag carrier!");
 	HasAdvantageMessage = NSLOCTEXT("CTFGameMessage", "HasAdvantage", "{OptionalTeam} Team has Advantage");
 	LosingAdvantageMessage = NSLOCTEXT("CTFGameMessage", "LostAdvantage", "{OptionalTeam} Team is losing advantage");
@@ -27,6 +28,11 @@ UUTCTFGameMessage::UUTCTFGameMessage(const FObjectInitializer& ObjectInitializer
 
 	bIsStatusAnnouncement = true;
 	bIsPartiallyUnique = true;
+}
+
+bool UUTCTFGameMessage::ShouldPlayDuringIntermission(int32 MessageIndex) const
+{
+	return (MessageIndex > 7) || (MessageIndex == 2) || (MessageIndex == 3);
 }
 
 FLinearColor UUTCTFGameMessage::GetMessageColor_Implementation(int32 MessageIndex) const
@@ -64,7 +70,12 @@ FText UUTCTFGameMessage::GetText(int32 Switch, bool bTargetsPlayerState1, APlaye
 		case 1 : return ReturnedMessage; break;
 		case 2: return BuildEmphasisText(Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject); break;
 		case 3 : return RelatedPlayerState_1 ? DroppedMessage : FText::GetEmpty(); break;
-		case 4 : return HasMessage; break;
+		case 4 : 
+			if (RelatedPlayerState_1 && Cast<AUTPlayerController>(RelatedPlayerState_1->GetOwner()))
+			{
+				return YouHaveMessage; break;
+			}
+			return HasMessage; break;
 		case 5 : return KilledMessage; break;
 		case 6 : return HasAdvantageMessage; break;
 		case 7 : return LosingAdvantageMessage; break;
@@ -92,9 +103,13 @@ int32 UUTCTFGameMessage::GetFontSizeIndex(int32 MessageIndex) const
 	return 1;
 }
 
-float UUTCTFGameMessage::GetAnnouncementPriority(int32 Switch) const
+float UUTCTFGameMessage::GetAnnouncementPriority(const FAnnouncementInfo AnnouncementInfo) const
 {
-	return ((Switch == 2) || (Switch == 8) || (Switch == 9) || (Switch == 10)) ? 1.f : 0.5f;
+	if ((AnnouncementInfo.Switch == 4) && AnnouncementInfo.RelatedPlayerState_1 && Cast<AUTPlayerController>(AnnouncementInfo.RelatedPlayerState_1->GetOwner()))
+	{
+		return 1.f;
+	}
+	return ((AnnouncementInfo.Switch == 2) || (AnnouncementInfo.Switch == 8) || (AnnouncementInfo.Switch == 9) || (AnnouncementInfo.Switch == 10)) ? 1.f : 0.5f;
 }
 
 float UUTCTFGameMessage::GetScaleInSize_Implementation(int32 MessageIndex) const
@@ -102,26 +117,26 @@ float UUTCTFGameMessage::GetScaleInSize_Implementation(int32 MessageIndex) const
 	return ((MessageIndex == 11) || (MessageIndex == 12)) ? 3.f : 1.f;
 }
 
-bool UUTCTFGameMessage::InterruptAnnouncement_Implementation(int32 Switch, const UObject* OptionalObject, TSubclassOf<UUTLocalMessage> OtherMessageClass, int32 OtherSwitch, const UObject* OtherOptionalObject) const
+bool UUTCTFGameMessage::InterruptAnnouncement(const FAnnouncementInfo AnnouncementInfo, const FAnnouncementInfo OtherAnnouncementInfo) const
 {
-	if (OtherMessageClass->GetDefaultObject<UUTLocalMessage>()->IsOptionalSpoken(OtherSwitch))
+	if (OtherAnnouncementInfo.MessageClass->GetDefaultObject<UUTLocalMessage>()->IsOptionalSpoken(OtherAnnouncementInfo.Switch))
 	{
 		return true;
 	}
-	if (GetClass() == OtherMessageClass)
+	if (AnnouncementInfo.MessageClass == OtherAnnouncementInfo.MessageClass)
 	{
-		if ((OtherSwitch == Switch) || (OtherSwitch == 2) || (OtherSwitch == 8) || (OtherSwitch == 9) || (OtherSwitch == 10) || (OtherSwitch == 11) || (OtherSwitch == 12))
+		if ((OtherAnnouncementInfo.Switch == AnnouncementInfo.Switch) || (OtherAnnouncementInfo.Switch == 2) || (OtherAnnouncementInfo.Switch == 8) || (OtherAnnouncementInfo.Switch == 9) || (OtherAnnouncementInfo.Switch == 10) || (OtherAnnouncementInfo.Switch == 11) || (OtherAnnouncementInfo.Switch == 12))
 		{
 			// never interrupt scoring announcements or same announcement
 			return false;
 		}
-		if (OptionalObject && (OptionalObject == OtherOptionalObject))
+		if (AnnouncementInfo.OptionalObject && (AnnouncementInfo.OptionalObject == OtherAnnouncementInfo.OptionalObject))
 		{
 			// interrupt announcement about same object
 			return true;
 		}
 	}
-	if (GetAnnouncementPriority(Switch) > OtherMessageClass->GetDefaultObject<UUTLocalMessage>()->GetAnnouncementPriority(OtherSwitch))
+	if (GetAnnouncementPriority(AnnouncementInfo) > OtherAnnouncementInfo.MessageClass->GetDefaultObject<UUTLocalMessage>()->GetAnnouncementPriority(OtherAnnouncementInfo))
 	{
 		return true;
 	}
@@ -145,7 +160,7 @@ bool UUTCTFGameMessage::CancelByAnnouncement_Implementation(int32 Switch, const 
 		// always cancel if before scoring announcement
 		return true;
 	}
-	return (GetClass() == OtherMessageClass) && ((OtherSwitch == Switch) && ((OtherSwitch == 11) || (OtherSwitch == 12)));
+	return (GetClass() == OtherMessageClass) && ((OtherSwitch == Switch) || (OtherSwitch == 11) || (OtherSwitch == 12));
 }
 
 void UUTCTFGameMessage::PrecacheAnnouncements_Implementation(UUTAnnouncer* Announcer) const

@@ -604,6 +604,9 @@ enum EUnrealEngineObjectUE4Version
 	VER_UE4_PROPERTY_GUID_IN_PROPERTY_TAG,
 	// Name table hashes are calculated and saved out rather than at load time
 	VER_UE4_NAME_HASHES_SERIALIZED,
+	// Updating custom material expression nodes for instanced stereo implementation refactor
+	VER_UE4_INSTANCED_STEREO_UNIFORM_REFACTOR,
+
 	// -----<new versions can be added before this line>-------------------------------------------------
 	// - this needs to be the last line (see note below)
 	VER_UE4_AUTOMATIC_VERSION_PLUS_ONE,

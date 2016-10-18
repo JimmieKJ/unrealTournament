@@ -125,6 +125,7 @@ public:
 	virtual FXmppChatMemberPtr GetMember(const FXmppRoomId& RoomId, const FXmppUserJid& MemberJid) override;
 	virtual bool GetLastMessages(const FXmppRoomId& RoomId, int32 NumMessages, TArray< TSharedRef<FXmppChatMessage> >& OutMessages) override;
 	virtual void HandleMucPresence(const FXmppMucPresence& MemberPresence) override;
+	virtual void DumpMultiUserChatState() const override;
 	
 	virtual FOnXmppRoomCreateComplete& OnRoomCreated() override { return OnXmppRoomCreateCompleteDelegate; }
 	virtual FOnXmppRoomConfigureComplete& OnRoomConfigured() override { return OnXmppRoomConfiguredDelegate; }

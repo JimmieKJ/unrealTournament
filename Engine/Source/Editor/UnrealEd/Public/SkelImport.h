@@ -147,7 +147,7 @@ struct ExistingSkelMeshData
 /**
  * Container and importer for skeletal mesh (FBX file) data
  **/
-class FSkeletalMeshImportData
+class UNREALED_API FSkeletalMeshImportData
 {
 public:
 	TArray <VMaterial>			Materials;		// Materials

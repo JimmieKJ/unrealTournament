@@ -24,14 +24,10 @@ public:
 
 	/** Defines which objects we want to render in the EarlyZPass. */
 	EDepthDrawingMode EarlyZPassMode;
+	bool bEarlyZPassMovable;
 	bool bDitheredLODTransitionsUseStencil;
-
-	/** 
-	 * Layout used to track translucent self shadow residency from the per-light shadow passes, 
-	 * So that shadow maps can be re-used in the translucency pass where possible.
-	 */
-	FTextureLayout TranslucentSelfShadowLayout;
-	int32 CachedTranslucentSelfShadowLightId;
+	
+	FComputeFenceRHIRef TranslucencyLightingVolumeClearEndFence;
 
 	FDeferredShadingSceneRenderer(const FSceneViewFamily* InViewFamily,FHitProxyConsumer* HitProxyConsumer);
 
@@ -65,15 +61,16 @@ public:
 	 */
 	bool RenderPrePassViewParallel(const FViewInfo& View, FRHICommandListImmediate& ParentCmdList, TFunctionRef<void()> AfterTasksAreStarted, bool bDoPrePre);
 
+	/** Culls local lights to a grid in frustum space.  Needed for forward shading or translucency using the Surface lighting mode. */
+	void ComputeLightGrid(FRHICommandListImmediate& RHICmdList);
+
 	/** Renders the basepass for the static data of a given View. */
 	bool RenderBasePassStaticData(FRHICommandList& RHICmdList, FViewInfo& View);
-	bool RenderBasePassStaticDataMasked(FRHICommandList& RHICmdList, FViewInfo& View);
-	bool RenderBasePassStaticDataDefault(FRHICommandList& RHICmdList, FViewInfo& View);
+	bool RenderBasePassStaticDataType(FRHICommandList& RHICmdList, FViewInfo& View, const EBasePassDrawListType DrawType);
 
 	/** Renders the basepass for the static data of a given View. Parallel versions.*/
 	void RenderBasePassStaticDataParallel(FParallelCommandListSet& ParallelCommandListSet);
-	void RenderBasePassStaticDataMaskedParallel(FParallelCommandListSet& ParallelCommandListSet);
-	void RenderBasePassStaticDataDefaultParallel(FParallelCommandListSet& ParallelCommandListSet);
+	void RenderBasePassStaticDataTypeParallel(FParallelCommandListSet& ParallelCommandListSet, const EBasePassDrawListType DrawType);
 
 	/** Asynchronously sorts base pass draw lists front to back for improved GPU culling. */
 	void AsyncSortBasePassStaticData(const FVector ViewPosition, FGraphEventArray &SortEvents);
@@ -139,18 +136,6 @@ private:
 		TArray<FProjectedShadowInfo*, SceneRenderingAllocator>& OutPreShadows);
 
 	/**
-	* Creates a projected shadow for all primitives affected by a light.
-	* @param LightSceneInfo - The light to create a shadow for.
-	*/
-	void CreateWholeSceneProjectedShadow(FLightSceneInfo* LightSceneInfo);
-
-	/** Updates the preshadow cache, allocating new preshadows that can fit and evicting old ones. */
-	void UpdatePreshadowCache(FSceneRenderTargets& SceneContext);
-
-	/** Finds the visible dynamic shadows for each view. */
-	void InitDynamicShadows(FRHICommandListImmediate& RHICmdList);
-
-	/**
 	* Used by RenderLights to figure out if light functions need to be rendered to the attenuation buffer.
 	*
 	* @param LightSceneInfo Represents the current light
@@ -163,8 +148,13 @@ private:
 
 	void InitViewsPossiblyAfterPrepass(FRHICommandListImmediate& RHICmdList, struct FILCUpdatePrimTaskData& ILCTaskData, FGraphEventArray& SortEvents);
 
-	/** Updates auto-downsampling of separate translucency and sets FSceneRenderTargets::SeparateTranslucencyBufferSize */
-	void UpdateSeparateTranslucencyBufferSize(FRHICommandListImmediate& RHICmdList);
+	void SetupReflectionCaptureBuffers(FViewInfo& View, FRHICommandListImmediate& RHICmdList);
+
+	/**
+	Updates auto-downsampling of separate translucency and sets FSceneRenderTargets::SeparateTranslucencyBufferSize.
+	Also updates timers for stats on GPU translucency times.
+	*/
+	void UpdateTranslucencyTimersAndSeparateTranslucencyBufferSize(FRHICommandListImmediate& RHICmdList);
 
 	void CreateIndirectCapsuleShadows();
 
@@ -196,7 +186,7 @@ private:
 	void RenderAtmosphere(FRHICommandListImmediate& RHICmdList, const FLightShaftsOutput& LightShaftsOutput);
 
 	/** Renders reflections that can be done in a deferred pass. */
-	void RenderDeferredReflections(FRHICommandListImmediate& RHICmdList, const TRefCountPtr<IPooledRenderTarget>& DynamicBentNormalAO);
+	void RenderDeferredReflections(FRHICommandListImmediate& RHICmdList, const TRefCountPtr<IPooledRenderTarget>& DynamicBentNormalAO, TRefCountPtr<IPooledRenderTarget>& VelocityRT);
 
 	/** Render dynamic sky lighting from Movable sky lights. */
 	void RenderDynamicSkyLighting(FRHICommandListImmediate& RHICmdList, const TRefCountPtr<IPooledRenderTarget>& VelocityTexture, TRefCountPtr<IPooledRenderTarget>& DynamicBentNormalAO);
@@ -228,6 +218,14 @@ private:
 		const TRefCountPtr<IPooledRenderTarget>& DistanceFieldNormal, 
 		TRefCountPtr<IPooledRenderTarget>& OutDynamicBentNormalAO, 
 		TRefCountPtr<IPooledRenderTarget>& OutDynamicIrradiance);
+
+	void RenderDistanceFieldSpecularOcclusion(
+		FRHICommandListImmediate& RHICmdList, 
+		const FViewInfo& View,
+		FIntPoint TileListGroupSize,
+		const FDistanceFieldAOParameters& Parameters, 
+		const TRefCountPtr<IPooledRenderTarget>& DistanceFieldNormal, 
+		TRefCountPtr<IPooledRenderTarget>& OutSpecularOcclusion);
 
 	void RenderMeshDistanceFieldVisualization(FRHICommandListImmediate& RHICmdList, const FDistanceFieldAOParameters& Parameters);
 
@@ -271,7 +269,7 @@ private:
 	void RenderLightShaftBloom(FRHICommandListImmediate& RHICmdList);
 
 	/** Reuses an existing translucent shadow map if possible or re-renders one if necessary. */
-	const FProjectedShadowInfo* PrepareTranslucentShadowMap(FRHICommandList& RHICmdList, const FViewInfo& View, FPrimitiveSceneInfo* PrimitiveSceneInfo, ETranslucencyPassType TranslucenyPassType);
+	const FProjectedShadowInfo* PrepareTranslucentShadowMap(FRHICommandList& RHICmdList, const FViewInfo& View, FPrimitiveSceneInfo* PrimitiveSceneInfo, ETranslucencyPass::Type TranslucenyPassType);
 
 	bool ShouldRenderVelocities() const;
 
@@ -289,9 +287,6 @@ private:
 	/** Renders world-space lightmap density instead of the normal color. */
 	bool RenderLightMapDensities(FRHICommandListImmediate& RHICmdList);
 
-	/** Renders the visualize vertex densities mode. */
-	bool RenderVertexDensities(FRHICommandListImmediate& RHICmdList);
-
 	/** Updates the downsized depth buffer with the current full resolution depth buffer. */
 	void UpdateDownsampledDepthSurface(FRHICommandList& RHICmdList);
 
@@ -300,40 +295,33 @@ private:
 
 	void CopyStencilToLightingChannelTexture(FRHICommandList& RHICmdList);
 
-	/** Renders one pass point light shadows. */
-	bool RenderOnePassPointLightShadows(FRHICommandListImmediate& RHICmdList, const FLightSceneInfo* LightSceneInfo, bool bRenderedTranslucentObjectShadows, bool& bInjectedTranslucentVolume);
-
-	/** Renders the shadowmaps of translucent shadows and their projections onto opaque surfaces. */
-	bool RenderTranslucentProjectedShadows(FRHICommandListImmediate& RHICmdList, const FLightSceneInfo* LightSceneInfo);
-
-	/** Renders reflective shadowmaps for LPVs */
-	bool RenderReflectiveShadowMaps(FRHICommandListImmediate& RHICmdList, const FLightSceneInfo* LightSceneInfo);
+	/** Injects reflective shadowmaps into LPVs */
+	bool InjectReflectiveShadowMaps(FRHICommandListImmediate& RHICmdList, const FLightSceneInfo* LightSceneInfo);
 
 	/** Renders capsule shadows for all per-object shadows using it for the given light. */
 	bool RenderCapsuleDirectShadows(
 		const FLightSceneInfo& LightSceneInfo,
 		FRHICommandListImmediate& RHICmdList, 
-		const TArray<FProjectedShadowInfo*, SceneRenderingAllocator>& CapsuleShadows) const;
+		const TArray<FProjectedShadowInfo*, SceneRenderingAllocator>& CapsuleShadows, 
+		bool bProjectingForForwardShading) const;
 
 	/** Sets up ViewState buffers for rendering capsule shadows. */
 	void SetupIndirectCapsuleShadows(FRHICommandListImmediate& RHICmdList, const FViewInfo& View, bool bPrepareLightData, int32& NumCapsuleShapes) const;
 
 	/** Renders indirect shadows from capsules modulated onto scene color. */
-	void RenderIndirectCapsuleShadows(FRHICommandListImmediate& RHICmdList) const;
+	void RenderIndirectCapsuleShadows(
+		FRHICommandListImmediate& RHICmdList, 
+		FTextureRHIParamRef IndirectLightingTexture, 
+		FTextureRHIParamRef ExistingIndirectOcclusionTexture) const;
 
 	/** Renders capsule shadows for movable skylights, using the cone of visibility (bent normal) from DFAO. */
 	void RenderCapsuleShadowsForMovableSkylight(FRHICommandListImmediate& RHICmdList, TRefCountPtr<IPooledRenderTarget>& BentNormalOutput) const;
 
-	/**
-	  * Used by RenderLights to render projected shadows to the attenuation buffer.
-	  *
-	  * @param LightSceneInfo Represents the current light
-	  * @return true if anything got rendered
-	  */
-	bool RenderProjectedShadows(FRHICommandListImmediate& RHICmdList, const FLightSceneInfo* LightSceneInfo, bool bRenderedTranslucentObjectShadows, bool& bInjectedTranslucentVolume);
+	/** Render deferred projections of shadows for a given light into the light attenuation buffer. */
+	bool RenderShadowProjections(FRHICommandListImmediate& RHICmdList, const FLightSceneInfo* LightSceneInfo, bool& bInjectedTranslucentVolume);
 
-	/** Caches the depths of any preshadows that should be cached, and renders their projections. */
-	bool RenderCachedPreshadows(FRHICommandListImmediate& RHICmdList, const FLightSceneInfo* LightSceneInfo);
+	/** Render shadow projections when forward rendering. */
+	void RenderForwardShadingShadowProjections(FRHICommandListImmediate& RHICmdList);
 
 	/**
 	  * Used by RenderLights to render a light function to the attenuation buffer.
@@ -364,6 +352,9 @@ private:
 	/** Clears the translucency lighting volumes before light accumulation. */
 	void ClearTranslucentVolumeLighting(FRHICommandListImmediate& RHICmdList);
 
+	/** Clears the translucency lighting volume via an async compute shader overlapped with the basepass. */
+	void ClearTranslucentVolumeLightingAsyncCompute(FRHICommandListImmediate& RHICmdList);
+
 	/** Add AmbientCubemap to the lighting volumes. */
 	void InjectAmbientCubemapTranslucentVolumeLighting(FRHICommandList& RHICmdList);
 
@@ -389,10 +380,12 @@ private:
 	void RenderReflectionCaptureSpecularBounceForAllViews(FRHICommandListImmediate& RHICmdList);
 
 	/** Render image based reflections (SSR, Env, SkyLight) with compute shaders */
-	void RenderTiledDeferredImageBasedReflections(FRHICommandListImmediate& RHICmdList, const TRefCountPtr<IPooledRenderTarget>& DynamicBentNormalAO);
+	void RenderTiledDeferredImageBasedReflections(FRHICommandListImmediate& RHICmdList, const TRefCountPtr<IPooledRenderTarget>& DynamicBentNormalAO, TRefCountPtr<IPooledRenderTarget>& VelocityRT);
 
 	/** Render image based reflections (SSR, Env, SkyLight) without compute shaders */
-	void RenderStandardDeferredImageBasedReflections(FRHICommandListImmediate& RHICmdList, bool bReflectionEnv, const TRefCountPtr<IPooledRenderTarget>& DynamicBentNormalAO);
+	void RenderStandardDeferredImageBasedReflections(FRHICommandListImmediate& RHICmdList, bool bReflectionEnv, const TRefCountPtr<IPooledRenderTarget>& DynamicBentNormalAO, TRefCountPtr<IPooledRenderTarget>& VelocityRT);
+
+	bool RenderDeferredPlanarReflections(FRHICommandListImmediate& RHICmdList, bool bLightAccumulationIsInUse, TRefCountPtr<IPooledRenderTarget>& Output);
 
 	bool ShouldDoReflectionEnvironment() const;
 	
@@ -405,7 +398,14 @@ private:
 
 	void UpdateGlobalDistanceFieldObjectBuffers(FRHICommandListImmediate& RHICmdList);
 
-	void DrawAllTranslucencyPasses(FRHICommandListImmediate& RHICmdList, const FViewInfo& View, ETranslucencyPassType TranslucenyPassType);
+	void DrawAllTranslucencyPasses(FRHICommandListImmediate& RHICmdList, const FViewInfo& View, ETranslucencyPass::Type TranslucenyPassType);
+
+	void CopySceneCaptureComponentToTarget(FRHICommandListImmediate& RHICmdList);
 
 	friend class FTranslucentPrimSet;
 };
+
+DECLARE_STATS_GROUP(TEXT("Command List Markers"), STATGROUP_CommandListMarkers, STATCAT_Advanced);
+
+DECLARE_CYCLE_STAT_EXTERN(TEXT("PrePass"), STAT_CLM_PrePass, STATGROUP_CommandListMarkers, );
+DECLARE_CYCLE_STAT_EXTERN(TEXT("DeferredShadingSceneRenderer AsyncSortBasePassStaticData"), STAT_FDeferredShadingSceneRenderer_AsyncSortBasePassStaticData, STATGROUP_SceneRendering, );

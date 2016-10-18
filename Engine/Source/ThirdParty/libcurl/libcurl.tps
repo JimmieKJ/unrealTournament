@@ -1,8 +1,8 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <TpsData xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
   <Name>libcurl 7.32.1</Name>
-  <Location>//depot/UE4/Engine/Source/ThirdParty/libcurl/</Location>
-  <Date>2015-09-04T19:19:36.2441087-04:00</Date>
+  <Location>/Engine/Source/ThirdParty/libcurl/</Location>
+  <Date>2016-06-10T16:39:53.4900058-04:00</Date>
   <Function>Implements HTTP protocol</Function>
   <Justification> Ship requirement. Soon enough, needed for Fortnite Linux server .</Justification>
   <Platforms>
@@ -17,7 +17,11 @@
   </Products>
   <TpsType>lib</TpsType>
   <Eula>http://curl.haxx.se/docs/copyright.html</Eula>
-  <RedistributeTo />
+  <RedistributeTo>
+    <EndUserGroup>Licensees</EndUserGroup>
+    <EndUserGroup>Git</EndUserGroup>
+    <EndUserGroup>P4</EndUserGroup>
+  </RedistributeTo>
   <Redistribute>false</Redistribute>
   <IsSourceAvailable>false</IsSourceAvailable>
   <NoticeType>Full EULA Text</NoticeType>
@@ -43,5 +47,5 @@ Except as contained in this notice, the name of a copyright holder shall not
 be used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization of the copyright holder.
 </Notification>
-  <LicenseFolder />
+  <LicenseFolder>/Engine/Source/ThirdParty/Licenses/Libcurl_7.32.1_License.txt</LicenseFolder>
 </TpsData>

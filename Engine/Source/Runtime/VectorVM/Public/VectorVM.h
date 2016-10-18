@@ -9,10 +9,8 @@
 #define VECTOR_WIDTH_BYTES (16)
 #define VECTOR_WIDTH_FLOATS (4)
 
-class UNiagaraDataObject;
 class FVectorVMSharedDataView;
 struct FVectorVMContext;
-class FVectorVMDebuggerImpl;
 
 UENUM()
 enum class EVectorVMOperandLocation : uint8
@@ -131,115 +129,11 @@ namespace VectorVM
 		VectorRegister** OutputRegisters,
 		int32 NumOutputRegisters,
 		FVector4 const* ConstantTable,
-		UNiagaraDataObject* *DataObjTable,
 		FVectorVMSharedDataView* SharedDataTable,
 		int32 NumVectors
 		);
 
 	VECTORVM_API void Init();
-
-	//////////////////////////////////////////////////////////////////////////
-	//Debugging
-
-	//VM Deubgger is currently broken. I wrote it and had it working on win 64 and unknowingly used some C++11 features not supported by the XBone compiler.
-	//I've had to hack the ENABLE_VM_DEBUGGING (0) code to get this to build but I've not done the ENABLE_VM_DEBUGGING (1) path as of yet.
-#define ENABLE_VM_DEBUGGING (0)
-//#define ENABLE_VM_DEBUGGING (1)
-
-#define MAX_VM_OP_ARGS (4)
-#define NUM_VM_OP_DEBUG_VALUES (MAX_VM_OP_ARGS + 1)
-#define MAX_INSTANCES_PER_VM_OP (4)//8 and 16 in future
-
-	enum class EVMType : uint8
-	{
-		//Float,
-		//Int32,
-		Vector4,
-	};
-
-	enum class EKernelArgs : uint8
-	{
-		Dest,
-		Arg0,
-		Arg1,
-		Arg2,
-		Arg3,
-		Max,
-	};
-
-#if ENABLE_VM_DEBUGGING
-
-	struct FDebugValue
-	{
-		FVector4 v;//TODO, replace with int/float union?
-
-		void Set(float Val)
-		{
-			v = FVector4(Val, Val, Val, Val);
-		}
-		void Set(int32 Val)
-		{
-			int32* i = (int32*)&v;
-			i[0] = Val;	i[1] = Val; i[2] = Val; i[3] = Val;
-		}
-		void Set(VectorRegister Val)
-		{
-			VectorStoreAligned(Val, (float*)&v);
-		}
-		template<typename T>
-		void Set(T Val)
-		{
-			v = FVector4(0.0f, 0.0f, 0.0f, 0.0f);
-		}
-	};
-
-	struct FDataLocationInfo
-	{
-		EVectorVMOperandLocation Location;
-		int32 PrimaryLocationIndex;
-		int32 SecondaryLocationIndex;
-		int32 TertiaryLocationIndex;
-		const void* MemoryAddress;
-
-		FDataLocationInfo(FVectorVMContext& Context, EVectorVMOperandLocation InLocation, int32 InPrimaryIndex, int32 InSecondaryIndex = INDEX_NONE, int32 InTertiaryIndex = INDEX_NONE);
-		FDataLocationInfo()
-			: Location(EVectorVMOperandLocation::Undefined)
-			, PrimaryLocationIndex(INDEX_NONE)
-			, SecondaryLocationIndex(INDEX_NONE)
-			, TertiaryLocationIndex(INDEX_NONE)
-			, MemoryAddress(NULL)
-		{}
-	};
-
-	struct VECTORVM_API FOpDebugInfo
-	{
-		EVectorVMOp Op;
-		EVMType OpType;
-		int32 NumArgs;
-
-		FDebugValue PreOpValues[NUM_VM_OP_DEBUG_VALUES];
-		FDebugValue PostOpValues[NUM_VM_OP_DEBUG_VALUES];
-		FDataLocationInfo LocationInfo[NUM_VM_OP_DEBUG_VALUES];
-	};
-
-	class VECTORVM_API FVectorVMDebugger
-	{
-	private:
-		FVectorVMDebuggerImpl* Impl;
-
-	public:
-		FVectorVMDebugger();
-		~FVectorVMDebugger();
-		void AddInstanceToGather(int32 Instance);
-		const TArray<FOpDebugInfo>* GetDebugInfoForInstance(int32 Instance);
-		FVectorVMDebuggerImpl* GetImpl();
-		void InitForScriptRun(int32 StartInstance, const TArray<int32> InstancesToDebug);
-	};
-
-	VECTORVM_API void AttachDebugger(FVectorVMDebugger* Debugger);
-	VECTORVM_API void DetachDebugger(FVectorVMDebugger* Debugger);
-#endif
-
 } // namespace VectorVM
 
 

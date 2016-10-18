@@ -146,6 +146,18 @@ class UNREALTOURNAMENT_API UUTCharacterVoice : public UUTLocalMessage
 		TArray<FCharacterSpeech> NeedHealthMessages;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		TArray<FCharacterSpeech> BehindYouMessages;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		TArray<FCharacterSpeech> GetTheFlagMessages;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		TArray<FCharacterSpeech> RedeemerKillMessages;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		TArray<FCharacterSpeech> RedeemerSpottedMessages;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
 		FGameVolumeSpeech BridgeLines;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
@@ -180,6 +192,66 @@ class UNREALTOURNAMENT_API UUTCharacterVoice : public UUTLocalMessage
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
 		FGameVolumeSpeech BaseCampLines;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		FGameVolumeSpeech SniperLines;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		FGameVolumeSpeech ArenaLines;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		FGameVolumeSpeech BonsaiiLines;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		FGameVolumeSpeech CliffsLines;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		FGameVolumeSpeech CoreLines;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		FGameVolumeSpeech CrossroadsLines;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		FGameVolumeSpeech VentsLines;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		FGameVolumeSpeech PipesLines;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		FGameVolumeSpeech RampLines;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		FGameVolumeSpeech HingeLines;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		FGameVolumeSpeech TreeLines;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		FGameVolumeSpeech TunnelLines;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		FGameVolumeSpeech WaterfallLines;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		FGameVolumeSpeech FortLines;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		FGameVolumeSpeech FountainLines;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		FGameVolumeSpeech GateHouseLines;
+	
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		FGameVolumeSpeech OverlookLines;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		FGameVolumeSpeech RuinsLines;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		FGameVolumeSpeech SniperTowerLines;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		FGameVolumeSpeech FlakLines;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
 		FCharacterSpeech RedeemerPickupLine;
@@ -238,8 +310,9 @@ class UNREALTOURNAMENT_API UUTCharacterVoice : public UUTLocalMessage
 	virtual USoundBase* GetAnnouncementSound_Implementation(int32 Switch, const UObject* OptionalObject) const override;
 	virtual void PrecacheAnnouncements_Implementation(UUTAnnouncer* Announcer) const override;
 	virtual bool ShouldPlayAnnouncement(const FClientReceiveData& ClientData) const override;
-	virtual bool InterruptAnnouncement_Implementation(int32 Switch, const UObject* OptionalObject, TSubclassOf<UUTLocalMessage> OtherMessageClass, int32 OtherSwitch, const UObject* OtherOptionalObject) const override;
+	virtual bool InterruptAnnouncement(const FAnnouncementInfo AnnouncementInfo, const FAnnouncementInfo OtherAnnouncementInfo) const override;
 	virtual bool CancelByAnnouncement_Implementation(int32 Switch, const UObject* OptionalObject, TSubclassOf<UUTLocalMessage> OtherMessageClass, int32 OtherSwitch, const UObject* OtherOptionalObject) const override;
-	virtual float GetAnnouncementPriority(int32 Switch) const override;
+	virtual float GetAnnouncementPriority(const FAnnouncementInfo AnnouncementInfo) const override;
 	virtual bool IsOptionalSpoken(int32 MessageIndex) const override;
+	virtual int32 GetDestinationIndex(int32 MessageIndex) const override;
 };

@@ -9,7 +9,7 @@
 #include "ObjectEditorUtils.h"
 #include "AssetEditorManager.h"
 #include "SequencerUtilities.h"
-#include "ClassIconFinder.h"
+#include "SlateIconFinder.h"
 #include "SequencerCommands.h"
 
 #define LOCTEXT_NAMESPACE "FObjectBindingNode"
@@ -89,6 +89,17 @@ FSequencerObjectBindingNode::FSequencerObjectBindingNode(FName NodeName, const F
 
 void FSequencerObjectBindingNode::BuildContextMenu(FMenuBuilder& MenuBuilder)
 {
+	ISequencerModule& SequencerModule = FModuleManager::GetModuleChecked<ISequencerModule>("Sequencer");
+
+	UObject* BoundObject = GetSequencer().FindSpawnedObjectOrTemplate(ObjectBinding);
+
+	TSharedRef<FUICommandList> CommandList(new FUICommandList);
+	TSharedPtr<FExtender> Extender = SequencerModule.GetObjectBindingContextMenuExtensibilityManager()->GetAllExtenders(CommandList, TArrayBuilder<UObject*>().Add(BoundObject));
+	if (Extender.IsValid())
+	{
+		MenuBuilder.PushExtender(Extender.ToSharedRef());
+	}
+
 	if (GetSequencer().IsLevelEditorSequencer())
 	{
 		UMovieScene* MovieScene = GetSequencer().GetFocusedMovieSceneSequence()->GetMovieScene();
@@ -96,27 +107,13 @@ void FSequencerObjectBindingNode::BuildContextMenu(FMenuBuilder& MenuBuilder)
 
 		if (Spawnable)
 		{
-			UBlueprint* Blueprint = Cast<UBlueprint>(Spawnable->GetClass()->ClassGeneratedBy);
-
-			if (Blueprint)
-			{
-				FFormatNamedArguments Args;
-				MenuBuilder.AddMenuEntry(
-					FText::Format( LOCTEXT("EditDefaults", "Edit Defaults"), Args),
-					FText::Format( LOCTEXT("EditDefaultsTooltip", "Edit the defaults for this spawnable object"), Args ),
-					FSlateIcon(),
-					FUIAction(FExecuteAction::CreateLambda([=]{
-						FAssetEditorManager::Get().OpenEditorForAsset(Blueprint);
-					}))
-				);
-			}
-
 			MenuBuilder.AddSubMenu(
 				LOCTEXT("OwnerLabel", "Spawned Object Owner"),
 				LOCTEXT("OwnerTooltip", "Specifies how the spawned object is to be owned"),
 				FNewMenuDelegate::CreateSP(this, &FSequencerObjectBindingNode::AddSpawnOwnershipMenu)
 			);
 
+			MenuBuilder.AddMenuEntry( FSequencerCommands::Get().ConvertToPossessable );
 		}
 		else
 		{
@@ -134,6 +131,22 @@ void FSequencerObjectBindingNode::BuildContextMenu(FMenuBuilder& MenuBuilder)
 
 			MenuBuilder.AddMenuEntry( FSequencerCommands::Get().ConvertToSpawnable );
 		}
+
+		MenuBuilder.AddMenuEntry(
+			LOCTEXT("Import FBX", "Import..."),
+			LOCTEXT("ImportFBXTooltip", "Import FBX animation to this object"),
+			FSlateIcon(),
+			FUIAction(
+				FExecuteAction::CreateLambda([=]{ GetSequencer().ImportFBX(); })
+			));
+
+		MenuBuilder.AddMenuEntry(
+			LOCTEXT("Export FBX", "Export..."),
+			LOCTEXT("ExportFBXTooltip", "Export FBX animation from this object"),
+			FSlateIcon(),
+			FUIAction(
+				FExecuteAction::CreateLambda([=]{ GetSequencer().ExportFBX(); })
+			));
 
 		MenuBuilder.BeginSection("Organize", LOCTEXT("OrganizeContextMenuSectionName", "Organize"));
 		{
@@ -289,7 +302,7 @@ FText FSequencerObjectBindingNode::GetDisplayNameToolTipText() const
 
 const FSlateBrush* FSequencerObjectBindingNode::GetIconBrush() const
 {
-	return FClassIconFinder::FindIconForClass(GetClassForObjectBinding());
+	return FSlateIconFinder::FindIconBrushForClass(GetClassForObjectBinding());
 }
 
 const FSlateBrush* FSequencerObjectBindingNode::GetIconOverlayBrush() const
@@ -346,8 +359,8 @@ void FSequencerObjectBindingNode::SetDisplayName(const FText& NewDisplayName)
 
 bool FSequencerObjectBindingNode::CanDrag() const
 {
-	TSharedPtr<FSequencerDisplayNode> ParentNode = GetParent();
-	return ParentNode.IsValid() == false || ParentNode->GetType() != ESequencerNode::Object;
+	TSharedPtr<FSequencerDisplayNode> ParentSeqNode = GetParent();
+	return ParentSeqNode.IsValid() == false || ParentSeqNode->GetType() != ESequencerNode::Object;
 }
 
 
@@ -410,46 +423,10 @@ const UClass* FSequencerObjectBindingNode::GetClassForObjectBinding() const
 	
 	// should exist, but also shouldn't be both a spawnable and a possessable
 	check((Spawnable != nullptr) ^ (Possessable != nullptr));
-	check((nullptr == Spawnable) || (nullptr != Spawnable->GetClass())  );
-	const UClass* ObjectClass = Spawnable ? Spawnable->GetClass()->GetSuperClass() : Possessable->GetPossessedObjectClass();
+	check((nullptr == Spawnable) || (nullptr != Spawnable->GetObjectTemplate())  );
+	const UClass* ObjectClass = Spawnable ? Spawnable->GetObjectTemplate()->GetClass() : Possessable->GetPossessedObjectClass();
 
 	return ObjectClass;
-}
-
-UObject* FSequencerObjectBindingNode::FindRepresentativeObject()
-{
-	FSequencer& Sequencer = GetSequencer();
-	
-	UObject* BoundObject = Sequencer.GetFocusedMovieSceneSequenceInstance()->FindObject(ObjectBinding, Sequencer);
-	if (BoundObject)
-	{
-		return BoundObject;
-	}
-
-	UMovieScene* FocusedMovieScene = Sequencer.GetFocusedMovieSceneSequence()->GetMovieScene();
-
-	FMovieScenePossessable* Possessable = FocusedMovieScene->FindPossessable(ObjectBinding);
-	// If we're a possessable with a parent spawnable and we don't have the object, we look the object up within the default object of the spawnable
-	if (Possessable && Possessable->GetParent().IsValid())
-	{
-		// If we're a spawnable and we don't have the object, use the default object to build up the track menu
-		FMovieSceneSpawnable* ParentSpawnable = FocusedMovieScene->FindSpawnable(Possessable->GetParent());
-		if (ParentSpawnable)
-		{
-			UObject* ParentObject = ParentSpawnable->GetClass()->GetDefaultObject();
-			if (ParentObject)
-			{
-				return Sequencer.GetFocusedMovieSceneSequence()->FindPossessableObject(ObjectBinding, ParentObject);
-			}
-		}
-	}
-	// If we're a spawnable and we don't have the object, use the default object to build up the track menu
-	else if (FMovieSceneSpawnable* Spawnable = FocusedMovieScene->FindSpawnable(ObjectBinding))
-	{
-		return Spawnable->GetClass()->GetDefaultObject();
-	}
-
-	return nullptr;
 }
 
 /* FSequencerObjectBindingNode callbacks
@@ -462,11 +439,11 @@ TSharedRef<SWidget> FSequencerObjectBindingNode::HandleAddTrackComboButtonGetMen
 	//@todo need to resolve this between UMG and the level editor sequencer
 	const bool bUseSubMenus = Sequencer.IsLevelEditorSequencer();
 
-	UObject* BoundObject = FindRepresentativeObject();
+	UObject* BoundObject = GetSequencer().FindSpawnedObjectOrTemplate(ObjectBinding);
 
 	ISequencerModule& SequencerModule = FModuleManager::GetModuleChecked<ISequencerModule>( "Sequencer" );
 	TSharedRef<FUICommandList> CommandList(new FUICommandList);
-	FMenuBuilder AddTrackMenuBuilder(true, nullptr, SequencerModule.GetMenuExtensibilityManager()->GetAllExtenders(CommandList, TArrayBuilder<UObject*>().Add(BoundObject)));
+	FMenuBuilder AddTrackMenuBuilder(true, nullptr, SequencerModule.GetAddTrackMenuExtensibilityManager()->GetAllExtenders(CommandList, TArrayBuilder<UObject*>().Add(BoundObject)));
 
 	const UClass* ObjectClass = GetClassForObjectBinding();
 	AddTrackMenuBuilder.BeginSection(NAME_None, LOCTEXT("TracksMenuHeader" , "Tracks"));
@@ -623,14 +600,29 @@ void FSequencerObjectBindingNode::HandleAddTrackSubMenuNew(FMenuBuilder& AddTrac
 
 void FSequencerObjectBindingNode::HandleLabelsSubMenuCreate(FMenuBuilder& MenuBuilder)
 {
-	MenuBuilder.AddWidget(SNew(SSequencerLabelEditor, GetSequencer(), ObjectBinding), FText::GetEmpty(), true);
+	const TSet< TSharedRef<FSequencerDisplayNode> >& SelectedNodes = GetSequencer().GetSelection().GetSelectedOutlinerNodes();
+	TArray<FGuid> ObjectBindingIds;
+	for (TSharedRef<const FSequencerDisplayNode> SelectedNode : SelectedNodes )
+	{
+		if (SelectedNode->GetType() == ESequencerNode::Object)
+		{
+			TSharedRef<const FSequencerObjectBindingNode> ObjectBindingNode = StaticCastSharedRef<const FSequencerObjectBindingNode>(SelectedNode);
+			FGuid ObjectBindingId = ObjectBindingNode->GetObjectBinding();
+			if (ObjectBindingId.IsValid())
+			{
+				ObjectBindingIds.Add(ObjectBindingId);
+			}
+		}
+	}
+
+	MenuBuilder.AddWidget(SNew(SSequencerLabelEditor, GetSequencer(), ObjectBindingIds), FText::GetEmpty(), true);
 }
 
 
 void FSequencerObjectBindingNode::HandlePropertyMenuItemExecute(TArray<UProperty*> PropertyPath)
 {
 	FSequencer& Sequencer = GetSequencer();
-	UObject* BoundObject = FindRepresentativeObject();
+	UObject* BoundObject = GetSequencer().FindSpawnedObjectOrTemplate(ObjectBinding);
 
 	TArray<UObject*> KeyableBoundObjects;
 	if (BoundObject != nullptr)

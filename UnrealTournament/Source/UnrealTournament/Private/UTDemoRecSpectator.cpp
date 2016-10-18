@@ -118,14 +118,14 @@ APlayerState* AUTDemoRecSpectator::GetNextViewablePlayer(int32 dir)
 	int32 NewIndex;
 	for (NewIndex = CurrentIndex + dir; (NewIndex >= 0) && (NewIndex < GetWorld()->GameState->PlayerArray.Num()); NewIndex = NewIndex + dir)
 	{
-		APlayerState* const PlayerState = GetWorld()->GameState->PlayerArray[NewIndex];
-		if (PlayerState != NULL && !PlayerState->bOnlySpectator)
+		APlayerState* const PlayerStateIter = GetWorld()->GameState->PlayerArray[NewIndex];
+		if (PlayerStateIter != NULL && !PlayerStateIter->bOnlySpectator)
 		{
 			for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
 			{
-				if (It->IsValid() && It->Get()->PlayerState == PlayerState)
+				if (It->IsValid() && It->Get()->PlayerState == PlayerStateIter)
 				{
-					return PlayerState;
+					return PlayerStateIter;
 				}
 			}
 		}
@@ -135,14 +135,14 @@ APlayerState* AUTDemoRecSpectator::GetNextViewablePlayer(int32 dir)
 	CurrentIndex = (NewIndex < 0) ? GetWorld()->GameState->PlayerArray.Num() : -1;
 	for (NewIndex = CurrentIndex + dir; (NewIndex >= 0) && (NewIndex < GetWorld()->GameState->PlayerArray.Num()); NewIndex = NewIndex + dir)
 	{
-		APlayerState* const PlayerState = GetWorld()->GameState->PlayerArray[NewIndex];
-		if (PlayerState != NULL && !PlayerState->bOnlySpectator)
+		APlayerState* const PlayerStateIter = GetWorld()->GameState->PlayerArray[NewIndex];
+		if (PlayerStateIter != NULL && !PlayerStateIter->bOnlySpectator)
 		{
 			for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
 			{
-				if (It->IsValid() && It->Get()->PlayerState == PlayerState)
+				if (It->IsValid() && It->Get()->PlayerState == PlayerStateIter)
 				{
-					return PlayerState;
+					return PlayerStateIter;
 				}
 			}
 		}

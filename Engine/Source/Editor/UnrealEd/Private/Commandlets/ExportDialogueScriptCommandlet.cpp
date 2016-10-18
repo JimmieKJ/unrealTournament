@@ -5,10 +5,6 @@
 #include "AssetRegistryModule.h"
 #include "Sound/DialogueWave.h"
 #include "Sound/DialogueVoice.h"
-#include "Internationalization/InternationalizationManifest.h"
-#include "Internationalization/InternationalizationArchive.h"
-#include "JsonInternationalizationManifestSerializer.h"
-#include "JsonInternationalizationArchiveSerializer.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogExportDialogueScriptCommandlet, Log, All);
 
@@ -150,57 +146,21 @@ int32 UExportDialogueScriptCommandlet::Main(const FString& Params)
 		return -1;
 	}
 
-	// Prepare the manifest
-	TSharedPtr<FInternationalizationManifest> InternationalizationManifest;
+	// We may only have a single culture if using this setting
+	if (!bUseCultureDirectory && CulturesToGenerate.Num() > 1)
 	{
-		const FString ManifestFileName = SourcePath / ManifestName;
-		if (!FPaths::FileExists(ManifestFileName))
-		{
-			UE_LOG(LogExportDialogueScriptCommandlet, Error, TEXT("Failed to find manifest '%s'."), *ManifestFileName);
-			return -1;
-		}
-
-		const TSharedPtr<FJsonObject> ManifestJsonObject = ReadJSONTextFile(ManifestFileName);
-		if (!ManifestJsonObject.IsValid())
-		{
-			UE_LOG(LogExportDialogueScriptCommandlet, Error, TEXT("Failed to parse manifest '%s'."), *ManifestFileName);
-			return -1;
-		}
-
-		FJsonInternationalizationManifestSerializer ManifestSerializer;
-		InternationalizationManifest = MakeShareable(new FInternationalizationManifest());
-		if (!ManifestSerializer.DeserializeManifest(ManifestJsonObject.ToSharedRef(), InternationalizationManifest.ToSharedRef()))
-		{
-			UE_LOG(LogExportDialogueScriptCommandlet, Error, TEXT("Failed to deserialize manifest '%s'."), *ManifestFileName);
-			return -1;
-		}
+		UE_LOG(LogExportDialogueScriptCommandlet, Error, TEXT("bUseCultureDirectory may only be used with a single culture."));
+		return false;
 	}
 
-	// Prepare the native archive
-	TSharedPtr<FInternationalizationArchive> NativeArchive;
+	// Load the manifest and all archives
+	FLocTextHelper LocTextHelper(SourcePath, ManifestName, ArchiveName, NativeCulture, CulturesToGenerate, MakeShareable(new FLocFileSCCNotifies(SourceControlInfo)));
 	{
-		const FString NativeCulturePath = SourcePath / NativeCulture;
-
-		const FString NativeArchiveFileName = NativeCulturePath / ArchiveName;
-		if (!FPaths::FileExists(NativeArchiveFileName))
+		FText LoadError;
+		if (!LocTextHelper.LoadAll(ELocTextHelperLoadFlags::LoadOrCreate, &LoadError))
 		{
-			UE_LOG(LogExportDialogueScriptCommandlet, Error, TEXT("Failed to find archive '%s'."), *NativeArchiveFileName);
-			return -1;
-		}
-
-		const TSharedPtr<FJsonObject> ArchiveJsonObject = ReadJSONTextFile(NativeArchiveFileName);
-		if (!ArchiveJsonObject.IsValid())
-		{
-			UE_LOG(LogExportDialogueScriptCommandlet, Error, TEXT("Failed to parse archive '%s'."), *NativeArchiveFileName);
-			return -1;
-		}
-
-		FJsonInternationalizationArchiveSerializer ArchiveSerializer;
-		NativeArchive = MakeShareable(new FInternationalizationArchive());
-		if (!ArchiveSerializer.DeserializeArchive(ArchiveJsonObject.ToSharedRef(), NativeArchive.ToSharedRef()))
-		{
-			UE_LOG(LogExportDialogueScriptCommandlet, Error, TEXT("Failed to deserialize archive '%s'."), *NativeArchiveFileName);
-			return -1;
+			UE_LOG(LogExportDialogueScriptCommandlet, Error, TEXT("%s"), *LoadError.ToString());
+			return false;
 		}
 	}
 
@@ -224,37 +184,6 @@ int32 UExportDialogueScriptCommandlet::Main(const FString& Params)
 		const bool bIsNativeCulture = CultureName == NativeCulture;
 		const FString CultureSourcePath = SourcePath / CultureName;
 		const FString CultureDestinationPath = DestinationPath / (bUseCultureDirectory ? CultureName : TEXT(""));
-
-		// Prepare the culture archive
-		TSharedPtr<FInternationalizationArchive> CultureArchive;
-		if (bIsNativeCulture)
-		{
-			CultureArchive = NativeArchive;
-		}
-		else
-		{
-			const FString ArchiveFileName = CultureSourcePath / ArchiveName;
-			if (!FPaths::FileExists(ArchiveFileName))
-			{
-				UE_LOG(LogExportDialogueScriptCommandlet, Error, TEXT("Failed to find archive '%s'."), *ArchiveFileName);
-				continue;
-			}
-
-			const TSharedPtr<FJsonObject> ArchiveJsonObject = ReadJSONTextFile(ArchiveFileName);
-			if (!ArchiveJsonObject.IsValid())
-			{
-				UE_LOG(LogExportDialogueScriptCommandlet, Error, TEXT("Failed to parse archive '%s'."), *ArchiveFileName);
-				continue;
-			}
-
-			FJsonInternationalizationArchiveSerializer ArchiveSerializer;
-			CultureArchive = MakeShareable(new FInternationalizationArchive());
-			if (!ArchiveSerializer.DeserializeArchive(ArchiveJsonObject.ToSharedRef(), CultureArchive.ToSharedRef()))
-			{
-				UE_LOG(LogExportDialogueScriptCommandlet, Error, TEXT("Failed to deserialize archive '%s'."), *ArchiveFileName);
-				continue;
-			}
-		}
 
 		TArray<TSharedPtr<FDialogueScriptEntry>> ExportedDialogueLines;
 		for (const FAssetData& AssetData : AssetDataArrayForDialogueWaves)
@@ -287,7 +216,7 @@ int32 UExportDialogueScriptCommandlet::Main(const FString& Params)
 				const FString ContextLocalizationKey = DialogueWave->GetContextLocalizationKey(ContextMapping);
 
 				// Check that this entry exists in the manifest file, as we want to skip over dialogue that we aren't gathering
-				TSharedPtr<FManifestEntry> ContextManifestEntry = InternationalizationManifest->FindEntryByKey(FDialogueConstants::DialogueNamespace, ContextLocalizationKey, &DialogueWave->SpokenText);
+				TSharedPtr<FManifestEntry> ContextManifestEntry = LocTextHelper.FindSourceText(FDialogueConstants::DialogueNamespace, ContextLocalizationKey, &DialogueWave->SpokenText);
 				if (!ContextManifestEntry.IsValid())
 				{
 					UE_LOG(LogExportDialogueScriptCommandlet, Log, TEXT("No internationalization manifest entry was found for context '%s' in culture '%s'. This context will be skipped."), *ContextLocalizationKey, *CultureName);
@@ -295,41 +224,21 @@ int32 UExportDialogueScriptCommandlet::Main(const FString& Params)
 				}
 
 				// Find the correct entry for our context
-				const FContext* ContextManifestEntryContext = ContextManifestEntry->FindContextByKey(ContextLocalizationKey);
-				check(ContextManifestEntryContext); // This should never fail as we pass in the key to FindEntryByKey
+				const FManifestContext* ContextManifestEntryContext = ContextManifestEntry->FindContextByKey(ContextLocalizationKey);
+				check(ContextManifestEntryContext); // This should never fail as we pass in the key to FindSourceText
 
-				// We might have a native translation for this text, in which case we need to export the translation for that text, rather than for the source text
-				FString SourceText = DialogueWave->SpokenText;
-				{
-					TSharedPtr<FArchiveEntry> NativeArchiveEntry = NativeArchive->FindEntryBySource(FDialogueConstants::DialogueNamespace, SourceText, ContextManifestEntryContext->KeyMetadataObj);
-					if (NativeArchiveEntry.IsValid())
-					{
-						SourceText = NativeArchiveEntry->Translation.Text;
-					}
-				}
+				// Get the localized text to export
+				FLocItem ExportedSource;
+				FLocItem ExportedTranslation;
+				LocTextHelper.GetExportText(CultureName, FDialogueConstants::DialogueNamespace, ContextManifestEntryContext->Key, ContextManifestEntryContext->KeyMetadataObj, ELocTextExportSourceMethod::NativeText, ContextManifestEntry->Source, ExportedSource, ExportedTranslation);
 
-				// Find the archive entry so we can export the correct text
-				FString TranslatedText;
-				if (bIsNativeCulture)
-				{
-					TranslatedText = SourceText;
-				}
-				else
-				{
-					TSharedPtr<FArchiveEntry> ArchiveEntry = CultureArchive->FindEntryBySource(FDialogueConstants::DialogueNamespace, SourceText, ContextManifestEntryContext->KeyMetadataObj);
-					if (ArchiveEntry.IsValid())
-					{
-						TranslatedText = ArchiveEntry->Translation.Text;
-					}
-				}
-
-				if (TranslatedText.IsEmpty())
+				if (ExportedTranslation.Text.IsEmpty())
 				{
 					UE_LOG(LogExportDialogueScriptCommandlet, Log, TEXT("Empty translation found for context '%s' in culture '%s'. This context will be skipped."), *ContextLocalizationKey, *CultureName);
 					continue;
 				}
 
-				const auto CollapsedDialogueContextKey = FCollapsedDialogueContextKey(DialogueWave, &ContextMapping, TranslatedText);
+				const auto CollapsedDialogueContextKey = FCollapsedDialogueContextKey(DialogueWave, &ContextMapping, ExportedTranslation.Text);
 				TArray<const FDialogueContextMapping*>* MergedContextsPtr = CollapsedDialogueContexts.Find(CollapsedDialogueContextKey);
 				if (MergedContextsPtr)
 				{
@@ -341,11 +250,28 @@ int32 UExportDialogueScriptCommandlet::Main(const FString& Params)
 				}
 			}
 
+			// Get the localized voice actor direction
+			FLocItem ExportedVoiceActorDirectionSource;
+			FLocItem ExportedVoiceActorDirectionTranslation;
+			LocTextHelper.GetExportText(CultureName, FDialogueConstants::DialogueNamespace, DialogueWave->LocalizationGUID.ToString() + FDialogueConstants::ActingDirectionKeySuffix, nullptr, ELocTextExportSourceMethod::NativeText, FLocItem(DialogueWave->VoiceActorDirection), ExportedVoiceActorDirectionSource, ExportedVoiceActorDirectionTranslation);
+
+			// Get the localized version of the dialogue wave for the current culture
+			UDialogueWave* LocalizedDialogueWave = nullptr;
+			{
+				const FString LocalizedDialogueWavePackagePath = FPackageName::GetLocalizedPackagePath(AssetData.PackageName.ToString(), CultureName);
+				const FAssetData LocalizedDialogueWaveAssetData = AssetRegistry.GetAssetByObjectPath(*FString::Printf(TEXT("%s.%s"), *LocalizedDialogueWavePackagePath, *AssetData.AssetName.ToString()));
+				LocalizedDialogueWave = Cast<UDialogueWave>(LocalizedDialogueWaveAssetData.GetAsset());
+				if (LocalizedDialogueWave == DialogueWave)
+				{
+					LocalizedDialogueWave = nullptr;
+				}
+			}
+
 			// Iterate over the unique contexts and generate exported data for them
 			for (const auto& CollapsedDialogueContextPair : CollapsedDialogueContexts)
 			{
 				TSharedRef<FDialogueScriptEntry> ExportedDialogueLine = MakeShareable(new FDialogueScriptEntry());
-				PopulateDialogueScriptEntry(CollapsedDialogueContextPair.Key.DialogueWave, *CollapsedDialogueContextPair.Key.Context, CollapsedDialogueContextPair.Value, CollapsedDialogueContextPair.Key.LocalizedSpokenText, *ExportedDialogueLine);
+				PopulateDialogueScriptEntry(DialogueWave, LocalizedDialogueWave, *CollapsedDialogueContextPair.Key.Context, CollapsedDialogueContextPair.Value, CollapsedDialogueContextPair.Key.LocalizedSpokenText, ExportedVoiceActorDirectionTranslation.Text, *ExportedDialogueLine);
 				ExportedDialogueLines.Add(ExportedDialogueLine);
 			}
 		}
@@ -426,7 +352,7 @@ FString UExportDialogueScriptCommandlet::GenerateCSVRow(const FDialogueScriptEnt
 		}
 
 		FString PropertyValue;
-		PropertyIt->ExportText_Direct(PropertyValue, PropertyIt->ContainerPtrToValuePtr<void>(&InDialogueScriptEntry), nullptr, nullptr, PPF_None);
+		PropertyIt->ExportTextItem(PropertyValue, PropertyIt->ContainerPtrToValuePtr<void>(&InDialogueScriptEntry), nullptr, nullptr, PPF_None);
 
 		CSVRow += TEXT("\"");
 		CSVRow += PropertyValue.Replace(TEXT("\""), TEXT("\"\""));
@@ -436,7 +362,7 @@ FString UExportDialogueScriptCommandlet::GenerateCSVRow(const FDialogueScriptEnt
 	return CSVRow;
 }
 
-void UExportDialogueScriptCommandlet::PopulateDialogueScriptEntry(const UDialogueWave* InDialogueWave, const FDialogueContextMapping& InPrimaryContext, const TArray<const FDialogueContextMapping*>& InAdditionalContexts, const FString& InLocalizedDialogue, FDialogueScriptEntry& OutDialogueScriptEntry)
+void UExportDialogueScriptCommandlet::PopulateDialogueScriptEntry(const UDialogueWave* InDialogueWave, const UDialogueWave* InLocalizedDialogueWave, const FDialogueContextMapping& InPrimaryContext, const TArray<const FDialogueContextMapping*>& InAdditionalContexts, const FString& InLocalizedDialogue, const FString& InLocalizedVoiceActorDirection, FDialogueScriptEntry& OutDialogueScriptEntry)
 {
 	auto AppendTargetVoices = [&](const FDialogueContext& InContext)
 	{
@@ -504,10 +430,26 @@ void UExportDialogueScriptCommandlet::PopulateDialogueScriptEntry(const UDialogu
 		}
 	};
 
+	auto HasLocalizedSoundWave = [&](const FDialogueContext& InContext) -> bool
+	{
+		if (InLocalizedDialogueWave)
+		{
+			for (const FDialogueContextMapping& LocalizedContextMapping : InLocalizedDialogueWave->ContextMappings)
+			{
+				if (LocalizedContextMapping.Context == InContext)
+				{
+					return LocalizedContextMapping.SoundWave && LocalizedContextMapping.SoundWave->IsLocalizedResource();
+				}
+			}
+		}
+		return false;
+	};
+
 	OutDialogueScriptEntry.SpokenDialogue = InLocalizedDialogue;
-	OutDialogueScriptEntry.VoiceActorDirection = InDialogueWave->VoiceActorDirection;
+	OutDialogueScriptEntry.VoiceActorDirection = InLocalizedVoiceActorDirection;
 	OutDialogueScriptEntry.AudioFileName = InDialogueWave->GetContextRecordedAudioFilename(InPrimaryContext);
 	OutDialogueScriptEntry.DialogueAsset = InDialogueWave->GetPathName();
+	OutDialogueScriptEntry.IsRecorded = HasLocalizedSoundWave(InPrimaryContext.Context);
 
 	OutDialogueScriptEntry.SpeakingVoice = InPrimaryContext.Context.Speaker->GetName();
 	OutDialogueScriptEntry.SpeakingVoiceGUID = InPrimaryContext.Context.Speaker->LocalizationGUID.ToString();
@@ -519,6 +461,11 @@ void UExportDialogueScriptCommandlet::PopulateDialogueScriptEntry(const UDialogu
 
 	for (const FDialogueContextMapping* AdditionalContext : InAdditionalContexts)
 	{
+		if (!OutDialogueScriptEntry.IsRecorded)
+		{
+			OutDialogueScriptEntry.IsRecorded = HasLocalizedSoundWave(AdditionalContext->Context);
+		}
+
 		OutDialogueScriptEntry.LocalizationKeys.Add(InDialogueWave->GetContextLocalizationKey(*AdditionalContext));
 		AppendTargetVoices(AdditionalContext->Context);
 		AppendTargetVoiceGUIDs(AdditionalContext->Context);

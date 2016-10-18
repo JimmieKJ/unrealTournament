@@ -54,6 +54,10 @@ protected:
 
 	void CollectAllNodeInstances(TSet<UObject*>& NodeInstances) override;
 
+#if WITH_EDITOR
+	virtual void PostEditUndo() override;
+#endif
+
 	void UpdateVersion_UnifiedSubNodes();
 	void UpdateVersion_InnerGraphWhitespace();
 };

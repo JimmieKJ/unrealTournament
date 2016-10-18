@@ -14,7 +14,7 @@ public:
 
 	static bool ShouldCache(EShaderPlatform Platform)
 	{
-		return AllowDebugViewModeShader(Platform) || !bQuadComplexity; // Shader complexity is always available
+		return AllowDebugViewPS(bQuadComplexity ? DVSM_QuadComplexity : DVSM_ShaderComplexity, Platform);
 	}
 
 	TComplexityAccumulatePS(const ShaderMetaType::CompiledShaderInitializerType& Initializer):
@@ -38,7 +38,7 @@ public:
 
 	static void ModifyCompilationEnvironment(EShaderPlatform Platform, FShaderCompilerEnvironment& OutEnvironment)
 	{
-		OutEnvironment.SetDefine(TEXT("OUTPUT_QUAD_OVERDRAW"), AllowDebugViewModeShader(Platform) ? TEXT("1") : TEXT("0"));
+		OutEnvironment.SetDefine(TEXT("OUTPUT_QUAD_OVERDRAW"), AllowDebugViewPS(DVSM_QuadComplexity, Platform));
 	}
 
 	virtual void SetParameters(

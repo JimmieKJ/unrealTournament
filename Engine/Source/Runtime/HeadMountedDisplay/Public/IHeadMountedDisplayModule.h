@@ -18,44 +18,81 @@ public:
 		return HMDFeatureName;
 	}
 
+	/** Returns the key into the HMDPluginPriority section of the config file for this module */
+	virtual FString GetModulePriorityKeyName() const = 0;
+	
 	/** Returns the priority of this module from INI file configuration */
-	float GetHMDPriority() const
+	float GetModulePriority() const
 	{
 		float ModulePriority = 0.f;
 		FString KeyName = GetModulePriorityKeyName();
 		GConfig->GetFloat(TEXT("HMDPluginPriority"), (!KeyName.IsEmpty() ? *KeyName : TEXT("Default")), ModulePriority, GEngineIni);
-
 		return ModulePriority;
 	}
 
-	/** Returns the key into the HMDPluginPriority section of the config file for this module */
-	virtual FString GetModulePriorityKeyName() const = 0;
-	
-	virtual void StartupModule() override
+	/** Sorting method for which plug-in should be given priority */
+	struct FCompareModulePriority
 	{
-		IModularFeatures::Get().RegisterModularFeature( GetModularFeatureName(), this );
-	}
+		bool operator()(IHeadMountedDisplayModule& A, IHeadMountedDisplayModule& B) const
+		{
+			return A.GetModulePriority() > B.GetModulePriority();
+		}
+	};
 
 	/**
 	 * Singleton-like access to IHeadMountedDisplayModule
 	 *
-	 * @return Returns IHeadMountedDisplayModule singleton instance, loading the module on demand if needed
+	 * @return Returns reference to the highest priority IHeadMountedDisplayModule module
 	 */
 	static inline IHeadMountedDisplayModule& Get()
 	{
-		return FModuleManager::LoadModuleChecked< IHeadMountedDisplayModule >( "HeadMountedDisplay" );
+		TArray<IHeadMountedDisplayModule*> HMDModules = IModularFeatures::Get().GetModularFeatureImplementations<IHeadMountedDisplayModule>(GetModularFeatureName());
+		HMDModules.Sort(FCompareModulePriority());
+		return *HMDModules[0];
 	}
 
 	/**
-	 * Checks to see if this module is loaded and ready.  It is only valid to call Get() if IsAvailable() returns true.
+	 * Checks to see if there exists a module registered as an HMD.  It is only valid to call Get() if IsAvailable() returns true.
 	 *
-	 * @return True if the module is loaded and ready to use
+	 * @return True if there exists a module registered as an HMD.
 	 */
 	static inline bool IsAvailable()
 	{
-		return FModuleManager::Get().IsModuleLoaded( "HeadMountedDisplay" );
+		return IModularFeatures::Get().IsModularFeatureAvailable(GetModularFeatureName());
 	}
 
+	/**
+	* Register module as an HMD on startup.
+	*/
+	virtual void StartupModule() override
+	{
+		IModularFeatures::Get().RegisterModularFeature(GetModularFeatureName(), this);
+	}
+
+	/**
+	* Optionally pre-initialize the HMD module.  Return false on failure.
+	*/
+	virtual bool PreInit() { return true; }
+
+	/**
+	 * Test to see whether HMD is connected.  Used to guide which plug-in to select.
+	 */
+	virtual bool IsHMDConnected() { return false; }
+
+	/**
+	 * Get index of graphics adapter where the HMD was last connected
+	 */
+	virtual int32 GetGraphicsAdapter() { return -1; }
+
+	/**
+	 * Get name of audio input device where the HMD was last connected
+	 */
+	virtual FString GetAudioInputDevice() { return FString(); }
+
+	/**
+	 * Get name of audio output device where the HMD was last connected
+	 */
+	virtual FString GetAudioOutputDevice() { return FString(); }
 
 	/**
 	 * Attempts to create a new head tracking device interface
@@ -63,21 +100,4 @@ public:
 	 * @return	Interface to the new head tracking device, if we were able to successfully create one
 	 */
 	virtual TSharedPtr< class IHeadMountedDisplay, ESPMode::ThreadSafe > CreateHeadMountedDisplay() = 0;
-
-	/**
-	* Optionally pre-init the HMD module.
-	*/
-	virtual void PreInit() {}
-};
-
-/** Sorting method for which plugin should be given priority */
-struct FHMDPluginSorter
-{
-	FHMDPluginSorter() {}
-
-	// Sort predicate operator
-	bool operator()(IHeadMountedDisplayModule& LHS, IHeadMountedDisplayModule& RHS) const
-	{
-		return LHS.GetHMDPriority() > RHS.GetHMDPriority();
-	}
 };

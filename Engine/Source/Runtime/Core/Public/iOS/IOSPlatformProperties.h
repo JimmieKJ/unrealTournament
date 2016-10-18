@@ -58,11 +58,6 @@ struct FIOSPlatformProperties
 		return true;
 	}
 
-	static FORCEINLINE bool SupportsVertexShaderTextureSampling()
-	{
-		return false;
-	}
-
 	static FORCEINLINE bool HasFixedResolution()
 	{
 		return true;

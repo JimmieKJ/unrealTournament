@@ -12,9 +12,4 @@ UCLASS(Blueprintable, Abstract, EditInlineNew, CollapseCategories)
 class GAMEPLAYABILITIES_API UGameplayEffectUIData : public UObject
 {
 	GENERATED_UCLASS_BODY()
-
-	virtual bool NeedsLoadForServer() const override
-	{
-		return false;
-	}
 };

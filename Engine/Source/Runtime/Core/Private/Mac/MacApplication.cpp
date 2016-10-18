@@ -638,7 +638,23 @@ void FMacApplication::ProcessEvent(const FDeferredMacEvent& Event)
 			const bool bHaveText = [[Event.DraggingPasteboard types] containsObject:NSPasteboardTypeString];
 			const bool bHaveFiles = [[Event.DraggingPasteboard types] containsObject:NSFilenamesPboardType];
 
-			if (bHaveFiles)
+			if (bHaveFiles && bHaveText)
+			{
+				TArray<FString> FileList;
+
+				NSArray *Files = [Event.DraggingPasteboard propertyListForType:NSFilenamesPboardType];
+				for (int32 Index = 0; Index < [Files count]; Index++)
+				{
+					NSString* FilePath = [Files objectAtIndex: Index];
+					const FString ListElement = FString([FilePath fileSystemRepresentation]);
+					FileList.Add(ListElement);
+				}
+
+				NSString* Text = [Event.DraggingPasteboard stringForType:NSPasteboardTypeString];
+
+				MessageHandler->OnDragEnterExternal(EventWindow.ToSharedRef(), FString(Text), FileList);
+			}
+			else if (bHaveFiles)
 			{
 				TArray<FString> FileList;
 
@@ -1153,12 +1169,26 @@ void FMacApplication::OnWindowsReordered()
 	SavedWindowsOrder.Empty();
 
 	NSArray* OrderedWindows = [NSApp orderedWindows];
+
+	int32 MinLevel = 0;
+	int32 MaxLevel = 0;
 	for (NSWindow* Window in OrderedWindows)
 	{
-		if ([Window isKindOfClass:[FCocoaWindow class]] && [Window isVisible] && ![Window hidesOnDeactivate])
+		const int32 WindowLevel = Levels.Contains([Window windowNumber]) ? Levels[[Window windowNumber]] : [Window level];
+		MinLevel = FMath::Min(MinLevel, WindowLevel);
+		MaxLevel = FMath::Max(MaxLevel, WindowLevel);
+	}
+
+	for (int32 Level = MaxLevel; Level >= MinLevel; Level--)
+	{
+		for (NSWindow* Window in OrderedWindows)
 		{
-			SavedWindowsOrder.Add(FSavedWindowOrderInfo([Window windowNumber], Levels.Contains([Window windowNumber]) ? Levels[[Window windowNumber]] : [Window level]));
-			[Window setLevel:NSNormalWindowLevel];
+			const int32 WindowLevel = Levels.Contains([Window windowNumber]) ? Levels[[Window windowNumber]] : [Window level];
+			if (Level == WindowLevel && [Window isKindOfClass:[FCocoaWindow class]] && [Window isVisible] && ![Window hidesOnDeactivate])
+			{
+				SavedWindowsOrder.Add(FSavedWindowOrderInfo([Window windowNumber], WindowLevel));
+				[Window setLevel:NSNormalWindowLevel];
+			}
 		}
 	}
 }

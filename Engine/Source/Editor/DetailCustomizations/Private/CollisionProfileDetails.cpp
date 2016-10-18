@@ -831,11 +831,11 @@ void SProfileEditDialog::AddCollisionResponse()
 	// first go through enum entry, and add suffix to displaynames
 	for(int32 EnumIndex=0; EnumIndex<NumEnum; ++EnumIndex)
 	{
-		const FString MetaData = Enum->GetMetaData(*KeyName, EnumIndex);
-		if(MetaData.Len() > 0)
+		const FString& EnumMetaData = Enum->GetMetaData(*KeyName, EnumIndex);
+		if(EnumMetaData.Len() > 0)
 		{
 			FCollisionChannelInfo Info;
-			Info.DisplayName = MetaData;
+			Info.DisplayName = EnumMetaData;
 			Info.CollisionChannel = (ECollisionChannel)EnumIndex;
 			if(Enum->GetMetaData(*TraceType, EnumIndex) == TEXT("1"))
 			{
@@ -1024,9 +1024,8 @@ void SProfileEditDialog::AddCollisionChannel(TArray<FCollisionChannelInfo>	Valid
 	{
 		if(ValidCollisionChannels[Index].TraceType == bTraceType)
 		{
-			FString DisplayName = ValidCollisionChannels[Index].DisplayName;
+			const FString& DisplayName = ValidCollisionChannels[Index].DisplayName;
 			int32 ChannelIndex = (int32)ValidCollisionChannels[Index].CollisionChannel;
-			EVisibility Visibility = EVisibility::Visible;
 
 			SCollisionPanel->AddSlot()
 			.Padding(6.f, 3.f)

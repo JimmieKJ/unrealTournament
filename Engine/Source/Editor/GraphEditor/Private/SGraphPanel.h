@@ -138,7 +138,7 @@ public:
 	void RemovePinFromHoverSet(UEdGraphPin* UnhoveredPin);
 
 	SGraphEditor::EPinVisibility GetPinVisibility() const { return PinVisibility; }
-	void SetPinVisibility(SGraphEditor::EPinVisibility Visibility) { PinVisibility = Visibility; }
+	void SetPinVisibility(SGraphEditor::EPinVisibility InVisibility) { PinVisibility = InVisibility; }
 
 	UEdGraph* GetGraphObj() const { return GraphObj; }
 
@@ -156,6 +156,9 @@ public:
 	
 	/** Straighten any connections attached to the specified pin, optionally limiting to the specified pin to align */
 	void StraightenConnections(UEdGraphPin* SourcePin, UEdGraphPin* PinToAlign = nullptr);
+
+	/** When the graph panel needs to be dynamically refreshing for animations, this function is registered to tick and invalidate the UI. */
+	EActiveTimerReturnType InvalidatePerTick(double InCurrentTime, float InDeltaTime);
 
 protected:
 
@@ -199,7 +202,7 @@ protected:
 	SGraphEditor::EPinVisibility PinVisibility;
 
 	/** List of pins currently being hovered over */
-	TSet< TWeakObjectPtr<UEdGraphPin> > CurrentHoveredPins;
+	TSet< FEdGraphPinReference > CurrentHoveredPins;
 
 	/** Time since the last mouse enter/exit on a pin */
 	double TimeWhenMouseEnteredPin;
@@ -286,4 +289,10 @@ private:
 
 	/** Returns the pin that we're considering as hovered if we are hovering over a spline; may be null */
 	class SGraphPin* GetBestPinFromHoveredSpline() const;
+
+	/** Handle to timer callback that allows the UI to refresh it's arrangement each tick, allows animations to occur within the UI */
+	TWeakPtr<FActiveTimerHandle> ActiveTimerHandleInvalidatePerTick;
+
+	/** Amount of time left to invalidate the UI per tick */
+	float TimeLeftToInvalidatePerTick;
 };

@@ -54,8 +54,8 @@ void AGameplayAbilityWorldReticle_ActorVisualization::InitializeReticleVisualiza
 			MeshComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);		//All mesh components are primitive components, so no cast is needed
 
 			//Move components from one actor to the other, attaching as needed. Hierarchy should not be important, but we can do fixups if it becomes important later.
-			MeshComp->DetachFromParent();
-			MeshComp->AttachTo(MyRoot);
+			MeshComp->DetachFromComponent(FDetachmentTransformRules::KeepRelativeTransform);
+			MeshComp->AttachToComponent(MyRoot, FAttachmentTransformRules::KeepRelativeTransform);
 			MeshComp->Rename(nullptr, this);
 			if (VisualizationMaterial)
 			{

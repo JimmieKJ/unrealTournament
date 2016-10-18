@@ -86,12 +86,15 @@ public:
 	 */
 	void CheckTouching();
 
+	/** called to do clientside simulated handling of weapon pickups with weapon stay on */
+	virtual void LocalPickupHandling(APawn* TouchedBy);
+
 	virtual void SetPickupHidden(bool bNowHidden) override;
 	virtual void PlayTakenEffects(bool bReplicate) override;
 
-	virtual float BotDesireability_Implementation(APawn* Asker, float TotalDistance) override
+	virtual float BotDesireability_Implementation(APawn* Asker, AController* RequestOwner, float TotalDistance) override
 	{
-		return (IsTaken(Asker) ? 0.0f : Super::BotDesireability_Implementation(Asker, TotalDistance));
+		return (IsTaken(Asker) ? 0.0f : Super::BotDesireability_Implementation(Asker, RequestOwner, TotalDistance));
 	}
 
 	virtual float GetRespawnTimeOffset(APawn* Asker) const override;

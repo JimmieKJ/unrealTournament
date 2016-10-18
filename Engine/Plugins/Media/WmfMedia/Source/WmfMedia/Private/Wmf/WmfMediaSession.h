@@ -2,33 +2,12 @@
 
 #pragma once
 
+#include "IMediaControls.h"
 #include "AllowWindowsPlatformTypes.h"
 
 
 // forward declarations
 enum class EMediaPlaybackDirections;
-
-
-/**
- * Enumerates possible states of media playback.
- */
-enum class EMediaStates
-{
-	/** Video has been closed and cannot be played again. */
-	Closed,
-
-	/** Unrecoverable error occurred during playback. */
-	Error,
-
-	/** Playback has been paused, but can be resumed. */
-	Paused,
-
-	/** Video is currently playing. */
-	Playing,
-
-	/** Playback has been stopped, but can be restarted. */
-	Stopped
-};
 
 
 /**
@@ -45,8 +24,12 @@ enum class EMediaStates
  */
 class FWmfMediaSession
 	: public IMFAsyncCallback
+	, public IMediaControls
 {
 public:
+
+	/** Default constructor. */
+	FWmfMediaSession();
 
 	/**
 	 * Creates and initializes a new instance.
@@ -61,6 +44,23 @@ public:
 
 public:
 
+	//~ IMediaControls interface
+
+	virtual FTimespan GetDuration() const override;
+	virtual float GetRate() const override;
+	virtual EMediaState GetState() const override;
+	virtual TRange<float> GetSupportedRates(EMediaPlaybackDirections Direction, bool Unthinned) const override;
+	virtual FTimespan GetTime() const override;
+	virtual bool IsLooping() const override;
+	virtual bool Seek(const FTimespan& Time) override;
+	virtual bool SetLooping(bool Looping) override;
+	virtual bool SetRate(float Rate) override;
+	virtual bool SupportsRate(float Rate, bool Unthinned) const override;
+	virtual bool SupportsScrubbing() const override;
+	virtual bool SupportsSeeking() const override;
+
+public:
+
 	/**
 	 * Gets the session capabilities.
 	 *
@@ -72,112 +72,14 @@ public:
 	}
 
 	/**
-	 * Gets the current playback position.
-	 *
-	 * @return Presentation clock time, or FTimespan::MinValue if no clock is available.
-	 */
-	FTimespan GetPosition() const;
-
-	/**
-	 * Gets the current playback rate.
-	 *
-	 * @return Playback rate.
-	 */
-	float GetRate() const
-	{
-		return CurrentRate;
-	}
-
-	/**
-	 * Gets the state of this session.
-	 *
-	 * @return Media session state.
-	 */
-	EMediaStates GetState() const
-	{
-		return CurrentState;
-	}
-
-	/**
-	 * Gets the supported playback rate for the specified rate type.
-	 *
-	 * @param Direction The playback direction.
-	 * @param Unthinned Whether the rates are for unthinned playback.
-	 * @return The supported playback rate.
-	 */
-	TRange<float> GetSupportedRates(EMediaPlaybackDirections Direction, bool Unthinned) const;
-
-	/**
-	 * Checks whether playback is currently looping.
-	 *
-	 * @return true if looping, false otherwise.
-	 */
-	bool IsLooping() const
-	{
-		return Looping;
-	}
-
-	/**
-	 * Checks whether the specified playback rate is supported.
-	 *
-	 * @param Rate The rate to check (can be negative for reverse play).
-	 * @param Unthinned Whether no frames should be dropped at the given rate.
-	 * @return true if the rate is supported, false otherwise.
-	 */
-	bool IsRateSupported(float Rate, bool Unthinned) const;
-
-	/**
-	 * Sets whether playback should loop back to the beginning.
-	 *
-	 * @param InLooping Whether playback should be looped.
-	 */
-	void SetLooping(bool InLooping)
-	{
-		Looping = InLooping;
-	}
-
-	/**
-	 * Changes the playback position of the media.
-	 *
-	 * @param Position The position to set.
-	 * @return true if the position will be changed, false otherwise.
-	 */
-	bool SetPosition(const FTimespan& Position);
-
-	/**
-	 * Sets the playback rate.
-	 *
-	 * @param Rate The rate to set.
-	 * @return true if the rate will be changed, false otherwise.
-	 */
-	bool SetRate(float Rate);
-
-	/**
 	 * Sets the media state.
 	 *
 	 * @param NewState The media state to set.
 	 * @return true if the state will be changed, false otherwise.
 	 */
-	bool SetState(EMediaStates NewState);
-
-	/**
-	 * Checks whether this session supports scrubbing.
-	 *
-	 * @return true if scrubbing is supported, false otherwise.
-	 */
-	bool SupportsScrubbing() const
-	{
-		return CanScrub;
-	}
+	bool SetState(EMediaState NewState);
 
 public:
-
-	/** Gets an event delegate that is invoked when an error occured. */
-	DECLARE_EVENT_OneParam(FWmfMediaSession, FOnError, HRESULT /*Error*/)
-	FOnError& OnError()
-	{
-		return ErrorEvent;
-	}
 
 	/** Gets an event delegate that is invoked when the last presentation segment finished playing. */
 	DECLARE_EVENT_OneParam(FWmfMediaSession, FOnSessionEvent, MediaEventType /*EventType*/)
@@ -188,7 +90,7 @@ public:
 
 public:
 
-	// IMFAsyncCallback interface
+	//~ IMFAsyncCallback interface
 
 	STDMETHODIMP_(ULONG) AddRef();
 	STDMETHODIMP GetParameters(unsigned long*, unsigned long*);
@@ -206,11 +108,11 @@ protected:
 	bool ChangeState();
 
 	/**
-	 * Updates the CurrentPlayRate if it is different than the RequestedPlayRate
+	 * Updates the CurrentPlayRate if it is different than the RequestedPlayRate.
 	 *
-	 * @param OutStopped If true, the media player was stopped as a result of the change
+	 * @return Whether playback was stopped as a result of the update.
 	 */
-	void UpdateRate(bool &OutStopped);
+	bool UpdateRate();
 
 	/**
 	 * Gets the playback position as known by the internal WMF clock.
@@ -224,9 +126,12 @@ protected:
 	 *
 	 * @param CompletedState The state that was completed.
 	 */
-	void UpdateState(EMediaStates CompletedState);
+	void UpdateState(EMediaState CompletedState);
 
 private:
+
+	/** Whether the media source is buffering data. */
+	bool Buffering;
 
 	/** Caches whether the media supports scrubbing. */
 	bool CanScrub;
@@ -244,7 +149,7 @@ private:
 	float CurrentRate;
 
 	/** The current playback state. */
-	EMediaStates CurrentState;
+	EMediaState CurrentState;
 
 	/** The duration of the media. */
 	FTimespan Duration;
@@ -267,22 +172,19 @@ private:
 	/** Holds a reference counter for this instance. */
 	int32 RefCount;
 
-	/** The requested playback position. */
-	FTimespan RequestedPosition;
-
 	/** The requested playback rate. */
 	float RequestedRate;
 
+	/** The requested playback position. */
+	FTimespan RequestedTime;
+
 	/** The requested playback state. */
-	EMediaStates RequestedState;
+	EMediaState RequestedState;
 
 	/** Whether a state change is currently in progress. */
 	bool StateChangePending;
 
 private:
-
-	/** Holds an event delegate that is invoked when an error occurred. */
-	FOnError ErrorEvent;
 
 	/** Holds an event delegate that is invoked when an event occurs in the session. */
 	FOnSessionEvent SessionEvent;

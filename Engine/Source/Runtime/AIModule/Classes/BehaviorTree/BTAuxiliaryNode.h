@@ -44,6 +44,15 @@ class AIMODULE_API UBTAuxiliaryNode : public UBTNode
 	virtual void DescribeRuntimeValues(const UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory, EBTDescriptionVerbosity::Type Verbosity, TArray<FString>& Values) const override;
 	virtual uint16 GetSpecialMemorySize() const override;
 
+	/** fill in data about tree structure */
+	void InitializeParentLink(uint8 InChildIndex);
+
+	/** @return parent task node */
+	const UBTNode* GetMyNode() const;
+
+	/** @return index of child in parent's array or MAX_uint8 */
+	uint8 GetChildIndex() const;
+
 protected:
 
 	/** if set, OnBecomeRelevant will be used */
@@ -57,6 +66,9 @@ protected:
 
 	/** if set, conditional tick will use remaining time form node's memory */
 	uint8 bTickIntervals : 1;
+
+	/** child index in parent node */
+	uint8 ChildIndex;
 
 	/** called when auxiliary node becomes active
 	 * this function should be considered as const (don't modify state of object) if node is not instanced! */
@@ -93,3 +105,8 @@ public:
 	DEPRECATED(4.7, "This version is deprecated. Please use the one taking reference to UBehaviorTreeComponent rather than a pointer.")
 	virtual void TickNode(UBehaviorTreeComponent* OwnerComp, uint8* NodeMemory, float DeltaSeconds);
 };
+
+FORCEINLINE uint8 UBTAuxiliaryNode::GetChildIndex() const
+{
+	return ChildIndex;
+}

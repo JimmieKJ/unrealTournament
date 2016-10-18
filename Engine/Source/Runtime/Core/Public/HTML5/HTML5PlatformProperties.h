@@ -58,11 +58,6 @@ struct FHTML5PlatformProperties
 		return false;
 	}
 
-	static FORCEINLINE bool SupportsVertexShaderTextureSampling()
-	{
-		return false;
-	}
-
 	static FORCEINLINE bool HasFixedResolution()
 	{
 		return false;

@@ -435,13 +435,17 @@ public:
 	UPROPERTY(EditAnywhere, Category=Material)
 	uint32 TwoSided:1;
 
-	/** Whether the material should support a dithered LOD transition when used with the foliage system. */
+	/** Whether the material should support a dithered LOD transition. */
 	UPROPERTY(EditAnywhere, Category=Material, AdvancedDisplay)
 	uint32 DitheredLODTransition:1;
 
 	/** Dither opacity mask. When combined with Temporal AA this can be used as a form of limited translucency which supports all lighting features. */
 	UPROPERTY(EditAnywhere, Category=Material, AdvancedDisplay)
 	uint32 DitherOpacityMask:1;
+
+	/** Whether the material should allow outputting negative emissive color values.  Only allowed on unlit materials. */
+	UPROPERTY(EditAnywhere, Category=Material, AdvancedDisplay)
+	uint32 bAllowNegativeEmissiveColor:1;
 
 	/** Number of customized UV inputs to display.  Unconnected customized UV inputs will just pass through the vertex UVs. */
 	UPROPERTY(EditAnywhere, Category=Material, AdvancedDisplay, meta=(ClampMin=0))
@@ -547,13 +551,6 @@ public:
 	uint32 bUsedWithEditorCompositing:1;
 
 	/** 
-	 * Indicates that the material and its instances can be use with landscapes 
-	 * This will result in the shaders required to support landscapes being compiled which will increase shader compile time and memory usage.
-	 */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Usage)
-	uint32 bUsedWithLandscape:1;
-
-	/** 
 	 * Indicates that the material and its instances can be use with particle sprites 
 	 * This will result in the shaders required to support particle sprites being compiled which will increase shader compile time and memory usage.
 	 */
@@ -580,13 +577,6 @@ public:
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Usage)
 	uint32 bUsedWithStaticLighting:1;
-
-	/** 
-	 * Indicates that the material and its instances can be use with fluid surfaces
-	 * This will result in the shaders required to support fluid surfaces being compiled which will increase shader compile time and memory usage.
-	 */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Usage)
-	uint32 bUsedWithFluidSurfaces:1;
 
 	/** 
 	 * Indicates that the material and its instances can be use with morph targets
@@ -638,20 +628,35 @@ public:
 	uint32 bAutomaticallySetUsageInEditor:1;
 
 	/* Forces the material to be completely rough. Saves a number of instructions and one sampler. */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Mobile)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Material, AdvancedDisplay)
 	uint32 bFullyRough:1;
+
+	/** 
+	 *	Forces this material to use full (highp) precision in the pixel shader.
+	 *	This is slower than the default (mediump) but can be used to work around precision-related rendering errors.
+	 *	This setting has no effect on older mobile devices that do not support high precision. 
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Mobile)
+	uint32 bUseFullPrecision : 1;
 
 	/* Use lightmap directionality and per pixel normals. If disabled, lighting from lightmaps will be flat but cheaper. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Mobile)
 	uint32 bUseLightmapDirectionality:1;
 
-	/* Enables high quality reflections in the forward renderer. Enabling this setting reduces the number of samplers available to the material as two more samplers will be used for reflection cubemaps. */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Mobile, meta = (DisplayName = "High Quality Reflections"))
+	/* 
+	 * Forward renderer: enables multiple parallax-corrected reflection captures that blend together.
+	 * Mobile renderer: blend between nearest 3 reflection captures, but reduces the number of samplers available to the material as two more samplers will be used for reflection cubemaps.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = ForwardShading, meta = (DisplayName = "High Quality Reflections"))
 	uint32 bUseHQForwardReflections : 1;
 
-	/** Whether the material should composite a planar reflection pass. */
-	UPROPERTY(EditAnywhere, Category = Mobile)
-	uint32 bAcceptsPlanarReflection : 1;
+	/* Enables planar reflection when using the forward renderer or mobile. Enabling this setting reduces the number of samplers available to the material as one more sampler will be used for the planar reflection. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = ForwardShading, meta = (DisplayName = "Planar Reflections"))
+	uint32 bUsePlanarForwardReflections : 1;
+
+	/* Reduce roughness based on screen space normal changes. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=ForwardShading)
+	uint32 bNormalCurvatureToRoughness : 1;
 
 	/** The type of tessellation to apply to this object.  Note D3D11 required for anything except MTM_NoTessellation. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Tessellation)
@@ -746,9 +751,14 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=PostProcessMaterial, meta=(DisplayName = "Blendable Priority"))
 	int32 BlendablePriority;
 
+	/** Controls how the Refraction input is interpreted and how the refraction offset into scene color is computed for this material. */
+	UPROPERTY(EditAnywhere, Category=Refraction)
+	TEnumAsByte<enum ERefractionMode> RefractionMode;
+
 	/** This is the refraction depth bias, larger values offset distortion to prevent closer objects from rendering into the distorted surface at acute viewing angles but increases the disconnect between surface and where the refraction starts. */
-	UPROPERTY(EditAnywhere, Category=Material, AdvancedDisplay)
+	UPROPERTY(EditAnywhere, Category=Refraction)
 	float RefractionDepthBias;
+
 	/** 
 	 * Guid that uniquely identifies this material. 
 	 * Any changes to the state of the material that do not appear separately in the shadermap DDC keys must cause this guid to be regenerated!
@@ -773,6 +783,9 @@ public:
 #endif //WITH_EDITORONLY_DATA
 
 private:
+
+	/** Inline material resources serialized from disk. To be processed on game thread in PostLoad. */
+	TArray<FMaterialResource> LoadedMaterialResources;
 
 	/** 
 	 * Material resources used for rendering this material.
@@ -816,6 +829,7 @@ public:
 	ENGINE_API virtual FMaterialRenderProxy* GetRenderProxy(bool Selected, bool bHovered=false) const override;
 	ENGINE_API virtual UPhysicalMaterial* GetPhysicalMaterial() const override;
 	ENGINE_API virtual void GetUsedTextures(TArray<UTexture*>& OutTextures, EMaterialQualityLevel::Type QualityLevel, bool bAllQualityLevels, ERHIFeatureLevel::Type FeatureLevel, bool bAllFeatureLevels) const override;
+	ENGINE_API virtual void GetUsedTexturesAndIndices(TArray<UTexture*>& OutTextures, TArray< TArray<int32> >& OutIndices, EMaterialQualityLevel::Type QualityLevel, ERHIFeatureLevel::Type FeatureLevel) const override;
 	ENGINE_API virtual void OverrideTexture( const UTexture* InTextureToOverride, UTexture* OverrideTexture, ERHIFeatureLevel::Type InFeatureLevel ) override;
 	ENGINE_API virtual void OverrideVectorParameterDefault(FName ParameterName, const FLinearColor& Value, bool bOverride, ERHIFeatureLevel::Type FeatureLevel) override;
 	ENGINE_API virtual void OverrideScalarParameterDefault(FName ParameterName, float Value, bool bOverride, ERHIFeatureLevel::Type FeatureLevel) override;
@@ -856,7 +870,7 @@ public:
 	//~ End UMaterialInterface Interface.
 
 	//~ Begin UObject Interface
-	ENGINE_API virtual void PreSave() override;
+	ENGINE_API virtual void PreSave(const class ITargetPlatform* TargetPlatform) override;
 	ENGINE_API virtual void PostInitProperties() override;
 	ENGINE_API virtual void Serialize(FArchive& Ar) override;
 	ENGINE_API virtual void PostDuplicate(bool bDuplicateForPIE) override;
@@ -917,6 +931,15 @@ public:
 	 */
 	ENGINE_API virtual void LogMaterialsAndTextures(FOutputDevice& Ar, int32 Indent) const override;
 #endif
+
+	/**
+	 *	Returns all the Guids related to this material. For material instances, this includes the parent hierarchy.
+	 *  Used for versioning as parent changes don't update the child instance Guids.
+	 *
+	 *	@param	bIncludeTextures	Whether to include the referenced texture Guids.
+	 *	@param	OutGuids			The list of all resource guids affecting the precomputed lighting system and texture streamer.
+	 */
+	ENGINE_API virtual void GetLightingGuidChain(bool bIncludeTextures, TArray<FGuid>& OutGuids) const override;
 
 private:
 	void BackwardsCompatibilityInputConversion();
@@ -1195,18 +1218,18 @@ public:
 	 * Backs up all material shaders to memory through serialization, organized by FMaterialShaderMap. 
 	 * This will also clear all FMaterialShaderMap references to FShaders.
 	 */
-	ENGINE_API static void BackupMaterialShadersToMemory(TMap<FMaterialShaderMap*, TScopedPointer<TArray<uint8> > >& ShaderMapToSerializedShaderData);
+	ENGINE_API static void BackupMaterialShadersToMemory(TMap<class FMaterialShaderMap*, TScopedPointer<TArray<uint8> > >& ShaderMapToSerializedShaderData);
 
 	/** 
 	 * Recreates FShaders for FMaterialShaderMap's from the serialized data.  Shader maps may not be complete after this due to changes in the shader keys.
 	 */
-	ENGINE_API static void RestoreMaterialShadersFromMemory(const TMap<FMaterialShaderMap*, TScopedPointer<TArray<uint8> > >& ShaderMapToSerializedShaderData);
+	ENGINE_API static void RestoreMaterialShadersFromMemory(const TMap<class FMaterialShaderMap*, TScopedPointer<TArray<uint8> > >& ShaderMapToSerializedShaderData);
 
 	/** Builds a map from UMaterialInterface name to the shader maps that are needed for rendering on the given platform. */
 	ENGINE_API static void CompileMaterialsForRemoteRecompile(
 		const TArray<UMaterialInterface*>& MaterialsToCompile,
 		EShaderPlatform ShaderPlatform, 
-		TMap<FString, TArray<TRefCountPtr<FMaterialShaderMap> > >& OutShaderMaps);
+		TMap<FString, TArray<TRefCountPtr<class FMaterialShaderMap> > >& OutShaderMaps);
 
 	/**
 	 * Add an expression node that represents a parameter to the list of material parameters.
@@ -1370,7 +1393,7 @@ protected:
 public:
 	bool HasNormalConnected() const { return Normal.IsConnected(); }
 
-	void NotifyCompilationFinished(FMaterialResource* CompiledResource);
+	static void NotifyCompilationFinished(UMaterialInterface* Material);
 
 	DECLARE_EVENT_OneParam( UMaterial, FMaterialCompilationFinished, UMaterialInterface* );
 	ENGINE_API static FMaterialCompilationFinished& OnMaterialCompilationFinished();

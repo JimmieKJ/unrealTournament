@@ -334,6 +334,9 @@ struct FFileCacheConfig
 	/** When true, changes to the directory since the cache shutdown will be detected and reported. When false, said changes will silently be applied to the serialized cache. */
 	bool bDetectChangesSinceLastRun;
 
+	/** User-specified custom change detection logic. Called when a file's timestamp has been modified, to see if we should report this change to the client */
+	TFunction<TOptional<bool>(const FImmutableString&, const FFileData&)> CustomChangeLogic;
+
 	/** Set up this cache to detect moves */
 	FFileCacheConfig& DetectMoves(bool bInDetectMoves)
 	{
@@ -431,7 +434,15 @@ public:
 	void IgnoreDeletedFile(const FString& Filename);
 
 	/** Get the number of pending changes to the cache. */
-	int32 GetNumOutstandingChanges() const { return DirtyFiles.Num(); }
+	int32 GetNumDirtyFiles() const { return DirtyFiles.Num(); }
+	
+	/**
+	 * Iterate the number of pending changes to the cache with the specified predicate. Assumes Tick has been called (and thus, PendingTransactions is up-to-date)
+	 * @param InIter		A predicate to match files against (returning true to continue iteration, false to break), based on:
+								1) the pending transaction
+								2) the time the change was detected
+	*/
+	void IterateOutstandingChanges(TFunctionRef<bool(const FUpdateCacheTransaction&, const FDateTime&)> InPredicate) const;
 
 	/** Get pending changes to the cache. Transactions must be returned to CompleteTransaction to update the cache.
 	 *  Filter predicate recieves a transaction and the time the change was reported. */
@@ -471,6 +482,9 @@ private:
 	void HarvestDirtyFileHashes();
 	void RescanForDirtyFileHashes();
 
+	/** Update our cache of pending transactions (to prevent diffing against the directory unnecessarily) */
+	void UpdatePendingTransactions();
+
 private:
 
 	/** Configuration settings applied on construction */
@@ -498,6 +512,9 @@ private:
 	/** The time we last retrieved file hashes from the thread */
 	double LastFileHashGetTime;
 
+	/** List of cached pending transactions */
+	bool bPendingTransactionsDirty;
+	TArray<FUpdateCacheTransaction> PendingTransactions;
 };
 
 } // namespace DirectoryWatcher

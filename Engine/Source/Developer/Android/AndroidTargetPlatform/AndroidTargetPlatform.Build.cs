@@ -37,8 +37,9 @@ public class AndroidTargetPlatform : ModuleRules
 		PrivateIncludePaths.AddRange(
 			new string[]
 			{
-				"Developer/AndroidTargetPlatform/Classes"
-			}
-		);
+				"Developer/AndroidTargetPlatform/Classes",
+                "SessionServices"
+            }
+        );
 	}
 }

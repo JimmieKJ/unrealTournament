@@ -153,8 +153,14 @@ private:
 	// returns whether we are importing or not
 	bool IsImportEnabled() const;
 
-	// updates the text in the ini file and checks for a valid provision/certificate
+	// updates the bundle identifier if it is valid and checks for a matching provision/certificate
 	void OnBundleIdentifierChanged(const FText& NewText, ETextCommit::Type, TSharedRef<IPropertyHandle> InPropertyHandle);
+
+	// posts an error if the bundle identifier has become invalid
+	void OnBundleIdentifierTextChanged(const FText& NewText, ETextCommit::Type, TSharedRef<IPropertyHandle> InPropertyHandle);
+
+	// returns true if the given string is a valid bundle identifier
+	bool IsBundleIdentifierValid(const FString& inIdentifier);
 
 	// updates the text in the ini file and checks for a valid provision/certificate
 	void OnRemoteServerChanged(const FText& NewText, ETextCommit::Type, TSharedRef<IPropertyHandle> InPropertyHandle);
@@ -165,4 +171,6 @@ private:
 
 	// 
 	FText GetBundleText(TSharedRef<IPropertyHandle> InPropertyHandle) const;
+
+	TSharedPtr< SEditableTextBox > BundleIdTextBox;
 };

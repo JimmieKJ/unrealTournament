@@ -219,12 +219,12 @@ void FPersonaToolbar::FillPersonaModeToolbar(FToolBarBuilder& ParentToolbarBuild
 
 bool FPersonaToolbar::ShouldFilterAssetBasedOnSkeleton(const FAssetData& AssetData)
 {
-	const FString* SkeletonName = AssetData.TagsAndValues.Find(TEXT("Skeleton"));
+	const FString SkeletonName = AssetData.GetTagValueRef<FString>("Skeleton");
 
-	if ( SkeletonName )
+	if ( !SkeletonName.IsEmpty() )
 	{
 		USkeleton* Skeleton = Persona.Pin()->GetSkeleton();
-		if ( (*SkeletonName) == FString::Printf(TEXT("%s'%s'"), *Skeleton->GetClass()->GetName(), *Skeleton->GetPathName()) )
+		if ( SkeletonName == FString::Printf(TEXT("%s'%s'"), *Skeleton->GetClass()->GetName(), *Skeleton->GetPathName()) )
 		{
 			return false;
 		}

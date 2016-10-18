@@ -79,6 +79,7 @@ protected:
 
 	TSharedPtr<SGridPanel> MutatorGrid;
 
+	TWeakObjectPtr<AUTReplicatedMapInfo> SelectedMapInfo;
 
 	virtual void AddReferencedObjects(FReferenceCollector& Collector) override
 	{
@@ -93,6 +94,14 @@ protected:
 
 	void GetCustomMutatorOptions(UClass* MutatorClass, FString& Description, TArray<FString>&GameOptions);
 	// Returns true if this custom screen has everything needed to play
+
+	const FSlateBrush* GetMapBorder() const;
+	EVisibility GetMapBorderVis() const;
+	EVisibility GetLockImageVis() const;
+
+	void OnStoreDialogResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
+	void OnStoreReturnResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
+
 
 public:
 

@@ -1,16 +1,13 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
+
 #include "Interface.h"
+#include "GameplayTaskTypes.h"
 #include "GameplayTaskOwnerInterface.generated.h"
 
 class UGameplayTasksComponent;
 class UGameplayTask;
 class AActor;
-
-namespace FGameplayTasks
-{
-	static const uint8 DefaultPriority = 127;
-}
 
 UINTERFACE(MinimalAPI, meta = (CannotImplementInterfaceInBlueprint))
 class UGameplayTaskOwnerInterface : public UInterface
@@ -22,13 +19,25 @@ class GAMEPLAYTASKS_API IGameplayTaskOwnerInterface
 {
 	GENERATED_BODY()
 public:
-	virtual void OnTaskInitialized(UGameplayTask& Task);
-	virtual UGameplayTasksComponent* GetGameplayTasksComponent(const UGameplayTask& Task) const = 0;
-	/** this gets called both when task starts and when task gets resumed. Check Task.GetStatus() if you want to differenciate */
-	virtual void OnTaskActivated(UGameplayTask& Task) = 0;
-	/** this gets called both when task finished and when task gets paused. Check Task.GetStatus() if you want to differenciate */
-	virtual void OnTaskDeactivated(UGameplayTask& Task) = 0;
-	virtual AActor* GetOwnerActor(const UGameplayTask* Task) const = 0;
-	virtual AActor* GetAvatarActor(const UGameplayTask* Task) const;
-	virtual uint8 GetDefaultPriority() const { return FGameplayTasks::DefaultPriority; }
+
+	/** Finds tasks component for given GameplayTask, Task.GetGameplayTasksComponent() may not be initialized at this point! */
+	virtual UGameplayTasksComponent* GetGameplayTasksComponent(const UGameplayTask& Task) const PURE_VIRTUAL(IGameplayTaskOwnerInterface::GetGameplayTasksComponent, return nullptr;);
+
+	/** Get owner of a task or default one when task is null */
+	virtual AActor* GetGameplayTaskOwner(const UGameplayTask* Task) const PURE_VIRTUAL(IGameplayTaskOwnerInterface::GetGameplayTaskOwner, return nullptr;);
+
+	/** Get "body" of task's owner / default, having location in world (e.g. Owner = AIController, Avatar = Pawn) */
+	virtual AActor* GetGameplayTaskAvatar(const UGameplayTask* Task) const { return GetGameplayTaskOwner(Task); }
+
+	/** Get default priority for running a task */
+	virtual uint8 GetGameplayTaskDefaultPriority() const { return FGameplayTasks::DefaultPriority; }
+
+	/** Notify called after GameplayTask finishes initialization (not active yet) */
+	virtual void OnGameplayTaskInitialized(UGameplayTask& Task) {}
+	
+	/** Notify called after GameplayTask changes state to Active (initial activation or resuming) */
+	virtual void OnGameplayTaskActivated(UGameplayTask& Task) {}
+
+	/** Notify called after GameplayTask changes state from Active (finishing or pausing) */
+	virtual void OnGameplayTaskDeactivated(UGameplayTask& Task) {}
 };

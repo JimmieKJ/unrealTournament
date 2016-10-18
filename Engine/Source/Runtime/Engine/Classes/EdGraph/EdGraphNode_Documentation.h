@@ -32,7 +32,7 @@ public:
 	ENGINE_API virtual TSharedPtr<class INameValidatorInterface> MakeNameValidator() const override;
 	ENGINE_API virtual FString GetDocumentationLink() const override { return Link; }
 	ENGINE_API virtual FString GetDocumentationExcerptName() const override { return Excerpt; }
-	ENGINE_API virtual FName GetPaletteIcon(FLinearColor& OutColor) const override { return TEXT("GraphEditor.Documentation_16x");  }
+	ENGINE_API virtual FSlateIcon GetIconAndTint(FLinearColor& OutColor) const override;
 	//~ End UEdGraphNode Interface
 
 	/** Set the Bounds for the comment node */

@@ -18,7 +18,7 @@
 #include "Editor/ContentBrowser/Public/ContentBrowserModule.h"
 #include "ComponentAssetBroker.h"
 
-#include "ClassIconFinder.h"
+#include "SlateIconFinder.h"
 
 #include "Editor/UnrealEd/Public/AssetNotifications.h"
 
@@ -50,23 +50,83 @@ DECLARE_DELEGATE_RetVal_TwoParams(FReply, FOnDraggingBoneItem, const FGeometry&,
 class FSocketTextObjectFactory : public FCustomizableTextObjectFactory
 {
 public:
-	FSocketTextObjectFactory( USkeletalMeshSocket** InDestinationSocket )
+	FSocketTextObjectFactory( USkeleton* InSkeleton, USkeletalMesh* InSkeletalMesh, FName InPasteBone)
 	: FCustomizableTextObjectFactory( GWarn )
-	, DestinationSocket( InDestinationSocket )
+	, PasteBone(InPasteBone)
+	, Skeleton(InSkeleton)
+	, SkeletalMesh(InSkeletalMesh)
 	{
-		
+		check(Skeleton);
 	};
 
+	// Pointer back to the outside world that will hold the final imported socket
+	TArray<USkeletalMeshSocket*> CreatedSockets;
+
 private:
-	virtual bool CanCreateClass(UClass* ObjectClass) const { return true; }
+	
+	virtual bool CanCreateClass(UClass* ObjectClass, bool& bOmitSubObjs) const override { return true; }
 
 	virtual void ProcessConstructedObject( UObject* CreatedObject )
 	{
-		*DestinationSocket = (USkeletalMeshSocket*)CreatedObject;
+		USkeletalMeshSocket* NewSocket = CastChecked<USkeletalMeshSocket>(CreatedObject);
+		CreatedSockets.Add(NewSocket);
+
+		const FReferenceSkeleton* RefSkel = nullptr;
+
+		if (USkeletalMesh* SocketMesh = Cast<USkeletalMesh>(NewSocket->GetOuter()))
+		{
+			SocketMesh->GetMeshOnlySocketList().Add(NewSocket);
+			RefSkel = &SocketMesh->RefSkeleton;
+		}
+		else if(USkeleton* SocketSkeleton = Cast<USkeleton>(NewSocket->GetOuter()))
+		{
+			SocketSkeleton->Sockets.Add(NewSocket);
+			RefSkel = &SocketSkeleton->GetReferenceSkeleton();
+		}
+		else
+		{
+			check(false) //Unknown socket outer
+		}
+
+		if (!PasteBone.IsNone())
+		{
+			// Override the bone name to the one we pasted to
+			NewSocket->BoneName = PasteBone;
+		}
+		else
+		{
+			//Validate BoneName
+			if (RefSkel->FindBoneIndex(NewSocket->BoneName) == INDEX_NONE)
+			{
+				NewSocket->BoneName = RefSkel->GetBoneName(0);
+			}
+		}
 	}
 
-	// Pointer back to the outside world that will hold the final imported socket
-	USkeletalMeshSocket** DestinationSocket;
+	virtual void ProcessUnidentifiedLine(const FString& StrLine)
+	{
+		bool bIsOnSkeleton;
+		FParse::Bool(*StrLine, TEXT("IsOnSkeleton="), bIsOnSkeleton);
+		bExpectingMeshSocket = !bIsOnSkeleton;
+	}
+
+	virtual UObject* GetParentForNewObject(const UClass* ObjClass) 
+	{ 
+		UObject* Target = (bExpectingMeshSocket && SkeletalMesh)? (UObject*)SkeletalMesh : (UObject*)Skeleton;
+		Target->Modify();
+		return Target;
+	}
+
+	const FName PasteBone;
+
+	// Track what type of socket we will be processing next
+	bool bExpectingMeshSocket;
+
+	// Target for Skeleton Sockets
+	USkeleton* Skeleton; 
+
+	// Target for Mesh Sockets (could be nullptr)
+	USkeletalMesh* SkeletalMesh;
 };
 
 //////////////////////////////////////////////////////////////////////////
@@ -165,19 +225,19 @@ TSharedRef< SWidget > SSkeletonTreeRow::GenerateWidgetForColumn( const FName& Co
 {
 	if ( ColumnName == ColumnID_BoneLabel )
 	{
-		TSharedPtr< SHorizontalBox > Box;
+		TSharedPtr< SHorizontalBox > RowBox;
 
-		SAssignNew( Box, SHorizontalBox );
+		SAssignNew( RowBox, SHorizontalBox );
 
-		Box->AddSlot()
+		RowBox->AddSlot()
 			.AutoWidth()
 			[
 				SNew( SExpanderArrow, SharedThis(this) )
 			];
 
-		Item->GenerateWidgetForNameColumn( Box, FilterText, FIsSelected::CreateSP(this, &STableRow::IsSelectedExclusively ) );
+		Item->GenerateWidgetForNameColumn( RowBox, FilterText, FIsSelected::CreateSP(this, &STableRow::IsSelectedExclusively ) );
 
-		return Box.ToSharedRef();
+		return RowBox.ToSharedRef();
 	}
 	else
 	{
@@ -777,7 +837,7 @@ TSharedRef<ITableRow> FDisplayedAttachedAssetInfo::MakeTreeRowWidget(
 void FDisplayedAttachedAssetInfo::GenerateWidgetForNameColumn( TSharedPtr< SHorizontalBox > Box, FText& FilterText, FIsSelected InIsSelected )
 {
 	UActorFactory* ActorFactory = FActorFactoryAssetProxy::GetFactoryForAssetObject( Asset );
-	const FSlateBrush* IconBrush = FClassIconFinder::FindIconForClass( ActorFactory->GetDefaultActorClass( FAssetData() ) );		
+	const FSlateBrush* IconBrush = FSlateIconFinder::FindIconBrushForClass(ActorFactory->GetDefaultActorClass(FAssetData()));
 	
 	Box->AddSlot()
 		.AutoWidth()
@@ -1152,7 +1212,11 @@ void SSkeletonTree::BindCommands()
 
 	CommandList.MapAction(
 		MenuActions.PasteSockets,
-		FExecuteAction::CreateSP( this, &SSkeletonTree::OnPasteSockets ) );
+		FExecuteAction::CreateSP( this, &SSkeletonTree::OnPasteSockets, false ) );
+
+	CommandList.MapAction(
+		MenuActions.PasteSocketsToSelectedBone,
+		FExecuteAction::CreateSP(this, &SSkeletonTree::OnPasteSockets, true));
 }
 
 TSharedRef<ITableRow> SSkeletonTree::MakeTreeRowWidget(TSharedPtr<FDisplayedTreeRowInfo> InInfo, const TSharedRef<STableViewBase>& OwnerTable)
@@ -1549,6 +1613,7 @@ TSharedPtr< SWidget > SSkeletonTree::CreateContextMenu()
 			{
 				MenuBuilder.AddMenuEntry( Actions.AddSocket );
 				MenuBuilder.AddMenuEntry( Actions.PasteSockets );
+				MenuBuilder.AddMenuEntry( Actions.PasteSocketsToSelectedBone );
 			}
 
 			MenuBuilder.EndSection();
@@ -1886,14 +1951,14 @@ FString SSkeletonTree::SerializeSocketToString( USkeletalMeshSocket* Socket, con
 	return SocketString;
 }
 
-void SSkeletonTree::OnPasteSockets()
+void SSkeletonTree::OnPasteSockets(bool bPasteToSelectedBone)
 {
 	FBoneTreeSelection TreeSelection(SkeletonTreeView->GetSelectedItems());
 
 	// Pasting sockets should only work if there is just one bone selected
 	if ( TreeSelection.IsSingleOfTypeSelected(ESkeletonTreeRowType::Bone) )
 	{
-		FName DestBoneName = *static_cast<FName*>( TreeSelection.GetSingleSelectedItem()->GetData() );
+		FName DestBoneName = bPasteToSelectedBone ? *static_cast<FName*>( TreeSelection.GetSingleSelectedItem()->GetData() ) : NAME_None;
 
 		FString PasteString;
 		FPlatformMisc::ClipboardPaste( PasteString );
@@ -1909,51 +1974,14 @@ void SSkeletonTree::OnPasteSockets()
 			int32 NumSocketsToPaste;
 			FParse::Line( &PastePtr, PasteLine );	// Need this to advance PastePtr, for multiple sockets
 			FParse::Value( *PasteLine, TEXT( "NumSockets=" ), NumSocketsToPaste );
-			FParse::Line( &PastePtr, PasteLine );
 
-			for ( int32 i = 0; i < NumSocketsToPaste; ++i )
-			{					
-				bool bIsOnSkeleton;
-				FParse::Bool( *PasteLine, TEXT( "IsOnSkeleton=" ), bIsOnSkeleton );
+			FSocketTextObjectFactory TextObjectFactory(TargetSkeleton, PersonaPtr.Pin()->GetMesh(), DestBoneName);
+			TextObjectFactory.ProcessBuffer(nullptr, RF_Transactional, PastePtr);
 
-				USkeletalMeshSocket* NewSocket;
-				FSocketTextObjectFactory TextObjectFactory( &NewSocket );
-
-				if ( bIsOnSkeleton )
-				{
-					TargetSkeleton->Modify();
-
-					TextObjectFactory.ProcessBuffer( TargetSkeleton, RF_Transactional, PastePtr );
-					check(NewSocket);
-				}
-				else
-				{
-					USkeletalMesh* Mesh = PersonaPtr.Pin()->GetMesh();
-
-					Mesh->Modify();
-
-					TextObjectFactory.ProcessBuffer( Mesh, RF_Transactional, PastePtr );
-					check(NewSocket);
-				}
-
-				// Override the bone name to the one we pasted to
-				NewSocket->BoneName = DestBoneName;
-
+			for (USkeletalMeshSocket* NewSocket : TextObjectFactory.CreatedSockets)
+			{
 				// Check the socket name is unique
-				NewSocket->SocketName = PersonaPtr.Pin()->GenerateUniqueSocketName( NewSocket->SocketName );
-
-				// Skip ahead in the stream to the next socket (if there is one)
-				PastePtr = FCString::Strstr( PastePtr, TEXT( "IsOnSkeleton=" ) );
-
-				if ( bIsOnSkeleton )
-				{
-					TargetSkeleton->Sockets.Add( NewSocket );
-				}
-				else
-				{
-					USkeletalMesh* Mesh = PersonaPtr.Pin()->GetMesh();
-					Mesh->GetMeshOnlySocketList().Add( NewSocket );
-				}
+				NewSocket->SocketName = PersonaPtr.Pin()->GenerateUniqueSocketName(NewSocket->SocketName);
 			}
 		}
 		CreateFromSkeleton( TargetSkeleton->GetBoneTree() );

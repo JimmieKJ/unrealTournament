@@ -5,6 +5,8 @@
 #include "UTFlagReturnTrail.h"
 #include "UTCTFRoundGameState.h"
 
+static FName NAME_ColorParam = FName(TEXT("color"));
+
 AUTGhostFlag::AUTGhostFlag(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
@@ -20,11 +22,20 @@ AUTGhostFlag::AUTGhostFlag(const FObjectInitializer& ObjectInitializer)
 	Root->Mobility = EComponentMobility::Movable;
 	RootComponent = Root;
 
+	Mesh = ObjectInitializer.CreateDefaultSubobject<USkeletalMeshComponent>(this, TEXT("GhostMesh"));
+	if (Mesh != nullptr)
+	{
+		Mesh->AlwaysLoadOnClient = true;
+		Mesh->AlwaysLoadOnServer = true;
+		Mesh->SetupAttachment(RootComponent);
+		Mesh->SetHiddenInGame(false);
+	}
+
 	TimerEffect = ObjectInitializer.CreateDefaultSubobject<UParticleSystemComponent>(this, TEXT("TimerEffect"));
 	if (TimerEffect != NULL)
 	{
 		TimerEffect->SetHiddenInGame(true);
-		TimerEffect->AttachParent = RootComponent;
+		TimerEffect->SetupAttachment(RootComponent);
 		TimerEffect->LDMaxDrawDistance = 4000.0f;
 		TimerEffect->RelativeLocation.Z = 40.0f;
 		TimerEffect->Mobility = EComponentMobility::Movable;
@@ -48,6 +59,27 @@ void AUTGhostFlag::Destroyed()
 		Trail->SetLifeSpan(1.f); //failsafe
 	}
 }
+
+void AUTGhostFlag::PostInitializeComponents()
+{
+	Super::PostInitializeComponents();
+	if (GetNetMode() != NM_DedicatedServer)
+	{
+		for (int32 i=0; i < Mesh->GetNumMaterials(); i++)
+		{
+			MeshMIDs.Add(Mesh->CreateAndSetMaterialInstanceDynamic(i));
+		}
+	}
+}
+
+void AUTGhostFlag::SetGhostColor(FLinearColor NewColor)
+{
+	for (int32 i=0; i < MeshMIDs.Num(); i++)
+	{
+		if (MeshMIDs[i] != nullptr) MeshMIDs[i]->SetVectorParameterValue(NAME_ColorParam, NewColor);
+	}
+}
+
 
 void AUTGhostFlag::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
 {
@@ -75,16 +107,23 @@ void AUTGhostFlag::Tick(float DeltaTime)
 				break;
 			}
 		}
-		AUTCTFRoundGameState* RCTFGameState = GetWorld()->GetGameState<AUTCTFRoundGameState>();
-		float ReturnTime = (RCTFGameState && (RCTFGameState->RemainingPickupDelay > 0.f)) ? RCTFGameState->RemainingPickupDelay : GhostMaster.MyCarriedObject->FlagReturnTime;
-		float TimerPosition = GhostMaster.MyCarriedObject->AutoReturnTime > 0.f ? (1.0f - ReturnTime / 12.f) : 0.f;
-		TimerEffect->SetHiddenInGame(false);
-		TimerEffect->SetFloatParameter(NAME_Progress, TimerPosition);			
-		TimerEffect->SetFloatParameter(NAME_RespawnTime, 60);
-		if (GetWorld()->GetTimeSeconds() - TrailSpawnTime > 10.f)
+
+		if (GhostMaster.bShowTimer)
 		{
-			OnSetCarriedObject();
+			float TimerPosition = GhostMaster.MyCarriedObject->GetGhostFlagTimerTime(this);
+			TimerEffect->SetHiddenInGame(false);
+			TimerEffect->SetFloatParameter(NAME_Progress, TimerPosition);			
+			TimerEffect->SetFloatParameter(NAME_RespawnTime, 60);
+			if (GetWorld()->GetTimeSeconds() - TrailSpawnTime > 10.f)
+			{
+				OnSetCarriedObject();
+			}
 		}
+		else if (!TimerEffect->bHiddenInGame)
+		{
+			TimerEffect->SetHiddenInGame(true);
+		}
+
 	}
 	else
 	{
@@ -101,6 +140,15 @@ void AUTGhostFlag::OnSetCarriedObject()
 			Trail->EndTrail();
 			Trail->SetLifeSpan(1.f); //failsafe
 		}
+
+		if (GhostMaster.TeamNum != 255)
+		{
+			SetGhostColor(GhostMaster.TeamNum == 0 ? FLinearColor::Red : FLinearColor::Blue);
+		}
+
+		// If we do not want tails on this ghost, just return here
+		if (GhostMaster.bSuppressTrails) return;
+
 		FActorSpawnParameters Params;
 		Params.Owner = this;
 		Trail = GetWorld()->SpawnActor<AUTFlagReturnTrail>(TrailClass, GhostMaster.FlagLocation, FRotator::ZeroRotator, Params);
@@ -110,7 +158,7 @@ void AUTGhostFlag::OnSetCarriedObject()
 		static FName NAME_GhostTrail = FName(TEXT("GhostTrail"));
 		FCollisionQueryParams CollisionParms(NAME_GhostTrail, true, GhostMaster.MyCarriedObject);
 		// remove unnecessary midpoints
-		bool bHit = GetWorld()->LineTraceSingleByChannel(Hit, GhostMaster.FlagLocation, GetActorLocation(), COLLISION_TRACE_WEAPONNOCHARACTER, CollisionParms);
+		bool bHit = GetWorld()->LineTraceSingleByChannel(Hit, GhostMaster.FlagLocation, GetActorLocation(), ECC_Visibility, CollisionParms);
 		if (!bHit)
 		{
 			for (int32 j = 0; j < NUM_MIDPOINTS; j++)
@@ -124,7 +172,7 @@ void AUTGhostFlag::OnSetCarriedObject()
 			{
 				if (!GhostMaster.MidPoints[i].IsZero())
 				{
-					bHit = GetWorld()->LineTraceSingleByChannel(Hit, GhostMaster.FlagLocation, GhostMaster.MidPoints[i], COLLISION_TRACE_WEAPONNOCHARACTER, CollisionParms);
+					bHit = GetWorld()->LineTraceSingleByChannel(Hit, GhostMaster.FlagLocation, GhostMaster.MidPoints[i], ECC_Visibility, CollisionParms);
 					if (!bHit)
 					{
 						// LOS to this point, remove intermediates
@@ -141,7 +189,7 @@ void AUTGhostFlag::OnSetCarriedObject()
 		{
 			if (!GhostMaster.MidPoints[i].IsZero())
 			{
-				bHit = GetWorld()->LineTraceSingleByChannel(Hit,GhostMaster.MidPoints[i], GetActorLocation(), COLLISION_TRACE_WEAPONNOCHARACTER, CollisionParms);
+				bHit = GetWorld()->LineTraceSingleByChannel(Hit,GhostMaster.MidPoints[i], GetActorLocation(), ECC_Visibility, CollisionParms);
 				if (!bHit)
 				{
 					// LOS to this point, remove intermediates
@@ -175,6 +223,7 @@ void AUTGhostFlag::SetCarriedObject(AUTCarriedObject* NewCarriedObject, const FF
 {
 	GhostMaster.MyCarriedObject = NewCarriedObject;
 	GhostMaster.FlagLocation = NewCarriedObject->GetActorLocation();
+
 	for (int32 i = 0; i < NUM_MIDPOINTS; i++)
 	{
 		GhostMaster.MidPoints[i] = NewPosition.MidPoints[i];

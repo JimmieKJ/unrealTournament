@@ -64,7 +64,15 @@ FProceduralFoliageInstance* UProceduralFoliageTile::NewSeed(const FVector& Locat
 	{
 		FProceduralFoliageInstance* NewInst = new FProceduralFoliageInstance();
 		NewInst->Location = Location;
-		NewInst->Rotation = FQuat(FVector(0, 0, 1), RandomStream.FRandRange(0, 2.f*PI));
+
+		// make a new local random stream to avoid changes to instance randomness changing the position of all other procedural instances
+		FRandomStream LocalStream = RandomStream;
+		RandomStream.GetUnsignedInt(); // advance the parent stream by one
+
+		FRotator Rotation = {0,0,0};
+		Rotation.Yaw   = LocalStream.FRandRange(0, Type->RandomYaw ? 360 : 0);
+		Rotation.Pitch = LocalStream.FRandRange(0, Type->RandomPitchAngle);
+		NewInst->Rotation = FQuat(Rotation);
 		NewInst->Age = InAge;
 		NewInst->Type = Type;
 		NewInst->Normal = FVector(0, 0, 1);
@@ -376,7 +384,7 @@ void UProceduralFoliageTile::InitSimulation(const UProceduralFoliageSpawner* InF
 	RandomStream.Initialize(RandomSeed);
 	FoliageSpawner = InFoliageSpawner;
 	SimulationStep = 0;
-	Broadphase = FProceduralFoliageBroadphase(FoliageSpawner->TileSize);
+	Broadphase = FProceduralFoliageBroadphase(FoliageSpawner->TileSize, FoliageSpawner->MinimumQuadTreeSize);
 }
 
 bool UProceduralFoliageTile::UserCancelled() const

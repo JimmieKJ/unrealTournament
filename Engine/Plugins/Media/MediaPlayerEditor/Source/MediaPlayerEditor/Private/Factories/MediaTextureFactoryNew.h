@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "Factories/Factory.h"
 #include "MediaTextureFactoryNew.generated.h"
 
 
@@ -14,14 +15,11 @@ class UMediaTextureFactoryNew
 {
 	GENERATED_UCLASS_BODY()
 
-	/** An initial media player asset to place in the newly created texture. */
-	UPROPERTY()
-	class UMediaPlayer* InitialMediaPlayer;
-
 public:
 
-	// UFactory Interface
+	//~ UFactory Interface
 
 	virtual UObject* FactoryCreateNew( UClass* InClass, UObject* InParent, FName InName, EObjectFlags Flags, UObject* Context, FFeedbackContext* Warn ) override;
+	virtual uint32 GetMenuCategories() const override;
 	virtual bool ShouldShowInNewMenu() const override;
 };

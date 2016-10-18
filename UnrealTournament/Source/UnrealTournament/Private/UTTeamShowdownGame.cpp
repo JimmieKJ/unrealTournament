@@ -493,9 +493,9 @@ void AUTTeamShowdownGame::CreateConfigWidgets(TSharedPtr<class SVerticalBox> Men
 						.AllowSpin(true)
 						.Delta(1)
 						.MinValue(MinimumPlayers)
-						.MaxValue(32)
+						.MaxValue(12)
 						.MinSliderValue(MinimumPlayers)
-						.MaxSliderValue(32)
+						.MaxSliderValue(12)
 						.EditableTextBoxStyle(SUWindowsStyle::Get(), "UT.Common.NumEditbox.White")
 
 					)

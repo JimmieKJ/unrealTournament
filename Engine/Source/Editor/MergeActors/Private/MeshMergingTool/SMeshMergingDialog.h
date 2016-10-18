@@ -1,7 +1,29 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "Engine/MeshMerging.h"
+#include "PropertyEditorModule.h"
+
 class FMeshMergingTool;
+class IDetailsView;
+class UMeshMergingSettingsObject;
+class IPropertyHandle;
+class FDetailWidgetRow;
+class IDetailChildrenBuilder;
+
+/** Data structure used to keep track of the selected mesh components, and whether or not they should be incorporated in the merge */
+struct FMeshComponentData
+{
+	FMeshComponentData(UStaticMeshComponent* InMeshComponent)
+		: MeshComponent(InMeshComponent )
+		, bShouldIncorporate( true )
+	{}
+
+	/** Mesh component extracted from selected actors */
+	TWeakObjectPtr<UStaticMeshComponent> MeshComponent;
+	/** Flag determining whether or not this component should be incorporated into the merge */
+	bool bShouldIncorporate;
+};
 
 /*-----------------------------------------------------------------------------
    SMeshMergingDialog
@@ -18,69 +40,58 @@ public:
 public:
 	/** **/
 	SMeshMergingDialog();
+	~SMeshMergingDialog();
 
 	/** SWidget functions */
-	void Construct(const FArguments& InArgs, FMeshMergingTool* InTool);
+	void Construct(const FArguments& InArgs, FMeshMergingTool* InTool);	
+	
+	/** Getter functionality */
+	const TArray<TSharedPtr<FMeshComponentData>>& GetSelectedMeshComponents() const { return SelectedMeshComponents; }
+	const int32 GetNumSelectedMeshComponents() const { return NumSelectedMeshComponents; }
 
-private:
+	/** Resets the state of the UI and flags it for refreshing */
+	void Reset();
+private:	
+	/** Begin override SCompoundWidget */
+	virtual void Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime) override;
+	/** End override SCompoundWidget */
 
-	/** Called when the Merge button is clicked */
-	FReply OnMergeClicked();
+	/** Creates and sets up the settings view element*/
+	void CreateSettingsView();	
 
-	/**  */
-	ECheckBoxState GetGenerateLightmapUV() const;
-	void SetGenerateLightmapUV(ECheckBoxState NewValue);
+	/** Delegate for the creation of the list view item's widget */
+	TSharedRef<ITableRow> MakeComponentListItemWidget(TSharedPtr<FMeshComponentData> StaticMeshComponent, const TSharedRef<STableViewBase>& OwnerTable);
 
-	/** Target lightmap channel */
-	bool IsLightmapChannelEnabled() const;
-	void SetTargetLightMapChannel(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
-	void SetTargetLightMapResolution(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
-
-	/**  */
-	ECheckBoxState GetExportSpecificLODEnabled() const;
-	void SetExportSpecificLODEnabled(ECheckBoxState NewValue);
-	bool IsExportSpecificLODEnabled() const;
-	void SetExportSpecificLODIndex(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
+	/** Delegate to determine whether or not the UI elements should be enabled (determined by number of selected actors / mesh components) */
+	bool GetContentEnabledState() const;
 		
-	/**  */
-	ECheckBoxState GetImportVertexColors() const;
-	void SetImportVertexColors(ECheckBoxState NewValue);
-
-	/**  */
-	ECheckBoxState GetPivotPointAtZero() const;
-	void SetPivotPointAtZero(ECheckBoxState NewValue);
-
+	/** Delegates for replace actors checkbox UI element*/
 	ECheckBoxState GetReplaceSourceActors() const;
 	void SetReplaceSourceActors(ECheckBoxState NewValue);
-
-	ECheckBoxState GetMergePhyisicData() const;
-	void SetMergePhyisicData(ECheckBoxState NewValue);
 	
-	/** Material merging */
-	bool IsMaterialMergingEnabled() const;
-	ECheckBoxState GetMergeMaterials() const;
-	void SetMergeMaterials(ECheckBoxState NewValue);
+	/** Editor delgates for map and selection changes */
+	void OnLevelSelectionChanged(UObject* Obj);
+	void OnMapChange(uint32 MapFlags);
+	void OnNewCurrentLevel();
 
-	ECheckBoxState GetExportNormalMap() const;
-	void SetExportNormalMap(ECheckBoxState NewValue);
-
-	ECheckBoxState GetExportMetallicMap() const;
-	void SetExportMetallicMap(ECheckBoxState NewValue);
-
-	ECheckBoxState GetExportRoughnessMap() const;
-	void SetExportRoughnessMap(ECheckBoxState NewValue);
-
-	ECheckBoxState GetExportSpecularMap() const;
-	void SetExportSpecularMap(ECheckBoxState NewValue);
-
-	void SetMergedMaterialAtlasResolution(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
-	
+	/** Updates SelectedMeshComponent array according to retrieved mesh components from editor selection*/
+	void UpdateSelectedStaticMeshComponents();	
+	/** Stores the individual check box states for the currently selected mesh components */
+	void StoreCheckBoxState();
 private:
-
+	/** Owning mesh merging tool */
 	FMeshMergingTool* Tool;
-
-	TArray<TSharedPtr<FString>>	ExportLODOptions;
-	TArray<TSharedPtr<FString>>	LightMapResolutionOptions;
-	TArray<TSharedPtr<FString>>	LightMapChannelOptions;
-	TArray<TSharedPtr<FString>>	MergedMaterialResolutionOptions;
+	/** List of mesh components extracted from editor selection */
+	TArray<TSharedPtr<FMeshComponentData>> SelectedMeshComponents;	
+	/** List view ui element */
+	TSharedPtr<SListView<TSharedPtr<FMeshComponentData>>> MeshComponentsListView;
+	/** Map of keeping track of checkbox states for each selected static mesh component (used to restore state when listview is refreshed) */
+	TMap<UStaticMeshComponent*, ECheckBoxState> StoredCheckBoxStates;
+	/** Settings view ui element ptr */
+	TSharedPtr<IDetailsView> SettingsView;
+	/** Cached pointer to mesh merging setting singleton object */
+	UMeshMergingSettingsObject* MergeSettings;
+	/** List view state tracking data */
+	bool bRefreshListView;
+	int NumSelectedMeshComponents;
 };

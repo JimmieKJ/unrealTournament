@@ -5,7 +5,7 @@
 #include "UTProfileSettings.h"
 #include "UTHUDWidget_WeaponBar.h"
 #include "UTJumpBoots.h"
-#include "UTCTFGameState.h"
+#include "UTFlagRunGameState.h"
 
 #include "UTArmor.h"
 
@@ -21,7 +21,7 @@ UUTHUDWidget_Paperdoll::UUTHUDWidget_Paperdoll(const class FObjectInitializer& O
 	ScreenPosition=FVector2D(0.5f, 1.0f);
 	Origin=FVector2D(0.5f,1.0f);
 	bAnimating = false;
-	FVector2D DrawOffset = FVector2D(0.0f, 0.0f);
+	DrawOffset = FVector2D(0.0f, 0.0f);
 
 	RallyAnimTimers.Add(RALLY_ANIMATION_TIME * 0.25);
 	RallyAnimTimers.Add(RALLY_ANIMATION_TIME * 0.5);
@@ -41,13 +41,13 @@ void UUTHUDWidget_Paperdoll::InitializeWidget(AUTHUD* Hud)
 bool UUTHUDWidget_Paperdoll::ShouldDraw_Implementation(bool bShowScores)
 {
 	AUTGameState* GS = UTHUDOwner->GetWorld()->GetGameState<AUTGameState>();
-	bool bHidden = false;
+	bool bIsHidden = false;
 	if (UTHUDOwner)
 	{
-		bHidden = !UTHUDOwner->GetQuickStatsHidden();
+		bIsHidden = !UTHUDOwner->GetQuickStatsHidden();
 	}
 
-	return ( !bHidden && (GS == NULL || !GS->HasMatchEnded()) && Super::ShouldDraw_Implementation(bShowScores) );
+	return ( !bIsHidden && (GS == NULL || !GS->HasMatchEnded()) && Super::ShouldDraw_Implementation(bShowScores) );
 }
 
 void UUTHUDWidget_Paperdoll::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas* InCanvas, FVector2D InCanvasCenter)
@@ -64,8 +64,8 @@ void UUTHUDWidget_Paperdoll::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCan
 		}
 	}
 
-	AUTGameState* UTGameState = InUTHUDOwner->GetWorld()->GetGameState<AUTGameState>();
-	if (UTGameState)
+	AUTGameState* UTGS = InUTHUDOwner->GetWorld()->GetGameState<AUTGameState>();
+	if (UTGS)
 	{
 		HealthBackground.bUseTeamColors = false;	//UTGameState->bTeamGame;	
 		ArmorBackground.bUseTeamColors = false;		//UTGameState->bTeamGame;	
@@ -84,10 +84,11 @@ void UUTHUDWidget_Paperdoll::Draw_Implementation(float DeltaTime)
 	AUTPlayerState* PS = UTC ? Cast<AUTPlayerState>(UTC->PlayerState) : NULL;
 	UUTHUDWidget_Paperdoll* DefObj = GetClass()->GetDefaultObject<UUTHUDWidget_Paperdoll>();
 
-	AUTCTFGameState* GameState = UTHUDOwner->GetWorld()->GetGameState<AUTCTFGameState>();
+	AUTFlagRunGameState* GameState = UTHUDOwner->GetWorld()->GetGameState<AUTFlagRunGameState>();
 
 	bool bPlayerCanRally = UTHUDOwner->UTPlayerOwner->CanPerformRally();
 	bool bShowTimer = !bPlayerCanRally && PS && PS->Team && GameState && GameState->bAttackersCanRally && ((PS->Team->TeamIndex == 0) == GameState->bRedToCap) && UTC && UTC->bCanRally && (PS->RemainingRallyDelay > 0);
+	bShowTimer = bShowTimer && (GameState->GetRemainingTime() < 270);
 
 	if (UTC != NULL && !UTC->IsDead())
 	{
@@ -178,15 +179,15 @@ void UUTHUDWidget_Paperdoll::Draw_Implementation(float DeltaTime)
 	RenderObj_Text(HealthText, DrawOffset); 
 
 	// Draw the Armor...
-	RenderObj_Texture(ArmorBackground, DrawOffset * -1); 
-	RenderObj_Texture(ShieldOverlay, DrawOffset * -1); 
-	RenderObj_Texture(ArmorIcon, DrawOffset * -1); 
-	RenderObj_Text(ArmorText, DrawOffset * -1); 
+	RenderObj_Texture(ArmorBackground, DrawOffset * -1.f); 
+	RenderObj_Texture(ShieldOverlay, DrawOffset * -1.f); 
+	RenderObj_Texture(ArmorIcon, DrawOffset * -1.f); 
+	RenderObj_Text(ArmorText, DrawOffset * -1.f); 
 
 	FlagText.Text = FText::GetEmpty();
 	if (UTHUDOwner->GetQuickInfoHidden() && (bPlayerCanRally || bShowFlagInfo || bShowTimer))
 	{
-		FlagIcon.Position.Y = bPlayerCanRally ? -16 : 0;
+		FlagIcon.Position.Y = bPlayerCanRally ? -16.f : 0.f;
 		Opacity = FlagOpacity;		
 		RenderScale *= FlagOpacity;
 
@@ -196,13 +197,13 @@ void UUTHUDWidget_Paperdoll::Draw_Implementation(float DeltaTime)
 			DrawRallyIcon(DeltaTime);		
 		}
 
-		if (bPlayerCanRally)
+		if (bPlayerCanRally || bShowFlagInfo)
 		{
-			FlagIcon.RenderScale = 1.25 + (0.75 * FMath::Abs<float>(FMath::Sin(GetWorld()->GetTimeSeconds() * 3)));
+			FlagIcon.RenderScale = 1.25f + (0.75f * FMath::Abs<float>(FMath::Sin(GetWorld()->GetTimeSeconds() * 3.f)));
 		}
 		else
 		{
-			FlagIcon.RenderScale = 1.25;
+			FlagIcon.RenderScale = 1.25f;
 		}
 
 		FlagIcon.UVs = FlagHolderIconUVs;
@@ -222,6 +223,18 @@ void UUTHUDWidget_Paperdoll::Draw_Implementation(float DeltaTime)
 			FlagText.Text = FText::AsNumber(int32(PS->RemainingRallyDelay));
 			RenderObj_Text(FlagText);
 		}
+
+		if (PS && PS->CarriedObject && PS->CarriedObject->bCurrentlyPinged)
+		{
+			if (PS->CarriedObject->HoldingPawn && PS->CarriedObject->HoldingPawn->bIsInCombat)
+			{
+				RenderObj_Texture(CombatIcon);
+			}
+			else
+			{
+				RenderObj_Texture(DetectedIcon);
+			}
+		}
 	}
 }
 
@@ -235,10 +248,10 @@ void UUTHUDWidget_Paperdoll::DrawRallyIcon(float DeltaTime)
 	{
 		RallyAnimTimers[i] += DeltaTime;
 		if (RallyAnimTimers[i] > RALLY_ANIMATION_TIME) RallyAnimTimers[i] = 0;
-		float Position = (RallyAnimTimers[i] / RALLY_ANIMATION_TIME);
+		float DrawPosition = (RallyAnimTimers[i] / RALLY_ANIMATION_TIME);
 	
-		float XPos = FMath::InterpEaseOut<float>(64.0f, 0.0f, Position, 2.0f);
-		FlagIcon.RenderOpacity = FMath::InterpEaseOut<float>(1.0f, 0.0f, Position, 2.0f);
+		float XPos = FMath::InterpEaseOut<float>(64.0f, 0.0f, DrawPosition, 2.0f);
+		FlagIcon.RenderOpacity = FMath::InterpEaseOut<float>(1.0f, 0.0f, DrawPosition, 2.0f);
 		RenderObj_Texture(FlagIcon,FVector2D(XPos, 0.0f));
 		RenderObj_Texture(FlagIcon,FVector2D(XPos * -1, 0.0f));
 	}

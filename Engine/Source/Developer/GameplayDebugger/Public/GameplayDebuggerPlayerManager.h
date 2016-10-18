@@ -46,6 +46,10 @@ protected:
 	UPROPERTY()
 	TArray<FGameplayDebuggerPlayerData> PlayerData;
 
+	UPROPERTY()
+	TArray<AGameplayDebuggerCategoryReplicator*> PendingRegistrations;
+
 	uint32 bHasAuthority : 1;
 	uint32 bIsLocal : 1;
+	uint32 bInitialized : 1;
 };

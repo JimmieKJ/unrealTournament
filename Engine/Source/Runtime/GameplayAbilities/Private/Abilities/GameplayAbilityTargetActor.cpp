@@ -135,11 +135,6 @@ bool AGameplayAbilityTargetActor::IsNetRelevantFor(const AActor* RealViewer, con
 	return Super::IsNetRelevantFor(RealViewer, ViewTarget, SrcLocation);
 }
 
-bool AGameplayAbilityTargetActor::GetReplicates() const
-{
-	return bReplicates;
-}
-
 bool AGameplayAbilityTargetActor::OnReplicatedTargetDataReceived(FGameplayAbilityTargetDataHandle& Data) const
 {
 	return true;

@@ -172,6 +172,7 @@ public:
 
 
 	const int32 GetPlaylistId() const;
+	const int32 GetTeamElo() const;
 
 	FTimerHandle StartDedicatedServerTimerHandle;
 	FTimerHandle RestartTimerHandle;

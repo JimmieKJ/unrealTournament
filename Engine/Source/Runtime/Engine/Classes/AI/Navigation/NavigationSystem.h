@@ -288,6 +288,9 @@ public:
 	UFUNCTION(BlueprintPure, Category="AI|Navigation", meta=(WorldContext="WorldContext" ) )
 	static bool IsNavigationBeingBuilt(UObject* WorldContext);
 
+	UFUNCTION(BlueprintPure, Category = "AI|Navigation", meta = (WorldContext = "WorldContext"))
+	static bool IsNavigationBeingBuiltOrLocked(UObject* WorldContext);
+
 	UFUNCTION(BlueprintCallable, Category="AI|Navigation")
 	static void SimpleMoveToActor(AController* Controller, const AActor* Goal);
 
@@ -493,6 +496,10 @@ public:
 
 	ANavigationData* GetAbstractNavData() const { return AbstractNavData; }
 
+	/** constructs a navigation data instance of specified NavDataClass, in passed World
+	*	for supplied NavConfig */
+	virtual ANavigationData* CreateNavigationDataInstance(const FNavDataConfig& NavConfig);
+
 	FSharedNavQueryFilter CreateDefaultQueryFilterCopy() const;
 
 	/** Super-hacky safety feature for threaded navmesh building. Will be gone once figure out why keeping TSharedPointer to Navigation Generator doesn't 
@@ -505,6 +512,7 @@ public:
 
 	bool ShouldGenerateNavigationEverywhere() const { return bWholeWorldNavigable; }
 
+	bool ShouldAllowClientSideNavigation() const { return bAllowClientSideNavigation; }
 	virtual bool ShouldLoadNavigationOnClient(ANavigationData* NavData = nullptr) const { return bAllowClientSideNavigation; }
 
 	FBox GetWorldBounds() const;
@@ -576,8 +584,11 @@ protected:
 	/** used to apply updates of nav volumes in navigation system's tick */
 	void PerformNavigationBoundsUpdate(const TArray<FNavigationBoundsUpdateRequest>& UpdateRequests);
 	
+	/** adds data to RegisteredNavBounds */
+	void AddNavigationBounds(const FNavigationBounds& NewBounds);
+
 	/** Searches for all valid navigation bounds in the world and stores them */
-	void GatherNavigationBounds();
+	virtual void GatherNavigationBounds();
 
 	/** @return pointer to ANavigationData instance of given ID, or NULL if it was not found. Note it looks only through registered navigation data */
 	ANavigationData* GetNavDataWithID(const uint16 NavDataID) const;
@@ -755,15 +766,6 @@ public:
 	FORCEINLINE void AddNavigationUpdateLock(uint8 Flags) { NavUpdateLockFlags |= Flags; }
 	FORCEINLINE void RemoveNavigationUpdateLock(uint8 Flags) { NavUpdateLockFlags &= ~Flags; }
 
-	DEPRECATED(4.5, "AreFakeComponentChangesBeingApplied is deprecated. Use IsNavigationUpdateLocked instead.")
-	bool AreFakeComponentChangesBeingApplied() { return IsNavigationUpdateLocked(); }
-	
-	DEPRECATED(4.5, "BeginFakeComponentChanges is deprecated. Use AddNavigationUpdateLock instead.")
-	void BeginFakeComponentChanges() { AddNavigationUpdateLock(ENavigationLockReason::Unknown); }
-	
-	DEPRECATED(4.5, "EndFakeComponentChanges is deprecated. Use RemoveNavigationUpdateLock instead.")
-	void EndFakeComponentChanges() { RemoveNavigationUpdateLock(ENavigationLockReason::Unknown); }
-
 	void UpdateLevelCollision(ULevel* InLevel);
 
 	virtual void OnEditorModeChanged(FEdMode* Mode, bool IsEntering);
@@ -784,12 +786,29 @@ public:
 
 	static FORCEINLINE bool ShouldUpdateNavOctreeOnComponentChange()
 	{
-		return bUpdateNavOctreeOnComponentChange
+		return (bUpdateNavOctreeOnComponentChange && !bStaticRuntimeNavigation)
 #if WITH_EDITOR
 			|| (GIsEditor && !GIsPlayInEditorWorld)
 #endif
 			;
 	}
+
+	static FORCEINLINE bool IsNavigationSystemStatic()
+	{
+		return bStaticRuntimeNavigation
+#if WITH_EDITOR
+			&& !(GIsEditor && !GIsPlayInEditorWorld)
+#endif
+			;
+	}
+
+	/** Use this function to signal the NavigationSystem it doesn't need to store
+	 *	any navigation-generation-related data at game runtime, because 
+	 *	nothing is going to use it anyway. This will short-circuit all code related 
+	 *	to navmesh rebuilding, so use it only if you have fully static navigation in 
+	 *	your game.
+	 *	Note: this is not a runtime switch. Call it before any actual game starts. */
+	static void ConfigureAsStatic();
 
 	/** 
 	 * Exec command handlers
@@ -813,7 +832,7 @@ protected:
 
 	FCriticalSection NavDataRegistration;
 
-	TMap<FNavAgentProperties, ANavigationData*> AgentToNavDataMap;
+	TMap<FNavAgentProperties, TWeakObjectPtr<ANavigationData> > AgentToNavDataMap;
 	
 	TMap<const UObject*, FOctreeElementId> ObjectToOctreeId;
 
@@ -860,8 +879,8 @@ protected:
 	
 	/** whether seamless navigation building is enabled */
 	static bool bNavigationAutoUpdateEnabled;
-
 	static bool bUpdateNavOctreeOnComponentChange;
+	static bool bStaticRuntimeNavigation;
 
 	static TMap<INavLinkCustomInterface*, FWeakObjectPtr> PendingCustomLinkRegistration;
 	TSet<const UClass*> NavAreaClasses;
@@ -917,22 +936,9 @@ protected:
 	/** Remove BSP collision data from navigation octree */
 	void RemoveLevelCollisionFromOctree(ULevel* Level);
 
-	DEPRECATED(4.8, "EnableAllGenerators is deprecated. Use AddNavigationBuildLock / RemoveNavigationBuildLock instead.")
-	void EnableAllGenerators(bool bEnable, bool bForce = false) {}
-
 	virtual void SpawnMissingNavigationData();
 
-	/** constructs a navigation data instance of specified NavDataClass, in passed World
-	*	for supplied NavConfig */
-	virtual ANavigationData* CreateNavigationDataInstance(const FNavDataConfig& NavConfig);
-
 private:
-	DEPRECATED(4.8, "NavigationBuildingLock is deprecated. Use AddNavigationBuildLock instead.")
-	void NavigationBuildingLock() { return AddNavigationBuildLock(ENavigationBuildLock::NoUpdateInEditor); }
-
-	DEPRECATED(4.8, "NavigationBuildingUnlock is deprecated. Use RemoveNavigationBuildLock instead.")
-	void NavigationBuildingUnlock(bool bForce = false) { RemoveNavigationBuildLock(ENavigationBuildLock::NoUpdateInEditor); }
-
 	// adds navigation bounds update request to a pending list
 	void AddNavigationBoundsUpdateRequest(const FNavigationBoundsUpdateRequest& UpdateRequest);
 
@@ -975,19 +981,6 @@ private:
 	// DEPRECATED
 	//----------------------------------------------------------------------//
 public:
-	DEPRECATED(4.8, "This version is deprecated. Please use the one taking reference to INavLinkCustomInterface rather than a pointer instead.")
-	void RegisterCustomLink(INavLinkCustomInterface* CustomLink);
-	DEPRECATED(4.8, "This version is deprecated. Please use the one taking reference to INavLinkCustomInterface rather than a pointer instead.")
-	void UnregisterCustomLink(INavLinkCustomInterface* CustomLink);
-	DEPRECATED(4.8, "GetRandomPointInRadius is deprecated. Use either GetRandomReachablePointInRadius or GetRandomPointInNavigableRadius")
-	UFUNCTION(BlueprintPure, Category = "AI|Navigation", meta = (WorldContext = "WorldContext", DeprecatedFunction, DeprecatedMessage = "GetRandomPointInRadius is deprecated. Use either GetRandomReachablePointInRadius or GetRandomPointInNavigableSpace"))
-	static FVector GetRandomPointInRadius(UObject* WorldContext, const FVector& Origin, float Radius, ANavigationData* NavData = NULL, TSubclassOf<UNavigationQueryFilter> FilterClass = NULL);
-	DEPRECATED(4.8, "GetRandomPointInRadius is deprecated. Use either GetRandomReachablePointInRadius or GetRandomPointInNavigableRadius")
-	bool GetRandomPointInRadius(const FVector& Origin, float Radius, FNavLocation& ResultLocation, ANavigationData* NavData = NULL, FSharedConstNavQueryFilter QueryFilter = NULL) const;
-	DEPRECATED(4.8, "GetRandomPoint is deprecated. Use either GetRandomReachablePointInRadius or GetRandomPointInNavigableRadius")
-	UFUNCTION(BlueprintPure, Category = "AI|Navigation", meta = (WorldContext = "WorldContext", DeprecatedFunction, DeprecatedMessage = "GetRandomPoint is deprecated. Use either GetRandomReachablePointInRadius or GetRandomPointInNavigableSpace"))
-	static FVector GetRandomPoint(UObject* WorldContext, ANavigationData* NavData = NULL, TSubclassOf<UNavigationQueryFilter> FilterClass = NULL);
-
 	DEPRECATED(4.11, "UpdateNavOctree is deprecated. Use UpdateActorInNavOctree")
 	static void UpdateNavOctree(AActor* Actor);
 	DEPRECATED(4.11, "UpdateNavOctree is deprecated. Use UpdateComponentInNavOctree")

@@ -716,8 +716,12 @@ void UK2Node_CallFunction::CreateExecPinsForFunctionCall(const UFunction* Functi
 				int32 NumExecs = (EnumProp->Enum->NumEnums() - 1);
 				for(int32 ExecIdx=0; ExecIdx<NumExecs; ExecIdx++)
 				{
-					FString ExecName = EnumProp->Enum->GetEnumName(ExecIdx);
-					CreatePin(Direction, K2Schema->PC_Exec, TEXT(""), NULL, false, false, ExecName);
+					bool const bShouldBeHidden = EnumProp->Enum->HasMetaData(TEXT("Hidden"), ExecIdx) || EnumProp->Enum->HasMetaData(TEXT("Spacer"), ExecIdx);
+					if (!bShouldBeHidden)
+					{
+						FString ExecName = EnumProp->Enum->GetEnumName(ExecIdx);
+						CreatePin(Direction, K2Schema->PC_Exec, TEXT(""), NULL, false, false, ExecName);
+					}
 				}
 				
 				if (bIsFunctionInput)
@@ -1126,7 +1130,15 @@ bool UK2Node_CallFunction::CanPasteHere(const UEdGraph* TargetGraph) const
 		{
 			TargetFunction = GetTargetFunctionFromSkeletonClass();
 		}
-		bCanPaste = K2Schema->CanFunctionBeUsedInGraph(FBlueprintEditorUtils::FindBlueprintForGraphChecked(TargetGraph)->GeneratedClass, TargetFunction, TargetGraph, AllowedFunctionTypes, false);
+		if (!TargetFunction)
+		{
+			// If the function doesn't exist and it is from self context, then it could be created from a CustomEvent node, that was also pasted (but wasn't compiled yet).
+			bCanPaste = FunctionReference.IsSelfContext();
+		}
+		else
+		{
+			bCanPaste = K2Schema->CanFunctionBeUsedInGraph(FBlueprintEditorUtils::FindBlueprintForGraphChecked(TargetGraph)->GeneratedClass, TargetFunction, TargetGraph, AllowedFunctionTypes, false);
+		}
 	}
 	
 	return bCanPaste;
@@ -1153,28 +1165,33 @@ static FLinearColor GetPalletteIconColor(UFunction const* Function)
 	return GetDefault<UGraphEditorSettings>()->FunctionCallNodeTitleColor;
 }
 
-FName UK2Node_CallFunction::GetPaletteIconForFunction(UFunction const* Function, FLinearColor& OutColor)
+FSlateIcon UK2Node_CallFunction::GetPaletteIconForFunction(UFunction const* Function, FLinearColor& OutColor)
 {
 	static const FName NativeMakeFunc(TEXT("NativeMakeFunc"));
 	static const FName NativeBrakeFunc(TEXT("NativeBreakFunc"));
 
 	if (Function && Function->HasMetaData(NativeMakeFunc))
 	{
-		return TEXT("GraphEditor.MakeStruct_16x");
+		static FSlateIcon Icon("EditorStyle", "GraphEditor.MakeStruct_16x");
+		return Icon;
 	}
 	else if (Function && Function->HasMetaData(NativeBrakeFunc))
 	{
-		return TEXT("GraphEditor.BreakStruct_16x");
+		static FSlateIcon Icon("EditorStyle", "GraphEditor.BreakStruct_16x");
+		return Icon;
 	}
 	// Check to see if the function is calling an function that could be an event, display the event icon instead.
 	else if (Function && UEdGraphSchema_K2::FunctionCanBePlacedAsEvent(Function))
 	{
-		return TEXT("GraphEditor.Event_16x");
+		static FSlateIcon Icon("EditorStyle", "GraphEditor.Event_16x");
+		return Icon;
 	}
 	else
 	{
 		OutColor = GetPalletteIconColor(Function);
-		return TEXT("Kismet.AllClasses.FunctionIcon");
+
+		static FSlateIcon Icon("EditorStyle", "Kismet.AllClasses.FunctionIcon");
+		return Icon;
 	}
 }
 
@@ -1227,7 +1244,7 @@ FText UK2Node_CallFunction::GetTooltipText() const
 
 void UK2Node_CallFunction::GeneratePinTooltipFromFunction(UEdGraphPin& Pin, const UFunction* Function)
 {
-	if (Pin.HasAnyFlags(RF_Transient))
+	if (Pin.bWasTrashed)
 	{
 		return;
 	}
@@ -1347,16 +1364,19 @@ FText UK2Node_CallFunction::GetUserFacingFunctionName(const UFunction* Function)
 {
 	FText ReturnDisplayName;
 
-	if( GEditor && GetDefault<UEditorStyleSettings>()->bShowFriendlyNames )
+	if (Function != NULL)
 	{
-		ReturnDisplayName = Function->GetDisplayNameText();
-	}
-	else
-	{
-		static const FString Namespace = TEXT("UObjectDisplayNames");
-		const FString Key = Function->GetFullGroupName(false);
+		if (GEditor && GetDefault<UEditorStyleSettings>()->bShowFriendlyNames)
+		{
+			ReturnDisplayName = Function->GetDisplayNameText();
+		}
+		else
+		{
+			static const FString Namespace = TEXT("UObjectDisplayNames");
+			const FString Key = Function->GetFullGroupName(false);
 
-		ReturnDisplayName = Function->GetMetaDataText(TEXT("DisplayName"), Namespace, Key);
+			ReturnDisplayName = Function->GetMetaDataText(TEXT("DisplayName"), Namespace, Key);
+		}
 	}
 	return ReturnDisplayName;
 }
@@ -1718,9 +1738,9 @@ void UK2Node_CallFunction::PostDuplicate(bool bDuplicateForPIE)
 	}
 }
 
-void UK2Node_CallFunction::ValidateNodeDuringCompilation(class FCompilerResultsLog& MessageLog) const
+void UK2Node_CallFunction::ValidateNodeAfterPrune(class FCompilerResultsLog& MessageLog) const
 {
-	Super::ValidateNodeDuringCompilation(MessageLog);
+	Super::ValidateNodeAfterPrune(MessageLog);
 
 	const UBlueprint* Blueprint = GetBlueprint();
 	UFunction *Function = GetTargetFunction();
@@ -1962,7 +1982,7 @@ void UK2Node_CallFunction::ExpandNode(class FKismetCompilerContext& CompilerCont
 							AssignNode->AllocateDefaultPins();
 
 							// Move connections from fake 'enum exec' pint to this assignment node
-								CompilerContext.MovePinLinksToIntermediate(*Pin, *AssignNode->GetExecPin());
+							CompilerContext.MovePinLinksToIntermediate(*Pin, *AssignNode->GetExecPin());
 
 							// Connect this to out temp enum var
 							Schema->TryCreateConnection(AssignNode->GetVariablePin(), TempEnumVarOutput);
@@ -1974,6 +1994,7 @@ void UK2Node_CallFunction::ExpandNode(class FKismetCompilerContext& CompilerCont
 							AssignNode->GetValuePin()->DefaultValue = Pin->PinName;
 
 							// Finally remove this 'cosmetic' exec pin
+							Pins[PinIdx]->MarkPendingKill();
 							Pins.RemoveAt(PinIdx);
 						}
 					}
@@ -2004,10 +2025,11 @@ void UK2Node_CallFunction::ExpandNode(class FKismetCompilerContext& CompilerCont
 							Pin->Direction == EGPD_Output &&
 							Pin->PinType.PinCategory == Schema->PC_Exec )
 						{
-							// Move connections from fake 'enum exec' pint to this switch node
+							// Move connections from fake 'enum exec' pin to this switch node
 							CompilerContext.MovePinLinksToIntermediate(*Pin, *SwitchEnumNode->FindPinChecked(Pin->PinName));
 								
 							// Finally remove this 'cosmetic' exec pin
+							Pins[PinIdx]->MarkPendingKill();
 							Pins.RemoveAt(PinIdx);
 						}
 					}
@@ -2213,7 +2235,7 @@ FName UK2Node_CallFunction::GetCornerIcon() const
 	return Super::GetCornerIcon();
 }
 
-FName UK2Node_CallFunction::GetPaletteIcon(FLinearColor& OutColor) const
+FSlateIcon UK2Node_CallFunction::GetIconAndTint(FLinearColor& OutColor) const
 {
 	return GetPaletteIconForFunction(GetTargetFunction(), OutColor);
 }
@@ -2383,7 +2405,17 @@ UEdGraph* UK2Node_CallFunction::GetFunctionGraph(const UEdGraphNode*& OutGraphNo
 			UBlueprint* Blueprint = Cast<UBlueprint>(ParentClass->ClassGeneratedBy);
 			while(Blueprint != NULL)
 			{
-				UEdGraph* TargetGraph = FindObject<UEdGraph>(Blueprint, *(FunctionReference.GetMemberName().ToString()));
+				UEdGraph* TargetGraph = NULL;
+				FName FunctionName = FunctionReference.GetMemberName();
+				for (UEdGraph* Graph : Blueprint->FunctionGraphs) 
+				{
+					if (Graph->GetFName() == FunctionName)
+					{
+						TargetGraph = Graph;
+						break;
+					}
+				}
+
 				if((TargetGraph != NULL) && !TargetGraph->HasAnyFlags(RF_Transient))
 				{
 					// Found the function graph in a Blueprint, return that graph

@@ -102,9 +102,9 @@ void AUTCustomBot::Tick(float DeltaTime)
 
 FVector AUTCustomBot::GetEnemyLocation(APawn* TestEnemy, bool bAllowPrediction)
 {
-	if (PerceptionComponent)
+	if (GetAIPerceptionComponent())
 	{
-		const FActorPerceptionInfo* ActorInfo = PerceptionComponent->GetActorInfo(*TestEnemy);
+		const FActorPerceptionInfo* ActorInfo = GetAIPerceptionComponent()->GetActorInfo(*TestEnemy);
 		return (ActorInfo) ? ActorInfo->GetLastStimulusLocation() : FVector::ZeroVector;
 	}
 	return TestEnemy->GetActorLocation();
@@ -145,11 +145,11 @@ void AUTCustomBot::SetEnemy(APawn* NewEnemy)
 			UpdateEnemyInfo(NewEnemy, EUT_HeardApprox);
 		}
 
-		if (PerceptionComponent && BlackboardComponent)
+		if (GetAIPerceptionComponent() && BlackboardComponent)
 		{
 			const FAISenseID SightSenseID = UAISense::GetSenseID<UAISense_Sight>();
 
-			const FActorPerceptionInfo* PercInfo = PerceptionComponent->GetActorInfo(*NewEnemy);
+			const FActorPerceptionInfo* PercInfo = GetAIPerceptionComponent()->GetActorInfo(*NewEnemy);
 			if (PercInfo && PercInfo->LastSensedStimuli.IsValidIndex(SightSenseID))
 			{
 				BlackboardComponent->SetValue<UBlackboardKeyType_Bool>(BlackboardKey_EnemyVisible, PercInfo->LastSensedStimuli[SightSenseID].WasSuccessfullySensed());

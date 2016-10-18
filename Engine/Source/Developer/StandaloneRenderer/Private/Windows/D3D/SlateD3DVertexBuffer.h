@@ -1,8 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-
-#ifndef __SLATED3DVERTEXBUFFER_H__
-#define __SLATED3DVERTEXBUFFER_H__
+#pragma once
 
 /** 
  * Vertex buffer containing all Slate vertices
@@ -38,5 +36,3 @@ private:
 	FSlateD3DVertexBuffer( const FSlateD3DVertexBuffer& );
 	void operator=(const FSlateD3DVertexBuffer& );
 };
-
-#endif //__SLATED3DVERTEXBUFFER_H__

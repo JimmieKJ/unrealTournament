@@ -12,6 +12,7 @@ public class AndroidDeviceDetection : ModuleRules
 			new string[]
 			{
 				"Core",
+                "Messaging",
 			}
 		);
 
@@ -26,5 +27,12 @@ public class AndroidDeviceDetection : ModuleRules
 		{
 			PrivateDependencyModuleNames.Add("Engine");
 		}
-	}
+
+        DynamicallyLoadedModuleNames.AddRange(
+            new string[]
+            {
+                "TcpMessaging"
+            }
+        );
+    }
 }

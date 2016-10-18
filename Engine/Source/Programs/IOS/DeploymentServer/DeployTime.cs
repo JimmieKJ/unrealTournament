@@ -366,8 +366,10 @@ namespace DeploymentServer
                     ReportIF.Warning(String.Format("Device '{0}' is a {1} model, which does not support OpenGL ES2.0.  The installation is likely to fail.", DeviceName, GetPrettyDeviceType(DeviceType)));
                 }
 
-				Console.WriteLine("Device '{0}' with id {1} is being checked against {2}.", Device.DeviceName, Device.DeviceId, DeviceId);
-				if (String.IsNullOrEmpty(DeviceId) || Device.DeviceId == DeviceId)
+				Console.WriteLine("Device '{0}' with id {1} of type {3} is being checked against {2}.", Device.DeviceName, Device.DeviceId, DeviceId, Device.ProductType);
+				if (String.IsNullOrEmpty(DeviceId) || Device.DeviceId == DeviceId ||
+                    (DeviceId.Contains("All_tvOS_On") && DeviceType.Contains("TV")) ||
+                    (DeviceId.Contains("All_iOS_On") && !DeviceType.Contains("TV")))
 				{
 					ReportIF.Log(String.Format("Transferring IPA to device '{0}' ... ", DeviceName));
 					Device.CopyFileToPublicStaging(IPAPath);
@@ -398,9 +400,12 @@ namespace DeploymentServer
 			return PerformActionOnAllDevices(StandardEnumerationDelayMS, delegate(MobileDeviceInstance Device)
 			{
 				bool bResult = true;
-				if (String.IsNullOrEmpty(DeviceId) || Device.DeviceId == DeviceId)
-				{
-					bResult = Device.TryCopy(BundleIdentifier, Manifest);
+                string DeviceType = Device.ProductType;
+                if (String.IsNullOrEmpty(DeviceId) || Device.DeviceId == DeviceId ||
+                    (DeviceId.Contains("All_tvOS_On") && DeviceType.Contains("TV")) ||
+                    (DeviceId.Contains("All_iOS_On") && !DeviceType.Contains("TV")))
+                {
+                    bResult = Device.TryCopy(BundleIdentifier, Manifest);
 					ReportIF.Log("");
 				}
 				return bResult;
@@ -412,9 +417,12 @@ namespace DeploymentServer
             return PerformActionOnAllDevices(StandardEnumerationDelayMS, delegate(MobileDeviceInstance Device)
             {
 				bool bResult = true;
-				if (String.IsNullOrEmpty(DeviceId) || Device.DeviceId == DeviceId)
-				{
-					string SafeDeviceName = MobileDeviceInstance.SanitizePathNoFilename(Device.DeviceName);
+                string DeviceType = Device.ProductType;
+                if (String.IsNullOrEmpty(DeviceId) || Device.DeviceId == DeviceId ||
+                    (DeviceId.Contains("All_tvOS_On") && DeviceType.Contains("TV")) ||
+                    (DeviceId.Contains("All_iOS_On") && !DeviceType.Contains("TV")))
+                {
+                    string SafeDeviceName = MobileDeviceInstance.SanitizePathNoFilename(Device.DeviceName);
 
 					// Destination folder
 					string TargetFolder = Path.Combine(DestinationDocumentsDirectory, SafeDeviceName);
@@ -435,9 +443,12 @@ namespace DeploymentServer
 			return PerformActionOnAllDevices(StandardEnumerationDelayMS, delegate(MobileDeviceInstance Device)
 			{
 				bool bResult = true;
-				if (String.IsNullOrEmpty(DeviceId) || Device.DeviceId == DeviceId)
-				{
-					bResult = Device.TryBackup(BundleIdentifier, DestionationFiles);
+                string DeviceType = Device.ProductType;
+                if (String.IsNullOrEmpty(DeviceId) || Device.DeviceId == DeviceId ||
+                    (DeviceId.Contains("All_tvOS_On") && DeviceType.Contains("TV")) ||
+                    (DeviceId.Contains("All_iOS_On") && !DeviceType.Contains("TV")))
+                {
+                    bResult = Device.TryBackup(BundleIdentifier, DestionationFiles);
 					ReportIF.Log("");
 				}
 

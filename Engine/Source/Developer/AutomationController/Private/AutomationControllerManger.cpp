@@ -11,14 +11,13 @@ namespace AutomationControllerConstants
 	const FString HistoryConfigSectionName = TEXT("AutomationController.History");
 }
 
-
-void FAutomationControllerManager::RequestAvailableWorkers( const FGuid& SessionId )
+void FAutomationControllerManager::RequestAvailableWorkers(const FGuid& SessionId)
 {
 	//invalidate previous tests
 	++ExecutionCount;
 	DeviceClusterManager.Reset();
 
-	ControllerResetDelegate.ExecuteIfBound();
+	ControllerResetDelegate.Broadcast();
 
 	// Don't allow reports to be exported
 	bTestResultsAvailable = false;
@@ -28,7 +27,7 @@ void FAutomationControllerManager::RequestAvailableWorkers( const FGuid& Session
 
 	//TODO AUTOMATION - include change list, game, etc, or remove when launcher is integrated
 	int32 ChangelistNumber = 10000;
-	FString ProcessName = TEXT( "instance_name" );
+	FString ProcessName = TEXT("instance_name");
 
 	MessageEndpoint->Publish(new FAutomationWorkerFindWorkers(ChangelistNumber, FApp::GetGameName(), ProcessName, SessionId), EMessageScope::Network);
 
@@ -36,7 +35,6 @@ void FAutomationControllerManager::RequestAvailableWorkers( const FGuid& Session
 	LastTimeUpdateTicked = FPlatformTime::Seconds();
 	CheckTestTimer = 0.f;
 }
-
 
 void FAutomationControllerManager::RequestTests()
 {
@@ -190,7 +188,7 @@ void FAutomationControllerManager::ProcessAvailableTasks()
 				{
 					ProcessResults();
 					//Notify the graphical layout we are done processing results.
-					TestsCompleteDelegate.ExecuteIfBound();
+					TestsCompleteDelegate.Broadcast();
 				}
 			}
 		}
@@ -333,17 +331,17 @@ void FAutomationControllerManager::Startup()
 void FAutomationControllerManager::Shutdown()
 {
 	MessageEndpoint.Reset();
-	ShutdownDelegate.ExecuteIfBound();
+	ShutdownDelegate.Broadcast();
 	RemoveCallbacks();
 }
 
 
 void FAutomationControllerManager::RemoveCallbacks()
 {
-	ShutdownDelegate.Unbind();
-	TestsAvailableDelegate.Unbind();
-	TestsRefreshedDelegate.Unbind();
-	TestsCompleteDelegate.Unbind();
+	ShutdownDelegate.Clear();
+	TestsAvailableDelegate.Clear();
+	TestsRefreshedDelegate.Clear();
+	TestsCompleteDelegate.Clear();
 }
 
 
@@ -387,7 +385,7 @@ void FAutomationControllerManager::SetTestNames( const FMessageAddress& Automati
 	// If we have received all the responses we expect to
 	if (RefreshTestResponses == DeviceClusterManager.GetNumClusters())
 	{
-		TestsRefreshedDelegate.ExecuteIfBound();
+		TestsRefreshedDelegate.Broadcast();
 
 		// Update the tests with tracking details
 		ReportManager.TrackHistory(bTrackHistory, NumberOfHistoryItemsTracked);
@@ -457,7 +455,7 @@ void FAutomationControllerManager::SetControllerStatus( EAutomationControllerMod
 	{
 		// Inform the UI if the test state has changed
 		AutomationTestState = InAutomationTestState;
-		TestsAvailableDelegate.ExecuteIfBound(AutomationTestState);
+		TestsAvailableDelegate.Broadcast(AutomationTestState);
 	}
 }
 
@@ -614,6 +612,11 @@ void FAutomationControllerManager::HandleReceivedScreenShot( const FAutomationWo
 	// Forward the screen shot on to listeners
 	FAutomationWorkerScreenImage* ImageMessage = new FAutomationWorkerScreenImage( Message );
 	MessageEndpoint->Publish(ImageMessage, EMessageScope::Network);
+
+	// Save the screen shot locally (assuming that the controller manager is running on PC/Mac)
+	const bool bTree = true;
+	IFileManager::Get().MakeDirectory(*FPaths::GetPath(Message.ScreenShotName), bTree);
+	FFileHelper::SaveArrayToFile(Message.ScreenImage, *Message.ScreenShotName);
 }
 
 void FAutomationControllerManager::HandleRequestNextNetworkCommandMessage( const FAutomationWorkerRequestNextNetworkCommand& Message, const IMessageContextRef& Context )
@@ -685,7 +688,10 @@ void FAutomationControllerManager::HandleRunTestsReplyMessage( const FAutomation
 		verify(DeviceClusterManager.FindDevice(Context->GetSender(), ClusterIndex, DeviceIndex));
 
 		TestResults.GameInstance = DeviceClusterManager.GetClusterDeviceName(ClusterIndex, DeviceIndex);
-		TestResults.Errors = Message.Errors;
+		for ( auto& Error : Message.Errors )
+		{
+			TestResults.Errors.Add(Error.ToAutomationEvent());
+		}
 		TestResults.Logs = Message.Logs;
 		TestResults.Warnings = Message.Warnings;
 
@@ -700,11 +706,12 @@ void FAutomationControllerManager::HandleRunTestsReplyMessage( const FAutomation
 		AutomationTestingLog.Open();
 #endif
 
-		for (TArray<FString>::TConstIterator ErrorIter(Message.Errors); ErrorIter; ++ErrorIter)
+		for ( TArray<FAutomationEvent>::TConstIterator ErrorIter(TestResults.Errors); ErrorIter; ++ErrorIter )
 		{
-			GLog->Logf(ELogVerbosity::Error, TEXT("%s"), **ErrorIter);
+			// 	FAutomationTestFramework::GetInstance().LogTestMessage(**ErrorIter, ELogVerbosity::Error);
+			GLog->Logf(ELogVerbosity::Error, TEXT("%s"), *( *ErrorIter ).ToString());
 #if WITH_EDITOR
-			AutomationTestingLog.Error(FText::FromString(*ErrorIter));
+			AutomationTestingLog.Error(FText::FromString(( *ErrorIter ).ToString()));
 #endif
 		}
 		for (TArray<FString>::TConstIterator WarningIter(Message.Warnings); WarningIter; ++WarningIter)
@@ -737,7 +744,11 @@ void FAutomationControllerManager::HandleRunTestsReplyMessage( const FAutomation
 #if WITH_EDITOR
 			AutomationTestingLog.Error(FText::FromString(*FailureString));
 #endif
+			//FAutomationTestFramework::GetInstance().Lo
 		}
+
+		// const bool TestSucceeded = (TestResults.State == EAutomationState::Success);
+		//FAutomationTestFramework::GetInstance().LogEndTestMessage(Report->GetDisplayName(), TestSucceeded);
 
 		// Device is now good to go
 		DeviceClusterManager.SetTest(ClusterIndex, DeviceIndex, NULL);

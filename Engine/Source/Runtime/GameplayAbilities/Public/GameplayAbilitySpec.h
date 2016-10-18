@@ -240,7 +240,7 @@ struct GAMEPLAYABILITIES_API FGameplayAbilitySpec : public FFastArraySerializerI
 
 	/** A count of the number of times this ability has been activated minus the number of times it has been ended. For instanced abilities this will be the number of currently active instances. Can't replicate until prediction accurately handles this.*/
 	UPROPERTY(NotReplicated)
-	uint8	ActiveCount;
+	uint8 ActiveCount;
 
 	/** Is input currently pressed. Set to false when input is released */
 	UPROPERTY(NotReplicated)

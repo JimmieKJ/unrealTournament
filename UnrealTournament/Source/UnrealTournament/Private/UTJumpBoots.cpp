@@ -201,7 +201,7 @@ void AUTJumpBoots::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLif
 	DOREPLIFETIME_CONDITION(AUTJumpBoots, NumJumps, COND_None);
 }
 
-float AUTJumpBoots::BotDesireability_Implementation(APawn* Asker, AActor* Pickup, float PathDistance) const
+float AUTJumpBoots::BotDesireability_Implementation(APawn* Asker, AController* RequestOwner, AActor* Pickup, float PathDistance) const
 {
 	AUTCharacter* P = Cast<AUTCharacter>(Asker);
 	if (P != NULL)
@@ -223,7 +223,7 @@ float AUTJumpBoots::DetourWeight_Implementation(APawn* Asker, AActor* Pickup, fl
 		// shorter distance to care about boots if have some already
 		if (AlreadyHas == NULL || PathDistance < 2000.0f)
 		{
-			return BotDesireability(Asker, Pickup, PathDistance);
+			return BotDesireability(Asker, Asker->Controller, Pickup, PathDistance);
 		}
 		else
 		{

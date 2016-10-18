@@ -13,7 +13,16 @@
 
 #include "trace.h"
 
-#include "unicode/locid.h"
+#if defined(_MSC_VER) && USING_CODE_ANALYSIS
+	#pragma warning(push)
+	#pragma warning(disable:28251)
+	#pragma warning(disable:28252)
+	#pragma warning(disable:28253)
+#endif
+	#include "unicode/locid.h"
+#if defined(_MSC_VER) && USING_CODE_ANALYSIS
+	#pragma warning(pop)
+#endif
 #include "GenericPlatformCrashContext.h"
 #include <SDL.h>
 #include <ctime>

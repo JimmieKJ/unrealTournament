@@ -322,15 +322,21 @@ EReimportResult::Type UReimportVectorFieldStaticFactory::Reimport( UObject* Obj 
 		return EReimportResult::Failed;
 	}
 
-	if (UFactory::StaticImportObject(VectorFieldStatic->GetClass(), VectorFieldStatic->GetOuter(), *VectorFieldStatic->GetName(), RF_Public|RF_Standalone, *ReImportFilename, NULL, this))
+	bool OutCanceled = false;
+
+	if (ImportObject(VectorFieldStatic->GetClass(), VectorFieldStatic->GetOuter(), *VectorFieldStatic->GetName(), RF_Public|RF_Standalone, ReImportFilename, nullptr, OutCanceled) != nullptr)
 	{
 		UE_LOG(LogVectorFieldFactory, Log, TEXT("Reimported successfully") );
 		VectorFieldStatic->AssetImportData->Update(ReImportFilename);
 		VectorFieldStatic->MarkPackageDirty();
 	}
+	else if (OutCanceled)
+	{
+		UE_LOG(LogVectorFieldFactory, Warning, TEXT("-- import canceled"));
+	}
 	else
 	{
-		UE_LOG(LogVectorFieldFactory, Warning, TEXT("Reimport failed") );
+		UE_LOG(LogVectorFieldFactory, Warning, TEXT("-- import failed"));
 	}
 
 	return EReimportResult::Succeeded;

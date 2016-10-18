@@ -14,8 +14,6 @@ void FMallocVerify::Malloc(void* Ptr)
 {
 	if (Ptr)
 	{
-		FScopeLock Lock(&AllocatedPointersCritical);
-
 		UE_CLOG(AllocatedPointers.Contains(Ptr), LogMemory, Fatal, TEXT("Malloc allocated pointer that's already been allocated: 0x%016llx"), (int64)(PTRINT)Ptr);
 
 		AllocatedPointers.Add(Ptr);			
@@ -24,7 +22,6 @@ void FMallocVerify::Malloc(void* Ptr)
 
 void FMallocVerify::Realloc(void* OldPtr, void* NewPtr)
 {
-	FScopeLock Lock(&AllocatedPointersCritical);
 	if (OldPtr != NewPtr)
 	{			
 		if (OldPtr)
@@ -50,8 +47,6 @@ void FMallocVerify::Free(void* Ptr)
 {
 	if (Ptr)
 	{
-		FScopeLock Lock(&AllocatedPointersCritical);
-
 		UE_CLOG(!AllocatedPointers.Contains(Ptr), LogMemory, Fatal, TEXT("Free attempts to free a pointer that hasn't been allocated yet: 0x%016llx"), (int64)(PTRINT)Ptr);
 
 		AllocatedPointers.Remove(Ptr);

@@ -35,6 +35,7 @@ namespace EMessageToken
 		Text,
 		Tutorial,
 		URL,
+		EdGraph,
 	};
 }
 
@@ -359,7 +360,7 @@ private:
 	FString URL;
 
 	/** The delegate we will use to generate our URL */
-	static FGenerateURL GenerateURL;
+	CORE_API static FGenerateURL GenerateURL;
 };
 
 /** 
@@ -370,10 +371,7 @@ class FAssetNameToken : public IMessageToken
 {
 public:
 	/** Factory method, tokens can only be constructed as shared refs */
-	CORE_API static TSharedRef<FAssetNameToken> Create( const FString& InAssetName, const FText& InMessage = FText() )
-	{
-		return MakeShareable(new FAssetNameToken(InAssetName, InMessage));
-	}
+	CORE_API static TSharedRef<FAssetNameToken> Create(const FString& InAssetName, const FText& InMessage = FText());
 
 	/** Begin IMessageToken interface */
 	virtual EMessageToken::Type GetType() const override
@@ -409,7 +407,7 @@ private:
 	FString AssetName;
 
 	/** The delegate we will use to go to our file */
-	static FOnGotoAsset GotoAsset;
+	CORE_API static FOnGotoAsset GotoAsset;
 };
 
 /** 
@@ -419,10 +417,7 @@ class FDocumentationToken : public IMessageToken
 {
 public:
 	/** Factory method, tokens can only be constructed as shared refs */
-	CORE_API static TSharedRef<FDocumentationToken> Create( const FString& InDocumentationLink, const FString& InPreviewExcerptLink = FString(), const FString& InPreviewExcerptName = FString() )
-	{
-		return MakeShareable(new FDocumentationToken(InDocumentationLink, InPreviewExcerptLink, InPreviewExcerptName));
-	}
+	CORE_API static TSharedRef<FDocumentationToken> Create(const FString& InDocumentationLink, const FString& InPreviewExcerptLink = FString(), const FString& InPreviewExcerptName = FString());
 
 	/** Begin IMessageToken interface */
 	virtual EMessageToken::Type GetType() const override
@@ -573,3 +568,4 @@ private:
 	/** The name of the tutorial asset. */
 	FString TutorialAssetName;
 };
+

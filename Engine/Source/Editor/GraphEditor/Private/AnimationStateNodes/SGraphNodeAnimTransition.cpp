@@ -341,7 +341,7 @@ void SGraphNodeAnimTransition::PositionBetweenTwoNodesWithOffset(const FGeometry
 	// Position ourselves halfway along the connecting line between the nodes, elevated away perpendicular to the direction of the line
 	const float Height = 30.0f;
 
-	const FVector2D DesiredSize = GetDesiredSize();
+	const FVector2D DesiredNodeSize = GetDesiredSize();
 
 	FVector2D DeltaPos(EndAnchorPoint - StartAnchorPoint);
 
@@ -367,7 +367,7 @@ void SGraphNodeAnimTransition::PositionBetweenTwoNodesWithOffset(const FGeometry
 	const float MultiNodeOffset = MultiNodeStart + (NodeIndex * MultiNodeStep);
 
 	// Now we need to adjust the new center by the node size, zoom factor and multi node offset
-	const FVector2D NewCorner = NewCenter - (0.5f * DesiredSize) + (DeltaNormal * MultiNodeOffset * DesiredSize.Size());
+	const FVector2D NewCorner = NewCenter - (0.5f * DesiredNodeSize) + (DeltaNormal * MultiNodeOffset * DesiredNodeSize.Size());
 
 	GraphNode->NodePosX = NewCorner.X;
 	GraphNode->NodePosY = NewCorner.Y;

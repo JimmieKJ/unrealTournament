@@ -413,6 +413,7 @@ protected:
 								ErrorMessage = LOCTEXT( "TooManyAttributes", "Encountered too many attributes in a single element for this parser to handle" );
 								return false;
 							}
+							check(AttributeCount >= 0);
 							Attributes[ AttributeCount ] = Buffer;
 							Buffer = NextSeparator( Buffer );  // scan up to a space, or an equal
 							if( *Buffer )

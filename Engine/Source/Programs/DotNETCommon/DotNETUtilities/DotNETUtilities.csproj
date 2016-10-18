@@ -61,7 +61,6 @@
     <Compile Include="AssemblyUtils.cs" />
     <Compile Include="FileContentsCacheType.cs" />
     <Compile Include="FileSystem.cs" />
-    <Compile Include="HarvestEnvVars.cs" />
     <Compile Include="LaunchProcess.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="SimpleWebRequest.cs" />

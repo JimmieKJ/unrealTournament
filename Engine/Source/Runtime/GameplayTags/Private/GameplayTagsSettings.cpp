@@ -28,3 +28,11 @@ void UGameplayTagsSettings::SortTags()
 {
 	GameplayTags.Sort();
 }
+
+// ---------------------------------
+
+UGameplayTagsDeveloperSettings::UGameplayTagsDeveloperSettings(const FObjectInitializer& ObjectInitializer)
+: Super(ObjectInitializer)
+{
+	
+}

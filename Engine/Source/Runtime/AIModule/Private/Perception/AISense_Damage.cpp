@@ -89,7 +89,10 @@ float UAISense_Damage::Update()
 				// this has to succeed, will assert a failure
 				FPerceptionListener& Listener = ListenersMap[PerceptionComponent->GetListenerId()];
 
-				Listener.RegisterStimulus(Event.Instigator, FAIStimulus(*this, Event.Amount, Event.Location, Event.HitLocation));
+				if (Listener.HasSense(GetSenseID()))
+				{
+					Listener.RegisterStimulus(Event.Instigator, FAIStimulus(*this, Event.Amount, Event.Location, Event.HitLocation));
+				}
 			}
 		}
 	}

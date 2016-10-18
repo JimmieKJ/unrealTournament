@@ -20,7 +20,7 @@ class SUTServerBrowserPanel;
 class SUTFriendsPopupWindow;
 class SUTQuickMatchWindow;
 class SUTLoginDialog;
-class SUTRedirectDialog;
+class SUTDownloadAllDialog;
 class SUTMapVoteDialog;
 class SUTAdminDialog;
 class SUTReplayWindow;
@@ -29,7 +29,6 @@ class AUTPlayerState;
 class SUTJoinInstanceWindow;
 class FServerData;
 class AUTRconAdminInfo;
-class SUTDownloadAllDialog;
 class SUTSpectatorWindow;
 class SUTMatchSummaryPanel;
 class SUTChatEditBox;
@@ -143,6 +142,18 @@ struct FLevelUpRewardNotifyPayload
 };
 
 USTRUCT()
+struct FMMREntry
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY()
+	int32 MMR;
+
+	UPROPERTY()
+	int32 MatchesPlayed;
+};
+
+USTRUCT()
 struct FRankedLeagueProgress
 {
 	GENERATED_USTRUCT_BODY()
@@ -236,8 +247,10 @@ public:
 		return DesktopSlateWidget;
 	}
 
-	virtual bool AreMenusOpen();
 #endif
+
+	UFUNCTION(BlueprintCallable, Category = UI)
+	virtual bool AreMenusOpen();
 
 	UFUNCTION()
 	virtual void ChangeStatsViewerTarget(FString InStatsID);
@@ -296,6 +309,16 @@ protected:
 public:
 	FProcHandle DedicatedServerProcessHandle;
 
+	UFUNCTION(BlueprintCallable, Category = Game)
+	bool bIsQuickmatchDialogOpen()
+	{
+#if UE_SERVER
+		return false;
+#else
+		return QuickMatchDialog.IsValid();
+#endif
+	}
+
 	// Last text entered in Connect To IP
 	UPROPERTY(config)
 		FString LastConnectToIP;
@@ -334,8 +357,9 @@ public:
 	// Called after creation on non-default objects to setup the online Subsystem
 	virtual void InitializeOnlineSubsystem();
 
-	// Returns true if this player is logged in to the UT Online Services
-	virtual bool IsLoggedIn() const;
+	// Returns true if this player is logged in to the UT Online Services.  If bIncludeProfile is true, then it will check to see
+	// if the initial read of the profile and progression has completed as well
+	virtual bool IsLoggedIn(bool bIncludeProfile = false) const;
 
 	virtual FString GetOnlinePlayerNickname();
 
@@ -433,6 +457,7 @@ protected:
 public:
 	// Call this function to Attempt to load the Online Profile Settings for this user.
 	virtual void GetAuth(FString ErrorMessage = TEXT(""));
+	virtual void ShowAuth();
 
 	UPROPERTY(config)
 	FString LastRankedMatchUniqueId;
@@ -493,6 +518,7 @@ private:
 public:
 	virtual void LoadProfileSettings();
 	virtual void SaveProfileSettings();
+	virtual void ApplyProfileSettings();
 	virtual void ClearProfileSettings();
 
 	UFUNCTION(BlueprintCallable, Category = Profile)
@@ -543,23 +569,9 @@ public:
 	// NOTE: These functions are for getting the user's ELO rating from the cloud.  This
 	// is temp code and will be changed so don't rely on it staying as is.
 private:
-
-	int32 TDM_ELO;	// The Player's current TDM ELO rank
-	int32 DUEL_ELO;	// The Player's current Duel ELO rank
-	int32 FFA_ELO;	// The Player's current FFA ELO rank
-	int32 CTF_ELO;	// The Player's current CTF ELO rank
-	int32 Showdown_ELO;
-	int32 RankedDuel_ELO;
-	int32 RankedCTF_ELO;
-	int32 RankedShowdown_ELO;
-	int32 DuelMatchesPlayed;	// The # of matches this player has played.
-	int32 TDMMatchesPlayed;	// The # of matches this player has played.
-	int32 FFAMatchesPlayed;	// The # of matches this player has played.
-	int32 CTFMatchesPlayed;	// The # of matches this player has played.
-	int32 ShowdownMatchesPlayed;	// The # of matches this player has played.
-	int32 RankedDuelMatchesPlayed;	// The # of matches this player has played.
-	int32 RankedCTFMatchesPlayed;	// The # of matches this player has played.
-	int32 RankedShowdownMatchesPlayed;	// The # of matches this player has played.
+	
+	TMap<FString, FMMREntry> MMREntries;
+	virtual void UpdateMMREntry(const FString& RatingName, const FMMREntry& InFMMREntry);
 
 	TMap<FString, FRankedLeagueProgress> LeagueRecords;
 	virtual void UpdateLeagueProgress(const FString& LeagueName, const FRankedLeagueProgress& InLeagueProgress);
@@ -580,22 +592,9 @@ public:
 
 	// Returns the base ELO Rank with any type of processing we need.
 	virtual int32 GetBaseELORank();
-
-	inline virtual int32 GetRankTDM() { return TDM_ELO; }
-	inline virtual int32 GetRankDuel() { return DUEL_ELO; }
-	inline virtual int32 GetRankDM() { return FFA_ELO; }
-	inline virtual int32 GetRankCTF() { return CTF_ELO; }
-	inline virtual int32 GetRankShowdown() { return Showdown_ELO; }
-	inline virtual int32 GetRankRankedShowdown() { return RankedShowdown_ELO; }
-
-	virtual int32 DuelEloMatches() { return DuelMatchesPlayed; }
-	virtual int32 CTFEloMatches() { return CTFMatchesPlayed; }
-	virtual int32 TDMEloMatches() { return TDMMatchesPlayed; }
-	virtual int32 DMEloMatches() { return FFAMatchesPlayed; }
-	virtual int32 ShowdownEloMatches() { return ShowdownMatchesPlayed; }
-	virtual int32 RankedShowdownEloMatches() { return RankedShowdownMatchesPlayed; }
-
+	
 	virtual bool GetLeagueProgress(const FString& LeagueName, FRankedLeagueProgress& LeagueProgress);
+	virtual bool GetMMREntry(const FString& RatingName, FMMREntry& MMREntry);
 
 	// Returns the # of stars to show based on XP value. 
 	UFUNCTION(BlueprintCallable, Category = Badge)
@@ -690,22 +689,62 @@ public:
 	bool bSuppressToastsInGame;
 
 protected:
+
 #if !UE_SERVER
 	TWeakPtr<SUTDialogBase> ConnectingDialog;
-	TSharedPtr<SUTRedirectDialog> RedirectDialog;
-
+	TSharedPtr<SUTDownloadAllDialog> DownloadAllDialog;
+	TSharedPtr<SUTDialogBase> DLCWarningDialog;
 #endif
 
+	// Holds a list of servers where the DLC warning has been accepted.  If the current server is in this list
+	// then the DLC content warning will not be displayed this run.
+	TArray<FString> AcceptedDLCServers;
+
 public:
-	// Holds the current status of any ongoing downloads.
-	FText DownloadStatusText;
-	FString Download_CurrentFile;
-	int32 Download_NumBytes;
-	int32 Download_NumFilesLeft;
-	float Download_Percentage;
 
+	virtual void ShowRedirectDownload();
+	virtual void HideRedirectDownload();
 
+	// Checks to see if a redirect exists
+	virtual bool ContentExists(const FPackageRedirectReference& Redirect);
 
+	// Attempt to Accquire redirect content
+	virtual void AcquireContent(TArray<FPackageRedirectReference>& Redirects);
+
+	// Cancel all active downloads.
+	virtual void CancelDownload();
+
+	// Returns an FTEXT with the download status
+	virtual FText GetDownloadStatusText();
+
+	virtual FText GetDownloadFilename();
+
+	virtual int32 GetNumberOfPendingDownloads();
+
+	virtual int32 GetDownloadBytes();
+
+	virtual float GetDownloadProgress();
+
+	// If set to true, the download dialog will be suppressed and the status information
+	// needs to be displayed elsewhere.
+	bool bSuppressDownloadDialog;
+
+	// Returns TRUE if downloads are in progress
+	virtual bool IsDownloadInProgress();
+
+	// On a hub, this will request that the hub send over all of the content needed to download.
+	void RequestServerSendAllRedirects();
+
+	// Shows the DLC warning dialog.  
+	void ShowDLCWarning();
+
+	// returns true if the DLC warning is being displayed
+	bool IsShowingDLCWarning();
+
+	// returns true if this server requires a DLC warning to be shown
+	bool RequiresDLCWarning();
+
+protected:
 
 	virtual void ConnectingDialogCancel(TSharedPtr<SCompoundWidget> Dialog, uint16 ButtonID);
 public:
@@ -733,14 +772,6 @@ public:
 
 	// Holds a list of maps to play in Single player
 	TArray<FString> SinglePlayerMapList;
-
-	virtual void UpdateRedirect(const FString& FileURL, int32 NumBytes, float Progress, int32 NumFilesLeft);
-	virtual bool ContentExists(const FPackageRedirectReference& Redirect);
-	virtual void AccquireContent(TArray<FPackageRedirectReference>& Redirects);
-	virtual void CancelDownload();
-
-	virtual FText GetDownloadStatusText();
-	virtual bool IsDownloadInProgress();
 
 	// Forward any network failure messages to the base player controller so that game specific actions can be taken
 	virtual void HandleNetworkFailureMessage(enum ENetworkFailure::Type FailureType, const FString& ErrorString);
@@ -946,17 +977,6 @@ public:
 #endif
 
 public:
-	void DownloadAll();
-	void CloseDownloadAll();
-
-	bool ShowDownloadDialog(bool bTransitionWhenDone);
-
-protected:
-
-
-#if !UE_SERVER
-	TSharedPtr<SUTDownloadAllDialog> DownloadAllDialog;
-#endif
 	
 	void PostInitProperties() override;
 
@@ -1053,14 +1073,7 @@ public:
 	UPROPERTY()
 	bool bAutoRankLockWarningShown;
 
-	void ResetDLCWarning();
-	// If true, then this client has shown the downloadable content warning since the last travel.
-	bool bHasShownDLCWarning;
-
-	void ShowDLCWarning();
-
 protected:
-	bool bDLCWarningIsVisible;
 
 	UPROPERTY()
 	UUTKillcamPlayback* KillcamPlayback;
@@ -1075,10 +1088,6 @@ protected:
 	bool bJoinSessionInProgress;	
 	FDelegateHandle SpeakerDelegate;
 	void OnPlayerTalkingStateChanged(TSharedRef<const FUniqueNetId> TalkerId, bool bIsTalking);
-
-	// Holds a list of servers where the DLC warning has been accepted.  If the current server is in this list
-	// then the DLC content warning will not be displayed this run.
-	TArray<FGuid> AcceptedDLCServers;
 
 public:
 
@@ -1095,4 +1104,48 @@ protected:
 #if !UE_SERVER
 	void OnUpgradeResults(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
 #endif
+
+public:
+	UPROPERTY(BlueprintReadOnly, Category = Login)
+	bool bLoginAttemptInProgress;
+
+	// Will be true if the user has chosen to play offline.  It get's cleared when a player logs in.
+	UPROPERTY(BlueprintReadOnly, Category = Login)
+	bool bPlayingOffline;
+
+	UPROPERTY()
+	bool bCloseUICalledDuringMoviePlayback;
+
+	UPROPERTY()
+	bool bDelayedCloseUIExcludesDialogs;
+
+
+	UPROPERTY()
+	bool bHideMenuCalledDuringMoviePlayback;
+
+	void AttemptLogin();
+
+	void ClearPendingLoginUserName();
+
+	// Defines where we are in the login process.  We stall the game during the whole login process.
+	UPROPERTY()
+	TEnumAsByte<ELoginPhase::Type> LoginPhase;
+
+	// Called when the entire login process is completed.  This includes loading the profile and progression
+	virtual void LoginProcessComplete();
+
+	virtual void SetTutorialFinished(int32 TutorialMask);
+
+	UFUNCTION(BlueprintCallable, Category = UI)
+	bool IsSystemMenuOpen();
+
+	virtual void InitializeSocial();
+
+	bool SkipTutorialCheck();
+
+	// Returns true if this local player is currently in a party
+	bool IsInAnActiveParty();
+
+
 };
+

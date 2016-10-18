@@ -223,6 +223,32 @@ namespace UnrealGameSync
 				NewestChangeNumber = Math.Min(NewestChangeNumber, NewChanges.First().Number);
 			}
 
+			// Fixup any ROBOMERGE authors
+			const string RoboMergePrefix = "#ROBOMERGE-AUTHOR:";
+			foreach(PerforceChangeSummary Change in NewChanges)
+			{
+				if(Change.Description.StartsWith(RoboMergePrefix))
+				{
+					int StartIdx = RoboMergePrefix.Length;
+					while(StartIdx < Change.Description.Length && Change.Description[StartIdx] == ' ')
+					{
+						StartIdx++;
+					}
+
+					int EndIdx = StartIdx;
+					while(EndIdx < Change.Description.Length && !Char.IsWhiteSpace(Change.Description[EndIdx]))
+					{
+						EndIdx++;
+					}
+
+					if(EndIdx > StartIdx)
+					{
+						Change.User = Change.Description.Substring(StartIdx, EndIdx - StartIdx);
+						Change.Description = "ROBOMERGE: " + Change.Description.Substring(EndIdx).TrimStart();
+					}
+				}
+			}
+
 			// Insert them into the builds list
 			if(NewChanges.Count > 0 || MaxChanges < CurrentMaxChanges)
 			{

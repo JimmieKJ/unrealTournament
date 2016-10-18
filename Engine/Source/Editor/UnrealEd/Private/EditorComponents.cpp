@@ -552,7 +552,7 @@ void FEditorCommonDrawHelper::DrawGridSection(float ViewportGridY,FVector* A,FVe
 		AlphaB = 1.0f;
 	}
 
-	const int32 MajorLineInterval = GEditor->GetGridInterval();
+	const int32 MajorLineInterval = FMath::TruncToInt(GEditor->GetGridInterval());
 
 	const FLinearColor Background = View->BackgroundColor;
 
@@ -577,7 +577,7 @@ void FEditorCommonDrawHelper::DrawGridSection(float ViewportGridY,FVector* A,FVe
 
 		// Only minor lines fade out with ortho zoom distance.  Origin lines and major lines are drawn
 		// at 100% opacity, but with a brighter value
-		const bool bIsMajorLine = (LineIndex % MajorLineInterval) == 0;
+		const bool bIsMajorLine = (MajorLineInterval == 0) || ((LineIndex % MajorLineInterval) == 0);
 
 		{
 			// Don't bother drawing the world origin line.  We'll do that later.

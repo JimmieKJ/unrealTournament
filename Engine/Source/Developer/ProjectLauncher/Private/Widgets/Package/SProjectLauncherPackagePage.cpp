@@ -78,7 +78,7 @@ void SProjectLauncherPackagePage::Construct( const FArguments& InArgs, const FPr
 			.FillHeight(1.0)
 			.Padding(0.0, 8.0, 0.0, 0.0)
 			[
-				SNew(SProjectLauncherPackagingSettings, InModel)
+				SAssignNew(ProjectLauncherPackagingSettings, SProjectLauncherPackagingSettings, InModel)
 					.Visibility(this, &SProjectLauncherPackagePage::HandlePackagingSettingsAreaVisibility)
 			]
 	];
@@ -127,6 +127,9 @@ void SProjectLauncherPackagePage::HandlePackagingModeMenuEntryClicked( ELauncher
 	if (SelectedProfile.IsValid())
 	{
 		SelectedProfile->SetPackagingMode(PackagingMode);
+
+		check(ProjectLauncherPackagingSettings.IsValid());
+		ProjectLauncherPackagingSettings->UpdateDirectoryPathText();
 	}
 }
 

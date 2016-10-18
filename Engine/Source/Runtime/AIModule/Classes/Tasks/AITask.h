@@ -35,7 +35,44 @@ public:
 	AAIController* GetAIController() const { return OwnerController; };
 
 	void InitAITask(AAIController& AIOwner, IGameplayTaskOwnerInterface& InTaskOwner, uint8 InPriority);
+	void InitAITask(AAIController& AIOwner, IGameplayTaskOwnerInterface& InTaskOwner);
 
 	/** effectively adds UAIResource_Logic to the set of Claimed resources */
 	void RequestAILogicLocking();
+
+	template <class T>
+	static T* NewAITask(AAIController& AIOwner, IGameplayTaskOwnerInterface& InTaskOwner, FName InstanceName = FName())
+	{
+		T* TaskInstance = NewObject<T>();
+		TaskInstance->InstanceName = InstanceName;
+		TaskInstance->InitAITask(AIOwner, InTaskOwner);
+		return TaskInstance;
+	}
+
+	template <class T>
+	static T* NewAITask(AAIController& AIOwner, IGameplayTaskOwnerInterface& InTaskOwner, EAITaskPriority InPriority, FName InstanceName = FName())
+	{
+		T* TaskInstance = NewObject<T>();
+		TaskInstance->InstanceName = InstanceName;
+		TaskInstance->InitAITask(AIOwner, InTaskOwner, (uint8)InPriority);
+		return TaskInstance;
+	}
+
+	template <class T>
+	static T* NewAITask(AAIController& AIOwner, FName InstanceName = FName())
+	{
+		T* TaskInstance = NewObject<T>();
+		TaskInstance->InstanceName = InstanceName;
+		TaskInstance->InitAITask(AIOwner, AIOwner);
+		return TaskInstance;
+	}
+
+	template <class T>
+	static T* NewAITask(AAIController& AIOwner, EAITaskPriority InPriority, FName InstanceName = FName())
+	{
+		T* TaskInstance = NewObject<T>();
+		TaskInstance->InstanceName = InstanceName;
+		TaskInstance->InitAITask(AIOwner, AIOwner, (uint8)InPriority);
+		return TaskInstance;
+	}
 };

@@ -8,16 +8,14 @@
 #include "DelayAction.h"
 #include "InterpolateComponentToAction.h"
 #include "Advertising.h"
-#include "Online.h"
 #include "Camera/CameraActor.h"
 #include "Camera/CameraComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "SlateCore.h"
 #include "Engine/StreamableManager.h"
-#include "OnlineSubsystemTypes.h"
-#include "OnlineSubsystemUtils.h"
-#include "OnlineIdentityInterface.h"
+#include "Net/OnlineEngineInterface.h"
 #include "UserActivityTracking.h"
+#include "PhysicsEngine/PhysicsSettings.h"
 
 //////////////////////////////////////////////////////////////////////////
 // UKismetSystemLibrary
@@ -83,6 +81,11 @@ FString UKismetSystemLibrary::GetEngineVersion()
 FString UKismetSystemLibrary::GetGameName()
 {
 	return FString(FApp::GetGameName());
+}
+
+FString UKismetSystemLibrary::GetGameBundleId()
+{
+	return FString(FPlatformProcess::GetGameBundleId());
 }
 
 FString UKismetSystemLibrary::GetPlatformUserName()
@@ -383,6 +386,18 @@ void UKismetSystemLibrary::K2_ClearTimerHandle(UObject* WorldContextObject, FTim
 	if (Handle.IsValid())
 	{
 		UWorld* World = GEngine->GetWorldFromContextObject( WorldContextObject );
+		if (World)
+		{
+			World->GetTimerManager().ClearTimer(Handle);
+		}
+	}
+}
+
+void UKismetSystemLibrary::K2_ClearAndInvalidateTimerHandle(UObject* WorldContextObject, FTimerHandle& Handle)
+{
+	if (Handle.IsValid())
+	{
+		UWorld* World = GEngine->GetWorldFromContextObject(WorldContextObject);
 		if (World)
 		{
 			World->GetTimerManager().ClearTimer(Handle);
@@ -1337,17 +1352,18 @@ bool UKismetSystemLibrary::ComponentOverlapComponents_NEW(UPrimitiveComponent* C
 static const float KISMET_TRACE_DEBUG_DRAW_DURATION = 5.f;
 static const float KISMET_TRACE_DEBUG_IMPACTPOINT_SIZE = 16.f;
 
-bool UKismetSystemLibrary::LineTraceSingle_NEW(UObject* WorldContextObject, const FVector Start, const FVector End, ETraceTypeQuery TraceChannel, bool bTraceComplex, const TArray<AActor*>& ActorsToIgnore, EDrawDebugTrace::Type DrawDebugType, FHitResult& OutHit, bool bIgnoreSelf)
+bool UKismetSystemLibrary::LineTraceSingle_NEW(UObject* WorldContextObject, const FVector Start, const FVector End, ETraceTypeQuery TraceChannel, bool bTraceComplex, const TArray<AActor*>& ActorsToIgnore, EDrawDebugTrace::Type DrawDebugType, FHitResult& OutHit, bool bIgnoreSelf, FLinearColor TraceColor, FLinearColor TraceHitColor, float DrawTime)
 {
-	return LineTraceSingle_DEPRECATED(WorldContextObject, Start, End, UEngineTypes::ConvertToCollisionChannel(TraceChannel), bTraceComplex, ActorsToIgnore, DrawDebugType, OutHit, bIgnoreSelf);
+	return LineTraceSingle_DEPRECATED(WorldContextObject, Start, End, UEngineTypes::ConvertToCollisionChannel(TraceChannel), bTraceComplex, ActorsToIgnore, DrawDebugType, OutHit, bIgnoreSelf, TraceColor, TraceHitColor, DrawTime);
 }
 
-bool UKismetSystemLibrary::LineTraceSingle_DEPRECATED(UObject* WorldContextObject, const FVector Start, const FVector End, ECollisionChannel TraceChannel, bool bTraceComplex, const TArray<AActor*>& ActorsToIgnore, EDrawDebugTrace::Type DrawDebugType, FHitResult& OutHit, bool bIgnoreSelf)
+bool UKismetSystemLibrary::LineTraceSingle_DEPRECATED(UObject* WorldContextObject, const FVector Start, const FVector End, ECollisionChannel TraceChannel, bool bTraceComplex, const TArray<AActor*>& ActorsToIgnore, EDrawDebugTrace::Type DrawDebugType, FHitResult& OutHit, bool bIgnoreSelf, FLinearColor TraceColor, FLinearColor TraceHitColor, float DrawTime)
 {
 	static const FName LineTraceSingleName(TEXT("LineTraceSingle"));
 
 	FCollisionQueryParams Params(LineTraceSingleName, bTraceComplex);
 	Params.bReturnPhysicalMaterial = true;
+	Params.bReturnFaceIndex = !UPhysicsSettings::Get()->bSuppressFaceRemapTable; // Ask for face index, as long as we didn't disable globally
 	Params.bTraceAsyncScene = true;
 	Params.AddIgnoredActors(ActorsToIgnore);
 	if (bIgnoreSelf)
@@ -1380,37 +1396,38 @@ bool UKismetSystemLibrary::LineTraceSingle_DEPRECATED(UObject* WorldContextObjec
 	if (DrawDebugType != EDrawDebugTrace::None)
 	{
 		bool bPersistent = DrawDebugType == EDrawDebugTrace::Persistent;
-		float LifeTime = (DrawDebugType == EDrawDebugTrace::ForDuration)? KISMET_TRACE_DEBUG_DRAW_DURATION: 0.f;
+		float LifeTime = (DrawDebugType == EDrawDebugTrace::ForDuration)? DrawTime : 0.f;
 
 		// @fixme, draw line with thickness = 2.f?
 		if (bHit && OutHit.bBlockingHit)
 		{
 			// Red up to the blocking hit, green thereafter
-			::DrawDebugLine(World, Start, OutHit.ImpactPoint, FColor::Red, bPersistent, LifeTime);
-			::DrawDebugLine(World, OutHit.ImpactPoint, End, FColor::Green, bPersistent, LifeTime);
-			::DrawDebugPoint(World, OutHit.ImpactPoint, KISMET_TRACE_DEBUG_IMPACTPOINT_SIZE, FColor::Red, bPersistent, LifeTime);
+			::DrawDebugLine(World, Start, OutHit.ImpactPoint, TraceColor.ToFColor(true), bPersistent, LifeTime);
+			::DrawDebugLine(World, OutHit.ImpactPoint, End, TraceHitColor.ToFColor(true), bPersistent, LifeTime);
+			::DrawDebugPoint(World, OutHit.ImpactPoint, KISMET_TRACE_DEBUG_IMPACTPOINT_SIZE, TraceColor.ToFColor(true), bPersistent, LifeTime);
 		}
 		else
 		{
 			// no hit means all red
-			::DrawDebugLine(World, Start, End, FColor::Red, bPersistent, LifeTime);
+			::DrawDebugLine(World, Start, End, TraceColor.ToFColor(true), bPersistent, LifeTime);
 		}
 	}
 
 	return bHit;
 }
 
-bool UKismetSystemLibrary::LineTraceMulti_NEW(UObject* WorldContextObject, const FVector Start, const FVector End, ETraceTypeQuery TraceChannel, bool bTraceComplex, const TArray<AActor*>& ActorsToIgnore, EDrawDebugTrace::Type DrawDebugType, TArray<FHitResult>& OutHits, bool bIgnoreSelf)
+bool UKismetSystemLibrary::LineTraceMulti_NEW(UObject* WorldContextObject, const FVector Start, const FVector End, ETraceTypeQuery TraceChannel, bool bTraceComplex, const TArray<AActor*>& ActorsToIgnore, EDrawDebugTrace::Type DrawDebugType, TArray<FHitResult>& OutHits, bool bIgnoreSelf, FLinearColor TraceColor, FLinearColor TraceHitColor, float DrawTime)
 {
-	return LineTraceMulti_DEPRECATED(WorldContextObject, Start, End, UEngineTypes::ConvertToCollisionChannel(TraceChannel), bTraceComplex, ActorsToIgnore, DrawDebugType, OutHits, bIgnoreSelf);
+	return LineTraceMulti_DEPRECATED(WorldContextObject, Start, End, UEngineTypes::ConvertToCollisionChannel(TraceChannel), bTraceComplex, ActorsToIgnore, DrawDebugType, OutHits, bIgnoreSelf, TraceColor, TraceHitColor, DrawTime);
 }
 
-bool UKismetSystemLibrary::LineTraceMulti_DEPRECATED(UObject* WorldContextObject, const FVector Start, const FVector End, ECollisionChannel TraceChannel, bool bTraceComplex, const TArray<AActor*>& ActorsToIgnore, EDrawDebugTrace::Type DrawDebugType, TArray<FHitResult>& OutHits, bool bIgnoreSelf)
+bool UKismetSystemLibrary::LineTraceMulti_DEPRECATED(UObject* WorldContextObject, const FVector Start, const FVector End, ECollisionChannel TraceChannel, bool bTraceComplex, const TArray<AActor*>& ActorsToIgnore, EDrawDebugTrace::Type DrawDebugType, TArray<FHitResult>& OutHits, bool bIgnoreSelf, FLinearColor TraceColor, FLinearColor TraceHitColor, float DrawTime)
 {
 	static const FName LineTraceMultiName(TEXT("LineTraceMulti"));
 
 	FCollisionQueryParams Params(LineTraceMultiName, bTraceComplex);
 	Params.bReturnPhysicalMaterial = true;
+	Params.bReturnFaceIndex = !UPhysicsSettings::Get()->bSuppressFaceRemapTable; // Ask for face index, as long as we didn't disable globally
 	Params.bTraceAsyncScene = true;
 	Params.AddIgnoredActors(ActorsToIgnore);
 	if (bIgnoreSelf)
@@ -1443,27 +1460,27 @@ bool UKismetSystemLibrary::LineTraceMulti_DEPRECATED(UObject* WorldContextObject
 	if (DrawDebugType != EDrawDebugTrace::None)
 	{
 		bool bPersistent = DrawDebugType == EDrawDebugTrace::Persistent;
-		float LifeTime = (DrawDebugType == EDrawDebugTrace::ForDuration)? KISMET_TRACE_DEBUG_DRAW_DURATION: 0.f;
+		float LifeTime = (DrawDebugType == EDrawDebugTrace::ForDuration)? DrawTime : 0.f;
 
 		// @fixme, draw line with thickness = 2.f?
 		if (bHit && OutHits.Last().bBlockingHit)
 		{
 			// Red up to the blocking hit, green thereafter
 			FVector const BlockingHitPoint = OutHits.Last().ImpactPoint;
-			::DrawDebugLine(World, Start, BlockingHitPoint , FColor::Red, bPersistent, LifeTime);
-			::DrawDebugLine(World, BlockingHitPoint, End, FColor::Green, bPersistent, LifeTime);
+			::DrawDebugLine(World, Start, BlockingHitPoint , TraceColor.ToFColor(true), bPersistent, LifeTime);
+			::DrawDebugLine(World, BlockingHitPoint, End, TraceHitColor.ToFColor(true), bPersistent, LifeTime);
 		}
 		else
 		{
 			// no hit means all red
-			::DrawDebugLine(World, Start, End, FColor::Red, bPersistent, LifeTime);
+			::DrawDebugLine(World, Start, End, TraceColor.ToFColor(true), bPersistent, LifeTime);
 		}
 
 		// draw hits
 		for (int32 HitIdx=0; HitIdx<OutHits.Num(); ++HitIdx)
 		{
 			FHitResult const& Hit = OutHits[HitIdx];
-			::DrawDebugPoint(World, Hit.ImpactPoint, KISMET_TRACE_DEBUG_IMPACTPOINT_SIZE, (Hit.bBlockingHit ? FColor::Red : FColor::Green), bPersistent, LifeTime);
+			::DrawDebugPoint(World, Hit.ImpactPoint, KISMET_TRACE_DEBUG_IMPACTPOINT_SIZE, (Hit.bBlockingHit ? TraceColor.ToFColor(true) : TraceHitColor.ToFColor(true)), bPersistent, LifeTime);
 		}
 	}
 
@@ -1517,6 +1534,7 @@ bool UKismetSystemLibrary::BoxTraceSingle(UObject* WorldContextObject, const FVe
 
 	FCollisionQueryParams Params(BoxTraceSingleName, bTraceComplex);
 	Params.bReturnPhysicalMaterial = true;
+	Params.bReturnFaceIndex = !UPhysicsSettings::Get()->bSuppressFaceRemapTable; // Ask for face index, as long as we didn't disable globally
 	Params.bTraceAsyncScene = true;
 	Params.AddIgnoredActors(ActorsToIgnore);
 	if (bIgnoreSelf)
@@ -1574,6 +1592,7 @@ bool UKismetSystemLibrary::BoxTraceMulti(UObject* WorldContextObject, const FVec
 
 	FCollisionQueryParams Params(BoxTraceMultiName, bTraceComplex);
 	Params.bReturnPhysicalMaterial = true;
+	Params.bReturnFaceIndex = !UPhysicsSettings::Get()->bSuppressFaceRemapTable; // Ask for face index, as long as we didn't disable globally
 	Params.bTraceAsyncScene = true;
 	Params.AddIgnoredActors(ActorsToIgnore);
 	if (bIgnoreSelf)
@@ -1643,6 +1662,7 @@ bool UKismetSystemLibrary::SphereTraceSingle_DEPRECATED(UObject* WorldContextObj
 
 	FCollisionQueryParams Params(SphereTraceSingleName, bTraceComplex);
 	Params.bReturnPhysicalMaterial = true;
+	Params.bReturnFaceIndex = !UPhysicsSettings::Get()->bSuppressFaceRemapTable; // Ask for face index, as long as we didn't disable globally
 	Params.bTraceAsyncScene = true;
 	Params.AddIgnoredActors(ActorsToIgnore);
 	if (bIgnoreSelf)
@@ -1705,6 +1725,7 @@ bool UKismetSystemLibrary::SphereTraceMulti_DEPRECATED(UObject* WorldContextObje
 
 	FCollisionQueryParams Params(SphereTraceMultiName, bTraceComplex);
 	Params.bReturnPhysicalMaterial = true;
+	Params.bReturnFaceIndex = !UPhysicsSettings::Get()->bSuppressFaceRemapTable; // Ask for face index, as long as we didn't disable globally
 	Params.bTraceAsyncScene = true;
 	Params.AddIgnoredActors(ActorsToIgnore);
 	if (bIgnoreSelf)
@@ -1775,6 +1796,7 @@ bool UKismetSystemLibrary::CapsuleTraceSingle_DEPRECATED(UObject* WorldContextOb
 	FCollisionQueryParams Params(CapsuleTraceSingleName, bTraceComplex);
 	Params.AddIgnoredActors(ActorsToIgnore);
 	Params.bReturnPhysicalMaterial = true;
+	Params.bReturnFaceIndex = !UPhysicsSettings::Get()->bSuppressFaceRemapTable; // Ask for face index, as long as we didn't disable globally
 	Params.bTraceAsyncScene = true;
 	if (bIgnoreSelf)
 	{
@@ -1842,6 +1864,7 @@ bool UKismetSystemLibrary::CapsuleTraceMulti_DEPRECATED(UObject* WorldContextObj
 
 	FCollisionQueryParams Params(CapsuleTraceMultiName, bTraceComplex);
 	Params.bReturnPhysicalMaterial = true;
+	Params.bReturnFaceIndex = !UPhysicsSettings::Get()->bSuppressFaceRemapTable; // Ask for face index, as long as we didn't disable globally
 	Params.bTraceAsyncScene = true;
 	Params.AddIgnoredActors(ActorsToIgnore);
 	if (bIgnoreSelf)
@@ -1907,7 +1930,7 @@ bool UKismetSystemLibrary::CapsuleTraceMulti_DEPRECATED(UObject* WorldContextObj
 }
 
 /** Object Query functions **/
-bool UKismetSystemLibrary::LineTraceSingleForObjects(UObject* WorldContextObject, const FVector Start, const FVector End, const TArray<TEnumAsByte<EObjectTypeQuery> > & ObjectTypes, bool bTraceComplex, const TArray<AActor*>& ActorsToIgnore, EDrawDebugTrace::Type DrawDebugType, FHitResult& OutHit, bool bIgnoreSelf)
+bool UKismetSystemLibrary::LineTraceSingleForObjects(UObject* WorldContextObject, const FVector Start, const FVector End, const TArray<TEnumAsByte<EObjectTypeQuery> > & ObjectTypes, bool bTraceComplex, const TArray<AActor*>& ActorsToIgnore, EDrawDebugTrace::Type DrawDebugType, FHitResult& OutHit, bool bIgnoreSelf, FLinearColor TraceColor, FLinearColor TraceHitColor, float DrawTime)
 {
 
 	TArray<TEnumAsByte<ECollisionChannel>> CollisionObjectTraces;
@@ -1918,15 +1941,16 @@ bool UKismetSystemLibrary::LineTraceSingleForObjects(UObject* WorldContextObject
 		CollisionObjectTraces[Iter.GetIndex()] = UEngineTypes::ConvertToCollisionChannel(*Iter);
 	}
 
-	return LineTraceSingleByObject_DEPRECATED(WorldContextObject, Start, End, CollisionObjectTraces, bTraceComplex, ActorsToIgnore, DrawDebugType, OutHit, bIgnoreSelf);
+	return LineTraceSingleByObject_DEPRECATED(WorldContextObject, Start, End, CollisionObjectTraces, bTraceComplex, ActorsToIgnore, DrawDebugType, OutHit, bIgnoreSelf, TraceColor, TraceHitColor, DrawTime);
 }
 
-bool UKismetSystemLibrary::LineTraceSingleByObject_DEPRECATED(UObject* WorldContextObject, const FVector Start, const FVector End, const TArray<TEnumAsByte<ECollisionChannel> > & ObjectsToTrace, bool bTraceComplex, const TArray<AActor*>& ActorsToIgnore, EDrawDebugTrace::Type DrawDebugType, FHitResult& OutHit, bool bIgnoreSelf)
+bool UKismetSystemLibrary::LineTraceSingleByObject_DEPRECATED(UObject* WorldContextObject, const FVector Start, const FVector End, const TArray<TEnumAsByte<ECollisionChannel> > & ObjectsToTrace, bool bTraceComplex, const TArray<AActor*>& ActorsToIgnore, EDrawDebugTrace::Type DrawDebugType, FHitResult& OutHit, bool bIgnoreSelf, FLinearColor TraceColor, FLinearColor TraceHitColor, float DrawTime)
 {
 	static const FName LineTraceSingleName(TEXT("LineTraceSingle"));
 
 	FCollisionQueryParams Params(LineTraceSingleName, bTraceComplex);
 	Params.bReturnPhysicalMaterial = true;
+	Params.bReturnFaceIndex = !UPhysicsSettings::Get()->bSuppressFaceRemapTable; // Ask for face index, as long as we didn't disable globally
 	Params.bTraceAsyncScene = true;
 	Params.AddIgnoredActors(ActorsToIgnore);
 	if (bIgnoreSelf)
@@ -1979,27 +2003,27 @@ bool UKismetSystemLibrary::LineTraceSingleByObject_DEPRECATED(UObject* WorldCont
 	if (DrawDebugType != EDrawDebugTrace::None)
 	{
 		bool bPersistent = DrawDebugType == EDrawDebugTrace::Persistent;
-		float LifeTime = (DrawDebugType == EDrawDebugTrace::ForDuration)? KISMET_TRACE_DEBUG_DRAW_DURATION: 0.f;
+		float LifeTime = (DrawDebugType == EDrawDebugTrace::ForDuration)? DrawTime : 0.f;
 
 		// @fixme, draw line with thickness = 2.f?
 		if (bHit && OutHit.bBlockingHit)
 		{
 			// Red up to the blocking hit, green thereafter
-			::DrawDebugLine(World, Start, OutHit.ImpactPoint, FColor::Red, bPersistent, LifeTime);
-			::DrawDebugLine(World, OutHit.ImpactPoint, End, FColor::Green, bPersistent, LifeTime);
-			::DrawDebugPoint(World, OutHit.ImpactPoint, KISMET_TRACE_DEBUG_IMPACTPOINT_SIZE, FColor::Red, bPersistent, LifeTime);
+			::DrawDebugLine(World, Start, OutHit.ImpactPoint, TraceColor.ToFColor(true), bPersistent, LifeTime);
+			::DrawDebugLine(World, OutHit.ImpactPoint, End, TraceHitColor.ToFColor(true), bPersistent, LifeTime);
+			::DrawDebugPoint(World, OutHit.ImpactPoint, KISMET_TRACE_DEBUG_IMPACTPOINT_SIZE, TraceColor.ToFColor(true), bPersistent, LifeTime);
 		}
 		else
 		{
 			// no hit means all red
-			::DrawDebugLine(World, Start, End, FColor::Red, bPersistent, LifeTime);
+			::DrawDebugLine(World, Start, End, TraceColor.ToFColor(true), bPersistent, LifeTime);
 		}
 	}
 
 	return bHit;
 }
 
-bool UKismetSystemLibrary::LineTraceMultiForObjects(UObject* WorldContextObject, const FVector Start, const FVector End, const TArray<TEnumAsByte<EObjectTypeQuery> > & ObjectTypes, bool bTraceComplex, const TArray<AActor*>& ActorsToIgnore, EDrawDebugTrace::Type DrawDebugType, TArray<FHitResult>& OutHits, bool bIgnoreSelf)
+bool UKismetSystemLibrary::LineTraceMultiForObjects(UObject* WorldContextObject, const FVector Start, const FVector End, const TArray<TEnumAsByte<EObjectTypeQuery> > & ObjectTypes, bool bTraceComplex, const TArray<AActor*>& ActorsToIgnore, EDrawDebugTrace::Type DrawDebugType, TArray<FHitResult>& OutHits, bool bIgnoreSelf, FLinearColor TraceColor, FLinearColor TraceHitColor, float DrawTime)
 {
 	TArray<TEnumAsByte<ECollisionChannel>> CollisionObjectTraces;
 	CollisionObjectTraces.AddUninitialized(ObjectTypes.Num());
@@ -2009,15 +2033,16 @@ bool UKismetSystemLibrary::LineTraceMultiForObjects(UObject* WorldContextObject,
 		CollisionObjectTraces[Iter.GetIndex()] = UEngineTypes::ConvertToCollisionChannel(*Iter);
 	}
 
-	return LineTraceMultiByObject_DEPRECATED(WorldContextObject, Start, End, CollisionObjectTraces, bTraceComplex, ActorsToIgnore, DrawDebugType, OutHits, bIgnoreSelf);
+	return LineTraceMultiByObject_DEPRECATED(WorldContextObject, Start, End, CollisionObjectTraces, bTraceComplex, ActorsToIgnore, DrawDebugType, OutHits, bIgnoreSelf, TraceColor, TraceHitColor, DrawTime);
 }
 
-bool UKismetSystemLibrary::LineTraceMultiByObject_DEPRECATED(UObject* WorldContextObject, const FVector Start, const FVector End, const TArray<TEnumAsByte<ECollisionChannel> > & ObjectsToTrace, bool bTraceComplex, const TArray<AActor*>& ActorsToIgnore, EDrawDebugTrace::Type DrawDebugType, TArray<FHitResult>& OutHits, bool bIgnoreSelf)
+bool UKismetSystemLibrary::LineTraceMultiByObject_DEPRECATED(UObject* WorldContextObject, const FVector Start, const FVector End, const TArray<TEnumAsByte<ECollisionChannel> > & ObjectsToTrace, bool bTraceComplex, const TArray<AActor*>& ActorsToIgnore, EDrawDebugTrace::Type DrawDebugType, TArray<FHitResult>& OutHits, bool bIgnoreSelf, FLinearColor TraceColor, FLinearColor TraceHitColor, float DrawTime)
 {
 	static const FName LineTraceMultiName(TEXT("LineTraceMulti"));
 
 	FCollisionQueryParams Params(LineTraceMultiName, bTraceComplex);
 	Params.bReturnPhysicalMaterial = true;
+	Params.bReturnFaceIndex = !UPhysicsSettings::Get()->bSuppressFaceRemapTable; // Ask for face index, as long as we didn't disable globally
 	Params.bTraceAsyncScene = true;
 	Params.AddIgnoredActors(ActorsToIgnore);
 	if (bIgnoreSelf)
@@ -2070,27 +2095,27 @@ bool UKismetSystemLibrary::LineTraceMultiByObject_DEPRECATED(UObject* WorldConte
 	if (DrawDebugType != EDrawDebugTrace::None)
 	{
 		bool bPersistent = DrawDebugType == EDrawDebugTrace::Persistent;
-		float LifeTime = (DrawDebugType == EDrawDebugTrace::ForDuration)? KISMET_TRACE_DEBUG_DRAW_DURATION: 0.f;
+		float LifeTime = (DrawDebugType == EDrawDebugTrace::ForDuration)? DrawTime : 0.f;
 
 		// @fixme, draw line with thickness = 2.f?
 		if (bHit && OutHits.Last().bBlockingHit)
 		{
 			// Red up to the blocking hit, green thereafter
 			FVector const BlockingHitPoint = OutHits.Last().ImpactPoint;
-			::DrawDebugLine(World, Start, BlockingHitPoint , FColor::Red, bPersistent, LifeTime);
-			::DrawDebugLine(World, BlockingHitPoint, End, FColor::Green, bPersistent, LifeTime);
+			::DrawDebugLine(World, Start, BlockingHitPoint , TraceColor.ToFColor(true), bPersistent, LifeTime);
+			::DrawDebugLine(World, BlockingHitPoint, End, TraceHitColor.ToFColor(true), bPersistent, LifeTime);
 		}
 		else
 		{
 			// no hit means all red
-			::DrawDebugLine(World, Start, End, FColor::Red, bPersistent, LifeTime);
+			::DrawDebugLine(World, Start, End, TraceColor.ToFColor(true), bPersistent, LifeTime);
 		}
 
 		// draw hits
 		for (int32 HitIdx=0; HitIdx<OutHits.Num(); ++HitIdx)
 		{
 			FHitResult const& Hit = OutHits[HitIdx];
-			::DrawDebugPoint(World, Hit.ImpactPoint, KISMET_TRACE_DEBUG_IMPACTPOINT_SIZE, (Hit.bBlockingHit ? FColor::Red : FColor::Green), bPersistent, LifeTime);
+			::DrawDebugPoint(World, Hit.ImpactPoint, KISMET_TRACE_DEBUG_IMPACTPOINT_SIZE, (Hit.bBlockingHit ? TraceColor.ToFColor(true) : TraceHitColor.ToFColor(true)), bPersistent, LifeTime);
 		}
 	}
 
@@ -2114,11 +2139,9 @@ bool UKismetSystemLibrary::SphereTraceSingleByObject_DEPRECATED(UObject* WorldCo
 {
 	static const FName SphereTraceSingleName(TEXT("SphereTraceSingle"));
 
-
-
-
 	FCollisionQueryParams Params(SphereTraceSingleName, bTraceComplex);
 	Params.bReturnPhysicalMaterial = true;
+	Params.bReturnFaceIndex = !UPhysicsSettings::Get()->bSuppressFaceRemapTable; // Ask for face index, as long as we didn't disable globally
 	Params.bTraceAsyncScene = true;
 	Params.AddIgnoredActors(ActorsToIgnore);
 	if (bIgnoreSelf)
@@ -2210,6 +2233,7 @@ bool UKismetSystemLibrary::SphereTraceMultiByObject_DEPRECATED(UObject* WorldCon
 
 	FCollisionQueryParams Params(SphereTraceMultiName, bTraceComplex);
 	Params.bReturnPhysicalMaterial = true;
+	Params.bReturnFaceIndex = !UPhysicsSettings::Get()->bSuppressFaceRemapTable; // Ask for face index, as long as we didn't disable globally
 	Params.bTraceAsyncScene = true;
 	Params.AddIgnoredActors(ActorsToIgnore);
 	if (bIgnoreSelf)
@@ -2302,6 +2326,7 @@ bool UKismetSystemLibrary::BoxTraceSingleForObjects(UObject* WorldContextObject,
 
 	FCollisionQueryParams Params(BoxTraceSingleName, bTraceComplex);
 	Params.bReturnPhysicalMaterial = true;
+	Params.bReturnFaceIndex = !UPhysicsSettings::Get()->bSuppressFaceRemapTable; // Ask for face index, as long as we didn't disable globally
 	Params.bTraceAsyncScene = true;
 	Params.AddIgnoredActors(ActorsToIgnore);
 	if (bIgnoreSelf)
@@ -2387,6 +2412,7 @@ bool UKismetSystemLibrary::BoxTraceMultiForObjects(UObject* WorldContextObject, 
 
 	FCollisionQueryParams Params(BoxTraceMultiName, bTraceComplex);
 	Params.bReturnPhysicalMaterial = true;
+	Params.bReturnFaceIndex = !UPhysicsSettings::Get()->bSuppressFaceRemapTable; // Ask for face index, as long as we didn't disable globally
 	Params.bTraceAsyncScene = true;
 	Params.AddIgnoredActors(ActorsToIgnore);
 	if (bIgnoreSelf)
@@ -2485,6 +2511,7 @@ bool UKismetSystemLibrary::CapsuleTraceSingleByObject_DEPRECATED(UObject* WorldC
 	FCollisionQueryParams Params(CapsuleTraceSingleName, bTraceComplex);
 	Params.AddIgnoredActors(ActorsToIgnore);
 	Params.bReturnPhysicalMaterial = true;
+	Params.bReturnFaceIndex = !UPhysicsSettings::Get()->bSuppressFaceRemapTable; // Ask for face index, as long as we didn't disable globally
 	Params.bTraceAsyncScene = true;
 	if (bIgnoreSelf)
 	{
@@ -2579,6 +2606,7 @@ bool UKismetSystemLibrary::CapsuleTraceMultiByObject_DEPRECATED(UObject* WorldCo
 
 	FCollisionQueryParams Params(CapsuleTraceMultiName, bTraceComplex);
 	Params.bReturnPhysicalMaterial = true;
+	Params.bReturnFaceIndex = !UPhysicsSettings::Get()->bSuppressFaceRemapTable; // Ask for face index, as long as we didn't disable globally
 	Params.bTraceAsyncScene = true;
 	Params.AddIgnoredActors(ActorsToIgnore);
 	if (bIgnoreSelf)
@@ -2937,7 +2965,7 @@ void UKismetSystemLibrary::RetriggerableDelay(UObject* WorldContextObject, float
 	}
 }
 
-void UKismetSystemLibrary::MoveComponentTo(USceneComponent* Component, FVector TargetRelativeLocation, FRotator TargetRelativeRotation, bool bEaseOut, bool bEaseIn, float OverTime, TEnumAsByte<EMoveComponentAction::Type> MoveAction, FLatentActionInfo LatentInfo)
+void UKismetSystemLibrary::MoveComponentTo(USceneComponent* Component, FVector TargetRelativeLocation, FRotator TargetRelativeRotation, bool bEaseOut, bool bEaseIn, float OverTime, bool bForceShortestRotationPath, TEnumAsByte<EMoveComponentAction::Type> MoveAction, FLatentActionInfo LatentInfo)
 {
 	if (UWorld* World = ((Component != NULL) ? Component->GetWorld() : NULL))
 	{
@@ -2953,7 +2981,7 @@ void UKismetSystemLibrary::MoveComponentTo(USceneComponent* Component, FVector T
 			if (MoveAction == EMoveComponentAction::Move)
 			{
 				// Only act on a 'move' input if not running
-				Action = new FInterpolateComponentToAction(OverTime, LatentInfo, Component, bEaseOut, bEaseIn);
+				Action = new FInterpolateComponentToAction(OverTime, LatentInfo, Component, bEaseOut, bEaseIn, bForceShortestRotationPath);
 
 				Action->TargetLocation = TargetRelativeLocation;
 				Action->TargetRotation = TargetRelativeRotation;
@@ -3062,6 +3090,23 @@ bool UKismetSystemLibrary::GetSupportedFullscreenResolutions(TArray<FIntPoint>& 
 	return false;
 }
 
+bool UKismetSystemLibrary::GetConvenientWindowedResolutions(TArray<FIntPoint>& Resolutions)
+{
+	FDisplayMetrics DisplayMetrics;
+	if (FSlateApplication::IsInitialized())
+	{
+		FSlateApplication::Get().GetInitialDisplayMetrics(DisplayMetrics);
+	}
+	else
+	{
+		FDisplayMetrics::GetDisplayMetrics(DisplayMetrics);
+	}
+
+	GenerateConvenientWindowedResolutions(DisplayMetrics, Resolutions);
+
+	return true;
+}
+
 static TAutoConsoleVariable<int32> CVarMinYResolutionForUI(
 	TEXT("r.MinYResolutionForUI"),
 	720,
@@ -3132,40 +3177,32 @@ void UKismetSystemLibrary::ForceCloseAdBanner()
 
 void UKismetSystemLibrary::ShowPlatformSpecificLeaderboardScreen(const FString& CategoryName)
 {
-	IOnlineExternalUIPtr ExternalUI = Online::GetExternalUIInterface();
-	if(ExternalUI.IsValid())
-	{
-		ExternalUI->ShowLeaderboardUI(CategoryName);
-	}
+	// not PIE safe, doesn't have world context
+	UOnlineEngineInterface::Get()->ShowLeaderboardUI(nullptr, CategoryName);
 }
 
-void UKismetSystemLibrary::ShowPlatformSpecificAchievementsScreen(class APlayerController* SpecificPlayer)
+void UKismetSystemLibrary::ShowPlatformSpecificAchievementsScreen(APlayerController* SpecificPlayer)
 {
-	IOnlineExternalUIPtr ExternalUI = Online::GetExternalUIInterface();
-	if(ExternalUI.IsValid())
+	UWorld* World = SpecificPlayer ? SpecificPlayer->GetWorld() : nullptr;
+
+	// Get the controller id from the player
+	int LocalUserNum = 0;
+	if (SpecificPlayer)
 	{
-		// Get the controller id from the player
-		int LocalUserNum = 0;
-		if(SpecificPlayer)
+		ULocalPlayer* LocalPlayer = Cast<ULocalPlayer>(SpecificPlayer->Player);
+		if (LocalPlayer)
 		{
-			ULocalPlayer* LocalPlayer = Cast<ULocalPlayer>(SpecificPlayer->Player);
-			if(LocalPlayer)
-			{
-				LocalUserNum = LocalPlayer->GetControllerId();
-			}
+			LocalUserNum = LocalPlayer->GetControllerId();
 		}
-		ExternalUI->ShowAchievementsUI(LocalUserNum);
 	}
+
+	UOnlineEngineInterface::Get()->ShowAchievementsUI(World, LocalUserNum);
 }
+
 bool UKismetSystemLibrary::IsLoggedIn(APlayerController* SpecificPlayer)
 {
-	IOnlineIdentityPtr Identity = Online::GetIdentityInterface();
-	
-	if (!Identity.IsValid())
-	{
-		return false;
-	}
-	
+	UWorld* World = SpecificPlayer ? SpecificPlayer->GetWorld() : nullptr;
+
 	int LocalUserNum = 0;
 	if (SpecificPlayer != nullptr)
 	{
@@ -3175,7 +3212,8 @@ bool UKismetSystemLibrary::IsLoggedIn(APlayerController* SpecificPlayer)
 			LocalUserNum = LocalPlayer->GetControllerId();
 		}
 	}
-	return Identity->GetLoginStatus(LocalUserNum) == ELoginStatus::LoggedIn;
+
+	return UOnlineEngineInterface::Get()->IsLoggedIn(World, LocalUserNum);
 }
 
 void UKismetSystemLibrary::SetStructurePropertyByName(UObject* Object, FName PropertyName, const FGenericStruct& Value)

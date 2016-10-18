@@ -2,7 +2,6 @@
 
 #pragma once 
 
-#include "UnrealAudioModule.h"
 #include "UnrealAudioTypes.h"
 
 namespace UAudio
@@ -24,7 +23,7 @@ namespace UAudio
 			INVALID_CHANNEL_MAP,
 			FAILED_TO_OPEN,
 			FAILED_TO_SEEK,
-			ALREADY_INTIALIZED,
+			ALREADY_INITIALIZED,
 			LOADING,
 			INVALID_STATE,
 			UNKNOWN
@@ -47,7 +46,7 @@ namespace UAudio
 				case INVALID_CHANNEL_MAP:		return TEXT("INVALID_CHANNEL_MAP");
 				case FAILED_TO_OPEN:			return TEXT("FAILED_TO_OPEN");
 				case FAILED_TO_SEEK:			return TEXT("FAILED_TO_SEEK");
-				case ALREADY_INTIALIZED:		return TEXT("ALREADY_INTIALIZED");
+				case ALREADY_INITIALIZED:		return TEXT("ALREADY_INITIALIZED");
 				case LOADING:					return TEXT("LOADING");
 				case INVALID_STATE:				return TEXT("INVALID_STATE");
 				default: case UNKNOWN:			return TEXT("UNKNOWN");

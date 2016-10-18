@@ -3,22 +3,11 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#if WIN32
 #include <Windows.h>
-#else
-#include <stdarg.h>
-#include <syslog.h>
-#endif
 #include "ShaderCompilerCommon.h"
 #include "hlslcc.h"
 #include "LanguageSpec.h"
 //#include "glsl/ir_gen_glsl.h"
-
-enum EHlslccBackend
-{
-	HB_Glsl,
-	HB_Invalid,
-};
 
 /** Debug output. */
 static char* DebugBuffer = 0;
@@ -54,7 +43,7 @@ static void dprintf(const char* Format, ...)
 	}
 	
 #if WIN32
-	OutputDebugString(DebugBuffer);
+	OutputDebugStringA(DebugBuffer);
 #elif __APPLE__
 	syslog(LOG_DEBUG, "%s", DebugBuffer);
 #endif
@@ -113,7 +102,6 @@ struct SCmdOptions
 	const char* ShaderFilename;
 	EHlslShaderFrequency Frequency;
 	EHlslCompileTarget Target;
-	EHlslccBackend Backend;
 	const char* Entry;
 	bool bDumpAST;
 	bool bNoPreprocess;
@@ -132,7 +120,6 @@ struct SCmdOptions
 		ShaderFilename = nullptr;
 		Frequency = HSF_InvalidFrequency;
 		Target = HCT_InvalidTarget;
-		Backend = HB_Invalid;
 		Entry = nullptr;
 		bDumpAST = false;
 		bNoPreprocess = false;
@@ -178,24 +165,25 @@ static int ParseCommandLine( int argc, char** argv, SCmdOptions& OutOptions)
 			{
 				OutOptions.Frequency = HSF_ComputeShader;
 			}
-			else if (!strcmp(*argv, "-gl3"))
+			else if (!strcmp(*argv, "-sm4"))
 			{
 				OutOptions.Target = HCT_FeatureLevelSM4;
-				OutOptions.Backend = HB_Glsl;
 			}
-			else if (!strcmp(*argv, "-gl4"))
+			else if (!strcmp(*argv, "-sm5"))
 			{
 				OutOptions.Target = HCT_FeatureLevelSM5;
-				OutOptions.Backend = HB_Glsl;
+			}
+			else if (!strcmp(*argv, "-es31"))
+			{
+				OutOptions.Target = HCT_FeatureLevelES3_1;
+			}
+			else if (!strcmp(*argv, "-es31ext"))
+			{
+				OutOptions.Target = HCT_FeatureLevelES3_1Ext;
 			}
 			else if (!strcmp(*argv, "-es2"))
 			{
 				OutOptions.Target = HCT_FeatureLevelES2;
-				OutOptions.Backend = HB_Glsl;
-			}
-			else if (!strcmp(*argv, "-mac"))
-			{
-				// Ignore...
 			}
 			else if (!strncmp(*argv, "-entry=", 7))
 			{
@@ -278,14 +266,10 @@ static int ParseCommandLine( int argc, char** argv, SCmdOptions& OutOptions)
 	}
 	if (OutOptions.Target == HCT_InvalidTarget)
 	{
+		dprintf("No shader model specified, defaulting to SM5\n");
+
 		//Default to GL3 shaders
-		OutOptions.Target = HCT_FeatureLevelSM4;
-	}
-	if (OutOptions.Backend == HB_Invalid)
-	{
-		//Default to Glsl shaders
-		dprintf("No backend specified, defaulting to Glsl\n");
-		OutOptions.Backend = HB_Glsl;
+		OutOptions.Target = HCT_FeatureLevelSM5;
 	}
 
 	return 0;
@@ -332,9 +316,14 @@ int actual_main( int argc, char** argv)
 int main( int argc, char** argv)
 #endif
 {
-	char* HLSLShaderSource = 0;
-	char* GLSLShaderSource = 0;
-	char* ErrorLog = 0;
+#if ENABLE_CRT_MEM_LEAKS	
+	int Flag = _CRTDBG_ALLOC_MEM_DF | /*_CRTDBG_CHECK_ALWAYS_DF |*/ /*_CRTDBG_CHECK_CRT_DF |*/ _CRTDBG_DELAY_FREE_MEM_DF;
+	int OldFlag = _CrtSetDbgFlag(Flag);
+	//FCRTMemLeakScope::BreakOnBlock(15828);
+#endif
+	char* HLSLShaderSource = nullptr;
+	char* GLSLShaderSource = nullptr;
+	char* ErrorLog = nullptr;
 
 	SCmdOptions Options;
 	{
@@ -369,67 +358,64 @@ int main( int argc, char** argv)
 
 	FCodeBackend* CodeBackend = &GlslCodeBackend;
 	ILanguageSpec* LanguageSpec = &GlslLanguageSpec;
-	switch (Options.Backend)
-	{
-	case HB_Glsl:
-	default:
-		CodeBackend = &GlslCodeBackend;
-		LanguageSpec = &GlslLanguageSpec;
-		Flags |= HLSLCC_DX11ClipSpace;
-		break;
-	}
+
 	int Result = 0;
-
 	{
-		//FCRTMemLeakScope::BreakOnBlock(33758);
-		FCRTMemLeakScope MemLeakScopeContext;
-		FHlslCrossCompilerContext Context(Flags, Options.Frequency, Options.Target);
-		if (Context.Init(Options.ShaderFilename, LanguageSpec))
+		FCRTMemLeakScope MemLeakScopeContext(true);
+		//for (int32 Index = 0; Index < 256; ++Index)
 		{
-			FCRTMemLeakScope MemLeakScopeRun;
-			Result = Context.Run(
-				HLSLShaderSource,
-				Options.Entry,
-				CodeBackend,
-				&GLSLShaderSource,
-				&ErrorLog) ? 1 : 0;
-		}
-
-		if (GLSLShaderSource)
-		{
-			dprintf("GLSL Shader Source --------------------------------------------------------------\n");
-			dprintf("%s",GLSLShaderSource);
-			dprintf("\n-------------------------------------------------------------------------------\n\n");
-		}
-
-		if (ErrorLog)
-		{
-			dprintf("Error Log ----------------------------------------------------------------------\n");
-			dprintf("%s",ErrorLog);
-			dprintf("\n-------------------------------------------------------------------------------\n\n");
-		}
-
-		if (Options.OutFile && GLSLShaderSource)
-		{
-			FILE *fp = fopen( Options.OutFile, "w");
-
-			if (fp)
+			FHlslCrossCompilerContext Context(Flags, Options.Frequency, Options.Target);
+			if (Context.Init(Options.ShaderFilename, LanguageSpec))
 			{
-				fprintf( fp, "%s", GLSLShaderSource);
-				fclose(fp);
+				//FCRTMemLeakScope MemLeakScopeRun;
+				Result = Context.Run(
+					HLSLShaderSource,
+					Options.Entry,
+					CodeBackend,
+					&GLSLShaderSource,
+					&ErrorLog) ? 1 : 0;
+			}
+
+			if (GLSLShaderSource)
+			{
+				dprintf("GLSL Shader Source --------------------------------------------------------------\n");
+				dprintf("%s",GLSLShaderSource);
+				dprintf("\n-------------------------------------------------------------------------------\n\n");
+			}
+
+			if (ErrorLog)
+			{
+				dprintf("Error Log ----------------------------------------------------------------------\n");
+				dprintf("%s",ErrorLog);
+				dprintf("\n-------------------------------------------------------------------------------\n\n");
+			}
+
+			if (Options.OutFile && GLSLShaderSource)
+			{
+				FILE *fp = fopen( Options.OutFile, "w");
+
+				if (fp)
+				{
+					fprintf( fp, "%s", GLSLShaderSource);
+					fclose(fp);
+				}
+			}
+
+			free(HLSLShaderSource);
+			free(GLSLShaderSource);
+			free(ErrorLog);
+
+			if (DebugBuffer)
+			{
+				free(DebugBuffer);
+				DebugBuffer = nullptr;
 			}
 		}
-
-		free(HLSLShaderSource);
-		free(GLSLShaderSource);
-		free(ErrorLog);
-
-		if (DebugBuffer)
-		{
-			free(DebugBuffer);
-			DebugBuffer = nullptr;
-		}
 	}
+
+#if ENABLE_CRT_MEM_LEAKS	
+	Flag = _CrtSetDbgFlag(OldFlag);
+#endif
 
 	return 0;
 }

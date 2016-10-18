@@ -6,6 +6,9 @@
 #include <emscripten.h>
 #include <html5.h>
 #endif
+#if PLATFORM_HTML5_BROWSER
+#include "HTML5JavascriptFX.h"
+#endif
 
 DEFINE_LOG_CATEGORY_STATIC(LogHTML5OpenGL, Log, All);
 
@@ -32,8 +35,8 @@ void FHTML5OpenGL::ProcessExtensions( const FString& ExtensionsString )
 	// @todo ios7: SRGB support does not work with our texture format setup (ES2 docs indicate that internalFormat and format must match, but they don't at all with sRGB enabled)
 	//             One possible solution us to use GLFormat.InternalFormat[bSRGB] instead of GLFormat.Format
 	bSupportsSGRB = false;//ExtensionsString.Contains(TEXT("GL_EXT_sRGB"));
-	bSupportsDXT = ExtensionsString.Contains(TEXT("GL_NV_texture_compression_s3tc"))  ||  
-		ExtensionsString.Contains(TEXT("GL_EXT_texture_compression_s3tc")) || 
+	bSupportsDXT = ExtensionsString.Contains(TEXT("GL_NV_texture_compression_s3tc"))  ||
+		ExtensionsString.Contains(TEXT("GL_EXT_texture_compression_s3tc")) ||
 		ExtensionsString.Contains(TEXT("WEBGL_compressed_texture_s3tc"))   ||
 		(ExtensionsString.Contains(TEXT("GL_EXT_texture_compression_dxt1")) &&    // ANGLE (for HTML5_Win32) exposes these 3 as discrete extensions
 		ExtensionsString.Contains(TEXT("GL_ANGLE_texture_compression_dxt3")) &&
@@ -50,8 +53,9 @@ void FHTML5OpenGL::ProcessExtensions( const FString& ExtensionsString )
 	bSupportsRGBA8 = false;
 	// This is not color-renderable in WebGL/ANGLE (ANGLE exposes this)
 	bSupportsBGRA8888 = false;
+	bSupportsBGRA8888RenderTarget = false;
 	// ANGLE/WEBGL_depth_texture is sort of like OES_depth_texture, you just can't upload bulk data to it (via Tex*Image2D); that should be OK?
-	bSupportsDepthTexture = 
+	bSupportsDepthTexture =
         ExtensionsString.Contains(TEXT("WEBGL_depth_texture")) ||    // Catch "WEBGL_depth_texture", "MOZ_WEBGL_depth_texture" and "WEBKIT_WEBGL_depth_texture".
         ExtensionsString.Contains(TEXT("GL_ANGLE_depth_texture")) || // for HTML5_WIN32 build with ANGLE
         ExtensionsString.Contains(TEXT("GL_OES_depth_texture"));     // for a future HTML5 build without ANGLE
@@ -94,8 +98,8 @@ void FHTML5OpenGL::ProcessExtensions( const FString& ExtensionsString )
         GLuint tex, fb;
 #if PLATFORM_HTML5_WIN32
 		glClearColor( 1.0, 0.5, 0.0,1.0);
-		glClear( GL_COLOR_BUFFER_BIT ); 
-#endif 
+		glClear( GL_COLOR_BUFFER_BIT );
+#endif
         glGenTextures(1, &tex);
         glBindTexture(GL_TEXTURE_2D, tex);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
@@ -110,20 +114,20 @@ void FHTML5OpenGL::ProcessExtensions( const FString& ExtensionsString )
         GLenum fbstatus = glCheckFramebufferStatus(GL_FRAMEBUFFER);
 
 #if PLATFORM_HTML5_WIN32
-		// keep glReadPixel out of floating point tests for HTML5 Browser builds, glReadPixels doesn't work consistently across browser and is 
-		// hidden behind inconsistent webgl extentions. 
+		// keep glReadPixel out of floating point tests for HTML5 Browser builds, glReadPixels doesn't work consistently across browser and is
+		// hidden behind inconsistent webgl extentions.
 		TArray<FLinearColor> Data;
-		Data.AddUninitialized(32*32); 
+		Data.AddUninitialized(32*32);
 		glViewport(0, 0, 32, 32);
 		glClear(GL_COLOR_BUFFER_BIT);
 		FMemory::Memzero(Data.GetData(),32*32*sizeof(FLinearColor));
 		glReadPixels(0, 0, 32, 32, GL_RGBA, GL_FLOAT, Data.GetData());
 		err = glGetError();
 		UE_LOG(LogRHI, Log, TEXT(" %f %f %f %f"), Data[0].R,Data[0].G,Data[0].B,Data[0].A);
-#endif 
+#endif
         bSupportsColorBufferHalfFloat = fbstatus == GL_FRAMEBUFFER_COMPLETE && err == GL_NO_ERROR;
 
-        if (bSupportsColorBufferHalfFloat) 
+        if (bSupportsColorBufferHalfFloat)
 		{
             UE_LOG(LogRHI, Log, TEXT("Enabling implicit ColorBufferHalfFloat after checking fb completeness"));
         }
@@ -162,13 +166,18 @@ struct FPlatformOpenGLContext
 extern "C"
 EM_BOOL request_fullscreen_callback(int eventType, const EmscriptenMouseEvent* evt, void* user);
 
+#if PLATFORM_HTML5_BROWSER
+extern "C" int GSystemResolution_ResX();
+extern "C" int GSystemResolution_ResY();
+#endif
+
 struct FPlatformOpenGLDevice
 {
 	FPlatformOpenGLDevice()
 	{
 		emscripten_set_click_callback("fullscreen_request", nullptr, true, request_fullscreen_callback);
 
-		SharedContext = new FPlatformOpenGLContext; 
+		SharedContext = new FPlatformOpenGLContext;
 
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_EGL, 1);
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
@@ -184,7 +193,12 @@ struct FPlatformOpenGLDevice
 
 		WindowHandle = SDL_CreateWindow("HTML5", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
 			800, 600, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN| SDL_WINDOW_RESIZABLE);
-
+#if PLATFORM_HTML5_BROWSER
+//		EM_ASM(
+//			console.log("SDL_CreateWindow() 800x600");
+//		);
+		UE_GSystemResolution( GSystemResolution_ResX, GSystemResolution_ResY );
+#endif
 		PlatformCreateOpenGLContext(this,WindowHandle);
 	}
 
@@ -200,7 +214,7 @@ FPlatformOpenGLDevice* PlatformCreateOpenGLDevice()
 
 void PlatformReleaseOpenGLContext(FPlatformOpenGLDevice* Device, FPlatformOpenGLContext* Context)
 {
-	check (Device); 
+	check (Device);
 
 	glDeleteFramebuffers(1, &Device->SharedContext->ViewportFramebuffer);
 	Device->SharedContext->ViewportFramebuffer = 0;
@@ -218,7 +232,7 @@ void PlatformDestroyOpenGLDevice(FPlatformOpenGLDevice* Device)
 FPlatformOpenGLContext* PlatformCreateOpenGLContext(FPlatformOpenGLDevice* Device, void* InWindowHandle)
 {
 	Device->SharedContext->Context = SDL_GL_CreateContext((SDL_Window*)InWindowHandle);
-	return Device->SharedContext; 
+	return Device->SharedContext;
 }
 
 void PlatformDestroyOpenGLContext(FPlatformOpenGLDevice* Device, FPlatformOpenGLContext* Context)
@@ -240,7 +254,7 @@ bool PlatformBlitToViewport( FPlatformOpenGLDevice* Device, const FOpenGLViewpor
 }
 
 void PlatformRenderingContextSetup(FPlatformOpenGLDevice* Device)
-{	
+{
 }
 
 void PlatformFlushIfNeeded()
@@ -257,12 +271,12 @@ void PlatformSharedContextSetup(FPlatformOpenGLDevice* Device)
 
 void PlatformNULLContextSetup()
 {
-	// ? 
+	// ?
 }
 
 EOpenGLCurrentContext PlatformOpenGLCurrentContext(FPlatformOpenGLDevice* Device)
 {
-	return CONTEXT_Shared; 
+	return CONTEXT_Shared;
 }
 
 void PlatformResizeGLContext( FPlatformOpenGLDevice* Device, FPlatformOpenGLContext* Context, uint32 SizeX, uint32 SizeY, bool bFullscreen, bool bWasFullscreen, GLenum BackBufferTarget, GLuint BackBufferResource)
@@ -271,7 +285,13 @@ void PlatformResizeGLContext( FPlatformOpenGLDevice* Device, FPlatformOpenGLCont
 	VERIFY_GL_SCOPE();
 
 	UE_LOG(LogHTML5OpenGL, Verbose, TEXT("SDL_SetWindowSize(%d,%d)"), SizeX, SizeY);
-	SDL_SetWindowSize(Device->WindowHandle,SizeX,SizeY); 
+	SDL_SetWindowSize(Device->WindowHandle,SizeX,SizeY);
+#if PLATFORM_HTML5_BROWSER
+	// let the browser know of possible new width:height ratio
+	EM_ASM(
+		window.dispatchEvent(new Event('resize'));
+	);
+#endif
 
 	glViewport(0, 0, SizeX, SizeY);
 	//@todo-mobile Do we need to clear here?
@@ -282,7 +302,7 @@ void PlatformResizeGLContext( FPlatformOpenGLDevice* Device, FPlatformOpenGLCont
 
 void PlatformGetSupportedResolution(uint32 &Width, uint32 &Height)
 {
-	// how? 
+	// how?
 }
 
 bool PlatformGetAvailableResolutions(FScreenResolutionArray& Resolutions, bool bIgnoreRefreshRate)
@@ -298,11 +318,11 @@ bool PlatformInitOpenGL()
 
 bool PlatformOpenGLContextValid()
 {
-	// Get Current Context. 
+	// Get Current Context.
 	// @todo-HTML5
-	// to do get current context. 
-	return true; 
-} 
+	// to do get current context.
+	return true;
+}
 
 int32 PlatformGlGetError()
 {
@@ -352,16 +372,9 @@ void PlatformRestoreDesktopDisplayMode()
 #if PLATFORM_HTML5_BROWSER
 extern "C"
 {
-	// callback from javascript. 
-	void resize_game(int w, int h)
-	{
-      	// to-do: remove this separate code path. 
-		UE_LOG(LogHTML5OpenGL, Verbose, TEXT("resize_game(%d, %d) callback"), w, h);
-	}
-
+	// callback from javascript.
 	EM_BOOL request_fullscreen_callback(int eventType, const EmscriptenMouseEvent* evt, void* user)
 	{
-
 #if __EMSCRIPTEN_major__  >= 1 && __EMSCRIPTEN_minor__  >= 29 && __EMSCRIPTEN_tiny__  >= 0
 		EmscriptenFullscreenStrategy FSStrat;
 		FMemory::Memzero(FSStrat);
@@ -369,10 +382,24 @@ extern "C"
 		FSStrat.canvasResolutionScaleMode = EMSCRIPTEN_FULLSCREEN_CANVAS_SCALE_HIDEF;
 		FSStrat.filteringMode = EMSCRIPTEN_FULLSCREEN_FILTERING_DEFAULT;
 		emscripten_request_fullscreen_strategy("canvas", true, &FSStrat);
-#else		
+#else
 		emscripten_request_fullscreen("canvas", true);
 #endif
 		return 0;
+	}
+}
+
+#include "UnrealEngine.h" // GSystemResolution
+extern "C"
+{
+	int GSystemResolution_ResX()
+	{
+		return GSystemResolution.ResX;
+	}
+
+	int GSystemResolution_ResY()
+	{
+		return GSystemResolution.ResY;
 	}
 }
 #endif

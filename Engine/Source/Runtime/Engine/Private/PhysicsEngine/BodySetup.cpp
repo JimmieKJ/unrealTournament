@@ -7,6 +7,7 @@
 #include "EnginePrivate.h"
 #include "PhysicsPublic.h"
 #include "PhysicsEngine/BodySetup.h"
+#include "PhysicsEngine/PhysicsSettings.h"
 #include "TargetPlatform.h"
 #include "Animation/AnimStats.h"
 
@@ -17,6 +18,18 @@
 
 #include "PhysDerivedData.h"
 #include "PhysicalMaterials/PhysicalMaterial.h"
+#include "CookStats.h"
+
+#if ENABLE_COOK_STATS
+namespace PhysXBodySetupCookStats
+{
+	static FCookStats::FDDCResourceUsageStats UsageStats;
+	static FCookStatsManager::FAutoRegisterCallback RegisterCookStats([](FCookStatsManager::AddStatFuncRef AddStat)
+	{
+		UsageStats.LogStats(AddStat, TEXT("PhysX.Usage"), TEXT("BodySetup"));
+	});
+}
+#endif
 
 #if WITH_PHYSX
 	// Quaternion that converts Sphyls from UE space to PhysX space (negate Y, swap X & Z)
@@ -27,15 +40,32 @@
 // CVars
 static TAutoConsoleVariable<float> CVarContactOffsetFactor(
 	TEXT("p.ContactOffsetFactor"),
-	0.01f,
-	TEXT("Multiplied by min dimension of object to calculate how close objects get before generating contacts. Default: 0.01"),
+	-1.f,
+	TEXT("Multiplied by min dimension of object to calculate how close objects get before generating contacts. < 0 implies use project settings. Default: 0.01"),
 	ECVF_Default);
 
 static TAutoConsoleVariable<float> CVarMaxContactOffset(
 	TEXT("p.MaxContactOffset"),
-	1.f,
-	TEXT("Max value of contact offset, which controls how close objects get before generating contacts. Default: 1.0"),
+	-1.f,
+	TEXT("Max value of contact offset, which controls how close objects get before generating contacts. < 0 implies use project settings. Default: 1.0"),
 	ECVF_Default);
+
+
+SIZE_T FBodySetupUVInfo::GetResourceSize()
+{
+	SIZE_T Size = 0;
+	Size += IndexBuffer.GetAllocatedSize();
+	Size += VertPositions.GetAllocatedSize();
+
+	for (int32 ChannelIdx = 0; ChannelIdx < VertUVs.Num(); ChannelIdx++)
+	{
+		Size += VertUVs[ChannelIdx].GetAllocatedSize();
+	}
+
+	Size += VertUVs.GetAllocatedSize();
+	return Size;
+}
+
 
 DEFINE_LOG_CATEGORY(LogPhysics);
 UBodySetup::UBodySetup(const FObjectInitializer& ObjectInitializer)
@@ -72,6 +102,7 @@ void UBodySetup::CopyBodyPropertiesFrom(const UBodySetup* FromSetup)
 	PhysMaterial = FromSetup->PhysMaterial;
 	PhysicsType = FromSetup->PhysicsType;
 	bDoubleSidedGeometry = FromSetup->bDoubleSidedGeometry;
+	CollisionTraceFlag = FromSetup->CollisionTraceFlag;
 }
 
 void UBodySetup::AddCollisionFrom(const FKAggregateGeom& FromAggGeom)
@@ -130,7 +161,7 @@ void UBodySetup::CreatePhysicsMeshes()
 			return;
 		}
 
-		FPhysXFormatDataReader CookedDataReader(*FormatData);
+		FPhysXFormatDataReader CookedDataReader(*FormatData, &UVInfo);
 
 		if (GetCollisionTraceFlag() != CTF_UseComplexAsSimple)
 		{
@@ -299,11 +330,16 @@ void SetupNonUniformHelper(FVector Scale3D, float& MinScale, float& MinScaleAbs,
 	}
 }
 
-void GetContactOffsetParams(float& ContactOffsetFactor, float& MaxContactOffset)
+void GetContactOffsetParams(float& ContactOffsetFactor, float& MinContactOffset, float& MaxContactOffset)
 {
 	// Get contact offset params
 	ContactOffsetFactor = CVarContactOffsetFactor.GetValueOnGameThread();
 	MaxContactOffset = CVarMaxContactOffset.GetValueOnGameThread();
+
+	ContactOffsetFactor = ContactOffsetFactor < 0.f ? UPhysicsSettings::Get()->ContactOffsetMultiplier : ContactOffsetFactor;
+	MaxContactOffset = MaxContactOffset < 0.f ? UPhysicsSettings::Get()->MaxContactOffset : MaxContactOffset;
+
+	MinContactOffset = UPhysicsSettings::Get()->MinContactOffset;
 }
 
 PxMaterial* GetDefaultPhysMaterial()
@@ -348,7 +384,7 @@ struct FAddShapesHelper
 			ShapeScale3D.Z *= Scale3DAbsRelative.Z;
 		}
 
-		GetContactOffsetParams(ContactOffsetFactor, MaxContactOffset);
+		GetContactOffsetParams(ContactOffsetFactor, MinContactOffset, MaxContactOffset);
 	}
 
 	UBodySetup* BodySetup;
@@ -369,6 +405,7 @@ struct FAddShapesHelper
 	FVector ShapeScale3D;
 
 	float ContactOffsetFactor;
+	float MinContactOffset;
 	float MaxContactOffset;
 
 public:
@@ -387,7 +424,7 @@ public:
 				PxTransform PLocalPose(U2PVector(ScaledSphereElem.Center));
 				ensure(PLocalPose.isValid());
 				{
-					const float ContactOffset = FMath::Min(MaxContactOffset, ContactOffsetFactor * PSphereGeom.radius);
+					const float ContactOffset = FMath::Clamp(ContactOffsetFactor * PSphereGeom.radius, MinContactOffset, MaxContactOffset);
 					PxShape* PShape = AttachShape_AssumesLocked(PSphereGeom, PLocalPose, ContactOffset, SphereElem.GetUserData());
 				}
 			}
@@ -416,7 +453,7 @@ public:
 				PxTransform PLocalPose(U2PTransform(BoxTransform));
 				ensure(PLocalPose.isValid());
 				{
-					const float ContactOffset = FMath::Min(MaxContactOffset, ContactOffsetFactor * PBoxGeom.halfExtents.minElement());
+					const float ContactOffset = FMath::Clamp(ContactOffsetFactor * PBoxGeom.halfExtents.minElement(), MinContactOffset, MaxContactOffset);
 					AttachShape_AssumesLocked(PBoxGeom, PLocalPose, ContactOffset, BoxElem.GetUserData());
 				}
 			}
@@ -448,7 +485,7 @@ public:
 
 				ensure(PLocalPose.isValid());
 				{
-					const float ContactOffset = FMath::Min(MaxContactOffset, ContactOffsetFactor * PCapsuleGeom.radius);
+					const float ContactOffset = FMath::Clamp(ContactOffsetFactor * PCapsuleGeom.radius, MinContactOffset, MaxContactOffset);
 					AttachShape_AssumesLocked(PCapsuleGeom, PLocalPose, ContactOffset, SphylElem.GetUserData());
 				}
 			}
@@ -465,13 +502,14 @@ public:
 		{
 			const FKConvexElem& ConvexElem = BodySetup->AggGeom.ConvexElems[i];
 
-			if (ConvexElem.ConvexMesh || ConvexElem.ConvexMeshNegX)
-			{
-				PxTransform PLocalPose;
-				bool bUseNegX = CalcMeshNegScaleCompensation(Scale3D, PLocalPose);
+			PxTransform PLocalPose;
+			bool bUseNegX = CalcMeshNegScaleCompensation(Scale3D, PLocalPose);
 
+			PxConvexMesh* UseConvexMesh = bUseNegX ? ConvexElem.ConvexMeshNegX : ConvexElem.ConvexMesh;
+			if (UseConvexMesh)
+			{
 				PxConvexMeshGeometry PConvexGeom;
-				PConvexGeom.convexMesh = bUseNegX ? ConvexElem.ConvexMeshNegX : ConvexElem.ConvexMesh;
+				PConvexGeom.convexMesh = UseConvexMesh;
 				PConvexGeom.scale.scale = U2PVector(ShapeScale3DAbs * ConvexElem.GetTransform().GetScale3D().GetAbs());	//scale shape about the origin
 				FTransform ConvexTransform = ConvexElem.GetTransform();
 				if (ConvexTransform.GetScale3D().X < 0 || ConvexTransform.GetScale3D().Y < 0 || ConvexTransform.GetScale3D().Z < 0)
@@ -494,7 +532,7 @@ public:
 
 						ensure(PLocalPose.isValid());
 						{
-							const float ContactOffset = FMath::Min(MaxContactOffset, ContactOffsetFactor * PBoundsExtents.minElement());
+							const float ContactOffset = FMath::Clamp(ContactOffsetFactor * PBoundsExtents.minElement(), MinContactOffset, MaxContactOffset);
 							AttachShape_AssumesLocked(PConvexGeom, PLocalPose, ContactOffset, ConvexElem.GetUserData());
 						}
 					}
@@ -753,10 +791,12 @@ void UBodySetup::Serialize(FArchive& Ar)
 	bool bCooked = Ar.IsCooking();
 	Ar << bCooked;
 
+#if !WITH_RUNTIME_PHYSICS_COOKING
 	if (FPlatformProperties::RequiresCookedData() && !bCooked && Ar.IsLoading())
 	{
 		UE_LOG(LogPhysics, Fatal, TEXT("This platform requires cooked packages, and physX data was not cooked into %s."), *GetFullName());
 	}
+#endif //!WITH_RUNTIME_PHYSICS_COOKING
 
 	if (bCooked)
 	{
@@ -998,6 +1038,37 @@ int32 UBodySetup::GetRuntimeOnlyCookOptimizationFlags() const
 	return RuntimeCookFlags;
 }
 
+bool UBodySetup::CalcUVAtLocation(const FVector& BodySpaceLocation, int32 FaceIndex, int32 UVChannel, FVector2D& UV) const
+{
+	bool bSuccess = false;
+
+	if (UVInfo.VertUVs.IsValidIndex(UVChannel) && UVInfo.IndexBuffer.IsValidIndex(FaceIndex * 3 + 2))
+	{
+		int32 Index0 = UVInfo.IndexBuffer[FaceIndex * 3 + 0];
+		int32 Index1 = UVInfo.IndexBuffer[FaceIndex * 3 + 1];
+		int32 Index2 = UVInfo.IndexBuffer[FaceIndex * 3 + 2];
+
+		FVector Pos0 = UVInfo.VertPositions[Index0];
+		FVector Pos1 = UVInfo.VertPositions[Index1];
+		FVector Pos2 = UVInfo.VertPositions[Index2];
+
+		FVector2D UV0 = UVInfo.VertUVs[UVChannel][Index0];
+		FVector2D UV1 = UVInfo.VertUVs[UVChannel][Index1];
+		FVector2D UV2 = UVInfo.VertUVs[UVChannel][Index2];
+
+		// Transform hit location from world to local space.
+		// Find barycentric coords
+		FVector BaryCoords = FMath::ComputeBaryCentric2D(BodySpaceLocation, Pos0, Pos1, Pos2);
+		// Use to blend UVs
+		UV = (BaryCoords.X * UV0) + (BaryCoords.Y * UV1) + (BaryCoords.Z * UV2);
+
+		bSuccess = true;
+	}
+
+	return bSuccess;
+}
+
+
 FByteBulkData* UBodySetup::GetCookedData(FName Format, bool bRuntimeOnlyOptimizedVersion)
 {
 	if (IsTemplate())
@@ -1026,10 +1097,12 @@ FByteBulkData* UBodySetup::GetCookedData(FName Format, bool bRuntimeOnlyOptimize
 #if WITH_PHYSX
 	if (!bContainedData)
 	{
+#if !defined(WITH_RUNTIME_PHYSICS_COOKING) || !WITH_RUNTIME_PHYSICS_COOKING
 		if (FPlatformProperties::RequiresCookedData())
 		{
 			UE_LOG(LogPhysics, Error, TEXT("Attempt to build physics data for %s when we are unable to. This platform requires cooked packages."), *GetPathName());
 		}
+#endif
 
 		if (AggGeom.ConvexElems.Num() == 0 && (CDP == NULL || CDP->ContainsPhysicsTriMeshData(bMeshCollideAll) == false))
 		{
@@ -1050,10 +1123,13 @@ FByteBulkData* UBodySetup::GetCookedData(FName Format, bool bRuntimeOnlyOptimize
 		if (DerivedPhysXData->CanBuild())
 		{
 		#if WITH_EDITOR
-			GetDerivedDataCacheRef().GetSynchronous(DerivedPhysXData, OutData);
+			COOK_STAT(auto Timer = PhysXBodySetupCookStats::UsageStats.TimeSyncWork());
+			bool bDataWasBuilt = false;
+			bool DDCHit = GetDerivedDataCacheRef().GetSynchronous(DerivedPhysXData, OutData, &bDataWasBuilt);
 		#elif WITH_RUNTIME_PHYSICS_COOKING
 			DerivedPhysXData->Build(OutData);
 		#endif
+			COOK_STAT(Timer.AddHitOrMiss(!DDCHit || bDataWasBuilt ? FCookStats::CallStats::EHitOrMiss::Miss : FCookStats::CallStats::EHitOrMiss::Hit, OutData.Num()));
 			if (OutData.Num())
 			{
 				Result->Lock(LOCK_READ_WRITE);
@@ -1094,11 +1170,30 @@ void UBodySetup::PostEditUndo()
 		CreatePhysicsMeshes();
 	}
 }
+
+void UBodySetup::CopyBodySetupProperty(const UBodySetup* Other)
+{
+	BoneName = Other->BoneName;
+	PhysicsType = Other->PhysicsType;
+	bConsiderForBounds = Other->bConsiderForBounds;
+	bMeshCollideAll = Other->bMeshCollideAll;
+	bDoubleSidedGeometry = Other->bDoubleSidedGeometry;
+	bGenerateNonMirroredCollision = Other->bGenerateNonMirroredCollision;
+	bSharedCookedData = Other->bSharedCookedData;
+	bGenerateMirroredCollision = Other->bGenerateMirroredCollision;
+	PhysMaterial = Other->PhysMaterial;
+	CollisionReponse = Other->CollisionReponse;
+	CollisionTraceFlag = Other->CollisionTraceFlag;
+	DefaultInstance = Other->DefaultInstance;
+	WalkableSlopeOverride = Other->WalkableSlopeOverride;
+	BuildScale3D = Other->BuildScale3D;
+}
+
 #endif // WITH_EDITOR
 
 SIZE_T UBodySetup::GetResourceSize( EResourceSizeMode::Type Mode )
 {
-	SIZE_T ResourceSize = 0;
+	SIZE_T ResourceSize = Super::GetResourceSize(Mode);
 
 #if WITH_PHYSX
 	// Count PhysX trimesh mem usage
@@ -1131,6 +1226,9 @@ SIZE_T UBodySetup::GetResourceSize( EResourceSizeMode::Type Mode )
 		ResourceSize += FmtData.GetElementSize() * FmtData.GetElementCount();
 	}
 	
+	// Count any UV info
+	ResourceSize += UVInfo.GetResourceSize();
+
 	return ResourceSize;
 }
 
@@ -1312,13 +1410,12 @@ FKSphereElem FKSphereElem::GetFinalScaled(const FVector& Scale3D, const FTransfo
 	float MinScale, MinScaleAbs;
 	FVector Scale3DAbs;
 
-	SetupNonUniformHelper(Scale3D, MinScale, MinScaleAbs, Scale3DAbs);
+	SetupNonUniformHelper(Scale3D * RelativeTM.GetScale3D(), MinScale, MinScaleAbs, Scale3DAbs);
 
 	FKSphereElem ScaledSphere = *this;
 	ScaledSphere.Radius *= MinScaleAbs;
 
-	ScaledSphere.Center = RelativeTM.TransformPosition(Center);
-	ScaledSphere.Center *= MinScale;
+	ScaledSphere.Center = RelativeTM.TransformPosition(Center) * Scale3D;
 
 
 	return ScaledSphere;
@@ -1347,7 +1444,7 @@ FKBoxElem FKBoxElem::GetFinalScaled(const FVector& Scale3D, const FTransform& Re
 	float MinScale, MinScaleAbs;
 	FVector Scale3DAbs;
 
-	SetupNonUniformHelper(Scale3D, MinScale, MinScaleAbs, Scale3DAbs);
+	SetupNonUniformHelper(Scale3D * RelativeTM.GetScale3D(), MinScale, MinScaleAbs, Scale3DAbs);
 
 	FKBoxElem ScaledBox = *this;
 	ScaledBox.X *= Scale3DAbs.X;
@@ -1437,7 +1534,7 @@ FKSphylElem FKSphylElem::GetFinalScaled(const FVector& Scale3D, const FTransform
 	float MinScale, MinScaleAbs;
 	FVector Scale3DAbs;
 
-	SetupNonUniformHelper(Scale3D, MinScale, MinScaleAbs, Scale3DAbs);
+	SetupNonUniformHelper(Scale3D * RelativeTM.GetScale3D(), MinScale, MinScaleAbs, Scale3DAbs);
 
 	float ScaleRadius = FMath::Max(Scale3DAbs.X, Scale3DAbs.Y);
 	float ScaleLength = Scale3DAbs.Z;
@@ -1576,6 +1673,6 @@ float UBodySetup::GetVolume(const FVector& Scale) const
 
 TEnumAsByte<enum ECollisionTraceFlag> UBodySetup::GetCollisionTraceFlag() const
 {
-	TEnumAsByte<enum ECollisionTraceFlag> DefaultFlag = UPhysicsSettings::Get()->bDefaultHasComplexCollision ? ECollisionTraceFlag::CTF_UseDefault : ECollisionTraceFlag::CTF_UseSimpleAsComplex;
+	TEnumAsByte<enum ECollisionTraceFlag> DefaultFlag = UPhysicsSettings::Get()->DefaultShapeComplexity;
 	return CollisionTraceFlag == ECollisionTraceFlag::CTF_UseDefault ? DefaultFlag : CollisionTraceFlag;
 }

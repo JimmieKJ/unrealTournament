@@ -163,10 +163,6 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "WeaponBar")
 	FHUDRenderObject_Texture AmmoBarFill;
 
-	// How much should a selected cell be scaled by.  
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "WeaponBar")
-	float SelectedCellScale;
-
 	// How fast should a cell transition between scales
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "WeaponBar")
 	float SelectedAnimRate;
@@ -188,6 +184,7 @@ protected:
 
 	FTextureUVs ActiveBackgroundUVs;
 	FTextureUVs InactiveBackgroundUVs;
+	FTextureUVs SelectedBackgroundUVs;
 
 	TArray<FWeaponBarCell> Cells;
 
@@ -196,8 +193,7 @@ protected:
 
 	UPROPERTY()
 	AUTWeapon* LastSelectedWeapon;
+
 	float LastActiveTime;
 	float InactiveFadePerc;
-	void DrawLabel(float LabelPos, float LabelStart, float LabelEnd, float LabelGroup);
-
 };

@@ -156,10 +156,9 @@ class IToolTip;
 	\
 		/* Bind attribute with delegate to a lambda
 		 * technically this works for any functor types, but lambdas are the primary use case */ \
-		template<typename FunctorType> \
-		WidgetArgsType& AttrName##_Lambda(FunctorType&& InFunctor) \
+		WidgetArgsType& AttrName##_Lambda(TFunction< AttrType(void) >&& InFunctor) \
 		{ \
-			_##AttrName = TAttribute< AttrType >::Create(TAttribute< AttrType >::FGetter::CreateLambda(Forward<FunctorType>(InFunctor))); \
+			_##AttrName = TAttribute< AttrType >::Create(Forward<TFunction< AttrType(void) >>(InFunctor)); \
 			return this->Me(); \
 		} \
 	\

@@ -167,8 +167,8 @@ FCapsuleSize AUTRecastNavMesh::GetSteppedEdgeSize(NavNodeRef PolyRef, const stru
 				FVector PolyCenter = (i == 0) ? GetPolySurfaceCenter(PolyRef) : GetPolySurfaceCenter(Link.ref);
 				// find floor
 				FHitResult Hit;
-				FCollisionShape TestCapsule = FCollisionShape::MakeCapsule(AgentRadius, 1.0f);
-				if (GetWorld()->SweepSingleByChannel(Hit, PolyCenter + FVector(0.0f, 0.0f, AgentHalfHeight * 0.75f), PolyCenter - FVector(0.0f, 0.0f, AgentHalfHeight), FQuat::Identity, ECC_Pawn, TestCapsule, FCollisionQueryParams()))
+				FCollisionShape TestCapsule = FCollisionShape::MakeCapsule(TestSize.Radius, 1.0f);
+				if (GetWorld()->SweepSingleByChannel(Hit, PolyCenter + FVector(0.0f, 0.0f, AgentHalfHeight), PolyCenter - FVector(0.0f, 0.0f, AgentHalfHeight), FQuat::Identity, ECC_Pawn, TestCapsule, FCollisionQueryParams()))
 				{
 					TestCapsule.Capsule.HalfHeight = TestSize.Height;
 					// make sure capsule fits here
@@ -691,7 +691,7 @@ void AUTRecastNavMesh::BuildNodeNetwork()
 					// we need to make sure to grab all encompassing polys into the new PathNode as it will have special properties
 					// and Recast may have split the polys inside the extent of the POI
 					const FVector UnrealCenter = It->GetActorLocation();
-					const FVector RecastCenter = Unreal2RecastPoint(UnrealCenter);
+					FVector RecastCenter = Unreal2RecastPoint(UnrealCenter);
 					FVector RecastExtent = GetPOIExtent(*It) * FVector(0.9f, 0.9f, 1.0f); // hack: trying to minimize grabbing a small portion of adjacent large polys
 					RecastExtent = FVector(RecastExtent[0], RecastExtent[2], RecastExtent[1]);
 					TArray<NavNodeRef> FinalPolys;
@@ -699,6 +699,12 @@ void AUTRecastNavMesh::BuildNodeNetwork()
 						NavNodeRef ResultPolys[10];
 						int32 NumPolys = 0;
 						InternalQuery.queryPolygons((float*)&RecastCenter, (float*)&RecastExtent, GetDefaultDetourFilter(), ResultPolys, &NumPolys, ARRAY_COUNT(ResultPolys));
+						if (NumPolys == 0)
+						{
+							// hack: try lower
+							RecastCenter.Y -= RecastExtent.Y; // note: Recast Y is our Z
+							InternalQuery.queryPolygons((float*)&RecastCenter, (float*)&RecastExtent, GetDefaultDetourFilter(), ResultPolys, &NumPolys, ARRAY_COUNT(ResultPolys));
+						}
 						FinalPolys.Reserve(NumPolys);
 						// remove polygons that do not truly intersect the bounding cylinder, since queryPolygons() is an AABB test
 						for (int32 i = 0; i < NumPolys; i++)
@@ -835,91 +841,9 @@ void AUTRecastNavMesh::BuildNodeNetwork()
 											bool bFound = false;
 											for (const FUTPathLink& UTPath : Node->Paths)
 											{
-												if (UTPath.End == DestNode)
+												if (UTPath.End == DestNode && UTPath.EndPoly == Link.ref)
 												{
-													if (UTPath.EndPoly != Link.ref)
-													{
-														// if there are multiple polys connecting these two nodes, split the destination node so there is only one connection point between any two nodes
-														// this is important for pathfinding as otherwise the correct path to use depends on later points which would make pathing very complex
-														UUTPathNode* NewNode = NewObject<UUTPathNode>(this);
-														NewNode->MinPolyEdgeSize = DestNode->MinPolyEdgeSize;
-														NewNode->PhysicsVolume = DestNode->PhysicsVolume;
-														DestNode->Polys.Remove(Link.ref);
-														NewNode->Polys.Add(Link.ref);
-														PolyToNode.Add(Link.ref, NewNode);
-														// TODO: should we claim more than one poly from DestNode?
-
-														// move over POIs that are inside the split polygons
-														for (int32 POIIndex = 0; POIIndex < DestNode->POIs.Num(); POIIndex++)
-														{
-															if (NewNode->Polys.Contains(FindNearestPoly(DestNode->POIs[POIIndex]->GetActorLocation(), GetPOIExtent(DestNode->POIs[POIIndex]))))
-															{
-																NewNode->POIs.Add(DestNode->POIs[POIIndex]);
-																DestNode->POIs.RemoveAt(POIIndex--);
-															}
-														}
-														// if there was a path from Dest -> source, redirect it to Dest -> NewNode
-														for (int32 LinkIndex = 0; LinkIndex < DestNode->Paths.Num(); LinkIndex++)
-														{
-															if (DestNode->Paths[LinkIndex].End == Node && DestNode->Paths[LinkIndex].EndPoly == PolyRef)
-															{
-																// find poly in DestNode that links to NewNode
-																NavNodeRef NewSrcPoly = INVALID_NAVNODEREF;
-																for (NavNodeRef DestPolyRef : DestNode->Polys)
-																{
-																	const dtPoly* TestPolyData = NULL;
-																	const dtMeshTile* TestTileData = NULL;
-																	InternalMesh->getTileAndPolyByRef(PolyRef, &TestTileData, &TestPolyData);
-																	if (PolyData != NULL && TileData != NULL)
-																	{
-																		uint32 j = PolyData->firstLink;
-																		while (j != DT_NULL_LINK)
-																		{
-																			const dtLink& TestLink = InternalMesh->getLink(TileData, j);
-																			j = TestLink.next;
-																			if (TestLink.ref == Link.ref)
-																			{
-																				NewSrcPoly = DestPolyRef;
-																				break;
-																			}
-																		}
-																	}
-																	if (NewSrcPoly != INVALID_NAVNODEREF)
-																	{
-																		break;
-																	}
-																}
-																if (NewSrcPoly != INVALID_NAVNODEREF)
-																{
-																	DestNode->Paths[LinkIndex] = FUTPathLink(DestNode, NewSrcPoly, NewNode, Link.ref, NULL, FMath::Min<int32>(NewNode->MinPolyEdgeSize.Radius, DestNode->MinPolyEdgeSize.Radius), FMath::Min<int32>(NewNode->MinPolyEdgeSize.Height, DestNode->MinPolyEdgeSize.Height), 0);
-																}
-																else
-																{
-																	// shouldn't happen
-																	UE_LOG(UT, Warning, TEXT("NODE BUILDER: Link error trying to split PathNodes"));
-																}
-																break;
-															}
-														}
-														// redirect other nodes' paths that point to polys that have been redirected
-														for (UUTPathNode* OtherNode : PathNodes)
-														{
-															for (FUTPathLink& OtherLink : OtherNode->Paths)
-															{
-																if (NewNode->Polys.Contains(OtherLink.EndPoly))
-																{
-																	OtherLink.End = NewNode;
-																}
-															}
-														}
-
-														DestNode = NewNode;
-														PathNodes.Add(NewNode);
-													}
-													else
-													{
-														bFound = true;
-													}
+													bFound = true;
 													break;
 												}
 											}
@@ -1709,7 +1633,7 @@ bool FSingleEndpointEval::InitForPathfinding(APawn* Asker, const FNavAgentProper
 	}
 	return GoalNode != NULL;
 }
-float FSingleEndpointEval::Eval(APawn* Asker, const FNavAgentProperties& AgentProps, const UUTPathNode* Node, const FVector& EntryLoc, int32 TotalDistance)
+float FSingleEndpointEval::Eval(APawn* Asker, const FNavAgentProperties& AgentProps, AController* RequestOwner, const UUTPathNode* Node, const FVector& EntryLoc, int32 TotalDistance)
 {
 	return (Node == GoalNode) ? 10.0f : 0.0f;
 }
@@ -2008,7 +1932,7 @@ NavNodeRef AUTRecastNavMesh::FindLiftPoly(APawn* Asker, const FNavAgentPropertie
 	}
 }
 
-void AUTRecastNavMesh::CalcReachParams(APawn* Asker, const FNavAgentProperties& AgentProps, int32& Radius, int32& Height, int32& MaxFallSpeed, uint32& MoveFlags)
+void AUTRecastNavMesh::CalcReachParams(APawn* Asker, const FNavAgentProperties& AgentProps, AController* RequestOwner, int32& Radius, int32& Height, int32& MaxFallSpeed, uint32& MoveFlags)
 {
 	Radius = FMath::TruncToInt(AgentProps.AgentRadius);
 	Height = FMath::TruncToInt(AgentProps.AgentHeight * 0.5f);
@@ -2033,17 +1957,14 @@ void AUTRecastNavMesh::CalcReachParams(APawn* Asker, const FNavAgentProperties& 
 		}
 	}
 
-	if (Asker != NULL)
+	AUTBot* B = Cast<AUTBot>(RequestOwner);
+	if (B != NULL)
 	{
-		AUTBot* B = Cast<AUTBot>(Asker->Controller);
-		if (B != NULL)
-		{
-			B->SetupSpecialPathAbilities();
-		}
+		B->SetupSpecialPathAbilities();
 	}
 }
 
-bool AUTRecastNavMesh::FindBestPath(APawn* Asker, const FNavAgentProperties& AgentProps, FUTNodeEvaluator& NodeEval, const FVector& StartLoc, float& Weight, bool bAllowDetours, TArray<FRouteCacheItem>& NodeRoute, TArray<int32>* NodeCosts)
+bool AUTRecastNavMesh::FindBestPath(APawn* Asker, const FNavAgentProperties& AgentProps, AController* RequestOwner, FUTNodeEvaluator& NodeEval, const FVector& StartLoc, float& Weight, bool bAllowDetours, TArray<FRouteCacheItem>& NodeRoute, TArray<int32>* NodeCosts)
 {
 	DECLARE_CYCLE_STAT(TEXT("UT node pathing time"), STAT_Navigation_UTPathfinding, STATGROUP_Navigation);
 
@@ -2068,7 +1989,7 @@ bool AUTRecastNavMesh::FindBestPath(APawn* Asker, const FNavAgentProperties& Age
 			for (const FNavPoly& TestPoly : FoundPolys)
 			{
 				// TODO: should do more complex test than this, but want to avoid getting caught up on slopes
-				if (!GetWorld()->LineTraceTestByChannel(StartTrace, TestPoly.Center + FVector(0.0f, 0.0f, AgentProps.AgentHeight), ECC_Pawn, FCollisionQueryParams(NAME_None, false), WorldResponseParams))
+				if (!GetWorld()->LineTraceTestByChannel(StartTrace, TestPoly.Center + FVector(0.0f, 0.0f, AgentProps.AgentHeight), ECC_Pawn, FCollisionQueryParams(FName(TEXT("FindBestPath")), false), WorldResponseParams))
 				{
 					StartPoly = TestPoly.Ref;
 					break;
@@ -2091,7 +2012,7 @@ bool AUTRecastNavMesh::FindBestPath(APawn* Asker, const FNavAgentProperties& Age
 	{
 		int32 Radius, Height, MaxFallSpeed;
 		uint32 MoveFlags;
-		CalcReachParams(Asker, AgentProps, Radius, Height, MaxFallSpeed, MoveFlags);
+		CalcReachParams(Asker, AgentProps, RequestOwner, Radius, Height, MaxFallSpeed, MoveFlags);
 
 		struct FEvaluatedNode
 		{
@@ -2120,7 +2041,8 @@ bool AUTRecastNavMesh::FindBestPath(APawn* Asker, const FNavAgentProperties& Age
 		FEvaluatedNode* BestDest = NULL;
 		while (CurrentNode != NULL)
 		{
-			float ThisWeight = NodeEval.Eval(Asker, AgentProps, CurrentNode->Node, (CurrentNode->TotalDistance == 0) ? StartLoc : GetPolyCenter(CurrentNode->Poly), CurrentNode->TotalDistance);
+			CurrentNode->bAlreadyVisited = true;
+			float ThisWeight = NodeEval.Eval(Asker, AgentProps, RequestOwner, CurrentNode->Node, (CurrentNode->TotalDistance == 0) ? StartLoc : GetPolyCenter(CurrentNode->Poly), CurrentNode->TotalDistance);
 			if (ThisWeight > Weight)
 			{
 				Weight = ThisWeight;
@@ -2143,10 +2065,10 @@ bool AUTRecastNavMesh::FindBestPath(APawn* Asker, const FNavAgentProperties& Age
 					}
 					if (!NextNode->bAlreadyVisited)
 					{
-						NextDistance = CurrentNode->Node->Paths[i].CostFor(Asker, AgentProps, CurrentNode->Poly, this);
+						NextDistance = CurrentNode->Node->Paths[i].CostFor(Asker, AgentProps, RequestOwner, CurrentNode->Poly, this);
 						if (NextDistance < BLOCKED_PATH_COST)
 						{
-							NextDistance += NodeEval.GetTransientCost(CurrentNode->Node->Paths[i], Asker, AgentProps, CurrentNode->Poly, NextDistance + CurrentNode->TotalDistance);
+							NextDistance += NodeEval.GetTransientCost(CurrentNode->Node->Paths[i], Asker, AgentProps, RequestOwner, CurrentNode->Poly, NextDistance + CurrentNode->TotalDistance);
 						}
 						if (NextDistance < BLOCKED_PATH_COST)
 						{
@@ -2276,7 +2198,7 @@ bool AUTRecastNavMesh::FindBestPath(APawn* Asker, const FNavAgentProperties& Age
 				}
 			}
 
-			if (bAllowDetours && !bNeedMoveToStartNode && Asker != NULL && NodeRoute.Num() > ((RouteGoal != NULL) ? 2 : 1))
+			if (bAllowDetours && !bNeedMoveToStartNode && Asker != NULL && (RequestOwner == NULL || RequestOwner == Asker->Controller) && NodeRoute.Num() > ((RouteGoal != NULL) ? 2 : 1))
 			{
 				FVector NextLoc = NodeRoute[0].GetLocation(Asker);
 				FVector NextDir = (NextLoc - StartLoc).GetSafeNormal();
@@ -2529,7 +2451,7 @@ bool AUTRecastNavMesh::HasReachedTarget(APawn* Asker, const FNavAgentProperties&
 			{
 				if (Pickup->IsOverlappingActor(Asker))
 				{
-					Pickup->OnOverlapBegin(Asker, Cast<UPrimitiveComponent>(Asker->GetRootComponent()), INDEX_NONE, false, FHitResult(Pickup, Pickup->Collision, Pickup->GetActorLocation(), -Asker->GetVelocity().GetSafeNormal()));
+					Pickup->OnOverlapBegin(Pickup->Collision, Asker, Cast<UPrimitiveComponent>(Asker->GetRootComponent()), INDEX_NONE, false, FHitResult(Pickup, Pickup->Collision, Pickup->GetActorLocation(), -Asker->GetVelocity().GetSafeNormal()));
 					return true;
 				}
 				else
@@ -2539,7 +2461,7 @@ bool AUTRecastNavMesh::HasReachedTarget(APawn* Asker, const FNavAgentProperties&
 			}
 			else if (Teleporter != NULL && Teleporter->IsOverlappingActor(Asker))
 			{
-				Teleporter->OnOverlapBegin(Asker);
+				Teleporter->OnOverlapBegin(Teleporter, Asker);
 				return true;
 			}
 			else if (JumpPad != NULL && JumpPad->IsEnabled())
@@ -2656,6 +2578,12 @@ void AUTRecastNavMesh::FindAdjacentPolys(APawn* Asker, const FNavAgentProperties
 #if !UE_SERVER && WITH_EDITOR && WITH_EDITORONLY_DATA
 void AUTRecastNavMesh::ClearRebuildWarning()
 {
+	// Don't call back into slate if already exiting
+	if (GIsRequestingExit)
+	{
+		return;
+	}
+
 	if (NeedsRebuildWarning.IsValid())
 	{
 		NeedsRebuildWarning.Get()->SetCompletionState(SNotificationItem::CS_None);
@@ -2665,7 +2593,7 @@ void AUTRecastNavMesh::ClearRebuildWarning()
 }
 #endif
 
-void AUTRecastNavMesh::PreSave()
+void AUTRecastNavMesh::PreSave(const class ITargetPlatform* TargetPlatform)
 {
 #if !UE_SERVER && WITH_EDITOR && WITH_EDITORONLY_DATA
 	if (NeedsRebuild() && !IsRunningCommandlet())
@@ -2687,7 +2615,7 @@ void AUTRecastNavMesh::PreSave()
 	}
 #endif
 
-	Super::PreSave();
+	Super::PreSave(TargetPlatform);
 }
 
 void AUTRecastNavMesh::PreInitializeComponents()

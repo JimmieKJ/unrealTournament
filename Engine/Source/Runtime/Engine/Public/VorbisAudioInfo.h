@@ -87,6 +87,8 @@ public:
 	uint32			SrcBufferDataSize;
 	uint32			BufferOffset;
 
+	FThreadSafeBool bPerformingOperation;
+
 	/** Critical section used to prevent multiple threads accessing same ogg-vorbis file handles at the same time */
 	FCriticalSection VorbisCriticalSection;
 };

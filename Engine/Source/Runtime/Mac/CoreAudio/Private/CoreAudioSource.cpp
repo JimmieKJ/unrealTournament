@@ -60,7 +60,7 @@ FCoreAudioSoundSource::FCoreAudioSoundSource( FAudioDevice* InAudioDevice )
 {
 	AudioDevice = ( FCoreAudioDevice *)InAudioDevice;
 	check( AudioDevice );
-	Effects = ( FCoreAudioEffectsManager* )AudioDevice->Effects;
+	Effects = ( FCoreAudioEffectsManager* )AudioDevice->GetEffects();
 	check( Effects );
 
 	FMemory::Memzero( CoreAudioBuffers, sizeof( CoreAudioBuffers ) );
@@ -313,12 +313,12 @@ void FCoreAudioSoundSource::Update( void )
 
 	float Volume = 0.0f;
 	
-	if (!AudioDevice->bIsDeviceMuted)
+	if (!AudioDevice->IsAudioDeviceMuted())
 	{
 		Volume = WaveInstance->GetActualVolume();
 	}
 
-	Volume *= AudioDevice->PlatformAudioHeadroom;
+	Volume *= AudioDevice->GetPlatformAudioHeadroom();
 
 	if( Buffer->NumChannels < 3 )
 	{
@@ -337,6 +337,8 @@ void FCoreAudioSoundSource::Update( void )
 		// Convert to dB
 		Volume = 20.0 * log10(Volume);
 		Volume = FMath::Clamp<float>( Volume, -120.0f, 20.0f );
+
+		Volume = FSoundSource::GetDebugVolume(Volume);
 
 		const float Pitch = FMath::Clamp<float>( WaveInstance->Pitch, MIN_PITCH, MAX_PITCH );
 		
@@ -869,6 +871,11 @@ bool FCoreAudioSoundSource::AttachToAUGraph()
 
 	if( ErrorStatus == noErr )
 	{
+		if (AudioDevice->SourcesDetached.Contains(this))
+		{
+			AudioDevice->UpdateAUGraph();
+		}
+		AudioDevice->SourcesAttached.Add(this);
 		AudioDevice->bNeedsUpdate = true;
 		AudioDevice->AudioChannels[AudioChannel] = this;
 	}
@@ -954,7 +961,12 @@ bool FCoreAudioSoundSource::DetachFromAUGraph()
 		SAFE_CA_CALL( AUGraphRemoveNode( AudioDevice->GetAudioUnitGraph(), SourceNode ) );
 	}
 
-	AudioDevice->CovertersToDispose.Add(CoreAudioConverter);
+	if (AudioDevice->SourcesAttached.Contains(this))
+	{
+		AudioDevice->UpdateAUGraph();
+	}
+	AudioDevice->SourcesDetached.Add(this);
+	AudioDevice->ConvertersToDispose.Add(CoreAudioConverter);
 	AudioDevice->bNeedsUpdate = true;
 	
 	CoreAudioConverter = NULL;

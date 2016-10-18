@@ -109,11 +109,12 @@ void AGameState::ReceivedGameModeClass()
 void AGameState::ReceivedSpectatorClass()
 {
 	// Tell each PlayerController that the Spectator class is here
-	for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
+	for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
 	{
-		if (It->PlayerController)
+		APlayerController* const PlayerController = *Iterator;
+		if (PlayerController && PlayerController->IsLocalController())
 		{
-			It->PlayerController->ReceivedSpectatorClass(SpectatorClass);
+			PlayerController->ReceivedSpectatorClass(SpectatorClass);
 		}
 	}
 }
@@ -213,6 +214,8 @@ void AGameState::SetMatchState(FName NewState)
 {
 	if (Role == ROLE_Authority)
 	{
+		UE_LOG(LogGameState, Log, TEXT("Match State Changed from %s to %s"), *MatchState.ToString(), *NewState.ToString());
+
 		MatchState = NewState;
 
 		// Call the onrep to make sure the callbacks happen

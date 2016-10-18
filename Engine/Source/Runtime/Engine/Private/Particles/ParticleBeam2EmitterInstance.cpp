@@ -225,6 +225,144 @@ void FParticleBeam2EmitterInstance::SetBeamTargetStrength(float NewTargetStrengt
 	UserSetTargetStrengthArray[TargetIndex] = NewTargetStrength;
 }
 
+/**
+*	Get the end point position
+*
+*	@param	OutEndPoint	Current end point position
+*
+*	@return	true		End point is set - OutEndPoint is valid
+*			false		End point is not set - OutEndPoint is invalid
+*/
+bool FParticleBeam2EmitterInstance::GetBeamEndPoint(FVector& OutEndPoint) const
+{
+	if (UserSetTargetArray.Num() < 1)
+	{
+		return false;
+	}
+	OutEndPoint = UserSetTargetArray[0];
+	return true;
+}
+
+/**
+*	Get the source point at the given index
+*
+*	@param	SourceIndex			The index of the source point
+*	@param	OutSourcePoint		Value of of source point
+*
+*	@return	true		SourceIndex is valid - OutSourcePoint is valid
+*			false		SourceIndex is invalid - OutSourcePoint is invalid
+*/
+bool FParticleBeam2EmitterInstance::GetBeamSourcePoint(int32 SourceIndex, FVector& OutSourcePoint) const
+{  
+	if (SourceIndex < 0 || (UserSetSourceArray.Num() < (SourceIndex + 1)))
+	{
+		return false;
+	}
+
+	OutSourcePoint = UserSetSourceArray[SourceIndex];
+	return true;
+}
+
+/**
+*	Get the source tangent at the given index
+*
+*	@param	SourceIndex			The index of the source point
+*	@param	OutSourceTangent	Value of of source tangent
+*
+*	@return	true		SourceIndex is valid - OutSourceTangent is valid
+*			false		SourceIndex is invalid - OutSourceTangent is invalid
+*/
+bool FParticleBeam2EmitterInstance::GetBeamSourceTangent(int32 SourceIndex, FVector& OutSourcePoint) const
+{
+	if (SourceIndex < 0 || (UserSetSourceTangentArray.Num() < (SourceIndex + 1)))
+	{
+		return false;
+	}
+
+	OutSourcePoint = UserSetSourceTangentArray[SourceIndex];
+	return true;
+}
+
+/**
+*	Get the source strength at the given index
+*
+*	@param	SourceIndex			The index of the source point
+*	@param	OutSourceStrength	Value of of source strength
+*
+*	@return	true		SourceIndex is valid - OutSourceStrength is valid
+*			false		SourceIndex is invalid - OutSourceStrength is invalid
+*/
+bool FParticleBeam2EmitterInstance::GetBeamSourceStrength(int32 SourceIndex, float& OutSourceStrength) const
+{
+	if (SourceIndex < 0 || (UserSetSourceStrengthArray.Num() < (SourceIndex + 1)))
+	{
+		return false;
+	}
+
+	OutSourceStrength = UserSetSourceStrengthArray[SourceIndex];
+	return true;
+}
+
+/**
+*	Get the target point at the given index
+*
+*	@param	TargetIndex			The index of the target point
+*	@param	OutTargetPoint		Value of of target point
+*
+*	@return	true		TargetIndex is valid - OutTargetPoint is valid
+*			false		TargetIndex is invalid - OutTargetPoint is invalid
+*/
+bool FParticleBeam2EmitterInstance::GetBeamTargetPoint(int32 TargetIndex, FVector& OutTargetPoint) const
+{
+	if (TargetIndex < 0 || (UserSetTargetArray.Num() < (TargetIndex + 1)))
+	{
+		return false;
+	}
+
+	OutTargetPoint = UserSetTargetArray[TargetIndex];
+	return true;
+}
+
+/**
+*	Get the target tangent at the given index
+*
+*	@param	TargetIndex			The index of the target point
+*	@param	OutTangentPoint		Value of of target tangent
+*
+*	@return	true		TargetIndex is valid - OutTangentPoint is valid
+*			false		TargetIndex is invalid - OutTangentPoint is invalid
+*/
+bool FParticleBeam2EmitterInstance::GetBeamTargetTangent(int32 TargetIndex, FVector& OutTangentPoint) const
+{
+	if (TargetIndex < 0 || (UserSetTargetTangentArray.Num() < (TargetIndex + 1)))
+	{
+		return false;
+	}
+
+	OutTangentPoint = UserSetTargetTangentArray[TargetIndex];
+	return true;
+}
+
+/**
+*	Get the target strength at the given index
+*
+*	@param	TargetIndex			The index of the target point
+*	@param	OutTargetStrength	Value of of target strength
+*
+*	@return	true		TargetIndex is valid - OutTargetStrength is valid
+*			false		TargetIndex is invalid - OutTargetStrength is invalid
+*/
+bool FParticleBeam2EmitterInstance::GetBeamTargetStrength(int32 TargetIndex, float& OutTargetStrength) const
+{
+	if (TargetIndex < 0 || (UserSetTargetStrengthArray.Num() < (TargetIndex + 1)))
+	{
+		return false;
+	}
+
+	OutTargetStrength = UserSetTargetStrengthArray[TargetIndex];
+	return true;
+}
+
 void FParticleBeam2EmitterInstance::ApplyWorldOffset(FVector InOffset, bool bWorldShift)
 {
 	FParticleEmitterInstance::ApplyWorldOffset(InOffset, bWorldShift);
@@ -432,9 +570,9 @@ void FParticleBeam2EmitterInstance::Tick(float DeltaTime, bool bSuppressSpawning
  *	@param	DeltaTime			The current time slice
  *	@param	CurrentLODLevel		The current LOD level for the instance
  */
-void FParticleBeam2EmitterInstance::Tick_ModulePostUpdate(float DeltaTime, UParticleLODLevel* CurrentLODLevel)
+void FParticleBeam2EmitterInstance::Tick_ModulePostUpdate(float DeltaTime, UParticleLODLevel* InCurrentLODLevel)
 {
-	UParticleModuleTypeDataBase* TypeData = Cast<UParticleModuleTypeDataBase>(CurrentLODLevel->TypeDataModule);
+	UParticleModuleTypeDataBase* TypeData = Cast<UParticleModuleTypeDataBase>(InCurrentLODLevel->TypeDataModule);
 	if (TypeData)
 	{
 		// The order of the update here is VERY important
@@ -461,7 +599,7 @@ void FParticleBeam2EmitterInstance::Tick_ModulePostUpdate(float DeltaTime, UPart
 			BeamModule_Noise->Update(this, GetModuleDataOffset(BeamModule_Noise), DeltaTime);
 		}
 
-		FParticleEmitterInstance::Tick_ModulePostUpdate(DeltaTime, CurrentLODLevel);
+		FParticleEmitterInstance::Tick_ModulePostUpdate(DeltaTime, InCurrentLODLevel);
 	}
 }
 
@@ -923,6 +1061,7 @@ void FParticleBeam2EmitterInstance::ResolveTarget()
 				}
 				break;
 			case PEB2STM_Emitter:
+			case PEB2STM_Particle:
 				if (TargetEmitter == NULL)
 				{
 					for (int32 ii = 0; ii < Component->EmitterInstances.Num(); ii++)
@@ -948,7 +1087,7 @@ void FParticleBeam2EmitterInstance::DetermineVertexAndTriangleCount()
 {
 	// Need to determine # tris per beam...
 	int32 VerticesToRender = 0;
-	int32 TrianglesToRender = 0;
+	int32 EmitterTrianglesToRender = 0;
 
 	check(BeamTypeData);
 	int32 Sheets = BeamTypeData->Sheets ? BeamTypeData->Sheets : 1;
@@ -982,23 +1121,22 @@ void FParticleBeam2EmitterInstance::DetermineVertexAndTriangleCount()
 		int32 LocalTriangles = 0;
 		if (BeamData->TriangleCount > 0)
 		{
+			if (VerticesToRender > 0)
+			{
+				LocalTriangles += 4;//Degenerate tris linking from previous beam.
+			}
+
 			// Stored triangle count is per sheet...
 			LocalTriangles	+= BeamData->TriangleCount * Sheets;
 			VerticesToRender += (BeamData->TriangleCount + 2) * Sheets;
 			// 4 Degenerates Per Sheet (except for last one)
 			LocalTriangles	+= (Sheets - 1) * 4;
-			TrianglesToRender += LocalTriangles;
-			// Multiple beams?
-			if (i < (ActiveParticles - 1))
-			{
-				// 4 Degenerates Per Beam (except for last one)
-				TrianglesToRender	+= 4;
-			}
+			EmitterTrianglesToRender += LocalTriangles;
 		}
 	}
 
 	VertexCount = VerticesToRender;
-	TriangleCount = TrianglesToRender;
+	TriangleCount = EmitterTrianglesToRender;
 }
 
 
@@ -1007,10 +1145,11 @@ void FParticleBeam2EmitterInstance::DetermineVertexAndTriangleCount()
  *	Retrieves the dynamic data for the emitter
  *	
  *	@param	bSelected					Whether the emitter is selected in the editor
+ *  @param InFeatureLevel				The relevant shader feature level.
  *
  *	@return	FDynamicEmitterDataBase*	The dynamic data, or NULL if it shouldn't be rendered
  */
-FDynamicEmitterDataBase* FParticleBeam2EmitterInstance::GetDynamicData(bool bSelected)
+FDynamicEmitterDataBase* FParticleBeam2EmitterInstance::GetDynamicData(bool bSelected, ERHIFeatureLevel::Type InFeatureLevel)
 {
 	QUICK_SCOPE_CYCLE_COUNTER(STAT_ParticleBeam2EmitterInstance_GetDynamicData);
 
@@ -1067,68 +1206,6 @@ FDynamicEmitterDataBase* FParticleBeam2EmitterInstance::GetDynamicData(bool bSel
 	NewEmitterData->Init( bSelected );
 
 	return NewEmitterData;
-}
-
-/**
- *	Updates the dynamic data for the instance
- *
- *	@param	DynamicData		The dynamic data to fill in
- *	@param	bSelected		true if the particle system component is selected
- */
-bool FParticleBeam2EmitterInstance::UpdateDynamicData(FDynamicEmitterDataBase* DynamicData, bool bSelected)
-{
-	QUICK_SCOPE_CYCLE_COUNTER(STAT_ParticleBeam2EmitterInstance_UpdateDynamicData);
-
-	if (ActiveParticles <= 0 || !bEnabled)
-	{
-		return false;
-	}
-
-	UParticleLODLevel* LODLevel = SpriteTemplate->GetCurrentLODLevel(this);
-	if ((LODLevel == NULL) || (LODLevel->bEnabled == false))
-	{
-		return false;
-	}
-
-	//@SAS. This removes the need for the assertion in the actual render call...
-	if ((ActiveParticles > FDynamicBeam2EmitterData::MaxBeams) ||	// TTP #33330 - Max of 2048 beams from a single emitter
-		(ParticleStride >
-			((FDynamicBeam2EmitterData::MaxInterpolationPoints + 2) * (sizeof(FVector) + sizeof(float))) + 
-			(FDynamicBeam2EmitterData::MaxNoiseFrequency * (sizeof(FVector) + sizeof(FVector) + sizeof(float) + sizeof(float)))
-		)	// TTP #33330 - Max of 10k per beam (includes interpolation points, noise, etc.)
-		)
-	{
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-		if (Component && Component->GetWorld())
-		{
-			FString ErrorMessage = 
-				FString::Printf(TEXT("BeamEmitter with too much data: %s"),
-					Component ? 
-						Component->Template ? 
-							*(Component->Template->GetName()) :
-							TEXT("No template") :
-						TEXT("No component"));
-			FColor ErrorColor(255,0,0);
-			GEngine->AddOnScreenDebugMessage((uint64)((PTRINT)this), 5.0f, ErrorColor,ErrorMessage);
-			UE_LOG(LogParticles, Log, TEXT("%s"), *ErrorMessage);
-		}
-#endif	//#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-		return false;
-	}
-
-	checkf((DynamicData->GetSource().eEmitterType == DET_Beam2), TEXT("Beam2::UpdateDynamicData> Invalid DynamicData type!"));
-
-	// Now fill in the source data
-	FDynamicBeam2EmitterData* BeamDynamicData = (FDynamicBeam2EmitterData*)DynamicData;
-	if( !FillReplayData( BeamDynamicData->Source ) )
-	{
-		return false;
-	}
-
-	// Setup dynamic render data.  Only call this AFTER filling in source data for the emitter.
-	BeamDynamicData->Init( bSelected );
-
-	return true;
 }
 
 /**
@@ -1409,5 +1486,6 @@ UMaterialInterface* FParticleBeam2EmitterInstance::GetCurrentMaterial()
 	{
 		RenderMaterial = UMaterial::GetDefaultMaterial(MD_Surface);
 	}
+	CurrentMaterial = RenderMaterial;
 	return RenderMaterial;
 }

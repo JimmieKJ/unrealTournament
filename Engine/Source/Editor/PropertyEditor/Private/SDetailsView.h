@@ -4,6 +4,7 @@
 
 #include "SDetailsViewBase.h"
 
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
 class SDetailsView : public SDetailsViewBase
 {
 	friend class FPropertyDetailsUtilities;
@@ -21,6 +22,10 @@ public:
 	/** Causes the details view to be refreshed (new widgets generated) with the current set of objects */
 	void ForceRefresh() override;
 
+	/** Move the scrolling offset (by item), but do not refresh the tree*/
+	void MoveScrollOffset(int32 DeltaOffset) override;
+
+
 	/**
 	 * Constructs the property view widgets                   
 	 */
@@ -31,6 +36,9 @@ public:
 	virtual void SetObjects( const TArray< TWeakObjectPtr< UObject > >& InObjects, bool bForceRefresh = false, bool bOverrideLock = false ) override;
 	virtual void SetObject( UObject* InObject, bool bForceRefresh = false ) override;
 	virtual void RemoveInvalidObjects() override;
+	virtual void SetObjectPackageOverrides(const TMap<TWeakObjectPtr<UObject>, TWeakObjectPtr<UPackage>>& InMapping) override;
+	virtual void SetRootObjectCustomizationInstance(TSharedPtr<IDetailRootObjectCustomization> InRootObjectCustomization) override;
+	virtual void ClearSearch() override;
 
 	/**
 	 * Replaces objects being observed by the view with new objects
@@ -73,9 +81,9 @@ public:
 	}
 
 	/** Gets the base class being viewed */
+	/** These methods is deprecated.  When it is removed, also remove the PRAGMA_DISABLE_DEPRECATION_WARNINGS/PRAGMA_ENABLE_DEPRECATION_WARNINGS at the top and bottom of this file */
 	const UClass* GetBaseClass() const override;
 	UClass* GetBaseClass() override;
-	UStruct* GetBaseStruct() const override;
 
 	/**
 	 * Adds an external property root node to the list of root nodes that the details new needs to manage
@@ -85,20 +93,33 @@ public:
 	void AddExternalRootPropertyNode( TSharedRef<FPropertyNode> ExternalRootNode ) override;
 	
 	/**
-	 * @return True if a category is hidden by any of the uobject classes currently in view by this details panel
+	 * Whether or not a category is hidden by a given root object
+	 * @param InRootNode	The root node that for the objects we are customizing
+	 * @param CategoryName	The name of the category to check
+	 * @return true if a category is hidden, false otherwise
 	 */
-	bool IsCategoryHiddenByClass(FName CategoryName) const override;
+	bool IsCategoryHiddenByClass(const TSharedPtr<FComplexPropertyNode>& InRootNode, FName CategoryName) const override;
 
 	virtual bool IsConnected() const override;
 
-	virtual TSharedPtr<FComplexPropertyNode> GetRootNode() override
+	virtual FRootPropertyNodeList& GetRootNodes() override
 	{
-		return RootPropertyNode;
+		return RootPropertyNodes;
 	}
 
 	virtual bool DontUpdateValueWhileEditing() const override
 	{ 
 		return false; 
+	}
+
+	virtual bool ContainsMultipleTopLevelObjects() const override
+	{
+		return DetailsViewArgs.bAllowMultipleTopLevelObjects && GetNumObjects() > 1;
+	}
+
+	virtual TSharedPtr<IDetailRootObjectCustomization> GetRootObjectCustomization() const override
+	{
+		return RootObjectCustomization;
 	}
 private:
 	void RegisterInstancedCustomPropertyLayout( UStruct* Class, FOnGetDetailCustomizationInstance DetailLayoutDelegate ) override;
@@ -116,8 +137,13 @@ private:
 	 */
 	bool ShouldSetNewObjects( const TArray< TWeakObjectPtr< UObject > >& InObjects ) const;
 
+	/**
+	 * Returns the number of objects being edited by this details panel.
+	 */
+	int32 GetNumObjects() const;
+
 	/** Called before during SetObjectArray before we change the objects being observed */
-	void PreSetObject();
+	void PreSetObject(int32 InNewNumObjects);
 
 	/** Called at the end of SetObjectArray after we change the objects being observed */
 	void PostSetObject();
@@ -149,10 +175,13 @@ private:
 	 * It will only contain actors from when it was locked 
 	 */
 	TArray< TWeakObjectPtr<AActor> > SelectedActors;
-	/** The root property node of the property tree for a specific set of UObjects */
-	TSharedPtr<FObjectPropertyNode> RootPropertyNode;
+	/** The root property nodes of the property tree for a specific set of UObjects */
+	TArray<TSharedPtr<FComplexPropertyNode>> RootPropertyNodes;
 	/** Callback to send when the property view changes */
 	FOnObjectArrayChanged OnObjectArrayChanged;
+	/** Customization instance used when there are multiple top level objects in this view */
+	TSharedPtr<IDetailRootObjectCustomization> RootObjectCustomization;
 	/** True if at least one viewed object is a CDO (blueprint editing) */
 	bool bViewingClassDefaultObject;
 };
+PRAGMA_ENABLE_DEPRECATION_WARNINGS

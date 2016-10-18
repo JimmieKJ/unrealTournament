@@ -20,7 +20,7 @@ DEFINE_LOG_CATEGORY_STATIC(LogUnrealNames, Log, All);
 static const int32 NameEntryWithoutUnionSize = sizeof(FNameEntry) - (NAME_SIZE * sizeof(TCHAR));
 
 template<typename TCharType>
-FNameEntry* AllocateNameEntry( const void* Name, NAME_INDEX Index, FNameEntry* HashNext);
+FNameEntry* AllocateNameEntry( const void* Name, NAME_INDEX Index);
 
 /**
 * Helper function that can be used inside the debuggers watch window. E.g. "DebugFName(Class->Name.Index)". 
@@ -111,6 +111,18 @@ void FNameEntry::AppendNameToString( FString& String ) const
 	else
 	{
 		String += AnsiName;
+	}
+}
+
+void FNameEntry::AppendNameToPathString(FString& String) const
+{
+	if (IsWide())
+	{
+		String /= WideName;
+	}
+	else
+	{
+		String /= AnsiName;
 	}
 }
 
@@ -374,12 +386,11 @@ FString FName::NameToDisplayString( const FString& InDisplayName, const bool bIs
 
 
 // Static variables.
-FNameEntry*						FName::NameHash[ FNameDefs::NameHashBucketCount ];
-int32							FName::NameEntryMemorySize;
-/** Number of ANSI names in name table.						*/
-int32							FName::NumAnsiNames;			
-/** Number of wide names in name table.					*/
-int32							FName::NumWideNames;
+FNameEntry*	FName::NameHashHead[FNameDefs::NameHashBucketCount];
+FNameEntry*	FName::NameHashTail[FNameDefs::NameHashBucketCount];
+int32		FName::NameEntryMemorySize;
+int32		FName::NumAnsiNames;
+int32		FName::NumWideNames;
 
 
 /*-----------------------------------------------------------------------------
@@ -393,7 +404,7 @@ int32							FName::NumWideNames;
  * @param Name Value for the string portion of the name
  * @param FindType Action to take (see EFindName)
  */
-FName::FName( const WIDECHAR* Name, EFindName FindType, bool )
+FName::FName(const WIDECHAR* Name, EFindName FindType)
 {
 	if (Name)
 	{
@@ -405,7 +416,7 @@ FName::FName( const WIDECHAR* Name, EFindName FindType, bool )
 	}
 }
 
-FName::FName( const ANSICHAR* Name, EFindName FindType, bool )
+FName::FName(const ANSICHAR* Name, EFindName FindType)
 {
 	if (Name)
 	{
@@ -433,14 +444,14 @@ FName::FName( const TCHAR* Name, int32 InNumber, EFindName FindType )
 FName::FName(const FNameEntrySerialized& LoadedEntry)
 {
 	if (LoadedEntry.bWereHashesLoaded)
-{
+	{
 		// Since the name table can change sizes we need to mask the raw hash to the current size so we don't access out of bounds
-		const uint16 NonCasePreservingHash = LoadedEntry.NonCasePreservingHash & (ARRAY_COUNT(NameHash) - 1);
-		const uint16 CasePreservingHash = LoadedEntry.CasePreservingHash & (ARRAY_COUNT(NameHash) - 1);
+		const uint16 NonCasePreservingHash = LoadedEntry.NonCasePreservingHash & (FNameDefs::NameHashBucketCount - 1);
+		const uint16 CasePreservingHash = LoadedEntry.CasePreservingHash & (FNameDefs::NameHashBucketCount - 1);
 		if (LoadedEntry.IsWide())
 		{
 			Init(LoadedEntry.GetWideName(), NAME_NO_NUMBER_INTERNAL, FNAME_Add, NonCasePreservingHash, CasePreservingHash);
-}
+		}
 		else
 		{
 			Init(LoadedEntry.GetAnsiName(), NAME_NO_NUMBER_INTERNAL, FNAME_Add, NonCasePreservingHash, CasePreservingHash);
@@ -453,7 +464,7 @@ FName::FName(const FNameEntrySerialized& LoadedEntry)
 			Init(LoadedEntry.GetWideName(), NAME_NO_NUMBER_INTERNAL, FNAME_Add, false);
 		}
 		else
-{
+		{
 			Init(LoadedEntry.GetAnsiName(), NAME_NO_NUMBER_INTERNAL, FNAME_Add, false);
 		}
 	}
@@ -505,15 +516,15 @@ int32 FName::Compare( const FName& Other ) const
 }
 
 template <typename TCharType>
-int32 FName::GetCasePreservingHash(const TCharType* Source)
+uint16 FName::GetCasePreservingHash(const TCharType* Source)
 {
-	return GetRawCasePreservingHash(Source) & (ARRAY_COUNT(NameHash) - 1);
+	return GetRawCasePreservingHash(Source) & (FNameDefs::NameHashBucketCount - 1);
 }
 
 template <typename TCharType>
-int32 FName::GetNonCasePreservingHash(const TCharType* Source)
+uint16 FName::GetNonCasePreservingHash(const TCharType* Source)
 {
-	return GetRawNonCasePreservingHash(Source) & (ARRAY_COUNT(NameHash) - 1);
+	return GetRawNonCasePreservingHash(Source) & (FNameDefs::NameHashBucketCount - 1);
 }
 
 void FName::Init(const WIDECHAR* InName, int32 InNumber, EFindName FindType, bool bSplitName, int32 HardcodeIndex)
@@ -542,9 +553,9 @@ void FName::Init(const ANSICHAR* InName, int32 InNumber, EFindName FindType, boo
 }
 
 void FName::Init(const ANSICHAR* InName, int32 InNumber, EFindName FindType, const uint16 NonCasePreservingHash, const uint16 CasePreservingHash)
-	{
+{
 	InitInternal<ANSICHAR>(InName, InNumber, FindType, -1, NonCasePreservingHash, CasePreservingHash);
-	}
+}
 
 template <typename TCharType>
 void FName::InitInternal_HashSplit(const TCharType* InName, int32 InNumber, const EFindName FindType, bool bSplitName, const int32 HardcodeIndex)
@@ -761,7 +772,7 @@ bool FName::InitInternal_FindOrAddNameEntry(const TCharType* InName, const EFind
 	if (OutIndex < 0)
 	{
 		// Try to find the name in the hash.
-		for( FNameEntry* Hash=NameHash[iHash]; Hash; Hash=Hash->HashNext )
+		for( FNameEntry* Hash=NameHashHead[iHash]; Hash; Hash=Hash->HashNext )
 		{
 			FPlatformMisc::Prefetch( Hash->HashNext );
 			// Compare the passed in string
@@ -801,7 +812,7 @@ bool FName::InitInternal_FindOrAddNameEntry(const TCharType* InName, const EFind
 	if (OutIndex < 0)
 	{
 		// Try to find the name in the hash. AGAIN...we might have been adding from a different thread and we just missed it
-		for( FNameEntry* Hash=NameHash[iHash]; Hash; Hash=Hash->HashNext )
+		for( FNameEntry* Hash=NameHashHead[iHash]; Hash; Hash=Hash->HashNext )
 		{
 			// Compare the passed in string
 			if( Hash->IsEqual( InName, ComparisonMode ) )
@@ -813,7 +824,8 @@ bool FName::InitInternal_FindOrAddNameEntry(const TCharType* InName, const EFind
 			}
 		}
 	}
-	FNameEntry* OldHash=NameHash[iHash];
+	FNameEntry* OldHashHead=NameHashHead[iHash];
+	FNameEntry* OldHashTail=NameHashTail[iHash];
 	TNameEntryArray& Names = GetNames();
 	if (OutIndex < 0)
 	{
@@ -823,14 +835,32 @@ bool FName::InitInternal_FindOrAddNameEntry(const TCharType* InName, const EFind
 	{
 		check(OutIndex < Names.Num());
 	}
-	FNameEntry* NewEntry = AllocateNameEntry<TCharType>( InName, OutIndex, OldHash);
-	if (FPlatformAtomics::InterlockedCompareExchangePointer((void**)&Names[OutIndex], NewEntry, NULL) != NULL) // we use an atomic operation to check for unexpected concurrency, verify alignment, etc
+	FNameEntry* NewEntry = AllocateNameEntry<TCharType>(InName, OutIndex);
+	if (FPlatformAtomics::InterlockedCompareExchangePointer((void**)&Names[OutIndex], NewEntry, nullptr) != nullptr) // we use an atomic operation to check for unexpected concurrency, verify alignment, etc
 	{
 		UE_LOG(LogUnrealNames, Fatal, TEXT("Hardcoded name '%s' at index %i was duplicated (or unexpected concurrency). Existing entry is '%s'."), *NewEntry->GetPlainNameString(), NewEntry->GetIndex(), *Names[OutIndex]->GetPlainNameString() );
 	}
-	if (FPlatformAtomics::InterlockedCompareExchangePointer((void**)&NameHash[iHash], NewEntry, OldHash) != OldHash) // we use an atomic operation to check for unexpected concurrency, verify alignment, etc
+	if (!OldHashHead)
 	{
-		check(0); // someone changed this while we were changing it
+		checkSlow(!OldHashTail);
+
+		// atomically assign the new head as other threads may be reading it
+		if (FPlatformAtomics::InterlockedCompareExchangePointer((void**)&NameHashHead[iHash], NewEntry, OldHashHead) != OldHashHead) // we use an atomic operation to check for unexpected concurrency, verify alignment, etc
+		{
+			check(0); // someone changed this while we were changing it
+		}
+		NameHashTail[iHash] = NewEntry; // We can non-atomically assign the tail since it's only ever read while locked
+	}
+	else
+	{
+		checkSlow(OldHashTail);
+
+		// atomically update the linked list as other threads may be reading it
+		if (FPlatformAtomics::InterlockedCompareExchangePointer((void**)&OldHashTail->HashNext, NewEntry, nullptr) != nullptr) // we use an atomic operation to check for unexpected concurrency, verify alignment, etc
+		{
+			check(0); // someone changed this while we were changing it
+		}
+		NameHashTail[iHash] = NewEntry; // We can non-atomically assign the tail since it's only ever read while locked
 	}
 	check(OutIndex >= 0);
 	return true;
@@ -890,14 +920,14 @@ void FName::StaticInit()
 	FCrc::Init();
 
 	check(GetIsInitialized() == false);
-	check((ARRAY_COUNT(NameHash)&(ARRAY_COUNT(NameHash)-1)) == 0);
+	check((FNameDefs::NameHashBucketCount&(FNameDefs::NameHashBucketCount-1)) == 0);
 	GetIsInitialized() = 1;
 
-
 	// Init the name hash.
-	for (int32 HashIndex = 0; HashIndex < ARRAY_COUNT(FName::NameHash); HashIndex++)
+	for (int32 HashIndex = 0; HashIndex < FNameDefs::NameHashBucketCount; HashIndex++)
 	{
-		NameHash[HashIndex] = NULL;
+		NameHashHead[HashIndex] = nullptr;
+		NameHashTail[HashIndex] = nullptr;
 	}
 
 	{
@@ -916,9 +946,9 @@ void FName::StaticInit()
 
 #if DO_CHECK
 	// Verify no duplicate names.
-	for (int32 HashIndex = 0; HashIndex < ARRAY_COUNT(NameHash); HashIndex++)
+	for (int32 HashIndex = 0; HashIndex < FNameDefs::NameHashBucketCount; HashIndex++)
 	{
-		for (FNameEntry* Hash = NameHash[HashIndex]; Hash; Hash = Hash->HashNext)
+		for (FNameEntry* Hash = NameHashHead[HashIndex]; Hash; Hash = Hash->HashNext)
 		{
 			for (FNameEntry* Other = Hash->HashNext; Other; Other = Other->HashNext)
 			{
@@ -966,17 +996,17 @@ bool& FName::GetIsInitialized()
 void FName::DisplayHash( FOutputDevice& Ar )
 {
 	int32 UsedBins=0, NameCount=0, MemUsed = 0;
-	for( int32 i=0; i<ARRAY_COUNT(NameHash); i++ )
+	for( int32 i=0; i<FNameDefs::NameHashBucketCount; i++ )
 	{
-		if( NameHash[i] != NULL ) UsedBins++;
-		for( FNameEntry *Hash = NameHash[i]; Hash; Hash=Hash->HashNext )
+		if( NameHashHead[i] != NULL ) UsedBins++;
+		for( FNameEntry *Hash = NameHashHead[i]; Hash; Hash=Hash->HashNext )
 		{
 			NameCount++;
 			// Count how much memory this entry is using
 			MemUsed += FNameEntry::GetSize( Hash->GetNameLength(), Hash->IsWide() );
 		}
 	}
-	Ar.Logf( TEXT("Hash: %i names, %i/%i hash bins, Mem in bytes %i"), NameCount, UsedBins, ARRAY_COUNT(NameHash), MemUsed);
+	Ar.Logf( TEXT("Hash: %i names, %i/%i hash bins, Mem in bytes %i"), NameCount, UsedBins, FNameDefs::NameHashBucketCount, MemUsed);
 }
 
 bool FName::SplitNameWithCheck(const WIDECHAR* OldName, WIDECHAR* NewName, int32 NewNameLen, int32& NewNumber)
@@ -1035,32 +1065,33 @@ bool FName::SplitNameWithCheckImpl(const TCharType* OldName, TCharType* NewName,
 	return bSucceeded;
 }
 
-bool FName::IsValidXName( FString InvalidChars/*=INVALID_NAME_CHARACTERS*/, FText* Reason/*=NULL*/ ) const
+bool FName::IsValidXName(const FString& InName, const FString& InInvalidChars, FText* OutReason, const FText* InErrorCtx)
 {
-	FString Name = ToString();
+	if (InName.IsEmpty() || InInvalidChars.IsEmpty())
+	{
+		return true;
+	}
 
 	// See if the name contains invalid characters.
-	TCHAR CharString[] = { '\0', '\0' };
 	FString MatchedInvalidChars;
 	TSet<TCHAR> AlreadyMatchedInvalidChars;
-	for( int32 x = 0; x < InvalidChars.Len() ; ++x )
+	for (const TCHAR InvalidChar : InInvalidChars)
 	{
-		TCHAR CharToTest = InvalidChars[x];
-		CharString[0] = CharToTest;
-		if( !AlreadyMatchedInvalidChars.Contains( CharToTest ) && Name.Contains( CharString ) )
+		if (!AlreadyMatchedInvalidChars.Contains(InvalidChar) && InName.GetCharArray().Contains(InvalidChar))
 		{
-			MatchedInvalidChars += CharString;
-			AlreadyMatchedInvalidChars.Add( CharToTest );
+			MatchedInvalidChars.AppendChar(InvalidChar);
+			AlreadyMatchedInvalidChars.Add(InvalidChar);
 		}
 	}
 
-	if ( MatchedInvalidChars.Len() )
+	if (MatchedInvalidChars.Len())
 	{
-		if ( Reason )
+		if (OutReason)
 		{
 			FFormatNamedArguments Args;
+			Args.Add(TEXT("ErrorCtx"), (InErrorCtx) ? *InErrorCtx : NSLOCTEXT("Core", "NameDefaultErrorCtx", "Name"));
 			Args.Add(TEXT("IllegalNameCharacters"), FText::FromString(MatchedInvalidChars));
-			*Reason = FText::Format( NSLOCTEXT("Core", "NameContainsInvalidCharacters", "Name may not contain the following characters: {IllegalNameCharacters}"), Args );
+			*OutReason = FText::Format(NSLOCTEXT("Core", "NameContainsInvalidCharacters", "{ErrorCtx} may not contain the following characters: {IllegalNameCharacters}"), Args);
 		}
 		return false;
 	}
@@ -1291,14 +1322,14 @@ private:
 FNameEntryPoolAllocator GNameEntryPoolAllocator;
 
 template<typename TCharType>
-FNameEntry* AllocateNameEntry( const void* Name, NAME_INDEX Index, FNameEntry* HashNext)
+FNameEntry* AllocateNameEntry(const void* Name, NAME_INDEX Index)
 {
 	const SIZE_T NameLen  = TCString<TCharType>::Strlen((TCharType*)Name);
 	int32 NameEntrySize	  = FNameInitHelper<TCharType>::GetSize( NameLen );
 	FNameEntry* NameEntry = GNameEntryPoolAllocator.Allocate( NameEntrySize );
 	FName::NameEntryMemorySize += NameEntrySize;
 	NameEntry->Index      = (Index << NAME_INDEX_SHIFT) | (FNameInitHelper<TCharType>::GetIndexShiftValue());
-	NameEntry->HashNext   = HashNext;
+	NameEntry->HashNext   = nullptr;
 	FNameInitHelper<TCharType>::SetNameString(NameEntry, (TCharType*)Name, NameLen);
 	IncrementNameCount<TCharType>();
 	return NameEntry;

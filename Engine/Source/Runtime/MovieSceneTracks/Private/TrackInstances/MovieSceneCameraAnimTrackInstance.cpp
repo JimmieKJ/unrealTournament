@@ -33,6 +33,7 @@ void FMovieSceneCameraAnimTrackInstance::Update(EMovieSceneUpdateData& UpdateDat
 			if (CameraComponent)
 			{
 				CameraComponent->ClearAdditiveOffset();
+				CameraComponent->ClearExtraPostProcessBlends();
 			}
 		}
 	}
@@ -66,7 +67,7 @@ void FMovieSceneCameraAnimTrackInstance::Update(EMovieSceneUpdateData& UpdateDat
 					SectionInstanceDataMap.Remove(DeadSection);
 				}
 
-				// #todo sort by start time to match application order of player camera
+				// sort by start time to match application order of player camera
 				ActiveSections.Sort(
 					[](const UMovieSceneCameraAnimSection& One, const UMovieSceneCameraAnimSection& Two)
 				{
@@ -88,7 +89,7 @@ void FMovieSceneCameraAnimTrackInstance::Update(EMovieSceneUpdateData& UpdateDat
 							// make it root so GC doesn't take it away
 							CamAnimInst->AddToRoot();
 							CamAnimInst->SetStopAutomatically(false);
-							CamAnimInst->Play(ActiveSection->GetCameraAnim(), GetTempCameraActor(), ActiveSection->PlayRate, ActiveSection->PlayScale, ActiveSection->BlendInTime, ActiveSection->BlendOutTime, ActiveSection->bLooping, ActiveSection->bRandomStartTime);
+							CamAnimInst->Play(ActiveSection->GetCameraAnim(), GetTempCameraActor(Player), ActiveSection->PlayRate, ActiveSection->PlayScale, ActiveSection->BlendInTime, ActiveSection->BlendOutTime, ActiveSection->bLooping, ActiveSection->bRandomStartTime);
 						}
 
 						SectionInstanceData.CameraAnimInst = CamAnimInst;
@@ -98,7 +99,7 @@ void FMovieSceneCameraAnimTrackInstance::Update(EMovieSceneUpdateData& UpdateDat
 					{
 						// prepare temp camera actor by resetting it
 						{
-							ACameraActor* const CameraActor = GetTempCameraActor();
+							ACameraActor* const CameraActor = GetTempCameraActor(Player);
 							CameraActor->SetActorLocationAndRotation(FVector::ZeroVector, FRotator::ZeroRotator);
 
 							ACameraActor const* const DefaultCamActor = GetDefault<ACameraActor>();
@@ -135,6 +136,20 @@ void FMovieSceneCameraAnimTrackInstance::Update(EMovieSceneUpdateData& UpdateDat
 
 							SectionInstanceData.AdditiveFOVOffset = NewFOVToBaseFOV;
 							SectionInstanceData.AdditiveOffset = NewCameraToBaseCamera;
+
+							// harvest PP changes
+							{
+								UCameraComponent* AnimCamComp = GetTempCameraActor(Player)->GetCameraComponent();
+								if (AnimCamComp)
+								{
+									SectionInstanceData.PostProcessingBlendWeight = AnimCamComp->PostProcessBlendWeight;
+									if (SectionInstanceData.PostProcessingBlendWeight > 0.f)
+									{
+										// avoid big struct copy if not necessary
+										SectionInstanceData.PostProcessingSettings = AnimCamComp->PostProcessSettings;
+									}
+								}
+							}
 						}
 					}
 				}
@@ -147,6 +162,11 @@ void FMovieSceneCameraAnimTrackInstance::Update(EMovieSceneUpdateData& UpdateDat
 					FMovieSceneCameraAnimSectionInstanceData& SectionInstanceData = SectionInstanceDataMap.FindChecked(ActiveSection);
 					TotalTransform = TotalTransform * SectionInstanceData.AdditiveOffset;
 					TotalFOVOffset += SectionInstanceData.AdditiveFOVOffset;
+
+					if (SectionInstanceData.PostProcessingBlendWeight > 0.f)
+					{
+						CameraComponent->AddExtraPostProcessBlend(SectionInstanceData.PostProcessingSettings, SectionInstanceData.PostProcessingBlendWeight);
+					}
 				}
 
 				CameraComponent->AddAdditiveOffset(TotalTransform, TotalFOVOffset);
@@ -155,7 +175,7 @@ void FMovieSceneCameraAnimTrackInstance::Update(EMovieSceneUpdateData& UpdateDat
 	}
 }
 
-ACameraActor* FMovieSceneCameraAnimTrackInstance::GetTempCameraActor()
+ACameraActor* FMovieSceneCameraAnimTrackInstance::GetTempCameraActor(IMovieScenePlayer& InMovieScenePlayer)
 {
 	if (TempCameraActor.IsValid() == false)
 	{
@@ -163,7 +183,7 @@ ACameraActor* FMovieSceneCameraAnimTrackInstance::GetTempCameraActor()
 		FActorSpawnParameters SpawnInfo;
 		SpawnInfo.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 		SpawnInfo.ObjectFlags |= RF_Transient;	// We never want to save these temp actors into a map
-		ACameraActor* const Cam = GWorld->SpawnActor<ACameraActor>(SpawnInfo);		// #fixme, GWorld!
+		ACameraActor* const Cam = InMovieScenePlayer.GetPlaybackContext()->GetWorld()->SpawnActor<ACameraActor>(SpawnInfo);
 		if (Cam)
 		{
 #if WITH_EDITOR

@@ -49,10 +49,10 @@ void AParticleEventManager::HandleParticleCollisionEvents( UParticleSystemCompon
 	for (int32 EventIndex = 0; EventIndex < CollisionEvents.Num(); ++EventIndex)
 	{
 		const FParticleEventCollideData& CollisionEvent = CollisionEvents[EventIndex];
-		Component->OnParticleCollide.Broadcast(CollisionEvent.EventName, CollisionEvent.EmitterTime, CollisionEvent.ParticleTime, CollisionEvent.Location, CollisionEvent.Velocity, CollisionEvent.Direction, CollisionEvent.Normal, CollisionEvent.BoneName);
+		Component->OnParticleCollide.Broadcast(CollisionEvent.EventName, CollisionEvent.EmitterTime, CollisionEvent.ParticleTime, CollisionEvent.Location, CollisionEvent.Velocity, CollisionEvent.Direction, CollisionEvent.Normal, CollisionEvent.BoneName, CollisionEvent.PhysMat);
 		if (Emitter)
 		{
-			Emitter->OnParticleCollide.Broadcast(CollisionEvent.EventName, CollisionEvent.EmitterTime, CollisionEvent.ParticleTime, CollisionEvent.Location, CollisionEvent.Velocity, CollisionEvent.Direction, CollisionEvent.Normal, CollisionEvent.BoneName);
+			Emitter->OnParticleCollide.Broadcast(CollisionEvent.EventName, CollisionEvent.EmitterTime, CollisionEvent.ParticleTime, CollisionEvent.Location, CollisionEvent.Velocity, CollisionEvent.Direction, CollisionEvent.Normal, CollisionEvent.BoneName, CollisionEvent.PhysMat);
 		}
 	}
 }

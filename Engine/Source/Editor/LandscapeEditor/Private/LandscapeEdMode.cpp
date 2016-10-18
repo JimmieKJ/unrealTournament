@@ -122,10 +122,7 @@ void ALandscape::SplitHeightmap(ULandscapeComponent* Comp, bool bMoveToCurrentLe
 		Comp->HeightmapScaleBias = FVector4(1.0f / (float)HeightmapSizeU, 1.0f / (float)HeightmapSizeV, 0.0f, 0.0f);
 		Comp->HeightmapTexture = HeightmapTexture;
 
-		if (Comp->MaterialInstance)
-		{
-			Comp->MaterialInstance->SetTextureParameterValueEditorOnly(FName(TEXT("Heightmap")), HeightmapTexture);
-		}
+		Comp->UpdateMaterialInstances();
 
 		for (int32 i = 0; i < HeightmapTextureMipData.Num(); i++)
 		{
@@ -147,6 +144,17 @@ void FLandscapeTool::SetEditRenderType()
 	GLandscapeEditRenderMode = ELandscapeEditRenderMode::SelectRegion | (GLandscapeEditRenderMode & ELandscapeEditRenderMode::BitMaskForMask);
 }
 
+namespace LandscapeTool
+{
+	UMaterialInstance* CreateMaterialInstance(UMaterialInterface* BaseMaterial)
+	{
+		ULandscapeMaterialInstanceConstant* MaterialInstance = NewObject<ULandscapeMaterialInstanceConstant>(GetTransientPackage());
+		MaterialInstance->SetParentEditorOnly(BaseMaterial);
+		MaterialInstance->PostEditChange();
+		return MaterialInstance;
+	}
+}
+
 //
 // FEdModeLandscape
 //
@@ -162,14 +170,14 @@ FEdModeLandscape::FEdModeLandscape()
 	, SplinesTool(nullptr)
 	, LandscapeRenderAddCollision(nullptr)
 	, CachedLandscapeMaterial(nullptr)
-	, bToolActive(false)
+	, ToolActiveViewport(nullptr)
 {
-	GLayerDebugColorMaterial = LoadObject<UMaterial>(NULL, TEXT("/Engine/EditorLandscapeResources/LayerVisMaterial.LayerVisMaterial"), NULL, LOAD_None, NULL);
-	GSelectionColorMaterial = LoadObject<UMaterialInstanceConstant>(NULL, TEXT("/Engine/EditorLandscapeResources/SelectBrushMaterial_Selected.SelectBrushMaterial_Selected"), NULL, LOAD_None, NULL);
-	GSelectionRegionMaterial = LoadObject<UMaterialInstanceConstant>(NULL, TEXT("/Engine/EditorLandscapeResources/SelectBrushMaterial_SelectedRegion.SelectBrushMaterial_SelectedRegion"), NULL, LOAD_None, NULL);
-	GMaskRegionMaterial = LoadObject<UMaterialInstanceConstant>(NULL, TEXT("/Engine/EditorLandscapeResources/MaskBrushMaterial_MaskedRegion.MaskBrushMaterial_MaskedRegion"), NULL, LOAD_None, NULL);
-	GLandscapeBlackTexture = LoadObject<UTexture2D>(NULL, TEXT("/Engine/EngineResources/Black.Black"), NULL, LOAD_None, NULL);
-	GLandscapeLayerUsageMaterial = LoadObject<UMaterial>(NULL, TEXT("/Engine/EditorLandscapeResources/LandscapeLayerUsageMaterial.LandscapeLayerUsageMaterial"), NULL, LOAD_None, NULL);
+	GLayerDebugColorMaterial = LandscapeTool::CreateMaterialInstance(LoadObject<UMaterial>(nullptr, TEXT("/Engine/EditorLandscapeResources/LayerVisMaterial.LayerVisMaterial")));
+	GSelectionColorMaterial  = LandscapeTool::CreateMaterialInstance(LoadObject<UMaterialInstanceConstant>(nullptr, TEXT("/Engine/EditorLandscapeResources/SelectBrushMaterial_Selected.SelectBrushMaterial_Selected")));
+	GSelectionRegionMaterial = LandscapeTool::CreateMaterialInstance(LoadObject<UMaterialInstanceConstant>(nullptr, TEXT("/Engine/EditorLandscapeResources/SelectBrushMaterial_SelectedRegion.SelectBrushMaterial_SelectedRegion")));
+	GMaskRegionMaterial      = LandscapeTool::CreateMaterialInstance(LoadObject<UMaterialInstanceConstant>(nullptr, TEXT("/Engine/EditorLandscapeResources/MaskBrushMaterial_MaskedRegion.MaskBrushMaterial_MaskedRegion")));
+	GLandscapeBlackTexture   = LoadObject<UTexture2D>(nullptr, TEXT("/Engine/EngineResources/Black.Black"));
+	GLandscapeLayerUsageMaterial = LandscapeTool::CreateMaterialInstance(LoadObject<UMaterial>(nullptr, TEXT("/Engine/EditorLandscapeResources/LandscapeLayerUsageMaterial.LandscapeLayerUsageMaterial")));
 
 	// Initialize modes
 	InitializeToolModes();
@@ -538,7 +546,7 @@ void FEdModeLandscape::Tick(FEditorViewportClient* ViewportClient, float DeltaTi
 
 	FViewport* const Viewport = ViewportClient->Viewport;
 
-	if (bToolActive && ensure(CurrentTool))
+	if (ToolActiveViewport && ToolActiveViewport == Viewport && ensure(CurrentTool))
 	{
 		// Require Ctrl or not as per user preference
 		const ELandscapeFoliageEditorControlType LandscapeEditorControlType = GetDefault<ULevelEditorViewportSettings>()->LandscapeEditorControlType;
@@ -548,7 +556,7 @@ void FEdModeLandscape::Tick(FEditorViewportClient* ViewportClient, float DeltaTi
 		{
 			CurrentTool->EndTool(ViewportClient);
 			Viewport->CaptureMouse(false);
-			bToolActive = false;
+			ToolActiveViewport = nullptr;
 		}
 	}
 
@@ -596,17 +604,20 @@ void FEdModeLandscape::Tick(FEditorViewportClient* ViewportClient, float DeltaTi
 /** FEdMode: Called when the mouse is moved over the viewport */
 bool FEdModeLandscape::MouseMove(FEditorViewportClient* ViewportClient, FViewport* Viewport, int32 MouseX, int32 MouseY)
 {
-	if (bToolActive && ensure(CurrentTool))
+	// due to mouse capture this should only ever be called on the active viewport
+	// if it ever gets called on another viewport the mouse has been released without us picking it up
+	if (ToolActiveViewport && ensure(CurrentTool))
 	{
 		// Require Ctrl or not as per user preference
 		const ELandscapeFoliageEditorControlType LandscapeEditorControlType = GetDefault<ULevelEditorViewportSettings>()->LandscapeEditorControlType;
 
-		if (!Viewport->KeyState(EKeys::LeftMouseButton) ||
+		if (ToolActiveViewport != Viewport ||
+			!Viewport->KeyState(EKeys::LeftMouseButton) ||
 			(LandscapeEditorControlType == ELandscapeFoliageEditorControlType::RequireCtrl && !IsCtrlDown(Viewport)))
 		{
 			CurrentTool->EndTool(ViewportClient);
 			Viewport->CaptureMouse(false);
-			bToolActive = false;
+			ToolActiveViewport = nullptr;
 		}
 	}
 
@@ -621,7 +632,7 @@ bool FEdModeLandscape::MouseMove(FEditorViewportClient* ViewportClient, FViewpor
 		if (CurrentTool)
 		{
 			Result = CurrentTool->MouseMove(ViewportClient, Viewport, MouseX, MouseY);
-			//ViewportClient->Invalidate( false, false );
+			ViewportClient->Invalidate(false, false);
 		}
 	}
 	return Result;
@@ -630,7 +641,7 @@ bool FEdModeLandscape::MouseMove(FEditorViewportClient* ViewportClient, FViewpor
 bool FEdModeLandscape::DisallowMouseDeltaTracking() const
 {
 	// We never want to use the mouse delta tracker while painting
-	return bToolActive;
+	return (ToolActiveViewport != nullptr);
 }
 
 /**
@@ -738,9 +749,15 @@ bool FEdModeLandscape::LandscapeMouseTrace(FEditorViewportClient* ViewportClient
 
 	FSceneView* View = ViewportClient->CalcSceneView(&ViewFamily);
 	FViewportCursorLocation MouseViewportRay(View, ViewportClient, MouseX, MouseY);
+	FVector BrushTraceDirection = MouseViewportRay.GetDirection();
 
 	FVector Start = MouseViewportRay.GetOrigin();
-	FVector End = Start + WORLD_MAX * MouseViewportRay.GetDirection();
+	if (ViewportClient->IsOrtho())
+	{
+		Start += -WORLD_MAX * BrushTraceDirection;
+	}
+
+	FVector End = Start + WORLD_MAX * BrushTraceDirection;
 
 	static FName TraceTag = FName(TEXT("LandscapeMouseTrace"));
 	TArray<FHitResult> Results;
@@ -1207,11 +1224,11 @@ bool FEdModeLandscape::InputKey(FEditorViewportClient* ViewportClient, FViewport
 		if (Key == EKeys::LeftMouseButton && Event == IE_Pressed)
 		{
 			// When debugging it's possible to miss the "mouse released" event, if we get a "mouse pressed" event when we think it's already pressed then treat it as release first
-			if (bToolActive)
+			if (ToolActiveViewport)
 			{
 				CurrentTool->EndTool(ViewportClient);
 				Viewport->CaptureMouse(false);
-				bToolActive = false;
+				ToolActiveViewport = nullptr;
 			}
 
 			// Only activate tool if we're not already moving the camera and we're not trying to drag a transform widget
@@ -1242,11 +1259,17 @@ bool FEdModeLandscape::InputKey(FEditorViewportClient* ViewportClient, FViewport
 						else
 						{
 							Viewport->CaptureMouse(true);
-							bToolActive = CurrentTool->BeginTool(ViewportClient, CurrentToolTarget, HitLocation);
-							if (!bToolActive)
+							bool bToolActive = CurrentTool->BeginTool(ViewportClient, CurrentToolTarget, HitLocation);
+							if (bToolActive)
 							{
+								ToolActiveViewport = Viewport;
+							}
+							else
+							{
+								ToolActiveViewport = nullptr;
 								Viewport->CaptureMouse(false);
 							}
+							ViewportClient->Invalidate(false, false);
 							return bToolActive;
 						}
 					}
@@ -1258,13 +1281,13 @@ bool FEdModeLandscape::InputKey(FEditorViewportClient* ViewportClient, FViewport
 		if (Key == EKeys::LeftMouseButton ||
 			(LandscapeEditorControlType == ELandscapeFoliageEditorControlType::RequireCtrl && (Key == EKeys::LeftControl || Key == EKeys::RightControl)))
 		{
-			if (Event == IE_Released && CurrentTool && bToolActive)
+			if (Event == IE_Released && CurrentTool && ToolActiveViewport)
 			{
 				//Set the cursor position to that of the slate cursor so it wont snap back
 				Viewport->SetPreCaptureMousePosFromSlateCursor();
 				CurrentTool->EndTool(ViewportClient);
 				Viewport->CaptureMouse(false);
-				bToolActive = false;
+				ToolActiveViewport = nullptr;
 				return true;
 			}
 		}
@@ -1321,14 +1344,14 @@ bool FEdModeLandscape::InputKey(FEditorViewportClient* ViewportClient, FViewport
 			return true;
 		}
 
-		// Prev tool 
+		// Prev tool
 		if (Event == IE_Pressed && Key == EKeys::Comma)
 		{
-			if (CurrentTool && bToolActive)
+			if (CurrentTool && ToolActiveViewport)
 			{
 				CurrentTool->EndTool(ViewportClient);
 				Viewport->CaptureMouse(false);
-				bToolActive = false;
+				ToolActiveViewport = nullptr;
 			}
 
 			int32 OldToolIndex = CurrentToolMode->ValidTools.Find(CurrentTool->GetToolName());
@@ -1338,14 +1361,14 @@ bool FEdModeLandscape::InputKey(FEditorViewportClient* ViewportClient, FViewport
 			return true;
 		}
 
-		// Next tool 
+		// Next tool
 		if (Event == IE_Pressed && Key == EKeys::Period)
 		{
-			if (CurrentTool && bToolActive)
+			if (CurrentTool && ToolActiveViewport)
 			{
 				CurrentTool->EndTool(ViewportClient);
 				Viewport->CaptureMouse(false);
-				bToolActive = false;
+				ToolActiveViewport = nullptr;
 			}
 
 			int32 OldToolIndex = CurrentToolMode->ValidTools.Find(CurrentTool->GetToolName());
@@ -1609,6 +1632,8 @@ void FEdModeLandscape::SetCurrentTool(int32 ToolIndex)
 	{
 		StaticCastSharedPtr<FLandscapeToolKit>(Toolkit)->NotifyToolChanged();
 	}
+
+	GEditor->RedrawLevelEditingViewports();
 }
 
 void FEdModeLandscape::SetCurrentBrushSet(FName BrushSetName)
@@ -2182,9 +2207,9 @@ FVector FEdModeLandscape::GetWidgetLocation() const
 		if (CurrentGizmoActor->TargetLandscapeInfo && CurrentGizmoActor->TargetLandscapeInfo->GetLandscapeProxy())
 		{
 			// Apply Landscape transformation when it is available
-			ULandscapeInfo* Info = CurrentGizmoActor->TargetLandscapeInfo;
+			ULandscapeInfo* LandscapeInfo = CurrentGizmoActor->TargetLandscapeInfo;
 			return CurrentGizmoActor->GetActorLocation()
-				+ FQuatRotationMatrix(Info->GetLandscapeProxy()->GetActorQuat()).TransformPosition(FVector(0, 0, CurrentGizmoActor->GetLength()));
+				+ FQuatRotationMatrix(LandscapeInfo->GetLandscapeProxy()->GetActorQuat()).TransformPosition(FVector(0, 0, CurrentGizmoActor->GetLength()));
 		}
 		return CurrentGizmoActor->GetActorLocation();
 	}
@@ -2229,11 +2254,6 @@ bool FEdModeLandscape::Select(AActor* InActor, bool bInSelected)
 		return false;
 	}
 
-	if (NewLandscapePreviewMode != ENewLandscapePreviewMode::None)
-	{
-		return false;
-	}
-
 	if (InActor->IsA<ALandscapeProxy>() && bInSelected)
 	{
 		ALandscapeProxy* Landscape = CastChecked<ALandscapeProxy>(InActor);
@@ -2242,17 +2262,24 @@ bool FEdModeLandscape::Select(AActor* InActor, bool bInSelected)
 		{
 			CurrentToolTarget.LandscapeInfo = Landscape->GetLandscapeInfo();
 			UpdateTargetList();
+
+			// If we were in "New Landscape" mode and we select a landscape then switch to editing mode
+			if (NewLandscapePreviewMode != ENewLandscapePreviewMode::None)
+			{
+				SetCurrentTool("Sculpt");
+			}
 		}
 	}
 
 	if (IsSelectionAllowed(InActor, bInSelected))
 	{
+		// false means "we haven't handled the selection", which allows the editor to perform the selection
+		// so false means "allow"
 		return false;
 	}
-	else if (!bInSelected)
-	{
-		return false;
-	}
+
+	// true means "we have handled the selection", which effectively blocks the selection from happening
+	// so true means "block"
 	return true;
 }
 
@@ -2264,15 +2291,16 @@ bool FEdModeLandscape::IsSelectionAllowed(AActor* InActor, bool bInSelection) co
 		return false;
 	}
 
-	if (NewLandscapePreviewMode != ENewLandscapePreviewMode::None)
-	{
-		return false;
-	}
-
 	// Override Selection for Splines Tool
 	if (CurrentTool && CurrentTool->OverrideSelection())
 	{
 		return CurrentTool->IsSelectionAllowed(InActor, bInSelection);
+	}
+
+	if (!bInSelection)
+	{
+		// always allow de-selection
+		return true;
 	}
 
 	if (InActor->IsA(ALandscapeProxy::StaticClass()))
@@ -2366,167 +2394,377 @@ void FEdModeLandscape::ReimportData(const FLandscapeTargetListInfo& TargetInfo)
 void FEdModeLandscape::ImportData(const FLandscapeTargetListInfo& TargetInfo, const FString& Filename)
 {
 	ULandscapeInfo* LandscapeInfo = TargetInfo.LandscapeInfo.Get();
-	if (LandscapeInfo != NULL)
+	int32 MinX, MinY, MaxX, MaxY;
+	if (LandscapeInfo && LandscapeInfo->GetLandscapeExtent(MinX, MinY, MaxX, MaxY))
 	{
-		TArray<uint8> Data;
-		int32 MinX, MinY, MaxX, MaxY;
-		if (FFileHelper::LoadFileToArray(Data, *Filename) &&
-			LandscapeInfo->GetLandscapeExtent(MinX, MinY, MaxX, MaxY))
+		const FLandscapeFileResolution LandscapeResolution = {(uint32)(1 + MaxX - MinX), (uint32)(1 + MaxY - MinY)};
+
+		ILandscapeEditorModule& LandscapeEditorModule = FModuleManager::GetModuleChecked<ILandscapeEditorModule>("LandscapeEditor");
+
+		if (TargetInfo.TargetType == ELandscapeToolTargetType::Heightmap)
 		{
-			const int32 SizeX = (1 + MaxX - MinX);
-			const int32 SizeY = (1 + MaxY - MinY);
+			const ILandscapeHeightmapFileFormat* HeightmapFormat = LandscapeEditorModule.GetHeightmapFormatByExtension(*FPaths::GetExtension(Filename, true));
 
-			IImageWrapperPtr ImageWrapper = nullptr;
-			const TArray<uint8>* RawData = nullptr; // Pointer to actual used data, actual store could be in Data or ImageWrapper
-
-			if (Filename.EndsWith(".png"))
+			if (!HeightmapFormat)
 			{
-				IImageWrapperModule& ImageWrapperModule = FModuleManager::LoadModuleChecked<IImageWrapperModule>("ImageWrapper");
-				ImageWrapper = ImageWrapperModule.CreateImageWrapper(EImageFormat::PNG);
+				FMessageDialog::Open(EAppMsgType::Ok, NSLOCTEXT("LandscapeEditor.NewLandscape", "Import_UnknownFileType", "File type not recognised"));
 
-				if (ImageWrapper->SetCompressed(Data.GetData(), Data.Num()))
+				return;
+			}
+
+			FLandscapeFileResolution ImportResolution = {0, 0};
+
+			const FLandscapeHeightmapInfo HeightmapInfo = HeightmapFormat->Validate(*Filename);
+
+			// display error message if there is one, and abort the import
+			if (HeightmapInfo.ResultCode == ELandscapeImportResult::Error)
+			{
+				FMessageDialog::Open(EAppMsgType::Ok, HeightmapInfo.ErrorMessage);
+
+				return;
+			}
+
+			// if the file is a raw format with multiple possibly resolutions, only attempt import if one matches the current landscape
+			if (HeightmapInfo.PossibleResolutions.Num() > 1)
+			{
+				if (!HeightmapInfo.PossibleResolutions.Contains(LandscapeResolution))
 				{
-					const int32 ImportSizeX = ImageWrapper->GetWidth();
-					const int32 ImportSizeY = ImageWrapper->GetHeight();
+					FFormatNamedArguments Args;
+					Args.Add(TEXT("LandscapeSizeX"), LandscapeResolution.Width);
+					Args.Add(TEXT("LandscapeSizeY"), LandscapeResolution.Height);
 
-					if (ImportSizeX != SizeX || ImportSizeY != SizeY)
-					{
-						FFormatNamedArguments Args;
-						Args.Add(TEXT("FileSizeX"), ImportSizeX);
-						Args.Add(TEXT("FileSizeY"), ImportSizeY);
-						Args.Add(TEXT("LandscapeSizeX"), SizeX);
-						Args.Add(TEXT("LandscapeSizeY"), SizeY);
+					FMessageDialog::Open(EAppMsgType::Ok,
+						FText::Format(NSLOCTEXT("LandscapeEditor.NewLandscape", "Import_HeightmapSizeMismatchRaw", "The heightmap file does not match the current Landscape extent ({LandscapeSizeX}\u00D7{LandscapeSizeY}), and its exact resolution could not be determined"), Args));
 
-						auto Result = FMessageDialog::Open(EAppMsgType::OkCancel,
-							FText::Format(NSLOCTEXT("LandscapeEditor.NewLandscape", "Import_SizeMismatch", "File's size ({FileSizeX}\u00D7{FileSizeY}) does not match with current Landscape extent ({LandscapeSizeX}\u00D7{LandscapeSizeY}), if you continue it will be padded/clipped to fit"), Args));
-
-						if (Result != EAppReturnType::Ok)
-						{
-							return;
-						}
-					}
-
-					if (TargetInfo.TargetType == ELandscapeToolTargetType::Heightmap)
-					{
-						if (ImageWrapper->GetFormat() != ERGBFormat::Gray)
-						{
-							EAppReturnType::Type Result = FMessageDialog::Open(EAppMsgType::OkCancel, NSLOCTEXT("LandscapeEditor.NewLandscape", "Import_HeightmapFileColorPng", "The Heightmap file appears to be a color png, grayscale is expected. The import *can* continue, but the result may not be what you expect..."));
-							if (Result != EAppReturnType::Ok)
-							{
-								return;
-							}
-						}
-						else if (ImageWrapper->GetBitDepth() != 16)
-						{
-							EAppReturnType::Type Result = FMessageDialog::Open(EAppMsgType::OkCancel, NSLOCTEXT("LandscapeEditor.NewLandscape", "Import_HeightmapFileLowBitDepth", "The Heightmap file appears to be an 8-bit png, 16-bit is preferred. The import *can* continue, but the result may be lower quality than desired."));
-							if (Result != EAppReturnType::Ok)
-							{
-								return;
-							}
-						}
-
-						if (ImageWrapper->GetBitDepth() <= 8)
-						{
-							ImageWrapper->GetRaw(ERGBFormat::Gray, 8, RawData);
-							Data.Reset();
-							Data.SetNumUninitialized(RawData->Num() * sizeof(uint16));
-							uint16* DataPtr = (uint16*)Data.GetData();
-							for (int32 i = 0; i < RawData->Num(); i++)
-							{
-								DataPtr[i] = (*RawData)[i] * 0x101; // Expand to 16-bit
-							}
-							RawData = &Data;
-						}
-						else
-						{
-							ImageWrapper->GetRaw(ERGBFormat::Gray, 16, RawData);
-						}
-					}
-					else
-					{
-						if (ImageWrapper->GetFormat() != ERGBFormat::Gray)
-						{
-							EAppReturnType::Type Result = FMessageDialog::Open(EAppMsgType::OkCancel, NSLOCTEXT("LandscapeEditor.NewLandscape", "Import_LayerColorPng", "The Layer file appears to be a color png, grayscale is expected. The import *can* continue, but the result may not be what you expect..."));
-							if (Result != EAppReturnType::Ok)
-							{
-								return;
-							}
-						}
-
-						ImageWrapper->GetRaw(ERGBFormat::Gray, 8, RawData);
-					}
-
-					if (ImportSizeX != SizeX || ImportSizeY != SizeY)
-					{
-						// Cloned from FLandscapeEditorDetailCustomization_NewLandscape.OnCreateButtonClicked
-						// so that reimports behave the same as the initial import :)
-
-						const int32 OffsetX = (SizeX - ImportSizeX) / 2;
-						const int32 OffsetY = (SizeY - ImportSizeY) / 2;
-
-						if (TargetInfo.TargetType == ELandscapeToolTargetType::Heightmap)
-						{
-							// have to use a TempData because RawData could be pointing to Data
-							TArray<uint8> TempData;
-							TempData.SetNumUninitialized(SizeX * SizeY * sizeof(uint16));
-
-							LandscapeEditorUtils::ExpandData<uint16>((uint16*)TempData.GetData(), (const uint16*)RawData->GetData(),
-								0, 0, ImportSizeX - 1, ImportSizeY - 1,
-								-OffsetX, -OffsetY, SizeX - OffsetX - 1, SizeY - OffsetY - 1);
-
-							Data = MoveTemp(TempData);
-							RawData = &Data;
-						}
-						else
-						{
-							Data = LandscapeEditorUtils::ExpandData<uint8>(*RawData,
-								0, 0, ImportSizeX - 1, ImportSizeY - 1,
-								-OffsetX, -OffsetY, SizeX - OffsetX - 1, SizeY - OffsetY - 1);
-							RawData = &Data;
-						}
-					}
+					return;
 				}
 				else
 				{
-					FMessageDialog::Open(EAppMsgType::Ok,
-						FText::Format(LOCTEXT("ImportData_CorruptPngFile", "Import of {0} failed (corrupt png?)"), FText::FromString(Filename)));
+					ImportResolution = LandscapeResolution;
+				}
+			}
+
+			// display warning message if there is one and allow user to cancel
+			if (HeightmapInfo.ResultCode == ELandscapeImportResult::Warning)
+			{
+				auto Result = FMessageDialog::Open(EAppMsgType::OkCancel, HeightmapInfo.ErrorMessage);
+
+				if (Result != EAppReturnType::Ok)
+				{
 					return;
 				}
 			}
-			else
+
+			// if the file is a format with resolution information, warn the user if the resolution doesn't match the current landscape
+			// unlike for raw this is only a warning as we can pad/clip the data if we know what resolution it is
+			if (HeightmapInfo.PossibleResolutions.Num() == 1)
 			{
-				// I would love to deprecate the raw/r8/r16 support for landscape, r16 doesn't even handle endianness issues...
-				RawData = &Data;
+				ImportResolution = HeightmapInfo.PossibleResolutions[0];
+				if (ImportResolution != LandscapeResolution)
+				{
+					FFormatNamedArguments Args;
+					Args.Add(TEXT("FileSizeX"), ImportResolution.Width);
+					Args.Add(TEXT("FileSizeY"), ImportResolution.Height);
+					Args.Add(TEXT("LandscapeSizeX"), LandscapeResolution.Width);
+					Args.Add(TEXT("LandscapeSizeY"), LandscapeResolution.Height);
+
+					auto Result = FMessageDialog::Open(EAppMsgType::OkCancel,
+						FText::Format(NSLOCTEXT("LandscapeEditor.NewLandscape", "Import_HeightmapSizeMismatch", "The heightmap file's size ({FileSizeX}\u00D7{FileSizeY}) does not match the current Landscape extent ({LandscapeSizeX}\u00D7{LandscapeSizeY}), if you continue it will be padded/clipped to fit"), Args));
+
+					if (Result != EAppReturnType::Ok)
+					{
+						return;
+					}
+				}
 			}
 
-			if (TargetInfo.TargetType == ELandscapeToolTargetType::Heightmap)
+			FLandscapeHeightmapImportData ImportData = HeightmapFormat->Import(*Filename, ImportResolution);
+
+			if (ImportData.ResultCode == ELandscapeImportResult::Error)
 			{
-				if (RawData->Num() == SizeX * SizeY * sizeof(uint16))
-				{
-					FHeightmapAccessor<false> HeightmapAccessor(LandscapeInfo);
-					HeightmapAccessor.SetData(MinX, MinY, MaxX, MaxY, (const uint16*)RawData->GetData());
-				}
-				else
-				{
-					FMessageDialog::Open(EAppMsgType::Ok,
-						FText::Format(NSLOCTEXT("UnrealEd", "LandscapeReImport_BadFileSize", "{0}'s filesize does not match with current Landscape extent"), FText::FromString(Filename)));
-				}
+				FMessageDialog::Open(EAppMsgType::Ok, ImportData.ErrorMessage);
+
+				return;
+			}
+
+			TArray<uint16> Data;
+			if (ImportResolution != LandscapeResolution)
+			{
+				// Cloned from FLandscapeEditorDetailCustomization_NewLandscape.OnCreateButtonClicked
+				// so that reimports behave the same as the initial import :)
+
+				const int32 OffsetX = (int32)(LandscapeResolution.Width - ImportResolution.Width) / 2;
+				const int32 OffsetY = (int32)(LandscapeResolution.Height - ImportResolution.Height) / 2;
+
+				Data.SetNumUninitialized(LandscapeResolution.Width * LandscapeResolution.Height * sizeof(uint16));
+
+				LandscapeEditorUtils::ExpandData<uint16>(Data.GetData(), ImportData.Data.GetData(),
+					0, 0, ImportResolution.Width - 1, ImportResolution.Height - 1,
+					-OffsetX, -OffsetY, LandscapeResolution.Width - OffsetX - 1, LandscapeResolution.Height - OffsetY - 1);
 			}
 			else
 			{
-				if (RawData->Num() == SizeX * SizeY)
+				Data = MoveTemp(ImportData.Data);
+			}
+
+			FScopedTransaction Transaction(LOCTEXT("Undo_ImportHeightmap", "Importing Landscape Heightmap"));
+
+			FHeightmapAccessor<false> HeightmapAccessor(LandscapeInfo);
+			HeightmapAccessor.SetData(MinX, MinY, MaxX, MaxY, Data.GetData());
+		}
+		else
+		{
+			const ILandscapeWeightmapFileFormat* WeightmapFormat = LandscapeEditorModule.GetWeightmapFormatByExtension(*FPaths::GetExtension(Filename, true));
+
+			if (!WeightmapFormat)
+			{
+				FMessageDialog::Open(EAppMsgType::Ok, NSLOCTEXT("LandscapeEditor.NewLandscape", "Import_UnknownFileType", "File type not recognised"));
+
+				return;
+			}
+
+			FLandscapeFileResolution ImportResolution = {0, 0};
+
+			const FLandscapeWeightmapInfo WeightmapInfo = WeightmapFormat->Validate(*Filename, TargetInfo.LayerName);
+
+			// display error message if there is one, and abort the import
+			if (WeightmapInfo.ResultCode == ELandscapeImportResult::Error)
+			{
+				FMessageDialog::Open(EAppMsgType::Ok, WeightmapInfo.ErrorMessage);
+
+				return;
+			}
+
+			// if the file is a raw format with multiple possibly resolutions, only attempt import if one matches the current landscape
+			if (WeightmapInfo.PossibleResolutions.Num() > 1)
+			{
+				if (!WeightmapInfo.PossibleResolutions.Contains(LandscapeResolution))
 				{
-					FAlphamapAccessor<false, false> AlphamapAccessor(LandscapeInfo, TargetInfo.LayerInfoObj.Get());
-					AlphamapAccessor.SetData(MinX, MinY, MaxX, MaxY, RawData->GetData(), ELandscapeLayerPaintingRestriction::None);
+					FFormatNamedArguments Args;
+					Args.Add(TEXT("LandscapeSizeX"), LandscapeResolution.Width);
+					Args.Add(TEXT("LandscapeSizeY"), LandscapeResolution.Height);
+
+					FMessageDialog::Open(EAppMsgType::Ok,
+						FText::Format(NSLOCTEXT("LandscapeEditor.NewLandscape", "Import_LayerSizeMismatch_ResNotDetermined", "The layer file does not match the current Landscape extent ({LandscapeSizeX}\u00D7{LandscapeSizeY}), and its exact resolution could not be determined"), Args));
+
+					return;
 				}
 				else
 				{
-					FMessageDialog::Open(EAppMsgType::Ok,
-						FText::Format(NSLOCTEXT("UnrealEd", "LandscapeReImport_BadFileSize", "{0}'s filesize does not match with current Landscape extent"), FText::FromString(Filename)));
+					ImportResolution = LandscapeResolution;
+				}
+			}
+
+			// display warning message if there is one and allow user to cancel
+			if (WeightmapInfo.ResultCode == ELandscapeImportResult::Warning)
+			{
+				auto Result = FMessageDialog::Open(EAppMsgType::OkCancel, WeightmapInfo.ErrorMessage);
+
+				if (Result != EAppReturnType::Ok)
+				{
+					return;
+				}
+			}
+
+			// if the file is a format with resolution information, warn the user if the resolution doesn't match the current landscape
+			// unlike for raw this is only a warning as we can pad/clip the data if we know what resolution it is
+			if (WeightmapInfo.PossibleResolutions.Num() == 1)
+			{
+				ImportResolution = WeightmapInfo.PossibleResolutions[0];
+				if (ImportResolution != LandscapeResolution)
+				{
+					FFormatNamedArguments Args;
+					Args.Add(TEXT("FileSizeX"), ImportResolution.Width);
+					Args.Add(TEXT("FileSizeY"), ImportResolution.Height);
+					Args.Add(TEXT("LandscapeSizeX"), LandscapeResolution.Width);
+					Args.Add(TEXT("LandscapeSizeY"), LandscapeResolution.Height);
+
+					auto Result = FMessageDialog::Open(EAppMsgType::OkCancel,
+						FText::Format(NSLOCTEXT("LandscapeEditor.NewLandscape", "Import_LayerSizeMismatch_WillClamp", "The layer file's size ({FileSizeX}\u00D7{FileSizeY}) does not match the current Landscape extent ({LandscapeSizeX}\u00D7{LandscapeSizeY}), if you continue it will be padded/clipped to fit"), Args));
+
+					if (Result != EAppReturnType::Ok)
+					{
+						return;
+					}
+				}
+			}
+
+			FLandscapeWeightmapImportData ImportData = WeightmapFormat->Import(*Filename, TargetInfo.LayerName, ImportResolution);
+
+			if (ImportData.ResultCode == ELandscapeImportResult::Error)
+			{
+				FMessageDialog::Open(EAppMsgType::Ok, ImportData.ErrorMessage);
+
+				return;
+			}
+
+			TArray<uint8> Data;
+			if (ImportResolution != LandscapeResolution)
+			{
+				// Cloned from FLandscapeEditorDetailCustomization_NewLandscape.OnCreateButtonClicked
+				// so that reimports behave the same as the initial import :)
+
+				const int32 OffsetX = (int32)(LandscapeResolution.Width - ImportResolution.Width) / 2;
+				const int32 OffsetY = (int32)(LandscapeResolution.Height - ImportResolution.Height) / 2;
+
+				Data.SetNumUninitialized(LandscapeResolution.Width * LandscapeResolution.Height * sizeof(uint8));
+
+				LandscapeEditorUtils::ExpandData<uint8>(Data.GetData(), ImportData.Data.GetData(),
+					0, 0, ImportResolution.Width - 1, ImportResolution.Height - 1,
+					-OffsetX, -OffsetY, LandscapeResolution.Width - OffsetX - 1, LandscapeResolution.Height - OffsetY - 1);
+			}
+			else
+			{
+				Data = MoveTemp(ImportData.Data);
+			}
+
+			FScopedTransaction Transaction(LOCTEXT("Undo_ImportWeightmap", "Importing Landscape Layer"));
+
+			FAlphamapAccessor<false, false> AlphamapAccessor(LandscapeInfo, TargetInfo.LayerInfoObj.Get());
+			AlphamapAccessor.SetData(MinX, MinY, MaxX, MaxY, Data.GetData(), ELandscapeLayerPaintingRestriction::None);
+		}
+	}
+}
+
+void FEdModeLandscape::DeleteLandscapeComponents(ULandscapeInfo* LandscapeInfo, TSet<ULandscapeComponent*> ComponentsToDelete)
+{
+	LandscapeInfo->Modify();
+	ALandscapeProxy* Proxy = LandscapeInfo->GetLandscapeProxy();
+	Proxy->Modify();
+
+	for (ULandscapeComponent* Component : ComponentsToDelete)
+	{
+		Component->Modify();
+		ULandscapeHeightfieldCollisionComponent* CollisionComp = Component->CollisionComponent.Get();
+		if (CollisionComp)
+		{
+			CollisionComp->Modify();
+		}
+	}
+
+	int32 ComponentSizeVerts = LandscapeInfo->ComponentNumSubsections * (LandscapeInfo->SubsectionSizeQuads + 1);
+	int32 NeedHeightmapSize = 1 << FMath::CeilLogTwo(ComponentSizeVerts);
+
+	TSet<ULandscapeComponent*> HeightmapUpdateComponents;
+	// Need to split all the component which share Heightmap with selected components
+	// Search neighbor only
+	for (ULandscapeComponent* Component : ComponentsToDelete)
+	{
+		int32 SearchX = Component->HeightmapTexture->Source.GetSizeX() / NeedHeightmapSize;
+		int32 SearchY = Component->HeightmapTexture->Source.GetSizeY() / NeedHeightmapSize;
+		FIntPoint ComponentBase = Component->GetSectionBase() / Component->ComponentSizeQuads;
+
+		for (int32 Y = 0; Y < SearchY; ++Y)
+		{
+			for (int32 X = 0; X < SearchX; ++X)
+			{
+				// Search for four directions...
+				for (int32 Dir = 0; Dir < 4; ++Dir)
+				{
+					int32 XDir = (Dir >> 1) ? 1 : -1;
+					int32 YDir = (Dir % 2) ? 1 : -1;
+					ULandscapeComponent* Neighbor = LandscapeInfo->XYtoComponentMap.FindRef(ComponentBase + FIntPoint(XDir*X, YDir*Y));
+					if (Neighbor && Neighbor->HeightmapTexture == Component->HeightmapTexture && !HeightmapUpdateComponents.Contains(Neighbor))
+					{
+						Neighbor->Modify();
+						HeightmapUpdateComponents.Add(Neighbor);
+					}
 				}
 			}
 		}
 	}
+
+	// Changing Heightmap format for selected components
+	for (ULandscapeComponent* Component : HeightmapUpdateComponents)
+	{
+		ALandscape::SplitHeightmap(Component, false);
+	}
+
+	// Remove attached foliage
+	for (ULandscapeComponent* Component : ComponentsToDelete)
+	{
+		ULandscapeHeightfieldCollisionComponent* CollisionComp = Component->CollisionComponent.Get();
+		if (CollisionComp)
+		{
+			AInstancedFoliageActor::DeleteInstancesForComponent(Proxy->GetWorld(), CollisionComp);
+		}
+	}
+
+	// Check which ones are need for height map change
+	for (ULandscapeComponent* Component : ComponentsToDelete)
+	{
+		// Reset neighbors LOD information
+		FIntPoint ComponentBase = Component->GetSectionBase() / Component->ComponentSizeQuads;
+		FIntPoint NeighborKeys[8] =
+		{
+			ComponentBase + FIntPoint(-1, -1),
+			ComponentBase + FIntPoint(+0, -1),
+			ComponentBase + FIntPoint(+1, -1),
+			ComponentBase + FIntPoint(-1, +0),
+			ComponentBase + FIntPoint(+1, +0),
+			ComponentBase + FIntPoint(-1, +1),
+			ComponentBase + FIntPoint(+0, +1),
+			ComponentBase + FIntPoint(+1, +1)
+		};
+
+		for (const FIntPoint& NeighborKey : NeighborKeys)
+		{
+			ULandscapeComponent* NeighborComp = LandscapeInfo->XYtoComponentMap.FindRef(NeighborKey);
+			if (NeighborComp && !ComponentsToDelete.Contains(NeighborComp))
+			{
+				NeighborComp->Modify();
+				NeighborComp->InvalidateLightingCache();
+
+				// is this really needed? It can happen multiple times per component!
+				FComponentReregisterContext ReregisterContext(NeighborComp);
+			}
+		}
+
+		// Remove Selected Region in deleted Component
+		for (int32 Y = 0; Y < Component->ComponentSizeQuads; ++Y)
+		{
+			for (int32 X = 0; X < Component->ComponentSizeQuads; ++X)
+			{
+				LandscapeInfo->SelectedRegion.Remove(FIntPoint(X, Y) + Component->GetSectionBase());
+			}
+		}
+
+		if (Component->HeightmapTexture)
+		{
+			Component->HeightmapTexture->SetFlags(RF_Transactional);
+			Component->HeightmapTexture->Modify();
+			Component->HeightmapTexture->MarkPackageDirty();
+			Component->HeightmapTexture->ClearFlags(RF_Standalone); // Remove when there is no reference for this Heightmap...
+		}
+
+		for (int32 i = 0; i < Component->WeightmapTextures.Num(); ++i)
+		{
+			Component->WeightmapTextures[i]->SetFlags(RF_Transactional);
+			Component->WeightmapTextures[i]->Modify();
+			Component->WeightmapTextures[i]->MarkPackageDirty();
+			Component->WeightmapTextures[i]->ClearFlags(RF_Standalone);
+		}
+
+		if (Component->XYOffsetmapTexture)
+		{
+			Component->XYOffsetmapTexture->SetFlags(RF_Transactional);
+			Component->XYOffsetmapTexture->Modify();
+			Component->XYOffsetmapTexture->MarkPackageDirty();
+			Component->XYOffsetmapTexture->ClearFlags(RF_Standalone);
+		}
+
+		ULandscapeHeightfieldCollisionComponent* CollisionComp = Component->CollisionComponent.Get();
+		if (CollisionComp)
+		{
+			CollisionComp->DestroyComponent();
+		}
+		Component->DestroyComponent();
+	}
+
+	// Remove Selection
+	LandscapeInfo->ClearSelectedRegion(true);
+	//EdMode->SetMaskEnable(Landscape->SelectedRegion.Num());
+	GEngine->BroadcastLevelActorListChanged();
 }
 
 ALandscape* FEdModeLandscape::ChangeComponentSetting(int32 NumComponentsX, int32 NumComponentsY, int32 NumSubsections, int32 SubsectionSizeQuads, bool bResample)
@@ -2557,6 +2795,7 @@ ALandscape* FEdModeLandscape::ChangeComponentSetting(int32 NumComponentsX, int32
 			TArray<uint16> HeightData;
 			TArray<FLandscapeImportLayerInfo> ImportLayerInfos;
 			FVector LandscapeOffset = FVector::ZeroVector;
+			FIntPoint LandscapeOffsetQuads = FIntPoint::ZeroValue;
 			float LandscapeScaleFactor = 1.0f;
 
 			int32 NewMinX, NewMinY, NewMaxX, NewMaxY;
@@ -2636,6 +2875,7 @@ ALandscape* FEdModeLandscape::ChangeComponentSetting(int32 NumComponentsX, int32
 
 				// offset landscape to component boundary
 				LandscapeOffset = FVector(NewMinX, NewMinY, 0) * OldLandscapeProxy->GetActorScale();
+				LandscapeOffsetQuads = FIntPoint(NewMinX, NewMinY);
 				NewMinX = 0;
 				NewMinY = 0;
 				NewMaxX = NewVertsX - 1;
@@ -2655,12 +2895,15 @@ ALandscape* FEdModeLandscape::ChangeComponentSetting(int32 NumComponentsX, int32
 			Landscape->Import(FGuid::NewGuid(), NewMinX, NewMinY, NewMaxX, NewMaxY, NumSubsections, SubsectionSizeQuads, HeightData.GetData(), *OldLandscapeProxy->ReimportHeightmapFilePath, ImportLayerInfos, ELandscapeImportAlphamapType::Additive);
 
 			Landscape->MaxLODLevel = OldLandscapeProxy->MaxLODLevel;
+			Landscape->LODDistanceFactor = OldLandscapeProxy->LODDistanceFactor;
+			Landscape->LODFalloff = OldLandscapeProxy->LODFalloff;
 			Landscape->ExportLOD = OldLandscapeProxy->ExportLOD;
 			Landscape->StaticLightingLOD = OldLandscapeProxy->StaticLightingLOD;
+			Landscape->NegativeZBoundsExtension = OldLandscapeProxy->NegativeZBoundsExtension;
+			Landscape->PositiveZBoundsExtension = OldLandscapeProxy->PositiveZBoundsExtension;
 			Landscape->DefaultPhysMaterial = OldLandscapeProxy->DefaultPhysMaterial;
 			Landscape->StreamingDistanceMultiplier = OldLandscapeProxy->StreamingDistanceMultiplier;
 			Landscape->LandscapeHoleMaterial = OldLandscapeProxy->LandscapeHoleMaterial;
-			Landscape->LODDistanceFactor = OldLandscapeProxy->LODDistanceFactor;
 			Landscape->StaticLightingResolution = OldLandscapeProxy->StaticLightingResolution;
 			Landscape->bCastStaticShadow = OldLandscapeProxy->bCastStaticShadow;
 			Landscape->bCastShadowAsTwoSided = OldLandscapeProxy->bCastShadowAsTwoSided;
@@ -2677,13 +2920,15 @@ ALandscape* FEdModeLandscape::ChangeComponentSetting(int32 NumComponentsX, int32
 			Landscape->bUsedForNavigation = OldLandscapeProxy->bUsedForNavigation;
 			Landscape->MaxPaintedLayersPerComponent = OldLandscapeProxy->MaxPaintedLayersPerComponent;
 
+			Landscape->CreateLandscapeInfo();
+
 			// Clone landscape splines
 			TLazyObjectPtr<ALandscape> OldLandscapeActor = LandscapeInfo->LandscapeActor;
 			if (OldLandscapeActor.IsValid() && OldLandscapeActor->SplineComponent != NULL)
 			{
 				ULandscapeSplinesComponent* OldSplines = OldLandscapeActor->SplineComponent;
 				ULandscapeSplinesComponent* NewSplines = DuplicateObject<ULandscapeSplinesComponent>(OldSplines, Landscape, OldSplines->GetFName());
-				NewSplines->AttachTo(Landscape->GetRootComponent(), NAME_None, EAttachLocation::KeepWorldPosition);
+				NewSplines->AttachToComponent(Landscape->GetRootComponent(), FAttachmentTransformRules::KeepWorldTransform);
 
 				const FVector OldSplineScale = OldSplines->GetRelativeTransform().GetScale3D();
 				NewSplines->SetRelativeScale3D(FVector(OldSplineScale.X / LandscapeScaleFactor, OldSplineScale.Y / LandscapeScaleFactor, OldSplineScale.Z));
@@ -2712,17 +2957,49 @@ ALandscape* FEdModeLandscape::ChangeComponentSetting(int32 NumComponentsX, int32
 						}
 					}
 				}
+
+				// delete any components that were deleted in the original
+				TSet<ULandscapeComponent*> ComponentsToDelete;
+				for (const TPair<FIntPoint, ULandscapeComponent*>& Entry : NewLandscapeInfo->XYtoComponentMap)
+				{
+					if (!LandscapeInfo->XYtoComponentMap.Contains(Entry.Key))
+					{
+						ComponentsToDelete.Add(Entry.Value);
+					}
+				}
+				if (ComponentsToDelete.Num() > 0)
+				{
+					DeleteLandscapeComponents(NewLandscapeInfo, ComponentsToDelete);
+				}
 			}
 			else
 			{
 				// TODO: remap foliage when not resampling (i.e. when there isn't a 1:1 mapping between old and new component)
+
+				// delete any components that are in areas that were entirely deleted in the original
+				ULandscapeInfo* NewLandscapeInfo = Landscape->GetLandscapeInfo();	
+				TSet<ULandscapeComponent*> ComponentsToDelete;
+				for (const TPair<FIntPoint, ULandscapeComponent*>& Entry : NewLandscapeInfo->XYtoComponentMap)
+				{
+					float OldX = Entry.Key.X * NewComponentSizeQuads + LandscapeOffsetQuads.X;
+					float OldY = Entry.Key.Y * NewComponentSizeQuads + LandscapeOffsetQuads.Y;
+					TSet<ULandscapeComponent*> OverlapComponents;
+					LandscapeInfo->GetComponentsInRegion(OldX, OldY, OldX + NewComponentSizeQuads, OldY + NewComponentSizeQuads, OverlapComponents, false);
+					if (OverlapComponents.Num() == 0)
+					{
+						ComponentsToDelete.Add(Entry.Value);
+					}
+				}
+				if (ComponentsToDelete.Num() > 0)
+				{
+					DeleteLandscapeComponents(NewLandscapeInfo, ComponentsToDelete);
+				}
 			}
 
 			// Delete the old Landscape and all its proxies
-			for (TActorIterator<ALandscapeProxy> It(OldLandscapeProxy->GetWorld()); It; ++It)
+			for (ALandscapeStreamingProxy* Proxy : TActorRange<ALandscapeStreamingProxy>(OldLandscapeProxy->GetWorld()))
 			{
-				ALandscapeProxy* Proxy = (*It);
-				if (Proxy && Proxy->LandscapeActor == OldLandscapeActor)
+				if (Proxy->LandscapeActor == OldLandscapeActor)
 				{
 					Proxy->Destroy();
 				}
@@ -2730,6 +3007,8 @@ ALandscape* FEdModeLandscape::ChangeComponentSetting(int32 NumComponentsX, int32
 			OldLandscapeProxy->Destroy();
 		}
 	}
+
+	GEditor->RedrawLevelEditingViewports();
 
 	return Landscape;
 }

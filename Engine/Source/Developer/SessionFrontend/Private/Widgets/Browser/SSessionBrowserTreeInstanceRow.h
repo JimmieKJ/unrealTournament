@@ -58,27 +58,27 @@ public:
 				return SNew(SHorizontalBox)
 
 				+ SHorizontalBox::Slot()
-					.AutoWidth()
-					.VAlign(VAlign_Center)
+				.AutoWidth()
+				.VAlign(VAlign_Center)
+				[
+					SNew(SBox)
+					.WidthOverride(24)
+					.HeightOverride(24)
 					[
-						SNew(SBox)
-							.WidthOverride(24)
-							.HeightOverride(24)
-							[
-								SNew(SImage)
-									.Image((PlatformInfo) ? FEditorStyle::GetBrush(PlatformInfo->GetIconStyleName(PlatformInfo::EPlatformIconSize::Normal)) : FStyleDefaults::GetNoBrush())
-							]
+						SNew(SImage)
+						.Image((PlatformInfo) ? FEditorStyle::GetBrush(PlatformInfo->GetIconStyleName(PlatformInfo::EPlatformIconSize::Normal)) : FStyleDefaults::GetNoBrush())
 					]
+				]
 
 				+ SHorizontalBox::Slot()
-					.FillWidth(1.0f)
-					.Padding(2.0f, 0.0f, 0.0f, 0.0f)
-					.VAlign(VAlign_Center)
-					[
-						SNew(STextBlock)
-							.ColorAndOpacity(this, &SSessionBrowserTreeInstanceRow::HandleTextColorAndOpacity)
-							.Text(this, &SSessionBrowserTreeInstanceRow::HandleDeviceColumnText)
-					];
+				.FillWidth(1.0f)
+				.Padding(2.0f, 0.0f, 0.0f, 0.0f)
+				.VAlign(VAlign_Center)
+				[
+					SNew(STextBlock)
+					.ColorAndOpacity(this, &SSessionBrowserTreeInstanceRow::HandleTextColorAndOpacity)
+					.Text(this, &SSessionBrowserTreeInstanceRow::HandleDeviceColumnText)
+				];
 			}
 		}
 		else if (ColumnName == "Level")
@@ -103,16 +103,16 @@ public:
 					.HAlign(HAlign_Left)
 					[
 						SNew(SBorder)
-							.BorderBackgroundColor(this, &SSessionBrowserTreeInstanceRow::HandleInstanceBorderBackgroundColor)
-							.BorderImage(this, &SSessionBrowserTreeInstanceRow::HandleInstanceBorderBrush)
-							.ColorAndOpacity(FLinearColor(0.25f, 0.25f, 0.25f))
-							.Padding(FMargin(6.0f, 4.0f))
-							.VAlign(VAlign_Center)
-							[
-								SNew(STextBlock)
-									.Font(FEditorStyle::GetFontStyle("BoldFont"))
-									.Text(FText::FromString(InstanceInfo->GetInstanceName()))
-							]
+						.BorderBackgroundColor(this, &SSessionBrowserTreeInstanceRow::HandleInstanceBorderBackgroundColor)
+						.BorderImage(this, &SSessionBrowserTreeInstanceRow::HandleInstanceBorderBrush)
+						.ColorAndOpacity(FLinearColor(0.25f, 0.25f, 0.25f))
+						.Padding(FMargin(6.0f, 4.0f))
+						.VAlign(VAlign_Center)
+						[
+							SNew(STextBlock)
+							.Font(FEditorStyle::GetFontStyle("BoldFont"))
+							.Text(FText::FromString(InstanceInfo->GetInstanceName()))
+						]
 					];
 			}
 		}
@@ -121,23 +121,22 @@ public:
 			return SNew(SHorizontalBox)
 
 			+ SHorizontalBox::Slot()
-				.FillWidth(1.0f)
-				.Padding(FMargin(4.0f, 0.0f, 0.0f, 0.0f))
-				.HAlign(HAlign_Right)
-				.VAlign(VAlign_Center)
-				[
-					SNew(SImage)
-						.Image(this, &SSessionBrowserTreeInstanceRow::HandleAuthorizedImage)
-				]
+			.AutoWidth()
+			.Padding(FMargin(4.0f, 0.0f, 0.0f, 0.0f))
+			.VAlign(VAlign_Center)
+			[
+				SNew(SImage)
+				.Image(this, &SSessionBrowserTreeInstanceRow::HandleAuthorizedImage)
+			]
 
 			+ SHorizontalBox::Slot()
-				.AutoWidth()
-				.Padding(FMargin(2.0f, 0.0f, 0.0f, 4.0f))
-				.VAlign(VAlign_Center)
-				[
-					SNew(SImage)
-						.Image(this, &SSessionBrowserTreeInstanceRow::HandleStatusImage)
-				];
+			.AutoWidth()
+			.Padding(FMargin(4.0f, 0.0f, 0.0f, 0.0f))
+			.VAlign(VAlign_Center)
+			[
+				SNew(SImage)
+				.Image(this, &SSessionBrowserTreeInstanceRow::HandleStatusImage)
+			];
 		}
 		else if (ColumnName == "Type")
 		{
@@ -146,13 +145,13 @@ public:
 			if (InstanceInfo.IsValid())
 			{
 				return SNew(SBox)
-					.Padding(FMargin(4.0f, 0.0f))
-					.VAlign(VAlign_Center)
-					[
-						SNew(STextBlock)
-							.ColorAndOpacity(this, &SSessionBrowserTreeInstanceRow::HandleTextColorAndOpacity)
-							.Text(this, &SSessionBrowserTreeInstanceRow::HandleInstanceTypeText)
-					];
+				.Padding(FMargin(4.0f, 0.0f))
+				.VAlign(VAlign_Center)
+				[
+					SNew(STextBlock)
+					.ColorAndOpacity(this, &SSessionBrowserTreeInstanceRow::HandleTextColorAndOpacity)
+					.Text(this, &SSessionBrowserTreeInstanceRow::HandleInstanceTypeText)
+				];
 			}
 		}
 

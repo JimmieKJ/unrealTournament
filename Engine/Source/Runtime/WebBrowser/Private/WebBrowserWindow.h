@@ -26,6 +26,7 @@
 	#include "HideWindowsPlatformTypes.h"
 #endif
 
+class FBrowserBufferedVideo;
 /**
  * Helper for containing items required for CEF browser window creation.
  */
@@ -139,7 +140,7 @@ public:
 	{
 		return NeedsRedrawEvent;
 	}
-
+	
 	virtual FOnBeforeBrowse& OnBeforeBrowse() override
 	{
 		return BeforeBrowseDelegate;
@@ -383,6 +384,11 @@ public:
 	void CheckTickActivity();
 
 	/**
+	* Called from the engine tick.
+	*/
+	void UpdateVideoBuffering();
+
+	/**
 	 * Called on every browser window when CEF launches a new render process.
 	 * Used to ensure global JS objects are registered as soon as possible.
 	 */
@@ -456,7 +462,7 @@ private:
 
 	/** Delegate for notifying that the window needs refreshing. */
 	FOnNeedsRedraw NeedsRedrawEvent;
-	
+
 	/** Delegate that is executed prior to browser navigation. */
 	FOnBeforeBrowse BeforeBrowseDelegate;
 
@@ -509,6 +515,8 @@ private:
 	bool bRecoverFromRenderProcessCrash;
 
 	int ErrorCode;
+
+	TUniquePtr<FBrowserBufferedVideo> BufferedVideo;
 
 	/** Handling of passing and marshalling messages for JS integration is delegated to a helper class*/
 	TSharedPtr<FWebJSScripting> Scripting;

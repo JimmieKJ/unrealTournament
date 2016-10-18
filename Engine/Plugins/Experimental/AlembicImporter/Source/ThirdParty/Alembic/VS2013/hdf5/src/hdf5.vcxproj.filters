@@ -1,0 +1,533 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5system.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5timer.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5trace.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5E.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Edeprec.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Eint.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5F.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Faccum.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Fcwfs.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Fdbg.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Fefc.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Ffake.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Fio.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Fmount.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Fmpi.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Fquery.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Fsfile.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Fsuper.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Fsuper_cache.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Ftest.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5FD.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5FDcore.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5FDdirect.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5FDfamily.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5FDint.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5FDlog.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5FDmpi.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5FDmpio.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5FDmpiposix.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5FDmulti.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5FDsec2.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5FDspace.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5FDstdio.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5FS.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5FScache.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5FSdbg.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5FSsection.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5FSstat.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5FStest.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5G.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Gbtree2.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Gcache.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Gcompact.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Gdense.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Gdeprec.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Gent.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Gint.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Glink.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Gloc.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Gname.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Gnode.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Gobj.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Goh.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Groot.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Gstab.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Gtest.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Gtraverse.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5HF.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5HFbtree2.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5HFcache.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5HFdbg.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5HFdblock.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5HFdtable.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5HFhdr.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5HFhuge.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5HFiblock.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5HFiter.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5HFman.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5HFsection.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5HFspace.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5HFstat.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5HFtest.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5HFtiny.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5HG.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5HGcache.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5HGdbg.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5HGquery.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5HL.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5HLcache.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5HLdbg.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5HLint.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5MF.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5MFaggr.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5MFdbg.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5MFsection.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5MP.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5MPtest.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5O.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Oainfo.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Oalloc.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Oattr.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Oattribute.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Obogus.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Obtreek.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Ocache.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Ochunk.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Ocont.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Ocopy.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Odbg.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Odrvinfo.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Odtype.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Oefl.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Ofill.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Oginfo.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Olayout.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Olinfo.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Olink.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Omessage.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Omtime.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Oname.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Onull.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Opline.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Orefcount.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Osdspace.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Oshared.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Oshmesg.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Ostab.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Otest.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Ounknown.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5P.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Pacpl.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Pdapl.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Pdcpl.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Pdeprec.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Pdxpl.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Pfapl.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Pfcpl.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Pfmpl.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Pgcpl.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Pint.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Plapl.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Plcpl.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Pocpl.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Pocpypl.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Pstrcpl.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Ptest.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5S.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Sall.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Sdbg.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Shyper.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Smpio.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Snone.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Spoint.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Sselect.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Stest.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5SM.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5SMbtree2.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5SMcache.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5SMmessage.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5SMtest.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5T.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Tarray.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Tbit.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Tcommit.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Tcompound.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Tconv.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Tcset.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Tdbg.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Tdeprec.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Tenum.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Tfields.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Tfixed.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Tfloat.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Tnative.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Toffset.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Toh.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Topaque.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Torder.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Tpad.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Tprecis.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Tstrpad.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Tvisit.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Tvlen.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Z.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Zdeflate.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Zfletcher32.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Znbit.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Zscaleoffset.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Zshuffle.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Zszip.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Ztrans.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5FL.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5FO.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5HP.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5I.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Itest.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5L.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Lexternal.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5MM.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5R.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5RC.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Rdeprec.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5RS.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5SL.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5ST.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5TS.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5V.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5WB.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5FDwindows.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\H5Tinit.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\H5lib_settings.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5A.c">
+      <Filter>H5A</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Abtree2.c">
+      <Filter>H5A</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Adense.c">
+      <Filter>H5A</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Adeprec.c">
+      <Filter>H5A</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Aint.c">
+      <Filter>H5A</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Atest.c">
+      <Filter>H5A</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5AC.c">
+      <Filter>H5AC</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5B.c">
+      <Filter>H5B</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5B2.c">
+      <Filter>H5B</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5B2cache.c">
+      <Filter>H5B</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5B2dbg.c">
+      <Filter>H5B</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5B2hdr.c">
+      <Filter>H5B</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5B2int.c">
+      <Filter>H5B</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5B2stat.c">
+      <Filter>H5B</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5B2test.c">
+      <Filter>H5B</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Bcache.c">
+      <Filter>H5B</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Bdbg.c">
+      <Filter>H5B</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5C.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5checksum.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5CS.c" />
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5D.c">
+      <Filter>H5D</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5dbg.c">
+      <Filter>H5D</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Dbtree.c">
+      <Filter>H5D</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Dchunk.c">
+      <Filter>H5D</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Dcompact.c">
+      <Filter>H5D</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Dcontig.c">
+      <Filter>H5D</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Ddbg.c">
+      <Filter>H5D</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Ddeprec.c">
+      <Filter>H5D</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Defl.c">
+      <Filter>H5D</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Dfill.c">
+      <Filter>H5D</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Dint.c">
+      <Filter>H5D</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Dio.c">
+      <Filter>H5D</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Dlayout.c">
+      <Filter>H5D</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Dmpio.c">
+      <Filter>H5D</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Doh.c">
+      <Filter>H5D</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Dscatgath.c">
+      <Filter>H5D</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Dselect.c">
+      <Filter>H5D</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\..\hdf5-1.8.9\src\H5Dtest.c">
+      <Filter>H5D</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Edefin.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\hdf5.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5public.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5version.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5overflow.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Edefin.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Einit.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Epkg.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Epubgen.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Epublic.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Eterm.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Fpkg.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Fpublic.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5FDcore.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5FDdirect.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5FDfamily.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5FDlog.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5FDmpi.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5FDmpio.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5FDmpiposix.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5FDmulti.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5FDpkg.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5FDpublic.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5FDsec2.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5FDstdio.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5FSpkg.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5FSpublic.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Gpkg.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Gpublic.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5HFpkg.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5HFpublic.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5HGpkg.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5HGpublic.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5HLpkg.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5HLpublic.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5MPpkg.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Opkg.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Opublic.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Oshared.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Ppkg.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Ppublic.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Spkg.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Spublic.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5SMpkg.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Tpkg.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Tpublic.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Zpkg.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Zpublic.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Ipkg.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Ipublic.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Lpkg.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Lpublic.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5MMpublic.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Rpkg.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Rpublic.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5FDwindows.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5private.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Eprivate.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5FDprivate.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Fprivate.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5FLprivate.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5FOprivate.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5MFprivate.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5MMprivate.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5FSprivate.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Gprivate.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5HFprivate.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5HGprivate.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5HLprivate.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5HPprivate.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Iprivate.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Lprivate.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5MPprivate.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Oprivate.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Pprivate.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5RCprivate.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Rprivate.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5RSprivate.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5SLprivate.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5SMprivate.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Sprivate.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5STprivate.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Tprivate.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5TSprivate.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Vprivate.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5WBprivate.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Zprivate.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5win32defs.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5api_adpt.h">
+      <Filter>H5A</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Apkg.h">
+      <Filter>H5A</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Aprivate.h">
+      <Filter>H5A</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Apublic.h">
+      <Filter>H5A</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5ACpkg.h">
+      <Filter>H5AC</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5ACprivate.h">
+      <Filter>H5AC</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5ACpublic.h">
+      <Filter>H5AC</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5B2pkg.h">
+      <Filter>H5B</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5B2private.h">
+      <Filter>H5B</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5B2public.h">
+      <Filter>H5B</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Bpkg.h">
+      <Filter>H5B</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Bprivate.h">
+      <Filter>H5B</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Bpublic.h">
+      <Filter>H5B</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Cpkg.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Cprivate.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Cpublic.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5CSprivate.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Dpkg.h">
+      <Filter>H5D</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Dprivate.h">
+      <Filter>H5D</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\hdf5-1.8.9\src\H5Dpublic.h">
+      <Filter>H5D</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\..\hdf5-1.8.9\H5Edefin.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\H5version.h" />
+    <ClInclude Include="..\..\..\hdf5-1.8.9\H5overflow.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{89392D1A-7575-4D02-955C-57341018A270}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{1833F73C-2966-4E61-8211-B6B7A2BB807B}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="H5">
+      <UniqueIdentifier>{7CA6BB3A-5B6E-49DA-A97F-B687FE977242}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="H5A">
+      <UniqueIdentifier>{00A62EDE-D4BD-4694-8C88-B93066F6FEA9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="H5B">
+      <UniqueIdentifier>{0185005F-9542-4D79-ABC4-9BCBFB057A1E}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="H5D">
+      <UniqueIdentifier>{0EC187B7-9F19-4948-B163-BDFB5DE884FB}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="H5E">
+      <UniqueIdentifier>{7C13902F-9C4D-4054-BF9B-BBA9AE34A771}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="H5F">
+      <UniqueIdentifier>{AF9043E9-431E-44F9-83D4-16EF1F254F18}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="H5FD">
+      <UniqueIdentifier>{4F9D2906-64E9-4B9B-A70D-FD3ECA7917E1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="H5FS">
+      <UniqueIdentifier>{ACC69361-6303-4610-92D1-24032A1055C1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="H5G">
+      <UniqueIdentifier>{79C7DC39-1E2F-42A8-8698-C38CBF65A869}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="H5HF">
+      <UniqueIdentifier>{9FA43F7E-D8A4-4F24-867B-FB2EAE909A4F}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="H5HG">
+      <UniqueIdentifier>{0A452539-2B95-40D9-8422-DE634D6F55B9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="H5HL">
+      <UniqueIdentifier>{A3C1EB5E-4FBF-40B0-AC46-AEDFD6360C2B}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="H5MF">
+      <UniqueIdentifier>{58EB6865-DB0E-4C91-AACD-80A73493FFB9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="H5MP">
+      <UniqueIdentifier>{B92F2AF5-6934-4480-BCCF-68B114B6D892}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="H5O">
+      <UniqueIdentifier>{6DAB48DB-D33F-4815-9391-21462A707C13}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="H5P">
+      <UniqueIdentifier>{33D14FF5-31E7-445E-B3EB-D8C7B21A38F8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="H5S">
+      <UniqueIdentifier>{93F16AD4-2CFB-4D61-A4EF-EEC066A6A2E1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="H5SM">
+      <UniqueIdentifier>{3A21A120-B813-48E0-A731-CF1147EDE4BB}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="H5T">
+      <UniqueIdentifier>{A55126CE-3543-4134-A0E3-DB7A6949CC1D}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="H5Z">
+      <UniqueIdentifier>{8D548D85-066B-401A-A81D-48B1BF8359B6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="H5AC">
+      <UniqueIdentifier>{F01D4D5F-4421-42A0-BB10-8DC1A29DB26F}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

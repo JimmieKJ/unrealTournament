@@ -75,7 +75,7 @@ FStructuredBufferRHIRef FD3D11DynamicRHI::RHICreateStructuredBuffer(uint32 Strid
 	}
 
 	TRefCountPtr<ID3D11Buffer> StructuredBufferResource;
-	VERIFYD3D11RESULT(Direct3DDevice->CreateBuffer(&Desc,pInitData,StructuredBufferResource.GetInitReference()));
+	VERIFYD3D11RESULT_EX(Direct3DDevice->CreateBuffer(&Desc,pInitData,StructuredBufferResource.GetInitReference()), Direct3DDevice);
 
 	UpdateBufferStats(StructuredBufferResource, true);
 
@@ -109,7 +109,7 @@ void* FD3D11DynamicRHI::RHILockStructuredBuffer(FStructuredBufferRHIParamRef Str
 
 		// If the buffer is dynamic, map its memory for writing.
 		D3D11_MAPPED_SUBRESOURCE MappedSubresource;
-		VERIFYD3D11RESULT(Direct3DDeviceIMContext->Map(StructuredBuffer->Resource,0,D3D11_MAP_WRITE_DISCARD,0,&MappedSubresource));
+		VERIFYD3D11RESULT_EX(Direct3DDeviceIMContext->Map(StructuredBuffer->Resource,0,D3D11_MAP_WRITE_DISCARD,0,&MappedSubresource), Direct3DDevice);
 		LockedData.SetData(MappedSubresource.pData);
 		LockedData.Pitch = MappedSubresource.RowPitch;
 	}
@@ -126,7 +126,7 @@ void* FD3D11DynamicRHI::RHILockStructuredBuffer(FStructuredBufferRHIParamRef Str
 			StagingBufferDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
 			StagingBufferDesc.MiscFlags = 0;
 			TRefCountPtr<ID3D11Buffer> StagingStructuredBuffer;
-			VERIFYD3D11RESULT(Direct3DDevice->CreateBuffer(&StagingBufferDesc,NULL,StagingStructuredBuffer.GetInitReference()));
+			VERIFYD3D11RESULT_EX(Direct3DDevice->CreateBuffer(&StagingBufferDesc,NULL,StagingStructuredBuffer.GetInitReference()), Direct3DDevice);
 			LockedData.StagingResource = StagingStructuredBuffer;
 
 			// Copy the contents of the Structured buffer to the staging buffer.
@@ -134,7 +134,7 @@ void* FD3D11DynamicRHI::RHILockStructuredBuffer(FStructuredBufferRHIParamRef Str
 
 			// Map the staging buffer's memory for reading.
 			D3D11_MAPPED_SUBRESOURCE MappedSubresource;
-			VERIFYD3D11RESULT(Direct3DDeviceIMContext->Map(StagingStructuredBuffer,0,D3D11_MAP_READ,0,&MappedSubresource));
+			VERIFYD3D11RESULT_EX(Direct3DDeviceIMContext->Map(StagingStructuredBuffer,0,D3D11_MAP_READ,0,&MappedSubresource), Direct3DDevice);
 			LockedData.SetData(MappedSubresource.pData);
 			LockedData.Pitch = MappedSubresource.RowPitch;
 		}

@@ -7,23 +7,6 @@
 #include "RecomputeTangentsCommon.usf"
 #include "FastMath.usf"
 
-// start offset within GPUSkinCacheBuffer[]
-uint GPUSkinCacheFloatOffset;
-// input vertex data (SkinCache output)
-// Buffer<float> GPUSkinCacheBuffer;
-// used as input in MainCS()
-Buffer<float> GPUSkinCacheBuffer;
-
-uint SkinCacheVertexStride;
-uint SkinCacheInputStreamFloatOffset;
-Buffer<float> SkinStreamInputBuffer;
-
-// start index in IndexBuffer[]
-uint IndexBufferOffset;
-// todo: test 16bit and 32 bit 
-/// only needed for MainCS()
-Buffer<uint> IndexBuffer;
-
 struct FVertexData
 {
 	// vertex index in the vertexbuffer
@@ -54,21 +37,21 @@ FVertexData GetVertex(uint VertexIndex)
 	// is filled out later
 	Ret.Angle = 0;
 
+	// no start offset as we reuse the same buffer always from 0 on
+	Ret.VertexIndex = VertexIndex;
+
 	{
 		// start offset within GPUSkinCacheBuffer[]
-		uint OutputOffset = VertexIndex * GPUSKIN_RWBUFFER_NUM_FLOATS + GPUSkinCacheFloatOffset;
+		uint OutputOffset = VertexIndex * GPUSKIN_RWBUFFER_NUM_FLOATS + SkinCacheStart;
 	
-		// no start offset as we reuse the same buffer always from 0 on
-		Ret.VertexIndex = VertexIndex;
-
 		Ret.Position.x = GPUSkinCacheBuffer[OutputOffset + GPUSKIN_RWBUFFER_OFFSET_POSITION + 0];
 		Ret.Position.y = GPUSkinCacheBuffer[OutputOffset + GPUSKIN_RWBUFFER_OFFSET_POSITION + 1];
 		Ret.Position.z = GPUSkinCacheBuffer[OutputOffset + GPUSKIN_RWBUFFER_OFFSET_POSITION + 2];
 	}
 
 	{
-		uint FloatsPerVertex = SkinCacheVertexStride / 4;
-		uint InputOffset = VertexIndex * FloatsPerVertex + SkinCacheInputStreamFloatOffset;
+		uint FloatsPerVertex = InputStreamStride / 4;
+		uint InputOffset = VertexIndex * FloatsPerVertex + InputStreamStart;
 
 		if(FULL_PRECISION_UV)
 		{
@@ -95,7 +78,7 @@ void MainCS(
 	uint TriangleIndex = DispatchThreadId;
 
 	// We need this to restrict processing of triangles to the valid range (We run a Dispatch with a coarse granularity and would process too many elements without that)
-	if(TriangleIndex < UnitCount)
+	if(TriangleIndex < NumTriangles)
 	{
 		// 3 triangle corners
 		FVertexData Corner[3];
@@ -105,7 +88,8 @@ void MainCS(
 
 			UNROLL for(uint CornerId = 0; CornerId < 3; ++CornerId)
 			{
-				uint VertexIndex = IndexBuffer[TriangleIndexBufferStart + CornerId]; //+ SkinCacheInputStreamFloatOffset;
+				uint FloatsPerVertex = InputStreamStride / 4;
+				uint VertexIndex = IndexBuffer[TriangleIndexBufferStart + CornerId] - InputStreamStart / FloatsPerVertex;
 
 				Corner[CornerId] = GetVertex(VertexIndex);
 			}

@@ -117,6 +117,9 @@ class AIMODULE_API UEnvQueryManager : public UObject, public FTickableGameObject
 	// GetWorld() and so provide access to blueprint nodes using hidden WorldContextObject parameters.
 	virtual UWorld* GetWorld() const override;
 
+	/** [FTickableGameObject] get world function */
+	virtual UWorld* GetTickableGameObjectWorld() const override { return GetWorld(); }
+
 	/** [FTickableGameObject] tick function */
 	virtual void Tick(float DeltaTime) override;
 

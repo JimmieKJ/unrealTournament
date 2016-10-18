@@ -279,10 +279,7 @@ namespace DeploymentServer
 		private static DeploymentImplementation Deployer = null;
 		private static void RunCommand()
 		{
-			if (!String.IsNullOrEmpty(Device) && !Device.Contains("All_iOS_On"))
-			{
-				Deployer.DeviceId = Device;
-			}
+			Deployer.DeviceId = Device;
 
 			bool bResult = true;
 			switch (Command)

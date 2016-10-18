@@ -30,7 +30,7 @@ sub print_build_history
 {
 	my ($ec, $ec_job, $stream, $node, $count, $before_change) = @_;
 	
-	my $history = get_build_history($ec, $ec_job, $stream, $node, $count, $before_change);
+	my $history = get_build_history($ec, $ec_job, $stream, $node, $count, $before_change, 1);
 	foreach(@{$history})
 	{
 		print "CL $_->{'properties'}->{'CL'}: Job $_->{'job_id'} \"$_->{'job_name'}\", JobStep $_->{'jobstep_id'}, Result = $_->{'result'}\n";
@@ -74,7 +74,7 @@ sub print_suspected_causers
 # writes a notification email to the local directory
 sub write_step_notification
 {
-	my ($ec, $ec_project, $jobstep_id, $workspace_name, $workspace_dir) = @_;
+	my ($ec, $ec_project, $jobstep_id, $workspace_name, $workspace_dir, $send_to) = @_;
 
 	# get the metadata for this job step
 	my $jobstep = ec_get_jobstep($ec, $jobstep_id);
@@ -87,18 +87,30 @@ sub write_step_notification
 	my $notifications = get_jobstep_notifications($ec, $ec_project, $job_definition, $jobstep, $workspace_name, $workspace_dir);
 	fail("No notifications for jobstep $jobstep_id") if !$notifications;
 	print "Default recipients: ".join(", ", @{$notifications->{'default_recipients'}})."\n";
-	print "Fail Causers: ".join(", ", @{$notifications->{'fail_causers'}})."\n";
+	print "Fail Causers: ".join(", ", @{$notifications->{'fail_causer_emails'}})."\n";
 	
 	# write the file to disk
 	my $output_file = "StepNotification.html";
 	print "Writing $output_file...\n";
 	write_file($output_file, $notifications->{'message_body'});
+
+	# send it to the recipients
+	if($send_to)
+	{
+		print "Sending to $send_to...\n";
+		my $arguments = {};
+		$arguments->{'configName'} = 'EpicMailer';
+		$arguments->{'subject'} = "[Build] $jobstep->{'job_name'} (Test)";
+		$arguments->{'to'} = $send_to;
+		$arguments->{'html'} = $notifications->{'message_body'};
+		$ec->sendEmail($arguments);
+	}
 }
 
 # writes a notification email to the local directory
-sub write_trigger_notification
+sub write_report_notification
 {
-	my ($ec, $ec_project, $job_id, $trigger_name) = @_;
+	my ($ec, $ec_project, $job_id, $report_name) = @_;
 	
 	# get the job details
 	my $job = ec_get_job($ec, $job_id);
@@ -108,90 +120,147 @@ sub write_trigger_notification
 	my $job_definition = read_json($job_definition_file);
 	
 	# find the trigger definition
-	my $trigger_definition = find_trigger_definition($job_definition, $trigger_name) || fail("Couldn't find definition for trigger $trigger_name");
+	my $report_definition = find_report_definition($job_definition, $report_name) || fail("Couldn't find definition for $report_name");
 	
 	# get all the jobsteps for it
-	my $trigger_jobsteps = get_trigger_jobsteps($job, $trigger_definition);
+	my $report_jobsteps = get_report_jobsteps($job, $report_definition);
 	
 	# get the notification info
-	my $message = get_trigger_notification($trigger_definition->{'Name'}, $job, $trigger_jobsteps);
+	my $message = get_report_notification($report_definition, $job, $report_jobsteps);
 	
 	# write the file to disk
-	my $output_file = "TriggerNotification.html";
+	my $output_file = "ReportNotification.html";
 	print "Writing $output_file...\n";
 	write_file($output_file, $message);
 }
 
 ### Utility functions ##################################################################################################################################################################################
 
-# gets notification information for a trigger
-sub get_trigger_notification
+# format the html header for a notification message
+sub get_notification_header
 {
-	my ($trigger_name, $job, $jobsteps) = @_;
-
-	# figure out the overall result
-	my $succeeded = ec_get_combined_result($jobsteps);
-
-	# get the summary
-	my $summary_message;
-	if($succeeded)
-	{
-		$summary_message = "The <b>'$trigger_name'</b> trigger is available for CL $job->{'properties'}->{'CL'} in the $job->{'properties'}->{'Stream'} stream.";
-	}
-	else
-	{
-		$summary_message = "The <b>'$trigger_name'</b> trigger for CL $job->{'properties'}->{'CL'} in the $job->{'properties'}->{'Stream'} stream is blocked due to errors.";
-	}
-	
-	# create the output message
-	my $message;
-	$message .= "<html xmlns=\"http://www.w3.org/1999/xhtml\">\n";
-	$message .= "<head>\n";
-	$message .= "    <meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\" />\n";
-	$message .= "<head>\n";
-	$message .= "<body style=\"margin:0;font-family: Arial, Helvetica, sans-serif;\">\n";
+	my ($outcome, $title, $summary_lines) = @_;
 
 	# write the header
-	my $header_info_key_style = "font-size: 11pt;font-weight: bold;text-align: left;vertical-align:top;padding-left: 30px;width:150px;color:white;";
-	my $header_info_value_style = "font-size: 11pt;padding: 3px 5px;vertical-align:top;color:white;";
-	my $header_info_link_style = "color: #ffffff;";
-	$message .= "    <div style=\"overflow:auto;border-spacing: 0;border-collapse: collapse;table-layout: fixed;padding-bottom: 30px;padding-left: 30px;padding-right: 30px; background: ".($succeeded? $success_color : $error_color).";color: #ffffff;\">\n";
-	$message .= "        <h1 style=\"margin-top: 20px;font-size: 36px;vertical-align: bottom;\">".($succeeded? "" : "<img src=\"https://cdn2.unrealengine.com/Maintenance/error-414x391-793315300.png\" width=\"42\" height=\"40\" style=\"vertical-align:bottom\"> ")."$trigger_name</h1>\n";
-	$message .= "        <div style=\"border: 2px solid #ffffff; padding-top:16px; padding-bottom:16px;\">\n";
-	$message .= "            <table>\n";
-	$message .= "                <tr>\n";
-	$message .= "                    <th style=\"$header_info_key_style\">Job</th>\n";
-	$message .= "                    <td style=\"$header_info_value_style\"><a href=\"".ec_get_full_url($job->{'job_url'})."\" style=\"$header_info_link_style\">$job->{'job_name'}</a></td>\n";
-	$message .= "                </tr>\n";
-	$message .= "                <tr>\n";
-	$message .= "                    <th style=\"$header_info_key_style\">Outcome</th>\n";
-	$message .= "                    <td style=\"$header_info_value_style\"><b>".($succeeded? "Ready" : "Failed")."</b></td>\n";
-	$message .= "                </tr>\n";
-	$message .= "            </table>\n";
-	$message .= "        </div>\n";
-	$message .= "    </div>\n";
+	my $message = "";
+	$message .= "<table width=\"100%\" cellpadding=\"25px\" style=\"background:".(($outcome eq 'success')? $success_color : ($outcome eq 'warning')? $warning_color : $error_color)."; color:#ffffff; min-width:640px;\" border=\"0\">";
+	$message .=     "<tr>";
+	$message .=         "<td>";
+	$message .=             "<table width=\"100%\" cellpadding=\"0px\" cellspacing=\"0px\">";
+	$message .=                 "<tr>";
+	$message .=                     "<td>";
+	$message .=                         "<table cellpadding=\"0px\" cellspacing=\"0px\">";
+	$message .=                             "<tr>";
+	if($outcome ne 'success')
+	{
+		$message .= "<td valign=\"middle\"><img src=\"https://cdn2.unrealengine.com/Maintenance/error-414x391-793315300.png\" width=\"42\" height=\"40\" alt=\"Alert\"></td>";
+		$message .= "<td width=\"10px\"><font size=\"1px\">&nbsp;</font></td>";
+	}
+	$message .=                                 "<td><h1 style=\"font-size: 36px; color:white; margin:0px;\">$title</h1></td>";
+	$message .=                             "</tr>";
+	$message .=	                        "</table>";
+	$message .=                     "</td>";
+	$message .=                 "</tr>";
+	$message .=                 "<tr>";
+	$message .=                     "<td style=\"font-size:1px;line-height:25px;\">&nbsp;</td>";
+	$message .=                 "</tr>";
+	$message .=                 "<tr>";
+	$message .=                     "<td>";
+	$message .=                         "<table width=\"100%\" cellpadding=\"20px\" style=\"border:2px solid white;\">";
+	$message .=                             "<tr>";
+	$message .=                                 "<td>";
+	$message .=                                     "<table cellpadding=\"2px\">";
+	foreach my $summary_line (@{$summary_lines})
+	{
+		$message .= "<tr>";
+		$message .=     "<td style=\"font-size: 11pt;font-weight: bold;text-align: left;vertical-align:top;padding-left:10px;width:150px;color:white;\">$summary_line->[0]</td>";
+		$message .=     "<td style=\"font-size: 11pt;vertical-align:top;color:white;\">$summary_line->[1]</td>";
+		$message .= "</tr>";
+	}
+	$message .=                                     "</table>";
+	$message .=                                 "</td>";
+	$message .=                             "</tr>";
+	$message .=                         "</table>";
+	$message .=                     "</td>";
+	$message .=                 "</tr>";
+	$message .=             "</table>";
+	$message .=         "</td>";
+	$message .=     "</tr>";
+	$message .= "</table>";
+	
+	# prevent gmail optimizing font sizes for mobile
+	$message .= "<div style=\"display:none; white-space:nowrap; font:15px courier; line-height:0;\">";
+	$message .=     "&nbsp; " x 30;
+	$message .= "</div>";
+	
+	$message;
+}
+
+# gets notification information for a report
+sub get_report_notification
+{
+	my ($report_definition, $job, $jobsteps) = @_;
+
+	# get the report name
+	my $report_name = $report_definition->{'Name'};
+	
+	# figure out the overall result
+	my $succeeded = ec_get_combined_result($jobsteps);
+	
+	# create the output message
+	my $html = "";
+	$html .= "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01 Transitional//EN\" \"http://www.w3.org/TR/html4/loose.dtd\">\n";
+	$html .= "<html>\n";
+	$html .= "<head>\n";
+	$html .= "	<title>$report_name</title>\n";
+	$html .= "	<meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\">\n";
+	$html .= "</head>\n";
+	$html .= "<body style=\"margin:0;font-family: Arial, Helvetica, sans-serif;\">\n";
+
+	# write the header
+	my $summary_lines = [];
+	push(@{$summary_lines}, [ "Job", "<a href=\"".encode_entities(ec_get_full_url($job->{'job_url'}))."\" style=\"color:white;\">$job->{'job_name'}</a>" ]);
+	push(@{$summary_lines}, [ "Outcome", "<b>".($succeeded? ($report_definition->{'IsTrigger'}? "Ready" : "Succeeded") : "Failed")."</b>" ]);
+	$html .= get_notification_header($succeeded? 'success' : 'error', $report_name, $summary_lines);
 
 	# find the max length of any dependency name
-	$message .= "    <div style=\"display:inline-block;margin-left:30px;\">\n";
-	$message .= "        <p style=\"font-size:small;margin-top:30px;margin-bottom:0px;\">$summary_message <a href=\"".ec_get_full_url($job->{'job_url'})."\"><b>Show Job</b></a></p>\n";
-	$message .= "        <table align=\"left\" style=\"margin-top:30px;margin-left:30px;\">\n";
+	$html .= "<table width=\"100%\" cellpadding=\"30px\">";
+	$html .=     "<tr>";
+	$html .=         "<td>";
+	if($report_definition->{'IsTrigger'})
+	{
+		my $message;
+		if($succeeded)
+		{
+			$message = "The <b>'$report_name'</b> trigger is available for CL $job->{'properties'}->{'CL'} in the $job->{'properties'}->{'Stream'} stream.";
+		}
+		else
+		{
+			$message = "The <b>'$report_name'</b> trigger for CL $job->{'properties'}->{'CL'} in the $job->{'properties'}->{'Stream'} stream is blocked due to errors.";
+		}
+		$html .= "<p style=\"font-size:small;margin:0px;margin-bottom:25px;\">$message <a href=\"".encode_entities(ec_get_full_url($job->{'job_url'}))."\"><b>Show Job</b></a></p>";
+	}
+	$html .=             "<table align=\"left\" style=\"margin-left:0px;\">";
 	foreach my $jobstep (@{$jobsteps})
 	{
 		my $result = $jobstep->{'result'};
 		my ($result_color, $result_text) = ($result eq 'success')? ($success_color, 'Success') : ($result eq 'warning')? ($warning_color, 'Warning') : (($result eq 'skipped')? 'gray' : $error_color, (uc (substr $result, 0, 1)).(substr $result, 1));
-		my $link = $jobstep->{'jobstep_url'}? ec_get_full_url($jobstep->{'jobstep_url'}) : undef;
-		$message .= "            <tr>\n";
-		$message .= "                <td style=\"padding:5px;padding-left:1em;padding-right:3em;background-color:#f0f0f0;font-size:small;\">".($link? "<a href=\"$link\">" : "").$jobstep->{'jobstep_name'}.($link? "</a>" : "")."</td>\n";
-		$message .= "                <td style=\"padding:3px;background-color:$result_color;text-align:center;color:white;min-width:8em;font-size:small;\">".($link? "<a href=\"$link\"" : "<span")." style=\"font-weight:bold;color:white;text-decoration:none;\">$result_text".($link? "</a>" : "</span>")."</td>\n";
-		$message .= "            </tr>\n";
+		my $link = $jobstep->{'jobstep_url'}? encode_entities(ec_get_full_url($jobstep->{'jobstep_url'})) : undef;
+		$html .= "<tr>";
+		$html .=     "<td style=\"padding:5px;padding-left:1em;padding-right:3em;background-color:#f0f0f0;font-size:small;\">".($link? "<a href=\"$link\">" : "").$jobstep->{'jobstep_name'}.($link? "</a>" : "")."</td>";
+		$html .=     "<td style=\"padding:3px;background-color:$result_color;text-align:center;color:white;min-width:8em;font-size:small;\">".($link? "<a href=\"$link\"" : "<span")." style=\"font-weight:bold;color:white;text-decoration:none;\">$result_text".($link? "</a>" : "</span>")."</td>";
+		$html .= "</tr>";
 	}
-	$message .= "        </table>\n";
-	$message .= "    </div>\n";
-	$message .= "</body>\n";
-	$message .= "</html>\n";
+	$html .=             "</table>";
+	$html .=         "</td>";
+	$html .=     "</tr>";
+	$html .= "</table>";
+	
+	$html .= "</body>\n";
+	$html .= "</html>\n";
 
 	# return everything
-	$message;
+	$html;
 }
 
 # determines the notification settings and generates a notification email for a given build
@@ -209,7 +278,15 @@ sub get_jobstep_notifications
 
 	# find the node, and return if we don't want to notify on warnings
 	my $node = find_node_definition($job_definition, $jobstep->{'jobstep_name'});
-	return undef if !$node->{'Notify'}->{'Warnings'} && $diagnostics->{'num_errors'} == 0;
+
+	# remove all the warnings if we're not interested in them
+	my $include_warnings = $node->{'Notify'}->{'Warnings'};
+	if(!$include_warnings)
+	{
+		$diagnostics->{'num_warnings'} = 0;
+		$diagnostics->{'list'} = [ grep { $_->{'type'} ne 'warning' } @{$diagnostics->{'list'}} ];
+		return undef if $diagnostics->{'num_errors'} == 0;
+	}
 
 	# standard colors
 	my $outcome_color = ($diagnostics->{'num_errors'} > 0)? $error_color : ($diagnostics->{'num_warnings'} > 0)? $warning_color : $success_color;
@@ -229,7 +306,7 @@ sub get_jobstep_notifications
 	}
 
 	# get the build history for this node
-	my $build_history = get_build_history($ec, $jobstep->{'job_id'}, $stream, $jobstep->{'jobstep_name'}, 50, $current_change);
+	my $build_history = get_build_history($ec, $jobstep->{'job_id'}, $stream, $jobstep->{'jobstep_name'}, 50, $current_change, $include_warnings);
 
 	# find the last change that build successfully
 	my $last_successful_change = $current_change;
@@ -255,13 +332,70 @@ sub get_jobstep_notifications
 	# get the p4 history from this change
 	my $change_history = get_change_history($stream, $author_paths || [ "..." ], $last_successful_change + 1, 100);
 	
+	# exclude all the changes before the change we're currently building; it's confusing.
+	$change_history = [grep { $_->{'number'} <= $current_change } @{$change_history}];
+	
 	# add all the unique authors from the change history to the list of recipients
-	my $fail_causers = [];
+	my $fail_causer_users = [];
+	my $fail_causer_emails = [];
+	my $muted_by_message = "";
 	if($author_paths)
 	{
-		my $unique_recipients = { };
-		$unique_recipients->{$_->{'author_email'}} = 1 foreach @{$change_history};
-		$fail_causers = [keys %{$unique_recipients}];
+		# create a dummy property to make sure the muted sheet exists
+		my $muted_path = "/projects[$ec_project]/Generated/".escape_stream_name($stream)."/Muted";
+		$ec->setProperty({ propertyName => "$muted_path/_placeholder", value => '' });
+
+		# find the muted list of recipients for this node
+		my $muted_sheet = ec_get_property_sheet($ec, { path => $muted_path }) || {};
+
+		# get the current node name
+		my $node_name = $node->{'Name'};
+
+		# create a list of failure causers
+		my $author_to_notify = {};
+		foreach my $change(@{$change_history})
+		{
+			my $author = $change->{'author'};
+			if(!$author_to_notify->{$author})
+			{
+				my $is_muted = 0;
+				eval
+				{
+					my $muted_user_json = $muted_sheet->{lc $change->{'author_email'}};
+					if($muted_user_json)
+					{
+						my $muted_user = decode_json($muted_user_json);
+						if($muted_user->{'version'} == 1 && $muted_user->{'steps'}->{$node_name} && $muted_user->{'steps'}->{$node_name} >= $change->{'number'})
+						{
+							$is_muted = 1;
+						}
+					}
+				};
+				$author_to_notify->{$author} = !$is_muted;
+			}
+		}
+
+		# build a list of failure causers
+		$fail_causer_users = [grep { $author_to_notify->{$_} } keys %{$author_to_notify}];
+
+		# build a list of failure causer emails
+		my $author_to_email = {};
+		foreach my $change(@{$change_history})
+		{
+			my $author = $change->{'author'};
+			my $author_email = $change->{'author_email'};
+			$author_to_email->{$author} = $author_email;
+		}
+		$fail_causer_emails = [map { $author_to_email->{$_} } @{$fail_causer_users}];
+
+		# Print the list of muted users for this Build
+		my @muted_recipients = grep { !$author_to_notify->{$_} } keys %{$author_to_notify};
+		if(@muted_recipients)
+		{
+			print "\n**** Users with muted notifications ***************************\n\n";
+			print "       $_\n" foreach(@muted_recipients);
+			$muted_by_message = "Muted by ".join(", ", map { "<a href=\"mailto:$author_to_email->{$_}\" style=\"color:white;\">$_</a>" } @muted_recipients)." - ";
+		}
 	}
 
 	# print the list of builds
@@ -277,50 +411,46 @@ sub get_jobstep_notifications
 	my $suspected_files = parse_files_containing_errors($diagnostics);
 	my $suspected_changes = find_changes_affecting_files($suspected_files, $workspace_name, $last_successful_change + 1);
 	
-	# opening boilerplate
-	my $html = "";
-	$html .= "<html xmlns=\"http://www.w3.org/1999/xhtml\">\n";
-	$html .= "<head>\n";
-	$html .= "    <meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\" />\n";
-	$html .= "<head>\n";
-	$html .= "<body style=\"margin:0;font-family: Arial, Helvetica, sans-serif;\">\n";
-
 	# write the job info
 	my $title = $jobstep->{'jobstep_name'};
-	$title =~ s/_/ /g;
-	$title =~ s/([a-z])([A-Z])/$1 $2/g;
-	
+
+	# opening boilerplate
+	my $html = "";
+	$html .= "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01 Transitional//EN\" \"http://www.w3.org/TR/html4/loose.dtd\">\n";
+	$html .= "<html>\n";
+	$html .= "<head>\n";
+	$html .= "	<title>$title</title>\n";
+	$html .= "	<meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\">\n";
+	$html .= "</head>\n";
+	$html .= "<body style=\"margin:0;font-family: Arial, Helvetica, sans-serif;\">\n";
+
+	# write the heading
+	my $summary = [];
+	push(@{$summary}, [ "Job", "<a href=\"".encode_entities(ec_get_full_url($jobstep->{'job_url'}))."\" style=\"color:white;\">$jobstep->{'job_name'}</a>" ]);
+	push(@{$summary}, [ "Step", "<a href=\"".encode_entities(ec_get_full_url($jobstep->{'jobstep_url'}))."\" style=\"color:white;\">$jobstep->{'jobstep_name'}</a> (<a href=\"".encode_entities(ec_get_full_url($jobstep->{'jobstep_log_url'}))."\" style=\"color:white;\">Output</a>)" ]);
+	push(@{$summary}, [ "Outcome", $outcome ]);
+	push(@{$summary}, [ "Notifications", "$muted_by_message<a href=\"".ec_get_full_url("/commander/pages/MuteNotifications-1.0/MuteNotifications_run?stream=$stream")."\" style=\"color:white;\">Settings...</a>" ]);
+
+	$html .= get_notification_header(($diagnostics->{'num_errors'} > 0)? 'error' : ($diagnostics->{'num_warnings'} > 0)? 'warning' : 'success', $title, $summary);
+
 	# css styles. gmail strips out all <style> tags, so we have to have to inline them.
 	my $section_style = "overflow:auto; border-spacing:0; border-collapse:collapse; table-layout:fixed; min-height:200px; padding-bottom:30px; padding-left:30px; padding-right:30px;";
-	my $header_title_style = "margin-top:20px; font-size:36px; vertical-align:bottom;";
-	my $header_info_key_style = "font-size:11pt; font-weight:bold; text-align:left; vertical-align:top; padding-left:30px; width:150px; color:white;";
-	my $header_info_value_style = "font-size:11pt; padding: 3px 5px; vertical-align:top; color:white;";
-	my $header_info_link_style = "color:#ffffff;";
 	
-	$html .= "    <div style=\"$section_style background:$outcome_color; color:#ffffff;\">\n";
-	$html .= "        <h1 style=\"$header_title_style\"><img src=\"https://cdn2.unrealengine.com/Maintenance/error-414x391-793315300.png\" width=\"42\" height=\"40\" style=\"vertical-align:bottom\"> $title</h1>\n";
-	$html .= "        <div style=\"border: 2px solid #ffffff; padding-top:16px; padding-bottom:16px;\">\n";
-	$html .= "            <table>\n";
-	$html .= "                <tr>\n";
-	$html .= "                    <th style=\"$header_info_key_style\">Job</th>\n";
-	$html .= "                    <td style=\"$header_info_value_style\"><a href=\"".ec_get_full_url($jobstep->{'job_url'})."\" style=\"$header_info_link_style\">$jobstep->{'job_name'}</a></td>\n";
-	$html .= "                </tr>\n";
-	$html .= "                <tr>\n";
-	$html .= "                    <th style=\"$header_info_key_style\">Step</th>\n";
-	$html .= "                    <td style=\"$header_info_value_style\"><a href=\"".ec_get_full_url($jobstep->{'jobstep_url'})."\" style=\"$header_info_link_style\">$jobstep->{'jobstep_name'}</a> (<a href=\"".ec_get_full_url($jobstep->{'jobstep_log_url'})."\" style=\"$header_info_link_style\">Output</a>)</td>\n";
-	$html .= "                </tr>\n";
-	$html .= "                <tr>\n";
-	$html .= "                    <th style=\"$header_info_key_style\">Outcome</th>\n";
-	$html .= "                    <td style=\"$header_info_value_style\">$outcome</td>\n";
-	$html .= "                </tr>\n";
-	$html .= "            </table>\n";
-	$html .= "        </div>\n";
-	$html .= "    </div>\n";
-
 	# write the error report
-	$html .= "    <div style=\"$section_style background: white;\">\n";
-	$html .= "        <h2 style=\"color: #202020;margin-top: 20px;margin-bottom:20px;font-size: 16pt;\">Report</h2>\n";
-	$html .= "        <table cellspacing=\"6\" style=\"margin-top: 10px;margin-left: 0px;margin-right: 40px;\">\n";
+	$html .= "<table cellpadding=\"20px\" width=\"100%\" style=\"min-width:640px;\">";
+	$html .=     "<tr>";
+	$html .=         "<td>";
+	$html .=             "<table cellpadding=\"0px\" width=\"100%\">";
+	$html .=                 "<tr>";
+	$html .=                     "<td><h2 style=\"color: #202020;margin:0px;font-size: 16pt;\">Report</h2></td>";
+	$html .=                 "</tr>";
+	$html .=                 "<tr>";
+	$html .=                     "<td>";
+	$html .=                         "<table cellspacing=\"6px\">";
+	$html .=                             "<tr>";
+	$html .=                                 "<td>";
+	$html .=                                     "<table cellspacing=\"4px\">";
+	
 	my $diagnostics_list = $diagnostics->{'list'};
 	for(my $diagnostic_idx = 0; $diagnostic_idx <= $#{$diagnostics_list}; )
 	{
@@ -338,7 +468,10 @@ sub get_jobstep_notifications
 			# append all the output lines to the list
 			foreach(split /\n/, $diagnostic->{'text'})
 			{
-				push(@escaped_text, encode_entities($_));
+				# insert a zero-width space at every slash, so we can word wrap long file names
+				my $escaped_line = encode_entities($_);
+				$escaped_line =~ s/([\\\/])/&#8203;$1/g;
+				push(@escaped_text, $escaped_line);
 				$diagnostic_line++;
 			}
 			
@@ -351,25 +484,43 @@ sub get_jobstep_notifications
 
 		# write out these lines
 		my $line_url = "$jobstep->{'jobstep_log_url'}&firstLine=$first_diagnostic->{'first_line'}&numLines=$first_diagnostic->{'num_lines'}";
-		$html .= "            <tr>\n";
-		$html .= "                <td style=\"font-size:11pt; display:table-cell; padding:0px; background:".($outcome_color_lookup->{$first_diagnostic->{'type'}} || $error_color).";\"><div style=\"width:8px;height:1px;\"></div></td>\n";
-		$html .= "                <td style=\"font-size:11pt; vertical-align:middle; padding:.65em 1em;\">\n";
-		$html .= "                    <div style=\"font-size:x-small; color:#000000; margin-bottom:3px;\"><a href=\"".ec_get_full_url($line_url)."\" style=\"color:black;\">[Line $first_diagnostic->{'first_line'}]</a></div>\n";
-		$html .= "                    <div style=\"font-family:monospace,Arial,Helvetica,sans-serif; font-size:9pt; white-space:pre;\">".join("<br />", @escaped_text)."</div>\n";
-		$html .= "                </td>\n";
-		$html .= "            </tr>\n";
+		$html .= "<tr>";
+		$html .=     "<td style=\"font-size:11pt; display:table-cell; padding:0px; background:".($outcome_color_lookup->{$first_diagnostic->{'type'}} || $error_color).";\"><div style=\"width:8px;height:1px;\"></div></td>";
+		$html .=     "<td style=\"font-size:11pt; vertical-align:middle; padding:.65em 1em;\">";
+		$html .=         "<p style=\"font-size:x-small; color:#000000; margin-bottom:3px;\"><a href=\"".encode_entities(ec_get_full_url($line_url))."\" style=\"color:black;\">[Line $first_diagnostic->{'first_line'}]</a></p>";
+		foreach(@escaped_text)
+		{
+			$html .= "<p style=\"font-family:monospace,Arial,Helvetica,sans-serif;font-size:9pt;margin-top:0px;margin-bottom:1px;white-space:pre-wrap;tab-size:4;\">$_</p>";
+		}
+		$html .=     "</td>";
+		$html .= "</tr>";
 	}
-	$html .= "        </table>\n";
-	$html .= "    </div>\n";
+	$html .=                                     "</table>";
+	$html .=                                 "</td>";
+	$html .=                             "</tr>";
+	$html .=                         "</table>";
+	$html .=                     "</td>";
+	$html .=                 "</tr>";
+	$html .=             "</table>";
+	$html .=         "</td>";
+	$html .=     "</tr>";
+	$html .= "</table>";
 	
 	# write the list of changes
 	my $timeline_change_style = "color:#ffffff; text-decoration:none;";
 	my $timeline_item_border_style = "border:2px solid #f7f7f7;";
 	my $timeline_point_style = "width:20px; height:20px; border:4px solid #ccc; border-radius:999px;";
 	my $timeline_identifier_style = "background:#ccc; padding:5px; width:70px; text-align:center; margin-left:10px; margin-right:10px; font-size:12px; $timeline_item_border_style";
-	$html .= "    <div style=\"$section_style background:#f7f7f7;\">\n";
-	$html .= "        <h2 style=\"color:#202020; margin-top:20px; margin-bottom:20px; font-size:16pt;\">Timeline</h2>\n";
-	$html .= "        <table cellspacing=\"0\" cellpadding=\"0\" style=\"border-collapse:collapse; margin-top:15px; margin-left:10px; margin-right:10px;\">\n";
+	$html .= "<table cellpadding=\"20px\" width=\"100%\" bgcolor=\"#f7f7f7\" style=\"min-width:640px;\">";
+	$html .=     "<tr>";
+	$html .=         "<td>";
+	$html .=             "<table cellpadding=\"0px\">";
+	$html .=                 "<tr>";
+	$html .=                     "<td><h2 style=\"color: #202020;font-size: 16pt; margin:0px;\">Timeline</h2></td>";
+	$html .=                 "</tr>";
+	$html .=                 "<tr>";
+	$html .=                     "<td>";
+	$html .=                         "<table cellspacing=\"0\" cellpadding=\"0\" style=\"border-collapse:collapse; margin-top:15px; margin-left:10px; margin-right:10px;\">";
 
 	my $build_idx = 0;
 	my $change_idx = 0;
@@ -380,27 +531,27 @@ sub get_jobstep_notifications
 		
 		if($build_idx > 0 || $change_idx > 0)
 		{
-			$html .= "            <tr>\n";
-			$html .= "                <td>&nbsp; </td>\n";
-			$html .= "                <td width=\"12\"></td>\n";
-			$html .= "                <td width=\"4\" style=\"background:#ccc;\"><div style=\"width:4px; height:20px;\">&nbsp;</div></td>\n";
-			$html .= "                <td width=\"12\"></td>\n";
-			$html .= "                <td>&nbsp; </td>\n";
-			$html .= "                <td>&nbsp; </td>\n";
-			$html .= "            </tr>\n";
+			$html .= "<tr>";
+			$html .=     "<td>&nbsp; </td>";
+			$html .=     "<td width=\"12\"></td>";
+			$html .=     "<td width=\"4\" style=\"background:#ccc;\"><div style=\"width:4px; height:20px;\">&nbsp;</div></td>";
+			$html .=     "<td width=\"12\"></td>";
+			$html .=     "<td>&nbsp; </td>";
+			$html .=     "<td>&nbsp; </td>";
+			$html .= "</tr>";
 		}
 
 		if(!$change || ($build && $build->{'properties'}->{'CL'} >= $change->{'number'}))
 		{
 			my $build_color = $outcome_color_lookup->{$build->{'result'}} || (($build->{'jobstep_id'} == $jobstep->{'jobstep_id'})? $outcome_color : $unknown_color);
-			$html .= "            <tr>\n";
-			$html .= "                <td style=\"vertical-align:top;\">\n";
-			$html .= "                    <div style=\"$timeline_identifier_style margin-left:0px; background:$build_color;\"><a href=\"".ec_get_full_url($build->{'jobstep_url'})."\" style=\"color: white;text-decoration: none;\">$build->{'properties'}->{'CL'}</a></div>\n";
-			$html .= "                </td>\n";
-			$html .= "                <td colspan=\"3\">\n";
-			$html .= "                    <div style=\"$timeline_point_style background:$build_color; border-color:$build_color;\"></div>\n";
-			$html .= "                </td>\n";
-			$html .= "            </tr>\n";
+			$html .= "<tr>";
+			$html .=     "<td style=\"vertical-align:top;\">";
+			$html .=         "<div style=\"$timeline_identifier_style margin-left:0px; background:$build_color;\"><a href=\"".encode_entities(ec_get_full_url($build->{'jobstep_url'}))."\" style=\"color: white;text-decoration: none;\">$build->{'properties'}->{'CL'}</a></div>";
+			$html .=     "</td>";
+			$html .=     "<td colspan=\"3\">";
+			$html .=         "<div style=\"$timeline_point_style background:$build_color; border-color:$build_color;\"></div>";
+			$html .=     "</td>";
+			$html .= "</tr>";
 			$build_idx++;
 		}
 		else
@@ -417,37 +568,44 @@ sub get_jobstep_notifications
 			}
 			
 			# add the changelist number
-			$html .= "            <tr>\n";
-			$html .= "                <td>&nbsp; </td>\n";
-			$html .= "                <td colspan=\"3\" height=\"20px\">\n";
-			$html .= "                    <div style=\"$timeline_point_style\"></div>\n";
-			$html .= "                </td>\n";
-			$html .= "                <td style=\"vertical-align:top;\">\n";
-			$html .= "                    <div style=\"$timeline_identifier_style\"><a href=\"http://p4-web/\@md=d&cd=$stream&c=B5m\@/$change->{'number'}?ac=10\" style=\"color: black;text-decoration: none;\">$change->{'number'}</a></div>\n";
-			$html .= "                </td>\n";
-			$html .= "                <td rowspan=\"2\" style=\"vertical-align:top;\">\n";
-			$html .= "                    <div style=\"color: black;font-size: 12px;\"><div style=\"padding:6px;display:inline-block;\"><a href=\"mailto:$change->{'author_email'}\">$change->{'author'}</a> - $escaped_description</div>$suspected_change_note</div>\n";
-			$html .= "                </td>\n";
-			$html .= "            </tr>\n";
+			$html .= "<tr>";
+			$html .=     "<td>&nbsp; </td>";
+			$html .=     "<td colspan=\"3\" height=\"20px\">";
+			$html .=         "<div style=\"$timeline_point_style\"></div>";
+			$html .=     "</td>";
+			$html .=     "<td style=\"vertical-align:top;\">";
+			$html .=         "<div style=\"$timeline_identifier_style\"><a href=\"https://p4-swarm.epicgames.net/changes/$change->{'number'}\" style=\"color: black;text-decoration: none;\">$change->{'number'}</a></div>";
+			$html .=     "</td>";
+			$html .=     "<td rowspan=\"2\" style=\"vertical-align:top;\">";
+			$html .=         "<div style=\"color: black;font-size: 12px;\"><div style=\"padding:6px;display:inline-block;\"><a href=\"mailto:$change->{'author_email'}\">$change->{'author'}</a> - $escaped_description</div>$suspected_change_note</div>";
+			$html .=     "</td>";
+			$html .= "</tr>";
 
 			$change_idx++;
 		}
 	}
-	$html .= "        </table>\n";
-	$html .= "    </div>\n";
+	$html .=                         "</table>";
+	$html .=                     "</td>";
+	$html .=                 "</tr>";
+	$html .=             "</table>";
+	$html .=         "</td>";
+	$html .=     "</tr>";
+	$html .= "</table>";
 		
 	# closing boilerplate
 	$html .= "</body>\n";
 	$html .= "</html>\n";
 	
+	$html =~ s/    /\t/gm;
+	
 	# return all the settings
-	{ default_recipients => $default_recipients, fail_causers => $fail_causers, message_body => $html };
+	{ default_recipients => $default_recipients, fail_causer_users => $fail_causer_users, fail_causer_emails => $fail_causer_emails, message_body => $html, outcome => ($diagnostics->{'num_errors'}? 'error' : $diagnostics->{'num_warnings'}? 'warning' : 'success') };
 }
 
 # gets the history of builds for a given node, stopping at the last successful build before the current one
 sub get_build_history
 {
-	my ($ec, $ec_job, $stream, $node, $count, $before_change) = @_;
+	my ($ec, $ec_job, $stream, $node, $count, $before_change, $include_warnings) = @_;
 
 	# find a recent list of job steps with the right name
 	my $jobsteps_xpath = $ec->findObjects("jobStep", { maxIds => "$count", numObjects => "$count", 
@@ -464,6 +622,7 @@ sub get_build_history
 		next if $jobstep->{'job_name'} =~ /Preflight/i;
 		$jobstep->{'properties'} = ec_parse_property_sheet($jobsteps_xpath, $object_node);
 		push(@{$history}, $jobstep);
+		last if !$include_warnings && $jobstep->{'result'} eq 'warning';
 		last if $jobstep->{'result'} eq 'success' && (!$before_change || $jobstep->{'properties'}->{'CL'} < $before_change);
 	}
 		
@@ -476,13 +635,16 @@ sub get_change_history
 {
 	my ($stream, $filter_list, $first_change_number, $max_results) = @_;
 
+	# get the range of changes to look for
+	my $change_range = $first_change_number? "\@$first_change_number,now" : "";
+	
 	# query perforce for the list of changes, running through each filter at a time
 	my @change_history = ();
 	my %unique_change_numbers = ();
 	foreach my $filter(@{$filter_list})
 	{
 		my $current_change;
-		foreach(p4_command("changes -L -m $max_results $stream/$filter\@$first_change_number,now"))
+		foreach(p4_command("changes -L -m $max_results $stream/$filter$change_range"))
 		{
 			if(/^Change (\d+) on [^ ]+ by ([^ ]+)@/)
 			{
@@ -497,6 +659,17 @@ sub get_change_history
 			{
 				$current_change->{'description'} .= "$1\n" if $1 || $current_change->{'description'};
 			}
+		}
+	}
+	
+	# replace any ROBOMERGE changes with the original author
+	foreach my $change(@change_history)
+	{
+		my $description = $change->{'description'};
+		if($description =~ /^#ROBOMERGE-AUTHOR:\s+([^\s]+)\s*(.*)/)
+		{
+			$change->{'author'} = $1;
+			$change->{'description'} = "ROBOMERGE: $2";
 		}
 	}
 
@@ -528,9 +701,14 @@ sub parse_files_containing_errors
 	{
 		foreach(split /\n/, $diagnostic->{'text'})
 		{
-			if(/([^ \\\/]*[\\\/][^ ()]*)\(\d+\)\s*:\s*error\s+/)
+			if(/([^ \\\/]*[\\\/][^ ()]*)\(\d+\)\s*:\s*(error|warning)\s+/)
 			{
 				# Visual studio style error; "<FileName>(<Line>): error"
+				$suspected_files->{$1} = 1;
+			}
+			elsif(/^\s*(\/[^: ][^:]+):[\d:]+:\s+(error|warning):/)
+			{
+				# Clang style error; "<FileName>:<Line/Column>: error"
 				$suspected_files->{$1} = 1;
 			}
 		}
@@ -548,7 +726,7 @@ sub find_changes_affecting_files
 	my $change_to_files = { };
 	foreach my $file (@{$files})
 	{
-		foreach(p4_command("-c$workspace_name filelog -m 10 \"$file\""))
+		foreach(p4_command("-c$workspace_name filelog -m 10 \"$file\"", {errors_as_warnings => 1}))
 		{
 			if(/^#\d+ change (\d+) /)
 			{

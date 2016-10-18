@@ -39,6 +39,15 @@ void AUTWorldSettings::PostInitProperties()
 		CreateLevelSummary();
 	}
 }
+void AUTWorldSettings::PreSave(const class ITargetPlatform* TargetPlatform)
+{
+	Super::PreSave(TargetPlatform);
+	if (LevelSummary == nullptr || !LevelSummary->IsIn(GetOutermost()))
+	{
+		LevelSummary = nullptr;
+		CreateLevelSummary();
+	}
+}
 
 void AUTWorldSettings::CreateLevelSummary()
 {
@@ -48,7 +57,7 @@ void AUTWorldSettings::CreateLevelSummary()
 		static FName NAME_LevelSummary(TEXT("LevelSummary"));
 		if (LevelSummary == NULL)
 		{
-			LevelSummary = FindObject<UUTLevelSummary>(UUTLevelSummary::StaticClass(), *NAME_LevelSummary.ToString());
+			LevelSummary = FindObject<UUTLevelSummary>(GetOutermost(), *NAME_LevelSummary.ToString());
 			if (LevelSummary == NULL)
 			{
 				LevelSummary = NewObject<UUTLevelSummary>(GetOutermost(), NAME_LevelSummary, RF_Standalone);
@@ -119,6 +128,19 @@ void AUTWorldSettings::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	GetWorldTimerManager().ClearAllTimersForObject(this);
 }
 
+void AUTWorldSettings::Reset_Implementation()
+{
+	for (int32 i = 0; i < FadingEffects.Num(); i++)
+	{
+		if (FadingEffects[i].EffectComp != nullptr)
+		{
+			FadingEffects[i].EffectComp->DetachFromComponent(FDetachmentTransformRules::KeepRelativeTransform);
+			FadingEffects[i].EffectComp->DestroyComponent();
+		}
+	}
+	FadingEffects.Empty();
+}
+
 void AUTWorldSettings::AddImpactEffect(USceneComponent* NewEffect, float LifeScaling)
 {
 	bool bNeedsTiming = true;
@@ -177,7 +199,7 @@ void AUTWorldSettings::FadeImpactEffects(float DeltaTime)
 
 		if (TimeLived > DesiredTimeout)
 		{
-			FadingEffects[i].EffectComp->DetachFromParent();
+			FadingEffects[i].EffectComp->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
 			FadingEffects[i].EffectComp->DestroyComponent();
 			FadingEffects.RemoveAt(i--);
 		}
@@ -233,7 +255,7 @@ void AUTWorldSettings::ExpireImpactEffects()
 				float TimeLived = WorldTime - TimedEffects[i].CreationTime;
 				if (TimeLived > DesiredTimeout)
 				{
-					TimedEffects[i].EffectComp->DetachFromParent();
+					TimedEffects[i].EffectComp->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
 					TimedEffects[i].EffectComp->DestroyComponent();
 					TimedEffects.RemoveAt(i--);
 				}
@@ -388,7 +410,7 @@ void AUTWorldSettings::Tick(float DeltaTime)
 					{
 						if (TimedEffects[j].EffectComp == LightParamCurves[i].Light)
 						{
-							TimedEffects[j].EffectComp->DetachFromParent();
+							TimedEffects[j].EffectComp->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
 							TimedEffects[j].EffectComp->DestroyComponent();
 							TimedEffects.RemoveAt(j--);
 							break;

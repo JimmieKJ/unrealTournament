@@ -4,6 +4,11 @@
 
 #include "MovieSceneFloatTrack.h"
 #include "MovieSceneFloatSection.h"
+#include "PropertyTrackEditor.h"
+
+
+class ISequencer;
+
 
 /**
  * A property track editor for floats.
@@ -14,29 +19,32 @@ class FFloatPropertyTrackEditor
 public:
 
 	/**
-	 * Constructor
+	 * Constructor.
 	 *
-	 * @param InSequencer The sequencer instance to be used by this tool
+	 * @param InSequencer The sequencer instance to be used by this tool.
 	 */
-	FFloatPropertyTrackEditor( TSharedRef<ISequencer> InSequencer )
-		: FPropertyTrackEditor( InSequencer, NAME_FloatProperty )
+	FFloatPropertyTrackEditor(TSharedRef<ISequencer> InSequencer)
+		: FPropertyTrackEditor(InSequencer, NAME_FloatProperty)
 	{ }
 
 	/**
-	 * Creates an instance of this class.  Called by a sequencer 
+	 * Creates an instance of this class (called by a sequencer).
 	 *
 	 * @param OwningSequencer The sequencer instance to be used by this tool
 	 * @return The new instance of this class
 	 */
-	static TSharedRef<ISequencerTrackEditor> CreateTrackEditor( TSharedRef<ISequencer> OwningSequencer );
+	static TSharedRef<ISequencerTrackEditor> CreateTrackEditor(TSharedRef<ISequencer> OwningSequencer);
 
-	// FMovieSceneTrackEditor interface.
-	virtual void BuildTrackContextMenu( FMenuBuilder& MenuBuilder, UMovieSceneTrack* Track ) override;
+public:
+
+	//~ FMovieSceneTrackEditor interface
+
+	virtual void BuildTrackContextMenu(FMenuBuilder& MenuBuilder, UMovieSceneTrack* Track) override;
 
 protected:
 
-	// FPropertyTrackEditor interface
+	//~ FPropertyTrackEditor interface
 
-	virtual TSharedRef<FPropertySection> MakePropertySectionInterface( UMovieSceneSection& SectionObject, UMovieSceneTrack& Track ) override;
-	virtual void GenerateKeysFromPropertyChanged( const FPropertyChangedParams& PropertyChangedParams, TArray<float>& NewGeneratedKeys, TArray<float>& DefaultGeneratedKeys ) override;
+	virtual TSharedRef<FPropertySection> MakePropertySectionInterface(UMovieSceneSection& SectionObject, UMovieSceneTrack& Track) override;
+	virtual void GenerateKeysFromPropertyChanged(const FPropertyChangedParams& PropertyChangedParams, TArray<float>& NewGeneratedKeys, TArray<float>& DefaultGeneratedKeys) override;
 };

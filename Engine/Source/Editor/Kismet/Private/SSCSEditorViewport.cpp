@@ -408,16 +408,12 @@ void SSCSEditorViewport::Invalidate()
 
 void SSCSEditorViewport::ToggleIsSimulateEnabled()
 {
-	// If we're in unified BP editing mode, make the viewport visible when simulation is starting.
-	if ( GetDefault<UEditorExperimentalSettings>()->bUnifiedBlueprintEditor )
+	// Make the viewport visible if the simulation is starting.
+	if ( !ViewportClient->GetIsSimulateEnabled() )
 	{
-		// Only trigger the switch if the simulation is starting.
-		if ( !ViewportClient->GetIsSimulateEnabled() )
+		if ( GetDefault<UBlueprintEditorSettings>()->bShowViewportOnSimulate )
 		{
-			if ( GetDefault<UBlueprintEditorSettings>()->bShowViewportOnSimulate )
-			{
-				BlueprintEditorPtr.Pin()->GetTabManager()->InvokeTab(FBlueprintEditorTabs::SCSViewportID);
-			}
+			BlueprintEditorPtr.Pin()->GetTabManager()->InvokeTab(FBlueprintEditorTabs::SCSViewportID);
 		}
 	}
 

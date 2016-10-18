@@ -55,7 +55,7 @@ private:
 
 	bool HandleTicker(float DeltaTime)
 	{
-		if (ServerAddress.IsValid() && ((FDateTime::UtcNow() - LastServerResponse).GetSeconds() > PORTAL_RPC_LOCATE_TIMEOUT))
+		if (ServerAddress.IsValid() && ((FDateTime::UtcNow() - LastServerResponse).GetTotalSeconds() > PORTAL_RPC_LOCATE_TIMEOUT))
 		{
 			ServerAddress.Invalidate();
 			ServerLostDelegate.ExecuteIfBound();

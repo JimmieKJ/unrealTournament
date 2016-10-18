@@ -15,6 +15,7 @@ public class FunctionalTesting : ModuleRules
                 "MessageLog",
                 "AIModule",
                 "RenderCore",
+                "AssetRegistry",
                 "RHI"
 			}
 			);
@@ -26,6 +27,6 @@ public class FunctionalTesting : ModuleRules
 				"Stats/Public",
 				"Developer/FunctionalTesting/Private",
 			}
-			);
+		);
 	}
 }

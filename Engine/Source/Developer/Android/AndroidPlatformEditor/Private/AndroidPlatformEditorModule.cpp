@@ -70,13 +70,34 @@ class FAndroidPlatformEditorModule
  				GetMutableDefault<UAndroidSDKSettings>()
 			);
 
-			static FName NAME_OPENGL_ES2(TEXT("GLSL_ES2"));
-			const UShaderPlatformQualitySettings* AndroidMaterialQualitySettings = UMaterialShaderQualitySettings::Get()->GetShaderPlatformQualitySettings(NAME_OPENGL_ES2);
-			SettingsModule->RegisterSettings("Project", "Platforms", "AndroidES2Quality",
-				LOCTEXT("AndroidES2QualitySettingsName", "Android ES2 Quality"),
-				LOCTEXT("AndroidES2QualitySettingsDescription", "Settings for Android ES2 material quality"),
-				AndroidMaterialQualitySettings
-			);
+			{
+				static FName NAME_OPENGL_ES2(TEXT("GLSL_ES2"));
+				const UShaderPlatformQualitySettings* AndroidMaterialQualitySettings = UMaterialShaderQualitySettings::Get()->GetShaderPlatformQualitySettings(NAME_OPENGL_ES2);
+				SettingsModule->RegisterSettings("Project", "Platforms", "AndroidES2Quality",
+					LOCTEXT("AndroidES2QualitySettingsName", "Android Material Quality - ES2"),
+					LOCTEXT("AndroidES2QualitySettingsDescription", "Settings for Android ES2 material quality"),
+					AndroidMaterialQualitySettings
+				);
+			}
+			{
+				static FName NAME_GLSL_ES3_1_ANDROID(TEXT("GLSL_ES3_1_ANDROID"));
+				const UShaderPlatformQualitySettings* AndroidMaterialQualitySettings = UMaterialShaderQualitySettings::Get()->GetShaderPlatformQualitySettings(NAME_GLSL_ES3_1_ANDROID);
+				SettingsModule->RegisterSettings("Project", "Platforms", "AndroidES31Quality",
+					LOCTEXT("AndroidES31QualitySettingsName", "Android Material Quality - ES31"),
+					LOCTEXT("AndroidES31QualitySettingsDescription", "Settings for Android ES3.1 material quality"),
+					AndroidMaterialQualitySettings
+				);
+			}
+			{
+				static FName NAME_SF_VULKAN_ES31_ANDROID(TEXT("SF_VULKAN_ES31_ANDROID"));
+				const UShaderPlatformQualitySettings* AndroidMaterialQualitySettings = UMaterialShaderQualitySettings::Get()->GetShaderPlatformQualitySettings(NAME_SF_VULKAN_ES31_ANDROID);
+				SettingsModule->RegisterSettings("Project", "Platforms", "AndroidVulkanQuality",
+					LOCTEXT("AndroidVulkanQualitySettingsName", "Android Material Quality - Vulkan"),
+					LOCTEXT("AndroidVulkanQualitySettingsDescription", "Settings for Android Vulkan material quality"),
+					AndroidMaterialQualitySettings
+				);
+			}
+
 		}
 
 		// Force the SDK settings into a sane state initially so we can make use of them
@@ -97,6 +118,8 @@ class FAndroidPlatformEditorModule
 			SettingsModule->UnregisterSettings("Project", "Platforms", "Android");
 			SettingsModule->UnregisterSettings("Project", "Platforms", "AndroidSDK");
 			SettingsModule->UnregisterSettings("Project", "Platforms", "AndroidES2Quality");
+			SettingsModule->UnregisterSettings("Project", "Platforms", "AndroidES31Quality");
+			SettingsModule->UnregisterSettings("Project", "Platforms", "AndroidVulkanQuality");
 		}
 	}
 };

@@ -189,6 +189,8 @@ struct SLATECORE_API FTextBlockStyle : public FSlateWidgetStyle
 
 	virtual ~FTextBlockStyle() {}
 
+	virtual void GetResources( TArray< const FSlateBrush* >& OutBrushes ) const override;
+
 	static const FName TypeName;
 	virtual const FName GetTypeName() const override { return TypeName; };
 
@@ -240,6 +242,11 @@ struct SLATECORE_API FTextBlockStyle : public FSlateWidgetStyle
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Appearance, AdvancedDisplay)
 	FSlateBrush HighlightShape;
 	FTextBlockStyle& SetHighlightShape( const FSlateBrush& InHighlightShape ){ HighlightShape = InHighlightShape; return *this; }
+
+	/** The brush used to draw an underline under the text (if any) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Appearance, AdvancedDisplay)
+	FSlateBrush UnderlineBrush;
+	FTextBlockStyle& SetUnderlineBrush( const FSlateBrush& InUnderlineBrush ){ UnderlineBrush = InUnderlineBrush; return *this; }
 };
 
 /**
@@ -869,6 +876,10 @@ struct SLATECORE_API FSliderStyle : public FSlateWidgetStyle
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Appearance)
 	FSlateBrush DisabledThumbImage;
 	FSliderStyle& SetDisabledThumbImage( const FSlateBrush& InDisabledThumbImage ){ DisabledThumbImage = InDisabledThumbImage; return *this; }
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Appearance)
+	float BarThickness;
+	FSliderStyle& SetBarThickness(float InBarThickness) { BarThickness = InBarThickness; return *this; }
 };
 
 

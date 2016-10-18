@@ -23,7 +23,7 @@ void FStartupPackages::GetStartupPackageNames(TArray<FString>& PackageNames, con
 				if (It.Key() == TEXT("Package"))
 				{
 					// add this package to the list to be fully loaded later
-					PackageNames.Add(*(It.Value()));
+					PackageNames.Add(It.Value().GetValue());
 				}
 			}
 		}

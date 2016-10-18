@@ -111,6 +111,3 @@ public:
 	virtual ~FTexture2DResourceMem() {}
 };
 
-
-// Default to the dynamically bound RHI.
-#include "DynamicRHIResourceArray.h"

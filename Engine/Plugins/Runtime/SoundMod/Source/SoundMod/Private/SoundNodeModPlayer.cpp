@@ -6,7 +6,7 @@
 
 #define LOCTEXT_NAMESPACE "SoundNodeModPlayer"
 
-void USoundNodeModPlayer::LoadAsset()
+void USoundNodeModPlayer::LoadAsset(bool bAddToRoot)
 {
 	if (IsAsyncLoading())
 	{
@@ -17,21 +17,33 @@ void USoundNodeModPlayer::LoadAsset()
 			if (!LongPackageName.IsEmpty())
 			{
 				bAsyncLoading = true;
-				LoadPackageAsync(LongPackageName, FLoadPackageAsyncDelegate::CreateUObject(this, &USoundNodeModPlayer::OnSoundModLoaded));
+				LoadPackageAsync(LongPackageName, FLoadPackageAsyncDelegate::CreateUObject(this, &USoundNodeModPlayer::OnSoundModLoaded, bAddToRoot));
 			}
+		}
+		else if (bAddToRoot)
+		{
+			SoundMod->AddToRoot();
 		}
 	}
 	else
 	{
 		SoundMod = SoundModAssetPtr.LoadSynchronous();
+		if (bAddToRoot && SoundMod)
+		{
+			SoundMod->AddToRoot();
+		}
 	}
 }
 
-void USoundNodeModPlayer::OnSoundModLoaded(const FName& PackageName, UPackage * Package, EAsyncLoadingResult::Type Result)
+void USoundNodeModPlayer::OnSoundModLoaded(const FName& PackageName, UPackage* Package, EAsyncLoadingResult::Type Result, bool bAddToRoot)
 {
 	if (Result == EAsyncLoadingResult::Succeeded)
 	{
 		SoundMod = SoundModAssetPtr.Get();
+		if (bAddToRoot && SoundMod)
+		{
+			SoundMod->AddToRoot();
+		}
 	}
 	bAsyncLoading = false;
 }

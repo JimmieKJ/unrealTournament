@@ -195,7 +195,7 @@ void UUTKillcamPlayback::KillcamGoToTime(const float TimeInSeconds, const FNetwo
 		// the killcam world can be null.
 		if(SourceWorld.IsValid() && SourceWorld->DemoNetDriver != nullptr)
 		{
-			const APlayerController* Spectator = SourceWorld->DemoNetDriver->SpectatorController.Get();
+			const APlayerController* Spectator = SourceWorld->DemoNetDriver->SpectatorController;
 			const FNetworkGUID SpectatorGUID = SourceWorld->DemoNetDriver->GetGUIDForActor(Spectator);
 			KillcamWorld->DemoNetDriver->AddNonQueuedGUIDForScrubbing(SpectatorGUID);
 			
@@ -335,7 +335,7 @@ APlayerController* UUTKillcamPlayback::GetKillcamSpectatorController()
 {
 	if (KillcamWorld != nullptr && KillcamWorld->DemoNetDriver != nullptr)
 	{
-		return KillcamWorld->DemoNetDriver->SpectatorController.Get();
+		return KillcamWorld->DemoNetDriver->SpectatorController;
 	}
 
 	return nullptr;

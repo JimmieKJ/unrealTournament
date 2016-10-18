@@ -65,7 +65,7 @@ public:
 	virtual bool ShouldDrawNodeAsComment() const override { return true; }
 	UNREALED_API virtual FString GetDocumentationLink() const override;
 	UNREALED_API virtual FString GetDocumentationExcerptName() const override;
-	UNREALED_API virtual FName GetPaletteIcon(FLinearColor& OutColor) const override;
+	UNREALED_API virtual FSlateIcon GetIconAndTint(FLinearColor& OutColor) const override;
 	//~ End UEdGraphNode Interface
 
 	/** Add a node that will be dragged when this comment is dragged */

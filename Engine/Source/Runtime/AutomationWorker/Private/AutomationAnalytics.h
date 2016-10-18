@@ -5,7 +5,7 @@
 #include "AutomationAnalyticParams.h"
 #include "AutomationWorkerMessages.h"
 
-class IAnalyticsProvider;
+class IAnalyticsProviderET;
 struct FAnalyticsEventAttribute;
 
 class FAutomationAnalytics : FNoncopyable
@@ -55,5 +55,5 @@ private:
 
 	static bool bIsInitialized;
 	/** This allows us to "opt-out" of engine automation analytics. We still create a session, but we don't send any automation events. */
-	static TSharedPtr<IAnalyticsProvider> Analytics;
+	static TSharedPtr<IAnalyticsProviderET> Analytics;
 };

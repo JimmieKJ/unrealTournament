@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "UTResetInterface.h"
+
 #include "UTWorldSettings.generated.h"
 
 class AUTPickupWeapon;
@@ -95,7 +97,7 @@ struct FTimedLightParameter
 };
 
 UCLASS()
-class UNREALTOURNAMENT_API AUTWorldSettings : public AWorldSettings
+class UNREALTOURNAMENT_API AUTWorldSettings : public AWorldSettings, public IUTResetInterface
 {
 	GENERATED_UCLASS_BODY()
 
@@ -142,6 +144,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = LevelSettings)
 	USoundBase* Music;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = LevelSettings)
+	bool bUseCapsuleDirectShadowsForCharacter;
+
 	UPROPERTY()
 	UAudioComponent* MusicComp;
 
@@ -151,6 +156,7 @@ public:
 
 	virtual void PostLoad() override;
 	virtual void PostInitProperties() override;
+	virtual void PreSave(const class ITargetPlatform* TargetPlatform) override;
 
 	/** overridden to set bBeginPlay to true BEFORE calling BeginPlay() events, which maintains the historical behavior when an Actor spawns another from within BeginPlay(),
 	  * specifically that said second Actor's BeginPlay() is called immediately as part of SpawnActor()
@@ -167,6 +173,8 @@ public:
 	virtual void ExpireImpactEffects();
 
 	virtual void FadeImpactEffects(float DeltaTime);
+
+	virtual void Reset_Implementation() override;
 
 	UPROPERTY()
 	float ImpactEffectFadeTime;

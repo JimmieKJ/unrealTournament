@@ -19,9 +19,10 @@ bool FGetVisibilityVisitor::RecurseChildren(const ITreeItem& Item) const
 	else
 	{
 		bool bIsVisible = false;
-		for (const auto& Child : Item.GetChildren())
+		for (const auto& ChildPtr : Item.GetChildren())
 		{
-			if (Child.Pin()->Get(*this))
+			auto Child = ChildPtr.Pin();
+			if (Child.IsValid() && Child->Get(*this))
 			{
 				bIsVisible = true;
 				break;
@@ -82,19 +83,27 @@ struct FSetVisibilityVisitor : IMutableTreeItemVisitor
 
 	virtual void Visit(FWorldTreeItem& WorldItem) const override
 	{
-		for (auto& Child : WorldItem.GetChildren())
+		for (auto& ChildPtr : WorldItem.GetChildren())
 		{
-			FSetVisibilityVisitor Visibility(bSetVisibility);
-			Child.Pin()->Visit(Visibility);
+			auto Child = ChildPtr.Pin();
+			if (Child.IsValid())
+			{
+				FSetVisibilityVisitor Visibility(bSetVisibility);
+				Child->Visit(Visibility);
+			}
 		}
 	}
 
 	virtual void Visit(FFolderTreeItem& FolderItem) const override
 	{
-		for (auto& Child : FolderItem.GetChildren())
+		for (auto& ChildPtr : FolderItem.GetChildren())
 		{
-			FSetVisibilityVisitor Visibility(bSetVisibility);
-			Child.Pin()->Visit(Visibility);
+			auto Child = ChildPtr.Pin();
+			if (Child.IsValid())
+			{
+				FSetVisibilityVisitor Visibility(bSetVisibility);
+				Child->Visit(Visibility);
+			}
 		}
 	}
 };

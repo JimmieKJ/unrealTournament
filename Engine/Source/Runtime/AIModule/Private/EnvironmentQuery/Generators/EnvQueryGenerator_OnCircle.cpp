@@ -244,9 +244,10 @@ void UEnvQueryGenerator_OnCircle::GenerateItemsForCircle(uint8* ContextRawData, 
 		case EEnvQueryTrace::Navigation:
 		{
 			ANavigationData* NavData = const_cast<ANavigationData*>(FEQSHelpers::FindNavigationDataForQuery(OutQueryInstance));
-			if (NavData)
+			const UObject* Querier = OutQueryInstance.Owner.Get();
+			if (NavData && Querier)
 			{
-				FEQSHelpers::RunNavRaycasts(*NavData, TraceData, CenterLocation, ItemCandidates);
+				FEQSHelpers::RunNavRaycasts(*NavData, *Querier, TraceData, CenterLocation, ItemCandidates);
 			}
 			break;
 		}

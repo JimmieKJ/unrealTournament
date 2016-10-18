@@ -24,6 +24,7 @@ public:
 	TSharedPtr<FUICommandInfo> View_ParticleTimes;
 	TSharedPtr<FUICommandInfo> View_ParticleMemory;
 	TSharedPtr<FUICommandInfo> View_SystemCompleted;
+	TSharedPtr<FUICommandInfo> View_EmitterTickTimes;
 	TSharedPtr<FUICommandInfo> ToggleGeometry;
 	TSharedPtr<FUICommandInfo> ToggleGeometry_Properties;
 	TSharedPtr<FUICommandInfo> ToggleLocalVectorFields;

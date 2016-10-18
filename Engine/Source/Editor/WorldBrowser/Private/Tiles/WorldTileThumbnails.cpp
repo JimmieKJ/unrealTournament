@@ -310,6 +310,7 @@ const FSlateBrush* FTileThumbnailCollection::GetTileBrush(const FWorldTileModel&
 
 bool FTileThumbnailCollection::IsOnCooldown() const
 {
+	CA_SUPPRESS(6326);
 	if (TileThumbnailUpdateCooldown > 0.0)
 	{
 		const double CurrentTime = FPlatformTime::Seconds();

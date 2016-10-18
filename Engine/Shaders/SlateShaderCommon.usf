@@ -39,6 +39,7 @@ struct VertexToPixelInterpolants
 {
 	float4 Position : SV_POSITION;
 	float4 Color : COLOR0;
+	float4 OriginalPosition : ORIGINAL_POSITION;
 	float4 ClipOriginAndPos : TEXCOORD0;
 	float4 ClipExtents : TEXCOORD1;
 	float2 MaterialTexCoords : TEXCOORD2;

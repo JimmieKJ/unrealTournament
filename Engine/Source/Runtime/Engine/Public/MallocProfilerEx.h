@@ -4,8 +4,7 @@
 	MallocProfilerEx.h: Extended memory profiling support.
 =============================================================================*/
 
-#ifndef INC_MALLOCPROFILEREX_H
-#define INC_MALLOCPROFILEREX_H
+#pragma once
 
 #if USE_MALLOC_PROFILER
 
@@ -40,4 +39,3 @@ public:
 
 #endif // USE_MALLOC_PROFILER
 
-#endif // INC_MALLOCPROFILEREX_H

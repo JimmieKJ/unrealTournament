@@ -164,9 +164,9 @@ struct FDragDropOLEData
 {
 	enum EWindowsOLEDataType
 	{
-		None,
-		Text,
-		Files
+		None = 0,
+		Text = 1<<0,
+		Files = 1<<1,
 	};
 
 	FDragDropOLEData()
@@ -175,7 +175,7 @@ struct FDragDropOLEData
 
 	FString OperationText;
 	TArray<FString> OperationFilenames;
-	EWindowsOLEDataType Type;
+	uint8 Type;
 };
 
 
@@ -404,6 +404,12 @@ private:
 	/** Registers the Windows class for windows and assigns the application instance and icon */
 	static bool RegisterClass( const HINSTANCE HInstance, const HICON HIcon );
 
+	/**  @return  True if a windows message is related to user input from the keyboard */
+	static bool IsKeyboardInputMessage( uint32 msg );
+
+	/**  @return  True if a windows message is related to user input from the mouse */
+	static bool IsMouseInputMessage( uint32 msg );
+
 	/**  @return  True if a windows message is related to user input (mouse, keyboard) */
 	static bool IsInputMessage( uint32 msg );
 
@@ -424,9 +430,6 @@ private:
 
 	/** Helper function to update the cached states of all modifier keys */
 	void UpdateAllModifierKeyStates();
-
-	/** Helper function to update the cached modifier key state when a key is pressed or released */
-	void UpdateModifierKeyState(int32 ModifierKey, bool bNewState);
 
 private:
 
@@ -455,9 +458,22 @@ private:
 	TArray<TSharedPtr<class IInputDevice>> ExternalInputDevices;
 	bool bHasLoadedInputPlugins;
 
-	TArray<int32> PressedModifierKeys;
-
-	FModifierKeysState CachedModifierKeyState;
+	struct EModifierKey
+	{
+		enum Type
+		{
+			LeftShift,		// VK_LSHIFT
+			RightShift,		// VK_RSHIFT
+			LeftControl,	// VK_LCONTROL
+			RightControl,	// VK_RCONTROL
+			LeftAlt,		// VK_LMENU
+			RightAlt,		// VK_RMENU
+			CapsLock,		// VK_CAPITAL
+			Count,
+		};
+	};
+	/** Cached state of the modifier keys. True if the modifier key is pressed (or toggled in the case of caps lock), false otherwise */
+	bool ModifierKeyState[EModifierKey::Count];
 
 	int32 bAllowedToDeferMessageProcessing;
 	

@@ -5,6 +5,7 @@
 #include "Materials/MaterialInterface.h"
 #include "Materials/MaterialInstanceBasePropertyOverrides.h"
 #include "StaticParameterSet.h"
+#include "Materials/Material.h"
 #include "MaterialInstance.generated.h"
 
 //
@@ -181,10 +182,6 @@ class UMaterialInstance : public UMaterialInterface
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = MaterialInstance)
 	uint32 bOverrideSubsurfaceProfile:1;
 
-	/** Unique ID for this material, used for caching during distributed lighting */
-	UPROPERTY()
-	FGuid ParentLightingGuid;
-
 	/** Font parameters. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=MaterialInstance)
 	TArray<struct FFontParameterValue> FontParameterValues;
@@ -230,6 +227,9 @@ private:
 	/** Static parameter values that are overridden in this instance. */
 	FStaticParameterSet StaticParameters;
 
+	/** Inline material resources serialized from disk. To be processed on game thread in PostLoad. */
+	TArray<FMaterialResource> LoadedMaterialResources;
+
 	/** 
 	 * Material resources used for rendering this material instance, in the case of static parameters being present.
 	 * These will always be valid and non-null when bHasStaticPermutationResource is true,
@@ -250,6 +250,7 @@ public:
 	virtual ENGINE_API UMaterial* GetMaterial() override;
 	virtual ENGINE_API const UMaterial* GetMaterial() const override;
 	virtual ENGINE_API const UMaterial* GetMaterial_Concurrent(TMicRecursionGuard& RecursionGuard) const override;
+	virtual ENGINE_API FMaterialResource* AllocatePermutationResource();
 	virtual ENGINE_API FMaterialResource* GetMaterialResource(ERHIFeatureLevel::Type InFeatureLevel, EMaterialQualityLevel::Type QualityLevel = EMaterialQualityLevel::Num) override;
 	virtual ENGINE_API const FMaterialResource* GetMaterialResource(ERHIFeatureLevel::Type InFeatureLevel, EMaterialQualityLevel::Type QualityLevel = EMaterialQualityLevel::Num) const override;
 	virtual ENGINE_API bool GetFontParameterValue(FName ParameterName, class UFont*& OutFontValue, int32& OutFontPage) const override;
@@ -259,6 +260,7 @@ public:
 	virtual ENGINE_API bool GetTextureParameterOverrideValue(FName ParameterName, class UTexture*& OutValue) const override;
 	virtual ENGINE_API bool GetVectorParameterValue(FName ParameterName, FLinearColor& OutValue) const override;
 	virtual ENGINE_API void GetUsedTextures(TArray<UTexture*>& OutTextures, EMaterialQualityLevel::Type QualityLevel, bool bAllQualityLevels, ERHIFeatureLevel::Type FeatureLevel, bool bAllFeatureLevels) const override;
+	virtual ENGINE_API void GetUsedTexturesAndIndices(TArray<UTexture*>& OutTextures, TArray< TArray<int32> >& OutIndices, EMaterialQualityLevel::Type QualityLevel, ERHIFeatureLevel::Type FeatureLevel) const;
 	virtual ENGINE_API void OverrideTexture(const UTexture* InTextureToOverride, UTexture* OverrideTexture, ERHIFeatureLevel::Type InFeatureLevel) override;
 	virtual ENGINE_API void OverrideVectorParameterDefault(FName ParameterName, const FLinearColor& Value, bool bOverride, ERHIFeatureLevel::Type FeatureLevel) override;
 	virtual ENGINE_API void OverrideScalarParameterDefault(FName ParameterName, float Value, bool bOverride, ERHIFeatureLevel::Type FeatureLevel) override;
@@ -386,6 +388,15 @@ public:
 	ENGINE_API virtual void LogMaterialsAndTextures(FOutputDevice& Ar, int32 Indent) const override;
 #endif
 
+	/**
+	 *	Returns all the Guids related to this material. For material instances, this includes the parent hierarchy.
+	 *  Used for versioning as parent changes don't update the child instance Guids.
+	 *
+	 *	@param	bIncludeTextures	Whether to include the referenced texture Guids.
+	 *	@param	OutGuids			The list of all resource guids affecting the precomputed lighting system and texture streamer.
+	 */
+	ENGINE_API virtual void GetLightingGuidChain(bool bIncludeTextures, TArray<FGuid>& OutGuids) const override;
+
 protected:
 	/**
 	 * Updates parameter names on the material instance, returns true if parameters have changed.
@@ -394,7 +405,7 @@ protected:
 
 	ENGINE_API void SetParentInternal(class UMaterialInterface* NewParent, bool RecacheShaders);
 
-	void GetTextureExpressionValues(const FMaterialResource* MaterialResource, TArray<UTexture*>& OutTextures) const;
+	void GetTextureExpressionValues(const FMaterialResource* MaterialResource, TArray<UTexture*>& OutTextures, TArray< TArray<int32> >* OutIndices = nullptr) const;
 
 	/** 
 	 * Updates StaticPermutationMaterialResources based on the value of bHasStaticPermutationResource
@@ -415,10 +426,12 @@ protected:
 	 * Internal interface for setting / updating values for material instances.
 	 */
 	void SetVectorParameterValueInternal(FName ParameterName, FLinearColor Value);
+	bool SetVectorParameterByIndexInternal(int32 ParameterIndex, FLinearColor Value);
+	bool SetScalarParameterByIndexInternal(int32 ParameterIndex, float Value);
 	void SetScalarParameterValueInternal(FName ParameterName, float Value);
 	void SetTextureParameterValueInternal(FName ParameterName, class UTexture* Value);
 	void SetFontParameterValueInternal(FName ParameterName, class UFont* FontValue, int32 FontPage);
-	void ClearParameterValuesInternal();
+	void ClearParameterValuesInternal(const bool bAllParameters = true);
 
 	/** Initialize the material instance's resources. */
 	ENGINE_API void InitResources();

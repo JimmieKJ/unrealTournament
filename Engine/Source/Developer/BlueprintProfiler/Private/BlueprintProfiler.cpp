@@ -2,6 +2,8 @@
 
 #include "BlueprintProfilerPCH.h"
 #include "EditorStyleSet.h"
+#include "ActorEditorUtils.h"
+#include "Editor/UnrealEd/Classes/Settings/EditorExperimentalSettings.h"
 
 #define LOCTEXT_NAMESPACE "BlueprintProfiler"
 
@@ -52,27 +54,19 @@ void FBlueprintProfiler::ToggleProfilingCapture()
 	FBlueprintCoreDelegates::OnToggleScriptProfiler.Broadcast(bProfilerActive);
 }
 
-void FBlueprintProfiler::InstrumentEvent(const EScriptInstrumentationEvent& Event)
+void FBlueprintProfiler::InstrumentEvent(const FScriptInstrumentationSignal& Event)
 {
 	#if WITH_EDITOR
 	SCOPE_CYCLE_COUNTER(STAT_ProfilerInstrumentationCost);
 
 	const UObject* ContextObject = Event.GetContextObject();
-	if (ContextObject && !ContextObject->HasAnyFlags(RF_Transient))
+	if (ContextObject && !ContextObject->HasAnyFlags(RF_Transient) && !FActorEditorUtils::IsAPreviewOrInactiveActor(Cast<const AActor>(ContextObject)))
 	#endif
 	{
 		// Handle context switching events
-		CaptureContext.UpdateContext(Event.GetContextObject(), InstrumentationEventQueue);
+		CaptureContext.UpdateContext(Event, InstrumentationEventQueue);
 		// Add instrumented event
-		int32 ScriptCodeOffset = -1;
-		FName CurrentFunctionName = Event.GetEventName();
-		if (Event.IsStackFrameValid())
-		{
-			const FFrame& StackFrame = Event.GetStackFrame();
-			ScriptCodeOffset = StackFrame.Code - StackFrame.Node->Script.GetData() - 1;
-			CurrentFunctionName = StackFrame.Node->GetFName();
-		}
-		InstrumentationEventQueue.Add(FScriptInstrumentedEvent(Event.GetType(), CurrentFunctionName, ScriptCodeOffset));
+		InstrumentationEventQueue.Add(FScriptInstrumentedEvent(Event.GetType(), Event.GetFunctionClassScope()->GetFName(), Event.GetFunctionName(), Event.GetScriptCodeOffset()));
 		// Reset context on event end
 		if (Event.GetType() == EScriptInstrumentation::Stop)
 		{
@@ -82,6 +76,14 @@ void FBlueprintProfiler::InstrumentEvent(const EScriptInstrumentationEvent& Even
 }
 
 #if WITH_EDITOR
+
+void FBlueprintProfiler::AddInstrumentedBlueprint(UBlueprint* InstrumentedBlueprint)
+{
+	if (InstrumentedBlueprint && InstrumentedBlueprint->GeneratedClass && InstrumentedBlueprint->GeneratedClass->HasInstrumentation())
+	{
+		GetBlueprintContext(InstrumentedBlueprint->GeneratedClass->GetPathName());
+	}
+}
 
 TSharedPtr<FBlueprintExecutionContext> FBlueprintProfiler::GetBlueprintContext(const FString& BlueprintClassPath)
 {
@@ -93,8 +95,12 @@ TSharedPtr<FBlueprintExecutionContext> FBlueprintProfiler::GetBlueprintContext(c
 		// Map the blueprint and initialise the context.
 		if (Result->InitialiseContext(BlueprintClassPath))
 		{
-			// Register delegate to handle updates
-			Result->GetBlueprint().Get()->OnCompiled().AddRaw(this, &FBlueprintProfiler::RemoveAllBlueprintReferences);
+			if (UBlueprint* Blueprint = Result->GetBlueprint().Get())
+			{
+				// Register delegate to handle updates
+				Blueprint->OnCompiled().AddRaw(this, &FBlueprintProfiler::RemoveAllBlueprintReferences);
+				GraphLayoutChangedDelegate.Broadcast(Blueprint);
+			}
 		}
 		else
 		{
@@ -116,6 +122,19 @@ TSharedPtr<FScriptExecutionNode> FBlueprintProfiler::GetProfilerDataForNode(cons
 			{
 				Result = (*BlueprintContext)->GetProfilerDataForNode(GraphNode);
 			}
+		}
+	}
+	return Result;
+}
+
+TSharedPtr<FScriptExecutionBlueprint> FBlueprintProfiler::GetProfilerDataForBlueprint(const UBlueprint* Blueprint)
+{
+	TSharedPtr<FScriptExecutionBlueprint> Result;
+	if (Blueprint)
+	{
+		if (TSharedPtr<FBlueprintExecutionContext>* BlueprintContext = PathToBlueprintContext.Find(Blueprint->GeneratedClass->GetPathName()))
+		{
+			Result = (*BlueprintContext)->GetBlueprintExecNode();
 		}
 	}
 	return Result;
@@ -162,6 +181,7 @@ void FBlueprintProfiler::ProcessEventProfilingData()
 		bool IsRangeValid() const { return StopIdx > StartIdx; }
 
 		TSharedPtr<FBlueprintExecutionContext> BlueprintContext;
+		FName ClassScope;
 		FName InstanceName;
 		int32 StartIdx;
 		int32 StopIdx;
@@ -184,30 +204,100 @@ void FBlueprintProfiler::ProcessEventProfilingData()
 					if (InstanceEvent.IsNewInstance() && Event.IsEvent())
 					{
 						FEventRange NewEventRange;
-						NewEventRange.BlueprintContext = GetBlueprintContext(CurrEvent.GetObjectPath());
-						NewEventRange.InstanceName = MapBlueprintInstance(NewEventRange.BlueprintContext, InstanceEvent.GetObjectPath());
-						NewEventRange.StartIdx = EventIdx;
-						ScriptEventRanges.Push(NewEventRange);
+						NewEventRange.BlueprintContext = GetBlueprintContext(CurrEvent.GetBlueprintClassPath());
+						if (NewEventRange.BlueprintContext.IsValid())
+						{
+							NewEventRange.InstanceName = NewEventRange.BlueprintContext->MapBlueprintInstance(InstanceEvent.GetInstancePath());
+							NewEventRange.ClassScope = Event.GetFunctionClassScopeName();
+							NewEventRange.StartIdx = EventIdx;
+							ScriptEventRanges.Push(NewEventRange);
+						}
+
+						// Only remove the class/instance pair for new events.
+						InstrumentationEventQueue.RemoveAt(EventIdx, 2, false);
 					}
 				}
-				InstrumentationEventQueue.RemoveAt(EventIdx, 2, false);
+				break;
+			}
+			case EScriptInstrumentation::ClassScope:
+			{
+				// Class scope switch handling.
+				if (ScriptEventRanges.Num() > 0)
+				{
+					// Check against the last class scope first before adding another range.
+					FEventRange& LastEventRange = ScriptEventRanges.Last();
+					const FName NewClassScope = InstrumentationEventQueue[EventIdx].GetFunctionClassScopeName();
+					if (LastEventRange.ClassScope != NewClassScope)
+					{
+						// Override the class scope signal to be an event.
+						InstrumentationEventQueue[EventIdx].OverrideType(EScriptInstrumentation::Event);
+						// Create new sub event event range to be processed as a sub event.
+						FEventRange NewClassScopeRange;
+						NewClassScopeRange.BlueprintContext = LastEventRange.BlueprintContext;
+						NewClassScopeRange.InstanceName = LastEventRange.InstanceName;
+						NewClassScopeRange.ClassScope = NewClassScope;
+						NewClassScopeRange.StartIdx = EventIdx;
+						ScriptEventRanges.Push(NewClassScopeRange);
+						// find new class subset
+						double StartTime = MAX_dbl;
+						double StopTime = MIN_dbl;
+						int32 SubClassIdx = EventIdx+1;
+						for (; SubClassIdx < InstrumentationEventQueue.Num(); ++SubClassIdx)
+						{
+							// Check for end of scope
+							if (InstrumentationEventQueue[SubClassIdx].GetFunctionClassScopeName() != NewClassScope)
+							{
+								break;
+							}
+							// Update new event timings
+							const double EventTime = InstrumentationEventQueue[SubClassIdx].GetTime();
+							StartTime = FMath::Min<double>(StartTime, EventTime);
+							StopTime = FMath::Max<double>(StopTime, EventTime);
+						}
+						// Set event timings
+						InstrumentationEventQueue[EventIdx].OverrideTime(StartTime);
+						// Insert Stop marker
+						FScriptInstrumentedEvent StopMarker(EScriptInstrumentation::Stop, NewClassScope, InstrumentationEventQueue[EventIdx].GetFunctionName(), INDEX_NONE);
+						StopMarker.OverrideTime(StopTime);
+						InstrumentationEventQueue.Insert(StopMarker, SubClassIdx);
+						// Note: we could skip the class scope signals and jump straight to processing here - it might cause problems though.
+					}
+					else
+					{
+						// we have processed a scope switch and are now continuing with the previous scope.
+						// just remove the scope signal and adjust the processing offset ( so we process the next valid signal ).
+						InstrumentationEventQueue.RemoveAt(EventIdx, 1, false);
+						EventIdx--;
+					}
+				}
 				break;
 			}
 			case EScriptInstrumentation::Event:
 			{
 				// Nested events such as calls from event dispatchers.
-				check(ScriptEventRanges.Num() > 0);
-				FEventRange& LastEventRange = ScriptEventRanges.Last();
-				FEventRange NewEventRange;
-				NewEventRange.BlueprintContext = LastEventRange.BlueprintContext;
-				NewEventRange.InstanceName = LastEventRange.InstanceName;
-				NewEventRange.StartIdx = EventIdx;
-				ScriptEventRanges.Push(NewEventRange);
+				if (ScriptEventRanges.Num() > 0)
+				{
+					FEventRange& LastEventRange = ScriptEventRanges.Last();
+					FName ActiveInstance = LastEventRange.InstanceName;
+					// Check for a different instance, update the active instance and remove the signal.
+					const int32 InstanceIdx = EventIdx - 1;
+					if (EventIdx > 0 && InstrumentationEventQueue[InstanceIdx].GetType() == EScriptInstrumentation::Instance)
+					{
+						ActiveInstance = LastEventRange.BlueprintContext->MapBlueprintInstance(InstrumentationEventQueue[InstanceIdx].GetInstancePath());
+						InstrumentationEventQueue.RemoveAt(InstanceIdx, 1, false);
+						EventIdx--;
+					}
+					FEventRange NewEventRange;
+					NewEventRange.BlueprintContext = LastEventRange.BlueprintContext;
+					NewEventRange.InstanceName = ActiveInstance;
+					NewEventRange.ClassScope = CurrEvent.GetFunctionClassScopeName();
+					NewEventRange.StartIdx = EventIdx;
+					ScriptEventRanges.Push(NewEventRange);
+				}
 				break;
 			}
 			case EScriptInstrumentation::Stop:
 			{
-				const int32 NumEventRanges = ScriptEventRanges.Num();
 				if (ScriptEventRanges.Num() > 0)
 				{
 					FEventRange& EventRangeToProcess = ScriptEventRanges.Last();
@@ -219,10 +309,14 @@ void FBlueprintProfiler::ProcessEventProfilingData()
 						// Find any resumed contexts if required
 						if (InstrumentationEventQueue[EventRangeToProcess.StartIdx].IsResumeEvent())
 						{
-							if (TSharedPtr<FScriptEventPlayback>* SuspendedEvent = SuspendedEvents.Find(EventRangeToProcess.InstanceName))
+							if (TMap<int32, TSharedPtr<FScriptEventPlayback>>* SuspendedEventMap = SuspendedEvents.Find(EventRangeToProcess.InstanceName))
 							{
-								EventToProcess = *SuspendedEvent;
-								SuspendedEvents.Remove(EventRangeToProcess.InstanceName);
+								const int32 LatentLinkId = InstrumentationEventQueue[EventRangeToProcess.StartIdx].GetScriptCodeOffset();
+								if (TSharedPtr<FScriptEventPlayback>* SuspendedEvent = SuspendedEventMap->Find(LatentLinkId))
+								{
+									EventToProcess = *SuspendedEvent;
+									SuspendedEventMap->Remove(LatentLinkId);
+								}
 							}
 						}
 						else
@@ -238,7 +332,8 @@ void FBlueprintProfiler::ProcessEventProfilingData()
 							DirtyContexts.Add(EventRangeToProcess.BlueprintContext);
 							if (EventToProcess->IsSuspended())
 							{
-								SuspendedEvents.Add(EventRangeToProcess.InstanceName) = EventToProcess;
+								TMap<int32, TSharedPtr<FScriptEventPlayback>>& SuspendedEventMap = SuspendedEvents.FindOrAdd(EventRangeToProcess.InstanceName);
+								SuspendedEventMap.Add(EventToProcess->GetLatentLinkId()) = EventToProcess;
 							}
 						}
 					}
@@ -291,6 +386,12 @@ void FBlueprintProfiler::RegisterDelegates(bool bEnabled)
 		// Register for PIE begin and end events in the editor
 		FEditorDelegates::BeginPIE.AddRaw(this, &FBlueprintProfiler::BeginPIE);
 		FEditorDelegates::EndPIE.AddRaw(this, &FBlueprintProfiler::EndPIE);
+		// Register the connection drawing policy
+		if (!ConnectionFactory.IsValid())
+		{
+			ConnectionFactory = MakeShareable(new FBlueprintProfilerPinConnectionFactory);
+		}
+		FEdGraphUtilities::RegisterVisualPinConnectionFactory(ConnectionFactory);
 #endif // WITH_EDITOR
 		ResetProfilingData();
 		// Start consuming profiling events for capture
@@ -302,6 +403,11 @@ void FBlueprintProfiler::RegisterDelegates(bool bEnabled)
 		// Unregister for PIE begin and end events in the editor
 		FEditorDelegates::BeginPIE.RemoveAll(this);
 		FEditorDelegates::EndPIE.RemoveAll(this);
+		// Unregister the connection drawing policy
+		if (ConnectionFactory.IsValid())
+		{
+			FEdGraphUtilities::UnregisterVisualPinConnectionFactory(ConnectionFactory);
+		}
 #endif // WITH_EDITOR
 		ResetProfilingData();
 		// Stop consuming profiling events for capture
@@ -323,37 +429,6 @@ void FBlueprintProfiler::EndPIE(bool bIsSimulating)
 	bPIEActive = false;
 	bProfilingCaptureActive = bProfilerActive && bPIEActive;
 #endif // WITH_EDITOR
-}
-
-FName FBlueprintProfiler::MapBlueprintInstance(TSharedPtr<FBlueprintExecutionContext> BlueprintContext, const FString& InstancePath)
-{
-	FName InstanceName(*InstancePath);
-	TWeakObjectPtr<const UObject> Instance = BlueprintContext->GetInstance(InstanceName);
-
-	if (Instance.IsValid() && !BlueprintContext->HasProfilerDataForInstance(InstanceName))
-	{
-		// Create new instance node
-		FScriptExecNodeParams InstanceNodeParams;
-		InstanceNodeParams.NodeName = InstanceName;
-		InstanceNodeParams.ObservedObject = Instance.Get();
-		InstanceNodeParams.NodeFlags = EScriptExecutionNodeFlags::Instance;
-		const AActor* Actor = Cast<AActor>(Instance.Get());
-		InstanceNodeParams.DisplayName = Actor ? FText::FromString(Actor->GetActorLabel()) : FText::FromString(Instance.Get()->GetName());
-		InstanceNodeParams.Tooltip = LOCTEXT("NavigateToInstanceHyperlink_ToolTip", "Navigate to the Instance");
-		InstanceNodeParams.IconColor = FLinearColor(1.f, 1.f, 1.f, 0.8f);
-		InstanceNodeParams.Icon = const_cast<FSlateBrush*>(FEditorStyle::GetBrush(TEXT("BlueprintProfiler.Actor")));
-		TSharedPtr<FScriptExecutionInstance> InstanceNode = MakeShareable<FScriptExecutionInstance>(new FScriptExecutionInstance(InstanceNodeParams));
-		// Link to parent blueprint entry
-		TSharedPtr<FScriptExecutionBlueprint> BlueprintNode = BlueprintContext->GetBlueprintExecNode();
-		BlueprintNode->AddInstance(InstanceNode);
-		InstanceNode->SetParentNode(BlueprintNode);
-		// Fill out events from the blueprint root node
-		for (int32 NodeIdx = 0; NodeIdx < BlueprintNode->GetNumChildren(); ++NodeIdx)
-		{
-			InstanceNode->AddChildNode(BlueprintNode->GetChildByIndex(NodeIdx));
-		}
-	}
-	return InstanceName;
 }
 
 #undef LOCTEXT_NAMESPACE

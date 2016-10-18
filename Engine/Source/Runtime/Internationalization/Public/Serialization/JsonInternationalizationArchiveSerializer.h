@@ -2,9 +2,9 @@
 
 #pragma once
 
-#include "IInternationalizationArchiveSerializer.h"
 #include "Json.h"
-
+#include "InternationalizationArchive.h"
+#include "InternationalizationManifest.h"
 
 /**
  * Used to arrange Internationalization archive data in a hierarchy based on namespace prior to json serialization.
@@ -23,92 +23,128 @@ public:
 
 
 /**
- * Implements a InternationalizationArchive serializer that serializes to and from Json encoded data.
+ * Implements a serializer that serializes to and from Json encoded data.
  */
 class INTERNATIONALIZATION_API FJsonInternationalizationArchiveSerializer
-	: public IInternationalizationArchiveSerializer
 {
 public:
 
-	/** Default constructor. */
-	FJsonInternationalizationArchiveSerializer() { }
-
-public:
-
 	/**
-	 * Deserializes a Internationalization archive from a JSON object.
+	 * Deserializes an archive from a JSON string.
 	 *
-	 * @param InJsonObj The JSON object to serialize from.
-	 * @param InternationalizationArchive The populated Internationalization archive.
+	 * @param InJsonObj			The JSON string to serialize from.
+	 * @param InArchive			The archive to populate from the JSON data.
+	 * @param InManifest		The manifest associated with the archive. May be null, but you won't be able to load archives with a version < FInternationalizationArchive::EFormatVersion::AddedKeys.
+	 * @param InNativeArchive	The native archive associated with the archive. May be null.
+	 *
 	 * @return true if deserialization was successful, false otherwise.
 	 */
-	bool DeserializeArchive( TSharedRef< FJsonObject > InJsonObj, TSharedRef< FInternationalizationArchive > InternationalizationArchive );
+	static bool DeserializeArchive(const FString& InStr, TSharedRef<FInternationalizationArchive> InArchive, TSharedPtr<const FInternationalizationManifest> InManifest, TSharedPtr<const FInternationalizationArchive> InNativeArchive);
 
 	/**
-	 * Serializes a Internationalization archive to a JSON object.
+	 * Deserializes an archive from a JSON object.
 	 *
-	 * @param InternationalizationArchive The Internationalization archive data to serialize.
-	 * @param JsonObj The JSON object to serialize into.
+	 * @param InJsonObj			The JSON object to serialize from.
+	 * @param InArchive			The archive to populate from the JSON data.
+	 * @param InManifest		The manifest associated with the archive. May be null, but you won't be able to load archives with a version < FInternationalizationArchive::EFormatVersion::AddedKeys.
+	 * @param InNativeArchive	The native archive associated with the archive. May be null.
+	 *
+	 * @return true if deserialization was successful, false otherwise.
+	 */
+	static bool DeserializeArchive(TSharedRef<FJsonObject> InJsonObj, TSharedRef<FInternationalizationArchive> InArchive, TSharedPtr<const FInternationalizationManifest> InManifest, TSharedPtr<const FInternationalizationArchive> InNativeArchive);
+
+	/**
+	 * Deserializes an archive from a JSON file.
+	 *
+	 * @param InJsonFile		The path to the JSON file to serialize from.
+	 * @param InArchive			The archive to populate from the JSON data.
+	 * @param InManifest		The manifest associated with the archive. May be null, but you won't be able to load archives with a version < FInternationalizationArchive::EFormatVersion::AddedKeys.
+	 * @param InNativeArchive	The native archive associated with the archive. May be null.
+	 *
+	 * @return true if deserialization was successful, false otherwise.
+	 */
+	static bool DeserializeArchiveFromFile(const FString& InJsonFile, TSharedRef<FInternationalizationArchive> InArchive, TSharedPtr<const FInternationalizationManifest> InManifest, TSharedPtr<const FInternationalizationArchive> InNativeArchive);
+
+	/**
+	 * Serializes an archive to a JSON object.
+	 *
+	 * @param InArchive			The archive data to serialize.
+	 * @param InJsonObj			The JSON object to serialize into.
+	 *
 	 * @return true if serialization was successful, false otherwise.
 	 */
-	bool SerializeArchive( TSharedRef< const FInternationalizationArchive > InternationalizationArchive, TSharedRef< FJsonObject > JsonObj );
+	static bool SerializeArchive(TSharedRef<const FInternationalizationArchive> InArchive, TSharedRef<FJsonObject> InJsonObj);
 
-public:
+	/**
+	 * Serializes an archive to a JSON string.
+	 *
+	 * @param InArchive			The archive data to serialize.
+	 * @param Str				The string to fill with the JSON data.
+	 *
+	 * @return true if serialization was successful, false otherwise.
+	 */
+	static bool SerializeArchive(TSharedRef<const FInternationalizationArchive> InArchive, FString& Str);
 
-	// IInternationalizationArchiveSerializer interface
-
-	virtual bool DeserializeArchive( const FString& InStr, TSharedRef< FInternationalizationArchive > InternationalizationArchive ) override;
-	virtual bool SerializeArchive( TSharedRef< const FInternationalizationArchive > InternationalizationArchive, FString& Str ) override;
-
-#if 0 // @todo Json: Serializing from FArchive is currently broken
-	virtual bool DeserializeArchive( FArchive& Archive, TSharedRef< FInternationalizationArchive > InternationalizationArchive ) override;
-	virtual bool SerializeArchive( TSharedRef< const FInternationalizationArchive > InternationalizationArchive, FArchive& Archive ) override;
-#endif
+	/**
+	* Serializes an archive to a JSON string.
+	*
+	* @param InArchive			The archive data to serialize.
+	* @param InJsonFile			The path to the JSON file to serialize to.
+	*
+	* @return true if serialization was successful, false otherwise.
+	*/
+	static bool SerializeArchiveToFile(TSharedRef<const FInternationalizationArchive> InArchive, const FString& InJsonFile);
 
 protected:
 
 	/**
-	 * Convert a JSON object to a Internationalization archive.
+	 * Deserializes an archive from a JSON object.
 	 *
-	 * @param InJsonObj The JSON object to serialize from.
-	 * @param InternationalizationArchive The Internationalization archive that will store the data.
+	 * @param InJsonObj			The JSON object to serialize from.
+	 * @param InArchive			The archive to populate from the JSON data.
+	 * @param InManifest		The manifest associated with the archive. May be null, but you won't be able to load archives with a version < FInternationalizationArchive::EFormatVersion::AddedKeys.
+	 * @param InNativeArchive	The native archive associated with the archive. May be null.
+	 *
 	 * @return true if deserialization was successful, false otherwise.
 	 */
-	bool DeserializeInternal( TSharedRef< FJsonObject > InJsonObj, TSharedRef< FInternationalizationArchive > InternationalizationArchive );
+	static bool DeserializeInternal(TSharedRef<FJsonObject> InJsonObj, TSharedRef<FInternationalizationArchive> InArchive, TSharedPtr<const FInternationalizationManifest> InManifest, TSharedPtr<const FInternationalizationArchive> InNativeArchive);
 
 	/**
 	 * Convert a Internationalization archive to a JSON object.
 	 *
-	 * @param InInternationalizationArchive The Internationalization archive object to serialize from.
+	 * @param InArchive The Internationalization archive object to serialize from.
 	 * @param JsonObj The Json object that will store the data.
 	 * @return true if serialization was successful, false otherwise.
 	 */
-	bool SerializeInternal( TSharedRef< const FInternationalizationArchive > InInternationalizationArchive, TSharedRef< FJsonObject > JsonObj );
+	static bool SerializeInternal(TSharedRef<const FInternationalizationArchive> InArchive, TSharedRef<FJsonObject> JsonObj);
 
 	/**
-	 * Recursive function that will traverse the JSON object and populate a Internationalization archive.
+	 * Recursive function that will traverse the JSON object and populate an archive.
 	 *
-	 * @param InJsonObj The JSON object.
-	 * @param ParentNamespace The namespace of the parent JSON object.
-	 * @param InternationalizationArchive The Internationalization archive that will store the data.
+	 * @param InJsonObj			The JSON object to serialize from.
+	 * @param ParentNamespace	The namespace of the parent JSON object.
+	 * @param InArchive			The archive to populate from the JSON data.
+	 * @param InManifest		The manifest associated with the archive. May be null, but you won't be able to load archives with a version < FInternationalizationArchive::EFormatVersion::AddedKeys.
+	 * @param InNativeArchive	The native archive associated with the archive. May be null.
+	 *
 	 * @return true if successful, false otherwise.
 	 */
-	bool JsonObjToArchive( TSharedRef< FJsonObject > InJsonObj, FString ParentNamespace, TSharedRef< FInternationalizationArchive > InternationalizationArchive );
+	static bool JsonObjToArchive(TSharedRef<FJsonObject> InJsonObj, const FString& ParentNamespace, TSharedRef<FInternationalizationArchive> InArchive, TSharedPtr<const FInternationalizationManifest> InManifest, TSharedPtr<const FInternationalizationArchive> InNativeArchive);
 
 	/**
 	 * Takes a Internationalization archive and arranges the data into a hierarchy based on namespace.
 	 *
-	 * @param InInternationalizationArchive The Internationalization archive.
+	 * @param InArchive The Internationalization archive.
 	 * @param RootElement The root element of the structured data.
 	 */
-	void GenerateStructuredData( TSharedRef< const FInternationalizationArchive > InInternationalizationArchive, TSharedPtr< FStructuredArchiveEntry > RootElement );
+	static void GenerateStructuredData( TSharedRef< const FInternationalizationArchive > InArchive, TSharedPtr< FStructuredArchiveEntry > RootElement );
 
 	/**
 	 * Goes through the structured, hierarchy based, archive data and does a non-culture specific sort on namespaces and default text.
 	 *
 	 * @param RootElement The root element of the structured data.
 	 */
-	void SortStructuredData( TSharedPtr< FStructuredArchiveEntry > InElement );
+	static void SortStructuredData( TSharedPtr< FStructuredArchiveEntry > InElement );
 
 	/**
 	 * Populates a JSON object from Internationalization archive data that has been structured based on namespace.
@@ -116,12 +152,13 @@ protected:
 	 * @param InElement Internationalization archive data structured based on namespace.
 	 * @param JsonObj JSON object to be populated.
 	 */
-	void StructuredDataToJsonObj(TSharedPtr< const FStructuredArchiveEntry > InElement, TSharedRef< FJsonObject > JsonObj );
+	static void StructuredDataToJsonObj(TSharedPtr< const FStructuredArchiveEntry > InElement, TSharedRef< FJsonObject > JsonObj );
 
 public:
 
 	static const FString TAG_FORMATVERSION;
 	static const FString TAG_NAMESPACE;
+	static const FString TAG_KEY;
 	static const FString TAG_CHILDREN;
 	static const FString TAG_SUBNAMESPACES;
 	static const FString TAG_DEPRECATED_DEFAULTTEXT;
@@ -131,6 +168,7 @@ public:
 	static const FString TAG_SOURCE_TEXT;
 	static const FString TAG_TRANSLATION;
 	static const FString TAG_TRANSLATION_TEXT;
+	static const FString TAG_METADATA;
 	static const FString TAG_METADATA_KEY;
 	static const FString NAMESPACE_DELIMITER;
 };

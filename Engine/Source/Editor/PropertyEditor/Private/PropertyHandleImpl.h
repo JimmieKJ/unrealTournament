@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "PropertyHandle.h"
+
 class FObjectBaseAddress
 {
 public:
@@ -64,12 +66,21 @@ public:
 	FString GetPropertyValueArray() const;
 
 	/**
+	 * Enumerate the objects that need to be modified from the passed in property node
+	 *
+	 * @param InPropertyNode			The property node to get objects from
+	 * @param InObjectsToModifyCallback	The function to call for each object
+	 */
+	typedef TFunctionRef<bool(const FObjectBaseAddress& /*ObjectToModify*/, const int32 /*ObjectIndex*/, const int32 /*NumObjects*/)> EnumerateObjectsToModifyFuncRef; /** Return true to continue enumeration */
+	void EnumerateObjectsToModify( FPropertyNode* InPropertyNode, const EnumerateObjectsToModifyFuncRef& InObjectsToModifyCallback ) const;
+
+	/**
 	 * Gets the objects that need to be modified from the passed in property node
 	 * 
 	 * @param ObjectsToModify	The addresses of the objects to modify
 	 * @param InPropertyNode	The property node to get objects from
 	 */
-	void GetObjectsToModify( TArray<FObjectBaseAddress>& ObjectsToModify, FPropertyNode* InPropertyNode ) const ;
+	void GetObjectsToModify( TArray<FObjectBaseAddress>& ObjectsToModify, FPropertyNode* InPropertyNode ) const;
 
 	/**
 	 * Gets the union of values with the appropriate type for the property set
@@ -116,6 +127,14 @@ public:
 	FPropertyAccess::Result ImportText( const FString& InValue, EPropertyValueSetFlags::Type Flags );
 	FPropertyAccess::Result ImportText( const FString& InValue, FPropertyNode* PropertyNode, EPropertyValueSetFlags::Type Flags );
 	FPropertyAccess::Result ImportText( const TArray<FObjectBaseAddress>& InObjects, const TArray<FString>& InValues, FPropertyNode* PropertyNode, EPropertyValueSetFlags::Type Flags );
+
+	/**
+	 * Enumerate the raw data of this property.  (Each pointer can be cast to the property data type)
+	 *
+	 * @param InRawDataCallback		The function to call for each data
+	 */ 
+	void EnumerateRawData( const IPropertyHandle::EnumerateRawDataFuncRef& InRawDataCallback );
+	void EnumerateConstRawData( const IPropertyHandle::EnumerateConstRawDataFuncRef& InRawDataCallback ) const;
 
 	/**
 	 * Accesses the raw data of this property. 
@@ -317,8 +336,6 @@ protected:
 	 */
 	FPropertyAccess::Result GetPropertyValueText( FText& OutText, FPropertyNode* InPropertyNode, const bool bAllowAlternateDisplayValue ) const;
 
-	bool IsAnyOuterObjectFromEngine() const;
-
 protected:
 	/** Property node used to access UProperty and address of object to change */
 	TWeakPtr<FPropertyNode> PropertyNode;
@@ -330,7 +347,7 @@ protected:
 };
 
 #define DECLARE_PROPERTY_ACCESSOR( ValueType ) \
-	virtual FPropertyAccess::Result SetValue( const ValueType& InValue, EPropertyValueSetFlags::Type Flags = EPropertyValueSetFlags::DefaultFlags ) override; \
+	virtual FPropertyAccess::Result SetValue( ValueType const& InValue, EPropertyValueSetFlags::Type Flags = EPropertyValueSetFlags::DefaultFlags ) override; \
 	virtual FPropertyAccess::Result GetValue( ValueType& OutValue ) const override; 
 
 class FDetailCategoryImpl;
@@ -355,6 +372,7 @@ public:
 	DECLARE_PROPERTY_ACCESSOR( uint64 )
 	DECLARE_PROPERTY_ACCESSOR( float )
 	DECLARE_PROPERTY_ACCESSOR( FString )
+	DECLARE_PROPERTY_ACCESSOR( FText )
 	DECLARE_PROPERTY_ACCESSOR( FName )
 	DECLARE_PROPERTY_ACCESSOR( FVector )
 	DECLARE_PROPERTY_ACCESSOR( FVector2D )
@@ -362,6 +380,7 @@ public:
 	DECLARE_PROPERTY_ACCESSOR( FQuat )
 	DECLARE_PROPERTY_ACCESSOR( FRotator )
 	DECLARE_PROPERTY_ACCESSOR( UObject* )
+	DECLARE_PROPERTY_ACCESSOR( const UObject* )
 	DECLARE_PROPERTY_ACCESSOR( FAssetData )
 
 	/** IPropertyHandle interface */
@@ -387,10 +406,13 @@ public:
 	virtual TSharedPtr<IPropertyHandle> GetChildHandle( uint32 ChildIndex ) const override;
 	virtual TSharedPtr<IPropertyHandle> GetChildHandle( FName ChildName, bool bRecurse = true ) const override;
 	virtual TSharedPtr<IPropertyHandle> GetParentHandle() const override;
+	virtual void EnumerateRawData( const EnumerateRawDataFuncRef& InRawDataCallback ) override;
+	virtual void EnumerateConstRawData( const EnumerateConstRawDataFuncRef& InRawDataCallback ) const override;
 	virtual void AccessRawData( TArray<void*>& RawData ) override;
 	virtual void AccessRawData( TArray<const void*>& RawData ) const override;
 	virtual uint32 GetNumOuterObjects() const override;
 	virtual void GetOuterObjects( TArray<UObject*>& OuterObjects ) const override;
+	virtual void GetOuterPackages(TArray<UPackage*>& OuterPackages) const override;
 	virtual FPropertyAccess::Result GetNumChildren( uint32& OutNumChildren ) const override;
 	virtual TSharedPtr<IPropertyHandleArray> AsArray() override { return nullptr; }
 	virtual const UClass* GetPropertyClass() const override;
@@ -406,8 +428,11 @@ public:
 	virtual const FString* GetInstanceMetaData(const FName& Key) const override;
 	virtual FText GetToolTipText() const override;
 	virtual void SetToolTipText(const FText& ToolTip) override;
+	virtual int32 GetNumPerObjectValues() const override;
 	virtual FPropertyAccess::Result SetPerObjectValues( const TArray<FString>& InPerObjectValues,  EPropertyValueSetFlags::Type Flags = EPropertyValueSetFlags::DefaultFlags ) override;
-	virtual FPropertyAccess::Result GetPerObjectValues( TArray<FString>& OutPerObjectValues ) override;
+	virtual FPropertyAccess::Result GetPerObjectValues( TArray<FString>& OutPerObjectValues ) const override;
+	virtual FPropertyAccess::Result SetPerObjectValue( const int32 ObjectIndex, const FString& ObjectValue, EPropertyValueSetFlags::Type Flags = EPropertyValueSetFlags::DefaultFlags ) override;
+	virtual FPropertyAccess::Result GetPerObjectValue( const int32 ObjectIndex, FString& OutObjectValue ) const override;
 	virtual bool GeneratePossibleValues(TArray< TSharedPtr<FString> >& OutOptionStrings, TArray< FText >& OutToolTips, TArray<bool>& OutRestrictedItems) override;
 	virtual FPropertyAccess::Result SetObjectValueFromSelection() override;
 	virtual void NotifyPreChange() override;
@@ -497,7 +522,9 @@ public:
 	FPropertyHandleObject( TSharedRef<FPropertyNode> PropertyNode, FNotifyHook* NotifyHook, TSharedPtr<IPropertyUtilities> PropertyUtilities );
 	static bool Supports( TSharedRef<FPropertyNode> PropertyNode );
 	virtual FPropertyAccess::Result GetValue( UObject*& OutValue ) const override;
-	virtual FPropertyAccess::Result SetValue( const UObject*& InValue, EPropertyValueSetFlags::Type Flags = EPropertyValueSetFlags::DefaultFlags ) override;
+	virtual FPropertyAccess::Result SetValue( UObject* const& InValue, EPropertyValueSetFlags::Type Flags = EPropertyValueSetFlags::DefaultFlags ) override;
+	virtual FPropertyAccess::Result GetValue( const UObject*& OutValue ) const override;
+	virtual FPropertyAccess::Result SetValue( const UObject* const& InValue, EPropertyValueSetFlags::Type Flags = EPropertyValueSetFlags::DefaultFlags ) override;
 	virtual FPropertyAccess::Result GetValue( FAssetData& OutValue ) const override;
 	virtual FPropertyAccess::Result SetValue( const FAssetData& InValue, EPropertyValueSetFlags::Type Flags = EPropertyValueSetFlags::DefaultFlags ) override;
 
@@ -566,4 +593,15 @@ private:
 	 * @return Whether or not the array can be modified
 	 */
 	bool IsEditable() const;
+};
+
+class FPropertyHandleText : public FPropertyHandleBase
+{
+public:
+	FPropertyHandleText(TSharedRef<FPropertyNode> PropertyNode, FNotifyHook* NotifyHook,TSharedPtr<IPropertyUtilities> PropertyUtilities);
+	static bool Supports(TSharedRef<FPropertyNode> PropertyNode);
+	virtual FPropertyAccess::Result GetValue(FText& OutValue) const override;
+	virtual FPropertyAccess::Result SetValue(const FText& InValue, EPropertyValueSetFlags::Type Flags = EPropertyValueSetFlags::DefaultFlags) override;
+
+	virtual FPropertyAccess::Result SetValue(const FString& InValue, EPropertyValueSetFlags::Type Flags = EPropertyValueSetFlags::DefaultFlags) override;
 };

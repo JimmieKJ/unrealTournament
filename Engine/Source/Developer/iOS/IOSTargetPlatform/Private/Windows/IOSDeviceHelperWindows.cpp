@@ -1,6 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved
 
-#include "../IOSTargetPlatformPrivatePCH.h"
+#include "IOSTargetPlatformPrivatePCH.h"
 
 #define EABLE_IOS_DEVICE_DETECT 0
 
@@ -237,17 +237,18 @@ bool FIOSDeviceHelper::MessageTickDelegate(float DeltaTime)
 	return true;
 }
 
-void FIOSDeviceHelper::Initialize()
+void FIOSDeviceHelper::Initialize(bool bIsTVOS)
 {
 	// Create a dummy device to hand over
-	const FString DummyDeviceName(FString::Printf(TEXT("All_iOS_On_%s"), FPlatformProcess::ComputerName()));
+	const FString DummyDeviceName(FString::Printf(bIsTVOS ? TEXT("All_tvOS_On_%s") : TEXT("All_iOS_On_%s"), FPlatformProcess::ComputerName()));
 	
 	FIOSLaunchDaemonPong Event;
-	Event.DeviceID = FString::Printf(TEXT("IOS@%s"), *DummyDeviceName);
+	Event.DeviceID = FString::Printf(bIsTVOS ? TEXT("TVOS@%s") : TEXT("IOS@%s"), *DummyDeviceName);
 	Event.bCanReboot = false;
 	Event.bCanPowerOn = false;
 	Event.bCanPowerOff = false;
 	Event.DeviceName = DummyDeviceName;
+	Event.DeviceType = bIsTVOS ? TEXT("AppleTV") : TEXT("");
 	FIOSDeviceHelper::OnDeviceConnected().Broadcast(Event);
 
 #if ENABLE_IOS_DEVICE_DETECT

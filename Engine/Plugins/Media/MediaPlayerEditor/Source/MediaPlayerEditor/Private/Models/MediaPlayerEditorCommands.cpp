@@ -1,16 +1,23 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MediaPlayerEditorPrivatePCH.h"
+#include "MediaPlayerEditorPCH.h"
+#include "MediaPlayerEditorCommands.h"
 
-#define LOCTEXT_NAMESPACE ""
+
+#define LOCTEXT_NAMESPACE "FMediaPlayerEditorCommands"
+
 
 void FMediaPlayerEditorCommands::RegisterCommands()
 {
-	UI_COMMAND(ForwardMedia, "Forward", "Fast forwards media playback", EUserInterfaceActionType::Button, FInputChord());
+	UI_COMMAND(CloseMedia, "Close", "Close the currently opened media", EUserInterfaceActionType::Button, FInputChord());
+	UI_COMMAND(ForwardMedia, "Forward", "Fast forward media playback", EUserInterfaceActionType::Button, FInputChord());
+	UI_COMMAND(NextMedia, "Next", "Jump to next item in the play list", EUserInterfaceActionType::Button, FInputChord());
 	UI_COMMAND(PauseMedia, "Pause", "Pause media playback", EUserInterfaceActionType::Button, FInputChord());
 	UI_COMMAND(PlayMedia, "Play", "Start media playback", EUserInterfaceActionType::Button, FInputChord());
-	UI_COMMAND(ReverseMedia, "Reverse", "Reverses media playback", EUserInterfaceActionType::Button, FInputChord());
-	UI_COMMAND(RewindMedia, "Rewind", "Rewinds the media to the beginning", EUserInterfaceActionType::Button, FInputChord());
+	UI_COMMAND(PreviousMedia, "Prev", "Jump to previous item in the play list", EUserInterfaceActionType::Button, FInputChord());
+	UI_COMMAND(ReverseMedia, "Reverse", "Reverse media playback", EUserInterfaceActionType::Button, FInputChord());
+	UI_COMMAND(RewindMedia, "Rewind", "Rewind the media to the beginning", EUserInterfaceActionType::Button, FInputChord());
 }
+
 
 #undef LOCTEXT_NAMESPACE

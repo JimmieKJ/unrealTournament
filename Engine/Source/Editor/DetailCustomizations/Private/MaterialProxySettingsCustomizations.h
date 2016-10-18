@@ -14,6 +14,8 @@ public:
 protected:
 	EVisibility AreManualOverrideTextureSizesEnabled() const;
 	EVisibility IsTextureSizeEnabled() const;
+
+	EVisibility IsSimplygonMaterialMergingVisible() const;
 	
 	TSharedPtr< IPropertyHandle > EnumHandle;
 
@@ -25,4 +27,7 @@ protected:
 	TSharedPtr< IPropertyHandle > SpecularTextureSizeHandle;
 	TSharedPtr< IPropertyHandle > EmissiveTextureSizeHandle;
 	TSharedPtr< IPropertyHandle > OpacityTextureSizeHandle;
+
+	TSharedPtr< IPropertyHandle > MergeTypeHandle;
+	TSharedPtr< IPropertyHandle > GutterSpaceHandle;
 };

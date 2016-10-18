@@ -2,10 +2,10 @@
 
 #include "UnrealTournament.h"
 
-#include "Runtime/Analytics/Analytics/Public/Analytics.h"
-#include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
 #include "UTAnalytics.h"
 #include "UTAnalyticsBlueprintLibrary.h"
+#include "AnalyticsEventAttribute.h"
+#include "IAnalyticsProviderET.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogUTAnalyticsBPLib, Display, All);
 
@@ -32,7 +32,7 @@ UUTAnalyticsBlueprintLibrary::UUTAnalyticsBlueprintLibrary(const FObjectInitiali
 
 bool UUTAnalyticsBlueprintLibrary::StartSession()
 {
-	TSharedPtr<IAnalyticsProvider> Provider = FUTAnalytics::GetProviderPtr();
+	TSharedPtr<IAnalyticsProviderET> Provider = FUTAnalytics::GetProviderPtr();
 	if (Provider.IsValid())
 	{
 		return Provider->StartSession();
@@ -46,7 +46,7 @@ bool UUTAnalyticsBlueprintLibrary::StartSession()
 
 bool UUTAnalyticsBlueprintLibrary::StartSessionWithAttributes(const TArray<FUTAnalyticsEventAttr>& Attributes)
 {
-	TSharedPtr<IAnalyticsProvider> Provider = FUTAnalytics::GetProviderPtr();
+	TSharedPtr<IAnalyticsProviderET> Provider = FUTAnalytics::GetProviderPtr();
 	if (Provider.IsValid())
 	{
 		return Provider->StartSession(ConvertAttrs(Attributes));
@@ -60,7 +60,7 @@ bool UUTAnalyticsBlueprintLibrary::StartSessionWithAttributes(const TArray<FUTAn
 
 void UUTAnalyticsBlueprintLibrary::EndSession()
 {
-	TSharedPtr<IAnalyticsProvider> Provider = FUTAnalytics::GetProviderPtr();
+	TSharedPtr<IAnalyticsProviderET> Provider = FUTAnalytics::GetProviderPtr();
 	if (Provider.IsValid())
 	{
 		Provider->EndSession();
@@ -73,7 +73,7 @@ void UUTAnalyticsBlueprintLibrary::EndSession()
 
 void UUTAnalyticsBlueprintLibrary::FlushEvents()
 {
-	TSharedPtr<IAnalyticsProvider> Provider = FUTAnalytics::GetProviderPtr();
+	TSharedPtr<IAnalyticsProviderET> Provider = FUTAnalytics::GetProviderPtr();
 	if (Provider.IsValid())
 	{
 		Provider->FlushEvents();
@@ -86,7 +86,7 @@ void UUTAnalyticsBlueprintLibrary::FlushEvents()
 
 void UUTAnalyticsBlueprintLibrary::RecordEvent(const FString& EventName)
 {
-	TSharedPtr<IAnalyticsProvider> Provider = FUTAnalytics::GetProviderPtr();
+	TSharedPtr<IAnalyticsProviderET> Provider = FUTAnalytics::GetProviderPtr();
 	if (Provider.IsValid())
 	{
 		Provider->RecordEvent(EventName);
@@ -103,7 +103,7 @@ void UUTAnalyticsBlueprintLibrary::RecordEvent(const FString& EventName)
 
 void UUTAnalyticsBlueprintLibrary::RecordEventWithAttribute(const FString& EventName, const FString& AttributeName, const FString& AttributeValue)
 {
-	TSharedPtr<IAnalyticsProvider> Provider = FUTAnalytics::GetProviderPtr();
+	TSharedPtr<IAnalyticsProviderET> Provider = FUTAnalytics::GetProviderPtr();
 	if (Provider.IsValid())
 	{
 		FAnalyticsEventAttribute Attribute(AttributeName, AttributeValue);
@@ -121,7 +121,7 @@ void UUTAnalyticsBlueprintLibrary::RecordEventWithAttribute(const FString& Event
 
 void UUTAnalyticsBlueprintLibrary::RecordEventWithAttributes(const FString& EventName, const TArray<FUTAnalyticsEventAttr>& Attributes)
 {
-	TSharedPtr<IAnalyticsProvider> Provider = FUTAnalytics::GetProviderPtr();
+	TSharedPtr<IAnalyticsProviderET> Provider = FUTAnalytics::GetProviderPtr();
 	if (Provider.IsValid())
 	{
 		Provider->RecordEvent(EventName, ConvertAttrs(Attributes));
@@ -138,7 +138,7 @@ void UUTAnalyticsBlueprintLibrary::RecordEventWithAttributes(const FString& Even
 
 void UUTAnalyticsBlueprintLibrary::RecordItemPurchase(const FString& ItemId, const FString& Currency, int32 PerItemCost, int32 ItemQuantity)
 {
-	TSharedPtr<IAnalyticsProvider> Provider = FUTAnalytics::GetProviderPtr();
+	TSharedPtr<IAnalyticsProviderET> Provider = FUTAnalytics::GetProviderPtr();
 	if (Provider.IsValid())
 	{
 		Provider->RecordItemPurchase(ItemId, Currency, PerItemCost, ItemQuantity);
@@ -155,7 +155,7 @@ void UUTAnalyticsBlueprintLibrary::RecordItemPurchase(const FString& ItemId, con
 
 void UUTAnalyticsBlueprintLibrary::RecordSimpleItemPurchase(const FString& ItemId, int32 ItemQuantity)
 {
-	TSharedPtr<IAnalyticsProvider> Provider = FUTAnalytics::GetProviderPtr();
+	TSharedPtr<IAnalyticsProviderET> Provider = FUTAnalytics::GetProviderPtr();
 	if (Provider.IsValid())
 	{
 		Provider->RecordItemPurchase(ItemId, ItemQuantity);
@@ -172,7 +172,7 @@ void UUTAnalyticsBlueprintLibrary::RecordSimpleItemPurchase(const FString& ItemI
 
 void UUTAnalyticsBlueprintLibrary::RecordSimpleItemPurchaseWithAttributes(const FString& ItemId, int32 ItemQuantity, const TArray<FUTAnalyticsEventAttr>& Attributes)
 {
-	TSharedPtr<IAnalyticsProvider> Provider = FUTAnalytics::GetProviderPtr();
+	TSharedPtr<IAnalyticsProviderET> Provider = FUTAnalytics::GetProviderPtr();
 	if (Provider.IsValid())
 	{
 		Provider->RecordItemPurchase(ItemId, ItemQuantity, ConvertAttrs(Attributes));
@@ -189,7 +189,7 @@ void UUTAnalyticsBlueprintLibrary::RecordSimpleItemPurchaseWithAttributes(const 
 
 void UUTAnalyticsBlueprintLibrary::RecordSimpleCurrencyPurchase(const FString& GameCurrencyType, int32 GameCurrencyAmount)
 {
-	TSharedPtr<IAnalyticsProvider> Provider = FUTAnalytics::GetProviderPtr();
+	TSharedPtr<IAnalyticsProviderET> Provider = FUTAnalytics::GetProviderPtr();
 	if (Provider.IsValid())
 	{
 		Provider->RecordCurrencyPurchase(GameCurrencyType, GameCurrencyAmount);
@@ -202,7 +202,7 @@ void UUTAnalyticsBlueprintLibrary::RecordSimpleCurrencyPurchase(const FString& G
 
 void UUTAnalyticsBlueprintLibrary::RecordSimpleCurrencyPurchaseWithAttributes(const FString& GameCurrencyType, int32 GameCurrencyAmount, const TArray<FUTAnalyticsEventAttr>& Attributes)
 {
-	TSharedPtr<IAnalyticsProvider> Provider = FUTAnalytics::GetProviderPtr();
+	TSharedPtr<IAnalyticsProviderET> Provider = FUTAnalytics::GetProviderPtr();
 	if (Provider.IsValid())
 	{
 		Provider->RecordCurrencyPurchase(GameCurrencyType, GameCurrencyAmount, ConvertAttrs(Attributes));
@@ -215,7 +215,7 @@ void UUTAnalyticsBlueprintLibrary::RecordSimpleCurrencyPurchaseWithAttributes(co
 
 void UUTAnalyticsBlueprintLibrary::RecordCurrencyPurchase(const FString& GameCurrencyType, int32 GameCurrencyAmount, const FString& RealCurrencyType, float RealMoneyCost, const FString& PaymentProvider)
 {
-	TSharedPtr<IAnalyticsProvider> Provider = FUTAnalytics::GetProviderPtr();
+	TSharedPtr<IAnalyticsProviderET> Provider = FUTAnalytics::GetProviderPtr();
 	if (Provider.IsValid())
 	{
 		Provider->RecordCurrencyPurchase(GameCurrencyType, GameCurrencyAmount, RealCurrencyType, RealMoneyCost, PaymentProvider);
@@ -228,7 +228,7 @@ void UUTAnalyticsBlueprintLibrary::RecordCurrencyPurchase(const FString& GameCur
 
 void UUTAnalyticsBlueprintLibrary::RecordCurrencyGiven(const FString& GameCurrencyType, int32 GameCurrencyAmount)
 {
-	TSharedPtr<IAnalyticsProvider> Provider = FUTAnalytics::GetProviderPtr();
+	TSharedPtr<IAnalyticsProviderET> Provider = FUTAnalytics::GetProviderPtr();
 	if (Provider.IsValid())
 	{
 		Provider->RecordCurrencyGiven(GameCurrencyType, GameCurrencyAmount);
@@ -241,7 +241,7 @@ void UUTAnalyticsBlueprintLibrary::RecordCurrencyGiven(const FString& GameCurren
 
 void UUTAnalyticsBlueprintLibrary::RecordCurrencyGivenWithAttributes(const FString& GameCurrencyType, int32 GameCurrencyAmount, const TArray<FUTAnalyticsEventAttr>& Attributes)
 {
-	TSharedPtr<IAnalyticsProvider> Provider = FUTAnalytics::GetProviderPtr();
+	TSharedPtr<IAnalyticsProviderET> Provider = FUTAnalytics::GetProviderPtr();
 	if (Provider.IsValid())
 	{
 		Provider->RecordCurrencyGiven(GameCurrencyType, GameCurrencyAmount, ConvertAttrs(Attributes));
@@ -254,7 +254,7 @@ void UUTAnalyticsBlueprintLibrary::RecordCurrencyGivenWithAttributes(const FStri
 
 FString UUTAnalyticsBlueprintLibrary::GetSessionId()
 {
-	TSharedPtr<IAnalyticsProvider> Provider = FUTAnalytics::GetProviderPtr();
+	TSharedPtr<IAnalyticsProviderET> Provider = FUTAnalytics::GetProviderPtr();
 	if (Provider.IsValid())
 	{
 		return Provider->GetSessionID();
@@ -264,7 +264,7 @@ FString UUTAnalyticsBlueprintLibrary::GetSessionId()
 
 void UUTAnalyticsBlueprintLibrary::SetSessionId(const FString& SessionId)
 {
-	TSharedPtr<IAnalyticsProvider> Provider = FUTAnalytics::GetProviderPtr();
+	TSharedPtr<IAnalyticsProviderET> Provider = FUTAnalytics::GetProviderPtr();
 	if (Provider.IsValid())
 	{
 		Provider->SetSessionID(SessionId);
@@ -277,7 +277,7 @@ void UUTAnalyticsBlueprintLibrary::SetSessionId(const FString& SessionId)
 
 FString UUTAnalyticsBlueprintLibrary::GetUserId()
 {
-	TSharedPtr<IAnalyticsProvider> Provider = FUTAnalytics::GetProviderPtr();
+	TSharedPtr<IAnalyticsProviderET> Provider = FUTAnalytics::GetProviderPtr();
 	if (Provider.IsValid())
 	{
 		return Provider->GetUserID();
@@ -287,7 +287,7 @@ FString UUTAnalyticsBlueprintLibrary::GetUserId()
 
 void UUTAnalyticsBlueprintLibrary::SetUserId(const FString& UserId)
 {
-	TSharedPtr<IAnalyticsProvider> Provider = FUTAnalytics::GetProviderPtr();
+	TSharedPtr<IAnalyticsProviderET> Provider = FUTAnalytics::GetProviderPtr();
 	if (Provider.IsValid())
 	{
 		Provider->SetUserID(UserId);
@@ -308,7 +308,7 @@ FUTAnalyticsEventAttr UUTAnalyticsBlueprintLibrary::MakeEventAttribute(const FSt
 
 void UUTAnalyticsBlueprintLibrary::SetAge(int32 Age)
 {
-	TSharedPtr<IAnalyticsProvider> Provider = FUTAnalytics::GetProviderPtr();
+	TSharedPtr<IAnalyticsProviderET> Provider = FUTAnalytics::GetProviderPtr();
 	if (Provider.IsValid())
 	{
 		Provider->SetAge(Age);
@@ -321,7 +321,7 @@ void UUTAnalyticsBlueprintLibrary::SetAge(int32 Age)
 
 void UUTAnalyticsBlueprintLibrary::SetLocation(const FString& Location)
 {
-	TSharedPtr<IAnalyticsProvider> Provider = FUTAnalytics::GetProviderPtr();
+	TSharedPtr<IAnalyticsProviderET> Provider = FUTAnalytics::GetProviderPtr();
 	if (Provider.IsValid())
 	{
 		Provider->SetLocation(Location);
@@ -334,7 +334,7 @@ void UUTAnalyticsBlueprintLibrary::SetLocation(const FString& Location)
 
 void UUTAnalyticsBlueprintLibrary::SetGender(const FString& Gender)
 {
-	TSharedPtr<IAnalyticsProvider> Provider = FUTAnalytics::GetProviderPtr();
+	TSharedPtr<IAnalyticsProviderET> Provider = FUTAnalytics::GetProviderPtr();
 	if (Provider.IsValid())
 	{
 		Provider->SetGender(Gender);
@@ -347,7 +347,7 @@ void UUTAnalyticsBlueprintLibrary::SetGender(const FString& Gender)
 
 void UUTAnalyticsBlueprintLibrary::SetBuildInfo(const FString& BuildInfo)
 {
-	TSharedPtr<IAnalyticsProvider> Provider = FUTAnalytics::GetProviderPtr();
+	TSharedPtr<IAnalyticsProviderET> Provider = FUTAnalytics::GetProviderPtr();
 	if (Provider.IsValid())
 	{
 		Provider->SetBuildInfo(BuildInfo);
@@ -360,7 +360,7 @@ void UUTAnalyticsBlueprintLibrary::SetBuildInfo(const FString& BuildInfo)
 
 void UUTAnalyticsBlueprintLibrary::RecordErrorWithAttributes(const FString& Error, const TArray<FUTAnalyticsEventAttr>& Attributes)
 {
-	TSharedPtr<IAnalyticsProvider> Provider = FUTAnalytics::GetProviderPtr();
+	TSharedPtr<IAnalyticsProviderET> Provider = FUTAnalytics::GetProviderPtr();
 	if (Provider.IsValid())
 	{
 		Provider->RecordError(Error, ConvertAttrs(Attributes));
@@ -373,7 +373,7 @@ void UUTAnalyticsBlueprintLibrary::RecordErrorWithAttributes(const FString& Erro
 
 void UUTAnalyticsBlueprintLibrary::RecordError(const FString& Error)
 {
-	TSharedPtr<IAnalyticsProvider> Provider = FUTAnalytics::GetProviderPtr();
+	TSharedPtr<IAnalyticsProviderET> Provider = FUTAnalytics::GetProviderPtr();
 	if (Provider.IsValid())
 	{
 		Provider->RecordError(Error);
@@ -386,7 +386,7 @@ void UUTAnalyticsBlueprintLibrary::RecordError(const FString& Error)
 
 void UUTAnalyticsBlueprintLibrary::RecordProgressWithFullHierarchyAndAttributes(const FString& ProgressType, const TArray<FString>& ProgressNames, const TArray<FUTAnalyticsEventAttr>& Attributes)
 {
-	TSharedPtr<IAnalyticsProvider> Provider = FUTAnalytics::GetProviderPtr();
+	TSharedPtr<IAnalyticsProviderET> Provider = FUTAnalytics::GetProviderPtr();
 	if (Provider.IsValid())
 	{
 		Provider->RecordProgress(ProgressType, ProgressNames, ConvertAttrs(Attributes));
@@ -399,7 +399,7 @@ void UUTAnalyticsBlueprintLibrary::RecordProgressWithFullHierarchyAndAttributes(
 
 void UUTAnalyticsBlueprintLibrary::RecordProgressWithAttributes(const FString& ProgressType, const FString& ProgressName, const TArray<FUTAnalyticsEventAttr>& Attributes)
 {
-	TSharedPtr<IAnalyticsProvider> Provider = FUTAnalytics::GetProviderPtr();
+	TSharedPtr<IAnalyticsProviderET> Provider = FUTAnalytics::GetProviderPtr();
 	if (Provider.IsValid())
 	{
 		Provider->RecordProgress(ProgressType, ProgressName, ConvertAttrs(Attributes));
@@ -412,7 +412,7 @@ void UUTAnalyticsBlueprintLibrary::RecordProgressWithAttributes(const FString& P
 
 void UUTAnalyticsBlueprintLibrary::RecordProgress(const FString& ProgressType, const FString& ProgressName)
 {
-	TSharedPtr<IAnalyticsProvider> Provider = FUTAnalytics::GetProviderPtr();
+	TSharedPtr<IAnalyticsProviderET> Provider = FUTAnalytics::GetProviderPtr();
 	if (Provider.IsValid())
 	{
 		Provider->RecordProgress(ProgressType, ProgressName);

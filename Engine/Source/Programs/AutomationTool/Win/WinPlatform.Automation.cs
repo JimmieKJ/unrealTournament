@@ -15,24 +15,19 @@ public abstract class BaseWinPlatform : Platform
 	{
 	}
 
-	private int StageExecutable(string Ext, DeploymentContext SC, string InPath, string Wildcard = "*", bool bRecursive = true, string[] ExcludeWildcard = null, string NewPath = null, bool bAllowNone = false, StagedFileType InStageFileType = StagedFileType.NonUFS, string NewName = null)
-	{
-		int Result = SC.StageFiles(InStageFileType, InPath, Wildcard + Ext, bRecursive, ExcludeWildcard, NewPath, bAllowNone, true, (NewName == null) ? null : (NewName + Ext));
-		if (Result > 0)
-		{
-			SC.StageFiles(StagedFileType.DebugNonUFS, InPath, Wildcard + "pdb", bRecursive, ExcludeWildcard, NewPath, true, true, (NewName == null) ? null : (NewName + "pdb"));
-			SC.StageFiles(StagedFileType.DebugNonUFS, InPath, Wildcard + "map", bRecursive, ExcludeWildcard, NewPath, true, true, (NewName == null) ? null : (NewName + "map"));
-		}
-		return Result;
-	}
-
 	public override void GetFilesToDeployOrStage(ProjectParams Params, DeploymentContext SC)
 	{
 		// Engine non-ufs (binaries)
 
 		if (SC.bStageCrashReporter)
 		{
-			StageExecutable("exe", SC, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries", SC.PlatformDir), "CrashReportClient.");
+			string ReceiptFileName = TargetReceipt.GetDefaultPath(UnrealBuildTool.UnrealBuildTool.EngineDirectory.FullName, "CrashReportClient", SC.StageTargetPlatform.PlatformType, UnrealTargetConfiguration.Shipping, null);
+			if(File.Exists(ReceiptFileName))
+			{
+				TargetReceipt Receipt = TargetReceipt.Read(ReceiptFileName);
+				Receipt.ExpandPathVariables(UnrealBuildTool.UnrealBuildTool.EngineDirectory, (Params.RawProjectPath == null)? UnrealBuildTool.UnrealBuildTool.EngineDirectory : Params.RawProjectPath.Directory);
+				SC.StageBuildProductsFromReceipt(Receipt, true, false);
+			}
 		}
 
 		// Stage all the build products
@@ -44,8 +39,8 @@ public abstract class BaseWinPlatform : Platform
 		// Copy the splash screen, windows specific
 		SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.ProjectRoot, "Content/Splash"), "Splash.bmp", false, null, null, true);
 
-        // Stage the bootstrap executable
-        if (!Params.NoBootstrapExe)
+		// Stage the bootstrap executable
+		if(!Params.NoBootstrapExe)
 		{
 			foreach(StageTarget Target in SC.StageTargets)
 			{
@@ -53,7 +48,8 @@ public abstract class BaseWinPlatform : Platform
 				if(Executable != null)
 				{
 					// only create bootstraps for executables
-					if (SC.NonUFSStagingFiles.ContainsKey(Executable.Path) && Path.GetExtension(Executable.Path) == ".exe")
+					string FullExecutablePath = Path.GetFullPath(Executable.Path);
+					if (SC.NonUFSStagingFiles.ContainsKey(FullExecutablePath) && Path.GetExtension(FullExecutablePath) == ".exe")
 					{
 						string BootstrapArguments = "";
 						if (!SC.IsCodeBasedProject && !ShouldStageCommandLine(Params, SC))
@@ -64,7 +60,7 @@ public abstract class BaseWinPlatform : Platform
 						string BootstrapExeName;
 						if(SC.StageTargetConfigurations.Count > 1)
 						{
-							BootstrapExeName = Path.GetFileName(Executable.Path);
+							BootstrapExeName = Path.GetFileName(FullExecutablePath);
 						}
 						else if(Params.IsCodeBasedProject)
 						{
@@ -75,15 +71,19 @@ public abstract class BaseWinPlatform : Platform
 							BootstrapExeName = SC.ShortProjectName + ".exe";
 						}
 
-						foreach (string StagePath in SC.NonUFSStagingFiles[Executable.Path])
+						foreach (string StagePath in SC.NonUFSStagingFiles[FullExecutablePath])
 						{
-							StageBootstrapExecutable(SC, BootstrapExeName, Executable.Path, StagePath, BootstrapArguments);
+							StageBootstrapExecutable(SC, BootstrapExeName, FullExecutablePath, StagePath, BootstrapArguments);
 						}
 					}
 				}
 			}
 		}
 	}
+
+    public override void ExtractPackage(ProjectParams Params, string SourcePath, string DestinationPath)
+    {
+    }
 
 	void StageBootstrapExecutable(DeploymentContext SC, string ExeName, string TargetFile, string StagedRelativeTargetPath, string StagedArguments)
 	{
@@ -132,7 +132,7 @@ public abstract class BaseWinPlatform : Platform
 		}
 	}
 
-	public override string GetCookPlatform(bool bDedicatedServer, bool bIsClientOnly, string CookFlavor)
+	public override string GetCookPlatform(bool bDedicatedServer, bool bIsClientOnly)
 	{
 		const string NoEditorCookPlatform = "WindowsNoEditor";
 		const string ServerCookPlatform = "WindowsServer";
@@ -156,6 +156,11 @@ public abstract class BaseWinPlatform : Platform
 	{
 		return "Windows";
 	}
+
+    public override string GetPlatformPakCommandLine()
+    {
+        return " -patchpaddingalign=2048";
+    }
 
 	public override void Package(ProjectParams Params, DeploymentContext SC, int WorkingCL)
 	{
@@ -248,7 +253,7 @@ public abstract class BaseWinPlatform : Platform
 		return ExecutableNames;
 	}
 
-	public override bool ShouldStageCommandLine(ProjectParams Params, DeploymentContext SC)
+    public override bool ShouldStageCommandLine(ProjectParams Params, DeploymentContext SC)
 	{
 		return false; // !String.IsNullOrEmpty(Params.StageCommandline) || !String.IsNullOrEmpty(Params.RunCommandline) || (!Params.IsCodeBasedProject && Params.NoBootstrapExe);
 	}
@@ -265,6 +270,28 @@ public abstract class BaseWinPlatform : Platform
 		CodeSign.SignMultipleFilesIfEXEOrDLL(FilesToSign);
 
 		return true;
+	}
+
+	public void StageAppLocalDependencies(ProjectParams Params, DeploymentContext SC, string PlatformDir)
+	{
+		string BaseAppLocalDependenciesPath = Path.IsPathRooted(Params.AppLocalDirectory) ? CombinePaths(Params.AppLocalDirectory, PlatformDir) : CombinePaths(SC.ProjectRoot, Params.AppLocalDirectory, PlatformDir);
+		if (Directory.Exists(BaseAppLocalDependenciesPath))
+		{
+			string ProjectBinaryPath = new DirectoryReference(SC.ProjectBinariesFolder).MakeRelativeTo(new DirectoryReference(CombinePaths(SC.ProjectRoot, "..")));
+			string EngineBinaryPath = CombinePaths("Engine", "Binaries", PlatformDir);
+
+			Log("Copying AppLocal dependencies from {0} to {1} and {2}", BaseAppLocalDependenciesPath, ProjectBinaryPath, EngineBinaryPath);
+
+			foreach (string DependencyDirectory in Directory.EnumerateDirectories(BaseAppLocalDependenciesPath))
+			{	
+				SC.StageFiles(StagedFileType.NonUFS, DependencyDirectory, "*", false, null, ProjectBinaryPath);
+				SC.StageFiles(StagedFileType.NonUFS, DependencyDirectory, "*", false, null, EngineBinaryPath);
+			}
+		}
+		else
+		{
+			throw new AutomationException("Unable to deploy AppLocalDirectory dependencies. No such path: {0}", BaseAppLocalDependenciesPath);
+		}
 	}
 }
 
@@ -287,16 +314,10 @@ public class Win64Platform : BaseWinPlatform
 			SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, InstallerRelativePath), "UE4PrereqSetup_x64.exe", false, null, InstallerRelativePath);
 		}
 
-        if (!SC.DedicatedServer)
-        {
-            // Razer app info xml
-            string FinalChromaAppInfoPath = CombinePaths("Engine", "Binaries", "Win64");
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.ProjectRoot, "Build/WindowsNoEditor"), "ChromaAppInfo.xml", false, null, FinalChromaAppInfoPath, true);
-
-            // Very UT specific because of non-monolithic build
-            SC.StageFiles(StagedFileType.DebugNonUFS, CommandUtils.CombinePaths(SC.LocalRoot, "Engine"), "UE4-*Win32-*", true, null, null, true, true, null, true, false);
-            SC.StageFiles(StagedFileType.DebugNonUFS, CommandUtils.CombinePaths(SC.LocalRoot, SC.ShortProjectName), "UE4-*Win32-*", true, null, null, true, true, null, true, false);
-        }
+		if (!string.IsNullOrWhiteSpace(Params.AppLocalDirectory))
+		{
+			StageAppLocalDependencies(Params, SC, "Win64");
+		}
 	}
 }
 
@@ -312,22 +333,16 @@ public class Win32Platform : BaseWinPlatform
 	public override void GetFilesToDeployOrStage(ProjectParams Params, DeploymentContext SC)
 	{
 		base.GetFilesToDeployOrStage(Params, SC);
-		
-		if(Params.Prereqs)
+
+		if (Params.Prereqs)
 		{
 			string InstallerRelativePath = CombinePaths("Engine", "Extras", "Redist", "en-us");
 			SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, InstallerRelativePath), "UE4PrereqSetup_x86.exe", false, null, InstallerRelativePath);
 		}
 
-        if (!SC.DedicatedServer)
-        {
-            // Razer app info xml
-            string FinalChromaAppInfoPath = CombinePaths("Engine", "Binaries", "Win32");
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.ProjectRoot, "Build/WindowsNoEditor"), "ChromaAppInfo.xml", false, null, FinalChromaAppInfoPath, true);
-
-            // Very UT specific because of non-monolithic build
-            SC.StageFiles(StagedFileType.DebugNonUFS, CommandUtils.CombinePaths(SC.LocalRoot, "Engine"), "UE4-*-Win64-*", true, null, null, true, true, null, true, false);
-            SC.StageFiles(StagedFileType.DebugNonUFS, CommandUtils.CombinePaths(SC.LocalRoot, SC.ShortProjectName), "UE4-*-Win64-*", true, null, null, true, true, null, true, false);
-        }
+		if (!string.IsNullOrWhiteSpace(Params.AppLocalDirectory))
+		{
+			StageAppLocalDependencies(Params, SC, "Win32");
+		}
 	}
 }

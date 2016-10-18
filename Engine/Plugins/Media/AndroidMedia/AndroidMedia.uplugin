@@ -1,13 +1,14 @@
 {
 	"FileVersion" : 3,
-	"Version" : 1,
-	"VersionName" : "1.0",
+	"Version" : 2,
+	"VersionName" : "2.0",
 	"FriendlyName" : "Android Media Player",
-	"Description" : "Android media player using the Android Media library.",
+	"Description" : "Implements a media player using the Android Media library.",
 	"Category" : "Media Players",
 	"CreatedBy" : "Epic Games, Inc.",
 	"CreatedByURL" : "http://epicgames.com",
-	"DocsURL" : "",
+	"DocsURL" : "https://forums.unrealengine.com/showthread.php?46879-Media-Framework-Documentation-for-4-5-Preview",
+	"EngineVersion" : "4.13.0",
 	"MarketplaceURL" : "",
 	"SupportURL" : "",
 	"EnabledByDefault" : true,
@@ -20,10 +21,18 @@
 			"Name" : "AndroidMedia",
 			"Type" : "Runtime",
 			"LoadingPhase" : "PreLoadingScreen",
-			"WhitelistPlatforms" :
-			[
-				"Android"
-			]
+			"WhitelistPlatforms" : [ "Android" ]
+		},
+		{
+			"Name" : "AndroidMediaEditor",
+			"Type" : "Editor",
+			"LoadingPhase" : "PostEngineInit"
+		},
+		{
+			"Name" : "AndroidMediaFactory",
+			"Type" : "Runtime",
+			"LoadingPhase" : "PostEngineInit",
+			"WhitelistPlatforms" : [ "Android", "Mac", "Linux", "Win32", "Win64" ]
 		}
 	]
 }

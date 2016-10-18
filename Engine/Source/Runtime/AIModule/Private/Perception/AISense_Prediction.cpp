@@ -27,10 +27,13 @@ float UAISense_Prediction::Update()
 					// this has to succeed, will assert a failure
 					FPerceptionListener& Listener = ListenersMap[PerceptionComponent->GetListenerId()];
 
-					// calculate the prediction here:
-					const FVector PredictedLocation = Event.PredictedActor->GetActorLocation() + Event.PredictedActor->GetVelocity() * Event.TimeToPredict;
+					if (Listener.HasSense(GetSenseID()))
+					{
+						// calculate the prediction here:
+						const FVector PredictedLocation = Event.PredictedActor->GetActorLocation() + Event.PredictedActor->GetVelocity() * Event.TimeToPredict;
 
-					Listener.RegisterStimulus(Event.PredictedActor, FAIStimulus(*this, 1.f, PredictedLocation, Listener.CachedLocation));
+						Listener.RegisterStimulus(Event.PredictedActor, FAIStimulus(*this, 1.f, PredictedLocation, Listener.CachedLocation));
+					}
 				}
 			}
 		}

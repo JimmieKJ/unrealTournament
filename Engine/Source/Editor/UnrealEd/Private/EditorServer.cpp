@@ -72,6 +72,8 @@
 #include "PhysicsPublic.h"
 #include "Analytics/AnalyticsPrivacySettings.h"
 #include "KismetReinstanceUtilities.h"
+#include "AnalyticsEventAttribute.h"
+#include "Developer/SlateReflector/Public/ISlateReflectorModule.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogEditorServer, Log, All);
 
@@ -2100,7 +2102,7 @@ UWorld* UEditorEngine::NewMap()
 	Factory->FeatureLevel = GEditor->DefaultWorldFeatureLevel;
 	UPackage* Pkg = CreatePackage( NULL, NULL );
 	EObjectFlags Flags = RF_Public | RF_Standalone;
-	UWorld* NewWorld = CastChecked<UWorld>(Factory->FactoryCreateNew(UWorld::StaticClass(), Pkg, TEXT("NewWorld"), Flags, NULL, GWarn));
+	UWorld* NewWorld = CastChecked<UWorld>(Factory->FactoryCreateNew(UWorld::StaticClass(), Pkg, TEXT("Untitled"), Flags, NULL, GWarn));
 	Context.SetCurrentWorld(NewWorld);
 	GWorld = NewWorld;
 	NewWorld->AddToRoot();
@@ -3452,7 +3454,7 @@ void UEditorEngine::PasteSelectedActorsFromClipboard( UWorld* InWorld, const FTe
 				for (FSelectionIterator It(GEditor->GetSelectedActorIterator()); It; ++It)
 				{
 					AActor* Actor = static_cast<AActor*>(*It);
-					Actor->AttachRootComponentToActor(AttachData[Index].ParentActor, AttachData[Index].SocketName, EAttachLocation::KeepWorldPosition);
+					Actor->AttachToActor(AttachData[Index].ParentActor, FAttachmentTransformRules::KeepWorldTransform, AttachData[Index].SocketName);
 					Actor->PostEditMove(true);
 					Index++;
 				}
@@ -3738,6 +3740,13 @@ bool UEditorEngine::Map_Check( UWorld* InWorld, const TCHAR* Str, FOutputDevice&
 	}
 
 	Game_Map_Check(InWorld, Str, Ar, bCheckDeprecatedOnly);
+
+
+	CheckTextureStreamingBuild(InWorld);
+	if (InWorld->NumTextureStreamingUnbuiltComponents > 0 || InWorld->NumTextureStreamingDirtyResources > 0)
+	{
+		FMessageLog("MapCheck").Warning()->AddToken(FTextToken::Create(LOCTEXT("MapCheck_Message_TextureStreamingNeedsRebuild", "Texture streaming needs to be rebuilt, run 'Build Texture Streaming'.")));
+	}
 
 	GWarn->StatusUpdate( 0, ProgressDenominator, CheckMapLocText );
 
@@ -5577,6 +5586,15 @@ bool UEditorEngine::Exec( UWorld* InWorld, const TCHAR* Stream, FOutputDevice& A
 	{
 		IMainFrameModule& MainFrameModule = FModuleManager::LoadModuleChecked<IMainFrameModule>(TEXT("MainFrame"));
 		MainFrameModule.RequestCloseEditor();
+		return true;
+	}
+	else if( FParse::Command(&Str,TEXT("WIDGETREFLECTOR")) )
+	{
+		if(!IsRunningCommandlet())
+		{
+			static const FName SlateReflectorModuleName("SlateReflector");
+			FModuleManager::LoadModuleChecked<ISlateReflectorModule>(SlateReflectorModuleName).DisplayWidgetReflector();
+		}
 		return true;
 	}
 	//----------------------------------------------------------------------------------

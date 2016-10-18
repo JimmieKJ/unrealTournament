@@ -89,6 +89,7 @@ inline bool SupportsGPUParticles(EShaderPlatform Platform)
 inline bool RHISupportsGPUParticles()
 {
 	return GSupportsMultipleRenderTargets 
+		&& GSupportsWideMRT
 		&& GPixelFormats[PF_G32R32F].Supported 
 		&& GSupportsTexture3D 
 		&& GSupportsResourceView 

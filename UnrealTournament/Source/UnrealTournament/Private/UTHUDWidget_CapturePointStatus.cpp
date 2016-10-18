@@ -103,11 +103,11 @@ FColor UUTHUDWidget_CapturePointStatus::GetAttackingTeamColor(int ControllingTea
 
 void UUTHUDWidget_CapturePointStatus::DrawLockedCapturePoint(AUTCTFCapturePoint* CapturePoint)
 {
-	FVector ScreenPosition = FVector::ZeroVector;
-	ScreenPosition.X = (LockedPointStartingScreenPosition.X * Canvas->ClipX) + (AdditionalLockedPointScreenPositionOffset * (NumLockedPoints - 1)).X;
-	ScreenPosition.Y = (LockedPointStartingScreenPosition.Y * Canvas->ClipY) + (AdditionalLockedPointScreenPositionOffset * (NumLockedPoints - 1)).Y;
+	FVector DrawPosition = FVector::ZeroVector;
+	DrawPosition.X = (LockedPointStartingScreenPosition.X * Canvas->ClipX) + (AdditionalLockedPointScreenPositionOffset * (NumLockedPoints - 1)).X;
+	DrawPosition.Y = (LockedPointStartingScreenPosition.Y * Canvas->ClipY) + (AdditionalLockedPointScreenPositionOffset * (NumLockedPoints - 1)).Y;
 
-	RenderObj_TextureAt(LockedPointTexture, ScreenPosition.X, ScreenPosition.Y, LockedPointTexture.GetWidth(), LockedPointTexture.GetHeight());
+	RenderObj_TextureAt(LockedPointTexture, DrawPosition.X, DrawPosition.Y, LockedPointTexture.GetWidth(), LockedPointTexture.GetHeight());
 }
 
 void UUTHUDWidget_CapturePointStatus::PostDraw(float RenderedTime)

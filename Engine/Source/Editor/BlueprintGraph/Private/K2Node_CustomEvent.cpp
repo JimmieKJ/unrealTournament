@@ -132,14 +132,12 @@ void UK2Node_CustomEvent::Serialize(FArchive& Ar)
 		{
 			if (Pin)
 			{
-				Ar.Preload(Pin);
-
 				if (Pin->Direction == EGPD_Output
 					&& !Pin->PinType.bIsConst
 					&& !K2Schema->IsExecPin(*Pin)
 					&& !K2Schema->IsDelegateCategory(Pin->PinType.PinCategory))
 				{
-					for (auto PinInfo : UserDefinedPins)
+					for (TSharedPtr<FUserPinInfo>& PinInfo : UserDefinedPins)
 					{
 						if (PinInfo->PinName == Pin->PinName)
 						{
@@ -185,13 +183,36 @@ bool UK2Node_CustomEvent::CanCreateUserDefinedPin(const FEdGraphPinType& InPinTy
 	const UEdGraphSchema_K2* Schema = GetDefault<UEdGraphSchema_K2>();
 	if(InDesiredDirection == EGPD_Input)
 	{
-		OutErrorMessage = NSLOCTEXT("K2Node", "AddInputPinError", "Cannot add input pins to function result node!");
+		OutErrorMessage = NSLOCTEXT("K2Node", "AddInputPinError", "Cannot add input pins to custom event node!");
 		return false;
 	}
 	else if (InPinType.PinCategory == Schema->PC_Exec && !CanModifyExecutionWires())
 	{
 		OutErrorMessage = LOCTEXT("MultipleExecPinError", "Cannot support more exec pins!");
 		return false;
+	}
+	else
+	{
+		TArray<TSharedPtr<UEdGraphSchema_K2::FPinTypeTreeInfo>> TypeTree;
+		Schema->GetVariableTypeTree(TypeTree, ETypeTreeFilter::RootTypesOnly);
+
+		bool bIsValid = false;
+		for (TSharedPtr<UEdGraphSchema_K2::FPinTypeTreeInfo>& TypeInfo : TypeTree)
+		{
+			FEdGraphPinType CurrentType = TypeInfo->GetPinType(false);
+			// only concerned with the list of categories
+			if (CurrentType.PinCategory == InPinType.PinCategory)
+			{
+				bIsValid = true;
+				break;
+			}
+		}
+
+		if (!bIsValid)
+		{
+			OutErrorMessage = LOCTEXT("AddInputPinError", "Cannot add pins of this type to custom event node!");
+			return false;
+		}
 	}
 
 	return true;
@@ -385,6 +406,7 @@ void UK2Node_CustomEvent::ReconstructNode()
 				TSharedPtr<FUserPinInfo> NewPinInfo = MakeShareable( new FUserPinInfo() );
 				NewPinInfo->PinName = NewPinName;
 				NewPinInfo->PinType = PinType;
+				NewPinInfo->DesiredPinDirection = EGPD_Output;
 				UserDefinedPins.Add(NewPinInfo);
 			}
 		}
@@ -471,9 +493,9 @@ FString UK2Node_CustomEvent::GetDocumentationExcerptName() const
 	return TEXT("UK2Node_CustomEvent");
 }
 
-FName UK2Node_CustomEvent::GetPaletteIcon(FLinearColor& OutColor) const
+FSlateIcon UK2Node_CustomEvent::GetIconAndTint(FLinearColor& OutColor) const
 {
-	return bCallInEditor ? TEXT("GraphEditor.CallInEditorEvent_16x") : TEXT("GraphEditor.CustomEvent_16x");
+	return FSlateIcon("EditorStyle", bCallInEditor ? "GraphEditor.CallInEditorEvent_16x" : "GraphEditor.CustomEvent_16x");
 }
 
 void UK2Node_CustomEvent::AutowireNewNode(UEdGraphPin* FromPin)

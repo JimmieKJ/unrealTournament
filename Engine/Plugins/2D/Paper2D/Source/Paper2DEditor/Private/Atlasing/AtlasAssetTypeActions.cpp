@@ -44,15 +44,13 @@ uint32 FAtlasAssetTypeActions::GetCategories()
 
 FText FAtlasAssetTypeActions::GetAssetDescription(const FAssetData& AssetData) const
 {
-	if (const FString* pDescription = AssetData.TagsAndValues.Find(GET_MEMBER_NAME_CHECKED(UPaperSpriteAtlas, AtlasDescription)))
+	FString Description = AssetData.GetTagValueRef<FString>(GET_MEMBER_NAME_CHECKED(UPaperSpriteAtlas, AtlasDescription));
+	if (!Description.IsEmpty())
 	{
-		if (!pDescription->IsEmpty())
-		{
-			const FString DescriptionStr(*pDescription);
-			return FText::FromString(DescriptionStr.Replace(TEXT("\\n"), TEXT("\n")));
-		}
+		Description.ReplaceInline(TEXT("\\n"), TEXT("\n"));
+		return FText::FromString(MoveTemp(Description));
 	}
-
+	
 	return FText::GetEmpty();
 }
 

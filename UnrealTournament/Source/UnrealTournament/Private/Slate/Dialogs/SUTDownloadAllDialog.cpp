@@ -29,36 +29,64 @@ void SUTDownloadAllDialog::Construct(const FArguments& InArgs)
 
 	if (DialogContent.IsValid())
 	{
-
 		DialogContent->AddSlot()
 		[
 			SAssignNew(MessageBox,SVerticalBox)
-		];
-
-
-		// If we are already downloading content, then we 
-		if (InArgs._bTransitionWhenDone || PlayerOwner->IsDownloadInProgress())
-		{
-			Start();
-		}
-		else
-		{
-			MessageBox->AddSlot()
+			+SVerticalBox::Slot()
 			.FillHeight(1.0)
 			.HAlign(HAlign_Center)
 			.VAlign(VAlign_Center)
 			.Padding(FMargin(10.0f,5.0f,10.0f,5.0f))
 			[ 
-				SNew(SHorizontalBox)
-				+SHorizontalBox::Slot().FillWidth(1.0)
-				[
-					SNew(STextBlock)
-					.Text(NSLOCTEXT("SUTDownloadAllDialog","ReceivingList","Receiving Content list..."))
-					.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
-				]
-			];
-		}
 
+				SNew(SVerticalBox)
+				+SVerticalBox::Slot()
+				.AutoHeight()
+				[
+					SNew(SHorizontalBox)
+					+SHorizontalBox::Slot().FillWidth(1.0)
+					[
+						SNew(STextBlock)
+						.Text(NSLOCTEXT("SUTDownloadAllDialog","DownloadingFile","Downloading File"))
+						.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small")
+					]
+				]
+				+SVerticalBox::Slot()
+				.AutoHeight()
+				[
+					SNew(SHorizontalBox)
+					+SHorizontalBox::Slot().FillWidth(1.0)
+					[
+						SNew(STextBlock)
+						.Text(this, &SUTDownloadAllDialog::GetFilename)
+						.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
+					]
+				]
+				+SVerticalBox::Slot()
+				.AutoHeight()
+				[
+					SNew(SHorizontalBox)
+					+ SHorizontalBox::Slot()
+					.FillWidth(1.0f)
+					.Padding(0.0f, 0.0f, 4.0f, 0.0f)
+					[
+						SNew(SProgressBar)
+						.Percent(this, &SUTDownloadAllDialog::GetProgress)
+					]
+				]
+				+SVerticalBox::Slot()
+				.AutoHeight()
+				[
+					SNew(SHorizontalBox)
+					+SHorizontalBox::Slot().FillWidth(1.0)
+					[
+						SNew(STextBlock)
+						.Text(this, &SUTDownloadAllDialog::GetNumFilesLeft)
+						.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small.Bold")
+					]
+				]
+			]
+		];
 	}
 }
 
@@ -66,7 +94,7 @@ FText SUTDownloadAllDialog::GetFilename() const
 {
 	if (PlayerOwner.IsValid())
 	{
-		return FText::FromString(PlayerOwner->Download_CurrentFile);
+		return PlayerOwner->GetDownloadFilename();
 	}
 
 	return NSLOCTEXT("SUTDownloadAllDialog","UnknowFile","Unknown File...");
@@ -74,139 +102,26 @@ FText SUTDownloadAllDialog::GetFilename() const
 
 void SUTDownloadAllDialog::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
 {
-	if ( bActive && !PlayerOwner->IsDownloadInProgress() )
+	if ( !PlayerOwner->IsDownloadInProgress() )
 	{
-		Done();
+		// We are done.. auto hide..
+		PlayerOwner->HideRedirectDownload();
 	}
-}
-
-void SUTDownloadAllDialog::OnDialogClosed()
-{
-	if (PlayerOwner->IsDownloadInProgress())
-	{
-		PlayerOwner->CancelDownload();
-	}
-	PlayerOwner->CloseDownloadAll();
-}
-
-void SUTDownloadAllDialog::Start()
-{
-
-	MessageBox->ClearChildren();
-	MessageBox->AddSlot()
-	.FillHeight(1.0)
-	.HAlign(HAlign_Center)
-	.VAlign(VAlign_Center)
-	.Padding(FMargin(10.0f,5.0f,10.0f,5.0f))
-	[ 
-
-		SNew(SVerticalBox)
-		+SVerticalBox::Slot()
-		.AutoHeight()
-		[
-			SNew(SHorizontalBox)
-			+SHorizontalBox::Slot().FillWidth(1.0)
-			[
-				SNew(STextBlock)
-				.Text(NSLOCTEXT("SUTDownloadAllDialog","DownloadingFile","Downloading File"))
-				.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small")
-			]
-		]
-		+SVerticalBox::Slot()
-		.AutoHeight()
-		[
-			SNew(SHorizontalBox)
-			+SHorizontalBox::Slot().FillWidth(1.0)
-			[
-				SNew(STextBlock)
-				.Text(this, &SUTDownloadAllDialog::GetFilename)
-				.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
-			]
-		]
-		+SVerticalBox::Slot()
-		.AutoHeight()
-		[
-			SNew(SHorizontalBox)
-			+ SHorizontalBox::Slot()
-			.FillWidth(1.0f)
-			.Padding(0.0f, 0.0f, 4.0f, 0.0f)
-			[
-				SNew(SProgressBar)
-				.Percent(this, &SUTDownloadAllDialog::GetProgress)
-			]
-		]
-		+SVerticalBox::Slot()
-		.AutoHeight()
-		[
-			SNew(SHorizontalBox)
-			+SHorizontalBox::Slot().FillWidth(1.0)
-			[
-				SNew(STextBlock)
-				.Text(this, &SUTDownloadAllDialog::GetNumFilesLeft)
-				.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small.Bold")
-			]
-		]
-	];
-
-	bActive = true;
-}
-
-void SUTDownloadAllDialog::Done()
-{
-
-	if (bTransitionWhenDone)
-	{
-		AUTBasePlayerController* BasePC =  Cast<AUTBasePlayerController>(PlayerOwner->PlayerController);
-		if (BasePC)
-		{
-			BasePC->StartGUIDJoin();
-			PlayerOwner->CloseDialog(SharedThis(this));
-		}
-	}
-
-	MessageBox->ClearChildren();
-	MessageBox->AddSlot()
-	.FillHeight(1.0)
-	.HAlign(HAlign_Center)
-	.VAlign(VAlign_Center)
-	.Padding(FMargin(10.0f,5.0f,10.0f,5.0f))
-	[ 
-		SNew(SHorizontalBox)
-		+SHorizontalBox::Slot().FillWidth(1.0)
-		[
-			SNew(STextBlock)
-			.Text(NSLOCTEXT("SUTDownloadAllDialog","HaveAllContent","You have all of the content on this server."))
-			.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
-		]
-	];
-
-
-	bActive = false;
-	bDone = true;
 }
 
 FText SUTDownloadAllDialog::GetNumFilesLeft() const
 {
-	return FText::Format(NSLOCTEXT("SUTDownloadAllDialog","NumFilesFormat","{0} files left in queue."), FText::AsNumber(PlayerOwner.IsValid() ? PlayerOwner->Download_NumFilesLeft-1 : 0));
+	return FText::Format(NSLOCTEXT("SUTDownloadAllDialog","NumFilesFormat","{0} files left in queue."), FText::AsNumber(PlayerOwner.IsValid() ? PlayerOwner->GetNumberOfPendingDownloads() - 1 : 0));
 }
 
 TOptional<float> SUTDownloadAllDialog::GetProgress() const
 {
-	return PlayerOwner.IsValid() ? PlayerOwner->Download_Percentage : 0;
+	return PlayerOwner.IsValid() ? PlayerOwner->GetDownloadProgress() : 0.0f;
 }
 
 FReply SUTDownloadAllDialog::OnButtonClick(uint16 ButtonID)
 {
-	if (bTransitionWhenDone)
-	{
-		// We are in a match that launched but canceled the download so we need to leave the match
-		AUTLobbyPlayerState* PlayerState = Cast<AUTLobbyPlayerState>(PlayerOwner->PlayerController->PlayerState);
-		if (PlayerState)
-		{
-			PlayerState->ServerDestroyOrLeaveMatch();
-		}
-	}
-
+	PlayerOwner->CancelDownload();
 	return SUTDialogBase::OnButtonClick(ButtonID);
 }
 

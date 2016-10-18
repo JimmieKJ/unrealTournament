@@ -19,7 +19,7 @@ FPaintArgs::FPaintArgs(const SWidget& Parent, FHittestGrid& InHittestGrid, FVect
 {
 }
 
-FPaintArgs FPaintArgs::EnableCaching(ILayoutCache* InLayoutCache, FCachedWidgetNode* InParentCacheNode, bool bEnableCaching, bool bEnableVolatile) const
+FPaintArgs FPaintArgs::EnableCaching(const TWeakPtr<ILayoutCache>& InLayoutCache, FCachedWidgetNode* InParentCacheNode, bool bEnableCaching, bool bEnableVolatile) const
 {
 	FPaintArgs UpdatedArgs(*this);
 	UpdatedArgs.LayoutCache = InLayoutCache;
@@ -30,7 +30,7 @@ FPaintArgs FPaintArgs::EnableCaching(ILayoutCache* InLayoutCache, FCachedWidgetN
 	return UpdatedArgs;
 }
 
-FPaintArgs FPaintArgs::RecordHittestGeometry(const SWidget* Widget, const FGeometry& WidgetGeometry, const FSlateRect& InClippingRect) const
+FPaintArgs FPaintArgs::RecordHittestGeometry(const SWidget* Widget, const FGeometry& WidgetGeometry, int32 LayerId, const FSlateRect& InClippingRect) const
 {
 	FPaintArgs UpdatedArgs(*this);
 
@@ -38,11 +38,15 @@ FPaintArgs FPaintArgs::RecordHittestGeometry(const SWidget* Widget, const FGeome
 	{
 		if ( bIsCaching )
 		{
-			FCachedWidgetNode* CacheNode = LayoutCache->CreateCacheNode();
-			CacheNode->Initialize(*this, const_cast<SWidget*>( Widget )->AsShared(), WidgetGeometry, InClippingRect);
-			UpdatedArgs.ParentCacheNode->Children.Add(CacheNode);
+			TSharedPtr<ILayoutCache> SharedLayoutCache = LayoutCache.Pin();
+			if (SharedLayoutCache.IsValid())
+			{
+				FCachedWidgetNode* CacheNode = SharedLayoutCache->CreateCacheNode();
+				CacheNode->Initialize(*this, const_cast<SWidget*>( Widget )->AsShared(), WidgetGeometry, InClippingRect);
+				UpdatedArgs.ParentCacheNode->Children.Add(CacheNode);
 
-			UpdatedArgs.ParentCacheNode = CacheNode;
+				UpdatedArgs.ParentCacheNode = CacheNode;
+			}
 		}
 
 		int32 RealLastHitTestIndex = LastHittestIndex;
@@ -54,7 +58,7 @@ FPaintArgs FPaintArgs::RecordHittestGeometry(const SWidget* Widget, const FGeome
 
 		// When rendering volatile widgets, their parent widgets who have been cached 
 		const EVisibility RecordedVisibility = Widget->GetVisibility();
-		const int32 RecordedHittestIndex = Grid.InsertWidget(RealLastHitTestIndex, RecordedVisibility, FArrangedWidget(const_cast<SWidget*>( Widget )->AsShared(), WidgetGeometry), WindowOffset, InClippingRect);
+		const int32 RecordedHittestIndex = Grid.InsertWidget(RealLastHitTestIndex, RecordedVisibility, FArrangedWidget(const_cast<SWidget*>(Widget)->AsShared(), WidgetGeometry), WindowOffset, InClippingRect, LayerId);
 		UpdatedArgs.LastHittestIndex = RecordedHittestIndex;
 		UpdatedArgs.LastRecordedVisibility = RecordedVisibility;
 	}

@@ -142,6 +142,13 @@ public:
 	 */
 	virtual bool LoadModulesForEnabledPlugins( const ELoadingPhase::Type LoadingPhase ) = 0;
 
+	/**
+	 * Get the localization paths for all enabled plugins.
+	 *
+	 * @param	OutLocResPaths	Array to populate with the localization paths for all enabled plugins.
+	 */
+	virtual void GetLocalizationPathsForEnabledPlugins( TArray<FString>& OutLocResPaths ) = 0;
+
 	/** Delegate type for mounting content paths.  Used internally by FPackageName code. */
 	DECLARE_DELEGATE_TwoParams( FRegisterMountPointDelegate, const FString& /* Root content path */, const FString& /* Directory name */ );
 

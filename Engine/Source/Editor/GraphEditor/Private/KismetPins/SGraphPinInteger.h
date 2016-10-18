@@ -12,6 +12,7 @@ public:
 
 protected:
 	//~ Begin SGraphPinString Interface
+	virtual TSharedRef<SWidget>	GetDefaultValueWidget() override;
 	virtual void SetTypeInValue(const FText& NewTypeInValue, ETextCommit::Type CommitInfo) override;
 	//~ End SGraphPinString Interface
 };

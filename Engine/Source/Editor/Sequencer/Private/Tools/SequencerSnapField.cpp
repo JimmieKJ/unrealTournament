@@ -72,6 +72,11 @@ FSequencerSnapField::FSequencerSnapField(const ISequencer& InSequencer, ISequenc
 	// Add the current time as a potential snap candidate
 	Visitor.Snaps.Add(FSequencerSnapPoint{ FSequencerSnapPoint::CurrentTime, InSequencer.GetGlobalTime() });
 
+	// Add the selection range bounds as a potential snap candidate
+	TRange<float> SelectionRange = InSequencer.GetFocusedMovieSceneSequence()->GetMovieScene()->GetSelectionRange();
+	Visitor.Snaps.Add(FSequencerSnapPoint{ FSequencerSnapPoint::InOutRange, SelectionRange.GetLowerBoundValue() });
+	Visitor.Snaps.Add(FSequencerSnapPoint{ FSequencerSnapPoint::InOutRange, SelectionRange.GetUpperBoundValue() });
+
 	// Sort
 	Visitor.Snaps.Sort([](const FSequencerSnapPoint& A, const FSequencerSnapPoint& B){
 		return A.Time < B.Time;

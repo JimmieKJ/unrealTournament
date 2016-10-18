@@ -63,6 +63,10 @@ public:
 
 	virtual void ConvertModulesToSeeded(UParticleSystem* ParticleSystem) override
 	{
+		//Have to reset all existing component using this system.
+		FParticleResetContext ResetCtx;
+		ResetCtx.AddTemplate(ParticleSystem);
+
 		FCascade::ConvertAllModulesToSeeded( ParticleSystem );
 	}
 

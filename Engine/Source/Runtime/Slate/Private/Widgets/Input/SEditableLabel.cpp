@@ -114,7 +114,7 @@ FReply SEditableLabel::OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& I
 
 bool SEditableLabel::SupportsKeyboardFocus() const
 {
-	return true;
+	return CanEditAttribute.Get();
 }
 
 

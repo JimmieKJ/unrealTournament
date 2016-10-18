@@ -202,7 +202,7 @@ public:
 			// Store this node so that we don't require any order of adding backend nodes
 			InParsedNodes.Add( NodeName, ParsedNode );
 			// Keep references to all created nodes.
-			CreatedBackends.Add( ParsedNode );
+			CreatedBackends.AddUnique( ParsedNode );
 		}
 
 		return ParsedNode;

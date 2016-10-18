@@ -2,6 +2,11 @@
 
 #pragma once
 
+namespace SettingsHelpers
+{
+	SHAREDSETTINGSWIDGETS_API bool CheckOutFile(const FString& InFileToCheckOut);
+	SHAREDSETTINGSWIDGETS_API bool MakeWritable(const FString& InFileToMakeWritable);
+}
 
 /**
  * Implements a widget that provides a notice for files that need to be checked out.

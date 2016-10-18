@@ -58,7 +58,7 @@ public:
 	void SetMontageObj(UAnimMontage * NewMontage);
 	UAnimMontage * GetMontageObj() const { return MontageObj; }
 
-	virtual UAnimSequenceBase* GetEditorObject() const override { return GetMontageObj(); }
+	virtual UAnimationAsset* GetEditorObject() const override { return GetMontageObj(); }
 
 	void RestartPreview();
 	void RestartPreviewFromSection(int32 FromSectionIdx = INDEX_NONE);
@@ -132,6 +132,7 @@ public:
 
 	void					AddNewMontageSlot(FString NewSlotName);
 	void					RemoveMontageSlot(int32 AnimSlotIndex);
+	void					DuplicateMontageSlot(int32 AnimSlotIndex);
 	FText					GetMontageSlotName(int32 SlotIndex) const;
 
 	void					MakeDefaultSequentialSections();

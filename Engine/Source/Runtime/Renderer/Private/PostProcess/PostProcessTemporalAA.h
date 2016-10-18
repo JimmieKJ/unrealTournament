@@ -12,7 +12,7 @@
 // ePId_Input1: Previous frame's output (bilinear)
 // ePId_Input2: Previous frame's output (point)
 // derives from TRenderingCompositePassBase<InputCount, OutputCount> 
-class FRCPassPostProcessSSRTemporalAA : public TRenderingCompositePassBase<3, 1>
+class FRCPassPostProcessSSRTemporalAA : public TRenderingCompositePassBase<4, 1>
 {
 public:
 	// interface FRenderingCompositePass ---------

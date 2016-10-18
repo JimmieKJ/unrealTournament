@@ -38,6 +38,9 @@ AUTWeap_Redeemer::AUTWeap_Redeemer(const class FObjectInitializer& ObjectInitial
 
 	WeaponCustomizationTag = EpicWeaponCustomizationTags::Redeemer;
 	WeaponSkinCustomizationTag = EpicWeaponSkinCustomizationTags::Redeemer;
+
+	TutorialAnnouncements.Add(TEXT("PriRedeemer"));
+	TutorialAnnouncements.Add(TEXT("SecRedeemer"));
 }
 
 AUTProjectile* AUTWeap_Redeemer::FireProjectile()

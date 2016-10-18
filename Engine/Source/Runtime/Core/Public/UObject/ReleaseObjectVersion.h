@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 // Custom serialization version for changes made in Dev-Core stream
@@ -12,6 +12,12 @@ struct CORE_API FReleaseObjectVersion
 		// Static Mesh extended bounds radius fix
 		StaticMeshExtendedBoundsFix,
 
+		//Physics asset bodies are either in the sync scene or the async scene, but not both
+		NoSyncAsyncPhysAsset,
+
+		// ULevel was using TTransArray incorrectly (serializing the entire array in addition to individual mutations).
+		// converted to a TArray:
+		LevelTransArrayConvertedToTArray,
 
 		// -----<new versions can be added above this line>-------------------------------------------------
 		VersionPlusOne,

@@ -8,7 +8,6 @@
 #include "SceneTypes.h"
 #include "StaticLighting.h"
 #include "Components/PrimitiveComponent.h"
-#include "LandscapeGrassType.h"
 
 #include "LandscapeComponent.generated.h"
 
@@ -19,13 +18,14 @@ class ALandscapeProxy;
 class ALandscape;
 class ULandscapeHeightfieldCollisionComponent;
 class ULandscapeComponent;
+class ULandscapeGrassType;
 
 struct FEngineShowFlags;
 struct FConvexVolume;
 struct FLandscapeEditDataInterface;
 struct FLandscapeEditToolRenderData;
-struct FLandscapeWeightmapUsage;
 struct FLandscapeTextureDataInfo;
+struct FLandscapeComponentGrassData;
 
 class FLandscapeComponentDerivedData
 {
@@ -38,6 +38,12 @@ public:
 	bool HasValidPlatformData() const
 	{
 		return CompressedLandscapeData.Num() != 0;
+	}
+
+	/** Returns the size of the platform data if there is any. */
+	int32 GetPlatformDataSize() const
+	{
+		return CompressedLandscapeData.Num();
 	}
 
 	/** Initializes the compressed data from an uncompressed source. */
@@ -94,14 +100,9 @@ struct FWeightmapLayerAllocationInfo
 	UPROPERTY()
 	uint8 WeightmapTextureChannel;
 
-	/** Only relevant in non-editor builds, this indicates which channel in the data array is this layer...must be > 1 to be valid, the first two are height **/
-	UPROPERTY()
-	uint8 GrassMapChannelIndex;
-
 	FWeightmapLayerAllocationInfo()
 		: WeightmapTextureIndex(0)
 		, WeightmapTextureChannel(0)
-		, GrassMapChannelIndex(0)
 	{
 	}
 
@@ -110,7 +111,6 @@ struct FWeightmapLayerAllocationInfo
 		:	LayerInfo(InLayerInfo)
 		,	WeightmapTextureIndex(255)	// Indicates an invalid allocation
 		,	WeightmapTextureChannel(255)
-		,	GrassMapChannelIndex(0) // Indicates an invalid allocation
 	{
 	}
 	
@@ -119,8 +119,16 @@ struct FWeightmapLayerAllocationInfo
 
 struct FLandscapeComponentGrassData
 {
-	FGuid MaterialStateId;
+#if WITH_EDITORONLY_DATA
+	// Variables used to detect when grass data needs to be regenerated:
+
+	// Guid per material instance in the hierarchy between the assigned landscape material (instance) and the root UMaterial
+	// used to detect changes to material instance parameters or the root material that could affect the grass maps
+	TArray<FGuid, TInlineAllocator<2>> MaterialStateIds;
+	// cached component rotation when material world-position-offset is used,
+	// as this will affect the direction of world-position-offset deformation (included in the HeightData below)
 	FQuat RotationForWPO;
+#endif
 
 	TArray<uint16> HeightData;
 #if WITH_EDITORONLY_DATA
@@ -131,7 +139,9 @@ struct FLandscapeComponentGrassData
 
 	FLandscapeComponentGrassData() {}
 
+#if WITH_EDITOR
 	FLandscapeComponentGrassData(ULandscapeComponent* Component);
+#endif
 
 	bool HasData()
 	{
@@ -178,8 +188,13 @@ class ULandscapeComponent : public UPrimitiveComponent
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=LandscapeComponent, AdvancedDisplay)
 	UMaterialInterface* OverrideHoleMaterial;
 
+#if WITH_EDITORONLY_DATA
+	UPROPERTY()
+	UMaterialInstanceConstant* MaterialInstance_DEPRECATED;
+#endif
+
 	UPROPERTY(TextExportTransient)
-	UMaterialInstanceConstant* MaterialInstance;
+	TArray<UMaterialInstanceConstant*> MaterialInstances;
 
 	/** List of layers, and the weightmap and channel they are stored */
 	UPROPERTY()
@@ -242,6 +257,16 @@ public:
 	UPROPERTY(EditAnywhere, Category=LandscapeComponent)
 	int32 SimpleCollisionMipLevel;
 
+	/** Allows overriding the landscape bounds. This is useful if you distort the landscape with world-position-offset, for example
+	 *  Extension value in the negative Z axis, positive value increases bound size */
+	UPROPERTY(EditAnywhere, Category=LandscapeComponent, meta=(EditCondition="bOverrideBounds"))
+	float NegativeZBoundsExtension;
+
+	/** Allows overriding the landscape bounds. This is useful if you distort the landscape with world-position-offset, for example
+	 *  Extension value in the positive Z axis, positive value increases bound size */
+	UPROPERTY(EditAnywhere, Category=LandscapeComponent, meta=(EditCondition="bOverrideBounds"))
+	float PositiveZBoundsExtension;
+
 	/** StaticLightingResolution overriding per component, default value 0 means no overriding */
 	UPROPERTY(EditAnywhere, Category=LandscapeComponent)
 	float StaticLightingResolution;
@@ -262,7 +287,7 @@ public:
 	FGuid BakedTextureMaterialGuid;
 
 	/** Pre-baked Base Color texture for use by distance field GI */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = BakedTextures)
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = BakedTextures)
 	UTexture2D* GIBakedBaseColorTexture;
 
 #if WITH_EDITORONLY_DATA
@@ -306,8 +331,6 @@ public:
 	/** Grass data for generation **/
 	TSharedRef<FLandscapeComponentGrassData, ESPMode::ThreadSafe> GrassData;
 
-	virtual ~ULandscapeComponent();
-
 	//~ Begin UObject Interface.	
 	virtual void PostInitProperties() override;	
 	virtual void Serialize(FArchive& Ar) override;
@@ -332,13 +355,14 @@ public:
 	
 	//~ Begin UPrimitiveComponent Interface.
 	virtual bool GetLightMapResolution( int32& Width, int32& Height ) const override;
+	virtual int32 GetStaticLightMapResolution() const override;
 	virtual void GetLightAndShadowMapMemoryUsage( int32& LightMapMemoryUsage, int32& ShadowMapMemoryUsage ) const override;
 	virtual void GetStaticLightingInfo(FStaticLightingPrimitiveInfo& OutPrimitiveInfo,const TArray<ULightComponent*>& InRelevantLights,const FLightingBuildOptions& Options) override;
 #endif
 	virtual void GetUsedMaterials(TArray<UMaterialInterface*>& OutMaterials) const override;
 	virtual FPrimitiveSceneProxy* CreateSceneProxy() override;
 	virtual ELightMapInteractionType GetStaticLightingType() const override { return LMIT_Texture;	}
-	virtual void GetStreamingTextureInfo(TArray<FStreamingTexturePrimitiveInfo>& OutStreamingTextures) const override;
+	virtual void GetStreamingTextureInfo(FStreamingTextureLevelContext& LevelContext, TArray<FStreamingTexturePrimitiveInfo>& OutStreamingTextures) const override;
 
 #if WITH_EDITOR
 	virtual int32 GetNumMaterials() const override;
@@ -358,20 +382,24 @@ public:
 	//~ Begin UActorComponent Interface.
 	virtual void OnRegister() override;
 	virtual void OnUnregister() override;
+#if WITH_EDITOR
+	virtual void InvalidateLightingCacheDetailed(bool bInvalidateBuildEnqueuedLighting, bool bTranslationOnly) override;
+#endif
 	//~ End UActorComponent Interface.
 
 
 #if WITH_EDITOR
-	/** @todo document */
-	LANDSCAPE_API ULandscapeInfo* GetLandscapeInfo(bool bSpawnNewActor = true) const;
+	/** Gets the landscape info object for this landscape */
+	LANDSCAPE_API ULandscapeInfo* GetLandscapeInfo() const;
 
-	/** @todo document */
-	LANDSCAPE_API void DeleteLayer(ULandscapeLayerInfoObject* LayerInfo, FLandscapeEditDataInterface* LandscapeEdit);
+	/** Deletes a layer from this component, removing all its data */
+	LANDSCAPE_API void DeleteLayer(ULandscapeLayerInfoObject* LayerInfo, FLandscapeEditDataInterface& LandscapeEdit);
 
-	LANDSCAPE_API void ReplaceLayer(ULandscapeLayerInfoObject* FromLayerInfo, ULandscapeLayerInfoObject* ToLayerInfo, FLandscapeEditDataInterface* LandscapeEdit);
-	
-	void GeneratePlatformVertexData();
-	void GeneratePlatformPixelData();
+	/** Fills a layer to 100% on this component, adding it if needed and removing other layers that get painted away */
+	LANDSCAPE_API void FillLayer(ULandscapeLayerInfoObject* LayerInfo, FLandscapeEditDataInterface& LandscapeEdit);
+
+	/** Replaces one layerinfo on this component with another */
+	LANDSCAPE_API void ReplaceLayer(ULandscapeLayerInfoObject* FromLayerInfo, ULandscapeLayerInfoObject* ToLayerInfo, FLandscapeEditDataInterface& LandscapeEdit);
 
 	// true if the component's landscape material supports grass
 	bool MaterialHasGrass() const;
@@ -395,13 +423,13 @@ public:
 	/* Serialize all hashes/guids that record the current state of this component */
 	void SerializeStateHashes(FArchive& Ar);
 
+	// Generates mobile platform data for this component
+	void GeneratePlatformVertexData();
+	void GeneratePlatformPixelData();
+
 	/** Generate mobile data if it's missing or outdated */
 	void CheckGenerateLandscapePlatformData(bool bIsCooking);
 #endif
-
-	/** @todo document */
-	virtual void InvalidateLightingCacheDetailed(bool bInvalidateBuildEnqueuedLighting, bool bTranslationOnly) override;
-
 
 	/** Get the landscape actor associated with this component. */
 	ALandscape* GetLandscapeActor() const;
@@ -409,10 +437,12 @@ public:
 	/** Get the level in which the owning actor resides */
 	ULevel* GetLevel() const;
 
+#if WITH_EDITOR
 	/** Returns all generated textures and material instances used by this component. */
 	LANDSCAPE_API void GetGeneratedTexturesAndMaterialInstances(TArray<UObject*>& OutTexturesAndMaterials) const;
+#endif
 
-	/** @todo document */
+	/** Gets the landscape proxy actor which owns this component */
 	LANDSCAPE_API ALandscapeProxy* GetLandscapeProxy() const;
 
 	/** @return Component section base as FIntPoint */
@@ -420,9 +450,6 @@ public:
 
 	/** @param InSectionBase new section base for a component */
 	LANDSCAPE_API void SetSectionBase(FIntPoint InSectionBase);
-
-	/** @todo document */
-	TMap<UTexture2D*, FLandscapeWeightmapUsage>& GetWeightmapUsageMap();
 
 	/** @todo document */
 	const FGuid& GetLightingGuid() const
@@ -443,9 +470,8 @@ public:
 #endif // WITH_EDITORONLY_DATA
 	}
 
+
 #if WITH_EDITOR
-
-
 	/** Initialize the landscape component */
 	LANDSCAPE_API void Init(int32 InBaseX,int32 InBaseY,int32 InComponentSizeQuads, int32 InNumSubsections,int32 InSubsectionSizeQuads);
 
@@ -593,6 +619,4 @@ protected:
 		return true;
 	}
 };
-
-
 

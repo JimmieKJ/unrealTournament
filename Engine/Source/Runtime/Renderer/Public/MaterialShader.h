@@ -110,14 +110,12 @@ public:
 	FUniformBufferRHIParamRef GetParameterCollectionBuffer(const FGuid& Id, const FSceneInterface* SceneInterface) const;
 
 	template<typename ShaderRHIParamRef>
-	FORCEINLINE_DEBUGGABLE void SetParameters(FRHICommandList& RHICmdList, const ShaderRHIParamRef ShaderRHI, const FSceneView& View)
+	FORCEINLINE_DEBUGGABLE void SetViewParameters(FRHICommandList& RHICmdList, const ShaderRHIParamRef ShaderRHI, const FSceneView& View, const TUniformBufferRef<FViewUniformShaderParameters>& ViewUniformBuffer)
 	{
 		const auto& ViewUniformBufferParameter = GetUniformBufferParameter<FViewUniformShaderParameters>();
-		const auto& FrameUniformBufferParameter = GetUniformBufferParameter<FFrameUniformShaderParameters>();
 		const auto& BuiltinSamplersUBParameter = GetUniformBufferParameter<FBuiltinSamplersParameters>();
 		CheckShaderIsValid();
-		SetUniformBufferParameter(RHICmdList, ShaderRHI, ViewUniformBufferParameter, View.ViewUniformBuffer);
-		SetUniformBufferParameter(RHICmdList, ShaderRHI, FrameUniformBufferParameter, View.FrameUniformBuffer);
+		SetUniformBufferParameter(RHICmdList, ShaderRHI, ViewUniformBufferParameter, ViewUniformBuffer);
 #if USE_GBuiltinSamplersUniformBuffer
 		SetUniformBufferParameter(RHICmdList, ShaderRHI, BuiltinSamplersUBParameter, GBuiltinSamplersUniformBuffer.GetUniformBufferRHI());
 #endif
@@ -147,9 +145,9 @@ public:
 		const FMaterialRenderProxy* MaterialRenderProxy, 
 		const FMaterial& Material,
 		const FSceneView& View, 
+		const TUniformBufferRef<FViewUniformShaderParameters>& ViewUniformBuffer,
 		bool bDeferredPass, 
-		ESceneRenderTargetsMode::Type TextureMode, 
-		const bool bIsInstancedStereo = false);
+		ESceneRenderTargetsMode::Type TextureMode);
 
 	FTextureRHIRef& GetEyeAdaptation(FRHICommandList& RHICmdList, const FSceneView& View);
 
@@ -166,8 +164,8 @@ private:
 	TArray<FShaderParameter> PerFramePrevScalarExpressions;
 	TArray<FShaderParameter> PerFramePrevVectorExpressions;
 	FDeferredPixelShaderParameters DeferredParameters;
-	FShaderResourceParameter LightAttenuation;
-	FShaderResourceParameter LightAttenuationSampler;
+	FShaderResourceParameter SceneColorCopyTexture;
+	FShaderResourceParameter SceneColorCopyTextureSampler;
 
 	//Use of the eye adaptation texture here is experimental and potentially dangerous as it can introduce a feedback loop. May be removed.
 	FShaderResourceParameter EyeAdaptation;

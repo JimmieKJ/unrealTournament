@@ -36,6 +36,7 @@ UGameMapsSettings::UGameMapsSettings( const FObjectInitializer& ObjectInitialize
 	, bUseSplitscreen(true)
 	, TwoPlayerSplitscreenLayout(ETwoPlayerSplitScreenType::Horizontal)
 	, ThreePlayerSplitscreenLayout(EThreePlayerSplitScreenType::FavorTop)
+	, bOffsetPlayerGamepadIds(false)
 { }
 
 
@@ -56,6 +57,8 @@ UGeneralEngineSettings::UGeneralEngineSettings( const FObjectInitializer& Object
 
 UGeneralProjectSettings::UGeneralProjectSettings( const FObjectInitializer& ObjectInitializer )
 	: Super(ObjectInitializer)
+	, bShouldWindowPreserveAspectRatio(true)
+	, bStartInVR(false)
 { }
 
 

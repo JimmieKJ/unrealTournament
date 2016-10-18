@@ -25,6 +25,8 @@
 #include "UTKillcamPlayback.h"
 #include "UTAnalytics.h"
 #include "ContentStreaming.h"
+#include "UTInGameIntroZone.h"
+#include "UTInGameIntroHelper.h"
 #include "Runtime/Analytics/Analytics/Public/AnalyticsEventAttribute.h"
 
 AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
@@ -271,6 +273,7 @@ AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 	MapVoteStatus = NSLOCTEXT("UTGameState", "Mapvote", "Map Vote");
 	PreGameStatus = NSLOCTEXT("UTGameState", "PreGame", "Pre-Game");
 	NeedPlayersStatus = NSLOCTEXT("UTGameState", "NeedPlayers", "Need {NumNeeded} More");
+	OvertimeStatus = NSLOCTEXT("UTCTFGameState", "Overtime", "Overtime!");
 
 	bWeightedCharacter = false;
 
@@ -288,6 +291,7 @@ AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 	// more stringent by default
 	UnplayableHitchThresholdInMs = 300;
 	MaxUnplayableHitchesToTolerate = 1;
+	bPlayStatusAnnouncements = false;
 }
 
 void AUTGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLifetimeProps) const
@@ -392,6 +396,7 @@ void AUTGameState::OnRep_OverlayEffects()
 		if (UTC != NULL)
 		{
 			UTC->UpdateCharOverlays();
+			UTC->UpdateArmorOverlay();
 			UTC->UpdateWeaponOverlays();
 		}
 	}
@@ -519,7 +524,7 @@ void AUTGameState::AddAllUsersToInfoQuery()
 
 void AUTGameState::RunAllUserInfoQuery()
 {
-	if (bIsUserQueryNeeded && !bIsAlreadyPendingUserQuery && (GetWorld()->GetNetMode() != NM_DedicatedServer))
+	if (bIsUserQueryNeeded && !bIsAlreadyPendingUserQuery )
 	{
 		bIsAlreadyPendingUserQuery = true;
 		bIsUserQueryNeeded = false;
@@ -890,6 +895,12 @@ void AUTGameState::HandleMatchHasStarted()
 	StartFPSCharts();
 
 	Super::HandleMatchHasStarted();
+
+	AUTWorldSettings* WS = Cast<AUTWorldSettings>(GetWorld()->GetWorldSettings());
+	if (WS != nullptr)
+	{
+		IUTResetInterface::Execute_Reset(WS);
+	}
 }
 
 void AUTGameState::HandleMatchHasEnded()
@@ -903,6 +914,18 @@ void AUTGameState::HandleMatchHasEnded()
 
 void AUTGameState::StartFPSCharts()
 {
+	for (auto It = GetGameInstance()->GetLocalPlayerIterator(); It; ++It)
+	{
+		UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(*It);
+		if (LocalPlayer)
+		{
+			if (LocalPlayer->IsReplay())
+			{
+				return;
+			}
+		}
+	}
+
 	if (bRunFPSChart)
 	{
 		FString FPSChartLabel;
@@ -924,6 +947,18 @@ void AUTGameState::StartFPSCharts()
 
 void AUTGameState::StopFPSCharts()
 {
+	for (auto It = GetGameInstance()->GetLocalPlayerIterator(); It; ++It)
+	{
+		UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(*It);
+		if (LocalPlayer)
+		{
+			if (LocalPlayer->IsReplay())
+			{
+				return;
+			}
+		}
+	}
+
 	if (bRunFPSChart)
 	{
 		TArray<FAnalyticsEventAttribute> ParamArray;
@@ -934,10 +969,11 @@ void AUTGameState::StopFPSCharts()
 			MapName = GetLevel()->OwningWorld->GetMapName();
 		}
 
+		const bool bIsClient = GetNetMode() == NM_Client;
 		GEngine->StopFPSChart();
-		GEngine->DumpFPSChartAnalytics(MapName, ParamArray);
-	
-		if (GetNetMode() == NM_Client)
+		GEngine->DumpFPSChartAnalytics(MapName, ParamArray, bIsClient);
+
+		if (bIsClient)
 		{
 			AUTPlayerController* UTPC = Cast<AUTPlayerController>(GetWorld()->GetFirstPlayerController());
 			if (UTPC)
@@ -1013,14 +1049,14 @@ bool AUTGameState::HasMatchStarted() const
 
 bool AUTGameState::IsMatchInProgress() const
 {
-	FName MatchState = GetMatchState();
-	return (MatchState == MatchState::InProgress || MatchState == MatchState::MatchIsInOvertime);
+	FName CurrentMatchState = GetMatchState();
+	return (CurrentMatchState == MatchState::InProgress || CurrentMatchState == MatchState::MatchIsInOvertime);
 }
 
 bool AUTGameState::IsMatchInOvertime() const
 {
-	FName MatchState = GetMatchState();
-	return (MatchState == MatchState::MatchEnteringOvertime || MatchState == MatchState::MatchIsInOvertime);
+	FName CurrentMatchState = GetMatchState();
+	return (CurrentMatchState == MatchState::MatchEnteringOvertime || CurrentMatchState == MatchState::MatchIsInOvertime);
 }
 
 bool AUTGameState::IsMatchIntermission() const
@@ -1143,6 +1179,10 @@ FText AUTGameState::GetGameStatusText(bool bForScoreboard)
 			return PreGameStatus;
 		}
 	}
+	else if (IsMatchInOvertime())
+	{
+		return OvertimeStatus;
+	}
 
 	return FText::GetEmpty();
 }
@@ -1150,6 +1190,11 @@ FText AUTGameState::GetGameStatusText(bool bForScoreboard)
 void AUTGameState::OnRep_MatchState()
 {
 	Super::OnRep_MatchState();
+
+	if (!InGameIntroHelper)
+	{
+		InGameIntroHelper = NewObject <UUTInGameIntroHelper>();
+	}
 
 	for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
 	{
@@ -1383,7 +1428,7 @@ void AUTGameState::AdjustLoadoutCost(TSubclassOf<AUTInventory> ItemClass, float 
 	}
 }
 
-bool AUTGameState::IsTempBanned(const TSharedPtr<const FUniqueNetId>& UniqueId)
+bool AUTGameState::IsTempBanned(const FUniqueNetIdRepl& UniqueId)
 {
 	for (int32 i=0; i< TempBans.Num(); i++)
 	{
@@ -1504,7 +1549,7 @@ void AUTGameState::GetAvailableGameData(TArray<UClass*>& GameModes, TArray<UClas
 void AUTGameState::ScanForMaps(const TArray<FString>& AllowedMapPrefixes, TArray<FAssetData>& MapList)
 {
 	TArray<FAssetData> MapAssets;
-	GetAllAssetData(UWorld::StaticClass(), MapAssets);
+	GetAllAssetData(UWorld::StaticClass(), MapAssets, false);
 	for (const FAssetData& Asset : MapAssets)
 	{
 		FString MapPackageName = Asset.PackageName.ToString();
@@ -1581,7 +1626,7 @@ AUTReplicatedMapInfo* AUTGameState::CreateMapInfo(const FAssetData& MapAsset)
 			AUTBaseGameMode* BaseGameMode = Cast<AUTBaseGameMode>(GetWorld()->GetAuthGameMode());
 			if (BaseGameMode)
 			{
-				BaseGameMode->CheckMapStatus(MapInfo->MapPackageName, MapInfo->bIsEpicMap, MapInfo->bIsMeshedMap);
+				BaseGameMode->CheckMapStatus(MapInfo->MapPackageName, MapInfo->bIsEpicMap, MapInfo->bIsMeshedMap, MapInfo->bHasRights);
 				BaseGameMode->FindRedirect(MapInfo->MapPackageName, MapInfo->Redirect);
 			}
 		}
@@ -1609,7 +1654,7 @@ void AUTGameState::CreateMapVoteInfo(const FString& MapPackage,const FString& Ma
 			AUTBaseGameMode* BaseGameMode = Cast<AUTBaseGameMode>(GetWorld()->GetAuthGameMode());
 			if (BaseGameMode)
 			{
-				BaseGameMode->CheckMapStatus(MapVoteInfo->MapPackageName, MapVoteInfo->bIsEpicMap, MapVoteInfo->bIsMeshedMap);
+				BaseGameMode->CheckMapStatus(MapVoteInfo->MapPackageName, MapVoteInfo->bIsEpicMap, MapVoteInfo->bIsMeshedMap, MapVoteInfo->bHasRights);
 			}
 		}
 
@@ -2164,4 +2209,53 @@ void AUTGameState::MakeJsonReport(TSharedPtr<FJsonObject> JsonObject)
 bool AUTGameState::CanShowBoostMenu(AUTPlayerController* Target)
 {
 	return IsMatchIntermission() || !HasMatchStarted();
+}
+
+bool AUTGameState::ShouldUseInGameSummary(InGameIntroZoneTypes SummaryType)
+{
+	if ((GetWorld() == nullptr) || (SummaryType == InGameIntroZoneTypes::Invalid))
+	{
+		return false;
+	}
+
+	for (TActorIterator<AUTInGameIntroZone> It(GetWorld()); It; ++It)
+	{
+		if (It->ZoneType == SummaryType)
+		{
+			int RedTeamPlayerCount = 0;
+			int BlueTeamPlayerCount = 0;
+			int OtherTeamPlayerCount = 0;
+
+			const int RedTeam = 0;
+			const int BlueTeam = 1;
+
+			for (int index = 0; index < PlayerArray.Num(); ++index)
+			{
+				AUTPlayerState* UTPS = Cast<AUTPlayerState>(PlayerArray[index]);
+				if (UTPS)
+				{
+					if (UTPS->GetTeamNum() == RedTeam)
+					{
+						++RedTeamPlayerCount;
+					}
+					else if (UTPS->GetTeamNum() == BlueTeam)
+					{
+						++BlueTeamPlayerCount;
+					}
+					else
+					{
+						++OtherTeamPlayerCount;
+					}
+				}
+			}
+
+			bool bIsRedTeamSizeLimitMet = RedTeamPlayerCount > 0 ? It->RedTeamSpawnLocations.Num() >= RedTeamPlayerCount : true;
+			bool bIsBlueTeamSizeLimitMet = BlueTeamPlayerCount > 0 ? It->BlueTeamSpawnLocations.Num() >= BlueTeamPlayerCount : true;
+			bool bIsOtherTeamPlayerCountMet = OtherTeamPlayerCount > 0 ? It->FFATeamSpawnLocations.Num() >= OtherTeamPlayerCount :  true;
+
+			return bIsRedTeamSizeLimitMet && bIsBlueTeamSizeLimitMet && bIsOtherTeamPlayerCountMet;
+		}
+	}
+
+	return false;
 }

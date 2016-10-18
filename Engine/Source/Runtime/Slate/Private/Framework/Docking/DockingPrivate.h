@@ -5,8 +5,6 @@
 
 #include "SlateBasics.h"
 
-#define DEBUG_TAB_MANAGEMENT 0
-
 #include "SDockingNode.h"
 #include "SDockingSplitter.h"
 #include "SDockingTabStack.h"

@@ -61,7 +61,6 @@ bool FVectorVMTest::RunTest(const FString& Parameters)
 		InputRegisters, 3,
 		OutputRegisters, 1,
 		ConstantTable,
-		nullptr,
 		dummy,
 		VectorVM::VectorsPerChunk
 		);

@@ -2,8 +2,6 @@
 #include "UnrealTournament.h"
 #include "UTGameEngine.h"
 #include "UTAnalytics.h"
-#include "Runtime/Analytics/Analytics/Public/Analytics.h"
-#include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
 #include "Runtime/Core/Public/Features/IModularFeatures.h"
 #include "AssetRegistryModule.h"
 #include "UTLevelSummary.h"
@@ -14,6 +12,7 @@
 #include "UTFlagInfo.h"
 #include "UTLobbyGameMode.h"
 #include "UTGameInstance.h"
+#include "IAnalyticsProvider.h"
 #if !UE_SERVER
 #include "SlateBasics.h"
 #include "MoviePlayer.h"
@@ -40,9 +39,6 @@ UUTGameEngine::UUTGameEngine(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
 	TAssetSubclassOf<AUTWeapon> WeaponRef;
-	WeaponRef = FStringAssetReference(TEXT("/Game/RestrictedAssets/Weapons/BioRifle/BP_BioRifle.BP_BioRifle_C"));
-	AlwaysLoadedWeaponsStringRefs.Add(WeaponRef);
-
 	WeaponRef = FStringAssetReference(TEXT("/Game/RestrictedAssets/Weapons/Enforcer/Enforcer.Enforcer_C"));
 	AlwaysLoadedWeaponsStringRefs.Add(WeaponRef);
 	WeaponRef = FStringAssetReference(TEXT("/Game/RestrictedAssets/Weapons/Flak/BP_FlakCannon.BP_FlakCannon_C"));
@@ -411,17 +407,9 @@ EBrowseReturnVal::Type UUTGameEngine::Browse( FWorldContext& WorldContext, FURL 
 
 		return (LoadSuccess ? EBrowseReturnVal::Success : EBrowseReturnVal::Failure);
 	}
-	else
 #endif
-	if (URL.IsLocalInternal() && !IsRunningDedicatedServer() && !LocallyHasEntitlement(GetRequiredEntitlementFromPackageName(FName(*FPaths::GetBaseFilename(URL.Map)))))
-	{
-		Error = NSLOCTEXT("UT", "NotEntitledMap", "You do not have the rights to start this community created map. Visit the UT Marketplace in the Launcher to gain access (it's free!).").ToString();
-		return EBrowseReturnVal::Failure;
-	}
-	else
-	{
-		return Super::Browse(WorldContext, URL, Error);
-	}
+
+	return Super::Browse(WorldContext, URL, Error);
 }
 
 static TAutoConsoleVariable<int32> CVarUnsteadyFPS(
@@ -577,6 +565,7 @@ bool UUTGameEngine::CheckVersionOfPakFile(const FString& PakFilename) const
 			if (FFileHelper::LoadFileToString(VersionString, *(FPaths::GameDir() / VersionFilename)))
 			{
 				VersionString = VersionString.LeftChop(2);
+				FNetworkVersion::bHasCachedNetworkChecksum = false;
 				FString CompiledVersionString = FString::FromInt(FNetworkVersion::GetLocalNetworkVersion());
 
 				if (VersionString == CompiledVersionString)
@@ -782,7 +771,7 @@ void UUTGameEngine::IndexExpansionContent()
 void UUTGameEngine::SetupLoadingScreen()
 {
 #if !UE_SERVER
-	/* disabled due to Slate threading fails, doing this in LoadMapRedrawViewports() instead
+/*
 	if (IsMoviePlayerEnabled())
 	{
 		FLoadingScreenAttributes LoadingScreen;
@@ -791,46 +780,14 @@ void UUTGameEngine::SetupLoadingScreen()
 		//LoadingScreen.WidgetLoadingScreen = SNew(SImage).Image(&LoadingScreenImage);
 		LoadingScreen.WidgetLoadingScreen = SNew(SImage).Image(SUWindowsStyle::Get().GetBrush("LoadingScreen"));
 		GetMoviePlayer()->SetupLoadingScreen(LoadingScreen);
-		FCoreUObjectDelegates::PreLoadMap.Broadcast();
-	}*/
+		FCoreUObjectDelegates::PreLoadMap.Broadcast(TEXT(""));
+	}
+*/
 #endif
 }
 
 static FName UT_DEFAULT_LOADING(TEXT("UT.LoadingScreen"));
 
-
-void UUTGameEngine::LoadMapRedrawViewports()
-{
-#if !UE_SERVER
-/*
-	FName Background = UT_DEFAULT_LOADING;
-
-	UE_LOG(UT,Log,TEXT("Background: %s"),*Background.ToString());
-	// put up a temporary widget for the loading screen for one frame
-	TSharedPtr<SImage> LoadingScreenImage;
-	if (GameViewport != NULL)
-	{
-		SAssignNew(LoadingScreenImage, SImage).Image(SUTStyle::Get().GetBrush(Background));
-		GameViewport->AddViewportWidgetContent(LoadingScreenImage.ToSharedRef(), MAX_int32);
-	}
-*/
-#endif
-	Super::LoadMapRedrawViewports();
-#if !UE_SERVER
-/*
-	if (GameViewport != NULL)
-	{
-		// required to force Slate to present the frame
-		FSlateApplication::Get().Tick();
-		// now remove the widget
-		if (LoadingScreenImage.IsValid())
-		{
-			GameViewport->RemoveViewportWidgetContent(LoadingScreenImage.ToSharedRef());
-		}
-	}
-*/
-#endif
-}
 
 bool UUTGameEngine::IsCloudAndLocalContentInSync()
 {
@@ -913,11 +870,16 @@ void UUTGameEngine::PromptForEULAAcceptance()
 		// PasswordStr will be empty if we were not run from the launcher
 		if (PasswordStr.IsEmpty())
 		{
+#if !UE_SERVER
 			if (FPlatformMisc::MessageBoxExt(EAppMsgType::YesNo, *ReadEULAText.ToString(), *ReadEULACaption.ToString()) != EAppReturnType::Yes)
 			{
 				FPlatformMisc::RequestExit(false);
 				return;
 			}
+#else
+			UE_LOG(LogExit, Warning, TEXT("Please accept the EULA before running the dedicated server!"));
+			FPlatformMisc::RequestExit(false);
+#endif
 		}
 
 		bFirstRun = false;

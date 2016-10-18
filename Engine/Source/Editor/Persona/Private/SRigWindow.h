@@ -166,11 +166,18 @@ private:
 	/** Returns true if the asset shouldn't show  */
 	bool ShouldFilterAsset(const class FAssetData& AssetData);
 
-	UObject* GetRigObject() const;
+	URig* GetRigObject() const;
 	
 	void OnBoneMappingChanged( FName NodeName, FName BoneName );
 	FName GetBoneMapping( FName NodeName );
 
+	FReply OnAutoMapping();
+	FReply OnClearMapping();
+	FReply OnToggleView();
+
 	FReply OnToggleAdvanced();
 	FText GetAdvancedButtonText() const;
+
+	bool SelectSourceReferenceSkeleton(URig* Rig) const;
+	bool OnTargetSkeletonSelected(USkeleton* SelectedSkeleton, URig*  Rig) const;
 };

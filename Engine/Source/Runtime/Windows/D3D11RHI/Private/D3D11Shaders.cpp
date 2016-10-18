@@ -236,13 +236,16 @@ FD3D11BoundShaderState::FD3D11BoundShaderState(
 
 	FShaderCodeReader VertexShaderCode(InVertexShader->Code);
 
-	VERIFYD3D11RESULT(Direct3DDevice->CreateInputLayout(
-		InVertexDeclaration ? InVertexDeclaration->VertexElements.GetData() : &NullInputElement,
-		InVertexDeclaration ? InVertexDeclaration->VertexElements.Num() : 0,
-		&InVertexShader->Code[ InVertexShader->Offset ],			// TEMP ugly
-		VertexShaderCode.GetActualShaderCodeSize() - InVertexShader->Offset,
-		InputLayout.GetInitReference()
-		));
+	VERIFYD3D11RESULT_EX(
+		Direct3DDevice->CreateInputLayout(
+			InVertexDeclaration ? InVertexDeclaration->VertexElements.GetData() : &NullInputElement,
+			InVertexDeclaration ? InVertexDeclaration->VertexElements.Num() : 0,
+			&InVertexShader->Code[ InVertexShader->Offset ],			// TEMP ugly
+			VertexShaderCode.GetActualShaderCodeSize() - InVertexShader->Offset,
+			InputLayout.GetInitReference()
+			),
+		Direct3DDevice
+		);
 
 	VertexShader = InVertexShader->Resource;
 	PixelShader = InPixelShader ? InPixelShader->Resource : NULL;

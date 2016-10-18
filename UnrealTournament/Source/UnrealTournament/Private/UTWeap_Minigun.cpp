@@ -9,21 +9,7 @@
 AUTWeap_Minigun::AUTWeap_Minigun(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer.SetDefaultSubobjectClass<UUTWeaponStateFiringSpinUp>(TEXT("FiringState0")))
 {
-	if (FiringState.Num() > 0)
-	{
-		FireInterval[0] = 0.091f;
-		Spread.Add(0.07425f);
-		InstantHitInfo.AddZeroed();
-		InstantHitInfo[0].Damage = 14;
-		InstantHitInfo[0].TraceRange = 10000.0f;
-	}
-	if (AmmoCost.Num() < 2)
-	{
-		AmmoCost.SetNum(2);
-	}
 	DefaultGroup = 6;
-	AmmoCost[0] = 1;
-	AmmoCost[1] = 1;
 	FireEffectInterval = 2;
 	Ammo = 80;
 	MaxAmmo = 240;
@@ -31,8 +17,6 @@ AUTWeap_Minigun::AUTWeap_Minigun(const FObjectInitializer& ObjectInitializer)
 
 	AmmoWarningAmount = 25;
 	AmmoDangerAmount = 10;
-
-
 	HUDIcon = MakeCanvasIcon(HUDIcon.Texture, 453.0f, 509.0f, 148.0f, 53.0f);
 
 	BaseAISelectRating = 0.71f;

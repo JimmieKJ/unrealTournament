@@ -91,6 +91,12 @@ public:
 
 	virtual void ChangeProfileName( const ILauncherProfileRef& Profile, FString Name) override;
 
+	virtual void RegisterProfileWizard(const ILauncherProfileWizardPtr& ProfileWizard) override;
+
+	virtual void UnregisterProfileWizard(const ILauncherProfileWizardPtr& ProfileWizard) override;
+
+	virtual const TArray<ILauncherProfileWizardPtr>& GetProfileWizards() const override;
+
 	virtual void SaveSettings( ) override;
 
 	virtual FString GetProjectName() const override;
@@ -162,6 +168,9 @@ private:
 
 	// Holds the currently selected project path
 	FString ProjectPath;
+	
+	// Holds all registered profile wizards
+	TArray<ILauncherProfileWizardPtr> ProfileWizards;
 
 private:
 

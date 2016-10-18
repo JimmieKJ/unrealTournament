@@ -6,6 +6,28 @@
 
 
 /**
+ * A queued control channel message
+ */
+struct FQueuedControlMessage
+{
+	/** The raw message data */
+	TArray<uint8> Data;
+
+	/** The bit size of the message */
+	uint32 CountBits;
+
+public:
+	/**
+	 * Base constructor
+	 */
+	FQueuedControlMessage()
+		: Data()
+		, CountBits(0)
+	{
+	}
+};
+
+/**
  * A channel for exchanging connection control messages.
  */
 UCLASS(transient, customConstructor)
@@ -25,7 +47,7 @@ class ENGINE_API UControlChannel
 	 * as we must be able to guarantee delivery for them
 	 * because they include package map updates and other info critical to client/server synchronization
 	 */
-	TArray< TArray<uint8> > QueuedMessages;
+	TArray<FQueuedControlMessage> QueuedMessages;
 
 	/** maximum size of additional buffer
 	 * if this is exceeded as well, we kill the connection.  @TODO FIXME temporarily huge until we figure out how to handle 1 asset/package implication on packagemap

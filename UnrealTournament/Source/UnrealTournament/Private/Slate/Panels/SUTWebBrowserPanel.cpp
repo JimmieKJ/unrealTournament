@@ -133,11 +133,11 @@ void SUTWebBrowserPanel::OnHidePanel()
 	}
 }
 
-bool SUTWebBrowserPanel::BeforeBrowse(const FString& TargetURL, const FWebNavigationRequest& WebRequest)
+bool SUTWebBrowserPanel::BeforeBrowse(const FString& TargetURL, const FWebNavigationRequest& Request)
 {
 	if (OnBeforeBrowse.IsBound())
 	{
-		return OnBeforeBrowse.Execute(TargetURL, WebRequest);
+		return OnBeforeBrowse.Execute(TargetURL, Request);
 	}
 	
 	return false;

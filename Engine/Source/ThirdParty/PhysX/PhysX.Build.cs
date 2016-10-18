@@ -106,16 +106,6 @@ public class PhysX : ModuleRules
 		    Definitions.Add("WITH_PHYSX_RELEASE=0");
 		}
 
-        if (LibraryMode == PhysXLibraryMode.Checked)
-        {
-            Definitions.Add("WITH_PHYSX_CHECKED=1");
-        }
-        else
-        {
-            Definitions.Add("WITH_PHYSX_CHECKED=0");
-        }
-        
-
 		string PhysXVersion = "PhysX-3.3";
 
 		string PhysXDir = UEBuildConfiguration.UEThirdPartySourceDirectory + "PhysX/" + PhysXVersion + "/";
@@ -180,10 +170,16 @@ public class PhysX : ModuleRules
 			foreach(string DLL in RuntimeDependenciesX64)
 			{
 				string FileName = PhysXBinariesDir + String.Format(DLL, LibrarySuffix);
-				RuntimeDependencies.Add(new RuntimeDependency(FileName));
-				RuntimeDependencies.Add(new RuntimeDependency(Path.ChangeExtension(FileName, ".pdb"), true));
+				RuntimeDependencies.Add(FileName, StagedFileType.NonUFS);
+				RuntimeDependencies.Add(Path.ChangeExtension(FileName, ".pdb"), StagedFileType.DebugNonUFS);
 			}
-			RuntimeDependencies.Add(new RuntimeDependency(PhysXBinariesDir + "nvToolsExt64_1.dll"));
+			RuntimeDependencies.Add(PhysXBinariesDir + "nvToolsExt64_1.dll", StagedFileType.NonUFS);
+			RuntimeDependencies.Add(PhysXBinariesDir + "glut32.dll", StagedFileType.NonUFS);
+
+			if (LibrarySuffix != "")
+			{
+				Definitions.Add("UE_PHYSX_SUFFIX=" + LibrarySuffix);
+			}
 		}
 		else if (Target.Platform == UnrealTargetPlatform.Win32 || (Target.Platform == UnrealTargetPlatform.HTML5 && Target.Architecture == "-win32"))
 		{
@@ -230,10 +226,17 @@ public class PhysX : ModuleRules
 			foreach(string DLL in RuntimeDependenciesX86)
 			{
 				string FileName = PhysXBinariesDir + String.Format(DLL, LibrarySuffix);
-				RuntimeDependencies.Add(new RuntimeDependency(FileName));
-				RuntimeDependencies.Add(new RuntimeDependency(Path.ChangeExtension(FileName, ".pdb"), true));
+				RuntimeDependencies.Add(FileName, StagedFileType.NonUFS);
+				RuntimeDependencies.Add(Path.ChangeExtension(FileName, ".pdb"), StagedFileType.DebugNonUFS);
 			}
-			RuntimeDependencies.Add(new RuntimeDependency(PhysXBinariesDir + "nvToolsExt32_1.dll"));
+			RuntimeDependencies.Add(PhysXBinariesDir + "nvToolsExt32_1.dll", StagedFileType.NonUFS);
+			RuntimeDependencies.Add(PhysXBinariesDir + "glut32.dll", StagedFileType.NonUFS);
+
+			if(LibrarySuffix != "")
+			{
+				Definitions.Add("UE_PHYSX_SUFFIX=" + LibrarySuffix);
+			}
+			
 		}
 		else if (Target.Platform == UnrealTargetPlatform.Mac)
 		{
@@ -268,7 +271,7 @@ public class PhysX : ModuleRules
 			PublicSystemIncludePaths.Add(PhysXDir + "include/foundation/unix");
 			PublicLibraryPaths.Add(PhysXLibDir + "Android/ARMv7");
 			PublicLibraryPaths.Add(PhysXLibDir + "Android/x86");
-			PublicLibraryPaths.Add(PhysXLibDir + "Android/arm64");
+			PublicLibraryPaths.Add(PhysXLibDir + "Android/ARM64");
 			PublicLibraryPaths.Add(PhysXLibDir + "Android/x64");
 
 			string[] StaticLibrariesAndroid = new string[] {

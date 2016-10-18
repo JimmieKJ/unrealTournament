@@ -3,20 +3,12 @@
 #pragma once
 
 
-/* Private dependencies
- *****************************************************************************/
-
-#include "Core.h"
-#include "Engine.h"
-#include "IMovieScenePlayer.h"
-#include "KeyParams.h"
-#include "MovieScene.h"
-#include "MovieSceneCommonHelpers.h"
-#include "MovieScenePropertyTrack.h"
-#include "MovieSceneSection.h"
-#include "MovieSceneTrack.h"
-#include "IMovieSceneTrackInstance.h"
-#include "IMovieSceneTracksModule.h"
-#include "IKeyframeSection.h"
-
-
+#include "Runtime/Core/Public/Core.h"
+#include "Runtime/Engine/Public/Engine.h"
+#include "Runtime/MovieScene/Public/IMovieScenePlayer.h"
+#include "Runtime/MovieScene/Public/IMovieSceneTrackInstance.h"
+#include "Runtime/MovieScene/Public/KeyParams.h"
+#include "Runtime/MovieScene/Public/MovieScene.h"
+#include "Runtime/MovieScene/Public/MovieSceneCommonHelpers.h"
+#include "Runtime/MovieScene/Public/MovieSceneSection.h"
+#include "Runtime/MovieScene/Public/MovieSceneTrack.h"

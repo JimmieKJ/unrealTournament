@@ -479,6 +479,23 @@
 		};
 /* End PBXHeadersBuildPhase section */
 
+/* Begin PBXLegacyTarget section */
+		6DD590AA1CFAA5C400EE4206 /* hlslcc_parser */ = {
+			isa = PBXLegacyTarget;
+			buildArgumentsString = "GenerateParsers.sh $(ACTION)";
+			buildConfigurationList = 6DD590AB1CFAA5C500EE4206 /* Build configuration list for PBXLegacyTarget "hlslcc_parser" */;
+			buildPhases = (
+			);
+			buildToolPath = /bin/sh;
+			buildWorkingDirectory = "$(PROJECT_DIR)/../..";
+			dependencies = (
+			);
+			name = hlslcc_parser;
+			passBuildSettingsInEnvironment = 1;
+			productName = hlslcc_parser;
+		};
+/* End PBXLegacyTarget section */
+
 /* Begin PBXNativeTarget section */
 		90438DC41610829E00C0D669 /* hlslcc */ = {
 			isa = PBXNativeTarget;
@@ -523,6 +540,11 @@
 			attributes = {
 				LastUpgradeCheck = 0450;
 				ORGANIZATIONNAME = Epic;
+				TargetAttributes = {
+					6DD590AA1CFAA5C400EE4206 = {
+						CreatedOnToolsVersion = 7.3.1;
+					};
+				};
 			};
 			buildConfigurationList = 90438DBF1610829E00C0D669 /* Build configuration list for PBXProject "hlslcc" */;
 			compatibilityVersion = "Xcode 3.2";
@@ -538,6 +560,7 @@
 			targets = (
 				90438DC41610829E00C0D669 /* hlslcc */,
 				DAA663571844C57C0018F027 /* hlslcc_64 */,
+				6DD590AA1CFAA5C400EE4206 /* hlslcc_parser */,
 			);
 		};
 /* End PBXProject section */
@@ -643,6 +666,70 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		6DD590AC1CFAA5C500EE4206 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BISON_PATH = "xcrun bison";
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				DEBUGGING_SYMBOLS = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				FLEX = "xcrun flex";
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				MTL_ENABLE_DEBUG_INFO = YES;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		6DD590AD1CFAA5C500EE4206 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BISON_PATH = "xcrun bison";
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				FLEX = "xcrun flex";
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
 		90438DC71610829E00C0D669 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -764,6 +851,14 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		6DD590AB1CFAA5C500EE4206 /* Build configuration list for PBXLegacyTarget "hlslcc_parser" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				6DD590AC1CFAA5C500EE4206 /* Debug */,
+				6DD590AD1CFAA5C500EE4206 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+		};
 		90438DBF1610829E00C0D669 /* Build configuration list for PBXProject "hlslcc" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

@@ -389,11 +389,11 @@ TSharedPtr<SGraphPin> SGraphNodeMakeStruct::CreatePinWidget(UEdGraphPin* Pin) co
 					if (HorizontalPin.IsValid())
 					{
 						// Setup the pin's editable state to be dependent on whether the override is enabled
-						TAttribute<bool> IsEditable;
+						TAttribute<bool> IsEditableAttribute;
 						TAttribute<bool>::FGetter IsEditableGetter;
 						IsEditableGetter.BindSP(this, &SGraphNodeMakeStruct::IsPinEnabled, &PropertyEntry);
-						IsEditable.Bind(IsEditableGetter);
-						ResultPin->SetIsEditable(IsEditable);
+						IsEditableAttribute.Bind(IsEditableGetter);
+						ResultPin->SetIsEditable(IsEditableAttribute);
 
 						HorizontalPin.Pin()->InsertSlot(1)
 							.Padding(0.0f, 0.0f, 2.0f, 0.0f)

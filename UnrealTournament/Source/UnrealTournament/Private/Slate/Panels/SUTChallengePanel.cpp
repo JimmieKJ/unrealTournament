@@ -9,14 +9,14 @@
 #include "../Widgets/SUTButton.h"
 #include "UTChallengeManager.h"
 #include "UTAnalytics.h"
-#include "Runtime/Analytics/Analytics/Public/Analytics.h"
-#include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
 #include "../Menus/SUTMainMenu.h"
 #include "UTLevelSummary.h"
 #include "UTGameEngine.h"
 #include "../Widgets/SUTBorder.h"
 
 #if !UE_SERVER
+#include "AnalyticsEventAttribute.h"
+#include "IAnalyticsProvider.h"
 
 SUTChallengePanel::~SUTChallengePanel()
 {
@@ -1049,6 +1049,19 @@ void SUTChallengePanel::WarningResult(TSharedPtr<SCompoundWidget> Widget, uint16
 	}
 }
 
+//Special markup for Analytics event so they show up properly in grafana. Should be eventually moved to UTAnalytics.
+/*
+* @EventName StartChallenge
+*
+* @Trigger Fires when starting a challenge
+*
+* @Type Sent by the client
+*
+* @EventParam Challenge string Name of the challenge started
+* @EventParam Difficulty int32 value representing the difficulty of the challenge 
+*
+* @Comments
+*/
 void SUTChallengePanel::StartChallenge(int32 Difficulty)
 {
 
@@ -1069,6 +1082,8 @@ void SUTChallengePanel::StartChallenge(int32 Difficulty)
 			ParamArray.Add(FAnalyticsEventAttribute(TEXT("Challenge"), SelectedChallenge.ToString()));
 			ParamArray.Add(FAnalyticsEventAttribute(TEXT("Difficulty"), Difficulty));
 			FUTAnalytics::GetProvider().RecordEvent( TEXT("StartChallenge"), ParamArray );
+
+			FUTAnalytics::FireEvent_EnterMatch(Cast<AUTPlayerController>(PlayerOwner->PlayerController),"Challenge");
 		}
 
 		FString Options = FString::Printf(TEXT("%s%s?Challenge=%s?ChallengeDiff=%i"), *Challenge.Map, *Challenge.GameURL, *SelectedChallenge.ToString(), Difficulty);

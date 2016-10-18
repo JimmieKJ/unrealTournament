@@ -225,8 +225,8 @@ void FUTCanvasTextItem::UTDrawStringInternal(class FCanvas* InCanvas, const FVec
 		{
 			if (LastTexture != Tex->Resource || BatchedElements == NULL)
 			{
-				FBatchedElementParameters* BatchedElementParameters = NULL;
-				BatchedElements = InCanvas->GetBatchedElements(FCanvas::ET_Triangle, BatchedElementParameters, Tex->Resource, BlendMode, FontRenderInfo.GlowInfo);
+				FBatchedElementParameters* TempBatchedElementParameters = NULL;
+				BatchedElements = InCanvas->GetBatchedElements(FCanvas::ET_Triangle, TempBatchedElementParameters, Tex->Resource, BlendMode, FontRenderInfo.GlowInfo);
 				check(BatchedElements != NULL);
 				// trade-off between memory and performance by pre-allocating more reserved space 
 				// for the triangles/vertices of the batched elements used to render the text tiles

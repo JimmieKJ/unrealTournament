@@ -13,10 +13,7 @@ class FUObjectToken : public IMessageToken
 {
 public:
 	/** Factory method, tokens can only be constructed as shared refs */
-	COREUOBJECT_API static TSharedRef<FUObjectToken> Create( const UObject* InObject, const FText& InLabelOverride = FText() )
-	{
-		return MakeShareable(new FUObjectToken(InObject, InLabelOverride));
-	}
+	COREUOBJECT_API static TSharedRef<FUObjectToken> Create(const UObject* InObject, const FText& InLabelOverride = FText());
 
 	/** Begin IMessageToken interface */
 	virtual EMessageToken::Type GetType() const override
@@ -48,14 +45,14 @@ public:
 
 private:
 	/** Private constructor */
-	FUObjectToken( const UObject* InObject,  const FText& InLabelOverride );
+	COREUOBJECT_API FUObjectToken( const UObject* InObject,  const FText& InLabelOverride );
 
 	/** An object being referenced by this token, if any */
 	FWeakObjectPtr ObjectBeingReferenced;
 
 	/** The default activation method, if any */
-	static FOnMessageTokenActivated DefaultMessageTokenActivated;
+	COREUOBJECT_API static FOnMessageTokenActivated DefaultMessageTokenActivated;
 
 	/** The default object name method, if any */
-	static FOnGetDisplayName DefaultGetObjectDisplayName;
+	COREUOBJECT_API static FOnGetDisplayName DefaultGetObjectDisplayName;
 };

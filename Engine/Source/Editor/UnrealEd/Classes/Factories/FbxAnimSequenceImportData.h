@@ -59,13 +59,29 @@ class UNREALED_API UFbxAnimSequenceImportData : public UFbxAssetImportData
 	UPROPERTY(EditAnywhere, AdvancedDisplay, config, Category = ImportSettings)
 	bool bImportCustomAttribute;
 
-	/** If enabled, this will import a curve within the animation */
-	UPROPERTY(EditAnywhere, AdvancedDisplay, config, Category = ImportSettings)
-	bool bPreserveLocalTransform;
+	/** Set Material Curve Type for all custom attributes that exists */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, config, Category = ImportSettings, meta = (EditCondition = "bImportCustomAttribute", DisplayName="Set Material Curve Type"))
+	bool bSetMaterialDriveParameterOnCustomAttribute;
+
+	/** Set Material Curve Type for the custom attribute with the following suffixes. This doesn't matter if Set Material Curve Type is true  */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, config, Category = ImportSettings, meta = (EditCondition = "bImportCustomAttribute", DisplayName = "Material Curve Suffixes"))
+	TArray<FString> MaterialCurveSuffixes;
+
+	/** When importing custom attribute as curve, remove redundant keys */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, config, Category = ImportSettings, meta = (EditCondition = "bImportCustomAttribute", DisplayName = "Remove Redundant Keys"))
+	bool bRemoveRedundantKeys;
 
 	/** If enabled, this will delete this type of asset from the FBX */
 	UPROPERTY(EditAnywhere, AdvancedDisplay, config, Category = ImportSettings)
 	bool bDeleteExistingMorphTargetCurves;
+
+	/** When importing custom attribute or morphtarget as curve, do not import if it doens't have any value other than zero. This is to avoid adding extra curves to evaluate */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, config, Category = ImportSettings, meta = (DisplayName = "Do not import curves with only 0 values"))
+	bool bDoNotImportCurveWithZero;
+
+	/** If enabled, this will import a curve within the animation */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, config, Category = ImportSettings)
+	bool bPreserveLocalTransform;
 
 	/** Gets or creates fbx import data for the specified anim sequence */
 	static UFbxAnimSequenceImportData* GetImportDataForAnimSequence(UAnimSequence* AnimSequence, UFbxAnimSequenceImportData* TemplateForCreation);

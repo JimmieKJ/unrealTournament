@@ -10,6 +10,15 @@
 #include "ShaderParameters.h"
 #include "ShaderParameterUtils.h"
 
+// Changing this is currently unsupported after content has been chunked with the previous setting
+// Changing this causes a full shader recompile
+static int32 GCVarMaxGPUSkinBones = FGPUBaseSkinVertexFactory::GHardwareMaxGPUSkinBones;
+static FAutoConsoleVariableRef CVarMaxGPUSkinBones(
+	TEXT("Compat.MAX_GPUSKIN_BONES"),
+	GCVarMaxGPUSkinBones,
+	TEXT("Max number of bones that can be skinned on the GPU in a single draw call. Cannot be changed at runtime."),
+	ECVF_ReadOnly);
+
 IMPLEMENT_UNIFORM_BUFFER_STRUCT(FAPEXClothUniformShaderParameters,TEXT("APEXClothParam"));
 
 IMPLEMENT_UNIFORM_BUFFER_STRUCT(FBoneMatricesUniformShaderParameters,TEXT("Bones"));
@@ -85,7 +94,7 @@ uint32 FSharedPoolPolicyData::GetPoolBucketSize(uint32 Bucket)
 uint32 FSharedPoolPolicyData::BucketSizes[NumPoolBucketSizes] = {
 	16, 48, 96, 192, 384, 768, 1536, 
 	3072, 4608, 6144, 7680, 9216, 12288, 
-	65536, 131072, 262144 // these 3 numbers are added for large cloth simulation vertices, supports up to 16,384 verts
+	65536, 131072, 262144, 1048576 // these 4 numbers are added for large cloth simulation vertices, supports up to 65,536 verts
 };
 
 /*-----------------------------------------------------------------------------
@@ -106,6 +115,10 @@ FVertexBufferAndSRV FBoneBufferPoolPolicy::CreateResource(CreationArguments Args
 FSharedPoolPolicyData::CreationArguments FBoneBufferPoolPolicy::GetCreationArguments(const FVertexBufferAndSRV& Resource)
 {
 	return Resource.VertexBufferRHI->GetSize();
+}
+
+void FBoneBufferPoolPolicy::FreeResource(FVertexBufferAndSRV Resource)
+{
 }
 
 FVertexBufferAndSRV FClothBufferPoolPolicy::CreateResource(CreationArguments Args)
@@ -203,7 +216,7 @@ void FGPUBaseSkinVertexFactory::FShaderDataType::GoToNextFrame(uint32 FrameNumbe
 }
 
 bool FGPUBaseSkinVertexFactory::FShaderDataType::UpdateBoneData(FRHICommandListImmediate& RHICmdList, const TArray<FMatrix>& ReferenceToLocalMatrices,
-	const TArray<FBoneIndexType>& BoneMap, uint32 FrameNumber, ERHIFeatureLevel::Type FeatureLevel, bool bUseSkinCache)
+	const TArray<FBoneIndexType>& BoneMap, uint32 FrameNumber, ERHIFeatureLevel::Type InFeatureLevel, bool bUseSkinCache)
 {
 	const uint32 NumBones = BoneMap.Num();
 	check(NumBones <= MaxGPUSkinBones);
@@ -211,7 +224,7 @@ bool FGPUBaseSkinVertexFactory::FShaderDataType::UpdateBoneData(FRHICommandListI
 
 	FVertexBufferAndSRV* CurrentBoneBuffer = 0;
 
-	if (FeatureLevel >= ERHIFeatureLevel::ES3_1)
+	if (InFeatureLevel >= ERHIFeatureLevel::ES3_1)
 	{
 		check(IsInRenderingThread());
 		GoToNextFrame(FrameNumber);
@@ -270,7 +283,7 @@ bool FGPUBaseSkinVertexFactory::FShaderDataType::UpdateBoneData(FRHICommandListI
 			RefToLocal.To3x4MatrixTranspose( (float*)BoneMat.M );
 		}
 	}
-	if (FeatureLevel >= ERHIFeatureLevel::ES3_1)
+	if (InFeatureLevel >= ERHIFeatureLevel::ES3_1)
 	{
 		if (NumBones)
 		{
@@ -283,6 +296,11 @@ bool FGPUBaseSkinVertexFactory::FShaderDataType::UpdateBoneData(FRHICommandListI
 		UniformBuffer = RHICreateUniformBuffer(&GBoneUniformStruct, FBoneMatricesUniformShaderParameters::StaticStruct.GetLayout(), UniformBuffer_MultiFrame);
 	}
 	return false;
+}
+
+int32 FGPUBaseSkinVertexFactory::GetMaxGPUSkinBones()
+{
+	return GCVarMaxGPUSkinBones;
 }
 
 /*-----------------------------------------------------------------------------
@@ -597,15 +615,9 @@ public:
 	*/
 	virtual void SetMesh(FRHICommandList& RHICmdList, FShader* Shader,const FVertexFactory* VertexFactory,const FSceneView& View,const FMeshBatchElement& BatchElement,uint32 DataFlags) const override
 	{
-		if (GEnableGPUSkinCache)
-		{
-			bool bIsGPUCached = false;
-			check(VertexFactory->GetType() == &FGPUSkinPassthroughVertexFactory::StaticType);
-			if (GGPUSkinCache.SetVertexStreamFromCache(RHICmdList, BatchElement.UserIndex, Shader, (FGPUSkinPassthroughVertexFactory*)VertexFactory, BatchElement.MinVertexIndex, GPUSkinCachePreviousFloatOffset, GPUSkinCachePreviousBuffer))
-			{
-				bIsGPUCached = true;
-			}
-		}
+		check(VertexFactory->GetType() == &FGPUSkinPassthroughVertexFactory::StaticType);
+
+		GGPUSkinCache.SetVertexStreamFromCache(RHICmdList, View.Family->FrameNumber, BatchElement.UserIndex, Shader, (FGPUSkinPassthroughVertexFactory*)VertexFactory, BatchElement.MinVertexIndex, GPUSkinCachePreviousFloatOffset, GPUSkinCachePreviousBuffer);
 	}
 
 	virtual uint32 GetSize() const override { return sizeof(*this); }
@@ -858,7 +870,7 @@ struct FRHICommandUpdateClothBuffer : public FRHICommand<FRHICommandUpdateClothB
 };
 
 bool FGPUBaseSkinAPEXClothVertexFactory::ClothShaderType::UpdateClothSimulData(FRHICommandListImmediate& RHICmdList, const TArray<FVector4>& InSimulPositions,
-	const TArray<FVector4>& InSimulNormals, uint32 FrameNumber, ERHIFeatureLevel::Type FeatureLevel)
+	const TArray<FVector4>& InSimulNormals, uint32 FrameNumberToPrepare, ERHIFeatureLevel::Type FeatureLevel)
 {
 	QUICK_SCOPE_CYCLE_COUNTER(STAT_FGPUBaseSkinAPEXClothVertexFactory_UpdateClothSimulData);
 
@@ -869,9 +881,8 @@ bool FGPUBaseSkinAPEXClothVertexFactory::ClothShaderType::UpdateClothSimulData(F
 	if (FeatureLevel >= ERHIFeatureLevel::SM4)
 	{
 		check(IsInRenderingThread());
-
-		// + 1 as the FrameNumber is incremented later that in should be
-		CurrentClothBuffer = &GetClothBufferForWriting(FrameNumber + 1);
+		
+		CurrentClothBuffer = &GetClothBufferForWriting(FrameNumberToPrepare);
 
 		NumSimulVerts = FMath::Min(NumSimulVerts, (uint32)MAX_APEXCLOTH_VERTICES_FOR_VB);
 

@@ -28,7 +28,7 @@ inline bool UseGlobalDistanceField(const FDistanceFieldAOParameters& Parameters)
  **/
 extern void UpdateGlobalDistanceFieldVolume(
 	FRHICommandListImmediate& RHICmdList, 
-	const FViewInfo& View, 
+	FViewInfo& View, 
 	const FScene* Scene, 
 	float MaxOcclusionDistance, 
 	FGlobalDistanceFieldInfo& Info);

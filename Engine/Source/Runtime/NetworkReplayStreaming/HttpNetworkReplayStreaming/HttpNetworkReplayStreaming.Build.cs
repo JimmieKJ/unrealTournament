@@ -6,8 +6,6 @@ namespace UnrealBuildTool.Rules
     {
         public HttpNetworkReplayStreaming(TargetInfo Target)
         {
-			PrivateIncludePathModuleNames.Add( "OnlineSubsystem" );
-
 			PrivateDependencyModuleNames.AddRange(
                 new string[]
 				{
@@ -18,6 +16,12 @@ namespace UnrealBuildTool.Rules
 					"NetworkReplayStreaming",
 					"Json",
 				} );
+
+            if (Target.Platform == UnrealTargetPlatform.Win64 || Target.Platform == UnrealTargetPlatform.Mac)
+            {
+                AddEngineThirdPartyPrivateStaticDependencies(Target,"libWebSockets");
+                AddEngineThirdPartyPrivateStaticDependencies(Target,"zlib");
+            }
         }
     }
 }

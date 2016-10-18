@@ -24,6 +24,7 @@ public class Kismet : ModuleRules
 		PrivateDependencyModuleNames.AddRange(
 			new string[] {
                 "AppFramework",
+                "BlueprintRuntime",
 				"Core",
 				"CoreUObject",
 				"Slate",
@@ -40,6 +41,7 @@ public class Kismet : ModuleRules
 				"AnimGraph",
 				"PropertyEditor",
 				"SourceControl",
+                "SharedSettingsWidgets",
                 "InputCore",
 				"EngineSettings",
                 "Projects",

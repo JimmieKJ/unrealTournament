@@ -116,25 +116,3 @@ static inline float GetBasicAutoExposureFocus()
 	
 	return FMath::Max(FMath::Min(FocusValue, clampValue), 0.0f);
 }
-
-// derives from TRenderingCompositePassBase<InputCount, OutputCount>
-// ePId_Input0: Color input
-// Uses a single filtered sample for downsample reduction
-class FRCPassPostProcessExposureReduction : public TRenderingCompositePassBase<1, 1>
-{
-public:
-	// constructor
-	// @param InDebugName we store the pointer so don't release this string
-	FRCPassPostProcessExposureReduction(const TCHAR* InDebugName = TEXT("ExposureReduction")) :
-		DebugName(InDebugName) {}
-
-	// interface FRenderingCompositePass ---------
-
-	virtual void Process(FRenderingCompositePassContext& Context) override;
-	virtual void Release() override { delete this; }
-	virtual FPooledRenderTargetDesc ComputeOutputDesc(EPassOutputId InPassOutputId) const override;
-
-private:
-	// must be a valid pointer
-	const TCHAR* DebugName;
-};

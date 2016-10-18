@@ -835,7 +835,7 @@ bool SetApexDestructibleAsset(UDestructibleMesh& DestructibleMesh, NxDestructibl
 
 	// Create initial bounding box based on expanded version of reference pose for meshes without physics assets. Can be overridden by artist.
 	FBox BoundingBox(SkelMeshImportDataPtr->Points.GetData(), SkelMeshImportDataPtr->Points.Num());
-	DestructibleMesh.Bounds= FBoxSphereBounds(BoundingBox);
+	DestructibleMesh.SetImportedBounds(FBoxSphereBounds(BoundingBox));
 
 	// Store whether or not this mesh has vertex colors
 	DestructibleMesh.bHasVertexColors = SkelMeshImportDataPtr->bHasVertexColors;
@@ -999,7 +999,20 @@ UDestructibleMesh* ImportDestructibleMeshFromApexDestructibleAsset(UObject* InPa
 	FlushRenderingCommands();
 
 	UDestructibleMesh* DestructibleMesh = FindObject<UDestructibleMesh>(InParent, *Name.ToString());
-	if (DestructibleMesh == NULL)
+	if(DestructibleMesh)
+	{
+		// we found an existing mesh (reimport), clean up LODModels for the import process
+		if(FSkeletalMeshResource* ImportedResource = DestructibleMesh->GetImportedResource())
+		{
+			for(FStaticLODModel& LODModel : ImportedResource->LODModels)
+			{
+				LODModel.ReleaseResources();
+			}
+
+			ImportedResource->LODModels.Empty(1);
+		}
+	}
+	else
 	{
 		// Create the new UDestructibleMesh object if the one with the same name does not exist
 		DestructibleMesh = NewObject<UDestructibleMesh>(InParent, Name, Flags);
@@ -1010,7 +1023,7 @@ UDestructibleMesh* ImportDestructibleMeshFromApexDestructibleAsset(UObject* InPa
 		// Store the current file path and timestamp for re-import purposes
 		// @todo AssetImportData make a data class for Apex destructible assets
 		DestructibleMesh->AssetImportData = NewObject<UAssetImportData>(DestructibleMesh);
-		DestructibleMesh->AssetImportData->Update(UFactory::CurrentFilename);
+		DestructibleMesh->AssetImportData->Update(UFactory::GetCurrentFilename());
 	}
 
 	DestructibleMesh->PreEditChange(NULL);

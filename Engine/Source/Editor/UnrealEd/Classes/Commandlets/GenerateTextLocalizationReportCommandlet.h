@@ -11,22 +11,12 @@ class UGenerateTextLocalizationReportCommandlet : public UGatherTextCommandletBa
 {
 	GENERATED_UCLASS_BODY()
 
-
-
 public:
 	//~ Begin UCommandlet Interface
 	virtual int32 Main(const FString& Params) override;
 	//~ End UCommandlet Interface
 
 private:
-
-	/**
-	 * Calculates the number of words found in a given string.
-	 * @param Text - The string to examine.
-	 * @return Number of words found.
-	 */
-	int32 CountWords( const FString& Text ) const;
-
 	/**
 	 * Collects word count info and writes out a report.
 	 * @param SourcePath - Source path to localization files.

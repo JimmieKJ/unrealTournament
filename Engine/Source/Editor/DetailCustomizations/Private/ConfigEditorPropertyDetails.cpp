@@ -39,6 +39,7 @@ void FConfigPropertyHelperDetails::CustomizeDetails(IDetailLayoutBuilder& Detail
 	ConfigEditorPropertyViewClass->AddCppProperty(ConfigEditorCopyOfEditProperty);
 	ConfigEditorPropertyViewClass->Bind();
 	ConfigEditorPropertyViewClass->StaticLink(true);
+	ConfigEditorPropertyViewClass->AssembleReferenceTokenStream();
 	ConfigEditorPropertyViewClass->AddToRoot();
 	
 	// Cache the CDO for the object

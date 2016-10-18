@@ -151,8 +151,8 @@ void AddNewlyFreedBufferToUniformBufferPool(id<MTLBuffer> Buffer, uint32 Offset,
 id<MTLBuffer> SuballocateUB(uint32 Size, uint32& OutOffset)
 {
 	// No space was found to use, create a new Pool buffer
-	id<MTLBuffer> Buffer = [GetMetalDeviceContext().GetDevice() newBufferWithLength:Size options:BUFFER_CACHE_MODE];
-	TRACK_OBJECT(Buffer);
+	id<MTLBuffer> Buffer = [GetMetalDeviceContext().GetDevice() newBufferWithLength:Size options:BUFFER_CACHE_MODE|BUFFER_MANAGED_MEM];
+	TRACK_OBJECT(STAT_MetalBufferCount, Buffer);
 	INC_MEMORY_STAT_BY(STAT_MetalTotalUniformBufferMemory, Size);
 
 	OutOffset = 0;
@@ -220,6 +220,12 @@ FMetalUniformBuffer::FMetalUniformBuffer(const void* Contents, const FRHIUniform
 
 		// copy the contents
 		FMemory::Memcpy(((uint8*)[Buffer contents]) + Offset, Contents, Layout.ConstantBufferSize);
+#if METAL_API_1_1 && PLATFORM_MAC
+		if(Buffer.storageMode == MTLStorageModeManaged)
+		{
+			[Buffer didModifyRange:NSMakeRange(Offset, Layout.ConstantBufferSize)];
+		}
+#endif
 	}
 
 	// set up an SRT-style uniform buffer
@@ -249,6 +255,6 @@ FMetalUniformBuffer::~FMetalUniformBuffer()
 
 FUniformBufferRHIRef FMetalDynamicRHI::RHICreateUniformBuffer(const void* Contents, const FRHIUniformBufferLayout& Layout, EUniformBufferUsage Usage)
 {
-	check(IsInRenderingThread() || IsInRHIThread());
+	check(IsInRenderingThread() || IsInParallelRenderingThread() || IsInRHIThread());
 	return new FMetalUniformBuffer(Contents, Layout, Usage);
 }

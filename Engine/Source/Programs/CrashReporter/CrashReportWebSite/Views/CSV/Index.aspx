@@ -38,10 +38,10 @@
 </asp:Content>
 
 <asp:Content ID="AboveMainContent" ContentPlaceHolderID="AboveMainContent" runat="server" >
-<div style="clear:both;"><small style="color: lightgray;">Generated in <%=Model.GenerationTime%> second(s)</small><br /></div>
+<%--<div style="clear:both;"><small style="color: lightgray;">Generated in <%=Model.GenerationTime%> second(s)</small><br /></div>--%>
 
 <div id='SearchForm' style="clear:both;">
-<%using( Html.BeginForm( "", "CSV", FormMethod.Get, new { id = "CSVForm" } ) )
+<%using( Html.BeginForm( "GenerateCSV", "CSV", FormMethod.Get, new { id = "CSVForm" } ) )
 { %>
 	<script>$.datepicker.setDefaults($.datepicker.regional['']);</script>
 
@@ -63,13 +63,4 @@
 	<%} %>
 
 </div>
-</asp:Content>
-
-<asp:Content ID="CSVContent" ContentPlaceHolderID="CSVContent" runat="server">
-	<div>
-		<div>
-			<% Html.RenderPartial("/Views/CSV/ViewCSV.ascx"); %>
-		</div>
-	</div>
-
 </asp:Content>

@@ -13,6 +13,8 @@ class COREUOBJECT_API FArchiveUObject : public FArchive
 {
 public:
 
+	using FArchive::operator<<; // For visibility of the overloads we don't override
+
 	//~ Begin FArchive Interface
 	virtual FArchive& operator<< (class FLazyObjectPtr& Value) override;
 	virtual FArchive& operator<< (class FAssetPtr& Value) override;

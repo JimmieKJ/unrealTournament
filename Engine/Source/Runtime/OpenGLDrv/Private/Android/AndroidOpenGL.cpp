@@ -1,6 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#if !PLATFORM_ANDROIDGL4 && !PLATFORM_ANDROIDES31
+#if !PLATFORM_ANDROIDESDEFERRED
 
 #include "OpenGLDrvPrivate.h"
 #include "OpenGLES2.h"
@@ -36,8 +36,8 @@ PFNGLPOPGROUPMARKEREXTPROC				glPopGroupMarkerEXT = NULL;
 PFNGLLABELOBJECTEXTPROC					glLabelObjectEXT = NULL;
 PFNGLGETOBJECTLABELEXTPROC				glGetObjectLabelEXT = NULL;
 
-PFNGLMAPBUFFEROESPROC					glMapBufferOES = NULL;
-PFNGLUNMAPBUFFEROESPROC					glUnmapBufferOES = NULL;
+PFNGLMAPBUFFEROESPROC					glMapBufferOESa = NULL;
+PFNGLUNMAPBUFFEROESPROC					glUnmapBufferOESa = NULL;
 
 PFNGLTEXSTORAGE2DPROC					glTexStorage2D = NULL;
 
@@ -71,13 +71,13 @@ PFNGLCLEARBUFFERUIVPROC					glClearBufferuiv = NULL;
 PFNGLDRAWBUFFERSPROC					glDrawBuffers = NULL;
 PFNGLTEXBUFFEREXTPROC					glTexBufferEXT = NULL;
 
-static TAutoConsoleVariable<int32> CVarAndroidDisableTextureFormatBGRA8888(
-	TEXT("android.DisableTextureFormatBGRA8888"),
-	0,
-	TEXT("Whether to disable usage of GL_EXT_texture_format_BGRA8888 extension.\n")
-	TEXT(" 0: Enable when extension is available (default)\n")
-	TEXT(" 1: Always disabled"),
-	ECVF_ReadOnly);
+PFNGLGETPROGRAMBINARYOESPROC            glGetProgramBinary = NULL;
+PFNGLPROGRAMBINARYOESPROC               glProgramBinary = NULL;
+
+PFNGLBINDBUFFERRANGEPROC				glBindBufferRange = NULL;
+PFNGLBINDBUFFERBASEPROC					glBindBufferBase = NULL;
+PFNGLGETUNIFORMBLOCKINDEXPROC			glGetUniformBlockIndex = NULL;
+PFNGLUNIFORMBLOCKBINDINGPROC			glUniformBlockBinding = NULL;
 
 struct FPlatformOpenGLDevice
 {
@@ -97,19 +97,23 @@ struct FPlatformOpenGLDevice
 
 FPlatformOpenGLDevice::~FPlatformOpenGLDevice()
 {
-	AndroidEGL::GetInstance()->DestroyBackBuffer();
-	AndroidEGL::GetInstance()->Terminate();
+	FAndroidAppEntry::ReleaseEGL();
 }
 
 FPlatformOpenGLDevice::FPlatformOpenGLDevice()
 {
 }
 
+// call out to JNI to see if the application was packaged for GearVR
+extern bool AndroidThunkCpp_IsGearVRApplication();
+
 void FPlatformOpenGLDevice::Init()
 {
 	extern void InitDebugContext();
 
-	AndroidEGL::GetInstance()->InitSurface(false, true);
+	FPlatformMisc::LowLevelOutputDebugString(TEXT("FPlatformOpenGLDevice:Init"));
+	bool bCreateSurface = !AndroidThunkCpp_IsGearVRApplication();
+	AndroidEGL::GetInstance()->InitSurface(false, bCreateSurface);
 	PlatformRenderingContextSetup(this);
 
 	LoadEXT();
@@ -189,6 +193,31 @@ void PlatformRestoreDesktopDisplayMode()
 
 bool PlatformInitOpenGL()
 {
+	check(!FAndroidMisc::ShouldUseVulkan());
+
+	{
+		// determine ES version. PlatformInitOpenGL happens before ProcessExtensions and therefore FAndroidOpenGL::bES31Support.
+		const bool bES31Supported = FAndroidGPUInfo::Get().GLVersion.Contains(TEXT("OpenGL ES 3.1"));
+		static const auto CVarDisableES31 = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.Android.DisableOpenGLES31Support"));
+
+		bool bBuildForES31 = false;
+		GConfig->GetBool(TEXT("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings"), TEXT("bBuildForES31"), bBuildForES31, GEngineIni);
+
+		if (bES31Supported && bBuildForES31 && CVarDisableES31->GetValueOnAnyThread() == 0)
+		{
+			// shut down existing ES2 egl.
+			FAndroidAppEntry::ReleaseEGL();
+			// Re-init gles for 3.1
+			AndroidEGL::GetInstance()->Init(AndroidEGL::AV_OpenGLES, 3, 1, false);
+		}
+		else
+		{
+			bool bBuildForES2 = false;
+			GConfig->GetBool(TEXT("/Script/AndroidRuntimeSettings.AndroidRuntimeSettings"), TEXT("bBuildForES2"), bBuildForES2, GEngineIni);
+			// If we're here and there's no ES2 data then we're in trouble.
+			check(bBuildForES2);
+		}
+	}
 	return true;
 }
 
@@ -238,6 +267,9 @@ void FPlatformOpenGLDevice::LoadEXT()
 	glGetObjectLabelKHR = (PFNGLGETOBJECTLABELKHRPROC)((void*)eglGetProcAddress("glGetObjectLabelKHR"));
 	glObjectPtrLabelKHR = (PFNGLOBJECTPTRLABELKHRPROC)((void*)eglGetProcAddress("glObjectPtrLabelKHR"));
 	glGetObjectPtrLabelKHR = (PFNGLGETOBJECTPTRLABELKHRPROC)((void*)eglGetProcAddress("glGetObjectPtrLabelKHR"));
+	
+	glGetProgramBinary = (PFNGLGETPROGRAMBINARYOESPROC)((void*)eglGetProcAddress("glGetProgramBinaryOES"));
+	glProgramBinary = (PFNGLPROGRAMBINARYOESPROC)((void*)eglGetProcAddress("glProgramBinaryOES"));
 }
 
 FPlatformOpenGLContext* PlatformCreateOpenGLContext(FPlatformOpenGLDevice* Device, void* InWindowHandle)
@@ -341,6 +373,7 @@ bool FAndroidOpenGL::bUseES30ShadingLanguage = false;
 bool FAndroidOpenGL::bES30Support = false;
 bool FAndroidOpenGL::bES31Support = false;
 bool FAndroidOpenGL::bSupportsInstancing = false;
+bool FAndroidOpenGL::bHasHardwareHiddenSurfaceRemoval = false;
 
 void FAndroidOpenGL::ProcessExtensions(const FString& ExtensionsString)
 {
@@ -400,12 +433,20 @@ void FAndroidOpenGL::ProcessExtensions(const FString& ExtensionsString)
 		bRequiresTexture2DPrecisionHack = true;
 	}
 
+	const bool bIsPoverVRBased = RendererString.Contains(TEXT("PowerVR"));
+	if (bIsPoverVRBased)
+	{
+		bHasHardwareHiddenSurfaceRemoval = true;
+		UE_LOG(LogRHI, Log, TEXT("Enabling support for Hidden Surface Removal on PowerVR"));
+	}
+	
 	const bool bIsAdrenoBased = RendererString.Contains(TEXT("Adreno"));
 	if (bIsAdrenoBased)
 	{
 		// This is to avoid a bug in Adreno drivers that define GL_EXT_shader_framebuffer_fetch even when device does not support this extension
 		// OpenGL ES 3.1 V@127.0 (GIT@I1af360237c)
 		bRequiresShaderFramebufferFetchUndef = !bSupportsShaderFramebufferFetch;
+		bRequiresARMShaderFramebufferFetchDepthStencilUndef = !bSupportsShaderDepthStencilFetch;
 
 		// Adreno 2xx doesn't work with packed depth stencil enabled
 		if (RendererString.Contains(TEXT("Adreno (TM) 2")))
@@ -432,7 +473,20 @@ void FAndroidOpenGL::ProcessExtensions(const FString& ExtensionsString)
 		glClearBufferuiv = (PFNGLCLEARBUFFERUIVPROC)((void*)eglGetProcAddress("glClearBufferuiv"));
 		glDrawBuffers = (PFNGLDRAWBUFFERSPROC)((void*)eglGetProcAddress("glDrawBuffers"));
 
+
+		glBindBufferRange = (PFNGLBINDBUFFERRANGEPROC)((void*)eglGetProcAddress("glBindBufferRange"));
+		glBindBufferBase = (PFNGLBINDBUFFERBASEPROC)((void*)eglGetProcAddress("glBindBufferBase"));
+		glGetUniformBlockIndex = (PFNGLGETUNIFORMBLOCKINDEXPROC)((void*)eglGetProcAddress("glGetUniformBlockIndex"));
+		glUniformBlockBinding = (PFNGLUNIFORMBLOCKBINDINGPROC)((void*)eglGetProcAddress("glUniformBlockBinding"));
+
+
+		// Required by the ES3 spec
 		bSupportsInstancing = true;
+		bSupportsTextureFloat = true;
+		bSupportsTextureHalfFloat = true;
+		
+		// According to https://www.khronos.org/registry/gles/extensions/EXT/EXT_color_buffer_float.txt
+		bSupportsColorBufferHalfFloat = (bSupportsColorBufferHalfFloat || bSupportsColorBufferFloat);
 	}
 
 	if (bES31Support)
@@ -466,8 +520,8 @@ void FAndroidOpenGL::ProcessExtensions(const FString& ExtensionsString)
 		glBlitFramebufferNV = (PFNBLITFRAMEBUFFERNVPROC)((void*)eglGetProcAddress("glBlitFramebufferNV"));
 	}
 
-	glMapBufferOES = (PFNGLMAPBUFFEROESPROC)((void*)eglGetProcAddress("glMapBufferOES"));
-	glUnmapBufferOES = (PFNGLUNMAPBUFFEROESPROC)((void*)eglGetProcAddress("glUnmapBufferOES"));
+	glMapBufferOESa = (PFNGLMAPBUFFEROESPROC)((void*)eglGetProcAddress("glMapBufferOES"));
+	glUnmapBufferOESa = (PFNGLUNMAPBUFFEROESPROC)((void*)eglGetProcAddress("glUnmapBufferOES"));
 
 	//On Android, there are problems compiling shaders with textureCubeLodEXT calls in the glsl code,
 	// so we set this to false to modify the glsl manually at compile-time.
@@ -486,10 +540,22 @@ void FAndroidOpenGL::ProcessExtensions(const FString& ExtensionsString)
 		bSupportsInstancing = false;
 	}
 
-	if (bSupportsBGRA8888 && CVarAndroidDisableTextureFormatBGRA8888.GetValueOnAnyThread() == 1)
+	if (bSupportsBGRA8888)
 	{
-		UE_LOG(LogRHI, Warning, TEXT("Disabling support for GL_EXT_texture_format_BGRA8888"));
-		bSupportsBGRA8888 = false;
+		// Check whether device supports BGRA as color attachment
+		GLuint FrameBuffer;
+		glGenFramebuffers(1, &FrameBuffer);
+		glBindFramebuffer(GL_FRAMEBUFFER, FrameBuffer);
+		GLuint BGRA8888Texture;
+		glGenTextures(1, &BGRA8888Texture);
+		glBindTexture(GL_TEXTURE_2D, BGRA8888Texture);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_BGRA_EXT, 256, 256, 0, GL_BGRA_EXT, GL_UNSIGNED_BYTE, NULL);
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, BGRA8888Texture, 0);
+
+		bSupportsBGRA8888RenderTarget = (glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
+
+		glDeleteTextures(1, &BGRA8888Texture);
+		glDeleteFramebuffers(1, &FrameBuffer);
 	}
 }
 
@@ -521,10 +587,18 @@ void FAndroidMisc::GetValidTargetPlatforms(TArray<FString>& TargetPlatformNames)
 
 void FAndroidAppEntry::PlatformInit()
 {
-	// @todo Ronin vulkan: Yet another bit of FAndroidApp stuff that's in GL - and should be cleaned up if possible
-	if (!FAndroidMisc::ShouldUseVulkan())
+	// create an ES2 EGL here for gpu queries.
+	AndroidEGL::GetInstance()->Init(AndroidEGL::AV_OpenGLES, 2, 0, false);
+	// FAndroidGPUInfo::Get();
+}
+
+void FAndroidAppEntry::ReleaseEGL()
+{
+	AndroidEGL* EGL = AndroidEGL::GetInstance();
+	if (EGL->IsInitialized())
 	{
-		AndroidEGL::GetInstance()->Init(AndroidEGL::AV_OpenGLES, 2, 0, false);
+		EGL->DestroyBackBuffer();
+		EGL->Terminate();
 	}
 }
 

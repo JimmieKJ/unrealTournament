@@ -443,7 +443,7 @@ namespace UAudio
 	{
 		if (!(State.GetValue() == ESoundFileState::UNINITIALIZED || State.GetValue() == ESoundFileState::LOADING))
 		{
-			return SetError(ESoundFileError::ALREADY_INTIALIZED);
+			return SetError(ESoundFileError::ALREADY_INITIALIZED);
 		}
 
 		check(InSoundFileData.IsValid());
@@ -508,7 +508,7 @@ namespace UAudio
 	{
 		if (!(State.GetValue() == ESoundFileState::UNINITIALIZED || State.GetValue() == ESoundFileState::LOADING))
 		{
-			return SetError(ESoundFileError::ALREADY_INTIALIZED);
+			return SetError(ESoundFileError::ALREADY_INITIALIZED);
 		}
 
 		check(InSoundFileData.IsValid());
@@ -738,7 +738,6 @@ namespace UAudio
 		VirtualSoundFileInfo.VirtualSoundFileWrite		= OnSoundFileWriteBytes;
 		VirtualSoundFileInfo.VirtualSoundFileTell		= OnSoundFileTell;
 
-		FSoundFileDescription Description = InDescription;
 		FileHandle = SoundFileOpenVirtual(&VirtualSoundFileInfo, ESoundFileOpenMode::WRITING, &Description, (void*)this);
 		if (!FileHandle)
 		{

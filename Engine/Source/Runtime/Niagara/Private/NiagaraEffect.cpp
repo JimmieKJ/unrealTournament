@@ -46,17 +46,6 @@ void UNiagaraEffect::CreateEffectRendererProps(TSharedPtr<FNiagaraSimulation> Si
 void UNiagaraEffect::PostLoad()
 {
 	Super::PostLoad();
-
-	if (GetLinkerUE4Version() < VER_UE4_NIAGARA_DATA_OBJECT_DEV_UI_FIX)
-	{
-		int32 NumEmitters = EmitterPropsSerialized_DEPRECATED.Num();
-		for (int32 i = 0; i < NumEmitters; ++i)
-		{
-			UNiagaraEmitterProperties* NewProps = NewObject<UNiagaraEmitterProperties>(this);
-			NewProps->InitFromOldStruct(EmitterPropsSerialized_DEPRECATED[i]);
-			AddEmitterProperties(NewProps);
-		}
-	}
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -82,8 +71,6 @@ void FNiagaraEffectInstance::DeleteEmitter(TSharedPtr<FNiagaraSimulation> Emitte
 
 void FNiagaraEffectInstance::Tick(float DeltaSeconds)
 {
-	Constants.SetOrAdd(FName(TEXT("EffectGrid")), VolumeGrid);
-
 	// pass the constants down to the emitter
 	// TODO: should probably just pass a pointer to the table
 	EffectBounds.Init();
@@ -127,7 +114,7 @@ void FNiagaraEffectInstance::Tick(float DeltaSeconds)
 		//TODO - Handle constants better. Like waaaay better.
 		it->GetConstants().Merge(it->GetProperties()->SpawnScriptProps.ExternalConstants);
 		it->GetConstants().Merge(it->GetProperties()->UpdateScriptProps.ExternalConstants);
-		it->GetConstants().Merge(Constants);
+		it->GetConstants().Merge(InstanceConstants);
 
 		it->PreTick();
 	}

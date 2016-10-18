@@ -35,6 +35,15 @@ void SCrashReportClient::Construct(const FArguments& InArgs, TSharedRef<FCrashRe
 	CrashReportClient = Client;
 
 	auto CrashedAppName = FPrimaryCrashProperties::Get()->IsValid() ? FPrimaryCrashProperties::Get()->GameName : TEXT("");
+	FText CrashDetailedMessage = LOCTEXT("CrashDetailed", "We are very sorry that this crash occurred. Our goal is to prevent crashes like this from occurring in the future. Please help us track down and fix this crash by providing detailed information about what you were doing so that we may reproduce the crash and fix it quickly. You can also log a Bug Report with us at <a id=\"browser\" href=\"https://answers.unrealengine.com\" style=\"Hyperlink\">AnswerHub</> and work directly with support staff to report this issue.\n\nThanks for your help in improving the Unreal Engine.");
+	if (FPrimaryCrashProperties::Get()->IsValid())
+	{
+		FString CrashDetailedMessageString = FPrimaryCrashProperties::Get()->CrashReporterMessage.AsString();
+		if (!CrashDetailedMessageString.IsEmpty())
+		{
+			CrashDetailedMessage = FText::FromString(CrashDetailedMessageString);
+		}
+	}
 
 	// Set the text displaying the name of the crashed app, if available
 	const FText CrashedAppText = CrashedAppName.IsEmpty() ?
@@ -81,19 +90,10 @@ void SCrashReportClient::Construct(const FArguments& InArgs, TSharedRef<FCrashRe
 			.Padding( FMargin( 4, 10 ) )
 			[
 				SNew( SRichTextBlock )
-				.Text( LOCTEXT("CrashDetailed", "We are very sorry that this crash occurred. Our goal is to prevent crashes like this from occurring in the future. Please help us track down and fix this crash by providing detailed information about what you were doing so that we may reproduce the crash and fix it quickly. You can also log a Bug Report with us at <a id=\"browser\" href=\"https://answers.unrealengine.com\" style=\"Hyperlink\">AnswerHub</> and work directly with support staff to report this issue."))
+				.Text(CrashDetailedMessage)
 				.AutoWrapText(true)
 				.DecoratorStyleSet( &FCoreStyle::Get() )
 				+ SRichTextBlock::HyperlinkDecorator( TEXT("browser"), FSlateHyperlinkRun::FOnClick::CreateStatic( &OnBrowserLinkClicked, AsShared() ) )
-			]
-
-			+SVerticalBox::Slot()
-			.AutoHeight()
-			.Padding( FMargin( 4, 10 ) )
-			[
-				SNew( STextBlock )
-				.Text( LOCTEXT("CrashThanks", "Thanks for your help in improving the Unreal Engine."))
-				.AutoWrapText(true)
 			]
 
 			+SVerticalBox::Slot()

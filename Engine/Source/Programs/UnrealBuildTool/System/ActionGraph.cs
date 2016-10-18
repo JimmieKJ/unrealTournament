@@ -328,10 +328,10 @@ namespace UnrealBuildTool
 				AllActions.RemoveAll(x => x.ActionType != ActionType.Compile);
 
 				// Check all of the leftover compilation actions for the one we want... that one is always outdated.
+				FileItem SingleFileToCompile = FileItem.GetExistingItemByPath(BuildConfiguration.SingleFileToCompile);
 				foreach (Action Action in AllActions)
 				{
-					// Slightly hacky.  We know a compiling X:/Blah/Actor.cpp ends up with StatusDescription == "Actor.cpp".
-					bool bIsSingleFileAction = BuildConfiguration.SingleFileToCompile.EndsWith(Action.StatusDescription.ToLowerInvariant());
+					bool bIsSingleFileAction = Action.PrerequisiteItems.Contains(SingleFileToCompile);
 					OutdatedActionDictionary[Action] = bIsSingleFileAction;
 				}
 
@@ -354,24 +354,50 @@ namespace UnrealBuildTool
 			CreateDirectoriesForProducedItems(OutdatedActionDictionary);
 
 			// Build a list of actions that are both needed for this target and outdated.
-			List<Action> ActionsToExecute = new List<Action>();
-			bool bHasOutdatedNonLinkActions = false;
-			foreach (Action Action in AllActions)
-			{
-				if (Action.CommandPath != null && IsActionOutdatedMap.ContainsKey(Action) && OutdatedActionDictionary[Action])
-				{
-					ActionsToExecute.Add(Action);
-					if (Action.ActionType != ActionType.Link)
-					{
-						bHasOutdatedNonLinkActions = true;
-					}
-				}
-			}
+			HashSet<Action> ActionsToExecute = AllActions.Where(Action => Action.CommandPath != null && IsActionOutdatedMap.ContainsKey(Action) && OutdatedActionDictionary[Action]).ToHashSet();
 
 			// Remove link actions if asked to
-			if (UEBuildConfiguration.bSkipLinkingWhenNothingToCompile && !bHasOutdatedNonLinkActions)
+			if (UEBuildConfiguration.bSkipLinkingWhenNothingToCompile)
 			{
-				ActionsToExecute.Clear();
+				// Get all items produced by a compile action
+				HashSet<FileItem> ProducedItems = ActionsToExecute.Where(Action => Action.ActionType == ActionType.Compile).SelectMany(x => x.ProducedItems).ToHashSet();
+
+				// Get all link actions which have no out-of-date prerequisites
+				HashSet<Action> UnlinkedActions = ActionsToExecute.Where(Action => Action.ActionType == ActionType.Link && !ProducedItems.Overlaps(Action.PrerequisiteItems)).ToHashSet();
+
+				// Don't regard an action as unlinked if there is an associated 'failed.hotreload' file.
+				UnlinkedActions.RemoveWhere(Action => Action.ProducedItems.Any(Item => File.Exists(Path.Combine(Path.GetDirectoryName(Item.AbsolutePath), "failed.hotreload"))));
+
+				HashSet<Action> UnlinkedActionsWithFailedHotreload = ActionsToExecute.Where(Action => Action.ActionType == ActionType.Link && !ProducedItems.Overlaps(Action.PrerequisiteItems)).ToHashSet();
+
+				// Remove unlinked items
+				ActionsToExecute.ExceptWith(UnlinkedActions);
+
+				// Re-add unlinked items which produce things which are dependencies of other actions
+				for (;;)
+				{
+					// Get all prerequisite items of a link action
+					HashSet<Action> PrerequisiteLinkActions = ActionsToExecute.Where(Action => Action.ActionType == ActionType.Link).SelectMany(x => x.PrerequisiteItems).Select(Item => Item.ProducingAction).ToHashSet();
+
+					// Find all unlinked actions that need readding
+					HashSet<Action> UnlinkedActionsToReadd = UnlinkedActions.Where(Action => PrerequisiteLinkActions.Contains(Action)).ToHashSet();
+					if (UnlinkedActionsToReadd.Count == 0)
+					{
+						break;
+					}
+
+					ActionsToExecute.UnionWith(UnlinkedActionsToReadd);
+					UnlinkedActions.ExceptWith(UnlinkedActionsToReadd);
+
+					// Break early if there are no more unlinked actions to readd
+					if (UnlinkedActions.Count == 0)
+					{
+						break;
+					}
+				}
+
+				// Remove actions that are wholly dependent on unlinked actions
+				ActionsToExecute = ActionsToExecute.Where(Action => Action.PrerequisiteItems.Count == 0 || !Action.PrerequisiteItems.Select(Item => Item.ProducingAction).ToHashSet().IsSubsetOf(UnlinkedActions)).ToHashSet();
 			}
 
 			if (BuildConfiguration.bPrintPerformanceInfo)
@@ -380,13 +406,13 @@ namespace UnrealBuildTool
 				Log.TraceInformation("Checking outdatedness took " + CheckOutdatednessTime + "s");
 			}
 
-			return ActionsToExecute;
+			return ActionsToExecute.ToList();
 		}
 
 		/// <summary>
 		/// Executes a list of actions.
 		/// </summary>
-		public static bool ExecuteActions(List<Action> ActionsToExecute, out string ExecutorName, string TargetInfoForTelemetry)
+		public static bool ExecuteActions(List<Action> ActionsToExecute, out string ExecutorName, string TargetInfoForTelemetry, bool bIsHotReload = false)
 		{
 			bool Result = true;
 			bool bUsedXGE = false;
@@ -499,6 +525,32 @@ namespace UnrealBuildTool
 									FileInfo ItemInfo = new FileInfo(Item.AbsolutePath);
 									bExists = ItemInfo.Exists;
 								}
+
+								if (bIsHotReload)
+								{
+									string FailedFilename = Path.Combine(Path.GetDirectoryName(Item.AbsolutePath), "failed.hotreload");
+									if (!bExists)
+									{
+										// Create a failed.hotreload file here to indicate that we need to attempt another hotreload link
+										// step in future, even though no source files have changed.
+										// This is necessary because we also don't want to link a brand new instance of a module every time
+										// a user hits the Compile button when nothing has changed.
+										FileItem.CreateIntermediateTextFile(new FileReference(FailedFilename), "");
+									}
+									else
+									{
+										try
+										{
+											File.Delete(FailedFilename);
+										}
+										catch
+										{
+											// Ignore but log failed deletions
+											Log.TraceVerbose("Failed to delete failed.hotreload file \"{0}\" - this may cause redundant hotreloads", FailedFilename);
+										}
+									}
+								}
+
 								if (!bExists)
 								{
 									throw new BuildException("UBT ERROR: Failed to produce item: " + Item.AbsolutePath);

@@ -24,7 +24,7 @@ UBoneMaskFilter::UBoneMaskFilter(const FObjectInitializer& ObjectInitializer)
 
 bool FBoneReference::Initialize(const FBoneContainer& RequiredBones)
 {
-	check(!BoneName.ToString().Contains(L" "));
+	BoneName = *BoneName.ToString().Trim().TrimTrailing();
 	BoneIndex = RequiredBones.GetPoseBoneIndexForBoneName(BoneName);
 
 	// If bone name is not found, look into the master skeleton to see if it's found there.
@@ -49,7 +49,7 @@ bool FBoneReference::Initialize(const USkeleton* Skeleton)
 {
 	if( Skeleton && (BoneName != NAME_None) )
 	{
-		check(!BoneName.ToString().Contains(L" "));
+		BoneName = *BoneName.ToString().Trim().TrimTrailing();
 		BoneIndex = Skeleton->GetReferenceSkeleton().FindBoneIndex(BoneName);
 	}
 	else

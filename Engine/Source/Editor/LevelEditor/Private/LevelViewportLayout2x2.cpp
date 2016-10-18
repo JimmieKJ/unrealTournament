@@ -3,6 +3,7 @@
 #include "LevelEditor.h"
 #include "LevelViewportLayout2x2.h"
 #include "SLevelViewport.h"
+#include "SLevelEditor.h"
 
 namespace ViewportLayout2x2Defs
 {

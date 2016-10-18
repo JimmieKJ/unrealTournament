@@ -326,14 +326,14 @@ bool FAssetDeleteModel::CanReplaceReferencesWith( const FAssetData& InAssetData 
 		// Get BP native parent classes
 		static const FName ParentClassName("ParentClass");
 		UClass* OriginalBPParentClass = CastChecked<UBlueprint>(PendingDeletes[0]->GetObject())->ParentClass;
-		const FString* BPClassNameToTest = InAssetData.TagsAndValues.Find(ParentClassName);
+		const FString BPClassNameToTest = InAssetData.GetTagValueRef<FString>(ParentClassName);
 
-		if (BPClassNameToTest && !BPClassNameToTest->IsEmpty())
+		if (!BPClassNameToTest.IsEmpty())
 		{
-			UClass* ParentClassToTest = FindObject<UClass>(ANY_PACKAGE, **BPClassNameToTest);
+			UClass* ParentClassToTest = FindObject<UClass>(ANY_PACKAGE, *BPClassNameToTest);
 			if (!ParentClassToTest)
 			{
-				ParentClassToTest = LoadObject<UClass>(nullptr, **BPClassNameToTest);
+				ParentClassToTest = LoadObject<UClass>(nullptr, *BPClassNameToTest);
 			}
 
 			UClass* NativeParentClassToReplace = FBlueprintEditorUtils::FindFirstNativeClass(OriginalBPParentClass);

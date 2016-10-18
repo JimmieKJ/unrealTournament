@@ -7,6 +7,7 @@
 #include "Runtime/Engine/Public/Slate/SceneViewport.h"
 #include "Editor/KismetWidgets/Public/SScrubControlPanel.h"
 #include "AnimationEditorUtils.h"
+#include "AnimationCompressionPanel.h"
 
 #define LOCTEXT_NAMESPACE	"AnimSequenceDetails"
 
@@ -179,9 +180,9 @@ void FAnimSequenceDetails::CustomizeDetails(IDetailLayoutBuilder& DetailBuilder)
 			.HAlign(HAlign_Left)
 			[
 				SNew(SButton)
-				.Text(LOCTEXT("ApplyCompressionButton_Label", "Apply"))
-				.ToolTipText(LOCTEXT("ApplyCompressionButton_Tooltip", "Click Apply to apply the changes you've made to Compression Settings"))
-				.OnClicked(this, &FAnimSequenceDetails::OnApplyCompression)
+				.Text(LOCTEXT("EditCompressionButton_Label", "Edit Compression Settings"))
+				.ToolTipText(LOCTEXT("EditCompressionButton_Tooltip", "Click to view and edit the Compression Settings"))
+				.OnClicked(this, &FAnimSequenceDetails::OnEditCompression)
 			]
 		];
 }
@@ -331,32 +332,10 @@ TSharedPtr<FString> FAnimSequenceDetails::GetRetargetSourceString(FName Retarget
 	return RetargetSourceComboList[0];
 }
 
-FReply FAnimSequenceDetails::OnApplyCompression()
+FReply FAnimSequenceDetails::OnEditCompression()
 {
-	TArray<UAnimSequence*> AnimSequences;
-	UAnimCompress* CompressAlgorithm = NULL;
-
-	for(auto SelectionIt = SelectedAnimSequences.CreateIterator(); SelectionIt; ++SelectionIt)
-	{
-		if(UAnimSequence* TestAnimSequence = Cast<UAnimSequence>(SelectionIt->Get()))
-		{
-			AnimSequences.Add(TestAnimSequence);
-
-			if (!CompressAlgorithm)
-			{
-				// it should be all same by now
-				// better way is to get this from property handler
-				// but by this time, they should have all same value
-				CompressAlgorithm = TestAnimSequence->CompressionScheme;
-			}
-		}
-	}
-
-	if (CompressAlgorithm)
-	{
-		AnimationEditorUtils::ApplyCompressionAlgorithm(AnimSequences, CompressAlgorithm);
-	}
-
+	FDlgAnimCompression AnimCompressionDialog(SelectedAnimSequences);
+	AnimCompressionDialog.ShowModal();
 	return FReply::Handled();
 }
 ////////////////////////////////////////////////
@@ -495,7 +474,7 @@ void SAnimationRefPoseViewport::InitSkeleton()
 			if((Preview == NULL || Preview->GetCurrentAsset() != AnimRef) || PreviewComponent->SkeletalMesh != PreviewSkeletalMesh)
 			{
 				PreviewComponent->SetSkeletalMesh(PreviewSkeletalMesh);
-				PreviewComponent->EnablePreview(true, AnimRef, NULL);
+				PreviewComponent->EnablePreview(true, AnimRef);
 				PreviewComponent->PreviewInstance->SetLooping(true);
 
 				//Place the camera at a good viewer position
@@ -503,7 +482,7 @@ void SAnimationRefPoseViewport::InitSkeleton()
 				NewPosition.Normalize();
 				if(PreviewSkeletalMesh)
 				{
-					NewPosition *= (PreviewSkeletalMesh->Bounds.SphereRadius*1.5f);
+					NewPosition *= (PreviewSkeletalMesh->GetImportedBounds().SphereRadius*1.5f);
 				}
 				LevelViewportClient->SetViewLocation( NewPosition );
 			}

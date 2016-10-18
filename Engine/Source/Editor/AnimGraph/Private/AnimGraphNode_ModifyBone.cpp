@@ -19,7 +19,19 @@ void UAnimGraphNode_ModifyBone::ValidateAnimNodeDuringCompilation(USkeleton* For
 {
 	if (ForSkeleton->GetReferenceSkeleton().FindBoneIndex(Node.BoneToModify.BoneName) == INDEX_NONE)
 	{
-		MessageLog.Warning(*LOCTEXT("NoBoneToModify", "@@ - You must pick a bone to modify").ToString(), this);
+		if (Node.BoneToModify.BoneName == NAME_None)
+		{
+			MessageLog.Warning(*LOCTEXT("NoBoneSelectedToModify", "@@ - You must pick a bone to modify").ToString(), this);
+		}
+		else
+		{
+			FFormatNamedArguments Args;
+			Args.Add(TEXT("BoneName"), FText::FromName(Node.BoneToModify.BoneName));
+
+			FText Msg = FText::Format(LOCTEXT("NoBoneFoundToModify", "@@ - Bone {BoneName} not found in Skeleton"), Args);
+
+			MessageLog.Warning(*Msg.ToString(), this);
+		}
 	}
 
 	if ((Node.TranslationMode == BMM_Ignore) && (Node.RotationMode == BMM_Ignore) && (Node.ScaleMode == BMM_Ignore))

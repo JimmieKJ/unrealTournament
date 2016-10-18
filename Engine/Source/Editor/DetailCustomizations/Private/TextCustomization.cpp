@@ -15,17 +15,16 @@ namespace
 			: PropertyHandle(InPropertyHandle)
 			, PropertyUtilities(InPropertyUtilities)
 		{
-			RefreshRawData();
 		}
 
 		virtual bool IsMultiLineText() const override
 		{
-			return PropertyHandle->IsValidHandle() && PropertyHandle->GetBoolMetaData("MultiLine");
+			return PropertyHandle->IsValidHandle() && PropertyHandle->GetMetaDataProperty()->GetBoolMetaData("MultiLine");
 		}
 
 		virtual bool IsPassword() const override
 		{
-			return PropertyHandle->IsValidHandle() && PropertyHandle->GetBoolMetaData("PasswordField");
+			return PropertyHandle->IsValidHandle() && PropertyHandle->GetMetaDataProperty()->GetBoolMetaData("PasswordField");
 		}
 
 		virtual bool IsReadOnly() const override
@@ -47,57 +46,55 @@ namespace
 
 		virtual int32 GetNumTexts() const override
 		{
-			RefreshRawData();
-
 			return (PropertyHandle->IsValidHandle())
-				? RawTextData.Num() 
+				? PropertyHandle->GetNumPerObjectValues() 
 				: 0;
 		}
 
 		virtual FText GetText(const int32 InIndex) const override
 		{
-			RefreshRawData();
-
 			if (PropertyHandle->IsValidHandle())
 			{
-				check(RawTextData.IsValidIndex(InIndex));
-				if (RawTextData[InIndex])
+				FString ObjectValue;
+				if (PropertyHandle->GetPerObjectValue(InIndex, ObjectValue) == FPropertyAccess::Success)
 				{
-					return *RawTextData[InIndex];
+					FText TextValue;
+					if (FTextStringHelper::ReadFromString(*ObjectValue, TextValue))
+					{
+						return TextValue;
+					}
 				}
 			}
+
 			return FText::GetEmpty();
 		}
 
 		virtual void SetText(const int32 InIndex, const FText& InText) override
 		{
-			RefreshRawData();
-
 			if (PropertyHandle->IsValidHandle())
 			{
-				check(RawTextData.IsValidIndex(InIndex));
-				*RawTextData[InIndex] = InText;
+				FString ObjectValue;
+				if (FTextStringHelper::WriteToString(ObjectValue, InText))
+				{
+					PropertyHandle->SetPerObjectValue(InIndex, ObjectValue);
+				}
 			}
 		}
 
-		virtual void PreEdit() override
+#if USE_STABLE_LOCALIZATION_KEYS
+		virtual void GetStableTextId(const int32 InIndex, const ETextPropertyEditAction InEditAction, const FString& InTextSource, const FString& InProposedNamespace, const FString& InProposedKey, FString& OutStableNamespace, FString& OutStableKey) const override
 		{
 			if (PropertyHandle->IsValidHandle())
 			{
-				PropertyHandle->NotifyPreChange();
+				TArray<UPackage*> PropertyPackages;
+				PropertyHandle->GetOuterPackages(PropertyPackages);
+
+				check(PropertyPackages.IsValidIndex(InIndex));
+
+				StaticStableTextId(PropertyPackages[InIndex], InEditAction, InTextSource, InProposedNamespace, InProposedKey, OutStableNamespace, OutStableKey);
 			}
 		}
-
-		virtual void PostEdit() override
-		{
-			if (PropertyHandle->IsValidHandle())
-			{
-				PropertyHandle->NotifyPostChange();
-				PropertyHandle->NotifyFinishedChangingProperties();
-			}
-
-			RefreshRawData();
-		}
+#endif // USE_STABLE_LOCALIZATION_KEYS
 
 		virtual void RequestRefresh() override
 		{
@@ -108,20 +105,8 @@ namespace
 		}
 
 	private:
-		void RefreshRawData() const
-		{
-			RawTextData.Empty();
-
-			if (PropertyHandle->IsValidHandle())
-			{
-				auto& RawData = reinterpret_cast<TArray<void*>&>(RawTextData);
-				PropertyHandle->AccessRawData(RawData);
-			}
-		}
-
 		TSharedRef<IPropertyHandle> PropertyHandle;
 		TSharedPtr<IPropertyUtilities> PropertyUtilities;
-		mutable TArray<FText*> RawTextData;
 	};
 }
 

@@ -13,7 +13,7 @@
 /**
  * Uniform buffer for mesh particle vertex factories.
  */
-BEGIN_UNIFORM_BUFFER_STRUCT( FMeshParticleUniformParameters, )
+BEGIN_UNIFORM_BUFFER_STRUCT( FMeshParticleUniformParameters, ENGINE_API)
 	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( FVector4, SubImageSize )
 	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( uint32, TexCoordWeightA )
 	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER( uint32, TexCoordWeightB )
@@ -24,7 +24,7 @@ typedef TUniformBufferRef<FMeshParticleUniformParameters> FMeshParticleUniformBu
 /**
  * Vertex factory for rendering instanced mesh particles with out dynamic parameter support.
  */
-class FMeshParticleVertexFactory : public FParticleVertexFactoryBase
+class ENGINE_API FMeshParticleVertexFactory : public FParticleVertexFactoryBase
 {
 	DECLARE_VERTEX_FACTORY_TYPE(FMeshParticleVertexFactory);
 public:
@@ -110,7 +110,7 @@ public:
 	/**
 	 * An implementation of the interface used by TSynchronizedResource to update the resource with new data from the game thread.
 	 */
-	ENGINE_API void SetData(const FDataType& InData);
+	void SetData(const FDataType& InData);
 
 	/**
 	 * Set the uniform buffer for this vertex factory.
@@ -178,7 +178,7 @@ protected:
 };
 
 
-class FMeshParticleVertexFactoryEmulatedInstancing : public FMeshParticleVertexFactory
+class ENGINE_API FMeshParticleVertexFactoryEmulatedInstancing : public FMeshParticleVertexFactory
 {
 	DECLARE_VERTEX_FACTORY_TYPE(FMeshParticleVertexFactoryEmulatedInstancing);
 

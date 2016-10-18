@@ -1,14 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "MediaPlayerEditorPrivatePCH.h"
-#include "IMediaPlayer.h"
-#include "IMediaStream.h"
-#include "IMediaAudioTrack.h"
-#include "IMediaCaptionTrack.h"
-#include "IMediaVideoTrack.h"
-#include "MediaPlayer.h"
+#include "MediaPlayerEditorPCH.h"
 #include "MediaTextureCustomization.h"
-#include "PropertyHandle.h"
 
 
 #define LOCTEXT_NAMESPACE "FMediaTextureCustomization"
@@ -17,8 +10,8 @@
 /* IDetailCustomization interface
  *****************************************************************************/
 
-void FMediaTextureCustomization::CustomizeDetails( IDetailLayoutBuilder& DetailBuilder )
-{
+void FMediaTextureCustomization::CustomizeDetails(IDetailLayoutBuilder& DetailBuilder)
+{/*
 	DetailBuilder.GetObjectsBeingCustomized(CustomizedMediaTextures);
 	MediaPlayerProperty = DetailBuilder.GetProperty("MediaPlayer");
 	VideoTrackIndexProperty = DetailBuilder.GetProperty("VideoTrackIndex");
@@ -48,7 +41,7 @@ void FMediaTextureCustomization::CustomizeDetails( IDetailLayoutBuilder& DetailB
 							.Font(IDetailLayoutBuilder::GetDetailFont())
 					]
 			];
-	}
+	}*/
 }
 
 
@@ -56,7 +49,7 @@ void FMediaTextureCustomization::CustomizeDetails( IDetailLayoutBuilder& DetailB
  *****************************************************************************/
 
 TSharedRef<SWidget> FMediaTextureCustomization::HandleVideoTrackComboButtonMenuContent() const
-{
+{/*
 	// get assigned media player asset
 	UObject* MediaPlayerObj = nullptr;
 	FPropertyAccess::Result Result = MediaPlayerProperty->GetValue(MediaPlayerObj);
@@ -74,7 +67,7 @@ TSharedRef<SWidget> FMediaTextureCustomization::HandleVideoTrackComboButtonMenuC
 	}
 
 	// get media tracks
-	IMediaPlayerPtr Player = MediaPlayer->GetPlayer();
+	TSharedPtr<IMediaPlayer> Player = MediaPlayer->GetPlayer();
 
 	if (!Player.IsValid())
 	{
@@ -98,18 +91,19 @@ TSharedRef<SWidget> FMediaTextureCustomization::HandleVideoTrackComboButtonMenuC
 		);
 	}
 
-	return MenuBuilder.MakeWidget();
+	return MenuBuilder.MakeWidget();*/
+	return SNullWidget::NullWidget;
 }
 
 
-void FMediaTextureCustomization::HandleVideoTrackComboButtonMenuEntryExecute( int32 TrackIndex )
+void FMediaTextureCustomization::HandleVideoTrackComboButtonMenuEntryExecute(int32 TrackIndex)
 {
 	VideoTrackIndexProperty->SetValue(TrackIndex);
 }
 
 
 FText FMediaTextureCustomization::HandleVideoTrackComboButtonText() const
-{
+{/*
 	// get assigned media player asset
 	UObject* MediaPlayerObj = nullptr;
 	FPropertyAccess::Result Result = MediaPlayerProperty->GetValue(MediaPlayerObj);
@@ -136,7 +130,7 @@ FText FMediaTextureCustomization::HandleVideoTrackComboButtonText() const
 	}
 
 	// get selected media track
-	IMediaPlayerPtr Player = MediaPlayer->GetPlayer();
+	TSharedPtr<IMediaPlayer> Player = MediaPlayer->GetPlayer();
 
 	if (!Player.IsValid())
 	{
@@ -151,7 +145,8 @@ FText FMediaTextureCustomization::HandleVideoTrackComboButtonText() const
 	}
 
 	// get track name
-	return VideoTracks[VideoTrackIndex]->GetStream().GetDisplayName();
+	return VideoTracks[VideoTrackIndex]->GetStream().GetDisplayName();*/
+	return FText::GetEmpty();
 }
 
 

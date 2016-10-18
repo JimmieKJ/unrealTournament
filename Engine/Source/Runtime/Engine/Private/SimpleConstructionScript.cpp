@@ -43,8 +43,8 @@ namespace
 USimpleConstructionScript::USimpleConstructionScript(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	RootNode_DEPRECATED = NULL;
-	DefaultSceneRootNode = NULL;
+	RootNode_DEPRECATED = nullptr;
+	DefaultSceneRootNode = nullptr;
 
 #if WITH_EDITOR
 	bIsConstructingEditorComponents = false;
@@ -527,7 +527,6 @@ void USimpleConstructionScript::ExecuteScriptOnActor(AActor* Actor, const FTrans
 					}
 				}
 
-
 				// Create the new component instance and any child components it may have
 				UActorComponent* InstancedComponent = RootNode->ExecuteNodeOnActor(Actor, ParentComponent != nullptr ? ParentComponent : RootComponent, &RootTransform, bIsDefaultTransform);
 				if(InstancedComponent != nullptr)
@@ -573,6 +572,30 @@ void USimpleConstructionScript::ExecuteScriptOnActor(AActor* Actor, const FTrans
 		Actor->SetRootComponent(SceneComp);
 		SceneComp->RegisterComponent();
 	}
+}
+
+void USimpleConstructionScript::CreateNameToSCSNodeMap()
+{
+	const TArray<USCS_Node*>& Nodes = GetAllNodes();
+	NameToSCSNodeMap.Reserve(Nodes.Num() * 2);
+
+	for (USCS_Node* SCSNode : Nodes)
+	{
+		if (SCSNode)
+		{
+			NameToSCSNodeMap.Add(SCSNode->GetVariableName(), SCSNode);
+
+			if (SCSNode->ComponentTemplate)
+			{
+				NameToSCSNodeMap.Add(SCSNode->ComponentTemplate->GetFName(), SCSNode);
+			}
+		}
+	}
+}
+
+void USimpleConstructionScript::RemoveNameToSCSNodeMap()
+{
+	NameToSCSNodeMap.Reset();
 }
 
 #if WITH_EDITOR
@@ -757,14 +780,25 @@ void USimpleConstructionScript::RemoveNodeAndPromoteChildren(USCS_Node* Node)
 	else
 	{
 		USCS_Node* ParentNode = FindParentNode(Node);
-		checkSlow(ParentNode);
 
-		ParentNode->Modify();
+		if (!ensure(ParentNode))
+		{
+#if WITH_EDITOR
+			UE_LOG(LogBlueprint, Error, TEXT("RemoveNodeAndPromoteChildren(%s) failed to find a parent node in Blueprint %s, attaching children to the root"), *Node->GetName(), *GetBlueprint()->GetPathName());
+#endif
+			ParentNode = GetDefaultSceneRootNode();
+		}
 
-		// remove node and move children onto parent
-		const int32 Location = ParentNode->GetChildNodes().Find(Node);
-		ParentNode->RemoveChildNode(Node);
-		ParentNode->MoveChildNodes(Node, Location);
+		check(ParentNode);
+		if (ParentNode != nullptr)
+		{
+			ParentNode->Modify();
+
+			// remove node and move children onto parent
+			const int32 Location = ParentNode->GetChildNodes().Find(Node);
+			ParentNode->RemoveChildNode(Node);
+			ParentNode->MoveChildNodes(Node, Location);
+		}
 	}
 }
 
@@ -783,6 +817,11 @@ USCS_Node* USimpleConstructionScript::FindParentNode(USCS_Node* InNode) const
 
 USCS_Node* USimpleConstructionScript::FindSCSNode(const FName InName) const
 {
+	if (NameToSCSNodeMap.Num() > 0)
+	{
+		return NameToSCSNodeMap.FindRef(InName);
+	}
+
 	for( USCS_Node* SCSNode : GetAllNodes() )
 	{
 		if (SCSNode && (SCSNode->GetVariableName() == InName || (SCSNode->ComponentTemplate && SCSNode->ComponentTemplate->GetFName() == InName)))
@@ -868,9 +907,10 @@ USceneComponent* USimpleConstructionScript::GetSceneRootComponentTemplate(USCS_N
 
 		for(int32 StackIndex = 0; StackIndex < BPStack.Num(); ++StackIndex)
 		{
-			if(BPStack[StackIndex] && BPStack[StackIndex]->SimpleConstructionScript)
+			if(BPStack[StackIndex] && BPStack[StackIndex]->SimpleConstructionScript && !SCSStack.Contains(BPStack[StackIndex]->SimpleConstructionScript))
 			{
-				SCSStack.AddUnique(BPStack[StackIndex]->SimpleConstructionScript);
+				// UBlueprint::GetBlueprintHierarchyFromClass returns first children then parents. So we need to revert the order.
+				SCSStack.Insert(BPStack[StackIndex]->SimpleConstructionScript, 0);
 			}
 		}
 
@@ -1121,7 +1161,16 @@ USCS_Node* USimpleConstructionScript::CreateNode(UClass* NewComponentClass, FNam
 	// note that naming logic is duplicated in CreateNodeAndRenameComponent:
 	NewComponentVariableName = GenerateNewComponentName(NewComponentClass, NewComponentVariableName);
 
-	UActorComponent* NewComponentTemplate = NewObject<UActorComponent>(Blueprint->GeneratedClass, NewComponentClass, *(NewComponentVariableName.ToString() + ComponentTemplateNameSuffix), RF_ArchetypeObject | RF_Transactional | RF_Public);
+	// A bit of a hack, but by doing this we ensure that the original object isn't outered to the BPGC. That way if we undo this action later, it'll rename the template away from the BPGC.
+	// This is necessary because of our template object naming scheme that's in place to ensure deterministic cooking. We have to keep the SCS node and template object names in sync as a result,
+	// and leaving the template outered to the BPGC can lead to template object name collisions when attempting to rename the remaining SCS nodes. See USCS_Node::NameWasModified() for more details.
+	UActorComponent* NewComponentTemplate = NewObject<UActorComponent>(GetTransientPackage(), NewComponentClass, NAME_None, RF_ArchetypeObject | RF_Transactional | RF_Public);
+
+	// Record initial object state in case we're in a transaction context.
+	NewComponentTemplate->Modify();
+
+	// Now set the actual name and outer to the BPGC.
+	NewComponentTemplate->Rename(*(NewComponentVariableName.ToString() + ComponentTemplateNameSuffix), Blueprint->GeneratedClass, REN_DoNotDirty|REN_DontCreateRedirectors|REN_ForceNoResetLoaders);
 
 	return CreateNodeImpl(NewComponentTemplate, NewComponentVariableName);
 }

@@ -20,7 +20,8 @@ public class SuperSearch : ModuleRules
 					"SlateCore",
 					"EditorStyle",
 					"HTTP",
-					"IntroTutorials"
+					"IntroTutorials",
+					"Analytics",
 				}
             );
         }

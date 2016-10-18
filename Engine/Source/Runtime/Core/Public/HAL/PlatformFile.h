@@ -10,13 +10,11 @@
 #elif PLATFORM_XBOXONE
 #include "XboxOne/XboxOneFile.h"
 #elif PLATFORM_MAC
-#include "Mac/MacPlatformFile.h"
+#include "Apple/ApplePlatformFile.h"
 #elif PLATFORM_IOS
-#include "IOS/IOSPlatformFile.h"
+#include "Apple/ApplePlatformFile.h"
 #elif PLATFORM_ANDROID
 #include "Android/AndroidFile.h"
-#elif PLATFORM_WINRT
-#include "WinRT/WinRTFile.h"
 #elif PLATFORM_HTML5
 //#include "HTML5PlatformFile.h"
 #elif PLATFORM_LINUX

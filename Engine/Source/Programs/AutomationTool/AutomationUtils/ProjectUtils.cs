@@ -283,26 +283,25 @@ namespace AutomationTool
 			List<string> ExtraSearchPaths = null;
 			if (RawProjectPath != null)
 			{
+                string TempTargetDir = CommandUtils.CombinePaths(Path.GetDirectoryName(RawProjectPath.FullName), "Intermediate", "Source");
                 if (RequiresTempTarget(RawProjectPath, ClientTargetPlatforms, AssetNativizationRequested))
 				{
 					GenerateTempTarget(RawProjectPath);
 					Properties.bWasGenerated = true;
 					ExtraSearchPaths = new List<string>();
-
-                    string TempTargetDir = CommandUtils.CombinePaths(Path.GetDirectoryName(RawProjectPath.FullName), "Intermediate", "Source");
                     ExtraSearchPaths.Add(TempTargetDir);
-
-                    // in case the RulesCompiler (what we use to find all the 
-                    // Target.cs files) has already cached the contents of this 
-                    // directory, then we need to invalidate that cache (so 
-                    // it'll find/use the new Target.cs file)
-                    RulesCompiler.InvalidateRulesFileCache(TempTargetDir);
 				}
 				else if (File.Exists(Path.Combine(Path.GetDirectoryName(RawProjectPath.FullName), "Intermediate", "Source", Path.GetFileNameWithoutExtension(RawProjectPath.FullName) + ".Target.cs")))
 				{
 					File.Delete(Path.Combine(Path.GetDirectoryName(RawProjectPath.FullName), "Intermediate", "Source", Path.GetFileNameWithoutExtension(RawProjectPath.FullName) + ".Target.cs"));
 				}
-			}
+
+                // in case the RulesCompiler (what we use to find all the 
+                // Target.cs files) has already cached the contents of this 
+                // directory, then we need to invalidate that cache (so 
+                // it'll find/use the new Target.cs file)
+                RulesCompiler.InvalidateRulesFileCache(TempTargetDir);
+            }
 
 			if (CommandUtils.CmdEnv.HasCapabilityToCompile)
 			{

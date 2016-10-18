@@ -1,43 +1,23 @@
 <%-- // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved. --%>
 
 <%@ Control Language="C#" Inherits="System.Web.Mvc.ViewUserControl<ReportsViewModel>" %>
-<%@ Import Namespace="Tools.CrashReporter.CrashReportWebSite.Models" %>
+<%@ Import Namespace="Tools.CrashReporter.CrashReportWebSite.DataModels" %>
+<%@ Import Namespace="Tools.CrashReporter.CrashReportWebSite.ViewModels" %>
 
-<style>
-
-table, table tr, table th, table td
-{
-	border: solid;
-	border-width: 1px;
-
-	color: white;
-	background-color: black;
-
-	font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-	font-size: 12px;
-
-	padding: 2px;
-	margin: 2px;
-}
-
-</style>
-	
 <body>
 <form runat="server">
-	
-<table >
+	<%=Html.HiddenFor(x => x.BranchName, Model.BranchName) %>
+<table id="ReportsTable">
 	<tr>
 		<td>
 			TotalAnonymousCrashes:&nbsp;<%=Model.TotalAnonymousCrashes %>
 		</td>
 	</tr>
-
 	<tr>
 		<td>
 			TotalUniqueAnonymousCrashes:&nbsp;<%=Model.TotalUniqueAnonymousCrashes %>
 		</td>
 	</tr>
-
 	<tr>
 		<td>
 			TotalAffectedUsers:&nbsp;<%=Model.TotalAffectedUsers %>
@@ -114,8 +94,8 @@ table, table tr, table th, table td
 			<%=Bugg.NumberOfUniqueMachines%>
 		</td>
 		<td>
-			<%--NewBugg.BuildVersion = NewBugg.AffectedVersions.Last();	// Latest Version Affected--%>
-			<%=Bugg.GetAffectedVersions()%>
+			<%--<%--NewBugg.BuildVersion = NewBugg.AffectedVersions.Last();	// Latest Version Affected--%>
+			<%--<%=Bugg.GetAffectedVersions()%>--%>--%>
 		</td>
 		<td>
 			<%--NewBugg.LatestCLAffected = ILatestCLAffected;			// Latest CL Affected--%>
@@ -125,20 +105,20 @@ table, table tr, table th, table td
 			<%--NewBugg.LatestOSAffected = LatestOSAffected;			// Latest Environment Affected--%>
 			<%=Bugg.LatestOSAffected%>
 		</td>
-		<%if (string.IsNullOrEmpty( Bugg.Jira ) && !string.IsNullOrEmpty( Bugg.Pattern ))
+		<%if (string.IsNullOrEmpty( Bugg.TTPID ) && !string.IsNullOrEmpty( Bugg.Pattern ))
 		{ %>
 			<td>
 				<input type="submit" value="CopyToJira" title="<%=Bugg.ToTooltip()%>" id="id <%=Bugg.Id%>" name="CopyToJira-<%=Bugg.Id%>" class="SearchButton CopyToJiraStyle CopyToJiraStyle" />
 			</td>
-		<% } else if( string.IsNullOrEmpty( Bugg.Jira ) && string.IsNullOrEmpty(Bugg.Pattern ) )
+		<% } else if( string.IsNullOrEmpty( Bugg.TTPID ) && string.IsNullOrEmpty(Bugg.Pattern ) )
 		{ %>
 			<td>
 				No pattern!
 			</td>
 		<% } else { %>
 			<td>
-				<%--NewBugg.Jira = RealBugg.Jira;							// JIRA--%>
-				<a href="https://jira.ol.epicgames.net/browse/<%=Bugg.Jira%>" target="_blank"><%=Bugg.Jira%></a>
+				<%--NewBugg.Jira = RealBugg.Jira;// JIRA--%>
+				<a href="https://jira.ol.epicgames.net/browse/<%=Bugg.TTPID%>" target="_blank"><%=Bugg.TTPID%></a>
 			</td>
 		<% } %>
 

@@ -5,12 +5,14 @@
 #include "EditorViewportClient.h"
 
 class SStaticMeshEditorViewport;
+class FAdvancedPreviewScene;
 
 /** Viewport Client for the preview viewport */
 class FStaticMeshEditorViewportClient : public FEditorViewportClient, public TSharedFromThis<FStaticMeshEditorViewportClient>
 {
 public:
-	FStaticMeshEditorViewportClient(TWeakPtr<IStaticMeshEditor> InStaticMeshEditor, const TSharedRef<SStaticMeshEditorViewport>& InStaticMeshEditorViewport, FPreviewScene& InPreviewScene, UStaticMesh* InPreviewStaticMesh, UStaticMeshComponent* InPreviewStaticMeshComponent);
+	FStaticMeshEditorViewportClient(TWeakPtr<IStaticMeshEditor> InStaticMeshEditor, const TSharedRef<SStaticMeshEditorViewport>& InStaticMeshEditorViewport, FAdvancedPreviewScene& InPreviewScene, UStaticMesh* InPreviewStaticMesh, UStaticMeshComponent* InPreviewStaticMeshComponent);
+	~FStaticMeshEditorViewportClient();
 
 	// FEditorViewportClient interface
 	virtual void MouseMove(FViewport* Viewport,int32 x, int32 y) override;
@@ -31,7 +33,6 @@ public:
 	virtual FMatrix GetWidgetCoordSystem() const override;
 	virtual ECoordSystem GetWidgetCoordSystemSpace() const override { return COORD_Local; }
 	virtual bool ShouldOrbitCamera() const override;
-	virtual FSceneView* CalcSceneView(FSceneViewFamily* ViewFamily) override;
 
 	/** 
 	 *	Updates the static mesh and static mesh component being used in the Static Mesh Editor.
@@ -117,10 +118,16 @@ public:
 	/** Callback for checking the vertices drawing flag. */
 	bool IsSetDrawVerticesChecked() const;
 
+	/** Used to toggle the floor when vertex colours should be shown */
+	void SetFloorAndEnvironmentVisibility(const bool bVisible);
 protected:
 	// FEditorViewportClient interface
 	virtual void PerspectiveCameraMoved() override;
 
+	/** Call back for when the user changes preview scene settings in the UI */
+	void OnAssetViewerSettingsChanged(const FName& InPropertyName);
+	/** Used to (re)-set the viewport show flags related to post processing*/
+	void SetAdvancedShowFlagsForScene();
 private:
 	/** The Simplygon logo to be drawn when Simplygon has been used on the static mesh. */
 	UTexture2D* SimplygonLogo;
@@ -165,4 +172,7 @@ private:
 
 	/** Pointer back to the StaticMeshEditor viewport control that owns us */
 	TWeakPtr<SStaticMeshEditorViewport> StaticMeshEditorViewportPtr;
+
+	/** Stored pointer to the preview scene in which the static mesh is shown */
+	FAdvancedPreviewScene* AdvancedPreviewScene;
 };

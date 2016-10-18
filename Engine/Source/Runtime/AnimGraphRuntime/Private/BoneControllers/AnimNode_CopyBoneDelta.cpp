@@ -1,6 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AnimGraphRuntimePrivatePCH.h"
+#include "Animation/AnimTypes.h"
 #include "AnimNode_CopyBoneDelta.h"
 
 FAnimNode_CopyBoneDelta::FAnimNode_CopyBoneDelta()

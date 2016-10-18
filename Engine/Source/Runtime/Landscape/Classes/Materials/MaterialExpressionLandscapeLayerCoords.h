@@ -29,7 +29,7 @@ enum ELandscapeCustomizedCoordType
 };
 
 UCLASS(collapsecategories, hidecategories=Object)
-class UMaterialExpressionLandscapeLayerCoords : public UMaterialExpression
+class LANDSCAPE_API UMaterialExpressionLandscapeLayerCoords : public UMaterialExpression
 {
 	GENERATED_UCLASS_BODY()
 

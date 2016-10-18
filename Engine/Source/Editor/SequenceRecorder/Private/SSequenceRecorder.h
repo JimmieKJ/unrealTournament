@@ -54,6 +54,8 @@ private:
 
 	EVisibility GetDelayProgressVisibilty() const;
 
+	FText GetTargetSequenceName() const;
+
 private:
 	TSharedPtr<IDetailsView> SequenceRecordingDetailsView;
 

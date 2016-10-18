@@ -99,6 +99,7 @@ bool UGeometryCache::IsReadyForFinishDestroy()
 	return ReleaseResourcesFence.IsFenceComplete();
 }
 
+#if WITH_EDITOR
 void UGeometryCache::PreEditChange(UProperty* PropertyAboutToChange)
 {
 	// Release the Geometry Cache resources.
@@ -108,6 +109,7 @@ void UGeometryCache::PreEditChange(UProperty* PropertyAboutToChange)
 	// Flush the resource release commands to the rendering thread to ensure that the edit change doesn't occur while a resource is still allocated
 	ReleaseResourcesFence.Wait();
 }
+#endif
 
 void UGeometryCache::AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector)
 {

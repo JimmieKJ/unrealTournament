@@ -550,7 +550,7 @@ struct FMallocBinned::Private
 #endif
 		if (Size > MAX_CACHED_OS_FREES_BYTE_LIMIT / 4)
 		{
-			FPlatformMemory::BinnedFreeToOS(Ptr);
+			FPlatformMemory::BinnedFreeToOS(Ptr, Size);
 			return;
 		}
 
@@ -558,21 +558,21 @@ struct FMallocBinned::Private
 		{
 			//Remove the oldest one
 			void* FreePtr = Allocator.FreedPageBlocks[0].Ptr;
-			Allocator.CachedTotal -= Allocator.FreedPageBlocks[0].ByteSize;
+			SIZE_T FreeSize = Allocator.FreedPageBlocks[0].ByteSize;
+			Allocator.CachedTotal -= FreeSize;
 			Allocator.FreedPageBlocksNum--;
 			if (Allocator.FreedPageBlocksNum)
 			{
 				FMemory::Memmove(&Allocator.FreedPageBlocks[0], &Allocator.FreedPageBlocks[1], sizeof(FFreePageBlock) * Allocator.FreedPageBlocksNum);
 			}
-			FPlatformMemory::BinnedFreeToOS(FreePtr);
+			FPlatformMemory::BinnedFreeToOS(FreePtr, FreeSize);
 		}
 		Allocator.FreedPageBlocks[Allocator.FreedPageBlocksNum].Ptr      = Ptr;
 		Allocator.FreedPageBlocks[Allocator.FreedPageBlocksNum].ByteSize = Size;
 		Allocator.CachedTotal += Size;
 		++Allocator.FreedPageBlocksNum;
 #else
-		(void)Size;
-		FPlatformMemory::BinnedFreeToOS(Ptr);
+		FPlatformMemory::BinnedFreeToOS(Ptr, Size);
 #endif
 	}
 
@@ -644,7 +644,7 @@ struct FMallocBinned::Private
 		for (int i = 0, n = Allocator.FreedPageBlocksNum; i<n; ++i) 
 		{
 			//Remove allocs
-			FPlatformMemory::BinnedFreeToOS(Allocator.FreedPageBlocks[i].Ptr);
+			FPlatformMemory::BinnedFreeToOS(Allocator.FreedPageBlocks[i].Ptr, Allocator.FreedPageBlocks[i].ByteSize);
 			Allocator.FreedPageBlocks[i].Ptr = nullptr;
 			Allocator.FreedPageBlocks[i].ByteSize = 0;
 		}

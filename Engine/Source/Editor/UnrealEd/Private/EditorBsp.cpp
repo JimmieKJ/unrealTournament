@@ -313,9 +313,16 @@ void UEditorEngine::bspMergeCoplanars( UModel* Model, bool RemapLinks, bool Merg
 	}
 	Model->Polys->Element.RemoveAt( j, Model->Polys->Element.Num()-j );
 	if( RemapLinks )
+	{
 		for( int32 i=0; i<Model->Polys->Element.Num(); i++ )
-			if( Model->Polys->Element[i].iLink != INDEX_NONE )
+		{
+			if (Model->Polys->Element[i].iLink != INDEX_NONE)
+			{
+				CA_SUPPRESS(6001); // warning C6001: Using uninitialized memory '*Remap'.
 				Model->Polys->Element[i].iLink = Remap[Model->Polys->Element[i].iLink];
+			}
+		}
+	}
 // 	UE_LOG(LogEditorBsp, Log,  TEXT("BspMergeCoplanars reduced %i->%i"), OriginalNum, Model->Polys->Element.Num() );
 	Mark2.Pop();
 }
@@ -914,7 +921,7 @@ int UEditorEngine::bspNodeToFPoly
 	EdPoly->Normal      = Model->Vectors[Poly.vNormal];
 
 	EdPoly->PolyFlags 	= Poly.PolyFlags & ~(PF_EdCut | PF_EdProcessed | PF_Selected | PF_Memorized);
-	EdPoly->iLink     	= Node.iSurf;
+	EdPoly->iLinkSurf   = Node.iSurf;
 	EdPoly->Material    = Poly.Material;
 
 	EdPoly->Actor    	= Poly.Actor;
@@ -1178,8 +1185,10 @@ int UEditorEngine::bspBrushCSG
 		DestEdPoly.PolyFlags = (DestEdPoly.PolyFlags | PolyFlags) & ~NotPolyFlags;
 
 		// Set its internal link.
-		if( DestEdPoly.iLink==INDEX_NONE )
+		if (DestEdPoly.iLink == INDEX_NONE)
+		{
 			DestEdPoly.iLink = i;
+		}
 
 		// Transform it.
 		DestEdPoly.Scale( Scale );
@@ -1209,6 +1218,7 @@ int UEditorEngine::bspBrushCSG
 		{
          	FPoly EdPoly = TempModel->Polys->Element[i];
 			GModel = Brush;
+			// TODO: iLink / iLinkSurf in EdPoly / TempModel->Polys->Element[i] ?
 			BspFilterFPoly( CSGOper==CSG_Intersect ? IntersectBrushWithWorldFunc : DeIntersectBrushWithWorldFunc, Model,  &EdPoly );
 		}
 		NumPolysFromBrush = Brush->Polys->Element.Num();
@@ -1230,11 +1240,11 @@ int UEditorEngine::bspBrushCSG
 			{
 				const int32 NewSurfaceIndex = Model->Surfs.Num();
 				SurfaceIndexRemap.Add(EdPoly.iLink, NewSurfaceIndex);
-				EdPoly.iLink = TempModel->Polys->Element[i].iLink = NewSurfaceIndex;
+				EdPoly.iLinkSurf = TempModel->Polys->Element[i].iLinkSurf = NewSurfaceIndex;
 			}
 			else
 			{
-				EdPoly.iLink = TempModel->Polys->Element[i].iLink = *SurfaceIndexPtr;
+				EdPoly.iLinkSurf = TempModel->Polys->Element[i].iLinkSurf = *SurfaceIndexPtr;
 			}
 
 			// Filter brush through the world.
@@ -1702,13 +1712,23 @@ void MergeNearPoints( UModel *Model, float Dist )
 
 	// Remap VertPool.
 	for( int32 i=0; i<Model->Verts.Num(); i++ )
+	{
 		if( Model->Verts[i].pVertex>=0 && Model->Verts[i].pVertex<Model->Points.Num() )
+		{
+			CA_SUPPRESS(6001); // warning C6001: Using uninitialized memory '*PointRemap'.
 			Model->Verts[i].pVertex = PointRemap[Model->Verts[i].pVertex];
+		}
+	}
 
 	// Remap Surfs.
 	for( int32 i=0; i<Model->Surfs.Num(); i++ )
+	{
 		if( Model->Surfs[i].pBase>=0 && Model->Surfs[i].pBase<Model->Points.Num() )
+		{
+			CA_SUPPRESS(6001); // warning C6001: Using uninitialized memory '*PointRemap'.
 			Model->Surfs[i].pBase = PointRemap[Model->Surfs[i].pBase];
+		}
+	}
 
 	// Remove duplicate points from nodes.
 	for( int32 i=0; i<Model->Nodes.Num(); i++ )

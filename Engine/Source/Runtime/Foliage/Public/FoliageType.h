@@ -55,10 +55,6 @@ struct FFoliageVertexColorChannelMask
 	{}
 };
 
-namespace EHasCustomNavigableGeometry
-{
-	enum Type;
-}
 UENUM()
 enum class EFoliageScaling : uint8
 {
@@ -171,7 +167,8 @@ public:
 	UPROPERTY(EditAnywhere, Category=Placement, meta=(DisplayName="Z Offset", ReapplyCondition="ReapplyZOffset"))
 	FFloatInterval ZOffset;
 
-	/** Whether foliage instances should have their angle adjusted away from vertical to match the normal of the surface they're painted on */
+	/** Whether foliage instances should have their angle adjusted away from vertical to match the normal of the surface they're painted on 
+	 *  If AlignToNormal is enabled and RandomYaw is disabled, the instance will be rotated so that the +X axis points down-slope */
 	UPROPERTY(EditAnywhere, Category=Placement, meta=(ReapplyCondition="ReapplyAlignToNormal"))
 	uint32 AlignToNormal:1;
 
@@ -291,13 +288,21 @@ public:
 	UPROPERTY(EditAnywhere, Category=InstanceSettings, meta=(HideObjectType=true))
 	TEnumAsByte<EHasCustomNavigableGeometry::Type> CustomNavigableGeometry;
 
+	/**
+	 * Lighting channels that placed foliage will be assigned. Lights with matching channels will affect the foliage.
+	 * These channels only apply to opaque materials, direct lighting, and dynamic lighting and shadowing.
+	 */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category=InstanceSettings)
+	FLightingChannels LightingChannels;
+
+#if WITH_EDITORONLY_DATA
 	/** Bitflag to represent in which editor views this foliage mesh is hidden. */
 	UPROPERTY(transient)
 	uint64 HiddenEditorViews;
 
 	UPROPERTY()
 	uint32 IsSelected:1;
-
+#endif
 public:
 	// PROCEDURAL
 
@@ -454,6 +459,17 @@ public:
 	/* If checked, foliage instances no longer matching the vertex color constraint will be removed by the Reapply too */
 	UPROPERTY(EditDefaultsOnly, Category=Reapply)
 	uint32 ReapplyVertexColorMask:1;
+
+public:
+	// SCALABILITY
+
+	/**
+	 * Whether this foliage type should be affected by the Engine Scalability system's Foliage scalability setting.
+	 * Enable for detail meshes that don't really affect the game. Disable for anything important.
+	 * Typically, this will be enabled for small meshes without collision (e.g. grass) and disabled for large meshes with collision (e.g. trees)
+	 */
+	UPROPERTY(EditAnywhere, Category=Scalability)
+	uint32 bEnableDensityScaling:1;
 
 private:
 

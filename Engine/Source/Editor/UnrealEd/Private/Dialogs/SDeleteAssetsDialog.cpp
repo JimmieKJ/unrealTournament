@@ -64,7 +64,7 @@ public:
 			FFormatNamedArguments Args;
 			Args.Add( TEXT( "AssetCount" ), FText::AsNumber( Item->RemainingDiskReferences ) );
 
-			FText OnDiskCountText = Item->RemainingDiskReferences > 1 ? FText::Format( LOCTEXT( "OnDiskReferences", "{AssetCount} References" ), Args ) : FText::Format( LOCTEXT( "OnDiskReference", "{AssetCount} Reference" ), Args );
+			FText OnDiskCountText = Item->RemainingDiskReferences > 1 ? FText::Format( LOCTEXT( "OnDiskAssetReferences", "{AssetCount} References" ), Args ) : FText::Format( LOCTEXT( "OnDiskAssetReference", "{AssetCount} Reference" ), Args );
 
 			return SNew( STextBlock )
 				.Text( OnDiskCountText )
@@ -461,7 +461,7 @@ FText SDeleteAssetsDialog::GetDeleteSourceContentTooltip() const
 	if (NumPrinted < TotalCount)
 	{
 		Args.Add(FText::AsNumber(TotalCount - NumPrinted));
-		RootText = LOCTEXT("DeleteSourceFiles_Tooltip", "When checked, the following source content files will also be deleted along with the assets:\n\n{0}\n... and {1} more.");
+		RootText = LOCTEXT("DeleteSourceFilesAndMore_Tooltip", "When checked, the following source content files will also be deleted along with the assets:\n\n{0}\n... and {1} more.");
 	}
 	else
 	{
@@ -913,8 +913,8 @@ TSharedPtr<SWidget> SDeleteAssetsDialog::OnGetAssetContextMenu( const TArray<FAs
 	MenuBuilder.BeginSection("AssetOptions", LOCTEXT("AssetOptionsText", "Asset Options"));
 	{
 		MenuBuilder.AddMenuEntry( FGenericCommands::Get().Delete, NAME_None,
-			LOCTEXT( "Delete", "Add to Pending Deletes" ),
-			LOCTEXT( "DeleteTooltip", "Adds the selected assets to the list of pending deleted assets." )
+			LOCTEXT( "AddPendingDelete", "Add to Pending Deletes" ),
+			LOCTEXT( "AddPendingDeleteTooltip", "Adds the selected assets to the list of pending deleted assets." )
 			);
 	}
 	MenuBuilder.EndSection();

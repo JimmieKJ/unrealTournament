@@ -26,6 +26,28 @@ enum ERoundingMode
 	ToPositiveInfinity,
 };
 
+UENUM(BlueprintType)
+enum class ETextGender : uint8
+{
+	Masculine,
+	Feminine,
+	Neuter,
+};
+
+UENUM(BlueprintType)
+namespace EFormatArgumentType
+{
+	enum Type
+	{
+		Int,
+		UInt,
+		Float,
+		Double,
+		Text,
+		Gender,
+	};
+}
+
 /**
  * Used to pass argument/value pairs into FText::Format.
  * The full C++ struct is located here: Engine\Source\Runtime\Core\Public\Internationalization\Text.h
@@ -33,11 +55,23 @@ enum ERoundingMode
 USTRUCT(noexport)
 struct FFormatArgumentData
 {
-	UPROPERTY(EditInstanceOnly, BlueprintReadWrite, Category=ArgumentValue)
+	UPROPERTY(EditInstanceOnly, BlueprintReadWrite, Category=ArgumentName)
 	FString ArgumentName;
 
 	UPROPERTY(EditInstanceOnly, BlueprintReadWrite, Category=ArgumentValue)
+	TEnumAsByte<EFormatArgumentType::Type> ArgumentValueType;
+
+	UPROPERTY(EditInstanceOnly, BlueprintReadWrite, Category=ArgumentValue)
 	FText ArgumentValue;
+
+	UPROPERTY(EditInstanceOnly, BlueprintReadWrite, Category=ArgumentValue)
+	int32 ArgumentValueInt;
+
+	UPROPERTY(EditInstanceOnly, BlueprintReadWrite, Category=ArgumentValue)
+	float ArgumentValueFloat;
+
+	UPROPERTY(EditInstanceOnly, BlueprintReadWrite, Category=ArgumentValue)
+	ETextGender ArgumentValueGender;
 };
 #endif
 
@@ -45,6 +79,30 @@ UCLASS()
 class ENGINE_API UKismetTextLibrary : public UBlueprintFunctionLibrary
 {
 	GENERATED_UCLASS_BODY()
+
+	/** Converts a vector value to a localizable text, in the form 'X= Y= Z=' */
+	UFUNCTION(BlueprintPure, meta = (DisplayName = "ToText (Vector)", CompactNodeTitle = "->", BlueprintAutocast), Category = "Utilities|Text")
+	static FText Conv_VectorToText(FVector InVec);
+
+	/** Converts a vector2d value to a localizable text, in the form 'X= Y=' */
+	UFUNCTION(BlueprintPure, meta = (DisplayName = "ToText (vector2d)", CompactNodeTitle = "->", BlueprintAutocast), Category = "Utilities|Text")
+	static FText Conv_Vector2dToText(FVector2D InVec);
+
+	/** Converts a rotator value to a localizable text, in the form 'P= Y= R=' */
+	UFUNCTION(BlueprintPure, meta = (DisplayName = "ToText (rotator)", CompactNodeTitle = "->", BlueprintAutocast), Category = "Utilities|Text")
+	static FText Conv_RotatorToText(FRotator InRot);
+
+	/** Converts a transform value to a localizable text, in the form 'Translation: X= Y= Z= Rotation: P= Y= R= Scale: X= Y= Z=' */
+	UFUNCTION(BlueprintPure, meta = (DisplayName = "ToText (transform)", CompactNodeTitle = "->", BlueprintAutocast), Category = "Utilities|Text")
+	static FText Conv_TransformToText(const FTransform& InTrans);
+
+	/** Converts a UObject value to a localizable text by calling the object's GetName method */
+	UFUNCTION(BlueprintPure, meta = (DisplayName = "ToText (object)", CompactNodeTitle = "->", BlueprintAutocast), Category = "Utilities|Text")
+	static FText Conv_ObjectToText(class UObject* InObj);
+
+	/** Converts a linear color value to a localizable text, in the form '(R=,G=,B=,A=)' */
+	UFUNCTION(BlueprintPure, meta = (DisplayName = "ToText (linear color)", CompactNodeTitle = "->", BlueprintAutocast), Category = "Utilities|Text")
+	static FText Conv_ColorToText(FLinearColor InColor);
 
 	/** Converts localizable text to the string */
 	UFUNCTION(BlueprintPure, meta = (DisplayName = "ToString (text)", CompactNodeTitle = "->", BlueprintAutocast), Category = "Utilities|String")
@@ -148,17 +206,29 @@ class ENGINE_API UKismetTextLibrary : public UBlueprintFunctionLibrary
 	UFUNCTION(BlueprintPure, meta=(DisplayName = "AsPercent", AdvancedDisplay = "1"), Category="Utilities|Text")
 	static FText AsPercent_Float(float Value, TEnumAsByte<ERoundingMode> RoundingMode, bool bUseGrouping = true, int32 MinimumIntegralDigits = 1, int32 MaximumIntegralDigits = 324, int32 MinimumFractionalDigits = 0, int32 MaximumFractionalDigits = 3);
 
-	/* Converts a passed in date & time to a text, formatted as a date */
+	/* Converts a passed in date & time to a text, formatted as a date using an invariant timezone. This will use the given date & time as-is, so it's assumed to already be in the correct timezone. */
 	UFUNCTION(BlueprintPure, meta=(DisplayName = "AsDate", AdvancedDisplay = "1"), Category="Utilities|Text")
 	static FText AsDate_DateTime(const FDateTime& InDateTime);
 
-	/* Converts a passed in date & time to a text, formatted as a date & time */
+	/* Converts a passed in date & time to a text, formatted as a date using the given timezone (default is the local timezone). This will convert the given date & time from UTC to the given timezone (taking into account DST). */
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "AsDate (from UTC)", AdvancedDisplay = "1"), Category="Utilities|Text")
+	static FText AsTimeZoneDate_DateTime(const FDateTime& InDateTime, const FString& InTimeZone = TEXT(""));
+
+	/* Converts a passed in date & time to a text, formatted as a date & time using an invariant timezone. This will use the given date & time as-is, so it's assumed to already be in the correct timezone. */
 	UFUNCTION(BlueprintPure, meta=(DisplayName = "AsDateTime", AdvancedDisplay = "1"), Category="Utilities|Text")
 	static FText AsDateTime_DateTime(const FDateTime& In);
 
-	/* Converts a passed in date & time to a text, formatted as a time */
+	/* Converts a passed in date & time to a text, formatted as a date & time using the given timezone (default is the local timezone). This will convert the given date & time from UTC to the given timezone (taking into account DST). */
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "AsDateTime (from UTC)", AdvancedDisplay = "1"), Category="Utilities|Text")
+	static FText AsTimeZoneDateTime_DateTime(const FDateTime& InDateTime, const FString& InTimeZone = TEXT(""));
+
+	/* Converts a passed in date & time to a text, formatted as a time using an invariant timezone. This will use the given date & time as-is, so it's assumed to already be in the correct timezone. */
 	UFUNCTION(BlueprintPure, meta=(DisplayName = "AsTime", AdvancedDisplay = "1"), Category="Utilities|Text")
 	static FText AsTime_DateTime(const FDateTime& In);
+
+	/* Converts a passed in date & time to a text, formatted as a time using the given timezone (default is the local timezone). This will convert the given date & time from UTC to the given timezone (taking into account DST). */
+	UFUNCTION(BlueprintPure, meta=(DisplayName = "AsTime (from UTC)", AdvancedDisplay = "1"), Category="Utilities|Text")
+	static FText AsTimeZoneTime_DateTime(const FDateTime& InDateTime, const FString& InTimeZone = TEXT(""));
 
 	/* Converts a passed in time span to a text, formatted as a time span */
 	UFUNCTION(BlueprintPure, meta=(DisplayName = "AsTimespan", AdvancedDisplay = "1"), Category="Utilities|Text")

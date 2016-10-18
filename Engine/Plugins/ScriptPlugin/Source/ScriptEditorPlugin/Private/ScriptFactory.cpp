@@ -145,7 +145,9 @@ EReimportResult::Type UReimportScriptFactory::Reimport(UObject* Obj)
 		return EReimportResult::Failed;
 	}
 
-	if (UFactory::StaticImportObject(ScriptClass->GetClass(), ScriptClass->GetOuter(), *ScriptClass->GetName(), RF_Public | RF_Standalone, *ResolvedSourceFilePath, NULL, this))
+	bool OutCanceled = false;
+
+	if (ImportObject(ScriptClass->GetClass(), ScriptClass->GetOuter(), *ScriptClass->GetName(), RF_Public | RF_Standalone, ResolvedSourceFilePath, nullptr, OutCanceled) != nullptr)
 	{
 		UE_LOG(LogScriptEditorPlugin, Log, TEXT("Imported successfully"));
 		// Try to find the outer package so we can dirty it up
@@ -157,6 +159,10 @@ EReimportResult::Type UReimportScriptFactory::Reimport(UObject* Obj)
 		{
 			ScriptClass->MarkPackageDirty();
 		}
+	}
+	else if(OutCanceled)
+	{
+		UE_LOG(LogScriptEditorPlugin, Warning, TEXT("-- import canceled"));
 	}
 	else
 	{

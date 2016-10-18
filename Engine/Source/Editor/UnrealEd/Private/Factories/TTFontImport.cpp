@@ -211,19 +211,23 @@ void UTrueTypeFontFactory::SetReimportPaths( UObject* Obj, const TArray<FString>
 EReimportResult::Type UTrueTypeFontFactory::Reimport( UObject* InObject )
 {
 	UFont* FontToReimport = Cast<UFont>(InObject);
-	bool bSuccess = false;
-	if ( FontToReimport != NULL )
+	
+	if (FontToReimport == nullptr)
 	{
-		SetupFontImportOptions();
-		this->ImportOptions->Data = FontToReimport->ImportOptions;
-
-		if (NULL != UFactory::StaticImportObject(InObject->GetClass(), InObject->GetOuter(), *InObject->GetName(), RF_Public|RF_Standalone, TEXT(""), NULL, this))
-		{
-			bSuccess = true;
-		}
+		return EReimportResult::Failed;
 	}
 
-	return bSuccess ? EReimportResult::Succeeded : EReimportResult::Failed;
+	SetupFontImportOptions();
+	this->ImportOptions->Data = FontToReimport->ImportOptions;
+
+	bool OutCanceled = false;
+
+	if (ImportObject(InObject->GetClass(), InObject->GetOuter(), *InObject->GetName(), RF_Public | RF_Standalone, TEXT(""), nullptr, OutCanceled) != nullptr)
+	{
+		return EReimportResult::Succeeded;
+	}
+
+	return EReimportResult::Failed;
 }
 
 int32 UTrueTypeFontFactory::GetPriority() const

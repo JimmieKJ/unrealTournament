@@ -26,7 +26,6 @@ const FString& EBuildPatchProgress::ToString(const EBuildPatchProgress::Type& Pr
 	static const FString CleanUp(TEXT("CleanUp"));
 	static const FString PrerequisitesInstall(TEXT("PrerequisitesInstall"));
 	static const FString Completed(TEXT("Completed"));
-	static const FString Error(TEXT("Error"));
 	static const FString Paused(TEXT("Paused"));
 	static const FString Default(TEXT("InvalidOrMax"));
 
@@ -54,8 +53,6 @@ const FString& EBuildPatchProgress::ToString(const EBuildPatchProgress::Type& Pr
 			return PrerequisitesInstall;
 		case EBuildPatchProgress::Completed:
 			return Completed;
-		case EBuildPatchProgress::Error:
-			return Error;
 		case EBuildPatchProgress::Paused:
 			return Paused;
 		default:
@@ -75,7 +72,6 @@ const FText& EBuildPatchProgress::ToText(const EBuildPatchProgress::Type& Progre
 	static const FText CleanUp = LOCTEXT("EBuildPatchProgress_CleanUp", "Cleaning up");
 	static const FText PrerequisitesInstall = LOCTEXT("EBuildPatchProgress_PrerequisitesInstall", "Prerequisites");
 	static const FText Completed = LOCTEXT("EBuildPatchProgress_Complete", "Complete");
-	static const FText Error = LOCTEXT("EBuildPatchProgress_Error", "Error");
 	static const FText Paused = LOCTEXT("EBuildPatchProgress_Paused", "Paused");
 	static const FText Empty = FText::GetEmpty();
 
@@ -101,8 +97,6 @@ const FText& EBuildPatchProgress::ToText(const EBuildPatchProgress::Type& Progre
 			return PrerequisitesInstall;
 		case EBuildPatchProgress::Completed:
 			return Completed;
-		case EBuildPatchProgress::Error:
-			return Error;
 		case EBuildPatchProgress::Paused:
 			return Paused;
 		default:
@@ -122,8 +116,6 @@ void FBuildPatchProgress::Reset()
 	TotalWeight = 0.0f;
 	CurrentState = EBuildPatchProgress::Queued;
 	CurrentProgress = 0.0f;
-	ErrorText = FText::GetEmpty();
-	ShortErrorText = FText::GetEmpty();
 
 	// Initialize array data
 	for( uint32 idx = 0; idx < EBuildPatchProgress::NUM_PROGRESS_STATES; ++idx )
@@ -159,17 +151,13 @@ void FBuildPatchProgress::SetStateWeight( const EBuildPatchProgress::Type& State
 	}
 }
 
-const FText& FBuildPatchProgress::GetStateText( bool ShortError )
+const FText& FBuildPatchProgress::GetStateText()
 {
-	FScopeLock ScopeLock( &ThreadLock );
-	if( CurrentState == EBuildPatchProgress::Error )
-	{
-		return ShortError ? ShortErrorText : ErrorText;
-	}
-	return EBuildPatchProgress::ToText( CurrentState );
+	FScopeLock ScopeLock(&ThreadLock);
+	return EBuildPatchProgress::ToText(CurrentState);
 }
 
-const float FBuildPatchProgress::GetProgress()
+float FBuildPatchProgress::GetProgress()
 {
 	FScopeLock ScopeLock( &ThreadLock );
 	if( bHasProgressValue[ CurrentState ] )
@@ -180,19 +168,25 @@ const float FBuildPatchProgress::GetProgress()
 	return -1.0f;
 }
 
-const float FBuildPatchProgress::GetStateProgress( const EBuildPatchProgress::Type& State )
+float FBuildPatchProgress::GetProgressNoMarquee()
+{
+	FScopeLock ScopeLock( &ThreadLock );
+	return CurrentProgress;
+}
+
+float FBuildPatchProgress::GetStateProgress( const EBuildPatchProgress::Type& State )
 {
 	FScopeLock ScopeLock( &ThreadLock );
 	return StateProgressValues[ State ];
 }
 
-const float FBuildPatchProgress::GetStateWeight(const EBuildPatchProgress::Type& State)
+float FBuildPatchProgress::GetStateWeight(const EBuildPatchProgress::Type& State)
 {
 	FScopeLock ScopeLock( &ThreadLock );
 	return StateProgressWeights[ State ];
 }
 
-const bool FBuildPatchProgress::TogglePauseState()
+bool FBuildPatchProgress::TogglePauseState()
 {
 	FScopeLock ScopeLock( &ThreadLock );
 
@@ -211,13 +205,13 @@ const bool FBuildPatchProgress::TogglePauseState()
 	}
 }
 
-const bool FBuildPatchProgress::GetPauseState()
+bool FBuildPatchProgress::GetPauseState()
 {
 	FScopeLock ScopeLock( &ThreadLock );
 	return CurrentState == EBuildPatchProgress::Paused;
 }
 
-const double FBuildPatchProgress::WaitWhilePaused()
+double FBuildPatchProgress::WaitWhilePaused()
 {
 	// Pause if necessary
 	const double PrePauseTime = FPlatformTime::Seconds();
@@ -235,17 +229,8 @@ void FBuildPatchProgress::UpdateProgressInfo()
 {
 	FScopeLock ScopeLock( &ThreadLock );
 
-	// Override state to error if an error was set
-	if( FBuildPatchInstallError::HasFatalError() )
-	{
-		CurrentState = EBuildPatchProgress::Error;
-		ErrorText = FBuildPatchInstallError::GetErrorText();
-		ShortErrorText = FBuildPatchInstallError::GetShortErrorText();
-		return;
-	}
-
-	// If we are paused, we don't change the state or progress value
-	if( CurrentState == EBuildPatchProgress::Paused )
+	// If we are paused or there's an error, we don't change the state or progress value
+	if( FBuildPatchInstallError::HasFatalError() || CurrentState == EBuildPatchProgress::Paused )
 	{
 		return;
 	}
@@ -305,7 +290,6 @@ const bool FBuildPatchProgress::bHasProgressValue[EBuildPatchProgress::NUM_PROGR
 	false, // CleanUp
 	false, // PrerequisitesInstall
 	false, // Completed
-	false, // Error
 	true   // Paused
 };
 
@@ -322,7 +306,6 @@ const bool FBuildPatchProgress::bCountsTowardsProgress[EBuildPatchProgress::NUM_
 	false, // CleanUp
 	false, // PrerequisitesInstall
 	false, // Completed
-	false, // Error
 	false  // Paused
 };
 

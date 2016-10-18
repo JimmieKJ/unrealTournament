@@ -1,12 +1,19 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <TpsData xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
-  <Name>(ACES) Academy Color Encoding System</Name>
-  <Location>//depot/UE4/Engine/Shaders/</Location>
-  <Date>2015-04-20T19:38:09.1037463-04:00</Date>
+  <Name>Academy Color Encoding System (ACES)</Name>
+  <Location>/Engine/Shaders/</Location>
+  <Date>2016-06-07T12:25:10.9465434-04:00</Date>
   <Function>Color transforms</Function>
   <Justification>Basis for new tone mapper. Interface to VFX color grading workflows.</Justification>
-  <Platforms />
-  <Products />
+  <Platforms>
+    <Platform>PC</Platform>
+    <Platform>Mac</Platform>
+    <Platform>Linux</Platform>
+  </Platforms>
+  <Products>
+    <Product>UDK4</Product>
+    <Product>UE4</Product>
+  </Products>
   <TpsType>Source Code</TpsType>
   <Eula>http://www.oscars.org/science-technology/legal</Eula>
   <RedistributeTo>
@@ -64,5 +71,5 @@ A.M.P.A.S. is not responsible for reviewing any user messages and does not accep
 A.M.P.A.S. reserves the right to disclose personal information when A.M.P.A.S. believes such action is required by law, when such action is necessary to comply with a legal process served on A.M.P.A.S., to protect and defend the rights or property of A.M.P.A.S., to identify persons who may be violating the law or the rights of third parties, and to cooperate with government authority investigations of purported unlawful activities.
 
  </Notification>
-  <LicenseFolder />
+  <LicenseFolder>/Engine/Source/ThirdParty/Licenses/ACES_License.txt</LicenseFolder>
 </TpsData>

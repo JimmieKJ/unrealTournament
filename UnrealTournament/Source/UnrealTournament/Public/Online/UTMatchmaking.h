@@ -6,7 +6,6 @@
 #include "UTPartyBeaconClient.h"
 #include "PartyGameState.h"
 #include "UTMatchmakingPolicy.h"
-#include "QosEvaluator.h"
 #include "UTMatchmaking.generated.h"
 
 class AUTBasePlayerController;
@@ -118,7 +117,7 @@ public:
 	void RetryFindGatheringSession();
 
 	/** Generic delegate for lobby flow */
-	DECLARE_MULTICAST_DELEGATE(FOnMatchmakingStarted);
+	DECLARE_MULTICAST_DELEGATE_OneParam(FOnMatchmakingStarted, bool);
 	DECLARE_MULTICAST_DELEGATE_OneParam(FOnMatchmakingComplete, EMatchmakingCompleteResult /* Result */);
 	DECLARE_MULTICAST_DELEGATE_ThreeParams(FOnMatchmakingStateChange, EMatchmakingState::Type /*OldState*/, EMatchmakingState::Type /*NewState*/, const FMMAttemptState& /*MMState*/);
 	DECLARE_MULTICAST_DELEGATE_OneParam(FOnConnectToLobby, const FOnlineSessionSearchResult& /*SearchResult*/)
@@ -144,6 +143,7 @@ public:
 	int32 GetMatchmakingEloRange();
 	int32 GetMatchmakingTeamElo();
 	int32 GetEstimatedMatchmakingTime();
+	bool IsRankedMatchmaking();
 
 private:
 
@@ -358,6 +358,8 @@ private:
 
 	void DisconnectFromLobby();
 	void OnDisconnectFromLobbyComplete(FName SessionName, bool bWasSuccessful);
+
+	void TravelPartyToServer();
 
 	/**
 	 * Helpers

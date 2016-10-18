@@ -254,7 +254,7 @@ class UParticleEmitter : public UObject
 	ENGINE_API void	ChangeEditorColor(FColor& Color, UInterpCurveEdSetup* EdSetup);
 
 	// @todo document
-	void	AutoPopulateInstanceProperties(UParticleSystemComponent* PSysComp);
+	ENGINE_API void	AutoPopulateInstanceProperties(UParticleSystemComponent* PSysComp);
 
 	/** CreateLODLevel
 	 *	Creates the given LOD level.

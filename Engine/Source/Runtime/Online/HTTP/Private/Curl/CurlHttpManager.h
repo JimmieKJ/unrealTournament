@@ -14,31 +14,11 @@
 
 class FCurlHttpManager : public FHttpManager
 {
-protected:
-
-	/** multi handle that groups all the requests - not owned by this class */
-	CURLM * MultiHandle;
-
-	/** Cached value of running request to reduce number of read info calls*/
-	int LastRunningRequests;
-
-	/** Mapping of libcurl easy handles to HTTP requests */
-	TMap<CURL*, TSharedRef<class IHttpRequest> > HandlesToRequests;
-
 public:
-
-	//~ Begin HttpManager Interface
-	virtual void AddRequest(const TSharedRef<class IHttpRequest>& Request) override;
-	virtual void RemoveRequest(const TSharedRef<class IHttpRequest>& Request) override;
-	virtual bool Tick(float DeltaSeconds) override;
-	//~ End HttpManager Interface
-
-	FCurlHttpManager();
-
 	static void InitCurl();
 	static void ShutdownCurl();
-	static CURLM * GMultiHandle;
 	static CURLSH* GShareHandle;
+	static CURLM * GMultiHandle;
 
 	static struct FCurlRequestOptions
 	{
@@ -68,6 +48,11 @@ public:
 		const char * CertBundlePath;
 	}
 	CurlRequestOptions;
+
+protected:
+	//~ Begin HttpManager Interface
+	virtual FHttpThread* CreateHttpThread() override;
+	//~ End HttpManager Interface
 };
 
 #endif //WITH_LIBCURL

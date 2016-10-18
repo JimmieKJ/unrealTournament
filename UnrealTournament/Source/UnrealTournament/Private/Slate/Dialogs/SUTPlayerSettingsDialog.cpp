@@ -659,6 +659,7 @@ void SUTPlayerSettingsDialog::Construct(const FArguments& InArgs)
 						.Padding(ValueColumnPadding)
 						[
 							SAssignNew(WeaponBobScaling, SSlider)
+							.IndentHandle(false)
 							.Orientation(Orient_Horizontal)
 							.Style(SUWindowsStyle::Get(),"UT.Common.Slider")
 							.Value(GetDefault<AUTPlayerController>()->WeaponBobGlobalScaling / BOB_SCALING_FACTOR)
@@ -678,6 +679,7 @@ void SUTPlayerSettingsDialog::Construct(const FArguments& InArgs)
 						.Padding(ValueColumnPadding)
 						[
 							SAssignNew(ViewBobScaling, SSlider)
+							.IndentHandle(false)
 							.Style(SUWindowsStyle::Get(),"UT.Common.Slider")
 							.Orientation(Orient_Horizontal)
 							.Value(GetDefault<AUTPlayerController>()->EyeOffsetGlobalScaling / BOB_SCALING_FACTOR)
@@ -698,6 +700,7 @@ void SUTPlayerSettingsDialog::Construct(const FArguments& InArgs)
 						.Padding(ValueColumnPadding)
 						[
 							SAssignNew(FOV, SSlider)
+							.IndentHandle(false)
 							.Style(SUWindowsStyle::Get(), "UT.Common.Slider")
 							.Orientation(Orient_Horizontal)
 							.Value(FOVSliderSetting)
@@ -983,7 +986,10 @@ FReply SUTPlayerSettingsDialog::OKClick()
 	AUTPlayerController* UTPlayerController = Cast<AUTPlayerController>(GetPlayerOwner()->PlayerController);
 	if (UTPlayerController != NULL)
 	{
-		UTPlayerController->ServerChangeName(PlayerName->GetText().ToString());
+		if (!PlayerName->GetText().ToString().IsEmpty())
+		{
+			UTPlayerController->ServerChangeName(PlayerName->GetText().ToString());
+		}
 		UTPlayerController->WeaponBobGlobalScaling = WeaponBobScaling->GetValue() * BOB_SCALING_FACTOR;
 		UTPlayerController->EyeOffsetGlobalScaling = ViewBobScaling->GetValue() * BOB_SCALING_FACTOR;
 		UTPlayerController->FFAPlayerColor = SelectedPlayerColor;

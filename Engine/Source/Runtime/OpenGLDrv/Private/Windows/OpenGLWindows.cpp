@@ -82,6 +82,11 @@ public:
 		}
 	}
 
+	bool ContextWasAlreadyActive() const
+	{
+		return bSameDCAndContext;
+	}
+
 private:
 	HDC					PrevDC;
 	HGLRC				PrevContext;
@@ -182,8 +187,13 @@ static void PlatformCreateDummyGLWindow(FPlatformOpenGLContext* OutContext)
 static bool PlatformOpenGL3()
 {
 	// OpenGL3 is our default platform for Windows XP
-	return FWindowsPlatformMisc::VerifyWindowsVersion(6, 0) == false || FParse::Param(FCommandLine::Get(),TEXT("opengl")) || FParse::Param(FCommandLine::Get(),TEXT("opengl3"));
+#if (WINVER < 0x0600)
+	return true;
+#else
+	return FParse::Param(FCommandLine::Get(),TEXT("opengl")) || FParse::Param(FCommandLine::Get(),TEXT("opengl3"));
+#endif
 }
+
 static bool PlatformOpenGL4()
 {
 	return FParse::Param(FCommandLine::Get(),TEXT("opengl4"));
@@ -191,12 +201,26 @@ static bool PlatformOpenGL4()
 
 static void PlatformOpenGLVersionFromCommandLine(int& OutMajorVersion, int& OutMinorVersion)
 {
-	if(PlatformOpenGL3())
+	bool bGL3 = PlatformOpenGL3();
+	bool bGL4 = PlatformOpenGL4();
+	if (!bGL3 && !bGL4)
+	{
+		if (GRequestedFeatureLevel == ERHIFeatureLevel::SM5)
+		{
+			bGL4 = true;
+		}
+		else
+		{
+			bGL3 = true;
+		}
+	}
+
+	if (bGL3)
 	{
 		OutMajorVersion = 3;
 		OutMinorVersion = 2;
 	}
-	else if (PlatformOpenGL4())
+	else if (bGL4)
 	{
 		OutMajorVersion = 4;
 		OutMinorVersion = 3;
@@ -382,10 +406,14 @@ void PlatformReleaseOpenGLContext(FPlatformOpenGLDevice* Device, FPlatformOpenGL
 	Device->ViewportContexts.RemoveSingle(Context);
 	Device->TargetDirty = true;
 
+	bool bActiveContextWillBeReleased = false;
+
 	{
 		FScopeLock ScopeLock(Device->ContextUsageGuard);
 		{
 			FScopeContext ScopeContext(Context);
+
+			bActiveContextWillBeReleased = ScopeContext.ContextWasAlreadyActive();
 
 			DeleteQueriesForCurrentContext(Context->OpenGLContext);
 			glBindVertexArray(0);
@@ -404,7 +432,7 @@ void PlatformReleaseOpenGLContext(FPlatformOpenGLDevice* Device, FPlatformOpenGL
 
 	check(Context->DeviceContext);
 
-	if (wglGetCurrentDC() == Context->DeviceContext)
+	if (bActiveContextWillBeReleased)
 	{
 		wglMakeCurrent( NULL, NULL );
 	}

@@ -83,6 +83,7 @@ public:
 	FShaderParameter PlusWeights;
 	FShaderParameter RandomOffset;
 	FShaderParameter DitherScale;
+	FShaderParameter VelocityScaling;
 
 	/** Initialization constructor. */
 	FPostProcessTemporalAAPS(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
@@ -95,13 +96,14 @@ public:
 		PlusWeights.Bind(Initializer.ParameterMap, TEXT("PlusWeights"));
 		RandomOffset.Bind(Initializer.ParameterMap, TEXT("RandomOffset"));
 		DitherScale.Bind(Initializer.ParameterMap, TEXT("DitherScale"));
+		VelocityScaling.Bind(Initializer.ParameterMap, TEXT("VelocityScaling"));
 	}
 
 	// FShader interface.
 	virtual bool Serialize(FArchive& Ar) override
 	{
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
-		Ar << PostprocessParameter << DeferredParameters << SampleWeights << LowpassWeights << PlusWeights << RandomOffset << DitherScale;
+		Ar << PostprocessParameter << DeferredParameters << SampleWeights << LowpassWeights << PlusWeights << RandomOffset << DitherScale << VelocityScaling;
 		return bShaderHasOutdatedParameters;
 	}
 
@@ -205,6 +207,9 @@ public:
 		}
 
 		SetShaderValue(Context.RHICmdList, ShaderRHI, DitherScale, bUseDither ? 1.0f : 0.0f);
+
+		const bool bIgnoreVelocity = (ViewState && ViewState->bSequencerIsPaused);
+		SetShaderValue(Context.RHICmdList, ShaderRHI, VelocityScaling, bIgnoreVelocity ? 0.0f : 1.0f);
 
 		SetUniformBufferParameter(Context.RHICmdList, ShaderRHI, GetUniformBufferParameter<FCameraMotionParameters>(), CreateCameraMotionParametersUniformBuffer(Context.View));
 	}
@@ -756,16 +761,16 @@ void FRCPassPostProcessTemporalAA::Process(FRenderingCompositePassContext& Conte
 		NonConstView.ViewMatrices.TranslatedViewProjectionMatrix = NonConstView.ViewMatrices.TranslatedViewMatrix * NonConstView.ViewMatrices.ProjMatrix;
 		NonConstView.ViewMatrices.InvTranslatedViewProjectionMatrix = NonConstView.ViewMatrices.GetInvProjMatrix() * NonConstView.ViewMatrices.TranslatedViewMatrix.Inverse();
 
-		NonConstView.InitRHIResources(nullptr);
+		NonConstView.InitRHIResources();
 	}
 }
 
 FPooledRenderTargetDesc FRCPassPostProcessTemporalAA::ComputeOutputDesc(EPassOutputId InPassOutputId) const
 {
 	FPooledRenderTargetDesc Ret = GetInput(ePId_Input0)->GetOutput()->RenderTargetDesc;
-
 	Ret.Reset();
-	//Ret.Format = PF_FloatRGBA;
+	//regardless of input type, PF_FloatRGBA is required to properly accumulate between frames for a good result.
+	Ret.Format = PF_FloatRGBA;
 	Ret.DebugName = TEXT("TemporalAA");
 	Ret.AutoWritable = false;
 

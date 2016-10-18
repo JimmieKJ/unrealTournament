@@ -727,7 +727,7 @@ void SUTWeaponConfigDialog::GatherWeaponData(UUTProfileSettings* ProfileSettings
 				if (TestClass != NULL && !TestClass->HasAnyClassFlags(CLASS_Abstract) && TestClass->IsChildOf(AUTWeapon::StaticClass()))
 				{
 					AUTWeapon* WeaponDefaultObject = TestClass->GetDefaultObject<AUTWeapon>();
-					if (!WeaponDefaultObject->bHideInMenus)
+					if (WeaponDefaultObject != nullptr && !WeaponDefaultObject->bHideInMenus)
 					{
 						bool bFound = false;
 						for (int32 i=0; i < AllWeapons.Num(); i++)
@@ -887,43 +887,46 @@ void SUTWeaponConfigDialog::GenerateWeaponList(UClass* DesiredSelectedWeaponClas
 		GroupBoxes[Group].NoButtons++;
 		TSharedPtr<SUTButton> Button;
 
-		ButtonBox->AddSlot(Col, Row).Padding(5.0f, 5.0f, 5.0f, 5.0f)
-		[
-			SNew(SVerticalBox)
-			+ SVerticalBox::Slot().AutoHeight()
+		if (AllWeapons[i].WeaponDefaultObject.IsValid())
+		{
+			ButtonBox->AddSlot(Col, Row).Padding(5.0f, 5.0f, 5.0f, 5.0f)
 			[
-				SNew(SBox).WidthOverride(192).HeightOverride(96)
+				SNew(SVerticalBox)
+				+ SVerticalBox::Slot().AutoHeight()
 				[
-					SNew(SVerticalBox)
-					+ SVerticalBox::Slot().HAlign(HAlign_Center)
+					SNew(SBox).WidthOverride(192).HeightOverride(96)
 					[
-						SAssignNew(Button, SUTButton)
-						.OnClicked(this, &SUTWeaponConfigDialog::WeaponClicked, i)
-						.IsToggleButton(true)
-						.ButtonStyle(SUTStyle::Get(), "UT.WeaponConfig.Button")
-						.ClickMethod(EButtonClickMethod::MouseDown)
-						.ToolTip(SUTUtils::CreateTooltip(AllWeapons[i].WeaponDefaultObject->DisplayName))
+						SNew(SVerticalBox)
+						+ SVerticalBox::Slot().HAlign(HAlign_Center)
 						[
-							SNew(SVerticalBox)
-							+ SVerticalBox::Slot().HAlign(HAlign_Center).AutoHeight()
-							[	
-								SNew(STextBlock)
-								.Text(AllWeapons[i].WeaponDefaultObject->DisplayName)
-								.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Tiny.Bold")
-							]
-							+ SVerticalBox::Slot().HAlign(HAlign_Center).AutoHeight()
+							SAssignNew(Button, SUTButton)
+							.OnClicked(this, &SUTWeaponConfigDialog::WeaponClicked, i)
+							.IsToggleButton(true)
+							.ButtonStyle(SUTStyle::Get(), "UT.WeaponConfig.Button")
+							.ClickMethod(EButtonClickMethod::MouseDown)
+							.ToolTip(SUTUtils::CreateTooltip(AllWeapons[i].WeaponDefaultObject->DisplayName))
 							[
-								SNew(SBox).WidthOverride(144).HeightOverride(72).HAlign(HAlign_Fill).VAlign(VAlign_Fill)
+								SNew(SVerticalBox)
+								+ SVerticalBox::Slot().HAlign(HAlign_Center).AutoHeight()
+								[	
+									SNew(STextBlock)
+									.Text(AllWeapons[i].WeaponDefaultObject->DisplayName)
+									.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Tiny.Bold")
+								]
+								+ SVerticalBox::Slot().HAlign(HAlign_Center).AutoHeight()
 								[
-									SNew(SImage)
-									.Image(AllWeapons[i].WeaponIconBrush)
+									SNew(SBox).WidthOverride(144).HeightOverride(72).HAlign(HAlign_Fill).VAlign(VAlign_Fill)
+									[
+										SNew(SImage)
+										.Image(AllWeapons[i].WeaponIconBrush)
+									]
 								]
 							]
 						]
 					]
 				]
-			]
-		];
+			];
+		}
 
 		AllWeapons[i].WeaponButton = Button;
 		if (DesiredSelectedWeaponClass != nullptr && AllWeapons[i].WeaponClass == DesiredSelectedWeaponClass)
@@ -1085,9 +1088,22 @@ void SUTWeaponConfigDialog::CalcCrosshairIndex()
 	FName CrosshairTag = AllWeapons[CurrentWeaponIndex].WeaponCustomizationInfo->DefaultCrosshairTag;
 	if (bCustomWeaponCrosshairs)
 	{
-		CrosshairTag = bSingleCustomWeaponCrosshair
-			? SingleCustomWeaponCrosshair.CrosshairTag
-			: AllWeapons[CurrentWeaponIndex].WeaponCustomizationInfo->CrosshairTag;
+		if (bSingleCustomWeaponCrosshair)
+		{
+			CrosshairTag = SingleCustomWeaponCrosshair.CrosshairTag;
+			if (ColorPicker.IsValid())
+			{
+				ColorPicker->UTSetNewTargetColorRGB(SingleCustomWeaponCrosshair.CrosshairColorOverride);
+			}
+		}
+		else
+		{
+			CrosshairTag = AllWeapons[CurrentWeaponIndex].WeaponCustomizationInfo->CrosshairTag;
+			if (ColorPicker.IsValid() && AllWeapons.IsValidIndex(CurrentWeaponIndex) && AllWeapons[CurrentWeaponIndex].WeaponCustomizationInfo)
+			{
+				ColorPicker->UTSetNewTargetColorRGB(AllWeapons[CurrentWeaponIndex].WeaponCustomizationInfo->CrosshairColorOverride);
+			}
+		}
 	}
 
 	CurrentCrosshairIndex = 0;
@@ -1138,6 +1154,8 @@ void SUTWeaponConfigDialog::DragPreview(const FGeometry& MyGeometry, const FPoin
 void SUTWeaponConfigDialog::ZoomPreview(float WheelDelta)
 {
 	PreviewCameraFreeLookOffset.X += (WheelDelta > 0.0f) ? 10.0f : -10.0f;
+	PreviewCameraFreeLookOffset.X = FMath::Clamp<float>(PreviewCameraFreeLookOffset.X, -96.0f, 96.0f);
+
 	TimeSinceLastCameraAdjustment = 0;
 }
 
@@ -1157,7 +1175,7 @@ TSharedRef<SWidget> SUTWeaponConfigDialog::GenerateWeaponHand(UUTProfileSettings
 	TSharedPtr<FText> InitiallySelectedHand = WeaponHandList[0];
 	for (TSharedPtr<FText> TestItem : WeaponHandList)
 	{
-		if (TestItem.Get()->EqualTo(WeaponHandDesc[uint8(Profile->WeaponHand.GetValue())]))
+		if (TestItem.Get()->EqualTo(WeaponHandDesc[uint8(Profile->WeaponHand)]))
 		{
 			InitiallySelectedHand = TestItem;
 		}
@@ -1452,7 +1470,7 @@ FText SUTWeaponConfigDialog::GetVariantTitle() const
 
 FText SUTWeaponConfigDialog::GetVariantCount() const
 {
-	return FText::Format(NSLOCTEXT("SUTWeaponConfigDialog", "VariantCountFormat", "{0} of {1}"), FText::AsNumber(CurrentWeaponPreviewIndex + 1), FText::AsNumber(bShowingCrosshairs ? AllCrosshairs.Num() : WeaponPreviewActors.Num()));
+	return FText::Format(NSLOCTEXT("SUTWeaponConfigDialog", "VariantCountFormat", "{0} of {1}"), FText::AsNumber(bShowingCrosshairs ? CurrentCrosshairIndex + 1 : CurrentWeaponPreviewIndex + 1), FText::AsNumber(bShowingCrosshairs ? AllCrosshairs.Num() : WeaponPreviewActors.Num()));
 }
 
 FReply SUTWeaponConfigDialog::HandleNextPrevious(int32 Step)
@@ -1767,7 +1785,7 @@ FReply SUTWeaponConfigDialog::OnButtonClick(uint16 ButtonID)
 				ProfileSettings->WeaponCustomizations.Add(WeaponCustomizationTag, FWeaponCustomizationInfo(*AllWeapons[i].WeaponCustomizationInfo));
 			}
 
-			if (!AllWeapons[i].WeaponSkinClassname.IsEmpty())
+			if (!AllWeapons[i].WeaponSkinClassname.IsEmpty() && AllWeapons[i].WeaponDefaultObject.IsValid())
 			{
 				ProfileSettings->WeaponSkins.Add(AllWeapons[i].WeaponDefaultObject->WeaponSkinCustomizationTag,AllWeapons[i].WeaponSkinClassname);
 			}

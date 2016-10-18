@@ -83,24 +83,24 @@ public:
 /** Default constructor. */
 FTriangleVertexFactory()
 {
-	FLocalVertexFactory::FDataType Data;
+	FLocalVertexFactory::FDataType VertexData;
 	// position
-	Data.PositionComponent = FVertexStreamComponent(
+	VertexData.PositionComponent = FVertexStreamComponent(
 		&GTriangleRendererVertexBuffer, STRUCT_OFFSET(FMaterialTriangleVertex, Position), sizeof(FMaterialTriangleVertex), VET_Float3);
 		// tangents
-		Data.TangentBasisComponents[0] = FVertexStreamComponent(
+		VertexData.TangentBasisComponents[0] = FVertexStreamComponent(
 		&GTriangleRendererVertexBuffer, STRUCT_OFFSET(FMaterialTriangleVertex, TangentX), sizeof(FMaterialTriangleVertex), VET_PackedNormal);
-		Data.TangentBasisComponents[1] = FVertexStreamComponent(
+		VertexData.TangentBasisComponents[1] = FVertexStreamComponent(
 		&GTriangleRendererVertexBuffer, STRUCT_OFFSET(FMaterialTriangleVertex, TangentZ), sizeof(FMaterialTriangleVertex), VET_PackedNormal);
 		// color
-		Data.ColorComponent = FVertexStreamComponent(
+		VertexData.ColorComponent = FVertexStreamComponent(
 		&GTriangleRendererVertexBuffer, STRUCT_OFFSET(FMaterialTriangleVertex, Color), sizeof(FMaterialTriangleVertex), VET_Color);
 		// UVs
-		Data.TextureCoordinates.Add(FVertexStreamComponent(
+		VertexData.TextureCoordinates.Add(FVertexStreamComponent(
 		&GTriangleRendererVertexBuffer, STRUCT_OFFSET(FMaterialTriangleVertex, U), sizeof(FMaterialTriangleVertex), VET_Float2));
 		
 		// update the data
-		SetData(Data);
+		SetData(VertexData);
 	}
 };
 
@@ -287,7 +287,7 @@ bool FCanvasTriangleRendererItem::Render_GameThread(const FCanvas* Canvas)
 	const FRenderTarget* CanvasRenderTarget = Canvas->GetRenderTarget();
 	FSceneViewFamily* ViewFamily = new FSceneViewFamily(FSceneViewFamily::ConstructionValues(
 		CanvasRenderTarget,
-		nullptr,
+		Canvas->GetScene(),
 		FEngineShowFlags(ESFIM_Game))
 		.SetWorldTimes(CurrentWorldTime, DeltaWorldTime, CurrentRealTime)
 		.SetGammaCorrection(CanvasRenderTarget->GetDisplayGamma()));

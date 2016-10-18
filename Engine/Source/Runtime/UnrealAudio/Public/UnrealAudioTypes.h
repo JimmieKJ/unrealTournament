@@ -9,8 +9,6 @@
 #define ENABLE_UNREAL_AUDIO 0
 #endif
 
-#include "UnrealAudioModule.h"
-
 // Turns on extra checks and asserts for debugging threading code
 #define ENABLE_UNREAL_AUDIO_THREAD_DEBUGGING		1
 #define ENABLE_UNREAL_AUDIO_EXTRA_DEBUG_CHECKS		1

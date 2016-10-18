@@ -196,7 +196,7 @@ FString FIOSPlatformMisc::GetDefaultLocale()
 
 EAppReturnType::Type FIOSPlatformMisc::MessageBoxExt( EAppMsgType::Type MsgType, const TCHAR* Text, const TCHAR* Caption )
 {
-#if PLATFORM_TVOS
+#if UE_BUILD_SHIPPING || PLATFORM_TVOS
 	return FGenericPlatformMisc::MessageBoxExt(MsgType, Text, Caption);
 #else
 	NSString* CocoaText = (NSString*)FPlatformString::TCHARToCFString(Text);
@@ -318,6 +318,27 @@ EAppReturnType::Type FIOSPlatformMisc::MessageBoxExt( EAppMsgType::Type MsgType,
 #endif
 }
 
+uint32 FIOSPlatformMisc::GetCharKeyMap(uint32* KeyCodes, FString* KeyNames, uint32 MaxMappings)
+{
+	return FGenericPlatformMisc::GetStandardPrintableKeyMap(KeyCodes, KeyNames, MaxMappings, true, true);
+}
+
+uint32 FIOSPlatformMisc::GetKeyMap( uint32* KeyCodes, FString* KeyNames, uint32 MaxMappings )
+{
+#define ADDKEYMAP(KeyCode, KeyName)		if (NumMappings<MaxMappings) { KeyCodes[NumMappings]=KeyCode; KeyNames[NumMappings]=KeyName; ++NumMappings; };
+	
+	uint32 NumMappings = 0;
+	
+	// we only handle a few "fake" keys from the IOS keyboard delegate stuff in IOSView.cpp
+	if (KeyCodes && KeyNames && (MaxMappings > 0))
+	{
+		ADDKEYMAP(KEYCODE_ENTER, TEXT("Enter"));
+		ADDKEYMAP(KEYCODE_BACKSPACE, TEXT("BackSpace"));
+		ADDKEYMAP(KEYCODE_ESCAPE, TEXT("Escape"));
+	}
+	return NumMappings;
+}
+
 bool FIOSPlatformMisc::ControlScreensaver(EScreenSaverAction Action)
 {
 	IOSAppDelegate* AppDelegate = [IOSAppDelegate GetDelegate];
@@ -395,13 +416,14 @@ FIOSPlatformMisc::EIOSDevice FIOSPlatformMisc::GetIOSDeviceType()
 
 	// convert to NSStringt
 	NSString *DeviceIDString= [NSString stringWithCString:DeviceID encoding:NSUTF8StringEncoding];
+    FString DeviceIDFstring = FString(DeviceIDString);
 	free(DeviceID);
 
 	// iPods
 	if ([DeviceIDString hasPrefix:@"iPod"])
 	{
 		// get major revision number
-		int Major = [DeviceIDString characterAtIndex:4] - '0';
+        int Major = FCString::Atoi(&DeviceIDFstring[4]);
 
 		if (Major == 5)
 		{
@@ -416,8 +438,8 @@ FIOSPlatformMisc::EIOSDevice FIOSPlatformMisc::GetIOSDeviceType()
 	else if ([DeviceIDString hasPrefix:@"iPad"])
 	{
 		// get major revision number
-		int Major = [DeviceIDString characterAtIndex:4] - '0';
-		int Minor = [DeviceIDString characterAtIndex:6] - '0';
+		int Major = FCString::Atoi(&DeviceIDFstring[4]);
+		int Minor = FCString::Atoi(&DeviceIDFstring[([DeviceIDString rangeOfString:@","].location + 1)]);
 
 		// iPad2,[1|2|3] is iPad 2 (1 - wifi, 2 - gsm, 3 - cdma)
 		if (Major == 2)
@@ -471,7 +493,14 @@ FIOSPlatformMisc::EIOSDevice FIOSPlatformMisc::GetIOSDeviceType()
 		}
 		else if (Major == 6)
 		{
-			DeviceType = IOS_IPadPro;
+			if (Minor == 3 || Minor == 4)
+			{
+				DeviceType = IOS_IPadPro_97;
+			}
+			else
+			{
+				DeviceType = IOS_IPadPro_129;
+			}
 		}
 		// Default to highest settings currently available for any future device
 		else if (Major > 6)
@@ -482,8 +511,8 @@ FIOSPlatformMisc::EIOSDevice FIOSPlatformMisc::GetIOSDeviceType()
 	// iPhones
 	else if ([DeviceIDString hasPrefix:@"iPhone"])
 	{
-		int Major = [DeviceIDString characterAtIndex:6] - '0';
-		int Minor = [DeviceIDString characterAtIndex:8] - '0';
+        int Major = FCString::Atoi(&DeviceIDFstring[6]);
+        int Minor = FCString::Atoi(&DeviceIDFstring[([DeviceIDString rangeOfString:@","].location + 1)]);
 
 		if (Major == 3)
 		{
@@ -522,6 +551,10 @@ FIOSPlatformMisc::EIOSDevice FIOSPlatformMisc::GetIOSDeviceType()
 			else if (Minor == 2)
 			{
 				DeviceType = IOS_IPhone6SPlus;
+			}
+			else if (Minor == 4)
+			{
+				DeviceType = IOS_IPhoneSE;
 			}
 		}
 		else if (Major >= 9)
@@ -834,10 +867,7 @@ void FIOSPlatformMisc::RegisterForRemoteNotifications()
 	else
 	{
         
-#ifdef __IPHONE_8_0
-        UIUserNotificationSettings * settings = [UIUserNotificationSettings settingsForTypes : (UIUserNotificationTypeBadge | UIUserNotificationTypeAlert) categories:nil];
-        [application registerUserNotificationSettings : settings];
-#else
+#if __IPHONE_OS_VERSION_MIN_REQUIRED < __IPHONE_8_0
 		UIRemoteNotificationType myTypes = UIRemoteNotificationTypeBadge | UIRemoteNotificationTypeAlert | UIRemoteNotificationTypeSound;
 		[application registerForRemoteNotificationTypes : myTypes];
 #endif

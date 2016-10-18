@@ -121,7 +121,7 @@ public:
 	 * used or another connection is established (connections cannot safely be used across different
 	 * threads).
 	 */
-	FScopedPerforceConnection( const class FPerforceSourceControlCommand& InCommand );
+	FScopedPerforceConnection( class FPerforceSourceControlCommand& InCommand );
 
 	/** 
 	 * Constructor - establish a connection.

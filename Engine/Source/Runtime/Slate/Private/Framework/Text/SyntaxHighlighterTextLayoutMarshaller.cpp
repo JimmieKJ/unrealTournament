@@ -2,6 +2,7 @@
 
 #include "SlatePrivatePCH.h"
 #include "SyntaxHighlighterTextLayoutMarshaller.h"
+#include "SlateTextUnderlineLineHighlighter.h"
 
 #if WITH_FANCY_TEXT
 
@@ -76,10 +77,15 @@ void FRichTextSyntaxHighlighterTextLayoutMarshaller::ParseTokens(const FString& 
 	TArray<FTextLayout::FNewLineData> LinesToAdd;
 	LinesToAdd.Reserve(TokenizedLines.Num());
 
+	TArray<FTextLineHighlight> LineHighlightsToAdd;
+	TMap<const FTextBlockStyle*, TSharedPtr<FSlateTextUnderlineLineHighlighter>> CachedUnderlineHighlighters;
+
 	// Parse the tokens, generating the styled runs for each line
 	EParseState ParseState = EParseState::LookingForNode;
-	for(const FSyntaxTokenizer::FTokenizedLine& TokenizedLine : TokenizedLines)
+	for (int32 LineIndex = 0; LineIndex < TokenizedLines.Num(); ++LineIndex)
 	{
+		const FSyntaxTokenizer::FTokenizedLine& TokenizedLine = TokenizedLines[LineIndex];
+
 		TSharedRef<FString> ModelString = MakeShareable(new FString());
 		TArray< TSharedRef< IRun > > Runs;
 
@@ -91,7 +97,7 @@ void FRichTextSyntaxHighlighterTextLayoutMarshaller::ParseTokens(const FString& 
 			ModelString->Append(TokenText);
 
 			FRunInfo RunInfo(TEXT("SyntaxHighlight.Normal"));
-			FTextBlockStyle TextBlockStyle = SyntaxTextStyle.NormalTextStyle;
+			const FTextBlockStyle* TextBlockStyle = &SyntaxTextStyle.NormalTextStyle;
 
 			const bool bIsWhitespace = FString(TokenText).TrimTrailing().IsEmpty();
 			if(!bIsWhitespace)
@@ -102,41 +108,41 @@ void FRichTextSyntaxHighlighterTextLayoutMarshaller::ParseTokens(const FString& 
 					if(ParseState == EParseState::LookingForNode && TokenText == TEXT("<"))
 					{
 						RunInfo.Name = TEXT("SyntaxHighlight.Node");
-						TextBlockStyle = SyntaxTextStyle.NodeTextStyle;
+						TextBlockStyle = &SyntaxTextStyle.NodeTextStyle;
 						ParseState = EParseState::LookingForNodeName;
 						bHasMatchedSyntax = true;
 					}
 					else if(ParseState == EParseState::LookingForNodeAttributeKey && TokenText == TEXT(">"))
 					{
 						RunInfo.Name = TEXT("SyntaxHighlight.Node");
-						TextBlockStyle = SyntaxTextStyle.NodeTextStyle;
+						TextBlockStyle = &SyntaxTextStyle.NodeTextStyle;
 						ParseState = EParseState::LookingForNode;
 					}
 					else if(ParseState == EParseState::LookingForNode && TokenText == TEXT("</>"))
 					{
 						RunInfo.Name = TEXT("SyntaxHighlight.Node");
-						TextBlockStyle = SyntaxTextStyle.NodeTextStyle;
+						TextBlockStyle = &SyntaxTextStyle.NodeTextStyle;
 						// No state change
 						bHasMatchedSyntax = true;
 					}
 					else if(ParseState == EParseState::LookingForNodeAttributeKey && TokenText == TEXT("="))
 					{
 						RunInfo.Name = TEXT("SyntaxHighlight.NodeAttribueAssignment");
-						TextBlockStyle = SyntaxTextStyle.NodeAttribueAssignmentTextStyle;
+						TextBlockStyle = &SyntaxTextStyle.NodeAttribueAssignmentTextStyle;
 						ParseState = EParseState::LookingForNodeAttribueValueBegin;
 						bHasMatchedSyntax = true;
 					}
 					else if(ParseState == EParseState::LookingForNodeAttribueValueBegin && TokenText == TEXT("\""))
 					{
 						RunInfo.Name = TEXT("SyntaxHighlight.NodeAttributeValue");
-						TextBlockStyle = SyntaxTextStyle.NodeAttributeValueTextStyle;
+						TextBlockStyle = &SyntaxTextStyle.NodeAttributeValueTextStyle;
 						ParseState = EParseState::LookingForNodeAttribueValueBody;
 						bHasMatchedSyntax = true;
 					}
 					else if(ParseState == EParseState::LookingForNodeAttribueValueBody && TokenText == TEXT("\""))
 					{
 						RunInfo.Name = TEXT("SyntaxHighlight.NodeAttributeValue");
-						TextBlockStyle = SyntaxTextStyle.NodeAttributeValueTextStyle;
+						TextBlockStyle = &SyntaxTextStyle.NodeAttributeValueTextStyle;
 						ParseState = EParseState::LookingForNodeAttributeKey;
 						bHasMatchedSyntax = true;
 					}
@@ -149,32 +155,45 @@ void FRichTextSyntaxHighlighterTextLayoutMarshaller::ParseTokens(const FString& 
 					if(ParseState == EParseState::LookingForNodeName)
 					{
 						RunInfo.Name = TEXT("SyntaxHighlight.Node");
-						TextBlockStyle = SyntaxTextStyle.NodeTextStyle;
+						TextBlockStyle = &SyntaxTextStyle.NodeTextStyle;
 						ParseState = EParseState::LookingForNodeAttributeKey;
 					}
 					else if(ParseState == EParseState::LookingForNodeAttributeKey)
 					{
 						RunInfo.Name = TEXT("SyntaxHighlight.NodeAttributeKey");
-						TextBlockStyle = SyntaxTextStyle.NodeAttributeKeyTextStyle;
+						TextBlockStyle = &SyntaxTextStyle.NodeAttributeKeyTextStyle;
 						// No state change, a key can be multiple tokens - consume until we find an equals
 					}
 					else if(ParseState == EParseState::LookingForNodeAttribueValueBody)
 					{
 						RunInfo.Name = TEXT("SyntaxHighlight.NodeAttributeValue");
-						TextBlockStyle = SyntaxTextStyle.NodeAttributeValueTextStyle;
+						TextBlockStyle = &SyntaxTextStyle.NodeAttributeValueTextStyle;
 						// No state change, a value can be multiple tokens - consume until we find a closing quote
 					}
 				}
 			}
 
-			TSharedRef< ISlateRun > Run = FSlateTextRun::Create(RunInfo, ModelString, TextBlockStyle, ModelRange);
+			TSharedRef< ISlateRun > Run = FSlateTextRun::Create(RunInfo, ModelString, *TextBlockStyle, ModelRange);
 			Runs.Add(Run);
+
+			if (!TextBlockStyle->UnderlineBrush.GetResourceName().IsNone())
+			{
+				TSharedPtr<FSlateTextUnderlineLineHighlighter> UnderlineLineHighlighter = CachedUnderlineHighlighters.FindRef(TextBlockStyle);
+				if (!UnderlineLineHighlighter.IsValid())
+				{
+					UnderlineLineHighlighter = FSlateTextUnderlineLineHighlighter::Create(TextBlockStyle->UnderlineBrush, TextBlockStyle->Font, TextBlockStyle->ColorAndOpacity, TextBlockStyle->ShadowOffset, TextBlockStyle->ShadowColorAndOpacity);
+					CachedUnderlineHighlighters.Add(TextBlockStyle, UnderlineLineHighlighter);
+				}
+
+				LineHighlightsToAdd.Add(FTextLineHighlight(LineIndex, ModelRange, FSlateTextUnderlineLineHighlighter::DefaultZIndex, UnderlineLineHighlighter.ToSharedRef()));
+			}
 		}
 
 		LinesToAdd.Emplace(MoveTemp(ModelString), MoveTemp(Runs));
 	}
 
 	TargetTextLayout.AddLines(LinesToAdd);
+	TargetTextLayout.SetLineHighlights(LineHighlightsToAdd);
 }
 
 FRichTextSyntaxHighlighterTextLayoutMarshaller::FRichTextSyntaxHighlighterTextLayoutMarshaller(TSharedPtr< FSyntaxTokenizer > InTokenizer, const FSyntaxTextStyle& InSyntaxTextStyle)

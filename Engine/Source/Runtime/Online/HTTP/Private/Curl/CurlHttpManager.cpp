@@ -2,6 +2,7 @@
 
 #include "HttpPrivatePCH.h"
 #include "CurlHttpManager.h"
+#include "CurlHttpThread.h"
 #include "CurlHttp.h"
 
 #if WITH_LIBCURL
@@ -11,6 +12,88 @@ CURLSH* FCurlHttpManager::GShareHandle = NULL;
 
 FCurlHttpManager::FCurlRequestOptions FCurlHttpManager::CurlRequestOptions;
 
+#if PLATFORM_LINUX	// known to be available for Linux libcurl+libcrypto bundle at least
+extern "C"
+{
+void CRYPTO_get_mem_functions(
+		void *(**m)(size_t, const char *, int),
+		void *(**r)(void *, size_t, const char *, int),
+		void (**f)(void *, const char *, int));
+int CRYPTO_set_mem_functions(
+		void *(*m)(size_t, const char *, int),
+		void *(*r)(void *, size_t, const char *, int),
+		void (*f)(void *, const char *, int));
+}
+#endif // PLATFORM_LINUX
+
+// set functions that will init the memory
+namespace LibCryptoMemHooks
+{
+	void* (*ChainedMalloc)(size_t Size, const char* Src, int Line) = nullptr;
+	void* (*ChainedRealloc)(void* Ptr, const size_t Size, const char* Src, int Line) = nullptr;
+	void (*ChainedFree)(void* Ptr, const char* Src, int Line) = nullptr;
+	bool bMemoryHooksSet = false;
+
+	/** This malloc will init the memory, keeping valgrind happy */
+	void* MallocWithInit(size_t Size, const char* Src, int Line)
+	{
+		void* Result = FMemory::Malloc(Size);
+		if (LIKELY(Result))
+		{
+			FMemory::Memzero(Result, Size);
+		}
+
+		return Result;
+	}
+
+	/** This realloc will init the memory, keeping valgrind happy */
+	void* ReallocWithInit(void* Ptr, const size_t Size, const char* Src, int Line)
+	{
+		size_t CurrentUsableSize = FMemory::GetAllocSize(Ptr);
+		void* Result = FMemory::Realloc(Ptr, Size);
+		if (LIKELY(Result) && CurrentUsableSize < Size)
+		{
+			FMemory::Memzero(reinterpret_cast<uint8 *>(Result) + CurrentUsableSize, Size - CurrentUsableSize);
+		}
+
+		return Result;
+	}
+
+	/** This realloc will init the memory, keeping valgrind happy */
+	void Free(void* Ptr, const char* Src, int Line)
+	{
+		return FMemory::Free(Ptr);
+	}
+
+	void SetMemoryHooks()
+	{
+		// do not set this in Shipping until we prove that the change in OpenSSL behavior is safe
+#if PLATFORM_LINUX && !UE_BUILD_SHIPPING
+		CRYPTO_get_mem_functions(&ChainedMalloc, &ChainedRealloc, &ChainedFree);
+		CRYPTO_set_mem_functions(MallocWithInit, ReallocWithInit, Free);
+#endif // PLATFORM_LINUX && !UE_BUILD_SHIPPING
+
+		bMemoryHooksSet = true;
+	}
+
+	void UnsetMemoryHooks()
+	{
+		// remove our overrides
+		if (LibCryptoMemHooks::bMemoryHooksSet)
+		{
+			// do not set this in Shipping until we prove that the change in OpenSSL behavior is safe
+#if PLATFORM_LINUX && !UE_BUILD_SHIPPING
+			CRYPTO_set_mem_functions(LibCryptoMemHooks::ChainedMalloc, LibCryptoMemHooks::ChainedRealloc, LibCryptoMemHooks::ChainedFree);
+#endif // PLATFORM_LINUX && !UE_BUILD_SHIPPING
+
+			bMemoryHooksSet = false;
+			ChainedMalloc = nullptr;
+			ChainedRealloc = nullptr;
+			ChainedFree = nullptr;
+		}
+	}
+}
+
 void FCurlHttpManager::InitCurl()
 {
 	if (GMultiHandle != NULL)
@@ -18,6 +101,10 @@ void FCurlHttpManager::InitCurl()
 		UE_LOG(LogInit, Warning, TEXT("Already initialized multi handle"));
 		return;
 	}
+
+	// Override libcrypt functions to initialize memory since OpenSSL triggers multiple valgrind warnings due to this.
+	// Do this before libcurl/libopenssl/libcrypto has been inited.
+	LibCryptoMemHooks::SetMemoryHooks();
 
 	CURLcode InitResult = curl_global_init_mem(CURL_GLOBAL_ALL, CurlMalloc, CurlFree, CurlRealloc, CurlStrdup, CurlCalloc);
 	if (InitResult == 0)
@@ -88,13 +175,6 @@ void FCurlHttpManager::InitCurl()
 	}
 
 	// Init curl request options
-
-	// set certificate verification (disable to allow self-signed certificates)
-	bool bVerifyPeer = true;
-	if (GConfig->GetBool(TEXT("/Script/Engine.NetworkSettings"), TEXT("n.VerifyPeer"), bVerifyPeer, GEngineIni))
-	{
-		CurlRequestOptions.bVerifyPeer = bVerifyPeer;
-	}
 
 	FString ProxyAddress;
 	if (FParse::Value(FCommandLine::Get(), TEXT("httpproxy="), ProxyAddress))
@@ -217,6 +297,20 @@ void FCurlHttpManager::InitCurl()
 	}
 #endif
 
+	// set certificate verification (disable to allow self-signed certificates)
+	if (CurlRequestOptions.CertBundlePath == nullptr)
+	{
+		CurlRequestOptions.bVerifyPeer = false;
+	}
+	else
+	{
+		bool bVerifyPeer = true;
+		if (GConfig->GetBool(TEXT("/Script/Engine.NetworkSettings"), TEXT("n.VerifyPeer"), bVerifyPeer, GEngineIni))
+		{
+			CurlRequestOptions.bVerifyPeer = bVerifyPeer;
+		}
+	}
+
 	// print for visibility
 	CurlRequestOptions.Log();
 }
@@ -259,92 +353,13 @@ void FCurlHttpManager::ShutdownCurl()
 	}
 
 	curl_global_cleanup();
+
+	LibCryptoMemHooks::UnsetMemoryHooks();
 }
 
-FCurlHttpManager::FCurlHttpManager()
-	:	FHttpManager()
-	,	MultiHandle(GMultiHandle)
-	,	LastRunningRequests(0)
+FHttpThread* FCurlHttpManager::CreateHttpThread()
 {
-	check(MultiHandle);
-}
-
-// note that we cannot call parent implementation because lock might be possible non-multiple
-void FCurlHttpManager::AddRequest(const TSharedRef<IHttpRequest>& Request)
-{
-	FScopeLock ScopeLock(&RequestLock);
-
-	Requests.Add(Request);
-
-	FCurlHttpRequest* CurlRequest = static_cast< FCurlHttpRequest* >( &Request.Get() );
-	HandlesToRequests.Add(CurlRequest->GetEasyHandle(), Request);
-
-	
-}
-
-// note that we cannot call parent implementation because lock might be possible non-multiple
-void FCurlHttpManager::RemoveRequest(const TSharedRef<IHttpRequest>& Request)
-{
-	FScopeLock ScopeLock(&RequestLock);
-
-	// Keep track of requests that have been removed to be destroyed later
-	PendingDestroyRequests.AddUnique(FRequestPendingDestroy(DeferredDestroyDelay,Request));
-
-	FCurlHttpRequest* CurlRequest = static_cast< FCurlHttpRequest* >( &Request.Get() );
-	HandlesToRequests.Remove(CurlRequest->GetEasyHandle());
-	Requests.Remove(Request);
-}
-
-bool FCurlHttpManager::Tick(float DeltaSeconds)
-{
-	QUICK_SCOPE_CYCLE_COUNTER(STAT_FCurlHttpManager_Tick);
-	check(MultiHandle);
-	if (Requests.Num() > 0)
-	{
-		FScopeLock ScopeLock(&RequestLock);
-
-		int RunningRequests = -1;
-		curl_multi_perform(MultiHandle, &RunningRequests);
-
-		// read more info if number of requests changed or if there's zero running
-		// (note that some requests might have never be "running" from libcurl's point of view)
-		if (RunningRequests == 0 || RunningRequests != LastRunningRequests)
-		{
-			for(;;)
-			{
-				int MsgsStillInQueue = 0;	// may use that to impose some upper limit we may spend in that loop
-				CURLMsg * Message = curl_multi_info_read(MultiHandle, &MsgsStillInQueue);
-
-				if (Message == NULL)
-				{
-					break;
-				}
-
-				// find out which requests have completed
-				if (Message->msg == CURLMSG_DONE)
-				{
-					CURL* CompletedHandle = Message->easy_handle;
-					TSharedRef<IHttpRequest> * RequestRefPtr = HandlesToRequests.Find(CompletedHandle);
-					if (RequestRefPtr)
-					{
-						FCurlHttpRequest* CurlRequest = static_cast< FCurlHttpRequest* >( &RequestRefPtr->Get() );
-						CurlRequest->MarkAsCompleted(Message->data.result);
-
-						UE_LOG(LogHttp, Verbose, TEXT("Request %p (easy handle:%p) has completed (code:%d) and has been marked as such"), CurlRequest, CompletedHandle, (int32)Message->data.result);
-					}
-					else
-					{
-						UE_LOG(LogHttp, Warning, TEXT("Could not find mapping for completed request (easy handle: %p)"), CompletedHandle);
-					}
-				}
-			}
-		}
-
-		LastRunningRequests = RunningRequests;
-	}
-
-	// we should be outside scope lock here to be able to call parent!
-	return FHttpManager::Tick(DeltaSeconds);
+	return new FCurlHttpThread();
 }
 
 #endif //WITH_LIBCURL

@@ -863,10 +863,12 @@ bool FAssetRegistry::GetDependencies(FName PackageName, TArray<FName>& OutDepend
 	}
 }
 
-bool FAssetRegistry::GetReferencers(FName PackageName, TArray<FName>& OutReferencers) const
+bool FAssetRegistry::GetReferencers(FName PackageName, TArray<FName>& OutReferencers, EAssetRegistryDependencyType::Type InReferenceType) const
 {
 	const FDependsNode*const* NodePtr = CachedDependsNodes.Find(PackageName);
 	const FDependsNode* Node = nullptr;
+	bool bShowingAllReferences = InReferenceType == EAssetRegistryDependencyType::All;
+
 	if (NodePtr != nullptr )
 	{
 		Node = *NodePtr;
@@ -879,7 +881,24 @@ bool FAssetRegistry::GetReferencers(FName PackageName, TArray<FName>& OutReferen
 
 		for ( auto NodeIt = DependencyNodes.CreateConstIterator(); NodeIt; ++NodeIt )
 		{
-			OutReferencers.Add((*NodeIt)->GetPackageName());
+			if (!bShowingAllReferences)
+			{
+				TArray<FDependsNode*> DependenciesFromReferencer;
+				(*NodeIt)->GetDependencies(DependenciesFromReferencer, InReferenceType);
+				
+				for (FDependsNode* Dependency : DependenciesFromReferencer)
+				{
+					if (Dependency == Node)
+					{
+						OutReferencers.Add((*NodeIt)->GetPackageName());
+						break;
+					}
+				}
+			}
+			else
+			{
+				OutReferencers.Add((*NodeIt)->GetPackageName());
+			}
 		}
 
 		return true;
@@ -1503,6 +1522,7 @@ void FAssetRegistry::Serialize(FArchive& Ar)
 		}
 
 		PreallocatedDependsNodeDataBuffer = new FDependsNode[LocalNumDependsNodes];
+		CachedDependsNodes.Reserve(LocalNumDependsNodes);
 
 		for (int32 DependsNodeIndex = 0; DependsNodeIndex < LocalNumDependsNodes; DependsNodeIndex++)
 		{
@@ -1529,6 +1549,8 @@ void FAssetRegistry::Serialize(FArchive& Ar)
 				Ar << LocalNumSoftDependencies;
 			}
 			Ar << LocalNumReferencers;
+
+			NewDependsNodeData->Reserve(LocalNumHardDependencies, LocalNumSoftDependencies, LocalNumReferencers);
 
 			for (int32 DependencyIndex = 0; DependencyIndex < LocalNumHardDependencies; ++DependencyIndex)
 			{
@@ -1585,6 +1607,8 @@ FDependsNode* FAssetRegistry::ResolveRedirector(FDependsNode* InDependency, TMap
 	
 	while (Result == nullptr)
 	{
+		checkSlow(InDependency);
+
 		if (EncounteredDependencies.Contains(InDependency->GetPackageName()))
 		{
 			break;
@@ -1952,6 +1976,8 @@ void FAssetRegistry::AssetSearchDataGathered(const double TickStartTime, TArray<
 	{
 		FAssetData*& BackgroundResult = AssetResults[AssetIndex];
 
+		CA_ASSUME(BackgroundResult);
+
 		// Try to update any asset data that may already exist
 		FAssetData* AssetData = nullptr;
 		FAssetData** AssetDataPtr = CachedAssetsByObjectPath.Find(BackgroundResult->ObjectPath);
@@ -2275,12 +2301,12 @@ void FAssetRegistry::AddAssetData(FAssetData* AssetData)
 	// Populate the class map if adding blueprint
 	if (ClassGeneratorNames.Contains(AssetData->AssetClass))
 	{
-		auto GeneratedClassPtr = AssetData->TagsAndValues.Find("GeneratedClass");
-		auto ParentClassPtr = AssetData->TagsAndValues.Find("ParentClass");
-		if ( GeneratedClassPtr && ParentClassPtr )
+		const FString GeneratedClass = AssetData->GetTagValueRef<FString>("GeneratedClass");
+		const FString ParentClass = AssetData->GetTagValueRef<FString>("ParentClass");
+		if ( !GeneratedClass.IsEmpty() && !ParentClass.IsEmpty() )
 		{
-			const FName GeneratedClassFName = FName(*ExportTextPathToObjectName(*GeneratedClassPtr));
-			const FName ParentClassFName = FName(*ExportTextPathToObjectName(*ParentClassPtr));
+			const FName GeneratedClassFName = *ExportTextPathToObjectName(GeneratedClass);
+			const FName ParentClassFName = *ExportTextPathToObjectName(ParentClass);
 			CachedInheritanceMap.Add(GeneratedClassFName, ParentClassFName);
 		}
 	}
@@ -2364,20 +2390,19 @@ void FAssetRegistry::UpdateAssetData(FAssetData* AssetData, const FAssetData& Ne
 	// Update the class map if updating a blueprint
 	if (ClassGeneratorNames.Contains(AssetData->AssetClass))
 	{
-		auto OldGeneratedClassPtr = AssetData->TagsAndValues.Find("GeneratedClass");
-
-		if ( OldGeneratedClassPtr )
+		const FString OldGeneratedClass = AssetData->GetTagValueRef<FString>("GeneratedClass");
+		if ( !OldGeneratedClass.IsEmpty() )
 		{
-			const FName OldGeneratedClassFName = FName(*ExportTextPathToObjectName(*OldGeneratedClassPtr));
+			const FName OldGeneratedClassFName = *ExportTextPathToObjectName(OldGeneratedClass);
 			CachedInheritanceMap.Remove(OldGeneratedClassFName);
 		}
 
-		const FString* NewGeneratedClassPtr = NewAssetData.TagsAndValues.Find("GeneratedClass");
-		const FString* NewParentClassPtr = NewAssetData.TagsAndValues.Find("ParentClass");
-		if ( NewGeneratedClassPtr && NewParentClassPtr )
+		const FString NewGeneratedClass = NewAssetData.GetTagValueRef<FString>("GeneratedClass");
+		const FString NewParentClass = NewAssetData.GetTagValueRef<FString>("ParentClass");
+		if ( !NewGeneratedClass.IsEmpty() && !NewParentClass.IsEmpty() )
 		{
-			const FName NewGeneratedClassFName = FName(*ExportTextPathToObjectName(*NewGeneratedClassPtr));
-			const FName NewParentClassFName = FName(*ExportTextPathToObjectName(*NewParentClassPtr));
+			const FName NewGeneratedClassFName = *ExportTextPathToObjectName(*NewGeneratedClass);
+			const FName NewParentClassFName = *ExportTextPathToObjectName(*NewParentClass);
 			CachedInheritanceMap.Add(NewGeneratedClassFName, NewParentClassFName);
 		}
 	}
@@ -2398,11 +2423,10 @@ bool FAssetRegistry::RemoveAssetData(FAssetData* AssetData)
 		// Remove from the class map if removing a blueprint
 		if (ClassGeneratorNames.Contains(AssetData->AssetClass))
 		{
-			auto OldGeneratedClassPtr = AssetData->TagsAndValues.Find("GeneratedClass");
-
-			if ( OldGeneratedClassPtr )
+			const FString OldGeneratedClass = AssetData->GetTagValueRef<FString>("GeneratedClass");
+			if ( !OldGeneratedClass.IsEmpty() )
 			{
-				const FName OldGeneratedClassFName = FName(*ExportTextPathToObjectName(*OldGeneratedClassPtr));
+				const FName OldGeneratedClassFName = *ExportTextPathToObjectName(OldGeneratedClass);
 				CachedInheritanceMap.Remove(OldGeneratedClassFName);
 			}
 		}

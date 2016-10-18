@@ -18,10 +18,17 @@ DEFINE_LOG_CATEGORY_STATIC(LogModuleManager, Log, All);
 
 int32 FModuleManager::FModuleInfo::CurrentLoadOrder = 1;
 
-TSharedRef<FModuleManager::FModuleInfo>* FModuleManager::FindModule(FName InModuleName)
+TSharedPtr<FModuleManager::FModuleInfo> FModuleManager::FindModule(FName InModuleName)
 {
+	TSharedPtr<FModuleManager::FModuleInfo> Result = nullptr;
+
 	FReadScopeLock Lock(&ModulesCriticalSection);
-	return Modules.Find(InModuleName);
+	if (TSharedRef<FModuleManager::FModuleInfo>* FoundModule = Modules.Find(InModuleName))
+	{
+		Result = *FoundModule;
+	}
+
+	return Result;
 }
 
 TSharedRef<FModuleManager::FModuleInfo> FModuleManager::FindModuleChecked(FName InModuleName)
@@ -73,7 +80,7 @@ FModuleManager::~FModuleManager()
 }
 
 
-void FModuleManager::FindModules(const TCHAR* WildcardWithoutExtension, TArray<FName>& OutModules)
+void FModuleManager::FindModules(const TCHAR* WildcardWithoutExtension, TArray<FName>& OutModules) const
 {
 	// @todo plugins: Try to convert existing use cases to use plugins, and get rid of this function
 #if !IS_MONOLITHIC
@@ -101,23 +108,23 @@ void FModuleManager::FindModules(const TCHAR* WildcardWithoutExtension, TArray<F
 #endif
 }
 
-bool FModuleManager::ModuleExists(const TCHAR* ModuleName)
+bool FModuleManager::ModuleExists(const TCHAR* ModuleName) const
 {
 	TArray<FName> Names;
 	FindModules(ModuleName, Names);
 	return Names.Num() > 0;
 }
 
-bool FModuleManager::IsModuleLoaded( const FName InModuleName )
+bool FModuleManager::IsModuleLoaded( const FName InModuleName ) const
 {
 	// Do we even know about this module?
-	auto ModuleInfoPtr = FindModule(InModuleName);
-	if( ModuleInfoPtr != NULL )
+	TSharedPtr<const FModuleInfo> ModuleInfoPtr = FindModule(InModuleName);
+	if( ModuleInfoPtr.IsValid() )
 	{
-		const TSharedRef< FModuleInfo >& ModuleInfo( *ModuleInfoPtr );
+		const FModuleInfo& ModuleInfo = *ModuleInfoPtr;
 
 		// Only if already loaded
-		if( ModuleInfo->Module.IsValid()  )
+		if( ModuleInfo.Module.IsValid()  )
 		{
 			// Module is loaded and ready
 			return true;
@@ -129,7 +136,7 @@ bool FModuleManager::IsModuleLoaded( const FName InModuleName )
 }
 
 
-bool FModuleManager::IsModuleUpToDate(const FName InModuleName)
+bool FModuleManager::IsModuleUpToDate(const FName InModuleName) const
 {
 	TMap<FName, FString> ModulePathMap;
 	FindModulePaths(*InModuleName.ToString(), ModulePathMap);
@@ -226,9 +233,38 @@ void FModuleManager::AddModule(const FName InModuleName)
 		return;
 	}
 
+	FString ModuleFilename = MoveTemp(TMap<FName, FString>::TConstIterator(ModulePathMap).Value());
+
+	const int32 MatchPos = ModuleFilename.Find(ModuleNameString, ESearchCase::IgnoreCase, ESearchDir::FromEnd);
+	if (!ensureMsgf(MatchPos != INDEX_NONE, TEXT("Could not find module name '%s' in module filename '%s'"), InModuleName, *ModuleFilename))
+	{
+		return;
+	}
+
+	// Skip any existing module number suffix
+	const int32 SuffixStart = MatchPos + ModuleNameString.Len();
+	int32 SuffixEnd = SuffixStart;
+	if (ModuleFilename[SuffixEnd] == TEXT('-'))
+	{
+		++SuffixEnd;
+		while (FCString::Strchr(TEXT("0123456789"), ModuleFilename[SuffixEnd]))
+		{
+			++SuffixEnd;
+		}
+
+		// Only skip the suffix if it was a number
+		if (SuffixEnd - SuffixStart == 1)
+		{
+			--SuffixEnd;
+		}
+	}
+
+	const FString Prefix = ModuleFilename.Left(SuffixStart);
+	const FString Suffix = ModuleFilename.Right(ModuleFilename.Len() - SuffixEnd);
+
 	// Add this module to the set of modules that we know about
-	ModuleInfo->OriginalFilename = TMap<FName, FString>::TConstIterator(ModulePathMap).Value();
-	ModuleInfo->Filename = ModuleInfo->OriginalFilename;
+	ModuleInfo->OriginalFilename = Prefix + Suffix;
+	ModuleInfo->Filename         = ModuleInfo->OriginalFilename;
 
 	// When iterating on code during development, it's possible there are multiple rolling versions of this
 	// module's DLL file.  This can happen if the programmer is recompiling DLLs while the game is loaded.  In
@@ -245,18 +281,6 @@ void FModuleManager::AddModule(const FName InModuleName)
 	{
 		return;
 	}
-
-	const FString ModuleName = *InModuleName.ToString();
-	const int32 MatchPos = ModuleInfo->OriginalFilename.Find(ModuleName, ESearchCase::IgnoreCase, ESearchDir::FromEnd);
-	if (!ensureMsgf(MatchPos != INDEX_NONE, TEXT("Could not find module name '%s' in module filename '%s'"), *ModuleName, *ModuleInfo->OriginalFilename))
-	{
-		return;
-	}
-
-	const int32 SuffixPos = MatchPos + ModuleName.Len();
-
-	const FString Prefix = ModuleInfo->OriginalFilename.Left(SuffixPos);
-	const FString Suffix = ModuleInfo->OriginalFilename.Right(ModuleInfo->OriginalFilename.Len() - SuffixPos);
 
 	const FString ModuleFileSearchString = FString::Printf(TEXT("%s-*%s"), *Prefix, *Suffix);
 
@@ -295,14 +319,19 @@ TSharedPtr<IModuleInterface> FModuleManager::LoadModule( const FName InModuleNam
 	ensure(IsInGameThread());
 
 	EModuleLoadResult FailureReason;
-	return LoadModuleWithFailureReason(InModuleName, FailureReason, bWasReloaded );
+	TSharedPtr<IModuleInterface> Result = LoadModuleWithFailureReason(InModuleName, FailureReason, bWasReloaded );
+
+	// This should return a valid pointer only if and only if the module is loaded
+	check(Result.IsValid() == IsModuleLoaded(InModuleName));
+
+	return Result;
 }
 
 
 TSharedPtr<IModuleInterface> FModuleManager::LoadModuleChecked( const FName InModuleName, const bool bWasReloaded )
 {
 	TSharedPtr<IModuleInterface> Module = LoadModule(InModuleName, bWasReloaded);
-	check(Module.IsValid());
+	checkf(Module.IsValid(), *InModuleName.ToString());
 
 	return Module;
 }
@@ -432,27 +461,35 @@ TSharedPtr<IModuleInterface> FModuleManager::LoadModuleWithFailureReason(const F
 							(FInitializeModuleFunctionPtr)FPlatformProcess::GetDllExport(ModuleInfo->Handle, TEXT("InitializeModule"));
 						if (InitializeModuleFunctionPtr != NULL)
 						{
-							// Initialize the module!
-							ModuleInfo->Module = MakeShareable(InitializeModuleFunctionPtr());
-
-							if (ModuleInfo->Module.IsValid())
+							if ( ModuleInfo->Module.IsValid() )
 							{
-								// Startup the module
-								ModuleInfo->Module->StartupModule();
-
-								// Module was started successfully!  Fire callbacks.
-								ModulesChangedEvent.Broadcast(InModuleName, EModuleChangeReason::ModuleLoaded);
-
-								// Set the return parameter
+								// Assign the already loaded module into the return value, otherwise the return value gives the impression the module failed load!
 								LoadedModule = ModuleInfo->Module;
 							}
 							else
 							{
-								UE_LOG(LogModuleManager, Warning, TEXT("ModuleManager: Unable to load module '%s' because InitializeModule function failed (returned NULL pointer.)"), *ModuleFileToLoad);
+								// Initialize the module!
+								ModuleInfo->Module = MakeShareable(InitializeModuleFunctionPtr());
 
-								FPlatformProcess::FreeDllHandle(ModuleInfo->Handle);
-								ModuleInfo->Handle = NULL;
-								OutFailureReason = EModuleLoadResult::FailedToInitialize;
+								if ( ModuleInfo->Module.IsValid() )
+								{
+									// Startup the module
+									ModuleInfo->Module->StartupModule();
+
+									// Module was started successfully!  Fire callbacks.
+									ModulesChangedEvent.Broadcast(InModuleName, EModuleChangeReason::ModuleLoaded);
+
+									// Set the return parameter
+									LoadedModule = ModuleInfo->Module;
+								}
+								else
+								{
+									UE_LOG(LogModuleManager, Warning, TEXT("ModuleManager: Unable to load module '%s' because InitializeModule function failed (returned NULL pointer.)"), *ModuleFileToLoad);
+
+									FPlatformProcess::FreeDllHandle(ModuleInfo->Handle);
+									ModuleInfo->Handle = NULL;
+									OutFailureReason = EModuleLoadResult::FailedToInitialize;
+								}
 							}
 						}
 						else
@@ -492,26 +529,26 @@ TSharedPtr<IModuleInterface> FModuleManager::LoadModuleWithFailureReason(const F
 bool FModuleManager::UnloadModule( const FName InModuleName, bool bIsShutdown )
 {
 	// Do we even know about this module?
-	auto ModuleInfoPtr = FindModule(InModuleName);
-	if( ModuleInfoPtr != NULL )
+	TSharedPtr<FModuleInfo> ModuleInfoPtr = FindModule(InModuleName);
+	if( ModuleInfoPtr.IsValid() )
 	{
-		TSharedRef< FModuleInfo >& ModuleInfo( *ModuleInfoPtr );
+		FModuleInfo& ModuleInfo = *ModuleInfoPtr;
 
 		// Only if already loaded
-		if( ModuleInfo->Module.IsValid() )
+		if( ModuleInfo.Module.IsValid() )
 		{
 			// Shutdown the module
-			ModuleInfo->Module->ShutdownModule();
+			ModuleInfo.Module->ShutdownModule();
 
 			// Verify that we have the only outstanding reference to this module.  No one should still be 
 			// referencing a module that is about to be destroyed!
-			check( ModuleInfo->Module.IsUnique() );
+			check( ModuleInfo.Module.IsUnique() );
 
 			// Release reference to module interface.  This will actually destroy the module object.
-			ModuleInfo->Module.Reset();
+			ModuleInfo.Module.Reset();
 
 #if !IS_MONOLITHIC
-			if( ModuleInfo->Handle != NULL )
+			if( ModuleInfo.Handle != NULL )
 			{
 				// If we're shutting down then don't bother actually unloading the DLL.  We'll simply abandon it in memory
 				// instead.  This makes it much less likely that code will be unloaded that could still be called by
@@ -520,9 +557,9 @@ bool FModuleManager::UnloadModule( const FName InModuleName, bool bIsShutdown )
 				if( !bIsShutdown )
 				{
 					// Unload the DLL
-					FPlatformProcess::FreeDllHandle( ModuleInfo->Handle );
+					FPlatformProcess::FreeDllHandle( ModuleInfo.Handle );
 				}
-				ModuleInfo->Handle = NULL;
+				ModuleInfo.Handle = NULL;
 			}
 #endif
 
@@ -531,7 +568,7 @@ bool FModuleManager::UnloadModule( const FName InModuleName, bool bIsShutdown )
 			// trying to load a module that we've unloaded/abandoned at shutdown.
 			if( bIsShutdown )
 			{
-				ModuleInfo->bWasUnloadedAtShutdown = true;
+				ModuleInfo.bWasUnloadedAtShutdown = true;
 			}
 
 			// Don't bother firing off events while we're in the middle of shutting down.  These events
@@ -554,22 +591,22 @@ bool FModuleManager::UnloadModule( const FName InModuleName, bool bIsShutdown )
 void FModuleManager::AbandonModule( const FName InModuleName )
 {
 	// Do we even know about this module?
-	auto ModuleInfoPtr = FindModule(InModuleName);
-	if( ModuleInfoPtr != NULL )
+	TSharedPtr<FModuleInfo> ModuleInfoPtr = FindModule(InModuleName);
+	if( ModuleInfoPtr.IsValid() )
 	{
-		TSharedRef< FModuleInfo >& ModuleInfo( *ModuleInfoPtr );
+		FModuleInfo& ModuleInfo = *ModuleInfoPtr;
 
 		// Only if already loaded
-		if( ModuleInfo->Module.IsValid() )
+		if( ModuleInfo.Module.IsValid() )
 		{
 			// Allow the module to shut itself down
-			ModuleInfo->Module->ShutdownModule();
+			ModuleInfo.Module->ShutdownModule();
 
 			// Release reference to module interface.  This will actually destroy the module object.
 			// @todo UE4 DLL: Could be dangerous in some cases to reset the module interface while abandoning.  Currently not
 			// a problem because script modules don't implement any functionality here.  Possible, we should keep these references
 			// alive off to the side somewhere (intentionally leak)
-			ModuleInfo->Module.Reset();
+			ModuleInfo.Module.Reset();
 
 			// A module was successfully unloaded.  Fire callbacks.
 			ModulesChangedEvent.Broadcast( InModuleName, EModuleChangeReason::ModuleUnloaded );
@@ -637,14 +674,14 @@ void FModuleManager::UnloadModulesAtShutdown()
 TSharedPtr<IModuleInterface> FModuleManager::GetModule( const FName InModuleName )
 {
 	// Do we even know about this module?
-	auto ModuleInfo = FindModule(InModuleName);
+	TSharedPtr<FModuleInfo> ModuleInfo = FindModule(InModuleName);
 
-	if (ModuleInfo == nullptr)
+	if (!ModuleInfo.IsValid())
 	{
 		return nullptr;
 	}
 
-	return (*ModuleInfo)->Module;
+	return ModuleInfo->Module;
 }
 
 
@@ -776,49 +813,46 @@ bool FModuleManager::Exec( UWorld* Inworld, const TCHAR* Cmd, FOutputDevice& Ar 
 }
 
 
-bool FModuleManager::QueryModule( const FName InModuleName, FModuleStatus& OutModuleStatus )
+bool FModuleManager::QueryModule( const FName InModuleName, FModuleStatus& OutModuleStatus ) const
 {
 	// Do we even know about this module?
-	auto ModuleInfoPtr = FindModule(InModuleName);
+	TSharedPtr<const FModuleInfo> ModuleInfoPtr = FindModule(InModuleName);
 
-	if (!ModuleInfoPtr)
+	if (!ModuleInfoPtr.IsValid())
 	{
 		// Not known to us
 		return false;
 	}
 
-	const TSharedRef< FModuleInfo >& ModuleInfo( *ModuleInfoPtr );
-
 	OutModuleStatus.Name = InModuleName.ToString();
-	OutModuleStatus.FilePath = FPaths::ConvertRelativePathToFull(ModuleInfo->Filename);
-	OutModuleStatus.bIsLoaded = ( ModuleInfo->Module.IsValid() != false );
+	OutModuleStatus.FilePath = FPaths::ConvertRelativePathToFull(ModuleInfoPtr->Filename);
+	OutModuleStatus.bIsLoaded = ModuleInfoPtr->Module.IsValid();
 
 	if( OutModuleStatus.bIsLoaded )
 	{
-		OutModuleStatus.bIsGameModule = ModuleInfo->Module->IsGameModule();
+		OutModuleStatus.bIsGameModule = ModuleInfoPtr->Module->IsGameModule();
 	}
 
 	return true;
 }
 
 
-void FModuleManager::QueryModules( TArray< FModuleStatus >& OutModuleStatuses )
+void FModuleManager::QueryModules( TArray< FModuleStatus >& OutModuleStatuses ) const
 {
 	OutModuleStatuses.Reset();
 	FReadScopeLock Lock(&ModulesCriticalSection);
-	for (const auto ModuleIt : Modules)
+	for (const TPair<FName, TSharedRef<FModuleInfo>>& ModuleIt : Modules)
 	{
-		const auto CurModuleFName = ModuleIt.Key;
-		const auto CurModule = ModuleIt.Value;
+		const FModuleInfo& CurModule = *ModuleIt.Value;
 
 		FModuleStatus ModuleStatus;
-		ModuleStatus.Name = CurModuleFName.ToString();
-		ModuleStatus.FilePath = FPaths::ConvertRelativePathToFull(CurModule->Filename);
-		ModuleStatus.bIsLoaded = CurModule->Module.IsValid();
+		ModuleStatus.Name = ModuleIt.Key.ToString();
+		ModuleStatus.FilePath = FPaths::ConvertRelativePathToFull(CurModule.Filename);
+		ModuleStatus.bIsLoaded = CurModule.Module.IsValid();
 
 		if( ModuleStatus.bIsLoaded  )
 		{
-			ModuleStatus.bIsGameModule = CurModule->Module->IsGameModule();
+			ModuleStatus.bIsGameModule = CurModule.Module->IsGameModule();
 		}
 
 		OutModuleStatuses.Add( ModuleStatus );
@@ -826,7 +860,7 @@ void FModuleManager::QueryModules( TArray< FModuleStatus >& OutModuleStatuses )
 }
 
 
-FString FModuleManager::GetModuleFilename(FName ModuleName)
+FString FModuleManager::GetModuleFilename(FName ModuleName) const
 {
 	return FindModuleChecked(ModuleName)->Filename;
 }
@@ -903,23 +937,22 @@ void FModuleManager::GetModuleFilenameFormat(bool bGameModule, FString& OutPrefi
 
 void FModuleManager::ResetModulePathsCache()
 {
-	ModulePathsCache.Empty();
-	bModulePathsCacheInitialized = false;
+	ModulePathsCache.Reset();
 }
 
-void FModuleManager::FindModulePaths(const TCHAR* NamePattern, TMap<FName, FString> &OutModulePaths, bool bCanUseCache /*= true*/)
+void FModuleManager::FindModulePaths(const TCHAR* NamePattern, TMap<FName, FString> &OutModulePaths, bool bCanUseCache /*= true*/) const
 {
-	if (!bModulePathsCacheInitialized)
+	if (!ModulePathsCache)
 	{
-		bModulePathsCacheInitialized = true;
+		ModulePathsCache.Emplace();
 		const bool bCanUseCacheWhileGeneratingIt = false;
-		FindModulePaths(TEXT("*"), ModulePathsCache, bCanUseCacheWhileGeneratingIt);
+		FindModulePaths(TEXT("*"), ModulePathsCache.GetValue(), bCanUseCacheWhileGeneratingIt);
 	}
 
 	if (bCanUseCache)
 	{
 		// Try to use cache first
-		if (const FString* ModulePathPtr = ModulePathsCache.Find(NamePattern))
+		if (const FString* ModulePathPtr = ModulePathsCache->Find(NamePattern))
 		{
 			OutModulePaths.Add(FName(NamePattern), *ModulePathPtr);
 			return;
@@ -1006,14 +1039,14 @@ void FModuleManager::FindModulePathsInDirectory(const FString& InDirectoryName, 
 }
 
 
-void FModuleManager::UnloadOrAbandonModuleWithCallback(const FName InModuleName, FOutputDevice &Ar, bool bAbandonOnly)
+void FModuleManager::UnloadOrAbandonModuleWithCallback(const FName InModuleName, FOutputDevice &Ar)
 {
 	auto Module = FindModuleChecked(InModuleName);
 	
 	Module->Module->PreUnloadCallback();
 
 	const bool bIsHotReloadable = DoesLoadedModuleHaveUObjects( InModuleName );
-	if (!bAbandonOnly && bIsHotReloadable && Module->Module->SupportsDynamicReloading())
+	if (bIsHotReloadable && Module->Module->SupportsDynamicReloading())
 	{
 		if( !UnloadModule( InModuleName ))
 		{
@@ -1023,12 +1056,25 @@ void FModuleManager::UnloadOrAbandonModuleWithCallback(const FName InModuleName,
 	else
 	{
 		// Don't warn if abandoning was the intent here
-		if (!bAbandonOnly)
-		{			
-			Ar.Logf(TEXT("Module being reloaded does not support dynamic unloading -- abandoning existing loaded module so that we can load the recompiled version!"));
-		}
+		Ar.Logf(TEXT("Module being reloaded does not support dynamic unloading -- abandoning existing loaded module so that we can load the recompiled version!"));
 		AbandonModule( InModuleName );
 	}
+
+	// Ensure module is unloaded
+	check(!IsModuleLoaded(InModuleName));
+}
+
+
+void FModuleManager::AbandonModuleWithCallback(const FName InModuleName)
+{
+	auto Module = FindModuleChecked(InModuleName);
+	
+	Module->Module->PreUnloadCallback();
+
+	AbandonModule( InModuleName );
+
+	// Ensure module is unloaded
+	check(!IsModuleLoaded(InModuleName));
 }
 
 
@@ -1050,9 +1096,11 @@ bool FModuleManager::LoadModuleWithCallback( const FName InModuleName, FOutputDe
 }
 
 
-void FModuleManager::MakeUniqueModuleFilename( const FName InModuleName, FString& UniqueSuffix, FString& UniqueModuleFileName )
+void FModuleManager::MakeUniqueModuleFilename( const FName InModuleName, FString& UniqueSuffix, FString& UniqueModuleFileName ) const
 {
 	auto Module = FindModuleChecked(InModuleName);
+
+	IFileManager& FileManager = IFileManager::Get();
 
 	do
 	{
@@ -1071,7 +1119,7 @@ void FModuleManager::MakeUniqueModuleFilename( const FName InModuleName, FString
 				*Module->OriginalFilename.Right( Module->OriginalFilename.Len() - SuffixPos ) );
 		}
 	}
-	while (IFileManager::Get().GetFileAgeSeconds(*UniqueModuleFileName) != -1.0);
+	while (FileManager.GetFileAgeSeconds(*UniqueModuleFileName) != -1.0);
 }
 
 
@@ -1152,7 +1200,7 @@ FString FModuleManager::GetGameBinariesDirectory() const
 	return FString();
 }
 
-bool FModuleManager::DoesLoadedModuleHaveUObjects( const FName ModuleName )
+bool FModuleManager::DoesLoadedModuleHaveUObjects( const FName ModuleName ) const
 {
 	if (IsModuleLoaded(ModuleName) && IsPackageLoaded.IsBound())
 	{
@@ -1289,7 +1337,7 @@ TSharedRef<FModuleManager::FModuleInfo> FModuleManager::GetOrCreateModule(FName 
 	return ModuleInfo;
 }
 
-int32 FModuleManager::GetModuleCount()
+int32 FModuleManager::GetModuleCount() const
 {
 	FReadScopeLock Lock(&ModulesCriticalSection);
 	return Modules.Num();

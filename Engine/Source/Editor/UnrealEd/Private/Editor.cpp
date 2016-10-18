@@ -5,7 +5,6 @@
 #include "Matinee/MatineeActor.h"
 #include "InteractiveFoliageActor.h"
 #include "Animation/SkeletalMeshActor.h"
-#include "Animation/VertexAnim/VertexAnimation.h"
 #include "Engine/WorldComposition.h"
 #include "EditorSupportDelegates.h"
 #include "Factories.h"
@@ -117,8 +116,6 @@
 
 #define LOCTEXT_NAMESPACE "UnrealEd.Editor"
 
-TArray<FTickableEditorObject*> FTickableEditorObject::TickableObjects;
-
 FSimpleMulticastDelegate								FEditorDelegates::NewCurrentLevel;
 FEditorDelegates::FOnMapChanged							FEditorDelegates::MapChange;
 FSimpleMulticastDelegate								FEditorDelegates::LayerChange;
@@ -141,6 +138,7 @@ FEditorDelegates::FOnPIEEvent							FEditorDelegates::EndPIE;
 FEditorDelegates::FOnPIEEvent							FEditorDelegates::PausePIE;
 FEditorDelegates::FOnPIEEvent							FEditorDelegates::ResumePIE;
 FEditorDelegates::FOnPIEEvent							FEditorDelegates::SingleStepPIE;
+FEditorDelegates::FOnPIEEvent							FEditorDelegates::OnSwitchBeginPIEAndSIE;
 FSimpleMulticastDelegate								FEditorDelegates::PropertySelectionChange;
 FSimpleMulticastDelegate								FEditorDelegates::PostLandscapeLayerUpdated;
 FEditorDelegates::FOnPreSaveWorld						FEditorDelegates::PreSaveWorld;
@@ -155,6 +153,8 @@ FEditorDelegates::FOnNewActorsDropped					FEditorDelegates::OnNewActorsDropped;
 FEditorDelegates::FOnGridSnappingChanged				FEditorDelegates::OnGridSnappingChanged;
 FSimpleMulticastDelegate								FEditorDelegates::OnLightingBuildStarted;
 FSimpleMulticastDelegate								FEditorDelegates::OnLightingBuildKept;
+FSimpleMulticastDelegate								FEditorDelegates::OnLightingBuildFailed;
+FSimpleMulticastDelegate								FEditorDelegates::OnLightingBuildSucceeded;
 FEditorDelegates::FOnApplyObjectToActor					FEditorDelegates::OnApplyObjectToActor;
 FEditorDelegates::FOnFocusViewportOnActors				FEditorDelegates::OnFocusViewportOnActors;
 FEditorDelegates::FOnMapOpened							FEditorDelegates::OnMapOpened;
@@ -163,6 +163,7 @@ FEditorDelegates::FOnDollyPerspectiveCamera				FEditorDelegates::OnDollyPerspect
 FSimpleMulticastDelegate								FEditorDelegates::OnShutdownPostPackagesSaved;
 FEditorDelegates::FOnAssetsPreDelete					FEditorDelegates::OnAssetsPreDelete;
 FEditorDelegates::FOnAssetsDeleted						FEditorDelegates::OnAssetsDeleted;
+FEditorDelegates::FOnAssetDragStarted					FEditorDelegates::OnAssetDragStarted;
 FSimpleMulticastDelegate								FEditorDelegates::OnActionAxisMappingsChanged;
 FEditorDelegates::FOnAddLevelToWorld					FEditorDelegates::OnAddLevelToWorld;
 
@@ -223,7 +224,7 @@ void FReimportManager::UpdateReimportPaths( UObject* Obj, const TArray<FString>&
 	}
 }
 
-bool FReimportManager::Reimport( UObject* Obj, bool bAskForNewFileIfMissing, bool bShowNotification, FString PreferedReimportFile)
+bool FReimportManager::Reimport( UObject* Obj, bool bAskForNewFileIfMissing, bool bShowNotification, FString PreferedReimportFile, FReimportHandler* SpecifiedReimportHandler)
 {
 	// Warn that were about to reimport, so prep for it
 	PreReimport.Broadcast( Obj );
@@ -241,77 +242,85 @@ bool FReimportManager::Reimport( UObject* Obj, bool bAskForNewFileIfMissing, boo
 		bool bValidSourceFilename = false;
 		TArray<FString> SourceFilenames;
 
-		for( int32 HandlerIndex = 0; HandlerIndex < Handlers.Num(); ++HandlerIndex )
+		FReimportHandler *CanReimportHandler = SpecifiedReimportHandler;
+		if (CanReimportHandler == nullptr || !CanReimportHandler->CanReimport(Obj, SourceFilenames))
 		{
-			SourceFilenames.Empty();
-			if ( Handlers[ HandlerIndex ]->CanReimport(Obj, SourceFilenames) )
+			for (int32 HandlerIndex = 0; HandlerIndex < Handlers.Num(); ++HandlerIndex)
 			{
-				// Check all filenames for missing files
-				bool bMissingFiles = false;
-				if (SourceFilenames.Num() > 0)
+				SourceFilenames.Empty();
+				if (Handlers[HandlerIndex]->CanReimport(Obj, SourceFilenames))
 				{
-					for (int32 FileIndex = 0; FileIndex < SourceFilenames.Num(); ++FileIndex)
+					CanReimportHandler = Handlers[HandlerIndex];
+					break;
+				}
+			}
+		}
+
+		if(CanReimportHandler != nullptr)
+		{
+			// Check all filenames for missing files
+			bool bMissingFiles = false;
+			if (SourceFilenames.Num() > 0)
+			{
+				for (int32 FileIndex = 0; FileIndex < SourceFilenames.Num(); ++FileIndex)
+				{
+					if (SourceFilenames[FileIndex].IsEmpty() || IFileManager::Get().FileSize(*SourceFilenames[FileIndex]) == INDEX_NONE)
 					{
-						if (SourceFilenames[FileIndex].IsEmpty() || IFileManager::Get().FileSize(*SourceFilenames[FileIndex]) == INDEX_NONE)
-						{
-							bMissingFiles = true;
-							break;
-						}
+						bMissingFiles = true;
+						break;
 					}
+				}
+			}
+			else
+			{
+				bMissingFiles = true;
+			}
+
+			bValidSourceFilename = true;
+			if ((bAskForNewFileIfMissing || !PreferedReimportFile.IsEmpty()) && bMissingFiles )
+			{
+				if (!bAskForNewFileIfMissing && !PreferedReimportFile.IsEmpty())
+				{
+					SourceFilenames.Empty();
+					SourceFilenames.Add(PreferedReimportFile);
 				}
 				else
 				{
-					bMissingFiles = true;
+					GetNewReimportPath(Obj, SourceFilenames);
 				}
-
-				bValidSourceFilename = true;
-				if ((bAskForNewFileIfMissing || !PreferedReimportFile.IsEmpty()) && bMissingFiles )
+				if ( SourceFilenames.Num() == 0 )
 				{
-					if (!bAskForNewFileIfMissing && !PreferedReimportFile.IsEmpty())
-					{
-						SourceFilenames.Empty();
-						SourceFilenames.Add(PreferedReimportFile);
-					}
-					else
-					{
-						GetNewReimportPath(Obj, SourceFilenames);
-					}
-					if ( SourceFilenames.Num() == 0 )
-					{
-						// Failed to specify a new filename. Don't show a notification of the failure since the user exited on his own
-						bValidSourceFilename = false;
-						bShowNotification = false;
-					}
-					else
-					{
-						// A new filename was supplied, update the path
-						Handlers[ HandlerIndex ]->SetReimportPaths(Obj, SourceFilenames);
-					}
+					// Failed to specify a new filename. Don't show a notification of the failure since the user exited on his own
+					bValidSourceFilename = false;
+					bShowNotification = false;
 				}
-
-				if ( bValidSourceFilename )
+				else
 				{
-					// Do the reimport
-					EReimportResult::Type Result = Handlers[ HandlerIndex ]->Reimport( Obj );
-					if( Result == EReimportResult::Succeeded )
-					{
-						Obj->PostEditChange();
-						GEditor->BroadcastObjectReimported(Obj);
-						if (FEngineAnalytics::IsAvailable())
-						{
-							TArray<FAnalyticsEventAttribute> Attributes;
-							Attributes.Add( FAnalyticsEventAttribute( TEXT( "ObjectType" ), Obj->GetClass()->GetName() ) );
-							FEngineAnalytics::GetProvider().RecordEvent(TEXT("Editor.Usage.AssetReimported"), Attributes);
-						}
-						bSuccess = true;
-					}
-					else if( Result == EReimportResult::Cancelled )
-					{
-						bShowNotification = false;
-					}
+					// A new filename was supplied, update the path
+					CanReimportHandler->SetReimportPaths(Obj, SourceFilenames);
 				}
-				
-				break;
+			}
+
+			if ( bValidSourceFilename )
+			{
+				// Do the reimport
+				EReimportResult::Type Result = CanReimportHandler->Reimport( Obj );
+				if( Result == EReimportResult::Succeeded )
+				{
+					Obj->PostEditChange();
+					GEditor->BroadcastObjectReimported(Obj);
+					if (FEngineAnalytics::IsAvailable())
+					{
+						TArray<FAnalyticsEventAttribute> Attributes;
+						Attributes.Add( FAnalyticsEventAttribute( TEXT( "ObjectType" ), Obj->GetClass()->GetName() ) );
+						FEngineAnalytics::GetProvider().RecordEvent(TEXT("Editor.Usage.AssetReimported"), Attributes);
+					}
+					bSuccess = true;
+				}
+				else if( Result == EReimportResult::Cancelled )
+				{
+					bShowNotification = false;
+				}
 			}
 		}
 
@@ -496,7 +505,7 @@ FReimportManager::~FReimportManager()
 
 int32 FReimportHandler::GetPriority() const
 {
-	return UFactory::DefaultImportPriority;
+	return UFactory::GetDefaultImportPriority();
 }
 
 /*-----------------------------------------------------------------------------
@@ -1083,6 +1092,8 @@ namespace EditorUtilities
 				TSet<const UProperty*> SourceUCSModifiedProperties;
 				SourceComponent->GetUCSModifiedProperties(SourceUCSModifiedProperties);
 
+				TArray<UActorComponent*> ComponentInstancesToReregister;
+
 				// Copy component properties
 				for( UProperty* Property = ComponentClass->PropertyLink; Property != nullptr; Property = Property->PropertyLinkNext )
 				{
@@ -1187,10 +1198,13 @@ namespace EditorUtilities
 												}
 											}
 
-											CopySingleProperty( TargetComponent, ComponentArchetypeInstance, Property );
+											if (ComponentArchetypeInstance->IsRegistered())
+											{
+												ComponentArchetypeInstance->UnregisterComponent();
+												ComponentInstancesToReregister.Add(ComponentArchetypeInstance);
+											}
 
-											// Re-register the component with the scene
-											ComponentArchetypeInstance->ReregisterComponent();
+											CopySingleProperty( TargetComponent, ComponentArchetypeInstance, Property );
 										}
 									}
 								}
@@ -1204,6 +1218,11 @@ namespace EditorUtilities
 							}
 						}
 					}
+				}
+
+				for (UActorComponent* ModifiedComponentInstance : ComponentInstancesToReregister)
+				{
+					ModifiedComponentInstance->RegisterComponent();
 				}
 			}
 		}

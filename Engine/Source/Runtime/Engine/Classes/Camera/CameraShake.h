@@ -223,6 +223,9 @@ protected:
 	/** Matrix defining the playspace, used when PlaySpace == CAPS_UserDefined */
 	FMatrix UserPlaySpaceMatrix;
 
+	/** Temp actor to use for playing camera anims. Used when playing a camera anim in non-gameplay context, e.g. in the editor */
+	AActor* TempCameraActorForCameraAnims;
+
 public:
 	/** Overall intensity scale for this shake instance. */
 	UPROPERTY(transient, BlueprintReadOnly, Category = CameraShake)
@@ -274,6 +277,8 @@ public:
 
 	/** Sets current playback time and applies the shake (both oscillation and cameraanim) to the given POV. */
 	void SetCurrentTimeAndApplyShake(float NewTime, FMinimalViewInfo& POV);
+
+	void SetTempCameraAnimActor(AActor* Actor) { TempCameraActorForCameraAnims = Actor; }
 };
 
 

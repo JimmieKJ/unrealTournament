@@ -39,7 +39,7 @@ AUTProjectile::AUTProjectile(const class FObjectInitializer& ObjectInitializer)
 		PawnOverlapSphere->OnComponentBeginOverlap.AddDynamic(this, &AUTProjectile::OnPawnSphereOverlapBegin);
 		PawnOverlapSphere->bTraceComplexOnMove = false; 
 		PawnOverlapSphere->bReceivesDecals = false;
-		PawnOverlapSphere->AttachParent = RootComponent;
+		PawnOverlapSphere->SetupAttachment(RootComponent);
 		PawnOverlapSphere->bShouldUpdatePhysicsVolume = false;
 	}
 
@@ -87,6 +87,7 @@ AUTProjectile::AUTProjectile(const class FObjectInitializer& ObjectInitializer)
 	bLowPriorityLight = false;
 	bPendingSpecialReward = false;
 	StatsHitCredit = 1.f;
+	OffsetTime = 0.2f;
 }
 
 void AUTProjectile::PreInitializeComponents()
@@ -124,9 +125,28 @@ void AUTProjectile::PreInitializeComponents()
 		//UE_LOG(UT, Warning, TEXT("%s found mesh %s receive decals %d cast shadow %d"), *GetName(), *MeshComponents[i]->GetName(), MeshComponents[i]->bReceivesDecals, MeshComponents[i]->CastShadow);
 		MeshComponents[i]->bUseAsOccluder = false;
 		MeshComponents[i]->SetCastShadow(false);
+		if (bDoVisualOffset && !OffsetVisualComponent)
+		{
+			OffsetVisualComponent = MeshComponents[i];
+			FinalVisualOffset = OffsetVisualComponent->RelativeLocation;
+			OffsetVisualComponent->RelativeLocation = InitialVisualOffset;
+		}
 	}
 
 	OnRep_Instigator();
+
+	if (bDoVisualOffset && !OffsetVisualComponent)
+	{
+		TArray<UParticleSystemComponent*> PSComponents;
+		GetComponents<UParticleSystemComponent>(PSComponents);
+		if ((PSComponents.Num() > 0) && PSComponents[0])
+		{
+			OffsetVisualComponent = PSComponents[0];
+			FinalVisualOffset = OffsetVisualComponent->RelativeLocation;
+			OffsetVisualComponent->RelativeLocation = InitialVisualOffset;
+		}
+	}
+	OffsetTime = FMath::Max(OffsetTime, 0.01f);
 
 	/*
 	if (CollisionComp && (CollisionComp->GetUnscaledSphereRadius() > 0.f))
@@ -157,6 +177,11 @@ void AUTProjectile::OnRep_Instigator()
 		if (Cast<AUTCharacter>(Instigator))
 		{
 			((AUTCharacter*)(Instigator))->LastFiredProjectile = this;
+		}
+		if (OffsetVisualComponent && Cast<AUTPlayerController>(InstigatorController) && ((AUTPlayerController*)(InstigatorController))->GetWeaponHand() == EWeaponHand::HAND_Left)
+		{
+			InitialVisualOffset.Y *= -1.f;
+			OffsetVisualComponent->RelativeLocation.Y *= -1.f;
 		}
 	}
 
@@ -451,6 +476,19 @@ void AUTProjectile::TickActor(float DeltaTime, ELevelTick TickType, FActorTickFu
 	}
 	else
 	{
+		if (OffsetVisualComponent)
+		{
+			float Pct = (GetWorld()->GetTimeSeconds() - CreationTime) / OffsetTime;
+			if (Pct >= 1.f)
+			{
+				OffsetVisualComponent->RelativeLocation = FinalVisualOffset;
+				OffsetVisualComponent = nullptr;
+			}
+			else
+			{
+				OffsetVisualComponent->RelativeLocation = Pct*FinalVisualOffset + (1.f - Pct)*InitialVisualOffset;
+			}
+		}
 		Super::TickActor(DeltaTime, TickType, ThisTickFunction);
 	}
 }
@@ -474,7 +512,9 @@ void AUTProjectile::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& 
 
 	DOREPLIFETIME(AActor, bTearOff);
 	DOREPLIFETIME(AActor, bCanBeDamaged);
-	DOREPLIFETIME(AActor, AttachmentReplication);
+
+	// POLGE TODO: Fix the issues with this being private
+	//DOREPLIFETIME(AActor, AttachmentReplication);
 
 	DOREPLIFETIME(AActor, Instigator);
 
@@ -510,7 +550,7 @@ void AUTProjectile::GatherCurrentMovement()
 	if (RootComponent != NULL)
 	{
 		// If we are attached, don't replicate absolute position
-		if (RootComponent->AttachParent != NULL)
+		if (RootComponent->GetAttachParent() != NULL)
 		{
 			Super::GatherCurrentMovement();
 		}
@@ -617,7 +657,7 @@ void AUTProjectile::EndSlomo()
 	OnRep_Slomo();
 }
 
-void AUTProjectile::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+void AUTProjectile::OnOverlapBegin(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
 	if (!bInOverlap)
 	{
@@ -645,7 +685,7 @@ void AUTProjectile::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* Othe
 	}
 }
 
-void AUTProjectile::OnPawnSphereOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+void AUTProjectile::OnPawnSphereOverlapBegin(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
 	if (OtherActor != nullptr)
 	{
@@ -666,7 +706,7 @@ void AUTProjectile::OnPawnSphereOverlapBegin(AActor* OtherActor, UPrimitiveCompo
 		// make sure that the hit is valid before proceeding
 		if (!GetWorld()->LineTraceTestByChannel(OtherLocation, GetActorLocation(), COLLISION_TRACE_WEAPON, Params))
 		{
-			OnOverlapBegin(OtherActor, OtherComp, OtherBodyIndex, bFromSweep, SweepResult);
+			OnOverlapBegin(CollisionComp, OtherActor, OtherComp, OtherBodyIndex, bFromSweep, SweepResult);
 		}
 	}
 }
@@ -832,6 +872,7 @@ void AUTProjectile::DamageImpactedActor_Implementation(AActor* OtherActor, UPrim
 		Event.ComponentHits[0].TraceStart = HitLocation - GetVelocity();
 		Event.ComponentHits[0].TraceEnd = HitLocation + GetVelocity();
 		Event.ShotDirection = GetVelocity().GetSafeNormal();
+		Event.BaseMomentumMag = ((Momentum == 0.f) && Cast<AUTCharacter>(OtherActor) && ((AUTCharacter*)(OtherActor))->IsDead()) ? 20000.f : Momentum;
 		OtherActor->TakeDamage(Event.Params.BaseDamage, Event, ResolvedInstigator, this);
 	}
 	else
@@ -842,6 +883,7 @@ void AUTProjectile::DamageImpactedActor_Implementation(AActor* OtherActor, UPrim
 		Event.DamageTypeClass = ResolvedDamageType;
 		Event.HitInfo = FHitResult(OtherActor, OtherComp, HitLocation, HitNormal);
 		Event.ShotDirection = GetVelocity().GetSafeNormal();
+		AdjustedMomentum = ((AdjustedMomentum == 0.f) && Cast<AUTCharacter>(OtherActor) && ((AUTCharacter*)(OtherActor))->IsDead()) ? 20000.f : Momentum; 
 		Event.Momentum = Event.ShotDirection * AdjustedMomentum;
 		OtherActor->TakeDamage(Event.Damage, Event, ResolvedInstigator, this);
 	}

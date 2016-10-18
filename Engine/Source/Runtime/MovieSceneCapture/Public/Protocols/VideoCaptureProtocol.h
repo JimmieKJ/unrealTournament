@@ -28,9 +28,16 @@ struct MOVIESCENECAPTURE_API FVideoCaptureProtocol : FFrameGrabberProtocol
 {
 	virtual bool Initialize(const FCaptureProtocolInitSettings& InSettings, const ICaptureProtocolHost& Host) override;
 	virtual void Finalize() override;
-	virtual FFramePayloadPtr GetFramePayload(const FFrameMetrics& FrameMetrics, const ICaptureProtocolHost& Host) const;
+	virtual FFramePayloadPtr GetFramePayload(const FFrameMetrics& FrameMetrics, const ICaptureProtocolHost& Host);
 	virtual void ProcessFrame(FCapturedFrameData Frame);
-	
+	virtual bool CanWriteToFile(const TCHAR* InFilename, bool bOverwriteExisting) const override;
+
+protected:
+
+	void ConditionallyCreateWriter(const ICaptureProtocolHost& Host);
 private:
-	TUniquePtr<FAVIWriter> AVIWriter;
+
+	TOptional<FCaptureProtocolInitSettings> InitSettings;
+
+	TArray<TUniquePtr<FAVIWriter>> AVIWriters;
 };

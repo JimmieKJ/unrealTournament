@@ -41,8 +41,9 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_SixParams( FParticleDeathSignature, FName, Ev
 	* @param Direction - Direction of the particle at the point of collision.
 	* @param Normal - Normal to the surface with which collision occurred.
 	* @param BoneName- Name of the bone that the particle collided with. (Only valid if collision was with a Skeletal Mesh)
+	* @param PhysMat - Physical Material for this collision.
 	*/
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_EightParams( FParticleCollisionSignature, FName, EventName, float, EmitterTime, int32, ParticleTime, FVector, Location, FVector, Velocity, FVector, Direction, FVector, Normal, FName, BoneName);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_NineParams( FParticleCollisionSignature, FName, EventName, float, EmitterTime, int32, ParticleTime, FVector, Location, FVector, Velocity, FVector, Direction, FVector, Normal, FName, BoneName, UPhysicalMaterial*, PhysMat);
 
 UCLASS(hideCategories=(Activation,"Components|Activation",Input,Collision,"Game|Damage"), ComponentWrapperClass)
 class ENGINE_API AEmitter : public AActor

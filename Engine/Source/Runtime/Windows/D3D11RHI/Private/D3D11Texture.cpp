@@ -429,7 +429,8 @@ void SafeCreateTexture2D(ID3D11Device* Direct3DDevice, const D3D11_TEXTURE2D_DES
 			TextureDesc->ArraySize,
 			TextureDesc->Format,
 			TextureDesc->MipLevels,
-			TextureDesc->BindFlags
+			TextureDesc->BindFlags,
+			Direct3DDevice
 			);
 #if GUARDED_TEXTURE_CREATES
 		bDriverCrash = false;
@@ -481,7 +482,7 @@ TD3D11Texture2D<BaseResourceType>* FD3D11DynamicRHI::CreateD3D11Texture2D(uint32
 
 	bool bPooledTexture = true;
 
-	if (GMaxRHIFeatureLevel <= ERHIFeatureLevel::ES2)
+	if (GMaxRHIFeatureLevel <= ERHIFeatureLevel::ES3_1)
 	{
 		// Remove sRGB read flag when not supported
 		Flags &= ~TexCreate_SRGB;
@@ -711,7 +712,7 @@ TD3D11Texture2D<BaseResourceType>* FD3D11DynamicRHI::CreateD3D11Texture2D(uint32
 						RTVDesc.Texture2DArray.MipSlice = MipIndex;
 
 						TRefCountPtr<ID3D11RenderTargetView> RenderTargetView;
-						VERIFYD3D11RESULT(Direct3DDevice->CreateRenderTargetView(TextureResource,&RTVDesc,RenderTargetView.GetInitReference()));
+						VERIFYD3D11RESULT_EX(Direct3DDevice->CreateRenderTargetView(TextureResource,&RTVDesc,RenderTargetView.GetInitReference()), Direct3DDevice);
 						RenderTargetViews.Add(RenderTargetView);
 					}
 				}
@@ -734,7 +735,7 @@ TD3D11Texture2D<BaseResourceType>* FD3D11DynamicRHI::CreateD3D11Texture2D(uint32
 					}
 
 					TRefCountPtr<ID3D11RenderTargetView> RenderTargetView;
-					VERIFYD3D11RESULT(Direct3DDevice->CreateRenderTargetView(TextureResource,&RTVDesc,RenderTargetView.GetInitReference()));
+					VERIFYD3D11RESULT_EX(Direct3DDevice->CreateRenderTargetView(TextureResource,&RTVDesc,RenderTargetView.GetInitReference()), Direct3DDevice);
 					RenderTargetViews.Add(RenderTargetView);
 				}
 			}
@@ -772,7 +773,7 @@ TD3D11Texture2D<BaseResourceType>* FD3D11DynamicRHI::CreateD3D11Texture2D(uint32
 						DSVDesc.Flags |= (AccessType & FExclusiveDepthStencil::DepthWrite_StencilRead) ? D3D11_DSV_READ_ONLY_STENCIL : 0;
 					}
 				}
-				VERIFYD3D11RESULT(Direct3DDevice->CreateDepthStencilView(TextureResource,&DSVDesc,DepthStencilViews[AccessType].GetInitReference()));
+				VERIFYD3D11RESULT_EX(Direct3DDevice->CreateDepthStencilView(TextureResource,&DSVDesc,DepthStencilViews[AccessType].GetInitReference()), Direct3DDevice);
 			}
 		}
 	}
@@ -813,7 +814,7 @@ TD3D11Texture2D<BaseResourceType>* FD3D11DynamicRHI::CreateD3D11Texture2D(uint32
 				SRVDesc.Texture2D.MostDetailedMip = 0;
 				SRVDesc.Texture2D.MipLevels = NumMips;
 			}
-			VERIFYD3D11RESULT(Direct3DDevice->CreateShaderResourceView(TextureResource,&SRVDesc,ShaderResourceView.GetInitReference()));			
+			VERIFYD3D11RESULT_EX(Direct3DDevice->CreateShaderResourceView(TextureResource,&SRVDesc,ShaderResourceView.GetInitReference()), Direct3DDevice);
 		}
 
 		check(IsValidRef(ShaderResourceView));
@@ -936,7 +937,8 @@ FD3D11Texture3D* FD3D11DynamicRHI::CreateD3D11Texture3D(uint32 SizeX,uint32 Size
 		SizeZ,
 		PlatformShaderResourceFormat,
 		NumMips,
-		TextureDesc.BindFlags
+		TextureDesc.BindFlags,
+		Direct3DDevice
 		);
 
 	// Create a shader resource view for the texture.
@@ -947,7 +949,7 @@ FD3D11Texture3D* FD3D11DynamicRHI::CreateD3D11Texture3D(uint32 SizeX,uint32 Size
 		SRVDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE3D;
 		SRVDesc.Texture3D.MipLevels = NumMips;
 		SRVDesc.Texture3D.MostDetailedMip = 0;
-		VERIFYD3D11RESULT(Direct3DDevice->CreateShaderResourceView(TextureResource,&SRVDesc,ShaderResourceView.GetInitReference()));
+		VERIFYD3D11RESULT_EX(Direct3DDevice->CreateShaderResourceView(TextureResource,&SRVDesc,ShaderResourceView.GetInitReference()), Direct3DDevice);
 	}
 
 	TRefCountPtr<ID3D11RenderTargetView> RenderTargetView;
@@ -962,7 +964,7 @@ FD3D11Texture3D* FD3D11DynamicRHI::CreateD3D11Texture3D(uint32 SizeX,uint32 Size
 		RTVDesc.Texture3D.FirstWSlice = 0;
 		RTVDesc.Texture3D.WSize = SizeZ;
 
-		VERIFYD3D11RESULT(Direct3DDevice->CreateRenderTargetView(TextureResource,&RTVDesc,RenderTargetView.GetInitReference()));
+		VERIFYD3D11RESULT_EX(Direct3DDevice->CreateRenderTargetView(TextureResource,&RTVDesc,RenderTargetView.GetInitReference()), Direct3DDevice);
 	}
 
 	TArray<TRefCountPtr<ID3D11RenderTargetView> > RenderTargetViews;
@@ -1007,7 +1009,7 @@ FTexture2DRHIRef FD3D11DynamicRHI::RHIAsyncCreateTexture2D(uint32 SizeX,uint32 S
 	check(GRHISupportsAsyncTextureCreation);
 	check((Flags & InvalidFlags) == 0);
 
-	if (GMaxRHIFeatureLevel <= ERHIFeatureLevel::ES2)
+	if (GMaxRHIFeatureLevel <= ERHIFeatureLevel::ES3_1)
 	{
 		// Remove sRGB read flag when not supported
 		Flags &= ~TexCreate_SRGB;
@@ -1071,7 +1073,7 @@ FTexture2DRHIRef FD3D11DynamicRHI::RHIAsyncCreateTexture2D(uint32 SizeX,uint32 S
 	SRVDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
 	SRVDesc.Texture2D.MostDetailedMip = 0;
 	SRVDesc.Texture2D.MipLevels = NumMips;
-	VERIFYD3D11RESULT(Direct3DDevice->CreateShaderResourceView(TextureResource,&SRVDesc,ShaderResourceView.GetInitReference()));
+	VERIFYD3D11RESULT_EX(Direct3DDevice->CreateShaderResourceView(TextureResource,&SRVDesc,ShaderResourceView.GetInitReference()), Direct3DDevice);
 
 	NewTexture = new FD3D11Texture2D(
 		this,
@@ -1161,7 +1163,7 @@ FShaderResourceViewRHIRef FD3D11DynamicRHI::RHICreateShaderResourceView(FTexture
 
 	SRVDesc.Format = PlatformShaderResourceFormat;
 	TRefCountPtr<ID3D11ShaderResourceView> ShaderResourceView;
-	VERIFYD3D11RESULT(Direct3DDevice->CreateShaderResourceView(Texture2D->GetResource(), &SRVDesc, (ID3D11ShaderResourceView**)ShaderResourceView.GetInitReference()));
+	VERIFYD3D11RESULT_EX(Direct3DDevice->CreateShaderResourceView(Texture2D->GetResource(), &SRVDesc, (ID3D11ShaderResourceView**)ShaderResourceView.GetInitReference()), Direct3DDevice);
 
 	return new FD3D11ShaderResourceView(ShaderResourceView,Texture2D);
 }
@@ -1205,7 +1207,7 @@ FShaderResourceViewRHIRef FD3D11DynamicRHI::RHICreateShaderResourceView(FTexture
 			(int32)SRVDesc.ViewDimension, (int32)TextureDesc.SampleDesc.Count, (int32)PlatformResourceFormat, (int32)PlatformShaderResourceFormat, bSRGB ? 1 : 0, hResCreateShaderResourceView);
 	}
 
-	VERIFYD3D11RESULT(hResCreateShaderResourceView);
+	VERIFYD3D11RESULT_EX(hResCreateShaderResourceView, Direct3DDevice);
 
 	return new FD3D11ShaderResourceView(ShaderResourceView,Texture2D);
 }
@@ -1228,7 +1230,7 @@ FShaderResourceViewRHIRef FD3D11DynamicRHI::RHICreateShaderResourceView(FTexture
 
 	SRVDesc.Format = PlatformShaderResourceFormat;
 	TRefCountPtr<ID3D11ShaderResourceView> ShaderResourceView;
-	VERIFYD3D11RESULT(Direct3DDevice->CreateShaderResourceView(Texture3D->GetResource(), &SRVDesc, (ID3D11ShaderResourceView**)ShaderResourceView.GetInitReference()));
+	VERIFYD3D11RESULT_EX(Direct3DDevice->CreateShaderResourceView(Texture3D->GetResource(), &SRVDesc, (ID3D11ShaderResourceView**)ShaderResourceView.GetInitReference()), Direct3DDevice);
 
 	return new FD3D11ShaderResourceView(ShaderResourceView,Texture3D);
 }
@@ -1253,7 +1255,7 @@ FShaderResourceViewRHIRef FD3D11DynamicRHI::RHICreateShaderResourceView(FTexture
 
 	SRVDesc.Format = PlatformShaderResourceFormat;
 	TRefCountPtr<ID3D11ShaderResourceView> ShaderResourceView;
-	VERIFYD3D11RESULT(Direct3DDevice->CreateShaderResourceView(Texture2DArray->GetResource(), &SRVDesc, (ID3D11ShaderResourceView**)ShaderResourceView.GetInitReference()));
+	VERIFYD3D11RESULT_EX(Direct3DDevice->CreateShaderResourceView(Texture2DArray->GetResource(), &SRVDesc, (ID3D11ShaderResourceView**)ShaderResourceView.GetInitReference()), Direct3DDevice);
 
 	return new FD3D11ShaderResourceView(ShaderResourceView,Texture2DArray);
 }
@@ -1276,7 +1278,7 @@ FShaderResourceViewRHIRef FD3D11DynamicRHI::RHICreateShaderResourceView(FTexture
 
 	SRVDesc.Format = PlatformShaderResourceFormat;
 	TRefCountPtr<ID3D11ShaderResourceView> ShaderResourceView;
-	VERIFYD3D11RESULT(Direct3DDevice->CreateShaderResourceView(TextureCube->GetResource(), &SRVDesc, (ID3D11ShaderResourceView**)ShaderResourceView.GetInitReference()));
+	VERIFYD3D11RESULT_EX(Direct3DDevice->CreateShaderResourceView(TextureCube->GetResource(), &SRVDesc, (ID3D11ShaderResourceView**)ShaderResourceView.GetInitReference()), Direct3DDevice);
 
 	return new FD3D11ShaderResourceView(ShaderResourceView,TextureCube);
 }
@@ -1441,7 +1443,8 @@ void* TD3D11Texture2D<RHIResourceType>::Lock(uint32 MipIndex,uint32 ArrayIndex,E
 			GetSizeZ(),
 			StagingTextureDesc.Format,
 			1,
-			0
+			0,
+			D3DRHI->GetDevice()
 			);
 		LockedData.StagingResource = StagingTexture;
 
@@ -1450,7 +1453,7 @@ void* TD3D11Texture2D<RHIResourceType>::Lock(uint32 MipIndex,uint32 ArrayIndex,E
 
 		// Map the staging resource, and return the mapped address.
 		D3D11_MAPPED_SUBRESOURCE MappedTexture;
-		VERIFYD3D11RESULT(D3DRHI->GetDeviceContext()->Map(StagingTexture,0,D3D11_MAP_READ,0,&MappedTexture));
+		VERIFYD3D11RESULT_EX(D3DRHI->GetDeviceContext()->Map(StagingTexture,0,D3D11_MAP_READ,0,&MappedTexture), D3DRHI->GetDevice());
 		LockedData.SetData(MappedTexture.pData);
 		LockedData.Pitch = DestStride = MappedTexture.RowPitch;
 	}
@@ -1597,6 +1600,60 @@ void FD3D11DynamicRHI::RHIVirtualTextureSetFirstMipVisible(FTexture2DRHIParamRef
 FTextureReferenceRHIRef FD3D11DynamicRHI::RHICreateTextureReference(FLastRenderTimeContainer* LastRenderTime)
 {
 	return new FD3D11TextureReference(this,LastRenderTime);
+}
+
+bool FD3D11DynamicRHI::RHICopySubTextureRegion(FTexture2DRHIParamRef SourceTextureRHI, FTexture2DRHIParamRef DestinationTextureRHI, FBox2D SourceBox, FBox2D DestinationBox)
+{
+	FD3D11Texture2D* SourceTexture = ResourceCast(SourceTextureRHI);
+	FD3D11Texture2D* DestinationTexture = ResourceCast(DestinationTextureRHI);
+
+	//Make sure the source box is fitting on right and top side of the source texture, no need to offset the destination
+	if (SourceBox.Max.X >= (float)SourceTexture->GetSizeX())
+	{
+		float Delta = (SourceBox.Max.X - (float)SourceTexture->GetSizeX());
+		SourceBox.Max.X -= Delta;
+	}
+	if (SourceBox.Max.Y >= (float)SourceTexture->GetSizeY())
+	{
+		float Delta = (SourceBox.Max.Y - (float)SourceTexture->GetSizeY());
+		SourceBox.Max.Y -= Delta;
+	}
+
+	int32 DestinationOffsetX = 0;
+	int32 DestinationOffsetY = 0;
+	int32 SourceStartX = SourceBox.Min.X;
+	int32 SourceEndX = SourceBox.Max.X;
+	int32 SourceStartY = SourceBox.Min.Y;
+	int32 SourceEndY = SourceBox.Max.Y;
+	//If the source box is not fitting on the left bottom side, offset the result so the destination pixel match the expectation
+	if (SourceStartX < 0)
+	{
+		DestinationOffsetX -= SourceStartX;
+		SourceStartX = 0;
+	}
+	if (SourceStartY < 0)
+	{
+		DestinationOffsetY -= SourceStartY;
+		SourceStartY = 0;
+	}
+
+	D3D11_BOX SourceBoxAdjust =
+	{
+		SourceStartX,
+		SourceStartY,
+		0,
+		SourceEndX,
+		SourceEndY,
+		1
+	};
+
+	check(GPixelFormats[SourceTexture->GetFormat()].BlockSizeX == 1);
+	check(GPixelFormats[SourceTexture->GetFormat()].BlockSizeY == 1);
+	check(GPixelFormats[DestinationTexture->GetFormat()].BlockSizeX == 1);
+	check(GPixelFormats[DestinationTexture->GetFormat()].BlockSizeY == 1);
+	ID3D11Texture2D* DestinationRessource = DestinationTexture->GetResource();
+	Direct3DDeviceIMContext->CopySubresourceRegion(DestinationRessource, 0, DestinationBox.Min.X + DestinationOffsetX, DestinationBox.Min.Y + DestinationOffsetY, 0, SourceTexture->GetResource(), 0, &SourceBoxAdjust);
+	return true;
 }
 
 void FD3D11DynamicRHI::RHIUpdateTextureReference(FTextureReferenceRHIParamRef TextureRefRHI, FTextureRHIParamRef NewTextureRHI)

@@ -13,6 +13,7 @@
 #include "Engine/LevelStreaming.h"
 #include "Engine/LevelStreamingKismet.h"
 #include "Landscape.h"
+#include "LandscapeStreamingProxy.h"
 #include "AssetData.h"
 
 
@@ -598,26 +599,35 @@ void FWorldTileModel::LoadLevel()
 			LevelStreaming->LevelColor = LevelWorld->PersistentLevel->LevelColor;
 		}
 	}
-	
-	// Whether this tile should be made visible at current world bounds
-	const bool bShouldBeVisible = ShouldBeVisible(LevelCollectionModel.EditableWorldArea());
-	
+
 	// Our level package should be loaded at this point, so level streaming will find it in memory
 	LevelStreaming->bShouldBeLoaded = true;
 	LevelStreaming->bShouldBeVisible = false; // Should be always false in the Editor
-	LevelStreaming->bShouldBeVisibleInEditor = bShouldBeVisible; 
-	// Bring level to world
+	LevelStreaming->bShouldBeVisibleInEditor = false;
 	LevelCollectionModel.GetWorld()->FlushLevelStreaming();
-	
-	bLoadingLevel = false;
 
-	// Mark tile as shelved in case it is hidden(does not fit to world bounds)
-	bWasShelved = !bShouldBeVisible;
-	//
 	LoadedLevel = LevelStreaming->GetLoadedLevel();
 	
+	bWasShelved = false;
+	// Bring level to world
+	if (LoadedLevel.IsValid())
+	{
+		// SetLevelVisibility will attempt to mark level as dirty for Undo purposes 
+		// We don't want to undo sub-level loading operation, and in general loading sub-level should not make it Dirty
+		FUnmodifiableObject ImmuneLevel(LoadedLevel.Get());
+
+		// Whether this tile should be made visible at current world bounds
+		const bool bShouldBeVisible = ShouldBeVisible(LevelCollectionModel.EditableWorldArea());
+		EditorLevelUtils::SetLevelVisibility(LoadedLevel.Get(), bShouldBeVisible, true);
+		
+		// Mark tile as shelved in case it is hidden(does not fit to world bounds)
+		bWasShelved = !bShouldBeVisible;
+	}
+
+	bLoadingLevel = false;
+	
 	// Enable tile properties
-	TileDetails->bTileEditable = (LoadedLevel != nullptr);
+	TileDetails->bTileEditable = LoadedLevel.IsValid();
 }
 
 ULevelStreaming* FWorldTileModel::GetAssosiatedStreamingLevel()
@@ -920,7 +930,7 @@ ALandscapeProxy* FWorldTileModel::ImportLandscapeTile(const FLandscapeImportSett
 	
 	check(Settings.LandscapeGuid.IsValid())
 	
-	ALandscapeProxy* LandscapeProxy = Cast<UWorld>(LoadedLevel->GetOuter())->SpawnActor<ALandscapeProxy>();
+	ALandscapeProxy* LandscapeProxy = Cast<UWorld>(LoadedLevel->GetOuter())->SpawnActor<ALandscapeStreamingProxy>();
 	LandscapeProxy->SetActorTransform(Settings.LandscapeTransform);
 		
 	if (Settings.LandscapeMaterial)

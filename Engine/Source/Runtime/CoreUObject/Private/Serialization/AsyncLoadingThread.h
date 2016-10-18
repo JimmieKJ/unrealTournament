@@ -39,12 +39,15 @@ class FAsyncLoadingThread : public FRunnable
 	FThreadSafeCounter IsLoadingSuspended;
 	/** [ASYNC/GAME THREAD] Event used to signal there's queued packages to stream */
 	TArray<FAsyncPackage*> LoadedPackages;	
+	TMap<FName, FAsyncPackage*> LoadedPackagesNameLookup;
 #if THREADSAFE_UOBJECTS
 	/** [ASYNC/GAME THREAD] Critical section for LoadedPackages list */
 	FCriticalSection LoadedPackagesCritical;
 #endif
 	/** [GAME THREAD] Event used to signal there's queued packages to stream */
 	TArray<FAsyncPackage*> LoadedPackagesToProcess;
+	TArray<FAsyncPackage*> PackagesToDelete;
+	TMap<FName, FAsyncPackage*> LoadedPackagesToProcessNameLookup;
 #if THREADSAFE_UOBJECTS
 	/** [ASYNC/GAME THREAD] Critical section for LoadedPackagesToProcess list. 
 	 * Note this is only required for looking up existing packages on the async loading thread 
@@ -54,6 +57,11 @@ class FAsyncLoadingThread : public FRunnable
 
 	/** [ASYNC THREAD] Array of packages that are being preloaded */
 	TArray<FAsyncPackage*> AsyncPackages;
+
+	/** Packages that we've already hinted for reading */
+	TSet<FAsyncPackage*> PendingPackageHints;
+
+	TMap<FName, FAsyncPackage*> AsyncPackageNameLookup;
 #if THREADSAFE_UOBJECTS
 	/** We only lock AsyncPackages array to make GetAsyncLoadPercentage thread safe, so we only care about locking Add/Remove operations on the async thread */
 	FCriticalSection AsyncPackagesCritical;
@@ -69,17 +77,12 @@ class FAsyncLoadingThread : public FRunnable
 	/** [ASYNC/GAME THREAD] Number of package load requests in the async loading queue */
 	FThreadSafeCounter QueuedPackagesCounter;
 	/** [ASYNC/GAME THREAD] Number of packages being loaded on the async thread and post loaded on the game thread */
-	FThreadSafeCounter AsyncLoadingCounter;
-	/** [ASYNC/GAME THREAD] Number of packages being loaded on the async thread */
-	FThreadSafeCounter AsyncPackagesCounter;
+	FThreadSafeCounter ExistingAsyncPackagesCounter;
 
 	FThreadSafeCounter AsyncThreadReady;
 
 	/** Async loading thread ID */
 	static uint32 AsyncLoadingThreadID;
-
-	/** Helper for tracking the dependency packages that have been requested while loading a package */
-	TSet<FName> DependencyTracker;
 
 	/** Enum describing async package request insertion mode */
 	enum class EAsyncPackageInsertMode
@@ -95,22 +98,6 @@ class FAsyncLoadingThread : public FRunnable
 
 	FAsyncLoadingThread();
 	virtual ~FAsyncLoadingThread();
-
-	/**
-	* [ASYNC/GAME THREAD] Finds an existing async package by its name.
-	*/
-	FORCEINLINE int32 FindPackageByName(TArray<FAsyncPackage*>& InPackages, const FName& PackageName)
-	{
-		for (int32 PackageIndex = 0; PackageIndex < InPackages.Num(); ++PackageIndex)
-		{
-			FAsyncPackage* Package = InPackages[PackageIndex];
-			if (Package->GetPackageName() == PackageName)
-			{
-				return PackageIndex;
-			}
-		}
-		return INDEX_NONE;
-	}
 
 public:
 
@@ -166,7 +153,7 @@ public:
 	FORCEINLINE bool IsAsyncLoadingPackages()
 	{
 		FPlatformMisc::MemoryBarrier();
-		return QueuedPackagesCounter.GetValue() != 0 || AsyncLoadingCounter.GetValue() != 0;
+		return QueuedPackagesCounter.GetValue() != 0 || ExistingAsyncPackagesCounter.GetValue() != 0;
 	}
 
 	/** Returns true this codes runs on the async loading thread */
@@ -205,19 +192,19 @@ public:
 	FORCEINLINE int32 GetAsyncPackagesCount()
 	{
 		FPlatformMisc::MemoryBarrier();
-		return AsyncLoadingCounter.GetValue();
+		return ExistingAsyncPackagesCounter.GetValue();
 	}
 
 	/**
 	* [ASYNC THREAD] Finds an existing async package in the AsyncPackages by its name.
 	*
 	* @param PackageName async package name.
-	* @return Index of the async package in AsyncPackages array or INDEX_NONE if not found.
+	* @return Pointer to the package or nullptr if not found
 	*/
-	FORCEINLINE int32 FindAsyncPackage(const FName& PackageName)
+	FORCEINLINE FAsyncPackage* FindAsyncPackage(const FName& PackageName)
 	{
 		checkSlow(IsInAsyncLoadThread());
-		return FindPackageByName(AsyncPackages, PackageName);
+		return AsyncPackageNameLookup.FindRef(PackageName);
 	}
 
 	/**
@@ -234,10 +221,10 @@ public:
 	* @param PackageName async package name.
 	* @return Index of the async package in LoadedPackages array or INDEX_NONE if not found.
 	*/
-	FORCEINLINE int32 FindLoadedPackage(const FName& PackageName)
+	FORCEINLINE FAsyncPackage* FindLoadedPackage(const FName& PackageName)
 	{
 		checkSlow(IsInAsyncLoadThread());
-		return FindPackageByName(LoadedPackages, PackageName);
+		return LoadedPackagesNameLookup.FindRef(PackageName);
 	}
 
 	/**
@@ -283,6 +270,8 @@ public:
 	* @return The current state of async loading
 	*/
 	EAsyncPackageState::Type ProcessAsyncLoading(int32& OutPackagesProcessed, bool bUseTimeLimit = false, bool bUseFullTimeLimit = false, float TimeLimit = 0.0f);
+
+	void JustInTimeHinting();
 
 	/**
 	* [GAME THREAD] Ticks game thread side of async loading.
@@ -374,17 +363,17 @@ private:
 	* [ASYNC THREAD] Internal helper function for processing a package load request. If dependency preloading is enabled, 
 	* it will call itself recursively for all the package dependencies
 	*/
-	void ProcessAsyncPackageRequest(FAsyncPackageDesc* InRequest, FAsyncPackage* InRootPackage, TSet<FName>& InDependencyTracker, IAssetRegistryInterface* InAssetRegistry);
+	void ProcessAsyncPackageRequest(FAsyncPackageDesc* InRequest, FAsyncPackage* InRootPackage, IAssetRegistryInterface* InAssetRegistry);
 
 	/**
 	* [ASYNC THREAD] Internal helper function for updating the priorities of an existing package and all its dependencies
 	*/
-	void UpdateExistingPackagePriorities(FAsyncPackage* InPackage, TAsyncLoadPriority InNewPriority, TSet<FName>& InDependencyTracker, IAssetRegistryInterface* InAssetRegistry);
+	void UpdateExistingPackagePriorities(FAsyncPackage* InPackage, TAsyncLoadPriority InNewPriority, IAssetRegistryInterface* InAssetRegistry);
 
 	/**
 	* [ASYNC THREAD] Finds existing async package and adds the new request's completion callback to it.
 	*/
-	FAsyncPackage* FindExistingPackageAndAddCompletionCallback(FAsyncPackageDesc* PackageRequest, TArray<FAsyncPackage*>& PackageList);
+	FAsyncPackage* FindExistingPackageAndAddCompletionCallback(FAsyncPackageDesc* PackageRequest, TMap<FName, FAsyncPackage*>& PackageList);
 
 	/**
 	* [ASYNC THREAD] Adds a package to a list of packages that have finished loading on the async thread
@@ -395,6 +384,7 @@ private:
 		FScopeLock LoadedLock(&LoadedPackagesCritical);
 #endif
 		LoadedPackages.Add(Package);
+		LoadedPackagesNameLookup.Add(Package->GetPackageName(), Package);
 	}
 
 	/** Cancels async loading internally */

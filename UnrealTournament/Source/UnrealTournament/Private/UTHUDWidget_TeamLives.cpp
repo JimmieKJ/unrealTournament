@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #include "UnrealTournament.h"
 #include "UTHUDWidget_TeamLives.h"
-#include "UTCTFGameState.h"
+#include "UTCTFRoundGameState.h"
 
 UUTHUDWidget_TeamLives::UUTHUDWidget_TeamLives(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -28,9 +28,9 @@ bool UUTHUDWidget_TeamLives::ShouldDraw_Implementation(bool bShowScores)
 
 FText UUTHUDWidget_TeamLives::GetRedTeamLives_Implementation()
 {
-	if ( Cast<AUTCTFGameState>(UTGameState) )
+	if ( Cast<AUTCTFRoundGameState>(UTGameState) )
 	{
-		return FText::AsNumber(((AUTCTFGameState*)(UTGameState))->RedLivesRemaining);
+		return FText::AsNumber(((AUTCTFRoundGameState*)(UTGameState))->RedLivesRemaining);
 	}
 
 	return FText::AsNumber(0);
@@ -38,9 +38,9 @@ FText UUTHUDWidget_TeamLives::GetRedTeamLives_Implementation()
 
 FText UUTHUDWidget_TeamLives::GetBlueTeamLives_Implementation()
 {
-	if ( Cast<AUTCTFGameState>(UTGameState) )
+	if ( Cast<AUTCTFRoundGameState>(UTGameState) )
 	{
-		return FText::AsNumber(((AUTCTFGameState*)(UTGameState))->BlueLivesRemaining);
+		return FText::AsNumber(((AUTCTFRoundGameState*)(UTGameState))->BlueLivesRemaining);
 	}
 
 	return FText::AsNumber(0);

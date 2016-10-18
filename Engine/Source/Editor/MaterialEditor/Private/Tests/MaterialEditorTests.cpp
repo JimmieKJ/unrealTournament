@@ -78,7 +78,7 @@ namespace MaterialEditorPromotionTestUtils
 	template<class AssetType> 
 	static AssetType* GetAssetFromPackagePath(const FString& PackagePath)
 	{
-		FAssetData AssetData = FEditorAutomationTestUtilities::GetAssetDataFromPackagePath(PackagePath);
+		FAssetData AssetData = FAutomationEditorCommonUtils::GetAssetDataFromPackagePath(PackagePath);
 		return Cast<AssetType>(AssetData.GetAsset());
 	}
 

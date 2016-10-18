@@ -39,6 +39,9 @@ private:
 	/** Called when the 'edit' hyperlink is clicked */
 	FReply OnEditPluginFinished(UPluginMetadataObject* MetadataObject);
 
+	/** Called when the 'package' hyperlink is clicked */
+	void OnPackagePlugin();
+
 private:
 
 	/** The item we're representing the in tree */

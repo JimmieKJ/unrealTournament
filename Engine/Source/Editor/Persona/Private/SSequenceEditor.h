@@ -36,7 +36,7 @@ public:
 	void Construct(const FArguments& InArgs);
 	virtual ~SSequenceEditor();
 
-	virtual UAnimSequenceBase* GetEditorObject() const override { return SequenceObj; }
+	virtual UAnimationAsset* GetEditorObject() const override { return SequenceObj; }
 
 private:
 	/** Pointer to the animation sequence being edited */

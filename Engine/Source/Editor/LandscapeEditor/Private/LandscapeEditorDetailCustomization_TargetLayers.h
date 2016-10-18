@@ -22,6 +22,8 @@ protected:
 	static bool ShouldShowTargetLayers();
 	static bool ShouldShowPaintingRestriction();
 	static EVisibility GetVisibility_PaintingRestriction();
+	static bool ShouldShowVisibilityTip();
+	static EVisibility GetVisibility_VisibilityTip();
 };
 
 class FLandscapeEditorCustomNodeBuilder_TargetLayers : public IDetailCustomNodeBuilder
@@ -51,6 +53,8 @@ protected:
 	static void OnExportLayer(const TSharedRef<FLandscapeTargetListInfo> Target);
 	static void OnImportLayer(const TSharedRef<FLandscapeTargetListInfo> Target);
 	static void OnReimportLayer(const TSharedRef<FLandscapeTargetListInfo> Target);
+	static void OnFillLayer(const TSharedRef<FLandscapeTargetListInfo> Target);
+	static void OnClearLayer(const TSharedRef<FLandscapeTargetListInfo> Target);
 	static bool ShouldFilterLayerInfo(const class FAssetData& AssetData, FName LayerName);
 	static void OnTargetLayerSetObject(const FAssetData& AssetData, const TSharedRef<FLandscapeTargetListInfo> Target);
 	static EVisibility GetTargetLayerInfoSelectorVisibility(const TSharedRef<FLandscapeTargetListInfo> Target);

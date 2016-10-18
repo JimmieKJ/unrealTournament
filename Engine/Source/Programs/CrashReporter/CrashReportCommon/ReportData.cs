@@ -419,6 +419,42 @@ namespace Tools.CrashReporter.CrashReportCommon
 			}
 		}
 
+		/// <summary> Game-specific deployment string e.g. "DevPlaytest", "Live" </summary>
+		public string DeploymentName
+		{
+			get
+			{
+				return Metadata.DynamicSignatures.DeploymentName;
+			}
+		}
+
+		/// <summary> Is the report an non-fatal error? </summary>
+		public bool IsEnsure
+		{
+			get
+			{
+				return Metadata.DynamicSignatures.IsEnsure;
+			}
+		}
+
+		/// <summary> Is the report a crash from a deliberate check like an assert? </summary>
+		public bool IsAssert
+		{
+			get
+			{
+				return Metadata.DynamicSignatures.IsAssert;
+			}
+		}
+
+		/// <summary> Crash type string e.g. "Crash, "Assert", "Ensure" </summary>
+		public string CrashType
+		{
+			get
+			{
+				return Metadata.DynamicSignatures.CrashType;
+			}
+		}
+
 		/// <summary> Extracts a string marked with the specified string value. </summary>
 		private string ExtractMarkedString( string NameMarker )
 		{

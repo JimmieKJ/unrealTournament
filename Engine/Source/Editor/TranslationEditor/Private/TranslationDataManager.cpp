@@ -7,8 +7,7 @@
 #include "ISourceControlModule.h"
 #include "MessageLog.h"
 #include "TextLocalizationManager.h"
-#include "JsonInternationalizationArchiveSerializer.h"
-#include "JsonInternationalizationManifestSerializer.h"
+#include "TextLocalizationResourceGenerator.h"
 #include "SNotificationList.h"
 #include "NotificationManager.h"
 #include "PortableObjectFormatDOM.h"
@@ -16,12 +15,58 @@
 #include "LocalizationModule.h"
 #include "LocalizationTargetTypes.h"
 #include "LocalizationConfigurationScript.h"
+#include "JsonInternationalizationArchiveSerializer.h"
+#include "JsonInternationalizationManifestSerializer.h"
 
 
 DEFINE_LOG_CATEGORY_STATIC(LogTranslationEditor, Log, All);
 
 #define LOCTEXT_NAMESPACE "TranslationDataManager"
 
+struct FLocTextIdentity
+{
+public:
+	FLocTextIdentity(FString InNamespace, FString InKey)
+		: Namespace(MoveTemp(InNamespace))
+		, Key(MoveTemp(InKey))
+		, Hash(0)
+	{
+		Hash = FCrc::StrCrc32(*Namespace, Hash);
+		Hash = FCrc::StrCrc32(*Key, Hash);
+	}
+
+	FORCEINLINE const FString& GetNamespace() const
+	{
+		return Namespace;
+	}
+
+	FORCEINLINE const FString& GetKey() const
+	{
+		return Key;
+	}
+
+	FORCEINLINE bool operator==(const FLocTextIdentity& Other) const
+	{
+		return Namespace.Equals(Other.Namespace, ESearchCase::CaseSensitive)
+			&& Key.Equals(Other.Key, ESearchCase::CaseSensitive);
+	}
+
+	FORCEINLINE bool operator!=(const FLocTextIdentity& Other) const
+	{
+		return !Namespace.Equals(Other.Namespace, ESearchCase::CaseSensitive)
+			|| !Key.Equals(Other.Key, ESearchCase::CaseSensitive);
+	}
+
+	friend inline uint32 GetTypeHash(const FLocTextIdentity& Id)
+	{
+		return Id.Hash;
+	}
+
+private:
+	FString Namespace;
+	FString Key;
+	uint32 Hash;
+};
 
 FTranslationDataManager::FTranslationDataManager( const FString& InManifestFilePath, const FString& InNativeArchiveFilePath, const FString& InArchiveFilePath )
 	: OpenedManifestFilePath(InManifestFilePath)
@@ -85,23 +130,23 @@ void FTranslationDataManager::Initialize()
 
 			GWarn->BeginSlowTask(LOCTEXT("LoadingCurrentManifest", "Loading Entries from Current Translation Manifest..."), true);
 
-			// Get all manifest entries by source text (same source text in multiple contexts will only show up once, unless they have unique key metadata)
+			// Get all manifest entries by source text...
 			for (auto ManifestItr = ManifestAtHeadRevision->GetEntriesBySourceTextIterator(); ManifestItr; ++ManifestItr, ++NumManifestEntriesParsed)
 			{
 				GWarn->StatusUpdate(NumManifestEntriesParsed, ManifestEntriesCount, FText::Format(LOCTEXT("LoadingCurrentManifestEntries", "Loading Entry {0} of {1} from Current Translation Manifest..."), FText::AsNumber(NumManifestEntriesParsed), FText::AsNumber(ManifestEntriesCount)));
 				const TSharedRef<FManifestEntry> ManifestEntry = ManifestItr.Value();
-				TMap< TSharedPtr<FLocMetadataObject>, UTranslationUnit* > KeyMetaDataToTranslationUnitMap;
+				TMap< FLocTextIdentity, UTranslationUnit* > IdentityToTranslationUnitMap;
 
 				for(auto ContextIter( ManifestEntry->Contexts.CreateConstIterator() ); ContextIter; ++ContextIter)
 				{
 					FTranslationContextInfo ContextInfo;
-					const FContext& AContext = *ContextIter;
+					const FManifestContext& AContext = *ContextIter;
 
 					ContextInfo.Context = AContext.SourceLocation;
 					ContextInfo.Key = AContext.Key;
 
-					// Make sure we have a unique translation unit for each unique key metadata object.
-					UTranslationUnit*& TranslationUnit = KeyMetaDataToTranslationUnitMap.FindOrAdd(AContext.KeyMetadataObj);
+					// Make sure we have a unique translation unit for each unique identity.
+					UTranslationUnit*& TranslationUnit = IdentityToTranslationUnitMap.FindOrAdd(FLocTextIdentity(ManifestEntry->Namespace, AContext.Key));
 					if (!TranslationUnit)
 					{
 						TranslationUnit = NewObject<UTranslationUnit>();
@@ -111,12 +156,13 @@ void FTranslationDataManager::Initialize()
 						TranslationUnit->HasBeenReviewed = false;
 						TranslationUnit->Source = ManifestEntry->Source.Text;
 						TranslationUnit->Namespace = ManifestEntry->Namespace;
+						TranslationUnit->Key = AContext.Key;
 						TranslationUnit->KeyMetaDataObject = AContext.KeyMetadataObj;
 					}
 					
 					if (NativeArchivePtr.IsValid() && NativeArchivePtr != ArchivePtr)
 					{
-						const TSharedPtr<FArchiveEntry> NativeArchiveEntry = NativeArchivePtr->FindEntryBySource(ManifestEntry->Namespace, ManifestEntry->Source, AContext.KeyMetadataObj);
+						const TSharedPtr<FArchiveEntry> NativeArchiveEntry = NativeArchivePtr->FindEntryByKey(ManifestEntry->Namespace, AContext.Key, AContext.KeyMetadataObj);
 						// If the native archive contains a translation for the source string that isn't identical to the source string, use the translation as the source string.
 						if (NativeArchiveEntry.IsValid() && !NativeArchiveEntry->Translation.IsExactMatch(NativeArchiveEntry->Source))
 						{
@@ -129,7 +175,7 @@ void FTranslationDataManager::Initialize()
 
 
 				TArray<UTranslationUnit*> TranslationUnitsToAdd;
-				KeyMetaDataToTranslationUnitMap.GenerateValueArray(TranslationUnitsToAdd);
+				IdentityToTranslationUnitMap.GenerateValueArray(TranslationUnitsToAdd);
 				TranslationUnits.Append(TranslationUnitsToAdd);
 			}
 			GWarn->EndSlowTask();
@@ -168,62 +214,28 @@ FTranslationDataManager::~FTranslationDataManager()
 
 TSharedPtr< FInternationalizationManifest > FTranslationDataManager::ReadManifest( const FString& ManifestFilePathToRead )
 {
-	
-	TSharedPtr<FJsonObject> ManifestJsonObject = ReadJSONTextFile( ManifestFilePathToRead );
+	TSharedPtr<FInternationalizationManifest> InternationalizationManifest = MakeShareable(new FInternationalizationManifest);
 
-	if( !ManifestJsonObject.IsValid() )
+	if (!FJsonInternationalizationManifestSerializer::DeserializeManifestFromFile(ManifestFilePathToRead, InternationalizationManifest.ToSharedRef()))
 	{
 		UE_LOG(LogTranslationEditor, Error, TEXT("Could not read manifest file %s."), *ManifestFilePathToRead);
-		return TSharedPtr< FInternationalizationManifest >();
+		InternationalizationManifest.Reset();
 	}
-
-	TSharedRef< FInternationalizationManifest > InternationalizationManifest = MakeShareable( new FInternationalizationManifest );
-
-	ManifestSerializer.DeserializeManifest( ManifestJsonObject.ToSharedRef(), InternationalizationManifest );
 
 	return InternationalizationManifest;
 }
 
 TSharedPtr< FInternationalizationArchive > FTranslationDataManager::ReadArchive(const FString& ArchiveFilePath)
 {
-	// Read in any existing archive for this culture.
-	TSharedPtr< FJsonObject > ArchiveJsonObject = ReadJSONTextFile( ArchiveFilePath );
+	TSharedPtr<FInternationalizationArchive> InternationalizationArchive = MakeShareable(new FInternationalizationArchive);
 
-	if ( !ArchiveJsonObject.IsValid() )
+	if (!FJsonInternationalizationArchiveSerializer::DeserializeArchiveFromFile(ArchiveFilePath, InternationalizationArchive.ToSharedRef(), ManifestAtHeadRevisionPtr, nullptr))
 	{
 		UE_LOG(LogTranslationEditor, Error, TEXT("Could not read archive file %s."), *ArchiveFilePath);
-		return nullptr;
+		InternationalizationArchive.Reset();
 	}
-
-	TSharedRef< FInternationalizationArchive > InternationalizationArchive = MakeShareable( new FInternationalizationArchive );
-
-	ArchiveSerializer.DeserializeArchive( ArchiveJsonObject.ToSharedRef(), InternationalizationArchive );
 
 	return InternationalizationArchive;
-}
-
-TSharedPtr<FJsonObject> FTranslationDataManager::ReadJSONTextFile(const FString& InFilePath)
-{
-	//read in file as string
-	FString FileContents;
-	if ( !FFileHelper::LoadFileToString(FileContents, *InFilePath) )
-	{
-		UE_LOG(LogTranslationEditor, Error,TEXT("Failed to load file %s."), *InFilePath);
-		return nullptr;
-	}
-
-	//parse as JSON
-	TSharedPtr<FJsonObject> JSONObject;
-
-	TSharedRef< TJsonReader<> > Reader = TJsonReaderFactory<>::Create( FileContents );
-
-	if( !FJsonSerializer::Deserialize( Reader, JSONObject ) || !JSONObject.IsValid())
-	{
-		UE_LOG(LogTranslationEditor, Error,TEXT("Invalid JSON in file %s."), *InFilePath);
-		return nullptr;
-	}
-
-	return JSONObject;
 }
 
 bool FTranslationDataManager::WriteTranslationData(bool bForceWrite /*= false*/)
@@ -242,11 +254,11 @@ bool FTranslationDataManager::WriteTranslationData(bool bForceWrite /*= false*/)
 			if (TranslationUnit != nullptr)
 			{
 				const FLocItem SearchSource(TranslationUnit->Source);
-				FString OldTranslation = Archive->FindEntryBySource(TranslationUnit->Namespace, SearchSource, nullptr)->Translation.Text;
+				FString OldTranslation = Archive->FindEntryByKey(TranslationUnit->Namespace, TranslationUnit->Key, TranslationUnit->KeyMetaDataObject)->Translation.Text;
 				FString TranslationToWrite = TranslationUnit->Translation;
 				if (!TranslationToWrite.Equals(OldTranslation))
 				{
-					Archive->SetTranslation(TranslationUnit->Namespace, TranslationUnit->Source, TranslationToWrite, nullptr);
+					Archive->SetTranslation(TranslationUnit->Namespace, TranslationUnit->Key, FLocItem(TranslationUnit->Source), FLocItem(TranslationToWrite), TranslationUnit->KeyMetaDataObject);
 					bNeedsWrite = true;
 				}
 			}
@@ -257,11 +269,11 @@ bool FTranslationDataManager::WriteTranslationData(bool bForceWrite /*= false*/)
 			if (TranslationUnit != nullptr)
 			{
 				const FLocItem SearchSource(TranslationUnit->Source);
-				FString OldTranslation = Archive->FindEntryBySource(TranslationUnit->Namespace, SearchSource, nullptr)->Translation.Text;
+				FString OldTranslation = Archive->FindEntryByKey(TranslationUnit->Namespace, TranslationUnit->Key, TranslationUnit->KeyMetaDataObject)->Translation.Text;
 				FString TranslationToWrite = TranslationUnit->Translation;
 				if (TranslationUnit->HasBeenReviewed && !TranslationToWrite.Equals(OldTranslation))
 				{
-					Archive->SetTranslation(TranslationUnit->Namespace, TranslationUnit->Source, TranslationToWrite, nullptr);
+					Archive->SetTranslation(TranslationUnit->Namespace, TranslationUnit->Key, FLocItem(TranslationUnit->Source), FLocItem(TranslationToWrite), TranslationUnit->KeyMetaDataObject);
 					bNeedsWrite = true;
 				}
 			}
@@ -272,11 +284,11 @@ bool FTranslationDataManager::WriteTranslationData(bool bForceWrite /*= false*/)
 			if (TranslationUnit != nullptr)
 			{
 				const FLocItem SearchSource(TranslationUnit->Source);
-				FString OldTranslation = Archive->FindEntryBySource(TranslationUnit->Namespace, SearchSource, nullptr)->Translation.Text;
+				FString OldTranslation = Archive->FindEntryByKey(TranslationUnit->Namespace, TranslationUnit->Key, TranslationUnit->KeyMetaDataObject)->Translation.Text;
 				FString TranslationToWrite = TranslationUnit->Translation;
 				if (!TranslationToWrite.Equals(OldTranslation))
 				{
-					Archive->SetTranslation(TranslationUnit->Namespace, TranslationUnit->Source, TranslationToWrite, nullptr);
+					Archive->SetTranslation(TranslationUnit->Namespace, TranslationUnit->Key, FLocItem(TranslationUnit->Source), FLocItem(TranslationToWrite), TranslationUnit->KeyMetaDataObject);
 					bNeedsWrite = true;
 				}
 			}
@@ -287,7 +299,7 @@ bool FTranslationDataManager::WriteTranslationData(bool bForceWrite /*= false*/)
 		if (bForceWrite || bNeedsWrite)
 		{
 			TSharedRef<FJsonObject> FinalArchiveJsonObj = MakeShareable(new FJsonObject);
-			ArchiveSerializer.SerializeArchive(Archive, FinalArchiveJsonObj);
+			FJsonInternationalizationArchiveSerializer::SerializeArchive(Archive, FinalArchiveJsonObj);
 
 			bSuccess = WriteJSONToTextFile(FinalArchiveJsonObj, OpenedArchiveFilePath);
 		}
@@ -498,9 +510,7 @@ void FTranslationDataManager::GetHistoryForTranslationUnits()
 									PreviousSourceText = ContextInfo.Changes[0].Source;
 								}
 
-								FContext SearchContext;
-								SearchContext.Key = ContextInfo.Key;
-								TSharedPtr< FManifestEntry > OldManifestEntryPtr = OldManifest->FindEntryByContext(TranslationUnit->Namespace, SearchContext);
+								TSharedPtr< FManifestEntry > OldManifestEntryPtr = OldManifest->FindEntryByKey(TranslationUnit->Namespace, ContextInfo.Key);
 								if (!OldManifestEntryPtr.IsValid())
 								{
 									// If this version of the manifest didn't know anything about this string, move onto the next
@@ -510,7 +520,7 @@ void FTranslationDataManager::GetHistoryForTranslationUnits()
 								// Always add first instance of this string, and then add any versions that changed since
 								if (ContextInfo.Changes.Num() == 0 || !OldManifestEntryPtr->Source.Text.Equals(PreviousSourceText))
 								{
-									TSharedPtr< FArchiveEntry > OldArchiveEntry = ArchivePtr->FindEntryBySource(OldManifestEntryPtr->Namespace, OldManifestEntryPtr->Source, nullptr);
+									TSharedPtr< FArchiveEntry > OldArchiveEntry = ArchivePtr->FindEntryByKey(OldManifestEntryPtr->Namespace, ContextInfo.Key, nullptr);
 									if (OldArchiveEntry.IsValid())
 									{
 										FTranslationChange Change;
@@ -625,11 +635,7 @@ void FTranslationDataManager::PreviewAllTranslationsInEditor(ULocalizationTarget
 	{
 		const FString ConfigFilePath = LocalizationConfigurationScript::GetRegenerateResourcesConfigPath(LocalizationTarget);
 		LocalizationConfigurationScript::GenerateRegenerateResourcesConfigFile(LocalizationTarget).Write(ConfigFilePath);
-
-		FJsonInternationalizationArchiveSerializer LocalizationArchiveSerializer;
-		FJsonInternationalizationManifestSerializer LocalizationManifestSerializer;
-
-		FTextLocalizationManager::Get().LoadFromManifestAndArchives(ConfigFilePath, LocalizationArchiveSerializer, LocalizationManifestSerializer);
+		FTextLocalizationResourceGenerator::GenerateAndUpdateLiveEntriesFromConfig(ConfigFilePath, /*bSkipSourceCheck*/false);
 	}
 	else
 	{
@@ -708,8 +714,7 @@ void FTranslationDataManager::LoadFromArchive(TArray<UTranslationUnit*>& InTrans
 
 				GWarn->StatusUpdate(CurrentTranslationUnitIndex, TranslationUnits.Num(), FText::Format(LOCTEXT("LoadingCurrentArchiveEntries", "Loading Entry {0} of {1} from Translation Archive..."), FText::AsNumber(CurrentTranslationUnitIndex), FText::AsNumber(TranslationUnits.Num())));
 
-				const FLocItem SourceSearch(TranslationUnit->Source);
-				TSharedPtr<FArchiveEntry> ArchiveEntry = Archive->FindEntryBySource(TranslationUnit->Namespace, SourceSearch, TranslationUnit->KeyMetaDataObject);
+				TSharedPtr<FArchiveEntry> ArchiveEntry = Archive->FindEntryByKey(TranslationUnit->Namespace, TranslationUnit->Key, TranslationUnit->KeyMetaDataObject);
 				if (ArchiveEntry.IsValid())
 				{
 					const FString PreviousTranslation = TranslationUnit->Translation;

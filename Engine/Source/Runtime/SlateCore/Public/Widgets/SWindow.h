@@ -3,7 +3,7 @@
 #pragma once
 
 class FHittestGrid;
-
+class ISlateViewport;
 
 /** Notification that a window has been activated */
 DECLARE_DELEGATE( FOnWindowActivated );
@@ -71,6 +71,22 @@ struct FWindowTransparency
 };
 
 /**
+ * Simple overlay layer to allow content to be laid out on a Window or similar widget.
+ */
+class FOverlayPopupLayer : public FPopupLayer
+{
+public:
+	FOverlayPopupLayer(const TSharedRef<SWindow>& InitHostWindow, const TSharedRef<SWidget>& InitPopupContent, TSharedPtr<SOverlay> InitOverlay);
+
+	virtual void Remove() override;
+	virtual FSlateRect GetAbsoluteClientRect() override;
+
+private:
+	TSharedPtr<SWindow> HostWindow;
+	TSharedPtr<SOverlay> Overlay;
+};
+
+/**
  * SWindow is a platform-agnostic representation of a top-level window.
  */
 class SLATECORE_API SWindow
@@ -99,6 +115,7 @@ public:
 		, _HasCloseButton( true )
 		, _SupportsMaximize( true )
 		, _SupportsMinimize( true )
+		, _ShouldPreserveAspectRatio( false )
 		, _CreateTitleBar( true )
 		, _SaneWindowPlacement( true )
 		, _LayoutBorder(FMargin(5, 5, 5, 5))
@@ -165,6 +182,9 @@ public:
 		
 		/** Can this window be minimized? */
 		SLATE_ARGUMENT( bool, SupportsMinimize )
+
+		/** Should this window preserve its aspect ratio when resized by user? */
+		SLATE_ARGUMENT( bool, ShouldPreserveAspectRatio )
 
 		/** The smallest width this window can be in Desktop Pixel Units. */
 		SLATE_ARGUMENT( TOptional<float>, MinWidth )
@@ -422,6 +442,17 @@ public:
 	 */
 	void RemoveOverlaySlot( const TSharedRef<SWidget>& InContent );
 
+	/**
+	 * Visualize a new pop-up if possible.  If it's not possible for this widget to host the pop-up
+	 * content you'll get back an invalid pointer to the layer.  The returned FPopupLayer allows you 
+	 * to remove the pop-up when you're done with it
+	 * 
+	 * @param PopupContent The widget to try and host overlaid on top of the widget.
+	 *
+	 * @return a valid FPopupLayer if this widget supported hosting it.  You can call Remove() on this to destroy the pop-up.
+	 */
+	virtual TSharedPtr<FPopupLayer> OnVisualizePopup(const TSharedRef<SWidget>& PopupContent) override;
+
 	/** Return a new slot in the popup layer. Assumes that the window has a popup layer. */
 	struct FPopupLayerSlot& AddPopupLayerSlot();
 
@@ -576,6 +607,11 @@ public:
 		return bSizeWillChangeOften;
 	}
 
+	bool ShouldPreserveAspectRatio() const
+	{
+		return bShouldPreserveAspectRatio;
+	}
+
 	/** @return Returns the configured expected maximum width of the window, or INDEX_NONE if not specified.  Can be used to optimize performance for window size animation */
 	int32 GetExpectedMaxWidth() const
 	{
@@ -619,6 +655,19 @@ public:
 		return bIsModalWindow;
 	}
 
+	/** Set mirror window flag */
+	void SetMirrorWindow(bool bSetMirrorWindow)
+	{
+		bIsMirrorWindow = bSetMirrorWindow;
+	}
+	
+	bool IsVirtualWindow() const { return bVirtualWindow; }
+
+	bool IsMirrorWindow()
+	{
+		return bIsMirrorWindow;
+	}
+
 	void SetTitleBar( const TSharedPtr<IWindowTitleBar> InTitleBar )
 	{
 		TitleBar = InTitleBar;
@@ -654,13 +703,17 @@ private:
 	virtual FReply OnMouseButtonUp( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override;
 	virtual FReply OnMouseMove( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override;
 
+	virtual int32 OnPaint(const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled) const override;
+
 	/** The window's desired size takes into account the ratio between the slate units and the pixel size */
 	virtual FVector2D ComputeDesiredSize(float) const override;
 
+public:
+// @HSL_CHANGE_BEGIN - ngreen@hardsuitlabs.com - 5/31/2016 - need access to this to fix windowed mode
 	// For a given client size, calculate the window size required to accomodate any potential non-OS borders and tilebars
 	FVector2D GetWindowSizeFromClientSize(FVector2D InClientSize);
+// @HSL_CHANGE_END - ngreen@hardsuitlabs.com - 5/31/2016 - need access to this to fix windowed mode
 
-public:
 	/** @return true if this window will be focused when it is first shown */
 	inline bool IsFocusedInitially() const
 	{
@@ -736,6 +789,16 @@ public:
 	inline void SetIndependentViewportSize(const FVector2D& VP) 
 	{
 		ViewportSize = VP;
+	}
+
+	void SetViewport(TSharedRef<ISlateViewport> ViewportRef)
+	{
+		Viewport = ViewportRef;
+	}
+
+	TSharedPtr<ISlateViewport> GetViewport()
+	{
+		return Viewport.Pin();
 	}
 
 	/**
@@ -830,6 +893,9 @@ protected:
 	/** True if this window displays the os window border instead of drawing one in slate */
 	bool bHasOSWindowBorder : 1;
 
+	/** True if this window is virtual and not directly rendered by slate application or the OS. */
+	bool bVirtualWindow : 1;
+
 	/** True if this window displays an enabled close button on the toolbar area */
 	bool bHasCloseButton : 1;
 
@@ -844,6 +910,12 @@ protected:
 	
 	/** True if the window is modal */
 	bool bIsModalWindow : 1;
+
+	/** True if the window is a mirror window for HMD content */
+	bool bIsMirrorWindow : 1;
+
+	/** True if the window should preserve its aspect ratio when resized by user */
+	bool bShouldPreserveAspectRatio : 1;
 
 	/** Initial desired position of the window's content in screen space */
 	FVector2D InitialDesiredScreenPosition;
@@ -862,6 +934,9 @@ protected:
 
 	/** Size of the viewport. If (0,0) then it is equal to Size */
 	FVector2D ViewportSize;
+
+	/** Pointer to the viewport registered with this window if any */
+	TWeakPtr<ISlateViewport> Viewport;
 
 	/** Size of this window's title bar.  Can be zero.  Set at construction and should not be changed afterwards. */
 	float TitleBarSize;
@@ -912,7 +987,7 @@ protected:
 	const FWindowStyle* Style;
 	const FSlateBrush* WindowBackground;
 
-private:
+protected:
 
 	/** Min and Max values for Width and Height; all optional. */
 	FWindowSizeLimits SizeLimits;
@@ -982,11 +1057,11 @@ private:
 	// The margin around the edges of the window that will be detected as places the user can grab to resize the window. 
 	FMargin UserResizeBorder;
 
-private:
+protected:
 	
-	virtual
-
 	void ConstructWindowInternals();
+
+private:
 
 	/**
 	 * @return EVisibility::Visible if we are showing this viewports content.  EVisibility::Hidden otherwise (we hide the content during full screen overlays)
@@ -1083,7 +1158,7 @@ private:
 #if WITH_EDITOR
 
 /**
- * Hack to switch wolds in a scope and switch back when we fall out of scope                   
+ * Hack to switch worlds in a scope and switch back when we fall out of scope                   
  */
 struct FScopedSwitchWorldHack
 {

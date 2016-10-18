@@ -14,6 +14,7 @@ UUMGSequencePlayer::UUMGSequencePlayer(const FObjectInitializer& ObjectInitializ
 	PlayerStatus = EMovieScenePlayerStatus::Stopped;
 	TimeCursorPosition = 0.0f;
 	AnimationStartOffset = 0;
+	PlaybackSpeed = 1;
 	Animation = nullptr;
 }
 
@@ -33,7 +34,7 @@ void UUMGSequencePlayer::InitSequencePlayer( const UWidgetAnimation& InAnimation
 	// Bind to Runtime Objects
 	for (const FWidgetAnimationBinding& Binding : InAnimation.GetBindings())
 	{
-		UObject* FoundObject = Binding.FindRuntimeObject( *WidgetTree );
+		UObject* FoundObject = Binding.FindRuntimeObject( *WidgetTree , InUserWidget);
 
 		if( FoundObject )
 		{
@@ -54,7 +55,7 @@ void UUMGSequencePlayer::Tick(float DeltaTime)
 		const double AnimationLength = CurrentPlayRange.Size<double>();
 
 		const double LastTimePosition = TimeCursorPosition;
-		TimeCursorPosition += bIsPlayingForward ? DeltaTime : -DeltaTime;
+		TimeCursorPosition += bIsPlayingForward ? DeltaTime * PlaybackSpeed : -DeltaTime * PlaybackSpeed;
 
 		// Check if we crossed over bounds
 		const bool bCrossedLowerBound = TimeCursorPosition < CurrentPlayRange.GetLowerBoundValue();
@@ -134,11 +135,12 @@ void UUMGSequencePlayer::Tick(float DeltaTime)
 	}
 }
 
-void UUMGSequencePlayer::PlayInternal(double StartAtTime, double EndAtTime, double SubAnimStartTime, double SubAnimEndTime, int32 InNumLoopsToPlay, EUMGSequencePlayMode::Type InPlayMode)
+void UUMGSequencePlayer::PlayInternal(double StartAtTime, double EndAtTime, double SubAnimStartTime, double SubAnimEndTime, int32 InNumLoopsToPlay, EUMGSequencePlayMode::Type InPlayMode, float InPlaybackSpeed)
 {
 	RootMovieSceneInstance = MakeShareable( new FMovieSceneSequenceInstance( *Animation ) );
 	RootMovieSceneInstance->RefreshInstance( *this );
 
+	PlaybackSpeed = FMath::Abs(InPlaybackSpeed);
 	PlayMode = InPlayMode;
 
 	// Set the temporary range for this play of the animation
@@ -146,7 +148,7 @@ void UUMGSequencePlayer::PlayInternal(double StartAtTime, double EndAtTime, doub
 
 	if (PlayMode == EUMGSequencePlayMode::Reverse)
 	{
-		// When playing in reverse count substract the start time from the end.
+		// When playing in reverse count subtract the start time from the end.
 		TimeCursorPosition = CurrentPlayRange.GetUpperBoundValue() - StartAtTime;
 	}
 	else
@@ -175,20 +177,20 @@ void UUMGSequencePlayer::PlayInternal(double StartAtTime, double EndAtTime, doub
 	Animation->OnAnimationStarted.Broadcast();
 }
 
-void UUMGSequencePlayer::Play(float StartAtTime, int32 InNumLoopsToPlay, EUMGSequencePlayMode::Type InPlayMode)
+void UUMGSequencePlayer::Play(float StartAtTime, int32 InNumLoopsToPlay, EUMGSequencePlayMode::Type InPlayMode, float InPlaybackSpeed)
 {
 	double SubAnimStartTime = 0.0;
-	double SubAnimEndTime = TimeRange.GetUpperBoundValue();
+	double SubAnimEndTime = TimeRange.Size<float>();
 
-	PlayInternal(StartAtTime, 0.0, SubAnimStartTime, SubAnimEndTime, InNumLoopsToPlay, InPlayMode);
+	PlayInternal(StartAtTime, 0.0, SubAnimStartTime, SubAnimEndTime, InNumLoopsToPlay, InPlayMode, InPlaybackSpeed);
 }
 
-void UUMGSequencePlayer::PlayTo(float StartAtTime, float EndAtTime, int32 InNumLoopsToPlay, EUMGSequencePlayMode::Type InPlayMode)
+void UUMGSequencePlayer::PlayTo(float StartAtTime, float EndAtTime, int32 InNumLoopsToPlay, EUMGSequencePlayMode::Type InPlayMode, float InPlaybackSpeed)
 {
 	double SubAnimStartTime = 0.0;
-	double SubAnimEndTime = TimeRange.GetUpperBoundValue();
+	double SubAnimEndTime = TimeRange.Size<float>();
 
-	PlayInternal(StartAtTime, EndAtTime, SubAnimStartTime, SubAnimEndTime, InNumLoopsToPlay, InPlayMode);
+	PlayInternal(StartAtTime, EndAtTime, SubAnimStartTime, SubAnimEndTime, InNumLoopsToPlay, InPlayMode, InPlaybackSpeed);
 }
 
 void UUMGSequencePlayer::Pause()
@@ -227,6 +229,11 @@ void UUMGSequencePlayer::SetNumLoopsToPlay(int32 InNumLoopsToPlay)
 	}
 }
 
+void UUMGSequencePlayer::SetPlaybackSpeed(float InPlaybackSpeed)
+{
+	PlaybackSpeed = InPlaybackSpeed;
+}
+
 void UUMGSequencePlayer::GetRuntimeObjects(TSharedRef<FMovieSceneSequenceInstance> MovieSceneInstance, const FGuid& ObjectHandle, TArray<TWeakObjectPtr<UObject>>& OutObjects) const
 {
 	const TArray<UObject*>* FoundObjects = GuidToRuntimeObjectMap.Find( ObjectHandle );
@@ -242,13 +249,26 @@ EMovieScenePlayerStatus::Type UUMGSequencePlayer::GetPlaybackStatus() const
 	return PlayerStatus;
 }
 
-UObject* UUMGSequencePlayer::GetEventContext() const
+UObject* UUMGSequencePlayer::GetPlaybackContext() const
 {
 	if (UserWidget.IsValid())
 	{
-		return UserWidget.Get();
+		return UserWidget->GetWorld();
 	}
-	return nullptr;
+	else
+	{
+		return nullptr;
+	}
+}
+
+TArray<UObject*> UUMGSequencePlayer::GetEventContexts() const
+{
+	TArray<UObject*> EventContexts;
+	if (UserWidget.IsValid())
+	{
+		EventContexts.Add(UserWidget.Get());
+	}
+	return EventContexts;
 }
 
 void UUMGSequencePlayer::SetPlaybackStatus(EMovieScenePlayerStatus::Type InPlaybackStatus)

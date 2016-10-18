@@ -37,6 +37,7 @@ TArray<FNewClassInfo> FFeaturedClasses::AllNativeClasses()
 	// Add the extra non-UObject classes
 	Array.Add(FNewClassInfo(FNewClassInfo::EClassType::SlateWidget));
 	Array.Add(FNewClassInfo(FNewClassInfo::EClassType::SlateWidgetStyle));
+	Array.Add(FNewClassInfo(FNewClassInfo::EClassType::UInterface));
 	return Array;
 }
 

@@ -15,8 +15,6 @@
 #include "Apple/ApplePlatformStackWalk.h"
 #elif PLATFORM_ANDROID
 #include "Android/AndroidPlatformStackWalk.h"
-#elif PLATFORM_WINRT
-#include "WinRT/WinRTStackWalk.h"
 #elif PLATFORM_HTML5
 #include "HTML5/HTML5PlatformStackWalk.h"
 #elif PLATFORM_LINUX

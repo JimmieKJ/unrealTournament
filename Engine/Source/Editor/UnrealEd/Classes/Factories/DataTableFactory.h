@@ -4,8 +4,8 @@
 
 #include "DataTableFactory.generated.h"
 
-UCLASS(hidecategories=Object, MinimalAPI)
-class UDataTableFactory : public UFactory
+UCLASS(hidecategories=Object)
+class UNREALED_API UDataTableFactory : public UFactory
 {
 	GENERATED_UCLASS_BODY()
 

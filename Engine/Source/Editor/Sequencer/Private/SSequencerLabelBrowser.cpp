@@ -32,7 +32,7 @@ void SSequencerLabelBrowser::Construct(const FArguments& InArgs, TSharedRef<FSeq
 			.OnGenerateRow(this, &SSequencerLabelBrowser::HandleLabelTreeViewGenerateRow)
 			.OnGetChildren(this, &SSequencerLabelBrowser::HandleLabelTreeViewGetChildren)
 			.OnSelectionChanged(this, &SSequencerLabelBrowser::HandleLabelTreeViewSelectionChanged)
-			.SelectionMode(ESelectionMode::Single)
+			.SelectionMode(ESelectionMode::Multi)
 			.TreeItemsSource(&LabelList)
 	];
 
@@ -45,20 +45,28 @@ END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
 void SSequencerLabelBrowser::SetSelectedLabel(const FString& Label)
 {
-	if (!Label.IsEmpty())
-	{
-		for (auto& Node : LabelList)
-		{
-			if (Node->Label == Label)
-			{
-				LabelTreeView->SetSelection(Node);
+	TArray<FString> SplitLabelStrings;
+	Label.ParseIntoArray(SplitLabelStrings, TEXT(" "));
 
-				return;
-			}
+	TArray<FString> SelectedLabels;
+	for (FString LabelString : SplitLabelStrings)
+	{
+		if (LabelString.StartsWith(TEXT("label:")))
+		{
+			 LabelString = LabelString.RightChop( 6 );
+			 SelectedLabels.Add(LabelString);
 		}
 	}
 
 	LabelTreeView->ClearSelection();
+
+	for (auto& Node : LabelList)
+	{
+		if (SelectedLabels.Contains(Node->Label))
+		{
+			LabelTreeView->SetItemSelection(Node, true);
+		}
+	}
 }
 
 
@@ -197,9 +205,26 @@ void SSequencerLabelBrowser::HandleLabelTreeViewGetChildren(TSharedPtr<FSequence
 
 void SSequencerLabelBrowser::HandleLabelTreeViewSelectionChanged(TSharedPtr<FSequencerLabelTreeNode> InItem, ESelectInfo::Type SelectInfo)
 {
+	FString NewLabel;
+
+	TArray<TSharedPtr<FSequencerLabelTreeNode>> SelectedItems;
+	LabelTreeView->GetSelectedItems(SelectedItems);
+	for (TSharedPtr<FSequencerLabelTreeNode> Item : SelectedItems)
+	{
+		if (!NewLabel.IsEmpty())
+		{
+			NewLabel += TEXT(" ");
+		}
+		
+		if (!Item->Label.IsEmpty())
+		{
+			NewLabel += FString(TEXT("label:")) + Item->Label;
+		}
+	}
+
 	OnSelectionChanged.ExecuteIfBound(
 		InItem.IsValid()
-			? InItem->Label
+			? NewLabel
 			: FString(),
 		SelectInfo
 	);

@@ -77,6 +77,11 @@ private:
 	 */
 	void UpdateModuleListItems();
 
+	/**
+	 *  module list item filter 
+	 */
+	void OnFilterTextChanged(const FText& InFilterText);
+
 
 
 private:
@@ -90,4 +95,5 @@ private:
 	/** List of all known modules */
 	TSharedPtr< SModuleListView > ModuleListView;
 
+	TSharedPtr< SSearchBox > ModuleNameSearchBox;
 };

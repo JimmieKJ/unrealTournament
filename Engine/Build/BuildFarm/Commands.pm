@@ -99,12 +99,7 @@ sub execute_command
 	}
 
 	# check for the command name
-	if($command eq 'printschedule')
-	{
-		my $stream = get_required_parameter($arguments, 'stream');
-		print_schedule($ec, $ec_project, $stream);
-	}
-	elsif($command eq 'checkforchanges')
+	if($command eq 'checkforchanges')
 	{
 		my $stream = get_required_parameter($arguments, 'stream');
 		check_for_changes($ec, $ec_project, $ec_job, $stream, $ec_update);
@@ -112,7 +107,8 @@ sub execute_command
 	elsif($command eq 'getlatestchange')
 	{
 		my $stream = get_required_parameter($arguments, 'stream');
-		get_latest_change($stream);
+		my $change = get_latest_change($stream);
+		get_latest_code_change($stream, $change);
 	}
 	elsif($command eq 'setupworkspace')
 	{
@@ -125,13 +121,14 @@ sub execute_command
 		my $agent_type = get_required_parameter($arguments, 'agent-type');
 		
 		my $workspace = setup_workspace($root_dir, $stream, { ec => $ec, ec_project => $ec_project, agent_type => $agent_type });
+		terminate_processes($workspace, $root_dir);
 		clean_workspace($workspace);
 	}
 	elsif($command eq 'syncworkspace')
 	{
 		my $stream = get_required_parameter($arguments, 'stream');
 		my $change = get_job_change_number($ec, $ec_job, $stream, $arguments, $ec_update);
-		my $unshelve_change = $arguments->{'unshelve-change'}; # deliberately different to preflight-change argument used by gubp setup, so we can use this procedure to clean the workspace
+		my $unshelve_change = $arguments->{'unshelve-change'}; # deliberately different to preflight-change argument used by build setup, so we can use this procedure to clean the workspace
 
 		if($arguments->{'autosdk'} && is_windows())
 		{
@@ -141,6 +138,7 @@ sub execute_command
 		}
 		
 		my $workspace = setup_workspace($root_dir, $stream, { ec => $ec, ec_project => $ec_project, agent_type => $arguments->{'agent-type'} });
+		terminate_processes($workspace, $root_dir);
 		sync_workspace($workspace, { change => $change, unshelve_change => $unshelve_change, show_traffic => $arguments->{'show-traffic'} });
 	}
 	elsif($command eq 'setupautosdkworkspace')
@@ -152,15 +150,13 @@ sub execute_command
 		my $autosdk_workspace = setup_autosdk_workspace($root_dir);
 		sync_autosdk_workspace($autosdk_workspace);
 	}
-	elsif($command eq 'buildsetup' || $command eq 'gubpsetup')
+	elsif($command eq 'buildsetup')
 	{
-		my $is_buildgraph = ($command eq 'buildsetup');
-	
 		my $stream = get_required_parameter($arguments, 'stream');
 		my $change = get_job_change_number($ec, $ec_job, $stream, $arguments, $ec_update);
+		my $code_change = get_job_code_change_number($ec,  $ec_job, $stream, $change, $arguments, $ec_update);
 		my $resource_name = $set_exclusive_resource || get_required_parameter($arguments, 'resource-name');
-		my $build_script = get_required_parameter($arguments, 'build-script') if $is_buildgraph;
-		my $target = $is_buildgraph? get_required_parameter($arguments, 'target') : get_required_parameter($arguments, 'node');
+		my $target = get_required_parameter($arguments, 'target');
 
 		ec_set_property($ec, "/myCall/postSummary", "Hosted by $resource_name", $ec_update);
 
@@ -182,6 +178,12 @@ sub execute_command
 			ec_set_property($ec, "/jobs[$upstream_job]/report-urls/Trigger: $trigger (Activated)", "/commander/link/jobDetails/jobs/$ec_job?linkPageType=jobDetails", $ec_update);
 		}
 		
+		my $preflight_change = $arguments->{'preflight-change'};
+		if($preflight_change)
+		{
+			$pass_through_arguments .= " -set:PreflightChange=$preflight_change -reportName=\"Preflight Summary\"";
+		}
+		
 		my $start_time = time;
 		if($arguments->{'autosdk'} && is_windows())
 		{
@@ -190,31 +192,32 @@ sub execute_command
 			setup_autosdk_environment($root_dir);
 		}
 		my $settings = read_stream_settings($ec, $ec_project, $stream);
+		my $build_script = ($settings->{'Default Build Script'}? ($arguments->{'build-script'} || $settings->{'Default Build Script'}) : get_required_parameter($arguments, 'build-script'));
 		my $agent_type = $settings->{'Initial Agent Type'};
 		my $workspace = setup_workspace($root_dir, $stream, { ec => $ec, ec_project => $ec_project, agent_type => $agent_type });
-		sync_workspace($workspace, { change => $change, unshelve_change => $arguments->{'preflight-change'}, show_traffic => $arguments->{'show-traffic'} }) unless $arguments->{'skip-sync'};
+		terminate_processes($workspace, $root_dir);
+		sync_workspace($workspace, { change => $change, unshelve_change => $arguments->{'preflight-change'}, show_traffic => $arguments->{'show-traffic'}, ensure_recent => !$arguments->{'allow-old-change'} }) unless $arguments->{'skip-sync'};
 		my $sync_time = time;
 		my $shared_storage_block = $arguments->{'temp-storage-block'} || $arguments->{'shared-storage-block'} || get_shared_storage_block($ec, $ec_job);
 		my $shared_storage_dir = get_shared_storage_dir($stream, $settings, $agent_type, $shared_storage_block);
-		build_setup($is_buildgraph, $workspace, $change, $build_script, $target, $trigger, $shared_storage_dir, $pass_through_arguments);
-		my $gubp_time = time;
-		build_job_setup($is_buildgraph, $ec, $ec_project, $ec_job, $ec_update, $settings, $workspace, $change, $build_script, $target, $shared_storage_block, $arguments, $pass_through_arguments, { email_only => $arguments->{'email-only'} });
-		build_agent_setup($is_buildgraph, $ec, $ec_job, $workspace, $change, $build_script, $target, 'Startup', $resource_name, $shared_storage_dir, $ec_update, { fake_build => $arguments->{'fake-build'}, fake_fail => $arguments->{'fake-fail'}, pass_through_arguments => $pass_through_arguments, email_only => $arguments->{'email-only'}, autosdk => $arguments->{'autosdk'} });
+		build_setup($workspace, $change, $code_change, $build_script, $target, $trigger, $shared_storage_dir, $pass_through_arguments);
+		my $uat_time = time;
+		build_job_setup($ec, $ec_project, $ec_job, $ec_update, $settings, $workspace, $change, $build_script, $target, $shared_storage_block, $arguments, $pass_through_arguments, { email_only => $arguments->{'email-only'} });
+		build_agent_setup($ec, $ec_job, $workspace, $change, $code_change, $build_script, $target, 'Startup', $resource_name, $shared_storage_dir, $ec_update, { fake_build => $arguments->{'fake-build'}, fake_fail => $arguments->{'fake-fail'}, pass_through_arguments => $pass_through_arguments, email_only => $arguments->{'email-only'}, autosdk => $arguments->{'autosdk'} });
 		my $finish_time = time;
-		ec_set_property($ec, "/myJobStep/postSummary", "Setup completed in ".format_time($finish_time - $start_time). " (Sync: ".format_time($sync_time - $start_time).", GUBP: ".format_time($gubp_time - $sync_time).", EC: ".format_time($finish_time - $gubp_time).")", $ec_update);
+		ec_set_property($ec, "/myJobStep/postSummary", "Setup completed in ".format_time($finish_time - $start_time). " (Sync: ".format_time($sync_time - $start_time).", UAT: ".format_time($uat_time - $sync_time).", EC: ".format_time($finish_time - $uat_time).")", $ec_update);
 	}
-	elsif($command eq 'buildagentsetup' || $command eq 'gubpagentsetup')
+	elsif($command eq 'buildagentsetup')
 	{
-		my $is_buildgraph = ($command eq 'buildagentsetup');
-	
 		my $stream = get_required_parameter($arguments, 'stream');
 		my $agent_type = get_required_parameter($arguments, 'agent-type');
 		my $change = get_required_parameter($arguments, 'change');
+		my $code_change = get_required_parameter($arguments, 'code-change');
 		my $resource_name = get_required_parameter($arguments, 'resource-name');
 		my $group = get_required_parameter($arguments, 'group');
-		my $build_script = get_required_parameter($arguments, 'build-script') if $is_buildgraph;
-		my $target = get_required_parameter($arguments, 'target') if $is_buildgraph;
-		my $shared_storage_dir = $is_buildgraph? get_required_parameter($arguments, 'shared-storage-dir') : get_required_parameter($arguments, 'temp-storage-dir');
+		my $build_script = get_required_parameter($arguments, 'build-script');
+		my $target = get_required_parameter($arguments, 'target');
+		my $shared_storage_dir = get_required_parameter($arguments, 'shared-storage-dir');
 
 		ec_set_property($ec, "/myCall/postSummary", "Hosted by $resource_name", $ec_update);
 		
@@ -226,18 +229,17 @@ sub execute_command
 			setup_autosdk_environment($root_dir);
 		}
 		my $workspace = setup_workspace($root_dir, $stream, { ec => $ec, ec_project => $ec_project, agent_type => $agent_type });
+		terminate_processes($workspace, $root_dir);
 		sync_workspace($workspace, { change => $change, unshelve_change => $arguments->{'preflight-change'}, show_traffic => $arguments->{'show-traffic'} }) unless $arguments->{'skip-sync'};
 		print "Copying UAT binaries...\n";
 		copy_recursive(join_paths(getcwd(), "UAT"), $workspace->{'dir'});
 		my $sync_time = time;
-		build_agent_setup($is_buildgraph, $ec, $ec_job, $workspace, $change, $build_script, $target, $group, $resource_name, $shared_storage_dir, $ec_update, { fake_build => $arguments->{'fake-build'}, fake_fail => $arguments->{'fake-fail'}, pass_through_arguments => $pass_through_arguments, temp_storage_dir => $arguments->{'temp-storage-dir'}, email_only => $arguments->{'email-only'}, autosdk => $arguments->{'autosdk'} });
+		build_agent_setup($ec, $ec_job, $workspace, $change, $code_change, $build_script, $target, $group, $resource_name, $shared_storage_dir, $ec_update, { fake_build => $arguments->{'fake-build'}, fake_fail => $arguments->{'fake-fail'}, pass_through_arguments => $pass_through_arguments, temp_storage_dir => $arguments->{'temp-storage-dir'}, email_only => $arguments->{'email-only'}, autosdk => $arguments->{'autosdk'} });
 		my $finish_time = time;
 		ec_set_property($ec, "/myJobStep/postSummary", "Setup completed in ".format_time($finish_time - $start_time). " (Sync: ".format_time($sync_time - $start_time).", EC: ".format_time($finish_time - $sync_time).")", $ec_update);
 	}
-	elsif($command eq 'buildsinglenode' || $command eq 'gubpnode')
+	elsif($command eq 'buildsinglenode')
 	{
-		my $is_buildgraph = ($command eq 'buildsinglenode');
-	
 		my $stream = get_required_parameter($arguments, 'stream');
 		my $change = get_required_parameter($arguments, 'change');
 		my $workspace_name = get_required_parameter($arguments, 'workspace-name');
@@ -249,28 +251,57 @@ sub execute_command
 			setup_autosdk_environment($root_dir);
 		}
 
-		build_single_node($is_buildgraph, $ec, $ec_project, $ec_job, $ec_jobstep, $stream, $change, $workspace_name, $workspace_dir, $node, $ec_update, { fake_build => $arguments->{'fake-build'}, fake_fail => $arguments->{'fake-fail'}, email_only => $arguments->{'email-only'}, pass_through_arguments => $pass_through_arguments });
+		build_single_node($ec, $ec_project, $ec_job, $ec_jobstep, $stream, $change, $workspace_name, $workspace_dir, $node, $ec_update, { fake_build => $arguments->{'fake-build'}, fake_fail => $arguments->{'fake-fail'}, email_only => $arguments->{'email-only'}, pass_through_arguments => $pass_through_arguments });
 	}
-	elsif($command eq 'buildtriggersetup' || $command eq 'gubptriggersetup')
+	elsif($command eq 'buildreportsetup')
 	{
-		my $is_buildgraph = ($command eq 'buildtriggersetup');
-		
 		my $stream = get_required_parameter($arguments, 'stream');
 		my $change = get_required_parameter($arguments, 'change');
-		my $trigger_name = get_required_parameter($arguments, 'trigger-name');
-		my $shared_storage_block = $is_buildgraph? get_required_parameter($arguments, 'shared-storage-block') : get_required_parameter($arguments, 'temp-storage-block');
-		
-		build_trigger_setup($is_buildgraph, $ec, $ec_job, $stream, $change, $trigger_name, $shared_storage_block, $ec_update, { email_only => $arguments->{'email-only'} });
+		my $report_name = $arguments->{'trigger-name'} || get_required_parameter($arguments, 'report-name');
+		my $shared_storage_block = get_required_parameter($arguments, 'shared-storage-block');
+
+		build_report_setup($ec, $ec_job, $stream, $change, $report_name, $shared_storage_block, $ec_update, { email_only => $arguments->{'email-only'} });
+	}
+	elsif($command eq 'buildbadgesetup')
+	{
+		my $stream = get_required_parameter($arguments, 'stream');
+		my $change = get_required_parameter($arguments, 'change');
+		my $badge_name = $arguments->{'badge-name'};
+
+		build_badge_setup($ec, $ec_project, $ec_job, $stream, $change, $badge_name, $ec_update);
 	}
 	elsif($command eq 'conformresources')
 	{
-		my $resource_pools = get_required_parameter($arguments, 'resource-pools');
-		conform_resources($ec, $ec_project, $ec_job, $resource_pools);
+		my $names = get_required_parameter($arguments, 'names');
+		my $set_pools = $arguments->{'set-pools'};
+		my $max_parallel = $arguments->{'max-parallel'};
+		conform_resources($ec, $ec_project, $ec_job, $ec_jobstep, $names, $set_pools, $max_parallel, $ec_update);
 	}
 	elsif($command eq 'conformresource')
 	{
-		my $resource_name = get_required_parameter($arguments, 'resource-name');
-		conform_resource($ec, $ec_project, $resource_name, $root_dir);
+		my $name = get_required_parameter($arguments, 'name');
+
+		my $set_pools = $arguments->{'set-pools'};
+		if($set_pools && $ec_update)
+		{
+			my $resource = $ec->getResource($name);
+			
+			my @old_resource_pools = split /\s+/, $resource->findvalue("//pools")->string_value();
+			foreach my $resource_pool(@old_resource_pools)
+			{
+				print "Removing from $resource_pool\n";
+				$ec->removeResourcesFromPool($resource_pool, { resourceName => [ $name ] })
+			}
+		
+			my @new_resource_pools = split /\s+/, $set_pools;
+			foreach my $resource_pool(@new_resource_pools)
+			{
+				print "Adding to $resource_pool\n";
+				$ec->addResourcesToPool($resource_pool, { resourceName => [ $name ] })
+			}
+		}
+		
+		conform_resource($ec, $ec_project, $name, $root_dir);
 	}
 	elsif($command eq 'printbuildhistory')
 	{
@@ -284,6 +315,7 @@ sub execute_command
 		my $agent_type = get_required_parameter($arguments, 'agent-type');
 		my $resource_name = get_required_parameter($arguments, 'resource-name');
 		my $change = get_job_change_number($ec, $ec_job, $stream, $arguments, $ec_update);
+		my $code_change = get_job_code_change_number($ec, $ec_job, $stream, $change, $arguments, $ec_update);
 
 		if($arguments->{'autosdk'} && is_windows())
 		{
@@ -293,11 +325,7 @@ sub execute_command
 		}
 		
 		my $workspace = setup_workspace($root_dir, $stream, { ec => $ec, ec_project => $ec_project, agent_type => $agent_type });
-		run_uat($workspace, $change, $pass_through_arguments);
-	}
-	elsif($command eq 'updatealldashboards')
-	{
-		update_all_dashboards($ec, $ec_project, $ec_update);
+		run_uat($workspace, $change, $code_change, $pass_through_arguments);
 	}
 	elsif($command eq 'updatedashboard')
 	{
@@ -319,13 +347,13 @@ sub execute_command
 		my $ec_jobstep = get_required_parameter($arguments, 'ec-jobstep');
 		
 		my $workspace = setup_workspace($root_dir, $stream, { ec => $ec, ec_project => $ec_project, agent_type => $arguments->{'agent-type'} });
-		write_step_notification($ec, $ec_project, $ec_jobstep, $workspace->{'name'}, $workspace->{'dir'});
+		write_step_notification($ec, $ec_project, $ec_jobstep, $workspace->{'name'}, $workspace->{'dir'}, $arguments->{'send-to'});
 	}
-	elsif($command eq 'writetriggernotification')
+	elsif($command eq 'writereportnotification')
 	{
-		my $trigger_name = get_required_parameter($arguments, 'trigger');
+		my $report_name = get_required_parameter($arguments, 'report');
 		fail("Missing --ec-job parameter") if !$ec_job;
-		write_trigger_notification($ec, $ec_project, $ec_job, $trigger_name);
+		write_report_notification($ec, $ec_project, $ec_job, $report_name);
 	}
 	elsif($command eq 'findresourcepool')
 	{
@@ -391,6 +419,26 @@ sub get_job_change_number
 	$change;
 }
 
+# figure out which changelist the job is to be built at. Takes it from the --change parameter on the command line if possible, otherwise from the CL property on the job,
+# otherwise from the latest change in the stream. In the latter case, the job is renamed to match the CL, and the job CL property is set.
+sub get_job_code_change_number
+{
+	my ($ec, $ec_job, $stream, $change, $arguments, $ec_update) = @_;
+
+	my $code_change = $arguments->{'code-change'};
+	if(!$code_change)
+	{
+		$code_change = ec_try_get_property($ec, "/jobs[$ec_job]/CodeCL") if $ec_job;
+		if(!$code_change)
+		{
+			$code_change = get_latest_code_change($stream, $change);
+			$arguments->{'code-change'} = $code_change;
+			ec_set_property($ec, "/jobs[$ec_job]/CodeCL", $code_change, $ec_update) if $ec_job;
+		}
+	}
+	$code_change;
+}
+
 # gets the latest change for a given stream
 sub get_latest_change
 {
@@ -409,6 +457,35 @@ sub get_latest_change
 
 	# return the new changelist
 	$change;
+}
+
+# gets the latest change for a given stream
+sub get_latest_code_change
+{
+	my ($stream, $change) = @_;
+	
+	# since we're running a manually triggered build, we want to take the latest change that's in this branch or any of its imports.
+	# this is different to the logic in check_for_changes, where we want to filter out changes which actually happen in this stream.
+	# create a full workspace, so we can check for the latest change with a client filespec.
+	my $workspace_name = setup_temporary_workspace($stream);
+	
+	# find the last change submitted by a user
+	my @change_lines = p4_command("-c $workspace_name changes -m 1 //$workspace_name/....cpp\@$change //$workspace_name/....h\@$change //$workspace_name/....inl\@$change //$workspace_name/....cs\@$change //$workspace_name/....usf\@$change");
+
+	# find the largest changelist from any of them
+	my $code_change = 0;
+	foreach(@change_lines)
+	{
+		fail("Unexpected output line when querying changes: $change_lines[0]") if !m/^Change (\d+) on /;
+		$code_change = $1 if $1 > $code_change;
+	}
+	$code_change = $change if !$code_change;
+
+	# print the result
+	print "Last submitted code change in $stream/... is $code_change\n";
+
+	# return the new changelist
+	$code_change;
 }
 
 # gets the latest change for a given stream, and renames the job to match it

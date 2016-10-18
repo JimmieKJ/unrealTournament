@@ -53,7 +53,7 @@ void USoundNodeAttenuation::ParseNodes( FAudioDevice* AudioDevice, const UPTRINT
 	FSoundParseParameters UpdatedParseParams = ParseParams;
 	if (Settings)
 	{
-		const FListener& Listener = AudioDevice->Listeners[0];
+		const FListener& Listener = AudioDevice->GetListeners()[0];
 
 		// Update this node's attenuation settings overrides
 		ActiveSound.ApplyAttenuation(UpdatedParseParams, Listener, Settings);

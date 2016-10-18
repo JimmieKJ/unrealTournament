@@ -1,25 +1,29 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <TpsData xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
   <Name>Box2D v2.3.1</Name>
-  <Location>//depot/UE4/Engine/Source/ThirdParty/Box2D/</Location>
-  <Date>2015-09-04T18:18:50.4565664-04:00</Date>
+  <Location>/Engine/Source/ThirdParty/Box2D/</Location>
+  <Date>2016-06-07T18:02:14.4686934-04:00</Date>
   <Function>2D Physics Engine, used for 2D gameplay support</Function>
   <Justification>Currently will be used for Epic Friday prototyping of 2D gameplay support.</Justification>
   <Platforms>
     <Platform>PC</Platform>
+    <Platform>Mac</Platform>
     <Platform>Playstation 4</Platform>
     <Platform>Android</Platform>
     <Platform>iOS</Platform>
     <Platform>Windows 8</Platform>
-    <Platform>Mac</Platform>
   </Platforms>
   <Products>
     <Product>UDK4</Product>
     <Product>UE4</Product>
   </Products>
   <TpsType>Source Code</TpsType>
-  <Eula />
-  <RedistributeTo />
+  <Eula>https://github.com/erincatto/Box2D/blob/master/Box2D/License.txt</Eula>
+  <RedistributeTo>
+    <EndUserGroup>Licensees</EndUserGroup>
+    <EndUserGroup>Git</EndUserGroup>
+    <EndUserGroup>P4</EndUserGroup>
+  </RedistributeTo>
   <Redistribute>false</Redistribute>
   <IsSourceAvailable>false</IsSourceAvailable>
   <NoticeType>Full EULA Text</NoticeType>
@@ -42,5 +46,5 @@ misrepresented as being the original software.
 3. This notice may not be removed or altered from any source distribution.
 
 </Notification>
-  <LicenseFolder />
+  <LicenseFolder>/Engine/Source/ThirdParty/Licenses/Box2D_License.txt</LicenseFolder>
 </TpsData>

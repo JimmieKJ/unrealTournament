@@ -2,19 +2,20 @@
 
 #pragma once
 
+#include "AnalyticsET.h"
+#include "IAnalyticsProviderET.h"
 #include "UnrealTemplate.h"
 #include "UTAnalyticParams.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogUTAnalytics, Display, All);
 
 class IAnalyticsProvider;
-
 class FUTAnalytics : FNoncopyable
 {
 public:
-	static UNREALTOURNAMENT_API IAnalyticsProvider& GetProvider();
+	static UNREALTOURNAMENT_API IAnalyticsProviderET& GetProvider();
 
-	static UNREALTOURNAMENT_API TSharedPtr<IAnalyticsProvider> GetProviderPtr();
+	static UNREALTOURNAMENT_API TSharedPtr<IAnalyticsProviderET> GetProviderPtr();
 	
 	/** Helper function to determine if the provider is valid. */
 	static UNREALTOURNAMENT_API bool IsAvailable() 
@@ -51,6 +52,15 @@ public:
 
 	/* Client metrics */
 	static void FireEvent_UTFPSCharts(AUTPlayerController* UTPC, TArray<FAnalyticsEventAttribute>& InParamArray);
+	static void FireEvent_EnterMatch(AUTPlayerController* UTPC, FString EnterMethod);
+
+	static void FireEvent_UTTutorialPickupToken(FString TokenID);
+	static void FireEvent_UTTutorialPlayInstruction(int32 InstructionID, FString OptionalObjectName = FString());
+	static void FireEvent_UTTutorialStarted(AUTPlayerController* UTPC, FString TutorialMap);
+	static void FireEvent_UTTutorialCompleted(FString TutorialMap);
+
+	/* GameMode Metrics*/
+	static void FireEvent_FlagRunRoundEnd(class AUTFlagRunGame* UTGame, bool bIsDefenseRoundWin, bool bIsFinalRound);
 
 private:
 	/** Initialize the FString Array of Analytic Parameters */
@@ -77,7 +87,7 @@ private:
 	static void PrivateSetUserID(const FString& AccountID, EAccountSource AccountSource);
 
 	static bool bIsInitialized;
-	static TSharedPtr<IAnalyticsProvider> Analytics;
+	static TSharedPtr<IAnalyticsProviderET> Analytics;
 	static FString CurrentAccountID;
 	static EAccountSource CurrentAccountSource;
 

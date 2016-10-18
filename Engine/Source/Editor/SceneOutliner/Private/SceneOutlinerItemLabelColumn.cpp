@@ -365,7 +365,7 @@ struct SWorldTreeLabel : FCommonLabelData, public SCompoundWidget
 				.HeightOverride(FDefaultTreeItemMetrics::IconSize())
 				[
 					SNew(SImage)
-					.Image(FClassIconFinder::FindIconForClass(UWorld::StaticClass()))
+					.Image(FSlateIconFinder::FindIconBrushForClass(UWorld::StaticClass()))
 					.ToolTipText(LOCTEXT("WorldIcon_Tooltip", "World"))
 				]
 			]

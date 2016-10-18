@@ -2,15 +2,25 @@
 
 #pragma once
 
+#include "IMediaPlayer.h"
+#include "IMediaTracks.h"
 #include "IWmfMediaResolverCallbacks.h"
+#include "WmfMediaTracks.h"
 #include "AllowWindowsPlatformTypes.h"
+
+
+class FWmfMediaResolver;
+class FWmfMediaSession;
+class IMediaControls;
+class IMediaOutput;
+class IMediaTracks;
 
 
 /**
  * Implements a media player using the Windows Media Foundation framework.
  */
 class FWmfMediaPlayer
-	: public IMediaInfo
+	: public FTickerObjectBase
 	, public IMediaPlayer
 	, protected IWmfMediaResolverCallbacks
 {
@@ -24,36 +34,24 @@ public:
 
 public:
 
-	// IMediaInfo interface
+	//~ FTickerObjectBase interface
 
-	virtual FTimespan GetDuration() const override;
-	virtual TRange<float> GetSupportedRates(EMediaPlaybackDirections Direction, bool Unthinned) const override;
-	virtual FString GetUrl() const override;
-	virtual bool SupportsRate(float Rate, bool Unthinned) const override;
-	virtual bool SupportsScrubbing() const override;
-	virtual bool SupportsSeeking() const override;
+	virtual bool Tick(float DeltaTime) override;
 
 public:
 
-	// IMediaPlayer interface
+	//~ IMediaPlayer interface
 
 	virtual void Close() override;
-	virtual const TArray<IMediaAudioTrackRef>& GetAudioTracks() const override;
-	virtual const TArray<IMediaCaptionTrackRef>& GetCaptionTracks() const override;
-	virtual const IMediaInfo& GetMediaInfo() const override;
-	virtual float GetRate() const override;
-	virtual FTimespan GetTime() const override;
-	virtual const TArray<IMediaVideoTrackRef>& GetVideoTracks() const override;
-	virtual bool IsLooping() const override;
-	virtual bool IsPaused() const override;
-	virtual bool IsPlaying() const override;
-	virtual bool IsReady() const override;
-	virtual bool Open(const FString& Url) override;
-	virtual bool Open(const TSharedRef<FArchive, ESPMode::ThreadSafe>& Archive, const FString& OriginalUrl) override;
-	virtual bool Seek(const FTimespan& Time) override;
-	virtual bool SetLooping(bool Looping) override;
-	virtual bool SetRate(float Rate) override;
-
+	virtual IMediaControls& GetControls() override;
+	virtual FString GetInfo() const override;
+	virtual IMediaOutput& GetOutput() override;
+	virtual FString GetStats() const override;
+	virtual IMediaTracks& GetTracks() override;
+	virtual FString GetUrl() const override;
+	virtual bool Open(const FString& Url, const IMediaOptions& Options) override;
+	virtual bool Open(const TSharedRef<FArchive, ESPMode::ThreadSafe>& Archive, const FString& OriginalUrl, const IMediaOptions& Options) override;
+	
 	DECLARE_DERIVED_EVENT(FWmfMediaPlayer, IMediaPlayer::FOnMediaEvent, FOnMediaEvent);
 	virtual FOnMediaEvent& OnMediaEvent() override
 	{
@@ -62,7 +60,7 @@ public:
 
 protected:
 
-	// IWmfMediaResolverCallbacks interface
+	//~ IWmfMediaResolverCallbacks interface
 
 	virtual void ProcessResolveComplete(TComPtr<IUnknown> SourceObject, FString ResolvedUrl) override;
 	virtual void ProcessResolveFailed(FString FailedUrl) override;
@@ -76,7 +74,6 @@ protected:
 	 * @param Topology The topology to add the stream to.
 	 * @param PresentationDescriptor The presentation descriptor object.
 	 * @param MediaSourceObject The media source object.
-	 * @return true on success, false otherwise.
 	 */
 	void AddStreamToTopology(uint32 StreamIndex, IMFTopology* Topology, IMFPresentationDescriptor* PresentationDescriptor, IMFMediaSource* MediaSourceObject);
 
@@ -91,30 +88,27 @@ protected:
 
 private:
 
-	/** Handles session errors. */
-	void HandleSessionError(HRESULT Error);
-
 	/** Handles session events. */
 	void HandleSessionEvent(MediaEventType EventType);
 
 private:
 
-	/** The available audio tracks. */
-	TArray<IMediaAudioTrackRef> AudioTracks;
-
-	/** The available caption tracks. */
-	TArray<IMediaCaptionTrackRef> CaptionTracks;
-
 	/** The duration of the currently loaded media. */
 	FTimespan Duration;
 
-	/** Holds an event delegate that is invoked when a media event occurred. */
+	/** Media information string. */
+	FString Info;
+
+	/** Asynchronous tasks for the game thread. */
+	TQueue<TFunction<void()>> GameThreadTasks;
+
+	/** Event delegate that is invoked when a media event occurred. */
 	FOnMediaEvent MediaEvent;
 
-	/** Holds the asynchronous callback object for the media stream. */
+	/** Asynchronous callback object for the media stream. */
 	TComPtr<FWmfMediaSession> MediaSession;
 
-	/** Holds a pointer to the media source object. */
+	/** Pointer to the media source object. */
 	TComPtr<IMFMediaSource> MediaSource;
 
 	/** The URL of the currently opened media. */
@@ -123,8 +117,8 @@ private:
 	/** The media source resolver. */
 	TComPtr<FWmfMediaResolver> Resolver;
 
-	/** The available video tracks. */
-	TArray<IMediaVideoTrackRef> VideoTracks;
+	/** Track manager. */
+	FWmfMediaTracks Tracks;
 };
 
 

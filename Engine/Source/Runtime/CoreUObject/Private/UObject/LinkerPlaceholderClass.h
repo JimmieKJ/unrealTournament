@@ -22,7 +22,6 @@ public:
 	ULinkerPlaceholderClass(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 
 	// UObject interface.
-	static  void AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector);
  	virtual void PostInitProperties() override;
 	virtual void BeginDestroy() override;
 	// End of UObject interface.

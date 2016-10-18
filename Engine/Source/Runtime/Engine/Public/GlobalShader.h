@@ -58,7 +58,7 @@ public:
 		ShouldCacheType InShouldCacheRef,
 		GetStreamOutElementsType InGetStreamOutElementsRef
 		):
-		FShaderType(InName,InSourceFilename,InFunctionName,InFrequency,InConstructSerializedRef,InGetStreamOutElementsRef),
+		FShaderType(EShaderTypeForDynamicCast::Global, InName, InSourceFilename, InFunctionName, InFrequency, InConstructSerializedRef, InGetStreamOutElementsRef),
 		ConstructCompiledRef(InConstructCompiledRef),
 		ShouldCacheRef(InShouldCacheRef),
 		ModifyCompilationEnvironmentRef(InModifyCompilationEnvironmentRef)
@@ -98,10 +98,6 @@ public:
 		(*ModifyCompilationEnvironmentRef)(Platform, Environment);
 	}
 
-	// Dynamic casting.
-	virtual FGlobalShaderType* GetGlobalShaderType() override { return this; }
-	virtual const FGlobalShaderType* GetGlobalShaderType() const override { return this; }
-
 private:
 	ConstructCompiledType ConstructCompiledRef;
 	ShouldCacheType ShouldCacheRef;
@@ -126,11 +122,9 @@ public:
 	void SetParameters(TRHICmdList& RHICmdList, const ShaderRHIParamRef ShaderRHI, const FSceneView& View)
 	{
 		const auto& ViewUniformBufferParameter = GetUniformBufferParameter<FViewUniformShaderParameters>();
-		const auto& FrameUniformBufferParameter = GetUniformBufferParameter<FFrameUniformShaderParameters>();
 		const auto& BuiltinSamplersUBParameter = GetUniformBufferParameter<FBuiltinSamplersParameters>();
 		CheckShaderIsValid();
 		SetUniformBufferParameter(RHICmdList, ShaderRHI, ViewUniformBufferParameter, View.ViewUniformBuffer);
-		SetUniformBufferParameter(RHICmdList, ShaderRHI, FrameUniformBufferParameter, View.FrameUniformBuffer);
 #if USE_GBuiltinSamplersUniformBuffer
 		SetUniformBufferParameter(RHICmdList, ShaderRHI, BuiltinSamplersUBParameter, GBuiltinSamplersUniformBuffer.GetUniformBufferRHI());
 #endif

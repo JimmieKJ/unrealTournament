@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Xml;
 using UnrealBuildTool;
 
 namespace BuildGraph.Tasks
@@ -22,24 +23,30 @@ namespace BuildGraph.Tasks
 		/// <summary>
 		/// The directory to find files in
 		/// </summary>
-		[TaskParameter(Optional = true)]
+		[TaskParameter(Optional = true, ValidationType = TaskParameterValidationType.DirectoryName)]
 		public string BaseDir;
 
 		/// <summary>
-		/// List of file specifications separated by semicolons (eg. *.cpp;Engine/.../*.bat), or the name of a tag set
+		/// List of file specifications separated by semicolons (eg. Engine/.../*.pdb), or the name of a tag set
 		/// </summary>
-		[TaskParameter]
+		[TaskParameter(ValidationType = TaskParameterValidationType.FileSpec)]
 		public string Files;
 
 		/// <summary>
 		/// Output directory for the stripped files. Defaults to the input path (overwriting the input files).
 		/// </summary>
-		[TaskParameter]
+		[TaskParameter(ValidationType = TaskParameterValidationType.DirectoryName)]
 		public string OutputDir;
+
+		/// <summary>
+		/// Tag to be applied to build products of this task
+		/// </summary>
+		[TaskParameter(Optional = true, ValidationType = TaskParameterValidationType.TagList)]
+		public string Tag;
 	}
 
 	/// <summary>
-	/// Task which strips symbols from a set of files
+	/// Strips debugging information from a set of files.
 	/// </summary>
 	[TaskElement("Strip", typeof(StripTaskParameters))]
 	public class StripTask : CustomTask
@@ -52,7 +59,7 @@ namespace BuildGraph.Tasks
 		/// <summary>
 		/// Construct a spawn task
 		/// </summary>
-		/// <param name="Parameters">Parameters for the task</param>
+		/// <param name="InParameters">Parameters for the task</param>
 		public StripTask(StripTaskParameters InParameters)
 		{
 			Parameters = InParameters;
@@ -96,9 +103,41 @@ namespace BuildGraph.Tasks
 				ToolChain.StripSymbols(SourceFiles[Idx].FullName, TargetFiles[Idx].FullName);
 			}
 
+			// Apply the optional tag to the build products
+			foreach(string TagName in FindTagNamesFromList(Parameters.Tag))
+			{
+				FindOrAddTagSet(TagNameToFileSet, TagName).UnionWith(TargetFiles);
+			}
+
 			// Add the target files to the set of build products
 			BuildProducts.UnionWith(TargetFiles);
 			return true;
+		}
+
+		/// <summary>
+		/// Output this task out to an XML writer.
+		/// </summary>
+		public override void Write(XmlWriter Writer)
+		{
+			Write(Writer, Parameters);
+		}
+
+		/// <summary>
+		/// Find all the tags which are used as inputs to this task
+		/// </summary>
+		/// <returns>The tag names which are read by this task</returns>
+		public override IEnumerable<string> FindConsumedTagNames()
+		{
+			return FindTagNamesFromFilespec(Parameters.Files);
+		}
+
+		/// <summary>
+		/// Find all the tags which are modified by this task
+		/// </summary>
+		/// <returns>The tag names which are modified by this task</returns>
+		public override IEnumerable<string> FindProducedTagNames()
+		{
+			return FindTagNamesFromList(Parameters.Tag);
 		}
 	}
 }

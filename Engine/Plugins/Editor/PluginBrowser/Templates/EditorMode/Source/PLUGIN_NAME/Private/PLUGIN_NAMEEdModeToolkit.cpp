@@ -8,6 +8,10 @@
 
 FPLUGIN_NAMEEdModeToolkit::FPLUGIN_NAMEEdModeToolkit()
 {
+}
+
+void FPLUGIN_NAMEEdModeToolkit::Init(const TSharedPtr<IToolkitHost>& InitToolkitHost)
+{
 	struct Locals
 	{
 		static bool IsWidgetEnabled()
@@ -95,6 +99,8 @@ FPLUGIN_NAMEEdModeToolkit::FPLUGIN_NAMEEdModeToolkit()
 				]
 
 		];
+		
+	FModeToolkit::Init(InitToolkitHost);
 }
 
 FName FPLUGIN_NAMEEdModeToolkit::GetToolkitFName() const

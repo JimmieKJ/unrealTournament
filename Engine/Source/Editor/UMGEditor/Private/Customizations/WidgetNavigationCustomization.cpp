@@ -241,6 +241,11 @@ void FWidgetNavigationCustomization::HandleNavMenuEntryClicked(TWeakPtr<IPropert
 
 void FWidgetNavigationCustomization::SetNav(UWidget* Widget, EUINavigation Nav, TOptional<EUINavigationRule> Rule, TOptional<FName> WidgetToFocus)
 {
+	if (!Widget)
+	{
+		return;
+	}
+
 	Widget->Modify();
 
 	UWidgetNavigation* WidgetNavigation = Widget->Navigation;

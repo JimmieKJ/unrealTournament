@@ -53,8 +53,8 @@ struct ENGINE_API FDialogueContext
 	FString GetContextHash() const;
 };
 
-bool operator==(const FDialogueContext& LHS, const FDialogueContext& RHS);
-bool operator!=(const FDialogueContext& LHS, const FDialogueContext& RHS);
+ENGINE_API bool operator==(const FDialogueContext& LHS, const FDialogueContext& RHS);
+ENGINE_API bool operator!=(const FDialogueContext& LHS, const FDialogueContext& RHS);
 
 USTRUCT()
 struct ENGINE_API FDialogueWaveParameter
@@ -70,10 +70,4 @@ struct ENGINE_API FDialogueWaveParameter
 	/** The context to use for the dialogue wave. */
 	UPROPERTY(EditAnywhere, Category=DialogueWaveParameter )
 	FDialogueContext Context;
-};
-
-UCLASS(abstract)
-class UDialogueTypes : public UObject
-{
-	GENERATED_UCLASS_BODY()
 };

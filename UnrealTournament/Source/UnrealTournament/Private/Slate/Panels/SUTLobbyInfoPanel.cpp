@@ -262,6 +262,9 @@ void SUTLobbyInfoPanel::ShowMatchSetupPanel()
 	AUTLobbyPlayerState* PlayerState = Cast<AUTLobbyPlayerState>(GetOwnerPlayerState());
 	if (PlayerState && bShowingMatchBrowser)
 	{
+
+		PlayerOwner->bSuppressDownloadDialog = true;
+
 		bShowingMatchBrowser = false;
 		MatchBrowser.Reset();
 		LeftPanel->ClearChildren();
@@ -287,6 +290,7 @@ void SUTLobbyInfoPanel::ShowMatchBrowser()
 	AUTLobbyPlayerState* PlayerState = Cast<AUTLobbyPlayerState>(GetOwnerPlayerState());
 	if (PlayerState && !bShowingMatchBrowser)
 	{
+		PlayerOwner->bSuppressDownloadDialog = false;
 
 		// Force remove the Match and Team Tabs if they still exist.
 		if (TextChatPanel.IsValid())
@@ -340,6 +344,7 @@ void SUTLobbyInfoPanel::OnShowPanel(TSharedPtr<SUTMenuBase> inParentWindow)
 }
 void SUTLobbyInfoPanel::OnHidePanel()
 {
+	PlayerOwner->bSuppressDownloadDialog = false;
 	SUTPanelBase::OnHidePanel();
 	if (TextChatPanel.IsValid()) TextChatPanel->OnHidePanel();
 }

@@ -4,8 +4,7 @@
 	SurfaceIterators.h: Model surface iterators.
 =============================================================================*/
 
-#ifndef __SURFACE_ITERATORS_H__
-#define __SURFACE_ITERATORS_H__
+#pragma once
 
 #include "Model.h"
 
@@ -242,5 +241,3 @@ public:
 	}
 };
 
-
-#endif // __SURFACE_ITERATORS_H__

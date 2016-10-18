@@ -25,7 +25,7 @@ DECLARE_MULTICAST_DELEGATE_OneParam(FOnDeviceConnectEvent, const FIOSLaunchDaemo
 class FIOSDeviceHelper
 {
 public:
-    static void Initialize();
+    static void Initialize(bool bIsTVOS);
     
     /**
      * Returns a delegate that is executed when a device is connected

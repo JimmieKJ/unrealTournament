@@ -9,14 +9,38 @@ LightMapRendering.cpp: Light map rendering implementations.
 
 IMPLEMENT_UNIFORM_BUFFER_STRUCT(FPrecomputedLightingParameters, TEXT("PrecomputedLightingBuffer"));
 
+const TCHAR* GLightmapDefineName[2] =
+{
+	TEXT("LQ_TEXTURE_LIGHTMAP"),
+	TEXT("HQ_TEXTURE_LIGHTMAP")
+};
+
+int32 GNumLightmapCoefficients[2] = 
+{
+	NUM_LQ_LIGHTMAP_COEF,
+	NUM_HQ_LIGHTMAP_COEF
+};
+
 void FMovableDirectionalLightCSMLightingPolicy::ModifyCompilationEnvironment(EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment)
 {
 	OutEnvironment.SetDefine(TEXT("MOVABLE_DIRECTIONAL_LIGHT"), TEXT("1"));
 	OutEnvironment.SetDefine(TEXT("DIRECTIONAL_LIGHT_CSM"), TEXT("1"));
-	OutEnvironment.SetDefine(TEXT(PREPROCESSOR_TO_STRING(MAX_FORWARD_SHADOWCASCADES)), MAX_FORWARD_SHADOWCASCADES);
+	OutEnvironment.SetDefine(TEXT(PREPROCESSOR_TO_STRING(MAX_MOBILE_SHADOWCASCADES)), MAX_MOBILE_SHADOWCASCADES);
 
 	FNoLightMapPolicy::ModifyCompilationEnvironment(Platform, Material, OutEnvironment);
 }
+
+void FCachedPointIndirectLightingPolicy::ModifyCompilationEnvironment(EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment)
+{
+	OutEnvironment.SetDefine(TEXT("CACHED_POINT_INDIRECT_LIGHTING"),TEXT("1"));	
+}
+
+void FSelfShadowedCachedPointIndirectLightingPolicy::ModifyCompilationEnvironment(EShaderPlatform Platform, const FMaterial* Material, FShaderCompilerEnvironment& OutEnvironment)
+{
+	OutEnvironment.SetDefine(TEXT("CACHED_POINT_INDIRECT_LIGHTING"),TEXT("1"));	
+	FSelfShadowedTranslucencyPolicy::ModifyCompilationEnvironment(Platform, Material, OutEnvironment);
+}
+
 
 void FUniformLightMapPolicy::Set(
 	FRHICommandList& RHICmdList, 
@@ -92,12 +116,13 @@ void GetPrecomputedLightingParameters(
 			Parameters.PointSkyBentNormal = LightingAllocation->CurrentSkyBentNormal;
 			Parameters.DirectionalLightShadowing = LightingAllocation->CurrentDirectionalShadowing;
 
-			for (uint32 i = 0; i < sizeof(FSHVectorRGB2) / sizeof(FVector4); ++i)
+			for (uint32 i = 0; i < 3; ++i) // RGB
 			{
-				Parameters.IndirectLightingSHCoefficients[i] = LightingAllocation->SingleSamplePacked[i];
+				Parameters.IndirectLightingSHCoefficients0[i] = LightingAllocation->SingleSamplePacked0[i];
+				Parameters.IndirectLightingSHCoefficients1[i] = LightingAllocation->SingleSamplePacked1[i];
 			}
-
-			Parameters.IndirectLightingSHSingleCoefficient = FVector4(LightingAllocation->SingleSamplePacked[0].X, LightingAllocation->SingleSamplePacked[1].X, LightingAllocation->SingleSamplePacked[2].X)
+			Parameters.IndirectLightingSHCoefficients2 = LightingAllocation->SingleSamplePacked2;
+			Parameters.IndirectLightingSHSingleCoefficient = FVector4(LightingAllocation->SingleSamplePacked0[0].X, LightingAllocation->SingleSamplePacked0[1].X, LightingAllocation->SingleSamplePacked0[2].X)
 					* FSHVector2::ConstantBasisIntegral * .5f; //@todo - why is .5f needed to match directional?
 		}
 		else
@@ -109,11 +134,12 @@ void GetPrecomputedLightingParameters(
 			Parameters.PointSkyBentNormal = FVector4(0, 0, 1, 1);
 			Parameters.DirectionalLightShadowing = 1;
 
-			for (uint32 i = 0; i < sizeof(FSHVectorRGB2) / sizeof(FVector4); ++i)
+			for (uint32 i = 0; i < 3; ++i) // RGB
 			{
-				Parameters.IndirectLightingSHCoefficients[i] = FVector4(0, 0, 0, 0);
+				Parameters.IndirectLightingSHCoefficients0[i] = FVector4(0, 0, 0, 0);
+				Parameters.IndirectLightingSHCoefficients1[i] = FVector4(0, 0, 0, 0);
 			}
-
+			Parameters.IndirectLightingSHCoefficients2 = FVector4(0, 0, 0, 0);
 			Parameters.IndirectLightingSHSingleCoefficient = FVector4(0, 0, 0, 0);
 		}
 

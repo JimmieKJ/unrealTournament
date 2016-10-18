@@ -12,6 +12,7 @@ public class UnrealCodeAnalyzer : ModuleRules
 
 		PublicDependencyModuleNames.AddRange(new string[] {
 			"Core",
+			"CoreUObject",
 			"Projects"
 		});
 

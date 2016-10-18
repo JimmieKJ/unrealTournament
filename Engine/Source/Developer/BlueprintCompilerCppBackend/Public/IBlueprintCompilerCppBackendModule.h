@@ -4,6 +4,11 @@
 
 #include "Editor/KismetCompiler/Public/BlueprintCompilerCppBackendInterface.h"
 
+struct FNativizationSummary
+{
+	TMap<FStringAssetReference, int32> InaccessiblePropertyStat;
+};
+
 /**
  * The public interface to this module
  */
@@ -57,5 +62,7 @@ public:
 
 	// Collect functions that are used by delegates - they must have UFUNCTION macro
 	BLUEPRINTCOMPILERCPPBACKEND_API static TArray<class UFunction*> CollectBoundFunctions(class UBlueprint* BP);
+
+	virtual TSharedPtr<FNativizationSummary>& NativizationSummary() = 0;
 };
 

@@ -5,76 +5,173 @@
 #include "PhysicsEngine/PhysicsConstraintTemplate.h"
 #include "PhysicsEngine/PhysicsConstraintComponent.h"
 #include "PhysicsEngine/PhysicsConstraintActor.h"
+#include "SNumericEntryBox.h"
+#include "ScopedTransaction.h"
 
 #define LOCTEXT_NAMESPACE "PhysicsConstraintComponentDetails"
+namespace ConstraintDetails
+{
+	bool GetBoolProperty(TSharedPtr<IPropertyHandle> Prop)
+	{
+		bool bIsEnabled = false;
+
+		if (Prop->GetValue(bIsEnabled))
+		{
+			return bIsEnabled;
+		}
+		return false;
+	}
+
+	TSharedRef<SWidget> JoinPropertyWidgets(TSharedPtr<IPropertyHandle> TargetProperty, FName TargetChildName, TSharedPtr<IPropertyHandle> ParentProperty, FName CheckPropertyName, TSharedPtr<IPropertyHandle>& StoreCheckProperty)
+	{
+		StoreCheckProperty = ParentProperty->GetChildHandle(CheckPropertyName);
+		StoreCheckProperty->MarkHiddenByCustomization();
+		TSharedRef<SWidget> TargetWidget = TargetProperty->GetChildHandle(TargetChildName)->CreatePropertyValueWidget();
+		TargetWidget->SetEnabled(TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateLambda([StoreCheckProperty]()
+		{
+			bool bSet;
+			if (StoreCheckProperty->GetValue(bSet))
+			{
+				return bSet;
+			}
+
+			return false;
+		})));
+		
+		return SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot()
+			.AutoWidth()
+			.Padding(0, 0, 5, 0)
+			[
+				StoreCheckProperty->CreatePropertyValueWidget()
+			]
+		+ SHorizontalBox::Slot()
+			[
+				TargetWidget
+			];
+	}
+
+	TSharedRef<SWidget> CreateTriFloatWidget(TSharedPtr<IPropertyHandle> Prop1, TSharedPtr<IPropertyHandle> Prop2, TSharedPtr<IPropertyHandle> Prop3, const FText& TransactionName)
+	{
+		auto GetMultipleFloats = [Prop1, Prop2, Prop3]()
+		{
+			float Val1, Val2, Val3;
+			ensure(Prop1->GetValue(Val1) != FPropertyAccess::Fail);
+			ensure(Prop2->GetValue(Val2) != FPropertyAccess::Fail);
+			ensure(Prop3->GetValue(Val3) != FPropertyAccess::Fail);
+
+			if (Val1 == Val2 && Val2 == Val3)
+			{
+				return TOptional<float>(Val1);
+			}
+
+			return TOptional<float>();
+		};
+
+		auto SetMultipleFloatsCommitted = [Prop1, Prop2, Prop3, TransactionName, GetMultipleFloats](float NewValue, ETextCommit::Type)
+		{
+			TOptional<float> CommonFloat = GetMultipleFloats();
+			if(!CommonFloat.IsSet() || CommonFloat.GetValue() != NewValue)	//don't bother doing it twice
+			{
+				FScopedTransaction Transaction(TransactionName);
+
+				ensure(Prop1->SetValue(NewValue) == FPropertyAccess::Success);
+				ensure(Prop2->SetValue(NewValue) == FPropertyAccess::Success);
+				ensure(Prop3->SetValue(NewValue) == FPropertyAccess::Success);
+			}
+		};
+
+		return SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot()
+			[
+				SNew(SNumericEntryBox<float>)
+				.OnValueCommitted_Lambda(SetMultipleFloatsCommitted)
+				.Value_Lambda(GetMultipleFloats)
+				.MinValue(0.f)
+			]
+			+ SHorizontalBox::Slot()
+			.VAlign(VAlign_Center)
+			.AutoWidth()
+			[
+				SNew(SButton)
+				.OnClicked_Lambda([Prop1, Prop2, Prop3, TransactionName]()
+				{
+					FScopedTransaction Transaction(TransactionName);
+					Prop1->ResetToDefault();
+					Prop2->ResetToDefault();
+					Prop3->ResetToDefault();
+					return FReply::Handled();
+				} )
+				.Visibility_Lambda([Prop1]() { return Prop1->DiffersFromDefault() ? EVisibility::Visible : EVisibility::Collapsed; })
+				.ContentPadding(FMargin(5.f, 0.f))
+				.ToolTipText(Prop1->GetResetToDefaultLabel())
+				.ButtonStyle(FEditorStyle::Get(), "NoBorder")
+				.Content()
+				[
+					SNew(SImage)
+					.Image(FEditorStyle::GetBrush("PropertyWindow.DiffersFromDefault"))
+				]
+			];
+	}
+
+
+	bool IsAngularPropertyEqual(TSharedPtr<IPropertyHandle> Prop, EAngularConstraintMotion CheckMotion)
+	{
+		uint8 Val;
+		if (Prop->GetValue(Val))
+		{
+			return Val == CheckMotion;
+		}
+		return false;
+	}
+
+}
 
 TSharedRef<IDetailCustomization> FPhysicsConstraintComponentDetails::MakeInstance()
 {
 	return MakeShareable(new FPhysicsConstraintComponentDetails());
 }
 
-void FPhysicsConstraintComponentDetails::AddConstraintPresets(IDetailLayoutBuilder& DetailBuilder, APhysicsConstraintActor* OwningConstraintActor)
+void FPhysicsConstraintComponentDetails::AddConstraintBehaviorProperties(IDetailLayoutBuilder& DetailBuilder, TSharedPtr<IPropertyHandle> ConstraintInstance, TSharedPtr<IPropertyHandle> ProfilePropertiesProperty)
 {
-	if (OwningConstraintActor != NULL)
+	IDetailCategoryBuilder& ConstraintCat = DetailBuilder.EditCategory("Constraint Behavior");
+
+	//hide the inner structs that we customize elsewhere
+	ProfilePropertiesProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConstraintProfileProperties, LinearLimit))->MarkHiddenByCustomization();
+	ProfilePropertiesProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConstraintProfileProperties, ConeLimit))->MarkHiddenByCustomization();
+	ProfilePropertiesProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConstraintProfileProperties, TwistLimit))->MarkHiddenByCustomization();
+	ProfilePropertiesProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConstraintProfileProperties, LinearDrive))->MarkHiddenByCustomization();
+	ProfilePropertiesProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConstraintProfileProperties, AngularDrive))->MarkHiddenByCustomization();
+	ProfilePropertiesProperty->MarkHiddenByCustomization();
+
+	//Add properties we want in specific order
+	ConstraintCat.AddProperty(ProfilePropertiesProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConstraintProfileProperties, bDisableCollision)));
+	ConstraintCat.AddProperty(ProfilePropertiesProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConstraintProfileProperties, bEnableProjection)));
+
+	
+	//Add the rest
+	uint32 NumProfileProperties = 0;
+	ProfilePropertiesProperty->GetNumChildren(NumProfileProperties);
+
+	for (uint32 ProfileChildIdx = 0; ProfileChildIdx < NumProfileProperties; ++ProfileChildIdx)
 	{
-		DetailBuilder.EditCategory("Joint Presets")
-			.AddCustomRow(FText::GetEmpty())
-			[
-				SNew(SVerticalBox)
-				+ SVerticalBox::Slot()
-				.Padding(0, 2.0f, 0, 0)
-				.FillHeight(1.0f)
-				.VAlign(VAlign_Center)
-				[
-					SNew(SHorizontalBox)
-					+ SHorizontalBox::Slot()
-					.AutoWidth()
-					.Padding(2.0f, 0.0f)
-					.VAlign(VAlign_Center)
-					.HAlign(HAlign_Left)
-					[
-						SNew(SButton)
-						.VAlign(VAlign_Center)
-						.OnClicked(this, &FPhysicsConstraintComponentDetails::OnHingeClicked)
-						.Text(LOCTEXT("HingePreset", "Hinge"))
-						.ToolTipText(LOCTEXT("HingePresetTooltip", "Setup joint as hinge. A hinge joint allows motion only in one plane."))
-					]
-					+ SHorizontalBox::Slot()
-						.AutoWidth()
-						.Padding(2.0f, 0.0f)
-						.VAlign(VAlign_Center)
-						.HAlign(HAlign_Left)
-						[
-							SNew(SButton)
-							.VAlign(VAlign_Center)
-							.OnClicked(this, &FPhysicsConstraintComponentDetails::OnPrismaticClicked)
-							.Text(LOCTEXT("PrismaticPreset", "Prismatic"))
-							.ToolTipText(LOCTEXT("PrismaticPresetTooltip", "Setup joint as prismatic. A prismatic joint allows only linear sliding movement."))
-						]
-					+ SHorizontalBox::Slot()
-						.AutoWidth()
-						.Padding(2.0f, 0.0f)
-						.VAlign(VAlign_Center)
-						.HAlign(HAlign_Left)
-						[
-							SNew(SButton)
-							.VAlign(VAlign_Center)
-							.OnClicked(this, &FPhysicsConstraintComponentDetails::OnBallSocketClicked)
-							.Text(LOCTEXT("BSPreset", "Ball and Socket"))
-							.ToolTipText(LOCTEXT("BSPresetTooltip", "Setup joint as ball and socket. A Ball and Socket joint allows motion around an indefinite number of axes, which have one common center"))
-						]
-				]
-			];
+		TSharedPtr<IPropertyHandle> ProfileChildProp = ProfilePropertiesProperty->GetChildHandle(ProfileChildIdx);
+		if (!ProfileChildProp->IsCustomized())
+		{
+			ConstraintCat.AddProperty(ProfileChildProp);
+		}
 	}
 }
 
-void FPhysicsConstraintComponentDetails::AddLinearLimits(IDetailLayoutBuilder& DetailBuilder, TSharedPtr<IPropertyHandle> ConstraintInstance)
+void FPhysicsConstraintComponentDetails::AddLinearLimits(IDetailLayoutBuilder& DetailBuilder, TSharedPtr<IPropertyHandle> ConstraintInstance, TSharedPtr<IPropertyHandle> ProfilePropertiesProperty)
 {
 	IDetailCategoryBuilder& LinearLimitCat = DetailBuilder.EditCategory("Linear Limits");
+	TSharedPtr<IPropertyHandle> LinearConstraintProperty = ProfilePropertiesProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConstraintProfileProperties, LinearLimit));
 
-	LinearXMotionProperty = ConstraintInstance->GetChildHandle("LinearXMotion");
-	LinearYMotionProperty = ConstraintInstance->GetChildHandle("LinearYMotion");
-	LinearZMotionProperty = ConstraintInstance->GetChildHandle("LinearZMotion");
+
+	TSharedPtr<IPropertyHandle> LinearXMotionProperty = LinearConstraintProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FLinearConstraint, XMotion));
+	TSharedPtr<IPropertyHandle> LinearYMotionProperty = LinearConstraintProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FLinearConstraint, YMotion));
+	TSharedPtr<IPropertyHandle> LinearZMotionProperty = LinearConstraintProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FLinearConstraint, ZMotion));
 
 	TArray<TSharedPtr<FString>> LinearLimitOptionNames;
 	TArray<FText> LinearLimitOptionTooltips;
@@ -158,24 +255,48 @@ void FPhysicsConstraintComponentDetails::AddLinearLimits(IDetailLayoutBuilder& D
 					]
 			];
 	}
+	
+	auto IsLinearMotionLimited = [LinearXMotionProperty, LinearYMotionProperty, LinearZMotionProperty]()
+	{
+		uint8 XMotion, YMotion, ZMotion;
+		if (LinearXMotionProperty->GetValue(XMotion) && LinearYMotionProperty->GetValue(YMotion) && LinearZMotionProperty->GetValue(ZMotion))
+		{
+			return XMotion == LCM_Limited || YMotion == LCM_Limited || ZMotion == LCM_Limited;
+		}
 
+		return false;
+	};
 
-	LinearLimitCat.AddProperty(ConstraintInstance->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConstraintInstance, LinearLimitSize)).ToSharedRef()).IsEnabled(TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateSP(this, &FPhysicsConstraintComponentDetails::IsPropertyEnabled, EPropertyType::LinearLimit)));
-	LinearLimitCat.AddProperty(ConstraintInstance->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConstraintInstance, bScaleLinearLimits)).ToSharedRef()).IsEnabled(TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateSP(this, &FPhysicsConstraintComponentDetails::IsPropertyEnabled, EPropertyType::LinearLimit)));
-	LinearLimitCat.AddProperty(ConstraintInstance->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConstraintInstance, bLinearLimitSoft)).ToSharedRef()).IsEnabled(TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateSP(this, &FPhysicsConstraintComponentDetails::IsPropertyEnabled, EPropertyType::LinearLimit)));
-	LinearLimitCat.AddProperty(ConstraintInstance->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConstraintInstance, LinearLimitStiffness)).ToSharedRef()).IsEnabled(TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateSP(this, &FPhysicsConstraintComponentDetails::IsPropertyEnabled, EPropertyType::LinearLimit)));
-	LinearLimitCat.AddProperty(ConstraintInstance->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConstraintInstance, LinearLimitDamping)).ToSharedRef()).IsEnabled(TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateSP(this, &FPhysicsConstraintComponentDetails::IsPropertyEnabled, EPropertyType::LinearLimit)));
-	LinearLimitCat.AddProperty(ConstraintInstance->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConstraintInstance, bLinearBreakable)).ToSharedRef());
-	LinearLimitCat.AddProperty(ConstraintInstance->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConstraintInstance, LinearBreakThreshold)).ToSharedRef());
+	TSharedPtr<IPropertyHandle> SoftProperty = LinearConstraintProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FLinearConstraint, bSoftConstraint));
+
+	auto IsRestitutionEnabled = [IsLinearMotionLimited, SoftProperty]()
+	{
+		return !ConstraintDetails::GetBoolProperty(SoftProperty) && IsLinearMotionLimited();
+	};
+
+	LinearLimitCat.AddProperty(LinearConstraintProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FLinearConstraint, Limit))).IsEnabled(TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateLambda(IsLinearMotionLimited)));
+	LinearLimitCat.AddProperty(ConstraintInstance->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConstraintInstance, bScaleLinearLimits))).IsEnabled(TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateLambda(IsLinearMotionLimited)));
+	LinearLimitCat.AddProperty(LinearConstraintProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FLinearConstraint, bSoftConstraint))).IsEnabled(TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateLambda(IsLinearMotionLimited)));
+	LinearLimitCat.AddProperty(LinearConstraintProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FLinearConstraint, Stiffness))).IsEnabled(TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateLambda(IsLinearMotionLimited)));
+	LinearLimitCat.AddProperty(LinearConstraintProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FLinearConstraint, Damping))).IsEnabled(TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateLambda(IsLinearMotionLimited)));
+	LinearLimitCat.AddProperty(LinearConstraintProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FLinearConstraint, Restitution))).IsEnabled(TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateLambda(IsRestitutionEnabled)));
+	LinearLimitCat.AddProperty(LinearConstraintProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FLinearConstraint, ContactDistance))).IsEnabled(TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateLambda(IsLinearMotionLimited)));
+	LinearLimitCat.AddProperty(ProfilePropertiesProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConstraintProfileProperties, bLinearBreakable)));
+	LinearLimitCat.AddProperty(ProfilePropertiesProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConstraintProfileProperties, LinearBreakThreshold)));
 }
 
-void FPhysicsConstraintComponentDetails::AddAngularLimits(IDetailLayoutBuilder& DetailBuilder, TSharedPtr<IPropertyHandle> ConstraintInstance)
+
+
+void FPhysicsConstraintComponentDetails::AddAngularLimits(IDetailLayoutBuilder& DetailBuilder, TSharedPtr<IPropertyHandle> ConstraintInstance, TSharedPtr<IPropertyHandle> ProfilePropertiesProperty)
 {
 	IDetailCategoryBuilder& AngularLimitCat = DetailBuilder.EditCategory("Angular Limits");
 
-	AngularSwing1MotionProperty = ConstraintInstance->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConstraintInstance, AngularSwing1Motion));
-	AngularSwing2MotionProperty = ConstraintInstance->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConstraintInstance, AngularSwing2Motion));
-	AngularTwistMotionProperty = ConstraintInstance->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConstraintInstance, AngularTwistMotion));
+	TSharedPtr<IPropertyHandle> ConeConstraintProperty = ProfilePropertiesProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConstraintProfileProperties, ConeLimit));
+	TSharedPtr<IPropertyHandle> TwistConstraintProperty = ProfilePropertiesProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConstraintProfileProperties, TwistLimit));
+
+	AngularSwing1MotionProperty = ConeConstraintProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConeConstraint, Swing1Motion));
+	AngularSwing2MotionProperty = ConeConstraintProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConeConstraint, Swing2Motion));
+	AngularTwistMotionProperty = TwistConstraintProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FTwistConstraint, TwistMotion));
 
 	TArray<TSharedPtr<FString>> AngularLimitOptionNames;
 	TArray<FText> AngularLimitOptionTooltips;
@@ -190,7 +311,7 @@ void FPhysicsConstraintComponentDetails::AddAngularLimits(IDetailLayoutBuilder& 
 
 
 	uint8 AngularLimitEnum[LCM_MAX] = { ACM_Free, LCM_Limited, LCM_Locked };
-	TSharedPtr<IPropertyHandle> AngularLimitProperties[] = { AngularSwing1MotionProperty, AngularTwistMotionProperty, AngularSwing2MotionProperty };
+	TSharedPtr<IPropertyHandle> AngularLimitProperties[] = { AngularSwing1MotionProperty, AngularSwing2MotionProperty, AngularTwistMotionProperty };
 
 	for (int32 PropertyIdx = 0; PropertyIdx < 3; ++PropertyIdx)
 	{
@@ -259,32 +380,41 @@ void FPhysicsConstraintComponentDetails::AddAngularLimits(IDetailLayoutBuilder& 
 			];
 	}
 
-	AngularLimitCat.AddProperty(ConstraintInstance->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConstraintInstance, Swing1LimitAngle)).ToSharedRef()).IsEnabled(TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateSP(this, &FPhysicsConstraintComponentDetails::IsPropertyEnabled, EPropertyType::AngularSwing1Limit)));
-	AngularLimitCat.AddProperty(ConstraintInstance->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConstraintInstance, TwistLimitAngle)).ToSharedRef()).IsEnabled(TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateSP(this, &FPhysicsConstraintComponentDetails::IsPropertyEnabled, EPropertyType::AngularTwistLimit)));
-	AngularLimitCat.AddProperty(ConstraintInstance->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConstraintInstance, Swing2LimitAngle)).ToSharedRef()).IsEnabled(TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateSP(this, &FPhysicsConstraintComponentDetails::IsPropertyEnabled, EPropertyType::AngularSwing2Limit)));
+	AngularLimitCat.AddProperty(ConeConstraintProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConeConstraint, Swing1LimitDegrees)).ToSharedRef()).IsEnabled(TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateSP(this, &FPhysicsConstraintComponentDetails::IsPropertyEnabled, EPropertyType::AngularSwing1Limit)));
+	AngularLimitCat.AddProperty(ConeConstraintProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConeConstraint, Swing2LimitDegrees)).ToSharedRef()).IsEnabled(TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateSP(this, &FPhysicsConstraintComponentDetails::IsPropertyEnabled, EPropertyType::AngularSwing2Limit)));
+	AngularLimitCat.AddProperty(TwistConstraintProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FTwistConstraint, TwistLimitDegrees)).ToSharedRef()).IsEnabled(TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateSP(this, &FPhysicsConstraintComponentDetails::IsPropertyEnabled, EPropertyType::AngularTwistLimit)));
 
+	TSharedPtr<IPropertyHandle> SoftSwingProperty = ConeConstraintProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConeConstraint, bSoftConstraint));
+	auto SwingRestitutionEnabled = [this, SoftSwingProperty]()
+	{
+		return !ConstraintDetails::GetBoolProperty(SoftSwingProperty) && (IsPropertyEnabled(EPropertyType::AngularSwing1Limit) || IsPropertyEnabled(EPropertyType::AngularSwing2Limit));
+	};
 
-	AngularLimitCat.AddProperty(ConstraintInstance->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConstraintInstance, bSwingLimitSoft)).ToSharedRef())
-		.IsEnabled(TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateSP(this, &FPhysicsConstraintComponentDetails::IsPropertyEnabled, EPropertyType::AngularSwingLimit)));
-	AngularLimitCat.AddProperty(ConstraintInstance->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConstraintInstance, SwingLimitStiffness)).ToSharedRef())
-		.IsEnabled(TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateSP(this, &FPhysicsConstraintComponentDetails::IsPropertyEnabled, EPropertyType::AngularSwingLimit)));
-	AngularLimitCat.AddProperty(ConstraintInstance->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConstraintInstance, SwingLimitDamping)).ToSharedRef())
-		.IsEnabled(TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateSP(this, &FPhysicsConstraintComponentDetails::IsPropertyEnabled, EPropertyType::AngularSwingLimit)));
+	IDetailGroup& SwingGroup = AngularLimitCat.AddGroup("Swing Limits", LOCTEXT("SwingLimits", "Swing Limits"), true, true);
 
+	SwingGroup.AddPropertyRow(SoftSwingProperty.ToSharedRef()).IsEnabled(TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateSP(this, &FPhysicsConstraintComponentDetails::IsPropertyEnabled, EPropertyType::AngularSwingLimit)));
+	SwingGroup.AddPropertyRow(ConeConstraintProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConeConstraint, Stiffness)).ToSharedRef()).IsEnabled(TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateSP(this, &FPhysicsConstraintComponentDetails::IsPropertyEnabled, EPropertyType::AngularSwingLimit)));
+	SwingGroup.AddPropertyRow(ConeConstraintProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConeConstraint, Damping)).ToSharedRef()).IsEnabled(TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateSP(this, &FPhysicsConstraintComponentDetails::IsPropertyEnabled, EPropertyType::AngularSwingLimit)));
+	SwingGroup.AddPropertyRow(ConeConstraintProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConeConstraint, Restitution)).ToSharedRef()).IsEnabled(TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateLambda(SwingRestitutionEnabled)));
+	SwingGroup.AddPropertyRow(ConeConstraintProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConeConstraint, ContactDistance)).ToSharedRef()).IsEnabled(TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateSP(this, &FPhysicsConstraintComponentDetails::IsPropertyEnabled, EPropertyType::AngularSwingLimit)));
 
+	TSharedPtr<IPropertyHandle> SoftTwistProperty = TwistConstraintProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FTwistConstraint, bSoftConstraint));
+	auto TwistRestitutionEnabled = [this, SoftTwistProperty]()
+	{
+		return !ConstraintDetails::GetBoolProperty(SoftTwistProperty) && IsPropertyEnabled(EPropertyType::AngularTwistLimit);
+	};
 
-	AngularLimitCat.AddProperty(ConstraintInstance->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConstraintInstance, bTwistLimitSoft)).ToSharedRef())
-		.IsEnabled(TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateSP(this, &FPhysicsConstraintComponentDetails::IsPropertyEnabled, EPropertyType::AngularTwistLimit)));
-	AngularLimitCat.AddProperty(ConstraintInstance->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConstraintInstance, TwistLimitStiffness)).ToSharedRef())
-		.IsEnabled(TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateSP(this, &FPhysicsConstraintComponentDetails::IsPropertyEnabled, EPropertyType::AngularTwistLimit)));
-	AngularLimitCat.AddProperty(ConstraintInstance->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConstraintInstance, TwistLimitDamping)).ToSharedRef())
-		.IsEnabled(TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateSP(this, &FPhysicsConstraintComponentDetails::IsPropertyEnabled, EPropertyType::AngularTwistLimit)));
+	IDetailGroup& TwistGroup = AngularLimitCat.AddGroup("Twist Limits", LOCTEXT("TwistLimits", "Twist Limits"), true, true);
+
+	TwistGroup.AddPropertyRow(SoftTwistProperty.ToSharedRef()).IsEnabled(TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateSP(this, &FPhysicsConstraintComponentDetails::IsPropertyEnabled, EPropertyType::AngularTwistLimit)));
+	TwistGroup.AddPropertyRow(TwistConstraintProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FTwistConstraint, Stiffness)).ToSharedRef()).IsEnabled(TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateSP(this, &FPhysicsConstraintComponentDetails::IsPropertyEnabled, EPropertyType::AngularTwistLimit)));
+	TwistGroup.AddPropertyRow(TwistConstraintProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FTwistConstraint, Damping)).ToSharedRef()).IsEnabled(TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateSP(this, &FPhysicsConstraintComponentDetails::IsPropertyEnabled, EPropertyType::AngularTwistLimit)));
+	TwistGroup.AddPropertyRow(TwistConstraintProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FTwistConstraint, Restitution)).ToSharedRef()).IsEnabled(TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateLambda(TwistRestitutionEnabled)));
+	TwistGroup.AddPropertyRow(TwistConstraintProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FTwistConstraint, ContactDistance)).ToSharedRef()).IsEnabled(TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateSP(this, &FPhysicsConstraintComponentDetails::IsPropertyEnabled, EPropertyType::AngularTwistLimit)));
 
 	if (bInPhat == false)
 	{
-		AngularLimitCat.AddProperty(ConstraintInstance->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConstraintInstance, AngularRotationOffset)).ToSharedRef())
-			.IsEnabled(TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateSP(this, &FPhysicsConstraintComponentDetails::IsPropertyEnabled, EPropertyType::AngularAnyLimit)));
-
+	    AngularLimitCat.AddProperty(ConstraintInstance->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConstraintInstance, AngularRotationOffset)).ToSharedRef());
 	}
 	else
 	{
@@ -292,54 +422,39 @@ void FPhysicsConstraintComponentDetails::AddAngularLimits(IDetailLayoutBuilder& 
 			.Visibility(EVisibility::Collapsed);
 	}
 
-	AngularLimitCat.AddProperty(ConstraintInstance->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConstraintInstance, bAngularBreakable)).ToSharedRef());
-	AngularLimitCat.AddProperty(ConstraintInstance->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConstraintInstance, AngularBreakThreshold)).ToSharedRef());
+	AngularLimitCat.AddProperty(ProfilePropertiesProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConstraintProfileProperties, bAngularBreakable)).ToSharedRef());
+	AngularLimitCat.AddProperty(ProfilePropertiesProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConstraintProfileProperties, AngularBreakThreshold)).ToSharedRef());
 }
 
-TSharedRef<SWidget> FPhysicsConstraintComponentDetails::JoinPropertyWidgets(TSharedPtr<IPropertyHandle> TargetProperty, FName TargetChildName, TSharedPtr<IPropertyHandle> ConstraintInstance, FName CheckPropertyName, TSharedPtr<IPropertyHandle>& StoreCheckProperty, EPropertyType::Type DriveType)
-{
-	StoreCheckProperty = ConstraintInstance->GetChildHandle(CheckPropertyName);
-	StoreCheckProperty->MarkHiddenByCustomization();
-	TSharedRef<SWidget> TargetWidget = TargetProperty->GetChildHandle(TargetChildName)->CreatePropertyValueWidget();
-	TargetWidget->SetEnabled(TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateSP(this, &FPhysicsConstraintComponentDetails::IsPropertyEnabled, DriveType)));
-
-	return SNew(SHorizontalBox)
-		+ SHorizontalBox::Slot()
-		.AutoWidth()
-		.Padding(0, 0, 5, 0)
-		[
-			StoreCheckProperty->CreatePropertyValueWidget()
-		]
-	+ SHorizontalBox::Slot()
-		[
-			TargetWidget
-		];
-}
-
-
-void FPhysicsConstraintComponentDetails::AddLinearDrive(IDetailLayoutBuilder& DetailBuilder, TSharedPtr<IPropertyHandle> ConstraintInstance)
+void FPhysicsConstraintComponentDetails::AddLinearDrive(IDetailLayoutBuilder& DetailBuilder, TSharedPtr<IPropertyHandle> ConstraintInstance, TSharedPtr<IPropertyHandle> ProfilePropertiesProperty)
 {
 	IDetailCategoryBuilder& LinearMotorCat = DetailBuilder.EditCategory("LinearMotor");
-	LinearPositionDriveProperty = ConstraintInstance->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConstraintInstance, bLinearPositionDrive));
 
-	IDetailGroup& PositionGroup = LinearMotorCat.AddGroup("Linear Position Drive", FText::GetEmpty());
-	PositionGroup.HeaderProperty(LinearPositionDriveProperty.ToSharedRef());
+	TSharedPtr<IPropertyHandle> LinearDriveProperty = ProfilePropertiesProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConstraintProfileProperties, LinearDrive));
 
-	TSharedRef<IPropertyHandle> LinearPositionTargetProperty = ConstraintInstance->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConstraintInstance, LinearPositionTarget)).ToSharedRef();
+	IDetailGroup& PositionGroup = LinearMotorCat.AddGroup("Linear Position Drive", LOCTEXT("LinearPositionDrive", "Linear Position Drive"), false, true);
 	
+	TSharedRef<IPropertyHandle> LinearPositionTargetProperty = LinearDriveProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FLinearDriveConstraint, PositionTarget)).ToSharedRef();
+	
+	TSharedPtr<IPropertyHandle> XDriveProperty = LinearDriveProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FLinearDriveConstraint, XDrive));
+	TSharedPtr<IPropertyHandle> YDriveProperty = LinearDriveProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FLinearDriveConstraint, YDrive));
+	TSharedPtr<IPropertyHandle> ZDriveProperty = LinearDriveProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FLinearDriveConstraint, ZDrive));
 
-	TSharedRef<SWidget> LinearPositionXWidget = JoinPropertyWidgets(LinearPositionTargetProperty, FName("X"), ConstraintInstance, FName("bLinearXPositionDrive"), LinearXPositionDriveProperty, EPropertyType::LinearXPositionDrive);
-	TSharedRef<SWidget> LinearPositionYWidget = JoinPropertyWidgets(LinearPositionTargetProperty, FName("Y"), ConstraintInstance, FName("bLinearYPositionDrive"), LinearYPositionDriveProperty, EPropertyType::LinearYPositionDrive);
-	TSharedRef<SWidget> LinearPositionZWidget = JoinPropertyWidgets(LinearPositionTargetProperty, FName("Z"), ConstraintInstance, FName("bLinearZPositionDrive"), LinearZPositionDriveProperty, EPropertyType::LinearZPositionDrive);
+	LinearXPositionDriveProperty = XDriveProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConstraintDrive, bEnablePositionDrive));
+	LinearYPositionDriveProperty = YDriveProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConstraintDrive, bEnablePositionDrive));
+	LinearZPositionDriveProperty = ZDriveProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConstraintDrive, bEnablePositionDrive));
+
+	TSharedRef<SWidget> LinearPositionXWidget = ConstraintDetails::JoinPropertyWidgets(LinearPositionTargetProperty, FName("X"), XDriveProperty, GET_MEMBER_NAME_CHECKED(FConstraintDrive, bEnablePositionDrive), LinearXPositionDriveProperty);
+	TSharedRef<SWidget> LinearPositionYWidget = ConstraintDetails::JoinPropertyWidgets(LinearPositionTargetProperty, FName("Y"), YDriveProperty, GET_MEMBER_NAME_CHECKED(FConstraintDrive, bEnablePositionDrive), LinearYPositionDriveProperty);
+	TSharedRef<SWidget> LinearPositionZWidget = ConstraintDetails::JoinPropertyWidgets(LinearPositionTargetProperty, FName("Z"), ZDriveProperty, GET_MEMBER_NAME_CHECKED(FConstraintDrive, bEnablePositionDrive), LinearZPositionDriveProperty);
 
 
-	FDetailWidgetRow& LinearPositionTargetWidget = PositionGroup.AddPropertyRow(LinearPositionTargetProperty).CustomWidget(true);
-	LinearPositionTargetWidget.NameContent()
+	FDetailWidgetRow& LinearPositionTargetWidget = PositionGroup.HeaderProperty(LinearPositionTargetProperty).CustomWidget()
+	.NameContent()
 	[
 			LinearPositionTargetProperty->CreatePropertyNameWidget()
-	];
-
-	LinearPositionTargetWidget.ValueContent()
+	]
+	.ValueContent()
 	.MinDesiredWidth(125 * 3 + 18 * 3)
 	.MaxDesiredWidth(125 * 3 + 18 * 3)
 	[
@@ -361,82 +476,338 @@ void FPhysicsConstraintComponentDetails::AddLinearDrive(IDetailLayoutBuilder& De
 		]
 	];
 
-	PositionGroup.AddPropertyRow(ConstraintInstance->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConstraintInstance, LinearDriveSpring)).ToSharedRef())
-		.IsEnabled(TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateSP(this, &FPhysicsConstraintComponentDetails::IsPropertyEnabled, EPropertyType::LinearPositionDrive)));
+	TSharedPtr<IPropertyHandle> StiffnessXProperty = XDriveProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConstraintDrive, Stiffness));
+	TSharedRef<SWidget> StiffnessWidget = ConstraintDetails::CreateTriFloatWidget(StiffnessXProperty, YDriveProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConstraintDrive, Stiffness)), ZDriveProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConstraintDrive, Stiffness)), LOCTEXT("EditStrength", "Edit Strength"));
+	StiffnessWidget->SetEnabled(TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateSP(this, &FPhysicsConstraintComponentDetails::IsPropertyEnabled, EPropertyType::LinearPositionDrive)));
 
-	//velocity
-	LinearVelocityDriveProperty = ConstraintInstance->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConstraintInstance, bLinearVelocityDrive));
-	TSharedRef<IPropertyHandle> LinearVelocityTargetProperty = ConstraintInstance->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConstraintInstance, LinearVelocityTarget)).ToSharedRef();
-
-	IDetailGroup& VelocityGroup = LinearMotorCat.AddGroup("Linear Velocity Drive", FText::GetEmpty());
-	VelocityGroup.HeaderProperty(LinearVelocityDriveProperty.ToSharedRef());
-
-	TSharedRef<SWidget> LinearVelocityXWidget = JoinPropertyWidgets(LinearVelocityTargetProperty, FName("X"), ConstraintInstance, FName("bLinearXVelocityDrive"), LinearXVelocityDriveProperty, EPropertyType::LinearXVelocityDrive);
-	TSharedRef<SWidget> LinearVelocityYWidget = JoinPropertyWidgets(LinearVelocityTargetProperty, FName("Y"), ConstraintInstance, FName("bLinearYVelocityDrive"), LinearYVelocityDriveProperty, EPropertyType::LinearYVelocityDrive);
-	TSharedRef<SWidget> LinearVelocityZWidget = JoinPropertyWidgets(LinearVelocityTargetProperty, FName("Z"), ConstraintInstance, FName("bLinearZVelocityDrive"), LinearZVelocityDriveProperty, EPropertyType::LinearZVelocityDrive);
-
-
-	FDetailWidgetRow& LinearVelocityTargetWidget = VelocityGroup.AddPropertyRow(LinearVelocityTargetProperty).CustomWidget(true);
-	LinearVelocityTargetWidget.NameContent()
+	PositionGroup.AddWidgetRow()
+	.NameContent()
 	[
-		LinearVelocityTargetProperty->CreatePropertyNameWidget()
+		SNew(STextBlock)
+		.Text(LOCTEXT("Strength", "Strength"))
+		.Font(IDetailLayoutBuilder::GetDetailFont())
+	]
+	.ValueContent()
+	[
+		StiffnessWidget
 	];
+	
+	// VELOCITY
+
+	IDetailGroup& VelocityGroup = LinearMotorCat.AddGroup("Linear Velocity Drive", LOCTEXT("LinearVelocityDrive", "Linear Velocity Drive"), false, true);
+
+	TSharedRef<IPropertyHandle> LinearVelocityTargetProperty = LinearDriveProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FLinearDriveConstraint, VelocityTarget)).ToSharedRef();
+
+	LinearXVelocityDriveProperty = XDriveProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConstraintDrive, bEnableVelocityDrive));
+	LinearYVelocityDriveProperty = YDriveProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConstraintDrive, bEnableVelocityDrive));
+	LinearZVelocityDriveProperty = ZDriveProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConstraintDrive, bEnableVelocityDrive));
+
+	TSharedRef<SWidget> LinearVelocityXWidget = ConstraintDetails::JoinPropertyWidgets(LinearVelocityTargetProperty, FName("X"), XDriveProperty, GET_MEMBER_NAME_CHECKED(FConstraintDrive, bEnableVelocityDrive), LinearXVelocityDriveProperty);
+	TSharedRef<SWidget> LinearVelocityYWidget = ConstraintDetails::JoinPropertyWidgets(LinearVelocityTargetProperty, FName("Y"), YDriveProperty, GET_MEMBER_NAME_CHECKED(FConstraintDrive, bEnableVelocityDrive), LinearYVelocityDriveProperty);
+	TSharedRef<SWidget> LinearVelocityZWidget = ConstraintDetails::JoinPropertyWidgets(LinearVelocityTargetProperty, FName("Z"), ZDriveProperty, GET_MEMBER_NAME_CHECKED(FConstraintDrive, bEnableVelocityDrive), LinearZVelocityDriveProperty);
+
+	FDetailWidgetRow& LinearVelocityTargetWidget = VelocityGroup.HeaderProperty(LinearVelocityTargetProperty).CustomWidget(true);
+	LinearVelocityTargetWidget.NameContent()
+		[
+			LinearVelocityTargetProperty->CreatePropertyNameWidget()
+		];
 
 	LinearVelocityTargetWidget.ValueContent()
+		.MinDesiredWidth(125 * 3 + 18 * 3)
+		.MaxDesiredWidth(125 * 3 + 18 * 3)
+		[
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot()
+		[
+			LinearVelocityXWidget
+		]
+	+ SHorizontalBox::Slot()
+		.Padding(5, 0, 0, 0)
+		[
+			LinearVelocityYWidget
+		]
+
+	+ SHorizontalBox::Slot()
+		.Padding(5, 0, 0, 0)
+		[
+			LinearVelocityZWidget
+		]
+		];
+
+	TSharedPtr<IPropertyHandle> XDampingProperty = XDriveProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConstraintDrive, Damping));
+	TSharedRef<SWidget> DampingWidget = ConstraintDetails::CreateTriFloatWidget(XDampingProperty, YDriveProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConstraintDrive, Damping)), ZDriveProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConstraintDrive, Damping)), LOCTEXT("EditStrength", "Edit Strength"));
+	DampingWidget->SetEnabled(TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateSP(this, &FPhysicsConstraintComponentDetails::IsPropertyEnabled, EPropertyType::LinearVelocityDrive)));
+
+	VelocityGroup.AddWidgetRow()
+	.NameContent()
+	[
+		SNew(STextBlock)
+		.Text(LOCTEXT("Strength", "Strength"))
+		.Font(IDetailLayoutBuilder::GetDetailFont())
+	]
+	.ValueContent()
+	[
+		DampingWidget
+	];
+
+	// max force limit
+	TSharedPtr<IPropertyHandle> MaxForceProperty = XDriveProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConstraintDrive, MaxForce));
+	TSharedRef<SWidget> MaxForceWidget = ConstraintDetails::CreateTriFloatWidget(MaxForceProperty, YDriveProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConstraintDrive, MaxForce)), ZDriveProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConstraintDrive, MaxForce)), LOCTEXT("EditMaxForce", "Edit Max Force"));
+	MaxForceWidget->SetEnabled(TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateSP(this, &FPhysicsConstraintComponentDetails::IsPropertyEnabled, EPropertyType::LinearDrive)));
+
+	LinearMotorCat.AddCustomRow(LOCTEXT("MaxForce", "Max Force"), true)
+	.NameContent()
+	[
+		MaxForceProperty->CreatePropertyNameWidget()
+	]
+	.ValueContent()
+	[
+		MaxForceWidget
+	];
+
+}
+
+void FPhysicsConstraintComponentDetails::AddAngularDrive(IDetailLayoutBuilder& DetailBuilder, TSharedPtr<IPropertyHandle> ConstraintInstance, TSharedPtr<IPropertyHandle> ProfilePropertiesProperty)
+{
+	IDetailCategoryBuilder& AngularMotorCat = DetailBuilder.EditCategory("AngularMotor");
+
+	TSharedPtr<IPropertyHandle> AngularDriveProperty = ProfilePropertiesProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConstraintProfileProperties, AngularDrive));
+	TSharedPtr<IPropertyHandle> AngularDriveModeProperty = AngularDriveProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FAngularDriveConstraint, AngularDriveMode));
+
+	TSharedPtr<IPropertyHandle> SlerpDriveProperty = AngularDriveProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FAngularDriveConstraint, SlerpDrive));
+	TSharedPtr<IPropertyHandle> SwingDriveProperty = AngularDriveProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FAngularDriveConstraint, SwingDrive));
+	TSharedPtr<IPropertyHandle> TwistDriveProperty = AngularDriveProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FAngularDriveConstraint, TwistDrive));
+
+	TSharedPtr<IPropertyHandle> SlerpPositionDriveProperty = SlerpDriveProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConstraintDrive, bEnablePositionDrive));
+	TSharedPtr<IPropertyHandle> SlerpVelocityDriveProperty = SlerpDriveProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConstraintDrive, bEnableVelocityDrive));
+	TSharedPtr<IPropertyHandle> SwingPositionDriveProperty = SwingDriveProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConstraintDrive, bEnablePositionDrive));
+	TSharedPtr<IPropertyHandle> SwingVelocityDriveProperty = SwingDriveProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConstraintDrive, bEnableVelocityDrive));
+	TSharedPtr<IPropertyHandle> TwistPositionDriveProperty = TwistDriveProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConstraintDrive, bEnablePositionDrive));
+	TSharedPtr<IPropertyHandle> TwistVelocityDriveProperty = TwistDriveProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConstraintDrive, bEnableVelocityDrive));
+		
+	auto IsAngularMode = [AngularDriveModeProperty](EAngularDriveMode::Type CheckMode)
+	{
+		uint8 DriveMode;
+		if (AngularDriveModeProperty->GetValue(DriveMode))
+		{
+			return DriveMode == CheckMode;
+		}
+		return false;
+	};
+
+	auto EligibleForSLERP = [this, IsAngularMode]()
+	{
+		return IsAngularMode(EAngularDriveMode::SLERP) && !ConstraintDetails::IsAngularPropertyEqual(AngularSwing1MotionProperty, ACM_Locked) && !ConstraintDetails::IsAngularPropertyEqual(AngularSwing2MotionProperty, ACM_Locked) && !ConstraintDetails::IsAngularPropertyEqual(AngularTwistMotionProperty, ACM_Locked);
+	};
+
+	auto EligibleForTwistAndSwing = [IsAngularMode]()
+	{
+		return IsAngularMode(EAngularDriveMode::TwistAndSwing);
+	};
+
+	auto OrientationEnabled = [EligibleForSLERP, EligibleForTwistAndSwing, TwistPositionDriveProperty, SwingPositionDriveProperty, SlerpPositionDriveProperty]()
+	{
+		if(EligibleForSLERP())
+		{
+			return ConstraintDetails::GetBoolProperty(SlerpPositionDriveProperty);
+		} else if(EligibleForTwistAndSwing())
+		{
+			return ConstraintDetails::GetBoolProperty(TwistPositionDriveProperty) || ConstraintDetails::GetBoolProperty(SwingPositionDriveProperty);
+		}
+
+		return false;
+	};
+
+	auto VelocityEnabled = [EligibleForSLERP, EligibleForTwistAndSwing, TwistVelocityDriveProperty, SwingVelocityDriveProperty, SlerpVelocityDriveProperty]()
+	{
+		if (EligibleForSLERP())
+		{
+			return ConstraintDetails::GetBoolProperty(SlerpVelocityDriveProperty);
+		}
+		else if (EligibleForTwistAndSwing())
+		{
+			return ConstraintDetails::GetBoolProperty(TwistVelocityDriveProperty) || ConstraintDetails::GetBoolProperty(SwingVelocityDriveProperty);
+		}
+
+		return false;
+	};
+
+	auto VelocityOrOrientationEnabled = [VelocityEnabled, OrientationEnabled]()
+	{
+		return VelocityEnabled() || OrientationEnabled();
+	};
+	
+	AngularMotorCat.AddProperty(AngularDriveModeProperty);
+
+	IDetailGroup& OrientationGroup = AngularMotorCat.AddGroup("Orientation Drive", LOCTEXT("OrientrationDrive", "Orientation Drive"), false, true);
+	OrientationGroup.HeaderProperty(AngularDriveProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FAngularDriveConstraint, OrientationTarget)).ToSharedRef()).DisplayName(LOCTEXT("TargetOrientation", "Target Orientation")).IsEnabled(TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateLambda(OrientationEnabled)));
+
+
+	TSharedRef<SWidget> SlerpPositionWidget = SlerpPositionDriveProperty->CreatePropertyValueWidget();
+	TSharedRef<SWidget> SlerpVelocityWidget = SlerpVelocityDriveProperty->CreatePropertyValueWidget();
+	SlerpPositionWidget->SetEnabled(TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateLambda(EligibleForSLERP)));
+	SlerpVelocityWidget->SetEnabled(TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateLambda(EligibleForSLERP)));
+
+	TSharedRef<SWidget> TwistPositionWidget = TwistPositionDriveProperty->CreatePropertyValueWidget();
+	TSharedRef<SWidget> TwistVelocityWidget = TwistVelocityDriveProperty->CreatePropertyValueWidget();
+	TwistPositionWidget->SetEnabled(TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateLambda(EligibleForTwistAndSwing)));
+	TwistVelocityWidget->SetEnabled(TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateLambda(EligibleForTwistAndSwing)));
+
+	TSharedRef<SWidget> SwingPositionWidget = SwingPositionDriveProperty->CreatePropertyValueWidget();
+	TSharedRef<SWidget> SwingVelocityWidget = SwingVelocityDriveProperty->CreatePropertyValueWidget();
+	SwingPositionWidget->SetEnabled(TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateLambda(EligibleForTwistAndSwing)));
+	SwingVelocityWidget->SetEnabled(TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateLambda(EligibleForTwistAndSwing)));
+
+	OrientationGroup.AddWidgetRow()
+	.NameContent()
+	[
+		SNew(STextBlock)
+		.Text(LOCTEXT("TwistSwingSlerpDrive", "Drives"))
+		.Font(IDetailLayoutBuilder::GetDetailFont())
+	]
+	.ValueContent()
 	.MinDesiredWidth(125 * 3 + 18 * 3)
 	.MaxDesiredWidth(125 * 3 + 18 * 3)
 	[
 		SNew(SHorizontalBox)
 		+ SHorizontalBox::Slot()
 		[
-			LinearVelocityXWidget
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot()
+			[
+				SlerpDriveProperty->CreatePropertyNameWidget()
+			]
+			+ SHorizontalBox::Slot()
+			[
+				SlerpPositionWidget
+			]
 		]
 		+ SHorizontalBox::Slot()
-		.Padding(5, 0, 0, 0)
 		[
-			LinearVelocityYWidget
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot()
+			[
+				TwistDriveProperty->CreatePropertyNameWidget()
+			]
+			+ SHorizontalBox::Slot()
+			[
+				TwistPositionWidget
+			]
 		]
-
 		+ SHorizontalBox::Slot()
-		.Padding(5, 0, 0, 0)
 		[
-			LinearVelocityZWidget
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot()
+			[
+				SwingDriveProperty->CreatePropertyNameWidget()
+			]
+			+ SHorizontalBox::Slot()
+			[
+				SwingPositionWidget
+			]
 		]
 	];
 
-	VelocityGroup.AddPropertyRow(ConstraintInstance->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConstraintInstance, LinearDriveDamping)).ToSharedRef())
-		.IsEnabled(TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateSP(this, &FPhysicsConstraintComponentDetails::IsPropertyEnabled, EPropertyType::LinearVelocityDrive)));
+	TSharedPtr<IPropertyHandle> StiffnessSlerpProperty = SlerpDriveProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConstraintDrive, Stiffness));
+	TSharedRef<SWidget> OrientationStrengthWidget = ConstraintDetails::CreateTriFloatWidget(StiffnessSlerpProperty, TwistDriveProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConstraintDrive, Stiffness)), SwingDriveProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConstraintDrive, Stiffness)), LOCTEXT("EditStrength", "Edit Strength"));
+	OrientationStrengthWidget->SetEnabled(TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateLambda(OrientationEnabled)));
 
-	LinearMotorCat.AddProperty(ConstraintInstance->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConstraintInstance, LinearDriveForceLimit)).ToSharedRef())
-		.IsEnabled(TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateSP(this, &FPhysicsConstraintComponentDetails::IsPropertyEnabled, EPropertyType::LinearAnyDrive)));
-}
+	OrientationGroup.AddWidgetRow()
+	.NameContent()
+	[
+		SNew(STextBlock)
+		.Text(LOCTEXT("Strength", "Strength"))
+		.Font(IDetailLayoutBuilder::GetDetailFont())
+	]
+	.ValueContent()
+	[
+		OrientationStrengthWidget
+	];
 
-void FPhysicsConstraintComponentDetails::AddAngularDrive(IDetailLayoutBuilder& DetailBuilder, TSharedPtr<IPropertyHandle> ConstraintInstance)
-{
-	AngularPositionDriveProperty = ConstraintInstance->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConstraintInstance, bAngularOrientationDrive));
-	AngularVelocityDriveProperty = ConstraintInstance->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConstraintInstance, bAngularVelocityDrive));
+	IDetailGroup& AngularVelocityGroup = AngularMotorCat.AddGroup("Velocity Drive", LOCTEXT("VelocityDrive", "Velocity Drive"), false, true);
+	AngularVelocityGroup.HeaderProperty(AngularDriveProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FAngularDriveConstraint, AngularVelocityTarget)).ToSharedRef()).DisplayName(LOCTEXT("TargetVelocity", "Target Velocity")).IsEnabled(TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateLambda(VelocityEnabled)));
 
-	IDetailCategoryBuilder& AngularMotorCat = DetailBuilder.EditCategory("AngularMotor");
+	AngularVelocityGroup.AddWidgetRow()
+	.NameContent()
+	[
+		SNew(STextBlock)
+		.Text(LOCTEXT("TwistSwingSlerpDrive", "Drives"))
+		.Font(IDetailLayoutBuilder::GetDetailFont())
+	]
+	.ValueContent()
+	.MinDesiredWidth(125 * 3 + 18 * 3)
+	.MaxDesiredWidth(125 * 3 + 18 * 3)
+	[
+		SNew(SHorizontalBox)
+		+ SHorizontalBox::Slot()
+		[
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot()
+			[
+				SlerpDriveProperty->CreatePropertyNameWidget()
+			]
+			+ SHorizontalBox::Slot()
+			[
+				SlerpVelocityWidget
+			]
+		]
+		+ SHorizontalBox::Slot()
+		[
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot()
+			[
+				TwistDriveProperty->CreatePropertyNameWidget()
+			]
+			+ SHorizontalBox::Slot()
+			[
+				TwistVelocityWidget
+			]
+		]
+		+ SHorizontalBox::Slot()
+		[
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot()
+			[
+				SwingDriveProperty->CreatePropertyNameWidget()
+			]
+			+ SHorizontalBox::Slot()
+			[
+				SwingVelocityWidget
+			]
+		]
+	];
 
-	IDetailGroup& PositionGroup = AngularMotorCat.AddGroup("Angular Orientation Drive", FText::GetEmpty());
-	PositionGroup.HeaderProperty(AngularPositionDriveProperty.ToSharedRef());
+	TSharedPtr<IPropertyHandle> DampingSlerpProperty = SlerpDriveProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConstraintDrive, Damping));
+	TSharedRef<SWidget> DampingSlerpWidget = ConstraintDetails::CreateTriFloatWidget(DampingSlerpProperty, TwistDriveProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConstraintDrive, Damping)), SwingDriveProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConstraintDrive, Damping)), LOCTEXT("EditStrength", "Edit Strength"));
+	DampingSlerpWidget->SetEnabled(TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateLambda(VelocityEnabled)));
+	AngularVelocityGroup.AddWidgetRow()
+	.NameContent()
+	[
+		SNew(STextBlock)
+		.Text(LOCTEXT("Strength", "Strength"))
+		.Font(IDetailLayoutBuilder::GetDetailFont())
+	]
+	.ValueContent()
+	[
+		DampingSlerpWidget
+	];
+	
+	// max force limit
+	TSharedPtr<IPropertyHandle> MaxForcePropertySlerp = SlerpDriveProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConstraintDrive, MaxForce));
+	TSharedRef<SWidget> MaxForceWidget = ConstraintDetails::CreateTriFloatWidget(MaxForcePropertySlerp, TwistDriveProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConstraintDrive, MaxForce)), SwingDriveProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConstraintDrive, MaxForce)), LOCTEXT("EditMaxForce", "Edit Max Force"));
+	MaxForceWidget->SetEnabled(TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateLambda(VelocityOrOrientationEnabled)));
 
-	PositionGroup.AddPropertyRow(ConstraintInstance->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConstraintInstance, AngularOrientationTarget)).ToSharedRef())
-		.IsEnabled(TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateSP(this, &FPhysicsConstraintComponentDetails::IsPropertyEnabled, EPropertyType::AngularPositionDrive)));
+	AngularMotorCat.AddCustomRow(LOCTEXT("MaxForce", "Max Force"), true)
+	.NameContent()
+	[
+		MaxForcePropertySlerp->CreatePropertyNameWidget()
+	]
+	.ValueContent()
+	[
+		MaxForceWidget
+	];
 
-	PositionGroup.AddPropertyRow(ConstraintInstance->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConstraintInstance, AngularDriveSpring)).ToSharedRef())
-		.IsEnabled(TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateSP(this, &FPhysicsConstraintComponentDetails::IsPropertyEnabled, EPropertyType::AngularAnyDrive)));
-
-	IDetailGroup& VelocityGroup = AngularMotorCat.AddGroup("Angular Velocity Drive", FText::GetEmpty());
-	VelocityGroup.HeaderProperty(AngularVelocityDriveProperty.ToSharedRef());
-	VelocityGroup.AddPropertyRow(ConstraintInstance->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConstraintInstance, AngularVelocityTarget)).ToSharedRef())
-		.IsEnabled(TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateSP(this, &FPhysicsConstraintComponentDetails::IsPropertyEnabled, EPropertyType::AngularVelocityDrive)));
-	VelocityGroup.AddPropertyRow(ConstraintInstance->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConstraintInstance, AngularDriveDamping)).ToSharedRef())
-		.IsEnabled(TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateSP(this, &FPhysicsConstraintComponentDetails::IsPropertyEnabled, EPropertyType::AngularAnyDrive)));
-	AngularMotorCat.AddProperty(ConstraintInstance->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConstraintInstance, AngularDriveForceLimit)).ToSharedRef())
-		.IsEnabled(TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateSP(this, &FPhysicsConstraintComponentDetails::IsPropertyEnabled, EPropertyType::AngularAnyDrive)));
-	AngularMotorCat.AddProperty(ConstraintInstance->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConstraintInstance, AngularDriveMode)).ToSharedRef())
-		.IsEnabled(TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateSP(this, &FPhysicsConstraintComponentDetails::IsPropertyEnabled, EPropertyType::AngularAnyDrive)));
+	
 }
 
 void FPhysicsConstraintComponentDetails::CustomizeDetails( IDetailLayoutBuilder& DetailBuilder )
@@ -469,108 +840,43 @@ void FPhysicsConstraintComponentDetails::CustomizeDetails( IDetailLayoutBuilder&
 		}
 	}
 
-	AddConstraintPresets(DetailBuilder, OwningConstraintActor);
-	AddLinearLimits(DetailBuilder, ConstraintInstance);
-	AddAngularLimits(DetailBuilder, ConstraintInstance);
-	AddLinearDrive(DetailBuilder, ConstraintInstance);
-	AddAngularDrive(DetailBuilder, ConstraintInstance);
+	DetailBuilder.EditCategory("Constraint");	//Create this category first so it's at the top
+	DetailBuilder.EditCategory("Constraint Behavior");	//Create this category first so it's at the top
+	
+	TSharedPtr<IPropertyHandle> ProfileInstance = ConstraintInstance->GetChildHandle(GET_MEMBER_NAME_CHECKED(FConstraintInstance, ProfileInstance));
+	AddLinearLimits(DetailBuilder, ConstraintInstance, ProfileInstance);
+	AddAngularLimits(DetailBuilder, ConstraintInstance, ProfileInstance);
+	AddLinearDrive(DetailBuilder, ConstraintInstance, ProfileInstance);
+	AddAngularDrive(DetailBuilder, ConstraintInstance, ProfileInstance);
+	
+	AddConstraintBehaviorProperties(DetailBuilder, ConstraintInstance, ProfileInstance);	//Now we've added all the complex UI, just dump the rest into Constraint category
 }
+
 
 bool FPhysicsConstraintComponentDetails::IsPropertyEnabled( EPropertyType::Type Type ) const
 {
 	bool bIsVisible = false;
 	switch (Type)
 	{
-		case EPropertyType::LinearXPositionDrive:	return GetBoolProperty(LinearXPositionDriveProperty);
-		case EPropertyType::LinearYPositionDrive:	return GetBoolProperty(LinearYPositionDriveProperty);
-		case EPropertyType::LinearZPositionDrive:	return GetBoolProperty(LinearZPositionDriveProperty);
+		case EPropertyType::LinearXPositionDrive:	return ConstraintDetails::GetBoolProperty(LinearXPositionDriveProperty);
+		case EPropertyType::LinearYPositionDrive:	return ConstraintDetails::GetBoolProperty(LinearYPositionDriveProperty);
+		case EPropertyType::LinearZPositionDrive:	return ConstraintDetails::GetBoolProperty(LinearZPositionDriveProperty);
 
-		case EPropertyType::LinearXVelocityDrive:	return GetBoolProperty(LinearXVelocityDriveProperty);
-		case EPropertyType::LinearYVelocityDrive:	return GetBoolProperty(LinearYVelocityDriveProperty);
-		case EPropertyType::LinearZVelocityDrive:	return GetBoolProperty(LinearZVelocityDriveProperty);
-
-		case EPropertyType::LinearPositionDrive:	return GetBoolProperty(LinearPositionDriveProperty);
-		case EPropertyType::LinearVelocityDrive:	return GetBoolProperty(LinearVelocityDriveProperty);
-		case EPropertyType::LinearAnyDrive:			return GetBoolProperty(LinearPositionDriveProperty) || GetBoolProperty(LinearVelocityDriveProperty);
-		case EPropertyType::AngularPositionDrive:	return GetBoolProperty(AngularPositionDriveProperty);
-		case EPropertyType::AngularVelocityDrive:	return GetBoolProperty(AngularVelocityDriveProperty);
-		case EPropertyType::AngularAnyDrive:		return GetBoolProperty(AngularPositionDriveProperty) || GetBoolProperty(AngularVelocityDriveProperty);
-		case EPropertyType::LinearLimit:			return IsLinearMotionLimited();
-		case EPropertyType::AngularSwing1Limit:		return IsAngularPropertyLimited(AngularSwing1MotionProperty);
-		case EPropertyType::AngularSwing2Limit:		return IsAngularPropertyLimited(AngularSwing2MotionProperty);
-		case EPropertyType::AngularSwingLimit:		return IsAngularPropertyLimited(AngularSwing1MotionProperty) || IsAngularPropertyLimited(AngularSwing2MotionProperty);
-		case EPropertyType::AngularTwistLimit:		return IsAngularPropertyLimited(AngularTwistMotionProperty);
-		case EPropertyType::AngularAnyLimit:		return IsAngularPropertyLimited(AngularSwing1MotionProperty) || IsAngularPropertyLimited(AngularSwing2MotionProperty) || 
-																 IsAngularPropertyLimited(AngularTwistMotionProperty);
+		case EPropertyType::LinearXVelocityDrive:	return ConstraintDetails::GetBoolProperty(LinearXVelocityDriveProperty);
+		case EPropertyType::LinearYVelocityDrive:	return ConstraintDetails::GetBoolProperty(LinearYVelocityDriveProperty);
+		case EPropertyType::LinearZVelocityDrive:	return ConstraintDetails::GetBoolProperty(LinearZVelocityDriveProperty);
+		case EPropertyType::LinearPositionDrive:	return ConstraintDetails::GetBoolProperty(LinearXPositionDriveProperty) || ConstraintDetails::GetBoolProperty(LinearYPositionDriveProperty) || ConstraintDetails::GetBoolProperty(LinearZPositionDriveProperty);
+		case EPropertyType::LinearVelocityDrive:	return ConstraintDetails::GetBoolProperty(LinearXVelocityDriveProperty) || ConstraintDetails::GetBoolProperty(LinearYVelocityDriveProperty) || ConstraintDetails::GetBoolProperty(LinearZVelocityDriveProperty);
+		case EPropertyType::LinearDrive:			return ConstraintDetails::GetBoolProperty(LinearXPositionDriveProperty) || ConstraintDetails::GetBoolProperty(LinearYPositionDriveProperty) || ConstraintDetails::GetBoolProperty(LinearZPositionDriveProperty)
+															|| ConstraintDetails::GetBoolProperty(LinearXVelocityDriveProperty) || ConstraintDetails::GetBoolProperty(LinearYVelocityDriveProperty) || ConstraintDetails::GetBoolProperty(LinearZVelocityDriveProperty);
+		case EPropertyType::AngularSwing1Limit:		return ConstraintDetails::IsAngularPropertyEqual(AngularSwing1MotionProperty, ACM_Limited);
+		case EPropertyType::AngularSwing2Limit:		return ConstraintDetails::IsAngularPropertyEqual(AngularSwing2MotionProperty, ACM_Limited);
+		case EPropertyType::AngularSwingLimit:		return ConstraintDetails::IsAngularPropertyEqual(AngularSwing1MotionProperty, ACM_Limited) || ConstraintDetails::IsAngularPropertyEqual(AngularSwing2MotionProperty, ACM_Limited);
+		case EPropertyType::AngularTwistLimit:		return ConstraintDetails::IsAngularPropertyEqual(AngularTwistMotionProperty, ACM_Limited);
+		case EPropertyType::AngularAnyLimit:		return ConstraintDetails::IsAngularPropertyEqual(AngularSwing1MotionProperty, ACM_Limited) || ConstraintDetails::IsAngularPropertyEqual(AngularSwing2MotionProperty, ACM_Limited) || ConstraintDetails::IsAngularPropertyEqual(AngularTwistMotionProperty, ACM_Limited);
 	}	
 
 	return bIsVisible;
-}
-
-bool FPhysicsConstraintComponentDetails::GetBoolProperty(TSharedPtr<IPropertyHandle> Prop) const
-{
-	bool bIsEnabled = false;
-
-	if (Prop->GetValue(bIsEnabled))
-	{
-		return bIsEnabled;
-	}
-	return false;
-}
-
-bool FPhysicsConstraintComponentDetails::IsAngularPropertyLimited(TSharedPtr<IPropertyHandle> Prop) const
-{
-	uint8 Val;
-	if (Prop->GetValue(Val))
-	{
-		return Val == ACM_Limited;
-	}
-	return false;
-}
-
-bool FPhysicsConstraintComponentDetails::IsLinearMotionLimited() const
-{
-	uint8 XMotion, YMotion, ZMotion;
-	if (LinearXMotionProperty->GetValue(XMotion) && 
-		LinearYMotionProperty->GetValue(YMotion) && 
-		LinearZMotionProperty->GetValue(ZMotion))
-	{
-		return XMotion == LCM_Limited || YMotion == LCM_Limited || ZMotion == LCM_Limited;
-	}
-	return false;
-}
-
-FReply FPhysicsConstraintComponentDetails::OnHingeClicked()
-{
-	if (ConstraintComponent.IsValid())
-	{
-		UPhysicsConstraintComponent* Comp = Cast<UPhysicsConstraintComponent>(ConstraintComponent.Get());
-		Comp->ConstraintInstance.ConfigureAsHinge();
-		Comp->UpdateSpriteTexture();
-	}
-	return FReply::Handled();
-}
-
-FReply FPhysicsConstraintComponentDetails::OnPrismaticClicked()
-{
-	if (ConstraintComponent.IsValid())
-	{
-		UPhysicsConstraintComponent* Comp = Cast<UPhysicsConstraintComponent>(ConstraintComponent.Get());
-		Comp->ConstraintInstance.ConfigureAsPrismatic();
-		Comp->UpdateSpriteTexture();
-	}
-	return FReply::Handled();
-}
-
-FReply FPhysicsConstraintComponentDetails::OnBallSocketClicked()
-{
-	if (ConstraintComponent.IsValid())
-	{
-		UPhysicsConstraintComponent* Comp = Cast<UPhysicsConstraintComponent>(ConstraintComponent.Get());
-		Comp->ConstraintInstance.ConfigureAsBS();
-		Comp->UpdateSpriteTexture();
-	}
-	return FReply::Handled();
 }
 
 ECheckBoxState FPhysicsConstraintComponentDetails::IsLimitRadioChecked( TSharedPtr<IPropertyHandle> Property, uint8 Value ) const

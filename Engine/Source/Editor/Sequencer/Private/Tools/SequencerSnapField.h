@@ -13,7 +13,7 @@ class UMovieSceneSection;
 /** Structure defining a point to snap to in the sequencer */
 struct FSequencerSnapPoint
 {
-	enum ESnapType { Key, SectionBounds, CustomSection, PlaybackRange, CurrentTime };
+	enum ESnapType { Key, SectionBounds, CustomSection, PlaybackRange, CurrentTime, InOutRange };
 
 	/** The type of snap */
 	ESnapType Type;

@@ -7,6 +7,7 @@
 
 
 class SWindow;
+class FWidgetPath;
 
 
 /**
@@ -318,15 +319,9 @@ public:
 	}
 
 	/** The event path provides additional context for handling */
-	FGeometry FindGeometry( const TSharedRef<SWidget>& WidgetToFind ) const
-	{
-		return EventPath->FindArrangedWidget(WidgetToFind).Get(FArrangedWidget::NullWidget).Geometry;
-	}
+	SLATECORE_API FGeometry FindGeometry(const TSharedRef<SWidget>& WidgetToFind) const;
 
-	TSharedRef<SWindow> GetWindow() const
-	{
-		return EventPath->GetWindow();
-	}
+	SLATECORE_API TSharedRef<SWindow> GetWindow() const;
 
 	/** Set the widget path along which this event will be routed */
 	void SetEventPath( const FWidgetPath& InEventPath )
@@ -663,6 +658,30 @@ public:
 		const FModifierKeysState& InModifierKeys
 	)
 		: FInputEvent(InModifierKeys, 0, false)
+		, ScreenSpacePosition(InScreenSpacePosition)
+		, LastScreenSpacePosition(InLastScreenSpacePosition)
+		, CursorDelta(InScreenSpacePosition - InLastScreenSpacePosition)
+		, PressedButtons(InPressedButtons)
+		, EffectingButton(InEffectingButton)
+		, PointerIndex(InPointerIndex)
+		, TouchpadIndex(0)
+		, bIsTouchEvent(false)
+		, GestureType(EGestureEvent::None)
+		, WheelOrGestureDelta(0.0f, InWheelDelta)
+		, bIsDirectionInvertedFromDevice(false)
+	{ }
+
+	FPointerEvent(
+		uint32 InUserIndex,
+		uint32 InPointerIndex,
+		const FVector2D& InScreenSpacePosition,
+		const FVector2D& InLastScreenSpacePosition,
+		const TSet<FKey>& InPressedButtons,
+		FKey InEffectingButton,
+		float InWheelDelta,
+		const FModifierKeysState& InModifierKeys
+	)
+		: FInputEvent(InModifierKeys, InUserIndex, false)
 		, ScreenSpacePosition(InScreenSpacePosition)
 		, LastScreenSpacePosition(InLastScreenSpacePosition)
 		, CursorDelta(InScreenSpacePosition - InLastScreenSpacePosition)

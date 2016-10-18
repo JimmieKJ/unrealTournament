@@ -1,6 +1,11 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "ISlateStyle.h"
+#include "SlateColor.h"
+#include "SlateDynamicImageBrush.h"
+#include "SlateFontInfo.h"
+
 /**
  * A collection of named properties that guide the appearance of Slate.
  */

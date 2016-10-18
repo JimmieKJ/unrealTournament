@@ -1,13 +1,38 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
-#pragma  once 
+#pragma  once
 
-	extern "C" { 
-		 bool UE_SendAndRecievePayLoad( char *URL, char* indata, int insize, char** outdata, int* outsize );
-		 bool UE_DoesSaveGameExist(const char* Name, const int UserIndex);
-		 bool UE_SaveGame(const char* Name, const int UserIndex, const char* indata, int insize);
-		 bool UE_LoadGame(const char* Name, const int UserIndex, char **outdata, int* outsize);
-		 int  UE_MessageBox( int MsgType, const char* Text, const char* Caption);
-		 int  UE_GetCurrentCultureName(const char* OutName, int outsize);
-		 void UE_MakeHTTPDataRequest(void *ctx, const char* url, const char* verb, const char* payload, int payloadsize, const char* headers, int freeBuffer, void(*onload)(void*, void*, unsigned), void(*onerror)(void*, int, const char*), void(*onprogress)(void*, int, int));
+	extern "C" {
+		bool UE_SendAndRecievePayLoad( char *URL, char* indata, int insize, char** outdata, int* outsize );
+
+		// SaveGame
+		bool UE_DoesSaveGameExist(const char* Name, const int UserIndex);
+		bool UE_SaveGame(const char* Name, const int UserIndex, const char* indata, int insize);
+		bool UE_LoadGame(const char* Name, const int UserIndex, char **outdata, int* outsize);
+
+		// MessageBox
+		int UE_MessageBox( int MsgType, const char* Text, const char* Caption);
+
+		// CultureName
+		int UE_GetCurrentCultureName(const char* OutName, int outsize);
+
+		// MakeHTTPDataRequest
+		void UE_MakeHTTPDataRequest(void *ctx,
+					const char* url, const char* verb,
+					const char* payload, int payloadsize, // POST
+					const char* headers,
+					int async, // e.g. onBeforeUnload
+					int freeBuffer,
+					void(*onload)(void*, void*, unsigned, void*),
+					void(*onerror)(void*, int, const char*),
+					void(*onprogress)(void*, int, int)
+				);
+
+		// onBeforeUnload
+		void UE_Reset_OnBeforeUnload();
+		void UE_Register_OnBeforeUnload(void *ctx, void(*callback)(void*));
+		void UE_UnRegister_OnBeforeUnload(void *ctx, void(*callback)(void*));
+
+		// GSystemResolution
+		void UE_GSystemResolution( int(*resX)(), int(*rexY)() );
 	}
 

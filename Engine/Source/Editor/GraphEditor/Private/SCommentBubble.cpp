@@ -97,30 +97,8 @@ void SCommentBubble::Tick( const FGeometry& AllottedGeometry, const double InCur
 		ForegroundColor = BubbleLuminance < 0.5f ? SCommentBubbleDefs::DarkForegroundClr : SCommentBubbleDefs::LightForegroundClr;
 	}
 
-	if( !GraphNode->bCommentBubbleVisible )
-	{
-		if( bTitleBarBubbleVisible )
-		{
-			const bool bIsHovered = IsHovered() || IsGraphNodeHovered.Execute();
+	TickVisibility(InCurrentTime, InDeltaTime);
 
-			if( bIsHovered )
-			{
-				if( OpacityValue < 1.f )
-				{
-					const float FadeUpAmt = InDeltaTime * SCommentBubbleDefs::FadeDownSpeed;
-					OpacityValue = FMath::Min( OpacityValue + FadeUpAmt, 1.f );
-				}
-			}
-			else
-			{
-				if( OpacityValue > SCommentBubbleDefs::FadeDelay )
-				{
-					const float FadeDownAmt = InDeltaTime * SCommentBubbleDefs::FadeDownSpeed;
-					OpacityValue = FMath::Max( OpacityValue - FadeDownAmt, SCommentBubbleDefs::FadeDelay );
-				}
-			}
-		}
-	}
 	if( CachedComment != CommentAttribute.Get() )
 	{
 		CachedComment = CommentAttribute.Get();
@@ -140,6 +118,37 @@ void SCommentBubble::Tick( const FGeometry& AllottedGeometry, const double InCur
 	}
 }
 
+void SCommentBubble::TickVisibility(const double InCurrentTime, const float InDeltaTime)
+{
+	if( !GraphNode->bCommentBubbleVisible )
+	{
+		const bool bNodeEditable = !IsReadOnly();
+		const bool bEnableTitleHintBubble = bEnableTitleBarBubble && bNodeEditable;
+		const bool bTitleBarBubbleVisible = bEnableTitleHintBubble && IsGraphNodeHovered.IsBound();
+
+		if( bTitleBarBubbleVisible )
+		{
+			const bool bIsCommentHovered = IsHovered() || IsGraphNodeHovered.Execute();
+
+			if( bIsCommentHovered )
+			{
+				if( OpacityValue < 1.f )
+				{
+					const float FadeUpAmt = InDeltaTime * SCommentBubbleDefs::FadeDownSpeed;
+					OpacityValue = FMath::Min( OpacityValue + FadeUpAmt, 1.f );
+				}
+			}
+			else
+			{
+				if( OpacityValue > SCommentBubbleDefs::FadeDelay )
+				{
+					const float FadeDownAmt = InDeltaTime * SCommentBubbleDefs::FadeDownSpeed;
+					OpacityValue = FMath::Max( OpacityValue - FadeDownAmt, SCommentBubbleDefs::FadeDelay );
+				}
+			}
+		}
+	}
+}
 void SCommentBubble::UpdateBubble()
 {
 	if( GraphNode->bCommentBubbleVisible )
@@ -307,6 +316,15 @@ void SCommentBubble::UpdateBubble()
 	}
 }
 
+bool SCommentBubble::TextBlockHasKeyboardFocus() const
+{
+	if (TextBlock.IsValid())
+	{
+		return TextBlock->HasKeyboardFocus();
+	}
+	return false;
+}
+
 FVector2D SCommentBubble::GetOffset() const
 {
 	return FVector2D( 0.f, -GetDesiredSize().Y );
@@ -388,7 +406,7 @@ FSlateColor SCommentBubble::GetTextForegroundColor() const
 
 void SCommentBubble::OnCommentTextCommitted( const FText& NewText, ETextCommit::Type CommitInfo )
 {
-	if (CommitInfo == ETextCommit::OnCleared)
+	if (CommitInfo != ETextCommit::OnEnter)
 	{
 		// Don't respond to OnEnter, as it will be immediately followed by OnCleared anyway (due to loss of keyboard focus) and generate a second transaction
 		CachedComment = NewText.ToString();
@@ -399,13 +417,13 @@ void SCommentBubble::OnCommentTextCommitted( const FText& NewText, ETextCommit::
 
 EVisibility SCommentBubble::GetToggleButtonVisibility() const
 {
-	EVisibility Visibility = EVisibility::Hidden;
+	EVisibility ButtonVisibility = EVisibility::Collapsed;
 
 	if( OpacityValue > 0.f && !GraphNode->bCommentBubbleVisible )
 	{
-		Visibility = EVisibility::Visible;
+		ButtonVisibility = EVisibility::Visible;
 	}
-	return Visibility;
+	return ButtonVisibility;
 }
 
 EVisibility SCommentBubble::GetBubbleVisibility() const
@@ -425,14 +443,23 @@ ECheckBoxState SCommentBubble::GetToggleButtonCheck() const
 
 void SCommentBubble::OnCommentBubbleToggle( ECheckBoxState State )
 {
-	if( !IsReadOnly() )
+	const bool bNewVisibilityState = (State == ECheckBoxState::Checked);
+	if( !IsReadOnly() && bNewVisibilityState != GraphNode->bCommentBubbleVisible)
 	{
 		const FScopedTransaction Transaction( NSLOCTEXT( "CommentBubble", "BubbleVisibility", "Comment Bubble Visibility" ) );
 		GraphNode->Modify();
-		GraphNode->bCommentBubbleVisible = State == ECheckBoxState::Checked;
+		SetCommentBubbleVisibility(bNewVisibilityState);
+		OnToggledDelegate.ExecuteIfBound(GraphNode->bCommentBubbleVisible);
+	}
+}
+
+void SCommentBubble::SetCommentBubbleVisibility(bool bVisible)
+{
+	if (!IsReadOnly() && bVisible != GraphNode->bCommentBubbleVisible)
+	{
+		GraphNode->bCommentBubbleVisible = bVisible;
 		OpacityValue = 0.f;
 		UpdateBubble();
-		OnToggledDelegate.ExecuteIfBound(GraphNode->bCommentBubbleVisible);
 	}
 }
 

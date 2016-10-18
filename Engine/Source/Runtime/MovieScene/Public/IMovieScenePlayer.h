@@ -73,7 +73,7 @@ public:
 	 * @param UnlockIfCameraObject If this is not nullptr, release actor lock only if currently locked to this object.
 	 * @param bJumpCut Whether this is a jump cut, ie. the cut jumps from one shot to another shot
 	 */
-	virtual void UpdateCameraCut(UObject* CameraObject, UObject* UnlockIfCameraObject = nullptr, bool bJumpCut = false) const = 0;
+	virtual void UpdateCameraCut(UObject* CameraObject, UObject* UnlockIfCameraObject = nullptr, bool bJumpCut = false) = 0;
 
 	/*
 	 * Set the perspective viewport settings
@@ -129,9 +129,9 @@ public:
 	virtual UObject* GetPlaybackContext() const { return nullptr; }
 
 	/**
-	 * Access the event context for this movie scene player
+	 * Access the event contexts for this movie scene player
 	 */
-	virtual UObject* GetEventContext() const { return nullptr; }
+	virtual TArray<UObject*> GetEventContexts() const { return TArray<UObject*>(); }
 
 	/**
 	 * Test whether this is a preview player or not. As such, playback range becomes insignificant for things like spawnables

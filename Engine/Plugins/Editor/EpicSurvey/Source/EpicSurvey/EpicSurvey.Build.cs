@@ -16,7 +16,6 @@ namespace UnrealBuildTool.Rules
                     "InputCore",
 					"ImageWrapper",
 					"LevelEditor",
-					"OnlineSubSystem",
 					"Slate",
                     "EditorStyle",
 				}
@@ -27,7 +26,7 @@ namespace UnrealBuildTool.Rules
 				{
 					"HTTP",
 					"Json",
-					"OnlineSubSystem",
+					"OnlineSubsystem",
 					"SlateCore",
 					"UnrealEd",
 				}
@@ -46,16 +45,6 @@ namespace UnrealBuildTool.Rules
 					"MainFrame"
 				}
 			);
-
-			if (UEBuildConfiguration.bCompileMcpOSS == true)
-			{
-				DynamicallyLoadedModuleNames.AddRange(
-					new string[]
-					{
-						"OnlineSubsystemMcp",
-					}
-				);
-			}
 		}
 	}
 }

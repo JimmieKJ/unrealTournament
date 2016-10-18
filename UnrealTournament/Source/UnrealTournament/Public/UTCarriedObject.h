@@ -11,6 +11,8 @@
 
 class AUTCarriedObject;
 class AUTHUD;
+class AUTGhostFlag;
+
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnCarriedObjectStateChangedDelegate, class AUTCarriedObject*, Sender, FName, NewState);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnCarriedObjectHolderChangedDelegate, class AUTCarriedObject*, Sender);
 const int32 NUM_MIDPOINTS = 3;
@@ -58,6 +60,18 @@ struct FFlagTrailPos
 		bIsInNoRallyZone = false;
 		bEnteringNoRallyZone = false;
 	}
+
+	FFlagTrailPos(FVector inLocation)
+		: Location(inLocation)
+	{
+		for (int32 i = 0; i < 3; i++)
+		{
+			MidPoints[i] = FVector(0.f);
+		}
+		bIsInNoRallyZone = false;
+		bEnteringNoRallyZone = false;
+	}
+
 };
 
 UCLASS()
@@ -130,6 +144,9 @@ class UNREALTOURNAMENT_API AUTCarriedObject : public AActor, public IUTTeamInter
 	UPROPERTY(Replicated, BlueprintReadWrite, Category = GameObject)
 		bool bSlowsMovement;
 
+	UPROPERTY(BlueprintReadWrite, Category = GameObject)
+		bool bWaitingForFirstPickup;
+
 	UPROPERTY(EditDefaultsOnly, Category = GameObject)
 		TSubclassOf<class AUTGhostFlag> GhostFlagClass;
 
@@ -148,12 +165,16 @@ protected:
 
 private:
 	UPROPERTY()
-	class AUTGhostFlag* MyGhostFlag;
+	TArray<AUTGhostFlag*> MyGhostFlags;
 
 public:
-	virtual void PutGhostFlagAt(FFlagTrailPos NewPosition);
 
-	virtual void ClearGhostFlag();
+	UPROPERTY(BlueprintReadWrite, Category = Flag)
+	bool bSingleGhostFlag;
+
+	virtual AUTGhostFlag* PutGhostFlagAt(FFlagTrailPos NewPosition, bool bShowTimer = true, bool bSuppressTrails = false, uint8 TeamNum = 255);
+
+	virtual void ClearGhostFlags();
 
 	// Allow children to know when the team changes
 	UFUNCTION()
@@ -227,9 +248,14 @@ public:
 	/** sound played when the object is picked up */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
 	USoundBase* PickupSound;
+
 	/** sound played when the object is dropped */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
 	USoundBase* DropSound;
+
+	/** Ambient sound played while holding flag */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
+		USoundBase* HeldFlagAmbientSound;
 
 	virtual void GetActorEyesViewPoint(FVector& OutLocation, FRotator& OutRotation) const;
 
@@ -379,6 +405,10 @@ public:
 	virtual void UpdateOutline()
 	{}
 
+	FTimerHandle NeedFlagAnnouncementTimer;
+
+	virtual void SendNeedFlagAnnouncement();
+
 protected:
 	// Server Side - Holds a reference to the pawn that is holding this object
 	UPROPERTY(BlueprintReadOnly, Category = GameObject)
@@ -399,6 +429,9 @@ protected:
 	UPROPERTY(BlueprintReadOnly, Category = GameObject)
 		float LastDroppedMessageTime;
 
+	UPROPERTY(BlueprintReadOnly, Category = GameObject)
+		float LastNeedFlagMessageTime;
+
 	UFUNCTION()
 	virtual void OnObjectStateChanged();
 
@@ -406,7 +439,7 @@ protected:
 	virtual void OnHolderChanged();
 
 	UFUNCTION()
-	virtual void OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
+	virtual void OnOverlapBegin(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
 
 	/**
 	 *	By default, only people on the same team as the object can pick it up.  You can quickly override this by setting bTeamPickupSendsHome to true
@@ -451,4 +484,7 @@ public:
 	/** return location for object when returning home */
 	virtual FVector GetHomeLocation() const;
 	virtual FRotator GetHomeRotation() const;
+
+	float GetGhostFlagTimerTime(AUTGhostFlag* Ghost);
+
 };

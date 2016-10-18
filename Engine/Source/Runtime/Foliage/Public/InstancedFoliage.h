@@ -1,8 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
-	InstancedFoliage.h: Instanced foliage type definitions.
-  =============================================================================*/
+InstancedFoliage.h: Instanced foliage type definitions.
+=============================================================================*/
 #pragma once
 #include "FoliageInstanceBase.h"
 
@@ -14,20 +14,22 @@ class AInstancedFoliageActor;
 class UFoliageType;
 struct FFoliageInstanceHash;
 
+DECLARE_LOG_CATEGORY_EXTERN(LogInstancedFoliage, Log, All);
+
 /**
- * Flags stored with each instance
- */
+* Flags stored with each instance
+*/
 enum EFoliageInstanceFlags
 {
-	FOLIAGE_AlignToNormal	= 0x00000001,
-	FOLIAGE_NoRandomYaw		= 0x00000002,
-	FOLIAGE_Readjusted		= 0x00000004,
-	FOLIAGE_InstanceDeleted	= 0x00000008,	// Used only for migration from pre-HierarchicalISM foliage.
+	FOLIAGE_AlignToNormal = 0x00000001,
+	FOLIAGE_NoRandomYaw = 0x00000002,
+	FOLIAGE_Readjusted = 0x00000004,
+	FOLIAGE_InstanceDeleted = 0x00000008,	// Used only for migration from pre-HierarchicalISM foliage.
 };
 
 /**
- *	FFoliageInstancePlacementInfo - placement info an individual instance
- */
+*	FFoliageInstancePlacementInfo - placement info an individual instance
+*/
 struct FFoliageInstancePlacementInfo
 {
 	FVector Location;
@@ -48,8 +50,8 @@ struct FFoliageInstancePlacementInfo
 };
 
 /**
- *	Legacy instance
- */
+*	Legacy instance
+*/
 struct FFoliageInstance_Deprecated : public FFoliageInstancePlacementInfo
 {
 	UActorComponent* Base;
@@ -58,8 +60,8 @@ struct FFoliageInstance_Deprecated : public FFoliageInstancePlacementInfo
 };
 
 /**
- *	FFoliageInstance - editor info an individual instance
- */
+*	FFoliageInstance - editor info an individual instance
+*/
 struct FFoliageInstance : public FFoliageInstancePlacementInfo
 {
 	// ID of base this instance was painted on
@@ -68,9 +70,9 @@ struct FFoliageInstance : public FFoliageInstancePlacementInfo
 	FGuid ProceduralGuid;
 
 	FFoliageInstance()
-	: BaseId(0)
+		: BaseId(0)
 	{}
-	
+
 	friend FArchive& operator<<(FArchive& Ar, FFoliageInstance& Instance);
 
 	FTransform GetInstanceWorldTransform() const
@@ -128,8 +130,8 @@ struct FFoliageMeshInfo_Deprecated
 };
 
 /**
- *	FFoliageMeshInfo - editor info for all matching foliage meshes
- */
+*	FFoliageMeshInfo - editor info for all matching foliage meshes
+*/
 struct FFoliageMeshInfo
 {
 	UHierarchicalInstancedStaticMeshComponent* Component;
@@ -196,16 +198,17 @@ struct FFoliageMeshInfo
 	FOLIAGE_API void PostUpdateInstances(AInstancedFoliageActor* InIFA, const TArray<int32>& InInstancesUpdated, bool bReAddToHash = false);
 	FOLIAGE_API void DuplicateInstances(AInstancedFoliageActor* InIFA, UFoliageType* InSettings, const TArray<int32>& InInstancesToDuplicate);
 	FOLIAGE_API void GetInstancesInsideSphere(const FSphere& Sphere, TArray<int32>& OutInstances);
+	FOLIAGE_API void GetInstanceAtLocation(const FVector& Location, int32& OutInstance, bool& bOutSucess);
 	FOLIAGE_API bool CheckForOverlappingSphere(const FSphere& Sphere);
 	FOLIAGE_API bool CheckForOverlappingInstanceExcluding(int32 TestInstanceIdx, float Radius, TSet<int32>& ExcludeInstances);
-	
+
 	// Destroy existing clusters and reassign all instances to new clusters
 	FOLIAGE_API void ReallocateClusters(AInstancedFoliageActor* InIFA, UFoliageType* InSettings);
 
 	FOLIAGE_API void ReapplyInstancesToComponent();
 
 	FOLIAGE_API void SelectInstances(AInstancedFoliageActor* InIFA, bool bSelect, TArray<int32>& Instances);
-	
+
 	FOLIAGE_API void SelectInstances(AInstancedFoliageActor* InIFA, bool bSelect);
 
 	// Get the number of placed instances
@@ -257,20 +260,20 @@ private:
 
 public:
 	FFoliageInstanceHash(int32 InHashCellBits = FOLIAGE_HASH_CELL_BITS)
-	:	HashCellBits(InHashCellBits)
+		: HashCellBits(InHashCellBits)
 	{}
 
 	void InsertInstance(const FVector& InstanceLocation, int32 InstanceIndex)
 	{
 		uint64 Key = MakeKey(InstanceLocation);
-			
+
 		CellMap.FindOrAdd(Key).Add(InstanceIndex);
 	}
 
 	void RemoveInstance(const FVector& InstanceLocation, int32 InstanceIndex)
 	{
 		uint64 Key = MakeKey(InstanceLocation);
-		
+
 		int32 RemoveCount = CellMap.FindChecked(Key).Remove(InstanceIndex);
 		check(RemoveCount == 1);
 	}
@@ -288,7 +291,7 @@ public:
 			{
 				uint64 Key = MakeKey(x, y);
 				auto* SetPtr = CellMap.Find(Key);
-				if(SetPtr)
+				if (SetPtr)
 				{
 					OutInstanceIndices.Append(SetPtr->Array());
 				}
@@ -309,9 +312,9 @@ public:
 		int32 HashCount = 0;
 		for (const auto& Pair : CellMap)
 		{
-			HashCount+= Pair.Value.Num();
+			HashCount += Pair.Value.Num();
 		}
-		
+
 		check(HashCount == InCount);
 	}
 #endif
@@ -344,25 +347,25 @@ namespace EFoliagePlacementMode
 struct FDesiredFoliageInstance
 {
 	FDesiredFoliageInstance()
-	: FoliageType(nullptr)
-	, StartTrace(ForceInit)
-	, EndTrace(ForceInit)
-	, Rotation(ForceInit)
-	, TraceRadius(0.f)
-	, Age(0.f)
-	, PlacementMode(EFoliagePlacementMode::Manual)
+		: FoliageType(nullptr)
+		, StartTrace(ForceInit)
+		, EndTrace(ForceInit)
+		, Rotation(ForceInit)
+		, TraceRadius(0.f)
+		, Age(0.f)
+		, PlacementMode(EFoliagePlacementMode::Manual)
 	{
 
 	}
 
 	FDesiredFoliageInstance(const FVector& InStartTrace, const FVector& InEndTrace, const float InTraceRadius = 0.f)
-	: FoliageType(nullptr)
-	, StartTrace(InStartTrace)
-	, EndTrace(InEndTrace)
-	, Rotation(ForceInit)
-	, TraceRadius(InTraceRadius)
-	, Age(0.f)
-	, PlacementMode(EFoliagePlacementMode::Manual)
+		: FoliageType(nullptr)
+		, StartTrace(InStartTrace)
+		, EndTrace(InEndTrace)
+		, Rotation(ForceInit)
+		, TraceRadius(InTraceRadius)
+		, Age(0.f)
+		, PlacementMode(EFoliagePlacementMode::Manual)
 	{
 	}
 

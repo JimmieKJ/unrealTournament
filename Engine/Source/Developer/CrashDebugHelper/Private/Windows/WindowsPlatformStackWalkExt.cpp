@@ -416,7 +416,7 @@ void FWindowsPlatformStackWalkExt::GetExceptionInfo()
 }
 
 
-int FWindowsPlatformStackWalkExt::GetCallstacks()
+int FWindowsPlatformStackWalkExt::GetCallstacks(bool bTrimCallstack)
 {
 	const int32 MAX_NAME_LENGHT = FProgramCounterSymbolInfo::MAX_NAME_LENGHT;
 	int32 NumValidFunctionNames = 0;
@@ -518,7 +518,7 @@ int FWindowsPlatformStackWalkExt::GetCallstacks()
 					|| FunctionName.Contains( TEXT( "NewReportEnsure" ), ESearchCase::CaseSensitive ) )
 				{
 					bFoundSourceFile = false;
-					AssertOrEnsureIndex = FMath::Max( AssertOrEnsureIndex, (int32)StackIndex );
+					AssertOrEnsureIndex = Exception.CallStackString.Num();
 				}
 			}
 
@@ -533,7 +533,7 @@ int FWindowsPlatformStackWalkExt::GetCallstacks()
 	}
 
 	// Remove callstack entries below FDebug, we don't need them.
-	if (AssertOrEnsureIndex > 0)
+	if (bTrimCallstack && AssertOrEnsureIndex > 0)
 	{	
 		Exception.CallStackString.RemoveAt( 0, AssertOrEnsureIndex );
 		UE_LOG( LogCrashDebugHelper, Warning, TEXT( "Callstack trimmed to %i entries" ), Exception.CallStackString.Num() );

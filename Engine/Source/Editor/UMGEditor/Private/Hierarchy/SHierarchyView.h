@@ -92,13 +92,16 @@ private:
 	void RestoreExpandedItems();
 
 	/** Recursively expands the models based on the expansion set. */
-	void RecursiveExpand(TSharedPtr<FHierarchyModel>& Model);
+	void RecursiveExpand(TSharedPtr<FHierarchyModel>& Model, bool InShouldExpandItem = true);
 
 	/**  */
 	void RestoreSelectedItems();
 
 	/**  */
 	void RecursiveSelection(TSharedPtr<FHierarchyModel>& Model);
+
+	/** Handler for recursively expanding/collapsing items */
+	void SetItemExpansionRecursive(TSharedPtr<FHierarchyModel> Model, bool bInExpansionState);
 
 private:
 

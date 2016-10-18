@@ -37,6 +37,7 @@ const UMovieSceneSection* UMovieSceneSection::OverlapsWithSections(const TArray<
 
 	for (const auto Section : Sections)
 	{
+		check(Section);
 		if ((this != Section) && (Section->GetRowIndex() == NewTrackIndex))
 		{
 			TRange<float> ExclusiveSectionRange = TRange<float>(TRange<float>::BoundsType::Exclusive(Section->GetRange().GetLowerBoundValue()), TRange<float>::BoundsType::Exclusive(Section->GetRange().GetUpperBoundValue()));
@@ -105,7 +106,7 @@ UMovieSceneSection* UMovieSceneSection::SplitSection(float SplitTime)
 		Track->Modify();
 
 		UMovieSceneSection* NewSection = DuplicateObject<UMovieSceneSection>(this, Track);
-		ensure(NewSection);
+		check(NewSection);
 
 		NewSection->SetStartTime(SplitTime);
 		NewSection->SetEndTime(SectionEndTime);

@@ -63,7 +63,7 @@ public:
 	 * @param Location				The location within the category where the property is shown
 	 * See IDetailCategoryBuilder::GetProperty for clarification of parameters
 	 */
-	virtual IDetailPropertyRow& AddProperty( FName PropertyPath, UClass* ClassOutermost = NULL, FName InstanceName = NAME_None, EPropertyLocation::Type Location = EPropertyLocation::Default ) = 0;
+	virtual IDetailPropertyRow& AddProperty( FName PropertyPath, UClass* ClassOutermost = nullptr, FName InstanceName = NAME_None, EPropertyLocation::Type Location = EPropertyLocation::Default ) = 0;
 
 	/**
 	 * Adds a property, shown in the default way to the category 

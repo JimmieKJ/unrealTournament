@@ -16,12 +16,14 @@ struct FPakCommandLineParameters
 {
 	FPakCommandLineParameters()
 		: CompressionBlockSize(64*1024)
+		, CompressionBitWindow(DEFAULT_ZLIB_BIT_WINDOW)
 		, FileSystemBlockSize(0)
 		, PatchFilePadAlign(0)
 		, GeneratePatch(false)
 	{}
 
 	int32  CompressionBlockSize;
+	int32  CompressionBitWindow;
 	int64  FileSystemBlockSize;
 	int64  PatchFilePadAlign;
 	bool   GeneratePatch;
@@ -101,7 +103,7 @@ struct FCompressedFileBuffer
 		}
 	}
 
-	bool CompressFileToWorkingBuffer(const FPakInputPair& InFile,uint8*& InOutPersistentBuffer,int64& InOutBufferSize,ECompressionFlags CompressionMethod,const int32 CompressionBlockSize);
+	bool CompressFileToWorkingBuffer(const FPakInputPair& InFile,uint8*& InOutPersistentBuffer,int64& InOutBufferSize,ECompressionFlags CompressionMethod,const int32 CompressionBlockSize,const int32 CompressionBitWindow);
 
 	int64						 OriginalSize;
 	int64						 TotalCompressedSize;
@@ -170,7 +172,7 @@ FString GetCommonRootPath(TArray<FPakInputPair>& FilesToAdd)
 	return Root;
 }
 
-bool FCompressedFileBuffer::CompressFileToWorkingBuffer(const FPakInputPair& InFile, uint8*& InOutPersistentBuffer, int64& InOutBufferSize, ECompressionFlags CompressionMethod, const int32 CompressionBlockSize)
+bool FCompressedFileBuffer::CompressFileToWorkingBuffer(const FPakInputPair& InFile, uint8*& InOutPersistentBuffer, int64& InOutBufferSize, ECompressionFlags CompressionMethod, const int32 CompressionBlockSize, const int32 CompressionBitWindow)
 {
 	TAutoPtr<FArchive> FileHandle(IFileManager::Get().CreateFileReader(*InFile.Source));
 	if(!FileHandle.IsValid())
@@ -203,10 +205,11 @@ bool FCompressedFileBuffer::CompressFileToWorkingBuffer(const FPakInputPair& InF
 	while(UncompressedSize)
 	{
 		int32 BlockSize = (int32)FMath::Min<int64>(UncompressedSize,CompressionBlockSize);
-		int32 CompressedBlockSize = CompressionBufferSize;
+		int32 MaxCompressedBlockSize = FCompression::CompressMemoryBound(CompressionMethod, BlockSize);
+		int32 CompressedBlockSize = FMath::Max<int32>(CompressionBufferSize, MaxCompressedBlockSize);
 		FileCompressionBlockSize = FMath::Max<uint32>(BlockSize, FileCompressionBlockSize);
-		EnsureBufferSpace(TotalCompressedSize+CompressedBlockSize);
-		if(!FCompression::CompressMemory(CompressionMethod,CompressedBuffer.Get()+TotalCompressedSize,CompressedBlockSize,InOutPersistentBuffer+UncompressedBytes,BlockSize))
+		EnsureBufferSpace(Align(TotalCompressedSize+CompressedBlockSize,FAES::AESBlockSize));
+		if(!FCompression::CompressMemory(CompressionMethod,CompressedBuffer.Get()+TotalCompressedSize,CompressedBlockSize,InOutPersistentBuffer+UncompressedBytes,BlockSize,CompressionBitWindow))
 		{
 			return false;
 		}
@@ -410,6 +413,11 @@ void ProcessCommandLine(int32 ArgC, TCHAR* ArgV[], TArray<FPakInputPair>& Entrie
 	else
 	{
 		CmdLineParameters.FileSystemBlockSize = 0;
+	}
+
+	if (!FParse::Value(FCommandLine::Get(), TEXT("-bitwindow="), CmdLineParameters.CompressionBitWindow))
+	{
+		CmdLineParameters.CompressionBitWindow = DEFAULT_ZLIB_BIT_WINDOW;
 	}
 
 	if (!FParse::Value(FCommandLine::Get(), TEXT("-patchpaddingalign="), CmdLineParameters.PatchFilePadAlign))
@@ -719,13 +727,17 @@ FArchive* CreatePakWriter(const TCHAR* Filename)
 		else if (!ReadKeysFromFile(*KeyFilename, Pair))
 		{
 			UE_LOG(LogPakFile, Error, TEXT("Unable to load signature keys %s."), *KeyFilename);
+		}
+
+		if (!TestKeys(Pair))
+		{
 			Pair.PrivateKey.Exponent.Zero();
 		}
 
 		if (!Pair.PrivateKey.Exponent.IsZero())
 		{
 			UE_LOG(LogPakFile, Display, TEXT("Creating signed pak %s."), Filename);
-			Writer = new FSignedArchiveWriter(*Writer, Pair.PublicKey, Pair.PrivateKey);
+			Writer = new FSignedArchiveWriter(*Writer, Filename, Pair.PublicKey, Pair.PrivateKey);
 		}
 		else
 		{
@@ -779,7 +791,7 @@ bool CreatePakFile(const TCHAR* Filename, TArray<FPakInputPair>& FilesToAdd, con
 
 		if (CompressionMethod != COMPRESS_None)
 		{
-			if (CompressedFileBuffer.CompressFileToWorkingBuffer(FilesToAdd[FileIndex], ReadBuffer, BufferSize, CompressionMethod, CmdLineParameters.CompressionBlockSize))
+			if (CompressedFileBuffer.CompressFileToWorkingBuffer(FilesToAdd[FileIndex], ReadBuffer, BufferSize, CompressionMethod, CmdLineParameters.CompressionBlockSize, CmdLineParameters.CompressionBitWindow))
 			{
 				// Check the compression ratio, if it's too low just store uncompressed. Also take into account read size
 				// if we still save 64KB it's probably worthwhile compressing, as that saves a file read operation in the runtime.
@@ -796,6 +808,12 @@ bool CreatePakFile(const TCHAR* Filename, TArray<FPakInputPair>& FilesToAdd, con
 					RealFileSize = CompressedFileBuffer.TotalCompressedSize + NewEntry.Info.GetSerializedSize(FPakInfo::PakFile_Version_Latest);
 					NewEntry.Info.CompressionBlocks.Reset();
 				}
+			}
+			else
+			{
+				// Compression failed. Include file uncompressed and warn the user.
+				UE_LOG(LogPakFile, Warning, TEXT("File \"%s\" failed compression. File will be saved uncompressed."), *FilesToAdd[FileIndex].Source);
+				CompressionMethod = COMPRESS_None;
 			}
 		}
 
@@ -919,48 +937,7 @@ bool TestPakFile(const TCHAR* Filename)
 	FPakFile PakFile(Filename, FParse::Param(FCommandLine::Get(), TEXT("signed")));
 	if (PakFile.IsValid())
 	{
-		UE_LOG(LogPakFile, Display, TEXT("Checking pak file \"%s\". This may take a while..."), Filename);
-		FArchive& PakReader = *PakFile.GetSharedReader(NULL);
-		int32 ErrorCount = 0;
-		int32 FileCount = 0;
-
-		for (FPakFile::FFileIterator It(PakFile); It; ++It, ++FileCount)
-		{
-			const FPakEntry& Entry = It.Info();
-			void* FileContents = FMemory::Malloc(Entry.Size);
-			PakReader.Seek(Entry.Offset);
-			uint32 SerializedCrcTest = 0;
-			FPakEntry EntryInfo;
-			EntryInfo.Serialize(PakReader, PakFile.GetInfo().Version);
-			if (EntryInfo != Entry)
-			{
-				UE_LOG(LogPakFile, Error, TEXT("Serialized hash mismatch for \"%s\"."), *It.Filename());
-				ErrorCount++;
-			}
-			PakReader.Serialize(FileContents, Entry.Size);
-		
-			uint8 TestHash[20];
-			FSHA1::HashBuffer(FileContents, Entry.Size, TestHash);
-			if (FMemory::Memcmp(TestHash, Entry.Hash, sizeof(TestHash)) != 0)
-			{
-				UE_LOG(LogPakFile, Error, TEXT("Hash mismatch for \"%s\"."), *It.Filename());
-				ErrorCount++;
-			}
-			else
-			{
-				UE_LOG(LogPakFile, Display, TEXT("\"%s\" OK."), *It.Filename());
-			}
-			FMemory::Free(FileContents);
-		}
-		if (ErrorCount == 0)
-		{
-			UE_LOG(LogPakFile, Display, TEXT("Pak file \"%s\" healthy, %d files checked."), Filename, FileCount);
-		}
-		else
-		{
-			UE_LOG(LogPakFile, Display, TEXT("Pak file \"%s\" corrupted (%d errors ouf of %d files checked.)."), Filename, ErrorCount, FileCount);
-		}
-		return (ErrorCount == 0);
+		return PakFile.Check();
 	}
 	else
 	{
@@ -1000,7 +977,7 @@ bool ListFilesInPak(const TCHAR * InPakFilename, int64 SizeFilter = 0)
 			const FPakEntry& Entry = It.Info();
 			if (Entry.Size >= SizeFilter)
 			{
-				UE_LOG(LogPakFile, Display, TEXT("\"%s\" offset: %lld, size: %d bytes."), *It.Filename(), Entry.Offset, Entry.Size);
+				UE_LOG(LogPakFile, Display, TEXT("\"%s\" offset: %lld, size: %d bytes, sha1: %s."), *It.Filename(), Entry.Offset, Entry.Size, *BytesToHex(Entry.Hash, sizeof(Entry.Hash)));
 				FilteredSize += Entry.Size;
 			}
 			FileSize += Entry.Size;
@@ -1374,8 +1351,10 @@ INT32_MAIN_INT32_ARGC_TCHAR_ARGV()
 		UE_LOG(LogPakFile, Error, TEXT("  UnrealPak GenerateKeys=<KeyFilename>"));
 		UE_LOG(LogPakFile, Error, TEXT("  UnrealPak GeneratePrimeTable=<KeyFilename> [-TableMax=<N>]"));
 		UE_LOG(LogPakFile, Error, TEXT("  UnrealPak <PakFilename1> <PakFilename2> -diff"));
+		UE_LOG(LogPakFile, Error, TEXT("  UnrealPak -TestEncryption"));
 		UE_LOG(LogPakFile, Error, TEXT("  Options:"));
 		UE_LOG(LogPakFile, Error, TEXT("    -blocksize=<BlockSize>"));
+		UE_LOG(LogPakFile, Error, TEXT("    -bitwindow=<BitWindow>"));
 		UE_LOG(LogPakFile, Error, TEXT("    -compress"));
 		UE_LOG(LogPakFile, Error, TEXT("    -encrypt"));
 		UE_LOG(LogPakFile, Error, TEXT("    -order=<OrderingFile>"));
@@ -1395,6 +1374,11 @@ INT32_MAIN_INT32_ARGC_TCHAR_ARGV()
 		int64 MaxPrimeValue = 10000;
 		FParse::Value(FCommandLine::Get(), TEXT("TableMax="), MaxPrimeValue);
 		GeneratePrimeNumberTable(MaxPrimeValue, *KeyFilename);
+	}
+	else if (FParse::Param(FCommandLine::Get(), TEXT("TestEncryption")))
+	{
+		void TestEncryption();
+		TestEncryption();
 	}
 	else 
 	{
@@ -1451,7 +1435,11 @@ INT32_MAIN_INT32_ARGC_TCHAR_ARGV()
 			{
 				if ( CmdLineParameters.GeneratePatch )
 				{
-					FString OutputPath = FPaths::GetPath(PakFilename) / FString(TEXT("TempFiles"));
+					FString OutputPath;
+					if (!FParse::Value(FCommandLine::Get(), TEXT("TempFiles="), OutputPath))
+					{
+						OutputPath = FPaths::GetPath(PakFilename) / FString(TEXT("TempFiles"));
+					}
 
 					IFileManager::Get().DeleteDirectory(*OutputPath);
 

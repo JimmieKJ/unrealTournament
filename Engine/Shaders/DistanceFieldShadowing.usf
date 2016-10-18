@@ -98,6 +98,20 @@ bool ShadowConvexHullIntersectSphere(float3 SphereOrigin, float SphereRadius)
 	return true;
 }
 
+[numthreads(1, 1, 1)]
+void ClearObjectIndirectArguments(
+	uint3 GroupId : SV_GroupID,
+	uint3 DispatchThreadId : SV_DispatchThreadID,
+    uint3 GroupThreadId : SV_GroupThreadID) 
+{
+	// IndexCount, NumInstances, StartIndex, BaseVertexIndex, FirstInstance
+	RWObjectIndirectArguments[0] = 0;
+	RWObjectIndirectArguments[1] = 0;
+	RWObjectIndirectArguments[2] = 0;
+	RWObjectIndirectArguments[3] = 0;
+	RWObjectIndirectArguments[4] = 0;
+}
+
 [numthreads(UPDATEOBJECTS_THREADGROUP_SIZE, 1, 1)]
 void CullObjectsForShadowCS(
 	uint3 GroupId : SV_GroupID,
@@ -394,11 +408,13 @@ void CullObjectsToTileWithGather(
 
 	float ExpandRadius = 0;
 
-	float2 TanViewFOV = float2(1 / View.ViewToClip[0][0], 1 / View.ViewToClip[1][1]);
+	// Note: this code is assuming a centered projection, aka no translation present in ViewToClip
+	// Stereo rendering uses an off center projection
+	float2 TanViewFOV = GetTanHalfFieldOfView();
 	// tan(FOV) = HalfUnitPlaneWidth / 1, so TanViewFOV * 2 is the size of the whole unit view plane
 	// We are operating on a subset of that defined by ScissorRectMinAndSize
-	float2 TileSize = TanViewFOV * 2 * ScissorRectMinAndSize.zw / ((float2)Frame.ViewSizeAndInvSize.xy * NumGroups);
-	float2 UnitPlaneMin = -TanViewFOV + TanViewFOV * 2 * (ScissorRectMinAndSize.xy - Frame.ViewRectMin.xy) * Frame.ViewSizeAndInvSize.zw;
+	float2 TileSize = TanViewFOV * 2 * ScissorRectMinAndSize.zw / ((float2)View.ViewSizeAndInvSize.xy * NumGroups);
+	float2 UnitPlaneMin = -TanViewFOV + TanViewFOV * 2 * (ScissorRectMinAndSize.xy - View.ViewRectMin.xy) * View.ViewSizeAndInvSize.zw;
 	float2 UnitPlaneTileMin = (GroupId.xy * TileSize + UnitPlaneMin) * float2(1, -1);
 	float2 UnitPlaneTileMax = ((GroupId.xy + 1) * TileSize + UnitPlaneMin) * float2(1, -1);
 
@@ -493,7 +509,7 @@ void DistanceFieldShadowingCS(
 {
 	uint ThreadIndex = GroupThreadId.y * THREADGROUP_SIZEX + GroupThreadId.x;
 
-	float2 ScreenUV = float2((DispatchThreadId.xy * DownsampleFactor + ScissorRectMinAndSize.xy + .5f) * Frame.BufferSizeAndInvSize.zw);
+	float2 ScreenUV = float2((DispatchThreadId.xy * DownsampleFactor + ScissorRectMinAndSize.xy + .5f) * View.BufferSizeAndInvSize.zw);
 	float2 ScreenPosition = (ScreenUV.xy - View.ScreenPositionScaleBias.wz) / View.ScreenPositionScaleBias.xy;
 
 	float SceneDepth = CalcSceneDepth(ScreenUV);
@@ -572,10 +588,11 @@ void DistanceFieldShadowingCS(
 				bool bUseCulling = false;
 			#endif
 
-			FGBufferData GBufferData = GetGBufferData(ScreenUV);
-
 			float SubsurfaceDensity = 0;
 			bool bUseSubsurfaceTransmission = false;
+
+#if !FORWARD_SHADING
+			FGBufferData GBufferData = GetGBufferData(ScreenUV);
 
 			BRANCH
 			if (IsSubsurfaceModel(GBufferData.ShadingModelID))
@@ -585,6 +602,7 @@ void DistanceFieldShadowingCS(
 				SubsurfaceDensity = -.05f * log(1 - min(GBufferData.CustomData.a, .999f));
 				bUseSubsurfaceTransmission = true;
 			}
+#endif
 
 			Result = ShadowRayTraceThroughCulledObjects(
 				WorldRayStart, 
@@ -622,12 +640,12 @@ void DistanceFieldShadowingUpsamplePS(
 	out float4 OutColor : SV_Target0)
 {
 	// Distance field shadowing was computed at 0,0 regardless of viewrect min
-	float2 DistanceFieldUVs = UVAndScreenPos.xy - ScissorRectMinAndSize.xy * Frame.BufferSizeAndInvSize.zw;
+	float2 DistanceFieldUVs = UVAndScreenPos.xy - ScissorRectMinAndSize.xy * View.BufferSizeAndInvSize.zw;
 	float SceneDepth = CalcSceneDepth(UVAndScreenPos.xy);
 
 #define BILATERAL_UPSAMPLE 1
 #if BILATERAL_UPSAMPLE && UPSAMPLE_REQUIRED
-	float2 LowResBufferSize = floor(Frame.RenderTargetSize / DOWNSAMPLE_FACTOR);
+	float2 LowResBufferSize = floor(View.BufferSizeAndInvSize.xy / DOWNSAMPLE_FACTOR);
 	float2 LowResTexelSize = 1.0f / LowResBufferSize;
 	float2 Corner00UV = floor(DistanceFieldUVs * LowResBufferSize - .5f) / LowResBufferSize + .5f * LowResTexelSize;
 	float2 BilinearWeights = (DistanceFieldUVs - Corner00UV) * LowResBufferSize;

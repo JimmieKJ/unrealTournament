@@ -57,6 +57,12 @@ public:
 	/** Reorder enumerators in enum. Swap an enumerator with given name, with previous or next (based on bDirectionUp parameter) */
 	static void MoveEnumeratorInUserDefinedEnum(class UUserDefinedEnum* Enum, int32 EnumeratorIndex, bool bDirectionUp);
 
+	/** Check if the enumerator-as-bitflags meta data is set */
+	static bool IsEnumeratorBitflagsType(class UUserDefinedEnum* Enum);
+
+	/** Set the state of the enumerator-as-bitflags meta data */
+	static void SetEnumeratorBitflagsTypeState(class UUserDefinedEnum* Enum, bool bBitflagsType);
+
 	/** check if NewName is a short name and is acceptable as name in given enum */
 	static bool IsProperNameForUserDefinedEnumerator(const UEnum* Enum, FString NewName);
 

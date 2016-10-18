@@ -85,6 +85,139 @@ static void PackQuaternionToStream(
 	}
 }
 
+uint8 MakeBitForFlag(uint32 Item, uint32 Position)
+{
+	checkSlow(Item < 2);
+	return Item << Position;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////
+// FCompressionMemorySummary
+
+FCompressionMemorySummary::FCompressionMemorySummary(bool bInEnabled)
+	: bEnabled(bInEnabled)
+	, bUsed(false)
+	, TotalRaw(0)
+	, TotalBeforeCompressed(0)
+	, TotalAfterCompressed(0)
+	, ErrorTotal(0)
+	, ErrorCount(0)
+	, AverageError(0)
+	, MaxError(0)
+	, MaxErrorTime(0)
+	, MaxErrorBone(0)
+	, MaxErrorBoneName(NAME_None)
+	, MaxErrorAnimName(NAME_None)
+{
+	if (bEnabled)
+	{
+		GWarn->BeginSlowTask(NSLOCTEXT("CompressionMemorySummary", "BeginCompressingTaskMessage", "Compressing animations"), true);
+	}
+}
+
+FCompressionMemorySummary::~FCompressionMemorySummary()
+{
+	if (bEnabled)
+	{
+		GWarn->EndSlowTask();
+
+		if (bUsed)
+		{
+			const int32 TotalBeforeSaving = TotalRaw - TotalBeforeCompressed;
+			const int32 TotalAfterSaving = TotalRaw - TotalAfterCompressed;
+			const float OldCompressionRatio = (TotalBeforeCompressed > 0.f) ? (static_cast<float>(TotalRaw) / TotalBeforeCompressed) : 0.f;
+			const float NewCompressionRatio = (TotalAfterCompressed > 0.f) ? (static_cast<float>(TotalRaw) / TotalAfterCompressed) : 0.f;
+
+			FNumberFormattingOptions Options;
+			Options.MinimumIntegralDigits = 7;
+			Options.MinimumFractionalDigits = 2;
+
+			FFormatNamedArguments Args;
+			Args.Add(TEXT("TotalRaw"), FText::AsMemory(TotalRaw, &Options));
+			Args.Add(TEXT("TotalBeforeCompressed"), FText::AsMemory(TotalBeforeCompressed, &Options));
+			Args.Add(TEXT("TotalBeforeSaving"), FText::AsMemory(TotalBeforeSaving, &Options));
+			Args.Add(TEXT("OldCompressionRatio"), OldCompressionRatio);
+
+			Args.Add(TEXT("TotalAfterCompressed"), FText::AsMemory(TotalAfterCompressed, &Options));
+			Args.Add(TEXT("TotalAfterSaving"), FText::AsMemory(TotalAfterSaving, &Options));
+			Args.Add(TEXT("NewCompressionRatio"), NewCompressionRatio);
+
+			Args.Add(TEXT("AverageError"), FText::AsNumber(AverageError, &Options));
+			Args.Add(TEXT("MaxError"), FText::AsNumber(MaxError, &Options));
+
+			Args.Add(TEXT("MaxErrorAnimName"), FText::FromName(MaxErrorAnimName));
+			Args.Add(TEXT("MaxErrorBoneName"), FText::FromName(MaxErrorBoneName));
+			Args.Add(TEXT("MaxErrorBone"), MaxErrorBone);
+			Args.Add(TEXT("MaxErrorTime"), FText::AsNumber(MaxErrorTime, &Options));
+
+			const FText Message = FText::Format(NSLOCTEXT("Engine", "CompressionMemorySummary", "Raw: {TotalRaw} - Compressed: {TotalBeforeCompressed}\nSaving: {TotalBeforeSaving} ({OldCompressionRatio})\nRaw: {TotalRaw} - Compressed: {TotalAfterCompressed}\nSaving: {TotalAfterSaving} ({NewCompressionRatio})\n\nEnd Effector Translation Added By Compression:\n{AverageError} avg, {MaxError} max\nMax occurred in {MaxErrorAnimName}, Bone {MaxErrorBoneName}(#{MaxErrorBone}), at Time {MaxErrorTime}\n"), Args);
+
+			FMessageDialog::Open(EAppMsgType::Ok, Message);
+		}
+	}
+}
+
+void FCompressionMemorySummary::GatherPreCompressionStats(UAnimSequence* Seq, int32 ProgressNumerator, int32 ProgressDenominator)
+{
+	if (bEnabled)
+	{
+		bUsed = true;
+		FFormatNamedArguments Args;
+		Args.Add(TEXT("AnimSequenceName"), FText::FromString(Seq->GetName()));
+		Args.Add(TEXT("ProgressNumerator"), ProgressNumerator);
+		Args.Add(TEXT("ProgressDenominator"), ProgressDenominator);
+
+		GWarn->StatusUpdate(ProgressNumerator,
+			ProgressDenominator,
+			FText::Format(NSLOCTEXT("CompressionMemorySummary", "CompressingTaskStatusMessageFormat", "Compressing {AnimSequenceName} ({ProgressNumerator}/{ProgressDenominator})"), Args));
+
+		TotalRaw += Seq->GetApproxRawSize();
+		TotalBeforeCompressed += Seq->GetApproxCompressedSize();
+	}
+}
+
+void FCompressionMemorySummary::GatherPostCompressionStats(UAnimSequence* Seq, TArray<FBoneData>& BoneData)
+{
+	if (bEnabled)
+	{
+		TotalAfterCompressed += Seq->GetApproxCompressedSize();
+
+		if (Seq->GetSkeleton() != NULL)
+		{
+			// determine the error added by the compression
+			AnimationErrorStats ErrorStats;
+			FAnimationUtils::ComputeCompressionError(Seq, BoneData, ErrorStats);
+
+			ErrorTotal += ErrorStats.AverageError;
+			ErrorCount += 1.0f;
+			AverageError = ErrorTotal / ErrorCount;
+
+			if (ErrorStats.MaxError > MaxError)
+			{
+				MaxError = ErrorStats.MaxError;
+				MaxErrorTime = ErrorStats.MaxErrorTime;
+				MaxErrorBone = ErrorStats.MaxErrorBone;
+				MaxErrorAnimName = Seq->GetFName();
+				MaxErrorBoneName = BoneData[ErrorStats.MaxErrorBone].Name;
+			}
+		}
+	}
+}
+
+//////////////////////////////////////////////////////////////////////////////////////
+void FAnimCompressContext::GatherPreCompressionStats(UAnimSequence* Seq)
+{
+	CompressionSummary.GatherPreCompressionStats(Seq, AnimIndex, MaxAnimations);
+}
+
+void FAnimCompressContext::GatherPostCompressionStats(UAnimSequence* Seq, TArray<FBoneData>& BoneData)
+{
+	CompressionSummary.GatherPostCompressionStats(Seq, BoneData);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////
+// UAnimCompress
+
 UAnimCompress::UAnimCompress(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
@@ -471,141 +604,46 @@ void UAnimCompress::BitwiseCompressAnimationTracks(
 		// Trim unused memory.
 		Seq->CompressedByteStream.Shrink();
 	}
+}
 
-	// We may not have used the key data arrays resident in this sequence,
-	// but we should make sure they are empty at this point.
-	Seq->TranslationData.Empty();
-	Seq->RotationData.Empty();
-	Seq->ScaleData.Empty();
+#if WITH_EDITOR
+
+FString UAnimCompress::MakeDDCKey()
+{
+	FString Key;
+	TArray<uint8> TempBytes;
+	TempBytes.Reserve(64);
+
+	// Serialize the compression settings into a temporary array. The archive
+	// is flagged as persistent so that machines of different endianness produce
+	// identical binary results.
+	FMemoryWriter Ar(TempBytes, /*bIsPersistent=*/ true);
+
+	PopulateDDCKey(Ar);
+
+	const uint8* SettingsAsBytes = TempBytes.GetData();
+	Key.Reserve(TempBytes.Num() + 1);
+	for (int32 ByteIndex = 0; ByteIndex < TempBytes.Num(); ++ByteIndex)
+	{
+		ByteToHex(SettingsAsBytes[ByteIndex], Key);
+	}
+	return Key;
+}
+
+void UAnimCompress::PopulateDDCKey(FArchive& Ar)
+{
+	uint8 TCF, RCF, SCF;
+	TCF = (uint8)TranslationCompressionFormat.GetValue();
+	RCF = (uint8)RotationCompressionFormat.GetValue();
+	SCF = (uint8)ScaleCompressionFormat.GetValue();
+
+	Ar << TCF << RCF << SCF;
 }
 
 /**
+
  * Tracks
  */
-class FCompressionMemorySummary
-{
-public:
-	FCompressionMemorySummary(bool bInEnabled)
-		:	bEnabled( bInEnabled )
-		,	TotalRaw( 0 )
-		,	TotalBeforeCompressed( 0 )
-		,	TotalAfterCompressed( 0 )
-		,	ErrorTotal( 0 )
-		,	ErrorCount( 0 )
-		,	AverageError( 0 )
-		,	MaxError( 0 )
-		,	MaxErrorTime( 0 )
-		,	MaxErrorBone( 0 )
-		,	MaxErrorBoneName( NAME_None )
-		,	MaxErrorAnimName( NAME_None )
-	{
-		if ( bEnabled )
-		{
-			GWarn->BeginSlowTask( NSLOCTEXT("CompressionMemorySummary", "BeginCompressingTaskMessage", "Compressing animations"), true );
-		}
-	}
-
-	void GatherPreCompressionStats(UAnimSequence* Seq, int32 ProgressNumerator, int32 ProgressDenominator)
-	{
-		if ( bEnabled )
-		{
-			FFormatNamedArguments Args;
-			Args.Add( TEXT("AnimSequenceName"), FText::FromString( Seq->GetName() ) );
-			Args.Add( TEXT("ProgressNumerator"), ProgressNumerator );
-			Args.Add( TEXT("ProgressDenominator"), ProgressDenominator );
-
-			GWarn->StatusUpdate( ProgressNumerator,
-								 ProgressDenominator,
-								 FText::Format( NSLOCTEXT("CompressionMemorySummary", "CompressingTaskStatusMessageFormat", "Compressing {AnimSequenceName} ({ProgressNumerator}/{ProgressDenominator})"), Args ) );
-
-			TotalRaw += Seq->GetApproxRawSize();
-			TotalBeforeCompressed += Seq->GetApproxCompressedSize();
-		}
-	}
-
-	void GatherPostCompressionStats(UAnimSequence* Seq, TArray<FBoneData>& BoneData)
-	{
-		if ( bEnabled )
-		{
-			TotalAfterCompressed += Seq->GetApproxCompressedSize();
-
-			if( Seq->GetSkeleton() != NULL )
-			{
-				// determine the error added by the compression
-				AnimationErrorStats ErrorStats;
-				FAnimationUtils::ComputeCompressionError(Seq, BoneData, ErrorStats);
-
-				ErrorTotal += ErrorStats.AverageError;
-				ErrorCount += 1.0f;
-				AverageError = ErrorTotal / ErrorCount;
-
-				if (ErrorStats.MaxError > MaxError)
-				{
-					MaxError = ErrorStats.MaxError;
-					MaxErrorTime = ErrorStats.MaxErrorTime;
-					MaxErrorBone = ErrorStats.MaxErrorBone;
-					MaxErrorAnimName = Seq->GetFName();
-					MaxErrorBoneName = BoneData[ErrorStats.MaxErrorBone].Name;
-				}
-			}
-		}
-	}
-
-	~FCompressionMemorySummary()
-	{
-		if ( bEnabled )
-		{
-			GWarn->EndSlowTask();
-
-			const int32 TotalBeforeSaving			= TotalRaw - TotalBeforeCompressed;
-			const int32 TotalAfterSaving			= TotalRaw - TotalAfterCompressed;
-			const float OldCompressionRatio			= (TotalBeforeCompressed > 0.f) ? (static_cast<float>(TotalRaw) / TotalBeforeCompressed) : 0.f;
-			const float NewCompressionRatio			= (TotalAfterCompressed > 0.f) ? (static_cast<float>(TotalRaw) / TotalAfterCompressed) : 0.f;
-
-			FNumberFormattingOptions Options;
-			Options.MinimumIntegralDigits = 7;
-			Options.MinimumFractionalDigits = 2;
-
-			FFormatNamedArguments Args;
-			Args.Add( TEXT("TotalRaw"), FText::AsMemory( TotalRaw, &Options ) );
-			Args.Add( TEXT("TotalBeforeCompressed"), FText::AsMemory( TotalBeforeCompressed, &Options ) );
-			Args.Add( TEXT("TotalBeforeSaving"), FText::AsMemory( TotalBeforeSaving, &Options ) );
-			Args.Add( TEXT("OldCompressionRatio"), OldCompressionRatio );
-
-			Args.Add( TEXT("TotalAfterCompressed"), FText::AsMemory( TotalAfterCompressed, &Options ) );
-			Args.Add( TEXT("TotalAfterSaving"), FText::AsMemory( TotalAfterSaving, &Options ) );
-			Args.Add( TEXT("NewCompressionRatio"), NewCompressionRatio );
-
-			Args.Add( TEXT("AverageError"), FText::AsNumber( AverageError, &Options ) );
-			Args.Add( TEXT("MaxError"), FText::AsNumber( MaxError, &Options ) );
-
-			Args.Add( TEXT("MaxErrorAnimName"), FText::FromName( MaxErrorAnimName ) );
-			Args.Add( TEXT("MaxErrorBoneName"), FText::FromName( MaxErrorBoneName )  );
-			Args.Add( TEXT("MaxErrorBone"), MaxErrorBone );
-			Args.Add( TEXT("MaxErrorTime"), FText::AsNumber( MaxErrorTime, &Options ) );
-
-			const FText Message = FText::Format( NSLOCTEXT("Engine", "CompressionMemorySummary", "Raw: {TotalRaw} - Compressed: {TotalBeforeCompressed}\nSaving: {TotalBeforeSaving} ({OldCompressionRatio})\nRaw: {TotalRaw} - Compressed: {TotalAfterCompressed}\nSaving: {TotalAfterSaving} ({NewCompressionRatio})\n\nEnd Effector Translation Added By Compression:\n{AverageError} avg, {MaxError} max\nMax occurred in {MaxErrorAnimName}, Bone {MaxErrorBoneName}(#{MaxErrorBone}), at Time {MaxErrorTime}\n"), Args );
-
-			FMessageDialog::Open( EAppMsgType::Ok, Message );
-		}
-	}
-
-private:
-	bool bEnabled;
-	int32 TotalRaw;
-	int32 TotalBeforeCompressed;
-	int32 TotalAfterCompressed;
-
-	float ErrorTotal;
-	float ErrorCount;
-	float AverageError;
-	float MaxError;
-	float MaxErrorTime;
-	int32 MaxErrorBone;
-	FName MaxErrorBoneName;
-	FName MaxErrorAnimName;
-};
-
 
 bool UAnimCompress::Reduce(UAnimSequence* AnimSeq, bool bOutput)
 {
@@ -615,22 +653,8 @@ bool UAnimCompress::Reduce(UAnimSequence* AnimSeq, bool bOutput)
 	const bool bSkeletonExistsIfNeeded = ( AnimSkeleton || !bNeedsSkeleton);
 	if ( bSkeletonExistsIfNeeded )
 	{
-		// Build skeleton metadata to use during the key reduction.
-		TArray<FBoneData> BoneData;
-		FAnimationUtils::BuildSkeletonMetaData(AnimSkeleton, BoneData);
-
-		FCompressionMemorySummary CompressionMemorySummary( bOutput );
-		CompressionMemorySummary.GatherPreCompressionStats( AnimSeq, 0, 1 );
-
-		// General key reduction.
-		DoReduction( AnimSeq, BoneData );
-
-		AnimSeq->bWasCompressedWithoutTranslations = false;
-		AnimSeq->EncodingPkgVersion = CURRENT_ANIMATION_ENCODING_PACKAGE_VERSION;
-		AnimSeq->MarkPackageDirty();
-
-		// determine the error added by the compression
-		CompressionMemorySummary.GatherPostCompressionStats( AnimSeq, BoneData );
+		FAnimCompressContext CompressContext(false, bOutput);
+		Reduce(AnimSeq, CompressContext);
 
 		bResult = true;
 	}
@@ -639,39 +663,32 @@ bool UAnimCompress::Reduce(UAnimSequence* AnimSeq, bool bOutput)
 	return bResult;
 }
 
-bool UAnimCompress::Reduce(const TArray<UAnimSequence*>& AnimSequences, bool bOutput)
+bool UAnimCompress::Reduce(class UAnimSequence* AnimSeq, FAnimCompressContext& Context)
 {
 	bool bResult = false;
 
 #if WITH_EDITORONLY_DATA
-	FCompressionMemorySummary CompressionMemorySummary( bOutput );
+	// Build skeleton metadata to use during the key reduction.
+	TArray<FBoneData> BoneData;
+	FAnimationUtils::BuildSkeletonMetaData(AnimSeq->GetSkeleton(), BoneData);
+	Context.GatherPreCompressionStats(AnimSeq);
 
-	for( int32 SeqIndex = 0 ; SeqIndex < AnimSequences.Num() ; ++SeqIndex )
-	{
-		UAnimSequence* AnimSeq = AnimSequences[SeqIndex];
+	// General key reduction.
+	DoReduction(AnimSeq, BoneData);
 
-		// Build skeleton metadata to use during the key reduction.
-		TArray<FBoneData> BoneData;
-		FAnimationUtils::BuildSkeletonMetaData( AnimSeq->GetSkeleton(), BoneData );
-		CompressionMemorySummary.GatherPreCompressionStats( AnimSeq, SeqIndex, AnimSequences.Num() );
+	AnimSeq->bWasCompressedWithoutTranslations = false; // @fixmelh : bAnimRotationOnly
 
-		// General key reduction.
-		DoReduction( AnimSeq, BoneData );
+	AnimSeq->EncodingPkgVersion = CURRENT_ANIMATION_ENCODING_PACKAGE_VERSION;
+	AnimSeq->MarkPackageDirty();
 
-		AnimSeq->bWasCompressedWithoutTranslations = false; // @fixmelh : bAnimRotationOnly
-
-		AnimSeq->EncodingPkgVersion = CURRENT_ANIMATION_ENCODING_PACKAGE_VERSION;
-		AnimSeq->MarkPackageDirty();
-
-		// determine the error added by the compression
-		CompressionMemorySummary.GatherPostCompressionStats( AnimSeq, BoneData );
-	}
+	// determine the error added by the compression
+	Context.GatherPostCompressionStats(AnimSeq, BoneData);
 	bResult = true;
 #endif // WITH_EDITORONLY_DATA
 
 	return bResult;
 }
-
+#endif // WITH_EDITOR
 
 void UAnimCompress::FilterTrivialPositionKeys(
 	FTranslationTrack& Track, 
@@ -852,7 +869,7 @@ void UAnimCompress::FilterAnimRotationOnlyKeys(TArray<FTranslationTrack> & Posit
 		// We only care if we have more than 1 key. Can't reduce otherwise.
 		if( Track.Times.Num() > 1 )
 		{
-			int32 BoneTreeIndex = AnimSeq->GetSkeletonIndexFromTrackIndex(TrackIndex);
+			int32 BoneTreeIndex = AnimSeq->GetSkeletonIndexFromRawDataTrackIndex(TrackIndex);
 			FName const BoneName = Skeleton->GetBoneName(BoneTreeIndex);
 			const bool bReduceTranslationTrack = (Skeleton->GetBoneTranslationRetargetingMode(BoneTreeIndex) == EBoneTranslationRetargetingMode::Skeleton);
 
@@ -1095,4 +1112,3 @@ void UAnimCompress::SeparateRawDataIntoTracks(
 		OutScaleData.Empty();
 	}
 }
-

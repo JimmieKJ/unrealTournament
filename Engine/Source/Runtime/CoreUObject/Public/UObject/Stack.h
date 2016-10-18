@@ -46,6 +46,7 @@ enum EPropertyType
 	CPT_AssetObjectReference,
 	CPT_Double,
 	CPT_Map,
+	CPT_Set,
 
 	// when you add new property types, make sure you add the corresponding entry
 	// in the PropertyTypeToNameMap array in ScriptCompiler.cpp!!
@@ -134,9 +135,16 @@ public:
 
 	COREUOBJECT_API virtual void Serialize( const TCHAR* V, ELogVerbosity::Type Verbosity, const class FName& Category ) override;
 	
-	COREUOBJECT_API static void KismetExecutionMessage(const TCHAR* Message, ELogVerbosity::Type Verbosity);
+	COREUOBJECT_API static void KismetExecutionMessage(const TCHAR* Message, ELogVerbosity::Type Verbosity, FName WarningId = FName());
 
-	int32 ReadInt();
+	/** Returns the current script op code */
+	const uint8 PeekCode() const { return *Code; }
+
+	/** Skips over the number of op codes specified by NumOps */
+	void SkipCode(const int32 NumOps) { Code += NumOps; }
+
+	template<typename TNumericType>
+	TNumericType ReadInt();
 	float ReadFloat();
 	FName ReadName();
 	UObject* ReadObject();
@@ -199,15 +207,16 @@ inline FFrame::FFrame( UObject* InObject, UFunction* InNode, void* InLocals, FFr
 #endif
 }
 
-inline int32 FFrame::ReadInt()
+template<typename TNumericType>
+inline TNumericType FFrame::ReadInt()
 {
-	int32 Result;
+	TNumericType Result;
 #ifdef REQUIRES_ALIGNED_INT_ACCESS
-	FMemory::Memcpy(&Result, Code, sizeof(int32));
+	FMemory::Memcpy(&Result, Code, sizeof(TNumericType));
 #else
-	Result = *(int32*)Code;
+	Result = *(TNumericType*)Code;
 #endif
-	Code += sizeof(int32);
+	Code += sizeof(TNumericType);
 	return Result;
 }
 

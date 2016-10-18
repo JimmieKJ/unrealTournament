@@ -127,7 +127,7 @@ void SObjectWidget::OnFocusLost(const FFocusEvent& InFocusEvent)
 	}
 }
 
-void SObjectWidget::OnFocusChanging(const FWeakWidgetPath& PreviousFocusPath, const FWidgetPath& NewWidgetPath)
+void SObjectWidget::OnFocusChanging(const FWeakWidgetPath& PreviousFocusPath, const FWidgetPath& NewWidgetPath, const FFocusEvent& InFocusEvent)
 {
 	// TODO UMG
 }
@@ -202,9 +202,6 @@ FReply SObjectWidget::OnAnalogValueChanged(const FGeometry& MyGeometry, const FA
 
 FReply SObjectWidget::OnMouseButtonDown(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
 {
-	// NOTE: Done so that IsHovered() works
-	SCompoundWidget::OnMouseButtonDown(MyGeometry, MouseEvent);
-
 	if ( CanRouteEvent() )
 	{
 		return WidgetObject->NativeOnMouseButtonDown( MyGeometry, MouseEvent );
@@ -215,9 +212,6 @@ FReply SObjectWidget::OnMouseButtonDown(const FGeometry& MyGeometry, const FPoin
 
 FReply SObjectWidget::OnPreviewMouseButtonDown(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
 {
-	// NOTE: Done so that IsHovered() works
-	SCompoundWidget::OnPreviewMouseButtonDown(MyGeometry, MouseEvent);
-
 	if ( CanRouteEvent() )
 	{
 		return WidgetObject->NativeOnPreviewMouseButtonDown( MyGeometry, MouseEvent );
@@ -228,9 +222,6 @@ FReply SObjectWidget::OnPreviewMouseButtonDown(const FGeometry& MyGeometry, cons
 
 FReply SObjectWidget::OnMouseButtonUp(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
 {
-	// NOTE: Done so that IsHovered() works
-	SCompoundWidget::OnMouseButtonUp(MyGeometry, MouseEvent);
-
 	if ( CanRouteEvent() )
 	{
 		return WidgetObject->NativeOnMouseButtonUp( MyGeometry, MouseEvent );
@@ -251,6 +242,9 @@ FReply SObjectWidget::OnMouseMove(const FGeometry& MyGeometry, const FPointerEve
 
 void SObjectWidget::OnMouseEnter(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
 {
+	// NOTE: Done so that IsHovered() works
+	SCompoundWidget::OnMouseEnter(MyGeometry, MouseEvent);
+
 	if ( CanRouteEvent() )
 	{
 		WidgetObject->NativeOnMouseEnter( MyGeometry, MouseEvent );
@@ -259,6 +253,9 @@ void SObjectWidget::OnMouseEnter(const FGeometry& MyGeometry, const FPointerEven
 
 void SObjectWidget::OnMouseLeave(const FPointerEvent& MouseEvent)
 {
+	// NOTE: Done so that IsHovered() works
+	SCompoundWidget::OnMouseLeave(MouseEvent);
+
 	if ( CanRouteEvent() )
 	{
 		WidgetObject->NativeOnMouseLeave( MouseEvent );

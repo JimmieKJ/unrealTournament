@@ -28,6 +28,18 @@ public:
 	{
 		return SNew(SSessionConsole, SessionManager);
 	}
+
+	virtual void InvokeSessionFrontend(FName SubTabToActivate = NAME_None) override
+	{
+		FGlobalTabmanager::Get()->InvokeTab(SessionFrontendTabName);
+		if ( WeakFrontend.IsValid() )
+		{
+			if ( SubTabToActivate != NAME_None )
+			{
+				WeakFrontend.Pin()->GetTabManager()->InvokeTab(SubTabToActivate);
+			}
+		}
+	}
 	
 public:
 
@@ -65,10 +77,16 @@ private:
 		const TSharedRef<SDockTab> DockTab = SNew(SDockTab)
 			.TabRole(ETabRole::MajorTab);
 
-		DockTab->SetContent(SNew(SSessionFrontend, DockTab, SpawnTabArgs.GetOwnerWindow()));
+		TSharedRef<SSessionFrontend> Frontend = SNew(SSessionFrontend, DockTab, SpawnTabArgs.GetOwnerWindow());
+		WeakFrontend = Frontend;
+
+		DockTab->SetContent(Frontend);
 
 		return DockTab;
 	}
+
+private:
+	TWeakPtr<SSessionFrontend> WeakFrontend;
 };
 
 

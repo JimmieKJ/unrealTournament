@@ -32,6 +32,7 @@
     <ClCompile Include="..\..\..\src\glslang_lib\glslang\MachineIndependent\preprocessor\PpScanner.cpp" />
     <ClCompile Include="..\..\..\src\glslang_lib\glslang\MachineIndependent\preprocessor\PpSymbols.cpp" />
     <ClCompile Include="..\..\..\src\glslang_lib\glslang\MachineIndependent\preprocessor\PpTokens.cpp" />
+    <ClCompile Include="..\..\..\src\glslang_lib\glslang\MachineIndependent\propagateNoContraction.cpp" />
     <ClCompile Include="..\..\..\src\glslang_lib\glslang\MachineIndependent\reflection.cpp" />
     <ClCompile Include="..\..\..\src\glslang_lib\glslang\MachineIndependent\RemoveTree.cpp" />
     <ClCompile Include="..\..\..\src\glslang_lib\glslang\MachineIndependent\Scan.cpp" />
@@ -42,11 +43,17 @@
       <ExcludedFromBuild>true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="..\..\..\src\glslang_lib\glslang\OSDependent\Windows\ossource.cpp" />
+    <ClCompile Include="..\..\..\src\glslang_lib\hlsl\hlslGrammar.cpp" />
+    <ClCompile Include="..\..\..\src\glslang_lib\hlsl\hlslOpMap.cpp" />
+    <ClCompile Include="..\..\..\src\glslang_lib\hlsl\hlslParseHelper.cpp" />
+    <ClCompile Include="..\..\..\src\glslang_lib\hlsl\hlslScanContext.cpp" />
+    <ClCompile Include="..\..\..\src\glslang_lib\hlsl\hlslTokenStream.cpp" />
     <ClCompile Include="..\..\..\src\glslang_lib\OGLCompilersDLL\InitializeDll.cpp" />
     <ClCompile Include="..\..\..\src\glslang_lib\SPIRV\disassemble.cpp" />
     <ClCompile Include="..\..\..\src\glslang_lib\SPIRV\doc.cpp" />
     <ClCompile Include="..\..\..\src\glslang_lib\SPIRV\GlslangToSpv.cpp" />
     <ClCompile Include="..\..\..\src\glslang_lib\SPIRV\InReadableOrder.cpp" />
+    <ClCompile Include="..\..\..\src\glslang_lib\SPIRV\Logger.cpp" />
     <ClCompile Include="..\..\..\src\glslang_lib\SPIRV\SpvBuilder.cpp" />
     <ClCompile Include="..\..\..\src\glslang_lib\SPIRV\SPVRemapper.cpp" />
   </ItemGroup>
@@ -68,8 +75,10 @@
     <ClInclude Include="..\..\..\src\glslang_lib\glslang\MachineIndependent\Initialize.h" />
     <ClInclude Include="..\..\..\src\glslang_lib\glslang\MachineIndependent\localintermediate.h" />
     <ClInclude Include="..\..\..\src\glslang_lib\glslang\MachineIndependent\ParseHelper.h" />
+    <ClInclude Include="..\..\..\src\glslang_lib\glslang\MachineIndependent\parseVersions.h" />
     <ClInclude Include="..\..\..\src\glslang_lib\glslang\MachineIndependent\preprocessor\PpContext.h" />
     <ClInclude Include="..\..\..\src\glslang_lib\glslang\MachineIndependent\preprocessor\PpTokens.h" />
+    <ClInclude Include="..\..\..\src\glslang_lib\glslang\MachineIndependent\propagateNoContraction.h" />
     <ClInclude Include="..\..\..\src\glslang_lib\glslang\MachineIndependent\reflection.h" />
     <ClInclude Include="..\..\..\src\glslang_lib\glslang\MachineIndependent\RemoveTree.h" />
     <ClInclude Include="..\..\..\src\glslang_lib\glslang\MachineIndependent\Scan.h" />
@@ -80,16 +89,26 @@
     <ClInclude Include="..\..\..\src\glslang_lib\glslang\OSDependent\osinclude.h" />
     <ClInclude Include="..\..\..\src\glslang_lib\glslang\OSDependent\Windows\osinclude.h" />
     <ClInclude Include="..\..\..\src\glslang_lib\glslang\Public\ShaderLang.h" />
+    <ClInclude Include="..\..\..\src\glslang_lib\hlsl\hlslGrammar.h" />
+    <ClInclude Include="..\..\..\src\glslang_lib\hlsl\hlslOpMap.h" />
+    <ClInclude Include="..\..\..\src\glslang_lib\hlsl\hlslParseHelper.h" />
+    <ClInclude Include="..\..\..\src\glslang_lib\hlsl\hlslScanContext.h" />
+    <ClInclude Include="..\..\..\src\glslang_lib\hlsl\hlslTokens.h" />
+    <ClInclude Include="..\..\..\src\glslang_lib\hlsl\hlslTokenStream.h" />
     <ClInclude Include="..\..\..\src\glslang_lib\OGLCompilersDLL\InitializeDll.h" />
     <ClInclude Include="..\..\..\src\glslang_lib\SPIRV\disassemble.h" />
     <ClInclude Include="..\..\..\src\glslang_lib\SPIRV\doc.h" />
     <ClInclude Include="..\..\..\src\glslang_lib\SPIRV\GLSL.std.450.h" />
     <ClInclude Include="..\..\..\src\glslang_lib\SPIRV\GlslangToSpv.h" />
+    <ClInclude Include="..\..\..\src\glslang_lib\SPIRV\Logger.h" />
     <ClInclude Include="..\..\..\src\glslang_lib\SPIRV\spirv.hpp" />
     <ClInclude Include="..\..\..\src\glslang_lib\SPIRV\SpvBuilder.h" />
     <ClInclude Include="..\..\..\src\glslang_lib\SPIRV\spvIR.h" />
     <ClInclude Include="..\..\..\src\glslang_lib\SPIRV\SPVRemapper.h" />
     <ClInclude Include="spirv_common.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\..\..\src\glslang_lib\glslang\MachineIndependent\glslang.y" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <Keyword>Win32Proj</Keyword>

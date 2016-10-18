@@ -15,6 +15,8 @@
 #include "EngineVersion.h"
 #include "DataChannel.h"
 #include "OnlineBeaconClient.h"
+#include "NetworkVersion.h"
+#include "OnlineSubsystemTypes.h"
 
 // Forward declarations
 class FWorldTickHook;
@@ -522,41 +524,8 @@ bool NUTNet::CreateFakePlayer(UWorld* InWorld, UNetDriver*& InNetDriver, FString
 			*ControlChanBunch << MessageType;
 			*ControlChanBunch << IsLittleEndian;
 
-
-#if TARGET_UE4_CL >= CL_FNETWORKVERSION
-			// Starting with 4.8.0, the network protocol has changed slightly
-			// @todo JohnB: Refactor this, to toggle at compile time only, based on CL (might require more accurate UT integrate CLs)
-#if TARGET_UE4_CL >= CL_FENGINEVERSION
-			FString VersionStr = FEngineVersion::Current().ToString(EVersionComponent::Minor);
-#else
-			FString VersionStr = GEngineVersion.ToString(EVersionComponent::Minor);
-#endif
-			int32 VersionDelim = VersionStr.Find(TEXT("."));
-			int32 MajorVersion = FCString::Atoi(*VersionStr.Left(VersionDelim));
-			int32 MinorVersion = FCString::Atoi(*VersionStr.Mid(VersionDelim+1));
-
-
-			bool bOldProtocol = (MajorVersion <= 4 && MinorVersion <= 7) &&
-				/** Exception for UT (treat 4.7 as having the new protocol) */
-				(FString(FApp::GetGameName()) != TEXT("UnrealTournament") || (MajorVersion <= 4 && MinorVersion <= 6));
-
-			if (bOldProtocol)
-#endif
-			{
-				int32 EngineMinNetVersion = GEngineMinNetVersion;
-				*ControlChanBunch << EngineMinNetVersion;
-				int32 EngineNetVersion = GEngineNetVersion;
-				*ControlChanBunch << EngineNetVersion;
-				*ControlChanBunch << (FGuid&)GetDefault<UGeneralProjectSettings>()->ProjectID;
-			}
-#if TARGET_UE4_CL >= CL_FNETWORKVERSION
-			else
-			{
-				uint32 LocalNetworkVersion = FNetworkVersion::GetLocalNetworkVersion();
-				*ControlChanBunch << LocalNetworkVersion;
-			}
-#endif
-
+			uint32 LocalNetworkVersion = FNetworkVersion::GetLocalNetworkVersion();
+			*ControlChanBunch << LocalNetworkVersion;
 
 			if (bBeaconConnect)
 			{
@@ -577,7 +546,6 @@ bool NUTNet::CreateFakePlayer(UWorld* InWorld, UNetDriver*& InNetDriver, FString
 			{
 				// Then send NMT_Login
 #if TARGET_UE4_CL < CL_CONSTUNIQUEID
-				TSharedPtr<FUniqueNetId> DudPtr = MakeShareable(new FUniqueNetIdString(TEXT("Dud")));
 #else
 				TSharedPtr<const FUniqueNetId> DudPtr = MakeShareable(new FUniqueNetIdString(TEXT("Dud")));
 #endif
@@ -730,9 +698,31 @@ void NUTNet::MarkUnitTestWorldForCleanup(UWorld* CleanupWorld, bool bImmediate/*
 
 void NUTNet::CleanupUnitTestWorlds()
 {
-	for (auto It=PendingUnitWorldCleanup.CreateIterator(); It; ++It)
+	for (auto CleanupIt=PendingUnitWorldCleanup.CreateIterator(); CleanupIt; ++CleanupIt)
 	{
-		UWorld* CurWorld = *It;
+		UWorld* CurWorld = *CleanupIt;
+
+		// Iterate all ActorComponents in this world, and unmark them as having begun play - to prevent a crash during GC
+		for (TActorIterator<AActor> ActorIt(CurWorld); ActorIt; ++ActorIt)
+		{
+			for (UActorComponent* CurComp : ActorIt->GetComponents())
+			{
+				if (CurComp->HasBegunPlay())
+				{
+					// Big hack - call only the parent class UActorComponent::EndPlay function, such that only bHasBegunPlay is unset
+					bool bBeginDestroyed = CurComp->HasAnyFlags(RF_BeginDestroyed);
+
+					CurComp->SetFlags(RF_BeginDestroyed);
+
+					CurComp->UActorComponent::EndPlay(EEndPlayReason::Quit);
+
+					if (!bBeginDestroyed)
+					{
+						CurComp->ClearFlags(RF_BeginDestroyed);
+					}
+				}
+			}
+		}
 
 		// Remove the tick-hook, for this world
 		int32 TickHookIdx = ActiveTickHooks.IndexOfByPredicate(
@@ -751,10 +741,6 @@ void NUTNet::CleanupUnitTestWorlds()
 	}
 
 	PendingUnitWorldCleanup.Empty();
-
-
-	// @todo #JohnB: There are some actor components that get marked as having begun play, and you need to clean them up here before GC,
-	//					otherwise a crash is triggered
 
 
 	// Immediately garbage collect remaining objects, to finish net driver cleanup

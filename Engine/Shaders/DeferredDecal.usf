@@ -8,7 +8,7 @@
 // DECAL_RENDERTARGET_COUNT is set by C++ e.g. 1: single RT, 2: two MRT, 3: three MRT
 // DECAL_RENDERSTAGE is set by C++ from EDecalRenderStage e.g. 0:before base pass, 1:after base pass, 2: before lighting
 
-#include "Common.usf"
+#include "DecalCommon.usf"
 
 // from SvPosition to decal space (for position), used like this: mul(float4(SvPosition.xyz, 1), SvPositionToDecal);
 float4x4 SvPositionToDecal;
@@ -28,30 +28,9 @@ float2 DecalParams;
 	#include "Material.usf"
 #endif
 
-#include "DeferredShadingCommon.usf"		// GBufferData
 
 // from component to clip space (for decal frustum)
 float4x4 FrustumComponentToClip;
-
-half3 FrameBufferDecalBlendOp(half4 Source)
-{
-#if (COMPILER_GLSL_ES2)
-	half4 Dest = FramebufferFetchES2();
-	Dest.rgb = Decode32BPPHDR(Dest);
-#else
-	half4 Dest = half4(0, 0, 0, 0);
-#endif
-    
-#if DECAL_BLEND_MODE == DECALBLENDMODEID_STAIN
-	return (Source.rgb*Dest.rgb) + (Dest.rgb*(1.0 - Source.a));
-#elif DECAL_BLEND_MODE == DECALBLENDMODEID_TRANSLUCENT
-	return (Source.rgb*Source.a) + (Dest.rgb*(1.0 - Source.a));
-#elif DECAL_BLEND_MODE == DECALBLENDMODEID_EMISSIVE
-	return (Source.rgb*Source.a) + Dest.rgb;
-#else
-	return Source.rgb;
-#endif
-}
 
 // decal vertex shader
 void MainVS(
@@ -149,8 +128,8 @@ float4 SvPositionToScreenPosition2(float4 SvPosition)
 
 	float4 Ret;
 
-	Ret.x = ((SvPosition.x - Frame.ViewRectMin.x) * Frame.ViewSizeAndInvSize.z) * 2 - 1;
-	Ret.y = ((SvPosition.y - Frame.ViewRectMin.y) * Frame.ViewSizeAndInvSize.w) * -2 + 1;
+	Ret.x = ((SvPosition.x - View.ViewRectMin.x) * View.ViewSizeAndInvSize.z) * 2 - 1;
+	Ret.y = ((SvPosition.y - View.ViewRectMin.y) * View.ViewSizeAndInvSize.w) * -2 + 1;
 	Ret.z = ConvertFromDeviceZ(SvPosition.z);
 	Ret.w = 1;
 
@@ -167,47 +146,18 @@ float4 SvPositionToScreenPosition2(float4 SvPosition)
 
 // EARLYDEPTHSTENCIL for volumetric decals could work here, but only if we are ouside of the decal
 
-void MainPS(
-	in INPUT_POSITION_QUALIFIERS float4 SvPosition : SV_Position		// after all interpolators
-
-#if DECAL_RENDERTARGET_COUNT > 0
-	, out float4 OutTarget0 : SV_Target0
-#endif
-
-#if DECAL_RENDERTARGET_COUNT > 1 && (BIND_RENDERTARGET1 || COMPILER_METAL) // Used to avoid outputting normals!
-	, out float4 OutTarget1 : SV_Target1
-#endif
-
-#if DECAL_RENDERTARGET_COUNT > 2
-	, out float4 OutTarget2 : SV_Target2
-#endif
-
-#if DECAL_RENDERTARGET_COUNT > 3
-	, out float4 OutTarget3 : SV_Target3
-#endif
-
-#if DECAL_RENDERTARGET_COUNT > 4
-	, out float4 OutTarget4 : SV_Target4
-#endif
-
-	// todo: if we are not inside a volumetric decal we could use OPTIONAL_OutDepthConservative for better performance, this would require a shader permutation
-	OPTIONAL_OutDepth
-
-	)
+// is called in MainPS() from PixelShaderOutputCommon.usf
+void FPixelShaderInOut_MainPS(inout FPixelShaderIn In, inout FPixelShaderOut Out)
 {
-#if DECAL_RENDERTARGET_COUNT > 1 && !BIND_RENDERTARGET1 && !COMPILER_METAL
-	float4 OutTarget1;
-#endif
+	ResolvedView = ResolveView();
 
-	float2 ScreenUV = SvPositionToBufferUV(SvPosition);
+	float2 ScreenUV = SvPositionToBufferUV(In.SvPosition);
 
 	// make SvPosition appear to be rasterized with the depth from the depth buffer
-	SvPosition.z = LookupDeviceZ(ScreenUV);
+	In.SvPosition.z = LookupDeviceZ(ScreenUV);
 
-#if DECAL_RENDERTARGET_COUNT > 4
 	// default to no shadows, good for volumetric decals
-	OutTarget4 = 1;
-#endif
+	Out.MRT[4] = 1;
 
 	bool bVolumetric = DECAL_BLEND_MODE == DECALBLENDMODEID_VOLUMETRIC;
 
@@ -220,7 +170,7 @@ void MainPS(
 		// LineBoxIntersect want's to clip a long ray so we provide one, this could be done differently as it limites the draw distance and reduces precision 
 		float SceneW = 100000000;
 
-		float4 SvPositionInDistance = float4(SvPosition.xy, ConvertToDeviceZ(SceneW), 1);
+		float4 SvPositionInDistance = float4(In.SvPosition.xy, ConvertToDeviceZ(SceneW), 1);
 
 		float3 WSStartRay = View.WorldCameraOrigin;
 		float3 WSEndRay = SvPositionToWorld(SvPositionInDistance);
@@ -237,7 +187,7 @@ void MainPS(
 		float3 OSBoxStartRay = OSStartRay + OSBoxMinMax.x * (OSEndRay - OSStartRay);
 		float3 OSBoxEndRay = OSStartRay + OSBoxMinMax.y * (OSEndRay - OSStartRay);
 
-		HitT = Raycast(SvPosition, OSBoxStartRay, OSBoxEndRay);
+		HitT = Raycast(In.SvPosition, OSBoxStartRay, OSBoxEndRay);
 
 		clip(HitT);
 
@@ -251,7 +201,7 @@ void MainPS(
 	}
 	else
 	{
-		float4 DecalVectorHom = mul(float4(SvPosition.xyz,1), SvPositionToDecal);
+		float4 DecalVectorHom = mul(float4(In.SvPosition.xyz,1), SvPositionToDecal);
 		OSPosition = DecalVectorHom.xyz / DecalVectorHom.w;
 
 		// clip content outside the decal
@@ -260,7 +210,7 @@ void MainPS(
 		clip(1.0f - OSPosition.xyz);
 
 		// todo: TranslatedWorld would be better for quality
-		WSPosition = SvPositionToWorld(SvPosition);
+		WSPosition = SvPositionToWorld(In.SvPosition);
 	}
 
 	float3 CameraVector = normalize(View.WorldCameraOrigin - WSPosition);
@@ -283,8 +233,8 @@ void MainPS(
 #endif
 	MaterialParameters.VertexColor = 1;
 	MaterialParameters.CameraVector = CameraVector;
-	MaterialParameters.SvPosition = SvPosition;
-	MaterialParameters.ScreenPosition = SvPositionToScreenPosition(SvPosition);
+	MaterialParameters.SvPosition = In.SvPosition;
+	MaterialParameters.ScreenPosition = SvPositionToScreenPosition(In.SvPosition);
 	MaterialParameters.LightVector = SwizzlePos;
 	MaterialParameters.AbsoluteWorldPosition = 
 		MaterialParameters.WorldPosition_CamRelative = 
@@ -296,7 +246,7 @@ void MainPS(
 		if(bVolumetric)
 		{
 			// not normalized
-			float3 OSNormal = GradientNotNormalized(SvPosition, OSPosition, HitT);
+			float3 OSNormal = GradientNotNormalized(In.SvPosition, OSPosition, HitT);
 			
 			// To transform the normals use tranpose(Inverse(DecalToWorld)) = transpose(WorldToDecal)
 			// But we want to only rotate the normals (we don't want to non-uniformaly scale them).
@@ -377,87 +327,36 @@ void MainPS(
 	// Z fade
 	Opacity *= saturate( 4 - 4 * abs( SwizzlePos.z * 2 - 1 ) );
 
+	// decal fade
 	Opacity *= DecalParams.x;
 
-	// RETURN_COLOR not needed unless writing to SceneColor
-	OutTarget0 = float4(Color, Opacity);
+	FGBufferData GBufferData;
 
-#if (ES2_PROFILE || ES3_1_PROFILE)
-#if (COMPILER_GLSL_ES2) || (MOBILE_EMULATION)
-	// Do decal blending if encoding requires it.
-	if (GetHDR32bppEncodeMode() == HDR_ENCODE_RGBA)
-	{
-		OutTarget0.rgb = FrameBufferDecalBlendOp(OutTarget0);
-	}
- 	// do 32bpp hdr encoding for mobile if required.
-	OutTarget0 = Encode32BPPHDR(OutTarget0, SvPosition.xy);
-#endif
-#endif
+	GBufferData.WorldNormal = MaterialParameters.WorldNormal;
+	GBufferData.BaseColor = BaseColor;
+	GBufferData.Metallic = Metallic;
+	GBufferData.Specular = Specular;
+	GBufferData.Roughness = GetMaterialRoughness(PixelMaterialInputs);
+	GBufferData.CustomData = 0;
+	GBufferData.IndirectIrradiance = 0;
+	GBufferData.PrecomputedShadowFactors = 0;
+	GBufferData.GBufferAO = 1;
+	GBufferData.ShadingModelID = SHADINGMODELID_DEFAULT_LIT;
+	GBufferData.SelectiveOutputMask = 0;
+	GBufferData.PerObjectGBufferData = 1;
 
-#if DECAL_RENDERTARGET_COUNT > 1
-	// some MRT rendering
-	
-	FGBufferData Data;
-
-	Data.WorldNormal = MaterialParameters.WorldNormal;
-	Data.BaseColor = BaseColor;
-	Data.Metallic = Metallic;
-	Data.Specular = Specular;
-	Data.Roughness = GetMaterialRoughness(PixelMaterialInputs);
-	Data.CustomData = 0;
-	Data.IndirectIrradiance = 0;
-	Data.PrecomputedShadowFactors = 0;
-	Data.GBufferAO = 1;
-	Data.ShadingModelID = SHADINGMODELID_DEFAULT_LIT;
-	Data.SelectiveOutputMask = 0;
-	Data.PerObjectGBufferData = 1;
-
-	#if DECAL_RENDERSTAGE == 0
-	{
-		// before base pass (DBuffer)
-
-		// @param MultiOpacity .x: Color, .y:Normal, .z:Roughness
-		float3 MultiOpacity = Opacity;
-
-		EncodeDBufferData(Data, MultiOpacity, OutTarget0, OutTarget1, OutTarget2);
-	}
-	#elif DECAL_RENDERSTAGE == 1
-	{
-		// after base pass (GBuffer)
-
-		// static lighting isn't updated by decals so we don't need to update that render target
-		float4 OutTarget4 = 0;
-		float4 OutTarget5 = 0;
-		float4 OutTarget6 = 0;
-
-		EncodeGBuffer(Data, OutTarget1, OutTarget2, OutTarget3, OutTarget4, OutTarget5, OutTarget6);
-	}
-	#elif DECAL_RENDERSTAGE == 2
-	{
-		// before lighting (GBuffer)
-
-		// static lighting isn't updated by decals so we don't need to update that render target
-		float4 OutTarget4 = 0;
-		float4 OutTarget5 = 0;
-		float4 OutTarget6 = 0;
-
-		EncodeGBuffer(Data, OutTarget1, OutTarget2, OutTarget3, OutTarget4, OutTarget5, OutTarget6);
-
-		#if DECAL_BLEND_MODE == DECALBLENDMODEID_STAIN
-			OutTarget3.rgb *= Opacity;
-		#endif
-
-		OutTarget0.a = Opacity;	// Emissive
-		OutTarget1.a = Opacity;	// Normal
-		OutTarget2.a = Opacity;	// Metallic, Specular, Roughness
-		OutTarget3.a = Opacity;	// BaseColor
-	}
-	#endif // DECAL_RENDERSTAGE
-#endif //DECAL_RENDERTARGET_COUNT > 1
-
-#if DECAL_RENDERTARGET_COUNT > 1 && !BIND_RENDERTARGET1 && COMPILER_METAL
-	OutTarget1 = 0;
-#endif
+	DecalCommonOutput(In, Out, Color, Opacity, GBufferData);
 }
+
+
+#define PIXELSHADEROUTPUT_MRT0 (DECAL_RENDERTARGET_COUNT > 0)
+#define PIXELSHADEROUTPUT_MRT1 (DECAL_RENDERTARGET_COUNT > 1 && (BIND_RENDERTARGET1 || COMPILER_METAL))
+#define PIXELSHADEROUTPUT_MRT2 (DECAL_RENDERTARGET_COUNT > 2)
+#define PIXELSHADEROUTPUT_MRT3 (DECAL_RENDERTARGET_COUNT > 3)
+#define PIXELSHADEROUTPUT_MRT4 (DECAL_RENDERTARGET_COUNT > 4)
+// all PIXELSHADEROUTPUT_ and "void FPixelShaderInOut_MainPS()" need to be setup before this include
+// this include generates the wrapper code to call MainPS()
+#include "PixelShaderOutputCommon.usf"
+
 
 #endif // DECAL_PROJECTION

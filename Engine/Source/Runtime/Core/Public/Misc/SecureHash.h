@@ -384,7 +384,7 @@ CORE_API void appOnFailSHAVerification(const TCHAR* FailedPathname, bool bFailed
  * Similar to FBufferReader, but will verify the contents of the buffer on close (on close to that 
  * we know we don't need the data anymore)
  */
-class FBufferReaderWithSHA : public FBufferReader
+class FBufferReaderWithSHA : public FBufferReaderBase
 {
 public:
 	/**
@@ -406,7 +406,7 @@ public:
 		bool bInIsUnfoundHashAnError=false 
 		)
 	// we force the base class to NOT free buffer on close, as we will let the SHA task do it if needed
-	: FBufferReader(Data, Size, bInFreeOnClose, bIsPersistent)
+	: FBufferReaderBase(Data, Size, bInFreeOnClose, bIsPersistent)
 	, SourcePathname(SHASourcePathname)
 	, bIsUnfoundHashAnError(bInIsUnfoundHashAnError)
 	{

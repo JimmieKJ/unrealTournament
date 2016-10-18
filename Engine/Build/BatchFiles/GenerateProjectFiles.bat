@@ -31,12 +31,12 @@ if not "%INCLUDE%" == "" if not "%LIB%" == "" goto ReadyToCompile
 
 rem ## Try to get the MSBuild executable directly (see https://msdn.microsoft.com/en-us/library/hh162058(v=vs.120).aspx)
 
-if exist "%ProgramFiles%\MSBuild\12.0\bin\MSBuild.exe" (
- 	set MSBUILD_EXE="%ProgramFiles%\MSBuild\12.0\bin\MSBuild.exe"
+if exist "%ProgramFiles%\MSBuild\14.0\bin\MSBuild.exe" (
+ 	set MSBUILD_EXE="%ProgramFiles%\MSBuild\14.0\bin\MSBuild.exe"
 	goto ReadyToCompile
 )
-if exist "%ProgramFiles(x86)%\MSBuild\12.0\bin\MSBuild.exe" (
-	set MSBUILD_EXE="%ProgramFiles(x86)%\MSBuild\12.0\bin\MSBuild.exe"
+if exist "%ProgramFiles(x86)%\MSBuild\14.0\bin\MSBuild.exe" (
+	set MSBUILD_EXE="%ProgramFiles(x86)%\MSBuild\14.0\bin\MSBuild.exe"
 	goto ReadyToCompile
 )
 

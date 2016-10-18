@@ -347,7 +347,7 @@ struct FGBufferData
 	// 0..1, only needed by SHADINGMODELID_SUBSURFACE_PROFILE which applies BaseColor later
 	float3 StoredBaseColor;
 	// 0..1, only needed by SHADINGMODELID_SUBSURFACE_PROFILE which applies Specular later
-	float3 StoredSpecular;
+	float StoredSpecular;
 };
 
 bool HasDistanceFieldRepresentation(FGBufferData GBufferData)
@@ -461,7 +461,7 @@ bool CheckerFromPixelPos(uint2 PixelPos)
 {
 	// todo: Index is float and by staying float we can optimize this 
 	// We alternate the pattern to get 2x supersampling on the lower res data to get more near to full res
-	uint TemporalAASampleIndex = Frame.TemporalAAParams.x;
+	uint TemporalAASampleIndex = View.TemporalAAParams.x;
 
 #if FEATURE_LEVEL >= FEATURE_LEVEL_SM4
 	return (PixelPos.x + PixelPos.y + TemporalAASampleIndex) % 2;
@@ -476,9 +476,34 @@ bool CheckerFromPixelPos(uint2 PixelPos)
 bool CheckerFromSceneColorUV(float2 UVSceneColor)
 {
 	// relative to left top of the rendertarget (not viewport)
-	uint2 PixelPos = uint2(UVSceneColor * Frame.BufferSizeAndInvSize.xy);
+	uint2 PixelPos = uint2(UVSceneColor * View.BufferSizeAndInvSize.xy);
 
 	return CheckerFromPixelPos(PixelPos);
+}
+
+// SubsurfaceProfile does deferred lighting with a checker board pixel pattern
+// we separate the view from the non view dependent lighting and later recombine the two color constributions in a postprocess
+// We have the option to apply the BaseColor/Specular in the base pass or do it later in the postprocess (has implications to texture detail, fresnel and performance)
+void AdjustBaseColorAndSpecularColorForSubsurfaceProfileLighting(inout float3 BaseColor, inout float3 SpecularColor, inout float Specular, bool bChecker)
+{
+#if SUBSURFACE_CHANNEL_MODE == 0
+	// If SUBSURFACE_CHANNEL_MODE is 0, we can't support full-resolution lighting, so we 
+	// ignore View.bCheckerboardSubsurfaceProfileRendering
+	const bool bCheckerboardRequired = View.bSubsurfacePostprocessEnabled > 0;
+#else
+	const bool bCheckerboardRequired = View.bSubsurfacePostprocessEnabled > 0 && View.bCheckerboardSubsurfaceProfileRendering > 0;
+	BaseColor = View.bSubsurfacePostprocessEnabled ? float3(1, 1, 1) : BaseColor;
+#endif
+	if (bCheckerboardRequired)
+	{
+		// because we adjust the BaseColor here, we need StoredBaseColor
+
+		// we apply the base color later in SubsurfaceRecombinePS()
+		BaseColor = bChecker;
+		// in SubsurfaceRecombinePS() does not multiply with Specular so we do it here
+		SpecularColor *= !bChecker;
+		Specular *= !bChecker;
+	}
 }
 
 /** Populates FGBufferData */
@@ -504,11 +529,13 @@ FGBufferData DecodeGBufferData(
 		GBuffer.WorldNormal = normalize(GBuffer.WorldNormal);
 	}
 
-	GBuffer.PerObjectGBufferData = InGBufferA.a;
-
+	GBuffer.PerObjectGBufferData = InGBufferA.a;  
 	GBuffer.Metallic	= InGBufferB.r;
 	GBuffer.Specular	= InGBufferB.g;
 	GBuffer.Roughness	= InGBufferB.b;
+	// Note: must match GetShadingModelId standalone function logic
+	// Also Note: SimpleElementPixelShader directly sets SV_Target2 ( GBufferB ) to indicate unlit.
+	// An update there will be required if this layout changes.
 	GBuffer.ShadingModelID = DecodeShadingModelId(InGBufferB.a);
 	GBuffer.SelectiveOutputMask = DecodeSelectiveOutputMask(InGBufferB.a);
 
@@ -531,24 +558,23 @@ FGBufferData DecodeGBufferData(
 
 	GBuffer.StoredBaseColor = GBuffer.BaseColor;
 	GBuffer.StoredSpecular = GBuffer.Specular;
-	
-	if(GBuffer.ShadingModelID == SHADINGMODELID_SUBSURFACE_PROFILE)
-	{
-		// we apply the BaseColor and Specular later, this is why we need StoredBaseColor
-		GBuffer.BaseColor = bChecker;
-		GBuffer.Specular = !bChecker;
-	}
 
 	// derived from BaseColor, Metalness, Specular
 	{
-		GBuffer.DiffuseColor = GBuffer.BaseColor - GBuffer.BaseColor * GBuffer.Metallic;
 		GBuffer.SpecularColor = lerp( 0.08 * GBuffer.Specular.xxx, GBuffer.BaseColor, GBuffer.Metallic );
+
+		if (GBuffer.ShadingModelID == SHADINGMODELID_SUBSURFACE_PROFILE)
+		{
+			AdjustBaseColorAndSpecularColorForSubsurfaceProfileLighting(GBuffer.BaseColor, GBuffer.SpecularColor, GBuffer.Specular, bChecker);
+		}
+
+		GBuffer.DiffuseColor = GBuffer.BaseColor - GBuffer.BaseColor * GBuffer.Metallic;
 
 		#if USE_DEVELOPMENT_SHADERS
 		{
 			// this feature is only needed for development/editor - we can compile it out for a shipping build (see r.CompileShadersForDevelopment cvar help)
-			GBuffer.DiffuseColor = GBuffer.DiffuseColor * Frame.DiffuseOverrideParameter.www + Frame.DiffuseOverrideParameter.xyz;
-			GBuffer.SpecularColor = GBuffer.SpecularColor * Frame.SpecularOverrideParameter.w + Frame.SpecularOverrideParameter.xyz;
+			GBuffer.DiffuseColor = GBuffer.DiffuseColor * View.DiffuseOverrideParameter.www + View.DiffuseOverrideParameter.xyz;
+			GBuffer.SpecularColor = GBuffer.SpecularColor * View.SpecularOverrideParameter.w + View.SpecularOverrideParameter.xyz;
 		}
 		#endif //USE_DEVELOPMENT_SHADERS
 	}
@@ -719,10 +745,10 @@ SamplerState	DirectionalOcclusionSampler;
 		// this is what we want but because WhiteDummy (in case AO is disabled) doesn't support this lookup we do the code below
 //		Out.AmbientOcclusion = ScreenSpaceAOTextureNonMS.Load(int3(PixelPos, 0)).r;
 
-		float4 ScreenSpaceAO = Texture2DSampleLevel(ScreenSpaceAOTexture, ScreenSpaceAOTextureSampler, (PixelPos + 0.5f) * Frame.BufferSizeAndInvSize.zw, 0);
+		float4 ScreenSpaceAO = Texture2DSampleLevel(ScreenSpaceAOTexture, ScreenSpaceAOTextureSampler, (PixelPos + 0.5f) * View.BufferSizeAndInvSize.zw, 0);
 		Out.AmbientOcclusion = ScreenSpaceAO.r;
 
-		Out.DirectionalOcclusion = Texture2DSampleLevel( DirectionalOcclusionTexture, DirectionalOcclusionSampler, (PixelPos + 0.5f) * Frame.BufferSizeAndInvSize.zw, 0 ).rg;
+		Out.DirectionalOcclusion = Texture2DSampleLevel( DirectionalOcclusionTexture, DirectionalOcclusionSampler, (PixelPos + 0.5f) * View.BufferSizeAndInvSize.zw, 0 ).rg;
 
 		return Out;
 	}
@@ -753,7 +779,7 @@ FGBufferData GetGBufferData(float2 UV, bool bGetNormalizedNormal = true)
 	float CustomNativeDepth = Texture2DSampleLevel(CustomDepthTexture, CustomDepthTextureSampler, UV, 0).r;
 
 #if FEATURE_LEVEL >= FEATURE_LEVEL_SM4
-	int2 IntUV = (int2)trunc(UV * Frame.BufferSizeAndInvSize.xy);
+	int2 IntUV = (int2)trunc(UV * View.BufferSizeAndInvSize.xy);
 	uint CustomStencil = CustomStencilTexture.Load(int3(IntUV, 0)) STENCIL_COMPONENT_SWIZZLE;
 #else
 	uint CustomStencil = 0;
@@ -780,8 +806,7 @@ FGBufferData GetGBufferData(float2 UV, bool bGetNormalizedNormal = true)
 // Minimal path for just the lighting model, used to branch around unlit pixels (skybox)
 uint GetShadingModelId(float2 UV)
 {
-	bool Unused;
-	return DecodeShadingModelId(Decode71(Texture2DSampleLevel(GBuffers.GBufferBTexture, GBuffers.GBufferBTextureSampler, UV, 0).a, Unused));
+	return DecodeShadingModelId(Texture2DSampleLevel(GBuffers.GBufferBTexture, GBuffers.GBufferBTextureSampler, UV, 0).a);
 }
 
 // @param UV - UV space in the DBuffer textures (BufferSize resolution)
@@ -847,7 +872,7 @@ FScreenSpaceData GetScreenSpaceData(float2 UV, bool bGetNormalizedNormal = true)
 
 	FGBufferData GetGBufferDataMS(float2 UV, uint SampleIndex, bool bGetNormalizedNormal = true)
 	{
-		int2 IntUV = (int2)trunc(UV * Frame.BufferSizeAndInvSize.xy);
+		int2 IntUV = (int2)trunc(UV * View.BufferSizeAndInvSize.xy);
 
 		return GetGBufferDataMS(IntUV, SampleIndex, bGetNormalizedNormal);
 	}

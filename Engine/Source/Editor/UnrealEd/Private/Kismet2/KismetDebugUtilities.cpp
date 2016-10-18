@@ -142,8 +142,13 @@ void FKismetDebugUtilities::OnScriptException(const UObject* ActiveObject, const
 		case EBlueprintExceptionType::AccessViolation:
 			if ( GIsEditor && GIsPlayInEditorWorld )
 			{
-				TSharedRef<FTokenizedMessage> ErrorMessage = FMessageLog("PIE").Error(LOCTEXT("RuntimeErrorMessage", "Blueprint Runtime Error from function:"));
-
+				// declared as its own variable since it's flushed (logs pushed
+				// to std output) on destruction - we want the full message 
+				// constructed before it's logged
+				FMessageLog PIEMessageLog("PIE");
+				TSharedRef<FTokenizedMessage> ErrorMessage = PIEMessageLog.Error(LOCTEXT("RuntimeErrorMessage", "Blueprint Runtime Error:"));
+				ErrorMessage->AddToken(FTextToken::Create(Info.GetDescription()));
+				ErrorMessage->AddToken(FTextToken::Create(LOCTEXT("RuntimeErrorBlueprintFunction", "from function:")));
 				// NOTE: StackFrame.Node is not a blueprint node like you may think ("Node" has some legacy meaning)
 				FString GeneratedFuncName = FString::Printf(TEXT("'%s'"), *StackFrame.Node->GetName());
 				// a log token, telling us specifically where the exception is coming from (here
@@ -757,7 +762,15 @@ void FKismetDebugUtilities::SetBreakpointInternal(UBreakpoint* Breakpoint, bool 
 	{
 		if (uint8* InstallSite = InstallSites[i])
 		{
-			*InstallSite = bShouldBeEnabled ? EX_Breakpoint : EX_Tracepoint;
+			if (*InstallSite == EX_InstrumentationEvent)
+			{
+				InstallSite++;
+				*InstallSite = bShouldBeEnabled ? EScriptInstrumentation::NodeDebugSite : EScriptInstrumentation::NodeEntry;
+			}
+			else
+			{
+				*InstallSite = bShouldBeEnabled ? EX_Breakpoint : EX_Tracepoint;
+			}
 		}
 	}
 }
@@ -955,20 +968,20 @@ bool FKismetDebugUtilities::CanWatchPin(const UBlueprint* Blueprint, const UEdGr
 
 bool FKismetDebugUtilities::IsPinBeingWatched(const UBlueprint* Blueprint, const UEdGraphPin* Pin)
 {
-	return Blueprint->PinWatches.Contains(const_cast<UEdGraphPin*>(Pin));
+	return Blueprint->WatchedPins.Contains(const_cast<UEdGraphPin*>(Pin));
 }
 
 void FKismetDebugUtilities::RemovePinWatch(UBlueprint* Blueprint, const UEdGraphPin* Pin)
 {
 	UEdGraphPin* NonConstPin = const_cast<UEdGraphPin*>(Pin);
-	Blueprint->PinWatches.Remove(NonConstPin);
+	Blueprint->WatchedPins.Remove(NonConstPin);
 	Blueprint->MarkPackageDirty();
 	Blueprint->PostEditChange();
 }
 
 void FKismetDebugUtilities::TogglePinWatch(UBlueprint* Blueprint, const UEdGraphPin* Pin)
 {
-	int32 ExistingWatchIndex = Blueprint->PinWatches.Find(const_cast<UEdGraphPin*>(Pin));
+	int32 ExistingWatchIndex = Blueprint->WatchedPins.Find(const_cast<UEdGraphPin*>(Pin));
 
 	if (ExistingWatchIndex != INDEX_NONE)
 	{
@@ -976,7 +989,7 @@ void FKismetDebugUtilities::TogglePinWatch(UBlueprint* Blueprint, const UEdGraph
 	}
 	else
 	{
-		Blueprint->PinWatches.Add(const_cast<UEdGraphPin*>(Pin));
+		Blueprint->WatchedPins.Add(const_cast<UEdGraphPin*>(Pin));
 		Blueprint->MarkPackageDirty();
 		Blueprint->PostEditChange();
 	}
@@ -984,7 +997,7 @@ void FKismetDebugUtilities::TogglePinWatch(UBlueprint* Blueprint, const UEdGraph
 
 void FKismetDebugUtilities::ClearPinWatches(UBlueprint* Blueprint)
 {
-	Blueprint->PinWatches.Empty();
+	Blueprint->WatchedPins.Empty();
 	Blueprint->MarkPackageDirty();
 	Blueprint->PostEditChange();
 }
@@ -1073,13 +1086,17 @@ FKismetDebugUtilities::EWatchTextResult FKismetDebugUtilities::GetWatchText(FStr
 			if(!PropertyBase && AnimBlueprintGeneratedClass)
 			{
 				// are we linked to an anim graph node?
+				UProperty* LinkedProperty = Property;
 				const UAnimGraphNode_Base* Node = Cast<UAnimGraphNode_Base>(WatchPin->GetOuter());
 				if(Node == nullptr && WatchPin->LinkedTo.Num() > 0)
 				{
-					Node = Cast<UAnimGraphNode_Base>(WatchPin->LinkedTo[0]->GetOuter());
+					const UEdGraphPin* LinkedPin = WatchPin->LinkedTo[0];
+					// When we change Node we *must* change Property, so it's still a sub-element of that.
+					LinkedProperty = FKismetDebugUtilities::FindClassPropertyForPin(Blueprint, LinkedPin);
+					Node = Cast<UAnimGraphNode_Base>(LinkedPin->GetOuter());
 				}
 
-				if(Node)
+				if(Node && LinkedProperty)
 				{
 					UStructProperty* NodeStructProperty = Cast<UStructProperty>(FKismetDebugUtilities::FindClassPropertyForNode(Blueprint, Node));
 					if (NodeStructProperty)
@@ -1089,7 +1106,7 @@ FKismetDebugUtilities::EWatchTextResult FKismetDebugUtilities::GetWatchText(FStr
 							if (NodeProperty == NodeStructProperty)
 							{
 								void* NodePtr = NodeProperty->ContainerPtrToValuePtr<void>(ActiveObject);
-								Property->ExportText_InContainer(/*ArrayElement=*/ 0, /*inout*/ OutWatchText, NodePtr, NodePtr, /*Parent=*/ ActiveObject, PPF_PropertyWindow|PPF_BlueprintDebugView);
+								LinkedProperty->ExportText_InContainer(/*ArrayElement=*/ 0, /*inout*/ OutWatchText, NodePtr, NodePtr, /*Parent=*/ ActiveObject, PPF_PropertyWindow|PPF_BlueprintDebugView);
 								return EWTR_Valid;
 							}
 						}

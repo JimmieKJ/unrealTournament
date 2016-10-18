@@ -15,6 +15,9 @@ void FStaticMeshComponentDetails::CustomizeDetails( IDetailLayoutBuilder& Detail
 {
 	// Create a category so this is displayed early in the properties
 	DetailBuilder.EditCategory( "StaticMesh", FText::GetEmpty(), ECategoryPriority::Important);
+
+	TSharedRef<IPropertyHandle> UseDefaultCollision = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(UStaticMeshComponent, bUseDefaultCollision));
+	UseDefaultCollision->MarkHiddenByCustomization();
 }
 
 #undef LOCTEXT_NAMESPACE

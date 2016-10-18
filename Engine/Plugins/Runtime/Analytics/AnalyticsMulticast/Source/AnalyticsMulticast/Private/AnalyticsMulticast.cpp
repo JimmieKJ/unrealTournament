@@ -7,6 +7,7 @@
 #include "Json.h"
 #include "SecureHash.h"
 #include "AnalyticsMulticast.h"
+#include "IAnalyticsProvider.h"
 #include "Analytics.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogAnalytics, Display, All);
@@ -17,10 +18,10 @@ class FAnalyticsProviderMulticast : public IAnalyticsProvider
 {
 	/** Singleton for analytics */
 	static TSharedPtr<IAnalyticsProvider> Provider;
-	FAnalyticsProviderMulticast(const FAnalyticsMulticast::Config& ConfigValues, const FAnalytics::FProviderConfigurationDelegate& GetConfigValue);
+	FAnalyticsProviderMulticast(const FAnalyticsMulticast::Config& ConfigValues, const FAnalyticsProviderConfigurationDelegate& GetConfigValue);
 
 public:
-	static TSharedPtr<IAnalyticsProvider> Create(const FAnalyticsMulticast::Config& ConfigValues, const FAnalytics::FProviderConfigurationDelegate& GetConfigValue)
+	static TSharedPtr<IAnalyticsProvider> Create(const FAnalyticsMulticast::Config& ConfigValues, const FAnalyticsProviderConfigurationDelegate& GetConfigValue)
 	{
 		if (!Provider.IsValid())
 		{
@@ -80,7 +81,7 @@ void FAnalyticsMulticast::ShutdownModule()
 	FAnalyticsProviderMulticast::Destroy();
 }
 
-TSharedPtr<IAnalyticsProvider> FAnalyticsMulticast::CreateAnalyticsProvider(const FAnalytics::FProviderConfigurationDelegate& GetConfigValue) const
+TSharedPtr<IAnalyticsProvider> FAnalyticsMulticast::CreateAnalyticsProvider(const FAnalyticsProviderConfigurationDelegate& GetConfigValue) const
 {
 	if (GetConfigValue.IsBound())
 	{
@@ -100,7 +101,7 @@ TSharedPtr<IAnalyticsProvider> FAnalyticsMulticast::CreateAnalyticsProvider(cons
 	return NULL;
 }
 
-TSharedPtr<IAnalyticsProvider> FAnalyticsMulticast::CreateAnalyticsProvider(const Config& ConfigValues, const FAnalytics::FProviderConfigurationDelegate& GetConfigValue) const
+TSharedPtr<IAnalyticsProvider> FAnalyticsMulticast::CreateAnalyticsProvider(const Config& ConfigValues, const FAnalyticsProviderConfigurationDelegate& GetConfigValue) const
 {
 	return FAnalyticsProviderMulticast::Create(ConfigValues, GetConfigValue);
 }
@@ -108,7 +109,7 @@ TSharedPtr<IAnalyticsProvider> FAnalyticsMulticast::CreateAnalyticsProvider(cons
 /**
  * Perform any initialization.
  */
-FAnalyticsProviderMulticast::FAnalyticsProviderMulticast(const FAnalyticsMulticast::Config& ConfigValues, const FAnalytics::FProviderConfigurationDelegate& GetConfigValue)
+FAnalyticsProviderMulticast::FAnalyticsProviderMulticast(const FAnalyticsMulticast::Config& ConfigValues, const FAnalyticsProviderConfigurationDelegate& GetConfigValue)
 {
 	UE_LOG(LogAnalytics, Verbose, TEXT("Initializing Multicast Analytics provider"));
 

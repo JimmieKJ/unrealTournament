@@ -77,6 +77,8 @@ struct FIOSOpenGL : public FOpenGLES2
 
 	static FORCEINLINE void CopyTextureLevels(GLuint destinationTexture, GLuint sourceTexture, GLint sourceBaseLevel, GLsizei sourceLevelCount)
 	{
+		// flush is to prevent driver crashing running out of memory in the Parameter Buffer
+		glFlush();
 		glCopyTextureLevelsAPPLE(destinationTexture, sourceTexture, sourceBaseLevel, sourceLevelCount);
 		VERIFY_GL(glCopyTextureLevelsAPPLE)
 	}

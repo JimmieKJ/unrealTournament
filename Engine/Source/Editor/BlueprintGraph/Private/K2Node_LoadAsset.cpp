@@ -84,16 +84,16 @@ void UK2Node_LoadAsset::ExpandNode(class FKismetCompilerContext& CompilerContext
 	}
 
 	// connect to asset
+	auto CallFunctionAssetPin = CallLoadAssetNode->FindPin(GetInputPinName());
 	{
 		auto AssetPin = FindPin(GetInputPinName());
-		auto CallFunctionAssetPin = CallLoadAssetNode->FindPin(GetInputPinName());
 		ensure(CallFunctionAssetPin);
 		bIsErrorFree &= AssetPin && CallFunctionAssetPin && CompilerContext.MovePinLinksToIntermediate(*AssetPin, *CallFunctionAssetPin).CanSafeConnect();
 	}
 
 	// Create OnLoadEvent
 	const FString DelegateOnLoadedParamName(TEXT("OnLoaded"));
-	auto OnLoadEventNode = CompilerContext.SpawnIntermediateNode<UK2Node_CustomEvent>(this, SourceGraph);
+	auto OnLoadEventNode = CompilerContext.SpawnIntermediateEventNode<UK2Node_CustomEvent>(this, CallFunctionAssetPin, SourceGraph);
 	OnLoadEventNode->CustomFunctionName = *FString::Printf(TEXT("OnLoaded_%s"), *CompilerContext.GetGuid(this));
 	OnLoadEventNode->AllocateDefaultPins();
 	{

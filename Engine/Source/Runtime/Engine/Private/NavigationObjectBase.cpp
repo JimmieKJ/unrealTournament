@@ -53,7 +53,7 @@ ANavigationObjectBase::ANavigationObjectBase(const FObjectInitializer& ObjectIni
 			GoodSprite->bHiddenInGame = true;
 			GoodSprite->SpriteInfo.Category = ConstructorStatics.ID_Navigation;
 			GoodSprite->SpriteInfo.DisplayName = ConstructorStatics.NAME_Navigation;
-			GoodSprite->AttachParent = CapsuleComponent;
+			GoodSprite->SetupAttachment(CapsuleComponent);
 			GoodSprite->bAbsoluteScale = true;
 			GoodSprite->bIsScreenSizeScaled = true;
 		}
@@ -65,7 +65,7 @@ ANavigationObjectBase::ANavigationObjectBase(const FObjectInitializer& ObjectIni
 			BadSprite->SpriteInfo.Category = ConstructorStatics.ID_Navigation;
 			BadSprite->SpriteInfo.DisplayName = ConstructorStatics.NAME_Navigation;
 			BadSprite->bAbsoluteScale = true;
-			BadSprite->AttachParent = CapsuleComponent;
+			BadSprite->SetupAttachment(CapsuleComponent);
 			BadSprite->bIsScreenSizeScaled = true;
 		}
 	}
@@ -226,7 +226,7 @@ void ANavigationObjectBase::Validate()
 	MarkComponentsRenderStateDirty();
 }
 
-void ANavigationObjectBase::GetMoveGoalReachTest(class AActor* MovingActor, const FVector& MoveOffset, FVector& GoalOffset, float& GoalRadius, float& GoalHalfHeight) const
+void ANavigationObjectBase::GetMoveGoalReachTest(const AActor* MovingActor, const FVector& MoveOffset, FVector& GoalOffset, float& GoalRadius, float& GoalHalfHeight) const
 {
 	GoalOffset = FVector::ZeroVector;
 	GetSimpleCollisionCylinder(GoalRadius, GoalHalfHeight);	

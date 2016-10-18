@@ -33,21 +33,21 @@ UClass* UOverlay::GetSlotClass() const
 	return UOverlaySlot::StaticClass();
 }
 
-void UOverlay::OnSlotAdded(UPanelSlot* Slot)
+void UOverlay::OnSlotAdded(UPanelSlot* InSlot)
 {
 	// Add the child to the live canvas if it already exists
 	if ( MyOverlay.IsValid() )
 	{
-		Cast<UOverlaySlot>(Slot)->BuildSlot(MyOverlay.ToSharedRef());
+		CastChecked<UOverlaySlot>(InSlot)->BuildSlot(MyOverlay.ToSharedRef());
 	}
 }
 
-void UOverlay::OnSlotRemoved(UPanelSlot* Slot)
+void UOverlay::OnSlotRemoved(UPanelSlot* InSlot)
 {
 	// Remove the widget from the live slot if it exists.
 	if ( MyOverlay.IsValid() )
 	{
-		TSharedPtr<SWidget> Widget = Slot->Content->GetCachedWidget();
+		TSharedPtr<SWidget> Widget = InSlot->Content->GetCachedWidget();
 		if ( Widget.IsValid() )
 		{
 			MyOverlay->RemoveSlot(Widget.ToSharedRef());
@@ -59,9 +59,9 @@ TSharedRef<SWidget> UOverlay::RebuildWidget()
 {
 	MyOverlay = SNew(SOverlay);
 
-	for ( UPanelSlot* Slot : Slots )
+	for ( UPanelSlot* PanelSlot : Slots )
 	{
-		if ( UOverlaySlot* TypedSlot = Cast<UOverlaySlot>(Slot) )
+		if ( UOverlaySlot* TypedSlot = Cast<UOverlaySlot>(PanelSlot) )
 		{
 			TypedSlot->Parent = this;
 			TypedSlot->BuildSlot(MyOverlay.ToSharedRef());

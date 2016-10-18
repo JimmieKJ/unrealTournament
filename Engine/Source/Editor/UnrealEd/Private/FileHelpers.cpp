@@ -28,6 +28,8 @@
 #include "Runtime/AssetRegistry/Public/AssetData.h"
 
 #include "PackageTools.h"
+#include "ObjectTools.h"
+#include "TextPackageNamespaceUtil.h"
 #include "SNotificationList.h"
 #include "NotificationManager.h"
 #include "Engine/LevelStreaming.h"
@@ -248,7 +250,7 @@ void FEditorFileUtils::RegisterLevelFilename(UObject* Object, const FString& New
 
 ///////////////////////////////////////////////////////////////////////////////
 
-static FString GetFilename(const FName& PackageName)
+FString FEditorFileUtils::GetFilename(const FName& PackageName)
 {
 	// First see if it is an in-memory package that already has an associated filename
 	const FString PackageNameString = PackageName.ToString();
@@ -280,7 +282,7 @@ static FString GetFilename(const FName& PackageName)
 	return *Result;
 }
 
-static FString GetFilename(UObject* LevelObject)
+FString FEditorFileUtils::GetFilename(UObject* LevelObject)
 {
 	return GetFilename( LevelObject->GetOutermost()->GetFName() );
 }
@@ -313,15 +315,13 @@ FString FEditorFileUtils::GetFilterString(EFileInteraction Interaction)
 																					   *FPackageName::GetMapPackageExtension());
 		}
 		break;
-	case FI_Import:
-		Result = TEXT("Unreal Text (*.t3d)|*.t3d|All Files|*.*");
-		break;
+
 	case FI_ImportScene:
-		Result = TEXT("FBX (*.fbx)|*.fbx|All Files|*.*");
+		Result = TEXT("FBX (*.fbx) OBJ (*.obj)|*.fbx;*.obj|FBX (*.fbx)|*.fbx|OBJ (*.obj)|*.obj");
 		break;
 
-	case FI_Export:
-		Result = TEXT("FBX (*.fbx)|*.fbx|Object (*.obj)|*.obj|Unreal Text (*.t3d)|*.t3d|Stereo Litho (*.stl)|*.stl|LOD Export (*.lod.obj)|*.lod.obj|All Files|*.*");
+	case FI_ExportScene:
+		Result = TEXT("FBX (*.fbx)|*.fbx|Object (*.obj)|*.obj|Unreal Text (*.t3d)|*.t3d|Stereo Litho (*.stl)|*.stl|LOD Export (*.lod.obj)|*.lod.obj");
 		break;
 
 	default:
@@ -510,16 +510,36 @@ static bool SaveWorld(UWorld* World,
 		SlowTask.EnterProgressFrame(25);
 
 		// Rename the package and the object, as necessary
+		UWorld* DuplicatedWorld = nullptr;
 		if ( bRenamePackageToFile )
 		{
-			if ( bPackageNeedsRename )
+			if (bPackageNeedsRename)
 			{
-				Package->Rename(*NewPackageName, NULL, REN_NonTransactional | REN_DontCreateRedirectors);
-			}
+				// If we are doing a SaveAs on a world that already exists, we need to duplicate it.
+				if (bPackageExists)
+				{
+					ObjectTools::FPackageGroupName NewPGN;
+					NewPGN.PackageName = NewPackageName;
+					NewPGN.ObjectName = NewWorldAssetName;
 
-			if ( bWorldNeedsRename )
-			{
-				World->Rename(*NewWorldAssetName, NULL, REN_NonTransactional | REN_DontCreateRedirectors);
+					TSet<UPackage*> PackagesUserRefusedToFullyLoad;
+					DuplicatedWorld = Cast<UWorld>(ObjectTools::DuplicateSingleObject(World, NewPGN, PackagesUserRefusedToFullyLoad));
+					if (DuplicatedWorld)
+					{
+						Package = DuplicatedWorld->GetOutermost();
+					}
+				}
+
+				if (!DuplicatedWorld)
+				{
+					// Duplicate failed or not needed. Just do a rename.
+					Package->Rename(*NewPackageName, NULL, REN_NonTransactional | REN_DontCreateRedirectors);
+					
+					if (bWorldNeedsRename)
+					{
+						World->Rename(*NewWorldAssetName, NULL, REN_NonTransactional | REN_DontCreateRedirectors);
+					}
+				}
 			}
 		}
 
@@ -537,17 +557,27 @@ static bool SaveWorld(UWorld* World,
 
 		SlowTask.EnterProgressFrame(25);
 
-		// If the package save was not successful. Rename anything we changed back to the original name.
+		// If the package save was not successful. Trash the duplicated world or rename back if the duplicate failed.
 		if( bRenamePackageToFile && !bSuccess )
 		{
-			if ( bPackageNeedsRename )
+			if (bPackageNeedsRename)
 			{
-				Package->Rename(*OriginalPackageName, NULL, REN_NonTransactional);
-			}
+				if (DuplicatedWorld)
+				{
+					DuplicatedWorld->Rename(nullptr, GetTransientPackage(), REN_NonTransactional | REN_DontCreateRedirectors);
+					DuplicatedWorld->MarkPendingKill();
+					DuplicatedWorld->SetFlags(RF_Transient);
+					DuplicatedWorld = nullptr;
+				}
+				else
+				{
+					Package->Rename(*OriginalPackageName, NULL, REN_NonTransactional);
 
-			if ( bWorldNeedsRename )
-			{
-				World->Rename(*OriginalWorldName, NULL, REN_NonTransactional);
+					if (bWorldNeedsRename)
+					{
+						World->Rename(*OriginalWorldName, NULL, REN_NonTransactional);
+					}
+				}
 			}
 		}
 	}
@@ -639,7 +669,7 @@ static bool OpenSaveAsDialog(UClass* SavedClass, const FString& InDefaultPath, c
 /**
  * Prompts the user with a dialog for selecting a filename.
  */
-static bool SaveAsImplementation( UWorld* InWorld, const FString& DefaultFilename, const bool bAllowStreamingLevelRename )
+static bool SaveAsImplementation( UWorld* InWorld, const FString& DefaultFilename, const bool bAllowStreamingLevelRename, FString* OutSavedFilename )
 {
 	UEditorLoadingSavingSettings* LoadingSavingSettings = GetMutableDefault<UEditorLoadingSavingSettings>();
 
@@ -672,9 +702,10 @@ static bool SaveAsImplementation( UWorld* InWorld, const FString& DefaultFilenam
 	// Loop through until a valid filename is given or the user presses cancel
 	bool bFilenameIsValid = false;
 
+	FString SaveFilename;
 	while( !bFilenameIsValid )
 	{
-		FString SaveFilename;
+		SaveFilename = FString();
 		bool bSaveFileLocationSelected = false;
 		if (UEditorEngine::IsUsingWorldAssets())
 		{
@@ -818,7 +849,6 @@ static bool SaveAsImplementation( UWorld* InWorld, const FString& DefaultFilenam
 				}
 			}
 
-
 			if( bCanRenameStreamingLevels )
 			{
 				// Prompt to update streaming levels and such
@@ -879,8 +909,12 @@ static bool SaveAsImplementation( UWorld* InWorld, const FString& DefaultFilenam
 	// Update SCC state
 	ISourceControlModule::Get().QueueStatusUpdate(InWorld->GetOutermost());
 
-	return bStatus;
+	if (bStatus && OutSavedFilename)
+	{
+		*OutSavedFilename = SaveFilename;
+	}
 
+	return bStatus;
 }
 
 /**
@@ -971,7 +1005,7 @@ void FEditorFileUtils::SaveAssetsAs(const TArray<UObject*>& Assets, TArray<UObje
  * @param	InLevel		The level to be SaveAs'd.
  * @return				true if the world was saved.
  */
-bool FEditorFileUtils::SaveLevelAs(ULevel* InLevel)
+bool FEditorFileUtils::SaveLevelAs(ULevel* InLevel, FString* OutSavedFilename)
 {
 	FString DefaultFilename;
 
@@ -987,41 +1021,32 @@ bool FEditorFileUtils::SaveLevelAs(ULevel* InLevel)
 	// We'll allow the map to be renamed when saving a level as a new file name this way
 	const bool bAllowStreamingLevelRename = InLevel->IsPersistentLevel();
 
-	return SaveAsImplementation( CastChecked<UWorld>(InLevel->GetOuter()), DefaultFilename, bAllowStreamingLevelRename );
+	return SaveAsImplementation( CastChecked<UWorld>(InLevel->GetOuter()), DefaultFilename, bAllowStreamingLevelRename, OutSavedFilename);
 }
 
 /**
  * Presents the user with a file dialog for importing.
  * If the import is not a merge (bMerging is false), AskSaveChanges() is called first.
  */
-void FEditorFileUtils::Import(bool bImportScene)
+void FEditorFileUtils::Import()
 {
 	TArray<FString> OpenedFiles;
 	FString DefaultLocation(GetDefaultDirectory());
 
-	bool OpenFileSucceed = false;
-	if (bImportScene)
+	if (FileDialogHelpers::OpenFiles(NSLOCTEXT("UnrealEd", "ImportScene", "Import Scene").ToString(), GetFilterString(FI_ImportScene), DefaultLocation, EFileDialogFlags::None, OpenedFiles))
 	{
-		OpenFileSucceed = FileDialogHelpers::OpenFiles(NSLOCTEXT("UnrealEd", "ImportScene", "Import Scene").ToString(), GetFilterString(FI_ImportScene), DefaultLocation, EFileDialogFlags::None, OpenedFiles);
-	}
-	else
-	{
-		OpenFileSucceed = FileDialogHelpers::OpenFiles(NSLOCTEXT("UnrealEd", "Import", "Import").ToString(), GetFilterString(FI_Import), DefaultLocation, EFileDialogFlags::None, OpenedFiles);
-	}
-	if( OpenFileSucceed )
-	{
-		Import(OpenedFiles[0], bImportScene);
+		Import(OpenedFiles[0]);
 	}
 }
 
-void FEditorFileUtils::Import(const FString& InFilename, bool bImportScene)
+void FEditorFileUtils::Import(const FString& InFilename)
 {
 	const FScopedBusyCursor BusyCursor;
 
 	FFormatNamedArguments Args;
 	//Import scene support only fbx for now
 	//Check the extension because the import map don't support fbx file import
-	if (bImportScene || FPaths::GetExtension(InFilename).Compare(TEXT("fbx"), ESearchCase::IgnoreCase) == 0)
+	if (FPaths::GetExtension(InFilename).Compare(TEXT("fbx"), ESearchCase::IgnoreCase) == 0)
 	{
 		//Ask a root content path to the user
 		TSharedRef<SDlgPickPath> PickContentPathDlg =
@@ -1073,7 +1098,7 @@ void FEditorFileUtils::Import(const FString& InFilename, bool bImportScene)
  *
  * @return				true if the level was saved.
  */
-bool FEditorFileUtils::SaveLevel(ULevel* Level, const FString& DefaultFilename )
+bool FEditorFileUtils::SaveLevel(ULevel* Level, const FString& DefaultFilename, FString* OutSavedFilename )
 {
 	bool bLevelWasSaved = false;
 
@@ -1098,7 +1123,7 @@ bool FEditorFileUtils::SaveLevel(ULevel* Level, const FString& DefaultFilename )
 			{
 				// Present the user with a SaveAs dialog.
 				const bool bAllowStreamingLevelRename = false;
-				bLevelWasSaved = SaveAsImplementation( Level->OwningWorld, Filename, bAllowStreamingLevelRename );
+				bLevelWasSaved = SaveAsImplementation( Level->OwningWorld, Filename, bAllowStreamingLevelRename, OutSavedFilename );
 				return bLevelWasSaved;
 			}
 		}
@@ -1117,6 +1142,10 @@ bool FEditorFileUtils::SaveLevel(ULevel* Level, const FString& DefaultFilename )
 										true, false,
 										FinalFilename,
 										false, false );
+			if (bLevelWasSaved && OutSavedFilename)
+			{
+				*OutSavedFilename = FinalFilename;
+			}
 		}
 	}
 
@@ -1130,7 +1159,7 @@ void FEditorFileUtils::Export(bool bExportSelectedActorsOnly)
 	const FString LevelFilename = GetFilename( World );//->GetOutermost()->GetName() );
 	FString ExportFilename;
 	FString LastUsedPath = GetDefaultDirectory();
-	if( FileDialogHelpers::SaveFile( NSLOCTEXT("UnrealEd", "Export", "Export").ToString(), GetFilterString(FI_Export), LastUsedPath, FPaths::GetBaseFilename(LevelFilename), ExportFilename ) )
+	if( FileDialogHelpers::SaveFile( NSLOCTEXT("UnrealEd", "Export", "Export").ToString(), GetFilterString(FI_ExportScene), LastUsedPath, FPaths::GetBaseFilename(LevelFilename), ExportFilename ) )
 	{
 		GUnrealEd->ExportMap( World, *ExportFilename, bExportSelectedActorsOnly );
 		FEditorDirectories::Get().SetLastDirectory(ELastDirectory::UNR, FPaths::GetPath(ExportFilename)); // Save path as default for next time.
@@ -1439,7 +1468,10 @@ bool FEditorFileUtils::PromptToCheckoutPackages(bool bCheckDirty, const TArray<U
 	// If any files were just checked out, remove any pending flag to show a notification prompting for checkout.
 	if (PackagesToCheckOut.Num() > 0)
 	{
-		GUnrealEd->bNeedToPromptForCheckout = false;
+		for (UPackage* Package : PackagesToCheckOut)
+		{
+			GUnrealEd->PackageToNotifyState.Add(Package, NS_DialogPrompted);
+		}
 	}
 
 	if (OutPackagesNotNeedingCheckout)
@@ -1940,7 +1972,7 @@ bool FEditorFileUtils::AttemptUnloadInactiveWorldPackage(UPackage* PackageToUnlo
 				case EWorldType::PIE:
 				case EWorldType::Preview:
 				default:
-					OutErrorMessage = NSLOCTEXT("SaveAsImplementation", "ExistingWorldNotInactive", "The level you are attempting to unload is invalid.");
+					OutErrorMessage = NSLOCTEXT("SaveAsImplementation", "ExistingWorldInvalid", "The level you are attempting to unload is invalid.");
 					bContinueUnloadingExistingWorld = false;
 					break;
 			}
@@ -2154,6 +2186,8 @@ void FEditorFileUtils::LoadMap(const FString& InFilename, bool LoadAsTemplate, b
 		return;
 	}
 
+	World->IssueEditorLoadWarnings();
+
 	ResetLevelFilenames();
 
 	//only register the file if the name wasn't changed as a result of loading
@@ -2175,7 +2209,7 @@ void FEditorFileUtils::LoadMap(const FString& InFilename, bool LoadAsTemplate, b
 		FMainMRUFavoritesList* MRUFavoritesList = MainFrameModule.GetMRUFavoritesList();
 		if(MRUFavoritesList)
 		{
-			MRUFavoritesList->AddMRUItem( *Filename );
+			MRUFavoritesList->AddMRUItem(LongMapPackageName);
 		}
 	}
 
@@ -2197,6 +2231,14 @@ void FEditorFileUtils::LoadMap(const FString& InFilename, bool LoadAsTemplate, b
 
 	// If there are any old mirrored brushes in the map with inverted polys, fix them here
 	GUnrealEd->FixAnyInvertedBrushes(World);
+
+	// Rebuild BSP if the loading process flagged it as not up-to-date
+	TArray< TWeakObjectPtr< ULevel > > LevelsToRebuild;
+	ABrush::NeedsRebuild(&LevelsToRebuild);
+	if (LevelsToRebuild.Num() > 0)
+	{
+		GUnrealEd->RebuildAlteredBSP();
+	}
 
 	// Fire delegate when a new map is opened, with name of map
 	FEditorDelegates::OnMapOpened.Broadcast(InFilename, LoadAsTemplate);
@@ -2786,11 +2828,17 @@ static bool InternalSavePackages(TArray<UPackage*>& PackagesToSave, int32 NumPac
 						bool bPackageLocallyWritable;
 						const int32 SaveStatus = InternalSavePackage(CurPackage, bPackageLocallyWritable, SaveErrors);
 
+						if ( SaveStatus == EAppReturnType::Cancel)
+						{
+							// we don't want to pop up a message box about failing to save packages if they cancel
+							// instead warn here so there is some trace in the log and also unattended builds can find it
+							UE_LOG(LogFileHelpers, Warning, TEXT("Cancelled saving package %s"), *CurPackage->GetName());
+						}
+
 						if (SaveStatus == EAppReturnType::No)
 						{
 							// The package could not be saved so add it to the failed array 
 							FailedPackages.Add(CurPackage);
-
 						}
 					}
 				}
@@ -3418,7 +3466,7 @@ void FEditorFileUtils::FindAllSubmittablePackageFiles(TMap<FString, FSourceContr
 		FSourceControlStatePtr SourceControlState = SourceControlProvider.GetState(FPaths::ConvertRelativePathToFull(Filename), EStateCacheUsage::Use);
 
 		// Only include non-map packages that are currently checked out or packages not under source control
-		if (SourceControlState.IsValid() && 
+		if (SourceControlState.IsValid() && SourceControlState->IsCurrent() && 
 			(SourceControlState->IsCheckedOut() || SourceControlState->IsAdded() || (!SourceControlState->IsSourceControlled() && SourceControlState->CanAdd())) &&
 			(bIncludeMaps || !IsMapPackageAsset(*Filename)))
 		{

@@ -1,6 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "PhATModule.h"
+#include "PhATPrivatePCH.h"
 #include "PhATEdSkeletalMeshComponent.h"
 #include "PhAT.h"
 #include "MouseDeltaTracker.h"
@@ -15,6 +15,7 @@
 #include "PhysicsEngine/BodySetup.h"
 #include "Engine/Font.h"
 #include "PhysicsEngine/PhysicsConstraintTemplate.h"
+#include "PhysicsEngine/PhysicsAsset.h"
 #include "PhysicsEngine/PhysicsSettings.h"
 #include "PhysicsEngine/PhysicsHandleComponent.h"
 #include "DrawDebugHelpers.h"
@@ -70,7 +71,7 @@ FPhATEdPreviewViewportClient::FPhATEdPreviewViewportClient(TWeakPtr<FPhAT> InPhA
 
 	// Take into account internal mesh translation/rotation/scaling etc.
 	FTransform LocalToWorld = SharedData->EditorSkelComp->ComponentToWorld;
-	FSphere WorldSphere = SharedData->EditorSkelMesh->Bounds.GetSphere().TransformBy(LocalToWorld);
+	FSphere WorldSphere = SharedData->EditorSkelMesh->GetImportedBounds().GetSphere().TransformBy(LocalToWorld);
 
 	CollBoxExtent = CollBox.GetExtent();
 	if (CollBoxExtent.X > CollBoxExtent.Y)
@@ -122,9 +123,9 @@ void FPhATEdPreviewViewportClient::DrawCanvas( FViewport& InViewport, FSceneView
 	// Write body/constraint count at top.
 	FString StatusString = FText::Format(
 		NSLOCTEXT("UnrealEd", "BodiesConstraints_F", "{0} Bodies  {1} Considered for bounds  {2} Ratio  {3} Constraints"),
-		FText::AsNumber(SharedData->PhysicsAsset->BodySetup.Num()),
+		FText::AsNumber(SharedData->PhysicsAsset->SkeletalBodySetups.Num()),
 		FText::AsNumber(SharedData->PhysicsAsset->BoundsBodies.Num()),
-		FText::AsNumber(static_cast<float>(SharedData->PhysicsAsset->BoundsBodies.Num())/static_cast<float>(SharedData->PhysicsAsset->BodySetup.Num())),
+		FText::AsNumber(static_cast<float>(SharedData->PhysicsAsset->BoundsBodies.Num())/static_cast<float>(SharedData->PhysicsAsset->SkeletalBodySetups.Num())),
 		FText::AsNumber(SharedData->PhysicsAsset->ConstraintSetup.Num()) ).ToString();
 
 	TextItem.Text = FText::FromString( StatusString );
@@ -171,9 +172,9 @@ void FPhATEdPreviewViewportClient::DrawCanvas( FViewport& InViewport, FSceneView
 	if ((SharedData->bShowHierarchy && SharedData->EditorSimOptions->bShowNamesInHierarchy))
 	{
 		// Iterate over each graphics bone.
-		for(int32 i = 0; i <SharedData->EditorSkelComp->GetNumSpaceBases(); ++i)
+		for (int32 i = 0; i < SharedData->EditorSkelComp->GetNumComponentSpaceTransforms(); ++i)
 		{
-			FVector BonePos = SharedData->EditorSkelComp->ComponentToWorld.TransformPosition(SharedData->EditorSkelComp->GetSpaceBases()[i].GetLocation());
+			FVector BonePos = SharedData->EditorSkelComp->ComponentToWorld.TransformPosition(SharedData->EditorSkelComp->GetComponentSpaceTransforms()[i].GetLocation());
 
 			FPlane proj = View.Project(BonePos);
 			if (proj.W > 0.f) // This avoids drawing bone names that are behind us.
@@ -188,7 +189,7 @@ void FPhATEdPreviewViewportClient::DrawCanvas( FViewport& InViewport, FSceneView
 				for(int32 j=0; j< SharedData->SelectedBodies.Num(); ++j)
 				{
 					int32 SelectedBodyIndex = SharedData->SelectedBodies[j].Index;
-					FName SelectedBoneName = SharedData->PhysicsAsset->BodySetup[SelectedBodyIndex]->BoneName;
+					FName SelectedBoneName = SharedData->PhysicsAsset->SkeletalBodySetups[SelectedBodyIndex]->BoneName;
 					if(SelectedBoneName == BoneName)
 					{
 						BoneNameColor = FColor::Green;
@@ -276,12 +277,12 @@ void FPhATEdPreviewViewportClient::Draw(const FSceneView* View, FPrimitiveDrawIn
 	}
 }
 
-bool FPhATEdPreviewViewportClient::InputKey(FViewport* Viewport, int32 ControllerId, FKey Key, EInputEvent Event, float AmountDepressed, bool Gamepad)
+bool FPhATEdPreviewViewportClient::InputKey(FViewport* InViewport, int32 ControllerId, FKey Key, EInputEvent Event, float AmountDepressed, bool Gamepad)
 {
-	int32 HitX = Viewport->GetMouseX();
-	int32 HitY = Viewport->GetMouseY();
-	bool bCtrlDown = Viewport->KeyState(EKeys::LeftControl) || Viewport->KeyState(EKeys::RightControl);
-	bool bShiftDown = Viewport->KeyState(EKeys::LeftShift) || Viewport->KeyState(EKeys::RightShift);
+	int32 HitX = InViewport->GetMouseX();
+	int32 HitY = InViewport->GetMouseY();
+	bool bCtrlDown = InViewport->KeyState(EKeys::LeftControl) || InViewport->KeyState(EKeys::RightControl);
+	bool bShiftDown = InViewport->KeyState(EKeys::LeftShift) || InViewport->KeyState(EKeys::RightShift);
 
 	bool bHandled = false;
 	if (SharedData->bRunningSimulation)
@@ -293,13 +294,13 @@ bool FPhATEdPreviewViewportClient::InputKey(FViewport* Viewport, int32 Controlle
 				if (bShiftDown)
 				{
 					bHandled = true;
-					SimMousePress(Viewport, false, Key);
+					SimMousePress(InViewport, false, Key);
 					bAllowedToMoveCamera = false;
 				}
 				else if (bCtrlDown)
 				{
 					bHandled = true;
-					SimMousePress(Viewport, true, Key);
+					SimMousePress(InViewport, true, Key);
 					bAllowedToMoveCamera = false;
 				}
 			}
@@ -331,7 +332,7 @@ bool FPhATEdPreviewViewportClient::InputKey(FViewport* Viewport, int32 Controlle
 
 	if( !bHandled )
 	{
-		bHandled = FEditorViewportClient::InputKey( Viewport, ControllerId, Key, Event, AmountDepressed, Gamepad );
+		bHandled = FEditorViewportClient::InputKey( InViewport, ControllerId, Key, Event, AmountDepressed, Gamepad );
 	}
 
 	if( bHandled )
@@ -342,13 +343,13 @@ bool FPhATEdPreviewViewportClient::InputKey(FViewport* Viewport, int32 Controlle
 	return bHandled;
 }
 
-bool FPhATEdPreviewViewportClient::InputAxis(FViewport* Viewport, int32 ControllerId, FKey Key, float Delta, float DeltaTime, int32 NumSamples, bool bGamepad)
+bool FPhATEdPreviewViewportClient::InputAxis(FViewport* InViewport, int32 ControllerId, FKey Key, float Delta, float DeltaTime, int32 NumSamples, bool bGamepad)
 {
 	bool bHandled = false;
 	// If we are 'manipulating' don't move the camera but do something else with mouse input.
 	if (SharedData->bManipulating)
 	{
-		bool bCtrlDown = Viewport->KeyState(EKeys::LeftControl) || Viewport->KeyState(EKeys::RightControl);
+		bool bCtrlDown = InViewport->KeyState(EKeys::LeftControl) || InViewport->KeyState(EKeys::RightControl);
 
 		if (SharedData->bRunningSimulation)
 		{
@@ -366,10 +367,10 @@ bool FPhATEdPreviewViewportClient::InputAxis(FViewport* Viewport, int32 Controll
 
 	if( !bHandled )
 	{
-		bHandled = FEditorViewportClient::InputAxis(Viewport,ControllerId,Key,Delta,DeltaTime,NumSamples,bGamepad);
+		bHandled = FEditorViewportClient::InputAxis(InViewport,ControllerId,Key,Delta,DeltaTime,NumSamples,bGamepad);
 	}
 
-	Viewport->Invalidate();
+	InViewport->Invalidate();
 
 	return bHandled;
 }
@@ -460,7 +461,7 @@ void FPhATEdPreviewViewportClient::ProcessClick(class FSceneView& View, class HH
 	}
 }
 
-bool FPhATEdPreviewViewportClient::InputWidgetDelta( FViewport* Viewport, EAxisList::Type CurrentAxis, FVector& Drag, FRotator& Rot, FVector& Scale )
+bool FPhATEdPreviewViewportClient::InputWidgetDelta( FViewport* InViewport, EAxisList::Type CurrentAxis, FVector& Drag, FRotator& Rot, FVector& Scale )
 {
 	bool bHandled = false;
 	TArray<FPhATSharedData::FSelection> & SelectedObjects = SharedData->EditingMode == FPhATSharedData::PEM_BodyEdit ? SharedData->SelectedBodies : SharedData->SelectedConstraints;
@@ -473,7 +474,7 @@ bool FPhATEdPreviewViewportClient::InputWidgetDelta( FViewport* Viewport, EAxisL
 			float BoneScale = 1.f;
 			if (SharedData->EditingMode == FPhATSharedData::PEM_BodyEdit) /// BODY EDITING ///
 			{
-				int32 BoneIndex = SharedData->EditorSkelComp->GetBoneIndex(SharedData->PhysicsAsset->BodySetup[SelectedObject.Index]->BoneName);
+				int32 BoneIndex = SharedData->EditorSkelComp->GetBoneIndex(SharedData->PhysicsAsset->SkeletalBodySetups[SelectedObject.Index]->BoneName);
 
 				FTransform BoneTM = SharedData->EditorSkelComp->GetBoneTransform(BoneIndex);
 				BoneScale = BoneTM.GetScale3D().GetAbsMax();
@@ -597,7 +598,7 @@ FVector FPhATEdPreviewViewportClient::GetWidgetLocation() const
 			return FVector::ZeroVector;
 		}
 
-		int32 BoneIndex = SharedData->EditorSkelComp->GetBoneIndex(SharedData->PhysicsAsset->BodySetup[SharedData->GetSelectedBody()->Index]->BoneName);
+		int32 BoneIndex = SharedData->EditorSkelComp->GetBoneIndex(SharedData->PhysicsAsset->SkeletalBodySetups[SharedData->GetSelectedBody()->Index]->BoneName);
 
 		FTransform BoneTM = SharedData->EditorSkelComp->GetBoneTransform(BoneIndex);
 		const float Scale = BoneTM.GetScale3D().GetAbsMax();
@@ -628,7 +629,7 @@ FMatrix FPhATEdPreviewViewportClient::GetWidgetCoordSystem() const
 				return FMatrix::Identity;
 			}
 
-			int32 BoneIndex = SharedData->EditorSkelComp->GetBoneIndex(SharedData->PhysicsAsset->BodySetup[SharedData->GetSelectedBody()->Index]->BoneName);
+			int32 BoneIndex = SharedData->EditorSkelComp->GetBoneIndex(SharedData->PhysicsAsset->SkeletalBodySetups[SharedData->GetSelectedBody()->Index]->BoneName);
 
 			FTransform BoneTM = SharedData->EditorSkelComp->GetBoneTransform(BoneIndex);
 			BoneTM.RemoveScaling();
@@ -678,9 +679,16 @@ void FPhATEdPreviewViewportClient::Tick(float DeltaSeconds)
 		Setting->bWorldGravitySet = true;
 
 		// We back up the transforms array now
-		SharedData->EditorSkelComp->AnimationSpaceBases = SharedData->EditorSkelComp->GetSpaceBases();
+		SharedData->EditorSkelComp->AnimationSpaceBases = SharedData->EditorSkelComp->GetComponentSpaceTransforms();
 		SharedData->EditorSkelComp->SetPhysicsBlendWeight(SharedData->EditorSimOptions->PhysicsBlend);
 		SharedData->EditorSkelComp->bUpdateJointsFromAnimation = SharedData->EditorSimOptions->bUpdateJointsFromAnimation;
+		SharedData->EditorSkelComp->PhysicsTransformUpdateMode = SharedData->EditorSimOptions->PhysicsUpdateMode;
+
+
+		static FPhysicalAnimationData EmptyProfile;
+
+		SharedData->PhysicalAnimationComponent->ApplyPhysicalAnimationProfileBelow(NAME_None, SharedData->PhysicsAsset->CurrentPhysicalAnimationProfileName, /*Include Self=*/true, /*Clear Not Found=*/true);
+		
 	}
 
 	World->Tick(LEVELTICK_All, DeltaSeconds * SharedData->EditorSimOptions->TimeDilation);
@@ -742,7 +750,7 @@ void FPhATEdPreviewViewportClient::StartManipulating(EAxisList::Type Axis, const
 		GEditor->BeginTransaction( NSLOCTEXT("UnrealEd", "MoveElement", "Move Element") );
 		for(int32 i=0; i<SharedData->SelectedBodies.Num(); ++i)
 		{
-			SharedData->PhysicsAsset->BodySetup[SharedData->SelectedBodies[i].Index]->Modify();
+			SharedData->PhysicsAsset->SkeletalBodySetups[SharedData->SelectedBodies[i].Index]->Modify();
 			SharedData->SelectedBodies[i].ManipulateTM = FTransform::Identity;
 		}
 
@@ -783,7 +791,7 @@ void FPhATEdPreviewViewportClient::EndManipulating()
 				for(int32 i=0; i<SharedData->SelectedBodies.Num(); ++i)
 				{
 					FPhATSharedData::FSelection & SelectedObject = SharedData->SelectedBodies[i];
-					UBodySetup* BodySetup = SharedData->PhysicsAsset->BodySetup[SelectedObject.Index];
+					UBodySetup* BodySetup = SharedData->PhysicsAsset->SkeletalBodySetups[SelectedObject.Index];
 
 					FKAggregateGeom* AggGeom = &BodySetup->AggGeom;
 
@@ -813,15 +821,15 @@ void FPhATEdPreviewViewportClient::EndManipulating()
 	}
 }
 
-void FPhATEdPreviewViewportClient::SimMousePress(FViewport* Viewport, bool bConstrainRotation, FKey Key)
+void FPhATEdPreviewViewportClient::SimMousePress(FViewport* InViewport, bool bConstrainRotation, FKey Key)
 {
-	bool bCtrlDown = Viewport->KeyState(EKeys::LeftControl) || Viewport->KeyState(EKeys::RightControl);
-	bool bShiftDown = Viewport->KeyState(EKeys::LeftShift) || Viewport->KeyState(EKeys::RightShift);
+	bool bCtrlDown = InViewport->KeyState(EKeys::LeftControl) || InViewport->KeyState(EKeys::RightControl);
+	bool bShiftDown = InViewport->KeyState(EKeys::LeftShift) || InViewport->KeyState(EKeys::RightShift);
 
-	FSceneViewFamilyContext ViewFamily(FSceneViewFamily::ConstructionValues( Viewport, GetScene(), EngineShowFlags ));
+	FSceneViewFamilyContext ViewFamily(FSceneViewFamily::ConstructionValues( InViewport, GetScene(), EngineShowFlags ));
 	FSceneView* View = CalcSceneView(&ViewFamily);
 
-	const FViewportClick Click(View, this, EKeys::Invalid, IE_Released, Viewport->GetMouseX(), Viewport->GetMouseY());
+	const FViewportClick Click(View, this, EKeys::Invalid, IE_Released, InViewport->GetMouseX(), InViewport->GetMouseY());
 #if DEBUG_CLICK_VIEWPORT	
 	SharedData->LastClickOrigin = Click.GetOrigin();
 	SharedData->LastClickDirection = Click.GetDirection();
@@ -833,7 +841,7 @@ void FPhATEdPreviewViewportClient::SimMousePress(FViewport* Viewport, bool bCons
 	if (bHit)
 	{
 		check(Result.Item != INDEX_NONE);
-		FName BoneName = SharedData->PhysicsAsset->BodySetup[Result.Item]->BoneName;
+		FName BoneName = SharedData->PhysicsAsset->SkeletalBodySetups[Result.Item]->BoneName;
 
 		//UE_LOG(LogPhysics, Warning, TEXT("Hit Bone Name (%s)"), *BoneName.ToString());
 
@@ -853,7 +861,7 @@ void FPhATEdPreviewViewportClient::SimMousePress(FViewport* Viewport, bool bCons
 			SharedData->MouseHandle->InterpolationSpeed = SharedData->EditorSimOptions->InterpolationSpeed;
 
 			// Create handle to object.
-			SharedData->MouseHandle->GrabComponent(SharedData->EditorSkelComp, BoneName, Result.Location, bConstrainRotation);
+			SharedData->MouseHandle->GrabComponentAtLocationWithRotation(SharedData->EditorSkelComp, BoneName, Result.Location, FRotator::ZeroRotator);
 
 			FMatrix	InvViewMatrix = View->ViewMatrices.ViewMatrix.InverseFast();
 
@@ -951,7 +959,7 @@ void FPhATEdPreviewViewportClient::ModifyPrimitiveSize(int32 BodyIndex, EKCollis
 {
 	check(SharedData->GetSelectedBody());
 
-	FKAggregateGeom* AggGeom = &SharedData->PhysicsAsset->BodySetup[BodyIndex]->AggGeom;
+	FKAggregateGeom* AggGeom = &SharedData->PhysicsAsset->SkeletalBodySetups[BodyIndex]->AggGeom;
 
 	if (PrimType == KPT_Sphere)
 	{

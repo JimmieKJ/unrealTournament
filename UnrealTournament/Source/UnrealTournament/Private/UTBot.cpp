@@ -180,7 +180,7 @@ void AUTBot::InitializeCharacter(UUTBotCharacter* NewCharacterData)
 	InitializeSkill(CharacterData->Skill);
 }
 
-float FBestInventoryEval::Eval(APawn* Asker, const FNavAgentProperties& AgentProps, const UUTPathNode* Node, const FVector& EntryLoc, int32 TotalDistance)
+float FBestInventoryEval::Eval(APawn* Asker, const FNavAgentProperties& AgentProps, AController* RequestOwner, const UUTPathNode* Node, const FVector& EntryLoc, int32 TotalDistance)
 {
 	float BestNodeWeight = 0.0f;
 	for (TWeakObjectPtr<AActor> TestActor : Node->POIs)
@@ -215,8 +215,8 @@ float FBestInventoryEval::Eval(APawn* Asker, const FNavAgentProperties& AgentPro
 				}
 				if (bConsiderActive)
 				{
-					float NewWeight = TestPickup->BotDesireability(Asker, PickupDist);
-					if (AllowPickup(Asker, TestPickup, NewWeight, PickupDist))
+					float NewWeight = TestPickup->BotDesireability(Asker, RequestOwner, PickupDist);
+					if (AllowPickup(Asker, RequestOwner, TestPickup, NewWeight, PickupDist))
 					{
 						NewWeight /= PickupDist;
 						if (NewWeight > BestNodeWeight)
@@ -237,8 +237,8 @@ float FBestInventoryEval::Eval(APawn* Asker, const FNavAgentProperties& AgentPro
 				if (TestDrop != NULL)
 				{
 					const float PickupDist = FMath::Max<float>(1.0f, float(TotalDistance) + (TestDrop->GetActorLocation() - EntryLoc).Size());
-					float NewWeight = TestDrop->BotDesireability(Asker, TotalDistance);
-					if (AllowPickup(Asker, TestDrop, NewWeight, PickupDist))
+					float NewWeight = TestDrop->BotDesireability(Asker, RequestOwner, TotalDistance);
+					if (AllowPickup(Asker, RequestOwner, TestDrop, NewWeight, PickupDist))
 					{
 						NewWeight /= PickupDist;
 						if (NewWeight > BestNodeWeight)
@@ -270,7 +270,7 @@ bool FBestInventoryEval::GetRouteGoal(AActor*& OutGoal, FVector& OutGoalLoc) con
 		return false;
 	}
 }
-float FHideLocEval::Eval(APawn* Asker, const FNavAgentProperties& AgentProps, const UUTPathNode* Node, const FVector& EntryLoc, int32 TotalDistance)
+float FHideLocEval::Eval(APawn* Asker, const FNavAgentProperties& AgentProps, AController* RequestOwner, const UUTPathNode* Node, const FVector& EntryLoc, int32 TotalDistance)
 {
 	if (Node->bDestinationOnly || RejectNodes.Contains(Node))
 	{
@@ -326,6 +326,7 @@ void AUTBot::InitializeSkill(float NewBaseSkill)
 		PS->CTFMatchesPlayed = 255;
 		PS->DMMatchesPlayed = 255;
 		PS->ShowdownMatchesPlayed = 255;
+		PS->FlagRunMatchesPlayed = 255;
 	}
 
 	float AimingSkill = Skill + Personality.Accuracy;
@@ -703,9 +704,9 @@ void AUTBot::Tick(float DeltaTime)
 		// check current enemy every frame, others on a slightly random timer to avoid hitches
 		if (Enemy != NULL)
 		{
-			if (!FBotEnemyInfo::StaticIsValid(Enemy))
+			if (!FBotEnemyInfo::StaticIsValid(Enemy, this))
 			{
-				// enemy was destroyed directly instead of killed so we didn't get notify
+				// enemy was destroyed or changed team directly instead of killed so we didn't get notify
 				SetEnemy(NULL);
 			}
 			else
@@ -1206,7 +1207,7 @@ void AUTBot::DisplayDebug(UCanvas* Canvas, const FDebugDisplayInfo& DebugDisplay
 	YPos += YL;
 	YPos += YL;
 	Canvas->SetDrawColor(255, 0, 0);
-	Canvas->DrawText(GEngine->GetSmallFont(), FString::Printf(TEXT("ENEMIES (current: %s, last rated %f ago)"), (Enemy != NULL && Enemy->PlayerState != NULL) ? *Enemy->PlayerState->PlayerName : *GetNameSafe(Enemy), GetWorld()->TimeSeconds - LastPickEnemyTime), 4.0f, YPos);
+	Canvas->DrawText(GEngine->GetSmallFont(), FString::Printf(TEXT("ENEMIES (current: %s (visible: %s), last rated %f ago)"), (Enemy != NULL && Enemy->PlayerState != NULL) ? *Enemy->PlayerState->PlayerName : *GetNameSafe(Enemy), (Enemy != NULL && IsEnemyVisible(Enemy)) ? TEXT("True") : TEXT("False"), GetWorld()->TimeSeconds - LastPickEnemyTime), 4.0f, YPos);
 	YPos += YL;
 	for (const FBotEnemyRating& RatingInfo : LastPickEnemyRatings)
 	{
@@ -1793,7 +1794,7 @@ void AUTBot::NotifyMoveBlocked(const FHitResult& Impact)
 				if (!bAdjusting && CurrentPath.EndPoly != INVALID_NAVNODEREF)
 				{
 					FCollisionQueryParams Params(FName(TEXT("MoveBlocked")), false, GetPawn());
-					if (!GetWorld()->LineTraceTestByChannel(LastReachedMovePoint, MovePoint, ECC_Pawn, Params))
+					if (!GetWorld()->LineTraceTestByChannel(LastReachedMovePoint + FVector(0.0f, 0.0f, GetCharacter()->GetCharacterMovement()->MaxStepHeight), MovePoint, ECC_Pawn, Params))
 					{
 						// path requires adjustment or jump from the start
 						// check if jump would be valid
@@ -1850,7 +1851,10 @@ void AUTBot::NotifyMoveBlocked(const FHitResult& Impact)
 				}
 				if (!bGotAdjustLoc)
 				{
-					if (MoveTarget.IsValid() && (CurrentPath.ReachFlags & R_JUMP)) // TODO: maybe also if chasing enemy?)
+					// jump if it's a jump path or if it's a small ledge just larger than stepheight (accounts for coming at slopes/stairs from the wrong angle)
+					// TODO: maybe also if chasing enemy?
+					const FVector TraceHeightAdjust(0.0f, 0.0f, GetCharacter()->GetCharacterMovement()->MaxStepHeight + 10.0f);
+					if (MoveTarget.IsValid() && ((CurrentPath.ReachFlags & R_JUMP) || !GetWorld()->SweepTestByChannel(MyLoc + TraceHeightAdjust, MyLoc + (MovePoint - MyLoc).GetSafeNormal2D() * GetPawn()->GetSimpleCollisionRadius() * 4.0f + TraceHeightAdjust, FQuat::Identity, ECC_Pawn, FCollisionShape::MakeCapsule(GetPawn()->GetSimpleCollisionCylinderExtent()), FCollisionQueryParams(NAME_None, false), WorldResponseParams)))
 					{
 						FVector Diff = MovePoint - MyLoc;
 						// make sure hit wall in actual direction we should be going (commonly this check fails when multiple jumps are required and AI hasn't adjusted velocity to new direction yet)
@@ -2310,7 +2314,7 @@ bool AUTBot::FindInventoryGoal(float MinWeight)
 		LastFindInventoryWeight = MinWeight;
 
 		FBestInventoryEval NodeEval(RespawnPredictionTime, (GetCharacter() != NULL) ? GetCharacter()->GetCharacterMovement()->MaxWalkSpeed : GetDefault<AUTCharacter>()->GetCharacterMovement()->MaxWalkSpeed, (MinWeight > 0.0f) ? FMath::TruncToInt(5.0f / MinWeight) : 0);
-		return NavData->FindBestPath(GetPawn(), GetPawn()->GetNavAgentPropertiesRef(), NodeEval, GetPawn()->GetNavAgentLocation(), MinWeight, false, RouteCache);
+		return NavData->FindBestPath(GetPawn(), GetPawn()->GetNavAgentPropertiesRef(), this, NodeEval, GetPawn()->GetNavAgentLocation(), MinWeight, false, RouteCache);
 	}
 }
 
@@ -2334,7 +2338,7 @@ bool AUTBot::TryPathToward(AActor* Goal, bool bAllowDetours, const FString& Succ
 		}
 		FSingleEndpointEval NodeEval(Goal);
 		float Weight = 0.0f;
-		if (NavData->FindBestPath(GetPawn(), GetPawn()->GetNavAgentPropertiesRef(), NodeEval, GetPawn()->GetNavAgentLocation(), Weight, bAllowDetours, RouteCache))
+		if (NavData->FindBestPath(GetPawn(), GetPawn()->GetNavAgentPropertiesRef(), this, NodeEval, GetPawn()->GetNavAgentLocation(), Weight, bAllowDetours, RouteCache))
 		{
 			GoalString = SuccessGoalString;
 			SetMoveTarget(RouteCache[0]);
@@ -2629,7 +2633,7 @@ void AUTBot::ExecuteWhatToDoNext()
 				GoalString = TEXT("Lost, wander randomly...");
 				FRandomDestEval NodeEval;
 				float Weight = 0.0f;
-				if (NavData->FindBestPath(GetPawn(), GetPawn()->GetNavAgentPropertiesRef(), NodeEval, GetPawn()->GetNavAgentLocation(), Weight, true, RouteCache) && RouteCache.Num() > 1)
+				if (NavData->FindBestPath(GetPawn(), GetPawn()->GetNavAgentPropertiesRef(), this, NodeEval, GetPawn()->GetNavAgentLocation(), Weight, true, RouteCache) && RouteCache.Num() > 1)
 				{
 					SetMoveTarget(RouteCache[0]);
 					StartNewAction(WaitForMoveAction);
@@ -3016,7 +3020,7 @@ void AUTBot::DoCharge()
 		{
 			float Weight = 0.0f;
 			FSingleEndpointEval NodeEval(GetTarget());
-			NavData->FindBestPath(GetPawn(), GetPawn()->GetNavAgentPropertiesRef(), NodeEval, GetPawn()->GetNavAgentLocation(), Weight, true, RouteCache);
+			NavData->FindBestPath(GetPawn(), GetPawn()->GetNavAgentPropertiesRef(), this, NodeEval, GetPawn()->GetNavAgentLocation(), Weight, true, RouteCache);
 			if (RouteCache.Num() > 0)
 			{
 				SetMoveTarget(RouteCache[0]);
@@ -3151,7 +3155,7 @@ void AUTBot::DoHunt(APawn* NewHuntTarget)
 					// pick a random point for now
 					FRandomDestEval NodeEval;
 					float Weight = 0.0f;
-					if (NavData->FindBestPath(GetPawn(), GetPawn()->GetNavAgentPropertiesRef(), NodeEval, GetPawn()->GetNavAgentLocation(), Weight, true, RouteCache))
+					if (NavData->FindBestPath(GetPawn(), GetPawn()->GetNavAgentPropertiesRef(), this, NodeEval, GetPawn()->GetNavAgentLocation(), Weight, true, RouteCache))
 					{
 						HuntEndpoints.Add(RouteCache.Last());
 					}
@@ -3190,8 +3194,7 @@ void AUTBot::DoHunt(APawn* NewHuntTarget)
 				float Weight = 0.0f;
 				TArray<FRouteCacheItem> EnemyRouteCache;
 				TArray<int32> EnemyRouteCosts;
-				// TODO: better would be to pass in enemy Pawn for correct capabilities but currently there are too many assumption about bot controller, etc
-				if (NavData->FindBestPath(GetPawn(), EnemyInfo->GetPawn()->GetNavAgentPropertiesRef(), NodeEval, EnemyInfo->LastKnownLoc, Weight, false, EnemyRouteCache, &EnemyRouteCosts))
+				if (NavData->FindBestPath(EnemyInfo->GetPawn(), EnemyInfo->GetPawn()->GetNavAgentPropertiesRef(), this, NodeEval, EnemyInfo->LastKnownLoc, Weight, false, EnemyRouteCache, &EnemyRouteCosts))
 				{
 					// remove those points that the enemy is predicted to have or will have passed by the time we could get there
 					
@@ -3251,7 +3254,10 @@ void AUTBot::DoHunt(APawn* NewHuntTarget)
 								// (minimize backtracking to get on the intercept path)
 								for (int32 j = i; j < EnemyRouteCache.Num() && (EnemyRouteCache[j].GetLocation(GetPawn()) - PredictedEnemyLoc).SizeSquared() < PredictedEnemyDistSq; j++)
 								{
-									HuntEndpoints.Add(EnemyRouteCache[j]);
+									if (!EnemyRouteCache[j].Node->bDestinationOnly)
+									{
+										HuntEndpoints.Add(EnemyRouteCache[j]);
+									}
 								}
 							}
 							break;
@@ -3266,7 +3272,7 @@ void AUTBot::DoHunt(APawn* NewHuntTarget)
 			// path to first found possible enemy location
 			FMultiPathNodeEval NodeEval(HuntEndpoints);
 			float Weight = 0.0f;
-			if (NavData->FindBestPath(GetPawn(), GetPawn()->GetNavAgentPropertiesRef(), NodeEval, GetPawn()->GetNavAgentLocation(), Weight, true, RouteCache))
+			if (NavData->FindBestPath(GetPawn(), GetPawn()->GetNavAgentPropertiesRef(), this, NodeEval, GetPawn()->GetNavAgentLocation(), Weight, true, RouteCache))
 			{
 				SetMoveTarget(RouteCache[0]);
 				StartNewAction(ChargeAction); // TODO: hunting action
@@ -3605,13 +3611,13 @@ protected:
 	TSet<NavNodeRef> TestedPolys;
 
 public:
-	virtual float Eval(APawn* Asker, const FNavAgentProperties& AgentProps, const UUTPathNode* Node, const FVector& EntryLoc, int32 TotalDistance) override
+	virtual float Eval(APawn* Asker, const FNavAgentProperties& AgentProps, AController* RequestOwner, const UUTPathNode* Node, const FVector& EntryLoc, int32 TotalDistance) override
 	{
 		// if the early out at Asker's node was requested, end when we reach it
 		return (bStopAtAsker && Node == AskerAnchor) ? 10.0f : 0.0f;
 	}
 
-	virtual uint32 GetTransientCost(const FUTPathLink& Link, APawn* Asker, const FNavAgentProperties& AgentProps, NavNodeRef StartPoly, int32 TotalDistance) override
+	virtual uint32 GetTransientCost(const FUTPathLink& Link, APawn* Asker, const FNavAgentProperties& AgentProps, AController* RequestOwner, NavNodeRef StartPoly, int32 TotalDistance) override
 	{
 		if (TotalDistance > DistanceLimit)
 		{
@@ -3703,7 +3709,7 @@ void AUTBot::GuessAppearancePoints(AActor* InTarget, FVector TargetLoc, bool bDo
 			FAppearancePointEval NodeEval(InTarget, FoundPoints);
 			float UnusedWeight = 0.0f;
 			TArray<FRouteCacheItem> UnusedRoute;
-			NavData->FindBestPath(GetPawn(), GetPawn()->GetNavAgentPropertiesRef(), NodeEval, TargetLoc - FVector(0.0f, 0.0f, InTarget->GetSimpleCollisionHalfHeight()), UnusedWeight, false, UnusedRoute);
+			NavData->FindBestPath(GetPawn(), GetPawn()->GetNavAgentPropertiesRef(), this, NodeEval, TargetLoc - FVector(0.0f, 0.0f, InTarget->GetSimpleCollisionHalfHeight()), UnusedWeight, false, UnusedRoute);
 		}
 	}
 }
@@ -3724,7 +3730,7 @@ bool AUTBot::MayBecomeVisible(APawn* TestEnemy, float MaxWaitTime)
 		FAppearancePointEval NodeEval(TestEnemy, FoundPoints, FMath::TruncToInt(EnemySpeed * MaxWaitTime));
 		float UnusedWeight = 0.0f;
 		TArray<FRouteCacheItem> UnusedRoute;
-		NavData->FindBestPath(GetPawn(), GetPawn()->GetNavAgentPropertiesRef(), NodeEval, EnemyInfo->LastKnownLoc - FVector(0.0f, 0.0f, TestEnemy->GetSimpleCollisionHalfHeight()), UnusedWeight, false, UnusedRoute);
+		NavData->FindBestPath(GetPawn(), GetPawn()->GetNavAgentPropertiesRef(), this, NodeEval, EnemyInfo->LastKnownLoc - FVector(0.0f, 0.0f, TestEnemy->GetSimpleCollisionHalfHeight()), UnusedWeight, false, UnusedRoute);
 		return FoundPoints.Num() > 0;
 	}
 }
@@ -4156,7 +4162,7 @@ int32 AUTBot::GetRouteDist() const
 				return Dist;
 			}
 			const FUTPathLink& Link = Anchor->Paths[LinkIndex];
-			Dist += Link.CostFor(GetPawn(), GetPawn()->GetNavAgentPropertiesRef(), AnchorPoly, NavData);
+			Dist += Link.CostFor(GetPawn(), GetPawn()->GetNavAgentPropertiesRef(), GetPawn()->Controller, AnchorPoly, NavData);
 			Anchor = Link.End.Get();
 			AnchorPoly = Link.EndPoly;
 		}

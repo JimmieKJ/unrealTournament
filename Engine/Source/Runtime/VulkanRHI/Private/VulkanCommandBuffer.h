@@ -6,55 +6,131 @@
 
 #pragma once
 
-#include "VulkanRHIPrivate.h"
+#include "VulkanConfiguration.h"
 
-struct FVulkanDevice;
+class FVulkanDevice;
+class FVulkanCommandBufferManager;
+
+namespace VulkanRHI
+{
+	class FFence;
+}
 
 class FVulkanCmdBuffer
 {
-	friend struct FVulkanCommandBufferManager;
-	friend struct FVulkanQueue;
+protected:
+	friend class FVulkanCommandBufferManager;
+	friend class FVulkanQueue;
 
 	FVulkanCmdBuffer(FVulkanDevice* InDevice, FVulkanCommandBufferManager* InCommandBufferManager);
-
 	~FVulkanCmdBuffer();
 
 public:
-	VkCommandBuffer& GetHandle(const VkBool32 MakeDirty = true);
+	FVulkanCommandBufferManager* GetOwner()
+	{
+		return CommandBufferManager;
+	}
+
+	inline bool IsInsideRenderPass() const
+	{
+		return State == EState::IsInsideRenderPass;
+	}
+
+	inline bool IsOutsideRenderPass() const
+	{
+		return State == EState::IsInsideBegin;
+	}
+
+	inline bool HasBegun() const
+	{
+		return State == EState::IsInsideBegin || State == EState::IsInsideRenderPass;
+	}
+
+	inline bool HasEnded() const
+	{
+		return State == EState::HasEnded;
+	}
+
+	inline bool IsSubmitted() const
+	{
+		return State == EState::Submitted;
+	}
+
+	inline VkCommandBuffer GetHandle()
+	{
+		return CommandBufferHandle;
+	}
+
+	void BeginRenderPass(const FVulkanRenderTargetLayout& Layout, VkRenderPass RenderPass, VkFramebuffer Framebuffer, const VkClearValue* AttachmentClearValues);
+
+	void EndRenderPass()
+	{
+		check(IsInsideRenderPass());
+		VulkanRHI::vkCmdEndRenderPass(CommandBufferHandle);
+		State = EState::IsInsideBegin;
+	}
+
+	void End()
+	{
+		check(IsOutsideRenderPass());
+		VERIFYVULKANRESULT(VulkanRHI::vkEndCommandBuffer(GetHandle()));
+		State = EState::HasEnded;
+	}
+
+	inline uint64 GetFenceSignaledCounter() const
+	{
+		return FenceSignaledCounter;
+	}
 
 	void Begin();
 
-	void Reset();
-
-	void End();
-
-	VkBool32 GetIsWriting() const;
-	VkBool32 GetIsEmpty() const;
+	enum class EState
+	{
+		ReadyForBegin,
+		IsInsideBegin,
+		IsInsideRenderPass,
+		HasEnded,
+		Submitted,
+	};
 
 private:
 	FVulkanDevice* Device;
 	VkCommandBuffer CommandBufferHandle;
-	VkBool32 IsWriting;
-	VkBool32 IsEmpty;
+	EState State;
+
+	// Do not cache this pointer as it might change depending on VULKAN_REUSE_FENCES
+	VulkanRHI::FFence* Fence;
+
+	uint64 FenceSignaledCounter;
+
+	void RefreshFenceStatus();
 
 	FVulkanCommandBufferManager* CommandBufferManager;
 };
 
-struct FVulkanCommandBufferManager
+class FVulkanCommandBufferManager
 {
+public:
 	FVulkanCommandBufferManager(FVulkanDevice* InDevice);
 
 	~FVulkanCommandBufferManager();
 
-	FVulkanCmdBuffer* Create();
+	inline FVulkanCmdBuffer* GetActiveCmdBuffer()
+	{
+		if (UploadCmdBuffer)
+		{
+			SubmitUploadCmdBuffer(false);
+		}
 
-	void Destroy(FVulkanCmdBuffer* CmdBuffer);
+		return ActiveCmdBuffer;
+	}
 
-	void Submit(FVulkanCmdBuffer* CmdBuffer);
+	FVulkanCmdBuffer* GetUploadCmdBuffer();
 
-private:
-	friend class FVulkanCmdBuffer;
-	friend class FVulkanDynamicRHI;
+	void SubmitUploadCmdBuffer(bool bWaitForFence);
+
+	void RefreshFenceStatus();
+	void PrepareForNewActiveCommandBuffer();
 
 	inline VkCommandPool GetHandle() const
 	{
@@ -65,6 +141,10 @@ private:
 private:
 	FVulkanDevice* Device;
 	VkCommandPool Handle;
+	FVulkanCmdBuffer* ActiveCmdBuffer;
+	FVulkanCmdBuffer* UploadCmdBuffer;
+
+	FVulkanCmdBuffer* Create();
+
 	TArray<FVulkanCmdBuffer*> CmdBuffers;
 };
-

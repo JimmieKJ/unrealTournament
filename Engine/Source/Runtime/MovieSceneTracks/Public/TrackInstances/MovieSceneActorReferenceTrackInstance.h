@@ -36,7 +36,8 @@ private:
 	TSharedPtr<FTrackInstancePropertyBindings> PropertyBindings;
 
 	/** Map from object to initial state */
-	TMap<FObjectKey, AActor*> InitActorReferenceMap;
+	TMap<FObjectKey, TWeakObjectPtr<AActor>> InitActorReferenceMap;
 
-	TMap<FGuid, AActor*> GuidToActorCache;
+	/** Map from guid to cached actor */
+	TMap<FGuid, TWeakObjectPtr<AActor>> GuidToActorCache;
 };

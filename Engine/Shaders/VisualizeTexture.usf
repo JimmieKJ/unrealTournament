@@ -117,8 +117,8 @@ void VisualizeTexturePS(
 		else if (InputValueMapping == 2) // ShadowDepth
 		{
 			// linearly blend from White (near) to Teal (far).
-			float4 TealBlue = float4(54.f/255.f, 117.f/255.f, 136.f/255.f, 0.f);
-			float4 White = float4(1.0f, 1.0f, 1.0f, 0.f);
+			float3 TealBlue = float3(54.f/255.f, 117.f/255.f, 136.f/255.f);
+			float3 White = float3(1.0f, 1.0f, 1.0f);
 			TexLookup.rgb = lerp(White, TealBlue, Depth);
 		}
 #if TEXTURE_TYPE == 6

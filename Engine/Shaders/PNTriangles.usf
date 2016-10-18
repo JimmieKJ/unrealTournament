@@ -80,9 +80,9 @@ float4 ComputeControlPoint(float4 PositionA, float4 PositionB, float4 NormalA)
 		O.WorldB111 = E + ((E - V) / 2.0f);
 
 		float4 TessellationMultipliers;
-		TessellationMultipliers.x = 0.5 * (I[0].TessellationMultiplier + I[1].TessellationMultiplier);
-		TessellationMultipliers.y = 0.5 * (I[1].TessellationMultiplier + I[2].TessellationMultiplier);
-		TessellationMultipliers.z = 0.5 * (I[2].TessellationMultiplier + I[0].TessellationMultiplier);
+		TessellationMultipliers.x = 0.5 * (I[1].TessellationMultiplier + I[2].TessellationMultiplier);
+		TessellationMultipliers.y = 0.5 * (I[2].TessellationMultiplier + I[0].TessellationMultiplier);
+		TessellationMultipliers.z = 0.5 * (I[0].TessellationMultiplier + I[1].TessellationMultiplier);
 		TessellationMultipliers.w = 0.333 * (I[0].TessellationMultiplier + I[1].TessellationMultiplier + I[2].TessellationMultiplier);
 
 		//@todo: This should be vectorized and done in the MainHull shader.
@@ -169,15 +169,19 @@ float4 ComputeControlPoint(float4 PositionA, float4 PositionB, float4 NormalA)
 		FHullShaderConstantOutput HSConstantData,
 		const OutputPatch<FPNTessellationHSToDS, OUT_CONTROL_POINTS> I,
 		float3 BarycentricCoords : SV_DomainLocation
-#if INSTANCED_STEREO
-		, out float4 OutClipDistance : SV_ClipDistance
-		, out float4 OutCullDistance : SV_CullDistance
+#if USE_GLOBAL_CLIP_PLANE
+		, out float OutGlobalClipPlaneDistance : SV_ClipDistance
+#endif
+#if INSTANCED_STEREO && !MULTI_VIEW
+		, out float OutClipDistance : SV_ClipDistance1
 #endif
 		)
 	{
 		#if INSTANCED_STEREO
 			ResolvedView = ResolveView(GetEyeIndex(I[0].PassSpecificData.FactoryInterpolants.InterpolantsVSToPS.PackedEyeIndex));
-			OutCullDistance = OutClipDistance = 0.0;
+			#if !MULTI_VIEW
+				OutClipDistance = 0.0;
+			#endif
 		#else
 			ResolvedView = ResolveView();
 		#endif
@@ -224,6 +228,11 @@ float4 ComputeControlPoint(float4 PositionA, float4 PositionB, float4 NormalA)
 		// NB: the HLSL compiler resolves the 1.f to something efficient (i.e. no-op)
 		FPassSpecificVSToDS Interp = PassInterpolate( PassInterpolate(I[0].PassSpecificData, U, I[1].PassSpecificData, V), 1.f, I[2].PassSpecificData, W );
 
+		// Forward the eye index along
+		#if INSTANCED_STEREO
+		Interp.FactoryInterpolants.InterpolantsVSToPS.PackedEyeIndex = I[0].PassSpecificData.FactoryInterpolants.InterpolantsVSToPS.PackedEyeIndex;
+		#endif
+
 		// get our base material params that we will potentially override
 		FMaterialTessellationParameters MaterialParameters = GetMaterialTessellationParameters(Interp.FactoryInterpolants, WorldPosition.xyz); // VF ops
 
@@ -264,23 +273,27 @@ float4 ComputeControlPoint(float4 PositionA, float4 PositionB, float4 NormalA)
 		// world space displacement value.  This will likely use the tangent2world transform.
 		float3 WorldDisplacement = GetMaterialWorldDisplacement(DisplacementMaterialParameters);
 		WorldPosition.xyz += WorldDisplacement;
-																									
+										
+		#if USE_GLOBAL_CLIP_PLANE
+			OutGlobalClipPlaneDistance = dot(ResolvedView.GlobalClippingPlane, float4(WorldPosition.xyz - ResolvedView.PreViewTranslation.xyz, 1));
+		#endif
+
 		FPassSpecificVSToPS Result = PassFinalizeTessellationOutput(Interp, WorldPosition, MaterialParameters);
 
-		#if INSTANCED_STEREO
+		#if INSTANCED_STEREO && !MULTI_VIEW
 		BRANCH
 		if (IsInstancedStereo(I[0].PassSpecificData.FactoryInterpolants.InterpolantsVSToPS.PackedEyeIndex))
 		{
 			const uint EyeIndex = GetEyeIndex(I[0].PassSpecificData.FactoryInterpolants.InterpolantsVSToPS.PackedEyeIndex);
 
 			// Clip at the center of the screen
-			OutCullDistance.x = OutClipDistance.x = dot(Result.Position, EyeClipEdge[EyeIndex]);
+			OutClipDistance = dot(Result.Position, EyeClipEdge[EyeIndex]);
 			
 			// Scale to the width of a single eye viewport
-			Result.Position.x *= 0.5 * Frame.HMDEyePaddingOffset;
+			Result.Position.x *= 0.5 * ResolvedView.HMDEyePaddingOffset;
 
 			// Shift to the eye viewport
-			Result.Position.x += (EyeOffsetScale[EyeIndex] * Result.Position.w) * (1.0f - 0.5 * Frame.HMDEyePaddingOffset);
+			Result.Position.x += (EyeOffsetScale[EyeIndex] * Result.Position.w) * (1.0f - 0.5 * ResolvedView.HMDEyePaddingOffset);
 		}
 		#endif
 

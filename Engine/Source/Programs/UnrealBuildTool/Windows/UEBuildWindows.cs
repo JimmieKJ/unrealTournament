@@ -89,17 +89,14 @@ namespace UnrealBuildTool
 
 				if (bBuildShaderFormats)
 				{
-					Rules.DynamicallyLoadedModuleNames.Add("ShaderFormatD3D");
+					if (!SupportWindowsXP)
+					{
+						Rules.DynamicallyLoadedModuleNames.Add("ShaderFormatD3D");
+					}
 					Rules.DynamicallyLoadedModuleNames.Add("ShaderFormatOpenGL");
 
-					string VulkanSDKPath = Environment.GetEnvironmentVariable("VK_SDK_PATH");
-					{
-                        if ((!String.IsNullOrEmpty(VulkanSDKPath)))
-						{
-            				Rules.DynamicallyLoadedModuleNames.Remove("VulkanRHI");
-							Rules.DynamicallyLoadedModuleNames.Add("VulkanShaderFormat");
-                        }
-					}
+					Rules.DynamicallyLoadedModuleNames.Remove("VulkanRHI");
+					Rules.DynamicallyLoadedModuleNames.Add("VulkanShaderFormat");
 				}
 			}
 
@@ -115,18 +112,32 @@ namespace UnrealBuildTool
 				Rules.PrivateIncludePaths.Add("Runtime/Windows/D3D12RHI/Private/Windows");
 			}
 
-			if(SupportWindowsXP)
+			if (SupportWindowsXP)
 			{
 				Rules.DynamicallyLoadedModuleNames.Remove("D3D12RHI");
+				Rules.DynamicallyLoadedModuleNames.Remove("D3D11RHI");
+				Rules.DynamicallyLoadedModuleNames.Remove("ShaderFormatD3D");
+				Rules.DynamicallyLoadedModuleNames.Remove("OculusRift");
+				Rules.DynamicallyLoadedModuleNames.Remove("OculusLibrary");
+				Rules.DynamicallyLoadedModuleNames.Remove("OculusInput");
+				Rules.DynamicallyLoadedModuleNames.Remove("OculusAudio");
 				Rules.DynamicallyLoadedModuleNames.Remove("VulkanRHI");
+				Rules.PrivateDependencyModuleNames.Remove("DX11");
+				Rules.PrivateDependencyModuleNames.Remove("DX12");
+				Rules.PrivateDependencyModuleNames.Remove("D3D12RHI");
+				Rules.PrivateDependencyModuleNames.Remove("D3D11RHI");
+				Rules.PrivateDependencyModuleNames.Remove("OpenVR");
 
 				// If we're targeting Windows XP, then always delay-load D3D11 as it won't exist on that architecture
-				if(ModuleName == "DX11")
+				if (ModuleName == "DX11")
 				{
 					Rules.PublicDelayLoadDLLs.Add("d3d11.dll");
 					Rules.PublicDelayLoadDLLs.Add("dxgi.dll");
 				}
 			}
+
+			// For now let's always delay load the vulkan dll as not everyone has it installed
+			Rules.PublicDelayLoadDLLs.Add("vulkan-1.dll");
 		}
 
 		public override void ResetBuildConfiguration(UnrealTargetConfiguration Configuration)
@@ -142,6 +153,16 @@ namespace UnrealBuildTool
 				BuildConfiguration.bUseSharedPCHs = false;
 
 				// @todo clang: PCH files aren't supported by "clang-cl" yet (no /Yc support, and "-x c++-header" cannot be specified)
+				if (WindowsPlatform.bUseVCCompilerArgs)
+				{
+					BuildConfiguration.bUsePCHFiles = false;
+				}
+			}
+
+			if (WindowsPlatform.bCompileWithICL)
+			{
+				BuildConfiguration.bUseSharedPCHs = false;
+
 				if (WindowsPlatform.bUseVCCompilerArgs)
 				{
 					BuildConfiguration.bUsePCHFiles = false;
@@ -226,13 +247,24 @@ namespace UnrealBuildTool
 			InBuildTarget.GlobalCompileEnvironment.Config.Definitions.Add("PLATFORM_WINDOWS=1");
 
 			String MorpheusShaderPath = Path.Combine(BuildConfiguration.RelativeEnginePath, "Shaders/PS4/PostProcessHMDMorpheus.usf");
-			//@todo: VS2015 currently does not have support for Morpheus
-			if (File.Exists(MorpheusShaderPath) && WindowsPlatform.Compiler != WindowsCompiler.VisualStudio2015)
+			if (File.Exists(MorpheusShaderPath))
 			{
 				InBuildTarget.GlobalCompileEnvironment.Config.Definitions.Add("HAS_MORPHEUS=1");
 
 				//on PS4 the SDK now handles distortion correction.  On PC we will still have to handle it manually,				
 				InBuildTarget.GlobalCompileEnvironment.Config.Definitions.Add("MORPHEUS_ENGINE_DISTORTION=1");
+			}
+
+			// Add path to Intel math libraries when using ICL based on target platform
+			if (WindowsPlatform.bCompileWithICL)
+			{
+				var Result = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "IntelSWTools", "compilers_and_libraries", "windows", "compiler", "lib", InBuildTarget.Platform == UnrealTargetPlatform.Win32 ? "ia32" : "intel64");
+				if (!Directory.Exists(Result))
+				{
+					throw new BuildException("ICL was selected but the required math libraries were not found.  Could not find: " + Result);
+				}
+
+				InBuildTarget.GlobalLinkEnvironment.Config.LibraryPaths.Add(Result);
 			}
 
 			if (InBuildTarget.Rules != null)
@@ -342,6 +374,7 @@ namespace UnrealBuildTool
 			if (InBuildTarget.GlobalCompileEnvironment.Config.Definitions.Contains("USE_NULL_RHI=1"))
 			{
 				UEBuildConfiguration.bCompileSimplygon = false;
+                UEBuildConfiguration.bCompileSimplygonSSF = false;
 			}
 
 			// For 64-bit builds, we'll forcibly ignore a linker warning with DirectInput.  This is
@@ -490,10 +523,14 @@ namespace UnrealBuildTool
 						Log.TraceWarning("Visual C++ 2015 toolchain does not appear to be correctly installed. Please verify that \"Common Tools for Visual C++ 2015\" was selected when installing Visual Studio 2015.");
 					}
 				}
+				else if (!Utils.IsRunningOnMono && !String.IsNullOrEmpty(WindowsPlatform.GetVSComnToolsPath(WindowsCompiler.VisualStudio2013)))
+				{
+					CachedCompiler = WindowsCompiler.VisualStudio2013;
+				}
 				else
 				{
-					// Finally assume 2015 is installed to defer errors somewhere else like VCToolChain
-					CachedCompiler = WindowsCompiler.VisualStudio2015;
+					// Finally assume 2015 (and 2013 on non-Windows platforms) is installed to defer errors somewhere else like VCToolChain
+					CachedCompiler = Utils.IsRunningOnMono ? WindowsCompiler.VisualStudio2013 : WindowsCompiler.VisualStudio2015;
 				}
 
 				return CachedCompiler.Value;
@@ -515,10 +552,16 @@ namespace UnrealBuildTool
 		public static readonly bool bCompileWithClang = false;
 
 		/// When using Clang, enabling enables the MSVC-like "clang-cl" wrapper, otherwise we pass arguments to Clang directly
-		public static readonly bool bUseVCCompilerArgs = !bCompileWithClang || false;
+		public static readonly bool bUseVCCompilerArgs = true;
 
 		/// True if we should use the Clang linker (LLD) when bCompileWithClang is enabled, otherwise we use the MSVC linker
 		public static readonly bool bAllowClangLinker = bCompileWithClang && false;
+
+		/// True if we should use the Intel Compiler instead of MSVC to compile code on Windows platform
+		public static readonly bool bCompileWithICL = false;
+
+		/// True if we should use the Intel linker (xilink) when bCompileWithICL is enabled, otherwise we use the MSVC linker
+		public static readonly bool bAllowICLLinker = bCompileWithICL && true;
 
 		/// Whether to compile against the Windows 10 SDK, instead of the Windows 8.1 SDK.  This requires the Visual Studio 2015
 		/// compiler or later, and the Windows 10 SDK must be installed.  The application will require at least Windows 8.x to run.
@@ -527,6 +570,13 @@ namespace UnrealBuildTool
 
 		/// True if we allow using addresses larger than 2GB on 32 bit builds
 		public static bool bBuildLargeAddressAwareBinary = true;
+
+		/// VS2015 updated some of the CRT definitions but not all of the Windows SDK has been updated to match.
+		/// Microsoft provides legacy_stdio_definitions library to enable building with VS2015 until they fix everything up.
+		public static bool bNeedsLegacyStdioDefinitionsLib
+		{
+			get { return Compiler == WindowsCompiler.VisualStudio2015; }
+		}
 
 		/// <summary>
 		/// True if VS EnvDTE is available (false when building using Visual Studio Express)
@@ -580,6 +630,24 @@ namespace UnrealBuildTool
 		public override SDKStatus HasRequiredSDKsInstalled()
 		{
 			return SDK.HasRequiredSDKsInstalled();
+		}
+
+		/// <summary>
+		/// Returns the human-readable name of the given compiler
+		/// </summary>
+		/// <param name="Compiler">The compiler value</param>
+		/// <returns>Name of the compiler</returns>
+		public static string GetCompilerName(WindowsCompiler Compiler)
+		{
+			switch(Compiler)
+			{
+				case WindowsCompiler.VisualStudio2013:
+					return "Visual Studio 2013";
+				case WindowsCompiler.VisualStudio2015:
+					return "Visual Studio 2015";
+				default:
+					return Compiler.ToString();
+			}
 		}
 
 		/// <summary>
@@ -660,24 +728,24 @@ namespace UnrealBuildTool
                 @"Microsoft\WDExpress"					// VSExpress on 32-bit machine.
             };
 
-			string VSPath = null;
-
 			foreach (string PossibleRegPath in PossibleRegPaths)
 			{
-				VSPath = (string)Registry.GetValue(string.Format(@"HKEY_LOCAL_MACHINE\SOFTWARE\{0}\{1}.0", PossibleRegPath, VSVersion), "InstallDir", null);
-
+				string VSPath = (string)Registry.GetValue(string.Format(@"HKEY_LOCAL_MACHINE\SOFTWARE\{0}\{1}.0", PossibleRegPath, VSVersion), "InstallDir", null);
 				if (VSPath != null)
 				{
-					break;
+					return new DirectoryInfo(Path.Combine(VSPath, "..", "Tools")).FullName;
 				}
 			}
 
-			if (VSPath == null)
+			// Fall back to checking the environment variable
+			string ComnToolsPath = Environment.GetEnvironmentVariable(string.Format("VS{0}0COMNTOOLS", VSVersion));
+			if (!String.IsNullOrEmpty(ComnToolsPath))
 			{
-				return null;
+				return new DirectoryInfo(ComnToolsPath).FullName;
 			}
 
-			return new DirectoryInfo(Path.Combine(VSPath, "..", "Tools")).FullName;
+			// Otherwise fail
+			return null;
 		}
 
 		/// <summary>
@@ -856,7 +924,13 @@ namespace UnrealBuildTool
 		/// <returns>New platform context object</returns>
 		public override UEBuildPlatformContext CreateContext(FileReference ProjectFile)
 		{
-			return new WindowsPlatformContext(Platform, ProjectFile);
+			WindowsPlatformContext Context = new WindowsPlatformContext(Platform, ProjectFile);
+			if (Context.SupportWindowsXP)
+			{
+				// There are still issues with VS2015's support for XP. For now we need to lock it to the 2013 toolchain.
+				CachedCompiler = WindowsCompiler.VisualStudio2013;
+			}
+            return Context;
 		}
 	}
 

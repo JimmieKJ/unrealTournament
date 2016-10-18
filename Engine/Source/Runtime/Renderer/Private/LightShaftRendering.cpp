@@ -275,8 +275,8 @@ public:
 
 	static void ModifyCompilationEnvironment(EShaderPlatform Platform, FShaderCompilerEnvironment& OutEnvironment)
 	{
-		OutEnvironment.SetDefine(TEXT("POINT_LIGHT_SHAFTS"), (LightType == LightType_Point || LightType == LightType_Spot) ? TEXT("1") : TEXT("0"));
-		OutEnvironment.SetDefine(TEXT("SPOT_LIGHT_SHAFTS"), (LightType == LightType_Spot) ? TEXT("1") : TEXT("0"));
+		OutEnvironment.SetDefine(TEXT("POINT_LIGHT_SHAFTS"), (LightType == LightType_Point || LightType == LightType_Spot));
+		OutEnvironment.SetDefine(TEXT("SPOT_LIGHT_SHAFTS"), (LightType == LightType_Spot));
 		OutEnvironment.SetDefine(TEXT("POINT_LIGHT_RADIUS_FADE_FACTOR"), PointLightRadiusFadeFactor);
 		OutEnvironment.SetDefine(TEXT("OCCLUSION_TERM"), (uint32)bOcclusionTerm);
 	}
@@ -538,7 +538,7 @@ void ApplyTemporalAA(
 	/** Output of Temporal AA for the next step in the pipeline. */
 	TRefCountPtr<IPooledRenderTarget>& HistoryOutput)
 {
-	if (View.FinalPostProcessSettings.AntiAliasingMethod == AAM_TemporalAA
+	if (View.AntiAliasingMethod == AAM_TemporalAA
 		&& HistoryState)
 	{
 		if (*HistoryState && !View.bCameraCut)
@@ -694,7 +694,7 @@ bool DoesViewFamilyAllowLightShafts(const FSceneViewFamily& ViewFamily)
 	return GLightShafts
 		&& ViewFamily.EngineShowFlags.LightShafts
 		&& ViewFamily.EngineShowFlags.Lighting
-		&& ViewFamily.GetDebugViewShaderMode() == DVSM_None
+		&& !ViewFamily.UseDebugViewPS()
 		&& !(ViewFamily.EngineShowFlags.VisualizeAdaptiveDOF)
 		&& !(ViewFamily.EngineShowFlags.VisualizeDOF)
 		&& !(ViewFamily.EngineShowFlags.VisualizeBuffer)
@@ -901,7 +901,7 @@ void ApplyLightShaftBloom(FRHICommandListImmediate& RHICmdList, const FViewInfo&
 		*ScreenVertexShader,
 		EDRF_UseTriangleOptimization);
 
-	SceneContext.FinishRenderingSceneColor(RHICmdList, true);
+	SceneContext.FinishRenderingSceneColor(RHICmdList);
 }
 
 void FSceneViewState::TrimHistoryRenderTargets(const FScene* Scene)

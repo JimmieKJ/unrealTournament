@@ -8,7 +8,6 @@
 
 struct FK2Node_CreateDelegate_Helper
 {
-	static FString ObjectInputName;
 	static FString DelegateOutputName;
 };
 FString FK2Node_CreateDelegate_Helper::DelegateOutputName(TEXT("OutputDelegate"));
@@ -37,12 +36,12 @@ void UK2Node_CreateDelegate::AllocateDefaultPins()
 
 bool UK2Node_CreateDelegate::IsValid(FString* OutMsg, bool bDontUseSkeletalClassForSelf) const
 {
-
-	if (GetFunctionName() == NAME_None)
+	FName FunctionName = GetFunctionName();
+	if (FunctionName == NAME_None)
 	{
 		if (OutMsg)
 		{
-			*OutMsg = NSLOCTEXT("K2Node", "No_function_name", "No function name.").ToString();
+			*OutMsg = NSLOCTEXT("K2Node", "No_function_name", "No function/event specified.").ToString();
 		}
 		return false;
 	}
@@ -52,7 +51,7 @@ bool UK2Node_CreateDelegate::IsValid(FString* OutMsg, bool bDontUseSkeletalClass
 	{
 		if (OutMsg)
 		{
-			*OutMsg = NSLOCTEXT("K2Node", "No_delegate_out_pin", "No delegate out pin.").ToString();
+			*OutMsg = NSLOCTEXT("K2Node", "No_delegate_out_pin", "Malformed node - there's no delegate output pin.").ToString();
 		}
 		return false;
 	}
@@ -62,7 +61,7 @@ bool UK2Node_CreateDelegate::IsValid(FString* OutMsg, bool bDontUseSkeletalClass
 	{
 		if (OutMsg)
 		{
-			*OutMsg = NSLOCTEXT("K2Node", "Signature_not_found", "Signature not found.").ToString();
+			*OutMsg = NSLOCTEXT("K2Node", "Signature_not_found", "Unable to determine expected signature - is the delegate pin connected?").ToString();
 		}
 		return false;
 	}
@@ -76,7 +75,17 @@ bool UK2Node_CreateDelegate::IsValid(FString* OutMsg, bool bDontUseSkeletalClass
 		{
 			if (OutMsg)
 			{
-				*OutMsg = NSLOCTEXT("K2Node", "No_delegate_out_pin", "No delegate out pin.").ToString();
+				if (const UK2Node_BaseMCDelegate* DelegateNode = Cast<const UK2Node_BaseMCDelegate>(OtherPin->GetOwningNode()))
+				{
+					const FString DelegateName = DelegateNode->GetPropertyName().ToString();
+
+					*OutMsg = FString::Printf(*NSLOCTEXT("K2Node", "Bad_delegate_connection_named", "A connected delegate (%s) has an incompatible signature - has that delegate changed?").ToString(),
+						*DelegateName);
+				}
+				else
+				{
+					*OutMsg = NSLOCTEXT("K2Node", "Bad_delegate_connection", "A connected delegate's signature is incompatible - has that delegate changed?").ToString();
+				}
 			}
 			return false;
 		}
@@ -87,7 +96,14 @@ bool UK2Node_CreateDelegate::IsValid(FString* OutMsg, bool bDontUseSkeletalClass
 	{
 		if (OutMsg)
 		{
-			*OutMsg = NSLOCTEXT("K2Node", "Class_not_found", "Class not found.").ToString();
+			FString SelfPinName = UEdGraphSchema_K2::PN_Self;
+			if (UEdGraphPin* SelfPin = GetObjectInPin())
+			{
+				SelfPinName = SelfPin->PinFriendlyName.IsEmpty() ? SelfPin->PinFriendlyName.ToString() : SelfPin->PinName;
+			}
+
+			*OutMsg = FString::Printf(*NSLOCTEXT("K2Node", "Class_not_found", "Unable to determine context for the selected function/event: '%s' - make sure the target '%s' pin is properly set up.").ToString(),
+				*FunctionName.ToString(), *SelfPinName);
 		}
 		return false;
 	}
@@ -99,7 +115,9 @@ bool UK2Node_CreateDelegate::IsValid(FString* OutMsg, bool bDontUseSkeletalClass
 	{
 		if (OutMsg)
 		{
-			*OutMsg = NSLOCTEXT("K2Node", "Function_not_found", "Function not found.").ToString();
+			*OutMsg = FString::Printf(*NSLOCTEXT("K2Node", "Function_not_found", "Unable to find the selected function/event: '%s' - has it been deleted?").ToString(),
+				*FunctionName.ToString());
+
 		}
 		return false;
 	}
@@ -107,7 +125,8 @@ bool UK2Node_CreateDelegate::IsValid(FString* OutMsg, bool bDontUseSkeletalClass
 	{
 		if (OutMsg)
 		{
-			*OutMsg = NSLOCTEXT("K2Node", "Function_not_compatible", "Function not compatible.").ToString();
+			*OutMsg = FString::Printf(*NSLOCTEXT("K2Node", "Function_not_compatible", "The function/event '%s' does not match the necessary signature - has the delegate or function/event changed?").ToString(),
+				*FunctionName.ToString());
 		}
 		return false;
 	}
@@ -115,7 +134,8 @@ bool UK2Node_CreateDelegate::IsValid(FString* OutMsg, bool bDontUseSkeletalClass
 	{
 		if (OutMsg)
 		{
-			*OutMsg = NSLOCTEXT("K2Node", "Function_cannot_be_used_in_delegate", "Function cannot be used in delegate.").ToString();
+			*OutMsg = FString::Printf(*NSLOCTEXT("K2Node", "Function_cannot_be_used_in_delegate", "The selected function/event is not bindable - is the function/event pure or latent?").ToString(),
+				*FunctionName.ToString());
 		}
 		return false;
 	}
@@ -130,7 +150,8 @@ bool UK2Node_CreateDelegate::IsValid(FString* OutMsg, bool bDontUseSkeletalClass
 			{
 				if(OutMsg)
 				{
-					*OutMsg = NSLOCTEXT("K2Node", "WrongDelegateAuthorityOnly", "No AuthorityOnly flag").ToString();
+					*OutMsg = FString::Printf(*NSLOCTEXT("K2Node", "WrongDelegateAuthorityOnly", "The selected function/event ('%s') is not compatible with this delegate (the delegate is server-only) - try marking the function/event AuthorityOnly.").ToString(),
+						*FunctionName.ToString());
 				}
 				return false;
 			}
@@ -145,7 +166,7 @@ void UK2Node_CreateDelegate::ValidationAfterFunctionsAreCreated(class FCompilerR
 	FString Msg;
 	if(!IsValid(&Msg, bFullCompile))
 	{
-		MessageLog.Error(*FString::Printf( TEXT("%s %s @@"), *NSLOCTEXT("K2Node", "WrongDelegate", "Event signature error: ").ToString(), *Msg), this);
+ 		MessageLog.Error(*FString::Printf( TEXT("@@ %s %s"), *NSLOCTEXT("K2Node", "WrongDelegate", "Signature Error:").ToString(), *Msg), this);
 	}
 }
 
@@ -172,7 +193,16 @@ void UK2Node_CreateDelegate::HandleAnyChangeWithoutNotifying()
 
 	if(!IsValid())
 	{
-		SelectedFunctionName = NAME_None;
+		// do not clear the name, so we can keep it around as a hint/guide for 
+		// users (so they can better determine what went wrong)
+		if (const UEdGraphPin* DelegatePin = GetDelegateOutPin())
+		{
+			if (DelegatePin->LinkedTo.Num() == 0)
+			{
+				// ok to clear if they've disconnected the delegate pin
+				SelectedFunctionName = NAME_None;
+			}
+		}
 		SelectedFunctionGuid.Invalidate();
 	}
 }
@@ -340,8 +370,7 @@ UEdGraphPin* UK2Node_CreateDelegate::GetDelegateOutPin() const
 
 UEdGraphPin* UK2Node_CreateDelegate::GetObjectInPin() const
 {
-	const UEdGraphSchema_K2* K2Schema = GetDefault<UEdGraphSchema_K2>();
-	return FindPinChecked(K2Schema->PN_Self);
+	return FindPin(UEdGraphSchema_K2::PN_Self);
 }
 
 FText UK2Node_CreateDelegate::GetNodeTitle(ENodeTitleType::Type TitleType) const

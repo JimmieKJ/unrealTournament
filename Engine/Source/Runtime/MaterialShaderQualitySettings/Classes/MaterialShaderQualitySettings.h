@@ -17,6 +17,8 @@ public:
 
 	const UShaderPlatformQualitySettings* GetShaderPlatformQualitySettings(EShaderPlatform ShaderPlatform);
 
+	bool HasPlatformQualitySettings(EShaderPlatform ShaderPlatform, EMaterialQualityLevel::Type QualityLevel);
+
 #if WITH_EDITOR
 	// Override GetForwardShadingQuality() return value with the specified platform's settings.
 	// An empty PlatformName or otherwise non existant platform will cause GetForwardShadingQuality() 
@@ -37,8 +39,6 @@ private:
 
 	UPROPERTY()
 	TMap<FName, UShaderPlatformQualitySettings*> ForwardSettingMap;
-
-	UShaderPlatformQualitySettings* CurrentPlatformSettings;
 
 #if WITH_EDITOR
 	UShaderPlatformQualitySettings* PreviewPlatformSettings;

@@ -1,14 +1,14 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <TpsData xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
   <Name>OpenVR</Name>
-  <Location>//depot/UE4/Engine/Source/ThirdParty/OpenVR/</Location>
-  <Date>2015-05-04T01:06:58.5433979-07:00</Date>
+  <Location>/Engine/Source/ThirdParty/OpenVR/</Location>
+  <Date>2016-06-13T16:27:50.6824692-04:00</Date>
   <Function>Valve's OpenVR SDK - API for SteamVR, including their HMD and Controllers as well as their support for DK2, etc.</Function>
   <Justification>We need to support the SteamVR hardware.</Justification>
   <Platforms>
     <Platform>PC</Platform>
-    <Platform>Max</Platform>
     <Platform>Linux</Platform>
+    <Platform>Max</Platform>
   </Platforms>
   <Products>
     <Product>UDK4</Product>
@@ -51,5 +51,5 @@ LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
 ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.</Notification>
-  <LicenseFolder />
+  <LicenseFolder>/Engine/Source/ThirdParty/Licenses/OpenVR_License.txt</LicenseFolder>
 </TpsData>

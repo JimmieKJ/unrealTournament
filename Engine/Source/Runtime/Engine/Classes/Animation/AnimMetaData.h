@@ -10,8 +10,8 @@
 #pragma once
 #include "AnimMetaData.generated.h"
 
-UCLASS(Blueprintable, abstract, const, MinimalAPI, editinlinenew, hidecategories=Object, collapsecategories)
-class UAnimMetaData : public UObject
+UCLASS(Blueprintable, abstract, const, editinlinenew, hidecategories=Object, collapsecategories)
+class ENGINE_API UAnimMetaData : public UObject
 {
 	GENERATED_UCLASS_BODY()
 };

@@ -1,7 +1,8 @@
 ﻿<%-- // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved. --%>
 
 <%@ Page Title="" Language="C#" MasterPageFile="~/Views/Shared/Site.Master" Inherits="System.Web.Mvc.ViewPage<CrashViewModel>" %>
-<%@ Import Namespace="Tools.CrashReporter.CrashReportWebSite.Models" %>
+<%@ Import Namespace="Tools.CrashReporter.CrashReportWebSite.DataModels" %>
+<%@ Import Namespace="Tools.CrashReporter.CrashReportWebSite.ViewModels" %>
 
 <asp:Content ID="StyleSheet" ContentPlaceHolderID="CssContent" runat="server">
 	<link href="../../Content/Site.css" rel="stylesheet" type="text/css" />
@@ -116,7 +117,7 @@
 				
 			<dt>Saved Files</dt>
 				<dd class='even'>
-					<%if( Model.Crash.HasLogFile() ) 
+					<%if( Model.Crash.GetHasLogFile() ) 
 					{ %>
 						<a style='text-decoration:none; vertical-align:middle;' href='<%=Model.Crash.GetLogUrl() %>'><img src="../../Content/Images/Icons/log.png" style="height:20px;border:none;" />&nbsp;Log</a>
 						<%
@@ -125,7 +126,7 @@
 				</dd>
 			<dt>&nbsp;</dt>
 				<dd>	
-					<%if( Model.Crash.HasMiniDumpFile() ) 
+					<%if( Model.Crash.GetHasMiniDumpFile() ) 
 					{ %>
 						<a style='text-decoration:none;' href='<%=Model.Crash.GetMiniDumpUrl() %>' title="<%=Model.Crash.GetDumpTitle()%>"><img src="../../Content/Images/Icons/miniDump.png" style="height:20px;border:none;" />&nbsp;<%=Model.Crash.GetDumpName() %></a>
 						<%
@@ -133,7 +134,7 @@
 				</dd>
 			<dt>&nbsp;</dt>
 				<dd>
-					<%if( Model.Crash.HasVideoFile() ) 
+					<%if( Model.Crash.GetHasVideoFile() ) 
 					{ %>
 						<a id="VideoLink" style="text-decoration:none;" href='<%=Model.Crash.GetVideoUrl() %>'><img src="../../Content/Images/Icons/video.png" style="height:20px;border:none;" />&nbsp;Video</a>
 						<%
@@ -149,9 +150,9 @@
 				</dd>
 			<dt>&nbsp;</dt>
 				<dd>
-					<%if (Model.Crash.HasDiagnosticsFile() ) 
+					<%if (Model.Crash.GetHasDiagnosticsFile() ) 
 					{ %>
-						<a id="A1" style="text-decoration:none;" href='<%=Model.Crash.GetDiagnosticsUrl() %>'><img src="../../Content/Images/Icons/log.png" style="height:20px;border:none;" />&nbsp;Diags</a>
+						<a id="A2" style="text-decoration:none;" href='<%=Model.Crash.GetDiagnosticsUrl() %>'><img src="../../Content/Images/Icons/log.png" style="height:20px;border:none;" />&nbsp;Diags</a>
 						<%
 					} %>
 				</dd>
@@ -159,7 +160,7 @@
 				<dd>
 					<%if( Model.Crash.HasMetaDataFile() ) 
 					{ %>
-						<a id="A2" style="text-decoration:none;" href='<%=Model.Crash.GetMetaDataUrl() %>'><img src="../../Content/Images/Icons/log.png" style="height:20px;border:none;" />&nbsp;WERInfo</a>
+						<a id="A3" style="text-decoration:none;" href='<%=Model.Crash.GetMetaDataUrl() %>'><img src="../../Content/Images/Icons/log.png" style="height:20px;border:none;" />&nbsp;WERInfo</a>
 						<%
 					} %>
 				</dd>
@@ -182,7 +183,7 @@
 				</dd>
 
 			<dt>User Group</dt>
-				<dd><%=Html.DisplayFor(m => Model.Crash.UserGroupName) %></dd>
+				<dd><%=Html.DisplayFor(m => Model.Crash.User.UserGroup.Name) %></dd>
 
 			<dt>Game Name</dt>
 				<dd class='even'><%=Html.DisplayFor(m => Model.Crash.GameName) %></dd>
@@ -197,13 +198,13 @@
 				<dd ><small><%=Html.DisplayFor(m => Model.Crash.PlatformName) %></small></dd>
 
 			<dt>Machine Id</dt> 
-				<dd class='even'><small><%=Html.DisplayFor(m => Model.Crash.MachineId) %></small></dd>
+				<dd class='even'><small><%=Html.DisplayFor(m => Model.Crash.ComputerName) %></small></dd>
 
 			<dt>Epic Account Id</dt> 
 				<dd class='even'><small><%=Html.DisplayFor(m => Model.Crash.EpicAccountId) %></small></dd>
 
 			<dt>Allowed to contact</dt> 
-				<dd class='even'><%=Html.DisplayFor(m => Model.Crash.AllowToBeContacted) %></dd>
+				<dd class='even'><%=Html.DisplayFor(m => Model.Crash.Processed) %></dd>
 
 			<dt>Build Version</dt>
 				<dd ><%=Html.DisplayFor(m => Model.Crash.BuildVersion) %></dd>
@@ -212,7 +213,7 @@
 				<dd class='even'><%=Html.DisplayFor(m => Model.Crash.FixedChangeList) %></dd>
 
 			<dt>Changelist #</dt>
-				<dd class='even'><%=Html.DisplayFor(m => Model.Crash.BuiltFromCL) %></dd>
+				<dd class='even'><%=Html.DisplayFor(m => Model.Crash.ChangeListVersion) %></dd>
 
 			<dt>JIRA</dt>
 				<%--<dd ><%=Html.DisplayFor(m => Model.Crash.Jira) %></dd>--%>

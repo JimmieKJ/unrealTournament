@@ -13,3 +13,5 @@
 #include "IKeyframeSection.h"
 #include "MovieSceneSection.h"
 #include "LevelSequence.h"
+#include "IMovieSceneSectionRecorder.h"
+#include "IMovieSceneSectionRecorderFactory.h"

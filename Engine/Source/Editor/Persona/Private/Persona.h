@@ -4,7 +4,7 @@
 
 #include "Editor/Kismet/Public/BlueprintEditor.h"
 
-#include "AnimationEditorPreviewScene.h"
+#include "AdvancedPreviewScene.h"
 
 #include "PersonaModule.h"
 #include "PersonaCommands.h"
@@ -56,9 +56,6 @@ public:
 	UObject* GetPreviewAnimationAsset() const;
 	UObject* GetAnimationAssetBeingEdited() const;
 
-	/** Set the vertex animation we should preview on the mesh */
-	void SetPreviewVertexAnim(UVertexAnimation* VertexAnim);
-
 	/** Update the inspector that displays information about the current selection*/
 	void UpdateSelectionDetails(UObject* Object, const FText& ForcedTitle);
 
@@ -66,8 +63,10 @@ public:
 
 	virtual void OnActiveTabChanged(TSharedPtr<SDockTab> PreviouslyActive, TSharedPtr<SDockTab> NewlyActivated) override;
 
-	/** handle after compile **/
-	UDebugSkelMeshComponent* GetPreviewMeshComponent();
+	/** Get the preview DebugSkelMeshComponent */
+	UDebugSkelMeshComponent* GetPreviewMeshComponent() const;
+	/** Get the AnimInstance associated with the preview DEbugSkelMeshComponent */
+	UAnimInstance* GetPreviewAnimInstance() const;
 
 	// Gets the skeleton being edited/viewed by this Persona instance
 	USkeleton* GetSkeleton() const;
@@ -165,7 +164,7 @@ public:
 	void CleanupComponent(USceneComponent* Component);
 
 	/** Returns the editors preview scene */
-	FAnimationEditorPreviewScene& GetPreviewScene() { return PreviewScene; }
+	FAdvancedPreviewScene& GetPreviewScene() { return PreviewScene; }
 
 	/** Gets called when it's clicked via mode tab - Reinitialize the mode **/
 	void ReinitMode();
@@ -188,6 +187,9 @@ public:
 	/** Get the currently recording animation time */
 	float GetCurrentRecordingTime() const;
 
+	/** Toggle playback of the current animation */
+	void TogglePlayback();
+
 public:
 	//~ Begin IToolkit Interface
 	virtual FName GetToolkitContextFName() const override;
@@ -196,7 +198,7 @@ public:
 	virtual FText GetToolkitName() const override;
 	virtual FText GetToolkitToolTipText() const override;
 	virtual FString GetWorldCentricTabPrefix() const override;
-	virtual FLinearColor GetWorldCentricTabColorScale() const override;
+	virtual FLinearColor GetWorldCentricTabColorScale() const override;	
 	//~ End IToolkit Interface
 
 	/** Saves all animation assets related to a skeleton */
@@ -231,6 +233,12 @@ public:
 	bool CanShowReferencePose() const;
 	void ShowReferencePose(bool bReferencePose);
 
+	/* Handle error checking for additive base pose */
+	bool ShouldDisplayAdditiveScaleErrorMessage();
+
+	/** Validates curve use */
+	void TestSkeletonCurveNamesForUse() const;
+
 protected:
 	bool IsPreviewAssetEnabled() const;
 	bool CanPreviewAsset() const;
@@ -239,6 +247,7 @@ protected:
 	//~ Begin FBlueprintEditor Interface
 	//virtual void CreateDefaultToolbar() override;
 	virtual void CreateDefaultCommands() override;
+	virtual void OnCreateGraphEditorCommands(TSharedPtr<FUICommandList> GraphEditorCommandsList);
 	virtual void OnSelectBone() override;
 	virtual bool CanSelectBone() const override;
 	virtual void OnAddPosePin() override;
@@ -251,6 +260,8 @@ protected:
 	virtual void OnConvertToSequencePlayer() override;
 	virtual void OnConvertToBlendSpaceEvaluator() override;
 	virtual void OnConvertToBlendSpacePlayer() override;
+	virtual void OnConvertToPoseBlender() override;
+	virtual void OnConvertToPoseByName() override;
 	virtual bool IsInAScriptingMode() const override;
 	virtual void OnOpenRelatedAsset() override;
 	virtual void GetCustomDebugObjects(TArray<FCustomDebugObject>& DebugList) const override;
@@ -277,6 +288,8 @@ protected:
 	// Generic Command handlers
 	void OnCommandGenericDelete();
 
+	// Pose watch handler
+	void OnTogglePoseWatch();
 protected:
 	// 
 	TSharedPtr<SDockTab> OpenNewAnimationDocumentTab(UObject* InAnimAsset);
@@ -341,7 +354,6 @@ private:
 	// Called when the preview viewport is created
 	DECLARE_MULTICAST_DELEGATE_OneParam( FOnCreateViewport, TWeakPtr<SAnimationEditorViewportTabBody> )
 public:
-
 	// Called when Persona refreshes
 	typedef FSimpleMulticastDelegate::FDelegate FOnPersonaRefresh;
 
@@ -672,8 +684,8 @@ private:
 	void OnSetKey();
 	bool CanSetKey() const;
 	void OnSetKeyCompleted();
-	void OnBakeAnimation();
-	bool CanBakeAnimation() const;
+	void OnApplyRawAnimChanges();
+	bool CanApplyRawAnimChanges() const;
 	
 	/** Change skeleton preview mesh functions */
 	void ChangeSkeletonPreviewMesh();
@@ -692,7 +704,9 @@ private:
 	void OnAssetCreated(const TArray<UObject*> NewAssets);
 	TSharedRef< SWidget > GenerateCreateAssetMenu( USkeleton* Skeleton ) const;
 	void FillCreateAnimationMenu(FMenuBuilder& MenuBuilder) const;
+	void FillCreatePoseAssetMenu(FMenuBuilder& MenuBuilder) const;
 	void CreateAnimation(const TArray<UObject*> NewAssets, int32 Option);
+	void CreatePoseAsset(const TArray<UObject*> NewAssets, int32 Option);
 
 	/** Extend menu and toolbar */
 	void ExtendMenu();
@@ -714,7 +728,7 @@ private:
 	TSharedPtr<FExtender> ToolbarExtender;
 
 	/** Preview scene for the editor */
-	FAnimationEditorPreviewScene PreviewScene;
+	FAdvancedPreviewScene PreviewScene;
 
 	/** Brush to use as a dirty marker for assets */
 	const FSlateBrush* AssetDirtyBrush;
@@ -730,4 +744,10 @@ private:
 
 	/** Last Cached LOD value of Preview Mesh Component */
 	int32 LastCachedLODForPreviewComponent;
+
+	/** Handle additive anim scale validation */
+	bool bDoesAdditiveRefPoseHaveZeroScale;
+	FGuid RefPoseGuid;
+
+	static const FName PreviewSceneSettingsTabId;
 };

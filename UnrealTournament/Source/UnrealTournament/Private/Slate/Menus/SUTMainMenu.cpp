@@ -25,8 +25,6 @@
 #include "UTEpicDefaultRulesets.h"
 #include "UTReplicatedGameRuleset.h"
 #include "UTAnalytics.h"
-#include "Runtime/Analytics/Analytics/Public/Analytics.h"
-#include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
 #include "SocketSubsystem.h"
 #include "IPAddress.h"
 #include "../Panels/SUTUMGPanel.h"
@@ -34,6 +32,8 @@
 #if !UE_SERVER
 
 #include "UserWidget.h"
+#include "AnalyticsEventAttribute.h"
+#include "IAnalyticsProvider.h"
 
 void SUTMainMenu::CreateDesktop()
 {
@@ -81,6 +81,7 @@ FReply SUTMainMenu::OnFragCenterClick()
 void SUTMainMenu::DeactivatePanel(TSharedPtr<class SUTPanelBase> PanelToDeactivate)
 {
 	if (FragCenterPanel.IsValid()) FragCenterPanel.Reset();
+	if (WebPanel.IsValid()) WebPanel.Reset();
 
 	SUTMenuBase::DeactivatePanel(PanelToDeactivate);
 }
@@ -319,7 +320,7 @@ void SUTMainMenu::OpenDelayedMenu()
 
 		// Grab all of the available map assets.
 		TArray<FAssetData> MapAssets;
-		GetAllAssetData(UWorld::StaticClass(), MapAssets);
+		GetAllAssetData(UWorld::StaticClass(), MapAssets, false);
 
 		UE_LOG(UT,Verbose,TEXT("Loading Settings for %i Rules"), AllowedGameRulesets.Num())
 		for (int32 i=0; i < AllowedGameRulesets.Num(); i++)
@@ -567,17 +568,19 @@ void SUTMainMenu::ShowCommunity()
 {
 	if ( !WebPanel.IsValid() )
 	{
-		// Create the Web panel
-		SAssignNew(WebPanel, SUTWebBrowserPanel, PlayerOwner);
-	}
+		TSharedPtr<SUTWebBrowserPanel> NewWebPanel;
 
-	if (WebPanel.IsValid())
-	{
-		if (ActivePanel.IsValid() && ActivePanel != WebPanel)
+		// Create the Web panel
+		SAssignNew(NewWebPanel, SUTWebBrowserPanel, PlayerOwner);
+		if (NewWebPanel.IsValid())
 		{
-			ActivatePanel(WebPanel);
+			if (ActivePanel.IsValid() && ActivePanel != NewWebPanel)
+			{
+				ActivatePanel(NewWebPanel);
+			}
+			NewWebPanel->Browse(CommunityVideoURL);
+			WebPanel = NewWebPanel;
 		}
-		WebPanel->Browse(CommunityVideoURL);
 	}
 }
 
@@ -650,6 +653,8 @@ void SUTMainMenu::StartGameWarningComplete(TSharedPtr<SCompoundWidget> Dialog, u
 	}
 }
 
+
+
 void SUTMainMenu::StartGame(bool bLanGame)
 {
 	// Kill any existing Dedicated servers
@@ -657,21 +662,6 @@ void SUTMainMenu::StartGame(bool bLanGame)
 	{
 		FPlatformProcess::TerminateProc(PlayerOwner->DedicatedServerProcessHandle,true);
 		PlayerOwner->DedicatedServerProcessHandle.Reset();
-	}
-
-
-	if (FUTAnalytics::IsAvailable())
-	{
-		TArray<FAnalyticsEventAttribute> ParamArray;
-		if (bLanGame)		
-		{
-			ParamArray.Add(FAnalyticsEventAttribute(TEXT("StartGameMode"), TEXT("Listen")));
-		}
-		else
-		{
-			ParamArray.Add(FAnalyticsEventAttribute(TEXT("StartGameMode"), TEXT("Standalone")));
-		}
-		FUTAnalytics::GetProvider().RecordEvent( TEXT("MenuStartGame"), ParamArray );
 	}
 
 	FString StartingMap;
@@ -699,6 +689,14 @@ void SUTMainMenu::StartGame(bool bLanGame)
 		{
 			GameOptions += FString::Printf(TEXT("?BotFill=0?MaxPlayers=%i"), DesiredPlayerCount);
 		}
+
+		if (FUTAnalytics::IsAvailable())
+		{
+			if (PlayerOwner.IsValid() && FUTAnalytics::IsAvailable())
+			{
+				FUTAnalytics::FireEvent_EnterMatch(Cast<AUTPlayerController>(PlayerOwner->PlayerController), FString("MainMenu - Custom Game"));
+			}
+		}
 	}
 	else
 	{
@@ -719,6 +717,11 @@ void SUTMainMenu::StartGame(bool bLanGame)
 		else
 		{
 			GameOptions += TEXT("?BotFill=0");
+		}
+
+		if (PlayerOwner.IsValid() && FUTAnalytics::IsAvailable())
+		{
+			FUTAnalytics::FireEvent_EnterMatch(Cast<AUTPlayerController>(PlayerOwner->PlayerController), FString("MainMenu - Predefined Game Type"));
 		}
 	}
 
@@ -794,23 +797,6 @@ void SUTMainMenu::OnMenuOpened(const FString& Parameters)
 	{
 		ShowGamePanel();
 	}
-}
-
-void SUTMainMenu::OnOwnerLoginStatusChanged(UUTLocalPlayer* LocalPlayerOwner, ELoginStatus::Type NewStatus, const FUniqueNetId& UniqueID)
-{
-	if (NewStatus == ELoginStatus::LoggedIn)
-	{
-		if (TutorialPanel.IsValid() && ActivePanel == TutorialPanel)
-		{
-			ShowGamePanel();
-			PlayerOwner->ShowMessage(
-				NSLOCTEXT("SUTMainMenu", "TutorialErrorTitle", "User Changed"),
-				NSLOCTEXT("SUTMainMenu", "TutorialErrorMessage", "User changed. Returning to the main menu."), UTDIALOG_BUTTON_OK, nullptr
-				);
-		}
-	}
-
-	SUTMenuBase::OnOwnerLoginStatusChanged(LocalPlayerOwner, NewStatus, UniqueID);
 }
 
 #endif

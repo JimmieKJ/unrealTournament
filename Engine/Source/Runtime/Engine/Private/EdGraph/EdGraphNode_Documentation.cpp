@@ -50,6 +50,12 @@ FText UEdGraphNode_Documentation::GetNodeTitle( ENodeTitleType::Type TitleType )
 	return NodeTitle;
 }
 
+FSlateIcon UEdGraphNode_Documentation::GetIconAndTint(FLinearColor& OutColor) const
+{
+	static FSlateIcon Icon("EditorStyle", "GraphEditor.Documentation_16x");
+	return Icon;
+}
+
 FText UEdGraphNode_Documentation::GetPinNameOverride(const UEdGraphPin& Pin) const
 {
 	return GetNodeTitle( ENodeTitleType::ListView );

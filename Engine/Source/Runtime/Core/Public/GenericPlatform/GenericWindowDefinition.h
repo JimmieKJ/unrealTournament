@@ -25,7 +25,9 @@ enum class EWindowType
 	/** Value indicating that this is a window used for a notification toast */
 	Notification,
 	/** Value indicating that this is a window used for a cursor decorator */
-	CursorDecorator
+	CursorDecorator,
+	/** Value indicating that this is a game window */
+	GameWindow
 };
 
 
@@ -90,6 +92,8 @@ struct CORE_API FGenericWindowDefinition
 	bool HasSizingFrame;
 	/** true if we expect the size of this window to change often, such as if its animated, or if it recycled for tool-tips. */
 	bool SizeWillChangeOften;
+	/** true if the window should preserve its aspect ratio when resized by user */
+	bool ShouldPreserveAspectRatio;
 	/** The expected maximum width of the window.  May be used for performance optimization when SizeWillChangeOften is set. */
 	int32 ExpectedMaxWidth;
 	/** The expected maximum height of the window.  May be used for performance optimization when SizeWillChangeOften is set. */

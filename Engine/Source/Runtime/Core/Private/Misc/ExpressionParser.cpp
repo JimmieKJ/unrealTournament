@@ -269,10 +269,10 @@ TArray<FExpressionToken> FExpressionTokenConsumer::Extract()
 	return Swapped;
 }
 
-void FExpressionTokenConsumer::Add(const FStringToken& SourceToken, FExpressionNode Node)
+void FExpressionTokenConsumer::Add(const FStringToken& SourceToken, FExpressionNode&& Node)
 {
 	Stream.SetReadPos(SourceToken);
-	Tokens.Add(FExpressionToken(SourceToken, MoveTemp(Node)));
+	Tokens.Emplace(SourceToken, MoveTemp(Node));
 }
 
 void FTokenDefinitions::DefineToken(TFunction<FExpressionDefinition>&& Definition)

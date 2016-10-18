@@ -8,6 +8,7 @@
 #include "Particles/ParticleSystemComponent.h"
 #include "UnrealNetwork.h"
 #include "StatNames.h"
+#include "Animation/AnimMontage.h"
 
 AUTWeap_RocketLauncher::AUTWeap_RocketLauncher(const class FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer.SetDefaultSubobjectClass<UUTWeaponStateFiringChargedRocket>(TEXT("FiringState1")))
@@ -47,10 +48,11 @@ AUTWeap_RocketLauncher::AUTWeap_RocketLauncher(const class FObjectInitializer& O
 
 	BarrelRadius = 9.0f;
 
-	GracePeriod = 0.75f;
+	GracePeriod = 0.6f;
 	BurstInterval = 0.07f;
-	GrenadeBurstInterval = 0.15f;
+	GrenadeBurstInterval = 0.1f;
 	FullLoadSpread = 9.f;
+	bAllowGrenades = false;
 
 	BasePickupDesireability = 0.78f;
 	BaseAISelectRating = 0.78f;
@@ -64,6 +66,9 @@ AUTWeap_RocketLauncher::AUTWeap_RocketLauncher(const class FObjectInitializer& O
 
 	WeaponCustomizationTag = EpicWeaponCustomizationTags::RocketLauncher;
 	WeaponSkinCustomizationTag = EpicWeaponSkinCustomizationTags::RocketLauncher;
+
+	TutorialAnnouncements.Add(TEXT("PriRocketLauncher"));
+	TutorialAnnouncements.Add(TEXT("SecRocketLauncher"));
 }
 
 void AUTWeap_RocketLauncher::Destroyed()
@@ -96,7 +101,7 @@ void AUTWeap_RocketLauncher::BeginLoadRocket()
 	//Replicate the loading sound to other players 
 	//Local players will use the sounds synced to the animation
 	AUTPlayerController* PC = Cast<AUTPlayerController>(UTOwner->Controller);
-	if (PC != NULL && !PC->IsLocalPlayerController() && (NumLoadedRockets == NumLoadedBarrels))
+	if (PC != NULL && !PC->IsLocalPlayerController() && (NumLoadedRockets == NumLoadedBarrels) && LoadingSounds.IsValidIndex(NumLoadedRockets))
 	{
 		UUTGameplayStatics::UTPlaySound(GetWorld(), LoadingSounds[NumLoadedRockets], UTOwner, SRT_AllButOwner, false, FVector::ZeroVector, NULL, NULL, true, SAT_WeaponFoley);
 	}
@@ -107,9 +112,9 @@ void AUTWeap_RocketLauncher::EndLoadRocket()
 	NumLoadedBarrels++;
 	if (Ammo > 0)
 	{
-		ConsumeAmmo(CurrentFireMode);
 		NumLoadedRockets++;
 		SetRocketFlashExtra(CurrentFireMode, NumLoadedRockets + 1, CurrentRocketFireMode, bDrawRocketModeString);
+		ConsumeAmmo(CurrentFireMode);
 	}
 	else
 	{
@@ -194,7 +199,7 @@ float AUTWeap_RocketLauncher::GetLoadTime(int32 InNumLoadedRockets)
 
 void AUTWeap_RocketLauncher::OnMultiPress_Implementation(uint8 OtherFireMode)
 {
-	if (CurrentFireMode == 1)
+	if (bAllowGrenades && (CurrentFireMode == 1))
 	{
 		UUTWeaponStateFiringChargedRocket* AltState = Cast<UUTWeaponStateFiringChargedRocket>(FiringState[1]);
 		if (AltState != NULL && AltState->bCharging)
@@ -286,24 +291,27 @@ AUTProjectile* AUTWeap_RocketLauncher::FireProjectile()
 	if (CurrentFireMode == 1)
 	{
 		// Bots choose mode now
-		AUTBot* B = Cast<AUTBot>(UTOwner->Controller);
-		if (B != NULL)
+		if (bAllowGrenades)
 		{
-			if (B->GetTarget() == B->GetEnemy())
+			AUTBot* B = Cast<AUTBot>(UTOwner->Controller);
+			if (B != NULL)
 			{
-				// when retreating, we want grenades
-				if (B->GetEnemy() == NULL || B->LostContact(1.0f) /*|| B.IsRetreating() || B.IsInState('StakeOut')*/)
+				if (B->GetTarget() == B->GetEnemy())
 				{
-					CurrentRocketFireMode = 1;
+					// when retreating, we want grenades
+					if (B->GetEnemy() == NULL || B->LostContact(1.0f) /*|| B.IsRetreating() || B.IsInState('StakeOut')*/)
+					{
+						CurrentRocketFireMode = 1;
+					}
+					else
+					{
+						CurrentRocketFireMode = 0;
+					}
 				}
 				else
 				{
-					CurrentRocketFireMode = 0;
+					CurrentRocketFireMode = 1;
 				}
-			}
-			else
-			{
-				CurrentRocketFireMode = 1;
 			}
 		}
 
@@ -424,11 +432,21 @@ AUTProjectile* AUTWeap_RocketLauncher::FireRocketProjectile()
 {
 	checkSlow(RocketFireModes.IsValidIndex(CurrentRocketFireMode) && RocketFireModes[CurrentRocketFireMode].ProjClass != NULL);
 
-	//List of the rockets fired. If they are seeking rockets, set the target at the end
-	TArray< AUTProjectile*, TInlineAllocator<3> > SeekerList;
+	TSubclassOf<AUTProjectile> RocketProjClass = nullptr;
+	if (bAllowGrenades)
+	{
+		RocketProjClass = RocketFireModes.IsValidIndex(CurrentRocketFireMode) ? RocketFireModes[CurrentRocketFireMode].ProjClass : nullptr;
+	}
+	else
+	{
+		RocketProjClass = ProjClass.IsValidIndex(CurrentRocketFireMode) ? ProjClass[CurrentRocketFireMode] : nullptr;
+	}
 
-	TSubclassOf<AUTProjectile> RocketProjClass = RocketFireModes[CurrentRocketFireMode].ProjClass;
-
+	if (RocketProjClass == nullptr)
+	{
+		UE_LOG(UT, Warning, TEXT("Rocket fire mode %d No valid projectile class found"), CurrentRocketFireMode);
+		return nullptr;
+	}
 	const FVector SpawnLocation = GetFireStartLoc();
 	FRotator SpawnRotation = GetAdjustedAim(SpawnLocation);
 	FRotationMatrix SpawnRotMat(SpawnRotation);
@@ -451,8 +469,7 @@ AUTProjectile* AUTWeap_RocketLauncher::FireRocketProjectile()
 				SpawnRotation.Yaw += FullLoadSpread*float(NumLoadedRockets-2.f);
 			}
 			NetSynchRandomSeed(); 
-			SeekerList.Add(SpawnNetPredictedProjectile(RocketProjClass, SpawnLocation, SpawnRotation));
-			ResultProj = SeekerList[0];
+			ResultProj = SpawnNetPredictedProjectile(RocketProjClass, SpawnLocation, SpawnRotation);
 
 			//Setup the seeking target
 			if (HasLockedTarget() && Cast<AUTProj_Rocket>(ResultProj))
@@ -470,7 +487,7 @@ AUTProjectile* AUTWeap_RocketLauncher::FireRocketProjectile()
 			FRotator SpreadRot = SpawnRotation;
 			SpreadRot.Yaw += GrenadeSpread*float(MaxLoadedRockets) - GrenadeSpread;
 				
-			AUTProjectile* SpawnedProjectile = SpawnNetPredictedProjectile(RocketFireModes[CurrentRocketFireMode].ProjClass, SpawnLocation, SpreadRot);
+			AUTProjectile* SpawnedProjectile = SpawnNetPredictedProjectile(RocketProjClass, SpawnLocation, SpreadRot);
 				
 			if (SpawnedProjectile != nullptr)
 			{
@@ -659,11 +676,10 @@ void AUTWeap_RocketLauncher::DrawWeaponCrosshair_Implementation(UUTHUDWidget* We
 	}
 
 	//Draw the locked on crosshair
-	if (HasLockedTarget())
+	if (HasLockedTarget() && LockCrosshairTexture)
 	{
-		UTexture2D* Tex = LockCrosshairTexture;
-		float W = Tex->GetSurfaceWidth();
-		float H = Tex->GetSurfaceHeight();
+		float W = LockCrosshairTexture->GetSurfaceWidth();
+		float H = LockCrosshairTexture->GetSurfaceHeight();
 
 		FVector ScreenTarget = WeaponHudWidget->GetCanvas()->Project(LockedTarget->GetActorLocation());
 		ScreenTarget.X -= WeaponHudWidget->GetCanvas()->SizeX*0.5f;
@@ -671,7 +687,7 @@ void AUTWeap_RocketLauncher::DrawWeaponCrosshair_Implementation(UUTHUDWidget* We
 
 		float CrosshairRot = GetWorld()->TimeSeconds * 90.0f;
 
-		WeaponHudWidget->DrawTexture(Tex, ScreenTarget.X, ScreenTarget.Y, 2.f * W * Scale, 2.f * H * Scale, 0.f, 0.f, W, H, 1.f, FLinearColor::Red, FVector2D(0.5f, 0.5f), CrosshairRot);
+		WeaponHudWidget->DrawTexture(LockCrosshairTexture, ScreenTarget.X, ScreenTarget.Y, 2.f * W * Scale, 2.f * H * Scale, 0.f, 0.f, W, H, 1.f, FLinearColor::Red, FVector2D(0.5f, 0.5f), CrosshairRot);
 	}
 }
 

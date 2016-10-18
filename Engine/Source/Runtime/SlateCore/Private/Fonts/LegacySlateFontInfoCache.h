@@ -31,7 +31,7 @@ public:
 	/**
 	 * Get the revision index of the currently active localized fallback font.
 	 */
-	int32 GetLocalizedFallbackFontRevision() const;
+	uint16 GetLocalizedFallbackFontRevision() const;
 
 	/**
 	 * Get (or create) the last resort fallback font
@@ -98,8 +98,8 @@ private:
 	TSharedPtr<const FFontData> LastResortFontData;
 
 	TMap<FString, TSharedPtr<const FFontData>> AllLocalizedFallbackFontData;
-	int32 LocalizedFallbackFontRevision;
-	int32 LocalizedFallbackFontDataHistoryVersion;
+	uint16 LocalizedFallbackFontRevision;
+	uint16 LocalizedFallbackFontDataHistoryVersion;
 	uint64 LocalizedFallbackFontFrameCounter;
 
 	FCriticalSection LocalizedFallbackFontDataCS;

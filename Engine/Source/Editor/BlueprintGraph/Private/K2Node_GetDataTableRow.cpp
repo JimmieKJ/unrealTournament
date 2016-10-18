@@ -374,6 +374,13 @@ void UK2Node_GetDataTableRow::ExpandNode(class FKismetCompilerContext& CompilerC
 	BreakAllNodeLinks();
 }
 
+FSlateIcon UK2Node_GetDataTableRow::GetIconAndTint(FLinearColor& OutColor) const
+{
+	OutColor = GetNodeTitleColor();
+	static FSlateIcon Icon("EditorStyle", "Kismet.AllClasses.FunctionIcon");
+	return Icon;
+}
+
 void UK2Node_GetDataTableRow::EarlyValidation(class FCompilerResultsLog& MessageLog) const
 {
 	const auto DataTablePin = GetDataTablePin();

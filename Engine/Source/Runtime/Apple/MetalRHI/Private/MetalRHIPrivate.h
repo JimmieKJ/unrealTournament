@@ -15,6 +15,7 @@ const uint32 MaxMetalRenderTargets = 6;
 const uint32 BufferOffsetAlignment = 256;
 
 #define METAL_API_1_1 (__IPHONE_9_0 || __MAC_10_11)
+#define METAL_API_1_2 ((__IPHONE_10_0 && __IPHONE_OS_VERSION_MIN_REQUIRED >= __IPHONE_10_0) || (__MAC_10_12 && __MAC_OS_X_VERSION_MIN_REQUIRED >= __MAC_10_12))
 
 #if METAL_API_1_1
 #define BUFFER_CACHE_MODE MTLResourceCPUCacheModeWriteCombined
@@ -42,16 +43,31 @@ const uint32 MaxMetalStreams = 30;
 #define METAL_STATISTICS 0
 #endif
 
-#define SHOULD_TRACK_OBJECTS 0 // (UE_BUILD_DEBUG || UE_BUILD_DEVELOPMENT)
+#define SHOULD_TRACK_OBJECTS (UE_BUILD_DEBUG)
 
 #define UNREAL_TO_METAL_BUFFER_INDEX(Index) ((MaxMetalStreams - 1) - Index)
 
 // Dependencies
 #include "MetalRHI.h"
-#include "MetalGlobalUniformBuffer.h"
 #include "RHI.h"
 #import <Metal/Metal.h>
 #import <QuartzCore/CAMetalLayer.h>
+
+#if !METAL_API_1_1
+#define MTLVisibilityResultModeCounting ((MTLVisibilityResultMode)2)
+#endif
+
+#if !METAL_API_1_2
+#define MTLFeatureSet_iOS_GPUFamily3_v1 ((MTLFeatureSet)4)
+#define MTLFeatureSet_iOS_GPUFamily1_v3 ((MTLFeatureSet)5)
+#define MTLFeatureSet_iOS_GPUFamily2_v3 ((MTLFeatureSet)6)
+#define MTLFeatureSet_iOS_GPUFamily3_v2 ((MTLFeatureSet)7)
+#define MTLFeatureSet_tvOS_GPUFamily1_v2 ((MTLFeatureSet)30001)
+#define MTLFeatureSet_OSX_GPUFamily1_v2 ((MTLFeatureSet)10001)
+#define MTLPixelFormatDepth16Unorm ((MTLPixelFormat)250)
+#define MTLPixelFormatX24_Stencil8 ((MTLPixelFormat)262)
+#define MTLPixelFormatX32_Stencil8 ((MTLPixelFormat)261)
+#endif
 
 // Access the internal context for the device-owning DynamicRHI object
 FMetalDeviceContext& GetMetalDeviceContext();
@@ -68,15 +84,14 @@ FMetalSurface* GetMetalSurfaceFromRHITexture(FRHITexture* Texture);
 #define NOT_SUPPORTED(Func) UE_LOG(LogMetal, Fatal, TEXT("'%s' is not supported"), L##Func);
 
 #if SHOULD_TRACK_OBJECTS
-extern TMap<id, int32> ClassCounts;
-#define TRACK_OBJECT(Obj) ClassCounts.FindOrAdd([Obj class])++;
-#define UNTRACK_OBJECT(Obj) ClassCounts.FindOrAdd([Obj class])--;
+void TrackMetalObject(NSObject* Object);
+void UntrackMetalObject(NSObject* Object);
+#define TRACK_OBJECT(Stat, Obj) INC_DWORD_STAT(Stat); TrackMetalObject(Obj)
+#define UNTRACK_OBJECT(Stat, Obj) DEC_DWORD_STAT(Stat); UntrackMetalObject(Obj)
 #else
-#define TRACK_OBJECT(Obj)
-#define UNTRACK_OBJECT(Obj)
+#define TRACK_OBJECT(Stat, Obj) INC_DWORD_STAT(Stat)
+#define UNTRACK_OBJECT(Stat, Obj) DEC_DWORD_STAT(Stat)
 #endif
-
-
 
 FORCEINLINE int32 GetMetalCubeFace(ECubeFace Face)
 {

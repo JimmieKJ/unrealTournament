@@ -133,11 +133,11 @@ void SPlacementAssetEntry::Construct(const FArguments& InArgs, const TSharedPtr<
 	}
 	
 	UClass* DocClass = nullptr;
-	TSharedPtr<IToolTip> ToolTip;
+	TSharedPtr<IToolTip> AssetEntryToolTip;
 	if(DefaultActor != nullptr)
 	{
 		DocClass = DefaultActor->GetClass();
-		ToolTip = FEditorClassUtils::GetTooltip(DefaultActor->GetClass());
+		AssetEntryToolTip = FEditorClassUtils::GetTooltip(DefaultActor->GetClass());
 	}
 
 	if (IsClass && !IsVolume && !ActorTypeDisplayName.IsEmpty())
@@ -145,9 +145,9 @@ void SPlacementAssetEntry::Construct(const FArguments& InArgs, const TSharedPtr<
 		Item->DisplayName = ActorTypeDisplayName;
 	}
 
-	if (!ToolTip.IsValid())
+	if (!AssetEntryToolTip.IsValid())
 	{
-		ToolTip = FSlateApplicationBase::Get().MakeToolTip(Item->DisplayName);
+		AssetEntryToolTip = FSlateApplicationBase::Get().MakeToolTip(Item->DisplayName);
 	}
 	
 	const FButtonStyle& ButtonStyle = FEditorStyle::GetWidgetStyle<FButtonStyle>( "PlacementBrowser.Asset" );
@@ -169,7 +169,7 @@ void SPlacementAssetEntry::Construct(const FArguments& InArgs, const TSharedPtr<
 		SNew( SBorder )
 		.BorderImage( this, &SPlacementAssetEntry::GetBorder )
 		.Cursor( EMouseCursor::GrabHand )
-		.ToolTip( ToolTip )
+		.ToolTip( AssetEntryToolTip )
 		[
 			SNew( SHorizontalBox )
 
@@ -246,7 +246,18 @@ FReply SPlacementAssetEntry::OnDragDetected(const FGeometry& MyGeometry, const F
 {
 	bIsPressed = false;
 
-	return FReply::Handled().BeginDragDrop( FAssetDragDropOp::New( Item->AssetData, Item->Factory ) );
+	TArray<FAssetData> DraggedAssetDatas;
+	DraggedAssetDatas.Add( Item->AssetData );
+	FEditorDelegates::OnAssetDragStarted.Broadcast( DraggedAssetDatas, Item->Factory );
+
+	if( MouseEvent.IsMouseButtonDown( EKeys::LeftMouseButton ) )
+	{
+		return FReply::Handled().BeginDragDrop( FAssetDragDropOp::New( Item->AssetData, Item->Factory ) );
+	}
+	else
+	{
+		return FReply::Handled();
+	}
 }
 
 bool SPlacementAssetEntry::IsPressed() const
@@ -275,6 +286,7 @@ SPlacementModeTools::~SPlacementModeTools()
 	if ( IPlacementModeModule::IsAvailable() )
 	{
 		IPlacementModeModule::Get().OnRecentlyPlacedChanged().RemoveAll( this );
+		IPlacementModeModule::Get().OnAllPlaceableAssetsChanged().RemoveAll( this );
 	}
 }
 
@@ -358,21 +370,23 @@ void SPlacementModeTools::Construct( const FArguments& InArgs )
 
 					+ SOverlay::Slot()
 					[
-						SNew(SHorizontalBox)
-
-						+ SHorizontalBox::Slot()
+						SAssignNew(DataDrivenContent, SBox)
 						[
-							SAssignNew(ListView, SListView<TSharedPtr<FPlaceableItem>>)
-							.ListItemsSource(&FilteredItems)
-							.OnGenerateRow(this, &SPlacementModeTools::OnGenerateWidgetForItem)
-							.Visibility(this, &SPlacementModeTools::GetListViewVisibility)
-							.ExternalScrollbar(ScrollBar)
-						]
+							SNew(SHorizontalBox)
 
-						+ SHorizontalBox::Slot()
-						.AutoWidth()
-						[
-							ScrollBar
+							+ SHorizontalBox::Slot()
+							[
+								SAssignNew(ListView, SListView<TSharedPtr<FPlaceableItem>>)
+								.ListItemsSource(&FilteredItems)
+								.OnGenerateRow(this, &SPlacementModeTools::OnGenerateWidgetForItem)
+								.ExternalScrollbar(ScrollBar)
+							]
+
+							+ SHorizontalBox::Slot()
+							.AutoWidth()
+							[
+								ScrollBar
+							]
 						]
 					]
 				]
@@ -384,6 +398,7 @@ void SPlacementModeTools::Construct( const FArguments& InArgs )
 	bNeedsUpdate = true;
 
 	PlacementModeModule.OnRecentlyPlacedChanged().AddSP( this, &SPlacementModeTools::UpdateRecentlyPlacedAssets );
+	PlacementModeModule.OnAllPlaceableAssetsChanged().AddSP( this, &SPlacementModeTools::UpdatePlaceableAssets );
 }
 
 TSharedRef< SWidget > SPlacementModeTools::CreatePlacementGroupTab( const FPlacementCategoryInfo& Info )
@@ -442,7 +457,7 @@ void SPlacementModeTools::UpdateFilteredItems()
 		CustomContent->SetContent(Category->CustomGenerator());
 
 		CustomContent->SetVisibility(EVisibility::Visible);
-		ListView->SetVisibility(EVisibility::Collapsed);
+		DataDrivenContent->SetVisibility(EVisibility::Collapsed);
 	}
 	else
 	{
@@ -475,7 +490,7 @@ void SPlacementModeTools::UpdateFilteredItems()
 		}
 
 		CustomContent->SetVisibility(EVisibility::Collapsed);
-		ListView->SetVisibility(EVisibility::Visible);
+		DataDrivenContent->SetVisibility(EVisibility::Visible);
 		ListView->RequestListRefresh();
 	}
 }
@@ -497,15 +512,6 @@ EVisibility SPlacementModeTools::GetFailedSearchVisibility() const
 		return EVisibility::Collapsed;
 	}
 	return EVisibility::Visible;
-}
-
-EVisibility SPlacementModeTools::GetListViewVisibility()const
-{
-	if (IsSearchActive() || FilteredItems.Num())
-	{
-		return EVisibility::Visible;
-	}
-	return EVisibility::Collapsed;
 }
 
 EVisibility SPlacementModeTools::GetTabsVisibility() const
@@ -551,6 +557,14 @@ void SPlacementModeTools::UpdateRecentlyPlacedAssets( const TArray< FActorPlacem
 	if (GetActiveTab() == FBuiltInPlacementCategories::RecentlyPlaced())
 	{
 		bRecentlyPlacedRefreshRequested = true;
+	}
+}
+
+void SPlacementModeTools::UpdatePlaceableAssets()
+{
+	if (GetActiveTab() == FBuiltInPlacementCategories::AllClasses())
+	{
+		bPlaceablesFullRefreshRequested = true;
 	}
 }
 

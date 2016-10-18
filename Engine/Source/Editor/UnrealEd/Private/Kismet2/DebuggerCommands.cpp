@@ -21,6 +21,7 @@
 #include "PlatformInfo.h"
 
 #include "IHeadMountedDisplay.h"
+#include "IVREditorModule.h"
 
 //@TODO: Remove this dependency
 #include "Editor/LevelEditor/Public/LevelEditor.h"
@@ -38,6 +39,38 @@
 
 #define LOCTEXT_NAMESPACE "DebuggerCommands"
 
+void SGlobalPlayWorldActions::Construct(const FArguments& InArgs)
+{
+	// Always keep track of the current active play world actions widget so we later set user focus on it
+	FPlayWorldCommands::SetActiveGlobalPlayWorldActionsWidget(SharedThis(this));
+
+	ChildSlot
+		[
+			InArgs._Content.Widget
+		];
+}
+
+FReply SGlobalPlayWorldActions::OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent)
+{
+	// Always keep track of the current active play world actions widget so we later set user focus on it
+	FPlayWorldCommands::SetActiveGlobalPlayWorldActionsWidget(SharedThis(this));
+
+	if (FPlayWorldCommands::GlobalPlayWorldActions->ProcessCommandBindings(InKeyEvent))
+	{
+		return FReply::Handled();
+	}
+	else
+	{
+		FPlayWorldCommands::SetActiveGlobalPlayWorldActionsWidget(TSharedPtr<SGlobalPlayWorldActions>());
+		return FReply::Unhandled();
+	}
+
+}
+
+bool SGlobalPlayWorldActions::SupportsKeyboardFocus() const
+{
+	return true;
+}
 
 // Put internal callbacks that we don't need to expose here in order to avoid unnecessary build dependencies outside of this module
 class FInternalPlayWorldCommandCallbacks : public FPlayWorldCommandCallbacks
@@ -103,6 +136,9 @@ public:
 
 	static void TogglePlayPause_Clicked();
 
+	// Mouse control
+	static void GetMouseControlExecute();
+
 	static void PossessEjectPlayer_Clicked();
 	static bool CanPossessEjectPlayer();
 	static FText GetPossessEjectLabel();
@@ -118,6 +154,7 @@ public:
 	static bool IsStoppedAtBreakpoint();
 
 	static bool CanShowNonPlayWorldOnlyActions();
+	static bool CanShowVulkanNonPlayWorldOnlyActions();
 	static bool CanShowVROnlyActions();
 
 	static int32 GetNumberOfClients();
@@ -187,6 +224,18 @@ static void LeaveDebuggingMode()
 
 TSharedPtr<FUICommandList> FPlayWorldCommands::GlobalPlayWorldActions;
 
+TWeakPtr<SGlobalPlayWorldActions> FPlayWorldCommands::ActiveGlobalPlayWorldActionsWidget;
+
+TWeakPtr<SGlobalPlayWorldActions> FPlayWorldCommands::GetActiveGlobalPlayWorldActionsWidget()
+{
+	return FPlayWorldCommands::ActiveGlobalPlayWorldActionsWidget;
+}
+
+void FPlayWorldCommands::SetActiveGlobalPlayWorldActionsWidget(TWeakPtr<SGlobalPlayWorldActions> ActiveWidget)
+{
+	FPlayWorldCommands::ActiveGlobalPlayWorldActionsWidget = ActiveWidget;
+}
+
 FPlayWorldCommands::FPlayWorldCommands()
 	: TCommands<FPlayWorldCommands>("PlayWorld", LOCTEXT("PlayWorld", "Play World (PIE/SIE)"), "MainFrame", FEditorStyle::GetStyleSetName())
 {
@@ -238,7 +287,7 @@ void FPlayWorldCommands::RegisterCommands()
 	UI_COMMAND( PlayInEditorFloating, "New Editor Window (PIE)", "Play this level in a new window", EUserInterfaceActionType::Check, FInputChord() );
 	UI_COMMAND( PlayInVR, "VR Preview", "Play this level in VR", EUserInterfaceActionType::Check, FInputChord() );
 	UI_COMMAND( PlayInMobilePreview, "Mobile Preview (PIE)", "Play this level as a mobile device preview (runs in its own process)", EUserInterfaceActionType::Check, FInputChord() );
-	UI_COMMAND( PlayInVulkanPreview, "Vulkan Preview (PIE)", "Play this level using mobile Vulkan rendering (runs in its own process)", EUserInterfaceActionType::Check, FInputChord() );
+	UI_COMMAND( PlayInVulkanPreview, "Vulkan Mobile Preview (PIE)", "Play this level using mobile Vulkan rendering (runs in its own process)", EUserInterfaceActionType::Check, FInputChord() );
 	UI_COMMAND( PlayInNewProcess, "Standalone Game", "Play this level in a new window that runs in its own process", EUserInterfaceActionType::Check, FInputChord() );
 	UI_COMMAND( PlayInCameraLocation, "Current Camera Location", "Spawn the player at the current camera location", EUserInterfaceActionType::RadioButton, FInputChord() );
 	UI_COMMAND( PlayInDefaultPlayerStart, "Default Player Start", "Spawn the player at the map's default player start", EUserInterfaceActionType::RadioButton, FInputChord() );
@@ -247,9 +296,10 @@ void FPlayWorldCommands::RegisterCommands()
 	UI_COMMAND( PlayInSettings, "Advanced Settings...", "Open the settings for the 'Play In' feature", EUserInterfaceActionType::Button, FInputChord() );
 
 	// SIE & PIE controls
-	UI_COMMAND( StopPlaySession, "Stop", "Stop simulation", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( StopPlaySession, "Stop", "Stop simulation", EUserInterfaceActionType::Button, FInputChord(EKeys::Escape) );
 	UI_COMMAND( ResumePlaySession, "Resume", "Resume simulation", EUserInterfaceActionType::Button, FInputChord() );
 	UI_COMMAND( PausePlaySession, "Pause", "Pause simulation", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( GetMouseControl, "Mouse Control", "Get mouse cursor while in PIE", EUserInterfaceActionType::Button, FInputChord(EModifierKey::Shift, EKeys::F1));
 	UI_COMMAND( LateJoinSession, "Add Client", "Add another client", EUserInterfaceActionType::Button, FInputChord());
 	UI_COMMAND( SingleFrameAdvance, "Frame Skip", "Advances a single frame", EUserInterfaceActionType::Button, FInputChord() );
 	UI_COMMAND( TogglePlayPauseOfPlaySession, "Toggle Play/Pause", "Resume playing if paused, or pause if playing", EUserInterfaceActionType::Button, FInputChord( EKeys::Pause ) );
@@ -323,7 +373,7 @@ void FPlayWorldCommands::BindGlobalPlayWorldCommands()
 		FExecuteAction::CreateStatic(&FInternalPlayWorldCommandCallbacks::PlayInNewProcess_Clicked, false, true),
 		FCanExecuteAction::CreateStatic(&FInternalPlayWorldCommandCallbacks::PlayInNewProcess_CanExecute),
 		FIsActionChecked::CreateStatic(&FInternalPlayWorldCommandCallbacks::PlayInModeIsChecked, PlayMode_InVulkanPreview),
-		FIsActionButtonVisible::CreateStatic(&FInternalPlayWorldCommandCallbacks::CanShowNonPlayWorldOnlyActions)
+		FIsActionButtonVisible::CreateStatic(&FInternalPlayWorldCommandCallbacks::CanShowVulkanNonPlayWorldOnlyActions)
 		);
 
 	ActionList.MapAction(Commands.PlayInNewProcess,
@@ -411,6 +461,14 @@ void FPlayWorldCommands::BindGlobalPlayWorldCommands()
 		FCanExecuteAction::CreateStatic( &FInternalPlayWorldCommandCallbacks::HasPlayWorld ),
 		FIsActionChecked(),
 		FIsActionButtonVisible::CreateStatic( &FInternalPlayWorldCommandCallbacks::HasPlayWorld )
+		);
+
+	// Get mouse control from PIE
+	ActionList.MapAction(Commands.GetMouseControl,
+		FExecuteAction::CreateStatic( &FInternalPlayWorldCommandCallbacks::GetMouseControlExecute ),
+		FCanExecuteAction::CreateStatic( &FInternalPlayWorldCommandCallbacks::HasPlayWorld ),
+		FIsActionChecked(),
+		FIsActionChecked::CreateStatic(&FInternalPlayWorldCommandCallbacks::HasPlayWorld )
 		);
 
 	// Toggle PIE/SIE, Eject (PIE->SIE), and Possess (SIE->PIE)
@@ -813,7 +871,7 @@ TSharedRef< SWidget > FPlayWorldCommands::GenerateLaunchMenuContent( TSharedRef<
 				// ... generate tooltip text
 				FFormatNamedArguments TooltipArguments;
 				TooltipArguments.Add(TEXT("DisplayName"), PlatformInfo->DisplayName);
-				FText Tooltip = FText::Format(LOCTEXT("LaunchDeviceToolTipText", "Found no connected devices for {DisplayName}"), TooltipArguments);
+				FText Tooltip = FText::Format(LOCTEXT("LaunchNoDevicesToolTipText", "Found no connected devices for {DisplayName}"), TooltipArguments);
 
 				// ... and add a menu entry
 				MenuBuilder.AddMenuEntry(
@@ -1159,6 +1217,10 @@ void RecordLastExecutedPlayMode()
 			PlayModeString = TEXT("InNewProcess");
 			break;
 
+		case PlayMode_InVR:
+			PlayModeString = TEXT("InVR");
+			break;
+
 		case PlayMode_Simulate:
 			PlayModeString = TEXT("Simulate");
 			break;
@@ -1167,7 +1229,7 @@ void RecordLastExecutedPlayMode()
 			PlayModeString = TEXT("<UNKNOWN>");
 		}
 
-		FEngineAnalytics::GetProvider().RecordEvent(TEXT("Editor.Usage.PIE"), TEXT("PlayLocation"), PlayModeString);
+		FEngineAnalytics::GetProvider().RecordEvent(TEXT("Editor.Usage.PIE"), TEXT("PlayLocation"), PlayLocationString);
 		FEngineAnalytics::GetProvider().RecordEvent(TEXT("Editor.Usage.PIE"), TEXT("PlayMode"), PlayModeString);
 	}	
 }
@@ -1638,19 +1700,17 @@ bool FInternalPlayWorldCommandCallbacks::IsReadyToLaunchOnDevice(FString DeviceI
 		}
 
 		// report to main frame
-		switch (Result)
+		if ((Result & ETargetPlatformReadyStatus::CodeUnsupported) != 0)
 		{
-		case ETargetPlatformReadyStatus::CodeUnsupported:
 			// show the message
-			FMessageDialog::Open(EAppMsgType::Ok, LOCTEXT("NotSupported", "Sorry, launching a code-based project for the selected platform is currently not supported. This feature may be available in a future release."));
+			FMessageDialog::Open(EAppMsgType::Ok, LOCTEXT("NotSupported_CodeBased", "Sorry, launching a code-based project for the selected platform is currently not supported. This feature may be available in a future release."));
 			return false;
-
-		case ETargetPlatformReadyStatus::PluginsUnsupported:
+		}
+		if ((Result & ETargetPlatformReadyStatus::PluginsUnsupported) != 0)
+		{
 			// show the message
-			FMessageDialog::Open(EAppMsgType::Ok, LOCTEXT("NotSupported", "Sorry, launching a project with third-party plugins is currently not supported for the selected platform. This feature may be available in a future release."));
+			FMessageDialog::Open(EAppMsgType::Ok, LOCTEXT("NotSupported_Plugins", "Sorry, launching a project with third-party plugins is currently not supported for the selected platform. This feature may be available in a future release."));
 			return false;
-		default:
-			break;
 		}
 	}
 	else
@@ -1699,6 +1759,21 @@ void FInternalPlayWorldCommandCallbacks::HandleShowSDKTutorial( FString Platform
 	MainFrameModule.BroadcastMainFrameSDKNotInstalled(PlatformName, NotInstalledDocLink);
 }
 
+void FInternalPlayWorldCommandCallbacks::GetMouseControlExecute()
+{
+	if (IsInPIE()) {
+		FSlateApplication::Get().ClearKeyboardFocus(EFocusCause::SetDirectly);
+		FSlateApplication::Get().ResetToDefaultInputSettings();
+
+		TWeakPtr<SGlobalPlayWorldActions> ActiveGlobalPlayWorldWidget = FPlayWorldCommands::GetActiveGlobalPlayWorldActionsWidget();
+		if (ActiveGlobalPlayWorldWidget.IsValid())
+		{
+			uint32 UserIndex = 0;
+			FSlateApplication::Get().SetUserFocus(UserIndex, ActiveGlobalPlayWorldWidget.Pin());
+		}
+	}
+}
+
 FSlateIcon FInternalPlayWorldCommandCallbacks::GetResumePlaySessionImage()
 {
 	if ( IsInPIE() )
@@ -1739,6 +1814,8 @@ void FInternalPlayWorldCommandCallbacks::ResumePlaySession_Clicked()
 	{
 		LeaveDebuggingMode();
 		GUnrealEd->PlaySessionResumed();
+		uint32 UserIndex = 0;
+		FSlateApplication::Get().SetUserFocusToGameViewport(UserIndex);
 	}
 }
 
@@ -1749,6 +1826,17 @@ void FInternalPlayWorldCommandCallbacks::PausePlaySession_Clicked()
 	{
 		GUnrealEd->PlayWorld->bDebugPauseExecution = true;
 		GUnrealEd->PlaySessionPaused();
+		if (IsInPIE()) {
+			FSlateApplication::Get().ClearKeyboardFocus(EFocusCause::SetDirectly);
+			FSlateApplication::Get().ResetToDefaultInputSettings();
+
+			TWeakPtr<SGlobalPlayWorldActions> ActiveGlobalPlayWorldWidget = FPlayWorldCommands::GetActiveGlobalPlayWorldActionsWidget();
+			if (ActiveGlobalPlayWorldWidget.IsValid())
+			{
+				uint32 UserIndex = 0;
+				FSlateApplication::Get().SetUserFocus(UserIndex, ActiveGlobalPlayWorldWidget.Pin());
+			}
+		}
 	}
 }
 
@@ -1783,7 +1871,6 @@ void FInternalPlayWorldCommandCallbacks::LateJoinSession_Clicked()
 		GEditor->RequestLateJoin();
 	}
 }
-
 
 void FInternalPlayWorldCommandCallbacks::ShowCurrentStatement_Clicked()
 {
@@ -1831,23 +1918,46 @@ void FInternalPlayWorldCommandCallbacks::TogglePlayPause_Clicked()
 {
 	if (HasPlayWorld())
 	{
-		if (GUnrealEd->PlayWorld->bDebugPauseExecution)
+		if (GUnrealEd->PlayWorld->IsPaused())
 		{
 			LeaveDebuggingMode();
 			GUnrealEd->PlaySessionResumed();
+			uint32 UserIndex = 0;
+			FSlateApplication::Get().SetUserFocusToGameViewport(UserIndex);
 		}
 		else
 		{
 			GUnrealEd->PlayWorld->bDebugPauseExecution = true;
 			GUnrealEd->PlaySessionPaused();
+			if (IsInPIE()) {
+				FSlateApplication::Get().ClearKeyboardFocus(EFocusCause::SetDirectly);
+				FSlateApplication::Get().ResetToDefaultInputSettings();
+
+				TWeakPtr<SGlobalPlayWorldActions> ActiveGlobalPlayWorldWidget = FPlayWorldCommands::GetActiveGlobalPlayWorldActionsWidget();
+				if (ActiveGlobalPlayWorldWidget.IsValid())
+				{
+					uint32 UserIndex = 0;
+					FSlateApplication::Get().SetUserFocus(UserIndex, ActiveGlobalPlayWorldWidget.Pin());
+				}
+			}
 		}
 	}
 }
 
-
 bool FInternalPlayWorldCommandCallbacks::CanShowNonPlayWorldOnlyActions()
 {
-	return !HasPlayWorld();
+	// @todo vreditor: Don't display Simulate if we're currently in VR mode to prevent crash in blueprint (see UE-27984)
+	bool bIsInVREditor = false;
+	if (IVREditorModule::IsAvailable())
+	{
+		bIsInVREditor = IVREditorModule::Get().IsVREditorEnabled();
+	}
+	return (!HasPlayWorld() && !bIsInVREditor);
+}
+
+bool FInternalPlayWorldCommandCallbacks::CanShowVulkanNonPlayWorldOnlyActions()
+{
+	return !HasPlayWorld() && GetDefault<UEditorExperimentalSettings>()->bAllowVulkanPreview && FModuleManager::Get().ModuleExists(TEXT("VulkanRHI"));
 }
 
 bool FInternalPlayWorldCommandCallbacks::CanShowVROnlyActions()
@@ -1960,15 +2070,25 @@ bool FInternalPlayWorldCommandCallbacks::CanLaunchOnDevice(const FString& Device
 {
 	if (!GUnrealEd->IsPlayingViaLauncher())
 	{
-		TSharedPtr<ITargetDeviceServicesModule> TargetDeviceServicesModule = StaticCastSharedPtr<ITargetDeviceServicesModule>(FModuleManager::Get().LoadModule(TEXT("TargetDeviceServices")));
+		static TWeakPtr<ITargetDeviceProxyManager> DeviceProxyManagerPtr;
 
-		if (TargetDeviceServicesModule.IsValid())
+		if (!DeviceProxyManagerPtr.IsValid())
 		{
-			ITargetDeviceProxyPtr DeviceProxy = TargetDeviceServicesModule->GetDeviceProxyManager()->FindProxy(DeviceName);
+			auto TargetDeviceServicesModule = StaticCastSharedPtr<ITargetDeviceServicesModule>(FModuleManager::Get().LoadModule(TEXT("TargetDeviceServices")));		
+			if (TargetDeviceServicesModule.IsValid())
+			{
+				DeviceProxyManagerPtr = TargetDeviceServicesModule->GetDeviceProxyManager();
+			}
+		}
 
+		TSharedPtr<ITargetDeviceProxyManager> DeviceProxyManager = DeviceProxyManagerPtr.Pin();
+		if (DeviceProxyManager.IsValid())
+		{
+			ITargetDeviceProxyPtr DeviceProxy = DeviceProxyManager->FindProxy(DeviceName);
 			return (DeviceProxy.IsValid() && DeviceProxy->IsConnected());
 		}
 	}
+
 	return false;
 }
 
@@ -1978,6 +2098,18 @@ void FInternalPlayWorldCommandCallbacks::LaunchOnDevice( const FString& DeviceId
 	FTargetDeviceId TargetDeviceId;
 	if (FTargetDeviceId::Parse(DeviceId, TargetDeviceId))
 	{
+		const PlatformInfo::FPlatformInfo* const PlatformInfo = PlatformInfo::FindPlatformInfo(*TargetDeviceId.GetPlatformName());
+		check(PlatformInfo);
+
+		if (FInstalledPlatformInfo::Get().IsPlatformMissingRequiredFile(PlatformInfo->BinaryFolderName))
+		{
+			if (!FInstalledPlatformInfo::OpenInstallerOptions())
+			{
+				FMessageDialog::Open(EAppMsgType::Ok, LOCTEXT("MissingPlatformFilesLaunch", "Missing required files to launch on this platform."));
+			}
+			return;
+		}
+
 		if (FModuleManager::LoadModuleChecked<IProjectTargetPlatformEditorModule>("ProjectTargetPlatformEditor").ShowUnsupportedTargetWarning(*TargetDeviceId.GetPlatformName()))
 		{
 			GUnrealEd->RequestPlaySession(DeviceId, DeviceName);

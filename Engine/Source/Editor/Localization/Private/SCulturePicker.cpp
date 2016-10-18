@@ -14,23 +14,6 @@ void SCulturePicker::Construct( const FArguments& InArgs )
 	DisplayNameFormat = InArgs._DisplayNameFormat;
 	CanSelectNone = InArgs._CanSelectNone;
 
-	TArray<FString> AllCultureNames;
-	FInternationalization::Get().GetCultureNames(AllCultureNames);
-	for (const auto& CultureName : AllCultureNames)
-	{
-		const FCulturePtr Culture = FInternationalization::Get().GetCulture(CultureName);
-		if (Culture.IsValid())
-		{
-			Cultures.AddUnique(Culture);
-			const TArray<FString> ParentCultureNames = Culture->GetPrioritizedParentCultureNames();
-			for (const auto& ParentCultureName : ParentCultureNames)
-			{
-				const FCulturePtr ParentCulture = FInternationalization::Get().GetCulture(ParentCultureName);
-				Cultures.AddUnique(ParentCulture);
-			}
-		}
-	}
-
 	BuildStockEntries();
 	RebuildEntries();
 
@@ -82,110 +65,82 @@ void SCulturePicker::RequestTreeRefresh()
 
 void SCulturePicker::BuildStockEntries()
 {
-	TArray<FCulturePtr> StockCultures;
+	StockEntries.Empty();
+
 	TArray<FString> StockCultureNames;
 	FInternationalization::Get().GetCultureNames(StockCultureNames);
-	for (const auto& CultureName : StockCultureNames)
+
+	TMap<FString, TSharedPtr<FCultureEntry>> TopLevelStockCultureEntries;
+	TMap<FString, TSharedPtr<FCultureEntry>> AllStockCultureEntries;
+	AllStockCultureEntries.Reserve(StockCultureNames.Num());
+
+	for (const FString& CultureName : StockCultureNames)
 	{
 		const FCulturePtr Culture = FInternationalization::Get().GetCulture(CultureName);
 		if (Culture.IsValid())
 		{
-			StockCultures.AddUnique(Culture);
-			const TArray<FString> ParentCultureNames = Culture->GetPrioritizedParentCultureNames();
-			for (const auto& ParentCultureName : ParentCultureNames)
+			TArray<FString> HierarchicalCultureNames = Culture->GetPrioritizedParentCultureNames();
+			if (HierarchicalCultureNames.Num() == 0 || HierarchicalCultureNames[0] != CultureName)
 			{
-				const FCulturePtr ParentCulture = FInternationalization::Get().GetCulture(ParentCultureName);
-				if (ParentCulture.IsValid())
+				HierarchicalCultureNames.Remove(CultureName);
+				HierarchicalCultureNames.Insert(CultureName, 0);
+			}
+
+			// Walk the array backwards to process the cultures in parent->child order
+			TSharedPtr<FCultureEntry> ParentCultureEntry;
+			const int32 TopLevelCultureIndex = HierarchicalCultureNames.Num() - 1;
+			for (int32 CultureIndex = TopLevelCultureIndex; CultureIndex >= 0; --CultureIndex)
+			{
+				// Find the culture data
+				const FString HierarchicalCultureName = HierarchicalCultureNames[CultureIndex];
+				const FCulturePtr HierarchicalCulture = FInternationalization::Get().GetCulture(HierarchicalCultureName);
+				if (!HierarchicalCulture.IsValid())
 				{
-					StockCultures.AddUnique(ParentCulture);
+					continue;
 				}
+
+				// Find or add a map entry for this culture
+				TSharedPtr<FCultureEntry>& StockCultureEntryRef = AllStockCultureEntries.FindOrAdd(HierarchicalCultureName);
+				if (!StockCultureEntryRef.IsValid())
+				{
+					StockCultureEntryRef = MakeShareable(new FCultureEntry(HierarchicalCulture));
+
+					// Link this entry as a child of its parent
+					if (ParentCultureEntry.IsValid())
+					{
+						ParentCultureEntry->Children.Add(StockCultureEntryRef);
+					}
+				}
+
+				// Is this culture a top-level entry?
+				if (CultureIndex == TopLevelCultureIndex)
+				{
+					TSharedPtr<FCultureEntry>& TopLevelStockCultureEntryRef = TopLevelStockCultureEntries.FindOrAdd(HierarchicalCultureName);
+					if (!TopLevelStockCultureEntryRef.IsValid())
+					{
+						TopLevelStockCultureEntryRef = StockCultureEntryRef;
+					}
+				}
+
+				ParentCultureEntry = StockCultureEntryRef;
 			}
 		}
 	}
 
-	TMap< FString, TSharedPtr<FCultureEntry> > StockCultureEntries;
-	StockCultureEntries.Reserve(StockCultures.Num());
-
-	StockEntries.Empty(StockCultures.Num());
-	StockEntries.Reserve(StockCultureEntries.Num());
-	for (const FCulturePtr& Culture : StockCultures)
+	// Populate the top-level array
+	StockEntries.Reserve(TopLevelStockCultureEntries.Num());
+	for (const auto& CultureNameDataPair : TopLevelStockCultureEntries)
 	{
-		const FString Name = Culture->GetName();
-
-		TSharedRef<FCultureEntry> CultureEntry = MakeShareable( new FCultureEntry(Culture) );
-
-		// Add culture to entries.
-		StockCultureEntries.Add( Name, CultureEntry );
-
-		// Add entry to list of root stock entries - it will be removed if someone has it as a child.
-		StockEntries.Add( CultureEntry );
+		StockEntries.Add(CultureNameDataPair.Value);
 	}
 
-	// Update all parent entries to know about their child entries.
-	for (auto& Pair : StockCultureEntries)
-	{
-		const TSharedPtr<FCultureEntry> Entry = Pair.Value;
-
-		const TArray<FString> ParentCultureNames = Entry->Culture->GetPrioritizedParentCultureNames();
-
-		TArray<FString> InvalidAncestors;
-		for (const FString& ParentName : ParentCultureNames)
-		{
-			// Find existing parent entry.
-			TSharedPtr<FCultureEntry> ParentEntry;
-			{
-				const TSharedPtr<FCultureEntry>* const PossibleParentEntry = StockCultureEntries.Find(ParentName);
-				if (PossibleParentEntry)
-				{
-					ParentEntry = *PossibleParentEntry;
-				}
-			}
-
-			// Skip unfound parents.
-			if (!ParentEntry.IsValid())
-			{
-				continue;
-			}
-
-			// Don't add self as child of self.
-			if (Entry == ParentEntry)
-			{
-				continue;
-			}
-
-			// Invalidate ancestors of this parent entry.
-			TArray<FString> ParentAncestorCultureNames = ParentEntry->Culture->GetPrioritizedParentCultureNames();
-			for (const auto& AncestorCultureName : ParentAncestorCultureNames)
-			{
-				// Don't treat this parent entry as a parent of itself.
-				if (AncestorCultureName != ParentName)
-				{
-					InvalidAncestors.Add(AncestorCultureName);
-				}
-			}
-
-			// Don't add ancestors of ancestors.
-			if (InvalidAncestors.Contains(ParentName))
-			{
-				continue;
-			}
-
-			// Add current entry to parent entry.
-			ParentEntry->Children.Add( MakeShareable( new FCultureEntry(*Entry) ) );
-
-			// Remove the current entry from the base entries, as it is a child.
-			StockEntries.Remove(Entry);
-		}
-	}
-
-	// Sort entries.
-	const auto& CultureEntryComparator = [this](const TSharedPtr<FCultureEntry>& LHS, const TSharedPtr<FCultureEntry>& RHS) -> bool
+	// Sort entries
+	StockEntries.Sort([this](const TSharedPtr<FCultureEntry>& LHS, const TSharedPtr<FCultureEntry>& RHS) -> bool
 	{
 		const FString LHSDisplayName = GetCultureDisplayName(LHS->Culture.ToSharedRef(), false);
 		const FString RHSDisplayName = GetCultureDisplayName(RHS->Culture.ToSharedRef(), false);
 		return LHSDisplayName < RHSDisplayName;
-	};
-	StockEntries.Sort(CultureEntryComparator);
+	});
 }
 
 void SCulturePicker::RebuildEntries()
@@ -262,19 +217,15 @@ TSharedRef<ITableRow> SCulturePicker::OnGenerateRow(TSharedPtr<FCultureEntry> En
 void SCulturePicker::OnGetChildren(TSharedPtr<FCultureEntry> Entry, TArray< TSharedPtr<FCultureEntry> >& Children)
 {
 	// Add entries from children array.
-	for (const auto& Child : Entry->Children)
-	{
-		Children.Add(Child);
+	Children.Append(Entry->Children);
 
-		// Sort entries.
-		const auto& CultureEntryComparator = [this](const TSharedPtr<FCultureEntry>& LHS, const TSharedPtr<FCultureEntry>& RHS) -> bool
-		{
-			const FString LHSDisplayName = GetCultureDisplayName(LHS->Culture.ToSharedRef(), false);
-			const FString RHSDisplayName = GetCultureDisplayName(RHS->Culture.ToSharedRef(), false);
-			return LHSDisplayName < RHSDisplayName;
-		};
-		Children.Sort(CultureEntryComparator);
-	}
+	// Sort entries.
+	Children.Sort([this](const TSharedPtr<FCultureEntry>& LHS, const TSharedPtr<FCultureEntry>& RHS) -> bool
+	{
+		const FString LHSDisplayName = GetCultureDisplayName(LHS->Culture.ToSharedRef(), false);
+		const FString RHSDisplayName = GetCultureDisplayName(RHS->Culture.ToSharedRef(), false);
+		return LHSDisplayName < RHSDisplayName;
+	});
 }
 
 void SCulturePicker::OnSelectionChanged(TSharedPtr<FCultureEntry> Entry, ESelectInfo::Type SelectInfo)

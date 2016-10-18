@@ -61,12 +61,7 @@ public:
 			FSlot& Column(int32 Column)
 			{
 				ColumnParam = FMath::Max(0, Column);
-
-				if ( Panel.IsValid() )
-				{
-					Panel.Pin()->NotifySlotChanged(this);
-				}
-
+				NotifySlotChanged();
 				return *this;
 			}
 
@@ -74,12 +69,7 @@ public:
 			FSlot& ColumnSpan( int32 ColumnSpan )
 			{
 				ColumnSpanParam = FMath::Max(1,ColumnSpan);
-
-				if(Panel.IsValid())
-				{
-					Panel.Pin()->NotifySlotChanged(this);
-				}
-
+				NotifySlotChanged();
 				return *this;
 			}
 
@@ -87,25 +77,15 @@ public:
 			FSlot& Row(int32 Row)
 			{
 				RowParam = FMath::Max(0, Row);
-
-				if ( Panel.IsValid() )
-				{
-					Panel.Pin()->NotifySlotChanged(this);
-				}
-
+				NotifySlotChanged();
 				return *this;
 			}
 
 			/** How many rows this this slot spans over */
 			FSlot& RowSpan( int32 RowSpan )
 			{
-				RowSpanParam = FMath::Max(1,RowSpan);
-
-				if(Panel.IsValid())
-				{
-					Panel.Pin()->NotifySlotChanged(this);
-				}
-
+				RowSpanParam = FMath::Max(1, RowSpan);
+				NotifySlotChanged();
 				return *this;
 			}
 
@@ -113,12 +93,7 @@ public:
 			FSlot& Layer(int32 Layer)
 			{
 				LayerParam = Layer;
-
-				if (Panel.IsValid())
-				{
-					Panel.Pin()->NotifySlotChanged(this);
-				}
-
+				NotifySlotChanged();
 				return *this;
 			}
 
@@ -127,6 +102,15 @@ public:
 			{
 				NudgeParam = Nudge;
 				return *this;
+			}
+
+			/** Notify that the slot was changed */
+			FORCEINLINE void NotifySlotChanged()
+			{
+				if ( Panel.IsValid() )
+				{
+					Panel.Pin()->NotifySlotChanged(this);
+				}
 			}
 	};
 
@@ -211,6 +195,9 @@ public:
 
 	/** Specify a row to stretch instead of sizing to content. */
 	void SetRowFill( int32 RowId, const TAttribute<float>& Coefficient );
+
+	/** Clear the row and column fill rules. */
+	void ClearFill();
 
 public:
 

@@ -15,9 +15,9 @@ class FOculusLibraryPlugin : public IOculusLibraryPlugin
 		UOculusFunctionLibrary::GetPose(DeviceRotation, DevicePosition, NeckPosition, bUseOrienationForPlayerCamera, bUsePositionForPlayerCamera, PositionScale);
 	}
 
-	virtual void GetRawSensorData(FVector& Accelerometer, FVector& Gyro, FVector& Magnetometer, float& Temperature, float& TimeInSeconds) override
+	virtual void GetRawSensorData(FVector& AngularAcceleration, FVector& LinearAcceleration, FVector& AngularVelocity, FVector& LinearVelocity, float& TimeInSeconds) override
 	{
-		UOculusFunctionLibrary::GetRawSensorData(Accelerometer, Gyro, Magnetometer, Temperature, TimeInSeconds);
+		UOculusFunctionLibrary::GetRawSensorData(AngularAcceleration, LinearAcceleration, AngularVelocity, LinearVelocity, TimeInSeconds);
 	}
 
 	virtual bool GetUserProfile(struct FHmdUserProfile& Profile) override

@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "SlateTextLayoutFactory.h"
+
 class FSlateTextLayout;
 class ITextLayoutMarshaller;
 class ISlateRunRenderer;
@@ -17,6 +19,7 @@ public:
 			const TAttribute<FText>& InHighlightText, 
 			const TAttribute<float>& InWrapTextAt, 
 			const TAttribute<bool>& InAutoWrapText, 
+			const TAttribute<ETextWrappingPolicy>& InWrappingPolicy, 
 			const TAttribute<FMargin>& InMargin, 
 			const TAttribute<float>& InLineHeightPercentage, 
 			const TAttribute<ETextJustify::Type>& InJustification
@@ -25,6 +28,7 @@ public:
 			, HighlightText(InHighlightText)
 			, WrapTextAt(InWrapTextAt)
 			, AutoWrapText(InAutoWrapText)
+			, WrappingPolicy(InWrappingPolicy)
 			, Margin(InMargin)
 			, LineHeightPercentage(InLineHeightPercentage)
 			, Justification(InJustification)
@@ -35,6 +39,7 @@ public:
 		const TAttribute<FText>& HighlightText;
 		const TAttribute<float>& WrapTextAt;
 		const TAttribute<bool>& AutoWrapText;
+		const TAttribute<ETextWrappingPolicy> WrappingPolicy;
 		const TAttribute<FMargin>& Margin;
 		const TAttribute<float>& LineHeightPercentage;
 		const TAttribute<ETextJustify::Type>& Justification;
@@ -43,7 +48,7 @@ public:
 	/**
 	 * Constructor
 	 */
-	FTextBlockLayout(FTextBlockStyle InDefaultTextStyle, const TOptional<ETextShapingMethod> InTextShapingMethod, const TOptional<ETextFlowDirection> InTextFlowDirection, TSharedRef<ITextLayoutMarshaller> InMarshaller, TSharedPtr<IBreakIterator> InLineBreakPolicy);
+	FTextBlockLayout(FTextBlockStyle InDefaultTextStyle, const TOptional<ETextShapingMethod> InTextShapingMethod, const TOptional<ETextFlowDirection> InTextFlowDirection, const FCreateSlateTextLayout& InCreateSlateTextLayout, TSharedRef<ITextLayoutMarshaller> InMarshaller, TSharedPtr<IBreakIterator> InLineBreakPolicy);
 
 	/**
 	 * Get the computed desired size for this layout, updating the internal cache as required
@@ -59,6 +64,12 @@ public:
 	 * Force dirty the layout due to an external change that can't be picked up automatically by this cache
 	 */
 	void DirtyLayout();
+
+	/**
+	 * Force dirty the content due to an external change that can't be picked up automatically by this cache.
+	 * Also force dirties the layout. Will cause the contained text to be re-parsed by the marshaller next frame.
+	 */
+	void DirtyContent();
 
 	/**
 	 * Override the text style used and immediately update the text layout (if required).

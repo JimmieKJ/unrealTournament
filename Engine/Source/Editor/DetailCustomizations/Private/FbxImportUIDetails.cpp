@@ -73,9 +73,16 @@ void FFbxImportUIDetails::CustomizeDetails( IDetailLayoutBuilder& DetailBuilder 
 
 	if(ImportType != FBXIT_Animation)
 	{
-		TSharedRef<IPropertyHandle> ImportSkeletalProp = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(UFbxImportUI, bImportAsSkeletal));
-		ImportSkeletalProp->SetOnPropertyValueChanged(FSimpleDelegate::CreateSP(this, &FFbxImportUIDetails::MeshImportModeChanged));
-		MeshCategory.AddProperty(ImportSkeletalProp);
+		{
+			TSharedRef<IPropertyHandle> Prop = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(UFbxImportUI, bImportAsSkeletal));
+			Prop->SetOnPropertyValueChanged(FSimpleDelegate::CreateSP(this, &FFbxImportUIDetails::MeshImportModeChanged));
+			MeshCategory.AddProperty(Prop);
+		}
+		{
+			TSharedRef<IPropertyHandle> Prop = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(UFbxImportUI, bImportAsSubDSurface));
+			Prop->SetOnPropertyValueChanged(FSimpleDelegate::CreateSP(this, &FFbxImportUIDetails::MeshImportModeChanged));
+			MeshCategory.AddProperty(Prop);
+		}
 	}
 
 	TSharedRef<IPropertyHandle> ImportMeshProp = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(UFbxImportUI, bImportMesh));
@@ -323,8 +330,7 @@ void FFbxImportUIDetails::MeshImportModeChanged()
 {
 	if(CachedDetailBuilder)
 	{
-		ImportUI->MeshTypeToImport = ImportUI->MeshTypeToImport == FBXIT_SkeletalMesh ? FBXIT_StaticMesh : FBXIT_SkeletalMesh;
-		ImportUI->bImportMesh = true;
+		ImportUI->SetMeshTypeToImport();
 		CachedDetailBuilder->ForceRefreshDetails();
 	}
 }
@@ -335,7 +341,7 @@ void FFbxImportUIDetails::ImportMeshToggleChanged()
 	{
 		if(ImportUI->bImportMesh)
 		{
-			ImportUI->MeshTypeToImport = ImportUI->bImportAsSkeletal ? FBXIT_SkeletalMesh : FBXIT_StaticMesh;
+			ImportUI->SetMeshTypeToImport();
 		}
 		else
 		{

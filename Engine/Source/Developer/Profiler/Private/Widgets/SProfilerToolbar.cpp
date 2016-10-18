@@ -28,7 +28,8 @@ void SProfilerToolbar::Construct( const FArguments& InArgs )
 		{
 			ToolbarBuilder.BeginSection("File");
 			{
-				ToolbarBuilder.AddToolBarButton( FProfilerCommands::Get().ProfilerManager_Load );
+				ToolbarBuilder.AddToolBarButton(FProfilerCommands::Get().ProfilerManager_Load);
+				ToolbarBuilder.AddToolBarButton(FProfilerCommands::Get().ProfilerManager_LoadMultiple);
 				ToolbarBuilder.AddToolBarButton( FProfilerCommands::Get().ProfilerManager_Save );
 			}
 			ToolbarBuilder.EndSection();

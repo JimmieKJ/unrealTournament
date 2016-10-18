@@ -111,6 +111,7 @@ void FProfilerManager::PostConstructor()
 	
 	ProfilerClient->OnLoadStarted().AddSP(this, &FProfilerManager::ProfilerClient_OnLoadStarted);
 	ProfilerClient->OnLoadCompleted().AddSP(this, &FProfilerManager::ProfilerClient_OnLoadCompleted);
+	ProfilerClient->OnLoadCancelled().AddSP(this, &FProfilerManager::ProfilerClient_OnLoadCancelled);
 
 	ProfilerClient->OnMetaDataUpdated().AddSP(this, &FProfilerManager::ProfilerClient_OnMetaDataUpdated);
 
@@ -128,6 +129,7 @@ void FProfilerManager::PostConstructor()
 void FProfilerManager::BindCommands()
 {
 	ProfilerActionManager.Map_ProfilerManager_Load();
+	ProfilerActionManager.Map_ProfilerManager_LoadMultiple();
 	ProfilerActionManager.Map_ToggleDataPreview_Global();
 	ProfilerActionManager.Map_ProfilerManager_ToggleLivePreview_Global();
 	ProfilerActionManager.Map_ToggleDataCapture_Global();
@@ -144,11 +146,6 @@ FProfilerManager::~FProfilerManager()
 	// Remove ourselves from the session manager.
 	if (SessionManager.IsValid())
 	{
-		// clear the selected session
-		ISessionInfoPtr Ptr;
-		Ptr.Reset();
-		SessionManager->SelectSession( Ptr );
-
 		SessionManager->OnCanSelectSession().RemoveAll( this );
 		SessionManager->OnSelectedSessionChanged().RemoveAll( this );
 		SessionManager->OnInstanceSelectionChanged().RemoveAll( this );
@@ -270,7 +267,7 @@ bool FProfilerManager::Tick( float DeltaTime )
 		const double SessionMemory = MBInv*ProfilerSession->GetMemoryUsage();
 		const double PhysMemory = MBInv*DiffPhys;
 
-		UE_LOG( LogStats, Log, TEXT( "ProfilerSession: %6.2f MB (%6.2f MB) # (%6.2f MB) / %7u -> %4u" ), 
+		UE_LOG( LogStats, VeryVerbose, TEXT( "ProfilerSession: %6.2f MB (%6.2f MB) # (%6.2f MB) / %7u -> %4u" ), 
 			SessionMemory,
 			PhysMemory,
 			PhysMemory - SessionMemory,
@@ -386,6 +383,18 @@ void FProfilerManager::ProfilerClient_OnLoadCompleted( const FGuid& InstanceID )
 
 		const FString Description = ProfilerSession->GetName();
 		UE_LOG( LogStats, Warning, TEXT( "OnLoadCompleted: %s" ), *Description );
+	}
+}
+
+void FProfilerManager::ProfilerClient_OnLoadCancelled(const FGuid& InstanceID)
+{
+	// Inform that the load was cancelled and close the progress notification.
+	if (ProfilerSession.IsValid())
+	{
+		const FString Description = ProfilerSession->GetName();
+		UE_LOG(LogStats, Warning, TEXT("OnLoadCancelled: %s"), *Description);
+
+		GetProfilerWindow()->ManageLoadingProgressNotificationState(Description, EProfilerNotificationTypes::LoadingOfflineCapture, ELoadingProgressStates::Cancelled, 0.0f);
 	}
 }
 
@@ -553,6 +562,7 @@ void FProfilerManager::ClearStatsAndInstances()
 	TrackedStats.Empty();
 
 	ProfilerClient->Untrack( ActiveInstanceID );
+	ProfilerClient->CancelLoading( ActiveInstanceID );
 	ActiveInstanceID.Invalidate();
 }
 

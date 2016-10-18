@@ -14,7 +14,7 @@ D3D12ConstantBuffer.cpp: D3D Constant buffer RHI implementation.
 
 namespace D3D12RHI
 {
-	/** Sizes of constant buffers defined in ED3D11ShaderOffsetBuffer. */
+	/** Sizes of constant buffers defined in ED3D12ShaderOffsetBuffer. */
 	const uint32 GConstantBufferSizes[MAX_CONSTANT_BUFFER_SLOTS] =
 	{
 		// CBs must be a multiple of 16

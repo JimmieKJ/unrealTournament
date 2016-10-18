@@ -20,7 +20,6 @@ UCineCameraComponent::UCineCameraComponent()
 	LensSettings.MinFStop = 2.f;
 	LensSettings.MaxFStop = 2.f;
 	LensSettings.MinimumFocusDistance = 15.f;
-	LensSettings.MaxReproductionRatio = 1 / 11.f;
 
 	bConstrainAspectRatio = true;
 
@@ -81,6 +80,7 @@ void UCineCameraComponent::PostInitProperties()
 void UCineCameraComponent::PostLoad()
 {
 	RecalcDerivedData();
+	bResetInterpolation = true;
 	Super::PostLoad();
 }
 
@@ -171,11 +171,7 @@ void UCineCameraComponent::RecalcDerivedData()
 #endif
 }
 
-static const FName NAME_GetDesiredFocusDistance(TEXT("GetDesiredFocusDistance"));
-static const float SpotFocusTraceDist = 1000000.f;
-static const float FocusDistInfinity = 1000000.f;
-
-float UCineCameraComponent::GetDesiredFocusDistance(FMinimalViewInfo& DesiredView) const
+float UCineCameraComponent::GetDesiredFocusDistance(const FVector& InLocation) const
 {
 	float DesiredFocusDistance = 0.f;
 
@@ -184,22 +180,6 @@ float UCineCameraComponent::GetDesiredFocusDistance(FMinimalViewInfo& DesiredVie
 	{
 	case ECameraFocusMethod::Manual:
 		DesiredFocusDistance = FocusSettings.ManualFocusDistance;
-		break;
-
-	case ECameraFocusMethod::Spot:
-		{
-			// AutoFocus, do a trace
-			AActor* const OwningActor = GetOwner();
-
-			// trace to get depth at center of screen
-			FCollisionQueryParams TraceParams(NAME_GetDesiredFocusDistance, true, OwningActor);
-			FHitResult Hit;
-
-			FVector const TraceStart = DesiredView.Location;
-			FVector const TraceEnd = TraceStart + DesiredView.Rotation.Vector() * SpotFocusTraceDist;
-			bool const bHit = GetWorld()->LineTraceSingleByChannel(Hit, TraceStart, TraceEnd, ECC_WorldStatic, TraceParams);
-			DesiredFocusDistance = bHit ? (TraceStart - Hit.ImpactPoint).Size() : FocusDistInfinity;
-		}
 		break;
 
 	case ECameraFocusMethod::Tracking:
@@ -217,57 +197,7 @@ float UCineCameraComponent::GetDesiredFocusDistance(FMinimalViewInfo& DesiredVie
 				FocusPoint = FocusSettings.TrackingFocusSettings.RelativeOffset;
 			}
 
-			DesiredFocusDistance = (FocusPoint - DesiredView.Location).Size();
-
-// 			// try to get the position of the tracked object
-// 			UObject* const TrackedObj = FocusSettings.TrackingFocusSettings.ObjectToTrack;
-// 
-// 			// infinity is the fallback in case none of the other code paths produces a good result
-// 			DesiredFocusDistance = FocusDistInfinity;
-// 			if (TrackedObj)
-// 			{
-// 				// we have a socket/bone, see if the object is a scenecomponent
-// 				USceneComponent* const TrackedSceneComp = Cast<USceneComponent>(TrackedObj);
-// 				if (TrackedSceneComp)
-// 				{
-// 					if (FocusSettings.TrackingFocusSettings.BoneOrSocketName != NAME_None)
-// 					{
-// 						FVector const SocketLoc = TrackedSceneComp->GetSocketLocation(FocusSettings.TrackingFocusSettings.BoneOrSocketName);
-// 						DesiredFocusDistance = (SocketLoc - DesiredView.Location).Size();
-// 					}
-// 					else
-// 					{
-// 						DesiredFocusDistance = (TrackedSceneComp->GetComponentLocation() - DesiredView.Location).Size();
-// 					}
-// 				}
-// 				else
-// 				{
-// 					AActor* const TrackedActor = Cast<AActor>(TrackedObj);
-// 					if (TrackedActor)
-// 					{
-// 						if (FocusSettings.TrackingFocusSettings.BoneOrSocketName != NAME_None)
-// 						{
-// 							// user asked for an actor and a bone or socket, try to find a suitable component
-// 							TArray<USceneComponent*> OutComponents;
-// 							TrackedActor->GetComponents(OutComponents);
-// 							for (USceneComponent const* Comp : OutComponents)
-// 							{
-// 								if (Comp->DoesSocketExist(FocusSettings.TrackingFocusSettings.BoneOrSocketName))
-// 								{
-// 									FVector const SocketLoc = Comp->GetSocketLocation(FocusSettings.TrackingFocusSettings.BoneOrSocketName);
-// 									DesiredFocusDistance = (SocketLoc - DesiredView.Location).Size();
-// 									break;
-// 								}
-// 							}
-// 
-// 						}
-// 						else
-// 						{
-// 							DesiredFocusDistance = (TrackedActor->GetActorLocation() - DesiredView.Location).Size();
-// 						}
-// 					}
-// 				}
-// 			}
+			DesiredFocusDistance = (FocusPoint - InLocation).Size();
 		}
 		break;
 	}
@@ -286,11 +216,17 @@ void UCineCameraComponent::GetCameraView(float DeltaTime, FMinimalViewInfo& Desi
 
 	UpdateCameraLens(DeltaTime, DesiredView);
 
+	UpdateDebugFocusPlane();
+}
+
+void UCineCameraComponent::UpdateDebugFocusPlane()
+{
 #if WITH_EDITORONLY_DATA
-	if (FocusSettings.bDrawDebugFocusPlane && DebugFocusPlaneMesh)
+	if (FocusSettings.bDrawDebugFocusPlane && DebugFocusPlaneMesh && DebugFocusPlaneComponent)
 	{
-		FVector const CamDir = DesiredView.Rotation.Vector();
-		FVector const FocusPoint = DesiredView.Location + CamDir * CurrentFocusDistance;
+		FVector const CamLocation = ComponentToWorld.GetLocation();
+		FVector const CamDir = ComponentToWorld.GetRotation().Vector();
+		FVector const FocusPoint = ComponentToWorld.GetLocation() + CamDir * GetDesiredFocusDistance(CamLocation);
 		DebugFocusPlaneComponent->SetWorldLocation(FocusPoint);
 	}
 #endif
@@ -316,7 +252,7 @@ void UCineCameraComponent::UpdateCameraLens(float DeltaTime, FMinimalViewInfo& D
 		DesiredView.PostProcessSettings.bOverride_DepthOfFieldFstop = true;
 		DesiredView.PostProcessSettings.DepthOfFieldFstop = CurrentAperture;
 
-		CurrentFocusDistance = GetDesiredFocusDistance(DesiredView);
+		CurrentFocusDistance = GetDesiredFocusDistance(DesiredView.Location);
 
 		// clamp to min focus distance
 		float const MinFocusDistInWorldUnits = LensSettings.MinimumFocusDistance * (GetWorldToMetersScale() / 1000.f);	// convert mm to uu
@@ -358,7 +294,7 @@ void UCineCameraComponent::CreateDebugFocusPlane()
 		if (DebugFocusPlaneComponent == nullptr)
 		{
 			DebugFocusPlaneComponent = NewObject<UStaticMeshComponent>(MyOwner, NAME_None, RF_Transactional | RF_TextExportTransient);
-			DebugFocusPlaneComponent->AttachTo(this);
+			DebugFocusPlaneComponent->SetupAttachment(this);
 			DebugFocusPlaneComponent->AlwaysLoadOnClient = false;
 			DebugFocusPlaneComponent->AlwaysLoadOnServer = false;
 			DebugFocusPlaneComponent->StaticMesh = DebugFocusPlaneMesh;
@@ -367,6 +303,7 @@ void UCineCameraComponent::CreateDebugFocusPlane()
 			DebugFocusPlaneComponent->CastShadow = false;
 			DebugFocusPlaneComponent->PostPhysicsComponentTick.bCanEverTick = false;
 			DebugFocusPlaneComponent->CreationMethod = CreationMethod;
+			DebugFocusPlaneComponent->bSelectable = false;
 
 			DebugFocusPlaneComponent->RelativeScale3D = FVector(10000.f, 10000.f, 1.f);
 			DebugFocusPlaneComponent->RelativeRotation = FRotator(90.f, 0.f, 0.f);

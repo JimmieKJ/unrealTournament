@@ -1,0 +1,66 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 2013
+VisualStudioVersion = 12.0.31101.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "hdf5", "src\hdf5.vcxproj", "{8781DDCF-1577-43C8-8B70-0572BFBBD4E2}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "hdf5_hl", "hl\src\hdf5_hl.vcxproj", "{9D6CBA85-214B-424E-B41C-0176E05A7B12}"
+	ProjectSection(ProjectDependencies) = postProject
+		{8781DDCF-1577-43C8-8B70-0572BFBBD4E2} = {8781DDCF-1577-43C8-8B70-0572BFBBD4E2}
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "HDF5", "HDF5", "{57CC4A95-95E4-49AC-B4E8-C532E0322658}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x64 = Debug|x64
+		DynamicDebug|x64 = DynamicDebug|x64
+		DynamicRelease|x64 = DynamicRelease|x64
+		MinSizeRel|x64 = MinSizeRel|x64
+		Release|x64 = Release|x64
+		RelWithDebInfo|x64 = RelWithDebInfo|x64
+		StaticDebug|x64 = StaticDebug|x64
+		StaticRelease|x64 = StaticRelease|x64
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{8781DDCF-1577-43C8-8B70-0572BFBBD4E2}.Debug|x64.ActiveCfg = Debug|x64
+		{8781DDCF-1577-43C8-8B70-0572BFBBD4E2}.Debug|x64.Build.0 = Debug|x64
+		{8781DDCF-1577-43C8-8B70-0572BFBBD4E2}.DynamicDebug|x64.ActiveCfg = DynamicDebug|x64
+		{8781DDCF-1577-43C8-8B70-0572BFBBD4E2}.DynamicDebug|x64.Build.0 = DynamicDebug|x64
+		{8781DDCF-1577-43C8-8B70-0572BFBBD4E2}.DynamicRelease|x64.ActiveCfg = DynamicRelease|x64
+		{8781DDCF-1577-43C8-8B70-0572BFBBD4E2}.DynamicRelease|x64.Build.0 = DynamicRelease|x64
+		{8781DDCF-1577-43C8-8B70-0572BFBBD4E2}.MinSizeRel|x64.ActiveCfg = MinSizeRel|x64
+		{8781DDCF-1577-43C8-8B70-0572BFBBD4E2}.MinSizeRel|x64.Build.0 = MinSizeRel|x64
+		{8781DDCF-1577-43C8-8B70-0572BFBBD4E2}.Release|x64.ActiveCfg = Release|x64
+		{8781DDCF-1577-43C8-8B70-0572BFBBD4E2}.Release|x64.Build.0 = Release|x64
+		{8781DDCF-1577-43C8-8B70-0572BFBBD4E2}.RelWithDebInfo|x64.ActiveCfg = RelWithDebInfo|x64
+		{8781DDCF-1577-43C8-8B70-0572BFBBD4E2}.RelWithDebInfo|x64.Build.0 = RelWithDebInfo|x64
+		{8781DDCF-1577-43C8-8B70-0572BFBBD4E2}.StaticDebug|x64.ActiveCfg = StaticDebug|x64
+		{8781DDCF-1577-43C8-8B70-0572BFBBD4E2}.StaticDebug|x64.Build.0 = StaticDebug|x64
+		{8781DDCF-1577-43C8-8B70-0572BFBBD4E2}.StaticRelease|x64.ActiveCfg = StaticRelease|x64
+		{8781DDCF-1577-43C8-8B70-0572BFBBD4E2}.StaticRelease|x64.Build.0 = StaticRelease|x64
+		{9D6CBA85-214B-424E-B41C-0176E05A7B12}.Debug|x64.ActiveCfg = Debug|x64
+		{9D6CBA85-214B-424E-B41C-0176E05A7B12}.Debug|x64.Build.0 = Debug|x64
+		{9D6CBA85-214B-424E-B41C-0176E05A7B12}.DynamicDebug|x64.ActiveCfg = DynamicDebug|x64
+		{9D6CBA85-214B-424E-B41C-0176E05A7B12}.DynamicDebug|x64.Build.0 = DynamicDebug|x64
+		{9D6CBA85-214B-424E-B41C-0176E05A7B12}.DynamicRelease|x64.ActiveCfg = DynamicRelease|x64
+		{9D6CBA85-214B-424E-B41C-0176E05A7B12}.DynamicRelease|x64.Build.0 = DynamicRelease|x64
+		{9D6CBA85-214B-424E-B41C-0176E05A7B12}.MinSizeRel|x64.ActiveCfg = MinSizeRel|x64
+		{9D6CBA85-214B-424E-B41C-0176E05A7B12}.MinSizeRel|x64.Build.0 = MinSizeRel|x64
+		{9D6CBA85-214B-424E-B41C-0176E05A7B12}.Release|x64.ActiveCfg = Release|x64
+		{9D6CBA85-214B-424E-B41C-0176E05A7B12}.Release|x64.Build.0 = Release|x64
+		{9D6CBA85-214B-424E-B41C-0176E05A7B12}.RelWithDebInfo|x64.ActiveCfg = RelWithDebInfo|x64
+		{9D6CBA85-214B-424E-B41C-0176E05A7B12}.RelWithDebInfo|x64.Build.0 = RelWithDebInfo|x64
+		{9D6CBA85-214B-424E-B41C-0176E05A7B12}.StaticDebug|x64.ActiveCfg = StaticDebug|x64
+		{9D6CBA85-214B-424E-B41C-0176E05A7B12}.StaticDebug|x64.Build.0 = StaticDebug|x64
+		{9D6CBA85-214B-424E-B41C-0176E05A7B12}.StaticRelease|x64.ActiveCfg = StaticRelease|x64
+		{9D6CBA85-214B-424E-B41C-0176E05A7B12}.StaticRelease|x64.Build.0 = StaticRelease|x64
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{8781DDCF-1577-43C8-8B70-0572BFBBD4E2} = {57CC4A95-95E4-49AC-B4E8-C532E0322658}
+		{9D6CBA85-214B-424E-B41C-0176E05A7B12} = {57CC4A95-95E4-49AC-B4E8-C532E0322658}
+	EndGlobalSection
+EndGlobal

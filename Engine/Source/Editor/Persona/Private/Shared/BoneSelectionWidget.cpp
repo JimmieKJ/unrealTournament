@@ -9,49 +9,25 @@
 #define LOCTEXT_NAMESPACE "SBoneSelectionWidget"
 
 /////////////////////////////////////////////////////
-
-void SBoneSelectionWidget::Construct(const FArguments& InArgs)
+void SBoneTreeMenu::Construct(const FArguments& InArgs, TWeakObjectPtr<const USkeleton> Skeleton)
 {
-	if(InArgs._Skeleton.IsValid())
-	{
-		TargetSkeleton = InArgs._Skeleton.Get();
-	}
+	TargetSkeleton = Skeleton;
+	OnSelectionChangedDelegate = InArgs._OnBoneSelectionChanged;
 
-	check(TargetSkeleton);
-
-	OnBoneSelectionChanged = InArgs._OnBoneSelectionChanged;
-	OnGetSelectedBone = InArgs._OnGetSelectedBone;
-
-	FText FinalTooltip = FText::Format(LOCTEXT("BoneClickToolTip", "{0}\nClick to choose a different bone"), InArgs._Tooltip);
+	FText TitleToUse = !InArgs._Title.IsEmpty() ? InArgs._Title  : LOCTEXT("BonePickerTitle", "Pick Bone...");
 
 	SAssignNew(TreeView, STreeView<TSharedPtr<FBoneNameInfo>>)
 		.TreeItemsSource(&SkeletonTreeInfo)
-		.OnGenerateRow(this, &SBoneSelectionWidget::MakeTreeRowWidget)
-		.OnGetChildren(this, &SBoneSelectionWidget::GetChildrenForInfo)
-		.OnSelectionChanged(this, &SBoneSelectionWidget::OnSelectionChanged)
+		.OnGenerateRow(this, &SBoneTreeMenu::MakeTreeRowWidget)
+		.OnGetChildren(this, &SBoneTreeMenu::GetChildrenForInfo)
+		.OnSelectionChanged(this, &SBoneTreeMenu::OnSelectionChanged)
 		.SelectionMode(ESelectionMode::Single);
 
-	this->ChildSlot
-	[
-		SAssignNew(BonePickerButton, SComboButton)
-		.OnGetMenuContent(FOnGetContent::CreateSP(this, &SBoneSelectionWidget::CreateSkeletonWidgetMenu))
-		.ContentPadding(FMargin(4.0f, 2.0f, 4.0f, 2.0f))
-		.ButtonContent()
-		[
-			SNew(STextBlock)
-			.Text(this, &SBoneSelectionWidget::GetCurrentBoneName)
-			.Font(IDetailLayoutBuilder::GetDetailFont())
-			.ToolTipText(FinalTooltip)
-		]
-	];
-}
-
-TSharedRef<SWidget> SBoneSelectionWidget::CreateSkeletonWidgetMenu()
-{
 	RebuildBoneList();
 
-	TSharedPtr<SSearchBox> SearchWidgetToFocus = NULL;
-	TSharedRef<SBorder> MenuWidget = SNew(SBorder)
+	ChildSlot
+	[
+		SNew(SBorder)
 		.Padding(6)
 		.BorderImage(FEditorStyle::GetBrush("NoBorder"))
 		.Content()
@@ -62,42 +38,38 @@ TSharedRef<SWidget> SBoneSelectionWidget::CreateSkeletonWidgetMenu()
 			.Content()
 			[
 				SNew(SVerticalBox)
-				+SVerticalBox::Slot()
+				+ SVerticalBox::Slot()
 				.AutoHeight()
 				[
 					SNew(STextBlock)
 					.Font(FEditorStyle::GetFontStyle("BoldFont"))
-						.Text(LOCTEXT("BonePickerTitle", "Pick Bone..."))
+					.Text(TitleToUse)
 				]
-				+SVerticalBox::Slot()
+				+ SVerticalBox::Slot()
 				.AutoHeight()
 				[
 					SNew(SSeparator)
 					.SeparatorImage(FEditorStyle::GetBrush("Menu.Separator"))
-						.Orientation(Orient_Horizontal)
+					.Orientation(Orient_Horizontal)
 				]
-				+SVerticalBox::Slot()
+				+ SVerticalBox::Slot()
 				.AutoHeight()
 				[
-					SAssignNew(SearchWidgetToFocus, SSearchBox)
+					SAssignNew(FilterTextWidget, SSearchBox)
 					.SelectAllTextWhenFocused(true)
-					.OnTextChanged(this, &SBoneSelectionWidget::OnFilterTextChanged)
-					.OnTextCommitted(this, &SBoneSelectionWidget::OnFilterTextCommitted)
+					.OnTextChanged(this, &SBoneTreeMenu::OnFilterTextChanged)
 					.HintText(NSLOCTEXT("BonePicker", "Search", "Search..."))
 				]
-				+SVerticalBox::Slot()
+				+ SVerticalBox::Slot()
 				[
 					TreeView->AsShared()
 				]
 			]
-		];
-
-	BonePickerButton->SetMenuContentWidgetToFocus(SearchWidgetToFocus);
-
-	return MenuWidget;
+		]
+	];
 }
 
-TSharedRef<ITableRow> SBoneSelectionWidget::MakeTreeRowWidget(TSharedPtr<FBoneNameInfo> InInfo, const TSharedRef<STableViewBase>& OwnerTable)
+TSharedRef<ITableRow> SBoneTreeMenu::MakeTreeRowWidget(TSharedPtr<FBoneNameInfo> InInfo, const TSharedRef<STableViewBase>& OwnerTable)
 {
 	return SNew(STableRow<TSharedPtr<FBoneNameInfo>>, OwnerTable)
 		.Content()
@@ -108,27 +80,36 @@ TSharedRef<ITableRow> SBoneSelectionWidget::MakeTreeRowWidget(TSharedPtr<FBoneNa
 		];
 }
 
-void SBoneSelectionWidget::GetChildrenForInfo(TSharedPtr<FBoneNameInfo> InInfo, TArray< TSharedPtr<FBoneNameInfo> >& OutChildren)
+void SBoneTreeMenu::GetChildrenForInfo(TSharedPtr<FBoneNameInfo> InInfo, TArray< TSharedPtr<FBoneNameInfo> >& OutChildren)
 {
 	OutChildren = InInfo->Children;
 }
 
-void SBoneSelectionWidget::OnFilterTextChanged(const FText& InFilterText)
+void SBoneTreeMenu::OnFilterTextChanged(const FText& InFilterText)
 {
 	FilterText = InFilterText;
 
 	RebuildBoneList();
 }
 
-void SBoneSelectionWidget::OnFilterTextCommitted(const FText& SearchText, ETextCommit::Type CommitInfo)
+void SBoneTreeMenu::OnSelectionChanged(TSharedPtr<SBoneTreeMenu::FBoneNameInfo> BoneInfo, ESelectInfo::Type SelectInfo)
 {
-	// Already committed as the text was typed
+	//Because we recreate all our items on tree refresh we will get a spurious null selection event initially.
+	if (BoneInfo.IsValid())
+	{
+		OnSelectionChangedDelegate.ExecuteIfBound(BoneInfo->BoneName);
+	}
 }
 
-void SBoneSelectionWidget::RebuildBoneList()
+void SBoneTreeMenu::RebuildBoneList()
 {
 	SkeletonTreeInfo.Empty();
 	SkeletonTreeInfoFlat.Empty();
+	if (!TargetSkeleton.IsValid())
+	{
+		return;
+	}
+
 	const FReferenceSkeleton& RefSkeleton = TargetSkeleton->GetReferenceSkeleton();
 	for(int32 BoneIdx = 0; BoneIdx < RefSkeleton.GetNum(); ++BoneIdx)
 	{
@@ -180,20 +161,53 @@ void SBoneSelectionWidget::RebuildBoneList()
 	TreeView->RequestTreeRefresh();
 }
 
-void SBoneSelectionWidget::OnSelectionChanged(TSharedPtr<FBoneNameInfo> BoneInfo, ESelectInfo::Type SelectInfo)
+/////////////////////////////////////////////////////
+
+void SBoneSelectionWidget::Construct(const FArguments& InArgs, TWeakObjectPtr<const USkeleton> Skeleton)
 {
-	FilterText = FText::FromString("");
+	TargetSkeleton = Skeleton;
 
+	check(TargetSkeleton.IsValid());
+
+	OnBoneSelectionChanged = InArgs._OnBoneSelectionChanged;
+	OnGetSelectedBone = InArgs._OnGetSelectedBone;
+
+	FText FinalTooltip = FText::Format(LOCTEXT("BoneClickToolTip", "{0}\nClick to choose a different bone"), InArgs._Tooltip);
+
+	this->ChildSlot
+	[
+		SAssignNew(BonePickerButton, SComboButton)
+		.OnGetMenuContent(FOnGetContent::CreateSP(this, &SBoneSelectionWidget::CreateSkeletonWidgetMenu))
+		.ContentPadding(FMargin(4.0f, 2.0f, 4.0f, 2.0f))
+		.ButtonContent()
+		[
+			SNew(STextBlock)
+			.Text(this, &SBoneSelectionWidget::GetCurrentBoneName)
+			.Font(IDetailLayoutBuilder::GetDetailFont())
+			.ToolTipText(FinalTooltip)
+		]
+	];
+}
+
+TSharedRef<SWidget> SBoneSelectionWidget::CreateSkeletonWidgetMenu()
+{
+	TSharedRef<SBoneTreeMenu> MenuWidget = SNew(SBoneTreeMenu, TargetSkeleton)
+									.OnBoneSelectionChanged(this, &SBoneSelectionWidget::OnSelectionChanged);
+
+	BonePickerButton->SetMenuContentWidgetToFocus(MenuWidget->FilterTextWidget);
+
+	return MenuWidget;
+}
+
+void SBoneSelectionWidget::OnSelectionChanged(FName BoneName)
+{
 	//Because we recreate all our items on tree refresh we will get a spurious null selection event initially.
-	if (BoneInfo.IsValid())
+	if (OnBoneSelectionChanged.IsBound())
 	{
-		if (OnBoneSelectionChanged.IsBound())
-		{
-			OnBoneSelectionChanged.Execute(BoneInfo->BoneName);
-		}
-
-		BonePickerButton->SetIsOpen(false);
+		OnBoneSelectionChanged.Execute(BoneName);
 	}
+
+	BonePickerButton->SetIsOpen(false);
 }
 
 FText SBoneSelectionWidget::GetCurrentBoneName() const

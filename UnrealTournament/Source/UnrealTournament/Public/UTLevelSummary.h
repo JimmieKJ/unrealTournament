@@ -47,7 +47,7 @@ class UNREALTOURNAMENT_API UUTLevelSummary : public UObject
 	UPROPERTY(AssetRegistrySearchable)
 	FString ScreenshotReference;
 
-	virtual void PreSave()
+	virtual void PreSave(const class ITargetPlatform* TargetPlatform)
 	{
 		if (Screenshot)
 		{

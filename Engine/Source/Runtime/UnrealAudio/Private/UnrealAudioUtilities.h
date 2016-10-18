@@ -2,8 +2,7 @@
 
 #pragma once 
 
-#include "UnrealAudioPrivate.h"
-#include "UnrealAudioModule.h"
+#include "UnrealAudioTypes.h"
 #include "UnrealAudioEntityManager.h"
 
 #if ENABLE_UNREAL_AUDIO

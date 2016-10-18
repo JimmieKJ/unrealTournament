@@ -48,12 +48,12 @@ public:
 	{
 		ClearColumns();
 
-		const TArray< TSharedRef< IPropertyTableColumn > > Columns = PropertyTable->GetColumns();
+		const TArray< TSharedRef< IPropertyTableColumn > > PropertyTableColumns = PropertyTable->GetColumns();
 
 		ColumnHeaders.Empty();
 		const TSharedRef< IPropertyTable > TableRef = PropertyTable.ToSharedRef();
 
-		for( auto ColumnIter = Columns.CreateConstIterator(); ColumnIter; ++ColumnIter )
+		for( auto ColumnIter = PropertyTableColumns.CreateConstIterator(); ColumnIter; ++ColumnIter )
 		{
 			const TSharedRef< IPropertyTableColumn > Column = *ColumnIter;
 

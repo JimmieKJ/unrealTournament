@@ -7,7 +7,7 @@
 #include "SClassPickerDialog.h"
 #include "EditorClassUtils.h"
 #include "SExpandableArea.h"
-#include "ClassIconFinder.h"
+#include "SlateIconFinder.h"
 
 #define LOCTEXT_NAMESPACE "SClassPicker"
 
@@ -167,7 +167,7 @@ TSharedRef<ITableRow> SClassPickerDialog::GenerateListRow(TSharedPtr<FClassPicke
 {
 	FClassPickerDefaults* Obj = InItem.Get();
 	UClass* ItemClass = LoadClass<UObject>(NULL, *Obj->ClassName, NULL, LOAD_None, NULL);
-	const FSlateBrush* ItemBrush = FClassIconFinder::FindIconForClass(ItemClass);
+	const FSlateBrush* ItemBrush = FSlateIconFinder::FindIconBrushForClass(ItemClass);
 
 	return 
 	SNew(STableRow< TSharedPtr<FClassPickerDefaults> >, OwnerTable)
@@ -288,12 +288,12 @@ void SClassPickerDialog::OnCustomAreaExpansionChanged(bool bExpanded)
 
 EVisibility SClassPickerDialog::GetSelectButtonVisibility() const
 {
-	EVisibility Visibility = EVisibility::Hidden;
-	if( ChosenClass != NULL )
+	EVisibility ButtonVisibility = EVisibility::Hidden;
+	if( ChosenClass != nullptr )
 	{
-		Visibility = EVisibility::Visible;
+		ButtonVisibility = EVisibility::Visible;
 	}
-	return Visibility;
+	return ButtonVisibility;
 }
 
 /** Overridden from SWidget: Called when a key is pressed down - capturing copy */

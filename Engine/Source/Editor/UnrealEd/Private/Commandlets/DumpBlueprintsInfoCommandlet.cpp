@@ -1930,7 +1930,7 @@ static bool DumpBlueprintInfoUtils::DumpPinContextActions(uint32 Indent, UEdGrap
 	{
 		TArray< TSharedPtr<UEdGraphSchema_K2::FPinTypeTreeInfo> > TypeTree;
 		UEdGraphSchema_K2 const* GraphSchema = GetDefault<UEdGraphSchema_K2>(Graph->Schema);
-		GraphSchema->GetVariableTypeTree(TypeTree, /*bAllowExec =*/true, /*bAllowWildcard =*/true);
+		GraphSchema->GetVariableTypeTree(TypeTree, ETypeTreeFilter::AllowExec | ETypeTreeFilter::AllowWildcard);
 
 		for (TSharedPtr<UEdGraphSchema_K2::FPinTypeTreeInfo> TypeInfo : TypeTree)
 		{

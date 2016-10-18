@@ -1265,7 +1265,7 @@ void SCharacterRangeEditor::Construct(const FArguments& InArgs)
 			SNew(SEditableTextBox)
 			.Text(this, &SCharacterRangeEditor::GetRangeComponentAsTCHAR, 0)
 			.OnTextCommitted(this, &SCharacterRangeEditor::OnRangeComponentCommittedAsTCHAR, 0)
-			.ToolTipText(LOCTEXT("MinCharacterRangeEditCharTooltip", "Specifies the lower inclusive boundary of this character range as a character value"))
+			.ToolTipText(LOCTEXT("MinCharacterRangeEditCharTooltip", "Specifies the lower inclusive boundary of this character range as a literal unicode character.\nExample: If you wanted to use the range 'A-Z', this would be set to 'A'."))
 		]
 
 		+SGridPanel::Slot(0, 1)
@@ -1274,7 +1274,7 @@ void SCharacterRangeEditor::Construct(const FArguments& InArgs)
 			SNew(SEditableTextBox)
 			.Text(this, &SCharacterRangeEditor::GetRangeComponentAsHexString, 0)
 			.OnTextCommitted(this, &SCharacterRangeEditor::OnRangeComponentCommittedAsHexString, 0)
-			.ToolTipText(LOCTEXT("MinCharacterRangeEditHexTooltip", "Specifies the lower inclusive boundary of this character range as a hexadecimal value"))
+			.ToolTipText(LOCTEXT("MinCharacterRangeEditHexTooltip", "Specifies the lower inclusive boundary of this character range as the hexadecimal value of a unicode character.\nExample: If you wanted to use the range '0x41-0x5A' (A-Z), this would be set to '0x41'."))
 		]
 
 		+SGridPanel::Slot(0, 2)
@@ -1283,7 +1283,7 @@ void SCharacterRangeEditor::Construct(const FArguments& InArgs)
 			SNew(SNumericEntryBox<int32>)
 			.Value(this, &SCharacterRangeEditor::GetRangeComponentAsOptional, 0)
 			.OnValueCommitted(this, &SCharacterRangeEditor::OnRangeComponentCommittedAsNumeric, 0)
-			.ToolTipText(LOCTEXT("MinCharacterRangeEditDecTooltip", "Specifies the lower inclusive boundary of this character range as a decimal value"))
+			.ToolTipText(LOCTEXT("MinCharacterRangeEditDecTooltip", "Specifies the lower inclusive boundary of this character range as the decimal value of a unicode character.\nExample: If you wanted to use the range '65-90' (A-Z), this would be set to '65'."))
 		]
 
 		// Separator
@@ -1303,7 +1303,7 @@ void SCharacterRangeEditor::Construct(const FArguments& InArgs)
 			SNew(SEditableTextBox)
 			.Text(this, &SCharacterRangeEditor::GetRangeComponentAsTCHAR, 1)
 			.OnTextCommitted(this, &SCharacterRangeEditor::OnRangeComponentCommittedAsTCHAR, 1)
-			.ToolTipText(LOCTEXT("MaxCharacterRangeEditCharTooltip", "Specifies the upper inclusive boundary of this character range as a character value"))
+			.ToolTipText(LOCTEXT("MaxCharacterRangeEditCharTooltip", "Specifies the upper inclusive boundary of this character range as a literal unicode character.\nExample: If you wanted to use the range 'A-Z', this would be set to 'Z'."))
 		]
 
 		+SGridPanel::Slot(2, 1)
@@ -1312,7 +1312,7 @@ void SCharacterRangeEditor::Construct(const FArguments& InArgs)
 			SNew(SEditableTextBox)
 			.Text(this, &SCharacterRangeEditor::GetRangeComponentAsHexString, 1)
 			.OnTextCommitted(this, &SCharacterRangeEditor::OnRangeComponentCommittedAsHexString, 1)
-			.ToolTipText(LOCTEXT("MaxCharacterRangeEditHexTooltip", "Specifies the upper inclusive boundary of this character range as a hexadecimal value"))
+			.ToolTipText(LOCTEXT("MaxCharacterRangeEditHexTooltip", "Specifies the upper inclusive boundary of this character range as the hexadecimal value of a unicode character.\nExample: If you wanted to use the range '0x41-0x5A' (A-Z), this would be set to '0x5A'."))
 		]
 
 		+SGridPanel::Slot(2, 2)
@@ -1321,7 +1321,7 @@ void SCharacterRangeEditor::Construct(const FArguments& InArgs)
 			SNew(SNumericEntryBox<int32>)
 			.Value(this, &SCharacterRangeEditor::GetRangeComponentAsOptional, 1)
 			.OnValueCommitted(this, &SCharacterRangeEditor::OnRangeComponentCommittedAsNumeric, 1)
-			.ToolTipText(LOCTEXT("MaxCharacterRangeEditDecTooltip", "Specifies the upper inclusive boundary of this character range as a decimal value"))
+			.ToolTipText(LOCTEXT("MaxCharacterRangeEditDecTooltip", "Specifies the upper inclusive boundary of this character range as the decimal value of a unicode character.\nExample: If you wanted to use the range '65-90' (A-Z), this would be set to '90'."))
 		]
 	];
 }

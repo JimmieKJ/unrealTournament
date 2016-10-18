@@ -24,11 +24,14 @@ public:
 	virtual void ExpandNode( class FKismetCompilerContext& CompilerContext, UEdGraph* SourceGraph ) override;
 	virtual bool IsCompatibleWithGraph( const UEdGraph* TargetGraph ) const override;
 
+	// PLK - THIS GOT DEPRECATED, COPY LATEST FROM OTHER GAMES
+	/*
 	virtual FName GetPaletteIcon( FLinearColor& OutColor ) const override
 	{
 		OutColor = GetNodeTitleColor();
 		return TEXT( "Kismet.AllClasses.FunctionIcon" );
 	}
+	*/
 	// Begin UEdGraphNode interface.
 
 	virtual bool IsNodeSafeToIgnore() const override { return true; }

@@ -6,7 +6,7 @@
 //////////////////////////////////////////////////////////////////////////
 // FPaperEditorCommands
 
-#define LOCTEXT_NAMESPACE ""
+#define LOCTEXT_NAMESPACE "PaperEditorCommands"
 
 void FPaperEditorCommands::RegisterCommands()
 {

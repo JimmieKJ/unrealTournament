@@ -238,10 +238,11 @@ void FIOSAudioDevice::TeardownHardware()
 
 void FIOSAudioDevice::UpdateHardware()
 {
-	PlayerLocation	= Listeners[0].Transform.GetLocation();
-	PlayerFacing	= Listeners[0].GetFront();
-	PlayerUp		= Listeners[0].GetUp();
-	PlayerRight		= Listeners[0].GetRight();
+	const FListener& Listener = GetListeners()[0];
+	PlayerLocation	= Listener.Transform.GetLocation();
+	PlayerFacing	= Listener.GetFront();
+	PlayerUp		= Listener.GetUp();
+	PlayerRight		= Listener.GetRight();
 }
 
 void FIOSAudioDevice::HandleError(const TCHAR* InLogOutput, bool bTeardown)

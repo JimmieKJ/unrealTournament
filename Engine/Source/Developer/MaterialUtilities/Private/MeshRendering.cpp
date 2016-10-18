@@ -183,30 +183,30 @@ public:
 	/** Default constructor. */
 	FMeshVertexFactory()
 	{
-		FLocalVertexFactory::FDataType Data;
+		FLocalVertexFactory::FDataType VertexData;
 
 		// position
-		Data.PositionComponent = FVertexStreamComponent(
+		VertexData.PositionComponent = FVertexStreamComponent(
 			&GDummyMeshRendererVertexBuffer,
 			STRUCT_OFFSET(FMaterialMeshVertex, Position),
 			sizeof(FMaterialMeshVertex),
 			VET_Float3
 			);
 		// tangents
-		Data.TangentBasisComponents[0] = FVertexStreamComponent(
+		VertexData.TangentBasisComponents[0] = FVertexStreamComponent(
 			&GDummyMeshRendererVertexBuffer,
 			STRUCT_OFFSET(FMaterialMeshVertex, TangentX),
 			sizeof(FMaterialMeshVertex),
 			VET_PackedNormal
 			);
-		Data.TangentBasisComponents[1] = FVertexStreamComponent(
+		VertexData.TangentBasisComponents[1] = FVertexStreamComponent(
 			&GDummyMeshRendererVertexBuffer,
 			STRUCT_OFFSET(FMaterialMeshVertex, TangentZ),
 			sizeof(FMaterialMeshVertex),
 			VET_PackedNormal
 			);
 		// color
-		Data.ColorComponent = FVertexStreamComponent(
+		VertexData.ColorComponent = FVertexStreamComponent(
 			&GDummyMeshRendererVertexBuffer,
 			STRUCT_OFFSET(FMaterialMeshVertex, Color),
 			sizeof(FMaterialMeshVertex),
@@ -216,7 +216,7 @@ public:
 		int32 UVIndex;
 		for (UVIndex = 0; UVIndex < MAX_STATIC_TEXCOORDS - 1; UVIndex += 2)
 		{
-			Data.TextureCoordinates.Add(FVertexStreamComponent(
+			VertexData.TextureCoordinates.Add(FVertexStreamComponent(
 				&GDummyMeshRendererVertexBuffer,
 				STRUCT_OFFSET(FMaterialMeshVertex, TextureCoordinate) + sizeof(FVector2D)* UVIndex,
 				sizeof(FMaterialMeshVertex),
@@ -227,7 +227,7 @@ public:
 		// likely the following code will never be executed)
 		if (UVIndex < MAX_STATIC_TEXCOORDS)
 		{
-			Data.TextureCoordinates.Add(FVertexStreamComponent(
+			VertexData.TextureCoordinates.Add(FVertexStreamComponent(
 				&GDummyMeshRendererVertexBuffer,
 				STRUCT_OFFSET(FMaterialMeshVertex, TextureCoordinate) + sizeof(FVector2D)* UVIndex,
 				sizeof(FMaterialMeshVertex),
@@ -239,7 +239,7 @@ public:
 		ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
 			FMeshVertexFactoryConstructor,
 			FMeshVertexFactory*, FactoryParam, this,
-			FLocalVertexFactory::FDataType, DataParam, Data,
+			FLocalVertexFactory::FDataType, DataParam, VertexData,
 			{
 				FactoryParam->SetData(DataParam);
 			}
@@ -452,7 +452,7 @@ public:
 			if (Section.MaterialIndex == Data.MaterialIndex)
 			{
 				NumTris += Section.NumTriangles;
-				NumVerts += LODModel.Chunks[Section.ChunkIndex].GetNumVertices();
+				NumVerts += Section.GetNumVertices();
 			}
 		}
 
@@ -503,9 +503,8 @@ public:
 			for (int32 SectionIndex = 0; SectionIndex < SectionCount; SectionIndex++)
 			{
 				const FSkelMeshSection& Section = LODModel.Sections[SectionIndex];
-				const FSkelMeshChunk& Chunk = LODModel.Chunks[Section.ChunkIndex];
 
-				const int32 NumVertsInChunk = Chunk.GetNumVertices();
+				const int32 NumVertsInSection = Section.GetNumVertices();
 
 				if (Section.MaterialIndex == Data.MaterialIndex)
 				{
@@ -514,7 +513,7 @@ public:
 
 					// copy vertices
 					int32 SrcVertIndex = FirstVertex;
-					for (int32 VertIndex = 0; VertIndex < NumVertsInChunk; VertIndex++)
+					for (int32 VertIndex = 0; VertIndex < NumVertsInSection; VertIndex++)
 					{
 						const FSoftSkinVertex& SrcVert = Vertices[SrcVertIndex];
 						FMaterialMeshVertex* DstVert = new(OutVerts)FMaterialMeshVertex();
@@ -551,7 +550,7 @@ public:
 						}
 					}
 				}
-				FirstVertex += NumVertsInChunk;
+				FirstVertex += NumVertsInSection;
 			}
 		}
 		else // bUseNewUVs
@@ -657,7 +656,7 @@ public:
 		// Check if material is TwoSided - single-sided materials should be rendered with normal and reverse
 		// triangle corner orders, to avoid problems with inside-out meshes or mesh parts. Note:
 		// FExportMaterialProxy::GetMaterial() (which is really called here) ignores 'InFeatureLevel' parameter.
-		const FMaterial* Material = Data.MaterialRenderProxy->GetMaterial(ERHIFeatureLevel::SM5);
+		const FMaterial* Material = Data.MaterialRenderProxy->GetMaterial(GMaxRHIFeatureLevel);
 		bool bIsMaterialTwoSided = Material->IsTwoSided();
 
 		TArray<FMaterialMeshVertex> Verts;
@@ -790,6 +789,7 @@ public:
 
 bool FMeshRenderer::RenderMaterial(struct FMaterialMergeData& InMaterialData, FMaterialRenderProxy* InMaterialProxy, EMaterialProperty InMaterialProperty, UTextureRenderTarget2D* InRenderTarget, TArray<FColor>& OutBMP)
 {
+	check(IsInGameThread());
 	check(InRenderTarget);
 	FTextureRenderTargetResource* RTResource = InRenderTarget->GameThread_GetRenderTargetResource();
 
@@ -842,7 +842,7 @@ bool FMeshRenderer::RenderMaterial(struct FMaterialMergeData& InMaterialData, FM
 			// when loading a scene on UnrealEd startup. Use GetRendererModule().BeginRenderingViewFamily()
 			// for that. Prepare a dummy scene because it is required by that function.
 			FClassThumbnailScene DummyScene;
-			DummyScene.SetClass(UStaticMesh::StaticClass());
+			DummyScene.SetClass(AStaticMeshActor::StaticClass());
 			ViewFamily.Scene = DummyScene.GetScene();
 			int32 X = 0, Y = 0, Width = 256, Height = 256;
 			DummyScene.GetView(&ViewFamily, X, Y, Width, Height);
@@ -938,4 +938,63 @@ bool FMeshRenderer::RenderMaterial(struct FMaterialMergeData& InMaterialData, FM
 	FFileHelper::CreateBitmap(*FilenameString, InRenderTarget->GetSurfaceWidth(), InRenderTarget->GetSurfaceHeight(), OutBMP.GetData());
 #endif // SAVE_INTERMEDIATE_TEXTURES
 	return result;
+}
+
+bool FMeshRenderer::RenderMaterialTexCoordScales(struct FMaterialMergeData& InMaterialData, FMaterialRenderProxy* InMaterialProxy, UTextureRenderTarget2D* InRenderTarget, TArray<FFloat16Color>& OutScales)
+{
+	check(IsInGameThread());
+	check(InRenderTarget);
+	// create ViewFamily
+	float CurrentRealTime = 0.f;
+	float CurrentWorldTime = 0.f;
+	float DeltaWorldTime = 0.f;
+
+	// Create a canvas for the render target and clear it to black
+	FTextureRenderTargetResource* RTResource = InRenderTarget->GameThread_GetRenderTargetResource();
+	FCanvas Canvas(RTResource, NULL, FApp::GetCurrentTime() - GStartTime, FApp::GetDeltaTime(), FApp::GetCurrentTime() - GStartTime, GMaxRHIFeatureLevel);
+	const FRenderTarget* CanvasRenderTarget = Canvas.GetRenderTarget();
+	Canvas.Clear(FLinearColor::Black);
+
+	// Set show flag view mode to output tex coord scale
+	FEngineShowFlags ShowFlags(ESFIM_Game);
+	ApplyViewMode(VMI_MaterialTexCoordScalesAccuracy, false, ShowFlags);
+	ShowFlags.MaterialTexCoordScalesAnalysis = true; // This will bind the DVSM_MaterialTexCoordScalesAnalysis
+
+	FSceneViewFamily ViewFamily(FSceneViewFamily::ConstructionValues(CanvasRenderTarget, nullptr, ShowFlags)
+		.SetWorldTimes(CurrentWorldTime, DeltaWorldTime, CurrentRealTime)
+		.SetGammaCorrection(CanvasRenderTarget->GetDisplayGamma()));
+
+	// The next line ensures a constant view vector of (0,0,1) for all pixels. Required because here SVPositionToTranslatedWorld is identity, making excessive view angle increase per pixel.
+	// That creates bad side effects for anything that depends on the view vector, like parallax or bump offset mappings. For those, we want the tangent
+	// space view vector to be perpendicular to the surface in order to generate the same results as if the feature was turned off. Which gives the good results
+	// since any sub height sampling would in pratice requires less and less texture resolution, where as we are only concerned about the highest resolution the material needs.
+	// This can be seen in the debug view mode, by a checkboard of white and cyan (up to green) values. The white value meaning the highest resolution taken is the good one
+	// (blue meaning the texture has more resolution than required). Checkboard are only possible when a texture is sampled several times, like in parallax.
+	//
+	// Additionnal to affecting the view vector, it also forces a constant world position value, zeroing any textcoord scales that depends on the world position (as the UV don't change).
+	// This is alright thought since the uniform quad can obviously not compute a valid mapping for world space texture mapping (only rendering the mesh at its world position could fix that).
+	// The zero scale will be caught as an error, and the computed scale will fallback to 1.f
+	ViewFamily.bNullifyWorldSpacePosition = true;
+
+	// add item for rendering
+	FMeshMaterialRenderItem::EnqueueMaterialRender(
+		&Canvas,
+		&ViewFamily,
+		InMaterialData.Mesh,
+		InMaterialData.LODModel,
+		InMaterialData.MaterialIndex,
+		InMaterialData.TexcoordBounds,
+		InMaterialData.TexCoords,
+		FVector2D(InRenderTarget->SizeX, InRenderTarget->SizeY),
+		InMaterialProxy
+		);
+
+	// rendering is performed here
+	Canvas.Flush_GameThread();
+
+	FlushRenderingCommands();
+	Canvas.SetRenderTarget_GameThread(NULL);
+	FlushRenderingCommands();
+
+	return RTResource->ReadFloat16Pixels(OutScales);
 }

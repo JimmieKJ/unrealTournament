@@ -19,6 +19,15 @@ const uint16 UTDIALOG_BUTTON_LAN = 0x0800;
 const uint16 UTDIALOG_BUTTON_CLOSE = 0x1000;
 const uint16 UTDIALOG_BUTTON_APPLY = 0x2000;
 
+const uint16 TUTORIAL_Movement = 0x0001;
+const uint16 TUTOIRAL_Weapon = 0x0002;
+const uint16 TUTORIAL_Pickups = 0x0004;
+const uint16 TUTORIAL_DM = 0x0008;
+const uint16 TUTORIAL_TDM = 0x0010;
+const uint16 TUTORIAL_CTF = 0x0020;
+const uint16 TUTORIAL_Duel = 0x0040;
+const uint16 TUTORIAL_FlagRun = 0x0080;
+
 const int32 DEFAULT_RANK_CHECK = 0;
 const int32 NEW_USER_ELO = 1000;
 const int32 NUMBER_RANK_LEVELS = 9;
@@ -83,6 +92,26 @@ namespace GameVolumeSpeechType
 	const FName GV_Temple = FName(TEXT("GV_Temple"));
 	const FName GV_Cave = FName(TEXT("GV_Cave"));
 	const FName GV_BaseCamp = FName(TEXT("GV_BaseCamp"));
+	const FName GV_Sniper = FName(TEXT("GV_Sniper"));
+	const FName GV_Arena = FName(TEXT("GV_Arena"));
+	const FName GV_Bonsaii = FName(TEXT("GV_Bonsaii"));
+	const FName GV_Cliffs = FName(TEXT("GV_Cliffs"));
+	const FName GV_Core = FName(TEXT("GV_Core"));
+	const FName GV_Crossroads = FName(TEXT("GV_Crossroads"));
+	const FName GV_Vents = FName(TEXT("GV_Vents"));
+	const FName GV_Pipes = FName(TEXT("GV_Pipes"));
+	const FName GV_Ramp = FName(TEXT("GV_Ramp"));
+	const FName GV_Hinge = FName(TEXT("GV_Hinge"));
+	const FName GV_Tree = FName(TEXT("GV_Tree"));
+	const FName GV_Tunnel = FName(TEXT("GV_Tunnel"));
+	const FName GV_Falls = FName(TEXT("GV_Falls"));
+	const FName GV_Fort = FName(TEXT("GV_Fort"));
+	const FName GV_Fountain = FName(TEXT("GV_Fountain"));
+	const FName GV_GateHouse = FName(TEXT("GV_GateHouse"));
+	const FName GV_Overlook = FName(TEXT("GV_Overlook"));
+	const FName GV_Ruins = FName(TEXT("GV_Ruins"));
+	const FName GV_SniperTower = FName(TEXT("GV_SniperTower"));
+	const FName GV_Flak = FName(TEXT("GV_Flak"));
 }
 
 namespace PickupSpeechType
@@ -135,6 +164,10 @@ namespace StatusMessage
 	const FName EnemyThreePlayers = FName(TEXT("EnemyThreePlayers"));
 	const FName NeedRally = FName(TEXT("NeedRally"));
 	const FName NeedHealth = FName(TEXT("NeedHealth"));
+	const FName BehindYou = FName(TEXT("BehindYou"));
+	const FName RedeemerKills = FName(TEXT("RedeemerKills"));
+	const FName RedeemerSpotted = FName(TEXT("RedeemerSpotted"));
+	const FName GetTheFlag = FName(TEXT("GetTheFlag"));
 }
 
 namespace HighlightNames
@@ -169,7 +202,7 @@ namespace ArmorTypeName
 	const FName ShieldBelt = FName(TEXT("ShieldBelt"));
 	const FName ThighPads = FName(TEXT("ThighPads"));
 	const FName FlakVest = FName(TEXT("FlakVest"));
-	const FName Helmet = FName(TEXT("Helmet"));
+	const FName SmallArmor = FName(TEXT("SmallArmor"));
 }
 
 namespace ChatDestinations
@@ -1509,17 +1542,25 @@ namespace DefaultWeaponCrosshairs
 const FName Dot = FName(TEXT("CrossDot"));
 const FName Bracket1 = FName(TEXT("CrossBracket1"));
 const FName Bracket2 = FName(TEXT("CrossBracket2"));
+const FName Bracket3 = FName(TEXT("CrossBracket3"));
+const FName Bracket4 = FName(TEXT("CrossBracket4"));
+const FName Bracket5 = FName(TEXT("CrossBracket5"));
 const FName Circle1 = FName(TEXT("CrossCircle1"));
 const FName Circle2 = FName(TEXT("CrossCircle2"));
+const FName Circle3 = FName(TEXT("CrossCircle3"));
+const FName Circle4 = FName(TEXT("CrossCircle4"));
+const FName Circle5 = FName(TEXT("CrossCircle5"));
 const FName Cross1 = FName(TEXT("CrossCross1"));
 const FName Cross2 = FName(TEXT("CrossCross2"));
 const FName Cross3 = FName(TEXT("CrossCross3"));
 const FName Cross4 = FName(TEXT("CrossCross4"));
 const FName Cross5 = FName(TEXT("CrossCross5"));
+const FName Cross6 = FName(TEXT("CrossCross6"));
 const FName Pointer = FName(TEXT("CrossPointer"));
 const FName Triad1 = FName(TEXT("CrossTriad1"));
 const FName Triad2 = FName(TEXT("CrossTriad2"));
 const FName Triad3 = FName(TEXT("CrossTriad3"));
+const FName Sniper = FName(TEXT("Sniper"));
 };
 
 namespace EpicWeaponSkinCustomizationTags
@@ -1553,6 +1594,7 @@ namespace EpicWeaponCustomizationTags
 	const FName ShockRifle		= FName(TEXT("ShockRifle_Settings"));
 	const FName IGShockRifle	= FName(TEXT("IGShockRifle_Settings"));
 	const FName Sniper			= FName(TEXT("Sniper_Settings"));
+	const FName GrenadeLauncher = FName(TEXT("GrenadeLauncher_Settings"));
 };
 
 USTRUCT(BlueprintType)
@@ -1821,4 +1863,21 @@ public:
 		GameActions.Empty();
 	}
 };
+
+UENUM()
+namespace ELoginPhase
+{
+	enum Type
+	{
+		NotLoggedIn,
+		Offline,
+		InDialog,
+		Auth,
+		GettingProfile,
+		GettingProgression,		
+		GettingMMR,
+		LoggedIn,
+		MAX,
+	};
+}
 

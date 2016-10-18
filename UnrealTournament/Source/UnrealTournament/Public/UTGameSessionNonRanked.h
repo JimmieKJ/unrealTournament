@@ -15,7 +15,7 @@ public:
 	virtual void RegisterServer() override;
 	virtual void UnRegisterServer(bool bShuttingDown) override;
 
-	virtual void ValidatePlayer(const FString& Address, const TSharedPtr<const FUniqueNetId>& UniqueId, FString& ErrorMessage, bool bValidateAsSpectator) override;
+	virtual void ValidatePlayer(const FString& Address, const FUniqueNetIdRepl& UniqueId, FString& ErrorMessage, bool bValidateAsSpectator) override;
 public:
 
 	virtual void DestroyHostBeacon(bool bPreserveReservations = false) override;

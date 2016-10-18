@@ -4,8 +4,7 @@
 	OpenGLDrvPrivate.h: Private OpenGL RHI definitions.
 =============================================================================*/
 
-#ifndef __OPENGLDRVPRIVATE_H__
-#define __OPENGLDRVPRIVATE_H__
+#pragma once
 
 #include "OpenGLDrv.h"
 
@@ -505,6 +504,7 @@ inline bool OpenGLShaderPlatformNeedsBindLocation(const EShaderPlatform InShader
 	{
 		case SP_OPENGL_SM5:
 		case SP_OPENGL_ES31_EXT:
+		case SP_OPENGL_ES3_1_ANDROID:
 			return false;
 
 		case SP_OPENGL_SM4:
@@ -533,6 +533,7 @@ inline bool OpenGLShaderPlatformSeparable(const EShaderPlatform InShaderPlatform
 			return true;
 
 		case SP_OPENGL_ES31_EXT:
+		case SP_OPENGL_ES3_1_ANDROID:
 		case SP_OPENGL_ES2_ANDROID:
 		case SP_OPENGL_ES2_WEBGL:
 		case SP_OPENGL_ES2_IOS:
@@ -545,4 +546,3 @@ inline bool OpenGLShaderPlatformSeparable(const EShaderPlatform InShaderPlatform
 	}
 }
 
-#endif // __OPENGLDRVPRIVATE_H__

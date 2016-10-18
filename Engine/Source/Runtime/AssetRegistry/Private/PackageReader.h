@@ -8,10 +8,20 @@ public:
 	FPackageReader();
 	~FPackageReader();
 
+	enum class EOpenPackageResult : uint8
+	{
+		Success,
+		NoLoader,
+		MalformedTag,
+		VersionTooOld,
+		VersionTooNew,
+		CustomVersionMissing,
+	};
+
 	/** Creates a loader for the filename */
-	bool OpenPackageFile(const FString& PackageFilename);
-	bool OpenPackageFile(FArchive* Loader);
-	bool OpenPackageFile();
+	bool OpenPackageFile(const FString& PackageFilename, EOpenPackageResult* OutErrorCode = nullptr);
+	bool OpenPackageFile(FArchive* Loader, EOpenPackageResult* OutErrorCode = nullptr);
+	bool OpenPackageFile(EOpenPackageResult* OutErrorCode = nullptr);
 
 	/** Reads information from the asset registry data table and converts it to FAssetData */
 	bool ReadAssetRegistryData(TArray<FAssetData*>& AssetDataList);

@@ -59,6 +59,9 @@ void SWidgetDetailsView::Construct(const FArguments& InArgs, TSharedPtr<FWidgetB
 	TSharedRef<FDetailWidgetExtensionHandler> BindingHandler = MakeShareable( new FDetailWidgetExtensionHandler( InBlueprintEditor ) );
 	PropertyView->SetExtensionHandler(BindingHandler);
 
+	// Notify us of object selection changes so we can update the package re-mapping
+	PropertyView->SetOnObjectArrayChanged(FOnObjectArrayChanged::CreateSP(this, &SWidgetDetailsView::OnPropertyViewObjectArrayChanged));
+
 	ChildSlot
 	[
 		SNew(SVerticalBox)
@@ -245,14 +248,30 @@ void SWidgetDetailsView::OnEditorSelectionChanged()
 		ClassLinkArea->SetContent(SNullWidget::NullWidget);
 	}
 
-	//if ( IsWidgetCDOSelected() )
-	//{
-	//	//PropertyView->Defau
-	//}
-
 	// Update the preview view to look at the current selection set.
 	const bool bForceRefresh = false;
 	PropertyView->SetObjects(SelectedObjects, bForceRefresh);
+}
+
+void SWidgetDetailsView::OnPropertyViewObjectArrayChanged(const FString& InTitle, const TArray<TWeakObjectPtr<UObject>>& InObjects)
+{
+	// Update the package remapping for all selected objects so that we can find the correct localization ID when editing text properties (since we edit a copy of the real data, not connected to the asset package)
+	UBlueprint* UMGBlueprint = BlueprintEditor.Pin()->GetBlueprintObj();
+	if (UMGBlueprint)
+	{
+		UPackage* UMGPackage = UMGBlueprint->GetOutermost();
+		if (UMGPackage)
+		{
+			TMap<TWeakObjectPtr<UObject>, TWeakObjectPtr<UPackage>> ObjectToPackageMapping;
+
+			for (const TWeakObjectPtr<UObject>& Object : InObjects)
+			{
+				ObjectToPackageMapping.Add(Object, UMGPackage);
+			}
+
+			PropertyView->SetObjectPackageOverrides(ObjectToPackageMapping);
+		}
+	}
 }
 
 void SWidgetDetailsView::ClearFocusIfOwned()
@@ -276,9 +295,16 @@ bool SWidgetDetailsView::IsWidgetCDOSelected() const
 	if ( SelectedObjects.Num() == 1 )
 	{
 		UWidget* Widget = Cast<UWidget>(SelectedObjects[0].Get());
-		if ( Widget && !Widget->HasAnyFlags(RF_ClassDefaultObject) )
+		
+		// since we're passing preview widget when selecting root (owner) widget, 
+		// this is also considered as selecting CDO so the category shows up correctly
+		if (Widget && Widget == BlueprintEditor.Pin()->GetPreview())
 		{
 			return true;
+		}
+		else if (Widget && !Widget->HasAnyFlags(RF_ClassDefaultObject))
+		{
+			return false;
 		}
 	}
 
@@ -287,7 +313,7 @@ bool SWidgetDetailsView::IsWidgetCDOSelected() const
 
 EVisibility SWidgetDetailsView::GetNameAreaVisibility() const
 {
-	return IsWidgetCDOSelected() ? EVisibility::Visible : EVisibility::Collapsed;
+	return IsWidgetCDOSelected() ? EVisibility::Collapsed : EVisibility::Visible;
 }
 
 EVisibility SWidgetDetailsView::GetCategoryAreaVisibility() const
@@ -297,7 +323,7 @@ EVisibility SWidgetDetailsView::GetCategoryAreaVisibility() const
 		return EVisibility::Collapsed;
 	}
 
-	return IsWidgetCDOSelected() ? EVisibility::Collapsed : EVisibility::Visible;
+	return IsWidgetCDOSelected() ? EVisibility::Visible : EVisibility::Collapsed;
 }
 
 void SWidgetDetailsView::HandleCategoryTextCommitted(const FText& Text, ETextCommit::Type CommitType)
@@ -500,9 +526,10 @@ void SWidgetDetailsView::NotifyPostChange(const FPropertyChangedEvent& PropertyC
 
 	// If the property that changed is marked as "DesignerRebuild" we invalidate
 	// the preview.
-	if ( PropertyChangedEvent.Property->GetBoolMetaData(DesignerRebuildName) )
+	if ( PropertyChangedEvent.Property->HasMetaData(DesignerRebuildName) || PropertyThatChanged->GetActiveMemberNode()->GetValue()->HasMetaData(DesignerRebuildName) )
 	{
-		BlueprintEditor.Pin()->InvalidatePreview();
+		const bool bViewOnly = true;
+		BlueprintEditor.Pin()->InvalidatePreview(bViewOnly);
 	}
 }
 

@@ -14,6 +14,7 @@ struct FPersonaTabs
 
 	// Selection Details
 	static const FName MorphTargetsID;
+	static const FName AnimCurveViewID;
 	static const FName SkeletonTreeViewID;
 	// Skeleton Pose manager
 	static const FName RetargetManagerID;
@@ -39,6 +40,9 @@ struct FPersonaTabs
 	static const FName SkeletonSlotGroupNamesID;
 	static const FName CurveNameManagerID;
 	static const FName BlendProfileManagerID;
+
+	// Advanced Preview Scene
+	static const FName AdvancedPreviewSceneSettingsID;
 
 	// Blueprint Document
 
@@ -176,6 +180,22 @@ public:
 		return  IDocumentation::Get()->CreateToolTip(LOCTEXT("MorphTargetTooltip", "The Morph Target tab lets you preview any morph targets (aka blend shapes) available for the current mesh."), NULL, TEXT("Shared/Editors/Persona"), TEXT("MorphTarget_Window"));
 	}
 };
+/////////////////////////////////////////////////////
+// FAnimCurveViewerTabSummoner
+
+struct FAnimCurveViewerTabSummoner : public FWorkflowTabFactory
+{
+public:
+	FAnimCurveViewerTabSummoner(TSharedPtr<class FAssetEditorToolkit> InHostingApp);
+
+	virtual TSharedRef<SWidget> CreateTabBody(const FWorkflowTabSpawnInfo& Info) const override;
+
+	// Create a tooltip widget for the tab
+	virtual TSharedPtr<SToolTip> CreateTabToolTipWidget(const FWorkflowTabSpawnInfo& Info) const override
+	{
+		return  IDocumentation::Get()->CreateToolTip(LOCTEXT("AnimCurveViewTooltip", "The Anim Curve Viewer tab lets you preview any animation curves available for the current mesh from preview asset."), NULL, TEXT("Shared/Editors/Persona"), TEXT("AnimCurveView_Window"));
+	}
+};
 
 
 /////////////////////////////////////////////////////
@@ -265,6 +285,17 @@ public:
 
 private:
 
+};
+
+/////////////////////////////////////////////////////
+// FAdvancedPreviewSceneTabSummoner
+
+struct FAdvancedPreviewSceneTabSummoner : public FWorkflowTabFactory
+{
+public:
+ 	FAdvancedPreviewSceneTabSummoner(TSharedPtr<class FAssetEditorToolkit> InHostingApp);
+	virtual TSharedRef<SWidget> CreateTabBody(const FWorkflowTabSpawnInfo& Info) const override;
+	virtual FText GetTabToolTipText(const FWorkflowTabSpawnInfo& Info) const override;
 };
 
 #undef LOCTEXT_NAMESPACE

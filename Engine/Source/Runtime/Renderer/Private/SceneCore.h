@@ -50,6 +50,9 @@ public:
 		return (uint32)Interaction->LightId;
 	}
 
+	/** Clears cached shadow maps, if possible */
+	void FlushCachedShadowMapData();
+
 	/** Custom new/delete */
 	void* operator new(size_t Size);
 	void operator delete(void *RawMemory);

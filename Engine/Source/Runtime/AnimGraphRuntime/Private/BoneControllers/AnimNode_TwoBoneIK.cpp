@@ -2,6 +2,7 @@
 
 #include "AnimGraphRuntimePrivatePCH.h"
 #include "BoneControllers/AnimNode_TwoBoneIK.h"
+#include "Animation/AnimTypes.h"
 #include "AnimationRuntime.h"
 
 DECLARE_CYCLE_STAT(TEXT("TwoBoneIK Eval"), STAT_TwoBoneIK_Eval, STATGROUP_Anim);
@@ -273,9 +274,10 @@ void FAnimNode_TwoBoneIK::EvaluateBoneTransforms(USkeletalMeshComponent* SkelCom
 
 	// Update transform for end bone.
 	{
-		if( bTakeRotationFromEffectorSpace )
+		// only allow bTakeRotationFromEffectorSpace during bone space
+		if( bInBoneSpace && bTakeRotationFromEffectorSpace )
 		{
-			EndBoneCSTransform.SetRotation( EffectorTransform.GetRotation() );
+			EndBoneCSTransform.SetRotation(EffectorTransform.GetRotation());
 		}
 		else if( bMaintainEffectorRelRot )
 		{

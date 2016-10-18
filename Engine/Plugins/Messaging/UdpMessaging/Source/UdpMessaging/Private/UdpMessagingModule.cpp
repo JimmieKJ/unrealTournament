@@ -36,6 +36,9 @@ public:
 		{
 			UUdpMessagingSettings* Settings = GetMutableDefault<UUdpMessagingSettings>();
 
+			// general information
+			Ar.Logf(TEXT("Protocol Version: %i"), UDP_MESSAGING_TRANSPORT_PROTOCOL_VERSION);
+
 			// bridge status
 			if (MessageBridge.IsValid())
 			{
@@ -54,22 +57,38 @@ public:
 			}
 
 			// bridge settings
-			Ar.Logf(TEXT("  Unicast Endpoint: %s"), *Settings->UnicastEndpoint);
-			Ar.Logf(TEXT("  Multicast Endpoint: %s"), *Settings->MulticastEndpoint);
-			Ar.Logf(TEXT("  Multicast TTL: %i"), Settings->MulticastTimeToLive);
+			if (Settings->UnicastEndpoint.IsEmpty())
+			{
+				Ar.Logf(TEXT("    Unicast Endpoint: %s (default)"), *FIPv4Endpoint::Any.ToString());
+			}
+			else
+			{
+				Ar.Logf(TEXT("    Unicast Endpoint: %s"), *Settings->UnicastEndpoint);
+			}
+
+			if (Settings->MulticastEndpoint.IsEmpty())
+			{
+				Ar.Logf(TEXT("    Multicast Endpoint: %s (default)"), *UDP_MESSAGING_DEFAULT_MULTICAST_ENDPOINT.ToString());
+			}
+			else
+			{
+				Ar.Logf(TEXT("    Multicast Endpoint: %s"), *Settings->MulticastEndpoint);
+			}
+
+			Ar.Logf(TEXT("    Multicast TTL: %i"), Settings->MulticastTimeToLive);
 
 			if (Settings->StaticEndpoints.Num() > 0)
 			{
-				Ar.Log(TEXT("  Static Endpoints:"));
+				Ar.Log(TEXT("    Static Endpoints:"));
 
 				for (const auto& StaticEndpoint : Settings->StaticEndpoints)
 				{
-					Ar.Logf(TEXT("  > %s"), *StaticEndpoint);
+					Ar.Logf(TEXT("        %s"), *StaticEndpoint);
 				}
 			}
 			else
 			{
-				Ar.Log(TEXT("  Static Endpoints: None"));
+				Ar.Log(TEXT("    Static Endpoints: None"));
 			}
 
 #if PLATFORM_DESKTOP
@@ -90,19 +109,44 @@ public:
 				Ar.Log(TEXT("Message Tunnel: Not initialized."));
 			}
 
-			Ar.Logf(TEXT("  Unicast Endpoint: %s"), *Settings->TunnelUnicastEndpoint);
-			Ar.Logf(TEXT("  Multicast Endpoint: %s"), *Settings->TunnelMulticastEndpoint);
-			Ar.Log(TEXT("  Remote Endpoints:"));
-
-			for (const auto& RemoteEndpoint : Settings->RemoteTunnelEndpoints)
+			// tunnel settings
+			if (Settings->TunnelUnicastEndpoint.IsEmpty())
 			{
-				Ar.Logf(TEXT("  > %s"), *RemoteEndpoint);
+				Ar.Logf(TEXT("    Unicast Endpoint: %s (default)"), *FIPv4Endpoint::Any.ToString());
+			}
+			else
+			{
+				Ar.Logf(TEXT("    Unicast Endpoint: %s"), *Settings->TunnelUnicastEndpoint);
 			}
 
+			if (Settings->TunnelMulticastEndpoint.IsEmpty())
+			{
+				Ar.Logf(TEXT("    Multicast Endpoint: %s (default)"), *UDP_MESSAGING_DEFAULT_MULTICAST_ENDPOINT.ToString());
+			}
+			else
+			{
+				Ar.Logf(TEXT("    Multicast Endpoint: %s"), *Settings->TunnelMulticastEndpoint);
+			}
+
+			if (Settings->RemoteTunnelEndpoints.Num() > 0)
+			{
+				Ar.Log(TEXT("    Remote Endpoints:"));
+
+				for (const auto& RemoteEndpoint : Settings->RemoteTunnelEndpoints)
+				{
+					Ar.Logf(TEXT("        %s"), *RemoteEndpoint);
+				}
+			}
+			else
+			{
+				Ar.Log(TEXT("    Remote Endpoints: None"));
+			}
+
+			// tunnel performance
 			if (MessageTunnel.IsValid())
 			{
-				Ar.Logf(TEXT("  Total Bytes In: %i"), MessageTunnel->GetTotalInboundBytes());
-				Ar.Logf(TEXT("  Total Bytes Out: %i"), MessageTunnel->GetTotalOutboundBytes());
+				Ar.Logf(TEXT("    Total Bytes In: %i"), MessageTunnel->GetTotalInboundBytes());
+				Ar.Logf(TEXT("    Total Bytes Out: %i"), MessageTunnel->GetTotalOutboundBytes());
 
 				TArray<TSharedPtr<IUdpMessageTunnelConnection>> Connections;
 			
@@ -450,6 +494,16 @@ private:
 #endif
 };
 
+void EmptyLinkFunctionForStaticInitializationUdpMessagingTests()
+{
+	// Force references to the object files containing the functions below, to prevent them being excluded by the linker when the plugin is compiled into a static library for monolithic builds.
+	extern void EmptyLinkFunctionForStaticInitializationUdpMessageSegmenterTest();
+	EmptyLinkFunctionForStaticInitializationUdpMessageSegmenterTest();
+	extern void EmptyLinkFunctionForStaticInitializationUdpMessageTransportTest();
+	EmptyLinkFunctionForStaticInitializationUdpMessageTransportTest();
+	extern void EmptyLinkFunctionForStaticInitializationUdpSerializeMessageTaskTest();
+	EmptyLinkFunctionForStaticInitializationUdpSerializeMessageTaskTest();
+}
 
 IMPLEMENT_MODULE(FUdpMessagingModule, UdpMessaging);
 

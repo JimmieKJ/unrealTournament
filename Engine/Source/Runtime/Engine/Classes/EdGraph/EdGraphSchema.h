@@ -767,9 +767,10 @@ class ENGINE_API UEdGraphSchema : public UObject
 	 * @param	Node			The node to replace
 	 * @param	Graph			The destination graph
 	 * @param	InstanceGraph	Object instancing graph
+	 * @param	InOutExtraNames	List of extra names that are in-use from the substitution should be added to this list to prevent other substitutions from attempting to use them
 	 * @return					NULL if a substitute node cannot be created; otherwise, the substitute node instance
 	 */
-	virtual UEdGraphNode* CreateSubstituteNode(UEdGraphNode* Node, const UEdGraph* Graph, FObjectInstancingGraph* InstanceGraph) const { return NULL; }
+	virtual UEdGraphNode* CreateSubstituteNode(UEdGraphNode* Node, const UEdGraph* Graph, FObjectInstancingGraph* InstanceGraph, TArray<FName>& InOutExtraNames) const { return NULL; }
 
 
 	/**

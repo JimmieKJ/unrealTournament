@@ -9,7 +9,7 @@
 
 namespace OpenGLConsoleVariables
 {
-#if (PLATFORM_WINDOWS || PLATFORM_ANDROIDGL4 || PLATFORM_ANDROIDES31)
+#if (PLATFORM_WINDOWS || PLATFORM_ANDROIDESDEFERRED)
 	int32 RequestedUBOPoolSize = 1024*1024*16;
 #else
 	int32 RequestedUBOPoolSize = 0;

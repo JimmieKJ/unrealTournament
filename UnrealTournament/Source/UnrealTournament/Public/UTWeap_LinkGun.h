@@ -59,10 +59,20 @@ class UNREALTOURNAMENT_API AUTWeap_LinkGun : public AUTWeapon
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = LinkGun)
 	int32 LinkPullDamage;
 
-	UPROPERTY(BlueprintReadWrite, Category = LinkGun)
-		float OverheatFactor;
+	/** clientside pull target; server has extra leeway for hitting this in remote client scenarios to avoid pull success mismatches
+	 * unused if standalone game or bot weapon
+	 */
+	UPROPERTY()
+	AActor* ClientPulseTarget;
 
-	virtual void PlayFiringEffects() override;
+	UFUNCTION(Unreliable, Server, WithValidation)
+	void ServerSetPulseTarget(AActor* InTarget);
+
+	UPROPERTY(BlueprintReadWrite, Category = LinkGun)
+	float OverheatFactor;
+
+	UPROPERTY(BlueprintReadWrite, Category = LinkGun)
+		bool bIsInCoolDown;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = LinkGun)
 		USoundBase* OverheatFPFireSound;
@@ -90,24 +100,26 @@ class UNREALTOURNAMENT_API AUTWeap_LinkGun : public AUTWeapon
 	virtual void DebugSetLinkGunLinks(int32 newLinks);
 
 	/** Target being link pulled. */
-	UPROPERTY()
-		AActor* PulseTarget;
+	UPROPERTY(BlueprintReadOnly)
+	AActor* PulseTarget;
 
 	/** Location of beam end for link pull attempt. */
 	UPROPERTY()
 		FVector PulseLoc;
+	
+	UPROPERTY(EditDefaultsOnly, Category = LinkGUn)
+		FVector MissedPulseOffset;
 
 	/** Return true if currently in Link Pulse. */
 	virtual bool IsLinkPulsing();
+
+	virtual void FireShot() override;
 
 	// override to handle setting Link Bolt properties by Links.
 	virtual AUTProjectile* FireProjectile() override;
 
 	// override to handle link beam distance scaling by Links
 	virtual void FireInstantHit(bool bDealDamage = true, FHitResult* OutHit = NULL) override;
-
-	virtual bool HandleContinuedFiring() override;
-	virtual float GetRefireTime(uint8 FireModeNum) override;
 
 	// Overridden to call linkedConsumeAmmo on gun that's linked to us
 	virtual void ConsumeAmmo(uint8 FireModeNum);
@@ -186,6 +198,12 @@ public:
 	// sound made when link is established another player (played from self)
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = LinkGun)
 	USoundBase* LinkEstablishedSelfSound;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = LinkGun)
+		USoundBase* PullSucceeded;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = LinkGun)
+		USoundBase* PullFailed;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = LinkGun)
 	bool bFeedbackDeath;

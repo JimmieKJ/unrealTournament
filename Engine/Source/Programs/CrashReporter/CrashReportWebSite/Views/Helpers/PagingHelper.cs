@@ -5,6 +5,7 @@ using System.Web.Mvc;
 using System.Text;
 
 using Tools.CrashReporter.CrashReportWebSite.Models;
+using Tools.CrashReporter.CrashReportWebSite.ViewModels;
 
 namespace Tools.CrashReporter.CrashReportWebSite.Views.Helpers
 {

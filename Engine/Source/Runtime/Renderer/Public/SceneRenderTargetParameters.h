@@ -86,6 +86,7 @@ private:
 	FShaderResourceParameter ScreenSpaceAOTextureNonMS;
 	FShaderResourceParameter CustomDepthTextureNonMS;
 	FShaderResourceParameter DBufferATexture;
+	FShaderResourceParameter DBufferRenderMask;
 	FShaderResourceParameter DBufferATextureSampler;
 	FShaderResourceParameter DBufferBTexture;
 	FShaderResourceParameter DBufferBTextureSampler;

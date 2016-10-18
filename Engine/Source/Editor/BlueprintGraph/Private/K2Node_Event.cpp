@@ -505,10 +505,17 @@ bool UK2Node_Event::CanPasteHere(const UEdGraph* TargetGraph) const
 						&& ExcludedEventNames.Contains(EventReference.GetMemberName().ToString());
 					if(!bDisallowPaste)
 					{
+						TArray<UK2Node_Event*> DisabledEventNodesToStomp;
 						// If the event function is already handled in this Blueprint, don't paste this event
 						for(int32 i = 0; i < ExistingEventNodes.Num() && !bDisallowPaste; ++i)
 						{
-							bDisallowPaste = ExistingEventNodes[i]->bOverrideFunction && ExistingEventNodes[i]->IsNodeEnabled() && AreEventNodesIdentical(this, ExistingEventNodes[i]);
+							bDisallowPaste = ExistingEventNodes[i]->bOverrideFunction /*&& ExistingEventNodes[i]->IsNodeEnabled() */&& AreEventNodesIdentical(this, ExistingEventNodes[i]);
+
+							if (bDisallowPaste && !ExistingEventNodes[i]->IsNodeEnabled())
+							{
+								DisabledEventNodesToStomp.Add(ExistingEventNodes[i]);
+								bDisallowPaste = false;
+							}
 						}
 
 						// We need to also check for 'const' BPIE methods that might already be implemented as functions with a read-only 'self' context (these were previously implemented as events)
@@ -542,6 +549,14 @@ bool UK2Node_Event::CanPasteHere(const UEdGraph* TargetGraph) const
 						else
 						{
 							UE_LOG(LogBlueprint, Log, TEXT("Cannot paste event node (%s) directly because the event function (%s) is already handled."), *GetFName().ToString(), *EventReference.GetMemberName().ToString());
+						}
+
+						if (!bDisallowPaste)
+						{
+							for (UK2Node_Event* EventNode : DisabledEventNodesToStomp)
+							{
+								EventNode->DestroyNode();
+							}
 						}
 					}
 					else
@@ -793,6 +808,12 @@ UObject* UK2Node_Event::GetJumpTargetForDoubleClick() const
 	}
 
 	return NULL;
+}
+
+FSlateIcon UK2Node_Event::GetIconAndTint(FLinearColor& OutColor) const
+{
+	static FSlateIcon Icon("EditorStyle", "GraphEditor.Event_16x");
+	return Icon;
 }
 
 FString UK2Node_Event::GetFindReferenceSearchString() const

@@ -61,7 +61,7 @@ FReply SVisualLoggerLogsList::OnKeyDown(const FGeometry& MyGeometry, const FKeyE
 		for (const TSharedPtr<struct FLogEntryItem>& CurrentItem : LogsLinesWidget->GetSelectedItems())
 		{
 			if (CurrentItem->Category.Len() > 0)
-				ClipboardString += CurrentItem->Category + FString(TEXT(" (")) + FString(FOutputDevice::VerbosityToString(CurrentItem->Verbosity)) + FString(TEXT(") ")) + CurrentItem->Line;
+				ClipboardString += CurrentItem->Category + FString(TEXT(" (")) + FString(FOutputDeviceHelper::VerbosityToString(CurrentItem->Verbosity)) + FString(TEXT(") ")) + CurrentItem->Line;
 			else
 				ClipboardString += CurrentItem->Line;
 
@@ -102,7 +102,7 @@ TSharedRef<ITableRow> SVisualLoggerLogsList::LogEntryLinesGenerateRow(TSharedPtr
 					[
 						SNew(STextBlock)
 						.ColorAndOpacity(FSlateColor(Item->Verbosity == ELogVerbosity::Error ? FLinearColor::Red : (Item->Verbosity == ELogVerbosity::Warning ? FLinearColor::Yellow : FLinearColor::Gray)))
-						.Text(FText::FromString(FString(TEXT("(")) + FString(FOutputDevice::VerbosityToString(Item->Verbosity)) + FString(TEXT(")"))))
+						.Text(FText::FromString(FString(TEXT("(")) + FString(FOutputDeviceHelper::VerbosityToString(Item->Verbosity)) + FString(TEXT(")"))))
 					]
 				+ SHorizontalBox::Slot()
 					.Padding(FMargin(5.0f, 0.0f))

@@ -17,7 +17,7 @@ namespace Tools.CrashReporter.CrashReportCommon
 		public const int StreamChunkSize = 16384;
 
 		/// <summary> Minimum depth of a callstack that is considered to be a valid one. </summary>
-		public const int MinCallstackDepth = 3;
+		public const int MinCallstackDepth = 2;
 
 		/// <summary>The name of the generated report. Currently 'Diagnostics.txt'.</summary>
 		public const string DiagnosticsFileName = "Diagnostics.txt";

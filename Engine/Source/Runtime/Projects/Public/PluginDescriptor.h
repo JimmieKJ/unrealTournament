@@ -3,6 +3,7 @@
 #pragma once
 
 #include "ModuleDescriptor.h"
+#include "LocalizationDescriptor.h"
 #include "CustomBuildSteps.h"
 
 /**
@@ -68,6 +69,9 @@ struct PROJECTS_API FPluginDescriptor
 	/** List of all modules associated with this plugin */
 	TArray<FModuleDescriptor> Modules;
 
+	/** List of all localization targets associated with this plugin */
+	TArray<FLocalizationTargetDescriptor> LocalizationTargets;
+
 	/** Whether this plugin should be enabled by default for all projects */
 	bool bEnabledByDefault;
 
@@ -93,16 +97,16 @@ struct PROJECTS_API FPluginDescriptor
 	FPluginDescriptor();
 
 	/** Loads the descriptor from the given file. */
-	bool Load(const FString& FileName, FText& OutFailReason);
+	bool Load(const FString& FileName, bool bPluginTypeEnabledByDefault, FText& OutFailReason);
 
 	/** Reads the descriptor from the given JSON object */
-	bool Read(const FString& Text, FText& OutFailReason);
+	bool Read(const FString& Text, bool bPluginTypeEnabledByDefault, FText& OutFailReason);
 
 	/** Saves the descriptor from the given file. */
-	bool Save(const FString& FileName, FText& OutFailReason) const;
+	bool Save(const FString& FileName, bool bPluginTypeEnabledByDefault, FText& OutFailReason) const;
 
 	/** Writes a descriptor to JSON */
-	FString ToString() const;
+	void Write(FString& Text, bool bPluginTypeEnabledByDefault) const;
 };
 
 /**
@@ -118,7 +122,7 @@ struct PROJECTS_API FPluginReferenceDescriptor
 
 	/** Whether this plugin is optional, and the game should silently ignore it not being present */
 	bool bOptional;
-
+	
 	/** Description of the plugin for users that do not have it installed. */
 	FString Description;
 

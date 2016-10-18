@@ -133,15 +133,50 @@ void UUTProgressionStorage::SetBestTime(FName TimingName, float InBestTime)
 	bNeedsUpdate = true;
 
 	// hacky halloween reward implementation
-	if (TimingName == AchievementIDs::FacePumpkins && InBestTime >= 6666.0f)
+	if (TimingName == AchievementIDs::FacePumpkins)
 	{
-		for (TObjectIterator<UUTLocalPlayer> It; It; ++It)
+		if (InBestTime >= 6666.0f)
 		{
-			if (It->GetProgressionStorage() == this)
+			for (TObjectIterator<UUTLocalPlayer> It; It; ++It)
 			{
-				It->AwardAchievement(AchievementIDs::FacePumpkins);
+				if (It->GetProgressionStorage() == this)
+				{
+					It->AwardAchievement(AchievementIDs::FacePumpkins);
+				}
+			}
+		}
+
+		if (InBestTime >= 5000.0f)
+		{
+			for (TObjectIterator<UUTLocalPlayer> It; It; ++It)
+			{
+				if (It->GetProgressionStorage() == this)
+				{
+					It->AwardAchievement(AchievementIDs::PumpkinHead2015Level3);
+				}
+			}
+		}
+
+		if (InBestTime >= 1000.0f)
+		{
+			for (TObjectIterator<UUTLocalPlayer> It; It; ++It)
+			{
+				if (It->GetProgressionStorage() == this)
+				{
+					It->AwardAchievement(AchievementIDs::PumpkinHead2015Level2);
+				}
+			}
+		}
+
+		if (InBestTime >= 200.0f)
+		{
+			for (TObjectIterator<UUTLocalPlayer> It; It; ++It)
+			{
+				if (It->GetProgressionStorage() == this)
+				{
+					It->AwardAchievement(AchievementIDs::PumpkinHead2015Level1);
+				}
 			}
 		}
 	}
-
 }

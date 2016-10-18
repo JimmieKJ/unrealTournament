@@ -130,17 +130,51 @@ void FDelaunayTriangleGenerator::AddSamplePoint(FVector NewPoint)
 
 void FDelaunayTriangleGenerator::Triangulate()
 {
-	if (SamplePointList.Num() < BLENDSPACE_MINSAMPLE)
+	if (SamplePointList.Num() == 0)
 	{
 		return;
 	}
-
-	SortSamples();
-
-	// first choose first 3 points
-	for ( int32 I=2; I<SamplePointList.Num(); ++I )
+	else if (SamplePointList.Num() == 1)
 	{
-		GenerateTriangles(SamplePointList, I+1);
+		// degenerate case 1
+		FTriangle Triangle(&SamplePointList[0]);
+		AddTriangle(Triangle);
+	}
+	else if (SamplePointList.Num() == 2)
+	{
+		// degenerate case 2
+		FTriangle Triangle(&SamplePointList[0], &SamplePointList[1]);
+		AddTriangle(Triangle);
+	}
+	else
+	{
+		SortSamples();
+
+		// first choose first 3 points
+		for (int32 I = 2; I<SamplePointList.Num(); ++I)
+		{
+			GenerateTriangles(SamplePointList, I + 1);
+		}
+
+		// degenerate case 3: many points all collinear or coincident
+		if (TriangleList.Num() == 0)
+		{
+			if (AllCoincident(SamplePointList))
+			{
+				// coincident case - just create one triangle
+				FTriangle Triangle(&SamplePointList[0]);
+				AddTriangle(Triangle);
+			}
+			else
+			{
+				// collinear case: create degenerate triangles between pairs of points
+				for (int32 PointIndex = 0; PointIndex < SamplePointList.Num() - 1; ++PointIndex)
+				{
+					FTriangle Triangle(&SamplePointList[PointIndex], &SamplePointList[PointIndex + 1]);
+					AddTriangle(Triangle);
+				}
+			}
+		}
 	}
 }
 
@@ -260,6 +294,26 @@ bool FDelaunayTriangleGenerator::IsCollinear(const FPoint* A, const FPoint* B, c
 	return (Result == 0.f);
 }
 
+bool FDelaunayTriangleGenerator::AllCoincident(const TArray<FPoint>& InPoints)
+{
+	if (InPoints.Num() > 0)
+	{
+		const FPoint& FirstPoint = InPoints[0];
+		for (int32 PointIndex = 0; PointIndex < InPoints.Num(); ++PointIndex)
+		{
+			const FPoint& Point = InPoints[PointIndex];
+			if (Point.Position != FirstPoint.Position)
+			{
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	return false;
+}
+
 bool FDelaunayTriangleGenerator::FlipTriangles(int32 I, int32 J)
 {
 	bool Flipped = false;
@@ -344,11 +398,7 @@ void FDelaunayTriangleGenerator::AddTriangle(FTriangle& newTriangle, bool bCheck
 
 int32 FDelaunayTriangleGenerator::GenerateTriangles(TArray<FPoint>& PointList, const int32 TotalNum)
 {
-	if (TotalNum < BLENDSPACE_MINSAMPLE)
-	{
-		return 0;
-	}
-	else if (TotalNum <= BLENDSPACE_MINSAMPLE)
+	if (TotalNum == BLENDSPACE_MINSAMPLE)
 	{
 		if (IsEligibleForTriangulation(&PointList[0], &PointList[1], &PointList[2]))
 		{
@@ -854,8 +904,6 @@ int32 SBlendSpaceGridWidget::OnPaint( const FPaintArgs& Args, const FGeometry& A
 
 	FDrawLines LineBatcher;
 
-	TArray<FVector2D> LinePoints;
-
 	int32 DefaultLayer = LayerId;
 	int32 GridLayer = LayerId+1;
 	int32 HighlightLayer = LayerId+2;
@@ -869,11 +917,13 @@ int32 SBlendSpaceGridWidget::OnPaint( const FPaintArgs& Args, const FGeometry& A
 
 	// draw the borderline for grid
 	{
-		LinePoints.Add( FVector2D(WindowRect.Left, WindowRect.Top) );
-		LinePoints.Add( FVector2D(WindowRect.Left, WindowRect.Bottom) );
-		LinePoints.Add( FVector2D(WindowRect.Right, WindowRect.Bottom) );
-		LinePoints.Add( FVector2D(WindowRect.Right, WindowRect.Top));
-		LinePoints.Add( FVector2D(WindowRect.Left, WindowRect.Top) );
+		TArray<FVector2D> LinePoints = {
+			FVector2D(WindowRect.Left, WindowRect.Top),
+			FVector2D(WindowRect.Left, WindowRect.Bottom),
+			FVector2D(WindowRect.Right, WindowRect.Bottom),
+			FVector2D(WindowRect.Right, WindowRect.Top),
+			FVector2D(WindowRect.Left, WindowRect.Top)
+		};
 
 		FSlateDrawElement::MakeLines( 
 			OutDrawElements,
@@ -1038,10 +1088,9 @@ int32 SBlendSpaceGridWidget::OnPaint( const FPaintArgs& Args, const FGeometry& A
 		{
 			TOptional<FVector> MouseGridPos = GetEditorPosFromWidgetPos(MousePos.GetValue(), WindowRect);
 			// do not search it if grid is selected
-			if (MouseGridPos.IsSet() && !BlendSpaceGrid.FindTriangleThisPointBelongsTo(MouseGridPos.GetValue(), BaryCentricCoords, HighlightTriangle, TriangleList))
+			if (MouseGridPos.IsSet())
 			{
-				// this can happen if triangle does not cover the area where it should
-				UE_LOG(LogBlendSpace, Warning, TEXT("Failed to get highlighted triangle"));
+				BlendSpaceGrid.FindTriangleThisPointBelongsTo(MouseGridPos.GetValue(), BaryCentricCoords, HighlightTriangle, TriangleList);
 			}
 		}
 		else

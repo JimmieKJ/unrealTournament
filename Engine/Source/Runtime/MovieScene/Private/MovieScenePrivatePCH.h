@@ -1,7 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#ifndef MOVIE_SCENE_CORE_PRIVATE
-#define MOVIE_SCENE_CORE_PRIVATE
+#pragma once
 
 #include "Core.h"
 #include "Engine.h"
@@ -16,4 +15,3 @@
 #include "MovieSceneSequence.h"
 #include "MovieSceneCommonHelpers.h"
 
-#endif

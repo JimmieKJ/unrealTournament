@@ -44,8 +44,8 @@ private:
  */
 namespace SlateApplicationDefs
 {
-	/** How many users can we support at once? */
-	static const int32 MaxUsers = 8;
+	/** How many hardware users can we support at once? */
+	static const int32 MaxHardwareUsers = 8;
 }
 
 /**
@@ -224,6 +224,13 @@ public:
 	 * @return True if one or more widgets have capture, otherwise false.
 	 */
 	virtual bool HasAnyMouseCaptor( ) const = 0;
+
+	/**
+	 * Gets whether or not a widget has captured the mouse for a particular user.
+	 *
+	 * @return True if one or more widgets have capture, otherwise false.
+	 */
+	virtual bool HasUserMouseCapture(int32 UserIndex) const = 0;
 
 	/**
 	 * Gets the platform application.
@@ -427,7 +434,14 @@ protected:
 	 *
 	 * @return True if the widget has mouse capture, otherwise false.
 	 */
-	virtual bool HasMouseCapture(const TSharedPtr<const SWidget> Widget) const = 0;
+	virtual bool DoesWidgetHaveMouseCapture(const TSharedPtr<const SWidget> Widget) const = 0;
+
+	/**
+	 * Gets whether or not a particular widget has mouse capture by a user.
+	 *
+	 * @return True if the widget has mouse capture, otherwise false.
+	 */
+	virtual bool DoesWidgetHaveMouseCaptureByUser(const TSharedPtr<const SWidget> Widget, int32 UserIndex, TOptional<int32> PointerIndex) const = 0;
 
 	/**
 	 * Gets whether or not a particular widget has the specified users focus, and if so the type of focus.

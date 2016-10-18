@@ -2,7 +2,7 @@
 
 #include "UnrealEd.h"
 #include "SSceneReimportSkeletalMeshListView.h"
-#include "ClassIconFinder.h"
+#include "SlateIconFinder.h"
 #include "Dialogs/DlgPickAssetPath.h"
 #include "Editor/ContentBrowser/Public/ContentBrowserModule.h"
 #include "SFbxSceneOptionWindow.h"
@@ -83,7 +83,7 @@ public:
 		else if (ColumnName == FbxSceneReimportSkeletalMesh::ClassIconHeaderIdName && SlateBrush != nullptr)
 		{
 			UClass *IconClass = FbxMeshInfo->GetType();
-			const FSlateBrush* ClassIcon = FClassIconFinder::FindIconForClass(IconClass);
+			const FSlateBrush* ClassIcon = FSlateIconFinder::FindIconBrushForClass(IconClass);
 			TSharedRef<SOverlay> IconContent = SNew(SOverlay)
 				+ SOverlay::Slot()
 				.HAlign(HAlign_Right)
@@ -535,8 +535,8 @@ void SFbxSceneSkeletalMeshReimportListView::OnFinishedChangingProperties(const F
 
 TSharedPtr<SWidget> SFbxSceneSkeletalMeshReimportListView::OnOpenContextMenu()
 {
-	TArray<FbxMeshInfoPtr> SelectedItems;
-	int32 SelectCount = GetSelectedItems(SelectedItems);
+	TArray<FbxMeshInfoPtr> SelectedFbxMeshInfos;
+	int32 SelectCount = GetSelectedItems(SelectedFbxMeshInfos);
 	// Build up the menu for a selection
 	const bool bCloseAfterSelection = true;
 	FMenuBuilder MenuBuilder(bCloseAfterSelection, TSharedPtr<FUICommandList>());
@@ -555,7 +555,7 @@ TSharedPtr<SWidget> SFbxSceneSkeletalMeshReimportListView::OnOpenContextMenu()
 	//AddBakePivotMenu(MenuBuilder);
 
 	bool bShowOptionMenu = false;
-	for (FbxMeshInfoPtr MeshInfo : SelectedItems)
+	for (FbxMeshInfoPtr MeshInfo : SelectedFbxMeshInfos)
 	{
 		EFbxSceneReimportStatusFlags ReimportFlags = *MeshStatusMap->Find(MeshInfo->OriginalImportPath);
 		if ((ReimportFlags & EFbxSceneReimportStatusFlags::Removed) == EFbxSceneReimportStatusFlags::None)
@@ -579,9 +579,9 @@ TSharedPtr<SWidget> SFbxSceneSkeletalMeshReimportListView::OnOpenContextMenu()
 
 void SFbxSceneSkeletalMeshReimportListView::SetSelectionImportState(bool MarkForImport)
 {
-	TArray<FbxMeshInfoPtr> SelectedItems;
-	GetSelectedItems(SelectedItems);
-	for (FbxMeshInfoPtr ItemPtr : SelectedItems)
+	TArray<FbxMeshInfoPtr> SelectedFbxMeshInfos;
+	GetSelectedItems(SelectedFbxMeshInfos);
+	for (FbxMeshInfoPtr ItemPtr : SelectedFbxMeshInfos)
 	{
 		EFbxSceneReimportStatusFlags *ItemStatus = MeshStatusMap->Find(ItemPtr->OriginalImportPath);
 		if (ItemStatus != nullptr)

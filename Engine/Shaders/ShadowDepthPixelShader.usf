@@ -15,23 +15,19 @@
 
 #define SECONDARY_OCCLUSION			1
 
-
-
+#define NO_LPV (COMPILER_GLSL || COMPILER_METAL)
 
 // With this enabled, very large or one-sided objects (e.g. terrain) inject an additional layer of GV cells 
 // to increase AO contribution. The AO calculation works best with closed geometry and small-medium scale objects
 #define LPV_GV_BOOST				1
 
-//@todo-rco: Remove this when reenabling for OpenGL
-#if !COMPILER_HLSLCC
-#if REFLECTIVE_SHADOW_MAP
+#if REFLECTIVE_SHADOW_MAP && !NO_LPV
 	#include "LPVWriteVplCommon.usf"
 
 	#if RSM_TRANSMISSION
 		float2 ReflectiveShadowMapTextureResolution;
 		row_major float4x4 ProjectionMatrix;
 	#endif
-#endif
 #endif
 
 
@@ -62,7 +58,7 @@ void Main(
 	FPixelMaterialInputs PixelMaterialInputs;
 	#if INTERPOLATE_POSITION
 	    {
-			float4 ScreenPosition  = SvPositionToScreenPosition(SvPosition);  
+			float4 ScreenPosition  = SvPositionToResolvedScreenPosition(SvPosition);  
 			
 			float3 TranslatedWorld = Inputs.PixelPosition.xyz;
 
@@ -96,8 +92,6 @@ void Main(
 	float3 normal = normalize( MaterialParameters.TangentToWorld[2] ); // Smooth normal
 	float3 flux = GetMaterialBounceColor(PixelMaterialInputs);
 
-//@todo-rco: Remove this when reenabling for OpenGL
-#if !COMPILER_HLSLCC
 #if MATERIAL_INJECT_EMISSIVE_INTO_LPV
 	float3 emissive = GetMaterialEmissive(PixelMaterialInputs);
 
@@ -109,7 +103,7 @@ void Main(
 	float opacity = GetMaterialOpacity(PixelMaterialInputs);
 #endif
 
-#if SECONDARY_OCCLUSION || MATERIAL_INJECT_EMISSIVE_INTO_LPV
+#if (SECONDARY_OCCLUSION || MATERIAL_INJECT_EMISSIVE_INTO_LPV) && !NO_LPV
 	// Optimisation: only add to GV/VPL if the fragment is within the grid
 	float3 grid = WorldToGrid( MaterialParameters.AbsoluteWorldPosition.xyz );
 	float minGrid = min( grid.x, min(grid.y,grid.z ) );
@@ -145,7 +139,6 @@ void Main(
 		return;
 	}
 #endif
-#endif
 
 #if MATERIAL_BLOCK_GI
 	OutColor = 1.0f;
@@ -153,7 +146,7 @@ void Main(
 #elif MATERIALBLENDING_TRANSLUCENT || MATERIALBLENDING_ALPHACOMPOSITE
 	OutColor = 0;
 	OutReflectiveShadowMapDiffuse = 0;
-	clip(-1);
+	clip(-1.0);
 #else
 	// Pass the LPV bias multiplier in the alpha channel of the normal
 	OutColor = float4(normal * .5 + .5, Primitive.LpvBiasMultiplier / 32.0f );

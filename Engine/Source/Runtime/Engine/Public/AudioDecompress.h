@@ -274,3 +274,57 @@ public:
 		return BytesWritten;
 	}
 };
+
+template<class T>
+class FAsyncRealtimeAudioTaskProxy
+{
+public:
+	FAsyncRealtimeAudioTaskProxy(T* InAudioBuffer, USoundWave* InWaveData)
+	{
+		Task = new FAsyncTask<FAsyncRealtimeAudioTaskWorker<T>>(InAudioBuffer, InWaveData);
+	}
+
+	FAsyncRealtimeAudioTaskProxy(T* InAudioBuffer, uint8* InAudioData, bool bInLoopingMode, bool bInSkipFirstBuffer)
+	{
+		Task = new FAsyncTask<FAsyncRealtimeAudioTaskWorker<T>>(InAudioBuffer, InAudioData, bInLoopingMode, bInSkipFirstBuffer);
+	}
+
+	FAsyncRealtimeAudioTaskProxy(USoundWave* InWaveData, uint8* InAudioData, int32 InMaxSamples)
+	{
+		Task = new FAsyncTask<FAsyncRealtimeAudioTaskWorker<T>>(InWaveData, InAudioData, InMaxSamples);
+	}
+
+	~FAsyncRealtimeAudioTaskProxy()
+	{
+		check(IsDone());
+		delete Task;
+	}
+
+	bool IsDone()
+	{
+		FScopeLock Lock(&CritSect);
+		return Task->IsDone();
+	}
+
+	void EnsureCompletion(bool bDoWorkOnThisThreadIfNotStarted = true)
+	{
+		FScopeLock Lock(&CritSect);
+		Task->EnsureCompletion(bDoWorkOnThisThreadIfNotStarted);
+	}
+
+	void StartBackgroundTask()
+	{
+		FScopeLock Lock(&CritSect);
+		Task->StartBackgroundTask();
+	}
+
+	FAsyncRealtimeAudioTaskWorker<T>& GetTask()
+	{
+		FScopeLock Lock(&CritSect);
+		return Task->GetTask();
+	}
+
+private:
+	FCriticalSection CritSect;
+	FAsyncTask<FAsyncRealtimeAudioTaskWorker<T>>* Task;
+};

@@ -80,6 +80,7 @@ UDestructibleMesh* FDestructibleMeshEditorModule::CreateDestructibleMeshFromStat
 		const uint32 UserResponse = SimpleDialogModule.ShowSimpleDialog();
 #endif
 		const uint32 UserResponse = NCD_None;
+		CA_SUPPRESS(6326);
 		switch (UserResponse)
 		{
 		default:	// Default to using the same mesh

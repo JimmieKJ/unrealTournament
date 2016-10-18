@@ -41,7 +41,6 @@ void FCurveStructCustomization::CustomizeHeader( TSharedRef<IPropertyHandle> InS
 
 	TArray<void*> StructPtrs;
 	StructPropertyHandle->AccessRawData( StructPtrs );
-	check(StructPtrs.Num()!=0);
 
 	if (StructPtrs.Num() == 1)
 	{
@@ -70,7 +69,7 @@ void FCurveStructCustomization::CustomizeHeader( TSharedRef<IPropertyHandle> InS
 		HeaderRow
 			.NameContent()
 			[
-				InStructPropertyHandle->CreatePropertyNameWidget( FText::GetEmpty(), FText::GetEmpty(), false )
+				InStructPropertyHandle->CreatePropertyNameWidget()
 			]
 			.ValueContent()
 			.HAlign(HAlign_Fill)
@@ -107,7 +106,7 @@ void FCurveStructCustomization::CustomizeHeader( TSharedRef<IPropertyHandle> InS
 		HeaderRow
 			.NameContent()
 			[
-				InStructPropertyHandle->CreatePropertyNameWidget( FText::GetEmpty(), FText::GetEmpty(), false )
+				InStructPropertyHandle->CreatePropertyNameWidget()
 			]
 			.ValueContent()
 			[
@@ -115,7 +114,7 @@ void FCurveStructCustomization::CustomizeHeader( TSharedRef<IPropertyHandle> InS
 				.VAlign(VAlign_Fill)
 				[
 					SNew(STextBlock)
-					.Text(LOCTEXT("MultipleCurves", "Multiple Curves - unable to modify"))
+					.Text(StructPtrs.Num() == 0 ? LOCTEXT("NoCurves", "No Curves - unable to modify") : LOCTEXT("MultipleCurves", "Multiple Curves - unable to modify"))
 				]
 			];
 	}
@@ -319,8 +318,7 @@ FReply FCurveStructCustomization::OnCreateButtonClicked()
 				OutermostPkg->MarkPackageDirty();
 
 				// Make sure expected type of pointer passed to SetValue, so that it's not interpreted as a bool
-				const UObject* NewObject = NewCurve;
-				ExternalCurveHandle->SetValue(NewObject);
+				ExternalCurveHandle->SetValue(NewCurve);
 			}
 		}
 	}

@@ -12,5 +12,5 @@ pushd Box2D_v2.3.1
 	msbuild Box2D.sln /target:Clean,Box2D /p:Platform=x64;Configuration="Debug"
 	popd
 
-	REM Box2D PC is still missing Android, Linux, HTML5, XboxOne, PS4, WinRT
+	REM Box2D PC is still missing Android, Linux, HTML5, XboxOne, PS4
 popd

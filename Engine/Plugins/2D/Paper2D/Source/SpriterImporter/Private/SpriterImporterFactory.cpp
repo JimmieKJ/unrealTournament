@@ -514,7 +514,7 @@ UObject* USpriterImporterFactory::FactoryCreateText(UClass* InClass, UObject* In
 				}
 				AnimationAsset->NumFrames = TotalNumKeys;
 
-
+				AnimationAsset->MarkRawDataAsModified();
 
 				// compress animation
 				{

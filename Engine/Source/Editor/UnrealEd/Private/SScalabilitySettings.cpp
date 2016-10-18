@@ -18,6 +18,7 @@ ECheckBoxState SScalabilitySettings::IsGroupQualityLevelSelected(const TCHAR* In
 	else if (FCString::Strcmp(InGroupName, TEXT("ShadowQuality")) == 0) QualityLevel = CachedQualityLevels.ShadowQuality;
 	else if (FCString::Strcmp(InGroupName, TEXT("TextureQuality")) == 0) QualityLevel = CachedQualityLevels.TextureQuality;
 	else if (FCString::Strcmp(InGroupName, TEXT("EffectsQuality")) == 0) QualityLevel = CachedQualityLevels.EffectsQuality;
+	else if (FCString::Strcmp(InGroupName, TEXT("FoliageQuality")) == 0) QualityLevel = CachedQualityLevels.FoliageQuality;
 
 	return (QualityLevel == InQualityLevel) ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
 }
@@ -31,6 +32,7 @@ void SScalabilitySettings::OnGroupQualityLevelChanged(ECheckBoxState NewState, c
 	else if (FCString::Strcmp(InGroupName, TEXT("ShadowQuality")) == 0) CachedQualityLevels.ShadowQuality = InQualityLevel;
 	else if (FCString::Strcmp(InGroupName, TEXT("TextureQuality")) == 0) CachedQualityLevels.TextureQuality = InQualityLevel;
 	else if (FCString::Strcmp(InGroupName, TEXT("EffectsQuality")) == 0) CachedQualityLevels.EffectsQuality = InQualityLevel;
+	else if (FCString::Strcmp(InGroupName, TEXT("FoliageQuality")) == 0) CachedQualityLevels.FoliageQuality = InQualityLevel;
 
 	Scalability::SetQualityLevels(CachedQualityLevels);
 	Scalability::SaveState(GEditorSettingsIni);
@@ -141,6 +143,22 @@ void SScalabilitySettings::OnMonitorPerformanceChanged(ECheckBoxState NewState)
 	Settings->SaveConfig();
 }
 
+void SScalabilitySettings::AddButtonsToGrid(int32 X0, int32 Y0, TSharedRef<SGridPanel> ButtonMatrix, const FText* FourNameArray, int32 ButtonCount, const TCHAR* GroupName, const FText& TooltipShape)
+{
+	const bool bUseNameArray = (ButtonCount == 4) && (FourNameArray != nullptr);
+
+	for (int32 ButtonIndex = 0; ButtonIndex < ButtonCount; ++ButtonIndex)
+	{
+		const FText ButtonLabel = bUseNameArray ? FourNameArray[ButtonIndex] : FText::AsNumber(ButtonIndex);
+		const FText ButtonTooltip = FText::Format(TooltipShape, ButtonLabel);
+
+		ButtonMatrix->AddSlot(X0 + ButtonIndex, Y0)
+		[
+			MakeButtonWidget(ButtonLabel, GroupName, ButtonIndex, ButtonTooltip)
+		];
+	}
+}
+
 void SScalabilitySettings::Construct( const FArguments& InArgs )
 {
 	const FText NamesLow(LOCTEXT("QualityLowLabel", "Low"));
@@ -149,6 +167,14 @@ void SScalabilitySettings::Construct( const FArguments& InArgs )
 	const FText NamesEpic(LOCTEXT("QualityEpicLabel", "Epic"));
 	const FText NamesAuto(LOCTEXT("QualityAutoLabel", "Auto"));
 
+	const FText DistanceNear = LOCTEXT("ViewDistanceLabel2", "Near");
+	const FText DistanceMedium = LOCTEXT("ViewDistanceLabel3", "Medium");
+	const FText DistanceFar = LOCTEXT("ViewDistanceLabel4", "Far");
+	const FText DistanceEpic = LOCTEXT("ViewDistanceLabel5", "Epic");
+		
+	const FText FourNames[4] = { NamesLow, NamesMedium, NamesHigh, NamesEpic };
+	const FText FourDistanceNames[4] = { DistanceNear, DistanceMedium, DistanceFar, DistanceEpic };
+
 	auto TitleFont = FEditorStyle::GetFontStyle( FName( "Scalability.TitleFont" ) );
 	auto GroupFont = FEditorStyle::GetFontStyle( FName( "Scalability.GroupFont" ) );
 
@@ -156,6 +182,63 @@ void SScalabilitySettings::Construct( const FArguments& InArgs )
 	static float Padding = 1.0f;
 	static float QualityColumnCoeff = 1.0f;
 	static float QualityLevelColumnCoeff = 0.2f;
+		
+	Scalability::FQualityLevels LevelCounts = Scalability::GetQualityLevelCounts();
+	const int32 MaxLevelCount =
+		FMath::Max(LevelCounts.ShadowQuality,
+		FMath::Max(LevelCounts.TextureQuality,
+		FMath::Max(LevelCounts.ViewDistanceQuality,
+		FMath::Max(LevelCounts.EffectsQuality,
+		FMath::Max(LevelCounts.PostProcessQuality, LevelCounts.AntiAliasingQuality)
+		))));
+	const int32 TotalWidth = MaxLevelCount + 1;
+
+	TSharedRef<SGridPanel> ButtonMatrix = 
+		SNew(SGridPanel)
+		.FillColumn(0, QualityColumnCoeff)
+
+		+MakeGridSlot(0,1,TotalWidth,1) [ SNew (SBorder).BorderImage(FEditorStyle::GetBrush("Scalability.RowBackground")) ]
+		+MakeGridSlot(0,2,TotalWidth,1) [ SNew (SBorder).BorderImage(FEditorStyle::GetBrush("Scalability.RowBackground")) ]
+		+MakeGridSlot(0,3,TotalWidth,1) [ SNew (SBorder).BorderImage(FEditorStyle::GetBrush("Scalability.RowBackground")) ]
+		+MakeGridSlot(0,4,TotalWidth,1) [ SNew (SBorder).BorderImage(FEditorStyle::GetBrush("Scalability.RowBackground")) ]
+		+MakeGridSlot(0,5,TotalWidth,1) [ SNew (SBorder).BorderImage(FEditorStyle::GetBrush("Scalability.RowBackground")) ]
+		+MakeGridSlot(0,6,TotalWidth,1) [ SNew (SBorder).BorderImage(FEditorStyle::GetBrush("Scalability.RowBackground")) ]
+		+MakeGridSlot(0,7,TotalWidth,1) [ SNew (SBorder).BorderImage(FEditorStyle::GetBrush("Scalability.RowBackground")) ]
+		+MakeGridSlot(0,8,TotalWidth,1) [ SNew (SBorder).BorderImage(FEditorStyle::GetBrush("Scalability.RowBackground")) ]
+
+		+MakeGridSlot(0,0).VAlign(VAlign_Center) [ SNew(STextBlock).Text(LOCTEXT("QualityLabel", "Quality")).Font(TitleFont) ]
+		+MakeGridSlot(1,0) [ MakeHeaderButtonWidget(NamesLow, 0, LOCTEXT("QualityLow", "Set all groups to low quality")) ]
+		+MakeGridSlot(2,0) [ MakeHeaderButtonWidget(NamesMedium, 1, LOCTEXT("QualityMedium", "Set all groups to medium quality")) ]
+		+MakeGridSlot(3,0) [ MakeHeaderButtonWidget(NamesHigh, 2, LOCTEXT("QualityHigh", "Set all groups to high quality")) ]
+		+MakeGridSlot(4,0) [ MakeHeaderButtonWidget(NamesEpic, MaxLevelCount-1, LOCTEXT("QualityEpic", "Set all groups to epic quality")) ]
+		+MakeGridSlot(5,0) [ MakeAutoButtonWidget() ]
+
+		+MakeGridSlot(0,1) [ SNew(STextBlock).Text(LOCTEXT("ResScaleLabel1", "Resolution Scale")).Font(GroupFont) ]
+		+MakeGridSlot(5,1) [ SNew(STextBlock).Text(this, &SScalabilitySettings::GetResolutionScaleString) ]
+		+MakeGridSlot(1,1,4,1) [ SNew(SSlider).OnValueChanged(this, &SScalabilitySettings::OnResolutionScaleChanged).Value(this, &SScalabilitySettings::GetResolutionScale) ]
+				
+		+MakeGridSlot(0,2) [ SNew(STextBlock).Text(LOCTEXT("ViewDistanceLabel1", "View Distance")).Font(GroupFont) ]
+
+		+MakeGridSlot(0,3) [ SNew(STextBlock).Text(LOCTEXT("AntiAliasingQualityLabel1", "Anti-Aliasing")).Font(GroupFont) ]
+
+		+MakeGridSlot(0,4) [ SNew(STextBlock).Text(LOCTEXT("PostProcessQualityLabel1", "Post Processing")).Font(GroupFont) ]
+
+		+MakeGridSlot(0,5) [ SNew(STextBlock).Text(LOCTEXT("ShadowLabel1", "Shadows")).Font(GroupFont) ]
+
+		+MakeGridSlot(0,6) [ SNew(STextBlock).Text(LOCTEXT("TextureQualityLabel1", "Textures")).Font(GroupFont) ]
+
+		+MakeGridSlot(0,7) [ SNew(STextBlock).Text(LOCTEXT("EffectsQualityLabel1", "Effects")).Font(GroupFont) ]
+		+MakeGridSlot(0,8) [ SNew(STextBlock).Text(LOCTEXT("FoliageQualityLabel1", "Foliage")).Font(GroupFont) ]
+		;
+
+	AddButtonsToGrid(1, 2, ButtonMatrix, FourDistanceNames, LevelCounts.ViewDistanceQuality, TEXT("ViewDistanceQuality"), LOCTEXT("ViewDistanceQualityTooltip", "Set view distance to {0}"));
+	AddButtonsToGrid(1, 3, ButtonMatrix, FourNames, LevelCounts.AntiAliasingQuality, TEXT("AntiAliasingQuality"), LOCTEXT("AntiAliasingQualityTooltip", "Set anti-aliasing quality to {0}"));
+	AddButtonsToGrid(1, 4, ButtonMatrix, FourNames, LevelCounts.PostProcessQuality, TEXT("PostProcessQuality"), LOCTEXT("PostProcessQualityTooltip", "Set post processing quality to {0}"));
+	AddButtonsToGrid(1, 5, ButtonMatrix, FourNames, LevelCounts.ShadowQuality, TEXT("ShadowQuality"), LOCTEXT("ShadowQualityTooltip", "Set shadow quality to {0}"));
+	AddButtonsToGrid(1, 6, ButtonMatrix, FourNames, LevelCounts.TextureQuality, TEXT("TextureQuality"), LOCTEXT("TextureQualityTooltip", "Set texture quality to {0}"));
+	AddButtonsToGrid(1, 7, ButtonMatrix, FourNames, LevelCounts.EffectsQuality, TEXT("EffectsQuality"), LOCTEXT("EffectsQualityTooltip", "Set effects quality to {0}"));
+	AddButtonsToGrid(1, 8, ButtonMatrix, FourNames, LevelCounts.EffectsQuality, TEXT("FoliageQuality"), LOCTEXT("FoliageQualityTooltip", "Set foliage quality to {0}"));
+
 
 	this->ChildSlot
 		.HAlign(EHorizontalAlignment::HAlign_Fill)
@@ -163,63 +246,7 @@ void SScalabilitySettings::Construct( const FArguments& InArgs )
 			SNew(SVerticalBox)
 			+SVerticalBox::Slot()
 			[
-				SNew(SGridPanel)
-				.FillColumn(0, QualityColumnCoeff)
-
-				+MakeGridSlot(0,1,5,1) [ SNew (SBorder).BorderImage(FEditorStyle::GetBrush("Scalability.RowBackground")) ]
-				+MakeGridSlot(0,2,5,1) [ SNew (SBorder).BorderImage(FEditorStyle::GetBrush("Scalability.RowBackground")) ]
-				+MakeGridSlot(0,3,5,1) [ SNew (SBorder).BorderImage(FEditorStyle::GetBrush("Scalability.RowBackground")) ]
-				+MakeGridSlot(0,4,5,1) [ SNew (SBorder).BorderImage(FEditorStyle::GetBrush("Scalability.RowBackground")) ]
-				+MakeGridSlot(0,5,5,1) [ SNew (SBorder).BorderImage(FEditorStyle::GetBrush("Scalability.RowBackground")) ]
-				+MakeGridSlot(0,6,5,1) [ SNew (SBorder).BorderImage(FEditorStyle::GetBrush("Scalability.RowBackground")) ]
-				+MakeGridSlot(0,7,5,1) [ SNew (SBorder).BorderImage(FEditorStyle::GetBrush("Scalability.RowBackground")) ]
-
-				+MakeGridSlot(0,0).VAlign(VAlign_Center) [ SNew(STextBlock).Text(LOCTEXT("QualityLabel", "Quality")).Font(TitleFont) ]
-				+MakeGridSlot(1,0) [ MakeHeaderButtonWidget(NamesLow, 0, LOCTEXT("QualityLow", "Set all groups to low quality")) ]
-				+MakeGridSlot(2,0) [ MakeHeaderButtonWidget(NamesMedium, 1, LOCTEXT("QualityMedium", "Set all groups to medium quality")) ]
-				+MakeGridSlot(3,0) [ MakeHeaderButtonWidget(NamesHigh, 2, LOCTEXT("QualityHigh", "Set all groups to high quality")) ]
-				+MakeGridSlot(4,0) [ MakeHeaderButtonWidget(NamesEpic, 3, LOCTEXT("QualityEpic", "Set all groups to epic quality")) ]
-				+MakeGridSlot(5,0) [ MakeAutoButtonWidget() ]
-
-				+MakeGridSlot(0,1) [ SNew(STextBlock).Text(LOCTEXT("ResScaleLabel1", "Resolution Scale")).Font(GroupFont) ]
-				+MakeGridSlot(5,1) [ SNew(STextBlock).Text(this, &SScalabilitySettings::GetResolutionScaleString) ]
-				+MakeGridSlot(1,1,4,1) [ SNew(SSlider).OnValueChanged(this, &SScalabilitySettings::OnResolutionScaleChanged).Value(this, &SScalabilitySettings::GetResolutionScale) ]
-				
-				+MakeGridSlot(0,2) [ SNew(STextBlock).Text(LOCTEXT("ViewDistanceLabel1", "View Distance")).Font(GroupFont) ]
-				+MakeGridSlot(1,2) [ MakeButtonWidget(LOCTEXT("ViewDistanceLabel2", "Near"), TEXT("ViewDistanceQuality"), 0, LOCTEXT("ViewDistanceQualityNear", "Set view distance to near")) ]
-				+MakeGridSlot(2,2) [ MakeButtonWidget(LOCTEXT("ViewDistanceLabel3", "Medium"), TEXT("ViewDistanceQuality"), 1, LOCTEXT("ViewDistanceQualityMed", "Set view distance to medium")) ]
-				+MakeGridSlot(3,2) [ MakeButtonWidget(LOCTEXT("ViewDistanceLabel4", "Far"), TEXT("ViewDistanceQuality"), 2, LOCTEXT("ViewDistanceQualityFar", "Set view distance to far")) ]
-				+MakeGridSlot(4,2) [ MakeButtonWidget(LOCTEXT("ViewDistanceLabel5", "Epic"), TEXT("ViewDistanceQuality"), 3, LOCTEXT("ViewDistanceQualityEpic", "Set view distance to epic")) ]
-
-				+MakeGridSlot(0,3) [ SNew(STextBlock).Text(LOCTEXT("AntiAliasingQualityLabel1", "Anti-Aliasing")).Font(GroupFont) ]
-				+MakeGridSlot(1,3) [ MakeButtonWidget(NamesLow, TEXT("AntiAliasingQuality"), 0, LOCTEXT("AntiAliasingQualityLow", "Set anti-aliasing quality to low")) ]
-				+MakeGridSlot(2,3) [ MakeButtonWidget(NamesMedium, TEXT("AntiAliasingQuality"), 1, LOCTEXT("AntiAliasingQualityMed", "Set anti-aliasing quality to medium")) ]
-				+MakeGridSlot(3,3) [ MakeButtonWidget(NamesHigh, TEXT("AntiAliasingQuality"), 2, LOCTEXT("AntiAliasingQualityHigh", "Set anti-aliasing quality to high")) ]
-				+MakeGridSlot(4,3) [ MakeButtonWidget(NamesEpic, TEXT("AntiAliasingQuality"), 3, LOCTEXT("AntiAliasingQualityEpic", "Set anti-aliasing quality to epic")) ]
-
-				+MakeGridSlot(0,4) [ SNew(STextBlock).Text(LOCTEXT("PostProcessQualityLabel1", "Post Processing")).Font(GroupFont) ]
-				+MakeGridSlot(1,4) [ MakeButtonWidget(NamesLow, TEXT("PostProcessQuality"), 0, LOCTEXT("PostProcessQualityLow", "Set post processing quality to low")) ]
-				+MakeGridSlot(2,4) [ MakeButtonWidget(NamesMedium, TEXT("PostProcessQuality"), 1, LOCTEXT("PostProcessQualityMed", "Set post processing quality to medium")) ]
-				+MakeGridSlot(3,4) [ MakeButtonWidget(NamesHigh, TEXT("PostProcessQuality"), 2, LOCTEXT("PostProcessQualityHigh", "Set post processing quality to high")) ]
-				+MakeGridSlot(4,4) [ MakeButtonWidget(NamesEpic, TEXT("PostProcessQuality"), 3, LOCTEXT("PostProcessQualityEpic", "Set post processing quality to epic")) ]
-
-				+MakeGridSlot(0,5) [ SNew(STextBlock).Text(LOCTEXT("ShadowLabel1", "Shadows")).Font(GroupFont) ]
-				+MakeGridSlot(1,5) [ MakeButtonWidget(NamesLow, TEXT("ShadowQuality"), 0, LOCTEXT("ShadowQualityLow", "Set shadow quality to low")) ]
-				+MakeGridSlot(2,5) [ MakeButtonWidget(NamesMedium, TEXT("ShadowQuality"), 1, LOCTEXT("ShadowQualityMed", "Set shadow quality to medium")) ]
-				+MakeGridSlot(3,5) [ MakeButtonWidget(NamesHigh, TEXT("ShadowQuality"), 2, LOCTEXT("ShadowQualityHigh", "Set shadow quality to high")) ]
-				+MakeGridSlot(4,5) [ MakeButtonWidget(NamesEpic, TEXT("ShadowQuality"), 3, LOCTEXT("ShadowQualityEpic", "Set shadow quality to epic")) ]
-
-				+MakeGridSlot(0,6) [ SNew(STextBlock).Text(LOCTEXT("TextureQualityLabel1", "Textures")).Font(GroupFont) ]
-				+MakeGridSlot(1,6) [ MakeButtonWidget(NamesLow, TEXT("TextureQuality"), 0, LOCTEXT("TextureQualityLow", "Set texture quality to low")) ]
-				+MakeGridSlot(2,6) [ MakeButtonWidget(NamesMedium, TEXT("TextureQuality"), 1, LOCTEXT("TextureQualityMed", "Set texture quality to medium")) ]
-				+MakeGridSlot(3,6) [ MakeButtonWidget(NamesHigh, TEXT("TextureQuality"), 2, LOCTEXT("TextureQualityHigh", "Set texture quality to high")) ]
-				+MakeGridSlot(4,6) [ MakeButtonWidget(NamesEpic, TEXT("TextureQuality"), 3, LOCTEXT("TextureQualityEpic", "Set texture quality to epic")) ]
-
-				+MakeGridSlot(0,7) [ SNew(STextBlock).Text(LOCTEXT("EffectsQualityLabel1", "Effects")).Font(GroupFont) ]
-				+MakeGridSlot(1,7) [ MakeButtonWidget(NamesLow, TEXT("EffectsQuality"), 0, LOCTEXT("EffectsQualityLow", "Set effects quality to low")) ]
-				+MakeGridSlot(2,7) [ MakeButtonWidget(NamesMedium, TEXT("EffectsQuality"), 1, LOCTEXT("EffectsQualityMed", "Set effects quality to medium")) ]
-				+MakeGridSlot(3,7) [ MakeButtonWidget(NamesHigh, TEXT("EffectsQuality"), 2, LOCTEXT("EffectsQualityHigh", "Set effects quality to high")) ]
-				+MakeGridSlot(4,7) [ MakeButtonWidget(NamesEpic, TEXT("EffectsQuality"), 3, LOCTEXT("EffectsQualityEpic", "Set effects quality to epic")) ]
+				ButtonMatrix
 			]
 
 			+ SVerticalBox::Slot()

@@ -459,11 +459,19 @@ public:
 						+ SGridPanel::Slot(1, 16)
 							.Padding(0.0f, 5.0f)
 							[
-								SNew(SBox)
-									.WidthOverride(150.0f)
+								SNew(SVerticalBox)
+
+								+ SVerticalBox::Slot()
+									.AutoHeight()
 									[
 										SNew(SProgressBar)
 											.Percent(this, &SWidgetGallery::HandleProgressBarPercent)
+									]
+
+								+ SVerticalBox::Slot()
+									.AutoHeight()
+									[
+										SNew(SProgressBar)
 									]
 							]
 	/*
@@ -705,6 +713,14 @@ public:
 									SNew(STextBlock)
 										.Text(LOCTEXT("STextBlockRightExampleLabel", "This is a right-justified text block"))
 										.Justification(ETextJustify::Right)
+								]
+
+								+ SVerticalBox::Slot()
+								.AutoHeight()
+								[
+									SNew(STextBlock)
+										.TextStyle(FCoreStyle::Get(), "NormalUnderlinedText")
+										.Text(LOCTEXT("STextBlockUnderlineLabel", "This is text is underlined using a line highlighter!"))
 								]
 							]
 

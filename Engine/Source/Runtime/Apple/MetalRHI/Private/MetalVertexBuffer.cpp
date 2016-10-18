@@ -6,6 +6,7 @@
 
 #include "MetalRHIPrivate.h"
 #include "MetalProfiler.h"
+#include "MetalCommandBuffer.h"
 
 
 FMetalVertexBuffer::FMetalVertexBuffer(uint32 InSize, uint32 InUsage)
@@ -15,29 +16,36 @@ FMetalVertexBuffer::FMetalVertexBuffer(uint32 InSize, uint32 InUsage)
 	, ZeroStrideElementSize((InUsage & BUF_ZeroStride) ? InSize : 0)
 {
 	checkf(InSize <= 256 * 1024 * 1024, TEXT("Metal doesn't support buffers > 256 MB"));
+	
 	// Zero-stride buffers must be separate in order to wrap appropriately
-	if (InUsage & BUF_Volatile && !(InUsage & BUF_ZeroStride))
+	if(!(InUsage & BUF_ZeroStride))
 	{
-		FMetalPooledBuffer Buf = GetMetalDeviceContext().CreatePooledBuffer(FMetalPooledBufferArgs(GetMetalDeviceContext().GetDevice(), InSize, MTLStorageModeShared));
+		FMetalPooledBufferArgs Args(GetMetalDeviceContext().GetDevice(), InSize, BUFFER_STORAGE_MODE);
+		if (InUsage & BUF_UnorderedAccess)
+		{
+			FMetalBufferPoolPolicyData Policy;
+			uint32 BufferSize = Policy.GetPoolBucketSize(Policy.GetPoolBucketIndex(Args));
+			if (InUsage + 512 > BufferSize)
+			{
+				Args.Size = InUsage + 512;
+			}
+		}
+		
+		FMetalPooledBuffer Buf = GetMetalDeviceContext().CreatePooledBuffer(Args);
 		Buffer = [Buf.Buffer retain];
 	}
 	else
 	{
-		if(!(InUsage & BUF_ZeroStride))
-		{
-			FMetalPooledBuffer Buf = GetMetalDeviceContext().CreatePooledBuffer(FMetalPooledBufferArgs(GetMetalDeviceContext().GetDevice(), InSize, BUFFER_STORAGE_MODE));
-			Buffer = [Buf.Buffer retain];
-		}
-		else
-		{
-			Buffer = [GetMetalDeviceContext().GetDevice() newBufferWithLength:InSize options:BUFFER_CACHE_MODE|BUFFER_MANAGED_MEM];
-		}
+		check(!(InUsage & BUF_UnorderedAccess));
+		Buffer = [GetMetalDeviceContext().GetDevice() newBufferWithLength:InSize options:BUFFER_CACHE_MODE|BUFFER_MANAGED_MEM];
+		TRACK_OBJECT(STAT_MetalBufferCount, Buffer);
 	}
-	TRACK_OBJECT(Buffer);
+	INC_MEMORY_STAT_BY(STAT_MetalWastedPooledBufferMem, Buffer.length - GetSize());
 }
 
 FMetalVertexBuffer::~FMetalVertexBuffer()
 {
+	DEC_MEMORY_STAT_BY(STAT_MetalWastedPooledBufferMem, Buffer.length - GetSize());
 	if(!(GetUsage() & BUF_ZeroStride))
 	{
 		SafeReleasePooledBuffer(Buffer);
@@ -60,8 +68,8 @@ void* FMetalVertexBuffer::Lock(EResourceLockMode LockMode, uint32 Offset, uint32
 		id<MTLBuffer> OldBuffer = Buffer;
 		if(!(GetUsage() & BUF_ZeroStride))
 		{
-			MTLStorageMode Mode = (GetUsage() & BUF_Volatile) ? MTLStorageModeShared : BUFFER_STORAGE_MODE;
-			FMetalPooledBuffer Buf = GetMetalDeviceContext().CreatePooledBuffer(FMetalPooledBufferArgs(GetMetalDeviceContext().GetDevice(), GetSize(), Mode));
+			MTLStorageMode Mode = BUFFER_STORAGE_MODE;
+			FMetalPooledBuffer Buf = GetMetalDeviceContext().CreatePooledBuffer(FMetalPooledBufferArgs(GetMetalDeviceContext().GetDevice(), OldBuffer.length, Mode));
 			Buffer = [Buf.Buffer retain];
 			GetMetalDeviceContext().ReleasePooledBuffer(OldBuffer);
 			[OldBuffer release];
@@ -69,6 +77,7 @@ void* FMetalVertexBuffer::Lock(EResourceLockMode LockMode, uint32 Offset, uint32
 		else
 		{
 			Buffer = [GetMetalDeviceContext().GetDevice() newBufferWithLength:Buffer.length options:BUFFER_CACHE_MODE|BUFFER_MANAGED_MEM];
+			TRACK_OBJECT(STAT_MetalBufferCount, Buffer);
 			GetMetalDeviceContext().ReleaseObject(OldBuffer);
 		}
 	}
@@ -85,6 +94,7 @@ void* FMetalVertexBuffer::Lock(EResourceLockMode LockMode, uint32 Offset, uint32
 		
 		// Synchronise the buffer with the CPU
 		id<MTLBlitCommandEncoder> Blitter = GetMetalDeviceContext().GetBlitContext();
+		METAL_DEBUG_COMMAND_BUFFER_BLIT_LOG((&GetMetalDeviceContext()), @"SynchronizeResource(VertexBuffer %p)", this);
 		[Blitter synchronizeResource:Buffer];
 		
 		//kick the current command buffer.
@@ -149,4 +159,9 @@ void FMetalDynamicRHI::RHIUnlockVertexBuffer(FVertexBufferRHIParamRef VertexBuff
 void FMetalDynamicRHI::RHICopyVertexBuffer(FVertexBufferRHIParamRef SourceBufferRHI,FVertexBufferRHIParamRef DestBufferRHI)
 {
 	NOT_SUPPORTED("RHICopyVertexBuffer");
+}
+
+FVertexBufferRHIRef FMetalDynamicRHI::CreateVertexBuffer_RenderThread(class FRHICommandListImmediate& RHICmdList, uint32 Size, uint32 InUsage, FRHIResourceCreateInfo& CreateInfo)
+{
+	return GDynamicRHI->RHICreateVertexBuffer(Size, InUsage, CreateInfo);
 }

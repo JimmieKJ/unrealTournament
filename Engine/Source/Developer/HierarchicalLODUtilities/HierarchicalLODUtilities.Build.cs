@@ -19,7 +19,8 @@ public class HierarchicalLODUtilities : ModuleRules
             new string[]
 			{
 				"Engine",
-				"UnrealEd"              
+				"UnrealEd",
+                "Projects"
 			}
         );
 

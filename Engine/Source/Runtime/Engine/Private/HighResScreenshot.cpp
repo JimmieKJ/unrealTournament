@@ -4,6 +4,14 @@
 #include "Slate/SceneViewport.h"
 #include "ImageWrapper.h"
 
+static TAutoConsoleVariable<int32> CVarSaveEXRCompressionQuality(
+	TEXT("r.SaveEXR.CompressionQuality"),
+	1,
+	TEXT("Defines how we save HDR screenshots in the EXR format.\n")
+	TEXT(" 0: no compression\n")
+	TEXT(" 1: default compression which can be slow (default)"),
+	ECVF_RenderThreadSafe);
+
 FHighResScreenshotConfig& GetHighResScreenshotConfig()
 {
 	static FHighResScreenshotConfig Instance;
@@ -85,8 +93,6 @@ bool FHighResScreenshotConfig::ParseConsoleCommand(const FString& InCmd, FOutput
 		GScreenshotResolutionX *= ResolutionMultiplier;
 		GScreenshotResolutionY *= ResolutionMultiplier;
 		GIsHighResScreenshot = true;
-		GScreenMessagesRestoreState = GAreScreenMessagesEnabled;
-		GAreScreenMessagesEnabled = false;
 
 		return true;
 	}
@@ -147,7 +153,7 @@ template<> struct FPixelTypeTraits<FFloat16Color>
 	static FORCEINLINE bool IsWritingHDRImage(const bool bCaptureHDR)
 	{
 		static const auto CVarDumpFramesAsHDR = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.BufferVisualizationDumpFramesAsHDR"));
-		return bCaptureHDR || CVarDumpFramesAsHDR->GetValueOnRenderThread();
+		return bCaptureHDR || CVarDumpFramesAsHDR->GetValueOnAnyThread();
 	}
 };
 
@@ -204,10 +210,18 @@ bool FHighResScreenshotConfig::SaveImage(const FString& File, const TArray<TPixe
 
 	if (ImageWriter && ImageWriter->ImageWrapper->SetRaw((void*)&Bitmap[0], sizeof(TPixelType)* x * y, x, y, Traits::SourceChannelLayout, BitsPerPixel))
 	{
+		ImageCompression::CompressionQuality LocalCompressionQuality = ImageCompression::Default;
+		
+		if(bIsWritingHDRImage && CVarSaveEXRCompressionQuality.GetValueOnAnyThread() == 0)
+		{
+			LocalCompressionQuality = ImageCompression::Uncompressed;
+		}
+
+		// Compress and write image
 		FArchive* Ar = FileManager->CreateFileWriter(Filename.GetCharArray().GetData());
 		if (Ar != nullptr)
 		{
-			const TArray<uint8>& CompressedData = ImageWriter->ImageWrapper->GetCompressed();
+		const TArray<uint8>& CompressedData = ImageWriter->ImageWrapper->GetCompressed(LocalCompressionQuality);
 			int32 CompressedSize = CompressedData.Num();
 			Ar->Serialize((void*)CompressedData.GetData(), CompressedSize);
 			delete Ar;

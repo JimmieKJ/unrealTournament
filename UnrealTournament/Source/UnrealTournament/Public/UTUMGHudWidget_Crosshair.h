@@ -21,4 +21,9 @@ protected:
 	UPROPERTY(BlueprintReadOnly, Category = Crosshair)
 	FWeaponCustomizationInfo Customizations;
 
+public:
+	UPROPERTY(BlueprintReadOnly, Category = Crosshair)
+	TWeakObjectPtr<AUTWeapon> AssociatedWeapon;
+
+
 };

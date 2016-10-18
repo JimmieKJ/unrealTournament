@@ -289,6 +289,7 @@ protected:
 	virtual bool ShouldClearTextSelectionOnFocusLoss() const override;
 	virtual bool ShouldRevertTextOnEscape() const override;
 	virtual bool ShouldClearKeyboardFocusOnCommit() const override;
+	virtual bool ShouldSelectAllTextOnCommit() const override;
 	virtual bool CanInsertCarriageReturn() const override;
 	virtual bool CanTypeCharacter(const TCHAR InChar) const override;
 	virtual void EnsureActiveTick() override;

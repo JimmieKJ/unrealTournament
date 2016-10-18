@@ -91,6 +91,8 @@ struct UNREALED_API FEditorDelegates
 	DECLARE_MULTICAST_DELEGATE_OneParam(FOnAssetsPreDelete, const TArray<UObject*>&);
 	/** delegate type for when one or more assets have been deleted */
 	DECLARE_MULTICAST_DELEGATE_OneParam(FOnAssetsDeleted, const TArray<UClass*>& /*DeletedAssetClasses*/);
+	/** delegate type for when a user starts dragging something out of content browser (can be multiple assets) */
+	DECLARE_MULTICAST_DELEGATE_TwoParams(FOnAssetDragStarted, const TArray<FAssetData>&, class UActorFactory* /*FactoryToUse*/);
 	/** delegate type for when a new level is added to the world */
 	DECLARE_MULTICAST_DELEGATE_OneParam(FOnAddLevelToWorld, ULevel*);
 	/** delegate type for when a texture is fit to surface  */
@@ -144,6 +146,8 @@ struct UNREALED_API FEditorDelegates
 	static FOnPIEEvent ResumePIE;
 	/** Sent when a PIE session is single-stepped */
 	static FOnPIEEvent SingleStepPIE;
+	/** Sent after the user switches between from PIE to SIE, or vice-versa.  Passes in whether we are currently in SIE */
+	static FOnPIEEvent OnSwitchBeginPIEAndSIE;
 	/** Within a property window, the currently selected item was changed.*/
 	static FSimpleMulticastDelegate PropertySelectionChange;
 	/** Called after Landscape layer infomap update have completed */
@@ -172,6 +176,10 @@ struct UNREALED_API FEditorDelegates
 	static FSimpleMulticastDelegate OnLightingBuildStarted;
 	/** Called when a lighting build has been kept */
 	static FSimpleMulticastDelegate OnLightingBuildKept;
+	/** Called when a lighting build has failed (maybe called twice if cancelled) */
+	static FSimpleMulticastDelegate OnLightingBuildFailed;
+	/** Called when a lighting build has succeeded */
+	static FSimpleMulticastDelegate OnLightingBuildSucceeded;
 	/** Called when when attempting to apply an object to an actor (via drag drop) */
 	static FOnApplyObjectToActor OnApplyObjectToActor;
 	/** Called when focusing viewport on a set of actors */
@@ -188,6 +196,8 @@ struct UNREALED_API FEditorDelegates
 	static FOnAssetsPreDelete OnAssetsPreDelete;
 	/** Called when one or more assets have been deleted */
 	static FOnAssetsDeleted OnAssetsDeleted;
+	/** Called when a user starts dragging something out of content browser (can be multiple assets) */
+	static FOnAssetDragStarted OnAssetDragStarted;
 	/** Called when Action or Axis mappings have been changed */
 	static FSimpleMulticastDelegate OnActionAxisMappingsChanged;
 	/** Called from FEditorUtils::AddLevelToWorld after the level is added successfully to the world. */

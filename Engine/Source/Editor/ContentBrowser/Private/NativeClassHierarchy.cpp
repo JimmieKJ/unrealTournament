@@ -34,7 +34,7 @@ TSharedRef<FNativeClassHierarchyNode> FNativeClassHierarchyNode::MakeClassEntry(
 void FNativeClassHierarchyNode::AddChild(TSharedRef<FNativeClassHierarchyNode> ChildEntry)
 {
 	check(Type == ENativeClassHierarchyNodeType::Folder);
-	Children.Add(ChildEntry->EntryName, MoveTemp(ChildEntry));
+	Children.Add(FNativeClassHierarchyNodeKey(ChildEntry->EntryName, ChildEntry->Type), MoveTemp(ChildEntry));
 }
 
 FNativeClassHierarchy::FNativeClassHierarchy()
@@ -157,7 +157,7 @@ void FNativeClassHierarchy::GatherMatchingNodesForPaths(const TArray<FName>& InC
 			{
 				// Try and find the node associated with this part of the path...
 				const FName ClassPathPartName = *ClassPathPart;
-				CurrentNode = (CurrentNode.IsValid()) ? CurrentNode->Children.FindRef(ClassPathPartName) : RootNodes.FindRef(ClassPathPartName);
+				CurrentNode = (CurrentNode.IsValid()) ? CurrentNode->Children.FindRef(FNativeClassHierarchyNodeKey(ClassPathPartName, ENativeClassHierarchyNodeType::Folder)) : RootNodes.FindRef(ClassPathPartName);
 
 				// ... bail out if we didn't find a valid node
 				if(!CurrentNode.IsValid())
@@ -229,11 +229,11 @@ void FNativeClassHierarchy::RemoveClassesForModule(const FName& InModuleName)
 	// Modules always exist directly under a root
 	for(const auto& RootNode : RootNodes)
 	{
-		TSharedPtr<FNativeClassHierarchyNode> ModuleNode = RootNode.Value->Children.FindRef(InModuleName);
+		TSharedPtr<FNativeClassHierarchyNode> ModuleNode = RootNode.Value->Children.FindRef(FNativeClassHierarchyNodeKey(InModuleName, ENativeClassHierarchyNodeType::Folder));
 		if(ModuleNode.IsValid())
 		{
 			// Remove this module from its root
-			RootNode.Value->Children.Remove(InModuleName);
+			RootNode.Value->Children.Remove(FNativeClassHierarchyNodeKey(InModuleName, ENativeClassHierarchyNodeType::Folder));
 
 			// If this module was the only child of this root, then we need to remove the root as well
 			if(RootNode.Value->Children.Num() == 0)
@@ -292,7 +292,7 @@ void FNativeClassHierarchy::AddClass(UClass* InClass, const TSet<FName>& InGameM
 	for(const FString& HierarchyPathPart : HierarchyPathParts)
 	{
 		const FName HierarchyPathPartName = *HierarchyPathPart;
-		TSharedPtr<FNativeClassHierarchyNode>& ChildNode = CurrentNode->Children.FindOrAdd(HierarchyPathPartName);
+		TSharedPtr<FNativeClassHierarchyNode>& ChildNode = CurrentNode->Children.FindOrAdd(FNativeClassHierarchyNodeKey(HierarchyPathPartName, ENativeClassHierarchyNodeType::Folder));
 		if(!ChildNode.IsValid())
 		{
 			ChildNode = FNativeClassHierarchyNode::MakeFolderEntry(HierarchyPathPartName, CurrentNode->EntryPath + TEXT("/") + HierarchyPathPart);
@@ -317,7 +317,7 @@ void FNativeClassHierarchy::AddFolder(const FString& InClassPath)
 	for(const FString& ClassPathPart : ClassPathParts)
 	{
 		const FName ClassPathPartName = *ClassPathPart;
-		TSharedPtr<FNativeClassHierarchyNode>& ChildNode = (CurrentNode.IsValid()) ? CurrentNode->Children.FindOrAdd(ClassPathPartName) : RootNodes.FindOrAdd(ClassPathPartName);
+		TSharedPtr<FNativeClassHierarchyNode>& ChildNode = (CurrentNode.IsValid()) ? CurrentNode->Children.FindOrAdd(FNativeClassHierarchyNodeKey(ClassPathPartName, ENativeClassHierarchyNodeType::Folder)) : RootNodes.FindOrAdd(ClassPathPartName);
 		if(!ChildNode.IsValid())
 		{
 			ChildNode = FNativeClassHierarchyNode::MakeFolderEntry(ClassPathPartName, CurrentNode->EntryPath + TEXT("/") + ClassPathPart);
@@ -352,7 +352,7 @@ bool FNativeClassHierarchy::GetFileSystemPath(const FString& InClassPath, FStrin
 	}
 
 	// Is this path using a known module within that root?
-	TSharedPtr<FNativeClassHierarchyNode> ModuleNode = RootNode->Children.FindRef(*ClassPathParts[1]);
+	TSharedPtr<FNativeClassHierarchyNode> ModuleNode = RootNode->Children.FindRef(FNativeClassHierarchyNodeKey(*ClassPathParts[1], ENativeClassHierarchyNodeType::Folder));
 	if(!ModuleNode.IsValid())
 	{
 		return false;

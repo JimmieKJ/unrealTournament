@@ -26,7 +26,9 @@ int2 CursorPos;
 float4 VisualizeColors[2];
 
 // render in fullres to visualize the half res DOF input from the setup pass
-void VisualizeDOFPS(in float4 UVAndScreenPos : TEXCOORD0, float4 SvPosition : SV_POSITION, out float4 OutColor : SV_Target0)
+void VisualizeDOFPS(in noperspective float4 UVAndScreenPos : TEXCOORD0,
+	float4 SvPosition : SV_POSITION,
+	out float4 OutColor : SV_Target0)
 {
 	OutColor = 0;
 

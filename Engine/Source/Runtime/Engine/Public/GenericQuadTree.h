@@ -14,7 +14,7 @@ public:
 	TQuadTree();
 #endif // WITH_HOT_RELOAD_CTORS
 
-	TQuadTree(const FBox2D& InBox);
+	TQuadTree(const FBox2D& InBox, float InMinimumQuadSize = 100.f);
 
 	/** Inserts an object of type ElementType with an associated 2D box of size Box (log n)*/
 	void Insert(const ElementType& Element, const FBox2D& Box);
@@ -101,6 +101,9 @@ private:
 	/** Center position of the tree */
 	FVector2D Position;
 
+	/** The smallest size of a quad allowed in the tree */
+	float MinimumQuadSize;
+
 	/** Whether this is a leaf or an internal sub-tree */
 	bool bInternal;
 };
@@ -126,7 +129,7 @@ void TQuadTree<ElementType, NodeCapacity>::Serialize(FArchive& Ar)
 		{
 			if(Ar.ArIsLoading)
 			{
-				SubTrees[Idx] = new TreeType(FBox2D());
+				SubTrees[Idx] = new TreeType(FBox2D(), MinimumQuadSize);
 			}
 
 			SubTrees[Idx]->Serialize(Ar);
@@ -139,9 +142,10 @@ void TQuadTree<ElementType, NodeCapacity>::Serialize(FArchive& Ar)
 }
 
 template <typename ElementType, int32 NodeCapacity>
-TQuadTree<ElementType, NodeCapacity>::TQuadTree(const FBox2D& Box)
+TQuadTree<ElementType, NodeCapacity>::TQuadTree(const FBox2D& Box, float InMinimumQuadSize)
 : TreeBox(Box)
 , Position(Box.GetCenter())
+, MinimumQuadSize(InMinimumQuadSize)
 , bInternal(false)
 {
 	SubTrees[0] = SubTrees[1] = SubTrees[2] = SubTrees[3] = nullptr;
@@ -193,10 +197,10 @@ void TQuadTree<ElementType, NodeCapacity>::Split()
 	const FVector2D BL = TreeBox.Min;
 	const FVector2D TR = TreeBox.Max;
 
-	SubTrees[TopLeft] = new TreeType(FBox2D(ML, TM));
-	SubTrees[TopRight] = new TreeType(FBox2D(C, TR));
-	SubTrees[BottomLeft] = new TreeType(FBox2D(BL, C));
-	SubTrees[BottomRight] = new TreeType(FBox2D(BM, MR));
+	SubTrees[TopLeft] = new TreeType(FBox2D(ML, TM), MinimumQuadSize);
+	SubTrees[TopRight] = new TreeType(FBox2D(C, TR), MinimumQuadSize);
+	SubTrees[BottomLeft] = new TreeType(FBox2D(BL, C), MinimumQuadSize);
+	SubTrees[BottomRight] = new TreeType(FBox2D(BM, MR), MinimumQuadSize);
 	
 	//mark as no longer a leaf
 	bInternal = true;
@@ -248,7 +252,6 @@ void TQuadTree<ElementType, NodeCapacity>::InsertElementRecursive(const ElementT
 
 		// It's possible that all elements in the leaf are bigger than the leaf or that more elements than NodeCapacity exist outside the top level quad
 		// In either case, we can get into an endless spiral of splitting
-		static const float MinimumQuadSize = 100.f;
 		const bool bCanSplitTree = TreeBox.GetSize().SizeSquared() > FMath::Square(MinimumQuadSize);
 		if (!bCanSplitTree || Nodes.Num() < NodeCapacity)
 		{
@@ -256,7 +259,7 @@ void TQuadTree<ElementType, NodeCapacity>::InsertElementRecursive(const ElementT
 
 			if (!bCanSplitTree)
 			{
-				UE_LOG(LogQuadTree, Warning, TEXT("Minimum size reached for quadtree at %s. Filling beyond capacity %d to %d"), *Position.ToString(), NodeCapacity, Nodes.Num());
+				UE_LOG(LogQuadTree, Warning, TEXT("Minimum size %f reached for quadtree at %s. Filling beyond capacity %d to %d"), MinimumQuadSize, *Position.ToString(), NodeCapacity, Nodes.Num());
 			}
 		}
 		else
@@ -396,7 +399,7 @@ void TQuadTree<ElementType, NodeCapacity>::Duplicate(TreeType& OutDuplicate) con
 	{
 		if (TreeType* SubTree = SubTrees[TreeIdx])
 		{
-			OutDuplicate.SubTrees[TreeIdx] = new TreeType(FBox2D(0,0));
+			OutDuplicate.SubTrees[TreeIdx] = new TreeType(FBox2D(0,0), MinimumQuadSize);
 			SubTree->Duplicate(*OutDuplicate.SubTrees[TreeIdx]);	//duplicate sub trees
 		}
 		
@@ -405,6 +408,7 @@ void TQuadTree<ElementType, NodeCapacity>::Duplicate(TreeType& OutDuplicate) con
 	OutDuplicate.Nodes = Nodes;
 	OutDuplicate.TreeBox = TreeBox;
 	OutDuplicate.Position = Position;
+	OutDuplicate.MinimumQuadSize = MinimumQuadSize;
 	OutDuplicate.bInternal = bInternal;
 }
 

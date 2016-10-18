@@ -54,9 +54,7 @@ void FUICommandList::MapAction( const TSharedPtr< const FUICommandInfo > InUICom
 	check( InUICommandInfo.IsValid() );
 
 	// Check against already mapped actions
-#if DO_GUARD_SLOW
-	checkf(!UICommandBindingMap.Contains(InUICommandInfo), TEXT("Command list already contains a command named '%s'"), *InUICommandInfo->GetCommandName().ToString());
-#endif
+	checkfSlow(!UICommandBindingMap.Contains(InUICommandInfo), TEXT("Command list already contains a command named '%s'"), *InUICommandInfo->GetCommandName().ToString());
 
 	ContextsInList.Add( InUICommandInfo->GetBindingContext() );
 	UICommandBindingMap.Add( InUICommandInfo, InUIAction );
@@ -76,6 +74,13 @@ void FUICommandList::Append( const TSharedRef<FUICommandList>& InCommandsToAppen
 	InCommandsToAppend->ChildUICommandLists.AddUnique( this->AsShared() );
 }
 
+void FUICommandList::UnmapAction( const TSharedPtr< const FUICommandInfo > InUICommandInfo )
+{
+	// Check against already mapped actions
+	checkfSlow(UICommandBindingMap.Contains(InUICommandInfo), TEXT("Command list does not already contain a command named '%s'"), *InUICommandInfo->GetCommandName().ToString());
+
+	UICommandBindingMap.Remove( InUICommandInfo );
+}
 
 bool FUICommandList::ExecuteAction( const TSharedRef< const FUICommandInfo > InUICommandInfo ) const
 {

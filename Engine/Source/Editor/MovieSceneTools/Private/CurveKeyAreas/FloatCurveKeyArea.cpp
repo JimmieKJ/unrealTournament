@@ -58,6 +58,11 @@ TArray<FKeyHandle> FFloatCurveKeyArea::AddKeyUnique(float Time, EMovieSceneKeyIn
 			CurrentKey.LeaveTangentWeight = KeyToCopy.LeaveTangentWeight;
 		}
 	}
+	else if ( IntermediateValue.IsSet() )
+	{
+		float Value = IntermediateValue.GetValue();
+		Curve->UpdateOrAddKey(Time,Value);
+	}
 
 	return AddedKeyHandles;
 }

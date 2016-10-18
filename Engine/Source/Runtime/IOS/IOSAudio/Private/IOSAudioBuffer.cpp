@@ -149,6 +149,7 @@ FIOSAudioSoundBuffer* FIOSAudioSoundBuffer::Init(FIOSAudioDevice* IOSAudioDevice
 		case DTYPE_RealTime:
 		default:
 			// Invalid will be set if the wave cannot be played
+			UE_LOG( LogIOSAudio, Warning, TEXT("Init Buffer on unsupported sound type name = %s type = %d"), *InWave->GetName(), int32(InWave->DecompressionType));
 			break;
 	}
 

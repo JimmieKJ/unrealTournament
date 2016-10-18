@@ -41,7 +41,8 @@ class ENGINE_API UChannel
 	// Variables.
 	uint32				OpenAcked:1;		// If OpenedLocally is true, this means we have acknowledged the packet we sent the bOpen bunch on. Otherwise, it means we have received the bOpen bunch from the server.
 	uint32				Closing:1;			// State of the channel.
-	uint32				Dormant:1;			// Channel is going dormant (it will close but the client will not destroy 
+	uint32				Dormant:1;			// Channel is going dormant (it will close but the client will not destroy
+	uint32				bIsReplicationPaused:1;	// Replication is being paused, but channel will not be closed
 	uint32				OpenTemporary:1;	// Opened temporarily.
 	uint32				Broken:1;			// Has encountered errors and is ignoring subsequent packets.
 	uint32				bTornOff:1;			// Actor associated with this channel was torn off
@@ -140,6 +141,12 @@ protected:
 
 	/** cleans up channel structures and nulls references to the channel */
 	virtual bool CleanUp( const bool bForDestroy );
+
+	/** Sets whether replication is currently paused on this channel or not */
+	virtual void SetReplicationPaused(bool InbIsReplicationPaused) { bIsReplicationPaused = InbIsReplicationPaused; }
+
+	/** Returns whether replication is currently paused on this channel */
+	virtual bool IsReplicationPaused() { return bIsReplicationPaused; }
 
 private:
 

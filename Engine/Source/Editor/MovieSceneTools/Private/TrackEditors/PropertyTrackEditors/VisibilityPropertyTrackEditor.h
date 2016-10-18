@@ -2,8 +2,12 @@
 
 #pragma once
 
-#include "MovieSceneVisibilityTrack.h"
 #include "MovieSceneVisibilitySection.h"
+#include "MovieSceneVisibilityTrack.h"
+#include "PropertyTrackEditor.h"
+
+
+class ISequencer;
 
 
 /**
@@ -16,9 +20,9 @@ class FVisibilityPropertyTrackEditor
 public:
 
 	/** Constructor. */
-	FVisibilityPropertyTrackEditor( TSharedRef<ISequencer> InSequencer)
+	FVisibilityPropertyTrackEditor(TSharedRef<ISequencer> InSequencer)
 		// Don't supply any property type names to watch since the FBoolPropertyTrackEditor is already watching for bool property changes.
-		: FPropertyTrackEditor<UMovieSceneVisibilityTrack, UMovieSceneVisibilitySection, bool>( InSequencer, NAME_BoolProperty )
+		: FPropertyTrackEditor<UMovieSceneVisibilityTrack, UMovieSceneVisibilitySection, bool>(InSequencer, NAME_BoolProperty)
 	{ }
 
 	/**
@@ -27,12 +31,13 @@ public:
 	 * @param OwningSequencer The sequencer instance to be used by this tool
 	 * @return The new instance of this class
 	 */
-	static TSharedRef<ISequencerTrackEditor> CreateTrackEditor( TSharedRef<ISequencer> OwningSequencer );
+	static TSharedRef<ISequencerTrackEditor> CreateTrackEditor(TSharedRef<ISequencer> OwningSequencer);
 
 protected:
 
-	// FPropertyTrackEditor interface
-	virtual TSharedRef<FPropertySection> MakePropertySectionInterface( UMovieSceneSection& SectionObject, UMovieSceneTrack& Track ) override;
-	virtual void GenerateKeysFromPropertyChanged( const FPropertyChangedParams& PropertyChangedParams, TArray<bool>& NewGeneratedKeys, TArray<bool>& DefaultGeneratedKeys ) override;
+	//~ FPropertyTrackEditor interface
+
+	virtual TSharedRef<FPropertySection> MakePropertySectionInterface(UMovieSceneSection& SectionObject, UMovieSceneTrack& Track) override;
+	virtual void GenerateKeysFromPropertyChanged(const FPropertyChangedParams& PropertyChangedParams, TArray<bool>& NewGeneratedKeys, TArray<bool>& DefaultGeneratedKeys) override;
 	virtual bool ForCustomizedUseOnly() { return true; }
 };

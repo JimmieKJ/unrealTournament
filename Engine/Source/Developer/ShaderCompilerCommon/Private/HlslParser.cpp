@@ -4,6 +4,7 @@
 	HlslParser.cpp - Implementation for parsing hlsl.
 =============================================================================*/
 
+#include "ShaderCompilerCommonPrivatePCH.h"
 #include "ShaderCompilerCommon.h"
 #include "HlslParser.h"
 #include "HlslExpressionParser.inl"
@@ -1760,7 +1761,7 @@ check(0);
 
 	namespace Parser
 	{
-		bool Parse(const FString& Input, const FString& Filename, FCompilerMessages& OutCompilerMessages, TCallback* Callback, void* CallbackData)
+		bool Parse(const FString& Input, const FString& Filename, FCompilerMessages& OutCompilerMessages, TArray<TCallback*> Callbacks, TArray<void*> CallbacksData)
 		{
 			FLinearAllocator Allocator;
 			FHlslParser Parser(&Allocator, OutCompilerMessages);
@@ -1800,12 +1801,38 @@ check(0);
 				check(LastIndex != Parser.Scanner.GetCurrentTokenIndex());
 			}
 
-			if (bSuccess && Callback)
+			if (bSuccess)
 			{
-				Callback(CallbackData, &Allocator, Nodes);
+				for (int32 Index = 0; Index < Callbacks.Num(); ++Index)
+				{
+					Callbacks[Index](Index < CallbacksData.Num() ? CallbacksData[Index] : nullptr, &Allocator, Nodes);
+				}
 			}
 
 			return bSuccess;
+		}
+
+		bool Parse(const FString& Input, const FString& Filename, FCompilerMessages& OutCompilerMessages, TCallback* Callback, void* CallbackData)
+		{
+			TArray<TCallback*> Callbacks;
+			TArray<void*> CallbacksData;
+			if (Callback)
+			{
+				Callbacks.Add(Callback);
+				CallbacksData.Add(CallbackData);
+			}
+			return Parse(Input, Filename, OutCompilerMessages, Callbacks, CallbacksData);
+		}
+
+		void WriteNodesToString(void* OutFStringPointer, CrossCompiler::FLinearAllocator* Allocator, CrossCompiler::TLinearArray<CrossCompiler::AST::FNode*>& ASTNodes)
+		{
+			check(OutFStringPointer);
+			FString& OutGeneratedCode = *(FString*)OutFStringPointer;
+			CrossCompiler::AST::FASTWriter Writer(OutGeneratedCode);
+			for (auto* Node : ASTNodes)
+			{
+				Node->Write(Writer);
+			}
 		}
 	}
 }

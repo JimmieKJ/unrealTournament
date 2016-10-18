@@ -26,6 +26,10 @@ class FOLIAGE_API UProceduralFoliageSpawner : public UObject
 	UPROPERTY(Category = ProceduralFoliageSimulation, EditAnywhere, BlueprintReadOnly)
 	int32 NumUniqueTiles;
 
+	/** Minimum size of the quad tree used during the simulation. Reduce if too many instances are in splittable leaf quads (as warned in the log). */
+	UPROPERTY(Category = ProceduralFoliageSimulation, EditAnywhere, BlueprintReadOnly)
+	float MinimumQuadTreeSize;
+
 	FThreadSafeCounter LastCancel;
 
 private:

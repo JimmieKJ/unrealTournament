@@ -35,10 +35,12 @@ public class MainFrame : ModuleRules
 				"WorkspaceMenuStructure",
 				"MessageLog",
 //				"SearchUI",
+				"UATHelper",
 				"TranslationEditor",
 				"Projects",
                 "DeviceProfileEditor",
                 "UndoHistory",
+				"Analytics",
 			}
 		);
 
@@ -77,7 +79,7 @@ public class MainFrame : ModuleRules
 				"SourceCodeAccess",
 				"EditorLiveStreaming",
 				"HotReload",
-                "LocalizationDashboard"
+                "LocalizationDashboard",
 			}
 		);
 	}

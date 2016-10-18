@@ -4,7 +4,7 @@
 #include "LogWidgetCommands.h"
 #include "Framework/Commands/UICommandInfo.h"
 
-#define LOCTEXT_NAMESPACE ""
+#define LOCTEXT_NAMESPACE "LogWidgetCommands"
 
 void FLogWidgetCommands::RegisterCommands()
 {

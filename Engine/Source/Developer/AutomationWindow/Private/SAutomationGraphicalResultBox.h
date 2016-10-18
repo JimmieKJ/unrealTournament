@@ -30,6 +30,8 @@ public:
 
 	SLATE_END_ARGS()
 
+	virtual ~SAutomationGraphicalResultBox();
+
 public:
 
 	/**

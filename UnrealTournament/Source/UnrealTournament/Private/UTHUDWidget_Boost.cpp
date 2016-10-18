@@ -4,7 +4,7 @@
 #include "UTHUDWidget_Boost.h"
 #include "UTCarriedObject.h"
 #include "UTCTFGameState.h"
-#include "UTCTFRoundGameState.h"
+#include "UTFlagRunGameState.h"
 #include "UTHUDWidget_QuickStats.h"
 
 const float ANIM_DURATION = 1.75f;
@@ -40,7 +40,7 @@ bool UUTHUDWidget_Boost::ShouldDraw_Implementation(bool bShowScores)
 	AUTCharacter* UTC = Cast<AUTCharacter>(UTHUDOwner->UTPlayerOwner->GetViewTarget());
 	AUTPlayerState* UTPlayerState = UTC != nullptr ? Cast<AUTPlayerState>(UTC->PlayerState) : nullptr;
 
-	AUTCTFRoundGameState* RoundGameState = GetWorld()->GetGameState<AUTCTFRoundGameState>();
+	AUTFlagRunGameState* RoundGameState = GetWorld()->GetGameState<AUTFlagRunGameState>();
 	if (UTPlayerState == nullptr || RoundGameState == nullptr || 
 		( (!RoundGameState->IsTeamAbleToEarnPowerup(UTPlayerState->GetTeamNum()) && UTPlayerState->GetRemainingBoosts() <= 0))
 	   )
@@ -59,7 +59,7 @@ void UUTHUDWidget_Boost::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas*
 		AUTPlayerState* UTPlayerState = Cast<AUTPlayerState>(InUTHUDOwner->UTPlayerOwner->PlayerState);
 		if (UTGameState && UTPlayerState && UTPlayerState->BoostClass)
 		{
-			AUTCTFRoundGameState* RoundGameState = GetWorld()->GetGameState<AUTCTFRoundGameState>();
+			AUTFlagRunGameState* RoundGameState = GetWorld()->GetGameState<AUTFlagRunGameState>();
 			if (RoundGameState != nullptr && UTPlayerState->BoostClass)
 			{
 				bIsUnlocked = UTPlayerState->GetRemainingBoosts() > 0 || RoundGameState->GetKillsNeededForPowerup(UTPlayerState->GetTeamNum()) <= 0;

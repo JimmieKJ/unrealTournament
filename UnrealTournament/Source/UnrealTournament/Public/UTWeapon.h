@@ -32,6 +32,35 @@ struct FInstantHitDamageInfo
 };
 
 USTRUCT()
+struct FPendingFireEvent
+{
+	GENERATED_USTRUCT_BODY()
+
+		UPROPERTY()
+		bool bIsStartFire;
+
+	UPROPERTY()
+		uint8 FireModeNum;
+	
+	UPROPERTY()
+		uint8 FireEventIndex;
+		
+	UPROPERTY()
+		uint8 ZOffset;
+	
+	UPROPERTY()
+		bool bClientFired; 
+	
+	FPendingFireEvent()
+		: bIsStartFire(false), FireModeNum(0), FireEventIndex(0), ZOffset(0), bClientFired(false)
+	{}
+
+	FPendingFireEvent(bool bInStartFire, uint8 InFireModeNum, uint8 InFireEventIndex, uint8 InZOffset, bool bInClientFired) 
+		: bIsStartFire(bInStartFire), FireModeNum(InFireModeNum), FireEventIndex(InFireEventIndex), ZOffset(InZOffset), bClientFired(bInClientFired) 
+	{}
+};
+
+USTRUCT()
 struct FDelayedProjectileInfo
 {
 	GENERATED_USTRUCT_BODY()
@@ -117,6 +146,9 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Replicated, ReplicatedUsing = OnRep_Ammo, Category = "Weapon")
 	int32 Ammo;
 
+	UPROPERTY(BlueprintReadOnly)
+		uint8 FireEventIndex;
+
 	UFUNCTION()
 	virtual void OnRep_AttachmentType();
 
@@ -125,6 +157,7 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	 */
 	UFUNCTION()
 	virtual void OnRep_Ammo();
+	virtual void SwitchToBestWeaponIfNoAmmo();
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Replicated, Category = "Weapon")
 	int32 MaxAmmo;
 
@@ -414,8 +447,7 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	/** Sound played when lowering the weapon */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
 	USoundBase* LowerSound;
-
-
+	
 	/** weapon group - NextWeapon() picks the next highest group, PrevWeapon() the next lowest, etc
 	 * generally, the corresponding number key is bound to access the weapons in that group
 	 */
@@ -502,13 +534,40 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	UFUNCTION(BlueprintCallable, Category = Weapon)
 	virtual void StopFire(uint8 FireModeNum);
 
+	UPROPERTY()
+		TArray<FPendingFireEvent> ResendFireEvents;
+
+	FTimerHandle ResendFireHandle;
+
+	virtual void ResendNextFireEvent();
+
+	virtual void ClearFireEvents();
+
+	/** Make sure that passed in FireEventIndex has not yet been processed (called on server). */
+	virtual bool ValidateFireEventIndex(uint8 FireModeNum, uint8 InFireEventIndex);
+
+	/** Queue up repeat RPCs to make sure FireEvent gets through. (called on client) */
+	virtual void QueueResendFire(bool bIsStartFire, uint8 FireModeNum, uint8 InFireEventIndex, uint8 ZOffset, bool bClientFired);
+
 	/** Tell server fire button was pressed.  bClientFired is true if client actually fired weapon. */
 	UFUNCTION(Server, unreliable, WithValidation)
-		virtual void ServerStartFire(uint8 FireModeNum, uint8 FireEventIndex, bool bClientFired);
+		virtual void ResendServerStartFire(uint8 FireModeNum, uint8 InFireEventIndex, bool bClientFired);
 
 	/** ServerStartFire, also pass Z offset since it is interpolating. */
 	UFUNCTION(Server, unreliable, WithValidation)
-	virtual void ServerStartFireOffset(uint8 FireModeNum, uint8 FireEventIndex, uint8 ZOffset, bool bClientFired);
+		virtual void ResendServerStartFireOffset(uint8 FireModeNum, uint8 InFireEventIndex, uint8 ZOffset, bool bClientFired);
+
+	/** Tell server fire button was pressed.  bClientFired is true if client actually fired weapon. */
+	UFUNCTION(Server, unreliable, WithValidation)
+		virtual void ServerStartFire(uint8 FireModeNum, uint8 InFireEventIndex, bool bClientFired);
+
+	/** ServerStartFire, also pass Z offset since it is interpolating. */
+	UFUNCTION(Server, unreliable, WithValidation)
+	virtual void ServerStartFireOffset(uint8 FireModeNum, uint8 InFireEventIndex, uint8 ZOffset, bool bClientFired);
+
+	/** Send current fire settings to server. */
+	UFUNCTION(Server, unreliable, WithValidation)
+		virtual void ServerUpdateFiringStates(uint8 FireSettings);
 
 	/** Just replicated ZOffset for shot fire location. */
 	UPROPERTY()
@@ -518,12 +577,12 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	UPROPERTY()
 		float FireZOffsetTime;
 
-	UFUNCTION(Server, Reliable, WithValidation)
-	virtual void ServerStopFire(uint8 FireModeNum, uint8 FireEventIndex);
+	UFUNCTION(Server, unreliable, WithValidation)
+	virtual void ServerStopFire(uint8 FireModeNum, uint8 InFireEventIndex);
 
 	/** Used when client just triggered a fire on a held trigger right before releasing.*/
-	UFUNCTION(Server, Reliable, WithValidation)
-		virtual void ServerStopFireRecent(uint8 FireModeNum, uint8 FireEventIndex);
+	UFUNCTION(Server, unreliable, WithValidation)
+		virtual void ServerStopFireRecent(uint8 FireModeNum, uint8 InFireEventIndex);
 
 	virtual bool BeginFiringSequence(uint8 FireModeNum, bool bClientFired);
 	virtual void EndFiringSequence(uint8 FireModeNum);
@@ -701,6 +760,9 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
 	virtual bool HasAnyAmmo();
 
+	UFUNCTION(BlueprintCallable, Category = "Weapon")
+	virtual bool CanSwitchTo();
+
 	/** get interval between shots, including any fire rate modifiers */
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
 	virtual float GetRefireTime(uint8 FireModeNum);
@@ -713,6 +775,10 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	inline void GotoActiveState()
 	{
 		GotoState(ActiveState);
+		if (!GetWorldTimerManager().IsTimerActive(ResendFireHandle) && UTOwner && UTOwner->IsLocallyControlled())
+		{
+			GetWorldTimerManager().SetTimer(ResendFireHandle, this, &AUTWeapon::ResendNextFireEvent, 0.2f, true);
+		}
 	}
 
 	UFUNCTION(BlueprintCallable, Category = Weapon)
@@ -771,6 +837,10 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 
 	/** The time this player was last seen under the crosshaiar */
 	float TargetLastSeenTime;
+
+	/** Last result of GuessPlayerTarget(). */
+	UPROPERTY()
+		AUTCharacter* TargetedCharacter;
 
 	/** returns whether we should draw the friendly fire indicator on the crosshair */
 	UFUNCTION(BlueprintCallable, Category = Weapon)
@@ -862,7 +932,7 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	UFUNCTION(BlueprintNativeEvent, Category = AI)
 	float GetDamageRadius(uint8 TestMode) const;
 
-	virtual float BotDesireability_Implementation(APawn* Asker, AActor* Pickup, float PathDistance) const;
+	virtual float BotDesireability_Implementation(APawn* Asker, AController* RequestOwner, AActor* Pickup, float PathDistance) const;
 	virtual float DetourWeight_Implementation(APawn* Asker, AActor* Pickup, float PathDistance) const;
 	/** base weapon selection rating for AI
 	 * this is often used to determine if the AI has a good enough weapon to not pursue further pickups,

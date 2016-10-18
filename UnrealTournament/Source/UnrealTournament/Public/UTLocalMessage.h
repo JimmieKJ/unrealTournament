@@ -1,7 +1,7 @@
 // Copyright 1998-2013 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-
+#include "UTAnnouncer.h"
 #include "UTLocalMessage.generated.h"
 
 UCLASS(Blueprintable, Abstract, NotPlaceable, meta = (ShowWorldContextPin))
@@ -45,6 +45,8 @@ class UNREALTOURNAMENT_API UUTLocalMessage : public ULocalMessage
 	UPROPERTY(EditDefaultsOnly, Category = Message)
 		uint32 bDrawAsDeathMessage : 1;
 
+	virtual bool ShouldDrawMessage(int32 MessageIndex, class AUTPlayerController* PC, bool bIsAtIntermission, bool bNoLivePawnTarget) const;
+
 	/** Continue to display this message at intermission. */
 	UPROPERTY(EditDefaultsOnly, Category = Message)
 		uint32 bDrawAtIntermission : 1;
@@ -56,6 +58,11 @@ class UNREALTOURNAMENT_API UUTLocalMessage : public ULocalMessage
 	/** Display/play during intermissions only if viewtarget is a live player. */
 	UPROPERTY(EditDefaultsOnly, Category = Message)
 		uint32 bPlayDuringIntermission : 1;
+
+	virtual bool ShouldPlayDuringIntermission(int32 MessageIndex) const
+	{
+		return bPlayDuringIntermission;
+	};
 
 	/** If true combine emphasis text with already displaying message of same class. */
 	UPROPERTY(EditDefaultsOnly, Category = Message)
@@ -79,6 +86,12 @@ class UNREALTOURNAMENT_API UUTLocalMessage : public ULocalMessage
 	UPROPERTY(EditDefaultsOnly, Category = Message)
 		int32 FontSizeIndex;
 
+	/** Return what destination type to show for chat message */
+	virtual int32 GetDestinationIndex(int32 MessageIndex) const
+	{
+		return 0;
+	}
+
 	virtual bool IsOptionalSpoken(int32 MessageIndex) const;
 
 	virtual int32 GetFontSizeIndex(int32 MessageIndex) const;
@@ -99,6 +112,9 @@ class UNREALTOURNAMENT_API UUTLocalMessage : public ULocalMessage
 
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = Message)
 	FText ResolveMessage(int32 Switch = 0, bool bTargetsPlayerState1 = false, class APlayerState* RelatedPlayerState_1 = NULL, class APlayerState* RelatedPlayerState_2 = NULL, class UObject* OptionalObject = NULL) const;
+
+	/** Returns string to display on console for this message. */
+	virtual FString GetConsoleString(const FClientReceiveData& ClientData, FText LocalMessageText) const;
 
 	/** return the spacing to wait before playing this announcement if directly following another announcement. */
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, BlueprintPure, Category = Message)
@@ -136,6 +152,8 @@ class UNREALTOURNAMENT_API UUTLocalMessage : public ULocalMessage
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, BlueprintPure, Category = Message)
 	bool InterruptAnnouncement(int32 Switch, const UObject* OptionalObject, TSubclassOf<UUTLocalMessage> OtherMessageClass, int32 OtherSwitch, const UObject* OtherOptionalObject) const;
 
+	virtual bool InterruptAnnouncement(const FAnnouncementInfo AnnouncementInfo, const FAnnouncementInfo OtherAnnouncementInfo) const;
+
 	/** return whether this announcement should be cancelled by the passed in announcement */
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, BlueprintPure, Category = Message)
 	bool CancelByAnnouncement(int32 Switch, const UObject* OptionalObject, TSubclassOf<UUTLocalMessage> OtherMessageClass, int32 OtherSwitch, const UObject* OtherOptionalObject) const;
@@ -161,7 +179,7 @@ class UNREALTOURNAMENT_API UUTLocalMessage : public ULocalMessage
 	virtual float GetLifeTime(int32 Switch) const;
 
 	/** Range of 0 to 1, affects where announcement is inserted into pending announcements queue. */
-	virtual float GetAnnouncementPriority(int32 Switch) const;
+	virtual float GetAnnouncementPriority(const FAnnouncementInfo AnnouncementInfo) const;
 
 	/**	Give Blueprints a way to override the lifetime for this message */
 	UFUNCTION(BlueprintNativeEvent, Category = Message)

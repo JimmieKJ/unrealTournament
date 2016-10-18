@@ -15,26 +15,21 @@ struct FSingleAnimationPlayData
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Animation)
 	class UAnimationAsset* AnimToPlay;
 
-	// @fixme : until we properly support it I'm commenting out editable property part
-	// The default sequence to play on this skeletal mesh
-	UPROPERTY()//EditAnywhere, BlueprintReadWrite, Category=Animation)
-	class UVertexAnimation* VertexAnimToPlay;
-
 	/** Default setting for looping for SequenceToPlay. This is not current state of looping. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Animation, meta = (DisplayName = "Looping"))
-		uint32 bSavedLooping : 1;
+	uint32 bSavedLooping : 1;
 
 	/** Default setting for playing for SequenceToPlay. This is not current state of playing. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Animation, meta = (DisplayName = "Playing"))
-		uint32 bSavedPlaying : 1;
+	uint32 bSavedPlaying : 1;
 
 	/** Default setting for position of SequenceToPlay to play. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Animation, meta = (DisplayName = "Initial Position"))
-		float SavedPosition;
+	float SavedPosition;
 
 	/** Default setting for play rate of SequenceToPlay to play. */
 	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Category = Animation, meta = (DisplayName = "PlayRate"))
-		float SavedPlayRate;
+	float SavedPlayRate;
 
 	FSingleAnimationPlayData()
 	{

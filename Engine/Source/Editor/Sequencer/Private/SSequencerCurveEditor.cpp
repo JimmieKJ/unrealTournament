@@ -29,7 +29,7 @@ void SSequencerCurveEditor::Construct( const FArguments& InArgs, TSharedRef<FSeq
 		.ShowCurveSelector( false )
 		.ShowZoomButtons( false )
 		.ShowInputGridNumbers( false )
-		.SnappingEnabled( this, &SSequencerCurveEditor::GetCurveSnapEnabled )
+		.InputSnappingEnabled(this, &SSequencerCurveEditor::GetInputCurveSnapEnabled)
 		.InputSnap( this, &SSequencerCurveEditor::GetCurveTimeSnapInterval )
 		.OutputSnap( this, &SSequencerCurveEditor::GetCurveValueSnapInterval )
 		.TimelineLength( 0.0f )
@@ -145,7 +145,7 @@ void SSequencerCurveEditor::UpdateCurveOwner()
 	UpdateCurveViewModelSelection();
 }
 
-bool SSequencerCurveEditor::GetCurveSnapEnabled() const
+bool SSequencerCurveEditor::GetInputCurveSnapEnabled() const
 {
 	return SequencerSettings->GetIsSnapEnabled();
 }

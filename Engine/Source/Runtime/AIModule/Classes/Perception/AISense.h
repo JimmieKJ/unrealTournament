@@ -64,7 +64,7 @@ public:
 	/** use with caution! Needs to be called before any senses get instantiated or listeners registered. DOES NOT update any perceptions system instances */
 	static void HardcodeSenseID(TSubclassOf<UAISense> SenseClass, FAISenseID HardcodedID);
 
-	static FAISenseID GetSenseID(TSubclassOf<UAISense> SenseClass) { return SenseClass ? ((UAISense*)SenseClass->GetDefaultObject())->SenseID : FAISenseID::InvalidID(); }
+	static FAISenseID GetSenseID(const TSubclassOf<UAISense> SenseClass) { return SenseClass ? ((const UAISense*)SenseClass->GetDefaultObject())->SenseID : FAISenseID::InvalidID(); }
 	template<typename TSense>
 	static FAISenseID GetSenseID() 
 	{ 
@@ -141,10 +141,10 @@ protected:
 	/** To be called only for BP-generated classes */
 	void ForceSenseID(FAISenseID SenseID);
 
-	DEPRECATED(4.12, "Function removed, use AISenseConfig.GetDebugColor() instead.")
+	DEPRECATED(4.13, "Function removed, use AISenseConfig.GetDebugColor() instead.")
 	FColor GetDebugColor() const { return FColor::White; }
-	DEPRECATED(4.12, "Function removed, use AISenseConfig.GetSenseName() instead.")
+	DEPRECATED(4.13, "Function removed, use AISenseConfig.GetSenseName() instead.")
 	FString GetDebugName() const { return FString(); }
-	DEPRECATED(4.12, "Function removed, use AISenseConfig.DescribeSelfToGameplayDebugger() instead.")
+	DEPRECATED(4.13, "Function removed, use AISenseConfig.DescribeSelfToGameplayDebugger() instead.")
 	virtual FString GetDebugLegend() const { return FString(); };
 };

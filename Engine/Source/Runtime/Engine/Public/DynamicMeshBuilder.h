@@ -48,7 +48,10 @@ struct FDynamicMeshVertex
 
 	FVector GetTangentY()
 	{
-		return (FVector(TangentZ) ^ FVector(TangentX)) * ((float)TangentZ.Vector.W / 127.5f - 1.0f);
+		FVector TanX = TangentX;
+		FVector TanZ = TangentZ;
+
+		return (TanZ ^ TanX) * ((float)TangentZ.Vector.W / 127.5f - 1.0f);
 	};
 
 	FVector Position;
@@ -99,6 +102,8 @@ public:
 	ENGINE_API void GetMesh(const FMatrix& LocalToWorld, const FMaterialRenderProxy* MaterialRenderProxy, uint8 DepthPriorityGroup, bool bDisableBackfaceCulling, bool bReceivesDecals, int32 ViewIndex, FMeshElementCollector& Collector);
 	ENGINE_API void GetMesh(const FMatrix& LocalToWorld, const FMaterialRenderProxy* MaterialRenderProxy, uint8 DepthPriorityGroup, bool bDisableBackfaceCulling, bool bReceivesDecals, bool bUseSelectionOutline, int32 ViewIndex, 
 							FMeshElementCollector& Collector, HHitProxy* HitProxy);
+	ENGINE_API void GetMesh(const FMatrix& LocalToWorld, const FMaterialRenderProxy* MaterialRenderProxy, uint8 DepthPriorityGroup, bool bDisableBackfaceCulling, bool bReceivesDecals, bool bUseSelectionOutline, int32 ViewIndex, 
+							FMeshElementCollector& Collector, const FHitProxyId HitProxyId = FHitProxyId());
 
 	/**
 	 * Draws the mesh to the given primitive draw interface.
@@ -106,8 +111,9 @@ public:
 	 * @param LocalToWorld - The local to world transform to apply to the vertices of the mesh.
 	 * @param FMaterialRenderProxy - The material instance to render on the mesh.
 	 * @param DepthPriorityGroup - The depth priority group to render the mesh in.
+	 * @param HitProxyId - Hit proxy to use for this mesh.  Use INDEX_NONE for no hit proxy.
 	 */
-	ENGINE_API void Draw(FPrimitiveDrawInterface* PDI,const FMatrix& LocalToWorld,const FMaterialRenderProxy* MaterialRenderProxy,uint8 DepthPriorityGroup,bool bDisableBackfaceCulling=false, bool bReceivesDecals=true);
+	ENGINE_API void Draw(FPrimitiveDrawInterface* PDI,const FMatrix& LocalToWorld,const FMaterialRenderProxy* MaterialRenderProxy,uint8 DepthPriorityGroup,bool bDisableBackfaceCulling=false, bool bReceivesDecals=true, const FHitProxyId HitProxyId = FHitProxyId());
 
 private:
 	class FDynamicMeshIndexBuffer* IndexBuffer;

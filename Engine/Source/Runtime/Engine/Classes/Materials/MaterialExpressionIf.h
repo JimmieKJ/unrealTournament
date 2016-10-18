@@ -19,7 +19,7 @@ class UMaterialExpressionIf : public UMaterialExpression
 	UPROPERTY()
 	FExpressionInput AGreaterThanB;
 
-	UPROPERTY(meta = (RequiredInput = "false"))
+	UPROPERTY(meta = (RequiredInput = "false", ToolTip = "Defaults to 'A > B' if not specified"))
 	FExpressionInput AEqualsB;
 
 	UPROPERTY()

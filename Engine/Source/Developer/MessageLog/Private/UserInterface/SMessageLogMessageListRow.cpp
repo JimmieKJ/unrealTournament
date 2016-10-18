@@ -3,6 +3,7 @@
 #include "MessageLogPrivatePCH.h"
 #include "SMessageLogMessageListRow.h"
 #include "SHyperlink.h"
+#include "Internationalization/Regex.h"
 
 #define LOCTEXT_NAMESPACE "SMessageLogMessageListRow"
 
@@ -121,7 +122,7 @@ TSharedRef<SWidget> SMessageLogMessageListRow::GenerateWidget()
 
 void SMessageLogMessageListRow::CreateMessage(const TSharedRef<SHorizontalBox>& InHorzBox, const TSharedRef<IMessageToken>& InMessageToken, float Padding)
 {
-	TSharedPtr<SWidget> Content;
+	TSharedPtr<SWidget> RowContent;
 	FName IconBrushName;
 
 	TAttribute<EVisibility> TokenContentVisbility;
@@ -136,7 +137,7 @@ void SMessageLogMessageListRow::CreateMessage(const TSharedRef<SHorizontalBox>& 
 		{
 			if (InMessageToken->GetOnMessageTokenActivated().IsBound())
 			{
-				Content = SNew(SButton)
+				RowContent = SNew(SButton)
 					.OnClicked(this, &SMessageLogMessageListRow::HandleTokenButtonClicked, InMessageToken)
 					.Content()
 					[
@@ -146,7 +147,7 @@ void SMessageLogMessageListRow::CreateMessage(const TSharedRef<SHorizontalBox>& 
 			}
 			else
 			{
-				Content = SNew(SImage)
+				RowContent = SNew(SImage)
 					.Image(FEditorStyle::GetBrush(ImageToken->GetImageName()));
 			}
 		}
@@ -158,7 +159,7 @@ void SMessageLogMessageListRow::CreateMessage(const TSharedRef<SHorizontalBox>& 
 		const TSharedRef<FUObjectToken> UObjectToken = StaticCastSharedRef<FUObjectToken>(InMessageToken);
 
 		IconBrushName = FName("PropertyWindow.Button_Browse");
-		Content = CreateHyperlink(InMessageToken, FUObjectToken::DefaultOnGetObjectDisplayName().IsBound()
+		RowContent = CreateHyperlink(InMessageToken, FUObjectToken::DefaultOnGetObjectDisplayName().IsBound()
 			? FUObjectToken::DefaultOnGetObjectDisplayName().Execute(UObjectToken->GetObject().Get(), true)
 			: UObjectToken->ToText());
 	}
@@ -169,16 +170,21 @@ void SMessageLogMessageListRow::CreateMessage(const TSharedRef<SHorizontalBox>& 
 		const TSharedRef<FURLToken> URLToken = StaticCastSharedRef<FURLToken>(InMessageToken);
 
 		IconBrushName = FName("MessageLog.Url");
-		Content = CreateHyperlink(InMessageToken, FText::FromString(URLToken->GetURL()));
+		RowContent = CreateHyperlink(InMessageToken, FText::FromString(URLToken->GetURL()));
 	}
 		break;
-
+	case EMessageToken::EdGraph:
+	{
+		IconBrushName = FName("PropertyWindow.Button_Browse");
+		RowContent = CreateHyperlink(InMessageToken, InMessageToken->ToText());
+	}
+	break;
 	case EMessageToken::Action:
 	{
 		const TSharedRef<FActionToken> ActionToken = StaticCastSharedRef<FActionToken>(InMessageToken);
 
 		IconBrushName = FName("MessageLog.Action");
-		Content = SNew(SHyperlink)
+		RowContent = SNew(SHyperlink)
 			.Text(InMessageToken->ToText())
 			.ToolTipText(ActionToken->GetActionDescription())
 			.TextStyle(FEditorStyle::Get(), "MessageLog")
@@ -193,7 +199,7 @@ void SMessageLogMessageListRow::CreateMessage(const TSharedRef<SHorizontalBox>& 
 		const TSharedRef<FAssetNameToken> AssetNameToken = StaticCastSharedRef<FAssetNameToken>(InMessageToken);
 
 		IconBrushName = FName("PropertyWindow.Button_Browse");
-		Content = CreateHyperlink(InMessageToken, AssetNameToken->ToText());
+		RowContent = CreateHyperlink(InMessageToken, AssetNameToken->ToText());
 	}
 		break;
 
@@ -203,7 +209,7 @@ void SMessageLogMessageListRow::CreateMessage(const TSharedRef<SHorizontalBox>& 
 		const TSharedRef<FDocumentationToken> DocumentationToken = StaticCastSharedRef<FDocumentationToken>(InMessageToken);
 
 		IconBrushName = FName("MessageLog.Docs");
-		Content = SNew(SHyperlink)
+		RowContent = SNew(SHyperlink)
 			.Text(LOCTEXT("DocsLabel", "Docs"))
 			.ToolTip(IDocumentation::Get()->CreateToolTip(
 			LOCTEXT("DocumentationTokenToolTip", "Click to open documentation"),
@@ -220,13 +226,51 @@ void SMessageLogMessageListRow::CreateMessage(const TSharedRef<SHorizontalBox>& 
 	{
 		if (InMessageToken->GetOnMessageTokenActivated().IsBound())
 		{
-			Content = CreateHyperlink(InMessageToken, InMessageToken->ToText());
+			RowContent = CreateHyperlink(InMessageToken, InMessageToken->ToText());
 		}
 		else
 		{
-			Content = SNew(STextBlock)
+			FString MessageString = InMessageToken->ToText().ToString();
+
+			// ^((?:[\w]\:|\\)(?:(?:\\[a-z_\-\s0-9\.]+)+)\.(?:cpp|h))\((\d+)\)
+			// https://regex101.com/r/vV4cV7/1
+			FRegexPattern FileAndLinePattern(TEXT("^((?:[\\w]\\:|\\\\)(?:(?:\\\\[a-z_\\-\\s0-9\\.]+)+)\\.(?:cpp|h))\\((\\d+)\\)"));
+			FRegexMatcher FileAndLineRegexMatcher(FileAndLinePattern, MessageString);
+
+			TSharedRef<SWidget> SourceLink = SNullWidget::NullWidget;
+
+			if ( FileAndLineRegexMatcher.FindNext() )
+			{
+				FString FileName = FileAndLineRegexMatcher.GetCaptureGroup(1);
+				int32 LineNumber = FCString::Atoi(*FileAndLineRegexMatcher.GetCaptureGroup(2));
+
+				// Remove the hyperlink from the message, since we're splitting it into its own string.
+				MessageString = MessageString.RightChop(FileAndLineRegexMatcher.GetMatchEnding());
+
+				SourceLink = SNew(SHyperlink)
+					.Style(FEditorStyle::Get(), "Common.GotoNativeCodeHyperlink")
+					.TextStyle(FEditorStyle::Get(), "MessageLog")
+					.OnNavigate_Lambda([=] { FSlateApplication::Get().GotoLineInSource(FileName, LineNumber); })
+					.Text(FText::FromString(FileAndLineRegexMatcher.GetCaptureGroup(0)));
+			}
+
+			RowContent = SNew(SHorizontalBox)
+
+			+ SHorizontalBox::Slot()
+			.AutoWidth()
+			.Padding(0)
+			[
+				SourceLink
+			]
+
+			+ SHorizontalBox::Slot()
+			.AutoWidth()
+			.Padding(0)
+			[
+				SNew(STextBlock)
 				.ColorAndOpacity(FSlateColor::UseSubduedForeground())
-				.Text(InMessageToken->ToText());
+				.Text(FText::FromString(MessageString))
+			];
 		}
 	}
 		break;
@@ -236,7 +280,7 @@ void SMessageLogMessageListRow::CreateMessage(const TSharedRef<SHorizontalBox>& 
 		const TSharedRef<FTutorialToken> TutorialToken = StaticCastSharedRef<FTutorialToken>(InMessageToken);
 
 		IconBrushName = FName("MessageLog.Tutorial");
-		Content = SNew(SHyperlink)
+		RowContent = SNew(SHyperlink)
 			.Text(LOCTEXT("TutorialLabel", "Tutorial"))
 			.ToolTipText(LOCTEXT("TutorialTokenToolTip", "Click to open tutorial"))
 			.TextStyle(FEditorStyle::Get(), "MessageLog")
@@ -246,7 +290,7 @@ void SMessageLogMessageListRow::CreateMessage(const TSharedRef<SHorizontalBox>& 
 #endif
 	}
 
-	if (Content.IsValid())
+	if (RowContent.IsValid())
 	{
 		InHorzBox->AddSlot()
 			.AutoWidth()
@@ -272,7 +316,7 @@ void SMessageLogMessageListRow::CreateMessage(const TSharedRef<SHorizontalBox>& 
 					.VAlign(VAlign_Center)
 					.Padding(2.0f, 0.0f, 0.0f, 0.0f)
 					[
-						Content.ToSharedRef()
+						RowContent.ToSharedRef()
 					]
 			];
 	}

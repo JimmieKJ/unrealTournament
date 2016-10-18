@@ -20,7 +20,7 @@ class UK2Node_SpawnActor : public UK2Node
 	virtual bool IsDeprecated() const override;
 	virtual bool ShouldWarnOnDeprecation() const override;
 	virtual FString GetDeprecationMessage() const override;
-	virtual FName GetPaletteIcon(FLinearColor& OutColor) const override{ return TEXT("GraphEditor.SpawnActor_16x"); }
+	virtual FSlateIcon GetIconAndTint(FLinearColor& OutColor) const override;
 	virtual bool IsCompatibleWithGraph(const UEdGraph* TargetGraph) const override;
 	//~ End UEdGraphNode Interface.
 

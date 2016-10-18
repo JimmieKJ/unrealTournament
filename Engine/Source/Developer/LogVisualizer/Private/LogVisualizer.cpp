@@ -197,6 +197,7 @@ void FLogVisualizer::UpdateCameraPosition(FName RowName, int32 ItemIndes)
 
 			float NewOrthoZoom;
 			const float AspectRatio = 1.777777f;
+			CA_SUPPRESS(6326);
 			uint32 MinAxisSize = (AspectRatio > 1.0f) ? Viewport->GetSizeXY().Y : Viewport->GetSizeXY().X;
 			float Zoom = Radius / (MinAxisSize / 2.0f);
 

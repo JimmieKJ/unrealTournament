@@ -27,9 +27,14 @@ struct FRIENDSANDCHAT_API FFriendsListStyle
 	, FriendItemMargin(0.0, 17.0)
 	, FriendItemStatusMargin(15.0, 0.0)
 	, FriendItemPresenceMargin(27.0, 0.0, 35.0, 0.0)
+	, FriendItemPlatformMargin(0, 0, 5, 0)
+	, FriendItemTextScrollerMargin(5, 0, 0, 0)
 	, ConfirmationBorderMargin(0.0, 0.0, 5.0, 0.0)
 	, ConfirmationButtonMargin(5.0, 0.0, 0.0, 0.0)
 	, ConfirmationButtonContentMargin(5.0, 20.0)
+	, NoneFriendContentMargin(0)
+	, NoneFriendContentHeight(75.f)
+	, NoneFriendIconWidth(40.f)
 	, SubMenuBackIconMargin(0.0, 0.0, 20.0, 0.0)
 	, SubMenuPageIconMargin(20.0, 0.0)
 	, RadioSettingTitleMargin(45.0, 10.0)
@@ -39,8 +44,13 @@ struct FRIENDSANDCHAT_API FFriendsListStyle
 	, SubMenuSettingButtonMargin(37.0, 20.0, 45.0, 20.0)
 	, SubMenuListMargin(0.0, 5.0)
 	, SubMenuSeperatorThickness(2.f)
+	, PresenceSeperatorThickness(1.f)
+	, FriendTipMargin(0, 10, 15, 10)
+	, FriendTipSeperatorMargin(0, 10)
 	, ToolTipMargin(10.0)
 	, TipStatusMargin(0.0, 0.0, 15.0, 0.0)
+	, AddButtonMargin(50, 12)
+	, AddButtonSpacing(12.f, 25.f)
 	{ }
 
 	// Default Destructor
@@ -131,7 +141,7 @@ struct FRIENDSANDCHAT_API FFriendsListStyle
 	UPROPERTY(EditAnywhere, Category = Appearance)
 	FSlateBrush PCIconBrush;
 	FFriendsListStyle& SetPCIconBrush(const FSlateBrush& BrushStyle);
-	
+
 	UPROPERTY(EditAnywhere, Category = Appearance)
 	FSlateBrush ConsoleIconBrush;
 	FFriendsListStyle& SetConsoleIconBrush(const FSlateBrush& BrushStyle);

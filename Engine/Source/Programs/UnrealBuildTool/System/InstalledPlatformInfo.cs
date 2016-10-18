@@ -22,13 +22,19 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Information about a single installed platform configuration
 		/// </summary>
-		private struct InstalledPlatformConfiguration
+		public struct InstalledPlatformConfiguration
 		{
 			/// Build Configuration of this combination
 			public UnrealTargetConfiguration Configuration;
 
 			/// Platform for this combination
 			public UnrealTargetPlatform Platform;
+
+			/// Type of Platform for this combination
+			public TargetRules.TargetType PlatformType;
+
+			/// Architecture for this combination
+			public string Architecture;
 
 			/// Location of a file that must exist for this combination to be valid (optional)
 			public string RequiredFile;
@@ -39,10 +45,12 @@ namespace UnrealBuildTool
 			/// Whether to display this platform as an option even if it is not valid
 			public bool bCanBeDisplayed;
 
-			public InstalledPlatformConfiguration(UnrealTargetConfiguration InConfiguration, UnrealTargetPlatform InPlatform, string InRequiredFile, EProjectType InProjectType, bool bInCanBeDisplayed)
+			public InstalledPlatformConfiguration(UnrealTargetConfiguration InConfiguration, UnrealTargetPlatform InPlatform, TargetRules.TargetType InPlatformType, string InArchitecture, string InRequiredFile, EProjectType InProjectType, bool bInCanBeDisplayed)
 			{
 				Configuration = InConfiguration;
 				Platform = InPlatform;
+				PlatformType = InPlatformType;
+				Architecture = InArchitecture;
 				RequiredFile = InRequiredFile;
 				ProjectType = InProjectType;
 				bCanBeDisplayed = bInCanBeDisplayed;
@@ -113,6 +121,25 @@ namespace UnrealBuildTool
 				bCanCreateEntry = false;
 			}
 
+			string PlatformTypeName;
+			TargetRules.TargetType PlatformType = TargetRules.TargetType.Game;
+			if (ParseSubValue(PlatformConfiguration, "PlatformTypeName=", out PlatformTypeName))
+			{
+				if (!Enum.TryParse(PlatformTypeName, out PlatformType))
+				{
+					Log.TraceWarning("Unable to read Platform Type from {0}, defaulting to Game", PlatformConfiguration);
+					PlatformType = TargetRules.TargetType.Game;
+				}
+			}
+			if (PlatformType == TargetRules.TargetType.Program)
+			{
+				Log.TraceWarning("Program is not a valid PlatformType for an Installed Platform, defaulting to Game");
+				PlatformType = TargetRules.TargetType.Game;
+			}
+
+			string Architecture;
+			ParseSubValue(PlatformConfiguration, "Architecture=", out Architecture);
+
 			string RequiredFile;
 			if (ParseSubValue(PlatformConfiguration, "RequiredFile=", out RequiredFile))
 			{
@@ -140,7 +167,7 @@ namespace UnrealBuildTool
 
 			if (bCanCreateEntry)
 			{
-				InstalledPlatformConfigurations.Add(new InstalledPlatformConfiguration(Configuration, Platform, RequiredFile, ProjectType,bCanBeDisplayed));
+				InstalledPlatformConfigurations.Add(new InstalledPlatformConfiguration(Configuration, Platform, PlatformType, Architecture, RequiredFile, ProjectType, bCanBeDisplayed));
 			}
 		}
 
@@ -176,46 +203,52 @@ namespace UnrealBuildTool
 
 		public bool IsValidConfiguration(UnrealTargetConfiguration Configuration, EProjectType ProjectType = EProjectType.Any)
 		{
-			if (UnrealBuildTool.IsEngineInstalled())
-			{
-				foreach (InstalledPlatformConfiguration PlatformConfiguration in InstalledPlatformConfigurations)
+			return ContainsValidConfiguration(
+				(InstalledPlatformConfiguration CurConfig) =>
 				{
-					if (PlatformConfiguration.Configuration == Configuration)
-					{
-						if (ProjectType == EProjectType.Any || PlatformConfiguration.ProjectType == EProjectType.Any
-						 || PlatformConfiguration.ProjectType == ProjectType)
-						{
-							if (string.IsNullOrEmpty(PlatformConfiguration.RequiredFile)
-								|| File.Exists(PlatformConfiguration.RequiredFile))
-							{
-								return true;
-							}
-						}
-					}
+					return CurConfig.Configuration == Configuration
+						&& (ProjectType == EProjectType.Any || CurConfig.ProjectType == EProjectType.Any
+						|| CurConfig.ProjectType == ProjectType);
 				}
-
-				return false;
-			}
-			return true;
+			);
 		}
 
 		public bool IsValidPlatform(UnrealTargetPlatform Platform, EProjectType ProjectType = EProjectType.Any)
 		{
+			return ContainsValidConfiguration(
+				(InstalledPlatformConfiguration CurConfig) =>
+				{
+					return CurConfig.Platform == Platform
+						&& (ProjectType == EProjectType.Any || CurConfig.ProjectType == EProjectType.Any
+						|| CurConfig.ProjectType == ProjectType);
+				}
+			);
+		}
+
+		public bool IsValidPlatformAndConfiguration(UnrealTargetConfiguration Configuration, UnrealTargetPlatform Platform, EProjectType ProjectType = EProjectType.Any)
+		{
+			return ContainsValidConfiguration(
+				(InstalledPlatformConfiguration CurConfig) =>
+				{
+					return CurConfig.Configuration == Configuration && CurConfig.Platform == Platform
+						&& (ProjectType == EProjectType.Any || CurConfig.ProjectType == EProjectType.Any
+						|| CurConfig.ProjectType == ProjectType);
+				}
+			);
+		}
+
+		private bool ContainsValidConfiguration(Predicate<InstalledPlatformConfiguration> ConfigFilter)
+		{
 			if (UnrealBuildTool.IsEngineInstalled())
 			{
 				foreach (InstalledPlatformConfiguration PlatformConfiguration in InstalledPlatformConfigurations)
 				{
-					if (PlatformConfiguration.Platform == Platform)
+					// Check whether filter accepts this configuration and it has required file
+					if (ConfigFilter(PlatformConfiguration)
+					&& (string.IsNullOrEmpty(PlatformConfiguration.RequiredFile)
+					|| File.Exists(PlatformConfiguration.RequiredFile)))
 					{
-						if (ProjectType == EProjectType.Any || PlatformConfiguration.ProjectType == EProjectType.Any
-						 || PlatformConfiguration.ProjectType == ProjectType)
-						{
-							if (string.IsNullOrEmpty(PlatformConfiguration.RequiredFile)
-								|| File.Exists(PlatformConfiguration.RequiredFile))
-							{
-								return true;
-							}
-						}
+						return true;
 					}
 				}
 
@@ -224,30 +257,47 @@ namespace UnrealBuildTool
 			return true;
 		}
 
-		public bool IsValidPlatformAndConfiguration(UnrealTargetConfiguration Configuration, UnrealTargetPlatform Platform, EProjectType ProjectType = EProjectType.Any)
+		public static void WriteConfigFileEntries(List<InstalledPlatformConfiguration> Configs, ref List<String> OutEntries)
 		{
-			if (UnrealBuildTool.IsEngineInstalled())
-			{
-				foreach (InstalledPlatformConfiguration PlatformConfiguration in InstalledPlatformConfigurations)
-				{
-					if (PlatformConfiguration.Configuration == Configuration
-					 && PlatformConfiguration.Platform == Platform)
-					{
-						if (ProjectType == EProjectType.Any || PlatformConfiguration.ProjectType == EProjectType.Any
-						 || PlatformConfiguration.ProjectType == ProjectType)
-						{
-							if (string.IsNullOrEmpty(PlatformConfiguration.RequiredFile)
-							 || File.Exists(PlatformConfiguration.RequiredFile))
-							{
-								return true;
-							}
-						}
-					}
-				}
+			// Write config section header
+			OutEntries.Add("[InstalledPlatforms]");
 
-				return false;
+			foreach (InstalledPlatformConfiguration Config in Configs)
+			{
+				WriteConfigFileEntry(Config, ref OutEntries);
 			}
-			return true;
+		}
+
+		private static void WriteConfigFileEntry(InstalledPlatformConfiguration Config, ref List<String> OutEntries)
+		{
+			string ConfigDescription = "+InstalledPlatformConfigurations=(";
+			if (Config.Platform != UnrealTargetPlatform.Unknown)
+			{
+				ConfigDescription += string.Format("PlatformName=\"{0}\", ", Config.Platform.ToString());
+			}
+			if (Config.Configuration != UnrealTargetConfiguration.Unknown)
+			{
+				ConfigDescription += string.Format("Configuration=\"{0}\", ", Config.Configuration.ToString());
+			}
+			if (Config.PlatformType != TargetRules.TargetType.Program)
+			{
+				ConfigDescription += string.Format("PlatformType=\"{0}\", ", Config.PlatformType.ToString());
+			}
+			if (!string.IsNullOrEmpty(Config.Architecture))
+			{
+				ConfigDescription += string.Format("Architecture=\"{0}\", ", Config.Architecture);
+			}
+			if (!string.IsNullOrEmpty(Config.RequiredFile))
+			{
+				ConfigDescription += string.Format("RequiredFile=\"{0}\", ", Config.RequiredFile);
+			}
+			if (Config.ProjectType != EProjectType.Unknown)
+			{
+				ConfigDescription += string.Format("ProjectType=\"{0}\", ", Config.ProjectType.ToString());
+			}
+			ConfigDescription += string.Format("bCanBeDisplayed={0})", Config.bCanBeDisplayed.ToString());
+
+			OutEntries.Add(ConfigDescription);
 		}
 	}
 }

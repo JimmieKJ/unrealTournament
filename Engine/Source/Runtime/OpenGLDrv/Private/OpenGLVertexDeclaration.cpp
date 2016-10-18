@@ -85,6 +85,7 @@ struct FOpenGLVertexDeclarationKey
 				case VET_UShort4:		SetupGLElement(GLElement, GL_UNSIGNED_SHORT, 4, false, false); break;
 				case VET_UShort2N:		SetupGLElement(GLElement, GL_UNSIGNED_SHORT, 2, true, true); break;
 				case VET_UShort4N:		SetupGLElement(GLElement, GL_UNSIGNED_SHORT, 4, true, true); break;
+				case VET_URGB10A2N:		SetupGLElement(GLElement, GL_UNSIGNED_INT_2_10_10_10_REV, 4, true, true); break;
 				default: UE_LOG(LogRHI, Fatal,TEXT("Unknown RHI vertex element type %u"),(uint8)InElements[ElementIndex].Type);
 			};
 			VertexElements.Add(GLElement);

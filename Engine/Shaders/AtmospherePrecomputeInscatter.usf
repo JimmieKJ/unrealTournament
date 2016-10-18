@@ -74,7 +74,7 @@ void Integrand(float Radius, float Mu, float MuS, float Nu, float T, out float3 
 	if (MuSi >= -sqrt(1.0 - RadiusGround * RadiusGround / (Ri * Ri)) ) 
 	{
 		float3 Ti = TransmittanceWithDistance(Radius, Mu, T) * Transmittance(Ri, MuSi);
-		Ray = exp(-(Ri - RadiusGround) / Frame.AtmosphericFogHeightScaleRayleigh) * Ti;
+		Ray = exp(-(Ri - RadiusGround) / View.AtmosphericFogHeightScaleRayleigh) * Ti;
 		Mie = exp(-(Ri - RadiusGround) / HeightScaleMie) * Ti;
 	}
 }
@@ -123,7 +123,7 @@ void Inscatter1PS(
 
 void CopyInscatter1PS(FAtmosphereGSOut Input, out float4 OutColor : SV_Target0) 
 {
-	float3 UVW = float3(Input.Vertex.OutTexCoord, (float(AtmosphereLayer) + 0.5f) / float(Frame.AtmosphericFogInscatterAltitudeSampleNum) );
+	float3 UVW = float3(Input.Vertex.OutTexCoord, (float(AtmosphereLayer) + 0.5f) / float(View.AtmosphericFogInscatterAltitudeSampleNum) );
     float4 Ray = Texture3DSample(AtmosphereDeltaSRTexture, AtmosphereDeltaSRTextureSampler, UVW);
     float4 Mie = Texture3DSample(AtmosphereDeltaSMTexture, AtmosphereDeltaSMTextureSampler, UVW);
 	OutColor = float4(Ray.rgb, Mie.r);
@@ -131,7 +131,7 @@ void CopyInscatter1PS(FAtmosphereGSOut Input, out float4 OutColor : SV_Target0)
 
 void CopyInscatter1BackPS(FAtmosphereGSOut Input, out float4 OutColor : SV_Target0) 
 {
-	float3 UVW = float3(Input.Vertex.OutTexCoord, (float(AtmosphereLayer) + 0.5f) / float(Frame.AtmosphericFogInscatterAltitudeSampleNum) );
+	float3 UVW = float3(Input.Vertex.OutTexCoord, (float(AtmosphereLayer) + 0.5f) / float(View.AtmosphericFogInscatterAltitudeSampleNum) );
     float4 Ray = Texture3DSample(AtmosphereInscatterTexture, AtmosphereInscatterTextureSampler, UVW);
 	OutColor = Ray;
 }
@@ -207,7 +207,7 @@ void Inscatter(float Radius, float Mu, float MuS, float Nu, out float3 RayMie) /
 
             // Light coming from direction W and scattered in direction V
             // = light arriving at x from direction W (RayMie1) * SUM(scattering coefficient * phaseFunction) - Eq (7)
-            RayMie += RayMie1 * (BetaRayleighScattering * exp(-(Radius - RadiusGround) / Frame.AtmosphericFogHeightScaleRayleigh) * Pr2 + BetaMieScattering * exp(-(Radius - RadiusGround) / HeightScaleMie) * Pm2) * Dw;
+            RayMie += RayMie1 * (BetaRayleighScattering * exp(-(Radius - RadiusGround) / View.AtmosphericFogHeightScaleRayleigh) * Pr2 + BetaMieScattering * exp(-(Radius - RadiusGround) / HeightScaleMie) * Pm2) * Dw;
         }
     }
 
@@ -261,14 +261,14 @@ void CopyInscatterNPS(FAtmosphereGSOut Input, out float4 OutColor : SV_Target0)
 {
     float Mu, MuS, Nu;
     GetMuMuSNu(Input.Vertex.OutTexCoord, AtmosphereR, DhdH, Mu, MuS, Nu);
-	float3 UVW = float3(Input.Vertex.OutTexCoord, (float(AtmosphereLayer) + 0.5f) / float(Frame.AtmosphericFogInscatterAltitudeSampleNum) );
+	float3 UVW = float3(Input.Vertex.OutTexCoord, (float(AtmosphereLayer) + 0.5f) / float(View.AtmosphericFogInscatterAltitudeSampleNum) );
 	float4 Ray = Texture3DSample(AtmosphereDeltaSRTexture, AtmosphereDeltaSRTextureSampler, UVW) / PhaseFunctionR(Nu);
 	OutColor = float4(Ray.rgb, 0.f);
 }
 
 void CopyInscatterFPS(FAtmosphereGSOut Input, out float4 OutColor : SV_Target0) 
 {
-	float3 UVW = float3(Input.Vertex.OutTexCoord, (float(AtmosphereLayer) + 0.5f) / float(Frame.AtmosphericFogInscatterAltitudeSampleNum) );
+	float3 UVW = float3(Input.Vertex.OutTexCoord, (float(AtmosphereLayer) + 0.5f) / float(View.AtmosphericFogInscatterAltitudeSampleNum) );
 	float4 Ray = Texture3DSample(AtmosphereInscatterTexture, AtmosphereInscatterTextureSampler, UVW);
 	const float Thresh = 0.7f;
 	const float Thresh2 = 0.47f;
@@ -301,7 +301,7 @@ void CopyInscatterFPS(FAtmosphereGSOut Input, out float4 OutColor : SV_Target0)
 
 void CopyInscatterFBackPS(FAtmosphereGSOut Input, out float4 OutColor : SV_Target0) 
 {
-	float3 UVW = float3(Input.Vertex.OutTexCoord, (float(AtmosphereLayer) + 0.5f) / float(Frame.AtmosphericFogInscatterAltitudeSampleNum) );
+	float3 UVW = float3(Input.Vertex.OutTexCoord, (float(AtmosphereLayer) + 0.5f) / float(View.AtmosphericFogInscatterAltitudeSampleNum) );
     float4 Ray = Texture3DSample(AtmosphereDeltaSRTexture, AtmosphereDeltaSRTextureSampler, UVW);
 	OutColor = Ray;
 }

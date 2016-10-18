@@ -136,6 +136,7 @@ protected:
 	// Matching predefined text.
 	bool MatchIdentifier( FName Match );
 	bool MatchIdentifier( const TCHAR* Match );
+	bool MatchConstInt( const TCHAR* Match );
 	bool PeekIdentifier( FName Match );
 	bool PeekIdentifier( const TCHAR* Match );
 	bool MatchSymbol( const TCHAR* Match, ESymbolParseOption bParseTemplateClosingBracket = ESymbolParseOption::Normal );

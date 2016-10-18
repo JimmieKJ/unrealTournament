@@ -210,22 +210,26 @@ private:
 	{
 		// ------------------------------------
 		// Fill the context display names array
-		ContextDisplayNames.Add(LOCTEXT("LevelEditing", "Level Editing"));
-		ContextDisplayNames.Add(LOCTEXT("ContentBrowser", "Content Browser"));
-		ContextDisplayNames.Add(LOCTEXT("PlayInEditor", "Play In Editor"));
-		ContextDisplayNames.Add(LOCTEXT("AssetCreation", "Asset Creation"));
-		ContextDisplayNames.Add(LOCTEXT("DetailsPanel", "Details Panel"));
-		ContextDisplayNames.Add(LOCTEXT("Tutorials", "Tutorials"));
-		ContextDisplayNames.Add(LOCTEXT("Other", "Other"));
+		ContextDisplayNames.Append({
+			LOCTEXT("LevelEditing", "Level Editing"),
+			LOCTEXT("ContentBrowser", "Content Browser"),
+			LOCTEXT("PlayInEditor", "Play In Editor"),
+			LOCTEXT("AssetCreation", "Asset Creation"),
+			LOCTEXT("DetailsPanel", "Details Panel"),
+			LOCTEXT("Tutorials", "Tutorials"),
+			LOCTEXT("Other", "Other")
+		});
 
 		ContextMarkers.FirstEditor = ContextDisplayNames.Num();
-		ContextDisplayNames.Add(NSLOCTEXT("BlueprintEditor", "AppLabel", "Blueprint Editor"));
-		ContextDisplayNames.Add(NSLOCTEXT("Matinee", "AppLabel", "Matinee"));
-		ContextDisplayNames.Add(NSLOCTEXT("StaticMeshEditor", "AppLabel", "StaticMesh Editor"));
-		ContextDisplayNames.Add(NSLOCTEXT("MaterialEditor", "AppLabel", "Material Editor"));
-		ContextDisplayNames.Add(NSLOCTEXT("PhAT", "AppLabel", "PhAT"));
-		ContextDisplayNames.Add(NSLOCTEXT("Cascade", "AppLabel", "Cascade"));
-		ContextDisplayNames.Add(NSLOCTEXT("FPersona", "AppLabel", "Persona"));
+		ContextDisplayNames.Append({
+			NSLOCTEXT("BlueprintEditor", "AppLabel", "Blueprint Editor"),
+			NSLOCTEXT("Matinee", "AppLabel", "Matinee"),
+			NSLOCTEXT("StaticMeshEditor", "AppLabel", "StaticMesh Editor"),
+			NSLOCTEXT("MaterialEditor", "AppLabel", "Material Editor"),
+			NSLOCTEXT("PhAT", "AppLabel", "PhAT"),
+			NSLOCTEXT("Cascade", "AppLabel", "Cascade"),
+			NSLOCTEXT("FPersona", "AppLabel", "Persona")
+		});
 
 		ContextMarkers.Custom = -1;
 
@@ -353,10 +357,11 @@ private:
 		{
 			if (FEngineAnalytics::IsAvailable())
 			{
-				TArray<FAnalyticsEventAttribute> Attributes;
-				Attributes.Add(FAnalyticsEventAttribute(TEXT("Positive"), Mode == EFeedbackMode::Positive));
-				Attributes.Add(FAnalyticsEventAttribute(TEXT("Context"), ContextDisplayNames[SelectedContextIndex].ToString()));
-				Attributes.Add(FAnalyticsEventAttribute(TEXT("Comment"), TextBox->GetText().ToString()));
+				TArray<FAnalyticsEventAttribute> Attributes = {
+					FAnalyticsEventAttribute(TEXT("Positive"), Mode == EFeedbackMode::Positive),
+					FAnalyticsEventAttribute(TEXT("Context"), ContextDisplayNames[SelectedContextIndex].ToString()),
+					FAnalyticsEventAttribute(TEXT("Comment"), TextBox->GetText().ToString())
+				};
 
 				FEngineAnalytics::GetProvider().RecordEvent(FString("Editor.Feedback.Submitted"), Attributes);
 			}

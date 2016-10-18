@@ -113,6 +113,7 @@ namespace AutomationTool
         /// </summary>
         public static CommandLineArg NoCompileLegacyDontUse = new CommandLineArg("-NoCompile");
         public static CommandLineArg NoCompileEditor = new CommandLineArg("-NoCompileEditor");
+        public static CommandLineArg IncrementalBuildUBT = new CommandLineArg("-IncrementalBuildUBT");
 		public static CommandLineArg Help = new CommandLineArg("-Help");
 		public static CommandLineArg List = new CommandLineArg("-List");
 		public static CommandLineArg VS2015 = new CommandLineArg("-2015");
@@ -441,6 +442,9 @@ AutomationTool.exe [-verbose] [-compileonly] [-p4] Command0 [-Arg0 -Arg1 -Arg2 â
 			var AdditionalScriptsFolders = new List<string>();
 			ParseCommandLine(CommandLine, CommandsToExecute, out OutScriptsForProjectFileName, AdditionalScriptsFolders);
 
+			// Get the path to the telemetry file, if present
+			string TelemetryFile = CommandUtils.ParseParamValue(CommandLine, "-Telemetry");
+
 			// Check for build machine override (force local)
 			IsBuildMachine = GlobalCommandLine.ForceLocal ? false : IsBuildMachine;
 			Log.TraceVerbose("IsBuildMachine={0}", IsBuildMachine);
@@ -510,7 +514,13 @@ AutomationTool.exe [-verbose] [-compileonly] [-p4] Command0 [-Arg0 -Arg1 -Arg2 â
 			}
 
 			// Find and execute commands.
-			return Execute(CommandsToExecute, Compiler.Commands);
+			ExitCode Result = Execute(CommandsToExecute, Compiler.Commands);
+			if (TelemetryFile != null)
+			{
+				Directory.CreateDirectory(Path.GetDirectoryName(TelemetryFile));
+				CommandUtils.Telemetry.Write(TelemetryFile);
+			}
+			return Result;
 		}
 
 		/// <summary>

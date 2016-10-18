@@ -78,16 +78,16 @@ void FBlackboardSelectorDetails::CacheBlackboardData()
 	FPropertyAccess::Result Result = MyFilterProperty->GetNumElements(NumElements);
 	if (Result == FPropertyAccess::Success)
 	{
-		for (uint32 i = 0; i < NumElements; i++)
+		for (uint32 Idx = 0; Idx < NumElements; Idx++)
 		{
 			UObject* FilterOb;
-			Result = MyFilterProperty->GetElement(i)->GetValue(FilterOb);
+			Result = MyFilterProperty->GetElement(Idx)->GetValue(FilterOb);
 			if (Result == FPropertyAccess::Success)
 			{
-				UBlackboardKeyType* CasterFilterOb = Cast<UBlackboardKeyType>(FilterOb);
-				if (CasterFilterOb)
+				UBlackboardKeyType* KeyFilterOb = Cast<UBlackboardKeyType>(FilterOb);
+				if (KeyFilterOb)
 				{
-					FilterObjects.Add(CasterFilterOb);
+					FilterObjects.Add(KeyFilterOb);
 				}
 			}
 		}
@@ -95,9 +95,9 @@ void FBlackboardSelectorDetails::CacheBlackboardData()
 
 	TArray<UObject*> MyObjects;
 	MyStructProperty->GetOuterObjects(MyObjects);
-	for (int32 iOb = 0; iOb < MyObjects.Num(); iOb++)
+	for (int32 ObjectIdx = 0; ObjectIdx < MyObjects.Num(); ObjectIdx++)
 	{
-		const UBlackboardData* BlackboardAsset = FindBlackboardAsset(MyObjects[iOb]);
+		const UBlackboardData* BlackboardAsset = FindBlackboardAsset(MyObjects[ObjectIdx]);
 		if (BlackboardAsset)
 		{
 			CachedBlackboardAsset = BlackboardAsset;
@@ -105,9 +105,9 @@ void FBlackboardSelectorDetails::CacheBlackboardData()
 			TArray<FName> ProcessedNames;
 			for (UBlackboardData* It = (UBlackboardData*)BlackboardAsset; It; It = It->Parent)
 			{
-				for (int32 iKey = 0; iKey < It->Keys.Num(); iKey++)
+				for (int32 KeyIdx = 0; KeyIdx < It->Keys.Num(); KeyIdx++)
 				{
-					const FBlackboardEntry& EntryInfo = It->Keys[iKey];
+					const FBlackboardEntry& EntryInfo = It->Keys[KeyIdx];
 					bool bIsKeyOverridden = ProcessedNames.Contains(EntryInfo.EntryName);
 					bool bIsEntryAllowed = !bIsKeyOverridden && (EntryInfo.KeyType != NULL);
 
@@ -116,9 +116,9 @@ void FBlackboardSelectorDetails::CacheBlackboardData()
 					if (bIsEntryAllowed && FilterObjects.Num())
 					{
 						bool bFilterPassed = false;
-						for (int32 iFilter = 0; iFilter < FilterObjects.Num(); iFilter++)
+						for (int32 FilterIdx = 0; FilterIdx < FilterObjects.Num(); FilterIdx++)
 						{
-							if (EntryInfo.KeyType->IsAllowedByFilter(FilterObjects[iFilter]))
+							if (EntryInfo.KeyType->IsAllowedByFilter(FilterObjects[FilterIdx]))
 							{
 								bFilterPassed = true;
 								break;
@@ -151,7 +151,10 @@ void FBlackboardSelectorDetails::InitKeyFromProperty()
 		{
 			if (bNoneIsAllowedValue == false)
 			{
-				OnKeyComboChange(0);
+				const FName PropName = MyStructProperty->GetProperty() ? MyStructProperty->GetProperty()->GetFName() : NAME_None;
+				const int32 KeyNameIdx = KeyValues.IndexOfByKey(PropName);
+
+				OnKeyComboChange(KeyNameIdx != INDEX_NONE ? KeyNameIdx : 0);
 			}
 			else
 			{
@@ -167,10 +170,10 @@ TSharedRef<SWidget> FBlackboardSelectorDetails::OnGetKeyContent() const
 {
 	FMenuBuilder MenuBuilder(true, NULL);
 
-	for (int32 i = 0; i < KeyValues.Num(); i++)
+	for (int32 Idx = 0; Idx < KeyValues.Num(); Idx++)
 	{
-		FUIAction ItemAction( FExecuteAction::CreateSP( this, &FBlackboardSelectorDetails::OnKeyComboChange, i ) );
-		MenuBuilder.AddMenuEntry( FText::FromName( KeyValues[i] ), TAttribute<FText>(), FSlateIcon(), ItemAction);
+		FUIAction ItemAction( FExecuteAction::CreateSP( this, &FBlackboardSelectorDetails::OnKeyComboChange, Idx) );
+		MenuBuilder.AddMenuEntry( FText::FromName( KeyValues[Idx] ), TAttribute<FText>(), FSlateIcon(), ItemAction);
 	}
 
 	return MenuBuilder.MakeWidget();

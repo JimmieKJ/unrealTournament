@@ -54,7 +54,7 @@ ADecalActor::ADecalActor(const FObjectInitializer& ObjectInitializer)
 			ArrowComponent->ArrowColor = FColor(80, 80, 200, 255);
 			ArrowComponent->SpriteInfo.Category = ConstructorStatics.ID_Decals;
 			ArrowComponent->SpriteInfo.DisplayName = ConstructorStatics.NAME_Decals;
-			ArrowComponent->AttachParent = Decal;
+			ArrowComponent->SetupAttachment(Decal);
 			ArrowComponent->bAbsoluteScale = true;
 			ArrowComponent->bIsScreenSizeScaled = true;
 		}
@@ -65,7 +65,7 @@ ADecalActor::ADecalActor(const FObjectInitializer& ObjectInitializer)
 			SpriteComponent->RelativeScale3D = FVector(0.5f, 0.5f, 0.5f);
 			SpriteComponent->SpriteInfo.Category = ConstructorStatics.ID_Decals;
 			SpriteComponent->SpriteInfo.DisplayName = ConstructorStatics.NAME_Decals;
-			SpriteComponent->AttachParent = Decal;
+			SpriteComponent->SetupAttachment(Decal);
 			SpriteComponent->bIsScreenSizeScaled = true;
 			SpriteComponent->bAbsoluteScale = true;
 			SpriteComponent->bReceivesDecals = false;

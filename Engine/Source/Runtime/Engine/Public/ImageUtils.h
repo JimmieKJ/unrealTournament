@@ -101,4 +101,44 @@ public:
 	 *
 	 */
 	ENGINE_API static UTexture2D* CreateCheckerboardTexture(FColor ColorOne = FColor(64, 64, 64), FColor ColorTwo = FColor(128, 128, 128), int32 CheckerSize = 32);
+
+	/**
+	* Exports a UTextureRenderTarget2D as an HDR image on the disk.
+	*
+	* @param TexRT		The render target to export
+	* @param Ar			Archive to fill with data.
+	* @return			Export operation success or failure.
+	*
+	*/
+	ENGINE_API static bool ExportRenderTarget2DAsHDR(UTextureRenderTarget2D* TexRT, FArchive& Ar);
+
+	/**
+	* Exports a UTexture2D as an HDR image on the disk.
+	*
+	* @param TexRT		The texture to export
+	* @param Ar			Archive to fill with data.
+	* @return			Export operation success or failure.
+	*
+	*/
+	ENGINE_API static bool ExportTexture2DAsHDR(UTexture2D* TexRT, FArchive& Ar);
+
+	/**
+	* Exports a UTextureRenderTargetCube as an HDR image on the disk.
+	*
+	* @param TexRT		The render target cube to export
+	* @param Ar			Archive to fill with data.
+	* @return			Export operation success or failure.
+	*
+	*/
+	ENGINE_API static bool ExportRenderTargetCubeAsHDR(UTextureRenderTargetCube* TexRT, FArchive& Ar);
+
+	/**
+	* Exports a UTextureCube as an HDR image on the disk.
+	*
+	* @param TexRT		The texture cube to export
+	* @param Ar			Archive to fill with data.
+	* @return			Export operation success or failure.
+	*
+	*/
+	ENGINE_API static bool ExportTextureCubeAsHDR(UTextureCube* TexRT, FArchive& Ar);
 };

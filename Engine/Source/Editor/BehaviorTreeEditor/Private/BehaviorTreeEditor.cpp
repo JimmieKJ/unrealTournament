@@ -130,16 +130,16 @@ void FBehaviorTreeEditor::NotifyPostChange( const FPropertyChangedEvent& Propert
 	}
 }
 
-void FBehaviorTreeEditor::RegisterTabSpawners(const TSharedRef<class FTabManager>& TabManager)
+void FBehaviorTreeEditor::RegisterTabSpawners(const TSharedRef<class FTabManager>& InTabManager)
 {
-	DocumentManager->SetTabManager(TabManager);
+	DocumentManager->SetTabManager(InTabManager);
 
-	FWorkflowCentricApplication::RegisterTabSpawners(TabManager);
+	FWorkflowCentricApplication::RegisterTabSpawners(InTabManager);
 }
 
-void FBehaviorTreeEditor::RegisterToolbarTab(const TSharedRef<class FTabManager>& TabManager)
+void FBehaviorTreeEditor::RegisterToolbarTab(const TSharedRef<class FTabManager>& InTabManager)
 {
-	FAssetEditorToolkit::RegisterTabSpawners(TabManager);
+	FAssetEditorToolkit::RegisterTabSpawners(InTabManager);
 }
 
 void FBehaviorTreeEditor::InitBehaviorTreeEditor( const EToolkitMode::Type Mode, const TSharedPtr< class IToolkitHost >& InitToolkitHost, UObject* InObject )

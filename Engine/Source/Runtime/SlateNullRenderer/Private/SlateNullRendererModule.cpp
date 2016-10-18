@@ -86,6 +86,11 @@ public:
 		return MakeShareable(new FSlateFontAtlasNull(AtlasSize));
 	}
 
+	virtual TSharedPtr<ISlateFontTexture> CreateNonAtlasedTexture(const uint32 InWidth, const uint32 InHeight, const TArray<uint8>& InRawData) const override
+	{
+		return nullptr;
+	}
+
 private:
 	/** Size of each font texture, width and height. Only used to return sane numbers */
 	int32 AtlasSize;

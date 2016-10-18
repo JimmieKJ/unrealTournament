@@ -3,6 +3,7 @@
 #pragma once
 
 #include "LandscapeProxy.h" // for ELandscapeLayerPaintingRestriction
+#include "LandscapeFileFormatInterface.h"
 #include "LandscapeEditorObject.generated.h"
 
 UENUM()
@@ -187,11 +188,19 @@ struct FLandscapeImportLayer : public FLandscapeImportLayerInfo
 	GENERATED_USTRUCT_BODY()
 
 	UPROPERTY(Category="Import", VisibleAnywhere)
-	ELandscapeImportLayerError ImportError;
+	ULandscapeMaterialInstanceConstant* ThumbnailMIC;
+
+	UPROPERTY(Category="Import", VisibleAnywhere)
+	ELandscapeImportResult ImportResult;
+
+	UPROPERTY(Category="Import", VisibleAnywhere)
+	FText ErrorMessage;
 
 	FLandscapeImportLayer()
 		: FLandscapeImportLayerInfo()
-		, ImportError(ELandscapeImportLayerError::None)
+		, ThumbnailMIC(nullptr)
+		, ImportResult(ELandscapeImportResult::Success)
+		, ErrorMessage(FText())
 	{
 	}
 };
@@ -460,20 +469,23 @@ class ULandscapeEditorObject : public UObject
 	FVector NewLandscape_Scale;
 
 	UPROPERTY(Category="New Landscape", VisibleAnywhere, NonTransactional, meta=(ShowForTools="NewLandscape"))
-	TEnumAsByte<ELandscapeImportHeightmapError::Type> ImportLandscape_HeightmapError;
+	ELandscapeImportResult ImportLandscape_HeightmapImportResult;
+
+	UPROPERTY(Category="New Landscape", VisibleAnywhere, NonTransactional, meta=(ShowForTools="NewLandscape"))
+	FText ImportLandscape_HeightmapErrorMessage;
 
 	// Specify a height map file in 16-bit RAW or PNG format
 	UPROPERTY(Category="New Landscape", EditAnywhere, NonTransactional, meta=(DisplayName="Heightmap File", ShowForTools="NewLandscape"))
 	FString ImportLandscape_HeightmapFilename;
 	UPROPERTY(NonTransactional)
-	int32 ImportLandscape_Width;
+	uint32 ImportLandscape_Width;
 	UPROPERTY(NonTransactional)
-	int32 ImportLandscape_Height;
+	uint32 ImportLandscape_Height;
 	UPROPERTY(NonTransactional)
 	TArray<uint16> ImportLandscape_Data;
 
 	// Whether the imported alpha maps are to be interpreted as "layered" or "additive" (UE4 uses additive internally)
-	UPROPERTY(Category="New Landscape", EditAnywhere, NonTransactional, EditFixedSize, meta=(DisplayName="Layer Alphamap Type", ShowForTools="NewLandscape"))
+	UPROPERTY(Category="New Landscape", EditAnywhere, NonTransactional, meta=(DisplayName="Layer Alphamap Type", ShowForTools="NewLandscape"))
 	ELandscapeImportAlphamapType ImportLandscape_AlphamapType;
 
 	// The landscape layers that will be created. Only layer names referenced in the material assigned above are shown here. Modify the material to add more layers.

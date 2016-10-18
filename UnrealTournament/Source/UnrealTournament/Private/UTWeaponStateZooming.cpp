@@ -118,7 +118,7 @@ bool UUTWeaponStateZooming::DrawHUD(UUTHUDWidget* WeaponHudWidget)
 									float SizeY = FMath::Max<float>(MidY - UpperLeft.Y, (BottomRight.X - UpperLeft.X) * 0.5f);
 									UpperLeft.Y = MidY - SizeY;
 									BottomRight.Y = MidY + SizeY;
-									FLinearColor TargetColor = EnemyChar->bIsWearingHelmet ? FLinearColor(1.0f, 1.0f, 0.0f, 1.0f) : FLinearColor(1.0f, 0.0f, 0.0f, 1.0f);
+									FLinearColor TargetColor = FLinearColor(1.0f, 0.0f, 0.0f, 1.0f);
 									FCanvasTileItem HeadCircleItem(UpperLeft, TargetIndicator->Resource, BottomRight - UpperLeft, (i == 0) ? TargetColor : FLinearColor(0.7f, 0.7f, 0.7f, 0.9f));
 									HeadCircleItem.BlendMode = SE_BLEND_Translucent;
 									C->DrawItem(HeadCircleItem);
@@ -171,7 +171,7 @@ void UUTWeaponStateZooming::ToggleZoomInSound(bool bNowOn)
 			else if (ZoomLoopComp->IsRegistered())
 			{
 				ZoomLoopComp->Stop();
-				ZoomLoopComp->DetachFromParent();
+				ZoomLoopComp->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
 				ZoomLoopComp->UnregisterComponent();
 			}
 		}

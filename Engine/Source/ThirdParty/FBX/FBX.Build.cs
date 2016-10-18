@@ -51,6 +51,9 @@ public class FBX : ModuleRules
 			/* There is a bug in fbxarch.h where is doesn't do the check
 			 * for clang under linux */
 			Definitions.Add("FBXSDK_COMPILER_CLANG");
+
+			// libfbxsdk has been built against libstdc++ and as such needs this library
+			PublicAdditionalLibraries.Add("stdc++");
 		}
 	}
 }

@@ -20,18 +20,16 @@
 #include "DlgPickAssetPath.h"
 #include "SVectorInputBox.h"
 #include "SRotatorInputBox.h"
-#include "PackageTools.h"
-//#include "ObjectTools.h"
 #include "ScopedTransaction.h"
 #include "DesktopPlatformModule.h"
 #include "MainFrame.h"
 #include "AssetRegistryModule.h"
-#include "ImageWrapper.h"
 
 #include "Landscape.h"
 #include "LandscapeLayerInfoObject.h"
 #include "TutorialMetaData.h"
 #include "SNumericEntryBox.h"
+#include "LandscapeDataAccess.h"
 
 #define LOCTEXT_NAMESPACE "LandscapeEditor.NewLandscape"
 
@@ -82,31 +80,17 @@ void FLandscapeEditorDetailCustomization_NewLandscape::CustomizeDetails(IDetailL
 	];
 
 	TSharedRef<IPropertyHandle> PropertyHandle_HeightmapFilename = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(ULandscapeEditorObject, ImportLandscape_HeightmapFilename));
-	TSharedRef<IPropertyHandle> PropertyHandle_HeightmapError = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(ULandscapeEditorObject, ImportLandscape_HeightmapError));
-	DetailBuilder.HideProperty(PropertyHandle_HeightmapError);
+	TSharedRef<IPropertyHandle> PropertyHandle_HeightmapImportResult = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(ULandscapeEditorObject, ImportLandscape_HeightmapImportResult));
+	TSharedRef<IPropertyHandle> PropertyHandle_HeightmapErrorMessage = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(ULandscapeEditorObject, ImportLandscape_HeightmapErrorMessage));
+	DetailBuilder.HideProperty(PropertyHandle_HeightmapImportResult);
+	DetailBuilder.HideProperty(PropertyHandle_HeightmapErrorMessage);
 	PropertyHandle_HeightmapFilename->SetOnPropertyValueChanged(FSimpleDelegate::CreateSP(this, &FLandscapeEditorDetailCustomization_NewLandscape::OnImportHeightmapFilenameChanged));
 	NewLandscapeCategory.AddProperty(PropertyHandle_HeightmapFilename)
 	.Visibility(TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateStatic(&GetVisibilityOnlyInNewLandscapeMode, ENewLandscapePreviewMode::ImportLandscape)))
 	.CustomWidget()
 	.NameContent()
 	[
-		SNew(SHorizontalBox)
-		+ SHorizontalBox::Slot()
-		.AutoWidth()
-		[
-			SNew(SErrorText)
-			.Visibility_Static(&GetHeightmapErrorVisibility, PropertyHandle_HeightmapError)
-			.ErrorText(NSLOCTEXT("UnrealEd", "Error", "!"))
-			.ToolTip(
-				SNew(SToolTip)
-				.Text_Static(&GetHeightmapErrorText, PropertyHandle_HeightmapError)
-			)
-		]
-		+ SHorizontalBox::Slot()
-		.FillWidth(1)
-		[
-			PropertyHandle_HeightmapFilename->CreatePropertyNameWidget()
-		]
+		PropertyHandle_HeightmapFilename->CreatePropertyNameWidget()
 	]
 	.ValueContent()
 	.MinDesiredWidth(250.0f)
@@ -114,11 +98,24 @@ void FLandscapeEditorDetailCustomization_NewLandscape::CustomizeDetails(IDetailL
 	[
 		SNew(SHorizontalBox)
 		+ SHorizontalBox::Slot()
+		.AutoWidth()
+		.Padding(0,0,2,0)
+		[
+			SNew(SErrorText)
+			.Visibility_Static(&GetHeightmapErrorVisibility, PropertyHandle_HeightmapImportResult)
+			.BackgroundColor_Static(&GetHeightmapErrorColor, PropertyHandle_HeightmapImportResult)
+			.ErrorText(NSLOCTEXT("UnrealEd", "Error", "!"))
+			.ToolTip(
+				SNew(SToolTip)
+				.Text_Static(&GetPropertyValue<FText>, PropertyHandle_HeightmapErrorMessage)
+			)
+		]
+		+ SHorizontalBox::Slot()
 		.FillWidth(1)
 		[
 			SNew(SEditableTextBox)
 			.Font(DetailBuilder.GetDetailFont())
-			.Text_Static(&GetImportHeightmapFilenameString, PropertyHandle_HeightmapFilename)
+			.Text_Static(&GetPropertyValueText, PropertyHandle_HeightmapFilename)
 			.OnTextCommitted_Static(&SetImportHeightmapFilenameString, PropertyHandle_HeightmapFilename)
 			.HintText(LOCTEXT("Import_HeightmapNotSet", "(Please specify a heightmap)"))
 		]
@@ -179,6 +176,10 @@ void FLandscapeEditorDetailCustomization_NewLandscape::CustomizeDetails(IDetailL
 			.Text(LOCTEXT("Material_Tip","Hint: Assign a material to see landscape layers"))
 		]
 	];
+
+	TSharedRef<IPropertyHandle> PropertyHandle_AlphamapType = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(ULandscapeEditorObject, ImportLandscape_AlphamapType));
+	NewLandscapeCategory.AddProperty(PropertyHandle_AlphamapType)
+	.Visibility(TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateStatic(&GetVisibilityOnlyInNewLandscapeMode, ENewLandscapePreviewMode::ImportLandscape)));
 
 	TSharedRef<IPropertyHandle> PropertyHandle_Layers = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(ULandscapeEditorObject, ImportLandscape_Layers));
 	NewLandscapeCategory.AddProperty(PropertyHandle_Layers);
@@ -529,7 +530,7 @@ void FLandscapeEditorDetailCustomization_NewLandscape::SetScale(float NewValue, 
 
 TSharedRef<SWidget> FLandscapeEditorDetailCustomization_NewLandscape::GetSectionSizeMenu(TSharedRef<IPropertyHandle> PropertyHandle)
 {
-	FMenuBuilder MenuBuilder(true, NULL);
+	FMenuBuilder MenuBuilder(true, nullptr);
 
 	for (int32 i = 0; i < ARRAY_COUNT(SectionSizes); i++)
 	{
@@ -560,7 +561,7 @@ FText FLandscapeEditorDetailCustomization_NewLandscape::GetSectionSize(TSharedRe
 
 TSharedRef<SWidget> FLandscapeEditorDetailCustomization_NewLandscape::GetSectionsPerComponentMenu(TSharedRef<IPropertyHandle> PropertyHandle)
 {
-	FMenuBuilder MenuBuilder(true, NULL);
+	FMenuBuilder MenuBuilder(true, nullptr);
 
 	for (int32 i = 0; i < ARRAY_COUNT(NumSections); i++)
 	{
@@ -598,7 +599,7 @@ FText FLandscapeEditorDetailCustomization_NewLandscape::GetSectionsPerComponent(
 TOptional<int32> FLandscapeEditorDetailCustomization_NewLandscape::GetLandscapeResolutionX() const
 {
 	FEdModeLandscape* LandscapeEdMode = GetEditorMode();
-	if (LandscapeEdMode != NULL)
+	if (LandscapeEdMode != nullptr)
 	{
 		return (LandscapeEdMode->UISettings->NewLandscape_ComponentCount.X * LandscapeEdMode->UISettings->NewLandscape_SectionsPerComponent * LandscapeEdMode->UISettings->NewLandscape_QuadsPerSection + 1);
 	}
@@ -609,7 +610,7 @@ TOptional<int32> FLandscapeEditorDetailCustomization_NewLandscape::GetLandscapeR
 void FLandscapeEditorDetailCustomization_NewLandscape::OnChangeLandscapeResolutionX(int32 NewValue)
 {
 	FEdModeLandscape* LandscapeEdMode = GetEditorMode();
-	if (LandscapeEdMode != NULL)
+	if (LandscapeEdMode != nullptr)
 	{
 		int32 NewComponentCountX = LandscapeEdMode->UISettings->CalcComponentsCount(NewValue);
 		if (NewComponentCountX != LandscapeEdMode->UISettings->NewLandscape_ComponentCount.X)
@@ -628,7 +629,7 @@ void FLandscapeEditorDetailCustomization_NewLandscape::OnChangeLandscapeResoluti
 void FLandscapeEditorDetailCustomization_NewLandscape::OnCommitLandscapeResolutionX(int32 NewValue, ETextCommit::Type CommitInfo)
 {
 	FEdModeLandscape* LandscapeEdMode = GetEditorMode();
-	if (LandscapeEdMode != NULL)
+	if (LandscapeEdMode != nullptr)
 	{
 		if (!GEditor->IsTransactionActive())
 		{
@@ -643,7 +644,7 @@ void FLandscapeEditorDetailCustomization_NewLandscape::OnCommitLandscapeResoluti
 TOptional<int32> FLandscapeEditorDetailCustomization_NewLandscape::GetLandscapeResolutionY() const
 {
 	FEdModeLandscape* LandscapeEdMode = GetEditorMode();
-	if (LandscapeEdMode != NULL)
+	if (LandscapeEdMode != nullptr)
 	{
 		return (LandscapeEdMode->UISettings->NewLandscape_ComponentCount.Y * LandscapeEdMode->UISettings->NewLandscape_SectionsPerComponent * LandscapeEdMode->UISettings->NewLandscape_QuadsPerSection + 1);
 	}
@@ -654,7 +655,7 @@ TOptional<int32> FLandscapeEditorDetailCustomization_NewLandscape::GetLandscapeR
 void FLandscapeEditorDetailCustomization_NewLandscape::OnChangeLandscapeResolutionY(int32 NewValue)
 {
 	FEdModeLandscape* LandscapeEdMode = GetEditorMode();
-	if (LandscapeEdMode != NULL)
+	if (LandscapeEdMode != nullptr)
 	{
 		int32 NewComponentCountY = LandscapeEdMode->UISettings->CalcComponentsCount(NewValue);
 		if (NewComponentCountY != LandscapeEdMode->UISettings->NewLandscape_ComponentCount.Y)
@@ -673,7 +674,7 @@ void FLandscapeEditorDetailCustomization_NewLandscape::OnChangeLandscapeResoluti
 void FLandscapeEditorDetailCustomization_NewLandscape::OnCommitLandscapeResolutionY(int32 NewValue, ETextCommit::Type CommitInfo)
 {
 	FEdModeLandscape* LandscapeEdMode = GetEditorMode();
-	if (LandscapeEdMode != NULL)
+	if (LandscapeEdMode != nullptr)
 	{
 		if (!GEditor->IsTransactionActive())
 		{
@@ -688,7 +689,7 @@ void FLandscapeEditorDetailCustomization_NewLandscape::OnCommitLandscapeResoluti
 TOptional<int32> FLandscapeEditorDetailCustomization_NewLandscape::GetMinLandscapeResolution() const
 {
 	FEdModeLandscape* LandscapeEdMode = GetEditorMode();
-	if (LandscapeEdMode != NULL)
+	if (LandscapeEdMode != nullptr)
 	{
 		// Min size is one component
 		return (LandscapeEdMode->UISettings->NewLandscape_SectionsPerComponent * LandscapeEdMode->UISettings->NewLandscape_QuadsPerSection + 1);
@@ -700,7 +701,7 @@ TOptional<int32> FLandscapeEditorDetailCustomization_NewLandscape::GetMinLandsca
 TOptional<int32> FLandscapeEditorDetailCustomization_NewLandscape::GetMaxLandscapeResolution() const
 {
 	FEdModeLandscape* LandscapeEdMode = GetEditorMode();
-	if (LandscapeEdMode != NULL)
+	if (LandscapeEdMode != nullptr)
 	{
 		// Max size is either whole components below 8192 verts, or 32 components
 		const int32 QuadsPerComponent = (LandscapeEdMode->UISettings->NewLandscape_SectionsPerComponent * LandscapeEdMode->UISettings->NewLandscape_QuadsPerSection);
@@ -714,7 +715,7 @@ TOptional<int32> FLandscapeEditorDetailCustomization_NewLandscape::GetMaxLandsca
 FText FLandscapeEditorDetailCustomization_NewLandscape::GetTotalComponentCount() const
 {
 	FEdModeLandscape* LandscapeEdMode = GetEditorMode();
-	if (LandscapeEdMode != NULL)
+	if (LandscapeEdMode != nullptr)
 	{
 		return FText::AsNumber(LandscapeEdMode->UISettings->NewLandscape_ComponentCount.X * LandscapeEdMode->UISettings->NewLandscape_ComponentCount.Y);
 	}
@@ -726,7 +727,7 @@ FText FLandscapeEditorDetailCustomization_NewLandscape::GetTotalComponentCount()
 EVisibility FLandscapeEditorDetailCustomization_NewLandscape::GetVisibilityOnlyInNewLandscapeMode(ENewLandscapePreviewMode::Type value)
 {
 	FEdModeLandscape* LandscapeEdMode = GetEditorMode();
-	if (LandscapeEdMode != NULL)
+	if (LandscapeEdMode != nullptr)
 	{
 		if (LandscapeEdMode->NewLandscapePreviewMode == value)
 		{
@@ -739,7 +740,7 @@ EVisibility FLandscapeEditorDetailCustomization_NewLandscape::GetVisibilityOnlyI
 ECheckBoxState FLandscapeEditorDetailCustomization_NewLandscape::NewLandscapeModeIsChecked(ENewLandscapePreviewMode::Type value) const
 {
 	FEdModeLandscape* LandscapeEdMode = GetEditorMode();
-	if (LandscapeEdMode != NULL)
+	if (LandscapeEdMode != nullptr)
 	{
 		if (LandscapeEdMode->NewLandscapePreviewMode == value)
 		{
@@ -754,7 +755,7 @@ void FLandscapeEditorDetailCustomization_NewLandscape::OnNewLandscapeModeChanged
 	if (NewCheckedState == ECheckBoxState::Checked)
 	{
 		FEdModeLandscape* LandscapeEdMode = GetEditorMode();
-		if (LandscapeEdMode != NULL)
+		if (LandscapeEdMode != nullptr)
 		{
 			LandscapeEdMode->NewLandscapePreviewMode = value;
 
@@ -773,15 +774,13 @@ FReply FLandscapeEditorDetailCustomization_NewLandscape::OnCreateButtonClicked()
 		LandscapeEdMode->GetWorld() != nullptr && 
 		LandscapeEdMode->GetWorld()->GetCurrentLevel()->bIsVisible)
 	{
-		FScopedTransaction Transaction(LOCTEXT("Undo", "Creating New Landscape"));
-
 		// Initialize heightmap data
 		TArray<uint16> Data;
 		const int32 ComponentCountX = LandscapeEdMode->UISettings->NewLandscape_ComponentCount.X;
 		const int32 ComponentCountY = LandscapeEdMode->UISettings->NewLandscape_ComponentCount.Y;
 		const int32 QuadsPerComponent = LandscapeEdMode->UISettings->NewLandscape_SectionsPerComponent * LandscapeEdMode->UISettings->NewLandscape_QuadsPerSection;
-		const int32 SizeX = LandscapeEdMode->UISettings->NewLandscape_ComponentCount.X * QuadsPerComponent + 1;
-		const int32 SizeY = LandscapeEdMode->UISettings->NewLandscape_ComponentCount.Y * QuadsPerComponent + 1;
+		const int32 SizeX = ComponentCountX * QuadsPerComponent + 1;
+		const int32 SizeY = ComponentCountY * QuadsPerComponent + 1;
 		Data.AddUninitialized(SizeX * SizeY);
 		uint16* WordData = Data.GetData();
 
@@ -791,47 +790,80 @@ FReply FLandscapeEditorDetailCustomization_NewLandscape::OnCreateButtonClicked()
 			WordData[i] = 32768;
 		}
 
-		TArray<FLandscapeImportLayerInfo> LayerInfos;
+		TArray<FLandscapeImportLayerInfo> ImportLayers;
 
-		if (LandscapeEdMode->NewLandscapePreviewMode == ENewLandscapePreviewMode::ImportLandscape)
+		if (LandscapeEdMode->NewLandscapePreviewMode == ENewLandscapePreviewMode::NewLandscape)
 		{
-			const int32 ImportSizeX = LandscapeEdMode->UISettings->ImportLandscape_Width;
-			const int32 ImportSizeY = LandscapeEdMode->UISettings->ImportLandscape_Height;
-
-			const TArray<FLandscapeImportLayer>& ImportLandscapeLayersList = LandscapeEdMode->UISettings->ImportLandscape_Layers;
-			LayerInfos.Reserve(ImportLandscapeLayersList.Num());
+			const auto& ImportLandscapeLayersList = LandscapeEdMode->UISettings->ImportLandscape_Layers;
+			ImportLayers.Reserve(ImportLandscapeLayersList.Num());
 
 			// Fill in LayerInfos array and allocate data
-			for (int32 LayerIdx = 0; LayerIdx < ImportLandscapeLayersList.Num(); LayerIdx++)
+			for (const FLandscapeImportLayer& UIImportLayer : ImportLandscapeLayersList)
 			{
-				LayerInfos.Add(ImportLandscapeLayersList[LayerIdx]); //slicing is fine here
-				FLandscapeImportLayerInfo& ImportLayer = LayerInfos.Last();
+				FLandscapeImportLayerInfo ImportLayer = FLandscapeImportLayerInfo(UIImportLayer.LayerName);
+				ImportLayer.LayerInfo = UIImportLayer.LayerInfo;
+				ImportLayer.SourceFilePath = "";
+				ImportLayer.LayerData = TArray<uint8>();
+				ImportLayers.Add(MoveTemp(ImportLayer));
+			}
 
-				if (ImportLayer.LayerInfo != NULL && ImportLayer.SourceFilePath != "")
+			// Fill the first weight-blended layer to 100%
+			if (FLandscapeImportLayerInfo* FirstBlendedLayer = ImportLayers.FindByPredicate([](const FLandscapeImportLayerInfo& ImportLayer) { return ImportLayer.LayerInfo && !ImportLayer.LayerInfo->bNoWeightBlend; }))
+			{
+				FirstBlendedLayer->LayerData.AddUninitialized(SizeX * SizeY);
+
+				uint8* ByteData = FirstBlendedLayer->LayerData.GetData();
+				for (int32 i = 0; i < SizeX * SizeY; i++)
 				{
-					FFileHelper::LoadFileToArray(ImportLayer.LayerData, *ImportLayer.SourceFilePath, FILEREAD_Silent);
+					ByteData[i] = 255;
+				}
+			}
+		}
+		else if (LandscapeEdMode->NewLandscapePreviewMode == ENewLandscapePreviewMode::ImportLandscape)
+		{
+			const uint32 ImportSizeX = LandscapeEdMode->UISettings->ImportLandscape_Width;
+			const uint32 ImportSizeY = LandscapeEdMode->UISettings->ImportLandscape_Height;
 
-					if (ImportLayer.SourceFilePath.EndsWith(".png"))
+			if (LandscapeEdMode->UISettings->ImportLandscape_HeightmapImportResult == ELandscapeImportResult::Error)
+			{
+				// Cancel import
+				return FReply::Handled();
+			}
+
+			TArray<FLandscapeImportLayer>& ImportLandscapeLayersList = LandscapeEdMode->UISettings->ImportLandscape_Layers;
+			ImportLayers.Reserve(ImportLandscapeLayersList.Num());
+
+			// Fill in LayerInfos array and allocate data
+			for (FLandscapeImportLayer& UIImportLayer : ImportLandscapeLayersList)
+			{
+				ImportLayers.Add((const FLandscapeImportLayer&)UIImportLayer); //slicing is fine here
+				FLandscapeImportLayerInfo& ImportLayer = ImportLayers.Last();
+
+				if (ImportLayer.LayerInfo != nullptr && ImportLayer.SourceFilePath != "")
+				{
+					ILandscapeEditorModule& LandscapeEditorModule = FModuleManager::GetModuleChecked<ILandscapeEditorModule>("LandscapeEditor");
+					const ILandscapeWeightmapFileFormat* WeightmapFormat = LandscapeEditorModule.GetWeightmapFormatByExtension(*FPaths::GetExtension(ImportLayer.SourceFilePath, true));
+
+					if (WeightmapFormat)
 					{
-						IImageWrapperModule& ImageWrapperModule = FModuleManager::LoadModuleChecked<IImageWrapperModule>("ImageWrapper");
-						IImageWrapperPtr ImageWrapper = ImageWrapperModule.CreateImageWrapper(EImageFormat::PNG);
-
-						const TArray<uint8>* RawData = NULL;
-						if (ImageWrapper->SetCompressed(ImportLayer.LayerData.GetData(), ImportLayer.LayerData.Num()) &&
-							ImageWrapper->GetRaw(ERGBFormat::Gray, 8, RawData))
-						{
-							ImportLayer.LayerData = *RawData; // agh I want to use MoveTemp() here
-						}
-						else
-						{
-							ImportLayer.LayerData.Empty();
-						}
+						FLandscapeWeightmapImportData WeightmapImportData = WeightmapFormat->Import(*ImportLayer.SourceFilePath, ImportLayer.LayerName, {ImportSizeX, ImportSizeY});
+						UIImportLayer.ImportResult = WeightmapImportData.ResultCode;
+						UIImportLayer.ErrorMessage = WeightmapImportData.ErrorMessage;
+						ImportLayer.LayerData = MoveTemp(WeightmapImportData.Data);
+					}
+					else
+					{
+						UIImportLayer.ImportResult = ELandscapeImportResult::Error;
+						UIImportLayer.ErrorMessage = LOCTEXT("Import_UnknownFileType", "File type not recognised");
 					}
 
-					// Remove invalid raw weightmap data
-					if (ImportLayer.LayerData.Num() != (ImportSizeX * ImportSizeY))
+					if (UIImportLayer.ImportResult == ELandscapeImportResult::Error)
 					{
 						ImportLayer.LayerData.Empty();
+						FMessageDialog::Open(EAppMsgType::Ok, UIImportLayer.ErrorMessage);
+
+						// Cancel import
+						return FReply::Handled();
 					}
 				}
 			}
@@ -848,9 +880,9 @@ FReply FLandscapeEditorDetailCustomization_NewLandscape::OnCreateButtonClicked()
 					-OffsetX, -OffsetY, SizeX - OffsetX - 1, SizeY - OffsetY - 1);
 
 				// Layers
-				for (int32 LayerIdx = 0; LayerIdx < LayerInfos.Num(); LayerIdx++)
+				for (int32 LayerIdx = 0; LayerIdx < ImportLayers.Num(); LayerIdx++)
 				{
-					TArray<uint8>& ImportLayerData = LayerInfos[LayerIdx].LayerData;
+					TArray<uint8>& ImportLayerData = ImportLayers[LayerIdx].LayerData;
 					if (ImportLayerData.Num())
 					{
 						ImportLayerData = LandscapeEditorUtils::ExpandData(ImportLayerData,
@@ -859,20 +891,15 @@ FReply FLandscapeEditorDetailCustomization_NewLandscape::OnCreateButtonClicked()
 					}
 				}
 			}
-
-			LandscapeEdMode->UISettings->ClearImportLandscapeData();
 		}
+
+		FScopedTransaction Transaction(LOCTEXT("Undo", "Creating New Landscape"));
 
 		const FVector Offset = FTransform(LandscapeEdMode->UISettings->NewLandscape_Rotation, FVector::ZeroVector, LandscapeEdMode->UISettings->NewLandscape_Scale).TransformVector(FVector(-ComponentCountX * QuadsPerComponent / 2, -ComponentCountY * QuadsPerComponent / 2, 0));
 		ALandscape* Landscape = LandscapeEdMode->GetWorld()->SpawnActor<ALandscape>(LandscapeEdMode->UISettings->NewLandscape_Location + Offset, LandscapeEdMode->UISettings->NewLandscape_Rotation);
-
-		//if (LandscapeEdMode->NewLandscapePreviewMode == ENewLandscapePreviewMode::ImportLandscape)
-		{
-			Landscape->LandscapeMaterial = LandscapeEdMode->UISettings->NewLandscape_Material.Get();
-		}
-
+		Landscape->LandscapeMaterial = LandscapeEdMode->UISettings->NewLandscape_Material.Get();
 		Landscape->SetActorRelativeScale3D(LandscapeEdMode->UISettings->NewLandscape_Scale);
-		Landscape->Import(FGuid::NewGuid(), 0, 0, SizeX-1, SizeY-1, LandscapeEdMode->UISettings->NewLandscape_SectionsPerComponent, LandscapeEdMode->UISettings->NewLandscape_QuadsPerSection, Data.GetData(), NULL, LayerInfos, LandscapeEdMode->UISettings->ImportLandscape_AlphamapType);
+		Landscape->Import(FGuid::NewGuid(), 0, 0, SizeX-1, SizeY-1, LandscapeEdMode->UISettings->NewLandscape_SectionsPerComponent, LandscapeEdMode->UISettings->NewLandscape_QuadsPerSection, Data.GetData(), nullptr, ImportLayers, LandscapeEdMode->UISettings->ImportLandscape_AlphamapType);
 
 		// automatically calculate a lighting LOD that won't crash lightmass (hopefully)
 		// < 2048x2048 -> LOD0
@@ -886,13 +913,14 @@ FReply FLandscapeEditorDetailCustomization_NewLandscape::OnCreateButtonClicked()
 			Landscape->ReimportHeightmapFilePath = LandscapeEdMode->UISettings->ImportLandscape_HeightmapFilename;
 		}
 
-		ULandscapeInfo* LandscapeInfo = Landscape->GetLandscapeInfo(true);
+		ULandscapeInfo* LandscapeInfo = Landscape->CreateLandscapeInfo();
 		LandscapeInfo->UpdateLayerInfoMap(Landscape);
 
+		// Import doesn't fill in the LayerInfo for layers with no data, do that now
 		const TArray<FLandscapeImportLayer>& ImportLandscapeLayersList = LandscapeEdMode->UISettings->ImportLandscape_Layers;
 		for (int32 i = 0; i < ImportLandscapeLayersList.Num(); i++)
 		{
-			if (ImportLandscapeLayersList[i].LayerInfo != NULL)
+			if (ImportLandscapeLayersList[i].LayerInfo != nullptr)
 			{
 				if (LandscapeEdMode->NewLandscapePreviewMode == ENewLandscapePreviewMode::ImportLandscape)
 				{
@@ -913,9 +941,9 @@ FReply FLandscapeEditorDetailCustomization_NewLandscape::OnCreateButtonClicked()
 		}
 
 		LandscapeEdMode->UpdateLandscapeList();
-		LandscapeEdMode->CurrentToolTarget.LandscapeInfo = Landscape->GetLandscapeInfo();
+		LandscapeEdMode->CurrentToolTarget.LandscapeInfo = LandscapeInfo;
 		LandscapeEdMode->CurrentToolTarget.TargetType = ELandscapeToolTargetType::Heightmap;
-		LandscapeEdMode->CurrentToolTarget.LayerInfo = NULL;
+		LandscapeEdMode->CurrentToolTarget.LayerInfo = nullptr;
 		LandscapeEdMode->CurrentToolTarget.LayerName = NAME_None;
 		LandscapeEdMode->UpdateTargetList();
 
@@ -929,7 +957,7 @@ FReply FLandscapeEditorDetailCustomization_NewLandscape::OnCreateButtonClicked()
 FReply FLandscapeEditorDetailCustomization_NewLandscape::OnFillWorldButtonClicked()
 {
 	FEdModeLandscape* LandscapeEdMode = GetEditorMode();
-	if (LandscapeEdMode != NULL)
+	if (LandscapeEdMode != nullptr)
 	{
 		FVector& NewLandscapeLocation = LandscapeEdMode->UISettings->NewLandscape_Location;
 		NewLandscapeLocation.X = 0;
@@ -947,7 +975,7 @@ FReply FLandscapeEditorDetailCustomization_NewLandscape::OnFillWorldButtonClicke
 FReply FLandscapeEditorDetailCustomization_NewLandscape::OnFitImportDataButtonClicked()
 {
 	FEdModeLandscape* LandscapeEdMode = GetEditorMode();
-	if (LandscapeEdMode != NULL)
+	if (LandscapeEdMode != nullptr)
 	{
 		ChooseBestComponentSizeForImport(LandscapeEdMode);
 	}
@@ -958,19 +986,16 @@ FReply FLandscapeEditorDetailCustomization_NewLandscape::OnFitImportDataButtonCl
 bool FLandscapeEditorDetailCustomization_NewLandscape::GetImportButtonIsEnabled() const
 {
 	FEdModeLandscape* LandscapeEdMode = GetEditorMode();
-	if (LandscapeEdMode != NULL)
+	if (LandscapeEdMode != nullptr)
 	{
-		if (LandscapeEdMode->UISettings->ImportLandscape_HeightmapError != ELandscapeImportHeightmapError::None &&
-			LandscapeEdMode->UISettings->ImportLandscape_HeightmapError != ELandscapeImportHeightmapError::ColorPng &&
-			LandscapeEdMode->UISettings->ImportLandscape_HeightmapError != ELandscapeImportHeightmapError::LowBitDepth)
+		if (LandscapeEdMode->UISettings->ImportLandscape_HeightmapImportResult == ELandscapeImportResult::Error)
 		{
 			return false;
 		}
 
 		for (int32 i = 0; i < LandscapeEdMode->UISettings->ImportLandscape_Layers.Num(); ++i)
 		{
-			if (LandscapeEdMode->UISettings->ImportLandscape_Layers[i].ImportError != ELandscapeImportLayerError::None &&
-				LandscapeEdMode->UISettings->ImportLandscape_Layers[i].ImportError != ELandscapeImportLayerError::ColorPng)
+			if (LandscapeEdMode->UISettings->ImportLandscape_Layers[i].ImportResult == ELandscapeImportResult::Error)
 			{
 				return false;
 			}
@@ -981,69 +1006,52 @@ bool FLandscapeEditorDetailCustomization_NewLandscape::GetImportButtonIsEnabled(
 	return false;
 }
 
-
-EVisibility FLandscapeEditorDetailCustomization_NewLandscape::GetHeightmapErrorVisibility(TSharedRef<IPropertyHandle> PropertyHandle_HeightmapError)
+EVisibility FLandscapeEditorDetailCustomization_NewLandscape::GetHeightmapErrorVisibility(TSharedRef<IPropertyHandle> PropertyHandle_HeightmapImportResult)
 {
-	uint8 HeightmapErrorAsByte = 0;
-	FPropertyAccess::Result Result = PropertyHandle_HeightmapError->GetValue(HeightmapErrorAsByte);
-	check(Result == FPropertyAccess::Success);
+	ELandscapeImportResult HeightmapImportResult;
+	FPropertyAccess::Result Result = PropertyHandle_HeightmapImportResult->GetValue((uint8&)HeightmapImportResult);
+
+	if (Result == FPropertyAccess::Fail)
+	{
+		return EVisibility::Collapsed;
+	}
 
 	if (Result == FPropertyAccess::MultipleValues)
 	{
 		return EVisibility::Visible;
 	}
 
-	if (HeightmapErrorAsByte != ELandscapeImportHeightmapError::None)
+	if (HeightmapImportResult != ELandscapeImportResult::Success)
 	{
 		return EVisibility::Visible;
 	}
+
 	return EVisibility::Collapsed;
 }
 
-FText FLandscapeEditorDetailCustomization_NewLandscape::GetHeightmapErrorText(TSharedRef<IPropertyHandle> PropertyHandle_HeightmapError)
+FSlateColor FLandscapeEditorDetailCustomization_NewLandscape::GetHeightmapErrorColor(TSharedRef<IPropertyHandle> PropertyHandle_HeightmapImportResult)
 {
-	uint8 HeightmapErrorAsByte = 0;
-	FPropertyAccess::Result Result = PropertyHandle_HeightmapError->GetValue(HeightmapErrorAsByte);
-	check(Result == FPropertyAccess::Success);
+	ELandscapeImportResult HeightmapImportResult;
+	FPropertyAccess::Result Result = PropertyHandle_HeightmapImportResult->GetValue((uint8&)HeightmapImportResult);
 
-	if (Result == FPropertyAccess::MultipleValues)
+	if (Result == FPropertyAccess::Fail ||
+		Result == FPropertyAccess::MultipleValues)
 	{
-		return NSLOCTEXT("PropertyEditor", "MultipleValues", "Multiple Values");
+		return FCoreStyle::Get().GetColor("ErrorReporting.BackgroundColor");
 	}
 
-	switch (HeightmapErrorAsByte)
+	switch (HeightmapImportResult)
 	{
-	case ELandscapeImportHeightmapError::None:
-		return FText::GetEmpty();
-	case ELandscapeImportHeightmapError::FileNotFound:
-		return LOCTEXT("Import_HeightmapFileDoesNotExist", "The Heightmap file does not exist");
-	case ELandscapeImportHeightmapError::InvalidSize:
-		return LOCTEXT("Import_HeightmapFileInvalidSize", "The Heightmap file has an invalid size (possibly not 16-bit?)");
-	case ELandscapeImportHeightmapError::CorruptFile:
-		return LOCTEXT("Import_HeightmapFileCorruptPng", "The Heightmap file cannot be read (corrupt png?)");
-	case ELandscapeImportHeightmapError::ColorPng:
-		return LOCTEXT("Import_HeightmapFileColorPng", "The Heightmap file appears to be a color png, grayscale is expected. The import *can* continue, but the result may not be what you expect...");
-	case ELandscapeImportHeightmapError::LowBitDepth:
-		return LOCTEXT("Import_HeightmapFileLowBitDepth", "The Heightmap file appears to be an 8-bit png, 16-bit is preferred. The import *can* continue, but the result may be lower quality than desired.");
+	case ELandscapeImportResult::Success:
+		return FCoreStyle::Get().GetColor("InfoReporting.BackgroundColor");
+	case ELandscapeImportResult::Warning:
+		return FCoreStyle::Get().GetColor("ErrorReporting.WarningBackgroundColor");
+	case ELandscapeImportResult::Error:
+		return FCoreStyle::Get().GetColor("ErrorReporting.BackgroundColor");
 	default:
 		check(0);
+		return FSlateColor();
 	}
-
-	return FText::GetEmpty();
-}
-
-FText FLandscapeEditorDetailCustomization_NewLandscape::GetImportHeightmapFilenameString(TSharedRef<IPropertyHandle> PropertyHandle_HeightmapFilename)
-{
-	FString HeightmapFilename;
-	FPropertyAccess::Result Result = PropertyHandle_HeightmapFilename->GetValue(HeightmapFilename);
-	check(Result == FPropertyAccess::Success);
-
-	if (Result == FPropertyAccess::MultipleValues)
-	{
-		return NSLOCTEXT("PropertyEditor", "MultipleValues", "Multiple Values");
-	}
-
-	return FText::FromString(HeightmapFilename);
 }
 
 void FLandscapeEditorDetailCustomization_NewLandscape::SetImportHeightmapFilenameString(const FText& NewValue, ETextCommit::Type CommitInfo, TSharedRef<IPropertyHandle> PropertyHandle_HeightmapFilename)
@@ -1055,100 +1063,36 @@ void FLandscapeEditorDetailCustomization_NewLandscape::SetImportHeightmapFilenam
 void FLandscapeEditorDetailCustomization_NewLandscape::OnImportHeightmapFilenameChanged()
 {
 	FEdModeLandscape* LandscapeEdMode = GetEditorMode();
-	if (LandscapeEdMode != NULL)
+	if (LandscapeEdMode != nullptr)
 	{
 		ImportResolutions.Reset(1);
 		LandscapeEdMode->UISettings->ImportLandscape_Width = 0;
 		LandscapeEdMode->UISettings->ImportLandscape_Height = 0;
 		LandscapeEdMode->UISettings->ClearImportLandscapeData();
-		LandscapeEdMode->UISettings->ImportLandscape_HeightmapError = ELandscapeImportHeightmapError::None;
+		LandscapeEdMode->UISettings->ImportLandscape_HeightmapImportResult = ELandscapeImportResult::Success;
+		LandscapeEdMode->UISettings->ImportLandscape_HeightmapErrorMessage = FText();
 
 		if (!LandscapeEdMode->UISettings->ImportLandscape_HeightmapFilename.IsEmpty())
 		{
-			if (LandscapeEdMode->UISettings->ImportLandscape_HeightmapFilename.EndsWith(".png"))
-			{
-				TArray<uint8> ImportData;
-				if (!FFileHelper::LoadFileToArray(ImportData, *LandscapeEdMode->UISettings->ImportLandscape_HeightmapFilename, FILEREAD_Silent))
-				{
-					LandscapeEdMode->UISettings->ImportLandscape_HeightmapError = ELandscapeImportHeightmapError::FileNotFound;
-				}
-				else
-				{
-					IImageWrapperModule& ImageWrapperModule = FModuleManager::LoadModuleChecked<IImageWrapperModule>("ImageWrapper");
-					IImageWrapperPtr ImageWrapper = ImageWrapperModule.CreateImageWrapper(EImageFormat::PNG);
+			ILandscapeEditorModule& LandscapeEditorModule = FModuleManager::GetModuleChecked<ILandscapeEditorModule>("LandscapeEditor");
+			const ILandscapeHeightmapFileFormat* HeightmapFormat = LandscapeEditorModule.GetHeightmapFormatByExtension(*FPaths::GetExtension(LandscapeEdMode->UISettings->ImportLandscape_HeightmapFilename, true));
 
-					if (!ImageWrapper->SetCompressed(ImportData.GetData(), ImportData.Num()))
-					{
-						LandscapeEdMode->UISettings->ImportLandscape_HeightmapError = ELandscapeImportHeightmapError::CorruptFile;
-					}
-					else if (ImageWrapper->GetWidth() <= 0 || ImageWrapper->GetHeight() <= 0)
-					{
-						LandscapeEdMode->UISettings->ImportLandscape_HeightmapError = ELandscapeImportHeightmapError::InvalidSize;
-					}
-					else
-					{
-						if (ImageWrapper->GetFormat() != ERGBFormat::Gray)
-						{
-							LandscapeEdMode->UISettings->ImportLandscape_HeightmapError = ELandscapeImportHeightmapError::ColorPng;
-							FMessageDialog::Open(EAppMsgType::Ok, LOCTEXT("Import_HeightmapFileColorPng", "The Heightmap file appears to be a color png, grayscale is expected. The import *can* continue, but the result may not be what you expect..."));
-						}
-						else if (ImageWrapper->GetBitDepth() != 16)
-						{
-							LandscapeEdMode->UISettings->ImportLandscape_HeightmapError = ELandscapeImportHeightmapError::LowBitDepth;
-							FMessageDialog::Open(EAppMsgType::Ok, LOCTEXT("Import_HeightmapFileLowBitDepth", "The Heightmap file appears to be an 8-bit png, 16-bit is preferred. The import *can* continue, but the result may be lower quality than desired."));
-						}
-						FLandscapeImportResolution ImportResolution;
-						ImportResolution.Width = ImageWrapper->GetWidth();
-						ImportResolution.Height = ImageWrapper->GetHeight();
-						ImportResolutions.Add(ImportResolution);
-					}
+			if (HeightmapFormat)
+			{
+				FLandscapeHeightmapInfo HeightmapImportInfo = HeightmapFormat->Validate(*LandscapeEdMode->UISettings->ImportLandscape_HeightmapFilename);
+				LandscapeEdMode->UISettings->ImportLandscape_HeightmapImportResult = HeightmapImportInfo.ResultCode;
+				LandscapeEdMode->UISettings->ImportLandscape_HeightmapErrorMessage = HeightmapImportInfo.ErrorMessage;
+				ImportResolutions = MoveTemp(HeightmapImportInfo.PossibleResolutions);
+				if (HeightmapImportInfo.DataScale.IsSet())
+				{
+					LandscapeEdMode->UISettings->NewLandscape_Scale = HeightmapImportInfo.DataScale.GetValue();
+					LandscapeEdMode->UISettings->NewLandscape_Scale.Z *= LANDSCAPE_INV_ZSCALE;
 				}
 			}
 			else
 			{
-				int64 ImportFileSize = IFileManager::Get().FileSize(*LandscapeEdMode->UISettings->ImportLandscape_HeightmapFilename);
-
-				if (ImportFileSize < 0)
-				{
-					LandscapeEdMode->UISettings->ImportLandscape_HeightmapError = ELandscapeImportHeightmapError::FileNotFound;
-				}
-				else if (ImportFileSize == 0 || ImportFileSize % 2 != 0)
-				{
-					LandscapeEdMode->UISettings->ImportLandscape_HeightmapError = ELandscapeImportHeightmapError::InvalidSize;
-				}
-				else
-				{
-					ImportFileSize /= 2;
-
-					// Find all possible heightmap sizes, up to 8192 width/height
-					int32 InsertIndex = 0;
-					const int32 MinWidth = FMath::DivideAndRoundUp(ImportFileSize, (int64)8192);
-					const int32 MaxWidth = FMath::TruncToInt(FMath::Sqrt(ImportFileSize));
-					for (int32 Width = MinWidth; Width <= MaxWidth; Width++)
-					{
-						if (ImportFileSize % Width == 0)
-						{
-							const int32 Height = ImportFileSize / Width;
-
-							FLandscapeImportResolution ImportResolution;
-							ImportResolution.Width = Width;
-							ImportResolution.Height = Height;
-							ImportResolutions.Insert(ImportResolution, InsertIndex++);
-
-							if (Width != Height)
-							{
-								ImportResolution.Width = Height;
-								ImportResolution.Height = Width;
-								ImportResolutions.Insert(ImportResolution, InsertIndex);
-							}
-						}
-					}
-
-					if (ImportResolutions.Num() == 0)
-					{
-						LandscapeEdMode->UISettings->ImportLandscape_HeightmapError = ELandscapeImportHeightmapError::InvalidSize;
-					}
-				}
+				LandscapeEdMode->UISettings->ImportLandscape_HeightmapImportResult = ELandscapeImportResult::Error;
+				LandscapeEdMode->UISettings->ImportLandscape_HeightmapErrorMessage = LOCTEXT("Import_UnknownFileType", "File type not recognised");
 			}
 		}
 
@@ -1157,14 +1101,7 @@ void FLandscapeEditorDetailCustomization_NewLandscape::OnImportHeightmapFilename
 			int32 i = ImportResolutions.Num() / 2;
 			LandscapeEdMode->UISettings->ImportLandscape_Width = ImportResolutions[i].Width;
 			LandscapeEdMode->UISettings->ImportLandscape_Height = ImportResolutions[i].Height;
-			LandscapeEdMode->UISettings->ClearImportLandscapeData();
 			ChooseBestComponentSizeForImport(LandscapeEdMode);
-		}
-		else
-		{
-			LandscapeEdMode->UISettings->ImportLandscape_Width = 0;
-			LandscapeEdMode->UISettings->ImportLandscape_Height = 0;
-			LandscapeEdMode->UISettings->ClearImportLandscapeData();
 		}
 	}
 }
@@ -1172,13 +1109,13 @@ void FLandscapeEditorDetailCustomization_NewLandscape::OnImportHeightmapFilename
 FReply FLandscapeEditorDetailCustomization_NewLandscape::OnImportHeightmapFilenameButtonClicked(TSharedRef<IPropertyHandle> PropertyHandle_HeightmapFilename)
 {
 	FEdModeLandscape* LandscapeEdMode = GetEditorMode();
-	check(LandscapeEdMode != NULL);
+	check(LandscapeEdMode != nullptr);
 
 	// Prompt the user for the Filenames
 	IDesktopPlatform* DesktopPlatform = FDesktopPlatformModule::Get();
-	if (DesktopPlatform != NULL)
+	if (DesktopPlatform != nullptr)
 	{
-		void* ParentWindowWindowHandle = NULL;
+		void* ParentWindowWindowHandle = nullptr;
 
 		IMainFrameModule& MainFrameModule = FModuleManager::LoadModuleChecked<IMainFrameModule>(TEXT("MainFrame"));
 		const TSharedPtr<SWindow>& MainFrameParentWindow = MainFrameModule.GetParentWindow();
@@ -1187,13 +1124,16 @@ FReply FLandscapeEditorDetailCustomization_NewLandscape::OnImportHeightmapFilena
 			ParentWindowWindowHandle = MainFrameParentWindow->GetNativeWindow()->GetOSWindowHandle();
 		}
 
+		ILandscapeEditorModule& LandscapeEditorModule = FModuleManager::GetModuleChecked<ILandscapeEditorModule>("LandscapeEditor");
+		const TCHAR* FileTypes = LandscapeEditorModule.GetHeightmapImportDialogTypeString();
+
 		TArray<FString> OpenFilenames;
 		bool bOpened = DesktopPlatform->OpenFileDialog(
 			ParentWindowWindowHandle,
 			NSLOCTEXT("UnrealEd", "Import", "Import").ToString(),
 			LandscapeEdMode->UISettings->LastImportPath,
 			TEXT(""),
-			TEXT("All Heightmap files|*.png;*.raw;*.r16|Heightmap png files|*.png|Heightmap .raw/.r16 files|*.raw;*.r16|All files (*.*)|*.*"),
+			FileTypes,
 			EFileDialogFlags::None,
 			OpenFilenames);
 
@@ -1210,7 +1150,7 @@ FReply FLandscapeEditorDetailCustomization_NewLandscape::OnImportHeightmapFilena
 
 TSharedRef<SWidget> FLandscapeEditorDetailCustomization_NewLandscape::GetImportLandscapeResolutionMenu()
 {
-	FMenuBuilder MenuBuilder(true, NULL);
+	FMenuBuilder MenuBuilder(true, nullptr);
 
 	for (int32 i = 0; i < ImportResolutions.Num(); i++)
 	{
@@ -1226,7 +1166,7 @@ TSharedRef<SWidget> FLandscapeEditorDetailCustomization_NewLandscape::GetImportL
 void FLandscapeEditorDetailCustomization_NewLandscape::OnChangeImportLandscapeResolution(int32 Index)
 {
 	FEdModeLandscape* LandscapeEdMode = GetEditorMode();
-	if (LandscapeEdMode != NULL)
+	if (LandscapeEdMode != nullptr)
 	{
 		LandscapeEdMode->UISettings->ImportLandscape_Width = ImportResolutions[Index].Width;
 		LandscapeEdMode->UISettings->ImportLandscape_Height = ImportResolutions[Index].Height;
@@ -1238,7 +1178,7 @@ void FLandscapeEditorDetailCustomization_NewLandscape::OnChangeImportLandscapeRe
 FText FLandscapeEditorDetailCustomization_NewLandscape::GetImportLandscapeResolution() const
 {
 	FEdModeLandscape* LandscapeEdMode = GetEditorMode();
-	if (LandscapeEdMode != NULL)
+	if (LandscapeEdMode != nullptr)
 	{
 		const int32 Width = LandscapeEdMode->UISettings->ImportLandscape_Width;
 		const int32 Height = LandscapeEdMode->UISettings->ImportLandscape_Height;
@@ -1342,7 +1282,7 @@ void FLandscapeEditorDetailCustomization_NewLandscape::ChooseBestComponentSizeFo
 EVisibility FLandscapeEditorDetailCustomization_NewLandscape::GetMaterialTipVisibility() const
 {
 	FEdModeLandscape* LandscapeEdMode = GetEditorMode();
-	if (LandscapeEdMode != NULL)
+	if (LandscapeEdMode != nullptr)
 	{
 		if (LandscapeEdMode->UISettings->ImportLandscape_Layers.Num() == 0)
 		{
@@ -1369,7 +1309,8 @@ void FLandscapeEditorStructCustomization_FLandscapeImportLayer::CustomizeChildre
 	TSharedRef<IPropertyHandle> PropertyHandle_LayerInfo = StructPropertyHandle->GetChildHandle(GET_MEMBER_NAME_CHECKED(FLandscapeImportLayer, LayerInfo)).ToSharedRef();
 	TSharedRef<IPropertyHandle> PropertyHandle_SourceFilePath = StructPropertyHandle->GetChildHandle(GET_MEMBER_NAME_CHECKED(FLandscapeImportLayer, SourceFilePath)).ToSharedRef();
 	TSharedRef<IPropertyHandle> PropertyHandle_ThumbnailMIC = StructPropertyHandle->GetChildHandle(GET_MEMBER_NAME_CHECKED(FLandscapeImportLayer, ThumbnailMIC)).ToSharedRef();
-	TSharedRef<IPropertyHandle> PropertyHandle_LayerError = StructPropertyHandle->GetChildHandle(GET_MEMBER_NAME_CHECKED(FLandscapeImportLayer, ImportError)).ToSharedRef();
+	TSharedRef<IPropertyHandle> PropertyHandle_ImportResult = StructPropertyHandle->GetChildHandle(GET_MEMBER_NAME_CHECKED(FLandscapeImportLayer, ImportResult)).ToSharedRef();
+	TSharedRef<IPropertyHandle> PropertyHandle_ErrorMessage = StructPropertyHandle->GetChildHandle(GET_MEMBER_NAME_CHECKED(FLandscapeImportLayer, ErrorMessage)).ToSharedRef();
 
 	FName LayerName;
 	FText LayerNameText;
@@ -1382,7 +1323,7 @@ void FLandscapeEditorStructCustomization_FLandscapeImportLayer::CustomizeChildre
 		LayerNameText = NSLOCTEXT("PropertyEditor", "MultipleValues", "Multiple Values");
 	}
 
-	UObject* ThumbnailMIC = NULL;
+	UObject* ThumbnailMIC = nullptr;
 	Result = PropertyHandle_ThumbnailMIC->GetValue(ThumbnailMIC);
 	checkSlow(Result == FPropertyAccess::Success);
 
@@ -1390,19 +1331,6 @@ void FLandscapeEditorStructCustomization_FLandscapeImportLayer::CustomizeChildre
 	.NameContent()
 	[
 		SNew(SHorizontalBox)
-		+ SHorizontalBox::Slot()
-		.AutoWidth()
-		.VAlign(VAlign_Center)
-		.Padding(FMargin(2))
-		[
-			SNew(SErrorText)
-			.Visibility_Static(&GetErrorVisibility, PropertyHandle_LayerError)
-			.ErrorText(NSLOCTEXT("UnrealEd", "Error", "!"))
-			.ToolTip(
-				SNew(SToolTip)
-				.Text_Static(&GetErrorText, PropertyHandle_LayerError)
-			)
-		]
 		+ SHorizontalBox::Slot()
 		.FillWidth(1)
 		.VAlign(VAlign_Center)
@@ -1470,11 +1398,25 @@ void FLandscapeEditorStructCustomization_FLandscapeImportLayer::CustomizeChildre
 				SNew(SHorizontalBox)
 				.Visibility_Static(&FLandscapeEditorDetailCustomization_NewLandscape::GetVisibilityOnlyInNewLandscapeMode, ENewLandscapePreviewMode::ImportLandscape)
 				+ SHorizontalBox::Slot()
+				.AutoWidth()
+				.Padding(0, 0, 2, 0)
+				[
+					SNew(SErrorText)
+					.Visibility_Static(&GetErrorVisibility, PropertyHandle_ImportResult)
+					.BackgroundColor_Static(&GetErrorColor, PropertyHandle_ImportResult)
+					.ErrorText(NSLOCTEXT("UnrealEd", "Error", "!"))
+					.ToolTip(
+						SNew(SToolTip)
+						.Text_Static(&GetErrorText, PropertyHandle_ErrorMessage)
+					)
+				]
+				+ SHorizontalBox::Slot()
 				[
 					PropertyHandle_SourceFilePath->CreatePropertyValueWidget()
 				]
 				+ SHorizontalBox::Slot()
 				.AutoWidth()
+				.Padding(1, 0, 0, 0)
 				[
 					SNew(SButton)
 					.ContentPadding(FMargin(4, 0))
@@ -1489,13 +1431,13 @@ void FLandscapeEditorStructCustomization_FLandscapeImportLayer::CustomizeChildre
 FReply FLandscapeEditorStructCustomization_FLandscapeImportLayer::OnLayerFilenameButtonClicked(TSharedRef<IPropertyHandle> PropertyHandle_LayerFilename)
 {
 	FEdModeLandscape* LandscapeEdMode = GetEditorMode();
-	check(LandscapeEdMode != NULL);
+	check(LandscapeEdMode != nullptr);
 
 	// Prompt the user for the Filenames
 	IDesktopPlatform* DesktopPlatform = FDesktopPlatformModule::Get();
-	if (DesktopPlatform != NULL)
+	if (DesktopPlatform != nullptr)
 	{
-		void* ParentWindowWindowHandle = NULL;
+		void* ParentWindowWindowHandle = nullptr;
 
 		IMainFrameModule& MainFrameModule = FModuleManager::LoadModuleChecked<IMainFrameModule>(TEXT("MainFrame"));
 		const TSharedPtr<SWindow>& MainFrameParentWindow = MainFrameModule.GetParentWindow();
@@ -1504,13 +1446,16 @@ FReply FLandscapeEditorStructCustomization_FLandscapeImportLayer::OnLayerFilenam
 			ParentWindowWindowHandle = MainFrameParentWindow->GetNativeWindow()->GetOSWindowHandle();
 		}
 
+		ILandscapeEditorModule& LandscapeEditorModule = FModuleManager::GetModuleChecked<ILandscapeEditorModule>("LandscapeEditor");
+		const TCHAR* FileTypes = LandscapeEditorModule.GetWeightmapImportDialogTypeString();
+
 		TArray<FString> OpenFilenames;
 		bool bOpened = DesktopPlatform->OpenFileDialog(
 			ParentWindowWindowHandle,
 			NSLOCTEXT("UnrealEd", "Import", "Import").ToString(),
 			LandscapeEdMode->UISettings->LastImportPath,
 			TEXT(""),
-			TEXT("All Layer files|*.png;*.raw;*.r16|Layer png files|*.png|Layer files (*.raw,*.r16)|*.raw;*.r16|All files (*.*)|*.*"),
+			FileTypes,
 			EFileDialogFlags::None,
 			OpenFilenames);
 
@@ -1526,20 +1471,21 @@ FReply FLandscapeEditorStructCustomization_FLandscapeImportLayer::OnLayerFilenam
 
 bool FLandscapeEditorStructCustomization_FLandscapeImportLayer::ShouldFilterLayerInfo(const FAssetData& AssetData, FName LayerName)
 {
-	ULandscapeLayerInfoObject* LayerInfo = CastChecked<ULandscapeLayerInfoObject>(AssetData.GetAsset());
-	if (LayerInfo->LayerName != LayerName)
+	const FName LayerNameMetaData = AssetData.GetTagValueRef<FName>("LayerName");
+	if (!LayerNameMetaData.IsNone())
 	{
-		return true;
+		return LayerNameMetaData != LayerName;
 	}
 
-	return false;
+	ULandscapeLayerInfoObject* LayerInfo = CastChecked<ULandscapeLayerInfoObject>(AssetData.GetAsset());
+	return LayerInfo->LayerName != LayerName;
 }
 
 EVisibility FLandscapeEditorStructCustomization_FLandscapeImportLayer::GetImportLayerCreateVisibility(TSharedRef<IPropertyHandle> PropertyHandle_LayerInfo)
 {
-	UObject* LayerInfoAsUObject = NULL;
+	UObject* LayerInfoAsUObject = nullptr;
 	if (PropertyHandle_LayerInfo->GetValue(LayerInfoAsUObject) != FPropertyAccess::Fail &&
-		LayerInfoAsUObject == NULL)
+		LayerInfoAsUObject == nullptr)
 	{
 		return EVisibility::Visible;
 	}
@@ -1549,7 +1495,7 @@ EVisibility FLandscapeEditorStructCustomization_FLandscapeImportLayer::GetImport
 
 TSharedRef<SWidget> FLandscapeEditorStructCustomization_FLandscapeImportLayer::OnGetImportLayerCreateMenu(TSharedRef<IPropertyHandle> PropertyHandle_LayerInfo, FName LayerName)
 {
-	FMenuBuilder MenuBuilder(true, NULL);
+	FMenuBuilder MenuBuilder(true, nullptr);
 
 	MenuBuilder.AddMenuEntry(LOCTEXT("Target_Create_Blended", "Weight-Blended Layer (normal)"), FText(), FSlateIcon(),
 		FUIAction(FExecuteAction::CreateStatic(&OnImportLayerCreateClicked, PropertyHandle_LayerInfo, LayerName, false)));
@@ -1563,7 +1509,7 @@ TSharedRef<SWidget> FLandscapeEditorStructCustomization_FLandscapeImportLayer::O
 void FLandscapeEditorStructCustomization_FLandscapeImportLayer::OnImportLayerCreateClicked(TSharedRef<IPropertyHandle> PropertyHandle_LayerInfo, FName LayerName, bool bNoWeightBlend)
 {
 	FEdModeLandscape* LandscapeEdMode = GetEditorMode();
-	if (LandscapeEdMode != NULL)
+	if (LandscapeEdMode != nullptr)
 	{
 		// Hack as we don't have a direct world pointer in the EdMode...
 		ULevel* Level = LandscapeEdMode->CurrentGizmoActor->GetWorld()->GetCurrentLevel();
@@ -1587,7 +1533,7 @@ void FLandscapeEditorStructCustomization_FLandscapeImportLayer::OnImportLayerCre
 			PackageName = NewLayerDlg->GetFullAssetPath().ToString();
 			LayerObjectName = FName(*NewLayerDlg->GetAssetName().ToString());
 
-			UPackage* Package = CreatePackage(NULL, *PackageName);
+			UPackage* Package = CreatePackage(nullptr, *PackageName);
 			ULandscapeLayerInfoObject* LayerInfo = NewObject<ULandscapeLayerInfoObject>(Package, LayerObjectName, RF_Public | RF_Standalone | RF_Transactional);
 			LayerInfo->LayerName = LayerName;
 			LayerInfo->bNoWeightBlend = bNoWeightBlend;
@@ -1609,37 +1555,53 @@ void FLandscapeEditorStructCustomization_FLandscapeImportLayer::OnImportLayerCre
 	}
 }
 
-EVisibility FLandscapeEditorStructCustomization_FLandscapeImportLayer::GetErrorVisibility(TSharedRef<IPropertyHandle> PropertyHandle_LayerError)
+EVisibility FLandscapeEditorStructCustomization_FLandscapeImportLayer::GetErrorVisibility(TSharedRef<IPropertyHandle> PropertyHandle_ImportResult)
 {
-	auto LayerError = ELandscapeImportLayerError::None;
-	FPropertyAccess::Result Result = PropertyHandle_LayerError->GetValue((uint8&)LayerError);
+	ELandscapeImportResult WeightmapImportResult;
+	FPropertyAccess::Result Result = PropertyHandle_ImportResult->GetValue((uint8&)WeightmapImportResult);
+
 	if (Result == FPropertyAccess::Fail ||
 		Result == FPropertyAccess::MultipleValues)
 	{
 		return EVisibility::Visible;
 	}
 
-	// None of the errors are currently relevant outside of "Import" mode
-	FEdModeLandscape* LandscapeEdMode = GetEditorMode();
-	if (LandscapeEdMode != NULL)
-	{
-		if (LandscapeEdMode->NewLandscapePreviewMode != ENewLandscapePreviewMode::ImportLandscape)
-		{
-			return EVisibility::Collapsed;
-		}
-	}
-
-	if (LayerError != ELandscapeImportLayerError::None)
+	if (WeightmapImportResult != ELandscapeImportResult::Success)
 	{
 		return EVisibility::Visible;
 	}
 	return EVisibility::Collapsed;
 }
 
-FText FLandscapeEditorStructCustomization_FLandscapeImportLayer::GetErrorText(TSharedRef<IPropertyHandle> PropertyHandle_LayerError)
+FSlateColor FLandscapeEditorStructCustomization_FLandscapeImportLayer::GetErrorColor(TSharedRef<IPropertyHandle> PropertyHandle_ImportResult)
 {
-	auto LayerError = ELandscapeImportLayerError::None;
-	FPropertyAccess::Result Result = PropertyHandle_LayerError->GetValue((uint8&)LayerError);
+	ELandscapeImportResult WeightmapImportResult;
+	FPropertyAccess::Result Result = PropertyHandle_ImportResult->GetValue((uint8&)WeightmapImportResult);
+	check(Result == FPropertyAccess::Success);
+
+	if (Result == FPropertyAccess::MultipleValues)
+	{
+		return FCoreStyle::Get().GetColor("ErrorReporting.BackgroundColor");
+	}
+
+	switch (WeightmapImportResult)
+	{
+	case ELandscapeImportResult::Success:
+		return FCoreStyle::Get().GetColor("InfoReporting.BackgroundColor");
+	case ELandscapeImportResult::Warning:
+		return FCoreStyle::Get().GetColor("ErrorReporting.WarningBackgroundColor");
+	case ELandscapeImportResult::Error:
+		return FCoreStyle::Get().GetColor("ErrorReporting.BackgroundColor");
+	default:
+		check(0);
+		return FSlateColor();
+	}
+}
+
+FText FLandscapeEditorStructCustomization_FLandscapeImportLayer::GetErrorText(TSharedRef<IPropertyHandle> PropertyHandle_ErrorMessage)
+{
+	FText ErrorMessage;
+	FPropertyAccess::Result Result = PropertyHandle_ErrorMessage->GetValue(ErrorMessage);
 	if (Result == FPropertyAccess::Fail)
 	{
 		return LOCTEXT("Import_LayerUnknownError", "Unknown Error");
@@ -1649,26 +1611,7 @@ FText FLandscapeEditorStructCustomization_FLandscapeImportLayer::GetErrorText(TS
 		return NSLOCTEXT("PropertyEditor", "MultipleValues", "Multiple Values");
 	}
 
-	switch (LayerError)
-	{
-	case ELandscapeImportLayerError::None:
-		return FText::GetEmpty();
-	case ELandscapeImportLayerError::MissingLayerInfo:
-		return LOCTEXT("Import_LayerInfoNotSet", "Can't import a layer file without a layer info");
-	case ELandscapeImportLayerError::FileNotFound:
-		return LOCTEXT("Import_LayerFileDoesNotExist", "The Layer file does not exist");
-	case ELandscapeImportLayerError::FileSizeMismatch:
-		return LOCTEXT("Import_LayerSizeMismatch", "Size of the layer file does not match size of heightmap file");
-	case ELandscapeImportLayerError::CorruptFile:
-		return LOCTEXT("Import_LayerCorruptPng", "The Layer file cannot be read (corrupt png?)");
-	case ELandscapeImportLayerError::ColorPng:
-		return LOCTEXT("Import_LayerColorPng", "The Layer file appears to be a color png, grayscale is expected. The import *can* continue, but the result may not be what you expect...");
-	default:
-		checkSlow(0);
-		return LOCTEXT("Import_LayerUnknownError", "Unknown Error");
-	}
-
-	return FText::GetEmpty();
+	return ErrorMessage;
 }
 
 #undef LOCTEXT_NAMESPACE

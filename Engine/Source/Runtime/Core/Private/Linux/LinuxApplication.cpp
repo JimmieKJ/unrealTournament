@@ -31,6 +31,11 @@ FLinuxApplication* LinuxApplication = NULL;
 
 FLinuxApplication* FLinuxApplication::CreateLinuxApplication()
 {
+	if (!FApp::CanEverRender())	// this assumes that we're running in "headless" mode, and we don't need any kind of multimedia
+	{
+		return new FLinuxApplication();
+	}
+
 	if (!FPlatformMisc::PlatformInitMultimedia()) //	will not initialize more than once
 	{
 		UE_LOG(LogInit, Fatal, TEXT("FLinuxApplication::CreateLinuxApplication() : PlatformInitMultimedia() failed, cannot create application instance."));
@@ -56,7 +61,7 @@ FLinuxApplication* FLinuxApplication::CreateLinuxApplication()
 			auto Controller = SDL_GameControllerOpen(i);
 			if (Controller == nullptr)
 			{
-				UE_LOG(LogLoad, Warning, TEXT("Could not open gamecontroller %i: %s\n"), i, ANSI_TO_TCHAR(SDL_GetError()) );
+				UE_LOG(LogLoad, Warning, TEXT("Could not open gamecontroller %i: %s\n"), i, UTF8_TO_TCHAR(SDL_GetError()) );
 			}
 			else
 			{
@@ -335,26 +340,19 @@ void FLinuxApplication::ProcessDeferredMessage( SDL_Event Event )
 
 			if(bUsingHighPrecisionMouseInput)
 			{
-				if (!GIsEditor)
+				// hack to work around jumps
+				const int kTooFarAway = 250;
+				const int kTooFarAwaySquare = kTooFarAway * kTooFarAway;
+				if (motionEvent.xrel * motionEvent.xrel + motionEvent.yrel * motionEvent.yrel > kTooFarAwaySquare)
 				{
-					MessageHandler->OnRawMouseMove(motionEvent.xrel, motionEvent.yrel);
+					UE_LOG(LogLinuxWindowEvent, Warning, TEXT("Suppressing too large relative mouse movement due to an apparent bug (%d, %d is larger than threshold %d)"),
+						motionEvent.xrel, motionEvent.yrel,
+						kTooFarAway
+						);
 				}
 				else
 				{
-					// hack to work around jumps
-					const int kTooFarAway = 100;
-					const int kTooFarAwaySquare = kTooFarAway * kTooFarAway;
-					if (motionEvent.xrel * motionEvent.xrel + motionEvent.yrel * motionEvent.yrel > kTooFarAwaySquare)
-					{
-						UE_LOG(LogLinuxWindowEvent, Warning, TEXT("Suppressing too large relative mouse movement due to an apparent bug (%d, %d is larger than treshold %d)"),
-							motionEvent.xrel, motionEvent.yrel,
-							kTooFarAway
-							);
-					}
-					else
-					{
-						MessageHandler->OnRawMouseMove(motionEvent.xrel, motionEvent.yrel);
-					}
+					MessageHandler->OnRawMouseMove(motionEvent.xrel, motionEvent.yrel);
 				}
 			}
 			else
@@ -1349,6 +1347,11 @@ FPlatformRect FLinuxApplication::GetWorkArea( const FPlatformRect& CurrentWindow
 
 void FLinuxApplication::OnMouseCursorLock( bool bLockEnabled )
 {
+	if (UNLIKELY(!FApp::CanEverRender()))
+	{
+		return;
+	}
+
 	bIsMouseCursorLocked = bLockEnabled;
 	UpdateMouseCaptureWindow( NULL );
 	if(bLockEnabled)
@@ -1371,13 +1374,16 @@ void FDisplayMetrics::GetDisplayMetrics(FDisplayMetrics& OutDisplayMetrics)
 {
 	int NumDisplays = 0;
 
-	if (FPlatformMisc::PlatformInitMultimedia()) //	will not initialize more than once
+	if (LIKELY(FApp::CanEverRender()))
 	{
-		NumDisplays = SDL_GetNumVideoDisplays();
-	}
-	else
-	{
-		UE_LOG(LogInit, Warning, TEXT("FDisplayMetrics::GetDisplayMetrics: PlatformInitMultimedia() failed, cannot get display metrics"));
+		if (FPlatformMisc::PlatformInitMultimedia()) //	will not initialize more than once
+		{
+			NumDisplays = SDL_GetNumVideoDisplays();
+		}
+		else
+		{
+			UE_LOG(LogInit, Warning, TEXT("FDisplayMetrics::GetDisplayMetrics: PlatformInitMultimedia() failed, cannot get display metrics"));
+		}
 	}
 
 	// loop over all monitors to determine which one is the best

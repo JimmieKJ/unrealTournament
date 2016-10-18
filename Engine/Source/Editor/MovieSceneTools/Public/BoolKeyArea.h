@@ -3,10 +3,13 @@
 #pragma once
 
 #include "IntegralKeyArea.h"
-#include "ClipboardTypes.h"
+
+
+class UMovieSceneSection;
+
 
 /**
- * A key area for displaying and editing integral curves representing bools.
+ * A key area for displaying and editing integral curves representing Booleans.
  */
 class FBoolKeyArea
 	: public FIntegralKeyArea<bool>
@@ -20,7 +23,7 @@ public:
 
 public:
 
-	// FIntegralKeyArea overrides
+	//~ FIntegralKeyArea interface
 
 	virtual bool CanCreateKeyEditor() override;
 	virtual TSharedRef<SWidget> CreateKeyEditor(ISequencer* Sequencer) override;

@@ -9,7 +9,7 @@ public:
 	explicit FSlateNullRenderer(const TSharedRef<FSlateFontServices>& InSlateFontServices);
 
 	/** FSlateRenderer interface */
-	virtual void Initialize() override;
+	virtual bool Initialize() override;
 	virtual void Destroy() override;
 	virtual FSlateDrawBuffer& GetDrawBuffer() override;
 	virtual void OnWindowDestroyed( const TSharedRef<SWindow>& InWindow ) override;

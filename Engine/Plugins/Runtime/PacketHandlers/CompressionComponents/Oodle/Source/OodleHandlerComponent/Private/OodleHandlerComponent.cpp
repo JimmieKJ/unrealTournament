@@ -4,39 +4,29 @@
 
 #include "OodleTrainerCommandlet.h"
 
+#if !UE_BUILD_SHIPPING
+#include "Engine.h"
+#endif
+
 
 DEFINE_LOG_CATEGORY(OodleHandlerComponentLog);
 
 
-// @todo #JohnB: Deprecate the 'training' mode name from this handler eventually, as it is misnamed/confusing
-
-// @todo #JohnB: You need context-sensitive data capturing; e.g. you do NOT want to be capturing voice channel data
-
-
-// @todo #JohnB: Get rid of 'Mode' variable, and enable 'Capturing' and 'Release' mode separately (so they can operate at same time);
-//					rename 'Release' mode too, to something a bit more descriptive.
-
-
 // @todo #JohnB: You're not taking into account, the overhead of sending 'DecompressedLength', in the stats
+
+// @todo #JohnB: The 'bCompressedPacket' bit goes at the very start of the packet.
+//					It would be useful if you could reserve a bit at the start of the bit reader, to eliminate some memcpy's
 
 
 #if HAS_OODLE_SDK
 #define OODLE_INI_SECTION TEXT("OodleHandlerComponent")
 
-
-// @todo #JohnB: Find a better solution than this, for handling the maximum packet size. This is far higher than it needs to be.
-// Reduced from 65535 to 16383, to minimize Oodle packet overhead from 3 bytes to 2 bytes
-#define MAX_OODLE_PACKET_SIZE 16383
+// @todo #JohnB: Remove after Oodle update, and after checking with Luigi
+#define OODLE_DICTIONARY_SLACK 65536 // Refers to bOutDataSlack in OodleArchives.cpp
 
 
 #if STATS
-
-#if OODLE_STAT_NET
-DEFINE_STAT(STAT_Net_Oodle_OutRaw);
-DEFINE_STAT(STAT_Net_Oodle_OutCompressed);
-DEFINE_STAT(STAT_Net_Oodle_InRaw);
-DEFINE_STAT(STAT_Net_Oodle_InCompressed);
-#endif
+DEFINE_STAT(STAT_PacketReservedOodle);
 
 DEFINE_STAT(STAT_Oodle_OutRaw);
 DEFINE_STAT(STAT_Oodle_OutCompressed);
@@ -46,7 +36,9 @@ DEFINE_STAT(STAT_Oodle_InRaw);
 DEFINE_STAT(STAT_Oodle_InCompressed);
 DEFINE_STAT(STAT_Oodle_InSavings);
 DEFINE_STAT(STAT_Oodle_InTotalSavings);
-DEFINE_STAT(STAT_Oodle_PacketOverhead);
+DEFINE_STAT(STAT_Oodle_CompressFailSavings);
+DEFINE_STAT(STAT_Oodle_CompressFailSize);
+
 
 #if !UE_BUILD_SHIPPING
 DEFINE_STAT(STAT_Oodle_InDecompressTime);
@@ -73,11 +65,69 @@ static FDictionaryMap DictionaryMap;
 /** Whether or not Oodle is presently force-enabled */
 static bool bOodleForceEnable = false;
 
+#if !UE_BUILD_SHIPPING || OODLE_DEV_SHIPPING
+/** Whether or not compression is presently force-disabled (does not affect decompression i.e. incoming packets, only outgoing) */
+static bool bOodleCompressionDisabled = false;
+
+/** Stores a runtime list of active OodleHandlerComponent's - for debugging/testing code */
+static TArray<OodleHandlerComponent*> OodleComponentList;
+#endif
+
+
+// @todo #JohnB: Remove after Oodle update, and after checking with Luigi
+static rrbool STDCALL UEOodleDisplayAssert(const char* File, const int Line, const char* Function, const char* Message)
+{
+	UE_LOG(OodleHandlerComponentLog, Log, TEXT("Oodle Assert: File: %s, Line: %i, Function: %s, Message: %s"), UTF8_TO_TCHAR(File),
+			Line, UTF8_TO_TCHAR(Function), UTF8_TO_TCHAR(Message));
+
+	// @todo #JohnB: Get a good repro for this, and test it
+
+	return false;
+}
+
+
+/**
+ * Serialization functions which allow PacketSize == MAX_OODLE_PACKET_SIZE, by assuming PacketSize is never 0
+ */
+
+FORCEINLINE void SerializeOodlePacketSize(FBitWriter& Writer, uint32 PacketSize)
+{
+	if (PacketSize > 0)
+	{
+		PacketSize--;
+
+		// @todo #JohnB: Restore when serialize changes are stable
+		//Writer.NetSerializeInt<MAX_OODLE_PACKET_BYTES>(PacketSize);
+
+		// @todo #JohnB: Remove when restoring the above
+		Writer.SerializeInt(PacketSize, MAX_OODLE_PACKET_BYTES);
+	}
+	else
+	{
+		Writer.SetError();
+
+		UE_LOG(OodleHandlerComponentLog, Error, TEXT("Oodle attempted to process zero-size packet."));
+	}
+}
+
+FORCEINLINE void SerializeOodlePacketSize(FBitReader& Reader, uint32& OutPacketSize)
+{
+	// @todo #JohnB: Restore when serialize changes are stable
+	//Reader.NetSerializeInt<MAX_OODLE_PACKET_BYTES>(OutPacketSize);
+
+	// @todo #JohnB: Remove when restoring the above
+	Reader.SerializeInt(OutPacketSize, MAX_OODLE_PACKET_BYTES);
+
+	if (!Reader.IsError())
+	{
+		OutPacketSize++;
+	}
+}
+
 
 #if STATS
 /** The global net stats tracker for Oodle */
 static FOodleNetStats GOodleNetStats;
-
 
 /**
  * FOodleNetStats
@@ -88,11 +138,6 @@ void FOodleNetStats::UpdateStats(float DeltaTime)
 	// Input
 	const uint32 InRaw = FMath::TruncToInt(InDecompressedLength / DeltaTime);
 	const uint32 InCompressed = FMath::TruncToInt(InCompressedLength / DeltaTime);
-
-#if OODLE_STAT_NET
-	SET_DWORD_STAT(STAT_Net_Oodle_InRaw, InRaw);
-	SET_DWORD_STAT(STAT_Net_Oodle_InCompressed, InCompressed);
-#endif
 
 	SET_DWORD_STAT(STAT_Oodle_InRaw, InRaw);
 	SET_DWORD_STAT(STAT_Oodle_InCompressed, InCompressed);
@@ -105,11 +150,6 @@ void FOodleNetStats::UpdateStats(float DeltaTime)
 	// Output
 	uint32 OutRaw = FMath::TruncToInt(OutUncompressedLength / DeltaTime);
 	uint32 OutCompressed = FMath::TruncToInt(OutCompressedLength / DeltaTime);
-
-#if OODLE_STAT_NET
-	SET_DWORD_STAT(STAT_Net_Oodle_OutRaw, OutRaw);
-	SET_DWORD_STAT(STAT_Net_Oodle_OutCompressed, OutCompressed);
-#endif
 
 	SET_DWORD_STAT(STAT_Oodle_OutRaw, OutRaw);
 	SET_DWORD_STAT(STAT_Oodle_OutCompressed, OutCompressed);
@@ -138,6 +178,27 @@ void FOodleNetStats::UpdateStats(float DeltaTime)
 	OutCompressedLength = 0;
 	OutUncompressedLength = 0;
 }
+
+void FOodleNetStats::ResetStats()
+{
+	InCompressedLength = 0;
+	InDecompressedLength = 0;
+	OutCompressedLength = 0;
+	OutUncompressedLength = 0;
+	TotalInCompressedLength = 0;
+	TotalInDecompressedLength = 0;
+	TotalOutCompressedLength = 0;
+	TotalOutUncompressedLength = 0;
+
+	SET_DWORD_STAT(STAT_Oodle_InRaw, 0);
+	SET_DWORD_STAT(STAT_Oodle_InCompressed, 0);
+	SET_FLOAT_STAT(STAT_Oodle_InSavings, 0.0);
+	SET_DWORD_STAT(STAT_Oodle_OutRaw, 0);
+	SET_DWORD_STAT(STAT_Oodle_OutCompressed, 0);
+	SET_FLOAT_STAT(STAT_Oodle_OutSavings, 0.0);
+	SET_FLOAT_STAT(STAT_Oodle_InTotalSavings, 0.0);
+	SET_FLOAT_STAT(STAT_Oodle_OutTotalSavings, 0.0);
+}
 #endif
 
 
@@ -158,7 +219,7 @@ FOodleDictionary::FOodleDictionary(uint32 InHashTableSize, uint8* InDictionaryDa
 {
 #if STATS
 	INC_DWORD_STAT(STAT_Oodle_DictionaryCount);
-	INC_MEMORY_STAT_BY(STAT_Oodle_DictionaryBytes, DictionarySize);
+	INC_MEMORY_STAT_BY(STAT_Oodle_DictionaryBytes, (DictionarySize + OODLE_DICTIONARY_SLACK));
 	INC_MEMORY_STAT_BY(STAT_Oodle_SharedBytes, SharedDictionarySize);
 	INC_MEMORY_STAT_BY(STAT_Oodle_StateBytes, CompressorStateSize);
 #endif
@@ -168,7 +229,7 @@ FOodleDictionary::~FOodleDictionary()
 {
 #if STATS
 	DEC_DWORD_STAT(STAT_Oodle_DictionaryCount);
-	DEC_MEMORY_STAT_BY(STAT_Oodle_DictionaryBytes, DictionarySize);
+	DEC_MEMORY_STAT_BY(STAT_Oodle_DictionaryBytes, (DictionarySize + OODLE_DICTIONARY_SLACK));
 	DEC_MEMORY_STAT_BY(STAT_Oodle_SharedBytes, SharedDictionarySize);
 	DEC_MEMORY_STAT_BY(STAT_Oodle_StateBytes, CompressorStateSize);
 #endif
@@ -200,47 +261,30 @@ OodleHandlerComponent::OodleHandlerComponent()
 	, InPacketLog(nullptr)
 	, OutPacketLog(nullptr)
 	, bUseDictionaryIfPresent(false)
+	, bCaptureMode(false)
 #endif
-	, Mode(EOodleHandlerMode::Release)
+	, OodleReservedPacketBits(0)
 	, ServerDictionary()
 	, ClientDictionary()
 {
 	SetActive(true);
+
+#if !UE_BUILD_SHIPPING || OODLE_DEV_SHIPPING
+	OodleComponentList.Add(this);
+#endif
 }
 
 OodleHandlerComponent::~OodleHandlerComponent()
 {
 #if !UE_BUILD_SHIPPING || OODLE_DEV_SHIPPING
-	if (OutPacketLog != nullptr)
-	{
-		OutPacketLog->Close();
-		OutPacketLog->DeleteInnerArchive();
+	OodleComponentList.Remove(this);
 
-		delete OutPacketLog;
-
-		OutPacketLog = nullptr;
-	}
-
-	if (InPacketLog != nullptr)
-	{
-		InPacketLog->Close();
-		InPacketLog->DeleteInnerArchive();
-
-		delete InPacketLog;
-
-		InPacketLog = nullptr;
-	}
+	FreePacketLogs();
 #endif
 
 
 	FreeDictionary(ServerDictionary);
 	FreeDictionary(ClientDictionary);
-
-
-	// @todo #JohnB: Deprecate all of this code sooner rather than later - this is broken, as there will be multiple instances
-#if UE4_OODLE_VER < 200
-	Oodle_Shutdown_NoThreads();
-#endif
 }
 
 void OodleHandlerComponent::InitFirstRunConfig()
@@ -255,8 +299,6 @@ void OodleHandlerComponent::InitFirstRunConfig()
 		GConfig->SetString(OODLE_INI_SECTION, TEXT("PacketLogFile"), TEXT("PacketDump"), GEngineIni);
 #endif
 
-		GConfig->SetString(OODLE_INI_SECTION, TEXT("Mode"), TEXT("Capturing"), GEngineIni);
-
 		GConfig->SetString(OODLE_INI_SECTION, TEXT("ServerDictionary"), TEXT(""), GEngineIni);
 		GConfig->SetString(OODLE_INI_SECTION, TEXT("ClientDictionary"), TEXT(""), GEngineIni);
 
@@ -266,6 +308,10 @@ void OodleHandlerComponent::InitFirstRunConfig()
 
 void OodleHandlerComponent::Initialize()
 {
+	// Reset stats
+	SET_DWORD_STAT(STAT_Oodle_CompressFailSavings, 0);
+	SET_DWORD_STAT(STAT_Oodle_CompressFailSize, 0);
+
 	InitFirstRunConfig();
 
 	// Class config variables
@@ -285,143 +331,69 @@ void OodleHandlerComponent::Initialize()
 		UE_LOG(OodleHandlerComponentLog, Log, TEXT("Force-enabling 'bUseDictionaryIfPresent', due to -Oodle on commandline."));
 		bUseDictionaryIfPresent = true;
 	}
-
-
-	FString ReadMode;
-	GConfig->GetString(OODLE_INI_SECTION, TEXT("Mode"), ReadMode, GEngineIni);
-
-	if (ReadMode == TEXT("Training") || ReadMode == TEXT("Capturing"))
-	{
-		Mode = EOodleHandlerMode::Capturing;
-	}
 #endif
-	else //if (ReadMode == TEXT("Release"))
-	{
-		Mode = EOodleHandlerMode::Release;
-	}
 
 	if (bEnableOodle)
 	{
 #if !UE_BUILD_SHIPPING || OODLE_DEV_SHIPPING
-		bool bForceCapturing = FParse::Param(FCommandLine::Get(), TEXT("OodleTraining")) ||
-								FParse::Param(FCommandLine::Get(), TEXT("OodleCapturing"));
+		bCaptureMode = FParse::Param(FCommandLine::Get(), TEXT("OodleCapturing"));
 
-		if (bForceCapturing && Mode != EOodleHandlerMode::Capturing)
+		if (bCaptureMode)
 		{
-			UE_LOG(OodleHandlerComponentLog, Log, TEXT("Switching Oodle to Capturing mode."));
+			int32 CapturePercentage = 100;
+			FParse::Value(FCommandLine::Get(), TEXT("CapturePercentage="), CapturePercentage);
 
-			Mode = EOodleHandlerMode::Capturing;
-		}
-		// Forces release mode, if configured to search for (and finds) fallback dictionaries
-		else if (!bForceCapturing && bUseDictionaryIfPresent && Mode != EOodleHandlerMode::Release)
-		{
-			FString ServerDicPath;
-			FString ClientDicPath;
-
-			if (FindFallbackDictionaries(ServerDicPath, ClientDicPath, true))
+			int32 RandNum = FMath::RandRange(0, 100);
+			UE_LOG(OodleHandlerComponentLog, Log, TEXT("Enabling Oodle capture mode. Random number is: %d, Capture Percentage is: %d, random number must be less than capture percentage to capture."), RandNum, CapturePercentage);
+			if (RandNum <= CapturePercentage)
 			{
-				UE_LOG(OodleHandlerComponentLog, Log,
-						TEXT("Switching Oodle to Release mode - found server dictionary '%s' and client dictionary '%s'."),
-						*ServerDicPath, *ClientDicPath);
-
-				Mode = EOodleHandlerMode::Release;
+				InitializePacketLogs();
 			}
 		}
 #endif
 
-		switch(Mode)
-		{
-#if !UE_BUILD_SHIPPING || OODLE_DEV_SHIPPING
-			// @todo #JohnB: Convert this code so that just one capture file is used for all connections, per session
-			//					(could set it up much like the dictionary sharing code)
-		case EOodleHandlerMode::Capturing:
-			{
-				if (Handler->Mode == Handler::Mode::Server)
-				{
-					IPlatformFile& PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
-					FString ReadOutputLogDirectory = FPaths::Combine(*GOodleSaveDir, TEXT("Server"));
-					FString BaseFilename;
-
-					PlatformFile.CreateDirectoryTree(*ReadOutputLogDirectory);
-					PlatformFile.CreateDirectoryTree(*FPaths::Combine(*ReadOutputLogDirectory, TEXT("Input")));
-					PlatformFile.CreateDirectoryTree(*FPaths::Combine(*ReadOutputLogDirectory, TEXT("Output")));
-					GConfig->GetString(OODLE_INI_SECTION, TEXT("PacketLogFile"), BaseFilename, GEngineIni);
-
-					BaseFilename = FPaths::GetBaseFilename(BaseFilename);
-
-					BaseFilename = BaseFilename + TEXT("_") + FDateTime::Now().ToString();
-
-					FString PreExtInFilePath = FPaths::Combine(*ReadOutputLogDirectory, TEXT("Input"), *(BaseFilename + TEXT("_Input")));
-					FString PreExtOutFilePath = FPaths::Combine(*ReadOutputLogDirectory, TEXT("Output"), *(BaseFilename + TEXT("_Output")));
-					FString InPath = PreExtInFilePath + CAPTURE_EXT;
-					FString OutPath = PreExtOutFilePath + CAPTURE_EXT;
-
-					// Ensure the In/Out filenames are unique
-					for (int32 i=1; PlatformFile.FileExists(*InPath) || PlatformFile.FileExists(*OutPath); i++)
-					{
-						InPath = PreExtInFilePath + FString::Printf(TEXT("_%i"), i) + CAPTURE_EXT;
-						OutPath = PreExtOutFilePath + FString::Printf(TEXT("_%i"), i) + CAPTURE_EXT;
-					}
-
-					FArchive* InArc = IFileManager::Get().CreateFileWriter(*InPath);
-					FArchive* OutArc = (InArc != nullptr ? IFileManager::Get().CreateFileWriter(*OutPath) : nullptr);
-
-					InPacketLog = (InArc != nullptr ? new FPacketCaptureArchive(*InArc) : nullptr);
-					OutPacketLog = (OutArc != nullptr ? new FPacketCaptureArchive(*OutArc) : nullptr);
-
-
-					if (InPacketLog == nullptr || OutPacketLog == nullptr)
-					{
-						LowLevelFatalError(TEXT("Failed to create files '%s' and '%s'"), *InPath, *OutPath);
-						return;
-					}
-
-
-					InPacketLog->SerializeCaptureHeader();
-					OutPacketLog->SerializeCaptureHeader();
-				}
-
-				break;
-			}
-#endif
-
-		case EOodleHandlerMode::Release:
-			{
-				FString ServerDictionaryPath;
-				FString ClientDictionaryPath;
-				bool bGotDictionaryPath = false;
-
-#if ( !UE_BUILD_SHIPPING || OODLE_DEV_SHIPPING ) && !PLATFORM_PS4
-				if (bUseDictionaryIfPresent)
-				{
-					bGotDictionaryPath = FindFallbackDictionaries(ServerDictionaryPath, ClientDictionaryPath);
-				}
-#endif
-
-				if (!bGotDictionaryPath)
-				{
-					bGotDictionaryPath = GetDictionaryPaths(ServerDictionaryPath, ClientDictionaryPath);
-				}
-
-				if (bGotDictionaryPath)
-				{
-					InitializeDictionary(ServerDictionaryPath, ServerDictionary);
-					InitializeDictionary(ClientDictionaryPath, ClientDictionary);
-				}
-				else
-				{
-					LowLevelFatalError(TEXT("Failed to load Oodle dictionaries."));
-				}
-
-				break;
-			}
-
-		default:
-			break;
-		}
+		InitializeDictionaries();
 	}
 
 	Initialized();
+}
+
+void OodleHandlerComponent::InitializeDictionaries()
+{
+	FString ServerDictionaryPath;
+	FString ClientDictionaryPath;
+	bool bGotDictionaryPath = false;
+
+#if (!UE_BUILD_SHIPPING || OODLE_DEV_SHIPPING) && !(PLATFORM_PS4 || PLATFORM_XBOXONE)
+	if (bUseDictionaryIfPresent)
+	{
+		bGotDictionaryPath = FindFallbackDictionaries(ServerDictionaryPath, ClientDictionaryPath);
+	}
+#endif
+
+	if (!bGotDictionaryPath)
+	{
+		bGotDictionaryPath = GetDictionaryPaths(ServerDictionaryPath, ClientDictionaryPath, false);
+	}
+
+	if (bGotDictionaryPath)
+	{
+		InitializeDictionary(ServerDictionaryPath, ServerDictionary);
+		InitializeDictionary(ClientDictionaryPath, ClientDictionary);
+	}
+	else
+	{
+#if !UE_BUILD_SHIPPING || OODLE_DEV_SHIPPING
+		if (bCaptureMode)
+		{
+			UE_LOG(OodleHandlerComponentLog, Warning, TEXT("Failed to load Oodle dictionaries. Continuing due to capture mode."));
+		}
+		else
+#endif
+		{
+			LowLevelFatalError(TEXT("Failed to load Oodle dictionaries."));
+		}
+	}
 }
 
 void OodleHandlerComponent::InitializeDictionary(FString FilePath, TSharedPtr<FOodleDictionary>& OutDictionary)
@@ -543,9 +515,13 @@ bool OodleHandlerComponent::GetDictionaryPaths(FString& OutServerDictionary, FSt
 	bSuccess = GConfig->GetString(OODLE_INI_SECTION, TEXT("ServerDictionary"), ServerDictionaryPath, GEngineIni);
 	bSuccess = bSuccess && GConfig->GetString(OODLE_INI_SECTION, TEXT("ClientDictionary"), ClientDictionaryPath, GEngineIni);
 
-	if (bSuccess && (ServerDictionaryPath.Len() < 0 || ClientDictionaryPath.Len() < 0))
+	if (bSuccess && (ServerDictionaryPath.Len() <= 0 || ClientDictionaryPath.Len() <= 0))
 	{
-		const TCHAR* Msg = TEXT("Specify both Server/Client dictionaries for Oodle compressor in DefaultEngine.ini");
+		const TCHAR* Msg = TEXT("Specify both Server/Client dictionaries for Oodle compressor in DefaultEngine.ini")
+#if !UE_BUILD_SHIPPING || OODLE_DEV_SHIPPING
+							TEXT(", or run Server and Client with -OodleCapturing and generate a dictionary.")
+#endif
+							;
 
 		if (bFailFatal)
 		{
@@ -605,7 +581,8 @@ bool OodleHandlerComponent::GetDictionaryPaths(FString& OutServerDictionary, FSt
 }
 
 #if !UE_BUILD_SHIPPING || OODLE_DEV_SHIPPING
-bool OodleHandlerComponent::FindFallbackDictionaries(FString& OutServerDictionary, FString& OutClientDictionary, bool bTestOnly/*=false*/)
+bool OodleHandlerComponent::FindFallbackDictionaries(FString& OutServerDictionary, FString& OutClientDictionary,
+														bool bTestOnly/*=false*/)
 {
 	bool bSuccess = false;
 
@@ -692,6 +669,87 @@ bool OodleHandlerComponent::FindFallbackDictionaries(FString& OutServerDictionar
 
 	return bSuccess;
 }
+
+void OodleHandlerComponent::InitializePacketLogs()
+{
+	// @todo #JohnB: Convert this code so that just one capture file is used for all connections, per session
+	//					(could set it up much like the dictionary sharing code)
+	//					Downside, is potential for corruption. Lots of files is a bit unwieldy, yet very stable.
+	if (bCaptureMode && Handler->Mode == Handler::Mode::Server && InPacketLog == nullptr && OutPacketLog == nullptr)
+	{
+		IPlatformFile& PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
+		FString ReadOutputLogDirectory = FPaths::Combine(*GOodleSaveDir, TEXT("Server"));
+		FString BaseFilename;
+
+		PlatformFile.CreateDirectoryTree(*ReadOutputLogDirectory);
+		PlatformFile.CreateDirectoryTree(*FPaths::Combine(*ReadOutputLogDirectory, TEXT("Input")));
+		PlatformFile.CreateDirectoryTree(*FPaths::Combine(*ReadOutputLogDirectory, TEXT("Output")));
+		GConfig->GetString(OODLE_INI_SECTION, TEXT("PacketLogFile"), BaseFilename, GEngineIni);
+
+		BaseFilename = FPaths::GetBaseFilename(BaseFilename);
+
+		BaseFilename = BaseFilename + TEXT("_") + FApp::GetBranchName() + TEXT("_") +
+						*FString::Printf(TEXT("%d"), FEngineVersion::Current().GetChangelist()) + TEXT("_") +
+						*FString::Printf(TEXT("%d"), FPlatformProcess::GetCurrentProcessId()) + TEXT("_") +
+						FDateTime::Now().ToString();
+
+		FString PreExtInFilePath = FPaths::Combine(*ReadOutputLogDirectory, TEXT("Input"),
+													*(BaseFilename + TEXT("_Input")));
+
+		FString PreExtOutFilePath = FPaths::Combine(*ReadOutputLogDirectory, TEXT("Output"),
+													*(BaseFilename + TEXT("_Output")));
+
+		FString InPath = PreExtInFilePath + CAPTURE_EXT;
+		FString OutPath = PreExtOutFilePath + CAPTURE_EXT;
+
+		// Ensure the In/Out filenames are unique
+		for (int32 i=1; PlatformFile.FileExists(*InPath) || PlatformFile.FileExists(*OutPath); i++)
+		{
+			InPath = PreExtInFilePath + FString::Printf(TEXT("_%i"), i) + CAPTURE_EXT;
+			OutPath = PreExtOutFilePath + FString::Printf(TEXT("_%i"), i) + CAPTURE_EXT;
+		}
+
+		FArchive* InArc = IFileManager::Get().CreateFileWriter(*InPath);
+		FArchive* OutArc = (InArc != nullptr ? IFileManager::Get().CreateFileWriter(*OutPath) : nullptr);
+
+		InPacketLog = (InArc != nullptr ? new FPacketCaptureArchive(*InArc) : nullptr);
+		OutPacketLog = (OutArc != nullptr ? new FPacketCaptureArchive(*OutArc) : nullptr);
+
+
+		if (InPacketLog != nullptr && OutPacketLog != nullptr)
+		{
+			InPacketLog->SerializeCaptureHeader();
+			OutPacketLog->SerializeCaptureHeader();
+		}
+		else
+		{
+			LowLevelFatalError(TEXT("Failed to create files '%s' and '%s'"), *InPath, *OutPath);
+		}
+	}
+}
+
+void OodleHandlerComponent::FreePacketLogs()
+{
+	if (OutPacketLog != nullptr)
+	{
+		OutPacketLog->Close();
+		OutPacketLog->DeleteInnerArchive();
+
+		delete OutPacketLog;
+
+		OutPacketLog = nullptr;
+	}
+
+	if (InPacketLog != nullptr)
+	{
+		InPacketLog->Close();
+		InPacketLog->DeleteInnerArchive();
+
+		delete InPacketLog;
+
+		InPacketLog = nullptr;
+	}
+}
 #endif
 
 bool OodleHandlerComponent::IsValid() const
@@ -701,45 +759,37 @@ bool OodleHandlerComponent::IsValid() const
 
 void OodleHandlerComponent::Incoming(FBitReader& Packet)
 {
+#if !UE_BUILD_SHIPPING
 	// Oodle must be the first HandlerComponent to process incoming packets, so does not support bit-shifted reads
 	check(Packet.GetPosBits() == 0);
+#endif
 
 	if (bEnableOodle)
 	{
-		switch(Mode)
+		uint8 bCompressedPacket = Packet.ReadBit();
+
+		// If the packet is not compressed, no further processing is necessary
+		if (bCompressedPacket)
 		{
-#if !UE_BUILD_SHIPPING || OODLE_DEV_SHIPPING
-		case EOodleHandlerMode::Capturing:
-			{
-				if (Handler->Mode == Handler::Mode::Server)
-				{
-					uint32 SizeOfPacket = Packet.GetNumBytes();
+			FOodleDictionary* CurDict = ((Handler->Mode == Handler::Mode::Server) ? ClientDictionary.Get() : ServerDictionary.Get());
 
-					if (SizeOfPacket > 0)
-					{
-						void* PacketData = Packet.GetData();
-
-						InPacketLog->SerializePacket(PacketData, SizeOfPacket);
-					}
-				}
-				break;
-			}
-#endif
-
-		case EOodleHandlerMode::Release:
+			if (CurDict != nullptr)
 			{
 				uint32 DecompressedLength;
-				Packet.SerializeIntPacked(DecompressedLength);
 
-				if (DecompressedLength < MAX_OODLE_PACKET_SIZE)
+				SerializeOodlePacketSize(Packet, DecompressedLength);
+
+#if !UE_BUILD_SHIPPING
+				// Never allow DecompressedLength values bigger than this, due to performance/security considerations
+				check(MAX_OODLE_PACKET_BYTES <= 16384);
+#endif
+
+				if (DecompressedLength < MAX_OODLE_PACKET_BYTES)
 				{
-					// @todo #JohnB: You want to tweak the size of 'MAX_OODLE_PACKET_SIZE'
-					static uint8 CompressedData[MAX_OODLE_PACKET_SIZE];
-					static uint8 DecompressedData[MAX_OODLE_PACKET_SIZE];
+					static uint8 CompressedData[MAX_OODLE_BUFFER];
+					static uint8 DecompressedData[MAX_OODLE_BUFFER];
 
 					const int32 CompressedLength = Packet.GetBytesLeft();
-					FOodleDictionary* CurDict =
-						((Handler->Mode == Handler::Mode::Server) ? ClientDictionary.Get() : ServerDictionary.Get());
 
 					Packet.Serialize(CompressedData, CompressedLength);
 
@@ -751,31 +801,31 @@ void OodleHandlerComponent::Incoming(FBitReader& Packet)
 #if STATS && !UE_BUILD_SHIPPING
 							SCOPE_CYCLE_COUNTER(STAT_Oodle_InDecompressTime);
 #endif
+
 							bSuccess = !!OodleNetwork1UDP_Decode(CurDict->CompressorState, CurDict->SharedDictionary, CompressedData,
 															CompressedLength, DecompressedData, DecompressedLength);
 						}
 
 
-
 						if (!bSuccess)
 						{
-							// @todo #JohnB: Set packet archive error and allow in shipping - see note below
-
-							// @todo #JohnB: I don't think this is always an error. This may occur when Oodle decides not to compress,
-							//					in which case it should fall-through below (i.e. 'Packet' should remain unmodified)
 #if !UE_BUILD_SHIPPING
 							UE_LOG(OodleHandlerComponentLog, Error, TEXT("Error decoding Oodle network data."));
 #endif
+
+							// Packets which fail to compress are detected before send, and bCompressedPacket is disabled;
+							// failed Oodle decodes are not used to detect this anymore, so this now represents an error.
+							Packet.SetError();
 						}
 					}
 					else
 					{
-						// @todo #JohnB: Set packet archive error and allow in shipping - see note below
 #if !UE_BUILD_SHIPPING
 						UE_LOG(OodleHandlerComponentLog, Error, TEXT("Error serializing received packet data"));
 #endif
-					}
 
+						Packet.SetError();
+					}
 
 					if (bSuccess)
 					{
@@ -783,6 +833,12 @@ void OodleHandlerComponent::Incoming(FBitReader& Packet)
 						FBitReader UnCompressedPacket(DecompressedData, DecompressedLength * 8);
 						Packet = UnCompressedPacket;
 
+#if !UE_BUILD_SHIPPING || OODLE_DEV_SHIPPING
+						if (bCaptureMode && Handler->Mode == Handler::Mode::Server && InPacketLog != nullptr)
+						{
+							InPacketLog->SerializePacket((void*)Packet.GetData(), DecompressedLength);
+						}
+#endif
 
 #if STATS
 						GOodleNetStats.IncomingStats(CompressedLength, DecompressedLength);
@@ -790,25 +846,37 @@ void OodleHandlerComponent::Incoming(FBitReader& Packet)
 					}
 					else
 					{
-						// @todo #JohnB
+						Packet.SetError();
 					}
 				}
 				else
 				{
-					// @todo #JohnB: Add ArIsError handling to the PacketHandler code, then allow the log message in shipping,
-					//					and set an archive error
 #if !UE_BUILD_SHIPPING
 					UE_LOG(OodleHandlerComponentLog, Error,
 							TEXT("Received packet with DecompressedLength (%i) >= MAX_OODLE_PACKET_SIZE"), DecompressedLength);
-
-					// @todo #JohnB: Set packet error
 #endif
+
+					Packet.SetError();
 				}
+			}
+			else
+			{
+				LowLevelFatalError(TEXT("Received compressed packet, but no dictionary is present for decompression."));
 
-
-				break;
+				Packet.SetError();
 			}
 		}
+#if !UE_BUILD_SHIPPING || OODLE_DEV_SHIPPING
+		else if (bCaptureMode && Handler->Mode == Handler::Mode::Server && InPacketLog != nullptr)
+		{
+			uint32 SizeOfPacket = Packet.GetBytesLeft();
+
+			if (SizeOfPacket > 0)
+			{
+				InPacketLog->SerializePacket((void*)Packet.GetData(), SizeOfPacket);
+			}
+		}
+#endif
 	}
 }
 
@@ -816,115 +884,187 @@ void OodleHandlerComponent::Outgoing(FBitWriter& Packet)
 {
 	if (bEnableOodle)
 	{
-		switch(Mode)
-		{
 #if !UE_BUILD_SHIPPING || OODLE_DEV_SHIPPING
-		case EOodleHandlerMode::Capturing:
-			{
-				if (Handler->Mode == Handler::Mode::Server)
-				{
-					uint32 SizeOfPacket = Packet.GetNumBytes();
+		if (bCaptureMode && Handler->Mode == Handler::Mode::Server && OutPacketLog != nullptr)
+		{
+			uint32 SizeOfPacket = Packet.GetNumBytes();
 
-					if (SizeOfPacket > 0)
-					{
-						OutPacketLog->SerializePacket((void*)Packet.GetData(), SizeOfPacket);
-					}
-				}
-				break;
+			if (SizeOfPacket > 0)
+			{
+				OutPacketLog->SerializePacket((void*)Packet.GetData(), SizeOfPacket);
 			}
+		}
 #endif
 
-		case EOodleHandlerMode::Release:
+		// @todo #JohnB: You should be able to share the same two buffers between Incoming and Outgoing, as an optimization
+		static uint8 UncompressedData[MAX_OODLE_BUFFER];
+		static uint8 CompressedData[MAX_OODLE_BUFFER];
+
+		FOodleDictionary* CurDict = ((Handler->Mode == Handler::Mode::Server) ? ServerDictionary.Get() : ClientDictionary.Get());
+
+#if UE_BUILD_SHIPPING
+		if (CurDict != nullptr)
+#else
+		if (CurDict != nullptr && !bOodleCompressionDisabled)
+#endif
+		{
+#if !UE_BUILD_SHIPPING
+			check(MaxOutgoingBits <= (MAX_OODLE_PACKET_BYTES * 8));
+#endif
+			uint32 MaxAdjustedLengthBits = MaxOutgoingBits - OodleReservedPacketBits;
+			uint32 UncompressedBits = Packet.GetNumBits();
+			uint32 UncompressedBytes = Packet.GetNumBytes();
+
+			bool bWithinBitBounds = UncompressedBits > 0 && ensure(UncompressedBits <= MaxAdjustedLengthBits) &&
+									ensure(OodleLZ_GetCompressedBufferSizeNeeded(UncompressedBytes) <= MAX_OODLE_BUFFER);
+
+			if (bWithinBitBounds)
 			{
-				// Add size
-				uint32 UncompressedLength = Packet.GetNumBytes();
+				SINTa CompressedLengthSINT = 0;
 
-				check(UncompressedLength < MAX_OODLE_PACKET_SIZE);
-
-				if (UncompressedLength > 0)
-				{
-					// @todo #JohnB: You should be able to share the same two buffers between Incoming and Outgoing, as an optimization
-					static uint8 UncompressedData[MAX_OODLE_PACKET_SIZE];
-					static uint8 CompressedData[MAX_OODLE_PACKET_SIZE];
-					FOodleDictionary* CurDict =
-										((Handler->Mode == Handler::Mode::Server) ? ServerDictionary.Get() : ClientDictionary.Get());
-
-					check(OodleLZ_GetCompressedBufferSizeNeeded(UncompressedLength) < MAX_OODLE_PACKET_SIZE);
-
-					memcpy(UncompressedData, Packet.GetData(), UncompressedLength);
-
-					SINTa CompressedLengthSINT = 0;
+				// @todo #JohnB: Redundant memcpy?
+				FMemory::Memcpy(UncompressedData, Packet.GetData(), UncompressedBytes);
 					
-					{
+				{
 #if STATS && !UE_BUILD_SHIPPING
-						SCOPE_CYCLE_COUNTER(STAT_Oodle_OutCompressTime);
+					SCOPE_CYCLE_COUNTER(STAT_Oodle_OutCompressTime);
 #endif
 
-						CompressedLengthSINT = OodleNetwork1UDP_Encode(CurDict->CompressorState, CurDict->SharedDictionary,
-																			UncompressedData, UncompressedLength, CompressedData);
-					}
+					CompressedLengthSINT = OodleNetwork1UDP_Encode(CurDict->CompressorState, CurDict->SharedDictionary,
+																		UncompressedData, UncompressedBytes, CompressedData);
+				}
 
-					uint32 CompressedLength = static_cast<uint32>(CompressedLengthSINT);
+				uint32 CompressedBytes = static_cast<uint32>(CompressedLengthSINT);
+
+				if (CompressedBytes <= UncompressedBytes)
+				{
+					// It's possible for the packet to be within bit bounds, but to overstep bounds when rounded-up to nearest byte,
+					// after processing by Oodle.
+					// If this happens, the packet will fail to fit if Oodle failed to compress enough - so will be sent uncompressed.
+					bWithinBitBounds = (CompressedBytes * 8) <= MaxAdjustedLengthBits;
+
+
+					// Don't write the compressed data, if it's not within bit bounds, or compression failed to provide savings
+					uint8 bCompressedPacket = bWithinBitBounds && (CompressedBytes < UncompressedBytes);
 
 					Packet.Reset();
+					Packet.WriteBit(bCompressedPacket);
 
-					// @todo #JohnB: Compress directly into a (deliberately oversized) FBitWriter buffer, which you can shrink after
-					Packet.SerializeIntPacked(UncompressedLength);
-					Packet.Serialize(CompressedData, CompressedLength);
+					if (bCompressedPacket)
+					{
+						// @todo #JohnB: Compress directly into a (deliberately oversized) FBitWriter buffer, which you can shrink after
+						//					(need to be careful of bit order)
+
+						SerializeOodlePacketSize(Packet, UncompressedBytes);
+
+						Packet.Serialize(CompressedData, CompressedBytes);
 
 #if STATS
-					GOodleNetStats.OutgoingStats(CompressedLength, UncompressedLength);
+						GOodleNetStats.OutgoingStats(CompressedBytes, UncompressedBytes);
 #endif
+					}
+					else
+					{
+						// @todo #JohnB: Try to eliminate this appBitscpy, by reserving the bCompressedPacket bit and other data,
+						//					at the start of the bit writer
+						Packet.SerializeBits(UncompressedData, UncompressedBits);
+
+#if STATS
+						if (!bWithinBitBounds)
+						{
+							INC_DWORD_STAT(STAT_Oodle_CompressFailSize);
+						}
+						else if (CompressedBytes >= UncompressedBytes)
+						{
+							GOodleNetStats.OutgoingStats(UncompressedBytes, UncompressedBytes);
+
+							INC_DWORD_STAT(STAT_Oodle_CompressFailSavings);
+						}
+						else
+						{
+							// @todo #JohnB
+						}
+#endif
+					}
 				}
 				else
 				{
-					Packet.SerializeIntPacked(UncompressedLength);
-				}
+					UE_LOG(OodleHandlerComponentLog, Error, TEXT("Compressed packet larger than uncompressed packet! (%u vs %u)"),
+							CompressedBytes, UncompressedBytes);
 
-				break;
+					Packet.Reset();
+					Packet.SetError();
+				}
 			}
+			else
+			{
+				UE_LOG(OodleHandlerComponentLog, Error, TEXT("Failed to compress packet of size: %u bytes (%u bits)"),
+						UncompressedBytes, UncompressedBits);
+
+				Packet.Reset();
+				Packet.SetError();
+			}
+		}
+#if !UE_BUILD_SHIPPING || OODLE_DEV_SHIPPING
+		// Allow a lack of dictionary in capture mode, or when compression is disabled
+		else if ((CurDict == nullptr && bCaptureMode) || bOodleCompressionDisabled)
+		{
+			uint8 bCompresedPacket = false;
+			uint32 UncompressedBits = Packet.GetNumBits();
+
+			FMemory::Memcpy(UncompressedData, Packet.GetData(), Packet.GetNumBytes());
+
+			Packet.Reset();
+			Packet.WriteBit(bCompresedPacket);
+			Packet.SerializeBits(UncompressedData, UncompressedBits);
+		}
+#endif
+		else
+		{
+			LowLevelFatalError(TEXT("Tried to compress a packet, but no dictionary is present for compression."));
+
+			Packet.Reset();
+			Packet.SetError();
 		}
 	}
 }
 
-int32 OodleHandlerComponent::GetPacketOverheadBits()
+int32 OodleHandlerComponent::GetReservedPacketBits()
 {
 	int32 ReturnVal = 0;
 
-	if (bEnableOodle && Mode == EOodleHandlerMode::Release)
+	if (bEnableOodle)
 	{
-		// Oodle writes the decompressed packet size, as its addition to the protocol - it writes this using SerializeIntPacked however,
-		// so determine the worst case number of packed bytes that will be written, based on the MAX_OODLE_PACKET_SIZE packet limit.
-		// Normally, this should be 2-bytes/16-bits.
-		TArray<uint8> MeasureArray;
-		FMemoryWriter MeasureAr(MeasureArray);
-		uint32 MaxOodlePacket = MAX_OODLE_PACKET_SIZE;
-
-		MeasureAr.SerializeIntPacked(MaxOodlePacket);
-
-		if (!MeasureAr.IsError())
+		if (OodleReservedPacketBits == 0)
 		{
-			ReturnVal += MeasureAr.TotalSize() * 8;
+			// Add a bit for bCompressedPacket
+			OodleReservedPacketBits += 1;
 
-			SET_DWORD_STAT(STAT_Oodle_PacketOverhead, ReturnVal);
+			// Oodle writes the decompressed packet size, as its addition to the protocol - it writes using SerializeInt however,
+			// so determine the worst case number of packed bits that will be written, based on the MAX_OODLE_PACKET_SIZE packet limit.
+			FBitWriter MeasureAr(0, true);
+			uint32 MaxOodlePacket = MAX_OODLE_PACKET_BYTES;
+
+			SerializeOodlePacketSize(MeasureAr, MaxOodlePacket);
+
+			if (!MeasureAr.IsError())
+			{
+				OodleReservedPacketBits += MeasureAr.GetNumBits();
+
+#if !UE_BUILD_SHIPPING
+				SET_DWORD_STAT(STAT_PacketReservedOodle, OodleReservedPacketBits);
+#endif
+			}
+			else
+			{
+				LowLevelFatalError(TEXT("Failed to determine OodleHandlerComponent reserved packet bits."));
+			}
 		}
-		else
-		{
-			LowLevelFatalError(TEXT("Failed to determine OodleHandlerComponent packet overhead."));
-		}
+
+		ReturnVal += OodleReservedPacketBits;
 	}
 
 	return ReturnVal;
-}
-
-uint8 OodleHandlerComponent::GetBitAlignment()
-{
-	return (GetPacketOverheadBits() % 8);
-}
-
-bool OodleHandlerComponent::DoesResetBitAlignment()
-{
-	return true;
 }
 
 
@@ -968,6 +1108,211 @@ static bool OodleExec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar)
 				if (bOodleForceEnable)
 				{
 					UOodleTrainerCommandlet::HandleEnable();
+				}
+			}
+		}
+		// Used for enabling/disabling compression of outgoing packets (does not affect decompression of incoming packets)
+		else if (FParse::Command(&Cmd, TEXT("Compression")))
+		{
+			bool bTurnOff = false;
+
+			if (FParse::Command(&Cmd, TEXT("On")))
+			{
+				bOodleCompressionDisabled = false;
+			}
+			else if (FParse::Command(&Cmd, TEXT("Off")))
+			{
+				bOodleCompressionDisabled = true;
+			}
+			else
+			{
+				bOodleCompressionDisabled = !bOodleCompressionDisabled;
+			}
+
+			if (bOodleCompressionDisabled)
+			{
+				Ar.Logf(TEXT("Oodle compression disabled (packets will still be decompressed, just not compressed on send)."));
+			}
+			else
+			{
+				Ar.Logf(TEXT("Oodle compression re-enabled."));
+			}
+
+
+			// Automatically execute the same command on the server, if the 'admin' command is likely present
+			bool bSendServerCommand = FModuleManager::Get().IsModuleLoaded(TEXT("NetcodeUnitTest"));
+
+			bSendServerCommand = bSendServerCommand && OodleComponentList.Num() > 0 &&
+									OodleComponentList[0]->Handler->Mode == Handler::Mode::Client;
+
+			if (bSendServerCommand)
+			{
+				FString ServerCmd = TEXT("Admin Oodle Compression ");
+
+				ServerCmd += (bOodleCompressionDisabled ? TEXT("Off") : TEXT("On"));
+
+				Ar.Logf(TEXT("Sending command '%s' to server."), *ServerCmd);
+
+				GEngine->Exec(nullptr, *ServerCmd, Ar);
+			}
+		}
+		/**
+		 * Used to unload/load dictionaries at runtime - particularly, for generating and loading new dictionaries at runtime.
+		 *
+		 *
+		 * The proper sequence of commands/events for generating/loading a dictionary at runtime (NOTE: Enable NetcodeUnitTest plugin):
+		 *	*Start and connect client/server with -OodleCapturing*
+		 *	"Oodle Compression Off"
+		 *	"Oodle Dictionary Unload"
+		 *
+		 *	*Run the trainer commandlet to generate a new dictionary*
+		 *
+		 *	"Oodle Dictionary Load"
+		 *	"Oodle Compression On"
+		 *
+		 * The wrong sequence of commands above, will result in an assert/crash.
+		 * Do not execute the commands simultaneously, or there will be an assert/crash (a few milliseconds delay is needed).
+		 */
+		else if (FParse::Command(&Cmd, TEXT("Dictionary")))
+		{
+			bool bLoadDic = false;
+			bool bValidCmd = true;
+
+			if (FParse::Command(&Cmd, TEXT("Load")))
+			{
+				bLoadDic = true;
+			}
+			else if (FParse::Command(&Cmd, TEXT("Unload")))
+			{
+				bLoadDic = false;
+
+				if (!bOodleCompressionDisabled)
+				{
+					Ar.Logf(TEXT("Can't unload dictionaries unless compression is disabled. Use 'Oodle Compression Off'"));
+
+					bValidCmd = false;
+				}
+			}
+
+
+			if (bValidCmd)
+			{
+				if (bLoadDic)
+				{
+					// Reset the stats before loading
+					GEngine->Exec(nullptr, TEXT("Oodle ResetStats"), Ar);
+
+					Ar.Logf(TEXT("Loading Oodle dictionaries (has no effect, if they have not been unloaded prior to this)."));
+				}
+				else
+				{
+					Ar.Logf(TEXT("Unloading Oodle dictionaries."));
+				}
+
+
+				for (OodleHandlerComponent* CurComp : OodleComponentList)
+				{
+					if (CurComp != nullptr)
+					{
+						if (bLoadDic)
+						{
+							if (!CurComp->ServerDictionary.IsValid() && !CurComp->ClientDictionary.IsValid())
+							{
+								CurComp->InitializeDictionaries();
+							}
+							else
+							{
+								Ar.Logf(TEXT("An OodleHandlerComponent already had loaded dictionaries."));
+							}
+						}
+						else
+						{
+							if (CurComp->ServerDictionary.IsValid())
+							{
+								CurComp->FreeDictionary(CurComp->ServerDictionary);
+							}
+
+							if (CurComp->ClientDictionary.IsValid())
+							{
+								CurComp->FreeDictionary(CurComp->ClientDictionary);
+							}
+						}
+					}
+				}
+
+
+				// Automatically execute the same command on the server, if the 'admin' command is likely present
+				bool bSendServerCommand = FModuleManager::Get().IsModuleLoaded(TEXT("NetcodeUnitTest"));
+
+				bSendServerCommand = bSendServerCommand && OodleComponentList.Num() > 0 &&
+										OodleComponentList[0]->Handler->Mode == Handler::Mode::Client;
+
+				if (bSendServerCommand)
+				{
+					FString ServerCmd = TEXT("Admin Oodle Dictionary ");
+
+					ServerCmd += (bLoadDic ? TEXT("Load") : TEXT("Unload"));
+
+					Ar.Logf(TEXT("Sending command '%s' to server."), *ServerCmd);
+
+					GEngine->Exec(nullptr, *ServerCmd, Ar);
+
+
+					// Also automatically disable packet capturing, to free the capture files for dictionary generation
+					Ar.Logf(TEXT("Disabling packet capturing serverside (to allow dictionary generation)."));
+
+					GEngine->Exec(nullptr, TEXT("Admin Oodle Capture Off"), Ar);
+				}
+			}
+		}
+#if STATS
+		// Resets most Oodle stats, relevant to evaluating dictionary performance
+		else if (FParse::Command(&Cmd, TEXT("ResetStats")))
+		{
+			Ar.Logf(TEXT("Resetting Oodle stats."));
+
+			GOodleNetStats.ResetStats();
+
+			SET_DWORD_STAT(STAT_Oodle_CompressFailSavings, 0);
+			SET_DWORD_STAT(STAT_Oodle_CompressFailSize, 0);
+		}
+#endif
+		else if (FParse::Command(&Cmd, TEXT("Capture")))
+		{
+			bool bDoCapture = false;
+
+			if (FParse::Command(&Cmd, TEXT("On")))
+			{
+				bDoCapture = true;
+			}
+			else if (FParse::Command(&Cmd, TEXT("Off")))
+			{
+				bDoCapture = false;
+			}
+
+
+			if (bDoCapture)
+			{
+				Ar.Logf(TEXT("Enabling Oodle capturing."));
+			}
+			else
+			{
+				Ar.Logf(TEXT("Disabling Oodle capturing"));
+			}
+
+
+			for (OodleHandlerComponent* CurComp : OodleComponentList)
+			{
+				if (CurComp != nullptr)
+				{
+					if (bDoCapture)
+					{
+						CurComp->InitializePacketLogs();
+					}
+					else
+					{
+						CurComp->FreePacketLogs();
+					}
 				}
 			}
 		}
@@ -1030,26 +1375,23 @@ void FOodleComponentModuleInterface::StartupModule()
 
 		FPlatformProcess::PopDllDirectory(*OodleBinaryPath);
 
-		if ( OodleDllHandle == nullptr )
+		if (OodleDllHandle == nullptr)
 		{
-			UE_LOG( OodleHandlerComponentLog, Fatal, TEXT( "Could not find Oodle .dll's in path: %s" ), *( OodleBinaryPath + OodleBinaryFile ) );
+			UE_LOG(OodleHandlerComponentLog, Fatal, TEXT("Could not find Oodle .dll's in path: %s" ),
+					*(OodleBinaryPath + OodleBinaryFile));
 		}
 	}
 #endif
 
-#if UE4_OODLE_VER < 200
-	OodleInitOptions Options;
 
-	Oodle_Init_GetDefaults_Minimal(OODLE_HEADER_VERSION, &Options);
-	Oodle_Init_NoThreads(OODLE_HEADER_VERSION, &Options);
-#endif
+	// @todo #JohnB: Remove after Oodle update, and after checking with Luigi
+	OodlePlugins_SetAssertion(&UEOodleDisplayAssert);
 }
 
 void FOodleComponentModuleInterface::ShutdownModule()
 {
-#if UE4_OODLE_VER < 200
-	Oodle_Shutdown();
-#endif
+	// @todo #JohnB: Remove after Oodle update, and after checking with Luigi
+	OodlePlugins_SetAssertion(nullptr);
 
 	if (OodleDllHandle != nullptr)
 	{

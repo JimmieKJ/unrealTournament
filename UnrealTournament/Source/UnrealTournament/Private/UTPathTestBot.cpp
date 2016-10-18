@@ -10,6 +10,10 @@ void AUTPathTestBot::ExecuteWhatToDoNext()
 	Skill = 7.0f;
 	Personality.MovementAbility = 1.0f;
 	Personality.Jumpiness = 1.0f;
+	if (GetUTChar() != nullptr)
+	{
+		GetUTChar()->Health = GetUTChar()->SuperHealthMax;
+	}
 
 	if (TestList.Num() > 0)
 	{

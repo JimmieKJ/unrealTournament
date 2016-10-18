@@ -4,6 +4,7 @@
 #include "LinkerPlaceholderExportObject.h"
 #include "LinkerPlaceholderClass.h"
 #include "BlueprintSupport.h" // for IsDeferredDependencyPlaceholder()
+#include "PropertyTag.h"
 
 /*-----------------------------------------------------------------------------
 	UObjectProperty.
@@ -24,6 +25,24 @@ FString UObjectProperty::GetCPPMacroType( FString& ExtendedTypeText ) const
 {
 	ExtendedTypeText = FString::Printf(TEXT("%s%s"), PropertyClass->GetPrefixCPP(), *PropertyClass->GetName());
 	return TEXT("OBJECT");
+}
+
+bool UObjectProperty::ConvertFromType(const FPropertyTag& Tag, FArchive& Ar, uint8* Data, UStruct* DefaultsStruct, bool& bOutAdvanceProperty)
+{
+	if (Tag.Type == NAME_AssetObjectProperty || Tag.Type == NAME_AssetSubclassOfProperty)
+	{
+		// This property used to be a TAssetPtr<Foo> but is now a raw UObjectProperty Foo*, we can convert without loss of data
+		FAssetPtr PreviousValue;
+		Ar << PreviousValue;
+
+		// now copy the value into the object's address space
+		UObject* PreviousValueObj = PreviousValue.LoadSynchronous();
+		SetPropertyValue_InContainer(Data, PreviousValueObj, Tag.ArrayIndex);
+
+		return true;
+	}
+
+	return false;
 }
 
 void UObjectProperty::SerializeItem( FArchive& Ar, void* Value, void const* Defaults ) const

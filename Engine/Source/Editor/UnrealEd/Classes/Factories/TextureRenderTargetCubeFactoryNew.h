@@ -7,7 +7,7 @@
 #pragma once
 #include "TextureRenderTargetCubeFactoryNew.generated.h"
 
-UCLASS(hidecategories=(Object, Texture))
+UCLASS(MinimalAPI, hidecategories=(Object, Texture))
 class UTextureRenderTargetCubeFactoryNew : public UFactory
 {
 	GENERATED_UCLASS_BODY()
@@ -25,6 +25,3 @@ class UTextureRenderTargetCubeFactoryNew : public UFactory
 	virtual UObject* FactoryCreateNew(UClass* Class,UObject* InParent,FName Name,EObjectFlags Flags,UObject* Context,FFeedbackContext* Warn) override;
 	//~ Begin UFactory Interface	
 };
-
-
-

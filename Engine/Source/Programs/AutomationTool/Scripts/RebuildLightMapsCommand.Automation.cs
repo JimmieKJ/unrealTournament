@@ -31,7 +31,7 @@ namespace AutomationScripts.Automation
 		public override void ExecuteBuild()
 		{
 			Log("********** REBUILD LIGHT MAPS COMMAND STARTED **********");
-
+			int SubmittedCL = 0;
 			try
 			{
 				var Params = new ProjectParams
@@ -52,17 +52,18 @@ namespace AutomationScripts.Automation
                 }
 				CreateChangelist(Params);
 				RunRebuildLightmapsCommandlet(Params);
-				SubmitRebuiltMaps();
+				SubmitRebuiltMaps(ref SubmittedCL);
 			}
 			catch (Exception ProcessEx)
 			{
 				Log("********** REBUILD LIGHT MAPS COMMAND FAILED **********");
+                Log("Error message: {0}", ProcessEx.Message);
 				HandleFailure(ProcessEx.Message);
 				throw ProcessEx;
 			}
 
 			// The processes steps have completed successfully.
-			HandleSuccess();
+			HandleSuccess(SubmittedCL);
 
 			Log("********** REBUILD LIGHT MAPS COMMAND COMPLETED **********");
 		}
@@ -138,13 +139,44 @@ namespace AutomationScripts.Automation
 			}
 			catch (Exception Ex)
 			{
+                string FinalLogLines = "No log file found";
+                AutomationException AEx = Ex as AutomationException;
+                if ( AEx != null )
+                {
+                    string LogFile = AEx.LogFileName;
+                    UnrealBuildTool.Log.TraceWarning("Attempting to load file {0}", LogFile);
+                    if ( LogFile != "")
+                    {
+                        
+                        UnrealBuildTool.Log.TraceWarning("Attempting to read file {0}", LogFile);
+                        try
+                        {
+                            string[] AllLogFile = ReadAllLines(LogFile);
+
+                            FinalLogLines = "Important log entries\n";
+                            foreach (string LogLine in AllLogFile)
+                            {
+                                if (LogLine.Contains("[REPORT]"))
+                                {
+                                    FinalLogLines += LogLine + "\n";
+                                }
+                            }
+                        }
+                        catch (Exception)
+                        {
+                            // we don't care about this because if this is hit then there is no log file the exception probably has more info
+                            LogError("Could not find log file " + LogFile);
+                        }
+                    }
+                }
+
 				// Something went wrong with the commandlet. Abandon this run, don't check in any updated files, etc.
 				LogError("Rebuild Light Maps has failed. because "+ Ex.ToString());
-				throw new AutomationException(ExitCode.Error_Unknown, Ex, "RebuildLightMaps failed.");
+				throw new AutomationException(ExitCode.Error_Unknown, Ex, "RebuildLightMaps failed. {0}", FinalLogLines);
 			}
 		}
 
-		private void SubmitRebuiltMaps()
+		private void SubmitRebuiltMaps(ref int SubmittedCL)
 		{
 			Log("Running Step:- RebuildLightMaps::SubmitRebuiltMaps");
 
@@ -152,7 +184,6 @@ namespace AutomationScripts.Automation
 			if (WorkingCL != -1)
 			{
                 Log("Running Step:- Submitting CL " + WorkingCL);
-				int SubmittedCL;
 				P4.Submit(WorkingCL, out SubmittedCL, true, true);
 				Log("INFO: Lightmaps successfully submitted in cl "+ SubmittedCL.ToString());
 			}
@@ -214,11 +245,11 @@ namespace AutomationScripts.Automation
 		/**
 		 * Perform any post completion steps needed. I.e. Notify stakeholders etc.
 		 */
-		private void HandleSuccess()
+		private void HandleSuccess(int SubmittedCL)
 		{
 			try
 			{
-				SendCompletionMessage(true, "Successfully rebuilt lightmaps.");
+				SendCompletionMessage(true, String.Format( "Successfully rebuilt lightmaps to cl {0}.", SubmittedCL ));
 			}
 			catch (Exception SendMailEx)
 			{
@@ -247,7 +278,9 @@ namespace AutomationScripts.Automation
 			}
 
 			Message.CC.Add(new MailAddress("Daniel.Lamb@epicgames.com"));
-			Message.Subject = String.Format("Nightly lightmap rebuild {0} for {1}", bWasSuccessful ? "[SUCCESS]" : "[FAILED]", Branch);
+            Message.CC.Add(new MailAddress("Andrew.Grant@epicgames.com"));
+			Message.CC.Add(new MailAddress("jordan.walker@epicgames.com"));
+            Message.Subject = String.Format("Nightly lightmap rebuild {0} for {1}", bWasSuccessful ? "[SUCCESS]" : "[FAILED]", Branch);
 			Message.Body = MessageBody;
             /*Attachment Attach = new Attachment();
             Message.Attachments.Add()*/

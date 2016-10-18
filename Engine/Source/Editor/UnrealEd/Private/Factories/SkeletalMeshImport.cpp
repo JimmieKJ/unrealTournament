@@ -209,7 +209,7 @@ bool ProcessImportMeshSkeleton(FReferenceSkeleton& RefSkeleton, int32& SkeletalD
 	{
 		const VBone & BinaryBone = RefBonesBinary[ b ];
 		const FString BoneName = FSkeletalMeshImportData::FixupBoneName( BinaryBone.Name );
-		const FMeshBoneInfo BoneInfo(FName(*BoneName, FNAME_Add, true), BinaryBone.Name, BinaryBone.ParentIndex);
+		const FMeshBoneInfo BoneInfo(FName(*BoneName, FNAME_Add), BinaryBone.Name, BinaryBone.ParentIndex);
 		const FTransform BoneTransform(BinaryBone.BonePos.Transform);
 
 		if(RefSkeleton.FindBoneIndex(BoneInfo.Name) != INDEX_NONE)
@@ -943,22 +943,22 @@ void RestoreExistingSkelMeshData(ExistingSkelMeshData* MeshData, USkeletalMesh* 
 					LODModel.RequiredBones.Sort();
 					LODModel.ActiveBoneIndices.Sort();
 
-					// Fix the chunks' BoneMaps.
-					for (int32 ChunkIndex = 0; ChunkIndex < LODModel.Chunks.Num(); ChunkIndex++)
+					// Fix the sections' BoneMaps.
+					for (int32 SectionIndex = 0; SectionIndex < LODModel.Sections.Num(); SectionIndex++)
 					{
-						FSkelMeshChunk& Chunk = LODModel.Chunks[ChunkIndex];
-						for (int32 BoneIndex = 0; BoneIndex < Chunk.BoneMap.Num(); BoneIndex++)
+						FSkelMeshSection& Section = LODModel.Sections[SectionIndex];
+						for (int32 BoneIndex = 0; BoneIndex < Section.BoneMap.Num(); BoneIndex++)
 						{
-							int32 NewBoneIndex = OldToNewMap[Chunk.BoneMap[BoneIndex]];
+							int32 NewBoneIndex = OldToNewMap[Section.BoneMap[BoneIndex]];
 							if (NewBoneIndex == INDEX_NONE)
 							{
 								bMissingBone = true;
-								MissingBoneName = MeshData->ExistingRefSkeleton.GetBoneName(Chunk.BoneMap[BoneIndex]);
+								MissingBoneName = MeshData->ExistingRefSkeleton.GetBoneName(Section.BoneMap[BoneIndex]);
 								break;
 							}
 							else
 							{
-								Chunk.BoneMap[BoneIndex] = NewBoneIndex;
+								Section.BoneMap[BoneIndex] = NewBoneIndex;
 							}
 						}
 						if (bMissingBone)

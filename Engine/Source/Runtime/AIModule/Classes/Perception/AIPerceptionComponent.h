@@ -62,6 +62,35 @@ struct AIMODULE_API FActorPerceptionInfo
 		return Location;
 	}
 
+	/** it includes both currently live (visible) stimulus, as well as "remembered" ones */
+	bool HasAnyKnownStimulus() const
+	{
+		for (const FAIStimulus& Stimulus : LastSensedStimuli)
+		{
+			// not that WasSuccessfullySensed will return 'false' for expired stimuli
+			if (Stimulus.IsValid() && (Stimulus.WasSuccessfullySensed() == true || Stimulus.IsExpired() == false))
+			{
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	bool HasAnyCurrentStimulus() const
+	{
+		for (const FAIStimulus& Stimulus : LastSensedStimuli)
+		{
+			// not that WasSuccessfullySensed will return 'false' for expired stimuli
+			if (Stimulus.IsValid() && Stimulus.WasSuccessfullySensed() == true && Stimulus.IsExpired() == false)
+			{
+				return true;
+			}
+		}
+
+		return false;
+	}
+
 	/** @note will return FAISystem::InvalidLocation if given sense has never registered related Target actor */
 	FORCEINLINE FVector GetStimulusLocation(FAISenseID Sense) const
 	{
@@ -76,6 +105,16 @@ struct AIMODULE_API FActorPerceptionInfo
 	FORCEINLINE bool IsSenseRegistered(FAISenseID Sense) const
 	{
 		return LastSensedStimuli.IsValidIndex(Sense) && LastSensedStimuli[Sense].WasSuccessfullySensed() && (LastSensedStimuli[Sense].GetAge() < FAIStimulus::NeverHappenedAge);
+	}
+
+	FORCEINLINE bool HasKnownStimulusOfSense(FAISenseID Sense) const
+	{
+		return LastSensedStimuli.IsValidIndex(Sense) && (LastSensedStimuli[Sense].GetAge() < FAIStimulus::NeverHappenedAge);
+	}
+
+	FORCEINLINE bool IsSenseActive(FAISenseID Sense) const
+	{
+		return LastSensedStimuli.IsValidIndex(Sense) && LastSensedStimuli[Sense].IsActive();
 	}
 	
 	/** takes all "newer" info from Other and absorbs it */
@@ -113,33 +152,9 @@ class AIMODULE_API UAIPerceptionComponent : public UActorComponent
 	static const int32 InitialStimuliToProcessArraySize;
 
 	typedef TMap<AActor*, FActorPerceptionInfo> TActorPerceptionContainer;
+	typedef TActorPerceptionContainer FActorPerceptionContainer;
 
 protected:
-	/** Max distance at which a makenoise(1.0) loudness sound can be heard, regardless of occlusion */
-	DEPRECATED(4.8, "This property is deprecated. Please use appropriate sense config class instead")
-	UPROPERTY(VisibleDefaultsOnly, Category = AI)
-	float HearingRange;
-
-	/** Max distance at which a makenoise(1.0) loudness sound can be heard if not occluded (LOSHearingThreshold should be > HearingThreshold) */
-	DEPRECATED(4.8, "This property is deprecated. Please use appropriate sense config class instead")
-	UPROPERTY(VisibleDefaultsOnly, Category = AI)
-	float LoSHearingRange;
-
-	/** Maximum sight distance to notice a target. */
-	DEPRECATED(4.8, "This property is deprecated. Please use appropriate sense config class instead")
-	UPROPERTY(VisibleDefaultsOnly, Category = AI)
-	float SightRadius;
-
-	/** Maximum sight distance to see target that has been already seen. */
-	DEPRECATED(4.8, "This property is deprecated. Please use appropriate sense config class instead")
-	UPROPERTY(VisibleDefaultsOnly, Category = AI)
-	float LoseSightRadius;
-
-	/** How far to the side AI can see, in degrees. Use SetPeripheralVisionAngle to change the value at runtime. */
-	DEPRECATED(4.8, "This property is deprecated. Please use appropriate sense config class instead")
-	UPROPERTY(VisibleDefaultsOnly, Category = AI)
-	float PeripheralVisionAngle;
-		
 	UPROPERTY(EditDefaultsOnly, Instanced, Category = "AI Perception")
 	TArray<UAISenseConfig*> SensesConfig;
 
@@ -157,7 +172,7 @@ protected:
 	FPerceptionChannelWhitelist PerceptionFilter;
 
 private:
-	TActorPerceptionContainer PerceptualData;
+	FActorPerceptionContainer PerceptualData;
 		
 protected:	
 	struct FStimulusToProcess
@@ -188,7 +203,7 @@ public:
 	virtual void OnUnregister() override;
 
 	UFUNCTION()
-	void OnOwnerEndPlay(EEndPlayReason::Type EndPlayReason);
+	void OnOwnerEndPlay(AActor* Actor, EEndPlayReason::Type EndPlayReason);
 	
 	void GetLocationAndDirection(FVector& Location, FVector& Direction) const;
 	const AActor* GetBodyActor() const;
@@ -201,8 +216,8 @@ public:
 
 	FVector GetActorLocation(const AActor& Actor) const;
 	FORCEINLINE const FActorPerceptionInfo* GetActorInfo(const AActor& Actor) const { return PerceptualData.Find(&Actor); }
-	FORCEINLINE TActorPerceptionContainer::TIterator GetPerceptualDataIterator() { return TActorPerceptionContainer::TIterator(PerceptualData); }
-	FORCEINLINE TActorPerceptionContainer::TConstIterator GetPerceptualDataConstIterator() const { return TActorPerceptionContainer::TConstIterator(PerceptualData); }
+	FORCEINLINE FActorPerceptionContainer::TIterator GetPerceptualDataIterator() { return FActorPerceptionContainer::TIterator(PerceptualData); }
+	FORCEINLINE FActorPerceptionContainer::TConstIterator GetPerceptualDataConstIterator() const { return FActorPerceptionContainer::TConstIterator(PerceptualData); }
 
 	virtual void GetHostileActors(TArray<AActor*>& OutActors) const;
 
@@ -250,7 +265,15 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "AI|Perception")
 	void GetPerceivedHostileActors(TArray<AActor*>& OutActors) const;
 
-	/** If SenseToUse is none all actors perceived in any way will get fetched */
+	/** If SenseToUse is none all actors currently perceived in any way will get fetched */
+	UFUNCTION(BlueprintCallable, Category = "AI|Perception")
+	void GetCurrentlyPerceivedActors(TSubclassOf<UAISense> SenseToUse, TArray<AActor*>& OutActors) const;
+
+	/** If SenseToUse is none all actors ever perceived in any way (and not forgotten yet) will get fetched */
+	UFUNCTION(BlueprintCallable, Category = "AI|Perception")
+	void GetKnownPerceivedActors(TSubclassOf<UAISense> SenseToUse, TArray<AActor*>& OutActors) const;
+	
+	DEPRECATED(4.13, "GetPerceivedActors is deprecated. Use GetPerceivedActors or GetPerceivedActors")
 	UFUNCTION(BlueprintCallable, Category = "AI|Perception")
 	void GetPerceivedActors(TSubclassOf<UAISense> SenseToUse, TArray<AActor*>& OutActors) const;
 	
@@ -271,7 +294,7 @@ protected:
 	DEPRECATED(4.11, "Function has been renamed and made public. Please use UpdatePerceptionWhitelist instead")
 	void UpdatePerceptionFilter(FAISenseID Channel, bool bNewValue);
 
-	TActorPerceptionContainer& GetPerceptualData() { return PerceptualData; }
+	FActorPerceptionContainer& GetPerceptualData() { return PerceptualData; }
 
 	/** called to clean up on owner's end play or destruction */
 	virtual void CleanUp();

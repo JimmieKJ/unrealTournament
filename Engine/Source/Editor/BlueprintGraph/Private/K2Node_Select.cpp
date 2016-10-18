@@ -1016,6 +1016,12 @@ void UK2Node_Select::PostPasteNode()
 	IndexPin->DefaultValue = OldDefaultValue;
 }
 
+FSlateIcon UK2Node_Select::GetIconAndTint(FLinearColor& OutColor) const
+{
+	static FSlateIcon Icon("EditorStyle", "GraphEditor.Select_16x");
+	return Icon;
+}
+
 bool UK2Node_Select::IsConnectionDisallowed(const UEdGraphPin* MyPin, const UEdGraphPin* OtherPin, FString& OutReason) const
 {
 	const UEdGraphSchema_K2* K2Schema = GetDefault<UEdGraphSchema_K2>();

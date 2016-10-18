@@ -10,8 +10,10 @@
 #include "EngineBuildSettings.h"
 #include "SourceCodeNavigation.h"
 #include "SOutputLogDialog.h"
+#include "IUATHelperModule.h"
 
 #include "Settings/EditorSettings.h"
+#include "AnalyticsEventAttribute.h"
 
 #define LOCTEXT_NAMESPACE "MainFrameActions"
 
@@ -124,16 +126,10 @@ void FMainFrameCommands::RegisterCommands()
 												FCanExecuteAction(),
 												FIsActionChecked::CreateStatic( &FMainFrameActionCallbacks::OpenSlateApp_IsChecked, FName("SessionFrontend" ) ) );
 
-	UI_COMMAND(VisitUTWiki, "UT Wiki...", "Go to the Unreal Tournament Wiki page", EUserInterfaceActionType::Button, FInputGesture());
-	ActionList->MapAction(VisitUTWiki, FExecuteAction::CreateStatic(&FMainFrameActionCallbacks::VisitUTWiki));
-
-	UI_COMMAND(VisitWiki, "Engine Wiki...", "Go to the Unreal Engine Wiki page to view community-created resources, or to create your own.", EUserInterfaceActionType::Button, FInputChord());
+	UI_COMMAND(VisitWiki, "Wiki...", "Go to the Unreal Engine Wiki page to view community-created resources, or to create your own.", EUserInterfaceActionType::Button, FInputChord());
 	ActionList->MapAction(VisitWiki, FExecuteAction::CreateStatic(&FMainFrameActionCallbacks::VisitWiki));
 
-	UI_COMMAND(VisitUTForums, "UT Forums...", "Go to the Unreal Tournament forums", EUserInterfaceActionType::Button, FInputGesture());
-	ActionList->MapAction(VisitUTForums, FExecuteAction::CreateStatic(&FMainFrameActionCallbacks::VisitUTForums));
-
-	UI_COMMAND(VisitForums, "Engine Forums...", "Go the the Unreal Engine forums to view announcements and engage in discussions with other developers.", EUserInterfaceActionType::Button, FInputChord());
+	UI_COMMAND(VisitForums, "Forums...", "Go the the Unreal Engine forums to view announcements and engage in discussions with other developers.", EUserInterfaceActionType::Button, FInputChord());
 	ActionList->MapAction(VisitForums, FExecuteAction::CreateStatic(&FMainFrameActionCallbacks::VisitForums));
 
 	UI_COMMAND( VisitAskAQuestionPage, "Ask a Question...", "Have a question?  Go here to ask about anything and everything related to Unreal.", EUserInterfaceActionType::Button, FInputChord() );
@@ -144,9 +140,6 @@ void FMainFrameCommands::RegisterCommands()
 
 	UI_COMMAND( VisitSupportWebSite, "Unreal Engine Support Web Site...", "Navigates to the Unreal Engine Support web site's main page.", EUserInterfaceActionType::Button, FInputChord() );
 	ActionList->MapAction( VisitSupportWebSite, FExecuteAction::CreateStatic( &FMainFrameActionCallbacks::VisitSupportWebSite ) );
-
-	UI_COMMAND(VisitUTDotCom, "Visit UnrealTournament.com...", "Navigates to UnrealTournament.com where you can learn more about Unreal Tournament.", EUserInterfaceActionType::Button, FInputGesture());
-	ActionList->MapAction(VisitUTDotCom, FExecuteAction::CreateStatic(&FMainFrameActionCallbacks::VisitUTDotCom));
 
 	UI_COMMAND( VisitEpicGamesDotCom, "Visit UnrealEngine.com...", "Navigates to UnrealEngine.com where you can learn more about Unreal Technology.", EUserInterfaceActionType::Button, FInputChord() );
 	ActionList->MapAction( VisitEpicGamesDotCom, FExecuteAction::CreateStatic( &FMainFrameActionCallbacks::VisitEpicGamesDotCom ) );
@@ -306,16 +299,7 @@ FString GetCookingOptionalParams()
 {
 	FString OptionalParams;
 	const UProjectPackagingSettings* const PackagingSettings = GetDefault<UProjectPackagingSettings>();
-	if (PackagingSettings->bCookAll)
-	{
-		OptionalParams += TEXT(" -CookAll");
-		// maps only flag only affects cook all
-		if (PackagingSettings->bCookMapsOnly)
-		{
-			OptionalParams += TEXT(" -CookMapsOnly");
-		}
-	}
-
+	
 	if (PackagingSettings->bSkipEditorContent)
 	{
 		OptionalParams += TEXT(" -SKIPEDITORCONTENT");
@@ -328,6 +312,15 @@ void FMainFrameActionCallbacks::CookContent(const FName InPlatformInfoName)
 {
 	const PlatformInfo::FPlatformInfo* const PlatformInfo = PlatformInfo::FindPlatformInfo(InPlatformInfoName);
 	check(PlatformInfo);
+
+	if (FInstalledPlatformInfo::Get().IsPlatformMissingRequiredFile(PlatformInfo->BinaryFolderName))
+	{
+		if (!FInstalledPlatformInfo::OpenInstallerOptions())
+		{
+			FMessageDialog::Open(EAppMsgType::Ok, LOCTEXT("MissingPlatformFilesCook", "Missing required files to cook for this platform."));
+		}
+		return;
+	}
 
 	FString OptionalParams;
 
@@ -373,7 +366,7 @@ void FMainFrameActionCallbacks::CookContent(const FName InPlatformInfoName)
 		*OptionalParams
 	);
 	
-	CreateUatTask(CommandLine, PlatformInfo->DisplayName, LOCTEXT("CookingContentTaskName", "Cooking content"), LOCTEXT("CookingTaskName", "Cooking"), FEditorStyle::GetBrush(TEXT("MainFrame.CookContent")));
+	IUATHelperModule::Get().CreateUatTask(CommandLine, PlatformInfo->DisplayName, LOCTEXT("CookingContentTaskName", "Cooking content"), LOCTEXT("CookingTaskName", "Cooking"), FEditorStyle::GetBrush(TEXT("MainFrame.CookContent")));
 }
 
 bool FMainFrameActionCallbacks::CookContentCanExecute( const FName PlatformInfoName )
@@ -405,6 +398,8 @@ bool FMainFrameActionCallbacks::PackageBuildConfigurationIsChecked( EProjectPack
 void FMainFrameActionCallbacks::PackageProject( const FName InPlatformInfoName )
 {
 	GUnrealEd->CancelPlayingViaLauncher();
+	TArray<FString> Packages;
+	GUnrealEd->SaveWorldForPlay(Packages);
 	
 	// does the project have any code?
 	FGameProjectGenerationModule& GameProjectModule = FModuleManager::LoadModuleChecked<FGameProjectGenerationModule>(TEXT("GameProjectGeneration"));
@@ -412,6 +407,15 @@ void FMainFrameActionCallbacks::PackageProject( const FName InPlatformInfoName )
 
 	const PlatformInfo::FPlatformInfo* const PlatformInfo = PlatformInfo::FindPlatformInfo(InPlatformInfoName);
 	check(PlatformInfo);
+
+	if (FInstalledPlatformInfo::Get().IsPlatformMissingRequiredFile(PlatformInfo->BinaryFolderName))
+	{
+		if (!FInstalledPlatformInfo::OpenInstallerOptions())
+		{
+			FMessageDialog::Open(EAppMsgType::Ok, LOCTEXT("MissingPlatformFilesPackage", "Missing required files to package this platform."));
+		}
+		return;
+	}
 
 	if (PlatformInfo->SDKStatus == PlatformInfo::EPlatformSDKStatus::NotInstalled || (bProjectHasCode && PlatformInfo->bUsesHostCompiler && !FSourceCodeNavigation::IsCompilerAvailable()))
 	{
@@ -422,6 +426,8 @@ void FMainFrameActionCallbacks::PackageProject( const FName InPlatformInfoName )
 		FEditorAnalytics::ReportEvent(TEXT("Editor.Package.Failed"), PlatformInfo->TargetPlatformName.ToString(), bProjectHasCode, EAnalyticsErrorCodes::SDKNotFound, ParamArray);
 		return;
 	}
+
+	UProjectPackagingSettings* PackagingSettings = Cast<UProjectPackagingSettings>(UProjectPackagingSettings::StaticClass()->GetDefaultObject());
 
 	{
 		const ITargetPlatform* const Platform = GetTargetPlatformManager()->FindTargetPlatform(PlatformInfo->TargetPlatformName.ToString());
@@ -434,6 +440,9 @@ void FMainFrameActionCallbacks::PackageProject( const FName InPlatformInfoName )
 			// report to analytics
 			FEditorAnalytics::ReportBuildRequirementsFailure(TEXT("Editor.Package.Failed"), PlatformInfo->TargetPlatformName.ToString(), bProjectHasCode, Result);
 
+			// report to main frame
+			bool UnrecoverableError = false;
+
 			// report to message log
 			if ((Result & ETargetPlatformReadyStatus::SDKNotFound) != 0)
 			{
@@ -442,6 +451,7 @@ void FMainFrameActionCallbacks::PackageProject( const FName InPlatformInfoName )
 					FText::Format(LOCTEXT("SdkNotFoundMessageDetail", "Please install the SDK for the {0} target platform!"), Platform->DisplayName()),
 					NotInstalledTutorialLink
 				);
+				UnrecoverableError = true;
 			}
 
 			if ((Result & ETargetPlatformReadyStatus::ProvisionNotFound) != 0)
@@ -451,6 +461,7 @@ void FMainFrameActionCallbacks::PackageProject( const FName InPlatformInfoName )
 					LOCTEXT("ProvisionNotFoundMessageDetail", "A provision is required for deploying your app to the device."),
 					NotInstalledTutorialLink
 				);
+				UnrecoverableError = true;
 			}
 
 			if ((Result & ETargetPlatformReadyStatus::SigningKeyNotFound) != 0)
@@ -460,6 +471,7 @@ void FMainFrameActionCallbacks::PackageProject( const FName InPlatformInfoName )
 					LOCTEXT("SigningKeyNotFoundMessageDetail", "The app could not be digitally signed, because the signing key is not configured."),
 					NotInstalledTutorialLink
 				);
+				UnrecoverableError = true;
 			}
 
 			if ((Result & ETargetPlatformReadyStatus::ManifestNotFound) != 0)
@@ -469,10 +481,18 @@ void FMainFrameActionCallbacks::PackageProject( const FName InPlatformInfoName )
 					LOCTEXT("ManifestNotFoundMessageDetail", "The generated application manifest could not be found."),
 					NotInstalledTutorialLink
 					);
+				UnrecoverableError = true;
 			}
 
-			// report to main frame
-			bool UnrecoverableError = false;
+			if ((Result & ETargetPlatformReadyStatus::RemoveServerNameEmpty) != 0 && (bProjectHasCode || (!FApp::GetEngineIsPromotedBuild() && !FApp::IsEngineInstalled()) || PackagingSettings->bNativizeBlueprintAssets))
+			{
+				AddMessageLog(
+					LOCTEXT("RemoveServerNameNotFound", "Remote compiling requires a server name. "),
+					LOCTEXT("RemoveServerNameNotFoundDetail", "Please specify one in the Remote Server Name settings field."),
+					NotInstalledTutorialLink
+					);
+				UnrecoverableError = true;
+			}
 
 			if ((Result & ETargetPlatformReadyStatus::CodeUnsupported) != 0)
 			{
@@ -496,8 +516,6 @@ void FMainFrameActionCallbacks::PackageProject( const FName InPlatformInfoName )
 	{
 		return;
 	}
-
-	UProjectPackagingSettings* PackagingSettings = Cast<UProjectPackagingSettings>(UProjectPackagingSettings::StaticClass()->GetDefaultObject());
 
 	// let the user pick a target directory
 	if (PackagingSettings->StagingDirectory.Path.IsEmpty())
@@ -549,6 +567,11 @@ void FMainFrameActionCallbacks::PackageProject( const FName InPlatformInfoName )
 	if (PackagingSettings->IncludePrerequisites)
 	{
 		OptionalParams += TEXT(" -prereqs");
+	}
+
+	if (!PackagingSettings->ApplocalPrerequisitesDirectory.Path.IsEmpty())
+	{
+		OptionalParams += FString::Printf(TEXT(" -applocaldirectory=\"%s\""), *(PackagingSettings->ApplocalPrerequisitesDirectory.Path));
 	}
 
 	if (PackagingSettings->ForDistribution)
@@ -640,7 +663,7 @@ void FMainFrameActionCallbacks::PackageProject( const FName InPlatformInfoName )
 		*OptionalParams
 	);
 
-	CreateUatTask(CommandLine, PlatformInfo->DisplayName, LOCTEXT("PackagingProjectTaskName", "Packaging project"), LOCTEXT("PackagingTaskName", "Packaging"), FEditorStyle::GetBrush(TEXT("MainFrame.PackageProject")));
+	IUATHelperModule::Get().CreateUatTask( CommandLine, PlatformInfo->DisplayName, LOCTEXT("PackagingProjectTaskName", "Packaging project"), LOCTEXT("PackagingTaskName", "Packaging"), FEditorStyle::GetBrush(TEXT("MainFrame.PackageProject")) );
 }
 
 bool FMainFrameActionCallbacks::PackageProjectCanExecute( const FName PlatformInfoName )
@@ -733,7 +756,7 @@ void FMainFrameActionCallbacks::ZipUpProject()
 
 			FString CommandLine = FString::Printf(TEXT("ZipProjectUp -project=\"%s\" -install=\"%s\""), *ProjectPath, *FinalFileName);
 
-			CreateUatTask(CommandLine, PlatformName, LOCTEXT("ZipTaskName", "Zipping Up Project"),
+			IUATHelperModule::Get().CreateUatTask( CommandLine, PlatformName, LOCTEXT("ZipTaskName", "Zipping Up Project"),
 				LOCTEXT("ZipTaskShortName", "Zip Project Task"), FEditorStyle::GetBrush(TEXT("MainFrame.CookContent")));
 		}
 	}
@@ -953,32 +976,6 @@ void FMainFrameActionCallbacks::VisitSupportWebSite()
 	}
 }
 
-void FMainFrameActionCallbacks::VisitUTDotCom()
-{
-	FString UTURL;
-	if (FUnrealEdMisc::Get().GetURL(TEXT("UTURL"), UTURL))
-	{
-		FPlatformProcess::LaunchURL(*UTURL, NULL, NULL);
-	}
-}
-
-void FMainFrameActionCallbacks::VisitUTWiki()
-{
-	FString URL;
-	if (FUnrealEdMisc::Get().GetURL(TEXT("UTWikiURL"), URL))
-	{
-		FPlatformProcess::LaunchURL(*URL, NULL, NULL);
-	}
-}
-
-void FMainFrameActionCallbacks::VisitUTForums()
-{
-	FString URL;
-	if (FUnrealEdMisc::Get().GetURL(TEXT("UTForumsURL"), URL))
-	{
-		FPlatformProcess::LaunchURL(*URL, NULL, NULL);
-	}
-}
 
 void FMainFrameActionCallbacks::VisitEpicGamesDotCom()
 {
@@ -1083,354 +1080,5 @@ void FMainFrameActionCallbacks::AddMessageLog( const FText& Text, const FText& D
 	MessageLog.AddMessage(Message);
 	MessageLog.Open();
 }
-
-
-void FMainFrameActionCallbacks::CreateUatTask( const FString& CommandLine, const FText& PlatformDisplayName, const FText& TaskName, const FText &TaskShortName, const FSlateBrush* TaskIcon )
-{
-	// make sure that the UAT batch file is in place
-#if PLATFORM_WINDOWS
-	FString RunUATScriptName = TEXT("RunUAT.bat");
-	FString CmdExe = TEXT("cmd.exe");
-#elif PLATFORM_LINUX
-	FString RunUATScriptName = TEXT("RunUAT.sh");
-	FString CmdExe = TEXT("/bin/bash");
-#else
-	FString RunUATScriptName = TEXT("RunUAT.command");
-	FString CmdExe = TEXT("/bin/sh");
-#endif
-
-	FString UatPath = FPaths::ConvertRelativePathToFull(FPaths::EngineDir() / TEXT("Build/BatchFiles") / RunUATScriptName);
-	FGameProjectGenerationModule& GameProjectModule = FModuleManager::LoadModuleChecked<FGameProjectGenerationModule>(TEXT("GameProjectGeneration"));
-	bool bHasCode = GameProjectModule.Get().ProjectHasCodeFiles();
-
-	if (!FPaths::FileExists(UatPath))
-	{
-		FFormatNamedArguments Arguments;
-		Arguments.Add(TEXT("File"), FText::FromString(UatPath));
-		FMessageDialog::Open(EAppMsgType::Ok, FText::Format(LOCTEXT("RequiredFileNotFoundMessage", "A required file could not be found:\n{File}"), Arguments));
-
-		TArray<FAnalyticsEventAttribute> ParamArray;
-		ParamArray.Add(FAnalyticsEventAttribute(TEXT("Time"), 0.0));
-		FString EventName = (CommandLine.Contains(TEXT("-package")) ? TEXT("Editor.Package") : TEXT("Editor.Cook"));
-		FEditorAnalytics::ReportEvent(EventName + TEXT(".Failed"), PlatformDisplayName.ToString(), bHasCode, EAnalyticsErrorCodes::UATNotFound, ParamArray);
-		
-		return;
-	}
-
-#if PLATFORM_WINDOWS
-	FString FullCommandLine = FString::Printf(TEXT("/c \"\"%s\" %s\""), *UatPath, *CommandLine);
-#else
-	FString FullCommandLine = FString::Printf(TEXT("\"%s\" %s"), *UatPath, *CommandLine);
-#endif
-
-	TSharedPtr<FMonitoredProcess> UatProcess = MakeShareable(new FMonitoredProcess(CmdExe, FullCommandLine, true));
-
-	// create notification item
-	FFormatNamedArguments Arguments;
-	Arguments.Add(TEXT("Platform"), PlatformDisplayName);
-	Arguments.Add(TEXT("TaskName"), TaskName);
-	FNotificationInfo Info( FText::Format( LOCTEXT("UatTaskInProgressNotification", "{TaskName} for {Platform}..."), Arguments) );
-	
-	Info.Image = TaskIcon;
-	Info.bFireAndForget = false;
-	Info.ExpireDuration = 3.0f;
-	Info.Hyperlink = FSimpleDelegate::CreateStatic(&FMainFrameActionCallbacks::HandleUatHyperlinkNavigate);
-	Info.HyperlinkText = LOCTEXT("ShowOutputLogHyperlink", "Show Output Log");
-	Info.ButtonDetails.Add(
-		FNotificationButtonInfo(
-			LOCTEXT("UatTaskCancel", "Cancel"),
-			LOCTEXT("UatTaskCancelToolTip", "Cancels execution of this task."),
-			FSimpleDelegate::CreateStatic(&FMainFrameActionCallbacks::HandleUatCancelButtonClicked, UatProcess)
-		)
-	);
-
-	TSharedPtr<SNotificationItem> NotificationItem = FSlateNotificationManager::Get().AddNotification(Info);
-
-	if (!NotificationItem.IsValid())
-	{
-		return;
-	}
-
-	FString EventName = (CommandLine.Contains(TEXT("-package")) ? TEXT("Editor.Package") : TEXT("Editor.Cook"));
-	FEditorAnalytics::ReportEvent(EventName + TEXT(".Start"), PlatformDisplayName.ToString(), bHasCode);
-
-	NotificationItem->SetCompletionState(SNotificationItem::CS_Pending);
-
-	// launch the packager
-	TWeakPtr<SNotificationItem> NotificationItemPtr(NotificationItem);
-
-	EventData Data;
-	Data.StartTime = FPlatformTime::Seconds();
-	Data.EventName = EventName;
-	Data.bProjectHasCode = bHasCode;
-	UatProcess->OnCanceled().BindStatic(&FMainFrameActionCallbacks::HandleUatProcessCanceled, NotificationItemPtr, PlatformDisplayName, TaskShortName, Data);
-	UatProcess->OnCompleted().BindStatic(&FMainFrameActionCallbacks::HandleUatProcessCompleted, NotificationItemPtr, PlatformDisplayName, TaskShortName, Data);
-	UatProcess->OnOutput().BindStatic(&FMainFrameActionCallbacks::HandleUatProcessOutput, NotificationItemPtr, PlatformDisplayName, TaskShortName);
-
-	TWeakPtr<FMonitoredProcess> UatProcessPtr(UatProcess);
-	FEditorDelegates::OnShutdownPostPackagesSaved.Add(FSimpleDelegate::CreateStatic(&FMainFrameActionCallbacks::HandleUatCancelButtonClicked, UatProcessPtr));
-
-	if (UatProcess->Launch())
-	{
-		GEditor->PlayEditorSound(TEXT("/Engine/EditorSounds/Notifications/CompileStart_Cue.CompileStart_Cue"));
-	}
-	else
-	{
-		GEditor->PlayEditorSound(TEXT("/Engine/EditorSounds/Notifications/CompileFailed_Cue.CompileFailed_Cue"));
-
-		NotificationItem->SetText(LOCTEXT("UatLaunchFailedNotification", "Failed to launch Unreal Automation Tool (UAT)!"));
-		NotificationItem->SetCompletionState(SNotificationItem::CS_Fail);
-		NotificationItem->ExpireAndFadeout();
-
-		TArray<FAnalyticsEventAttribute> ParamArray;
-		ParamArray.Add(FAnalyticsEventAttribute(TEXT("Time"), 0.0));
-		FEditorAnalytics::ReportEvent(EventName + TEXT(".Failed"), PlatformDisplayName.ToString(), bHasCode, EAnalyticsErrorCodes::UATLaunchFailure, ParamArray);
-	}
-}
-
-/* FMainFrameActionCallbacks callbacks
- *****************************************************************************/
-
-class FMainFrameActionsNotificationTask
-{
-public:
-
-	FMainFrameActionsNotificationTask( TWeakPtr<SNotificationItem> InNotificationItemPtr, SNotificationItem::ECompletionState InCompletionState, const FText& InText )
-		: CompletionState(InCompletionState)
-		, NotificationItemPtr(InNotificationItemPtr)
-		, Text(InText)
-	{ }
-
-	void DoTask( ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent )
-	{
-		if (NotificationItemPtr.IsValid())
-		{
-			if (CompletionState == SNotificationItem::CS_Fail)
-			{
-				GEditor->PlayEditorSound(TEXT("/Engine/EditorSounds/Notifications/CompileFailed_Cue.CompileFailed_Cue"));
-			}
-			else
-			{
-				GEditor->PlayEditorSound(TEXT("/Engine/EditorSounds/Notifications/CompileSuccess_Cue.CompileSuccess_Cue"));
-			}
-			
-			TSharedPtr<SNotificationItem> NotificationItem = NotificationItemPtr.Pin();
-			NotificationItem->SetText(Text);
-			NotificationItem->SetCompletionState(CompletionState);
-			NotificationItem->ExpireAndFadeout();
-		}
-	}
-
-	static ESubsequentsMode::Type GetSubsequentsMode() { return ESubsequentsMode::TrackSubsequents; }
-	ENamedThreads::Type GetDesiredThread( ) { return ENamedThreads::GameThread; }
-	FORCEINLINE TStatId GetStatId() const
-	{
-		RETURN_QUICK_DECLARE_CYCLE_STAT(FMainFrameActionsNotificationTask, STATGROUP_TaskGraphTasks);
-	}
-
-private:
-
-	SNotificationItem::ECompletionState CompletionState;
-	TWeakPtr<SNotificationItem> NotificationItemPtr;
-	FText Text;
-};
-
-
-void FMainFrameActionCallbacks::HandleUatHyperlinkNavigate( )
-{
-	FGlobalTabmanager::Get()->InvokeTab(FName("OutputLog"));
-}
-
-
-void FMainFrameActionCallbacks::HandleUatCancelButtonClicked( TSharedPtr<FMonitoredProcess> PackagerProcess )
-{
-	if (PackagerProcess.IsValid())
-	{
-		PackagerProcess->Cancel(true);
-	}
-}
-
-void FMainFrameActionCallbacks::HandleUatCancelButtonClicked(TWeakPtr<FMonitoredProcess> PackagerProcessPtr)
-{
-	TSharedPtr<FMonitoredProcess> PackagerProcess = PackagerProcessPtr.Pin();
-	if (PackagerProcess.IsValid())
-	{
-		PackagerProcess->Cancel(true);
-	}
-}
-
-void FMainFrameActionCallbacks::HandleUatProcessCanceled( TWeakPtr<SNotificationItem> NotificationItemPtr, FText PlatformDisplayName, FText TaskName, EventData Event )
-{
-	FFormatNamedArguments Arguments;
-	Arguments.Add(TEXT("Platform"), PlatformDisplayName);
-	Arguments.Add(TEXT("TaskName"), TaskName);
-
-	TGraphTask<FMainFrameActionsNotificationTask>::CreateTask().ConstructAndDispatchWhenReady(
-		NotificationItemPtr,
-		SNotificationItem::CS_Fail,
-		FText::Format(LOCTEXT("UatProcessFailedNotification", "{TaskName} canceled!"), Arguments)
-	);
-
-	TArray<FAnalyticsEventAttribute> ParamArray;
-	ParamArray.Add(FAnalyticsEventAttribute(TEXT("Time"), FPlatformTime::Seconds() - Event.StartTime));
-	FEditorAnalytics::ReportEvent(Event.EventName + TEXT(".Canceled"), PlatformDisplayName.ToString(), Event.bProjectHasCode, ParamArray);
-//	FMessageLog("PackagingResults").Warning(FText::Format(LOCTEXT("UatProcessCanceledMessageLog", "{TaskName} for {Platform} canceled by user"), Arguments));
-}
-
-
-/**
- * Helper class to deal with packaging issues encountered in UAT.
- **/
-class FPackagingErrorHandler
-{
-private:
-
-	/**
-	 * Create a message to send to the Message Log.
-	 *
-	 * @Param MessageString - The error we wish to send to the Message Log.
-	 * @Param MessageType - The severity of the message, i.e. error, warning etc.
-	 **/
-	static void AddMessageToMessageLog(FString MessageString, EMessageSeverity::Type MessageType)
-	{
-		FText MsgText = FText::FromString(MessageString);
-
-		TSharedRef<FTokenizedMessage> Message = FTokenizedMessage::Create(MessageType);
-		Message->AddToken(FTextToken::Create(MsgText));
-
-		FMessageLog MessageLog("PackagingResults");
-		MessageLog.AddMessage(Message);
-	}
-
-	/**
-	 * Send Error to the Message Log.
-	 *
-	 * @Param MessageString - The error we wish to send to the Message Log.
-	 * @Param MessageType - The severity of the message, i.e. error, warning etc.
-	 **/
-	static void SyncMessageWithMessageLog(FString MessageString, EMessageSeverity::Type MessageType)
-	{
-		DECLARE_CYCLE_STAT(TEXT("FSimpleDelegateGraphTask.SendPackageErrorToMessageLog"),
-		STAT_FSimpleDelegateGraphTask_SendPackageErrorToMessageLog,
-			STATGROUP_TaskGraphTasks);
-
-		// Remove any new line terminators
-		MessageString.ReplaceInline(TEXT("\r"), TEXT(""));
-		MessageString.ReplaceInline(TEXT("\n"), TEXT(""));
-
-		/**
-		 * Dispatch the error from packaging to the message log.
-		 **/
-		FSimpleDelegateGraphTask::CreateAndDispatchWhenReady(
-			FSimpleDelegateGraphTask::FDelegate::CreateStatic(&FPackagingErrorHandler::AddMessageToMessageLog, MessageString, MessageType),
-			GET_STATID(STAT_FSimpleDelegateGraphTask_SendPackageErrorToMessageLog),
-			nullptr, ENamedThreads::GameThread
-			);
-	}
-
-public:
-	/**
-	 * Determine if the output is an error we wish to send to the Message Log.
-	 *
-	 * @Param UATOutput - The current line of output from the UAT package process.
-	 **/
-	static void ProcessAndHandleCookErrorOutput(FString UATOutput)
-	{
-		FString LhsUATOutputMsg, ParsedCookIssue;
-
-		// note: CookResults:Warning: actually outputs some unhandled errors.
-		if (UATOutput.Split(TEXT("CookResults:Warning: "), &LhsUATOutputMsg, &ParsedCookIssue))
-		{
-			SyncMessageWithMessageLog(ParsedCookIssue, EMessageSeverity::Warning);
-		}
-
-		if (UATOutput.Split(TEXT("CookResults:Error: "), &LhsUATOutputMsg, &ParsedCookIssue))
-		{
-			SyncMessageWithMessageLog(ParsedCookIssue, EMessageSeverity::Error);
-		}
-	}
-
-	/**
-	 * Send the UAT Packaging error message to the Message Log.
-	 *
-	 * @Param ErrorCode - The UAT return code we received and wish to display the error message for.
-	 **/
-	static void SendPackagingErrorToMessageLog(int32 ErrorCode)
-	{
-		SyncMessageWithMessageLog(FEditorAnalytics::TranslateErrorCode(ErrorCode), EMessageSeverity::Error);
-	}
-};
-
-
-DECLARE_CYCLE_STAT(TEXT("Requesting FMainFrameActionCallbacks::HandleUatProcessCompleted message dialog to present the error message"), STAT_FMainFrameActionCallbacks_HandleUatProcessCompleted_DialogMessage, STATGROUP_TaskGraphTasks);
-void FMainFrameActionCallbacks::HandleUatProcessCompleted( int32 ReturnCode, TWeakPtr<SNotificationItem> NotificationItemPtr, FText PlatformDisplayName, FText TaskName, EventData Event )
-{
-	FFormatNamedArguments Arguments;
-	Arguments.Add(TEXT("Platform"), PlatformDisplayName);
-	Arguments.Add(TEXT("TaskName"), TaskName);
-
-	if (ReturnCode == 0)
-	{
-		TGraphTask<FMainFrameActionsNotificationTask>::CreateTask().ConstructAndDispatchWhenReady(
-			NotificationItemPtr,
-			SNotificationItem::CS_Success,
-			FText::Format(LOCTEXT("UatProcessSucceededNotification", "{TaskName} complete!"), Arguments)
-		);
-
-		TArray<FAnalyticsEventAttribute> ParamArray;
-		ParamArray.Add(FAnalyticsEventAttribute(TEXT("Time"), FPlatformTime::Seconds() - Event.StartTime));
-		FEditorAnalytics::ReportEvent(Event.EventName + TEXT(".Completed"), PlatformDisplayName.ToString(), Event.bProjectHasCode, ParamArray);
-
-//		FMessageLog("PackagingResults").Info(FText::Format(LOCTEXT("UatProcessSuccessMessageLog", "{TaskName} for {Platform} completed successfully"), Arguments));
-	}
-	else
-	{
-		TGraphTask<FMainFrameActionsNotificationTask>::CreateTask().ConstructAndDispatchWhenReady(
-			NotificationItemPtr,
-			SNotificationItem::CS_Fail,
-			FText::Format(LOCTEXT("PackagerFailedNotification", "{TaskName} failed!"), Arguments)
-		);
-
-		TArray<FAnalyticsEventAttribute> ParamArray;
-		ParamArray.Add(FAnalyticsEventAttribute(TEXT("Time"), FPlatformTime::Seconds() - Event.StartTime));
-		FEditorAnalytics::ReportEvent(Event.EventName + TEXT(".Failed"), PlatformDisplayName.ToString(), Event.bProjectHasCode, ReturnCode, ParamArray);
-
-		// Send the error to the Message Log.
-		if (TaskName.EqualTo(LOCTEXT("PackagingTaskName", "Packaging")))
-		{
-			FPackagingErrorHandler::SendPackagingErrorToMessageLog(ReturnCode);
-		}
-
-		// Present a message dialog if we want the error message to be prominent.
-		if (FEditorAnalytics::ShouldElevateMessageThroughDialog(ReturnCode))
-		{
-			FSimpleDelegateGraphTask::CreateAndDispatchWhenReady(
-				FSimpleDelegateGraphTask::FDelegate::CreateLambda([=](){
-					FMessageDialog::Open(EAppMsgType::Ok, FText::FromString(FEditorAnalytics::TranslateErrorCode(ReturnCode)));
-				}),
-				GET_STATID(STAT_FMainFrameActionCallbacks_HandleUatProcessCompleted_DialogMessage),
-				nullptr,
-				ENamedThreads::GameThread
-			);
-		}
-//		FMessageLog("PackagingResults").Info(FText::Format(LOCTEXT("UatProcessFailedMessageLog", "{TaskName} for {Platform} failed"), Arguments));
-	}
-}
-
-
-void FMainFrameActionCallbacks::HandleUatProcessOutput( FString Output, TWeakPtr<SNotificationItem> NotificationItemPtr, FText PlatformDisplayName, FText TaskName )
-{
-	if (!Output.IsEmpty() && !Output.Equals("\r"))
-	{
-		UE_LOG(MainFrameActions, Log, TEXT("%s (%s): %s"), *TaskName.ToString(), *PlatformDisplayName.ToString(), *Output);
-
-		if (TaskName.EqualTo(LOCTEXT("PackagingTaskName", "Packaging")))
-		{
-			// Deal with any cook errors that may have been encountered.
-			FPackagingErrorHandler::ProcessAndHandleCookErrorOutput(Output);
-		}
-	}	
-}
-
 
 #undef LOCTEXT_NAMESPACE

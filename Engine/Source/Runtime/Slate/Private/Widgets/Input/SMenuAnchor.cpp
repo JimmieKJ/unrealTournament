@@ -41,6 +41,9 @@ static FVector2D GetMenuOffsetForPlacement(const FGeometry& AllottedGeometry, EM
 		case MenuPlacement_Center:
 			return FVector2D( -( ( PopupSizeLocalSpace.X / 2 ) - ( AllottedGeometry.GetLocalSize().X / 2 ) ), -( ( PopupSizeLocalSpace.Y / 2 ) - ( AllottedGeometry.GetLocalSize().Y / 2 ) ) );
 			break;
+		case MenuPlacement_RightLeftCenter:
+			return FVector2D( AllottedGeometry.GetLocalSize().X, - ( ( PopupSizeLocalSpace.Y / 2 ) - ( AllottedGeometry.GetLocalSize().Y / 2 ) ) );
+			break;
 		default:
 			ensureMsgf( false, TEXT("Unhandled placement mode: %d"), PlacementMode );
 			return FVector2D::ZeroVector;
@@ -84,7 +87,7 @@ FGeometry ComputeMenuPlacement(const FGeometry& AllottedGeometry, const FVector2
 		FSlateLayoutTransform(TransformPoint(Inverse(AllottedGeometry.GetAccumulatedLayoutTransform()), NewPositionDesktopSpace)));
 }
 
-
+/*static*/ TArray<TWeakPtr<IMenu>> SMenuAnchor::OpenApplicationMenus;
 
 /**
  * Construct this widget
@@ -98,19 +101,20 @@ void SMenuAnchor::Construct( const FArguments& InArgs )
 	
 
 	Children[0]
-	.Padding(0)
-	[
-		InArgs._Content.Widget
-	];
-	MenuContent = InArgs._MenuContent;
-	WrappedContent = InArgs._MenuContent;
-	OnGetMenuContent = InArgs._OnGetMenuContent;
-	OnMenuOpenChanged = InArgs._OnMenuOpenChanged;
-	Placement = InArgs._Placement;
-	Method = InArgs._Method;
+		.Padding(0)
+		[
+			InArgs._Content.Widget
+		];
+
+	MenuContent                            = InArgs._MenuContent;
+	WrappedContent                         = InArgs._MenuContent;
+	OnGetMenuContent                       = InArgs._OnGetMenuContent;
+	OnMenuOpenChanged                      = InArgs._OnMenuOpenChanged;
+	Placement                              = InArgs._Placement;
+	Method                                 = InArgs._Method;
 	bShouldDeferPaintingAfterWindowContent = InArgs._ShouldDeferPaintingAfterWindowContent;
-	bUseApplicationMenuStack = InArgs._UseApplicationMenuStack;
-	bIsCollapsedByParent = InArgs._IsCollapsedByParent;
+	bUseApplicationMenuStack               = InArgs._UseApplicationMenuStack;
+	bIsCollapsedByParent                   = InArgs._IsCollapsedByParent;
 }
 
 
@@ -194,12 +198,12 @@ void SMenuAnchor::OnArrangeChildren( const FGeometry& AllottedGeometry, FArrange
 
 FVector2D SMenuAnchor::ComputeDesiredSize( float ) const
 {
-	FVector2D DesiredSize = Children[0].GetWidget()->GetDesiredSize();
+	const FVector2D DesiredWidgetSize = Children[0].GetWidget()->GetDesiredSize();
 
 	// Menu anchors might be created with null content, in which case they must still get drawn in order to 
 	// draw pop-up content, therefore it must lie and always request a desired size of at least 1,1, otherwise 
 	// a panel may filter it from drawing thinking the it doesn't have anything to draw.
-	return FVector2D(FMath::Max(DesiredSize.X, 1.0f), FMath::Max(DesiredSize.Y, 1.0f));
+	return FVector2D(FMath::Max(DesiredWidgetSize.X, 1.0f), FMath::Max(DesiredWidgetSize.Y, 1.0f));
 }
 
 FChildren* SMenuAnchor::GetChildren()
@@ -310,7 +314,7 @@ FPopupMethodReply QueryPopupMethod(const FWidgetPath& PathToQuery)
  *
  * @param InIsOpen  If true, open the popup. Otherwise close it.
  */
-void SMenuAnchor::SetIsOpen( bool InIsOpen, const bool bFocusMenu )
+void SMenuAnchor::SetIsOpen( bool InIsOpen, const bool bFocusMenu, const int32 FocusUserIndex )
 {
 	// Prevent redundant opens/closes
 	if ( IsOpen() != InIsOpen )
@@ -374,15 +378,13 @@ void SMenuAnchor::SetIsOpen( bool InIsOpen, const bool bFocusMenu )
 						? FPopupMethodReply::UseMethod(Method.GetValue())
 						: QueryPopupMethod(MyWidgetPath);
 
-					const bool CollapsedByParent = false;	// don't auto-close child menus when the parent gets focus
-
 					// "Normal" menus are created and managed by the application's menu stack functions
 					if (bUseApplicationMenuStack)
 					{
 						if (MethodInUse.GetPopupMethod() == EPopupMethod::CreateNewWindow)
 						{
 							// Open the pop-up
-							TSharedPtr<IMenu> NewMenu = FSlateApplication::Get().PushMenu(AsShared(), MyWidgetPath, MenuContentRef, NewPosition, TransitionEffect, bFocusMenu, SummonLocationSize, MethodInUse.GetPopupMethod(), CollapsedByParent);
+							TSharedPtr<IMenu> NewMenu = FSlateApplication::Get().PushMenu(AsShared(), MyWidgetPath, MenuContentRef, NewPosition, TransitionEffect, bFocusMenu, SummonLocationSize, MethodInUse.GetPopupMethod(), bIsCollapsedByParent);
 
 							PopupMenuPtr = NewMenu;
 							check(NewMenu.IsValid() && NewMenu->GetOwnedWindow().IsValid());
@@ -394,22 +396,21 @@ void SMenuAnchor::SetIsOpen( bool InIsOpen, const bool bFocusMenu )
 							// We are re-using the current window instead of creating a new one.
 							// The popup will be presented as a child of this widget.
 							ensure(MethodInUse.GetPopupMethod() == EPopupMethod::UseCurrentWindow);
-							TSharedRef<SWindow> PopupWindow = MyWidgetPath.GetWindow();
-							PopupWindowPtr = PopupWindow;
+							PopupWindowPtr = MyWidgetPath.GetWindow();
 
 							if (bFocusMenu)
 							{
-								FSlateApplication::Get().ReleaseMouseCapture();
+								FSlateApplication::Get().ReleaseMouseCaptureForUser(FocusUserIndex);
 							}
 
 							TSharedRef<SMenuAnchor> SharedThis = StaticCastSharedRef<SMenuAnchor>(AsShared());
 
 							TSharedPtr<IMenu> NewMenu = FSlateApplication::Get().PushHostedMenu(
-								SharedThis, MyWidgetPath, SharedThis, MenuContentRef, WrappedContent, TransitionEffect, MethodInUse.GetShouldThrottle(), CollapsedByParent);
+								SharedThis, MyWidgetPath, SharedThis, MenuContentRef, WrappedContent, TransitionEffect, MethodInUse.GetShouldThrottle(), bIsCollapsedByParent);
 
 							PopupMenuPtr = NewMenu;
 							check(NewMenu.IsValid());
-							check(NewMenu->GetParentWindow().ToSharedRef() == PopupWindow);
+							//check(NewMenu->GetParentWindow().ToSharedRef() == PopupWindow);
 							check(WrappedContent.IsValid());
 
 							Children[1]
@@ -419,7 +420,7 @@ void SMenuAnchor::SetIsOpen( bool InIsOpen, const bool bFocusMenu )
 
 							if (bFocusMenu)
 							{
-								FSlateApplication::Get().SetKeyboardFocus(MenuContentRef, EFocusCause::SetDirectly);
+								FSlateApplication::Get().SetUserFocus(FocusUserIndex, MenuContentRef, EFocusCause::SetDirectly);
 							}
 						}
 					}
@@ -448,7 +449,7 @@ void SMenuAnchor::SetIsOpen( bool InIsOpen, const bool bFocusMenu )
 							// Release the mouse so that context can be properly restored upon closing menus.  See CL 1411833 before changing this.
 							if (bFocusMenu)
 							{
-								FSlateApplication::Get().ReleaseMouseCapture();
+								FSlateApplication::Get().ReleaseMouseCaptureForUser(FocusUserIndex);
 							}
 
 							// Create a new window for the menu
@@ -473,7 +474,7 @@ void SMenuAnchor::SetIsOpen( bool InIsOpen, const bool bFocusMenu )
 								NewMenuWindow->SetWidgetToFocusOnActivate(MenuContentRef);
 							}
 
-							TSharedPtr<IMenu> NewMenu = MakeShareable(new FMenuInWindow(NewMenuWindow, MenuContentRef, CollapsedByParent));
+							TSharedPtr<IMenu> NewMenu = MakeShareable(new FMenuInWindow(NewMenuWindow, MenuContentRef, bIsCollapsedByParent));
 							FSlateApplication::Get().AddWindowAsNativeChild(NewMenuWindow, MyWidgetPath.GetWindow(), true);
 
 							PopupMenuPtr = OwnedMenuPtr = NewMenu;
@@ -486,20 +487,19 @@ void SMenuAnchor::SetIsOpen( bool InIsOpen, const bool bFocusMenu )
 							// We are re-using the current window instead of creating a new one.
 							// The popup will be presented as a child of this widget.
 							ensure(MethodInUse.GetPopupMethod() == EPopupMethod::UseCurrentWindow);
-							TSharedRef<SWindow> PopupWindow = MyWidgetPath.GetWindow();
-							PopupWindowPtr = PopupWindow;
+							PopupWindowPtr = MyWidgetPath.GetWindow();
 
 							if (bFocusMenu)
 							{
-								FSlateApplication::Get().ReleaseMouseCapture();
+								FSlateApplication::Get().ReleaseMouseCaptureForUser(FocusUserIndex);
 							}
 
 							TSharedRef<SMenuAnchor> SharedThis = StaticCastSharedRef<SMenuAnchor>(AsShared());
-							TSharedPtr<IMenu> NewMenu = MakeShareable(new FMenuInHostWidget(SharedThis, MenuContentRef, CollapsedByParent));
+							TSharedPtr<IMenu> NewMenu = MakeShareable(new FMenuInHostWidget(SharedThis, MenuContentRef, bIsCollapsedByParent));
 
 							PopupMenuPtr = OwnedMenuPtr = NewMenu;
 							check(NewMenu.IsValid());
-							check(NewMenu->GetParentWindow().ToSharedRef() == PopupWindow);
+							//check(NewMenu->GetParentWindow().ToSharedRef() == PopupWindow);
 
 							Children[1]
 							[
@@ -508,8 +508,10 @@ void SMenuAnchor::SetIsOpen( bool InIsOpen, const bool bFocusMenu )
 
 							if (bFocusMenu)
 							{
-								FSlateApplication::Get().SetKeyboardFocus(MenuContentRef, EFocusCause::SetDirectly);
+								FSlateApplication::Get().SetUserFocus(FocusUserIndex, MenuContentRef, EFocusCause::SetDirectly);
 							}
+
+							OpenApplicationMenus.Add(NewMenu);
 						}
 					}
 				}
@@ -528,6 +530,13 @@ void SMenuAnchor::SetIsOpen( bool InIsOpen, const bool bFocusMenu )
 				OwnedMenuPtr.Reset();
 				MethodInUse = FPopupMethodReply::Unhandled();
 			}
+
+			// Always clear out the menu content children slot to prevent prepass and other hierarchy queries from considering the
+			// hidden menu content as content they should be concerned with.
+			Children[1]
+			[
+				SNullWidget::NullWidget
+			];
 		}
 	}
 }
@@ -593,6 +602,20 @@ void SMenuAnchor::OnMenuDismissed()
 	{
 		OnMenuClosed(PopupMenuPtr.Pin().ToSharedRef());
 	}
+}
+
+/*static*/ void SMenuAnchor::DismissAllApplicationMenus()
+{
+	for (TWeakPtr<IMenu>& OpenMenu : OpenApplicationMenus)
+	{
+		TSharedPtr<IMenu> Iter = OpenMenu.IsValid() ? OpenMenu.Pin() : nullptr;
+		if (Iter.IsValid())
+		{
+			Iter->Dismiss();
+		}
+	}
+
+	OpenApplicationMenus.Empty();
 }
 
 SMenuAnchor::SMenuAnchor()

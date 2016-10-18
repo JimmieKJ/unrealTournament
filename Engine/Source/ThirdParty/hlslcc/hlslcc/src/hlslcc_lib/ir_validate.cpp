@@ -289,12 +289,7 @@ static void validate_expr_error(
 	)
 {
 	_mesa_glsl_error(state,
-		"internal compiler error: %s @ %d\n"
-		"    operation: %s\n"
-		"    result type: %s\n"
-		"    op[0] type: %s\n"
-		"    op[1] type: %s\n"
-		"    op[2] type: %s",
+		"internal compiler error: '%s' @ %d: operation '%s' Types: Result %s, op[0] %s, op[1] %s, op[2] %s",
 		validation_text,
 		expr->id,
 		expr->operator_string(),
@@ -624,7 +619,14 @@ ir_visitor_status ir_validate::visit_leave(ir_expression *ir)
 		validate_expr(ir->type->is_float());
 		validate_expr(ir->operands[0]->type->is_float());
 		validate_expr(ir->operands[0]->type->is_vector() || ir->operands[0]->type->is_scalar());
-		validate_expr(ir->operands[0]->type == ir->operands[1]->type);
+		if (ir->operands[0]->type->is_float() && ir->operands[1]->type->is_float())
+		{
+			ValidateTypes(ir->operands[0]->type, ir->operands[1]->type);
+		}
+		else
+		{
+			validate_expr(ir->operands[0]->type == ir->operands[1]->type);
+		}
 		break;
 
 	case ir_unop_isnan:

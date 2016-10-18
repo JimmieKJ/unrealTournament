@@ -29,7 +29,8 @@ void SUTChatWidget::Construct(const FArguments& InArgs, const FLocalPlayerContex
 	Display = Manager->GenerateChatDisplayService();
 	Display->SetMinimizeEnabled(false);
 	Settings = Manager->GetChatSettingsService();
-
+	
+	//InArgs._FriendStyle, 
 	Chat = Manager->GenerateChromeWidget(Display.ToSharedRef(), Settings.ToSharedRef());
 
 	// Initialize Menu

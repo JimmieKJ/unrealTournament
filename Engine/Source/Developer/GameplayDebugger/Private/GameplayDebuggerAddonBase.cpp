@@ -22,6 +22,16 @@ FString FGameplayDebuggerAddonBase::GetInputHandlerDescription(int32 HandlerId) 
 	return InputHandlers.IsValidIndex(HandlerId) ? InputHandlers[HandlerId].ToString() : FString();
 }
 
+void FGameplayDebuggerAddonBase::OnGameplayDebuggerActivated()
+{
+	// empty in base class
+}
+
+void FGameplayDebuggerAddonBase::OnGameplayDebuggerDeactivated()
+{
+	// empty in base class
+}
+
 bool FGameplayDebuggerAddonBase::IsSimulateInEditor()
 {
 #if WITH_EDITOR

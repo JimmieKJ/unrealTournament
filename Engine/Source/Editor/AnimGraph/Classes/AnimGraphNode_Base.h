@@ -4,6 +4,7 @@
 
 #include "K2Node.h"
 #include "Animation/AnimNodeBase.h"
+#include "Animation/AnimBlueprintGeneratedClass.h"
 #include "AnimGraphNode_Base.generated.h"
 
 // Forward declarations
@@ -93,6 +94,14 @@ protected:
 	int32 ChildPropertyIndex;
 };
 
+UENUM()
+enum class EBlueprintUsage : uint8
+{
+	NoProperties,
+	DoesNotUseBlueprint,
+	UsesBlueprint
+};
+
 /**
   * This is the base class for any animation graph nodes that generate or consume an animation pose in
   * the animation blend graph.
@@ -106,6 +115,9 @@ class ANIMGRAPH_API UAnimGraphNode_Base : public UK2Node
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=PinOptions, EditFixedSize)
 	TArray<FOptionalPinFromProperty> ShowPinForProperties;
+
+	UPROPERTY(Transient)
+	EBlueprintUsage BlueprintUsage;
 
 	// UObject interface
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
@@ -166,17 +178,17 @@ class ANIMGRAPH_API UAnimGraphNode_Base : public UK2Node
 	UAnimBlueprint* GetAnimBlueprint() const { return CastChecked<UAnimBlueprint>(GetBlueprint()); }
 
 	// Populate the supplied arrays with the currently reffered to animation assets 
-	virtual void GetAllAnimationSequencesReferred(TArray<UAnimationAsset*>& ComplexAnims, TArray<UAnimSequence*>& AnimationSequences) const {}
+	virtual void GetAllAnimationSequencesReferred(TArray<UAnimationAsset*>& AnimAssets) const {}
 
 	// Replace references to animations that exist in the supplied maps 	
-	virtual void ReplaceReferredAnimations(const TMap<UAnimationAsset*, UAnimationAsset*>& ComplexAnimsMap, const TMap<UAnimSequence*, UAnimSequence*>& AnimSequenceMap) {};
+	virtual void ReplaceReferredAnimations(const TMap<UAnimationAsset*, UAnimationAsset*>& AnimAssetReplacementMap) {};
 	
 	// Helper function for GetAllAnimationSequencesReferred
-	void HandleAnimReferenceCollection(UAnimationAsset* AnimAsset, TArray<UAnimationAsset*>& ComplexAnims, TArray<UAnimSequence*>& AnimationSequences) const;
+	void HandleAnimReferenceCollection(UAnimationAsset* AnimAsset, TArray<UAnimationAsset*>& AnimationAssets) const;
 
 	// Helper function for ReplaceReferredAnimations	
 	template<class AssetType>
-	void HandleAnimReferenceReplacement(AssetType*& OriginalAsset, const TMap<UAnimationAsset*, UAnimationAsset*>& ComplexAnimsMap, const TMap<UAnimSequence*, UAnimSequence*>& AnimSequenceMap);
+	void HandleAnimReferenceReplacement(AssetType*& OriginalAsset, const TMap<UAnimationAsset*, UAnimationAsset*>& AnimAssetReplacementMap);
 
 	// BEGIN Interface to support transition getter
 	// if you return true for DoesSupportExposeTimeForTransitionGetter
@@ -189,6 +201,22 @@ class ANIMGRAPH_API UAnimGraphNode_Base : public UK2Node
 
 	// can customize details tab 
 	virtual void CustomizeDetails(IDetailLayoutBuilder& DetailBuilder){ }
+
+	template<typename NodeType>
+	NodeType* GetActiveInstanceNode(UObject* AnimInstanceObject) const
+	{
+		if(!AnimInstanceObject)
+		{
+			return nullptr;
+		}
+
+		if(UAnimBlueprintGeneratedClass* AnimClass = Cast<UAnimBlueprintGeneratedClass>(AnimInstanceObject->GetClass()))
+		{
+			return AnimClass->GetPropertyInstance<NodeType>(AnimInstanceObject, NodeGuid);
+		}
+
+		return nullptr;
+	}
 
 protected:
 	friend FAnimBlueprintCompiler;
@@ -216,23 +244,13 @@ protected:
 };
 
 template<class AssetType>
-void UAnimGraphNode_Base::HandleAnimReferenceReplacement(AssetType*& OriginalAsset, const TMap<UAnimationAsset*, UAnimationAsset*>& ComplexAnimsMap, const TMap<UAnimSequence*, UAnimSequence*>& AnimSequenceMap)
+void UAnimGraphNode_Base::HandleAnimReferenceReplacement(AssetType*& OriginalAsset, const TMap<UAnimationAsset*, UAnimationAsset*>& AnimAssetReplacementMap)
 {
 	AssetType* CacheOriginalAsset = OriginalAsset;
 	OriginalAsset = nullptr;
 
-	if (UAnimSequence* AnimSequence = Cast<UAnimSequence>(CacheOriginalAsset))
+	if (UAnimationAsset* const* ReplacementAsset = AnimAssetReplacementMap.Find(CacheOriginalAsset))
 	{
-		if (UAnimSequence* const* ReplacementAsset = AnimSequenceMap.Find(AnimSequence))
-		{
-			OriginalAsset = Cast<AssetType>(*ReplacementAsset);
-		}
-	}
-	else if (UAnimationAsset* AnimAsset = Cast<UAnimationAsset>(CacheOriginalAsset))
-	{
-		if (UAnimationAsset* const* ReplacementAsset = ComplexAnimsMap.Find(AnimAsset))
-		{
-			OriginalAsset = Cast<AssetType>(*ReplacementAsset);
-		}
+		OriginalAsset = Cast<AssetType>(*ReplacementAsset);
 	}
 }

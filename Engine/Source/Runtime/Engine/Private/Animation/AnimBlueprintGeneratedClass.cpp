@@ -7,6 +7,7 @@
 #include "EnginePrivate.h"
 #include "Animation/AnimNodeBase.h"
 #include "Animation/AnimInstance.h"
+#include "BonePose.h"
 
 /////////////////////////////////////////////////////
 // FStateMachineDebugData
@@ -135,6 +136,48 @@ void FAnimBlueprintDebugData::RecordNodeVisitArray(const TArray<FNodeVisit>& Nod
 	UpdatedNodesThisFrame.Append(Nodes);
 }
 
+void FAnimBlueprintDebugData::AddPoseWatch(int32 NodeID, FColor Color)
+{
+	for (FAnimNodePoseWatch& PoseWatch : AnimNodePoseWatch)
+	{
+		if (PoseWatch.NodeID == NodeID)
+		{
+			PoseWatch.PoseDrawColour = Color;
+			return;
+		}
+	}
+
+	//Not found so make new one
+	AnimNodePoseWatch.Add(FAnimNodePoseWatch());
+	FAnimNodePoseWatch& NewAnimNodePoseWatch = AnimNodePoseWatch.Last();
+	NewAnimNodePoseWatch.NodeID = NodeID;
+	NewAnimNodePoseWatch.PoseDrawColour = Color;
+	NewAnimNodePoseWatch.PoseInfo = MakeShareable(new FCompactHeapPose());
+}
+
+void FAnimBlueprintDebugData::RemovePoseWatch(int32 NodeID)
+{
+	for (int32 PoseWatchIdx = 0; PoseWatchIdx < AnimNodePoseWatch.Num(); ++PoseWatchIdx)
+	{
+		if (AnimNodePoseWatch[PoseWatchIdx].NodeID == NodeID)
+		{
+			AnimNodePoseWatch.RemoveAtSwap(PoseWatchIdx);
+			return;
+		}
+	}
+}
+
+void FAnimBlueprintDebugData::UpdatePoseWatchColour(int32 NodeID, FColor Color)
+{
+	for (FAnimNodePoseWatch& PoseWatch : AnimNodePoseWatch)
+	{
+		if (PoseWatch.NodeID == NodeID)
+		{
+			PoseWatch.PoseDrawColour = Color;
+			return;
+		}
+	}
+}
 /////////////////////////////////////////////////////
 // FBinaryObjectWriter
 
@@ -238,6 +281,15 @@ void UAnimBlueprintGeneratedClass::Link(FArchive& Ar, bool bRelinkExistingProper
 
 			// After the log instead of in the if() to make sure the log statement is emitted
 			ensure(bValidRootIndex);
+		}
+	}
+
+	if(RootClass != this)
+	{
+		if(OrderedSavedPoseIndices.Num() != RootClass->OrderedSavedPoseIndices.Num() || OrderedSavedPoseIndices != RootClass->OrderedSavedPoseIndices)
+		{
+			// Derived and our parent has a new ordered pose order, copy over.
+			OrderedSavedPoseIndices = RootClass->OrderedSavedPoseIndices;
 		}
 	}
 }

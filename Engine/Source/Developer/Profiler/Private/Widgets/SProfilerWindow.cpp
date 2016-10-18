@@ -153,17 +153,49 @@ void SProfilerWindow::Construct( const FArguments& InArgs )
 						.Padding(0.0f, 4.0f, 0.0f, 0.0f)
 						[
 							SNew(SSplitter)
-								.IsEnabled( this, &SProfilerWindow::IsProfilerEnabled )
 								.Orientation(Orient_Horizontal)
 
 							+ SSplitter::Slot()
-								.Expose(FiltersAndPresetsSlot)
 								.Value(0.25f)
 								[
-									SNew(SBox)
-										.WidthOverride(256.0f)
+									SNew(SSplitter)
+									.Orientation(Orient_Vertical)
+									+ SSplitter::Slot()
+										.Value(0.25f)
 										[
 											SNew(SVerticalBox)
+											+ SVerticalBox::Slot()
+											.AutoHeight()
+												[
+													SNew(SHorizontalBox)
+													+ SHorizontalBox::Slot()
+													.AutoWidth()
+														[
+															SNew(SImage)
+															.Image(FEditorStyle::GetBrush(TEXT("Profiler.Tab.FiltersAndPresets")))
+														]
+
+													+ SHorizontalBox::Slot()
+														.AutoWidth()
+														[
+															SNew(STextBlock)
+															.Text(LOCTEXT("MultiFileBrowser", "Stats dump browser"))
+														]
+												]
+											+ SVerticalBox::Slot()
+												.AutoHeight()
+												[
+													//SNew(STextBlock)
+													//.Text(LOCTEXT("FileList", "File list here"))
+													SAssignNew(MultiDumpBrowser, SMultiDumpBrowser)
+												]
+										]
+
+									+ SSplitter::Slot()
+										.Expose(FiltersAndPresetsSlot)
+										[
+											SNew(SVerticalBox)
+											.IsEnabled(this, &SProfilerWindow::IsProfilerEnabled)
 
 											// Header
 											+ SVerticalBox::Slot()
@@ -403,8 +435,9 @@ void SProfilerWindow::ManageLoadingProgressNotificationState( const FString& Fil
 		const SNotificationItemWeak* LoadingProgressPtr = ActiveNotifications.Find( Filename );
 		if( LoadingProgressPtr )
 		{
-			( *LoadingProgressPtr ).Pin()->SetText( GetTextForNotification( NotificatonType, ProgressState, BaseFilename, DataLoadingProgress ) );
-			( *LoadingProgressPtr ).Pin()->SetCompletionState( SNotificationItem::CS_Pending );
+			TSharedPtr<SNotificationItem> LoadingProcessPinned = LoadingProgressPtr->Pin();
+			LoadingProcessPinned->SetText( GetTextForNotification( NotificatonType, ProgressState, BaseFilename, DataLoadingProgress ) );
+			LoadingProcessPinned->SetCompletionState( SNotificationItem::CS_Pending );
 		}
 	}
 	else if( ProgressState == ELoadingProgressStates::Loaded )
@@ -412,13 +445,14 @@ void SProfilerWindow::ManageLoadingProgressNotificationState( const FString& Fil
 		const SNotificationItemWeak* LoadingProgressPtr = ActiveNotifications.Find( Filename );
 		if( LoadingProgressPtr )
 		{
-			( *LoadingProgressPtr ).Pin()->SetText( GetTextForNotification( NotificatonType, ProgressState, BaseFilename ) );
-			( *LoadingProgressPtr ).Pin()->SetCompletionState( SNotificationItem::CS_Success );
+			TSharedPtr<SNotificationItem> LoadingProcessPinned = LoadingProgressPtr->Pin();
+			LoadingProcessPinned->SetText( GetTextForNotification( NotificatonType, ProgressState, BaseFilename ) );
+			LoadingProcessPinned->SetCompletionState( SNotificationItem::CS_Success );
 			
 			// Notifications for received files are handled by ty user.
 			if( NotificatonType == EProfilerNotificationTypes::LoadingOfflineCapture )
 			{
-				(*LoadingProgressPtr).Pin()->ExpireAndFadeout();
+				LoadingProcessPinned->ExpireAndFadeout();
 				ActiveNotifications.Remove( Filename );
 			}
 		}
@@ -428,10 +462,21 @@ void SProfilerWindow::ManageLoadingProgressNotificationState( const FString& Fil
 		const SNotificationItemWeak* LoadingProgressPtr = ActiveNotifications.Find( Filename );
 		if( LoadingProgressPtr )
 		{
-			(*LoadingProgressPtr).Pin()->SetText( GetTextForNotification(NotificatonType,ProgressState,BaseFilename) );
-			(*LoadingProgressPtr).Pin()->SetCompletionState(SNotificationItem::CS_Fail);
+			TSharedPtr<SNotificationItem> LoadingProcessPinned = LoadingProgressPtr->Pin();
+			LoadingProcessPinned->SetText( GetTextForNotification(NotificatonType, ProgressState, BaseFilename) );
+			LoadingProcessPinned->SetCompletionState(SNotificationItem::CS_Fail);
 
-			(*LoadingProgressPtr).Pin()->ExpireAndFadeout();
+			LoadingProcessPinned->ExpireAndFadeout();
+			ActiveNotifications.Remove( Filename );
+		}
+	}
+	else if (ProgressState == ELoadingProgressStates::Cancelled)
+	{
+		const SNotificationItemWeak* LoadingProgressPtr = ActiveNotifications.Find( Filename );
+		if ( LoadingProgressPtr )
+		{
+			TSharedPtr<SNotificationItem> LoadingProcessPinned = LoadingProgressPtr->Pin();
+			LoadingProcessPinned->ExpireAndFadeout();
 			ActiveNotifications.Remove( Filename );
 		}
 	}
@@ -442,7 +487,8 @@ void SProfilerWindow::SendingServiceSideCapture_Cancel( const FString Filename )
 	const SNotificationItemWeak* LoadingProgressPtr = ActiveNotifications.Find( Filename );
 	if( LoadingProgressPtr )
 	{
-		(*LoadingProgressPtr).Pin()->ExpireAndFadeout();
+		TSharedPtr<SNotificationItem> LoadingProcessPinned = LoadingProgressPtr->Pin(); 
+		LoadingProcessPinned->ExpireAndFadeout();
 		ActiveNotifications.Remove( Filename );
 	}
 }
@@ -452,7 +498,8 @@ void SProfilerWindow::SendingServiceSideCapture_Load( const FString Filename )
 	const SNotificationItemWeak* LoadingProgressPtr = ActiveNotifications.Find( Filename );
 	if( LoadingProgressPtr )
 	{
-		(*LoadingProgressPtr).Pin()->ExpireAndFadeout();
+		TSharedPtr<SNotificationItem> LoadingProcessPinned = LoadingProgressPtr->Pin();
+		LoadingProcessPinned->ExpireAndFadeout();
 		ActiveNotifications.Remove( Filename );
 
 		// TODO: Move to a better place.

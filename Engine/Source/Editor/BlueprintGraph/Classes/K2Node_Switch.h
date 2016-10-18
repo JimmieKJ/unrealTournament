@@ -29,7 +29,7 @@ class UK2Node_Switch : public UK2Node
 	// UEdGraphNode interface
 	BLUEPRINTGRAPH_API virtual void AllocateDefaultPins() override;
 	BLUEPRINTGRAPH_API virtual FLinearColor GetNodeTitleColor() const override;
-	virtual FName GetPaletteIcon(FLinearColor& OutColor) const override{ return TEXT("GraphEditor.Switch_16x"); }
+	BLUEPRINTGRAPH_API virtual FSlateIcon GetIconAndTint(FLinearColor& OutColor) const override;
 	// End of UEdGraphNode interface
 
 	// UK2Node interface

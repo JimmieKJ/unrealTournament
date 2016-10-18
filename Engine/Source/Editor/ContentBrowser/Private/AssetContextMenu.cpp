@@ -17,6 +17,7 @@
 #include "ISizeMapModule.h"
 
 #include "ReferencedAssetsUtils.h"
+#include "PackageLocalizationUtil.h"
 
 #include "ISourceControlModule.h"
 #include "ISourceControlRevision.h"
@@ -209,10 +210,26 @@ bool FAssetContextMenu::AddImportedAssetMenuOptions(FMenuBuilder& MenuBuilder)
 
 bool FAssetContextMenu::AddCommonMenuOptions(FMenuBuilder& MenuBuilder)
 {
-	TArray< FAssetData > AssetViewSelectedAssets = AssetView.Pin()->GetSelectedAssets();
-
 	int32 NumAssetItems, NumClassItems;
-	ContentBrowserUtils::CountItemTypes(AssetViewSelectedAssets, NumAssetItems, NumClassItems);
+	ContentBrowserUtils::CountItemTypes(SelectedAssets, NumAssetItems, NumClassItems);
+
+	FAssetToolsModule& AssetToolsModule = FModuleManager::Get().LoadModuleChecked<FAssetToolsModule>("AssetTools");
+
+	// Can any of the selected assets be localized?
+	bool bAnyLocalizableAssetsSelected = false;
+	for (const FAssetData& Asset : SelectedAssets)
+	{
+		TSharedPtr<IAssetTypeActions> AssetTypeActions = AssetToolsModule.Get().GetAssetTypeActionsForClass(Asset.GetClass()).Pin();
+		if (AssetTypeActions.IsValid())
+		{
+			bAnyLocalizableAssetsSelected = AssetTypeActions->CanLocalize();
+		}
+
+		if (bAnyLocalizableAssetsSelected)
+		{
+			break;
+		}
+	}
 
 	MenuBuilder.BeginSection("CommonAssetActions", LOCTEXT("CommonAssetActionsMenuHeading", "Common"));
 	{
@@ -273,6 +290,21 @@ bool FAssetContextMenu::AddCommonMenuOptions(FMenuBuilder& MenuBuilder)
 				false, 
 				FSlateIcon(FEditorStyle::GetStyleSetName(), "ContentBrowser.AssetActions")
 				);
+
+			if (bAnyLocalizableAssetsSelected && NumClassItems == 0)
+			{
+				// Asset Localization sub-menu
+				MenuBuilder.AddSubMenu(
+					LOCTEXT("LocalizationSubMenuLabel", "Asset Localization"),
+					LOCTEXT("LocalizationSubMenuToolTip", "View or create localized variants of this asset"),
+					FNewMenuDelegate::CreateSP(this, &FAssetContextMenu::MakeAssetLocalizationSubMenu),
+					FUIAction(),
+					NAME_None,
+					EUserInterfaceActionType::Button,
+					false,
+					FSlateIcon(FEditorStyle::GetStyleSetName(), "ContentBrowser.AssetLocalization")
+					);
+			}
 		}
 	}
 	MenuBuilder.EndSection();
@@ -470,6 +502,318 @@ bool FAssetContextMenu::CanExecuteAssetActions() const
 	return !bAtLeastOneClassSelected;
 }
 
+void FAssetContextMenu::MakeAssetLocalizationSubMenu(FMenuBuilder& MenuBuilder)
+{
+	TArray<FCultureRef> CurrentCultures;
+
+	// Build up the list of cultures already used
+	{
+		TSet<FString> CulturePaths;
+
+		bool bIncludeEngineCultures = false;
+		bool bIncludeProjectCultures = false;
+
+		for (const FAssetData& Asset : SelectedAssets)
+		{
+			const FString AssetPath = Asset.ObjectPath.ToString();
+
+			if (ContentBrowserUtils::IsEngineFolder(AssetPath))
+			{
+				bIncludeEngineCultures = true;
+			}
+			else
+			{
+				bIncludeProjectCultures = true;
+			}
+
+			{
+				FString AssetLocalizationRoot;
+				if (FPackageLocalizationUtil::GetLocalizedRoot(AssetPath, FString(), AssetLocalizationRoot))
+				{
+					FString AssetLocalizationFileRoot;
+					if (FPackageName::TryConvertLongPackageNameToFilename(AssetLocalizationRoot, AssetLocalizationFileRoot))
+					{
+						CulturePaths.Add(MoveTemp(AssetLocalizationFileRoot));
+					}
+				}
+			}
+		}
+
+		if (bIncludeEngineCultures)
+		{
+			CulturePaths.Append(FPaths::GetEngineLocalizationPaths());
+		}
+
+		if (bIncludeProjectCultures)
+		{
+			CulturePaths.Append(FPaths::GetGameLocalizationPaths());
+		}
+
+		FInternationalization::Get().GetCulturesWithAvailableLocalization(CulturePaths.Array(), CurrentCultures, false);
+
+		if (CurrentCultures.Num() == 0)
+		{
+			CurrentCultures.Add(FInternationalization::Get().GetCurrentCulture());
+		}
+	}
+
+	// Sort by display name for the UI
+	CurrentCultures.Sort([](const FCultureRef& FirstCulture, const FCultureRef& SecondCulture) -> bool
+	{
+		const FText FirstDisplayName = FText::FromString(FirstCulture->GetDisplayName());
+		const FText SecondDisplayName = FText::FromString(SecondCulture->GetDisplayName());
+		return FirstDisplayName.CompareTo(SecondDisplayName) < 0;
+	});
+
+	FAssetToolsModule& AssetToolsModule = FModuleManager::Get().LoadModuleChecked<FAssetToolsModule>("AssetTools");
+
+	// Now build up the list of available localized or source assets based upon the current selection and current cultures
+	FSourceAssetsState SourceAssetsState;
+	TArray<FLocalizedAssetsState> LocalizedAssetsState;
+	for (const FCultureRef& CurrentCulture : CurrentCultures)
+	{
+		FLocalizedAssetsState& LocalizedAssetsStateForCulture = LocalizedAssetsState[LocalizedAssetsState.AddDefaulted()];
+		LocalizedAssetsStateForCulture.Culture = CurrentCulture;
+
+		for (const FAssetData& Asset : SelectedAssets)
+		{
+			// Can this type of asset be localized?
+			bool bCanLocalizeAsset = false;
+			{
+				TSharedPtr<IAssetTypeActions> AssetTypeActions = AssetToolsModule.Get().GetAssetTypeActionsForClass(Asset.GetClass()).Pin();
+				if (AssetTypeActions.IsValid())
+				{
+					bCanLocalizeAsset = AssetTypeActions->CanLocalize();
+				}
+			}
+
+			if (!bCanLocalizeAsset)
+			{
+				continue;
+			}
+
+			const FString ObjectPath = Asset.ObjectPath.ToString();
+			if (FPackageName::IsLocalizedPackage(ObjectPath))
+			{
+				// Get the source path for this asset
+				FString SourceObjectPath;
+				if (FPackageLocalizationUtil::ConvertLocalizedToSource(ObjectPath, SourceObjectPath))
+				{
+					SourceAssetsState.CurrentAssets.Add(*SourceObjectPath);
+				}
+			}
+			else
+			{
+				SourceAssetsState.SelectedAssets.Add(Asset.ObjectPath);
+
+				// Get the localized path for this asset and culture
+				FString LocalizedObjectPath;
+				if (FPackageLocalizationUtil::ConvertSourceToLocalized(ObjectPath, CurrentCulture->GetName(), LocalizedObjectPath))
+				{
+					// Does this localized asset already exist?
+					FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
+					FAssetData LocalizedAssetData = AssetRegistryModule.Get().GetAssetByObjectPath(*LocalizedObjectPath);
+
+					if (LocalizedAssetData.IsValid())
+					{
+						LocalizedAssetsStateForCulture.CurrentAssets.Add(*LocalizedObjectPath);
+					}
+					else
+					{
+						LocalizedAssetsStateForCulture.NewAssets.Add(*LocalizedObjectPath);
+					}
+				}
+			}
+		}
+	}
+
+	// If we found source assets for localized assets, then we can show the Source Asset options
+	if (SourceAssetsState.CurrentAssets.Num() > 0)
+	{
+		MenuBuilder.BeginSection(NAME_None, LOCTEXT("ManageSourceAssetHeading", "Manage Source Asset"));
+		{
+			MenuBuilder.AddMenuEntry(
+				LOCTEXT("ShowSourceAsset", "Show Source Asset"),
+				LOCTEXT("ShowSourceAssetTooltip", "Show the source asset in the Content Browser."),
+				FSlateIcon(FEditorStyle::GetStyleSetName(), "SystemWideCommands.FindInContentBrowser"),
+				FUIAction(FExecuteAction::CreateSP(this, &FAssetContextMenu::ExecuteFindInAssetTree, SourceAssetsState.CurrentAssets.Array()))
+				);
+
+			MenuBuilder.AddMenuEntry(
+				LOCTEXT("EditSourceAsset", "Edit Source Asset"),
+				LOCTEXT("EditSourceAssetTooltip", "Edit the source asset."),
+				FSlateIcon(FEditorStyle::GetStyleSetName(), "ContentBrowser.AssetActions.Edit"),
+				FUIAction(FExecuteAction::CreateSP(this, &FAssetContextMenu::ExecuteOpenEditorsForAssets, SourceAssetsState.CurrentAssets.Array()))
+				);
+		}
+		MenuBuilder.EndSection();
+	}
+
+	// If we currently have source assets selected, then we can show the Localized Asset options
+	if (SourceAssetsState.SelectedAssets.Num() > 0)
+	{
+		MenuBuilder.BeginSection(NAME_None, LOCTEXT("ManageLocalizedAssetHeading", "Manage Localized Asset"));
+		{
+			MenuBuilder.AddSubMenu(
+				LOCTEXT("CreateLocalizedAsset", "Create Localized Asset"),
+				LOCTEXT("CreateLocalizedAssetTooltip", "Create a new localized asset."),
+				FNewMenuDelegate::CreateSP(this, &FAssetContextMenu::MakeCreateLocalizedAssetSubMenu, SourceAssetsState.SelectedAssets, LocalizedAssetsState),
+				FUIAction(),
+				NAME_None,
+				EUserInterfaceActionType::Button,
+				false,
+				FSlateIcon(FEditorStyle::GetStyleSetName(), "ContentBrowser.AssetActions.Duplicate")
+				);
+
+			int32 NumLocalizedAssets = 0;
+			for (const FLocalizedAssetsState& LocalizedAssetsStateForCulture : LocalizedAssetsState)
+			{
+				NumLocalizedAssets += LocalizedAssetsStateForCulture.CurrentAssets.Num();
+			}
+
+			if (NumLocalizedAssets > 0)
+			{
+				MenuBuilder.AddSubMenu(
+					LOCTEXT("ShowLocalizedAsset", "Show Localized Asset"),
+					LOCTEXT("ShowLocalizedAssetTooltip", "Show the localized asset in the Content Browser."),
+					FNewMenuDelegate::CreateSP(this, &FAssetContextMenu::MakeShowLocalizedAssetSubMenu, LocalizedAssetsState),
+					FUIAction(),
+					NAME_None,
+					EUserInterfaceActionType::Button,
+					false,
+					FSlateIcon(FEditorStyle::GetStyleSetName(), "SystemWideCommands.FindInContentBrowser")
+					);
+
+				MenuBuilder.AddSubMenu(
+					LOCTEXT("EditLocalizedAsset", "Edit Localized Asset"),
+					LOCTEXT("EditLocalizedAssetTooltip", "Edit the localized asset."),
+					FNewMenuDelegate::CreateSP(this, &FAssetContextMenu::MakeEditLocalizedAssetSubMenu, LocalizedAssetsState),
+					FUIAction(),
+					NAME_None,
+					EUserInterfaceActionType::Button,
+					false,
+					FSlateIcon(FEditorStyle::GetStyleSetName(), "ContentBrowser.AssetActions.Edit")
+					);
+			}
+		}
+		MenuBuilder.EndSection();
+	}
+}
+
+void FAssetContextMenu::MakeCreateLocalizedAssetSubMenu(FMenuBuilder& MenuBuilder, TSet<FName> InSelectedSourceAssets, TArray<FLocalizedAssetsState> InLocalizedAssetsState)
+{
+	for (const FLocalizedAssetsState& LocalizedAssetsStateForCulture : InLocalizedAssetsState)
+	{
+		// If we have less localized assets than we have selected source assets, then we'll have some assets to create localized variants of
+		if (LocalizedAssetsStateForCulture.CurrentAssets.Num() < InSelectedSourceAssets.Num())
+		{
+			MenuBuilder.AddMenuEntry(
+				FText::FromString(LocalizedAssetsStateForCulture.Culture->GetDisplayName()),
+				FText::GetEmpty(),
+				FSlateIcon(),
+				FUIAction(FExecuteAction::CreateSP(this, &FAssetContextMenu::ExecuteCreateLocalizedAsset, InSelectedSourceAssets, LocalizedAssetsStateForCulture))
+				);
+		}
+	}
+}
+
+void FAssetContextMenu::MakeShowLocalizedAssetSubMenu(FMenuBuilder& MenuBuilder, TArray<FLocalizedAssetsState> InLocalizedAssetsState)
+{
+	for (const FLocalizedAssetsState& LocalizedAssetsStateForCulture : InLocalizedAssetsState)
+	{
+		if (LocalizedAssetsStateForCulture.CurrentAssets.Num() > 0)
+		{
+			MenuBuilder.AddMenuEntry(
+				FText::FromString(LocalizedAssetsStateForCulture.Culture->GetDisplayName()),
+				FText::GetEmpty(),
+				FSlateIcon(),
+				FUIAction(FExecuteAction::CreateSP(this, &FAssetContextMenu::ExecuteFindInAssetTree, LocalizedAssetsStateForCulture.CurrentAssets.Array()))
+				);
+		}
+	}
+}
+
+void FAssetContextMenu::MakeEditLocalizedAssetSubMenu(FMenuBuilder& MenuBuilder, TArray<FLocalizedAssetsState> InLocalizedAssetsState)
+{
+	for (const FLocalizedAssetsState& LocalizedAssetsStateForCulture : InLocalizedAssetsState)
+	{
+		if (LocalizedAssetsStateForCulture.CurrentAssets.Num() > 0)
+		{
+			MenuBuilder.AddMenuEntry(
+				FText::FromString(LocalizedAssetsStateForCulture.Culture->GetDisplayName()),
+				FText::GetEmpty(),
+				FSlateIcon(),
+				FUIAction(FExecuteAction::CreateSP(this, &FAssetContextMenu::ExecuteOpenEditorsForAssets, LocalizedAssetsStateForCulture.CurrentAssets.Array()))
+				);
+		}
+	}
+}
+
+void FAssetContextMenu::ExecuteCreateLocalizedAsset(TSet<FName> InSelectedSourceAssets, FLocalizedAssetsState InLocalizedAssetsStateForCulture)
+{
+	TArray<UPackage*> PackagesToSave;
+	TArray<FAssetData> NewObjects;
+
+	for (const FName SourceAssetName : InSelectedSourceAssets)
+	{
+		if (InLocalizedAssetsStateForCulture.CurrentAssets.Contains(SourceAssetName))
+		{
+			// Asset is already localized
+			continue;
+		}
+
+		UObject* SourceAssetObject = LoadObject<UObject>(nullptr, *SourceAssetName.ToString());
+		if (!SourceAssetObject)
+		{
+			// Source object cannot be loaded
+			continue;
+		}
+
+		FString LocalizedPackageName;
+		if (!FPackageLocalizationUtil::ConvertSourceToLocalized(SourceAssetObject->GetOutermost()->GetPathName(), InLocalizedAssetsStateForCulture.Culture->GetName(), LocalizedPackageName))
+		{
+			continue;
+		}
+
+		ObjectTools::FPackageGroupName NewAssetName;
+		NewAssetName.PackageName = LocalizedPackageName;
+		NewAssetName.ObjectName = SourceAssetObject->GetName();
+
+		TSet<UPackage*> PackagesNotDuplicated;
+		UObject* NewObject = ObjectTools::DuplicateSingleObject(SourceAssetObject, NewAssetName, PackagesNotDuplicated);
+		if (NewObject)
+		{
+			PackagesToSave.Add(NewObject->GetOutermost());
+			NewObjects.Add(FAssetData(NewObject));
+		}
+	}
+
+	if (PackagesToSave.Num() > 0)
+	{
+		FEditorFileUtils::PromptForCheckoutAndSave(PackagesToSave, /*bCheckDirty*/false, /*bPromptToSave*/false);
+	}
+
+	OnFindInAssetTreeRequested.ExecuteIfBound(NewObjects);
+}
+
+void FAssetContextMenu::ExecuteFindInAssetTree(TArray<FName> InAssets)
+{
+	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
+
+	FARFilter ARFilter;
+	ARFilter.ObjectPaths = MoveTemp(InAssets);
+	
+	TArray<FAssetData> FoundLocalizedAssetData;
+	AssetRegistryModule.Get().GetAssets(ARFilter, FoundLocalizedAssetData);
+
+	OnFindInAssetTreeRequested.ExecuteIfBound(FoundLocalizedAssetData);
+}
+
+void FAssetContextMenu::ExecuteOpenEditorsForAssets(TArray<FName> InAssets)
+{
+	FAssetEditorManager::Get().OpenEditorsForAssets(InAssets);
+}
+
 bool FAssetContextMenu::AddReferenceMenuOptions(FMenuBuilder& MenuBuilder)
 {
 	MenuBuilder.BeginSection("AssetContextReferences", LOCTEXT("ReferencesMenuHeading", "References"));
@@ -526,10 +870,10 @@ bool FAssetContextMenu::AddDocumentationMenuOptions(FMenuBuilder& MenuBuilder)
 		const bool bIsBlueprint = SelectedClass->IsChildOf<UBlueprint>();
 		if (bIsBlueprint)
 		{
-			auto ParentClassPath = SelectedAssets[0].TagsAndValues.Find(GET_MEMBER_NAME_CHECKED(UBlueprint,ParentClass));
-			if (ParentClassPath)
+			const FString ParentClassPath = SelectedAssets[0].GetTagValueRef<FString>(GET_MEMBER_NAME_CHECKED(UBlueprint,ParentClass));
+			if (!ParentClassPath.IsEmpty())
 			{
-				SelectedClass = FindObject<UClass>(nullptr,**ParentClassPath);
+				SelectedClass = FindObject<UClass>(nullptr,*ParentClassPath);
 			}
 		}
 
@@ -575,8 +919,8 @@ bool FAssetContextMenu::AddDocumentationMenuOptions(FMenuBuilder& MenuBuilder)
 						}
 
 						UEnum* BlueprintTypeEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EBlueprintType"), true);
-						auto EnumString = SelectedAssets[0].TagsAndValues.Find(GET_MEMBER_NAME_CHECKED(UBlueprint,BlueprintType));
-						EBlueprintType BlueprintType = (EnumString ? (EBlueprintType)BlueprintTypeEnum->GetValueByName(**EnumString) : BPTYPE_Normal);
+						const FString EnumString = SelectedAssets[0].GetTagValueRef<FString>(GET_MEMBER_NAME_CHECKED(UBlueprint,BlueprintType));
+						EBlueprintType BlueprintType = (!EnumString.IsEmpty() ? (EBlueprintType)BlueprintTypeEnum->GetValueByName(*EnumString) : BPTYPE_Normal);
 
 						switch (BlueprintType)
 						{
@@ -722,7 +1066,7 @@ void FAssetContextMenu::FillSourceControlSubMenu(FMenuBuilder& MenuBuilder)
 		MenuBuilder.AddMenuEntry(
 			LOCTEXT("SCCSync", "Sync"),
 			LOCTEXT("SCCSyncTooltip", "Updates the item to the latest version in source control."),
-			FSlateIcon(FEditorStyle::GetStyleSetName(), "SourceControl.Actions.Syc"),
+			FSlateIcon(FEditorStyle::GetStyleSetName(), "SourceControl.Actions.Sync"),
 			FUIAction(
 				FExecuteAction::CreateSP( this, &FAssetContextMenu::ExecuteSCCSync ),
 				FCanExecuteAction::CreateSP( this, &FAssetContextMenu::CanExecuteSCCSync )
@@ -1102,8 +1446,8 @@ void FAssetContextMenu::ExecuteFindInExplorer()
 				FString ModulePath;
 				if (FSourceCodeNavigation::FindModulePath(ModuleName, ModulePath))
 				{
-					const FString* RelativePath = AssetData.TagsAndValues.Find("ModuleRelativePath");
-					if (RelativePath)
+					FString RelativePath;
+					if (AssetData.GetTagValue("ModuleRelativePath", RelativePath))
 					{
 						const FString FullFilePath = FPaths::ConvertRelativePathToFull(ModulePath / (*RelativePath));
 						FPlatformProcess::ExploreFolder(*FullFilePath);
@@ -1213,10 +1557,10 @@ struct WorldReferenceGenerator : public FFindReferencedAssets
 		}
 
 		// Transverse the reference graph looking for actor objects
-		TSet<UObject*>* Referencers = ReferenceGraph.Find(AssetToFind);
-		if (Referencers)
+		TSet<UObject*>* ReferencingObjects = ReferenceGraph.Find(AssetToFind);
+		if (ReferencingObjects)
 		{
-			for(TSet<UObject*>::TConstIterator SetIt(*Referencers); SetIt; ++SetIt)
+			for(TSet<UObject*>::TConstIterator SetIt(*ReferencingObjects); SetIt; ++SetIt)
 			{
 				Generate(*SetIt, OutObjects);
 			}
@@ -1403,6 +1747,20 @@ void FAssetContextMenu::ExecuteRename()
 
 void FAssetContextMenu::ExecuteDelete()
 {
+	// Don't allow asset deletion during PIE
+	if (GIsEditor)
+	{
+		UEditorEngine* Editor = GEditor;
+		FWorldContext* PIEWorldContext = GEditor->GetPIEWorldContext();
+		if (PIEWorldContext)
+		{
+			FNotificationInfo Notification(LOCTEXT("CannotDeleteAssetInPIE", "Assets cannot be deleted while in PIE."));
+			Notification.ExpireDuration = 3.0f;
+			FSlateNotificationManager::Get().AddNotification(Notification);
+			return;
+		}
+	}
+
 	TArray< FAssetData > AssetViewSelectedAssets = AssetView.Pin()->GetSelectedAssets();
 	if(AssetViewSelectedAssets.Num() > 0)
 	{
@@ -1658,10 +2016,11 @@ void FAssetContextMenu::ExecuteSCCCheckOut()
 	if ( PackagesToCheckOut.Num() > 0 )
 	{
 		// Update the source control status of all potentially relevant packages
-		ISourceControlModule::Get().GetProvider().Execute(ISourceControlOperation::Create<FUpdateStatus>(), PackagesToCheckOut);
-
-		// Now check them out
-		FEditorFileUtils::CheckoutPackages(PackagesToCheckOut);
+		if (ISourceControlModule::Get().GetProvider().Execute(ISourceControlOperation::Create<FUpdateStatus>(), PackagesToCheckOut) == ECommandResult::Succeeded)
+		{
+			// Now check them out
+			FEditorFileUtils::CheckoutPackages(PackagesToCheckOut);
+		}
 	}
 }
 
@@ -1786,26 +2145,7 @@ void FAssetContextMenu::ExecuteSCCSync()
 {
 	TArray<FString> PackageNames;
 	GetSelectedPackageNames(PackageNames);
-	TArray<FString> PackageFileNames = SourceControlHelpers::PackageFilenames(PackageNames);
-
-	TArray<UPackage*> Packages;
-	GetSelectedPackages(Packages);
-
-	FText ErrorMessage;
-	PackageTools::UnloadPackages(Packages, ErrorMessage);
-	if(!ErrorMessage.IsEmpty())
-	{
-		FMessageDialog::Open( EAppMsgType::Ok, ErrorMessage );
-	}
-	else
-	{
-		ISourceControlModule::Get().GetProvider().Execute(ISourceControlOperation::Create<FSync>(), PackageFileNames);
-		for( TArray<FString>::TConstIterator PackageIter( PackageNames ); PackageIter; ++PackageIter )
-		{
-			PackageTools::LoadPackage(*PackageIter);
-		}
-		ExecuteSCCRefresh();
-	}
+	ContentBrowserUtils::SyncPackagesFromSourceControl(PackageNames);
 }
 
 void FAssetContextMenu::ExecuteEnableSourceControl()
@@ -1820,7 +2160,16 @@ bool FAssetContextMenu::CanExecuteSyncToAssetTree() const
 
 bool FAssetContextMenu::CanExecuteFindInExplorer() const
 {
-	return SelectedAssets.Num() > 0;
+	// selection must contain at least one asset that has already been saved to disk
+	for (const FAssetData& Asset : SelectedAssets)
+	{
+		if ((Asset.PackageFlags & PKG_NewlyCreated) == 0)
+		{
+			return true;
+		}
+	}
+
+	return false;
 }
 
 bool FAssetContextMenu::CanExecuteCreateBlueprintUsing() const
@@ -1901,7 +2250,7 @@ bool FAssetContextMenu::CanExecuteDuplicate() const
 			continue;
 		}
 
-		if (AssetData.AssetClass == NAME_Class || AssetData.AssetClass == UWorld::StaticClass()->GetFName())
+		if (AssetData.AssetClass == NAME_Class)
 		{
 			return false;
 		}

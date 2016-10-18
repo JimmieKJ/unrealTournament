@@ -681,8 +681,9 @@ void FNavMeshSceneProxyData::GatherData(const ARecastNavMesh* NavMesh, int32 InN
 						}
 					}
 
-					PathCollidingGeomVerts.SetNum(CollidingVerts.Num(), false);
-					for (int32 Idx = 0; Idx < 0; Idx++)
+					int32 NumVerts = CollidingVerts.Num();
+					PathCollidingGeomVerts.SetNum(NumVerts, false);
+					for (int32 Idx = 0; Idx < NumVerts; Idx++)
 					{
 						PathCollidingGeomVerts[Idx] = FDynamicMeshVertex(CollidingVerts[Idx]);
 					}
@@ -956,8 +957,8 @@ void FNavMeshSceneProxy::GetDynamicMeshElements(const TArray<const FSceneView*>&
 
 			for (int32 Index = 0; Index < ProxyData.OctreeBounds.Num(); ++Index)
 			{
-				const FBoxCenterAndExtent& Bounds = ProxyData.OctreeBounds[Index];
-				DrawDebugBox(PDI, Bounds.Center, Bounds.Extent, FColor::White);
+				const FBoxCenterAndExtent& ProxyBounds = ProxyData.OctreeBounds[Index];
+				DrawDebugBox(PDI, ProxyBounds.Center, ProxyBounds.Extent, FColor::White);
 			}
 
 			// Draw Mesh
@@ -1094,7 +1095,12 @@ void FNavMeshSceneProxy::GetDynamicMeshElements(const TArray<const FSceneView*>&
 
 void FNavMeshSceneProxy::DrawDebugLabels(UCanvas* Canvas, APlayerController*)
 {
-	const bool bVisible = (Canvas && Canvas->SceneView && !!Canvas->SceneView->Family->EngineShowFlags.Navigation) || bForceRendering;
+	if (!Canvas)
+	{
+		return;
+	}
+
+	const bool bVisible = (Canvas->SceneView && !!Canvas->SceneView->Family->EngineShowFlags.Navigation) || bForceRendering;
 	if (!bVisible || ProxyData.bNeedsNewData || ProxyData.DebugLabels.Num() == 0)
 	{
 		return;
@@ -1173,12 +1179,6 @@ UNavMeshRenderingComponent::UNavMeshRenderingComponent(const FObjectInitializer&
 	AlwaysLoadOnServer = false;
 	bSelectable = false;
 	bCollectNavigationData = false;
-}
-
-bool UNavMeshRenderingComponent::NeedsLoadForServer() const
-{
-	// This rendering component is not needed in dedicated server builds
-	return false;
 }
 
 bool UNavMeshRenderingComponent::IsNavigationShowFlagSet(const UWorld* World)
@@ -1274,7 +1274,7 @@ void UNavMeshRenderingComponent::OnUnregister()
 FPrimitiveSceneProxy* UNavMeshRenderingComponent::CreateSceneProxy()
 {
 #if WITH_RECAST && !UE_BUILD_SHIPPING && !UE_BUILD_TEST
-	FPrimitiveSceneProxy* SceneProxy = nullptr;
+	FPrimitiveSceneProxy* NavMeshSceneProxy = nullptr;
 
 	const bool bShowNavigation = IsNavigationShowFlagSet(GetWorld());
 
@@ -1291,10 +1291,10 @@ FPrimitiveSceneProxy* UNavMeshRenderingComponent::CreateSceneProxy()
 			TArray<int32> EmptyTileSet;
 			ProxyData.GatherData(NavMesh, DetailFlags, EmptyTileSet);
 
-			SceneProxy = new FNavMeshSceneProxy(this, &ProxyData);
+			NavMeshSceneProxy = new FNavMeshSceneProxy(this, &ProxyData);
 		}
 	}
-	return SceneProxy;
+	return NavMeshSceneProxy;
 #else
 	return nullptr;
 #endif //WITH_RECAST && !UE_BUILD_SHIPPING && !UE_BUILD_TEST

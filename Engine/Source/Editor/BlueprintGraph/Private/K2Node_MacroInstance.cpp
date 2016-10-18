@@ -319,8 +319,10 @@ void UK2Node_MacroInstance::PostReconstructNode()
 	Super::PostReconstructNode();
 }
 
-FName UK2Node_MacroInstance::GetPaletteIcon(FLinearColor& OutColor) const
+FSlateIcon UK2Node_MacroInstance::GetIconAndTint(FLinearColor& OutColor) const
 {
+	const char* IconName = "GraphEditor.Macro_16x";
+
 	// Special case handling for standard macros
 	// @TODO Change this to a SlateBurushAsset pointer on the graph or something similar, to allow any macro to have an icon
 	UEdGraph* MacroGraph = MacroGraphReference.GetGraph();
@@ -331,36 +333,36 @@ FName UK2Node_MacroInstance::GetPaletteIcon(FLinearColor& OutColor) const
 			MacroName == TEXT("ForLoopWithBreak") ||
 			MacroName == TEXT("WhileLoop") )
 		{
-			return TEXT("GraphEditor.Macro.Loop_16x");
+			IconName = "GraphEditor.Macro.Loop_16x";
 		}
 		else if( MacroName == TEXT("Gate") )
 		{
-			return TEXT("GraphEditor.Macro.Gate_16x");
+			IconName = "GraphEditor.Macro.Gate_16x";
 		}
 		else if( MacroName == TEXT("Do N") )
 		{
-			return TEXT("GraphEditor.Macro.DoN_16x");
+			IconName = "GraphEditor.Macro.DoN_16x";
 		}
 		else if (MacroName == TEXT("DoOnce"))
 		{
-			return TEXT("GraphEditor.Macro.DoOnce_16x");
+			IconName = "GraphEditor.Macro.DoOnce_16x";
 		}
 		else if (MacroName == TEXT("IsValid"))
 		{
-			return TEXT("GraphEditor.Macro.IsValid_16x");
+			IconName = "GraphEditor.Macro.IsValid_16x";
 		}
 		else if (MacroName == TEXT("FlipFlop"))
 		{
-			return TEXT("GraphEditor.Macro.FlipFlop_16x");
+			IconName = "GraphEditor.Macro.FlipFlop_16x";
 		}
 		else if ( MacroName == TEXT("ForEachLoop") ||
 				  MacroName == TEXT("ForEachLoopWithBreak") )
 		{
-			return TEXT("GraphEditor.Macro.ForEach_16x");
+			IconName = "GraphEditor.Macro.ForEach_16x";
 		}
 	}
 
-	return TEXT("GraphEditor.Macro_16x");
+	return FSlateIcon("EditorStyle", IconName);
 }
 
 FText UK2Node_MacroInstance::GetCompactNodeTitle() const

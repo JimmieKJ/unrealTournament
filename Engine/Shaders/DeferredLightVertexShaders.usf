@@ -24,6 +24,7 @@ void DirectionalVertexMain(
 	OutScreenVector = mul(float4(OutPosition.xy, 1, 0), View.ScreenToTranslatedWorld).xyz;
 }
 
+#if FEATURE_LEVEL >= FEATURE_LEVEL_SM4
 /** Vertex shader for rendering a point or spot light using approximate bounding geometry. */
 void RadialVertexMain(
 	in uint InVertexId : SV_VertexID,
@@ -91,3 +92,4 @@ void RadialVertexMain(
 
 	OutScreenPosition = OutPosition = mul(float4(WorldPosition, 1), View.TranslatedWorldToClip);
 }
+#endif

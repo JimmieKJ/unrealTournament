@@ -18,6 +18,8 @@ AUTTimedPowerup::AUTTimedPowerup(const FObjectInitializer& ObjectInitializer)
 	PrimaryActorTick.bCanEverTick = true;
 	PrimaryActorTick.bStartWithTickEnabled = true;
 	PrimaryActorTick.bAllowTickOnDedicatedServer = true;
+
+	bTimerPaused = false;
 }
 
 void AUTTimedPowerup::GivenTo(AUTCharacter* NewOwner, bool bAutoActivate)
@@ -62,15 +64,19 @@ void AUTTimedPowerup::Removed()
 
 void AUTTimedPowerup::PlayFadingSound()
 {
-	// reset timer if time got added
-	if (TimeRemaining > 3.f)
+	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+	if (GS && (GS->IsMatchInProgress() || (GS->GetMatchState() == MatchState::WaitingToStart)) && !GS->IsMatchIntermission())
 	{
-		GetWorld()->GetTimerManager().SetTimer(PlayFadingSoundHandle, this, &AUTTimedPowerup::PlayFadingSound, TimeRemaining - 3.0f, false);
-	}
-	else
-	{
-		UUTGameplayStatics::UTPlaySound(GetWorld(), PowerupFadingSound, GetUTOwner());
-		GetWorld()->GetTimerManager().SetTimer(PlayFadingSoundHandle, this, &AUTTimedPowerup::PlayFadingSound, 0.75f, false);
+		// reset timer if time got added
+		if (TimeRemaining > 3.f)
+		{
+			GetWorld()->GetTimerManager().SetTimer(PlayFadingSoundHandle, this, &AUTTimedPowerup::PlayFadingSound, TimeRemaining - 3.0f, false);
+		}
+		else
+		{
+			UUTGameplayStatics::UTPlaySound(GetWorld(), PowerupFadingSound, GetUTOwner());
+			GetWorld()->GetTimerManager().SetTimer(PlayFadingSoundHandle, this, &AUTTimedPowerup::PlayFadingSound, 0.75f, false);
+		}
 	}
 }
 
@@ -78,7 +84,8 @@ void AUTTimedPowerup::TimeExpired_Implementation()
 {
 	if (Role == ROLE_Authority)
 	{
-		if (GetUTOwner() != NULL)
+		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+		if (GetUTOwner() && GS && (GS->IsMatchInProgress() || (GS->GetMatchState() == MatchState::WaitingToStart)) && !GS->IsMatchIntermission())
 		{
 			UUTGameplayStatics::UTPlaySound(GetWorld(), PowerupOverSound, GetUTOwner());
 		}
@@ -121,19 +128,23 @@ void AUTTimedPowerup::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	if (TimeRemaining > 0.0f)
+	if (TimeRemaining > 0.0f && !bTimerPaused)
 	{
-		float TickMultiplier = (GetUTOwner() != NULL) ? 1.f : DroppedTickRate;
-		TimeRemaining -= (DeltaTime * TickMultiplier);
-		if ((TimeRemaining <= 0.0f) || (TimeRemaining <= 2.0f && GetUTOwner() == NULL))
+		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+		if (GS && (GS->IsMatchInProgress() || (GS->GetMatchState() == MatchState::WaitingToStart)) && !GS->IsMatchIntermission())
 		{
-			TimeExpired();
-		}
-		float ElapsedTime = GetWorld()->GetTimeSeconds() - StatCountTime;
-		if (ElapsedTime > 1.f)
-		{
-			UpdateStatsCounter(1.f);
-			StatCountTime += 1.f;
+			float TickMultiplier = (GetUTOwner() != NULL) ? 1.f : DroppedTickRate;
+			TimeRemaining -= (DeltaTime * TickMultiplier);
+			if ((TimeRemaining <= 0.0f) || (TimeRemaining <= 2.0f && GetUTOwner() == NULL))
+			{
+				TimeExpired();
+			}
+			float ElapsedTime = GetWorld()->GetTimeSeconds() - StatCountTime;
+			if (ElapsedTime > 1.f)
+			{
+				UpdateStatsCounter(1.f);
+				StatCountTime += 1.f;
+			}
 		}
 	}
 }
@@ -169,6 +180,7 @@ void AUTTimedPowerup::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & Out
 
 	// this is for spectators, owner gets this via RPC for better accuracy
 	DOREPLIFETIME_CONDITION(AUTTimedPowerup, TimeRemaining, COND_SkipOwner);
+	DOREPLIFETIME(AUTTimedPowerup, bTimerPaused);
 }
 
 // Allows inventory items to decide if a widget should be allowed to render them.

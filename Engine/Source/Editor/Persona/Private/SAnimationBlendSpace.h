@@ -118,6 +118,40 @@ struct FTriangle
 		Edges[2] = FHalfEdge(Vertices[2], Vertices[0]);
 	}
 
+	FTriangle(FPoint * A)
+	{
+		Vertices[0] = A;
+		Vertices[1] = A;
+		Vertices[2] = A;
+		Center = A->Position;
+
+		Vertices[0]->AddTriangle(this);
+		Vertices[1]->AddTriangle(this);
+		Vertices[2]->AddTriangle(this);
+
+		// now create edges, this should be in the CCW order
+		Edges[0] = FHalfEdge(Vertices[0], Vertices[1]);
+		Edges[1] = FHalfEdge(Vertices[1], Vertices[2]);
+		Edges[2] = FHalfEdge(Vertices[2], Vertices[0]);
+	}
+
+	FTriangle(FPoint * A, FPoint * B)
+	{
+		Vertices[0] = A;
+		Vertices[1] = B;
+		Vertices[2] = B;
+		Center = (A->Position + B->Position) / 2.0f;
+
+		Vertices[0]->AddTriangle(this);
+		Vertices[1]->AddTriangle(this);
+		Vertices[2]->AddTriangle(this);
+
+		// now create edges, this should be in the CCW order
+		Edges[0] = FHalfEdge(Vertices[0], Vertices[1]);
+		Edges[1] = FHalfEdge(Vertices[1], Vertices[2]);
+		Edges[2] = FHalfEdge(Vertices[2], Vertices[0]);
+	}
+
 	~FTriangle()
 	{
 		Vertices[0]->RemoveTriangle(this);
@@ -324,6 +358,12 @@ private:
 	 * by that if those 3 points create straight line
 	 */
 	bool IsCollinear(const FPoint* A, const FPoint* B, const FPoint* C);
+
+	/** 
+	 * return true if all points are coincident
+	 * (i.e. if all points are the same)
+	 */
+	bool AllCoincident(const TArray<FPoint>& InPoints);
 
 	/**
 	 * Flip TriangleList(I) with TriangleList(J). 

@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "AssetData.h"
+
 /**
  * Enum used as crude RTTI for the widget reflector node types
  */
@@ -70,9 +72,9 @@ public:
 	virtual int32 GetWidgetLineNumber() const = 0;
 
 	/**
-	 * @return The name of the asset that the widget we were initialized from was created from (for UMG widgets)
+	 * @return The data of the asset that the widget we were initialized from was created from (for UMG widgets)
 	 */
-	virtual FName GetWidgetAssetName() const = 0;
+	virtual FAssetData GetWidgetAssetData() const = 0;
 
 	/**
 	 * @return The desired size of the widget we were initialized from
@@ -189,7 +191,7 @@ public:
 	virtual FText GetWidgetReadableLocation() const override;
 	virtual FString GetWidgetFile() const override;
 	virtual int32 GetWidgetLineNumber() const override;
-	virtual FName GetWidgetAssetName() const override;
+	virtual FAssetData GetWidgetAssetData() const override;
 	virtual FVector2D GetWidgetDesiredSize() const override;
 	virtual FSlateColor GetWidgetForegroundColor() const override;
 	virtual FString GetWidgetAddress() const override;
@@ -235,7 +237,7 @@ public:
 	virtual FText GetWidgetReadableLocation() const override;
 	virtual FString GetWidgetFile() const override;
 	virtual int32 GetWidgetLineNumber() const override;
-	virtual FName GetWidgetAssetName() const override;
+	virtual FAssetData GetWidgetAssetData() const override;
 	virtual FVector2D GetWidgetDesiredSize() const override;
 	virtual FSlateColor GetWidgetForegroundColor() const override;
 	virtual FString GetWidgetAddress() const override;
@@ -275,7 +277,7 @@ private:
 	int32 CachedWidgetLineNumber;
 
 	/** The name of the asset that the widget was created from at the point it was passed to Initialize (for UMG widgets) */
-	FName CachedWidgetAssetName;
+	FAssetData CachedWidgetAssetData;
 
 	/** The desired size of the widget at the point it was passed to Initialize */
 	FVector2D CachedWidgetDesiredSize;
@@ -389,7 +391,7 @@ public:
 	/**
 	 * @return The name of the asset that this widget was created from (for UMG widgets)
 	 */
-	static FName GetWidgetAssetName(const TSharedPtr<SWidget>& InWidget);
+	static FAssetData GetWidgetAssetData(const TSharedPtr<SWidget>& InWidget);
 
 	/**
 	 * @return The current desired size of the given widget

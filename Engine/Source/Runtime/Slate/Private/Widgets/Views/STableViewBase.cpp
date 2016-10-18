@@ -471,7 +471,7 @@ FReply STableViewBase::OnMouseWheel( const FGeometry& MyGeometry, const FPointer
 		// Make sure scroll velocity is cleared so it doesn't fight with the mouse wheel input
 		this->InertialScrollManager.ClearScrollVelocity();
 
-		const float AmountScrolledInItems = this->ScrollBy( MyGeometry, -MouseEvent.GetWheelDelta()*WheelScrollAmount, EAllowOverscroll::No );
+		const float AmountScrolledInItems = this->ScrollBy( MyGeometry, -MouseEvent.GetWheelDelta() * WheelScrollMultiplier, EAllowOverscroll::No );
 
 		switch ( ConsumeMouseWheel )
 		{
@@ -644,6 +644,7 @@ STableViewBase::STableViewBase( ETableViewMode::Type InTableViewMode )
 	, SelectionMode( ESelectionMode::Multi )
 	, SoftwareCursorPosition( ForceInitToZero )
 	, bShowSoftwareCursor( false )
+	, WheelScrollMultiplier( WheelScrollAmount )
 	, bIsScrollingActiveTimerRegistered( false )
 	, Overscroll()
 	, AllowOverscroll(EAllowOverscroll::Yes)
@@ -652,7 +653,7 @@ STableViewBase::STableViewBase( ETableViewMode::Type InTableViewMode )
 {
 }
 
-float STableViewBase::ScrollBy( const FGeometry& MyGeometry, float ScrollByAmountInSlateUnits, EAllowOverscroll InAllowOverscroll )
+float STableViewBase::ScrollBy(const FGeometry& MyGeometry, float ScrollByAmountInSlateUnits, EAllowOverscroll InAllowOverscroll)
 {
 	const int32 NumItemsBeingObserved = GetNumItemsBeingObserved();
 	const float FractionalScrollOffsetInItems = (ScrollOffset + GetScrollRateInItems() * ScrollByAmountInSlateUnits) / NumItemsBeingObserved;
@@ -685,6 +686,19 @@ void STableViewBase::SetScrollOffset( const float InScrollOffset )
 		ScrollOffset = InScrollOffset;
 		OnTableViewScrolled.ExecuteIfBound( ScrollOffset );
 		RequestListRefresh();
+	}
+}
+
+void STableViewBase::AddScrollOffset(const float InScrollOffsetDelta, bool RefreshList)
+{
+	if (FMath::IsNearlyEqual(InScrollOffsetDelta, 0.0f) == false)
+	{
+		ScrollOffset += InScrollOffsetDelta;
+		if (RefreshList)
+		{
+			OnTableViewScrolled.ExecuteIfBound(ScrollOffset);
+			RequestListRefresh();
+		}
 	}
 }
 

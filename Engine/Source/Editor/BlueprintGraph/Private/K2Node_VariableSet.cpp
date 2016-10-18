@@ -123,6 +123,8 @@ void UK2Node_VariableSet::ReallocatePinsDuringReconstruction(TArray<UEdGraphPin*
 		CreateOutputPinTooltip();
 		CreatePinForSelf();
 	}
+
+	RestoreSplitPins(OldPins);
 }
 
 
@@ -375,6 +377,7 @@ void UK2Node_VariableSet::ExpandNode(class FKismetCompilerContext& CompilerConte
 				}
 			}
 			Pins.Remove(Pin);
+			Pin->MarkPendingKill();
 		}
 		
 	}

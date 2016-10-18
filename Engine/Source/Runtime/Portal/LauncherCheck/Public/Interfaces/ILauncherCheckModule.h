@@ -4,6 +4,15 @@
 /** Log categories */
 DECLARE_LOG_CATEGORY_EXTERN(LogLauncherCheck, Display, All);
 
+/** Launch options when starting the Launcher */
+enum class ELauncherAction : uint32
+{
+	/** Launch the App after the launcher is started */
+	AppLaunch,
+	/** Check for an available update to the App after the launcher is started */
+	AppUpdateCheck
+};
+
 /**
  * Interface for the Launcher checking system
  */
@@ -35,7 +44,7 @@ public:
 	 *
 	 * @return true, if it was successful
 	 */
-	virtual bool RunLauncher() const = 0;
+	virtual bool RunLauncher(ELauncherAction Action) const = 0;
 
 public:
 

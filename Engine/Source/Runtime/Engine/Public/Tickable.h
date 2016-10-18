@@ -7,6 +7,8 @@
 
 #pragma once
 
+class UWorld;
+
 /**
  * Base class for tickable objects
  */
@@ -42,10 +44,11 @@ public:
  */
 class ENGINE_API FTickableGameObject : public FTickableObjectBase
 {
-public:
 	/** Static array of tickable objects */
 	static TArray<FTickableGameObject*> TickableObjects;
+	static bool bIsTickingObjects;
 
+public:
 	/**
 	 * Registers this instance with the static array of tickable objects.	
 	 *
@@ -64,7 +67,14 @@ public:
 		// make sure this tickable object was registered from the game thread
 		const int32 Pos = TickableObjects.Find(this);
 		check(Pos!=INDEX_NONE);
-		TickableObjects.RemoveAt(Pos);
+		if (bIsTickingObjects)
+		{
+			TickableObjects[Pos] = nullptr;
+		}
+		else
+		{
+			TickableObjects.RemoveAt(Pos);
+		}
 	}
 
 	/**
@@ -88,4 +98,11 @@ public:
 	{
 		return false;
 	}
+
+	virtual UWorld* GetTickableGameObjectWorld() const 
+	{ 
+		return nullptr;
+	}
+
+	static void TickObjects(UWorld* World, int32 TickType, bool bIsPaused, float DeltaSeconds);
 };

@@ -1,26 +1,25 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #include "UnrealTournament.h"
 #include "UTAsymCTFSquadAI.h"
-#include "UTCTFRoundGame.h"
 #include "UTDefensePoint.h"
+#include "UTFlagRunGameState.h"
 
 void AUTAsymCTFSquadAI::Initialize(AUTTeamInfo* InTeam, FName InOrders)
 {
 	Super::Initialize(InTeam, InOrders);
 
-	AUTCTFRoundGame* Game = GetWorld()->GetAuthGameMode<AUTCTFRoundGame>();
-	AUTCTFGameState* GS = GetWorld()->GetGameState<AUTCTFGameState>();
-	if (GS != NULL && Game != NULL && GS->FlagBases.Num() >= 2 && GS->FlagBases[0] != NULL && GS->FlagBases[1] != NULL)
+	AUTFlagRunGameState* GS = GetWorld()->GetGameState<AUTFlagRunGameState>();
+	if (GS != NULL && GS->FlagBases.Num() >= 2 && GS->FlagBases[0] != NULL && GS->FlagBases[1] != NULL)
 	{
-		Objective = GS->FlagBases[Game->bRedToCap ? 1 : 0];
-		Flag = GS->FlagBases[Game->bRedToCap ? 0 : 1]->GetCarriedObject();
+		Objective = GS->FlagBases[GS->bRedToCap ? 1 : 0];
+		Flag = GS->FlagBases[GS->bRedToCap ? 0 : 1]->GetCarriedObject();
 	}
 }
 
 bool AUTAsymCTFSquadAI::IsAttackingTeam() const
 {
-	AUTCTFRoundGame* Game = GetWorld()->GetAuthGameMode<AUTCTFRoundGame>();
-	return (Game != NULL && GetTeamNum() == (Game->bRedToCap ? 0 : 1));
+	AUTFlagRunGameState* GS = GetWorld()->GetGameState<AUTFlagRunGameState>();
+	return (GS != NULL && GetTeamNum() == (GS->bRedToCap ? 0 : 1));
 }
 
 bool AUTAsymCTFSquadAI::MustKeepEnemy(APawn* TheEnemy)

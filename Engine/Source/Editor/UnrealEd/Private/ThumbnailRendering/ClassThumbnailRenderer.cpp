@@ -3,23 +3,16 @@
 #include "UnrealEd.h"
 
 // FPreviewScene derived helpers for rendering
-#include "ThumbnailHelpers.h"
 #include "EngineModule.h"
 #include "RendererInterface.h"
 
 UClassThumbnailRenderer::UClassThumbnailRenderer(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	ThumbnailScene = nullptr;
 }
 
 bool UClassThumbnailRenderer::CanVisualizeAsset(UObject* Object)
 {
-	if (ThumbnailScene == nullptr)
-	{
-		ThumbnailScene = new FClassThumbnailScene();
-	}
-
 	UClass* Class = Cast<UClass>(Object);
 
 	// Only visualize actor based classes
@@ -33,7 +26,7 @@ bool UClassThumbnailRenderer::CanVisualizeAsset(UObject* Object)
 
 		for (auto CompIt = Components.CreateConstIterator(); CompIt; ++CompIt)
 		{
-			if (ThumbnailScene->IsValidComponentForVisualization(*CompIt))
+			if (FClassThumbnailScene::IsValidComponentForVisualization(*CompIt))
 			{
 				return true;
 			}
@@ -48,10 +41,7 @@ void UClassThumbnailRenderer::Draw(UObject* Object, int32 X, int32 Y, uint32 Wid
 	UClass* Class = Cast<UClass>(Object);
 	if (Class != nullptr)
 	{
-		if ( ThumbnailScene == nullptr )
-		{
-			ThumbnailScene = new FClassThumbnailScene();
-		}
+		TSharedRef<FClassThumbnailScene> ThumbnailScene = ThumbnailScenes.EnsureThumbnailScene(Class);
 
 		ThumbnailScene->SetClass(Class);
 		FSceneViewFamilyContext ViewFamily( FSceneViewFamily::ConstructionValues( RenderTarget, ThumbnailScene->GetScene(), FEngineShowFlags(ESFIM_Game) )
@@ -62,17 +52,12 @@ void UClassThumbnailRenderer::Draw(UObject* Object, int32 X, int32 Y, uint32 Wid
 
 		ThumbnailScene->GetView(&ViewFamily, X, Y, Width, Height);
 		GetRendererModule().BeginRenderingViewFamily(Canvas,&ViewFamily);
-		ThumbnailScene->SetClass(nullptr);
 	}
 }
 
 void UClassThumbnailRenderer::BeginDestroy()
 {
-	if ( ThumbnailScene != nullptr )
-	{
-		delete ThumbnailScene;
-		ThumbnailScene = nullptr;
-	}
+	ThumbnailScenes.Clear();
 
 	Super::BeginDestroy();
 }

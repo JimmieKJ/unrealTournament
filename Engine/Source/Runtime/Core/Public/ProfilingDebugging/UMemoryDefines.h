@@ -1,7 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "HAL/Platform.h"
 
 /**
  * true we want to force an ansi allocator

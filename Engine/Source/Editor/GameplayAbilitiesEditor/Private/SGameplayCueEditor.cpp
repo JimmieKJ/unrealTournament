@@ -8,7 +8,7 @@
 #include "GameplayCueNotify_Static.h"
 #include "GameplayCueNotify_Actor.h"
 #include "SExpandableArea.h"
-#include "ClassIconFinder.h"
+#include "SlateIconFinder.h"
 #include "EditorClassUtils.h"
 #include "GameplayTagsSettings.h"
 #include "SNotificationList.h"
@@ -23,7 +23,7 @@
 #define LOCTEXT_NAMESPACE "SGameplayCueEditor"
 
 
-/** Widget for picking a new GameplayCue Notify class (similiar to actor class picker)  */
+/** Widget for picking a new GameplayCue Notify class (similar to actor class picker)  */
 class SGameplayCuePickerDialog : public SCompoundWidget
 {
 public:
@@ -255,7 +255,7 @@ void SGameplayCuePickerDialog::OnClassPicked(UClass* InChosenClass)
 /** Generates rows in the list of GameplayCueNotify classes to pick from */
 TSharedRef<ITableRow> SGameplayCuePickerDialog::GenerateListRow(UClass* ItemClass, const TSharedRef<STableViewBase>& OwnerTable)
 {	
-	const FSlateBrush* ItemBrush = FClassIconFinder::FindIconForClass(ItemClass);
+	const FSlateBrush* ItemBrush = FSlateIconFinder::FindIconBrushForClass(ItemClass);
 
 	return 
 	SNew(STableRow< UClass* >, OwnerTable)
@@ -267,7 +267,7 @@ TSharedRef<ITableRow> SGameplayCuePickerDialog::GenerateListRow(UClass* ItemClas
 		[
 			SNew(SHorizontalBox)
 			+SHorizontalBox::Slot()
-			.FillWidth(0.45f)
+			.FillWidth(0.65f)
 			[
 				SNew(SButton)
 				.OnClicked(this, &SGameplayCuePickerDialog::OnDefaultClassPicked, ItemClass)
@@ -340,11 +340,16 @@ FReply SGameplayCuePickerDialog::OnClassPickerConfirmed()
 
 FString SGameplayCueEditor::GetPathNameForGameplayCueTag(FString GameplayCueTagName)
 {
-	FString NewDefaultPathName = FString::Printf(TEXT("/Game/GC_%s"), *GameplayCueTagName);
+	FString NewDefaultPathName;
 	auto PathDel = IGameplayAbilitiesEditorModule::Get().GetGameplayCueNotifyPathDelegate();
 	if (PathDel.IsBound())
 	{
 		NewDefaultPathName = PathDel.Execute(GameplayCueTagName);
+	}
+	else
+	{
+		GameplayCueTagName = GameplayCueTagName.Replace(TEXT("GameplayCue."), TEXT(""), ESearchCase::IgnoreCase);
+		NewDefaultPathName = FString::Printf(TEXT("/Game/GC_%s"), *GameplayCueTagName);
 	}
 	NewDefaultPathName.ReplaceInline(TEXT("."), TEXT("_"));
 	return NewDefaultPathName;
@@ -476,181 +481,180 @@ private:
 
 	typedef STreeView< TSharedPtr< FTreeItem > > SGameplayCueTreeView;
 
-
-	/** Builds widget for rows in the GameplayCue Editor tab */
-	TSharedRef<ITableRow> OnGenerateWidgetForGameplayCueListView(TSharedPtr< FTreeItem > InItem, const TSharedRef<STableViewBase>& OwnerTable)
+	class SCueItemWidget : public SMultiColumnTableRow< TSharedPtr< FCueItem > >
 	{
-		class SCueItemWidget : public SMultiColumnTableRow< TSharedPtr< FCueItem > >
+	public:
+		SLATE_BEGIN_ARGS(SCueItemWidget) {}
+		SLATE_END_ARGS()
+
+			void Construct(const FArguments& InArgs, const TSharedRef<SGameplayCueTreeView>& InOwnerTable, FSimpleDelegate InRefreshDelegate, TSharedPtr<FCueItem> InListItem, FText InSearchTerm)
 		{
-		public:
-			SLATE_BEGIN_ARGS(SCueItemWidget){}
-			SLATE_END_ARGS()
+			Item = InListItem;
+			SearchTerm = InSearchTerm;
+			RefreshDelegate = InRefreshDelegate;
+			SMultiColumnTableRow< TSharedPtr< FCueItem > >::Construct(FSuperRowType::FArguments(), InOwnerTable);
+		}
+	private:
 
-			void Construct(const FArguments& InArgs, const TSharedRef<SGameplayCueTreeView>& InOwnerTable, FSimpleDelegate InRefreshDelegate,  TSharedPtr<FCueItem> InListItem, FText InSearchTerm )
+		virtual TSharedRef<SWidget> GenerateWidgetForColumn(const FName& ColumnName) override
+		{
+			if (ColumnName == CueTagColumnName)
 			{
-				Item = InListItem;
-				SearchTerm = InSearchTerm;
-				RefreshDelegate = InRefreshDelegate;
-				SMultiColumnTableRow< TSharedPtr< FCueItem > >::Construct(FSuperRowType::FArguments(), InOwnerTable);
-			}
-		private:
-
-			virtual TSharedRef<SWidget> GenerateWidgetForColumn(const FName& ColumnName) override
-			{
-				if (ColumnName == CueTagColumnName)
-				{
-					return
+				return
 					SNew(SHorizontalBox)
 					+ SHorizontalBox::Slot()
 					.AutoWidth()
 					[
 						SNew(SExpanderArrow, SharedThis(this))
 					]
-					+ SHorizontalBox::Slot()
+				+ SHorizontalBox::Slot()
 					.FillWidth(1)
 					.VAlign(VAlign_Center)
 					[
 						SNew(STextBlock)
 						.HighlightText(SearchTerm)
-						.Text(FText::FromString(Item->GameplayCueTagName.ToString()))
+					.Text(FText::FromString(Item->GameplayCueTagName.ToString()))
 					];
-				}
-				else if (ColumnName == CueHandlerColumnName)
+			}
+			else if (ColumnName == CueHandlerColumnName)
+			{
+				bool HasNotifies = false;
+				for (auto& HandlerItem : Item->HandlerItems)
 				{
-					bool HasNotifies = false;
-					for (auto& HandlerItem : Item->HandlerItems)
+					if (HandlerItem->GameplayCueNotifyObj.IsValid())
 					{
-						if (HandlerItem->GameplayCueNotifyObj.IsValid())
-						{
-							HasNotifies = true;
-							break;
-						}
+						HasNotifies = true;
+						break;
 					}
+				}
 
-					return
+				return
 					SNew(SBox)
-					.Padding( FMargin(2.0f, 0.0f) )
+					.Padding(FMargin(2.0f, 0.0f))
 					.HAlign(HAlign_Left)
 					.VAlign(VAlign_Center)
 					.Visibility(HasNotifies ? EVisibility::Collapsed : EVisibility::Visible)
 					[
 						SNew(SButton)
 						.Text(LOCTEXT("AddNew", "Add New"))
-						.OnClicked(this, &SCueItemWidget::OnAddNewClicked)
+					.OnClicked(this, &SCueItemWidget::OnAddNewClicked)
 					];
-				}
-				else
-				{
-					return SNew(STextBlock).Text(LOCTEXT("UnknownColumn", "Unknown Column"));
-				}
-
 			}
-
-			/** Create new GameplayCueNotify: brings up dialogue to pick class, then creates it via the content browser. */
-			FReply OnAddNewClicked()
+			else
 			{
-				SGameplayCueEditor::CreateNewGameplayCueNotifyDialogue(Item->GameplayCueTagName.ToString());
-				RefreshDelegate.ExecuteIfBound();
-				return FReply::Handled();
+				return SNew(STextBlock).Text(LOCTEXT("UnknownColumn", "Unknown Column"));
 			}
 
-			TSharedPtr< FCueItem > Item;
-			FText SearchTerm;
-			FSimpleDelegate RefreshDelegate;
-		};
+		}
 
-		class SCueHandlerItemWidget : public SMultiColumnTableRow < TSharedPtr< FCueHandlerItem > >
+		/** Create new GameplayCueNotify: brings up dialogue to pick class, then creates it via the content browser. */
+		FReply OnAddNewClicked()
 		{
-		public:
-			SLATE_BEGIN_ARGS(SCueHandlerItemWidget){}
-			SLATE_END_ARGS()
+			SGameplayCueEditor::CreateNewGameplayCueNotifyDialogue(Item->GameplayCueTagName.ToString());
+			RefreshDelegate.ExecuteIfBound();
+			return FReply::Handled();
+		}
+
+		TSharedPtr< FCueItem > Item;
+		FText SearchTerm;
+		FSimpleDelegate RefreshDelegate;
+	};
+
+	class SCueHandlerItemWidget : public SMultiColumnTableRow < TSharedPtr< FCueHandlerItem > >
+	{
+	public:
+		SLATE_BEGIN_ARGS(SCueHandlerItemWidget) {}
+		SLATE_END_ARGS()
 
 			void Construct(const FArguments& InArgs, const TSharedRef<STableViewBase>& InOwnerTable, TSharedPtr<FCueHandlerItem> InListItem)
+		{
+			CueHandlerItem = InListItem;
+			SMultiColumnTableRow< TSharedPtr< FCueHandlerItem > >::Construct(FSuperRowType::FArguments(), InOwnerTable);
+		}
+	private:
+
+		virtual TSharedRef<SWidget> GenerateWidgetForColumn(const FName& ColumnName) override
+		{
+			if (ColumnName == CueTagColumnName)
 			{
-				CueHandlerItem = InListItem;
-				SMultiColumnTableRow< TSharedPtr< FCueHandlerItem > >::Construct(FSuperRowType::FArguments(), InOwnerTable);
+				return SNew(SSpacer);
 			}
-		private:
-
-			virtual TSharedRef<SWidget> GenerateWidgetForColumn(const FName& ColumnName) override
+			else if (ColumnName == CueHandlerColumnName)
 			{
-				if (ColumnName == CueTagColumnName)
+				if (CueHandlerItem->GameplayCueNotifyObj.ToString().IsEmpty() == false)
 				{
-					return SNew(SSpacer);
-				}
-				else if (ColumnName == CueHandlerColumnName)
-				{
-					if (CueHandlerItem->GameplayCueNotifyObj.ToString().IsEmpty() == false)
+					FString ObjName = CueHandlerItem->GameplayCueNotifyObj.ToString();
+
+					int32 idx;
+					if (ObjName.FindLastChar(TEXT('.'), idx))
 					{
-						FString ObjName = CueHandlerItem->GameplayCueNotifyObj.ToString();
-
-						int32 idx;
-						if (ObjName.FindLastChar(TEXT('.'), idx))
+						ObjName = ObjName.RightChop(idx + 1);
+						if (ObjName.FindLastChar(TEXT('_'), idx))
 						{
-							ObjName = ObjName.RightChop(idx + 1);
-							if (ObjName.FindLastChar(TEXT('_'), idx))
-							{
-								ObjName = ObjName.Left(idx);
-							}
+							ObjName = ObjName.Left(idx);
 						}
+					}
 
-						return
+					return
 						SNew(SBox)
 						.HAlign(HAlign_Left)
 						[
 							SNew(SHyperlink)
 							.Style(FEditorStyle::Get(), "Common.GotoBlueprintHyperlink")
-							.Text(FText::FromString(ObjName))
-							.OnNavigate(this, &SCueHandlerItemWidget::NavigateToHandler)
+						.Text(FText::FromString(ObjName))
+						.OnNavigate(this, &SCueHandlerItemWidget::NavigateToHandler)
 						];
-					}
-					else if (CueHandlerItem->FunctionPtr.IsValid())
+				}
+				else if (CueHandlerItem->FunctionPtr.IsValid())
+				{
+					FString ObjName;
+					UFunction* Func = CueHandlerItem->FunctionPtr.Get();
+					UClass* OuterClass = Cast<UClass>(Func->GetOuter());
+					if (OuterClass)
 					{
-						FString ObjName;
-						UFunction* Func = CueHandlerItem->FunctionPtr.Get();
-						UClass* OuterClass = Cast<UClass>(Func->GetOuter());
-						if (OuterClass)
-						{
-							ObjName = OuterClass->GetName();
-							ObjName.RemoveFromEnd(TEXT("_c"));
-						}
+						ObjName = OuterClass->GetName();
+						ObjName.RemoveFromEnd(TEXT("_c"));
+					}
 
-						return
+					return
 						SNew(SBox)
 						.HAlign(HAlign_Left)
 						[
 							SNew(SHyperlink)
 							.Text(FText::FromString(ObjName))
-							.OnNavigate(this, &SCueHandlerItemWidget::NavigateToHandler)
+						.OnNavigate(this, &SCueHandlerItemWidget::NavigateToHandler)
 						];
-					}
-					else
-					{
-						return SNew(STextBlock).Text(LOCTEXT("UnknownHandler", "Unknown HandlerType"));
-					}
 				}
 				else
 				{
-					return SNew(STextBlock).Text(LOCTEXT("UnknownColumn", "Unknown Column"));
+					return SNew(STextBlock).Text(LOCTEXT("UnknownHandler", "Unknown HandlerType"));
 				}
 			}
-
-			void NavigateToHandler()
+			else
 			{
-				if (CueHandlerItem->GameplayCueNotifyObj.IsValid())
-				{
-					SGameplayCueEditor::OpenEditorForNotify(CueHandlerItem->GameplayCueNotifyObj.ToString());
-					
-				}
-				else if (CueHandlerItem->FunctionPtr.IsValid())
-				{
-					SGameplayCueEditor::OpenEditorForNotify(CueHandlerItem->FunctionPtr->GetOuter()->GetPathName());
-				}
+				return SNew(STextBlock).Text(LOCTEXT("UnknownColumn", "Unknown Column"));
 			}
+		}
 
-			TSharedPtr<FCueHandlerItem> CueHandlerItem;
-		};
+		void NavigateToHandler()
+		{
+			if (CueHandlerItem->GameplayCueNotifyObj.IsValid())
+			{
+				SGameplayCueEditor::OpenEditorForNotify(CueHandlerItem->GameplayCueNotifyObj.ToString());
 
+			}
+			else if (CueHandlerItem->FunctionPtr.IsValid())
+			{
+				SGameplayCueEditor::OpenEditorForNotify(CueHandlerItem->FunctionPtr->GetOuter()->GetPathName());
+			}
+		}
+
+		TSharedPtr<FCueHandlerItem> CueHandlerItem;
+	};
+
+	/** Builds widget for rows in the GameplayCue Editor tab */
+	TSharedRef<ITableRow> OnGenerateWidgetForGameplayCueListView(TSharedPtr< FTreeItem > InItem, const TSharedRef<STableViewBase>& OwnerTable)
+	{
 		TSharedPtr<FCueItem> CueItem = InItem->AsCueItem();
 		TSharedPtr<FCueHandlerItem> CueHandlerItem = InItem->AsCueHandlerItem();
 

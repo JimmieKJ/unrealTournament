@@ -13,6 +13,7 @@
 #include "LightPropagationVolume.h"
 #include "SceneUtils.h"
 
+DECLARE_FLOAT_COUNTER_STAT(TEXT("Lights"), Stat_GPU_Lights, STATGROUP_GPU);
 
 IMPLEMENT_UNIFORM_BUFFER_STRUCT(FDeferredLightUniformStruct,TEXT("DeferredLightUniforms"));
 
@@ -315,17 +316,16 @@ void FSceneRenderer::GetLightNameForDrawEvent(const FLightSceneProxy* LightProxy
 #endif
 }
 
+extern int32 GbEnableAsyncComputeTranslucencyLightingVolumeClear;
+
 uint32 GetShadowQuality();
 
 /** Renders the scene's lighting. */
 void FDeferredShadingSceneRenderer::RenderLights(FRHICommandListImmediate& RHICmdList)
 {
 	SCOPED_DRAW_EVENT(RHICmdList, Lights);
+	SCOPED_GPU_STAT(RHICmdList, Stat_GPU_Lights);
 
-	if(IsSimpleDynamicLightingEnabled())
-	{
-		return;
-	}
 
 	bool bStencilBufferDirty = false;	// The stencil buffer should've been cleared to 0 already
 
@@ -421,6 +421,12 @@ void FDeferredShadingSceneRenderer::RenderLights(FRHICommandListImmediate& RHICm
 			}
 		}
 		
+		if (GbEnableAsyncComputeTranslucencyLightingVolumeClear && GSupportsEfficientAsyncCompute)
+		{
+			//Gfx pipe must wait for the async compute clear of the translucency volume clear.
+			RHICmdList.WaitComputeFence(TranslucencyLightingVolumeClearEndFence);
+		}
+
 		if(ViewFamily.EngineShowFlags.DirectLighting)
 		{
 			SCOPED_DRAW_EVENT(RHICmdList, NonShadowedLights);
@@ -516,7 +522,7 @@ void FDeferredShadingSceneRenderer::RenderLights(FRHICommandListImmediate& RHICm
 					if ( LightSceneInfo.Proxy->HasReflectiveShadowMap() )
 					{
 						INC_DWORD_STAT(STAT_NumReflectiveShadowMapLights);
-						RenderReflectiveShadowMaps( RHICmdList, &LightSceneInfo );
+						InjectReflectiveShadowMaps(RHICmdList, &LightSceneInfo);
 						bRenderedRSM = true;
 					}
 				}
@@ -544,10 +550,13 @@ void FDeferredShadingSceneRenderer::RenderLights(FRHICommandListImmediate& RHICm
 								if (LightSceneInfo->ShouldRenderLight(View))
 								{
 									FSceneViewState* ViewState = (FSceneViewState*)View.State;
-									FLightPropagationVolume* Lpv = ViewState->GetLightPropagationVolume(View.GetFeatureLevel());
-									if ( Lpv && LightSceneInfo->Proxy )
+									if (ViewState)
 									{
-										Lpv->InjectLightDirect( RHICmdList, *LightSceneInfo->Proxy, View );
+										FLightPropagationVolume* Lpv = ViewState->GetLightPropagationVolume(View.GetFeatureLevel());
+										if (Lpv && LightSceneInfo->Proxy)
+										{
+											Lpv->InjectLightDirect(RHICmdList, *LightSceneInfo->Proxy, View);
+										}
 									}
 								}
 							}					
@@ -581,9 +590,6 @@ void FDeferredShadingSceneRenderer::RenderLights(FRHICommandListImmediate& RHICm
 				GetLightNameForDrawEvent(LightSceneInfo.Proxy, LightNameWithLevel);
 				SCOPED_DRAW_EVENTF(RHICmdList, EventLightPass, *LightNameWithLevel);
 
-				// Do not resolve to scene color texture, this is done lazily
-				SceneContext.FinishRenderingSceneColor(RHICmdList, false);
-
 				if (bDrawShadows)
 				{
 					INC_DWORD_STAT(STAT_NumShadowedLights);
@@ -598,10 +604,8 @@ void FDeferredShadingSceneRenderer::RenderLights(FRHICommandListImmediate& RHICm
 					bool bClearToWhite = true;
 					SceneContext.BeginRenderingLightAttenuation(RHICmdList, bClearToWhite);
 
-					bool bRenderedTranslucentObjectShadows = RenderTranslucentProjectedShadows(RHICmdList, &LightSceneInfo );
-					// Render non-modulated projected shadows to the attenuation buffer.
-					RenderProjectedShadows(RHICmdList, &LightSceneInfo, bRenderedTranslucentObjectShadows, bInjectedTranslucentVolume );
-				
+					RenderShadowProjections(RHICmdList, &LightSceneInfo, bInjectedTranslucentVolume);
+
 					bUsedLightAttenuation = true;
 				}
 
@@ -652,9 +656,6 @@ void FDeferredShadingSceneRenderer::RenderLights(FRHICommandListImmediate& RHICm
 					RenderLight(RHICmdList, &LightSceneInfo, false, true);
 				}
 			}
-
-			// Do not resolve to scene color texture, this is done lazily
-			SceneContext.FinishRenderingSceneColor(RHICmdList, false);
 
 			// Restore the default mode
 			SceneContext.SetLightAttenuationMode(true);
@@ -845,6 +846,12 @@ void FDeferredShadingSceneRenderer::RenderLight(FRHICommandList& RHICmdList, con
 	for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
 	{
 		FViewInfo& View = Views[ViewIndex];
+
+		// Ensure the light is valid for this view
+		if (!LightSceneInfo->ShouldRenderLight(View))
+		{
+			continue;
+		}
 
 		bool bUseIESTexture = false;
 

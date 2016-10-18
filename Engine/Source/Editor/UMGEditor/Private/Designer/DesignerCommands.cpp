@@ -3,7 +3,7 @@
 #include "UMGEditorPrivatePCH.h"
 #include "DesignerCommands.h"
 
-#define LOCTEXT_NAMESPACE ""
+#define LOCTEXT_NAMESPACE "DesignerCommands"
 
 void FDesignerCommands::RegisterCommands()
 {

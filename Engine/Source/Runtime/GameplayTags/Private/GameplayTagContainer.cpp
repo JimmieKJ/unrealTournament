@@ -1,6 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "GameplayTagsModulePrivatePCH.h"
+#include "PropertyTag.h"
+#include "Engine/PackageMapClient.h"
 
 const FGameplayTagContainer FGameplayTagContainer::EmptyContainer;
 const FGameplayTagQuery FGameplayTagQuery::EmptyQuery;
@@ -851,7 +853,7 @@ bool FGameplayTagContainer::NetSerialize(FArchive& Ar, class UPackageMap* Map, b
 	{
 		uint8 NumTags = GameplayTags.Num();
 		uint8 MaxSize = (1 << UGameplayTagsManager::NumBitsForContainerSize);
-		if (!ensureMsgf(NumTags < MaxSize, TEXT("TagContainer has %d elements when max is %d! Tags: %s"), NumTags, NumTags, *ToStringSimple()))
+		if (!ensureMsgf(NumTags < MaxSize, TEXT("TagContainer has %d elements when max is %d! Tags: %s"), NumTags, MaxSize, *ToStringSimple()))
 		{
 			NumTags = MaxSize - 1;
 		}
@@ -942,6 +944,16 @@ FGameplayTag::FGameplayTag(FName Name)
 	check(IGameplayTagsModule::Get().GetGameplayTagsManager().ValidateTagCreation(Name));
 }
 
+bool FGameplayTag::SerializeFromMismatchedTag(const FPropertyTag& Tag, FArchive& Ar)
+{
+	if (Tag.Type == NAME_NameProperty)
+	{
+		Ar << TagName;
+		return true;
+	}
+	return false;
+}
+
 FGameplayTag FGameplayTag::RequestDirectParent() const
 {
 	return IGameplayTagsModule::Get().GetGameplayTagsManager().RequestGameplayTagDirectParent(*this);
@@ -964,6 +976,29 @@ bool FGameplayTag::NetSerialize(FArchive& Ar, class UPackageMap* Map, bool& bOut
 	return true;
 }
 
+static TSharedPtr<FNetFieldExportGroup> CreateNetfieldExportGroupForNetworkGameplayTags(const UGameplayTagsManager& TagManager, const TCHAR* NetFieldExportGroupName)
+{
+	TSharedPtr<FNetFieldExportGroup> NetFieldExportGroup = TSharedPtr<FNetFieldExportGroup>(new FNetFieldExportGroup());
+
+	const TArray<TSharedPtr<FGameplayTagNode>>& NetworkGameplayTagNodeIndex = TagManager.GetNetworkGameplayTagNodeIndex();
+
+	NetFieldExportGroup->PathName = NetFieldExportGroupName;
+	NetFieldExportGroup->NetFieldExports.SetNum(NetworkGameplayTagNodeIndex.Num());
+
+	for (int32 i = 0; i < NetworkGameplayTagNodeIndex.Num(); i++)
+	{
+		FNetFieldExport NetFieldExport(
+			i,
+			0,
+			NetworkGameplayTagNodeIndex[i]->GetCompleteTag().ToString(),
+			TEXT(""));
+
+		NetFieldExportGroup->NetFieldExports[i] = NetFieldExport;
+	}
+
+	return NetFieldExportGroup;
+}
+
 bool FGameplayTag::NetSerialize_Packed(FArchive& Ar, class UPackageMap* Map, bool& bOutSuccess)
 {
 	SCOPE_CYCLE_COUNTER(STAT_FGameplayTag_NetSerialize);
@@ -973,6 +1008,74 @@ bool FGameplayTag::NetSerialize_Packed(FArchive& Ar, class UPackageMap* Map, boo
 	if (TagManager.ShouldUseFastReplication())
 	{
 		FGameplayTagNetIndex NetIndex = INVALID_TAGNETINDEX;
+
+		UPackageMapClient* PackageMapClient = Cast<UPackageMapClient>(Map);
+		const bool bIsReplay = PackageMapClient && PackageMapClient->GetConnection() && PackageMapClient->GetConnection()->InternalAck;
+
+		TSharedPtr<FNetFieldExportGroup> NetFieldExportGroup;
+
+		if (bIsReplay)
+		{
+			// For replays, use a net field export group to guarantee we can send the name reliably (without having to rely on the client having a deterministic NetworkGameplayTagNodeIndex array)
+			const TCHAR* NetFieldExportGroupName = TEXT("NetworkGameplayTagNodeIndex");
+
+			// Find this net field export group
+			NetFieldExportGroup = PackageMapClient->GetNetFieldExportGroup(NetFieldExportGroupName);
+
+			if (Ar.IsSaving())
+			{
+				// If we didn't find it, we need to create it (only when saving though, it should be here on load since it was exported at save time)
+				if (!NetFieldExportGroup.IsValid())
+				{
+					NetFieldExportGroup = CreateNetfieldExportGroupForNetworkGameplayTags(TagManager, NetFieldExportGroupName);
+
+					PackageMapClient->AddNetFieldExportGroup(NetFieldExportGroupName, NetFieldExportGroup);
+				}
+
+				NetIndex = TagManager.GetNetIndexFromTag(*this);
+
+				if (NetIndex != TagManager.InvalidTagNetIndex && NetIndex != INVALID_TAGNETINDEX)
+				{
+					PackageMapClient->TrackNetFieldExport(NetFieldExportGroup.Get(), NetIndex);
+				}
+				else
+				{
+					NetIndex = INVALID_TAGNETINDEX;		// We can't save InvalidTagNetIndex, since the remote side could have a different value for this
+				}
+			}
+
+			uint32 NetIndex32 = NetIndex;
+			Ar.SerializeIntPacked(NetIndex32);
+			NetIndex = NetIndex32;
+
+			if (Ar.IsLoading())
+			{
+				// Get the tag name from the net field export group entry
+				if (NetIndex != INVALID_TAGNETINDEX && ensure(NetFieldExportGroup.IsValid()) && ensure(NetIndex < NetFieldExportGroup->NetFieldExports.Num()))
+				{
+					TagName = FName(*NetFieldExportGroup->NetFieldExports[NetIndex].Name);
+
+					// Validate the tag name
+					const FGameplayTag Tag = IGameplayTagsModule::RequestGameplayTag(TagName, false);
+
+					// Warn (once) if the tag isn't found
+					if (!Tag.IsValid() && !NetFieldExportGroup->NetFieldExports[NetIndex].bIncompatible)
+					{ 
+						UE_LOG(LogGameplayTags, Warning, TEXT( "Gameplay tag not found (marking incompatible): %s"), *TagName.ToString());
+						NetFieldExportGroup->NetFieldExports[NetIndex].bIncompatible = true;
+					}
+
+					TagName = Tag.TagName;
+				}
+				else
+				{
+					TagName = NAME_None;
+				}
+			}
+
+			bOutSuccess = true;
+			return true;
+		}
 
 		if (Ar.IsSaving())
 		{
@@ -985,7 +1088,6 @@ bool FGameplayTag::NetSerialize_Packed(FArchive& Ar, class UPackageMap* Map, boo
 			SerializeTagNetIndexPacked(Ar, NetIndex, UGameplayTagsManager::NetIndexFirstBitSegment, UGameplayTagsManager::NetIndexTrueBitNum);
 			TagName = TagManager.GetTagNameFromNetIndex(NetIndex);
 		}
-
 	}
 	else
 	{
@@ -1007,6 +1109,41 @@ void FGameplayTag::PostSerialize(const FArchive& Ar)
 		// Rename any tags that may have changed by the ini file.
 		TagManager.RedirectSingleGameplayTag(*this, Ar.GetSerializedProperty());
 	}
+}
+
+bool FGameplayTag::ImportTextItem(const TCHAR*& Buffer, int32 PortFlags, UObject* Parent, FOutputDevice* ErrorText)
+{
+	FString ImportedTag = TEXT("");
+	const TCHAR* NewBuffer = UPropertyHelpers::ReadToken(Buffer, ImportedTag, true);
+	if (!NewBuffer)
+	{
+		// Failed to read buffer. Maybe normal ImportText will work.
+		return false;
+	}
+
+	if (ImportedTag == TEXT("None") || ImportedTag.IsEmpty())
+	{
+		// TagName was none
+		TagName = NAME_None;
+		return true;
+	}
+
+	if (ImportedTag[0] == '(')
+	{
+		// Let normal ImportText handle this. It appears to be prepared for it.
+		return false;
+	}
+
+	FName ImportedTagName = FName(*ImportedTag);
+	if (IGameplayTagsModule::Get().GetGameplayTagsManager().ValidateTagCreation(ImportedTagName))
+	{
+		// We found the tag. Assign it here.
+		TagName = ImportedTagName;
+		return true;
+	}
+
+	// Let normal ImportText try.
+	return false;
 }
 
 FGameplayTagQuery::FGameplayTagQuery()

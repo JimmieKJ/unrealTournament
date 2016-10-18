@@ -22,11 +22,10 @@ class UMovieSceneVisibilityTrack
 public:
 
 	// UMovieSceneTrack interface
-
 	virtual UMovieSceneSection* CreateNewSection() override;
 	virtual TSharedPtr<IMovieSceneTrackInstance> CreateInstance() override;
 
 #if WITH_EDITORONLY_DATA
-	virtual FText GetDefaultDisplayName() const override;
+	virtual FText GetDisplayName() const override;
 #endif
 };

@@ -38,6 +38,39 @@ DECLARE_MULTICAST_DELEGATE_OneParam(FOnLauncherProfileManagerProfileAdded, const
  */
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnLauncherProfileManagerProfileRemoved, const ILauncherProfileRef&);
 
+/** Type definition for shared references to instances of ILauncherProfile. */
+typedef TSharedPtr<class ILauncherProfileWizard> ILauncherProfileWizardPtr;
+
+/** Type definition for shared references to instances of ILauncherProfile. */
+typedef TSharedRef<class ILauncherProfileWizard> ILauncherProfileWizardRef;
+
+/**
+* Interface for a factory to create pre-defined launcher profiles.
+*/
+class ILauncherProfileWizard
+{
+public:
+	/**
+	* Wizard name that will be used for menu
+	*/
+	virtual FText GetName() const = 0;
+	
+	/**
+	* Wizard description text that will be used for menu tooltip
+	*/
+	virtual FText GetDescription() const = 0;
+
+	/**
+	* Handle request to create launcher profile using this wizard
+	*
+	* @param ProfileManager The profile manager initiated this request.
+	*/
+	virtual void HandleCreateLauncherProfile(const ILauncherProfileManagerRef& ProfileManager) = 0;
+
+public:
+	/** Virtual destructor. */
+	virtual ~ILauncherProfileWizard( ) { }
+};
 
 /**
  * Interface for launcher profile managers.
@@ -224,6 +257,25 @@ public:
 	* @param Profile The profile to change	
 	*/
 	virtual void ChangeProfileName(const ILauncherProfileRef& Profile, FString Name) = 0;
+
+	/**
+	* Register wizard that can be used to create pre-defined launcher profiles
+	*
+	* @param ProfileWizard The wizard to register
+	*/
+	virtual void RegisterProfileWizard(const ILauncherProfileWizardPtr& ProfileWizard) = 0;
+
+	/**
+	* Unregister launcher profile wizard
+	*
+	* @param ProfileWizard The wizard to unregister
+	*/
+	virtual void UnregisterProfileWizard(const ILauncherProfileWizardPtr& ProfileWizard) = 0;
+
+	/**
+	* Return list of all registered profile wizards
+	*/
+	virtual const TArray<ILauncherProfileWizardPtr>& GetProfileWizards() const = 0;
 
 public:
 

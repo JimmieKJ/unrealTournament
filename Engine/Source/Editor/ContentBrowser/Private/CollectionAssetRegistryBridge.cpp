@@ -70,10 +70,9 @@ public:
 
 				// Get the destination object from the meta-data rather than load the redirector object, as 
 				// loading a redirector will also load the object it points to, which could cause a large hitch
-				const FString* DestinationObjectStrPtr = ObjectAssetData.TagsAndValues.Find("DestinationObject");
-				if (DestinationObjectStrPtr)
+				FString DestinationObjectPath;
+				if (ObjectAssetData.GetTagValue("DestinationObject", DestinationObjectPath))
 				{
-					FString DestinationObjectPath = *DestinationObjectStrPtr;
 					ConstructorHelpers::StripObjectClass(DestinationObjectPath);
 					ObjectAssetData = AssetRegistryModule.Get().GetAssetByObjectPath(*DestinationObjectPath);
 				}

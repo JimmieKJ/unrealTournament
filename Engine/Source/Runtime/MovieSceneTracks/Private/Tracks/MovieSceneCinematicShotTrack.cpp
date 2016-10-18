@@ -82,11 +82,6 @@ bool UMovieSceneCinematicShotTrack::SupportsMultipleRows() const
 	return true;
 }
 
-bool UMovieSceneCinematicShotTrack::AddsSectionBoundsToPlayRange() const
-{
-	return true;
-}
-
 #if WITH_EDITOR
 void UMovieSceneCinematicShotTrack::OnSectionMoved(UMovieSceneSection& Section)
 {

@@ -28,6 +28,9 @@ private:
 	/** Focuses the search box post-construct */
 	EActiveTimerReturnType SetFocusPostConstruct( double InCurrentTime, float InDeltaTime );
 
+	/** Special case handling for SAssetSearchBox key commands */
+	FReply HandleKeyDownFromSearchBox(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent);
+
 	void FolderEntered(const FString& FolderPath);
 
 	/** Called when the editable text needs to be set or cleared */

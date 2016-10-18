@@ -3,7 +3,7 @@
 #pragma once 
 
 #include "Runtime/Online/HTTP/Public/Http.h"
-#include "Runtime/Online/OnlineSubsystem/Public/OnlineError.h"
+#include "OnlineError.h"
 
 #include "UTMcpUtils.generated.h"
 
@@ -18,8 +18,9 @@ public:
 	double AverageWaitTimeSecs;
 	UPROPERTY()
 	int32 NumSamples;
-};
 
+	FWaitTimeInfo() : RatingType(TEXT("Invalid")), AverageWaitTimeSecs(0.0), NumSamples(0) {}
+};
 USTRUCT()
 struct FEstimatedWaitTimeInfo
 {
@@ -42,6 +43,9 @@ public:
 	int32 Score;
 	UPROPERTY()
 	bool IsBot;
+
+	FRankedTeamMemberInfo() : AccountId(TEXT("Invalid")), Score(0), IsBot(false)
+	{}
 };
 
 USTRUCT()
@@ -78,6 +82,8 @@ struct FRankedMatchResult
 {
 	GENERATED_USTRUCT_BODY()
 public:
+	FRankedMatchResult() : RatingType(TEXT("Invalid")) {}
+
 	UPROPERTY()
 	FString RatingType;
 	UPROPERTY()
@@ -310,7 +316,7 @@ private:
 	TSharedRef<FOnlineHttpRequest> CreateRequest(const FString& Verb, const FString& Path) const;
 
 	/** Generic send http request */
-	void SendRequest(const TSharedRef<class IHttpRequest>& Request, const TFunction<bool(const FHttpResponsePtr& HttpResponse)>& OnComplete);
+	void SendRequest(TSharedRef<class FOnlineHttpRequest>& Request, const TFunction<bool(const FHttpResponsePtr& HttpResponse)>& OnComplete);
 
 	/**
 	 * Delegate fired when Http Requests complete (generic)

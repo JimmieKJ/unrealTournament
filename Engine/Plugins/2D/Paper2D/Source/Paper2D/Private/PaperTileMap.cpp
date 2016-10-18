@@ -41,7 +41,7 @@ UPaperTileMap::UPaperTileMap(const FObjectInitializer& ObjectInitializer)
 void UPaperTileMap::PostInitProperties()
 {
 #if WITH_EDITORONLY_DATA
-	if (!HasAnyFlags(RF_ClassDefaultObject))
+	if (!HasAnyFlags(RF_ClassDefaultObject) && !(GetOuter() && GetOuter()->HasAnyFlags(RF_ClassDefaultObject|RF_ArchetypeObject)))
 	{
 		AssetImportData = NewObject<UAssetImportData>(this, TEXT("AssetImportData"));
 	}
@@ -260,25 +260,22 @@ void UPaperTileMap::UpdateBodySetup()
 		break;
 	case ESpriteCollisionMode::None:
 		BodySetup = nullptr;
-		break;
+		return;
 	}
 
-	if (SpriteCollisionDomain != ESpriteCollisionMode::None)
+	BodySetup->CollisionTraceFlag = CTF_UseSimpleAsComplex;
+
+	for (int32 LayerIndex = 0; LayerIndex < TileLayers.Num(); ++LayerIndex)
 	{
-		BodySetup->CollisionTraceFlag = CTF_UseSimpleAsComplex;
-
-		for (int32 LayerIndex = 0; LayerIndex < TileLayers.Num(); ++LayerIndex)
-		{
-			const float ZSeparation = LayerIndex * SeparationPerLayer;
-			TileLayers[LayerIndex]->AugmentBodySetup(BodySetup, ZSeparation);
-		}
-
-		// Finalize the BodySetup
-#if WITH_RUNTIME_PHYSICS_COOKING || WITH_EDITOR
-		BodySetup->InvalidatePhysicsData();
-#endif
-		BodySetup->CreatePhysicsMeshes();
+		const float ZSeparation = LayerIndex * SeparationPerLayer;
+		TileLayers[LayerIndex]->AugmentBodySetup(BodySetup, ZSeparation);
 	}
+
+	// Finalize the BodySetup
+#if WITH_RUNTIME_PHYSICS_COOKING || WITH_EDITOR
+	BodySetup->InvalidatePhysicsData();
+#endif
+	BodySetup->CreatePhysicsMeshes();
 }
 
 void UPaperTileMap::GetTileToLocalParameters(FVector& OutCornerPosition, FVector& OutStepX, FVector& OutStepY, FVector& OutOffsetYFactor) const
@@ -533,6 +530,12 @@ void UPaperTileMap::SetCollisionThickness(float Thickness)
 void UPaperTileMap::SetCollisionDomain(ESpriteCollisionMode::Type Domain)
 {
 	SpriteCollisionDomain = Domain;
+	UpdateBodySetup();
+}
+
+void UPaperTileMap::RebuildCollision()
+{
+	UpdateBodySetup();
 }
 
 FBoxSphereBounds UPaperTileMap::GetRenderBounds() const

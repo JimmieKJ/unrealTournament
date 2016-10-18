@@ -173,11 +173,11 @@ TSharedRef<SWidget> FSequencerTrackNode::GetCustomOutlinerContent()
 	else
 	{
 		FGuid ObjectBinding;
-		TSharedPtr<FSequencerDisplayNode> ParentNode = GetParent();
+		TSharedPtr<FSequencerDisplayNode> ParentSeqNode = GetParent();
 
-		if (ParentNode.IsValid() && (ParentNode->GetType() == ESequencerNode::Object))
+		if (ParentSeqNode.IsValid() && (ParentSeqNode->GetType() == ESequencerNode::Object))
 		{
-			ObjectBinding = StaticCastSharedPtr<FSequencerObjectBindingNode>(ParentNode)->GetObjectBinding();
+			ObjectBinding = StaticCastSharedPtr<FSequencerObjectBindingNode>(ParentSeqNode)->GetObjectBinding();
 		}
 		FBuildEditWidgetParams Params;
 		Params.NodeIsHovered = TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateSP(this, &FSequencerDisplayNode::IsHovered));
@@ -261,7 +261,7 @@ void FSequencerTrackNode::GetChildKeyAreaNodesRecursively(TArray<TSharedRef<FSeq
 
 FText FSequencerTrackNode::GetDisplayName() const
 {
-	return AssociatedTrack->GetDisplayName();
+	return AssociatedTrack.IsValid() ? AssociatedTrack->GetDisplayName() : FText::GetEmpty();
 }
 
 

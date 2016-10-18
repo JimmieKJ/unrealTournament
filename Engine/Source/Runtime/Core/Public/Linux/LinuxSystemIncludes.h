@@ -46,3 +46,8 @@ struct RECT
 
 #define OUT
 #define IN
+
+// In glibc 2.17, __secure_getenv was renamed to secure_getenv.
+#if defined(__GLIBC__) && (__GLIBC__ == 2) && (__GLIBC_MINOR__ < 17)
+#  define secure_getenv __secure_getenv
+#endif

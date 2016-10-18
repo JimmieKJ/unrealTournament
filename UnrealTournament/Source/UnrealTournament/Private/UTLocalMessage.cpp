@@ -36,6 +36,20 @@ int32 UUTLocalMessage::GetFontSizeIndex(int32 MessageIndex) const
 	return FontSizeIndex;
 }
 
+bool UUTLocalMessage::ShouldDrawMessage(int32 MessageIndex, AUTPlayerController* PC, bool bIsAtIntermission, bool bNoLivePawnTarget) const
+{
+	if ((bIsAtIntermission && !bDrawAtIntermission) || (bNoLivePawnTarget && bDrawOnlyIfAlive))
+	{
+		return false;
+	}
+	return true;
+}
+
+FString UUTLocalMessage::GetConsoleString(const FClientReceiveData& ClientData, FText LocalMessageText) const
+{
+	return LocalMessageText.ToString();
+}
+
 void UUTLocalMessage::ClientReceive(const FClientReceiveData& ClientData) const
 {
 	// Skip playing local messages if we're fast forwarding from a demo seek
@@ -58,7 +72,7 @@ void UUTLocalMessage::ClientReceive(const FClientReceiveData& ClientData) const
 
 		if(IsConsoleMessage(ClientData.MessageIndex) && Cast<ULocalPlayer>(ClientData.LocalPC->Player) != NULL && Cast<ULocalPlayer>(ClientData.LocalPC->Player)->ViewportClient != NULL)
 		{
-			Cast<ULocalPlayer>(ClientData.LocalPC->Player)->ViewportClient->ViewportConsole->OutputText( LocalMessageText.ToString() );
+			Cast<ULocalPlayer>(ClientData.LocalPC->Player)->ViewportClient->ViewportConsole->OutputText( GetConsoleString(ClientData, LocalMessageText) );
 		}
 	}
 
@@ -98,7 +112,7 @@ float UUTLocalMessage::GetAnnouncementDelay(int32 Switch)
 	return AnnouncementDelay;
 }
 
-float UUTLocalMessage::GetAnnouncementPriority(int32 Switch) const
+float UUTLocalMessage::GetAnnouncementPriority(const FAnnouncementInfo AnnouncementInfo) const
 {
 	return bIsStatusAnnouncement ? 0.5f : 0.8f;
 }
@@ -226,8 +240,15 @@ USoundBase* UUTLocalMessage::GetAnnouncementSound_Implementation(int32 Switch, c
 
 bool UUTLocalMessage::InterruptAnnouncement_Implementation(int32 Switch, const UObject* OptionalObject, TSubclassOf<UUTLocalMessage> OtherMessageClass, int32 OtherSwitch, const UObject* OtherOptionalObject) const
 {
+	FAnnouncementInfo AnnouncementInfo(GetClass(), Switch, nullptr, nullptr, OptionalObject, 0.f);
+	FAnnouncementInfo OtherAnnouncementInfo(OtherMessageClass, OtherSwitch, nullptr, nullptr, OtherOptionalObject, 0.f);
+	return InterruptAnnouncement(AnnouncementInfo, OtherAnnouncementInfo);
+}
+
+bool UUTLocalMessage::InterruptAnnouncement(const FAnnouncementInfo AnnouncementInfo, const FAnnouncementInfo OtherAnnouncementInfo) const
+{
 	// by default interrupt messages of same type, and countdown messages
-	return (GetClass() == OtherMessageClass) || Cast<UUTLocalMessage>(OtherMessageClass->GetDefaultObject())->IsOptionalSpoken(OtherSwitch);
+	return (AnnouncementInfo.MessageClass == OtherAnnouncementInfo.MessageClass) || Cast<UUTLocalMessage>(OtherAnnouncementInfo.MessageClass->GetDefaultObject())->IsOptionalSpoken(OtherAnnouncementInfo.Switch);
 }
 
 bool UUTLocalMessage::CancelByAnnouncement_Implementation(int32 Switch, const UObject* OptionalObject, TSubclassOf<UUTLocalMessage> OtherMessageClass, int32 OtherSwitch, const UObject* OtherOptionalObject) const

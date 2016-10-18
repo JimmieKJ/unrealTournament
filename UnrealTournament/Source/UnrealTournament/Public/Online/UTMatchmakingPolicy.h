@@ -65,6 +65,7 @@ struct FMatchmakingParams
 		ControllerId(INVALID_CONTROLLERID),
 		PartySize(1),
 		PlaylistId(INDEX_NONE),
+		bRanked(false),
 		Flags(EMatchmakingFlags::None),
 		StartWith(EMatchmakingStartLocation::Lobby),
 		ChanceToHostOverride(0.f),
@@ -88,6 +89,8 @@ struct FMatchmakingParams
 	/** Game mode to play */
 	UPROPERTY()
 	int32 PlaylistId;
+	UPROPERTY()
+	bool bRanked;
 	/** Matchmaking flags */
 	UPROPERTY()
 	EMatchmakingFlags Flags;

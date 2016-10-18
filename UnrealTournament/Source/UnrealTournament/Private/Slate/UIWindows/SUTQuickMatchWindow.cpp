@@ -61,6 +61,7 @@ void SUTQuickMatchWindow::Construct(const FArguments& InArgs, TWeakObjectPtr<UUT
 	QMStats_NumHubsConsidered = 0;
 	QMStats_NumInstancesConsidered = 0;
 	QMStats_NumRejectedForRank = 0;
+	QMStats_NumRejectedForPartySize = 0;
 	QMStats_NumRejectedForGameType = 0;
 	QMStats_NumRejectedForJoinable = 0;
 	QMStats_NumPingFailures = 0;
@@ -222,14 +223,18 @@ void SUTQuickMatchWindow::BuildWindow()
 				}
 
 				bStartQuickMatch = false;
-				McpUtils->GetTeamHighestMmr(GetNameSafe(DefaultGameModeObject->GetClass()), AccountIds, [this](const FOnlineError& TeamMmrResult, const FHighestMmr& Response)
+				TSharedPtr<SUTQuickMatchWindow> Myself = SharedThis(this);
+				McpUtils->GetTeamHighestMmr(GetNameSafe(DefaultGameModeObject->GetClass()), AccountIds, [Myself](const FOnlineError& TeamMmrResult, const FHighestMmr& Response)
 				{
-					if (!TeamMmrResult.bSucceeded)
+					if (Myself.IsValid() && Myself->GetPlayerOwner().IsValid() && Myself->GetPlayerOwner()->bIsQuickmatchDialogOpen())
 					{
-						UE_LOG(UT,Log,TEXT("Best MMR: %i"),Response.Mmr);
-						MatchTargetRank = Response.Mmr;
+						if (!TeamMmrResult.bSucceeded)
+						{
+							UE_LOG(UT,Log,TEXT("Best MMR: %i"),Response.Mmr);
+							Myself->MatchTargetRank = Response.Mmr;
+						}
+						Myself->BeginQuickmatch();
 					}
-					BeginQuickmatch();
 				});
 			}
 		}
@@ -413,7 +418,7 @@ void SUTQuickMatchWindow::OnFindSessionsComplete(bool bWasSuccessful)
 void SUTQuickMatchWindow::NoAvailableMatches()
 {
 	PlayerOwner->CloseQuickMatch();
-	PlayerOwner->MessageBox(NSLOCTEXT("QuickMatch", "NoServersTitle", "ONLINE FAILURE"), NSLOCTEXT("QuickMatch", "NoServerTitle", "No quickmatch instances were found.  Try finding a game using the hub browser."));
+	PlayerOwner->MessageBox(NSLOCTEXT("QuickMatch", "NoServersTitle", "ONLINE FAILURE"), NSLOCTEXT("QuickMatch", "NoServerTitle", "No quickplay instances were found.  Try finding a game using the hub browser."));
 }
 
 void SUTQuickMatchWindow::PingNextBatch()
@@ -559,6 +564,17 @@ void SUTQuickMatchWindow::CollectInstances()
 	AUTPlayerState* PlayerState = Cast<AUTPlayerState>(GetPlayerOwner()->PlayerController->PlayerState);
 	bool bIsBeginner = PlayerState && PlayerState->IsABeginner(DefaultGameModeObject.Get());  
 
+	int32 PartySize = 1;
+	UPartyContext* PartyContext = Cast<UPartyContext>(UBlueprintContextLibrary::GetContext(GetPlayerOwner()->GetWorld(), UPartyContext::StaticClass()));
+	if (PartyContext)
+	{
+		PartySize = PartyContext->GetPartySize();
+		if (PartySize > 1)
+		{
+			bIsBeginner = false;
+		}
+	}
+
 	QMStats_NumInstancesConsidered = FinalList.Num();
 
 	for (int32 i=0; i < FinalList.Num(); i++)
@@ -576,8 +592,12 @@ void SUTQuickMatchWindow::CollectInstances()
 					// for Quick-play.  So we reject them here.
 					if (Instance->MatchData.MatchState != NAME_None)
 					{
+						if (Instance->MaxPlayers - Instance->NumPlayers() < PartySize)
+						{
+							QMStats_NumRejectedForPartySize++;
+						}
 						// Cull any instances that do not match this quickmatch type or is not joinable as a player.
-						if (Instance->RulesTag.Equals(QuickMatchType, ESearchCase::IgnoreCase) && Instance->bJoinableAsPlayer)
+						else if (Instance->RulesTag.Equals(QuickMatchType, ESearchCase::IgnoreCase) && Instance->bJoinableAsPlayer)
 						{
 							// Get the Target Rank based on the quickmatch type
 							if ( AUTPlayerState::CheckRank(MatchTargetRank, FinalList[i]->Beacon->Instances[j]->RankCheck, true) == 0 )
@@ -826,6 +846,10 @@ void SUTQuickMatchWindow::AttemptQuickMatch(TSharedPtr<FServerSearchInfo> Desire
 		if (PartySize > 1)
 		{
 			bIsBeginner = false;
+			if (PlayerRankCheck < ((NUMBER_RANK_LEVELS * 2) - 1))
+			{
+				PlayerRankCheck = ((NUMBER_RANK_LEVELS * 2) - 1);
+			}
 		}
 	}
 
@@ -898,11 +922,42 @@ void SUTQuickMatchWindow::RequestQuickPlayResults(AUTServerBeaconClient* Beacon,
 
 }
 
+//Special markup for Analytics event so they show up properly in grafana. Should be eventually moved to UTAnalytics.
+/*  
+* @EventName Quickmatch
+*
+* @Trigger Fires every time a quick match match happens or is canceled
+*
+* @Type Sent by the client
+*
+* @EventParam PlayerId
+* @EventParam QuickmatchType
+
+* @EventParam RankCheck
+
+* @EventParam NumHubsConsidered
+* @EventParam NumInstancesConsidered
+* @EventParam NumRejectedForRank
+* @EventParam NumRejectedForGameType
+* @EventParam NumRejectedForJoinable
+* @EventParam NumPingFailures
+* @EventParam NumInstancesSpooled
+* @EventParam NumAttemptedJoins
+* @EventParam FinalResult
+
+* @EventParam Duration
+* @EventParam QuickMatch
+
+* @Comments
+*/
 void SUTQuickMatchWindow::OnClosed()
 {
 	for (int32 i=0; i < FinalList.Num(); i++)
 	{
-		FinalList[i]->Beacon->DestroyBeacon();	
+		if (FinalList[i].IsValid() && FinalList[i]->Beacon.IsValid())
+		{
+			FinalList[i]->Beacon->DestroyBeacon();
+		}
 	}
 
 	Instances.Empty();
@@ -920,6 +975,7 @@ void SUTQuickMatchWindow::OnClosed()
 		ParamArray.Add(FAnalyticsEventAttribute(TEXT("NumHubsConsidered"), QMStats_NumHubsConsidered));
 		ParamArray.Add(FAnalyticsEventAttribute(TEXT("NumInstancesConsidered"), QMStats_NumInstancesConsidered));
 		ParamArray.Add(FAnalyticsEventAttribute(TEXT("NumRejectedForRank"), QMStats_NumRejectedForRank));
+		ParamArray.Add(FAnalyticsEventAttribute(TEXT("NumRejectedForPartySize"), QMStats_NumRejectedForPartySize));
 		ParamArray.Add(FAnalyticsEventAttribute(TEXT("NumRejectedForGameType"), QMStats_NumRejectedForGameType));
 		ParamArray.Add(FAnalyticsEventAttribute(TEXT("NumRejectedForJoinable"), QMStats_NumRejectedForJoinable));
 		ParamArray.Add(FAnalyticsEventAttribute(TEXT("NumPingFailures"), QMStats_NumPingFailures));

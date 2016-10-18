@@ -41,7 +41,7 @@ namespace UnrealBuildTool
 							DefaultsProcess.StartInfo.CreateNoWindow = true;
 							DefaultsProcess.StartInfo.UseShellExecute = false;
 							DefaultsProcess.StartInfo.RedirectStandardOutput = true;
-							DefaultsProcess.StartInfo.Arguments = "com.apple.dt.Xcode IDEBuildOperationMaxNumberOfConcurrentCompileTasks";
+							DefaultsProcess.StartInfo.Arguments = "read com.apple.dt.Xcode IDEBuildOperationMaxNumberOfConcurrentCompileTasks";
 							DefaultsProcess.Start();
 							string Output = DefaultsProcess.StandardOutput.ReadToEnd();
 							DefaultsProcess.WaitForExit();

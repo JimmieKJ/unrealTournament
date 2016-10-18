@@ -82,6 +82,17 @@ public:
 	}
 
 	/**
+	 * Multiply the margin by another margin functioning as the scale.
+	 *
+	 * @param InScale How much to scale the margin.
+	 * @return An FMargin where each value is scaled by Scale.
+	 */
+	FMargin operator*(const FMargin& InScale) const
+	{
+		return FMargin(Left * InScale.Left, Top * InScale.Top, Right * InScale.Right, Bottom * InScale.Bottom);
+	}
+
+	/**
 	 * Adds another margin to this margin.
 	 *
 	 * @param Other The margin to add.

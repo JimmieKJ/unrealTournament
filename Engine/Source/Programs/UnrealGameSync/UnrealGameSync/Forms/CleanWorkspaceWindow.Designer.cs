@@ -30,12 +30,21 @@ namespace UnrealGameSync
 		/// </summary>
 		private void InitializeComponent()
 		{
+			this.components = new System.ComponentModel.Container();
 			System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(CleanWorkspaceWindow));
 			this.TreeView = new System.Windows.Forms.TreeView();
 			this.DeleteBtn = new System.Windows.Forms.Button();
 			this.CancelBtn = new System.Windows.Forms.Button();
 			this.label1 = new System.Windows.Forms.Label();
 			this.SelectAllBtn = new System.Windows.Forms.Button();
+			this.FolderContextMenu = new System.Windows.Forms.ContextMenuStrip(this.components);
+			this.FolderContextMenu_SelectAll = new System.Windows.Forms.ToolStripMenuItem();
+			this.FolderContextMenu_SelectSafeToDelete = new System.Windows.Forms.ToolStripMenuItem();
+			this.FolderContextMenu_SelectEmptyFolder = new System.Windows.Forms.ToolStripMenuItem();
+			this.FolderContextMenu_SelectNone = new System.Windows.Forms.ToolStripMenuItem();
+			this.toolStripSeparator1 = new System.Windows.Forms.ToolStripSeparator();
+			this.FolderContextMenu_OpenWithExplorer = new System.Windows.Forms.ToolStripMenuItem();
+			this.FolderContextMenu.SuspendLayout();
 			this.SuspendLayout();
 			// 
 			// TreeView
@@ -43,10 +52,11 @@ namespace UnrealGameSync
 			this.TreeView.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
             | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
+			this.TreeView.HideSelection = false;
 			this.TreeView.Location = new System.Drawing.Point(12, 38);
 			this.TreeView.MinimumSize = new System.Drawing.Size(680, 400);
 			this.TreeView.Name = "TreeView";
-			this.TreeView.Size = new System.Drawing.Size(685, 407);
+			this.TreeView.Size = new System.Drawing.Size(685, 439);
 			this.TreeView.TabIndex = 0;
 			this.TreeView.DrawNode += new System.Windows.Forms.DrawTreeNodeEventHandler(this.TreeView_DrawNode);
 			this.TreeView.NodeMouseClick += new System.Windows.Forms.TreeNodeMouseClickEventHandler(this.TreeView_NodeMouseClick);
@@ -55,7 +65,7 @@ namespace UnrealGameSync
 			// 
 			this.DeleteBtn.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
 			this.DeleteBtn.DialogResult = System.Windows.Forms.DialogResult.Cancel;
-			this.DeleteBtn.Location = new System.Drawing.Point(610, 451);
+			this.DeleteBtn.Location = new System.Drawing.Point(610, 483);
 			this.DeleteBtn.Name = "DeleteBtn";
 			this.DeleteBtn.Size = new System.Drawing.Size(87, 23);
 			this.DeleteBtn.TabIndex = 1;
@@ -67,7 +77,7 @@ namespace UnrealGameSync
 			// 
 			this.CancelBtn.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
 			this.CancelBtn.DialogResult = System.Windows.Forms.DialogResult.Cancel;
-			this.CancelBtn.Location = new System.Drawing.Point(517, 451);
+			this.CancelBtn.Location = new System.Drawing.Point(517, 483);
 			this.CancelBtn.Name = "CancelBtn";
 			this.CancelBtn.Size = new System.Drawing.Size(87, 23);
 			this.CancelBtn.TabIndex = 2;
@@ -89,7 +99,7 @@ namespace UnrealGameSync
 			// SelectAllBtn
 			// 
 			this.SelectAllBtn.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
-			this.SelectAllBtn.Location = new System.Drawing.Point(12, 451);
+			this.SelectAllBtn.Location = new System.Drawing.Point(12, 483);
 			this.SelectAllBtn.Name = "SelectAllBtn";
 			this.SelectAllBtn.Size = new System.Drawing.Size(107, 23);
 			this.SelectAllBtn.TabIndex = 4;
@@ -97,13 +107,65 @@ namespace UnrealGameSync
 			this.SelectAllBtn.UseVisualStyleBackColor = true;
 			this.SelectAllBtn.Click += new System.EventHandler(this.SelectAllBtn_Click);
 			// 
+			// FolderContextMenu
+			// 
+			this.FolderContextMenu.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.FolderContextMenu_SelectAll,
+            this.FolderContextMenu_SelectSafeToDelete,
+            this.FolderContextMenu_SelectEmptyFolder,
+            this.FolderContextMenu_SelectNone,
+            this.toolStripSeparator1,
+            this.FolderContextMenu_OpenWithExplorer});
+			this.FolderContextMenu.Name = "FolderContextMenu";
+			this.FolderContextMenu.Size = new System.Drawing.Size(184, 120);
+			// 
+			// FolderContextMenu_SelectAll
+			// 
+			this.FolderContextMenu_SelectAll.Name = "FolderContextMenu_SelectAll";
+			this.FolderContextMenu_SelectAll.Size = new System.Drawing.Size(183, 22);
+			this.FolderContextMenu_SelectAll.Text = "Select All";
+			this.FolderContextMenu_SelectAll.Click += new System.EventHandler(this.FolderContextMenu_SelectAll_Click);
+			// 
+			// FolderContextMenu_SelectSafeToDelete
+			// 
+			this.FolderContextMenu_SelectSafeToDelete.Name = "FolderContextMenu_SelectSafeToDelete";
+			this.FolderContextMenu_SelectSafeToDelete.Size = new System.Drawing.Size(183, 22);
+			this.FolderContextMenu_SelectSafeToDelete.Text = "Select Safe to Delete";
+			this.FolderContextMenu_SelectSafeToDelete.Click += new System.EventHandler(this.FolderContextMenu_SelectSafeToDelete_Click);
+			// 
+			// FolderContextMenu_SelectEmptyFolder
+			// 
+			this.FolderContextMenu_SelectEmptyFolder.Name = "FolderContextMenu_SelectEmptyFolder";
+			this.FolderContextMenu_SelectEmptyFolder.Size = new System.Drawing.Size(183, 22);
+			this.FolderContextMenu_SelectEmptyFolder.Text = "Select Empty Folders";
+			this.FolderContextMenu_SelectEmptyFolder.Click += new System.EventHandler(this.FolderContextMenu_SelectEmptyFolder_Click);
+			// 
+			// FolderContextMenu_SelectNone
+			// 
+			this.FolderContextMenu_SelectNone.Name = "FolderContextMenu_SelectNone";
+			this.FolderContextMenu_SelectNone.Size = new System.Drawing.Size(183, 22);
+			this.FolderContextMenu_SelectNone.Text = "Select None";
+			this.FolderContextMenu_SelectNone.Click += new System.EventHandler(this.FolderContextMenu_SelectNone_Click);
+			// 
+			// toolStripSeparator1
+			// 
+			this.toolStripSeparator1.Name = "toolStripSeparator1";
+			this.toolStripSeparator1.Size = new System.Drawing.Size(180, 6);
+			// 
+			// FolderContextMenu_OpenWithExplorer
+			// 
+			this.FolderContextMenu_OpenWithExplorer.Name = "FolderContextMenu_OpenWithExplorer";
+			this.FolderContextMenu_OpenWithExplorer.Size = new System.Drawing.Size(183, 22);
+			this.FolderContextMenu_OpenWithExplorer.Text = "Open with Explorer...";
+			this.FolderContextMenu_OpenWithExplorer.Click += new System.EventHandler(this.FolderContextMenu_OpenWithExplorer_Click);
+			// 
 			// CleanWorkspaceWindow
 			// 
 			this.AcceptButton = this.DeleteBtn;
 			this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
 			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
 			this.CancelButton = this.CancelBtn;
-			this.ClientSize = new System.Drawing.Size(709, 482);
+			this.ClientSize = new System.Drawing.Size(709, 518);
 			this.ControlBox = false;
 			this.Controls.Add(this.SelectAllBtn);
 			this.Controls.Add(this.label1);
@@ -116,6 +178,7 @@ namespace UnrealGameSync
 			this.StartPosition = System.Windows.Forms.FormStartPosition.CenterParent;
 			this.Text = "Clean Workspace";
 			this.Load += new System.EventHandler(this.CleanWorkspaceWindow_Load);
+			this.FolderContextMenu.ResumeLayout(false);
 			this.ResumeLayout(false);
 			this.PerformLayout();
 
@@ -128,5 +191,12 @@ namespace UnrealGameSync
 		private System.Windows.Forms.Button CancelBtn;
 		private System.Windows.Forms.Label label1;
 		private System.Windows.Forms.Button SelectAllBtn;
+		private System.Windows.Forms.ContextMenuStrip FolderContextMenu;
+		private System.Windows.Forms.ToolStripMenuItem FolderContextMenu_SelectAll;
+		private System.Windows.Forms.ToolStripMenuItem FolderContextMenu_SelectSafeToDelete;
+		private System.Windows.Forms.ToolStripMenuItem FolderContextMenu_SelectEmptyFolder;
+		private System.Windows.Forms.ToolStripMenuItem FolderContextMenu_SelectNone;
+		private System.Windows.Forms.ToolStripSeparator toolStripSeparator1;
+		private System.Windows.Forms.ToolStripMenuItem FolderContextMenu_OpenWithExplorer;
 	}
 }

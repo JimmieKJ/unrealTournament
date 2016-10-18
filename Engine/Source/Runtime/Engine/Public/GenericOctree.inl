@@ -4,8 +4,7 @@
 	GenericOctree.inl: Generic octree implementation.
 =============================================================================*/
 
-#ifndef __GENERICOCTREE_INL__
-#define __GENERICOCTREE_INL__
+#pragma once
 
 ENGINE_API DECLARE_LOG_CATEGORY_EXTERN(LogGenericOctree, Log, All);
 
@@ -363,7 +362,7 @@ TOctree<ElementType, OctreeSemantics>::TOctree()
 #endif // WITH_HOT_RELOAD_CTORS
 
 template<typename ElementType,typename OctreeSemantics>
-void TOctree<ElementType,OctreeSemantics>::ApplyOffset(const FVector& InOffset)
+void TOctree<ElementType,OctreeSemantics>::ApplyOffset(const FVector& InOffset, bool bGlobalOctree)
 {
 	// Shift elements
 	RootNode.ApplyOffset(InOffset);
@@ -376,6 +375,11 @@ void TOctree<ElementType,OctreeSemantics>::ApplyOffset(const FVector& InOffset)
 	// Call destroy to clean up octree
 	Destroy();
 
+	if (!bGlobalOctree)
+	{
+		RootNodeContext.Bounds.Center += FVector4(InOffset, 0.0f);
+	}
+	
 	// Add all elements from a saved nodes to a new empty octree
 	for (TConstIterator<> NodeIt(OldRootNode, RootNodeContext); NodeIt.HasPendingNodes(); NodeIt.Advance())
 	{
@@ -398,5 +402,3 @@ void TOctree<ElementType,OctreeSemantics>::ApplyOffset(const FVector& InOffset)
 	// Saved nodes will be deleted on scope exit
 }
 
-
-#endif

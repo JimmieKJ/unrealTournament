@@ -40,7 +40,7 @@ public class AllDesktopPlatform : Platform
 		string SavedPlatformDir = SC.PlatformDir;
 		foreach (UnrealTargetPlatform DesktopPlatform in GetStagePlatforms())
 		{
-			Platform SubPlatform = Platform.Platforms[DesktopPlatform];
+			Platform SubPlatform = Platform.GetPlatform(DesktopPlatform);
 			SC.PlatformDir = DesktopPlatform.ToString();
 			SubPlatform.Package(Params, SC, WorkingCL);
 		}
@@ -54,7 +54,7 @@ public class AllDesktopPlatform : Platform
 		string SavedPlatformDir = SC.PlatformDir;
 		foreach (UnrealTargetPlatform DesktopPlatform in GetStagePlatforms())
 		{
-			Platform SubPlatform = Platform.Platforms[DesktopPlatform];
+			Platform SubPlatform = Platform.GetPlatform(DesktopPlatform);
 			SC.PlatformDir = DesktopPlatform.ToString();
 			SubPlatform.GetFilesToArchive(Params, SC);
 		}
@@ -78,7 +78,7 @@ public class AllDesktopPlatform : Platform
 		string SavedPlatformDir = SC.PlatformDir;
 		foreach (UnrealTargetPlatform DesktopPlatform in GetStagePlatforms())
 		{
-			Platform SubPlatform = Platform.Platforms[DesktopPlatform];
+			Platform SubPlatform = Platform.GetPlatform(DesktopPlatform);
 			SC.PlatformDir = DesktopPlatform.ToString();
 			SubPlatform.GetFilesToDeployOrStage(Params, SC);
 		}
@@ -94,7 +94,7 @@ public class AllDesktopPlatform : Platform
 		string SavedPlatformDir = SC.PlatformDir;
 		foreach (UnrealTargetPlatform DesktopPlatform in GetStagePlatforms())
 		{
-			Platform SubPlatform = Platform.Platforms[DesktopPlatform];
+			Platform SubPlatform = Platform.GetPlatform(DesktopPlatform);
 			SC.PlatformDir = DesktopPlatform.ToString();
 			SubPlatform.ProcessArchivedProject(Params, SC);
 		}
@@ -109,7 +109,7 @@ public class AllDesktopPlatform : Platform
 	/// </summary>
 	/// <param name="CookFlavor">Additional parameter used to indicate special sub-target platform.</param>
 	/// <returns>Cook platform string.</returns>
-	public override string GetCookPlatform(bool bDedicatedServer, bool bIsClientOnly, string CookFlavor)
+	public override string GetCookPlatform(bool bDedicatedServer, bool bIsClientOnly)
 	{
 		return "AllDesktop";
 	}

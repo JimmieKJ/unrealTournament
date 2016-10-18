@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "Policies/PrettyJsonPrintPolicy.h"
+#include "Dom/JsonValue.h"
 
 /**
  * Template for Json writers.

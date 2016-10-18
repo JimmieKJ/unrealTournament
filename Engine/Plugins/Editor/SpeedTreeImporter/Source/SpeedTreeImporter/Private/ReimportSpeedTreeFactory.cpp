@@ -78,22 +78,27 @@ EReimportResult::Type UReimportSpeedTreeFactory::Reimport(UObject* Obj)
 
 	UE_LOG(LogEditorFactories, Log, TEXT("Performing atomic reimport of [%s]"), *Filename);
 
-	if (UFactory::StaticImportObject(Mesh->GetClass(), Mesh->GetOuter(), *Mesh->GetName(), RF_Public | RF_Standalone, *Filename, NULL, this))
+	bool OutCanceled = false;
+
+	if (ImportObject(Mesh->GetClass(), Mesh->GetOuter(), *Mesh->GetName(), RF_Public | RF_Standalone, Filename, nullptr, OutCanceled) != nullptr)
 	{
 		UE_LOG(LogEditorFactories, Log, TEXT("-- imported successfully"));
 
 		Mesh->AssetImportData->Update(Filename);
-
-		// Mark the package dirty after the successful import
 		Mesh->MarkPackageDirty();
 
 		return EReimportResult::Succeeded;
+	}
+	else if (OutCanceled)
+	{
+		UE_LOG(LogEditorFactories, Warning, TEXT("-- import canceled"));
 	}
 	else
 	{
 		UE_LOG(LogEditorFactories, Warning, TEXT("-- import failed"));
 	}
 #endif // #if WITH_SPEEDTREE
+
 	return EReimportResult::Failed;
 }
 

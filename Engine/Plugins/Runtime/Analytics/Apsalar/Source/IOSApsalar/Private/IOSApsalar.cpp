@@ -1,6 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "IOSApsalarPrivatePCH.h"
+#include "IOSApsalar.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogAnalytics, Display, All);
 
@@ -17,7 +18,7 @@ void FAnalyticsIOSApsalar::ShutdownModule()
 	FAnalyticsProviderApsalar::Destroy();
 }
 
-TSharedPtr<IAnalyticsProvider> FAnalyticsIOSApsalar::CreateAnalyticsProvider(const FAnalytics::FProviderConfigurationDelegate& GetConfigValue) const
+TSharedPtr<IAnalyticsProvider> FAnalyticsIOSApsalar::CreateAnalyticsProvider(const FAnalyticsProviderConfigurationDelegate& GetConfigValue) const
 {
 	if (GetConfigValue.IsBound())
 	{

@@ -3,6 +3,7 @@
 #include "LevelEditor.h"
 #include "LevelViewportLayoutOnePane.h"
 #include "SLevelViewport.h"
+#include "SLevelEditor.h"
 
 // FLevelViewportLayoutOnePane /////////////////////////////
 

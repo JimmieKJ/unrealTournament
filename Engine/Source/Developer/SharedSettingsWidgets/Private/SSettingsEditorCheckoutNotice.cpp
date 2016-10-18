@@ -6,13 +6,80 @@
 #include "ISourceControlModule.h"
 #include "SWidgetSwitcher.h"
 #include "SThrobber.h"
-#include "SNotificationList.h"
 #include "NotificationManager.h"
-
+#include "SNotificationList.h"
 
 #define LOCTEXT_NAMESPACE "SSettingsEditorCheckoutNotice"
 
+namespace SettingsHelpers
+{
+	bool CheckOutFile(const FString& InFileToCheckOut)
+	{
+		FText ErrorMessage;
+		bool bSuccessfullyCheckedOutFile = false;
+		if(ISourceControlModule::Get().IsEnabled())
+		{
+			ISourceControlProvider& SourceControlProvider = ISourceControlModule::Get().GetProvider();
+			FSourceControlStatePtr SourceControlState = SourceControlProvider.GetState(InFileToCheckOut, EStateCacheUsage::Use);
 
+			TArray<FString> FilesToBeCheckedOut;
+			FilesToBeCheckedOut.Add(InFileToCheckOut);
+
+			if(SourceControlState.IsValid())
+			{
+				if(SourceControlState->IsDeleted())
+				{
+					ErrorMessage = LOCTEXT("ConfigFileMarkedForDeleteError", "Error: The configuration file is marked for deletion.");
+				}
+				// Note: Here we attempt to check out files that are read only even if the internal state says they cannot be checked out.  This is to work around cases were the file is reverted or checked in and the internal state has not been updated yet
+				else if(SourceControlState->CanCheckout() || SourceControlState->IsCheckedOutOther() || FPlatformFileManager::Get().GetPlatformFile().IsReadOnly(*InFileToCheckOut))
+				{
+					ECommandResult::Type CommandResult = SourceControlProvider.Execute(ISourceControlOperation::Create<FCheckOut>(), FilesToBeCheckedOut);
+					if(CommandResult == ECommandResult::Failed)
+					{
+						ErrorMessage = LOCTEXT("FailedToCheckOutConfigFileError", "Error: Failed to check out the configuration file.");
+					}
+					else if(CommandResult == ECommandResult::Cancelled)
+					{
+						ErrorMessage = LOCTEXT("CancelledCheckOutConfigFile", "Checkout was cancelled.  File will be marked writable.");
+					}
+					else
+					{
+						bSuccessfullyCheckedOutFile = true;
+					}
+				}
+			}
+
+			if(!ErrorMessage.IsEmpty())
+			{
+				// Show a notification that the file could not be checked out
+				FNotificationInfo CheckOutError(ErrorMessage);
+				CheckOutError.ExpireDuration = 3.0f;
+				FSlateNotificationManager::Get().AddNotification(CheckOutError);
+			}
+
+		}
+
+
+		return bSuccessfullyCheckedOutFile;
+	}
+
+	bool MakeWritable(const FString& InFileToMakeWritable)
+	{
+		bool bSuccess = FPlatformFileManager::Get().GetPlatformFile().SetReadOnly(*InFileToMakeWritable, false);
+		if(!bSuccess)
+		{
+			FText NotificationErrorText = FText::Format(LOCTEXT("FailedToMakeWritable", "Could not make {0} writable."), FText::FromString(InFileToMakeWritable));
+
+			FNotificationInfo MakeWritiableNotification(NotificationErrorText);
+			MakeWritiableNotification.ExpireDuration = 3.0f;
+
+			FSlateNotificationManager::Get().AddNotification(MakeWritiableNotification);
+		}
+		return bSuccess;
+
+	}
+}
 /* SSettingsEditorCheckoutNotice interface
  *****************************************************************************/
 
@@ -126,30 +193,14 @@ FReply SSettingsEditorCheckoutNotice::HandleCheckOutButtonClicked()
 {
 	FString TargetFilePath = ConfigFilePath.Get();
 
-	if (ISourceControlModule::Get().IsEnabled())
+	FText ErrorMessage;
+	if(!SettingsHelpers::CheckOutFile(TargetFilePath))
 	{
-		FText ErrorMessage;
-
-		if (!SourceControlHelpers::CheckoutOrMarkForAdd(TargetFilePath, FText::FromString(TargetFilePath), NULL, ErrorMessage))
-		{
-			FNotificationInfo Info(ErrorMessage);
-			Info.ExpireDuration = 3.0f;
-			FSlateNotificationManager::Get().AddNotification(Info);
-		}
+		FNotificationInfo Info(ErrorMessage);
+		Info.ExpireDuration = 3.0f;
+		FSlateNotificationManager::Get().AddNotification(Info);
 	}
-	else
-	{
-		if (!FPlatformFileManager::Get().GetPlatformFile().SetReadOnly(*TargetFilePath, false))
-		{
-			FText NotificationErrorText = FText::Format(LOCTEXT("FailedToMakeWritable", "Could not make {0} writable."), FText::FromString(TargetFilePath));
-
-			FNotificationInfo Info(NotificationErrorText);
-			Info.ExpireDuration = 3.0f;
-
-			FSlateNotificationManager::Get().AddNotification(Info);
-		}
-	}
-
+		
 	return FReply::Handled();
 }
 
@@ -274,3 +325,5 @@ bool SSettingsEditorCheckoutNotice::IsUnlocked() const
 }
 
 #undef LOCTEXT_NAMESPACE
+
+

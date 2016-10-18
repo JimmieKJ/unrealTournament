@@ -285,6 +285,7 @@ FORCEINLINE uint32 TSimpVert<T>::NumAdjTrisGroup()
 	do {
 		numAdjVerts += v->adjTris.Num();
 		v = v->next;
+		check(v);
 	} while( v != this );
 
 	return numAdjVerts;

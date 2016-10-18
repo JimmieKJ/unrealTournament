@@ -2806,10 +2806,10 @@ namespace Manzana
 					return "Unknown code signature related error (0xE8008001); your executable may be missing or misnamed (e.g., underscore issue)";
 				
 				case 0xE8008015:
-                    return "No matching mobile provision for this application (0xE8008015)";
+                    return "No matching mobile provision for this application (0xE8008015).  Please ensure the mobile provision used includes the target device.";
 
                 case 0xE8008016:
-                    return "There is a problem with the entitlements for this application (0xE8008016)";
+                    return "There is a problem with the entitlements for this application (0xE8008016).";
 
                 case 0xE8008017:
                     return "Unable to validate signature (there is a problem with a signed code resource) (0xE8008017)";

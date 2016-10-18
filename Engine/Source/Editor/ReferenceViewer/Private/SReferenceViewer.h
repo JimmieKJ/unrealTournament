@@ -74,6 +74,17 @@ private:
 
 	void OnSearchBreadthEnabledChanged( ECheckBoxState NewState );
 	ECheckBoxState IsSearchBreadthEnabledChecked() const;
+
+	void OnShowSoftReferencesChanged( ECheckBoxState NewState );
+	ECheckBoxState IsShowSoftReferencesChecked() const;
+	void OnShowSoftDependenciesChanged(ECheckBoxState NewState);
+	ECheckBoxState IsShowSoftDependenciesChecked() const;
+
+	void OnShowHardReferencesChanged(ECheckBoxState NewState);
+	ECheckBoxState IsShowHardReferencesChecked() const;
+	void OnShowHardDependenciesChanged(ECheckBoxState NewState);
+	ECheckBoxState IsShowHardDependenciesChecked() const;
+
 	int32 GetSearchBreadthCount() const;
 	void OnSearchBreadthCommitted(int32 NewValue);
 

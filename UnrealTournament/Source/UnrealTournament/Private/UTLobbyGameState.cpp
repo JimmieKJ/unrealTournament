@@ -128,11 +128,12 @@ void AUTLobbyGameState::CheckInstanceHealth()
 		{
 			if (MatchInfo->GameInstanceProcessHandle.IsValid())
 			{
-				if ( MatchInfo->CurrentState == ELobbyMatchState::InProgress && !FPlatformProcess::IsProcRunning(MatchInfo->GameInstanceProcessHandle) )
+				if ( (MatchInfo->CurrentState == ELobbyMatchState::InProgress || MatchInfo->CurrentState == ELobbyMatchState::Recycling) && !FPlatformProcess::IsProcRunning(MatchInfo->GameInstanceProcessHandle) )
 				{
 					UE_LOG(UT, Log, TEXT("Recycling game instance that no longer has a process"));
 					MatchInfo->SetLobbyMatchState(ELobbyMatchState::Recycling);
 					ProcessesToGetReturnCode.Add(MatchInfo->GameInstanceProcessHandle);
+					MatchInfo->SetLobbyMatchState(ELobbyMatchState::Recycling);
 					MatchInfo->GameInstanceProcessHandle.Reset();
 				}
 			}
@@ -950,7 +951,7 @@ AUTReplicatedMapInfo* AUTLobbyGameState::CreateMapInfo(const FAssetData& MapAsse
 }
 
 
-void AUTLobbyGameState::AuthorizeDedicatedInstance(AUTServerBeaconLobbyClient* Beacon, FGuid InstanceGUID, const FString& HubKey, const FString& ServerName, const FString& ServerGameMode, const FString& ServerDescription, int32 MaxPlayers, bool bTeamGame)
+void AUTLobbyGameState::AuthorizeDedicatedInstance(AUTServerBeaconLobbyClient* Beacon, FGuid InstanceGUID, const FString& HubKey, const FString& InServerName, const FString& ServerGameMode, const FString& InServerDescription, int32 MaxPlayers, bool InbTeamGame)
 {
 	// Look through the current matches to see if this key is in use
 
@@ -980,7 +981,7 @@ void AUTLobbyGameState::AuthorizeDedicatedInstance(AUTServerBeaconLobbyClient* B
 			UE_LOG(UT,Verbose,TEXT("... Adding Instance"),*AccessKeys[i], *HubKey);
 			// Yes.. take the key and build a dedicated instance.
 
-			if ( AddDedicatedInstance(InstanceGUID, HubKey, ServerName, ServerGameMode, ServerDescription, MaxPlayers, bTeamGame) )
+			if ( AddDedicatedInstance(InstanceGUID, HubKey, InServerName, ServerGameMode, InServerDescription, MaxPlayers, InbTeamGame) )
 			{
 				UE_LOG(UT,Verbose,TEXT("... !!! Authorized !!!"),*AccessKeys[i], *HubKey);
 				// authorize the instance and pass my ServerInstanceGUID
@@ -991,7 +992,7 @@ void AUTLobbyGameState::AuthorizeDedicatedInstance(AUTServerBeaconLobbyClient* B
 	}
 }
 
-bool AUTLobbyGameState::AddDedicatedInstance(FGuid InstanceGUID, const FString& AccessKey, const FString& ServerName, const FString& ServerGameMode, const FString& ServerDescription, int32 MaxPlayers, bool bTeamGame)
+bool AUTLobbyGameState::AddDedicatedInstance(FGuid InstanceGUID, const FString& AccessKey, const FString& InServerName, const FString& ServerGameMode, const FString& InServerDescription, int32 MaxPlayers, bool InbTeamGame)
 {
 	// Create the Match info...
 	AUTLobbyMatchInfo* NewMatchInfo = GetWorld()->SpawnActor<AUTLobbyMatchInfo>();
@@ -1011,11 +1012,11 @@ bool AUTLobbyGameState::AddDedicatedInstance(FGuid InstanceGUID, const FString& 
 		NewMatchInfo->SetSettings(this, nullptr, nullptr);
 		NewMatchInfo->bDedicatedMatch = true;
 		NewMatchInfo->AccessKey = AccessKey;
-		NewMatchInfo->DedicatedServerName = ServerName;
+		NewMatchInfo->DedicatedServerName = InServerName;
 		NewMatchInfo->DedicatedServerGameMode = ServerGameMode;
-		NewMatchInfo->DedicatedServerDescription = ServerDescription;
+		NewMatchInfo->DedicatedServerDescription = InServerDescription;
 		NewMatchInfo->DedicatedServerMaxPlayers = MaxPlayers;
-		NewMatchInfo->bDedicatedTeamGame = bTeamGame;
+		NewMatchInfo->bDedicatedTeamGame = InbTeamGame;
 		NewMatchInfo->GameInstanceGUID = InstanceGUID.ToString();
 		NewMatchInfo->ServerSetLobbyMatchState(ELobbyMatchState::InProgress);
 		return true;

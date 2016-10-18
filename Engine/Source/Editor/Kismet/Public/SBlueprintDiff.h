@@ -177,7 +177,7 @@ protected:
 	/** Function used to generate the list of differences and the widgets needed to calculate that list */
 	void GenerateDifferencesList();
 
-	/** Checks if a graph is valid for diff'ing */
+	/** Checks if a graph is valid for diffing */
 	bool IsGraphDiffNeeded(class UEdGraph* InGraph) const;
 
 	struct FDiffControl

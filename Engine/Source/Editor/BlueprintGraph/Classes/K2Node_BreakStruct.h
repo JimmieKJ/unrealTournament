@@ -41,7 +41,7 @@ class UK2Node_BreakStruct : public UK2Node_StructMemberGet
 	virtual FLinearColor GetNodeTitleColor() const override;
 	virtual FText GetTooltipText() const override;
 	virtual void ValidateNodeDuringCompilation(class FCompilerResultsLog& MessageLog) const override;
-	virtual FName GetPaletteIcon(FLinearColor& OutColor) const override{ return TEXT("GraphEditor.BreakStruct_16x"); }
+	virtual FSlateIcon GetIconAndTint(FLinearColor& OutColor) const override;
 	//~ End  UEdGraphNode Interface
 
 	//~ Begin K2Node Interface

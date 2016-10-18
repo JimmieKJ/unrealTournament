@@ -2,7 +2,7 @@
 
 #pragma once
 
-#define LOCTEXT_NAMESPACE ""
+#define LOCTEXT_NAMESPACE "ProjectLauncherCommands"
 
 /**
  * The project launcher UI commands

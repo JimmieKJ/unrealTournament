@@ -59,7 +59,8 @@ public:
 	virtual bool OnReplicatedTargetDataReceived(FGameplayAbilityTargetDataHandle& Data) const;
 
 	/** Accessor for checking, before instantiating, if this TargetActor will replicate. */
-	bool GetReplicates() const;
+	DEPRECATED(4.12, "Call AActor::GetIsReplicated instead")
+	bool GetReplicates() const { return GetIsReplicated(); }
 
 	// ------------------------------
 	

@@ -335,19 +335,32 @@ void DebugPrintVisitor::visit(ir_texture* ir)
 void DebugPrintVisitor::visit(ir_swizzle* ir)
 {
 	PrintID(ir);
-	const unsigned swiz[4] =
-	{
-		ir->mask.x,
-		ir->mask.y,
-		ir->mask.z,
-		ir->mask.w,
-	};
 
 	ir->val->accept(this);
 	irdump_printf(".");
-	for (unsigned i = 0; i < ir->mask.num_components; i++)
+	if (ir->val->type && ir->val->type->is_matrix())
 	{
-		irdump_printf("%c", "xyzw"[swiz[i]]);
+		for (unsigned i = 0; i < ir->mask.num_components; i++)
+		{
+			int32 Row = ir->mask.x /ir->val->type->matrix_columns;
+			int32 Column = ir->mask.x % ir->val->type->matrix_columns;
+			irdump_printf("_m%d%d", Row, Column);
+		}
+	}
+	else
+	{
+		const unsigned swiz[4] =
+		{
+			ir->mask.x,
+			ir->mask.y,
+			ir->mask.z,
+			ir->mask.w,
+		};
+
+		for (unsigned i = 0; i < ir->mask.num_components; i++)
+		{
+			irdump_printf("%c", "xyzw"[swiz[i]]);
+		}
 	}
 }
 
@@ -394,22 +407,51 @@ void DebugPrintVisitor::visit(ir_assignment* ir)
 		irdump_printf(") ");
 	}
 
-	char mask[5];
-	unsigned j = 0;
-	for (unsigned i = 0; i < 4; i++)
+	if (ir->lhs->type && ir->lhs->type->is_matrix())
 	{
-		if ((ir->write_mask & (1 << i)) != 0)
+		char Mask[256];
+		char* MaskPtr = Mask;
+		uint32 BitIndex = 0;
+		uint32 Bits = ir->write_mask;
+		while (Bits)
 		{
-			mask[j] = "xyzw"[i];
-			j++;
+			if (Bits & 1)
+			{
+				*MaskPtr++ = '_';
+				*MaskPtr++ = 'm';
+				*MaskPtr++ = '0' + BitIndex / ir->lhs->type->matrix_columns;
+				*MaskPtr++ = '0' + BitIndex % ir->lhs->type->matrix_columns;
+			}
+			++BitIndex;
+			Bits >>= 1;
+		}
+		*MaskPtr = 0;
+		ir->lhs->accept(this);
+		if (strlen(Mask))
+		{
+			irdump_printf(".%s", Mask);
 		}
 	}
-	mask[j] = '\0';
-	ir->lhs->accept(this);
-
-	if (strcmp(mask, "xyzw") && mask[0])
+	else
 	{
-		irdump_printf(".%s", mask);
+		char mask[5];
+		unsigned j = 0;
+		for (unsigned i = 0; i < 4; i++)
+		{
+			if ((ir->write_mask & (1 << i)) != 0)
+			{
+				mask[j] = "xyzw"[i];
+				j++;
+			}
+		}
+		mask[j] = '\0';
+
+		ir->lhs->accept(this);
+
+		if (strcmp(mask, "xyzw") && mask[0])
+		{
+			irdump_printf(".%s", mask);
+		}
 	}
 
 	irdump_printf(" = ");

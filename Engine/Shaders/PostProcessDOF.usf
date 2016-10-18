@@ -12,17 +12,17 @@
 // todo move to central place
 float ComputeDOFNearFocalMask(float SceneDepth)
 {
-	float NearFocalPlane = Frame.DepthOfFieldFocalDistance;
+	float NearFocalPlane = View.DepthOfFieldFocalDistance;
 
-	return saturate((NearFocalPlane - SceneDepth) / Frame.DepthOfFieldNearTransitionRegion);
+	return saturate((NearFocalPlane - SceneDepth) / View.DepthOfFieldNearTransitionRegion);
 }
 
 // todo move to central place
 float ComputeDOFFarFocalMask(float SceneDepth)
 {
-	float FarFocalPlane = Frame.DepthOfFieldFocalDistance + Frame.DepthOfFieldFocalRegion;
+	float FarFocalPlane = View.DepthOfFieldFocalDistance + View.DepthOfFieldFocalRegion;
 
-	return saturate((SceneDepth - FarFocalPlane) / Frame.DepthOfFieldFarTransitionRegion);
+	return saturate((SceneDepth - FarFocalPlane) / View.DepthOfFieldFarTransitionRegion);
 }
 
 // Calculate focal masks from ES2's PP CoC.
@@ -40,7 +40,7 @@ float2 DecodeDOFFocalMask(float SceneDepth)
 		Ret.y = 1.0 - (SceneDepth * 2.0);
 		Ret.x = 0;
 	}
-	return Ret * Frame.DepthOfFieldScale;
+	return Ret * View.DepthOfFieldScale;
 }
 
 // @return .x:far, .y:near
@@ -56,7 +56,7 @@ float2 ComputeDOFFocalMask(float SceneDepth, float SkyWithoutHorizonMask)
 		Ret.x = lerp(Ret.x, 0,  SkyWithoutHorizonMask);
 	}
 
-#if FORWARD_SHADING
+#if MOBILE_SHADING
 	Ret = DecodeDOFFocalMask(SceneDepth);
 #endif
 
@@ -66,7 +66,7 @@ float2 ComputeDOFFocalMask(float SceneDepth, float SkyWithoutHorizonMask)
 float4 ReadFullResAndDepth(float2 UV, in out float Depth)
 {
 	float4 Color = Texture2DSampleLevel(PostprocessInput0, PostprocessInput0Sampler, UV, 0);
-#if FORWARD_SHADING
+#if MOBILE_SHADING
 	Depth = Color.a;
 #endif
 	Color.a = 1.0;
@@ -77,7 +77,7 @@ float4 ReadFullResAndDepth(float2 UV, in out float Depth)
 void SetupPS(
 	noperspective float4 UVAndScreenPos : TEXCOORD0
 	, out float4 OutColor0 : SV_Target0
-#if MRT_COUNT > 0
+#if MRT_COUNT > 1
 	, out float4 OutColor1 : SV_Target1
 #endif
 	)
@@ -86,7 +86,7 @@ void SetupPS(
 
 	float2 Offset = 0.5f * PostprocessInput0Size.zw;
 
-	float MaskDistance = Frame.DepthOfFieldFocalDistance + Frame.DepthOfFieldFocalRegion * 0.5f;
+	float MaskDistance = View.DepthOfFieldFocalDistance + View.DepthOfFieldFocalRegion * 0.5f;
 
 	float4 DepthQuad = GatherSceneDepth(UV, PostprocessInput1Size.zw);
 
@@ -116,7 +116,7 @@ void SetupPS(
 		float DepthOfFieldVignetteAdd = DepthOfFieldParams[0].z;
 
 		// todo: we could optimize that multiplication away
-		float InvAspectRatio = Frame.ViewSizeAndInvSize.y * Frame.ViewSizeAndInvSize.z;
+		float InvAspectRatio = View.ViewSizeAndInvSize.y * View.ViewSizeAndInvSize.z;
 
 		float CenterDist = length(ScreenSpacePos * float2(1, InvAspectRatio));
 
@@ -185,7 +185,7 @@ void MainRecombinePS(
 	ViewportUV.x = clamp(ViewportUV.x, DepthOfFieldUVLimit.x, DepthOfFieldUVLimit.z);
 	ViewportUV.y = clamp(ViewportUV.y, DepthOfFieldUVLimit.y, DepthOfFieldUVLimit.w);
 
-#if FORWARD_SHADING
+#if MOBILE_SHADING
 	float4 SceneColorAndDepth = Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, FullResUV);
 #else
 	float4 SceneColorAndDepth = float4(Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, FullResUV).rgb, CalcSceneDepth(FullResUV));
@@ -213,7 +213,7 @@ void MainRecombinePS(
 //	float Layer2Mask = 1.0f - DOFAccumLayer1.a;
 	float Layer3Mask = DOFAccumLayer3.a;
 	float PerPixelNearMask = ComputeDOFNearFocalMask(SceneColorAndDepth.a);
-#if FORWARD_SHADING
+#if MOBILE_SHADING
 	float2 DoFMasks = DecodeDOFFocalMask(SceneColorAndDepth.a);
 	Layer2Mask = 1.0-DoFMasks.x;
 #endif
@@ -244,7 +244,7 @@ void MainRecombinePS(
 //	LayerMerger = lerp(LayerMerger, SceneColorAndDepth.rgb, Layer2Mask * (1 - PerPixelNearMask));
 	LayerMerger = lerp(LayerMerger, SceneColorAndDepth.rgb, Layer2Mask);
 
-	// apply SeparateTransluceny (todo: shader permutation to save a bit of performance if the feature is disabled)
+#if SEPARATE_TRANSLUCENCY
 	{
 		//@todo - use UpsampleSeparateTranslucency
 		float4 SeparateTranslucency = Texture2DSample(PostprocessInput3, PostprocessInput3Sampler, FullResUV);
@@ -252,6 +252,7 @@ void MainRecombinePS(
 		// add RGB, darken by A (this allows to represent translucent and additive blending)
 		LayerMerger.rgb = LayerMerger.rgb * SeparateTranslucency.a + SeparateTranslucency.rgb;
 	}
+#endif
 
 	float3 FrontLayer = (UnfocusedSceneColor * Div0Bias + DOFAccumLayer3.rgb) / (DOFAccumLayer3.a + Div0Bias);
 

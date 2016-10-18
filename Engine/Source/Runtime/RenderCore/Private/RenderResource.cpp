@@ -4,6 +4,7 @@
 	RenderResource.cpp: Render resource implementation.
 =============================================================================*/
 
+#include "RenderCorePrivatePCH.h"
 #include "RenderCore.h"
 #include "RenderResource.h"
 

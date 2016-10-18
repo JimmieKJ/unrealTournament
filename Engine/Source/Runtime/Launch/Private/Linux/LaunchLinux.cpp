@@ -3,6 +3,8 @@
 #include "LaunchPrivatePCH.h"
 #include "LinuxCommonStartup.h"
 
+extern int32 GuardedMain( const TCHAR* CmdLine );
+
 /**
  * Workaround function to avoid circular dependencies between Launch and CommonLinuxStartup modules.
  *

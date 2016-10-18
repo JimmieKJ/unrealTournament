@@ -46,7 +46,10 @@ struct CORE_API FMapErrors
     
 	/** {Actor} (LOD {Index}) has hand-painted vertex colors that no longer match the original StaticMesh {StaticMesh}: It looks like the original mesh was changed since this instance's vertex colors were painted down - this may need a refresh. */
     static FName VertexColorsNotMatchOriginalMesh;
-    
+
+	/** {ActorName} has collision enabled but StaticMesh ({StaticMeshName}) has no simple or complex collision. */
+	static FName CollisionEnabledNoCollisionGeom;
+
 	/** Actor casts dynamic shadows and has a BoundsScale greater than 1! This will have a large performance hit: Serious performance warning... either reduce BoundsScale to be <= 1 or remove dynamic shadows... */
     static FName ShadowCasterUsingBoundsScale;
     
@@ -223,10 +226,7 @@ class FMapErrorToken : public FDocumentationToken
 {
 public:
 	/** Factory method, tokens can only be constructed as shared refs */
-	CORE_API static TSharedRef<FMapErrorToken> Create( const FName& InErrorName )
-	{
-		return MakeShareable(new FMapErrorToken(InErrorName));
-	}
+	CORE_API static TSharedRef<FMapErrorToken> Create(const FName& InErrorName);
 
 private:
 	/** Private constructor */

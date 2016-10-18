@@ -89,6 +89,9 @@ void Main(
 	FVertexFactoryInput Input,
 	OPTIONAL_VertexID
 	out FHitProxyVSOutput Output
+#if USE_GLOBAL_CLIP_PLANE && !USING_TESSELLATION
+	, out float OutGlobalClipPlaneDistance : SV_ClipDistance
+#endif
 	)
 {
 	ResolvedView = ResolveView();
@@ -114,6 +117,10 @@ void Main(
 		float4 RasterizedWorldPosition = VertexFactoryGetRasterizedWorldPosition(Input, VFIntermediates, WorldPosition);
 		Output.Position = mul(RasterizedWorldPosition, View.TranslatedWorldToClip);
 	}
+
+#if USE_GLOBAL_CLIP_PLANE
+	OutGlobalClipPlaneDistance = dot(ResolvedView.GlobalClippingPlane, float4(WorldPosition.xyz - ResolvedView.PreViewTranslation.xyz, 1));
+#endif
 
 	Output.FactoryInterpolants = VertexFactoryGetInterpolantsVSToPS(Input, VFIntermediates, VertexParameters);
 	Output.PixelPosition = WorldPosition;

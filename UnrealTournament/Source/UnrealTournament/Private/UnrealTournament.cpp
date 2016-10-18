@@ -30,7 +30,7 @@ DEFINE_LOG_CATEGORY(UTLoading);
 
 static uint32 UTGetNetworkVersion()
 {
-	return 3008044;
+	return 3008045;
 }
 
 const FString ITEM_STAT_PREFIX = TEXT("ITEM_");
@@ -106,7 +106,7 @@ void UnregisterComponentTree(USceneComponent* Comp)
 	{
 		TArray<USceneComponent*> Children;
 		Comp->GetChildrenComponents(true, Children);
-		Comp->DetachFromParent();
+		Comp->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
 		Comp->UnregisterComponent();
 		for (USceneComponent* Child : Children)
 		{
@@ -148,7 +148,7 @@ float GetLocationGravityZ(UWorld* World, const FVector& TestLoc, const FCollisio
 UMeshComponent* CreateCustomDepthOutlineMesh(UMeshComponent* Archetype, AActor* Owner)
 {
 	UMeshComponent* CustomDepthMesh = DuplicateObject<UMeshComponent>(Archetype, Owner);
-	CustomDepthMesh->AttachParent = NULL; // this gets copied but we don't want it to be
+	CustomDepthMesh->DetachFromComponent(FDetachmentTransformRules::KeepRelativeTransform);
 	if (Cast<USkeletalMeshComponent>(CustomDepthMesh) != nullptr)
 	{
 		// TODO: scary that these get copied, need an engine solution and/or safe way to duplicate objects during gameplay
@@ -162,12 +162,16 @@ UMeshComponent* CreateCustomDepthOutlineMesh(UMeshComponent* Archetype, AActor* 
 	{
 		((USkinnedMeshComponent*)CustomDepthMesh)->SetMasterPoseComponent((USkinnedMeshComponent*)Archetype);
 	}
+	for (int32 i = 0; i < CustomDepthMesh->GetNumMaterials(); i++)
+	{
+		CustomDepthMesh->SetMaterial(i, UMaterial::GetDefaultMaterial(MD_Surface));
+	}
 	CustomDepthMesh->BoundsScale = 15000.f;
 	CustomDepthMesh->bVisible = true;
 	CustomDepthMesh->bHiddenInGame = false;
 	CustomDepthMesh->bRenderInMainPass = false;
 	CustomDepthMesh->bRenderCustomDepth = true;
-	CustomDepthMesh->AttachParent = Archetype;
+	CustomDepthMesh->AttachToComponent(Archetype, FAttachmentTransformRules::SnapToTargetNotIncludingScale);
 	CustomDepthMesh->RelativeLocation = FVector::ZeroVector;
 	CustomDepthMesh->RelativeRotation = FRotator::ZeroRotator;
 	CustomDepthMesh->RelativeScale3D = FVector(1.0f, 1.0f, 1.0f);
@@ -372,6 +376,7 @@ void GetAllAssetData(UClass* BaseClass, TArray<FAssetData>& AssetList, bool bReq
 	RootPaths.Add(TEXT("/Game/EpicInternal/Lea/"));
 	RootPaths.Add(TEXT("/Game/EpicInternal/Pistola/"));
 	RootPaths.Add(TEXT("/Game/EpicInternal/Stu/"));
+	RootPaths.Add(TEXT("/Game/EpicInternal/SR/"));
 	// Cooked data has the asset data already set up
 	AssetRegistry.ScanPathsSynchronous(RootPaths);
 #endif

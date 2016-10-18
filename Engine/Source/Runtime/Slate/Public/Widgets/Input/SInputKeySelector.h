@@ -16,6 +16,7 @@ public:
 		, _ButtonStyle( &FCoreStyle::Get().GetWidgetStyle<FButtonStyle>( "Button" ) )
 		, _KeySelectionText( NSLOCTEXT("DefaultKeySelectionText", "InputKeySelector", "...") )
 		, _AllowModifierKeys( true )
+		, _EscapeCancelsSelection( true )
 	{}
 		/** The currently selected key */
 		SLATE_ATTRIBUTE( FInputChord, SelectedKey )
@@ -37,6 +38,9 @@ public:
 
 		/** When true modifier keys are captured in the selected key chord, otherwise they are ignored. */
 		SLATE_ARGUMENT( bool, AllowModifierKeys )
+
+		/** When true, pressing escape will cancel the key selection, when false, pressing escape will select the escape key. */
+		SLATE_ARGUMENT( bool, EscapeCancelsSelection )
 
 		/** Occurs whenever a new key is selected. */
 		SLATE_EVENT( FOnKeySelected, OnKeySelected )
@@ -128,6 +132,9 @@ private:
 
 	/** When true modifier keys are recorded on the selected key chord, otherwise they are ignored. */
 	bool bAllowModifierKeys;
+
+	/** When true, pressing escape will cancel the key selection, when false, pressing escape will select the escape key. */ 
+	bool bEscapeCancelsSelection;
 
 	/** The default font used for the text which displays the currently selected key. */
 	FSlateFontInfo DefaultFont;

@@ -317,6 +317,14 @@ namespace PlatformInfo
 	DESKTOPPLATFORM_API TArray<FVanillaPlatformEntry> BuildPlatformHierarchy(const EPlatformFilter InFilter);
 
 	/**
+	* Build a hierarchy mapping for specified vanilla platform to it flavors
+	* @param InPlatformName - Platform name to build hierarchy for, could be vanilla or flavor name
+	* @param InFilter - Flags to control which kinds of flavors you want to include
+	* @return Vanilla platform potentially containing flavors
+	*/
+	DESKTOPPLATFORM_API FVanillaPlatformEntry BuildPlatformHierarchy(const FName& InPlatformName, const EPlatformFilter InFilter);
+
+	/**
 	 * Get an array of all the platforms we know about
 	 * @param OutNumPlatforms - The number of platforms in the array
 	 * @return The pointer to the start of the platform array
@@ -329,4 +337,11 @@ namespace PlatformInfo
 	* @param InDisplayName - The new display name
 	*/
 	DESKTOPPLATFORM_API void UpdatePlatformDisplayName(FString InPlatformName, FText InDisplayName);
+
+	/**
+	* Returns an EPlatformType value from a string representation.
+	* @param PlatformTypeName The string to get the EPlatformType for.
+	* @return An EPlatformType value.
+	*/
+	DESKTOPPLATFORM_API EPlatformType EPlatformTypeFromString(const FString& PlatformTypeName);
 }

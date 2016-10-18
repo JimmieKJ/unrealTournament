@@ -56,119 +56,42 @@ namespace UnrealBuildTool
 					// Try to execute the XGE tasks, and if XGE is available, skip the local execution fallback.
 					if (Telemetry.IsAvailable())
 					{
-			            try
-			            {
-				            const string BuilderKey = "HKEY_LOCAL_MACHINE\\SOFTWARE\\Wow6432Node\\Xoreax\\IncrediBuild\\Builder";
-            
-				            string CPUUtilization = Registry.GetValue(BuilderKey, "ForceCPUCount", "").ToString();
-				            string AvoidTaskExecutionOnLocalMachine = Registry.GetValue(BuilderKey, "AvoidLocalExec", "").ToString();
-				            string RestartRemoteProcessesOnLocalMachine = Registry.GetValue(BuilderKey, "AllowDoubleTargets", "").ToString();
-				            string LimitMaxNumberOfCores = Registry.GetValue(BuilderKey, "MaxHelpers", "").ToString();
-				            string WriteOutputToDiskInBackground = Registry.GetValue(BuilderKey, "LazyOutputWriter_Beta", "").ToString();
-				            string MaxConcurrentPDBs = Registry.GetValue(BuilderKey, "MaxConcurrentPDBs", "").ToString();
+						try
+						{
+							const string BuilderKey = "HKEY_LOCAL_MACHINE\\SOFTWARE\\Wow6432Node\\Xoreax\\IncrediBuild\\Builder";
+
+							string CPUUtilization = Registry.GetValue(BuilderKey, "ForceCPUCount", "").ToString();
+							string AvoidTaskExecutionOnLocalMachine = Registry.GetValue(BuilderKey, "AvoidLocalExec", "").ToString();
+							string RestartRemoteProcessesOnLocalMachine = Registry.GetValue(BuilderKey, "AllowDoubleTargets", "").ToString();
+							string LimitMaxNumberOfCores = Registry.GetValue(BuilderKey, "MaxHelpers", "").ToString();
+							string WriteOutputToDiskInBackground = Registry.GetValue(BuilderKey, "LazyOutputWriter_Beta", "").ToString();
+							string MaxConcurrentPDBs = Registry.GetValue(BuilderKey, "MaxConcurrentPDBs", "").ToString();
 							string EnabledAsHelper = Registry.GetValue(BuilderKey, "LastEnabled", "").ToString();
-            
-				            Telemetry.SendEvent("XGESettings.2",
-					            "CPUUtilization", CPUUtilization,
-					            "AvoidTaskExecutionOnLocalMachine", AvoidTaskExecutionOnLocalMachine,
-					            "RestartRemoteProcessesOnLocalMachine", RestartRemoteProcessesOnLocalMachine,
-					            "LimitMaxNumberOfCores", LimitMaxNumberOfCores,
-					            "WriteOutputToDiskInBackground", WriteOutputToDiskInBackground,
-					            "MaxConcurrentPDBs", MaxConcurrentPDBs,
+
+							Telemetry.SendEvent("XGESettings.2",
+								"CPUUtilization", CPUUtilization,
+								"AvoidTaskExecutionOnLocalMachine", AvoidTaskExecutionOnLocalMachine,
+								"RestartRemoteProcessesOnLocalMachine", RestartRemoteProcessesOnLocalMachine,
+								"LimitMaxNumberOfCores", LimitMaxNumberOfCores,
+								"WriteOutputToDiskInBackground", WriteOutputToDiskInBackground,
+								"MaxConcurrentPDBs", MaxConcurrentPDBs,
 								"EnabledAsHelper", EnabledAsHelper);
-			            }
-			            catch
-			            {
-			            }
-
-						// Add a custom output handler to determine the build duration for each task and map it back to the action that generated it.
-						XGEResult = XGE.ExecuteTaskFileWithProgressMarkup(XGETaskFilePath, Actions.Count, (sender, args) =>
-							{
-								// sometimes the args comes in as null
-								Match match = XGEDurationRegex.Match(args.Data ?? "");
-
-								/*
-																// This is considered fragile and risky parsing of undocumented XGE output, so protect this code from taking down UBT
-																try
-																{
-																	// Use LINQ to evaluate the terms so we don't end up with a 
-																	// huge nested conditional expression just to verify the input.
-																	foreach (var PCHEvent in
-																		// first, convert the input line into an enumerable
-																		from RegexMatch in new[] { match }
-																		where RegexMatch.Success
-																		let Filename = RegexMatch.Groups["Filename"].Value
-																		// find the mapped action. (On PS4 at least, XGE appears to use the full filenane, so we need to strip it back down.
-																		let Action = Actions.Find(a => a.StatusDescription == Path.GetFileName(Filename) && a.ActionType == ActionType.Compile)
-																		// We should ALWAYS find the action, so maybe this should throw if we can't
-																		where Action != null
-																		// see if the mapped action produces a PCH file
-																		// (there is currently no compile environment left around by which to tell absolutely, so we infer by the extension. Ugh).
-																		let ActionProducedPCH = Action.ProducedItems.Find(fileItem => new[] { ".PCH", ".GCH" }.Contains(Path.GetExtension(fileItem.AbsolutePath).ToUpperInvariant()))
-																		where ActionProducedPCH != null
-																		// we found a valid PCH action and output file, so parse the duration and send an event.
-																		let durationMatchStr = RegexMatch.Groups["Duration"].Value
-																		// if there's no hour designator, add one so .NET can parse the time.
-																		let durationStr = durationMatchStr.Count(c => c == ':') == 1 ? "0:" + durationMatchStr : durationMatchStr
-																		let duration = TimeSpan.Parse(durationStr)
-																		select new
-																		{
-																			// actually use the filename here because it is coerced to be PCH.MODULE.HEADER.cpp.
-																			// This allows us an easy way to determine shared status (or source module) and the real header source.
-																			FileName = Filename,//Path.GetFileName(ActionProducedPCH.AbsolutePath),
-																			// Get the length from the OS as the FileItem.Length is really for when the file is used as an input,
-																			// so the stored length is absent for a new for or out of date at best.
-																			GeneratedFileLength = new FileInfo(ActionProducedPCH.AbsolutePath).Length,
-																			GeneratedFileDuration = duration,
-																		})
-																	{
-																		// If we had a valid match for a PCH item, send an event.
-																		Telemetry.SendEvent("PCHTime.2",
-																			"ExecutorType", "XGE",
-																			"Filename", PCHEvent.FileName,
-																			"FileSize", PCHEvent.GeneratedFileLength.ToString(),
-																			"Duration", PCHEvent.GeneratedFileDuration.TotalSeconds.ToString("0.00"));
-																	}
-																}
-																catch (Exception ex)
-																{
-																	// report that something went wrong so we can diagnose.
-																	Telemetry.SendEvent("PCHTimeError.2",
-																		"OutputLine", args.Data,
-																		"Exception", ex.ToString());
-																}
-								*/
-
-								// XGE outputs the duration info in a format that makes VC think it's an error file/line notation if the full filename is used.
-								// So munge it a bit so we don't confuse VC.
-								string updatedData = match.Success ? args.Data.Replace('(', '[').Replace(')', ']') : args.Data;
-
-								// forward the output on to the normal handler or the console like normal
-								if (Actions[0].OutputEventHandler != null)
-								{
-									DataReceivedEventArgs EventArgs = ConstructDataReceivedEventArgs(updatedData);
-									Actions[0].OutputEventHandler(sender, EventArgs);
-								}
-								else
-								{
-									Console.WriteLine(updatedData);
-								}
-							});
+						}
+						catch
+						{
+						}
 					}
-					else
-					{
-						XGEResult = XGE.ExecuteTaskFileWithProgressMarkup(XGETaskFilePath, Actions.Count, (Sender, Args) =>
+					XGEResult = XGE.ExecuteTaskFileWithProgressMarkup(XGETaskFilePath, Actions.Count, (Sender, Args) =>
+						{
+							if (Actions[0].OutputEventHandler != null)
 							{
-								if (Actions[0].OutputEventHandler != null)
-								{
-									Actions[0].OutputEventHandler(Sender, Args);
-								}
-								else
-								{
-									Console.WriteLine(Args.Data);
-								}
-							});
-					}
+								Actions[0].OutputEventHandler(Sender, Args);
+							}
+							else
+							{
+								Console.WriteLine(Args.Data);
+							}
+						});
 				}
 			}
 			return XGEResult;

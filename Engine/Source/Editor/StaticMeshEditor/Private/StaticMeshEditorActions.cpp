@@ -5,7 +5,7 @@
 #include "StaticMeshEditorActions.h"
 #include "SStaticMeshEditorViewport.h"
 
-#define LOCTEXT_NAMESPACE ""
+#define LOCTEXT_NAMESPACE "StaticMeshEditorCommands"
 
 void FStaticMeshEditorCommands::RegisterCommands()
 {

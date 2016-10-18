@@ -1,8 +1,8 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <TpsData xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
-  <Name>Intel Embree</Name>
-  <Location>//UE4/Main/Engine/Source/ThirdParty/IntelEmbree</Location>
-  <Date>2015-12-07T18:01:35.408477-05:00</Date>
+  <Name>Embree</Name>
+  <Location>/Engine/Source/ThirdParty/IntelEmbree/</Location>
+  <Date>2016-06-10T12:07:35.7953997-04:00</Date>
   <Function>high performance ray tracing kernels</Function>
   <Justification>accelerates lightmass allowing lighting builds to take much less time</Justification>
   <Platforms>
@@ -225,5 +225,5 @@
    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
    See the License for the specific language governing permissions and
    limitations under the License.</Notification>
-  <LicenseFolder>Embree_License.txt</LicenseFolder>
+  <LicenseFolder>/Engine/Source/ThirdParty/Licenses/Embree_License.txt</LicenseFolder>
 </TpsData>

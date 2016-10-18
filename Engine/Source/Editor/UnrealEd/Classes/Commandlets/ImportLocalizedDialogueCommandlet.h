@@ -35,7 +35,7 @@ private:
 		bool bIsNativeCulture;
 	};
 
-	bool ImportDialogueForCulture(UDialogueWave* const DialogueWave, const FString& DialogueWaveSubPath, const FCultureImportInfo& InCultureImportInfo, const bool bImportAsSource);
+	bool ImportDialogueForCulture(FLocTextHelper& InLocTextHelper, UDialogueWave* const DialogueWave, const FString& DialogueWaveSubPath, const FCultureImportInfo& InCultureImportInfo, const bool bImportAsSource);
 
 	USoundWave* ConditionalImportSoundWave(const FString& InSoundWavePackageName, const FString& InSoundWaveAssetName, const FString& InWavFilename) const;
 	USoundWave* ImportSoundWave(const FString& InSoundWavePackageName, const FString& InSoundWaveAssetName, const FString& InWavFilename) const;
@@ -43,7 +43,5 @@ private:
 	UPROPERTY()
 	USoundFactory* SoundWaveFactory;
 
-	TSharedPtr<FInternationalizationManifest> InternationalizationManifest;
-	TSharedPtr<FInternationalizationArchive> NativeArchive;
 	TSet<FName> AssetsToKeep;
 };

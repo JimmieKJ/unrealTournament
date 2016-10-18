@@ -1,23 +1,27 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <TpsData xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
   <Name>Chromium Embedded Framework 3.1750.1738</Name>
-  <Location>//depot/UE4/Engine/Binaries/ThirdParty/CEF3/ or //depot/UE4/Engine/Source/ThirdParty/CEF3/</Location>
-  <Date>2015-09-04T18:20:18.6783877-04:00</Date>
+  <Location>/Engine/Source/ThirdParty/CEF3/</Location>
+  <Date>2016-06-07T18:27:59.978967-04:00</Date>
   <Function>Allows for embedded web browser in applications</Function>
   <Justification>We have a need for a web browser within the editor and launcher applications to display documentation pages and to integrate external web pages for marketplace etc. more seamlessly</Justification>
   <Platforms>
     <Platform>PC</Platform>
+    <Platform>Mac</Platform>
     <Platform>Windows 8</Platform>
     <Platform>Linux</Platform>
-    <Platform>Mac</Platform>
   </Platforms>
   <Products>
     <Product>UDK4</Product>
     <Product>UE4</Product>
   </Products>
-  <TpsType />
+  <TpsType>Source Code</TpsType>
   <Eula>http://opensource.org/licenses/BSD-3-Clause</Eula>
-  <RedistributeTo />
+  <RedistributeTo>
+    <EndUserGroup>Licensees</EndUserGroup>
+    <EndUserGroup>Git</EndUserGroup>
+    <EndUserGroup>P4</EndUserGroup>
+  </RedistributeTo>
   <Redistribute>false</Redistribute>
   <IsSourceAvailable>false</IsSourceAvailable>
   <NoticeType>Full EULA Text</NoticeType>
@@ -51,5 +55,5 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 </Notification>
-  <LicenseFolder />
+  <LicenseFolder>/Engine/Source/ThirdParty/Licenses/CEF3_Chromium_License.txt</LicenseFolder>
 </TpsData>

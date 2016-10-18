@@ -29,9 +29,13 @@ private:
 
 public:
 
-	/** The style */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Style", meta=( DisplayName="Style" ))
+	/** The style. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Style, meta=( DisplayName="Style" ))
 	FComboBoxStyle WidgetStyle;
+
+	/** The item row style. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Style)
+	FTableRowStyle ItemStyle;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Content)
 	FMargin ContentPadding;
@@ -46,6 +50,17 @@ public:
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Content, AdvancedDisplay)
 	bool HasDownArrow;
+
+	/**
+	 * The default font to use in the combobox, only applies if you're not implementing OnGenerateWidgetEvent
+	 * to factory each new entry.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Style)
+	FSlateFontInfo Font;
+
+	/** The foreground color to pass through the hierarchy. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Style, meta=(DesignerRebuild))
+	FSlateColor ForegroundColor;
 
 public: // Events
 
@@ -98,7 +113,13 @@ public:
 	UFUNCTION(BlueprintCallable, Category="ComboBox")
 	int32 GetOptionCount() const;
 
+	//~ Begin UWidget Interface
+	virtual void SynchronizeProperties() override;
+	//~ End UWidget Interface
+
+	//~ Begin UVisual Interface
 	virtual void ReleaseSlateResources(bool bReleaseChildren) override;
+	//~ End UVisual Interface
 
 	//~ Begin UObject Interface
 	virtual void PostLoad() override;

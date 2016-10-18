@@ -537,7 +537,15 @@ struct CORE_API IConsoleManager
 	 *  @param Visitor must not be 0
 	 *  @param ThatStartsWith must not be 0 
 	 */
-	virtual void ForEachConsoleObject( const FConsoleObjectVisitor& Visitor, const TCHAR* ThatStartsWith = TEXT("")) const = 0;
+	virtual void ForEachConsoleObjectThatStartsWith( const FConsoleObjectVisitor& Visitor, const TCHAR* ThatStartsWith = TEXT("")) const = 0;
+
+	/**
+	 *  Not case sensitive, does not guarantee that UnregisterConsoleObject() will work in the loop
+	 *  @param Visitor must not be 0
+	 *  @param ThatContains must not be 0 
+	 */
+	virtual void ForEachConsoleObjectThatContains(const FConsoleObjectVisitor& Visitor, const TCHAR* ThatContains) const = 0;
+
 	/**
 	 * Process user input
 	 *  e.g.
@@ -778,7 +786,7 @@ public:
 	T GetValueOnGameThread() const
 	{
 		// compiled out in shipping for performance (we can change in development later), if this get triggered you need to call GetValueOnRenderThread() or GetValueOnAnyThread(), the last one is a bit slower
-		ensure(GetShadowIndex() == 0);	// ensure to not block content creators, #if to optimize in shipping
+		checkCode(ensure(GetShadowIndex() == 0));	// ensure to not block content creators, #if to optimize in shipping
 		return ShadowedValue[0];
 	}
 
@@ -787,7 +795,7 @@ public:
 	{
 #if !defined(__clang__) // @todo Mac: figure out how to make this compile
 		// compiled out in shipping for performance (we can change in development later), if this get triggered you need to call GetValueOnGameThread() or GetValueOnAnyThread(), the last one is a bit slower
-		ensure(IsInParallelRenderingThread());	// ensure to not block content creators, #if to optimize in shipping
+		checkCode(ensure(IsInParallelRenderingThread()));	// ensure to not block content creators, #if to optimize in shipping
 #endif
 		return ShadowedValue[1];
 	}
@@ -808,7 +816,7 @@ private: // ----------------------------------------------------
 	{	
 		if (bForceGameThread)
 		{
-			ensure(!IsInActualRenderingThread());
+			checkCode(ensure(!IsInActualRenderingThread()));
 			return 0;
 		}
 		return IsInGameThread() ? 0 : 1;

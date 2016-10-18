@@ -23,7 +23,7 @@ AUTProj_WeaponScreen::AUTProj_WeaponScreen(const FObjectInitializer& ObjectIniti
 	Responses.WorldStatic = ECollisionResponse::ECR_Ignore;
 	Responses.WorldDynamic = ECollisionResponse::ECR_Ignore;
 	// note that we leave the default collision sphere around to use as a world blocker (so we're blocked if center hits world)
-	CollisionBox->AttachParent = CollisionComp;
+	CollisionBox->SetupAttachment(CollisionComp);
 
 	InitialLifeSpan = 0.5f;
 	ProjectileMovement->InitialSpeed = 5000.0f;

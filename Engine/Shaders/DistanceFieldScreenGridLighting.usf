@@ -231,7 +231,7 @@ void ConeTraceObjectOcclusionCS(
 	float3 TangentX;
 	float3 TangentY;
 	FindBestAxisVectors2(WorldNormal, TangentX, TangentY);
-	 
+
 	{
 		float2 ScreenUV = GetScreenUVFromScreenGrid(OutputCoordinate);
 		float2 ScreenPosition = (ScreenUV.xy - View.ScreenPositionScaleBias.wz) / View.ScreenPositionScaleBias.xy;

@@ -716,7 +716,12 @@ void AGameplayDebuggingReplicator::DrawDebugData(class UCanvas* Canvas, class AP
 		return;
 	}
 
-	bool bAllowToDraw = Canvas && Canvas->SceneView && (Canvas->SceneView->ViewActor == LocalPlayerOwner->AcknowledgedPawn || Canvas->SceneView->ViewActor == LocalPlayerOwner->GetPawnOrSpectator());
+	if (!Canvas || !Canvas->SceneView)
+	{
+		return;
+	}
+
+	bool bAllowToDraw = Canvas->SceneView->ViewActor == LocalPlayerOwner->AcknowledgedPawn || Canvas->SceneView->ViewActor == LocalPlayerOwner->GetPawnOrSpectator();
 	if (!bAllowToDraw)
 	{
 		// check for spectator debug camera

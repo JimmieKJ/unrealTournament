@@ -5,27 +5,79 @@
 #include "GameplayDebuggerTypes.h"
 #include "GameplayDebuggerConfig.generated.h"
 
-USTRUCT()
-struct GAMEPLAYDEBUGGER_API FGameplayDebuggerInputConfig
+UENUM()
+enum class EGameplayDebuggerOverrideMode : uint8
 {
-	GENERATED_USTRUCT_BODY();
+	Enable,
+	Disable,
+	UseDefault,
+};
+
+USTRUCT()
+struct FGameplayDebuggerInputConfig
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY(VisibleAnywhere, Category = Input)
+	FString ConfigName;
 
 	UPROPERTY(EditAnywhere, Category = Input)
-	uint32 bShift : 1;
+	FKey Key;
 
 	UPROPERTY(EditAnywhere, Category = Input)
-	uint32 bCtrl : 1;
+	uint32 bModShift : 1;
 
 	UPROPERTY(EditAnywhere, Category = Input)
-	uint32 bAlt : 1;
+	uint32 bModCtrl : 1;
 
 	UPROPERTY(EditAnywhere, Category = Input)
-	uint32 bCmd : 1;
+	uint32 bModAlt : 1;
 
-	FGameplayDebuggerInputModifier CreateModifier() const
-	{
-		return FGameplayDebuggerInputModifier(bShift, bCtrl, bAlt, bCmd);
-	}
+	UPROPERTY(EditAnywhere, Category = Input)
+	uint32 bModCmd : 1;
+};
+
+USTRUCT()
+struct FGameplayDebuggerCategoryConfig
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY(VisibleAnywhere, Category = Settings)
+	FString CategoryName;
+
+	UPROPERTY(EditAnywhere, Category = Settings, meta = (EditCondition = "bOverrideSlotIdx", ClampMin = -1, ClampMax = 9, UIMin = -1, UIMax = 9))
+	int32 SlotIdx;
+
+	UPROPERTY(EditAnywhere, Category = Settings)
+	EGameplayDebuggerOverrideMode ActiveInGame;
+
+	UPROPERTY(EditAnywhere, Category = Settings)
+	EGameplayDebuggerOverrideMode ActiveInSimulate;
+
+	UPROPERTY(EditAnywhere, Category = Settings, AdvancedDisplay)
+	uint32 bOverrideSlotIdx : 1;
+
+	UPROPERTY(EditAnywhere, Category = Settings, EditFixedSize)
+	TArray<FGameplayDebuggerInputConfig> InputHandlers;
+
+	FGameplayDebuggerCategoryConfig() : ActiveInGame(EGameplayDebuggerOverrideMode::UseDefault), ActiveInSimulate(EGameplayDebuggerOverrideMode::UseDefault) {}
+};
+
+USTRUCT()
+struct FGameplayDebuggerExtensionConfig
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY(VisibleAnywhere, Category = Settings)
+	FString ExtensionName;
+
+	UPROPERTY(EditAnywhere, Category = Settings)
+	EGameplayDebuggerOverrideMode UseExtension;
+
+	UPROPERTY(EditAnywhere, Category = Settings, EditFixedSize)
+	TArray<FGameplayDebuggerInputConfig> InputHandlers;
+
+	FGameplayDebuggerExtensionConfig() : UseExtension(EGameplayDebuggerOverrideMode::UseDefault) {}
 };
 
 UCLASS(config = Engine, defaultconfig)
@@ -85,44 +137,6 @@ class GAMEPLAYDEBUGGER_API UGameplayDebuggerConfig : public UObject
 	UPROPERTY(config, EditAnywhere, Category = Input)
 	FKey CategorySlot9;
 
-	/** toggle game hud */
-	UPROPERTY(config, EditAnywhere, Category = Extensions)
-	FKey GameHUDKey;
-
-	UPROPERTY(config, EditAnywhere, Category = Extensions, meta = (EditCondition = "bUseGameHUDModifiers"))
-	FGameplayDebuggerInputConfig GameHUDModifiers;
-
-	/** toggle onscreen debug messages */
-	UPROPERTY(config, EditAnywhere, Category = Extensions)
-	FKey DebugMessagesKey;
-
-	UPROPERTY(config, EditAnywhere, Category = Extensions, meta = (EditCondition = "bUseDebugMessagesModifiers"))
-	FGameplayDebuggerInputConfig DebugMessagesModifiers;
-
-	/** toggle spectator mode */
-	UPROPERTY(config, EditAnywhere, Category = Extensions)
-	FKey SpectatorKey;
-
-	UPROPERTY(config, EditAnywhere, Category = Extensions, meta = (EditCondition = "bUseSpectatorModifiers"))
-	FGameplayDebuggerInputConfig SpectatorModifiers;
-
-	/** if set, game hud extension will be automatically added */
-	UPROPERTY(config, EditAnywhere, Category = Extensions)
-	uint32 bEnableExtension_GameHUD : 1;
-
-	/** if set, spectator mode extension will be automatically added */
-	UPROPERTY(config, EditAnywhere, Category = Extensions)
-	uint32 bEnableExtension_Spectator : 1;
-
-	UPROPERTY()
-	uint32 bUseGameHUDModifiers : 1;
-	
-	UPROPERTY()
-	uint32 bUseDebugMessagesModifiers : 1;
-	
-	UPROPERTY()
-	uint32 bUseSpectatorModifiers : 1;
-
 	/** additional canvas padding: left */
 	UPROPERTY(config, EditAnywhere, Category = Display)
 	float DebugCanvasPaddingLeft;
@@ -138,4 +152,38 @@ class GAMEPLAYDEBUGGER_API UGameplayDebuggerConfig : public UObject
 	/** additional canvas padding: bottom */
 	UPROPERTY(config, EditAnywhere, Category = Display)
 	float DebugCanvasPaddingBottom;
+
+	UPROPERTY(config, EditAnywhere, Category = AddOns, EditFixedSize)
+	TArray<FGameplayDebuggerCategoryConfig> Categories;
+
+	UPROPERTY(config, EditAnywhere, Category = AddOns, EditFixedSize)
+	TArray<FGameplayDebuggerExtensionConfig> Extensions;
+
+	/** updates entry in Categories array and modifies category creation params */
+	void UpdateCategoryConfig(const FName CategoryName, int32& SlotIdx, uint8& CategoryState);
+
+	/** updates entry in Categories array and modifies input binding params */
+	void UpdateCategoryInputConfig(const FName CategoryName, const FName InputName, FName& KeyName, FGameplayDebuggerInputModifier& KeyModifier);
+
+	/** updates entry in Extensions array and modifies extension creation params */
+	void UpdateExtensionConfig(const FName ExtensionName, uint8& UseExtension);
+
+	/** updates entry in Categories array and modifies input binding params */
+	void UpdateExtensionInputConfig(const FName ExtensionName, const FName InputName, FName& KeyName, FGameplayDebuggerInputModifier& KeyModifier);
+
+	/** remove all category and extension data from unknown sources (outdated entries) */
+	void RemoveUnknownConfigs();
+
+	virtual void Serialize(FArchive& Ar) override;
+#if WITH_EDITOR
+	virtual void PostEditChangeChainProperty(struct FPropertyChangedChainEvent& PropertyChangedEvent) override;
+#endif
+
+private:
+
+	/** used for cleanup */
+	TArray<FName> KnownCategoryNames;
+	TArray<FName> KnownExtensionNames;
+	TMultiMap<FName, FName> KnownCategoryInputNames;
+	TMultiMap<FName, FName> KnownExtensionInputNames;
 };

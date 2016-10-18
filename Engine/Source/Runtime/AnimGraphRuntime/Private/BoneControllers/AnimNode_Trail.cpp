@@ -318,7 +318,7 @@ void FAnimNode_Trail::Initialize(const FAnimationInitializeContext& Context)
 
 		float Interval = (ChainLength > 1)? (1.f/(ChainLength-1)) : 0.f;
 		const FRichCurve* TrailRelaxRichCurve = TrailRelaxationSpeed.GetRichCurveConst();
-		ensure(TrailRelaxRichCurve);
+		check(TrailRelaxRichCurve);
 		for(int32 Idx=0; Idx<ChainLength; ++Idx)
 		{
 			PerJointTrailData[Idx].TrailRelaxationSpeedPerSecond = TrailRelaxRichCurve->Eval(Interval * Idx);

@@ -67,16 +67,21 @@ void UMovieSceneVectorSection::DilateSection(float DilationFactor, float Origin,
 }
 
 
-void UMovieSceneVectorSection::GetKeyHandles(TSet<FKeyHandle>& KeyHandles) const
+void UMovieSceneVectorSection::GetKeyHandles(TSet<FKeyHandle>& OutKeyHandles, TRange<float> TimeRange) const
 {
+	if (!TimeRange.Overlaps(GetRange()))
+	{
+		return;
+	}
+
 	for (int32 i = 0; i < ChannelsUsed; ++i)
 	{
 		for (auto It(Curves[i].GetKeyHandleIterator()); It; ++It)
 		{
 			float Time = Curves[i].GetKeyTime(It.Key());
-			if (IsTimeWithinSection(Time))
+			if (TimeRange.Contains(Time))
 			{
-				KeyHandles.Add(It.Key());
+				OutKeyHandles.Add(It.Key());
 			}
 		}
 	}
@@ -97,6 +102,32 @@ TSharedPtr<FStructOnScope> UMovieSceneVectorSection::GetKeyStruct(const TArray<F
 	}
 
 	return KeyStruct;
+}
+
+
+TOptional<float> UMovieSceneVectorSection::GetKeyTime( FKeyHandle KeyHandle ) const
+{
+	for ( auto Curve : Curves )
+	{
+		if ( Curve.IsKeyHandleValid( KeyHandle ) )
+		{
+			return TOptional<float>( Curve.GetKeyTime( KeyHandle ) );
+		}
+	}
+	return TOptional<float>();
+}
+
+
+void UMovieSceneVectorSection::SetKeyTime( FKeyHandle KeyHandle, float Time )
+{
+	for ( auto Curve : Curves )
+	{
+		if ( Curve.IsKeyHandleValid( KeyHandle ) )
+		{
+			Curve.SetKeyTime( KeyHandle, Time );
+			break;
+		}
+	}
 }
 
 

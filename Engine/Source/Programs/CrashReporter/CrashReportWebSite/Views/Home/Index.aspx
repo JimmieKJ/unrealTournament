@@ -1,8 +1,8 @@
 ﻿<%-- // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved. --%>
 
-<%@ Page Title="" Language="C#" MasterPageFile="~/Views/Shared/Site.Master" Inherits="System.Web.Mvc.ViewPage<CrashesViewModel>" %>
+<%@ Import Namespace="Tools.CrashReporter.CrashReportWebSite.ViewModels" %>
 
-<%@ Import Namespace="Tools.CrashReporter.CrashReportWebSite.Models" %>
+<%@ Page Title="" Language="C#" MasterPageFile="~/Views/Shared/Site.Master" Inherits="System.Web.Mvc.ViewPage<CrashesViewModel>" %>
 
 <asp:Content ID="StyleSheet" ContentPlaceHolderID="CssContent" runat="server">
 	<link href="../../Content/Site.css" rel="stylesheet" type="text/css" />
@@ -78,14 +78,12 @@
 			});
 		});
 	</script>
-
 </asp:Content>
 
 <asp:Content ID="AboveMainContent"  ContentPlaceHolderID="AboveMainContent" runat="server" >
 	<div style="clear: both;">
 		<small style="color: lightgray;">Generated in <%=Model.GenerationTime%> second(s)</small>
 		<br />
-
 		<div id='SearchForm' style="clear: both">
 			<div id="TitleBar" class="TitleBar">
 				SEARCH OPTIONS
@@ -217,7 +215,17 @@
 							<%=Html.DropDownListFor( m=>m.PlatformName, Model.PlatformNames )%>
 						</td>
 					</tr>
-
+                    
+                    <tr>
+						<td rowspan="1" >
+						</td>
+                        <td>
+							<p class="SearchTextTitle">Filter by Engine Mode</p>
+						</td>
+						<td>
+							<%=Html.DropDownListFor( m=>m.EngineMode, Model.EngineModes )%>
+						</td>
+					</tr>
 					<tr>
 						<td colspan="7" >
 							<input type="submit" value="Search" class='SearchButton' />

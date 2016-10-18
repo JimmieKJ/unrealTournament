@@ -21,8 +21,11 @@ cd -
 cd ../ICU/icu4c-53_1
 	./BuildForHTML5.sh
 cd -
+cd ../HarfBuzz/harfbuzz-1.2.4/BuildForUE/HTML5
+	./BuildForHTML5.sh
+cd -
 
-# NOTE: PhysX will need to be built from the Dev-Physics stream
-#       which has external tools/libs, actual source codes, and docs
-# the PhysX HTML5 build script will be found there...
+# NOTE: PhysX needs to be built from the Dev-Physics stream
+#       there, you'll find tools/libs, source codes, and docs
+# the PhysX HTML5 build script can be found there...
 

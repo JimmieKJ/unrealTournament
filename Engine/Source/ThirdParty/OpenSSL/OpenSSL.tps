@@ -1,8 +1,8 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <TpsData xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
   <Name>OpenSSL 1.0.1e</Name>
-  <Location>//depot/UE4/Engine/Source/ThirdParty/OpenSSL/ or //depot/UE4/Engine/Binaries/ThirdParty/OpenSSL/</Location>
-  <Date>2015-09-04T20:03:26.2225106-04:00</Date>
+  <Location>/Engine/Source/ThirdParty/OpenSSL/</Location>
+  <Date>2016-06-13T16:24:42.6224692-04:00</Date>
   <Function>OpenSSL is an optional library used by libcurl</Function>
   <Justification />
   <Platforms>
@@ -16,7 +16,11 @@
   </Products>
   <TpsType />
   <Eula>http://www.openssl.org/source/license.html </Eula>
-  <RedistributeTo />
+  <RedistributeTo>
+    <EndUserGroup>Licensees</EndUserGroup>
+    <EndUserGroup>Git</EndUserGroup>
+    <EndUserGroup>P4</EndUserGroup>
+  </RedistributeTo>
   <Redistribute>false</Redistribute>
   <IsSourceAvailable>false</IsSourceAvailable>
   <NoticeType>Full EULA Text</NoticeType>
@@ -143,5 +147,5 @@
  * [including the GNU Public Licence.]
  */
 </Notification>
-  <LicenseFolder />
+  <LicenseFolder>/Engine/Source/ThirdParty/Licenses/OpenSSL1.0.1e_License.txt</LicenseFolder>
 </TpsData>

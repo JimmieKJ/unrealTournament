@@ -36,3 +36,4 @@ DECLARE_MULTICAST_DELEGATE_OneParam(FOnGameViewportClientPlayerAction, int32);
  * @see UGameViewportClient
  */
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnGameViewportTick, float);
+DECLARE_DELEGATE_RetVal_TwoParams(bool, FOnGameViewportInputKey, FKey, FModifierKeysState);

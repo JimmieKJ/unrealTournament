@@ -56,6 +56,11 @@ public:
 		View.EnqueueDeferredAction( DeferredAction );
 	}
 
+	virtual void ForceRefresh() override
+	{
+		RequestRefresh();
+	}
+
 	virtual void RequestRefresh() override
 	{
 		View.RequestRefresh();
@@ -996,13 +1001,13 @@ void SPropertyTreeViewImpl::Tick( const FGeometry& AllottedGeometry, const doubl
 	}
 	DeferredActions.Empty();
 
-	FPropertyNode::DataValidationResult Result = RootPropertyNode->EnsureDataIsValid();
-	if( Result == FPropertyNode::PropertiesChanged || Result == FPropertyNode::ArraySizeChanged || Result == FPropertyNode::EditInlineNewValueChanged )
+	EPropertyDataValidationResult Result = RootPropertyNode->EnsureDataIsValid();
+	if( Result == EPropertyDataValidationResult::PropertiesChanged || Result == EPropertyDataValidationResult::ArraySizeChanged || Result == EPropertyDataValidationResult::EditInlineNewValueChanged )
 	{
 		// Make sure our new property windows are properly filtered.  
 		FilterView( CurrentFilterText );
 	}
-	else if( Result == FPropertyNode::ObjectInvalid && !bNodeTreeExternallyManaged )
+	else if( Result == EPropertyDataValidationResult::ObjectInvalid && !bNodeTreeExternallyManaged )
 	{
 		TArray< TWeakObjectPtr< UObject > > ResetArray;
 		for ( TPropObjectIterator Itor( RootPropertyNode->ObjectIterator() ) ; Itor ; ++Itor )
@@ -1014,12 +1019,6 @@ void SPropertyTreeViewImpl::Tick( const FGeometry& AllottedGeometry, const doubl
 				ResetArray.Add( Object.Get() );
 			}
 		}
-
-		//@todo Slate property window: Support window flags
-		/*
-		EPropertyWindowFlags::Type OldFlags = HasFlags( EPropertyWindowFlags::ShouldShowCategories | 
-		EPropertyWindowFlags::Sorted | 
-		EPropertyWindowFlags::ShouldShowNonEditable);*/
 
 		SetObjectArray(ResetArray);
 	}
@@ -1047,7 +1046,7 @@ TSharedRef<ITableRow> SPropertyTreeViewImpl::CreatePropertyEditor( TSharedPtr<FP
 {
 	FCategoryPropertyNode* CategoryNode = InPropertyNode->AsCategoryNode();
 
-	if (CategoryNode != NULL)
+	if (CategoryNode != nullptr)
 	{
 		// This is a category node; it does not need columns.
 		// Just use a simple setup.

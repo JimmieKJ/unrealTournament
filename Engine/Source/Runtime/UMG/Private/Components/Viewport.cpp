@@ -128,7 +128,7 @@ void FUMGViewportClient::Draw(FViewport* InViewport, FCanvas* Canvas)
 	const bool bIsRealTime = true;
 
 	UWorld* World = GWorld;
-	if ( ( GetScene() != World->Scene ) || ( bIsRealTime == true ) )
+	if ( bIsRealTime || GetScene() != World->Scene )
 	{
 		// Use time relative to start time to avoid issues with float vs double
 		TimeSeconds = FApp::GetCurrentTime() - GStartTime;
@@ -401,16 +401,16 @@ void UViewport::SynchronizeProperties()
 	}
 }
 
-void UViewport::OnSlotAdded(UPanelSlot* Slot)
+void UViewport::OnSlotAdded(UPanelSlot* InSlot)
 {
 	// Add the child to the live canvas if it already exists
 	if ( ViewportWidget.IsValid() )
 	{
-		ViewportWidget->SetContent(Slot->Content ? Slot->Content->TakeWidget() : SNullWidget::NullWidget);
+		ViewportWidget->SetContent(InSlot->Content ? InSlot->Content->TakeWidget() : SNullWidget::NullWidget);
 	}
 }
 
-void UViewport::OnSlotRemoved(UPanelSlot* Slot)
+void UViewport::OnSlotRemoved(UPanelSlot* InSlot)
 {
 	// Remove the widget from the live slot if it exists.
 	if ( ViewportWidget.IsValid() )

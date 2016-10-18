@@ -42,6 +42,11 @@ public:
 	virtual void GenerateFullyConvertedClasses() override;
 	virtual void MarkUnconvertedBlueprintAsNecessary(TAssetPtr<UBlueprint> BPPtr) override;
 	virtual const TMultiMap<FName, TAssetSubclassOf<UObject>>& GetFunctionsBoundToADelegate() override;
+
+	FFileHelper::EEncodingOptions::Type ForcedEncoding() const
+	{
+		return FFileHelper::EEncodingOptions::ForceUTF8;
+	}
 protected:
 	virtual void Initialize(const FNativeCodeGenInitData& InitData) override;
 	virtual void InitializeForRerunDebugOnly(const TArray< TPair< FString, FString > >& CodegenTargets) override;
@@ -60,7 +65,7 @@ private:
 	FBlueprintNativeCodeGenManifest& GetManifest(const TCHAR* PlatformName);
 	void GenerateSingleStub(UBlueprint* BP, const TCHAR* PlatformName);
 	void CollectBoundFunctions(UBlueprint* BP);
-	void GenerateSingleAsset(UField* ForConversion, const TCHAR* PlatformName);
+	void GenerateSingleAsset(UField* ForConversion, const TCHAR* PlatformName, TSharedPtr<FNativizationSummary> NativizationSummary = TSharedPtr<FNativizationSummary>());
 
 	TMap< FString, TUniquePtr<FBlueprintNativeCodeGenManifest> > Manifests;
 
@@ -134,21 +139,21 @@ namespace
 	{
 		TArray<UObject*> Objects;
 		GetObjectsWithOuter(Package, Objects, false);
-		for (auto Entry : Objects)
+		for (UObject* Entry : Objects)
 		{
 			if (Entry->HasAnyFlags(ExcludedFlags))
 			{
 				continue;
 			}
 
+			if (FBlueprintSupport::IsDeferredDependencyPlaceholder(Entry))
+			{
+				continue;
+			}
+
+			// Not a skeleton class
 			if (UClass* AsClass = Cast<UClass>(Entry))
 			{
-				// Not a placeholder
-				if (AsClass->GetName().Contains(TEXT("PLACEHOLDER")))
-				{
-					continue;
-				}
-				// Not a skeleton class
 				if (UBlueprint* GeneratingBP = Cast<UBlueprint>(AsClass->ClassGeneratedBy))
 				{
 					if (AsClass != GeneratingBP->GeneratedClass)
@@ -157,6 +162,7 @@ namespace
 					}
 				}
 			}
+
 			OutStruct = Cast<UStruct>(Entry);
 			if (OutStruct)
 			{
@@ -217,6 +223,11 @@ void FBlueprintNativeCodeGenModule::Initialize(const FNativeCodeGenInitData& Ini
 		Manifests.Add(FString(*Platform.Key), TUniquePtr<FBlueprintNativeCodeGenManifest>(new FBlueprintNativeCodeGenManifest(NativizationCookControllerImpl::DefaultPluginName, OutputPath)));
 
 		TargetPlatformNames.Add(Platform.Key);
+
+		// Clear source code folder
+		const FString SourceCodeDir = GetManifest(*Platform.Key).GetTargetPaths().PluginSourceDir();
+		UE_LOG(LogBlueprintCodeGen, Log, TEXT("Clear nativized source code directory: %s"), *SourceCodeDir);
+		IFileManager::Get().DeleteDirectory(*SourceCodeDir, false, true);
 	}
 
 	FillTargetedForReplacementQuery();
@@ -284,6 +295,7 @@ void FBlueprintNativeCodeGenModule::InitializeForRerunDebugOnly(const TArray< TP
 
 void FBlueprintNativeCodeGenModule::GenerateFullyConvertedClasses()
 {
+	TSharedPtr<FNativizationSummary> NativizationSummary(new FNativizationSummary());
 	for (TAssetPtr<UBlueprint>& BPPtr : ToGenerate)
 	{
 		UBlueprint* BP = BPPtr.LoadSynchronous();
@@ -291,8 +303,18 @@ void FBlueprintNativeCodeGenModule::GenerateFullyConvertedClasses()
 		{
 			for (const FString& PlatformName : TargetPlatformNames)
 			{
-				GenerateSingleAsset(BP->GeneratedClass, *PlatformName);
+				GenerateSingleAsset(BP->GeneratedClass, *PlatformName, NativizationSummary);
 			}
+		}
+	}
+	
+	if (NativizationSummary->InaccessiblePropertyStat.Num())
+	{
+		UE_LOG(LogBlueprintCodeGen, Warning, TEXT("Nativization Summary - Inaccessible Properties:"));
+		NativizationSummary->InaccessiblePropertyStat.ValueSort(TGreater<int32>());
+		for (auto& Iter : NativizationSummary->InaccessiblePropertyStat)
+		{
+			UE_LOG(LogBlueprintCodeGen, Warning, TEXT("\t %s \t - %d"), *Iter.Key.ToString(), Iter.Value);
 		}
 	}
 }
@@ -325,7 +347,9 @@ void FBlueprintNativeCodeGenModule::GenerateSingleStub(UBlueprint* BP, const TCH
 
 	if (!FileContents.IsEmpty())
 	{
-		FFileHelper::SaveStringToFile(FileContents, *(GetManifest(PlatformName).CreateUnconvertedDependencyRecord(AssetInfo.PackageName, AssetInfo).GeneratedWrapperPath));
+		FFileHelper::SaveStringToFile(FileContents
+			, *(GetManifest(PlatformName).CreateUnconvertedDependencyRecord(AssetInfo.PackageName, AssetInfo).GeneratedWrapperPath)
+			, ForcedEncoding());
 	}
 	// The stub we generate still may have dependencies on other modules, so make sure the module dependencies are 
 	// still recorded so that the .build.cs is generated correctly. Without this you'll get include related errors 
@@ -333,7 +357,7 @@ void FBlueprintNativeCodeGenModule::GenerateSingleStub(UBlueprint* BP, const TCH
 	GetManifest(PlatformName).GatherModuleDependencies(BP->GetOutermost());
 }
 
-void FBlueprintNativeCodeGenModule::GenerateSingleAsset(UField* ForConversion, const TCHAR* PlatformName)
+void FBlueprintNativeCodeGenModule::GenerateSingleAsset(UField* ForConversion, const TCHAR* PlatformName, TSharedPtr<FNativizationSummary> NativizationSummary)
 {
 	IBlueprintCompilerCppBackendModule& BackEndModule = (IBlueprintCompilerCppBackendModule&)IBlueprintCompilerCppBackendModule::Get();
 	auto& BackendPCHQuery = BackEndModule.OnPCHFilenameQuery();
@@ -350,13 +374,13 @@ void FBlueprintNativeCodeGenModule::GenerateSingleAsset(UField* ForConversion, c
 	TSharedPtr<FString> HeaderSource(new FString());
 	TSharedPtr<FString> CppSource(new FString());
 
-	FBlueprintNativeCodeGenUtils::GenerateCppCode(ForConversion, HeaderSource, CppSource);
+	FBlueprintNativeCodeGenUtils::GenerateCppCode(ForConversion, HeaderSource, CppSource, NativizationSummary);
 	bool bSuccess = !HeaderSource->IsEmpty() || !CppSource->IsEmpty();
 	// Run the cpp first, because we cue off of the presence of a header for a valid conversion record (see
 	// FConvertedAssetRecord::IsValid)
 	if (!CppSource->IsEmpty())
 	{
-		if (!FFileHelper::SaveStringToFile(*CppSource, *ConversionRecord.GeneratedCppPath))
+		if (!FFileHelper::SaveStringToFile(*CppSource, *ConversionRecord.GeneratedCppPath, ForcedEncoding()))
 		{
 			bSuccess &= false;
 			ConversionRecord.GeneratedCppPath.Empty();
@@ -370,7 +394,7 @@ void FBlueprintNativeCodeGenModule::GenerateSingleAsset(UField* ForConversion, c
 
 	if (bSuccess && !HeaderSource->IsEmpty())
 	{
-		if (!FFileHelper::SaveStringToFile(*HeaderSource, *ConversionRecord.GeneratedHeaderPath))
+		if (!FFileHelper::SaveStringToFile(*HeaderSource, *ConversionRecord.GeneratedHeaderPath, ForcedEncoding()))
 		{
 			bSuccess &= false;
 			ConversionRecord.GeneratedHeaderPath.Empty();
@@ -382,10 +406,13 @@ void FBlueprintNativeCodeGenModule::GenerateSingleAsset(UField* ForConversion, c
 		ConversionRecord.GeneratedHeaderPath.Empty();
 	}
 
-	check(bSuccess);
-	if (bSuccess)
+	if (ensure(bSuccess))
 	{
 		GetManifest(PlatformName).GatherModuleDependencies(ForConversion->GetOutermost());
+	}
+	else
+	{
+		UE_LOG(LogBlueprintCodeGen, Error, TEXT("FBlueprintNativeCodeGenModule::GenerateSingleAsset error: %s"), *GetPathNameSafe(ForConversion));
 	}
 
 	BackendPCHQuery.Unbind();

@@ -189,8 +189,8 @@ protected:
 		// export
 		UE_LOG(LogTemplates, Display, TEXT("BEGIN EXPORT - Catalog"));
 		BeginJson(TEXT("DataTemplates/Catalog.json"));
-		FCatalogExporter::JsonWriter JsonRef = Json.ToSharedRef();
-		bool bSuccess = CatalogExporter.ExportCatalog(JsonRef, *StoreCatalog, Fulfillments);
+		//FCatalogExporter::JsonWriter JsonRef = Json.ToSharedRef();
+		bool bSuccess = CatalogExporter.ExportCatalog(Json.ToSharedRef(), *StoreCatalog, Fulfillments);
 		return EndJson() && bSuccess;
 	}
 

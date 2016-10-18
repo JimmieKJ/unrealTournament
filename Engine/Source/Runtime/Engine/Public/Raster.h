@@ -96,37 +96,37 @@ private:
 		float DeltaMinX,
 		float TopMaxX,
 		float DeltaMaxX,
-		float MinY,
-		float MaxY,
+		float InMinY,
+		float InMaxY,
 		bool BackFacing
 		)
 	{
-		int32	IntMinY = FMath::Clamp(FMath::CeilToInt(MinY),RasterPolicyType::GetMinY(),RasterPolicyType::GetMaxY() + 1),
-			IntMaxY = FMath::Clamp(FMath::CeilToInt(MaxY),RasterPolicyType::GetMinY(),RasterPolicyType::GetMaxY() + 1);
+		int32	IntMinY = FMath::Clamp(FMath::CeilToInt(InMinY),RasterPolicyType::GetMinY(),RasterPolicyType::GetMaxY() + 1),
+			IntMaxY = FMath::Clamp(FMath::CeilToInt(InMaxY),RasterPolicyType::GetMinY(),RasterPolicyType::GetMaxY() + 1);
 
 		for(int32 IntY = IntMinY;IntY < IntMaxY;IntY++)
 		{
-			float			Y = IntY - MinY,
-							MinX = TopMinX + DeltaMinX * Y,
-							MaxX = TopMaxX + DeltaMaxX * Y;
+			float			Y = IntY - InMinY;
+			float			LocalMinX = TopMinX + DeltaMinX * Y;
+			float			LocalMaxX = TopMaxX + DeltaMaxX * Y;
 			InterpolantType	MinInterpolant = TopMinInterpolant + DeltaMinInterpolant * Y,
 							MaxInterpolant = TopMaxInterpolant + DeltaMaxInterpolant * Y;
 
-			if(MinX > MaxX)
+			if(LocalMinX > LocalMaxX)
 			{
-				Exchange(MinX,MaxX);
+				Exchange(LocalMinX,LocalMaxX);
 				Exchange(MinInterpolant,MaxInterpolant);
 			}
 
-			if(MaxX > MinX)
+			if(LocalMaxX > LocalMinX)
 			{
-				int32				IntMinX = FMath::Clamp(FMath::CeilToInt(MinX),RasterPolicyType::GetMinX(),RasterPolicyType::GetMaxX() + 1),
-								IntMaxX = FMath::Clamp(FMath::CeilToInt(MaxX),RasterPolicyType::GetMinX(),RasterPolicyType::GetMaxX() + 1);
-				InterpolantType	DeltaInterpolant = (MaxInterpolant - MinInterpolant) / (MaxX - MinX);
+				int32				IntMinX = FMath::Clamp(FMath::CeilToInt(LocalMinX),RasterPolicyType::GetMinX(),RasterPolicyType::GetMaxX() + 1),
+								IntMaxX = FMath::Clamp(FMath::CeilToInt(LocalMaxX),RasterPolicyType::GetMinX(),RasterPolicyType::GetMaxX() + 1);
+				InterpolantType	DeltaInterpolant = (MaxInterpolant - MinInterpolant) / (LocalMaxX - LocalMinX);
 
 				for(int32 X = IntMinX;X < IntMaxX;X++)
 				{
-					RasterPolicyType::ProcessPixel(X,IntY,MinInterpolant + DeltaInterpolant * (X - MinX),BackFacing);
+					RasterPolicyType::ProcessPixel(X,IntY,MinInterpolant + DeltaInterpolant * (X - LocalMinX),BackFacing);
 				}
 			}
 		}

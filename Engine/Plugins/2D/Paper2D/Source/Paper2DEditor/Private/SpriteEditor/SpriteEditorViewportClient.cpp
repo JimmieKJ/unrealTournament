@@ -362,6 +362,7 @@ void FSpriteEditorViewportClient::AnalyzeSpriteMaterialType(UPaperSprite* Sprite
 				case EBlendMode::BLEND_Translucent:
 				case EBlendMode::BLEND_Additive:
 				case EBlendMode::BLEND_Modulate:
+				case EBlendMode::BLEND_AlphaComposite:
 					NumTranslucentTriangles += NumTriangles;
 					break;
 				case EBlendMode::BLEND_Masked:
@@ -470,7 +471,7 @@ void FSpriteEditorViewportClient::DrawBoundsAsText(FViewport& InViewport, FScene
 	YPos += 18;
 }
 
-void FSpriteEditorViewportClient::DrawCanvas(FViewport& Viewport, FSceneView& View, FCanvas& Canvas)
+void FSpriteEditorViewportClient::DrawCanvas(FViewport& InViewport, FSceneView& View, FCanvas& Canvas)
 {
 	const bool bIsHitTesting = Canvas.IsHitTesting();
 	if (!bIsHitTesting)
@@ -508,14 +509,14 @@ void FSpriteEditorViewportClient::DrawCanvas(FViewport& Viewport, FSceneView& Vi
 		// Baked collision data
 		if (Sprite->BodySetup != nullptr)
 		{
-			FSpriteGeometryEditMode::DrawCollisionStats(Viewport, View, Canvas, Sprite->BodySetup, /*inout*/ YPos);
+			FSpriteGeometryEditMode::DrawCollisionStats(InViewport, View, Canvas, Sprite->BodySetup, /*inout*/ YPos);
 		}
 
 		// Baked render data
-		DrawRenderStats(Viewport, View, Canvas, Sprite, /*inout*/ YPos);
+		DrawRenderStats(InViewport, View, Canvas, Sprite, /*inout*/ YPos);
 
 		// And bounds
-		DrawBoundsAsText(Viewport, View, Canvas, /*inout*/ YPos);
+		DrawBoundsAsText(InViewport, View, Canvas, /*inout*/ YPos);
 
 		break;
 	case ESpriteEditorMode::EditCollisionMode:
@@ -524,8 +525,8 @@ void FSpriteEditorViewportClient::DrawCanvas(FViewport& Viewport, FSceneView& Vi
 			YPos += 60; //@TODO: Need a better way to determine this from the editor mode
 			if (Sprite->BodySetup != nullptr)
 			{
-				FSpriteGeometryEditMode::DrawGeometryStats(Viewport, View, Canvas, Sprite->CollisionGeometry, false, /*inout*/ YPos);
-				FSpriteGeometryEditMode::DrawCollisionStats(Viewport, View, Canvas, Sprite->BodySetup, /*inout*/ YPos);
+				FSpriteGeometryEditMode::DrawGeometryStats(InViewport, View, Canvas, Sprite->CollisionGeometry, false, /*inout*/ YPos);
+				FSpriteGeometryEditMode::DrawCollisionStats(InViewport, View, Canvas, Sprite->BodySetup, /*inout*/ YPos);
 			}
 			else
 			{
@@ -539,11 +540,11 @@ void FSpriteEditorViewportClient::DrawCanvas(FViewport& Viewport, FSceneView& Vi
 		{
 			// Draw the render geometry stats
 			YPos += 60; //@TODO: Need a better way to determine this from the editor mode
-			FSpriteGeometryEditMode::DrawGeometryStats(Viewport, View, Canvas, Sprite->RenderGeometry, true, /*inout*/ YPos);
-			DrawRenderStats(Viewport, View, Canvas, Sprite, /*inout*/ YPos);
+			FSpriteGeometryEditMode::DrawGeometryStats(InViewport, View, Canvas, Sprite->RenderGeometry, true, /*inout*/ YPos);
+			DrawRenderStats(InViewport, View, Canvas, Sprite, /*inout*/ YPos);
 
 			// And bounds
-			DrawBoundsAsText(Viewport, View, Canvas, /*inout*/ YPos);
+			DrawBoundsAsText(InViewport, View, Canvas, /*inout*/ YPos);
 		}
 		break;
 	case ESpriteEditorMode::EditSourceRegionMode:
@@ -558,10 +559,10 @@ void FSpriteEditorViewportClient::DrawCanvas(FViewport& Viewport, FSceneView& Vi
 
 			if (bShowRelatedSprites)
 			{
-				DrawRelatedSprites(Viewport, View, Canvas, SpriteEditingConstants::SourceRegionRelatedBoundsColor, SpriteEditingConstants::SourceRegionRelatedSpriteNameColor);
+				DrawRelatedSprites(InViewport, View, Canvas, SpriteEditingConstants::SourceRegionRelatedBoundsColor, SpriteEditingConstants::SourceRegionRelatedSpriteNameColor);
 			}
 
-			DrawSourceRegion(Viewport, View, Canvas, SpriteEditingConstants::SourceRegionBoundsColor);
+			DrawSourceRegion(InViewport, View, Canvas, SpriteEditingConstants::SourceRegionBoundsColor);
 		}
 		break;
 	}
@@ -569,10 +570,10 @@ void FSpriteEditorViewportClient::DrawCanvas(FViewport& Viewport, FSceneView& Vi
 	if (bShowSockets && !IsInSourceRegionEditMode())
 	{
 		FSpriteGeometryEditMode* GeometryEditMode = ModeTools->GetActiveModeTyped<FSpriteGeometryEditMode>(FSpriteGeometryEditMode::EM_SpriteGeometry);
-		FSocketEditingHelper::DrawSocketNames(GeometryEditMode, RenderSpriteComponent, Viewport, View, Canvas);
+		FSocketEditingHelper::DrawSocketNames(GeometryEditMode, RenderSpriteComponent, InViewport, View, Canvas);
 	}
 
-	FEditorViewportClient::DrawCanvas(Viewport, View, Canvas);
+	FEditorViewportClient::DrawCanvas(InViewport, View, Canvas);
 }
 
 void FSpriteEditorViewportClient::Draw(const FSceneView* View, FPrimitiveDrawInterface* PDI)
@@ -707,11 +708,11 @@ void FSpriteEditorViewportClient::UpdateRelatedSpritesList()
 				continue;
 			}
 
-			const FString* SourceUVString = SpriteAsset.TagsAndValues.Find("SourceUV");
-			const FString* SourceDimensionString = SpriteAsset.TagsAndValues.Find("SourceDimension");
-			FVector2D SourceUV, SourceDimension;
-			if (SourceUVString != nullptr && SourceDimensionString != nullptr)
+			const FString SourceUVString = SpriteAsset.GetTagValueRef<FString>("SourceUV");
+			const FString SourceDimensionString = SpriteAsset.GetTagValueRef<FString>("SourceDimension");
+			if (!SourceUVString.IsEmpty() && !SourceDimensionString.IsEmpty())
 			{
+				FVector2D SourceUV, SourceDimension;
 				if (SourceUV.InitFromString(*SourceUVString) && SourceDimension.InitFromString(*SourceDimensionString))
 				{
 					FRelatedSprite RelatedSprite;
@@ -833,10 +834,10 @@ UPaperSprite* FSpriteEditorViewportClient::CreateNewSprite(const FIntPoint& TopL
 	return CreatedSprite;
 }
 
-bool FSpriteEditorViewportClient::InputKey(FViewport* Viewport, int32 ControllerId, FKey Key, EInputEvent Event, float AmountDepressed, bool bGamepad)
+bool FSpriteEditorViewportClient::InputKey(FViewport* InViewport, int32 ControllerId, FKey Key, EInputEvent Event, float AmountDepressed, bool bGamepad)
 {
 	bool bHandled = false;
-	FInputEventState InputState(Viewport, Key, Event);
+	FInputEventState InputState(InViewport, Key, Event);
 
 	// Handle marquee tracking in source region edit mode
 	if (IsInSourceRegionEditMode())
@@ -845,7 +846,7 @@ bool FSpriteEditorViewportClient::InputKey(FViewport* Viewport, int32 Controller
 		check(GeometryEditMode);
 
 		const bool bMarqueeStartModifier = InputState.IsCtrlButtonPressed();
-		if (GeometryEditMode->ProcessMarquee(Viewport, Key, Event, bMarqueeStartModifier))
+		if (GeometryEditMode->ProcessMarquee(InViewport, Key, Event, bMarqueeStartModifier))
 		{
 			FIntPoint TextureSpaceStartPos;
 			FIntPoint TextureSpaceDimensions;
@@ -858,7 +859,7 @@ bool FSpriteEditorViewportClient::InputKey(FViewport* Viewport, int32 Controller
 	}
 	
 	// Pass keys to standard controls, if we didn't consume input
-	return (bHandled) ? true : FEditorViewportClient::InputKey(Viewport, ControllerId, Key, Event, AmountDepressed, bGamepad);
+	return (bHandled) ? true : FEditorViewportClient::InputKey(InViewport, ControllerId, Key, Event, AmountDepressed, bGamepad);
 }
 
 void FSpriteEditorViewportClient::TrackingStarted(const struct FInputEventState& InInputState, bool bIsDragging, bool bNudge)

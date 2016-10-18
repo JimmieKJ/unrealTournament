@@ -9,8 +9,9 @@
 #include "CoreNet.h"
 #include "Engine/EngineTypes.h"
 
-class FOutBunch;
-class FInBunch;
+class FNetFieldExportGroup;
+class UPackageMapClient;
+class UNetConnection;
 
 class FRepChangedParent
 {
@@ -96,32 +97,31 @@ public:
 	bool				Resend;
 };
 
-class FUnmappedGuidMgrElement
+class FGuidReferences;
+
+typedef TMap< int32, FGuidReferences > FGuidReferencesMap;
+
+class FGuidReferences
 {
 public:
-	FUnmappedGuidMgrElement() : NumBufferBits( 0 ), Array( NULL ) {}
-	FUnmappedGuidMgrElement( FBitReader & InReader, FBitReaderMark & InMark, const TArray< FNetworkGUID > & InUnmappedGUIDs, const int32 InParentIndex, const int32 InCmdIndex ) : UnmappedGUIDs( InUnmappedGUIDs ), Array( NULL ), ParentIndex( InParentIndex ), CmdIndex( InCmdIndex ) 
+	FGuidReferences() : NumBufferBits( 0 ), Array( NULL ) {}
+	FGuidReferences( FBitReader& InReader, FBitReaderMark& InMark, const TSet< FNetworkGUID >& InUnmappedGUIDs, const TSet< FNetworkGUID >& InMappedDynamicGUIDs, const int32 InParentIndex, const int32 InCmdIndex ) : UnmappedGUIDs( InUnmappedGUIDs ), MappedDynamicGUIDs( InMappedDynamicGUIDs ), Array( NULL ), ParentIndex( InParentIndex ), CmdIndex( InCmdIndex )
 	{
 		NumBufferBits = InReader.GetPosBits() - InMark.GetPos();
 		InMark.Copy( InReader, Buffer );
 	}
-	FUnmappedGuidMgrElement( class FUnmappedGuidMgr * InArray, const int32 InParentIndex, const int32 InCmdIndex ) : NumBufferBits( 0 ), Array( InArray ), ParentIndex( InParentIndex ), CmdIndex( InCmdIndex ) {}
+	FGuidReferences( FGuidReferencesMap* InArray, const int32 InParentIndex, const int32 InCmdIndex ) : NumBufferBits( 0 ), Array( InArray ), ParentIndex( InParentIndex ), CmdIndex( InCmdIndex ) {}
 
-	~FUnmappedGuidMgrElement();
+	~FGuidReferences();
 
-	TArray< FNetworkGUID >		UnmappedGUIDs;
+	TSet< FNetworkGUID >		UnmappedGUIDs;
+	TSet< FNetworkGUID >		MappedDynamicGUIDs;
 	TArray< uint8 >				Buffer;
 	int32						NumBufferBits;
 
-	class FUnmappedGuidMgr *	Array;
+	FGuidReferencesMap*			Array;
 	int32						ParentIndex;
 	int32						CmdIndex;
-};
-
-class FUnmappedGuidMgr
-{
-public:
-	TMap< int32, FUnmappedGuidMgrElement > Map;
 };
 
 /** FRepState
@@ -142,9 +142,10 @@ public:
 
 	~FRepState();
 
-	TArray< uint8 >				StaticBuffer;
+	// Properties will be copied in here so memory needs aligned to largest type
+	TArray< uint8, TAlignedHeapAllocator<16> >				StaticBuffer;
 
-	FUnmappedGuidMgr			UnmappedGuids;
+	FGuidReferencesMap			GuidReferencesMap;
 
 	TSharedPtr< FRepLayout >	RepLayout;
 	
@@ -169,6 +170,8 @@ public:
 	TArray< uint16 >				ConditionalLifetime;		// Properties the need to be checked conditionally (based on net initial, role, etc)
 	FReplicationFlags				RepFlags;
 	uint32							ActiveStatusChanged;
+
+	TArray< uint16 >				LifetimeChangelist;			// This is the unique list of properties that have changed since the channel was first opened
 };
 
 enum ERepLayoutCmdType
@@ -233,13 +236,14 @@ public:
 class FRepLayoutCmd
 {
 public:
-	UProperty * Property;		// Pointer back to property, used for NetSerialize calls, etc.
+	UProperty * Property;			// Pointer back to property, used for NetSerialize calls, etc.
 	uint8		Type;
-	uint16		EndCmd;			// For arrays, this is the cmd index to jump to, to skip this arrays inner elements
-	uint16		ElementSize;	// For arrays, element size of data
-	int32		Offset;			// Absolute offset of property
-	uint16		RelativeHandle;	// Handle relative to start of array, or top list
-	uint16		ParentIndex;	// Index into Parents
+	uint16		EndCmd;				// For arrays, this is the cmd index to jump to, to skip this arrays inner elements
+	uint16		ElementSize;		// For arrays, element size of data
+	int32		Offset;				// Absolute offset of property
+	uint16		RelativeHandle;		// Handle relative to start of array, or top list
+	uint16		ParentIndex;		// Index into Parents
+	uint32		CompatibleChecksum;	// Used to determine if property is still compatible
 };
 
 class FRepWriterState
@@ -266,6 +270,7 @@ public:
 class FRepLayout
 {
 	friend class FRepState;
+	friend class UPackageMapClient;
 
 public:
 	FRepLayout() : FirstNonCustomParent( 0 ), RoleIndex( -1 ), RemoteRoleIndex( -1 ), Owner( NULL ) {}
@@ -280,23 +285,13 @@ public:
 
 	void InitChangedTracker( FRepChangedPropertyTracker * ChangedTracker ) const;
 
-	void WritePropertyHeader( 
-		UObject *			Object,
-		UClass *			ObjectClass,
-		UActorChannel *		OwningChannel,
-		UProperty *			Property, 
-		FOutBunch &			Bunch, 
-		uint32				ArrayIndex, 
-		bool &				bContentBlockWritten ) const;
-
 	bool ReplicateProperties( 
 		FRepState * RESTRICT		RepState, 
 		const uint8* RESTRICT		Data, 
 		UClass *					ObjectClass,
 		UActorChannel *				OwningChannel,
-		FOutBunch &					Writer, 
-		const FReplicationFlags &	RepFlags,
-		bool &						bContentBlockWritten ) const;
+		FNetBitWriter&				Writer, 
+		const FReplicationFlags &	RepFlags ) const;
 
 	void SendProperties( 
 		FRepState *	RESTRICT		RepState, 
@@ -304,13 +299,17 @@ public:
 		const uint8* RESTRICT		Data, 
 		UClass *					ObjectClass,
 		UActorChannel *				OwningChannel,
-		FOutBunch &					Writer, 
-		TArray< uint16 >	 &		Changed, 
-		bool &						bContentBlockWritten ) const;
+		FNetBitWriter&				Writer,
+		TArray< uint16 >&			Changed ) const;
 
 	ENGINE_API void InitFromObjectClass( UClass * InObjectClass );
 
-	bool ReceiveProperties( UClass * InObjectClass, FRepState * RESTRICT RepState, void* RESTRICT Data, FNetBitReader & InBunch, bool & bOutHasUnmapped, const bool bEnableRepNotifies ) const;
+	bool ReceiveProperties( UActorChannel* OwningChannel, UClass * InObjectClass, FRepState * RESTRICT RepState, void* RESTRICT Data, FNetBitReader & InBunch, bool & bOutHasUnmapped, const bool bEnableRepNotifies, bool& bOutGuidsChanged ) const;
+
+	void GatherGuidReferences( FRepState* RepState, TSet< FNetworkGUID >& OutReferencedGuids, int32& OutTrackedGuidMemoryBytes ) const;
+
+	bool MoveMappedObjectToUnmapped( FRepState* RepState, const FNetworkGUID& GUID ) const;
+
 	void UpdateUnmappedObjects( FRepState *	RepState, UPackageMap * PackageMap, UObject* Object, bool & bOutSomeObjectsWereMapped, bool & bOutHasMoreUnmapped ) const;
 
 	void CallRepNotifies( FRepState * RepState, UObject* Object ) const;
@@ -321,6 +320,8 @@ public:
 
 	void ValidateWithChecksum( const void* RESTRICT Data, FArchive & Ar ) const;
 	uint32 GenerateChecksum( const FRepState* RepState ) const;
+
+	void PruneChangeList( FRepState * RepState, const void* RESTRICT Data, const TArray< uint16 >& Changed, TArray< uint16 >& PrunedChanged ) const;
 
 	void MergeDirtyList( FRepState * RepState, const void* RESTRICT Data, const TArray< uint16 > & Dirty1, const TArray< uint16 > & Dirty2, TArray< uint16 > & MergedDirty ) const;
 
@@ -340,8 +341,23 @@ public:
 	// Serializes all replicated properties of a UObject in or out of an archive (depending on what type of archive it is)
 	ENGINE_API void SerializeObjectReplicatedProperties(UObject* Object, FArchive & Ar) const;
 
-	void WriteNetworkChecksum( FOutBunch& Bunch );
-	bool ReadNetworkChecksum( FInBunch& Bunch );
+	UObject* GetOwner() const { return Owner; }
+
+	void SendProperties_BackwardsCompatible(
+		FRepState* RESTRICT			RepState,
+		const uint8* RESTRICT		Data,
+		UNetConnection*				Connection,
+		FNetBitWriter&				Writer,
+		TArray< uint16 >&			Changed ) const;
+
+	bool ReceiveProperties_BackwardsCompatible(
+		UNetConnection*				Connection,
+		FRepState* RESTRICT			RepState,
+		void* RESTRICT				Data,
+		FNetBitReader&				InBunch,
+		bool&						bOutHasUnmapped,
+		const bool					bEnableRepNotifies,
+		bool&						bOutGuidsChanged ) const;
 
 private:
 	void RebuildConditionalProperties( FRepState * RESTRICT	RepState, const FRepChangedPropertyTracker& ChangedTracker, const FReplicationFlags& RepFlags ) const;
@@ -406,16 +422,59 @@ private:
 		const uint8* RESTRICT		Data, 
 		uint16						Handle ) const;
 
-	void UpdateUnmappedObjects_r( 
-		FRepState *			RepState, 
-		FUnmappedGuidMgr *	UnmappedGuids, 
-		UObject *			OriginalObject,
-		UPackageMap *		PackageMap, 
-		uint8* RESTRICT		StoredData, 
-		uint8* RESTRICT		Data, 
-		const int32			MaxAbsOffset,
-		bool &				bOutSomeObjectsWereMapped,
-		bool &				bOutHasMoreUnmapped ) const;
+	void SendProperties_BackwardsCompatible_DynamicArray_r(
+		FRepState *	RESTRICT		RepState,
+		FRepWriterState &			WriterState,
+		FNetBitWriter &				Writer,
+		UPackageMapClient*			PackageMapClient,
+		FNetFieldExportGroup*		NetFieldExportGroup,
+		const int32					CmdIndex,
+		const uint8* RESTRICT		StoredData,
+		const uint8* RESTRICT		Data ) const;
+
+	uint16 SendProperties_BackwardsCompatible_r(
+		FRepState *	RESTRICT		RepState,
+		FRepWriterState &			WriterState,
+		FNetBitWriter &				Writer,
+		UPackageMapClient*			PackageMapClient,
+		FNetFieldExportGroup*		NetFieldExportGroup,
+		const int32					CmdStart,
+		const int32					CmdEnd,
+		const uint8* RESTRICT		StoredData,
+		const uint8* RESTRICT		Data,
+		uint16						Handle ) const;
+
+	TSharedPtr< FNetFieldExportGroup > CreateNetfieldExportGroup() const;
+
+	int32 FindCompatibleProperty( const int32 CmdStart, const int32 CmdEnd, const uint32 Checksum ) const;
+
+	bool ReceiveProperties_BackwardsCompatible_r(
+		FRepState * RESTRICT	RepState,
+		FNetFieldExportGroup*	NetFieldExportGroup,
+		FNetBitReader &			Reader,
+		const int32				CmdStart,
+		const int32				CmdEnd,
+		uint8* RESTRICT			ShadowData,
+		uint8* RESTRICT			OldData,
+		uint8* RESTRICT			Data,
+		FGuidReferencesMap*		GuidReferencesMap,
+		bool&					bOutHasUnmapped,
+		bool&					bOutGuidsChanged ) const;
+
+	void GatherGuidReferences_r( FGuidReferencesMap* GuidReferencesMap, TSet< FNetworkGUID >& OutReferencedGuids, int32& OutTrackedGuidMemoryBytes ) const;
+
+	bool MoveMappedObjectToUnmapped_r( FGuidReferencesMap* GuidReferencesMap, const FNetworkGUID& GUID ) const;
+
+	void UpdateUnmappedObjects_r(
+		FRepState*				RepState, 
+		FGuidReferencesMap*		GuidReferencesMap,
+		UObject*				OriginalObject,
+		UPackageMap*			PackageMap, 
+		uint8* RESTRICT			StoredData, 
+		uint8* RESTRICT			Data, 
+		const int32				MaxAbsOffset,
+		bool&					bOutSomeObjectsWereMapped,
+		bool&					bOutHasMoreUnmapped ) const;
 
 	void ValidateWithChecksum_DynamicArray_r( const FRepLayoutCmd& Cmd, const int32 CmdIndex, const uint8* RESTRICT Data, FArchive & Ar ) const;
 	void ValidateWithChecksum_r( const int32 CmdStart, const int32 CmdEnd, const uint8* RESTRICT Data, FArchive & Ar ) const;
@@ -438,10 +497,10 @@ private:
 
 	uint16 AddParentProperty( UProperty * Property, int32 ArrayIndex );
 
-	int32 InitFromProperty_r( UProperty * Property, int32 Offset, int32 RelativeHandle, int32 ParentIndex );
+	int32 InitFromProperty_r( UProperty * Property, int32 Offset, int32 RelativeHandle, int32 ParentIndex, uint32 ParentChecksum, int32 StaticArrayIndex );
 
-	void AddPropertyCmd( UProperty * Property, int32 Offset, int32 RelativeHandle, int32 ParentIndex );
-	void AddArrayCmd( UArrayProperty * Property, int32 Offset, int32 RelativeHandle, int32 ParentIndex );
+	uint32 AddPropertyCmd( UProperty * Property, int32 Offset, int32 RelativeHandle, int32 ParentIndex, uint32 ParentChecksum, int32 StaticArrayIndex );
+	uint32 AddArrayCmd( UArrayProperty * Property, int32 Offset, int32 RelativeHandle, int32 ParentIndex, uint32 ParentChecksum, int32 StaticArrayIndex );
 	void AddReturnCmd();
 
 	void SerializeProperties_DynamicArray_r( 
@@ -458,6 +517,8 @@ private:
 		const int32			CmdEnd, 
 		void *				Data,
 		bool &				bHasUnmapped ) const;
+
+	void BuildChangeList_r( const int32 CmdStart, const int32 CmdEnd, uint8* Data, const int32 HandleOffset, TArray< uint16 >& Changed ) const;
 
 	void ConstructProperties( FRepState * RepState ) const;
 	void InitProperties( FRepState * RepState, uint8* Src ) const;

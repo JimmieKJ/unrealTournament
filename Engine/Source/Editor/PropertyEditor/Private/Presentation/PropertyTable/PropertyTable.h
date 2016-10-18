@@ -11,6 +11,7 @@ public:
 
 	virtual void Tick() override;
 
+	virtual void ForceRefresh() override;
 	virtual void RequestRefresh() override;
 
 	virtual class FNotifyHook* GetNotifyHook() const override;

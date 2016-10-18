@@ -144,9 +144,6 @@ class ENGINE_API UNavMeshRenderingComponent : public UPrimitiveComponent
 	GENERATED_UCLASS_BODY()
 
 public:
-	//~ Begin UObject Interface
-	virtual bool NeedsLoadForServer() const override;
-	//~ End UObject Interface
 	
 	//~ Begin UPrimitiveComponent Interface
 	virtual FPrimitiveSceneProxy* CreateSceneProxy() override;
@@ -177,9 +174,9 @@ protected:
 	FTimerHandle TimerHandle;
 };
 
-
 namespace FNavMeshRenderingHelpers
 {
-	void ENGINE_API AddVertex(FNavMeshSceneProxyData::FDebugMeshData& MeshData, const FVector& Pos, const FColor Color = FColor::White);
-	void ENGINE_API AddTriangle(FNavMeshSceneProxyData::FDebugMeshData& MeshData, int32 V0, int32 V1, int32 V2);
+	ENGINE_API void AddVertex(FNavMeshSceneProxyData::FDebugMeshData& MeshData, const FVector& Pos, const FColor Color = FColor::White);
+
+	ENGINE_API void AddTriangle(FNavMeshSceneProxyData::FDebugMeshData& MeshData, int32 V0, int32 V1, int32 V2);
 }

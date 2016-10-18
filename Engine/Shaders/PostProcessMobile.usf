@@ -19,12 +19,12 @@ float4 BloomThreshold;
 
 half FocusDistFar()
 {
-	return Frame.DepthOfFieldFocalDistance + Frame.DepthOfFieldFocalRegion;
+	return View.DepthOfFieldFocalDistance + View.DepthOfFieldFocalRegion;
 }
 
 half FocusDistNear()
 {
-	return Frame.DepthOfFieldFocalDistance;
+	return View.DepthOfFieldFocalDistance;
 }
 
 // Alpha = 0.5 is full size, >0.5 rate at which near and far hit maximum.
@@ -44,17 +44,17 @@ half Coc(half Depth)
 
 float ComputeDOFNearFocalMask(float SceneDepth)
 {
-	float NearFocalPlane = Frame.DepthOfFieldFocalDistance;
+	float NearFocalPlane = View.DepthOfFieldFocalDistance;
 
-	return saturate((NearFocalPlane - SceneDepth) / Frame.DepthOfFieldNearTransitionRegion);
+	return saturate((NearFocalPlane - SceneDepth) / View.DepthOfFieldNearTransitionRegion);
 }
 
 // todo move to central place
 float ComputeDOFFarFocalMask(float SceneDepth)
 {
-	float FarFocalPlane = Frame.DepthOfFieldFocalDistance + Frame.DepthOfFieldFocalRegion;
+	float FarFocalPlane = View.DepthOfFieldFocalDistance + View.DepthOfFieldFocalRegion;
 
-	return saturate((SceneDepth - FarFocalPlane) / Frame.DepthOfFieldFarTransitionRegion);
+	return saturate((SceneDepth - FarFocalPlane) / View.DepthOfFieldFarTransitionRegion);
 }
 
 // Returns 0=max near DOF, 0.5=in focus, 1.0=max far DOF
@@ -80,14 +80,14 @@ half2 SunConstDepthMaskScaleBias()
 }
 
 // Note: alpha is preserved when no encoding is active.
-float4 HDREncode(float4 color)
+half4 HDREncode(half4 color)
 {
-	return Encode32BPPHDR(color, float2(0, 0));
+	return Encode32BPPHDR(color, half2(0, 0));
 }
 
-float3 HDRDecode(float4 encodedhdr)
+half3 HDRDecode(half4 encodedhdr)
 {
-	return Decode32BPPHDR(encodedhdr);
+	return Decode32BPPHDR(encodedhdr).rgb;
 }
 
 //
@@ -325,6 +325,7 @@ void BloomSmallPS_ES2(
 	half BloomLuminance = TotalLuminance - BloomThreshold.x;
 	half Amount = saturate(BloomLuminance * 0.5f);
 	OutColor.rgb *= Amount;
+	OutColor.a = 0;
 }
 
 
@@ -405,6 +406,7 @@ void BloomDownPS_ES2(
 		(HDRDecode(N12) * W) +
 		(HDRDecode(N13) * W) +
 		(HDRDecode(N14) * W);
+	OutColor.a = 0;
 
 	OutColor = HDREncode(OutColor);
 }
@@ -503,6 +505,7 @@ void BloomUpPS_ES2(
 		B5 * WB + 
 		B6 * WB + 
 		B7 * WB;
+	OutColor.a = 0;
 
 	OutColor = HDREncode(OutColor);
 }
@@ -577,6 +580,7 @@ void DofNearPS_ES2(
 	half Out = (N0 * 0.25 + N1 + N2 + N3 + N4 + N5 + N6 + N7 + N8) / 8.25;
 	if(Out > 0.0) Out = sqrt(Out);
 	OutColor.r = Out;
+	OutColor.gba = 0;
 }
 
 
@@ -860,6 +864,7 @@ void SunAlphaPS_ES2(
 		SunUnBias(PostprocessInput0.Sample(PostprocessInput0Sampler, InUVs[6]).a) * 0.125 +
 		SunUnBias(PostprocessInput0.Sample(PostprocessInput0Sampler, InUVs[7]).a) * 0.125;
 	OutColor.r = HighlightCompression(OutColor.r);
+	OutColor.gba = 0;
 }
 
 
@@ -906,6 +911,7 @@ void SunBlurPS_ES2(
 		PostprocessInput0.Sample(PostprocessInput0Sampler, InUVs[5]).r * 0.125 +
 		PostprocessInput0.Sample(PostprocessInput0Sampler, InUVs[6]).r * 0.125 +
 		PostprocessInput0.Sample(PostprocessInput0Sampler, InUVs[7]).r * 0.125;
+	OutColor.gba = 0;
 }
 
 
@@ -1144,7 +1150,7 @@ void AaVS_ES2(
 	DrawRectangle(InPosition, InTexCoord, OutPosition, InTexCoord);
 
 	// AA texture coordinates.
-	float AaX = Frame.TemporalAAParams.x;
+	float AaX = View.TemporalAAParams.x;
 	// Y is flipped here in comparison with the coords in SceneVisibility (GL -y flip).
 	float2 Aa1 = float2(0.5,-0.0);
 	float2 Aa2 = float2(-0.0,0.5);
@@ -1201,5 +1207,6 @@ void AaPS_ES2(
 	half BlendFinal = saturate((LumaT - LumaM) * rcp(LumaP - LumaM));
 
 	OutColor.rgb = lerp(ColorM.rgb, ColorP.rgb, BlendFinal);
+	OutColor.a = 0;
 }
 

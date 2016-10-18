@@ -6,13 +6,14 @@
  */
 
 #pragma once
+
+#include "ThumbnailHelpers.h"
 #include "BlueprintThumbnailRenderer.generated.h"
 
 UCLASS(config=Editor,MinimalAPI)
 class UBlueprintThumbnailRenderer : public UDefaultSizedThumbnailRenderer
 {
 	GENERATED_UCLASS_BODY()
-
 
 	// Begin UThumbnailRenderer Object
 	virtual bool CanVisualizeAsset(UObject* Object) override;
@@ -27,6 +28,5 @@ class UBlueprintThumbnailRenderer : public UDefaultSizedThumbnailRenderer
 	void BlueprintChanged(class UBlueprint* Blueprint);
 
 private:
-	class FBlueprintThumbnailScene* ThumbnailScene;
+	TClassInstanceThumbnailScene<FBlueprintThumbnailScene, 400> ThumbnailScenes;
 };
-

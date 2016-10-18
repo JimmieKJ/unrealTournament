@@ -64,7 +64,7 @@ bool FDeferredShadingSceneRenderer::RenderLightMapDensities(FRHICommandListImmed
 				{
 					const FMeshBatchAndRelevance& MeshBatchAndRelevance = View.DynamicMeshElements[MeshBatchIndex];
 
-					if (MeshBatchAndRelevance.bHasOpaqueOrMaskedMaterial || ViewFamily.EngineShowFlags.Wireframe)
+					if (MeshBatchAndRelevance.GetHasOpaqueOrMaskedMaterial() || ViewFamily.EngineShowFlags.Wireframe)
 					{
 						const FMeshBatch& MeshBatch = *MeshBatchAndRelevance.Mesh;
 						FLightMapDensityDrawingPolicyFactory::DrawDynamicMesh(RHICmdList, View, Context, MeshBatch, false, true, MeshBatchAndRelevance.PrimitiveSceneProxy, MeshBatch.BatchHitProxyId);
@@ -109,10 +109,16 @@ bool FLightMapDensityDrawingPolicyFactory::DrawDynamicMesh(
 	// force simple lightmaps based on system settings
 	bool bAllowHighQualityLightMaps = AllowHighQualityLightmaps(FeatureLevel) && LightMapInteraction.AllowsHighQualityLightmaps();
 
-	if (bIsLitMaterial && PrimitiveSceneProxy && (LightMapInteraction.GetType() == LMIT_Texture))
+	static const auto CVarSupportLowQualityLightmaps = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.SupportLowQualityLightmaps"));
+	const bool bAllowLowQualityLightMaps = (!CVarSupportLowQualityLightmaps) || (CVarSupportLowQualityLightmaps->GetValueOnAnyThread() != 0);
+
+	if (bIsLitMaterial && PrimitiveSceneProxy && (LightMapInteraction.GetType() == LMIT_Texture || (PrimitiveSceneProxy->IsStatic() && PrimitiveSceneProxy->GetLightMapResolution() > 0)))
 	{
 		// Should this object be texture lightmapped? Ie, is lighting not built for it??
 		bool bUseDummyLightMapPolicy = Mesh.LCI == NULL || Mesh.LCI->GetLightMapInteraction(FeatureLevel).GetType() != LMIT_Texture;
+
+		//use dummy if we don't support either lightmap quality.
+		bUseDummyLightMapPolicy |= (!bAllowHighQualityLightMaps && !bAllowLowQualityLightMaps);
 		if (!bUseDummyLightMapPolicy)
 		{
 			if (bAllowHighQualityLightMaps)

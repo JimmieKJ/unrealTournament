@@ -8,6 +8,7 @@
 #include "PhysicsEngine/AggregateGeom.h"
 #include "Collision.h"
 #include "Engine/Polys.h"
+#include "PhysicsEngine/PhysXSupport.h"
 
 #define MIN_HULL_VERT_DISTANCE		(0.1f)
 #define MIN_HULL_VALID_DIMENSION	(0.5f)
@@ -347,7 +348,31 @@ FBox FKConvexElem::CalcAABB(const FTransform& BoneTM, const FVector& Scale3D) co
 	// Zero out rotation and location so we transform by scale along
 	const FTransform LocalToWorld = FTransform(FQuat::Identity, FVector::ZeroVector, Scale3D) * BoneTM;
 
-	return ElemBox.TransformBy(LocalToWorld);
+	return ElemBox.TransformBy(Transform * LocalToWorld);
+}
+
+void FKConvexElem::GetPlanes(TArray<FPlane>& Planes) const
+{
+#if WITH_PHYSX
+	if (ConvexMesh != nullptr)
+	{
+		Planes.Empty();
+
+		PxU32 NumPolys = ConvexMesh->getNbPolygons();
+		for (PxU32 PolyIndex = 0; PolyIndex < NumPolys; PolyIndex++)
+		{
+			PxHullPolygon Data;
+			bool bStatus = ConvexMesh->getPolygonData(PolyIndex, Data);
+			check(bStatus);
+
+			// Convert to UE type
+			FPlane Plane(Data.mPlane[0], Data.mPlane[1], Data.mPlane[2], -Data.mPlane[3]);
+
+			// Add to output array
+			Planes.Add(Plane);
+		}
+	}
+#endif // WITH_PHYSX
 }
 
 
@@ -417,7 +442,7 @@ static void AddEdgeIfNotPresent(TArray<int32>& Edges, int32 Edge0, int32 Edge1)
 	Edges.Add(Edge1);
 }
 
-#define LOCAL_EPS (0.01f)
+#define LOCAL_EPS SMALL_NUMBER
 
 void FKConvexElem::UpdateElemBox()
 {
@@ -511,7 +536,7 @@ bool FKConvexElem::HullFromPlanes(const TArray<FPlane>& InPlanes, const TArray<F
 	// We shouldn't have the same vertex multiple times (using AddVertexIfNotPresent above)
 	if(VertexData.Num() < 4)
 	{
-		return true;
+		return false;
 	}
 
 	// Check that not all vertices lie on a line (ie. find plane)
@@ -536,7 +561,7 @@ bool FKConvexElem::HullFromPlanes(const TArray<FPlane>& InPlanes, const TArray<F
 
 	if(!bFound)
 	{
-		return true;
+		return false;
 	}
 
 	// Now we check that not all vertices lie on a plane, by checking at least one lies off the plane we have formed.
@@ -558,7 +583,7 @@ bool FKConvexElem::HullFromPlanes(const TArray<FPlane>& InPlanes, const TArray<F
 	// If we did not find a vert off the line - discard this hull.
 	if(!bFound)
 	{
-		return true;
+		return false;
 	}
 
 	// calc bounding box of verts

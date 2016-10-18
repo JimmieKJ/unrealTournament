@@ -288,6 +288,78 @@ private:
 	float KernelWeights[MaxKernelExtend * MaxKernelExtend];
 };
 
+template <EMipGenAddressMode AddressMode>
+static FVector4 ComputeAlphaCoverage(const FVector4& Thresholds, const FVector4& Scales, const FImageView2D& SourceImageData)
+{
+	FVector4 Coverage(0, 0, 0, 0);
+
+	for (int32 y = 0; y < SourceImageData.SizeY; ++y)
+	{
+		for (int32 x = 0; x < SourceImageData.SizeX; ++x)
+		{
+			// Sample channel values at pixel neighborhood
+			FVector4 PixelValue (LookupSourceMip<AddressMode>(SourceImageData, x, y));
+
+			// Calculate coverage for each channel (if being used as an alpha mask)
+			for (int32 i = 0; i < 4; ++i)
+			{
+				// Skip channel if Threshold is 0
+				if (Thresholds[i] == 0)
+				{
+					continue;
+				}
+
+				if (PixelValue[i] * Scales[i] >= Thresholds[i])
+				{
+					++Coverage[i];
+				}
+			}
+		}
+	}
+
+	return Coverage / float(SourceImageData.SizeX * SourceImageData.SizeY);
+}
+
+template <EMipGenAddressMode AddressMode>
+static FVector4 ComputeAlphaScale(const FVector4& Coverages, const FVector4& AlphaThresholds, const FImageView2D& SourceImageData)
+{
+	FVector4 MinAlphaScales (0, 0, 0, 0);
+	FVector4 MaxAlphaScales (4, 4, 4, 4);
+	FVector4 AlphaScales (1, 1, 1, 1);
+
+	//Binary Search to find Alpha Scale
+	for (int32 i = 0; i < 8; ++i)
+	{
+		FVector4 ComputedCoverages = ComputeAlphaCoverage<AddressMode>(AlphaThresholds, AlphaScales, SourceImageData);
+
+		for (int32 j = 0; j < 4; ++j)
+		{
+			if (AlphaThresholds[j] == 0 || fabs(ComputedCoverages[j] - Coverages[j]) < KINDA_SMALL_NUMBER)
+			{
+				continue;
+			}
+
+			if (ComputedCoverages[j] < Coverages[j])
+			{
+				MinAlphaScales[j] = AlphaScales[j];
+			}
+			else if (ComputedCoverages[j] > Coverages[j])
+			{
+				MaxAlphaScales[j] = AlphaScales[j];
+			}
+
+			AlphaScales[j] = (MinAlphaScales[j] + MaxAlphaScales[j]) * 0.5f;
+		}
+
+		if (ComputedCoverages.Equals(Coverages))
+		{
+			break;
+		}
+	}
+
+	return AlphaScales;
+}
+
 
 /**
 * Generates a mip-map for an 2D B8G8R8A8 image using a 4x4 filter with sharpening
@@ -303,6 +375,8 @@ static void GenerateSharpenedMipB8G8R8A8Templ(
 	const FImageView2D& SourceImageData, 
 	FImageView2D& DestImageData, 
 	bool bDitherMipMapAlpha,
+	FVector4 AlphaCoverages,
+	FVector4 AlphaThresholds,
 	const FImageKernel2D& Kernel,
 	uint32 ScaleFactor,
 	bool bSharpenWithoutColorShift )
@@ -316,6 +390,12 @@ static void GenerateSharpenedMipB8G8R8A8Templ(
 	// Set up a random number stream for dithering.
 	FRandomStream RandomStream(0);
 
+	FVector4 AlphaScale(1, 1, 1, 1);
+	if (AlphaThresholds != FVector4(0,0,0,0))
+	{
+		AlphaScale = ComputeAlphaScale<AddressMode>(AlphaCoverages, AlphaThresholds, SourceImageData);
+	}
+	
 	for ( int32 DestY = 0;DestY < DestImageData.SizeY; DestY++ )
 	{
 		for ( int32 DestX = 0;DestX < DestImageData.SizeX; DestX++ )
@@ -374,14 +454,21 @@ static void GenerateSharpenedMipB8G8R8A8Templ(
 				}
 			}
 
+			// Apply computed alpha scales to each channel		
+			FilteredColor.R *= AlphaScale.X;
+			FilteredColor.G *= AlphaScale.Y;
+			FilteredColor.B *= AlphaScale.Z;
+			FilteredColor.A *= AlphaScale.W;
+
+
 			if ( bDitherMipMapAlpha )
 			{
 				// Dither the alpha of any pixel which passes an alpha threshold test.
-				const int32 AlphaThreshold = 5.0f / 255.0f;
+				const int32 DitherAlphaThreshold = 5.0f / 255.0f;
 				const float MinRandomAlpha = 85.0f;
 				const float MaxRandomAlpha = 255.0f;
 
-				if ( FilteredColor.A > AlphaThreshold )
+				if ( FilteredColor.A > DitherAlphaThreshold)
 				{
 					FilteredColor.A = FMath::TruncToInt( FMath::Lerp( MinRandomAlpha, MaxRandomAlpha, RandomStream.GetFraction() ) );
 				}
@@ -402,6 +489,8 @@ static void GenerateSharpenedMipB8G8R8A8(
 	FImageView2D& DestImageData, 
 	EMipGenAddressMode AddressMode, 
 	bool bDitherMipMapAlpha,
+	FVector4 AlphaCoverages,
+	FVector4 AlphaThresholds,
 	const FImageKernel2D &Kernel,
 	uint32 ScaleFactor,
 	bool bSharpenWithoutColorShift
@@ -410,13 +499,13 @@ static void GenerateSharpenedMipB8G8R8A8(
 	switch(AddressMode)
 	{
 	case MGTAM_Wrap:
-		GenerateSharpenedMipB8G8R8A8Templ<MGTAM_Wrap>(SourceImageData, DestImageData, bDitherMipMapAlpha, Kernel, ScaleFactor, bSharpenWithoutColorShift);
+		GenerateSharpenedMipB8G8R8A8Templ<MGTAM_Wrap>(SourceImageData, DestImageData, bDitherMipMapAlpha, AlphaCoverages, AlphaThresholds, Kernel, ScaleFactor, bSharpenWithoutColorShift);
 		break;
 	case MGTAM_Clamp:
-		GenerateSharpenedMipB8G8R8A8Templ<MGTAM_Clamp>(SourceImageData, DestImageData, bDitherMipMapAlpha, Kernel, ScaleFactor, bSharpenWithoutColorShift);
+		GenerateSharpenedMipB8G8R8A8Templ<MGTAM_Clamp>(SourceImageData, DestImageData, bDitherMipMapAlpha, AlphaCoverages, AlphaThresholds, Kernel, ScaleFactor, bSharpenWithoutColorShift);
 		break;
 	case MGTAM_BorderBlack:
-		GenerateSharpenedMipB8G8R8A8Templ<MGTAM_BorderBlack>(SourceImageData, DestImageData, bDitherMipMapAlpha, Kernel, ScaleFactor, bSharpenWithoutColorShift);
+		GenerateSharpenedMipB8G8R8A8Templ<MGTAM_BorderBlack>(SourceImageData, DestImageData, bDitherMipMapAlpha, AlphaCoverages, AlphaThresholds, Kernel, ScaleFactor, bSharpenWithoutColorShift);
 		break;
 	default:
 		check(0);
@@ -501,7 +590,7 @@ static void GenerateTopMip(const FImage& SrcImage, FImage& DestImage, const FTex
 	// /2 as input resolution is same as output resolution and the settings assumed the output is half resolution
 	KernelDownsample.BuildSeparatableGaussWithSharpen( FMath::Max( 2u, Settings.SharpenMipKernelSize / 2 ), Settings.MipSharpening );
 	
-	DestImage.Init(SrcImage.SizeX, SrcImage.SizeY, SrcImage.Format, SrcImage.GammaSpace);
+	DestImage.Init(SrcImage.SizeX, SrcImage.SizeY, SrcImage.NumSlices, SrcImage.Format, SrcImage.GammaSpace);
 
 	for (int32 SliceIndex = 0; SliceIndex < SrcImage.NumSlices; ++SliceIndex)
 	{
@@ -514,6 +603,8 @@ static void GenerateTopMip(const FImage& SrcImage, FImage& DestImage, const FTex
 			DestView,
 			AddressMode,
 			Settings.bDitherMipMapAlpha,
+			FVector4(0, 0, 0, 0),
+			FVector4(0, 0, 0, 0),
 			KernelDownsample,
 			1,
 			Settings.bSharpenWithoutColorShift
@@ -542,6 +633,8 @@ static void GenerateMipChain(
 	const int32 SrcHeight= BaseMip.SizeY;
 	const int32 SrcNumSlices = BaseMip.NumSlices;
 	const ERawImageFormat::Type ImageFormat = ERawImageFormat::RGBA32F;
+	FVector4 AlphaScales(1, 1, 1, 1);
+	FVector4 AlphaCoverages(0, 0, 0, 0);
 
 	// space for one source mip and one destination mip
 	FImage IntermediateSrc(SrcWidth, SrcHeight, SrcNumSlices, ImageFormat);
@@ -563,6 +656,26 @@ static void GenerateMipChain(
 		bReDrawBorder = !Settings.bBorderColorBlack;
 	}
 
+	// Calculate alpha coverage value to preserve along mip chain
+	if (Settings.AlphaCoverageThresholds != FVector4(0,0,0,0))
+	{
+		FImageView2D IntermediateSrcView(IntermediateSrc, 0);
+		switch (AddressMode)
+		{
+		case MGTAM_Wrap:
+			AlphaCoverages = ComputeAlphaCoverage<MGTAM_Wrap>(Settings.AlphaCoverageThresholds, AlphaScales, IntermediateSrcView);
+			break;
+		case MGTAM_Clamp:
+			AlphaCoverages = ComputeAlphaCoverage<MGTAM_Clamp>(Settings.AlphaCoverageThresholds, AlphaScales, IntermediateSrcView);
+			break;
+		case MGTAM_BorderBlack:
+			AlphaCoverages = ComputeAlphaCoverage<MGTAM_BorderBlack>(Settings.AlphaCoverageThresholds, AlphaScales, IntermediateSrcView);
+			break;
+		default:
+			check(0);
+		}		
+	}
+
 	// Generate mips
 	for (; MipChainDepth != 0 ; --MipChainDepth)
 	{
@@ -580,6 +693,8 @@ static void GenerateMipChain(
 				DestView,
 				AddressMode,
 				Settings.bDitherMipMapAlpha,
+				AlphaCoverages,
+				Settings.AlphaCoverageThresholds,
 				KernelDownsample,
 				2,
 				Settings.bSharpenWithoutColorShift
@@ -594,6 +709,8 @@ static void GenerateMipChain(
 					IntermediateDstView,
 					AddressMode,
 					Settings.bDitherMipMapAlpha,
+					AlphaCoverages,
+					Settings.AlphaCoverageThresholds,
 					KernelSimpleAverage,
 					2,
 					Settings.bSharpenWithoutColorShift

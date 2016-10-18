@@ -16,7 +16,7 @@ public:
 
 	struct FTrailRelaxCurveEditor: public FCurveOwnerInterface
 	{
-		FTrailRelaxCurveEditor(UAnimGraphNode_Trail* InGraphNode = NULL);
+		FTrailRelaxCurveEditor(UAnimGraphNode_Trail* InGraphNode = nullptr, TSharedPtr<IPropertyHandle> InTrailRelaxCurveHandle = TSharedPtr<IPropertyHandle>());
 		/** FCurveOwnerInterface interface */
 		virtual TArray<FRichCurveEditInfoConst> GetCurves() const override;
 		virtual TArray<FRichCurveEditInfo> GetCurves() override;
@@ -27,8 +27,8 @@ public:
 
 	private:
 		UAnimGraphNode_Trail* GraphNodeOwner;
+		TSharedPtr<IPropertyHandle> TrailRelaxCurveHandle;
 
 	} TrailRelaxCurveEditor;
-
 };
 

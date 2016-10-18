@@ -56,7 +56,7 @@ const FSlateBrush* FSlateGameResources::GetBrush( const FName PropertyName, cons
 	return FSlateStyleSet::GetBrush(PropertyName, Specifier);
 }
 
-const FSlateBrush* FSlateGameResources::GetOptionalBrush(const FName PropertyName, const ANSICHAR* Specifier, const FSlateBrush* const DefaultBrush) const
+const FSlateBrush* FSlateGameResources::GetOptionalBrush(const FName PropertyName, const ANSICHAR* Specifier, const FSlateBrush* const InDefaultBrush) const
 {
 	ensureMsgf(Specifier == NULL, TEXT("Attempting to look up resource (%s, %s). \n Specifiers not supported by Slate Resource Sets loaded from content browser."), *PropertyName.ToString(), Specifier);
 	FName CleanName = GetCleanName(PropertyName);
@@ -65,9 +65,9 @@ const FSlateBrush* FSlateGameResources::GetOptionalBrush(const FName PropertyNam
 	{
 		const USlateBrushAsset* BrushAsset = Cast<USlateBrushAsset>(*Resource);
 		ensureMsgf(BrushAsset, TEXT("Could not find resource '%s'"), *CleanName.ToString());
-		return BrushAsset ? &BrushAsset->Brush : DefaultBrush;
+		return BrushAsset ? &BrushAsset->Brush : InDefaultBrush;
 	}
-	return FSlateStyleSet::GetOptionalBrush(PropertyName, Specifier, DefaultBrush);
+	return FSlateStyleSet::GetOptionalBrush(PropertyName, Specifier, InDefaultBrush);
 }
 
 UCurveFloat* FSlateGameResources::GetCurveFloat( const FName AssetName ) const

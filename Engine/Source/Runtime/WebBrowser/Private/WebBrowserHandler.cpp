@@ -25,8 +25,7 @@ const FString CustomContentMethod(TEXT("X-GET-CUSTOM-CONTENT"));
 
 FWebBrowserHandler::FWebBrowserHandler(bool InUseTransparency)
 : bUseTransparency(InUseTransparency)
-{
-}
+{ }
 
 void FWebBrowserHandler::OnTitleChange(CefRefPtr<CefBrowser> Browser, const CefString& Title)
 {

@@ -92,7 +92,7 @@ public:
 
 	/**
 	 * Returns the capsule half-height scaled by the component scale. This includes both the cylinder and hemisphere cap.
-	 * @return The capsule radius scaled by the component scale.
+	 * @return The capsule half-height scaled by the component scale.
 	 */
 	UFUNCTION(BlueprintCallable, Category="Components|Capsule")
 	float GetScaledCapsuleHalfHeight() const;

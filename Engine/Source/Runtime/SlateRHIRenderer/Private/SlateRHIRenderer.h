@@ -163,7 +163,7 @@ public:
 	static FMatrix CreateProjectionMatrix( uint32 Width, uint32 Height );
 
 	/** FSlateRenderer interface */
-	virtual void Initialize() override;
+	virtual bool Initialize() override;
 	virtual void Destroy() override;
 	virtual FSlateDrawBuffer& GetDrawBuffer() override;
 	virtual void OnWindowDestroyed( const TSharedRef<SWindow>& InWindow ) override;
@@ -255,6 +255,12 @@ private:
 	 * @param WindowDrawBuffer	The buffer containing elements to draw 
 	 */
 	void DrawWindows_Private( FSlateDrawBuffer& InWindowDrawBuffer );
+
+	/**
+	 * Delete the updateable textures we've marked for delete that have already had their GPU resources released, but may
+	 * have already been used on the game thread at the time they were released.
+	 */
+	void CleanUpdatableTextures();
 
 private:
 	/** A mapping of SWindows to their RHI implementation */

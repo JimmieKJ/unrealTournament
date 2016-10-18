@@ -12,6 +12,7 @@ public:
 	virtual FColor GetTypeColor() const override { return FColor(255, 200, 200); }
 	virtual UClass* GetSupportedClass() const override { return UUserDefinedEnum::StaticClass(); }
 	virtual uint32 GetCategories() override { return EAssetTypeCategories::Blueprint; }
+	virtual bool CanLocalize() const override { return false; }
 
 	virtual void OpenAssetEditor( const TArray<UObject*>& InObjects, TSharedPtr<class IToolkitHost> EditWithinLevelEditor = TSharedPtr<IToolkitHost>() ) override;
 };

@@ -16,11 +16,22 @@ class UMaterialInstanceConstant : public UMaterialInstance
 {
 	GENERATED_UCLASS_BODY()
 
+#if WITH_EDITORONLY_DATA
+	/** Unique ID for this material instance's parameter set 
+	 *  Updated on changes in the editor to allow those changes to be detected */
+	UPROPERTY()
+	FGuid ParameterStateId;
+#endif
+
 #if WITH_EDITOR
 	/** For constructing new MICs. */
 	friend class UMaterialInstanceConstantFactoryNew;
 	/** For editing MICs. */
 	friend class UMaterialEditorInstanceConstant;
+
+#if WITH_EDITOR
+	virtual ENGINE_API void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
+#endif
 
 	/**
 	 * Set the parent of this material instance. This function may only be called in the Editor!

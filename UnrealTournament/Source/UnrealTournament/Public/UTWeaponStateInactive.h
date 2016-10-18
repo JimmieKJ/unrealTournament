@@ -25,6 +25,7 @@ class UNREALTOURNAMENT_API UUTWeaponStateInactive : public UUTWeaponState
 				GetOuterAUTWeapon()->FiringState[i]->WeaponBecameInactive();
 			}
 		}
+		GetOuterAUTWeapon()->ClearFireEvents();
 		Super::BeginState(PrevState);
 	}
 

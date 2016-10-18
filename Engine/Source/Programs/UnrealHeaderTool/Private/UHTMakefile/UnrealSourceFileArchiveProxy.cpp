@@ -69,7 +69,7 @@ FArchive& operator<<(FArchive& Ar, FUnrealSourceFileArchiveProxy& UnrealSourceFi
 FUnrealSourceFile* FUnrealSourceFileArchiveProxy::CreateUnrealSourceFile(FUHTMakefile& UHTMakefile)
 {
 	UPackage* Package = UHTMakefile.GetPackageByIndex(PackageIndex);
-	FUnrealSourceFile* UnrealSourceFile = new FUnrealSourceFile(Package, Filename, FString());
+	FUnrealSourceFile* UnrealSourceFile = new FUnrealSourceFile(Package, CopyTemp(Filename), FString());
 	UnrealSourceFile->SetGeneratedFilename(GeneratedFileName);
 	UnrealSourceFile->SetModuleRelativePath(ModuleRelativePath);
 	UnrealSourceFile->SetIncludePath(IncludePath);

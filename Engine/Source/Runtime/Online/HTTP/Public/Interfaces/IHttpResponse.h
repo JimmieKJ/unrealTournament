@@ -77,6 +77,8 @@ namespace EHttpResponseCodes
 		UriTooLong = 414,
 		// the server is refusing to service the request because the entity of the request is in a format not supported by the requested resource for the requested method.
 		UnsupportedMedia = 415,
+		// too many requests, the server is throttling
+		TooManyRequests = 429,
 		// the request should be retried after doing the appropriate action.
 		RetryWith = 449,
 		// the server encountered an unexpected condition that prevented it from fulfilling the request.

@@ -12,10 +12,34 @@ UComboBoxString::UComboBoxString(const FObjectInitializer& ObjectInitializer)
 {
 	SComboBox< TSharedPtr<FString> >::FArguments SlateDefaults;
 	WidgetStyle = *SlateDefaults._ComboBoxStyle;
+	ItemStyle = *SlateDefaults._ItemStyle;
+	ItemStyle.SelectorFocusedBrush.TintColor = ItemStyle.SelectorFocusedBrush.TintColor.GetSpecifiedColor();
+	ItemStyle.ActiveHoveredBrush.TintColor = ItemStyle.ActiveHoveredBrush.TintColor.GetSpecifiedColor();
+	ItemStyle.ActiveBrush.TintColor = ItemStyle.ActiveBrush.TintColor.GetSpecifiedColor();
+	ItemStyle.InactiveHoveredBrush.TintColor = ItemStyle.InactiveHoveredBrush.TintColor.GetSpecifiedColor();
+	ItemStyle.InactiveBrush.TintColor = ItemStyle.InactiveBrush.TintColor.GetSpecifiedColor();
+	ItemStyle.EvenRowBackgroundHoveredBrush.TintColor = ItemStyle.EvenRowBackgroundHoveredBrush.TintColor.GetSpecifiedColor();
+	ItemStyle.EvenRowBackgroundBrush.TintColor = ItemStyle.EvenRowBackgroundBrush.TintColor.GetSpecifiedColor();
+	ItemStyle.OddRowBackgroundHoveredBrush.TintColor = ItemStyle.OddRowBackgroundHoveredBrush.TintColor.GetSpecifiedColor();
+	ItemStyle.OddRowBackgroundBrush.TintColor = ItemStyle.OddRowBackgroundBrush.TintColor.GetSpecifiedColor();
+	ItemStyle.TextColor = ItemStyle.TextColor.GetSpecifiedColor();
+	ItemStyle.SelectedTextColor = ItemStyle.SelectedTextColor.GetSpecifiedColor();
+	ItemStyle.DropIndicator_Above.TintColor = ItemStyle.DropIndicator_Above.TintColor.GetSpecifiedColor();
+	ItemStyle.DropIndicator_Onto.TintColor = ItemStyle.DropIndicator_Onto.TintColor.GetSpecifiedColor();
+	ItemStyle.DropIndicator_Below.TintColor = ItemStyle.DropIndicator_Below.TintColor.GetSpecifiedColor();
+
+	ForegroundColor = FLinearColor::Black;
 
 	ContentPadding = FMargin(4.0, 2.0);
 	MaxListHeight = 450.0f;
 	HasDownArrow = true;
+
+	// We don't want to try and load fonts on the server.
+	if ( !IsRunningDedicatedServer() )
+	{
+		static ConstructorHelpers::FObjectFinder<UFont> RobotoFontObj(TEXT("/Engine/EngineFonts/Roboto"));
+		Font = FSlateFontInfo(RobotoFontObj.Object, 16, FName("Bold"));
+	}
 }
 
 void UComboBoxString::ReleaseSlateResources(bool bReleaseChildren)
@@ -48,6 +72,8 @@ TSharedRef<SWidget> UComboBoxString::RebuildWidget()
 	MyComboBox =
 		SNew(SComboBox< TSharedPtr<FString> >)
 		.ComboBoxStyle(&WidgetStyle)
+		.ItemStyle(&ItemStyle)
+		.ForegroundColor(ForegroundColor)
 		.OptionsSource(&Options)
 		.InitiallySelectedItem(CurrentOptionPtr)
 		.ContentPadding(ContentPadding)
@@ -67,6 +93,11 @@ TSharedRef<SWidget> UComboBoxString::RebuildWidget()
 	}
 
 	return MyComboBox.ToSharedRef();
+}
+
+void UComboBoxString::SynchronizeProperties()
+{
+	Super::SynchronizeProperties();
 }
 
 void UComboBoxString::AddOption(const FString& Option)
@@ -162,15 +193,12 @@ void UComboBoxString::SetSelectedOption(FString Option)
 	if (InitialIndex != -1)
 	{
 		CurrentOptionPtr = Options[InitialIndex];
+		SelectedOption = Option;
 
 		if ( ComoboBoxContent.IsValid() )
 		{
 			MyComboBox->SetSelectedItem(CurrentOptionPtr);
 			ComoboBoxContent->SetContent(HandleGenerateWidget(CurrentOptionPtr));
-		}
-		else
-		{
-			SelectedOption = Option;
 		}
 	}
 }
@@ -204,12 +232,15 @@ TSharedRef<SWidget> UComboBoxString::HandleGenerateWidget(TSharedPtr<FString> It
 	}
 
 	// If a row wasn't generated just create the default one, a simple text block of the item's name.
-	return SNew(STextBlock).Text(FText::FromString(StringItem));
+	return SNew(STextBlock)
+		.Text(FText::FromString(StringItem))
+		.Font(Font);
 }
 
 void UComboBoxString::HandleSelectionChanged(TSharedPtr<FString> Item, ESelectInfo::Type SelectionType)
 {
 	CurrentOptionPtr = Item;
+	SelectedOption = CurrentOptionPtr.IsValid() ? CurrentOptionPtr.ToSharedRef().Get() : FString();
 
 	if ( !IsDesignTime() )
 	{

@@ -2,7 +2,6 @@
 
 #pragma once
 
-#include "LeapMotionPublicPCH.h"
 #include "LeapFingerList.generated.h"
 
 /**

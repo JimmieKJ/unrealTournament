@@ -4,7 +4,7 @@
 #include "UTLocalMessage.h"
 #include "UTPowerupUseMessage.h"
 #include "GameFramework/LocalMessage.h"
-#include "UTCTFRoundGameState.h"
+#include "UTFlagRunGameState.h"
 
 UUTPowerupUseMessage::UUTPowerupUseMessage(const class FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -62,7 +62,7 @@ void UUTPowerupUseMessage::PrecacheAnnouncements_Implementation(class UUTAnnounc
 {
 	if (Announcer && Announcer->GetWorld())
 	{
-		AUTCTFRoundGameState* UTGS = Cast<AUTCTFRoundGameState>(Announcer->GetWorld()->GetGameState());
+		AUTFlagRunGameState* UTGS = Cast<AUTFlagRunGameState>(Announcer->GetWorld()->GetGameState());
 		if (UTGS)
 		{
 			UTGS->PrecacheAllPowerupAnnouncements(Announcer);
@@ -80,12 +80,12 @@ float UUTPowerupUseMessage::GetAnnouncementDelay(int32 Switch)
 	return 0.f;
 }
 
-bool UUTPowerupUseMessage::InterruptAnnouncement_Implementation(int32 Switch, const UObject* OptionalObject, TSubclassOf<UUTLocalMessage> OtherMessageClass, int32 OtherSwitch, const UObject* OtherOptionalObject) const
+bool UUTPowerupUseMessage::InterruptAnnouncement(const FAnnouncementInfo AnnouncementInfo, const FAnnouncementInfo OtherAnnouncementInfo) const
 {
-	return (GetClass() == OtherMessageClass);
+	return (AnnouncementInfo.MessageClass == OtherAnnouncementInfo.MessageClass);
 }
 
-float UUTPowerupUseMessage::GetAnnouncementPriority(int32 Switch) const
+float UUTPowerupUseMessage::GetAnnouncementPriority(const FAnnouncementInfo AnnouncementInfo) const
 {
-	return (0.5f);
+	return 0.5f;
 }

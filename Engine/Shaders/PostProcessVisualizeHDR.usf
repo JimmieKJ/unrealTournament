@@ -201,7 +201,7 @@ void MainPS(noperspective float4 UVAndScreenPos : TEXCOORD0, float4 SvPosition :
 		OutColor = bChecker ? float4(0.2f,0,0,0) : float4(0,0.15f,0,0);
 		
 		// SceneColor overlay
-		OutColor += 0.1f * Texture2DSampleLevel(PostprocessInput0, PostprocessInput0Sampler, IDAreaLocalUV * Frame.ViewSizeAndInvSize.xy * Frame.BufferSizeAndInvSize.zw, 0);
+		OutColor += 0.1f * Texture2DSampleLevel(PostprocessInput0, PostprocessInput0Sampler, IDAreaLocalUV * View.ViewSizeAndInvSize.xy * View.BufferSizeAndInvSize.zw, 0);
 
 		// could be the same as (HistogramY < Value) but a bit more antialiased
 //		float HistogramMask = HistogramY < Value;

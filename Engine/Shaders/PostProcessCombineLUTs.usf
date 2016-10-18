@@ -1,4 +1,4 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	LUTBlender.usf: Filter pixel shader source.
@@ -113,11 +113,82 @@ float3 WhiteBalance( float3 LinearColor )
 	return mul( WhiteBalanceMat, LinearColor );
 }
 
-float3 ColorSaturation;
-float3 ColorContrast;
-float3 ColorGamma;
-float3 ColorGain;
-float3 ColorOffset;
+float4 ColorSaturation;
+float4 ColorContrast;
+float4 ColorGamma;
+float4 ColorGain;
+float4 ColorOffset;
+
+float4 ColorSaturationShadows;
+float4 ColorContrastShadows;
+float4 ColorGammaShadows;
+float4 ColorGainShadows;
+float4 ColorOffsetShadows;
+
+float4 ColorSaturationMidtones;
+float4 ColorContrastMidtones;
+float4 ColorGammaMidtones;
+float4 ColorGainMidtones;
+float4 ColorOffsetMidtones;
+
+float4 ColorSaturationHighlights;
+float4 ColorContrastHighlights;
+float4 ColorGammaHighlights;
+float4 ColorGainHighlights;
+float4 ColorOffsetHighlights;
+
+float3 ColorCorrect( float3 WorkingColor,
+	float4 ColorSaturation,
+	float4 ColorContrast,
+	float4 ColorGamma,
+	float4 ColorGain,
+	float4 ColorOffset )
+{
+	// TODO optimize
+	float Luma = dot( WorkingColor, AP1_RGB2Y );
+	WorkingColor = max( 0, lerp( Luma.xxx, WorkingColor, ColorSaturation.xyz*ColorSaturation.w ) );
+	WorkingColor = pow( WorkingColor * (1.0 / 0.18), ColorContrast.xyz*ColorContrast.w ) * 0.18;
+	WorkingColor = pow( WorkingColor, 1.0 / (ColorGamma.xyz*ColorGamma.w) );
+	WorkingColor = WorkingColor * (ColorGain.xyz * ColorGain.w) + (ColorOffset.xyz + ColorOffset.w);
+	return WorkingColor;
+}
+
+float3 ColorCorrectAll( float3 WorkingColor )
+{
+	float Luma = dot( WorkingColor, AP1_RGB2Y );
+
+	// Shadow CC
+	float3 CCColorShadows = ColorCorrect(WorkingColor, 
+		ColorSaturationShadows*ColorSaturation, 
+		ColorContrastShadows*ColorContrast, 
+		ColorGammaShadows*ColorGamma, 
+		ColorGainShadows*ColorGain, 
+		ColorOffsetShadows+ColorOffset);
+	float CCWeightShadows = 1- smoothstep(0, 0.09, Luma);
+	
+	// Highlight CC
+	float3 CCColorHighlights = ColorCorrect(WorkingColor, 
+		ColorSaturationHighlights*ColorSaturation, 
+		ColorContrastHighlights*ColorContrast, 
+		ColorGammaHighlights*ColorGamma, 
+		ColorGainHighlights*ColorGain, 
+		ColorOffsetHighlights+ColorOffset);
+	float CCWeightHighlights = smoothstep(0.5, 1, Luma);
+
+	// Midtone CC
+	float3 CCColorMidtones = ColorCorrect(WorkingColor, 
+		ColorSaturationMidtones*ColorSaturation, 
+		ColorContrastMidtones*ColorContrast, 
+		ColorGammaMidtones*ColorGamma, 
+		ColorGainMidtones*ColorGain, 
+		ColorOffsetMidtones+ColorOffset);
+	float CCWeightMidtones = 1 - CCWeightShadows - CCWeightHighlights;
+
+	// Blend Shadow, Midtone and Highlight CCs
+	float3 WorkingColorSMH = CCColorShadows*CCWeightShadows + CCColorMidtones*CCWeightMidtones + CCColorHighlights*CCWeightHighlights;
+	
+	return WorkingColorSMH;
+}
 
 float3 ColorGrade( float3 LinearColor )
 {
@@ -127,12 +198,8 @@ float3 ColorGrade( float3 LinearColor )
 
 	float3 WorkingColor = mul( sRGB_2_AP1, LinearColor );
 
-	// TODO optimize
-	float Luma = dot( WorkingColor, AP1_RGB2Y );
-	WorkingColor = max( 0, lerp( Luma.xxx, WorkingColor, ColorSaturation ) );
-	WorkingColor = pow( WorkingColor * (1.0 / 0.18), ColorContrast ) * 0.18;
-	WorkingColor = pow( WorkingColor, 1.0 / ColorGamma );
-	WorkingColor = WorkingColor * ColorGain + ColorOffset;
+	// Nuke-style Color Correct
+	WorkingColor = ColorCorrectAll(WorkingColor);
 
 #if 0
 	{
@@ -149,6 +216,18 @@ float3 ColorGrade( float3 LinearColor )
 }
 
 uint OutputDevice;
+uint OutputGamut;
+uint ACESInversion;
+
+uint GetOutputDevice()
+{
+#if FEATURE_LEVEL > FEATURE_LEVEL_ES3_1
+	return OutputDevice;
+#else
+	// Only sRGB output for Mobile
+	return 0;
+#endif 
+}
 
 // todo: Weight[0] should be used for neutral, Texture* name should start with 1, color correction should apply on top of that
 #if USE_VOLUME_LUT == 1
@@ -184,34 +263,46 @@ void MainPS(noperspective float4 InUV : TEXCOORD0, out float4 OutColor : SV_Targ
 	}
 #endif
 
-	float3 LogColor = Neutral.rgb;
-	
-	const float LinearRange = 14;
-	const float LinearGrey = 0.18;
-	const float ExposureGrey = 444;
+	// AP1 to Working space matrices
+	const float3x3 sRGB_2_AP1    = mul( XYZ_2_AP1_MAT, mul( D65_2_D60_CAT, sRGB_2_XYZ_MAT ) );
+	const float3x3 AP1_2_sRGB    = mul( XYZ_2_sRGB_MAT, mul( D60_2_D65_CAT, AP1_2_XYZ_MAT ) );
+	const float3x3 AP1_2_Output  = OuputGamutMappingMatrix( OutputGamut );
 
-	float3 LinearColor = exp2( ( LogColor - ExposureGrey / 1023.0 ) * LinearRange ) * LinearGrey;
-	//float3 LinearColor = 2 * ( pow(10.0, ((LogColor - 0.616596 - 0.03) / 0.432699)) - 0.037584 );	// SLog
-	//float3 LinearColor = ( pow( 10, ( 1023 * LogColor - 685 ) / 300) - .0108 ) / (1 - .0108);	// Cineon
-	//LinearColor = max( 0, LinearColor );
+	float3 LUTEncodedColor = Neutral.rgb;
+	float3 LinearColor;
+	// Decode texture values as ST-2084 (Dolby PQ)
+	if( GetOutputDevice() >= 3 )
+		LinearColor = ST2084ToLinear( LUTEncodedColor );
+	// Decode log values
+	else
+		LinearColor = LogToLin( LUTEncodedColor );
 
 	float3 BalancedColor = WhiteBalance( LinearColor );
 	float3 GradedColor = ColorGrade( BalancedColor );
-	float3 FilmColor = FilmToneMap( GradedColor );
-	
+
+	// Tonemapped color in the AP1 gamut
+	float3 FilmColorAP1 = FilmToneMap( GradedColor );
+
+	// Convert from AP1 to sRGB and clip out-of-gamut values
+	float3 FilmColor = max(0, mul( AP1_2_sRGB, FilmColorAP1 ));
+
+#if FEATURE_LEVEL > FEATURE_LEVEL_ES3_1 // Mobile path uses separate shader for legacy tone mapper
 	BRANCH
 	if( ColorShadow_Tint2.a == 0 )
 	{
 		// Legacy tone mapper
 		FilmColor = FilmPostProcess( GradedColor );
 	}
+#endif // FEATURE_LEVEL > FEATURE_LEVEL_ES3_1
 
 #if BLENDCOUNT > 1
 	{
 		// Legacy LDR LUT color grading
 
-		// FIXME LUTs are in sRGB space
-		half3 GammaColor = LinearToSrgbBranching( saturate( FilmColor ) );
+		// FIXME 
+		// LUTs are in sRGB transfer function space
+		// LUTs applied in sRGB gamut as well
+		half3 GammaColor = LinearToSrgb( saturate( FilmColor ) );
 
 		float3 UVW = GammaColor * (15.0 / 16.0) + (0.5f / 16.0);
 
@@ -234,8 +325,8 @@ void MainPS(noperspective float4 InUV : TEXCOORD0, out float4 OutColor : SV_Targ
 		GammaColor += LUTWeights[4] * UnwrappedTexture3DSample( Texture4, Texture4Sampler, UVW, 16 ).rgb;
 	#endif
 
-		// Back to linear space
-		FilmColor = sRGBToLinear( GammaColor );
+		// Back to linear space, AP1 gamut
+		FilmColor =  sRGBToLinear( GammaColor );
 	}
 #endif
 	
@@ -246,31 +337,86 @@ void MainPS(noperspective float4 InUV : TEXCOORD0, out float4 OutColor : SV_Targ
 	FilmColor = lerp( FilmColor * ColorScale, OverlayColor.rgb, OverlayColor.a );
 
 	// Apply "gamma" curve adjustment.
-	FilmColor = pow( FilmColor, InverseGamma.y );
+	FilmColor = pow( max(0, FilmColor), InverseGamma.y );
 		
 	half3 OutDeviceColor = 0;
 	BRANCH
-	if( OutputDevice == 0 )
-	{
+
+	// sRGB, user specified gamut
+	if( GetOutputDevice() == 0 )
+	{		
+		// Convert from sRGB to specified output gamut	
+		//float3 OutputGamutColor = mul( AP1_2_Output, mul( sRGB_2_AP1, FilmColor ) );
+
+		// FIXME: Workaround for UE-29935, pushing all colors with a 0 component to black output
+		// Default parameters seem to cancel out (sRGB->XYZ->AP1->XYZ->sRGB), so should be okay for a temp fix
+		float3 OutputGamutColor = FilmColor;
+
 		// Apply conversion to sRGB (this must be an exact sRGB conversion else darks are bad).
-		// Branching is faster than branchless on AMD on PC.
-		OutDeviceColor = LinearToSrgbBranching( FilmColor );
+		OutDeviceColor = LinearToSrgb( OutputGamutColor );
 	}
-	else if( OutputDevice == 1 )
+
+	// Rec 709, user specified gamut
+	else if( GetOutputDevice() == 1 )
 	{
+		// Convert from sRGB to specified output gamut
+		float3 OutputGamutColor = mul( AP1_2_Output, mul( sRGB_2_AP1, FilmColor ) );
+
 		// Didn't profile yet if the branching version would be faster (different linear segment).
-		OutDeviceColor = LinearTo709Branchless( FilmColor );
+		OutDeviceColor = LinearTo709Branchless( OutputGamutColor );
 	}
+
+	// r.Tonemapper2084 1 - ACES P3 D60 transform with PQ/2084 encoding, user specified gamut 
+	else if( GetOutputDevice() == 3 )
+	{		
+		// Use ACES_P3D60_PQ_2000nits instead of FilmToneMap, using linear GradedColor as input
+		float3 ODTColor = ACESOutputTransformsP3D60PQ2000( GradedColor );
+
+		// Convert from AP1 to specified output gamut
+		ODTColor = mul( AP1_2_Output, ODTColor );
+
+		// Apply conversion to ST-2084 (Dolby PQ)
+		OutDeviceColor = LinearToST2084( ODTColor );
+	}
+
+	// r.Tonemapper2084 2 - PQ/2084 encoding, user specified gamut 
+	else if( GetOutputDevice() == 4 )
+	{		
+		// Convert from sRGB to specified output gamut
+		float3 OutputGamutColor = mul( AP1_2_Output, mul( sRGB_2_AP1, GradedColor ) );
+
+		// Apply conversion to ST-2084 (Dolby PQ) with no prior tonemapping
+		OutDeviceColor = LinearToST2084( OutputGamutColor * 200. );
+	}
+
+	// r.Tonemapper2084 3 - Pseudo linearization of UE Tonemapped result with PQ/2084 encoding, user specified gamut 
+	else if( GetOutputDevice() == 5 )
+	{
+		float3 pseudoLinear = lerp( aces100nitFitInverse( FilmColorAP1 ), InverseACESOutputTransformsRGBD65( FilmColor ), ACESInversion);
+
+		// Convert from AP1 to specified output gamut
+		float3 OutputGamutColor = mul( AP1_2_Output, pseudoLinear );
+
+		// Apply conversion to ST-2084 (Dolby PQ)
+		OutDeviceColor = LinearToST2084( OutputGamutColor * 200. );
+	}
+
+	// OutputDevice == 2
+	// Gamma 2.2, user specified gamut
 	else
 	{
+		// Convert from sRGB to specified output gamut
+		float3 OutputGamutColor = mul( AP1_2_Output, mul( sRGB_2_AP1, FilmColor ) );
+
 		// This is different than the prior "gamma" curve adjustment (but reusing the variable).
 		// For displays set to a gamma colorspace.
 		// Note, MacOSX native output is raw gamma 2.2 not sRGB!
-		OutDeviceColor = pow( FilmColor, InverseGamma.z );
+		OutDeviceColor = pow( OutputGamutColor, InverseGamma.z );
 	}
 
 	// Better to saturate(lerp(a,b,t)) than lerp(saturate(a),saturate(b),t)
 	OutColor.rgb = OutDeviceColor / 1.05;
+	OutColor.a = 0;
 }
 
 

@@ -39,7 +39,7 @@ void UAbilityTask_WaitGameplayTagAdded::Activate()
 	Super::Activate();
 }
 
-void UAbilityTask_WaitGameplayTagAdded::GameplayTagCallback(const FGameplayTag Tag, int32 NewCount)
+void UAbilityTask_WaitGameplayTagAdded::GameplayTagCallback(const FGameplayTag InTag, int32 NewCount)
 {
 	if (NewCount==1)
 	{
@@ -85,7 +85,7 @@ void UAbilityTask_WaitGameplayTagRemoved::Activate()
 	Super::Activate();
 }
 
-void UAbilityTask_WaitGameplayTagRemoved::GameplayTagCallback(const FGameplayTag Tag, int32 NewCount)
+void UAbilityTask_WaitGameplayTagRemoved::GameplayTagCallback(const FGameplayTag InTag, int32 NewCount)
 {
 	if (NewCount==0)
 	{

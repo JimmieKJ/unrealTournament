@@ -249,6 +249,45 @@ struct FAutomationWorkerRunTests
 	{ }
 };
 
+USTRUCT()
+struct FAutomationWorkerEvent
+{
+	GENERATED_USTRUCT_BODY()
+
+	/** */
+	UPROPERTY(EditAnywhere, Category="Event")
+	FString Message;
+
+	/** */
+	UPROPERTY(EditAnywhere, Category="Event")
+	FString Context;
+
+	/** */
+	UPROPERTY(EditAnywhere, Category="Event")
+	FString Filename;
+
+	/** */
+	UPROPERTY(EditAnywhere, Category="Event")
+	int32 LineNumber;
+
+	FAutomationWorkerEvent()
+		: LineNumber(0)
+	{
+	}
+
+	FAutomationWorkerEvent(const FAutomationEvent& Event)
+		: Message(Event.Message)
+		, Context(Event.Context)
+		, Filename(Event.Filename)
+		, LineNumber(Event.LineNumber)
+	{
+	}
+
+	FAutomationEvent ToAutomationEvent() const
+	{
+		return FAutomationEvent(Message, Context, Filename, LineNumber);
+	}
+};
 
 /**
  * Implements a message that is sent in response to FAutomationWorkerRunTests.
@@ -264,7 +303,7 @@ struct FAutomationWorkerRunTestsReply
 
 	/** */
 	UPROPERTY(EditAnywhere, Category="Message")
-	TArray<FString> Errors;
+	TArray<FAutomationWorkerEvent> Errors;
 
 	/** */
 	UPROPERTY(EditAnywhere, Category="Message")

@@ -174,6 +174,12 @@ FText UK2Node_ExecutionSequence::GetNodeTitle(ENodeTitleType::Type TitleType) co
 	return NSLOCTEXT("K2Node", "Sequence", "Sequence");
 }
 
+FSlateIcon UK2Node_ExecutionSequence::GetIconAndTint(FLinearColor& OutColor) const
+{
+	static FSlateIcon Icon("EditorStyle", "GraphEditor.Sequence_16x");
+	return Icon;
+}
+
 FLinearColor UK2Node_ExecutionSequence::GetNodeTitleColor() const
 {
 	return FLinearColor::White;
@@ -213,8 +219,8 @@ void UK2Node_ExecutionSequence::RemovePinFromExecutionNode(UEdGraphPin* TargetPi
 	UK2Node_ExecutionSequence* OwningSeq = Cast<UK2Node_ExecutionSequence>( TargetPin->GetOwningNode() );
 	if (OwningSeq)
 	{
-		TargetPin->BreakAllPinLinks();
 		OwningSeq->Pins.Remove(TargetPin);
+		TargetPin->MarkPendingKill();
 
 		// Renumber the pins so the numbering is compact
 		const UEdGraphSchema_K2* K2Schema = GetDefault<UEdGraphSchema_K2>();

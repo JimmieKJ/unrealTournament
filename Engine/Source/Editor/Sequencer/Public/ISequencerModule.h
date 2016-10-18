@@ -69,6 +69,12 @@ struct FSequencerInitParams
 
 	/** Domain-specific spawn register for the movie scene */
 	TSharedPtr<IMovieSceneSpawnRegister> SpawnRegister;
+
+	/** Accessor for event contexts */
+	TAttribute<TArray<UObject*>> EventContexts;
+
+	/** Accessor for playback context */
+	TAttribute<UObject*> PlaybackContext;
 };
 
 
@@ -104,11 +110,18 @@ public:
 	virtual void UnRegisterTrackEditor_Handle(FDelegateHandle InHandle) = 0;
 
 	/**
+	* Get the extensibility manager for menus.
+	*
+	* @return ObjectBinding Context Menu extensibility manager.
+	*/
+	virtual TSharedPtr<FExtensibilityManager> GetObjectBindingContextMenuExtensibilityManager() const = 0;
+
+	/**
 	 * Get the extensibility manager for menus.
 	 *
-	 * @return Menu extensibility manager.
+	 * @return Add Track Menu extensibility manager.
 	 */
-	virtual TSharedPtr<FExtensibilityManager> GetMenuExtensibilityManager() const = 0;
+	virtual TSharedPtr<FExtensibilityManager> GetAddTrackMenuExtensibilityManager() const = 0;
 
 	/**
 	 * Get the extensibility manager for toolbars.

@@ -35,9 +35,10 @@ public:
 	/** 
 	 * Synchronously checks the cache and if the item is present, it returns the cached results, otherwise tells the deriver to build the data and then updates the cache
 	 * @param	DataDeriver	plugin to produce cache key and in the event of a miss, return the data.
+	 * @param	bDataWasBuilt if non-null, set to true if the data returned had to be built instead of retrieved from the DDC. Used for stat tracking.
 	 * @return	true if the data was retrieved from the cache or the deriver built the data sucessfully. false can only occur if the plugin returns false.
 	**/
-	virtual bool GetSynchronous(class FDerivedDataPluginInterface* DataDeriver, TArray<uint8>& OutData) = 0;
+	virtual bool GetSynchronous(class FDerivedDataPluginInterface* DataDeriver, TArray<uint8>& OutData, bool* bDataWasBuilt = nullptr) = 0;
 
 	/** 
 	 * Starts the async process of checking the cache and if the item is present, retrieving the cached results, otherwise telling the deriver to build the data and then updating the cache
@@ -61,9 +62,10 @@ public:
 	 * Retrieves the results from an async lookup / build. MUST only be called after the results are known to be ready by one of the aforementioned calls.
 	 * @param	Handle	Handle returned from GetAsynchronous.
 	 * @param	OutData	Array to receive the output results.
+	 * @param	bDataWasBuilt if non-null, set to true if the data returned had to be built instead of retrieved from the DDC. Used for stat tracking.
 	 * @return			true if the data was retrieved from the cache or the deriver built the data successfully. false can only occur if the plugin returns false.
 	**/
-	virtual bool GetAsynchronousResults(uint32 Handle, TArray<uint8>& OutData) = 0;
+	virtual bool GetAsynchronousResults(uint32 Handle, TArray<uint8>& OutData, bool* bDataWasBuilt = nullptr) = 0;
 
 	//--------------------------
 	// Low Level Static Helpers

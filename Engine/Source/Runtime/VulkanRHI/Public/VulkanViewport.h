@@ -9,42 +9,79 @@
 #include "VulkanResources.h"
 
 class FVulkanDynamicRHI;
-struct FVulkanSwapChain;
-struct FVulkanQueue;
+class FVulkanSwapChain;
+class FVulkanQueue;
+struct FVulkanSemaphore;
 
-class FVulkanViewport : public FRHIViewport
+class FVulkanViewport : public FRHIViewport, public VulkanRHI::FDeviceChild
 {
 public:
 	enum { NUM_BUFFERS = 3 };
 
-	FVulkanViewport(FVulkanDynamicRHI* InRHI, void* WindowHandle, uint32 InSizeX,uint32 InSizeY,bool bInIsFullscreen, EPixelFormat InPreferredPixelFormat);
+	FVulkanViewport(FVulkanDynamicRHI* InRHI, FVulkanDevice* InDevice, void* InWindowHandle, uint32 InSizeX,uint32 InSizeY,bool bInIsFullscreen, EPixelFormat InPreferredPixelFormat);
 	~FVulkanViewport();
 
-	FVulkanTexture2D* GetBackBuffer() const { return BackBuffers[CurrentBackBuffer]; }
-	uint32 GetBackBufferIndex() const { return CurrentBackBuffer; }
+	FVulkanTexture2D* GetBackBuffer(FRHICommandList& RHICmdList);
 
-	//bool Present(VkImage& Image, VkQueue& Queue, bool bLockToVsync);
-
-	//#todo-rco
-	void WaitForFrameEventCompletion() {}
+	void WaitForFrameEventCompletion();
 
 	//#todo-rco
 	void IssueFrameEvent() {}
 
-	FIntPoint GetSizeXY() const { return FIntPoint(SizeX, SizeY); }
+	FIntPoint GetSizeXY() const
+	{
+		return FIntPoint(SizeX, SizeY);
+	}
+
+	FVulkanSwapChain* GetSwapChain()
+	{
+		return SwapChain;
+	}
+
+	virtual void SetCustomPresent(FRHICustomPresent* InCustomPresent) override final
+	{
+		CustomPresent = InCustomPresent;
+	}
+
+	virtual FRHICustomPresent* GetCustomPresent() const override final
+	{
+		return CustomPresent;
+	}
+
+	void AdvanceBackBufferFrame();
+
+	bool Present(FVulkanCmdBuffer* CmdBuffer, FVulkanQueue* Queue, bool bLockToVsync);
 
 protected:
-	TRefCountPtr<FVulkanTexture2D> BackBuffers[NUM_BUFFERS];
+	VkImage BackBufferImages[NUM_BUFFERS];
+	FVulkanSemaphore* RenderingDoneSemaphores[NUM_BUFFERS];
+	FVulkanTextureView TextureViews[NUM_BUFFERS];
+
+	// 'Dummy' back buffer
+	TRefCountPtr<FVulkanBackBuffer> RenderingBackBuffer;
+	TRefCountPtr<FVulkanBackBuffer> RHIBackBuffer;
+
 	FVulkanDynamicRHI* RHI;
 	uint32 SizeX;
 	uint32 SizeY;
 	bool bIsFullscreen;
 	EPixelFormat PixelFormat;
-	int CurrentBackBuffer;
+	int32 AcquiredImageIndex;
 	FVulkanSwapChain* SwapChain;
+	void* WindowHandle;
+	uint32 PresentCount;
+
+	// Just a pointer, not owned by this class
+	FVulkanSemaphore* AcquiredSemaphore;
+
+	FCustomPresentRHIRef CustomPresent;
+
+	void CreateSwapchain();
+	void AcquireBackBuffer(FRHICommandListBase& CmdList, FVulkanBackBuffer* NewBackBuffer);
 
 	friend class FVulkanDynamicRHI;
 	friend class FVulkanCommandListContext;
+	friend struct FRHICommandAcquireBackBuffer;
 };
 
 template<>

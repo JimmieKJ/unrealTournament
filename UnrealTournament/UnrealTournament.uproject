@@ -22,6 +22,23 @@
 	],
 	"Plugins": [
 		{
+			"Name": "OnlineSubsystem",
+			"Enabled": true
+		},
+		{
+			"Name": "OnlineSubsystemUtils",
+			"Enabled": true
+		},
+		{
+			"Name": "OnlineSubsystemMcp",
+			"Enabled": true,
+			"Optional": true
+		},
+		{
+			"Name": "OnlineFramework",
+			"Enabled": true
+		},
+		{
 			"Name": "SteamController",
 			"Enabled": false
 		},
@@ -51,8 +68,7 @@
 		},
 		{
 			"Name": "WinDualShock",
-			"Enabled": true,
-			"Optional": true
+			"Enabled": false
 		},
 		{
 			"Name": "LeapMotionController",
@@ -71,12 +87,20 @@
 			"Enabled": false
 		},
 		{
+			"Name": "OculusInput",
+			"Enabled": false
+		},
+		{
 			"Name": "SteamVR",
 			"Enabled": false
 		},
 		{
 			"Name": "LevelSequenceEditor",
 			"Enabled": true
+		},
+		{
+			"Name": "Substance",
+			"Enabled": false
 		}
 	]
 }

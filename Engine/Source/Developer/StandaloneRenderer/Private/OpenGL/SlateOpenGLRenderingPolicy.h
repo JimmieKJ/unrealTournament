@@ -4,6 +4,7 @@
 #pragma once
 
 class FSlateOpenGLTextureCache;
+class FSlateOpenGLTextureManager;
 
 class FSlateOpenGLRenderingPolicy : public FSlateRenderingPolicy
 {

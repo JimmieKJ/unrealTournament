@@ -1,11 +1,11 @@
-// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
 	TonemapCommon.usf: PostProcessing tone mapping common
 =============================================================================*/
 
 // #todo-rco: Fix in the cross-compiler
-#if COMPILER_GLSL || COMPILER_GLSL_ES2 || COMPILER_METAL || VULKAN_PROFILE || COMPILER_HLSLCC
+#if COMPILER_GLSL || COMPILER_GLSL_ES2 || COMPILER_GLSL_ES3_1 || COMPILER_METAL || VULKAN_PROFILE || COMPILER_HLSLCC
 #define log10(x)  log(x) / log(10.0)
 #endif
 
@@ -208,17 +208,109 @@ half3 FilmToneMap( half3 LinearColor )
 	// Post desaturate
 	ToneColor = lerp( dot( float3(ToneColor), AP1_RGB2Y ), ToneColor, 0.93 );
 
-	ToneColor = mul( AP1_2_sRGB, float3(ToneColor) );
+	// Returning positive AP1 values
+	return max( 0, ToneColor );
+
+	//ToneColor = mul( AP1_2_sRGB, ToneColor );
 
 	//return saturate( ToneColor );
-	return max( 0, ToneColor );
+	//return max( 0, ToneColor );
 }
 
-float3 ACES( float3 LinearColor )
+//
+// ACES sRGB D65 Output Transform - Forward and Inverse
+//  Input is scene-referred linear values in the sRGB gamut
+//  Output is output-referred linear values in the sRGB gamut
+//
+float3 ACESOutputTransformsRGBD65( float3 SceneReferredLinearsRGBColor )
 {
 	const float3x3 sRGB_2_AP0 = mul( XYZ_2_AP0_MAT, mul( D65_2_D60_CAT, sRGB_2_XYZ_MAT ) );
 
-	float3 aces = mul( sRGB_2_AP0, LinearColor * 1.5 );
+	float3 aces = mul( sRGB_2_AP0, SceneReferredLinearsRGBColor * 1.5 );
 	float3 oces = RRT( aces );
-	return ODT( oces );
+	float3 OutputReferredLinearsRGBColor =  ODT_sRGB_D65( oces );
+	return OutputReferredLinearsRGBColor;
 }
+
+float3 InverseACESOutputTransformsRGBD65( float3 OutputReferredLinearsRGBColor )
+{
+	const float3x3 AP0_2_sRGB = mul( XYZ_2_sRGB_MAT, mul( D60_2_D65_CAT, AP0_2_XYZ_MAT ) );
+
+	float3 oces = Inverse_ODT_sRGB_D65( OutputReferredLinearsRGBColor );
+	float3 aces = Inverse_RRT( oces );
+	float3 SceneReferredLinearsRGBColor = mul( AP0_2_sRGB, aces ) * 0.6666;
+
+	return SceneReferredLinearsRGBColor;
+}
+
+//
+// ACES P3 D60 PQ 2000 nit Output Transform - Forward and Inverse
+//  Input is scene-referred linear values in the sRGB gamut
+//  Output is output-referred linear values in the AP1 gamut
+//
+float3 ACESOutputTransformsP3D60PQ2000( float3 SceneReferredLinearsRGBColor )
+{
+	const float3x3 sRGB_2_AP0 = mul( XYZ_2_AP0_MAT, mul( D65_2_D60_CAT, sRGB_2_XYZ_MAT ) );
+
+	// Bring values up two stops as the ACES Output Transforms tend to be dark
+	float3 aces = mul( sRGB_2_AP0, SceneReferredLinearsRGBColor * 4 );
+	float3 oces = RRT( aces );
+	float3 OutputReferredLinearAP1Color =  ODT_Academy_P3D60_PQ_2000nits( oces );
+	return OutputReferredLinearAP1Color;
+}
+
+static const float3x3 GamutMappingIdentityMatrix = { 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0 };
+
+//
+// Gamut conversion matrices
+//
+float3x3 OuputGamutMappingMatrix( uint OutputGamut )
+{
+	// Gamut mapping matrices used later
+	const float3x3 AP1_2_sRGB    = mul( XYZ_2_sRGB_MAT, mul( D60_2_D65_CAT, AP1_2_XYZ_MAT ) );
+	const float3x3 AP1_2_DCI_D65 = mul( XYZ_2_P3D65_MAT, mul( D60_2_D65_CAT, AP1_2_XYZ_MAT ) );
+	const float3x3 AP1_2_Rec2020 = mul( XYZ_2_Rec2020_MAT, mul( D60_2_D65_CAT, AP1_2_XYZ_MAT ) );
+
+	// Set gamut mapping matrix 
+	// 0 = sRGB - D65
+	// 1 = P3 - D65
+	// 2 = Rec.2020 - D65
+	// 3 = ACES AP0 - D60
+	// 4 = ACES AP1 - D60
+
+	if( OutputGamut == 1 )
+		return AP1_2_DCI_D65;
+	else if( OutputGamut == 2 )
+		return AP1_2_Rec2020;
+	else if( OutputGamut == 3 )
+		return AP1_2_AP0_MAT;
+	else if( OutputGamut == 4 )
+		return GamutMappingIdentityMatrix;
+	else
+		return AP1_2_sRGB;
+}
+
+float3x3 OuputInverseGamutMappingMatrix( uint OutputGamut )
+{
+	// Gamut mapping matrices used later
+	const float3x3 sRGB_2_AP1    = mul( XYZ_2_AP1_MAT, mul( D65_2_D60_CAT, sRGB_2_XYZ_MAT ) );
+	const float3x3 DCI_D65_2_AP1 = mul( XYZ_2_AP1_MAT, mul( D65_2_D60_CAT, P3D65_2_XYZ_MAT ) );
+	const float3x3 Rec2020_2_AP1 = mul( XYZ_2_AP1_MAT, mul( D65_2_D60_CAT, Rec2020_2_XYZ_MAT ) );
+
+	// Set gamut mapping matrix 
+	// 0 = sRGB - D65
+	// 1 = P3 (DCI) - D65
+	// 2 = Rec.2020 - D65
+	// 3 = ACES AP0 - D60
+	float3x3 GamutMappingMatrix = sRGB_2_AP1;
+	if( OutputGamut == 1 )
+		GamutMappingMatrix = DCI_D65_2_AP1;
+	else if( OutputGamut == 2 )
+		GamutMappingMatrix = Rec2020_2_AP1;
+	else if( OutputGamut == 3 )
+		GamutMappingMatrix = AP0_2_AP1_MAT;
+
+	return GamutMappingMatrix;
+}
+
+

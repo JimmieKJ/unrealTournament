@@ -459,8 +459,21 @@ void AGameplayDebuggingHUDComponent::DrawBasicData(APlayerController* PC, class 
 		PrintString(DefaultContext, FString::Printf(TEXT("Ability: {yellow}%s\n"), *DebugComponent->AbilityInfo));
 	}
 
-	// putting gameplay tasks' stuff last since it can expand heavily
-	PrintString(DefaultContext, FString::Printf(TEXT("GameplayTasks:\n{yellow}%s\n"), *DebugComponent->GameplayTasksState));
+	// gameplay tasks
+	int32 NumTasks = 0;
+	if (DebugComponent->GameplayTasksState.Len() > 0)
+	{
+		int32 SearchStart = -2;
+		int32 PrevStart = 0;
+		do {
+			PrevStart = SearchStart + 1;
+			SearchStart = DebugComponent->GameplayTasksState.Find(TEXT("\n"), ESearchCase::IgnoreCase, ESearchDir::FromStart, PrevStart);
+			NumTasks++;
+		} while (SearchStart >= 0 && SearchStart > PrevStart);
+		
+		NumTasks--;
+	}
+	PrintString(DefaultContext, FString::Printf(TEXT("GameplayTasks: {yellow}%d\n%s\n"), NumTasks, *DebugComponent->GameplayTasksState));
 
 	DrawPath(PC, DebugComponent);
 #endif //!(UE_BUILD_SHIPPING || UE_BUILD_TEST)

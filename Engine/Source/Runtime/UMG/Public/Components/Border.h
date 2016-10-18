@@ -56,6 +56,15 @@ public:
 	UPROPERTY()
 	FGetLinearColor BrushColorDelegate;
 
+	/**
+	 * Scales the computed desired size of this border and its contents. Useful
+	 * for making things that slide open without having to hard-code their size.
+	 * Note: if the parent widget is set up to ignore this widget's desired size,
+	 * then changing this value will have no effect.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Appearance)
+	FVector2D DesiredSizeScale;
+
 	/** Whether or not to show the disabled effect when this border is disabled */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Appearance, AdvancedDisplay)
 	bool bShowEffectWhenDisabled;
@@ -112,6 +121,15 @@ public:
 	/**  */
 	UFUNCTION(BlueprintCallable, Category="Appearance")
 	UMaterialInstanceDynamic* GetDynamicMaterial();
+
+public:
+	/**
+	* Sets the DesireSizeScale of this border.
+	*
+	* @param InScale    The X and Y multipliers for the desired size
+	*/
+	UFUNCTION(BlueprintCallable, Category = "Appearance")
+	void SetDesiredSizeScale(FVector2D InScale);
 
 public:
 

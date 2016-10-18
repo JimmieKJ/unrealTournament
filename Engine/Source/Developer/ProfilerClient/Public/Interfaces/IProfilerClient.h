@@ -25,6 +25,9 @@ DECLARE_MULTICAST_DELEGATE_OneParam(FProfilerLoadStartedDelegate, const FGuid& )
 /** Delegate for alerting clients a load has completed */
 DECLARE_MULTICAST_DELEGATE_OneParam(FProfilerLoadCompletedDelegate, const FGuid& );
 
+/** Delegate for alerting clients a load was cancelled */
+DECLARE_MULTICAST_DELEGATE_OneParam(FProfilerLoadCancelledDelegate, const FGuid&);
+
 /** Delegate for alerting clients a load has loaded meta data */
 DECLARE_MULTICAST_DELEGATE_OneParam(FProfilerLoadedMetaDataDelegate, const FGuid& );
 
@@ -81,6 +84,11 @@ public:
 	 * Loads a Capture file
 	 */
 	virtual void LoadCapture( const FString& DataFilepath, const FGuid& ProfileId ) = 0;
+
+	/**
+	 * Cancels a capture file load that is in progress
+	 */
+	virtual void CancelLoading( const FGuid InstanceId ) = 0;
 
 	/**
 	 * Requests the last captured file from the service.
@@ -145,6 +153,13 @@ public:
 	 * @return profiler load completed delegate.
 	 */
 	virtual FProfilerLoadCompletedDelegate& OnLoadCompleted() = 0;
+
+	/**
+	* Retrieves the load cancelled delegate.
+	*
+	* @return profiler load cancelled delegate.
+	*/
+	virtual FProfilerLoadCancelledDelegate& OnLoadCancelled() = 0;
 
 protected:
 

@@ -10,7 +10,7 @@ class FAssetTypeActions_AnimSequence : public FAssetTypeActions_AnimationAsset
 public:
 	// IAssetTypeActions Implementation
 	virtual FText GetName() const override { return NSLOCTEXT("AssetTypeActions", "AssetTypeActions_AnimSequence", "Animation Sequence"); }
-	virtual UClass* GetSupportedClass() const override { return UAnimSequence::StaticClass(); }
+	virtual UClass* GetSupportedClass() const override;
 	virtual void GetActions( const TArray<UObject*>& InObjects, FMenuBuilder& MenuBuilder ) override;
 	virtual bool CanFilter() override { return true; }
 	virtual bool IsImportedAsset() const override { return true; }
@@ -26,11 +26,17 @@ private:
 	/** Handler for when Create AnimMontage is selected */
 	void ExecuteNewAnimMontage(TArray<TWeakObjectPtr<UAnimSequence>> Objects) const;
 
+	/** Handler for when Create Pose Asset is selected */
+	void ExecuteNewPoseAsset(TArray<TWeakObjectPtr<UAnimSequence>> Objects) const;
+
 	/** Delegate handler passed to CreateAnimationAssets when creating AnimComposites */
 	void ConfigureFactoryForAnimComposite(UFactory* AssetFactory, UAnimSequence* SourceAnimation) const;
 
 	/** Delegate handler passed to CreateAnimationAssets when creating AnimMontages */
 	void ConfigureFactoryForAnimMontage(UFactory* AssetFactory, UAnimSequence* SourceAnimation) const;
+
+	/** Delegate handler passed to CreateAnimationAssets when creating PoseAssets */
+	void ConfigureFactoryForPoseAsset(UFactory* AssetFactory, UAnimSequence* SourceAnimation) const;
 
 	/** Creates animation assets of the supplied class */
 	void CreateAnimationAssets(const TArray<TWeakObjectPtr<UAnimSequence>>& AnimSequences, TSubclassOf<UAnimationAsset> AssetClass, UFactory* AssetFactory, const FString& InSuffix, FOnConfigureFactory OnConfigureFactory) const;

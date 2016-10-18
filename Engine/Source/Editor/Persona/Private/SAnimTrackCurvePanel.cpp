@@ -332,7 +332,7 @@ void STransformCurveEdTrack::Construct(const FArguments& InArgs)
 							.Font(FEditorStyle::GetFontStyle("CurveEd.InfoFont"))
 							.SelectAllTextWhenFocused(true)
 							.IsReadOnly(true)
-							.Text(this, &STransformCurveEdTrack::GetCurveName, Curve->CurveUid, ETransformCurve::Translation)
+							.Text(this, &STransformCurveEdTrack::GetCurveName, Curve->Name.UID, ETransformCurve::Translation)
 						]
 
 						+SHorizontalBox::Slot()
@@ -397,7 +397,7 @@ void STransformCurveEdTrack::Construct(const FArguments& InArgs)
 							.Font(FEditorStyle::GetFontStyle("CurveEd.InfoFont"))
 							.SelectAllTextWhenFocused(true)
 							.IsReadOnly(true)
-							.Text(this, &STransformCurveEdTrack::GetCurveName, Curve->CurveUid, ETransformCurve::Rotation)
+							.Text(this, &STransformCurveEdTrack::GetCurveName, Curve->Name.UID, ETransformCurve::Rotation)
 						]
 					]
 				]
@@ -445,7 +445,7 @@ void STransformCurveEdTrack::Construct(const FArguments& InArgs)
 							.Font(FEditorStyle::GetFontStyle("CurveEd.InfoFont"))
 							.SelectAllTextWhenFocused(true)
 							.IsReadOnly(true)
-							.Text(this, &STransformCurveEdTrack::GetCurveName, Curve->CurveUid, ETransformCurve::Scale)
+							.Text(this, &STransformCurveEdTrack::GetCurveName, Curve->Name.UID, ETransformCurve::Scale)
 						]
 					]
 				]
@@ -571,11 +571,15 @@ void SAnimTrackCurvePanel::DeleteTrack(USkeleton::AnimCurveUID Uid)
 	if(Sequence->RawCurveData.GetCurveData(Uid, FRawCurveTracks::TransformType))
 	{
 		const FScopedTransaction Transaction( LOCTEXT("AnimCurve_DeleteTrack", "Delete Curve") );
-		Sequence->Modify(true);
-		Sequence->bNeedsRebake = true;
-		Sequence->RawCurveData.DeleteCurveData(Uid, FRawCurveTracks::TransformType);
-		UpdatePanel();
-		WeakPersona.Pin()->RefreshPreviewInstanceTrackCurves();
+		FSmartName CurveToDelete;
+		if (Sequence->GetSkeleton()->GetSmartNameByUID(USkeleton::AnimTrackCurveMappingName, Uid, CurveToDelete))
+		{
+			Sequence->Modify(true);
+			Sequence->bNeedsRebake = true;
+			Sequence->RawCurveData.DeleteCurveData(CurveToDelete, FRawCurveTracks::TransformType);
+			UpdatePanel();
+			WeakPersona.Pin()->RefreshPreviewInstanceTrackCurves();
+		}
 	}
 }
 
@@ -598,8 +602,8 @@ void SAnimTrackCurvePanel::UpdatePanel()
 
 			FName AName;
 			FName BName;
-			MetadataNameMap->GetName(A.CurveUid, AName);
-			MetadataNameMap->GetName(B.CurveUid, BName);
+			MetadataNameMap->GetName(A.Name.UID, AName);
+			MetadataNameMap->GetName(B.Name.UID, BName);
 
 			return AName < BName;
 		});
@@ -626,7 +630,7 @@ void SAnimTrackCurvePanel::UpdatePanel()
 			FName CurveName;
 
 			// if editable, add to the list
-			if(bEditable && NameMapping->GetName(Curve.CurveUid, CurveName))
+			if(bEditable && NameMapping->GetName(Curve.Name.UID, CurveName))
 			{
 				TSharedPtr<STransformCurveEdTrack> CurrentTrack;
 				PanelSlot->AddSlot()
@@ -639,7 +643,7 @@ void SAnimTrackCurvePanel::UpdatePanel()
 					[
 						SAssignNew(CurrentTrack, STransformCurveEdTrack)
 						.Sequence(Sequence)
-						.CurveUid(Curve.CurveUid)
+						.CurveUid(Curve.Name.UID)
 						.AnimTrackCurvePanel(SharedThis(this))
 						.WidgetWidth(WidgetWidth)
 						.ViewInputMin(ViewInputMin)
@@ -687,7 +691,7 @@ TSharedRef<SWidget> SAnimTrackCurvePanel::GenerateCurveList()
 			const FTransformCurve& Curve= *Iter;
 
 			FName CurveName;
-			NameMapping->GetName(Curve.CurveUid, CurveName);
+			NameMapping->GetName(Curve.Name.UID, CurveName);
 
 			ListBox->AddSlot()
 				.AutoHeight()
@@ -695,8 +699,8 @@ TSharedRef<SWidget> SAnimTrackCurvePanel::GenerateCurveList()
 				.Padding( 2.0f, 2.0f )
 				[
 					SNew( SCheckBox )
-					.IsChecked(this, &SAnimTrackCurvePanel::IsCurveEditable, Curve.CurveUid)
-					.OnCheckStateChanged(this, &SAnimTrackCurvePanel::ToggleEditability, Curve.CurveUid)
+					.IsChecked(this, &SAnimTrackCurvePanel::IsCurveEditable, Curve.Name.UID)
+					.OnCheckStateChanged(this, &SAnimTrackCurvePanel::ToggleEditability, Curve.Name.UID)
 					.ToolTipText( LOCTEXT("Show Curves", "Show or Hide Curves") )
 					.IsEnabled( true )
 					[

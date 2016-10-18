@@ -29,6 +29,7 @@ class UNREALTOURNAMENT_API AUTCTFFlag : public AUTCarriedObject
 	// The mesh for the flag
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Flag)
 	USkeletalMeshComponent* Mesh;
+
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Flag)
 	UMaterialInstanceDynamic* MeshMID;
 

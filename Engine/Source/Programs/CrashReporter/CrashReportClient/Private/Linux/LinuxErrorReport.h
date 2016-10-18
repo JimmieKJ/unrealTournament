@@ -39,9 +39,8 @@ public:
 	 * Do nothing - shouldn't be called on Linux
 	 * @return Empty string
 	 */
-	static FString FindMostRecentErrorReport()
+	static void FindMostRecentErrorReports(TArray<FString>& ErrorReportPaths, const FTimespan& MaxCrashReportAge)
 	{
 		// The report folder is currently always sent on the command-line on Linux
-		return TEXT("");
 	}
 };

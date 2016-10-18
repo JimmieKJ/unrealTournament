@@ -79,11 +79,11 @@ bool FJsonAutomationTest::RunTest(const FString& Parameters)
 		bool bSuccessful = FJsonSerializer::Deserialize(Reader, Array);
 		check(bSuccessful);
 		check( Array.Num() == 1 );
-		check( Array[0].IsValid() )
+		check( Array[0].IsValid() );
 
 		TSharedPtr< FJsonObject > Object = Array[0]->AsObject();
 		check( Object.IsValid() );
-		check( Object->GetStringField( TEXT("Value") ) == TEXT("Some String") )
+		check( Object->GetStringField( TEXT("Value") ) == TEXT("Some String") );
 
 		FString OutputString;
 		TSharedRef< FCondensedJsonStringWriter > Writer = FCondensedJsonStringWriterFactory::Create( &OutputString );

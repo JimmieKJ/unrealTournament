@@ -378,7 +378,7 @@ const FPinConnectionResponse UEdGraphSchema_BehaviorTree::CanMergeNodes(const UE
 		}
 
 		if ((bNodeAIsDecorator && (bNodeBIsComposite || bNodeBIsTask || bNodeBIsDecorator))
-			|| (bNodeAIsService && (bNodeBIsComposite || bNodeBIsService)))
+			|| (bNodeAIsService && (bNodeBIsComposite || bNodeBIsTask || bNodeBIsService)))
 		{
 			return FPinConnectionResponse(CONNECT_RESPONSE_MAKE, TEXT(""));
 		}

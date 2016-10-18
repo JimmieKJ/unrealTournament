@@ -36,7 +36,6 @@ TAutoConsoleVariable<int32> CVarD3D11ZeroBufferSizeInMB(
 
 FD3D11DynamicRHI::FD3D11DynamicRHI(IDXGIFactory1* InDXGIFactory1,D3D_FEATURE_LEVEL InFeatureLevel, int32 InChosenAdapter, const DXGI_ADAPTER_DESC& InChosenDescription) :
 	DXGIFactory1(InDXGIFactory1),
-	bDeviceRemoved(false),
 	FeatureLevel(InFeatureLevel),
 	CurrentDepthTexture(NULL),
 	NumSimultaneousRenderTargets(0),
@@ -145,6 +144,7 @@ FD3D11DynamicRHI::FD3D11DynamicRHI(IDXGIFactory1* InDXGIFactory1,D3D_FEATURE_LEV
 
 	GPixelFormats[ PF_FloatR11G11B10].PlatformFormat	= DXGI_FORMAT_R11G11B10_FLOAT;
 	GPixelFormats[ PF_FloatR11G11B10].BlockBytes		= 4;
+	GPixelFormats[ PF_FloatR11G11B10].Supported			= true;
 
 	GPixelFormats[ PF_V8U8			].PlatformFormat	= DXGI_FORMAT_R8G8_SNORM;
 	GPixelFormats[ PF_BC5			].PlatformFormat	= DXGI_FORMAT_BC5_UNORM;
@@ -166,6 +166,7 @@ FD3D11DynamicRHI::FD3D11DynamicRHI(IDXGIFactory1* InDXGIFactory1,D3D_FEATURE_LEV
 
 	GPixelFormats[ PF_BC6H			].PlatformFormat	= DXGI_FORMAT_BC6H_UF16;
 	GPixelFormats[ PF_BC7			].PlatformFormat	= DXGI_FORMAT_BC7_TYPELESS;
+	GPixelFormats[ PF_R8_UINT		].PlatformFormat	= DXGI_FORMAT_R8_UINT;
 
 	if (FeatureLevel >= D3D_FEATURE_LEVEL_11_0)
 	{
@@ -326,17 +327,6 @@ void FD3D11DynamicRHI::RHIGetSupportedResolution( uint32 &Width, uint32 &Height 
 	Height = BestMode.Height;
 }
 
-// Suppress static analysis warnings in FD3D11DynamicRHI::RHIGetAvailableResolutions() about a potentially out-of-bounds read access to ModeList. This is a false positive - Index is always within range.
-#if USING_CODE_ANALYSIS
-	MSVC_PRAGMA(warning(push))
-	MSVC_PRAGMA(warning(disable:6385))
-#endif	// USING_CODE_ANALYSIS
-
-// Re-enable static code analysis warning C6385.
-#if USING_CODE_ANALYSIS
-	MSVC_PRAGMA(warning(pop))
-#endif	// USING_CODE_ANALYSIS
-
 void FD3D11DynamicRHI::GetBestSupportedMSAASetting( DXGI_FORMAT PlatformFormat, uint32 MSAACount, uint32& OutBestMSAACount, uint32& OutMSAAQualityLevels )
 {
 	//  We disable MSAA for Feature level 10
@@ -409,6 +399,19 @@ void FD3D11DynamicRHI::UpdateMSAASettings()
 	AvailableMSAAQualities[8] = 0;
 }
 
+#if !PLATFORM_SEH_EXCEPTIONS_DISABLED
+static int32 ReportDiedDuringDeviceShutdown(LPEXCEPTION_POINTERS ExceptionInfo)
+{
+	UE_LOG(LogD3D11RHI, Error, TEXT("Crashed freeing up the D3D11 device."));
+	if (GDynamicRHI)
+	{
+		GDynamicRHI->FlushPendingLogs();
+	}
+
+	return EXCEPTION_EXECUTE_HANDLER;
+}
+#endif
+
 void FD3D11DynamicRHI::CleanupD3DDevice()
 {
 	UE_LOG(LogD3D11RHI, Log, TEXT("CleanupD3DDevice"));
@@ -466,11 +469,36 @@ void FD3D11DynamicRHI::CleanupD3DDevice()
 		{
 			Direct3DDeviceIMContext->ClearState();
 			Direct3DDeviceIMContext->Flush();
+
+			// Perform a detailed live object report (with resource types)
+			ID3D11Debug* D3D11Debug;
+			Direct3DDevice->QueryInterface(__uuidof(ID3D11Debug), (void**)(&D3D11Debug));
+			if (D3D11Debug)
+			{
+				D3D11Debug->ReportLiveDeviceObjects(D3D11_RLDO_DETAIL);
+			}
 		}
 
-		Direct3DDeviceIMContext = NULL;
+		Direct3DDeviceIMContext = nullptr;
 
-		Direct3DDevice = NULL;
+#if !PLATFORM_SEH_EXCEPTIONS_DISABLED
+		if (IsRHIDeviceNVIDIA())
+		{
+			//UE-18906: Workaround to trap crash in NV driver
+			__try
+			{
+				Direct3DDevice = nullptr;
+			}
+			__except (ReportDiedDuringDeviceShutdown(GetExceptionInformation()))
+			{
+				FPlatformMisc::MemoryBarrier();
+			}
+		}
+		else
+#endif
+		{
+			Direct3DDevice = nullptr;
+		}
 	}
 }
 

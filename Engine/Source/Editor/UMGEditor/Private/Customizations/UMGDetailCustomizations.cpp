@@ -134,7 +134,7 @@ void FBlueprintWidgetCustomization::CreateEventCustomization( IDetailLayoutBuild
 
 void FBlueprintWidgetCustomization::ResetToDefault_RemoveBinding(TSharedRef<IPropertyHandle> PropertyHandle)
 {
-	const FScopedTransaction Transaction(LOCTEXT("BindDelegate", "Remove Binding"));
+	const FScopedTransaction Transaction(LOCTEXT("UnbindDelegate", "Remove Binding"));
 
 	Blueprint->Modify();
 

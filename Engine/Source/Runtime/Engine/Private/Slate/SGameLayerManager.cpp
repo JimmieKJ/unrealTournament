@@ -309,8 +309,8 @@ void SGameLayerManager::AddOrUpdatePlayerLayers(const FGeometry& AllottedGeometr
 
 			FVector2D AspectRatioInset = GetAspectRatioInset(Player);
 
-			Size = ( Size * AllottedGeometry.GetLocalSize() + ( AspectRatioInset * 2.0f ) ) * InverseDPIScale;
-			Position = ( Position * AllottedGeometry.GetLocalSize() - AspectRatioInset ) * InverseDPIScale;
+			Size = ( Size * AllottedGeometry.GetLocalSize() - ( AspectRatioInset * 2.0f ) ) * InverseDPIScale;
+			Position = ( Position * AllottedGeometry.GetLocalSize() + AspectRatioInset ) * InverseDPIScale;
 
 			PlayerLayer->Slot->Size(Size);
 			PlayerLayer->Slot->Position(Position);
@@ -322,14 +322,16 @@ FVector2D SGameLayerManager::GetAspectRatioInset(ULocalPlayer* LocalPlayer) cons
 {
 	QUICK_SCOPE_CYCLE_COUNTER(STAT_SGameLayerManager_GetAspectRatioInset);
 	FVector2D Offset(0.f, 0.f);
-	if (LocalPlayer)
+	if ( LocalPlayer )
 	{
 		FSceneViewInitOptions ViewInitOptions;
 		if (LocalPlayer->CalcSceneViewInitOptions(ViewInitOptions, LocalPlayer->ViewportClient->Viewport))
 		{
-			FIntRect UnscaledViewRect = ViewInitOptions.GetConstrainedViewRect();
-			Offset.X = -UnscaledViewRect.Min.X;
-			Offset.Y = -UnscaledViewRect.Min.Y;
+			FIntRect ViewRect = ViewInitOptions.GetViewRect();
+			FIntRect ConstrainedViewRect = ViewInitOptions.GetConstrainedViewRect();
+
+			Offset.X = ( ConstrainedViewRect.Min.X - ViewRect.Min.X );
+			Offset.Y = ( ConstrainedViewRect.Min.Y - ViewRect.Min.Y );
 		}
 	}
 

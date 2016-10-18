@@ -147,7 +147,7 @@ public:
 	/** Returns a draw buffer that can be used by Slate windows to draw window elements */
 	virtual FSlateDrawBuffer& GetDrawBuffer() = 0;
 
-	virtual void Initialize() = 0;
+	virtual bool Initialize() = 0;
 
 	virtual void Destroy() = 0;
 

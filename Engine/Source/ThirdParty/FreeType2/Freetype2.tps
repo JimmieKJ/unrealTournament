@@ -1,8 +1,8 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <TpsData xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
   <Name>Freetype 2 version 2.6</Name>
-  <Location>//depot/UE4/Engine/Source/ThirdParty/FreeType2/</Location>
-  <Date>2015-09-04T18:52:01.9977006-04:00</Date>
+  <Location>/Engine/Source/ThirdParty/FreeType2/</Location>
+  <Date>2016-06-09T17:38:38.9530977-04:00</Date>
   <Function>Font rendering</Function>
   <Justification>Need a font renderer for Slate</Justification>
   <Platforms>
@@ -16,7 +16,11 @@
   </Products>
   <TpsType>Source Code</TpsType>
   <Eula>http://git.savannah.gnu.org/cgit/freetype/freetype2.git/tree/docs/FTL.TXT</Eula>
-  <RedistributeTo />
+  <RedistributeTo>
+    <EndUserGroup>Licensees</EndUserGroup>
+    <EndUserGroup>Git</EndUserGroup>
+    <EndUserGroup>P4</EndUserGroup>
+  </RedistributeTo>
   <Redistribute>false</Redistribute>
   <IsSourceAvailable>true</IsSourceAvailable>
   <NoticeType>Full EULA Text</NoticeType>
@@ -189,5 +193,5 @@ Legal Terms
 
 
 --- end of FTL.TXT ---</Notification>
-  <LicenseFolder />
+  <LicenseFolder>/Engine/Source/ThirdParty/Licenses/Freetype2.4.4_License.txt</LicenseFolder>
 </TpsData>

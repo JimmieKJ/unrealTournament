@@ -15,21 +15,64 @@
 id<MTLDevice> GMetalDevice = nil;
 #endif
 
+
+@interface IndexedPosition : UITextPosition {
+	NSUInteger _index;
+	id <UITextInputDelegate> _inputDelegate;
+}
+@property (nonatomic) NSUInteger index;
++ (IndexedPosition *)positionWithIndex:(NSUInteger)index;
+@end
+
+@interface IndexedRange : UITextRange {
+	NSRange _range;
+}
+@property (nonatomic) NSRange range;
++ (IndexedRange *)rangeWithNSRange:(NSRange)range;
+
+@end
+
+
+@implementation IndexedPosition
+@synthesize index = _index;
+
++ (IndexedPosition *)positionWithIndex:(NSUInteger)index {
+	IndexedPosition *pos = [[IndexedPosition alloc] init];
+	pos.index = index;
+	return pos;
+}
+
+@end
+
+@implementation IndexedRange
+@synthesize range = _range;
+
++ (IndexedRange *)rangeWithNSRange:(NSRange)nsrange {
+	if (nsrange.location == NSNotFound)
+		return nil;
+	IndexedRange *range = [[IndexedRange alloc] init];
+	range.range = nsrange;
+	return range;
+}
+
+- (UITextPosition *)start {
+	return [IndexedPosition positionWithIndex:self.range.location];
+}
+
+- (UITextPosition *)end {
+	return [IndexedPosition positionWithIndex:(self.range.location + self.range.length)];
+}
+
+-(BOOL)isEmpty {
+	return (self.range.length == 0);
+}
+@end
+
+
+
 @implementation FIOSView
 
-@synthesize SwapCount, OnScreenColorRenderBuffer, OnScreenColorRenderBufferMSAA;
-
-+(bool)IsDeviceOnIOS8
-{
-#ifdef __IPHONE_9_0
-	bool bRequiresIOS8Workaround = true;
-	GConfig->GetBool(TEXT("/Script/IOSWorkarounds.IOSWorkarounds"), TEXT("bUseIOS8Workaround"), bRequiresIOS8Workaround, GEngineIni);
-	NSArray* versionArray = [[UIDevice currentDevice].systemVersion componentsSeparatedByString:@"."];
-	return [[versionArray objectAtIndex : 0] intValue] == 8 && bRequiresIOS8Workaround;
-#else
-	return false;
-#endif
-}
+@synthesize SwapCount, OnScreenColorRenderBuffer, OnScreenColorRenderBufferMSAA, markedTextStyle;
 
 /**
  * @return The Layer Class for the window
@@ -44,7 +87,7 @@ id<MTLDevice> GMetalDevice = nil;
 	GConfig->GetBool(TEXT("/Script/IOSRuntimeSettings.IOSRuntimeSettings"), TEXT("bSupportsMetalMRT"), bSupportsMetalMRT, GEngineIni);
 
 	// does commandline override?
-	bool bForceES2 = FParse::Param(FCommandLine::Get(), TEXT("ES2")) || [FIOSView IsDeviceOnIOS8];
+	bool bForceES2 = FParse::Param(FCommandLine::Get(), TEXT("ES2"));
 
 	bool bTriedToInit = false;
 
@@ -80,10 +123,6 @@ id<MTLDevice> GMetalDevice = nil;
 	}
 }
 
--(BOOL)becomeFirstResponder
-{
-	return YES;
-}
 
 - (id)initWithFrame:(CGRect)Frame
 {
@@ -144,6 +183,9 @@ id<MTLDevice> GMetalDevice = nil;
 		FMemory::Memzero(AllTouches, sizeof(AllTouches));
 		[self setAutoresizingMask: UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight];
 		bIsInitialized = false;
+		
+
+		[self InitKeyboard];
 	}
 	return self;
 }
@@ -478,8 +520,21 @@ id<MTLDevice> GMetalDevice = nil;
 
 		if (bShowConsole)
 		{
-			// Route the command to the main iOS thread (all UI must go to the main thread)
-			[[IOSAppDelegate GetDelegate] performSelectorOnMainThread:@selector(ShowConsole) withObject:nil waitUntilDone:NO];
+			if (bIsUsingIntegratedKeyboard)
+			{
+				// press the console key twice to get the big one up
+				// @todo keyboard: Find a direct way to bering this up (it can get into a bad state where two presses won't do it correctly)
+				// and also the ` key could be changed via .ini
+				FIOSInputInterface::QueueKeyInput('`', '`');
+				FIOSInputInterface::QueueKeyInput('`', '`');
+				
+				[self ActivateKeyboard:true];
+			}
+			else
+			{
+				// Route the command to the main iOS thread (all UI must go to the main thread)
+				[[IOSAppDelegate GetDelegate] performSelectorOnMainThread:@selector(ShowConsole) withObject:nil waitUntilDone:NO];
+			}
 		}
 	}
 #endif
@@ -502,7 +557,354 @@ id<MTLDevice> GMetalDevice = nil;
 	[self HandleTouches:touches ofType:TouchEnded];
 }
 
+
+
+
+
+
+
+
+
+
+
+
+#pragma mark Keyboard
+
+
+-(BOOL)canBecomeFirstResponder
+{
+	return YES;
+}
+
+- (BOOL)hasText
+{
+	return YES;
+}
+
+- (void)insertText:(NSString *)theText
+{
+	// insert text one key at a time, as chars, not keydowns
+	for (int32 CharIndex = 0; CharIndex < [theText length]; CharIndex++)
+	{
+		int32 Char = [theText characterAtIndex:CharIndex];
+
+		// FPlatformMisc::LowLevelOutputDebugStringf(TEXT("sending key '%c' to game\n"), Char);
+
+		if (Char == '\n')
+		{
+			// send the enter keypress
+			FIOSInputInterface::QueueKeyInput(KEYCODE_ENTER, Char);
+			
+			// hide the keyboard
+			[self resignFirstResponder];
+		}
+		else
+		{
+			FIOSInputInterface::QueueKeyInput(Char, Char);
+		}
+	}
+}
+
+- (void)deleteBackward
+{
+	FIOSInputInterface::QueueKeyInput(KEYCODE_BACKSPACE, '\b');
+}
+
+
+-(void)ActivateKeyboard:(bool)bInSendEscapeOnClose
+{
+	// remember the setting
+	bSendEscapeOnClose = bInSendEscapeOnClose;
+	[self becomeFirstResponder];
+}
+
+-(BOOL)becomeFirstResponder
+{
+	return [super becomeFirstResponder];
+}
+
+-(BOOL)resignFirstResponder
+{
+	if (bSendEscapeOnClose)
+	{
+		// tell the console to close itself
+		FIOSInputInterface::QueueKeyInput(KEYCODE_ESCAPE, 0);
+	}
+	
+	return [super resignFirstResponder];
+}
+
+
+// @todo keyboard: This is a helper define to show functions that _may_ need to be implemented as we go forward with keyboard support
+// for now, the very basics work, but most likely at some point for optimal functionality, we'll want to know the actual string
+// in the box, but that needs to come from Slate, and we currently don't have a way to get it
+#define REPORT_EVENT UE_LOG(LogIOS, Display, TEXT("Got a keyboard call, line %d"), __LINE__);
+
+
+- (NSString *)textInRange:(UITextRange *)range
+{
+	// @todo keyboard: This is called
+	return @"";
+	//IndexedRange *r = (IndexedRange *)range;
+	//return ([textStore substringWithRange:r.range]);
+}
+
+- (void)replaceRange:(UITextRange *)range withText:(NSString *)text
+{
+	REPORT_EVENT;
+	return;
+//	IndexedRange *r = (IndexedRange *)range;
+//	[textStore replaceCharactersInRange:r.range withString:text];
+}
+
+- (UITextRange *)selectedTextRange
+{
+	// @todo keyboard: This is called
+	return [IndexedRange rangeWithNSRange:NSMakeRange(0,0)];//self.textView.selectedTextRange];
+}
+
+
+- (void)setSelectedTextRange:(UITextRange *)range
+{
+	REPORT_EVENT;
+	//IndexedRange *indexedRange = (IndexedRange *)range;
+	//self.textView.selectedTextRange = indexedRange.range;
+}
+
+
+- (UITextRange *)markedTextRange
+{
+	// @todo keyboard: This is called
+	return nil;
+}
+
+
+- (void)setMarkedText:(NSString *)markedText selectedRange:(NSRange)selectedRange
+{
+	CachedMarkedText = markedText;
+	//NSLog(@"setting marked text to %@", markedText);
+}
+
+
+- (void)unmarkText
+{
+	if (CachedMarkedText != nil)
+	{
+		[self insertText:CachedMarkedText];
+		CachedMarkedText = nil;
+	}
+}
+
+
+- (UITextPosition *)beginningOfDocument
+{
+	// @todo keyboard: This is called
+	return [IndexedPosition positionWithIndex:0];
+}
+
+
+- (UITextPosition *)endOfDocument
+{
+	REPORT_EVENT;
+	return [IndexedPosition positionWithIndex:0];
+}
+
+
+- (UITextRange *)textRangeFromPosition:(UITextPosition *)fromPosition toPosition:(UITextPosition *)toPosition
+{
+	// @todo keyboard: This is called
+	// Generate IndexedPosition instances that wrap the to and from ranges.
+	IndexedPosition *fromIndexedPosition = (IndexedPosition *)fromPosition;
+	IndexedPosition *toIndexedPosition = (IndexedPosition *)toPosition;
+	NSRange range = NSMakeRange(MIN(fromIndexedPosition.index, toIndexedPosition.index), ABS(toIndexedPosition.index - fromIndexedPosition.index));
+ 
+	return [IndexedRange rangeWithNSRange:range];
+}
+
+
+- (UITextPosition *)positionFromPosition:(UITextPosition *)position offset:(NSInteger)offset
+{
+	// @todo keyboard: This is called
+	return nil;
+}
+
+
+- (UITextPosition *)positionFromPosition:(UITextPosition *)position inDirection:(UITextLayoutDirection)direction offset:(NSInteger)offset
+{
+	REPORT_EVENT;
+	return nil;
+}
+
+
+- (NSComparisonResult)comparePosition:(UITextPosition *)position toPosition:(UITextPosition *)other
+{
+	// @todo keyboard: This is called
+	return NSOrderedSame;
+}
+
+
+- (NSInteger)offsetFromPosition:(UITextPosition *)from toPosition:(UITextPosition *)toPosition
+{
+	REPORT_EVENT;
+	IndexedPosition *fromIndexedPosition = (IndexedPosition *)from;
+	IndexedPosition *toIndexedPosition = (IndexedPosition *)toPosition;
+	return (toIndexedPosition.index - fromIndexedPosition.index);
+}
+
+
+
+- (UITextPosition *)positionWithinRange:(UITextRange *)range farthestInDirection:(UITextLayoutDirection)direction
+{
+	REPORT_EVENT;
+	return nil;
+}
+
+
+- (UITextRange *)characterRangeByExtendingPosition:(UITextPosition *)position inDirection:(UITextLayoutDirection)direction
+{
+	REPORT_EVENT;
+	return nil;
+}
+
+
+- (UITextWritingDirection)baseWritingDirectionForPosition:(UITextPosition *)position inDirection:(UITextStorageDirection)direction
+{
+	REPORT_EVENT;
+	// assume left to right for now
+	return UITextWritingDirectionLeftToRight;
+}
+
+
+- (void)setBaseWritingDirection:(UITextWritingDirection)writingDirection forRange:(UITextRange *)range
+{
+	// @todo keyboard: This is called
+}
+
+
+
+- (CGRect)firstRectForRange:(UITextRange *)range
+{
+	REPORT_EVENT;
+	return CGRectMake(0,0,0,0);
+}
+
+
+- (CGRect)caretRectForPosition:(UITextPosition *)position
+{
+	// @todo keyboard: This is called
+	return CGRectMake(0,0,0,0);
+}
+
+
+- (UITextPosition *)closestPositionToPoint:(CGPoint)point
+{
+	REPORT_EVENT;
+	return nil;
+}
+
+- (UITextPosition *)closestPositionToPoint:(CGPoint)point withinRange:(UITextRange *)range
+{
+	REPORT_EVENT;
+	return nil;
+}
+
+- (UITextRange *)characterRangeAtPoint:(CGPoint)point
+{
+	REPORT_EVENT;
+	return nil;
+}
+
+- (NSArray *)selectionRectsForRange:(UITextRange *)range
+{
+	REPORT_EVENT;
+	return nil;
+}
+
+
+- (NSDictionary *)textStylingAtPosition:(UITextPosition *)position inDirection:(UITextStorageDirection)direction
+{
+	// @todo keyboard: This is called
+	return @{ };
+}
+
+
+- (void) setInputDelegate: (id <UITextInputDelegate>) delegate
+{
+	// @todo keyboard: This is called
+}
+
+- (id <UITextInputTokenizer>) tokenizer
+{
+	// @todo keyboard: This is called
+	return nil;
+}
+
+- (id <UITextInputDelegate>) inputDelegate
+{
+	// @todo keyboard: This is called
+	return nil;
+}
+
+
+
+
+
+#if !PLATFORM_TVOS
+- (void)keyboardWasShown:(NSNotification*)aNotification
+{
+	// send a callback to let the game know where to sldie the textbox up above
+	NSDictionary* info = [aNotification userInfo];
+	CGRect Frame = [[info objectForKey:UIKeyboardFrameEndUserInfoKey] CGRectValue];
+	
+	FPlatformRect ScreenRect;
+	ScreenRect.Top = Frame.origin.y;
+	ScreenRect.Bottom = (Frame.origin.y + Frame.size.height);
+	ScreenRect.Left = Frame.origin.x;
+	ScreenRect.Right = (Frame.origin.x + Frame.size.width);
+	
+	[FIOSAsyncTask CreateTaskWithBlock:^bool(void){
+		[IOSAppDelegate GetDelegate].IOSApplication->OnVirtualKeyboardShown().Broadcast(ScreenRect);
+		return true;
+	 }];
+}
+
+// Called when the UIKeyboardWillHideNotification is sent
+- (void)keyboardWillBeHidden:(NSNotification*)aNotification
+{
+	[FIOSAsyncTask CreateTaskWithBlock:^bool(void){
+		[IOSAppDelegate GetDelegate].IOSApplication->OnVirtualKeyboardHidden().Broadcast();
+		return true;
+	 }];
+}
+#endif
+
+- (void)InitKeyboard
+{
+#if !PLATFORM_TVOS
+	// get notifications when the keyboard is in view
+	bIsUsingIntegratedKeyboard = FParse::Param(FCommandLine::Get(), TEXT("NewKeyboard"));
+	if (bIsUsingIntegratedKeyboard)
+	{
+		[[NSNotificationCenter defaultCenter] addObserver:self
+												 selector:@selector(keyboardWasShown:)
+													 name:UIKeyboardDidShowNotification object:nil];
+		
+		[[NSNotificationCenter defaultCenter] addObserver:self
+												 selector:@selector(keyboardWillBeHidden:)
+													 name:UIKeyboardWillHideNotification object:nil];
+		
+	}
+#endif
+}
+
+
+
+
+
 @end
+
+
+#pragma mark IOSViewController
 
 @implementation IOSViewController
 
@@ -565,5 +967,11 @@ id<MTLDevice> GMetalDevice = nil;
 {
 	return YES;
 }
+
+
+
+
+
+
 
 @end

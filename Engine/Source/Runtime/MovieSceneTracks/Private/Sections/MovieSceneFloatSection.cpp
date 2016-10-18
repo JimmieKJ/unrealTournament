@@ -32,15 +32,39 @@ void UMovieSceneFloatSection::DilateSection( float DilationFactor, float Origin,
 }
 
 
-void UMovieSceneFloatSection::GetKeyHandles(TSet<FKeyHandle>& KeyHandles) const
+void UMovieSceneFloatSection::GetKeyHandles(TSet<FKeyHandle>& OutKeyHandles, TRange<float> TimeRange) const
 {
+	if (!TimeRange.Overlaps(GetRange()))
+	{
+		return;
+	}
+
 	for (auto It(FloatCurve.GetKeyHandleIterator()); It; ++It)
 	{
 		float Time = FloatCurve.GetKeyTime(It.Key());
-		if (IsTimeWithinSection(Time))
+		if (TimeRange.Contains(Time))
 		{
-			KeyHandles.Add(It.Key());
+			OutKeyHandles.Add(It.Key());
 		}
+	}
+}
+
+
+TOptional<float> UMovieSceneFloatSection::GetKeyTime( FKeyHandle KeyHandle ) const
+{
+	if ( FloatCurve.IsKeyHandleValid( KeyHandle ) )
+	{
+		return TOptional<float>( FloatCurve.GetKeyTime( KeyHandle ) );
+	}
+	return TOptional<float>();
+}
+
+
+void UMovieSceneFloatSection::SetKeyTime( FKeyHandle KeyHandle, float Time )
+{
+	if ( FloatCurve.IsKeyHandleValid( KeyHandle ) )
+	{
+		FloatCurve.SetKeyTime( KeyHandle, Time );
 	}
 }
 

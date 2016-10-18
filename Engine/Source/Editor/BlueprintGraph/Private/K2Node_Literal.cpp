@@ -188,10 +188,10 @@ void UK2Node_Literal::GetMenuActions(FBlueprintActionDatabaseRegistrar& ActionRe
 			UiSpecOut->MenuName = FText::Format( NSLOCTEXT("K2Node", "LiteralTitle", "Create a Reference to {0}"), 
 				FText::FromString(ActorObj->GetActorLabel()) );
 
-			const FName IconName = FClassIconFinder::FindIconNameForActor(ActorObj);
-			if (!IconName.IsNone())
+			FSlateIcon Icon = FClassIconFinder::FindSlateIconForActor(ActorObj);
+			if (Icon.IsSet())
 			{
-				UiSpecOut->IconName = IconName;
+				UiSpecOut->Icon = Icon;
 			}
 		}
 		else if (Bindings.Num() > 1)
@@ -211,10 +211,10 @@ void UK2Node_Literal::GetMenuActions(FBlueprintActionDatabaseRegistrar& ActionRe
 				}
 			}
 
-			const FName IconName = FClassIconFinder::FindIconNameForClass(CommonClass);
-			if (!IconName.IsNone())
+			const FSlateIcon Icon = FSlateIconFinder::FindIconForClass(CommonClass);
+			if (Icon.IsSet())
 			{
-				UiSpecOut->IconName = IconName;
+				UiSpecOut->Icon = Icon;
 			}
 		}
 		else
@@ -279,21 +279,21 @@ FNodeHandlingFunctor* UK2Node_Literal::CreateNodeHandler(FKismetCompilerContext&
 	return new FKCHandler_LiteralStatement(CompilerContext);
 }
 
-FName UK2Node_Literal::GetPaletteIcon(FLinearColor& OutColor) const
+FSlateIcon UK2Node_Literal::GetIconAndTint(FLinearColor& OutColor) const
 {
 	if(ObjectRef != NULL)
 	{
 		AActor* Actor = Cast<AActor>(ObjectRef);
 		if(Actor != NULL)
 		{
-			return FClassIconFinder::FindIconNameForActor(Actor);
+			return FClassIconFinder::FindSlateIconForActor(Actor);
 		}
 		else
 		{
-			return FClassIconFinder::FindIconNameForClass(ObjectRef->GetClass());
+			return FSlateIconFinder::FindIconForClass(ObjectRef->GetClass());
 		}	
 	}
-	return Super::GetPaletteIcon(OutColor);
+	return Super::GetIconAndTint(OutColor);
 }
 
 #undef LOCTEXT_NAMESPACE

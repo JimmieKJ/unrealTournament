@@ -32,6 +32,7 @@ struct FDecimalNumberFormattingRules
  * Provides efficient and culture aware number formatting.
  * You would call FastDecimalFormat::NumberToString to convert a number to the correct decimal representation based on the given formatting rules and options.
  * The primary consumer of this is FText, however you can use it for other things. GetCultureAgnosticFormattingRules can provide formatting rules for cases where you don't care about culture.
+ * @note If you use the version that takes an output string, the formatted number will be appended to the existing contents of the string.
  */
 namespace FastDecimalFormat
 {
@@ -39,28 +40,46 @@ namespace FastDecimalFormat
 namespace Internal
 {
 
-CORE_API FString IntegralToString(const bool bIsNegative, const uint64 InVal, const FDecimalNumberFormattingRules& InFormattingRules, FNumberFormattingOptions InFormattingOptions);
-CORE_API FString FractionalToString(const double InVal, const FDecimalNumberFormattingRules& InFormattingRules, FNumberFormattingOptions InFormattingOptions);
+CORE_API void IntegralToString(const bool bIsNegative, const uint64 InVal, const FDecimalNumberFormattingRules& InFormattingRules, FNumberFormattingOptions InFormattingOptions, FString& OutString);
+CORE_API void FractionalToString(const double InVal, const FDecimalNumberFormattingRules& InFormattingRules, FNumberFormattingOptions InFormattingOptions, FString& OutString);
 
 } // namespace Internal
 
-#define FAST_DECIMAL_FORMAT_SIGNED_IMPL(NUMBER_TYPE)																															\
-	FORCEINLINE FString NumberToString(const NUMBER_TYPE InVal, const FDecimalNumberFormattingRules& InFormattingRules, const FNumberFormattingOptions& InFormattingOptions)	\
-	{																																											\
-		const bool bIsNegative = InVal < 0;																																		\
-		return Internal::IntegralToString(bIsNegative, static_cast<uint64>((bIsNegative) ? -InVal : InVal), InFormattingRules, InFormattingOptions);							\
+#define FAST_DECIMAL_FORMAT_SIGNED_IMPL(NUMBER_TYPE)																																				\
+	FORCEINLINE void NumberToString(const NUMBER_TYPE InVal, const FDecimalNumberFormattingRules& InFormattingRules, const FNumberFormattingOptions& InFormattingOptions, FString& OutString)		\
+	{																																																\
+		const bool bIsNegative = InVal < 0;																																							\
+		Internal::IntegralToString(bIsNegative, static_cast<uint64>((bIsNegative) ? -InVal : InVal), InFormattingRules, InFormattingOptions, OutString);											\
+	}																																																\
+	FORCEINLINE FString NumberToString(const NUMBER_TYPE InVal, const FDecimalNumberFormattingRules& InFormattingRules, const FNumberFormattingOptions& InFormattingOptions)						\
+	{																																																\
+		FString Result;																																												\
+		NumberToString(InVal, InFormattingRules, InFormattingOptions, Result);																														\
+		return Result;																																												\
 	}
 
-#define FAST_DECIMAL_FORMAT_UNSIGNED_IMPL(NUMBER_TYPE)																															\
-	FORCEINLINE FString NumberToString(const NUMBER_TYPE InVal, const FDecimalNumberFormattingRules& InFormattingRules, const FNumberFormattingOptions& InFormattingOptions)	\
-	{																																											\
-		return Internal::IntegralToString(false, static_cast<uint64>(InVal), InFormattingRules, InFormattingOptions);															\
+#define FAST_DECIMAL_FORMAT_UNSIGNED_IMPL(NUMBER_TYPE)																																				\
+	FORCEINLINE void NumberToString(const NUMBER_TYPE InVal, const FDecimalNumberFormattingRules& InFormattingRules, const FNumberFormattingOptions& InFormattingOptions, FString& OutString)		\
+	{																																																\
+		Internal::IntegralToString(false, static_cast<uint64>(InVal), InFormattingRules, InFormattingOptions, OutString);																			\
+	}																																																\
+	FORCEINLINE FString NumberToString(const NUMBER_TYPE InVal, const FDecimalNumberFormattingRules& InFormattingRules, const FNumberFormattingOptions& InFormattingOptions)						\
+	{																																																\
+		FString Result;																																												\
+		NumberToString(InVal, InFormattingRules, InFormattingOptions, Result);																														\
+		return Result;																																												\
 	}
 
-#define FAST_DECIMAL_FORMAT_FRACTIONAL_IMPL(NUMBER_TYPE)																														\
-	FORCEINLINE FString NumberToString(const NUMBER_TYPE InVal, const FDecimalNumberFormattingRules& InFormattingRules, const FNumberFormattingOptions& InFormattingOptions)	\
-	{																																											\
-		return Internal::FractionalToString(static_cast<double>(InVal), InFormattingRules, InFormattingOptions);																\
+#define FAST_DECIMAL_FORMAT_FRACTIONAL_IMPL(NUMBER_TYPE)																																			\
+	FORCEINLINE void NumberToString(const NUMBER_TYPE InVal, const FDecimalNumberFormattingRules& InFormattingRules, const FNumberFormattingOptions& InFormattingOptions, FString& OutString)		\
+	{																																																\
+		Internal::FractionalToString(static_cast<double>(InVal), InFormattingRules, InFormattingOptions, OutString);																				\
+	}																																																\
+	FORCEINLINE FString NumberToString(const NUMBER_TYPE InVal, const FDecimalNumberFormattingRules& InFormattingRules, const FNumberFormattingOptions& InFormattingOptions)						\
+	{																																																\
+		FString Result;																																												\
+		NumberToString(InVal, InFormattingRules, InFormattingOptions, Result);																														\
+		return Result;																																												\
 	}
 
 FAST_DECIMAL_FORMAT_SIGNED_IMPL(int8)

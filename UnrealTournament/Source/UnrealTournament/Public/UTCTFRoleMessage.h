@@ -13,6 +13,7 @@ public:
 	UUTCTFRoleMessage(const FObjectInitializer& OI)
 		: Super(OI)
 	{
+		bIsUnique = false;
 		bIsStatusAnnouncement = true;
 		bIsPartiallyUnique = true;
 		MessageArea = FName(TEXT("Announcements"));
@@ -22,6 +23,9 @@ public:
 		EnemyTeamSpecialEarned = NSLOCTEXT("CTFGameMessage", "EnemyEarnedSpecialMove", "Enemy team has earned their power up!");
 		BoostAvailable = NSLOCTEXT("CTFGameMessage", "BoostAvailable", "Your power up is available!");
 		FontSizeIndex = 1;
+		AttackingName = TEXT("YouAreAttacking");
+		DefendingName = TEXT("YouAreDefending");
+		ChoosePowerupName = TEXT("SelectYourPowerupThisRound");
 
 		static ConstructorHelpers::FObjectFinder<USoundBase> EarnedSoundFinder(TEXT("SoundWave'/Game/RestrictedAssets/Audio/Stingers/EnemyBoostAvailable.EnemyBoostAvailable'"));
 		EnemyEarnedBoostSound = EarnedSoundFinder.Object;
@@ -35,6 +39,15 @@ public:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
 		FText BoostAvailable;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
+		FName AttackingName;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
+		FName DefendingName;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
+		FName ChoosePowerupName;
 
 	/** sound played when enemy team boost is earned */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Message)
@@ -51,6 +64,21 @@ public:
 				PC->UTClientPlaySound(EnemyEarnedBoostSound);
 			}
 		}
+	}
+
+	bool InterruptAnnouncement(const FAnnouncementInfo AnnouncementInfo, const FAnnouncementInfo OtherAnnouncementInfo) const override
+	{
+		if (GetClass() == OtherAnnouncementInfo.MessageClass)
+		{
+			return (AnnouncementInfo.Switch != 3);
+		}
+
+		return Super::InterruptAnnouncement(AnnouncementInfo, OtherAnnouncementInfo);
+	}
+
+	bool CancelByAnnouncement_Implementation(int32 Switch, const UObject* OptionalObject, TSubclassOf<UUTLocalMessage> OtherMessageClass, int32 OtherSwitch, const UObject* OtherOptionalObject) const override
+	{
+		return (GetClass() == OtherMessageClass) && (Switch == OtherSwitch);
 	}
 
 	virtual FText GetText(int32 Switch = 0, bool bTargetsPlayerState1 = false, class APlayerState* RelatedPlayerState_1 = NULL, class APlayerState* RelatedPlayerState_2 = NULL, class UObject* OptionalObject = NULL) const override
@@ -74,7 +102,6 @@ public:
 
 	}
 
-
 	virtual FLinearColor GetMessageColor_Implementation(int32 MessageIndex) const override
 	{
 		return FLinearColor::White;
@@ -84,21 +111,18 @@ public:
 	{
 		switch (Switch)
 		{
-			case 1: return TEXT("RedTeamOnOffense"); break;
-			case 2: return TEXT("RedTeamOnOffense"); break;
-			case 3: return TEXT("YourTeamIsNowDefending_01"); break;
-			case 4: return TEXT("YourTeamIsNowDefending_01"); break;
-			case 11: return TEXT("BlueTeamOffence"); break;
-			case 12: return TEXT("BlueTeamOffence"); break;
+			case 1: return AttackingName; break;
+			case 2: return DefendingName; break;
+			case 3: return ChoosePowerupName; break;
 		}
 		return NAME_None;
 	}
 
 	virtual void PrecacheAnnouncements_Implementation(UUTAnnouncer* Announcer) const override
 	{
-		Announcer->PrecacheAnnouncement(TEXT("RedTeamOnOffense"));
-		Announcer->PrecacheAnnouncement(TEXT("BlueTeamOffence"));
-		Announcer->PrecacheAnnouncement(TEXT("YourTeamIsNowDefending_01"));
+		Announcer->PrecacheAnnouncement(AttackingName);
+		Announcer->PrecacheAnnouncement(DefendingName);
+		Announcer->PrecacheAnnouncement(ChoosePowerupName);
 	}
 
 	virtual float GetAnnouncementSpacing_Implementation(int32 Switch, const UObject* OptionalObject) const override

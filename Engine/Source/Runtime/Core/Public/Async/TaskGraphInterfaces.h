@@ -36,6 +36,7 @@ namespace ENamedThreads
 		StatsThread, 
 #endif
 		RHIThread,
+		AudioThread,
 		GameThread,
 		// The render thread is sometimes the game thread and is sometimes the actual rendering thread
 		ActualRenderingThread = GameThread + 1,
@@ -744,7 +745,6 @@ public:
 	class FConstructor
 	{
 	public:
-	#if PLATFORM_COMPILER_HAS_VARIADIC_TEMPLATES
 		/** Passthrough internal task constructor and dispatch. Note! Generally speaking references will not pass through; use pointers */
 		template<typename...T>
 		FGraphEventRef ConstructAndDispatchWhenReady(T&&... Args)
@@ -752,76 +752,7 @@ public:
 			new ((void *)&Owner->TaskStorage) TTask(Forward<T>(Args)...);
 			return Owner->Setup(Prerequisites, CurrentThreadIfKnown);
 		}
-	#else
-		/** Passthrough internal task constructor and dispatch. */
-		FGraphEventRef ConstructAndDispatchWhenReady()
-		{
-			new ((void *)&Owner->TaskStorage) TTask();
-			return Owner->Setup(Prerequisites, CurrentThreadIfKnown);
-		}
-		template<typename T>
-		FGraphEventRef ConstructAndDispatchWhenReady(T&& Arg1)
-		{
-			new ((void *)&Owner->TaskStorage) TTask(Forward<T>(Arg1));
-			return Owner->Setup(Prerequisites, CurrentThreadIfKnown);
-		}
-		template<typename T1,typename T2>
-		FGraphEventRef ConstructAndDispatchWhenReady(T1&& Arg1, T2&& Arg2)
-		{
-			new ((void *)&Owner->TaskStorage) TTask(Forward<T1>(Arg1), Forward<T2>(Arg2));
-			return Owner->Setup(Prerequisites, CurrentThreadIfKnown);
-		}
-		template<typename T1,typename T2, typename T3>
-		FGraphEventRef ConstructAndDispatchWhenReady(T1&& Arg1, T2&& Arg2, T3&& Arg3)
-		{
-			new ((void *)&Owner->TaskStorage) TTask(Forward<T1>(Arg1), Forward<T2>(Arg2), Forward<T3>(Arg3));
-			return Owner->Setup(Prerequisites, CurrentThreadIfKnown);
-		}
-		template<typename T1,typename T2, typename T3, typename T4>
-		FGraphEventRef ConstructAndDispatchWhenReady(T1&& Arg1, T2&& Arg2, T3&& Arg3, T4&& Arg4)
-		{
-			new ((void *)&Owner->TaskStorage) TTask(Forward<T1>(Arg1), Forward<T2>(Arg2), Forward<T3>(Arg3), Forward<T4>(Arg4));
-			return Owner->Setup(Prerequisites, CurrentThreadIfKnown);
-		}
-		template<typename T1,typename T2, typename T3, typename T4, typename T5>
-		FGraphEventRef ConstructAndDispatchWhenReady(T1&& Arg1, T2&& Arg2, T3&& Arg3, T4&& Arg4, T5&& Arg5)
-		{
-			new ((void *)&Owner->TaskStorage) TTask(Forward<T1>(Arg1), Forward<T2>(Arg2), Forward<T3>(Arg3), Forward<T4>(Arg4), Forward<T5>(Arg5));
-			return Owner->Setup(Prerequisites, CurrentThreadIfKnown);
-		}
-		template<typename T1, typename T2, typename T3, typename T4, typename T5, typename T6>
-		FGraphEventRef ConstructAndDispatchWhenReady(T1&& Arg1, T2&& Arg2, T3&& Arg3, T4&& Arg4, T5&& Arg5, T6&& Arg6)
-		{
-			new ((void *)&Owner->TaskStorage) TTask(Forward<T1>(Arg1), Forward<T2>(Arg2), Forward<T3>(Arg3), Forward<T4>(Arg4), Forward<T5>(Arg5), Forward<T6>(Arg6));
-			return Owner->Setup(Prerequisites, CurrentThreadIfKnown);
-		}
-		template<typename T1, typename T2, typename T3, typename T4, typename T5, typename T6, typename T7>
-		FGraphEventRef ConstructAndDispatchWhenReady(T1&& Arg1, T2&& Arg2, T3&& Arg3, T4&& Arg4, T5&& Arg5, T6&& Arg6, T7&& Arg7)
-		{
-			new ((void *)&Owner->TaskStorage) TTask(Forward<T1>(Arg1), Forward<T2>(Arg2), Forward<T3>(Arg3), Forward<T4>(Arg4), Forward<T5>(Arg5), Forward<T6>(Arg6), Forward<T7>(Arg7));
-			return Owner->Setup(Prerequisites, CurrentThreadIfKnown);
-		}
-		template<typename T1, typename T2, typename T3, typename T4, typename T5, typename T6, typename T7, typename T8>
-		FGraphEventRef ConstructAndDispatchWhenReady(T1&& Arg1, T2&& Arg2, T3&& Arg3, T4&& Arg4, T5&& Arg5, T6&& Arg6, T7&& Arg7, T8&& Arg8)
-		{
-			new ((void *)&Owner->TaskStorage) TTask(Forward<T1>(Arg1), Forward<T2>(Arg2), Forward<T3>(Arg3), Forward<T4>(Arg4), Forward<T5>(Arg5), Forward<T6>(Arg6), Forward<T7>(Arg7), Forward<T8>(Arg8));
-			return Owner->Setup(Prerequisites, CurrentThreadIfKnown);
-		}
-		template<typename T1, typename T2, typename T3, typename T4, typename T5, typename T6, typename T7, typename T8, typename T9>
-		FGraphEventRef ConstructAndDispatchWhenReady(T1&& Arg1, T2&& Arg2, T3&& Arg3, T4&& Arg4, T5&& Arg5, T6&& Arg6, T7&& Arg7, T8&& Arg8, T9&& Arg9)
-		{
-			new ((void *)&Owner->TaskStorage) TTask(Forward<T1>(Arg1), Forward<T2>(Arg2), Forward<T3>(Arg3), Forward<T4>(Arg4), Forward<T5>(Arg5), Forward<T6>(Arg6), Forward<T7>(Arg7), Forward<T8>(Arg8), Forward<T9>(Arg9));
-			return Owner->Setup(Prerequisites, CurrentThreadIfKnown);
-		}		
-		template<typename T1, typename T2, typename T3, typename T4, typename T5, typename T6, typename T7, typename T8, typename T9, typename T10>
-		FGraphEventRef ConstructAndDispatchWhenReady(T1&& Arg1, T2&& Arg2, T3&& Arg3, T4&& Arg4, T5&& Arg5, T6&& Arg6, T7&& Arg7, T8&& Arg8, T9&& Arg9, T10&& Arg10)
-		{
-			new ((void *)&Owner->TaskStorage) TTask(Forward<T1>(Arg1), Forward<T2>(Arg2), Forward<T3>(Arg3), Forward<T4>(Arg4), Forward<T5>(Arg5), Forward<T6>(Arg6), Forward<T7>(Arg7), Forward<T8>(Arg8), Forward<T9>(Arg9), Forward<T10>(Arg10));
-			return Owner->Setup(Prerequisites, CurrentThreadIfKnown);
-		}		
-	#endif
 
-	#if PLATFORM_COMPILER_HAS_VARIADIC_TEMPLATES
 		/** Passthrough internal task constructor and hold. */
 		template<typename...T>
 		TGraphTask* ConstructAndHold(T&&... Args)
@@ -829,68 +760,6 @@ public:
 			new ((void *)&Owner->TaskStorage) TTask(Forward<T>(Args)...);
 			return Owner->Hold(Prerequisites, CurrentThreadIfKnown);
 		}
-	#else
-		/** Passthrough internal task constructor and hold. */
-		TGraphTask* ConstructAndHold()
-		{
-			new ((void *)&Owner->TaskStorage) TTask();
-			return Owner->Hold(Prerequisites, CurrentThreadIfKnown);
-		}
-		template<typename T>
-		TGraphTask* ConstructAndHold(T&& Arg1)
-		{
-			new ((void *)&Owner->TaskStorage) TTask(Forward<T>(Arg1));
-			return Owner->Hold(Prerequisites, CurrentThreadIfKnown);
-		}
-		template<typename T1,typename T2>
-		TGraphTask* ConstructAndHold(T1&& Arg1, T2&& Arg2)
-		{
-			new ((void *)&Owner->TaskStorage) TTask(Forward<T1>(Arg1), Forward<T2>(Arg2));
-			return Owner->Hold(Prerequisites, CurrentThreadIfKnown);
-		}
-		template<typename T1,typename T2, typename T3>
-		TGraphTask* ConstructAndHold(T1&& Arg1, T2&& Arg2, T3&& Arg3)
-		{
-			new ((void *)&Owner->TaskStorage) TTask(Forward<T1>(Arg1), Forward<T2>(Arg2), Forward<T3>(Arg3));
-			return Owner->Hold(Prerequisites, CurrentThreadIfKnown);
-		}
-		template<typename T1,typename T2, typename T3, typename T4>
-		TGraphTask* ConstructAndHold(T1&& Arg1, T2&& Arg2, T3&& Arg3, T4&& Arg4)
-		{
-			new ((void *)&Owner->TaskStorage) TTask(Forward<T1>(Arg1), Forward<T2>(Arg2), Forward<T3>(Arg3), Forward<T4>(Arg4));
-			return Owner->Hold(Prerequisites, CurrentThreadIfKnown);
-		}
-		template<typename T1,typename T2, typename T3, typename T4, typename T5>
-		TGraphTask* ConstructAndHold(T1&& Arg1, T2&& Arg2, T3&& Arg3, T4&& Arg4, T5&& Arg5)
-		{
-			new ((void *)&Owner->TaskStorage) TTask(Forward<T1>(Arg1), Forward<T2>(Arg2), Forward<T3>(Arg3), Forward<T4>(Arg4), Forward<T5>(Arg5));
-			return Owner->Hold(Prerequisites, CurrentThreadIfKnown);
-		}
-		template<typename T1, typename T2, typename T3, typename T4, typename T5, typename T6>
-		TGraphTask* ConstructAndHold(T1&& Arg1, T2&& Arg2, T3&& Arg3, T4&& Arg4, T5&& Arg5, T6&& Arg6)
-		{
-			new ((void *)&Owner->TaskStorage) TTask(Forward<T1>(Arg1), Forward<T2>(Arg2), Forward<T3>(Arg3), Forward<T4>(Arg4), Forward<T5>(Arg5), Forward<T6>(Arg6));
-			return Owner->Hold(Prerequisites, CurrentThreadIfKnown);
-		}
-		template<typename T1, typename T2, typename T3, typename T4, typename T5, typename T6, typename T7>
-		TGraphTask* ConstructAndHold(T1&& Arg1, T2&& Arg2, T3&& Arg3, T4&& Arg4, T5&& Arg5, T6&& Arg6, T7&& Arg7)
-		{
-			new ((void *)&Owner->TaskStorage) TTask(Forward<T1>(Arg1), Forward<T2>(Arg2), Forward<T3>(Arg3), Forward<T4>(Arg4), Forward<T5>(Arg5), Forward<T6>(Arg6), Forward<T7>(Arg7));
-			return Owner->Hold(Prerequisites, CurrentThreadIfKnown);
-		}
-		template<typename T1, typename T2, typename T3, typename T4, typename T5, typename T6, typename T7, typename T8>
-		TGraphTask* ConstructAndHold(T1&& Arg1, T2&& Arg2, T3&& Arg3, T4&& Arg4, T5&& Arg5, T6&& Arg6, T7&& Arg7, T8&& Arg8)
-		{
-			new ((void *)&Owner->TaskStorage) TTask(Forward<T1>(Arg1), Forward<T2>(Arg2), Forward<T3>(Arg3), Forward<T4>(Arg4), Forward<T5>(Arg5), Forward<T6>(Arg6), Forward<T7>(Arg7), Forward<T8>(Arg8));
-			return Owner->Hold(Prerequisites, CurrentThreadIfKnown);
-		}
-		template<typename T1, typename T2, typename T3, typename T4, typename T5, typename T6, typename T7, typename T8, typename T9>
-		TGraphTask* ConstructAndHold(T1&& Arg1, T2&& Arg2, T3&& Arg3, T4&& Arg4, T5&& Arg5, T6&& Arg6, T7&& Arg7, T8&& Arg8, T9&& Arg9)
-		{
-			new ((void *)&Owner->TaskStorage) TTask(Forward<T1>(Arg1), Forward<T2>(Arg2), Forward<T3>(Arg3), Forward<T4>(Arg4), Forward<T5>(Arg5), Forward<T6>(Arg6), Forward<T7>(Arg7), Forward<T8>(Arg8), Forward<T9>(Arg9));
-			return Owner->Hold(Prerequisites, CurrentThreadIfKnown);
-		}
-	#endif
 
 	private:
 		friend class TGraphTask;

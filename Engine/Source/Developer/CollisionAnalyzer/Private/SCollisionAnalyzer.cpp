@@ -49,7 +49,9 @@ void SCollisionAnalyzer::Construct(const FArguments& InArgs, FCollisionAnalyzer*
 				.Padding(1)
 				[
 					SNew(SButton)
+					.ButtonStyle(FCollisionAnalyzerStyle::Get(), "CommonButton")
 					.OnClicked(this, &SCollisionAnalyzer::OnRecordButtonClicked)
+					.ToolTipText(LOCTEXT("CAnalyzerRecord_Tooltip", "Start/stop recording collision data"))
 					.Content()
 					[
 						SNew(SImage)
@@ -63,6 +65,7 @@ void SCollisionAnalyzer::Construct(const FArguments& InArgs, FCollisionAnalyzer*
 				[
 					SNew(SCheckBox)
 					.Style(FCollisionAnalyzerStyle::Get(), "ToggleButtonCheckbox")
+					.ToolTipText(LOCTEXT("CAnalyzerToggleRecent_Tooltip", "Toggles drawing of recent collision data"))
 					.OnCheckStateChanged(this, &SCollisionAnalyzer::OnDrawRecentChanged)
 					.IsChecked(this, &SCollisionAnalyzer::GetDrawRecentState)
 					.Content()
@@ -77,7 +80,9 @@ void SCollisionAnalyzer::Construct(const FArguments& InArgs, FCollisionAnalyzer*
 				.Padding(1)
 				[
 					SNew(SButton)
+					.ButtonStyle(FCollisionAnalyzerStyle::Get(), "CommonButton")
 					.OnClicked(this, &SCollisionAnalyzer::OnLoadButtonClicked)
+					.ToolTipText(LOCTEXT("CAnalyzerLoad_Tooltip", "Load a previously recorded collision data session"))
 					.Content()
 					[
 						SNew(SImage)
@@ -90,7 +95,9 @@ void SCollisionAnalyzer::Construct(const FArguments& InArgs, FCollisionAnalyzer*
 				.Padding(1)
 				[
 					SNew(SButton)
+					.ButtonStyle(FCollisionAnalyzerStyle::Get(), "CommonButton")
 					.OnClicked(this, &SCollisionAnalyzer::OnSaveButtonClicked)
+					.ToolTipText(LOCTEXT("CAnalyzerSave_Tooltip", "Save the current recorded collision data"))
 					.Content()
 					[
 						SNew(SImage)
@@ -770,7 +777,7 @@ FReply SCollisionAnalyzer::OnLoadButtonClicked()
 		TArray<FString> Filenames;
 		bool bOpened = DesktopPlatform->OpenFileDialog(
 			ParentWindowWindowHandle,
-			LOCTEXT("OpenProjectBrowseTitle", "Open Project").ToString(),
+			LOCTEXT("CollisionFileOpen", "Choose collision file to load").ToString(),
 			DefaultPath,
 			TEXT(""),
 			TEXT( "UCA file|*.uca" ),

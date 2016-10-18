@@ -26,7 +26,8 @@ namespace UnrealBuildTool.Rules
 					"SharedSettingsWidgets",
 					"DirectoryWatcher",
 					"GameProjectGeneration",
-					"MainFrame"
+					"MainFrame",
+                    "UATHelper"
 				}
 			);
 

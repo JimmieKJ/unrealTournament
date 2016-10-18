@@ -12,7 +12,7 @@ AUTProj_FlakShard::AUTProj_FlakShard(const class FObjectInitializer& ObjectIniti
 	if (Mesh != NULL)
 	{
 		Mesh->SetCollisionProfileName(FName(TEXT("NoCollision")));
-		Mesh->AttachParent = RootComponent;
+		Mesh->SetupAttachment(RootComponent);
 		Mesh->bReceivesDecals = false;
 		Mesh->bUseAsOccluder = false;
 	}
@@ -20,7 +20,7 @@ AUTProj_FlakShard::AUTProj_FlakShard(const class FObjectInitializer& ObjectIniti
 	Trail = ObjectInitializer.CreateOptionalDefaultSubobject<UParticleSystemComponent>(this, FName(TEXT("Trail")));
 	if (Trail != NULL)
 	{
-		Trail->AttachParent = RootComponent;
+		Trail->SetupAttachment(RootComponent);
 	}
 
 	HeatFadeTime = 1.0f;
@@ -36,7 +36,7 @@ AUTProj_FlakShard::AUTProj_FlakShard(const class FObjectInitializer& ObjectIniti
 	// Damage
 	DamageParams.BaseDamage = 15.0f;
 	DamageParams.MinimumDamage = 5.0f;
-	Momentum = 20000.f;
+	Momentum = 24000.f;
 
 	DamageAttenuation = 15.0f;
 	DamageAttenuationDelay = 0.5f;
@@ -82,7 +82,7 @@ void AUTProj_FlakShard::BeginPlay()
 				NewMesh->SetStaticMesh(ShardMesh->StaticMesh);
 				NewMesh->SetMaterial(0, ShardMesh->GetMaterial(0));
 				NewMesh->RegisterComponentWithWorld(GetWorld());
-				NewMesh->AttachTo(CollisionComp);
+				NewMesh->AttachToComponent(CollisionComp, FAttachmentTransformRules::KeepWorldTransform);
 				NewMesh->SetRelativeLocation(ShardOffset);
 				NewMesh->SetRelativeScale3D(ShardMesh->RelativeScale3D);
 				NewMesh->bGenerateOverlapEvents = false;
@@ -97,7 +97,7 @@ void AUTProj_FlakShard::DamageImpactedActor_Implementation(AActor* OtherActor, U
 	AUTCharacter* UTC = Cast<AUTCharacter>(OtherActor);
 	if (UTC && FleshImpactSound)
 	{
-		UUTGameplayStatics::UTPlaySound(GetWorld(), FleshImpactSound, this, SRT_IfSourceNotReplicated, false, FVector::ZeroVector, NULL, NULL, true, SAT_PainSound);
+		UUTGameplayStatics::UTPlaySound(GetWorld(), FleshImpactSound, UTC, SRT_IfSourceNotReplicated, false, FVector::ZeroVector, NULL, NULL, true, SAT_PainSound);
 	}
 	Super::DamageImpactedActor_Implementation(OtherActor, OtherComp, HitLocation, HitNormal);
 }
@@ -181,7 +181,7 @@ void AUTProj_FlakShard::RemoveSatelliteShards()
 	{
 		if (SatelliteShards[i])
 		{
-			SatelliteShards[i]->DetachFromParent();
+			SatelliteShards[i]->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
 			SatelliteShards[i]->SetHiddenInGame(true);
 		}
 	}

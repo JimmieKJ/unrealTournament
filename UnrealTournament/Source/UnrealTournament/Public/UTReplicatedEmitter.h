@@ -51,8 +51,8 @@ class UNREALTOURNAMENT_API AUTReplicatedEmitter : public AActor
 
 		if (GetOwner() != NULL && bAttachToOwnerMesh)
 		{
-			ACharacter* C = Cast<ACharacter>(GetOwner());
-			AttachRootComponentTo((C != NULL) ? C->GetMesh() : GetOwner()->GetRootComponent(), BaseSocketName, EAttachLocation::SnapToTarget);
+			ACharacter* C = Cast<ACharacter>(GetOwner());			
+			AttachToComponent((C != NULL) ? C->GetMesh() : GetOwner()->GetRootComponent(), FAttachmentTransformRules::SnapToTargetIncludingScale, BaseSocketName);
 		}
 		if (GetNetMode() != NM_DedicatedServer)
 		{
@@ -68,9 +68,9 @@ class UNREALTOURNAMENT_API AUTReplicatedEmitter : public AActor
 
 		// we can't do this above because if the blueprint does something with a BP or construction script component, the script would overwrite changes
 		// this spot is after the construction script so should be OK
-		if (RootComponent->AttachParent != NULL)
+		if (RootComponent->GetAttachParent() != NULL)
 		{
-			OnAttachedTo(RootComponent->AttachParent);
+			OnAttachedTo(RootComponent->GetAttachParent());
 		}
 	}
 
@@ -90,9 +90,9 @@ class UNREALTOURNAMENT_API AUTReplicatedEmitter : public AActor
 	{
 		Super::OnRep_AttachmentReplication();
 
-		if (RootComponent->AttachParent != NULL)
+		if (RootComponent->GetAttachParent() != NULL)
 		{
-			OnAttachedTo(RootComponent->AttachParent);
+			OnAttachedTo(RootComponent->GetAttachParent());
 		}
 	}
 

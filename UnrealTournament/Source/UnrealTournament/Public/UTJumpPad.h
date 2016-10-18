@@ -78,9 +78,9 @@ protected:
 public:
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 	virtual void CheckForErrors() override;
-	virtual void PreSave() override
+	virtual void PreSave(const class ITargetPlatform* TargetPlatform) override
 	{
-		Super::PreSave();
+		Super::PreSave(TargetPlatform);
 
 		if (GIsEditor && !IsTemplate() && !IsRunningCommandlet())
 		{
@@ -116,17 +116,23 @@ public:
 	UFUNCTION(BlueprintNativeEvent)
 	void Launch(AActor* Actor);
 
+	/** AI flag - set if jump pad is usually inactive but can be temporarily enabled via switch or trigger
+	 * need to rebuild paths after changing
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = AI)
+	bool bTemporaryActivation;
+
 	/** Actors we want to Jump next tick */
 	TArray<AActor*> PendingJumpActors;
 
 	/** Event when this actor overlaps another actor. */
 	UFUNCTION()
-	virtual void TriggerBeginOverlap(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
+	virtual void TriggerBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
 
 	virtual void AddSpecialPaths(class UUTPathNode* MyNode, class AUTRecastNavMesh* NavData);
 
 	virtual bool IsDestinationOnly() const override
 	{
-		return true;
+		return !bTemporaryActivation;
 	}
 };

@@ -8,8 +8,6 @@
 #include "PreviewScene.h"
 #include "SceneViewport.h"
 
-#include "BlueprintEditor.h"
-
 #include "DecoratedDragDropOp.h"
 #include "WidgetTemplateDragDropOp.h"
 
@@ -22,12 +20,18 @@
 #include "AssetRegistryModule.h"
 #include "SSearchBox.h"
 
+#include "WidgetBlueprintEditor.h"
 #include "WidgetBlueprintCompiler.h"
 #include "WidgetBlueprintEditorUtils.h"
+
+#include "Settings/WidgetDesignerSettings.h"
 
 #include "Blueprint/UserWidget.h"
 #include "WidgetBlueprint.h"
 #include "ObjectEditorUtils.h"
+
+#include "Settings/ContentBrowserSettings.h"
+#include "UMGEditorProjectSettings.h"
 
 #define LOCTEXT_NAMESPACE "UMG"
 
@@ -99,6 +103,11 @@ public:
 		return Template->Name;
 	}
 
+	virtual bool IsTemplate() const override
+	{
+		return true;
+	}
+
 	virtual FString GetFilterString() const override
 	{
 		return Template->Name.ToString();
@@ -137,6 +146,11 @@ public:
 		return GroupName;
 	}
 
+	virtual bool IsTemplate() const override
+	{
+		return false;
+	}
+
 	virtual FString GetFilterString() const override
 	{
 		// Headers should never be included in filtering to avoid showing a header with all of
@@ -170,7 +184,7 @@ public:
 	TArray< TSharedPtr<FWidgetViewModel> > Children;
 };
 
-void SPaletteView::Construct(const FArguments& InArgs, TSharedPtr<FBlueprintEditor> InBlueprintEditor)
+void SPaletteView::Construct(const FArguments& InArgs, TSharedPtr<FWidgetBlueprintEditor> InBlueprintEditor)
 {
 	// Register for events that can trigger a palette rebuild
 	GEditor->OnBlueprintReinstanced().AddRaw(this, &SPaletteView::OnBlueprintReinstanced);
@@ -197,6 +211,7 @@ void SPaletteView::Construct(const FArguments& InArgs, TSharedPtr<FBlueprintEdit
 		.SelectionMode(ESelectionMode::Single)
 		.OnGenerateRow(this, &SPaletteView::OnGenerateWidgetTemplateItem)
 		.OnGetChildren(FilterHandler.ToSharedRef(), &PaletteFilterHandler::OnGetFilteredChildren)
+		.OnSelectionChanged(this, &SPaletteView::WidgetPalette_OnSelectionChanged)
 		.TreeItemsSource(&TreeWidgetViewModels);
 		
 
@@ -264,6 +279,61 @@ void SPaletteView::OnSearchChanged(const FText& InFilterText)
 FText SPaletteView::GetSearchText() const
 {
 	return SearchText;
+}
+
+void SPaletteView::WidgetPalette_OnSelectionChanged(TSharedPtr<FWidgetViewModel> SelectedItem, ESelectInfo::Type SelectInfo)
+{
+	if (!SelectedItem.IsValid()) 
+	{
+		return;
+	}
+
+	// Reset the selected
+	BlueprintEditor.Pin()->SetSelectedTemplate(nullptr);
+	BlueprintEditor.Pin()->SetSelectedUserWidget(FAssetData());
+
+	// If it's not a template, return
+	if (!SelectedItem->IsTemplate())
+	{
+		return;
+	}
+
+	TSharedPtr<FWidgetTemplateViewModel> SelectedTemplate = StaticCastSharedPtr<FWidgetTemplateViewModel>(SelectedItem);
+	if (SelectedTemplate.IsValid())
+	{
+		TSharedPtr<FWidgetTemplateClass> TemplateClass = StaticCastSharedPtr<FWidgetTemplateClass>(SelectedTemplate->Template);
+		if (TemplateClass.IsValid())
+		{
+			if (TemplateClass->GetWidgetClass().IsValid())
+			{
+				BlueprintEditor.Pin()->SetSelectedTemplate(TemplateClass->GetWidgetClass());
+			}
+			else
+			{
+				TSharedPtr<FWidgetTemplateBlueprintClass> UserCreatedTemplate = StaticCastSharedPtr<FWidgetTemplateBlueprintClass>(TemplateClass);
+				if (UserCreatedTemplate.IsValid())
+				{
+					// Then pass in the asset data of selected widget
+					FAssetData UserCreatedWidget = UserCreatedTemplate->GetWidgetAssetData();
+					BlueprintEditor.Pin()->SetSelectedUserWidget(UserCreatedWidget);
+				}
+			}
+		}
+	}
+}
+
+TSharedPtr<FWidgetTemplate> SPaletteView::GetSelectedTemplateWidget() const
+{
+	TArray<TSharedPtr<FWidgetViewModel>> SelectedTemplates = WidgetTemplatesView.Get()->GetSelectedItems();
+	if (SelectedTemplates.Num() == 1)
+	{
+		TSharedPtr<FWidgetTemplateViewModel> TemplateViewModel = StaticCastSharedPtr<FWidgetTemplateViewModel>(SelectedTemplates[0]);
+		if (TemplateViewModel.IsValid())
+		{
+			return TemplateViewModel->Template;
+		}
+	}
+	return nullptr;
 }
 
 void SPaletteView::LoadItemExpansion()
@@ -342,10 +412,48 @@ void SPaletteView::BuildClassWidgetList()
 	auto ActiveWidgetBlueprintClass = GetBlueprint()->GeneratedClass;
 	FName ActiveWidgetBlueprintClassName = ActiveWidgetBlueprintClass->GetFName();
 
+	TArray<FStringClassReference> WidgetClassesToHide = GetDefault<UUMGEditorProjectSettings>()->WidgetClassesToHide;
+
 	// Locate all UWidget classes from code and loaded widget BPs
 	for (TObjectIterator<UClass> ClassIt; ClassIt; ++ClassIt)
 	{
 		UClass* WidgetClass = *ClassIt;
+
+		// Initialize AssetData for checking PackagePath
+		FAssetData WidgetAssetData = FAssetData(WidgetClass);
+
+		// Excludes engine content if user sets it to false
+		if (!GetDefault<UContentBrowserSettings>()->GetDisplayEngineFolder() || !GetDefault<UUMGEditorProjectSettings>()->bShowWidgetsFromEngineContent)
+		{
+			if (WidgetAssetData.PackagePath.ToString().Find(TEXT("/Engine")) == 0)
+			{
+				continue;
+			}
+		}
+
+		// Excludes developer content if user sets it to false
+		if (!GetDefault<UContentBrowserSettings>()->GetDisplayDevelopersFolder() || !GetDefault<UUMGEditorProjectSettings>()->bShowWidgetsFromDeveloperContent)
+		{
+			if (WidgetAssetData.PackagePath.ToString().Find(TEXT("/Game/Developers")) == 0)
+			{
+				continue;
+			}
+		}
+
+		// Excludes this widget if it is on the hide list
+		bool bIsOnList = false;
+		for (FStringClassReference Widget : WidgetClassesToHide)
+		{
+			if (WidgetAssetData.ObjectPath.ToString().Find(Widget.ToString()) == 0)
+			{
+				bIsOnList = true;
+				break;
+			}
+		}
+		if (bIsOnList)
+		{
+			continue;
+		}
 
 		if ( FWidgetBlueprintEditorUtils::IsUsableWidgetClass(WidgetClass) )
 		{
@@ -382,9 +490,43 @@ void SPaletteView::BuildClassWidgetList()
 	AssetRegistryModule.Get().GetAssetsByClass(UWidgetBlueprint::StaticClass()->GetFName(), AllWidgetBPsAssetData, true);
 
 	FName ActiveWidgetBlueprintName = ActiveWidgetBlueprintClass->ClassGeneratedBy->GetFName();
-	for (auto& WidgetBPAssetData : AllWidgetBPsAssetData)
+	for (FAssetData& WidgetBPAssetData : AllWidgetBPsAssetData)
 	{
+		// Excludes the blueprint you're currently in
 		if (WidgetBPAssetData.AssetName == ActiveWidgetBlueprintName)
+		{
+			continue;
+		}
+
+		// Excludes engine content if user sets it to false
+		if (!GetDefault<UContentBrowserSettings>()->GetDisplayEngineFolder() || !GetDefault<UUMGEditorProjectSettings>()->bShowWidgetsFromEngineContent)
+		{
+			if (WidgetBPAssetData.PackagePath.ToString().Find(TEXT("/Engine")) == 0)
+			{
+				continue;
+			}
+		}
+
+		// Excludes developer content if user sets it to false
+		if (!GetDefault<UContentBrowserSettings>()->GetDisplayDevelopersFolder() || !GetDefault<UUMGEditorProjectSettings>()->bShowWidgetsFromDeveloperContent)
+		{
+			if (WidgetBPAssetData.PackagePath.ToString().Find(TEXT("/Game/Developers")) == 0)
+			{
+				continue;
+			}
+		}
+
+		// Excludes this widget if it is on the hide list
+		bool bIsOnList = false;
+		for (FStringClassReference Widget : WidgetClassesToHide)
+		{
+			if (Widget.ToString().Find(WidgetBPAssetData.ObjectPath.ToString()) == 0)
+			{
+				bIsOnList = true;
+				break;
+			}
+		}
+		if (bIsOnList)
 		{
 			continue;
 		}
@@ -414,6 +556,16 @@ void SPaletteView::BuildSpecialWidgetList()
 void SPaletteView::AddWidgetTemplate(TSharedPtr<FWidgetTemplate> Template)
 {
 	FString Category = Template->GetCategory().ToString();
+
+	// Hide user specific categories
+	TArray<FString> CategoriesToHide = GetDefault<UUMGEditorProjectSettings>()->CategoriesToHide;
+	for (FString CategoryName : CategoriesToHide)
+	{
+		if (Category == CategoryName)
+		{
+			return;
+		}
+	}
 	WidgetTemplateArray& Group = WidgetTemplateCategories.FindOrAdd(Category);
 	Group.Add(Template);
 }

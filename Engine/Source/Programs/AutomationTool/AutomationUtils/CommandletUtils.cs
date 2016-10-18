@@ -116,7 +116,7 @@ namespace AutomationTool
 				MapsToRebuildLighting.Trim();
 			}
 
-			RunCommandlet(ProjectName, UE4Exe, "ResavePackages", String.Format("-buildlighting -MapsOnly -ProjectOnly -AllowCommandletRendering {0} {1}", MapsToRebuildLighting, Parameters));
+			RunCommandlet(ProjectName, UE4Exe, "ResavePackages", String.Format("-buildlighting -MapsOnly -ProjectOnly -AllowCommandletRendering -SkipSkinVerify {0} {1}", MapsToRebuildLighting, Parameters));
 		}
 
         /// <summary>
@@ -291,10 +291,17 @@ namespace AutomationTool
 				List<FileInfo> CrashFileInfos = new List<FileInfo>();
 				foreach(string CrashDir in CrashDirs)
 				{
-					DirectoryInfo CrashDirInfo = new DirectoryInfo(CrashDir);
-					if(CrashDirInfo.Exists)
+					try
 					{
-						CrashFileInfos.AddRange(CrashDirInfo.EnumerateFiles("*.crash", SearchOption.TopDirectoryOnly).Where(x => x.LastWriteTimeUtc >= StartTime));
+						DirectoryInfo CrashDirInfo = new DirectoryInfo(CrashDir);
+						if (CrashDirInfo.Exists)
+						{
+							CrashFileInfos.AddRange(CrashDirInfo.EnumerateFiles("*.crash", SearchOption.TopDirectoryOnly).Where(x => x.LastWriteTimeUtc >= StartTime));
+						}
+					}
+					catch (UnauthorizedAccessException)
+					{
+						// Not all account types can access /Library/Logs/DiagnosticReports
 					}
 				}
 				
@@ -349,7 +356,7 @@ namespace AutomationTool
 
 			if (RunResult.ExitCode != 0)
 			{
-				throw new AutomationException("BUILD FAILED: Failed while running {0} for {1}; see log {2}", Commandlet, ProjectName, DestLogFile);
+				throw new AutomationException(DestLogFile, RunResult.ExitCode, "BUILD FAILED: Failed while running {0} for {1}; see log {2}", Commandlet, ProjectName, DestLogFile);
 			}
 		}
 		

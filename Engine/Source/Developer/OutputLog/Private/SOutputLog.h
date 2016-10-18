@@ -2,25 +2,35 @@
 
 #pragma once
 #include "BaseTextLayoutMarshaller.h"
+#include "TextFilterExpressionEvaluator.h"
 
 class FOutputLogTextLayoutMarshaller;
+class SSearchBox;
 
 /**
- * A single log message for the output log, holding a message and
- * a style, for color and bolding of the message.
- */
+* A single log message for the output log, holding a message and
+* a style, for color and bolding of the message.
+*/
 struct FLogMessage
 {
 	TSharedRef<FString> Message;
+	ELogVerbosity::Type Verbosity;
 	FName Style;
 
 	FLogMessage(const TSharedRef<FString>& NewMessage, FName NewStyle = NAME_None)
 		: Message(NewMessage)
+		, Verbosity(ELogVerbosity::Log)
+		, Style(NewStyle)
+	{
+	}
+
+	FLogMessage(const TSharedRef<FString>& NewMessage, ELogVerbosity::Type NewVerbosity, FName NewStyle = NAME_None)
+		: Message(NewMessage)
+		, Verbosity(NewVerbosity)
 		, Style(NewStyle)
 	{
 	}
 };
-
 
 /**
  * Console input box with command-completion support
@@ -119,6 +129,42 @@ private:
 	bool bIgnoreUIUpdate; 
 };
 
+/**
+* Holds information about filters
+*/
+struct FLogFilter
+{
+	/** true to show Logs. */
+	bool bShowLogs;
+
+	/** true to show Warnings. */
+	bool bShowWarnings;
+
+	/** true to show Errors. */
+	bool bShowErrors;
+
+	/** Enable all filters by default */
+	FLogFilter() : TextFilterExpressionEvaluator(ETextFilterExpressionEvaluatorMode::BasicString)
+	{
+		bShowErrors = bShowLogs = bShowWarnings = true;
+	}
+
+	/** Returns true if any messages should be filtered out */
+	bool IsFilterSet() { return !bShowErrors || !bShowLogs || !bShowWarnings || TextFilterExpressionEvaluator.GetFilterType() != ETextFilterExpressionType::Empty || !TextFilterExpressionEvaluator.GetFilterText().IsEmpty(); }
+
+	/** Checks the given message against set filters */
+	bool IsMessageAllowed(const TSharedPtr<FLogMessage>& Message);
+
+	/** Set the Text to be used as the Filter's restrictions */
+	void SetFilterText(const FText& InFilterText) { TextFilterExpressionEvaluator.SetFilterText(InFilterText); }
+
+	/** Returns Evaluator syntax errors (if any) */
+	FText GetSyntaxErrors() { return TextFilterExpressionEvaluator.GetFilterErrorText(); }
+
+private:
+	/** Expression evaluator that can be used to perform complex text filter queries */
+	FTextFilterExpressionEvaluator TextFilterExpressionEvaluator;
+};
 
 /**
  * Widget which holds a list view of logs of the program output
@@ -156,10 +202,11 @@ public:
 	 * @param Verbosity Message verbosity
 	 * @param Category Message category
 	 * @param OutMessages Array to receive created FLogMessage messages
+	 * @param Filters [Optional] Filters to apply to Messages
 	 *
 	 * @return true if any messages have been created, false otherwise
 	 */
-	static bool CreateLogMessages( const TCHAR* V, ELogVerbosity::Type Verbosity, const class FName& Category, TArray< TSharedPtr<FLogMessage> >& OutMessages );
+	static bool CreateLogMessages(const TCHAR* V, ELogVerbosity::Type Verbosity, const class FName& Category, TArray< TSharedPtr<FLogMessage> >& OutMessages);
 
 protected:
 
@@ -198,17 +245,57 @@ protected:
 	/** The editable text showing all log messages */
 	TSharedPtr< SMultiLineEditableTextBox > MessagesTextBox;
 
+	/** The editable text showing all log messages */
+	TSharedPtr< SSearchBox > FilterTextBox;
+
 	/** True if the user has scrolled the window upwards */
 	bool bIsUserScrolled;
-};
 
+private:
+	/** Called by Slate when the filter box changes text. */
+	void OnFilterTextChanged(const FText& InFilterText);
+
+	/** Make the "Filters" menu. */
+	TSharedRef<SWidget> MakeAddFilterMenu();
+
+	/** Fills in the filter menu. */
+	void FillVerbosityEntries(FMenuBuilder& MenuBuilder);
+
+	/** A simple function for the filters to keep them enabled. */
+	bool Menu_CanExecute() const;
+
+	/** Toggles "Logs" true/false. */
+	void MenuLogs_Execute();
+
+	/** Returns the state of "Logs". */
+	bool MenuLogs_IsChecked() const;
+
+	/** Toggles "Warnings" true/false. */
+	void MenuWarnings_Execute();
+
+	/** Returns the state of "Warnings". */
+	bool MenuWarnings_IsChecked() const;
+
+	/** Toggles "Errors" true/false. */
+	void MenuErrors_Execute();
+
+	/** Returns the state of "Errors". */
+	bool MenuErrors_IsChecked() const;
+
+	/** Forces re-population of the messages list */
+	void Refresh();
+
+public:
+	/** Visible messages filter */
+	FLogFilter Filter;
+};
 
 /** Output log text marshaller to convert an array of FLogMessages into styled lines to be consumed by an FTextLayout */
 class FOutputLogTextLayoutMarshaller : public FBaseTextLayoutMarshaller
 {
 public:
 
-	static TSharedRef< FOutputLogTextLayoutMarshaller > Create(TArray< TSharedPtr<FLogMessage> > InMessages);
+	static TSharedRef< FOutputLogTextLayoutMarshaller > Create(TArray< TSharedPtr<FLogMessage> > InMessages, FLogFilter* InFilter);
 
 	virtual ~FOutputLogTextLayoutMarshaller();
 	
@@ -218,17 +305,32 @@ public:
 
 	bool AppendMessage(const TCHAR* InText, const ELogVerbosity::Type InVerbosity, const FName& InCategory);
 	void ClearMessages();
+
+	void CountMessages();
+
 	int32 GetNumMessages() const;
+	int32 GetNumFilteredMessages();
+
+	void MarkMessagesCacheAsDirty();
 
 protected:
 
-	FOutputLogTextLayoutMarshaller(TArray< TSharedPtr<FLogMessage> > InMessages);
+	FOutputLogTextLayoutMarshaller(TArray< TSharedPtr<FLogMessage> > InMessages, FLogFilter* InFilter);
 
 	void AppendMessageToTextLayout(const TSharedPtr<FLogMessage>& InMessage);
 	void AppendMessagesToTextLayout(const TArray<TSharedPtr<FLogMessage>>& InMessages);
 
 	/** All log messages to show in the text box */
 	TArray< TSharedPtr<FLogMessage> > Messages;
+
+	/** Holds cached numbers of messages to avoid unnecessary re-filtering */
+	int32 CachedNumMessages;
+	
+	/** Flag indicating the messages count cache needs rebuilding */
+	bool bNumMessagesCacheDirty;
+
+	/** Visible messages filter */
+	FLogFilter* Filter;
 
 	FTextLayout* TextLayout;
 };

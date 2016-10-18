@@ -11,6 +11,7 @@
 #include "MoviePlayer.h"
 #endif
 
+#include "NetworkVersion.h"
 #include "UTGameInstance.generated.h"
 
 class UUTMatchmaking;
@@ -45,7 +46,8 @@ class UNREALTOURNAMENT_API UUTGameInstance : public UGameInstance
 
 	/** starts download for pak file from redirect if needed
 	 * @return whether download was required */
-	virtual bool StartRedirectDownload(const FString& PakName, const FString& URL, const FString& Checksum);
+	
+	virtual bool RedirectDownload(const FString& PakName, const FString& URL, const FString& Checksum);
 
 	inline void SetLastTriedDemo(const FString& NewName)
 	{
@@ -72,7 +74,7 @@ inline void InitPerfCounters()
 		{
 			// Not exactly full version string, but the build number
 			//UE_LOG(UT,Log,TEXT("GEngineNetVersion %i"),GEngineNetVersion);
-			PerfCounters->Set(TEXT("BuildVersion"), GEngineNetVersion);
+			PerfCounters->Set(TEXT("BuildVersion"), FNetworkVersion::GetNetworkCompatibleChangelist());
 		}
 		else
 		{
@@ -87,10 +89,6 @@ protected:
 	virtual bool HandleOpenCommand(const TCHAR* Cmd, FOutputDevice& Ar, UWorld* InWorld) override;
 
 	virtual void HandleDemoPlaybackFailure( EDemoPlayFailure::Type FailureType, const FString& ErrorString ) override;
-
-	virtual void RedirectResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
-
-	TArray<TWeakPtr<class SUTRedirectDialog>> ActiveRedirectDialogs;
 
 	// in order to handle demo redirects, we have to cancel the demo, download, then retry
 	// this tracks the demo we need to retry
@@ -187,6 +185,7 @@ public:
 	virtual void WaitForMovieToFinish(bool bEnsureDefaultSlateOverlay);
 	virtual void WaitForMovieToFinish(TSharedPtr<SWidget> SlateOverlayWidget);
 
+
 protected:
 
 	TSharedPtr<SWidget> MovieOverlay;
@@ -202,9 +201,6 @@ protected:
 	bool bDisablePerformanceCounters;
 
 public:
-	virtual void CloseAllRedirectDownloadDialogs();
-
-
-
+	virtual int32 GetBotSkillForTeamElo(int32 TeamElo);
 };
 

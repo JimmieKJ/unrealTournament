@@ -50,6 +50,7 @@ void UWorldThumbnailRenderer::Draw(UObject* Object, int32 X, int32 Y, uint32 Wid
 		ViewFamily.EngineShowFlags.SetBSP(true);
 		ViewFamily.EngineShowFlags.SetRendering(true);
 		ViewFamily.EngineShowFlags.SetPaper2DSprites(true);
+		ViewFamily.EngineShowFlags.SetDistanceCulledPrimitives(true);
 
 		if ( !bUseUnlitScene )
 		{

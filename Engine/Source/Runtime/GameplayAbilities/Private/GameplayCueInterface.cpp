@@ -160,7 +160,7 @@ void FActiveGameplayCue::PreReplicatedRemove(const struct FActiveGameplayCueCont
 	{
 		// If predicted ignore the add/remove
 		InArray.Owner->UpdateTagMap(GameplayCueTag, -1);
-		InArray.Owner->InvokeGameplayCueEvent(GameplayCueTag, EGameplayCueEvent::Removed);
+		InArray.Owner->InvokeGameplayCueEvent(GameplayCueTag, EGameplayCueEvent::Removed, Parameters);
 	}
 }
 
@@ -171,21 +171,21 @@ void FActiveGameplayCue::PostReplicatedAdd(const struct FActiveGameplayCueContai
 	if (PredictionKey.IsLocalClientKey() == false)
 	{
 		// If predicted ignore the add/remove
-		InArray.Owner->InvokeGameplayCueEvent(GameplayCueTag, EGameplayCueEvent::WhileActive);
+		InArray.Owner->InvokeGameplayCueEvent(GameplayCueTag, EGameplayCueEvent::WhileActive, Parameters);
 	}
 }
 
-void FActiveGameplayCueContainer::AddCue(const FGameplayTag& Tag, const FPredictionKey& PredictionKey)
+void FActiveGameplayCueContainer::AddCue(const FGameplayTag& Tag, const FPredictionKey& PredictionKey, const FGameplayCueParameters& Parameters)
 {
 	UWorld* World = Owner->GetWorld();
 
 	// Store the prediction key so the client can investigate it
-	FActiveGameplayCue	NewCue;
+	FActiveGameplayCue&	NewCue = GameplayCues[GameplayCues.AddDefaulted()];
 	NewCue.GameplayCueTag = Tag;
 	NewCue.PredictionKey = PredictionKey;
+	NewCue.Parameters = Parameters;
 	MarkItemDirty(NewCue);
-
-	GameplayCues.Add(NewCue);
+	
 	Owner->UpdateTagMap(Tag, 1);
 }
 
@@ -216,7 +216,7 @@ void FActiveGameplayCueContainer::PredictiveRemove(const FGameplayTag& Tag)
 			// DONT remove from the replicated array.
 			Cue.bPredictivelyRemoved = true;
 			Owner->UpdateTagMap(Tag, -1);
-			Owner->InvokeGameplayCueEvent(Tag, EGameplayCueEvent::Removed);	
+			Owner->InvokeGameplayCueEvent(Tag, EGameplayCueEvent::Removed, Cue.Parameters);	
 			return;
 		}
 	}
@@ -225,7 +225,7 @@ void FActiveGameplayCueContainer::PredictiveRemove(const FGameplayTag& Tag)
 void FActiveGameplayCueContainer::PredictiveAdd(const FGameplayTag& Tag, FPredictionKey& PredictionKey)
 {
 	Owner->UpdateTagMap(Tag, 1);	
-	PredictionKey.NewRejectOrCaughtUpDelegate(FPredictionKeyEvent::CreateUObject(Owner, &UAbilitySystemComponent::RemoveOneTagCount_NoReturn, Tag));
+	PredictionKey.NewRejectOrCaughtUpDelegate(FPredictionKeyEvent::CreateUObject(Owner, &UAbilitySystemComponent::OnPredictiveGameplayCueCatchup, Tag));
 }
 
 bool FActiveGameplayCueContainer::HasCue(const FGameplayTag& Tag) const
@@ -244,9 +244,9 @@ bool FActiveGameplayCueContainer::HasCue(const FGameplayTag& Tag) const
 
 bool FActiveGameplayCueContainer::NetDeltaSerialize(FNetDeltaSerializeInfo & DeltaParms)
 {
-	if (bMinimalReplication && (Owner && !Owner->bMinimalReplication))
+	if (bMinimalReplication && (Owner && Owner->ReplicationMode == EReplicationMode::Full))
 	{
-		return true;
+		return false;
 	}
 
 	return FastArrayDeltaSerialize<FActiveGameplayCue>(GameplayCues, DeltaParms, *this);

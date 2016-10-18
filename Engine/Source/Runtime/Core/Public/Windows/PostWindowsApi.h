@@ -6,10 +6,6 @@
 #undef uint32
 #undef int32
 #undef float
-#undef MAX_uint8
-#undef MAX_uint16
-#undef MAX_uint32
-#undef MAX_int32
 #undef CDECL
 #undef PF_MAX
 #undef PlaySound
@@ -20,6 +16,13 @@
 #undef MoveFile
 #undef CopyFile
 #undef CreateDirectory
+
+// Restore any previously defined macros
+#pragma pop_macro("MAX_uint8")
+#pragma pop_macro("MAX_uint16")
+#pragma pop_macro("MAX_uint32")
+#pragma pop_macro("MAX_int32")
+#pragma pop_macro("TEXT")
 
 // Redefine CDECL to our version of the #define.  <AJS> Is this really necessary?
 #define CDECL	    __cdecl					/* Standard C function */

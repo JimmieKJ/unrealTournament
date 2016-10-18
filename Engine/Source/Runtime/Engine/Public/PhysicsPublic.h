@@ -10,7 +10,7 @@
 #include "PhysxUserData.h"
 #include "DynamicMeshBuilder.h"
 #include "LocalVertexFactory.h"
-#include "PhysicsEngine/PhysicsAsset.h"
+#include "PhysicsEngine/RigidBodyIndexPair.h"
 /**
  * Physics stats
  */
@@ -225,6 +225,32 @@ namespace SleepEvent
 
 }
 
+/** Buffers used as scratch space for PhysX to avoid allocations during simulation */
+struct FSimulationScratchBuffer
+{
+	FSimulationScratchBuffer()
+		: Buffer(nullptr)
+		, BufferSize(0)
+	{}
+
+	// The scratch buffer
+	uint8* Buffer;
+
+	// Allocated size of the buffer
+	int32 BufferSize;
+};
+
+#if WITH_PHYSX
+/** Interface for the creation of customized simulation event callbacks. */
+class ISimEventCallbackFactory
+{
+public:
+	virtual physx::PxSimulationEventCallback* Create(class FPhysScene* PhysScene, int32 SceneType) = 0;
+	virtual void Destroy(physx::PxSimulationEventCallback* Callback) = 0;
+};
+#endif // WITH PHYSX
+
+
 /** Container object for a physics engine 'scene'. */
 
 class FPhysScene
@@ -321,6 +347,10 @@ private:
 	/** Completion events (task) for the physics scenes	(both apex and non-apex). This is a "join" of the above. */
 	FGraphEventRef PhysicsSceneCompletion;
 
+	// Data for scene scratch buffers, these will be allocated once on FPhysScene construction and used
+	// for the calls to PxScene::simulate to save it calling into the OS to allocate during simulation
+	FSimulationScratchBuffer SimScratchBuffers[PST_MAX];
+
 #if WITH_PHYSX
 
 	struct FDeferredSceneData
@@ -350,7 +380,7 @@ private:
 	/** Dispatcher for CPU tasks */
 	class PxCpuDispatcher*			CPUDispatcher[PST_MAX];
 	/** Simulation event callback object */
-	class FPhysXSimEventCallback*			SimEventCallback[PST_MAX];
+	physx::PxSimulationEventCallback*			SimEventCallback[PST_MAX];
 #if WITH_VEHICLE
 	/** Vehicle scene */
 	class FPhysXVehicleManager*			VehicleManager;
@@ -368,6 +398,11 @@ private:
 public:
 
 #if WITH_PHYSX
+	/** Static factory used to override the simulation event callback from other modules.
+	If not set it defaults to using FPhysXSimEventCallback. */
+	ENGINE_API static TSharedPtr<ISimEventCallbackFactory> SimEventCallbackFactory;
+
+
 	/** Utility for looking up the PxScene of the given EPhysicsSceneType associated with this FPhysScene.  SceneType must be in the range [0,PST_MAX). */
 	ENGINE_API physx::PxScene*					GetPhysXScene(uint32 SceneType);
 
@@ -405,8 +440,8 @@ public:
 		return PhysicsSceneCompletion;
 	}
 
-	/** Set rather we're doing a static load and want to stall, or are during gameplay and want to distribute over many frames */
-	ENGINE_API void SetIsStaticLoading(bool bStaticLoading);
+	/** Ensures that the collision tree is built. */
+	ENGINE_API void EnsureCollisionTreeIsBuilt(UWorld* World);
 
 	/** Waits for all physics scenes to complete */
 	ENGINE_API void WaitPhysScenes();
@@ -531,10 +566,10 @@ public:
 	}
 
 	/** Adds to queue of skelmesh we want to add to collision disable table */
-	void DeferredAddCollisionDisableTable(uint32 SkelMeshCompID, TMap<struct FRigidBodyIndexPair, bool> * CollisionDisableTable);
+	ENGINE_API void DeferredAddCollisionDisableTable(uint32 SkelMeshCompID, TMap<struct FRigidBodyIndexPair, bool> * CollisionDisableTable);
 
 	/** Adds to queue of skelmesh we want to remove from collision disable table */
-	void DeferredRemoveCollisionDisableTable(uint32 SkelMeshCompID);
+	ENGINE_API void DeferredRemoveCollisionDisableTable(uint32 SkelMeshCompID);
 
 #if WITH_APEX
 	/** Adds a damage event to be fired when fetchResults is done */
@@ -565,6 +600,9 @@ private:
 
 	/** Task created from TickPhysScene so we can substep without blocking */
 	bool SubstepSimulation(uint32 SceneType, FGraphEventRef& InOutCompletionEvent);
+
+	/** Set whether we're doing a static load and want to stall, or are during gameplay and want to distribute over many frames */
+	void SetIsStaticLoading(bool bStaticLoading);
 
 #if WITH_PHYSX
 	/** User data wrapper passed to physx */

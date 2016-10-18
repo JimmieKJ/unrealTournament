@@ -474,22 +474,21 @@ float4 CalcWorldPosition(float4 Position)
 half3x3 CalcTangentToLocal(FVertexFactoryInput Input)
 {
 	half3x3 Result;
+	
+	half3 TangentX = TangentBias(Input.TangentX);
 	half4 TangentZ = TangentBias(Input.TangentZ);
 
 #if USE_SPLINEDEFORM
 	// Make slice rotation matrix, and use that to transform tangents
 	half3x3 SliceRot = CalcSliceRot(dot(Input.Position.xyz, SplineMeshDir));
 
-	half3 TangentX = mul(TangentBias(Input.TangentX), SliceRot);
+	TangentX = mul(TangentX, SliceRot);
 	TangentZ.xyz = mul(TangentZ.xyz, SliceRot);
-#else
-	// pass-thru the tangent
-	half3 TangentX = TangentBias(Input.TangentX);
-	// pass-thru the normal
 #endif	// USE_SPLINEDEFORM
 
 	// derive the binormal by getting the cross product of the normal and tangent
 	half3 TangentY = cross(TangentZ.xyz, TangentX) * TangentZ.w;
+	
 	// Recalculate TangentX off of the other two vectors
 	// This corrects quantization error since TangentX was passed in as a quantized vertex input
 	// The error shows up most in specular off of a mesh with a smoothed UV seam (normal is smooth, but tangents vary across the seam)
@@ -654,16 +653,21 @@ Buffer<float> GPUSkinCachePreviousBuffer;
 // @return previous translated world position
 float4 VertexFactoryGetPreviousWorldPosition(FVertexFactoryInput Input, FVertexFactoryIntermediates Intermediates)
 {
+	float4x4 PreviousLocalToWorldTranslated = PreviousLocalToWorld;
+	PreviousLocalToWorldTranslated[3][0] += ResolvedView.PrevPreViewTranslation.x;
+	PreviousLocalToWorldTranslated[3][1] += ResolvedView.PrevPreViewTranslation.y;
+	PreviousLocalToWorldTranslated[3][2] += ResolvedView.PrevPreViewTranslation.z;
+
 #if USE_INSTANCING
 	float4x4 InstanceTransform = transpose(GetInstanceTransform(Input));
-	return mul(mul(Input.Position, InstanceTransform), PreviousLocalToWorld);
+	return mul(mul(Input.Position, InstanceTransform), PreviousLocalToWorldTranslated);
 #elif GPUSKIN_PASS_THROUGH
 	uint Offset = Input.VertexId * GPUSKIN_RWBUFFER_NUM_FLOATS + GPUSkinCachePreviousFloatOffset;
 	float3 PreviousPos;
 	PreviousPos.x = GPUSkinCachePreviousBuffer[Offset + GPUSKIN_RWBUFFER_OFFSET_POSITION + 0];
 	PreviousPos.y = GPUSkinCachePreviousBuffer[Offset + GPUSKIN_RWBUFFER_OFFSET_POSITION + 1];
 	PreviousPos.z = GPUSkinCachePreviousBuffer[Offset + GPUSKIN_RWBUFFER_OFFSET_POSITION + 2];
-	return mul(float4(PreviousPos, 1), PreviousLocalToWorld);
+	return mul(float4(PreviousPos, 1), PreviousLocalToWorldTranslated);
 #elif USE_SPLINEDEFORM
 	// Just like CalcWorldPosition...
 	float4x3 SliceTransform = CalcSliceTransform(dot(Input.Position.xyz, SplineMeshDir));
@@ -671,9 +675,9 @@ float4 VertexFactoryGetPreviousWorldPosition(FVertexFactoryInput Input, FVertexF
 	// Transform into mesh space
 	float4 LocalPos = float4(mul(Input.Position, SliceTransform), Input.Position.w);
 
-	return mul(LocalPos, PreviousLocalToWorld);
+	return mul(LocalPos, PreviousLocalToWorldTranslated);
 #else
-	return mul(Input.Position, PreviousLocalToWorld);
+	return mul(Input.Position, PreviousLocalToWorldTranslated);
 #endif	// USE_INSTANCING
 }
 

@@ -4,7 +4,6 @@
 
 #include "Toolkits/IToolkitHost.h"
 
-
 /**
  * Public interface to SLevelEditor
  */
@@ -15,6 +14,9 @@ public:
 
 	/** Summons a context menu for this level editor at the mouse cursor's location */
 	virtual void SummonLevelViewportContextMenu() = 0;
+
+	/** Summons a context menu for view options */
+	virtual void SummonLevelViewportViewOptionMenu(ELevelViewportType ViewOption) = 0;
 
 	/** Returns a list of all of the toolkits that are currently hosted by this toolkit host */
 	virtual const TArray< TSharedPtr< IToolkit > >& GetHostedToolkits() const = 0;
@@ -39,6 +41,17 @@ public:
 
 	/** Append commands to the command list for the level editor */
 	virtual void AppendCommands( const TSharedRef<FUICommandList>& InCommandsToAppend ) = 0;
+
+	/** After spawning a new level viewport outside of the editor's tab system, this function must be called so that
+	    the editor can keep track of that viewport */
+	virtual void AddStandaloneLevelViewport( const TSharedRef<SLevelViewport>& LevelViewport ) = 0;
+
+	/** Spawns an Actor Details widget */
+	virtual TSharedRef<SWidget> CreateActorDetails( const FName TabIdentifier ) = 0;
+
+	/** Spawns a level editor ToolBox widget (aka. "Modes") */
+	virtual TSharedRef<SWidget> CreateToolBox() = 0;
+
 };
 
 

@@ -27,9 +27,12 @@
 #include "EngineBuildSettings.h"
 
 #define LOCTEXT_NAMESPACE "IOSTargetSettings"
+DEFINE_LOG_CATEGORY_STATIC(LogIOSTargetSettings, Log, All);
 
 bool SProvisionListRow::bInitialized = false;
 FCheckBoxStyle SProvisionListRow::ProvisionCheckBoxStyle;
+
+const FString gProjectNameText("[PROJECT_NAME]");
 
 //////////////////////////////////////////////////////////////////////////
 // FIOSTargetSettingsCustomization
@@ -59,7 +62,7 @@ FIOSTargetSettingsCustomization::FIOSTargetSettingsCustomization()
 	new (IconNames) FPlatformIconInfo(TEXT("Icon57.png"), LOCTEXT("AppIcon_iPhone_iOS6", "iPhone iOS6 App Icon"), FText::GetEmpty(), 57, 57, FPlatformIconInfo::Required);
 	new (IconNames) FPlatformIconInfo(TEXT("Icon57@2x.png"), LOCTEXT("AppIcon_iPhoneRetina_iOS6", "iPhone Retina iOS6 App Icon"), FText::GetEmpty(), 114, 114, FPlatformIconInfo::Required);
 	new (IconNames) FPlatformIconInfo(TEXT("Icon60@2x.png"), LOCTEXT("AppIcon_iPhoneRetina_iOS7", "iPhone Retina iOS7 App Icon"), FText::GetEmpty(), 120, 120, FPlatformIconInfo::Required);
-	new (IconNames)FPlatformIconInfo(TEXT("Icon60@3x.png"), LOCTEXT("AppIcon_iPhoneRetina_iOS8", "iPhone Plus Retina iOS8 App Icon"), FText::GetEmpty(), 120, 120, FPlatformIconInfo::Required);
+	new (IconNames)FPlatformIconInfo(TEXT("Icon60@3x.png"), LOCTEXT("AppIcon_iPhoneRetina_iOS8", "iPhone Plus Retina iOS8 App Icon"), FText::GetEmpty(), 180, 180, FPlatformIconInfo::Required);
 	new (IconNames)FPlatformIconInfo(TEXT("Icon72.png"), LOCTEXT("AppIcon_iPad_iOS6", "iPad iOS6 App Icon"), FText::GetEmpty(), 72, 72, FPlatformIconInfo::Required);
 	new (IconNames) FPlatformIconInfo(TEXT("Icon72@2x.png"), LOCTEXT("AppIcon_iPadRetina_iOS6", "iPad Retina iOS6 App Icon"), FText::GetEmpty(), 144, 144, FPlatformIconInfo::Required);
 	new (IconNames) FPlatformIconInfo(TEXT("Icon76.png"), LOCTEXT("AppIcon_iPad_iOS7", "iPad iOS7 App Icon"), FText::GetEmpty(), 76, 76, FPlatformIconInfo::Required);
@@ -402,7 +405,7 @@ void FIOSTargetSettingsCustomization::BuildPListSection(IDetailLayoutBuilder& De
 							.AutoWidth()
 							[
 								SNew(SRichTextBlock)
-								.Text(LOCTEXT("ProvisionMessage", "<RichTextBlock.TextHighlight>Note</>: The provision in green will be used to provision the IPA."))
+								.Text(LOCTEXT("ProvisionMessage", "<RichTextBlock.TextHighlight>Note</>: If no provision is selected the one in green will be used to provision the IPA."))
 								.TextStyle(FEditorStyle::Get(), "MessageLog")
 								.DecoratorStyleSet(&FEditorStyle::Get())
 								.AutoWrapText(true)
@@ -561,7 +564,7 @@ void FIOSTargetSettingsCustomization::BuildPListSection(IDetailLayoutBuilder& De
 								.AutoWidth()
 								[
 									SNew(SRichTextBlock)
-									.Text(LOCTEXT("CertificateMessage", "<RichTextBlock.TextHighlight>Note</>: The certificate in green will be used to sign the IPA."))
+									.Text(LOCTEXT("CertificateMessage", "<RichTextBlock.TextHighlight>Note</>: If no certificate is selected then the one in green will be used to sign the IPA."))
 									.TextStyle(FEditorStyle::Get(), "MessageLog")
 									.DecoratorStyleSet(&FEditorStyle::Get())
 									.AutoWrapText(true)
@@ -683,7 +686,7 @@ void FIOSTargetSettingsCustomization::BuildPListSection(IDetailLayoutBuilder& De
 			.FillWidth(1.0f) \
 			.HAlign(HAlign_Fill) \
 			[ \
-				SNew(SEditableTextBox) \
+				SAssignNew(BundleIdTextBox, SEditableTextBox) \
 				.IsEnabled(this, &FIOSTargetSettingsCustomization::IsImportEnabled) \
 				.Text(this, &FIOSTargetSettingsCustomization::GetBundleText, PropertyHandle) \
 				.Font(DetailLayout.GetDetailFont()) \
@@ -692,6 +695,7 @@ void FIOSTargetSettingsCustomization::BuildPListSection(IDetailLayoutBuilder& De
 				.ClearKeyboardFocusOnCommit(false) \
 				.ToolTipText(PropertyHandle->GetToolTipText()) \
 				.OnTextCommitted(this, &FIOSTargetSettingsCustomization::OnBundleIdentifierChanged, PropertyHandle) \
+				.OnTextChanged(this, &FIOSTargetSettingsCustomization::OnBundleIdentifierTextChanged, ETextCommit::Default, PropertyHandle) \
 			] \
 		]; \
 	}
@@ -716,15 +720,6 @@ void FIOSTargetSettingsCustomization::BuildPListSection(IDetailLayoutBuilder& De
 	SETUP_PLIST_PROP(MinimumiOSVersion, OSInfoCategory);
 
 	SETUP_PLIST_PROP(AdditionalPlistData, ExtraCategory);
-
-	SETUP_SOURCEONLY_PROP(bDevForArmV7, BuildCategory);
-	SETUP_SOURCEONLY_PROP(bDevForArm64, BuildCategory);
-	SETUP_SOURCEONLY_PROP(bDevForArmV7S, BuildCategory);
-	SETUP_SOURCEONLY_PROP(bShipForArmV7, BuildCategory);
-	SETUP_SOURCEONLY_PROP(bShipForArm64, BuildCategory);
-	SETUP_SOURCEONLY_PROP(bShipForArmV7S, BuildCategory);
-
-	SETUP_SOURCEONLY_PROP(bSupportsMetalMRT, RenderCategory);
 
 #undef SETUP_SOURCEONLY_PROP
 }
@@ -784,9 +779,6 @@ void FIOSTargetSettingsCustomization::BuildRemoteBuildingSection(IDetailLayoutBu
 	TSharedRef<IPropertyHandle> UseRSyncPropertyHandle = DetailLayout.GetProperty(GET_MEMBER_NAME_CHECKED(UIOSRuntimeSettings, bUseRSync));
 	BuildCategory.AddProperty(UseRSyncPropertyHandle)
 		.Visibility(EVisibility::Hidden);
-
-	TSharedRef<IPropertyHandle> DeltaCopyInstallDirPropertyHandle = DetailLayout.GetProperty(GET_MEMBER_NAME_CHECKED(UIOSRuntimeSettings, DeltaCopyInstallPath));
-	IDetailPropertyRow& DeltaCopyInstallDirPropertyRow = RemoteBuildingGroup.AddPropertyRow(DeltaCopyInstallDirPropertyHandle);
 
 	// Add RSync Username Property
 	TSharedRef<IPropertyHandle> RSyncUsernamePropertyHandle = DetailLayout.GetProperty(GET_MEMBER_NAME_CHECKED(UIOSRuntimeSettings, RSyncUsername));
@@ -976,7 +968,7 @@ void FIOSTargetSettingsCustomization::BuildImageRow(IDetailLayoutBuilder& Detail
 void FIOSTargetSettingsCustomization::FindRequiredFiles()
 {
 	const UIOSRuntimeSettings& Settings = *GetDefault<UIOSRuntimeSettings>();
-	FString BundleIdentifier = Settings.BundleIdentifier.Replace(TEXT("[PROJECT_NAME]"), FApp::GetGameName());
+	FString BundleIdentifier = Settings.BundleIdentifier.Replace(*gProjectNameText, FApp::GetGameName());
 #if PLATFORM_MAC
 	FString CmdExe = TEXT("/bin/sh");
 	FString ScriptPath = FPaths::ConvertRelativePathToFull(FPaths::EngineDir() / TEXT("Build/BatchFiles/Mac/RunMono.sh"));
@@ -1176,14 +1168,25 @@ FReply FIOSTargetSettingsCustomization::OnGenerateSSHKey()
 
 	FString CmdExe = FPaths::ConvertRelativePathToFull(FPaths::EngineDir() / TEXT("Build/BatchFiles/MakeAndInstallSSHKey.bat"));
 	FString DeltaCopyPath = Settings.DeltaCopyInstallPath.Path;
-	if (DeltaCopyPath.IsEmpty())
+	if (DeltaCopyPath.IsEmpty() || !FPaths::DirectoryExists(DeltaCopyPath))
 	{
-		// if the user hasn't specified a location for DeltaCopy, try and use the default install location
+		// If no user specified directory try the UE4 bundled directory
+		DeltaCopyPath = FPaths::ConvertRelativePathToFull(FPaths::EngineDir() / TEXT("Extras\\ThirdPartyNotUE\\DeltaCopy\\Binaries"));
+	}
+
+	if (!FPaths::DirectoryExists(DeltaCopyPath))
+	{
+		// if no UE4 bundled version of DeltaCopy, try and use the default install location
 		TCHAR ProgramPath[4096];
 		FPlatformMisc::GetEnvironmentVariable(TEXT("PROGRAMFILES(X86)"), ProgramPath, ARRAY_COUNT(ProgramPath));
 		DeltaCopyPath = FPaths::Combine(ProgramPath, TEXT("DeltaCopy"));
-
 	}
+	
+	if (!FPaths::DirectoryExists(DeltaCopyPath))
+	{
+		UE_LOG(LogIOSTargetSettings, Error, TEXT("DeltaCopy is not installed correctly"));
+	}
+
 	FString CygwinPath = TEXT("/cygdrive/") + FString(Path).Replace(TEXT(":"), TEXT("")).Replace(TEXT("\\"), TEXT("/"));
 	FString EnginePath = FPaths::EngineDir();
 	FString CommandLine = FString::Printf(TEXT("\"%s\\ssh.exe\" \"%s\\rsync.exe\" %s %s \"%s\" \"%s\" \"%s\""),
@@ -1402,13 +1405,57 @@ bool FIOSTargetSettingsCustomization::IsImportEnabled() const
 
 void FIOSTargetSettingsCustomization::OnBundleIdentifierChanged(const FText& NewText, ETextCommit::Type CommitType, TSharedRef<IPropertyHandle> InPropertyHandle)
 {
-	FText OutText;
-	InPropertyHandle->GetValueAsFormattedText(OutText);
-	if (OutText.ToString() != NewText.ToString())
+	if(!IsBundleIdentifierValid(NewText.ToString()))
 	{
-		InPropertyHandle->SetValueFromFormattedString( NewText.ToString() );
-		FindRequiredFiles();
+		BundleIdTextBox->SetError( LOCTEXT("NameContainsInvalidCharacters", "Identifier may only contain the characters 0-9, A-Z, a-z, period, hyphen, or [PROJECT_NAME]") );
 	}
+	else
+	{
+		BundleIdTextBox->SetError(FText::GetEmpty());
+
+		FText OutText;
+		InPropertyHandle->GetValueAsFormattedText(OutText);
+		if (OutText.ToString() != NewText.ToString())
+		{
+			InPropertyHandle->SetValueFromFormattedString( NewText.ToString() );
+			FindRequiredFiles();
+		}
+	}
+}
+
+void FIOSTargetSettingsCustomization::OnBundleIdentifierTextChanged(const FText& NewText, ETextCommit::Type CommitType, TSharedRef<IPropertyHandle> InPropertyHandle)
+{
+	if(!IsBundleIdentifierValid(NewText.ToString()))
+	{
+		BundleIdTextBox->SetError( LOCTEXT("NameContainsInvalidCharacters", "Identifier may only contain the characters 0-9, A-Z, a-z, period, hyphen, or [PROJECT_NAME]") );
+	}
+	else
+	{
+		BundleIdTextBox->SetError(FText::GetEmpty());
+	}
+}
+
+bool FIOSTargetSettingsCustomization::IsBundleIdentifierValid(const FString& inIdentifier)
+{
+	for(int32 i = 0; i < inIdentifier.Len(); ++i)
+	{
+		TCHAR	c = inIdentifier[i];
+		
+		if(c == '[')
+		{
+			if(inIdentifier.Find(gProjectNameText, ESearchCase::CaseSensitive, ESearchDir::FromStart, i) != i)
+			{
+				return false;
+			}
+			i += gProjectNameText.Len();
+		}
+		else if((c < '0' || c > '9') && (c < 'a' || c > 'z') && (c < 'A' || c > 'Z') && c != '.' && c != '-')
+		{
+			return false;
+		}
+	}
+
+	return true;
 }
 
 void FIOSTargetSettingsCustomization::OnRemoteServerChanged(const FText& NewText, ETextCommit::Type CommitType, TSharedRef<IPropertyHandle> InPropertyHandle)

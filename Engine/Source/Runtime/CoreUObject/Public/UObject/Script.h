@@ -201,8 +201,8 @@ enum EExprToken
 	EX_EndArray				= 0x32,
 	//						= 0x33,
 	EX_UnicodeStringConst   = 0x34, // Unicode string constant.
-	//						= 0x35,
-	//						= 0x36,
+	EX_Int64Const			= 0x35,	// 64-bit integer constant.
+	EX_UInt64Const			= 0x36,	// 64-bit unsigned integer constant.
 	//						= 0x37,
 	EX_PrimitiveCast		= 0x38,	// A casting operator for primitives which reads the type as the subsequent byte
 	//						= 0x39,
@@ -302,10 +302,13 @@ namespace EScriptInstrumentation
 	enum Type
 	{
 		Class = 0,
+		ClassScope,
 		Instance,
 		Event,
+		InlineEvent,
 		ResumeEvent,
 		PureNodeEntry,
+		NodeDebugSite,
 		NodeEntry,
 		NodeExit,
 		PushState,
@@ -346,40 +349,69 @@ protected:
 	FText Description;
 };
 
-// Information about a blueprint instrumentation event
-struct EScriptInstrumentationEvent
+// Information about a blueprint instrumentation signal
+struct COREUOBJECT_API FScriptInstrumentationSignal
 {
 public:
 
-	EScriptInstrumentationEvent(EScriptInstrumentation::Type InEventType, const UObject* InContextObject, const struct FFrame& InStackFrame)
+	FScriptInstrumentationSignal(EScriptInstrumentation::Type InEventType, const UObject* InContextObject, const struct FFrame& InStackFrame, const FName EventNameIn = NAME_None);
+
+	FScriptInstrumentationSignal(EScriptInstrumentation::Type InEventType, const UObject* InContextObject, UFunction* InFunction, const int32 LinkId = INDEX_NONE)
 		: EventType(InEventType)
 		, ContextObject(InContextObject)
+		, Function(InFunction)
 		, EventName(NAME_None)
-		, StackFramePtr(&InStackFrame)
-	{
-	}
-
-	EScriptInstrumentationEvent(EScriptInstrumentation::Type InEventType, const UObject* InContextObject, FName InEventName)
-		: EventType(InEventType)
-		, ContextObject(InContextObject)
-		, EventName(InEventName)
 		, StackFramePtr(nullptr)
+		, LatentLinkId(LinkId)
 	{
 	}
 
+	/** Access to the event type */
 	EScriptInstrumentation::Type GetType() const { return EventType; }
+
+	/** Designates the event type */
 	void SetType(EScriptInstrumentation::Type InType) { EventType = InType;	}
+
+	/** Returns true if the context object is valid */
+	bool IsContextObjectValid() const { return ContextObject != nullptr; }
+
+	/** Returns the context object */
 	const UObject* GetContextObject() const { return ContextObject; }
+
+	/** Returns true if the stackframe is valid */
 	bool IsStackFrameValid() const { return StackFramePtr != nullptr; }
-	FName GetEventName() const { return EventName; }
+
+	/** Returns the stackframe */
 	const FFrame& GetStackFrame() const { return *StackFramePtr; }
+
+	/** Returns the owner class name of the active instance */
+	const UClass* GetClass() const;
+
+	/** Returns the function scope class */
+	const UClass* GetFunctionClassScope() const;
+
+	/** Returns the name of the active function */
+	FName GetFunctionName() const;
+
+	/** Returns the script code offset */
+	int32 GetScriptCodeOffset() const;
+
+	/** Returns the latent link id for latent events */
+	int32 GetLatentLinkId() const { return LatentLinkId; }
 
 protected:
 
+	/** The event signal type */
 	EScriptInstrumentation::Type EventType;
+	/** The context object the event is from */
 	const UObject* ContextObject;
+	/** The function that emitted this event */
+	const UFunction* Function;
+	/** The event override name */
 	const FName EventName;
+	/** The stack frame for the  */
 	const struct FFrame* StackFramePtr;
+	const int32 LatentLinkId;
 };
 
 // Blueprint core runtime delegates
@@ -390,8 +422,8 @@ public:
 	DECLARE_MULTICAST_DELEGATE_ThreeParams(FOnScriptDebuggingEvent, const UObject*, const struct FFrame&, const FBlueprintExceptionInfo&);
 	// Callback for when script execution terminates.
 	DECLARE_MULTICAST_DELEGATE(FOnScriptExecutionEnd);
-	// Callback for blueprint profiling events
-	DECLARE_MULTICAST_DELEGATE_OneParam(FOnScriptInstrumentEvent, const EScriptInstrumentationEvent& );
+	// Callback for blueprint profiling signals
+	DECLARE_MULTICAST_DELEGATE_OneParam(FOnScriptInstrumentEvent, const FScriptInstrumentationSignal& );
 	// Callback for blueprint instrumentation enable/disable events
 	DECLARE_MULTICAST_DELEGATE_OneParam(FOnToggleScriptProfiler, bool );
 
@@ -407,7 +439,7 @@ public:
 
 public:
 	static void ThrowScriptException(const UObject* ActiveObject, const struct FFrame& StackFrame, const FBlueprintExceptionInfo& Info);
-	static void InstrumentScriptEvent(const EScriptInstrumentationEvent& Info);
+	static void InstrumentScriptEvent(const FScriptInstrumentationSignal& Info);
 	static void SetScriptMaximumLoopIterations( const int32 MaximumLoopIterations );
 };
 

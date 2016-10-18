@@ -45,7 +45,7 @@ public:
 	virtual void NodeConnectionListChanged() override;
 	virtual FString GetDocumentationLink() const override;
 	virtual FString GetDocumentationExcerptName() const override;
-	virtual FName GetPaletteIcon(FLinearColor& OutColor) const override;
+	virtual FSlateIcon GetIconAndTint(FLinearColor& OutColor) const override;
 	virtual bool CanPasteHere(const UEdGraph* TargetGraph) const override;
 	//~ End UEdGraphNode Interface
 

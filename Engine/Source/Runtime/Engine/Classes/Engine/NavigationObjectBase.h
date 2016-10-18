@@ -57,7 +57,7 @@ public:
 
 	// INavAgentInterface start
 	virtual FVector GetNavAgentLocation() const override { return GetActorLocation(); }
-	virtual void GetMoveGoalReachTest(class AActor* MovingActor, const FVector& MoveOffset, FVector& GoalOffset, float& GoalRadius, float& GoalHalfHeight) const override;
+	virtual void GetMoveGoalReachTest(const AActor* MovingActor, const FVector& MoveOffset, FVector& GoalOffset, float& GoalRadius, float& GoalHalfHeight) const override;
 	// INavAgentInterface end
 
 public:

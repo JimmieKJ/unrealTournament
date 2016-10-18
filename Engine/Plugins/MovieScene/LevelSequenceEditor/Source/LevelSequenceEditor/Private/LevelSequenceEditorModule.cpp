@@ -24,7 +24,7 @@ TSharedPtr<FLevelSequenceEditorStyle> FLevelSequenceEditorStyle::Singleton;
  * Implements the LevelSequenceEditor module.
  */
 class FLevelSequenceEditorModule
-	: public IModuleInterface
+	: public ILevelSequenceEditorModule
 {
 public:
 
@@ -86,8 +86,7 @@ protected:
 	{
 		FLevelEditorModule& LevelEditorModule = FModuleManager::LoadModuleChecked<FLevelEditorModule>("LevelEditor");
 
-		FViewportTypeDefinition CinematicViewportType = FViewportTypeDefinition::FromType<FCinematicViewportLayoutEntity>();
-		CinematicViewportType.ToggleCommand = FLevelSequenceEditorCommands::Get().ToggleCinematicViewportCommand;
+		FViewportTypeDefinition CinematicViewportType = FViewportTypeDefinition::FromType<FCinematicViewportLayoutEntity>(FLevelSequenceEditorCommands::Get().ToggleCinematicViewportCommand);
 		LevelEditorModule.RegisterViewportType("Cinematic", CinematicViewportType);
 	}
 
@@ -100,11 +99,17 @@ protected:
 		CommandList->MapAction(FLevelSequenceEditorCommands::Get().CreateNewLevelSequenceInLevel,
 			FExecuteAction::CreateStatic(&FLevelSequenceEditorModule::OnCreateActorInLevel)
 		);
+		CommandList->MapAction(FLevelSequenceEditorCommands::Get().CreateNewMasterSequenceInLevel,
+			FExecuteAction::CreateStatic(&FLevelSequenceEditorModule::OnCreateMasterSequenceInLevel)
+		);
 
 		// Create and register the level editor toolbar menu extension
 		CinematicsMenuExtender = MakeShareable(new FExtender);
 		CinematicsMenuExtender->AddMenuExtension("LevelEditorNewMatinee", EExtensionHook::First, CommandList, FMenuExtensionDelegate::CreateStatic([](FMenuBuilder& MenuBuilder) {
 			MenuBuilder.AddMenuEntry(FLevelSequenceEditorCommands::Get().CreateNewLevelSequenceInLevel);
+		}));
+		CinematicsMenuExtender->AddMenuExtension("LevelEditorNewMatinee", EExtensionHook::First, CommandList, FMenuExtensionDelegate::CreateStatic([](FMenuBuilder& MenuBuilder) {
+			MenuBuilder.AddMenuEntry(FLevelSequenceEditorCommands::Get().CreateNewMasterSequenceInLevel);
 		}));
 
 		FLevelEditorModule& LevelEditorModule = FModuleManager::LoadModuleChecked<FLevelEditorModule>("LevelEditor");
@@ -246,7 +251,7 @@ protected:
 			return;
 		}
 
-		// Spawn a  actor at the origin, and either move infront of the camera or focus camera on it (depending on the viewport) and open for edit
+		// Spawn an actor at the origin, and either move infront of the camera or focus camera on it (depending on the viewport) and open for edit
 		UActorFactory* ActorFactory = GEditor->FindActorFactoryForActorClass(ALevelSequenceActor::StaticClass());
 		if (!ensure(ActorFactory))
 		{
@@ -266,6 +271,18 @@ protected:
 		FAssetEditorManager::Get().OpenEditorForAsset(NewAsset);
 	}
 
+	/** Callback for creating a new level sequence asset in the level. */
+	static void OnCreateMasterSequenceInLevel()
+	{
+		FLevelEditorModule& LevelEditorModule = FModuleManager::GetModuleChecked<FLevelEditorModule>(TEXT("LevelEditor"));
+		LevelSequenceEditorHelpers::OpenMasterSequenceDialog(LevelEditorModule.GetLevelEditorTabManager().ToSharedRef());
+	}
+
+	FOnMasterSequenceCreated& OnMasterSequenceCreated() override
+	{
+		return OnMasterSequenceCreatedEvent;
+	}
+
 private:
 
 	/** The collection of registered asset type actions. */
@@ -278,6 +295,8 @@ private:
 
 	/** Captured name of the FLevelSequencePlaybackSettings struct */
 	FName LevelSequencePlayingSettingsName;
+
+	FOnMasterSequenceCreated OnMasterSequenceCreatedEvent;
 };
 
 

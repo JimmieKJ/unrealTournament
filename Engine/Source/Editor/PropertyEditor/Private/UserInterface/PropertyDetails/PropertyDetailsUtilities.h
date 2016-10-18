@@ -14,6 +14,7 @@ public:
 	virtual void CreateColorPickerWindow( const TSharedRef< class FPropertyEditor >& PropertyEditor, bool bUseAlpha ) const override;
 	virtual void EnqueueDeferredAction( FSimpleDelegate DeferredAction ) override;
 	virtual bool IsPropertyEditingEnabled() const override;
+	virtual void ForceRefresh() override;
 	virtual void RequestRefresh() override;
 	virtual TSharedPtr<class FAssetThumbnailPool> GetThumbnailPool() const override;
 	virtual void NotifyFinishedChangingProperties(const FPropertyChangedEvent& PropertyChangedEvent) override;

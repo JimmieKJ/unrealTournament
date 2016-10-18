@@ -11,7 +11,7 @@
 #include "UTPlaylistManager.h"
 #include "UTMcpUtils.h"
 #include "QosInterface.h"
-#include "QosEvaluator.h"
+#include "QosRegionManager.h"
 
 #define LOCTEXT_NAMESPACE "UTMatchmaking"
 #define JOIN_ACK_FAILSAFE_TIMER 30.0f
@@ -57,7 +57,7 @@ UUTMatchmaking::UUTMatchmaking(const FObjectInitializer& ObjectInitializer) :
 
 	if (!HasAnyFlags(RF_ClassDefaultObject))
 	{
-		TSharedRef<FQosInterface> QosInterface = FQosInterface::Get();
+		//FQosInterface* QosInterface = FQosInterface::Get();
 		//QosEvaluator = ensure(QosInterface) ? QosInterface->CreateQosEvaluator() : nullptr;
 	}
 }
@@ -490,7 +490,7 @@ bool UUTMatchmaking::FindGatheringSession(const FMatchmakingParams& InParams)
 
 			Matchmaking = MatchmakingGather;
 
-			OnMatchmakingStarted().Broadcast();
+			OnMatchmakingStarted().Broadcast(InParams.bRanked);
 			bResult = true;
 
 #if 0
@@ -534,7 +534,7 @@ bool UUTMatchmaking::FindSessionAsClient(const FMatchmakingParams& InParams)
 
 			Matchmaking = MatchmakingSingleSession;
 
-			OnMatchmakingStarted().Broadcast();
+			OnMatchmakingStarted().Broadcast(InParams.bRanked);
 			bResult = true;
 
 			// FindSessionAsClient intentionally does not cache matchmaking params, as it is intended to go to a very specific session
@@ -804,7 +804,10 @@ void UUTMatchmaking::OnReservationCountUpdate(int32 NumRemaining)
 void UUTMatchmaking::OnReservationFull()
 {
 	UE_LOG(LogOnline, Log, TEXT("OnReservationFull"));
+}
 
+void UUTMatchmaking::TravelPartyToServer()
+{
 	TravelToServer();
 	
 	UUTGameInstance* UTGameInstance = GetUTGameInstance();
@@ -850,22 +853,8 @@ void UUTMatchmaking::OnAllowedToProceedFromReservation()
 {
 	UE_LOG(LogOnline, Log, TEXT("OnAllowedToProceedFromReservation"));
 
-	UWorld* World = GetWorld();
-	if (ensure(World))
-	{
-		// Have a valid search result, clean-up the beacon and proceed to the lobby
-		if (CachedSearchResult.IsValid())
-		{
-			CleanupReservationBeacon();
-
-			// Connect to game
-		}
-		else
-		{
-			// This shouldn't be possible (something would have to internally modify the search result), but as a guard, cause a timeout
-			OnAllowedToProceedFromReservationTimeout();
-		}
-	}
+	// Connect to game
+	TravelPartyToServer();
 }
 
 void UUTMatchmaking::OnReconnectResponseReceived(EPartyReservationResult::Type ReservationResponse, FOnlineSessionSearchResult SearchResult)
@@ -910,6 +899,21 @@ int32 UUTMatchmaking::GetMatchmakingTeamElo()
 	}
 
 	return 0;
+}
+
+bool UUTMatchmaking::IsRankedMatchmaking()
+{
+	if (Matchmaking)
+	{
+		return Matchmaking->GetMatchmakingParams().bRanked;
+	}
+
+	if (CachedMatchmakingSearchParams.IsValid())
+	{
+		return CachedMatchmakingSearchParams.GetMatchmakingParams().bRanked;
+	}
+
+	return false;
 }
 
 void UUTMatchmaking::TravelToServer()

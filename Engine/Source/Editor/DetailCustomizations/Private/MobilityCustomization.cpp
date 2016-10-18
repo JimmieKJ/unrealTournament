@@ -5,7 +5,7 @@
 
 #define LOCTEXT_NAMESPACE "MobilityCustomization"
 
-void FMobilityCustomization::CreateMobilityCustomization(IDetailCategoryBuilder& Category, TSharedPtr<IPropertyHandle> InMobilityHandle, uint8 RestrictedMobilityBits)
+void FMobilityCustomization::CreateMobilityCustomization(IDetailCategoryBuilder& Category, TSharedPtr<IPropertyHandle> InMobilityHandle, uint8 RestrictedMobilityBits, bool bForLight)
 {
 	MobilityHandle = InMobilityHandle;
 
@@ -33,6 +33,10 @@ void FMobilityCustomization::CreateMobilityCustomization(IDetailCategoryBuilder&
 
 	if ( bShowStatic )
 	{
+		FText StaticTooltip = bForLight
+			? LOCTEXT("Mobility_Static_Light_Tooltip", "A static light can't be changed in game.\n* Fully Baked Lighting\n* Fastest Rendering")
+			: LOCTEXT("Mobility_Static_Tooltip", "A static object can't be changed in game.\n* Allows Baked Lighting\n* Fastest Rendering");
+
 		// Static Mobility
 		ButtonOptionsPanel->AddSlot(0, 0)
 		[
@@ -40,7 +44,7 @@ void FMobilityCustomization::CreateMobilityCustomization(IDetailCategoryBuilder&
 			.Style(FEditorStyle::Get(), "Property.ToggleButton.Start")
 			.IsChecked(this, &FMobilityCustomization::IsMobilityActive, EComponentMobility::Static)
 			.OnCheckStateChanged(this, &FMobilityCustomization::OnMobilityChanged, EComponentMobility::Static)
-			.ToolTipText(LOCTEXT("Mobility_Static_Tooltip", "A static object can't be changed in game.\n* Allows Baked Lighting\n* Fastest Rendering"))
+			.ToolTipText(StaticTooltip)
 			[
 				SNew(SHorizontalBox)
 
@@ -73,13 +77,17 @@ void FMobilityCustomization::CreateMobilityCustomization(IDetailCategoryBuilder&
 	// Stationary Mobility
 	if ( bShowStationary )
 	{
+		FText StationaryTooltip = bForLight
+			? LOCTEXT("Mobility_Stationary_Tooltip", "A stationary light will only have its shadowing and bounced lighting from static geometry baked by Lightmass, all other lighting will be dynamic.  It can change color and intensity in game.\n* Can't Move\n* Allows Partially Baked Lighting\n* Dynamic Shadows from Movable objects")
+			: LOCTEXT("Mobility_Stationary_Object_Tooltip", "A stationary object can be changed in game, but enables cached lighting methods when not moving. \n* Cached Dynamic Shadows.");
+
 		ButtonOptionsPanel->AddSlot(ColumnIndex, 0)
 		[
 			SNew(SCheckBox)
 			.IsChecked(this, &FMobilityCustomization::IsMobilityActive, EComponentMobility::Stationary)
 			.Style(FEditorStyle::Get(), ( ColumnIndex == 0 ) ? "Property.ToggleButton.Start" : "Property.ToggleButton.Middle")
 			.OnCheckStateChanged(this, &FMobilityCustomization::OnMobilityChanged, EComponentMobility::Stationary)
-			.ToolTipText(LOCTEXT("Mobility_Stationary_Tooltip", "A stationary light will only have its shadowing and bounced lighting from static geometry baked by Lightmass, all other lighting will be dynamic.  It can change color and intensity in game.\n* Can't Move\n* Allows Partial Baked Lighting\n* Dynamic Shadows"))
+			.ToolTipText(StationaryTooltip)
 			[
 				SNew(SHorizontalBox)
 
@@ -109,6 +117,10 @@ void FMobilityCustomization::CreateMobilityCustomization(IDetailCategoryBuilder&
 		ColumnIndex++;
 	}
 
+	FText MovableTooltip = bForLight
+			? LOCTEXT("Mobility_Movable_Light_Tooltip", "Movable lights can be moved and changed in game.\n* Totally Dynamic\n* Whole Scene Dynamic Shadows\n* Slowest Rendering")
+			: LOCTEXT("Mobility_Movable_Tooltip", "Movable objects can be moved and changed in game.\n* Totally Dynamic\n* Casts a Dynamic Shadow \n* Slowest Rendering");
+
 	// Movable Mobility
 	ButtonOptionsPanel->AddSlot(ColumnIndex, 0)
 	[
@@ -116,7 +128,7 @@ void FMobilityCustomization::CreateMobilityCustomization(IDetailCategoryBuilder&
 		.IsChecked(this, &FMobilityCustomization::IsMobilityActive, EComponentMobility::Movable)
 		.Style(FEditorStyle::Get(), ( ColumnIndex == 0 ) ? "Property.ToggleButton" : "Property.ToggleButton.End")
 		.OnCheckStateChanged(this, &FMobilityCustomization::OnMobilityChanged, EComponentMobility::Movable)
-		.ToolTipText(LOCTEXT("Mobility_Movable_Tooltip", "Movable objects can be moved and changed in game.\n* Totally Dynamic\n* Allows Dynamic Shadows\n* Slowest Rendering"))
+		.ToolTipText(MovableTooltip)
 		[
 			SNew(SHorizontalBox)
 

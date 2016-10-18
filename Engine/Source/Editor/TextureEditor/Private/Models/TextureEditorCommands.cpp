@@ -2,7 +2,7 @@
 
 #include "TextureEditorPrivatePCH.h"
 
-#define LOCTEXT_NAMESPACE ""
+#define LOCTEXT_NAMESPACE "TextureEditorCommands"
 
 void FTextureEditorCommands::RegisterCommands()
 {

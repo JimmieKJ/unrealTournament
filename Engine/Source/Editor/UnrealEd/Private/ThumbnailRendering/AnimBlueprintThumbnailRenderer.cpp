@@ -3,25 +3,20 @@
 #include "UnrealEd.h"
 
 // FPreviewScene derived helpers for rendering
-#include "ThumbnailHelpers.h"
 #include "EngineModule.h"
 #include "RendererInterface.h"
 
 UAnimBlueprintThumbnailRenderer::UAnimBlueprintThumbnailRenderer(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	ThumbnailScene = nullptr;
 }
 
 void UAnimBlueprintThumbnailRenderer::Draw(UObject* Object, int32 X, int32 Y, uint32 Width, uint32 Height, FRenderTarget* RenderTarget, FCanvas* Canvas)
 {
 	UAnimBlueprint* AnimBlueprint = Cast<UAnimBlueprint>(Object);
-	if (AnimBlueprint != nullptr)
+	if (AnimBlueprint && AnimBlueprint->GeneratedClass)
 	{
-		if ( ThumbnailScene == nullptr )
-		{
-			ThumbnailScene = new FAnimBlueprintThumbnailScene();
-		}
+		TSharedRef<FAnimBlueprintThumbnailScene> ThumbnailScene = ThumbnailScenes.EnsureThumbnailScene(AnimBlueprint->GeneratedClass);
 
 		if(ThumbnailScene->SetAnimBlueprint(AnimBlueprint))
 		{
@@ -34,18 +29,13 @@ void UAnimBlueprintThumbnailRenderer::Draw(UObject* Object, int32 X, int32 Y, ui
 
 			ThumbnailScene->GetView(&ViewFamily, X, Y, Width, Height);
 			GetRendererModule().BeginRenderingViewFamily(Canvas, &ViewFamily);
-			ThumbnailScene->SetAnimBlueprint(nullptr);
 		}
 	}
 }
 
 void UAnimBlueprintThumbnailRenderer::BeginDestroy()
 {
-	if ( ThumbnailScene != nullptr )
-	{
-		delete ThumbnailScene;
-		ThumbnailScene = nullptr;
-	}
+	ThumbnailScenes.Clear();
 
 	Super::BeginDestroy();
 }

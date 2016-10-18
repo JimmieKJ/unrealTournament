@@ -22,6 +22,12 @@ FFriendsChatStyle& FFriendsChatStyle::SetTimeStampTextStyle(const FTextBlockStyl
 	return *this;
 }
 
+FFriendsChatStyle& FFriendsChatStyle::SetTimestampOpacity(float Value)
+{
+	TimeStampOpacity = Value;
+	return *this;
+}
+
 FFriendsChatStyle& FFriendsChatStyle::SetDefaultChatColor(const FLinearColor& InFontColor)
 {
 	DefaultChatColor = InFontColor;

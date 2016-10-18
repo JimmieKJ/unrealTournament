@@ -537,6 +537,20 @@ unary_expression:
 		$$->primary_expression.type_specifier = $2;
 		$$->set_location(yylloc);
 	}
+	| '(' CONST_TOK type_specifier_nonarray ')' unary_expression
+	{
+		void *ctx = state;
+		$$ = new(ctx) ast_expression(ast_type_cast, $5, NULL, NULL);
+		$$->primary_expression.type_specifier = $3;
+		$$->set_location(yylloc);
+	}
+	| '(' type_specifier_nonarray CONST_TOK ')' unary_expression
+	{
+		void *ctx = state;
+		$$ = new(ctx) ast_expression(ast_type_cast, $5, NULL, NULL);
+		$$->primary_expression.type_specifier = $2;
+		$$->set_location(yylloc);
+	}
 	;
 
 	// Grammar Note: No '*' or '&' unary ops. Pointers are not supported.

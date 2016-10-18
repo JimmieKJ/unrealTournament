@@ -4,6 +4,24 @@
 #include "GameplayDebuggerExtension.h"
 #include "GameplayDebuggerPlayerManager.h"
 
+void FGameplayDebuggerExtension::OnGameplayDebuggerActivated()
+{
+	const bool bIsLocal = IsLocal();
+	if (bIsLocal)
+	{
+		OnActivated();
+	}
+}
+
+void FGameplayDebuggerExtension::OnGameplayDebuggerDeactivated()
+{
+	const bool bIsLocal = IsLocal();
+	if (bIsLocal)
+	{
+		OnDeactivated();
+	}
+}
+
 void FGameplayDebuggerExtension::OnActivated()
 {
 	// empty in base class
@@ -24,4 +42,10 @@ APlayerController* FGameplayDebuggerExtension::GetPlayerController() const
 {
 	AGameplayDebuggerCategoryReplicator* Replicator = GetReplicator();
 	return Replicator ? Replicator->GetReplicationOwner() : nullptr;
+}
+
+bool FGameplayDebuggerExtension::IsLocal() const
+{
+	AGameplayDebuggerCategoryReplicator* Replicator = GetReplicator();
+	return Replicator ? Replicator->IsLocal() : true;
 }

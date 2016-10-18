@@ -173,7 +173,7 @@ float3x3 RotationMatrix(float3 vAxis, float fAngle)
 {
     // compute sin/cos of fAngle
     float2 vSinCos;
-	#if COMPILER_GLSL || COMPILER_GLSL_ES2
+	#if COMPILER_GLSL || COMPILER_GLSL_ES2 || COMPILER_GLSL_ES3_1
 		vSinCos.x = sin(fAngle);
 		vSinCos.y = cos(fAngle);
 	#else

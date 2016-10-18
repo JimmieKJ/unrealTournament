@@ -131,9 +131,9 @@ void FLandscapeStaticLightingMesh::ExportMeshInstance(class FLightmassExporter* 
 {
 	Exporter->LandscapeLightingMeshes.AddUnique(this);
 
-	if (LandscapeComponent && LandscapeComponent->MaterialInstance)
+	if (LandscapeComponent && LandscapeComponent->MaterialInstances[0])
 	{
-		Exporter->AddMaterial(LandscapeComponent->MaterialInstance, this);
+		Exporter->AddMaterial(LandscapeComponent->MaterialInstances[0], this);
 	}
 
 	for( int32 LightIdx=0; LightIdx < RelevantLights.Num(); LightIdx++ )

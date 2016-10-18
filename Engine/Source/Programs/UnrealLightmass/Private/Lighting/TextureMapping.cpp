@@ -1,6 +1,6 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-#include "stdafx.h"
+#include "LightmassPCH.h"
 #include "Raster.h"
 #include "LightingSystem.h"
 #include "LightmassSwarm.h"
@@ -420,6 +420,7 @@ void FStaticLightingSystem::CacheIrradiancePhotonsTextureMapping(FStaticLighting
 						TexelToVertex.ElementIndex, 
 						1, 
 						NumAdaptiveRefinementLevels,
+						1.0f,
 						CachedHemisphereSamplesForApproximateSkyLighting,
 						CachedHemisphereSamplesForApproximateSkyLightingUniforms,
 						1,
@@ -427,7 +428,8 @@ void FStaticLightingSystem::CacheIrradiancePhotonsTextureMapping(FStaticLighting
 						MappingContext, 
 						RandomStream, 
 						GatherInfo, 
-						true, /** bSkyLightingOnly */
+						true, /* bSkyLightingOnly */
+						true, /* bGatheringForCachedDirectLighting */
 						false);
 
 
@@ -489,7 +491,7 @@ void FStaticLightingSystem::CacheIrradiancePhotonsTextureMapping(FStaticLighting
 				// Compute low quality sky lighting and cache in the direct lighting, so we get one bounce, since sky lighting isn't handled by photons
 				const FGatheredLightSample SkyLighting = CalculateApproximateSkyLighting(CurrentVertex, TexelToVertex.TexelRadius, CachedHemisphereSamplesForApproximateSkyLighting, MappingContext);
 #endif
-				TextureMapping->CachedDirectLighting[Y * TextureMapping->IrradiancePhotonCacheSizeX + X] = DirectLighting.IncidentLighting + SkyLighting.IncidentLighting;
+				TextureMapping->CachedDirectLighting[Y * TextureMapping->IrradiancePhotonCacheSizeX + X] = DirectLighting.IncidentLighting + SkyLighting.IncidentLighting + SkyLighting.StationarySkyLighting.IncidentLighting;
 				
 				// Only search the irradiance photon map if the surface cache position is inside the importance volume,
 				// Since irradiance photons are only deposited inside the importance volume.
@@ -726,6 +728,8 @@ void FStaticLightingSystem::ProcessTextureMapping(FStaticLightingTextureMapping*
 		// Count the time doing material coloring and invalid lightmap UV color toward texel setup for now
 		MappingContext.Stats.TexelRasterizationTime += FPlatformTime::Seconds() - ErrorAndMaterialColoringStart;
 	}
+#else
+	FPlatformAtomics::InterlockedDecrement(&MappingTasksInProgressThatWillNeedHelp);
 #endif
 
 	const double PaddingStart = FPlatformTime::Seconds();
@@ -780,8 +784,8 @@ void FStaticLightingSystem::ProcessTextureMapping(FStaticLightingTextureMapping*
 				{
 					FLinearColor& SampleColor = (bIsBorder && Scene.bColorBordersGreen) ? Green : OverrideColor;
 
-					Sample.HighQuality.AmbientLight(SampleColor);
-					Sample.LowQuality.AmbientLight(SampleColor);
+					Sample.HighQuality.AddWeighted(FGatheredLightSampleUtil::AmbientLight<2>(SampleColor), 1.0f);
+					Sample.LowQuality.AddWeighted(FGatheredLightSampleUtil::AmbientLight<2>(SampleColor), 1.0f);
 				}
 			}
 		}
@@ -1272,7 +1276,7 @@ void FStaticLightingSystem::SetupTextureMapping(
 			else
 			{
 				// Mark unmapped texels with the supplied 'UnmappedTexelColor'.
-				CurrentLightSample.AddWeighted(FGatheredLightSample::AmbientLight(Scene.GeneralSettings.UnmappedTexelColor), 1.0f);
+				CurrentLightSample.AddWeighted(FGatheredLightSampleUtil::AmbientLight<2>(Scene.GeneralSettings.UnmappedTexelColor), 1.0f);
 			}
 		}
 	}
@@ -1500,20 +1504,21 @@ void FStaticLightingSystem::CalculateDirectAreaLightingTextureMapping(
 				bDebugThisTexel = true;
 			}
 #endif
-			FGatheredLightMapSample& CurrentLightSample = LightMapData(X,Y);
-			if ( ShadowMapData )
-			{
-				FShadowSample& CurrentShadowSample = (*ShadowMapData)(X,Y);
-				CurrentShadowSample.bIsMapped = CurrentLightSample.bIsMapped;
-			}
+			FGatheredLightMapSample& CurrentLightSample = LightMapData(X, Y);
+			const FTexelToVertex& TexelToVertex = TexelToVertexMap(X,Y);
 
-			if ( CurrentLightSample.bIsMapped )
+			if (CurrentLightSample.bIsMapped
+				&& Light->AffectsBounds(FBoxSphereBounds(FSphere(TexelToVertex.WorldPosition, TexelToVertex.TexelRadius * 2))))
 			{
 				UnfilteredShadowFactorData(X, Y).bIsMapped = true;
 
-				// Only continue if some part of the light is in front of the surface
-				const FTexelToVertex& TexelToVertex = TexelToVertexMap(X,Y);
+				if (ShadowMapData)
+				{
+					FShadowSample& CurrentShadowSample = (*ShadowMapData)(X,Y);
+					CurrentShadowSample.bIsMapped = true;
+				}
 
+				// Only continue if some part of the light is in front of the surface
 				const FStaticLightingVertex Vertex = TexelToVertex.GetVertex();
 
 				// @todo: Because we test for rays backfacing the smoothed triangle normal, this code
@@ -2911,8 +2916,8 @@ void FStaticLightingSystem::CalculateDirectLightingTextureMappingPhotonMap(
 						}
 
 						//@todo - can't visualize accurately using AmbientLight with directional lightmaps
-						//CurrentLightSample.AddWeighted(FGatheredLightSample::AmbientLight(FinalLighting), 1.0f);
-						CurrentLightSample.AddWeighted(FGatheredLightSample::PointLightWorldSpace(FinalLighting, FVector4(0, 0, 1), CurrentVertex.WorldTangentZ), 1.0f);
+						//CurrentLightSample.AddWeighted(FGatheredLightSampleUtil::AmbientLight<2>(FinalLighting), 1.0f);
+						CurrentLightSample.AddWeighted(FGatheredLightSampleUtil::PointLightWorldSpace<2>(FinalLighting, FVector4(0, 0, 1), CurrentVertex.WorldTangentZ), 1.0f);
 					}
 				}
 				else
@@ -3085,7 +3090,7 @@ void FStaticLightingSystem::ProcessInterpolateTask(FInterpolateIndirectTaskDescr
 				if (AmbientOcclusionSettings.bUseAmbientOcclusion && AmbientOcclusionSettings.bVisualizeAmbientOcclusion)
 				{
 					//@todo - this will only be the correct intensity for simple lightmaps
-					const FGatheredLightSample OcclusionVisualization = FGatheredLightSample::AmbientLight(
+					const FGatheredLightSample OcclusionVisualization = FGatheredLightSampleUtil::AmbientLight<2>(
 						FLinearColor(1.0f - IndirectLighting.Occlusion, 1.0f - IndirectLighting.Occlusion, 1.0f - IndirectLighting.Occlusion) * 0.5f);
 					// Overwrite the lighting accumulated so far
 					CurrentLightSample = OcclusionVisualization;
@@ -3539,7 +3544,7 @@ void FStaticLightingSystem::ColorInvalidLightmapUVs(
 						// Color texels belonging to vertices with wrapping lightmap UV's bright green
 						if (TextureMapping->Mesh->ShouldColorInvalidTexels())
 						{
-							CurrentLightSample = FGatheredLightSample::AmbientLight(FLinearColor(0.5f, 2.0f, 0.0f));
+							CurrentLightSample = FGatheredLightSampleUtil::AmbientLight<2>(FLinearColor(0.5f, 2.0f, 0.0f));
 							CurrentLightSample.bIsMapped = true;
 						}
 					}
@@ -3552,7 +3557,7 @@ void FStaticLightingSystem::ColorInvalidLightmapUVs(
 						// Color texels that have more than one triangle mapped to them bright orange
 						if (TextureMapping->Mesh->ShouldColorInvalidTexels())
 						{
-							CurrentLightSample = FGatheredLightSample::AmbientLight(FLinearColor(2.0f, 0.7f, 0.0f));
+							CurrentLightSample = FGatheredLightSampleUtil::AmbientLight<2>(FLinearColor(2.0f, 0.7f, 0.0f));
 							CurrentLightSample.bIsMapped = true;
 						}
 					}
@@ -3595,7 +3600,7 @@ void FStaticLightingSystem::PadTextureMapping(
 		// We need to expand it back out...
 		uint32 TrueSizeX = TextureMapping->SizeX;
 		uint32 TrueSizeY = TextureMapping->SizeY;
-		FGatheredLightMapSample DebugLightSample = FGatheredLightSample::AmbientLight(FLinearColor(1.0f,0.0f,1.0f));
+		FGatheredLightMapSample DebugLightSample = FGatheredLightSampleUtil::AmbientLight<2>(FLinearColor(1.0f, 0.0f, 1.0f));
 		for (uint32 CopyY = 0; CopyY < TrueSizeY; CopyY++)
 		{
 			if (CopyY == 0)

@@ -122,7 +122,7 @@ bool UAbilityTask_VisualizeTargeting::ShouldSpawnTargetActor() const
 
 	const AGameplayAbilityTargetActor* CDO = CastChecked<AGameplayAbilityTargetActor>(TargetClass->GetDefaultObject());
 
-	const bool bReplicates = CDO->GetReplicates();
+	const bool bReplicates = CDO->GetIsReplicated();
 	const bool bIsLocallyControlled = Ability->GetCurrentActorInfo()->IsLocallyControlled();
 
 	return (bReplicates || bIsLocallyControlled);

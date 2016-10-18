@@ -60,7 +60,7 @@ void AUTDroppedPickup::CheckTouching()
 		if (P != NULL && P->GetMovementComponent() != NULL)
 		{
 			FHitResult UnusedHitResult;
-			OnOverlapBegin(P, Cast<UPrimitiveComponent>(P->GetMovementComponent()->UpdatedComponent), 0, false, UnusedHitResult);
+			OnOverlapBegin(Collision, P, Cast<UPrimitiveComponent>(P->GetMovementComponent()->UpdatedComponent), 0, false, UnusedHitResult);
 		}
 	}
 }
@@ -85,7 +85,7 @@ void AUTDroppedPickup::PhysicsStopped(const FHitResult& ImpactResult)
 	// if we landed on a mover, attach to it
 	if (ImpactResult.Component != NULL && ImpactResult.Component->Mobility == EComponentMobility::Movable)
 	{
-		Collision->AttachTo(ImpactResult.Component.Get(), NAME_None, EAttachLocation::KeepWorldPosition);
+		Collision->AttachToComponent(ImpactResult.Component.Get(), FAttachmentTransformRules::KeepWorldTransform, NAME_None);
 	}
 	AUTRecastNavMesh* NavData = GetUTNavData(GetWorld());
 	if (NavData != NULL)
@@ -109,7 +109,7 @@ void AUTDroppedPickup::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	GetWorldTimerManager().ClearAllTimersForObject(this);
 }
 
-void AUTDroppedPickup::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+void AUTDroppedPickup::OnOverlapBegin(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
 	if (bFullyInitialized && (OtherActor != Instigator || !GetWorld()->GetTimerManager().IsTimerActive(EnableInstigatorTouchHandle)))
 	{
@@ -299,7 +299,7 @@ void AUTDroppedPickup::OnRepWeaponSkin()
 	}
 }
 
-float AUTDroppedPickup::BotDesireability_Implementation(APawn* Asker, float PathDistance)
+float AUTDroppedPickup::BotDesireability_Implementation(APawn* Asker, AController* RequestOwner, float PathDistance)
 {
 	if (InventoryType == NULL)
 	{
@@ -312,11 +312,11 @@ float AUTDroppedPickup::BotDesireability_Implementation(APawn* Asker, float Path
 		if (LifeSpan > 0.0)
 		{
 			ACharacter* C = Cast<ACharacter>(Asker);
-			return (C == NULL || PathDistance / C->GetCharacterMovement()->MaxWalkSpeed > LifeSpan) ? 0.0f : InventoryType.GetDefaultObject()->BotDesireability(Asker, this, PathDistance);
+			return (C == NULL || PathDistance / C->GetCharacterMovement()->MaxWalkSpeed > LifeSpan) ? 0.0f : InventoryType.GetDefaultObject()->BotDesireability(Asker, RequestOwner, this, PathDistance);
 		}
 		else
 		{
-			return InventoryType.GetDefaultObject()->BotDesireability(Asker, this, PathDistance);
+			return InventoryType.GetDefaultObject()->BotDesireability(Asker, RequestOwner, this, PathDistance);
 		}
 	}
 }

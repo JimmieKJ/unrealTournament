@@ -3,6 +3,7 @@
 #include "HttpPrivatePCH.h"
 #include "HttpWinInet.h"
 #include "EngineVersion.h"
+#include "NetworkVersion.h"
 
 bool FWinInetConnection::bStaticConnectionInitialized = false;
 
@@ -292,7 +293,7 @@ bool FWinInetConnection::InitConnection()
 
 	// setup net connection
 	InternetHandle = InternetOpen(
-		*FString::Printf(TEXT("game=%s, engine=UE4, version=%d"), FApp::GetGameName(), GEngineNetVersion), 
+		*FString::Printf(TEXT("game=%s, engine=UE4, version=%u"), FApp::GetGameName(), FNetworkVersion::GetNetworkCompatibleChangelist()), 
 		INTERNET_OPEN_TYPE_PRECONFIG, 
 		NULL, 
 		NULL, 
@@ -436,7 +437,10 @@ void FHttpRequestWinInet::SetContentAsString(const FString& ContentString)
 
 void FHttpRequestWinInet::SetHeader(const FString& HeaderName, const FString& HeaderValue)
 {
-	RequestHeaders.Add(HeaderName, HeaderValue);
+	if (HeaderValue.Len() > 0)
+	{
+		RequestHeaders.Add(HeaderName, HeaderValue);
+	}
 }
 
 void FHttpRequestWinInet::AppendToHeader(const FString& HeaderName, const FString& AdditionalHeaderValue)
@@ -1072,6 +1076,8 @@ void FHttpResponseWinInet::ProcessResponseHeaders()
 			FString HeaderKey,HeaderValue;
 			if (HeaderLine.Split(TEXT(":"), &HeaderKey, &HeaderValue, ESearchCase::CaseSensitive))
 			{
+				HeaderKey = HeaderKey.Trim().TrimTrailing();
+				HeaderValue = HeaderValue.Trim().TrimTrailing();
 				if (!HeaderKey.IsEmpty() && !HeaderValue.IsEmpty())
 				{
 					FString* PreviousValue = ResponseHeaders.Find(HeaderKey);
@@ -1080,7 +1086,7 @@ void FHttpResponseWinInet::ProcessResponseHeaders()
 					{
 						NewValue = (*PreviousValue) + TEXT(", ");
 					}
-					NewValue += HeaderValue;
+					NewValue += HeaderValue.Trim();
 					ResponseHeaders.Add(HeaderKey, NewValue);
 				}
 			}

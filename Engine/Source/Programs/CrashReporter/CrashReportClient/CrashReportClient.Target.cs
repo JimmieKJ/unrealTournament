@@ -14,6 +14,15 @@ public class CrashReportClientTarget : TargetRules
 	//
 	// TargetRules interface.
 	//
+	public override bool GetSupportedPlatforms(ref List<UnrealTargetPlatform> OutPlatforms)
+	{
+		OutPlatforms.Add(UnrealTargetPlatform.Win32);
+		OutPlatforms.Add(UnrealTargetPlatform.Win64);
+		OutPlatforms.Add(UnrealTargetPlatform.Mac);
+		OutPlatforms.Add(UnrealTargetPlatform.Linux);
+		return true;
+	}
+    
 	public override bool ConfigureToolchain(TargetInfo Target)
     {
         if (Target.Platform == UnrealTargetPlatform.Win32 || Target.Platform == UnrealTargetPlatform.Win64)
@@ -23,16 +32,7 @@ public class CrashReportClientTarget : TargetRules
         return true;
     }
 	
-	public override bool GetSupportedPlatforms(ref List<UnrealTargetPlatform> OutPlatforms)
-	{
-		OutPlatforms.Add(UnrealTargetPlatform.Win32);
-		OutPlatforms.Add(UnrealTargetPlatform.Win64);
-		OutPlatforms.Add(UnrealTargetPlatform.Mac);
-		OutPlatforms.Add(UnrealTargetPlatform.Linux);
-		return true;
-	}
-
-	public override bool GetSupportedConfigurations(ref List<UnrealTargetConfiguration> OutConfigurations, bool bIncludeTestAndShippingConfigs)
+    public override bool GetSupportedConfigurations(ref List<UnrealTargetConfiguration> OutConfigurations, bool bIncludeTestAndShippingConfigs)
 	{
 		if( base.GetSupportedConfigurations( ref OutConfigurations, bIncludeTestAndShippingConfigs ) )
 		{
@@ -71,7 +71,7 @@ public class CrashReportClientTarget : TargetRules
 		return true;
 	}
 
-	public override void SetupGlobalEnvironment(
+    public override void SetupGlobalEnvironment(
 		TargetInfo Target,
 		ref LinkEnvironmentConfiguration OutLinkEnvironmentConfiguration,
 		ref CPPEnvironmentConfiguration OutCPPEnvironmentConfiguration
@@ -86,7 +86,6 @@ public class CrashReportClientTarget : TargetRules
 		UEBuildConfiguration.bCompileAgainstEngine = false;
 		UEBuildConfiguration.bCompileAgainstCoreUObject = true;
 		UEBuildConfiguration.bUseLoggingInShipping = true;
-		UEBuildConfiguration.bCompileSteamOSS = false;
 
 		UEBuildConfiguration.bIncludeADO = false;
 		

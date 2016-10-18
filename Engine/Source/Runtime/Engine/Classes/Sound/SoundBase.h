@@ -105,6 +105,9 @@ public:
 	  * Returns the subtitle priority
 	  */
 	virtual float GetSubtitlePriority() const { return DEFAULT_SUBTITLE_PRIORITY; };
+	
+	/** Returns whether or not any part of this sound wants interior volumes applied to it */
+	virtual bool ShouldApplyInteriorVolumes() const;
 
 	/** Returns whether or not this sound is looping. */
 	bool IsLooping();

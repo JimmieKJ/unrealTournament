@@ -9,6 +9,7 @@
 #include "UTBot.h"
 #include "StatNames.h"
 #include "UTCTFFlag.h"
+#include "PhysicsEngine/PhysicsSettings.h"
 
 const float MAX_STEP_SIDE_Z = 0.08f;	// maximum z value for the normal on the vertical side of steps
 
@@ -103,7 +104,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 	SlideGravityScaling = 0.15f;
 	MinWallSlideSpeed = 500.f;
 	MaxSlideWallDist = 20.f;
-	FloorSlideJumpZ = 100.f;
+	FloorSlideJumpZ = 50.f;
 
 	NavAgentProps.bCanCrouch = true;
 

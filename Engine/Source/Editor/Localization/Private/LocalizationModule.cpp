@@ -20,8 +20,8 @@ ULocalizationTarget* FLocalizationModule::GetLocalizationTargetByName(FString Ta
 	}
 	else
 	{
-		ULocalizationTargetSet* EngineTargetSet = ULocalizationSettings::GetEngineTargetSet();
-		for (ULocalizationTarget* Target : EngineTargetSet->TargetObjects)
+		ULocalizationTargetSet* GameTargetSet = ULocalizationSettings::GetGameTargetSet();
+		for (ULocalizationTarget* Target : GameTargetSet->TargetObjects)
 		{
 			if (Target->Settings.Name == TargetName)
 			{

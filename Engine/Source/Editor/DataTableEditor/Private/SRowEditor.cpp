@@ -26,17 +26,26 @@ public:
 
 	virtual uint8* GetStructMemory() override
 	{
-		return (DataTable.IsValid() && !RowName.IsNone()) ? DataTable->FindRowUnchecked(RowName) : NULL;
+		return (DataTable.IsValid() && !RowName.IsNone()) ? DataTable->FindRowUnchecked(RowName) : nullptr;
 	}
 
 	virtual const uint8* GetStructMemory() const override
 	{
-		return (DataTable.IsValid() && !RowName.IsNone()) ? DataTable->FindRowUnchecked(RowName) : NULL;
+		return (DataTable.IsValid() && !RowName.IsNone()) ? DataTable->FindRowUnchecked(RowName) : nullptr;
 	}
 
 	virtual const UScriptStruct* GetStruct() const override
 	{
-		return DataTable.IsValid() ? DataTable->RowStruct : NULL;
+		return DataTable.IsValid() ? DataTable->RowStruct : nullptr;
+	}
+
+	virtual UPackage* GetPackage() const override
+	{
+		return DataTable.IsValid() ? DataTable->GetOutermost() : nullptr;
+	}
+
+	virtual void SetPackage(UPackage* InPackage) override
+	{
 	}
 
 	virtual bool IsValid() const override
@@ -49,7 +58,7 @@ public:
 
 	virtual void Destroy() override
 	{
-		DataTable = NULL;
+		DataTable = nullptr;
 		RowName = NAME_None;
 	}
 
@@ -281,7 +290,20 @@ FReply SRowEditor::OnRemoveClicked()
 	if (DataTable.IsValid())
 	{
 		const FName RowToRemove = GetCurrentName();
-		FDataTableEditorUtils::RemoveRow(DataTable.Get(), RowToRemove);
+		const int32 RowToRemoveIndex = CachedRowNames.IndexOfByPredicate([&](const TSharedPtr<FName>& InRowName) -> bool
+		{
+			return *InRowName == RowToRemove;
+		});
+
+		if (FDataTableEditorUtils::RemoveRow(DataTable.Get(), RowToRemove))
+		{
+			// Try and keep the same row index selected
+			const int32 RowIndexToSelect = FMath::Clamp(RowToRemoveIndex, 0, CachedRowNames.Num() - 1);
+			if (CachedRowNames.IsValidIndex(RowIndexToSelect))
+			{
+				SelectRow(*CachedRowNames[RowIndexToSelect]);
+			}
+		}
 	}
 	return FReply::Handled();
 }

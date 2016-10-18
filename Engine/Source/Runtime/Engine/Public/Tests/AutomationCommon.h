@@ -16,6 +16,8 @@ ENGINE_API DECLARE_LOG_CATEGORY_EXTERN(LogEngineAutomationTests, Log, All);
 
 DECLARE_MULTICAST_DELEGATE_TwoParams(FOnEditorAutomationMapLoad, const FString&, FString*);
 
+#endif
+
 /** Common automation functions */
 namespace AutomationCommon
 {
@@ -68,6 +70,8 @@ namespace AutomationCommon
 		return HardwareDetailsString;
 	}
 
+#if (WITH_DEV_AUTOMATION_TESTS || WITH_PERF_AUTOMATION_TESTS)
+
 	/** Gets a path used for automation testing (PNG sent to the AutomationTest folder) */
 	static void GetScreenshotPath(const FString& TestName, FString& OutScreenshotName, const bool bIncludeHardwareDetails)
 	{
@@ -88,7 +92,11 @@ namespace AutomationCommon
 	{
 		return OnEditorAutomationMapLoad;
 	}
+
+#endif
 }
+
+#if (WITH_DEV_AUTOMATION_TESTS || WITH_PERF_AUTOMATION_TESTS)
 
 /**
  * Parameters to the Latent Automation command FTakeEditorScreenshotCommand
@@ -120,9 +128,14 @@ DEFINE_ENGINE_LATENT_AUTOMATION_COMMAND_ONE_PARAMETER(FTakeActiveEditorScreensho
 DEFINE_ENGINE_LATENT_AUTOMATION_COMMAND_ONE_PARAMETER(FTakeEditorScreenshotCommand, WindowScreenshotParameters, ScreenshotParameters);
 
 /**
-* Latent command to load a map in game
-*/
+ * Latent command to load a map in game
+ */
 DEFINE_LATENT_AUTOMATION_COMMAND_ONE_PARAMETER(FLoadGameMapCommand, FString, MapName);
+
+/**
+ * Latent command to exit the current game
+ */
+DEFINE_ENGINE_LATENT_AUTOMATION_COMMAND(FExitGameCommand);
 
 /**
  * Latent command that requests exit
@@ -157,6 +170,10 @@ DEFINE_LATENT_AUTOMATION_COMMAND_ONE_PARAMETER(FExecStringLatentCommand, FString
 */
 DEFINE_LATENT_AUTOMATION_COMMAND_ONE_PARAMETER(FEngineWaitLatentCommand, float, Duration);
 
+/**
+* Wait until data is streamed in
+*/
+DEFINE_LATENT_AUTOMATION_COMMAND_ONE_PARAMETER(FStreamAllResourcesLatentCommand, float, Duration);
 
 /**
 * Enqueue performance capture commands after a map has been loaded
@@ -174,4 +191,10 @@ DEFINE_LATENT_AUTOMATION_COMMAND_ONE_PARAMETER(FMatineePerformanceCaptureCommand
 */
 DEFINE_LATENT_AUTOMATION_COMMAND_ONE_PARAMETER(FExecWorldStringLatentCommand, FString, ExecCommand);
 
-#endif // (WITH_DEV_AUTOMATION_TESTS || WITH_PERF_AUTOMATION_TESTS)
+
+/**
+* Waits for shaders to finish compiling before moving on to the next thing.
+*/
+DEFINE_LATENT_AUTOMATION_COMMAND(FWaitForShadersToFinishCompilingInGame);
+
+#endif

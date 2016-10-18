@@ -111,6 +111,11 @@ enum glsl_outputtopology
 
 struct glsl_type
 {
+	static void SetTransientContext(void* ParseState)
+	{
+		mem_ctx = ParseState;
+	}
+
 	glsl_base_type base_type;
 
 	unsigned sampler_dimensionality : 3; /**< \see glsl_sampler_dim */
@@ -127,10 +132,10 @@ struct glsl_type
 	* easier to just ralloc_free 'mem_ctx' (or any of its ancestors). */
 	static void* operator new(size_t size)
 	{
-		if (glsl_type::mem_ctx == NULL)
+		if (!glsl_type::mem_ctx)
 		{
-			glsl_type::mem_ctx = ralloc_context(NULL);
-			//check(glsl_type::mem_ctx != NULL);
+			//glsl_type::mem_ctx = ralloc_context(NULL);
+			check(glsl_type::mem_ctx);
 		}
 
 		void *type;
@@ -589,9 +594,12 @@ private:
 	*
 	* Set on the first call to \c glsl_type::new.
 	*/
-	static void *mem_ctx;
+	static void* mem_ctx;
 
-	void init_ralloc_type_ctx(void);
+	// This context gets freed until end of program
+	static void* BaseTypesContext;
+
+	static void init_ralloc_type_ctx(void);
 
 	/** Constructor for vector and matrix types */
 	glsl_type(

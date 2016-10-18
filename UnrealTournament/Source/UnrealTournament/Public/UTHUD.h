@@ -628,6 +628,12 @@ protected:
 	UUTRadialMenu_WeaponWheel* WeaponWheel;
 
 public:
+
+	/**
+	 *	returns true if a given umg widget is active on the stack
+	 **/
+	bool IsUMGWidgetActive(TWeakObjectPtr<UUTUMGHudWidget> TestWidget);
+
 	/**
 	 *	Activate a UMG HUD widget and display it over the HUD
 	 **/

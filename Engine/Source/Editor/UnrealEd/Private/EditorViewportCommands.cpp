@@ -4,7 +4,7 @@
 #include "UnrealEd.h"
 #include "EditorViewportCommands.h"
 
-#define LOCTEXT_NAMESPACE ""
+#define LOCTEXT_NAMESPACE "EditorViewportCommands"
 
 void FEditorViewportCommands::RegisterCommands()
 {
@@ -15,6 +15,7 @@ void FEditorViewportCommands::RegisterCommands()
 	UI_COMMAND( Bottom, "Bottom", "Switches the viewport to bottom view", EUserInterfaceActionType::RadioButton, FInputChord( EModifierKey::Alt | EModifierKey::Shift, EKeys::J ) );
 	UI_COMMAND( Left, "Left", "Switches the viewport to left view", EUserInterfaceActionType::RadioButton, FInputChord( EModifierKey::Alt, EKeys::K ) );
 	UI_COMMAND( Right, "Right", "Switches the viewport to right view", EUserInterfaceActionType::RadioButton, FInputChord( EModifierKey::Alt | EModifierKey::Shift, EKeys::K ) );
+	UI_COMMAND( Next, "Next", "Rotate through each view options", EUserInterfaceActionType::RadioButton, FInputChord( EModifierKey::Control | EModifierKey::Shift, EKeys::SpaceBar ) );
 
 	UI_COMMAND( WireframeMode, "Brush Wireframe View Mode", "Renders the scene in brush wireframe", EUserInterfaceActionType::RadioButton, FInputChord( EModifierKey::Alt, EKeys::Two ) );
 	UI_COMMAND( UnlitMode, "Unlit View Mode", "Renders the scene with no lights", EUserInterfaceActionType::RadioButton, FInputChord( EModifierKey::Alt, EKeys::Three ) );
@@ -25,9 +26,9 @@ void FEditorViewportCommands::RegisterCommands()
 	UI_COMMAND( ShaderComplexityMode, "Shader Complexity View Mode", "Renders the scene with shader complexity visualization", EUserInterfaceActionType::RadioButton, FInputChord( EModifierKey::Alt, EKeys::Eight ) );
 	UI_COMMAND( QuadOverdrawMode, "Quad Complexity View Mode", "Renders the scene with quad complexity visualization", EUserInterfaceActionType::RadioButton, FInputChord() );
 	UI_COMMAND( ShaderComplexityWithQuadOverdrawMode, "Shader Complexity & Quads visualization", "Renders the scene with shader complexity and quad overdraw visualization", EUserInterfaceActionType::RadioButton, FInputChord() );
-	UI_COMMAND( WantedMipsAccuracyMode, "Wanted Mips Accuracy View Mode", "Visualize the accuracy of the wanted mips used by the texture streamer", EUserInterfaceActionType::RadioButton, FInputChord() );
-	UI_COMMAND( TexelFactorAccuracyMode, "Texel Factor Accuracy View Mode", "Visualize the accuracy of the primitive texel factors used by the texture streamer", EUserInterfaceActionType::RadioButton, FInputChord() );
-	UI_COMMAND( TexCoordScaleAccuracyMode, "Texture Coordinate Scale Accuracy View Mode", "Visualize the accuracy of the material texture coordinate scale factors used by the texture streamer", EUserInterfaceActionType::RadioButton, FInputChord() );
+	UI_COMMAND( TexStreamAccPrimitiveDistanceMode, "Primitive Distance Accuracy View Mode", "Visualize the accuracy of the CPU primitive distance when compared to the GPU value", EUserInterfaceActionType::RadioButton, FInputChord() );
+	UI_COMMAND( TexStreamAccMeshTexCoordSizeMode, "Mesh Texture Coordinate Size Accuracy View Mode", "Visualize the accuracy of the CPU mesh texture coordinate size when compared to the GPU value", EUserInterfaceActionType::RadioButton, FInputChord() );
+	UI_COMMAND( TexStreamAccMaterialTexCoordScalesMode, "Material Texture Coordinate Scales Accuracy View Mode", "Visualize the accuracy of CPU material texture coordinate scales when compared to the GPU values", EUserInterfaceActionType::RadioButton, FInputChord() );
 	UI_COMMAND( StationaryLightOverlapMode, "Stationary Light Overlap View Mode", "Visualizes overlap of stationary lights", EUserInterfaceActionType::RadioButton, FInputChord() );
 	UI_COMMAND( LightmapDensityMode, "Lightmap Density View Mode", "Renders the scene with lightmap density visualization", EUserInterfaceActionType::RadioButton, FInputChord( EModifierKey::Alt, EKeys::Zero ) );
 

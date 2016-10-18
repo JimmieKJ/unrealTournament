@@ -22,8 +22,6 @@ namespace EWindowMode
 		WindowedFullscreen,
 		/** The window has a border and may not take up the entire screen area */
 		Windowed,
-		/** Pseudo-fullscreen mode for devices like HMDs */
-		WindowedMirror,
 
 		/** The total number of supported window modes */
 		NumWindowModes
@@ -34,19 +32,16 @@ namespace EWindowMode
 		Type WindowMode = Windowed;
 		switch (InWindowMode)
 		{
-			case 0:
-				WindowMode = Fullscreen;
-				break;
-			case 1:
-				WindowMode = WindowedFullscreen;
-				break;
-			case 3:
-				WindowMode = WindowedMirror;
-				break;
-			case 2:
-			default:
-				WindowMode = Windowed;
-				break;
+		case 0:
+			WindowMode = Fullscreen;
+			break;
+		case 1:
+			WindowMode = WindowedFullscreen;
+			break;
+		case 2:
+		default:
+			WindowMode = Windowed;
+			break;
 		}
 		return WindowMode;
 	}

@@ -1,0 +1,39 @@
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
+
+/*=============================================================================
+	MobileBasePassCommon.usf: Base pass definitions used by both vertex and pixel shader
+=============================================================================*/
+
+#undef NEEDS_LIGHTMAP_COORDINATE
+
+#define NEEDS_LIGHTMAP_COORDINATE		(LQ_TEXTURE_LIGHTMAP)
+#define NEEDS_LIGHTMAP					(NEEDS_LIGHTMAP_COORDINATE)
+
+#define USE_VERTEX_FOG					(!OUTPUT_GAMMA_SPACE)
+
+#define PACK_INTERPOLANTS (USE_VERTEX_FOG && NUM_VF_PACKED_INTERPOLANTS > 0 && (ES2_PROFILE || ES3_1_PROFILE))
+#define LANDSCAPE_BUG_WORKAROUND (IOS && IS_MOBILE_BASEPASS_VERTEX_SHADER && PACK_INTERPOLANTS)
+
+#if COMPILER_METAL
+// @todo-rco: @todo metal: FIXME!
+#define INTERP_TYPE float4
+#else
+#define INTERP_TYPE half4
+#endif
+
+struct FSharedMobileBasePassInterpolants
+{
+#if USE_VERTEX_FOG && !PACK_INTERPOLANTS
+	INTERP_TYPE VertexFog			: TEXCOORD7;
+#endif
+#if LANDSCAPE_BUG_WORKAROUND
+	INTERP_TYPE DummyInterp		: DUMMY_INTERP;
+#endif
+	float4 PixelPosition	: TEXCOORD8; // xyz = world position, w = clip z
+
+#if USE_WORLD_POSITION_EXCLUDING_SHADER_OFFSETS
+	float3 PixelPositionExcludingWPO	: TEXCOORD9;
+#endif
+};
+
+#define FMobileBasePassInterpolantsVSToPS FSharedMobileBasePassInterpolants

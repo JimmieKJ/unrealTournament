@@ -14,6 +14,6 @@ pushd icu4c-51_2\source\allinone
 	REM msbuild allinone_2015.sln /target:Clean,Build /p:Platform=x64;Configuration="Release"
 	REM msbuild allinone_2015.sln /target:Clean,Build /p:Platform=x64;Configuration="Debug"
 
-	REM Missing WinRT, XboxOne, PS4, Android, Linux, HTML5
+	REM Missing XboxOne, PS4, Android, Linux, HTML5
 popd
 

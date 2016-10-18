@@ -59,40 +59,46 @@ namespace ArrangeUtils
  * @return  Offset and Size of widget
  */
 template<EOrientation Orientation, typename SlotType>
+static AlignmentArrangeResult AlignChild(float AllottedSize, float ChildDesiredSize, const SlotType& ChildToArrange, const FMargin& SlotPadding, const float& ContentScale = 1.0f, bool bClampToParent = true)
+{
+	const FMargin& Margin = SlotPadding;
+	const float TotalMargin = Margin.GetTotalSpaceAlong<Orientation>();
+	const float MarginPre = ( Orientation == Orient_Horizontal ) ? Margin.Left : Margin.Top;
+	const float MarginPost = ( Orientation == Orient_Horizontal ) ? Margin.Right : Margin.Bottom;
+
+	const int32 Alignment = ArrangeUtils::GetChildAlignment<Orientation>::AsInt(ChildToArrange);
+
+	const float ChildSize = bClampToParent ? FMath::Min(ChildDesiredSize, AllottedSize - TotalMargin) : ChildDesiredSize;
+
+	switch ( Alignment )
+	{
+	default:
+	case HAlign_Fill:
+		return AlignmentArrangeResult(MarginPre, ( AllottedSize - TotalMargin )*ContentScale);
+		break;
+
+	case HAlign_Left: // same as Align_Top
+		return AlignmentArrangeResult(MarginPre, ChildSize);
+		break;
+
+	case HAlign_Center:
+		return AlignmentArrangeResult(( AllottedSize - ChildSize ) / 2.0f + MarginPre - MarginPost, ChildSize);
+		break;
+
+	case HAlign_Right: // same as Align_Bottom		
+		return AlignmentArrangeResult(AllottedSize - ChildSize - MarginPost, ChildSize);
+		break;
+	}
+}
+
+template<EOrientation Orientation, typename SlotType>
 static AlignmentArrangeResult AlignChild(float AllottedSize, const SlotType& ChildToArrange, const FMargin& SlotPadding, const float& ContentScale = 1.0f, bool bClampToParent = true)
 {
-	float ChildDesiredSize = (Orientation == Orient_Horizontal)
+	float ChildDesiredSize = ( Orientation == Orient_Horizontal )
 		? ( ChildToArrange.GetWidget()->GetDesiredSize().X * ContentScale )
 		: ( ChildToArrange.GetWidget()->GetDesiredSize().Y * ContentScale );
 
-	const FMargin& Margin = SlotPadding;
-	const float TotalMargin = Margin.GetTotalSpaceAlong<Orientation>();	
-	const float MarginPre = (Orientation == Orient_Horizontal) ? Margin.Left : Margin.Top;
-	const float MarginPost = (Orientation == Orient_Horizontal) ? Margin.Right : Margin.Bottom;
-	
-	const int32 Alignment = ArrangeUtils::GetChildAlignment<Orientation>::AsInt(ChildToArrange);
-		
-	const float ChildSize = bClampToParent ? FMath::Min(ChildDesiredSize, AllottedSize - TotalMargin) : ChildDesiredSize;
-		
-	switch( Alignment )	
-	{
-		default:
-		case HAlign_Fill:
-			return AlignmentArrangeResult( MarginPre, (AllottedSize - TotalMargin)*ContentScale );
-			break;
-		
-		case HAlign_Left: // same as Align_Top
-			return AlignmentArrangeResult( MarginPre, ChildSize );
-			break;
-		
-		case HAlign_Center:
-			return AlignmentArrangeResult( (AllottedSize - ChildSize ) / 2.0f + MarginPre - MarginPost, ChildSize );
-			break;
-		
-		case HAlign_Right: // same as Align_Bottom		
-			return AlignmentArrangeResult( AllottedSize - ChildSize - MarginPost, ChildSize );
-			break;
-	}
+	return AlignChild<Orientation, SlotType>(AllottedSize, ChildDesiredSize, ChildToArrange, SlotPadding, ContentScale, bClampToParent);
 }
 
 

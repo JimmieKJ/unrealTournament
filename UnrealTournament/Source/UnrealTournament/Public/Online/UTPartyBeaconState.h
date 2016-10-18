@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "Runtime/Online/OnlineSubsystemUtils/Public/PartyBeaconState.h"
+#include "PartyBeaconState.h"
 #include "UTPartyBeaconState.generated.h"
 
 USTRUCT()
@@ -12,12 +12,14 @@ struct FEmptyServerReservation
 	FEmptyServerReservation() :
 		PlaylistId(INDEX_NONE),
 		TeamElo(1500),
+		bRanked(false),
 		bMakePrivate(false)
 	{}
 
-	FEmptyServerReservation(int32 InPlaylistId, int32 InTeamElo) :
+	FEmptyServerReservation(int32 InPlaylistId, int32 InTeamElo, bool bInRanked) :
 		PlaylistId(InPlaylistId),
 		TeamElo(InTeamElo),
+		bRanked(false),
 		bMakePrivate(false)
 	{}
 
@@ -35,6 +37,8 @@ struct FEmptyServerReservation
 	/** Elo to advertise to play */
 	UPROPERTY()
 	int32 TeamElo;
+	UPROPERTY()
+	bool bRanked;
 	/** Should the server be created private */
 	UPROPERTY()
 	bool bMakePrivate;
@@ -52,7 +56,9 @@ class UUTPartyBeaconState : public UPartyBeaconState
 	 * @return the index of the game mode in use
 	 */
 	const int32 GetPlaylistId() const { return ReservationData.PlaylistId; }
-	
+
+	const int32 GetTeamElo() const { return ReservationData.TeamElo; }
+
 	/**
 	 * @return the unique id for the player who configured the beacon
 	 */

@@ -5,19 +5,24 @@
 #include "MovieSceneSection.h"
 #include "MovieSceneSkeletalAnimationSection.generated.h"
 
+class UAnimSequenceBase;
+
 /**
- * Audio section, for use in the master audio, or by attached audio objects
+ * Movie scene section that control skeletal animation
  */
 UCLASS( MinimalAPI )
-class UMovieSceneSkeletalAnimationSection : public UMovieSceneSection
+class UMovieSceneSkeletalAnimationSection
+	: public UMovieSceneSection
 {
 	GENERATED_UCLASS_BODY()
+
 public:
+
 	/** Sets the animation sequence for this section */
-	void SetAnimSequence(class UAnimSequence* InAnimSequence) { AnimSequence = InAnimSequence; }
-	
+	void SetAnimSequence(UAnimSequenceBase* InAnimation) { Animation = InAnimation; }
+
 	/** Gets the animation sequence for this section */
-	class UAnimSequence* GetAnimSequence() { return AnimSequence; }
+	UAnimSequenceBase* GetAnimSequence() { return Animation; }
 	
 	/** Gets the start offset into the animation clip */
 	float GetStartOffset() const { return StartOffset; }
@@ -32,10 +37,10 @@ public:
 	void SetEndOffset(float InEndOffset) { EndOffset = InEndOffset; }
 	
 	/** Gets the animation duration, modified by play rate */
-	float GetDuration() const { return FMath::IsNearlyZero(PlayRate) || AnimSequence == nullptr ? 0.f : AnimSequence->SequenceLength / PlayRate; }
+	float GetDuration() const { return FMath::IsNearlyZero(PlayRate) || Animation == nullptr ? 0.f : Animation->SequenceLength / PlayRate; }
 
 	/** Gets the animation sequence length, not modified by play rate */
-	float GetSequenceLength() const { return AnimSequence != nullptr ? AnimSequence->SequenceLength : 0.f; }
+	float GetSequenceLength() const { return Animation != nullptr ? Animation->SequenceLength : 0.f; }
 
 	/** Sets the play rate of the animation clip */
 	float GetPlayRate() const { return PlayRate; }
@@ -55,27 +60,43 @@ public:
 	/** Sets the anim BP slot name. */
 	void SetSlotName( FName InSlotName ) { SlotName = InSlotName; }
 
-	/** MovieSceneSection interface */
+public:
+
+	//~ MovieSceneSection interface
+
 	virtual void MoveSection( float DeltaPosition, TSet<FKeyHandle>& KeyHandles ) override;
 	virtual void DilateSection( float DilationFactor, float Origin, TSet<FKeyHandle>& KeyHandles  ) override;
 	virtual UMovieSceneSection* SplitSection(float SplitTime) override;
-	virtual void GetKeyHandles(TSet<FKeyHandle>& KeyHandles) const override;
+	virtual void GetKeyHandles(TSet<FKeyHandle>& OutKeyHandles, TRange<float> TimeRange) const override;
 	virtual void GetSnapTimes(TArray<float>& OutSnapTimes, bool bGetSectionBorders) const override;
+	virtual TOptional<float> GetKeyTime( FKeyHandle KeyHandle ) const override { return TOptional<float>(); }
+	virtual void SetKeyTime( FKeyHandle KeyHandle, float Time ) override { }
+
+	/** ~UObject interface */
+	virtual void PostLoad() override;
+	
+private:
+
+	//~ UObject interface
+
+#if WITH_EDITOR
+
+	virtual void PreEditChange(UProperty* PropertyAboutToChange) override;
+	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
+	float PreviousPlayRate;
+
+#endif
 
 private:
 
 	static FName DefaultSlotName;
 
-	// UObject interface
-#if WITH_EDITOR
-	virtual void PreEditChange(UProperty* PropertyAboutToChange) override;
-	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
-	float PreviousPlayRate;
-#endif
+	UPROPERTY()
+	class UAnimSequence* AnimSequence_DEPRECATED;
 
-	/** The animation sequence this section has */
+	/** The animation this section plays */
 	UPROPERTY(EditAnywhere, Category="Animation")
-	class UAnimSequence* AnimSequence;
+	UAnimSequenceBase* Animation;
 
 	/** The offset into the beginning of the animation clip */
 	UPROPERTY(EditAnywhere, Category="Animation")

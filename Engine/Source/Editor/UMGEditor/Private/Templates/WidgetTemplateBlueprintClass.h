@@ -39,6 +39,9 @@ public:
 	/** Opens the widget blueprint for edit */
 	virtual FReply OnDoubleClicked() override;
 
+	/** Gets the asset data for this widget blueprint */
+	FAssetData GetWidgetAssetData();
+
 protected:
 	/** The asset data for the widget blueprint */
 	FAssetData WidgetAssetData;

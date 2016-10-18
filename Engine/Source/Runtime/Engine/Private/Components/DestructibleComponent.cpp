@@ -14,6 +14,7 @@
 #include "ObjectEditorUtils.h"
 #include "Particles/ParticleSystemComponent.h"
 #include "PhysicsEngine/DestructibleActor.h"
+#include "PhysicsEngine/BodySetup.h"
 #include "Engine/DestructibleMesh.h"
 #include "Components/DestructibleComponent.h"
 #include "AI/Navigation/NavigationSystem.h"
@@ -44,7 +45,7 @@ UDestructibleComponent::UDestructibleComponent(const FObjectInitializer& ObjectI
 
 	LargeChunkThreshold = 25.f;
 
-	SetSpaceBaseDoubleBuffering(false);
+	SetComponentSpaceTransformsDoubleBuffering(false);
 }
 
 #if WITH_EDITORONLY_DATA
@@ -83,15 +84,16 @@ void UDestructibleComponent::PostEditChangeProperty( struct FPropertyChangedEven
 FBoxSphereBounds UDestructibleComponent::CalcBounds(const FTransform& LocalToWorld) const
 {
 #if WITH_APEX
-	if( ApexDestructibleActor == NULL )
+	if(ApexDestructibleActor == NULL || ApexDestructibleActor->getBounds().isEmpty())
 	{
-		// Fallback if we don't have physics
+		// Fallback if we don't have physics, or we have empty bounds (all chunks inactive/not visible)
 		return Super::CalcBounds(LocalToWorld);
 	}
 
 	const PxBounds3& PBounds = ApexDestructibleActor->getBounds();
 
-	return FBoxSphereBounds( FBox( P2UVector(PBounds.minimum), P2UVector(PBounds.maximum) ) );
+	return FBoxSphereBounds(FBox(P2UVector(PBounds.minimum), P2UVector(PBounds.maximum)));
+
 #else	// #if WITH_APEX
 	return Super::CalcBounds(LocalToWorld);
 #endif	// #if WITH_APEX
@@ -128,17 +130,17 @@ bool IsImpactDamageEnabled(const UDestructibleMesh* TheDestructibleMesh, int32 L
 	}
 }
 
-void UDestructibleComponent::OnUpdateTransform(bool bSkipPhysicsMove, ETeleportType Teleport)
+void UDestructibleComponent::OnUpdateTransform(EUpdateTransformFlags UpdateTransformFlags, ETeleportType Teleport)
 {
 	// We are handling the physics move below, so don't handle it at higher levels
-	Super::OnUpdateTransform(true, Teleport);
+	Super::OnUpdateTransform(UpdateTransformFlags | EUpdateTransformFlags::SkipPhysicsUpdate, Teleport);
 
 	if (SkeletalMesh == NULL)
 	{
 		return;
 	}
 
-	if (!bPhysicsStateCreated || bSkipPhysicsMove)
+	if (!bPhysicsStateCreated || !!(UpdateTransformFlags & EUpdateTransformFlags::SkipPhysicsUpdate))
 	{
 		return;
 	}
@@ -175,11 +177,11 @@ void UDestructibleComponent::OnUpdateTransform(bool bSkipPhysicsMove, ETeleportT
 #endif // #if WITH_APEX
 }
 
-void UDestructibleComponent::CreatePhysicsState()
+void UDestructibleComponent::OnCreatePhysicsState()
 {
-	// to avoid calling PrimitiveComponent, I'm just calling ActorComponent::CreatePhysicsState
+	// to avoid calling PrimitiveComponent, I'm just calling ActorComponent::OnCreatePhysicsState
 	// @todo lh - fix me based on the discussion with Bryan G
-	UActorComponent::CreatePhysicsState();
+	UActorComponent::OnCreatePhysicsState();
 	bPhysicsStateCreated = true;
 
 	// What we want to do with BodySetup is simply use it to store a PhysicalMaterial, and possibly some other relevant fields.  Set up pointers from the BodyInstance to the BodySetup and this component
@@ -194,25 +196,26 @@ void UDestructibleComponent::CreatePhysicsState()
 		return;
 	}
 
+	UWorld* World = GetWorld();
 	FPhysScene* PhysScene = World->GetPhysicsScene();
 	check(PhysScene);
 
 	if( GApexModuleDestructible == NULL )
 	{
-		UE_LOG(LogPhysics, Log, TEXT("UDestructibleComponent::CreatePhysicsState(): APEX must be enabled to init UDestructibleComponent physics.") );
+		UE_LOG(LogPhysics, Log, TEXT("UDestructibleComponent::OnCreatePhysicsState(): APEX must be enabled to init UDestructibleComponent physics.") );
 		return;
 	}
 
 	if( ApexDestructibleActor != NULL )
 	{
-		UE_LOG(LogPhysics, Log, TEXT("UDestructibleComponent::CreatePhysicsState(): NxDestructibleActor already created.") );
+		UE_LOG(LogPhysics, Log, TEXT("UDestructibleComponent::OnCreatePhysicsState(): NxDestructibleActor already created.") );
 		return;
 	}
 
 	UDestructibleMesh* TheDestructibleMesh = GetDestructibleMesh();
 	if( TheDestructibleMesh == NULL || TheDestructibleMesh->ApexDestructibleAsset == NULL)
 	{
-		UE_LOG(LogPhysics, Log, TEXT("UDestructibleComponent::CreatePhysicsState(): No DestructibleMesh or missing ApexDestructibleAsset.") );
+		UE_LOG(LogPhysics, Log, TEXT("UDestructibleComponent::OnCreatePhysicsState(): No DestructibleMesh or missing ApexDestructibleAsset.") );
 		return;
 	}
 
@@ -260,9 +263,6 @@ void UDestructibleComponent::CreatePhysicsState()
 	// Set the (initially) dynamic flag in the actor descriptor
 	// See if we are 'static'
 	verify( NxParameterized::setParamBool(*ActorParams,"dynamic", BodyInstance.bSimulatePhysics != false) );
-
-	// Set the sleep velocity frame decay constant (was sleepVelocitySmoothingFactor) - a new feature that should help sleeping in large piles
-	verify( NxParameterized::setParamF32(*ActorParams,"sleepVelocityFrameDecayConstant", 20.0f) );
 
 	// Set up the shape desc template
 
@@ -415,7 +415,7 @@ void UDestructibleComponent::CreatePhysicsState()
 #endif	// #if WITH_APEX
 }
 
-void UDestructibleComponent::DestroyPhysicsState()
+void UDestructibleComponent::OnDestroyPhysicsState()
 {
 #if WITH_APEX
 	if(ApexDestructibleActor != NULL)
@@ -438,7 +438,7 @@ void UDestructibleComponent::DestroyPhysicsState()
 		BodyInstance.RigidActorAsync = NULL;
 	}
 #endif	// #if WITH_APEX
-	Super::DestroyPhysicsState();
+	Super::OnDestroyPhysicsState();
 }
 
 UBodySetup* UDestructibleComponent::GetBodySetup()
@@ -479,8 +479,9 @@ void UDestructibleComponent::AddImpulseAtLocation( FVector Impulse, FVector Posi
 	ExecuteOnPhysicsReadWrite([&]
 	{
 		const int32 ChunkIdx = BoneIdxToChunkIdx(GetBoneIndex(BoneName));
-		PxVec3 Location = U2PVector(Position);
-		ApexDestructibleActor->addForce(ChunkIdx, U2PVector(Impulse),  PxForceMode::eIMPULSE);
+		PxVec3 PxPosition = U2PVector(Position);
+
+		ApexDestructibleActor->addForce(ChunkIdx, U2PVector(Impulse),  PxForceMode::eIMPULSE, &PxPosition);
 	});
 #endif
 }
@@ -698,8 +699,8 @@ void UDestructibleComponent::OnVisibilityEvent(const NxApexChunkStateEventData &
 		const NxDestructibleChunkEvent &  Event = InVisibilityEvent.stateEventList[EventIndex];
 		// Right now the only events are visibility changes.  So as an optimization we won't check for the event type.
 		//				if (Event.event & physx::NxDestructibleChunkEvent::VisibilityChanged)
-		const bool bVisible = (Event.event & physx::NxDestructibleChunkEvent::ChunkVisible) != 0;
-		SetChunkVisible(Event.chunkIndex, bVisible);
+		const bool bIsVisible = (Event.event & physx::NxDestructibleChunkEvent::ChunkVisible) != 0;
+		SetChunkVisible(Event.chunkIndex, bIsVisible);
 	}
 }
 #endif // WITH_APEX
@@ -877,13 +878,13 @@ void UDestructibleComponent::Pair( int32 ChunkIndex, PxShape* PShape)
 }
 #endif
 
-void UDestructibleComponent::SetChunkVisible( int32 ChunkIndex, bool bVisible )
+void UDestructibleComponent::SetChunkVisible( int32 ChunkIndex, bool bInVisible )
 {
 #if WITH_APEX
 	// Bone 0 is a dummy root bone
 	const int32 BoneIndex = ChunkIdxToBoneIdx(ChunkIndex);
 
-	if( bVisible )
+	if( bInVisible )
 	{
 		UnHideBone(BoneIndex);
 
@@ -998,7 +999,7 @@ void UDestructibleComponent::SetChunksWorldTM(const TArray<FUpdateChunksInfo>& U
 		const FQuat BoneRotation = InvRotation*WorldRotation;
 		const FVector BoneTranslation = InvRotation.RotateVector(WorldTranslation - ComponentToWorld.GetTranslation()) / ComponentToWorld.GetScale3D();
 
-		GetEditableSpaceBases()[BoneIndex] = FTransform(BoneRotation, BoneTranslation);
+		GetEditableComponentSpaceTransforms()[BoneIndex] = FTransform(BoneRotation, BoneTranslation);
 	}
 
 	// Mark the transform as dirty, so the bounds are updated and sent to the render thread
@@ -1031,7 +1032,7 @@ void UDestructibleComponent::SetChunkWorldRT( int32 ChunkIndex, const FQuat& Wor
 	// More optimal form of the above
 	const FQuat BoneRotation = ComponentToWorld.GetRotation().Inverse()*WorldRotation;
 	const FVector BoneTranslation = ComponentToWorld.GetRotation().Inverse().RotateVector(WorldTranslation - ComponentToWorld.GetTranslation())/ComponentToWorld.GetScale3D();
-	GetEditableSpaceBases()[BoneIndex] = FTransform(BoneRotation, BoneTranslation);
+	GetEditableComponentSpaceTransforms()[BoneIndex] = FTransform(BoneRotation, BoneTranslation);
 #endif
 }
 
@@ -1407,11 +1408,16 @@ bool UDestructibleComponent::IsChunkLarge(PxRigidActor* ChunkActor) const
 {
 #if WITH_APEX
 	check(ChunkActor);
-	physx::PxBounds3 Bounds = ChunkActor->getWorldBounds();
-	return Bounds.getExtents().maxElement() > LargeChunkThreshold;
+	return ChunkActor->getWorldBounds().getExtents().maxElement() > LargeChunkThreshold;
 #else
 	return true;
 #endif // WITH_APEX
+}
+
+void UDestructibleComponent::OnActorEnableCollisionChanged()
+{
+	ECollisionEnabled::Type NewCollisionType = GetBodyInstance()->GetCollisionEnabled();
+	SetCollisionEnabled(NewCollisionType);
 }
 
 void UDestructibleComponent::SetCollisionEnabled(ECollisionEnabled::Type NewType)

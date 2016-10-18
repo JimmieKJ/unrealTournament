@@ -384,7 +384,7 @@ bool FProfilerSession::HandleTicker( float DeltaTime )
 	}
 
 	// Limit processing to 50ms per frame.
-	const double TimeLimit = 50 / 1000.0;
+	const double TimeLimit = 250 / 1000.0;
 	double Seconds = 0;
 
 	for( int32 It = 0; It < FrameToProcess.Num(); It++ )

@@ -2,6 +2,11 @@
 
 #pragma once
 
+#include "PropertySection.h"
+
+
+class UMovieSceneSection;
+
 
 /**
  * A movie scene section for material parameters.
@@ -17,13 +22,14 @@ public:
 
 public:
 
-	// FPropertySection interface
+	//~ FPropertySection interface
+
 	virtual void SetIntermediateValue(FPropertyChangedParams PropertyChangedParams) override { }
 	virtual void ClearIntermediateValue() override { }
 
 public:
 
-	// ISequencerSection interface
+	//~ ISequencerSection interface
 
 	virtual void GenerateSectionLayout(class ISectionLayoutBuilder& LayoutBuilder) const override;
 	virtual bool RequestDeleteCategory(const TArray<FName>& CategoryNamePath) override;

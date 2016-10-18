@@ -13,7 +13,9 @@
 #include <string.h>
 
 #include <assert.h>
-#define JPGD_ASSERT(x) assert(x)
+// BEGIN EPIC MOD
+#define JPGD_ASSERT(x) { assert(x); CA_ASSUME(x); } (void)0
+// END EPIC MOD
 
 #ifdef _MSC_VER
 #pragma warning (disable : 4611) // warning C4611: interaction between '_setjmp' and C++ object destruction is non-portable
@@ -859,6 +861,12 @@ namespace jpgd {
 		m_error_code = status;
 		free_all_blocks();
 		longjmp(m_jmp_state, status);
+
+		// we shouldn't get here as longjmp shouldn't return, but we put it here to make it explicit
+		// that this function doesn't return, otherwise we get this error:
+		// 
+		// error : function declared 'noreturn' should not return
+		exit(1);
 	}
 
 	void *jpeg_decoder::alloc(size_t nSize, bool zero)
@@ -1836,7 +1844,9 @@ namespace jpgd {
 							}
 
 							k += 16 - 1; // - 1 because the loop counter is k
-							JPGD_ASSERT(p[g_ZAG[k]] == 0);
+							// BEGIN EPIC MOD
+							JPGD_ASSERT(k < 64 && p[g_ZAG[k]] == 0);
+							// END EPIC MOD
 						}
 						else
 							break;
@@ -2623,7 +2633,13 @@ namespace jpgd {
 		m_expanded_blocks_per_mcu = m_expanded_blocks_per_component * m_comps_in_frame;
 		m_expanded_blocks_per_row = m_max_mcus_per_row * m_expanded_blocks_per_mcu;
 		// Freq. domain chroma upsampling is only supported for H2V2 subsampling factor.
-		m_freq_domain_chroma_upsample = (JPGD_SUPPORT_FREQ_DOMAIN_UPSAMPLING != 0) && (m_expanded_blocks_per_mcu == 4*3);
+// BEGIN EPIC MOD
+#if JPGD_SUPPORT_FREQ_DOMAIN_UPSAMPLING
+		m_freq_domain_chroma_upsample = (m_expanded_blocks_per_mcu == 4*3);
+#else
+		m_freq_domain_chroma_upsample = 0;
+#endif
+// END EPIC MOD
 
 		if (m_freq_domain_chroma_upsample)
 			m_pSample_buf = (uint8 *)alloc(m_expanded_blocks_per_row * 64);
@@ -2782,6 +2798,10 @@ namespace jpgd {
 
 				do
 				{
+					// BEGIN EPIC MOD
+					JPGD_ASSERT(k < 64);
+					// END EPIC MOD
+
 					jpgd_block_t *this_coef = p + g_ZAG[k];
 
 					if (*this_coef != 0)
@@ -2818,6 +2838,10 @@ namespace jpgd {
 		{
 			for ( ; k <= pD->m_spectral_end; k++)
 			{
+				// BEGIN EPIC MOD
+				JPGD_ASSERT(k < 64);
+				// END EPIC MOD
+
 				jpgd_block_t *this_coef = p + g_ZAG[k];
 
 				if (*this_coef != 0)

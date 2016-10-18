@@ -4,8 +4,7 @@
 	PackageName.h: Unreal package name utility functions.
 =============================================================================*/
 
-#ifndef __PACKAGENAME_H__
-#define __PACKAGENAME_H__
+#pragma once
 
 class COREUOBJECT_API FPackageName
 {
@@ -56,7 +55,7 @@ public:
 	 * @param InExtension Package extension.
 	 * @return Package filename.
 	 */
-	static bool TryConvertLongPackageNameToFilename(const FString& InLongPackageName, FString& OutFilename, const FString& InExtension = TEXT(""), const bool ShouldGetLocalizedPackage = false);
+	static bool TryConvertLongPackageNameToFilename(const FString& InLongPackageName, FString& OutFilename, const FString& InExtension = TEXT(""));
 	/** 
 	 * Converts a long package name to a file name with the supplied extension.
 	 *
@@ -64,7 +63,7 @@ public:
 	 * @param InExtension Package extension.
 	 * @return Package filename.
 	 */
-	static FString LongPackageNameToFilename(const FString& InLongPackageName, const FString& InExtension = TEXT(""), const bool ShouldGetLocalizedPackage = false);
+	static FString LongPackageNameToFilename(const FString& InLongPackageName, const FString& InExtension = TEXT(""));
 	/** 
 	 * Returns the path to the specified package, excluding the short package name
 	 *
@@ -99,13 +98,6 @@ public:
 	 * @return							true if a valid long package name
 	 */
 	static bool IsValidLongPackageName(const FString& InLongPackageName, bool bIncludeReadOnlyRoots = false, FText* OutReason = NULL);
-	/**
-	 * Returns whether the specified long package name is an engine package.
-	 *
-	 * @param InLongPackageName Long Package Name
-	 * @return true if it is an Engine package.
-	 */
-	static bool IsEnginePackageName(const FString& InLongPackageName);
 	/**
 	 * Checks if the given string is a long package name or not.
 	 *
@@ -200,16 +192,7 @@ public:
 	 * @param OutFilename Package filename on disk.
 	 * @return true if the specified package name points to an existing package, false otherwise.
 	 **/
-	static bool DoesPackageExist(const FString& LongPackageName, const FGuid* Guid = NULL, FString* OutFilename = NULL, const bool ShouldGetLocalizedPackage = false);
-
-	/**
-	* Checks if the package and any localized version exist on disk.
-	*
-	* @param LongPackageName Package name.
-	* @param OutFilenameNative Package package filename on disk. Set to empty string if the package is not found.
-	* @param OutFilenameLocalized Localized package filename on disk. Set to empty string if the package is not found
-	**/
-	static bool DoesPackageExistWithLocalization(const FString& LongPackageName, const FGuid* Guid = NULL, FString* OutNativeFilename = NULL, FString* OutLocalizedFilename = NULL);
+	static bool DoesPackageExist(const FString& LongPackageName, const FGuid* Guid = NULL, FString* OutFilename = NULL);
 
 	/**
 	 * Attempts to find a package given its short name on disk (very slow).
@@ -218,7 +201,7 @@ public:
 	 * @param OutLongPackageName Long package name corresponding to the found file (if any).
 	 * @return true if the specified package name points to an existing package, false otherwise.
 	 **/
-	static bool SearchForPackageOnDisk(const FString& PackageName, FString* OutLongPackageName = NULL, FString* OutFilename = NULL, bool bUseLocalizedNames = false);
+	static bool SearchForPackageOnDisk(const FString& PackageName, FString* OutLongPackageName = NULL, FString* OutFilename = NULL);
 
 	/**
 	 * Tries to convert object path with short package name to object path with long package name found on disk (very slow)
@@ -238,6 +221,27 @@ public:
 	 * @returns Normalized path (or empty path, if short object path was given and it wasn't found on the disk).
 	 */
 	static FString GetNormalizedObjectPath(const FString& ObjectPath);
+
+	/**
+	 * Gets the resolved path of a long package as determined by the delegates registered with FCoreDelegates::PackageNameResolvers.
+	 * This allows systems such as localization to redirect requests for a package to a more appropriate alternative, or to 
+	 * nix the request altogether.
+	 *
+	 * @param InSourcePackagePath	Path to the source package.
+	 *
+	 * @returns Resolved package path, or the source package path if there is no resolution occurs.
+	 */
+	static FString GetDelegateResolvedPackagePath(const FString& InSourcePackagePath);
+
+	/**
+	* Gets the localized version of a long package path for the given culture, or returns the source package if there is no suitable localized package.
+	*
+	* @param InSourcePackagePath	Path to the source package.
+	* @param InCultureName			Culture name to get the localized package for.
+	*
+	* @returns Localized package path, or the source package path if there is no suitable localized package.
+	*/
+	static FString GetLocalizedPackagePath(const FString& InSourcePackagePath, const FString& InCultureName);
 
 	/**
 	 * Strips all path and extension information from a relative or fully qualified file name.
@@ -386,11 +390,6 @@ public:
 	*/
 	static bool FindPackageFileWithoutExtension(const FString& InPackageFilename, FString& OutFilename);
 
-	/**
-	* TODO
-	*/
-	static void FindPackageFileAndLocalizationWithoutExtension(const FString& InNativePackageFilename, const FString& InLocalizedPackageFilename, FString& OutNativeFilename, FString& OutLocalizedFilename);
-
 private:
 
 	static FString AssetPackageExtension;
@@ -409,6 +408,4 @@ private:
 	/** Event that is triggered when a new content path is removed */
 	static FOnContentPathDismountedEvent OnContentPathDismountedEvent;
 };
-
-#endif	// __PACKAGENAME_H__
 

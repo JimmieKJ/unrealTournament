@@ -125,8 +125,8 @@ private:
 	/** Gets the blueprint being edited by the designer */
 	UWidgetBlueprint* GetBlueprint() const;
 
-	/** Called whenever the blueprint is recompiled */
-	void OnBlueprintReinstanced();
+	/** Called whenever the blueprint is recompiled or the preview is updated */
+	void OnPreviewNeedsRecreation();
 
 	void PopulateWidgetGeometryCache(FArrangedWidget& Root);
 
@@ -237,13 +237,13 @@ private:
 	{
 		UWidget* Widget;
 		UPanelWidget* Parent;
+		TWeakPtr<FDragDropOperation> DragOperation;
 	};
 
 	TArray<FDropPreview> DropPreviews;
 
 	TSharedPtr<class SZoomPan> PreviewHitTestRoot;
 	TSharedPtr<SBox> PreviewAreaConstraint;
-	TSharedPtr<SBox> PreviewSizeConstraint;
 	TSharedPtr<SDPIScaler> PreviewSurface;
 	TSharedPtr<SCanvas> ExtensionWidgetCanvas;
 	TSharedPtr<SPaintSurface> EffectsLayer;

@@ -19,6 +19,8 @@ public:
 protected :
 	//~ Begin SGraphNode Interface
 	virtual TSharedPtr<SToolTip> GetComplexTooltip() override;
+	virtual FSlateColor GetNodeIndicatorOverlayColor() const;
+	virtual EVisibility GetNodeIndicatorOverlayVisibility() const;
 	//~ End SGraphNode Interface
 
 	/** Set up node in 'standard' mode */

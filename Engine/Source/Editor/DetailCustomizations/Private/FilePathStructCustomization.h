@@ -39,4 +39,5 @@ private:
 private:
 	/** Pointer to the string that will be seet when changing the path */
 	TSharedPtr<IPropertyHandle> PathStringProperty;
+	bool bLongPackageName;
 };

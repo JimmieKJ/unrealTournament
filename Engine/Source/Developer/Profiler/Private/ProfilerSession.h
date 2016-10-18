@@ -59,7 +59,8 @@ namespace ELoadingProgressStates
 		Started,
 		InProgress,
 		Loaded,
-		Failed, 
+		Failed,
+		Cancelled, 
 
 		/** Invalid enum type, may be used as a number of enumerations. */
 		InvalidOrMax,

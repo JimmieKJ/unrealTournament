@@ -85,6 +85,15 @@ private:
 	// Callback for clicking the Add New Launch Profile
 	FReply OnAddCustomLaunchProfileClicked();
 
+	// Profile wizard menu visibility (hidden if there are no registered wizards)
+	EVisibility GetProfileWizardsMenuVisibility() const;
+
+	// Callback for filling profile wizard menu
+	TSharedRef<SWidget> MakeProfileWizardsMenu();
+
+	// Execute specified profile wizard
+	void ExecProfileWizard(ILauncherProfileWizardPtr InWizard);
+
 	// Callback for when the settings panel is closed
 	FReply OnProfileSettingsClose();
 

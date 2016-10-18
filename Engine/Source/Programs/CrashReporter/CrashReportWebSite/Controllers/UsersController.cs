@@ -1,12 +1,10 @@
 ﻿// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
-using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
-using System.Web;
 using System.Web.Mvc;
-
+using Tools.CrashReporter.CrashReportWebSite.DataModels;
+using Tools.CrashReporter.CrashReportWebSite.DataModels.Repositories;
 using Tools.CrashReporter.CrashReportWebSite.Models;
 
 namespace Tools.CrashReporter.CrashReportWebSite.Controllers
@@ -16,6 +14,13 @@ namespace Tools.CrashReporter.CrashReportWebSite.Controllers
 	/// </summary>
 	public class UsersController : Controller
 	{
+	    private IUnitOfWork _unitOfWork;
+
+	    public UsersController(IUnitOfWork unitOfWork)
+	    {
+	        _unitOfWork = unitOfWork;
+	    }
+        
 		/// <summary>
 		/// Display the main user groups.
 		/// </summary>
@@ -24,21 +29,40 @@ namespace Tools.CrashReporter.CrashReportWebSite.Controllers
 		/// <returns>A view to show a list of users in the current user group.</returns>
 		public ActionResult Index( FormCollection UserForms, string UserGroup )
 		{
-			CrashRepository Crashes = new CrashRepository();
-
 			// Examine an incoming form for a new user group
 			foreach( var FormInstance in UserForms )
 			{
-				string UserName = FormInstance.ToString();
-				string NewUserGroup = UserForms[UserName];
-				FRepository.Get( Crashes ).SetUserGroup( UserName, NewUserGroup );
+				var UserName = FormInstance.ToString();
+				var NewUserGroup = UserForms[UserName];
 			}
 
 			UsersViewModel Model = new UsersViewModel();
 
+		    var userGroup = _unitOfWork.UserGroupRepository.First(data => data.Name == UserGroup);
+
 			Model.UserGroup = UserGroup;
-			Model.Users = FRepository.Get( Crashes ).GetUserNamesFromGroupName( UserGroup );
-			Model.GroupCounts = FRepository.Get( Crashes ).GetCountsByGroup();
+		    Model.Users =
+		        new HashSet<string>(
+		            _unitOfWork.UserRepository.ListAll()
+		                .Where(data => data.UserGroupId == userGroup.Id)
+		                .Select(data => data.UserName));
+
+		    var groupCounts =
+		        _unitOfWork.UserRepository.ListAll()
+		            .GroupBy(data => data.UserGroup)
+		            .Select(data => new {Key = data.Key, Count = data.Count()}).ToDictionary(groupCount => groupCount.Key.Name, groupCount => groupCount.Count);;
+            
+            // Add in all groups, even though there are no crashes associated
+			//IEnumerable<string> UserGroups = ( from UserGroupDetail in _entities.UserGroups select UserGroupDetail.Name );
+            //foreach( string UserGroupName in UserGroups )
+            //{
+            //    if( !groupCounts.Keys.Contains( UserGroupName ) )
+            //    {
+            //        groupCounts[UserGroupName] = 0;
+            //    }
+            //}
+
+            Model.GroupCounts = groupCounts;
 
 			return View( "Index", Model );
 		}

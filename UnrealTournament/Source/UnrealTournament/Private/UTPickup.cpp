@@ -38,7 +38,7 @@ AUTPickup::AUTPickup(const FObjectInitializer& ObjectInitializer)
 	if (TimerEffect != NULL)
 	{
 		TimerEffect->SetHiddenInGame(true);
-		TimerEffect->AttachParent = RootComponent;
+		TimerEffect->SetupAttachment(RootComponent);
 		TimerEffect->LDMaxDrawDistance = 1024.0f;
 		TimerEffect->RelativeLocation.Z = 40.0f;
 		TimerEffect->Mobility = EComponentMobility::Static;
@@ -47,7 +47,7 @@ AUTPickup::AUTPickup(const FObjectInitializer& ObjectInitializer)
 	BaseEffect = ObjectInitializer.CreateOptionalDefaultSubobject<UParticleSystemComponent>(this, TEXT("BaseEffect"));
 	if (BaseEffect != NULL)
 	{
-		BaseEffect->AttachParent = RootComponent;
+		BaseEffect->SetupAttachment(RootComponent);
 		BaseEffect->LDMaxDrawDistance = 2048.0f;
 		BaseEffect->RelativeLocation.Z = -58.0f;
 		BaseEffect->Mobility = EComponentMobility::Static;
@@ -126,7 +126,7 @@ void AUTPickup::Reset_Implementation()
 	bReplicateReset = !bReplicateReset;
 }
 
-void AUTPickup::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepHitResult)
+void AUTPickup::OnOverlapBegin(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepHitResult)
 {
 	APawn* P = Cast<APawn>(OtherActor);
 	if (P != NULL && !P->bTearOff && !GetWorld()->LineTraceTestByChannel(P->GetActorLocation(), GetActorLocation(), ECC_Pawn, FCollisionQueryParams(), WorldResponseParams))
@@ -194,9 +194,18 @@ void AUTPickup::ProcessTouch_Implementation(APawn* TouchedBy)
 
 void AUTPickup::GiveTo_Implementation(APawn* Target)
 {
-	if (Cast<APlayerController>(Target->GetController()))
+	AUTPlayerController* UTPC = (Target != nullptr) ? Cast<AUTPlayerController>(Target->GetController()) : nullptr;
+	if (UTPC)
 	{
-		Cast<APlayerController>(Target->GetController())->ClientReceiveLocalizedMessage(UUTPickupMessage::StaticClass(), 0, NULL, NULL, GetClass());
+		UTPC->ClientReceiveLocalizedMessage(UUTPickupMessage::StaticClass(), 0, NULL, NULL, GetClass());
+		AUTGameMode* GameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
+		if (GameMode && GameMode->bBasicTrainingGame && !GameMode->bDamageHurtsHealth && (GetNetMode() == NM_Standalone))
+		{
+			for (int32 Index = 0; Index < TutorialAnnouncements.Num(); Index++)
+			{
+				UTPC->PlayTutorialAnnouncement(Index, this);
+			}
+		}
 	}
 }
 
@@ -382,13 +391,17 @@ void AUTPickup::Tick(float DeltaTime)
 	}
 }
 
-float AUTPickup::BotDesireability_Implementation(APawn* Asker, float PathDistance)
+float AUTPickup::BotDesireability_Implementation(APawn* Asker, AController* RequestOwner, float PathDistance)
 {
 	return BaseDesireability;
 }
 float AUTPickup::DetourWeight_Implementation(APawn* Asker, float PathDistance)
 {
 	return 0.0f;
+}
+bool AUTPickup::IsSuperDesireable_Implementation(AController* RequestOwner, float CalculatedDesire)
+{
+	return FMath::Max<float>(BaseDesireability, CalculatedDesire) >= 1.0f;
 }
 
 static FPickupReplicatedState PreRepState;
@@ -454,4 +467,17 @@ void AUTPickup::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutL
 	DOREPLIFETIME(AUTPickup, bReplicateReset);
 	DOREPLIFETIME(AUTPickup, State);
 	DOREPLIFETIME_CONDITION(AUTPickup, RespawnTimeRemaining, COND_InitialOnly);
+}
+
+void AUTPickup::PrecacheTutorialAnnouncements(UUTAnnouncer* Announcer) const
+{
+	for (int32 i = 0; i < TutorialAnnouncements.Num(); i++)
+	{
+		Announcer->PrecacheAnnouncement(TutorialAnnouncements[i]);
+	}
+}
+
+FName AUTPickup::GetTutorialAnnouncement(int32 Switch) const
+{
+	return (Switch < TutorialAnnouncements.Num()) ? TutorialAnnouncements[Switch] : NAME_None;
 }

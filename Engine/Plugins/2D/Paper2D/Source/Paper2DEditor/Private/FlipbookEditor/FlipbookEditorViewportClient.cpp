@@ -38,9 +38,9 @@ FFlipbookEditorViewportClient::FFlipbookEditorViewportClient(const TAttribute<UP
 	EngineShowFlags.SetCompositeEditorPrimitives(true);
 }
 
-void FFlipbookEditorViewportClient::DrawCanvas(FViewport& Viewport, FSceneView& View, FCanvas& Canvas)
+void FFlipbookEditorViewportClient::DrawCanvas(FViewport& InViewport, FSceneView& View, FCanvas& Canvas)
 {
-	FEditorViewportClient::DrawCanvas(Viewport, View, Canvas);
+	FEditorViewportClient::DrawCanvas(InViewport, View, Canvas);
 
 	const bool bIsHitTesting = Canvas.IsHitTesting();
 	if (!bIsHitTesting)
@@ -62,7 +62,7 @@ void FFlipbookEditorViewportClient::DrawCanvas(FViewport& Viewport, FSceneView& 
 
 	if (bShowSockets)
 	{
-		FSocketEditingHelper::DrawSocketNames(nullptr, AnimatedRenderComponent.Get(), Viewport, View, Canvas);
+		FSocketEditingHelper::DrawSocketNames(nullptr, AnimatedRenderComponent.Get(), InViewport, View, Canvas);
 	}
 }
 
@@ -107,12 +107,12 @@ void FFlipbookEditorViewportClient::Tick(float DeltaSeconds)
 	}
 }
 
-bool FFlipbookEditorViewportClient::InputKey(FViewport* Viewport, int32 ControllerId, FKey Key, EInputEvent Event, float AmountDepressed, bool bGamepad)
+bool FFlipbookEditorViewportClient::InputKey(FViewport* InViewport, int32 ControllerId, FKey Key, EInputEvent Event, float AmountDepressed, bool bGamepad)
 {
 	bool bHandled = false;
 
 	// Pass keys to standard controls, if we didn't consume input
-	return (bHandled) ? true : FEditorViewportClient::InputKey(Viewport, ControllerId, Key, Event, AmountDepressed, bGamepad);
+	return (bHandled) ? true : FEditorViewportClient::InputKey(InViewport, ControllerId, Key, Event, AmountDepressed, bGamepad);
 }
 
 FLinearColor FFlipbookEditorViewportClient::GetBackgroundColor() const

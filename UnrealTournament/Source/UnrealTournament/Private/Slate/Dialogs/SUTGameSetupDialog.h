@@ -235,8 +235,16 @@ protected:
 
 	virtual FReply OnButtonClick(uint16 ButtonID);	
 
+	void OnStoreDialogResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
+	void SelectMap(int32 MapIndex);
+	void OnStoreReturnResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
+
+	int32 DesiredMapIndex;
+
 public:
 	FString GetSelectedMap();
+
+
 
 };
 

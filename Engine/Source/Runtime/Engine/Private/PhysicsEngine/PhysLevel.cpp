@@ -463,6 +463,24 @@ void TermGamePhys()
 	}
 #endif	// #if WITH_APEX
 
+	//Remove all scenes still registered
+	if (int32 NumScenes = GPhysXSDK->getNbScenes())
+	{
+		TArray<PxScene*> PScenes;
+		PScenes.AddUninitialized(NumScenes);
+		GPhysXSDK->getScenes(PScenes.GetData(), sizeof(PxScene*)* NumScenes);
+
+		for (PxScene* PScene : PScenes)
+		{
+			if (PScene)
+			{
+				PScene->release();
+			}
+		}
+	}
+
+
+
 #if WITH_PHYSICS_COOKING || WITH_RUNTIME_PHYSICS_COOKING
 	if(GPhysXCooking != NULL)
 	{

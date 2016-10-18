@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "Engine/DataAsset.h"
 #include "GameplayAbilitySet.generated.h"
 
 class UGameplayAbility;

@@ -157,7 +157,7 @@ private:
 	FGuid NodeGuid;
 
 	/** The glyph brush for this node */
-	const struct FSlateBrush* GlyphBrush;
+	FSlateIcon Glyph;
 
 	/** The glyph color for this node */
 	FLinearColor GlyphColor;
@@ -201,6 +201,7 @@ public:
 	virtual ~FFindInBlueprintsProperty() {}
 
 	/** FFindInBlueprintsResult Interface */
+	virtual FReply OnClick() override;
 	virtual TSharedRef<SWidget>	CreateIcon() const override;
 	virtual void ParseSearchInfo(FText InKey, FText InValue) override;
 	virtual FText GetCategory() const override;

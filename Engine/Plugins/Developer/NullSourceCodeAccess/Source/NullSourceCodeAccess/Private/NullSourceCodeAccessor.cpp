@@ -8,7 +8,8 @@
 bool FNullSourceCodeAccessor::CanAccessSourceCode() const
 {
 	// only check the binaries that UBT will/can use. This file must be in sync with LinuxToolChain.cs
-	return FPaths::FileExists(TEXT("/usr/bin/clang++")) || FPaths::FileExists(TEXT("/usr/bin/clang++-3.5"));
+	return FPaths::FileExists(TEXT("/usr/bin/clang++")) || FPaths::FileExists(TEXT("/usr/bin/clang++-3.5"))
+		|| FPaths::FileExists(TEXT("/usr/bin/clang++-3.6")) || FPaths::FileExists(TEXT("/usr/bin/clang++-3.7")) || FPaths::FileExists(TEXT("/usr/bin/clang++-3.8"));
 }
 
 FName FNullSourceCodeAccessor::GetFName() const

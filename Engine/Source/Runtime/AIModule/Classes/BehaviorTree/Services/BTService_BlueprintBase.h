@@ -21,6 +21,7 @@ class AIMODULE_API UBTService_BlueprintBase : public UBTService
 
 	virtual void DescribeRuntimeValues(const UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory, EBTDescriptionVerbosity::Type Verbosity, TArray<FString>& Values) const override;
 	virtual void OnInstanceDestroyed(UBehaviorTreeComponent& OwnerComp) override;
+	virtual void InitializeFromAsset(UBehaviorTree& Asset) override;
 
 	virtual void SetOwner(AActor* ActorOwner) override;
 

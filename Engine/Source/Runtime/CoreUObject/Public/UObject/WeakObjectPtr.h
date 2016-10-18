@@ -7,6 +7,7 @@
 #pragma once
 
 #include "AutoPointer.h"
+#include "UObjectArray.h"
 
 /***
  * 
@@ -92,6 +93,10 @@ public:
 			(IsValid() || Other.IsValid());
 	}
 
+	FORCEINLINE bool HasSameIndexAndSerialNumber(const FWeakObjectPtr& Other) const
+	{
+		return ObjectIndex == Other.ObjectIndex && ObjectSerialNumber == Other.ObjectSerialNumber;
+	}
 
 	/**  
 	 * Dereference the weak pointer.

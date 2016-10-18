@@ -5,6 +5,7 @@
 #include "UTWeaponStateEquipping.h"
 #include "UTWeaponStateUnequipping.h"
 #include "ComponentRecreateRenderStateContext.h"
+#include "Animation/AnimMontage.h"
 
 static float GetAnimLengthForScaling(UAnimMontage* WeaponAnim, UAnimMontage* HandsAnim)
 {

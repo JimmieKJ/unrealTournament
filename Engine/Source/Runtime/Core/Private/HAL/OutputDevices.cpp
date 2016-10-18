@@ -8,6 +8,7 @@
 #include "Misc/App.h"
 #include "Templates/UniquePtr.h"
 #include <stdio.h>
+#include "OutputDeviceHelper.h"
 
 /** Used by tools which include only core to disable log file creation. */
 #ifndef ALLOW_LOG_FILE
@@ -90,7 +91,7 @@ class FLogSuppressionImplementation: public FLogSuppressionInterface, private FS
 			{
 				ProcessCmdString(Name.ToString() + OnString);
 				FLogCategoryBase* Verb = It.Key;
-				Ar.Logf(TEXT("%s is now %s"), *CommandParts[0], FOutputDevice::VerbosityToString(Verb ? ELogVerbosity::Type(Verb->Verbosity) : ELogVerbosity::Verbose));
+				Ar.Logf(TEXT("%s is now %s"), *CommandParts[0], FOutputDeviceHelper::VerbosityToString(Verb ? ELogVerbosity::Type(Verb->Verbosity) : ELogVerbosity::Verbose));
 			}
 			else
 			{
@@ -461,7 +462,7 @@ public:
 		{
 			for( FConfigSectionMap::TIterator It(*RefTypes); It; ++It )
 			{
-				ProcessCmdString(It.Key().ToString() + TEXT(" ") + It.Value(), true);
+				ProcessCmdString(It.Key().ToString() + TEXT(" ") + It.Value().GetValue(), true);
 			}
 		}
 #if !UE_BUILD_SHIPPING
@@ -543,7 +544,7 @@ public:
 
 				for (TArray<FLogCategoryPtrs>::TConstIterator It = Found.CreateConstIterator(); It; ++It)
 				{
-					Ar.Logf(TEXT("%-40s  %-12s  %s"), *It->Name, FOutputDevice::VerbosityToString(It->Verbosity), It->Postfix ? TEXT(" - DebugBreak") : TEXT(""));
+					Ar.Logf(TEXT("%-40s  %-12s  %s"), *It->Name, FOutputDeviceHelper::VerbosityToString(It->Verbosity), It->Postfix ? TEXT(" - DebugBreak") : TEXT(""));
 				}
 			}
 			else
@@ -572,7 +573,7 @@ public:
 						uint8 OldValue = OldValues.FindRef(Name);
 						if (Verb->Verbosity != OldValue)
 						{
-							Ar.Logf(TEXT("%-40s  %-12s  %s"), *Name.ToString(), FOutputDevice::VerbosityToString(ELogVerbosity::Type(Verb->Verbosity)), Verb->DebugBreakOnLog ? TEXT(" - DebugBreak") : TEXT(""));
+							Ar.Logf(TEXT("%-40s  %-12s  %s"), *Name.ToString(), FOutputDeviceHelper::VerbosityToString(ELogVerbosity::Type(Verb->Verbosity)), Verb->DebugBreakOnLog ? TEXT(" - DebugBreak") : TEXT(""));
 						}
 					}
 				}
@@ -805,7 +806,7 @@ void FOutputDeviceRedirector::FlushThreadedLogs()
 
 void FOutputDeviceRedirector::PanicFlushThreadedLogs()
 {
-	SCOPE_CYCLE_COUNTER(STAT_FlushThreadedLogs);
+//	SCOPE_CYCLE_COUNTER(STAT_FlushThreadedLogs);
 	// Acquire a lock on SynchronizationObject and call the unsynchronized worker function.
 	FScopeLock ScopeLock( &SynchronizationObject );
 	
@@ -965,6 +966,195 @@ void FOutputDeviceRedirector::TearDown()
 	FOutputDevice subclasses.
 -----------------------------------------------------------------------------*/
 
+/**
+* Thread heartbeat check class.
+* Used by crash handling code to check for hangs.
+*/
+class CORE_API FAsyncWriter : public FRunnable, public FArchive
+{
+	enum EConstants
+	{
+		InitialBufferSize = 128 * 1024
+	};
+
+	/** Thread to run the worker FRunnable on. Serializes the ring buffer to disk. */
+	FRunnableThread* Thread;
+	/** Stops this thread */
+	FThreadSafeCounter StopTaskCounter;
+
+	/** Writer archive */
+	FArchive& Ar;
+	/** Data ring buffer */
+	TArray<uint8> Buffer;
+	/** Position where the unserialized data starts in the buffer */
+	int32 BufferStartPos;
+	/** Position where the unserialized data ends in the buffer (such as if (BufferEndPos > BufferStartPos) Length = BufferEndPos - BufferStartPos; */
+	int32 BufferEndPos;
+	/** Sync object for the buffer pos */
+	FCriticalSection BufferPosCritical;
+	/** Event to let the worker thread know there is data to save to disk. */
+	FEvent* BufferDirtyEvent;
+	/** Event flagged when the worker thread finished processing data */
+	FEvent* BufferEmptyEvent;
+
+	/** Serialize the contents of the ring buffer to disk */
+	void SerializeBufferToArchive()
+	{
+		// Grab a local copy of the end pos. It's ok if it changes on the client thread later on.
+		// We won't be modifying it anyway and will later serialize new data in the next iteration.
+		// Here we only serialize what we know exists at the beginning of this function.
+		int32 ThisThreadEndPos = BufferEndPos;
+		if (ThisThreadEndPos >= BufferStartPos)
+		{
+			Ar.Serialize(Buffer.GetData() + BufferStartPos, ThisThreadEndPos - BufferStartPos);
+		}
+		else
+		{
+			// Data is wrapped around the ring buffer
+			Ar.Serialize(Buffer.GetData() + BufferStartPos, Buffer.Num() - BufferStartPos);
+			Ar.Serialize(Buffer.GetData(), BufferEndPos);
+		}
+		// Modify the start pos. Only the worker thread modifies this value so it's ok to not guard it with a critical section.
+		BufferStartPos = ThisThreadEndPos;
+		// Let the client threads know we're done (this is used by FlushBuffer).
+		BufferEmptyEvent->Trigger();
+	}
+
+	/** Flush the memory buffer (doesn't force the archive to flush) */
+	void FlushBuffer()
+	{
+		BufferDirtyEvent->Trigger();
+		if (!Thread)
+		{
+			SerializeBufferToArchive();
+		}
+		BufferEmptyEvent->Wait();
+	}
+
+public:
+
+	FAsyncWriter(FArchive& InAr)
+		: Thread(nullptr)
+		, Ar(InAr)
+		, BufferStartPos(0)
+		, BufferEndPos(0)
+	{
+		Buffer.AddUninitialized(InitialBufferSize);
+		BufferDirtyEvent = FPlatformProcess::GetSynchEventFromPool();
+		BufferEmptyEvent = FPlatformProcess::GetSynchEventFromPool(true);
+		BufferEmptyEvent->Trigger();
+
+		if (FPlatformProcess::SupportsMultithreading())
+		{
+			FString WriterName = FString::Printf(TEXT("FAsyncWriter_%s"), *FPaths::GetBaseFilename(Ar.GetArchiveName()));
+			Thread = FRunnableThread::Create(this, *WriterName, 0, TPri_BelowNormal);
+		}
+	}
+
+	virtual ~FAsyncWriter()
+	{
+		Flush();
+		delete Thread;
+		Thread = nullptr;
+		FPlatformProcess::ReturnSynchEventToPool(BufferDirtyEvent);
+		BufferDirtyEvent = nullptr;
+		FPlatformProcess::ReturnSynchEventToPool(BufferEmptyEvent);
+		BufferEmptyEvent = nullptr;
+	}
+
+	/** Serialize data to buffer that will later be saved to disk by the async thread */
+	virtual void Serialize(void* InData, int64 Length) override
+	{
+		if (!InData || Length <= 0)
+		{
+			return;
+		}
+
+		const uint8* Data = (uint8*)InData;
+
+		BufferEmptyEvent->Reset();
+		FScopeLock WriteLock(&BufferPosCritical);
+
+		// Store the local copy of the current buffer start pos. It may get moved by the worker thread but we don't
+		// care about it too much because we only modify BufferEndPos. Copy should be atomic enough. We only use it
+		// for checking the remaining space in the buffer so underestimating is ok.
+		{
+			const int32 ThisThreadStartPos = BufferStartPos;
+			// Calculate the remaining size in the ring buffer
+			const int32 BufferFreeSize = ThisThreadStartPos <= BufferEndPos ? (Buffer.Num() - BufferEndPos + ThisThreadStartPos) : (ThisThreadStartPos - BufferEndPos);
+			// Make sure the buffer is BIGGER than we require otherwise we may calculate the wrong (0) buffer EndPos for StartPos = 0 and Length = Buffer.Num()
+			if (BufferFreeSize <= Length)
+			{
+				// Force the async thread to call SerializeBufferToArchive even if it's currently empty
+				BufferDirtyEvent->Trigger();
+				FlushBuffer();
+
+				// Resize the buffer if needed
+				if (Length >= Buffer.Num())
+				{
+					// Keep the buffer bigger than we require so that % Buffer.Num() does not return 0 for Lengths = Buffer.Num()
+					Buffer.SetNumUninitialized(Length + 1);
+				}
+			}
+		}
+
+		// We now know there's enough space in the buffer to copy data
+		const int32 WritePos = BufferEndPos;
+		if ((WritePos + Length) <= Buffer.Num())
+		{
+			// Copy straight into the ring buffer
+			FMemory::Memcpy(Buffer.GetData() + WritePos, Data, Length);
+		}
+		else
+		{
+			// Wrap around the ring buffer
+			int32 BufferSizeToEnd = Buffer.Num() - WritePos;
+			FMemory::Memcpy(Buffer.GetData() + WritePos, Data, BufferSizeToEnd);
+			FMemory::Memcpy(Buffer.GetData(), Data + BufferSizeToEnd, Length - BufferSizeToEnd);
+		}
+
+		// Update the end position and let the async thread know we need to write to disk
+		BufferEndPos = (BufferEndPos + Length) % Buffer.Num();
+		BufferDirtyEvent->Trigger();
+
+		// No async thread? Serialize now.
+		if (!Thread)
+		{
+			SerializeBufferToArchive();
+		}
+	}
+
+	/** Flush all buffers to disk */
+	void Flush()
+	{
+		FScopeLock WriteLock(&BufferPosCritical);
+		FlushBuffer();
+		Ar.Flush();
+	}
+
+	//~ Begin FRunnable Interface.
+	virtual bool Init() 
+	{
+		return true;
+	}
+	virtual uint32 Run()
+	{
+		while (StopTaskCounter.GetValue() == 0)
+		{
+			if (BufferDirtyEvent->Wait(10))
+			{
+				SerializeBufferToArchive();
+			}
+		}
+		return 0;
+	}
+	virtual void Stop()
+	{
+		StopTaskCounter.Increment();
+	}
+	//~ End FRunnable Interface
+};
+
 /** 
  * Constructor, initializing member variables.
  *
@@ -972,10 +1162,11 @@ void FOutputDeviceRedirector::TearDown()
  * @param bInDisableBackup	If true, existing files will not be backed up
  */
 FOutputDeviceFile::FOutputDeviceFile( const TCHAR* InFilename, bool bInDisableBackup  )
-:	LogAr( NULL ),
-	Opened( 0 ),
-	Dead( 0 ),
-	bDisableBackup(bInDisableBackup)
+: AsyncWriter(nullptr)
+, WriterArchive(nullptr)
+, Opened(false)
+, Dead(false)
+, bDisableBackup(bInDisableBackup)
 {
 	if( InFilename )
 	{
@@ -1002,15 +1193,17 @@ void FOutputDeviceFile::SetFilename(const TCHAR* InFilename)
  */
 void FOutputDeviceFile::TearDown()
 {
-	if( LogAr )
+	if (AsyncWriter)
 	{
 		if (!bSuppressEventTag)
-		{
-			Logf( TEXT("Log file closed, %s"), FPlatformTime::StrTimestamp() );
+		{			
+			Logf(TEXT("Log file closed, %s"), FPlatformTime::StrTimestamp());
 		}
-		delete LogAr;
-		LogAr = NULL;
+		delete AsyncWriter;
+		AsyncWriter = nullptr;
 	}
+	delete WriterArchive;
+	WriterArchive = nullptr;
 }
 
 /**
@@ -1019,16 +1212,16 @@ void FOutputDeviceFile::TearDown()
  */
 void FOutputDeviceFile::Flush()
 {
-	if( LogAr )
+	if (AsyncWriter)
 	{
-		LogAr->Flush();
+		AsyncWriter->Flush();
 	}
 }
 
 /** if the passed in file exists, makes a timestamped backup copy
  * @param Filename the name of the file to check
  */
-static void CreateBackupCopy(const TCHAR* Filename)
+void FOutputDeviceFile::CreateBackupCopy(const TCHAR* Filename)
 {
 	if (IFileManager::Get().FileSize(Filename) > 0)
 	{
@@ -1040,12 +1233,17 @@ static void CreateBackupCopy(const TCHAR* Filename)
 	}
 }
 
+bool FOutputDeviceFile::IsBackupCopy(const TCHAR* Filename)
+{
+	return Filename != nullptr && FCString::Stristr(const_cast<TCHAR*>(Filename), BACKUP_LOG_FILENAME_POSTFIX) != nullptr;
+}
+
 void FOutputDeviceFile::WriteByteOrderMarkToArchive(EByteOrderMark ByteOrderMark)
 {
 	switch (ByteOrderMark)
 	{
 	case EByteOrderMark::UTF8:
-		LogAr->Serialize(UTF8BOM, sizeof(UTF8BOM));
+		AsyncWriter->Serialize(UTF8BOM, sizeof(UTF8BOM));
 		break;
 
 	case EByteOrderMark::Unspecified:
@@ -1055,16 +1253,16 @@ void FOutputDeviceFile::WriteByteOrderMarkToArchive(EByteOrderMark ByteOrderMark
 	}
 }
 
-FArchive* FOutputDeviceFile::CreateArchive(uint32 MaxAttempts)
+bool FOutputDeviceFile::CreateWriter(uint32 MaxAttempts)
 {
 	uint32 WriteFlags = FILEWRITE_AllowRead | (Opened ? FILEWRITE_Append : 0);
 
 	// Open log file.
-	auto Result = IFileManager::Get().CreateFileWriter(Filename, WriteFlags);
+	FArchive* Ar = IFileManager::Get().CreateFileWriter(Filename, WriteFlags);
 
 	// If that failed, append an _2 and try again (unless we don't want extra copies). This 
 	// happens in the case of running a server and client on same computer for example.
-	if (!bDisableBackup && !Result)
+	if (!bDisableBackup && !Ar)
 	{
 		FString FilenamePart = FPaths::GetBaseFilename(Filename, false) + "_";
 		FString ExtensionPart = FPaths::GetExtension(Filename, true);
@@ -1078,39 +1276,18 @@ FArchive* FOutputDeviceFile::CreateArchive(uint32 MaxAttempts)
 			{
 				CreateBackupCopy(*FinalFilename);
 			}
-			Result = IFileManager::Get().CreateFileWriter(*FinalFilename, WriteFlags);
-		} while (!Result && FileIndex < MaxAttempts);
+			Ar = IFileManager::Get().CreateFileWriter(*FinalFilename, WriteFlags);
+		} while (!Ar && FileIndex < MaxAttempts);
 	}
 
-	return Result;
-}
-
-void FOutputDeviceFile::CastAndSerializeData(const TCHAR* Data)
-{
-	auto ConvertedData = FTCHARToUTF8(Data);
-	LogAr->Serialize((ANSICHAR*)(ConvertedData.Get()), ConvertedData.Length());
-}
-
-void FOutputDeviceFile::WriteDataToArchive(const TCHAR* Data, ELogVerbosity::Type Verbosity, const class FName& Category, const double Time)
-{
-	if (!bSuppressEventTag)
+	FAsyncWriter* Result = nullptr;
+	if (Ar)
 	{
-		FString Prefix = FOutputDevice::FormatLogLine(Verbosity, Category, NULL, GPrintLogTimes, Time);
-		CastAndSerializeData(*Prefix);
+		WriterArchive = Ar;
+		AsyncWriter = new FAsyncWriter(*WriterArchive);
 	}
 
-	CastAndSerializeData(Data);
-
-	if (bAutoEmitLineTerminator)
-	{
-#if PLATFORM_LINUX
-		// on Linux, we still want to have logs with Windows line endings so they can be opened with Windows tools like infamous notepad.exe
-		ANSICHAR WindowsTerminator[] = { '\r', '\n' };
-		LogAr->Serialize(WindowsTerminator, sizeof(WindowsTerminator));
-#else
-		CastAndSerializeData(LINE_TERMINATOR);
-#endif // PLATFORM_LINUX
-	}
+	return !!AsyncWriter;
 }
 
 /**
@@ -1122,10 +1299,10 @@ void FOutputDeviceFile::WriteDataToArchive(const TCHAR* Data, ELogVerbosity::Typ
 void FOutputDeviceFile::Serialize( const TCHAR* Data, ELogVerbosity::Type Verbosity, const class FName& Category, const double Time )
 {
 #if ALLOW_LOG_FILE && !NO_LOGGING
-	static bool Entry=false;
+	static bool Entry = false;
 	if( !GIsCriticalError || Entry )
 	{
-		if( !LogAr && !Dead )
+		if (!AsyncWriter && !Dead)
 		{
 			// Make log filename.
 			if( !Filename[0] )
@@ -1139,12 +1316,10 @@ void FOutputDeviceFile::Serialize( const TCHAR* Data, ELogVerbosity::Type Verbos
 				CreateBackupCopy(Filename);
 			}
 
-			// Open log file.
-			LogAr = CreateArchive();
-
-			if( LogAr )
+			// Open log file and create the worker thread.
+			if (CreateWriter())
 			{
-				Opened = 1;
+				Opened = true;
 
 				WriteByteOrderMarkToArchive(EByteOrderMark::UTF8);
 
@@ -1159,9 +1334,9 @@ void FOutputDeviceFile::Serialize( const TCHAR* Data, ELogVerbosity::Type Verbos
 			}
 		}
 
-		if( LogAr && Verbosity != ELogVerbosity::SetColor )
+		if (AsyncWriter && Verbosity != ELogVerbosity::SetColor)
 		{
-			WriteDataToArchive(Data, Verbosity, Category, Time);
+			FOutputDeviceHelper::FormatCastAndSerializeLine(*AsyncWriter, Data, Verbosity, Category, Time, bSuppressEventTag, bAutoEmitLineTerminator);
 
 			static bool GForceLogFlush = false;
 			static bool GTestedCmdLine = false;
@@ -1171,30 +1346,30 @@ void FOutputDeviceFile::Serialize( const TCHAR* Data, ELogVerbosity::Type Verbos
 				// Force a log flush after each line
 				GForceLogFlush = FParse::Param( FCommandLine::Get(), TEXT("FORCELOGFLUSH") );
 			}
-			if( GForceLogFlush )
+			if (GForceLogFlush)
 			{
-				LogAr->Flush();
+				AsyncWriter->Flush();
 			}
 		}
 	}
 	else
 	{
-		Entry=true;
-		Serialize( Data, Verbosity, Category, Time );
-		Entry=false;
+		Entry = true;
+		Serialize(Data, Verbosity, Category, Time);
+		Entry = false;
 	}
 #endif
 }
 
 void FOutputDeviceFile::Serialize( const TCHAR* Data, ELogVerbosity::Type Verbosity, const class FName& Category )
 {
-	Serialize( Data, Verbosity, Category, -1.0 );
+	Serialize(Data, Verbosity, Category, -1.0);
 }
 
 
 void FOutputDeviceFile::WriteRaw( const TCHAR* C )
 {
-	LogAr->Serialize( const_cast<TCHAR*>(C), FCString::Strlen(C)*sizeof(TCHAR) );
+	AsyncWriter->Serialize((uint8*)const_cast<TCHAR*>(C), FCString::Strlen(C)*sizeof(TCHAR));
 }
 
 /**
@@ -1210,7 +1385,7 @@ void FOutputDeviceDebug::Serialize( const TCHAR* Data, ELogVerbosity::Type Verbo
 	{
 		if (Verbosity != ELogVerbosity::SetColor)
 		{
-			FPlatformMisc::LowLevelOutputDebugStringf(TEXT("%s%s"),*FOutputDevice::FormatLogLine(Verbosity, Category, Data, GPrintLogTimes, Time),LINE_TERMINATOR);
+			FPlatformMisc::LowLevelOutputDebugStringf(TEXT("%s%s"),*FOutputDeviceHelper::FormatLogLine(Verbosity, Category, Data, GPrintLogTimes, Time),LINE_TERMINATOR);
 		}
 	}
 	else
@@ -1319,6 +1494,31 @@ void FOutputDeviceAnsiError::HandleError()
 }
 
 /*-----------------------------------------------------------------------------
+FBufferedOutputDevice subclasses.
+-----------------------------------------------------------------------------*/
+
+void FBufferedOutputDevice::Serialize(const TCHAR* InData, ELogVerbosity::Type Verbosity, const class FName& Category)
+{
+	if (Verbosity > FilterLevel)
+		return;
+
+	FScopeLock ScopeLock(&SynchronizationObject);
+	new(BufferedLines)FBufferedLine(InData, Category, Verbosity);
+}
+
+void FBufferedOutputDevice::GetContents(TArray<FBufferedLine>& DestBuffer, bool ClearDevice/*=true*/)
+{
+	FScopeLock ScopeLock(&SynchronizationObject);
+	DestBuffer = BufferedLines;
+
+	if (ClearDevice)
+	{
+		BufferedLines.Empty();
+	}
+}
+
+
+/*-----------------------------------------------------------------------------
 	FOutputDeviceArchiveWrapper subclasses.
 -----------------------------------------------------------------------------*/
 
@@ -1331,17 +1531,7 @@ void FOutputDeviceArchiveWrapper::Serialize(const TCHAR* Data, ELogVerbosity::Ty
 {
 	if (Verbosity != ELogVerbosity::SetColor)
 	{
-		CastAndSerializeData(Data);
-
-		if (bAutoEmitLineTerminator)
-		{
-			CastAndSerializeData(LINE_TERMINATOR);
-		}
+		FOutputDeviceHelper::FormatCastAndSerializeLine(*LogAr, Data, Verbosity, Category, -1.0, true, bAutoEmitLineTerminator);
 	}
 }
 
-void FOutputDeviceArchiveWrapper::CastAndSerializeData(const TCHAR* Data)
-{
-	FTCHARToUTF8 ConvertedData(Data);
-	LogAr->Serialize((ANSICHAR*)(ConvertedData.Get()), ConvertedData.Length());
-}

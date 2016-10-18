@@ -11,17 +11,17 @@
 
 TArray<FWorkflowApplicationModeExtender> FWorkflowCentricApplication::ModeExtenderList;
 
-void FWorkflowCentricApplication::RegisterTabSpawners(const TSharedRef<class FTabManager>& TabManager)
+void FWorkflowCentricApplication::RegisterTabSpawners(const TSharedRef<class FTabManager>& InTabManager)
 {
 	if (CurrentAppModePtr.IsValid())
 	{
-		CurrentAppModePtr->RegisterTabFactories(TabManager);
+		CurrentAppModePtr->RegisterTabFactories(InTabManager);
 	}
 }
 
-void FWorkflowCentricApplication::UnregisterTabSpawners(const TSharedRef<class FTabManager>& TabManager)
+void FWorkflowCentricApplication::UnregisterTabSpawners(const TSharedRef<class FTabManager>& InTabManager)
 {
-	TabManager->UnregisterAllTabSpawners();
+	InTabManager->UnregisterAllTabSpawners();
 }
 
 

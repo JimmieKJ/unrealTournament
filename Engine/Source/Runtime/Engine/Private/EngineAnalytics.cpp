@@ -3,28 +3,36 @@
 #include "EnginePrivate.h"
 #include "EngineAnalytics.h"
 #include "EngineBuildSettings.h"
-#include "Runtime/Analytics/Analytics/Public/Analytics.h"
-#include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
+#include "AnalyticsBuildType.h"
+#include "AnalyticsET.h"
+#include "IAnalyticsProviderET.h"
 #include "GeneralProjectSettings.h"
 #include "EngineSessionManager.h"
 
 bool FEngineAnalytics::bIsInitialized;
 bool FEngineAnalytics::bIsEditorRun;
 bool FEngineAnalytics::bIsGameRun;
-TSharedPtr<IAnalyticsProvider> FEngineAnalytics::Analytics;
+TSharedPtr<IAnalyticsProviderET> FEngineAnalytics::Analytics;
 TSharedPtr<FEngineSessionManager> FEngineAnalytics::SessionManager;
 
 /**
- * Engine analytics config log to initialize the engine analytics provider.
- * External code should bind this delegate if engine analytics are desired,
- * preferably in private code that won't be redistributed.
- */
-FAnalytics::FProviderConfigurationDelegate& GetEngineAnalyticsOverrideConfigDelegate()
+* Default config func.
+*/
+FAnalyticsET::Config DefaultEngineAnalyticsConfigFunc()
 {
-	static FAnalytics::FProviderConfigurationDelegate Delegate;
-	return Delegate;
+	return FAnalyticsET::Config();
 }
 
+/**
+* Engine analytics config to initialize the analytics provider.
+* External code should bind this delegate if engine analytics are desired,
+* preferably in private code that won't be redistributed.
+*/
+TFunction<FAnalyticsET::Config()>& GetEngineAnalyticsConfigFunc()
+{
+	static TFunction<FAnalyticsET::Config()> Config = &DefaultEngineAnalyticsConfigFunc;
+	return Config;
+}
 
 /**
  * Get analytics pointer
@@ -42,114 +50,98 @@ void FEngineAnalytics::Initialize()
 
 	check(GEngine);
 
+#if WITH_EDITOR
 	// this will only be true for builds that have editor support (currently PC, Mac, Linux)
 	// The idea here is to only send editor events for actual editor runs, not for things like -game runs of the editor.
-	bIsEditorRun = WITH_EDITOR && GIsEditor && !IsRunningCommandlet();
-
+	bIsEditorRun = GIsEditor && !IsRunningCommandlet();
+	bIsGameRun = false;
+#else
 	// We also want to identify a real run of a game, which is NOT necessarily the opposite of an editor run.
 	// Ideally we'd be able to tell explicitly, but with content-only games, it becomes difficult.
 	// So we ensure we are not an editor run, we don't have EDITOR stuff compiled in, we are not running a commandlet,
 	// we are not a generic, utility program, and we require cooked data.
-	bIsGameRun = !WITH_EDITOR && !IsRunningCommandlet() && !FPlatformProperties::IsProgram() && FPlatformProperties::RequiresCookedData();
+	bIsEditorRun = false;
+	bIsGameRun = !IsRunningCommandlet() && !FPlatformProperties::IsProgram() && FPlatformProperties::RequiresCookedData();
+#endif
 
+#if UE_BUILD_DEBUG
+	const bool bShouldInitAnalytics = false;
+#else
 	// Outside of the editor, the only engine analytics usage is the hardware survey
 	const bool bShouldInitAnalytics = (bIsEditorRun && GEngine->AreEditorAnalyticsEnabled()) || (bIsGameRun && GEngine->AreGameAnalyticsEnabled());
+#endif
 
 	if (bShouldInitAnalytics)
 	{
+		// Get the default config.
+		FAnalyticsET::Config Config = GetEngineAnalyticsConfigFunc()();
+		// Set any fields that weren't set by default.
+		if (Config.APIKeyET.IsEmpty())
 		{
-			// Setup some default engine analytics if there is nothing custom bound
-			FAnalytics::FProviderConfigurationDelegate DefaultEngineAnalyticsConfig;
-			DefaultEngineAnalyticsConfig.BindLambda( 
-				[=]( const FString& KeyName, bool bIsValueRequired ) -> FString
-				{
-					static TMap<FString, FString> ConfigMap;
-					if (ConfigMap.Num() == 0)
-					{
-						ConfigMap.Add(TEXT("ProviderModuleName"), TEXT("AnalyticsET"));
-						ConfigMap.Add(TEXT("APIServerET"), TEXT("https://datarouter.ol.epicgames.com/"));
-						ConfigMap.Add(TEXT("AppEnvironment"), TEXT("datacollector-source"));
+			// We always use the "Release" analytics account unless we're running in analytics test mode (usually with
+			// a command-line parameter), or we're an internal Epic build
+			const EAnalyticsBuildType AnalyticsBuildType = GetAnalyticsBuildType();
+			const bool bUseReleaseAccount =
+				(AnalyticsBuildType == EAnalyticsBuildType::Development || AnalyticsBuildType == EAnalyticsBuildType::Release) &&
+				!FEngineBuildSettings::IsInternalBuild();	// Internal Epic build
+			const TCHAR* BuildTypeStr = bUseReleaseAccount ? TEXT("Release") : TEXT("Dev");
 
-						// We always use the "Release" analytics account unless we're running in analytics test mode (usually with
-						// a command-line parameter), or we're an internal Epic build
-						const FAnalytics::BuildType AnalyticsBuildType = FAnalytics::Get().GetBuildType();
-						const bool bUseReleaseAccount =
-							(AnalyticsBuildType == FAnalytics::Development || AnalyticsBuildType == FAnalytics::Release) &&
-							!FEngineBuildSettings::IsInternalBuild();	// Internal Epic build
-						const TCHAR* BuildTypeStr = bUseReleaseAccount ? TEXT("Release") : TEXT("Dev");
-
-						FString UE4TypeOverride;
-						bool bHasOverride = GConfig->GetString(TEXT("Analytics"), TEXT("UE4TypeOverride"), UE4TypeOverride, GEngineIni);
-						const TCHAR* UE4TypeStr = bHasOverride ? *UE4TypeOverride : FEngineBuildSettings::IsPerforceBuild() ? TEXT("Perforce") : TEXT("UnrealEngine");
-
-						if (GIsEditor)
-						{
-							const TCHAR* DevelopmentAccountAPIKeyET = TEXT("UTEditor.Source.Dev");
-							const TCHAR* ReleaseAccountAPIKeyET = TEXT("UTEditor.Source.Release");
-							ConfigMap.Add(TEXT("APIKeyET"), bUseReleaseAccount ? ReleaseAccountAPIKeyET : DevelopmentAccountAPIKeyET);
-						}
-						else if (bIsEditorRun)
-						{
-							ConfigMap.Add(TEXT("APIKeyET"), FString::Printf(TEXT("UEEditor.%s.%s"), UE4TypeStr, BuildTypeStr));
-						}
-						else
-						{
-							const UGeneralProjectSettings& ProjectSettings = *GetDefault<UGeneralProjectSettings>();
-							ConfigMap.Add(TEXT("APIKeyET"), FString::Printf(TEXT("UEGame.%s.%s|%s|%s"), UE4TypeStr, BuildTypeStr, *ProjectSettings.ProjectID.ToString(), *ProjectSettings.ProjectName));
-						}
-					}
-
-					// Check for overrides
-					if( GetEngineAnalyticsOverrideConfigDelegate().IsBound() )
-					{
-						const FString OverrideValue = GetEngineAnalyticsOverrideConfigDelegate().Execute( KeyName, bIsValueRequired );
-						if( !OverrideValue.IsEmpty() )
-						{
-							return OverrideValue;
-						}
-					}
-
-					FString* ConfigValue = ConfigMap.Find(KeyName);
-					return ConfigValue != NULL ? *ConfigValue : TEXT("");
-				} );
-
-			// Connect the engine analytics provider (if there is a configuration delegate installed)
-			Analytics = FAnalytics::Get().CreateAnalyticsProvider(
-				FName(*DefaultEngineAnalyticsConfig.Execute(TEXT("ProviderModuleName"), true)), 
-				DefaultEngineAnalyticsConfig);
-
-			if (Analytics.IsValid())
+			FString UE4TypeOverride;
+			bool bHasOverride = GConfig->GetString(TEXT("Analytics"), TEXT("UE4TypeOverride"), UE4TypeOverride, GEngineIni);
+			const TCHAR* UE4TypeStr = bHasOverride ? *UE4TypeOverride : FEngineBuildSettings::IsPerforceBuild() ? TEXT("Perforce") : TEXT("UnrealEngine");
+			if (bIsEditorRun)
 			{
-				// Use an anonymous user id in-game
-				if (bIsGameRun && GEngine->AreGameAnalyticsAnonymous())
-				{
-					FString AnonymousId;
-					if (!FPlatformMisc::GetStoredValue(TEXT("Epic Games"), TEXT("Unreal Engine/Privacy"), TEXT("AnonymousID"), AnonymousId) || AnonymousId.IsEmpty())
-					{
-						AnonymousId = FGuid::NewGuid().ToString(EGuidFormats::DigitsWithHyphensInBraces);
-						FPlatformMisc::SetStoredValue(TEXT("Epic Games"), TEXT("Unreal Engine/Privacy"), TEXT("AnonymousID"), AnonymousId);
-					}
-
-					Analytics->SetUserID(FString::Printf(TEXT("ANON-%s"), *AnonymousId));
-				}
-				else
-				{
-					Analytics->SetUserID(FString::Printf(TEXT("%s|%s|%s"), *FPlatformMisc::GetMachineId().ToString(EGuidFormats::Digits).ToLower(), *FPlatformMisc::GetEpicAccountId(), *FPlatformMisc::GetOperatingSystemId()));
-				}
-
-				TArray<FAnalyticsEventAttribute> StartSessionAttributes;
-				GEngine->CreateStartupAnalyticsAttributes( StartSessionAttributes );
-				// Add project info whether we are in editor or game.
-				const UGeneralProjectSettings& ProjectSettings = *GetDefault<UGeneralProjectSettings>();
-				StartSessionAttributes.Emplace(TEXT("ProjectName"), ProjectSettings.ProjectName);
-				StartSessionAttributes.Emplace(TEXT("ProjectID"), ProjectSettings.ProjectID);
-				StartSessionAttributes.Emplace(TEXT("ProjectDescription"), ProjectSettings.Description);
-				StartSessionAttributes.Emplace(TEXT("ProjectVersion"), ProjectSettings.ProjectVersion);
-
-				Analytics->StartSession( StartSessionAttributes );
-
-				bIsInitialized = true;
+				Config.APIKeyET = FString::Printf(TEXT("UTEditor.%s.%s"), UE4TypeStr, BuildTypeStr);
 			}
+			else
+			{
+				const UGeneralProjectSettings& ProjectSettings = *GetDefault<UGeneralProjectSettings>();
+				Config.APIKeyET = FString::Printf(TEXT("UTGame.%s.%s|%s|%s"), UE4TypeStr, BuildTypeStr, *ProjectSettings.ProjectID.ToString(), *ProjectSettings.ProjectName);
+			}
+		}
+		if (Config.APIServerET.IsEmpty())
+		{
+			Config.APIServerET = TEXT("https://datarouter.ol.epicgames.com/");
+		}
+		if (Config.AppEnvironment.IsEmpty())
+		{
+			Config.AppEnvironment = TEXT("datacollector-source");
+		}
+
+
+		// Connect the engine analytics provider (if there is a configuration delegate installed)
+		Analytics = FAnalyticsET::Get().CreateAnalyticsProvider(Config);
+
+		if (Analytics.IsValid())
+		{
+			// Use an anonymous user id in-game
+			if (bIsGameRun && GEngine->AreGameAnalyticsAnonymous())
+			{
+				FString AnonymousId;
+				if (!FPlatformMisc::GetStoredValue(TEXT("Epic Games"), TEXT("Unreal Engine/Privacy"), TEXT("AnonymousID"), AnonymousId) || AnonymousId.IsEmpty())
+				{
+					AnonymousId = FGuid::NewGuid().ToString(EGuidFormats::DigitsWithHyphensInBraces);
+					FPlatformMisc::SetStoredValue(TEXT("Epic Games"), TEXT("Unreal Engine/Privacy"), TEXT("AnonymousID"), AnonymousId);
+				}
+
+				Analytics->SetUserID(FString::Printf(TEXT("ANON-%s"), *AnonymousId));
+			}
+			else
+			{
+				Analytics->SetUserID(FString::Printf(TEXT("%s|%s|%s"), *FPlatformMisc::GetMachineId().ToString(EGuidFormats::Digits).ToLower(), *FPlatformMisc::GetEpicAccountId(), *FPlatformMisc::GetOperatingSystemId()));
+			}
+
+			TArray<FAnalyticsEventAttribute> StartSessionAttributes;
+			GEngine->CreateStartupAnalyticsAttributes( StartSessionAttributes );
+			// Add project info whether we are in editor or game.
+			const UGeneralProjectSettings& ProjectSettings = *GetDefault<UGeneralProjectSettings>();
+			StartSessionAttributes.Emplace(TEXT("ProjectName"), ProjectSettings.ProjectName);
+			StartSessionAttributes.Emplace(TEXT("ProjectID"), ProjectSettings.ProjectID);
+			StartSessionAttributes.Emplace(TEXT("ProjectDescription"), ProjectSettings.Description);
+			StartSessionAttributes.Emplace(TEXT("ProjectVersion"), ProjectSettings.ProjectVersion);
+			Analytics->StartSession(MoveTemp(StartSessionAttributes));
+
+			bIsInitialized = true;
 		}
 
 		// Create the session manager singleton
@@ -180,6 +172,8 @@ void FEngineAnalytics::Shutdown(bool bIsEngineShutdown)
 
 void FEngineAnalytics::Tick(float DeltaTime)
 {
+	QUICK_SCOPE_CYCLE_COUNTER(STAT_FEngineAnalytics_Tick);
+
 	if (SessionManager.IsValid())
 	{
 		SessionManager->Tick(DeltaTime);

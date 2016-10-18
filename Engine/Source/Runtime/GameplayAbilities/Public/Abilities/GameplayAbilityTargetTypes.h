@@ -679,6 +679,9 @@ struct FAbilityReplicatedDataCache
 	/** Generic events that contain no payload data */
 	FAbilityReplicatedData	GenericEvents[EAbilityGenericReplicatedEvent::MAX];
 
+	/** Prediction Key when this data was set */
+	FPredictionKey PredictionKey;
+
 	FAbilityReplicatedDataCache() : bTargetConfirmed(false), bTargetCancelled(false) {}
 
 	/** Resets any cached data, leaves delegates up */
@@ -687,11 +690,11 @@ struct FAbilityReplicatedDataCache
 		bTargetConfirmed = bTargetCancelled = false;
 		TargetData = FGameplayAbilityTargetDataHandle();
 		ApplicationTag = FGameplayTag();
+		PredictionKey = FPredictionKey();
 		for (int32 i=0; i < (int32) EAbilityGenericReplicatedEvent::MAX; ++i)
 		{
 			GenericEvents[i].bTriggered = false;
 			GenericEvents[i].VectorPayload = FVector::ZeroVector;
 		}
-
 	}
 };

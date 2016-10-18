@@ -58,6 +58,7 @@ namespace UnrealBuildTool
 		public override void ResetBuildConfiguration(UnrealTargetConfiguration Configuration)
 		{
 			UEBuildConfiguration.bCompileSimplygon = false;
+            UEBuildConfiguration.bCompileSimplygonSSF = false;
 		}
 
 		public override void ValidateBuildConfiguration(CPPTargetConfiguration Configuration, CPPTargetPlatform Platform, bool bCreateDebugInfo)
@@ -72,7 +73,7 @@ namespace UnrealBuildTool
 			BuildConfiguration.ProcessorCountMultiplier = MacToolChain.GetAdjustedProcessorCountMultiplier();
 			BuildConfiguration.bUseSharedPCHs = false;
 
-			BuildConfiguration.bUsePDBFiles = bCreateDebugInfo && Configuration != CPPTargetConfiguration.Debug && Platform == CPPTargetPlatform.Mac;
+			BuildConfiguration.bUsePDBFiles = bCreateDebugInfo && Configuration != CPPTargetConfiguration.Debug && Platform == CPPTargetPlatform.Mac && BuildConfiguration.bGeneratedSYMFile;
 
 			// we always deploy - the build machines need to be able to copy the files back, which needs the full bundle
 			BuildConfiguration.bDeployAfterCompile = true;
@@ -204,9 +205,9 @@ namespace UnrealBuildTool
 			switch (InBinaryType)
 			{
 				case UEBuildBinaryType.DynamicLinkLibrary:
-					return BuildConfiguration.bGeneratedSYMFile || BuildConfiguration.bUsePDBFiles ? ".dSYM" : "";
+					return BuildConfiguration.bUsePDBFiles ? ".dSYM" : "";
 				case UEBuildBinaryType.Executable:
-					return BuildConfiguration.bGeneratedSYMFile || BuildConfiguration.bUsePDBFiles ? ".dSYM" : "";
+					return BuildConfiguration.bUsePDBFiles ? ".dSYM" : "";
 				case UEBuildBinaryType.StaticLibrary:
 					return "";
 				case UEBuildBinaryType.Object:

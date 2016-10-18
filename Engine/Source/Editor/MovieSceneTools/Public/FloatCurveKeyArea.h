@@ -6,8 +6,12 @@
 #include "ClipboardTypes.h"
 
 
+struct FRichCurve;
+class UMovieSceneSection;
+
+
 /**
- * A key area for float keys
+ * A key area for float keys.
  */
 class MOVIESCENETOOLS_API FFloatCurveKeyArea
 	: public FNamedKeyArea
@@ -34,7 +38,7 @@ public:
 
 public:
 
-	// IKeyArea interface
+	//` IKeyArea interface
 
 	virtual TArray<FKeyHandle> AddKeyUnique(float Time, EMovieSceneKeyInterpolation InKeyInterpolation, float TimeToCopyFrom = FLT_MAX) override;
 	virtual TOptional<FKeyHandle> DuplicateKey(FKeyHandle KeyToDuplicate) override;

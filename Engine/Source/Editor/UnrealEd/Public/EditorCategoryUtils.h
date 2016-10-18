@@ -125,8 +125,9 @@ namespace FEditorCategoryUtils
 	 * 
 	 * @param  Class			The class you want to pull data from.
 	 * @param  CategoriesOut	An array that will be filled with a list of hidden categories.
+	 * @param  bHomogenize		Determines if the categories should be ran through expansion and display sanitation (useful even when not being displayed, for comparisons)
 	 */
-	UNREALED_API void GetClassHideCategories(UClass const* Class, TArray<FString>& CategoriesOut);
+	UNREALED_API void GetClassHideCategories(UClass const* Class, TArray<FString>& CategoriesOut, bool bHomogenize = true);
 
 	/**
 	 * Parses out the class's "ShowCategories" metadata, and returns it 

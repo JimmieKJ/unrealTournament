@@ -156,6 +156,11 @@ public:
 		return true;
 	}
 
+	virtual bool IsAuthorized() const override
+	{
+		return bIsDeviceAuthorized;
+	}
+
 	virtual bool PowerOff(bool Force) override;
 
 	virtual bool PowerOn() override

@@ -31,6 +31,7 @@ class UK2Node_ComponentBoundEvent : public UK2Node_Event
 	//~ End UObject Interface
 
 	//~ Begin UEdGraphNode Interface
+	virtual bool CanPasteHere(const UEdGraph* TargetGraph) const override;
 	virtual FText GetNodeTitle(ENodeTitleType::Type TitleType) const override;
 	virtual FText GetTooltipText() const override;
 	virtual FString GetDocumentationLink() const override;

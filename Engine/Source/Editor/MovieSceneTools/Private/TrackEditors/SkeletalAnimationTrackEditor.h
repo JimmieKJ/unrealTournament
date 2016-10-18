@@ -2,6 +2,7 @@
 
 #pragma once
 
+class UMovieSceneSkeletalAnimationSection;
 
 /**
  * Tools for animation tracks
@@ -49,7 +50,7 @@ private:
 	void OnAnimationAssetSelected(const FAssetData& AssetData, FGuid ObjectBinding);
 
 	/** Delegate for AnimatablePropertyChanged in AddKey */
-	bool AddKeyInternal(float KeyTime, const TArray<TWeakObjectPtr<UObject>> Objects, class UAnimSequence* AnimSequence);
+	bool AddKeyInternal(float KeyTime, UObject* Object, class UAnimSequenceBase* AnimSequence);
 
 	/** Gets a skeleton from an object guid in the movie scene */
 	class USkeleton* AcquireSkeletonFromObjectGuid(const FGuid& Guid);
@@ -79,9 +80,17 @@ public:
 	virtual float GetSectionHeight() const override;
 	virtual void GenerateSectionLayout( class ISectionLayoutBuilder& LayoutBuilder ) const override {}
 	virtual int32 OnPaintSection( FSequencerSectionPainter& Painter ) const override;
+	virtual void BeginResizeSection() override;
+	virtual void ResizeSection(ESequencerSectionResizeMode ResizeMode, float ResizeTime) override;
 
 private:
 
 	/** The section we are visualizing */
-	UMovieSceneSection& Section;
+	UMovieSceneSkeletalAnimationSection& Section;
+
+	/** Cached start offset value valid only during resize */
+	float InitialStartOffsetDuringResize;
+	
+	/** Cached start time valid only during resize */
+	float InitialStartTimeDuringResize;
 };

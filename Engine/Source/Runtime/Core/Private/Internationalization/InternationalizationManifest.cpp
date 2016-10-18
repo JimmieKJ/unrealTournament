@@ -6,58 +6,56 @@
 
 DEFINE_LOG_CATEGORY_STATIC(LogInternationalizationManifestObject, Log, All);
 
-FContext::FContext( const FContext& Other ) 
-	: Key( Other.Key )
-	, SourceLocation( Other.SourceLocation )
-	, bIsOptional( Other.bIsOptional )
+FManifestContext::FManifestContext(const FManifestContext& Other)
+	: Key(Other.Key)
+	, SourceLocation(Other.SourceLocation)
+	, bIsOptional(Other.bIsOptional)
 {
-	if( Other.InfoMetadataObj.IsValid() )
+	if (Other.InfoMetadataObj.IsValid())
 	{
-		InfoMetadataObj = MakeShareable( new FLocMetadataObject( *(Other.InfoMetadataObj) ) );
+		InfoMetadataObj = MakeShareable(new FLocMetadataObject(*Other.InfoMetadataObj));
 	}
 
-	if( Other.KeyMetadataObj.IsValid() )
+	if (Other.KeyMetadataObj.IsValid())
 	{
-		KeyMetadataObj = MakeShareable( new FLocMetadataObject( *(Other.KeyMetadataObj) ) );
+		KeyMetadataObj = MakeShareable(new FLocMetadataObject(*Other.KeyMetadataObj));
 	}
 }
 
-FContext& FContext::operator=( const FContext& Other )
+FManifestContext& FManifestContext::operator=(const FManifestContext& Other)
 {
-	if( this != &Other )
+	if (this != &Other)
 	{
 		Key = Other.Key;
 		SourceLocation = Other.SourceLocation;
 		bIsOptional = Other.bIsOptional;
 		InfoMetadataObj.Reset();
 		KeyMetadataObj.Reset();
-		if( Other.InfoMetadataObj.IsValid() )
+		if (Other.InfoMetadataObj.IsValid())
 		{
-			InfoMetadataObj = MakeShareable( new FLocMetadataObject( *(Other.InfoMetadataObj) ) );
+			InfoMetadataObj = MakeShareable(new FLocMetadataObject(*(Other.InfoMetadataObj)));
 		}
 
-		if( Other.KeyMetadataObj.IsValid() )
+		if (Other.KeyMetadataObj.IsValid())
 		{
-			KeyMetadataObj = MakeShareable( new FLocMetadataObject( *(Other.KeyMetadataObj) ) );
+			KeyMetadataObj = MakeShareable(new FLocMetadataObject(*(Other.KeyMetadataObj)));
 		}
 	}
 	return *this;
 }
 
-bool FContext::operator==( const FContext& Other ) const
+bool FManifestContext::operator==(const FManifestContext& Other) const
 {
-	if( Key.Equals( Other.Key, ESearchCase::CaseSensitive ) )
+	if (Key.Equals(Other.Key, ESearchCase::CaseSensitive))
 	{
-		if( !KeyMetadataObj.IsValid() && !Other.KeyMetadataObj.IsValid() )
+		if (!KeyMetadataObj.IsValid() && !Other.KeyMetadataObj.IsValid())
 		{
 			return true;
 		}
-		else if( KeyMetadataObj.IsValid() != Other.KeyMetadataObj.IsValid() )
+		else if (KeyMetadataObj.IsValid() != Other.KeyMetadataObj.IsValid())
 		{
-			// If we are in here, we know that one of the metadata entries is null, if the other
-			//  contains zero entries we will still consider them equivalent.
-			if( (KeyMetadataObj.IsValid() && KeyMetadataObj->Values.Num() == 0) ||
-				(Other.KeyMetadataObj.IsValid() && Other.KeyMetadataObj->Values.Num() == 0) )
+			// If we are in here, we know that one of the metadata entries is null, if the other contains zero entries we will still consider them equivalent.
+			if ((KeyMetadataObj.IsValid() && KeyMetadataObj->Values.Num() == 0) || (Other.KeyMetadataObj.IsValid() && Other.KeyMetadataObj->Values.Num() == 0))
 			{
 				return true;
 			}
@@ -71,23 +69,21 @@ bool FContext::operator==( const FContext& Other ) const
 	return false;
 }
 
-bool FContext::operator<( const FContext& Other ) const
+bool FManifestContext::operator<(const FManifestContext& Other) const
 {
-	int32 Result = Key.Compare( Other.Key, ESearchCase::CaseSensitive );
+	int32 Result = Key.Compare(Other.Key, ESearchCase::CaseSensitive);
 
 	bool bResult = false;
-	if( Result == -1 ) //Is Less than
+	if (Result == -1) //Is Less than
 	{
 		bResult = true;
 	}
-	else if ( Result == 0 ) //Is Equal
+	else if (Result == 0) //Is Equal
 	{
-		if( KeyMetadataObj.IsValid() != Other.KeyMetadataObj.IsValid() )
+		if (KeyMetadataObj.IsValid() != Other.KeyMetadataObj.IsValid())
 		{
-			// If we are in here, we know that one of the metadata entries is null, if the other
-			//  contains zero entries we will still consider them equivalent.
-			if( (KeyMetadataObj.IsValid() && KeyMetadataObj->Values.Num() == 0) ||
-				(Other.KeyMetadataObj.IsValid() && Other.KeyMetadataObj->Values.Num() == 0) )
+			// If we are in here, we know that one of the metadata entries is null, if the other contains zero entries we will still consider them equivalent.
+			if ((KeyMetadataObj.IsValid() && KeyMetadataObj->Values.Num() == 0) || (Other.KeyMetadataObj.IsValid() && Other.KeyMetadataObj->Values.Num() == 0))
 			{
 				return false;
 			}
@@ -96,7 +92,7 @@ bool FContext::operator<( const FContext& Other ) const
 				bResult = Other.KeyMetadataObj.IsValid();
 			}
 		}
-		else if( KeyMetadataObj.IsValid() && Other.KeyMetadataObj.IsValid() )
+		else if (KeyMetadataObj.IsValid() && Other.KeyMetadataObj.IsValid())
 		{
 			bResult = (*(KeyMetadataObj) < *(Other.KeyMetadataObj));
 		}
@@ -104,74 +100,63 @@ bool FContext::operator<( const FContext& Other ) const
 	return bResult;
 }
 
-FLocItem::FLocItem( const FLocItem& Other ) 
-	: Text( Other.Text )
+FLocItem::FLocItem(const FLocItem& Other)
+	: Text(Other.Text)
 {
-	if( Other.MetadataObj.IsValid() )
+	if (Other.MetadataObj.IsValid())
 	{
-		MetadataObj = MakeShareable( new FLocMetadataObject( *(Other.MetadataObj) ) );
+		MetadataObj = MakeShareable(new FLocMetadataObject(*Other.MetadataObj));
 	}
 }
 
-FLocItem& FLocItem::operator=( const FLocItem& Other )
+FLocItem& FLocItem::operator=(const FLocItem& Other)
 {
-	if( this != &Other )
+	if (this != &Other)
 	{
 		Text = Other.Text;
 		MetadataObj.Reset();
 
-		if( Other.MetadataObj.IsValid() )
+		if (Other.MetadataObj.IsValid())
 		{
-			MetadataObj = MakeShareable( new FLocMetadataObject( *(Other.MetadataObj) ) );
+			MetadataObj = MakeShareable(new FLocMetadataObject(*Other.MetadataObj));
 		}
 	}
 	return *this;
 }
 
-bool FLocItem::operator==( const FLocItem& Other ) const
+bool FLocItem::operator==(const FLocItem& Other) const
 {
-	if( Text.Equals( Other.Text, ESearchCase::CaseSensitive ) )
+	if (Text.Equals(Other.Text, ESearchCase::CaseSensitive))
 	{
-		if( !MetadataObj.IsValid() && !Other.MetadataObj.IsValid() )
+		if (!MetadataObj.IsValid() && !Other.MetadataObj.IsValid())
 		{
 			return true;
 		}
-		else if( MetadataObj.IsValid() != Other.MetadataObj.IsValid() )
+		else if (MetadataObj.IsValid() != Other.MetadataObj.IsValid())
 		{
-			// If we are in here, we know that one of the metadata entries is null, if the other
-			//  contains zero entries we will still consider them equivalent.
-			if( (MetadataObj.IsValid() && MetadataObj->Values.Num() == 0) ||
-				(Other.MetadataObj.IsValid() && Other.MetadataObj->Values.Num() == 0) )
-			{
-				return true;
-			}
-			else
-			{
-				return false;
-			}
+			// If we are in here, we know that one of the metadata entries is null, if the other contains zero entries we will still consider them equivalent.
+			return ((MetadataObj.IsValid() && MetadataObj->Values.Num() == 0) || (Other.MetadataObj.IsValid() && Other.MetadataObj->Values.Num() == 0));
 		}
-		return *(MetadataObj) == *(Other.MetadataObj);
+		return *MetadataObj == *Other.MetadataObj;
 	}
 	return false;
 }
 
-bool FLocItem::operator<( const FLocItem& Other ) const
+bool FLocItem::operator<(const FLocItem& Other) const
 {
-	int32 Result = Text.Compare( Other.Text, ESearchCase::CaseSensitive );
+	int32 Result = Text.Compare(Other.Text, ESearchCase::CaseSensitive);
 
 	bool bResult = false;
-	if( Result == -1 ) //Is less than
+	if (Result == -1) //Is less than
 	{
 		bResult = true;
 	}
-	else if ( Result == 0 ) //Is equal
+	else if (Result == 0) //Is equal
 	{
-		if( MetadataObj.IsValid() != Other.MetadataObj.IsValid() )
+		if (MetadataObj.IsValid() != Other.MetadataObj.IsValid())
 		{
-			// If we are in here, we know that one of the metadata entries is null, if the other
-			//  contains zero entries we will still consider them equivalent.
-			if( (MetadataObj.IsValid() && MetadataObj->Values.Num() == 0) ||
-				(Other.MetadataObj.IsValid() && Other.MetadataObj->Values.Num() == 0) )
+			// If we are in here, we know that one of the metadata entries is null, if the other contains zero entries we will still consider them equivalent.
+			if ((MetadataObj.IsValid() && MetadataObj->Values.Num() == 0) || (Other.MetadataObj.IsValid() && Other.MetadataObj->Values.Num() == 0))
 			{
 				return false;
 			}
@@ -180,93 +165,114 @@ bool FLocItem::operator<( const FLocItem& Other ) const
 				bResult = Other.MetadataObj.IsValid();
 			}
 		}
-		else if( MetadataObj.IsValid() && Other.MetadataObj.IsValid() )
+		else if (MetadataObj.IsValid() && Other.MetadataObj.IsValid())
 		{
-			bResult = (*(MetadataObj) < *(Other.MetadataObj));
+			bResult = (*MetadataObj < *Other.MetadataObj);
 		}
 	}
 	return bResult;
 }
 
-bool FLocItem::IsExactMatch( const FLocItem& Other ) const
+bool FLocItem::IsExactMatch(const FLocItem& Other) const
 {
-	if( Text.Equals( Other.Text, ESearchCase::CaseSensitive ) )
+	if (Text.Equals(Other.Text, ESearchCase::CaseSensitive))
 	{
-		return FLocMetadataObject::IsMetadataExactMatch(MetadataObj.Get(), Other.MetadataObj.Get() );
+		return FLocMetadataObject::IsMetadataExactMatch(MetadataObj.Get(), Other.MetadataObj.Get());
 	}
 	return false;
 }
 
-bool FInternationalizationManifest::AddSource( const FString& Namespace, const FLocItem& Source, const FContext& Context )
+bool FInternationalizationManifest::AddSource(const FString& Namespace, const FLocItem& Source, const FManifestContext& Context)
 {
-	TSharedPtr< FManifestEntry > ExistingEntry = FindEntryByContext( Namespace, Context );
-
-	if ( ExistingEntry.IsValid() )
-	{
-		return ( Source.IsExactMatch( ExistingEntry->Source ) );
-	}
-			
-	ExistingEntry = FindEntryBySource( Namespace, Source );
-
-	if ( ExistingEntry.IsValid() && !Source.IsExactMatch( ExistingEntry->Source ) )
+	if (Context.Key.IsEmpty())
 	{
 		return false;
 	}
 
-	if ( !ExistingEntry.IsValid() )
+	TSharedPtr<FManifestEntry> ExistingEntry = FindEntryByContext(Namespace, Context);
+
+	if (ExistingEntry.IsValid())
 	{
-		TSharedRef< FManifestEntry > NewEntry = MakeShareable( new FManifestEntry( Namespace, Source ) );
-		EntriesBySourceText.Add( NewEntry->Source.Text, NewEntry );
+		return (Source.IsExactMatch(ExistingEntry->Source));
+	}
+
+	ExistingEntry = FindEntryBySource(Namespace, Source);
+
+	if (ExistingEntry.IsValid() && !Source.IsExactMatch(ExistingEntry->Source))
+	{
+		return false;
+	}
+
+	if (!ExistingEntry.IsValid())
+	{
+		TSharedRef<FManifestEntry> NewEntry = MakeShareable(new FManifestEntry(Namespace, Source));
+		EntriesBySourceText.Add(NewEntry->Source.Text, NewEntry);
 
 		ExistingEntry = NewEntry;
 	}
 
-	ExistingEntry->Contexts.Add( Context );
-	EntriesByContextId.Add( Context.Key, ExistingEntry.ToSharedRef() );
-	return true;	
+	ExistingEntry->Contexts.Add(Context);
+	EntriesByKey.Add(Context.Key, ExistingEntry.ToSharedRef());
+	return true;
 }
 
-TSharedPtr< FManifestEntry > FInternationalizationManifest::FindEntryBySource( const FString& Namespace, const FLocItem& Source ) const
-{	
-	TArray< TSharedRef< FManifestEntry > > MatchingEntries;
-	EntriesBySourceText.MultiFind( Source.Text, /*OUT*/MatchingEntries );
-
-	for (int Index = 0; Index < MatchingEntries.Num(); Index++)
+void FInternationalizationManifest::UpdateEntry(const TSharedRef<FManifestEntry>& OldEntry, TSharedRef<FManifestEntry>& NewEntry)
+{
+	for (const FManifestContext& Context : OldEntry->Contexts)
 	{
-		if ( MatchingEntries[Index]->Source == Source && 
-			MatchingEntries[Index]->Namespace.Equals( Namespace, ESearchCase::CaseSensitive ) )
+		EntriesByKey.RemoveSingle(Context.Key, OldEntry);
+	}
+	for (const FManifestContext& Context : NewEntry->Contexts)
+	{
+		EntriesByKey.Add(Context.Key, NewEntry);
+	}
+
+	EntriesBySourceText.RemoveSingle(OldEntry->Source.Text, OldEntry);
+	EntriesBySourceText.Add(NewEntry->Source.Text, NewEntry);
+}
+
+TSharedPtr<FManifestEntry> FInternationalizationManifest::FindEntryBySource(const FString& Namespace, const FLocItem& Source) const
+{
+	TArray<TSharedRef<FManifestEntry>> MatchingEntries;
+	EntriesBySourceText.MultiFind(Source.Text, /*OUT*/MatchingEntries);
+
+	for (const TSharedRef<FManifestEntry>& Entry : MatchingEntries)
+	{
+		if (Entry->Source == Source && Entry->Namespace.Equals(Namespace, ESearchCase::CaseSensitive))
 		{
-			return MatchingEntries[Index];
+			return Entry;
 		}
 	}
-	return NULL;
+
+	return nullptr;
 }
 
-TSharedPtr< FManifestEntry > FInternationalizationManifest::FindEntryByContext( const FString& Namespace, const FContext& Context ) const
+TSharedPtr<FManifestEntry> FInternationalizationManifest::FindEntryByContext(const FString& Namespace, const FManifestContext& Context) const
 {
-	TArray< TSharedRef< FManifestEntry > > MatchingEntries;
-	EntriesByContextId.MultiFind( Context.Key, MatchingEntries );
+	TArray<TSharedRef<FManifestEntry>> MatchingEntries;
+	EntriesByKey.MultiFind(Context.Key, MatchingEntries);
 
-	for (int Index = 0; Index < MatchingEntries.Num(); Index++)
+	for (const TSharedRef<FManifestEntry>& Entry : MatchingEntries)
 	{
-		if ( MatchingEntries[Index]->Namespace.Equals( Namespace, ESearchCase::CaseSensitive ) )
+		if (Entry->Namespace.Equals(Namespace, ESearchCase::CaseSensitive))
 		{
-			for( auto ContextIter = MatchingEntries[Index]->Contexts.CreateConstIterator(); ContextIter; ++ContextIter )
+			for (const FManifestContext& EntryContext : Entry->Contexts)
 			{
-				if( *ContextIter == Context )
+				if (EntryContext == Context)
 				{
-					return MatchingEntries[Index];
+					return Entry;
 				}
 			}
 		}
 	}
-	return NULL;
+
+	return nullptr;
 }
 
-TSharedPtr< FManifestEntry > FInternationalizationManifest::FindEntryByKey(const FString& Namespace, const FString& Key, const FString* SourceText) const
+TSharedPtr<FManifestEntry> FInternationalizationManifest::FindEntryByKey(const FString& Namespace, const FString& Key, const FString* SourceText) const
 {
 	TArray<TSharedRef<FManifestEntry>> MatchingEntries;
-	EntriesByContextId.MultiFind(Key, MatchingEntries);
+	EntriesByKey.MultiFind(Key, MatchingEntries);
 
 	for (const TSharedRef<FManifestEntry>& MatchingEntry : MatchingEntries)
 	{
@@ -279,44 +285,9 @@ TSharedPtr< FManifestEntry > FInternationalizationManifest::FindEntryByKey(const
 	return nullptr;
 }
 
-void FInternationalizationManifest::UpdateEntry(const TSharedRef<FManifestEntry>& OldEntry, TSharedRef<FManifestEntry>& NewEntry)
+const FManifestContext* FManifestEntry::FindContext(const FString& ContextKey, const TSharedPtr<FLocMetadataObject>& KeyMetadata) const
 {
-	for (const FContext& Context : OldEntry->Contexts)
-	{
-		EntriesByContextId.RemoveSingle(Context.Key, OldEntry);
-	}
-	for (const FContext& Context : NewEntry->Contexts)
-	{
-		EntriesByContextId.Add(Context.Key, NewEntry);
-	}
-
-	EntriesBySourceText.RemoveSingle(OldEntry->Source.Text, OldEntry);
-	EntriesBySourceText.Add(NewEntry->Source.Text, NewEntry);
-}
-
-FContext* FManifestEntry::FindContext(const FString& ContextKey, const TSharedPtr<FLocMetadataObject>& KeyMetadata)
-{
-	return const_cast<FContext*>(FindContextImpl(ContextKey, KeyMetadata));
-}
-
-const FContext* FManifestEntry::FindContext(const FString& ContextKey, const TSharedPtr<FLocMetadataObject>& KeyMetadata) const
-{
-	return FindContextImpl(ContextKey, KeyMetadata);
-}
-
-FContext* FManifestEntry::FindContextByKey(const FString& ContextKey)
-{
-	return const_cast<FContext*>(FindContextByKeyImpl(ContextKey));
-}
-
-const FContext* FManifestEntry::FindContextByKey(const FString& ContextKey) const
-{
-	return FindContextByKeyImpl(ContextKey);
-}
-
-const FContext* FManifestEntry::FindContextImpl(const FString& ContextKey, const TSharedPtr<FLocMetadataObject>& KeyMetadata) const
-{
-	for (const FContext& Context : Contexts)
+	for (const FManifestContext& Context : Contexts)
 	{
 		if (Context.Key.Equals(ContextKey, ESearchCase::CaseSensitive))
 		{
@@ -334,9 +305,9 @@ const FContext* FManifestEntry::FindContextImpl(const FString& ContextKey, const
 	return nullptr;
 }
 
-const FContext* FManifestEntry::FindContextByKeyImpl(const FString& ContextKey) const
+const FManifestContext* FManifestEntry::FindContextByKey(const FString& ContextKey) const
 {
-	for (const FContext& Context : Contexts)
+	for (const FManifestContext& Context : Contexts)
 	{
 		if (Context.Key.Equals(ContextKey, ESearchCase::CaseSensitive))
 		{

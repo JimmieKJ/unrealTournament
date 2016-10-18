@@ -18,7 +18,7 @@ AUTCTFFlag::AUTCTFFlag(const FObjectInitializer& ObjectInitializer)
 	Mesh = ObjectInitializer.CreateDefaultSubobject<USkeletalMeshComponent>(this, TEXT("CTFFlag"));
 	GetMesh()->AlwaysLoadOnClient = true;
 	GetMesh()->AlwaysLoadOnServer = true;
-	GetMesh()->AttachParent = RootComponent;
+	GetMesh()->SetupAttachment(RootComponent);
 	GetMesh()->SetAbsolute(false, false, true);
 
 	MeshOffset = FVector(0, 0.f, -48.f);
@@ -45,7 +45,7 @@ AUTCTFFlag::AUTCTFFlag(const FObjectInitializer& ObjectInitializer)
 	bShouldPingFlag = false;
 
 	AuraSphere = ObjectInitializer.CreateOptionalDefaultSubobject<UStaticMeshComponent>(this, TEXT("AuraSphere"));
-	AuraSphere->AttachParent = RootComponent;
+	AuraSphere->SetupAttachment(RootComponent);
 	AuraSphere->SetCollisionProfileName(TEXT("NoCollision"));
 }
 
@@ -58,7 +58,7 @@ void AUTCTFFlag::PostInitializeComponents()
 	}
 	if (GetNetMode() != NM_DedicatedServer)
 	{
-		MeshMID = Mesh->CreateAndSetMaterialInstanceDynamic(1);
+		MeshMID = Mesh->CreateAndSetMaterialInstanceDynamic(0);
 	}
 }
 
@@ -250,7 +250,7 @@ void AUTCTFFlag::SetHolder(AUTCharacter* NewHolder)
 			AUTCTFFlagBase* FlagBase = Cast<AUTCTFFlagBase>(OtherComp->GetOwner());
 			if (FlagBase != nullptr)
 			{
-				FlagBase->OnOverlapBegin(HoldingPawn, HoldingPawn->GetCapsuleComponent(), 0, false, FHitResult());
+				FlagBase->OnOverlapBegin(FlagBase->Capsule, HoldingPawn, HoldingPawn->GetCapsuleComponent(), 0, false, FHitResult());
 			}
 		}
 	}
@@ -278,11 +278,8 @@ void AUTCTFFlag::PlayReturnedEffects()
 			{
 				GetMesh()->bDisableClothSimulation = false;
 			}
-			ReturningMesh->AttachParent = NULL;
-			ReturningMesh->RelativeLocation = Mesh->GetComponentLocation();
-			ReturningMesh->RelativeRotation = Mesh->GetComponentRotation();
-			ReturningMesh->RelativeScale3D = Mesh->GetComponentScale();
-			ReturningMeshMID = ReturningMesh->CreateAndSetMaterialInstanceDynamicFromMaterial(1, GetClass()->GetDefaultObject<AUTCTFFlag>()->Mesh->GetMaterial(1));
+			ReturningMesh->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
+			ReturningMeshMID = ReturningMesh->CreateAndSetMaterialInstanceDynamicFromMaterial(0, GetClass()->GetDefaultObject<AUTCTFFlag>()->Mesh->GetMaterial(0));
 			ReturningMeshMID->SetScalarParameterValue(NAME_Wipe, ReturnParamCurve->GetFloatValue(0.0f));
 			ReturningMesh->RegisterComponent();
 		}
@@ -365,7 +362,35 @@ void AUTCTFFlag::Tick(float DeltaTime)
 		if (Holder)
 		{
 			//Update currently pinged
-			bCurrentlyPinged = (bShouldPingFlag && ((GetWorld()->GetTimeSeconds() - LastPingedTime < PingedDuration) || (GV && GV->bIsNoRallyZone)));
+			bCurrentlyPinged = (bShouldPingFlag && (GetWorld()->GetTimeSeconds() - LastPingedTime < PingedDuration));
+			if (bShouldPingFlag && !bCurrentlyPinged && GV && GV->bIsNoRallyZone)
+			{
+				if (GetWorld()->GetTimeSeconds() - EnteredEnemyBaseTime < PingedDuration)
+				{
+					bCurrentlyPinged = true;
+				}
+				else if (HoldingPawn->GetController())
+				{
+					// ping if has LOS to flag base
+					AUTCTFGameState* GameState = GetWorld()->GetGameState<AUTCTFGameState>();
+					if (GameState)
+					{
+						AUTCTFFlagBase* OtherBase = GameState->FlagBases[1 - GetTeamNum()];
+						if (OtherBase)
+						{
+							FVector StartLocation = HoldingPawn->GetActorLocation() + FVector(0.f, 0.f, HoldingPawn->BaseEyeHeight);
+							FVector BaseLoc = OtherBase->GetActorLocation();
+							ECollisionChannel TraceChannel = ECC_Visibility;
+							FCollisionQueryParams QueryParams(GetClass()->GetFName(), true, HoldingPawn);
+							FHitResult Hit;
+							if (!GetWorld()->LineTraceSingleByChannel(Hit, StartLocation, BaseLoc, TraceChannel, QueryParams) || !GetWorld()->LineTraceSingleByChannel(Hit, StartLocation, BaseLoc + FVector(0.f,0.f, 100.f), TraceChannel, QueryParams))
+							{
+								bCurrentlyPinged = true;;
+							}
+						}
+					}
+				}
+			}
 
 			Holder->bSpecialPlayer = bCurrentlyPinged;
 			if (GetNetMode() != NM_DedicatedServer)
@@ -419,7 +444,7 @@ void AUTCTFFlag::Tick(float DeltaTime)
 				FCollisionQueryParams CollisionParms(NAME_FlagReturnLOS, true, HoldingPawn);
 				FVector TraceEnd = (MidPointPos > 0) ? MidPoints[MidPointPos - 1] : PreviousPos;
 				FHitResult Hit;
-				bool bHit = GetWorld()->LineTraceSingleByChannel(Hit, HoldingPawn->GetActorLocation(), TraceEnd, COLLISION_TRACE_WEAPONNOCHARACTER, CollisionParms);
+				bool bHit = GetWorld()->LineTraceSingleByChannel(Hit, HoldingPawn->GetActorLocation(), TraceEnd, ECC_Visibility, CollisionParms);
 				if (bHit)
 				{
 					MidPointPos++;

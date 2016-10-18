@@ -12,8 +12,7 @@ namespace UnrealBuildTool.Rules
  					"../../../../Source/Runtime/Renderer/Private",
  					"../../../../Source/ThirdParty/Oculus/Common",
 					// ... add other private include paths required here ...
-				}
-				);
+				});
 
 			PrivateDependencyModuleNames.AddRange(
 				new string[]
@@ -29,8 +28,10 @@ namespace UnrealBuildTool.Rules
 					"HeadMountedDisplay",
 					"Slate",
 					"SlateCore",
-				}
-				);
+					"ImageWrapper",
+                    "MediaAssets",
+					"Analytics",
+				});
 
 			if (UEBuildConfiguration.bBuildEditor == true)
 			{
@@ -40,27 +41,38 @@ namespace UnrealBuildTool.Rules
             // Currently, the Rift is only supported on windows and mac platforms
             if (Target.Platform == UnrealTargetPlatform.Win32 || Target.Platform == UnrealTargetPlatform.Win64)
             {
-				PrivateDependencyModuleNames.AddRange(new string[] { "LibOVR", "OpenGLDrv" });
-
-                // Add direct rendering dependencies on a per-platform basis
-                PrivateDependencyModuleNames.AddRange(new string[] { "D3D11RHI" });
-                PrivateIncludePaths.AddRange(
-                        new string[] {
-					        "OculusRift/Private",
- 					        "../../../../Source/Runtime/Windows/D3D11RHI/Private",
- 					        "../../../../Source/Runtime/Windows/D3D11RHI/Private/Windows",
-					        // ... add other private include paths required here ...
-    				        }
-                        );
-
-           		AddEngineThirdPartyPrivateStaticDependencies(Target, "OpenGL");
+				PrivateDependencyModuleNames.AddRange(
+					new string[] 
+					{ 
+						"LibOVR", 
+						"D3D11RHI",
+						"D3D12RHI",
+						"OpenGLDrv",
+					});
 
                 PrivateIncludePaths.AddRange(
-                    new string[] {
+                    new string[] 
+                    {
+				        "OculusRift/Private",
+				        "../../../../Source/Runtime/Windows/D3D11RHI/Private",
+				        "../../../../Source/Runtime/Windows/D3D11RHI/Private/Windows",
+				        "../../../../Source/Runtime/Windows/D3D12RHI/Private",
+				        "../../../../Source/Runtime/Windows/D3D12RHI/Private/Windows",
 			        	"../../../../Source/Runtime/OpenGLDrv/Private",
-					    // ... add other private include paths required here ...
-    				    }
-                   );
+						// ... add other private include paths required here ...
+				    });
+
+				AddEngineThirdPartyPrivateStaticDependencies(Target, "DX11");
+				AddEngineThirdPartyPrivateStaticDependencies(Target, "DX12");
+				AddEngineThirdPartyPrivateStaticDependencies(Target, "OpenGL");
+				AddEngineThirdPartyPrivateStaticDependencies(Target, "NVAPI");
+				AddEngineThirdPartyPrivateStaticDependencies(Target, "DX11Audio");
+				AddEngineThirdPartyPrivateStaticDependencies(Target, "DirectSound");
+				
+				// Disable Unity, where all source files are merged into a single CPP, because
+				// there are symbols declared in D3D11Util.h and D3D12Util.h which conflict if
+				// both headers are included in the same CPP.
+				bFasterWithoutUnity = true;
             }
 		}
 	}

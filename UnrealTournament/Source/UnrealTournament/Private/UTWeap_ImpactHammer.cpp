@@ -43,6 +43,8 @@ AUTWeap_ImpactHammer::AUTWeap_ImpactHammer(const FObjectInitializer& ObjectIniti
 	WeaponCustomizationTag = EpicWeaponCustomizationTags::ImpactHammer;
 	WeaponSkinCustomizationTag = EpicWeaponSkinCustomizationTags::ImpactHammer;
 
+	TutorialAnnouncements.Add(TEXT("PriFireImpactHammer"));
+	TutorialAnnouncements.Add(TEXT("SecFireImpactHammer"));
 }
 
 void AUTWeap_ImpactHammer::DrawWeaponCrosshair_Implementation(UUTHUDWidget* WeaponHudWidget, float RenderDelta)

@@ -53,6 +53,23 @@ namespace AutomationTool
 			}
 		}
 
+		private int CodeChangelistInternal;
+		public int CodeChangelist
+		{
+			get
+			{
+				if (CodeChangelistInternal <= 0)
+				{
+					throw new AutomationException("P4Environment.CodeChangelist has not been initialized but is requested. Set uebp_CodeCL env var or run UAT with -P4CL to automatically detect changelist.");
+				}
+				return CodeChangelistInternal;
+			}
+			protected set
+			{
+				CodeChangelistInternal = value;
+			}
+		}
+
 		public string Client { get; protected set; }
 		public string BuildRootP4 { get; protected set; }
 		public string BuildRootEscaped { get; protected set; }
@@ -85,6 +102,12 @@ namespace AutomationTool
 			}
 			BuildRootEscaped = CommandUtils.GetEnvVar(EnvVarNames.BuildRootEscaped);
 			LabelToSync = CommandUtils.GetEnvVar(EnvVarNames.LabelToSync);
+
+			string CodeChangelistString = CommandUtils.GetEnvVar(EnvVarNames.CodeChangelist);
+			if(!String.IsNullOrEmpty(CodeChangelistString))
+			{
+				CodeChangelist = Int32.Parse(CodeChangelistString);
+			}
 
 			if (((CommandUtils.P4Enabled || CommandUtils.IsBuildMachine) && (ClientRoot == String.Empty || User == String.Empty ||
 				(String.IsNullOrEmpty(ChangelistStringInternal) && CommandUtils.IsBuildMachine) || Client == String.Empty || BuildRootP4 == String.Empty)))
@@ -126,6 +149,7 @@ namespace AutomationTool
 			Log.TraceInformation("{0}={1}", EnvVarNames.BuildRootEscaped, InternalUtils.GetEnvironmentVariable(EnvVarNames.BuildRootEscaped, "", bQuiet));
 			Log.TraceInformation("{0}={1}", EnvVarNames.ClientRoot, InternalUtils.GetEnvironmentVariable(EnvVarNames.ClientRoot, "", bQuiet));
 			Log.TraceInformation("{0}={1}", EnvVarNames.Changelist, InternalUtils.GetEnvironmentVariable(EnvVarNames.Changelist, "", bQuiet));
+			Log.TraceInformation("{0}={1}", EnvVarNames.CodeChangelist, InternalUtils.GetEnvironmentVariable(EnvVarNames.CodeChangelist, "", bQuiet));
 			Log.TraceInformation("{0}={1}", EnvVarNames.LabelToSync, InternalUtils.GetEnvironmentVariable(EnvVarNames.LabelToSync, "", bQuiet));
 			Log.TraceInformation("{0}={1}", "P4USER", InternalUtils.GetEnvironmentVariable("P4USER", "", bQuiet));
 			Log.TraceInformation("{0}={1}", "P4CLIENT", InternalUtils.GetEnvironmentVariable("P4CLIENT", "", bQuiet));

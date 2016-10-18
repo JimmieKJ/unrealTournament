@@ -146,7 +146,7 @@ void FTransform::SetToRelativeTransform(const FTransform& ParentTransform)
 	checkSlow(ParentTransform.IsRotationNormalized());
 
 	// Scale = S(A)/S(B)	
-	VectorRegister VSafeScale3D	= VectorSet_W0(GetSafeScaleReciprocal(ParentTransform.Scale3D));
+	VectorRegister VSafeScale3D	= VectorSet_W0(GetSafeScaleReciprocal(ParentTransform.Scale3D, ScalarRegister(SMALL_NUMBER)));
 	Scale3D = VectorMultiply(Scale3D, VSafeScale3D);
 	
 	//VQTranslation = (  ( T(A).X - T(B).X ),  ( T(A).Y - T(B).Y ), ( T(A).Z - T(B).Z), 0.f );
@@ -169,6 +169,20 @@ void FTransform::SetToRelativeTransform(const FTransform& ParentTransform)
 #endif
 }
 
+void FTransform::GetRelativeTransformUsingMatrixWithScale(FTransform* OutTransform, const FTransform* Base, const FTransform* Relative)
+{
+	// the goal of using M is to get the correct orientation
+	// but for translation, we still need scale
+	FMatrix AM = Base->ToMatrixWithScale();
+	FMatrix BM = Relative->ToMatrixWithScale();
+	// get combined scale
+	// Scale = S(A)/S(B)
+	static ScalarRegister STolerance(SMALL_NUMBER);
+	VectorRegister VSafeScale3D = VectorSet_W0(GetSafeScaleReciprocal(Relative->Scale3D, STolerance));
+	VectorRegister VScale3D = VectorMultiply(Base->Scale3D, VSafeScale3D);
+	ConstructTransformFromMatrixWithDesiredScale(AM, BM.Inverse(), VScale3D, *OutTransform);
+}
+
 FTransform FTransform::GetRelativeTransform(const FTransform& Other) const
 {
 	// A * B(-1) = VQS(B)(-1) (VQS (A))
@@ -183,38 +197,46 @@ FTransform FTransform::GetRelativeTransform(const FTransform& Other) const
 	{
 		return FTransform::Identity;
 	}
-		
-	// Scale = S(A)/S(B)
-	static ScalarRegister STolerance(SMALL_NUMBER);
-	VectorRegister VSafeScale3D = VectorSet_W0(GetSafeScaleReciprocal(Other.Scale3D, STolerance));
 
-	VectorRegister VScale3D = VectorMultiply(Scale3D, VSafeScale3D);
+	if (VectorAnyLesserThan(VectorMin(this->Scale3D, Other.Scale3D), GlobalVectorConstants::FloatZero))
+	{
+		// @note, if you have 0 scale with negative, you're going to lose rotation as it can't convert back to quat
+		GetRelativeTransformUsingMatrixWithScale(&Result, this, &Other);
+	}
+	else
+	{
+		// Scale = S(A)/S(B)
+		static ScalarRegister STolerance(SMALL_NUMBER);
+		VectorRegister VSafeScale3D = VectorSet_W0(GetSafeScaleReciprocal(Other.Scale3D, STolerance));
 
-	//VQTranslation = (  ( T(A).X - T(B).X ),  ( T(A).Y - T(B).Y ), ( T(A).Z - T(B).Z), 0.f );
-	VectorRegister VQTranslation =  VectorSet_W0(VectorSubtract(Translation, Other.Translation));
+		VectorRegister VScale3D = VectorMultiply(Scale3D, VSafeScale3D);
 
-	// Inverse RotatedTranslation
-	VectorRegister VInverseRot = VectorQuaternionInverse(Other.Rotation);
-	VectorRegister VR = VectorQuaternionRotateVector(VInverseRot, VQTranslation);
+		//VQTranslation = (  ( T(A).X - T(B).X ),  ( T(A).Y - T(B).Y ), ( T(A).Z - T(B).Z), 0.f );
+		VectorRegister VQTranslation = VectorSet_W0(VectorSubtract(Translation, Other.Translation));
 
-	//Translation = 1/S(B)
-	VectorRegister VTranslation = VectorMultiply(VR, VSafeScale3D);
+		// Inverse RotatedTranslation
+		VectorRegister VInverseRot = VectorQuaternionInverse(Other.Rotation);
+		VectorRegister VR = VectorQuaternionRotateVector(VInverseRot, VQTranslation);
 
-	// Rotation = Q(B)(-1) * Q(A)	
-	VectorRegister VRotation = VectorQuaternionMultiply2(VInverseRot, Rotation );
+		//Translation = 1/S(B)
+		VectorRegister VTranslation = VectorMultiply(VR, VSafeScale3D);
 
-	Result.Scale3D = VScale3D;
-	Result.Translation = VTranslation;
-	Result.Rotation = VRotation;	
+		// Rotation = Q(B)(-1) * Q(A)	
+		VectorRegister VRotation = VectorQuaternionMultiply2(VInverseRot, Rotation);
 
-	Result.DiagnosticCheckNaN_All();
+		Result.Scale3D = VScale3D;
+		Result.Translation = VTranslation;
+		Result.Rotation = VRotation;
+
+		Result.DiagnosticCheckNaN_All();
 #if DEBUG_INVERSE_TRANSFORM
-	FMatrix AM = ToMatrixWithScale();
-	FMatrix BM = Other.ToMatrixWithScale();
+		FMatrix AM = ToMatrixWithScale();
+		FMatrix BM = Other.ToMatrixWithScale();
 
-	Result.DebugEqualMatrix(AM *  BM.InverseFast());
-
+		Result.DebugEqualMatrix(AM *  BM.InverseFast());
 #endif
+	}
+
 	return Result;
 }
 

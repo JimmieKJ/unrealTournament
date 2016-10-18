@@ -4,8 +4,18 @@
 #include "Animation/AnimCompress.h"
 #include "AnimationCompressionPanel.h"
 #include "AnimationEditorUtils.h"
+#include "AnimationUtils.h"
+
+#include "Editor/PropertyEditor/Public/PropertyEditorModule.h"
+#include "Editor/PropertyEditor/Public/IDetailsView.h"
 
 #define LOCTEXT_NAMESPACE "AnimationCompression"
+
+UCompressionHolder::UCompressionHolder(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
+{
+	Compression = FAnimationUtils::GetDefaultAnimationCompressionAlgorithm();
+}
 
 //////////////////////////////////////////////
 //	FDlgAnimCompression
@@ -17,7 +27,8 @@ FDlgAnimCompression::FDlgAnimCompression( TArray<TWeakObjectPtr<UAnimSequence>>&
 		DialogWindow = SNew(SWindow)
 			.Title( LOCTEXT("AnimCompression", "Animation Compression") )
 			.SupportsMinimize(false) .SupportsMaximize(false)
-			.SizingRule( ESizingRule::Autosized );
+			.SizingRule( ESizingRule::UserSized )
+			.ClientSize(FVector2D(400, 500));
 
 		TSharedPtr<SBorder> DialogWrapper = 
 			SNew(SBorder)
@@ -43,85 +54,76 @@ void SAnimationCompressionPanel::Construct(const FArguments& InArgs)
 	ParentWindow = InArgs._ParentWindow.Get();
 
 	AnimSequences = InArgs._AnimSequences;
-	CurrentCompressionChoice = 0;
+	CompressionHolder = NewObject<UCompressionHolder>();
+	CompressionHolder->AddToRoot();
 
-	for ( TObjectIterator<UClass> It ; It ; ++It )
+	if (AnimSequences.Num() == 1)
 	{
-		UClass* Class = *It;
-		if( !Class->HasAnyClassFlags(CLASS_Abstract | CLASS_Deprecated) )
-		{
-			if ( Class->IsChildOf(UAnimCompress::StaticClass()) )
-			{
-				UAnimCompress* NewAlgorithm = NewObject<UAnimCompress>(GetTransientPackage(), Class);
-				AnimationCompressionAlgorithms.Add( NewAlgorithm );
-			}
-		}
+		UAnimSequence* Seq = AnimSequences[0].Get();
+
+		CompressionHolder->Compression = static_cast<UAnimCompress*>(StaticDuplicateObject(Seq->CompressionScheme, CompressionHolder));
 	}
+
+	FPropertyEditorModule& EditModule = FModuleManager::Get().GetModuleChecked<FPropertyEditorModule>("PropertyEditor");
+
+	const bool bAllowSearch = true;
+	FDetailsViewArgs DetailsViewArgs(/*bUpdateFromSelection=*/ false, /*bLockable=*/ false, bAllowSearch, FDetailsViewArgs::HideNameArea, /*bHideSelectionTip=*/ true);
+
+	TSharedPtr<class IDetailsView> PropertyView = EditModule.CreateDetailView(DetailsViewArgs);
+
+	TArray<UObject*> SelectedObjects;
+	SelectedObjects.Add(CompressionHolder);
+	PropertyView->SetObjects(SelectedObjects);
 
 	TSharedRef<SVerticalBox> Box =
 		SNew(SVerticalBox)
-		+SVerticalBox::Slot()
-		.AutoHeight()
+		+ SVerticalBox::Slot()
+		.FillHeight(1.f)
 		.Padding(8.0f, 4.0f, 8.0f, 4.0f)
 		[
-			SNew( STextBlock )
-			.Text( LOCTEXT("AnimCompressionLabel", "Compression Algorithms") )
+			PropertyView.ToSharedRef()
 		]
 		+SVerticalBox::Slot()
 		.AutoHeight()
-		.Padding(8.0f, 4.0f, 8.0f, 4.0f)
+		.Padding(8.0f, 4.0f, 4.0f, 8.0f)
 		[
 			SNew(SSeparator)
-		];
-
-	for( int32 i = 0 ; i < AnimationCompressionAlgorithms.Num() ; ++i )
-	{
-		UAnimCompress* Alg = AnimationCompressionAlgorithms[i];
-		(*Box).AddSlot()
-		.Padding(8.0f, 4.0f, 8.0f, 4.0f)
+		]
+		+SVerticalBox::Slot()
+		.Padding(4.0f)
+		.HAlign(HAlign_Right)
+		.VAlign(VAlign_Bottom)
+		.AutoHeight()
 		[
-			CreateRadioButton( FText::FromString( Alg->Description ), i)
+			SNew(SUniformGridPanel)
+			.SlotPadding(FEditorStyle::GetMargin("StandardDialog.SlotPadding"))
+			.MinDesiredSlotWidth(FEditorStyle::GetFloat("StandardDialog.MinDesiredSlotWidth"))
+			.MinDesiredSlotHeight(FEditorStyle::GetFloat("StandardDialog.MinDesiredSlotHeight"))
+			+ SUniformGridPanel::Slot(0, 0)
+			[
+				SNew(SButton)
+				.Text(LOCTEXT("AnimCompressionApply", "Apply"))
+			.HAlign(HAlign_Center)
+			.ContentPadding(FEditorStyle::GetMargin("StandardDialog.ContentPadding"))
+			.OnClicked(this, &SAnimationCompressionPanel::ApplyClicked)
+			]
 		];
-	}
-
-	(*Box)	.AddSlot()
-			.AutoHeight()
-			.Padding(8.0f, 4.0f, 4.0f, 8.0f)
-			[
-				SNew(SSeparator)
-			];
-	(*Box)	.AddSlot()
-			.Padding(4.0f)
-			.HAlign(HAlign_Right)
-			.VAlign(VAlign_Bottom)
-			.AutoHeight()
-			[
-				SNew(SUniformGridPanel)
-				.SlotPadding(FEditorStyle::GetMargin("StandardDialog.SlotPadding"))
-				.MinDesiredSlotWidth(FEditorStyle::GetFloat("StandardDialog.MinDesiredSlotWidth"))
-				.MinDesiredSlotHeight(FEditorStyle::GetFloat("StandardDialog.MinDesiredSlotHeight"))
-				+SUniformGridPanel::Slot(0,0)
-				[
-					SNew(SButton)
-					.Text(LOCTEXT("AnimCompressionApply", "Apply"))
-					.HAlign(HAlign_Center)
-					.ContentPadding(FEditorStyle::GetMargin("StandardDialog.ContentPadding"))
-					.OnClicked(this, &SAnimationCompressionPanel::ApplyClicked)
-				]
-			];
 	
 	this->ChildSlot[Box];
 }
 
 SAnimationCompressionPanel::~SAnimationCompressionPanel()
 {
-
+	if (CompressionHolder)
+	{
+		CompressionHolder->Compression = nullptr;
+		CompressionHolder->RemoveFromRoot();
+	}
 }
 
 FReply SAnimationCompressionPanel::ApplyClicked()
 {
-	UAnimCompress* CompressionAlgorithm = AnimationCompressionAlgorithms[CurrentCompressionChoice];
-	ApplyAlgorithm( CompressionAlgorithm );
+	ApplyAlgorithm( CompressionHolder->Compression );
 	return FReply::Handled();
 }
 
@@ -139,7 +141,11 @@ void SAnimationCompressionPanel::ApplyAlgorithm(class UAnimCompress* Algorithm)
 
 		if (AnimationEditorUtils::ApplyCompressionAlgorithm(AnimSequencePtrs, Algorithm))
 		{
-			ParentWindow->RequestDestroyWindow();
+			TSharedPtr<SWindow> Win = ParentWindow.Pin();
+			if (Win.IsValid())
+			{
+				Win->RequestDestroyWindow();
+			}
 		}
 	}
 }

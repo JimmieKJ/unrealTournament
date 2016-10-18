@@ -185,6 +185,9 @@ class ENGINE_API UInterpToMovementComponent : public UMovementComponent
 	UFUNCTION(BlueprintCallable, Category = "Control")
 	void FinaliseControlPoints();
 
+	/* Clear the control points array and set to stopped. */
+	void ResetControlPoints();
+
 #if WITH_EDITOR
 	//~ Begin UObject Interface.
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
@@ -236,6 +239,7 @@ private:
 	float TotalDistance;
 
 	FVector StartLocation;
+	bool bPointsFinalized;
 };
 
 

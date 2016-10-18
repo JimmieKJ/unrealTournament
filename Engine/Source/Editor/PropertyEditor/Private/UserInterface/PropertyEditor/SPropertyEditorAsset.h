@@ -137,11 +137,6 @@ private:
 	FText OnGetToolTip() const;
 
 	/**
-	 * Determine whether any outer object is an Engine asset
-	 */
-	bool HasEngineOuterObject() const;
-
-	/**
 	 * Determine whether the given asset is allowed to be assigned to the property.
 	 * This is currently used to prevent non-engine assets being assigned to properties of engine assets.
 	 *

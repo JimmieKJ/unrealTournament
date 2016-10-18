@@ -3,7 +3,7 @@
 #include "AbilitySystemPrivatePCH.h"
 #include "AbilitySystemComponent.h"
 #include "Abilities/Tasks/AbilityTask_PlayMontageAndWait.h"
-#include "AbilitySystemComponent.h"
+#include "Animation/AnimMontage.h"
 
 UAbilityTask_PlayMontageAndWait::UAbilityTask_PlayMontageAndWait(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -85,7 +85,8 @@ void UAbilityTask_PlayMontageAndWait::Activate()
 	if (AbilitySystemComponent)
 	{
 		const FGameplayAbilityActorInfo* ActorInfo = Ability->GetCurrentActorInfo();
-		if (ActorInfo->AnimInstance.IsValid())
+		UAnimInstance* AnimInstance = ActorInfo->GetAnimInstance();
+		if (AnimInstance != nullptr)
 		{
 			if (AbilitySystemComponent->PlayMontage(Ability, Ability->GetCurrentActivationInfo(), MontageToPlay, Rate, StartSection) > 0.f)
 			{
@@ -99,10 +100,10 @@ void UAbilityTask_PlayMontageAndWait::Activate()
 				InterruptedHandle = Ability->OnGameplayAbilityCancelled.AddUObject(this, &UAbilityTask_PlayMontageAndWait::OnMontageInterrupted);
 
 				BlendingOutDelegate.BindUObject(this, &UAbilityTask_PlayMontageAndWait::OnMontageBlendingOut);
-				ActorInfo->AnimInstance->Montage_SetBlendingOutDelegate(BlendingOutDelegate, MontageToPlay);
+				AnimInstance->Montage_SetBlendingOutDelegate(BlendingOutDelegate, MontageToPlay);
 
 				MontageEndedDelegate.BindUObject(this, &UAbilityTask_PlayMontageAndWait::OnMontageEnded);
-				ActorInfo->AnimInstance->Montage_SetEndDelegate(MontageEndedDelegate, MontageToPlay);
+				AnimInstance->Montage_SetEndDelegate(MontageEndedDelegate, MontageToPlay);
 
 				ACharacter* Character = Cast<ACharacter>(GetAvatarActor());
 				if (Character && (Character->Role == ROLE_Authority ||
@@ -114,11 +115,19 @@ void UAbilityTask_PlayMontageAndWait::Activate()
 				bPlayedMontage = true;
 			}
 		}
+		else
+		{
+			ABILITY_LOG(Warning, TEXT("UAbilityTask_PlayMontageAndWait call to PlayMontage failed!"));
+		}
+	}
+	else
+	{
+		ABILITY_LOG(Warning, TEXT("UAbilityTask_PlayMontageAndWait called on invalid AbilitySystemComponent"));
 	}
 
 	if (!bPlayedMontage)
 	{
-		ABILITY_LOG(Warning, TEXT("UAbilityTask_PlayMontageAndWait called in Ability %s failed to play montage; Task Instance Name %s."), *Ability->GetName(), *InstanceName.ToString());
+		ABILITY_LOG(Warning, TEXT("UAbilityTask_PlayMontageAndWait called in Ability %s failed to play montage %s; Task Instance Name %s."), *Ability->GetName(), *GetNameSafe(MontageToPlay),*InstanceName.ToString());
 		OnCancelled.Broadcast();
 	}
 
@@ -155,7 +164,13 @@ void UAbilityTask_PlayMontageAndWait::OnDestroy(bool AbilityEnded)
 bool UAbilityTask_PlayMontageAndWait::StopPlayingMontage()
 {
 	const FGameplayAbilityActorInfo* ActorInfo = Ability->GetCurrentActorInfo();
-	if (!ActorInfo || !ActorInfo->AnimInstance.IsValid())
+	if (!ActorInfo)
+	{
+		return false;
+	}
+
+	UAnimInstance* AnimInstance = ActorInfo->GetAnimInstance();
+	if (AnimInstance == nullptr)
 	{
 		return false;
 	}
@@ -168,7 +183,7 @@ bool UAbilityTask_PlayMontageAndWait::StopPlayingMontage()
 			&& AbilitySystemComponent->GetCurrentMontage() == MontageToPlay)
 		{
 			// Unbind delegates so they don't get called as well
-			FAnimMontageInstance* MontageInstance = ActorInfo->AnimInstance->GetActiveInstanceForMontage(*MontageToPlay);
+			FAnimMontageInstance* MontageInstance = AnimInstance->GetActiveInstanceForMontage(MontageToPlay);
 			if (MontageInstance)
 			{
 				MontageInstance->OnMontageBlendingOutStarted.Unbind();
@@ -189,9 +204,11 @@ FString UAbilityTask_PlayMontageAndWait::GetDebugString() const
 	if (Ability)
 	{
 		const FGameplayAbilityActorInfo* ActorInfo = Ability->GetCurrentActorInfo();
-		if (ActorInfo->AnimInstance.IsValid())
+		UAnimInstance* AnimInstance = ActorInfo->GetAnimInstance();
+
+		if (AnimInstance != nullptr)
 		{
-			PlayingMontage = ActorInfo->AnimInstance->Montage_IsActive(MontageToPlay) ? MontageToPlay : ActorInfo->AnimInstance->GetCurrentActiveMontage();
+			PlayingMontage = AnimInstance->Montage_IsActive(MontageToPlay) ? MontageToPlay : AnimInstance->GetCurrentActiveMontage();
 		}
 	}
 

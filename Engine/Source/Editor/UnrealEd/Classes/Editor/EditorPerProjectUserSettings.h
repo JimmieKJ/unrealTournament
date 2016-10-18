@@ -54,6 +54,18 @@ class UEditorPerProjectUserSettings : public UObject
 	UPROPERTY(EditAnywhere, config, Category = SimplygonSwarm, meta = (DisplayName = "Simplygon distributed proxy server IP", ConfigRestartRequired = false, editcondition = "bUseSimplygonSwarm"))
 	FString SimplygonServerIP;
 	
+	/** Enable swarm debugging features. Temp ssf files are not removed. Detailed message printing */
+	UPROPERTY(EditAnywhere, config, Category = SimplygonSwarm, meta = (DisplayName = "Enable Swarm Debugging ", ConfigRestartRequired = false, editcondition = "bUseSimplygonSwarm"))
+	bool bEnableSwarmDebugging;
+	
+	/** Time between JSON net requests for Simplygon Swarm */
+	UPROPERTY(EditAnywhere, config, Category = SimplygonSwarm, meta = (DisplayName = "Time in (MS). Delay between json request (Default 500ms)", ConfigRestartRequired = false, editcondition = "bUseSimplygonSwarm", ClampMin = "100", ClampMax = "30000", UIMin = "100", UIMax = "10000"))
+	uint32 SimplygonSwarmDelay;
+	
+	/** Folder in which Simplygon Swarm will store intermediate texture and mesh data that is uploaded to the Swarm */
+	UPROPERTY(EditAnywhere, config, Category = SimplygonSwarm, meta = (DisplayName = "Simplygon Swarm Intermediate Folder", ConfigRestartRequired = true, editcondition = "bUseSimplygonSwarm"))
+	FString SwarmIntermediateFolder;
+	
 	/** When enabled, the application frame rate, memory and Unreal object count will be displayed in the main editor UI */
 	UPROPERTY(EditAnywhere, config, Category=Performance)
 	uint32 bShowFrameRateAndMemory:1;
@@ -130,6 +142,9 @@ class UEditorPerProjectUserSettings : public UObject
 	class UBlueprintPaletteFavorites* BlueprintFavorites;
 
 public:
+	// Per project user settings for which asset viewer profile should be used
+	UPROPERTY(config)
+	int32 AssetViewerProfileIndex;
 
 	UPROPERTY(config)
 	int32 MaterialQualityLevel;

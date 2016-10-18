@@ -35,11 +35,16 @@ private:
 	// Flag to reset the audio buffer
 	FThreadSafeBool bReset;
 
-	// Whether or not we've started generating audio
-	FThreadSafeBool bStarted;
+	// Pumps audio queued from game thread
+	void PumpQueuedAudio();
+
+protected:
 
 	// Number of samples to pad with 0 if there isn't enough audio available
 	int32 NumBufferUnderrunSamples;
+
+	// The number of PCM samples we want to generate. This can't be larger than SamplesNeeded in GeneratePCMData callback, but can be less.
+	int32 NumSamplesToGeneratePerCallback;
 
 public:
 
@@ -51,6 +56,7 @@ public:
 
 	//~ Begin USoundWave Interface.
 	virtual int32 GeneratePCMData(uint8* PCMData, const int32 SamplesNeeded) override;
+	virtual bool HasCompressedData(FName Format) const override;
 	virtual FByteBulkData* GetCompressedData(FName Format) override;
 	virtual void InitAudioResource( FByteBulkData& CompressedData ) override;
 	virtual bool InitAudioResource(FName Format) override;

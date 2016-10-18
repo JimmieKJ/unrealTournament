@@ -7,11 +7,12 @@
  *
  */
 
-#include "AnimCompositeBase.h"
-#include "Animation/AnimInstance.h"
+#include "Animation/AnimCompositeBase.h"
+#include "AlphaBlend.h"
 #include "AnimMontage.generated.h"
 
 class UAnimMontage;
+class UAnimInstance;
 
 /**
  * Section data for each track. Reference of data will be stored in the child class for the way they want
@@ -35,7 +36,6 @@ struct FCompositeSection : public FAnimLinkableElement
 	UPROPERTY()
 	FName NextSectionName;
 
-private:
 	/** Meta data that can be saved with the asset 
 	 * 
 	 * You can query by GetMetaData function
@@ -235,6 +235,13 @@ private:
 
 	// sync group index
 	int32 SyncGroupIndex;
+
+	/**
+	 * Optional position to force next update (ignoring the real delta time).
+	 * Used by external systems that are setting animation times directly. Will fire off notifies and other events provided the animation system is ticking.
+	 */
+	TOptional<float> ForcedNextPosition;
+
 public:
 	/** Montage to Montage Synchronization.
 	 *
@@ -261,6 +268,9 @@ public:
 	float GetBlendTime() const { return Blend.GetBlendTime(); }
 	int32 GetSyncGroupIndex() const { return SyncGroupIndex;  }
 
+	/** Set the weight */
+	void SetWeight(float InValue) { Blend.SetAlpha(InValue); }
+
 private:
 	/** Followers this Montage will synchronize */
 	TArray<struct FAnimMontageInstance*> MontageSyncFollowers;
@@ -280,43 +290,9 @@ private:
 	void InitializeBlend(const FAlphaBlend& InAlphaBlend);
 
 public:
-	FAnimMontageInstance()
-		: Montage(NULL)
-		, bPlaying(false)
-		, DefaultBlendTimeMultiplier(1.0f)
-		, bDidUseMarkerSyncThisTick(false)
-		, AnimInstance(NULL)
-		, InstanceID(INDEX_NONE)
-		, Position(0.f)
-		, PlayRate(1.f)
-		, bInterrupted(false)
-		, PreviousWeight(0.f)
-		, DeltaMoved(0.f)
-		, PreviousPosition(0.f)
-		, SyncGroupIndex(INDEX_NONE)
-		, MontageSyncLeader(NULL)
-		, MontageSyncUpdateFrameCounter(INDEX_NONE)
-	{
-	}
+	FAnimMontageInstance();
 
-	FAnimMontageInstance(UAnimInstance * InAnimInstance)
-		: Montage(NULL)
-		, bPlaying(false)
-		, DefaultBlendTimeMultiplier(1.0f)
-		, bDidUseMarkerSyncThisTick(false)
-		, AnimInstance(InAnimInstance)
-		, InstanceID(INDEX_NONE)
-		, Position(0.f)
-		, PlayRate(1.f)
-		, bInterrupted(false)
-		, PreviousWeight(0.f)	
-		, DeltaMoved(0.f)
-		, PreviousPosition(0.f)
-		, SyncGroupIndex(INDEX_NONE)
-		, MontageSyncLeader(NULL)
-		, MontageSyncUpdateFrameCounter(INDEX_NONE)
-	{
-	}
+	FAnimMontageInstance(UAnimInstance * InAnimInstance);
 
 	//~ Begin montage instance Interfaces
 	void Play(float InPlayRate = 1.f);
@@ -352,8 +328,11 @@ public:
 	/** 
 	 * Setters
 	 */
-	void SetPosition(float const & InPosition) { Position = InPosition; }
+	void SetPosition(float const & InPosition) { Position = InPosition; MarkerTickRecord.Reset(); }
 	void SetPlayRate(float const & InPlayRate) { PlayRate = InPlayRate; }
+
+	/** Set the position of this animation as part of the next animation update tick. Will trigger events and notifies for the delta time. */
+	void SetNextPositionWithEvents(float InPosition) { ForcedNextPosition = InPosition; }
 
 	/**
 	 * Montage Tick happens in 2 phases
@@ -395,8 +374,10 @@ private:
 
 public:
 	/** static functions that are used by matinee functionality */
-	ENGINE_API static void SetMatineeAnimPositionInner(FName SlotName, USkeletalMeshComponent* SkeletalMeshComponent, UAnimSequence* InAnimSequence, TWeakObjectPtr<UAnimMontage>& CurrentlyPlayingMontage, float InPosition, bool bLooping);
-	ENGINE_API static void PreviewMatineeSetAnimPositionInner(FName SlotName, USkeletalMeshComponent* SkeletalMeshComponent, UAnimSequence* InAnimSequence, TWeakObjectPtr<UAnimMontage>& CurrentlyPlayingMontage, float InPosition, bool bLooping, bool bFireNotifies, float DeltaTime);
+	ENGINE_API static UAnimMontage* SetMatineeAnimPositionInner(FName SlotName, USkeletalMeshComponent* SkeletalMeshComponent, UAnimSequenceBase* InAnimSequence, float InPosition, bool bLooping);
+	ENGINE_API static UAnimMontage* PreviewMatineeSetAnimPositionInner(FName SlotName, USkeletalMeshComponent* SkeletalMeshComponent, UAnimSequenceBase* InAnimSequence, float InPosition, bool bLooping, bool bFireNotifies, float DeltaTime);
+private:
+	static UAnimMontage* InitializeMatineeControl(FName SlotName, USkeletalMeshComponent* SkeletalMeshComponent, UAnimSequenceBase* InAnimSequence, bool bLooping);
 };
 
 UCLASS(config=Engine, hidecategories=(UObject, Length), MinimalAPI, BlueprintType)
@@ -490,12 +471,13 @@ public:
 	virtual void TickAssetPlayer(FAnimTickRecord& Instance, struct FAnimNotifyQueue& NotifyQueue, FAnimAssetTickContext& Context) const override;
 	virtual TArray<FName>* GetUniqueMarkerNames() override { return &MarkerData.UniqueMarkerNames; }
 	virtual void RefreshCacheData() override;
+	virtual bool CanBeUsedInMontage() const { return false; }
 	//~ End AnimSequenceBase Interface
 
 #if WITH_EDITOR
 	//~ Begin UAnimationAsset Interface
-	virtual bool GetAllAnimationSequencesReferred(TArray<UAnimSequence*>& AnimationSequences) override;
-	virtual void ReplaceReferredAnimations(const TMap<UAnimSequence*, UAnimSequence*>& ReplacementMap) override;
+	virtual bool GetAllAnimationSequencesReferred(TArray<UAnimationAsset*>& AnimationAssets) override;
+	virtual void ReplaceReferredAnimations(const TMap<UAnimationAsset*, UAnimationAsset*>& ReplacementMap) override;
 	//~ End UAnimationAsset Interface
 
 	/** Update all linkable elements contained in the montage */
@@ -645,4 +627,9 @@ public:
 
 	// update markers
 	void CollectMarkers();
+
+	//~Begin UAnimCompositeBase Interface
+	virtual void InvalidateRecursiveAsset() override;
+	virtual bool ContainRecursive(TArray<UAnimCompositeBase*>& CurrentAccumulatedList) override;
+	//~End UAnimCompositeBase Interface
 };

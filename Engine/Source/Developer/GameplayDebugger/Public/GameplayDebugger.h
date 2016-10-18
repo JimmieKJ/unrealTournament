@@ -99,10 +99,10 @@ public:
 	virtual bool CreateGameplayDebuggerForPlayerController(APlayerController* PlayerController) = 0;
 	virtual bool IsGameplayDebuggerActiveForPlayerController(APlayerController* PlayerController) = 0;
 #else
-	DEPRECATED_FORGAME(4.12, "This function is now deprecated, please check GameplayDebugger.h for details.")
+	DEPRECATED_FORGAME(4.13, "This function is now deprecated, please check GameplayDebugger.h for details.")
 	virtual bool CreateGameplayDebuggerForPlayerController(APlayerController* PlayerController) { return false; }
 	
-	DEPRECATED_FORGAME(4.12, "This function is now deprecated, please check GameplayDebugger.h for details.")
+	DEPRECATED_FORGAME(4.13, "This function is now deprecated, please check GameplayDebugger.h for details.")
 	virtual bool IsGameplayDebuggerActiveForPlayerController(APlayerController* PlayerController) { return false; }
 #endif
 };
@@ -115,7 +115,7 @@ public:
 	virtual void UseNewGameplayDebugger() = 0;
 };
 #else
-class DEPRECATED_FORGAME(4.12, "This module interface is now deprecated, please check GameplayDebugger.h for details.") GameplayDebugger : public IGameplayDebugger
+class DEPRECATED_FORGAME(4.13, "This module interface is now deprecated, please check GameplayDebugger.h for details.") GameplayDebugger : public IGameplayDebugger
 {
 public:
 	static inline GameplayDebugger& Get() { return FModuleManager::LoadModuleChecked< GameplayDebugger >("GameplayDebugger"); }

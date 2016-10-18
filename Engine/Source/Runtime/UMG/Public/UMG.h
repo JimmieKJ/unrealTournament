@@ -123,6 +123,9 @@
 
 #include "InputKeySelector.h"
 
+#include "WindowTitleBarArea.h"
+#include "WindowTitleBarAreaSlot.h"
+
 // Slate
 #include "SObjectWidget.h"
 

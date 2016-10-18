@@ -36,10 +36,10 @@ void UMockTask_Log::Activate()
 	}
 }
 
-void UMockTask_Log::OnDestroy(bool bOwnerFinished)
+void UMockTask_Log::OnDestroy(bool bInOwnerFinished)
 {
 	Logger->Log(ETestTaskMessage::Ended);
-	Super::OnDestroy(bOwnerFinished);
+	Super::OnDestroy(bInOwnerFinished);
 }
 
 void UMockTask_Log::TickTask(float DeltaTime)

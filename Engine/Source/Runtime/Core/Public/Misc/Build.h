@@ -183,18 +183,21 @@
 	#define DO_CHECK										1
 	#define STATS											(!UE_BUILD_MINIMAL || !WITH_EDITORONLY_DATA || USE_STATS_WITHOUT_ENGINE)
 	#define ALLOW_DEBUG_FILES								1
+	#define ALLOW_CONSOLE									1
 	#define NO_LOGGING										0
 #elif UE_BUILD_DEVELOPMENT
 	#define DO_GUARD_SLOW									0
 	#define DO_CHECK										1
 	#define STATS											(!UE_BUILD_MINIMAL || !WITH_EDITORONLY_DATA || USE_STATS_WITHOUT_ENGINE)
 	#define ALLOW_DEBUG_FILES								1
+	#define ALLOW_CONSOLE									1
 	#define NO_LOGGING										0
 #elif UE_BUILD_TEST
 	#define DO_GUARD_SLOW									0
 	#define DO_CHECK										USE_CHECKS_IN_SHIPPING
-	#define STATS											1
+	#define STATS											0
 	#define ALLOW_DEBUG_FILES								1
+	#define ALLOW_CONSOLE									1
 	#define NO_LOGGING										!USE_LOGGING_IN_SHIPPING
 #elif UE_BUILD_SHIPPING
 	#if WITH_EDITOR
@@ -202,12 +205,14 @@
 		#define DO_CHECK									1
 		#define STATS										1
 		#define ALLOW_DEBUG_FILES							1
+		#define ALLOW_CONSOLE								0
 		#define NO_LOGGING									0
 	#else
 		#define DO_GUARD_SLOW								0
 		#define DO_CHECK									USE_CHECKS_IN_SHIPPING
 		#define STATS										0
 		#define ALLOW_DEBUG_FILES							0
+		#define ALLOW_CONSOLE								0
 		#define NO_LOGGING									!USE_LOGGING_IN_SHIPPING
 	#endif
 #else
@@ -248,7 +253,7 @@
 #define USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING 1
 #define USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS (USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING && 0)
 
-// 0 (default), set this to 1 to get draw events with "TOGGLEDRAWEVENTS" "SHOWMATERIALDRAWEVENTS" and the "ProfileGPU" command working in test
-#define ALLOW_PROFILEGPU_IN_TEST 0
-// draw events with "TOGGLEDRAWEVENTS" "SHOWMATERIALDRAWEVENTS" (for ProfileGPU, Pix, Razor, RenderDoc, ...) and the "ProfileGPU" command are normally compiled out for TEST and SHIPPING
+// 0 (default), set this to 1 to get draw events with "TOGGLEDRAWEVENTS" "r.ShowMaterialDrawEvents" and the "ProfileGPU" command working in test
+#define ALLOW_PROFILEGPU_IN_TEST 1
+// draw events with "TOGGLEDRAWEVENTS" "r.ShowMaterialDrawEvents" (for ProfileGPU, Pix, Razor, RenderDoc, ...) and the "ProfileGPU" command are normally compiled out for TEST and SHIPPING
 #define WITH_PROFILEGPU (!(UE_BUILD_SHIPPING || UE_BUILD_TEST) || (UE_BUILD_TEST && ALLOW_PROFILEGPU_IN_TEST))

@@ -2,100 +2,99 @@
 
 #pragma once
 
-#include "Core.h"
+#include "AnalyticsConversion.h"
 
-/** 
+/**
  * Struct to hold key/value pairs that will be sent as attributes along with analytics events.
- * All values are actually strings, but we provide convenient conversion functions for most basic types. 
+ * All values are actually strings, but we provide a convenient constructor that relies on ToStringForAnalytics() to 
+ * convert common types. 
  */
 struct FAnalyticsEventAttribute
 {
 	FString AttrName;
 	FString AttrValue;
-
+	/** Default ctor since we declare a custom ctor. */
 	FAnalyticsEventAttribute()
+	{}
+
+	#if !PLATFORM_COMPILER_HAS_DEFAULTED_FUNCTIONS
+	/** copy ctor for platforms that don't implement defaulted functions properly. */
+	FAnalyticsEventAttribute(const FAnalyticsEventAttribute& RHS)
+		: AttrName(RHS.AttrName)
+		, AttrValue(RHS.AttrValue)
+	{}
+	/** move ctor for platforms that don't implement defaulted functions properly. */
+	FAnalyticsEventAttribute(FAnalyticsEventAttribute&& RHS)
+		: AttrName(MoveTemp(RHS.AttrName))
+		, AttrValue(MoveTemp(RHS.AttrValue))
+	{}
+	/** copy assignment ctor for platforms that don't implement defaulted functions properly. */
+	FAnalyticsEventAttribute& operator=(const FAnalyticsEventAttribute& RHS)
 	{
-		AttrName = FString();
-		AttrValue = FString();
+		AttrName = RHS.AttrName;
+		AttrValue = RHS.AttrValue;
+		return *this;
 	}
-
-	FAnalyticsEventAttribute(const FString& InName, const FString& InValue)
-		:AttrName(InName)
-		,AttrValue(InValue)
+	/** move assignment ctor for platforms that don't implement defaulted functions properly. */
+	FAnalyticsEventAttribute& operator=(FAnalyticsEventAttribute&& RHS)
 	{
+		AttrName = MoveTemp(RHS.AttrName);
+		AttrValue = MoveTemp(RHS.AttrValue);
+		return *this;
 	}
+#endif
 
-	FAnalyticsEventAttribute(const FString& InName, const TCHAR* InValue)
-		:AttrName(InName)
-		,AttrValue(InValue)
-	{
-	}
-
-	FAnalyticsEventAttribute(const FString& InName, bool InValue)
-		:AttrName(InName)
-		,AttrValue(InValue ? TEXT("true") : TEXT("false"))
-	{
-	}
-
-	FAnalyticsEventAttribute(const FString& InName,FGuid InValue)
-		:AttrName(InName)
-		,AttrValue(InValue.ToString())
-	{
-	}
-
-	// Allow any type that we have a valid format specifier for (disallowing implicit conversions).
-	template <typename T>
-	FAnalyticsEventAttribute(const FString& InName, T InValue)
-		:AttrName(InName)
-		, AttrValue(TTypeToString<T>::ToString(InValue))
-	{
-	}
-
-	// Allow arrays to be used as values formatted as comma delimited lists
-	template <typename T>
-	FAnalyticsEventAttribute(const FString& InName, const TArray<T>& InValueArray)
-		:AttrName(InName)
-		,AttrValue(FString())
-	{
-		// Serialize the array into "value1,value2,..." format
-		for (const T& Value : InValueArray)
-		{
-			AttrValue += TTypeToString<T>::ToString(Value) + ",";
-		}
-
-		// Remove the trailing comma
-		AttrValue = AttrValue.LeftChop(1);
-	}
-
-	// special case maps of FString->FString since TTypeToString (ironically) doesn't support FString
-	FAnalyticsEventAttribute(const FString& InName, const TMap<FString, FString>& InValueMap)
-		:AttrName(InName)
-		, AttrValue(FString())
-	{
-		// Serialize the map into "key:value,..." format
-		for (auto& KVP : InValueMap)
-		{
-			AttrValue += KVP.Key + ":" + KVP.Value + ",";
-		}
-
-		// Remove the trailing comma
-		AttrValue = AttrValue.LeftChop(1);
-	}
-
-
-	// Allow maps to be used as values formatted as comma delimited key-value pairs
-	template <typename T>
-	FAnalyticsEventAttribute(const FString& InName, const TMap<FString, T>& InValueMap)
-		:AttrName(InName)
-		,AttrValue(FString())
-	{
-		// Serialize the map into "key:value,..." format
-		for (auto& KVP : InValueMap)
-		{
-			AttrValue += KVP.Key + ":" + TTypeToString<T>::ToString(KVP.Value) + ",";
-		}
-
-		// Remove the trailing comma
-		AttrValue = AttrValue.LeftChop(1);
-	}
+	/**
+	 * Helper constructor to make an attribute from a name/value pair.
+	 * 
+	 * NameType 
+	 * ValueType will be converted to a string via forwarding to ToStringForAnalytics.
+	 *
+	 * @param InName Name of the attribute. Will be forwarded to an FString constructor.
+	 * @param InValue Value of the attribute. Will be forwarded to ToStringForAnalytics to convert to a string. 
+	 * @return 
+	 */
+	template <typename NameType, typename ValueType>
+	FAnalyticsEventAttribute(NameType&& InName, ValueType&& InValue)
+		: AttrName(Forward<NameType>(InName))
+		, AttrValue(AnalyticsConversion::ToString(Forward<ValueType>(InValue)))
+	{}
 };
+
+/** Helper functions for MakeAnalyticsEventAttributeArray. */
+namespace ImplMakeAnalyticsEventAttributeArray
+{
+	/** Recursion terminator. Empty list. */
+	template <typename Allocator>
+	inline void MakeArray(TArray<FAnalyticsEventAttribute, Allocator>& Attrs)
+	{
+	}
+
+	/** Recursion terminator. Convert the key/value pair to analytics strings. */
+	template <typename Allocator, typename KeyType, typename ValueType>
+	inline void MakeArray(TArray<FAnalyticsEventAttribute, Allocator>& Attrs, KeyType&& Key, ValueType&& Value)
+	{
+		Attrs.Emplace(Forward<KeyType>(Key), Forward<ValueType>(Value));
+	}
+
+	/** recursively add the arguments to the array. */
+	template <typename Allocator, typename KeyType, typename ValueType, typename...ArgTypes>
+	inline void MakeArray(TArray<FAnalyticsEventAttribute, Allocator>& Attrs, KeyType&& Key, ValueType&& Value, ArgTypes&&...Args)
+	{
+		// pop off the top two args and recursively apply the rest.
+		Attrs.Emplace(Forward<KeyType>(Key), Forward<ValueType>(Value));
+		MakeArray(Attrs, Forward<ArgTypes>(Args)...);
+	}
+}
+
+/** Helper to create an array of attributes using a single expression. There must be an even number of arguments, one for each key/value pair. */
+template <typename Allocator = FDefaultAllocator, typename...ArgTypes>
+inline TArray<FAnalyticsEventAttribute, Allocator> MakeAnalyticsEventAttributeArray(ArgTypes&&...Args)
+{
+	static_assert(sizeof...(Args) % 2 == 0, "Must pass an even number of arguments to MakeAnalyticsEventAttributeArray.");
+	TArray<FAnalyticsEventAttribute, Allocator> Attrs;
+	Attrs.Empty(sizeof...(Args) / 2);
+	ImplMakeAnalyticsEventAttributeArray::MakeArray(Attrs, Forward<ArgTypes>(Args)...);
+	return Attrs;
+}
+

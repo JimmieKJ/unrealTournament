@@ -134,19 +134,19 @@ namespace EAutomationDeviceGroupTypes
 
 
 /** Console command delegate type (takes no arguments.)  This is a void callback function. */
-DECLARE_DELEGATE(FOnAutomationControllerReset);
+DECLARE_MULTICAST_DELEGATE(FOnAutomationControllerReset);
 
 /** Console command delegate type (takes no arguments.)  This is a void callback function. */
-DECLARE_DELEGATE(FOnAutomationControllerTestsRefreshed);
+DECLARE_MULTICAST_DELEGATE(FOnAutomationControllerTestsRefreshed);
 
 /** Delegate for setting the automation controller status in the UI */
-DECLARE_DELEGATE_OneParam(FOnAutomationControllerManagerTestsAvailable, EAutomationControllerModuleState::Type);
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnAutomationControllerManagerTestsAvailable, EAutomationControllerModuleState::Type);
 
 /** Delegate to call when the automation controller is shutdown. */
-DECLARE_DELEGATE(FOnAutomationControllerManagerShutdown);
+DECLARE_MULTICAST_DELEGATE(FOnAutomationControllerManagerShutdown);
 
 /** Delegate to call when the tests are complete. */
-DECLARE_DELEGATE(FOnAutomationControllerTestsComplete);
+DECLARE_MULTICAST_DELEGATE(FOnAutomationControllerTestsComplete);
 
 
 /**
@@ -386,11 +386,6 @@ public:
 	virtual void UpdateDeviceGroups( ) = 0;
 
 	/**
-	 * Sets the test complete callback delegate.
-	 */
-	virtual void SetTestsCompleteCallback(const FOnAutomationControllerTestsComplete& NewCallback) = 0;
-
-	/**
 	 * Dictate whether to save the reports history and the number of history items to track.
 	 *
 	 * @param bShouldTrack Flag that determines whether to track history.
@@ -411,25 +406,30 @@ public:
 public:
 
 	/**
-	 * Gets a delegate that is invoked when the controller manager shuts down.
+	 * Gets the multicast delegate that is invoked when the controller manager shuts down.
 	 *
 	 * @return The delegate.
 	 */
 	virtual FOnAutomationControllerManagerShutdown& OnShutdown( ) = 0;
 
 	/**
-	 * Gets a delegate that is invoked when the controller has tests available.
+	 * Gets the multicast delegate that is invoked when the controller has tests available.
 	 *
 	 * @return The delegate.
 	 */
 	virtual FOnAutomationControllerManagerTestsAvailable& OnTestsAvailable( ) = 0;
 
 	/**
-	 * Gets a delegate that is invoked when the controller's test status changes.
+	 * Gets the multicast delegate that is invoked when the controller's test status changes.
 	 *
 	 * @return The delegate.
 	 */
 	virtual FOnAutomationControllerTestsRefreshed& OnTestsRefreshed( ) = 0;
+
+	/**
+	 * Gets the test complete multicast delegate.
+	 */
+	virtual FOnAutomationControllerTestsComplete& OnTestsComplete( ) = 0;
 
 	/**
 	* Gets a delegate that is invoked when the controller's reset.

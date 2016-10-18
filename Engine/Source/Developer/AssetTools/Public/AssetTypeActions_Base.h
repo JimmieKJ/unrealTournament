@@ -50,6 +50,11 @@ public:
 		return true;
 	}
 
+	virtual bool CanLocalize() const override
+	{
+		return true;
+	}
+
 	virtual bool CanMerge() const override
 	{
 		return false;

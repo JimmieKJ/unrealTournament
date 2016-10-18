@@ -3,6 +3,7 @@
 #include "BlueprintEditorPrivatePCH.h"
 
 #include "BlueprintEditorTabFactories.h"
+#include "BlueprintEditorSharedTabFactories.h"
 #include "BlueprintEditorTabs.h"
 #include "SDockTab.h"
 #include "BlueprintEditor.h"

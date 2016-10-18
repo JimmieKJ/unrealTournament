@@ -41,6 +41,9 @@ protected:
 	/** Filters the session tree. */
 	void FilterSessions();
 
+	/** Adds items for this session in the tree. */
+	void AddInstanceItemToTree(TSharedPtr<FSessionBrowserTreeItem>& SessionItem, const TSharedPtr<FSessionBrowserTreeItem>& InstanceItem, const TSharedPtr<ISessionInstanceInfo>& InstanceInfo);
+
 	/** Reloads the sessions list. */
 	void ReloadSessions();
 
@@ -54,6 +57,9 @@ private:
 
 	/** Callback for updating the session list in the session manager. */
 	void HandleSessionManagerSessionsUpdated();
+
+	/** Callback from the session manager to notify there's a new session instance. */
+	void HandleSessionManagerInstanceDiscovered(const TSharedRef<ISessionInfo>& OwnerSession, const TSharedRef<ISessionInstanceInfo>& DiscoveredInstance);
 
 	/** Callback for getting the tool tip text of a session tree row. */
 	FText HandleSessionTreeRowGetToolTipText(TSharedPtr<FSessionBrowserTreeItem> Item) const;
@@ -88,7 +94,7 @@ private:
 	bool IgnoreSessionManagerEvents;
 
 	/** Whether to ignore events from the session tree view. */
-	bool IgnoreSessionTreeEvents;
+	bool updatingTreeExpansion;
 
 	/** Maps session and instance GUIDs to existing tree items. */
 	TMap<FGuid, TSharedPtr<FSessionBrowserTreeItem>> ItemMap;
@@ -115,4 +121,7 @@ private:
 
 	/** The session tree item that holds other user's standalone instances. */
 	TSharedPtr<FSessionBrowserGroupTreeItem> StandaloneGroupItem;
+
+	/** This app's instance session */
+	TWeakPtr<FSessionBrowserTreeItem> ThisAppInstance;
 };

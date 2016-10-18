@@ -14,7 +14,7 @@ UMovieScene3DTransformTrack::UMovieScene3DTransformTrack( const FObjectInitializ
 	SetPropertyNameAndPath(Transform, Transform.ToString());
 
 #if WITH_EDITORONLY_DATA
-	TrackTint = FColor(48, 227, 255, 65);
+	TrackTint = FColor(65, 173, 164, 65);
 #endif
 }
 

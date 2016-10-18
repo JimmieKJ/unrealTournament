@@ -33,9 +33,13 @@ struct FWeaponInfo
 	{
 		WeaponClass = inClass;
 		WeaponDefaultObject = inWeapon;
+		WeaponIconBrush = nullptr;
 
-		FVector2D WeaponIconSize = FVector2D(WeaponDefaultObject->MenuGraphic->GetSizeX(), WeaponDefaultObject->MenuGraphic->GetSizeY());
-		WeaponIconBrush = new FSlateDynamicImageBrush(WeaponDefaultObject->MenuGraphic, WeaponIconSize, NAME_None);
+		if (WeaponDefaultObject.IsValid() && WeaponDefaultObject->MenuGraphic)
+		{
+			FVector2D WeaponIconSize = FVector2D(WeaponDefaultObject->MenuGraphic->GetSizeX(), WeaponDefaultObject->MenuGraphic->GetSizeY());
+			WeaponIconBrush = new FSlateDynamicImageBrush(WeaponDefaultObject->MenuGraphic, WeaponIconSize, NAME_None);
+		}
 	}
 };
 

@@ -3,6 +3,189 @@
 #include "CorePrivatePCH.h"
 #include "ModuleManager.h"
 
+#if USE_NEW_ASYNC_IO
+
+#include "AsyncFileHandle.h"
+
+class FGenericBaseRequest;
+class FGenericReadRequestWorker : public FNonAbandonableTask
+{
+	FGenericBaseRequest& ReadRequest;
+public:
+	FGenericReadRequestWorker(FGenericBaseRequest* InReadRequest)
+		: ReadRequest(*InReadRequest)
+	{
+	}
+	void DoWork();
+	FORCEINLINE TStatId GetStatId() const
+	{
+		RETURN_QUICK_DECLARE_CYCLE_STAT(FGenericReadRequestWorker, STATGROUP_ThreadPoolAsyncTasks);
+	}
+};
+
+class FGenericBaseRequest : public IAsyncReadRequest
+{
+protected:
+	FAsyncTask<FGenericReadRequestWorker>* Task;
+	IPlatformFile* LowerLevel;
+	const TCHAR* Filename;
+public:
+	FGenericBaseRequest(IPlatformFile* InLowerLevel, const TCHAR* InFilename, FAsyncFileCallBack* CompleteCallback, bool bInSizeRequest)
+		: IAsyncReadRequest(CompleteCallback, bInSizeRequest)
+		, Task(nullptr)
+		, LowerLevel(InLowerLevel)
+		, Filename(InFilename)
+	{
+	}
+
+	void Start()
+	{
+		if (FPlatformProcess::SupportsMultithreading())
+		{
+			Task->StartBackgroundTask(GIOThreadPool);
+		}
+		else
+		{
+			Task->StartSynchronousTask();
+			WaitCompletionImpl(0.0f); // might as well finish it now
+		}
+	}
+
+	virtual ~FGenericBaseRequest()
+	{
+		if (Task)
+		{
+			Task->EnsureCompletion(); // if the user polls, then we might never actual sync completion of the task until now, this will almost always be done, however we need to be sure the task is clear
+			delete Task; 
+		}
+	}
+
+	virtual void PerformRequest() = 0;
+
+	virtual void WaitCompletionImpl(float TimeLimitSeconds) override
+	{
+		check(Task);
+		bool bResult;
+		if (TimeLimitSeconds <= 0.0f)
+		{
+			Task->EnsureCompletion();
+			bResult = true;
+		}
+		else
+		{
+			bResult = Task->WaitCompletionWithTimeout(TimeLimitSeconds);
+		}
+		if (bResult)
+		{
+			check(bCompleteAndCallbackCalled);
+			delete Task;
+			Task = nullptr;
+		}
+	}
+	virtual void CancelImpl() override
+	{
+		check(Task);
+		if (Task->Cancel())
+		{
+			delete Task;
+			Task = nullptr;
+			SetComplete();
+		}
+	}
+};
+
+class FGenericSizeRequest : public FGenericBaseRequest
+{
+public:
+	FGenericSizeRequest(IPlatformFile* InLowerLevel, const TCHAR* InFilename, FAsyncFileCallBack* CompleteCallback)
+		: FGenericBaseRequest(InLowerLevel, InFilename, CompleteCallback, true)
+	{
+		Task = new FAsyncTask<FGenericReadRequestWorker>(this);
+		Start();
+	}
+	virtual void PerformRequest() override
+	{
+		if (!bCanceled)
+		{
+			check(LowerLevel && Filename);
+			Size = LowerLevel->FileSize(Filename);
+		}
+		SetComplete();
+	}
+};
+
+class FGenericReadRequest : public FGenericBaseRequest
+{
+	int64 Offset;
+	int64 BytesToRead;
+public:
+	FGenericReadRequest(IPlatformFile* InLowerLevel, const TCHAR* InFilename, FAsyncFileCallBack* CompleteCallback, int64 InOffset, int64 InBytesToRead, EAsyncIOPriority Priority)
+		: FGenericBaseRequest(InLowerLevel, InFilename, CompleteCallback, false)
+		, Offset(InOffset)
+		, BytesToRead(InBytesToRead)
+	{
+		if (Priority == AIOP_Precache)
+		{
+			SetComplete(); // we don't do precaching, so it is done
+		}
+		else
+		{
+			check(Offset >= 0 && BytesToRead > 0 && BytesToRead < MAX_int64);
+			Task = new FAsyncTask<FGenericReadRequestWorker>(this);
+			Start();
+		}
+	}
+	virtual void PerformRequest() override
+	{
+		if (!bCanceled)
+		{
+			IFileHandle* Handle = LowerLevel->OpenRead(Filename);
+			if (Handle)
+			{
+				check(BytesToRead != MAX_int64);
+				Memory = (uint8*)FMemory::Malloc(BytesToRead);
+				Handle->Seek(Offset);
+				Handle->Read(Memory, BytesToRead);
+				delete Handle;
+			}
+		}
+		SetComplete();
+	}
+};
+
+void FGenericReadRequestWorker::DoWork()
+{
+	ReadRequest.PerformRequest();
+}
+
+
+
+class FGenericAsyncReadFileHandle final : public IAsyncReadFileHandle
+{
+	IPlatformFile* LowerLevel;
+	FString Filename;
+public:
+	FGenericAsyncReadFileHandle(IPlatformFile* InLowerLevel, const TCHAR* InFilename)
+		: LowerLevel(InLowerLevel)
+		, Filename(InFilename)
+	{
+	}
+	virtual IAsyncReadRequest* SizeRequest(FAsyncFileCallBack* CompleteCallback = nullptr) override
+	{
+		return new FGenericSizeRequest(LowerLevel, *Filename, CompleteCallback);
+	}
+	virtual IAsyncReadRequest* ReadRequest(int64 Offset, int64 BytesToRead, EAsyncIOPriority Priority = AIOP_Normal, FAsyncFileCallBack* CompleteCallback = nullptr) override
+	{
+		return new FGenericReadRequest(LowerLevel, *Filename, CompleteCallback, Offset, BytesToRead, Priority);
+	}
+};
+
+IAsyncReadFileHandle* IPlatformFile::OpenAsyncRead(const TCHAR* Filename)
+{
+	return new FGenericAsyncReadFileHandle(this, Filename);
+}
+
+#endif //USE_NEW_ASYNC_IO
 
 int64 IFileHandle::Size()
 {

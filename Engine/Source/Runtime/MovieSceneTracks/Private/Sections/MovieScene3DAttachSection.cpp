@@ -63,10 +63,18 @@ void UMovieScene3DAttachSection::Eval( USceneComponent* SceneComponent, float Po
 		}
 	}
 
-	if(!bFoundAttachment)
+	if (!bFoundAttachment)
 	{
-		OutTranslation = ParentActor->GetActorLocation();
-		OutRotation = ParentActor->GetActorRotation();
+		if (ParentActor->GetDefaultAttachComponent())
+		{
+			OutTranslation = ParentActor->GetDefaultAttachComponent()->GetComponentLocation();
+			OutRotation = ParentActor->GetDefaultAttachComponent()->GetComponentRotation();
+		}
+		else
+		{
+			OutTranslation = ParentActor->GetActorLocation();
+			OutRotation = ParentActor->GetActorRotation();
+		}
 	}
 
 	FTransform ParentTransform(OutRotation, OutTranslation);

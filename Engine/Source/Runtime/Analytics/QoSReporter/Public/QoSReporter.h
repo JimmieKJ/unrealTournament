@@ -2,10 +2,11 @@
 
 #pragma once
 
-#include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProviderModule.h"
+#include "IAnalyticsProviderModule.h"
 #include "Core.h"
 
 class IAnalyticsProvider;
+struct FAnalyticsEventAttribute;
 
 enum class EQoSEventParam : uint32
 {
@@ -108,7 +109,7 @@ public:
 	 * Creates the analytics provider given a configuration delegate.
 	 * The keys required exactly match the field names in the Config object. 
 	 */
-	virtual TSharedPtr<IAnalyticsProvider> CreateAnalyticsProvider(const FAnalytics::FProviderConfigurationDelegate& GetConfigValue) const;
+	virtual TSharedPtr<IAnalyticsProvider> CreateAnalyticsProvider(const FAnalyticsProviderConfigurationDelegate& GetConfigValue) const;
 	
 	/** 
 	 * Construct an analytics provider directly from a config object.
@@ -162,12 +163,15 @@ public:
 	 */
 	static FString QOSREPORTER_API GetQoSReporterInstanceId();
 
+	/** @return the backend deployment name that was previously set */
+	static FString QOSREPORTER_API GetBackendDeploymentName();
+
 	/**
 	 * Backend services are split into deployments; this can be used to distinguish between them.
 	 *
 	 * @param InDeploymentName deployment name (has a meaning for the game and QoS alerting). Won't be sent if empty.
 	 */
-	static void QOSREPORTER_API SetBackendDeploymentName(const FString & InDeploymentName);
+	static void QOSREPORTER_API SetBackendDeploymentName(const FString& InDeploymentName);
 
 	/**
 	 * Whether or not hitches should be counted

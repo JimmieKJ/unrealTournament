@@ -14,6 +14,21 @@ UUTHUDWidget_WeaponCrosshair::UUTHUDWidget_WeaponCrosshair(const class FObjectIn
 {
 	Size=FVector2D(0.0f,0.0f);
 	ScreenPosition=FVector2D(0.5f, 0.5f);
+	LastWeapon = nullptr;
+}
+
+bool UUTHUDWidget_WeaponCrosshair::ShouldDraw_Implementation(bool bShowScores)
+{
+	if (Super::ShouldDraw_Implementation(bShowScores))
+	{
+		// skip drawing if spectating in third person
+		if (UTHUDOwner && UTPlayerOwner && (UTHUDOwner->UTPlayerOwner->GetViewTarget() != UTHUDOwner->UTPlayerOwner->GetPawn()) && UTHUDOwner->UTPlayerOwner->IsBehindView())
+		{
+			return false;
+		}
+		return true;
+	}
+	return false;
 }
 
 void UUTHUDWidget_WeaponCrosshair::Draw_Implementation(float DeltaTime)
@@ -24,6 +39,31 @@ void UUTHUDWidget_WeaponCrosshair::Draw_Implementation(float DeltaTime)
 		AUTCharacter* UTCharacter = Cast<AUTCharacter>(UTHUDOwner->UTPlayerOwner->GetViewTarget());
 		if (UTCharacter != nullptr && UTCharacter->GetWeapon() != nullptr)
 		{
+			AUTWeapon* Weapon = UTCharacter->GetWeapon();
+			if (Weapon != LastWeapon)
+			{
+				FWeaponCustomizationInfo CrosshairCustomizationInfo;
+				if (LastWeapon != nullptr)
+				{
+					UUTCrosshair* LastCrosshair = UTHUDOwner->GetCrosshairForWeapon(LastWeapon->WeaponCustomizationTag, CrosshairCustomizationInfo);
+					if (LastCrosshair != nullptr)
+					{
+						LastCrosshair->DeactivateCrosshair(UTHUDOwner);
+					}
+				}
+
+				if (Weapon != nullptr)
+				{
+					UUTCrosshair* NewCrosshair = UTHUDOwner->GetCrosshairForWeapon(Weapon->WeaponCustomizationTag, CrosshairCustomizationInfo);
+					if (NewCrosshair != nullptr)
+					{
+						NewCrosshair->ActivateCrosshair(UTHUDOwner, CrosshairCustomizationInfo, Weapon);
+					}
+				}
+
+				LastWeapon = Weapon;
+			}
+
 			UTCharacter->GetWeapon()->DrawWeaponCrosshair(this, DeltaTime);
 		}
 
@@ -32,15 +72,15 @@ void UUTHUDWidget_WeaponCrosshair::Draw_Implementation(float DeltaTime)
 		if ((TimeSinceKill < SkullDisplayTime) && (UTHUDOwner->GetDrawHUDKillIconMsg()))
 		{
 			float SkullSmallTime = (UTHUDOwner->LastMultiKillCount > 1) ? 0.5f : 0.2f;
-			float Size = 32.f * (1.f + FMath::Clamp(1.5f*(TimeSinceKill - SkullSmallTime) / SkullDisplayTime, 0.f, 1.f));
+			float DrawSize = 32.f * (1.f + FMath::Clamp(1.5f*(TimeSinceKill - SkullSmallTime) / SkullDisplayTime, 0.f, 1.f));
 			FLinearColor SkullColor = FLinearColor::White;
-			float Opacity = 0.7f - 0.6f*(TimeSinceKill - SkullSmallTime)/(SkullDisplayTime - SkullSmallTime);
+			float DrawOpacity = 0.7f - 0.6f*(TimeSinceKill - SkullSmallTime)/(SkullDisplayTime - SkullSmallTime);
 			int32 NumSkulls = (UTHUDOwner->LastMultiKillCount > 1) ? UTHUDOwner->LastMultiKillCount : 1;
-			float StartPos = -0.5f * Size * NumSkulls + 0.5f*Size;
+			float StartPos = -0.5f * DrawSize * NumSkulls + 0.5f*DrawSize;
 			for (int32 i = 0; i < NumSkulls; i++)
 			{
-				DrawTexture(UTHUDOwner->HUDAtlas, StartPos, -2.f*Size, Size, Size, 725, 0, 28, 36, Opacity, SkullColor, FVector2D(0.5f, 0.5f));
-				StartPos += 1.1f * Size;
+				DrawTexture(UTHUDOwner->HUDAtlas, StartPos, -2.f*DrawSize, DrawSize, DrawSize, 725, 0, 28, 36, DrawOpacity, SkullColor, FVector2D(0.5f, 0.5f));
+				StartPos += 1.1f * DrawSize;
 			}
 		}
 		else
@@ -49,14 +89,14 @@ void UUTHUDWidget_WeaponCrosshair::Draw_Implementation(float DeltaTime)
 		}
 
 		const float TimeSinceGrab = GetWorld()->GetTimeSeconds() - UTHUDOwner->LastFlagGrabTime;
-		const float FlagDisplayTime = 2.f;
+		const float FlagDisplayTime = 3.f;
 		if (TimeSinceGrab < FlagDisplayTime)
 		{
 			AUTPlayerState* PS = UTHUDOwner->GetScorerPlayerState();
 			if (PS && PS->CarriedObject)
 			{
 				float FlagPct = FMath::Max(0.f, TimeSinceGrab - 0.75f*FlagDisplayTime) / FlagDisplayTime;
-				float Size = 64.f * (1.f + 5.f*FlagPct);
+				float DrawSize = 64.f * (1.f + 5.f*FlagPct);
 				FLinearColor FlagColor = FLinearColor::White;
 				int32 TeamIndex = PS->CarriedObject->GetTeamNum();
 				AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
@@ -64,8 +104,8 @@ void UUTHUDWidget_WeaponCrosshair::Draw_Implementation(float DeltaTime)
 				{
 					FlagColor = GS->Teams[TeamIndex]->TeamColor;
 				}
-				float Opacity = 0.8f - 0.8f*FlagPct;
-				DrawTexture(UTHUDOwner->HUDAtlas, 0.f, -40.f, Size, Size, 843.f, 87.f, 43.f, 41.f, Opacity, FlagColor, FVector2D(0.5f, 0.5f));
+				float DrawOpacity = 0.8f - 0.8f*FlagPct;
+				DrawTexture(UTHUDOwner->HUDAtlas, 0.f, -40.f, DrawSize, DrawSize, 843.f, 87.f, 43.f, 41.f, DrawOpacity, FlagColor, FVector2D(0.5f, 0.5f));
 			}
 		}
 	}
@@ -78,14 +118,14 @@ void UUTHUDWidget_WeaponCrosshair::Draw_Implementation(float DeltaTime)
 		float FlashTime = GetWorld()->GetTimeSeconds() - UTHUDOwner->LastConfirmedHitTime;
 		if (FlashTime < Duration)
 		{
-			float Opacity = 1.0f - FlashTime / Duration;
-			float Height = 16.0f + (128.0f * LastHitMagnitude * Opacity) ;
+			float DrawOpacity = 1.0f - FlashTime / Duration;
+			float Height = 16.0f + (128.0f * LastHitMagnitude * DrawOpacity) ;
 
 			for (int32 i = 0; i < 4; i++)
 			{
 				float RotAngle = 45.0f + 90.f*i;
 				FVector2D DrawLocation = CalcRotatedDrawLocation(32.0f, RotAngle);
-				DrawTexture(UTHUDOwner->HUDAtlas, DrawLocation.X, DrawLocation.Y, 8.0f, Height, 2.0f, 679.0f, 32.0f, 72.0f, Opacity, FLinearColor::White, FVector2D(0.5f, 1.0f), RotAngle, FVector2D(0.5f, 1.0f));
+				DrawTexture(UTHUDOwner->HUDAtlas, DrawLocation.X, DrawLocation.Y, 8.0f, Height, 2.0f, 679.0f, 32.0f, 72.0f, DrawOpacity, FLinearColor::White, FVector2D(0.5f, 1.0f), RotAngle, FVector2D(0.5f, 1.0f));
 			}
 		}
 	}

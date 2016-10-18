@@ -94,9 +94,27 @@ int32 FSettingsContainer::GetCategories( TArray<ISettingsCategoryPtr>& OutCatego
 {
 	OutCategories.Empty(Categories.Num());
 
+	static const FName AdvancedCategoryName("Advanced");
+	TSharedPtr<FSettingsCategory> AdvancedCategory;
+
 	for (TMap<FName, TSharedPtr<FSettingsCategory> >::TConstIterator It(Categories); It; ++It)
 	{
-		OutCategories.Add(It.Value());
+		TSharedPtr<FSettingsCategory> Category = It.Value();
+		if(Category->GetName() == AdvancedCategoryName)
+		{
+			// Store off the advanced category, we'll add it to the bottom of all categories
+			AdvancedCategory = Category;
+		}
+		else
+		{
+			OutCategories.Add(It.Value());
+		}
+	}
+
+	// always show the advanced category last
+	if(AdvancedCategory.IsValid())
+	{
+		OutCategories.Add(AdvancedCategory);
 	}
 
 	return OutCategories.Num();

@@ -1,6 +1,8 @@
 #!/bin/sh
 
-. ../../../../HTML5/Build_All_HTML5_libs.rc
+cd ../../../../HTML5/
+	. ./Build_All_HTML5_libs.rc
+cd -
 
 
 cd ../../src

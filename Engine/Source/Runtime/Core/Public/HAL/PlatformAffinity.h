@@ -7,6 +7,8 @@
 #include "XboxOne/XBoxOneAffinity.h"
 #elif PLATFORM_PS4
 #include "PS4/PS4Affinity.h"
+#elif PLATFORM_IOS
+#include "IOS/IOSPlatformAffinity.h"
 #elif PLATFORM_ANDROID
 #include "Android/AndroidAffinity.h"
 #else

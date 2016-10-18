@@ -174,7 +174,9 @@ struct FParticleEmitterBuildInfo
 	uint32 bLocalVectorFieldTileY : 1;
 	/** Tile vector field in z axis? */
 	uint32 bLocalVectorFieldTileZ : 1;
-
+	/** Use fix delta time in the simulation? */
+	uint32 bLocalVectorFieldUseFixDT : 1;
+	
 	/** Default constructor. */
 	FParticleEmitterBuildInfo();
 };
@@ -274,6 +276,10 @@ public:
 	float EmitterTime;
 	/** The amount of time simulated in the previous time step. */
 	float LastDeltaTime;
+	/** how long did the last tick take? */
+#if WITH_EDITOR
+	float LastTickDurationMs;
+#endif
 	/** The previous location of the instance.							*/
 	FVector OldLocation;
 	/** The bounding box for the particles.								*/
@@ -549,21 +555,9 @@ public:
 	/**
 	 *	Retrieves the dynamic data for the emitter
 	 */
-	virtual FDynamicEmitterDataBase* GetDynamicData(bool bSelected)
+	virtual FDynamicEmitterDataBase* GetDynamicData(bool bSelected, ERHIFeatureLevel::Type InFeatureLevel)
 	{
 		return NULL;
-	}
-
-	/**
-	 *	Updates the dynamic data for the instance
-	 *
-	 *	@param	DynamicData		The dynamic data to fill in
-	 *	@param	bSelected		true if the particle system component is selected
-	 */
-	virtual bool UpdateDynamicData(FDynamicEmitterDataBase* DynamicData, bool bSelected)
-	{
-		// Base class does nothing...
-		return false;
 	}
 
 	/**
@@ -659,6 +653,15 @@ public:
 	virtual void SetBeamTargetTangent(FVector NewTangentPoint,int32 TargetIndex) {};
 	virtual void SetBeamTargetStrength(float NewTargetStrength,int32 TargetIndex) {};
 
+	//Beam get interface
+	virtual bool GetBeamEndPoint(FVector& OutEndPoint) const { return false; }
+	virtual bool GetBeamSourcePoint(int32 SourceIndex, FVector& OutSourcePoint) const { return false; }
+	virtual bool GetBeamSourceTangent(int32 SourceIndex, FVector& OutTangentPoint) const { return false; }
+	virtual bool GetBeamSourceStrength(int32 SourceIndex, float& OutSourceStrength) const { return false; }
+	virtual bool GetBeamTargetPoint(int32 TargetIndex, FVector& OutTargetPoint) const { return false; }
+	virtual bool GetBeamTargetTangent(int32 TargetIndex, FVector& OutTangentPoint) const { return false; }
+	virtual bool GetBeamTargetStrength(int32 TargetIndex, float& OutTargetStrength) const { return false; }
+	
 	// Called on world origin changes
 	virtual void ApplyWorldOffset(FVector InOffset, bool bWorldShift);
 		
@@ -739,10 +742,10 @@ struct FScopeCycleCounterEmitter : public FCycleCounter
 	{
 		if (Object)
 		{
-			TStatId StatId = Object->SpriteTemplate->GetStatID();
-			if (FThreadStats::IsCollectingData(StatId))
+			TStatId SpriteStatId = Object->SpriteTemplate->GetStatID();
+			if (FThreadStats::IsCollectingData(SpriteStatId))
 			{
-				Start(StatId);
+				Start(SpriteStatId);
 			}
 		}
 	}
@@ -795,15 +798,7 @@ struct FParticleSpriteEmitterInstance : public FParticleEmitterInstance
 	/**
 	 *	Retrieves the dynamic data for the emitter
 	 */
-	virtual FDynamicEmitterDataBase* GetDynamicData(bool bSelected) override;
-
-	/**
-	 *	Updates the dynamic data for the instance
-	 *
-	 *	@param	DynamicData		The dynamic data to fill in
-	 *	@param	bSelected		true if the particle system component is selected
-	 */
-	virtual bool UpdateDynamicData(FDynamicEmitterDataBase* DynamicData, bool bSelected) override;
+	virtual FDynamicEmitterDataBase* GetDynamicData(bool bSelected, ERHIFeatureLevel::Type InFeatureLevel) override;
 
 	/**
 	 *	Retrieves replay data for the emitter
@@ -864,17 +859,10 @@ struct ENGINE_API FParticleMeshEmitterInstance : public FParticleEmitterInstance
 	virtual void UpdateBoundingBox(float DeltaTime) override;
 	virtual uint32 RequiredBytes() override;
 	virtual void PostSpawn(FBaseParticle* Particle, float InterpolationPercentage, float SpawnTime) override;
-	virtual FDynamicEmitterDataBase* GetDynamicData(bool bSelected) override;
+	virtual FDynamicEmitterDataBase* GetDynamicData(bool bSelected, ERHIFeatureLevel::Type InFeatureLevel) override;
 	virtual bool IsDynamicDataRequired(UParticleLODLevel* CurrentLODLevel) override;
 
 	virtual bool Tick_MaterialOverrides() override;
-	/**
-	 *	Updates the dynamic data for the instance
-	 *
-	 *	@param	DynamicData		The dynamic data to fill in
-	 *	@param	bSelected		true if the particle system component is selected
-	 */
-	virtual bool UpdateDynamicData(FDynamicEmitterDataBase* DynamicData, bool bSelected) override;
 
 	/**
 	 *	Retrieves replay data for the emitter
@@ -931,7 +919,7 @@ struct ENGINE_API FParticleMeshEmitterInstance : public FParticleEmitterInstance
 	/**
 	 * Gets the materials applied to each section of a mesh.
 	 */
-	void GetMeshMaterials(TArray<UMaterialInterface*,TInlineAllocator<2> >& OutMaterials, const UParticleLODLevel* LODLevel) const;
+	void GetMeshMaterials(TArray<UMaterialInterface*,TInlineAllocator<2> >& OutMaterials, const UParticleLODLevel* LODLevel, ERHIFeatureLevel::Type InFeatureLevel, bool bLogWarnings = false) const;
 
 protected:
 
@@ -1019,6 +1007,13 @@ struct FParticleBeam2EmitterInstance : public FParticleEmitterInstance
 	virtual void SetBeamTargetStrength(float NewTargetStrength,int32 TargetIndex) override;
 	virtual void ApplyWorldOffset(FVector InOffset, bool bWorldShift) override;
 	
+	virtual bool GetBeamEndPoint(FVector& OutEndPoint) const override;
+	virtual bool GetBeamSourcePoint(int32 SourceIndex, FVector& OutSourcePoint) const override;
+	virtual bool GetBeamSourceTangent(int32 SourceIndex, FVector& OutTangentPoint) const override;
+	virtual bool GetBeamSourceStrength(int32 SourceIndex, float& OutSourceStrength) const override;
+	virtual bool GetBeamTargetPoint(int32 TargetIndex, FVector& OutTargetPoint) const override;
+	virtual bool GetBeamTargetTangent(int32 TargetIndex, FVector& OutTangentPoint) const override;
+	virtual bool GetBeamTargetStrength(int32 TargetIndex, float& OutTargetStrength) const override;
 	//
 	virtual void InitParameters(UParticleEmitter* InTemplate, UParticleSystemComponent* InComponent) override;
 	virtual void Init() override;
@@ -1065,15 +1060,7 @@ struct FParticleBeam2EmitterInstance : public FParticleEmitterInstance
 	/**
 	 *	Retrieves the dynamic data for the emitter
 	 */
-	virtual FDynamicEmitterDataBase* GetDynamicData(bool bSelected) override;
-
-	/**
-	 *	Updates the dynamic data for the instance
-	 *
-	 *	@param	DynamicData		The dynamic data to fill in
-	 *	@param	bSelected		true if the particle system component is selected
-	 */
-	virtual bool UpdateDynamicData(FDynamicEmitterDataBase* DynamicData, bool bSelected) override;
+	virtual FDynamicEmitterDataBase* GetDynamicData(bool bSelected, ERHIFeatureLevel::Type InFeatureLevel) override;
 
 	/**
 	 *	Retrieves replay data for the emitter
@@ -1585,15 +1572,7 @@ struct FParticleRibbonEmitterInstance : public FParticleTrailsEmitterInstance_Ba
 	/**
 	 *	Retrieves the dynamic data for the emitter
 	 */
-	virtual FDynamicEmitterDataBase* GetDynamicData(bool bSelected) override;
-
-	/**
-	 *	Updates the dynamic data for the instance
-	 *
-	 *	@param	DynamicData		The dynamic data to fill in
-	 *	@param	bSelected		true if the particle system component is selected
-	 */
-	virtual bool UpdateDynamicData(FDynamicEmitterDataBase* DynamicData, bool bSelected) override;
+	virtual FDynamicEmitterDataBase* GetDynamicData(bool bSelected, ERHIFeatureLevel::Type InFeatureLevel) override;
 
 	/**
 	 *	Retrieves replay data for the emitter
@@ -1756,15 +1735,7 @@ struct FParticleAnimTrailEmitterInstance : public FParticleTrailsEmitterInstance
 	/**
 	 *	Retrieves the dynamic data for the emitter
 	 */
-	virtual FDynamicEmitterDataBase* GetDynamicData(bool bSelected) override;
-
-	/**
-	 *	Updates the dynamic data for the instance
-	 *
-	 *	@param	DynamicData		The dynamic data to fill in
-	 *	@param	bSelected		true if the particle system component is selected
-	 */
-	virtual bool UpdateDynamicData(FDynamicEmitterDataBase* DynamicData, bool bSelected) override;
+	virtual FDynamicEmitterDataBase* GetDynamicData(bool bSelected, ERHIFeatureLevel::Type InFeatureLevel) override;
 
 	/**
 	 *	Retrieves replay data for the emitter

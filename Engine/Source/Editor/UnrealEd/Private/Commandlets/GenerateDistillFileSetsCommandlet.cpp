@@ -222,6 +222,26 @@ int32 UGenerateDistillFileSetsCommandlet::Main( const FString& InParams )
 		}
 	}
 
+	// Add assets from additional directories to always cook
+	const FString AbsoluteGameContentDir = FPaths::ConvertRelativePathToFull(FPaths::GameContentDir());
+	const UProjectPackagingSettings* const PackagingSettings = GetDefault<UProjectPackagingSettings>();
+	for (const auto& DirToCook : PackagingSettings->DirectoriesToAlwaysCook)
+	{
+		FString DirectoryPath = AbsoluteGameContentDir / DirToCook.Path;
+		UE_LOG(LogGenerateDistillFileSetsCommandlet, Log, TEXT( "Examining directory to always cook: %s..." ), *DirToCook.Path );
+
+		TArray<FString> Files;
+		IFileManager::Get().FindFilesRecursive(Files, *DirectoryPath, *(FString(TEXT("*")) + FPackageName::GetAssetPackageExtension()), true, false);
+		for (int32 Index = 0; Index < Files.Num(); Index++)
+		{
+			FString StdFile = Files[Index];
+			FPaths::MakeStandardFilename(StdFile);
+			StdFile = FPackageName::FilenameToLongPackageName(StdFile);
+			AllPackageNames.Add(StdFile);
+			UE_LOG(LogGenerateDistillFileSetsCommandlet, Log, TEXT( "Package: %s" ), *StdFile );
+		}
+	}
+
 	// Sort the results to make it easier to diff files. No necessary but useful sometimes.
 	TArray<FString> SortedPackageNames = AllPackageNames.Array();
 	SortedPackageNames.Sort();

@@ -69,7 +69,7 @@ struct FPlaceableItem
 		: Factory(nullptr)
 	{}
 
-	/** Constructor that takes aspecific factory and asset */
+	/** Constructor that takes a specific factory and asset */
 	FPlaceableItem(UActorFactory* InFactory, const FAssetData& InAssetData, TOptional<int32> InSortOrder = TOptional<int32>())
 		: Factory(InFactory)
 		, AssetData(InAssetData)
@@ -89,13 +89,14 @@ struct FPlaceableItem
 		AutoSetDisplayName();
 	}
 
-	/** Constructor for any placeable class with associated asset data and brush overrides */
+	/** Constructor for any placeable class with associated asset data, brush and display name overrides */
 	FPlaceableItem(
 		UClass& InAssetClass,
 		const FAssetData& InAssetData,
 		FName InClassThumbnailBrushOverride = NAME_None,
 		TOptional<FLinearColor> InAssetTypeColorOverride = TOptional<FLinearColor>(),
-		TOptional<int32> InSortOrder = TOptional<int32>()
+		TOptional<int32> InSortOrder = TOptional<int32>(),
+		TOptional<FText> InDisplayName = TOptional<FText>()
 	)
 		: Factory(GEditor->FindActorFactoryByClass(&InAssetClass))
 		, AssetData(InAssetData)
@@ -104,7 +105,14 @@ struct FPlaceableItem
 		, SortOrder(InSortOrder)
 	{
 		bAlwaysUseGenericThumbnail = true;
-		AutoSetDisplayName();
+		if (InDisplayName.IsSet())
+		{
+			DisplayName = InDisplayName.GetValue();
+		}
+		else
+		{
+			AutoSetDisplayName();
+		}
 	}
 
 	/** Automatically set this item's display name from its class or asset */
@@ -198,6 +206,12 @@ public:
 	 */
 	DECLARE_EVENT_OneParam( IPlacementMode, FOnRecentlyPlacedChanged, const TArray< FActorPlacementInfo >& /*NewRecentlyPlaced*/ );
 	virtual FOnRecentlyPlacedChanged& OnRecentlyPlacedChanged() = 0;
+
+	/**
+	 * @return the event that is broadcast whenever the list of all placeable assets changes
+	 */
+	DECLARE_EVENT( IPlacementMode, FOnAllPlaceableAssetsChanged );
+	virtual FOnAllPlaceableAssetsChanged& OnAllPlaceableAssetsChanged() = 0;
 
 	/**
 	 * @return the event that is broadcast whenever a placement mode enters a placing session

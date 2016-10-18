@@ -29,112 +29,260 @@ public:
 		const TSharedRef< FPropertyNode > PropertyNode = InPropertyEditor->GetPropertyNode();
 		const UProperty* Property = InPropertyEditor->GetProperty();
 
-		// Instance metadata overrides per-class metadata.
-		auto GetMetaDataFromKey = [&PropertyNode, &Property](const FName& Key) -> const FString&
+		if(!Property->IsA(UFloatProperty::StaticClass()) && Property->HasMetaData(PropertyEditorConstants::MD_Bitmask))
 		{
-			const FString* InstanceValue = PropertyNode->GetInstanceMetaData(Key);
-			return (InstanceValue != nullptr) ? *InstanceValue : Property->GetMetaData(Key);
-		};
+			auto CreateBitmaskFlagsArray = [](const UProperty* Prop)
+			{
+				const int32 BitmaskBitCount = sizeof(NumericType) << 3;
 
-		const FString& MetaUIMinString = GetMetaDataFromKey("UIMin");
-		const FString& MetaUIMaxString = GetMetaDataFromKey("UIMax");
-		const FString& SliderExponentString = GetMetaDataFromKey("SliderExponent");
-		const FString& DeltaString = GetMetaDataFromKey("Delta");
-		const FString& ClampMinString = GetMetaDataFromKey("ClampMin");
-		const FString& ClampMaxString = GetMetaDataFromKey("ClampMax");
+				TArray<FBitmaskFlagInfo> Result;
+				Result.Empty(BitmaskBitCount);
 
-		// If no UIMin/Max was specified then use the clamp string
-		const FString& UIMinString = MetaUIMinString.Len() ? MetaUIMinString : ClampMinString;
-		const FString& UIMaxString = MetaUIMaxString.Len() ? MetaUIMaxString : ClampMaxString;
+				const UEnum* BitmaskEnum = nullptr;
+				const FString& BitmaskEnumName = Prop->GetMetaData(PropertyEditorConstants::MD_BitmaskEnum);
+				if (!BitmaskEnumName.IsEmpty())
+				{
+					// @TODO: Potentially replace this with a parameter passed in from a member variable on the UProperty (e.g. UByteProperty::Enum)
+					BitmaskEnum = FindObject<UEnum>(ANY_PACKAGE, *BitmaskEnumName);
+				}
 
-		NumericType ClampMin = TNumericLimits<NumericType>::Lowest();
-		NumericType ClampMax = TNumericLimits<NumericType>::Max();
+				if (BitmaskEnum)
+				{
+					for (int32 BitmaskEnumIndex = 0; BitmaskEnumIndex < BitmaskEnum->NumEnums() - 1; ++BitmaskEnumIndex)
+					{
+						int8 BitmaskFlagIndex = BitmaskEnum->GetValueByIndex(BitmaskEnumIndex);
+						if (BitmaskFlagIndex >= 0 && BitmaskFlagIndex < BitmaskBitCount)
+						{
+							Result.Emplace();
+							FBitmaskFlagInfo* BitmaskFlag = &Result.Last();
 
-		if (!ClampMinString.IsEmpty())
-		{
-			TTypeFromString<NumericType>::FromString(ClampMin, *ClampMinString);
+							BitmaskFlag->Value = TBitmaskValueHelpers<NumericType>::LeftShift(static_cast<NumericType>(1), static_cast<int32>(BitmaskFlagIndex));
+
+							BitmaskFlag->DisplayName = BitmaskEnum->GetDisplayNameText(BitmaskEnumIndex);
+							if (BitmaskFlag->DisplayName.IsEmpty())
+							{
+								BitmaskFlag->DisplayName = FText::FromString(BitmaskEnum->GetEnumName(BitmaskEnumIndex));
+							}
+
+							BitmaskFlag->ToolTipText = BitmaskEnum->GetToolTipText(BitmaskEnumIndex);
+							if (BitmaskFlag->ToolTipText.IsEmpty())
+							{
+								BitmaskFlag->ToolTipText = FText::Format(LOCTEXT("BitmaskDefaultFlagToolTipText", "Toggle {0} on/off"), BitmaskFlag->DisplayName);
+							}
+						}
+					}
+				}
+				else
+				{
+					for (int32 BitmaskFlagIndex = 0; BitmaskFlagIndex < BitmaskBitCount; ++BitmaskFlagIndex)
+					{
+						Result.Emplace();
+						FBitmaskFlagInfo* BitmaskFlag = &Result.Last();
+
+						BitmaskFlag->Value = TBitmaskValueHelpers<NumericType>::LeftShift(static_cast<NumericType>(1), BitmaskFlagIndex);
+						BitmaskFlag->DisplayName = FText::Format(LOCTEXT("BitmaskDefaultFlagDisplayName", "Flag {0}"), FText::AsNumber(BitmaskFlagIndex + 1));
+						BitmaskFlag->ToolTipText = FText::Format(LOCTEXT("BitmaskDefaultFlagToolTipText", "Toggle {0} on/off"), BitmaskFlag->DisplayName);
+					}
+				}
+
+				return Result;
+			};
+
+			const FComboBoxStyle& ComboBoxStyle = FCoreStyle::Get().GetWidgetStyle< FComboBoxStyle >("ComboBox");
+
+			const auto& GetComboButtonText = [this, CreateBitmaskFlagsArray, Property]() -> FText
+			{
+				TOptional<NumericType> Value = OnGetValue();
+				if (Value.IsSet())
+				{
+					NumericType BitmaskValue = Value.GetValue();
+					if (BitmaskValue != 0)
+					{
+						if (TBitmaskValueHelpers<NumericType>::BitwiseAND(BitmaskValue, BitmaskValue - static_cast<NumericType>(1)))
+						{
+							return LOCTEXT("BitmaskButtonContentMultipleBitsSet", "(Mixed Flags)");
+						}
+						else
+						{
+							TArray<FBitmaskFlagInfo> BitmaskFlags = CreateBitmaskFlagsArray(Property);
+							for (int i = 0; i < BitmaskFlags.Num(); ++i)
+							{
+								if (TBitmaskValueHelpers<NumericType>::BitwiseAND(BitmaskValue, BitmaskFlags[i].Value))
+								{
+									return BitmaskFlags[i].DisplayName;
+								}
+							}
+						}
+					}
+
+					return LOCTEXT("BitmaskButtonContentNoFlagsSet", "(No Flags Set)");
+				}
+				else
+				{
+					return LOCTEXT("MultipleValues", "Multiple Values");
+				}
+			};
+
+			// Constructs the UI for bitmask property editing.
+			SAssignNew(PrimaryWidget, SComboButton)
+			.ComboButtonStyle(&ComboBoxStyle.ComboButtonStyle)
+			.ContentPadding(FMargin(4.0, 2.0))
+			.ButtonContent()
+			[
+				SNew(STextBlock)
+				.Font(InArgs._Font)
+				.Text_Lambda(GetComboButtonText)
+			]
+			.OnGetMenuContent_Lambda([this, CreateBitmaskFlagsArray, Property]()
+			{
+				FMenuBuilder MenuBuilder(false, nullptr);
+
+				TArray<FBitmaskFlagInfo> BitmaskFlags = CreateBitmaskFlagsArray(Property);
+				for (int i = 0; i < BitmaskFlags.Num(); ++i)
+				{
+					MenuBuilder.AddMenuEntry(
+						BitmaskFlags[i].DisplayName,
+						BitmaskFlags[i].ToolTipText,
+						FSlateIcon(),
+						FUIAction
+						(
+							FExecuteAction::CreateLambda([this, i, BitmaskFlags]()
+							{
+								TOptional<NumericType> Value = OnGetValue();
+								if (Value.IsSet())
+								{
+									OnValueCommitted(TBitmaskValueHelpers<NumericType>::BitwiseXOR(Value.GetValue(), BitmaskFlags[i].Value), ETextCommit::Default);
+								}
+							}),
+							FCanExecuteAction(),
+							FIsActionChecked::CreateLambda([this, i, BitmaskFlags]() -> bool
+							{
+								TOptional<NumericType> Value = OnGetValue();
+								if (Value.IsSet())
+								{
+									return TBitmaskValueHelpers<NumericType>::BitwiseAND(Value.GetValue(), BitmaskFlags[i].Value) != static_cast<NumericType>(0);
+								}
+
+								return false;
+							})
+						),
+						NAME_None,
+						EUserInterfaceActionType::Check);
+				}
+
+				return MenuBuilder.MakeWidget();
+			});
+
+			ChildSlot.AttachWidget(PrimaryWidget.ToSharedRef());
 		}
-
-		if (!ClampMaxString.IsEmpty())
-		{
-			TTypeFromString<NumericType>::FromString(ClampMax, *ClampMaxString);
-		}
-
-		NumericType UIMin = TNumericLimits<NumericType>::Lowest();
-		NumericType UIMax = TNumericLimits<NumericType>::Max();
-		TTypeFromString<NumericType>::FromString(UIMin, *UIMinString);
-		TTypeFromString<NumericType>::FromString(UIMax, *UIMaxString);
-
-		NumericType SliderExponent = NumericType(1);
-		if (SliderExponentString.Len())
-		{
-			TTypeFromString<NumericType>::FromString(SliderExponent, *SliderExponentString);
-		}
-
-		NumericType Delta = NumericType(0);
-		if (DeltaString.Len())
-		{
-			TTypeFromString<NumericType>::FromString(Delta, *DeltaString);
-		}
-
-		if (ClampMin >= ClampMax && (ClampMinString.Len() || ClampMaxString.Len()))
-		{
-			UE_LOG(LogPropertyNode, Warning, TEXT("Clamp Min (%s) >= Clamp Max (%s) for Ranged Numeric property %s"), *ClampMinString, *ClampMaxString, *Property->GetPathName());
-		}
-
-		const NumericType ActualUIMin = FMath::Max(UIMin, ClampMin);
-		const NumericType ActualUIMax = FMath::Min(UIMax, ClampMax);
-
-		TOptional<NumericType> MinValue = ClampMinString.Len() ? ClampMin : TOptional<NumericType>();
-		TOptional<NumericType> MaxValue = ClampMaxString.Len() ? ClampMax : TOptional<NumericType>();
-		TOptional<NumericType> SliderMinValue = (UIMinString.Len()) ? ActualUIMin : TOptional<NumericType>();
-		TOptional<NumericType> SliderMaxValue = (UIMaxString.Len()) ? ActualUIMax : TOptional<NumericType>();
-
-		if ((ActualUIMin >= ActualUIMax) && (SliderMinValue.IsSet() && SliderMaxValue.IsSet()))
-		{
-			UE_LOG(LogPropertyNode, Warning, TEXT("UI Min (%s) >= UI Max (%s) for Ranged Numeric property %s"), *UIMinString, *UIMaxString, *Property->GetPathName());
-		}
-
-		FObjectPropertyNode* ObjectPropertyNode = PropertyNode->FindObjectItemParent();
-		const bool bAllowSpin = (!ObjectPropertyNode || (1 == ObjectPropertyNode->GetNumObjects()))
-			&& !PropertyNode->GetProperty()->GetBoolMetaData("NoSpinbox");
-
-		// Set up the correct type interface if we want to display units on the property editor
-
-		// First off, check for ForceUnits= meta data. This meta tag tells us to interpret, and always display the value in these units. FUnitConversion::Settings().ShouldDisplayUnits does not apply to suce properties
-		const FString& ForcedUnits = InPropertyEditor->GetProperty()->GetMetaData(TEXT("ForceUnits"));
-		auto PropertyUnits = FUnitConversion::UnitFromString(*ForcedUnits);
-		if (PropertyUnits.IsSet())
-		{
-			// Create the type interface and set up the default input units if they are compatible
-			TypeInterface = MakeShareable(new TNumericUnitTypeInterface<NumericType>(PropertyUnits.GetValue()));
-			TypeInterface->FixedDisplayUnits = PropertyUnits.GetValue();
-		}
-		// If that's not set, we fall back to Units=xxx which calculates the most appropriate unit to display in
 		else
 		{
-			if (FUnitConversion::Settings().ShouldDisplayUnits())
+			// Instance metadata overrides per-class metadata.
+			auto GetMetaDataFromKey = [&PropertyNode, &Property](const FName& Key) -> const FString&
 			{
-				const FString& DynamicUnits = InPropertyEditor->GetProperty()->GetMetaData(TEXT("Units"));
-				PropertyUnits = FUnitConversion::UnitFromString(*DynamicUnits);
+				const FString* InstanceValue = PropertyNode->GetInstanceMetaData(Key);
+				return (InstanceValue != nullptr) ? *InstanceValue : Property->GetMetaData(Key);
+			};
+
+			const FString& MetaUIMinString = GetMetaDataFromKey("UIMin");
+			const FString& MetaUIMaxString = GetMetaDataFromKey("UIMax");
+			const FString& SliderExponentString = GetMetaDataFromKey("SliderExponent");
+			const FString& DeltaString = GetMetaDataFromKey("Delta");
+			const FString& ClampMinString = GetMetaDataFromKey("ClampMin");
+			const FString& ClampMaxString = GetMetaDataFromKey("ClampMax");
+
+			// If no UIMin/Max was specified then use the clamp string
+			const FString& UIMinString = MetaUIMinString.Len() ? MetaUIMinString : ClampMinString;
+			const FString& UIMaxString = MetaUIMaxString.Len() ? MetaUIMaxString : ClampMaxString;
+
+			NumericType ClampMin = TNumericLimits<NumericType>::Lowest();
+			NumericType ClampMax = TNumericLimits<NumericType>::Max();
+
+			if (!ClampMinString.IsEmpty())
+			{
+				TTypeFromString<NumericType>::FromString(ClampMin, *ClampMinString);
 			}
 
-			if (!PropertyUnits.IsSet())
+			if (!ClampMaxString.IsEmpty())
 			{
-				PropertyUnits = EUnit::Unspecified;
+				TTypeFromString<NumericType>::FromString(ClampMax, *ClampMaxString);
 			}
 
-			// Create the type interface and set up the default input units if they are compatible
-			TypeInterface = MakeShareable(new TNumericUnitTypeInterface<NumericType>(PropertyUnits.GetValue()));
-			auto Value = OnGetValue();
+			NumericType UIMin = TNumericLimits<NumericType>::Lowest();
+			NumericType UIMax = TNumericLimits<NumericType>::Max();
+			TTypeFromString<NumericType>::FromString(UIMin, *UIMinString);
+			TTypeFromString<NumericType>::FromString(UIMax, *UIMaxString);
 
-			if (Value.IsSet())
+			NumericType SliderExponent = NumericType(1);
+			if (SliderExponentString.Len())
 			{
-				TypeInterface->SetupFixedDisplay(Value.GetValue());
+				TTypeFromString<NumericType>::FromString(SliderExponent, *SliderExponentString);
 			}
-		}
 
-		ChildSlot
+			NumericType Delta = NumericType(0);
+			if (DeltaString.Len())
+			{
+				TTypeFromString<NumericType>::FromString(Delta, *DeltaString);
+			}
+
+			if (ClampMin >= ClampMax && (ClampMinString.Len() || ClampMaxString.Len()))
+			{
+				UE_LOG(LogPropertyNode, Warning, TEXT("Clamp Min (%s) >= Clamp Max (%s) for Ranged Numeric property %s"), *ClampMinString, *ClampMaxString, *Property->GetPathName());
+			}
+
+			const NumericType ActualUIMin = FMath::Max(UIMin, ClampMin);
+			const NumericType ActualUIMax = FMath::Min(UIMax, ClampMax);
+
+			TOptional<NumericType> MinValue = ClampMinString.Len() ? ClampMin : TOptional<NumericType>();
+			TOptional<NumericType> MaxValue = ClampMaxString.Len() ? ClampMax : TOptional<NumericType>();
+			TOptional<NumericType> SliderMinValue = (UIMinString.Len()) ? ActualUIMin : TOptional<NumericType>();
+			TOptional<NumericType> SliderMaxValue = (UIMaxString.Len()) ? ActualUIMax : TOptional<NumericType>();
+
+			if ((ActualUIMin >= ActualUIMax) && (SliderMinValue.IsSet() && SliderMaxValue.IsSet()))
+			{
+				UE_LOG(LogPropertyNode, Warning, TEXT("UI Min (%s) >= UI Max (%s) for Ranged Numeric property %s"), *UIMinString, *UIMaxString, *Property->GetPathName());
+			}
+
+			FObjectPropertyNode* ObjectPropertyNode = PropertyNode->FindObjectItemParent();
+			const bool bAllowSpin = (!ObjectPropertyNode || (1 == ObjectPropertyNode->GetNumObjects()))
+				&& !PropertyNode->GetProperty()->GetBoolMetaData("NoSpinbox");
+
+			// Set up the correct type interface if we want to display units on the property editor
+
+			// First off, check for ForceUnits= meta data. This meta tag tells us to interpret, and always display the value in these units. FUnitConversion::Settings().ShouldDisplayUnits does not apply to suce properties
+			const FString& ForcedUnits = InPropertyEditor->GetProperty()->GetMetaData(TEXT("ForceUnits"));
+			auto PropertyUnits = FUnitConversion::UnitFromString(*ForcedUnits);
+			if (PropertyUnits.IsSet())
+			{
+				// Create the type interface and set up the default input units if they are compatible
+				TypeInterface = MakeShareable(new TNumericUnitTypeInterface<NumericType>(PropertyUnits.GetValue()));
+				TypeInterface->FixedDisplayUnits = PropertyUnits.GetValue();
+			}
+			// If that's not set, we fall back to Units=xxx which calculates the most appropriate unit to display in
+			else
+			{
+				if (FUnitConversion::Settings().ShouldDisplayUnits())
+				{
+					const FString& DynamicUnits = InPropertyEditor->GetProperty()->GetMetaData(TEXT("Units"));
+					PropertyUnits = FUnitConversion::UnitFromString(*DynamicUnits);
+				}
+
+				if (!PropertyUnits.IsSet())
+				{
+					PropertyUnits = EUnit::Unspecified;
+				}
+
+				// Create the type interface and set up the default input units if they are compatible
+				TypeInterface = MakeShareable(new TNumericUnitTypeInterface<NumericType>(PropertyUnits.GetValue()));
+				auto Value = OnGetValue();
+
+				if (Value.IsSet())
+				{
+					TypeInterface->SetupFixedDisplay(Value.GetValue());
+				}
+			}
+
+			ChildSlot
 			[
 				SAssignNew(PrimaryWidget, SNumericEntryBox<NumericType>)
 				// Only allow spinning if we have a single value
@@ -155,6 +303,7 @@ public:
 				.OnEndSliderMovement(this, &SPropertyEditorNumeric<NumericType>::OnEndSliderMovement)
 				.TypeInterface(TypeInterface)
 			];
+		}
 
 		SetEnabled(TAttribute<bool>(this, &SPropertyEditorNumeric<NumericType>::CanEdit));
 	}
@@ -173,9 +322,10 @@ public:
 	void GetDesiredWidth( float& OutMinDesiredWidth, float& OutMaxDesiredWidth )
 	{
 		const UProperty* Property = PropertyEditor->GetProperty();
+		const bool bIsBitmask = (!Property->IsA(UFloatProperty::StaticClass()) && Property->HasMetaData(PropertyEditorConstants::MD_Bitmask));
 		const bool bIsNonEnumByte = (Property->IsA(UByteProperty::StaticClass()) && Cast<const UByteProperty>(Property)->Enum == NULL);
 
-		if( bIsNonEnumByte )
+		if( bIsNonEnumByte && !bIsBitmask )
 		{
 			OutMinDesiredWidth = 75.0f;
 			OutMaxDesiredWidth = 75.0f;
@@ -183,7 +333,7 @@ public:
 		else
 		{
 			OutMinDesiredWidth = 125.0f;
-			OutMaxDesiredWidth = 125.0f;
+			OutMaxDesiredWidth = bIsBitmask ? 400.0f : 125.0f;
 		}
 	}
 
@@ -367,6 +517,32 @@ private:
 	{
 		return PropertyEditor.IsValid() ? !PropertyEditor->IsEditConst() : true;
 	}
+
+	/** Flag data for bitmasks. */
+	struct FBitmaskFlagInfo
+	{
+		NumericType Value;
+		FText DisplayName;
+		FText ToolTipText;
+	};
+
+	/** Integral bitmask value helper methods. */
+	template<typename T, typename U = void>
+	struct TBitmaskValueHelpers
+	{
+		static T BitwiseAND(T Base, T Mask) { return Base & Mask; }
+		static T BitwiseXOR(T Base, T Mask) { return Base ^ Mask; }
+		static T LeftShift(T Base, int32 Shift) { return Base << Shift; }
+	};
+
+	/** Explicit specialization for numeric 'float' types (these will not be used). */
+	template<typename U>
+	struct TBitmaskValueHelpers<float, U>
+	{
+		static float BitwiseAND(float Base, float Mask) { return 0.0f; }
+		static float BitwiseXOR(float Base, float Mask) { return 0.0f; }
+		static float LeftShift(float Base, int32 Shift) { return 0.0f; }
+	};
 
 private:
 

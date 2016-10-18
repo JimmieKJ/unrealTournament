@@ -39,7 +39,7 @@ void UEnvQueryGenerator_PathingGrid::ProjectAndFilterNavPoints(TArray<FNavLocati
 	float RangeMultiplierValue = ScanRangeMultiplier.GetValue();
 
 	ARecastNavMesh* NavMeshData = const_cast<ARecastNavMesh*>(static_cast<const ARecastNavMesh*>(FEQSHelpers::FindNavigationDataForQuery(QueryInstance)));
-	if (!NavMeshData)
+	if (NavMeshData == nullptr || DataOwner == nullptr)
 	{
 		return;
 	}
@@ -47,10 +47,10 @@ void UEnvQueryGenerator_PathingGrid::ProjectAndFilterNavPoints(TArray<FNavLocati
 	TArray<FVector> ContextLocations;
 	QueryInstance.PrepareContext(GenerateAround, ContextLocations);
 
-	FSharedNavQueryFilter NavigationFilterOb = (NavigationFilter != nullptr)
-		? UNavigationQueryFilter::GetQueryFilter(*NavMeshData, NavigationFilter)->GetCopy()
-		: NavMeshData->GetDefaultQueryFilter()->GetCopy();
-	NavigationFilterOb->SetBacktrackingEnabled(!bPathToItem);
+	FSharedNavQueryFilter NavigationFilterCopy = NavigationFilter ?
+		UNavigationQueryFilter::GetQueryFilter(*NavMeshData, DataOwner, NavigationFilter)->GetCopy() :
+		NavMeshData->GetDefaultQueryFilter()->GetCopy();
+	NavigationFilterCopy->SetBacktrackingEnabled(!bPathToItem);
 	
 	{
 		TArray<NavNodeRef> Polys;
@@ -73,7 +73,7 @@ void UEnvQueryGenerator_PathingGrid::ProjectAndFilterNavPoints(TArray<FNavLocati
 			FRecastDebugPathfindingData NodePoolData;
 			NodePoolData.Flags = ERecastDebugPathfindingFlags::Basic;
 
-			NavMeshData->GetPolysWithinPathingDistance(ContextLocations[ContextIdx], MaxPathDistance, Polys, NavigationFilterOb, nullptr, &NodePoolData);
+			NavMeshData->GetPolysWithinPathingDistance(ContextLocations[ContextIdx], MaxPathDistance, Polys, NavigationFilterCopy, nullptr, &NodePoolData);
 
 			for (int32 Idx = Points.Num() - 1; Idx >= 0; Idx--)
 			{
@@ -84,7 +84,7 @@ void UEnvQueryGenerator_PathingGrid::ProjectAndFilterNavPoints(TArray<FNavLocati
 					HitLocations.Reset();
 					FVector TestPt(Points[Idx].Location.X, Points[Idx].Location.Y, ContextLocations[ContextIdx].Z);
 
-					NavMeshData->ProjectPointMulti(TestPt, HitLocations, ProjectionExtent, TestPt.Z - ProjectionData.ProjectDown, TestPt.Z + ProjectionData.ProjectUp, NavigationFilterOb, nullptr);
+					NavMeshData->ProjectPointMulti(TestPt, HitLocations, ProjectionExtent, TestPt.Z - ProjectionData.ProjectDown, TestPt.Z + ProjectionData.ProjectUp, NavigationFilterCopy, nullptr);
 					for (int32 HitIdx = 0; HitIdx < HitLocations.Num(); HitIdx++)
 					{
 						const bool bHasPathTest = PathGridHelpers::HasPath(NodePoolData, HitLocations[HitIdx].NodeRef);

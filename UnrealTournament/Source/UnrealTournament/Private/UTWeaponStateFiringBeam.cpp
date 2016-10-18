@@ -4,6 +4,7 @@
 #include "UTWeaponState.h"
 #include "UTWeaponStateFiring.h"
 #include "UTWeaponStateFiringBeam.h"
+#include "Animation/AnimInstance.h"
 
 UUTWeaponStateFiringBeam::UUTWeaponStateFiringBeam(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)

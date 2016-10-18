@@ -127,10 +127,10 @@ public class HTML5Platform : Platform
 		var bGotHeapSize = ConfigCache.GetInt32("/Script/HTML5PlatformEditor.HTML5TargetSettings", "HeapSize" + Params.ClientConfigsToBuild[0].ToString(), out ConfigHeapSize);
 
 		// Fallback if the previous method failed
-		if (!bGotHeapSize && !ConfigCache.GetInt32("BuildSettings", "HeapSize" + Params.ClientConfigsToBuild[0].ToString(), out ConfigHeapSize)) // in Megs.
+		if (!bGotHeapSize && !ConfigCache.GetInt32("/Script/BuildSettings.BuildSettings", "HeapSize" + Params.ClientConfigsToBuild[0].ToString(), out ConfigHeapSize)) // in Megs.
 		{
 			// we couldn't find a per config heap size, look for a common one.
-			if (!ConfigCache.GetInt32("BuildSettings", "HeapSize", out ConfigHeapSize))
+			if (!ConfigCache.GetInt32("/Script/BuildSettings.BuildSettings", "HeapSize", out ConfigHeapSize))
 			{
 				ConfigHeapSize = Params.IsCodeBasedProject ? 1024 : 512;
 				Log("Could not find Heap Size setting in .ini for Client config {0}", Params.ClientConfigsToBuild[0].ToString());
@@ -423,7 +423,7 @@ public class HTML5Platform : Platform
 	public override ProcessResult RunClient(ERunOptions ClientRunFlags, string ClientApp, string ClientCmdLine, ProjectParams Params)
 	{
 		// look for browser
-		string BrowserPath = Params.Device.Replace("HTML5@", "");
+		string BrowserPath = Params.Devices[0].Replace("HTML5@", "");
 
 		// open the webpage
 		Int32 ServerPort = 8000;
@@ -464,11 +464,11 @@ public class HTML5Platform : Platform
 
 		if (LowerBrowserPath.Contains("chrome"))
 		{
-			BrowserCommandline  += "  " + String.Format("--user-data-dir=\"{0}\" --enable-logging --no-first-run", Path.Combine(ProfileDirectory, "chrome"));
+			BrowserCommandline  += "  " + String.Format("--user-data-dir=\\\"{0}\\\" --enable-logging --no-first-run", Path.Combine(ProfileDirectory, "chrome"));
 		}
 		else if (LowerBrowserPath.Contains("firefox"))
 		{
-			BrowserCommandline += "  " +  String.Format("-no-remote -profile \"{0}\"", Path.Combine(ProfileDirectory, "firefox"));
+			BrowserCommandline += "  " +  String.Format("-no-remote -profile \\\"{0}\\\"", Path.Combine(ProfileDirectory, "firefox"));
 		}
 
 		string LauncherArguments = string.Format(" -Browser=\"{0}\" + -BrowserCommandLine=\"{1}\" -ServerPort=\"{2}\" -ServerRoot=\"{3}\" ", new object[] { BrowserPath, BrowserCommandline, ServerPort, WorkingDirectory });
@@ -479,7 +479,7 @@ public class HTML5Platform : Platform
 		return BrowserProcess;
 	}
 
-	public override string GetCookPlatform(bool bDedicatedServer, bool bIsClientOnly, string CookFlavor)
+	public override string GetCookPlatform(bool bDedicatedServer, bool bIsClientOnly)
 	{
 		return "HTML5";
 	}

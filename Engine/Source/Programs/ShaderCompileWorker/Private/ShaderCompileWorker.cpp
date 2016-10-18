@@ -14,7 +14,7 @@
 #define DEBUG_USING_CONSOLE	0
 
 // this is for the protocol, not the data, bump if FShaderCompilerInput or ProcessInputFromArchive changes (also search for the second one with the same name, todo: put into one header file)
-const int32 ShaderCompileWorkerInputVersion = 6;
+const int32 ShaderCompileWorkerInputVersion = 7;
 // this is for the protocol, not the data, bump if FShaderCompilerOutput or WriteToOutputArchive changes (also search for the second one with the same name, todo: put into one header file)
 const int32 ShaderCompileWorkerOutputVersion = 3;
 // this is for the protocol, not the data, bump if FShaderCompilerOutput or WriteToOutputArchive changes (also search for the second one with the same name, todo: put into one header file)
@@ -548,13 +548,14 @@ static FName NAME_SF_METAL(TEXT("SF_METAL"));
 static FName NAME_SF_METAL_MRT(TEXT("SF_METAL_MRT"));
 static FName NAME_GLSL_310_ES_EXT(TEXT("GLSL_310_ES_EXT"));
 static FName NAME_SF_METAL_SM5(TEXT("SF_METAL_SM5"));
-static FName NAME_VULKAN_ES3_1_ANDROID(TEXT("SF_VKES31_ANDROID"));
-static FName NAME_VULKAN_ES3_1(TEXT("SF_VKES31"));
-static FName NAME_VULKAN_ES3_1_UB(TEXT("SF_VKES31_UB"));
+static FName NAME_VULKAN_ES3_1_ANDROID(TEXT("SF_VULKAN_ES31_ANDROID"));
+static FName NAME_VULKAN_ES3_1(TEXT("SF_VULKAN_ES31"));
+static FName NAME_VULKAN_ES3_1_UB(TEXT("SF_VULKAN_ES31_UB"));
 static FName NAME_VULKAN_SM4(TEXT("SF_VULKAN_SM4"));
 static FName NAME_VULKAN_SM5(TEXT("SF_VULKAN_SM5"));
 static FName NAME_SF_METAL_SM4(TEXT("SF_METAL_SM4"));
 static FName NAME_SF_METAL_MACES3_1(TEXT("SF_METAL_MACES3_1"));
+static FName NAME_GLSL_ES3_1_ANDROID(TEXT("GLSL_ES3_1_ANDROID"));
 
 static EShaderPlatform FormatNameToEnum(FName ShaderFormat)
 {
@@ -580,10 +581,11 @@ static EShaderPlatform FormatNameToEnum(FName ShaderFormat)
 	if (ShaderFormat == NAME_VULKAN_SM4)			return SP_VULKAN_SM4;
 	if (ShaderFormat == NAME_VULKAN_SM5)			return SP_VULKAN_SM5;
 	if (ShaderFormat == NAME_VULKAN_ES3_1_ANDROID)	return SP_VULKAN_ES3_1_ANDROID;
-	if (ShaderFormat == NAME_VULKAN_ES3_1)			return SP_VULKAN_ES3_1_ANDROID;
-	if (ShaderFormat == NAME_VULKAN_ES3_1_UB)		return SP_VULKAN_ES3_1_ANDROID;
+	if (ShaderFormat == NAME_VULKAN_ES3_1)			return SP_VULKAN_PCES3_1;
+	if (ShaderFormat == NAME_VULKAN_ES3_1_UB)		return SP_VULKAN_PCES3_1;
 	if (ShaderFormat == NAME_SF_METAL_SM4)		return SP_METAL_SM4;
 	if (ShaderFormat == NAME_SF_METAL_MACES3_1)	return SP_METAL_MACES3_1;
+	if (ShaderFormat == NAME_GLSL_ES3_1_ANDROID) return SP_OPENGL_ES3_1_ANDROID;
 	return SP_NumPlatforms;
 }
 
@@ -594,56 +596,77 @@ static void CompileDirect(const TArray<const class IShaderFormat*>& ShaderFormat
 	FCommandLine::Parse(FCommandLine::Get(), Tokens, Switches);
 
 	FString InputFile;
-	if (Tokens.Num() < 1)
-	{
-		return;
-	}
-
-	for (int32 Index = 0; Index < Tokens.Num(); ++Index)
-	{
-		if (!Switches.Contains(Tokens[Index]))
-		{
-			InputFile = Tokens[Index];
-			break;
-		}
-	}
 
 	FName FormatName;
 	FString Entry = TEXT("Main");
+	bool bPipeline = false;
 	EShaderFrequency Frequency = SF_Pixel;
-	for (const FString& Switch : Switches)
+	TArray<FString> UsedOutputs;
+	bool bIncludeUsedOutputs = false;
+	uint64 CFlags = 0;
+	for (const FString& Token : Tokens)
 	{
-		if (Switch.StartsWith(TEXT("format=")))
+		if (Switches.Contains(Token))
 		{
-			FormatName = FName(*Switch.RightChop(7));
+			if (Token.StartsWith(TEXT("format=")))
+			{
+				FormatName = FName(*Token.RightChop(7));
+			}
+			else if (Token.StartsWith(TEXT("entry=")))
+			{
+				Entry = Token.RightChop(6);
+			}
+			else if (Token.StartsWith(TEXT("cflags=")))
+			{
+				CFlags = FCString::Atoi64(*Token.RightChop(7));
+			}
+			else if (!FCString::Strcmp(*Token, TEXT("ps")))
+			{
+				Frequency = SF_Pixel;
+			}
+			else if (!FCString::Strcmp(*Token, TEXT("vs")))
+			{
+				Frequency = SF_Vertex;
+			}
+			else if (!FCString::Strcmp(*Token, TEXT("hs")))
+			{
+				Frequency = SF_Hull;
+			}
+			else if (!FCString::Strcmp(*Token, TEXT("ds")))
+			{
+				Frequency = SF_Domain;
+			}
+			else if (!FCString::Strcmp(*Token, TEXT("gs")))
+			{
+				Frequency = SF_Geometry;
+			}
+			else if (!FCString::Strcmp(*Token, TEXT("cs")))
+			{
+				Frequency = SF_Compute;
+			}
+			else if (!FCString::Strcmp(*Token, TEXT("pipeline")))
+			{
+				bPipeline = true;
+			}
+			else if (Token.StartsWith(TEXT("usedoutputs=")))
+			{
+				FString Outputs = Token.RightChop(12);
+				bIncludeUsedOutputs = true;
+				FString LHS, RHS;
+				while (Outputs.Split(TEXT("+"), &LHS, &RHS))
+				{
+					Outputs = RHS;
+					UsedOutputs.Add(LHS);
+				}
+				UsedOutputs.Add(Outputs);
+			}
 		}
-		else if (Switch.StartsWith(TEXT("entry=")))
+		else
 		{
-			Entry = Switch.RightChop(6);
-		}
-		else if (!FCString::Strcmp(*Switch, TEXT("ps")))
-		{
-			Frequency = SF_Pixel;
-		}
-		else if (!FCString::Strcmp(*Switch, TEXT("vs")))
-		{
-			Frequency = SF_Vertex;
-		}
-		else if (!FCString::Strcmp(*Switch, TEXT("hs")))
-		{
-			Frequency = SF_Hull;
-		}
-		else if (!FCString::Strcmp(*Switch, TEXT("ds")))
-		{
-			Frequency = SF_Domain;
-		}
-		else if (!FCString::Strcmp(*Switch, TEXT("gs")))
-		{
-			Frequency = SF_Geometry;
-		}
-		else if (!FCString::Strcmp(*Switch, TEXT("cs")))
-		{
-			Frequency = SF_Compute;
+			if (InputFile.Len() == 0)
+			{
+				InputFile = Token;
+			}
 		}
 	}
 
@@ -656,6 +679,21 @@ static void CompileDirect(const TArray<const class IShaderFormat*>& ShaderFormat
 	Input.Target.Platform =  FormatNameToEnum(FormatName);
 	Input.Target.Frequency = Frequency;
 	Input.bSkipPreprocessedCache = true;
+
+	uint32 CFlag = 0;
+	while (CFlags != 0)
+	{
+		if ((CFlags & 1) != 0)
+		{
+			Input.Environment.CompilerFlags.Add(CFlag);
+		}
+		CFlags = (CFlags >> (uint64)1);
+		++CFlag;
+	}
+
+	Input.bCompilingForShaderPipeline = bPipeline;
+	Input.bIncludeUsedOutputs = bIncludeUsedOutputs;
+	Input.UsedOutputs = UsedOutputs;
 
 	FShaderCompilerOutput Output;
 
@@ -672,6 +710,8 @@ static void CompileDirect(const TArray<const class IShaderFormat*>& ShaderFormat
 			}
 		}
 	}
+
+	UE_LOG(LogShaders, Warning, TEXT("Unable to find shader compiler backend for format %s!"), *FormatName.ToString());
 }
 
 

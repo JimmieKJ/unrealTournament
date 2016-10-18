@@ -56,27 +56,30 @@ TSharedPtr<class ISourceControlRevision, ESPMode::ThreadSafe> FGitSourceControlS
 	return nullptr;
 }
 
-// @todo add Slate icons for git specific states (Added vs Modified, Copied vs Conflicted...)
+// @todo add Slate icons for git specific states (NotAtHead vs Conflicted...)
 FName FGitSourceControlState::GetIconName() const
 {
-	switch(WorkingCopyState) //-V719
+	switch(WorkingCopyState)
 	{
 	case EWorkingCopyState::Modified:
 		return FName("Subversion.CheckedOut");
 	case EWorkingCopyState::Added:
+		return FName("Subversion.OpenForAdd");
 	case EWorkingCopyState::Renamed:
 	case EWorkingCopyState::Copied:
-		return FName("Subversion.OpenForAdd");
+		return FName("Subversion.Branched");
 	case EWorkingCopyState::Deleted:
 		return FName("Subversion.MarkedForDelete");
 	case EWorkingCopyState::Conflicted:
 		return FName("Subversion.NotAtHeadRevision");
 	case EWorkingCopyState::NotControlled:
 		return FName("Subversion.NotInDepot");
-	case EWorkingCopyState::Missing: // @todo Missing files does not currently show in Editor (but should probably)
-		UE_LOG(LogSourceControl, Log, TEXT("EWorkingCopyState::Missing"));
-//	case EWorkingCopyState::Unchanged:
-		// Unchanged is the same as "Pristine" (not checked out) for Perforce, ie no icon
+	case EWorkingCopyState::Missing: // Missing files does not currently show in Editor (but should probably)
+	case EWorkingCopyState::Unknown:
+	case EWorkingCopyState::Unchanged: // Unchanged is the same as "Pristine" (not checked out) for Perforce, ie no icon
+	case EWorkingCopyState::Ignored:
+	default:
+		return NAME_None;
 	}
 
 	return NAME_None;
@@ -84,24 +87,27 @@ FName FGitSourceControlState::GetIconName() const
 
 FName FGitSourceControlState::GetSmallIconName() const
 {
-	switch(WorkingCopyState) //-V719
+	switch(WorkingCopyState)
 	{
-	case EWorkingCopyState::Unchanged:
+	case EWorkingCopyState::Modified:
 		return FName("Subversion.CheckedOut_Small");
 	case EWorkingCopyState::Added:
+		return FName("Subversion.OpenForAdd_Small");
 	case EWorkingCopyState::Renamed:
 	case EWorkingCopyState::Copied:
-		return FName("Subversion.OpenForAdd_Small");
+		return FName("Subversion.Branched_Small");
 	case EWorkingCopyState::Deleted:
 		return FName("Subversion.MarkedForDelete_Small");
 	case EWorkingCopyState::Conflicted:
 		return FName("Subversion.NotAtHeadRevision_Small");
 	case EWorkingCopyState::NotControlled:
 		return FName("Subversion.NotInDepot_Small");
-	case EWorkingCopyState::Missing: // @todo Missing files does not currently show in Editor (but should probably)
-		UE_LOG(LogSourceControl, Log, TEXT("EWorkingCopyState::Missing"));
-//	case EWorkingCopyState::Unchanged:
-		// Unchanged is the same as "Pristine" (not checked out) for Perforce, ie no icon
+	case EWorkingCopyState::Missing: // Missing files does not currently show in Editor (but should probably)
+	case EWorkingCopyState::Unknown:
+	case EWorkingCopyState::Unchanged: // Unchanged is the same as "Pristine" (not checked out) for Perforce, ie no icon
+	case EWorkingCopyState::Ignored:
+	default:
+		return NAME_None;
 	}
 
 	return NAME_None;
@@ -129,8 +135,6 @@ FText FGitSourceControlState::GetDisplayName() const
 		return LOCTEXT("ContentsConflict", "Contents Conflict");
 	case EWorkingCopyState::Ignored:
 		return LOCTEXT("Ignored", "Ignored");
-	case EWorkingCopyState::Merged:
-		return LOCTEXT("Merged", "Merged");
 	case EWorkingCopyState::NotControlled:
 		return LOCTEXT("NotControlled", "Not Under Source Control");
 	case EWorkingCopyState::Missing:
@@ -142,7 +146,7 @@ FText FGitSourceControlState::GetDisplayName() const
 
 FText FGitSourceControlState::GetDisplayTooltip() const
 {
-	switch(WorkingCopyState) //-V719
+	switch(WorkingCopyState)
 	{
 	case EWorkingCopyState::Unknown:
 		return LOCTEXT("Unknown_Tooltip", "Unknown source control state");
@@ -154,12 +158,14 @@ FText FGitSourceControlState::GetDisplayTooltip() const
 		return LOCTEXT("Deleted_Tooltip", "Item is scheduled for deletion");
 	case EWorkingCopyState::Modified:
 		return LOCTEXT("Modified_Tooltip", "Item has been modified");
+	case EWorkingCopyState::Renamed:
+		return LOCTEXT("Renamed_Tooltip", "Item has been renamed");
+	case EWorkingCopyState::Copied:
+		return LOCTEXT("Copied_Tooltip", "Item has been copied");
 	case EWorkingCopyState::Conflicted:
-		return LOCTEXT("ContentsConflict_Tooltip", "The contents (as opposed to the properties) of the item conflict with updates received from the repository.");
+		return LOCTEXT("ContentsConflict_Tooltip", "The contents of the item conflict with updates received from the repository.");
 	case EWorkingCopyState::Ignored:
 		return LOCTEXT("Ignored_Tooltip", "Item is being ignored.");
-	case EWorkingCopyState::Merged:
-		return LOCTEXT("Merged_Tooltip", "Item has been merged.");
 	case EWorkingCopyState::NotControlled:
 		return LOCTEXT("NotControlled_Tooltip", "Item is not under version control.");
 	case EWorkingCopyState::Missing:
@@ -235,6 +241,11 @@ bool FGitSourceControlState::IsIgnored() const
 bool FGitSourceControlState::CanEdit() const
 {
 	return true; // With Git all files in the working copy are always editable (as opposed to Perforce)
+}
+
+bool FGitSourceControlState::CanDelete() const
+{
+	return IsSourceControlled() && IsCurrent();
 }
 
 bool FGitSourceControlState::IsUnknown() const

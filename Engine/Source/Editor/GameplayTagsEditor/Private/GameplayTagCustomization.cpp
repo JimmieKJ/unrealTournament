@@ -161,11 +161,14 @@ void FGameplayTagCustomization::BuildEditableContainerList()
 		TArray<void*> RawStructData;
 		StructPropertyHandle->AccessRawData(RawStructData);
 
-		FGameplayTag* Tag = (FGameplayTag*)(RawStructData[0]);
-		if (Tag->IsValid())
+		if (RawStructData.Num() > 0)
 		{
-			TagName = Tag->ToString();
-			TagContainer->AddTag(*Tag);
+			FGameplayTag* Tag = (FGameplayTag*)(RawStructData[0]);
+			if (Tag->IsValid())
+			{
+				TagName = Tag->ToString();
+				TagContainer->AddTag(*Tag);
+			}
 		}
 
 		EditableContainers.Add(SGameplayTagWidget::FEditableGameplayTagContainerDatum(nullptr, TagContainer.Get()));

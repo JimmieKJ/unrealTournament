@@ -78,7 +78,7 @@ protected:
 
 	virtual FString GetType() const = 0;
 
-	void ErrorMessage(const FString& InType) const {UE_LOG(LogJson, Error, TEXT("Json Value of type '%s' used as a '%s'."), *GetType(), *InType);}
+	void ErrorMessage(const FString& InType) const;
 };
 
 

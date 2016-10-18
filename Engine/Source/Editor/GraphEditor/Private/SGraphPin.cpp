@@ -392,27 +392,6 @@ FReply SGraphPin::OnPinMouseDown( const FGeometry& SenderGeometry, const FPointe
 				// Note that for some nodes, this can cause reconstruction. In that case, pins we had previously linked to may now be destroyed.
 				const UEdGraphSchema* Schema = GraphPinObj->GetSchema();
 				Schema->BreakPinLinks(*GraphPinObj, true);
-
-				// Check to see if the panel has been invalidated by a graph change notification
-				if (!OwnerPanelPtr->Contains(OwnerNodePinned->GetNodeObj()))
-				{
-					// Force the panel to update. This will cause node & pin widgets to be reinstanced to match any reconstructed node/pin object references.
-					OwnerPanelPtr->Update();
-
-					// Obtain the full set of pins again after the update
-					AllPins.Empty(AllPins.Num());
-					OwnerPanelPtr->GetAllPins(AllPins);
-
-					// Rebuild the UEdGraphPin->SGraphPin mapping for the full pin set
-					PinToPinWidgetMap.Empty(PinToPinWidgetMap.Num());
-					for( TSet< TSharedRef<SWidget> >::TIterator ConnectorIt(AllPins); ConnectorIt; ++ConnectorIt )
-					{
-						const TSharedRef<SWidget>& SomePinWidget = *ConnectorIt;
-						const SGraphPin& PinWidget = static_cast<const SGraphPin&>(SomePinWidget.Get());
-
-						PinToPinWidgetMap.Add(PinWidget.GetPinObj(), StaticCastSharedRef<SGraphPin>(SomePinWidget));
-					}
-				}
 				
 				// Now iterate over our lookup table to find the instances of pin widgets that we had previously linked to
 				TArray<TSharedRef<SGraphPin>> PinArray;
@@ -478,7 +457,7 @@ FReply SGraphPin::OnPinNameMouseDown( const FGeometry& SenderGeometry, const FPo
 {
 	const float LocalX = SenderGeometry.AbsoluteToLocal( MouseEvent.GetScreenSpacePosition() ).X;
 
-	if ((GetDirection() == EGPD_Input) || (LocalX > SenderGeometry.GetDrawSize().X * 0.5f))
+	if ((GetDirection() == EGPD_Input) || FMath::Abs( SenderGeometry.GetLocalSize().X - LocalX ) < 60.f )
 	{
 		// Right half of the output pin or all of the input pin, treat it like a connection attempt
 		return OnPinMouseDown(SenderGeometry, MouseEvent);
@@ -577,7 +556,7 @@ void SGraphPin::OnMouseLeave( const FPointerEvent& MouseEvent )
 {	
 	TSharedPtr<SGraphPanel> Panel = OwnerNodePtr.Pin()->GetOwnerPanel();
 
-	for (TWeakObjectPtr<UEdGraphPin> WeakPin : HoverPinSet)
+	for (const FEdGraphPinReference& WeakPin : HoverPinSet)
 	{
 		if (UEdGraphPin* PinInNet = WeakPin.Get())
 		{
@@ -601,7 +580,7 @@ void SGraphPin::OnDragEnter( const FGeometry& MyGeometry, const FDragDropEvent& 
 	if (Operation->IsOfType<FGraphEditorDragDropAction>())
 	{
 		// Ensure that the pin is valid before using it
-		if(GraphPinObj != NULL && GraphPinObj->GetOuter() != NULL && GraphPinObj->GetOuter()->IsA(UEdGraphNode::StaticClass()))
+		if(GraphPinObj != NULL && !GraphPinObj->IsPendingKill() && GraphPinObj->GetOuter() != NULL && GraphPinObj->GetOuter()->IsA(UEdGraphNode::StaticClass()))
 		{
 			// Inform the Drag and Drop operation that we are hovering over this pin.
 			TSharedPtr<FGraphEditorDragDropAction> DragConnectionOp = StaticCastSharedPtr<FGraphEditorDragDropAction>(Operation);
@@ -760,7 +739,7 @@ EVisibility SGraphPin::IsPinVisibleAsAdvanced() const
 		}
 	}
 
-	const bool bIsAdvancedPin = GraphPinObj && GraphPinObj->bAdvancedView;
+	const bool bIsAdvancedPin = GraphPinObj && !GraphPinObj->IsPendingKill() && GraphPinObj->bAdvancedView;
 	const bool bCanBeHidden = !IsConnected();
 	return (bIsAdvancedPin && bHideAdvancedPin && bCanBeHidden) ? EVisibility::Collapsed : EVisibility::Visible;
 }
@@ -989,7 +968,7 @@ FText SGraphPin::GetTooltipText() const
 {
 	FText HoverText = FText::GetEmpty();
 
-	UEdGraphNode* GraphNode = GraphPinObj ? GraphPinObj->GetOwningNodeUnchecked() : nullptr;
+	UEdGraphNode* GraphNode = GraphPinObj && !GraphPinObj->IsPendingKill() ? GraphPinObj->GetOwningNodeUnchecked() : nullptr;
 	if (GraphNode != nullptr)
 	{
 		FString HoverStr;

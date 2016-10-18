@@ -53,7 +53,7 @@ namespace AutomationTool
 		/// Creates a new process and adds it to the tracking list.
 		/// </summary>
 		/// <returns>New Process objects</returns>
-		public static ProcessResult CreateProcess(string AppName, bool bAllowSpew, string LogName, Dictionary<string, string> Env = null, UnrealBuildTool.LogEventType SpewVerbosity = UnrealBuildTool.LogEventType.Console)
+		public static ProcessResult CreateProcess(string AppName, bool bAllowSpew, string LogName, Dictionary<string, string> Env = null, UnrealBuildTool.LogEventType SpewVerbosity = UnrealBuildTool.LogEventType.Console, ProcessResult.SpewFilterCallbackType SpewFilterCallback = null)
 		{
 			var NewProcess = HostPlatform.Current.CreateProcess(LogName);
 			if (Env != null)
@@ -70,7 +70,7 @@ namespace AutomationTool
 					}
 				}
 			}
-			var Result = new ProcessResult(AppName, NewProcess, bAllowSpew, LogName, SpewVerbosity: SpewVerbosity);
+			var Result = new ProcessResult(AppName, NewProcess, bAllowSpew, LogName, SpewVerbosity: SpewVerbosity, InSpewFilterCallback: SpewFilterCallback);
 			AddProcess(Result);
 			return Result;
 		}
@@ -123,83 +123,85 @@ namespace AutomationTool
 					ProcessesToKill.RemoveAt(ProcessIndex);
 				}
 			}
-			CommandUtils.LogLog("Trying to kill {0} spawned processes.", ProcessesToKill.Count);
-			foreach (var Proc in ProcessesToKill)
+			if(ProcessesToKill.Count > 0)
 			{
-				CommandUtils.LogLog("  {0}", Proc.GetProcessName());
-			}
-            if (CommandUtils.IsBuildMachine)
-            {
-                for (int Cnt = 0; Cnt < 9; Cnt++)
-                {
-                    bool AllDone = true;
-                    foreach (var Proc in ProcessesToKill)
-                    {
-                        try
-                        {
-                            if (!Proc.HasExited)
-                            {
-                                AllDone = false;
-								CommandUtils.LogLog("Waiting for process: {0}", Proc.GetProcessName());
-                            }
-                        }
-                        catch (Exception)
-                        {
-							CommandUtils.LogWarning("Exception Waiting for process");
-                            AllDone = false;
-                        }
-                    }
-                    try
-                    {
-                        if (ProcessResult.HasAnyDescendants(Process.GetCurrentProcess()))
-                        {
-                            AllDone = false;
-							CommandUtils.Log("Waiting for descendants of main process...");
-                        }
-                    }
-                    catch (Exception Ex)
-                    {
-						CommandUtils.LogWarning("Exception Waiting for descendants of main process. " + Ex);
-                        AllDone = false;
-                    }
-
-                    if (AllDone)
-                    {
-                        break;
-                    }
-                    Thread.Sleep(10000);
-                }
-            }
-			foreach (var Proc in ProcessesToKill)
-			{
-				var ProcName = Proc.GetProcessName();
-				try
+				CommandUtils.LogLog("Trying to kill {0} spawned processes.", ProcessesToKill.Count);
+				foreach (var Proc in ProcessesToKill)
 				{
-					if (!Proc.HasExited)
+					CommandUtils.LogLog("  {0}", Proc.GetProcessName());
+				}
+				if (CommandUtils.IsBuildMachine)
+				{
+					for (int Cnt = 0; Cnt < 9; Cnt++)
 					{
-						CommandUtils.LogLog("Killing process: {0}", ProcName);
-						Proc.StopProcess(false);
+						bool AllDone = true;
+						foreach (var Proc in ProcessesToKill)
+						{
+							try
+							{
+								if (!Proc.HasExited)
+								{
+									AllDone = false;
+									CommandUtils.LogLog("Waiting for process: {0}", Proc.GetProcessName());
+								}
+							}
+							catch (Exception)
+							{
+								CommandUtils.LogWarning("Exception Waiting for process");
+								AllDone = false;
+							}
+						}
+						try
+						{
+							if (ProcessResult.HasAnyDescendants(Process.GetCurrentProcess()))
+							{
+								AllDone = false;
+								CommandUtils.Log("Waiting for descendants of main process...");
+							}
+						}
+						catch (Exception Ex)
+						{
+							CommandUtils.LogWarning("Exception Waiting for descendants of main process. " + Ex);
+							AllDone = false;
+						}
+
+						if (AllDone)
+						{
+							break;
+						}
+						Thread.Sleep(10000);
 					}
 				}
-				catch (Exception Ex)
+				foreach (var Proc in ProcessesToKill)
 				{
-					CommandUtils.LogWarning("Exception while trying to kill process {0}:", ProcName);
-					CommandUtils.LogWarning(LogUtils.FormatException(Ex));
+					var ProcName = Proc.GetProcessName();
+					try
+					{
+						if (!Proc.HasExited)
+						{
+							CommandUtils.LogLog("Killing process: {0}", ProcName);
+							Proc.StopProcess(false);
+						}
+					}
+					catch (Exception Ex)
+					{
+						CommandUtils.LogWarning("Exception while trying to kill process {0}:", ProcName);
+						CommandUtils.LogWarning(LogUtils.FormatException(Ex));
+					}
+				}
+				try
+				{
+					if (CommandUtils.IsBuildMachine && ProcessResult.HasAnyDescendants(Process.GetCurrentProcess()))
+					{
+						CommandUtils.LogLog("current process still has descendants, trying to kill them...");
+						ProcessResult.KillAllDescendants(Process.GetCurrentProcess());
+					}
+				}
+				catch (Exception)
+				{
+					CommandUtils.LogWarning("Exception killing descendants of main process");
 				}
 			}
-            try
-            {
-                if (CommandUtils.IsBuildMachine && ProcessResult.HasAnyDescendants(Process.GetCurrentProcess()))
-                {
-					CommandUtils.LogLog("current process still has descendants, trying to kill them...");
-                    ProcessResult.KillAllDescendants(Process.GetCurrentProcess());
-                }
-            }
-            catch (Exception)
-            {
-				CommandUtils.LogWarning("Exception killing descendants of main process");
-            }
-
 		}
 	}
 
@@ -210,18 +212,21 @@ namespace AutomationTool
 	/// </summary>
 	public class ProcessResult : IProcess
 	{
+		public delegate string SpewFilterCallbackType(string Message);
+
 		private string Source = "";
 		private int ProcessExitCode = -1;
 		private StringBuilder ProcessOutput = new StringBuilder();
 		private bool AllowSpew = true;
 		private UnrealBuildTool.LogEventType SpewVerbosity = UnrealBuildTool.LogEventType.Console;
+		private SpewFilterCallbackType SpewFilterCallback = null;
 		private string AppName = String.Empty;
 		private Process Proc = null;
 		private AutoResetEvent OutputWaitHandle = new AutoResetEvent(false);
 		private AutoResetEvent ErrorWaitHandle = new AutoResetEvent(false);
 		private object ProcSyncObject;
 
-		public ProcessResult(string InAppName, Process InProc, bool bAllowSpew, string LogName, UnrealBuildTool.LogEventType SpewVerbosity = UnrealBuildTool.LogEventType.Console)
+		public ProcessResult(string InAppName, Process InProc, bool bAllowSpew, string LogName, UnrealBuildTool.LogEventType SpewVerbosity = UnrealBuildTool.LogEventType.Console, SpewFilterCallbackType InSpewFilterCallback = null)
 		{
 			AppName = InAppName;
 			ProcSyncObject = new object();
@@ -229,6 +234,7 @@ namespace AutomationTool
 			Source = LogName;
 			AllowSpew = bAllowSpew;
 			this.SpewVerbosity = SpewVerbosity;
+			SpewFilterCallback = InSpewFilterCallback;
 			if (Proc != null)
 			{
 				Proc.EnableRaisingEvents = false;
@@ -286,7 +292,18 @@ namespace AutomationTool
 			{
 				if (AllowSpew)
 				{
-					LogOutput(SpewVerbosity, e.Data);
+					if (SpewFilterCallback != null)
+					{
+						string FilteredSpew = SpewFilterCallback(e.Data);
+						if (FilteredSpew != null)
+						{
+							LogOutput(SpewVerbosity, FilteredSpew);
+						}
+					}
+					else
+					{
+						LogOutput(SpewVerbosity, e.Data);
+					}
 				}
 
 				ProcessOutput.Append(e.Data);
@@ -307,9 +324,17 @@ namespace AutomationTool
 		{
 			if (e.Data != null)
 			{
-				if (AllowSpew)
+				if (SpewFilterCallback != null)
 				{
-                    LogOutput(SpewVerbosity, e.Data);
+					string FilteredSpew = SpewFilterCallback(e.Data);
+					if (FilteredSpew != null)
+					{
+						LogOutput(SpewVerbosity, FilteredSpew);
+					}
+				}
+				else
+				{
+					LogOutput(SpewVerbosity, e.Data);
 				}
 
 				ProcessOutput.Append(e.Data);
@@ -534,8 +559,11 @@ namespace AutomationTool
 						}
 						catch (Exception Ex)
 						{
-							CommandUtils.LogWarning("Failed to kill descendant:");
-							CommandUtils.LogWarning(LogUtils.FormatException(Ex));
+							if(!KillCandidate.HasExited)
+							{
+								CommandUtils.LogWarning("Failed to kill descendant:");
+								CommandUtils.LogWarning(LogUtils.FormatException(Ex));
+							}
 						}
 						break;  // exit the loop as who knows what else died, so let's get processes anew
 					}
@@ -677,19 +705,43 @@ namespace AutomationTool
 		/// <param name="Input">Optional Input for the program (will be provided as stdin)</param>
 		/// <param name="Options">Defines the options how to run. See ERunOptions.</param>
 		/// <param name="Env">Environment to pass to program.</param>
+		/// <param name="FilterCallback">Callback to filter log spew before output.</param>
 		/// <returns>Object containing the exit code of the program as well as it's stdout output.</returns>
-		public static ProcessResult Run(string App, string CommandLine = null, string Input = null, ERunOptions Options = ERunOptions.Default, Dictionary<string, string> Env = null)
+		public static ProcessResult Run(string App, string CommandLine = null, string Input = null, ERunOptions Options = ERunOptions.Default, Dictionary<string, string> Env = null, ProcessResult.SpewFilterCallbackType SpewFilterCallback = null)
 		{
 			App = ConvertSeparators(PathSeparator.Default, App);
+
+			// Get the log name before allowing the platform to modify the app/command-line. We want mono apps to be written to a log named after the application and appear with the application prefix rather than "mono:".
+			string LogName = Path.GetFileNameWithoutExtension(App);
+
 			HostPlatform.Current.SetupOptionsForRun(ref App, ref Options, ref CommandLine);
 			if (App == "ectool" || App == "zip" || App == "xcodebuild")
 			{
 				Options &= ~ERunOptions.AppMustExist;
 			}
 
+			// Check if the application exists, including the PATH directories.
 			if (Options.HasFlag(ERunOptions.AppMustExist) && !FileExists(Options.HasFlag(ERunOptions.NoLoggingOfRunCommand) ? true : false, App))
 			{
-				throw new AutomationException("BUILD FAILED: Couldn't find the executable to Run: {0}", App);
+				bool bExistsInPath = false;
+				if(!App.Contains(Path.DirectorySeparatorChar) && !App.Contains(Path.AltDirectorySeparatorChar))
+				{
+					string[] PathDirectories = Environment.GetEnvironmentVariable("PATH").Split(Path.PathSeparator);
+					foreach(string PathDirectory in PathDirectories)
+					{
+						string TryApp = Path.Combine(PathDirectory, App);
+						if(FileExists(Options.HasFlag(ERunOptions.NoLoggingOfRunCommand), TryApp))
+						{
+							App = TryApp;
+							bExistsInPath = true;
+							break;
+						}
+					}
+				}
+				if(!bExistsInPath)
+				{
+					throw new AutomationException("BUILD FAILED: Couldn't find the executable to Run: {0}", App);
+				}
 			}
 			var StartTime = DateTime.UtcNow;
 
@@ -698,7 +750,7 @@ namespace AutomationTool
             {
                 LogWithVerbosity(SpewVerbosity,"Run: " + App + " " + (String.IsNullOrEmpty(CommandLine) ? "" : CommandLine));
             }
-			ProcessResult Result = ProcessManager.CreateProcess(App, Options.HasFlag(ERunOptions.AllowSpew), Path.GetFileNameWithoutExtension(App), Env, SpewVerbosity:SpewVerbosity);
+			ProcessResult Result = ProcessManager.CreateProcess(App, Options.HasFlag(ERunOptions.AllowSpew), LogName, Env, SpewVerbosity:SpewVerbosity, SpewFilterCallback: SpewFilterCallback);
 			Process Proc = Result.ProcessObject;
 
 			bool bRedirectStdOut = (Options & ERunOptions.NoStdOutRedirect) != ERunOptions.NoStdOutRedirect;			
@@ -778,21 +830,38 @@ namespace AutomationTool
 		/// <param name="LogName">Name of the logfile ( if null, executable name is used )</param>
 		/// <param name="Input">Optional Input for the program (will be provided as stdin)</param>
 		/// <param name="Options">Defines the options how to run. See ERunOptions.</param>
-		public static void RunAndLog(CommandEnvironment Env, string App, string CommandLine, string LogName = null, int MaxSuccessCode = 0, string Input = null, ERunOptions Options = ERunOptions.Default, Dictionary<string, string> EnvVars = null)
+		/// <param name="FilterCallback">Callback to filter log spew before output.</param>
+		public static void RunAndLog(CommandEnvironment Env, string App, string CommandLine, string LogName = null, int MaxSuccessCode = 0, string Input = null, ERunOptions Options = ERunOptions.Default, Dictionary<string, string> EnvVars = null, ProcessResult.SpewFilterCallbackType SpewFilterCallback = null)
 		{
-            RunAndLog(App, CommandLine, GetRunAndLogOnlyName(Env, App, LogName), MaxSuccessCode, Input, Options, EnvVars);
+			RunAndLog(App, CommandLine, GetRunAndLogOnlyName(Env, App, LogName), MaxSuccessCode, Input, Options, EnvVars, SpewFilterCallback);
 		}
-        /// <summary>
-        /// Runs external program and writes the output to a logfile.
-        /// </summary>
-        /// <param name="App">Executable to run</param>
-        /// <param name="CommandLine">Commandline to pass on to the executable</param>
-        /// <param name="Logfile">Full path to the logfile, where the application output should be written to.</param>
+
+		/// <summary>
+		/// Exception class for child process commands failing
+		/// </summary>
+		public class CommandFailedException : AutomationException
+		{
+			public CommandFailedException(string Message) : base(Message)
+			{
+			}
+
+			public CommandFailedException(ExitCode ExitCode, string Message) : base(ExitCode, Message)
+			{
+			}
+		}
+
+		/// <summary>
+		/// Runs external program and writes the output to a logfile.
+		/// </summary>
+		/// <param name="App">Executable to run</param>
+		/// <param name="CommandLine">Commandline to pass on to the executable</param>
+		/// <param name="Logfile">Full path to the logfile, where the application output should be written to.</param>
 		/// <param name="Input">Optional Input for the program (will be provided as stdin)</param>
 		/// <param name="Options">Defines the options how to run. See ERunOptions.</param>
-        public static string RunAndLog(string App, string CommandLine, string Logfile = null, int MaxSuccessCode = 0, string Input = null, ERunOptions Options = ERunOptions.Default, Dictionary<string, string> EnvVars = null)
+		/// <param name="FilterCallback">Callback to filter log spew before output.</param>
+		public static string RunAndLog(string App, string CommandLine, string Logfile = null, int MaxSuccessCode = 0, string Input = null, ERunOptions Options = ERunOptions.Default, Dictionary<string, string> EnvVars = null, ProcessResult.SpewFilterCallbackType SpewFilterCallback = null)
         {
-            ProcessResult Result = Run(App, CommandLine, Input, Options, EnvVars);
+			ProcessResult Result = Run(App, CommandLine, Input, Options, EnvVars, SpewFilterCallback);
             if (Result.Output.Length > 0 && Logfile != null)
             {
                 WriteToFile(Logfile, Result.Output);
@@ -808,7 +877,7 @@ namespace AutomationTool
 
             if (Result > MaxSuccessCode || Result < 0)
             {
-                throw new AutomationException((ExitCode)Result.ExitCode, String.Format("Command failed (Result:{3}): {0} {1}. See logfile for details: '{2}' ",
+                throw new CommandFailedException((ExitCode)Result.ExitCode, String.Format("Command failed (Result:{3}): {0} {1}. See logfile for details: '{2}' ",
                                                 App, CommandLine, Path.GetFileName(Logfile), Result.ExitCode));
             }
             if (Result.Output.Length > 0)
@@ -818,16 +887,17 @@ namespace AutomationTool
             return "";
         }
 
-        /// <summary>
-        /// Runs external program and writes the output to a logfile.
-        /// </summary>
-        /// <param name="App">Executable to run</param>
-        /// <param name="CommandLine">Commandline to pass on to the executable</param>
-        /// <param name="Logfile">Full path to the logfile, where the application output should be written to.</param>
-        /// <returns>Whether the program executed successfully or not.</returns>
-        public static string RunAndLog(string App, string CommandLine, out int SuccessCode, string Logfile = null, Dictionary<string, string> EnvVars = null)
+		/// <summary>
+		/// Runs external program and writes the output to a logfile.
+		/// </summary>
+		/// <param name="App">Executable to run</param>
+		/// <param name="CommandLine">Commandline to pass on to the executable</param>
+		/// <param name="Logfile">Full path to the logfile, where the application output should be written to.</param>
+		/// <param name="FilterCallback">Callback to filter log spew before output.</param>
+		/// <returns>Whether the program executed successfully or not.</returns>
+		public static string RunAndLog(string App, string CommandLine, out int SuccessCode, string Logfile = null, Dictionary<string, string> EnvVars = null, ProcessResult.SpewFilterCallbackType SpewFilterCallback = null)
         {
-            ProcessResult Result = Run(App, CommandLine, Env: EnvVars);
+			ProcessResult Result = Run(App, CommandLine, Env: EnvVars, SpewFilterCallback: SpewFilterCallback);
             SuccessCode = Result.ExitCode;
             if (Result.Output.Length > 0 && Logfile != null)
             {
@@ -840,17 +910,18 @@ namespace AutomationTool
             return "";
         }
 
-        /// <summary>
-        /// Runs external program and writes the output to a logfile.
-        /// </summary>
-        /// <param name="Env">Environment to use.</param>
-        /// <param name="App">Executable to run</param>
-        /// <param name="CommandLine">Commandline to pass on to the executable</param>
-        /// <param name="LogName">Name of the logfile ( if null, executable name is used )</param>
-        /// <returns>Whether the program executed successfully or not.</returns>
-        public static string RunAndLog(CommandEnvironment Env, string App, string CommandLine, out int SuccessCode, string LogName = null, Dictionary<string, string> EnvVars = null)
+		/// <summary>
+		/// Runs external program and writes the output to a logfile.
+		/// </summary>
+		/// <param name="Env">Environment to use.</param>
+		/// <param name="App">Executable to run</param>
+		/// <param name="CommandLine">Commandline to pass on to the executable</param>
+		/// <param name="LogName">Name of the logfile ( if null, executable name is used )</param>
+		/// <param name="FilterCallback">Callback to filter log spew before output.</param>
+		/// <returns>Whether the program executed successfully or not.</returns>
+		public static string RunAndLog(CommandEnvironment Env, string App, string CommandLine, out int SuccessCode, string LogName = null, Dictionary<string, string> EnvVars = null, ProcessResult.SpewFilterCallbackType SpewFilterCallback = null)
         {
-            return RunAndLog(App, CommandLine, out SuccessCode, GetRunAndLogOnlyName(Env, App, LogName), EnvVars);
+			return RunAndLog(App, CommandLine, out SuccessCode, GetRunAndLogOnlyName(Env, App, LogName), EnvVars, SpewFilterCallback);
         }
 
 		/// <summary>
@@ -958,7 +1029,7 @@ namespace AutomationTool
 
 			if (Result != 0)
 			{
-				throw new AutomationException(String.Format("Recursive UAT Command failed (Result:{3}): {0} {1}. See logfile for details: '{2}' ",
+				throw new CommandFailedException(String.Format("Recursive UAT Command failed (Result:{3}): {0} {1}. See logfile for details: '{2}' ",
 																				App, CommandLine, Path.GetFileName(LogFile), Result.ExitCode));
 			}
 			return LogFile;

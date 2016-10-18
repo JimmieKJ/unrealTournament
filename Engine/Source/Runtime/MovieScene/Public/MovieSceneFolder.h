@@ -45,9 +45,29 @@ class MOVIESCENE_API UMovieSceneFolder : public UObject
 	void RemoveChildObjectBinding( const FGuid& InObjectBinding );
 
 
-	virtual void PreSave() override;
-	virtual void PostLoad() override;
+	virtual void Serialize( FArchive& Archive );
 
+#if WITH_EDITORONLY_DATA
+	/**
+	 * Get this folder's color.
+	 *
+	 * @return The folder color.
+	 */
+	const FColor& GetFolderColor() const
+	{
+		return FolderColor;
+	}
+
+	/**
+	 * Set this folder's color.
+	 *
+	 * @param InFolderColor The folder color to set.
+	 */
+	void SetFolderColor(const FColor& InFolderColor)
+	{
+		FolderColor = InFolderColor;
+	}
+#endif
 
 private:
 	/** The name of this folder. */
@@ -65,6 +85,12 @@ private:
 	/** The guid strings used to serialize the guids for the object bindings contained by this folder. */
 	UPROPERTY()
 	TArray<FString> ChildObjectBindingStrings;
+
+#if WITH_EDITORONLY_DATA
+	/** This folder's color */
+	UPROPERTY(EditAnywhere, Category=General, DisplayName=Color)
+	FColor FolderColor;
+#endif
 
 	/** The guids for the object bindings contained by this folder. */
 	TArray<FGuid> ChildObjectBindings;

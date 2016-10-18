@@ -14,10 +14,11 @@
 #include "NiagaraComponent.h"
 #include "NiagaraEffect.h"
 #include "NiagaraSimulation.h"
-#include "Engine/NiagaraEffectRenderer.h"
+#include "NiagaraEffectRenderer.h"
 #include "ComponentReregisterContext.h"
 #include "SNumericEntryBox.h"
 #include "Curves/CurveVector.h"
+#include "NiagaraScriptSourceBase.h"
 
 #define NGED_SECTION_BORDER SNew(SBorder).BorderImage(FEditorStyle::GetBrush("ToolPanel.GroupBorder")).Padding(2.0f).HAlign(HAlign_Left)
 #define NGED_SECTION_LIGHTBORDER SNew(SBorder).BorderImage(FEditorStyle::GetBrush("ToolPanel.LightGroupBorder")).Padding(2.0f).HAlign(HAlign_Left)
@@ -193,31 +194,10 @@ public:
 	void OnCurveSelected(UObject *Asset)
 	{
 		check(ScriptProps);
-		CurCurve = Cast<UCurveVector>(Asset);
-		UNiagaraEmitterProperties* PinnedProps = EmitterProps.Get();
-		if (PinnedProps)
-		{
-			UNiagaraDataObject *DataObj = ScriptProps->ExternalConstants.FindDataObj(ConstantName);
-			if (!DataObj)
-			{
-				//In the details UI this is created via a combo box. Not sure which is the best way.
-				DataObj = NewObject<UNiagaraCurveDataObject>(PinnedProps);
-				ScriptProps->ExternalConstants.SetOrAdd(ConstantName, DataObj);
-			}
-
-			UNiagaraCurveDataObject *CurveData = Cast<UNiagaraCurveDataObject>(DataObj);
-			CurveData->SetCurveObject(CurCurve);
-		}
 	}
 
 	UObject * GetCurve() const
 	{
-		UNiagaraDataObject *DataObj = ScriptProps->ExternalConstants.FindDataObj(ConstantName);
-		UNiagaraCurveDataObject *CurveData = Cast<UNiagaraCurveDataObject>(DataObj);
-		if (CurveData)
-		{
-			return CurveData->GetCurveObject();
-		}
 		return nullptr;
 	}
 

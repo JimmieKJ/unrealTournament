@@ -16,6 +16,9 @@ class UMaterialExpressionPanner : public UMaterialExpression
 	UPROPERTY(meta = (RequiredInput = "false", ToolTip = "Defaults to Game Time if not specified"))
 	FExpressionInput Time;
 
+	UPROPERTY(meta = (RequiredInput = "false", ToolTip = "Vector2 speed scale, if specified"))
+	FExpressionInput Speed;
+
 	UPROPERTY(EditAnywhere, Category=MaterialExpressionPanner)
 	float SpeedX;
 

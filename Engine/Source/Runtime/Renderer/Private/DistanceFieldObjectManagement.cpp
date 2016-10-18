@@ -5,7 +5,6 @@
 =============================================================================*/
 
 #include "RendererPrivate.h"
-#include "RendererPrivate.h"
 #include "ScenePrivate.h"
 #include "UniformBuffer.h"
 #include "ShaderParameters.h"
@@ -20,7 +19,7 @@ FAutoConsoleVariableRef CVarAOMaxObjectBoundingRadius(
 	TEXT("r.AOMaxObjectBoundingRadius"),
 	GAOMaxObjectBoundingRadius,
 	TEXT("Objects larger than this will not contribute to AO calculations, to improve performance."),
-	ECVF_Cheat | ECVF_RenderThreadSafe
+	ECVF_RenderThreadSafe
 	);
 
 int32 GAOLogObjectBufferReallocation = 0;
@@ -28,7 +27,7 @@ FAutoConsoleVariableRef CVarAOLogObjectBufferReallocation(
 	TEXT("r.AOLogObjectBufferReallocation"),
 	GAOLogObjectBufferReallocation,
 	TEXT(""),
-	ECVF_Cheat | ECVF_RenderThreadSafe
+	ECVF_RenderThreadSafe
 	);
 
 // Must match equivalent shader defines
@@ -417,7 +416,7 @@ public:
 	{
 		FGlobalShader::ModifyCompilationEnvironment(Platform,OutEnvironment);
 		OutEnvironment.SetDefine(TEXT("UPDATEOBJECTS_THREADGROUP_SIZE"), UpdateObjectsGroupSize);
-		OutEnvironment.SetDefine(TEXT("REMOVE_FROM_SAME_BUFFER"), bRemoveFromSameBuffer ? TEXT("1") : TEXT("0"));
+		OutEnvironment.SetDefine(TEXT("REMOVE_FROM_SAME_BUFFER"), bRemoveFromSameBuffer);
 	}
 
 	TRemoveObjectsFromBufferCS(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
@@ -904,6 +903,8 @@ void ProcessPrimitiveUpdate(
 						const int32 InstanceIndex = PrimitiveSceneInfo->DistanceFieldInstanceIndices[TransformIndex];
 						if (InstanceIndex >= 0)
 						{
+							// For an update transform we have to dirty the previous bounds and the new bounds, in case of large movement (teleport)
+							DistanceFieldSceneData.PrimitiveModifiedBounds.Add(DistanceFieldSceneData.PrimitiveInstanceMapping[InstanceIndex].BoundingSphere);
 							DistanceFieldSceneData.PrimitiveInstanceMapping[InstanceIndex].BoundingSphere = ObjectBoundingSphere;
 						}
 					}
@@ -934,8 +935,6 @@ void ProcessPrimitiveUpdate(
 void FDeferredShadingSceneRenderer::UpdateGlobalDistanceFieldObjectBuffers(FRHICommandListImmediate& RHICmdList) 
 {
 	FDistanceFieldSceneData& DistanceFieldSceneData = Scene->DistanceFieldSceneData;
-
-	DistanceFieldSceneData.PrimitiveModifiedBounds.Reset();
 
 	if (GDistanceFieldVolumeTextureAtlas.VolumeTextureRHI
 		&& (DistanceFieldSceneData.HasPendingOperations() || DistanceFieldSceneData.AtlasGeneration != GDistanceFieldVolumeTextureAtlas.GetGeneration()))

@@ -8,8 +8,6 @@
 #include "UTLobbyGameMode.h"
 #include "UTAnalytics.h"
 #include "UTGameInstance.h"
-#include "Runtime/Analytics/Analytics/Public/Analytics.h"
-#include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
 
 /** True if this server was instructed to gracefully shutdown at the next convenience */
 bool AUTGameSession::bGracefulShutdown = false;
@@ -92,7 +90,7 @@ void AUTGameSession::InitOptions( const FString& Options )
 	bNoJoinInProgress = UGameplayStatics::HasOption(Options, "NoJIP");
 }
 
-void AUTGameSession::ValidatePlayer(const FString& Address, const TSharedPtr<const FUniqueNetId>& UniqueId, FString& ErrorMessage, bool bValidateAsSpectator)
+void AUTGameSession::ValidatePlayer(const FString& Address, const FUniqueNetIdRepl& UniqueId, FString& ErrorMessage, bool bValidateAsSpectator)
 {
 	if ( !bValidateAsSpectator && (UniqueId.IsValid() && AllowedAdmins.Find(UniqueId->ToString()) == INDEX_NONE) && bNoJoinInProgress && UTBaseGameMode->HasMatchStarted() )
 	{
@@ -177,17 +175,6 @@ FString AUTGameSession::ApproveLogin(const FString& Options)
 	return Super::ApproveLogin(Options);
 }
 
-bool AUTGameSession::ProcessAutoLogin()
-{
-	// UT Dedicated servers do not need to login.  
-	if (GetWorld()->GetNetMode() == NM_DedicatedServer) 
-	{
-		// NOTE: Returning true here will effectively bypass the RegisterServer call in the base GameMode.  
-		// UT servers will register elsewhere.
-		return true;
-	}
-	return Super::ProcessAutoLogin();
-}
 
 // We want different behavior than the default engine implementation.  Our matches remain across level switches so don't allow the main game to mess with them.
 
@@ -230,16 +217,16 @@ void AUTGameSession::CleanupServerSession()
 	GameInstance->SafeSessionDelete(GameSessionName, FOnDestroySessionCompleteDelegate::CreateUObject(this, &ThisClass::OnDestroySessionComplete));
 }
 
-void AUTGameSession::OnDestroySessionComplete(FName SessionName, bool bWasSuccessful)
+void AUTGameSession::OnDestroySessionComplete(FName InSessionName, bool bWasSuccessful)
 {
-	if (SessionName == GameSessionName)
+	if (InSessionName == GameSessionName)
 	{
-		UE_LOG(LogOnlineGame, Log, TEXT("[AGameSessionCommon::OnDestroySessionComplete] Previous session destroyed. SessionName: %s, bWasSuccessful: %d"), *SessionName.ToString(), bWasSuccessful);
+		UE_LOG(LogOnlineGame, Log, TEXT("[AGameSessionCommon::OnDestroySessionComplete] Previous session destroyed. SessionName: %s, bWasSuccessful: %d"), *InSessionName.ToString(), bWasSuccessful);
 
 		if (!bWasSuccessful)
 		{
 			// It is ok if this fails, we will just create another session anyways
-			UE_LOG(LogOnlineGame, Warning, TEXT("[AGameSessionCommon::OnDestroySessionComplete] Failed to destroy previous game session. SessionName: %s"), *SessionName.ToString());
+			UE_LOG(LogOnlineGame, Warning, TEXT("[AGameSessionCommon::OnDestroySessionComplete] Failed to destroy previous game session. SessionName: %s"), *InSessionName.ToString());
 		}
 
 		// Wait for any other processes to finish/cleanup before we start advertising
@@ -358,5 +345,6 @@ void AUTGameSession::ShutdownServer(const FString& Reason, int32 ExitCode)
 	GetWorldTimerManager().ClearTimer(StartServerTimerHandle);
 	StartServerTimerHandle.Invalidate();
 
-	FPlatformMisc::RequestExitWithStatus(false, ExitCode);
+	//FPlatformMisc::RequestExitWithStatus(false, ExitCode);
+	FPlatformMisc::RequestExit(false);
 }

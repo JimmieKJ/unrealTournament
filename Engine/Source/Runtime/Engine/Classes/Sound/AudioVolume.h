@@ -10,6 +10,9 @@
 #include "Audio.h"
 #include "AudioVolume.generated.h"
 
+class AAudioVolume;
+struct FBodyInstance;
+
 /**
  * DEPRECATED: Exists for backwards compatibility
  * Indicates a reverb preset to use.
@@ -70,19 +73,19 @@ struct FReverbSettings
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=ReverbSettings)
 	float FadeTime;
 
-
-
-		FReverbSettings()
+	FReverbSettings()
 		: bApplyReverb(true)
 		, ReverbType_DEPRECATED(REVERB_Default)
-		, ReverbEffect(NULL)
+		, ReverbEffect(nullptr)
 		, Volume(0.5f)
 		, FadeTime(2.0f)
-		{
-		}
+	{
+	}
 
-		void PostSerialize(const FArchive& Ar);
-	
+	bool operator==(const FReverbSettings& Other) const;
+	bool operator!=(const FReverbSettings& Other) const { return !(*this == Other); }
+
+	void PostSerialize(const FArchive& Ar);
 };
 
 template<>
@@ -180,35 +183,85 @@ struct TStructOpsTypeTraits<FInteriorSettings> : public TStructOpsTypeTraitsBase
 	};
 };
 
-UCLASS(hidecategories=(Advanced, Attachment, Collision, Volume), MinimalAPI)
-class AAudioVolume : public AVolume
+struct FAudioVolumeProxy
+{
+	FAudioVolumeProxy()
+		: AudioVolumeID(0)
+		, WorldID(0)
+		, Priority(0.f)
+		, BodyInstance(nullptr)
+	{
+	}
+
+	FAudioVolumeProxy(const AAudioVolume* AudioVolume);
+
+	uint32 AudioVolumeID;
+	uint32 WorldID;
+	float Priority;
+	FReverbSettings ReverbSettings;
+	FInteriorSettings InteriorSettings;
+	FBodyInstance* BodyInstance; // This is scary
+};
+
+UCLASS(hidecategories=(Advanced, Attachment, Collision, Volume))
+class ENGINE_API AAudioVolume : public AVolume
 {
 	GENERATED_UCLASS_BODY()
 
+private:
 	/**
 	 * Priority of this volume. In the case of overlapping volumes the one with the highest priority
 	 * is chosen. The order is undefined if two or more overlapping volumes have the same priority.
 	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=AudioVolume)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=AudioVolume, meta=(AllowPrivateAccess="true"))
 	float Priority;
 
 	/** whether this volume is currently enabled and able to affect sounds */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, replicated, Category=AudioVolume)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, ReplicatedUsing=OnRep_bEnabled, Category=AudioVolume, meta=(AllowPrivateAccess="true"))
 	uint32 bEnabled:1;
 
 	/** Reverb settings to use for this volume. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Reverb)
-	struct FReverbSettings Settings;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Reverb, meta=(AllowPrivateAccess="true"))
+	FReverbSettings Settings;
 
 	/** Interior settings used for this volume */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=AmbientZone)
-	struct FInteriorSettings AmbientZoneSettings;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=AmbientZone, meta=(AllowPrivateAccess="true"))
+	FInteriorSettings AmbientZoneSettings;
 
-	/** Next volume in linked listed, sorted by priority in descending order. */
-	UPROPERTY(transient)
-	class AAudioVolume* NextLowerPriorityVolume;
+public:
 
+	float GetPriority() const { return Priority; }
+	
+	UFUNCTION(BlueprintCallable, Category=AudioVolume)
+	void SetPriority(float NewPriority);
 
+	bool GetEnabled() const { return bEnabled; }
+	
+	UFUNCTION(BlueprintCallable, Category=AudioVolume)
+	void SetEnabled(bool bNewEnabled);
+
+	const FReverbSettings& GetReverbSettings() const { return Settings; }
+	
+	UFUNCTION(BlueprintCallable, Category=AudioVolume)
+	void SetReverbSettings(const FReverbSettings& NewReverbSettings);
+
+	const FInteriorSettings& GetInteriorSettings() const { return AmbientZoneSettings; }
+
+	UFUNCTION(BlueprintCallable, Category=AudioVolume)
+	void SetInteriorSettings(const FInteriorSettings& NewInteriorSettings);
+
+private:
+
+	UFUNCTION()
+	virtual void OnRep_bEnabled();
+
+	void TransformUpdated(USceneComponent* RootComponent, EUpdateTransformFlags UpdateTransformFlags, ETeleportType Teleport);
+
+	void AddProxy() const;
+	void RemoveProxy() const;
+	void UpdateProxy() const;
+
+public:
 
 	//~ Begin UObject Interface
 #if WITH_EDITOR
@@ -218,9 +271,7 @@ class AAudioVolume : public AVolume
 
 	//~ Begin AActor Interface
 	virtual void PostUnregisterAllComponents() override;
-protected:
 	virtual void PostRegisterAllComponents() override;
-public:
 	//~ End AActor Interface
 };
 

@@ -9,6 +9,9 @@
 IMPLEMENT_HIT_PROXY_BASE( HHitProxy, NULL );
 IMPLEMENT_HIT_PROXY(HObject,HHitProxy);
 
+const FHitProxyId FHitProxyId::InvisibleHitProxyId( INDEX_NONE - 1 );
+
+
 /** The global list of allocated hit proxies, indexed by hit proxy ID. */
 
 class FHitProxyArray
@@ -53,7 +56,7 @@ static struct FForceInitHitProxyBeforeMain
 {
 	FForceInitHitProxyBeforeMain()
 	{
-		// we don't want this to be intialized by two threads at once, so we will set it up before main starts
+		// we don't want this to be initialized by two threads at once, so we will set it up before main starts
 		FHitProxyArray::Get();
 	}
 } ForceInitHitProxyBeforeMain;

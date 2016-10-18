@@ -11,6 +11,7 @@
 #include "AI/Navigation/NavLinkRenderingComponent.h"
 #include "NavigationSystemHelpers.h"
 #include "VisualLogger/VisualLogger.h"
+#include "AI/NavigationOctree.h"
 
 ANavLinkProxy::ANavLinkProxy(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
@@ -22,7 +23,7 @@ ANavLinkProxy::ANavLinkProxy(const FObjectInitializer& ObjectInitializer) : Supe
 #if WITH_EDITORONLY_DATA
 	EdRenderComp = CreateDefaultSubobject<UNavLinkRenderingComponent>(TEXT("EdRenderComp"));
 	EdRenderComp->PostPhysicsComponentTick.bCanEverTick = false;
-	EdRenderComp->AttachParent = RootComponent;
+	EdRenderComp->SetupAttachment(RootComponent);
 #endif // WITH_EDITORONLY_DATA
 
 #if WITH_EDITOR
@@ -49,16 +50,19 @@ ANavLinkProxy::ANavLinkProxy(const FObjectInitializer& ObjectInitializer) : Supe
 		SpriteComponent->bVisible = true;
 		SpriteComponent->SpriteInfo.Category = ConstructorStatics.ID_Decals;
 		SpriteComponent->SpriteInfo.DisplayName = ConstructorStatics.NAME_Decals;
-		SpriteComponent->AttachParent = RootComponent;
+		SpriteComponent->SetupAttachment(RootComponent);
 		SpriteComponent->SetAbsolute(false, false, true);
 		SpriteComponent->bIsScreenSizeScaled = true;
 	}
 #endif
 
-	SmartLinkComp = CreateDefaultSubobject<UNavLinkCustomComponent>(TEXT("SmartLinkComp"));
-	SmartLinkComp->SetNavigationRelevancy(false);
-	SmartLinkComp->SetMoveReachedLink(this, &ANavLinkProxy::NotifySmartLinkReached);
-	bSmartLinkIsRelevant = false;
+	if (HasAnyFlags(RF_ClassDefaultObject) == false)
+	{
+		SmartLinkComp = CreateDefaultSubobject<UNavLinkCustomComponent>(TEXT("SmartLinkComp"));
+		SmartLinkComp->SetNavigationRelevancy(false);
+		SmartLinkComp->SetMoveReachedLink(this, &ANavLinkProxy::NotifySmartLinkReached);
+		bSmartLinkIsRelevant = false;
+	}
 
 	PointLinks.Add(FNavigationLink());
 	SetActorEnableCollision(false);
@@ -99,7 +103,21 @@ void ANavLinkProxy::PostEditChangeProperty(FPropertyChangedEvent& PropertyChange
 void ANavLinkProxy::PostInitializeComponents()
 {
 	Super::PostInitializeComponents();
-	SmartLinkComp->SetNavigationRelevancy(bSmartLinkIsRelevant);
+
+	if (SmartLinkComp)
+	{
+		SmartLinkComp->SetNavigationRelevancy(bSmartLinkIsRelevant);
+	}
+}
+
+void ANavLinkProxy::PostLoad()
+{
+	Super::PostLoad();
+
+	if (SmartLinkComp)
+	{
+		SmartLinkComp->SetNavigationRelevancy(bSmartLinkIsRelevant);
+	}
 }
 
 #if ENABLE_VISUAL_LOG

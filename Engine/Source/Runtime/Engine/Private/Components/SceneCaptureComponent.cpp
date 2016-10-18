@@ -12,6 +12,14 @@
 #include "Engine/SceneCaptureCube.h"
 #include "Components/SceneCaptureComponentCube.h"
 #include "Components/DrawFrustumComponent.h"
+#include "Engine/PlanarReflection.h"
+#include "Components/PlanarReflectionComponent.h"
+#include "PlanarReflectionSceneProxy.h"
+#include "Components/BoxComponent.h"
+#include "MessageLog.h"
+#include "RenderingObjectVersion.h"
+
+#define LOCTEXT_NAMESPACE "SceneCaptureComponent"
 
 ASceneCapture::ASceneCapture(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -33,10 +41,10 @@ ASceneCapture2D::ASceneCapture2D(const FObjectInitializer& ObjectInitializer)
 	DrawFrustum = CreateDefaultSubobject<UDrawFrustumComponent>(TEXT("DrawFrust0"));
 	DrawFrustum->AlwaysLoadOnClient = false;
 	DrawFrustum->AlwaysLoadOnServer = false;
-	DrawFrustum->AttachParent = GetMeshComp();
+	DrawFrustum->SetupAttachment(GetMeshComp());
 
 	CaptureComponent2D = CreateDefaultSubobject<USceneCaptureComponent2D>(TEXT("NewSceneCaptureComponent2D"));
-	CaptureComponent2D->AttachParent = GetMeshComp();
+	CaptureComponent2D->SetupAttachment(GetMeshComp());
 }
 
 void ASceneCapture2D::OnInterpToggle(bool bEnable)
@@ -89,10 +97,10 @@ ASceneCaptureCube::ASceneCaptureCube(const FObjectInitializer& ObjectInitializer
 	DrawFrustum = CreateDefaultSubobject<UDrawFrustumComponent>(TEXT("DrawFrust0"));
 	DrawFrustum->AlwaysLoadOnClient = false;
 	DrawFrustum->AlwaysLoadOnServer = false;
-	DrawFrustum->AttachParent = GetMeshComp();
+	DrawFrustum->SetupAttachment(GetMeshComp());
 
 	CaptureComponentCube = CreateDefaultSubobject<USceneCaptureComponentCube>(TEXT("NewSceneCaptureComponentCube"));
-	CaptureComponentCube->AttachParent = GetMeshComp();
+	CaptureComponentCube->SetupAttachment(GetMeshComp());
 }
 
 void ASceneCaptureCube::OnInterpToggle(bool bEnable)
@@ -141,9 +149,9 @@ void ASceneCaptureCube::PostActorCreated()
 void ASceneCaptureCube::PostEditMove(bool bFinished)
 {
 	Super::PostEditMove(bFinished);
-	if(bFinished)
+	if(bFinished && CaptureComponentCube->bCaptureOnMovement)
 	{
-		CaptureComponentCube->UpdateContent();
+		CaptureComponentCube->CaptureSceneDeferred();
 	}
 }
 #endif
@@ -152,6 +160,7 @@ USceneCaptureComponent::USceneCaptureComponent(const FObjectInitializer& ObjectI
 	: Super(ObjectInitializer), ShowFlags(FEngineShowFlags(ESFIM_Game))
 {
 	bCaptureEveryFrame = true;
+	bCaptureOnMovement = true;
 	MaxViewDistanceOverride = -1;
 
 	// Disable features that are not desired when capturing the scene
@@ -205,6 +214,27 @@ void USceneCaptureComponent::HideActorComponents(AActor* InActor)
 	}
 }
 
+void USceneCaptureComponent::ShowOnlyComponent(UPrimitiveComponent* InComponent)
+{
+	if (InComponent)
+	{
+		ShowOnlyComponents.Add(InComponent);
+	}
+}
+
+void USceneCaptureComponent::ShowOnlyActorComponents(AActor* InActor)
+{
+	if (InActor)
+	{
+		TInlineComponentArray<UPrimitiveComponent*> PrimitiveComponents;
+		InActor->GetComponents(PrimitiveComponents);
+		for (int32 ComponentIndex = 0, NumComponents = PrimitiveComponents.Num(); ComponentIndex < NumComponents; ++ComponentIndex)
+		{
+			ShowOnlyComponents.Add(PrimitiveComponents[ComponentIndex]);
+		}
+	}
+}
+
 FSceneViewStateInterface* USceneCaptureComponent::GetViewState()
 {
 	FSceneViewStateInterface* ViewStateInterface = ViewState.GetReference();
@@ -216,6 +246,22 @@ FSceneViewStateInterface* USceneCaptureComponent::GetViewState()
 	else if (!bCaptureEveryFrame && ViewStateInterface)
 	{
 		ViewState.Destroy();
+		ViewStateInterface = NULL;
+	}
+	return ViewStateInterface;
+}
+
+FSceneViewStateInterface* USceneCaptureComponent::GetStereoViewState()
+{
+	FSceneViewStateInterface* ViewStateInterface = StereoViewState.GetReference();
+	if (bCaptureEveryFrame && ViewStateInterface == NULL)
+	{
+		StereoViewState.Allocate();
+		ViewStateInterface = StereoViewState.GetReference();
+	}
+	else if (!bCaptureEveryFrame && ViewStateInterface)
+	{
+		StereoViewState.Destroy();
 		ViewStateInterface = NULL;
 	}
 	return ViewStateInterface;
@@ -269,9 +315,9 @@ bool USceneCaptureComponent::GetSettingForShowFlag(FString FlagName, FEngineShow
 
 USceneCaptureComponent2D::USceneCaptureComponent2D(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
-	, ReflectionPlaneNormal(0.0f, 0.0f, 1.0f) // World space up vector
 {
 	FOVAngle = 90.0f;
+	OrthoWidth = 512;
 	bAutoActivate = true;
 	PrimaryComponentTick.bCanEverTick = true;
 	PrimaryComponentTick.TickGroup = TG_DuringPhysics;
@@ -291,13 +337,16 @@ void USceneCaptureComponent2D::OnRegister()
 #if WITH_EDITOR
 	// Update content on register to have at least one frames worth of good data.
 	// Without updating here this component would not work in a blueprint construction script which recreates the component after each move in the editor
-	UpdateContent();
+	CaptureSceneDeferred();
 #endif
 }
 
 void USceneCaptureComponent2D::SendRenderTransform_Concurrent()
 {	
-	UpdateContent();
+	if (bCaptureOnMovement)
+	{
+		CaptureSceneDeferred();
+	}
 
 	Super::SendRenderTransform_Concurrent();
 }
@@ -308,19 +357,39 @@ void USceneCaptureComponent2D::TickComponent(float DeltaTime, enum ELevelTick Ti
 
 	if (bCaptureEveryFrame)
 	{
-		UpdateComponentToWorld(false);
+		CaptureSceneDeferred();
 	}
 }
 
 static TMultiMap<TWeakObjectPtr<UWorld>, TWeakObjectPtr<USceneCaptureComponent2D>> SceneCapturesToUpdateMap;
 
-void USceneCaptureComponent2D::UpdateContent()
+void USceneCaptureComponent2D::CaptureSceneDeferred()
 {
+	UWorld* World = GetWorld();
 	if (World && World->Scene && IsVisible())
 	{
 		// Defer until after updates finish
+		// Needs some CS because of parallel updates.
+		static FCriticalSection CriticalSection;
+		FScopeLock ScopeLock(&CriticalSection);
 		SceneCapturesToUpdateMap.AddUnique(World, this);
 	}	
+}
+
+void USceneCaptureComponent2D::CaptureScene()
+{
+	UWorld* World = GetWorld();
+	if (World && World->Scene && IsVisible())
+	{
+		// We must push any deferred render state recreations before causing any rendering to happen, to make sure that deleted resource references are updated
+		World->SendAllEndOfFrameUpdates();
+		World->Scene->UpdateSceneCaptureContents(this);
+	}	
+
+	if (bCaptureEveryFrame)
+	{
+		FMessageLog("Blueprint").Warning(LOCTEXT("CaptureScene", "CaptureScene: Scene capture with bCaptureEveryFrame enabled was told to update - major inefficiency."));
+	}
 }
 
 void USceneCaptureComponent2D::UpdateDeferredCaptures( FSceneInterface* Scene )
@@ -328,8 +397,7 @@ void USceneCaptureComponent2D::UpdateDeferredCaptures( FSceneInterface* Scene )
 	UWorld* World = Scene->GetWorld();
 	if( World && SceneCapturesToUpdateMap.Num() > 0 )
 	{
-		World->SendAllEndOfFrameUpdates();
-		// Only update the scene captures assoicated with the current scene.
+		// Only update the scene captures associated with the current scene.
 		// Updating others not associated with the scene would cause invalid data to be rendered into the target
 		TArray< TWeakObjectPtr<USceneCaptureComponent2D> > SceneCapturesToUpdate;
 		SceneCapturesToUpdateMap.MultiFind( World, SceneCapturesToUpdate );
@@ -348,12 +416,36 @@ void USceneCaptureComponent2D::UpdateDeferredCaptures( FSceneInterface* Scene )
 }
 
 #if WITH_EDITOR
+
+bool USceneCaptureComponent2D::CanEditChange(const UProperty* InProperty) const
+{
+	if (InProperty)
+	{
+		FString PropertyName = InProperty->GetName();
+
+		if (PropertyName == GET_MEMBER_NAME_STRING_CHECKED(USceneCaptureComponent2D, FOVAngle))
+		{
+			return ProjectionType == ECameraProjectionMode::Perspective;
+		}
+		else if (PropertyName == GET_MEMBER_NAME_STRING_CHECKED(USceneCaptureComponent2D, OrthoWidth))
+		{
+			return ProjectionType == ECameraProjectionMode::Orthographic;
+		}
+		else if (PropertyName == GET_MEMBER_NAME_STRING_CHECKED(USceneCaptureComponent2D, CompositeMode))
+		{
+			return CaptureSource == SCS_SceneColorHDR;
+		}
+	}
+
+	return true;
+}
+
 void USceneCaptureComponent2D::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
 	// AActor::PostEditChange will ForceUpdateComponents()
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 
-	UpdateContent();
+	CaptureSceneDeferred();
 }
 #endif // WITH_EDITOR
 
@@ -364,6 +456,245 @@ void USceneCaptureComponent2D::Serialize(FArchive& Ar)
 	if(Ar.IsLoading())
 	{
 		PostProcessSettings.OnAfterLoad();
+	}
+}
+
+// -----------------------------------------------
+
+APlanarReflection::APlanarReflection(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
+{
+	bShowPreviewPlane = true;
+
+	PlanarReflectionComponent = CreateDefaultSubobject<UPlanarReflectionComponent>(TEXT("NewPlanarReflectionComponent"));
+	RootComponent = PlanarReflectionComponent;
+
+	UBoxComponent* DrawInfluenceBox = CreateDefaultSubobject<UBoxComponent>(TEXT("DrawBox0"));
+	DrawInfluenceBox->SetupAttachment(PlanarReflectionComponent);
+	DrawInfluenceBox->bUseEditorCompositing = true;
+	DrawInfluenceBox->SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);
+	PlanarReflectionComponent->PreviewBox = DrawInfluenceBox;
+
+	GetMeshComp()->SetWorldRotation(FRotator(0, 0, 0));
+	GetMeshComp()->SetWorldScale3D(FVector(4, 4, 1));
+	GetMeshComp()->SetupAttachment(PlanarReflectionComponent);
+
+#if WITH_EDITORONLY_DATA
+	SpriteComponent = CreateEditorOnlyDefaultSubobject<UBillboardComponent>(TEXT("Sprite"));
+	if (!IsRunningCommandlet() && (SpriteComponent != nullptr))
+	{
+		// Structure to hold one-time initialization
+		struct FConstructorStatics
+		{
+			FName NAME_ReflectionCapture;
+			ConstructorHelpers::FObjectFinderOptional<UTexture2D> DecalTexture;
+			FConstructorStatics()
+				: NAME_ReflectionCapture(TEXT("ReflectionCapture"))
+				, DecalTexture(TEXT("/Engine/EditorResources/S_ReflActorIcon"))
+			{
+			}
+		};
+		static FConstructorStatics ConstructorStatics;
+
+		SpriteComponent->Sprite = ConstructorStatics.DecalTexture.Get();
+		SpriteComponent->RelativeScale3D = FVector(0.5f, 0.5f, 0.5f);
+		SpriteComponent->bHiddenInGame = true;
+		SpriteComponent->bAbsoluteScale = true;
+		SpriteComponent->SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);
+		SpriteComponent->bIsScreenSizeScaled = true;
+	}
+#endif
+}
+
+void APlanarReflection::OnInterpToggle(bool bEnable)
+{
+	PlanarReflectionComponent->SetVisibility(bEnable);
+}
+
+void APlanarReflection::PostActorCreated()
+{
+	Super::PostActorCreated();
+
+	// no need load the editor mesh when there is no editor
+#if WITH_EDITOR
+	if(GetMeshComp())
+	{
+		if (!IsRunningCommandlet())
+		{
+			if( !GetMeshComp()->StaticMesh)
+			{
+				UStaticMesh* PlaneMesh = LoadObject<UStaticMesh>(NULL, TEXT("/Engine/EditorMeshes/PlanarReflectionPlane.PlanarReflectionPlane"), NULL, LOAD_None, NULL);
+				GetMeshComp()->SetStaticMesh(PlaneMesh);
+				UMaterial* PlaneMaterial = LoadObject<UMaterial>(NULL, TEXT("/Engine/EditorMeshes/ColorCalibrator/M_ChromeBall.M_ChromeBall"), NULL, LOAD_None, NULL);
+				GetMeshComp()->SetMaterial(0, PlaneMaterial);
+			}
+		}
+
+		GetMeshComp()->bVisible = bShowPreviewPlane;
+	}
+#endif
+}
+
+#if WITH_EDITOR
+void APlanarReflection::EditorApplyScale(const FVector& DeltaScale, const FVector* PivotLocation, bool bAltDown, bool bShiftDown, bool bCtrlDown)
+{
+	Super::EditorApplyScale(FVector(DeltaScale.X, DeltaScale.Y, 0), PivotLocation, bAltDown, bShiftDown, bCtrlDown);
+
+	UPlanarReflectionComponent* ReflectionComponent = Cast<UPlanarReflectionComponent>(GetPlanarReflectionComponent());
+	check(ReflectionComponent);
+	const FVector ModifiedScale = FVector(0, 0, DeltaScale.Z) * ( AActor::bUsePercentageBasedScaling ? 500.0f : 50.0f );
+	FMath::ApplyScaleToFloat(ReflectionComponent->DistanceFromPlaneFadeoutStart, ModifiedScale);
+	FMath::ApplyScaleToFloat(ReflectionComponent->DistanceFromPlaneFadeoutEnd, ModifiedScale);
+	PostEditChange();
+}
+
+void APlanarReflection::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
+{
+	Super::PostEditChangeProperty(PropertyChangedEvent);
+
+	if (GetMeshComp())
+	{
+		GetMeshComp()->bVisible = bShowPreviewPlane;
+		GetMeshComp()->MarkRenderStateDirty();
+	}
+}
+
+#endif
+
+// -----------------------------------------------
+
+// 0 is reserved to mean invalid
+int32 NextPlanarReflectionId = 0;
+
+UPlanarReflectionComponent::UPlanarReflectionComponent(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
+{
+	bCaptureEveryFrame = true;
+	PrimaryComponentTick.bCanEverTick = true;
+	PrimaryComponentTick.TickGroup = TG_DuringPhysics;
+	// Tick in the editor so that bCaptureEveryFrame preview works
+	bTickInEditor = true;
+	RenderTarget = NULL;
+	PrefilterRoughness = .01f;
+	PrefilterRoughnessDistance = 10000;
+	ScreenPercentage = 50;
+	NormalDistortionStrength = 500;
+	DistanceFromPlaneFadeoutStart = 60;
+	DistanceFromPlaneFadeoutEnd = 100;
+	AngleFromPlaneFadeStart = 20;
+	AngleFromPlaneFadeEnd = 30;
+	ProjectionWithExtraFOV[0] = FMatrix::Identity;
+	ProjectionWithExtraFOV[1] = FMatrix::Identity;
+
+	ShowFlags.SetLightShafts(0);
+
+	NextPlanarReflectionId++;
+	PlanarReflectionId = NextPlanarReflectionId;
+}
+
+
+void UPlanarReflectionComponent::Serialize(FArchive& Ar)
+{
+	Super::Serialize(Ar);
+
+	Ar.UsingCustomVersion(FRenderingObjectVersion::GUID);
+
+	if (Ar.IsLoading() && Ar.CustomVer(FRenderingObjectVersion::GUID) < FRenderingObjectVersion::ChangedPlanarReflectionFadeDefaults)
+	{
+		DistanceFromPlaneFadeoutEnd = DistanceFromPlaneFadeEnd_DEPRECATED;
+		DistanceFromPlaneFadeoutStart = DistanceFromPlaneFadeStart_DEPRECATED;
+	}
+}
+
+void UPlanarReflectionComponent::CreateRenderState_Concurrent()
+{
+	UpdatePreviewShape();
+
+	Super::CreateRenderState_Concurrent();
+
+	if (ShouldComponentAddToScene() && ShouldRender())
+	{
+		SceneProxy = new FPlanarReflectionSceneProxy(this, RenderTarget);
+		GetWorld()->Scene->AddPlanarReflection(this);
+	}
+}
+
+void UPlanarReflectionComponent::SendRenderTransform_Concurrent()
+{	
+	UpdatePreviewShape();
+
+	if (SceneProxy)
+	{
+		GetWorld()->Scene->UpdatePlanarReflectionTransform(this);
+	}
+
+	Super::SendRenderTransform_Concurrent();
+}
+
+void UPlanarReflectionComponent::DestroyRenderState_Concurrent()
+{
+	Super::DestroyRenderState_Concurrent();
+
+	if (SceneProxy)
+	{
+		GetWorld()->Scene->RemovePlanarReflection(this);
+
+		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(
+			FDestroyPlanarReflectionCommand,
+			FPlanarReflectionSceneProxy*,SceneProxy,SceneProxy,
+		{
+			delete SceneProxy;
+		});
+
+		SceneProxy = NULL;
+	}
+}
+
+#if WITH_EDITOR
+
+void UPlanarReflectionComponent::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
+{
+	Super::PostEditChangeProperty(PropertyChangedEvent);
+
+	// Recreate the view state to reset temporal history so that property changes can be seen immediately
+	ViewState.Destroy();
+	ViewState.Allocate();
+}
+
+#endif
+
+void UPlanarReflectionComponent::BeginDestroy()
+{
+	if (RenderTarget)
+	{
+		BeginReleaseResource(RenderTarget);
+	}
+	
+	// Begin a fence to track the progress of the BeginReleaseResource being processed by the RT
+	ReleaseResourcesFence.BeginFence();
+
+	Super::BeginDestroy();
+}
+
+bool UPlanarReflectionComponent::IsReadyForFinishDestroy()
+{
+	// Wait until the fence is complete before allowing destruction
+	return Super::IsReadyForFinishDestroy() && ReleaseResourcesFence.IsFenceComplete();
+}
+
+void UPlanarReflectionComponent::FinishDestroy()
+{
+	Super::FinishDestroy();
+
+	delete RenderTarget;
+	RenderTarget = NULL;
+}
+
+void UPlanarReflectionComponent::UpdatePreviewShape()
+{
+	if (PreviewBox)
+	{
+		PreviewBox->InitBoxExtent(FVector(500 * 4, 500 * 4, DistanceFromPlaneFadeoutEnd));
 	}
 }
 
@@ -385,13 +716,16 @@ void USceneCaptureComponentCube::OnRegister()
 #if WITH_EDITOR
 	// Update content on register to have at least one frames worth of good data.
 	// Without updating here this component would not work in a blueprint construction script which recreates the component after each move in the editor
-	UpdateContent();
+	CaptureSceneDeferred();
 #endif
 }
 
 void USceneCaptureComponentCube::SendRenderTransform_Concurrent()
 {	
-	UpdateContent();
+	if (bCaptureOnMovement)
+	{
+		CaptureSceneDeferred();
+	}
 
 	Super::SendRenderTransform_Concurrent();
 }
@@ -402,19 +736,39 @@ void USceneCaptureComponentCube::TickComponent(float DeltaTime, enum ELevelTick 
 
 	if (bCaptureEveryFrame)
 	{
-		UpdateComponentToWorld(false);
+		CaptureSceneDeferred();
 	}
 }
 
 static TMultiMap<TWeakObjectPtr<UWorld>, TWeakObjectPtr<USceneCaptureComponentCube> > CubedSceneCapturesToUpdateMap;
 
-void USceneCaptureComponentCube::UpdateContent()
+void USceneCaptureComponentCube::CaptureSceneDeferred()
 {
+	UWorld* World = GetWorld();
 	if (World && World->Scene && IsVisible())
 	{
 		// Defer until after updates finish
+		// Needs some CS because of parallel updates.
+		static FCriticalSection CriticalSection;
+		FScopeLock ScopeLock(&CriticalSection);
 		CubedSceneCapturesToUpdateMap.AddUnique( World, this );
 	}	
+}
+
+void USceneCaptureComponentCube::CaptureScene()
+{
+	UWorld* World = GetWorld();
+	if (World && World->Scene && IsVisible())
+	{
+		// We must push any deferred render state recreations before causing any rendering to happen, to make sure that deleted resource references are updated
+		World->SendAllEndOfFrameUpdates();
+		World->Scene->UpdateSceneCaptureContents(this);
+	}	
+
+	if (bCaptureEveryFrame)
+	{
+		FMessageLog("Blueprint").Warning(LOCTEXT("CaptureScene", "CaptureScene: Scene capture with bCaptureEveryFrame enabled was told to update - major inefficiency."));
+	}
 }
 
 void USceneCaptureComponentCube::UpdateDeferredCaptures( FSceneInterface* Scene )
@@ -423,7 +777,6 @@ void USceneCaptureComponentCube::UpdateDeferredCaptures( FSceneInterface* Scene 
 	
 	if( World && CubedSceneCapturesToUpdateMap.Num() > 0 )
 	{
-		World->SendAllEndOfFrameUpdates();
 		// Only update the scene captures associated with the current scene.
 		// Updating others not associated with the scene would cause invalid data to be rendered into the target
 		TArray< TWeakObjectPtr<USceneCaptureComponentCube> > SceneCapturesToUpdate;
@@ -449,7 +802,7 @@ void USceneCaptureComponentCube::PostEditChangeProperty(FPropertyChangedEvent& P
 	// AActor::PostEditChange will ForceUpdateComponents()
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 
-	UpdateContent();
+	CaptureSceneDeferred();
 }
 #endif // WITH_EDITOR
 
@@ -463,3 +816,5 @@ UDrawFrustumComponent* ASceneCapture2D::GetDrawFrustum() const { return DrawFrus
 USceneCaptureComponentCube* ASceneCaptureCube::GetCaptureComponentCube() const { return CaptureComponentCube; }
 /** Returns DrawFrustum subobject **/
 UDrawFrustumComponent* ASceneCaptureCube::GetDrawFrustum() const { return DrawFrustum; }
+
+#undef LOCTEXT_NAMESPACE

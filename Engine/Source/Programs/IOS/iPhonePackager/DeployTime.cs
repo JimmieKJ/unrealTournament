@@ -208,10 +208,7 @@ namespace iPhonePackager
 								ApplicationIdentifier = Utilities.GetStringFromPList("CFBundleIdentifier");
 							}
 
-							if (!String.IsNullOrEmpty(Config.DeviceId) && !Config.DeviceId.Contains("All_iOS_On"))
-							{
-								DeploymentHelper.Get().DeviceId = Config.DeviceId;
-							}
+							DeploymentHelper.Get().DeviceId = Config.DeviceId;
 							if (!DeploymentHelper.Get().InstallFilesOnDevice(ApplicationIdentifier, Config.DeltaManifest))
 							{
 								Program.Error("Failed to install Files on device");
@@ -220,10 +217,7 @@ namespace iPhonePackager
 						}
 						else if (File.Exists(IPAPath))
 						{
-							if (!String.IsNullOrEmpty(Config.DeviceId) && !Config.DeviceId.Contains("All_iOS_On"))
-							{
-								DeploymentHelper.Get().DeviceId = Config.DeviceId;
-							}
+							DeploymentHelper.Get().DeviceId = Config.DeviceId;
 							if (!DeploymentHelper.Get().InstallIPAOnDevice(IPAPath))
 							{
 								Program.Error("Failed to install IPA on device");

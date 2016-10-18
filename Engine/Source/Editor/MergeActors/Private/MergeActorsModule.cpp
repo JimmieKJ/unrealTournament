@@ -8,6 +8,9 @@
 #include "MeshProxyTool.h"
 #include "SDockTab.h"
 
+#include "SMeshMergingDialog.h"
+#include "PropertyEditing.h"
+
 #define LOCTEXT_NAMESPACE "MergeActorsModule"
 
 
@@ -52,7 +55,7 @@ private:
 	TWeakPtr<SMergeActorsToolbar> MergeActorsToolbarPtr;
 
 	/** List of registered MergeActorsTool instances */
-	TArray<TUniquePtr<IMergeActorsTool>> MergeActorsTools;
+	TArray<TUniquePtr<IMergeActorsTool>> MergeActorsTools;	
 };
 
 IMPLEMENT_MODULE(FMergeActorsModule, MergeActors);
@@ -87,17 +90,13 @@ TSharedRef<SDockTab> FMergeActorsModule::CreateMergeActorsTab(const FSpawnTabArg
 	return DockTab;
 }
 
-
 void FMergeActorsModule::StartupModule()
 {
 	FGlobalTabmanager::Get()->RegisterNomadTabSpawner(MergeActorsTabName, FOnSpawnTab::CreateRaw(this, &FMergeActorsModule::CreateMergeActorsTab))
-		.SetDisplayName(LOCTEXT("TabTitle", "Merge Actors"))
-		.SetTooltipText(LOCTEXT("TooltipText", "Open the Merge Actors tab."))
-		.SetGroup(WorkspaceMenu::GetMenuStructure().GetLevelEditorCategory())
-		.SetIcon(FSlateIcon(FEditorStyle::GetStyleSetName(), "ClassViewer.TabIcon"))
-		// This is still experimental in the editor, so it's added specifically in FMainMenu for now.
-		// When no longer experimental, remove the below.
-		.SetAutoGenerateMenuEntry(false);
+		.SetDisplayName(NSLOCTEXT("MergeActorsModule", "TabTitle", "Merge Actors"))
+		.SetTooltipText(NSLOCTEXT("MergeActorsModule", "TooltipText", "Open the Merge Actors tab."))
+		.SetGroup(WorkspaceMenu::GetMenuStructure().GetDeveloperToolsMiscCategory())
+		.SetIcon(FSlateIcon(FEditorStyle::GetStyleSetName(), "MergeActors.TabIcon"));
 
 	// Register built-in merging tools straight away
 	ensure(RegisterMergeActorsTool(MakeUnique<FMeshMergingTool>()));

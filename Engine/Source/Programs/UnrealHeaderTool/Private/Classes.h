@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "ParserClass.h"
 #include "ClassTree.h"
 
 #define WIP_UHT_REFACTOR 1

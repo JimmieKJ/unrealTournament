@@ -31,6 +31,11 @@ FUObjectToken::FUObjectToken( const UObject* InObject,  const FText& InLabelOver
 	}
 }
 
+TSharedRef<FUObjectToken> FUObjectToken::Create(const UObject* InObject, const FText& InLabelOverride)
+{
+	return MakeShareable(new FUObjectToken(InObject, InLabelOverride));
+}
+
 const FOnMessageTokenActivated& FUObjectToken::GetOnMessageTokenActivated() const
 {
 	if(MessageTokenActivated.IsBound())

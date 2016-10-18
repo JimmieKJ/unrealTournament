@@ -227,8 +227,6 @@ public:
 		}
 	}
 
-	KISMETCOMPILER_API int32 GetContextUniqueID();
-
 	UBlueprint* GetBlueprint()
 	{
 		return Blueprint;

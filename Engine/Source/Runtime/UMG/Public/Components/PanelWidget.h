@@ -124,12 +124,12 @@ public:
 
 	virtual void ConnectEditorData() override
 	{
-		for ( UPanelSlot* Slot : Slots )
+		for ( UPanelSlot* PanelSlot : Slots )
 		{
-			Slot->Parent = this;
-			if ( Slot->Content )
+			PanelSlot->Parent = this;
+			if ( PanelSlot->Content )
 			{
-				Slot->Content->Slot = Slot;
+				PanelSlot->Content->Slot = PanelSlot;
 			}
 		}
 	}
@@ -146,12 +146,12 @@ protected:
 		return UPanelSlot::StaticClass();
 	}
 
-	virtual void OnSlotAdded(UPanelSlot* Slot)
+	virtual void OnSlotAdded(UPanelSlot* InSlot)
 	{
 
 	}
 
-	virtual void OnSlotRemoved(UPanelSlot* Slot)
+	virtual void OnSlotRemoved(UPanelSlot* InSlot)
 	{
 
 	}

@@ -108,18 +108,13 @@ class FXAudio2Device : public FAudioDevice
 		{
 			return NAME_OPUS;
 		}
-		if (SoundWave->CompressionName.IsNone())
-		{
 #if WITH_OGGVORBIS
-			static FName NAME_OGG(TEXT("OGG"));
-			return NAME_OGG;
+		static FName NAME_OGG(TEXT("OGG"));
+		return NAME_OGG;
 #else //WITH_OGGVORBIS
-			static FName NAME_XMA(TEXT("XMA"));
-			return NAME_XMA;
+		static FName NAME_XMA(TEXT("XMA"));
+		return NAME_XMA;
 #endif //WITH_OGGVORBIS
-		}
-
-		return SoundWave->CompressionName;
 	}
 
 	virtual bool HasCompressedAudioInfoClass(USoundWave* SoundWave) override;

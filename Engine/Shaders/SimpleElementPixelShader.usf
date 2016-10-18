@@ -11,6 +11,7 @@
 #include "IESLightProfilesCommon.usf"
 
 #define ENABLE_EDITOR_COMPOSITING (FEATURE_LEVEL >= FEATURE_LEVEL_SM4 || MOBILE_EMULATION)
+#define WRITE_TO_SHADING_MODEL (FEATURE_LEVEL >= FEATURE_LEVEL_SM4 && !FORWARD_SHADING)
 
 Texture2D InTexture;
 SamplerState InTextureSampler;
@@ -64,13 +65,17 @@ float3 SimpleElementFrameBufferBlendOp(float4 Source)
 {
 #if (COMPILER_GLSL_ES2)
 	half4 Dest = FramebufferFetchES2();
-	Dest.rgb = Decode32BPPHDR(Dest);
+	Dest.rgb = Decode32BPPHDR(Dest).rgb;
 #else
 	half4 Dest = half4(0, 0, 0, 0);
 #endif
 
 #if SE_BLEND_MODE == SE_BLEND_OPAQUE || SE_BLEND_MODE == SE_BLEND_MASKED || SE_BLEND_MODE == SE_BLEND_MASKEDDISTANCEFIELD || SE_BLEND_MODE == SE_BLEND_MASKEDDISTANCEFIELDSHADOWED
 	return Source.rgb;
+// AlphaComposite will set both MATERIALBLENDING_TRANSLUCENT and MATERIALBLENDING_ALPHACOMPOSITE defines
+// so ensure  MATERIALBLENDING_ALPHACOMPOSITE gets first in line
+#elif MATERIALBLENDING_ALPHACOMPOSITE
+	return Source.rgb + (Dest.rgb*(1.0 - Source.a));
 #elif SE_BLEND_MODE == SE_BLEND_TRANSLUCENT || SE_BLEND_MODE == SE_BLEND_TRANSLUCENTALPHAONLY || SE_BLEND_MODE == SE_BLEND_ALPHABLEND || SE_BLEND_MODE == SE_BLEND_TRANSLUCENTDISTANCEFIELD || SE_BLEND_MODE == SE_BLEND_TRANSLUCENTDISTANCEFIELDSHADOWED
 	return (Source.rgb*Source.a) + (Dest.rgb*(1.0 - Source.a));
 #elif SE_BLEND_MODE == SE_BLEND_ADDITIVE
@@ -102,7 +107,7 @@ void Main(
 	in float4 Color : TEXCOORD1,
 	in float4 HitProxyId : TEXCOORD2,
 	out float4 OutColor : SV_Target0
-#if FEATURE_LEVEL >= FEATURE_LEVEL_SM4
+#if WRITE_TO_SHADING_MODEL
 	,out float4 OutWorldNormal : SV_Target1 
 #endif
 #if ENABLE_EDITOR_COMPOSITING
@@ -119,7 +124,7 @@ void Main(
 	ReplicateChannelSimpleElementShader(BaseColor);
 	OutColor = RETURN_COLOR(BaseColor * Color);	
 
-#if FEATURE_LEVEL >= FEATURE_LEVEL_SM4
+#if WRITE_TO_SHADING_MODEL
 	// Set the G buffer bits that indicate unlit
 	OutWorldNormal = 0;
 #endif
@@ -132,7 +137,7 @@ void AlphaOnlyMain(
 	in float4 Color : TEXCOORD1,
 	in float4 HitProxyId : TEXCOORD2,
 	out float4 OutColor : SV_Target0
-#if FEATURE_LEVEL >= FEATURE_LEVEL_SM4
+#if WRITE_TO_SHADING_MODEL
 	,out float4 OutWorldNormal : SV_Target1 
 #endif
 #if ENABLE_EDITOR_COMPOSITING
@@ -148,7 +153,7 @@ void AlphaOnlyMain(
 	TmpColor.a *= Texture2DSample_A8(InTexture, InTextureSampler, TextureCoordinate);
 	OutColor = RETURN_COLOR(TmpColor);
 
-#if FEATURE_LEVEL >= FEATURE_LEVEL_SM4
+#if WRITE_TO_SHADING_MODEL
 	// Set the G buffer bits that indicate unlit
 	OutWorldNormal = 0;
 #endif
@@ -171,7 +176,7 @@ void GammaMain(
 #if ENABLE_EDITOR_COMPOSITING
 	,in float4 SvPosition : SV_Position
 #endif
-#if FEATURE_LEVEL >= FEATURE_LEVEL_SM4
+#if WRITE_TO_SHADING_MODEL
 	,out float4 OutWorldNormal : SV_Target1
 #endif
 	)
@@ -190,7 +195,7 @@ void GammaMain(
 	}
 	OutColor = RETURN_COLOR(OutColor);
 
-#if FEATURE_LEVEL >= FEATURE_LEVEL_SM4
+#if WRITE_TO_SHADING_MODEL
 	// Set the G buffer bits that indicate unlit
 	OutWorldNormal = 0;
 #endif
@@ -206,7 +211,7 @@ void GammaAlphaOnlyMain(
 #if ENABLE_EDITOR_COMPOSITING
 	,in float4 SvPosition : SV_Position
 #endif
-#if FEATURE_LEVEL >= FEATURE_LEVEL_SM4
+#if WRITE_TO_SHADING_MODEL
 	,out float4 OutWorldNormal : SV_Target1
 #endif
 	)
@@ -224,7 +229,7 @@ void GammaAlphaOnlyMain(
 	}
 	OutColor = RETURN_COLOR(TmpColor);
 
-#if FEATURE_LEVEL >= FEATURE_LEVEL_SM4
+#if WRITE_TO_SHADING_MODEL
 	// Set the G buffer bits that indicate unlit
 	OutWorldNormal = 0;
 #endif
@@ -241,7 +246,7 @@ void GammaMaskedMain(
 #if ENABLE_EDITOR_COMPOSITING
 	,in float4 SvPosition : SV_Position
 #endif
-#if FEATURE_LEVEL >= FEATURE_LEVEL_SM4
+#if WRITE_TO_SHADING_MODEL
 	,out float4 OutWorldNormal : SV_Target1
 #endif
 	)
@@ -261,7 +266,7 @@ void GammaMaskedMain(
 	}
 	OutColor = RETURN_COLOR(OutColor);
 
-#if FEATURE_LEVEL >= FEATURE_LEVEL_SM4
+#if WRITE_TO_SHADING_MODEL
 	// Set the G buffer bits that indicate unlit
 	OutWorldNormal = 0;
 #endif
@@ -374,7 +379,7 @@ void CubemapTextureProperties(
 	in float2 TextureCoordinate : TEXCOORD0,
 	in float4 InterpolatedColor : TEXCOORD1,
 	out float4 OutColor : SV_Target0
-#if FEATURE_LEVEL >= FEATURE_LEVEL_SM4
+#if WRITE_TO_SHADING_MODEL
 	,out float4 OutWorldNormal : SV_Target1 
 #endif
 	)
@@ -408,7 +413,7 @@ void CubemapTextureProperties(
 	
 	OutColor = RETURN_COLOR(FinalColor);	
 
-#if FEATURE_LEVEL >= FEATURE_LEVEL_SM4
+#if WRITE_TO_SHADING_MODEL
 	// Set the G buffer bits that indicate unlit
 	OutWorldNormal = 0;
 #endif

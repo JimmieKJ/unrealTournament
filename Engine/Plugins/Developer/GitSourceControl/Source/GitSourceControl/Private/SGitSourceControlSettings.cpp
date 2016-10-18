@@ -12,6 +12,9 @@ void SGitSourceControlSettings::Construct(const FArguments& InArgs)
 	FSlateFontInfo Font = FEditorStyle::GetFontStyle(TEXT("SourceControl.LoginWindow.Font"));
 
 	bAutoCreateGitIgnore = true;
+	bAutoInitialCommit = true;
+
+	InitialCommitMessage = LOCTEXT("InitialCommitMessage", "Initial commit");
 
 	ChildSlot
 	[
@@ -21,7 +24,7 @@ void SGitSourceControlSettings::Construct(const FArguments& InArgs)
 		[
 			SNew(SVerticalBox)
 			+SVerticalBox::Slot()
-			.FillHeight(1.0f)
+			.FillHeight(1.5f)
 			.Padding(2.0f)
 			.VAlign(VAlign_Center)
 			[
@@ -46,7 +49,7 @@ void SGitSourceControlSettings::Construct(const FArguments& InArgs)
 				[
 					SNew(SVerticalBox)
 					+SVerticalBox::Slot()
-					.FillHeight(1.0f)
+					.FillHeight(1.5f)
 					.Padding(2.0f)
 					[
 						SNew(SEditableTextBox)
@@ -173,32 +176,7 @@ void SGitSourceControlSettings::Construct(const FArguments& InArgs)
 				SNew(SHorizontalBox)
 				.Visibility(this, &SGitSourceControlSettings::CanInitializeGitRepository)
 				+SHorizontalBox::Slot()
-				.FillWidth(1.0f)
-				[
-					SNew(SVerticalBox)
-					+SVerticalBox::Slot()
-					.FillHeight(2.0f)
-					.Padding(2.0f)
-					.VAlign(VAlign_Center)
-					.AutoHeight()
-					[
-						SNew(SButton)
-						.Text(LOCTEXT("GitInitRepository", "Initialize project with Git"))
-						.ToolTipText(LOCTEXT("GitInitRepository_Tooltip", "Initialize current project as a new Git repository"))
-						.OnClicked(this, &SGitSourceControlSettings::OnClickedInitializeGitRepository)
-						.HAlign(HAlign_Center)
-					]
-				]
-			]
-			+SVerticalBox::Slot()
-			.FillHeight(1.0f)
-			.Padding(2.0f)
-			.VAlign(VAlign_Center)
-			[
-				SNew(SHorizontalBox)
-				.Visibility(this, &SGitSourceControlSettings::CanInitializeGitRepository)
-				+SHorizontalBox::Slot()
-				.FillWidth(0.04f)
+				.FillWidth(0.1f)
 				[
 					SNew(SVerticalBox)
 					+SVerticalBox::Slot()
@@ -213,7 +191,7 @@ void SGitSourceControlSettings::Construct(const FArguments& InArgs)
 					]
 				]
 				+SHorizontalBox::Slot()
-				.FillWidth(0.96f)
+				.FillWidth(2.9f)
 				[
 					SNew(SVerticalBox)
 					+SVerticalBox::Slot()
@@ -225,6 +203,84 @@ void SGitSourceControlSettings::Construct(const FArguments& InArgs)
 						.Text(LOCTEXT("CreateGitIgnore", "Add a .gitignore file"))
 						.ToolTipText(LOCTEXT("CreateGitIgnore_Tooltip", "Create and add a standard '.gitignore' file"))
 						.Font(Font)
+					]
+				]
+			]
+			+SVerticalBox::Slot()
+			.FillHeight(1.5f)
+			.Padding(2.0f)
+			.VAlign(VAlign_Center)
+			[
+				SNew(SHorizontalBox)
+				.Visibility(this, &SGitSourceControlSettings::CanInitializeGitRepository)
+				+SHorizontalBox::Slot()
+				.FillWidth(0.1f)
+				[
+					SNew(SVerticalBox)
+					+SVerticalBox::Slot()
+					.FillHeight(1.0f)
+					.Padding(2.0f)
+					.VAlign(VAlign_Center)
+					[
+						SNew(SCheckBox)
+						.ToolTipText(LOCTEXT("InitialGitCommit_Tooltip", "Make the initial Git commit"))
+						.IsChecked(ECheckBoxState::Checked)
+						.OnCheckStateChanged(this, &SGitSourceControlSettings::OnCheckedInitialCommit)
+					]
+				]
+				+SHorizontalBox::Slot()
+				.FillWidth(0.9f)
+				[
+					SNew(SVerticalBox)
+					+SVerticalBox::Slot()
+					.FillHeight(1.0f)
+					.Padding(2.0f)
+					.VAlign(VAlign_Center)
+					[
+						SNew(STextBlock)
+						.Text(LOCTEXT("InitialGitCommit", "Make the initial Git Commit"))
+						.ToolTipText(LOCTEXT("InitialGitCommit_Tooltip", "Make the initial Git commit"))
+						.Font(Font)
+					]
+				]
+				+SHorizontalBox::Slot()
+				.FillWidth(2.0f)
+				[
+					SNew(SVerticalBox)
+					+SVerticalBox::Slot()
+					.FillHeight(1.5f)
+					.Padding(2.0f)
+					[
+						SNew(SEditableTextBox)
+						.Text(this, &SGitSourceControlSettings::GetInitialCommitMessage)
+						.ToolTipText(LOCTEXT("InitialCommitMessage_Tooltip", "Message of initial commit"))
+						.OnTextCommitted(this, &SGitSourceControlSettings::OnInitialCommitMessageCommited)
+						.Font(Font)
+					]
+				]
+			]
+			+SVerticalBox::Slot()
+			.FillHeight(2.0f)
+			.Padding(2.0f)
+			.VAlign(VAlign_Center)
+			[
+				SNew(SHorizontalBox)
+				.Visibility(this, &SGitSourceControlSettings::CanInitializeGitRepository)
+				+SHorizontalBox::Slot()
+				.FillWidth(1.0f)
+				[
+					SNew(SVerticalBox)
+					+SVerticalBox::Slot()
+					.FillHeight(2.0f)
+					.Padding(2.0f)
+					.VAlign(VAlign_Center)
+					.AutoHeight()
+					[
+						SNew(SButton)
+						.Text(LOCTEXT("GitInitRepository", "Initialize project with Git"))
+						.ToolTipText(LOCTEXT("GitInitRepository_Tooltip", "Initialize current project as a new Git repository"))
+						.OnClicked(this, &SGitSourceControlSettings::OnClickedInitializeGitRepository)
+						.HAlign(HAlign_Center)
 					]
 				]
 			]
@@ -284,21 +340,35 @@ FReply SGitSourceControlSettings::OnClickedInitializeGitRepository()
 	if(GitSourceControl.GetProvider().IsEnabled())
 	{
 		TArray<FString> ProjectFiles;
-		const FString ProjectFile = FPaths::GetCleanFilename(FPaths::GetProjectFilePath());
-		ProjectFiles.Add(ProjectFile);
-		ProjectFiles.Add(TEXT("Config"));
+		ProjectFiles.Add(FPaths::GetCleanFilename(FPaths::GetProjectFilePath()));
+		ProjectFiles.Add(FPaths::GetCleanFilename(FPaths::GameConfigDir()));
+		ProjectFiles.Add(FPaths::GetCleanFilename(FPaths::GameContentDir()));
+		if(FPaths::DirectoryExists(FPaths::GameSourceDir()))
+		{
+			ProjectFiles.Add(FPaths::GetCleanFilename(FPaths::GameSourceDir()));
+		}
 		if(bAutoCreateGitIgnore)
 		{
 			// Create a standard ".gitignore" file with common patterns for a typical Blueprint & C++ project
 			const FString Filename = FString::Printf(TEXT("%s.gitignore"), *PathToGameDir);
-			const FString GitIgnoreContent = TEXT("Binaries\nDerivedDataCache\nIntermediate\nSaved\n*.opensdf\n*.sdf\n*.sln\n*.suo\n*.xcodeproj\n*.xcworkspace");
+			const FString GitIgnoreContent = TEXT("Binaries\nDerivedDataCache\nIntermediate\nSaved\n*.VC.db\n*.opensdf\n*.opendb\n*.sdf\n*.sln\n*.suo\n*.xcodeproj\n*.xcworkspace");
 			if(FFileHelper::SaveStringToFile(GitIgnoreContent, *Filename, FFileHelper::EEncodingOptions::ForceUTF8WithoutBOM))
 			{
 				ProjectFiles.Add(TEXT(".gitignore"));
 			}
 		}
-		// Add .uproject and Config/ files (and .gitignore if any)
+		// Add .uproject, Config/, Content/ and Source/ files (and .gitignore if any)
 		GitSourceControlUtils::RunCommand(TEXT("add"), PathToGitBinary, PathToGameDir, TArray<FString>(), ProjectFiles, InfoMessages, ErrorMessages);
+		if(bAutoInitialCommit)
+		{
+			// optionnal initial git commit with custom message
+			TArray<FString> Parameters;
+			FString ParamCommitMsg = TEXT("--message=\"");
+			ParamCommitMsg += InitialCommitMessage.ToString();
+			ParamCommitMsg += TEXT("\"");
+			Parameters.Add(ParamCommitMsg);
+			GitSourceControlUtils::RunCommit(PathToGitBinary, PathToGameDir, Parameters, TArray<FString>(), InfoMessages, ErrorMessages);
+		}
 	}
 	return FReply::Handled();
 }
@@ -306,6 +376,21 @@ FReply SGitSourceControlSettings::OnClickedInitializeGitRepository()
 void SGitSourceControlSettings::OnCheckedCreateGitIgnore(ECheckBoxState NewCheckedState)
 {
 	bAutoCreateGitIgnore = (NewCheckedState == ECheckBoxState::Checked);
+}
+
+void SGitSourceControlSettings::OnCheckedInitialCommit(ECheckBoxState NewCheckedState)
+{
+	bAutoInitialCommit = (NewCheckedState == ECheckBoxState::Checked);
+}
+
+void SGitSourceControlSettings::OnInitialCommitMessageCommited(const FText& InText, ETextCommit::Type InCommitType)
+{
+	InitialCommitMessage = InText;
+}
+
+FText SGitSourceControlSettings::GetInitialCommitMessage() const
+{
+	return InitialCommitMessage;
 }
 
 #undef LOCTEXT_NAMESPACE

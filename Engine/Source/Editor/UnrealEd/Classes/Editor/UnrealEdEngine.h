@@ -10,6 +10,8 @@
 UENUM()
 enum EPackageNotifyState
 {
+	/** Updating the source control state of the package */
+	NS_Updating,
 	/** The user has been prompted with the balloon taskbar message. */
 	NS_BalloonPrompted,
 	/** The user responded to the balloon task bar message and got the modal prompt to checkout dialog and responded to it. */
@@ -126,10 +128,6 @@ public:
 	UPROPERTY()
 	class AActor* CurrentLODParentActor;
 
-	/** If we have packages that are pending and we should notify the user that they need to be checked out */
-	UPROPERTY()
-	uint32 bNeedToPromptForCheckout:1;
-
 	/** Whether the user needs to be prompted about a package being saved with an engine version newer than the current one or not */
 	UPROPERTY()
 	uint32 bNeedWarningForPkgEngineVer:1;
@@ -149,6 +147,9 @@ public:
 	/** Cooker server incase we want to cook ont he side while editing... */
 	UPROPERTY()
 	class UCookOnTheFlyServer* CookServer;
+
+	/** A list of packages dirtied this tick */
+	TArray<TWeakObjectPtr<UPackage>> PackagesDirtiedThisTick;
 
 	/** A mapping of packages to their checkout notify state.  This map only contains dirty packages.  Once packages become clean again, they are removed from the map.*/
 	TMap<TWeakObjectPtr<UPackage>, uint8>	PackageToNotifyState;
@@ -222,9 +223,9 @@ public:
 	/** called when a package has has its dirty state updated */
 	void OnPackageDirtyStateUpdated( UPackage* Pkg);
 	/** called when a package's source control state is updated */
-	void OnSourceControlStateUpdated(const FSourceControlOperationRef& SourceControlOp, ECommandResult::Type ResultType, TWeakObjectPtr<UPackage> Package);
+	void OnSourceControlStateUpdated(const FSourceControlOperationRef& SourceControlOp, ECommandResult::Type ResultType, TArray<TWeakObjectPtr<UPackage>> Packages);
 	/** called when a package is automatically checked out from source control */
-	void OnPackageCheckedOut(const FSourceControlOperationRef& SourceControlOp, ECommandResult::Type ResultType, TWeakObjectPtr<UPackage> Package);
+	void OnPackagesCheckedOut(const FSourceControlOperationRef& SourceControlOp, ECommandResult::Type ResultType, TArray<TWeakObjectPtr<UPackage>> Packages);
 	/** caled by FCoreDelegate::PostGarbageCollect */
 	void OnPostGarbageCollect();
 	/** called by color picker change event */
@@ -626,6 +627,16 @@ public:
 	void PromptToCheckoutModifiedPackages( bool bPromptAll = false );
 
 	/**
+	 * Displays a toast notification or warning when a package is dirtied, indicating that it needs checking out (or that it cannot be checked out)
+	 */
+	void ShowPackageNotification();
+
+	/**
+	 * @return Returns the number of dirty packages that require checkout.
+	 */
+	int32 GetNumDirtyPackagesThatNeedCheckout() const;
+
+	/**
 	 * Checks to see if there are any packages in the PackageToNotifyState map that are not checked out by the user
 	 *
 	 * @return True if packages need to be checked out.
@@ -749,8 +760,6 @@ public:
 	bool HandleDumpSelectionCommand( const TCHAR* Str, FOutputDevice& Ar );
 	bool HandleBuildLightingCommand( const TCHAR* Str, FOutputDevice& Ar, UWorld* InWorld );
 	bool HandleBuildPathsCommand( const TCHAR* Str, FOutputDevice& Ar, UWorld* InWorld );
-	bool HandleUpdateLandscapeEditorDataCommand( const TCHAR* Str, FOutputDevice& Ar, UWorld* InWorld );
-	bool HandleUpdateLandscapeMICCommand( const TCHAR* Str, FOutputDevice& Ar, UWorld* InWorld );
 	bool HandleRecreateLandscapeCollisionCommand(const TCHAR* Str, FOutputDevice& Ar, UWorld* InWorld);
 	bool HandleRemoveLandscapeXYOffsetsCommand(const TCHAR* Str, FOutputDevice& Ar, UWorld* InWorld);
 	bool HandleConvertMatineesCommand( const TCHAR* Str, FOutputDevice& Ar, UWorld* InWorld );
@@ -762,10 +771,21 @@ public:
 	bool IsComponentSelected(const UPrimitiveComponent* PrimComponent);
 	
 protected:
+	/** Called when global editor selection changes */
+	void OnEditorSelectionChanged(UObject* SelectionThatChanged);
+
+	/** Called when blueprint objects are replaced so that we can update the cached visualizer selection */
+	void ReplaceCachedVisualizerObjects(const TMap<UObject*, UObject*>& ReplacementMap);
+
 	EWriteDisallowedWarningState GetWarningStateForWritePermission(const FString& PackageName) const;
 	
 	/** The package auto-saver instance used by the editor */
 	TUniquePtr<IPackageAutoSaver> PackageAutoSaver;
+
+	/**
+	 * The list of visualizers to draw when selection changes
+	 */
+	TArray<FCachedComponentVisualizer> VisualizersForSelection;
 
 	/** Instance responsible for monitoring this editor's performance */
 	FPerformanceMonitor* PerformanceMonitor;
@@ -775,4 +795,16 @@ protected:
 
 	/** Whether the pivot has been moved independently */
 	bool bPivotMovedIndependently;
+
+	TWeakPtr<SNotificationItem> CheckOutNotificationWeakPtr;
+
+private:
+	/**
+	* Internal helper function to count how many dirty packages require checkout.
+	*
+	* @param	bCheckIfAny		If true, checks instead if any packages need checkout.
+	*
+	* @return	Returns the number of dirty packages that require checkout. If bCheckIfAny is true, returns 1 if any packages will require checkout.
+	*/
+	int32 InternalGetNumDirtyPackagesThatNeedCheckout(bool bCheckIfAny) const;
 };

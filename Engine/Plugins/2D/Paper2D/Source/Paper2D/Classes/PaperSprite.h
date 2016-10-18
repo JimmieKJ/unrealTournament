@@ -5,6 +5,7 @@
 #include "SpriteEditorOnlyTypes.h"
 #include "Engine/EngineTypes.h"
 #include "Interfaces/Interface_CollisionDataProvider.h"
+#include "Slate/SlateTextureAtlasInterface.h"
 #include "PaperSprite.generated.h"
 
 //@TODO: Should have some nice UI and enforce unique names, etc...
@@ -34,25 +35,13 @@ typedef TArray<class UTexture*, TInlineAllocator<4>> FAdditionalSpriteTextureArr
  */
 
 UCLASS(BlueprintType, meta=(DisplayThumbnail = "true"))
-class PAPER2D_API UPaperSprite : public UObject, public IInterface_CollisionDataProvider
+class PAPER2D_API UPaperSprite : public UObject, public IInterface_CollisionDataProvider, public ISlateTextureAtlasInterface
 {
 	GENERATED_UCLASS_BODY()
 
 protected:
 
 #if WITH_EDITORONLY_DATA
-	// Position with SourceTexture (in pixels)
-	UPROPERTY(Category=Sprite, EditAnywhere, AssetRegistrySearchable)
-	FVector2D SourceUV;
-
-	// Dimensions within SourceTexture (in pixels)
-	UPROPERTY(Category=Sprite, EditAnywhere, AssetRegistrySearchable)
-	FVector2D SourceDimension;
-
-	// Position within BakedSourceTexture
-	UPROPERTY()
-	FVector2D BakedSourceUV;
-
 	// Origin within SourceImage, prior to atlasing
 	UPROPERTY(Category=Sprite, EditAnywhere, AdvancedDisplay, meta=(EditCondition="bTrimmedInSourceImage"))
 	FVector2D OriginInSourceImageBeforeTrimming;
@@ -75,6 +64,14 @@ protected:
 	FVector2D SourceTextureDimension;
 #endif
 
+	// Position within SourceTexture (in pixels)
+	UPROPERTY(Category=Sprite, EditAnywhere, AssetRegistrySearchable)
+	FVector2D SourceUV;
+
+	// Dimensions within SourceTexture (in pixels)
+	UPROPERTY(Category=Sprite, EditAnywhere, AssetRegistrySearchable)
+	FVector2D SourceDimension;
+
 	// The source texture that the sprite comes from
 	UPROPERTY(Category=Sprite, EditAnywhere, AssetRegistrySearchable)
 	UTexture2D* SourceTexture;
@@ -82,6 +79,14 @@ protected:
 	// Additional source textures for other slots
 	UPROPERTY(Category=Sprite, EditAnywhere, AssetRegistrySearchable, meta=(DisplayName="Additional Textures"))
 	TArray<UTexture*> AdditionalSourceTextures;
+
+	// Position within BakedSourceTexture (in pixels)
+	UPROPERTY()
+	FVector2D BakedSourceUV;
+
+	// Dimensions within BakedSourceTexture (in pixels)
+	UPROPERTY()
+	FVector2D BakedSourceDimension;
 
 	UPROPERTY()
 	UTexture2D* BakedSourceTexture;
@@ -170,6 +175,10 @@ public:
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif
 	// End of UObject interface
+
+	// ISlateTextureAtlasInterface interface
+	virtual FSlateAtlasData GetSlateAtlasData() const override;
+	// End of ISlateTextureAtlasInterface interface
 
 #if WITH_EDITOR
 	FVector2D ConvertTextureSpaceToPivotSpace(FVector2D Input) const;

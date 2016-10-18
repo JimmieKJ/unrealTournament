@@ -12,6 +12,7 @@
 #include "MeshUtilities.h"
 #include "ObjectTools.h"
 #include "HierarchicalLODUtilities.h"
+#include "HierarchicalLODUtilitiesModule.h"
 #endif // WITH_EDITOR
 
 #include "GameFramework/WorldSettings.h"
@@ -263,6 +264,8 @@ void FLODCluster::SubtractCluster(const FLODCluster& Other)
 
 ALODActor* FLODCluster::BuildActor(ULevel* InLevel, const int32 LODIdx, const bool bCreateMeshes)
 {
+	ALODActor* NewActor = nullptr;
+
 	if (InLevel && InLevel->GetWorld())
 	{
 		// create asset using Actors
@@ -272,41 +275,39 @@ ALODActor* FLODCluster::BuildActor(ULevel* InLevel, const int32 LODIdx, const bo
 		const int32 LODCount = InLevel->GetWorld()->GetWorldSettings()->HierarchicalLODSetup.Num();
 
 		// Where generated assets will be stored
-		UPackage* AssetsOuter = FHierarchicalLODUtilities::CreateOrRetrieveLevelHLODPackage(InLevel);
-
-		if (AssetsOuter)
+		FHierarchicalLODUtilitiesModule& Module = FModuleManager::LoadModuleChecked<FHierarchicalLODUtilitiesModule>("HierarchicalLODUtilities");
+		IHierarchicalLODUtilities* Utilities = Module.GetUtilities();
+ 	
+		TArray<UStaticMeshComponent*> AllComponents;
+		for (auto& Actor : Actors)
 		{
-			TArray<UStaticMeshComponent*> AllComponents;
+			TArray<UStaticMeshComponent*> Components;
 
-			for (auto& Actor : Actors)
+			if (Actor->IsA<ALODActor>())
 			{
-				TArray<UStaticMeshComponent*> Components;
-
-				if (Actor->IsA<ALODActor>())
-				{
-					FHierarchicalLODUtilities::ExtractStaticMeshComponentsFromLODActor(Actor, Components);
-				}
-				else
-				{
-					Actor->GetComponents<UStaticMeshComponent>(Components);
-				}
-
-				// TODO: support instanced static meshes
-				Components.RemoveAll([](UStaticMeshComponent* Val){ return Val->IsA(UInstancedStaticMeshComponent::StaticClass()); });
-
-				AllComponents.Append(Components);
+				Utilities->ExtractStaticMeshComponentsFromLODActor(Actor, Components);
+			}
+			else
+			{
+				Actor->GetComponents<UStaticMeshComponent>(Components);
 			}
 
+			// TODO: support instanced static meshes
+			Components.RemoveAll([](UStaticMeshComponent* Val){ return Val->IsA(UInstancedStaticMeshComponent::StaticClass()); });
+
+			AllComponents.Append(Components);
+		}
+
+		if (AllComponents.Num())
+		{
 			// Create LOD Actor
 			UWorld* LevelWorld = Cast<UWorld>(InLevel->GetOuter());
 			check(LevelWorld);
 
 			FTransform Transform;
-			ALODActor* NewActor = nullptr;
-
 			NewActor = LevelWorld->SpawnActor<ALODActor>(ALODActor::StaticClass(), Transform);
 			NewActor->LODLevel = LODIdx + 1;
-			NewActor->LODDrawDistance = 0.0f;			
+			NewActor->LODDrawDistance = 0.0f;
 
 			// now set as parent
 			for (auto& Actor : Actors)
@@ -316,16 +317,20 @@ ALODActor* FLODCluster::BuildActor(ULevel* InLevel, const int32 LODIdx, const bo
 
 			// Mark dirty according to whether or not this is a preview build
 			NewActor->SetIsDirty(!bCreateMeshes);
-			
+
 			if (bCreateMeshes)
 			{
-				FHierarchicalLODUtilities::BuildStaticMeshForLODActor(NewActor, AssetsOuter, LODSetup, LODIdx);
+				UPackage* AssetsOuter = Utilities->CreateOrRetrieveLevelHLODPackage(InLevel);
+				checkf(AssetsOuter != nullptr, TEXT("Failed to created outer for generated HLOD assets"));
+				Utilities->BuildStaticMeshForLODActor(NewActor, AssetsOuter, LODSetup);
 			}
-			return NewActor;
+			NewActor->PostEditChange();
 		}
+
+		
 	}
 
-	return nullptr;
+	return NewActor;
 }
 
 

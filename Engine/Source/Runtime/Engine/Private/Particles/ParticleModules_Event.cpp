@@ -210,7 +210,8 @@ bool UParticleModuleEventGenerator::HandleParticleCollision(FParticleEmitterInst
 					Hit->Normal, 
 					Hit->Time, 
 					Hit->Item, 
-					Hit->BoneName);
+					Hit->BoneName,
+					Hit->PhysMaterial.Get());
 				bProcessed = true;
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 				Owner->EventCount++;
@@ -348,7 +349,13 @@ bool UParticleModuleEventReceiverSpawn::ProcessParticleEvent(FParticleEmitterIns
 		case EPET_Collision:
 			{
 				FParticleEventCollideData* CollideData = (FParticleEventCollideData*)(&InEvent);
-				Count = FMath::RoundToInt(SpawnCount.GetValue(bUseParticleTime ? CollideData->ParticleTime : InEvent.EmitterTime));
+				UPhysicalMaterial* PhysMat = CollideData->PhysMat;
+				bool bPhysMatIsAllowed = !PhysMat || (PhysicalMaterials.Num() == 0 || PhysicalMaterials.Contains(PhysMat) == !bBanPhysicalMaterials);
+
+				if (bPhysMatIsAllowed)
+				{
+					Count = FMath::RoundToInt(SpawnCount.GetValue(bUseParticleTime ? CollideData->ParticleTime : InEvent.EmitterTime));
+				}
 			}
 			break;
 		case EPET_Blueprint:

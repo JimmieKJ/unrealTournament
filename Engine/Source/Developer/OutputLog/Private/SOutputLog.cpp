@@ -6,6 +6,30 @@
 #include "GameFramework/GameMode.h"
 #include "Engine/LocalPlayer.h"
 #include "GameFramework/GameState.h"
+#include "SSearchBox.h"
+
+#define LOCTEXT_NAMESPACE "SOutputLog"
+
+/** Expression context to test the given messages against the current text filter */
+class FLogFilter_TextFilterExpressionContext : public ITextFilterExpressionContext
+{
+public:
+	explicit FLogFilter_TextFilterExpressionContext(const FLogMessage& InMessage) : Message(&InMessage) {}
+
+	/** Test the given value against the strings extracted from the current item */
+	virtual bool TestBasicStringExpression(const FTextFilterString& InValue, const ETextFilterTextComparisonMode InTextComparisonMode) const override { return TextFilterUtils::TestBasicStringExpression(*Message->Message, InValue, InTextComparisonMode); }
+
+	/**
+	* Perform a complex expression test for the current item
+	* No complex expressions in this case - always returns false
+	*/
+	virtual bool TestComplexExpression(const FName& InKey, const FTextFilterString& InValue, const ETextFilterComparisonOperation InComparisonOperation, const ETextFilterTextComparisonMode InTextComparisonMode) const override { return false; }
+
+private:
+	/** Message that is being filtered */
+	const FLogMessage* Message;
+};
+
 /** Custom console editable text box whose only purpose is to prevent some keys from being typed */
 class SConsoleEditableTextBox : public SEditableTextBox
 {
@@ -161,6 +185,8 @@ void SConsoleInputBox::Construct( const FArguments& InArgs )
 			)
 	];
 }
+END_SLATE_FUNCTION_BUILD_OPTIMIZATION
+
 void SConsoleInputBox::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
 {
 	if (!GIntraFrameDebuggingGameThread && !IsEnabled())
@@ -209,18 +235,25 @@ TSharedRef<ITableRow> SConsoleInputBox::MakeSuggestionListItemWidget(TSharedPtr<
 {
 	check(Text.IsValid());
 
-	FString Left, Right, Combined;
+	FString Left, Mid, Right, TempRight, Combined;
 
-	if(Text->Split(TEXT("\t"), &Left, &Right))
+	if(Text->Split(TEXT("\t"), &Left, &TempRight))
 	{
-		Combined = Left + Right;
+		if (TempRight.Split(TEXT("\t"), &Mid, &Right))
+		{
+			Combined = Left + Mid + Right;
+		}
+		else
+		{
+			Combined = Left + Right;
+		}
 	}
 	else
 	{
 		Combined = *Text;
 	}
 
-	FText HighlightText = FText::FromString(Left);
+	FText HighlightText = FText::FromString(Mid);
 
 	return
 		SNew(STableRow< TSharedPtr<FString> >, OwnerTable)
@@ -272,7 +305,7 @@ void SConsoleInputBox::OnTextChanged(const FText& InText)
 
 		// console variables
 		{
-			IConsoleManager::Get().ForEachConsoleObject(
+			IConsoleManager::Get().ForEachConsoleObjectThatContains(
 				FConsoleObjectVisitor::CreateStatic< TArray<FString>& >(
 				&FConsoleVariableAutoCompleteVisitor::OnConsoleVariable,
 				AutoCompleteList ), *InputTextStr);
@@ -283,8 +316,12 @@ void SConsoleInputBox::OnTextChanged(const FText& InText)
 		for(uint32 i = 0; i < (uint32)AutoCompleteList.Num(); ++i)
 		{
 			FString &ref = AutoCompleteList[i];
+			int32 Start = ref.Find(InputTextStr);
 
-			ref = ref.Left(InputTextStr.Len()) + TEXT("\t") + ref.RightChop(InputTextStr.Len());
+			if (Start != INDEX_NONE)
+			{
+				ref = ref.Left(Start) + TEXT("\t") + ref.Mid(Start, InputTextStr.Len()) + TEXT("\t") + ref.RightChop(Start + InputTextStr.Len());
+			}
 		}
 
 		SetSuggestions(AutoCompleteList, false);
@@ -539,9 +576,9 @@ FString SConsoleInputBox::GetSelectionText() const
 	return ret;
 }
 
-TSharedRef< FOutputLogTextLayoutMarshaller > FOutputLogTextLayoutMarshaller::Create(TArray< TSharedPtr<FLogMessage> > InMessages)
+TSharedRef< FOutputLogTextLayoutMarshaller > FOutputLogTextLayoutMarshaller::Create(TArray< TSharedPtr<FLogMessage> > InMessages, FLogFilter* InFilter)
 {
-	return MakeShareable(new FOutputLogTextLayoutMarshaller(MoveTemp(InMessages)));
+	return MakeShareable(new FOutputLogTextLayoutMarshaller(MoveTemp(InMessages), InFilter));
 }
 
 FOutputLogTextLayoutMarshaller::~FOutputLogTextLayoutMarshaller()
@@ -581,6 +618,7 @@ bool FOutputLogTextLayoutMarshaller::AppendMessage(const TCHAR* InText, const EL
 		}
 		else
 		{
+			MarkMessagesCacheAsDirty();
 			MakeDirty();
 		}
 
@@ -592,6 +630,14 @@ bool FOutputLogTextLayoutMarshaller::AppendMessage(const TCHAR* InText, const EL
 
 void FOutputLogTextLayoutMarshaller::AppendMessageToTextLayout(const TSharedPtr<FLogMessage>& InMessage)
 {
+	if (!Filter->IsMessageAllowed(InMessage))
+	{
+		return;
+	}
+
+	// Increment the cached count
+	CachedNumMessages++;
+
 	const FTextBlockStyle& MessageTextStyle = FEditorStyle::Get().GetWidgetStyle<FTextBlockStyle>(InMessage->Style);
 
 	TSharedRef<FString> LineText = InMessage->Message;
@@ -609,6 +655,14 @@ void FOutputLogTextLayoutMarshaller::AppendMessagesToTextLayout(const TArray<TSh
 
 	for (const auto& CurrentMessage : InMessages)
 	{
+		if (!Filter->IsMessageAllowed(CurrentMessage))
+		{
+			continue;
+		}
+
+		// Increment the cached count
+		CachedNumMessages++;
+
 		const FTextBlockStyle& MessageTextStyle = FEditorStyle::Get().GetWidgetStyle<FTextBlockStyle>(CurrentMessage->Style);
 
 		TSharedRef<FString> LineText = CurrentMessage->Message;
@@ -628,13 +682,58 @@ void FOutputLogTextLayoutMarshaller::ClearMessages()
 	MakeDirty();
 }
 
+void FOutputLogTextLayoutMarshaller::CountMessages()
+{
+	// Do not re-count if not dirty
+	if (!bNumMessagesCacheDirty)
+	{
+		return;
+	}
+
+	CachedNumMessages = 0;
+
+	for (const auto& CurrentMessage : Messages)
+	{
+		if (Filter->IsMessageAllowed(CurrentMessage))
+		{
+			CachedNumMessages++;
+		}
+	}
+
+	// Cache re-built, remove dirty flag
+	bNumMessagesCacheDirty = false;
+}
+
 int32 FOutputLogTextLayoutMarshaller::GetNumMessages() const
 {
 	return Messages.Num();
 }
 
-FOutputLogTextLayoutMarshaller::FOutputLogTextLayoutMarshaller(TArray< TSharedPtr<FLogMessage> > InMessages)
+int32 FOutputLogTextLayoutMarshaller::GetNumFilteredMessages()
+{
+	// No need to filter the messages if the filter is not set
+	if (!Filter->IsFilterSet())
+	{
+		return GetNumMessages();
+	}
+
+	// Re-count messages if filter changed before we refresh
+	if (bNumMessagesCacheDirty)
+	{
+		CountMessages();
+	}
+
+	return CachedNumMessages;
+}
+
+void FOutputLogTextLayoutMarshaller::MarkMessagesCacheAsDirty()
+{
+	bNumMessagesCacheDirty = true;
+}
+
+FOutputLogTextLayoutMarshaller::FOutputLogTextLayoutMarshaller(TArray< TSharedPtr<FLogMessage> > InMessages, FLogFilter* InFilter)
 	: Messages(MoveTemp(InMessages))
+	, Filter(InFilter)
 	, TextLayout(nullptr)
 {
 }
@@ -642,7 +741,7 @@ FOutputLogTextLayoutMarshaller::FOutputLogTextLayoutMarshaller(TArray< TSharedPt
 BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
 void SOutputLog::Construct( const FArguments& InArgs )
 {
-	MessagesTextMarshaller = FOutputLogTextLayoutMarshaller::Create(MoveTemp(InArgs._Messages));
+	MessagesTextMarshaller = FOutputLogTextLayoutMarshaller::Create(MoveTemp(InArgs._Messages), &Filter);
 
 	MessagesTextBox = SNew(SMultiLineEditableTextBox)
 		.Style(FEditorStyle::Get(), "Log.TextBox")
@@ -658,23 +757,87 @@ void SOutputLog::Construct( const FArguments& InArgs )
 	[
 		SNew(SVerticalBox)
 
-			// Output log area
-			+SVerticalBox::Slot()
-			.FillHeight(1)
+		// Console output and filters
+		+SVerticalBox::Slot()
+		[
+			SNew(SBorder)
+			.Padding(3)
+			.BorderImage(FEditorStyle::GetBrush("ToolPanel.GroupBorder"))
 			[
-				MessagesTextBox.ToSharedRef()
-			]
-			// The console input box
-			+SVerticalBox::Slot()
-			.AutoHeight()
-			.Padding(FMargin(0.0f, 4.0f, 0.0f, 0.0f))
-			[
-				SNew( SConsoleInputBox )
-				.OnConsoleCommandExecuted(this, &SOutputLog::OnConsoleCommandExecuted)
+				SNew(SVerticalBox)
 
-				// Always place suggestions above the input line for the output log widget
-				.SuggestionListPlacement( MenuPlacement_AboveAnchor )
+				// Output Log Filter
+				+SVerticalBox::Slot()
+				.AutoHeight()
+				.Padding(FMargin(0.0f, 0.0f, 0.0f, 4.0f))
+				[
+					SNew(SHorizontalBox)
+			
+					+SHorizontalBox::Slot()
+					.AutoWidth()
+					[
+						SNew(SComboButton)
+						.ComboButtonStyle(FEditorStyle::Get(), "OutputLog.Filters.Style")
+						.ForegroundColor(FLinearColor::White)
+						.ContentPadding(0)
+						.ToolTipText(LOCTEXT("AddFilterToolTip", "Add an output log filter."))
+						.OnGetMenuContent(this, &SOutputLog::MakeAddFilterMenu)
+						.HasDownArrow(true)
+						.ContentPadding(FMargin(1, 0))
+						.ButtonContent()
+						[
+							SNew(SHorizontalBox)
+
+							+SHorizontalBox::Slot()
+							.AutoWidth()
+							[
+								SNew(STextBlock)
+								.TextStyle(FEditorStyle::Get(), "OutputLog.Filters.Text")
+								.Font(FEditorStyle::Get().GetFontStyle("FontAwesome.9"))
+								.Text(FText::FromString(FString(TEXT("\xf0b0"))) /*fa-filter*/)
+							]
+
+							+SHorizontalBox::Slot()
+							.AutoWidth()
+							.Padding(2, 0, 0, 0)
+							[
+								SNew(STextBlock)
+								.TextStyle(FEditorStyle::Get(), "OutputLog.Filters.Text")
+								.Text(LOCTEXT("Filters", "Filters"))
+							]
+						]
+					]
+
+					+SHorizontalBox::Slot()
+					.Padding(4, 1, 0, 0)
+					[
+						SAssignNew(FilterTextBox, SSearchBox)
+						.HintText(LOCTEXT("SearchLogHint", "Search Log"))
+						.OnTextChanged(this, &SOutputLog::OnFilterTextChanged)
+						.DelayChangeNotificationsWhileTyping(true)
+					]
+				]
+
+				// Output log area
+				+SVerticalBox::Slot()
+				.FillHeight(1)
+				[
+					MessagesTextBox.ToSharedRef()
+				]
 			]
+		]
+
+		// The console input box
+		+SVerticalBox::Slot()
+		.AutoHeight()
+		.Padding(FMargin(0.0f, 4.0f, 0.0f, 0.0f))
+		[
+			SNew(SConsoleInputBox)
+			.OnConsoleCommandExecuted(this, &SOutputLog::OnConsoleCommandExecuted)
+
+			// Always place suggestions above the input line for the output log widget
+			.SuggestionListPlacement(MenuPlacement_AboveAnchor)
+		]
 	];
 	
 	GLog->AddOutputDevice(this);
@@ -749,19 +912,19 @@ bool SOutputLog::CreateLogMessages( const TCHAR* V, ELogVerbosity::Type Verbosit
 					int32 HardWrapLineLen = 0;
 					if (bIsFirstLineInMessage)
 					{
-						FString MessagePrefix = FOutputDevice::FormatLogLine(Verbosity, Category, nullptr, LogTimestampMode);
+						FString MessagePrefix = FOutputDeviceHelper::FormatLogLine(Verbosity, Category, nullptr, LogTimestampMode);
 						
 						HardWrapLineLen = FMath::Min(HardWrapLen - MessagePrefix.Len(), Line.Len() - CurrentStartIndex);
 						FString HardWrapLine = Line.Mid(CurrentStartIndex, HardWrapLineLen);
 
-						OutMessages.Add(MakeShareable(new FLogMessage(MakeShareable(new FString(MessagePrefix + HardWrapLine)), Style)));
+						OutMessages.Add(MakeShareable(new FLogMessage(MakeShareable(new FString(MessagePrefix + HardWrapLine)), Verbosity, Style)));
 					}
 					else
 					{
 						HardWrapLineLen = FMath::Min(HardWrapLen, Line.Len() - CurrentStartIndex);
 						FString HardWrapLine = Line.Mid(CurrentStartIndex, HardWrapLineLen);
 
-						OutMessages.Add(MakeShareable(new FLogMessage(MakeShareable(new FString(MoveTemp(HardWrapLine))), Style)));
+						OutMessages.Add(MakeShareable(new FLogMessage(MakeShareable(new FString(MoveTemp(HardWrapLine))), Verbosity, Style)));
 					}
 
 					bIsFirstLineInMessage = false;
@@ -774,14 +937,14 @@ bool SOutputLog::CreateLogMessages( const TCHAR* V, ELogVerbosity::Type Verbosit
 	}
 }
 
-void SOutputLog::Serialize( const TCHAR* V, ELogVerbosity::Type Verbosity, const class FName& Category )
+void SOutputLog::Serialize(const TCHAR* V, ELogVerbosity::Type Verbosity, const class FName& Category)
 {
 	if ( MessagesTextMarshaller->AppendMessage(V, Verbosity, Category) )
 	{
 		// Don't scroll to the bottom automatically when the user is scrolling the view or has scrolled it away from the bottom.
 		if( !bIsUserScrolled )
 		{
-			MessagesTextBox->ScrollTo(FTextLocation(MessagesTextMarshaller->GetNumMessages() - 1));
+			RequestForceScroll();
 		}
 	}
 }
@@ -813,7 +976,7 @@ void SOutputLog::OnClearLog()
 
 void SOutputLog::OnUserScrolled(float ScrollOffset)
 {
-	bIsUserScrolled = !FMath::IsNearlyEqual(ScrollOffset, 1.0f);
+	bIsUserScrolled = ScrollOffset < 1.0 && !FMath::IsNearlyEqual(ScrollOffset, 1.0f);
 }
 
 bool SOutputLog::CanClearLog() const
@@ -828,9 +991,165 @@ void SOutputLog::OnConsoleCommandExecuted()
 
 void SOutputLog::RequestForceScroll()
 {
-	if(MessagesTextMarshaller->GetNumMessages() > 0)
+	if (MessagesTextMarshaller->GetNumFilteredMessages() > 0)
 	{
-		MessagesTextBox->ScrollTo(FTextLocation(MessagesTextMarshaller->GetNumMessages() - 1));
+		MessagesTextBox->ScrollTo(FTextLocation(MessagesTextMarshaller->GetNumFilteredMessages() - 1));
 		bIsUserScrolled = false;
 	}
 }
+
+void SOutputLog::Refresh()
+{
+	// Re-count messages if filter changed before we refresh
+	MessagesTextMarshaller->CountMessages();
+
+	MessagesTextBox->GoTo(FTextLocation(0));
+	MessagesTextMarshaller->MakeDirty();
+	MessagesTextBox->Refresh();
+	RequestForceScroll();
+}
+
+void SOutputLog::OnFilterTextChanged(const FText& InFilterText)
+{
+	// Flag the messages count as dirty
+	MessagesTextMarshaller->MarkMessagesCacheAsDirty();
+
+	// Set filter phrases
+	Filter.SetFilterText(InFilterText);
+
+	// Report possible syntax errors back to the user
+	FilterTextBox->SetError(Filter.GetSyntaxErrors());
+
+	// Repopulate the list to show only what has not been filtered out.
+	Refresh();
+}
+
+TSharedRef<SWidget> SOutputLog::MakeAddFilterMenu()
+{
+	FMenuBuilder MenuBuilder(/*bInShouldCloseWindowAfterMenuSelection=*/true, nullptr);
+	FillVerbosityEntries(MenuBuilder);
+	return MenuBuilder.MakeWidget();
+}
+
+void SOutputLog::FillVerbosityEntries(FMenuBuilder& MenuBuilder)
+{
+	MenuBuilder.BeginSection("OutputLogVerbosityEntries");
+	{
+		MenuBuilder.AddMenuEntry(
+			LOCTEXT("ShowMessages", "Messages"), 
+			LOCTEXT("ShowMessages_Tooltip", "Filter the Output Log to show messages"), 
+			FSlateIcon(), 
+			FUIAction(FExecuteAction::CreateSP(this, &SOutputLog::MenuLogs_Execute), 
+			FCanExecuteAction::CreateSP(this, &SOutputLog::Menu_CanExecute), 
+			FIsActionChecked::CreateSP(this, &SOutputLog::MenuLogs_IsChecked)), 
+			NAME_None, 
+			EUserInterfaceActionType::ToggleButton
+			);
+
+		MenuBuilder.AddMenuEntry(
+			LOCTEXT("ShowWarnings", "Warnings"), 
+			LOCTEXT("ShowWarnings_Tooltip", "Filter the Output Log to show warnings"), 
+			FSlateIcon(), 
+			FUIAction(FExecuteAction::CreateSP(this, &SOutputLog::MenuWarnings_Execute), 
+			FCanExecuteAction::CreateSP(this, &SOutputLog::Menu_CanExecute), 
+			FIsActionChecked::CreateSP(this, &SOutputLog::MenuWarnings_IsChecked)), 
+			NAME_None, 
+			EUserInterfaceActionType::ToggleButton
+			);
+
+		MenuBuilder.AddMenuEntry(
+			LOCTEXT("ShowErrors", "Errors"), 
+			LOCTEXT("ShowErrors_Tooltip", "Filter the Output Log to show errors"), 
+			FSlateIcon(), 
+			FUIAction(FExecuteAction::CreateSP(this, &SOutputLog::MenuErrors_Execute), 
+			FCanExecuteAction::CreateSP(this, &SOutputLog::Menu_CanExecute), 
+			FIsActionChecked::CreateSP(this, &SOutputLog::MenuErrors_IsChecked)), 
+			NAME_None, 
+			EUserInterfaceActionType::ToggleButton
+			);
+	}
+	MenuBuilder.EndSection();
+}
+
+bool SOutputLog::Menu_CanExecute() const
+{
+	return true;
+}
+
+bool SOutputLog::MenuLogs_IsChecked() const
+{
+	return Filter.bShowLogs;
+}
+
+bool SOutputLog::MenuWarnings_IsChecked() const
+{
+	return Filter.bShowWarnings;
+}
+
+bool SOutputLog::MenuErrors_IsChecked() const
+{
+	return Filter.bShowErrors;
+}
+
+void SOutputLog::MenuLogs_Execute()
+{ 
+	Filter.bShowLogs = !Filter.bShowLogs;
+
+	// Flag the messages count as dirty
+	MessagesTextMarshaller->MarkMessagesCacheAsDirty();
+
+	Refresh();
+}
+
+void SOutputLog::MenuWarnings_Execute()
+{
+	Filter.bShowWarnings = !Filter.bShowWarnings;
+
+	// Flag the messages count as dirty
+	MessagesTextMarshaller->MarkMessagesCacheAsDirty();
+
+	Refresh();
+}
+
+void SOutputLog::MenuErrors_Execute()
+{
+	Filter.bShowErrors = !Filter.bShowErrors;
+
+	// Flag the messages count as dirty
+	MessagesTextMarshaller->MarkMessagesCacheAsDirty();
+
+	Refresh();
+}
+
+bool FLogFilter::IsMessageAllowed(const TSharedPtr<FLogMessage>& Message)
+{
+	// Filter Verbosity
+	{
+		if (Message->Verbosity == ELogVerbosity::Error && !bShowErrors)
+		{
+			return false;
+		}
+
+		if (Message->Verbosity == ELogVerbosity::Warning && !bShowWarnings)
+		{
+			return false;
+		}
+
+		if (Message->Verbosity != ELogVerbosity::Error && Message->Verbosity != ELogVerbosity::Warning && !bShowLogs)
+		{
+			return false;
+		}
+	}
+
+	// Filter search phrase
+	{
+		if (!TextFilterExpressionEvaluator.TestTextFilter(FLogFilter_TextFilterExpressionContext(*Message)))
+		{
+			return false;
+		}
+	}
+
+	return true;
+}
+
+#undef LOCTEXT_NAMESPACE

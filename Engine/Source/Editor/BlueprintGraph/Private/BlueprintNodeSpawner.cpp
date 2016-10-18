@@ -191,19 +191,19 @@ FBlueprintActionUiSpec const& UBlueprintNodeSpawner::PrimeDefaultUiSpec(UEdGraph
 	// Verify Icon Brush Name
 	//--------------------------------------
 
-	if (MenuSignature.IconName.IsNone())
+	if (!MenuSignature.Icon.IsSet())
 	{
 		NodeTemplate = bTemplateNodeFetched ? NodeTemplate : GetTemplateNode(TargetGraph);
 		if (NodeTemplate != nullptr)
 		{
-			MenuSignature.IconName = NodeTemplate->GetPaletteIcon(MenuSignature.IconTint);
+			MenuSignature.Icon = NodeTemplate->GetIconAndTint(MenuSignature.IconTint);
 		}
 		// if a target graph was provided, then we've done all we can to spawn a
 		// template node... we have to default to something
-		if (MenuSignature.IconName.IsNone() && (TargetGraph != nullptr))
+		if (!MenuSignature.Icon.IsSet() && (TargetGraph != nullptr))
 		{
 			// want to set it to something so we won't end up back in this condition
-			MenuSignature.IconName = TEXT("GraphEditor.Default_16x");
+			MenuSignature.Icon = FSlateIcon("EditorStyle", "GraphEditor.Default_16x");
 		}
 		bTemplateNodeFetched = true;
 	}

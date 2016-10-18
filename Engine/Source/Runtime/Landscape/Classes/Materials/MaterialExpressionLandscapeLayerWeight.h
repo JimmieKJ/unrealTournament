@@ -6,7 +6,7 @@
 #include "MaterialExpressionLandscapeLayerWeight.generated.h"
 
 UCLASS(collapsecategories, hidecategories=Object)
-class UMaterialExpressionLandscapeLayerWeight : public UMaterialExpression
+class LANDSCAPE_API UMaterialExpressionLandscapeLayerWeight : public UMaterialExpression
 {
 	GENERATED_UCLASS_BODY()
 
@@ -44,7 +44,7 @@ public:
 #endif //WITH_EDITOR
 	//~ End UMaterialExpression Interface
 
-	LANDSCAPE_API virtual FGuid& GetParameterExpressionId() override;
+	virtual FGuid& GetParameterExpressionId() override;
 
 	/**
 	 * Called to get list of parameter names for static parameter sets

@@ -264,62 +264,33 @@ void FWebSocket::SetErrorCallBack(FWebsocketInfoCallBack CallBack)
 
 void FWebSocket::OnRawRecieve(void* Data, uint32 Size)
 {
-#if !PLATFORM_HTML5
-	RecievedBuffer.Append((uint8*)Data, Size);
+#if PLATFORM_HTML5
+	check(Data == NULL); // jic this is not obvious, Data will be resigned to Buffer below
 
-	while (RecievedBuffer.Num())
+	uint8 Buffer[1024]; // should be at MAX PACKET SIZE.
+	Data = (void*)Buffer;
+	Size = recv(SockFd, Data, sizeof(Buffer), 0);
+	while ( Size > 0 )
 	{
-		uint32 BytesToBeRead = *(uint32*)RecievedBuffer.GetData();
-		if (BytesToBeRead <= ((uint32)RecievedBuffer.Num() - sizeof(uint32)))
+#endif
+		RecievedBuffer.Append((uint8*)Data, Size); // consumes all of Data
+		while (RecievedBuffer.Num())
 		{
-			RecievedCallBack.ExecuteIfBound((void*)((uint8*)RecievedBuffer.GetData() + sizeof(uint32)), BytesToBeRead);
-			RecievedBuffer.RemoveAt(0, sizeof(uint32) + BytesToBeRead );
+			uint32 BytesToBeRead = *(uint32*)RecievedBuffer.GetData();
+			if (BytesToBeRead <= ((uint32)RecievedBuffer.Num() - sizeof(uint32)))
+			{
+				RecievedCallBack.ExecuteIfBound((void*)((uint8*)RecievedBuffer.GetData() + sizeof(uint32)), BytesToBeRead);
+				RecievedBuffer.RemoveAt(0, sizeof(uint32) + BytesToBeRead );
+			}
+			else
+			{
+				break;
+			}
 		}
-		else
-		{
-			break;
-		}
+#if PLATFORM_HTML5
+		Size = recv(SockFd, Data, sizeof(Buffer), 0);
 	}
 #endif
-
-#if PLATFORM_HTML5
-
-	uint8 Buffer[1024]; // should be at MAX PACKET SIZE. 
-	int Result = recv(SockFd, Buffer, sizeof(uint32), 0);
-
-	uint32 DataToBeRead = 0;*(uint32*)Buffer;
-
-	if (Result != sizeof(uint32)) 
-	{
-		UE_LOG(LogHTML5Networking, Log, TEXT("Read message size failed!"));
-		this->ErrorCallBack.ExecuteIfBound(); 
-		return;
-	}
-	else
-	{
-		DataToBeRead = *(uint32*)Buffer;
-		UE_LOG(LogHTML5Networking, Log, TEXT("Read 4 bytes showing the size"), DataToBeRead);
-	}
-
-	check(Result == sizeof(uint32)); 
-
-	// read rest of the data. 
-	Result = recv(SockFd, Buffer, DataToBeRead, 0);
-
-	if(Result < 0 )
-	{
-		UE_LOG(LogHTML5Networking, Log, TEXT("Read message failed!"));
-		this->ErrorCallBack.ExecuteIfBound();
-	}
-	else
-	{
-		UE_LOG(LogHTML5Networking, Log, TEXT("Read %d bytes and Executing."), DataToBeRead);
-		check(DataToBeRead == Result);
-		RecievedCallBack.ExecuteIfBound(Buffer, DataToBeRead);
-	}
-
-#endif 
-
 }
 
 void FWebSocket::OnRawWebSocketWritable(WebSocketInternal* wsi)

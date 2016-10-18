@@ -136,7 +136,7 @@ FString FCategoryPropertyNode::GetSubcategoryName() const
 		const FString& CategoryPath = GetCategoryName().ToString();
 		FString CategoryDelimiterString;
 		CategoryDelimiterString.AppendChar( FPropertyNodeConstants::CategoryDelimiterChar );  
-		const int32 LastDelimiterCharIndex = CategoryPath.Find( CategoryDelimiterString );
+		const int32 LastDelimiterCharIndex = CategoryPath.Find( CategoryDelimiterString, ESearchCase::IgnoreCase, ESearchDir::FromEnd );
 		if( LastDelimiterCharIndex != INDEX_NONE )
 		{
 			// Grab the last sub-category from the path

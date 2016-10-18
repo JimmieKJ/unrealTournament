@@ -291,14 +291,14 @@ void UUserWidget::Invalidate()
 	}
 }
 
-void UUserWidget::PlayAnimation( const UWidgetAnimation* InAnimation, float StartAtTime, int32 NumberOfLoops, EUMGSequencePlayMode::Type PlayMode)
+void UUserWidget::PlayAnimation( const UWidgetAnimation* InAnimation, float StartAtTime, int32 NumberOfLoops, EUMGSequencePlayMode::Type PlayMode, float PlaybackSpeed)
 {
 	FScopedNamedEvent NamedEvent(FColor::Emerald, "Widget::PlayAnimation");
 
 	UUMGSequencePlayer* Player = GetOrAddPlayer(InAnimation);
 	if (Player)
 	{
-		Player->Play(StartAtTime, NumberOfLoops, PlayMode);
+		Player->Play(StartAtTime, NumberOfLoops, PlayMode, PlaybackSpeed);
 
 		Invalidate();
 
@@ -306,14 +306,14 @@ void UUserWidget::PlayAnimation( const UWidgetAnimation* InAnimation, float Star
 	}
 }
 
-void UUserWidget::PlayAnimationTo(const UWidgetAnimation* InAnimation, float StartAtTime, float EndAtTime, int32 NumberOfLoops, EUMGSequencePlayMode::Type PlayMode)
+void UUserWidget::PlayAnimationTo(const UWidgetAnimation* InAnimation, float StartAtTime, float EndAtTime, int32 NumberOfLoops, EUMGSequencePlayMode::Type PlayMode, float PlaybackSpeed)
 {
 	FScopedNamedEvent NamedEvent(FColor::Emerald, "Widget::PlayAnimationTo");
 
 	UUMGSequencePlayer* Player = GetOrAddPlayer(InAnimation);
 	if (Player)
 	{
-		Player->PlayTo(StartAtTime, EndAtTime, NumberOfLoops, PlayMode);
+		Player->PlayTo(StartAtTime, EndAtTime, NumberOfLoops, PlayMode, PlaybackSpeed);
 
 		Invalidate();
 
@@ -352,6 +352,20 @@ float UUserWidget::PauseAnimation(const UWidgetAnimation* InAnimation)
 	return 0;
 }
 
+float UUserWidget::GetAnimationCurrentTime(const UWidgetAnimation* InAnimation) const
+{
+	if (InAnimation)
+	{
+		const UUMGSequencePlayer*const* FoundPlayer = ActiveSequencePlayers.FindByPredicate([&](const UUMGSequencePlayer* Player) { return Player->GetAnimation() == InAnimation; });
+		if (FoundPlayer)
+		{
+			return (float)(*FoundPlayer)->GetTimeCursorPosition();
+		}
+	}
+
+	return 0;
+}
+
 bool UUserWidget::IsAnimationPlaying(const UWidgetAnimation* InAnimation) const
 {
 	if (InAnimation)
@@ -371,6 +385,11 @@ bool UUserWidget::IsAnimationPlaying(const UWidgetAnimation* InAnimation) const
 	return false;
 }
 
+bool UUserWidget::IsAnyAnimationPlaying() const
+{
+	return ActiveSequencePlayers.Num() > 0;
+}
+
 void UUserWidget::SetNumLoopsToPlay(const UWidgetAnimation* InAnimation, int32 InNumLoopsToPlay)
 {
 	if (InAnimation)
@@ -380,6 +399,19 @@ void UUserWidget::SetNumLoopsToPlay(const UWidgetAnimation* InAnimation, int32 I
 		if (FoundPlayer)
 		{
 			(*FoundPlayer)->SetNumLoopsToPlay(InNumLoopsToPlay);
+		}
+	}
+}
+
+void UUserWidget::SetPlaybackSpeed(const UWidgetAnimation* InAnimation, float PlaybackSpeed)
+{
+	if (InAnimation)
+	{
+		UUMGSequencePlayer** FoundPlayer = ActiveSequencePlayers.FindByPredicate([&](const UUMGSequencePlayer* Player) { return Player->GetAnimation() == InAnimation; });
+
+		if (FoundPlayer)
+		{
+			(*FoundPlayer)->SetPlaybackSpeed(PlaybackSpeed);
 		}
 	}
 }
@@ -595,6 +627,13 @@ void UUserWidget::AddToScreen(ULocalPlayer* Player, int32 ZOrder)
 {
 	if ( !FullScreenWidget.IsValid() )
 	{
+		if ( UPanelWidget* ParentPanel = GetParent() )
+		{
+			FMessageLog("PIE").Error(FText::Format(LOCTEXT("WidgetAlreadyHasParent", "The widget '{0}' already has a parent widget.  It can't also be added to the viewport!"),
+				FText::FromString(GetClass()->GetName())));
+			return;
+		}
+
 		// First create and initialize the variable so that users calling this function twice don't
 		// attempt to add the widget to the viewport again.
 		TSharedRef<SConstraintCanvas> FullScreenCanvas = SNew(SConstraintCanvas);
@@ -818,9 +857,9 @@ void UUserWidget::RemoveObsoleteBindings(const TArray<FName>& NamedSlots)
 	}
 }
 
-void UUserWidget::PreSave()
+void UUserWidget::PreSave(const class ITargetPlatform* TargetPlatform)
 {
-	Super::PreSave();
+	Super::PreSave(TargetPlatform);
 
 	// Remove bindings that are no longer contained in the class.
 	if ( UWidgetBlueprintGeneratedClass* BGClass = Cast<UWidgetBlueprintGeneratedClass>(GetClass()) )
@@ -964,12 +1003,10 @@ void UUserWidget::StopListeningForAllInputActions()
 			InputComponent->RemoveActionBinding( ExistingIndex );
 		}
 
-		if ( APlayerController* Controller = GetOwningPlayer() )
-		{
-			Controller->PopInputComponent( InputComponent );
-		}
+		UnregisterInputComponent();
 
 		InputComponent->ClearActionBindings();
+		InputComponent->MarkPendingKill();
 		InputComponent = nullptr;
 	}
 }
@@ -991,6 +1028,28 @@ bool UUserWidget::IsListeningForInputAction( FName ActionName ) const
 	}
 
 	return bResult;
+}
+
+void UUserWidget::RegisterInputComponent()
+{
+	if ( InputComponent )
+	{
+		if ( APlayerController* Controller = GetOwningPlayer() )
+		{
+			Controller->PushInputComponent(InputComponent);
+		}
+	}
+}
+
+void UUserWidget::UnregisterInputComponent()
+{
+	if ( InputComponent )
+	{
+		if ( APlayerController* Controller = GetOwningPlayer() )
+		{
+			Controller->PopInputComponent(InputComponent);
+		}
+	}
 }
 
 void UUserWidget::SetInputActionPriority( int32 NewPriority )
@@ -1191,11 +1250,6 @@ void UUserWidget::PostLoad()
 {
 	Super::PostLoad();
 
-	if ( GetLinkerUE4Version() < VER_UE4_USERWIDGET_DEFAULT_FOCUSABLE_FALSE )
-	{
-		bIsFocusable = bSupportsKeyboardFocus_DEPRECATED;
-	}
-
 #if WITH_EDITORONLY_DATA
 
 	if ( GetLinkerUE4Version() < VER_UE4_DEPRECATE_USER_WIDGET_DESIGN_SIZE )
@@ -1211,6 +1265,19 @@ void UUserWidget::PostLoad()
 	}
 
 #endif
+}
+
+void UUserWidget::Serialize(FArchive& Ar)
+{
+	Super::Serialize(Ar);
+
+	if ( Ar.IsLoading() )
+	{
+		if ( Ar.UE4Ver() < VER_UE4_USERWIDGET_DEFAULT_FOCUSABLE_FALSE )
+		{
+			bIsFocusable = bSupportsKeyboardFocus_DEPRECATED;
+		}
+	}
 }
 
 /////////////////////////////////////////////////////

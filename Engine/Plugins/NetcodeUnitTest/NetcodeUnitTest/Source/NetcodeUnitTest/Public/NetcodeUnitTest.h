@@ -33,6 +33,7 @@
  * List of mainline UE4 engine changelists, that required a NetcodeUnitTest compatibility adjustment (newest first)
  * Every time you update NetcodeUnitTest code, to toggle based on a changelist, add a define for it with the CL number here
  */
+#define CL_PREVERSIONCHANGE	2960134	// Not an accurate CL, just refers to the first version of UE4 code I can be sure changes work on
 #define CL_STATELESSCONNECT	2866629	// @todo #JohnB: Refers to Dev-Networking, update so it refers to /UE4//Main merge CL
 #define CL_FENGINEVERSION	2655102
 #define CL_INITCONNPARAM	2567692
@@ -57,7 +58,7 @@
  *
  * If in doubt, set to the top CL from list above ('List of mainline UE4 engine changelists'), and work your way down until it compiles.
  */
-#define TARGET_UE4_CL 2866631	// IMPORTANT: If you're hovering over this because compiling failed, you need to adjust this value.
+#define TARGET_UE4_CL 2960134	// IMPORTANT: If you're hovering over this because compiling failed, you need to adjust this value.
 
 
 /**

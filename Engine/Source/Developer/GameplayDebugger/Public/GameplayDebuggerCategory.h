@@ -98,6 +98,10 @@ public:
 	bool IsDataPackReplicating(int32 DataPackId) const { return ReplicatedDataPacks.IsValidIndex(DataPackId) && ReplicatedDataPacks[DataPackId].IsInProgress(); }
 	FGameplayDebuggerDataPack::FHeader GetDataPackHeaderCopy(int32 DataPackId) const { return ReplicatedDataPacks.IsValidIndex(DataPackId) ? ReplicatedDataPacks[DataPackId].Header : FGameplayDebuggerDataPack::FHeader(); }
 
+	// temporary functions for compatibility, will be removed soon
+	TArray<FString> GetReplicatedLinesCopy() const { return ReplicatedLines; }
+	TArray<FGameplayDebuggerShape> GetReplicatedShapesCopy() const { return ReplicatedShapes; }
+
 protected:
 
 	/** [AUTH] marks data pack as needing replication */

@@ -28,16 +28,13 @@ public:
 	UPROPERTY()
 	FVector WallNormal;
 
-	virtual int32 CostFor(int32 DefaultCost, const FUTPathLink& OwnerLink, APawn* Asker, const FNavAgentProperties& AgentProps, NavNodeRef StartPoly, const class AUTRecastNavMesh* NavMesh) override
+	virtual int32 CostFor(int32 DefaultCost, const FUTPathLink& OwnerLink, APawn* Asker, const FNavAgentProperties& AgentProps, AController* RequestOwner, NavNodeRef StartPoly, const class AUTRecastNavMesh* NavMesh) override
 	{
 		// low skill bots avoid wall dodge unless required to get to an area at all
-		if (Asker != NULL)
+		AUTBot* B = Cast<AUTBot>(RequestOwner);
+		if (B != NULL && B->Skill + B->Personality.MovementAbility < 2.0f)
 		{
-			AUTBot* B = Cast<AUTBot>(Asker->Controller);
-			if (B != NULL && B->Skill + B->Personality.MovementAbility < 2.0f)
-			{
-				DefaultCost += 100000;
-			}
+			DefaultCost += 100000;
 		}
 		// TODO: maybe some bots prioritize instead? possibly should consider actual difficulty of the jump and dodge instead of a flat number...
 		return DefaultCost + 500; // extra for potential risk of fall

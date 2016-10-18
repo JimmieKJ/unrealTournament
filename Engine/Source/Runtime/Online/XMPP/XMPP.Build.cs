@@ -25,10 +25,21 @@ public class XMPP : ModuleRules
 
 		if (Target.Platform == UnrealTargetPlatform.Win64 ||
 			Target.Platform == UnrealTargetPlatform.Win32 ||
-			Target.Platform == UnrealTargetPlatform.Mac ||
-			Target.Platform == UnrealTargetPlatform.PS4)
+			Target.Platform == UnrealTargetPlatform.Linux ||
+			Target.Platform == UnrealTargetPlatform.Mac)
 		{
-			AddEngineThirdPartyPrivateStaticDependencies(Target, "WebRTC");	
-		}
-	}
+// jira UE-30298: temp undo
+//            AddEngineThirdPartyPrivateStaticDependencies(Target, "zlib");
+//            AddEngineThirdPartyPrivateStaticDependencies(Target, "OpenSSL");
+			if (Target.Platform == UnrealTargetPlatform.Linux)
+			{
+				AddEngineThirdPartyPrivateStaticDependencies(Target, "libcurl");
+			}
+            AddEngineThirdPartyPrivateStaticDependencies(Target, "WebRTC");
+        }
+		else if (Target.Platform == UnrealTargetPlatform.PS4)
+        {
+            AddEngineThirdPartyPrivateStaticDependencies(Target, "WebRTC");
+        }
+    }
 }

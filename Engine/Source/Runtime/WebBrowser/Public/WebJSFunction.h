@@ -57,7 +57,7 @@ struct WEBBROWSER_API FWebJSParam
 	FWebJSParam(const TCHAR* Value) : Tag(PTYPE_STRING), StringValue(new FString(Value)) {}
 	FWebJSParam(UObject* Value) : Tag(PTYPE_OBJECT), ObjectValue(Value) {}
 	template <typename T> FWebJSParam(const T& Value,
-		typename TEnableIf<!TIsPointerType<T>::Value, UStruct>::Type* InTypeInfo=T::StaticStruct())
+		typename TEnableIf<!TIsPointer<T>::Value, UStruct>::Type* InTypeInfo=T::StaticStruct())
 		: Tag(PTYPE_STRUCT)
 		, StructValue(new FStructWrapper<T>(Value))
 	{}
@@ -159,67 +159,11 @@ struct WEBBROWSER_API FWebJSFunction
 		: FWebJSCallbackBase(InScripting, InFunctionId)
 	{}
 
-#if PLATFORM_COMPILER_HAS_VARIADIC_TEMPLATES
 	template<typename ...ArgTypes> void operator()(ArgTypes... Args) const
 	{
 		FWebJSParam ArgArray[sizeof...(Args)] = {FWebJSParam(Args)...};
 		Invoke(sizeof...(Args), ArgArray);
 	}
-#else
-	void operator()() const
-	{
-		Invoke(0, nullptr);
-	}
-
-	template<typename T1>
-	void operator()(T1 Arg1) const
-	{
-		FWebJSParam ArgArray[1] = {FWebJSParam(Arg1)};
-		Invoke(1, ArgArray);
-	}
-
-	template<typename T1, typename T2>
-	void operator()(T1 Arg1, T2 Arg2) const
-	{
-		FWebJSParam ArgArray[2] = {FWebJSParam(Arg1), FWebJSParam(Arg2)};
-		Invoke(2, ArgArray);
-	}
-
-	template<typename T1, typename T2, typename T3>
-	void operator()(T1 Arg1, T2 Arg2, T3 Arg3) const
-	{
-		FWebJSParam ArgArray[3] = {FWebJSParam(Arg1), FWebJSParam(Arg2), FWebJSParam(Arg3)};
-		Invoke(3, ArgArray);
-	}
-
-	template<typename T1, typename T2, typename T3, typename T4>
-	void operator()(T1 Arg1, T2 Arg2, T3 Arg3, T4 Arg4) const
-	{
-		FWebJSParam ArgArray[4] = {FWebJSParam(Arg1), FWebJSParam(Arg2), FWebJSParam(Arg3), FWebJSParam(Arg4)};
-		Invoke(4, ArgArray);
-	}
-
-	template<typename T1, typename T2, typename T3, typename T4, typename T5>
-	void operator()(T1 Arg1, T2 Arg2, T3 Arg3, T4 Arg4, T5 Arg5) const
-	{
-		FWebJSParam ArgArray[5] = {FWebJSParam(Arg1), FWebJSParam(Arg2), FWebJSParam(Arg3), FWebJSParam(Arg4), FWebJSParam(Arg5)};
-		Invoke(5, ArgArray);
-	}
-
-	template<typename T1, typename T2, typename T3, typename T4, typename T5, typename T6>
-	void operator()(T1 Arg1, T2 Arg2, T3 Arg3, T4 Arg4, T5 Arg5, T6 Arg6) const
-	{
-		FWebJSParam ArgArray[6] = {FWebJSParam(Arg1), FWebJSParam(Arg2), FWebJSParam(Arg3), FWebJSParam(Arg4), FWebJSParam(Arg5), FWebJSParam(Arg6)};
-		Invoke(6, ArgArray);
-	}
-
-	template<typename T1, typename T2, typename T3, typename T4, typename T5, typename T6, typename T7>
-	void operator()(T1 Arg1, T2 Arg2, T3 Arg3, T4 Arg4, T5 Arg5, T6 Arg6, T7 Arg7) const
-	{
-		FWebJSParam ArgArray[7] = {FWebJSParam(Arg1), FWebJSParam(Arg2), FWebJSParam(Arg3), FWebJSParam(Arg4), FWebJSParam(Arg5), FWebJSParam(Arg6), FWebJSParam(Arg7)};
-		Invoke(7, ArgArray);
-	}
-#endif
 };
 
 /** 

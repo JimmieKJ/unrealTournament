@@ -51,6 +51,8 @@ public class UnrealAtoSTarget : TargetRules
 		// DsymExporter has no exports, so no need to verify that a .lib and .exp file was emitted by the linker.
 		OutLinkEnvironmentConfiguration.bHasExports = false;
 
+        UEBuildConfiguration.bCompileAgainstCoreUObject = false;
+
 		// Do NOT produce additional console app exe
 		OutLinkEnvironmentConfiguration.bIsBuildingConsoleApplication = true;
 	}

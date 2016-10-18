@@ -180,6 +180,10 @@ struct ENGINE_API FAttenuationSettings
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Focus, meta = (ClampMin = "0.0", UIMin = "0.0", EditCondition = "bEnableListenerFocus"))
 	float NonFocusVolumeAttenuation;
 
+	/* Which trace channel to use for audio occlusion checks. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Attenuation)
+	TEnumAsByte<enum ECollisionChannel> OcclusionTraceChannel;
+
 	/** The low pass filter frequency (in hertz) to apply if the sound playing in this audio component is occluded. This will override the frequency set in LowPassFilterFrequency. A frequency of 0.0 is the device sample rate and will bypass the filter. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Occlusion, meta = (ClampMin = "0.0", UIMin = "0.0", EditCondition = "bEnableOcclusion"))
 	float OcclusionLowPassFilterFrequency;
@@ -223,6 +227,7 @@ struct ENGINE_API FAttenuationSettings
 		, NonFocusPriorityScale(1.0f)
 		, FocusVolumeAttenuation(1.0f)
 		, NonFocusVolumeAttenuation(1.0f)
+		, OcclusionTraceChannel(ECC_Visibility)
 		, OcclusionLowPassFilterFrequency(20000.f)
 		, OcclusionVolumeAttenuation(1.0f)
 		, OcclusionInterpolationTime(0.1f)

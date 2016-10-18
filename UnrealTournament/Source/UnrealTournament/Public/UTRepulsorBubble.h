@@ -24,6 +24,10 @@ class UNREALTOURNAMENT_API AUTRepulsorBubble : public AActor , public IUTResetIn
 
 public:
 
+	/** Called when our local player has a new view target */
+	UFUNCTION(BlueprintCallable, Category = Repulsor)
+	virtual void OnViewTargetChange(AUTPlayerController* NewViewTarget);
+
 	UPROPERTY(EditAnywhere, Replicated, BlueprintReadOnly, Category = Team)
 	uint8 TeamNum;
 
@@ -93,7 +97,7 @@ public:
 	virtual void BeginPlay() override;
 
 	UFUNCTION()
-	virtual void OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
+	virtual void OnOverlapBegin(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
 
 	/** called when repulsor bubble hits something */
 	UFUNCTION(BlueprintCallable, Category = Bubble)

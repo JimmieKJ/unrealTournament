@@ -16,7 +16,7 @@ void UUTDemoNetDriver::WriteGameSpecificDemoHeader(TArray<FString>& GameSpecific
 		}
 	}
 }
-
+/*
 bool UUTDemoNetDriver::ShouldSaveCheckpoint()
 {
 #if UE_SERVER
@@ -50,10 +50,12 @@ bool UUTDemoNetDriver::ShouldSaveCheckpoint()
 
 	return false;
 }
+*/
+
 bool UUTDemoNetDriver::ProcessGameSpecificDemoHeader(const TArray<FString>& GameSpecificData, FString& Error)
 {
 	UUTGameInstance* GI = Cast<UUTGameInstance>(GetWorld()->GetGameInstance());
-	if (GI == NULL || GameSpecificData.Num() == 0 || GI->GetLastTriedDemo() == DemoFilename)
+	if (GI == NULL || GameSpecificData.Num() == 0 || GI->GetLastTriedDemo() == GetDemoURL())
 	{ 
 		return true;
 	}
@@ -68,12 +70,12 @@ bool UUTDemoNetDriver::ProcessGameSpecificDemoHeader(const TArray<FString>& Game
 			if (Pieces.Num() == 3)
 			{
 				// 0: pak name, 1: URL, 2: checksum
-				bDownloading = GI->StartRedirectDownload(Pieces[0], Pieces[1], Pieces[2]) || bDownloading;
+				bDownloading = GI->RedirectDownload(Pieces[0], Pieces[1], Pieces[2]) || bDownloading;
 			}
 		}
 		if (bDownloading)
 		{
-			GI->SetLastTriedDemo(DemoFilename);
+			GI->SetLastTriedDemo(GetDemoURL());
 			Error = TEXT("Waiting for redirects to download files");
 			return false;
 		}

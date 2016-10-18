@@ -9,6 +9,7 @@
 #include "DetailWidgetRow.h"
 #include "IDetailPropertyRow.h"
 #include "AnimationCustomVersion.h"
+#include "Animation/AnimInstance.h"
 
 #define LOCTEXT_NAMESPACE "AnimDynamicsNode"
 
@@ -87,7 +88,7 @@ void UAnimGraphNode_AnimDynamics::Draw(FPrimitiveDrawInterface* PDI, USkeletalMe
 						DrawAngularLimits(PDI, AngularLimitsTM, *ActivePreviewNode);
 					}
 
-					if(bShowPlanarLimit && bShowCollisionSpheres && Body.CollisionType != AnimPhysCollisionType::CoM)
+					if(bShowCollisionSpheres && Body.CollisionType != AnimPhysCollisionType::CoM)
 					{
 						// Draw collision sphere
 						DrawWireSphere(PDI, BodyTransform, FLinearColor(FColor::Cyan), Body.SphereCollisionRadius, 24, SDPG_Foreground, 0.2f);
@@ -105,11 +106,30 @@ void UAnimGraphNode_AnimDynamics::Draw(FPrimitiveDrawInterface* PDI, USkeletalMe
 
 					if(LimitDrivingBoneIdx != INDEX_NONE)
 					{
-						LimitPlaneTransform *= PreviewSkelMeshComp->GetSpaceBases()[LimitDrivingBoneIdx];
+						LimitPlaneTransform *= PreviewSkelMeshComp->GetComponentSpaceTransforms()[LimitDrivingBoneIdx];
 					}
 
 					DrawPlane10x10(PDI, LimitPlaneTransform.ToMatrixNoScale(), 200.0f, FVector2D(0.0f, 0.0f), FVector2D(1.0f, 1.0f), GEngine->ConstraintLimitMaterialY->GetRenderProxy(false), SDPG_World);
 					DrawDirectionalArrow(PDI, FRotationMatrix(FRotator(90.0f, 0.0f, 0.0f)) * LimitPlaneTransform.ToMatrixNoScale(), FLinearColor::Blue, 50.0f, 20.0f, SDPG_Foreground, 0.5f);
+				}
+			}
+
+			if(bShowSphericalLimit && ActivePreviewNode->SphericalLimits.Num() > 0)
+			{
+				for(FAnimPhysSphericalLimit& SphericalLimit : ActivePreviewNode->SphericalLimits)
+				{
+					FTransform SphereTransform = FTransform::Identity;
+					SphereTransform.SetTranslation(SphericalLimit.SphereLocalOffset);
+					
+					const int32 DrivingBoneIdx = PreviewSkelMeshComp->GetBoneIndex(SphericalLimit.DrivingBone.BoneName);
+
+					if(DrivingBoneIdx != INDEX_NONE)
+					{
+						SphereTransform *= PreviewSkelMeshComp->GetComponentSpaceTransforms()[DrivingBoneIdx];
+					}
+
+					DrawSphere(PDI, SphereTransform.GetLocation(), FVector(SphericalLimit.LimitRadius), 24, 6, GEngine->ConstraintLimitMaterialY->GetRenderProxy(false), SDPG_World);
+					DrawWireSphere(PDI, SphereTransform, FLinearColor::Black, SphericalLimit.LimitRadius, 24, SDPG_World);
 				}
 			}
 		}

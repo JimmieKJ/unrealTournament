@@ -69,13 +69,23 @@ FArchive& operator << (FArchive& Ar, FFoliageInstanceBaseCache& InstanceBaseCach
 	{
 		Ar << InstanceBaseCache.InstanceBaseInvMap;
 	}
-	else if (!Ar.IsSaving())
+	else if (Ar.IsLoading()) // Regenerate inverse map whenever we load cache
 	{
 		InstanceBaseCache.InstanceBaseInvMap.Empty();
 		for (const auto& Pair : InstanceBaseCache.InstanceBaseMap)
 		{
 			const FFoliageInstanceBaseInfo& BaseInfo = Pair.Value;
-			InstanceBaseCache.InstanceBaseInvMap.Add(BaseInfo.BasePtr, Pair.Key);
+			if (InstanceBaseCache.InstanceBaseInvMap.Contains(BaseInfo.BasePtr))
+			{
+				// more info for UE-30878
+				UE_LOG(LogInstancedFoliage, Warning, TEXT("Instance base cache - integrity verification(3): Counter: %d Size: %d, InvSize: %d (Key: %s)"), 
+					(int32)InstanceBaseCache.NextBaseId, InstanceBaseCache.InstanceBaseMap.Num(), InstanceBaseCache.InstanceBaseInvMap.Num(), 
+					*BaseInfo.BasePtr.GetUniqueID().ToString());
+			}
+			else
+			{
+				InstanceBaseCache.InstanceBaseInvMap.Add(BaseInfo.BasePtr, Pair.Key);
+			}
 		}
 	}
 
@@ -90,13 +100,25 @@ FFoliageInstanceBaseId FFoliageInstanceBaseCache::AddInstanceBaseId(UActorCompon
 		BaseId = GetInstanceBaseId(InComponent);
 		if (BaseId == FFoliageInstanceBaseCache::InvalidBaseId)
 		{
-			BaseId = NextBaseId++;
-
+			// generate next unique ID for base component
+			do
+			{
+				BaseId = NextBaseId++;
+			}
+			while (InstanceBaseMap.Contains(BaseId));
+			
 			FFoliageInstanceBaseInfo BaseInfo(InComponent);
+			
+			// more info for UE-30878
+			if (InstanceBaseInvMap.Contains(BaseInfo.BasePtr))
+			{
+				FUniqueObjectGuid BaseUID = BaseInfo.BasePtr.GetUniqueID();
+				UE_LOG(LogInstancedFoliage, Error, TEXT("Instance base cache - integrity verification(2): Counter: %d Size: %d, InvSize: %d, BaseUID: %s, BaseName: %s"), 
+					(int32)BaseId, InstanceBaseMap.Num(), InstanceBaseInvMap.Num(), *BaseUID.ToString(), *InComponent->GetFullName());
+			}
+						
 			InstanceBaseMap.Add(BaseId, BaseInfo);
 			InstanceBaseInvMap.Add(BaseInfo.BasePtr, BaseId);
-
-			check(InstanceBaseMap.Num() == InstanceBaseInvMap.Num());
 
 			ULevel* ComponentLevel = InComponent->GetComponentLevel();
 			if (ComponentLevel)
@@ -117,6 +139,10 @@ FFoliageInstanceBaseId FFoliageInstanceBaseCache::AddInstanceBaseId(UActorCompon
 FFoliageInstanceBaseId FFoliageInstanceBaseCache::GetInstanceBaseId(UActorComponent* InComponent) const
 {
 	FFoliageInstanceBasePtr BasePtr = InComponent;
+	if (!BasePtr.IsValid())
+	{
+		return InvalidBaseId;
+	}
 	return GetInstanceBaseId(BasePtr);
 }
 
@@ -237,7 +263,6 @@ void FFoliageInstanceBaseCache::CompactInstanceBaseCache(AInstancedFoliageActor*
 		else
 		{
 			// Regenerate inverse map
-			check(!Cache.InstanceBaseInvMap.Contains(BaseInfo.BasePtr));
 			Cache.InstanceBaseInvMap.Add(BaseInfo.BasePtr, Pair.Key);
 		}
 	}

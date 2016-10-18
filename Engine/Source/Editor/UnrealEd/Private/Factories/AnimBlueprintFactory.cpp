@@ -24,6 +24,7 @@
 #include "ClassViewerFilter.h"
 #include "AssetRegistryModule.h"
 #include "Animation/AnimBlueprintGeneratedClass.h"
+#include "Animation/AnimInstance.h"
 
 #define LOCTEXT_NAMESPACE "AnimBlueprintFactory"
 

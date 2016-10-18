@@ -182,10 +182,11 @@ private:
 	 * @param AssetFilename the name of the file to read
 	 * @param AssetDataList the FAssetData for every asset found in the file
 	 * @param DependencyData the FPackageDependencyData for every asset found in the file
+	 * @param OutCanRetry Set to true if this file failed to load, but might be loadable later (due to missing modules)
 	 *
 	 * @return true if the file was successfully read
 	 */
-	bool ReadAssetFile(const FString& AssetFilename, TArray<FAssetData*>& AssetDataList, FPackageDependencyData& DependencyData, TArray<FString>& CookedPackagesToLoadUponDiscovery) const;
+	bool ReadAssetFile(const FString& AssetFilename, TArray<FAssetData*>& AssetDataList, FPackageDependencyData& DependencyData, TArray<FString>& CookedPackagesToLoadUponDiscovery, bool& OutCanRetry) const;
 
 	/** Serializes the timestamped cache of discovered assets. Used for quick loading of data for assets that have not changed on disk */
 	void SerializeCache(FArchive& Ar);

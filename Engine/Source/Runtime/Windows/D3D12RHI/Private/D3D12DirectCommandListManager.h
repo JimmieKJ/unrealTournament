@@ -6,6 +6,14 @@
 #define DEFAULT_MAIN_POOL_COMMAND_LISTS 3
 #define MAX_ALLOCATED_COMMAND_LISTS 256
 
+extern int32 GCommandListBatchingMode;
+
+enum ECommandListBatchMode
+{
+	CLB_NormalBatching = 1,			// Submits work on explicit Flush and at the end of a context container batch
+	CLB_AggressiveBatching = 2,		// Submits work on explicit Flush (after Occlusion queries, and before Present) - Least # of submits.
+};
+
 enum class CommandListState
 {
 	kOpen,
@@ -18,6 +26,23 @@ enum EFenceType
 	FT_CommandList,
 	FT_Frame,
 	FT_NumTypes
+};
+
+struct FD3D12CommandListPayload
+{
+	FD3D12CommandListPayload() : NumCommandLists(0)
+	{
+		FMemory::Memzero(CommandLists);
+		FMemory::Memzero(ResidencySets);
+	}
+
+	void Reset();
+	void Append(ID3D12CommandList* CL, FD3D12ResidencySet* Set);
+
+	static const uint32 MaxCommandListsPerPayload = 256;
+	ID3D12CommandList* CommandLists[MaxCommandListsPerPayload];
+	FD3D12ResidencySet* ResidencySets[MaxCommandListsPerPayload];
+	uint32 NumCommandLists;
 };
 
 class FD3D12FenceCore : public FD3D12DeviceChild
@@ -111,7 +136,7 @@ public:
 	FD3D12CommandListManager(FD3D12Device* InParent, D3D12_COMMAND_LIST_TYPE CommandListType);
 	~FD3D12CommandListManager();
 
-	void Create(uint32 NumCommandLists = 0);
+	void Create(const TCHAR* Name, uint32 NumCommandLists = 0);
 	void Destroy();
 
 	inline bool IsReady()
@@ -160,7 +185,7 @@ public:
 
 private:
 	// Returns signaled Fence
-	uint64 ExecuteAndIncrementFence(ID3D12CommandList* pD3DCommandLists[], uint64 NumCommandLists, FD3D12Fence &Fence);
+	uint64 ExecuteAndIncrementFence(FD3D12CommandListPayload& Payload, FD3D12Fence &Fence);
 	FD3D12CommandListHandle CreateCommandListHandle(FD3D12CommandAllocator& CommandAllocator);
 
 	TRefCountPtr<ID3D12CommandQueue>		D3DCommandQueue;

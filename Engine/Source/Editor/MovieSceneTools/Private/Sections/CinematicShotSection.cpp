@@ -1,6 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "MovieSceneToolsPrivatePCH.h"
+#include "CinematicShotSection.h"
 #include "ISectionLayoutBuilder.h"
 #include "Runtime/MovieSceneTracks/Public/Sections/MovieSceneCinematicShotSection.h"
 #include "CinematicShotTrackEditor.h"
@@ -9,7 +10,12 @@
 #include "MovieSceneToolHelpers.h"
 #include "MovieSceneToolsUserSettings.h"
 
+
 #define LOCTEXT_NAMESPACE "FCinematicShotSection"
+
+
+/* FCinematicShotSection structors
+ *****************************************************************************/
 
 FCinematicShotSection::FCinematicSectionCache::FCinematicSectionCache(UMovieSceneCinematicShotSection* Section)
 	: ActualStartTime(0.f), TimeScale(0.f)
@@ -21,9 +27,6 @@ FCinematicShotSection::FCinematicSectionCache::FCinematicSectionCache(UMovieScen
 	}
 }
 
-
-/* FCinematicShotSection structors
- *****************************************************************************/
 
 FCinematicShotSection::FCinematicShotSection(TSharedPtr<ISequencer> InSequencer, TSharedPtr<FTrackEditorThumbnailPool> InThumbnailPool, UMovieSceneSection& InSection, TSharedPtr<FCinematicShotTrackEditor> InCinematicShotTrackEditor)
 	: FThumbnailSection(InSequencer, InThumbnailPool, InSection)
@@ -177,6 +180,13 @@ void FCinematicShotSection::BuildSectionContextMenu(FMenuBuilder& MenuBuilder, c
 				FUIAction(FExecuteAction::CreateSP(CinematicShotTrackEditor.Pin().ToSharedRef(), &FCinematicShotTrackEditor::DuplicateShot, &SectionObject))
 			);
 
+			MenuBuilder.AddMenuEntry(
+				LOCTEXT("RenderShot", "Render Shot"),
+				FText::Format(LOCTEXT("RenderShotTooltip", "Render shot movie"), SectionObject.GetShotDisplayName()),
+				FSlateIcon(),
+				FUIAction(FExecuteAction::CreateSP(CinematicShotTrackEditor.Pin().ToSharedRef(), &FCinematicShotTrackEditor::RenderShot, &SectionObject))
+			);
+
 			/*
 			//@todo
 			MenuBuilder.AddMenuEntry(
@@ -210,7 +220,7 @@ void FCinematicShotSection::AddTakesMenu(FMenuBuilder& MenuBuilder)
 
 FText FCinematicShotSection::GetDisplayName() const
 {
-	return NSLOCTEXT("FCinematicShotSection", "", "Shot");
+	return NSLOCTEXT("FCinematicShotSection", "Shot", "Shot");
 }
 
 /* FCinematicShotSection callbacks
@@ -240,7 +250,10 @@ FReply FCinematicShotSection::OnSectionDoubleClicked(const FGeometry& SectionGeo
 	{
 		if (SequenceInstance.IsValid())
 		{
-			Sequencer.Pin()->FocusSequenceInstance(SectionObject);
+			if (SectionObject.GetSequence())
+			{
+				Sequencer.Pin()->FocusSequenceInstance(SectionObject);
+			}
 		}
 	}
 

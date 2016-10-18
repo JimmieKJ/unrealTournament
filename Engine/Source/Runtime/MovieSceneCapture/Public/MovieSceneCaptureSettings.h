@@ -49,6 +49,7 @@ struct MOVIESCENECAPTURE_API FMovieSceneCaptureSettings
 	 * {world}		- The name of the current world
 	 * {quality}	- The image compression quality setting
 	 * {material}   - The material/render pass
+	 * {shot}       - The name of the level sequence asset shot being played
 	 */
 	UPROPERTY(config, EditAnywhere, Category=General, DisplayName="Filename Format")
 	FString OutputFormat;
@@ -60,6 +61,10 @@ struct MOVIESCENECAPTURE_API FMovieSceneCaptureSettings
 	/** True if frame numbers in the output files should be relative to zero, rather than the actual frame numbers in the originating animation content */
 	UPROPERTY(config, EditAnywhere, Category=General, AdvancedDisplay)
 	bool bUseRelativeFrameNumbers;
+
+	/** How much to zero-pad frame numbers on filenames */
+	UPROPERTY(config)
+	uint8 ZeroPadFrameNumbers;
 
 	/** The frame rate at which to capture */
 	UPROPERTY(config, EditAnywhere, Category=CaptureSettings)

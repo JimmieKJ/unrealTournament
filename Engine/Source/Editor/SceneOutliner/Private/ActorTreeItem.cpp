@@ -96,7 +96,7 @@ FDragValidationInfo FActorDropTarget::ValidateDrop(FDragDropPayload& DraggedObje
 		}
 		else
 		{
-			const FText ReasonText = FText::Format(LOCTEXT("DropOntoText", "{DropTarget}. {AttachMessage}"), ActorLabel, AttachErrorMsg);
+			const FText ReasonText = FText::Format(LOCTEXT("DropOntoText", "{0}. {1}"), ActorLabel, AttachErrorMsg);
 			return FDragValidationInfo(FActorDragDropGraphEdOp::ToolTip_IncompatibleMultipleAttach, ReasonText);
 		}
 	}
@@ -185,7 +185,7 @@ void FActorDropTarget::DetachActorFromParent(AActor* ChildActor)
 	{
 		AActor* OldParent = RootComp->GetAttachParent()->GetOwner();
 		OldParent->Modify();
-		RootComp->DetachFromParent(true);
+		RootComp->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
 		
 		ChildActor->SetFolderPath_Recursively(OldParent->GetFolderPath());
 	}
@@ -240,7 +240,7 @@ FTreeItemPtr FActorTreeItem::CreateParent() const
 	}
 
 	AActor* ParentActor = ActorPtr->GetAttachParentActor();
-	if (ParentActor)
+	if (ParentActor && ensureMsgf(ParentActor != ActorPtr, TEXT("Encountered an Actor attached to itself (%s)"), *ParentActor->GetName()))
 	{
 		return MakeShareable(new FActorTreeItem(ParentActor));
 	}

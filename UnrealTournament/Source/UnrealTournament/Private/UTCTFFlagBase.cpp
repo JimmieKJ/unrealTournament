@@ -12,7 +12,7 @@ AUTCTFFlagBase::AUTCTFFlagBase(const FObjectInitializer& ObjectInitializer)
 	Mesh = ObjectInitializer.CreateDefaultSubobject<UStaticMeshComponent>(this, TEXT("FlagBase"));
 	Mesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	Mesh->SetStaticMesh(FlagBaseMesh.Object);
-	Mesh->AttachParent = RootComponent;
+	Mesh->SetupAttachment(RootComponent);
 
 	Capsule = ObjectInitializer.CreateDefaultSubobject<UCapsuleComponent>(this, TEXT("Capsule"));
 	// overlap Pawns, no other collision
@@ -21,10 +21,11 @@ AUTCTFFlagBase::AUTCTFFlagBase(const FObjectInitializer& ObjectInitializer)
 	Capsule->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 	Capsule->InitCapsuleSize(92.f, 134.0f);
 	Capsule->OnComponentBeginOverlap.AddDynamic(this, &AUTCTFFlagBase::OnOverlapBegin);
-	Capsule->AttachParent = RootComponent;
+	Capsule->SetupAttachment(RootComponent);
 
 	RoundLivesAdjustment = 0;
 	ShowDefenseEffect = 0;
+	bScoreOnlyBase = false;
 }
 
 void AUTCTFFlagBase::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
@@ -68,7 +69,7 @@ void AUTCTFFlagBase::OnDefenseEffectChanged()
 	}
 }
 
-void AUTCTFFlagBase::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+void AUTCTFFlagBase::OnOverlapBegin(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
 	AUTCharacter* Character = Cast<AUTCharacter>(OtherActor);
 	if (Character != NULL && Role == ROLE_Authority)
@@ -89,15 +90,20 @@ void AUTCTFFlagBase::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* Oth
 
 void AUTCTFFlagBase::CreateCarriedObject()
 {
-	if (TeamFlagTypes.IsValidIndex(TeamNum) && TeamFlagTypes[TeamNum] != NULL)
+	if (!bScoreOnlyBase)
 	{
-		CarriedObjectClass = TeamFlagTypes[TeamNum];
-	}
-	Super::CreateCarriedObject();
-	MyFlag = Cast<AUTCTFFlag>(CarriedObject);
-	if (MyFlag && MyFlag->GetMesh())
-	{
-		MyFlag->GetMesh()->ClothBlendWeight = MyFlag->ClothBlendHome;
+		if (TeamFlagTypes.IsValidIndex(TeamNum) && TeamFlagTypes[TeamNum] != NULL)
+		{
+			CarriedObjectClass = TeamFlagTypes[TeamNum];
+		}
+
+		Super::CreateCarriedObject();
+
+		MyFlag = Cast<AUTCTFFlag>(CarriedObject);
+		if (MyFlag && MyFlag->GetMesh())
+		{
+			MyFlag->GetMesh()->ClothBlendWeight = MyFlag->ClothBlendHome;
+		}
 	}
 }
 
@@ -171,7 +177,7 @@ void AUTCTFFlagBase::ObjectReturnedHome(AUTCharacter* Returner)
 		GetOverlappingActors(Overlapping, APawn::StaticClass());
 		for (AActor* A : Overlapping)
 		{
-			OnOverlapBegin(A, Cast<UPrimitiveComponent>(A->GetRootComponent()), 0, false, FHitResult(this, Capsule, A->GetActorLocation(), (A->GetActorLocation() - GetActorLocation()).GetSafeNormal()));
+			OnOverlapBegin(Capsule, A, Cast<UPrimitiveComponent>(A->GetRootComponent()), 0, false, FHitResult(this, Capsule, A->GetActorLocation(), (A->GetActorLocation() - GetActorLocation()).GetSafeNormal()));
 		}
 	}
 }
@@ -194,4 +200,12 @@ void AUTCTFFlagBase::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVect
 FText AUTCTFFlagBase::GetHUDStatusMessage(AUTHUD* HUD)
 {
 	return FText::GetEmpty();
+}
+
+void AUTCTFFlagBase::Reset_Implementation()
+{
+}
+
+void AUTCTFFlagBase::OnFlagChanged()
+{
 }

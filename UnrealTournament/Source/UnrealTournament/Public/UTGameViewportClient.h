@@ -67,13 +67,14 @@ protected:
 	TWeakPtr<class SUTGameLayerManager> LayerManagerPtr;
 
 	TSharedPtr<class SUTDialogBase> ReconnectDialog;
-	TSharedPtr<class SUTRedirectDialog> RedirectDialog;
+	TSharedPtr<class SUTDownloadAllDialog> RedirectDialog;
 
 	bool bReconnectAtNextTick;
 	bool bReconnectAtNextTickNeedSpectator;
 
 	// Holds the IP/Port of the last connect so we can try to reconnect
 	FURL LastAttemptedURL;
+
 	float ReconnectAfterDownloadingMapDelay;
 	float VerifyFilesToDownloadAndReconnectDelay;
 
@@ -81,7 +82,6 @@ protected:
 	virtual void NetworkFailureDialogResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
 	virtual void LoginFailureDialogResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
 	virtual void ConnectPasswordResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID, bool bSpectatorPassword);
-	virtual void RedirectResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
 	virtual void CloudRedirectResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
 
 	virtual void VerifyFilesToDownloadAndReconnect();
@@ -98,7 +98,15 @@ protected:
 	void HttpRequestProgress(FHttpRequestPtr HttpRequest, int32 NumBytesSent, int32 NumBytesRecv);
 	void HttpRequestComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded);
 
+
 public:
+
+	// Holds the current status of any ongoing downloads.
+	FText DownloadStatusText;
+	FString Download_CurrentFile;
+	int32 Download_NumBytes;
+	int32 Download_NumFilesLeft;
+	float Download_Percentage;
 
 	// Returns TRUE if a given direct reference exists on this machine
 	bool CheckIfRedirectExists(const FPackageRedirectReference& Redirect);
@@ -108,6 +116,9 @@ public:
 
 	// Adds a redirect to the download queue and downloads it.
 	virtual void DownloadRedirect(FPackageRedirectReference Redirect);
+
+	// Overload of DownloadRedirect that takes a straight URL, cracks it and builds an FPackageRedirectReference
+	virtual void DownloadRedirect(const FString& URL, const FString& OptionalPakName = TEXT(""), const FString& OptionalChecksum = TEXT(""));
 
 	// Cancel a given redirect.  If this download is currently in progress it is ended and the next in the queue started.  
 	virtual void CancelRedirect(FPackageRedirectReference Redirect);

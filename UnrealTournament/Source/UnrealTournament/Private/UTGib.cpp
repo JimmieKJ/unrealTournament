@@ -35,13 +35,13 @@ void AUTGib::CheckGibVisibility()
 	}
 }
 
-void AUTGib::OnPhysicsCollision(AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
+void AUTGib::OnPhysicsCollision(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, FVector NormalImpulse, const FHitResult& Hit)
 {
 #if !UE_SERVER
 	// if we landed on a mover, attach to it
 	if (OtherComp != NULL && OtherComp->Mobility == EComponentMobility::Movable && (Hit.Normal.Z > 0.7f))
 	{
-		RootComponent->AttachTo(OtherComp, NAME_None, EAttachLocation::KeepWorldPosition);
+		RootComponent->AttachToComponent(OtherComp, FAttachmentTransformRules::KeepWorldTransform);
 	}
 
 	// maybe spawn blood as we smack into things
@@ -71,7 +71,7 @@ void AUTGib::OnPhysicsCollision(AActor* OtherActor, UPrimitiveComponent* OtherCo
 						if (Hit.Component.Get() != NULL && Hit.Component->Mobility == EComponentMobility::Movable)
 						{
 							Decal->SetAbsolute(false, false, true);
-							Decal->AttachTo(Hit.Component.Get());
+							Decal->AttachToComponent(Hit.Component.Get(), FAttachmentTransformRules::KeepRelativeTransform);
 						}
 						else
 						{

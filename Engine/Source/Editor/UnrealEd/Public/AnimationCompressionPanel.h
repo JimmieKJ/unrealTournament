@@ -2,6 +2,17 @@
 
 #pragma once
 
+#include "AnimationCompressionPanel.generated.h"
+
+UCLASS()
+class UCompressionHolder : public UObject
+{
+	GENERATED_UCLASS_BODY()
+
+	UPROPERTY(Instanced, Category = Compression, EditAnywhere, NoClear)
+	class UAnimCompress* Compression;
+};
+
 /** 
 * FDlgAnimCompression
 * 
@@ -65,57 +76,11 @@ private:
 	 */
 	void					ApplyAlgorithm(class UAnimCompress* Algorithm);
 
-	/**
-	 * Creates a Slate radio button 
-	 *
-	 * @param	RadioText	Text label for the radio button
-	 * @param	ButtonId	The ID for the radio button
-	 * @return				The created radio button widget
-	 */
-	TSharedRef<SWidget> CreateRadioButton( const FText& RadioText, int32 ButtonId )
-	{
-		return
-			SNew(SCheckBox)
-			.Style(FEditorStyle::Get(), "RadioButton")
-			.IsChecked( this, &SAnimationCompressionPanel::IsRadioChecked, ButtonId )
-			.OnCheckStateChanged( this, &SAnimationCompressionPanel::OnRadioChanged, ButtonId )
-			[
-				SNew(STextBlock).Text(RadioText)
-			];
-	}
-
-	/**
-	 * Returns the state of the radio button
-	 *
-	 * @param	ButtonId	The ID for the radio button
-	 * @return				The status of the radio button
-	 */
-	ECheckBoxState IsRadioChecked( int32 ButtonId ) const
-	{
-		return (CurrentCompressionChoice == ButtonId)
-			? ECheckBoxState::Checked
-			: ECheckBoxState::Unchecked;
-	}
-
-	/**
-	 * Handler for all radio button clicks
-	 *
-	 * @param	NewRadioState	The new state of the radio button
-	 * @param	RadioThatChanged	The ID of the radio button that has changed. 
-	 */
-	void OnRadioChanged( ECheckBoxState NewRadioState, int32 RadioThatChanged )
-	{
-		if (NewRadioState == ECheckBoxState::Checked)
-		{
-			CurrentCompressionChoice = RadioThatChanged;
-		}
-	}
-
-	TArray<class UAnimCompress*>			AnimationCompressionAlgorithms;
 	TArray< TWeakObjectPtr<UAnimSequence> >	AnimSequences;
 
-	int32 CurrentCompressionChoice;
-
 	/** Pointer to the window which holds this Widget, required for modal control */
-	TSharedPtr<SWindow> ParentWindow;
+	TWeakPtr<SWindow> ParentWindow;
+
+	/** Our compression display object */
+	UCompressionHolder* CompressionHolder;
 };

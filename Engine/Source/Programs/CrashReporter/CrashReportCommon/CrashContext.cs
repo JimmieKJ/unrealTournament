@@ -343,6 +343,23 @@ namespace Tools.CrashReporter.CrashReportCommon
 
 		/// <summary></summary>
 		[XmlElement]
+		public bool IsEnsure;
+
+		/// <summary></summary>
+		[XmlElement]
+		public bool IsAssert;
+
+		/// <summary></summary>
+		[XmlElement]
+		public string CrashType;
+
+		/// <summary>
+		/// Get the crash type. Can be empty but we don't want null.
+		/// </summary>
+		public string GetCrashType() { return CrashType ?? string.Empty; }
+
+		/// <summary></summary>
+		[XmlElement]
 		public int SecondsSinceStart;
 
 		/// <summary></summary>
@@ -356,6 +373,10 @@ namespace Tools.CrashReporter.CrashReportCommon
 		/// <summary></summary>
 		[XmlElement]
 		public string BuildConfiguration;
+
+		/// <summary></summary>
+		[XmlElement]
+		public string GameSessionID;
 
 		/// <summary></summary>
 		[XmlElement]
@@ -410,6 +431,10 @@ namespace Tools.CrashReporter.CrashReportCommon
 
 		/// <summary></summary>
 		[XmlElement]
+		public string DeploymentName;
+
+		/// <summary></summary>
+		[XmlElement]
 		public string EngineVersion;
 
 		/// <summary></summary>
@@ -455,7 +480,35 @@ namespace Tools.CrashReporter.CrashReportCommon
 		/// <summary> Callstack as string[] unescaped. </summary>
 		public string[] GetCallstack()
 		{
+			if (string.IsNullOrWhiteSpace(CallStack)) return new string[0];
+
 			string UnescapedValue = FGenericCrashContext.UnescapeXMLString( CallStack );
+			return UnescapedValue.Split( new char[] { '\n' }, StringSplitOptions.RemoveEmptyEntries );
+		}
+
+		/// <summary></summary>
+		[XmlElement]
+		public string SourceContext;
+
+		/// <summary> SourceContext as string[] unescaped. </summary>
+		public string[] GetSourceContext()
+		{
+			if (string.IsNullOrWhiteSpace(SourceContext)) return new string[0];
+
+			string UnescapedValue = FGenericCrashContext.UnescapeXMLString( SourceContext );
+			return UnescapedValue.Split( new char[] { '\n' }, StringSplitOptions.RemoveEmptyEntries );
+		}
+
+		/// <summary></summary>
+		[XmlElement]
+		public string UserDescription;
+
+		/// <summary> UserDescription as string[] unescaped. </summary>
+		public string[] GetUserDescription()
+		{
+			if (string.IsNullOrWhiteSpace(UserDescription)) return new string[0];
+
+			string UnescapedValue = FGenericCrashContext.UnescapeXMLString( UserDescription );
 			return UnescapedValue.Split( new char[] { '\n' }, StringSplitOptions.RemoveEmptyEntries );
 		}
 
@@ -465,41 +518,21 @@ namespace Tools.CrashReporter.CrashReportCommon
 
 		/// <summary></summary>
 		[XmlElement]
-		public string SourceContext;
-
-		/// <summary> SourceContext as string[] unescaped. </summary>
-		public string[] GetSourceContext()
-		{
-			string UnescapedValue = FGenericCrashContext.UnescapeXMLString( SourceContext );
-			return UnescapedValue.Split( new char[] { '\n' }, StringSplitOptions.RemoveEmptyEntries );
-		}
-
-		/// <summary> An array of module's name used by the game that crashed. </summary>
-		[XmlElement]
-		public string Modules;
-
-		/// <summary></summary>
-		[XmlElement]
-		public string UserDescription;
-
-		/// <summary> UserDescription as string[] unescaped. </summary>
-		public string[] GetUserDescription()
-		{
-			string UnescapedValue = FGenericCrashContext.UnescapeXMLString( UserDescription );
-			return UnescapedValue.Split( new char[] { '\n' }, StringSplitOptions.RemoveEmptyEntries );
-		}
-
-		/// <summary></summary>
-		[XmlElement]
 		public string ErrorMessage;
 
 		/// <summary> ErrorMessage as string[] unescaped. </summary>
 		public string[] GetErrorMessage()
 		{
+			if (string.IsNullOrWhiteSpace(ErrorMessage)) return new string[0];
+
 			string UnescapedValue = FGenericCrashContext.UnescapeXMLString( ErrorMessage );
 			UnescapedValue = UnescapedValue.Substring( 0, Math.Min( 511, UnescapedValue.Length ) ); // Database limitation.
 			return UnescapedValue.Split( new char[] { '\n' }, StringSplitOptions.RemoveEmptyEntries );
 		}
+
+		/// <summary></summary>
+		[XmlElement]
+		public int CrashDumpMode;
 
 		/// <summary> Location of the full crash dump. Displayed in the crash report frontend, without the filename. </summary>
 		[XmlElement]
@@ -508,15 +541,11 @@ namespace Tools.CrashReporter.CrashReportCommon
 		/// <summary> Fullname of the full crash dump.</summary>
 		public string GetFullCrashDumpLocation()
 		{
+			if (string.IsNullOrWhiteSpace(FullCrashDumpLocation)) return string.Empty;
+
 			string Fullname = Path.Combine( FullCrashDumpLocation, CrashReporterConstants.UE4MinidumpName );
 			return Fullname;
 		}
-
-		/// <summary></summary>
-		[XmlElement]
-		public int CrashDumpMode;
-
-		
 
 		/// <summary></summary>
 		[XmlElement( ElementName = "Misc.NumberOfCores" )]
@@ -619,6 +648,22 @@ namespace Tools.CrashReporter.CrashReportCommon
 		/// <summary> Whether the user allowed us to be contacted. </summary>
 		[XmlElement]
 		public bool bAllowToBeContacted = false;
+
+		/// <summary> Platform status. </summary>
+		[XmlElement]
+		public int PlatformCallbackResult;
+
+		/// <summary> CRC version that uploaded the crash. Blank for older builds. </summary>
+		[XmlElement]
+		public string CrashReportClientVersion;
+
+		/// <summary> An array of module names used by the game that crashed. </summary>
+		[XmlElement]
+		public string Modules;
+
+		/// <summary> Warning info for missing data or failed processing in the Crash Report Processor. </summary>
+		[XmlElement]
+		public string ProcessorFailedMessage;
 
 		/// <summary>A simple default constructor to allow Xml serialization.</summary>
 		public FPrimaryCrashProperties()

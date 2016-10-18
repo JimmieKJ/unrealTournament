@@ -63,7 +63,7 @@ UBlueprintBoundEventNodeSpawner* UBlueprintBoundEventNodeSpawner::Create(TSubcla
 	MenuSignature.Category = BlueprintBoundEventNodeSpawnerImpl::GetDefaultMenuCategory(EventDelegate);
 	//MenuSignature.Tooltip,  will be pulled from the node template
 	//MenuSignature.Keywords, will be pulled from the node template
-	MenuSignature.IconName = TEXT("GraphEditor.Event_16x");
+	MenuSignature.Icon = FSlateIcon("EditorStyle", "GraphEditor.Event_16x");
 
 	return NodeSpawner;
 }

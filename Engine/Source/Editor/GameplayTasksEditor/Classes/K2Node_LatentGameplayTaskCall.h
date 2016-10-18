@@ -33,7 +33,7 @@ public:
 	bool ValidateActorArraySpawning(class FKismetCompilerContext& CompilerContext, bool bGenerateErrors);
 
 	UPROPERTY()
-	TArray<UEdGraphPin*> SpawnParmPins;
+	TArray<FString> SpawnParamPins;
 
 	static void RegisterSpecializedTaskNodeClass(TSubclassOf<UK2Node_LatentGameplayTaskCall> NodeClass);
 protected:

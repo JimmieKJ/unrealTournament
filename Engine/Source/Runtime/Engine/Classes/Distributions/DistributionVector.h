@@ -25,8 +25,8 @@ enum EDistributionVectorMirrorFlags
 	EDVMF_MAX,
 };
 
-/** Type-safe vector distribution. */
 #if !CPP      //noexport struct
+/** Type-safe vector distribution. */
 USTRUCT(noexport)
 struct FVectorDistribution
 {
@@ -36,8 +36,8 @@ struct FVectorDistribution
 };
 #endif
 
-/** Type-safe 4-vector distribution. */
 #if !CPP      //noexport struct
+/** Type-safe 4-vector distribution. */
 USTRUCT(noexport)
 struct FVector4Distribution
 {
@@ -86,7 +86,7 @@ public:
 	/**
 	* Initialize a raw distribution from the original Unreal distribution
 	*/
-	void Initialize();
+	ENGINE_API void Initialize();
 #endif
 
 	/**
@@ -217,6 +217,7 @@ public:
 #endif // WITH_EDITOR
 	virtual bool NeedsLoadForClient() const override;
 	virtual bool NeedsLoadForServer() const override;
+	virtual bool NeedsLoadForEditorGame() const override;
 	virtual void Serialize(FArchive& Ar) override;
 	/** End UObject interface */
 

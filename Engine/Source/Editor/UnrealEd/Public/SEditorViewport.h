@@ -17,7 +17,7 @@ class UNREALED_API SEditorViewport
 	: public SCompoundWidget
 {
 public:
-	SLATE_BEGIN_ARGS(SEditorViewport) {}
+	SLATE_BEGIN_ARGS(SEditorViewport) { }
 	SLATE_END_ARGS()
 	
 	SEditorViewport();
@@ -46,6 +46,20 @@ public:
 
 	/** Toggles realtime on/off for the viewport. Slate tick/paint is ensured when realtime is on. */
 	void OnToggleRealtime();
+
+	/**
+	 * Sets whether this viewport can render directly to the back buffer.  Advanced use only
+	 * 
+	 * @param	bInRenderDirectlyToWindow	Whether we should be able to render to the back buffer
+	 */
+	void SetRenderDirectlyToWindow( const bool bInRenderDirectlyToWindow );
+
+	/**
+	 * Sets whether stereo rendering is allowed for this viewport.  Advanced use only
+	 * 
+	 * @param	bInEnableStereoRendering	Whether stereo rendering should be allowed for this viewport
+	 */
+	void EnableStereoRendering( const bool bInEnableStereoRendering );
 
 	/**
 	 * @return true if the specified coordinate system the active one active

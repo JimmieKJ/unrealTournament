@@ -122,6 +122,10 @@ bool FMatExpressionPreview::ShouldCache(EShaderPlatform Platform, const FShaderT
 			{
 				return true;
 			}
+			else if (FCString::Stristr(ShaderType->GetName(), TEXT("Simple")))
+			{
+				return true;
+			}
 		}
 	}
 
@@ -173,65 +177,65 @@ void FMatExpressionPreview::NotifyCompilationFinished()
 // FMaterialEditor //
 /////////////////////
 
-void FMaterialEditor::RegisterTabSpawners(const TSharedRef<class FTabManager>& TabManager)
+void FMaterialEditor::RegisterTabSpawners(const TSharedRef<class FTabManager>& InTabManager)
 {
-	WorkspaceMenuCategory = TabManager->AddLocalWorkspaceMenuCategory(LOCTEXT("WorkspaceMenu_MaterialEditor", "Material Editor"));
+	WorkspaceMenuCategory = InTabManager->AddLocalWorkspaceMenuCategory(LOCTEXT("WorkspaceMenu_MaterialEditor", "Material Editor"));
 	auto WorkspaceMenuCategoryRef = WorkspaceMenuCategory.ToSharedRef();
 
-	FAssetEditorToolkit::RegisterTabSpawners(TabManager);
+	FAssetEditorToolkit::RegisterTabSpawners(InTabManager);
 	
-	TabManager->RegisterTabSpawner( PreviewTabId, FOnSpawnTab::CreateSP(this, &FMaterialEditor::SpawnTab_Preview) )
+	InTabManager->RegisterTabSpawner( PreviewTabId, FOnSpawnTab::CreateSP(this, &FMaterialEditor::SpawnTab_Preview) )
 		.SetDisplayName( LOCTEXT("ViewportTab", "Viewport") )
 		.SetGroup( WorkspaceMenuCategoryRef )
 		.SetIcon(FSlateIcon(FEditorStyle::GetStyleSetName(), "LevelEditor.Tabs.Viewports"));
 	
-	TabManager->RegisterTabSpawner( GraphCanvasTabId, FOnSpawnTab::CreateSP(this, &FMaterialEditor::SpawnTab_GraphCanvas) )
+	InTabManager->RegisterTabSpawner( GraphCanvasTabId, FOnSpawnTab::CreateSP(this, &FMaterialEditor::SpawnTab_GraphCanvas) )
 		.SetDisplayName( LOCTEXT("GraphCanvasTab", "Graph") )
 		.SetGroup( WorkspaceMenuCategoryRef )
 		.SetIcon(FSlateIcon(FEditorStyle::GetStyleSetName(), "GraphEditor.EventGraph_16x"));
 	
-	TabManager->RegisterTabSpawner( PropertiesTabId, FOnSpawnTab::CreateSP(this, &FMaterialEditor::SpawnTab_MaterialProperties) )
+	InTabManager->RegisterTabSpawner( PropertiesTabId, FOnSpawnTab::CreateSP(this, &FMaterialEditor::SpawnTab_MaterialProperties) )
 		.SetDisplayName( LOCTEXT("DetailsTab", "Details") )
 		.SetGroup( WorkspaceMenuCategoryRef )
 		.SetIcon(FSlateIcon(FEditorStyle::GetStyleSetName(), "LevelEditor.Tabs.Details"));
 
-	TabManager->RegisterTabSpawner( PaletteTabId, FOnSpawnTab::CreateSP(this, &FMaterialEditor::SpawnTab_Palette) )
+	InTabManager->RegisterTabSpawner( PaletteTabId, FOnSpawnTab::CreateSP(this, &FMaterialEditor::SpawnTab_Palette) )
 		.SetDisplayName( LOCTEXT("PaletteTab", "Palette") )
 		.SetGroup( WorkspaceMenuCategoryRef )
 		.SetIcon(FSlateIcon(FEditorStyle::GetStyleSetName(), "Kismet.Tabs.Palette"));
 
-	TabManager->RegisterTabSpawner( StatsTabId, FOnSpawnTab::CreateSP(this, &FMaterialEditor::SpawnTab_Stats) )
+	InTabManager->RegisterTabSpawner( StatsTabId, FOnSpawnTab::CreateSP(this, &FMaterialEditor::SpawnTab_Stats) )
 		.SetDisplayName( LOCTEXT("StatsTab", "Stats") )
 		.SetGroup( WorkspaceMenuCategoryRef )
 		.SetIcon(FSlateIcon(FEditorStyle::GetStyleSetName(), "LevelEditor.Tabs.StatsViewer"));
 	
-	TabManager->RegisterTabSpawner(FindTabId, FOnSpawnTab::CreateSP(this, &FMaterialEditor::SpawnTab_Find))
+	InTabManager->RegisterTabSpawner(FindTabId, FOnSpawnTab::CreateSP(this, &FMaterialEditor::SpawnTab_Find))
 		.SetDisplayName(LOCTEXT("FindTab", "Find Results"))
 		.SetGroup( WorkspaceMenuCategoryRef )
 		.SetIcon(FSlateIcon(FEditorStyle::GetStyleSetName(), "Kismet.Tabs.FindResults"));
 
-	TabManager->RegisterTabSpawner( HLSLCodeTabId, FOnSpawnTab::CreateSP(this, &FMaterialEditor::SpawnTab_HLSLCode) )
+	InTabManager->RegisterTabSpawner( HLSLCodeTabId, FOnSpawnTab::CreateSP(this, &FMaterialEditor::SpawnTab_HLSLCode) )
 		.SetDisplayName( LOCTEXT("HLSLCodeTab", "HLSL Code") )
 		.SetGroup( WorkspaceMenuCategoryRef )
 		.SetIcon(FSlateIcon(FEditorStyle::GetStyleSetName(), "MaterialEditor.Tabs.HLSLCode"));
 
-	OnRegisterTabSpawners().Broadcast(TabManager);
+	OnRegisterTabSpawners().Broadcast(InTabManager);
 }
 
 
-void FMaterialEditor::UnregisterTabSpawners(const TSharedRef<class FTabManager>& TabManager)
+void FMaterialEditor::UnregisterTabSpawners(const TSharedRef<class FTabManager>& InTabManager)
 {
-	FAssetEditorToolkit::UnregisterTabSpawners(TabManager);
+	FAssetEditorToolkit::UnregisterTabSpawners(InTabManager);
 
-	TabManager->UnregisterTabSpawner( PreviewTabId );
-	TabManager->UnregisterTabSpawner( GraphCanvasTabId );
-	TabManager->UnregisterTabSpawner( PropertiesTabId );
-	TabManager->UnregisterTabSpawner( PaletteTabId );
-	TabManager->UnregisterTabSpawner( StatsTabId );
-	TabManager->UnregisterTabSpawner( FindTabId );
-	TabManager->UnregisterTabSpawner( HLSLCodeTabId );
+	InTabManager->UnregisterTabSpawner( PreviewTabId );
+	InTabManager->UnregisterTabSpawner( GraphCanvasTabId );
+	InTabManager->UnregisterTabSpawner( PropertiesTabId );
+	InTabManager->UnregisterTabSpawner( PaletteTabId );
+	InTabManager->UnregisterTabSpawner( StatsTabId );
+	InTabManager->UnregisterTabSpawner( FindTabId );
+	InTabManager->UnregisterTabSpawner( HLSLCodeTabId );
 
-	OnUnregisterTabSpawners().Broadcast(TabManager);
+	OnUnregisterTabSpawners().Broadcast(InTabManager);
 }
 
 void FMaterialEditor::InitEditorForMaterial(UMaterial* InMaterial)
@@ -452,6 +456,9 @@ void FMaterialEditor::InitMaterialEditor( const EToolkitMode::Type Mode, const T
 	// Initialize expression previews.
 	if (MaterialFunction)
 	{
+		// Support undo/redo for the material function if it exists
+		MaterialFunction->SetFlags(RF_Transactional);
+
 		Material->Expressions = MaterialFunction->FunctionExpressions;
 		Material->EditorComments = MaterialFunction->FunctionEditorComments;
 
@@ -996,7 +1003,7 @@ void FMaterialEditor::DrawMessages( FViewport* InViewport, FCanvas* Canvas )
 {
 	if( PreviewExpression != NULL )
 	{
-		Canvas->PushAbsoluteTransform( FMatrix::Identity );
+		Canvas->PushAbsoluteTransform( FTranslationMatrix(FVector(0.0f, 30.0f,0.0f) ) );
 
 		// The message to display in the viewport.
 		FString Name = FString::Printf( TEXT("Previewing: %s"), *PreviewExpression->GetName() );
@@ -2147,6 +2154,13 @@ void FMaterialEditor::OnConvertObjects()
 
 						bool bNeedsRefresh = false;
 
+						// Copy over any common values
+						if (GraphNode->NodeComment.Len() > 0)
+						{
+							bNeedsRefresh = true; 
+							NewGraphNode->NodeComment = GraphNode->NodeComment;
+						}
+
 						// Copy over expression-specific values
 						if (Constant1Expression)
 						{
@@ -3003,23 +3017,6 @@ UMaterialExpression* FMaterialEditor::CreateNewMaterialExpression(UClass* NewExp
 			StaticComponentMaskExpression->DefaultR = true;
 		}
 
-		UMaterialExpressionRotateAboutAxis* RotateAboutAxisExpression = Cast<UMaterialExpressionRotateAboutAxis>( NewExpression );
-		if( RotateAboutAxisExpression )
-		{
-			// Create a default expression for the Position input
-			UMaterialExpressionWorldPosition* WorldPositionExpression = NewObject<UMaterialExpressionWorldPosition>(ExpressionOuter, NAME_None, RF_Transactional);
-			Material->Expressions.Add( WorldPositionExpression );
-			WorldPositionExpression->Material = Material;
-			RotateAboutAxisExpression->Position.Expression = WorldPositionExpression;
-			WorldPositionExpression->MaterialExpressionEditorX = RotateAboutAxisExpression->MaterialExpressionEditorX - 250;
-			WorldPositionExpression->MaterialExpressionEditorY = RotateAboutAxisExpression->MaterialExpressionEditorY + 73;
-			Material->MaterialGraph->AddExpression(WorldPositionExpression);
-			if ( bAutoSelect )
-			{
-				GraphEditor->SetNodeSelection(WorldPositionExpression->GraphNode, true);
-			}
-		}
-
 		// Setup defaults for the most likely use case
 		// Can't change default properties as that will affect existing content
 		UMaterialExpressionTransformPosition* PositionTransform = Cast<UMaterialExpressionTransformPosition>(NewExpression);
@@ -3425,6 +3422,15 @@ void FMaterialEditor::PasteNodesHere(const FVector2D& Location)
 				// Just update the function input/outputs here.
 				const bool bRecreateAndLinkNode = false;
 				FunctionCall->UpdateFromFunctionResource(bRecreateAndLinkNode);
+
+				// If an unknown material function has been pasted, remove the graph node pins (as the expression will also have had its inputs/outputs removed).
+				// This will be displayed as an orphaned "Unspecified Function" node.
+				if (FunctionCall->MaterialFunction == nullptr &&
+					FunctionCall->FunctionInputs.Num() == 0 &&
+					FunctionCall->FunctionOutputs.Num() == 0)
+				{
+					GraphNode->Pins.Empty();
+				}
 			}
 		}
 		else if (UMaterialGraphNode_Comment* CommentNode = Cast<UMaterialGraphNode_Comment>(Node))
@@ -4168,6 +4174,7 @@ void FMaterialEditor::OnNodeDoubleClicked(class UEdGraphNode* Node)
 			PickerArgs.ParentWidget = GraphEditor;//AsShared();
 			PickerArgs.bUseAlpha = Constant4Expression != NULL || VectorExpression != NULL;
 			PickerArgs.bOnlyRefreshOnOk = false;
+			PickerArgs.bOnlyRefreshOnMouseUp = true;
 			PickerArgs.bExpandAdvancedSection = true;
 			PickerArgs.DisplayGamma = TAttribute<float>::Create( TAttribute<float>::FGetter::CreateUObject(GEngine, &UEngine::GetDisplayGamma) );
 			PickerArgs.ColorChannelsArray = &Channels;

@@ -109,9 +109,9 @@ void UK2Node_GetInputAxisKeyValue::RegisterDynamicBinding(UDynamicBlueprintBindi
 	InputAxisKeyBindingObject->InputAxisKeyDelegateBindings.Add(Binding);
 }
 
-FName UK2Node_GetInputAxisKeyValue::GetPaletteIcon(FLinearColor& OutColor) const
+FSlateIcon UK2Node_GetInputAxisKeyValue::GetIconAndTint(FLinearColor& OutColor) const
 {
-	return EKeys::GetMenuCategoryPaletteIcon(InputAxisKey.GetMenuCategory());
+	return FSlateIcon("EditorStyle", EKeys::GetMenuCategoryPaletteIcon(InputAxisKey.GetMenuCategory()));
 }
 
 void UK2Node_GetInputAxisKeyValue::GetMenuActions(FBlueprintActionDatabaseRegistrar& ActionRegistrar) const

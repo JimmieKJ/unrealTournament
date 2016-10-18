@@ -6,6 +6,13 @@
 #include "UnrealEd.h"
 #include "Classes/Engine/LODActor.h"
 
+#include "Internationalization/Internationalization.h"
+#include "IProjectManager.h"
+#include "StaticMeshResources.h"
+#include "MessageLog.h"
+#include "UObjectToken.h"
+#include "MapErrors.h"
+
 FHierarchicalLODProxyProcessor::FHierarchicalLODProxyProcessor()
 {
 #if WITH_EDITOR
@@ -52,12 +59,29 @@ bool FHierarchicalLODProxyProcessor::Tick(float DeltaTime)
 		Data->LODActor->SetActorLocation(FVector::ZeroVector);
 		Data->LODActor->SubObjects = Data->AssetObjects;
 
+		// Check resulting mesh and give a warning if it exceeds the vertex / triangle cap for certain platforms
+		FProjectStatus ProjectStatus;
+		if (IProjectManager::Get().QueryStatusForCurrentProject(ProjectStatus) && (ProjectStatus.IsTargetPlatformSupported(TEXT("Android")) || ProjectStatus.IsTargetPlatformSupported(TEXT("IOS"))))
+		{
+			if (MainMesh->RenderData.IsValid() && MainMesh->RenderData->LODResources.Num() && MainMesh->RenderData->LODResources[0].IndexBuffer.Is32Bit())
+			{
+				FMessageLog("HLODResults").Warning()
+					->AddToken(FUObjectToken::Create(Data->LODActor))
+					->AddToken(FTextToken::Create(FText::FromString(TEXT(" Mesh has more that 65535 vertices, incompatible with mobile; forcing 16-bit (will probably cause rendering issues)."))));
+				
+				FMessageLog("HLODResults").Open();
+			}
+		}
+
 		// Calculate correct drawing distance according to given screensize
 		// At the moment this assumes a fixed field of view of 90 degrees (horizontal and vertical axi)
 		static const float FOVRad = 90.0f * (float)PI / 360.0f;
 		static const FMatrix ProjectionMatrix = FPerspectiveMatrix(FOVRad, 1920, 1080, 0.01f);
 		FBoxSphereBounds Bounds = Data->LODActor->GetStaticMeshComponent()->CalcBounds(FTransform());
-		Data->LODActor->LODDrawDistance = FHierarchicalLODUtilities::CalculateDrawDistanceFromScreenSize(Bounds.SphereRadius, Data->LODSetup.TransitionScreenSize, ProjectionMatrix);
+
+		FHierarchicalLODUtilitiesModule& Module = FModuleManager::LoadModuleChecked<FHierarchicalLODUtilitiesModule>("HierarchicalLODUtilities");
+		IHierarchicalLODUtilities* Utilities = Module.GetUtilities();
+		Data->LODActor->LODDrawDistance = Utilities->CalculateDrawDistanceFromScreenSize(Bounds.SphereRadius, Data->LODSetup.TransitionScreenSize, ProjectionMatrix);
 		Data->LODActor->UpdateSubActorLODParents();
 
 		// Freshly build so mark not dirty

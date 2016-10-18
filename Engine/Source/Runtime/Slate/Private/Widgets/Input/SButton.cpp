@@ -116,7 +116,7 @@ const FSlateBrush* SButton::GetBorder() const
 	{
 		return DisabledImage;
 	}
-	else if (IsPressed())
+	else if ( IsPressed() )
 	{
 		return PressedImage;
 	}
@@ -139,6 +139,8 @@ bool SButton::SupportsKeyboardFocus() const
 
 void SButton::OnFocusLost( const FFocusEvent& InFocusEvent )
 {
+	SBorder::OnFocusLost(InFocusEvent);
+
 	Release();
 }
 
@@ -242,7 +244,10 @@ FReply SButton::OnMouseButtonDoubleClick( const FGeometry& InMyGeometry, const F
 FReply SButton::OnMouseButtonUp( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
 {
 	FReply Reply = FReply::Unhandled();
-	if ( bIsPressed && IsEnabled() && ( MouseEvent.GetEffectingButton() == EKeys::LeftMouseButton || MouseEvent.IsTouchEvent() ) )
+	const bool bMustBePressed = ClickMethod == EButtonClickMethod::DownAndUp;
+	const bool bMeetsPressedRequirements = (!bMustBePressed || (bIsPressed && bMustBePressed));
+
+	if (bMeetsPressedRequirements && IsEnabled() && ( MouseEvent.GetEffectingButton() == EKeys::LeftMouseButton || MouseEvent.IsTouchEvent() ) )
 	{
 		Release();
 
@@ -282,9 +287,9 @@ FReply SButton::OnMouseButtonUp( const FGeometry& MyGeometry, const FPointerEven
 			Reply = FReply::Handled();
 		}
 
-		//If the user hasn't requested a new mouse captor, then the default
-		//behavior of the button is to release mouse capture.
-		if ( Reply.GetMouseCaptor().IsValid() == false )
+		//If the user hasn't requested a new mouse captor and the button still has mouse capture,
+		//then the default behavior of the button is to release mouse capture.
+		if (Reply.GetMouseCaptor().IsValid() == false && HasMouseCapture())
 		{
 			Reply.ReleaseMouseCapture();
 		}

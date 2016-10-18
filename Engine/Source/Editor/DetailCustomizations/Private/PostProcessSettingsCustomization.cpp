@@ -3,7 +3,6 @@
 #include "DetailCustomizationsPrivatePCH.h"
 #include "PostProcessSettingsCustomization.h"
 #include "ObjectEditorUtils.h"
-#include "LightPropagationVolumeBlendable.h"
 #include "SWidgetSwitcher.h"
 #include "Classes/Engine/BlendableInterface.h"
 
@@ -69,7 +68,7 @@ void FPostProcessSettingsCustomization::CustomizeHeader( TSharedRef<IPropertyHan
 	];
 }
 
-void FWeightedBlendableCustomization::AddDirectAsset(TSharedRef<IPropertyHandle> StructPropertyHandle, UPackage* Package, TSharedPtr<IPropertyHandle> Weight, TSharedPtr<IPropertyHandle> Value)
+void FWeightedBlendableCustomization::AddDirectAsset(TSharedRef<IPropertyHandle> StructPropertyHandle, UPackage* Package, TSharedPtr<IPropertyHandle> Weight, TSharedPtr<IPropertyHandle> Value, UClass* Class)
 {
 	Weight->SetValue(1.0f);
 
@@ -82,7 +81,8 @@ void FWeightedBlendableCustomization::AddDirectAsset(TSharedRef<IPropertyHandle>
 		for(TArray<UObject*>::TConstIterator It = Objects.CreateConstIterator(); It; It++)
 		{
 			UObject* Obj = *It;
-			const UObject* NewObj = NewObject<ULightPropagationVolumeBlendable>(Obj);
+
+			const UObject* NewObj = NewObject<UObject>(Obj, Class);
 
 			FString Str = NewObj->GetPathName();
 
@@ -131,22 +131,49 @@ FReply FWeightedBlendableCustomization::JumpToDirectAsset(TSharedPtr<IPropertyHa
 
 TSharedRef<SWidget> FWeightedBlendableCustomization::GenerateContentWidget(TSharedRef<IPropertyHandle> StructPropertyHandle, UPackage* Package, TSharedPtr<IPropertyHandle> Weight, TSharedPtr<IPropertyHandle> Value)
 {
+	bool bSeparatorIsNeeded = false; 
+
 	FMenuBuilder MenuBuilder(true, NULL);
 	{
-/*
 		for(TObjectIterator<UClass> It; It; ++It)
 		{
-			if(It->IsChildOf(UFactory::StaticClass()))
-			if(It->IsChildOf(UBlendableInterface::StaticClass()))
-*/
-		// todo: iterate through all UFactories that create UClasses with UBlendableInterface
-		{
-			FUIAction Direct2(FExecuteAction::CreateSP(this, &FWeightedBlendableCustomization::AddDirectAsset, StructPropertyHandle, Package, Weight, Value));
-			MenuBuilder.AddMenuEntry(LOCTEXT("Blendable_DirectAsset2", "Light Propagation Volume Blendable"), 
-				LOCTEXT("Blendable_DirectAsset2h", "references Light Propagation Volume Blendable (owned by the containing object)"), FSlateIcon(), Direct2);
+			if( It->IsChildOf(UFactory::StaticClass()))
+			{
+				UFactory* Factory = It->GetDefaultObject<UFactory>();
+
+				check(Factory);
+
+				UClass* SupportedClass = Factory->GetSupportedClass();
+
+				if(SupportedClass)
+				{
+					if(SupportedClass->ImplementsInterface(UBlendableInterface::StaticClass()))
+					{
+						// At the moment we know about 3 Blendables: Material, UMaterialInstanceConstant, LightPropagationVolumeBlendable
+						// The materials are not that useful to have here (hard to reference) so we suppress them here
+						if(!(
+							SupportedClass == UMaterial::StaticClass() ||
+							SupportedClass == UMaterialInstanceConstant::StaticClass()
+							))
+						{
+							FUIAction Direct2(FExecuteAction::CreateSP(this, &FWeightedBlendableCustomization::AddDirectAsset, StructPropertyHandle, Package, Weight, Value, SupportedClass));
+
+							FName ClassName = SupportedClass->GetFName();
+						
+							MenuBuilder.AddMenuEntry(FText::FromString(ClassName.GetPlainNameString()),
+								LOCTEXT("Blendable_DirectAsset2h", "Creates an asset that is owned by the containing object"), FSlateIcon(), Direct2);
+
+							bSeparatorIsNeeded = true;
+						}
+					}
+				}
+			}
 		}
 
-		MenuBuilder.AddMenuSeparator();
+		if(bSeparatorIsNeeded)
+		{
+			MenuBuilder.AddMenuSeparator();
+		}
 
 		FUIAction Indirect(FExecuteAction::CreateSP(this, &FWeightedBlendableCustomization::AddIndirectAsset, Weight));
 		MenuBuilder.AddMenuEntry(LOCTEXT("Blendable_IndirectAsset", "Asset reference"), 
@@ -188,6 +215,7 @@ TSharedRef<SWidget> FWeightedBlendableCustomization::GenerateContentWidget(TShar
 
 	return Switcher;
 }
+
 
 int32 FWeightedBlendableCustomization::ComputeSwitcherIndex(TSharedRef<IPropertyHandle> StructPropertyHandle, UPackage* Package, TSharedPtr<IPropertyHandle> Weight, TSharedPtr<IPropertyHandle> Value) const
 {
@@ -267,8 +295,8 @@ void FWeightedBlendableCustomization::CustomizeHeader( TSharedRef<IPropertyHandl
 		+SHorizontalBox::Slot()
 		[
 			SNew(SBox)
-			.MinDesiredWidth(44.0f)
-			.MaxDesiredWidth(44.0f)		
+			.MinDesiredWidth(60.0f)
+			.MaxDesiredWidth(60.0f)		
 			[
 				SharedWeightProp->CreatePropertyValueWidget()
 			]
@@ -276,6 +304,7 @@ void FWeightedBlendableCustomization::CustomizeHeader( TSharedRef<IPropertyHandl
 	];
 
 	HeaderRow.ValueContent()
+	.MaxDesiredWidth(0.0f)
 	[
 		SNew(SHorizontalBox)
 		+ SHorizontalBox::Slot()

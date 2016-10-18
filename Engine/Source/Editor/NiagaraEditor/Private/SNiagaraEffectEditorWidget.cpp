@@ -676,8 +676,9 @@ void SEmitterWidget::OnRenderModuleChanged(TSharedPtr<FString> ModName, ESelectI
 
 	UMaterial *Material = UMaterial::GetDefaultMaterial(MD_Surface);
 	Emitter->GetEffectRenderer()->SetMaterial(Material, EffectInstance->GetComponent()->GetWorld()->FeatureLevel);
-
-	TComponentReregisterContext<UNiagaraComponent> ComponentReregisterContext;
+	{
+		TComponentReregisterContext<UNiagaraComponent> ComponentReregisterContext;
+	}
 	UObject *Props = Emitter->GetProperties()->RendererProperties;
 	RendererPropertiesView->SetObject(Props);
 }

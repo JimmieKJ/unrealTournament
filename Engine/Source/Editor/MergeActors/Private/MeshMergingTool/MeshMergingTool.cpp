@@ -15,27 +15,28 @@
 #include "AssetRegistryModule.h"
 #include "ScopedTransaction.h"
 
-#define LOCTEXT_NAMESPACE "MeshMergingTool"
+#include "SlateBasics.h"
+#include "Widgets/Notifications/SNotificationList.h"
+#include "Framework/Notifications/NotificationManager.h"
 
+#define LOCTEXT_NAMESPACE "MeshMergingTool"
 
 FMeshMergingTool::FMeshMergingTool()
 	: bReplaceSourceActors(false)
-	, bExportSpecificLOD(false)
-	, ExportLODIndex(0)
-{}
-
+{
+	SettingsObject = UMeshMergingSettingsObject::Get();
+}
 
 TSharedRef<SWidget> FMeshMergingTool::GetWidget()
 {
-	return SNew(SMeshMergingDialog, this);
+	SAssignNew(MergingDialog, SMeshMergingDialog, this);
+	return MergingDialog.ToSharedRef();
 }
-
 
 FText FMeshMergingTool::GetTooltipText() const
 {
 	return LOCTEXT("MeshMergingToolTooltip", "Harvest geometry from selected actors and merge grouping them by materials.");
 }
-
 
 FString FMeshMergingTool::GetDefaultPackageName() const
 {
@@ -63,7 +64,6 @@ FString FMeshMergingTool::GetDefaultPackageName() const
 	return PackageName;
 }
 
-
 bool FMeshMergingTool::RunMerge(const FString& PackageName)
 {
 	IMeshUtilities& MeshUtilities = FModuleManager::Get().LoadModuleChecked<IMeshUtilities>("MeshUtilities");
@@ -88,7 +88,6 @@ bool FMeshMergingTool::RunMerge(const FString& PackageName)
 		return false;
 	}
 
-	int32 TargetMeshLOD = bExportSpecificLOD ? ExportLODIndex : INDEX_NONE;
 	FVector MergedActorLocation;
 	TArray<UObject*> AssetsToSync;
 	// Merge...
@@ -96,7 +95,23 @@ bool FMeshMergingTool::RunMerge(const FString& PackageName)
 		FScopedSlowTask SlowTask(0, LOCTEXT("MergingActorsSlowTask", "Merging actors..."));
 		SlowTask.MakeDialog();
 
-		MeshUtilities.MergeActors(Actors, MergingSettings, NULL, PackageName, TargetMeshLOD, AssetsToSync, MergedActorLocation);
+		// Extracting static mesh components from the selected mesh components in the dialog
+		const TArray<TSharedPtr<FMeshComponentData>>& SelectedMeshComponents = MergingDialog->GetSelectedMeshComponents();
+		TArray<UStaticMeshComponent*> MeshComponentsToMerge;
+
+		for ( const TSharedPtr<FMeshComponentData>& SelectedMeshComponent : SelectedMeshComponents)
+		{
+			// Determine whether or not this component should be incorporated according the user settings
+			if (SelectedMeshComponent->bShouldIncorporate)
+			{
+				MeshComponentsToMerge.Add(SelectedMeshComponent->MeshComponent.Get());
+			}
+		}
+		
+		UWorld* World = MeshComponentsToMerge[0]->GetWorld();	
+		checkf(World != nullptr, TEXT("Invalid World retrieved from Mesh components"));
+		const float ScreenAreaSize = TNumericLimits<float>::Max();
+		MeshUtilities.MergeStaticMeshComponents(MeshComponentsToMerge, World, SettingsObject->Settings, nullptr, PackageName, AssetsToSync, MergedActorLocation, ScreenAreaSize, true);
 	}
 
 	if (AssetsToSync.Num())
@@ -140,8 +155,14 @@ bool FMeshMergingTool::RunMerge(const FString& PackageName)
 		}
 	}
 
+	MergingDialog->Reset();
+
 	return true;
 }
 
+bool FMeshMergingTool::CanMerge() const
+{	
+	return MergingDialog->GetNumSelectedMeshComponents() >= 1;
+}
 
 #undef LOCTEXT_NAMESPACE

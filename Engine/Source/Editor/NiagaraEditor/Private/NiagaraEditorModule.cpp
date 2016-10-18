@@ -1,8 +1,14 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "NiagaraEditorPrivatePCH.h"
+
 #include "ModuleManager.h"
 #include "Toolkits/ToolkitManager.h"
+#include "AssetToolsModule.h"
+#include "EdGraphUtilities.h"
+
+#include "AssetTypeActions/AssetTypeActions_NiagaraEffect.h"
+#include "AssetTypeActions/AssetTypeActions_NiagaraScript.h"
 
 IMPLEMENT_MODULE( FNiagaraEditorModule, NiagaraEditor );
 
@@ -13,6 +19,16 @@ void FNiagaraEditorModule::StartupModule()
 {
 	MenuExtensibilityManager = MakeShareable(new FExtensibilityManager);
 	ToolBarExtensibilityManager = MakeShareable(new FExtensibilityManager);
+
+	// Only allow asset creation if niagara has been enabled.
+	bool bEnableNiagara = false;
+	GConfig->GetBool(TEXT("Niagara"), TEXT("EnableNiagara"), bEnableNiagara, GEngineIni);
+	if (bEnableNiagara)
+	{
+		IAssetTools& AssetTools = FModuleManager::LoadModuleChecked<FAssetToolsModule>("AssetTools").Get();
+		RegisterAssetTypeAction(AssetTools, MakeShareable(new FAssetTypeActions_NiagaraEffect()));
+		RegisterAssetTypeAction(AssetTools, MakeShareable(new FAssetTypeActions_NiagaraScript()));
+	}
 }
 
 
@@ -20,19 +36,21 @@ void FNiagaraEditorModule::ShutdownModule()
 {
 	MenuExtensibilityManager.Reset();
 	ToolBarExtensibilityManager.Reset();
+
+	if (FModuleManager::Get().IsModuleLoaded("AssetTools"))
+	{
+		IAssetTools& AssetTools = FModuleManager::GetModuleChecked<FAssetToolsModule>("AssetTools").Get();
+		for (auto CreatedAssetTypeAction : CreatedAssetTypeActions)
+		{
+			AssetTools.UnregisterAssetTypeActions(CreatedAssetTypeAction.ToSharedRef());
+		}
+	}
+	CreatedAssetTypeActions.Empty();
 }
 
 
-TSharedRef<INiagaraEditor> FNiagaraEditorModule::CreateNiagaraEditor( const EToolkitMode::Type Mode, const TSharedPtr< IToolkitHost >& InitToolkitHost, UNiagaraScript* Script )
+void FNiagaraEditorModule::RegisterAssetTypeAction(IAssetTools& AssetTools, TSharedRef<IAssetTypeActions> Action)
 {
-	TSharedRef< FNiagaraEditor > NewNiagaraEditor( new FNiagaraEditor() );
-	NewNiagaraEditor->InitNiagaraEditor( Mode, InitToolkitHost, Script );
-	return NewNiagaraEditor;
-}
-
-TSharedRef<INiagaraEffectEditor> FNiagaraEditorModule::CreateNiagaraEffectEditor(const EToolkitMode::Type Mode, const TSharedPtr< class IToolkitHost >& InitToolkitHost, UNiagaraEffect* Effect)
-{
-	TSharedRef< FNiagaraEffectEditor > NewNiagaraEditor(new FNiagaraEffectEditor());
-	NewNiagaraEditor->InitNiagaraEffectEditor(Mode, InitToolkitHost, Effect);
-	return NewNiagaraEditor;
+	AssetTools.RegisterAssetTypeActions(Action);
+	CreatedAssetTypeActions.Add(Action);
 }

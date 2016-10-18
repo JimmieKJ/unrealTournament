@@ -608,11 +608,24 @@ namespace UnrealBuildTool
 			Content.Append("\t\t\tisa = XCBuildConfiguration;" + ProjectFileGenerator.NewLine);
 			Content.Append("\t\t\tbuildSettings = {" + ProjectFileGenerator.NewLine);
 
-			MacPlatform MacBuildPlat = UEBuildPlatform.GetBuildPlatform(UnrealTargetPlatform.Mac) as MacPlatform;
-			MacPlatformContext PlatformContextMac = (MacPlatformContext)MacBuildPlat.CreateContext(ProjectFile);
-			PlatformContextMac.SetUpProjectEnvironment();
+            if (UnrealBuildTool.IsValidPlatform(UnrealTargetPlatform.Mac))
+            {
+                MacPlatform MacBuildPlat = UEBuildPlatform.GetBuildPlatform(UnrealTargetPlatform.Mac) as MacPlatform;
+                MacPlatformContext PlatformContextMac = (MacPlatformContext)MacBuildPlat.CreateContext(ProjectFile);
+                PlatformContextMac.SetUpProjectEnvironment();
+            }
+            else if (UnrealBuildTool.IsValidPlatform(UnrealTargetPlatform.IOS))
+            {
+                IOSPlatform IOSBuildPlat = UEBuildPlatform.GetBuildPlatform(UnrealTargetPlatform.IOS) as IOSPlatform;
+                IOSPlatformContext PlatformContextIOS = (IOSPlatformContext)IOSBuildPlat.CreateContext(ProjectFile);
+                PlatformContextIOS.SetUpProjectEnvironment();
+            }
+            else
+            {
+                throw new BuildException("No valid build platform found when trying to generate an Xcode project file.");
+            }
 
-			string UE4Dir = ConvertPath(Path.GetFullPath(Directory.GetCurrentDirectory() + "../../.."));
+            string UE4Dir = ConvertPath(Path.GetFullPath(Directory.GetCurrentDirectory() + "../../.."));
 			string MacExecutableDir = ConvertPath(Config.MacExecutablePath.Directory.FullName);
 			string MacExecutableFileName = Config.MacExecutablePath.GetFileName();
 
@@ -1038,14 +1051,27 @@ namespace UnrealBuildTool
 												}
 											}
 
-											MacPlatform MacBuildPlat = UEBuildPlatform.GetBuildPlatform(UnrealTargetPlatform.Mac) as MacPlatform;
-											MacPlatformContext PlatformContextMac = (MacPlatformContext)MacBuildPlat.CreateContext(OnlyGameProject);
+                                            if (BuildPlatform.Platform == UnrealTargetPlatform.Mac)
+                                            {
+                                                MacPlatform MacBuildPlat = UEBuildPlatform.GetBuildPlatform(UnrealTargetPlatform.Mac) as MacPlatform;
+                                                MacPlatformContext PlatformContextMac = (MacPlatformContext)MacBuildPlat.CreateContext(OnlyGameProject);
 
-											string MacExecutableName = UEBuildTarget.MakeBinaryFileName(ExeName, UnrealTargetPlatform.Mac, (ExeName == "UE4Editor" && Configuration == UnrealTargetConfiguration.DebugGame) ? UnrealTargetConfiguration.Development : Configuration, PlatformContextMac.GetActiveArchitecture(), ProjectTarget.TargetRules.UndecoratedConfiguration, UEBuildBinaryType.Executable);
-											string IOSExecutableName = MacExecutableName.Replace("-Mac-", "-IOS-");
-											string TVOSExecutableName = MacExecutableName.Replace("-Mac-", "-TVOS-");
-											BuildConfigs.Add(new XcodeBuildConfig(ConfigName, TargetName, FileReference.Combine(OutputDirectory, "Mac", MacExecutableName), FileReference.Combine(OutputDirectory, "IOS", IOSExecutableName), FileReference.Combine(OutputDirectory, "TVOS", TVOSExecutableName), ProjectTarget, Configuration));
-										}
+                                                string MacExecutableName = UEBuildTarget.MakeBinaryFileName(ExeName, UnrealTargetPlatform.Mac, (ExeName == "UE4Editor" && Configuration == UnrealTargetConfiguration.DebugGame) ? UnrealTargetConfiguration.Development : Configuration, PlatformContextMac.GetActiveArchitecture(), ProjectTarget.TargetRules.UndecoratedConfiguration, UEBuildBinaryType.Executable);
+                                                string IOSExecutableName = MacExecutableName.Replace("-Mac-", "-IOS-");
+                                                string TVOSExecutableName = MacExecutableName.Replace("-Mac-", "-TVOS-");
+                                                BuildConfigs.Add(new XcodeBuildConfig(ConfigName, TargetName, FileReference.Combine(OutputDirectory, "Mac", MacExecutableName), FileReference.Combine(OutputDirectory, "IOS", IOSExecutableName), FileReference.Combine(OutputDirectory, "TVOS", TVOSExecutableName), ProjectTarget, Configuration));
+                                            }
+                                            else if (BuildPlatform.Platform == UnrealTargetPlatform.IOS)
+                                            {
+                                                IOSPlatform IOSBuildPlat = UEBuildPlatform.GetBuildPlatform(UnrealTargetPlatform.IOS) as IOSPlatform;
+                                                IOSPlatformContext PlatformContextIOS = (IOSPlatformContext)IOSBuildPlat.CreateContext(OnlyGameProject);
+
+                                                string IOSExecutableName = UEBuildTarget.MakeBinaryFileName(ExeName, UnrealTargetPlatform.IOS, (ExeName == "UE4Editor" && Configuration == UnrealTargetConfiguration.DebugGame) ? UnrealTargetConfiguration.Development : Configuration, PlatformContextIOS.GetActiveArchitecture(), ProjectTarget.TargetRules.UndecoratedConfiguration, UEBuildBinaryType.Executable);
+                                                string TVOSExecutableName = IOSExecutableName.Replace("-IOS-", "-TVOS-");
+                                                string MacExecutableName = IOSExecutableName.Replace("-IOS-", "-Mac-");
+                                                BuildConfigs.Add(new XcodeBuildConfig(ConfigName, TargetName, FileReference.Combine(OutputDirectory, "Mac", IOSExecutableName), FileReference.Combine(OutputDirectory, "IOS", IOSExecutableName), FileReference.Combine(OutputDirectory, "TVOS", TVOSExecutableName), ProjectTarget, Configuration));
+                                            }
+                                        }
 									}
 								}
 							}

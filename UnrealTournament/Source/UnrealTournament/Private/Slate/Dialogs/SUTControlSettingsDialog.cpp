@@ -221,80 +221,84 @@ TSharedRef<SWidget> SUTControlSettingsDialog::BuildKeyboardTab()
 		EControlCategory::Type CurrentSection = EControlCategory::MAX;
 		for (int32 i = 0 ; i < ProfileSettings->GameActions.Num(); i++)		
 		{
-			// If the section changes, create a new section
-			if (ProfileSettings->GameActions[i].Category != CurrentSection)
+			if (ProfileSettings->GameActions[i].GameActionTag != FName(TEXT("ShowMenu")) )
 			{
-				CurrentSection = ProfileSettings->GameActions[i].Category;
-				FText SectionTitle = FText::GetEmpty();
-				switch (ProfileSettings->GameActions[i].Category)
+
+				// If the section changes, create a new section
+				if (ProfileSettings->GameActions[i].Category != CurrentSection)
 				{
-					case EControlCategory::Movement :	SectionTitle = NSLOCTEXT("SUTControlSettingsDialog", "MovementHeader", "Movement"); break;
-					case EControlCategory::Weapon :		SectionTitle = NSLOCTEXT("SUTControlSettingsDialog", "WeaponHeader", "Weapon"); break;
-					case EControlCategory::Combat :		SectionTitle = NSLOCTEXT("SUTControlSettingsDialog", "CombatHeader", "Combat"); break;
-					case EControlCategory::UI:			SectionTitle = NSLOCTEXT("SUTControlSettingsDialog", "UIHeader", "UI"); break;
-					case EControlCategory::Taunts :		SectionTitle = NSLOCTEXT("SUTControlSettingsDialog", "TauntsHeader", "Taunts"); break;
-					case EControlCategory::Misc :		SectionTitle = NSLOCTEXT("SUTControlSettingsDialog", "MiscHeader", "Misc"); break;
+					CurrentSection = ProfileSettings->GameActions[i].Category;
+					FText SectionTitle = FText::GetEmpty();
+					switch (ProfileSettings->GameActions[i].Category)
+					{
+						case EControlCategory::Movement :	SectionTitle = NSLOCTEXT("SUTControlSettingsDialog", "MovementHeader", "Movement"); break;
+						case EControlCategory::Weapon :		SectionTitle = NSLOCTEXT("SUTControlSettingsDialog", "WeaponHeader", "Weapon"); break;
+						case EControlCategory::Combat :		SectionTitle = NSLOCTEXT("SUTControlSettingsDialog", "CombatHeader", "Combat"); break;
+						case EControlCategory::UI:			SectionTitle = NSLOCTEXT("SUTControlSettingsDialog", "UIHeader", "UI"); break;
+						case EControlCategory::Taunts :		SectionTitle = NSLOCTEXT("SUTControlSettingsDialog", "TauntsHeader", "Taunts"); break;
+						case EControlCategory::Misc :		SectionTitle = NSLOCTEXT("SUTControlSettingsDialog", "MiscHeader", "Misc"); break;
+					}
+
+					ControlList->AddSlot()
+					.AutoHeight()
+					.Padding(FMargin(10.0f, 15.0f, 10.0f, 5.0f))
+					[
+						SNew(SHorizontalBox)
+						+ SHorizontalBox::Slot()
+						.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+						.VAlign(VAlign_Center)
+						.HAlign(HAlign_Left)
+						[
+							SNew(STextBlock)
+							.TextStyle(SUWindowsStyle::Get(), "UT.Common.BoldText")
+							.Text(SectionTitle)
+						]
+					];
 				}
-
-				ControlList->AddSlot()
-				.AutoHeight()
-				.Padding(FMargin(10.0f, 15.0f, 10.0f, 5.0f))
-				[
-					SNew(SHorizontalBox)
-					+ SHorizontalBox::Slot()
-					.Padding(10.0f, 0.0f, 10.0f, 0.0f)
-					.VAlign(VAlign_Center)
-					.HAlign(HAlign_Left)
-					[
-						SNew(STextBlock)
-						.TextStyle(SUWindowsStyle::Get(), "UT.Common.BoldText")
-						.Text(SectionTitle)
-					]
-				];
-			}
 			
-			// Add the bind
+				// Add the bind
 
-			TSharedPtr<FKeyBindTracker> Bind = FKeyBindTracker::Make(&ProfileSettings->GameActions[i]);
-			if (Bind.IsValid())
-			{
-				BindList.Add(Bind);
-				ControlList->AddSlot()
-				.AutoHeight()
-				.Padding(FMargin(10.0f, 4.0f, 10.0f, 4.0f))
-				[
-					SNew(SHorizontalBox)
-					+ SHorizontalBox::Slot()
-					.Padding(10.0f, 0.0f, 10.0f, 0.0f)
-					.VAlign(VAlign_Center)
-					.HAlign(HAlign_Left)
+				TSharedPtr<FKeyBindTracker> Bind = FKeyBindTracker::Make(&ProfileSettings->GameActions[i]);
+				if (Bind.IsValid())
+				{
+					BindList.Add(Bind);
+					ControlList->AddSlot()
+					.AutoHeight()
+					.Padding(FMargin(10.0f, 4.0f, 10.0f, 4.0f))
 					[
-						SNew(STextBlock)
-						.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-						.Text(Bind->KeyConfig->MenuText)
-					]
-					+ SHorizontalBox::Slot()
-					.Padding(10.0f, 4.0f, 10.0f, 4.0f)
-					[
-						SAssignNew(Bind->PrimaryKeyBindWidget, SKeyBind)
-						.Key(MakeShareable(&Bind->KeyConfig->PrimaryKey))
-						.DefaultKey(Bind->KeyConfig->PrimaryKey)
-						.ButtonStyle(SUTStyle::Get(), "UT.SimpleButton.Keybind")
-						.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.Black")
-						.OnKeyBindingChanged(this, &SUTControlSettingsDialog::OnKeyBindingChanged, Bind, true)
-					]
-					+ SHorizontalBox::Slot()
-					.Padding(10.0f, 4.0f, 10.0f, 4.0f)
-					[
-						SAssignNew(Bind->SecondaryKeyBindWidget, SKeyBind)
-						.ContentPadding(FMargin(4.0f, 4.0f))
-						.Key(MakeShareable(&Bind->KeyConfig->SecondaryKey))
-						.DefaultKey(Bind->KeyConfig->SecondaryKey)
-						.ButtonStyle(SUTStyle::Get(), "UT.SimpleButton.Keybind")
-						.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.Black")
-						.OnKeyBindingChanged(this, &SUTControlSettingsDialog::OnKeyBindingChanged, Bind, false)
-					]
-				];
+						SNew(SHorizontalBox)
+						+ SHorizontalBox::Slot()
+						.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+						.VAlign(VAlign_Center)
+						.HAlign(HAlign_Left)
+						[
+							SNew(STextBlock)
+							.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+							.Text(Bind->KeyConfig->MenuText)
+						]
+						+ SHorizontalBox::Slot()
+						.Padding(10.0f, 4.0f, 10.0f, 4.0f)
+						[
+							SAssignNew(Bind->PrimaryKeyBindWidget, SKeyBind)
+							.Key(MakeShareable(&Bind->KeyConfig->PrimaryKey))
+							.DefaultKey(Bind->KeyConfig->PrimaryKey)
+							.ButtonStyle(SUTStyle::Get(), "UT.SimpleButton.Keybind")
+							.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.Black")
+							.OnKeyBindingChanged(this, &SUTControlSettingsDialog::OnKeyBindingChanged, Bind, true)
+						]
+						+ SHorizontalBox::Slot()
+						.Padding(10.0f, 4.0f, 10.0f, 4.0f)
+						[
+							SAssignNew(Bind->SecondaryKeyBindWidget, SKeyBind)
+							.ContentPadding(FMargin(4.0f, 4.0f))
+							.Key(MakeShareable(&Bind->KeyConfig->SecondaryKey))
+							.DefaultKey(Bind->KeyConfig->SecondaryKey)
+							.ButtonStyle(SUTStyle::Get(), "UT.SimpleButton.Keybind")
+							.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.Black")
+							.OnKeyBindingChanged(this, &SUTControlSettingsDialog::OnKeyBindingChanged, Bind, false)
+						]
+					];
+				}
 			}
 		}
 
@@ -413,6 +417,7 @@ TSharedRef<SWidget> SUTControlSettingsDialog::BuildMouseTab()
 				.Content()
 				[
 					SAssignNew(MouseSensitivity, SSlider)
+					.IndentHandle(false)
 					.Style(SUWindowsStyle::Get(),"UT.Common.Slider")
 					.Orientation(Orient_Horizontal)
 					.Value((ProfileSettings->MouseSensitivity - MouseSensitivityRange.X) / (MouseSensitivityRange.Y - MouseSensitivityRange.X))
@@ -484,6 +489,7 @@ TSharedRef<SWidget> SUTControlSettingsDialog::BuildMouseTab()
 				.Content()
 				[
 					SAssignNew(MouseAcceleration, SSlider)
+					.IndentHandle(false)
 					.Style(SUWindowsStyle::Get(),"UT.Common.Slider")
 					.Orientation(Orient_Horizontal)
 					.Value((ProfileSettings->MouseAcceleration - MouseAccelerationRange.X) / (MouseAccelerationRange.Y - MouseAccelerationRange.X))
@@ -529,6 +535,7 @@ TSharedRef<SWidget> SUTControlSettingsDialog::BuildMouseTab()
 				.Content()
 				[
 					SAssignNew(MouseAccelerationMax, SSlider)
+					.IndentHandle(false)
 					.Style(SUWindowsStyle::Get(),"UT.Common.Slider")
 					.Orientation(Orient_Horizontal)
 					.Value((ProfileSettings->MouseAccelerationMax - MouseAccelerationMaxRange.X) / (MouseAccelerationMaxRange.Y - MouseAccelerationMaxRange.X))
@@ -737,6 +744,28 @@ FReply SUTControlSettingsDialog::OnBindDefaultClick()
 
 FReply SUTControlSettingsDialog::OKClick()
 {
+
+	// Look at all of the control settings and make sure they are all set.
+
+	// Copy the binds back in to the profile
+	for (int32 i=0 ; i < BindList.Num(); i++)
+	{
+		if (BindList[i]->PrimaryKeyBindWidget->GetKey() == EKeys::Invalid &&
+			BindList[i]->SecondaryKeyBindWidget->GetKey() == EKeys::Invalid)
+		{
+			GetPlayerOwner()->ShowMessage
+					(
+						NSLOCTEXT("SUTControlSettingsDialog", "EmptyBindingTitle", "Missing Key"),
+						FText::Format(NSLOCTEXT("SUTControlSettingsDialog", "EmptyBindingMessage", "The action '{0}' doesn't have a key bound to it.  Please set a key for it before saving."), BindList[i]->KeyConfig->MenuText),
+						UTDIALOG_BUTTON_OK, nullptr
+					);
+
+			return FReply::Handled();
+
+		}
+	}
+
+
 	// Copy the action settings back in to the profile;
 
 	UUTProfileSettings* ProfileSettings = PlayerOwner->GetProfileSettings();
@@ -902,6 +931,12 @@ void SUTControlSettingsDialog::OnKeyBindingChanged( FKey PreviousKey, FKey NewKe
 			}
 		}
 	}
+
+	if (BindingThatChanged->PrimaryKeyBindWidget->GetKey() == BindingThatChanged->SecondaryKeyBindWidget->GetKey())
+	{
+		BindingThatChanged->SecondaryKeyBindWidget->SetKey(FKey(), true, false);
+	}
+
 }
 
 #endif

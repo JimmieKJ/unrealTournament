@@ -21,9 +21,6 @@ void SHistogram::Construct( const FArguments& InArgs )
 
 int32 SHistogram::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled ) const
 {
-	static double TotalTime = 0.0f;
-	static uint32 NumCalls = 0;
-	const double StartTime = FPlatformTime::Seconds();
 	const TSharedRef< FSlateFontMeasure > FontMeasureService = FSlateApplication::Get().GetRenderer()->GetFontMeasureService();
 
 	// Rendering info.
@@ -166,6 +163,11 @@ int32 SHistogram::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeom
 			);
 	}
 	return SCompoundWidget::OnPaint( Args, AllottedGeometry, MyClippingRect, OutDrawElements, LayerId, InWidgetStyle, bParentEnabled && IsEnabled() );
+}
+
+void SHistogram::SetFPSAnalyzer(const TSharedPtr<FFPSAnalyzer>& InAnalyzer)
+{
+	Description.HistogramDataSource = InAnalyzer;
 }
 
 #undef LOCTEXT_NAMESPACE

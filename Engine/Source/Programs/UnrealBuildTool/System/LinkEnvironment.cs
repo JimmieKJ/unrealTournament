@@ -48,6 +48,11 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
+		/// The project file for this target
+		/// </summary>
+		public FileReference ProjectFile = null;
+
+		/// <summary>
 		/// A list of the paths used to find libraries.
 		/// </summary>
 		public List<string> LibraryPaths = new List<string>();
@@ -100,6 +105,11 @@ namespace UnrealBuildTool
 		/// True if debug info should be created.
 		/// </summary>
 		public bool bCreateDebugInfo = true;
+
+		/// <summary>
+		/// True if debug symbols that are cached for some platforms should not be created.
+		/// </summary>
+		public bool bDisableSymbolCache = true;
 
 		/// <summary>
 		/// Whether the CLR (Common Language Runtime) support should be enabled for C++ targets (C++/CLI).
@@ -172,6 +182,7 @@ namespace UnrealBuildTool
 			IntermediateDirectory = InCopyEnvironment.IntermediateDirectory;
 			LocalShadowDirectory = InCopyEnvironment.LocalShadowDirectory;
 			OutputFilePaths = InCopyEnvironment.OutputFilePaths.ToList();
+			ProjectFile = InCopyEnvironment.ProjectFile;
 			LibraryPaths.AddRange(InCopyEnvironment.LibraryPaths);
 			ExcludedLibraries.AddRange(InCopyEnvironment.ExcludedLibraries);
 			AdditionalLibraries.AddRange(InCopyEnvironment.AdditionalLibraries);

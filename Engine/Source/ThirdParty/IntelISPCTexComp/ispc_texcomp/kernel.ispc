@@ -176,21 +176,21 @@ inline void store_data(uniform uint8 dst[], int width, int xx, uniform int yy, u
 	}
 }
 
-inline void ssymm(float a[3], float covar[6], float b[3])
+inline void ssymv(float a[3], float covar[6], float b[3])
 {
 	a[0] = covar[0]*b[0]+covar[1]*b[1]+covar[2]*b[2];
 	a[1] = covar[1]*b[0]+covar[3]*b[1]+covar[4]*b[2];
 	a[2] = covar[2]*b[0]+covar[4]*b[1]+covar[5]*b[2];
 }
 
-inline void ssymm3(float a[4], float covar[10], float b[4])
+inline void ssymv3(float a[4], float covar[10], float b[4])
 {
 	a[0] = covar[0]*b[0]+covar[1]*b[1]+covar[2]*b[2];
 	a[1] = covar[1]*b[0]+covar[4]*b[1]+covar[5]*b[2];
 	a[2] = covar[2]*b[0]+covar[5]*b[1]+covar[7]*b[2];
 }
 
-inline void ssymm4(float a[4], float covar[10], float b[4])
+inline void ssymv4(float a[4], float covar[10], float b[4])
 {
 	a[0] = covar[0]*b[0]+covar[1]*b[1]+covar[2]*b[2]+covar[3]*b[3];
 	a[1] = covar[1]*b[0]+covar[4]*b[1]+covar[5]*b[2]+covar[6]*b[3];
@@ -204,7 +204,7 @@ inline void compute_axis3(float axis[3], float covar[6], uniform const int power
 
     for (uniform int i=0; i<powerIterations; i++)
 	{
-		ssymm(axis, covar, vec);
+		ssymv(axis, covar, vec);
 		for (uniform int p=0; p<3; p++) vec[p] = axis[p];
 
 		if (i%2==1) // renormalize every other iteration
@@ -227,8 +227,8 @@ inline void compute_axis(float axis[4], float covar[10], uniform const int power
 
     for (uniform int i=0; i<powerIterations; i++)
 	{
-		if (channels == 3) ssymm3(axis, covar, vec);
-        if (channels == 4) ssymm4(axis, covar, vec);
+		if (channels == 3) ssymv3(axis, covar, vec);
+        if (channels == 4) ssymv4(axis, covar, vec);
 		for (uniform int p=0; p<channels; p++) vec[p] = axis[p];
 
 		if (i%2==1) // renormalize every other iteration
@@ -704,7 +704,7 @@ inline uniform const int* uniform get_unquant_table(uniform int bits)
 
 inline uint32 get_pattern(int part_id)
 {
-	uniform const uint32 pattern_table[] = {
+	static uniform const uint32 pattern_table[] = {
         0x50505050u, 0x40404040u, 0x54545454u, 0x54505040u, 0x50404000u, 0x55545450u, 0x55545040u, 0x54504000u,
 		0x50400000u, 0x55555450u, 0x55544000u, 0x54400000u, 0x55555440u, 0x55550000u, 0x55555500u, 0x55000000u,
 		0x55150100u, 0x00004054u, 0x15010000u, 0x00405054u, 0x00004050u, 0x15050100u, 0x05010000u, 0x40505054u,
@@ -728,7 +728,7 @@ inline uint32 get_pattern(int part_id)
 
 inline int get_pattern_mask(int part_id, int j)
 {
-	uniform const uint32 pattern_mask_table[] = {
+    static uniform const uint32 pattern_mask_table[] = {
 		0xCCCC3333u, 0x88887777u, 0xEEEE1111u, 0xECC81337u, 0xC880377Fu, 0xFEEC0113u, 0xFEC80137u, 0xEC80137Fu,
 		0xC80037FFu, 0xFFEC0013u, 0xFE80017Fu, 0xE80017FFu, 0xFFE80017u, 0xFF0000FFu, 0xFFF0000Fu, 0xF0000FFFu,
 		0xF71008EFu, 0x008EFF71u, 0x71008EFFu, 0x08CEF731u, 0x008CFF73u, 0x73108CEFu, 0x3100CEFFu, 0x8CCE7331u,
@@ -757,7 +757,7 @@ inline int get_pattern_mask(int part_id, int j)
 
 inline void get_skips(int skips[3], int part_id)
 {
-	uniform const int skip_table[] = {
+	static uniform const int skip_table[] = {
         0xf0u, 0xf0u, 0xf0u, 0xf0u, 0xf0u, 0xf0u, 0xf0u, 0xf0u, 0xf0u, 0xf0u, 0xf0u, 0xf0u, 0xf0u, 0xf0u, 0xf0u, 0xf0u, 
         0xf0u, 0x20u, 0x80u, 0x20u, 0x20u, 0x80u, 0x80u, 0xf0u, 0x20u, 0x80u, 0x20u, 0x20u, 0x80u, 0x80u, 0x20u, 0x20u,
         0xf0u, 0xf0u, 0x60u, 0x80u, 0x20u, 0x80u, 0xf0u, 0xf0u, 0x20u, 0x80u, 0x20u, 0x20u, 0x20u, 0xf0u, 0xf0u, 0x60u, 
@@ -856,10 +856,10 @@ void block_pca_axis(float axis[4], float dc[4], float block[64], int mask, unifo
 	compute_covar_dc_masked(covar, dc, block, mask, channels);
 
     //float var = covar[0] + covar[4] + covar[7] + covar[9] + 256;
-    float var = 256 * 256;
+    float inv_var = 1.0 / (256 * 256);
     for (uniform int k = 0; k < 10; k++)
     {
-        covar[k] /= var;
+        covar[k] *= inv_var;
     }
 
     float eps = sq(0.001);
@@ -910,7 +910,6 @@ void block_segment_core(float ep[], float block[64], int mask, uniform int chann
     }
 }
 
-
 void block_segment(float ep[], float block[64], int mask, uniform int channels)
 {
     block_segment_core(ep, block, mask, channels);
@@ -941,8 +940,8 @@ float get_pca_bound(float covar[10], uniform int channels)
 	compute_axis(axis, covar, powerIterations, channels);
 
 	float vec[4];
-    if (channels == 3) ssymm3(vec, covar, axis);
-    if (channels == 4) ssymm4(vec, covar, axis);
+    if (channels == 3) ssymv3(vec, covar, axis);
+    if (channels == 4) ssymv4(vec, covar, axis);
 
 	float sq_sum = 0f;
 	for (uniform int p=0; p<channels; p++) sq_sum += sq(vec[p]);
@@ -985,7 +984,7 @@ float block_pca_bound_split(float block[64], int mask, float full_stats[15], uni
 	bound += get_pca_bound(covar1, channels);
 	bound += get_pca_bound(covar2, channels);
 
-	return bound;
+	return sqrt(bound)*256;
 }
 
 ///////////////////////////
@@ -1057,10 +1056,11 @@ void ep_quant1(int qep[], float ep[], uniform int mode)
 
 	float err0 = 0f;
     float err1 = 0f;
-    for (uniform int i=0; i<6; i++)
+    for (uniform int j = 0; j < 2; j++)
+    for (uniform int p = 0; p < 3; p++)
     {
-        err0 += sq(ep[i]-ep_b[0+i]);
-        err1 += sq(ep[i]-ep_b[8+i]);
+        err0 += sq(ep[j * 4 + p] - ep_b[0 + j * 4 + p]);
+        err1 += sq(ep[j * 4 + p] - ep_b[8 + j * 4 + p]);
     }
 
 	for (uniform int i=0; i<8; i++)
@@ -1084,7 +1084,7 @@ void ep_quant245(int qep[], float ep[], uniform int mode)
 void ep_quant(int qep[], float ep[], uniform int mode, uniform int channels)
 {
 	assert(mode <= 7);
-	uniform const int pairs_table[] = {3,2,3,2,1,1,1,2};
+	static uniform const int pairs_table[] = {3,2,3,2,1,1,1,2};
 	uniform const int pairs = pairs_table[mode];
 
 	if (mode == 0 || mode == 3 || mode == 6 || mode == 7)
@@ -1110,7 +1110,7 @@ void ep_quant(int qep[], float ep[], uniform int mode, uniform int channels)
 void ep_dequant(float ep[], int qep[], uniform int mode)
 {
     assert(mode <= 7);
-	uniform const int pairs_table[] = {3,2,3,2,1,1,1,2};
+	static uniform const int pairs_table[] = {3,2,3,2,1,1,1,2};
 	uniform const int pairs = pairs_table[mode];
     
 	// mode 3, 6 are 8-bit
@@ -1357,7 +1357,7 @@ void bc7_enc_mode01237(bc7_enc_state state[], uniform int mode, int part_list[],
 		int qep[24];
 		uint32 qblock[2];
 
-		ep_quant_dequant(qep, ep, mode, state->channels);
+		ep_quant_dequant(qep, ep, mode, channels);
 		
 		uint32 pattern = get_pattern(best_part_id);
 		float err = block_quant(qblock, state->block, bits, ep, pattern, channels);
@@ -1412,10 +1412,7 @@ void bc7_enc_mode02(bc7_enc_state state[])
 
 void bc7_enc_mode13(bc7_enc_state state[])
 {
-	if (state->fastSkipTreshold_mode1 == 0 && state->fastSkipTreshold_mode3 == 0)
-	{
-		return;
-	}
+	if (state->fastSkipTreshold_mode1 == 0 && state->fastSkipTreshold_mode3 == 0) return;
 
 	float full_stats[15];
 	compute_stats_masked(full_stats, state->block, -1, 3);
@@ -1425,7 +1422,7 @@ void bc7_enc_mode13(bc7_enc_state state[])
 	{
 		int mask = get_pattern_mask(part+0, 0);
 		float bound12 = block_pca_bound_split(state->block, mask, full_stats, 3);
-		int bound = (int)(bound12*4);
+		int bound = (int)(bound12);
 		part_list[part] = part+bound*64;
 	}
 
@@ -1436,10 +1433,7 @@ void bc7_enc_mode13(bc7_enc_state state[])
 
 void bc7_enc_mode7(bc7_enc_state state[])
 {
-	if (state->fastSkipTreshold_mode7 == 0)
-	{
-		return;
-	}
+    if (state->fastSkipTreshold_mode7 == 0) return;
 
 	float full_stats[15];
 	compute_stats_masked(full_stats, state->block, -1, state->channels);
@@ -1449,7 +1443,7 @@ void bc7_enc_mode7(bc7_enc_state state[])
 	{
 		int mask = get_pattern_mask(part+0, 0);
 		float bound12 = block_pca_bound_split(state->block, mask, full_stats, state->channels);
-		int bound = (int)(bound12*4);
+		int bound = (int)(bound12);
 		part_list[part] = part+bound*64;
 	}
 
@@ -2102,7 +2096,7 @@ void bc6h_code_1p(uint32 data[5], int qep[8], uint32 qblock[2], int mode);
 
 inline uniform int get_mode_prefix(uniform int mode)
 {
-    uniform const int mode_prefix_table[] =
+    static uniform const int mode_prefix_table[] =
     {
         0, 1, 2, 6, 10, 14, 18, 22, 26, 30, 3, 7, 11, 15
     };
@@ -2112,7 +2106,7 @@ inline uniform int get_mode_prefix(uniform int mode)
 
 inline uniform float get_span(uniform int mode)
 {
-    uniform const float span_table[] =
+    static uniform const float span_table[] =
     {
         0.9 * 0xFFFF /  64, //  (0) 4 / 10
         0.9 * 0xFFFF /   4, //  (1) 5 / 7
@@ -2135,7 +2129,7 @@ inline uniform float get_span(uniform int mode)
 
 inline uniform int get_mode_bits(uniform int mode)
 {
-    uniform const int mode_bits_table[] =
+    static uniform const int mode_bits_table[] =
     {
         10,  7, 11, -1, -1,
          9,  8, -1, -1,  6,
@@ -2287,7 +2281,7 @@ void bc6h_enc_2p(bc6h_enc_state state[])
     {
         int mask = get_pattern_mask(part, 0);
         float bound12 = block_pca_bound_split(state->block, mask, full_stats, 3);
-        int bound = (int)(bound12 * 4);
+        int bound = (int)(bound12);
         part_list[part] = part + bound * 64;
     }
     
@@ -3111,21 +3105,14 @@ inline void CompressBlockBC6H_core(bc6h_enc_state state[])
         if (state->fastSkipTreshold > 0)
         {
             bc6h_test_mode(state, 9, false, 0);
-            bc6h_test_mode(state, 6, false, 1 / 2);
+            if (state->fast_mode) bc6h_test_mode(state, 1, false, 1);
+            bc6h_test_mode(state, 6, false, 1 / 1.2);
             bc6h_test_mode(state, 5, false, 1 / 1.2);
             bc6h_test_mode(state, 0, false, 1 / 1.2);
             bc6h_test_mode(state, 2, false, 1);
 
-            if (state->fast_mode)
-            {
-                bc6h_test_mode(state, 1, false, 1);
-                bc6h_enc_2p(state);
-            }
-            else
-            {
-                bc6h_enc_2p(state);
-                bc6h_test_mode(state, 1, true, 0);
-            }
+            bc6h_enc_2p(state);
+            if (!state->fast_mode) bc6h_test_mode(state, 1, true, 0);
         }
 
         bc6h_test_mode(state, 10, false, 0);
@@ -3145,8 +3132,7 @@ void bc6h_enc_copy_settings(bc6h_enc_state state[], uniform bc6h_enc_settings se
     state->refineIterations_2p = settings->refineIterations_2p;
 }
 
-inline void CompressBlockBC6H(uniform rgba_surface src[], int xx, uniform int yy, uniform uint8 dst[],
-    uniform bc6h_enc_settings settings[])
+inline void CompressBlockBC6H(uniform rgba_surface src[], int xx, uniform int yy, uniform uint8 dst[], uniform bc6h_enc_settings settings[])
 {
     bc6h_enc_state _state;
     varying bc6h_enc_state* uniform state = &_state;
@@ -3163,8 +3149,560 @@ inline void CompressBlockBC6H(uniform rgba_surface src[], int xx, uniform int yy
 export void CompressBlocksBC6H_ispc(uniform rgba_surface src[], uniform uint8 dst[], uniform bc6h_enc_settings settings[])
 {
     for (uniform int yy = 0; yy<src->height / 4; yy++)
-        foreach(xx = 0 ... src->width / 4)
+    foreach(xx = 0 ... src->width / 4)
     {
-            CompressBlockBC6H(src, xx, yy, dst, settings);
+        CompressBlockBC6H(src, xx, yy, dst, settings);
+    }
+}
+
+///////////////////////////////////////////////////////////
+//					 ETC encoding
+
+struct etc_enc_settings
+{
+    int fastSkipTreshold;
+};
+
+struct etc_enc_state
+{
+    float block[64];
+    int prev_qcenter[3];
+
+    float best_err;
+    uint32 best_data[2];
+
+    uniform bool diff;
+
+    // settings
+    uniform int fastSkipTreshold;
+};
+
+inline uniform int get_etc1_dY(uniform int table, uniform int q)
+{
+    static uniform const int etc_codeword_table[8][4] =
+    {
+        { -8, -2, 2, 8 },
+        { -17, -5, 5, 17 },
+        { -29, -9, 9, 29 },
+        { -42, -13, 13, 42 },
+        { -60, -18, 18, 60 },
+        { -80, -24, 24, 80 },
+        { -106, -33, 33, 106 },
+        { -183, -47, 47, 183 },
+    };
+
+    return etc_codeword_table[table][q];
+}
+
+uniform int remap_q[] = { 2, 3, 1, 0 };
+
+int get_remap2_q(int x)
+{
+    x -= 2;
+    if (x < 0) x = 1 - x;
+    return x;
+}
+
+int extend_4to8bits(int value)
+{
+    return (value << 4) | value;
+}
+
+int extend_5to8bits(int value)
+{
+    return (value << 3) | (value >> 2);
+}
+
+int quantize_4bits(float value)
+{
+    return clamp((value / 255.0f) * 15 + 0.5, 0, 15);
+}
+
+int quantize_5bits(float value)
+{
+    return clamp((value / 255.0f) * 31 + 0.5, 0, 31);
+}
+
+void center_quant_dequant(int qcenter[3], float center[3], uniform bool diff, int prev_qcenter[3])
+{
+    if (diff)
+    {
+        for (uniform int p = 0; p < 3; p++)
+        {
+            qcenter[p] = quantize_5bits(center[p]);
+
+            if (prev_qcenter[0] >= 0)
+            {
+                if (qcenter[p] - prev_qcenter[p] > 3) qcenter[p] = prev_qcenter[p] + 3;
+                if (qcenter[p] - prev_qcenter[p] < -4) qcenter[p] = prev_qcenter[p] - 4;
+            }
+
+            center[p] = extend_5to8bits(qcenter[p]);
+        }
+    }
+    else
+    {
+        for (uniform int p = 0; p < 3; p++)
+        {
+            qcenter[p] = quantize_4bits(center[p]);
+            center[p] = extend_4to8bits(qcenter[p]);
+        }
+    }
+}
+
+float quantize_pixels_etc1_half(uint32 qblock[1], float block[48], float center[3], uniform int table)
+{
+    float total_err = 0;
+    uint32 bits = 0;
+
+    for (uniform int y = 0; y < 2; y++)
+    for (uniform int x = 0; x < 4; x++)
+    {
+        float best_err = sq(255) * 3;
+        int best_q = -1;
+
+        for (uniform int q = 0; q < 4; q++)
+        {
+            int dY = get_etc1_dY(table, remap_q[q]);
+
+            float err = 0;
+            for (int p = 0; p < 3; p++)
+                err += sq(block[16 * p + y*4+x] - clamp(center[p] + dY, 0, 255));
+
+            if (err < best_err)
+            {
+                best_err = err;
+                best_q = q;
+            }
+        }
+
+        assert(best_q >= 0);
+
+        bits |= (best_q  & 1) << (x * 4 + y);
+        bits |= (best_q >> 1) << (x * 4 + y + 16);
+        total_err += best_err;
+    }
+
+    qblock[0] = bits;
+    return total_err;
+}
+
+float compress_etc1_half_1(uint32 out_qbits[1], int out_table[1], int out_qcenter[3], 
+                           float half_pixels[], uniform bool diff, int prev_qcenter[3])
+{
+    float dc[3];
+
+    for (uniform int p = 0; p<3; p++) dc[p] = 0;
+
+    for (uniform int k = 0; k<8; k++)
+    {
+        for (uniform int p = 0; p<3; p++)
+            dc[p] += half_pixels[k + p * 16];
+    }
+
+    float best_error = sq(255) * 3 * 8.0f;
+    int best_table = -1;
+    int best_qcenter[3];
+    uint32 best_qbits;
+
+    for (uniform int table_level = 0; table_level < 8; table_level++)
+    {
+        float center[3];
+        int qcenter[3];
+        uint32 qbits;
+
+        for (uniform int p = 0; p < 3; p++) center[p] = dc[p] / 8 - get_etc1_dY(table_level, 2);
+        center_quant_dequant(qcenter, center, diff, prev_qcenter);
+
+        float err = quantize_pixels_etc1_half(&qbits, half_pixels, center, table_level);
+
+        if (err < best_error)
+        {
+            best_error = err;
+            best_table = table_level;
+            best_qbits = qbits;
+            for (uniform int p = 0; p < 3; p++) best_qcenter[p] = qcenter[p];
+        }
+    }
+    
+    out_table[0] = best_table;
+    out_qbits[0] = best_qbits;
+    for (uniform int p = 0; p < 3; p++) out_qcenter[p] = best_qcenter[p];
+    return best_error;
+}
+
+float optimize_center(float colors[4][10], uniform int p, uniform int table_level)
+{
+    float best_center = 0;
+    for (uniform int q = 0; q < 4; q++)
+    {
+        best_center += (colors[q][7 + p] - get_etc1_dY(table_level, q)) * colors[q][3];
+    }
+    best_center /= 8;
+
+    float best_err = 0;
+    for (uniform int q = 0; q < 4; q++)
+    {
+        float dY = get_etc1_dY(table_level, q);
+        best_err += sq(clamp(best_center + dY, 0, 255) - colors[q][7 + p]) * colors[q][3];
+    }
+
+    for (uniform int branch = 0; branch < 4; branch++)
+    {
+        float new_center = 0;
+        float sum = 0;
+        for (uniform int q = 0; q < 4; q++)
+        {
+            if (branch <= 1 && q <= branch) continue;
+            if (branch >= 2 && q >= branch) continue;
+            new_center += (colors[q][7 + p] - get_etc1_dY(table_level, q)) * colors[q][3];
+            sum += colors[q][3];
+        }
+
+        new_center /= sum;
+
+        float err = 0;
+        for (uniform int q = 0; q < 4; q++)
+        {
+            float dY = get_etc1_dY(table_level, q);
+            err += sq(clamp(new_center + dY, 0, 255) - colors[q][7 + p]) * colors[q][3];
+        }
+
+        if (err < best_err)
+        {
+            best_err = err;
+            best_center = new_center;
+        }
+    }
+
+    return best_center;
+}
+
+float compress_etc1_half_7(uint32 out_qbits[1], int out_table[1], int out_qcenter[3],
+                           float half_pixels[], etc_enc_state state[])
+{
+    int err_list[165];
+    int y_sorted_inv[8];
+    float y_sorted[8];
+
+    {
+        int y_sorted_idx[8];
+        for (uniform int k = 0; k < 8; k++)
+        {
+            float value = 0;
+            for (uniform int p = 0; p < 3; p++)
+                value += half_pixels[k + p * 16];
+
+            y_sorted_idx[k] = (((int)value) << 4) + k;
+        }
+
+        partial_sort_list(y_sorted_idx, 8, 8);
+
+        for (uniform int k = 0; k < 8; k++)
+            y_sorted_inv[k] = ((y_sorted_idx[k] & 0xF) << 4) + k;
+
+        for (uniform int k = 0; k < 8; k++)
+            y_sorted[k] = (y_sorted_idx[k] >> 4) / 3.0f;
+
+        partial_sort_list(y_sorted_inv, 8, 8);
+    }
+
+    uniform int idx = -1;
+    for (uniform int level1 = 0; level1 <= 8; level1++)
+    for (uniform int level2 = level1; level2 <= 8; level2++)
+    for (uniform int level3 = level2; level3 <= 8; level3++)
+    {
+        idx++;
+        assert(idx < 165);
+        
+        float sum[4];
+        float sum_sq[4];
+        float count[4];
+        float inv_count[4];
+
+        for (uniform int q = 0; q < 4; q++)
+        {
+            sum[q] = 0;
+            sum_sq[q] = 0;
+            count[q] = 0;
+            inv_count[q] = 0;
+        }
+
+        for (uniform int k = 0; k < 8; k++)
+        {
+            uniform int q = 0;
+            if (k >= level1) q = 1;
+            if (k >= level2) q = 2;
+            if (k >= level3) q = 3;
+
+            sum[q] += y_sorted[k];
+            sum_sq[q] += sq(y_sorted[k]);
+            count[q] += 1;
+        }
+
+        for (uniform int q = 0; q < 4; q++)
+        {
+            if (count[q] > 0) inv_count[q] = 1 / count[q];
+        }
+
+        float base_err = 0;
+        for (uniform int q = 0; q < 4; q++) base_err += sum_sq[q] - sq(sum[q]) * inv_count[q];
+
+        float t_err = sq(256) * 8;        
+        for (uniform int table_level = 0; table_level < 8; table_level++)
+        {
+            float center = 0;
+            for (uniform int q = 0; q < 4; q++) center += sum[q] - get_etc1_dY(table_level, q) * count[q];
+            center /= 8;
+
+            float err = base_err;
+            for (uniform int q = 0; q < 4; q++)
+            {
+                err += sq(center + get_etc1_dY(table_level, q) - sum[q] * inv_count[q])*count[q];
+            }
+
+            t_err = min(t_err, err);
+        }
+
+        int packed = (level1 * 16 + level2) * 16 + level3;
+
+        err_list[idx] = (((int)t_err) << 12) + packed;
+    }
+
+    partial_sort_list(err_list, 165, state->fastSkipTreshold);
+
+    float best_error = sq(255) * 3 * 8.0f;
+    int best_table = -1;
+    int best_qcenter[3];
+    uint32 best_qbits;
+
+    for (uniform int i = 0; i < state->fastSkipTreshold; i++)
+    {
+        int packed = err_list[i] & 0xFFF;
+        int level1 = (packed >> 8) & 0xF;
+        int level2 = (packed >> 4) & 0xF;
+        int level3 = (packed >> 0) & 0xF;
+                
+        float colors[4][10];
+
+        for (uniform int p = 0; p < 7; p++)
+        for (uniform int q = 0; q < 4; q++) colors[q][p] = 0;
+
+        uint32 qbits = 0;
+        for (uniform int kk = 0; kk < 8; kk++)
+        {
+            int k = y_sorted_inv[kk] & 0xF;
+
+            int qq = 0;
+            if (k >= level1) qq = 1;
+            if (k >= level2) qq = 2;
+            if (k >= level3) qq = 3;
+
+            uniform int xx = kk & 3;
+            uniform int yy = kk >> 2;
+
+            int qqq = get_remap2_q(qq);
+            qbits |= (qqq & 1) << (yy + xx * 4);
+            qbits |= (qqq >> 1) << (16 + yy + xx * 4);
+
+            float qvec[4];
+            for (uniform int q = 0; q < 4; q++)
+            {
+                qvec[q] = q == qq ? 1.0 : 0.0;
+                colors[q][3] += qvec[q];
+            }
+
+            for (uniform int p = 0; p < 3; p++)
+            {
+                float value = half_pixels[16 * p + kk];
+                for (uniform int q = 0; q < 4; q++)
+                {
+                    colors[q][p] += value * qvec[q];
+                    colors[q][4 + p] += sq(value) * qvec[q];
+                }
+            }
+        }
+        
+        float base_err = 0;
+        for (uniform int q = 0; q < 4; q++)
+        {
+            if (colors[q][3] > 0)
+            for (uniform int p = 0; p < 3; p++)
+            {
+                colors[q][7 + p] = colors[q][p] / colors[q][3];
+                base_err += colors[q][4 + p] - sq(colors[q][7 + p])*colors[q][3];
+            }
+        }
+
+        for (uniform int table_level = 0; table_level < 8; table_level++)
+        {
+            float center[3];
+            int qcenter[3];
+            
+            for (uniform int p = 0; p < 3; p++)
+            {
+                center[p] = optimize_center(colors, p, table_level);
+            }
+            
+            center_quant_dequant(qcenter, center, state->diff, state->prev_qcenter);
+            
+            float err = base_err;
+            for (uniform int q = 0; q < 4; q++)
+            {
+                int dY = get_etc1_dY(table_level, q);
+                for (uniform int p = 0; p < 3; p++)
+                    err += sq(clamp(center[p] + dY, 0, 255) - colors[q][7 + p])*colors[q][3];
+            }
+            
+            if (err < best_error)
+            {
+                best_error = err;
+                best_table = table_level;
+                best_qbits = qbits;
+                for (uniform int p = 0; p < 3; p++) best_qcenter[p] = qcenter[p];
+            }
+        }
+    }
+
+    out_table[0] = best_table;
+    out_qbits[0] = best_qbits;
+    for (uniform int p = 0; p < 3; p++) out_qcenter[p] = best_qcenter[p];
+    return best_error;
+}
+
+float compress_etc1_half(uint32 qbits[1], int table[1], int qcenter[3], float half_pixels[], etc_enc_state state[])
+{
+    float err = compress_etc1_half_7(qbits, table, qcenter, half_pixels, state);
+
+    for (uniform int p = 0; p < 3; p++)
+        state->prev_qcenter[p] = qcenter[p];
+
+    return err;
+}
+
+//////////////////////////
+//       ETC1 core
+
+inline uint32 bswap32(uint32 v)
+{
+    uint32 r = 0;
+    r += ((v >> 24) & 255) << 0;
+    r += ((v >> 16) & 255) << 8;
+    r += ((v >> 8) & 255) << 16;
+    r += ((v >> 0) & 255) << 24;
+    return r;
+}
+
+void etc_pack(uint32 data[], uint32 qbits[2], int tables[2], int qcenters[2][3], uniform int diff, uniform int flip)
+{
+    for (uniform int k = 0; k < 2; k++) data[k] = 0;
+    uniform int pos = 0;
+
+    if (diff == 0)
+    {
+        put_bits(data, &pos, 4, qcenters[1][0]);
+        put_bits(data, &pos, 4, qcenters[0][0]);
+
+        put_bits(data, &pos, 4, qcenters[1][1]);
+        put_bits(data, &pos, 4, qcenters[0][1]);
+
+        put_bits(data, &pos, 4, qcenters[1][2]);
+        put_bits(data, &pos, 4, qcenters[0][2]);
+    }
+    else
+    {
+        put_bits(data, &pos, 3, (qcenters[1][0] - qcenters[0][0]) & 7);
+        put_bits(data, &pos, 5, qcenters[0][0]);
+
+        put_bits(data, &pos, 3, (qcenters[1][1] - qcenters[0][1]) & 7);
+        put_bits(data, &pos, 5, qcenters[0][1]);
+
+        put_bits(data, &pos, 3, (qcenters[1][2] - qcenters[0][2]) & 7);
+        put_bits(data, &pos, 5, qcenters[0][2]);
+    }
+
+    put_bits(data, &pos, 1, flip);
+    put_bits(data, &pos, 1, diff);
+    put_bits(data, &pos, 3, tables[1]);
+    put_bits(data, &pos, 3, tables[0]);
+
+    uint32 all_qbits_flipped = (qbits[1] << 2) | qbits[0];
+    uint32 all_qbits = 0;
+
+    if (flip != 0) all_qbits = all_qbits_flipped;
+
+    if (flip == 0)
+    for (uniform int k = 0; k < 2; k++)
+    for (uniform int y = 0; y < 4; y++)
+    for (uniform int x = 0; x < 4; x++)
+    {
+        int bit = (all_qbits_flipped >> (k * 16 + x * 4 + y)) & 1;
+        all_qbits += bit << (k * 16 + y * 4 + x);
+    }
+
+    data[1] = bswap32(all_qbits);
+}
+
+inline void CompressBlockETC1_core(etc_enc_state state[])
+{
+    float flipped_block[48];
+
+    for (uniform int y = 0; y < 4; y++)
+    for (uniform int x = 0; x < 4; x++)
+    for (uniform int p = 0; p < 3; p++)
+    {
+        flipped_block[16 * p + x * 4 + y] = state->block[16 * p + y * 4 + x];
+    }
+
+    for (uniform int flip = 0; flip < 2; flip++)
+    for (uniform int diff = 1; diff >= 0; diff--)
+    {
+        state->diff = diff == 1;
+        state->prev_qcenter[0] = -1;
+
+        varying float * uniform pixels = state->block;
+        if (flip == 0) pixels = flipped_block;
+
+        uint32 qbits[2];
+        int tables[2];
+        int qcenters[2][3];
+
+        float err = 0;
+        err += compress_etc1_half(&qbits[0], &tables[0], qcenters[0], &pixels[0], state);
+        err += compress_etc1_half(&qbits[1], &tables[1], qcenters[1], &pixels[8], state);
+
+        if (err < state->best_err)
+        {
+            state->best_err = err;
+            etc_pack(state->best_data, qbits, tables, qcenters, diff, flip);
+        }
+    }
+}
+
+void etc_enc_copy_settings(etc_enc_state state[], uniform etc_enc_settings settings[])
+{
+    state->fastSkipTreshold = settings->fastSkipTreshold;
+}
+
+inline void CompressBlockETC1(uniform rgba_surface src[], int xx, uniform int yy, uniform uint8 dst[], uniform etc_enc_settings settings[])
+{
+    etc_enc_state _state;
+    varying etc_enc_state* uniform state = &_state;
+
+    etc_enc_copy_settings(state, settings);
+    load_block_interleaved(state->block, src, xx, yy);
+    state->best_err = 1e99;
+
+    CompressBlockETC1_core(state);
+
+    store_data(dst, src->width, xx, yy, state->best_data, 2);
+}
+
+export void CompressBlocksETC1_ispc(uniform rgba_surface src[], uniform uint8 dst[], uniform etc_enc_settings settings[])
+{
+    for (uniform int yy = 0; yy<src->height / 4; yy++)
+    foreach(xx = 0 ... src->width / 4)
+    {
+        CompressBlockETC1(src, xx, yy, dst, settings);
     }
 }

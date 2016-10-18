@@ -35,6 +35,8 @@ struct HLevelSocketProxy : public HHitProxy
 
 namespace ClickHandlers
 {
+	bool ClickViewport(FLevelEditorViewportClient* ViewportClient, const FViewportClick& Click);
+
 	bool ClickActor(FLevelEditorViewportClient* ViewportClient,AActor* Actor,const FViewportClick& Click,bool bAllowSelectionChange);
 
 	bool ClickComponent(FLevelEditorViewportClient* ViewportClient, HActor* ActorHitProxy, const FViewportClick& Click);

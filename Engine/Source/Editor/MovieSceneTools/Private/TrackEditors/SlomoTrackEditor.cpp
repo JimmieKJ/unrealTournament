@@ -91,7 +91,7 @@ void FSlomoTrackEditor::HandleAddSlomoTrackMenuEntryExecute()
 
 	SlomoTrack->AddSection(*NewSection);
 
-	GetSequencer()->NotifyMovieSceneDataChanged();
+	GetSequencer()->NotifyMovieSceneDataChanged( EMovieSceneDataChangeType::MovieSceneStructureItemAdded );
 }
 
 

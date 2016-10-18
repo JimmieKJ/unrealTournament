@@ -2,7 +2,7 @@
 
 #include "UnrealEd.h"
 #include "SSceneImportNodeTreeView.h"
-#include "ClassIconFinder.h"
+#include "SlateIconFinder.h"
 
 #define LOCTEXT_NAMESPACE "SFbxSceneTreeView"
 
@@ -97,7 +97,7 @@ public:
 		{
 			IconClass = UCameraComponent::StaticClass();
 		}
-		const FSlateBrush* ClassIcon = FClassIconFinder::FindIconForClass(IconClass);
+		const FSlateBrush* ClassIcon = FSlateIconFinder::FindIconBrushForClass(IconClass);
 
 		//Prepare the tooltip
 		FString Tooltip = FbxNodeInfo->NodeName;
@@ -307,9 +307,9 @@ TSharedPtr<SWidget> SFbxSceneTreeView::OnOpenContextMenu()
 
 	//Get the different type of the multi selection
 	TSet<TSharedPtr<FFbxAttributeInfo>> SelectAssets;
-	TArray<FbxNodeInfoPtr> SelectedItems;
-	const auto NumSelectedItems = GetSelectedItems(SelectedItems);
-	for (auto Item : SelectedItems)
+	TArray<FbxNodeInfoPtr> SelectedFbxNodeInfos;
+	const auto NumSelectedItems = GetSelectedItems(SelectedFbxNodeInfos);
+	for (auto Item : SelectedFbxNodeInfos)
 	{
 		FbxNodeInfoPtr ItemPtr = Item;
 		if (ItemPtr->AttributeInfo.IsValid())
@@ -359,9 +359,9 @@ void SFbxSceneTreeView::RemoveSelectionFromImport()
 
 void SFbxSceneTreeView::SetSelectionImportState(bool MarkForImport)
 {
-	TArray<FbxNodeInfoPtr> SelectedItems;
-	GetSelectedItems(SelectedItems);
-	for (auto Item : SelectedItems)
+	TArray<FbxNodeInfoPtr> SelectedFbxNodeInfos;
+	GetSelectedItems(SelectedFbxNodeInfos);
+	for (auto Item : SelectedFbxNodeInfos)
 	{
 		FbxNodeInfoPtr ItemPtr = Item;
 		ItemPtr->bImportNode = MarkForImport;

@@ -14,6 +14,8 @@ public class LevelSequence : ModuleRules
                 "CoreUObject",
                 "Engine",
 				"MovieScene",
+				"MovieSceneTracks",
+				"UMG",
             }
         );
 	}

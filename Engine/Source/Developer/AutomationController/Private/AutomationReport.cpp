@@ -1,7 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "AutomationControllerPrivatePCH.h"
-
+#include "Misc/AutomationTest.h"
 
 FAutomationReport::FAutomationReport(FAutomationTestInfo& InTestInfo, bool InIsParent)
 	: bEnabled( false )
@@ -25,7 +25,6 @@ FAutomationReport::FAutomationReport(FAutomationTestInfo& InTestInfo, bool InIsP
 	}
 }
 
-
 void FAutomationReport::Empty()
 {
 	//release references to all child tests
@@ -34,24 +33,30 @@ void FAutomationReport::Empty()
 	FilteredChildReports.Empty();
 }
 
-
-FString FAutomationReport::GetAssetName() const
+FString FAutomationReport::GetTestParameter() const
 {
 	return TestInfo.GetTestParameter();
 }
 
+FString FAutomationReport::GetAssetPath() const
+{
+	return TestInfo.GetAssetPath();
+}
+
+FString FAutomationReport::GetOpenCommand() const
+{
+	return TestInfo.GetOpenCommand();
+}
 
 FString FAutomationReport::GetCommand() const
 {
 	return TestInfo.GetTestName();
 }
 
-
 const FString& FAutomationReport::GetDisplayName() const
 {
 	return TestInfo.GetDisplayName();
 }
-
 
 FString FAutomationReport::GetDisplayNameWithDecoration() const
 {
@@ -65,7 +70,6 @@ FString FAutomationReport::GetDisplayNameWithDecoration() const
 	}
 	return FinalDisplayName;
 }
-
 
 int32 FAutomationReport::GetTotalNumChildren() const
 {
@@ -83,6 +87,21 @@ int32 FAutomationReport::GetTotalNumChildren() const
 	return Total;
 }
 
+int32 FAutomationReport::GetTotalNumFilteredChildren() const
+{
+	int32 Total = 0;
+	for ( int32 ChildIndex = 0; ChildIndex < FilteredChildReports.Num(); ++ChildIndex )
+	{
+		int ChildCount = FilteredChildReports[ChildIndex]->GetTotalNumFilteredChildren();
+		//Only count leaf nodes
+		if ( ChildCount == 0 )
+		{
+			Total++;
+		}
+		Total += ChildCount;
+	}
+	return Total;
+}
 
 void FAutomationReport::GetEnabledTestNames(TArray<FString>& OutEnabledTestNames, FString CurrentPath) const
 {
@@ -109,13 +128,13 @@ void FAutomationReport::GetEnabledTestNames(TArray<FString>& OutEnabledTestNames
 }
 
 
-void FAutomationReport::SetEnabledTests(const TArray<FString>& EnabledTests, FString CurrentPath)
+void FAutomationReport::SetEnabledTests(const TArray<FString>& InEnabledTests, FString CurrentPath)
 {
 	if (ChildReports.Num() == 0)
 	{
 		//Find of the full name of this test and see if it is in our list
 		const FString FullTestName = CurrentPath.Len() > 0 ? CurrentPath.AppendChar(TCHAR('.')) + TestInfo.GetDisplayName() : TestInfo.GetDisplayName();
-		const bool bNewEnabled = EnabledTests.Contains(FullTestName);
+		const bool bNewEnabled = InEnabledTests.Contains(FullTestName);
 		SetEnabled(bNewEnabled);
 	}
 	else
@@ -129,7 +148,7 @@ void FAutomationReport::SetEnabledTests(const TArray<FString>& EnabledTests, FSt
 		//recurse through the hierarchy
 		for (int32 ChildIndex = 0; ChildIndex < ChildReports.Num(); ++ChildIndex)
 		{
-			ChildReports[ChildIndex]->SetEnabledTests(EnabledTests,CurrentPath);
+			ChildReports[ChildIndex]->SetEnabledTests(InEnabledTests,CurrentPath);
 		}
 
 		//Parent nodes should be checked if all of its children are
@@ -138,7 +157,6 @@ void FAutomationReport::SetEnabledTests(const TArray<FString>& EnabledTests, FSt
 		bEnabled = (TotalNumChildern == EnabledChildren);
 	}
 }
-
 
 int32 FAutomationReport::GetEnabledTestsNum() const
 {
@@ -164,7 +182,6 @@ bool FAutomationReport::IsEnabled() const
 	return bEnabled;
 }
 
-
 void FAutomationReport::SetEnabled(bool bShouldBeEnabled)
 {
 	bEnabled = bShouldBeEnabled;
@@ -174,7 +191,6 @@ void FAutomationReport::SetEnabled(bool bShouldBeEnabled)
 		FilteredChildReports[ChildIndex]->SetEnabled(bShouldBeEnabled);
 	}
 }
-
 
 void FAutomationReport::SetSupport(const int32 ClusterIndex)
 {
@@ -190,7 +206,6 @@ void FAutomationReport::SetSupport(const int32 ClusterIndex)
 	}
 }
 
-
 bool FAutomationReport::IsSupported(const int32 ClusterIndex) const
 {
 	return (SupportFlags & (1<<ClusterIndex)) ? true : false;
@@ -202,6 +217,15 @@ uint32 FAutomationReport::GetTestFlags( ) const
 	return TestInfo.GetTestFlags();
 }
 
+FString FAutomationReport::GetSourceFile() const
+{
+	return TestInfo.GetSourceFile();
+}
+
+int32 FAutomationReport::GetSourceFileLine() const
+{
+	return TestInfo.GetSourceFileLine();
+}
 
 void FAutomationReport::SetTestFlags( const uint32 InTestFlags)
 {
@@ -234,6 +258,11 @@ bool FAutomationReport::SetFilter( TSharedPtr< AutomationFilterCollection > InFi
 	//test for empty search string or matching search string
 	bSelfPassesFilter = InFilter->PassesAllFilters( SharedThis( this ) );
 
+	if ( IsParent() && ParentPassedFilter )
+	{
+		bSelfPassesFilter = true;
+	}
+
 	//clear the currently filtered tests array
 	FilteredChildReports.Empty();
 
@@ -244,7 +273,10 @@ bool FAutomationReport::SetFilter( TSharedPtr< AutomationFilterCollection > InFi
 
 		if( ThisChildPassedFilter || bSelfPassesFilter || ParentPassedFilter )
 		{
-			FilteredChildReports.Add( ChildReports[ ChildIndex ] );
+			if ( !ChildReports[ChildIndex]->IsParent() || ChildReports[ChildIndex]->GetFilteredChildren().Num() > 0 )
+			{
+				FilteredChildReports.Add(ChildReports[ChildIndex]);
+			}
 		}
 
 		if ( bNodeExpandInUI == false && ThisChildPassedFilter == true )
@@ -346,7 +378,6 @@ void FAutomationReport::ResetForExecution(const int32 NumTestPasses)
 	}
 }
 
-
 void FAutomationReport::TrackHistory(const bool bShouldTrack, const int32 NumReportsToTrack)
 {
 	bTrackingHistory = bShouldTrack;
@@ -363,7 +394,6 @@ void FAutomationReport::TrackHistory(const bool bShouldTrack, const int32 NumRep
 		NextChildReport->TrackHistory(bTrackingHistory, NumRecordsToKeep);
 	}
 }
-
 
 void FAutomationReport::AddToHistory()
 {
@@ -392,7 +422,7 @@ void FAutomationReport::AddToHistory()
 						
 						LogFile->Serialize(TCHAR_TO_ANSI(*ErrorIdentifier), ErrorIdentifier.Len());
 					}
-					FString NextError = Results[ClusterIndex][PassIndex].Errors[ErrorIndex] + LINE_TERMINATOR;
+					FString NextError = Results[ClusterIndex][PassIndex].Errors[ErrorIndex].ToString() + LINE_TERMINATOR;
 					LogFile->Serialize(TCHAR_TO_ANSI(*NextError), NextError.Len());
 				}
 			}
@@ -444,7 +474,6 @@ void FAutomationReport::AddToHistory()
 		HistoryItems.Add(HistoryItem);
 	}
 }
-
 
 void FAutomationReport::MaintainHistory(TArray<FString>& InLogFiles)
 {
@@ -589,7 +618,7 @@ void FAutomationReport::SetResults( const int32 ClusterIndex, const int32 PassIn
 	// Add an error report if none was received
 	if ( InResults.State == EAutomationState::Fail && InResults.Errors.Num() == 0 && InResults.Warnings.Num() == 0 )
 	{
-		Results[ClusterIndex][PassIndex].Errors.Add( "No Report Generated" );
+		Results[ClusterIndex][PassIndex].Errors.Add( FAutomationEvent("No Report Generated") );
 	}
 
 	// If we are tracking history, then export it.
@@ -599,6 +628,9 @@ void FAutomationReport::SetResults( const int32 ClusterIndex, const int32 PassIn
 		//Remove find files as it was too expensive.  And definitely too expensive for just updating one test
 		//MaintainHistory();
 	}
+
+	// While setting the results of the test cause the log of any selected test to refresh
+	OnSetResults.ExecuteIfBound(AsShared());
 }
 
 
@@ -737,12 +769,31 @@ TSharedPtr<IAutomationReport> FAutomationReport::EnsureReportExists(FAutomationT
 		else
 		{
 			// Create a parent node
-			FAutomationTestInfo ParentTestInfo( NameToMatch, "", InTestInfo.GetTestFlags(), InTestInfo.GetNumParticipantsRequired() ) ;
+			FAutomationTestInfo ParentTestInfo(NameToMatch, "", InTestInfo.GetTestFlags(), InTestInfo.GetNumParticipantsRequired());
 			MatchTest = MakeShareable(new FAutomationReport(ParentTestInfo, true));
 		}
 		//make new test
 		ChildReports.Add(MatchTest);
 		ChildReportNameHashes.Add(NameToMatchHash, NameToMatchHash);
+
+		// Sort tests alphabetically
+		ChildReports.Sort
+		(
+			[](const TSharedPtr<IAutomationReport>& ReportA, const TSharedPtr<IAutomationReport>& ReportB) 
+			{ 
+				bool AIsLeafNode = !ReportA->IsParent();
+				bool BIsLeafNode = !ReportB->IsParent();
+
+				if (AIsLeafNode == BIsLeafNode) // both leaves or both parents => normal comparison
+				{
+					return ReportA->GetDisplayName() < ReportB->GetDisplayName();
+				}
+				else // leaf and parent => A is less than B when B is the leaf
+				{
+					return BIsLeafNode;
+				}
+			} 
+		);
 	}
 	//mark this test as supported on a particular platform
 	MatchTest->SetSupport(ClusterIndex);

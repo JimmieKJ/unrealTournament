@@ -11,15 +11,147 @@ CORE_API DECLARE_LOG_CATEGORY_EXTERN(LogConfig, Warning, All);
 // Server builds should be tweakable even in Shipping
 #define ALLOW_INI_OVERRIDE_FROM_COMMANDLINE			(UE_SERVER || !(UE_BUILD_SHIPPING))
 
-typedef TMultiMap<FName,FString> FConfigSectionMap;
+struct FConfigValue
+{
+public:
+	FConfigValue() { }
+
+	FConfigValue(const TCHAR* InValue)
+		: SavedValue(InValue)
+	{
+		ExpandValueInternal();
+	}
+
+	FConfigValue(FString InValue)
+		: SavedValue(MoveTemp(InValue))
+	{
+		ExpandValueInternal();
+	}
+
+	// Returns the ini setting with any macros expanded out
+	const FString& GetValue() const { return (ExpandedValue.Len() > 0 ? ExpandedValue : SavedValue); }
+
+	// Returns the original ini setting without macro expansion
+	const FString& GetSavedValue() const { return SavedValue; }
+
+	DEPRECATED(4.12, "Please switch to explicitly doing a GetValue() or GetSavedValue()")
+	operator const FString& () const { return GetValue(); }
+
+	DEPRECATED(4.12, "Please switch to explicitly doing a GetValue() or GetSavedValue()")
+	const TCHAR* operator*() const { return *GetValue(); }
+
+	bool operator==(const FConfigValue& Other) const { return (SavedValue.Compare(Other.SavedValue) == 0); }
+	bool operator!=(const FConfigValue& Other) const { return !(FConfigValue::operator==(Other)); }
+
+	friend FArchive& operator<<(FArchive& Ar, FConfigValue& ConfigSection)
+	{
+		Ar << ConfigSection.SavedValue;
+
+		if (Ar.IsLoading())
+		{
+			ConfigSection.ExpandValueInternal();
+		}
+
+		return Ar;
+	}
+
+	/**
+	 * Given a collapsed config value, try and produce an expanded version of it (removing any placeholder tokens).
+	 *
+	 * @param InCollapsedValue		The collapsed config value to try and expand.
+	 * @param OutExpandedValue		String to fill with the expanded version of the config value.
+	 *
+	 * @return true if expansion occurred, false if the collapsed and expanded values are equal.
+	 */
+	CORE_API static bool ExpandValue(const FString& InCollapsedValue, FString& OutExpandedValue);
+
+	/**
+	 * Given a collapsed config value, try and produce an expanded version of it (removing any placeholder tokens).
+	 *
+	 * @param InCollapsedValue		The collapsed config value to try and expand.
+	 *
+	 * @return The expanded version of the config value.
+	 */
+	CORE_API static FString ExpandValue(const FString& InCollapsedValue);
+
+	/**
+	 * Given an expanded config value, try and produce a collapsed version of it (adding any placeholder tokens).
+	 *
+	 * @param InExpandedValue		The expanded config value to try and expand.
+	 * @param OutCollapsedValue		String to fill with the collapsed version of the config value.
+	 *
+	 * @return true if collapsing occurred, false if the collapsed and expanded values are equal.
+	 */
+	CORE_API static bool CollapseValue(const FString& InExpandedValue, FString& OutCollapsedValue);
+
+	/**
+	 * Given an expanded config value, try and produce a collapsed version of it (adding any placeholder tokens).
+	 *
+	 * @param InExpandedValue		The expanded config value to try and expand.
+	 *
+	 * @return The collapsed version of the config value.
+	 */
+	CORE_API static FString CollapseValue(const FString& InExpandedValue);
+
+private:
+	/** Internal version of ExpandValue that expands SavedValue into ExpandedValue, or produces an empty ExpandedValue if no expansion occurred. */
+	void ExpandValueInternal()
+	{
+		if (!ExpandValue(SavedValue, ExpandedValue))
+		{
+			ExpandedValue.Empty();
+		}
+	}
+
+	FString SavedValue;
+	FString ExpandedValue;
+};
+
+typedef TMultiMap<FName,FConfigValue> FConfigSectionMap;
 
 // One section in a config file.
 class FConfigSection : public FConfigSectionMap
 {
 public:
-	bool HasQuotes( const FString& Test ) const;
+	static bool HasQuotes( const FString& Test );
 	bool operator==( const FConfigSection& Other ) const;
 	bool operator!=( const FConfigSection& Other ) const;
+
+	void ReplaceOrAdd(const FName Key, FString Value)
+	{
+		if (FConfigValue* ConfigValue = FConfigSectionMap::Find(Key))
+		{
+			*ConfigValue = FConfigValue(MoveTemp(Value));
+		}
+		else
+		{
+			Add(Key, MoveTemp(Value));
+		}
+	}
+
+	template<typename Allocator> 
+	void MultiFind(const FName Key, TArray<FConfigValue, Allocator>& OutValues, const bool bMaintainOrder = false) const
+	{
+		FConfigSectionMap::MultiFind(Key, OutValues, bMaintainOrder);
+	}
+
+	template<typename Allocator> 
+	void MultiFind(const FName Key, TArray<FString, Allocator>& OutValues, const bool bMaintainOrder = false) const
+	{
+		for (const TPair<FName, FConfigValue>& Pair : Pairs)
+		{
+			if (Pair.Key == Key)
+			{
+				OutValues.Add(Pair.Value.GetValue());
+			}
+		}
+
+		if (bMaintainOrder)
+		{
+			Algo::Reverse(OutValues);
+		}
+	}
+
 };
 
 /**
@@ -184,10 +316,13 @@ public:
 	 */
 	void ProcessSourceAndCheckAgainstBackup();
 
-private:
-
 	/** Checks if the PropertyValue should be exported in quotes when writing the ini to disk. */
-	bool ShouldExportQuotedString(const FString& PropertyValue) const;
+	static bool ShouldExportQuotedString(const FString& PropertyValue);
+
+	/** Generate a correctly escaped line to add to the config file for the given property */
+	static FString GenerateExportedPropertyLine(const FString& PropertyName, const FString& PropertyValue);
+
+private:
 
 	/** 
 	 * Save the source hierarchy which was loaded out to a backup file so we can check future changes in the base/default configs
@@ -203,7 +338,7 @@ private:
 	 * @param SectionName - The section name the array property is being written to
 	 * @param PropertyName - The property name of the array
 	 */
-	void ProcessPropertyAndWriteForDefaults(const TArray< FString >& InCompletePropertyToProcess, FString& OutText, const FString& SectionName, const FString& PropertyName);
+	void ProcessPropertyAndWriteForDefaults(const TArray<FConfigValue>& InCompletePropertyToProcess, FString& OutText, const FString& SectionName, const FString& PropertyName);
 
 };
 
@@ -313,9 +448,9 @@ public:
 	FConfigSection* GetSectionPrivate( const TCHAR* Section, bool Force, bool Const, const FString& Filename );
 	void SetString( const TCHAR* Section, const TCHAR* Key, const TCHAR* Value, const FString& Filename );
 	void SetText( const TCHAR* Section, const TCHAR* Key, const FText& Value, const FString& Filename );
-	void RemoveKey( const TCHAR* Section, const TCHAR* Key, const FString& Filename );
-	void EmptySection( const TCHAR* Section, const FString& Filename );
-	void EmptySectionsMatchingString( const TCHAR* SectionString, const FString& Filename );
+	bool RemoveKey( const TCHAR* Section, const TCHAR* Key, const FString& Filename );
+	bool EmptySection( const TCHAR* Section, const FString& Filename );
+	bool EmptySectionsMatchingString( const TCHAR* SectionString, const FString& Filename );
 
 	/**
 	 * Retrieve a list of all of the config files stored in the cache
@@ -639,4 +774,4 @@ CORE_API void ApplyCVarSettingsGroupFromIni(const TCHAR* InSectionBaseName, int3
  * @param InIniFilename - The ini filename
  * @param SetBy anything in ECVF_LastSetMask e.g. ECVF_SetByScalability
  */
-CORE_API void ApplyCVarSettingsFromIni(const TCHAR* InSectionBaseName, const TCHAR* InIniFilename, uint32 SetBy);
+CORE_API void ApplyCVarSettingsFromIni(const TCHAR* InSectionBaseName, const TCHAR* InIniFilename, uint32 SetBy, bool bAllowCheating = false);

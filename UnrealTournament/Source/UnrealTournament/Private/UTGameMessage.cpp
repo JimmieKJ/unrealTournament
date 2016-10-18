@@ -24,13 +24,13 @@ UUTGameMessage::UUTGameMessage(const class FObjectInitializer& ObjectInitializer
 	KickVote = NSLOCTEXT("UTGameMessage", "KickVote", "{Player1Name} voted to kick {Player2Name}");
 	NotEnoughMoney = NSLOCTEXT("UTGameMessage", "NotEnoughMoney", "{Player1Name}, you lack the funds to buy it.");
 	PotentialSpeedHack = NSLOCTEXT("UTGameMessage", "Speedhack", "Server or network hitching.");
-	OnDeck = NSLOCTEXT("UTGameMessage", "On Deck", "You are on deck.");
+	OnDeck = NSLOCTEXT("UTGameMessage", "MatchStarting", "The match is starting.");
 	bIsStatusAnnouncement = true;
 }
 
 int32 UUTGameMessage::GetFontSizeIndex(int32 MessageIndex) const
 {
-	return ((MessageIndex == 0) || (MessageIndex == 1) || (MessageIndex == 7) || (MessageIndex == 9) || (MessageIndex == 10)) ? 2 : 1;
+	return ((MessageIndex == 0) || (MessageIndex == 1) || (MessageIndex == 7) || (MessageIndex == 9) || (MessageIndex == 10) || (MessageIndex == 16)) ? 2 : 1;
 }
 
 float UUTGameMessage::GetScaleInSize_Implementation(int32 MessageIndex) const
@@ -44,7 +44,7 @@ float UUTGameMessage::GetScaleInSize_Implementation(int32 MessageIndex) const
 
 FLinearColor UUTGameMessage::GetMessageColor_Implementation(int32 MessageIndex) const
 {
-	return ((MessageIndex == 9) || (MessageIndex == 10)) ? FLinearColor::White : FLinearColor::Yellow;
+	return FLinearColor::White;
 }
 
 float UUTGameMessage::GetLifeTime(int32 MessageIndex) const
@@ -123,7 +123,7 @@ FName UUTGameMessage::GetAnnouncementName_Implementation(int32 Switch, const UOb
 		case 1: return TEXT("Overtime"); break;
 		case 9: return TEXT("YouAreOnRedTeam"); break;
 		case 10: return TEXT("YouAreOnBlueTeam"); break;
-		case 16: return TEXT("SUV_OnDeck"); break;
+		case 16: return TEXT("TheMatchIsStarting"); break;
 	}
 	return NAME_None;
 }

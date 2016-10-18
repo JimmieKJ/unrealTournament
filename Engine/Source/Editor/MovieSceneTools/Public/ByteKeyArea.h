@@ -3,9 +3,14 @@
 #pragma once
 
 #include "IntegralKeyArea.h"
-#include "ClipboardTypes.h"
 
-/** A key area for displaying and editing byte curves. */
+
+class UMovieSceneSection;
+
+
+/**
+ * A key area for displaying and editing byte curves.
+ */
 class FByteKeyArea
 	: public FIntegralKeyArea<uint8>
 {
@@ -18,7 +23,7 @@ public:
 
 public:
 
-	// FIntegralKeyArea overrides
+	//~ FIntegralKeyArea interface
 
 	virtual bool CanCreateKeyEditor() override;
 	virtual TSharedRef<SWidget> CreateKeyEditor(ISequencer* Sequencer) override;

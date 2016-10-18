@@ -308,6 +308,8 @@ private:
 	bool IsViewParticleMemoryChecked() const;
 	void OnViewSystemCompleted();
 	bool IsViewSystemCompletedChecked() const;
+	void OnViewEmitterTickTimes();
+	bool IsViewEmitterTickTimesChecked() const;
 	void OnViewGeometry();
 	bool IsViewGeometryChecked() const;
 	void OnViewGeometryProperties();

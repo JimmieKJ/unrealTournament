@@ -10,6 +10,8 @@ class IClassTypeActions;
 class ASSETTOOLS_API FAssetTypeActions_ClassTypeBase : public FAssetTypeActions_Base
 {
 public:
+	virtual bool CanLocalize() const override { return false; }
+
 	/** Get the class type actions for this asset */
 	virtual TWeakPtr<IClassTypeActions> GetClassTypeActions(const FAssetData& AssetData) const = 0;
 

@@ -69,9 +69,9 @@ public:
 
 private:
 
-	void RefreshCachedDataTable();
+	void RefreshCachedDataTable(const FName InCachedSelection = NAME_None, const bool bUpdateEvenIfValid = false);
 
-	void UpdateVisibleRows();
+	void UpdateVisibleRows(const FName InCachedSelection = NAME_None, const bool bUpdateEvenIfValid = false);
 
 	void RestoreCachedSelection(const FName InCachedSelection, const bool bUpdateEvenIfValid = false);
 

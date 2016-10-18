@@ -403,10 +403,10 @@ bool FCurveEditorViewportClient::InputKey(FViewport* Viewport, int32 ControllerI
 				{
 					if(bBoxSelecting)
 					{
-						int32 MinX = FMath::Min(BoxStartX, BoxEndX);
-						int32 MinY = FMath::Min(BoxStartY, BoxEndY);
-						int32 MaxX = FMath::Max(BoxStartX, BoxEndX);
-						int32 MaxY = FMath::Max(BoxStartY, BoxEndY);
+						int32 MinX = FMath::Max(0, FMath::Min(BoxStartX, BoxEndX));
+						int32 MinY = FMath::Max(0, FMath::Min(BoxStartY, BoxEndY));
+						int32 MaxX = FMath::Min(Viewport->GetSizeXY().X - 1, FMath::Max(BoxStartX, BoxEndX));
+						int32 MaxY = FMath::Min(Viewport->GetSizeXY().Y - 1, FMath::Max(BoxStartY, BoxEndY));
 						int32 TestSizeX = MaxX - MinX + 1;
 						int32 TestSizeY = MaxY - MinY + 1;
 

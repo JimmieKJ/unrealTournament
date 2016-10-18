@@ -100,7 +100,7 @@ struct CORE_API FMemory
 	template< class T > 
 	static FORCEINLINE void Memset( T& Src, uint8 ValueToSet )
 	{
-		static_assert( !TIsPointerType<T>::Value, "For pointers use the three parameters function");
+		static_assert( !TIsPointer<T>::Value, "For pointers use the three parameters function");
 		Memset( &Src, ValueToSet, sizeof( T ) );
 	}
 
@@ -112,7 +112,7 @@ struct CORE_API FMemory
 	template< class T > 
 	static FORCEINLINE void Memzero( T& Src )
 	{
-		static_assert( !TIsPointerType<T>::Value, "For pointers use the two parameters function");
+		static_assert( !TIsPointer<T>::Value, "For pointers use the two parameters function");
 		Memzero( &Src, sizeof( T ) );
 	}
 
@@ -124,7 +124,7 @@ struct CORE_API FMemory
 	template< class T > 
 	static FORCEINLINE void Memcpy( T& Dest, const T& Src )
 	{
-		static_assert( !TIsPointerType<T>::Value, "For pointers use the three parameters function");
+		static_assert( !TIsPointer<T>::Value, "For pointers use the three parameters function");
 		Memcpy( &Dest, &Src, sizeof( T ) );
 	}
 
@@ -147,7 +147,7 @@ struct CORE_API FMemory
 	DEPRECATED(4.8, "Please use Memset.")
 	static FORCEINLINE void MemSet( T& Src, uint8 ValueToSet )
 	{
-		static_assert( !TIsPointerType<T>::Value, "For pointers use the three parameters function");
+		static_assert( !TIsPointer<T>::Value, "For pointers use the three parameters function");
 		FMemory::Memset( &Src, ValueToSet, sizeof( T ) );
 	}
 
@@ -155,7 +155,7 @@ struct CORE_API FMemory
 	DEPRECATED(4.8, "Please use Memzero.")
 	static FORCEINLINE void MemZero( T& Src )
 	{
-		static_assert( !TIsPointerType<T>::Value, "For pointers use the two parameters function");
+		static_assert( !TIsPointer<T>::Value, "For pointers use the two parameters function");
 		FMemory::Memset( &Src, 0, sizeof( T ) );
 	}
 
@@ -163,7 +163,7 @@ struct CORE_API FMemory
 	DEPRECATED(4.8, "Please use Memcpy.")
 	static FORCEINLINE void MemCopy( T& Dest, const T& Src )
 	{
-		static_assert( !TIsPointerType<T>::Value, "For pointers use the three parameters function");
+		static_assert( !TIsPointer<T>::Value, "For pointers use the three parameters function");
 		FMemory::Memcpy( &Dest, &Src, sizeof( T ) );
 	}
 

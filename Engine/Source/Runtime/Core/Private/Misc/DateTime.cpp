@@ -816,3 +816,8 @@ FArchive& operator<<( FArchive& Ar, FDateTime& DateTime )
 {
 	return Ar << DateTime.Ticks;
 }
+
+uint32 GetTypeHash(const FDateTime& DateTime)
+{
+	return GetTypeHash(DateTime.Ticks);
+}

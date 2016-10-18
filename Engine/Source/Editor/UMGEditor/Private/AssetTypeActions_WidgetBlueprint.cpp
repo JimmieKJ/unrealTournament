@@ -46,13 +46,11 @@ UClass* FAssetTypeActions_WidgetBlueprint::GetSupportedClass() const
 
 FText FAssetTypeActions_WidgetBlueprint::GetAssetDescription( const FAssetData& AssetData ) const
 {
-	if ( const FString* pDescription = AssetData.TagsAndValues.Find( GET_MEMBER_NAME_CHECKED( UBlueprint, BlueprintDescription ) ) )
+	FString Description = AssetData.GetTagValueRef<FString>( GET_MEMBER_NAME_CHECKED( UBlueprint, BlueprintDescription ) );
+	if ( !Description.IsEmpty() )
 	{
-		if ( !pDescription->IsEmpty() )
-		{
-			const FString DescriptionStr( *pDescription );
-			return FText::FromString( DescriptionStr.Replace( TEXT( "\\n" ), TEXT( "\n" ) ) );
-		}
+		Description.ReplaceInline( TEXT( "\\n" ), TEXT( "\n" ) );
+		return FText::FromString( MoveTemp(Description) );
 	}
 
 	return FText::GetEmpty();
@@ -73,7 +71,7 @@ void FAssetTypeActions_WidgetBlueprint::PerformAssetDiff(UObject* Asset1, UObjec
 	bool bIsSingleAsset = (NewBlueprint->GetName() == OldBlueprint->GetName());
 
 	FText WindowTitle = LOCTEXT("NamelessWidgetBlueprintDiff", "Widget Blueprint Diff");
-	// if we're diff'ing one asset against itself 
+	// if we're diffing one asset against itself 
 	if (bIsSingleAsset)
 	{
 		// identify the assumed single asset in the window's title

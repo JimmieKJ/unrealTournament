@@ -5,6 +5,7 @@
 #include "UTCTFGameState.h"
 #include "UTCTFScoring.h"
 #include "StatNames.h"
+#include "UTCTFRoundGameState.h"
 
 UUTCTFScoreboard::UUTCTFScoreboard(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -50,8 +51,8 @@ void UUTCTFScoreboard::DrawScoreHeaders(float RenderDelta, float& YOffset)
 		if (UTGameState && UTGameState->HasMatchStarted())
 		{
 			DrawText(CH_Score, XOffset + (ScaledCellWidth * ColumnHeaderScoreX), YOffset + ColumnHeaderY, UTHUDOwner->TinyFont, RenderScale, 1.0f, FLinearColor::Black, ETextHorzPos::Center, ETextVertPos::Center);
-			AUTCTFGameState* CTFState = Cast<AUTCTFGameState>(UTGameState);
-			if (CTFState && (CTFState->bAttackerLivesLimited || CTFState->bDefenderLivesLimited))
+			AUTCTFRoundGameState* RCTFState = Cast<AUTCTFRoundGameState>(UTGameState);
+			if (RCTFState && (RCTFState->bAttackerLivesLimited || RCTFState->bDefenderLivesLimited))
 			{
 				DrawText(CH_Caps, XOffset + (ScaledCellWidth * ColumnHeaderCapsX), YOffset + ColumnHeaderY, UTHUDOwner->TinyFont, RenderScale, 1.0f, FLinearColor::Black, ETextHorzPos::Center, ETextVertPos::Center);
 				DrawText(NSLOCTEXT("UTScoreboard", "LivesRemaining", "Lives"), XOffset + (ScaledCellWidth * 0.5f*(ColumnHeaderAssistsX + ColumnHeaderReturnsX)), YOffset + ColumnHeaderY, UTHUDOwner->TinyFont, RenderScale, 1.0f, FLinearColor::Black, ETextHorzPos::Center, ETextVertPos::Center);
@@ -83,8 +84,8 @@ void UUTCTFScoreboard::DrawStatsLeft(float DeltaTime, float& YPos, float XOffset
 	float MaxHeight = PageBottom - YPos;
 	FLinearColor PageColor = FLinearColor::Black;
 	PageColor.A = 0.5f;
-	DrawTexture(UTHUDOwner->ScoreboardAtlas, XOffset - 0.05f*ScoreWidth, YPos, 1.15f*ScoreWidth, MaxHeight, 149, 138, 32, 32, 0.5f, PageColor);
-	DrawScoringPlays(DeltaTime, YPos, XOffset, ScoreWidth, PageBottom);
+	DrawTexture(UTHUDOwner->ScoreboardAtlas, XOffset, YPos, ScoreWidth, MaxHeight, 149, 138, 32, 32, 0.5f, PageColor);
+	DrawScoringPlays(DeltaTime, YPos, XOffset, 0.9f*ScoreWidth, PageBottom);
 }
 
 void UUTCTFScoreboard::DrawStatsRight(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom)
@@ -92,8 +93,8 @@ void UUTCTFScoreboard::DrawStatsRight(float DeltaTime, float& YPos, float XOffse
 	float MaxHeight = PageBottom - YPos;
 	FLinearColor PageColor = FLinearColor::Black;
 	PageColor.A = 0.5f;
-	DrawTexture(UTHUDOwner->ScoreboardAtlas, XOffset - 0.05f*ScoreWidth, YPos, 1.15f*ScoreWidth, MaxHeight, 149, 138, 32, 32, 0.5f, PageColor);
-	DrawTeamScoreBreakdown(DeltaTime, YPos, XOffset, ScoreWidth, PageBottom);
+	DrawTexture(UTHUDOwner->ScoreboardAtlas, XOffset, YPos, ScoreWidth, MaxHeight, 149, 138, 32, 32, 0.5f, PageColor);
+	DrawTeamScoreBreakdown(DeltaTime, YPos, XOffset, 0.9f*ScoreWidth, PageBottom);
 }
 
 int32 UUTCTFScoreboard::GetSmallPlaysCount(int32 NumPlays) const
@@ -104,8 +105,11 @@ int32 UUTCTFScoreboard::GetSmallPlaysCount(int32 NumPlays) const
 void UUTCTFScoreboard::DrawScoringPlays(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float MaxHeight)
 {
 	AUTCTFGameState* CTFState = Cast<AUTCTFGameState>(UTGameState);
+	if (!CTFState)
+	{
+		return;
+	}
 	int32 CurrentPeriod = -1;
-//	ScoreWidth *= 1.09f;
 	Canvas->SetLinearDrawColor(FLinearColor::White);
 	FFontRenderInfo TextRenderInfo;
 	TextRenderInfo.bEnableShadow = true;
@@ -182,13 +186,13 @@ void UUTCTFScoreboard::DrawScoringPlays(float DeltaTime, float& YPos, float XOff
 				FLinearColor DrawColor = FLinearColor::White;
 				float CurrentScoreHeight = (DrawnPlays == NumPlays) ? (ScoreHeight + 8.f * RenderScale) : (2.f * ScoreHeight + 16.f * RenderScale);
 				float BackAlpha = ((DrawnPlays == NumPlays) && (NumPlays == TimeFloor + 1)) ? FMath::Max(0.5f, PctOffset) : 0.3f;
-				DrawTexture(UTHUDOwner->ScoreboardAtlas, XOffset - 0.0175f*ScoreWidth, YPos - 4.f*RenderScale, 1.06f*ScoreWidth, CurrentScoreHeight, 149, 138, 32, 32, BackAlpha, DrawColor);
+				DrawTexture(UTHUDOwner->ScoreboardAtlas, XOffset, YPos - 4.f*RenderScale, 1.11f*ScoreWidth, CurrentScoreHeight, 149, 138, 32, 32, BackAlpha, DrawColor);
 			}
 			// draw background
 			FLinearColor DrawColor = FLinearColor::White;
 			float CurrentScoreHeight = bIsSmallPlay ? 0.5f*ScoreHeight : ScoreHeight;
 			float BackAlpha = ((DrawnPlays == NumPlays) && (NumPlays == TimeFloor + 1)) ? FMath::Max(0.5f, PctOffset) : 0.5f;
-			DrawTexture(UTHUDOwner->ScoreboardAtlas, XOffset - 0.0075f*ScoreWidth, YPos, 1.04f*ScoreWidth, CurrentScoreHeight, 149, 138, 32, 32, BackAlpha, DrawColor);
+			DrawTexture(UTHUDOwner->ScoreboardAtlas, XOffset + 0.0075f*ScoreWidth, YPos, 1.1f*ScoreWidth, CurrentScoreHeight, 149, 138, 32, 32, BackAlpha, DrawColor);
 
 			float BoxYPos = YPos;
 			DrawScoringPlayInfo(Play, CurrentScoreHeight, SmallYL, MedYL, DeltaTime, YPos, XOffset, ScoreWidth, TextRenderInfo, bIsSmallPlay);
@@ -300,8 +304,8 @@ void UUTCTFScoreboard::DrawTeamStats(float DeltaTime, float& YPos, float XOffset
 	YPos += SectionSpacing;
 
 	DrawStatsLine(NSLOCTEXT("UTScoreboard", "BeltPickups", "Shield Belt Pickups"), UTGameState->Teams[0]->GetStatsValue(NAME_ShieldBeltCount), UTGameState->Teams[1]->GetStatsValue(NAME_ShieldBeltCount), DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth );
-	DrawStatsLine(NSLOCTEXT("UTScoreboard", "VestPickups", "Armor Vest Pickups"), UTGameState->Teams[0]->GetStatsValue(NAME_ArmorVestCount), UTGameState->Teams[1]->GetStatsValue(NAME_ArmorVestCount), DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth );
-	DrawStatsLine(NSLOCTEXT("UTScoreboard", "PadPickups", "Thigh Pad Pickups"), UTGameState->Teams[0]->GetStatsValue(NAME_ArmorPadsCount), UTGameState->Teams[1]->GetStatsValue(NAME_ArmorPadsCount), DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth );
+	DrawStatsLine(NSLOCTEXT("UTScoreboard", "LargeArmorPickups", "Large Armor Pickups"), UTGameState->Teams[0]->GetStatsValue(NAME_ArmorVestCount), UTGameState->Teams[1]->GetStatsValue(NAME_ArmorVestCount), DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth );
+	DrawStatsLine(NSLOCTEXT("UTScoreboard", "MediumArmorPickups", "Medium Armor Pickups"), UTGameState->Teams[0]->GetStatsValue(NAME_ArmorPadsCount), UTGameState->Teams[1]->GetStatsValue(NAME_ArmorPadsCount), DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth );
 
 	int32 OptionalLines = 0;
 	int32 TeamStat0 = UTGameState->Teams[0]->GetStatsValue(NAME_UDamageCount);
@@ -343,7 +347,7 @@ void UUTCTFScoreboard::DrawTeamStats(float DeltaTime, float& YPos, float XOffset
 		TeamStat1 = UTGameState->Teams[1]->GetStatsValue(NAME_HelmetCount);
 		if (TeamStat0 > 0 || TeamStat1 > 0)
 		{
-			DrawStatsLine(NSLOCTEXT("UTScoreboard", "HelmetPickups", "Helmet Pickups"), TeamStat0, TeamStat1, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
+			DrawStatsLine(NSLOCTEXT("UTScoreboard", "SmallArmorPickups", "Small Armor Pickups"), TeamStat0, TeamStat1, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
 			OptionalLines += 1;
 		}
 	}

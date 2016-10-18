@@ -47,7 +47,7 @@ private:
 
 	// Handles remote scripting messages from the frontend process
 	FUnrealCEFSubProcessRemoteScripting RemoteScripting;
-	
+
 	// Include the default reference counting implementation.
 	IMPLEMENT_REFCOUNTING(FUnrealCEFSubProcessApp);
 };

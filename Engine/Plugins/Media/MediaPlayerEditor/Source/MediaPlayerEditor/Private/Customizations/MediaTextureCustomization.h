@@ -2,6 +2,12 @@
 
 #pragma once
 
+#include "IDetailCustomization.h"
+
+
+class IPropertyHandle;
+class SWidget;
+
 
 /**
  * Implements a details view customization for the UMediaTexture class.
@@ -11,7 +17,7 @@ class FMediaTextureCustomization
 {
 public:
 
-	// IDetailCustomization interface
+	//~ IDetailCustomization interface
 
 	virtual void CustomizeDetails(IDetailLayoutBuilder& DetailBuilder) override;
 

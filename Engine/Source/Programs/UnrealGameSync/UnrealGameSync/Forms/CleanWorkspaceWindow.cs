@@ -25,6 +25,16 @@ namespace UnrealGameSync
 			public FolderToClean Folder;
 			public int NumFiles;
 			public int NumSelectedFiles;
+			public int NumEmptySelectedFiles;
+			public int NumDefaultSelectedFiles;
+		}
+
+		enum SelectionType
+		{
+			All,
+			SafeToDelete,
+			Empty,
+			None,
 		}
 
 		static readonly CheckBoxState[] CheckBoxStates = 
@@ -155,7 +165,7 @@ namespace UnrealGameSync
 
 		private TreeNode BuildTreeViewStructure(FolderToClean Folder, string FolderPath, bool bParentFolderSelected, int Depth)
 		{
-			bool bSelectFolder = bParentFolderSelected || IsSafeToDeleteFolder(FolderPath);
+			bool bSelectFolder = bParentFolderSelected || IsSafeToDeleteFolder(FolderPath) || Folder.bEmptyLeaf;
 
 			TreeNodeData FolderNodeData = new TreeNodeData();
 			FolderNodeData.Folder = Folder;
@@ -172,6 +182,8 @@ namespace UnrealGameSync
 				TreeNodeData ChildNodeData = (TreeNodeData)ChildNode.Tag;
 				FolderNodeData.NumFiles += ChildNodeData.NumFiles;
 				FolderNodeData.NumSelectedFiles += ChildNodeData.NumSelectedFiles;
+				FolderNodeData.NumEmptySelectedFiles += ChildNodeData.NumEmptySelectedFiles;
+				FolderNodeData.NumDefaultSelectedFiles += ChildNodeData.NumDefaultSelectedFiles;
 			}
 
 			foreach(FileInfo File in Folder.FilesToClean.OrderBy(x => x.Name))
@@ -184,6 +196,8 @@ namespace UnrealGameSync
 				FileNodeData.File = File;
 				FileNodeData.NumFiles = 1;
 				FileNodeData.NumSelectedFiles = bSelectFile? 1 : 0;
+				FileNodeData.NumEmptySelectedFiles = 0;
+				FileNodeData.NumDefaultSelectedFiles = FileNodeData.NumSelectedFiles;
 
 				TreeNode FileNode = new TreeNode();
 				FileNode.Text = File.Name;
@@ -194,6 +208,16 @@ namespace UnrealGameSync
 
 				FolderNodeData.NumFiles++;
 				FolderNodeData.NumSelectedFiles += FileNodeData.NumSelectedFiles;
+				FolderNodeData.NumEmptySelectedFiles += FileNodeData.NumEmptySelectedFiles;
+				FolderNodeData.NumDefaultSelectedFiles += FileNodeData.NumDefaultSelectedFiles;
+			}
+
+			if(FolderNodeData.Folder.bEmptyLeaf)
+			{
+				FolderNodeData.NumFiles++;
+				FolderNodeData.NumSelectedFiles++;
+				FolderNodeData.NumEmptySelectedFiles++;
+				FolderNodeData.NumDefaultSelectedFiles++;
 			}
 
 			if(FolderNodeData.NumSelectedFiles > 0 && !FolderNodeData.Folder.bEmptyAfterDelete && Depth < 2)
@@ -226,20 +250,26 @@ namespace UnrealGameSync
 
 		private void TreeView_NodeMouseClick(object sender, TreeNodeMouseClickEventArgs e)
 		{
-			if(e.X >= e.Node.Bounds.Left - 32 && e.X < e.Node.Bounds.Left - 16)
+			TreeNode Node = e.Node;
+			if(e.Button == System.Windows.Forms.MouseButtons.Right)
 			{
-				TreeNode Node = e.Node;
+				TreeView.SelectedNode = e.Node;
+				FolderContextMenu.Tag = e.Node;
+				FolderContextMenu.Show(TreeView.PointToScreen(e.Location));
+			}
+			else if(e.X >= e.Node.Bounds.Left - 32 && e.X < e.Node.Bounds.Left - 16)
+			{
 				TreeNodeData NodeData = (TreeNodeData)Node.Tag;
-				SetSelected(Node, NodeData.NumSelectedFiles == 0);
+				SetSelected(Node, (NodeData.NumSelectedFiles == 0)? SelectionType.All : SelectionType.None);
 			}
 		}
 
-		private void SetSelected(TreeNode ParentNode, bool bSelected)
+		private void SetSelected(TreeNode ParentNode, SelectionType Type)
 		{
 			TreeNodeData ParentNodeData = (TreeNodeData)ParentNode.Tag;
 
 			int PrevNumSelectedFiles = ParentNodeData.NumSelectedFiles;
-			SetSelectedOnChildren(ParentNode, bSelected);
+			SetSelectedOnChildren(ParentNode, Type);
 
 			int DeltaNumSelectedFiles = ParentNodeData.NumSelectedFiles - PrevNumSelectedFiles;
 			if(DeltaNumSelectedFiles != 0)
@@ -253,16 +283,32 @@ namespace UnrealGameSync
 			}
 		}
 
-		private void SetSelectedOnChildren(TreeNode ParentNode, bool bSelected)
+		private void SetSelectedOnChildren(TreeNode ParentNode, SelectionType Type)
 		{
 			TreeNodeData ParentNodeData = (TreeNodeData)ParentNode.Tag;
 
-			int NewNumSelectedFiles = bSelected? ParentNodeData.NumFiles : 0;
+			int NewNumSelectedFiles = 0;
+			switch(Type)
+			{
+				case SelectionType.All:
+					NewNumSelectedFiles = ParentNodeData.NumFiles;
+					break;
+				case SelectionType.Empty:
+					NewNumSelectedFiles = ParentNodeData.NumEmptySelectedFiles;
+					break;
+				case SelectionType.SafeToDelete:
+					NewNumSelectedFiles = ParentNodeData.NumDefaultSelectedFiles;
+					break;
+				case SelectionType.None:
+					NewNumSelectedFiles = 0;
+					break;
+			}
+
 			if(NewNumSelectedFiles != ParentNodeData.NumSelectedFiles)
 			{
 				foreach(TreeNode ChildNode in ParentNode.Nodes)
 				{
-					SetSelectedOnChildren(ChildNode, bSelected);
+					SetSelectedOnChildren(ChildNode, Type);
 				}
 				ParentNodeData.NumSelectedFiles = NewNumSelectedFiles;
 				UpdateImage(ParentNode);
@@ -325,8 +371,39 @@ namespace UnrealGameSync
 		{
 			foreach(TreeNode Node in TreeView.Nodes)
 			{
-				SetSelected(Node, true);
+				SetSelected(Node, SelectionType.All);
 			}
+		}
+
+		private void FolderContextMenu_SelectAll_Click(object sender, EventArgs e)
+		{
+			TreeNode Node = (TreeNode)FolderContextMenu.Tag;
+			SetSelected(Node, SelectionType.All);
+		}
+
+		private void FolderContextMenu_SelectSafeToDelete_Click(object sender, EventArgs e)
+		{
+			TreeNode Node = (TreeNode)FolderContextMenu.Tag;
+			SetSelected(Node, SelectionType.SafeToDelete);
+		}
+
+		private void FolderContextMenu_SelectEmptyFolder_Click(object sender, EventArgs e)
+		{
+			TreeNode Node = (TreeNode)FolderContextMenu.Tag;
+			SetSelected(Node, SelectionType.Empty);
+		}
+
+		private void FolderContextMenu_SelectNone_Click(object sender, EventArgs e)
+		{
+			TreeNode Node = (TreeNode)FolderContextMenu.Tag;
+			SetSelected(Node, SelectionType.None);
+		}
+
+		private void FolderContextMenu_OpenWithExplorer_Click(object sender, EventArgs e)
+		{
+			TreeNode Node = (TreeNode)FolderContextMenu.Tag;
+			TreeNodeData NodeData = (TreeNodeData)Node.Tag;
+			Process.Start("explorer.exe", String.Format("\"{0}\"", NodeData.Folder.Directory.FullName));
 		}
 	}
 }

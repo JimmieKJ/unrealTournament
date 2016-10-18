@@ -249,6 +249,8 @@ public:
 	/** Get the currently selected text */
 	FText GetSelectedText() const;
 
+	bool HasError() const;
+
 	// SWidget overrides
 	virtual bool SupportsKeyboardFocus() const override;
 	virtual bool HasKeyboardFocus() const override;

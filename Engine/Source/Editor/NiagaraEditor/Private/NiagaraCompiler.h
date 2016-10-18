@@ -7,6 +7,11 @@
 #include "NiagaraScriptConstantData.h"
 #include "NiagaraScript.h"
 
+class UNiagaraGraph;
+class UNiagaraScriptSource;
+class UNiagaraScript;
+class UNiagaraNodeFunctionCall;
+
 /** Base class for Niagara compilers. Children of this will include a compiler for the VectorVM and for Compute shaders. Possibly others. */
 class NIAGARAEDITOR_API FNiagaraCompiler : public INiagaraCompiler
 {
@@ -78,11 +83,9 @@ public:
 	virtual TNiagaraExprPtr GetExternalConstant(const FNiagaraVariableInfo& Constant, float Default)override;
 	virtual TNiagaraExprPtr GetExternalConstant(const FNiagaraVariableInfo& Constant, const FVector4& Default)override;
 	virtual TNiagaraExprPtr GetExternalConstant(const FNiagaraVariableInfo& Constant, const FMatrix& Default)override;
-	virtual TNiagaraExprPtr GetExternalConstant(const FNiagaraVariableInfo& Constant, const UNiagaraDataObject* Default)override;
 	virtual TNiagaraExprPtr GetInternalConstant(const FNiagaraVariableInfo& Constant, float Default)override;
 	virtual TNiagaraExprPtr GetInternalConstant(const FNiagaraVariableInfo& Constant, const FVector4& Default)override;
 	virtual TNiagaraExprPtr GetInternalConstant(const FNiagaraVariableInfo& Constant, const FMatrix& Default)override;
-	virtual TNiagaraExprPtr GetInternalConstant(const FNiagaraVariableInfo& Constant, const UNiagaraDataObject* Default)override;
 
 	virtual bool CheckInputs(FName OpName, TArray<TNiagaraExprPtr>& Inputs)override;
 	virtual bool CheckOutputs(FName OpName, TArray<TNiagaraExprPtr>& Outputs)override;

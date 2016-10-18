@@ -20,11 +20,6 @@ DEFINE_LOG_CATEGORY(LogHandshake);
 
 // @todo #JohnB: Consider adding an increasing-cost challenge at some stage. Not strictly necessary, but may be nice to have.
 
-// @todo #JohnB: See if you can generalize the bit-alignment code in this class, up to a base class;
-//					perhaps to a generic parent, expressly for implementing 'packet switches' (a bit specifying a unique packet type,
-//					followed by implementing a packet of completely custom format)
-
-
 
 /**
  * Purpose:
@@ -113,13 +108,6 @@ DEFINE_LOG_CATEGORY(LogHandshake);
  * Debug Defines
  */
 
-// Used to test adding extra dud bits to handshake packets (from 0-7), to test packet alignment padding.
-#if !UE_BUILD_SHIPPING
-	#define PAD_TEST_BITS			0
-#else
-	#define PAD_TEST_BITS			0	// Don't touch - adjust above for testing
-#endif
-
 // Enables packetloss testing, which should be tested by connecting/reconnecting to a server a couple dozen times.
 // Every such connection attempt should eventually succeed/recover automatically - if any fail, something's broken.
 #define PACKETLOSS_TEST 0
@@ -129,11 +117,7 @@ DEFINE_LOG_CATEGORY(LogHandshake);
  * Defines
  */
 
-#define HANDSHAKE_PACKET_SIZE_BITS	(194 + PAD_TEST_BITS)
-#define HANDSHAKE_PACKET_ALIGNMENT	(HANDSHAKE_PACKET_SIZE_BITS % 8)
-
-// The maximum number of bits that may be added, for aligning a handshake packet
-#define HANDSHAKE_PACKET_ALIGN_MAX	15
+#define HANDSHAKE_PACKET_SIZE_BITS	194
 
 
 // The number of seconds between secret value updates, and the random variance applied to this
@@ -169,7 +153,7 @@ void StatelessConnectHandlerComponent::SendInitialConnect()
 
 	if (ServerConn != nullptr)
 	{
-		FBitWriter InitialPacket(HANDSHAKE_PACKET_SIZE_BITS + HANDSHAKE_PACKET_ALIGN_MAX);
+		FBitWriter InitialPacket(HANDSHAKE_PACKET_SIZE_BITS + 1 /* Termination bit */);
 		uint8 bHandshakePacket = 1;
 
 		InitialPacket.WriteBit(bHandshakePacket);
@@ -181,18 +165,12 @@ void StatelessConnectHandlerComponent::SendInitialConnect()
 
 		InitialPacket.WriteBit(SecretIdPad);
 
-#if !UE_BUILD_SHIPPING && PAD_TEST_BITS > 0
-		UE_LOG(LogHandshake, Log, TEXT("Handshake PAD_TEST_BITS: %i"), PAD_TEST_BITS);
-
-		InitialPacket.SerializeBits(&bHandshakePacket, PAD_TEST_BITS);
-#endif
-
 		FMemory::Memzero(PacketSizeFiller, ARRAY_COUNT(PacketSizeFiller));
 		InitialPacket.Serialize(PacketSizeFiller, ARRAY_COUNT(PacketSizeFiller));
 
 
 
-		AlignHandshakePacket(InitialPacket);
+		CapHandshakePacket(InitialPacket);
 
 
 		// Disable PacketHandler parsing, and send the raw packet
@@ -229,7 +207,7 @@ void StatelessConnectHandlerComponent::SendConnectChallenge(FString ClientAddres
 {
 	if (Driver != nullptr)
 	{
-		FBitWriter ChallengePacket(HANDSHAKE_PACKET_SIZE_BITS + HANDSHAKE_PACKET_ALIGN_MAX);
+		FBitWriter ChallengePacket(HANDSHAKE_PACKET_SIZE_BITS + 1 /* Termination bit */);
 		uint8 bHandshakePacket = 1;
 		float Timestamp = (Driver != nullptr ? Driver->Time : -1.f);
 		uint8 Cookie[20];
@@ -239,19 +217,19 @@ void StatelessConnectHandlerComponent::SendConnectChallenge(FString ClientAddres
 		ChallengePacket.WriteBit(bHandshakePacket);
 		ChallengePacket.WriteBit(ActiveSecret);
 
-
-#if !UE_BUILD_SHIPPING && PAD_TEST_BITS > 0
-		ChallengePacket.SerializeBits(&bHandshakePacket, PAD_TEST_BITS);
-#endif
-
 		ChallengePacket << Timestamp;
 		ChallengePacket.Serialize(Cookie, ARRAY_COUNT(Cookie));
 
+#if !UE_BUILD_SHIPPING
 		UE_LOG( LogHandshake, Log, TEXT( "SendConnectChallenge. Timestamp: %f, Cookie: %s" ), Timestamp, *FString::FromBlob( Cookie, ARRAY_COUNT( Cookie ) ) );
+#endif
 
-		AlignHandshakePacket(ChallengePacket);
+		CapHandshakePacket(ChallengePacket);
 
 		
+		// Disable PacketHandler parsing, and send the raw packet
+		Handler->SetRawSend(true);
+
 #if !UE_BUILD_SHIPPING && PACKETLOSS_TEST
 		bool bRandFail = FMath::RandBool();
 
@@ -265,10 +243,12 @@ void StatelessConnectHandlerComponent::SendConnectChallenge(FString ClientAddres
 		{
 			if (Driver->IsNetResourceValid())
 			{
-				// 'SetRawSend' is not used here, as that only affects UNetConnections
 				Driver->LowLevelSend(ClientAddress, ChallengePacket.GetData(), ChallengePacket.GetNumBits());
 			}
 		}
+
+
+		Handler->SetRawSend(false);
 	}
 	else
 	{
@@ -284,22 +264,20 @@ void StatelessConnectHandlerComponent::SendChallengeResponse(uint8 InSecretId, f
 
 	if (ServerConn != nullptr)
 	{
-		FBitWriter ResponsePacket(HANDSHAKE_PACKET_SIZE_BITS + HANDSHAKE_PACKET_ALIGN_MAX);
+		FBitWriter ResponsePacket(HANDSHAKE_PACKET_SIZE_BITS + 1 /* Termination bit */);
 		uint8 bHandshakePacket = 1;
 
 		ResponsePacket.WriteBit(bHandshakePacket);
 		ResponsePacket.WriteBit(InSecretId);
 
-#if !UE_BUILD_SHIPPING && PAD_TEST_BITS > 0
-		ResponsePacket.SerializeBits(&bHandshakePacket, PAD_TEST_BITS);
-#endif
-
 		ResponsePacket << InTimestamp;
 		ResponsePacket.Serialize(InCookie, 20);
 
+#if !UE_BUILD_SHIPPING
 		UE_LOG( LogHandshake, Log, TEXT( "SendChallengeResponse. Timestamp: %f, Cookie: %s" ), InTimestamp, *FString::FromBlob( InCookie, 20 ) );
+#endif
 
-		AlignHandshakePacket(ResponsePacket);
+		CapHandshakePacket(ResponsePacket);
 
 
 		// Disable PacketHandler parsing, and send the raw packet
@@ -334,22 +312,12 @@ void StatelessConnectHandlerComponent::SendChallengeResponse(uint8 InSecretId, f
 	}
 }
 
-void StatelessConnectHandlerComponent::AlignHandshakePacket(FBitWriter& HandshakePacket)
+void StatelessConnectHandlerComponent::CapHandshakePacket(FBitWriter& HandshakePacket)
 {
 	check(HandshakePacket.GetNumBits() == HANDSHAKE_PACKET_SIZE_BITS);
 
-	// If the handshake packet overshoots normal packet bit alignment, overshooting bits will get chopped, unless another byte is added.
-	bool bOvershootsAlignment = HANDSHAKE_PACKET_ALIGNMENT > Handler->GetPacketBitAlignment();
-	const uint8 AlignBitCount = (8 - HANDSHAKE_PACKET_ALIGNMENT) + (bOvershootsAlignment ? 8 : 0);
-	uint16 AlignPad = 0;
-
-	if (AlignBitCount > 0)
-	{
-		HandshakePacket.SerializeBits(&AlignPad, AlignBitCount);
-	}
-
-	check(!HandshakePacket.IsError());
-	check((HandshakePacket.GetNumBits() % 8) == 0);
+	// Add a termination bit, the same as the UNetConnection code does
+	HandshakePacket.WriteBit(1);
 }
 
 void StatelessConnectHandlerComponent::SetDriver(UNetDriver* InDriver)
@@ -407,12 +375,14 @@ void StatelessConnectHandlerComponent::Incoming(FBitReader& Packet)
 				// Just ignore these packets.
 			}
 		}
-#if !UE_BUILD_SHIPPING
 		else
 		{
+			Packet.SetError();
+
+#if !UE_BUILD_SHIPPING
 			UE_LOG(LogHandshake, Log, TEXT("Error reading handshake packet."));
-		}
 #endif
+		}
 	}
 #if !UE_BUILD_SHIPPING
 	else if (Packet.IsError())
@@ -485,12 +455,14 @@ void StatelessConnectHandlerComponent::IncomingConnectionless(FString Address, F
 				}
 			}
 		}
-#if !UE_BUILD_SHIPPING
 		else
 		{
+			Packet.SetError();
+
+#if !UE_BUILD_SHIPPING
 			UE_LOG(LogHandshake, Log, TEXT("Error reading handshake packet."));
-		}
 #endif
+		}
 	}
 #if !UE_BUILD_SHIPPING
 	else if (Packet.IsError())
@@ -505,52 +477,14 @@ bool StatelessConnectHandlerComponent::ParseHandshakePacket(FBitReader& Packet, 
 {
 	bool bValidPacket = false;
 
-	/**
-	 * Handshake packet bit padding differs, depending on whether handshake packets undershoot or overshoot normal packet bit alignment.
-	 *
-	 * '1' = end-of-packet/desired-alignment
-	 * '*' = bits cut off by PacketHandler, based on GetPacketBitAlignment
-	 * 'x' = padding bits, added so that PacketHandler doesn't cut out any handshake packet bits
-	 *
-	 * Matched alignment:
-	 *		Normal packet alignment:			0000 1***
-	 *		Handshake packet alignment:			0000 1***
-	 *		Padding bits:						0
-	 *
-	 * Undershoot alignment:
-	 *		Normal packet alignment:			0001 ****
-	 *		Handshake packet alignment:			001x ****
-	 *		Padding bits:						1
-	 *
-	 * Overshoot alignment:
-	 *		Normal packet alignment:			001* ****
-	 *		Handshake packet alignment:			0001 xxxx	xxx* ****
-	 *		Padding bits:						7
-	 */
-	uint8 PaddingBits = (8 + ((int32)Handler->GetPacketBitAlignment() - (int32)HANDSHAKE_PACKET_ALIGNMENT)) % 8;
-
-
 	// Only accept handshake packets of precisely the right size
-	if (Packet.GetBitsLeft() == (HANDSHAKE_PACKET_SIZE_BITS - 1 + PaddingBits))
+	if (Packet.GetBitsLeft() == (HANDSHAKE_PACKET_SIZE_BITS - 1))
 	{
 		OutSecretId = (uint8)Packet.ReadBit();
-
-#if !UE_BUILD_SHIPPING && PAD_TEST_BITS > 0
-		uint8 EatTestBits;
-
-		Packet.SerializeBits(&EatTestBits, PAD_TEST_BITS);
-#endif
 
 		Packet << OutTimestamp;
 
 		Packet.Serialize(OutCookie, 20);
-
-		if (PaddingBits > 0)
-		{
-			uint8 EatPad;
-
-			Packet.SerializeBits(&EatPad, PaddingBits);
-		}
 
 		bValidPacket = !Packet.IsError();
 	}
@@ -605,21 +539,15 @@ void StatelessConnectHandlerComponent::UpdateSecret()
 	}
 }
 
-int32 StatelessConnectHandlerComponent::GetPacketOverheadBits()
+int32 StatelessConnectHandlerComponent::GetReservedPacketBits()
 {
-	return 1;
-}
+	int32 ReturnVal = 1;
 
-uint8 StatelessConnectHandlerComponent::GetBitAlignment()
-{
-	// Only return the bit alignment of bHandshakeBit, as this is the only bit that affects all game packets.
-	// Alignment handling for handshake packets is done locally, as alignment may differ from main game packets.
-	return 1;
-}
+#if !UE_BUILD_SHIPPING
+	SET_DWORD_STAT(STAT_PacketReservedHandshake, ReturnVal);
+#endif
 
-bool StatelessConnectHandlerComponent::DoesResetBitAlignment()
-{
-	return false;
+	return ReturnVal;
 }
 
 void StatelessConnectHandlerComponent::Tick(float DeltaTime)

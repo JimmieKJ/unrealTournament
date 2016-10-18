@@ -19,6 +19,7 @@ UAnimCompress_LeastDestructive::UAnimCompress_LeastDestructive(const FObjectInit
 }
 
 
+#if WITH_EDITOR
 void UAnimCompress_LeastDestructive::DoReduction(UAnimSequence* AnimSeq, const TArray<FBoneData>& BoneData)
 {
 	UAnimCompress* BitwiseCompressor = NewObject<UAnimCompress_BitwiseCompressOnly>();
@@ -26,3 +27,4 @@ void UAnimCompress_LeastDestructive::DoReduction(UAnimSequence* AnimSeq, const T
 	BitwiseCompressor->TranslationCompressionFormat = ACF_None;
 	BitwiseCompressor->Reduce(AnimSeq, false);
 }
+#endif // WITH_EDITOR

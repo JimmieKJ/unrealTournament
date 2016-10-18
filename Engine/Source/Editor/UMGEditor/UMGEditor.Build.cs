@@ -47,6 +47,7 @@ public class UMGEditor : ModuleRules
 				"EditorStyle",
 				"Slate",
 				"SlateCore",
+				"MessageLog",
 				"MovieScene",
 				"MovieSceneTools",
                 "MovieSceneTracks",

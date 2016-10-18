@@ -31,53 +31,56 @@ class ENGINE_API AHUD : public AActor
 	GENERATED_UCLASS_BODY()
 
 	/** Pre-defined FColors for convenience. */
-	UPROPERTY()
-	FColor WhiteColor;
+	DEPRECATED(4.13, "Use FColor::White instead")
+	static const FColor WhiteColor;
 
-	UPROPERTY()
-	FColor GreenColor;
+	DEPRECATED(4.13, "Use FColor::Green instead")
+	static const FColor GreenColor;
 
-	UPROPERTY()
-	FColor RedColor;
+	DEPRECATED(4.13, "Use FColor::Red instead")
+	static const FColor RedColor;
 
 	/** PlayerController which owns this HUD. */
-	UPROPERTY()
+	UPROPERTY(BlueprintReadOnly, Category=HUD)
 	APlayerController* PlayerOwner;    
 
 	/** Tells whether the game was paused due to lost focus */
-	UPROPERTY(transient)
-	uint32 bLostFocusPaused:1;
+	UPROPERTY(BlueprintReadOnly, Category=HUD)
+	uint8 bLostFocusPaused:1;
 
 	/** Whether or not the HUD should be drawn. */
-	UPROPERTY(config)
-	uint32 bShowHUD:1;    
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=HUD)
+	uint8 bShowHUD:1;    
 
 	/** If true, current ViewTarget shows debug information using its DisplayDebug(). */
-	UPROPERTY()
-	uint32 bShowDebugInfo:1;    
+	UPROPERTY(BlueprintReadWrite, Category=HUD)
+	uint8 bShowDebugInfo:1;    
 
 	/** If true, show hitbox debugging info. */
-	UPROPERTY()
-	uint32 bShowHitBoxDebugInfo:1;    
+	UPROPERTY(BlueprintReadWrite, Category=HUD)
+	uint8 bShowHitBoxDebugInfo:1;    
 
 	/** If true, render actor overlays. */
-	UPROPERTY()
-	uint32 bShowOverlays:1;
+	UPROPERTY(BlueprintReadWrite, Category=HUD)
+	uint8 bShowOverlays:1;
 
 	/** Put shadow on debug strings */
-	UPROPERTY()
-	uint32 bEnableDebugTextShadow : 1;	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=HUD)
+	uint8 bEnableDebugTextShadow:1;	
 
+private:
+	/** if true show debug info for 'ShowDebugTargetActor', otherwise for Camera Viewtarget */
+	uint8 bShowDebugForReticleTarget:1;
+	
+public:
 	/** Holds a list of Actors that need PostRender() calls. */
 	UPROPERTY()
 	TArray<AActor*> PostRenderedActors;
 
 	/** Used to calculate delta time between HUD rendering. */
-	UPROPERTY(transient)
 	float LastHUDRenderTime;
 
 	/** Time since last HUD render. */
-	UPROPERTY(transient)
 	float RenderDelta;
 
 	/** Array of names specifying what debug info to display for viewtarget actor. */
@@ -126,16 +129,12 @@ public:
 	void ShowDebugForReticleTargetToggle(TSubclassOf<AActor> DesiredClass);
 
 private:
-	/** if true show debug info for 'ShowDebugTargetActor', otherwise for Camera Viewtarget */
-	UPROPERTY(Transient)
-	bool bShowDebugForReticleTarget;
-
 	/** Class filter for selecting 'ShowDebugTargetActor' when 'bShowDebugForReticleTarget' is true. */
-	UPROPERTY(Transient)
+	UPROPERTY()
 	TSubclassOf<AActor> ShowDebugTargetDesiredClass;
 
 	/** Show Debug Actor used if 'bShowDebugForReticleTarget' is true, only updated if trace from reticle hit a new Actor of class 'ShowDebugTargetDesiredClass'*/
-	UPROPERTY(Transient)
+	UPROPERTY()
 	AActor* ShowDebugTargetActor;
 
 public:
@@ -174,7 +173,10 @@ public:
 	UFUNCTION(reliable, client, SealedEvent)
 	void RemoveDebugText(AActor* SrcActor, bool bLeaveDurationText = false);
 
-	/** Hook to allow blueprints to do custom HUD drawing. @see bSuppressNativeHUD to control HUD drawing in base class. */
+	/** 
+	 *	Hook to allow blueprints to do custom HUD drawing. @see bSuppressNativeHUD to control HUD drawing in base class. 
+	 *	Note:  the canvas resource used for drawing is only valid during this event, it will not be valid if drawing functions are called later (e.g. after a Delay node).
+	 */
 	UFUNCTION(BlueprintImplementableEvent, BlueprintCosmetic)
 	void ReceiveDrawHUD(int32 SizeX, int32 SizeY);
 
@@ -450,9 +452,9 @@ public:
 	virtual void AddPostRenderedActor(AActor* A);
 
 	/**
-	 * check if we should be display debug information for particular types of debug messages
-	 * @param DebugType - type of debug message
-	 * @result bool - true if it should be displayed
+	 * check if we should be display debug information for particular types of debug messages.
+	 * @param DebugType - type of debug message.
+	 * @return true if it should be displayed, false otherwise.
 	 */
 	virtual bool ShouldDisplayDebug(const FName& DebugType) const;
 

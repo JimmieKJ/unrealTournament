@@ -31,6 +31,11 @@ struct FDetailsViewArgs
 		Automatic,
 	};
 
+	/** Controls how CPF_DisableEditOnInstance nodes will be treated */
+	EEditDefaultsOnlyNodeVisibility DefaultsOnlyVisibility;
+	/** The command list from the host of the details view, allowing child widgets to bind actions with a bound chord */
+	TSharedPtr<class FUICommandList> HostCommandList;
+
 	/** Identifier for this details view; NAME_None if this view is anonymous */
 	FName ViewIdentifier;
 	/** Notify hook to call when properties are changed */
@@ -59,10 +64,11 @@ struct FDetailsViewArgs
 	uint32 bCustomNameAreaLocation : 1;
 	/** If true, the filter area will be created but will not be displayed so it can be placed in a custom location.  */
 	uint32 bCustomFilterAreaLocation : 1;
-	/** Controls how CPF_DisableEditOnInstance nodes will be treated */
-	EEditDefaultsOnlyNodeVisibility DefaultsOnlyVisibility;
-	/** The command list from the host of the details view, allowing child widgets to bind actions with a bound chord */
-	TSharedPtr<class FUICommandList> HostCommandList;
+	/** If false, the current properties editor will never display the favorite system */
+	uint32 bAllowFavoriteSystem : 1;
+	/** If true the details panel will assume each object passed in through SetObjects will be a unique object shown in the tree and not combined with other objects */
+	uint32 bAllowMultipleTopLevelObjects : 1;
+
 
 public:
 	/** Default constructor */
@@ -74,7 +80,8 @@ public:
 					, FNotifyHook* InNotifyHook = NULL
 					, const bool InSearchInitialKeyFocus = false
 					, FName InViewIdentifier = NAME_None )
-		: ViewIdentifier( InViewIdentifier )
+		: DefaultsOnlyVisibility(EEditDefaultsOnlyNodeVisibility::Show)
+		, ViewIdentifier( InViewIdentifier )
 		, NotifyHook( InNotifyHook )
 		, NameAreaSettings( InNameAreaSettings )
 		, bUpdatesFromSelection( InUpdateFromSelection )
@@ -88,7 +95,8 @@ public:
 		, bShowDifferingPropertiesOption(false)
 		, bCustomNameAreaLocation(false)
 		, bCustomFilterAreaLocation(false)
-		, DefaultsOnlyVisibility(EEditDefaultsOnlyNodeVisibility::Show)
+		, bAllowFavoriteSystem(true)
+		, bAllowMultipleTopLevelObjects(false)
 	{
 	}
 };
@@ -101,7 +109,7 @@ class IDetailsView : public SCompoundWidget
 {
 public:
 	/** Sets the callback for when the property view changes */
-	virtual void SetOnObjectArrayChanged( FOnObjectArrayChanged OnObjectArrayChangedDelegate) = 0;
+	virtual void SetOnObjectArrayChanged(FOnObjectArrayChanged OnObjectArrayChangedDelegate) = 0;
 
 	/** List of all selected objects we are inspecting */
 	virtual const TArray< TWeakObjectPtr<UObject> >& GetSelectedObjects() const = 0;
@@ -116,10 +124,11 @@ public:
 	virtual bool HasClassDefaultObject() const = 0;
 
 	/** Gets the base class being viewed */
+	DEPRECATED(4.13, "GetBaseClass should be accessed from IDetailLayoutBuilder.GetBaseClass")
 	virtual const UClass* GetBaseClass() const = 0;
-	
-	/** Gets the base struct being viewed */
-	virtual UStruct* GetBaseStruct() const = 0;
+
+	DEPRECATED(4.13, "GetBaseClass should be accessed from IDetailLayoutBuilder.GetBaseClass")
+	virtual UClass* GetBaseClass() = 0;
 
 	/**
 	 * Registers a custom detail layout delegate for a specific class in this instance of the details view only
@@ -128,6 +137,15 @@ public:
 	 * @param DetailLayoutDelegate	The delegate to call when querying for custom detail layouts for the classes properties
 	 */
 	virtual void RegisterInstancedCustomPropertyLayout( UStruct* Class, FOnGetDetailCustomizationInstance DetailLayoutDelegate ) = 0;
+
+
+	/**
+	* Registers a customization that will be used only if this details panel contains multiple top level objects.
+	* I.E it was created with bAllowMultipleTopLevelObjects = true.	This interface will be used to customize the header for each top level object in the details panel
+	*
+	* @param InRootObjectCustomization	If null is passed in, the customization will be removed
+	*/
+	virtual void SetRootObjectCustomizationInstance( TSharedPtr<class IDetailRootObjectCustomization> InRootObjectCustomization ) = 0;
 
 	/**
 	 * Unregisters a custom detail layout delegate for a specific class in this instance of the details view only
@@ -147,9 +165,9 @@ public:
 	virtual void SetObjects( const TArray< TWeakObjectPtr< UObject > >& InObjects, bool bForceRefresh = false, bool bOverrideLock = false ) = 0;
 
 	/**
-	 * Sets a single objects that details view is viewing
+	 * Sets a single object that details view is viewing
 	 *
-	 * @param InObject		The objects to view
+	 * @param InObject		The object to view
 	 * @param bForceRefresh	If true, doesn't check if new objects are being set
 	 */
 	virtual void SetObject( UObject* InObject, bool bForceRefresh = false ) = 0;
@@ -157,15 +175,34 @@ public:
 	/** Removes all invalid objects being observed by this details panel */
 	virtual void RemoveInvalidObjects() = 0;
 
+	/** Set overrides that should be used when looking for packages that contain the given object (used when editing a transient copy of an object, but you need access to th real package) */
+	virtual void SetObjectPackageOverrides(const TMap<TWeakObjectPtr<UObject>, TWeakObjectPtr<UPackage>>& InMapping) = 0;
+
 	/**
 	 * Returns true if the details view is locked and cant have its observed objects changed 
 	 */
 	virtual bool IsLocked() const = 0;
 
 	/**
-	 * @return true of the details view can be updated from editor selection
+	 * @return true if the details view can be updated from editor selection
 	 */
 	virtual bool IsUpdatable() const = 0;
+
+	/**
+	 * @return True if there is any filter of properties active in this details panel
+	 */
+	virtual bool HasActiveSearch() const = 0;
+	
+	/** 
+	 * Clears any search terms in the current filter
+	 */
+	virtual void ClearSearch() = 0;
+
+	/**
+	 * @return The number of visible top level objects. This value is affected by filtering. 
+	 * Note: this value will always be 1 if this details panel was not created with bAllowMultipleTopLevelObjects=true
+	 */
+	virtual int32 GetNumVisibleTopLevelObjects() const = 0;
 
 	/** @return The identifier for this details view, or NAME_None is this view is anonymous */
 	virtual FName GetIdentifier() const = 0;
@@ -228,6 +265,11 @@ public:
 	 */
 	virtual void ShowAllAdvancedProperties() = 0;
 	
+	/**
+	 * Refreshes the visibility of root objects in this details view. 
+	 * Note: This method has no effect if the details panel is viewing a single top-level object set only
+	 */
+	virtual void RefreshRootObjectVisibility() = 0;
 	/**
 	 * Assigns delegate called when view is filtered, useful for updating external control logic:
 	 */

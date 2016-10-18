@@ -103,7 +103,7 @@ void UAssetImportData::UpdateFilenameOnly(const FString& InPath, int32 Index)
 	}
 }
 
-void UAssetImportData::Update(const FString& InPath)
+void UAssetImportData::Update(const FString& InPath, FMD5Hash *Md5Hash/* = nullptr*/)
 {
 	FAssetImportInfo Old = SourceData;
 
@@ -112,7 +112,7 @@ void UAssetImportData::Update(const FString& InPath)
 	SourceData.SourceFiles.Emplace(
 		SanitizeImportFilename(InPath),
 		IFileManager::Get().GetTimeStamp(*InPath),
-		FMD5Hash::HashFile(*InPath)
+		(Md5Hash != nullptr) ? *Md5Hash : FMD5Hash::HashFile(*InPath)
 		);
 	
 	OnImportDataChanged.Broadcast(Old, this);
@@ -171,7 +171,13 @@ FString UAssetImportData::ResolveImportFilename(const FString& InRelativePath, c
 		const FString PathRelativeToPackage = FPaths::GetPath(FPackageName::LongPackageNameToFilename(Outermost->GetPathName())) / InRelativePath;
 		if (FPaths::FileExists(PathRelativeToPackage))
 		{
-			RelativePath = PathRelativeToPackage;
+			FString FullConvertPath = FPaths::ConvertRelativePathToFull(PathRelativeToPackage);
+			//FileExist return true when testing Path like c:/../folder1/filename. ConvertRelativePathToFull specify having .. in front of a drive letter is an error.
+			//It is relative to package only if the conversion to full path is successful.
+			if (FullConvertPath.Find(TEXT("..")) == INDEX_NONE)
+			{
+				return FullConvertPath;
+			}
 		}
 	}
 

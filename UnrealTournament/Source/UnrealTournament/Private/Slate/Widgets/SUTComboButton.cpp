@@ -214,9 +214,9 @@ void SUTComboButton::OnMenuDismissed()
 	SMenuAnchor::OnMenuDismissed();
 }
 
-void SUTComboButton::SetIsOpen( bool InIsOpen, const bool bFocusMenu )
+void SUTComboButton::SetIsOpen( bool InIsOpen, const bool bFocusMenu, const int32 FocusUserIndex )
 {
-	SMenuAnchor::SetIsOpen(InIsOpen, bFocusMenu);
+	SMenuAnchor::SetIsOpen(InIsOpen, bFocusMenu, FocusUserIndex);
 	if (MyButton.IsValid())
 	{
 		if (InIsOpen)

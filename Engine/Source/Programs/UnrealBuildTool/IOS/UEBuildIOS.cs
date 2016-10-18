@@ -52,6 +52,16 @@ namespace UnrealBuildTool
 		/// </summary>
 		public string SigningCertificate = "";
 
+		/// <summary>
+		/// The list of architectures
+		/// </summary>
+		public List<string> ProjectArches;
+
+		/// <summary>
+		/// true if bit code should be embedded
+		/// </summary>
+		private bool bShipForBitcode = false;
+
 		public IOSPlatformContext(FileReference InProjectFile) 
 			: this(UnrealTargetPlatform.IOS, InProjectFile)
 		{
@@ -76,6 +86,11 @@ namespace UnrealBuildTool
 		public virtual string GetRunTimeDevices()
 		{
 			return RunTimeIOSDevices;
+		}
+
+		public bool IsBitcodeCompilingEnabled(CPPTargetConfiguration Configuration)
+		{
+			return Configuration == CPPTargetConfiguration.Shipping && bShipForBitcode;
 		}
 
 		// The name that Xcode uses for the platform
@@ -148,7 +163,8 @@ namespace UnrealBuildTool
 					switch (MinVersion)
 					{
 						case "IOS_61":
-							RunTimeIOSVersion = "6.1";
+							Log.TraceWarning("IOS 6 is no longer supported in UE4 as 4.11");
+							RunTimeIOSVersion = "7.0";
 							break;
 						case "IOS_7":
 							RunTimeIOSVersion = "7.0";
@@ -179,7 +195,7 @@ namespace UnrealBuildTool
 					RunTimeIOSDevices = "1";
 				}
 
-				List<string> ProjectArches = new List<string>();
+				ProjectArches = new List<string>();
 				bool bBuild = true;
 				if (Ini.GetBool("/Script/IOSRuntimeSettings.IOSRuntimeSettings", "bDevForArmV7", out bBuild) && bBuild)
 				{
@@ -233,6 +249,10 @@ namespace UnrealBuildTool
 
 				// determine if we need to generate the dsym
 				Ini.GetBool("/Script/IOSRuntimeSettings.IOSRuntimeSettings", "bGeneratedSYMFile", out BuildConfiguration.bGeneratedSYMFile);
+				Ini.GetBool("/Script/IOSRuntimeSettings.IOSRuntimeSettings", "bGeneratedSYMBundle", out BuildConfiguration.bGeneratedSYMBundle);
+
+				// determie if bitcode should be generated for the shipping code
+				Ini.GetBool("/Script/IOSRuntimeSettings.IOSRuntimeSettings", "bShipForBitcode", out bShipForBitcode);
 
 				// @todo tvos: We probably want to handle TVOS versions here
 				Ini.GetString("/Script/IOSRuntimeSettings.IOSRuntimeSettings", "AdditionalLinkerFlags", out AdditionalLinkerFlags);
@@ -262,6 +282,7 @@ namespace UnrealBuildTool
 			UEBuildConfiguration.bCompileAPEX = false;
 			UEBuildConfiguration.bRuntimePhysicsCooking = false;
 			UEBuildConfiguration.bCompileSimplygon = false;
+            UEBuildConfiguration.bCompileSimplygonSSF = false;
 			UEBuildConfiguration.bBuildDeveloperTools = false;
 
 			// we currently don't have any simulator libs for PhysX
@@ -349,7 +370,7 @@ namespace UnrealBuildTool
 		/// <returns>True if the platform requires a deployment handler, false otherwise</returns>
 		public override UEBuildDeploy CreateDeploymentHandler()
 		{
-			return new UEDeployIOS();
+			return new UEDeployIOS(ProjectFile);
 		}
 	}
 
@@ -398,7 +419,17 @@ namespace UnrealBuildTool
 
 		public override string GetDebugInfoExtension(UEBuildBinaryType InBinaryType)
 		{
-			return BuildConfiguration.bGeneratedSYMFile ? ".dSYM" : "";
+			if(BuildConfiguration.bGeneratedSYMFile)
+			{
+				return ".dSYM";
+			}
+
+			if(BuildConfiguration.bGeneratedSYMBundle)
+			{
+				return ".dSYM.zip";
+			}
+
+			return "";
 		}
 
 		public override bool CanUseXGE()
@@ -420,7 +451,8 @@ namespace UnrealBuildTool
 		{
 			string[] BoolKeys = new string[] {
 				"bDevForArmV7", "bDevForArm64", "bDevForArmV7S", "bShipForArmV7", 
-				"bShipForArm64", "bShipForArmV7S", "bGeneratedSYMFile",
+				"bShipForArm64", "bShipForArmV7S", "bShipForBitcode", "bGeneratedSYMFile",
+				"bGeneratedSYMBundle"
 			};
 			string[] StringKeys = new string[] {
 				"MinimumiOSVersion", 

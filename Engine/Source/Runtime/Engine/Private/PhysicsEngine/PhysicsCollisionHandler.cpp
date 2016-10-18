@@ -52,7 +52,7 @@ void UPhysicsCollisionHandler::DefaultHandleCollision_AssumesLocked(const FRigid
 	}
 }
 
-void UPhysicsCollisionHandler::HandlePhysicsCollisions_AssumesLocked(const TArray<FCollisionNotifyInfo>& PendingCollisionNotifies)
+void UPhysicsCollisionHandler::HandlePhysicsCollisions_AssumesLocked(TArray<FCollisionNotifyInfo>& PendingCollisionNotifies)
 {
 	// Fire any collision notifies in the queue.
 	for(int32 i=0; i<PendingCollisionNotifies.Num(); i++)

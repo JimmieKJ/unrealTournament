@@ -76,6 +76,9 @@ public:
 	/** Restore state of the objects that this movie scene controls. */
 	MOVIESCENE_API void RestoreState(IMovieScenePlayer& Player);
 
+	/** Restore state of a specific object track that this movie scene controls. */
+	MOVIESCENE_API void RestoreSpecificState(const FGuid& ObjectGuid, IMovieScenePlayer& Player);
+
 	/**
 	 * Updates this movie scene.
 	 *
@@ -103,6 +106,8 @@ public:
 	 * Update a single pass
 	 */
 	MOVIESCENE_API void UpdatePassSingle(EMovieSceneUpdateData& UpdateData, IMovieScenePlayer& Player);
+
+	MOVIESCENE_API void UpdateFromSubSceneDeactivate();
 
 	/**
 	 * Refreshes the existing instance.
@@ -155,6 +160,13 @@ public:
 	/** Handle the sequence this instance refers to changing */
 	MOVIESCENE_API void HandleSequenceSectionChanged(UMovieSceneSequence* Sequence);
 
+#if WITH_EDITOR
+	/**
+	 * @return a transient but, unique identifier for this instance
+	 */
+	const FGuid& GetInstanceId() const { return InstanceId; }
+#endif
+
 protected:
 
 	void RefreshInstanceMap(const TArray<UMovieSceneTrack*>& Tracks, const TArray<TWeakObjectPtr<UObject>>& RuntimeObjects, FMovieSceneInstanceMap& TrackInstances, IMovieScenePlayer& Player);
@@ -195,4 +207,8 @@ private:
 
 	/** Cached time range for the movie scene */
 	TRange<float> TimeRange;
+
+#if WITH_EDITOR
+	FGuid InstanceId;
+#endif
 };

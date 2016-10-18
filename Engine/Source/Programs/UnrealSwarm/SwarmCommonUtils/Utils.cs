@@ -30,7 +30,7 @@ namespace SwarmCommonUtils
 
 			var Interfaces = NetworkInterface.GetAllNetworkInterfaces().Where(Interface =>
 			{
-				return Interface.Supports(NetworkInterfaceComponent.IPv4) && Interface.GetIPProperties().GetIPv4Properties().Index == InterfaceIndex;
+                return Interface.Supports(NetworkInterfaceComponent.IPv4) && Interface.GetIPProperties() != null && Interface.GetIPProperties().GetIPv4Properties() != null && Interface.GetIPProperties().GetIPv4Properties().Index == InterfaceIndex;
 			});
 
 			if (Interfaces.Count() == 0)

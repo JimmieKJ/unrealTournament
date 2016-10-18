@@ -44,6 +44,12 @@ public:
 					LOCTEXT("GameplayTagSettingsNameDesc", "GameplayTag Settings"),
 					GetMutableDefault<UGameplayTagsSettings>()
 					);
+
+				SettingsModule->RegisterSettings("Project", "Project", "GameplayTags Developer",
+					LOCTEXT("GameplayTagDeveloperSettingsName", "GameplayTags Developer"),
+					LOCTEXT("GameplayTagDeveloperSettingsNameDesc", "GameplayTag Developer Settings"),
+					GetMutableDefault<UGameplayTagsDeveloperSettings>()
+					);
 			}
 		}
 	}

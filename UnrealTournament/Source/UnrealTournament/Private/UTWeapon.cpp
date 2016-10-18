@@ -22,6 +22,7 @@
 #include "UTGameViewportClient.h"
 #include "UTCrosshair.h"
 #include "UTDroppedPickup.h"
+#include "UTAnnouncer.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogUTWeapon, Log, All);
 
@@ -66,7 +67,7 @@ AUTWeapon::AUTWeapon(const FObjectInitializer& ObjectInitializer)
 
 	Mesh = ObjectInitializer.CreateDefaultSubobject<USkeletalMeshComponent>(this, TEXT("Mesh1P"));
 	Mesh->SetOnlyOwnerSee(true);
-	Mesh->AttachParent = RootComponent;
+	Mesh->SetupAttachment(RootComponent);
 	Mesh->bSelfShadowOnly = true;
 	Mesh->bReceivesDecals = false;
 	Mesh->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered;
@@ -110,9 +111,9 @@ AUTWeapon::AUTWeapon(const FObjectInitializer& ObjectInitializer)
 	LowAmmoSoundDelay = 0.2f;
 	LowAmmoThreshold = 3;
 	FireSoundAmp = SAT_WeaponFire;
+	FireEventIndex = 0;
 
 	WeaponSkinCustomizationTag = NAME_None;
-
 }
 
 void AUTWeapon::PostInitProperties()
@@ -225,6 +226,12 @@ void AUTWeapon::BeginPlay()
 		GotoState(InactiveState);
 	}
 	checkSlow(CurrentState != NULL);
+
+	AUTWorldSettings* Settings = Cast<AUTWorldSettings>(GetWorldSettings());
+	if (GetMesh() && Settings->bUseCapsuleDirectShadowsForCharacter)
+	{
+		GetMesh()->bCastCapsuleDirectShadow = true;
+	}
 }
 
 void AUTWeapon::GotoState(UUTWeaponState* NewState)
@@ -423,54 +430,252 @@ void AUTWeapon::StartFire(uint8 FireModeNum)
 		if (Role < ROLE_Authority)
 		{
 			UUTWeaponStateFiring* CurrentFiringState = FiringState.IsValidIndex(FireModeNum) ? FiringState[FireModeNum] : nullptr;
-			uint8 FireEventIndex = CurrentFiringState ? CurrentFiringState->FireEventIndex : 0;
+			if (CurrentFiringState)
+			{
+				FireEventIndex++;
+				if (FireEventIndex == 255)
+				{
+					FireEventIndex = 0;
+				}
+			}
 			if (UTOwner)
 			{
 				float ZOffset = uint8(FMath::Clamp(UTOwner->GetPawnViewLocation().Z - UTOwner->GetActorLocation().Z + 127.5f, 0.f, 255.f));
 				if (ZOffset != uint8(FMath::Clamp(UTOwner->BaseEyeHeight + 127.5f, 0.f, 255.f)))
 				{
 					ServerStartFireOffset(FireModeNum, FireEventIndex, ZOffset, bClientFired);
-					if (CurrentFiringState)
-					{
-						CurrentFiringState->FireEventIndex++;
-					}
+					QueueResendFire(true, FireModeNum, FireEventIndex, ZOffset, bClientFired);
 					return;
 				}
 			}
 			ServerStartFire(FireModeNum, FireEventIndex, bClientFired);
-			if (CurrentFiringState)
+			QueueResendFire(true, FireModeNum, FireEventIndex, 0, bClientFired);
+		}
+	}
+}
+
+void AUTWeapon::ResendNextFireEvent()
+{
+/*	if ((Role == ROLE_Authority) && (GetNetmode() != NM_Standalone))
+	{
+		UE_LOG(UT, Warning, TEXT("*********************************Server side weapon timer BAD!"));
+		return;
+	}*/
+	if (!UTOwner || UTOwner->IsPendingKillPending() || (UTOwner->GetWeapon() != this))
+	{
+		ResendFireEvents.Empty();
+		GetWorldTimerManager().ClearTimer(ResendFireHandle);
+		return;
+	}
+	if (ResendFireEvents.Num() > 0)
+	{
+		FPendingFireEvent SendEvent = ResendFireEvents[0];
+		if (SendEvent.bIsStartFire)
+		{
+			// UE_LOG(UT, Warning, TEXT("Resend StartFire %d event %d ZOffset %d"), SendEvent.FireModeNum, SendEvent.FireEventIndex, SendEvent.ZOffset);
+			if (SendEvent.ZOffset == 0)
 			{
-				CurrentFiringState->FireEventIndex++;
+				ResendServerStartFire(SendEvent.FireModeNum, SendEvent.FireEventIndex, SendEvent.bClientFired);
+			}
+			else
+			{
+				ResendServerStartFireOffset(SendEvent.FireModeNum, SendEvent.FireEventIndex, SendEvent.ZOffset, SendEvent.bClientFired);
+			}
+		}
+		else
+		{
+			// UE_LOG(UT, Warning, TEXT("Resend StopFire %d event %d"), SendEvent.FireModeNum, SendEvent.FireEventIndex);
+			ServerStopFire(SendEvent.FireModeNum, SendEvent.FireEventIndex);
+		}
+		ResendFireEvents.RemoveAt(0);
+	}
+	else if (UTOwner->GetWeapon() == this)
+	{
+		uint8 FireSettings = 0;
+		int32 NumModes = FMath::Min(8, int32(GetNumFireModes()));
+		for (int32 i = 0; i < NumModes; i++)
+		{
+			if (UTOwner->IsPendingFire(i))
+			{
+				FireSettings += 1 << i;
+			}
+		}
+		//UE_LOG(UT, Warning, TEXT("UpdateFiringStates %d"), FireSettings);
+		ServerUpdateFiringStates(FireSettings);
+	}
+	if (ResendFireEvents.Num() == 0)
+	{
+		if (!UTOwner || UTOwner->IsPendingKillPending() || (UTOwner->GetWeapon() != this))
+		{
+			GetWorldTimerManager().ClearTimer(ResendFireHandle);
+		}
+		else
+		{
+			//UE_LOG(UT, Warning, TEXT("SLOW LOOP"));
+			GetWorldTimerManager().SetTimer(ResendFireHandle, this, &AUTWeapon::ResendNextFireEvent, 0.2f, true);
+		}
+	}
+}
+
+bool AUTWeapon::ServerUpdateFiringStates_Validate(uint8 FireSettings)
+{
+	return true;
+}
+
+void AUTWeapon::ClearFireEvents()
+{
+	ResendFireEvents.Empty();
+	GetWorldTimerManager().ClearTimer(ResendFireHandle);
+	if (Role == ROLE_Authority)
+	{
+		FireEventIndex = 0;
+	}
+}
+
+void AUTWeapon::ServerUpdateFiringStates_Implementation(uint8 FireSettings)
+{
+//	UE_LOG(UT, Warning, TEXT("ServerUpdateFiringStates %d"), FireSettings);
+	int32 NumModes = FMath::Min(8, int32(GetNumFireModes()));
+	for (int32 i = 0; i < NumModes; i++)
+	{
+		bool bWantsFire = (FireSettings & (1 << i)) != 0;
+		if ( FiringState[i] && (UTOwner->IsPendingFire(i) != bWantsFire))
+		{
+			// UE_LOG(UT, Warning, TEXT("%s IN %s Update firing %d to %d"), *GetName(), *CurrentState->GetName(), i, bWantsFire);
+			if (bWantsFire)
+			{
+				ServerStartFire(i, -1, true);
+			}
+			else
+			{
+				ServerStopFire(i, -1);
 			}
 		}
 	}
 }
 
-void AUTWeapon::ServerStartFire_Implementation(uint8 FireModeNum, uint8 FireEventIndex, bool bClientFired)
+void AUTWeapon::QueueResendFire(bool bIsStartFire, uint8 FireModeNum, uint8 InFireEventIndex, uint8 ZOffset, bool bClientFired)
 {
-	if (UTOwner && !UTOwner->IsFiringDisabled())
+	// add a two resend fire events to the queue
+	FPendingFireEvent NewFireEvent(bIsStartFire, FireModeNum, InFireEventIndex, ZOffset, bClientFired);
+	ResendFireEvents.Add(NewFireEvent);
+	ResendFireEvents.Add(NewFireEvent);
+	if (!GetWorldTimerManager().IsTimerActive(ResendFireHandle) || (GetWorldTimerManager().GetTimerRemaining(ResendFireHandle) > 0.04f))
 	{
-		FireZOffsetTime = 0.f;
-		BeginFiringSequence(FireModeNum, bClientFired);
+		GetWorldTimerManager().SetTimer(ResendFireHandle, this, &AUTWeapon::ResendNextFireEvent, 0.04f, true);
 	}
 }
 
-bool AUTWeapon::ServerStartFire_Validate(uint8 FireModeNum, uint8 FireEventIndex, bool bClientFired)
+bool AUTWeapon::ValidateFireEventIndex(uint8 FireModeNum, uint8 InFireEventIndex)
+{
+	UUTWeaponStateFiring* CurrentFiringState = FiringState.IsValidIndex(FireModeNum) ? FiringState[FireModeNum] : nullptr;
+	if (CurrentFiringState)
+	{
+		if (InFireEventIndex == 255)
+		{
+			return true;
+		}
+		if ((FireEventIndex >= InFireEventIndex) && (int32(FireEventIndex) < int32(InFireEventIndex)+128))
+		{
+			//UE_LOG(UT, Warning, TEXT("Skipping current %d in %d"), FireEventIndex, InFireEventIndex);
+			return false;
+		}
+		//UE_LOG(UT, Warning, TEXT("Firing current %d in %d"), FireEventIndex, InFireEventIndex);
+		FireEventIndex = InFireEventIndex;
+		return true;
+	}
+	//UE_LOG(UT, Warning, TEXT("NO CurrentFiringState %d for %s"), FireModeNum, *GetName());
+	return false;
+}
+
+void AUTWeapon::ServerStartFire_Implementation(uint8 FireModeNum, uint8 InFireEventIndex, bool bClientFired)
+{
+	if (ValidateFireEventIndex(FireModeNum, InFireEventIndex) && UTOwner && !UTOwner->IsFiringDisabled())
+	{
+		if (CurrentState == InactiveState && !UTOwner->IsLocallyControlled())
+		{
+			UTOwner->ClientVerifyWeapon();
+		}
+		FireZOffsetTime = 0.f;
+		BeginFiringSequence(FireModeNum, bClientFired);
+		//UE_LOG(UT, Warning, TEXT("**** %s StartFire %d"), *GetName(), FireEventIndex);
+	}
+/*	else
+	{
+		UE_LOG(UT, Warning, TEXT("%s skip serverstartfire %d"), *GetName(), FireEventIndex);
+	}*/
+}
+
+bool AUTWeapon::ServerStartFire_Validate(uint8 FireModeNum, uint8 InFireEventIndex, bool bClientFired)
 {
 	return true;
 }
 
-void AUTWeapon::ServerStartFireOffset_Implementation(uint8 FireModeNum, uint8 FireEventIndex, uint8 ZOffset, bool bClientFired)
+void AUTWeapon::ServerStartFireOffset_Implementation(uint8 FireModeNum, uint8 InFireEventIndex, uint8 ZOffset, bool bClientFired)
 {
-	if (UTOwner && !UTOwner->IsFiringDisabled())
+	if (ValidateFireEventIndex(FireModeNum, InFireEventIndex) && UTOwner && !UTOwner->IsFiringDisabled())
 	{
+		if (CurrentState == InactiveState && !UTOwner->IsLocallyControlled())
+		{
+			UTOwner->ClientVerifyWeapon();
+		}
 		FireZOffset = ZOffset - 127;
 		FireZOffsetTime = GetWorld()->GetTimeSeconds();
 		BeginFiringSequence(FireModeNum, bClientFired);
+		//UE_LOG(UT, Warning, TEXT("***** %s StartFireOffset %d"), *GetName(), FireEventIndex);
+	}
+/*	else
+	{
+		UE_LOG(UT, Warning, TEXT("%s skip serverstartfire offset %d"), *GetName(), FireEventIndex);
+	}*/
+}
+
+bool AUTWeapon::ServerStartFireOffset_Validate(uint8 FireModeNum, uint8 InFireEventIndex, uint8 ZOffset, bool bClientFired)
+{
+	return true;
+}
+
+void AUTWeapon::ResendServerStartFire_Implementation(uint8 FireModeNum, uint8 InFireEventIndex, bool bClientFired)
+{
+	if (ValidateFireEventIndex(FireModeNum, InFireEventIndex) && UTOwner && !UTOwner->IsFiringDisabled())
+	{
+		UE_LOG(UT, Warning, TEXT("****RESENDStartFire mode %d %d"), FireModeNum, FireEventIndex);
+		if (CurrentState == InactiveState && !UTOwner->IsLocallyControlled())
+		{
+			UTOwner->ClientVerifyWeapon();
+		}
+		FireZOffsetTime = 0.f;
+		bNetDelayedShot = true;
+		BeginFiringSequence(FireModeNum, bClientFired);
+		bNetDelayedShot = false;
+		//UE_LOG(UT, Warning, TEXT("****RESENDStartFire %d"), FireEventIndex);
 	}
 }
 
-bool AUTWeapon::ServerStartFireOffset_Validate(uint8 FireModeNum, uint8 FireEventIndex, uint8 ZOffset, bool bClientFired)
+bool AUTWeapon::ResendServerStartFire_Validate(uint8 FireModeNum, uint8 InFireEventIndex, bool bClientFired)
+{
+	return true;
+}
+
+void AUTWeapon::ResendServerStartFireOffset_Implementation(uint8 FireModeNum, uint8 InFireEventIndex, uint8 ZOffset, bool bClientFired)
+{
+	if (ValidateFireEventIndex(FireModeNum, InFireEventIndex) && UTOwner && !UTOwner->IsFiringDisabled())
+	{
+		UE_LOG(UT, Warning, TEXT("****RESENDStartFireOffset mode %d %d"), FireModeNum, InFireEventIndex);
+		if (CurrentState == InactiveState && !UTOwner->IsLocallyControlled())
+		{
+			UTOwner->ClientVerifyWeapon();
+		}
+		FireZOffset = ZOffset - 127;
+		FireZOffsetTime = GetWorld()->GetTimeSeconds();
+		bNetDelayedShot = true;
+		BeginFiringSequence(FireModeNum, bClientFired);
+		bNetDelayedShot = false;
+		//UE_LOG(UT, Warning, TEXT("*****RESENDStartFireOffset %d"), InFireEventIndex);
+	}
+}
+
+bool AUTWeapon::ResendServerStartFireOffset_Validate(uint8 FireModeNum, uint8 InFireEventIndex, uint8 ZOffset, bool bClientFired)
 {
 	return true;
 }
@@ -505,7 +710,14 @@ void AUTWeapon::StopFire(uint8 FireModeNum)
 	if (Role < ROLE_Authority)
 	{
 		UUTWeaponStateFiring* CurrentFiringState = FiringState.IsValidIndex(FireModeNum) ? FiringState[FireModeNum] : nullptr;
-		uint8 FireEventIndex = CurrentFiringState ? CurrentFiringState->FireEventIndex : 0;
+		if (CurrentFiringState)
+		{
+			FireEventIndex++;
+			if (FireEventIndex == 255)
+			{
+				FireEventIndex = 0;
+			}
+		}
 		if (GetWorld()->GetTimeSeconds() - LastContinuedFiring < 0.1f)
 		{
 			ServerStopFireRecent(FireModeNum, FireEventIndex);
@@ -514,37 +726,42 @@ void AUTWeapon::StopFire(uint8 FireModeNum)
 		{
 			ServerStopFire(FireModeNum, FireEventIndex);
 		}
-		if (CurrentFiringState)
-		{
-			CurrentFiringState->FireEventIndex++;
-		}
+		QueueResendFire(false, FireModeNum, FireEventIndex, 0, false);
 	}
 }
 
-void AUTWeapon::ServerStopFireRecent_Implementation(uint8 FireModeNum, uint8 FireEventIndex)
+void AUTWeapon::ServerStopFireRecent_Implementation(uint8 FireModeNum, uint8 InFireEventIndex)
 {
-	if (GetWorld()->GetTimeSeconds() - LastContinuedFiring > 0.2f)
+	if (ValidateFireEventIndex(FireModeNum, InFireEventIndex))
 	{
-		//UE_LOG(UT, Warning, TEXT("MISSED RECENT"));
-		if (FiringState.IsValidIndex(FireModeNum))
+		//UE_LOG(UT, Warning, TEXT("****StopFireRecent %d"), FireEventIndex);
+		if (GetWorld()->GetTimeSeconds() - LastContinuedFiring > 0.2f)
 		{
-			FiringState[FireModeNum]->PendingFireSequence = FireModeNum;
-		} 
+			//UE_LOG(UT, Warning, TEXT("MISSED RECENT"));
+			if (FiringState.IsValidIndex(FireModeNum))
+			{
+				FiringState[FireModeNum]->PendingFireSequence = FireModeNum;
+			}
+		}
+		EndFiringSequence(FireModeNum);
 	}
-	EndFiringSequence(FireModeNum);
 }
 
-bool AUTWeapon::ServerStopFireRecent_Validate(uint8 FireModeNum, uint8 FireEventIndex)
+bool AUTWeapon::ServerStopFireRecent_Validate(uint8 FireModeNum, uint8 InFireEventIndex)
 {
 	return true;
 }
 
-void AUTWeapon::ServerStopFire_Implementation(uint8 FireModeNum, uint8 FireEventIndex)
+void AUTWeapon::ServerStopFire_Implementation(uint8 FireModeNum, uint8 InFireEventIndex)
 {
-	EndFiringSequence(FireModeNum);
+	if (ValidateFireEventIndex(FireModeNum, InFireEventIndex))
+	{
+	//	UE_LOG(UT, Warning, TEXT("****StopFire %d"), InFireEventIndex);
+		EndFiringSequence(FireModeNum);
+	}
 }
 
-bool AUTWeapon::ServerStopFire_Validate(uint8 FireModeNum, uint8 FireEventIndex)
+bool AUTWeapon::ServerStopFire_Validate(uint8 FireModeNum, uint8 InFireEventIndex)
 {
 	return true;
 }
@@ -567,6 +784,16 @@ void AUTWeapon::BringUp(float OverflowTime)
 	AttachToOwner();
 	OnBringUp();
 	CurrentState->BringUp(OverflowTime);
+
+	AUTGameMode* GameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
+	AUTPlayerController* TutPlayer = (GameMode && GameMode->bBasicTrainingGame && !GameMode->bDamageHurtsHealth && UTOwner && (GetNetMode() == NM_Standalone)) ? Cast<AUTPlayerController>(UTOwner->GetController()) : nullptr;
+	if (TutPlayer)
+	{
+		for (int32 Index = 0; Index < TutorialAnnouncements.Num(); Index++)
+		{
+			TutPlayer->PlayTutorialAnnouncement(Index, this);
+		}
+	}
 }
 
 float AUTWeapon::GetPutDownTime()
@@ -638,7 +865,7 @@ void AUTWeapon::AttachToOwner_Implementation()
 	if (Mesh != NULL && Mesh->SkeletalMesh != NULL)
 	{
 		UpdateWeaponHand();
-		Mesh->AttachTo(UTOwner->FirstPersonMesh, (GetWeaponHand() != EWeaponHand::HAND_Hidden) ? HandsAttachSocket : NAME_None);
+		Mesh->AttachToComponent(UTOwner->FirstPersonMesh, FAttachmentTransformRules::KeepRelativeTransform, (GetWeaponHand() != EWeaponHand::HAND_Hidden) ? HandsAttachSocket : NAME_None);
 		if (ShouldPlay1PVisuals())
 		{
 			Mesh->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::AlwaysTickPose; // needed for anims to be ticked even if weapon is not currently displayed, e.g. sniper zoom
@@ -675,7 +902,7 @@ void AUTWeapon::UpdateWeaponHand()
 			for (UParticleSystemComponent* PSC : MuzzleFlash)
 			{
 				MuzzleFlashDefaultTransforms.Add((PSC == NULL) ? FTransform::Identity : PSC->GetRelativeTransform());
-				MuzzleFlashSocketNames.Add((PSC == NULL) ? NAME_None : PSC->AttachSocketName);
+				MuzzleFlashSocketNames.Add((PSC == NULL) ? NAME_None : PSC->GetAttachSocketName());
 			}
 		}
 		else
@@ -684,14 +911,19 @@ void AUTWeapon::UpdateWeaponHand()
 			{
 				if (MuzzleFlash[i] != NULL)
 				{
-					MuzzleFlash[i]->AttachSocketName = MuzzleFlashSocketNames[i];
+					MuzzleFlash[i]->AttachToComponent(MuzzleFlash[i]->GetAttachParent(), FAttachmentTransformRules::SnapToTargetIncludingScale, MuzzleFlashSocketNames[i]);
 					MuzzleFlash[i]->bUseAttachParentBound = true;
 					MuzzleFlash[i]->SetRelativeTransform(MuzzleFlashDefaultTransforms[i]);
 				}
 			}
 		}
 
-		Mesh->AttachSocketName = HandsAttachSocket;
+		// If we're attached, make sure that we update to the right hands socket
+		if (Mesh->GetAttachParent() && Mesh->GetAttachSocketName() != HandsAttachSocket)
+		{
+			Mesh->AttachToComponent(Mesh->GetAttachParent(), FAttachmentTransformRules(EAttachmentRule::KeepRelative, EAttachmentRule::KeepRelative, EAttachmentRule::KeepRelative, false), HandsAttachSocket);
+		}
+
 		if (HandsAttachSocket == NAME_None)
 		{
 			UTOwner->FirstPersonMesh->SetRelativeTransform(FTransform::Identity);
@@ -729,14 +961,14 @@ void AUTWeapon::UpdateWeaponHand()
 				AdjustMesh->SetRelativeLocationAndRotation(FVector(-50.0f, 0.0f, -50.0f), FRotator::ZeroRotator);
 				if (AdjustMesh != Mesh)
 				{
-					Mesh->AttachSocketName = NAME_None;
+					Mesh->AttachToComponent(Mesh->GetAttachParent(), FAttachmentTransformRules::KeepRelativeTransform, NAME_None);
 					Mesh->SetRelativeLocationAndRotation(FVector::ZeroVector, FRotator::ZeroRotator);
 				}
 				for (int32 i = 0; i < MuzzleFlash.Num() && i < MuzzleFlashDefaultTransforms.Num(); i++)
 				{
 					if (MuzzleFlash[i] != NULL)
 					{
-						MuzzleFlash[i]->AttachSocketName = NAME_None;
+						MuzzleFlash[i]->AttachToComponent(MuzzleFlash[i]->GetAttachParent(), FAttachmentTransformRules::KeepRelativeTransform, NAME_None);
 						MuzzleFlash[i]->SetRelativeLocationAndRotation(FVector::ZeroVector, FRotator::ZeroRotator);
 						MuzzleFlash[i]->bUseAttachParentBound = false;
 					}
@@ -795,7 +1027,7 @@ void AUTWeapon::DetachFromOwner_Implementation()
 	if (Mesh != NULL && Mesh->SkeletalMesh != NULL)
 	{
 		Mesh->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered;
-		Mesh->DetachFromParent();
+		Mesh->DetachFromComponent(FDetachmentTransformRules::KeepRelativeTransform);
 		if (OverlayMesh != NULL)
 		{
 			OverlayMesh->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered;
@@ -865,6 +1097,7 @@ void AUTWeapon::PlayFiringEffects()
 {
 	if (UTOwner != NULL)
 	{
+		//UE_LOG(UT, Warning, TEXT("PlayFiringEffects at %f"), GetWorld()->GetTimeSeconds());
 		uint8 EffectFiringMode = (Role == ROLE_Authority || UTOwner->Controller != NULL) ? CurrentFireMode : UTOwner->FireMode;
 
 		// try and play the sound if specified
@@ -889,7 +1122,11 @@ void AUTWeapon::PlayFiringEffects()
 			}
 			if ((Ammo <= LowAmmoThreshold) && (Ammo > 0) && (LowAmmoSound != nullptr))
 			{
-				GetWorldTimerManager().SetTimer(PlayLowAmmoSoundHandle, this, &AUTWeapon::PlayLowAmmoSound, LowAmmoSoundDelay, false);
+				AUTGameMode* GameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
+				if (!GameMode || GameMode->bAmmoIsLimited)
+				{
+					GetWorldTimerManager().SetTimer(PlayLowAmmoSoundHandle, this, &AUTWeapon::PlayLowAmmoSound, LowAmmoSoundDelay, false);
+				}
 			}
 		}
 
@@ -1047,6 +1284,7 @@ void AUTWeapon::FireShot()
 		{
 			FireInstantHit();
 		}
+		//UE_LOG(UT, Warning, TEXT("FireShot"));
 		PlayFiringEffects();
 	}
 	if (GetUTOwner() != NULL)
@@ -1083,7 +1321,7 @@ void AUTWeapon::AddAmmo(int32 Amount)
 	}
 }
 
-void AUTWeapon::OnRep_Ammo()
+void AUTWeapon::SwitchToBestWeaponIfNoAmmo()
 {
 	if (UTOwner != NULL && UTOwner->GetPendingWeapon() == NULL && !HasAnyAmmo())
 	{
@@ -1105,6 +1343,11 @@ void AUTWeapon::OnRep_Ammo()
 			}
 		}
 	}
+}
+
+void AUTWeapon::OnRep_Ammo()
+{
+	SwitchToBestWeaponIfNoAmmo();
 }
 
 void AUTWeapon::OnRep_AttachmentType()
@@ -1214,22 +1457,9 @@ FVector AUTWeapon::GetFireStartLoc(uint8 FireMode)
 		}
 		else
 		{
-			FVector AdjustedFireOffset;
-			switch (GetWeaponHand())
-			{
-				case EWeaponHand::HAND_Right:
-					AdjustedFireOffset = FireOffset;
-					break;
-				case EWeaponHand::HAND_Left:
-					AdjustedFireOffset = FireOffset;
-					AdjustedFireOffset.Y *= -1.0f;
-					break;
-				case EWeaponHand::HAND_Center:
-				case EWeaponHand::HAND_Hidden:
-					AdjustedFireOffset = FVector::ZeroVector;
-					AdjustedFireOffset.X = FireOffset.X;
-					break;
-			}
+			FVector AdjustedFireOffset = FVector::ZeroVector;
+			AdjustedFireOffset.X = FireOffset.X;
+
 			// MuzzleOffset is in camera space, so transform it to world space before offsetting from the character location to find the final muzzle position
 			FVector FinalLoc = BaseLoc + GetBaseFireRotation().RotateVector(AdjustedFireOffset);
 			// trace back towards Instigator's collision, then trace from there to desired location, checking for intervening world geometry
@@ -1295,26 +1525,24 @@ FRotator AUTWeapon::GetAdjustedAim_Implementation(FVector StartFireLoc)
 AUTPlayerController* AUTWeapon::GetCurrentTargetPC()
 {
 	AUTPlayerController* PC = Cast<AUTPlayerController>(UTOwner->Controller);
-	if (PC && PC->LastShotTargetGuess)
+	APawn* CurrentTarget = PC ? PC->LastShotTargetGuess : TargetedCharacter;
+	if (CurrentTarget && !CurrentTarget->GetController())
 	{
-		return Cast<AUTPlayerController>(PC->LastShotTargetGuess->GetController());
-	}
-	else
-	{
-		AUTBot* Bot = Cast<AUTBot>(UTOwner->Controller);
-		if (Bot && Bot->GetEnemy())
+		AUTCharacter* CurrentTargetChar = Cast<AUTCharacter>(CurrentTarget);
+		if (CurrentTargetChar && CurrentTargetChar->OldPlayerState)
 		{
-			return Cast<AUTPlayerController>(Bot->GetEnemy()->GetController());;
+			return Cast<AUTPlayerController>(CurrentTargetChar->OldPlayerState->GetOwner());
 		}
 	}
-	return nullptr;
+
+	return CurrentTarget ? Cast<AUTPlayerController>(CurrentTarget->GetController()) : nullptr;
 }
 
 void AUTWeapon::GuessPlayerTarget(const FVector& StartFireLoc, const FVector& FireDir)
 {
 	if (Role == ROLE_Authority && UTOwner != NULL)
 	{
-		AUTCharacter* TargetedCharacter = nullptr;
+		TargetedCharacter = nullptr;
 		AUTPlayerState* PS = nullptr;
 		AUTPlayerController* PC = Cast<AUTPlayerController>(UTOwner->Controller);
 		if (PC != NULL)
@@ -1334,36 +1562,12 @@ void AUTWeapon::GuessPlayerTarget(const FVector& StartFireLoc, const FVector& Fi
 		else if (Cast<AUTBot>(UTOwner->GetController()))
 		{
 			TargetedCharacter = Cast<AUTCharacter>(((AUTBot*)(UTOwner->GetController()))->GetEnemy());
+			PS = Cast<AUTPlayerState>(UTOwner->GetController()->PlayerState);
 		}
 		if (TargetedCharacter)
 		{
 			UTOwner->LastTargetingTime = GetWorld()->GetTimeSeconds();
-			TargetedCharacter->LastTargetedTime = GetWorld()->GetTimeSeconds();
-			AUTCarriedObject* Flag = TargetedCharacter->GetCarriedObject();
-			if (Flag && Flag->bShouldPingFlag)
-			{
-				if (PS && (GetWorld()->GetTimeSeconds() - Flag->LastPingVerbalTime > 12.f) && (GetWorld()->GetTimeSeconds() - Flag->LastPingedTime > Flag->PingedDuration))
-				{
-					Flag->LastPingVerbalTime = GetWorld()->GetTimeSeconds();
-					AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-					if (GS)
-					{
-						GS->LastEnemyLocationReportTime = GetWorld()->GetTimeSeconds();
-					}
-					AUTGameVolume* GV = TargetedCharacter->UTCharacterMovement ? Cast<AUTGameVolume>(TargetedCharacter->UTCharacterMovement->GetPhysicsVolume()) : nullptr;
-					if (GV && (GV->VoiceLinesSet != NAME_None))
-					{
-						PS->AnnounceStatus(GV->VoiceLinesSet, 0);
-						GS->LastEnemyLocationName = GV->VoiceLinesSet;
-					}
-					else
-					{
-						PS->AnnounceStatus(StatusMessage::EnemyFCHere);
-					}
-				}
-				Flag->LastPinger = PS ? PS : Flag->LastPinger;
-				Flag->LastPingedTime = GetWorld()->GetTimeSeconds();
-			}
+			TargetedCharacter->TargetedBy(TargetedCharacter, PS);
 		}
 	}
 }
@@ -1371,9 +1575,9 @@ void AUTWeapon::GuessPlayerTarget(const FVector& StartFireLoc, const FVector& Fi
 void AUTWeapon::NetSynchRandomSeed()
 {
 	AUTPlayerController* OwningPlayer = UTOwner ? Cast<AUTPlayerController>(UTOwner->GetController()) : NULL;
-	if (OwningPlayer && UTOwner && UTOwner->UTCharacterMovement)
+	if (OwningPlayer && UTOwner)
 	{
-		FMath::RandInit(10000.f*UTOwner->UTCharacterMovement->GetCurrentSynchTime());
+		FMath::RandInit(10000.f*UTOwner->GetCurrentSynchTime(bNetDelayedShot));
 	}
 }
 
@@ -1601,7 +1805,12 @@ void AUTWeapon::PlayDelayedImpactEffects()
 float AUTWeapon::GetImpartedMomentumMag(AActor* HitActor)
 {
 	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-	if ((FriendlyMomentumScaling != 1.f) && GS != NULL && Cast<AUTCharacter>(HitActor) && GS->OnSameTeam(HitActor, UTOwner))
+	AUTCharacter* HitChar = Cast<AUTCharacter>(HitActor);
+	if (HitChar && HitChar->IsDead())
+	{
+		return 20000.f;
+	}
+	if ((FriendlyMomentumScaling != 1.f) && GS != NULL && HitChar && GS->OnSameTeam(HitActor, UTOwner))
 	{
 		return  InstantHitInfo[CurrentFireMode].Momentum *FriendlyMomentumScaling;
 	}
@@ -1702,6 +1911,7 @@ AUTProjectile* AUTWeapon::SpawnNetPredictedProjectile(TSubclassOf<AUTProjectile>
 		if (UTOwner)
 		{
 			UTOwner->LastFiredProjectile = NewProjectile;
+			NewProjectile->ShooterLocation = UTOwner->GetActorLocation();
 		}
 		if (Role == ROLE_Authority)
 		{
@@ -1718,7 +1928,7 @@ AUTProjectile* AUTWeapon::SpawnNetPredictedProjectile(TSubclassOf<AUTProjectile>
 				NewProjectile->SetForwardTicked(true);
 				if (NewProjectile->GetLifeSpan() > 0.f)
 				{
-					NewProjectile->SetLifeSpan(FMath::Max(0.001f, NewProjectile->GetLifeSpan() - CatchupTickDelta));
+					NewProjectile->SetLifeSpan(0.1f + FMath::Max(0.01f, NewProjectile->GetLifeSpan() - CatchupTickDelta));
 				}
 			}
 			else
@@ -2107,7 +2317,7 @@ void AUTWeapon::UpdateOverlaysShared(AActor* WeaponActor, AUTCharacter* InOwner,
 			if (InOverlayMesh == NULL)
 			{
 				InOverlayMesh = DuplicateObject<USkeletalMeshComponent>(InMesh, WeaponActor);
-				InOverlayMesh->AttachParent = NULL; // this gets copied but we don't want it to be
+				InOverlayMesh->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
 				{
 					// TODO: scary that these get copied, need an engine solution and/or safe way to duplicate objects during gameplay
 					InOverlayMesh->PrimaryComponentTick = InOverlayMesh->GetClass()->GetDefaultObject<USkeletalMeshComponent>()->PrimaryComponentTick;
@@ -2118,7 +2328,7 @@ void AUTWeapon::UpdateOverlaysShared(AActor* WeaponActor, AUTCharacter* InOwner,
 			if (!InOverlayMesh->IsRegistered())
 			{
 				InOverlayMesh->RegisterComponent();
-				InOverlayMesh->AttachTo(InMesh, NAME_None, EAttachLocation::SnapToTarget);
+				InOverlayMesh->AttachToComponent(InMesh, FAttachmentTransformRules::SnapToTargetIncludingScale);
 				InOverlayMesh->SetWorldScale3D(InMesh->GetComponentScale());
 			}
 			// if it's just particles and no material, hide the overlay mesh so it doesn't render, but we'll still use it as the attach point for the particles
@@ -2137,7 +2347,7 @@ void AUTWeapon::UpdateOverlaysShared(AActor* WeaponActor, AUTCharacter* InOwner,
 			if (TopOverlay.Particles != NULL)
 			{
 				UParticleSystemComponent* PSC = NULL;
-				for (USceneComponent* Child : InOverlayMesh->AttachChildren) 
+				for (USceneComponent* Child : InOverlayMesh->GetAttachChildren()) 
 				{
 					PSC = Cast<UParticleSystemComponent>(Child);
 					if (PSC != NULL)
@@ -2151,7 +2361,7 @@ void AUTWeapon::UpdateOverlaysShared(AActor* WeaponActor, AUTCharacter* InOwner,
 					PSC->SetAbsolute(false, false, true);
 					PSC->RegisterComponent();
 				}
-				PSC->AttachTo(InOverlayMesh, TopOverlay.ParticleAttachPoint);
+				PSC->AttachToComponent(InOverlayMesh, FAttachmentTransformRules::KeepRelativeTransform, TopOverlay.ParticleAttachPoint);
 				PSC->SetTemplate(TopOverlay.Particles);
 				PSC->InstanceParameters = InOverlayEffectParams;
 				static FName NAME_Weapon(TEXT("Weapon"));
@@ -2161,7 +2371,7 @@ void AUTWeapon::UpdateOverlaysShared(AActor* WeaponActor, AUTCharacter* InOwner,
 			}
 			else
 			{
-				for (USceneComponent* Child : InOverlayMesh->AttachChildren)
+				for (USceneComponent* Child : InOverlayMesh->GetAttachChildren())
 				{
 					UParticleSystemComponent* PSC = Cast<UParticleSystemComponent>(Child);
 					if (PSC != NULL)
@@ -2170,7 +2380,7 @@ void AUTWeapon::UpdateOverlaysShared(AActor* WeaponActor, AUTCharacter* InOwner,
 						{
 							PSC->bAutoDestroy = true;
 							PSC->DeactivateSystem();
-							PSC->DetachFromParent(true);
+							PSC->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
 						}
 						else
 						{
@@ -2183,7 +2393,7 @@ void AUTWeapon::UpdateOverlaysShared(AActor* WeaponActor, AUTCharacter* InOwner,
 		}
 		else if (InOverlayMesh != NULL && InOverlayMesh->IsRegistered())
 		{
-			TArray<USceneComponent*> ChildrenCopy = InOverlayMesh->AttachChildren;
+			TArray<USceneComponent*> ChildrenCopy = InOverlayMesh->GetAttachChildren();
 			for (USceneComponent* Child : ChildrenCopy)
 			{
 				UParticleSystemComponent* PSC = Cast<UParticleSystemComponent>(Child);
@@ -2191,7 +2401,7 @@ void AUTWeapon::UpdateOverlaysShared(AActor* WeaponActor, AUTCharacter* InOwner,
 				{
 					PSC->bAutoDestroy = true;
 					PSC->DeactivateSystem();
-					PSC->DetachFromParent(true);
+					PSC->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
 				}
 				else
 				{
@@ -2245,7 +2455,7 @@ float AUTWeapon::GetDamageRadius_Implementation(uint8 TestMode) const
 	}
 }
 
-float AUTWeapon::BotDesireability_Implementation(APawn* Asker, AActor* Pickup, float PathDistance) const
+float AUTWeapon::BotDesireability_Implementation(APawn* Asker, AController* RequestOwner, AActor* Pickup, float PathDistance) const
 {
 	AUTCharacter* P = Cast<AUTCharacter>(Asker);
 	if (P == NULL)
@@ -2256,8 +2466,8 @@ float AUTWeapon::BotDesireability_Implementation(APawn* Asker, AActor* Pickup, f
 	{
 		float Desire = BasePickupDesireability;
 
-		AUTBot* B = Cast<AUTBot>(P->Controller);
-		if (B != NULL && B->IsFavoriteWeapon(GetClass()))
+		AUTBot* B = Cast<AUTBot>(RequestOwner);
+		if (B != NULL && B == P->Controller && B->IsFavoriteWeapon(GetClass()))
 		{
 			Desire *= 1.5f;
 		}
@@ -2303,7 +2513,7 @@ float AUTWeapon::DetourWeight_Implementation(APawn* Asker, AActor* Pickup, float
 	// detour if currently equipped weapon
 	else if (P->GetWeaponClass() == GetClass())
 	{
-		return BotDesireability(Asker, Pickup, PathDistance);
+		return BotDesireability(Asker, Asker->Controller, Pickup, PathDistance);
 	}
 	else
 	{
@@ -2311,7 +2521,7 @@ float AUTWeapon::DetourWeight_Implementation(APawn* Asker, AActor* Pickup, float
 		AUTBot* B = Cast<AUTBot>(P->Controller);
 		if (B != NULL && B->IsFavoriteWeapon(GetClass()))
 		{
-			return BotDesireability(Asker, Pickup, PathDistance);
+			return BotDesireability(Asker, Asker->Controller, Pickup, PathDistance);
 		}
 		else
 		{
@@ -2319,7 +2529,7 @@ float AUTWeapon::DetourWeight_Implementation(APawn* Asker, AActor* Pickup, float
 			AUTWeapon* AlreadyHas = P->FindInventoryType<AUTWeapon>(GetClass());
 			if (AlreadyHas == NULL || AlreadyHas->Ammo == 0)
 			{
-				return BotDesireability(Asker, Pickup, PathDistance);
+				return BotDesireability(Asker, Asker->Controller, Pickup, PathDistance);
 			}
 			else
 			{
@@ -2479,6 +2689,7 @@ void AUTWeapon::FiringInfoUpdated_Implementation(uint8 InFireMode, uint8 FlashCo
 	if (FlashCount > 0 || !InFlashLocation.IsZero())
 	{
 		CurrentFireMode = InFireMode;
+		UE_LOG(UT, Warning, TEXT("FiringInfoUpdated_Implementation"));
 		PlayFiringEffects();
 	}
 	else
@@ -2682,4 +2893,9 @@ void AUTWeapon::OnZoomedIn_Implementation()
 void AUTWeapon::OnZoomedOut_Implementation()
 {
 	SetZoomState(EZoomState::EZS_NotZoomed);
+}
+
+bool AUTWeapon::CanSwitchTo()
+{
+	return HasAnyAmmo();
 }

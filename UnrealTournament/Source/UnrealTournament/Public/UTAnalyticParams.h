@@ -4,6 +4,7 @@ namespace EGenericAnalyticParam
 	{
 		MatchTime,
 		MapName,
+		GameModeName,
 
 		Hostname,
 		SystemId,
@@ -37,6 +38,37 @@ namespace EGenericAnalyticParam
 
 		Team,
 		MaxRequiredTextureSize,
+		QuickMatch,
+
+		FlagRunRoundEnd,
+		OffenseKills,
+		DefenseKills,
+		DefenseLivesRemaining,
+		DefensePlayersEliminated,
+		PointsScored,
+		DefenseWin,
+		TimeRemaining,
+		RoundNumber,
+		FinalRound,
+		EndedInTieBreaker,
+		RedTeamBonusTime,
+		BlueTeamBonusTime,
+
+		UTEnterMatch,
+		EnterMethod,
+
+		UTTutorialPickupToken,
+		TokenID,
+		AnnouncementID,
+		OptionalObjectName,
+		UTTutorialPlayInstruction,
+
+		UTTutorialStarted,
+		UTTutorialCompleted,
+		TutorialMap,
+		MovementTutorialCompleted,
+		WeaponTutorialCompleted,
+		PickupsTutorialCompleted,
 
 		NUM_GENERIC_PARAMS
 	};

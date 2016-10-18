@@ -12,6 +12,7 @@
 #include "AutomationTestCommon.h"
 #include "PlatformFeatures.h"
 #include "SaveGameSystem.h"
+#include "GameFramework/DefaultPawn.h"
 
 #if WITH_DEV_AUTOMATION_TESTS
 
@@ -257,8 +258,8 @@ bool FLoadAllMapsInGameTest::RunTest(const FString& Parameters)
 	{
 		//Generate the screen shot name and path
 		FString ScreenshotFileName;
-		const FString TestName = FString::Printf(TEXT("LoadAllMaps_Game/%s"), *FPaths::GetBaseFilename(MapName));
-		AutomationCommon::GetScreenshotPath(TestName, ScreenshotFileName, true);
+		const FString LoadAllMapsTestName = FString::Printf(TEXT("LoadAllMaps_Game/%s"), *FPaths::GetBaseFilename(MapName));
+		AutomationCommon::GetScreenshotPath(LoadAllMapsTestName, ScreenshotFileName, true);
 
 		//Give the map some time to load
 		ADD_LATENT_AUTOMATION_COMMAND(FEngineWaitLatentCommand(1.5f));
@@ -471,12 +472,752 @@ bool FAutomationLogAddError::RunTest(const FString& Parameters)
 	AddError(TEXT("Test error message"));
 	
 	//** VERIFY **//
-	FString CurrentErrorMessage = ExecutionInfo.Errors.Last();
+	FAutomationEvent CurrentErrorMessage = ExecutionInfo.Errors.Last();
 	// The errors array is emptied so that this doesn't cause a false positive failure for this test.
 	ExecutionInfo.Errors.Empty();
 
-	TestEqual<FString>(TEXT("Test error message was not added to the ExecutionInfo.Error array."), CurrentErrorMessage, TEXT("Test error message"));
+	TestEqual<FString>(TEXT("Test error message was not added to the ExecutionInfo.Error array."), CurrentErrorMessage.Message, TEXT("Test error message"));
 	
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FAutomationAttachment, "System.Engine.Attachment", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+#define DUMP_EXPECTED_TRANSFORMS 0
+#define TEST_NEW_ATTACHMENTS 1
+#define TEST_DEPRECATED_ATTACHMENTS 0
+
+namespace AttachTestConstants
+{
+	const FVector ParentLocation(1.0f, -2.0f, 4.0f);
+	const FQuat ParentRotation(FRotator(0.0f, 45.0f, 45.0f).Quaternion());
+	const FVector ParentScale(1.25f, 1.25f, 1.25f);
+	const FVector ChildLocation(2.0f, -8.0f, -4.0f);
+	const FQuat ChildRotation(FRotator(0.0f, 45.0f, 20.0f).Quaternion());
+	const FVector ChildScale(1.25f, 1.25f, 1.25f);
+}
+
+void AttachmentTest_CommonTests(AActor* ParentActor, AActor* ChildActor, FAutomationTestBase* Test)
+{
+#if TEST_DEPRECATED_ATTACHMENTS
+	static const FTransform LegacyExpectedChildTransforms[4][2] =
+	{
+		{
+			FTransform(
+				FQuat(-0.49031073f, -0.11344112f, 0.64335662f, 0.57690436f),
+				FVector(10.26776695f, -7.73223305f, 7.53553343f),
+				FVector(1.56250000f, 1.56250000f, 1.56250000f)
+			),
+			FTransform(
+				FQuat(-0.49031067f, -0.11344092f, 0.64335656f, 0.57690459f),
+				FVector(10.26776695f, -7.73223305f, 7.53553343f),
+				FVector(1.56250000f, 1.56250000f, 1.56250000f)
+			),
+		},
+		{
+			FTransform(
+				FQuat(-0.49031067f, -0.11344092f, 0.64335662f, 0.57690459f),
+				FVector(10.26776695f, -7.73223305f, 7.53553343f),
+				FVector(1.56250000f, 1.56250000f, 1.56250000f)
+			),
+			FTransform(
+				FQuat(-0.49031061f, -0.11344086f, 0.64335656f, 0.57690465f),
+				FVector(10.26776695f, -7.73223305f, 7.53553343f),
+				FVector(1.56250000f, 1.56250000f, 1.56250000f)
+			),
+		},
+		{
+			FTransform(
+				FQuat(-0.35355338f, -0.14644660f, 0.35355338f, 0.85355335f),
+				FVector(1.00000000f, -2.00000000f, 4.00000000f),
+				FVector(1.56250000f, 1.56250000f, 1.56250000f)
+			),
+			FTransform(
+				FQuat(-0.35355335f, -0.14644656f, 0.35355335f, 0.85355347f),
+				FVector(1.00000000f, -2.00000000f, 4.00000000f),
+				FVector(1.56250000f, 1.56250000f, 1.56250000f)
+			),
+		},
+		{
+			FTransform(
+				FQuat(-0.35355338f, -0.14644660f, 0.35355338f, 0.85355335f),
+				FVector(1.00000000f, -2.00000000f, 4.00000000f),
+				FVector(1.25000000f, 1.25000000f, 1.25000000f)
+			),
+			FTransform(
+				FQuat(-0.35355335f, -0.14644656f, 0.35355335f, 0.85355347f),
+				FVector(1.00000000f, -2.00000000f, 4.00000000f),
+				FVector(1.25000000f, 1.25000000f, 1.25000000f)
+			),
+		},
+	};
+
+	for (uint8 LocationInteger = (uint8)EAttachLocation::KeepRelativeOffset; LocationInteger <= (uint8)EAttachLocation::SnapToTargetIncludingScale; ++LocationInteger)
+	{
+#if DUMP_EXPECTED_TRANSFORMS
+		UE_LOG(LogTemp, Log, TEXT("{"));
+#endif
+		EAttachLocation::Type Location = (EAttachLocation::Type)LocationInteger;
+
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
+		ChildActor->AttachRootComponentToActor(ParentActor, NAME_None, Location, true);
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
+
+		// check parent actor is unaffected by attachment
+		Test->TestEqual<FVector>(TEXT("Parent location was affected by attachment"), ParentActor->GetActorLocation(), AttachTestConstants::ParentLocation);
+		Test->TestEqual<FQuat>(TEXT("Parent rotation was affected by attachment"), ParentActor->GetActorQuat(), AttachTestConstants::ParentRotation);
+		Test->TestEqual<FVector>(TEXT("Parent scale was affected by attachment"), ParentActor->GetActorScale3D(), AttachTestConstants::ParentScale);
+
+		// check we have expected transforms for each mode
+#if DUMP_EXPECTED_TRANSFORMS
+		UE_LOG(LogTemp, Log, TEXT("\tFTransform("));
+		UE_LOG(LogTemp, Log, TEXT("\t\tFQuat(%.8ff, %.8ff, %.8ff, %.8ff),"), ChildActor->GetActorQuat().X, ChildActor->GetActorQuat().Y, ChildActor->GetActorQuat().Z, ChildActor->GetActorQuat().W);
+		UE_LOG(LogTemp, Log, TEXT("\t\tFVector(%.8ff, %.8ff, %.8ff),"), ChildActor->GetActorLocation().X, ChildActor->GetActorLocation().Y, ChildActor->GetActorLocation().Z);
+		UE_LOG(LogTemp, Log, TEXT("\t\tFVector(%.8ff, %.8ff, %.8ff)"), ChildActor->GetActorScale3D().X, ChildActor->GetActorScale3D().Y, ChildActor->GetActorScale3D().Z);
+		UE_LOG(LogTemp, Log, TEXT("\t),"));
+#endif
+
+		Test->TestTrue(FString::Printf(TEXT("Child world location was incorrect after attachment (was %s, should be %s)"), *ChildActor->GetActorLocation().ToString(), *LegacyExpectedChildTransforms[LocationInteger][0].GetLocation().ToString()), ChildActor->GetActorLocation().Equals(LegacyExpectedChildTransforms[LocationInteger][0].GetLocation(), KINDA_SMALL_NUMBER));
+		Test->TestTrue(FString::Printf(TEXT("Child world rotation was incorrect after attachment (was %s, should be %s)"), *ChildActor->GetActorQuat().ToString(), *LegacyExpectedChildTransforms[LocationInteger][0].GetRotation().ToString()), ChildActor->GetActorQuat().Equals(LegacyExpectedChildTransforms[LocationInteger][0].GetRotation(), KINDA_SMALL_NUMBER));
+		Test->TestTrue(FString::Printf(TEXT("Child world scale was incorrect after attachment (was %s, should be %s)"), *ChildActor->GetActorScale3D().ToString(), *LegacyExpectedChildTransforms[LocationInteger][0].GetScale3D().ToString()), ChildActor->GetActorScale3D().Equals(LegacyExpectedChildTransforms[LocationInteger][0].GetScale3D(), KINDA_SMALL_NUMBER));
+
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
+		ChildActor->DetachRootComponentFromParent(true);
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
+
+		// check we have expected values after detachment
+		Test->TestEqual<FVector>(TEXT("Parent location was affected by detachment"), ParentActor->GetActorLocation(), AttachTestConstants::ParentLocation);
+		Test->TestEqual<FQuat>(TEXT("Parent rotation was affected by detachment"), ParentActor->GetActorQuat(), AttachTestConstants::ParentRotation);
+		Test->TestEqual<FVector>(TEXT("Parent scale was affected by detachment"), ParentActor->GetActorScale3D(), AttachTestConstants::ParentScale);
+
+		// check we have expected transforms for each mode
+#if DUMP_EXPECTED_TRANSFORMS
+		UE_LOG(LogTemp, Log, TEXT("\tFTransform("));
+		UE_LOG(LogTemp, Log, TEXT("\t\tFQuat(%.8ff, %.8ff, %.8ff, %.8ff),"), ChildActor->GetActorQuat().X, ChildActor->GetActorQuat().Y, ChildActor->GetActorQuat().Z, ChildActor->GetActorQuat().W);
+		UE_LOG(LogTemp, Log, TEXT("\t\tFVector(%.8ff, %.8ff, %.8ff),"), ChildActor->GetActorLocation().X, ChildActor->GetActorLocation().Y, ChildActor->GetActorLocation().Z);
+		UE_LOG(LogTemp, Log, TEXT("\t\tFVector(%.8ff, %.8ff, %.8ff)"), ChildActor->GetActorScale3D().X, ChildActor->GetActorScale3D().Y, ChildActor->GetActorScale3D().Z);
+		UE_LOG(LogTemp, Log, TEXT("\t),"));
+#endif
+
+		Test->TestTrue(FString::Printf(TEXT("Child relative location was incorrect after detachment (was %s, should be %s)"), *ChildActor->GetActorLocation().ToString(), *LegacyExpectedChildTransforms[LocationInteger][1].GetLocation().ToString()), ChildActor->GetActorLocation().Equals(LegacyExpectedChildTransforms[LocationInteger][1].GetLocation(), KINDA_SMALL_NUMBER));
+		Test->TestTrue(FString::Printf(TEXT("Child relative rotation was incorrect after detachment (was %s, should be %s)"), *ChildActor->GetActorQuat().ToString(), *LegacyExpectedChildTransforms[LocationInteger][1].GetRotation().ToString()), ChildActor->GetActorQuat().Equals(LegacyExpectedChildTransforms[LocationInteger][1].GetRotation(), KINDA_SMALL_NUMBER));
+		Test->TestTrue(FString::Printf(TEXT("Child relative scale was incorrect after detachment (was %s, should be %s)"), *ChildActor->GetActorScale3D().ToString(), *LegacyExpectedChildTransforms[LocationInteger][1].GetScale3D().ToString()), ChildActor->GetActorScale3D().Equals(LegacyExpectedChildTransforms[LocationInteger][1].GetScale3D(), KINDA_SMALL_NUMBER));
+#if DUMP_EXPECTED_TRANSFORMS
+		UE_LOG(LogTemp, Log, TEXT("},"));
+#endif
+	}
+#endif
+
+#if TEST_NEW_ATTACHMENTS
+	// Check each component against each rule in all combinations, pre and post-detachment
+	static const FTransform ExpectedChildTransforms[3][3][3][2] =
+	{
+		{
+			{
+				{
+					FTransform(
+						FQuat(-0.49031073f, -0.11344112f, 0.64335662f, 0.57690436f),
+						FVector(10.26776695f, -7.73223305f, 7.53553343f),
+						FVector(1.56250000f, 1.56250000f, 1.56250000f)
+					),
+					FTransform(
+						FQuat(-0.16042998f, -0.06645227f, 0.37686959f, 0.90984368f),
+						FVector(2.00000000f, -8.00000000f, -4.00000000f),
+						FVector(1.25000000f, 1.25000000f, 1.25000000f)
+					),
+				},
+				{
+					FTransform(
+						FQuat(-0.49031073f, -0.11344112f, 0.64335662f, 0.57690436f),
+						FVector(10.26776695f, -7.73223305f, 7.53553343f),
+						FVector(1.25000000f, 1.25000000f, 1.25000000f)
+					),
+					FTransform(
+						FQuat(-0.16042998f, -0.06645227f, 0.37686959f, 0.90984368f),
+						FVector(2.00000000f, -8.00000000f, -4.00000000f),
+						FVector(1.25000000f, 1.25000000f, 1.25000000f)
+					),
+				},
+				{
+					FTransform(
+						FQuat(-0.49031073f, -0.11344112f, 0.64335662f, 0.57690436f),
+						FVector(10.26776695f, -7.73223305f, 7.53553343f),
+						FVector(1.25000000f, 1.25000000f, 1.25000000f)
+					),
+					FTransform(
+						FQuat(-0.16042998f, -0.06645227f, 0.37686959f, 0.90984368f),
+						FVector(2.00000000f, -8.00000000f, -4.00000000f),
+						FVector(1.25000000f, 1.25000000f, 1.25000000f)
+					),
+				},
+			},
+			{
+				{
+					FTransform(
+						FQuat(-0.16042998f, -0.06645226f, 0.37686962f, 0.90984368f),
+						FVector(10.26776695f, -7.73223305f, 7.53553343f),
+						FVector(1.56250000f, 1.56250000f, 1.56250000f)
+					),
+					FTransform(
+						FQuat(-0.16042995f, -0.06645225f, 0.37686959f, 0.90984380f),
+						FVector(2.00000000f, -8.00000000f, -4.00000000f),
+						FVector(1.25000000f, 1.25000000f, 1.25000000f)
+					),
+				},
+				{
+					FTransform(
+						FQuat(-0.16042994f, -0.06645224f, 0.37686956f, 0.90984374f),
+						FVector(10.26776695f, -7.73223305f, 7.53553343f),
+						FVector(1.25000000f, 1.25000000f, 1.25000000f)
+					),
+					FTransform(
+						FQuat(-0.16042992f, -0.06645223f, 0.37686956f, 0.90984380f),
+						FVector(2.00000000f, -8.00000000f, -4.00000000f),
+						FVector(1.25000000f, 1.25000000f, 1.25000000f)
+					),
+				},
+				{
+					FTransform(
+						FQuat(-0.16042989f, -0.06645222f, 0.37686950f, 0.90984374f),
+						FVector(10.26776695f, -7.73223305f, 7.53553343f),
+						FVector(1.25000000f, 1.25000000f, 1.25000000f)
+					),
+					FTransform(
+						FQuat(-0.16042989f, -0.06645220f, 0.37686944f, 0.90984386f),
+						FVector(2.00000000f, -8.00000000f, -4.00000000f),
+						FVector(1.25000000f, 1.25000000f, 1.25000000f)
+					),
+				},
+			},
+			{
+				{
+					FTransform(
+						FQuat(-0.35355338f, -0.14644660f, 0.35355338f, 0.85355335f),
+						FVector(10.26776695f, -7.73223305f, 7.53553343f),
+						FVector(1.56250000f, 1.56250000f, 1.56250000f)
+					),
+					FTransform(
+						FQuat(-0.35355335f, -0.14644656f, 0.35355335f, 0.85355347f),
+						FVector(2.00000000f, -8.00000000f, -4.00000000f),
+						FVector(1.25000000f, 1.25000000f, 1.25000000f)
+					),
+				},
+				{
+					FTransform(
+						FQuat(-0.35355338f, -0.14644660f, 0.35355338f, 0.85355335f),
+						FVector(10.26776695f, -7.73223305f, 7.53553343f),
+						FVector(1.25000000f, 1.25000000f, 1.25000000f)
+					),
+					FTransform(
+						FQuat(-0.35355335f, -0.14644656f, 0.35355335f, 0.85355347f),
+						FVector(2.00000000f, -8.00000000f, -4.00000000f),
+						FVector(1.25000000f, 1.25000000f, 1.25000000f)
+					),
+				},
+				{
+					FTransform(
+						FQuat(-0.35355338f, -0.14644660f, 0.35355338f, 0.85355335f),
+						FVector(10.26776695f, -7.73223305f, 7.53553343f),
+						FVector(1.25000000f, 1.25000000f, 1.25000000f)
+					),
+					FTransform(
+						FQuat(-0.35355335f, -0.14644656f, 0.35355335f, 0.85355347f),
+						FVector(2.00000000f, -8.00000000f, -4.00000000f),
+						FVector(1.25000000f, 1.25000000f, 1.25000000f)
+					),
+				},
+			},
+		},
+		{
+			{
+				{
+					FTransform(
+						FQuat(-0.60355341f, -0.24999994f, 0.60355335f, 0.45710683f),
+						FVector(2.00000024f, -8.00000000f, -4.00000000f),
+						FVector(1.56250000f, 1.56250000f, 1.56250000f)
+					),
+					FTransform(
+						FQuat(-0.35355335f, -0.14644656f, 0.35355335f, 0.85355347f),
+						FVector(2.00000024f, -8.00000000f, -4.00000000f),
+						FVector(1.25000000f, 1.25000000f, 1.25000000f)
+					),
+				},
+				{
+					FTransform(
+						FQuat(-0.60355341f, -0.24999994f, 0.60355335f, 0.45710683f),
+						FVector(2.00000048f, -8.00000000f, -4.00000000f),
+						FVector(1.25000000f, 1.25000000f, 1.25000000f)
+					),
+					FTransform(
+						FQuat(-0.35355335f, -0.14644656f, 0.35355335f, 0.85355347f),
+						FVector(2.00000048f, -8.00000000f, -4.00000000f),
+						FVector(1.25000000f, 1.25000000f, 1.25000000f)
+					),
+				},
+				{
+					FTransform(
+						FQuat(-0.60355341f, -0.24999994f, 0.60355335f, 0.45710683f),
+						FVector(2.00000095f, -8.00000000f, -4.00000000f),
+						FVector(1.25000000f, 1.25000000f, 1.25000000f)
+					),
+					FTransform(
+						FQuat(-0.35355335f, -0.14644656f, 0.35355335f, 0.85355347f),
+						FVector(2.00000095f, -8.00000000f, -4.00000000f),
+						FVector(1.25000000f, 1.25000000f, 1.25000000f)
+					),
+				},
+			},
+			{
+				{
+					FTransform(
+						FQuat(-0.35355335f, -0.14644656f, 0.35355332f, 0.85355335f),
+						FVector(2.00000143f, -7.99999905f, -4.00000000f),
+						FVector(1.56250000f, 1.56250000f, 1.56250000f)
+					),
+					FTransform(
+						FQuat(-0.35355335f, -0.14644654f, 0.35355330f, 0.85355347f),
+						FVector(2.00000143f, -7.99999905f, -4.00000000f),
+						FVector(1.25000000f, 1.25000000f, 1.25000000f)
+					),
+				},
+				{
+					FTransform(
+						FQuat(-0.35355330f, -0.14644653f, 0.35355324f, 0.85355335f),
+						FVector(2.00000095f, -7.99999905f, -4.00000000f),
+						FVector(1.25000000f, 1.25000000f, 1.25000000f)
+					),
+					FTransform(
+						FQuat(-0.35355327f, -0.14644645f, 0.35355321f, 0.85355353f),
+						FVector(2.00000095f, -7.99999905f, -4.00000000f),
+						FVector(1.25000000f, 1.25000000f, 1.25000000f)
+					),
+				},
+				{
+					FTransform(
+						FQuat(-0.35355324f, -0.14644644f, 0.35355318f, 0.85355341f),
+						FVector(2.00000072f, -7.99999905f, -4.00000000f),
+						FVector(1.25000000f, 1.25000000f, 1.25000000f)
+					),
+					FTransform(
+						FQuat(-0.35355324f, -0.14644639f, 0.35355315f, 0.85355359f),
+						FVector(2.00000072f, -7.99999905f, -4.00000000f),
+						FVector(1.25000000f, 1.25000000f, 1.25000000f)
+					),
+				},
+			},
+			{
+				{
+					FTransform(
+						FQuat(-0.35355338f, -0.14644660f, 0.35355338f, 0.85355335f),
+						FVector(2.00000048f, -7.99999857f, -4.00000000f),
+						FVector(1.56250000f, 1.56250000f, 1.56250000f)
+					),
+					FTransform(
+						FQuat(-0.35355335f, -0.14644656f, 0.35355335f, 0.85355347f),
+						FVector(2.00000048f, -7.99999857f, -4.00000000f),
+						FVector(1.25000000f, 1.25000000f, 1.25000000f)
+					),
+				},
+				{
+					FTransform(
+						FQuat(-0.35355338f, -0.14644660f, 0.35355338f, 0.85355335f),
+						FVector(2.00000024f, -7.99999714f, -3.99999905f),
+						FVector(1.25000000f, 1.25000000f, 1.25000000f)
+					),
+					FTransform(
+						FQuat(-0.35355335f, -0.14644656f, 0.35355335f, 0.85355347f),
+						FVector(2.00000024f, -7.99999714f, -3.99999905f),
+						FVector(1.25000000f, 1.25000000f, 1.25000000f)
+					),
+				},
+				{
+					FTransform(
+						FQuat(-0.35355338f, -0.14644660f, 0.35355338f, 0.85355335f),
+						FVector(2.00000048f, -7.99999714f, -3.99999905f),
+						FVector(1.25000000f, 1.25000000f, 1.25000000f)
+					),
+					FTransform(
+						FQuat(-0.35355335f, -0.14644656f, 0.35355335f, 0.85355347f),
+						FVector(2.00000048f, -7.99999714f, -3.99999905f),
+						FVector(1.25000000f, 1.25000000f, 1.25000000f)
+					),
+				},
+			},
+		},
+		{
+			{
+				{
+					FTransform(
+						FQuat(-0.60355341f, -0.24999994f, 0.60355335f, 0.45710683f),
+						FVector(1.00000000f, -2.00000000f, 4.00000000f),
+						FVector(1.56250000f, 1.56250000f, 1.56250000f)
+					),
+					FTransform(
+						FQuat(-0.35355335f, -0.14644656f, 0.35355335f, 0.85355347f),
+						FVector(1.00000000f, -2.00000000f, 4.00000000f),
+						FVector(1.25000000f, 1.25000000f, 1.25000000f)
+					),
+				},
+				{
+					FTransform(
+						FQuat(-0.60355341f, -0.24999994f, 0.60355335f, 0.45710683f),
+						FVector(1.00000000f, -2.00000000f, 4.00000000f),
+						FVector(1.25000000f, 1.25000000f, 1.25000000f)
+					),
+					FTransform(
+						FQuat(-0.35355335f, -0.14644656f, 0.35355335f, 0.85355347f),
+						FVector(1.00000000f, -2.00000000f, 4.00000000f),
+						FVector(1.25000000f, 1.25000000f, 1.25000000f)
+					),
+				},
+				{
+					FTransform(
+						FQuat(-0.60355341f, -0.24999994f, 0.60355335f, 0.45710683f),
+						FVector(1.00000000f, -2.00000000f, 4.00000000f),
+						FVector(1.25000000f, 1.25000000f, 1.25000000f)
+					),
+					FTransform(
+						FQuat(-0.35355335f, -0.14644656f, 0.35355335f, 0.85355347f),
+						FVector(1.00000000f, -2.00000000f, 4.00000000f),
+						FVector(1.25000000f, 1.25000000f, 1.25000000f)
+					),
+				},
+			},
+			{
+				{
+					FTransform(
+						FQuat(-0.35355335f, -0.14644656f, 0.35355332f, 0.85355335f),
+						FVector(1.00000000f, -2.00000000f, 4.00000000f),
+						FVector(1.56250000f, 1.56250000f, 1.56250000f)
+					),
+					FTransform(
+						FQuat(-0.35355335f, -0.14644654f, 0.35355330f, 0.85355347f),
+						FVector(1.00000000f, -2.00000000f, 4.00000000f),
+						FVector(1.25000000f, 1.25000000f, 1.25000000f)
+					),
+				},
+				{
+					FTransform(
+						FQuat(-0.35355330f, -0.14644653f, 0.35355324f, 0.85355335f),
+						FVector(1.00000000f, -2.00000000f, 4.00000000f),
+						FVector(1.25000000f, 1.25000000f, 1.25000000f)
+					),
+					FTransform(
+						FQuat(-0.35355327f, -0.14644645f, 0.35355321f, 0.85355353f),
+						FVector(1.00000000f, -2.00000000f, 4.00000000f),
+						FVector(1.25000000f, 1.25000000f, 1.25000000f)
+					),
+				},
+				{
+					FTransform(
+						FQuat(-0.35355324f, -0.14644644f, 0.35355318f, 0.85355341f),
+						FVector(1.00000000f, -2.00000000f, 4.00000000f),
+						FVector(1.25000000f, 1.25000000f, 1.25000000f)
+					),
+					FTransform(
+						FQuat(-0.35355324f, -0.14644639f, 0.35355315f, 0.85355359f),
+						FVector(1.00000000f, -2.00000000f, 4.00000000f),
+						FVector(1.25000000f, 1.25000000f, 1.25000000f)
+					),
+				},
+			},
+			{
+				{
+					FTransform(
+						FQuat(-0.35355338f, -0.14644660f, 0.35355338f, 0.85355335f),
+						FVector(1.00000000f, -2.00000000f, 4.00000000f),
+						FVector(1.56250000f, 1.56250000f, 1.56250000f)
+					),
+					FTransform(
+						FQuat(-0.35355335f, -0.14644656f, 0.35355335f, 0.85355347f),
+						FVector(1.00000000f, -2.00000000f, 4.00000000f),
+						FVector(1.25000000f, 1.25000000f, 1.25000000f)
+					),
+				},
+				{
+					FTransform(
+						FQuat(-0.35355338f, -0.14644660f, 0.35355338f, 0.85355335f),
+						FVector(1.00000000f, -2.00000000f, 4.00000000f),
+						FVector(1.25000000f, 1.25000000f, 1.25000000f)
+					),
+					FTransform(
+						FQuat(-0.35355335f, -0.14644656f, 0.35355335f, 0.85355347f),
+						FVector(1.00000000f, -2.00000000f, 4.00000000f),
+						FVector(1.25000000f, 1.25000000f, 1.25000000f)
+					),
+				},
+				{
+					FTransform(
+						FQuat(-0.35355338f, -0.14644660f, 0.35355338f, 0.85355335f),
+						FVector(1.00000000f, -2.00000000f, 4.00000000f),
+						FVector(1.25000000f, 1.25000000f, 1.25000000f)
+					),
+					FTransform(
+						FQuat(-0.35355335f, -0.14644656f, 0.35355335f, 0.85355347f),
+						FVector(1.00000000f, -2.00000000f, 4.00000000f),
+						FVector(1.25000000f, 1.25000000f, 1.25000000f)
+					),
+				},
+			},
+		},
+	};
+
+	for (uint8 RuleInteger0 = (uint8)EAttachmentRule::KeepRelative; RuleInteger0 <= (uint8)EAttachmentRule::SnapToTarget; ++RuleInteger0)
+	{
+#if DUMP_EXPECTED_TRANSFORMS
+		UE_LOG(LogTemp, Log, TEXT("{"));
+#endif
+		for (uint8 RuleInteger1 = (uint8)EAttachmentRule::KeepRelative; RuleInteger1 <= (uint8)EAttachmentRule::SnapToTarget; ++RuleInteger1)
+		{
+#if DUMP_EXPECTED_TRANSFORMS
+			UE_LOG(LogTemp, Log, TEXT("\t{"));
+#endif
+			for (uint8 RuleInteger2 = (uint8)EAttachmentRule::KeepRelative; RuleInteger2 <= (uint8)EAttachmentRule::SnapToTarget; ++RuleInteger2)
+			{
+#if DUMP_EXPECTED_TRANSFORMS
+				UE_LOG(LogTemp, Log, TEXT("\t\t{"));
+#endif
+				EAttachmentRule Rule0 = (EAttachmentRule)RuleInteger0;
+				EAttachmentRule Rule1 = (EAttachmentRule)RuleInteger1;
+				EAttachmentRule Rule2 = (EAttachmentRule)RuleInteger2;
+
+				FAttachmentTransformRules Rules(Rule0, Rule1, Rule2, false);
+
+				ChildActor->AttachToActor(ParentActor, Rules);
+
+				// check parent actor is unaffected by attachment
+				Test->TestEqual<FVector>(TEXT("Parent location was affected by attachment"), ParentActor->GetActorLocation(), AttachTestConstants::ParentLocation);
+				Test->TestEqual<FQuat>(TEXT("Parent rotation was affected by attachment"), ParentActor->GetActorQuat(), AttachTestConstants::ParentRotation);
+				Test->TestEqual<FVector>(TEXT("Parent scale was affected by attachment"), ParentActor->GetActorScale3D(), AttachTestConstants::ParentScale);
+
+				// check we have expected transforms for each mode
+#if DUMP_EXPECTED_TRANSFORMS
+				UE_LOG(LogTemp, Log, TEXT("\t\t\tFTransform("));
+				UE_LOG(LogTemp, Log, TEXT("\t\t\t\tFQuat(%.8ff, %.8ff, %.8ff, %.8ff),"), ChildActor->GetActorQuat().X, ChildActor->GetActorQuat().Y, ChildActor->GetActorQuat().Z, ChildActor->GetActorQuat().W);
+				UE_LOG(LogTemp, Log, TEXT("\t\t\t\tFVector(%.8ff, %.8ff, %.8ff),"), ChildActor->GetActorLocation().X, ChildActor->GetActorLocation().Y, ChildActor->GetActorLocation().Z);
+				UE_LOG(LogTemp, Log, TEXT("\t\t\t\tFVector(%.8ff, %.8ff, %.8ff)"), ChildActor->GetActorScale3D().X, ChildActor->GetActorScale3D().Y, ChildActor->GetActorScale3D().Z);
+				UE_LOG(LogTemp, Log, TEXT("\t\t\t),"));
+#endif
+
+				Test->TestTrue(FString::Printf(TEXT("Child world location was incorrect after attachment (was %s, should be %s)"), *ChildActor->GetActorLocation().ToString(), *ExpectedChildTransforms[RuleInteger0][RuleInteger1][RuleInteger2][0].GetLocation().ToString()), ChildActor->GetActorLocation().Equals(ExpectedChildTransforms[RuleInteger0][RuleInteger1][RuleInteger2][0].GetLocation(), KINDA_SMALL_NUMBER));
+				Test->TestTrue(FString::Printf(TEXT("Child world rotation was incorrect after attachment (was %s, should be %s)"), *ChildActor->GetActorQuat().ToString(), *ExpectedChildTransforms[RuleInteger0][RuleInteger1][RuleInteger2][0].GetRotation().ToString()), ChildActor->GetActorQuat().Equals(ExpectedChildTransforms[RuleInteger0][RuleInteger1][RuleInteger2][0].GetRotation(), KINDA_SMALL_NUMBER));
+				Test->TestTrue(FString::Printf(TEXT("Child world scale was incorrect after attachment (was %s, should be %s)"), *ChildActor->GetActorScale3D().ToString(), *ExpectedChildTransforms[RuleInteger0][RuleInteger1][RuleInteger2][0].GetScale3D().ToString()), ChildActor->GetActorScale3D().Equals(ExpectedChildTransforms[RuleInteger0][RuleInteger1][RuleInteger2][0].GetScale3D(), KINDA_SMALL_NUMBER));
+
+				ChildActor->DetachFromActor(FDetachmentTransformRules(Rules, true));
+
+				// check we have expected values after detachment
+				Test->TestEqual<FVector>(TEXT("Parent location was affected by detachment"), ParentActor->GetActorLocation(), AttachTestConstants::ParentLocation);
+				Test->TestEqual<FQuat>(TEXT("Parent rotation was affected by detachment"), ParentActor->GetActorQuat(), AttachTestConstants::ParentRotation);
+				Test->TestEqual<FVector>(TEXT("Parent scale was affected by detachment"), ParentActor->GetActorScale3D(), AttachTestConstants::ParentScale);
+
+				// check we have expected transforms for each mode
+#if DUMP_EXPECTED_TRANSFORMS
+				UE_LOG(LogTemp, Log, TEXT("\t\t\tFTransform("));
+				UE_LOG(LogTemp, Log, TEXT("\t\t\t\tFQuat(%.8ff, %.8ff, %.8ff, %.8ff),"), ChildActor->GetActorQuat().X, ChildActor->GetActorQuat().Y, ChildActor->GetActorQuat().Z, ChildActor->GetActorQuat().W);
+				UE_LOG(LogTemp, Log, TEXT("\t\t\t\tFVector(%.8ff, %.8ff, %.8ff),"), ChildActor->GetActorLocation().X, ChildActor->GetActorLocation().Y, ChildActor->GetActorLocation().Z);
+				UE_LOG(LogTemp, Log, TEXT("\t\t\t\tFVector(%.8ff, %.8ff, %.8ff)"), ChildActor->GetActorScale3D().X, ChildActor->GetActorScale3D().Y, ChildActor->GetActorScale3D().Z);
+				UE_LOG(LogTemp, Log, TEXT("\t\t\t),"));
+#endif
+
+				Test->TestTrue(FString::Printf(TEXT("Child relative location was incorrect after detachment (was %s, should be %s)"), *ChildActor->GetActorLocation().ToString(), *ExpectedChildTransforms[RuleInteger0][RuleInteger1][RuleInteger2][1].GetLocation().ToString()), ChildActor->GetActorLocation().Equals(ExpectedChildTransforms[RuleInteger0][RuleInteger1][RuleInteger2][1].GetLocation(), KINDA_SMALL_NUMBER));
+				Test->TestTrue(FString::Printf(TEXT("Child relative rotation was incorrect after detachment (was %s, should be %s)"), *ChildActor->GetActorQuat().ToString(), *ExpectedChildTransforms[RuleInteger0][RuleInteger1][RuleInteger2][1].GetRotation().ToString()), ChildActor->GetActorQuat().Equals(ExpectedChildTransforms[RuleInteger0][RuleInteger1][RuleInteger2][1].GetRotation(), KINDA_SMALL_NUMBER));
+				Test->TestTrue(FString::Printf(TEXT("Child relative scale was incorrect after detachment (was %s, should be %s)"), *ChildActor->GetActorScale3D().ToString(), *ExpectedChildTransforms[RuleInteger0][RuleInteger1][RuleInteger2][1].GetScale3D().ToString()), ChildActor->GetActorScale3D().Equals(ExpectedChildTransforms[RuleInteger0][RuleInteger1][RuleInteger2][1].GetScale3D(), KINDA_SMALL_NUMBER));
+#if DUMP_EXPECTED_TRANSFORMS
+				UE_LOG(LogTemp, Log, TEXT("\t\t},"));
+#endif
+			}
+#if DUMP_EXPECTED_TRANSFORMS
+			UE_LOG(LogTemp, Log, TEXT("\t},"));
+#endif
+		}
+#if DUMP_EXPECTED_TRANSFORMS
+		UE_LOG(LogTemp, Log, TEXT("},"));
+#endif
+	}
+#endif // TEST_NEW_ATTACHMENTS
+}
+
+
+void AttachmentTest_SetupParentAndChild(UWorld* World, AActor*& InOutParentActor, AActor*& InOutChildActor)
+{
+	ADefaultPawn* ParentActor = NewObject<ADefaultPawn>(World->PersistentLevel);
+	ParentActor->SetActorLocation(AttachTestConstants::ParentLocation);
+	ParentActor->SetActorRotation(AttachTestConstants::ParentRotation);
+	ParentActor->SetActorScale3D(AttachTestConstants::ParentScale);
+
+	ADefaultPawn* ChildActor = NewObject<ADefaultPawn>(World->PersistentLevel);
+	ChildActor->SetActorLocation(AttachTestConstants::ChildLocation);
+	ChildActor->SetActorRotation(AttachTestConstants::ChildRotation);
+	ChildActor->SetActorScale3D(AttachTestConstants::ChildScale);
+
+	InOutParentActor = ParentActor;
+	InOutChildActor = ChildActor;
+}
+
+void AttachmentTest_AttachWhenNotAttached(UWorld* World, FAutomationTestBase* Test)
+{
+	AActor* ParentActor = nullptr;
+	AActor* ChildActor = nullptr;
+	AttachmentTest_SetupParentAndChild(World, ParentActor, ChildActor);
+
+	AttachmentTest_CommonTests(ParentActor, ChildActor, Test);
+}
+
+void AttachmentTest_AttachWhenAttached(UWorld* World, FAutomationTestBase* Test)
+{
+	ADefaultPawn* PreviousParentActor = NewObject<ADefaultPawn>(World->PersistentLevel);
+	PreviousParentActor->SetActorLocation(FVector::ZeroVector);
+	PreviousParentActor->SetActorRotation(FQuat::Identity);
+	PreviousParentActor->SetActorScale3D(FVector(1.0f));
+
+	AActor* ParentActor = nullptr;
+	AActor* ChildActor = nullptr;
+	AttachmentTest_SetupParentAndChild(World, ParentActor, ChildActor);
+
+#if TEST_DEPRECATED_ATTACHMENTS
+	PRAGMA_DISABLE_DEPRECATION_WARNINGS
+		ChildActor->AttachRootComponentToActor(PreviousParentActor, NAME_None, EAttachLocation::KeepWorldPosition, true);
+	PRAGMA_ENABLE_DEPRECATION_WARNINGS
+#else
+	ChildActor->AttachToActor(PreviousParentActor, FAttachmentTransformRules(EAttachmentRule::KeepWorld, false));
+#endif
+
+	AttachmentTest_CommonTests(ParentActor, ChildActor, Test);
+}
+
+bool FAutomationAttachment::RunTest(const FString& Parameters)
+{
+	UWorld *World = UWorld::CreateWorld(EWorldType::Game, false);
+	FWorldContext& WorldContext = GEngine->CreateNewWorldContext(EWorldType::Game);
+	WorldContext.SetCurrentWorld(World);
+
+	FURL URL;
+	World->InitializeActorsForPlay(URL);
+	World->BeginPlay();
+
+	AttachmentTest_AttachWhenNotAttached(World, this);
+	AttachmentTest_AttachWhenAttached(World, this);
+
+	GEngine->DestroyWorldContext(World);
+	World->DestroyWorld(false);
+
+	return true;
+}
+
+// ----------------------------------------------------------------------------------------------------------------
+
+#include "Matinee/MatineeActor.h"
+
+DEFINE_LATENT_AUTOMATION_COMMAND_ONE_PARAMETER(FWaitForMatineeToCompleteAndDoScreenshotsLatentCommand, AMatineeActor*, MatineeActor);
+
+bool FWaitForMatineeToCompleteAndDoScreenshotsLatentCommand::Update()
+{
+	bool bTestComplete = true;
+	if (MatineeActor)
+	{
+		bTestComplete = !MatineeActor->bIsPlaying;
+	}
+	return bTestComplete;
+}
+
+/**
+ * FRenderOutputValidation - render deterministic and compare results of multiple runs
+ */
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FRenderOutputValidation, "Rendering.RenderOutputValidation", EAutomationTestFlags::ClientContext | EAutomationTestFlags::EngineFilter)
+
+/** 
+ * render deterministic and compare results of multiple runs
+ *
+ * @param Parameters - Unused for this test
+ * @return	TRUE if the test was successful, FALSE otherwise
+ */
+bool FRenderOutputValidation::RunTest(const FString& Parameters)
+{
+	const bool bChangeResolution = false;
+	const bool bLoadMap = false;			// true doesn't work at the moment (iterate matinees needs to happen after loading the map)
+
+	//Gets the default map that the game uses.
+	const UGameMapsSettings* GameMapsSettings = GetDefault<UGameMapsSettings>();
+//	const FString& MapName = GameMapsSettings->GetGameDefaultMap();
+	const FString MapName = TEXT("ScreenshotsTest");
+
+	// to make sure the state of the FAutomationTestFramework is reset before we call the test
+	check(!FAutomationTestFramework::GetInstance().ShouldUseFullSizeScreenshots());
+
+	// request full res screenshots
+	FAutomationTestFramework::GetInstance().SetScreenshotOptions(true, true);
+
+	if(bLoadMap)
+	{
+		// Opens the actual default map in game.
+		GEngine->Exec(GetSimpleEngineAutomationTestGameWorld(GetTestFlags()), *FString::Printf(TEXT("Open %s"), *MapName));
+		ADD_LATENT_AUTOMATION_COMMAND(FEngineWaitLatentCommand(2.0f));
+	}
+
+	{
+		UConsole* ViewportConsole = (GEngine->GameViewport != nullptr) ? GEngine->GameViewport->ViewportConsole : nullptr;
+		FConsoleOutputDevice StrOut(ViewportConsole);
+
+		StrOut.Logf(TEXT("FRenderOutputValidation:Runtest()"));
+	}
+
+	// Gets the current resolution.
+	FString RestoreResolutionString = FString::Printf(TEXT("setres %dx%d"), GSystemResolution.ResX, GSystemResolution.ResY);
+
+	if(bChangeResolution)
+	{
+		// Change the resolution
+		ADD_LATENT_AUTOMATION_COMMAND(FExecStringLatentCommand(TEXT("setres 640x480")));
+		ADD_LATENT_AUTOMATION_COMMAND(FEngineWaitLatentCommand(2.0f));
+	}
+	// 5 sec should be enough, if more is needed - we should investigate
+	ADD_LATENT_AUTOMATION_COMMAND(FStreamAllResourcesLatentCommand(5.0f));
+
+//later	ADD_LATENT_AUTOMATION_COMMAND(FBuildLightingCommand);
+
+	// streaming should not be distributing it's work over multiple frames - to be more deterministic
+	ADD_LATENT_AUTOMATION_COMMAND(FExecWorldStringLatentCommand(TEXT("r.Streaming.FramesForFullUpdate 0")));
+
+	// reset all data in the ViewState e.g. TemporalAA, SSR cyclic counter, TemporalAA images
+	ADD_LATENT_AUTOMATION_COMMAND(FExecWorldStringLatentCommand(TEXT("r.ResetViewState")));
+
+	// this needs to be improved: better thank hanging would be to render frames (showing the user that it waits on something)
+	ADD_LATENT_AUTOMATION_COMMAND(FWaitForShadersToFinishCompilingInGame);
+
+	if( FAutomationTestFramework::GetInstance().IsScreenshotAllowed() )
+	{
+		for (TObjectIterator<AMatineeActor> It; It; ++It)
+		{
+			AMatineeActor* MatineeActor = *It;
+
+			FString Name;
+			MatineeActor->GetName(Name);
+
+			if(Name.Contains(TEXT("Automation")))
+			{
+				UE_LOG(LogEngineAutomationTests, Log, TEXT("Iterated matinee: %p '%s'"), MatineeActor, *MatineeActor->GetName())
+
+				//add latent action to execute this matinee
+				ADD_LATENT_AUTOMATION_COMMAND(FPlayMatineeLatentCommand(MatineeActor));
+
+				//Run the Stat FPS Chart command
+		//			ADD_LATENT_AUTOMATION_COMMAND(FExecWorldStringLatentCommand(TEXT("StartFPSChart")));
+
+				//add action to wait until matinee is complete
+				ADD_LATENT_AUTOMATION_COMMAND(FWaitForMatineeToCompleteAndDoScreenshotsLatentCommand(MatineeActor));
+
+				//Stop the Stat FPS Chart command
+		//			ADD_LATENT_AUTOMATION_COMMAND(FExecWorldStringLatentCommand(TEXT("StopFPSChart")));
+			}
+		}
+	}
+
+	if(bChangeResolution)
+	{
+		// restore the resolution
+		ADD_LATENT_AUTOMATION_COMMAND(FExecStringLatentCommand(RestoreResolutionString));
+	}
+
 	return true;
 }
 

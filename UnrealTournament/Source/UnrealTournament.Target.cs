@@ -2,24 +2,33 @@
 
 using UnrealBuildTool;
 using System.Collections.Generic;
+using System.IO;
 
 public class UnrealTournamentTarget : TargetRules
 {
+    bool IsLicenseeBuild()
+    {
+        return !Directory.Exists("Runtime/NotForLicensees");
+    }
+
 	public UnrealTournamentTarget(TargetInfo Target)
 	{
         Type = TargetType.Game;
 
         bUsesCEF3 = true;
 
-        // Turn on shipping logging
+        // Turn on shipping checks and logging
         UEBuildConfiguration.bUseLoggingInShipping = true;
+        UEBuildConfiguration.bUseChecksInShipping = true;
         UEBuildConfiguration.bCompileBox2D = false;
-	}
+    }
 
     //
     // TargetRules interface.
     //
-    public override bool ConfigureToolchain(TargetInfo Target)
+
+    
+	public override bool ConfigureToolchain(TargetInfo Target)
     {
         if (Target.Platform == UnrealTargetPlatform.Win32 || Target.Platform == UnrealTargetPlatform.Win64)
         {
@@ -28,7 +37,7 @@ public class UnrealTournamentTarget : TargetRules
         return true;
     }
 	
-    public override void SetupBinaries(
+	public override void SetupBinaries(
 		TargetInfo Target,
 		ref List<UEBuildBinaryConfiguration> OutBuildBinaryConfigurations,
 		ref List<string> OutExtraModuleNames
@@ -40,7 +49,8 @@ public class UnrealTournamentTarget : TargetRules
         {
             OutExtraModuleNames.Add("UnrealTournamentEditor");
         }
-		if (UEBuildConfiguration.bCompileMcpOSS == true)
+
+        if (!IsLicenseeBuild())
 		{
 			OutExtraModuleNames.Add("OnlineSubsystemMcp");
         }

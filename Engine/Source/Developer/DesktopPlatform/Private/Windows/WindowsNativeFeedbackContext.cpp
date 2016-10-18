@@ -2,6 +2,7 @@
 
 #include "DesktopPlatformPrivatePCH.h"
 #include "WindowsNativeFeedbackContext.h"
+#include "HAL/ThreadHeartBeat.h"
 
 #include "AllowWindowsPlatformTypes.h"
 
@@ -38,14 +39,14 @@ void FWindowsNativeFeedbackContext::Serialize( const TCHAR* V, ELogVerbosity::Ty
 		{
 			Prefix = Context->GetContext() + TEXT(" : ");
 		}
-		FString Format = Prefix + FOutputDevice::FormatLogLine(Verbosity, Category, V);
+		FString Format = Prefix + FOutputDeviceHelper::FormatLogLine(Verbosity, Category, V);
 
 		if(Verbosity == ELogVerbosity::Error)
 		{
 			// Only store off the message if running a commandlet.
 			if ( IsRunningCommandlet() )
 			{
-				Errors.Add(Format);
+				AddError(Format);
 			}
 		}
 		else
@@ -53,7 +54,7 @@ void FWindowsNativeFeedbackContext::Serialize( const TCHAR* V, ELogVerbosity::Ty
 			// Only store off the message if running a commandlet.
 			if ( IsRunningCommandlet() )
 			{
-				Warnings.Add(Format);
+				AddWarning(Format);
 			}
 		}
 	}
@@ -85,6 +86,7 @@ VARARG_BODY( bool, FWindowsNativeFeedbackContext::YesNof, const TCHAR*, VARARG_N
 	GET_VARARGS( TempStr, ARRAY_COUNT(TempStr), ARRAY_COUNT(TempStr)-1, Fmt, Fmt );
 	if( ( GIsClient || GIsEditor ) && ( ( GIsSilent != true ) && ( FApp::IsUnattended() != true ) ) )
 	{
+		FSlowHeartBeatScope SuspendHeartBeat;
 		return( ::MessageBox( NULL, TempStr, *NSLOCTEXT("Core", "Question", "Question").ToString(), MB_YESNO|MB_TASKMODAL ) == IDYES);
 	}
 	else

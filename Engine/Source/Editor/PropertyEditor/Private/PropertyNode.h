@@ -54,7 +54,7 @@ namespace FPropertyNodeConstants
 	const int32 NoDepthRestrictions = -1;
 
 	/** Character used to deliminate sub-categories in category path names */
-	const TCHAR CategoryDelimiterChar = TCHAR( ',' );
+	const TCHAR CategoryDelimiterChar = TCHAR( '|' );
 };
 
 class FPropertySettings
@@ -110,7 +110,12 @@ public:
 	uint8* GetAddress( int32 Index )
 	{
 		const FAddressPair& Pair = ReadAddresses[Index];
-		return (Pair.Object.IsValid() || Pair.bIsStruct) ? Pair.ReadAddress : NULL;
+		return (Pair.Object.IsValid() || Pair.bIsStruct) ? Pair.ReadAddress : 0;
+	}
+
+	bool IsValidIndex( int32 Index ) const
+	{
+		return ReadAddresses.IsValidIndex(Index);
 	}
 
 	void Reset()
@@ -134,22 +139,27 @@ class FReadAddressList
 	friend class FPropertyNode;
 public:
 	FReadAddressList()
-		: ReadAddressListData( NULL )
+		: ReadAddressListData(nullptr)
 	{}
 
 	int32 Num() const
 	{
-		return (ReadAddressListData != NULL) ? ReadAddressListData->Num() : 0;
+		return (ReadAddressListData != nullptr) ? ReadAddressListData->Num() : 0;
 	}
 
 	uint8* GetAddress( int32 Index )
 	{
 		return ReadAddressListData->GetAddress( Index );
 	}
+	
+	bool IsValidIndex( int32 Index ) const
+	{
+		return ReadAddressListData->IsValidIndex( Index );
+	}
 
 	void Reset()
 	{
-		if (ReadAddressListData != NULL)
+		if (ReadAddressListData != nullptr)
 		{
 			ReadAddressListData->Reset();
 		}
@@ -184,8 +194,8 @@ struct FPropertyNodeInitParams
 	bool bCreateDisableEditOnInstanceNodes;
 
 	FPropertyNodeInitParams()
-		: ParentNode( NULL )
-		, Property( NULL )
+		: ParentNode(nullptr)
+		, Property(nullptr)
 		, ArrayOffset(0)
 		, ArrayIndex( INDEX_NONE )
 		, bAllowChildren( true )
@@ -216,26 +226,26 @@ struct EPropertyArrayChangeType
 
 class FComplexPropertyNode;
 
+enum EPropertyDataValidationResult : uint8
+{
+	/** The object(s) being viewed are now invalid */
+	ObjectInvalid,
+	/** Non dynamic array property nodes were added or removed that would require a refresh */
+	PropertiesChanged,
+	/** An edit inline new value changed,  In the tree this rebuilds the nodes, in the details view we don't need to do this */
+	EditInlineNewValueChanged,
+	/** The size of an array changed (delete,insert,add) */
+	ArraySizeChanged,
+	/** All data is valid */
+	DataValid,
+};
+
 /**
  * The base class for all property nodes                                                              
  */
 class FPropertyNode : public TSharedFromThis<FPropertyNode>
 {
 public:
-
-	enum DataValidationResult
-	{
-		/** The object(s) being viewed are now invalid */
-		ObjectInvalid,
-		/** Non dynamic array property nodes were added or removed that would require a refresh */
-		PropertiesChanged,
-		/** An edit inline new value changed,  In the tree this rebuilds the nodes, in the details view we don't need to do this */
-		EditInlineNewValueChanged,
-		/** The size of an array changed (delete,insert,add) */
-		ArraySizeChanged,
-		/** All data is valid */
-		DataValid,
-	};
 
 	FPropertyNode(void);
 	virtual ~FPropertyNode(void);
@@ -269,21 +279,21 @@ public:
 	/**
 	 * Interface function to get at the dervied FObjectPropertyNodeWx class
 	 */
-	virtual class FObjectPropertyNode* AsObjectNode() { return NULL; }
-	virtual const FObjectPropertyNode* AsObjectNode() const { return NULL; }
+	virtual class FObjectPropertyNode* AsObjectNode() { return nullptr; }
+	virtual const FObjectPropertyNode* AsObjectNode() const { return nullptr; }
 
-	virtual FComplexPropertyNode* AsComplexNode() { return NULL; }
-	virtual const FComplexPropertyNode* AsComplexNode() const { return NULL; }
+	virtual FComplexPropertyNode* AsComplexNode() { return nullptr; }
+	virtual const FComplexPropertyNode* AsComplexNode() const { return nullptr; }
 
 	/**
 	 * Interface function to get at the dervied FCategoryPropertyNodeWx class
 	 */
-	virtual class FCategoryPropertyNode* AsCategoryNode() { return NULL; }
+	virtual class FCategoryPropertyNode* AsCategoryNode() { return nullptr; }
 
 	/**
 	 * Interface function to get at the dervied FItemPropertyNodeWx class
 	 */
-	virtual class FItemPropertyNode* AsItemPropertyNode() { return NULL; }
+	virtual class FItemPropertyNode* AsItemPropertyNode() { return nullptr; }
 
 	/**
 	 * Follows the chain of items upwards until it finds the object window that houses this item.
@@ -302,7 +312,7 @@ public:
 	/** 
 	 * Used to see if any data has been destroyed from under the property tree.  Should only be called during Tick
 	 */
-	FPropertyNode::DataValidationResult EnsureDataIsValid();
+	EPropertyDataValidationResult EnsureDataIsValid();
 
 	//////////////////////////////////////////////////////////////////////////
 	//Flags
@@ -325,8 +335,8 @@ public:
 	/**
 	 * Returns the parent node in the hierarchy
 	 */
-	FPropertyNode*			GetParentNode()			{ return ParentNodeWeakPtr.IsValid() ? ParentNodeWeakPtr.Pin().Get() : NULL; }
-	const FPropertyNode*	GetParentNode() const	{ return ParentNodeWeakPtr.IsValid() ? ParentNodeWeakPtr.Pin().Get() : NULL; }
+	FPropertyNode*			GetParentNode()			{ return ParentNodeWeakPtr.IsValid() ? ParentNodeWeakPtr.Pin().Get() : nullptr; }
+	const FPropertyNode*	GetParentNode() const	{ return ParentNodeWeakPtr.IsValid() ? ParentNodeWeakPtr.Pin().Get() : nullptr; }
 	TSharedPtr<FPropertyNode> GetParentNodeSharedPtr() { return ParentNodeWeakPtr.Pin(); }
 	/**
 	 * Returns the Property this Node represents
@@ -393,7 +403,7 @@ public:
 	/** 
 	 * Gets read addresses without accessing cached data.  Is less efficient but gets the must up to date data 
 	 */
-	virtual bool GetReadAddressUncached(FPropertyNode& InNode, bool InRequiresSingleSelection, FReadAddressListData& OutAddresses, bool bComparePropertyContents = true, bool bObjectForceCompare = false, bool bArrayPropertiesCanDifferInSize = false) const;
+	virtual bool GetReadAddressUncached(FPropertyNode& InNode, bool InRequiresSingleSelection, FReadAddressListData* OutAddresses, bool bComparePropertyContents = true, bool bObjectForceCompare = false, bool bArrayPropertiesCanDifferInSize = false) const;
 	virtual bool GetReadAddressUncached(FPropertyNode& InNode, FReadAddressListData& OutAddresses) const;
 
 	/**
@@ -417,6 +427,26 @@ public:
 	 * Sets the display name override to use instead of the display name
 	 */
 	virtual void SetDisplayNameOverride( const FText& InDisplayNameOverride ) {}
+
+	/**
+	* @return true if the property is mark as a favorite
+	*/
+	virtual void SetFavorite(bool FavoriteValue) {}
+
+	/**
+	* @return true if the property is mark as a favorite
+	*/
+	virtual bool IsFavorite() const { return false; }
+
+	/**
+	* Set the permission to display the favorite icon
+	*/
+	virtual void SetCanDisplayFavorite(bool CanDisplayFavoriteIcon) {}
+
+	/**
+	* Set the permission to display the favorite icon
+	*/
+	virtual bool CanDisplayFavorite() const { return false; }
 
 	/**
 	 * @return The formatted display name for the property in this node                                                              
@@ -516,9 +546,16 @@ public:
 	{
 		TArray< FPropertyInfo > Properties;
 		FPropertyNode* CurrentNode = &PropertyNode.Get();
-		while ( CurrentNode != NULL )
+
+		if(CurrentNode != nullptr && CurrentNode->AsCategoryNode() != nullptr)
 		{
-			if ( CurrentNode->AsItemPropertyNode() != NULL )
+			TSharedRef< FPropertyPath > NewPath = MakeShareable(new FPropertyPath());
+			return NewPath;
+		}
+
+		while (CurrentNode != nullptr)
+		{
+			if (CurrentNode->AsItemPropertyNode() != nullptr)
 			{
 				FPropertyInfo NewPropInfo;
 				NewPropInfo.Property = CurrentNode->GetProperty();
@@ -564,7 +601,7 @@ public:
 				{
 					const TSharedPtr< FPropertyNode > ChildNode = CurrentNode->GetChildNode( ChildIndex );
 
-					if ( ChildNode->AsItemPropertyNode() == NULL )
+					if ( ChildNode->AsItemPropertyNode() == nullptr)
 					{
 						ChildrenStack.Add( ChildNode.ToSharedRef() );
 					}
@@ -582,7 +619,7 @@ public:
 
 		if ( FailedToFindProperty )
 		{
-			PropertyNode = NULL;
+			PropertyNode = nullptr;
 		}
 
 		return PropertyNode;
@@ -603,7 +640,7 @@ public:
 		{
 			TSharedPtr< FPropertyNode > CurrentNode = PropertyNode->GetChildNode( ChildIndex );
 
-			if ( CurrentNode.IsValid() && CurrentNode->AsItemPropertyNode() != NULL )
+			if ( CurrentNode.IsValid() && CurrentNode->AsItemPropertyNode() != nullptr)
 			{
 				FPropertyInfo NewPropInfo;
 				NewPropInfo.Property = CurrentNode->GetProperty();
@@ -675,6 +712,12 @@ public:
 	 */
 	const FString* GetInstanceMetaData(const FName& Key) const;
 
+	bool ParentOrSelfHasMetaData(const FName& MetaDataKey) const;
+
+	/**
+	 * Invalidates the cached state of this node in all children;
+	 */
+	void InvalidateCachedState();
 protected:
 
 	TSharedRef<FEditPropertyChain> BuildPropertyChain( UProperty* PropertyAboutToChange );
@@ -709,7 +752,7 @@ protected:
 	void ExpandParent( bool bInRecursive );
 
 	/** @return		The property stored at this node, to be passed to Pre/PostEditChange. */
-	UProperty*		GetStoredProperty()		{ return NULL; }
+	UProperty*		GetStoredProperty()		{ return nullptr; }
 
 	bool GetDiffersFromDefaultForObject( FPropertyItemValueDataTrackerSlate& ValueTracker, UProperty* InProperty );
 
@@ -742,9 +785,15 @@ protected:
 	 * @param ObjIndex	The index of the object in the parent property node's object array (for caching)
 	 */
 	TSharedPtr< FPropertyItemValueDataTrackerSlate > GetValueTracker( UObject* Object, uint32 ObjIndex );
+
+	/**
+	 * Updates and caches the current edit const state of this property
+	 */
+	void UpdateEditConstState();
+
 protected:
 	/**
-	 * The node that is the parent of this node or NULL for the root
+	 * The node that is the parent of this node or nullptr for the root
 	 */
 	TWeakPtr<FPropertyNode> ParentNodeWeakPtr;
 	//@todo consolidate with ParentNodeWeakPtr, ParentNode is legacy
@@ -803,6 +852,20 @@ protected:
 	 * to regular metadata, which is stored per-class)
 	 */
 	TMap<FName, FString> InstanceMetaData;
+
+	/**
+	* The property path for this property
+	*/
+	FString PropertyPath;
+
+	/**
+	* Cached state of flags that are expensive to update
+	* These update when values are changed in the details panel
+	*/
+	mutable bool bIsEditConst;
+	mutable bool bUpdateEditConstState;
+	mutable bool bDiffersFromDefault;
+	mutable bool bUpdateDiffersFromDefault;
 };
 
 class FComplexPropertyNode : public FPropertyNode
@@ -820,6 +883,9 @@ public:
 
 	virtual FComplexPropertyNode* AsComplexNode() override{ return this; }
 	virtual const FComplexPropertyNode* AsComplexNode() const override{ return this; }
+
+	virtual class FStructurePropertyNode* AsStructureNode() { return nullptr; }
+	virtual const FStructurePropertyNode* AsStructureNode() const { return nullptr; }
 
 	virtual UStruct* GetBaseStructure() = 0;
 	virtual const UStruct* GetBaseStructure() const = 0;

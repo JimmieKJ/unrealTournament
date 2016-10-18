@@ -35,10 +35,13 @@ IMPLEMENT_APPLICATION(CrashReportClient, "CrashReportClient");
 DEFINE_LOG_CATEGORY(CrashReportClientLog);
 
 /** Directory containing the report */
-static FString ReportDirectoryAbsolutePath;
+static TArray<FString> FoundReportDirectoryAbsolutePaths;
 
 /** Name of the game passed via the command line. */
 static FString GameNameFromCmd;
+
+/** GUID of the crash passed via the command line. */
+static FString CrashGUIDFromCmd;
 
 /**
  * Look for the report to upload, either in the command line or in the platform's report queue
@@ -46,6 +49,8 @@ static FString GameNameFromCmd;
 void ParseCommandLine(const TCHAR* CommandLine)
 {
 	const TCHAR* CommandLineAfterExe = FCommandLine::RemoveExeName(CommandLine);
+
+	FoundReportDirectoryAbsolutePaths.Empty();
 
 	// Use the first argument if present and it's not a flag
 	if (*CommandLineAfterExe)
@@ -81,15 +86,21 @@ void ParseCommandLine(const TCHAR* CommandLine)
 
 		if (Tokens.Num() > 0)
 		{
-			ReportDirectoryAbsolutePath = Tokens[0];
+			FoundReportDirectoryAbsolutePaths.Add(Tokens[0]);
 		}
 
-		GameNameFromCmd = Params.FindRef("AppName");
+		GameNameFromCmd = Params.FindRef(TEXT("AppName"));
+
+		CrashGUIDFromCmd = FString();
+		if (Params.Contains(TEXT("CrashGUID")))
+		{
+			CrashGUIDFromCmd = Params.FindRef(TEXT("CrashGUID"));
+		}
 	}
 
-	if (ReportDirectoryAbsolutePath.IsEmpty())
+	if (FoundReportDirectoryAbsolutePaths.Num() == 0)
 	{
-		ReportDirectoryAbsolutePath = FPlatformErrorReport::FindMostRecentErrorReport();
+		FPlatformErrorReport::FindMostRecentErrorReports(FoundReportDirectoryAbsolutePaths, FTimespan::FromDays(30));  //FTimespan::FromMinutes(30));
 	}
 }
 
@@ -98,40 +109,186 @@ void ParseCommandLine(const TCHAR* CommandLine)
  */
 FPlatformErrorReport LoadErrorReport()
 {
-	if (ReportDirectoryAbsolutePath.IsEmpty())
+	if (FoundReportDirectoryAbsolutePaths.Num() == 0)
 	{
 		UE_LOG(CrashReportClientLog, Warning, TEXT("No error report found"));
 		return FPlatformErrorReport();
 	}
 
-	FPlatformErrorReport ErrorReport(ReportDirectoryAbsolutePath);
+	for (const FString& ReportDirectoryAbsolutePath : FoundReportDirectoryAbsolutePaths)
+	{
+		FPlatformErrorReport ErrorReport(ReportDirectoryAbsolutePath);
 
-	FString Filename;
-	// CrashContext.runtime-xml has the precedence over the WER
-	if (ErrorReport.FindFirstReportFileWithExtension( Filename, *FGenericCrashContext::CrashContextExtension ))
-	{
-		FPrimaryCrashProperties::Set( new FCrashContext( ReportDirectoryAbsolutePath / Filename ) );
-	}
-	else if (ErrorReport.FindFirstReportFileWithExtension( Filename, TEXT( ".xml" ) ))
-	{
-		FPrimaryCrashProperties::Set( new FCrashWERContext( ReportDirectoryAbsolutePath / Filename ) );
-	}
-	else
-	{
-		UE_LOG(CrashReportClientLog, Warning, TEXT("No error report found"));
-		return FPlatformErrorReport();
-	}
+		FString Filename;
+		// CrashContext.runtime-xml has the precedence over the WER
+		if (ErrorReport.FindFirstReportFileWithExtension(Filename, *FGenericCrashContext::CrashContextExtension))
+		{
+			FPrimaryCrashProperties::Set(new FCrashContext(ReportDirectoryAbsolutePath / Filename));
+		}
+		else if (ErrorReport.FindFirstReportFileWithExtension(Filename, TEXT(".xml")))
+		{
+			FPrimaryCrashProperties::Set(new FCrashWERContext(ReportDirectoryAbsolutePath / Filename));
+		}
+		else
+		{
+			continue;
+		}
 
 #if CRASH_REPORT_UNATTENDED_ONLY
-	return ErrorReport;
+		return ErrorReport;
 #else
-	if (!GameNameFromCmd.IsEmpty() && GameNameFromCmd != FPrimaryCrashProperties::Get()->GameName)
-	{
-		// Don't display or upload anything if it's not the report we expected
-		ErrorReport = FPlatformErrorReport();
-	}
-	return ErrorReport;
+		bool NameMatch = false;
+		if (GameNameFromCmd.IsEmpty() || GameNameFromCmd == FPrimaryCrashProperties::Get()->GameName)
+		{
+			NameMatch = true;
+		}
+
+		bool GUIDMatch = false;
+		if (CrashGUIDFromCmd.IsEmpty() || CrashGUIDFromCmd == FPrimaryCrashProperties::Get()->CrashGUID)
+		{
+			GUIDMatch = true;
+		}
+
+		if (NameMatch && GUIDMatch)
+		{
+			FString ConfigFilename;
+			if (ErrorReport.FindFirstReportFileWithExtension(ConfigFilename, *FGenericCrashContext::CrashConfigExtension))
+			{
+				FConfigFile CrashConfigFile;
+				CrashConfigFile.Read(ReportDirectoryAbsolutePath / ConfigFilename);
+				FCrashReportClientConfig::Get().SetProjectConfigOverrides(CrashConfigFile);
+			}
+
+			return ErrorReport;
+		}
 #endif
+	}
+
+	// Don't display or upload anything if we can't find the report we expected
+	return FPlatformErrorReport();
+}
+
+static void OnRequestExit()
+{
+	GIsRequestingExit = true;
+}
+
+#if !CRASH_REPORT_UNATTENDED_ONLY
+bool RunWithUI(FPlatformErrorReport ErrorReport)
+{
+	// create the platform slate application (what FSlateApplication::Get() returns)
+	TSharedRef<FSlateApplication> Slate = FSlateApplication::Create(MakeShareable(FPlatformMisc::CreateApplication()));
+
+	// initialize renderer
+	TSharedRef<FSlateRenderer> SlateRenderer = GetStandardStandaloneRenderer();
+
+	// Grab renderer initialization retry settings from ini
+	int32 SlateRendererInitRetryCount = 10;
+	GConfig->GetInt(TEXT("CrashReportClient"), TEXT("UIInitRetryCount"), SlateRendererInitRetryCount, GEngineIni);
+	double SlateRendererInitRetryInterval = 2.0;
+	GConfig->GetDouble(TEXT("CrashReportClient"), TEXT("UIInitRetryInterval"), SlateRendererInitRetryInterval, GEngineIni);
+
+	// Try to initialize the renderer. It's possible that we launched when the driver crashed so try a few times before giving up.
+	bool bRendererInitialized = false;
+	bool bRendererFailedToInitializeAtLeastOnce = false;
+	do 
+	{
+		SlateRendererInitRetryCount--;
+		bRendererInitialized = FSlateApplication::Get().InitializeRenderer(SlateRenderer, true);
+		if (!bRendererInitialized && SlateRendererInitRetryCount > 0)
+		{
+			bRendererFailedToInitializeAtLeastOnce = true;
+			FPlatformProcess::Sleep(SlateRendererInitRetryInterval);
+		}
+	} while (!bRendererInitialized && SlateRendererInitRetryCount > 0);
+
+	if (!bRendererInitialized)
+	{
+		// Close down the Slate application
+		FSlateApplication::Shutdown();
+		return false;
+	}
+	else if (bRendererFailedToInitializeAtLeastOnce)
+	{
+		// Wait until the driver is fully restored
+		FPlatformProcess::Sleep(2.0f);
+
+		// Update the display metrics
+		FDisplayMetrics DisplayMetrics;
+		FDisplayMetrics::GetDisplayMetrics(DisplayMetrics);
+		FSlateApplication::Get().GetPlatformApplication()->OnDisplayMetricsChanged().Broadcast(DisplayMetrics);
+	}
+
+	// Set up the main ticker
+	FMainLoopTiming MainLoop(IdealTickRate, EMainLoopOptions::UsingSlate);
+
+	// set the normal UE4 GIsRequestingExit when outer frame is closed
+	FSlateApplication::Get().SetExitRequestedHandler(FSimpleDelegate::CreateStatic(&OnRequestExit));
+
+	// Prepare the custom Slate styles
+	FCrashReportClientStyle::Initialize();
+
+	// Create the main implementation object
+	TSharedRef<FCrashReportClient> CrashReportClient = MakeShareable(new FCrashReportClient(ErrorReport));
+
+	// open up the app window	
+	TSharedRef<SCrashReportClient> ClientControl = SNew(SCrashReportClient, CrashReportClient);
+
+	auto Window = FSlateApplication::Get().AddWindow(
+		SNew(SWindow)
+		.Title(NSLOCTEXT("CrashReportClient", "CrashReportClientAppName", "Unreal Engine 4 Crash Reporter"))
+		.HasCloseButton(FCrashReportClientConfig::Get().IsAllowedToCloseWithoutSending())
+		.ClientSize(InitialWindowDimensions)
+		[
+			ClientControl
+		]);
+
+	Window->SetRequestDestroyWindowOverride(FRequestDestroyWindowOverride::CreateSP(CrashReportClient, &FCrashReportClient::RequestCloseWindow));
+
+	// Setting focus seems to have to happen after the Window has been added
+	FSlateApplication::Get().ClearKeyboardFocus(EFocusCause::Cleared);
+
+	// Debugging code
+	if (RunWidgetReflector)
+	{
+		FModuleManager::LoadModuleChecked<ISlateReflectorModule>("SlateReflector").DisplayWidgetReflector();
+	}
+
+	// loop until the app is ready to quit
+	while (!GIsRequestingExit)
+	{
+		MainLoop.Tick();
+
+		if (CrashReportClient->ShouldWindowBeHidden())
+		{
+			Window->HideWindow();
+		}
+	}
+
+	// Clean up the custom styles
+	FCrashReportClientStyle::Shutdown();
+
+	// Close down the Slate application
+	FSlateApplication::Shutdown();
+
+	return true;
+}
+#endif // !CRASH_REPORT_UNATTENDED_ONLY
+
+void RunUnattended(FPlatformErrorReport ErrorReport)
+{
+	// Set up the main ticker
+	FMainLoopTiming MainLoop(IdealTickRate, EMainLoopOptions::CoreTickerOnly);
+
+	// In the unattended mode we don't send any PII.
+	FCrashReportClientUnattended CrashReportClient(ErrorReport);
+	ErrorReport.SetUserComment(NSLOCTEXT("CrashReportClient", "UnattendedMode", "Sent in the unattended mode"));
+
+	// loop until the app is ready to quit
+	while (!GIsRequestingExit)
+	{
+		MainLoop.Tick();
+	}
 }
 
 
@@ -153,9 +310,6 @@ void RunCrashReportClient(const TCHAR* CommandLine)
 		FApp::IsUnattended();
 #endif // CRASH_REPORT_UNATTENDED_ONLY
 
-	// Set up the main ticker
-	FMainLoopTiming MainLoop(IdealTickRate, bUnattended ? EMainLoopOptions::CoreTickerOnly : EMainLoopOptions::UsingSlate);
-
 	// Find the report to upload in the command line arguments
 	ParseCommandLine(CommandLine);
 
@@ -163,83 +317,44 @@ void RunCrashReportClient(const TCHAR* CommandLine)
 	GConfig->SetFloat(TEXT("HTTP"), TEXT("HttpSendTimeout"), 5*60.0f, GEngineIni);
 
 	FPlatformErrorReport::Init();
-	auto ErrorReport = LoadErrorReport();
+	FPlatformErrorReport ErrorReport = LoadErrorReport();
 	
 	if (ErrorReport.HasFilesToUpload() && FPrimaryCrashProperties::Get() != nullptr)
 	{
+		ErrorReport.SetCrashReportClientVersion(FCrashReportClientConfig::Get().GetVersion());
+
 		FCrashReportAnalytics::Initialize();
 		FQoSReporter::Initialize();
 		FQoSReporter::SetBackendDeploymentName(FPrimaryCrashProperties::Get()->DeploymentName);
 
 		if (bUnattended)
 		{
-			// In the unattended mode we don't send any PII.
-			FCrashReportClientUnattended CrashReportClient(ErrorReport);
-			ErrorReport.SetUserComment(NSLOCTEXT("CrashReportClient", "UnattendedMode", "Sent in the unattended mode"));
-
-			// loop until the app is ready to quit
-			while (!GIsRequestingExit)
-			{
-				MainLoop.Tick();
-			}
+			RunUnattended(ErrorReport);
 		}
+#if !CRASH_REPORT_UNATTENDED_ONLY
 		else
 		{
-#if !CRASH_REPORT_UNATTENDED_ONLY
-			// crank up a normal Slate application using the platform's standalone renderer
-			FSlateApplication::InitializeAsStandaloneApplication(GetStandardStandaloneRenderer());
-
-			// Prepare the custom Slate styles
-			FCrashReportClientStyle::Initialize();
-
-			// Create the main implementation object
-			TSharedRef<FCrashReportClient> CrashReportClient = MakeShareable(new FCrashReportClient(ErrorReport));
-
-			// open up the app window	
-			TSharedRef<SCrashReportClient> ClientControl = SNew(SCrashReportClient, CrashReportClient);
-
-			auto Window = FSlateApplication::Get().AddWindow(
-				SNew(SWindow)
-				.Title(NSLOCTEXT("CrashReportClient", "CrashReportClientAppName", "Unreal Engine 4 Crash Reporter"))
-				.HasCloseButton(FCrashReportClientConfig::Get().IsAllowedToCloseWithoutSending())
-				.ClientSize(InitialWindowDimensions)
-				[
-					ClientControl
-				]);
-
-			Window->SetRequestDestroyWindowOverride(FRequestDestroyWindowOverride::CreateSP(CrashReportClient, &FCrashReportClient::RequestCloseWindow));
-
-			// Setting focus seems to have to happen after the Window has been added
-			FSlateApplication::Get().ClearKeyboardFocus(EFocusCause::Cleared);
-
-			// Debugging code
-			if (RunWidgetReflector)
+			if (!RunWithUI(ErrorReport))
 			{
-				FModuleManager::LoadModuleChecked<ISlateReflectorModule>("SlateReflector").DisplayWidgetReflector();
-			}
-
-			// loop until the app is ready to quit
-			while (!GIsRequestingExit)
-			{
-				MainLoop.Tick();
-
-				if (CrashReportClient->ShouldWindowBeHidden())
+				// UI failed to initialize, probably due to driver crash. Send in unattended mode if allowed.
+				bool bCanSendWhenUIFailedToInitialize = true;
+				GConfig->GetBool(TEXT("CrashReportClient"), TEXT("CanSendWhenUIFailedToInitialize"), bCanSendWhenUIFailedToInitialize, GEngineIni);
+				if (bCanSendWhenUIFailedToInitialize && !FCrashReportClientConfig::Get().IsAllowedToCloseWithoutSending())
 				{
-					Window->HideWindow();
+					RunUnattended(ErrorReport);
 				}
 			}
-
-			// Clean up the custom styles
-			FCrashReportClientStyle::Shutdown();
-
-			// Close down the Slate application
-			FSlateApplication::Shutdown();
-#endif // !CRASH_REPORT_UNATTENDED_ONLY
 		}
+#endif // !CRASH_REPORT_UNATTENDED_ONLY
 
 		// Shutdown analytics.
 		FCrashReportAnalytics::Shutdown();
 		FQoSReporter::Shutdown();
+	}
+	else
+	{
+		// Needed to let systems that are shutting down that we are shutting down by request
+		GIsRequestingExit = true;
 	}
 
 	FPrimaryCrashProperties::Shutdown();

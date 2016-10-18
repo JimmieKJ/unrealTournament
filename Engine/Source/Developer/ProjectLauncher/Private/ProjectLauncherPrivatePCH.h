@@ -89,6 +89,8 @@ static TSharedRef<SButton> MakeImageButton( const FSlateBrush* ButtonImage, cons
 #include "SProjectLauncherPackagingSettings.h"
 #include "SProjectLauncherPackagePage.h"
 
+#include "SProjectLauncherArchivePage.h"
+
 #include "SProjectLauncherPreviewPage.h"
 
 #include "SProjectLauncherTaskListRow.h"

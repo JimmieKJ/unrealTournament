@@ -1,5 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
+#pragma once
+
 #include "AutomationWindow.h"
 
 
@@ -30,3 +32,8 @@
 #include "SAutomationWindow.h"
 #include "SAutomationTestItemContextMenu.h"
 #include "SAutomationTestItem.h"
+
+#if WITH_EDITOR
+#include "UnrealEd.h"
+#include "AssetRegistryModule.h"
+#endif

@@ -81,14 +81,14 @@ bool FEnvQueryInstance::PrepareContext(UClass* Context, TArray<FEnvQuerySpatialD
 	{
 		UEnvQueryItemType_VectorBase* DefTypeOb = (UEnvQueryItemType_VectorBase*)ContextData.ValueType->GetDefaultObject();
 		const uint16 DefTypeValueSize = DefTypeOb->GetValueSize();
-		uint8* RawData = ContextData.RawData.GetData();
+		uint8* ContextRawData = ContextData.RawData.GetData();
 
 		Data.SetNumUninitialized(ContextData.NumValues);
 		for (int32 ValueIndex = 0; ValueIndex < ContextData.NumValues; ValueIndex++)
 		{
-			Data[ValueIndex].Location = DefTypeOb->GetItemLocation(RawData);
-			Data[ValueIndex].Rotation = DefTypeOb->GetItemRotation(RawData);
-			RawData += DefTypeValueSize;
+			Data[ValueIndex].Location = DefTypeOb->GetItemLocation(ContextRawData);
+			Data[ValueIndex].Rotation = DefTypeOb->GetItemRotation(ContextRawData);
+			ContextRawData += DefTypeValueSize;
 		}
 	}
 
@@ -109,13 +109,13 @@ bool FEnvQueryInstance::PrepareContext(UClass* Context, TArray<FVector>& Data)
 	{
 		UEnvQueryItemType_VectorBase* DefTypeOb = (UEnvQueryItemType_VectorBase*)ContextData.ValueType->GetDefaultObject();
 		const uint16 DefTypeValueSize = DefTypeOb->GetValueSize();
-		uint8* RawData = (uint8*)ContextData.RawData.GetData();
+		uint8* ContextRawData = (uint8*)ContextData.RawData.GetData();
 
 		Data.SetNumUninitialized(ContextData.NumValues);
 		for (int32 ValueIndex = 0; ValueIndex < ContextData.NumValues; ValueIndex++)
 		{
-			Data[ValueIndex] = DefTypeOb->GetItemLocation(RawData);
-			RawData += DefTypeValueSize;
+			Data[ValueIndex] = DefTypeOb->GetItemLocation(ContextRawData);
+			ContextRawData += DefTypeValueSize;
 		}
 	}
 
@@ -136,13 +136,13 @@ bool FEnvQueryInstance::PrepareContext(UClass* Context, TArray<FRotator>& Data)
 	{
 		UEnvQueryItemType_VectorBase* DefTypeOb = (UEnvQueryItemType_VectorBase*)ContextData.ValueType->GetDefaultObject();
 		const uint16 DefTypeValueSize = DefTypeOb->GetValueSize();
-		uint8* RawData = ContextData.RawData.GetData();
+		uint8* ContextRawData = ContextData.RawData.GetData();
 
 		Data.SetNumUninitialized(ContextData.NumValues);
 		for (int32 ValueIndex = 0; ValueIndex < ContextData.NumValues; ValueIndex++)
 		{
-			Data[ValueIndex] = DefTypeOb->GetItemRotation(RawData);
-			RawData += DefTypeValueSize;
+			Data[ValueIndex] = DefTypeOb->GetItemRotation(ContextRawData);
+			ContextRawData += DefTypeValueSize;
 		}
 	}
 
@@ -163,17 +163,17 @@ bool FEnvQueryInstance::PrepareContext(UClass* Context, TArray<AActor*>& Data)
 	{
 		UEnvQueryItemType_ActorBase* DefTypeOb = (UEnvQueryItemType_ActorBase*)ContextData.ValueType->GetDefaultObject();
 		const uint16 DefTypeValueSize = DefTypeOb->GetValueSize();
-		uint8* RawData = ContextData.RawData.GetData();
+		uint8* ContextRawData = ContextData.RawData.GetData();
 
 		Data.Reserve(ContextData.NumValues);
 		for (int32 ValueIndex = 0; ValueIndex < ContextData.NumValues; ValueIndex++)
 		{
-			AActor* Actor = DefTypeOb->GetActor(RawData);
+			AActor* Actor = DefTypeOb->GetActor(ContextRawData);
 			if (Actor)
 			{
 				Data.Add(Actor);
 			}
-			RawData += DefTypeValueSize;
+			ContextRawData += DefTypeValueSize;
 		}
 	}
 
@@ -396,8 +396,10 @@ FEnvQueryInstance::ItemIterator::ItemIterator(const UEnvQueryTest* QueryTest, FE
 	: Instance(&QueryInstance)
 	, CurrentItem(StartingItemIndex != INDEX_NONE ? StartingItemIndex : QueryInstance.CurrentTestStartingItem)
 {
-	CachedFilterOp = QueryTest ? QueryTest->MultipleContextFilterOp.GetValue() : EEnvTestFilterOperator::AllPass;
-	CachedScoreOp = QueryTest ? QueryTest->MultipleContextScoreOp.GetValue() : EEnvTestScoreOperator::AverageScore;
+	check(QueryTest);
+
+	CachedFilterOp = QueryTest->MultipleContextFilterOp.GetValue();
+	CachedScoreOp = QueryTest->MultipleContextScoreOp.GetValue();
 	bIsFiltering = (QueryTest->TestPurpose == EEnvTestPurpose::Filter) || (QueryTest->TestPurpose == EEnvTestPurpose::FilterAndScore);
 
 	Deadline = QueryInstance.CurrentStepTimeLimit > 0.0 ? (FPlatformTime::Seconds() + QueryInstance.CurrentStepTimeLimit) : -1.0;
@@ -476,9 +478,10 @@ void FEnvQueryInstance::NormalizeScores()
 	ItemInfo = Items.GetData();
 	if (MinScore == MaxScore)
 	{
+		const float Score = (MinScore == 0.f) ? 0.f : 1.f;
 		for (int32 ItemIndex = 0; ItemIndex < NumValidItems; ItemIndex++, ItemInfo++)
 		{
-			ItemInfo->Score = 1.0f;
+			ItemInfo->Score = Score;
 		}
 	}
 	else
@@ -714,9 +717,9 @@ uint32 FEnvQueryInstance::GetAllocatedSize() const
 	MemSize += ItemDetails.GetAllocatedSize();
 	MemSize += Options.GetAllocatedSize();
 
-	for (int32 OptionIndex = 0; OptionIndex < Options.Num(); OptionIndex++)
+	for (int32 OptionCount = 0; OptionCount < Options.Num(); OptionCount++)
 	{
-		MemSize += Options[OptionIndex].GetAllocatedSize();
+		MemSize += Options[OptionCount].GetAllocatedSize();
 	}
 
 	return MemSize;
@@ -736,17 +739,17 @@ uint32 FEnvQueryInstance::GetContextAllocatedSize() const
 
 FBox FEnvQueryInstance::GetBoundingBox() const
 {
-	const TArray<FEnvQueryItem>& Items = 
+	const TArray<FEnvQueryItem>& QueryItems = 
 #if USE_EQS_DEBUGGER
 	DebugData.DebugItems.Num() > 0 ? DebugData.DebugItems : 
 #endif // USE_EQS_DEBUGGER
-		this->Items;
+		Items;
 
-	const TArray<uint8>& RawData = 
+	const TArray<uint8>& QueryRawData = 
 #if USE_EQS_DEBUGGER
 		DebugData.RawData.Num() > 0 ? DebugData.RawData : 
 #endif // USE_EQS_DEBUGGER
-		this->RawData;
+		RawData;
 
 	FBox BBox(0);
 
@@ -754,9 +757,9 @@ FBox FEnvQueryInstance::GetBoundingBox() const
 	{
 		UEnvQueryItemType_VectorBase* DefTypeOb = ItemType->GetDefaultObject<UEnvQueryItemType_VectorBase>();
 
-		for (int32 Index = 0; Index < Items.Num(); ++Index)
+		for (int32 Index = 0; Index < QueryItems.Num(); ++Index)
 		{		
-			BBox += DefTypeOb->GetItemLocation(RawData.GetData() + Items[Index].DataOffset);
+			BBox += DefTypeOb->GetItemLocation(QueryRawData.GetData() + QueryItems[Index].DataOffset);
 		}
 	}
 

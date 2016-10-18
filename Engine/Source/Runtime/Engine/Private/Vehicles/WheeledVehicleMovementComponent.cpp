@@ -9,6 +9,8 @@
 #include "Vehicles/WheeledVehicleMovementComponent.h"
 #include "Vehicles/TireType.h"
 #include "DisplayDebugHelpers.h"
+#include "PhysicsEngine/ConstraintInstance.h"
+#include "PhysicsEngine/PhysicsAsset.h"
 
 #if WITH_PHYSX
 #include "../PhysicsEngine/PhysXSupport.h"
@@ -608,14 +610,15 @@ void LogVehicleSettings( PxVehicleWheels* Vehicle )
 	}
 }
 
-void UWheeledVehicleMovementComponent::CreatePhysicsState()
+void UWheeledVehicleMovementComponent::OnCreatePhysicsState()
 {
-	Super::CreatePhysicsState();
+	Super::OnCreatePhysicsState();
 
 	VehicleSetupTag = FPhysXVehicleManager::VehicleSetupTag;
 
 	// only create physx vehicle in game
-	if ( GetWorld()->IsGameWorld() )
+	UWorld* World = GetWorld();
+	if ( World->IsGameWorld() )
 	{
 		FPhysScene* PhysScene = World->GetPhysicsScene();
 
@@ -645,15 +648,15 @@ void UWheeledVehicleMovementComponent::CreatePhysicsState()
 	}
 }
 
-void UWheeledVehicleMovementComponent::DestroyPhysicsState()
+void UWheeledVehicleMovementComponent::OnDestroyPhysicsState()
 {
-	Super::DestroyPhysicsState();
+	Super::OnDestroyPhysicsState();
 
 	if ( PVehicle )
 	{
 		DestroyWheels();
 
-		World->GetPhysicsScene()->GetVehicleManager()->RemoveVehicle( this );
+		GetWorld()->GetPhysicsScene()->GetVehicleManager()->RemoveVehicle( this );
 		PVehicle = NULL;
 
 		if(MeshOnPhysicsStateChangeHandle.IsValid())
@@ -679,7 +682,8 @@ bool UWheeledVehicleMovementComponent::ShouldCreatePhysicsState() const
 	}
 
 	// only create physx vehicle in game
-	if (GetWorld()->IsGameWorld())
+	UWorld* World = GetWorld();
+	if (World->IsGameWorld())
 	{
 		FPhysScene* PhysScene = World->GetPhysicsScene();
 
@@ -770,7 +774,7 @@ void UWheeledVehicleMovementComponent::UpdateDrag(float DeltaTime)
 		{
 			FVector GlobalForwardVector = UpdatedComponent->GetForwardVector();
 			FVector DragVector = -GlobalForwardVector;
-			float SpeedSquared = ForwardSpeed * ForwardSpeed;
+			float SpeedSquared = ForwardSpeed > 0.f ? ForwardSpeed * ForwardSpeed : -ForwardSpeed * ForwardSpeed;
 			float ChassisDragArea = ChassisHeight * ChassisWidth;
 			float AirDensity = 1.25 / (100 * 100 * 100); //kg/cm^3
 			float DragMag = 0.5f * AirDensity * SpeedSquared * DragCoefficient * ChassisDragArea;
@@ -1233,7 +1237,7 @@ bool UWheeledVehicleMovementComponent::CheckSlipThreshold(float AbsLongSlipThres
 		return false;
 	}
 
-	FPhysXVehicleManager* MyVehicleManager = World->GetPhysicsScene()->GetVehicleManager();
+	FPhysXVehicleManager* MyVehicleManager = GetWorld()->GetPhysicsScene()->GetVehicleManager();
 	SCOPED_SCENE_READ_LOCK(MyVehicleManager->GetScene());
 
 	PxWheelQueryResult * WheelsStates = MyVehicleManager->GetWheelsStates_AssumesLocked(this);
@@ -1269,7 +1273,7 @@ float UWheeledVehicleMovementComponent::GetMaxSpringForce() const
 		return false;
 	}
 
-	FPhysXVehicleManager* MyVehicleManager = World->GetPhysicsScene()->GetVehicleManager();
+	FPhysXVehicleManager* MyVehicleManager = GetWorld()->GetPhysicsScene()->GetVehicleManager();
 	SCOPED_SCENE_READ_LOCK(MyVehicleManager->GetScene());
 
 	PxWheelQueryResult * WheelsStates = MyVehicleManager->GetWheelsStates_AssumesLocked(this);
@@ -1294,7 +1298,7 @@ void UWheeledVehicleMovementComponent::DrawDebug(UCanvas* Canvas, float& YL, flo
 		return;
 	}
 
-	FPhysXVehicleManager* MyVehicleManager = World->GetPhysicsScene()->GetVehicleManager();
+	FPhysXVehicleManager* MyVehicleManager = GetWorld()->GetPhysicsScene()->GetVehicleManager();
 
 	MyVehicleManager->SetRecordTelemetry(this, true);
 
@@ -1413,7 +1417,7 @@ void UWheeledVehicleMovementComponent::FixupSkeletalMesh()
 						FBodyInstance* BodyInstance = Mesh->Bodies[BodySetupIdx];
 						BodyInstance->SetResponseToAllChannels(ECR_Ignore);	//turn off collision for wheel automatically
 
-						if (UBodySetup * BodySetup = PhysicsAsset->BodySetup[BodySetupIdx])
+						if (UBodySetup * BodySetup = PhysicsAsset->SkeletalBodySetups[BodySetupIdx])
 						{
 
 							if (BodySetup->PhysicsType == PhysType_Default) 	//if they set it to unfixed we don't fixup because they are explicitely saying Unfixed
@@ -1449,6 +1453,8 @@ void UWheeledVehicleMovementComponent::DrawDebugLines()
 		return;
 	}
 
+	UWorld* World = GetWorld();
+
 	FPhysXVehicleManager* MyVehicleManager = World->GetPhysicsScene()->GetVehicleManager();
 
 	MyVehicleManager->SetRecordTelemetry( this, true );
@@ -1459,8 +1465,6 @@ void UWheeledVehicleMovementComponent::DrawDebugLines()
 	PxShape* PShapeBuffer[32];
 	PActor->getShapes( PShapeBuffer, 32 );
 	const uint32 PNumWheels = PVehicle->mWheelsSimData.getNbWheels();
-
-	UWorld* World = GetWorld();
 
 	// draw chassis orientation
 	const PxTransform GlobalT = PActor->getGlobalPose();
@@ -1560,7 +1564,11 @@ void UWheeledVehicleMovementComponent::CalculateAvoidanceVelocity(float DeltaTim
 	
 	UAvoidanceManager* AvoidanceManager = GetWorld()->GetAvoidanceManager();
 	APawn* MyOwner = UpdatedComponent ? Cast<APawn>(UpdatedComponent->GetOwner()) : NULL;
-	
+
+	// since we don't assign the avoidance velocity but instead use it to adjust steering and throttle,
+	// always reset the avoidance velocity to the current velocity
+	AvoidanceVelocity = GetVelocityForRVOConsideration();
+
 	if (AvoidanceWeight >= 1.0f || AvoidanceManager == NULL || MyOwner == NULL)
 	{
 		return;
@@ -1574,10 +1582,6 @@ void UWheeledVehicleMovementComponent::CalculateAvoidanceVelocity(float DeltaTim
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	const bool bShowDebug = AvoidanceManager->IsDebugEnabled(AvoidanceUID);
 #endif
-
-	// since we don't assign the avoidance velocity but instead use it to adjust steering and throttle,
-	// always reset the avoidance velocity to the current velocity
-	AvoidanceVelocity = GetVelocityForRVOConsideration();
 
 	if (!AvoidanceVelocity.IsZero())
 	{
@@ -1636,14 +1640,29 @@ void UWheeledVehicleMovementComponent::SetAvoidanceGroup(int32 GroupFlags)
 	AvoidanceGroup.SetFlagsDirectly(GroupFlags);
 }
 
+void UWheeledVehicleMovementComponent::SetAvoidanceGroupMask(const FNavAvoidanceMask& GroupMask)
+{
+	AvoidanceGroup.SetFlagsDirectly(GroupMask.Packed);
+}
+
 void UWheeledVehicleMovementComponent::SetGroupsToAvoid(int32 GroupFlags)
 {
 	GroupsToAvoid.SetFlagsDirectly(GroupFlags);
 }
 
+void UWheeledVehicleMovementComponent::SetGroupsToAvoidMask(const FNavAvoidanceMask& GroupMask)
+{
+	GroupsToAvoid.SetFlagsDirectly(GroupMask.Packed);
+}
+
 void UWheeledVehicleMovementComponent::SetGroupsToIgnore(int32 GroupFlags)
 {
 	GroupsToIgnore.SetFlagsDirectly(GroupFlags);
+}
+
+void UWheeledVehicleMovementComponent::SetGroupsToIgnoreMask(const FNavAvoidanceMask& GroupMask)
+{
+	GroupsToIgnore.SetFlagsDirectly(GroupMask.Packed);
 }
 
 void UWheeledVehicleMovementComponent::SetAvoidanceEnabled(bool bEnable)

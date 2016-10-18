@@ -50,21 +50,23 @@ namespace ESlateShader
 /**
  * Effects that can be applied to elements when rendered.
  * Note: New effects added should be in bit mask form
- * * If you add a type here you must also implement the proper shader type (TSlateElementPS).  See SlateShaders.h
+ * If you add a type here you must also implement the proper shader type (TSlateElementPS).  See SlateShaders.h
  */
 namespace ESlateDrawEffect
 {
 	typedef uint8 Type;
 	/** No effect applied */
-	const Type None = 0;
+	const Type None					= 0;
 	/** Draw the element with a disabled effect */
-	const Type DisabledEffect = 1 << 0;
-	/** Don't read from texture alpha channel */
-	const Type IgnoreTextureAlpha = 1 << 1;
-	/** No gamma correction should be done */
-	const Type NoGamma			  = 1 << 2;
-	/** Rather than perform alpha blending, perform alpha compositing instead. */
-	const Type AlphaCompositing	  =	1 << 3;
+	const Type DisabledEffect		= 1 << 0;
+	/** Advanced: Don't read from texture alpha channel */
+	const Type IgnoreTextureAlpha	= 1 << 1;
+	/** Advanced: Draw the element with no blending */
+	const Type NoBlending			= 1 << 2;
+	/** Advanced: Blend using pre-multiplied alpha. Ignored if NoBlending is set. */
+	const Type PreMultipliedAlpha	= 1 << 3;
+	/** Advanced: No gamma correction should be done */
+	const Type NoGamma				= 1 << 4;
 };
 
 
@@ -73,19 +75,19 @@ namespace ESlateBatchDrawFlag
 {
 	typedef uint8 Type;
 	/** No draw flags */
-	const Type None					=		0;
+	const Type None					= 0;
 	/** Draw the element with no blending */
-	const Type NoBlending			=		1 << 0;
-	/** Draw the element as wireframe */
-	const Type Wireframe			=		1 << 1;
-	/** The element should be tiled horizontally */
-	const Type TileU				=		1 << 3;
-	/** The element should be tiled vertically */
-	const Type TileV				=		1 << 4;
+	const Type NoBlending			= 1 << 0;
+	/** Blend using pre-multiplied alpha. Ignored if NoBlending is set. */
+	const Type PreMultipliedAlpha	= 1 << 1;
 	/** No gamma correction should be done */
-	const Type NoGamma				=		1 << 5;
-	/** Rather than perform alpha blending, perform alpha compositing instead. */
-	const Type AlphaCompositing		=		1 << 6;
+	const Type NoGamma				= 1 << 2;
+	/** Draw the element as wireframe */
+	const Type Wireframe			= 1 << 3;
+	/** The element should be tiled horizontally */
+	const Type TileU				= 1 << 4;
+	/** The element should be tiled vertically */
+	const Type TileV				= 1 << 5;
 };
 
 namespace ESlateLineJoinType
@@ -523,6 +525,14 @@ public:
 	 */
 	virtual void OnViewportClosed()
 	{
+	}
+
+	/**
+	 * Called when the viewports top level window is being closed
+	 */
+	virtual TWeakPtr<SWidget> GetWidget()
+	{
+		return nullptr;
 	}
 
 	/**

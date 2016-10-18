@@ -112,5 +112,8 @@ private:
 
 	/** If true the box will have a preferred width equal to its alloted width  */
 	bool bUseAllottedWidth;
+
+	class FChildArranger;
+	friend class SWrapBox::FChildArranger;
 };
 

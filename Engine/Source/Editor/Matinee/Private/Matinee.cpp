@@ -128,43 +128,43 @@ static const FName MatineeCurveEdName("Matinee_CurveEditor");
 static const FName MatineeTrackWindowName("Matinee_TrackWindow");
 static const FName MatineePropertyWindowName("Matinee_PropertyWindow");
 
-void FMatinee::RegisterTabSpawners(const TSharedRef<class FTabManager>& TabManager)
+void FMatinee::RegisterTabSpawners(const TSharedRef<class FTabManager>& InTabManager)
 {
-	WorkspaceMenuCategory = TabManager->AddLocalWorkspaceMenuCategory(LOCTEXT("WorkspaceMenu_MatineeEditor", "Matinee"));
+	WorkspaceMenuCategory = InTabManager->AddLocalWorkspaceMenuCategory(LOCTEXT("WorkspaceMenu_MatineeEditor", "Matinee"));
 	auto WorkspaceMenuCategoryRef = WorkspaceMenuCategory.ToSharedRef();
 
-	FAssetEditorToolkit::RegisterTabSpawners(TabManager);
+	FAssetEditorToolkit::RegisterTabSpawners(InTabManager);
 
-	TabManager->RegisterTabSpawner(MatineeRecordingViewportName, FOnSpawnTab::CreateRaw(this, &FMatinee::SpawnRecordingViewport))
+	InTabManager->RegisterTabSpawner(MatineeRecordingViewportName, FOnSpawnTab::CreateRaw(this, &FMatinee::SpawnRecordingViewport))
 		.SetDisplayName(NSLOCTEXT("Matinee", "RecordingViewport", "Matinee Recorder"))
 		.SetGroup(WorkspaceMenuCategoryRef)
 		.SetIcon(FSlateIcon(FEditorStyle::GetStyleSetName(), "Matinee.Tabs.RecordingViewport"));
 
-	TabManager->RegisterTabSpawner(MatineeCurveEdName, FOnSpawnTab::CreateSP(this, &FMatinee::SpawnTab, MatineeCurveEdName))
+	InTabManager->RegisterTabSpawner(MatineeCurveEdName, FOnSpawnTab::CreateSP(this, &FMatinee::SpawnTab, MatineeCurveEdName))
 		.SetDisplayName(NSLOCTEXT("Matinee", "CurveEditorTitle", "Curve Editor"))
 		.SetGroup(WorkspaceMenuCategoryRef)
 		.SetIcon(FSlateIcon(FEditorStyle::GetStyleSetName(), "Matinee.Tabs.CurveEditor"));
 
-	TabManager->RegisterTabSpawner(MatineeTrackWindowName, FOnSpawnTab::CreateSP(this, &FMatinee::SpawnTab, MatineeTrackWindowName))
+	InTabManager->RegisterTabSpawner(MatineeTrackWindowName, FOnSpawnTab::CreateSP(this, &FMatinee::SpawnTab, MatineeTrackWindowName))
 		.SetDisplayName(NSLOCTEXT("Matinee", "TrackViewEditorTitle", "Tracks"))
 		.SetGroup(WorkspaceMenuCategoryRef)
 		.SetIcon(FSlateIcon(FEditorStyle::GetStyleSetName(), "Matinee.Tabs.Tracks"));
 
 
-	TabManager->RegisterTabSpawner( MatineePropertyWindowName, FOnSpawnTab::CreateSP(this, &FMatinee::SpawnTab, MatineePropertyWindowName) )
+	InTabManager->RegisterTabSpawner( MatineePropertyWindowName, FOnSpawnTab::CreateSP(this, &FMatinee::SpawnTab, MatineePropertyWindowName) )
 		.SetDisplayName(NSLOCTEXT("Matinee", "PropertiesEditorTitle", "Details"))
 		.SetGroup(WorkspaceMenuCategoryRef)
 		.SetIcon(FSlateIcon(FEditorStyle::GetStyleSetName(), "LevelEditor.Tabs.Details"));
 
 }
 
-void FMatinee::UnregisterTabSpawners(const TSharedRef<class FTabManager>& TabManager)
+void FMatinee::UnregisterTabSpawners(const TSharedRef<class FTabManager>& InTabManager)
 {
-	FAssetEditorToolkit::UnregisterTabSpawners(TabManager);
+	FAssetEditorToolkit::UnregisterTabSpawners(InTabManager);
 
-	TabManager->UnregisterTabSpawner(MatineeCurveEdName);
-	TabManager->UnregisterTabSpawner(MatineeTrackWindowName);
-	TabManager->UnregisterTabSpawner(MatineePropertyWindowName);
+	InTabManager->UnregisterTabSpawner(MatineeCurveEdName);
+	InTabManager->UnregisterTabSpawner(MatineeTrackWindowName);
+	InTabManager->UnregisterTabSpawner(MatineePropertyWindowName);
 }
 
 TSharedRef<SDockTab> FMatinee::SpawnTab( const FSpawnTabArgs& TabSpawnArgs, FName TabIdentifier )
@@ -949,9 +949,6 @@ void FMatinee::InitMatinee(const EToolkitMode::Type Mode, const TSharedPtr< clas
 				//Ensure Realtime is turned on and store the original setting so we can restore it later.
 				LevelVC->SetRealtime(true, true);
 			}
-
-			// Turn on 'show camera frustums' flag
-			LevelVC->EngineShowFlags.SetCameraFrustums(true);
 		}
 	}
 
@@ -2066,9 +2063,6 @@ void FMatinee::OnClose()
 				//Specify true so RestoreRealtime will allow us to disable Realtime if it was original disabled
 				LevelVC->RestoreRealtime(true);
 			}
-
-			// Turn off 'show camera frustums' flag.
-			LevelVC->EngineShowFlags.SetCameraFrustums(false);
 		}
 	}
 
@@ -2978,7 +2972,7 @@ void FMatinee::OnMenuCreateMovie()
 
 	// Create a new movie scene capture object for a generic level capture
 	ULevelCapture* MovieSceneCapture = NewObject<ULevelCapture>(GetTransientPackage(), ULevelCapture::StaticClass(), NAME_None, RF_Transient);
-	MovieSceneCapture->LoadConfig();
+	MovieSceneCapture->LoadFromConfig();
 
 	// Ensure that this matinee is up and running before we start capturing
 	MovieSceneCapture->SetPrerequisiteActor(MatineeActor);

@@ -292,9 +292,9 @@ void USceneCapturer::SetPositionAndRotation( int32 CurrentHorizontalStep, int32 
     }
 
 	LeftEyeCaptureComponents[CaptureIndex]->SetWorldLocationAndRotation( StartLocation - Offset, Rotation );
-    LeftEyeCaptureComponents[CaptureIndex]->UpdateContent();
+    LeftEyeCaptureComponents[CaptureIndex]->CaptureSceneDeferred();
 	RightEyeCaptureComponents[CaptureIndex]->SetWorldLocationAndRotation( StartLocation + Offset, Rotation );
-    RightEyeCaptureComponents[CaptureIndex]->UpdateContent();
+    RightEyeCaptureComponents[CaptureIndex]->CaptureSceneDeferred();
 }
 
 void USceneCapturer::ValidateParameters()
@@ -438,10 +438,10 @@ TArray<FColor> USceneCapturer::SaveAtlas(FString Folder, const TArray<FColor>& S
                 //               After more tests, come back to optimize by folding supersampling in and remove this outer sampling loop.
                 const auto& ssPattern = g_ssPatterns[SSMethod];
 
-                for (int32 i = 0; i < ssPattern.numSamples; i++)
+                for (int32 SampleCount = 0; SampleCount < ssPattern.numSamples; SampleCount++)
                 {
-                    const float sampleU = ((float)x + ssPattern.ssOffsets[i].X) / SphericalAtlasWidth;
-                    const float sampleV = ((float)y + ssPattern.ssOffsets[i].Y) / SphericalAtlasHeight;
+                    const float sampleU = ((float)x + ssPattern.ssOffsets[SampleCount].X) / SphericalAtlasWidth;
+                    const float sampleV = ((float)y + ssPattern.ssOffsets[SampleCount].Y) / SphericalAtlasHeight;
 
                     const float sampleTheta = sampleU * 360.0f;
                     const float samplePhi = sampleV * 180.0f;
@@ -459,11 +459,11 @@ TArray<FColor> USceneCapturer::SaveAtlas(FString Folder, const TArray<FColor>& S
                     //Slice Selection = slice with max{sampleDir dot  sliceNormal }
                     {
                         float largestCosAngle = 0;
-                        for (int i = 0; i < NumberOfVerticalSteps; i++)
+                        for (int VerticalStep = 0; VerticalStep < NumberOfVerticalSteps; VerticalStep++)
                         {
                             const FVector2D sliceCenterThetaPhi = FVector2D(
                                 hAngIncrement * sliceXIndex,
-                                vAngIncrement * i);
+                                vAngIncrement * VerticalStep);
 
                             //TODO: ikrimae: There has got to be a faster way. Rethink reparametrization later
                             const FVector sliceDir = FVector(
@@ -476,7 +476,7 @@ TArray<FColor> USceneCapturer::SaveAtlas(FString Folder, const TArray<FColor>& S
                             if (cosAngle > largestCosAngle)
                             {
                                 largestCosAngle = cosAngle;
-                                sliceYIndex = i;
+                                sliceYIndex = VerticalStep;
                             }
                         }
                     }

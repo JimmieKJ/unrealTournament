@@ -11,22 +11,28 @@ using System.Reflection;
 using System.ServiceProcess;
 using System.Text;
 using System.Threading.Tasks;
+using Tools.CrashReporter.CrashReportCommon;
+using Tools.CrashReporter.CrashReportProcess.Properties;
 
 namespace Tools.CrashReporter.CrashReportProcess
 {
 	/// <summary>
 	/// A class to handle processing received crash reports for displaying on the website.
 	/// </summary>
-	public partial class CrashReporterProcessServicer : ServiceBase
+	partial class CrashReporterProcessServicer : ServiceBase
 	{
 		/// <summary>A class the handle detection of new reports.</summary>
 		public ReportWatcher Watcher = null;
 
 		/// <summary>A class to lazily process reports as they are detected.</summary>
-		public ReportProcessor Processor = null;
+		public readonly List<ReportProcessor> Processors = new List<ReportProcessor>();
 
 		/// <summary>Current log file to write debug progress info to</summary>
-		static public CrashReportCommon.LogWriter Log = null;
+		public static LogWriter Log = null;
+
+		private static SlackWriter Slack = null;
+
+		public static StatusReporting StatusReporter = null;
 
 		/// <summary>Folder in which to store log files</summary>
 		static private string LogFolder = null;
@@ -83,6 +89,18 @@ namespace Tools.CrashReporter.CrashReportProcess
 			if( Message != null && Message.Length > 2 )
 			{
 				Log.Print( "[EXCEPT] " + Message );
+				StatusReporter.IncrementCount(StatusReportingEventNames.ExceptionEvent);
+			}
+		}
+
+		/// <summary>
+		/// Write to Slack.
+		/// </summary>
+		static public void WriteSlack(string Message)
+		{
+			if (Message != null && Message.Length > 0)
+			{
+				Slack.Write(Message);
 			}
 		}
 
@@ -104,14 +122,32 @@ namespace Tools.CrashReporter.CrashReportProcess
 		protected override void OnStart( string[] Arguments )
 		{
 			// Create a log file for any start-up messages
-			Log = new CrashReportCommon.LogWriter("CrashReportProcess", LogFolder);
+			Log = new LogWriter("CrashReportProcess", LogFolder);
+
+			Config.LoadConfig();
+
+			Slack = new SlackWriter
+			{
+				WebhookUrl = Config.Default.SlackWebhookUrl,
+				Channel = Config.Default.SlackChannel,
+				Username = Config.Default.SlackUsername,
+				IconEmoji = Config.Default.SlackEmoji
+			};
+
+			StatusReporter = new StatusReporting();
 
 			// Add directory watchers
 			Watcher = new ReportWatcher();
 
-			Processor = new ReportProcessor( Watcher );
+			for (int ProcessorIndex = 0; ProcessorIndex < Config.Default.ProcessorThreadCount; ProcessorIndex++)
+			{
+				var Processor = new ReportProcessor(Watcher, ProcessorIndex);
+				Processors.Add(Processor);
+			}
 
-			WriteEvent( "Successfully started at " + DateTime.Now.ToString() );
+			StatusReporter.Start();
+			DateTime StartupTime = DateTime.UtcNow;
+			WriteEvent("Successfully started at " + StartupTime);
 		}
 
 		/// <summary>
@@ -119,12 +155,23 @@ namespace Tools.CrashReporter.CrashReportProcess
 		/// </summary>
 		protected override void OnStop()
 		{
+			StatusReporter.OnPreStopping();
+
 			// Clean up the directory watcher and crash processor threads
-			Processor.Dispose();
-			Processor = null;
+			foreach (var Processor in Processors)
+			{
+				Processor.Dispose();
+			}
+			Processors.Clear();
 
 			Watcher.Dispose();
 			Watcher = null;
+
+			StatusReporter.Dispose();
+			StatusReporter = null;
+
+			Slack.Dispose();
+			Slack = null;
 
 			// Flush the log to disk
 			Log.Dispose();

@@ -73,7 +73,7 @@ public:
  *
  * @see UPaperTileMap, UPaperTileMapComponent
  */
-UCLASS()
+UCLASS(BlueprintType)
 class PAPER2D_API UPaperTileSet : public UObject
 {
 	GENERATED_UCLASS_BODY()

@@ -21,7 +21,7 @@ FNameTableArchiveReader::~FNameTableArchiveReader()
 bool FNameTableArchiveReader::LoadFile(const TCHAR* Filename, int32 SerializationVersion)
 {
 	FileAr = IFileManager::Get().CreateFileReader(Filename, FILEREAD_Silent);
-	if (FileAr)
+	if (FileAr && !FileAr->IsError() && FileAr->TotalSize() > 0)
 	{
 		int32 MagicNumber = 0;
 		*this << MagicNumber;

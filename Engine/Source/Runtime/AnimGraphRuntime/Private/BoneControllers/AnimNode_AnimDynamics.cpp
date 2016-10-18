@@ -3,6 +3,7 @@
 #include "AnimGraphRuntimePrivatePCH.h"
 #include "AnimNode_AnimDynamics.h"
 #include "Animation/AnimInstanceProxy.h"
+#include "PhysicsEngine/PhysicsSettings.h"
 
 DEFINE_STAT(STAT_AnimDynamicsOverall);
 DEFINE_STAT(STAT_AnimDynamicsWindData);
@@ -18,7 +19,8 @@ TAutoConsoleVariable<int32> CVarEnableWind(TEXT("p.AnimDynamicsWind"), 1, TEXT("
 const float FAnimNode_AnimDynamics::MaxTimeDebt = (1.0f / 60.0f) * 5.0f; // 5 frames max debt
 
 FAnimNode_AnimDynamics::FAnimNode_AnimDynamics()
-: BoxExtents(0.0f)
+: SimulationSpace(AnimPhysSimSpaceType::Component)
+, BoxExtents(0.0f)
 , LocalJointOffset(0.0f)
 , GravityScale(1.0f)
 , bLinearSpring(false)
@@ -31,13 +33,15 @@ FAnimNode_AnimDynamics::FAnimNode_AnimDynamics()
 , LinearDampingOverride(0.0f)
 , bOverrideAngularDamping(false)
 , AngularDampingOverride(0.0f)
+, bOverrideAngularBias(false)
+, AngularBiasOverride(0.0f)
 , bDoUpdate(true)
 , bDoEval(true)
 , NumSolverIterationsPreUpdate(4)
 , NumSolverIterationsPostUpdate(1)
 , bUsePlanarLimit(true)
 {
-
+	
 }
 
 void FAnimNode_AnimDynamics::Initialize(const FAnimationInitializeContext& Context)
@@ -58,6 +62,16 @@ void FAnimNode_AnimDynamics::Initialize(const FAnimationInitializeContext& Conte
 		PlanarLimit.DrivingBone.Initialize(RequiredBones);
 	}
 
+	for(FAnimPhysSphericalLimit& SphericalLimit : SphericalLimits)
+	{
+		SphericalLimit.DrivingBone.Initialize(RequiredBones);
+	}
+
+	if(SimulationSpace == AnimPhysSimSpaceType::BoneRelative)
+	{
+		RelativeSpaceBone.Initialize(RequiredBones);
+	}
+
 	if(BoundBone.IsValid(RequiredBones))
 	{
 		RequestInitialise();
@@ -74,6 +88,11 @@ void FAnimNode_AnimDynamics::UpdateInternal(const FAnimationUpdateContext& Conte
 	NextTimeStep = Context.GetDeltaTime();
 }
 
+struct FSimBodiesScratch : public TThreadSingleton<FSimBodiesScratch>
+{
+	TArray<FAnimPhysRigidBody*> SimBodies;
+};
+
 void FAnimNode_AnimDynamics::EvaluateBoneTransforms(USkeletalMeshComponent* SkelComp, FCSPose<FCompactPose>& MeshBases, TArray<FBoneTransform>& OutBoneTransforms)
 {
 	SCOPE_CYCLE_COUNTER(STAT_AnimDynamicsOverall);
@@ -83,12 +102,35 @@ void FAnimNode_AnimDynamics::EvaluateBoneTransforms(USkeletalMeshComponent* Skel
 
 	if (CVarEnableDynamics.GetValueOnAnyThread() == 1 && bEnabledForLod)
 	{
+		if(LastSimSpace != SimulationSpace)
+		{
+			// Our sim space has been changed since our last update, we need to convert all of our
+			// body transforms into the new space.
+			ConvertSimulationSpace(SkelComp, MeshBases, LastSimSpace, SimulationSpace);
+		}
+
 		// Pretty nasty - but there isn't really a good way to get clean bone transforms (without the modification from
 		// previous runs) so we have to initialize here, checking often so we can restart a simulation in the editor.
 		if (bRequiresInit)
 		{
 			InitPhysics(SkelComp, MeshBases);
 			bRequiresInit = false;
+		}
+
+		const FBoneContainer& RequiredBones = MeshBases.GetPose().GetBoneContainer();
+		while(BodiesToReset.Num() > 0)
+		{
+			FAnimPhysLinkedBody* BodyToReset = BodiesToReset.Pop(false);
+			if(BodyToReset && BodyToReset->RigidBody.BoundBone.IsValid(RequiredBones))
+			{
+				FTransform BoneTransform = GetBoneTransformInSimSpace(SkelComp, MeshBases, BodyToReset->RigidBody.BoundBone.GetCompactPoseIndex(RequiredBones));
+				FAnimPhysRigidBody& PhysBody = BodyToReset->RigidBody.PhysBody;
+
+				PhysBody.Pose.Position = BoneTransform.GetTranslation();
+				PhysBody.Pose.Orientation = BoneTransform.GetRotation();
+				PhysBody.LinearMomentum = FVector::ZeroVector;
+				PhysBody.AngularMomentum = FVector::ZeroVector;
+			}
 		}
 
 		if (bDoUpdate && NextTimeStep > 0.0f)
@@ -134,6 +176,23 @@ void FAnimNode_AnimDynamics::EvaluateBoneTransforms(USkeletalMeshComponent* Skel
 				}
 			}
 
+			FVector OrientedExternalForce = ExternalForce;
+			if(!OrientedExternalForce.IsNearlyZero())
+			{
+				OrientedExternalForce = TransformWorldVectorToSimSpace(SkelComp, MeshBases, OrientedExternalForce);
+			}
+
+			// We don't send any bodies that don't have valid bones to the simulation
+			TArray<FAnimPhysRigidBody*>& SimBodies = FSimBodiesScratch::Get().SimBodies;
+			SimBodies.Empty(SimBodies.Num());
+			for(int32& ActiveIndex : ActiveBoneIndices)
+			{
+				if(BaseBodyPtrs.IsValidIndex(ActiveIndex))
+				{
+					SimBodies.Add(BaseBodyPtrs[ActiveIndex]);
+				}
+			}
+
 			if (CVarEnableAdaptiveSubstep.GetValueOnAnyThread() == 1)
 			{
 				float FixedTimeStep = MaxSubstepDeltaTime * CurrentTimeDilation;
@@ -158,7 +217,7 @@ void FAnimNode_AnimDynamics::EvaluateBoneTransforms(USkeletalMeshComponent* Skel
 				for (int32 Iter = 0; Iter < NumIters; ++Iter)
 				{
 					UpdateLimits(SkelComp, MeshBases);
-					FAnimPhys::PhysicsUpdate(FixedTimeStep, BaseBodyPtrs, LinearLimits, AngularLimits, Springs, NumSolverIterationsPreUpdate, NumSolverIterationsPostUpdate);
+					FAnimPhys::PhysicsUpdate(FixedTimeStep, SimBodies, LinearLimits, AngularLimits, Springs, SimSpaceGravityDirection, OrientedExternalForce, NumSolverIterationsPreUpdate, NumSolverIterationsPostUpdate);
 				}
 			}
 			else
@@ -169,7 +228,7 @@ void FAnimNode_AnimDynamics::EvaluateBoneTransforms(USkeletalMeshComponent* Skel
 				NextTimeStep = FMath::Min(NextTimeStep, MaxDeltaTime);
 
 				UpdateLimits(SkelComp, MeshBases);
-				FAnimPhys::PhysicsUpdate(NextTimeStep, BaseBodyPtrs, LinearLimits, AngularLimits, Springs, NumSolverIterationsPreUpdate, NumSolverIterationsPostUpdate);
+				FAnimPhys::PhysicsUpdate(NextTimeStep, SimBodies, LinearLimits, AngularLimits, Springs, SimSpaceGravityDirection, OrientedExternalForce, NumSolverIterationsPreUpdate, NumSolverIterationsPostUpdate);
 			}
 		}
 
@@ -193,9 +252,15 @@ void FAnimNode_AnimDynamics::EvaluateBoneTransforms(USkeletalMeshComponent* Skel
 				FCompactPoseBoneIndex BoneIndex = CurrentChainBone.GetCompactPoseIndex(BoneContainer);
 
 				FTransform NewBoneTransform(CurrentBody.Pose.Orientation, CurrentBody.Pose.Position + CurrentBody.Pose.Orientation.RotateVector(JointOffsets[Idx]));
+
+				NewBoneTransform = GetComponentSpaceTransformFromSimSpace(SimulationSpace, SkelComp, MeshBases, NewBoneTransform);
+
 				OutBoneTransforms.Add(FBoneTransform(BoneIndex, NewBoneTransform));
 			}
 		}
+
+		// Store our sim space incase it changes
+		LastSimSpace = SimulationSpace;
 	}
 }
 
@@ -208,18 +273,47 @@ void FAnimNode_AnimDynamics::InitializeBoneReferences(const FBoneContainer& Requ
 		ChainEnd.Initialize(RequiredBones);
 	}
 	
-	for(FBoneReference& BoneRef : BoundBoneReferences)
+	// If we're currently simulating (LOD change etc.)
+	bool bSimulating = ActiveBoneIndices.Num() > 0;
+
+	const int32 NumRefs = BoundBoneReferences.Num();
+	for(int32 BoneRefIdx = 0; BoneRefIdx < NumRefs; ++BoneRefIdx)
 	{
+		FBoneReference& BoneRef = BoundBoneReferences[BoneRefIdx];
 		BoneRef.Initialize(RequiredBones);
+
+		if(bSimulating)
+		{
+			if(BoneRef.IsValid(RequiredBones) && !ActiveBoneIndices.Contains(BoneRefIdx))
+			{
+				// This body is inactive and needs to be reset to bone position
+				// as it is now required for the current LOD
+				BodiesToReset.Add(&Bodies[BoneRefIdx]);
+			}
+		}
+	}
+
+	ActiveBoneIndices.Empty(ActiveBoneIndices.Num());
+	const int32 NumBodies = Bodies.Num();
+	for(int32 BodyIdx = 0; BodyIdx < NumBodies; ++BodyIdx)
+	{
+		FAnimPhysLinkedBody& LinkedBody = Bodies[BodyIdx];
+		LinkedBody.RigidBody.BoundBone.Initialize(RequiredBones);
+
+		// If this bone is active in this LOD, add to the active list.
+		if(LinkedBody.RigidBody.BoundBone.IsValid(RequiredBones))
+		{
+			ActiveBoneIndices.Add(BodyIdx);
+		}
 	}
 }
 
 void FAnimNode_AnimDynamics::GatherDebugData(FNodeDebugData& DebugData)
 {
-	const float ActualAlpha = AlphaScaleBias.ApplyTo(Alpha);
+	const float ActualBiasedAlpha = AlphaScaleBias.ApplyTo(Alpha);
 
 	FString DebugLine = DebugData.GetNodeName(this);
-	DebugLine += FString::Printf(TEXT("(Alpha: %.1f%%)"), ActualAlpha*100.f);
+	DebugLine += FString::Printf(TEXT("(Alpha: %.1f%%)"), ActualBiasedAlpha*100.f);
 
 	DebugData.AddDebugItem(DebugLine);
 	ComponentPose.GatherDebugData(DebugData.BranchFlow(1.f));
@@ -231,7 +325,24 @@ bool FAnimNode_AnimDynamics::IsValidToEvaluate(const USkeleton* Skeleton, const 
 
 	if (bChain)
 	{
-		bValid = bValid && ChainEnd.IsValid(RequiredBones);
+		bool bChainEndValid = ChainEnd.IsValid(RequiredBones);
+		bool bSubChainValid = false;
+
+		if(!bChainEndValid)
+		{
+			// Check for LOD subchain
+			int32 NumValidBonesFromRoot = 0;
+			for(FBoneReference& BoneRef : BoundBoneReferences)
+			{
+				if(BoneRef.IsValid(RequiredBones))
+				{
+					bSubChainValid = true;
+					break;
+				}
+			}
+		}
+
+		bValid = bValid && (bChainEndValid || bSubChainValid);
 	}
 
 	return bValid;
@@ -338,8 +449,8 @@ void FAnimNode_AnimDynamics::InitPhysics(USkeletalMeshComponent* Component, FCSP
 		// Calculate joint offsets by looking at the length of the bones and extending the provided offset
 		if (BoundBoneReferences.Num() > 0)
 		{
-			FTransform CurrentBoneTransform = MeshBases.GetComponentSpaceTransform(LinkBoneRef.GetCompactPoseIndex(BoneContainer));
-			FTransform PreviousBoneTransform = MeshBases.GetComponentSpaceTransform(BoundBoneReferences.Last().GetCompactPoseIndex(BoneContainer));
+			FTransform CurrentBoneTransform = GetBoneTransformInSimSpace(Component, MeshBases, LinkBoneRef.GetCompactPoseIndex(BoneContainer));
+			FTransform PreviousBoneTransform = GetBoneTransformInSimSpace(Component, MeshBases, BoundBoneReferences.Last().GetCompactPoseIndex(BoneContainer));
 
 			FVector PreviousAnchor = PreviousBoneTransform.TransformPosition(-LocalJointOffset);
 			float DistanceToAnchor = (PreviousBoneTransform.GetTranslation() - CurrentBoneTransform.GetTranslation()).Size() * 0.5f;
@@ -365,7 +476,8 @@ void FAnimNode_AnimDynamics::InitPhysics(USkeletalMeshComponent* Component, FCSP
 
 		BoundBoneReferences.Add(LinkBoneRef);
 
-		FTransform BodyTransform = MeshBases.GetComponentSpaceTransform(LinkBoneRef.GetCompactPoseIndex(BoneContainer));
+		FTransform BodyTransform = GetBoneTransformInSimSpace(Component, MeshBases, LinkBoneRef.GetCompactPoseIndex(BoneContainer));
+
 		BodyTransform.SetTranslation(BodyTransform.GetTranslation() + BodyTransform.GetRotation().RotateVector(-LocalJointOffset));
 
 		FAnimPhysLinkedBody NewChainBody(BodyShapes, BodyTransform.GetTranslation(), LinkBoneRef);
@@ -411,6 +523,7 @@ void FAnimNode_AnimDynamics::InitPhysics(USkeletalMeshComponent* Component, FCSP
 		}
 
 		Bodies.Add(NewChainBody);
+		ActiveBoneIndices.Add(Bodies.Num() - 1);
 	}
 	
 	BaseBodyPtrs.Empty();
@@ -440,6 +553,8 @@ void FAnimNode_AnimDynamics::InitPhysics(USkeletalMeshComponent* Component, FCSP
 		MaxSubsteps = 4;
 	}
 
+	SimSpaceGravityDirection = TransformWorldVectorToSimSpace(Component, MeshBases, FVector(0.0f, 0.0f, -1.0f));
+
 	bRequiresInit = false;
 }
 
@@ -451,8 +566,8 @@ void FAnimNode_AnimDynamics::TermPhysics()
 	Springs.Empty();
 
 	BoundBoneReferences.Empty();
-
 	JointOffsets.Empty();
+	BodiesToReset.Empty();
 }
 
 void FAnimNode_AnimDynamics::UpdateLimits(USkeletalMeshComponent* SkelComp, FCSPose<FCompactPose>& MeshBases)
@@ -466,9 +581,9 @@ void FAnimNode_AnimDynamics::UpdateLimits(USkeletalMeshComponent* SkelComp, FCSP
 
 	const FBoneContainer& BoneContainer = MeshBases.GetPose().GetBoneContainer();
 
-	for (int32 Idx = 0; Idx < Bodies.Num(); ++Idx)
+	for(int32 ActiveIndex : ActiveBoneIndices)
 	{
-		const FBoneReference& CurrentBoneRef = BoundBoneReferences[Idx];
+		const FBoneReference& CurrentBoneRef = BoundBoneReferences[ActiveIndex];
 
 		// If our bone isn't valid, move on
 		if(!CurrentBoneRef.IsValid(BoneContainer))
@@ -476,8 +591,8 @@ void FAnimNode_AnimDynamics::UpdateLimits(USkeletalMeshComponent* SkelComp, FCSP
 			continue;
 		}
 
-		FAnimPhysLinkedBody& ChainBody = Bodies[Idx];
-		FAnimPhysRigidBody& RigidBody = Bodies[Idx].RigidBody.PhysBody;
+		FAnimPhysLinkedBody& ChainBody = Bodies[ActiveIndex];
+		FAnimPhysRigidBody& RigidBody = Bodies[ActiveIndex].RigidBody.PhysBody;
 		
 		FAnimPhysRigidBody* PrevBody = nullptr;
 		if (ChainBody.ParentBody)
@@ -487,7 +602,8 @@ void FAnimNode_AnimDynamics::UpdateLimits(USkeletalMeshComponent* SkelComp, FCSP
 
 		// Get joint transform
 		FCompactPoseBoneIndex BoneIndex = CurrentBoneRef.GetCompactPoseIndex(BoneContainer);
-		FTransform BoundBoneTransform = MeshBases.GetComponentSpaceTransform(BoneIndex);
+		FTransform BoundBoneTransform = GetBoneTransformInSimSpace(SkelComp, MeshBases, BoneIndex);
+
 		FTransform ShapeTransform = BoundBoneTransform;
 		
 		// Local offset to joint for Body1
@@ -496,7 +612,7 @@ void FAnimNode_AnimDynamics::UpdateLimits(USkeletalMeshComponent* SkelComp, FCSP
 		if (PrevBody)
 		{
 			// Get the correct offset
-			Body1JointOffset = JointOffsets[Idx];
+			Body1JointOffset = JointOffsets[ActiveIndex];
 			// Modify the shape transform to be correct in Body0 frame
 			ShapeTransform = FTransform(FQuat::Identity, -Body1JointOffset);
 		}
@@ -537,14 +653,14 @@ void FAnimNode_AnimDynamics::UpdateLimits(USkeletalMeshComponent* SkelComp, FCSP
 #endif
 
 			// Add angular limits. any limit with 360+ degree range is ignored and left free.
-			FAnimPhys::ConstrainAngularRange(NextTimeStep, AngularLimits, PrevBody, &RigidBody, ShapeTransform.GetRotation(), ConstraintSetup.TwistAxis, ConstraintSetup.AngularLimitsMin, ConstraintSetup.AngularLimitsMax);
+			FAnimPhys::ConstrainAngularRange(NextTimeStep, AngularLimits, PrevBody, &RigidBody, ShapeTransform.GetRotation(), ConstraintSetup.TwistAxis, ConstraintSetup.AngularLimitsMin, ConstraintSetup.AngularLimitsMax, bOverrideAngularBias ? AngularBiasOverride : AnimPhysicsConstants::JointBiasFactor);
 		}
 		else
 		{
-			FAnimPhys::ConstrainConeAngle(NextTimeStep, AngularLimits, PrevBody, BoundBoneTransform.GetRotation().GetAxisX(), &RigidBody, FVector(1.0f, 0.0f, 0.0f), ConstraintSetup.ConeAngle);
+			FAnimPhys::ConstrainConeAngle(NextTimeStep, AngularLimits, PrevBody, BoundBoneTransform.GetRotation().GetAxisX(), &RigidBody, FVector(1.0f, 0.0f, 0.0f), ConstraintSetup.ConeAngle, bOverrideAngularBias ? AngularBiasOverride : AnimPhysicsConstants::JointBiasFactor);
 		}
 
-		if(PlanarLimits.Num() > 0)
+		if(PlanarLimits.Num() > 0 && bUsePlanarLimit)
 		{
 			for(FAnimPhysPlanarLimit& PlanarLimit : PlanarLimits)
 			{
@@ -552,10 +668,43 @@ void FAnimNode_AnimDynamics::UpdateLimits(USkeletalMeshComponent* SkelComp, FCSP
 				if(PlanarLimit.DrivingBone.IsValid(BoneContainer))
 				{
 					FCompactPoseBoneIndex DrivingBoneIndex = PlanarLimit.DrivingBone.GetCompactPoseIndex(BoneContainer);
-					LimitPlaneTransform *= MeshBases.GetComponentSpaceTransform(DrivingBoneIndex);// * LimitPlaneTransform;
+
+					FTransform DrivingBoneTransform = GetBoneTransformInSimSpace(SkelComp, MeshBases, DrivingBoneIndex);
+
+					LimitPlaneTransform *= DrivingBoneTransform;
 				}
 				
 				FAnimPhys::ConstrainPlanar(NextTimeStep, LinearLimits, &RigidBody, LimitPlaneTransform);
+			}
+		}
+
+		if(SphericalLimits.Num() > 0 && bUseSphericalLimits)
+		{
+			for(FAnimPhysSphericalLimit& SphericalLimit : SphericalLimits)
+			{
+				FTransform SphereTransform = FTransform::Identity;
+				SphereTransform.SetTranslation(SphericalLimit.SphereLocalOffset);
+
+				if(SphericalLimit.DrivingBone.IsValid(BoneContainer))
+				{
+					FCompactPoseBoneIndex DrivingBoneIndex = SphericalLimit.DrivingBone.GetCompactPoseIndex(BoneContainer);
+
+					FTransform DrivingBoneTransform = GetBoneTransformInSimSpace(SkelComp, MeshBases, DrivingBoneIndex);
+
+					SphereTransform *= DrivingBoneTransform;
+				}
+
+				switch(SphericalLimit.LimitType)
+				{
+				case ESphericalLimitType::Inner:
+					FAnimPhys::ConstrainSphericalInner(NextTimeStep, LinearLimits, &RigidBody, SphereTransform, SphericalLimit.LimitRadius);
+					break;
+				case ESphericalLimitType::Outer:
+					FAnimPhys::ConstrainSphericalOuter(NextTimeStep, LinearLimits, &RigidBody, SphereTransform, SphericalLimit.LimitRadius);
+					break;
+				default:
+					break;
+				}
 			}
 		}
 
@@ -582,3 +731,225 @@ void FAnimNode_AnimDynamics::PreUpdate(const UAnimInstance* InAnimInstance)
 	check(World->GetWorldSettings());
 	CurrentTimeDilation = World->GetWorldSettings()->GetEffectiveTimeDilation();
 }
+
+FTransform FAnimNode_AnimDynamics::GetBoneTransformInSimSpace(USkeletalMeshComponent* SkelComp, FCSPose<FCompactPose>& MeshBases, const FCompactPoseBoneIndex& BoneIndex)
+{
+	FTransform Transform = MeshBases.GetComponentSpaceTransform(BoneIndex);
+
+	return GetSimSpaceTransformFromComponentSpace(SimulationSpace, SkelComp, MeshBases, Transform);
+}
+
+FTransform FAnimNode_AnimDynamics::GetComponentSpaceTransformFromSimSpace(AnimPhysSimSpaceType SimSpace, USkeletalMeshComponent* SkelComp, FCSPose<FCompactPose>& MeshBases, const FTransform& InSimTransform)
+{
+	FTransform OutTransform = InSimTransform;
+
+	switch(SimSpace)
+	{
+		// Change nothing, already in component space
+	case AnimPhysSimSpaceType::Component:
+	{
+		break;
+	}
+
+	case AnimPhysSimSpaceType::Actor:
+	{
+		UObject* OuterObject = SkelComp->GetOuter();
+		if(OuterObject && OuterObject->IsA<AActor>())
+		{
+			AActor* OwningActor = Cast<AActor>(OuterObject);
+			check(OwningActor);
+		
+			FTransform ComponentTransform(SkelComp->RelativeRotation, SkelComp->RelativeLocation, SkelComp->RelativeScale3D);
+			OutTransform = OutTransform * ComponentTransform.Inverse();
+		}
+
+		break;
+	}
+
+	case AnimPhysSimSpaceType::RootRelative:
+	{
+		const FBoneContainer& RequiredBones = MeshBases.GetPose().GetBoneContainer();
+
+		FCompactPoseBoneIndex RootBoneCompactIndex(0);
+
+		FTransform RelativeBoneTransform = MeshBases.GetComponentSpaceTransform(RootBoneCompactIndex);
+		OutTransform = OutTransform * RelativeBoneTransform;
+
+		break;
+	}
+
+	case AnimPhysSimSpaceType::BoneRelative:
+	{
+		const FBoneContainer& RequiredBones = MeshBases.GetPose().GetBoneContainer();
+		if(RelativeSpaceBone.IsValid(RequiredBones))
+		{
+			FTransform RelativeBoneTransform = MeshBases.GetComponentSpaceTransform(RelativeSpaceBone.GetCompactPoseIndex(RequiredBones));
+			OutTransform = OutTransform * RelativeBoneTransform;
+		}
+
+		break;
+	}
+	case AnimPhysSimSpaceType::World:
+	{
+		OutTransform *= SkelComp->ComponentToWorld.Inverse();
+	}
+
+	default:
+		break;
+	}
+
+	return OutTransform;
+}
+
+
+FTransform FAnimNode_AnimDynamics::GetSimSpaceTransformFromComponentSpace(AnimPhysSimSpaceType SimSpace, USkeletalMeshComponent* SkelComp, FCSPose<FCompactPose>& MeshBases, const FTransform& InComponentTransform)
+{
+	FTransform ResultTransform = InComponentTransform;
+
+	switch(SimSpace)
+	{
+		// Change nothing, already in component space
+	case AnimPhysSimSpaceType::Component:
+	{
+		break;
+	}
+
+	case AnimPhysSimSpaceType::Actor:
+	{
+		UObject* OuterObject = SkelComp->GetOuter();
+		if(OuterObject && OuterObject->IsA<AActor>())
+		{
+			AActor* OwningActor = Cast<AActor>(OuterObject);
+			check(OwningActor);
+
+			FTransform WorldTransform = ResultTransform * SkelComp->ComponentToWorld;
+			WorldTransform.SetToRelativeTransform(OwningActor->GetActorTransform());
+			ResultTransform = WorldTransform;
+		}
+
+		break;
+	}
+
+	case AnimPhysSimSpaceType::RootRelative:
+	{
+		const FBoneContainer& RequiredBones = MeshBases.GetPose().GetBoneContainer();
+
+		FCompactPoseBoneIndex RootBoneCompactIndex(0);
+
+		FTransform RelativeBoneTransform = MeshBases.GetComponentSpaceTransform(RootBoneCompactIndex);
+		ResultTransform = ResultTransform.GetRelativeTransform(RelativeBoneTransform);
+
+		break;
+	}
+
+	case AnimPhysSimSpaceType::BoneRelative:
+	{
+		const FBoneContainer& RequiredBones = MeshBases.GetPose().GetBoneContainer();
+		if(RelativeSpaceBone.IsValid(RequiredBones))
+		{
+			FTransform RelativeBoneTransform = MeshBases.GetComponentSpaceTransform(RelativeSpaceBone.GetCompactPoseIndex(RequiredBones));
+			ResultTransform = ResultTransform.GetRelativeTransform(RelativeBoneTransform);
+		}
+
+		break;
+	}
+
+	case AnimPhysSimSpaceType::World:
+	{
+		// Out to world space
+		ResultTransform *= SkelComp->ComponentToWorld;
+	}
+
+	default:
+		break;
+	}
+
+	return ResultTransform;
+}
+
+FVector FAnimNode_AnimDynamics::TransformWorldVectorToSimSpace(USkeletalMeshComponent* SkelComp, FCSPose<FCompactPose>& MeshBases, const FVector& InVec)
+{
+	FVector OutVec = InVec;
+
+	switch(SimulationSpace)
+	{
+	case AnimPhysSimSpaceType::Component:
+	{
+		OutVec = SkelComp->ComponentToWorld.InverseTransformVectorNoScale(OutVec);
+
+		break;
+	}
+
+	case AnimPhysSimSpaceType::Actor:
+	{
+		UObject* OuterObject = SkelComp->GetOuter();
+		if(OuterObject && OuterObject->IsA<AActor>())
+		{
+			AActor* OwningActor = Cast<AActor>(OuterObject);
+			check(OwningActor);
+
+			OutVec = OwningActor->GetTransform().TransformVectorNoScale(OutVec);
+		}
+
+		break;
+	}
+
+	case AnimPhysSimSpaceType::RootRelative:
+	{
+		const FBoneContainer& RequiredBones = MeshBases.GetPose().GetBoneContainer();
+
+		FCompactPoseBoneIndex RootBoneCompactIndex(0);
+
+		FTransform RelativeBoneTransform = MeshBases.GetComponentSpaceTransform(RootBoneCompactIndex);
+		RelativeBoneTransform = SkelComp->ComponentToWorld * RelativeBoneTransform;
+		OutVec = RelativeBoneTransform.InverseTransformVectorNoScale(OutVec);
+
+		break;
+	}
+
+	case AnimPhysSimSpaceType::BoneRelative:
+	{
+		const FBoneContainer& RequiredBones = MeshBases.GetPose().GetBoneContainer();
+		if(RelativeSpaceBone.IsValid(RequiredBones))
+		{
+			FTransform RelativeBoneTransform = MeshBases.GetComponentSpaceTransform(RelativeSpaceBone.GetCompactPoseIndex(RequiredBones));
+			RelativeBoneTransform = SkelComp->ComponentToWorld * RelativeBoneTransform;
+			OutVec = RelativeBoneTransform.InverseTransformVectorNoScale(OutVec);
+		}
+
+		break;
+	}
+	case AnimPhysSimSpaceType::World:
+	{
+		break;
+	}
+
+	default:
+		break;
+	}
+
+	return OutVec;
+}
+
+void FAnimNode_AnimDynamics::ConvertSimulationSpace(USkeletalMeshComponent* SkelComp, FCSPose<FCompactPose>& MeshBases, AnimPhysSimSpaceType From, AnimPhysSimSpaceType To)
+{
+	for(FAnimPhysRigidBody* Body : BaseBodyPtrs)
+	{
+		if(!Body)
+		{
+			return;
+		}
+
+		// Get transform
+		FTransform BodyTransform(Body->Pose.Orientation, Body->Pose.Position);
+		// Out to component space
+		BodyTransform = GetComponentSpaceTransformFromSimSpace(LastSimSpace, SkelComp, MeshBases, BodyTransform);
+		// In to new space
+		BodyTransform = GetSimSpaceTransformFromComponentSpace(SimulationSpace, SkelComp, MeshBases, BodyTransform);
+
+		// Push back to body
+		Body->Pose.Orientation = BodyTransform.GetRotation();
+		Body->Pose.Position = BodyTransform.GetTranslation();
+	}
+}
+

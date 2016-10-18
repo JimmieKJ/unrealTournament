@@ -26,6 +26,10 @@ class UNREALTOURNAMENT_API AUTPickupHealth : public AUTPickup
 	virtual bool AllowPickupBy_Implementation(APawn* TouchedBy, bool bDefaultAllowPickup) override;
 	virtual void GiveTo_Implementation(APawn* Target) override;
 
-	virtual float BotDesireability_Implementation(APawn* Asker, float PathDistance) override;
+	virtual float BotDesireability_Implementation(APawn* Asker, AController* RequestOwner, float PathDistance) override;
 	virtual float DetourWeight_Implementation(APawn* Asker, float PathDistance) override;
+	virtual bool IsSuperDesireable_Implementation(AController* RequestOwner, float CalculatedDesire) override
+	{
+		return BaseDesireability >= 1.0f;
+	}
 };

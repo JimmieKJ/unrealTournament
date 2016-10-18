@@ -11,6 +11,13 @@ FLinuxCursor::FLinuxCursor()
 	,	CachedGlobalYPosition(0)
 	,	bPositionCacheIsValid(false)
 {
+	if (!FApp::CanEverRender())
+	{
+		// assume that non-rendering application will be fine with token cursor
+		UE_LOG(LogInit, Log, TEXT("Not creating cursor resources due to headless application."));
+		return;
+	}
+
 	if (!FPlatformMisc::PlatformInitMultimedia()) //	will not initialize more than once
 	{
 		UE_LOG(LogInit, Fatal, TEXT("FLinuxCursor::FLinuxCursor() : PlatformInitMultimedia() failed, cannot construct cursor."));

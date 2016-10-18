@@ -8,7 +8,7 @@
 
 #if WITH_ENGINE
 #include "DeviceProfiles/DeviceProfile.h"
-#endif 
+#endif
 
 DEFINE_LOG_CATEGORY_STATIC(LogHTML5TargetPlatform, Log, All);
 
@@ -71,9 +71,9 @@ ITargetDevicePtr FHTML5TargetPlatform::GetDevice( const FTargetDeviceId& DeviceI
 		{
 			FHTML5TargetDevicePtr& Device = MapIt->Value;
 			if( Device->GetName() == DeviceId.GetDeviceName() )
-	{
-			return Device; 
-	}
+			{
+				return Device;
+			}
 		}
 	}
 
@@ -82,23 +82,24 @@ ITargetDevicePtr FHTML5TargetPlatform::GetDevice( const FTargetDeviceId& DeviceI
 
 bool FHTML5TargetPlatform::IsSdkInstalled(bool bProjectHasCode, FString& OutDocumentationPath) const
 {
+	FString SDKPath = FPaths::EngineDir() / TEXT("Extras/ThirdPartyNotUE/emsdk") /
 #if PLATFORM_WINDOWS
-		FString SDKPath = FPaths::EngineDir() / TEXT("Source") / TEXT("ThirdParty") / TEXT("HTML5") / TEXT("emsdk") / TEXT("Win64");
+		TEXT("Win64");
 #elif PLATFORM_MAC
-		FString SDKPath = FPaths::EngineDir() / TEXT("Source") / TEXT("ThirdParty") / TEXT("HTML5") / TEXT("emsdk") / TEXT("Mac");
+		TEXT("Mac");
 #elif PLATFORM_LINUX
-		FString SDKPath = FPaths::EngineDir() / TEXT("Source") / TEXT("ThirdParty") / TEXT("HTML5") / TEXT("emsdk") / TEXT("Linux");
-#else 
-		return; 
-#endif 
+		TEXT("Linux");
+#else
+		TEXT("UNKNOWN_PLATFORM");
+#endif
 
 	FString SDKDirectory = FPaths::ConvertRelativePathToFull(SDKPath);
 
 	if (IFileManager::Get().DirectoryExists(*SDKDirectory))
 	{
-		return true; 	
+		return true;
 	}
-	return false; 
+	return false;
 }
 
 
@@ -175,7 +176,7 @@ void FHTML5TargetPlatform::GetTextureFormats( const UTexture* Texture, TArray<FN
 			{
 				TextureFormatName = NameG8;
 			}
-			else 
+			else
 			{
 				TextureFormatName = NameRGBA8;
 			}
@@ -228,9 +229,9 @@ void FHTML5TargetPlatform::GetTextureFormats( const UTexture* Texture, TArray<FN
 	{
 		TextureFormatName = NameBGRA8;
 	}
-#endif 
+#endif
 
-	OutFormats.Add( TextureFormatName); 
+	OutFormats.Add( TextureFormatName);
 }
 
 
@@ -250,10 +251,10 @@ FName FHTML5TargetPlatform::GetWaveFormat( const USoundWave* Wave ) const
 
 void FHTML5TargetPlatform::RefreshHTML5Setup()
 {
-	FString Temp; 
+	FString Temp;
 	if (!FHTML5TargetPlatform::IsSdkInstalled(true, Temp))
 	{
-		// nothing to do. 
+		// nothing to do.
 		return;
 	}
 
@@ -262,11 +263,11 @@ void FHTML5TargetPlatform::RefreshHTML5Setup()
 	GConfig->GetArray( TEXT("/Script/HTML5PlatformEditor.HTML5SDKSettings"), TEXT("DeviceMap"), DeviceMaps, GEngineIni );
 	if ( ! DeviceMaps.Num() )
 	{
-		// nuke everything
+		// trash can: nukes everything
+		// default list will be repopulated
 		FScopeLock Lock( &DevicesCriticalSection );
 		for (auto Iter = Devices.CreateIterator(); Iter; ++Iter)
 		{
-//			UE_LOG(LogHTML5TargetPlatform, Log, TEXT("HTML5SDKSettings: count before NUKE %d"), Devices.Num());
 			FHTML5TargetDevicePtr Device = Iter->Value;
 			Iter.RemoveCurrent();
 			DeviceLostEvent.Broadcast(Device.ToSharedRef());
@@ -276,43 +277,31 @@ void FHTML5TargetPlatform::RefreshHTML5Setup()
 	else
 	{
 		// add or update
-//		UE_LOG(LogHTML5TargetPlatform, Log, TEXT("HTML5SDKSettings: count before ADD/UPDATNG %d"), Devices.Num());
 		for (auto It : DeviceMaps)
 		{
-//			UE_LOG(LogHTML5TargetPlatform, Log, TEXT("HTML5SDKSettings: parsing %s"),*It);
 			FString DeviceName = "";
-			if( FParse::Value( *It, TEXT( "DeviceName=" ), DeviceName ) )
+			FString DevicePath = "";
+			if( FParse::Value( *It, TEXT( "DeviceName=" ), DeviceName ) &&
+				FParse::Value( *It, TEXT( "DevicePath=(FilePath=" ), DevicePath ) )
 			{
-				FString DevicePath = "";
-				if( FParse::Value( *DeviceName, TEXT( "DevicePath=" ), DevicePath ) )
+				if (FPlatformFileManager::Get().GetPlatformFile().FileExists(*DevicePath) ||
+				    FPlatformFileManager::Get().GetPlatformFile().DirectoryExists(*DevicePath))
 				{
-					DevicePath.RemoveFromEnd(TEXT("))"));
-					FString FilePath = "";
-					if( FParse::Value( *DevicePath, TEXT( "FilePath=" ), FilePath ) )
-		{
-						if (FPlatformFileManager::Get().GetPlatformFile().FileExists(*DevicePath) ||
-						    FPlatformFileManager::Get().GetPlatformFile().DirectoryExists(*DevicePath))
-			{
-							FScopeLock Lock( &DevicesCriticalSection );
-							FHTML5TargetDevicePtr& Device = Devices.FindOrAdd( DeviceName );
+					FScopeLock Lock( &DevicesCriticalSection );
+					DeviceName = TEXT("user: ") + DeviceName;
+					FHTML5TargetDevicePtr& Device = Devices.FindOrAdd( DeviceName );
 
-							if( Device.IsValid() )
-				{
-//								UE_LOG(LogHTML5TargetPlatform, Log, TEXT("HTML5SDKSettings: UPDATING %s"),*It);
-								DeviceLostEvent.Broadcast(Device.ToSharedRef());
-							}
-							else
-					{
-//								UE_LOG(LogHTML5TargetPlatform, Log, TEXT("HTML5SDKSettings: ADDING %s"),*It);
+					if( Device.IsValid() )
+					{	// remove "existing" - so can "update" it
+						DeviceLostEvent.Broadcast(Device.ToSharedRef());
 					}
-							Device = MakeShareable( new FHTML5TargetDevice( *this, DeviceName, DevicePath ) );
-							DeviceDiscoveredEvent.Broadcast( Device.ToSharedRef() );
-							if ( DefaultDeviceName.IsEmpty() )
+
+					Device = MakeShareable( new FHTML5TargetDevice( *this, DeviceName, DevicePath ) );
+					DeviceDiscoveredEvent.Broadcast( Device.ToSharedRef() );
+					if ( DefaultDeviceName.IsEmpty() )
 					{
-								DefaultDeviceName = DeviceName;
-							}
+						DefaultDeviceName = DeviceName;
 					}
-				}
 				}
 			}
 		}
@@ -326,13 +315,14 @@ void FHTML5TargetPlatform::RefreshHTML5Setup()
 	{
 #if PLATFORM_WINDOWS
 		{ TEXT("Nightly(64bit)"), TEXT("C:/Program Files/Nightly/firefox.exe") },
-		{ TEXT("Nightly"), TEXT("C:/Program Files (x86)/Nightly/firefox.exe") },
-		{ TEXT("Firefox"), TEXT("C:/Program Files (x86)/Mozilla Firefox/firefox.exe") },
-		{ TEXT("Chrome"), TEXT("C:/Program Files (x86)/Google/Chrome/Application/chrome.exe") },
+		{ TEXT("Nightly"),        TEXT("C:/Program Files (x86)/Nightly/firefox.exe") },
+		{ TEXT("Firefox(64bit)"), TEXT("C:/Program Files/Mozilla Firefox/firefox.exe") },
+		{ TEXT("Firefox"),        TEXT("C:/Program Files (x86)/Mozilla Firefox/firefox.exe") },
+		{ TEXT("Chrome"),         TEXT("C:/Program Files (x86)/Google/Chrome/Application/chrome.exe") },
 #elif PLATFORM_MAC
-		{ TEXT("Safari"), TEXT("/Applications/Safari.app") },
+		{ TEXT("Safari"),  TEXT("/Applications/Safari.app") },
 		{ TEXT("Firefox"), TEXT("/Applications/Firefox.app") },
-		{ TEXT("Chrome"), TEXT("/Applications/Google Chrome.app") },
+		{ TEXT("Chrome"),  TEXT("/Applications/Google Chrome.app") },
 #elif PLATFORM_LINUX
 		{ TEXT("Firefox"), TEXT("/usr/bin/firefox") },
 #else
@@ -352,7 +342,7 @@ void FHTML5TargetPlatform::RefreshHTML5Setup()
 			if( !Device.IsValid() )
 			{
 				Device = MakeShareable( new FHTML5TargetDevice( *this, *Loc.Name, *Loc.Path ) );
-			DeviceDiscoveredEvent.Broadcast(Device.ToSharedRef());
+				DeviceDiscoveredEvent.Broadcast(Device.ToSharedRef());
 			}
 		}
 	}
