@@ -147,6 +147,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = LevelSettings)
 	bool bUseCapsuleDirectShadowsForCharacter;
 
+	/** Default time for round length in seconds (300 seconds = 5 minutes). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = LevelSettings)
+		int32 DefaultRoundLength;
+
 	UPROPERTY()
 	UAudioComponent* MusicComp;
 

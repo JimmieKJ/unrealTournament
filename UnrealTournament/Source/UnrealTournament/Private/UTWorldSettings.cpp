@@ -16,7 +16,7 @@ AUTWorldSettings::AUTWorldSettings(const FObjectInitializer& ObjectInitializer)
 	MaxImpactEffectInvisibleLifetime = 15.0f;
 	ImpactEffectFadeSpeed = 0.5f;
 	ImpactEffectFadeTime=1.0f;
-
+	DefaultRoundLength = 300;
 	PrimaryActorTick.bCanEverTick = true;
 	PrimaryActorTick.bStartWithTickEnabled = true;
 }

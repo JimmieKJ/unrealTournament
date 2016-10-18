@@ -27,6 +27,10 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 	UPROPERTY(BlueprintReadOnly, Category = CTF)
 		bool bSlowFlagCarrier;
 
+	/*  If true, use world settings round times */
+	UPROPERTY(BlueprintReadOnly, Category = CTF)
+		bool bUseLevelTiming;
+
 	/** Respawn wait time for team with no life limit. */
 	UPROPERTY(BlueprintReadOnly, Category = CTF)
 		float UnlimitedRespawnWaitTime;

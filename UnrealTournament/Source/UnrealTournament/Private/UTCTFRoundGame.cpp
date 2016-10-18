@@ -78,6 +78,7 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 	bSlowFlagCarrier = false;
 	EndOfMatchMessageDelay = 2.5f;
 	bHaveAnnouncedRound = false;
+	bUseLevelTiming = true;
 }
 
 void AUTCTFRoundGame::PostLogin(APlayerController* NewPlayer)
@@ -99,6 +100,12 @@ void AUTCTFRoundGame::CreateGameURLOptions(TArray<TSharedPtr<TAttributePropertyB
 void AUTCTFRoundGame::InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage)
 {
 	Super::InitGame(MapName, Options, ErrorMessage);
+
+	if (!UGameplayStatics::HasOption(Options, TEXT("TimeLimit")))
+	{
+		AUTWorldSettings* WorldSettings = bUseLevelTiming ? Cast<AUTWorldSettings>(GetWorldSettings()) : nullptr;
+		TimeLimit = WorldSettings ? WorldSettings->DefaultRoundLength : TimeLimit;
+	}
 
 	// key options are ?RoundLives=xx?Dash=xx?Asymm=xx?PerPlayerLives=xx?OffKillsForPowerup=xx?DefKillsForPowerup=xx?AllowPrototypePowerups=xx?DelayRally=xxx?Boost=xx
 	RoundLives = FMath::Max(1, UGameplayStatics::GetIntOption(Options, TEXT("RoundLives"), RoundLives));
