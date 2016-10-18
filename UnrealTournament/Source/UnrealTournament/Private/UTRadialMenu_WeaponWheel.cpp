@@ -13,6 +13,11 @@ UUTRadialMenu_WeaponWheel::UUTRadialMenu_WeaponWheel(const class FObjectInitiali
 
 	static ConstructorHelpers::FObjectFinder<UTexture2D> WeaponAtlas(TEXT("Texture2D'/Game/RestrictedAssets/UI/WeaponAtlas01.WeaponAtlas01'"));
 	WeaponIconTemplate.Atlas = WeaponAtlas.Object;
+
+	static ConstructorHelpers::FObjectFinder<UTexture2D> HUDAtlas(TEXT("Texture2D'/Game/RestrictedAssets/UI/HUDAtlas01.HUDAtlas01'"));
+	OutOfAmmoTemplate.Atlas = HUDAtlas.Object;
+	OutOfAmmoTemplate.UVs = FTextureUVs(414.0f, 947.0f, 58.0f, 58.0f);
+	OutOfAmmoTemplate.RenderColor = FLinearColor::Red;
 }
 
 void UUTRadialMenu_WeaponWheel::InitializeWidget(AUTHUD* Hud)
@@ -44,7 +49,10 @@ void UUTRadialMenu_WeaponWheel::BecomeInteractive()
 					ProfileSettings->GetWeaponGroup(*It, Group, GroupPriority);
 					if (ProfileSettings->WeaponWheelMapping[SlotId] == Group)
 					{
-						WeaponList[SlotId] = *It;
+						if (WeaponList[SlotId] == nullptr || (!WeaponList[SlotId]->HasAnyAmmo() && It->HasAnyAmmo()))
+						{
+							WeaponList[SlotId] = *It;
+						}
 						break;
 					}
 				}
@@ -63,6 +71,7 @@ void UUTRadialMenu_WeaponWheel::BecomeNonInteractive()
 
 void UUTRadialMenu_WeaponWheel::DrawMenu(FVector2D ScreenCenter, float RenderDelta)
 {
+	bActiveSlotOutOfAmmo = false;
 	if (bIsInteractive)
 	{
 		FVector2D CenterPoint = FVector2D(0.0f, -250.0f);
@@ -71,6 +80,14 @@ void UUTRadialMenu_WeaponWheel::DrawMenu(FVector2D ScreenCenter, float RenderDel
 			if (WeaponList[i] != nullptr && !WeaponList[i]->IsPendingKillPending())
 			{
 				bool bCurrent = CurrentSegment == i && !ShouldCancel();
+
+				if (bCurrent && !WeaponList[i]->HasAnyAmmo())
+				{
+					bActiveSlotOutOfAmmo = true;
+				}
+
+				Opacity = ( WeaponList[i]->HasAnyAmmo() ) ? 1.0f : 0.33f;
+
 				float Angle = GetMidSegmentAngle(i);
 				FVector2D DrawScreenPosition = Rotate(CenterPoint, Angle);
 				SegmentTemplate.RenderScale = bCurrent ? 1.2f : 1.0f; 
@@ -98,7 +115,16 @@ void UUTRadialMenu_WeaponWheel::DrawMenu(FVector2D ScreenCenter, float RenderDel
 		if (WeaponList.IsValidIndex(CurrentSegment) && WeaponList[CurrentSegment] != nullptr)
 		{
 			CaptionTemplate.Text = WeaponList[CurrentSegment]->DisplayName;
+			CaptionTemplate.TextScale = 1.0f;
 			RenderObj_Text(CaptionTemplate);
+
+			if (!WeaponList[CurrentSegment]->HasAnyAmmo())
+			{
+				CaptionTemplate.Text = NSLOCTEXT("WeaponWheel","NoAmmo","<Out of Ammo>");
+				CaptionTemplate.TextScale = 0.75f;
+				RenderObj_Text(CaptionTemplate, FVector2D(0.0f, 35.0f));
+			}
+
 		}
 	}
 }
@@ -112,5 +138,18 @@ void UUTRadialMenu_WeaponWheel::Execute()
 		{
 			UTHUDOwner->UTPlayerOwner->SwitchWeaponGroup(Profile->WeaponWheelMapping[CurrentSegment]);
 		}
+	}
+}
+
+void UUTRadialMenu_WeaponWheel::DrawCursor(FVector2D ScreenCenter, float RenderDelta)
+{
+	if (bActiveSlotOutOfAmmo)
+	{
+		// Draw the Cursor
+		RenderObj_TextureAt(OutOfAmmoTemplate, CursorPosition.X, CursorPosition.Y, 26, 26);
+	}
+	else
+	{
+		Super::DrawCursor(ScreenCenter, RenderDelta);
 	}
 }
