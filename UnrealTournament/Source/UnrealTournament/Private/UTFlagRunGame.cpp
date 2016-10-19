@@ -171,6 +171,7 @@ void AUTFlagRunGame::InitGameStateForRound()
 		FRGS->bIsDefenseAbleToGainPowerup = true;
 		FRGS->bRedToCap = !FRGS->bRedToCap;
 		FRGS->CurrentRallyPoint = nullptr;
+		FRGS->ScoringPlayerState = nullptr;
 	}
 }
 
@@ -1035,6 +1036,11 @@ void AUTFlagRunGame::ScoreObject_Implementation(AUTCarriedObject* GameObject, AU
 		{
 			UTPC->ClientPlayInstantReplay(HolderPawn, 10.0f);
 		}
+	}
+
+	if (UTGameState)
+	{
+		UTGameState->ScoringPlayerState = Cast<AUTPlayerState>(HolderPawn->PlayerState);
 	}
 }
 

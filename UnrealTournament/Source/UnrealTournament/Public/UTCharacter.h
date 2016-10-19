@@ -381,7 +381,22 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 
 	UFUNCTION()
 	void OnEmoteEnded(UAnimMontage* Montage, bool bInterrupted);
-		
+
+	UFUNCTION()
+	void PlayGroupTaunt(TSubclassOf<AUTGroupTaunt> TauntToPlay);
+
+	UFUNCTION()
+	void OnGroupTauntEnded(UAnimMontage* Montage, bool bInterrupted);
+
+	UFUNCTION()
+	void CascadeGroupTaunt();
+
+	UPROPERTY()
+	TSubclassOf<AUTGroupTaunt> CurrentGroupTauntClass;
+
+	UPROPERTY()
+	UAnimMontage* CurrentGroupTaunt;
+
 	UPROPERTY()
 	UAnimMontage* CurrentTaunt;
 

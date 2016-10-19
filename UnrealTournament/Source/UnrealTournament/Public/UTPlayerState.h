@@ -10,6 +10,7 @@
 #include "UTHatLeader.h"
 #include "UTEyewear.h"
 #include "UTTaunt.h"
+#include "UTGroupTaunt.h"
 #include "Http.h"
 #include "UTProfileItem.h"
 #include "SHyperlink.h"
@@ -581,6 +582,12 @@ public:
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerReceiveTaunt2Class(const FString& NewTauntClass);
 
+	UPROPERTY(replicated)
+	TSubclassOf<AUTGroupTaunt> GroupTauntClass;
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	virtual void ServerReceiveGroupTauntClass(const FString& NewGroupTauntClass);
+
 	virtual void CopyProperties(APlayerState* PlayerState) override;
 	virtual void OverrideWith(APlayerState* PlayerState) override;
 
@@ -1040,6 +1047,12 @@ public:
 
 	virtual void OnRep_bIsInactive() override;
 
+	UPROPERTY(replicatedUsing = OnRepGroupTaunt)
+	TSubclassOf<AUTGroupTaunt> ActiveGroupTaunt;
+
+	UFUNCTION()
+	virtual void OnRepGroupTaunt();
+
 	UPROPERTY(replicatedUsing = OnRepTaunt)
 	FEmoteRepInfo EmoteReplicationInfo;
 
@@ -1057,6 +1070,9 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = Taunt)
 	void PlayTauntByClass(TSubclassOf<AUTTaunt> TauntToPlay);
+
+	UFUNCTION(BlueprintCallable, Category = Taunt)
+	void PlayGroupTaunt();
 
 	/** whether the player is allowed to freeze a taunt anim; i.e. set its playrate to zero */
 	virtual bool AllowFreezingTaunts() const;

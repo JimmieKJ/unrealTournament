@@ -106,6 +106,12 @@ protected:
 	void OnEyewearVariantSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
 	void PopulateEyewearVariants();
 
+	TArray<TSharedPtr<FString>> GroupTauntList;
+	TArray<FString> GroupTauntPathList;
+	TSharedPtr< SComboBox< TSharedPtr<FString> > > GroupTauntComboBox;
+	TSharedPtr<STextBlock> SelectedGroupTaunt;
+	void OnGroupTauntSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
+
 	TArray<TSharedPtr<FString>> TauntList;
 	TArray<FString> TauntPathList;
 	TSharedPtr< SComboBox< TSharedPtr<FString> > > TauntComboBox;

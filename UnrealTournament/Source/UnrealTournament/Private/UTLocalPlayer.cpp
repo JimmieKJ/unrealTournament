@@ -2682,6 +2682,28 @@ void UUTLocalPlayer::SetCharacterPath(const FString& NewCharacterPath)
 	}
 }
 
+FString UUTLocalPlayer::GetGroupTauntPath() const
+{
+	return (CurrentProfileSettings != NULL) ? CurrentProfileSettings->GroupTauntPath : GetDefaultURLOption(TEXT("GroupTaunt"));
+}
+
+void UUTLocalPlayer::SetGroupTauntPath(const FString& NewGroupTauntPath)
+{
+	if (CurrentProfileSettings != NULL)
+	{
+		CurrentProfileSettings->GroupTauntPath = NewGroupTauntPath;
+	}
+	SetDefaultURLOption(TEXT("GroupTaunt"), NewGroupTauntPath);
+	if (PlayerController != NULL)
+	{
+		AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerController->PlayerState);
+		if (PS != NULL)
+		{
+			PS->ServerReceiveGroupTauntClass(NewGroupTauntPath);
+		}
+	}
+}
+
 FString UUTLocalPlayer::GetTauntPath() const
 {
 	return (CurrentProfileSettings != NULL) ? CurrentProfileSettings->TauntPath : GetDefaultURLOption(TEXT("Taunt"));

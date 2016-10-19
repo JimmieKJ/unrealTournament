@@ -30,6 +30,7 @@ void UUTProfileSettings::ResetProfile(EProfileResetType::Type SectionToReset)
 		HatVariant = 0;
 		EyewearPath = TEXT("");
 		EyewearVariant = 0;
+		GroupTauntPath = TEXT("");
 		TauntPath = TEXT("/Game/RestrictedAssets/Blueprints/Taunts/Taunt_Boom.Taunt_Boom_C");
 		Taunt2Path = TEXT("/Game/RestrictedAssets/Blueprints/Taunts/Taunt_Bow.Taunt_Bow_C");
 		CharacterPath = TEXT("");
@@ -318,6 +319,10 @@ void UUTProfileSettings::GetDefaultGameActions(TArray<FKeyConfigurationInfo>& ou
 
 	Key = FKeyConfigurationInfo("Taunt2", EControlCategory::Taunts, EKeys::K, EKeys::Invalid, EKeys::Gamepad_DPad_Right, NSLOCTEXT("Keybinds", "Taunt2", "Taunt #2"));
 	Key.AddActionMapping("PlayTaunt2");
+	outGameActions.Add(Key);
+
+	Key = FKeyConfigurationInfo("GroupTaunt", EControlCategory::Taunts, EKeys::L, EKeys::Invalid, EKeys::Gamepad_DPad_Down, NSLOCTEXT("Keybinds", "GroupTaunt", "Group Taunt"));
+	Key.AddActionMapping("PlayGroupTaunt");
 	outGameActions.Add(Key);
 
 	// UI
@@ -620,6 +625,7 @@ void UUTProfileSettings::ApplyAllSettings(UUTLocalPlayer* ProfilePlayer)
 	ProfilePlayer->SetHatPath(HatPath);
 	ProfilePlayer->SetLeaderHatPath(LeaderHatPath);
 	ProfilePlayer->SetEyewearPath(EyewearPath);
+	ProfilePlayer->SetGroupTauntPath(GroupTauntPath);
 	ProfilePlayer->SetTauntPath(TauntPath);
 	ProfilePlayer->SetTaunt2Path(Taunt2Path);
 	ProfilePlayer->SetHatVariant(HatVariant);

@@ -635,6 +635,12 @@ public:
 	UFUNCTION()
 	virtual void PlayTaunt2();
 
+	UFUNCTION()
+	virtual void PlayGroupTaunt();
+
+	UFUNCTION(reliable, server, WithValidation)
+	virtual void ServerPlayGroupTaunt();
+
 	UFUNCTION(Exec)
 	virtual void SetMouseSensitivityUT(float NewSensitivity);
 

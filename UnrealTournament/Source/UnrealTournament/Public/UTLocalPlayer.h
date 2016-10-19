@@ -339,6 +339,8 @@ public:
 	virtual void SetHatVariant(int32 NewVariant);
 	virtual int32 GetEyewearVariant() const;
 	virtual void SetEyewearVariant(int32 NewVariant);
+	virtual FString GetGroupTauntPath() const;
+	virtual void SetGroupTauntPath(const FString& NewGroupTauntPath);
 	virtual FString GetTauntPath() const;
 	virtual void SetTauntPath(const FString& NewTauntPath);
 	virtual FString GetTaunt2Path() const;

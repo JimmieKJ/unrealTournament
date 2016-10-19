@@ -5736,9 +5736,103 @@ bool AUTCharacter::IsThirdPersonTaunting() const
 	return false;
 }
 
+void AUTCharacter::CascadeGroupTaunt()
+{
+	// Tell the next character to play the group taunt
+	for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
+	{
+		AUTCharacter* UTChar = Cast<AUTCharacter>(*It);
+		if (UTChar == this)
+		{
+			// Move one past
+			++It;
+			if (!It)
+			{
+				It.Reset();
+			}
+
+			// Account for non UT Character entries
+			while (*It != this && Cast<AUTCharacter>(*It) == nullptr)
+			{
+				++It;
+			}
+
+			if (*It == this)
+			{
+				return;
+			}
+
+			UTChar = Cast<AUTCharacter>(*It);
+
+			if (UTChar)
+			{
+				AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+				if (GS && GS->ScoringPlayerState == UTChar->PlayerState)
+				{
+					// Everyone has played
+					return;
+				}
+
+				UTChar->PlayGroupTaunt(CurrentGroupTauntClass);
+				return;
+			}
+		}
+	}
+}
+
+void AUTCharacter::PlayGroupTaunt(TSubclassOf<AUTGroupTaunt> TauntToPlay)
+{
+	GetMesh()->bPauseAnims = false;
+	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+	if (AnimInstance != NULL)
+	{
+		if (CurrentTaunt)
+		{
+			AnimInstance->Montage_Stop(0.0f, CurrentTaunt);
+			CurrentTaunt = nullptr;
+		}
+
+		if (AnimInstance->Montage_Play(TauntToPlay->GetDefaultObject<AUTGroupTaunt>()->TauntMontage, 1.0f))
+		{
+			UTCharacterMovement->bIsTaunting = true;
+
+			CurrentGroupTaunt = TauntToPlay->GetDefaultObject<AUTGroupTaunt>()->TauntMontage;
+			CurrentGroupTauntClass = TauntToPlay;
+
+			FOnMontageEnded EndDelegate;
+			EndDelegate.BindUObject(this, &AUTCharacter::OnGroupTauntEnded);
+			AnimInstance->Montage_SetEndDelegate(EndDelegate);
+		}
+	}
+}
+
+void AUTCharacter::OnGroupTauntEnded(UAnimMontage* Montage, bool bInterrupted)
+{
+	if (CurrentTauntAudioComponent)
+	{
+		CurrentTauntAudioComponent->Stop();
+		CurrentTauntAudioComponent = nullptr;
+	}
+
+	if (Hat)
+	{
+		Hat->OnWearerEmoteEnded();
+	}
+
+	CurrentGroupTaunt = nullptr;
+	UTCharacterMovement->bIsTaunting = false;
+
+	// if we're drawing the outline we need the mesh to keep ticking
+	if (CustomDepthMesh == NULL || !CustomDepthMesh->IsRegistered())
+	{
+		GetMesh()->MeshComponentUpdateFlag = GetClass()->GetDefaultObject<AUTCharacter>()->GetMesh()->MeshComponentUpdateFlag;
+	}
+}
+
+
 void AUTCharacter::PlayTauntByClass(TSubclassOf<AUTTaunt> TauntToPlay, float EmoteSpeed)
 {
-	if (!bFeigningDeath && !IsDead() && TauntToPlay != nullptr && TauntToPlay->GetDefaultObject<AUTTaunt>()->TauntMontage)
+	if (!bFeigningDeath && !IsDead() && TauntToPlay != nullptr && TauntToPlay->GetDefaultObject<AUTTaunt>()->TauntMontage && CurrentGroupTaunt == nullptr)
 	{
 		StopFiring();
 		if (Hat)
@@ -6641,5 +6735,3 @@ AActor* AUTCharacter::GetCurrentAimContext()
 	
 	return BestPickup;
 }
-
-

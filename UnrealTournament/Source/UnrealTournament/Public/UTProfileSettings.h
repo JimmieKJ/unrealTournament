@@ -115,6 +115,9 @@ public:
 	int32 EyewearVariant;
 
 	UPROPERTY(BlueprintReadOnly, Category = Character)
+	FString GroupTauntPath;
+
+	UPROPERTY(BlueprintReadOnly, Category = Character)
 	FString TauntPath;
 
 	UPROPERTY(BlueprintReadOnly, Category = Character)

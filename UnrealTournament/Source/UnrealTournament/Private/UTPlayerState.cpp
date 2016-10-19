@@ -120,6 +120,8 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	DOREPLIFETIME(AUTPlayerState, SelectedCharacter);
 	DOREPLIFETIME(AUTPlayerState, TauntClass);
 	DOREPLIFETIME(AUTPlayerState, Taunt2Class);
+	DOREPLIFETIME(AUTPlayerState, GroupTauntClass);
+	DOREPLIFETIME(AUTPlayerState, ActiveGroupTaunt);
 	DOREPLIFETIME(AUTPlayerState, HatClass);
 	DOREPLIFETIME(AUTPlayerState, LeaderHatClass);
 	DOREPLIFETIME(AUTPlayerState, EyewearClass);
@@ -989,6 +991,23 @@ bool AUTPlayerState::ServerReceiveEyewearClass_Validate(const FString& NewEyewea
 	return true;
 }
 
+void AUTPlayerState::ServerReceiveGroupTauntClass_Implementation(const FString& NewGroupTauntClass)
+{
+	if (!bOnlySpectator)
+	{
+		GroupTauntClass = LoadClass<AUTGroupTaunt>(NULL, *NewGroupTauntClass, NULL, GetCosmeticLoadFlags(), NULL);
+		if (GroupTauntClass != NULL)
+		{
+			ValidateEntitlements();
+		}
+	}
+}
+
+bool AUTPlayerState::ServerReceiveGroupTauntClass_Validate(const FString& NewEyewearClass)
+{
+	return true;
+}
+
 void AUTPlayerState::ServerReceiveTauntClass_Implementation(const FString& NewTauntClass)
 {
 	if (!bOnlySpectator)
@@ -1001,7 +1020,7 @@ void AUTPlayerState::ServerReceiveTauntClass_Implementation(const FString& NewTa
 	}
 }
 
-bool AUTPlayerState::ServerReceiveTauntClass_Validate(const FString& NewEyewearClass)
+bool AUTPlayerState::ServerReceiveTauntClass_Validate(const FString& NewTauntClass)
 {
 	return true;
 }
@@ -1018,7 +1037,7 @@ void AUTPlayerState::ServerReceiveTaunt2Class_Implementation(const FString& NewT
 	}
 }
 
-bool AUTPlayerState::ServerReceiveTaunt2Class_Validate(const FString& NewEyewearClass)
+bool AUTPlayerState::ServerReceiveTaunt2Class_Validate(const FString& NewTauntClass)
 {
 	return true;
 }
@@ -1786,6 +1805,10 @@ void AUTPlayerState::ValidateEntitlements()
 				if (!HasRightsFor(EyewearClass))
 				{
 					ServerReceiveEyewearClass(FString());
+				}
+				if (!HasRightsFor(GroupTauntClass))
+				{
+					ServerReceiveGroupTauntClass(FString());
 				}
 				if (!HasRightsFor(TauntClass))
 				{
@@ -3344,6 +3367,44 @@ void AUTPlayerState::PlayTauntByIndex(int32 TauntIndex)
 		EmoteReplicationInfo.EmoteIndex = TauntIndex;
 		PlayTauntByClass(Taunt2Class);
 	}
+}
+
+void AUTPlayerState::OnRepGroupTaunt()
+{
+	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+	if (GS && GS->ScoringPlayerState == this)
+	{
+		for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
+		{
+			AUTCharacter *UTChar = Cast<AUTCharacter>(*It);
+			if (UTChar != NULL)
+			{
+				if (GroupTauntClass->GetDefaultObject<AUTGroupTaunt>()->bCascading)
+				{
+					if (UTChar->PlayerState == this)
+					{
+						UTChar->PlayGroupTaunt(ActiveGroupTaunt);
+					}
+				}
+				else
+				{
+					UTChar->PlayGroupTaunt(ActiveGroupTaunt);
+				}
+			}
+		}
+	}
+}
+
+void AUTPlayerState::PlayGroupTaunt()
+{
+	// SetEmoteSpeed here to make sure that it gets unfrozen if freezing isn't allowed
+	if (Role == ROLE_Authority)
+	{
+		ServerSetEmoteSpeed(EmoteSpeed);
+	}
+
+	ActiveGroupTaunt = GroupTauntClass;
+	OnRepGroupTaunt();
 }
 
 void AUTPlayerState::PlayTauntByClass(TSubclassOf<AUTTaunt> TauntToPlay)

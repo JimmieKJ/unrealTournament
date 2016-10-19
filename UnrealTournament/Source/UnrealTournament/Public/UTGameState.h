@@ -216,6 +216,10 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = GameState)
 	AUTTeamInfo* WinningTeam;
 
+	/** Identifies who capped the flag */
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = GameState)
+	AUTPlayerState* ScoringPlayerState;
+
 	UFUNCTION()
 	virtual void OnWinnerReceived();
 

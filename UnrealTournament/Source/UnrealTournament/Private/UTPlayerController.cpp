@@ -498,6 +498,7 @@ void AUTPlayerController::SetupInputComponent()
 	InputComponent->BindAction("SlowerEmote", IE_Pressed, this, &AUTPlayerController::SlowerEmote);
 	InputComponent->BindAction("PlayTaunt", IE_Pressed, this, &AUTPlayerController::PlayTaunt);
 	InputComponent->BindAction("PlayTaunt2", IE_Pressed, this, &AUTPlayerController::PlayTaunt2);
+	InputComponent->BindAction("PlayGroupTaunt", IE_Pressed, this, &AUTPlayerController::PlayGroupTaunt);
 
 	InputComponent->BindAction("ShowBuyMenu", IE_Pressed, this, &AUTPlayerController::ShowBuyMenu);
 
@@ -3701,6 +3702,32 @@ void AUTPlayerController::ServerEmote_Implementation(int32 EmoteIndex)
 	else if (UTPlayerState != nullptr)
 	{
 		UTPlayerState->PlayTauntByIndex(EmoteIndex);
+	}
+}
+
+void AUTPlayerController::PlayGroupTaunt()
+{
+	if (GetWorld()->GetRealTimeSeconds() - LastEmoteTime > EmoteCooldownTime)
+	{
+		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+		if (GS && GS->ScoringPlayerState == PlayerState && GS->IsMatchIntermission())
+		{
+			ServerPlayGroupTaunt();
+			LastEmoteTime = GetWorld()->GetRealTimeSeconds();
+		}
+	}
+}
+
+bool AUTPlayerController::ServerPlayGroupTaunt_Validate()
+{
+	return true;
+}
+
+void AUTPlayerController::ServerPlayGroupTaunt_Implementation()
+{
+	if (UTPlayerState != nullptr)
+	{
+		UTPlayerState->PlayGroupTaunt();
 	}
 }
 

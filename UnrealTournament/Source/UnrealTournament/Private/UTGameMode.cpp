@@ -738,6 +738,11 @@ APlayerController* AUTGameMode::Login(UPlayer* NewPlayer, ENetRole InRemoteRole,
 			{
 				PS->ServerReceiveEyewearClass(InOpt);
 			}
+			InOpt = UGameplayStatics::ParseOption(Options, TEXT("GroupTaunt"));
+			if (InOpt.Len() > 0)
+			{
+				PS->ServerReceiveGroupTauntClass(InOpt);
+			}
 			InOpt = UGameplayStatics::ParseOption(Options, TEXT("Taunt"));
 			if (InOpt.Len() > 0)
 			{
