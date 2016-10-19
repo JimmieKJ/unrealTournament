@@ -573,7 +573,8 @@ FVector AUTRallyPoint::GetRallyLocation(AUTCharacter* TestChar)
 void AUTRallyPoint::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector CameraPosition, FVector CameraDir)
 {
 	AUTPlayerState* ViewerPS = PC ? Cast <AUTPlayerState>(PC->PlayerState) : nullptr;
-	if (!ViewerPS)
+	AUTFlagRunGameState* UTGS = GetWorld()->GetGameState<AUTFlagRunGameState>();
+	if (!ViewerPS || !UTGS || !ViewerPS->Team || (UTGS->bRedToCap != (ViewerPS->Team->TeamIndex == 0)))
 	{
 		return;
 	}
