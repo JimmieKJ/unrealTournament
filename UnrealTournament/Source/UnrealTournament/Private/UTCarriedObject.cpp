@@ -433,11 +433,6 @@ void AUTCarriedObject::SetHolder(AUTCharacter* NewHolder)
 	if (Role == ROLE_Authority)
 	{
 		OnHolderChanged();
-		AUTGameVolume* GV = HoldingPawn->UTCharacterMovement ? Cast<AUTGameVolume>(HoldingPawn->UTCharacterMovement->GetPhysicsVolume()) : nullptr;
-		if (GV)
-		{
-			GV->EnableRallyPoints(HoldingPawn);
-		}
 		if (Holder && bWasHome)
 		{
 			LastPingedTime = GetWorld()->GetTimeSeconds();
@@ -491,6 +486,11 @@ void AUTCarriedObject::SetHolder(AUTCharacter* NewHolder)
 
 	if (Role == ROLE_Authority)
 	{
+		AUTGameVolume* GV = HoldingPawn->UTCharacterMovement ? Cast<AUTGameVolume>(HoldingPawn->UTCharacterMovement->GetPhysicsVolume()) : nullptr;
+		if (GV)
+		{
+			GV->EnableRallyPoints(HoldingPawn);
+		}
 		// TODO: currently sending this AI notify even when not home as we do not currently track AI knowledge of dropped flag location
 		//		when that changes, this check should be restored
 		// note: notify for dropped flags here should match conditions for through-walls outline/beacon, see UpdateOutline()
