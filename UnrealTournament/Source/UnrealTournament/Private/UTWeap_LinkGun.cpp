@@ -162,7 +162,7 @@ void AUTWeap_LinkGun::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 	{
 		if (PulseInstigator != NULL)
 		{
-			PulseTarget = (LinkTarget != NULL) ? LinkTarget : OutHit->Actor.Get();
+			PulseTarget = OutHit->Actor.Get();
 			// try CSHD result if it's reasonable
 			if (PulseTarget == NULL && ClientPulseTarget != NULL)
 			{
@@ -349,7 +349,7 @@ void AUTWeap_LinkGun::PlayImpactEffects_Implementation(const FVector& TargetLoc,
 		static FName NAME_TeamColor(TEXT("TeamColor"));
 		bool bGotTeamColor = false;
 		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-		if (Cast<IUTTeamInterface>(LinkTarget) != NULL && GS != NULL)
+/*		if (Cast<IUTTeamInterface>(LinkTarget) != NULL && GS != NULL)
 		{
 			uint8 TeamNum = Cast<IUTTeamInterface>(LinkTarget)->GetTeamNum();
 			if (GS->Teams.IsValidIndex(TeamNum) && GS->Teams[TeamNum] != NULL)
@@ -357,18 +357,12 @@ void AUTWeap_LinkGun::PlayImpactEffects_Implementation(const FVector& TargetLoc,
 				MuzzleFlash[CurrentFireMode]->SetVectorParameter(NAME_TeamColor, FVector(GS->Teams[TeamNum]->TeamColor.R, GS->Teams[TeamNum]->TeamColor.G, GS->Teams[TeamNum]->TeamColor.B));
 				bGotTeamColor = true;
 			}
-		}
+		}*/
 		if (!bGotTeamColor)
 		{
 			MuzzleFlash[CurrentFireMode]->ClearParameter(NAME_TeamColor);
 		}
 	}
-}
-
-// reset links
-bool AUTWeap_LinkGun::PutDown()
-{
-	return Super::PutDown();
 }
 
 void AUTWeap_LinkGun::OnMultiPress_Implementation(uint8 OtherFireMode)
@@ -413,7 +407,7 @@ void AUTWeap_LinkGun::StateChanged()
 
 void AUTWeap_LinkGun::CheckBotPulseFire()
 {
-	if (UTOwner != NULL && LinkTarget == NULL && CurrentFireMode == 1 && InstantHitInfo.IsValidIndex(1) && !bPendingBeamPulse)
+	if (UTOwner != NULL && CurrentFireMode == 1 && InstantHitInfo.IsValidIndex(1) && !bPendingBeamPulse)
 	{
 		AUTBot* B = Cast<AUTBot>(UTOwner->Controller);
 		if ( B != NULL && B->WeaponProficiencyCheck() && B->GetEnemy() != NULL && B->GetTarget() == B->GetEnemy() &&
@@ -439,19 +433,6 @@ void AUTWeap_LinkGun::CheckBotPulseFire()
 			}
 		}
 	}
-}
-
-void AUTWeap_LinkGun::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
-{
-	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-	DOREPLIFETIME_CONDITION(AUTWeap_LinkGun, Links, COND_OwnerOnly);
-	DOREPLIFETIME_CONDITION(AUTWeap_LinkGun, LinkTarget, COND_OwnerOnly);
-}
-
-void AUTWeap_LinkGun::DebugSetLinkGunLinks(int32 newLinks)
-{
-	GEngine->AddOnScreenDebugMessage(-1, 3.f, FColor::Black, FString::Printf(TEXT("DebugSetLinkGunLinks, oldLinks: %i, newLinks: %i"), Links, newLinks));
-	Links = newLinks;
 }
 
 void AUTWeap_LinkGun::FiringExtraUpdated_Implementation(uint8 NewFlashExtra, uint8 InFireMode)

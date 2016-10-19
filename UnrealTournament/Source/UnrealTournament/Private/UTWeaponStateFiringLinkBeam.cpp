@@ -19,10 +19,7 @@ void UUTWeaponStateFiringLinkBeam::FireShot()
 
 	if (LinkGun != NULL)
     {
-		if (LinkGun->GetLinkTarget() == NULL)
-		{
-			LinkGun->ConsumeAmmo(LinkGun->GetCurrentFireMode());
-		}
+		LinkGun->ConsumeAmmo(LinkGun->GetCurrentFireMode());
 
 		//Special case for hidden weapons since we really need the MuzzleFlash to play for the link beam
 		if (LinkGun->ShouldPlay1PVisuals() && LinkGun->GetWeaponHand() == EWeaponHand::HAND_Hidden)
@@ -129,29 +126,26 @@ void UUTWeaponStateFiringLinkBeam::Tick(float DeltaTime)
 				LinkGun->bLinkCausingDamage = true;
 			}
 
-			if (LinkGun->GetLinkTarget() == NULL)
-            {
-                float LinkedDamage = float(DamageInfo.Damage);
- 				Accumulator += LinkedDamage / RefireTime * DeltaTime;
-				if (PS && (LinkGun->ShotsStatsName != NAME_None) && (AccumulatedFiringTime > RefireTime))
-				{
-					AccumulatedFiringTime -= RefireTime;
-					PS->ModifyStatsValue(LinkGun->ShotsStatsName, 1);
-				}
+            float LinkedDamage = float(DamageInfo.Damage);
+ 			Accumulator += LinkedDamage / RefireTime * DeltaTime;
+			if (PS && (LinkGun->ShotsStatsName != NAME_None) && (AccumulatedFiringTime > RefireTime))
+			{
+				AccumulatedFiringTime -= RefireTime;
+				PS->ModifyStatsValue(LinkGun->ShotsStatsName, 1);
+			}
 
-				if (Accumulator >= MinDamage)
-                {
-                    int32 AppliedDamage = FMath::TruncToInt(Accumulator);
-                    Accumulator -= AppliedDamage;
-                    FVector FireDir = (Hit.Location - Hit.TraceStart).GetSafeNormal();
-					AController* LinkDamageInstigator = LinkGun->GetUTOwner() ? LinkGun->GetUTOwner()->Controller : nullptr;
-					Hit.Actor->TakeDamage(AppliedDamage, FUTPointDamageEvent(AppliedDamage, Hit, FireDir, DamageInfo.DamageType, FireDir * (LinkGun->GetImpartedMomentumMag(Hit.Actor.Get()) * float(AppliedDamage) / float(DamageInfo.Damage))), LinkDamageInstigator, LinkGun);
-					if (PS && (LinkGun->HitsStatsName != NAME_None))
-					{
-						PS->ModifyStatsValue(LinkGun->HitsStatsName, AppliedDamage/FMath::Max(LinkedDamage, 1.f));
-					}
+			if (Accumulator >= MinDamage)
+            {
+                int32 AppliedDamage = FMath::TruncToInt(Accumulator);
+                Accumulator -= AppliedDamage;
+                FVector FireDir = (Hit.Location - Hit.TraceStart).GetSafeNormal();
+				AController* LinkDamageInstigator = LinkGun->GetUTOwner() ? LinkGun->GetUTOwner()->Controller : nullptr;
+				Hit.Actor->TakeDamage(AppliedDamage, FUTPointDamageEvent(AppliedDamage, Hit, FireDir, DamageInfo.DamageType, FireDir * (LinkGun->GetImpartedMomentumMag(Hit.Actor.Get()) * float(AppliedDamage) / float(DamageInfo.Damage))), LinkDamageInstigator, LinkGun);
+				if (PS && (LinkGun->HitsStatsName != NAME_None))
+				{
+					PS->ModifyStatsValue(LinkGun->HitsStatsName, AppliedDamage/FMath::Max(LinkedDamage, 1.f));
 				}
-            }
+			}
         }
 		else
 		{

@@ -71,9 +71,6 @@ class UNREALTOURNAMENT_API AUTWeap_LinkGun : public AUTWeapon
 	UPROPERTY(Transient, BlueprintReadWrite, Category = LinkGun)
 	float LastBeamPulseTime;
 
-	UFUNCTION(exec)
-	virtual void DebugSetLinkGunLinks(int32 newLinks);
-
 	/** Target being link pulled. */
 	UPROPERTY(BlueprintReadOnly)
 	AActor* PulseTarget;
@@ -144,30 +141,14 @@ class UNREALTOURNAMENT_API AUTWeap_LinkGun : public AUTWeapon
 	UPROPERTY(BlueprintReadOnly, Category = LinkGun)
 		bool bLinkBeamImpacting;
 
-protected:
-	UPROPERTY(BlueprintReadOnly, Replicated, Category = LinkGun)
-	AActor* LinkTarget;
-	UPROPERTY(BlueprintReadOnly, Replicated, Category = LinkGun)
-	int32 Links;
 public:
-	inline AActor* GetLinkTarget() const
-	{
-		return LinkTarget;
-	}
-
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = LinkGun)
 		USoundBase* PullSucceeded;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = LinkGun)
 		USoundBase* PullFailed;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = LinkGun)
-	bool bFeedbackDeath;
-
 	virtual void PlayImpactEffects_Implementation(const FVector& TargetLoc, uint8 FireMode, const FVector& SpawnLocation, const FRotator& SpawnRotation) override;
-    
-	// reset links
-	virtual bool PutDown() override;
 
 	virtual void OnMultiPress_Implementation(uint8 OtherFireMode) override;
 
