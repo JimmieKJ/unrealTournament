@@ -104,9 +104,9 @@ void AUTRallyPoint::BeginPlay()
 		AvailableDecal = UGameplayStatics::SpawnDecalAtLocation(this, GlowDecalMaterialInstance, FVector(192.f, 192.f, 192.f), GetActorLocation() - FVector(0.f, 0.f, 190.f), DecalRotation);
 
 		static FName NAME_Color(TEXT("Color"));
-		GlowDecalMaterialInstance->SetVectorParameterValue(NAME_Color, FVector(0.f, 0.f, 0.f));
+		GlowDecalMaterialInstance->SetVectorParameterValue(NAME_Color, FVector(1.f, 1.f, 1.f));
 		static FName NAME_EmissiveBrightness(TEXT("EmissiveBrightness"));
-		GlowDecalMaterialInstance->SetScalarParameterValue(NAME_EmissiveBrightness, 0.f);
+		GlowDecalMaterialInstance->SetScalarParameterValue(NAME_EmissiveBrightness, 5.f);
 	}
 	OnAvailableEffectChanged();
 }
@@ -324,7 +324,6 @@ void AUTRallyPoint::OnRallyChargingChanged()
 					}
 				}
 			}
-
 		}
 		else
 		{
@@ -337,22 +336,21 @@ void AUTRallyPoint::OnRallyChargingChanged()
 
 void AUTRallyPoint::OnAvailableEffectChanged()
 {
-	if (AvailableEffectPSC != nullptr)
+	if (bIsEnabled)
 	{
-		// clear it
-		AvailableEffectPSC->ActivateSystem(false);
-		AvailableEffectPSC->UnregisterComponent();
-		AvailableEffectPSC = nullptr;
-	}
-	if (bShowAvailableEffect && bIsEnabled)
-	{
-		AvailableEffectPSC = UGameplayStatics::SpawnEmitterAtLocation(this, AvailableEffect, GetActorLocation() - FVector(0.f, 0.f, 64.f), GetActorRotation());
-		AUTFlagRunGameState* UTGS = GetWorld()->GetGameState<AUTFlagRunGameState>();
-		bHaveGameState = (UTGS != nullptr);
-		FVector RingColor(1.f, 1.f, 0.f);
-		if ((RallyPointState != RallyPointStates::Powered) && bHaveGameState)
+		if (AvailableEffectPSC == nullptr)
 		{
-			RingColor = (UTGS->bRedToCap || !UTGS->HasMatchStarted()) ? FVector(1.f, 0.f, 0.f) : FVector(0.f, 0.f, 1.f);
+			AvailableEffectPSC = UGameplayStatics::SpawnEmitterAtLocation(this, AvailableEffect, GetActorLocation() - FVector(0.f, 0.f, 64.f), GetActorRotation());
+		}
+		FVector RingColor(1.f, 1.f, 1.f);
+		if (bShowAvailableEffect)
+		{
+			AUTFlagRunGameState* UTGS = GetWorld()->GetGameState<AUTFlagRunGameState>();
+			bHaveGameState = (UTGS != nullptr);
+			if (bHaveGameState)
+			{
+				RingColor = (UTGS->bRedToCap || !UTGS->HasMatchStarted()) ? FVector(1.f, 0.f, 0.f) : FVector(0.f, 0.f, 1.f);
+			}
 		}
 		static FName NAME_RingColor(TEXT("RingColor"));
 		AvailableEffectPSC->SetVectorParameter(NAME_RingColor, RingColor);
@@ -363,13 +361,6 @@ void AUTRallyPoint::OnAvailableEffectChanged()
 			static FName NAME_EmissiveBrightness(TEXT("EmissiveBrightness"));
 			GlowDecalMaterialInstance->SetScalarParameterValue(NAME_EmissiveBrightness, 1.f);
 		}
-	}
-	else if (GlowDecalMaterialInstance)
-	{
-		static FName NAME_Color(TEXT("Color"));
-		GlowDecalMaterialInstance->SetVectorParameterValue(NAME_Color, FVector(0.f, 0.f, 0.f));
-		static FName NAME_EmissiveBrightness(TEXT("EmissiveBrightness"));
-		GlowDecalMaterialInstance->SetScalarParameterValue(NAME_EmissiveBrightness, 0.f);
 	}
 }
 
