@@ -561,7 +561,19 @@ FVector AUTRallyPoint::GetRallyLocation(AUTCharacter* TestChar)
 void AUTRallyPoint::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector CameraPosition, FVector CameraDir)
 {
 	AUTPlayerState* ViewerPS = PC ? Cast <AUTPlayerState>(PC->PlayerState) : nullptr;
-	if (!ViewerPS || !ViewerPS->CarriedObject)
+	if (!ViewerPS)
+	{
+		return;
+	}
+	float Dist = (CameraPosition - GetActorLocation()).Size();
+	if (ViewerPS->CarriedObject)
+	{
+		if ((RallyPointState != RallyPointStates::Off) || (!bShowAvailableEffect && (Dist > 3000.f)))
+		{
+			return;
+		}
+	}
+	else if (RallyPointState != RallyPointStates::Powered)
 	{
 		return;
 	}
@@ -569,8 +581,7 @@ void AUTRallyPoint::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVecto
 	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 	AUTPlayerController* UTPC = Cast<AUTPlayerController>(PC);
 	const bool bIsViewTarget = (PC->GetViewTarget() == this);
-	float Dist = (CameraPosition - GetActorLocation()).Size();
-	if (UTPC != NULL && (bShowAvailableEffect || (Dist < 3000.f)) && (RallyPointState == RallyPointStates::Off) && GS && !GS->IsMatchIntermission() && !GS->HasMatchEnded() &&
+	if (UTPC != NULL && GS && !GS->IsMatchIntermission() && !GS->HasMatchEnded() &&
 		FVector::DotProduct(CameraDir, (GetActorLocation() - CameraPosition)) > 0.0f && (UTPC->MyUTHUD == nullptr || !UTPC->MyUTHUD->bShowScores))
 	{
 		float TextXL, YL;
