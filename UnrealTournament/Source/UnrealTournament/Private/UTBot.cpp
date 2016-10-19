@@ -3188,7 +3188,7 @@ void AUTBot::DoHunt(APawn* NewHuntTarget)
 			{
 				// calculate minimum amount of time enemy will have progressed from our starting point before we could possibly catch up
 				// note: this is an optimization, more correct would be to evaluate in the below pathfinding step
-				const float MoveSpeed = FMath::Max<float>(1.0f, GetPawn()->GetMovementComponent()->GetMaxSpeed());
+				const float MoveSpeed = FMath::Max<float>(1.0f, GetPawn()->GetMovementComponent() ? GetPawn()->GetMovementComponent()->GetMaxSpeed() : 0);
 				float SkipTime = FMath::Max<float>(GetWorld()->TimeSeconds - EnemyInfo->LastFullUpdateTime, (GetPawn()->GetActorLocation() - EnemyInfo->LastKnownLoc).Size() / MoveSpeed);
 
 				TArray<FRouteCacheItem> PathPredictionGoals;
