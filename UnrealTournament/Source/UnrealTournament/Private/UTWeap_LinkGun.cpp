@@ -311,7 +311,7 @@ void AUTWeap_LinkGun::Tick(float DeltaTime)
 	}
 	else
 	{
-		OverheatFactor = (UTOwner && IsFiring() && (CurrentFireMode == 0) && (UTOwner->GetFireRateMultiplier() <= 1.f)) ? OverheatFactor + 0.45f*DeltaTime : FMath::Max(0.f, OverheatFactor - 2.2f * FMath::Max(0.f, DeltaTime - FMath::Max(0.f, 0.25f + LastFiredPlasmaTime - GetWorld()->GetTimeSeconds())));
+		OverheatFactor = (UTOwner && IsFiring() && (CurrentFireMode == 0) && (UTOwner->GetFireRateMultiplier() <= 1.f)) ? OverheatFactor + 0.42f*DeltaTime : FMath::Max(0.f, OverheatFactor - 2.2f * FMath::Max(0.f, DeltaTime - FMath::Max(0.f, 0.3f + LastFiredPlasmaTime - GetWorld()->GetTimeSeconds())));
 		bIsInCoolDown = (OverheatFactor > 1.f);
 
 	}
