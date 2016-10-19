@@ -116,7 +116,7 @@ void AUTPlayerCameraManager::UpdateCamera(float DeltaTime)
 		// Cache results
 		FillCameraCache(NewPOV);
 	}
-	else if (!Cast<AUTDemoRecSpectator>(PCOwner))
+	else
 	{
 		Super::UpdateCamera(DeltaTime);
 	}
