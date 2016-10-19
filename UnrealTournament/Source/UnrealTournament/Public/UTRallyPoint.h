@@ -9,14 +9,18 @@ class UNREALTOURNAMENT_API AUTRallyPoint : public AUTGameObjective, public IUTRe
 {
 	GENERATED_UCLASS_BODY()
 
-	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = Objective)
+	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = RallyPoint)
 		UCapsuleComponent* Capsule;
 
 	UPROPERTY(BlueprintReadOnly)
 		class AUTGameVolume* MyGameVolume;
 
+	/** How far away from FC to display this RallyPoint as available (both beacon for FC and team colored effect for others) */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = RallyPoint)
+		float RallyAvailableDistance;
+
 	/** how long FC has to be here for rally to start */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Objective)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = RallyPoint)
 		float RallyReadyDelay;
 
 	/** When rallypoint was powered up */
@@ -26,13 +30,13 @@ class UNREALTOURNAMENT_API AUTRallyPoint : public AUTGameObjective, public IUTRe
 	FTimerHandle EndRallyHandle;
 
 	/** Minimum powered up time */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Objective)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = RallyPoint)
 		float MinimumRallyTime;
 
 	UPROPERTY(BlueprintReadOnly, Category = Objective)
 		float RallyReadyCountdown;
 
-	UPROPERTY(BlueprintReadOnly, Replicated, Category = Objective)
+	UPROPERTY(BlueprintReadOnly, Replicated, Category = RallyPoint)
 		int32 ReplicatedCountdown;
 
 	UPROPERTY(ReplicatedUsing = OnAvailableEffectChanged, BlueprintReadOnly)
@@ -47,16 +51,16 @@ class UNREALTOURNAMENT_API AUTRallyPoint : public AUTGameObjective, public IUTRe
 	UPROPERTY(ReplicatedUsing = OnRallyChargingChanged, BlueprintReadOnly)
 		FName RallyPointState;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Objective)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = RallyPoint)
 		UParticleSystem* AvailableEffect;
 
 	UPROPERTY()
 		UParticleSystemComponent* AvailableEffectPSC;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Objective)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = RallyPoint)
 		UParticleSystem* RallyChargingEffect;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Objective)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = RallyPoint)
 		UParticleSystem* RallyBrokenEffect;
 
 	UPROPERTY()
@@ -74,25 +78,25 @@ class UNREALTOURNAMENT_API AUTRallyPoint : public AUTGameObjective, public IUTRe
 	UPROPERTY(BlueprintReadOnly, Category = "Audio")
 		UAudioComponent* AmbientSoundComp;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Objective)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Audio)
 		USoundBase* PoweringUpSound;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Objective)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Audio)
 		USoundBase* ReadyToRallySound;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Objective)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Audio)
 		USoundBase* FCTouchedSound;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Objective)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Audio)
 		USoundBase* EnabledSound;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Objective)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Audio)
 		USoundBase* RallyEndedSound;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Objective)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Audio)
 		USoundBase* RallyBrokenSound;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = PickupDisplay)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Display)
 		UMaterialInterface* GlowDecalMaterial;
 
 	UPROPERTY(BlueprintReadOnly, Category = PickupDisplay)

@@ -48,6 +48,7 @@ AUTRallyPoint::AUTRallyPoint(const FObjectInitializer& ObjectInitializer)
 	bIsEnabled = true;
 	RallyOffset = 0;
 	RallyPointState = RallyPointStates::Off;
+	RallyAvailableDistance = 4000.f;
 }
 
 #if WITH_EDITORONLY_DATA
@@ -379,7 +380,7 @@ void AUTRallyPoint::Tick(float DeltaTime)
 		if (FlagRunGame && FlagRunGame->ActiveFlag && (RallyPointState != RallyPointStates::Powered))
 		{
 			FVector FlagLocation = FlagRunGame->ActiveFlag->HoldingPawn ? FlagRunGame->ActiveFlag->HoldingPawn->GetActorLocation() : FlagRunGame->ActiveFlag->GetActorLocation();
-			bool bFlagIsClose = ((FlagLocation - GetActorLocation()).Size() < 5000.f);
+			bool bFlagIsClose = ((FlagLocation - GetActorLocation()).Size() < RallyAvailableDistance);
 			if (bShowAvailableEffect != bFlagIsClose)
 			{
 				FlagNearbyChanged(bFlagIsClose);
@@ -578,10 +579,9 @@ void AUTRallyPoint::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVecto
 	{
 		return;
 	}
-	float Dist = (CameraPosition - GetActorLocation()).Size();
 	if (ViewerPS->CarriedObject)
 	{
-		if ((RallyPointState != RallyPointStates::Off) || (!bShowAvailableEffect && (Dist > 4000.f)))
+		if ((RallyPointState != RallyPointStates::Off) || !bShowAvailableEffect)
 		{
 			return;
 		}
@@ -633,6 +633,7 @@ void AUTRallyPoint::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVecto
 			TextItem.FontRenderInfo = Canvas->CreateFontRenderInfo(true, false);
 			Canvas->DrawItem(TextItem);
 
+			float Dist = (CameraPosition - GetActorLocation()).Size();
 			FFormatNamedArguments Args;
 			FText NumberText = FText::AsNumber(int32(0.01f*Dist));
 			UFont* TinyFont = AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>()->TinyFont;
