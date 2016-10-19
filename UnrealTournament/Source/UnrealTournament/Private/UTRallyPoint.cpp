@@ -118,6 +118,7 @@ void AUTRallyPoint::Reset_Implementation()
 	RallyPointState = RallyPointStates::Off;
 	FlagNearbyChanged(false);
 	SetAmbientSound(PoweringUpSound, true);
+	GetWorldTimerManager().ClearTimer(EndRallyHandle);
 }
 
 void AUTRallyPoint::OnOverlapBegin(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
@@ -163,6 +164,10 @@ void AUTRallyPoint::SetRallyPointState(FName NewState)
 		}
 		else if (GameState && ((RallyPointState == RallyPointStates::Powered) || (RallyPointState == RallyPointStates::Charging)))
 		{
+			if (GameState->CurrentRallyPoint)
+			{
+				GameState->CurrentRallyPoint->RallyPoweredTurnOff();
+			}
 			GameState->CurrentRallyPoint = this;
 		}
 	}
@@ -177,6 +182,18 @@ void AUTRallyPoint::StartRallyCharging()
 	RallyReadyCountdown = RallyReadyDelay;
 	ReplicatedCountdown = RallyReadyCountdown;
 	SetRallyPointState(RallyPointStates::Charging);
+	if (GetNetMode() != NM_DedicatedServer)
+	{
+		OnRallyChargingChanged();
+	}
+}
+
+void AUTRallyPoint::RallyPoweredTurnOff()
+{
+	GetWorldTimerManager().ClearTimer(EndRallyHandle);
+	RallyReadyCountdown = RallyReadyDelay;
+	ReplicatedCountdown = RallyReadyCountdown;
+	SetRallyPointState(RallyPointStates::Off);
 	if (GetNetMode() != NM_DedicatedServer)
 	{
 		OnRallyChargingChanged();

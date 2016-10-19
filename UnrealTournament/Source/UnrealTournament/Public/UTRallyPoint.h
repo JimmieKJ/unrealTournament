@@ -122,6 +122,8 @@ class UNREALTOURNAMENT_API AUTRallyPoint : public AUTGameObjective, public IUTRe
 
 	virtual void RallyPoweredComplete();
 
+	virtual void RallyPoweredTurnOff();
+
 	virtual void SetRallyPointState(FName NewState);
 
 	virtual FVector GetRallyLocation(class AUTCharacter* TestChar);
