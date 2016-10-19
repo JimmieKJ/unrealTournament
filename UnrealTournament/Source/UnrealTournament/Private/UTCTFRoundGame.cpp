@@ -33,8 +33,8 @@
 #include "UTAnalytics.h"
 #include "Runtime/Analytics/Analytics/Public/Analytics.h"
 #include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
-#include "UTInGameIntroHelper.h"
-#include "UTInGameIntroZone.h"
+#include "UTLineUpHelper.h"
+#include "UTLineUpZone.h"
 #include "UTProjectile.h"
 
 AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
@@ -221,7 +221,7 @@ void AUTCTFRoundGame::BeginGame()
 	SetMatchState(MatchState::MatchIntermission);
 	IntermissionDuration = RealIntermissionDuration;
 	
-	if ((!GetWorld() || !GetWorld()->GetGameState<AUTGameState>() || !GetWorld()->GetGameState<AUTGameState>()->InGameIntroHelper || !GetWorld()->GetGameState<AUTGameState>()->InGameIntroHelper->bIsActive))
+	if ((!GetWorld() || !GetWorld()->GetGameState<AUTGameState>() || !GetWorld()->GetGameState<AUTGameState>()->LineUpHelper || !GetWorld()->GetGameState<AUTGameState>()->LineUpHelper->bIsActive))
 	{
 		for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
 		{
@@ -257,16 +257,16 @@ void AUTCTFRoundGame::HandleMatchIntermission()
 			Base->ClearDefenseEffect();
 		}	
 
-		if (UTGameState->InGameIntroHelper)
+		if (UTGameState->LineUpHelper)
 		{
-			InGameIntroZoneTypes TypeToPlay = UTGameState->InGameIntroHelper->GetIntroTypeToPlay(GetWorld());
-			if (TypeToPlay != InGameIntroZoneTypes::Invalid)
+			LineUpTypes TypeToPlay = UTGameState->LineUpHelper->GetLineUpTypeToPlay(GetWorld());
+			if (TypeToPlay != LineUpTypes::Invalid)
 			{
-				UTGameState->InGameIntroHelper->HandleIntermission(GetWorld(), TypeToPlay);
+				UTGameState->LineUpHelper->HandleLineUp(GetWorld(), TypeToPlay);
 			}
 		}
 
-		if ((!UTGameState->InGameIntroHelper) || (!UTGameState->InGameIntroHelper->bIsActive))
+		if ((!UTGameState->LineUpHelper) || (!UTGameState->LineUpHelper->bIsActive))
 		{
 			AActor* IntermissionFocus = SetIntermissionCameras(TeamToWatch);
 			// Tell the controllers to look at defender base
@@ -468,12 +468,12 @@ void AUTCTFRoundGame::EndTeamGame(AUTTeamInfo* Winner, FName Reason)
 	SendEndOfGameStats(Reason);
 
 	//Show end game summary through in game system if possible
-	if ((UTGameState) && (UTGameState->InGameIntroHelper))
+	if ((UTGameState) && (UTGameState->LineUpHelper))
 	{
-		InGameIntroZoneTypes PlayType = UTGameState->InGameIntroHelper->GetIntroTypeToPlay(GetWorld());
-		if (PlayType != InGameIntroZoneTypes::Invalid)
+		LineUpTypes PlayType = UTGameState->LineUpHelper->GetLineUpTypeToPlay(GetWorld());
+		if (PlayType != LineUpTypes::Invalid)
 		{
-			UTGameState->InGameIntroHelper->HandleEndMatchSummary(GetWorld(), PlayType);
+			UTGameState->LineUpHelper->HandleLineUp(GetWorld(), PlayType);
 		}
 	}
 }

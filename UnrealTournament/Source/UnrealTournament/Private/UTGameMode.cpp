@@ -51,8 +51,8 @@
 #include "UTCTFRoundGameState.h"
 #include "UTGameVolume.h"
 #include "UTArmor.h"
-#include "UTInGameIntroZone.h"
-#include "UTInGameIntroHelper.h"
+#include "UTLineUpZone.h"
+#include "UTLineUpHelper.h"
 
 DEFINE_LOG_CATEGORY(LogUTGame);
 
@@ -3234,12 +3234,12 @@ void AUTGameMode::SetMatchState(FName NewState)
 		BaseMutator->NotifyMatchStateChange(MatchState);
 	}
 
-	if ((NewState == MatchState::WaitingPostMatch) && (UTGameState) && (UTGameState->InGameIntroHelper))
+	if ((NewState == MatchState::WaitingPostMatch) && (UTGameState) && (UTGameState->LineUpHelper))
 	{
-		InGameIntroZoneTypes PlayType = UTGameState->InGameIntroHelper->GetIntroTypeToPlay(GetWorld());
-		if (PlayType != InGameIntroZoneTypes::Invalid)
+		LineUpTypes PlayType = UTGameState->LineUpHelper->GetLineUpTypeToPlay(GetWorld());
+		if (PlayType != LineUpTypes::Invalid)
 		{
-			UTGameState->InGameIntroHelper->HandleEndMatchSummary(GetWorld(), PlayType);
+			UTGameState->LineUpHelper->HandleLineUp(GetWorld(), PlayType);
 		}
 	}
 }
@@ -3323,7 +3323,7 @@ void AUTGameMode::HandlePlayerIntro()
 
 void AUTGameMode::EndPlayerIntro()
 {
-	if (!UTGameState || !UTGameState->InGameIntroHelper || !UTGameState->InGameIntroHelper->bIsActive)
+	if (!UTGameState || !UTGameState->LineUpHelper || !UTGameState->LineUpHelper->bIsActive)
 	{
 		for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
 		{

@@ -4,7 +4,7 @@
 #include "UTBasePlayerController.h"
 #include "UTPickupWeapon.h"
 #include "UTGameplayStatics.h"
-#include "UTInGameIntroZone.h"
+#include "UTLineUpZone.h"
 
 #if WITH_PROFILE
 #include "UTMcpProfile.h"
@@ -292,7 +292,7 @@ public:
 	virtual void ToggleScoreboard(bool bShow);
 
 	UFUNCTION(client,reliable)
-	virtual void ClientSetIntroCamera(UWorld* World, InGameIntroZoneTypes IntroType);
+	virtual void ClientSetIntroCamera(UWorld* World, LineUpTypes IntroType);
 
 	virtual void BeginRallyTo(AUTRallyPoint* RallyTarget, const FVector& NewRallyLocation, float Delay);
 

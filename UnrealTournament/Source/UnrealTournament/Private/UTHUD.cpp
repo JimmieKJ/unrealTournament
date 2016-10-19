@@ -30,8 +30,8 @@
 #include "OnlineSubsystemUtils.h"
 #include "UTUMGHudWidget.h"
 #include "UTGameMessage.h"
-#include "UTInGameIntroZone.h"
-#include "UTInGameIntroHelper.h"
+#include "UTLineUpZone.h"
+#include "UTLineUpHelper.h"
 
 static FName NAME_Intensity(TEXT("Intensity"));
 
@@ -536,15 +536,15 @@ void AUTHUD::NotifyMatchStateChange()
 		{
 			bool bStartedInWorldIntroTimer = false;
 
-			if (GS->InGameIntroHelper)
+			if (GS->LineUpHelper)
 			{
-				UUTInGameIntroHelper* HelperCapture = GS->InGameIntroHelper;
-				InGameIntroZoneTypes TypeToPlay = HelperCapture->GetIntroTypeToPlay(GetWorld());
-				if (TypeToPlay != InGameIntroZoneTypes::Invalid)
+				UUTLineUpHelper* HelperCapture = GS->LineUpHelper;
+				LineUpTypes TypeToPlay = HelperCapture->GetLineUpTypeToPlay(GetWorld());
+				if (TypeToPlay != LineUpTypes::Invalid)
 				{
 					UWorld* World = GetWorld();
 					FTimerDelegate TimerCallback;
-					TimerCallback.BindLambda([HelperCapture, World, TypeToPlay] {HelperCapture->HandleIntro(World, TypeToPlay); });
+					TimerCallback.BindLambda([HelperCapture, World, TypeToPlay] {HelperCapture->HandleLineUp(World, TypeToPlay); });
 
 					GetWorldTimerManager().SetTimer(MatchSummaryHandle, TimerCallback, 1.7f, false);
 					bStartedInWorldIntroTimer = true;
@@ -572,9 +572,9 @@ void AUTHUD::NotifyMatchStateChange()
 				UTLP->ShowQuickChat(UTPlayerOwner->UTPlayerState->ChatDestination);
 			}
 
-			if (GS->InGameIntroHelper)
+			if (GS->LineUpHelper)
 			{
-				GS->InGameIntroHelper->CleanUp();
+				GS->LineUpHelper->CleanUp();
 			}
 		}
 	}

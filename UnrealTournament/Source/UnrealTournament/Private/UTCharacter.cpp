@@ -39,7 +39,7 @@
 #include "UTDemoRecSpectator.h"
 #include "UTGameVolume.h"
 #include "UTGameMode.h"
-#include "UTInGameIntroHelper.h"
+#include "UTLineUpHelper.h"
 
 #include "PhysicsEngine/ConstraintInstance.h"
 
@@ -5390,7 +5390,7 @@ void AUTCharacter::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector
 	const bool bRecentlyRendered = (GetWorld()->TimeSeconds - GetLastRenderTime() < 0.5f);
 	const bool bIsViewTarget = (PC->GetViewTarget() == this);
 
-	if (GS && GS->InGameIntroHelper && GS->InGameIntroHelper->bIsActive)
+	if (GS && GS->LineUpHelper && GS->LineUpHelper->bIsActive)
 	{
  		PostRenderForInGameIntro(PC, Canvas, CameraPosition, CameraDir);
 		return;

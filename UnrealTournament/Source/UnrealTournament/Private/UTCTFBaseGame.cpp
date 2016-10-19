@@ -18,8 +18,8 @@
 #include "Engine/DemoNetDriver.h"
 #include "UTCTFScoreboard.h"
 #include "UTAssistMessage.h"
-#include "UTInGameIntroHelper.h"
-#include "UTInGameIntroZone.h"
+#include "UTLineUpHelper.h"
+#include "UTLineUpZone.h"
 
 AUTCTFBaseGame::AUTCTFBaseGame(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -335,12 +335,12 @@ void AUTCTFBaseGame::HandleMatchIntermission()
 	CTFGameState->ResetFlags();
 
 	bool bWasInGameSucessful = false;
-	if (CTFGameState->InGameIntroHelper)
+	if (CTFGameState->LineUpHelper)
 	{
-		InGameIntroZoneTypes ZoneType = CTFGameState->InGameIntroHelper->GetIntroTypeToPlay(GetWorld());
-		if (ZoneType != InGameIntroZoneTypes::Invalid)
+		LineUpTypes ZoneType = CTFGameState->LineUpHelper->GetLineUpTypeToPlay(GetWorld());
+		if (ZoneType != LineUpTypes::Invalid)
 		{
-			CTFGameState->InGameIntroHelper->HandleIntermission(GetWorld(), ZoneType);
+			CTFGameState->LineUpHelper->HandleLineUp(GetWorld(), ZoneType);
 			bWasInGameSucessful = true;
 		}
 	}

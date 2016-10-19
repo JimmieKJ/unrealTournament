@@ -51,7 +51,7 @@
 #include "UTKillerTarget.h"
 #include "UTGauntletFlag.h"
 #include "UTTutorialAnnouncement.h"
-#include "UTInGameIntroHelper.h"
+#include "UTLineUpHelper.h"
 #include "UTRallyPoint.h"
 
 static TAutoConsoleVariable<float> CVarUTKillcamStartDelay(
@@ -2864,9 +2864,9 @@ void AUTPlayerController::ClientGameEnded_Implementation(AActor* EndGameFocus, b
 		AUTGameState* UTGS = Cast<AUTGameState>(GetWorld()->GameState);
 		if (UTGS)
 		{
-			if (UTGS->InGameIntroHelper && UTGS->InGameIntroHelper->bIsActive)
+			if (UTGS->LineUpHelper && UTGS->LineUpHelper->bIsActive)
 			{
-				bIsInGameIntroHandlingEndGameSummary = UTGS->InGameIntroHelper->bIsActive;
+				bIsInGameIntroHandlingEndGameSummary = UTGS->LineUpHelper->bIsActive;
 			}
 		}
 	}
@@ -5251,9 +5251,9 @@ void AUTPlayerController::PlayTutorialAnnouncement(int32 Index, UObject* Optiona
 	}
 }
 
-void AUTPlayerController::ClientSetIntroCamera_Implementation(UWorld* World, InGameIntroZoneTypes IntroType)
+void AUTPlayerController::ClientSetIntroCamera_Implementation(UWorld* World, LineUpTypes IntroType)
 {
-	AUTInGameIntroZone* SpawnPointList = UUTInGameIntroHelper::GetAppropriateSpawnList(World, IntroType);
+	AUTLineUpZone* SpawnPointList = UUTLineUpHelper::GetAppropriateSpawnList(World, IntroType);
 	if (SpawnPointList)
 	{
 		FViewTargetTransitionParams TransitionParams;
@@ -5261,9 +5261,9 @@ void AUTPlayerController::ClientSetIntroCamera_Implementation(UWorld* World, InG
 
 		if (World->GetGameState<AUTGameState>() && World->GetGameState<AUTGameState>()->GetMatchState() == MatchState::WaitingPostMatch)
 		{
-			FinalViewTarget = SpawnPointList->TeamCamera;
+			FinalViewTarget = SpawnPointList->Camera;
 		}
-		SetViewTarget(SpawnPointList->TeamCamera, TransitionParams);
+		SetViewTarget(SpawnPointList->Camera, TransitionParams);
 	}
 }
 

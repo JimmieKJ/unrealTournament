@@ -25,8 +25,8 @@
 #include "UTKillcamPlayback.h"
 #include "UTAnalytics.h"
 #include "ContentStreaming.h"
-#include "UTInGameIntroZone.h"
-#include "UTInGameIntroHelper.h"
+#include "UTLineUpZone.h"
+#include "UTLineUpHelper.h"
 #include "Runtime/Analytics/Analytics/Public/AnalyticsEventAttribute.h"
 
 AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
@@ -1191,9 +1191,9 @@ void AUTGameState::OnRep_MatchState()
 {
 	Super::OnRep_MatchState();
 
-	if (!InGameIntroHelper)
+	if (!LineUpHelper)
 	{
-		InGameIntroHelper = NewObject <UUTInGameIntroHelper>();
+		LineUpHelper = NewObject <UUTLineUpHelper>();
 	}
 
 	for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
@@ -2211,49 +2211,19 @@ bool AUTGameState::CanShowBoostMenu(AUTPlayerController* Target)
 	return IsMatchIntermission() || !HasMatchStarted();
 }
 
-bool AUTGameState::ShouldUseInGameSummary(InGameIntroZoneTypes SummaryType)
+bool AUTGameState::ShouldUseInGameSummary(LineUpTypes SummaryType)
 {
-	if ((GetWorld() == nullptr) || (SummaryType == InGameIntroZoneTypes::Invalid))
+	if ((GetWorld() == nullptr) || (SummaryType == LineUpTypes::Invalid))
 	{
 		return false;
 	}
 
-	for (TActorIterator<AUTInGameIntroZone> It(GetWorld()); It; ++It)
+	//find matching ZoneType to SummaryType
+	for (TActorIterator<AUTLineUpZone> It(GetWorld()); It; ++It)
 	{
 		if (It->ZoneType == SummaryType)
 		{
-			int RedTeamPlayerCount = 0;
-			int BlueTeamPlayerCount = 0;
-			int OtherTeamPlayerCount = 0;
-
-			const int RedTeam = 0;
-			const int BlueTeam = 1;
-
-			for (int index = 0; index < PlayerArray.Num(); ++index)
-			{
-				AUTPlayerState* UTPS = Cast<AUTPlayerState>(PlayerArray[index]);
-				if (UTPS)
-				{
-					if (UTPS->GetTeamNum() == RedTeam)
-					{
-						++RedTeamPlayerCount;
-					}
-					else if (UTPS->GetTeamNum() == BlueTeam)
-					{
-						++BlueTeamPlayerCount;
-					}
-					else
-					{
-						++OtherTeamPlayerCount;
-					}
-				}
-			}
-
-			bool bIsRedTeamSizeLimitMet = RedTeamPlayerCount > 0 ? It->RedTeamSpawnLocations.Num() >= RedTeamPlayerCount : true;
-			bool bIsBlueTeamSizeLimitMet = BlueTeamPlayerCount > 0 ? It->BlueTeamSpawnLocations.Num() >= BlueTeamPlayerCount : true;
-			bool bIsOtherTeamPlayerCountMet = OtherTeamPlayerCount > 0 ? It->FFATeamSpawnLocations.Num() >= OtherTeamPlayerCount :  true;
-
-			return bIsRedTeamSizeLimitMet && bIsBlueTeamSizeLimitMet && bIsOtherTeamPlayerCountMet;
+			return true;
 		}
 	}
 
