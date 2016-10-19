@@ -116,6 +116,7 @@ void AUTRallyPoint::Reset_Implementation()
 	bShowAvailableEffect = false;
 	RallyPointState = RallyPointStates::Off;
 	FlagNearbyChanged(false);
+	SetAmbientSound(PoweringUpSound, true);
 }
 
 void AUTRallyPoint::OnOverlapBegin(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
@@ -181,7 +182,7 @@ void AUTRallyPoint::StartRallyCharging()
 	}
 }
 
-void AUTRallyPoint::RallyChargingComplete()
+void AUTRallyPoint::RallyPoweredComplete()
 {
 	// go to either off or start charging again depending on if FC is touching
 	TSet<AActor*> Touching;
@@ -352,6 +353,10 @@ void AUTRallyPoint::OnAvailableEffectChanged()
 				RingColor = (UTGS->bRedToCap || !UTGS->HasMatchStarted()) ? FVector(1.f, 0.f, 0.f) : FVector(0.f, 0.f, 1.f);
 			}
 		}
+		else
+		{
+			SetAmbientSound(PoweringUpSound, true);
+		}
 		static FName NAME_RingColor(TEXT("RingColor"));
 		AvailableEffectPSC->SetVectorParameter(NAME_RingColor, RingColor);
 		if (GlowDecalMaterialInstance)
@@ -371,7 +376,7 @@ void AUTRallyPoint::Tick(float DeltaTime)
 	if (bIsEnabled && (Role == ROLE_Authority))
 	{
 		AUTFlagRunGame* FlagRunGame = GetWorld()->GetAuthGameMode<AUTFlagRunGame>();
-		if (FlagRunGame && FlagRunGame->ActiveFlag)
+		if (FlagRunGame && FlagRunGame->ActiveFlag && (RallyPointState != RallyPointStates::Powered))
 		{
 			FVector FlagLocation = FlagRunGame->ActiveFlag->HoldingPawn ? FlagRunGame->ActiveFlag->HoldingPawn->GetActorLocation() : FlagRunGame->ActiveFlag->GetActorLocation();
 			bool bFlagIsClose = ((FlagLocation - GetActorLocation()).Size() < 5000.f);
@@ -414,7 +419,7 @@ void AUTRallyPoint::Tick(float DeltaTime)
 						UUTGameplayStatics::UTPlaySound(GetWorld(), ReadyToRallySound, this, SRT_All);
 						SetRallyPointState(RallyPointStates::Powered);
 						RallyStartTime = GetWorld()->GetTimeSeconds();
-						GetWorldTimerManager().SetTimer(EndRallyHandle, this, &AUTRallyPoint::RallyChargingComplete, MinimumRallyTime, false);
+						GetWorldTimerManager().SetTimer(EndRallyHandle, this, &AUTRallyPoint::RallyPoweredComplete, MinimumRallyTime, false);
 						if (GetNetMode() != NM_DedicatedServer)
 						{
 							OnRallyChargingChanged();

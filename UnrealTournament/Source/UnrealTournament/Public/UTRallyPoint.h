@@ -116,7 +116,7 @@ class UNREALTOURNAMENT_API AUTRallyPoint : public AUTGameObjective, public IUTRe
 
 	virtual void EndRallyCharging();
 
-	virtual void RallyChargingComplete();
+	virtual void RallyPoweredComplete();
 
 	virtual void SetRallyPointState(FName NewState);
 
