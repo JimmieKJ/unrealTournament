@@ -324,11 +324,11 @@ FLinearColor UUTScoreboard::GetPlayerHighlightColorFor(AUTPlayerState* InPS) con
 	//RedTeam
 	if (InPS->GetTeamNum() == 0)
 	{
-		return FLinearColor::Red;
+		return FLinearColor(0.5f, 0.f, 0.f, 1.f);
 	}
 	else // Blue, or unknown team
 	{
-		return FLinearColor::Blue;
+		return FLinearColor(0.f, 0.f, 0.5f, 1.f);
 	}
 }
 
@@ -418,27 +418,27 @@ void UUTScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float R
 
 	TSharedRef<const FUniqueNetId> UserId = MakeShareable(new FUniqueNetIdString(*PlayerState->StatsID));
 	FText EpicAccountName = UTGameState->GetEpicAccountNameForAccount(UserId);
-
+	float NameScaling = FMath::Min(RenderScale, MaxNameWidth / FMath::Max(NameXL, 1.f));
 	if (bForceRealNames && !EpicAccountName.IsEmpty())
 	{
-		NameSize = DrawText(EpicAccountName, XOffset + (ScaledCellWidth * ColumnHeaderPlayerX), YOffset + ColumnY, NameFont, false, FVector2D(0.f, 0.f), FLinearColor::Black, true, GetPlayerHighlightColorFor(PlayerState), FMath::Min(RenderScale, MaxNameWidth / FMath::Max(NameXL, 1.f)), 1.0f, DrawColor, FLinearColor(0.0f, 0.0f, 0.0f, 0.0f), ETextHorzPos::Left, ETextVertPos::Center);
+		NameSize = DrawText(EpicAccountName, XOffset + (ScaledCellWidth * ColumnHeaderPlayerX), YOffset + ColumnY, NameFont, false, FVector2D(0.f, 0.f), FLinearColor::Black, true, GetPlayerHighlightColorFor(PlayerState), NameScaling, 1.0f, DrawColor, FLinearColor(0.0f, 0.0f, 0.0f, 0.0f), ETextHorzPos::Left, ETextVertPos::Center);
 	}
 	else
 	{
 		const bool bNameMatchesAccount = (EpicAccountName.ToString() == PlayerState->PlayerName);
 		if (bNameMatchesAccount)
 		{
-			NameSize = DrawText(FText::FromString(PlayerState->PlayerName), XOffset + (ScaledCellWidth * ColumnHeaderPlayerX), YOffset + ColumnY, NameFont, false, FVector2D(0.f, 0.f), FLinearColor::Black, true, GetPlayerHighlightColorFor(PlayerState), FMath::Min(RenderScale, MaxNameWidth / FMath::Max(NameXL, 1.f)), 1.0f, DrawColor, FLinearColor(0.0f, 0.0f, 0.0f, 0.0f), ETextHorzPos::Left, ETextVertPos::Center);
+			NameSize = DrawText(FText::FromString(PlayerState->PlayerName), XOffset + (ScaledCellWidth * ColumnHeaderPlayerX), YOffset + ColumnY, NameFont, false, FVector2D(0.f, 0.f), FLinearColor::Black, true, GetPlayerHighlightColorFor(PlayerState), NameScaling, 1.0f, DrawColor, FLinearColor(0.0f, 0.0f, 0.0f, 0.0f), ETextHorzPos::Left, ETextVertPos::Center);
 		}
 		else
 		{
-			NameSize = DrawText(FText::FromString(PlayerState->PlayerName), XOffset + (ScaledCellWidth * ColumnHeaderPlayerX), YOffset + ColumnY, NameFont, FMath::Min(RenderScale, MaxNameWidth / FMath::Max(NameXL, 1.f)), 1.0f, DrawColor, ETextHorzPos::Left, ETextVertPos::Center);
+			NameSize = DrawText(FText::FromString(PlayerState->PlayerName), XOffset + (ScaledCellWidth * ColumnHeaderPlayerX), YOffset + ColumnY, NameFont, NameScaling, 1.0f, DrawColor, ETextHorzPos::Left, ETextVertPos::Center);
 		}
 	}
 
 	if (PlayerState->bIsFriend)
 	{
-		DrawTexture(UTHUDOwner->ScoreboardAtlas, XOffset + (ScaledCellWidth * ColumnHeaderPlayerX) + NameSize.X + 5.f, YOffset + 18.f*RenderScale, 30.f*RenderScale, 24.f*RenderScale, 236, 136, 30, 24, 1.0, FLinearColor::White, FVector2D(0.0f, 0.5f));
+		DrawTexture(UTHUDOwner->ScoreboardAtlas, XOffset + (ScaledCellWidth * ColumnHeaderPlayerX) + NameSize.X*NameScaling + 5.f*RenderScale, YOffset + 18.f*RenderScale, 30.f*RenderScale, 24.f*RenderScale, 236, 136, 30, 24, 1.0, FLinearColor::White, FVector2D(0.0f, 0.5f));
 	}
 	if (UTGameState && UTGameState->HasMatchStarted())
 	{
