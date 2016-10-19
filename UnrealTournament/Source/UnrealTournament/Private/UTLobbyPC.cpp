@@ -38,9 +38,8 @@ void AUTLobbyPC::OnRep_PlayerState()
 	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
 	if (LP)
 	{
-		{
-			LP->UpdatePresence(TEXT("In Hub"), true, true, true, false);
-		}
+		UTLobbyPlayerState->Server_ReadyToBeginDataPush();
+		LP->UpdatePresence(TEXT("In Hub"), true, true, true, false);
 	}
 }
 

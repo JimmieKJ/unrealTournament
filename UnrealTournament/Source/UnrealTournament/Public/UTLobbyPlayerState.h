@@ -16,7 +16,6 @@ class UNREALTOURNAMENT_API AUTLobbyPlayerState : public AUTPlayerState
 	GENERATED_UCLASS_BODY()
 
 	virtual void PreInitializeComponents() override;
-	virtual void BeginPlay() override;
 
 	// The match this player is currently in.
 	UPROPERTY(Replicated, replicatedUsing = OnRep_CurrentMatch )
