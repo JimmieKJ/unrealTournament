@@ -5044,6 +5044,7 @@ void AUTPlayerController::ClientPlayKillcam_Implementation(AController* KillingC
 //	UE_LOG(UT, Log, TEXT("ClientPlayKillcam %d"), (GetWorld()->DemoNetDriver && IsLocalController()));
 	if (Cast<AUTCharacter>(PawnToFocus) != nullptr)
 	{
+		DeathCamTime = GetWorld()->GetTimeSeconds();
 		if (LineOfSightTo(PawnToFocus))
 		{
 			DeathCamFocus = PawnToFocus;

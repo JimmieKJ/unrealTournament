@@ -1237,6 +1237,9 @@ public:
 	UPROPERTY()
 		AActor* DeathCamFocus;
 
+	UPROPERTY()
+		float DeathCamTime;
+
 	virtual float GetFrozenTime();
 
 	/** Sent by the server when the player is about to respawn */

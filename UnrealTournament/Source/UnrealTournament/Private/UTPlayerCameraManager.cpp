@@ -281,7 +281,7 @@ void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTi
 		if (bUseDeathCam)
 		{
 			if (UTPC && UTPC->IsInState(NAME_Inactive) && UTPC->DeathCamFocus && !UTPC->DeathCamFocus->IsPendingKillPending() && (UTPC->DeathCamFocus != TargetActor)
-				&& (!UTPC->IsFrozen() || (UTPC->GetFrozenTime() > 0.25f)))
+				&& (!UTPC->IsFrozen() || (UTPC->GetFrozenTime() > 0.25f)) && (GetWorld()->GetTimeSeconds() - UTPC->DeathCamTime < 3.f))
 			{
 				bool bZoomIn = ((GetWorld()->GetTimeSeconds() - UTPC->DeathCamFocus->GetLastRenderTime() < 0.2f) && (UTPC->GetFrozenTime() > 0.5f));
 				float ZoomFactor = FMath::Clamp(2.f*UTPC->GetFrozenTime() - 1.f, 0.f, 1.f);
