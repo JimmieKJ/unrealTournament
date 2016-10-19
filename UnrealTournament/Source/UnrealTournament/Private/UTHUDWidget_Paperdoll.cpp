@@ -223,7 +223,9 @@ void UUTHUDWidget_Paperdoll::Draw_Implementation(float DeltaTime)
 		}
 		else if (bShowTimer)
 		{
-			int32 RemainingTime = 1 + FMath::Max(int32(PS->RemainingRallyDelay), (GameState && GameState->CurrentRallyPoint) ? GameState->CurrentRallyPoint->ReplicatedCountdown : 0);
+			int32 RemainingTime = PS->CarriedObject && GameState && GameState->CurrentRallyPoint
+				? 1 + GameState->CurrentRallyPoint->ReplicatedCountdown
+				: 1 + FMath::Max(int32(PS->RemainingRallyDelay), (GameState && GameState->CurrentRallyPoint) ? GameState->CurrentRallyPoint->ReplicatedCountdown : 0);
 			FlagText.Text = FText::AsNumber(RemainingTime);
 			RenderObj_Text(FlagText);
 		}

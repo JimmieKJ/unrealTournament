@@ -383,7 +383,9 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 			}
 			else if (bShowTimer)
 			{
-				int32 RemainingTime = 1 + FMath::Max(int32(UTPlayerState->RemainingRallyDelay), (GameState && GameState->CurrentRallyPoint) ? GameState->CurrentRallyPoint->ReplicatedCountdown : 0);
+				int32 RemainingTime = UTPlayerState->CarriedObject && GameState && GameState->CurrentRallyPoint
+											? 1 + GameState->CurrentRallyPoint->ReplicatedCountdown
+											: 1 + FMath::Max(int32(UTPlayerState->RemainingRallyDelay), (GameState && GameState->CurrentRallyPoint) ? GameState->CurrentRallyPoint->ReplicatedCountdown : 0);
 				FlagInfo.Label = FText::AsNumber(RemainingTime);
 			}
 
