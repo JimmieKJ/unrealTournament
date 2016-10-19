@@ -137,7 +137,6 @@ void AUTGameVolume::ActorEnteredVolume(class AActor* Other)
 									UE_LOG(UT, Warning, TEXT("No VoiceLineSet for %s location %s"), *GetName(), *VolumeName.ToString());
 								}
 								return;*/
-				EnableRallyPoints(P);
 				if (bIsNoRallyZone && !P->GetCarriedObject()->bWasInEnemyBase)
 				{
 					if (GetWorld()->GetTimeSeconds() - P->GetCarriedObject()->EnteredEnemyBaseTime > 10.f)
@@ -279,29 +278,8 @@ void AUTGameVolume::ActorLeavingVolume(class AActor* Other)
 				PC->LeftSpawnVolumeTime = GetWorld()->GetTimeSeconds();
 			}
 		}
-		if (UTCharacter->GetCarriedObject())
-		{
-			ClearRallyPoints();
-		}
 	}
 }
-
-void AUTGameVolume::ClearRallyPoints()
-{
-	for (int32 i = 0; i < RallyPoints.Num(); i++)
-	{
-		RallyPoints[i]->FlagCarrierInVolume(nullptr);
-	}
-}
-
-void AUTGameVolume::EnableRallyPoints(class AUTCharacter* FlagCarrier)
-{
-	for (int32 i = 0; i < RallyPoints.Num(); i++)
-	{
-		RallyPoints[i]->FlagCarrierInVolume(FlagCarrier);
-	}
-}
-
 
 void AUTGameVolume::SetTeamForSideSwap_Implementation(uint8 NewTeamNum)
 {

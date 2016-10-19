@@ -58,6 +58,9 @@ public:
 	UPROPERTY(BlueprintReadOnly, Category = CTF)
 		int DefenseKillsNeededForPowerUp;
 
+	UPROPERTY(BlueprintReadOnly, Category = CTF)
+		class AUTCarriedObject* ActiveFlag;
+
 	TAssetSubclassOf<class AUTInventory> ActivatedPowerupPlaceholderObject;
 	TAssetSubclassOf<class AUTInventory> RepulsorObject;
 

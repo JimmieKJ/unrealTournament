@@ -15,9 +15,6 @@ class UNREALTOURNAMENT_API AUTRallyPoint : public AUTGameObjective, public IUTRe
 	UPROPERTY(BlueprintReadOnly)
 		class AUTGameVolume* MyGameVolume;
 
-	UPROPERTY(BlueprintReadOnly)
-		class AUTCharacter* NearbyFC;
-
 	/** how long FC has to be here for rally to start */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Objective)
 		float RallyReadyDelay;
@@ -113,7 +110,7 @@ class UNREALTOURNAMENT_API AUTRallyPoint : public AUTGameObjective, public IUTRe
 
 	virtual void Reset_Implementation() override;
 
-	virtual void FlagCarrierInVolume(class AUTCharacter* NewFC);
+	virtual void FlagNearbyChanged(bool bIsNearby);
 
 	virtual void StartRallyCharging();
 

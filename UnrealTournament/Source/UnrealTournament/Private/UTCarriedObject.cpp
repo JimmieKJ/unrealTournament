@@ -14,6 +14,7 @@
 #include "UTGameVolume.h"
 #include "UTCTFRoundGameState.h"
 #include "UTCTFRoundGame.h"
+#include "UTRallyPoint.h"
 
 AUTCarriedObject::AUTCarriedObject(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -486,11 +487,19 @@ void AUTCarriedObject::SetHolder(AUTCharacter* NewHolder)
 
 	if (Role == ROLE_Authority)
 	{
-		AUTGameVolume* GV = HoldingPawn->UTCharacterMovement ? Cast<AUTGameVolume>(HoldingPawn->UTCharacterMovement->GetPhysicsVolume()) : nullptr;
-		if (GV)
+		// go to either off or start charging again depending on if FC is touching
+		TSet<AActor*> Touching;
+		HoldingPawn->GetCapsuleComponent()->GetOverlappingActors(Touching);
+		for (AActor* TouchingActor : Touching)
 		{
-			GV->EnableRallyPoints(HoldingPawn);
+			AUTRallyPoint* RallyPoint = Cast<AUTRallyPoint>(TouchingActor);
+			if (RallyPoint)
+			{
+				RallyPoint->StartRallyCharging();
+				break;
+			}
 		}
+
 		// TODO: currently sending this AI notify even when not home as we do not currently track AI knowledge of dropped flag location
 		//		when that changes, this check should be restored
 		// note: notify for dropped flags here should match conditions for through-walls outline/beacon, see UpdateOutline()
@@ -525,10 +534,16 @@ void AUTCarriedObject::NoLongerHeld(AController* InstigatedBy)
 	{
 		if (Role == ROLE_Authority)
 		{
-			AUTGameVolume* GV = HoldingPawn->UTCharacterMovement ? Cast<AUTGameVolume>(HoldingPawn->UTCharacterMovement->GetPhysicsVolume()) : nullptr;
-			if (GV)
+			TSet<AActor*> Touching;
+			HoldingPawn->GetCapsuleComponent()->GetOverlappingActors(Touching);
+			for (AActor* TouchingActor : Touching)
 			{
-				GV->ClearRallyPoints();
+				AUTRallyPoint* RallyPoint = Cast<AUTRallyPoint>(TouchingActor);
+				if (RallyPoint)
+				{
+					RallyPoint->EndRallyCharging();
+					break;
+				}
 			}
 		}
 		DetachFrom(HoldingPawn->GetMesh());

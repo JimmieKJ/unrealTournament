@@ -258,6 +258,7 @@ void AUTFlagRunGame::InitFlagForRound(AUTCarriedObject* Flag)
 			Flag->bEnemyPickupSendsHome = false;
 			Flag->bWaitingForFirstPickup = true;
 			GetWorldTimerManager().SetTimer(Flag->NeedFlagAnnouncementTimer, Flag, &AUTCarriedObject::SendNeedFlagAnnouncement, 5.f, false);
+			ActiveFlag = Flag;
 		}
 		else
 		{

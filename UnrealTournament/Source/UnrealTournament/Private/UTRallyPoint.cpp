@@ -115,7 +115,7 @@ void AUTRallyPoint::Reset_Implementation()
 {
 	bShowAvailableEffect = false;
 	RallyPointState = RallyPointStates::Off;
-	FlagCarrierInVolume(nullptr);
+	FlagNearbyChanged(false);
 }
 
 void AUTRallyPoint::OnOverlapBegin(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
@@ -236,39 +236,40 @@ void AUTRallyPoint::EndRallyCharging()
 	}
 }
 
-void AUTRallyPoint::FlagCarrierInVolume(AUTCharacter* NewFC)
+void AUTRallyPoint::FlagNearbyChanged(bool bIsNearby)
 {
-	NearbyFC = NewFC;
-	bShowAvailableEffect = (NearbyFC != nullptr);
+	bShowAvailableEffect = bIsNearby;
 
 	if (Role == ROLE_Authority)
 	{
-		if (NearbyFC == nullptr)
+		if (!bIsNearby)
 		{
-			EndRallyCharging();
+			RallyReadyCountdown = RallyReadyDelay;
+			ReplicatedCountdown = RallyReadyCountdown;
+			SetRallyPointState(RallyPointStates::Off);
 		}
 		else if (RallyPointState == RallyPointStates::Off)
 		{
-			// go to either off or start charging again depending on if FC is touching
-			TSet<AActor*> Touching;
-			Capsule->GetOverlappingActors(Touching);
-			AUTCTFFlag* CharFlag = nullptr;
-			for (AActor* TouchingActor : Touching)
+			AUTFlagRunGame* FlagRunGame = GetWorld()->GetAuthGameMode<AUTFlagRunGame>();
+			AUTCharacter* NearbyFC = FlagRunGame && FlagRunGame->ActiveFlag ? FlagRunGame->ActiveFlag->HoldingPawn : nullptr;
+			if (NearbyFC)
 			{
-				CharFlag = Cast<AUTCharacter>(TouchingActor) ? Cast<AUTCTFFlag>(((AUTCharacter*)TouchingActor)->GetCarriedObject()) : nullptr;
-				if (CharFlag)
+				TSet<AActor*> Touching;
+				Capsule->GetOverlappingActors(Touching);
+				AUTCTFFlag* CharFlag = nullptr;
+				for (AActor* TouchingActor : Touching)
 				{
-					SetRallyPointState(RallyPointStates::Charging);
-					if (GetNetMode() != NM_DedicatedServer)
+					CharFlag = Cast<AUTCharacter>(TouchingActor) ? Cast<AUTCTFFlag>(((AUTCharacter*)TouchingActor)->GetCarriedObject()) : nullptr;
+					if (CharFlag)
 					{
-						OnAvailableEffectChanged();
+						SetRallyPointState(RallyPointStates::Charging);
+						break;
 					}
-					break;
 				}
 			}
 		}
 	}
-	else if (GetNetMode() != NM_DedicatedServer)
+	if (GetNetMode() != NM_DedicatedServer)
 	{
 		OnAvailableEffectChanged();
 	}
@@ -312,6 +313,8 @@ void AUTRallyPoint::OnRallyChargingChanged()
 			RallyEffectPSC->SetVectorParameter(NAME_MoteColor, UTGS && UTGS->bRedToCap ? FVector(1.f, 0.f, 0.f) : FVector(0.f, 0.f, 1.f));
 			if ((Role == ROLE_Authority) && (UTGS != nullptr))
 			{
+				AUTFlagRunGame* FlagRunGame = GetWorld()->GetAuthGameMode<AUTFlagRunGame>();
+				AUTCharacter* NearbyFC = FlagRunGame && FlagRunGame->ActiveFlag ? FlagRunGame->ActiveFlag->HoldingPawn : nullptr;
 				for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
 				{
 					AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
@@ -370,54 +373,67 @@ void AUTRallyPoint::OnAvailableEffectChanged()
 	}
 }
 
+// flag run game has pointer to active flag, use this to determine distance. base on flag, not carrier
 void AUTRallyPoint::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-
-	if (bShowAvailableEffect && bIsEnabled)
+	if (bIsEnabled && (Role == ROLE_Authority))
+	{
+		AUTFlagRunGame* FlagRunGame = GetWorld()->GetAuthGameMode<AUTFlagRunGame>();
+		if (FlagRunGame && FlagRunGame->ActiveFlag)
+		{
+			FVector FlagLocation = FlagRunGame->ActiveFlag->HoldingPawn ? FlagRunGame->ActiveFlag->HoldingPawn->GetActorLocation() : FlagRunGame->ActiveFlag->GetActorLocation();
+			bool bFlagIsClose = ((FlagLocation - GetActorLocation()).Size() < 5000.f);
+			if (bShowAvailableEffect != bFlagIsClose)
+			{
+				FlagNearbyChanged(bFlagIsClose);
+			}
+		}
+	}
+	if (bShowAvailableEffect)
 	{
 		if (Role == ROLE_Authority)
 		{
-			if (!NearbyFC || NearbyFC->IsPendingKillPending() || !NearbyFC->GetCarriedObject())
+			if (RallyPointState == RallyPointStates::Charging)
 			{
-				AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-				if (GS && GS->HasMatchStarted())
+				AUTFlagRunGame* FlagRunGame = GetWorld()->GetAuthGameMode<AUTFlagRunGame>();
+				AUTCharacter* NearbyFC = FlagRunGame && FlagRunGame->ActiveFlag ? FlagRunGame->ActiveFlag->HoldingPawn : nullptr;
+				if (!NearbyFC)
 				{
-					UE_LOG(UT, Warning, TEXT("FAILSAFE CLEAR RALLY POINTS"));
-					FlagCarrierInVolume(nullptr);
-				}
-			}
-			else if (RallyPointState == RallyPointStates::Charging)
-			{
-				RallyReadyCountdown -= DeltaTime;
-				ReplicatedCountdown = FMath::Max(0, int32(RallyReadyCountdown));
-				if (RallyReadyCountdown <= 0.f)
-				{
-					AUTFlagRunGameState* UTGS = GetWorld()->GetGameState<AUTFlagRunGameState>();
-					if (UTGS != nullptr)
-					{
-						for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
-						{
-							AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
-							if (PC && UTGS->OnSameTeam(NearbyFC, PC) && PC->UTPlayerState && PC->UTPlayerState->bCanRally)
-							{
-								PC->ClientReceiveLocalizedMessage(UUTCTFMajorMessage::StaticClass(), 22, NearbyFC->PlayerState);
-							}
-						}
-					}
-					UUTGameplayStatics::UTPlaySound(GetWorld(), ReadyToRallySound, this, SRT_All);
-					SetRallyPointState(RallyPointStates::Powered);
-					RallyStartTime = GetWorld()->GetTimeSeconds();
-					GetWorldTimerManager().SetTimer(EndRallyHandle, this, &AUTRallyPoint::RallyChargingComplete, MinimumRallyTime, false);
-					if (GetNetMode() != NM_DedicatedServer)
-					{
-						OnRallyChargingChanged();
-					}
-					ChangeAmbientSoundPitch(PoweringUpSound, 1.5f);
+					EndRallyCharging();
 				}
 				else
 				{
-					ChangeAmbientSoundPitch(PoweringUpSound, 1.5f - RallyReadyCountdown / RallyReadyDelay);
+					RallyReadyCountdown -= DeltaTime;
+					ReplicatedCountdown = FMath::Max(0, int32(RallyReadyCountdown));
+					if (RallyReadyCountdown <= 0.f)
+					{
+						AUTFlagRunGameState* UTGS = GetWorld()->GetGameState<AUTFlagRunGameState>();
+						if (UTGS != nullptr)
+						{
+							for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
+							{
+								AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
+								if (PC && UTGS->OnSameTeam(NearbyFC, PC) && PC->UTPlayerState && PC->UTPlayerState->bCanRally)
+								{
+									PC->ClientReceiveLocalizedMessage(UUTCTFMajorMessage::StaticClass(), 22, NearbyFC->PlayerState);
+								}
+							}
+						}
+						UUTGameplayStatics::UTPlaySound(GetWorld(), ReadyToRallySound, this, SRT_All);
+						SetRallyPointState(RallyPointStates::Powered);
+						RallyStartTime = GetWorld()->GetTimeSeconds();
+						GetWorldTimerManager().SetTimer(EndRallyHandle, this, &AUTRallyPoint::RallyChargingComplete, MinimumRallyTime, false);
+						if (GetNetMode() != NM_DedicatedServer)
+						{
+							OnRallyChargingChanged();
+						}
+						ChangeAmbientSoundPitch(PoweringUpSound, 1.5f);
+					}
+					else
+					{
+						ChangeAmbientSoundPitch(PoweringUpSound, 1.5f - RallyReadyCountdown / RallyReadyDelay);
+					}
 				}
 			}
 		}
@@ -568,7 +584,7 @@ void AUTRallyPoint::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVecto
 	float Dist = (CameraPosition - GetActorLocation()).Size();
 	if (ViewerPS->CarriedObject)
 	{
-		if ((RallyPointState != RallyPointStates::Off) || (!bShowAvailableEffect && (Dist > 3000.f)))
+		if ((RallyPointState != RallyPointStates::Off) || (!bShowAvailableEffect && (Dist > 4000.f)))
 		{
 			return;
 		}
