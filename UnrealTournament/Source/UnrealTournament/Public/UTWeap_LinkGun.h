@@ -30,6 +30,8 @@ class UNREALTOURNAMENT_API AUTWeap_LinkGun : public AUTWeapon
 	UParticleSystem* PulseFailEffect;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = LinkGun)
 	int32 LinkPullDamage;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = LinkGun)
+	FLinearColor ReadyToPullColor;
 
 	UPROPERTY(BlueprintReadWrite, Category = LinkGun)
 		int32 LastFiredPlasmaTime;

@@ -39,6 +39,7 @@ AUTWeap_LinkGun::AUTWeap_LinkGun(const FObjectInitializer& OI)
 	BeamPulseAmmoCost = 4;
 	PullWarmupTime = 0.4f;
 	LinkPullDamage = 0;
+	ReadyToPullColor = FLinearColor::White;
 
 	bRecommendSuppressiveFire = true;
 
@@ -235,7 +236,7 @@ void AUTWeap_LinkGun::Tick(float DeltaTime)
 			const FVector SpawnLocation = GetFireStartLoc();
 			const FRotator SpawnRotation = GetAdjustedAim(SpawnLocation);
 			const FVector FireDir = SpawnRotation.Vector();
-			PulseLoc = (PulseTarget && !PulseTarget->IsPendingKillPending()) ? PulseTarget->GetActorLocation() : SpawnLocation + GetBaseFireRotation().RotateVector(MissedPulseOffset) + 100.f*FireDir;
+			PulseLoc = (PulseTarget && !PulseTarget->IsPendingKillPending()) ? PulseTarget->GetActorLocation() : SpawnLocation + GetBaseFireRotation().RotateVector(MissedPulseOffset) + 10.f*FireDir;
 
 			// don't allow beam to go behind player
 			FVector PulseDir = PulseLoc - SpawnLocation;
@@ -473,5 +474,11 @@ void AUTWeap_LinkGun::DrawWeaponCrosshair_Implementation(UUTHUDWidget* WeaponHud
 			WeaponHudWidget->DrawText(NSLOCTEXT("LinkGun", "Overheat", "OVERHEAT"), 0.f, 28.f, WeaponHudWidget->UTHUDOwner->TinyFont, 1.f, FMath::Min(3.f*OverheatFactor, 1.f), FLinearColor::Yellow, ETextHorzPos::Center, ETextVertPos::Center);
 		}
 		WeaponHudWidget->DrawTexture(WeaponHudWidget->UTHUDOwner->HUDAtlas, 0.f, 32.f, WidthScale*Width, HeightScale*Height, 127, 612, Width, Height, 1.f, FLinearColor::White, FVector2D(0.5f, 0.5f));
+	}
+	if (bReadyToPull  && WeaponHudWidget && WeaponHudWidget->UTHUDOwner)
+	{
+		float CircleSize = 76.f;
+		float CrosshairScale = GetCrosshairScale(WeaponHudWidget->UTHUDOwner);
+		WeaponHudWidget->DrawTexture(WeaponHudWidget->UTHUDOwner->HUDAtlas, 0, 0, 0.75f*CircleSize * CrosshairScale, 0.75f*CircleSize * CrosshairScale, 98, 936, CircleSize, CircleSize, 1.f, FLinearColor::Red, FVector2D(0.5f, 0.5f));
 	}
 }
