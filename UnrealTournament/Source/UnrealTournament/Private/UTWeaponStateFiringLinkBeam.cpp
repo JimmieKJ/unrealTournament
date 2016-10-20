@@ -23,10 +23,9 @@ void UUTWeaponStateFiringLinkBeam::FireShot()
     // [possibly] consume ammo but don't fire from here
     AUTWeap_LinkGun* LinkGun = Cast<AUTWeap_LinkGun>(GetOuterAUTWeapon());
 
-    LinkGun->PlayFiringEffects();
-
 	if (LinkGun != NULL)
     {
+		LinkGun->PlayFiringEffects();
 		LinkGun->ConsumeAmmo(LinkGun->GetCurrentFireMode());
 
 		//Special case for hidden weapons since we really need the MuzzleFlash to play for the link beam
@@ -54,6 +53,7 @@ void UUTWeaponStateFiringLinkBeam::FireShot()
     
 	if (GetUTOwner() != NULL)
     {
+		GetUTOwner()->TargetEyeOffset.Y = LinkGun->FiringBeamKickbackY;
 		GetUTOwner()->InventoryEvent(InventoryEventName::FiredWeapon);
     }
 }
@@ -61,7 +61,7 @@ void UUTWeaponStateFiringLinkBeam::FireShot()
 void UUTWeaponStateFiringLinkBeam::EndFiringSequence(uint8 FireModeNum)
 {
 	AUTWeap_LinkGun* LinkGun = Cast<AUTWeap_LinkGun>(GetOuterAUTWeapon());
-	if (!LinkGun || !LinkGun->bReadyToPull)
+	if (!LinkGun || (!LinkGun->bReadyToPull && !LinkGun->IsLinkPulsing()))
 	{
 		Super::EndFiringSequence(FireModeNum);
 		if (FireModeNum == GetOuterAUTWeapon()->GetCurrentFireMode())
@@ -98,9 +98,15 @@ void UUTWeaponStateFiringLinkBeam::Tick(float DeltaTime)
 	{
 		LinkGun->bLinkCausingDamage = false;
 	}
-	if (bPendingEndFire && (!LinkGun || !LinkGun->IsLinkPulsing()))
+	if (bPendingEndFire)
 	{
-		if (LinkGun->bReadyToPull && LinkGun->CurrentLinkedTarget)
+		if (LinkGun && LinkGun->IsLinkPulsing())
+		{
+			LinkGun->GetUTOwner()->SetFlashLocation(LinkGun->PulseLoc, LinkGun->GetCurrentFireMode());
+			UE_LOG(UT, Warning, TEXT("Set FlashLoc %d"), (LinkGun->PulseTarget != nullptr));
+			return;
+		}
+		else if (LinkGun && LinkGun->bReadyToPull && LinkGun->CurrentLinkedTarget)
 		{
 			LinkGun->StartLinkPull();
 			return;
@@ -112,12 +118,6 @@ void UUTWeaponStateFiringLinkBeam::Tick(float DeltaTime)
 	
     if (LinkGun && !LinkGun->FireShotOverride() && LinkGun->InstantHitInfo.IsValidIndex(LinkGun->GetCurrentFireMode()))
     {
-		if (LinkGun->IsLinkPulsing())
-		{
-			LinkGun->GetUTOwner()->SetFlashLocation(LinkGun->PulseLoc, LinkGun->GetCurrentFireMode());
-			return;
-		}
-
 		const FInstantHitDamageInfo& DamageInfo = LinkGun->InstantHitInfo[LinkGun->GetCurrentFireMode()]; //Get and store reference to DamageInfo, Damage = 34, Momentum = -100000, TraceRange = 1800
 		FHitResult Hit; 
 		FName RealShotsStatsName = LinkGun->ShotsStatsName;
@@ -174,6 +174,7 @@ void UUTWeaponStateFiringLinkBeam::Tick(float DeltaTime)
 		if (OldLinkedTarget != LinkGun->CurrentLinkedTarget)
 		{
 			LinkGun->LinkStartTime = GetWorld()->GetTimeSeconds();
+			LinkGun->bReadyToPull = false;
 		}
 		else if (LinkGun->CurrentLinkedTarget && !LinkGun->IsLinkPulsing())
 		{

@@ -73,6 +73,14 @@ class UNREALTOURNAMENT_API AUTWeap_LinkGun : public AUTWeapon
 	UPROPERTY(EditDefaultsOnly, Category = Effects)
 		FName EndOverheatAnimSection;
 
+	/** kickback when firing beam*/
+	UPROPERTY(EditDefaultsOnly, Category = Effects)
+		float FiringBeamKickbackY;
+
+	/** kickback when link pulling*/
+	UPROPERTY(EditDefaultsOnly, Category = Effects)
+		float LinkPullKickbackY;
+
 	// last time pulse was used
 	UPROPERTY(Transient, BlueprintReadWrite, Category = LinkGun)
 	float LastBeamPulseTime;

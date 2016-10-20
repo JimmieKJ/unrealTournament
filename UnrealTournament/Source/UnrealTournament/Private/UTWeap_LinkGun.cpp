@@ -34,7 +34,7 @@ AUTWeap_LinkGun::AUTWeap_LinkGun(const FObjectInitializer& OI)
 
 	HUDIcon = MakeCanvasIcon(HUDIcon.Texture, 453.0f, 467.0, 147.0f, 41.0f);
 
-	BeamPulseInterval = 0.7f;
+	BeamPulseInterval = 0.4f;
 	BeamPulseMomentum = -220000.0f;
 	BeamPulseAmmoCost = 4;
 	PullWarmupTime = 0.4f;
@@ -52,7 +52,8 @@ AUTWeap_LinkGun::AUTWeap_LinkGun(const FObjectInitializer& OI)
 
 	ScreenMaterialID = 2;
 	SideScreenMaterialID = 1;
-	LastClientKillTime = -100000.0f;
+	FiringBeamKickbackY = 0.f;
+	LinkPullKickbackY = 300.f;
 
 	WeaponCustomizationTag = EpicWeaponCustomizationTags::LinkGun;
 	WeaponSkinCustomizationTag = EpicWeaponSkinCustomizationTags::LinkGun;
@@ -230,33 +231,33 @@ void AUTWeap_LinkGun::Tick(float DeltaTime)
 				UTOwner->ChangeAmbientSoundPitch(FireLoopingSound[CurrentFireMode], bLinkCausingDamage ? 2.f : 1.f);
 			}
 		}
-		if (IsLinkPulsing())
+	}
+	if (IsLinkPulsing())
+	{
+		// update link pull pulse beam endpoint
+		const FVector SpawnLocation = GetFireStartLoc();
+		const FRotator SpawnRotation = GetAdjustedAim(SpawnLocation);
+		const FVector FireDir = SpawnRotation.Vector();
+		PulseLoc = (PulseTarget && !PulseTarget->IsPendingKillPending()) ? PulseTarget->GetActorLocation() : SpawnLocation + GetBaseFireRotation().RotateVector(MissedPulseOffset) + 10.f*FireDir;
+/*
+		// don't allow beam to go behind player
+		FVector PulseDir = PulseLoc - SpawnLocation;
+		float PulseDist = PulseDir.Size();
+		PulseDir = (PulseDist > 0.f) ? PulseDir / PulseDist : PulseDir;
+		if ((PulseDir | FireDir) < 0.7f)
 		{
-			// update link pull pulse beam endpoint
-			const FVector SpawnLocation = GetFireStartLoc();
-			const FRotator SpawnRotation = GetAdjustedAim(SpawnLocation);
-			const FVector FireDir = SpawnRotation.Vector();
-			PulseLoc = (PulseTarget && !PulseTarget->IsPendingKillPending()) ? PulseTarget->GetActorLocation() : SpawnLocation + GetBaseFireRotation().RotateVector(MissedPulseOffset) + 10.f*FireDir;
-
-			// don't allow beam to go behind player
-			FVector PulseDir = PulseLoc - SpawnLocation;
-			float PulseDist = PulseDir.Size();
-			PulseDir = (PulseDist > 0.f) ? PulseDir / PulseDist : PulseDir;
-			if ((PulseDir | FireDir) < 0.7f)
-			{
-				PulseDir = PulseDir - FireDir * ((PulseDir | FireDir) - 0.7f);
-				PulseDir = PulseDir.GetSafeNormal() * PulseDist;
-				PulseLoc = PulseDir + SpawnLocation;
-			}
-
-			// make sure beam doesn't clip through geometry
-			FHitResult Hit;
-			HitScanTrace(SpawnLocation, PulseLoc, 0.f, Hit, 0.f);
-			if (Hit.Time < 1.f)
-			{
-				PulseLoc = Hit.Location;
-			}
+			PulseDir = PulseDir - FireDir * ((PulseDir | FireDir) - 0.7f);
+			PulseDir = PulseDir.GetSafeNormal() * PulseDist;
+			PulseLoc = PulseDir + SpawnLocation;
 		}
+
+		// make sure beam doesn't clip through geometry
+		FHitResult Hit;
+		HitScanTrace(SpawnLocation, PulseLoc, 0.f, Hit, 0.f);
+		if (Hit.Time < 1.f)
+		{
+			PulseLoc = Hit.Location;
+		}*/
 	}
 }
 
@@ -290,8 +291,11 @@ void AUTWeap_LinkGun::PlayImpactEffects_Implementation(const FVector& TargetLoc,
 void AUTWeap_LinkGun::StartLinkPull()
 {
 	bReadyToPull = false;
+	LastBeamPulseTime = GetWorld()->TimeSeconds;
 	if (UTOwner && CurrentLinkedTarget && UTOwner->IsLocallyControlled())
 	{
+		PulseLoc = CurrentLinkedTarget->GetActorLocation();
+		UTOwner->TargetEyeOffset.Y = LinkPullKickbackY;
 		ServerSetPulseTarget(CurrentLinkedTarget);
 	}
 	CurrentLinkedTarget = nullptr;
@@ -304,7 +308,7 @@ bool AUTWeap_LinkGun::ServerSetPulseTarget_Validate(AActor* InTarget)
 }
 void AUTWeap_LinkGun::ServerSetPulseTarget_Implementation(AActor* InTarget)
 {
-	if (!UTOwner || !UTOwner->Controller)
+	if (!UTOwner || !UTOwner->Controller || !InTarget)
 	{
 		return;
 	}
