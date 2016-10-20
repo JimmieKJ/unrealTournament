@@ -5739,44 +5739,53 @@ bool AUTCharacter::IsThirdPersonTaunting() const
 void AUTCharacter::CascadeGroupTaunt()
 {
 	// Tell the next character to play the group taunt
+
+	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+	if (!GS)
+	{
+		return;
+	}
+
+	TArray<AUTCharacter*> CharacterList;
+	int32 CurrentPawnIdx = INDEX_NONE;
+	int32 NextPawnIdx = INDEX_NONE;
+	bool bStartingPawnFound = false;
 	for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
 	{
-		AUTCharacter* UTChar = Cast<AUTCharacter>(*It);
-		if (UTChar == this)
+		if (IsValid(*It))
 		{
-			// Move one past
-			++It;
-			if (!It)
-			{
-				It.Reset();
-			}
-
-			// Account for non UT Character entries
-			while (*It != this && Cast<AUTCharacter>(*It) == nullptr)
-			{
-				++It;
-			}
-
-			if (*It == this)
-			{
-				return;
-			}
-
-			UTChar = Cast<AUTCharacter>(*It);
-
+			AUTCharacter* UTChar = Cast<AUTCharacter>(*It);
 			if (UTChar)
 			{
-				AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-				if (GS && GS->ScoringPlayerState == UTChar->PlayerState)
+				CharacterList.Add(UTChar);
+				if (UTChar == this)
 				{
-					// Everyone has played
-					return;
+					CurrentPawnIdx = CharacterList.Num() - 1;
 				}
 
-				UTChar->PlayGroupTaunt(CurrentGroupTauntClass);
-				return;
-			}
+				if (GS->ScoringPlayerState == UTChar->PlayerState)
+				{ 
+					bStartingPawnFound = true;
+				}
+			}			
 		}
+	}
+
+	if (CurrentPawnIdx != INDEX_NONE && CharacterList.Num() > 1)
+	{
+		NextPawnIdx = CurrentPawnIdx + 1;
+		if (NextPawnIdx >= CharacterList.Num())
+		{
+			NextPawnIdx = 0;
+		}
+		
+		if (GS->ScoringPlayerState == CharacterList[NextPawnIdx]->PlayerState)
+		{
+			// Everyone has played
+			return;
+		}
+
+		CharacterList[NextPawnIdx]->PlayGroupTaunt(CurrentGroupTauntClass);
 	}
 }
 
