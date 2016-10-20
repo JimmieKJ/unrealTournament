@@ -238,7 +238,7 @@ void AUTWeap_LinkGun::Tick(float DeltaTime)
 		const FVector SpawnLocation = GetFireStartLoc();
 		const FRotator SpawnRotation = GetAdjustedAim(SpawnLocation);
 		const FVector FireDir = SpawnRotation.Vector();
-		PulseLoc = (PulseTarget && !PulseTarget->IsPendingKillPending()) ? PulseTarget->GetActorLocation() : SpawnLocation + GetBaseFireRotation().RotateVector(MissedPulseOffset) + 10.f*FireDir;
+		PulseLoc = (PulseTarget && !PulseTarget->IsPendingKillPending()) ? PulseTarget->GetActorLocation() : SpawnLocation + GetBaseFireRotation().RotateVector(MissedPulseOffset) + 100.f*FireDir;
 /*
 		// don't allow beam to go behind player
 		FVector PulseDir = PulseLoc - SpawnLocation;
@@ -291,12 +291,18 @@ void AUTWeap_LinkGun::PlayImpactEffects_Implementation(const FVector& TargetLoc,
 void AUTWeap_LinkGun::StartLinkPull()
 {
 	bReadyToPull = false;
-	LastBeamPulseTime = GetWorld()->TimeSeconds;
+	PulseTarget = nullptr;
 	if (UTOwner && CurrentLinkedTarget && UTOwner->IsLocallyControlled())
 	{
-		PulseLoc = CurrentLinkedTarget->GetActorLocation();
+		LastBeamPulseTime = GetWorld()->TimeSeconds;
+		PulseTarget = CurrentLinkedTarget;
+		PulseLoc = PulseTarget->GetActorLocation();
 		UTOwner->TargetEyeOffset.Y = LinkPullKickbackY;
 		ServerSetPulseTarget(CurrentLinkedTarget);
+
+		MuzzleFlash[FiringState.Num()]->SetTemplate(PulseSuccessEffect);
+		MuzzleFlash[FiringState.Num()]->SetActorParameter(FName(TEXT("Player")), CurrentLinkedTarget);
+		PlayWeaponAnim(PulseAnim, PulseAnimHands);
 	}
 	CurrentLinkedTarget = nullptr;
 	LinkStartTime = -100.f;

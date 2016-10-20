@@ -103,7 +103,6 @@ void UUTWeaponStateFiringLinkBeam::Tick(float DeltaTime)
 		if (LinkGun && LinkGun->IsLinkPulsing())
 		{
 			LinkGun->GetUTOwner()->SetFlashLocation(LinkGun->PulseLoc, LinkGun->GetCurrentFireMode());
-			UE_LOG(UT, Warning, TEXT("Set FlashLoc %d"), (LinkGun->PulseTarget != nullptr));
 			return;
 		}
 		else if (LinkGun && LinkGun->bReadyToPull && LinkGun->CurrentLinkedTarget)
