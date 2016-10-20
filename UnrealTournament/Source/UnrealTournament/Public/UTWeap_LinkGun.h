@@ -159,8 +159,6 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = LinkGun)
 		USoundBase* PullFailed;
 
-	virtual void PlayImpactEffects_Implementation(const FVector& TargetLoc, uint8 FireMode, const FVector& SpawnLocation, const FRotator& SpawnRotation) override;
-
 	virtual void StartLinkPull();
 
 	virtual void Tick(float DeltaTime) override;

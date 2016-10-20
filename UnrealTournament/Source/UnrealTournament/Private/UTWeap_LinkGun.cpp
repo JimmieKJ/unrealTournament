@@ -220,15 +220,20 @@ void AUTWeap_LinkGun::Tick(float DeltaTime)
 
 	if (UTOwner && IsFiring())
 	{
-		if ((Role == ROLE_Authority) && FireLoopingSound.IsValidIndex(CurrentFireMode) && FireLoopingSound[CurrentFireMode] != NULL)
+		if ((Role == ROLE_Authority) && FireLoopingSound.IsValidIndex(CurrentFireMode) && FireLoopingSound[CurrentFireMode] != NULL && !IsLinkPulsing())
 		{
 			if (!bLinkBeamImpacting)
 			{
 				UTOwner->ChangeAmbientSoundPitch(FireLoopingSound[CurrentFireMode], 0.7f);
 			}
+			else if (bLinkCausingDamage)
+			{
+				UTOwner->ChangeAmbientSoundPitch(FireLoopingSound[CurrentFireMode], bReadyToPull ? 2.f :  1.7f);
+
+			}
 			else
 			{
-				UTOwner->ChangeAmbientSoundPitch(FireLoopingSound[CurrentFireMode], bLinkCausingDamage ? 2.f : 1.f);
+				UTOwner->ChangeAmbientSoundPitch(FireLoopingSound[CurrentFireMode], 1.f);
 			}
 		}
 	}
@@ -258,33 +263,6 @@ void AUTWeap_LinkGun::Tick(float DeltaTime)
 		{
 			PulseLoc = Hit.Location;
 		}*/
-	}
-}
-
-void AUTWeap_LinkGun::PlayImpactEffects_Implementation(const FVector& TargetLoc, uint8 FireMode, const FVector& SpawnLocation, const FRotator& SpawnRotation)
-{
-	FVector ModifiedTargetLoc = TargetLoc;
-	Super::PlayImpactEffects_Implementation(ModifiedTargetLoc, FireMode, SpawnLocation, SpawnRotation);
-
-	// color beam if linked
-	if (MuzzleFlash.IsValidIndex(CurrentFireMode) && MuzzleFlash[CurrentFireMode] != NULL)
-	{
-		static FName NAME_TeamColor(TEXT("TeamColor"));
-		bool bGotTeamColor = false;
-		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-/*		if (Cast<IUTTeamInterface>(LinkTarget) != NULL && GS != NULL)
-		{
-			uint8 TeamNum = Cast<IUTTeamInterface>(LinkTarget)->GetTeamNum();
-			if (GS->Teams.IsValidIndex(TeamNum) && GS->Teams[TeamNum] != NULL)
-			{
-				MuzzleFlash[CurrentFireMode]->SetVectorParameter(NAME_TeamColor, FVector(GS->Teams[TeamNum]->TeamColor.R, GS->Teams[TeamNum]->TeamColor.G, GS->Teams[TeamNum]->TeamColor.B));
-				bGotTeamColor = true;
-			}
-		}*/
-		if (!bGotTeamColor)
-		{
-			MuzzleFlash[CurrentFireMode]->ClearParameter(NAME_TeamColor);
-		}
 	}
 }
 
@@ -342,7 +320,7 @@ void AUTWeap_LinkGun::ServerSetPulseTarget_Implementation(AActor* InTarget)
 		const FVector Dir = (PulseTarget->GetActorLocation() - PulseStart).GetSafeNormal();
 		PulseLoc = PulseTarget->GetActorLocation();
 		PulseTarget->TakeDamage(LinkPullDamage, FUTPointDamageEvent(0.0f, Hit, Dir, BeamPulseDamageType, BeamPulseMomentum * Dir), UTOwner->Controller, this);
-		UUTGameplayStatics::UTPlaySound(GetWorld(), PullSucceeded, UTOwner, SRT_All, false, FVector::ZeroVector, Cast<AUTPlayerController>(PulseTarget->GetInstigatorController()), UTOwner, true, SAT_WeaponFoley);
+		UUTGameplayStatics::UTPlaySound(GetWorld(), PullSucceeded, UTOwner, SRT_All, false, FVector::ZeroVector, Cast<AUTPlayerController>(PulseTarget->GetInstigatorController()), UTOwner, true, SAT_WeaponFire);
 
 		UTOwner->SetFlashExtra(UTOwner->FlashExtra + 1, CurrentFireMode);
 		if (Role == ROLE_Authority)
