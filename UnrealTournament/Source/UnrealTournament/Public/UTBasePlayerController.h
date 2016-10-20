@@ -299,6 +299,9 @@ public:
 
 	bool SkipTutorialCheck();
 
+	UFUNCTION(BlueprintCallable, Category = "Movie")
+	void SetLoadingMovieToPlay(const FString& MoviePath);
+
 protected:
 	// Sends a message directly to a user.  
 	virtual void DirectSay(const FString& Message);

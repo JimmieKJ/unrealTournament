@@ -570,6 +570,8 @@ bool UUTGameInstance::ClientTravelToSession(int32 ControllerId, FName InSessionN
 
 void UUTGameInstance::BeginLevelLoading(const FString& LevelName)
 {
+	bLevelIsLoading	 = true;
+
 #if !UE_SERVER
 
 	AUTBaseGameMode* GM = GetWorld()->GetAuthGameMode<AUTBaseGameMode>();
@@ -594,9 +596,38 @@ void UUTGameInstance::BeginLevelLoading(const FString& LevelName)
 	if (CleanLevelName.ToLower() == TEXT("ut-entry") || bTransitioningToSameMap)
 	{
 		MovieList = TEXT("load_generic_nosound");
-		PlayLoadingMovie(MovieList, true);	
+		PlayLoadingMovie(MovieList, true, false, EMoviePlaybackType::MT_LoadingLoop);	
 		return;
 	}
+
+	if (CleanLevelName.ToLower() == TEXT("tut-movementtraining") )
+	{
+
+		UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(GetFirstGamePlayer());
+		if (LocalPlayer && 
+				(LocalPlayer->LoginPhase == ELoginPhase::Offline || 
+						(LocalPlayer->LoginPhase == ELoginPhase::LoggedIn 
+							&& LocalPlayer->GetProfileSettings() != nullptr 
+							&& ((LocalPlayer->GetProfileSettings()->TutorialMask & TUTORIAL_Movement) != TUTORIAL_Movement) 
+						)
+				)
+			)
+
+		{
+			MovieList = TEXT("intro_full;intro_loop");
+			PlayLoadingMovie(MovieList, false, false, EMoviePlaybackType::MT_LoadingLoop);	
+			return;
+		}
+	}
+
+	if ( !LoadingMovieToPlay.IsEmpty() )
+	{
+		MovieList = FString::Printf(TEXT("%s;load_generic_nosound"), *LoadingMovieToPlay);
+		LoadingMovieToPlay = TEXT("");
+		PlayLoadingMovie(MovieList, false, false, EMoviePlaybackType::MT_LoadingLoop);	
+		return;
+	}
+
 
 	TArray<FString> SkillMovies;
 	FString SearchMask = FPaths::GameContentDir() + TEXT("/Movies/SkillMovies/skill*.mp4");
@@ -628,18 +659,21 @@ void UUTGameInstance::BeginLevelLoading(const FString& LevelName)
 
 	MovieList += MovieList.IsEmpty() ? TEXT("load_generic_nosound") : TEXT(";load_generic_nosound");
 	// NOTE: In many cases, a movie will already be playing and this will be skipped.
-	PlayLoadingMovie(MovieList);
+	PlayLoadingMovie(MovieList, false, false, EMoviePlaybackType::MT_LoadingLoop);
 
 #endif
-
-	bLevelIsLoading	 = true;
 }
 
 void UUTGameInstance::EndLevelLoading()
 {
 	bLevelIsLoading	 = false;
 #if !UE_SERVER
-	StopMovie();
+
+	IUnrealTournamentFullScreenMovieModule* const FullScreenMovieModule = FModuleManager::LoadModulePtr<IUnrealTournamentFullScreenMovieModule>("UnrealTournamentFullScreenMovie");
+	if (FullScreenMovieModule != nullptr)
+	{
+		FullScreenMovieModule->WaitForMovieToFinished(SNullWidget::NullWidget);
+	}
 
 	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(GetFirstGamePlayer());
 	if (LocalPlayer)
@@ -674,13 +708,13 @@ EVisibility UUTGameInstance::GetLevelLoadAnyKeyVisibility() const
 	return (bLevelIsLoading || (GetMoviePlayer().IsValid() && GetMoviePlayer()->WillAutoCompleteWhenLoadFinishes())) ? EVisibility::Hidden : EVisibility::Visible;
 }
 
-void UUTGameInstance::PlayLoadingMovie(const FString& MovieName, bool bStopWhenLoadingIsComnpleted, bool bForce) 
+void UUTGameInstance::PlayLoadingMovie(const FString& MovieName, bool bStopWhenLoadingIsComnpleted, bool bForce, TEnumAsByte<EMoviePlaybackType> PlaybackType) 
 {
-	//VerifyMovieOverlay();
-	//if (MovieOverlay.IsValid())
-	//{						 // MovieOverlay
-		PlayMovie(MovieName, SNullWidget::NullWidget, true, bStopWhenLoadingIsComnpleted, EMoviePlaybackType::MT_LoadingLoop, bForce);
-	//}
+	VerifyMovieOverlay();
+	if (MovieOverlay.IsValid())
+	{						 
+		PlayMovie(MovieName, MovieOverlay, true, bStopWhenLoadingIsComnpleted, PlaybackType, bForce);
+	}
 }
 
 void UUTGameInstance::VerifyMovieOverlay()

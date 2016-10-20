@@ -52,7 +52,7 @@ public:
 			LoadingScreen.bMoviesAreSkippable = bSkippable;
 			LoadingScreen.MoviePaths.Empty();
 
-			if ( true ) // FParse::Param( FCommandLine::Get(), TEXT( "nomovie" )) )
+			if ( FParse::Param( FCommandLine::Get(), TEXT( "nomovie" )) )
 			{
 				LoadingScreen.MoviePaths.Add(TEXT("load_generic_nosound"));
 			}

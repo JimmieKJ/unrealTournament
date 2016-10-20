@@ -39,6 +39,9 @@ class UNREALTOURNAMENT_API UUTGameInstance : public UGameInstance
 
 	bool IsAutoDownloadingContent();
 
+	// If set, this movie will be the first movie to play in the loading sequence.  It will be cleared whenever it's used.
+	FString LoadingMovieToPlay;
+
 	virtual bool DelayPendingNetGameTravel() override
 	{
 		return IsAutoDownloadingContent();
@@ -61,6 +64,8 @@ class UNREALTOURNAMENT_API UUTGameInstance : public UGameInstance
 	{
 		return LastTriedDemo;
 	}
+
+
 
 
 inline void InitPerfCounters()
@@ -172,7 +177,7 @@ public:
 
 public:
 	// Play a loading movie.  This version will auto-create the "Press FIRE to continue" message and manage if it should be displayed
-	virtual void PlayLoadingMovie(const FString& MovieName, bool bStopWhenLoadingIsComnpleted = false, bool bForce = false);
+	virtual void PlayLoadingMovie(const FString& MovieName, bool bStopWhenLoadingIsComnpleted, bool bForce, TEnumAsByte<EMoviePlaybackType> PlaybackType);
 
 	// Stops a movie from playing
 	virtual void StopMovie();

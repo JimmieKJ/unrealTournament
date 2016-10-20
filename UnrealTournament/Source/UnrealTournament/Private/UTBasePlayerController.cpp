@@ -1075,7 +1075,7 @@ void AUTBasePlayerController::ClientPlayMovie_Implementation(const FString& Movi
 	UUTGameInstance* UTGameInstance = Cast<UUTGameInstance>(GetGameInstance());
 	if (UTGameInstance)
 	{
-		UTGameInstance->PlayLoadingMovie(MovieName);
+		UTGameInstance->PlayLoadingMovie(MovieName, false, false, EMoviePlaybackType::MT_Normal);
 	}
 #endif
 }
@@ -1191,4 +1191,16 @@ bool AUTBasePlayerController::SkipTutorialCheck()
 	}
 
 	return false;
+}
+
+void AUTBasePlayerController::SetLoadingMovieToPlay(const FString& MoviePath)
+{
+#if !UE_SERVER
+	UUTGameInstance* UTGameInstance = Cast<UUTGameInstance>(GetGameInstance());
+	if (!MoviePath.IsEmpty() && UTGameInstance)
+	{
+		UTGameInstance->LoadingMovieToPlay = MoviePath;
+	}
+#endif
+	
 }
