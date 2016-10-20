@@ -25,6 +25,7 @@ class UNREALTOURNAMENT_API AUTDemoRecSpectator : public AUTPlayerController
 	virtual void EnableAutoCam() override;
 	virtual void ChooseBestCamera() override;
 	virtual void OnAltFire() override;
+	virtual void ViewProjectile() override;
 
 	virtual void ViewAPlayer(int32 dir) override;
 	virtual APlayerState* GetNextViewablePlayer(int32 dir) override;

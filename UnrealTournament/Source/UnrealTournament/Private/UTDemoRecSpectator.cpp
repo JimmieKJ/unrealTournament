@@ -451,3 +451,13 @@ void AUTDemoRecSpectator::OnAltFire()
 
 	Super::OnAltFire();
 }
+
+void AUTDemoRecSpectator::ViewProjectile()
+{
+	if (IsKillcamSpectator())
+	{
+		return;
+	}
+
+	Super::ViewProjectile();
+}
