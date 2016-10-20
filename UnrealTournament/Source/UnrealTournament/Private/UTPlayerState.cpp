@@ -3372,7 +3372,7 @@ void AUTPlayerState::PlayTauntByIndex(int32 TauntIndex)
 void AUTPlayerState::OnRepGroupTaunt()
 {
 	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-	if (GS && GS->ScoringPlayerState == this)
+	if (GS && GS->ScoringPlayerState == this && GroupTauntClass != nullptr)
 	{
 		for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
 		{
