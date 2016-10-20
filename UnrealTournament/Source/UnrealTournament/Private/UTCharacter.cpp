@@ -5771,7 +5771,7 @@ void AUTCharacter::CascadeGroupTaunt()
 		}
 	}
 
-	if (CurrentPawnIdx != INDEX_NONE && CharacterList.Num() > 1)
+	if (bStartingPawnFound && CurrentPawnIdx != INDEX_NONE && CharacterList.Num() > 1)
 	{
 		NextPawnIdx = CurrentPawnIdx + 1;
 		if (NextPawnIdx >= CharacterList.Num())
