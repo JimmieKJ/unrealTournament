@@ -899,7 +899,7 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 
 			if (bApplyDamageToCharacter)
 			{
-				//Health -= ResultDamage;
+				Health -= ResultDamage;
 				bWasFallingWhenDamaged = (GetCharacterMovement() != NULL && (GetCharacterMovement()->MovementMode == MOVE_Falling));
 				if (Health < 0)
 				{
