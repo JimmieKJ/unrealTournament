@@ -29,7 +29,6 @@ AUTWeap_LinkGun::AUTWeap_LinkGun(const FObjectInitializer& OI)
 	FOVOffset = FVector(0.6f, 1.f, 1.f);
 	Ammo = 70;
 	MaxAmmo = 200;
-
 	AmmoWarningAmount = 25;
 	AmmoDangerAmount = 10;
 
@@ -37,8 +36,9 @@ AUTWeap_LinkGun::AUTWeap_LinkGun(const FObjectInitializer& OI)
 
 	BeamPulseInterval = 0.7f;
 	BeamPulseMomentum = -220000.0f;
-	BeamPulseAmmoCost = 8;
-	LinkPullDamage = 32;
+	BeamPulseAmmoCost = 4;
+	PullWarmupTime = 0.4f;
+	LinkPullDamage = 0;
 
 	bRecommendSuppressiveFire = true;
 
@@ -143,85 +143,6 @@ AUTProjectile* AUTWeap_LinkGun::FireProjectile()
 	}
 	
 	return LinkProj;
-}
-
-void AUTWeap_LinkGun::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
-{
-	AController* PulseInstigator = UTOwner->Controller;
-	FVector PulseStart = UTOwner->GetActorLocation();
-
-	FHitResult TempHit;
-	if (OutHit == NULL)
-	{
-		OutHit = &TempHit;
-	}
-
-	Super::FireInstantHit(bDealDamage, OutHit);
-
-	if (bPendingBeamPulse)
-	{
-		if (PulseInstigator != NULL)
-		{
-			PulseTarget = OutHit->Actor.Get();
-			// try CSHD result if it's reasonable
-			if (PulseTarget == NULL && ClientPulseTarget != NULL)
-			{
-				const FVector SpawnLocation = GetFireStartLoc();
-				const FRotator SpawnRotation = GetAdjustedAim(SpawnLocation);
-				const FVector FireDir = SpawnRotation.Vector();
-				const FVector EndTrace = SpawnLocation + FireDir * InstantHitInfo[CurrentFireMode].TraceRange;
-				if (FMath::PointDistToSegment(ClientPulseTarget->GetActorLocation(), SpawnLocation, EndTrace) < 100.0f + ClientPulseTarget->GetSimpleCollisionRadius() && !GetWorld()->LineTraceTestByChannel(SpawnLocation, EndTrace, COLLISION_TRACE_WEAPONNOCHARACTER, FCollisionQueryParams(NAME_None, true)))
-				{
-					PulseTarget = ClientPulseTarget;
-				}
-			}
-			if (PulseTarget != NULL)
-			{
-				// use owner to target direction instead of exactly the weapon orientation so that shooting below center doesn't cause the pull to send them over the shooter's head
-				const FVector Dir = (PulseTarget->GetActorLocation() - PulseStart).GetSafeNormal();
-				PulseTarget->TakeDamage(LinkPullDamage, FUTPointDamageEvent(0.0f, *OutHit, Dir, BeamPulseDamageType, BeamPulseMomentum * Dir), PulseInstigator, this);
-				PulseLoc = PulseTarget->GetActorLocation();
-				UUTGameplayStatics::UTPlaySound(GetWorld(), PullSucceeded, UTOwner, SRT_All, false, FVector::ZeroVector, Cast<AUTPlayerController>(PulseTarget->GetInstigatorController()), UTOwner, true, SAT_WeaponFoley);
-			}
-			else
-			{
-				const FVector SpawnLocation = GetFireStartLoc();
-				const FRotator SpawnRotation = GetAdjustedAim(SpawnLocation);
-				const FVector FireDir = SpawnRotation.Vector();
-				PulseLoc = SpawnLocation + GetBaseFireRotation().RotateVector(MissedPulseOffset) + 100.f*FireDir;
-				UUTGameplayStatics::UTPlaySound(GetWorld(), PullFailed, UTOwner, SRT_All, false, FVector::ZeroVector, nullptr, UTOwner, true, SAT_WeaponFoley);
-			}
-		}
-		if (UTOwner != NULL)
-		{
-			UTOwner->SetFlashExtra(UTOwner->FlashExtra + 1, CurrentFireMode);
-		}
-		if (Role == ROLE_Authority)
-		{
-			AUTGameMode* GameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
-			if (!GameMode || GameMode->bAmmoIsLimited || (Ammo > 11))
-			{
-				AddAmmo(-BeamPulseAmmoCost);
-			}
-		}
-		PlayWeaponAnim(PulseAnim, PulseAnimHands);
-		// use an extra muzzle flash slot at the end for the pulse effect
-		if (MuzzleFlash.IsValidIndex(FiringState.Num()) && MuzzleFlash[FiringState.Num()] != NULL)
-		{
-			if (PulseTarget != NULL)
-			{
-				MuzzleFlash[FiringState.Num()]->SetTemplate(PulseSuccessEffect);
-				MuzzleFlash[FiringState.Num()]->SetActorParameter(FName(TEXT("Player")), PulseTarget);
-			}
-			else
-			{
-				MuzzleFlash[FiringState.Num()]->SetTemplate(PulseFailEffect);
-			}
-			MuzzleFlash[FiringState.Num()]->ActivateSystem();
-		}
-		LastBeamPulseTime = GetWorld()->TimeSeconds;
-		bPendingBeamPulse = false;
-	}
 }
 
 UAnimMontage* AUTWeap_LinkGun::GetFiringAnim(uint8 FireMode, bool bOnHands) const
@@ -365,19 +286,15 @@ void AUTWeap_LinkGun::PlayImpactEffects_Implementation(const FVector& TargetLoc,
 	}
 }
 
-void AUTWeap_LinkGun::OnMultiPress_Implementation(uint8 OtherFireMode)
+void AUTWeap_LinkGun::StartLinkPull()
 {
-	if (CurrentFireMode == 1 && OtherFireMode == 0 && IsFiring() && !IsLinkPulsing())
+	bReadyToPull = false;
+	if (UTOwner && CurrentLinkedTarget && UTOwner->IsLocallyControlled())
 	{
-		bPendingBeamPulse = true;
-		if (Role < ROLE_Authority)
-		{
-			FHitResult Hit;
-			Super::FireInstantHit(false, &Hit);
-			ServerSetPulseTarget(Hit.GetActor());
-		}
+		ServerSetPulseTarget(CurrentLinkedTarget);
 	}
-	Super::OnMultiPress_Implementation(OtherFireMode);
+	CurrentLinkedTarget = nullptr;
+	LinkStartTime = -100.f;
 }
 
 bool AUTWeap_LinkGun::ServerSetPulseTarget_Validate(AActor* InTarget)
@@ -386,8 +303,74 @@ bool AUTWeap_LinkGun::ServerSetPulseTarget_Validate(AActor* InTarget)
 }
 void AUTWeap_LinkGun::ServerSetPulseTarget_Implementation(AActor* InTarget)
 {
-	ClientPulseTarget = InTarget;
+	if (!UTOwner || !UTOwner->Controller)
+	{
+		return;
+	}
+	AActor* ClientPulseTarget = InTarget;
+	FHitResult Hit;
+	Super::FireInstantHit(false, &Hit);
+	FVector PulseStart = UTOwner->GetActorLocation();
+
+	PulseTarget = Hit.Actor.Get();
+	// try CSHD result if it's reasonable
+	if (PulseTarget == NULL && ClientPulseTarget != NULL)
+	{
+		const FVector SpawnLocation = GetFireStartLoc();
+		const FRotator SpawnRotation = GetAdjustedAim(SpawnLocation);
+		const FVector FireDir = SpawnRotation.Vector();
+		const FVector EndTrace = SpawnLocation + FireDir * InstantHitInfo[CurrentFireMode].TraceRange;
+		if (FMath::PointDistToSegment(ClientPulseTarget->GetActorLocation(), SpawnLocation, EndTrace) < 100.0f + ClientPulseTarget->GetSimpleCollisionRadius() && !GetWorld()->LineTraceTestByChannel(SpawnLocation, EndTrace, COLLISION_TRACE_WEAPONNOCHARACTER, FCollisionQueryParams(NAME_None, true)))
+		{
+			PulseTarget = ClientPulseTarget;
+		}
+	}
+	if (PulseTarget != NULL)
+	{
+		// use owner to target direction instead of exactly the weapon orientation so that shooting below center doesn't cause the pull to send them over the shooter's head
+		const FVector Dir = (PulseTarget->GetActorLocation() - PulseStart).GetSafeNormal();
+		PulseLoc = PulseTarget->GetActorLocation();
+		PulseTarget->TakeDamage(LinkPullDamage, FUTPointDamageEvent(0.0f, Hit, Dir, BeamPulseDamageType, BeamPulseMomentum * Dir), UTOwner->Controller, this);
+		UUTGameplayStatics::UTPlaySound(GetWorld(), PullSucceeded, UTOwner, SRT_All, false, FVector::ZeroVector, Cast<AUTPlayerController>(PulseTarget->GetInstigatorController()), UTOwner, true, SAT_WeaponFoley);
+
+		UTOwner->SetFlashExtra(UTOwner->FlashExtra + 1, CurrentFireMode);
+		if (Role == ROLE_Authority)
+		{
+			AUTGameMode* GameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
+			if (!GameMode || GameMode->bAmmoIsLimited || (Ammo > 11))
+			{
+				AddAmmo(-BeamPulseAmmoCost);
+			}
+		}
+		PlayWeaponAnim(PulseAnim, PulseAnimHands);
+		// use an extra muzzle flash slot at the end for the pulse effect
+		if (MuzzleFlash.IsValidIndex(FiringState.Num()) && MuzzleFlash[FiringState.Num()] != NULL)
+		{
+			if (PulseTarget != NULL)
+			{
+				MuzzleFlash[FiringState.Num()]->SetTemplate(PulseSuccessEffect);
+				MuzzleFlash[FiringState.Num()]->SetActorParameter(FName(TEXT("Player")), PulseTarget);
+			}
+			else
+			{
+				MuzzleFlash[FiringState.Num()]->SetTemplate(PulseFailEffect);
+			}
+			MuzzleFlash[FiringState.Num()]->ActivateSystem();
+		}
+		LastBeamPulseTime = GetWorld()->TimeSeconds;
+	}
+	else
+	{
+		const FVector SpawnLocation = GetFireStartLoc();
+		const FRotator SpawnRotation = GetAdjustedAim(SpawnLocation);
+		const FVector FireDir = SpawnRotation.Vector();
+		PulseLoc = SpawnLocation + GetBaseFireRotation().RotateVector(MissedPulseOffset) + 100.f*FireDir;
+		UUTGameplayStatics::UTPlaySound(GetWorld(), PullFailed, UTOwner, SRT_All, false, FVector::ZeroVector, nullptr, UTOwner, true, SAT_WeaponFoley);
+	}
+	CurrentLinkedTarget = nullptr;
+	LinkStartTime = -100.f;
 }
+
 
 void AUTWeap_LinkGun::StateChanged()
 {
@@ -407,7 +390,7 @@ void AUTWeap_LinkGun::StateChanged()
 
 void AUTWeap_LinkGun::CheckBotPulseFire()
 {
-	if (UTOwner != NULL && CurrentFireMode == 1 && InstantHitInfo.IsValidIndex(1) && !bPendingBeamPulse)
+	if (UTOwner != NULL && CurrentFireMode == 1 && InstantHitInfo.IsValidIndex(1))
 	{
 		AUTBot* B = Cast<AUTBot>(UTOwner->Controller);
 		if ( B != NULL && B->WeaponProficiencyCheck() && B->GetEnemy() != NULL && B->GetTarget() == B->GetEnemy() &&

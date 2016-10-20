@@ -1373,7 +1373,7 @@ void AUTWeapon::ConsumeAmmo(uint8 FireModeNum)
 		AUTGameMode* GameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
 		if (AmmoCost.IsValidIndex(FireModeNum) && (!GameMode || GameMode->bAmmoIsLimited || (Ammo > 9)))
 		{
-			AddAmmo(-AmmoCost[FireModeNum]);
+		//	AddAmmo(-AmmoCost[FireModeNum]);
 		}
 		else if (!AmmoCost.IsValidIndex(FireModeNum))
 		{

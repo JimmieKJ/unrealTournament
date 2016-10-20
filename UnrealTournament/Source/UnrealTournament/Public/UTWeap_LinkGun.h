@@ -34,11 +34,17 @@ class UNREALTOURNAMENT_API AUTWeap_LinkGun : public AUTWeapon
 	UPROPERTY(BlueprintReadWrite, Category = LinkGun)
 		int32 LastFiredPlasmaTime;
 
-	/** clientside pull target; server has extra leeway for hitting this in remote client scenarios to avoid pull success mismatches
-	 * unused if standalone game or bot weapon
-	 */
-	UPROPERTY()
-	AActor* ClientPulseTarget;
+	UPROPERTY(BlueprintReadOnly, Category = LinkGun)
+		AActor* CurrentLinkedTarget;
+
+	UPROPERTY(BlueprintReadOnly, Category = LinkGun)
+		float LinkStartTime;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = LinkGun)
+		float PullWarmupTime;
+
+	UPROPERTY(BlueprintReadOnly, Category = LinkGun)
+		bool bReadyToPull;
 
 	UFUNCTION(Unreliable, Server, WithValidation)
 	void ServerSetPulseTarget(AActor* InTarget);
@@ -65,8 +71,6 @@ class UNREALTOURNAMENT_API AUTWeap_LinkGun : public AUTWeapon
 	UPROPERTY(EditDefaultsOnly, Category = Effects)
 		FName EndOverheatAnimSection;
 
-	UPROPERTY(Transient, BlueprintReadWrite, Category = LinkGun)
-	bool bPendingBeamPulse;
 	// last time pulse was used
 	UPROPERTY(Transient, BlueprintReadWrite, Category = LinkGun)
 	float LastBeamPulseTime;
@@ -90,9 +94,6 @@ class UNREALTOURNAMENT_API AUTWeap_LinkGun : public AUTWeapon
 	// override to handle setting Link Bolt properties by Links.
 	virtual AUTProjectile* FireProjectile() override;
 
-	// override to handle link beam distance scaling by Links
-	virtual void FireInstantHit(bool bDealDamage = true, FHitResult* OutHit = NULL) override;
-	
 	/** render target for on-mesh display screen */
 	UPROPERTY(BlueprintReadWrite, Category = Mesh)
 	UCanvasRenderTarget2D* ScreenTexture;
@@ -150,7 +151,7 @@ public:
 
 	virtual void PlayImpactEffects_Implementation(const FVector& TargetLoc, uint8 FireMode, const FVector& SpawnLocation, const FRotator& SpawnRotation) override;
 
-	virtual void OnMultiPress_Implementation(uint8 OtherFireMode) override;
+	virtual void StartLinkPull();
 
 	virtual void Tick(float DeltaTime) override;
 

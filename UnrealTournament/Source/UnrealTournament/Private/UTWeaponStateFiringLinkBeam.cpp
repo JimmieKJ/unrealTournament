@@ -10,6 +10,14 @@ UUTWeaponStateFiringLinkBeam::UUTWeaponStateFiringLinkBeam(const FObjectInitiali
 	AccumulatedFiringTime = 0.f;
 }
 
+void UUTWeaponStateFiringLinkBeam::BeginState(const UUTWeaponState* PrevState)
+{
+	AUTWeap_LinkGun* LinkGun = Cast<AUTWeap_LinkGun>(GetOuterAUTWeapon());
+	LinkGun->CurrentLinkedTarget = nullptr;
+	LinkGun->LinkStartTime = -100.f;
+	Super::BeginState(PrevState);
+}
+
 void UUTWeaponStateFiringLinkBeam::FireShot()
 {
     // [possibly] consume ammo but don't fire from here
@@ -53,7 +61,7 @@ void UUTWeaponStateFiringLinkBeam::FireShot()
 void UUTWeaponStateFiringLinkBeam::EndFiringSequence(uint8 FireModeNum)
 {
 	AUTWeap_LinkGun* LinkGun = Cast<AUTWeap_LinkGun>(GetOuterAUTWeapon());
-	if (LinkGun && !LinkGun->IsLinkPulsing())
+	if (!LinkGun || !LinkGun->bReadyToPull)
 	{
 		Super::EndFiringSequence(FireModeNum);
 		if (FireModeNum == GetOuterAUTWeapon()->GetCurrentFireMode())
@@ -92,6 +100,11 @@ void UUTWeaponStateFiringLinkBeam::Tick(float DeltaTime)
 	}
 	if (bPendingEndFire && (!LinkGun || !LinkGun->IsLinkPulsing()))
 	{
+		if (LinkGun->bReadyToPull && LinkGun->CurrentLinkedTarget)
+		{
+			LinkGun->StartLinkPull();
+			return;
+		}
 		EndFiringSequence(1);
 		return;
 	}
@@ -119,8 +132,11 @@ void UUTWeaponStateFiringLinkBeam::Tick(float DeltaTime)
 		float RefireTime = LinkGun->GetRefireTime(LinkGun->GetCurrentFireMode());
 		AUTPlayerState* PS = (LinkGun->Role == ROLE_Authority) && LinkGun->GetUTOwner() && LinkGun->GetUTOwner()->Controller ? Cast<AUTPlayerState>(LinkGun->GetUTOwner()->Controller->PlayerState) : NULL;
 		LinkGun->bLinkBeamImpacting = (Hit.Time < 1.f);
+		AActor* OldLinkedTarget = LinkGun->CurrentLinkedTarget;
+		LinkGun->CurrentLinkedTarget = nullptr;
 		if (Hit.Actor != NULL && Hit.Actor->bCanBeDamaged && Hit.Actor != LinkGun->GetUTOwner())
         {   
+			LinkGun->CurrentLinkedTarget = Hit.Actor.Get();
 			if (LinkGun->Role == ROLE_Authority)
 			{
 				LinkGun->bLinkCausingDamage = true;
@@ -155,6 +171,14 @@ void UUTWeaponStateFiringLinkBeam::Tick(float DeltaTime)
 				PS->ModifyStatsValue(LinkGun->ShotsStatsName, 1);
 			}
 		}
+		if (OldLinkedTarget != LinkGun->CurrentLinkedTarget)
+		{
+			LinkGun->LinkStartTime = GetWorld()->GetTimeSeconds();
+		}
+		else if (LinkGun->CurrentLinkedTarget && !LinkGun->IsLinkPulsing())
+		{
+			LinkGun->bReadyToPull = (GetWorld()->GetTimeSeconds() - LinkGun->LinkStartTime > LinkGun->PullWarmupTime);
+		}
         // beams show a clientside beam target
 		if (LinkGun->Role < ROLE_Authority && LinkGun->GetUTOwner() != NULL) // might have lost owner due to TakeDamage() call above!
         {
@@ -162,3 +186,4 @@ void UUTWeaponStateFiringLinkBeam::Tick(float DeltaTime)
         }
     }
 }
+
