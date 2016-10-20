@@ -301,12 +301,13 @@ void AUTJumpPad::AddSpecialPaths(class UUTPathNode* MyNode, class AUTRecastNavMe
 						if (!bPossible)
 						{
 							// time we have to air control
-							float AirControlTime = JumpTime * (Dist / JumpTargetDist) - EffectiveRestrictedTime;
+							float AirControlTime = (JumpTime - EffectiveRestrictedTime) * (Dist / JumpTargetDist);
 							// extra distance acquirable via air control
 							float AirControlDist2D = FMath::Min<float>(XYSpeed * AirControlTime, 0.5f * AirAccelRate * FMath::Square<float>(AirControlTime));
 							// apply air control dist towards target, but remove any in jump direction as the jump pad generally exceeds the character's normal max speed (so air control in that dir would have no effect)
 							FVector AirControlAdjustment = (TargetLoc - JumpTargetWorld).GetSafeNormal2D() * AirControlDist2D;
-							AirControlAdjustment -= JumpDir2D * (JumpDir2D | AirControlAdjustment);
+							FVector TowardsJumpDir = JumpDir2D * (JumpDir2D | AirControlAdjustment);
+							AirControlAdjustment -= TowardsJumpDir.GetSafeNormal() * FMath::Max<float>(0.0f, TowardsJumpDir.Size() - (XYSpeed - JumpVel.Size2D())); // allow some if jump 2D speed is less than default air speed
 							bPossible = (TargetLoc - JumpTargetWorld).Size() < AirControlAdjustment.Size();
 						}
 						if (bPossible && NavData->JumpTraceTest(MyLoc, TargetLoc, MyPoly, TargetPoly, ScoutShape, XYSpeed, GravityZ, JumpZ, JumpZ, NULL, NULL))
@@ -315,7 +316,7 @@ void AUTJumpPad::AddSpecialPaths(class UUTPathNode* MyNode, class AUTRecastNavMe
 							bool bFound = false;
 							for (FUTPathLink& ExistingLink : MyNode->Paths)
 							{
-								if (ExistingLink.End == TargetNode && ExistingLink.StartEdgePoly == TargetPoly)
+								if (ExistingLink.End == TargetNode && ExistingLink.StartEdgePoly == MyPoly)
 								{
 									ExistingLink.AdditionalEndPolys.Add(TargetPoly);
 									bFound = true;
