@@ -663,6 +663,7 @@ void AUTRecastNavMesh::BuildNodeNetwork()
 
 	const dtNavMesh* InternalMesh = GetRecastNavMeshImpl()->GetRecastMesh();
 	dtNavMeshQuery& InternalQuery = GetRecastNavMeshImpl()->SharedNavQuery;
+	InternalQuery.init(GetRecastNavMeshImpl()->DetourNavMesh, RECAST_MAX_SEARCH_NODES);
 
 	// shouldn't be changing this at runtime and makes sure we get changes from defaults
 	// we don't want to simply make the property transient because for in-game we want to store the values that paths were built with
