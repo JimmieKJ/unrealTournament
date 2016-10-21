@@ -3381,17 +3381,17 @@ void AUTPlayerState::PlayTauntByIndex(int32 TauntIndex)
 	}
 }
 
-void AUTPlayerState::OnRepGroupTaunt()
+void AUTPlayerState::OnRep_ActiveGroupTaunt()
 {
 	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-	if (GS && GS->ScoringPlayerState == this && GroupTauntClass != nullptr)
+	if (GS && GS->ScoringPlayerState == this && ActiveGroupTaunt != nullptr)
 	{
 		for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
 		{
 			AUTCharacter *UTChar = Cast<AUTCharacter>(*It);
 			if (UTChar != NULL)
 			{
-				if (GroupTauntClass->GetDefaultObject<AUTGroupTaunt>()->bCascading)
+				if (ActiveGroupTaunt->GetDefaultObject<AUTGroupTaunt>()->bCascading)
 				{
 					if (UTChar->PlayerState == this)
 					{

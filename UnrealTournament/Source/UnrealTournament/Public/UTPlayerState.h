@@ -1047,11 +1047,11 @@ public:
 
 	virtual void OnRep_bIsInactive() override;
 
-	UPROPERTY(replicatedUsing = OnRepGroupTaunt)
+	UPROPERTY(replicatedUsing = OnRep_ActiveGroupTaunt)
 	TSubclassOf<AUTGroupTaunt> ActiveGroupTaunt;
 
 	UFUNCTION()
-	virtual void OnRepGroupTaunt();
+	virtual void OnRep_ActiveGroupTaunt();
 
 	UPROPERTY(replicatedUsing = OnRepTaunt)
 	FEmoteRepInfo EmoteReplicationInfo;
