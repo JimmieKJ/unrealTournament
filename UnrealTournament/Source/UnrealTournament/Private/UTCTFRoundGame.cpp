@@ -202,6 +202,10 @@ void AUTCTFRoundGame::BeginGame()
 			Cast<AUTPlayerState>(TestActor)->StartTime = 0;
 			Cast<AUTPlayerState>(TestActor)->bSentLogoutAnalytics = false;
 		}
+		else if (TestActor && !TestActor->IsPendingKill() && TestActor->IsA<AUTProjectile>())
+		{
+			TestActor->Destroy();
+		}
 	}
 	GameState->ElapsedTime = 0;
 

@@ -395,6 +395,15 @@ void AUTCTFBaseGame::HandleExitingIntermission()
 {
 	RemoveAllPawns();
 
+	for (FActorIterator It(GetWorld()); It; ++It)
+	{
+		AActor* TestActor = *It;
+		if (TestActor && !TestActor->IsPendingKill() && TestActor->IsA<AUTProjectile>())
+		{
+			TestActor->Destroy();
+		}
+	}
+
 	// swap sides, if desired
 	AUTWorldSettings* Settings = Cast<AUTWorldSettings>(GetWorld()->GetWorldSettings());
 	if (Settings != NULL && Settings->bAllowSideSwitching)
