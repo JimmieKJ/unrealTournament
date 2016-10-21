@@ -42,6 +42,10 @@ class UNREALTOURNAMENT_API AUTRallyPoint : public AUTGameObjective, public IUTRe
 	UPROPERTY(ReplicatedUsing = OnAvailableEffectChanged, BlueprintReadOnly)
 		bool bShowAvailableEffect;
 
+	/** Flag carrier currently touching this point. */
+	UPROPERTY(BlueprintReadOnly, Category = Objective)
+		class AUTCharacter* TouchingFC;
+
 	UPROPERTY()
 		bool bHaveGameState;
 

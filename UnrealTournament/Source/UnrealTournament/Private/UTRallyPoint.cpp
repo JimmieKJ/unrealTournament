@@ -132,6 +132,7 @@ void AUTRallyPoint::OnOverlapBegin(UPrimitiveComponent* OverlappedComponent, AAc
 			if (GS == NULL || (GS->IsMatchInProgress() && !GS->IsMatchIntermission() && !GS->HasMatchEnded()))
 			{
 				StartRallyCharging();
+				TouchingFC = Cast<AUTCharacter>(OtherActor);
 			}
 		}
 	}
@@ -145,6 +146,7 @@ void AUTRallyPoint::OnOverlapEnd(UPrimitiveComponent* OverlappedComponent, AActo
 		if (CharFlag != NULL)
 		{
 			EndRallyCharging();
+			TouchingFC = nullptr;
 		}
 	}
 }
@@ -206,11 +208,13 @@ void AUTRallyPoint::RallyPoweredComplete()
 	TSet<AActor*> Touching;
 	Capsule->GetOverlappingActors(Touching);
 	AUTCTFFlag* CharFlag = nullptr;
+	TouchingFC = nullptr;
 	for (AActor* TouchingActor : Touching)
 	{
 		CharFlag = Cast<AUTCharacter>(TouchingActor) ? Cast<AUTCTFFlag>(((AUTCharacter*)TouchingActor)->GetCarriedObject()) : nullptr;
 		if (CharFlag)
 		{
+			TouchingFC = Cast<AUTCharacter>(TouchingActor);
 			break;
 		}
 	}
@@ -276,11 +280,13 @@ void AUTRallyPoint::FlagNearbyChanged(bool bIsNearby)
 				TSet<AActor*> Touching;
 				Capsule->GetOverlappingActors(Touching);
 				AUTCTFFlag* CharFlag = nullptr;
+				TouchingFC = nullptr;
 				for (AActor* TouchingActor : Touching)
 				{
 					CharFlag = Cast<AUTCharacter>(TouchingActor) ? Cast<AUTCTFFlag>(((AUTCharacter*)TouchingActor)->GetCarriedObject()) : nullptr;
 					if (CharFlag)
 					{
+						TouchingFC = Cast<AUTCharacter>(TouchingActor);
 						SetRallyPointState(RallyPointStates::Charging);
 						break;
 					}
@@ -599,6 +605,10 @@ void AUTRallyPoint::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVecto
 	if (ViewerPS->CarriedObject)
 	{
 		if ((RallyPointState != RallyPointStates::Off) || !bShowAvailableEffect)
+		{
+			return;
+		}
+		if (UTGS->CurrentRallyPoint && UTGS->CurrentRallyPoint->TouchingFC)
 		{
 			return;
 		}
