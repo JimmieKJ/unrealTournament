@@ -716,14 +716,18 @@ void AUTFlagRunGame::CompleteRallyRequest(AUTPlayerController* RequestingPC)
 			}
 
 			// announce
-			UTCharacter->UTCharacterMovement->UpdatedComponent->UpdatePhysicsVolume(true);
-			AActor* RallySpot = UTCharacter->UTCharacterMovement ? UTCharacter->UTCharacterMovement->GetPhysicsVolume() : nullptr;
-			if ((RallySpot == nullptr) || (RallySpot == GetWorld()->GetDefaultPhysicsVolume()))
+			AActor* RallySpot = RequestingPC->RallyPoint ? RequestingPC->RallyPoint->MyGameVolume : nullptr;
+			if (RallySpot == nullptr)
 			{
-				AUTCTFFlag* CarriedFlag = Cast<AUTCTFFlag>(GS->FlagBases[GS->bRedToCap ? 0 : 1]->GetCarriedObject());
-				if (CarriedFlag)
+				UTCharacter->UTCharacterMovement->UpdatedComponent->UpdatePhysicsVolume(true);
+				AActor* RallySpot = UTCharacter->UTCharacterMovement ? UTCharacter->UTCharacterMovement->GetPhysicsVolume() : nullptr;
+				if ((RallySpot == nullptr) || (RallySpot == GetWorld()->GetDefaultPhysicsVolume()))
 				{
-					RallySpot = CarriedFlag;
+					AUTCTFFlag* CarriedFlag = Cast<AUTCTFFlag>(GS->FlagBases[GS->bRedToCap ? 0 : 1]->GetCarriedObject());
+					if (CarriedFlag)
+					{
+						RallySpot = CarriedFlag;
+					}
 				}
 			}
 			for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
@@ -741,7 +745,7 @@ void AUTFlagRunGame::CompleteRallyRequest(AUTPlayerController* RequestingPC)
 					}
 					else
 					{
-						PC->ClientReceiveLocalizedMessage(UUTCTFMajorMessage::StaticClass(), 24, UTPlayerState, nullptr, RallySpot);
+						PC->ClientReceiveLocalizedMessage(UUTCTFMajorMessage::StaticClass(), 24, UTPlayerState, nullptr, RallySpot); 
 					}
 				}
 			}
