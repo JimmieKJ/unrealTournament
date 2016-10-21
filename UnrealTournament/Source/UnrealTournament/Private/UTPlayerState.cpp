@@ -32,6 +32,8 @@
 #include "UTHUDWidget_NetInfo.h"
 #include "UTMcpUtils.h"
 #include "UTCTFRoundGame.h"
+#include "UTFlagRunGameState.h"
+#include "UTCTFMajorMessage.h"
 
 /** disables load warnings for dedicated server where invalid client input can cause unpreventable logspam, but enables on clients so developers can make sure their stuff is working */
 static inline ELoadFlags GetCosmeticLoadFlags()
@@ -677,9 +679,19 @@ void AUTPlayerState::Tick(float DeltaTime)
 	if (Role == ROLE_Authority)
 	{
 		AUTCharacter* UTChar = GetUTCharacter();
+		bool bOldCanRally = bCanRally;
 		bCanRally = (GetWorld()->GetTimeSeconds() > NextRallyTime) && UTChar && (UTChar->bCanRally || UTChar->GetCarriedObject());
 		RemainingRallyDelay = (NextRallyTime > GetWorld()->GetTimeSeconds()) ? FMath::Clamp(int32(NextRallyTime - GetWorld()->GetTimeSeconds()), 0, 255) : 0;
-
+		if (!bOldCanRally && bCanRally && !UTChar->GetCarriedObject())
+		{
+			// notify of transition if rally is available
+			AUTFlagRunGameState* GS = GetWorld()->GetGameState<AUTFlagRunGameState>();
+			AUTPlayerController* MyPC = Cast<AUTPlayerController>(GetOwner());
+			if (GS && GS->bAttackersCanRally && MyPC && Team && (GS->bRedToCap == (Team->TeamIndex == 0)))
+			{
+				MyPC->ClientReceiveLocalizedMessage(UUTCTFMajorMessage::StaticClass(), 23, nullptr);
+			}
+		}
 		if (!StatsID.IsEmpty() && !RequestedName.IsEmpty() && Cast<AController>(GetOwner()))
 		{
 			AUTGameState* UTGameState = GetWorld()->GetGameState<AUTGameState>();
