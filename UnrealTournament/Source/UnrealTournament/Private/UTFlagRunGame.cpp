@@ -604,8 +604,11 @@ void AUTFlagRunGame::HandleRallyRequest(AUTPlayerController* RequestingPC)
 	{
 		if (UTCharacter->GetCarriedObject())
 		{
-			UTPlayerState->AnnounceStatus(StatusMessage::NeedBackup);
-			RallyRequestTime = GetWorld()->GetTimeSeconds();
+			if (GetWorld()->GetTimeSeconds() - RallyRequestTime > 2.5f)
+			{
+				UTPlayerState->AnnounceStatus(StatusMessage::NeedBackup);
+				RallyRequestTime = GetWorld()->GetTimeSeconds();
+			}
 		}
 		else if (GS->CurrentRallyPoint != nullptr)
 		{
