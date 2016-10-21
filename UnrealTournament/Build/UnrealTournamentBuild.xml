@@ -269,7 +269,7 @@
 		<Node Name="Chunk Editor Win64" Requires="EditorDDC Win64" Token="$(BuildDir)/WindowsEditor/WindowsEditor.token">
 			<Property Name="Launch" Value="Engine\Binaries\Win64\UE4Editor.exe"/>
 			<Property Name="LaunchArgs" Value="UnrealTournament"/>
-			<Tag Files="$(LocalStagingDir)\UT-Build\Win64\..." With="#EditorFilesToChunk"/>
+			<Tag Files="$(LocalStagingDir)\UT-Build\Win64\..." Except="*.pdb" With="#EditorFilesToChunk"/>
 			<Chunk AppName="$(EditorAppName)" BuildVersion="$(BuildVersion)" Platform="Windows" InputDir="$(LocalStagingDir)\UT-Build\Win64" Files="#EditorFilesToChunk" Launch="$(Launch)" LaunchArgs="$(LaunchArgs)" CloudDir="$(CloudDir)"/>
 		</Node>
 		<Node Name="Post Editor Win64" Requires="Chunk Editor Win64">
@@ -351,7 +351,7 @@
 		<Node Name="Chunk Mac" Requires="Stage Mac" Token="$(BuildDir)/MacNoEditor/MacNoEditor.token">
 			<Property Name="Launch" Value="Engine/Binaries/Mac/UE4-Mac-Shipping.app"/>
 			<Property Name="LaunchArgs" Value="UnrealTournament"/>
-			<Tag Files="$(LocalStagingDir)/MacNoEditor/..." With="#FilesToChunk"/>
+			<Tag Files="$(LocalStagingDir)/MacNoEditor/..." Except="*.dysm" With="#FilesToChunk"/>
 			<Chunk AppName="$(AppName)" BuildVersion="$(BuildVersion)" Platform="Mac" InputDir="$(LocalStagingDir)/MacNoEditor" Files="..." Launch="$(Launch)" LaunchArgs="$(LaunchArgs)" CloudDir="$(CloudDir)"  />
 		</Node>
 		<Node Name="Post Mac" Requires="Chunk Mac">
@@ -428,7 +428,7 @@
 		<Node Name="Chunk Editor Mac" Requires="EditorDDC Mac" Token="$(BuildDir)/MacEditor/MacEditor.token">
 			<Property Name="Launch" Value="Engine/Binaries/Mac/UE4Editor.app"/>
 			<Property Name="LaunchArgs" Value="UnrealTournament"/>
-			<Tag Files="$(LocalStagingDir)/UT-Build/Mac/..." With="#EditorFilesToChunk"/>
+			<Tag Files="$(LocalStagingDir)/UT-Build/Mac/..." Except "*.dysm" With="#EditorFilesToChunk"/>
 			<Chunk AppName="$(EditorAppName)" BuildVersion="$(BuildVersion)" Platform="Mac" InputDir="$(LocalStagingDir)/UT-Build/Mac" Files="#EditorFilesToChunk" Launch="$(Launch)" LaunchArgs="$(LaunchArgs)" CloudDir="$(CloudDir)"/>
 		</Node>
 		<Node Name="Post Editor Mac" Requires="Chunk Editor Mac">
