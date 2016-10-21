@@ -2714,7 +2714,6 @@ void AUTWeapon::FiringInfoUpdated_Implementation(uint8 InFireMode, uint8 FlashCo
 	if (FlashCount > 0 || !InFlashLocation.IsZero())
 	{
 		CurrentFireMode = InFireMode;
-		UE_LOG(UT, Warning, TEXT("FiringInfoUpdated_Implementation"));
 		PlayFiringEffects();
 	}
 	else
