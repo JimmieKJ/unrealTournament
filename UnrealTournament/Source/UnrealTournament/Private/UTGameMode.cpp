@@ -2227,7 +2227,7 @@ void AUTGameMode::EndGame(AUTPlayerState* Winner, FName Reason )
 	UnlockSession();
 	EndMatch();
 
-	PickMostCoolMoments();
+	//PickMostCoolMoments();
 
 	// This should happen after EndMatch()
 	SetEndGameFocus(Winner);
