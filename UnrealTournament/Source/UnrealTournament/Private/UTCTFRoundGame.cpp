@@ -627,6 +627,13 @@ void AUTCTFRoundGame::HandleExitingIntermission()
 		if (Controller->PlayerState != NULL && !Controller->PlayerState->bOnlySpectator)
 		{
 			RestartPlayer(Controller);
+
+			// Reset group taunt
+			AUTPlayerState* PS = Cast<AUTPlayerState>(Controller->PlayerState);
+			if (PS)
+			{
+				PS->ActiveGroupTaunt = nullptr;
+			}
 		}
 	}
 
