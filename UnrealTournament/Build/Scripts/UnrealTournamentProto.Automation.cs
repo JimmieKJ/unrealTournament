@@ -283,7 +283,8 @@ namespace UnrealTournamentGame.Automation
 					{
 						StagingInfo = StagingInfo,
 						BuildRoot = RawImagePathMac,
-						AppLaunchCmd = "./Engine/Binaries/Mac/UE4-Mac-Shipping.app",
+                        FileIgnoreList = CommandUtils.CombinePaths(RawImagePathMac, "Manifest_DebugFiles_Mac.txt"),
+                        AppLaunchCmd = "./Engine/Binaries/Mac/UE4-Mac-Shipping.app",
 						AppLaunchCmdArgs = "UnrealTournament -opengl",
 						AppChunkType = BuildPatchToolBase.ChunkType.Chunk,
 					});
