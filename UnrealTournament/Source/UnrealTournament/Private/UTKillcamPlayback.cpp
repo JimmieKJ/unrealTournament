@@ -2,6 +2,7 @@
 
 #include "UnrealTournament.h"
 #include "UTKillcamPlayback.h"
+#include "UTGameInstance.h"
 #include "Components/ModelComponent.h"
 #include "NetworkReplayStreaming.h"
 #include "UnrealNetwork.h"
@@ -83,6 +84,11 @@ void UUTKillcamPlayback::CreateKillcamWorld(const FURL& InURL, const FWorldConte
 	// Create WorldContext and World for killcam.
 	if (SourceWorldContext.OwningGameInstance != nullptr)
 	{
+		UUTGameInstance* UTGameInstance = Cast<UUTGameInstance>(SourceWorldContext.OwningGameInstance);
+		if (UTGameInstance)
+		{
+			UTGameInstance->bIgnoreLevelLoad = true;
+		}
 		SourceWorld = SourceWorldContext.World();
 
 		// Creates the world context. This should be the only WorldContext that ever gets created for this GameInstance.

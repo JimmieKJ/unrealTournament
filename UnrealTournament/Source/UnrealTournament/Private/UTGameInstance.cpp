@@ -570,6 +570,12 @@ bool UUTGameInstance::ClientTravelToSession(int32 ControllerId, FName InSessionN
 
 void UUTGameInstance::BeginLevelLoading(const FString& LevelName)
 {
+	if (bIgnoreLevelLoad)
+	{
+		bIgnoreLevelLoad = false;
+		return;
+	}
+
 	bLevelIsLoading	 = true;
 
 #if !UE_SERVER
@@ -614,7 +620,7 @@ void UUTGameInstance::BeginLevelLoading(const FString& LevelName)
 			)
 
 		{
-			MovieList = TEXT("intro_full;intro_loop");
+			MovieList = TEXT("intro_full;load_generic_nosound");
 			PlayLoadingMovie(MovieList, false, false, EMoviePlaybackType::MT_LoadingLoop);	
 			return;
 		}
@@ -667,6 +673,8 @@ void UUTGameInstance::BeginLevelLoading(const FString& LevelName)
 void UUTGameInstance::EndLevelLoading()
 {
 	bLevelIsLoading	 = false;
+	LevelLoadText = FText::GetEmpty();
+
 #if !UE_SERVER
 
 	IUnrealTournamentFullScreenMovieModule* const FullScreenMovieModule = FModuleManager::LoadModulePtr<IUnrealTournamentFullScreenMovieModule>("UnrealTournamentFullScreenMovie");
@@ -698,14 +706,24 @@ void UUTGameInstance::EndLevelLoading()
 
 #if !UE_SERVER
 
+FText UUTGameInstance::GetLevelLoadText() const
+{
+	if (bLevelIsLoading)
+	{
+		return LevelLoadText;
+	}
+	
+	return NSLOCTEXT("UTGameInstance","PressFireToSkip","Press FIRE to Skip");
+}
+
 EVisibility UUTGameInstance::GetLevelLoadThrobberVisibility() const
 {
 	return bLevelIsLoading ? EVisibility::Visible : EVisibility::Hidden;
 }
 
-EVisibility UUTGameInstance::GetLevelLoadAnyKeyVisibility() const
+EVisibility UUTGameInstance::GetLevelLoadTextVisibility() const
 {
-	return (bLevelIsLoading || (GetMoviePlayer().IsValid() && GetMoviePlayer()->WillAutoCompleteWhenLoadFinishes())) ? EVisibility::Hidden : EVisibility::Visible;
+	return EVisibility::Visible;
 }
 
 void UUTGameInstance::PlayLoadingMovie(const FString& MovieName, bool bStopWhenLoadingIsComnpleted, bool bForce, TEnumAsByte<EMoviePlaybackType> PlaybackType) 
@@ -727,23 +745,23 @@ void UUTGameInstance::VerifyMovieOverlay()
 		.VAlign(VAlign_Fill)
 		[
 			SNew(SSafeZone)
-			.VAlign(VAlign_Bottom)
-			.HAlign(HAlign_Right)
+			.VAlign(VAlign_Top)
+			.HAlign(HAlign_Center)
 			.Padding(10.0f)
 			.IsTitleSafe(true)
 			[
 				SNew(SVerticalBox)
-				+SVerticalBox::Slot().HAlign(HAlign_Right).AutoHeight()
-				[
-					SNew(SThrobber)
-					.Visibility(TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateUObject(this, &UUTGameInstance::GetLevelLoadThrobberVisibility)))
-				]
 				+SVerticalBox::Slot().AutoHeight()
 				[
 					SNew(STextBlock)
 					.TextStyle(SUTStyle::Get(),"UT.Font.NormalText.Medium.Bold")
-					.Text(NSLOCTEXT("MovePlayer","PressAnyKeyToSkip","Press Fire To Skip..."))
-					.Visibility(TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateUObject(this, &UUTGameInstance::GetLevelLoadAnyKeyVisibility)))
+					.Text(TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateUObject(this, &UUTGameInstance::GetLevelLoadText)))
+					.Visibility(TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateUObject(this, &UUTGameInstance::GetLevelLoadTextVisibility)))
+				]
+				+SVerticalBox::Slot().HAlign(HAlign_Center).AutoHeight()
+				[
+					SNew(SThrobber)
+					.Visibility(TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateUObject(this, &UUTGameInstance::GetLevelLoadThrobberVisibility)))
 				]
 			]
 		];

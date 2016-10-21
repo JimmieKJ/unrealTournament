@@ -2929,6 +2929,14 @@ bool UUTLocalPlayer::JoinSession(const FOnlineSessionSearchResult& SearchResult,
 	UE_LOG(UT,Log, TEXT("Joining a New Session"));
 	UE_LOG(UT,Log, TEXT("##########################"));
 
+	UUTGameInstance* UTGameInstance = Cast<UUTGameInstance>(GetGameInstance());
+	if (UTGameInstance)
+	{
+		FString ServerName;
+		SearchResult.Session.SessionSettings.Get(SETTING_SERVERNAME,ServerName);
+		UTGameInstance->LevelLoadText = FText::Format(NSLOCTEXT("UTLocalPlayer","ConnectingText","Connecting to {0}..."), FText::FromString(ServerName));
+	}	
+
 	SearchResult.Session.SessionSettings.Get(SETTING_GAMEMODE,PendingGameMode);
 	PendingInstanceID = InstanceId;
 	bWantsToConnectAsSpectator = bSpectate;

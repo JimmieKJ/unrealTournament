@@ -502,6 +502,14 @@ void AUTLobbyGameState::LaunchGameInstance(AUTLobbyMatchInfo* MatchOwner, FStrin
 			GameURL += TEXT("?Private=1");
 		}
 
+		FString MapTitle = MatchOwner->InitialMapInfo->Title;
+		FString InstanceName = TEXT("your match");
+		if (!MatchOwner->CurrentRuleset->Title.IsEmpty() && !MapTitle.IsEmpty())
+		{
+			InstanceName = FString::Printf(TEXT("%s on %s"),*MatchOwner->CurrentRuleset->Title, *MapTitle);
+		}
+		GameURL += FString::Printf(TEXT("?ServerName=\"%s\""),*InstanceName);
+
 		int32 InstancePort = LobbyGame->StartingInstancePort + (LobbyGame->InstancePortStep * GameInstances.Num());
 
 		FGuid LaunchGuid = FGuid::NewGuid();

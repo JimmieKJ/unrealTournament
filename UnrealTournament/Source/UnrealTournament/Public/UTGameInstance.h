@@ -42,6 +42,12 @@ class UNREALTOURNAMENT_API UUTGameInstance : public UGameInstance
 	// If set, this movie will be the first movie to play in the loading sequence.  It will be cleared whenever it's used.
 	FString LoadingMovieToPlay;
 
+	// The text to display at the top of the screen during the loading process.  Leave empty for no text
+	FText LevelLoadText;
+
+	// If true, we will ingore the level load and not display anything.  This is to keep the loading screen from appearing with the killcam.
+	bool bIgnoreLevelLoad;
+
 	virtual bool DelayPendingNetGameTravel() override
 	{
 		return IsAutoDownloadingContent();
@@ -199,7 +205,8 @@ protected:
 
 
 	virtual EVisibility GetLevelLoadThrobberVisibility() const;
-	virtual EVisibility GetLevelLoadAnyKeyVisibility() const;
+	virtual FText GetLevelLoadText() const;
+	virtual EVisibility GetLevelLoadTextVisibility() const;
 #endif
 
 	UPROPERTY()
