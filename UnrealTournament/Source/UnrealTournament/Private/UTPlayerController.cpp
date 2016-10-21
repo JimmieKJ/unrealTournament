@@ -2113,7 +2113,7 @@ void AUTPlayerController::ClientWarnEnemyBehind_Implementation(AUTPlayerState* T
 void AUTPlayerController::CheckDodge(float LastTapTime, float MaxClickTime, bool bForward, bool bBack, bool bLeft, bool bRight)
 {
 	UUTCharacterMovement* MyCharMovement = UTCharacter ? UTCharacter->UTCharacterMovement : NULL;
-	if (MyCharMovement != NULL && !IsMoveInputIgnored() && (bIsHoldingDodge || (GetWorld()->GetTimeSeconds() - LastTapTime < MaxClickTime)))
+	if (MyCharMovement != NULL && !IsMoveInputIgnored() && (bIsHoldingDodge || (GetWorld()->GetRealTimeSeconds() - LastTapTime < MaxClickTime)))
 	{
 		MyCharMovement->bPressedDodgeForward = bForward;
 		MyCharMovement->bPressedDodgeBack = bBack;
@@ -2215,7 +2215,7 @@ void AUTPlayerController::OnTapForward()
 	LastTapRightTime = -10.f;
 	LastTapLeftTime = -10.f;
 	CheckDodge(LastTapForwardTime, MaxDodgeClickTime, true, false, false, false);
-	LastTapForwardTime = GetWorld()->GetTimeSeconds();
+	LastTapForwardTime = GetWorld()->GetRealTimeSeconds();
 }
 
 void AUTPlayerController::OnTapBack()
@@ -2224,7 +2224,7 @@ void AUTPlayerController::OnTapBack()
 	LastTapRightTime = -10.f;
 	LastTapLeftTime = -10.f;
 	CheckDodge(LastTapBackTime, MaxDodgeClickTime, false, true, false, false);
-	LastTapBackTime = GetWorld()->GetTimeSeconds();
+	LastTapBackTime = GetWorld()->GetRealTimeSeconds();
 }
 
 void AUTPlayerController::OnTapLeft()
@@ -2233,7 +2233,7 @@ void AUTPlayerController::OnTapLeft()
 	LastTapBackTime = -10.f;
 	LastTapForwardTime = -10.f;
 	CheckDodge(LastTapLeftTime, MaxDodgeClickTime, false, false, true, false);
-	LastTapLeftTime = GetWorld()->GetTimeSeconds();
+	LastTapLeftTime = GetWorld()->GetRealTimeSeconds();
 }
 
 void AUTPlayerController::OnTapRight()
@@ -2242,7 +2242,7 @@ void AUTPlayerController::OnTapRight()
 	LastTapBackTime = -10.f;
 	LastTapForwardTime = -10.f;
 	CheckDodge(LastTapRightTime, MaxDodgeClickTime, false, false, false, true);
-	LastTapRightTime = GetWorld()->GetTimeSeconds();
+	LastTapRightTime = GetWorld()->GetRealTimeSeconds();
 }
 
 void AUTPlayerController::OnTapForwardRelease()
