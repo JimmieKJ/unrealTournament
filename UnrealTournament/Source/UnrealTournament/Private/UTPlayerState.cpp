@@ -3416,7 +3416,7 @@ void AUTPlayerState::PlayGroupTaunt()
 	}
 
 	ActiveGroupTaunt = GroupTauntClass;
-	OnRepGroupTaunt();
+	OnRep_ActiveGroupTaunt();
 }
 
 void AUTPlayerState::PlayTauntByClass(TSubclassOf<AUTTaunt> TauntToPlay)
