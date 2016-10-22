@@ -3241,8 +3241,6 @@ void AUTCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& O
 	DOREPLIFETIME_CONDITION(AUTCharacter, bIsInCombat, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, bSpawnProtectionEligible, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, DrivenVehicle, COND_OwnerOnly);
-	DOREPLIFETIME_CONDITION(AUTCharacter, bHasHighScore, COND_None);
-	DOREPLIFETIME_CONDITION(AUTCharacter, bShouldWearLeaderHat, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, WalkMovementReductionPct, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTCharacter, WalkMovementReductionTime, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTCharacter, bInvisible, COND_None);
@@ -4961,6 +4959,8 @@ void AUTCharacter::SetCosmeticsFromPlayerState()
 		SetHatClass(PS->OverrideHatClass != nullptr ? PS->OverrideHatClass : PS->HatClass);
 		SetEyewearVariant(PS->EyewearVariant);
 		SetEyewearClass(PS->EyewearClass);
+		bShouldWearLeaderHat = PS->bHasHighScore;
+		LeaderHatStatusChanged_Implementation();
 	}
 }
 
@@ -6394,13 +6394,12 @@ bool AUTCharacter::UTServerMoveQuick_Validate(float TimeStamp, FVector_NetQuanti
 	return true;
 }
 
-void AUTCharacter::OnRep_HasHighScore()
-{
-	HasHighScoreChanged();
-}
-
 void AUTCharacter::HasHighScoreChanged_Implementation()
-{}
+{
+	AUTPlayerState* UTPlayerState = Cast<AUTPlayerState>(PlayerState);
+	bShouldWearLeaderHat = UTPlayerState && UTPlayerState->bHasHighScore;
+	LeaderHatStatusChanged_Implementation();
+}
 
 void AUTCharacter::OnRep_ShouldWearLeaderHat()
 {

@@ -978,16 +978,11 @@ void AUTTeamGameMode::FindAndMarkHighScorer()
 				AUTPlayerState *PS = Cast<AUTPlayerState>(Teams[i]->GetTeamMembers()[PlayerIdx]->PlayerState);
 				if (PS != nullptr)
 				{
-					AUTCharacter *UTChar = Cast<AUTCharacter>(Teams[i]->GetTeamMembers()[PlayerIdx]->GetPawn());
-					if (UTChar)
+					bool bOldHighScorer = PS->bHasHighScore;
+					PS->bHasHighScore = (BestScore == PS->Score);
+					if ((bOldHighScorer != PS->bHasHighScore) && (GetNetMode() != NM_DedicatedServer))
 					{
-						bool bOldHighScorer = UTChar->bHasHighScore;
-						UTChar->bHasHighScore = (BestScore == PS->Score);
-						if (bOldHighScorer != UTChar->bHasHighScore)
-						{
-							UTChar->HasHighScoreChanged();
-							AdjustLeaderHatFor(UTChar);
-						}
+						PS->OnRep_HasHighScore();
 					}
 				}
 			}

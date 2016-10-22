@@ -1709,15 +1709,8 @@ public:
 	UPROPERTY(BlueprintReadWrite, Category = HUD)
 		float BeaconTextScale;
 
-	/** Mark this pawn as belonging to the player with the highest score, intended for cosmetic usage only */
-	UPROPERTY(ReplicatedUsing=OnRep_HasHighScore, BlueprintReadOnly, Category=Pawn)
-	bool bHasHighScore;
-
-	UFUNCTION()
-	void OnRep_HasHighScore();
-
 	/** Mark this pawn as should wear leader hat */
-	UPROPERTY(ReplicatedUsing = OnRep_ShouldWearLeaderHat, BlueprintReadOnly, Category = Pawn)
+	UPROPERTY(BlueprintReadOnly, Category = Pawn)
 		bool bShouldWearLeaderHat;
 
 	UFUNCTION()

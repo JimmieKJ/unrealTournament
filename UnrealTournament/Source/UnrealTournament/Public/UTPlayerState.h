@@ -135,6 +135,13 @@ public:
 	/** Called on client using the roundtrip time for servermove/ack. */
 	virtual void CalculatePing(float NewPing);
 
+	/** Mark this pawn as belonging to the player with the highest score, intended for cosmetic usage only */
+	UPROPERTY(ReplicatedUsing = OnRep_HasHighScore, BlueprintReadOnly, Category = PlayerState)
+		bool bHasHighScore;
+
+	UFUNCTION()
+		void OnRep_HasHighScore();
+
 	/** ID that can be used to consistently identify this player for spectating commands
 	 * IDs are reused when players leave and new ones join, but a given player's ID remains stable and unique
 	 * as long as that player is in the game

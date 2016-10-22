@@ -498,7 +498,6 @@ public:
 	bool CheckScore(AUTPlayerState* Scorer);
 
 	virtual void FindAndMarkHighScorer();
-	virtual void AdjustLeaderHatFor(AUTCharacter* UTChar);
 	virtual void SetEndGameFocus(AUTPlayerState* Winner);	
 	virtual void PickMostCoolMoments(bool bClearCoolMoments = false, int32 CoolMomentsToShow = 1);
 

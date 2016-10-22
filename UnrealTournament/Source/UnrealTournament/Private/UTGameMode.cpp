@@ -1637,25 +1637,16 @@ void AUTGameMode::FindAndMarkHighScorer()
 	for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
 	{
 		AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
-		AController* C = (PS != NULL) ? Cast<AController>(PS->GetOwner()) : NULL;
-		AUTCharacter *UTChar = (C != nullptr) ? Cast<AUTCharacter>(C->GetPawn()) : nullptr;
-		if (UTChar != nullptr)
+		if (PS != nullptr)
 		{
-			bool bOldHighScorer = UTChar->bHasHighScore;
-			UTChar->bHasHighScore = (PS != nullptr && PS->Score == BestScore);
-			if (bOldHighScorer != UTChar->bHasHighScore)
+			bool bOldHighScorer = PS->bHasHighScore;
+			PS->bHasHighScore = (BestScore == PS->Score);
+			if ((bOldHighScorer != PS->bHasHighScore) && (GetNetMode() != NM_DedicatedServer))
 			{
-				UTChar->HasHighScoreChanged();
-				AdjustLeaderHatFor(UTChar);
+				PS->OnRep_HasHighScore();
 			}
 		}
 	}
-}
-
-void AUTGameMode::AdjustLeaderHatFor(AUTCharacter* UTChar)
-{
-	UTChar->bShouldWearLeaderHat = UTChar->bHasHighScore;
-	UTChar->LeaderHatStatusChanged();
 }
 
 //Special markup for Analytics event so they show up properly in grafana. Should be eventually moved to UTAnalytics.

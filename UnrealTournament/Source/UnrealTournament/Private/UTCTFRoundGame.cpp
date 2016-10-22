@@ -125,22 +125,6 @@ void AUTCTFRoundGame::InitGame(const FString& MapName, const FString& Options, F
 	bSlowFlagCarrier = EvalBoolOptions(InOpt, bSlowFlagCarrier);
 }
 
-void AUTCTFRoundGame::GiveDefaultInventory(APawn* PlayerPawn)
-{
-	Super::GiveDefaultInventory(PlayerPawn);
-	AUTCharacter* UTCharacter = Cast<AUTCharacter>(PlayerPawn);
-	if (UTCharacter != NULL)
-	{
-		AUTPlayerState* UTPlayerState = Cast<AUTPlayerState>(UTCharacter->PlayerState);
-		bool bOnLastLife = (UTPlayerState && (UTPlayerState->RemainingLives == 0) && UTPlayerState->bHasLifeLimit);
-		if (bOnLastLife)
-		{
-			UTCharacter->bShouldWearLeaderHat = true;
-			UTCharacter->LeaderHatStatusChanged();
-		}
-	}
-}
-
 bool AUTCTFRoundGame::SkipPlacement(AUTCharacter* UTChar)
 {
 	return false; // (UTChar && FlagScorer && (UTChar->PlayerState == FlagScorer));
@@ -1192,11 +1176,6 @@ void AUTCTFRoundGame::ScoreKill_Implementation(AController* Killer, AController*
 			OtherPS->OnRespawnWaitReceived();
 		}
 	}
-}
-
-void AUTCTFRoundGame::AdjustLeaderHatFor(AUTCharacter* UTChar)
-{
-// no leader hat for high score, only for last life
 }
 
 void AUTCTFRoundGame::ScoreRedAlternateWin()

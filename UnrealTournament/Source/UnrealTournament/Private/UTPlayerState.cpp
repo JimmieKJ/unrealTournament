@@ -124,6 +124,7 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	DOREPLIFETIME(AUTPlayerState, Taunt2Class);
 	DOREPLIFETIME(AUTPlayerState, GroupTauntClass);
 	DOREPLIFETIME(AUTPlayerState, ActiveGroupTaunt);
+	DOREPLIFETIME(AUTPlayerState, bHasHighScore);
 	DOREPLIFETIME(AUTPlayerState, HatClass);
 	DOREPLIFETIME(AUTPlayerState, LeaderHatClass);
 	DOREPLIFETIME(AUTPlayerState, EyewearClass);
@@ -214,6 +215,15 @@ void AUTPlayerState::SetPlayerName(const FString& S)
 	}
 	ForceNetUpdate();
 	bHasValidClampedName = false;
+}
+
+void AUTPlayerState::OnRep_HasHighScore()
+{
+	AUTCharacter* UTChar = GetUTCharacter();
+	if (UTChar)
+	{
+		UTChar->HasHighScoreChanged();
+	}
 }
 
 void AUTPlayerState::UpdatePing(float InPing)
