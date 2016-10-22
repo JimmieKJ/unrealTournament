@@ -832,7 +832,7 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 			{
 				Game->ModifyDamage(ResultDamage, ResultMomentum, this, EventInstigator, HitInfo, DamageCauser, DamageEvent.DamageTypeClass);
 			}
-			if (bRadialDamage)
+			if (bRadialDamage && GetController() && (EventInstigator != GetController()))
 			{
 				AUTProjectile* Proj = Cast<AUTProjectile>(DamageCauser);
 				if (Proj)

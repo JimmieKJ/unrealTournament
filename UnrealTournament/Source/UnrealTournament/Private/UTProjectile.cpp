@@ -838,11 +838,13 @@ void AUTProjectile::DamageImpactedActor_Implementation(AActor* OtherActor, UPrim
 	}
 	AController* ResolvedInstigator = InstigatorController;
 	TSubclassOf<UDamageType> ResolvedDamageType = MyDamageType;
+	bool bSameTeamDamage = false;
 	if (FFInstigatorController != NULL && InstigatorController != NULL)
 	{
 		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 		if (GS != NULL && GS->OnSameTeam(OtherActor, InstigatorController))
 		{
+			bSameTeamDamage = true;
 			ResolvedInstigator = FFInstigatorController;
 			if (FFDamageType != NULL)
 			{
@@ -850,7 +852,7 @@ void AUTProjectile::DamageImpactedActor_Implementation(AActor* OtherActor, UPrim
 			}
 		}
 	}
-	if ((Role == ROLE_Authority) && (HitsStatsName != NAME_None))
+	if ((Role == ROLE_Authority) && (HitsStatsName != NAME_None) && !bSameTeamDamage)
 	{
 		AUTPlayerState* PS = InstigatorController ? Cast<AUTPlayerState>(InstigatorController->PlayerState) : NULL;
 		if (PS)
