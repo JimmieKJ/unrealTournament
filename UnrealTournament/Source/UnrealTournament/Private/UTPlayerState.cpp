@@ -366,13 +366,10 @@ bool AUTPlayerState::ShouldBroadCastWelcomeMessage(bool bExiting)
 
 void AUTPlayerState::NotifyTeamChanged_Implementation()
 {
-	for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
+	AUTCharacter* P = GetUTCharacter();
+	if (P != NULL && !P->bTearOff)
 	{
-		AUTCharacter* P = Cast<AUTCharacter>(*It);
-		if (P != NULL && P->PlayerState == this && !P->bTearOff)
-		{
-			P->NotifyTeamChanged();
-		}
+		P->NotifyTeamChanged();
 	}
 	// HACK: remember last team player got on the URL for travelling purposes
 	if (Team != NULL)
@@ -412,14 +409,9 @@ void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bE
 		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 		AUTGameMode* GM = GetWorld()->GetAuthGameMode<AUTGameMode>();
 		AController* Controller = Cast<AController>(GetOwner());
-		APawn* Pawn = nullptr;
-		AUTCharacter* UTChar = nullptr;
+		AUTCharacter* UTChar = GetUTCharacter();
+		APawn* Pawn = UTChar ? UTChar : (Controller ? Controller->GetPawn() : nullptr);
 		bool bShouldTauntKill = false;
-		if (Controller)
-		{
-			Pawn = Controller->GetPawn();
-			UTChar = Cast<AUTCharacter>(Pawn);
-		}
 		AUTPlayerController* MyPC = Cast<AUTPlayerController>(GetOwner());
 		TSubclassOf<UUTDamageType> UTDamage(*DamageType);
 
@@ -1066,7 +1058,7 @@ bool AUTPlayerState::ServerReceiveTaunt2Class_Validate(const FString& NewTauntCl
 
 void AUTPlayerState::HandleTeamChanged(AController* Controller)
 {
-	AUTCharacter* Pawn = Cast<AUTCharacter>(Controller->GetPawn());
+	AUTCharacter* Pawn = GetUTCharacter();
 	if (Pawn != NULL)
 	{
 		Pawn->PlayerChangedTeam();
@@ -3213,26 +3205,20 @@ int32 AUTPlayerState::CountBanVotes()
 void AUTPlayerState::OnRepSpecialPlayer()
 {
 	AUTPlayerController* UTPC = Cast<AUTPlayerController>(GetWorld()->GetFirstPlayerController());
-	for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
+	AUTCharacter* Character = GetUTCharacter();
+	if (Character != NULL && !Character->bTearOff)
 	{
-		AUTCharacter* Character = Cast<AUTCharacter>(*It);
-		if (Character != NULL && Character->PlayerState == this && !Character->bTearOff)
-		{
-			UpdateSpecialTacComFor(Character, UTPC);
-		}
+		UpdateSpecialTacComFor(Character, UTPC);
 	}
 }
 
 void AUTPlayerState::OnRepSpecialTeamPlayer()
 {
 	AUTPlayerController* UTPC = Cast<AUTPlayerController>(GetWorld()->GetFirstPlayerController());
-	for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
+	AUTCharacter* Character = GetUTCharacter();
+	if (Character != NULL && !Character->bTearOff)
 	{
-		AUTCharacter* Character = Cast<AUTCharacter>(*It);
-		if (Character != NULL && Character->PlayerState == this && !Character->bTearOff)
-		{
-			UpdateSpecialTacComFor(Character, UTPC);
-		}
+		UpdateSpecialTacComFor(Character, UTPC);
 	}
 }
 
