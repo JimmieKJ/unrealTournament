@@ -124,6 +124,11 @@ void AUTHUD_Showdown::DrawMinimap(const FColor& DrawColor, float MapSize, FVecto
 
 	Super::DrawMinimap(DrawColor, MapSize, DrawPos);
 
+	if (Canvas == nullptr)
+	{
+		return;
+	}
+
 	const float RenderScale = float(Canvas->SizeY) / 1080.0f;
 	if (!GS || !GS->IsMatchInProgress() || GS->IsMatchIntermission())
 	{
