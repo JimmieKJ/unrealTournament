@@ -693,7 +693,7 @@ void AUTWeap_RocketLauncher::DrawWeaponCrosshair_Implementation(UUTHUDWidget* We
 		float W = LockCrosshairTexture->GetSurfaceWidth();
 		float H = LockCrosshairTexture->GetSurfaceHeight();
 		float CrosshairRot = GetWorld()->TimeSeconds * 90.0f;
-
+		const float AcquireDisplayTime = 0.5f;
 		if (HasLockedTarget())
 		{
 			FVector ScreenTarget = WeaponHudWidget->GetCanvas()->Project(LockedTarget->GetActorLocation());
@@ -701,13 +701,13 @@ void AUTWeap_RocketLauncher::DrawWeaponCrosshair_Implementation(UUTHUDWidget* We
 			ScreenTarget.Y -= WeaponHudWidget->GetCanvas()->SizeY*0.5f;
 			WeaponHudWidget->DrawTexture(LockCrosshairTexture, ScreenTarget.X, ScreenTarget.Y, 2.f * W * Scale, 2.f * H * Scale, 0.f, 0.f, W, H, 1.f, FLinearColor::White, FVector2D(0.5f, 0.5f), CrosshairRot);
 		}
-		else if (PendingLockedTarget)
+		else if (PendingLockedTarget && (GetWorld()->GetTimeSeconds() - PendingLockedTargetTime > LockAcquireTime- AcquireDisplayTime))
 		{
 			FVector ScreenTarget = WeaponHudWidget->GetCanvas()->Project(PendingLockedTarget->GetActorLocation());
 			ScreenTarget.X -= WeaponHudWidget->GetCanvas()->SizeX*0.5f;
 			ScreenTarget.Y -= WeaponHudWidget->GetCanvas()->SizeY*0.5f;
 			UTexture2D* PendingLockTexture = LockCrosshairTexture;
-			float Opacity = (GetWorld()->GetTimeSeconds() - PendingLockedTargetTime) / FMath::Max(0.1f, LockAcquireTime);
+			float Opacity = (GetWorld()->GetTimeSeconds() - PendingLockedTargetTime - LockAcquireTime + AcquireDisplayTime) / AcquireDisplayTime;
 			float PendingScale = 1.f + 2.5f * (1.f - Opacity);
 			WeaponHudWidget->DrawTexture(PendingLockTexture, ScreenTarget.X, ScreenTarget.Y, 2.f * W * Scale * PendingScale, 2.f * H * Scale * PendingScale, 0.f, 0.f, W, H, 0.2f + 0.5f*Opacity, FLinearColor::White, FVector2D(0.5f, 0.5f), 2.5f*CrosshairRot);
 		}
