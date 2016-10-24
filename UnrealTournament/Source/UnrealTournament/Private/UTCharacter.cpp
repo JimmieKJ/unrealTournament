@@ -124,7 +124,7 @@ AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 	CrouchEyeOffset = EyeOffset;
 	TargetEyeOffset = EyeOffset;
 	EyeOffsetInterpRate = FVector(18.f, 9.f, 9.f);
-	EyeOffsetDirectRate = FVector(500.f, 500.f, 500.f);
+	EyeOffsetDirectRate = FVector(500.f, 500.f, 100.f);
 	CrouchEyeOffsetInterpRate = 12.f;
 	EyeOffsetDecayRate = FVector(7.f, 7.f, 7.f);
 	EyeOffsetJumpBob = 20.f;
@@ -4590,7 +4590,7 @@ void AUTCharacter::Tick(float DeltaTime)
 	float InterpTimeX = FMath::Min(1.f, EyeOffsetInterpRate.X*DeltaTime);
 	float InterpTimeY = FMath::Min(1.f, EyeOffsetInterpRate.Y*DeltaTime);
 	float InterpTimeZ = FMath::Min(1.f, EyeOffsetInterpRate.Z*DeltaTime);
-
+	float OldEyeOffsetZ = EyeOffset.Z;
 	EyeOffset.X = (1.f - InterpTimeX)*EyeOffset.X + InterpTimeX*TargetEyeOffset.X;
 	EyeOffset.Y = (1.f - InterpTimeY)*EyeOffset.Y + InterpTimeY*TargetEyeOffset.Y;
 	EyeOffset.Z = (1.f - InterpTimeZ)*EyeOffset.Z + InterpTimeZ*TargetEyeOffset.Z;
@@ -4601,14 +4601,19 @@ void AUTCharacter::Tick(float DeltaTime)
 	EyeOffset.Y = (TargetEyeOffset.Y > EyeOffset.Y)
 					? EyeOffset.Y + FMath::Min(TargetEyeOffset.Y - EyeOffset.Y, DeltaTime*EyeOffsetDirectRate.Y)
 					: EyeOffset.Y + FMath::Max(TargetEyeOffset.Y - EyeOffset.Y, -1.f * DeltaTime*EyeOffsetDirectRate.Y);
-	EyeOffset.Z = (TargetEyeOffset.Z > EyeOffset.Z)
-					? EyeOffset.Z + FMath::Min(TargetEyeOffset.Z - EyeOffset.Z, DeltaTime*EyeOffsetDirectRate.Z)
-					: EyeOffset.Z + FMath::Max(TargetEyeOffset.Z - EyeOffset.Z, -1.f * DeltaTime*EyeOffsetDirectRate.Z);
+
+	float ZChange = FMath::Abs(EyeOffset.Z - OldEyeOffsetZ);
+	if (ZChange < DeltaTime*EyeOffsetDirectRate.Z)
+	{
+		EyeOffset.Z = (TargetEyeOffset.Z > EyeOffset.Z)
+			? EyeOffset.Z + FMath::Min(TargetEyeOffset.Z - EyeOffset.Z, DeltaTime*EyeOffsetDirectRate.Z - ZChange)
+			: EyeOffset.Z + FMath::Max(TargetEyeOffset.Z - EyeOffset.Z, -1.f * DeltaTime*EyeOffsetDirectRate.Z - ZChange);
+	}
 	float CrouchInterpTime = FMath::Min(1.f, CrouchEyeOffsetInterpRate*DeltaTime);
-	CrouchEyeOffset = (1.f - CrouchInterpTime)*CrouchEyeOffset; //FIXME ADD WEAPON XY firing offsets, and big hit offsets
+	CrouchEyeOffset = (1.f - CrouchInterpTime)*CrouchEyeOffset; 
 	if (EyeOffset.Z > 0.f)
 	{
-		// faster decay if positive
+		// faster decay if positive to avoid camera clipping going down stairs
 		EyeOffset.Z = (1.f - InterpTimeZ)*EyeOffset.Z + InterpTimeZ*TargetEyeOffset.Z;
 	}
 	EyeOffset.DiagnosticCheckNaN();
