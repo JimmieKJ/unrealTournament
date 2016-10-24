@@ -1280,13 +1280,6 @@ FReply SUTSystemSettingsDialog::OKClick()
 		GConfig->SetString(TEXT("ConsoleVariables"), CVar->GetVarName(), *CVar->GetString(), GEngineIni);
 	}
 	GConfig->Flush(false, GEngineIni);
-	// resolution
-	int32 NewDisplayMode = DisplayModeList.Find(DisplayModeComboBox->GetSelectedItem());
-	TArray<FString> Suffixes;
-	Suffixes.Add(FString("f"));
-	Suffixes.Add(FString("wf"));
-	Suffixes.Add(FString("w"));
-	GetPlayerOwner()->ViewportClient->ConsoleCommand(*FString::Printf(TEXT("setres %s%s"), *SelectedRes->GetText().ToString(), *Suffixes[NewDisplayMode]));
 
 	UserSettings->SetBotSpeech(EBotSpeechOption(FMath::Max<int32>(0, BotSpeechList.Find(BotSpeechCombo->GetSelectedItem()))));
 	UserSettings->SetHRTFEnabled(HRTFCheckBox->IsChecked());
@@ -1301,9 +1294,11 @@ FReply SUTSystemSettingsDialog::OKClick()
 	const TCHAR* CmdTemp = FCString::Strchr(Cmd,'x') ? FCString::Strchr(Cmd,'x')+1 : FCString::Strchr(Cmd,'X') ? FCString::Strchr(Cmd,'X')+1 : TEXT("");
 	int32 Y=FCString::Atoi(CmdTemp);
 	UserSettings->SetScreenResolution(FIntPoint(X, Y));
+	int32 NewDisplayMode = DisplayModeList.Find(DisplayModeComboBox->GetSelectedItem());
 	UserSettings->SetFullscreenMode(EWindowMode::ConvertIntToWindowMode(NewDisplayMode));
 	UserSettings->SetVSyncEnabled(VSync->IsChecked());
 	UserSettings->SetKeyboardLightingEnabled(KeyboardLightingCheckbox->IsChecked());
+	UserSettings->RequestResolutionChange(X, Y, EWindowMode::ConvertIntToWindowMode(NewDisplayMode));
 	UserSettings->SaveConfig();
 
 	// Immediately change the vsync, UserSettings would do it, but it's in a function that we don't typically call
