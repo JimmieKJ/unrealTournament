@@ -105,8 +105,7 @@ void AUTProj_Rocket::Explode_Implementation(const FVector& HitLocation, const FV
 			if (FollowerRockets[i] && !FollowerRockets[i]->IsPendingKillPending())
 			{
 				FollowerRockets[i]->TargetActor = HitCharacter;
-				AdjustmentSpeed = 24000.f;
-				bLeadTarget = true;
+				FollowerRockets[i]->AdjustmentSpeed = 24000.f;
 			}
 		}
 	}

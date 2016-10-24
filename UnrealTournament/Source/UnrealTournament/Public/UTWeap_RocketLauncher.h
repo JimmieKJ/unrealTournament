@@ -143,6 +143,9 @@ class UNREALTOURNAMENT_API AUTWeap_RocketLauncher : public AUTWeapon
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = RocketLauncher)
 	float BarrelRadius;
 
+	UPROPERTY()
+		TArray<class AUTProj_Rocket*> TrackingRockets;
+
 	/** AI skill checks in firing are on an interval since firing is queried often when weapon is ready to fire */
 	float LastAttackSkillCheckTime;
 	bool bAttackSkillCheckResult;

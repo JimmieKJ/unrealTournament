@@ -49,7 +49,7 @@ AUTWeap_RocketLauncher::AUTWeap_RocketLauncher(const class FObjectInitializer& O
 	BarrelRadius = 9.0f;
 
 	GracePeriod = 0.6f;
-	BurstInterval = 0.07f;
+	BurstInterval = 0.08f;
 	GrenadeBurstInterval = 0.1f;
 	FullLoadSpread = 9.f;
 	bAllowGrenades = false;
@@ -358,11 +358,12 @@ AUTProjectile* AUTWeap_RocketLauncher::FireProjectile()
 				SpawnLocation = AdjustedSpawnLoc;
 			}
 		}
-
 		AUTProjectile* SpawnedProjectile = SpawnNetPredictedProjectile(RocketFireModes[CurrentRocketFireMode].ProjClass, SpawnLocation, SpawnRotation);
-		if (HasLockedTarget() &&  Cast<AUTProj_Rocket>(SpawnedProjectile))
+		AUTProj_Rocket* SpawnedRocket = Cast<AUTProj_Rocket>(SpawnedProjectile);
+		if (HasLockedTarget() && SpawnedRocket)
 		{
-			Cast<AUTProj_Rocket>(SpawnedProjectile)->TargetActor = LockedTarget;
+			SpawnedRocket->TargetActor = LockedTarget;
+			TrackingRockets.Add(SpawnedRocket);
 		}
 		NumLoadedRockets = 0;
 		NumLoadedBarrels = 0;
@@ -463,20 +464,21 @@ AUTProjectile* AUTWeap_RocketLauncher::FireRocketProjectile()
 	{
 		case 0://rockets
 		{
-			float RotDegree = 360.0f / FMath::Max(1,NumLoadedRockets);
-			FVector SpreadLoc = SpawnLocation;
-			SpawnRotation.Roll = RotDegree * NumLoadedRockets;
 			if (ShouldFireLoad())
 			{
 				SpawnRotation.Yaw += FullLoadSpread*float(NumLoadedRockets-2.f);
 			}
 			NetSynchRandomSeed(); 
-			ResultProj = SpawnNetPredictedProjectile(RocketProjClass, SpawnLocation, SpawnRotation);
+			
+			FVector Offset = (FMath::Sin(NumLoadedRockets*PI*0.667f)*FRotationMatrix(SpawnRotation).GetUnitAxis(EAxis::Z) + FMath::Cos(NumLoadedRockets*PI*0.667f)*FRotationMatrix(SpawnRotation).GetUnitAxis(EAxis::X)) * BarrelRadius * 1.5f;
+			ResultProj = SpawnNetPredictedProjectile(RocketProjClass, SpawnLocation + Offset, SpawnRotation);
 
 			//Setup the seeking target
-			if (HasLockedTarget() && Cast<AUTProj_Rocket>(ResultProj))
+			AUTProj_Rocket* SpawnedRocket = Cast<AUTProj_Rocket>(ResultProj);
+			if (HasLockedTarget() && SpawnedRocket)
 			{
-				Cast<AUTProj_Rocket>(ResultProj)->TargetActor = LockedTarget;
+				SpawnedRocket->TargetActor = LockedTarget;
+				TrackingRockets.Add(SpawnedRocket);
 			}
 
 			break;
@@ -678,18 +680,39 @@ void AUTWeap_RocketLauncher::DrawWeaponCrosshair_Implementation(UUTHUDWidget* We
 	}
 
 	//Draw the locked on crosshair
-	if (HasLockedTarget() && LockCrosshairTexture)
+	if (LockCrosshairTexture)
 	{
 		float W = LockCrosshairTexture->GetSurfaceWidth();
 		float H = LockCrosshairTexture->GetSurfaceHeight();
-
-		FVector ScreenTarget = WeaponHudWidget->GetCanvas()->Project(LockedTarget->GetActorLocation());
-		ScreenTarget.X -= WeaponHudWidget->GetCanvas()->SizeX*0.5f;
-		ScreenTarget.Y -= WeaponHudWidget->GetCanvas()->SizeY*0.5f;
-
 		float CrosshairRot = GetWorld()->TimeSeconds * 90.0f;
 
-		WeaponHudWidget->DrawTexture(LockCrosshairTexture, ScreenTarget.X, ScreenTarget.Y, 2.f * W * Scale, 2.f * H * Scale, 0.f, 0.f, W, H, 1.f, FLinearColor::Red, FVector2D(0.5f, 0.5f), CrosshairRot);
+		if (HasLockedTarget())
+		{
+			FVector ScreenTarget = WeaponHudWidget->GetCanvas()->Project(LockedTarget->GetActorLocation());
+			ScreenTarget.X -= WeaponHudWidget->GetCanvas()->SizeX*0.5f;
+			ScreenTarget.Y -= WeaponHudWidget->GetCanvas()->SizeY*0.5f;
+			WeaponHudWidget->DrawTexture(LockCrosshairTexture, ScreenTarget.X, ScreenTarget.Y, 2.f * W * Scale, 2.f * H * Scale, 0.f, 0.f, W, H, 1.f, FLinearColor::Yellow, FVector2D(0.5f, 0.5f), CrosshairRot);
+		}
+
+		for (int32 i = 0; i < TrackingRockets.Num(); i++)
+		{
+			if (TrackingRockets[i] && TrackingRockets[i]->MasterProjectile)
+			{
+				TrackingRockets[i] = Cast<AUTProj_Rocket>(TrackingRockets[i]->MasterProjectile);
+			}
+			if ((TrackingRockets[i] == nullptr) || TrackingRockets[i]->bExploded || TrackingRockets[i]->IsPendingKillPending() || (TrackingRockets[i]->TargetActor == nullptr) || TrackingRockets[i]->TargetActor->IsPendingKillPending())
+			{
+				TrackingRockets.RemoveAt(i, 1);
+				i--;
+			}
+			else
+			{
+				FVector ScreenTarget = WeaponHudWidget->GetCanvas()->Project(TrackingRockets[i]->TargetActor->GetActorLocation());
+				ScreenTarget.X -= WeaponHudWidget->GetCanvas()->SizeX*0.5f;
+				ScreenTarget.Y -= WeaponHudWidget->GetCanvas()->SizeY*0.5f;
+				WeaponHudWidget->DrawTexture(LockCrosshairTexture, ScreenTarget.X, ScreenTarget.Y, 2.f * W * Scale, 2.f * H * Scale, 0.f, 0.f, W, H, 1.f, FLinearColor::Red, FVector2D(0.5f, 0.5f), CrosshairRot);
+			}
+		}
 	}
 }
 
