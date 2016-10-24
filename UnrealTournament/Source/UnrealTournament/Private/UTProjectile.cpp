@@ -88,6 +88,9 @@ AUTProjectile::AUTProjectile(const class FObjectInitializer& ObjectInitializer)
 	bPendingSpecialReward = false;
 	StatsHitCredit = 1.f;
 	OffsetTime = 0.2f;
+
+	PrimaryActorTick.bCanEverTick = true;
+	PrimaryActorTick.bStartWithTickEnabled = true;
 }
 
 void AUTProjectile::PreInitializeComponents()
@@ -487,7 +490,7 @@ void AUTProjectile::TickActor(float DeltaTime, ELevelTick TickType, FActorTickFu
 			else
 			{
 				OffsetVisualComponent->RelativeLocation = Pct*FinalVisualOffset + (1.f - Pct)*InitialVisualOffset;
-			}
+		}
 		}
 		Super::TickActor(DeltaTime, TickType, ThisTickFunction);
 	}
