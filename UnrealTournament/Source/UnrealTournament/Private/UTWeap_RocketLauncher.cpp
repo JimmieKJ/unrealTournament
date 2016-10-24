@@ -578,6 +578,14 @@ void AUTWeap_RocketLauncher::OnRep_LockedTarget()
 	SetLockTarget(LockedTarget);
 }
 
+void AUTWeap_RocketLauncher::OnRep_PendingLockedTarget()
+{
+	if (PendingLockedTarget != nullptr)
+	{
+		PendingLockedTargetTime = GetWorld()->GetTimeSeconds();
+	}
+}
+
 void AUTWeap_RocketLauncher::SetLockTarget(AActor* NewTarget)
 {
 	LockedTarget = NewTarget;
@@ -651,7 +659,7 @@ void AUTWeap_RocketLauncher::UpdateLock()
 
 void AUTWeap_RocketLauncher::DrawWeaponCrosshair_Implementation(UUTHUDWidget* WeaponHudWidget, float RenderDelta)
 {
-	float ScaledPadding = 80.f * WeaponHudWidget->GetRenderScale();
+	float ScaledPadding = 50.f * WeaponHudWidget->GetRenderScale();
 	//Draw the Rocket Firemode Text
 	if (bDrawRocketModeString && RocketModeFont != NULL)
 	{
@@ -667,14 +675,14 @@ void AUTWeap_RocketLauncher::DrawWeaponCrosshair_Implementation(UUTHUDWidget* We
 	float Scale = GetCrosshairScale(WeaponHudWidget->UTHUDOwner);
 	if ((CurrentFireMode == 1) && (NumLoadedRockets > 0))
 	{
-		float DotSize = 16.f * Scale;
+		float DotSize = 12.f * Scale;
 		WeaponHudWidget->DrawTexture(WeaponHudWidget->UTHUDOwner->HUDAtlas, 0.f, ScaledPadding, DotSize, DotSize, 894.f, 38.f, 26.f, 26.f, 1.f, FLinearColor::White, FVector2D(0.5f, 0.5f));
 		if (NumLoadedRockets > 1)
 		{
-			WeaponHudWidget->DrawTexture(WeaponHudWidget->UTHUDOwner->HUDAtlas, 90.f*Scale, ScaledPadding, DotSize, DotSize, 894.f, 38.f, 26.f, 26.f, 1.f, FLinearColor::White, FVector2D(0.5f, 0.5f));
+			WeaponHudWidget->DrawTexture(WeaponHudWidget->UTHUDOwner->HUDAtlas, 50.f*Scale, ScaledPadding, DotSize, DotSize, 894.f, 38.f, 26.f, 26.f, 1.f, FLinearColor::White, FVector2D(0.5f, 0.5f));
 			if (NumLoadedRockets > 2)
 			{
-				WeaponHudWidget->DrawTexture(WeaponHudWidget->UTHUDOwner->HUDAtlas, -90.f*Scale, ScaledPadding, DotSize, DotSize, 894.f, 38.f, 26.f, 26.f, 1.f, FLinearColor::White, FVector2D(0.5f, 0.5f));
+				WeaponHudWidget->DrawTexture(WeaponHudWidget->UTHUDOwner->HUDAtlas, -50.f*Scale, ScaledPadding, DotSize, DotSize, 894.f, 38.f, 26.f, 26.f, 1.f, FLinearColor::White, FVector2D(0.5f, 0.5f));
 			}
 		}
 	}
@@ -691,7 +699,17 @@ void AUTWeap_RocketLauncher::DrawWeaponCrosshair_Implementation(UUTHUDWidget* We
 			FVector ScreenTarget = WeaponHudWidget->GetCanvas()->Project(LockedTarget->GetActorLocation());
 			ScreenTarget.X -= WeaponHudWidget->GetCanvas()->SizeX*0.5f;
 			ScreenTarget.Y -= WeaponHudWidget->GetCanvas()->SizeY*0.5f;
-			WeaponHudWidget->DrawTexture(LockCrosshairTexture, ScreenTarget.X, ScreenTarget.Y, 2.f * W * Scale, 2.f * H * Scale, 0.f, 0.f, W, H, 1.f, FLinearColor::Yellow, FVector2D(0.5f, 0.5f), CrosshairRot);
+			WeaponHudWidget->DrawTexture(LockCrosshairTexture, ScreenTarget.X, ScreenTarget.Y, 2.f * W * Scale, 2.f * H * Scale, 0.f, 0.f, W, H, 1.f, FLinearColor::White, FVector2D(0.5f, 0.5f), CrosshairRot);
+		}
+		else if (PendingLockedTarget)
+		{
+			FVector ScreenTarget = WeaponHudWidget->GetCanvas()->Project(PendingLockedTarget->GetActorLocation());
+			ScreenTarget.X -= WeaponHudWidget->GetCanvas()->SizeX*0.5f;
+			ScreenTarget.Y -= WeaponHudWidget->GetCanvas()->SizeY*0.5f;
+			UTexture2D* PendingLockTexture = LockCrosshairTexture;
+			float Opacity = (GetWorld()->GetTimeSeconds() - PendingLockedTargetTime) / FMath::Max(0.1f, LockAcquireTime);
+			float PendingScale = 1.f + 2.5f * (1.f - Opacity);
+			WeaponHudWidget->DrawTexture(PendingLockTexture, ScreenTarget.X, ScreenTarget.Y, 2.f * W * Scale * PendingScale, 2.f * H * Scale * PendingScale, 0.f, 0.f, W, H, 0.2f + 0.5f*Opacity, FLinearColor::White, FVector2D(0.5f, 0.5f), 2.5f*CrosshairRot);
 		}
 
 		for (int32 i = 0; i < TrackingRockets.Num(); i++)
@@ -720,6 +738,7 @@ void AUTWeap_RocketLauncher::GetLifetimeReplicatedProps(TArray<class FLifetimePr
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME_CONDITION(AUTWeap_RocketLauncher, LockedTarget, COND_None);
+	DOREPLIFETIME_CONDITION(AUTWeap_RocketLauncher, PendingLockedTarget, COND_None);
 }
 
 float AUTWeap_RocketLauncher::GetAISelectRating_Implementation()

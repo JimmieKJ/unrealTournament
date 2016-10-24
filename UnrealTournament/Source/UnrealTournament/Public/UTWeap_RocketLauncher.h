@@ -78,6 +78,10 @@ class UNREALTOURNAMENT_API AUTWeap_RocketLauncher : public AUTWeapon
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = RocketLauncher)
 	UTexture2D* LockCrosshairTexture;
 
+	/**The texture for locking on a target*/
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = RocketLauncher)
+		UTexture2D* PendingLockCrosshairTexture;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = RocketLauncher)
 	float CrosshairScale;
 
@@ -225,8 +229,10 @@ class UNREALTOURNAMENT_API AUTWeap_RocketLauncher : public AUTWeapon
 	virtual void OnRep_LockedTarget();
 
 	/** What "target" is current pending to be locked on to */
-	UPROPERTY(BlueprintReadWrite, Category = Lock)
+	UPROPERTY(BlueprintReadWrite, ReplicatedUsing = OnRep_PendingLockedTarget, Category = Lock)
 	AActor*				PendingLockedTarget;
+	UFUNCTION()
+		virtual void OnRep_PendingLockedTarget();
 
 	/** How long since the Lock Target has been valid */
 	UPROPERTY(BlueprintReadWrite, Category = Lock)
