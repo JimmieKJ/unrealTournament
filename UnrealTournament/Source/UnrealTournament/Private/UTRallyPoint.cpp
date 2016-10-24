@@ -8,6 +8,7 @@
 #include "UTATypes.h"
 #include "UTRallyPoint.h"
 #include "UTCTFMajorMessage.h"
+#include "UTDefensePoint.h"
 
 AUTRallyPoint::AUTRallyPoint(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -110,6 +111,42 @@ void AUTRallyPoint::BeginPlay()
 		GlowDecalMaterialInstance->SetScalarParameterValue(NAME_EmissiveBrightness, 5.f);
 	}
 	OnAvailableEffectChanged();
+}
+
+void AUTRallyPoint::GenerateDefensePoints()
+{
+	// TODO: a bit hacky here as rally points are only used in FR currently, where we want to associate defense points with the capture point
+	AUTCTFFlagBase* EnemyBase = nullptr;
+	for (TActorIterator<AUTCTFFlagBase> It(GetWorld()); It; ++It)
+	{
+		if (It->GetTeamNum() == 1)
+		{
+			EnemyBase = *It;
+			break;
+		}
+	}
+	if (EnemyBase != nullptr)
+	{
+		FHitResult Hit;
+		if (GetWorld()->LineTraceSingleByChannel(Hit, GetActorLocation(), GetActorLocation() - FVector(0.0f, 0.0f, 500.0f), ECC_Pawn, FCollisionQueryParams(NAME_None, false, this)))
+		{
+			FRotator SpawnRot = (GetActorLocation() - EnemyBase->GetActorLocation()).Rotation();
+			SpawnRot.Pitch = 0;
+			FActorSpawnParameters Params;
+			Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+			AUTDefensePoint* NewPoint = GetWorld()->SpawnActor<AUTDefensePoint>(Hit.Location + FVector(0.0f, 0.0f, 50.0f), SpawnRot, Params);
+			if (NewPoint != nullptr)
+			{
+				NewPoint->Objective = EnemyBase;
+				NewPoint->BasePriority = 2;
+				EnemyBase->DefensePoints.Add(NewPoint);
+			}
+		}
+	}
+	else
+	{
+		UE_LOG(UT, Warning, TEXT("Rally point couldn't find flag base!"))
+	}
 }
 
 void AUTRallyPoint::Reset_Implementation()

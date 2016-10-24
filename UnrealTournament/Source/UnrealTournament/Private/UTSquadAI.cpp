@@ -118,11 +118,16 @@ bool AUTSquadAI::LostEnemy(AUTBot* B)
 	}
 }
 
+int32 AUTSquadAI::GetDefensePointPriority(AUTBot* B, AUTDefensePoint* Point)
+{
+	return Point->GetPriorityFor(B);
+}
+
 void AUTSquadAI::SetDefensePointFor(AUTBot* B)
 {
 	if (GameObjective != NULL)
 	{
-		if ( B->GetDefensePoint() == NULL || GameObjective != B->GetDefensePoint()->Objective/* || (B.DefensePoint.bOnlyOnFoot && Vehicle(B.Pawn) != None)*/ ||
+		if ( B->GetDefensePoint() == NULL || GameObjective != B->GetDefensePoint()->Objective || GetDefensePointPriority(B, B->GetDefensePoint()) <= 0 /* || (B.DefensePoint.bOnlyOnFoot && Vehicle(B.Pawn) != None)*/ ||
 			// don't change defensepoints if fighting, recently fought, or if haven't reached it yet
 			(B->GetEnemy() == NULL && GetWorld()->TimeSeconds - B->GetLastAnyEnemySeenTime() >= 5.0 && NavData != NULL && NavData->HasReachedTarget(B->GetPawn(), B->GetPawn()->GetNavAgentPropertiesRef(), FRouteCacheItem(B->GetDefensePoint()))) )
 		{ 
@@ -147,7 +152,7 @@ void AUTSquadAI::SetDefensePointFor(AUTBot* B)
 				int32 TotalPriority = 0;
 				for (AUTDefensePoint* Point : DefensePoints)
 				{
-					int32 Priority = Point->GetPriorityFor(B);
+					int32 Priority = FMath::Max<int32>(0, GetDefensePointPriority(B, Point));
 					Priorities.Add(Priority);
 					TotalPriority += Priority;
 				}

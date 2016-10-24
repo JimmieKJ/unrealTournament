@@ -11,9 +11,13 @@ void AUTAsymCTFSquadAI::Initialize(AUTTeamInfo* InTeam, FName InOrders)
 	AUTFlagRunGameState* GS = GetWorld()->GetGameState<AUTFlagRunGameState>();
 	if (GS != NULL && GS->FlagBases.Num() >= 2 && GS->FlagBases[0] != NULL && GS->FlagBases[1] != NULL)
 	{
-		Objective = GS->FlagBases[GS->bRedToCap ? 1 : 0];
+		GameObjective = GS->FlagBases[GS->bRedToCap ? 1 : 0];
+		Objective = GameObjective;
 		Flag = GS->FlagBases[GS->bRedToCap ? 0 : 1]->GetCarriedObject();
+		TotalFlagRunDistance = (Objective->GetActorLocation() - Flag->GetActorLocation()).Size();
 	}
+	LastFlagNode = nullptr;
+	SquadRoutes.Empty();
 }
 
 bool AUTAsymCTFSquadAI::IsAttackingTeam() const
@@ -108,30 +112,46 @@ void AUTAsymCTFSquadAI::GetPossibleEnemyGoals(AUTBot* B, const FBotEnemyInfo* En
 
 bool AUTAsymCTFSquadAI::HuntEnemyFlag(AUTBot* B)
 {
-	AUTCharacter* EnemyCarrier = Flag->HoldingPawn;
-	if (EnemyCarrier != NULL)
+	if (Flag->HoldingPawn != nullptr)
 	{
-		if (EnemyCarrier == B->GetEnemy())
+		// if the enemy FC has never been seen, use the alternate path logic
+		// this prevents the AI from abandoning the alternate approach routes prematurely when the flag is picked up
+		const FBotEnemyInfo* CarrierInfo = B->GetEnemyInfo(Flag->HoldingPawn, true);
+		if ((CarrierInfo == nullptr || CarrierInfo->LastSeenTime <= 0.0f) && FollowAlternateRoute(B, Flag->HoldingPawn, SquadRoutes, true, true, "Continue prior route to flag carrier"))
 		{
-			B->GoalString = "Fight flag carrier";
-			// fight enemy
-			return false;
+			return true;
 		}
 		else
 		{
-			B->GoalString = "Hunt down enemy flag carrier";
-			B->DoHunt(EnemyCarrier);
-			return true;
+			if (Flag->HoldingPawn == B->GetEnemy())
+			{
+				B->GoalString = "Fight flag carrier";
+				// fight enemy
+				return false;
+			}
+			else
+			{
+				B->GoalString = "Hunt down enemy flag carrier";
+				B->DoHunt(Flag->HoldingPawn);
+				return true;
+			}
 		}
 	}
-	else if ((Flag->GetActorLocation() - B->GetPawn()->GetActorLocation()).Size() < 3000.0f && B->UTLineOfSightTo(Flag))
+	else if ((Flag->GetActorLocation() - B->GetPawn()->GetActorLocation()).Size() < FMath::Min<float>(3000.0f, (Flag->GetActorLocation() - Objective->GetActorLocation()).Size()) && B->UTLineOfSightTo(Flag))
 	{
 		// fight/camp here
 		return false;
 	}
 	else
 	{
-		return B->TryPathToward(Flag, true, true, "Camp dropped flag");
+		// use alternate route to reach flag so that defenders approach from multiple angles
+		const UUTPathNode* FlagNode = NavData->FindNearestNode(Flag->GetActorLocation(), NavData->GetPOIExtent(Flag));
+		if (FlagNode != LastFlagNode)
+		{
+			SquadRoutes.Reset();
+			LastFlagNode = FlagNode;
+		}
+		return FollowAlternateRoute(B, Flag, SquadRoutes, true, true, "Camp dropped flag") || B->TryPathToward(Flag, true, true, "Camp dropped flag");
 	}
 }
 
@@ -211,7 +231,13 @@ bool AUTAsymCTFSquadAI::CheckSquadObjectives(AUTBot* B)
 		{
 			if (B->GetEnemy() != NULL)
 			{
-				if (!B->LostContact(3.0f) || MustKeepEnemy(B->GetEnemy()))
+				// prioritize defense point if haven't actually encountered enemy since respawning
+				bool bPrioritizeEnemy = B->GetEnemy() != nullptr && (B->GetDefensePoint() == nullptr || B->GetEnemyInfo(B->GetEnemy(), false)->LastFullUpdateTime > B->LastRespawnTime);
+				if (bPrioritizeEnemy && B->GetEnemy() == Flag->HoldingPawn)
+				{
+					return HuntEnemyFlag(B);
+				}
+				else if (bPrioritizeEnemy && (!B->LostContact(3.0f) || MustKeepEnemy(B->GetEnemy())))
 				{
 					B->GoalString = "Fight attacker";
 					return false;
@@ -282,6 +308,24 @@ bool AUTAsymCTFSquadAI::CheckSquadObjectives(AUTBot* B)
 				return false;
 			}
 		}
+	}
+}
+
+int32 AUTAsymCTFSquadAI::GetDefensePointPriority(AUTBot* B, AUTDefensePoint* Point)
+{
+	// prioritize defense points closer to start of map
+	// but outright reject those that the enemy FC has passed
+	const float PointDist = (Point->GetActorLocation() - Objective->GetActorLocation()).Size();
+	const FVector FlagLoc = (Flag->HoldingPawn != nullptr) ? B->GetEnemyLocation(Flag->HoldingPawn, true) : Flag->GetActorLocation();
+	const float FlagDist = (FlagLoc - Objective->GetActorLocation()).Size();
+	// hard reject if flag has passed the point or it's too far away from the action
+	if ((FlagDist - 4000.0f > PointDist && !Point->bSniperSpot) || FlagDist + 2000.0f < PointDist || (FlagDist < PointDist && GetWorld()->LineTraceTestByChannel(Point->GetActorLocation(), FlagLoc, ECC_Visibility)))
+	{
+		return 0;
+	}
+	else
+	{
+		return Super::GetDefensePointPriority(B, Point) + FMath::Min<int32>(33, FMath::TruncToInt(33.0f * (PointDist / TotalFlagRunDistance)));
 	}
 }
 

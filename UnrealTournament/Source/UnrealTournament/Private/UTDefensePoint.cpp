@@ -24,7 +24,7 @@ AUTDefensePoint::AUTDefensePoint(const FObjectInitializer& OI)
 	}
 #endif
 
-	BasePriority = 2;
+	BasePriority = 3;
 }
 
 void AUTDefensePoint::BeginPlay()
@@ -62,11 +62,11 @@ int32 AUTDefensePoint::GetPriorityFor(AUTBot* B) const
 	int32 Priority = BasePriority * 100;
 	if (MyNode != NULL && (B->Personality.MapAwareness > 0.0f || B->Skill + B->Personality.MapAwareness >= 5.0f))
 	{
-		Priority += 50 * FMath::Clamp<float>((float(MyNode->NearbyKills) * 0.33f / float(MyNode->NearbyDeaths)), 0.0f, 1.0f);
+		Priority += 33 * FMath::Clamp<float>((float(MyNode->NearbyKills) * 0.33f / float(MyNode->NearbyDeaths)), 0.0f, 1.0f);
 	}
 	if (B->Personality.Accuracy - B->Personality.Aggressiveness >= 1.0f || (B->GetUTChar() != NULL && B->GetUTChar()->GetWeapon() != NULL && B->GetUTChar()->GetWeapon()->bSniping))
 	{
-		Priority += 50;
+		Priority += 33;
 	}
 	return Priority;
 }

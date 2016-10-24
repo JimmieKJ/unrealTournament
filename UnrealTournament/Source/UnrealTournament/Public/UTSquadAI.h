@@ -250,6 +250,8 @@ public:
 		return GetCurrentOrders(B) == NAME_Defend || B->GetDefensePoint() != NULL;
 	}
 
+	virtual int32 GetDefensePointPriority(AUTBot* B, class AUTDefensePoint* Point);
+
 	/** set an appropriate defense point for the bot to defend the current objective, if one is available */
 	virtual void SetDefensePointFor(AUTBot* B);
 

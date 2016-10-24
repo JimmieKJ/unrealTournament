@@ -688,6 +688,15 @@ inline AUTRecastNavMesh* GetUTNavData(UWorld* World)
 		// workaround because engine doesn't want to create on clients by default
 		World->SetNavigationSystem(NewObject<UNavigationSystem>(World, GEngine->NavigationSystemClass));
 	}
+	if (World->GetNavigationSystem()->NavDataSet.Num() == 0 && !World->HasBegunPlay())
+	{
+		// needed during startup because of NavigationSystem's questionable latent registration
+		// since we handle path sizes ourselves there should only be one nav data so just look it up
+		for (TActorIterator<AUTRecastNavMesh> It(World); It; ++It)
+		{
+			return *It;
+		}
+	}
 	return Cast<AUTRecastNavMesh>(World->GetNavigationSystem()->GetMainNavData(FNavigationSystem::ECreateIfEmpty::DontCreate));
 }
 
