@@ -3638,7 +3638,10 @@ void UParticleSystemComponent::DestroyRenderState_Concurrent()
 		ResetParticles();
 	}
 
-	Super::DestroyRenderState_Concurrent();
+	if (bRenderStateCreated)
+	{
+		Super::DestroyRenderState_Concurrent();
+	}
 }
 
 
