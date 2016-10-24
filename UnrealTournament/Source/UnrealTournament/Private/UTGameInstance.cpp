@@ -712,7 +712,11 @@ FText UUTGameInstance::GetLevelLoadText() const
 	{
 		return LevelLoadText;
 	}
-	
+	else if (GetMoviePlayer().IsValid() && GetMoviePlayer()->WillAutoCompleteWhenLoadFinishes())
+	{
+		return FText::GetEmpty();
+	}
+
 	return NSLOCTEXT("UTGameInstance","PressFireToSkip","Press FIRE to Skip");
 }
 
