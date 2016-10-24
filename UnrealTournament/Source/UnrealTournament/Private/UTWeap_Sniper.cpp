@@ -14,7 +14,7 @@ AUTWeap_Sniper::AUTWeap_Sniper(const FObjectInitializer& ObjectInitializer)
 	DefaultGroup = 9;
 	BringUpTime = 0.45f;
 	PutDownTime = 0.4f;
-	StoppedHeadshotScale = 1.8f;
+	StoppedHeadshotScale = 1.4f;
 	SlowHeadshotScale = 1.4f;
 	AimedHeadshotScale = 1.f;
 	RunningHeadshotScale = 1.0f;
