@@ -448,3 +448,8 @@ void AUTLobbyGameMode::MakeJsonReport(TSharedPtr<FJsonObject> JsonObject)
 	Super::MakeJsonReport(JsonObject);
 	JsonObject->SetNumberField(TEXT("TimeUntilRestart"),((ServerRefreshCheckpoint * 60 * 60) - GetWorld()->GetTimeSeconds()));
 }
+
+bool AUTLobbyGameMode::SupportsInstantReplay() const
+{
+	return false;
+}

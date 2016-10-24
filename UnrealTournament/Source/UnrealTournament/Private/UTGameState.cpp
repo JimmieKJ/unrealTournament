@@ -1103,6 +1103,7 @@ void AUTGameState::ReceivedGameModeClass()
 	Super::ReceivedGameModeClass();
 
 	TSubclassOf<AUTGameMode> UTGameClass(*GameModeClass);
+	bool bGameModeSupportsInstantReplay = false;
 	if (UTGameClass != NULL)
 	{
 		// precache announcements
@@ -1114,6 +1115,7 @@ void AUTGameState::ReceivedGameModeClass()
 				UTGameClass.GetDefaultObject()->PrecacheAnnouncements(UTPC->Announcer);
 			}
 		}
+		bGameModeSupportsInstantReplay = UTGameClass.GetDefaultObject()->SupportsInstantReplay();
 	}
 
 	UWorld* const World = GetWorld();
@@ -1122,7 +1124,7 @@ void AUTGameState::ReceivedGameModeClass()
 	// Don't record for killcam if this world is already playing back a replay.
 	const UDemoNetDriver* const DemoDriver = World ? World->DemoNetDriver : nullptr;
 	const bool bIsPlayingReplay = DemoDriver ? DemoDriver->IsPlaying() : false;
-	if (!bIsPlayingReplay && GameInstance != nullptr && World->GetNetMode() == NM_Client && CVarUTEnableInstantReplay->GetInt() == 1)
+	if (!bIsPlayingReplay && GameInstance != nullptr && World->GetNetMode() == NM_Client && CVarUTEnableInstantReplay->GetInt() == 1 && bGameModeSupportsInstantReplay)
 	{
 		// Since the killcam world will also have ReceivedGameModeClass() called in it, detect that and
 		// don't try to start recording again. Killcam world contexts will have a valid PIEInstance for now.

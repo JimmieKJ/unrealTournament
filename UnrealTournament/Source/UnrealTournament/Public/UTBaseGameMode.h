@@ -246,6 +246,8 @@ public:
 
 	virtual FString GetRankedLeagueName() { return TEXT(""); }
 
+	virtual bool SupportsInstantReplay() const;
+
 private:
 	/** Holds a list of all Epic maps and their meshed stats */
 	UPROPERTY(GlobalConfig)
