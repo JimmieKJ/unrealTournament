@@ -930,10 +930,10 @@ void AUTCTFRoundGame::SendRestartNotifications(AUTPlayerState* PS, AUTPlayerCont
 
 void AUTCTFRoundGame::RestartPlayer(AController* aPlayer)
 {
-	if ((!IsMatchInProgress() && bPlacingPlayersAtIntermission) || (GetMatchState() == MatchState::MatchIntermission))
+	if ((!IsMatchInProgress() && bPlacingPlayersAtIntermission) || (GetMatchState() == MatchState::MatchIntermission) || (UTGameState && UTGameState->LineUpHelper && UTGameState->LineUpHelper->bIsActive))
 	{
 		// placing players during intermission
-		if (bPlacingPlayersAtIntermission)
+		if (bPlacingPlayersAtIntermission || (UTGameState && UTGameState->LineUpHelper && UTGameState->LineUpHelper->bIsActive && UTGameState->LineUpHelper->bIsPlacingPlayers))
 		{
 			AGameMode::RestartPlayer(aPlayer);
 		}

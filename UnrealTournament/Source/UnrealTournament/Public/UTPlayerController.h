@@ -292,7 +292,7 @@ public:
 	virtual void ToggleScoreboard(bool bShow);
 
 	UFUNCTION(client,reliable)
-	virtual void ClientSetIntroCamera(UWorld* World, LineUpTypes IntroType);
+	virtual void ClientSetLineUpCamera(UWorld* World, LineUpTypes IntroType);
 
 	virtual void BeginRallyTo(AUTRallyPoint* RallyTarget, const FVector& NewRallyLocation, float Delay);
 

@@ -5285,7 +5285,7 @@ void AUTPlayerController::PlayTutorialAnnouncement(int32 Index, UObject* Optiona
 	}
 }
 
-void AUTPlayerController::ClientSetIntroCamera_Implementation(UWorld* World, LineUpTypes IntroType)
+void AUTPlayerController::ClientSetLineUpCamera_Implementation(UWorld* World, LineUpTypes IntroType)
 {
 	AUTLineUpZone* SpawnPointList = UUTLineUpHelper::GetAppropriateSpawnList(World, IntroType);
 	if (SpawnPointList)
@@ -5298,6 +5298,11 @@ void AUTPlayerController::ClientSetIntroCamera_Implementation(UWorld* World, Lin
 			FinalViewTarget = SpawnPointList->Camera;
 		}
 		SetViewTarget(SpawnPointList->Camera, TransitionParams);
+		
+		if (GetPawn())
+		{
+			GetPawn()->TurnOff();
+		}
 	}
 }
 

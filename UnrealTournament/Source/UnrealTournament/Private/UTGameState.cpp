@@ -485,6 +485,11 @@ void AUTGameState::BeginPlay()
 
 	bIsAlreadyPendingUserQuery = false;
 	AddAllUsersToInfoQuery();
+
+	if (LineUpHelper == nullptr)
+	{
+		LineUpHelper = NewObject<UUTLineUpHelper>();
+	}
 }
 
 void AUTGameState::AddUserInfoQuery(TSharedRef<const FUniqueNetId> UserId)
@@ -1193,11 +1198,6 @@ FText AUTGameState::GetGameStatusText(bool bForScoreboard)
 void AUTGameState::OnRep_MatchState()
 {
 	Super::OnRep_MatchState();
-
-	if (!LineUpHelper)
-	{
-		LineUpHelper = NewObject <UUTLineUpHelper>();
-	}
 
 	for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
 	{

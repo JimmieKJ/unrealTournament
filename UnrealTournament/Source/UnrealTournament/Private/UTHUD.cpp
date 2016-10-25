@@ -582,17 +582,12 @@ void AUTHUD::NotifyMatchStateChange()
 		{
 			bool bStartedInWorldIntroTimer = false;
 
-			if (GS->LineUpHelper)
+			if (GS->LineUpHelper && !GS->LineUpHelper->bIsActive)
 			{
 				UUTLineUpHelper* HelperCapture = GS->LineUpHelper;
 				LineUpTypes TypeToPlay = HelperCapture->GetLineUpTypeToPlay(GetWorld());
 				if (TypeToPlay != LineUpTypes::Invalid)
 				{
-					UWorld* World = GetWorld();
-					FTimerDelegate TimerCallback;
-					TimerCallback.BindLambda([HelperCapture, World, TypeToPlay] {HelperCapture->HandleLineUp(World, TypeToPlay); });
-
-					GetWorldTimerManager().SetTimer(MatchSummaryHandle, TimerCallback, 1.7f, false);
 					bStartedInWorldIntroTimer = true;
 				}
 			}	

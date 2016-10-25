@@ -3240,12 +3240,21 @@ void AUTGameMode::SetMatchState(FName NewState)
 		BaseMutator->NotifyMatchStateChange(MatchState);
 	}
 
-	if ((NewState == MatchState::WaitingPostMatch) && (UTGameState) && (UTGameState->LineUpHelper))
+	if (UTGameState && UTGameState->LineUpHelper)
 	{
 		LineUpTypes PlayType = UTGameState->LineUpHelper->GetLineUpTypeToPlay(GetWorld());
+		
+		if (PlayType != UTGameState->LineUpHelper->LastActiveType)
+		{
+			UTGameState->LineUpHelper->CleanUp();
+		}
+		
 		if (PlayType != LineUpTypes::Invalid)
 		{
-			UTGameState->LineUpHelper->HandleLineUp(GetWorld(), PlayType);
+			if (!UTGameState->LineUpHelper->bIsActive)
+			{
+				UTGameState->LineUpHelper->HandleLineUp(GetWorld(), PlayType);
+			}
 		}
 	}
 }
@@ -3514,6 +3523,11 @@ void AUTGameMode::PostLogin( APlayerController* NewPlayer )
 	{
 		GetWorldTimerManager().ClearTimer(ServerRestartTimerHandle);
 	}
+
+	if (UTGameState && UTGameState->LineUpHelper)
+	{
+		UTGameState->LineUpHelper->OnPlayerChange();
+	}
 }
 
 void AUTGameMode::SwitchToCastingGuide(AUTPlayerController* NewCaster)
@@ -3624,6 +3638,11 @@ void AUTGameMode::Logout(AController* Exiting)
 	{
 		AUTGameSession* UTGameSession = Cast<AUTGameSession>(GameSession);
 		GetWorldTimerManager().SetTimer(ServerRestartTimerHandle, UTGameSession, &AUTGameSession::CheckForPossibleRestart, 60.0f, true);
+	}
+
+	if (UTGameState && UTGameState->LineUpHelper)
+	{
+		UTGameState->LineUpHelper->OnPlayerChange();
 	}
 }
 

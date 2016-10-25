@@ -12,10 +12,16 @@ class UNREALTOURNAMENT_API UUTLineUpHelper : public UObject
 	void HandleLineUp(UWorld* World, LineUpTypes IntroType);
 
 	UFUNCTION()
+	void OnPlayerChange();
+
+	UFUNCTION()
 	void CleanUp();
 
 	UPROPERTY(Replicated)
 	bool bIsActive;
+
+	UPROPERTY()
+	bool bIsPlacingPlayers;
 
 	UPROPERTY(Replicated)
 	LineUpTypes LastActiveType;
@@ -25,6 +31,9 @@ class UNREALTOURNAMENT_API UUTLineUpHelper : public UObject
 	static AUTLineUpZone* GetAppropriateSpawnList(UWorld* World, LineUpTypes ZoneType);
 
 protected:
+
+	UFUNCTION(reliable, client)
+	void ClientUpdatePlayerClones();
 
 	UFUNCTION()
 	void HandleIntro(UWorld* World, LineUpTypes ZoneType);
