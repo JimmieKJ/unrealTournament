@@ -76,9 +76,16 @@ void AUTDemoRecSpectator::ViewPlayerState(APlayerState* PS)
 	{
 		if (It->IsValid() && It->Get()->PlayerState == PS)
 		{
-			SetViewTarget(It->Get());
-			QueuedPlayerStateToView = nullptr;
-			UE_LOG(LogUTDemoRecSpectator, Log, TEXT("Found queued player state!"));
+			if (GetViewTarget() != It->Get())
+			{
+				SetViewTarget(It->Get());
+				// If we're kill cam, just try to view this player state forever
+				if (!IsKillcamSpectator())
+				{
+					QueuedPlayerStateToView = nullptr;
+				}
+				UE_LOG(LogUTDemoRecSpectator, Log, TEXT("Found queued player state!"));
+			}
 			return;
 		}
 	}
