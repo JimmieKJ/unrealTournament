@@ -663,7 +663,7 @@ void UUTHUDWidget_SpectatorSlideOut::DrawPlayer(int32 Index, AUTPlayerState* Pla
 
 int32 UUTHUDWidget_SpectatorSlideOut::MouseHitTest(FVector2D InPosition)
 {
-	if (bIsInteractive && UTHUDOwner->UTPlayerOwner && UTHUDOwner->UTPlayerOwner->bShowMouseCursor)
+	if (bIsInteractive && UTHUDOwner && UTHUDOwner->UTPlayerOwner && UTHUDOwner->UTPlayerOwner->bShowMouseCursor)
 	{
 		for (int32 i = 0; i < ClickElementStack.Num(); i++)
 		{
