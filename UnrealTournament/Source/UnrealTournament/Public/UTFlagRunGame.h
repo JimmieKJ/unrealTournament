@@ -25,9 +25,6 @@ public:
 		float LastEntryDefenseWarningTime;
 
 	UPROPERTY()
-		float LastEnemyRallyWarning;
-
-	UPROPERTY()
 		int32 GoldBonusTime;
 
 	UPROPERTY()
@@ -74,10 +71,6 @@ public:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
 		USoundBase* RallyFailedSound;
-
-	FTimerHandle EnemyRallyWarningHandle;
-
-	virtual void WarnEnemyRally();
 
 	virtual void AnnounceWin(AUTTeamInfo* WinningTeam, uint8 Reason) override;
 	virtual void NotifyFirstPickup(AUTCarriedObject* Flag) override;

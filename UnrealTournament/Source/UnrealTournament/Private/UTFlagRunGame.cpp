@@ -753,28 +753,6 @@ void AUTFlagRunGame::CompleteRallyRequest(AUTPlayerController* RequestingPC)
 					}
 				}
 			}
-			if (!GetWorldTimerManager().IsTimerActive(EnemyRallyWarningHandle) && (GetWorld()->GetTimeSeconds() - LastEnemyRallyWarning > 10.f))
-			{
-				GetWorldTimerManager().SetTimer(EnemyRallyWarningHandle, this, &AUTFlagRunGame::WarnEnemyRally, 1.5f, false);
-			}
-		}
-	}
-}
-
-void AUTFlagRunGame::WarnEnemyRally()
-{
-	AUTFlagRunGameState* GS = GetWorld()->GetGameState<AUTFlagRunGameState>();
-	if (GS->bAttackersCanRally)
-	{
-		LastEnemyRallyWarning = GetWorld()->GetTimeSeconds();
-		for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
-		{
-			AUTPlayerState* UTPS = Cast<AUTPlayerState>((*Iterator)->PlayerState);
-			if (UTPS && UTPS->Team && ((UTPS->Team->TeamIndex == 0) != GS->bRedToCap))
-			{
-				UTPS->AnnounceStatus(StatusMessage::EnemyRally);
-				break;
-			}
 		}
 	}
 }

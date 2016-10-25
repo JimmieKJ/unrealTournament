@@ -168,8 +168,8 @@ void AUTRallyPoint::OnOverlapBegin(UPrimitiveComponent* OverlappedComponent, AAc
 			AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 			if (GS == NULL || (GS->IsMatchInProgress() && !GS->IsMatchIntermission() && !GS->HasMatchEnded()))
 			{
-				StartRallyCharging();
 				TouchingFC = Cast<AUTCharacter>(OtherActor);
+				StartRallyCharging();
 			}
 		}
 	}
@@ -224,6 +224,29 @@ void AUTRallyPoint::StartRallyCharging()
 	if (GetNetMode() != NM_DedicatedServer)
 	{
 		OnRallyChargingChanged();
+	}
+	if ((Role == ROLE_Authority) && TouchingFC && TouchingFC->GetCarriedObject() && TouchingFC->GetCarriedObject()->bCurrentlyPinged && !GetWorldTimerManager().IsTimerActive(EnemyRallyWarningHandle) && (GetWorld()->GetTimeSeconds() - LastEnemyRallyWarning > 10.f))
+	{
+		GetWorldTimerManager().SetTimer(EnemyRallyWarningHandle, this, &AUTRallyPoint::WarnEnemyRally, 0.5f, false);
+	}
+}
+
+void AUTRallyPoint::WarnEnemyRally()
+{
+	if ((GetWorld()->GetTimeSeconds() - LastEnemyRallyWarning < 10.f) || (RallyPointState != RallyPointStates::Charging))
+	{
+		return;
+	}
+	AUTFlagRunGameState* GS = GetWorld()->GetGameState<AUTFlagRunGameState>();
+	LastEnemyRallyWarning = GetWorld()->GetTimeSeconds();
+	for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
+	{
+		AUTPlayerState* UTPS = Cast<AUTPlayerState>((*Iterator)->PlayerState);
+		if (UTPS && UTPS->Team && ((UTPS->Team->TeamIndex == 0) != GS->bRedToCap))
+		{
+			UTPS->AnnounceStatus(StatusMessage::EnemyRally);
+			break;
+		}
 	}
 }
 

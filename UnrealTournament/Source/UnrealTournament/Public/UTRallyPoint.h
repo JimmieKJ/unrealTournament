@@ -106,6 +106,13 @@ class UNREALTOURNAMENT_API AUTRallyPoint : public AUTGameObjective, public IUTRe
 	UPROPERTY(BlueprintReadOnly, Category = PickupDisplay)
 		UMaterialInstanceDynamic* GlowDecalMaterialInstance;
 
+	UPROPERTY()
+		float LastEnemyRallyWarning;
+
+	FTimerHandle EnemyRallyWarningHandle;
+
+	virtual void WarnEnemyRally();
+
 	UFUNCTION()
 		void OnOverlapBegin(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
 

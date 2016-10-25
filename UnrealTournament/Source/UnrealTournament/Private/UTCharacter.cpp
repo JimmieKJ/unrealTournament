@@ -40,7 +40,8 @@
 #include "UTGameVolume.h"
 #include "UTGameMode.h"
 #include "UTLineUpHelper.h"
-
+#include "UTFlagRunGameState.h"
+#include "UTRallyPoint.h"
 #include "PhysicsEngine/ConstraintInstance.h"
 
 static FName NAME_HatSocket(TEXT("HatSocket"));
@@ -1325,6 +1326,11 @@ void AUTCharacter::TargetedBy(APawn* Targeter, AUTPlayerState* PS)
 			{
 				PS->AnnounceStatus(GV->VoiceLinesSet, 0);
 				GS->LastEnemyLocationName = GV->VoiceLinesSet;
+				AUTFlagRunGameState* FlagrunGS = Cast<AUTFlagRunGameState>(GS);
+				if (FlagrunGS && FlagrunGS->CurrentRallyPoint)
+				{
+					FlagrunGS->CurrentRallyPoint->WarnEnemyRally();
+				}
 			}
 			else
 			{
