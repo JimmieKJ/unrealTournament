@@ -1702,7 +1702,7 @@ void SUTServerBrowserPanel::OnServerBeaconResult(AUTServerBeaconClient* Sender, 
 			if (PingTrackers[i].Server->GameModePath == LOBBY_GAME_PATH)
 			{
 
-				PingTrackers[i].Server->Ping = int32(float(PingTrackers[i].Beacon->Ping) - 0.5 * float(PingTrackers[i].Beacon->ServerTickRate) + (1.0/120.0));
+				PingTrackers[i].Server->Ping = int32( PingTrackers[i].Beacon->Ping - (0.45f * (1.0f / float(PingTrackers[i].Beacon->ServerTickRate)) * 1000.0f) );
 				AddHub(PingTrackers[i].Server);
 			}
 			else
