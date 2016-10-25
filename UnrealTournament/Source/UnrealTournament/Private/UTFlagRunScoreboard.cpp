@@ -46,6 +46,10 @@ UUTFlagRunScoreboard::UUTFlagRunScoreboard(const FObjectInitializer& ObjectIniti
 	AttackLines.Add(FText::GetEmpty());
 	AttackLines.Add(NSLOCTEXT("UTScoreboard", "DefenseLine5", "* When the flag carrier is out of combat, teammates can"));
 	AttackLines.Add(NSLOCTEXT("UTScoreboard", "DefenseLine5b", "  teleport to him by pressing the rally button."));
+
+	static ConstructorHelpers::FObjectFinder<USoundBase> PressedSelect(TEXT("SoundCue'/Game/RestrictedAssets/UI/UT99UI_LittleSelect_Cue.UT99UI_LittleSelect_Cue'"));
+	LineDisplaySound = PressedSelect.Object;
+
 }
 
 void UUTFlagRunScoreboard::DrawMinimap(float RenderDelta)
@@ -56,8 +60,14 @@ void UUTFlagRunScoreboard::DrawMinimap(float RenderDelta)
 		: FMath::Min(0.5f*Canvas->ClipX, 0.9f*Canvas->ClipY - 120.f * RenderScale);
 	float MapYPos = FMath::Max(120.f*RenderScale, MinimapCenter.Y*Canvas->ClipY - 0.5f*MapSize);
 	FVector2D LeftCorner = FVector2D(MinimapCenter.X*Canvas->ClipX - 0.5f*MapSize, MapYPos);
+	if (GS && (GS->GetMatchState() == MatchState::MatchIntermission) && (EndIntermissionTime < GetWorld()->GetTimeSeconds()) && (GS->IntermissionTime < 9.f) && (GS->IntermissionTime > 0.f))
+	{
+		EndIntermissionTime = GetWorld()->GetTimeSeconds() + 9.f;
+		OldDisplayedParagraphs = 0;
+		bFullListPlayed = false;
+	}
 
-	if (GS && (GS->GetMatchState() == MatchState::MatchIntermission) && UTPS && UTPS->Team && (GS->IntermissionTime < 9.f))
+	if (GS && (GS->GetMatchState() == MatchState::MatchIntermission) && UTPS && UTPS->Team && (EndIntermissionTime > GetWorld()->GetTimeSeconds()) && UTHUDOwner && UTHUDOwner->UTPlayerOwner)
 	{
 		// draw round information
 		const bool bIsOnDefense = GS->IsTeamOnDefenseNextRound(UTPS->Team->TeamIndex);
@@ -71,9 +81,10 @@ void UUTFlagRunScoreboard::DrawMinimap(float RenderDelta)
 		float TextXPos = MinimapCenter.X*Canvas->ClipX - 0.45f*MapSize;
 		TextYPos += 48.f*RenderScale;
 
-		int32 DisplayedParagraphs = 9 - GS->IntermissionTime;
+		int32 DisplayedParagraphs = 9 - int32(EndIntermissionTime - GetWorld()->GetTimeSeconds());
 		int32 CountedParagraphs = 0;
 		int32 LastParStart = 0;
+		bool bFullList = true;
 		for (int32 LineIndex = 0; LineIndex < NumLines; LineIndex++)
 		{
 			FText NextLine = bIsOnDefense ? DefendLines[LineIndex] : AttackLines[LineIndex];
@@ -83,12 +94,19 @@ void UUTFlagRunScoreboard::DrawMinimap(float RenderDelta)
 				if (CountedParagraphs >= DisplayedParagraphs)
 				{
 					NumLines = LineIndex;
+					bFullList = false;
 					break;
 				}
 				LastParStart = NumLines;
 			}
 		}
-
+		if ((DisplayedParagraphs != OldDisplayedParagraphs) && !bFullListPlayed)
+		{
+			// play beep
+			UTHUDOwner->UTPlayerOwner->ClientPlaySound(LineDisplaySound);
+			bFullListPlayed = bFullList;
+		}
+		OldDisplayedParagraphs = DisplayedParagraphs;
 		for (int32 LineIndex = 0; LineIndex < NumLines; LineIndex++)
 		{
 			FText NextLine = bIsOnDefense ? DefendLines[LineIndex] : AttackLines[LineIndex];
@@ -313,6 +331,17 @@ bool UUTFlagRunScoreboard::ShouldDrawScoringStats()
 
 void UUTFlagRunScoreboard::DrawStatsRight(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom)
 {
+}
+
+void UUTFlagRunScoreboard::DrawStatsLeft(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom)
+{
+	AUTFlagRunGameState* GS = GetWorld()->GetGameState<AUTFlagRunGameState>();
+	if (GS && (GS->CTFRound < 4))
+	{
+		YPos += 0.1f * Canvas->ClipY;
+		PageBottom -= (GS->CTFRound < 2) ? 0.1f*Canvas->ClipY : 0.05f*Canvas->ClipY;
+	}
+	Super::DrawStatsLeft(DeltaTime, YPos, XOffset, ScoreWidth, PageBottom);
 }
 
 void UUTFlagRunScoreboard::DrawScoringPlays(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float MaxHeight)
