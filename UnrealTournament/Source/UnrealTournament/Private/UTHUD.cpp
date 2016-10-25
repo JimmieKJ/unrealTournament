@@ -234,8 +234,8 @@ void AUTHUD::PostInitializeComponents()
 void AUTHUD::DrawActorOverlays(FVector Viewpoint, FRotator ViewRotation)
 {
 	AUTGameState* UTGameState = GetWorld()->GetGameState<AUTGameState>();
-
-	if (!bShowScores && UTGameState)
+	bool bShouldShowSkulls = !bShowScores && UTGameState && ((UTGameState->IsMatchInProgress() && !UTGameState->IsMatchIntermission()) || (UTGameState->GetMatchState() == MatchState::WaitingToStart));
+	if (bShouldShowSkulls)
 	{
 		for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
 		{
@@ -263,7 +263,7 @@ void AUTHUD::DrawActorOverlays(FVector Viewpoint, FRotator ViewRotation)
 		}
 	}
 
-	if (!bShowScores && UTGameState)
+	if (bShouldShowSkulls)
 	{
 		for (i = 0; i < UTGameState->PlayerArray.Num(); i++)
 		{
