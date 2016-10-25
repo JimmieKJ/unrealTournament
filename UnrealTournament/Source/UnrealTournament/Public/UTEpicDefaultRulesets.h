@@ -138,7 +138,7 @@ public:
 			NewRuleset->Tooltip = TEXT("Red versus blue team deathmatch.");
 			NewRuleset->Description = TEXT("Red versus blue team deathmatch.\n\n<UT.Hub.RulesText_Small>TimeLimit : %timelimit% minutes</>\n<UT.Hub.RulesText_Small>Maximum players: %maxplayers%</>");
 			NewRuleset->MinPlayersToStart = 2;
-			NewRuleset->MaxPlayers = 12;
+			NewRuleset->MaxPlayers = 10;
 			NewRuleset->DisplayTexture = TEXT("Texture2D'/Game/RestrictedAssets/UI/GameModeBadges/GB_TDM.GB_TDM'");
 			NewRuleset->GameMode = TEXT("/Script/UnrealTournament.UTTeamDMGameMode");
 			NewRuleset->GameOptions = FString(TEXT("?TimeLimit=20?GoalScore=0"));
