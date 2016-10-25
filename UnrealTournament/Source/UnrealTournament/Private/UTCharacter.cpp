@@ -5400,8 +5400,14 @@ void AUTCharacter::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector
  		PostRenderForInGameIntro(PC, Canvas, CameraPosition, CameraDir);
 		return;
 	}
-
-	if (UTPS != NULL && UTPC != NULL && (bSpectating || (UTPC && UTPC->UTPlayerState && UTPC->UTPlayerState->bOutOfLives) || !bIsViewTarget) && (bRecentlyRendered || (bOnSameTeam && !bIsViewTarget)) &&
+	if (UTPS == nullptr)
+	{
+		return;
+	}
+	FVector WorldPosition = GetMesh()->GetComponentLocation() + FVector(0.f, 0.f, GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight() * 2.25f);
+	UTPS->LastPostRenderedLocation = WorldPosition;
+	UTPS->bPawnWasPostRendered = true;
+	if (UTPC != NULL && (bSpectating || (UTPC && UTPC->UTPlayerState && UTPC->UTPlayerState->bOutOfLives) || !bIsViewTarget) && (bRecentlyRendered || (bOnSameTeam && !bIsViewTarget)) &&
 		FVector::DotProduct(CameraDir, (GetActorLocation() - CameraPosition)) > 0.0f && GS != NULL && (UTPC->MyUTHUD == nullptr || !UTPC->MyUTHUD->bShowScores))
 	{
 		float Dist = (CameraPosition - GetActorLocation()).Size() * FMath::Tan(FMath::DegreesToRadians(PC->PlayerCameraManager->GetFOVAngle()*0.5f));
@@ -5433,8 +5439,7 @@ void AUTCharacter::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector
 			Canvas->TextSize(TinyFont, FString("AAAWWW"), BarWidth, Y, Scale, Scale);
 			float TransitionScaling = (BeaconTextScale - MinTextScale) / (1.f - MinTextScale);
 			float XL = TextXL + TransitionScaling * FMath::Max(BarWidth-TextXL, 0.f);
-			FVector WorldPosition = GetMesh()->GetComponentLocation();
-			FVector ScreenPosition = Canvas->Project(WorldPosition + FVector(0.f, 0.f, GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight() * 2.25f));
+			FVector ScreenPosition = Canvas->Project(WorldPosition);
 			float XPos = ScreenPosition.X - 0.5f*XL;
 			float YPos = ScreenPosition.Y - TransitionScaling * YL;
 			if (XPos < Canvas->ClipX || XPos + XL < 0.0f)

@@ -209,7 +209,6 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
 	bool LastConfirmedHitWasAKill;
 
-
 	// Active Damage Indicators.  NOTE: if FadeTime == 0 then it's not in use
 	UPROPERTY()
 	TArray<struct FDamageHudIndicator> DamageIndicators;
@@ -654,6 +653,8 @@ public:
 	 **/
 	UFUNCTION()
 	UUTCrosshair* GetCrosshairForWeapon(FName WeaponCustomizationTag, FWeaponCustomizationInfo& outWeaponCustomizationInfo);
+
+	virtual void DrawActorOverlays(FVector Viewpoint, FRotator ViewRotation) override;
 
 
 protected:

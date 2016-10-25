@@ -231,6 +231,51 @@ void AUTHUD::PostInitializeComponents()
 	}
 }
 
+void AUTHUD::DrawActorOverlays(FVector Viewpoint, FRotator ViewRotation)
+{
+	AUTGameState* UTGameState = GetWorld()->GetGameState<AUTGameState>();
+
+	// FIXMESTEVE - do some global checks here to optimize UTCharacter postrenderfor
+	// FIXMESTEVE - also render skulls on minimap
+	for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
+	{
+		AUTPlayerState* PlayerState = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
+		if (PlayerState && !PlayerState->bOnlySpectator)
+		{
+			PlayerState->bPawnWasPostRendered = false;
+		}
+	}
+
+	// determine rendered camera position
+	FVector ViewDir = ViewRotation.Vector();
+	int32 i = 0;
+	while (i < PostRenderedActors.Num())
+	{
+		if (PostRenderedActors[i] != NULL)
+		{
+			PostRenderedActors[i]->PostRenderFor(PlayerOwner, Canvas, Viewpoint, ViewDir);
+			i++;
+		}
+		else
+		{
+			PostRenderedActors.RemoveAt(i, 1);
+		}
+	}
+
+	if (!bShowScores)
+	{
+		for (i = 0; i < UTGameState->PlayerArray.Num(); i++)
+		{
+			AUTPlayerState* PlayerState = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
+			if (PlayerState && !PlayerState->bOnlySpectator && !PlayerState->bPawnWasPostRendered && !PlayerState->LastPostRenderedLocation.IsZero())
+			{
+				PlayerState->PostRenderFor(PlayerOwner, Canvas, Viewpoint, ViewDir);
+			}
+		}
+	}
+}
+
+
 void AUTHUD::ShowDebugInfo(float& YL, float& YPos)
 {
 	if (!DebugDisplay.Contains(TEXT("Bones")))

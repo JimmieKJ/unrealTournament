@@ -1162,6 +1162,14 @@ public:
 
 	virtual void SetUniqueId(const TSharedPtr<const FUniqueNetId>& InUniqueId) override;
 
+	UPROPERTY(BlueprintReadWrite, Category = PlayerState)
+		FVector LastPostRenderedLocation;
+
+	UPROPERTY(BlueprintReadWrite, Category = PlayerState)
+		bool bPawnWasPostRendered;
+
+	virtual void PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector CameraPosition, FVector CameraDir) override;
+
 private:
 	virtual void ForceUpdatePlayerInfo();
 
