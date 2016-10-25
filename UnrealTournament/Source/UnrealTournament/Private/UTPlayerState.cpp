@@ -34,6 +34,7 @@
 #include "UTCTFRoundGame.h"
 #include "UTFlagRunGameState.h"
 #include "UTCTFMajorMessage.h"
+#include "Engine/DemoNetDriver.h"
 
 /** disables load warnings for dedicated server where invalid client input can cause unpreventable logspam, but enables on clients so developers can make sure their stuff is working */
 static inline ELoadFlags GetCosmeticLoadFlags()
@@ -3354,6 +3355,12 @@ void AUTPlayerState::OnRepEmoteSpeed()
 
 void AUTPlayerState::OnRepTaunt()
 {
+	UDemoNetDriver* DemoDriver = GetWorld()->DemoNetDriver;
+	if (DemoDriver && DemoDriver->IsFastForwarding())
+	{
+		return;
+	}
+
 	PlayTauntByIndex(EmoteReplicationInfo.EmoteIndex);
 }
 
