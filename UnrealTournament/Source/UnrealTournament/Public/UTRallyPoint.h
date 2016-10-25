@@ -86,6 +86,9 @@ class UNREALTOURNAMENT_API AUTRallyPoint : public AUTGameObjective, public IUTRe
 		USoundBase* PoweringUpSound;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Audio)
+		USoundBase* FullyPoweredSound;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Audio)
 		USoundBase* ReadyToRallySound;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Audio)

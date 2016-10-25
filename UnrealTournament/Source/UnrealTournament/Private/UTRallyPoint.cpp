@@ -154,7 +154,7 @@ void AUTRallyPoint::Reset_Implementation()
 	bShowAvailableEffect = false;
 	RallyPointState = RallyPointStates::Off;
 	FlagNearbyChanged(false);
-	SetAmbientSound(PoweringUpSound, true);
+	SetAmbientSound(nullptr, true);
 	GetWorldTimerManager().ClearTimer(EndRallyHandle);
 }
 
