@@ -43,6 +43,7 @@ FName SUTStyle::GetStyleSetName()
 
 BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
+const int32 FONT_SIZE_Teenie = 9;
 const int32 FONT_SIZE_Tiny = 12;
 const int32 FONT_SIZE_Small = 14;
 const int32 FONT_SIZE_Tween = 19;
@@ -129,6 +130,8 @@ TSharedRef<FSlateStyleSet> SUTStyle::Create()
 void SUTStyle::SetFonts(TSharedRef<FSlateStyleSet> StyleRef)
 {
 	FSlateStyleSet& Style = StyleRef.Get();
+
+	Style.Set("UT.Font.NormalText.Teenie", FTextBlockStyle().SetFont(TTF_FONT("/UTStyle/Fonts/Lato/Lato-Regular", FONT_SIZE_Teenie)).SetColorAndOpacity(FLinearColor::White));
 
 	Style.Set("UT.Font.NormalText.Tiny", FTextBlockStyle().SetFont(TTF_FONT("/UTStyle/Fonts/Lato/Lato-Regular", FONT_SIZE_Tiny)).SetColorAndOpacity(FLinearColor::White));
 	Style.Set("UT.Font.NormalText.Tiny.Bold", FTextBlockStyle().SetFont(TTF_FONT("/UTStyle/Fonts/Lato/Lato-Bold", FONT_SIZE_Tiny)).SetColorAndOpacity(FLinearColor::White));
@@ -606,6 +609,13 @@ void SUTStyle::SetCommonStyle(TSharedRef<FSlateStyleSet> StyleRef)
 		.SetFillImage( FSlateColorBrush(FColor(200,200,200,255)) )
 		.SetMarqueeImage( FSlateColorBrush(FColor(255,255,255,255)) )
 		);
+
+	Style.Set( "UT.ProgressBar.XP", FProgressBarStyle()
+		.SetBackgroundImage( FSlateColorBrush(FColor(0,0,0,255)) )
+		.SetFillImage( FSlateColorBrush(FColor(200,200,0,255)) )
+		.SetMarqueeImage( FSlateColorBrush(FColor(255,255,0,255)) )
+		);
+
 
 
 	FComboButtonStyle ComboButton = FComboButtonStyle()

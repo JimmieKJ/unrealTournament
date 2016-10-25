@@ -165,6 +165,12 @@ protected:
 
 	TSharedPtr<SUTButton> HomeButton;
 
+	TSharedPtr<SUTButton> PlayerButton;
+
+	TSharedRef<SWidget> BuildPlayerInfo();
+	const FSlateBrush* GetAvatarImage() const;
+	FSlateColor GetLabelColor() const;
+
 public:
 	virtual bool SkipWorldRender();
 
