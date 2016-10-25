@@ -1960,6 +1960,13 @@ void AUTPlayerController::HearSound(USoundBase* InSoundCue, AActor* SoundPlayer,
 
 void AUTPlayerController::ClientHearSound_Implementation(USoundBase* TheSound, AActor* SoundPlayer, FVector_NetQuantize SoundLocation, bool bStopWhenOwnerDestroyed, bool bAmplifyVolume, ESoundAmplificationType AmpType)
 {
+	// Don't play RPC sounds during fast forward
+	UDemoNetDriver* DemoDriver = GetWorld()->DemoNetDriver;
+	if (DemoDriver && DemoDriver->IsFastForwarding())
+	{
+		return;
+	}
+
 	if (TheSound != NULL && (SoundPlayer != NULL || !SoundLocation.IsZero()))
 	{
 		FAudioDevice* AudioDevice = GetWorld()->GetAudioDevice();
