@@ -428,7 +428,7 @@
 		<Node Name="Chunk Editor Mac" Requires="EditorDDC Mac" Token="$(BuildDir)/MacEditor/MacEditor.token">
 			<Property Name="Launch" Value="Engine/Binaries/Mac/UE4Editor.app"/>
 			<Property Name="LaunchArgs" Value="UnrealTournament"/>
-			<Tag Files="$(LocalStagingDir)/UT-Build/Mac/..." Except "*.dysm" With="#EditorFilesToChunk"/>
+			<Tag Files="$(LocalStagingDir)/UT-Build/Mac/..." Except="*.dysm" With="#EditorFilesToChunk"/>
 			<Chunk AppName="$(EditorAppName)" BuildVersion="$(BuildVersion)" Platform="Mac" InputDir="$(LocalStagingDir)/UT-Build/Mac" Files="#EditorFilesToChunk" Launch="$(Launch)" LaunchArgs="$(LaunchArgs)" CloudDir="$(CloudDir)"/>
 		</Node>
 		<Node Name="Post Editor Mac" Requires="Chunk Editor Mac">
