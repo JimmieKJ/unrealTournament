@@ -235,12 +235,15 @@ void AUTHUD::DrawActorOverlays(FVector Viewpoint, FRotator ViewRotation)
 {
 	AUTGameState* UTGameState = GetWorld()->GetGameState<AUTGameState>();
 
-	for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
+	if (!bShowScores && UTGameState)
 	{
-		AUTPlayerState* PlayerState = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
-		if (PlayerState && !PlayerState->bOnlySpectator)
+		for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
 		{
-			PlayerState->bPawnWasPostRendered = false;
+			AUTPlayerState* PlayerState = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
+			if (PlayerState && !PlayerState->bOnlySpectator)
+			{
+				PlayerState->bPawnWasPostRendered = false;
+			}
 		}
 	}
 
@@ -260,7 +263,7 @@ void AUTHUD::DrawActorOverlays(FVector Viewpoint, FRotator ViewRotation)
 		}
 	}
 
-	if (!bShowScores)
+	if (!bShowScores && UTGameState)
 	{
 		for (i = 0; i < UTGameState->PlayerArray.Num(); i++)
 		{
