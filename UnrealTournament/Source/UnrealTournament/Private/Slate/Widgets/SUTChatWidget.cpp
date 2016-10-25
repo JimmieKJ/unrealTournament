@@ -25,7 +25,7 @@ void SUTChatWidget::Construct(const FArguments& InArgs, const FLocalPlayerContex
 	const int32 PaddingValue = 2;
 
 	TSharedPtr< class SWidget > Chat;
-	TSharedRef< IFriendsAndChatManager > Manager = ISocialModule::Get().GetFriendsAndChatManager();
+	TSharedRef< IFriendsAndChatManager > Manager = ISocialModule::Get().GetFriendsAndChatManager(TEXT(""), true);
 	Display = Manager->GenerateChatDisplayService();
 	Display->SetMinimizeEnabled(false);
 	Settings = Manager->GetChatSettingsService();

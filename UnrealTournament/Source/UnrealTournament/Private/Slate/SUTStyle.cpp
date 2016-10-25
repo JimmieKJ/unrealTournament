@@ -121,7 +121,7 @@ TSharedRef<FSlateStyleSet> SUTStyle::Create()
 	#if WITH_SOCIAL
 	USocialStyleAsset* SocialAsset = LoadObject<USocialStyleAsset>(NULL, TEXT("/Game/RestrictedAssets/UI/UTSocialStyle.UTSocialStyle"), NULL, LOAD_None, NULL);
 	SocialAsset->AddToRoot();
-	ISocialModule::Get().GetFriendsAndChatManager()->InitializeSocialStyle(&SocialAsset->Style);
+	ISocialModule::Get().GetFriendsAndChatManager(TEXT(""), true)->InitializeSocialStyle(&SocialAsset->Style);
 	#endif
 
 	return StyleRef;

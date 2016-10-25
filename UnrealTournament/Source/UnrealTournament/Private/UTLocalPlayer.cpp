@@ -923,7 +923,7 @@ void UUTLocalPlayer::Logout()
 	}
 
 #if WITH_SOCIAL
-	ISocialModule::Get().GetFriendsAndChatManager()->Logout();
+	ISocialModule::Get().GetFriendsAndChatManager(TEXT(""), true)->Logout();
 #endif
 }
 
@@ -5923,28 +5923,28 @@ void UUTLocalPlayer::InitializeSocial()
 #if WITH_SOCIAL
 	// Init the Friends And Chat system
 	FFriendsAndChatLoginOptions LoginOptions(0, true);
-	ISocialModule::Get().GetFriendsAndChatManager()->Login(OnlineSubsystem, LoginOptions);
-	ISocialModule::Get().GetFriendsAndChatManager()->SetAnalyticsProvider(FUTAnalytics::GetProviderPtr());
+	ISocialModule::Get().GetFriendsAndChatManager(TEXT(""), true)->Login(OnlineSubsystem, LoginOptions);
+	ISocialModule::Get().GetFriendsAndChatManager(TEXT(""), true)->SetAnalyticsProvider(FUTAnalytics::GetProviderPtr());
 
-	if (!ISocialModule::Get().GetFriendsAndChatManager()->GetNotificationService()->OnJoinGame().IsBoundToObject(this))
+	if (!ISocialModule::Get().GetFriendsAndChatManager(TEXT(""), true)->GetNotificationService()->OnJoinGame().IsBoundToObject(this))
  	{
-		ISocialModule::Get().GetFriendsAndChatManager()->GetNotificationService()->OnJoinGame().AddUObject(this, &UUTLocalPlayer::HandleFriendsJoinGame);
+		ISocialModule::Get().GetFriendsAndChatManager(TEXT(""), true)->GetNotificationService()->OnJoinGame().AddUObject(this, &UUTLocalPlayer::HandleFriendsJoinGame);
  	}
 
 	// PLK - find replacement for this API
 	/*
-	if (!ISocialModule::Get().GetFriendsAndChatManager()->AllowFriendsJoinGame().IsBoundToObject(this))
+	if (!ISocialModule::Get().GetFriendsAndChatManager(TEXT(""), true)->AllowFriendsJoinGame().IsBoundToObject(this))
 	{
-		ISocialModule::Get().GetFriendsAndChatManager()->AllowFriendsJoinGame().BindUObject(this, &UUTLocalPlayer::AllowFriendsJoinGame);
+		ISocialModule::Get().GetFriendsAndChatManager(TEXT(""), true)->AllowFriendsJoinGame().BindUObject(this, &UUTLocalPlayer::AllowFriendsJoinGame);
 	}*/
 
-	if (!ISocialModule::Get().GetFriendsAndChatManager()->GetNotificationService()->OnNotificationsAvailable().IsBoundToObject(this))
+	if (!ISocialModule::Get().GetFriendsAndChatManager(TEXT(""), true)->GetNotificationService()->OnNotificationsAvailable().IsBoundToObject(this))
  	{
- 		ISocialModule::Get().GetFriendsAndChatManager()->GetNotificationService()->OnNotificationsAvailable().AddUObject(this, &UUTLocalPlayer::HandleFriendsNotificationAvail);
+ 		ISocialModule::Get().GetFriendsAndChatManager(TEXT(""), true)->GetNotificationService()->OnNotificationsAvailable().AddUObject(this, &UUTLocalPlayer::HandleFriendsNotificationAvail);
  	}
-	if (!ISocialModule::Get().GetFriendsAndChatManager()->GetNotificationService()->OnSendNotification().IsBoundToObject(this))
+	if (!ISocialModule::Get().GetFriendsAndChatManager(TEXT(""), true)->GetNotificationService()->OnSendNotification().IsBoundToObject(this))
  	{
-		ISocialModule::Get().GetFriendsAndChatManager()->GetNotificationService()->OnSendNotification().AddUObject(this, &UUTLocalPlayer::HandleFriendsActionNotification);
+		ISocialModule::Get().GetFriendsAndChatManager(TEXT(""), true)->GetNotificationService()->OnSendNotification().AddUObject(this, &UUTLocalPlayer::HandleFriendsActionNotification);
  	}
 				
 #endif

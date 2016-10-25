@@ -28,7 +28,7 @@ void SUTFriendsWidget::Construct(const FArguments& InArgs, const FLocalPlayerCon
 			]
 		];
 #if WITH_SOCIAL
-	ContentWidget->SetContent(ISocialModule::Get().GetFriendsAndChatManager()->GenerateFriendsListWidget().ToSharedRef());
+	ContentWidget->SetContent(ISocialModule::Get().GetFriendsAndChatManager(TEXT(""), true)->GenerateFriendsListWidget().ToSharedRef());
 #endif
 }
 
