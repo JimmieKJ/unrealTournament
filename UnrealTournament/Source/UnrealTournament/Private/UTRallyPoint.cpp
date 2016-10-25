@@ -403,7 +403,7 @@ void AUTRallyPoint::OnRallyChargingChanged()
 				for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
 				{
 					AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
-					if (PC && PC->UTPlayerState && (PC->GetPawn() !=  NearbyFC) && PC->UTPlayerState->Team && (UTGS->bRedToCap == (PC->UTPlayerState->Team->TeamIndex == 0)))
+					if (PC && PC->UTPlayerState && (PC->GetPawn() != NearbyFC) && PC->UTPlayerState->Team && (UTGS->bRedToCap == (PC->UTPlayerState->Team->TeamIndex == 0)))
 					{
 						PC->UTClientPlaySound(FCTouchedSound);
 					}
@@ -494,9 +494,16 @@ void AUTRallyPoint::Tick(float DeltaTime)
 							for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
 							{
 								AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
-								if (PC && UTGS->OnSameTeam(NearbyFC, PC) && PC->UTPlayerState && PC->UTPlayerState->bCanRally)
+								if (PC && PC->UTPlayerState)
 								{
-									PC->ClientReceiveLocalizedMessage(UUTCTFMajorMessage::StaticClass(), 22, NearbyFC->PlayerState);
+									if (!UTGS->OnSameTeam(NearbyFC, PC))
+									{
+										PC->ClientReceiveLocalizedMessage(UUTCTFMajorMessage::StaticClass(), 28, NearbyFC->PlayerState);
+									}
+									else if (PC->UTPlayerState->bCanRally)
+									{
+										PC->ClientReceiveLocalizedMessage(UUTCTFMajorMessage::StaticClass(), 22, NearbyFC->PlayerState);
+									}
 								}
 							}
 						}

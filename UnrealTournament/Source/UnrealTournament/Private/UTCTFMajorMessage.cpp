@@ -60,10 +60,10 @@ void UUTCTFMajorMessage::ClientReceive(const FClientReceiveData& ClientData) con
 			PC->UTClientPlaySound(FlagRallySound);
 			PC->bNeedsRallyNotify = true;
 		}
-		else if (ClientData.MessageIndex == 23)
+		else if ((ClientData.MessageIndex == 23) || (ClientData.MessageIndex == 28))
 		{
 			PC->UTClientPlaySound(RallyReadySound);
-			PC->bNeedsRallyNotify = true;
+			PC->bNeedsRallyNotify = (ClientData.MessageIndex == 23);
 		}
 		else if (ClientData.MessageIndex == 24)
 		{
@@ -149,6 +149,7 @@ FText UUTCTFMajorMessage::GetText(int32 Switch, bool bTargetsPlayerState1, APlay
 	case 25: return RallyCompleteMessage; break;
 	case 26: return FallBackToRallyMessage; break;
 	case 27: return TeamRallyMessage; break;
+	case 28: return EnemyRallyMessage; break;
 	}
 	return FText::GetEmpty();
 }
