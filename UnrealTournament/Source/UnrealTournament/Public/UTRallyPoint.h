@@ -124,6 +124,11 @@ class UNREALTOURNAMENT_API AUTRallyPoint : public AUTGameObjective, public IUTRe
 	virtual void Tick(float DeltaTime) override;
 	virtual void PostRenderFor(APlayerController *PC, UCanvas *Canvas, FVector CameraPosition, FVector CameraDir) override;
 
+	UPROPERTY()
+		bool bBeaconWasLeft;
+
+	virtual FVector GetAdjustedScreenPosition(UCanvas* Canvas, const FVector& WorldPosition, const FVector& ViewPoint, const FVector& ViewDir, float Dist, float Edge, bool& bDrawEdgeArrow);
+
 	virtual void Reset_Implementation() override;
 
 	virtual void FlagNearbyChanged(bool bIsNearby);
