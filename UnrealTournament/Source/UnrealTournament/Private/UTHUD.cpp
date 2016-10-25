@@ -235,8 +235,6 @@ void AUTHUD::DrawActorOverlays(FVector Viewpoint, FRotator ViewRotation)
 {
 	AUTGameState* UTGameState = GetWorld()->GetGameState<AUTGameState>();
 
-	// FIXMESTEVE - do some global checks here to optimize UTCharacter postrenderfor
-	// FIXMESTEVE - also render skulls on minimap
 	for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
 	{
 		AUTPlayerState* PlayerState = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
@@ -1527,45 +1525,47 @@ void AUTHUD::DrawMinimapSpectatorIcons()
 			AUTCharacter* UTChar = Cast<AUTCharacter>(*Iterator);
 			if (UTChar)
 			{
-				FVector2D Pos(WorldToMapToScreen(UTChar->GetActorLocation()));
-				if (UTChar->bTearOff)
+				// draw team colored dot at location
+				AUTPlayerState* PS = Cast<AUTPlayerState>(UTChar->PlayerState);
+				if (!PS || !UTPlayerOwner->UTPlayerState || (bOnlyShowTeammates && !PS->bOnlySpectator && (PS != UTPlayerOwner->UTPlayerState) && (!PS->Team || (PS->Team != UTPlayerOwner->UTPlayerState->Team)) && !PS->bSpecialPlayer))
 				{
-					// Draw skull at location
-					FLinearColor SkullColor = (UTChar->OldPlayerState && UTChar->OldPlayerState->Team) ? UTChar->OldPlayerState->Team->TeamColor : FLinearColor::White;
-					DrawMinimapIcon(HUDAtlas, Pos, FVector2D(20.f, 20.f) * RenderScale, FVector2D(725.f, 0.f), FVector2D(28.f, 36.f), SkullColor, true);
+					continue;
 				}
-				else
+				FVector2D Pos(WorldToMapToScreen(UTChar->GetActorLocation()));
+				if (bShowScores || bForceScores || bShowScoresWhileDead)
 				{
-					// draw team colored dot at location
-					AUTPlayerState* PS = Cast<AUTPlayerState>(UTChar->PlayerState);
-					if (!PS || !UTPlayerOwner->UTPlayerState || (bOnlyShowTeammates && !PS->bOnlySpectator && (PS != UTPlayerOwner->UTPlayerState) && (!PS->Team || (PS->Team != UTPlayerOwner->UTPlayerState->Team)) && !PS->bSpecialPlayer))
-					{
-						continue;
-					}
-					if (bShowScores || bForceScores || bShowScoresWhileDead)
-					{
-						// draw line from hud to this loc - can't used Canvas line drawing code because it doesn't support translucency
-						FVector LineStartPoint(Pos.X, Pos.Y, 0.f);
-						FLinearColor LineColor = (PS == GetScorerPlayerState()) ? FLinearColor::Yellow : FLinearColor::White;
-						LineColor.A = 0.1f;
-						FBatchedElements* BatchedElements = Canvas->Canvas->GetBatchedElements(FCanvas::ET_Line);
-						FHitProxyId HitProxyId = Canvas->Canvas->GetHitProxyId();
-						BatchedElements->AddTranslucentLine(PS->ScoreCorner, LineStartPoint, LineColor, HitProxyId, 4.f);
-					}
+					// draw line from hud to this loc - can't used Canvas line drawing code because it doesn't support translucency
+					FVector LineStartPoint(Pos.X, Pos.Y, 0.f);
+					FLinearColor LineColor = (PS == GetScorerPlayerState()) ? FLinearColor::Yellow : FLinearColor::White;
+					LineColor.A = 0.1f;
+					FBatchedElements* BatchedElements = Canvas->Canvas->GetBatchedElements(FCanvas::ET_Line);
+					FHitProxyId HitProxyId = Canvas->Canvas->GetHitProxyId();
+					BatchedElements->AddTranslucentLine(PS->ScoreCorner, LineStartPoint, LineColor, HitProxyId, 4.f);
+				}
 
-					FLinearColor PlayerColor = (PS && PS->Team) ? PS->Team->TeamColor : FLinearColor::Green;
-					PlayerColor.A = 1.f;
-					float IconRotation = bInvertMinimap ? UTChar->GetActorRotation().Yaw - 90.0f : UTChar->GetActorRotation().Yaw + 90.0f;
-					Canvas->K2_DrawTexture(PlayerMinimapTexture, Pos - 0.5f*PlayerIconScale, PlayerIconScale, FVector2D(0.0f, 0.0f), FVector2D(1.0f, 1.0f), PlayerColor, BLEND_Translucent, IconRotation);
+				FLinearColor PlayerColor = (PS && PS->Team) ? PS->Team->TeamColor : FLinearColor::Green;
+				PlayerColor.A = 1.f;
+				float IconRotation = bInvertMinimap ? UTChar->GetActorRotation().Yaw - 90.0f : UTChar->GetActorRotation().Yaw + 90.0f;
+				Canvas->K2_DrawTexture(PlayerMinimapTexture, Pos - 0.5f*PlayerIconScale, PlayerIconScale, FVector2D(0.0f, 0.0f), FVector2D(1.0f, 1.0f), PlayerColor, BLEND_Translucent, IconRotation);
 
-					if (Cast<AUTPlayerController>(PlayerOwner) && (Cast<AUTPlayerController>(PlayerOwner)->LastSpectatedPlayerId == PS->SpectatingID))
-					{
-						Canvas->DrawColor = FColor(255, 255, 0, 255);
-						Canvas->DrawTile(SelectedPlayerTexture, Pos.X - 0.6f*PlayerIconScale.X, Pos.Y - 0.6f*PlayerIconScale.Y, 1.2f*PlayerIconScale.X, 1.2f*PlayerIconScale.Y, 0.0f, 0.0f, SelectedPlayerTexture->GetSurfaceWidth(), SelectedPlayerTexture->GetSurfaceHeight());
-					}
+				if (Cast<AUTPlayerController>(PlayerOwner) && (Cast<AUTPlayerController>(PlayerOwner)->LastSpectatedPlayerId == PS->SpectatingID))
+				{
+					Canvas->DrawColor = FColor(255, 255, 0, 255);
+					Canvas->DrawTile(SelectedPlayerTexture, Pos.X - 0.6f*PlayerIconScale.X, Pos.Y - 0.6f*PlayerIconScale.Y, 1.2f*PlayerIconScale.X, 1.2f*PlayerIconScale.Y, 0.0f, 0.0f, SelectedPlayerTexture->GetSurfaceWidth(), SelectedPlayerTexture->GetSurfaceHeight());
 				}
 			}
 		}
+		for (int32 i = 0; i < GS->PlayerArray.Num(); i++)
+		{
+			AUTPlayerState* PlayerState = Cast<AUTPlayerState>(GS->PlayerArray[i]);
+			if (PlayerState && !PlayerState->bOnlySpectator && !PlayerState->bPawnWasPostRendered && !PlayerState->LastPostRenderedLocation.IsZero())
+			{
+				FLinearColor SkullColor = PlayerState->Team ? PlayerState->Team->TeamColor : FLinearColor::White;
+				FVector2D Pos(WorldToMapToScreen(PlayerState->LastPostRenderedLocation));
+				DrawMinimapIcon(HUDAtlas, Pos, FVector2D(24.f, 24.f) * RenderScale, FVector2D(725.f, 0.f), FVector2D(28.f, 36.f), SkullColor, true);
+			}
+		}
+
 	}
 
 	// draw name last so it is on top of any conflicting icons

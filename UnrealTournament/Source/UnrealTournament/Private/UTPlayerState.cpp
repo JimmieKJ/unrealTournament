@@ -3798,49 +3798,45 @@ void AUTPlayerState::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVect
 	const bool bRecentlyRendered = (GetWorld()->TimeSeconds - GetLastRenderTime() < 0.5f);
 	const bool bIsViewTarget = (PC->GetViewTarget() == this);
 
-	if (UTPC != NULL && (bSpectating || (UTPC && UTPC->UTPlayerState && UTPC->UTPlayerState->bOutOfLives) || !bIsViewTarget) && (bRecentlyRendered || (bOnSameTeam && !bIsViewTarget)) &&
-		FVector::DotProduct(CameraDir, (LastPostRenderedLocation - CameraPosition)) > 0.0f && GS != NULL)
+	if (UTPC != NULL && FVector::DotProduct(CameraDir, (LastPostRenderedLocation - CameraPosition)) > 0.0f && GS != NULL)
 	{
 		float Dist = (CameraPosition - LastPostRenderedLocation).Size() * FMath::Tan(FMath::DegreesToRadians(PC->PlayerCameraManager->GetFOVAngle()*0.5f));
-		if (bOnSameTeam || bSpectating)
+		float TextXL, YL;
+		float Scale = Canvas->ClipX / 1920.f;
+		UFont* TinyFont = AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>()->TinyFont;
+		Canvas->TextSize(TinyFont, PlayerName, TextXL, YL, Scale, Scale);
+		float BarWidth, Y;
+		Canvas->TextSize(TinyFont, FString("AAAWWW"), BarWidth, Y, Scale, Scale);
+		float XL = TextXL + FMath::Max(BarWidth - TextXL, 0.f);
+		FVector ScreenPosition = Canvas->Project(LastPostRenderedLocation);
+		float XPos = ScreenPosition.X - 0.5f*XL;
+		float YPos = ScreenPosition.Y - YL;
+		if (XPos < Canvas->ClipX || XPos + XL < 0.0f)
 		{
-			float TextXL, YL;
-			float Scale = Canvas->ClipX / 1920.f;
-			UFont* TinyFont = AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>()->TinyFont;
-			Canvas->TextSize(TinyFont, PlayerName, TextXL, YL, Scale, Scale);
-			float BarWidth, Y;
-			Canvas->TextSize(TinyFont, FString("AAAWWW"), BarWidth, Y, Scale, Scale);
-			float XL = TextXL + FMath::Max(BarWidth - TextXL, 0.f);
-			FVector ScreenPosition = Canvas->Project(LastPostRenderedLocation);
-			float XPos = ScreenPosition.X - 0.5f*XL;
-			float YPos = ScreenPosition.Y - YL;
-			if (XPos < Canvas->ClipX || XPos + XL < 0.0f)
-			{
-				FLinearColor TeamColor = Team ? Team->TeamColor : FLinearColor::White;
-				float CenterFade = 1.f;
-				float PctFromCenter = (ScreenPosition - FVector(0.5f*Canvas->ClipX, 0.5f*Canvas->ClipY, 0.f)).Size() / Canvas->ClipX;
-				CenterFade = CenterFade * FMath::Clamp(10.f*PctFromCenter, 0.15f, 1.f);
-				TeamColor.A = 0.2f * CenterFade;
-				UTexture* BarTexture = AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>()->HUDAtlas;
-				float SkullHeight = 0.3f*BarWidth;
-				Canvas->SetLinearDrawColor(FLinearColor::White);
-				Canvas->DrawTile(BarTexture, ScreenPosition.X - 0.5f*SkullHeight, YPos - YL - SkullHeight, SkullHeight, SkullHeight, 725, 0, 28, 36);
+			FLinearColor TeamColor = Team ? Team->TeamColor : FLinearColor::White;
+			float CenterFade = 1.f;
+			float PctFromCenter = (ScreenPosition - FVector(0.5f*Canvas->ClipX, 0.5f*Canvas->ClipY, 0.f)).Size() / Canvas->ClipX;
+			CenterFade = CenterFade * FMath::Clamp(10.f*PctFromCenter, 0.15f, 1.f);
+			TeamColor.A = 0.2f * CenterFade;
+			UTexture* BarTexture = AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>()->HUDAtlas;
+			float SkullHeight = 0.3f*BarWidth;
+			Canvas->SetLinearDrawColor(FLinearColor::White);
+			Canvas->DrawTile(BarTexture, ScreenPosition.X - 0.5f*SkullHeight, YPos - YL - SkullHeight, SkullHeight, SkullHeight, 725, 0, 28, 36);
 
-				Canvas->SetLinearDrawColor(TeamColor);
-				float Border = 2.f*Scale;
-				float Height = YL;
-				Canvas->DrawTile(Canvas->DefaultTexture, XPos - Border, YPos - YL - Border, XL + 2.f*Border, Height + 2.f*Border, 0, 0, 1, 1);
-				FLinearColor BeaconTextColor = FLinearColor::White;
-				BeaconTextColor.A = 0.6f * CenterFade;
-				FUTCanvasTextItem TextItem(FVector2D(FMath::TruncToFloat(Canvas->OrgX + XPos + 0.5f*(XL - TextXL)), FMath::TruncToFloat(Canvas->OrgY + YPos - 1.2f*YL)), FText::FromString(PlayerName), TinyFont, BeaconTextColor, NULL);
-				TextItem.Scale = FVector2D(Scale, Scale);
-				TextItem.BlendMode = SE_BLEND_Translucent;
-				FLinearColor ShadowColor = FLinearColor::Black;
-				ShadowColor.A = BeaconTextColor.A;
-				TextItem.EnableShadow(ShadowColor);
-				TextItem.FontRenderInfo = Canvas->CreateFontRenderInfo(true, false);
-				Canvas->DrawItem(TextItem);
-			}
+			Canvas->SetLinearDrawColor(TeamColor);
+			float Border = 2.f*Scale;
+			float Height = YL;
+			Canvas->DrawTile(Canvas->DefaultTexture, XPos - Border, YPos - YL - Border, XL + 2.f*Border, Height + 2.f*Border, 0, 0, 1, 1);
+			FLinearColor BeaconTextColor = FLinearColor::White;
+			BeaconTextColor.A = 0.6f * CenterFade;
+			FUTCanvasTextItem TextItem(FVector2D(FMath::TruncToFloat(Canvas->OrgX + XPos + 0.5f*(XL - TextXL)), FMath::TruncToFloat(Canvas->OrgY + YPos - 1.2f*YL)), FText::FromString(PlayerName), TinyFont, BeaconTextColor, NULL);
+			TextItem.Scale = FVector2D(Scale, Scale);
+			TextItem.BlendMode = SE_BLEND_Translucent;
+			FLinearColor ShadowColor = FLinearColor::Black;
+			ShadowColor.A = BeaconTextColor.A;
+			TextItem.EnableShadow(ShadowColor);
+			TextItem.FontRenderInfo = Canvas->CreateFontRenderInfo(true, false);
+			Canvas->DrawItem(TextItem);
 		}
 	}
 }
