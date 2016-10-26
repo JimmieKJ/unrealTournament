@@ -2103,7 +2103,7 @@ void AUTPlayerController::ClientHearSound_Implementation(USoundBase* TheSound, A
 
 void AUTPlayerController::ClientWarnEnemyBehind_Implementation(AUTPlayerState* TeamPS, AUTCharacter* Targeter)
 {
-	if ((GetWorld()->GetTimeSeconds() - Targeter->GetLastRenderTime() > 5.f) && TeamPS && TeamPS->CharacterVoice)
+	if (Targeter && (GetWorld()->GetTimeSeconds() - Targeter->GetLastRenderTime() > 5.f) && TeamPS && TeamPS->CharacterVoice)
 	{
 		int32 Switch = TeamPS->CharacterVoice.GetDefaultObject()->GetStatusIndex(StatusMessage::BehindYou);
 		if (Switch < 0)
