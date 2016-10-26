@@ -175,6 +175,53 @@ void AUTFlagRunGame::InitGameStateForRound()
 	}
 }
 
+float AUTFlagRunGame::RatePlayerStart(APlayerStart* P, AController* Player)
+{
+	// @TODO FIXMESTEVE no need to check enemy traces, just overlaps
+	float Result = Super::RatePlayerStart(P, Player);
+	if ((Result > 0.f) && Cast<AUTPlayerStart>(P))
+	{
+		// try to spread out spawns between volumes
+		AUTPlayerStart* Start = (AUTPlayerStart*)P;
+		AUTPlayerState* PS = Player ? Cast<AUTPlayerState>(Player->PlayerState) : nullptr;
+		AUTFlagRunGameState* FRGS = Cast<AUTFlagRunGameState>(CTFGameState);
+		if (Start && PS && FRGS && PS->Team != NULL)
+		{
+			const bool bIsAttacker = (FRGS->bRedToCap == (PS->Team->TeamIndex == 0));
+			if (Start->PlayerStartGroup != (bIsAttacker ? LastAttackerSpawnGroup : LastDefenderSpawnGroup))
+			{
+				Result += 20.f;
+			}
+		}
+
+	}
+	return Result;
+}
+
+AActor* AUTFlagRunGame::FindPlayerStart_Implementation(AController* Player, const FString& IncomingName)
+{
+	AActor* const Best = Super::FindPlayerStart_Implementation(Player, IncomingName);
+	if (Best)
+	{
+		LastStartSpot = Best;
+		AUTPlayerStart* Start = (AUTPlayerStart*)Best;
+		AUTPlayerState* PS = Player ? Cast<AUTPlayerState>(Player->PlayerState) : nullptr;
+		AUTFlagRunGameState* FRGS = Cast<AUTFlagRunGameState>(CTFGameState);
+		if (Start && PS && FRGS && PS->Team != NULL)
+		{
+			if (FRGS->bRedToCap == (PS->Team->TeamIndex == 0))
+			{
+				LastAttackerSpawnGroup = Start->PlayerStartGroup;
+			}
+			else
+			{
+				LastDefenderSpawnGroup = Start->PlayerStartGroup;
+			}
+		}
+	}
+	return Best;
+}
+
 bool AUTFlagRunGame::AvoidPlayerStart(AUTPlayerStart* P)
 {
 	return P && P->bIgnoreInASymCTF;

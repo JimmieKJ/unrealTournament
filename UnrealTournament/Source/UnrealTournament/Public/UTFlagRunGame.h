@@ -72,6 +72,13 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
 		USoundBase* RallyFailedSound;
 
+	UPROPERTY()
+		FName LastAttackerSpawnGroup;
+
+	UPROPERTY()
+		FName LastDefenderSpawnGroup;
+
+	virtual class AActor* FindPlayerStart_Implementation(AController* Player, const FString& IncomingName = TEXT("")) override;
 	virtual void AnnounceWin(AUTTeamInfo* WinningTeam, uint8 Reason) override;
 	virtual void NotifyFirstPickup(AUTCarriedObject* Flag) override;
 
@@ -104,6 +111,8 @@ public:
 	virtual void DefaultTimer() override;
 
 	virtual void UpdateSkillRating() override;
+
+	virtual float RatePlayerStart(APlayerStart* P, AController* Player) override;
 
 	virtual uint8 GetNumMatchesFor(AUTPlayerState* PS, bool bRankedSession) const override;
 	virtual int32 GetEloFor(AUTPlayerState* PS, bool bRankedSession) const override;
