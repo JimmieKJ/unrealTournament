@@ -154,7 +154,7 @@ void AUTRallyPoint::Reset_Implementation()
 	bShowAvailableEffect = false;
 	RallyPointState = RallyPointStates::Off;
 	FlagNearbyChanged(false);
-	SetAmbientSound(nullptr, true);
+	SetAmbientSound(nullptr, false);
 	GetWorldTimerManager().ClearTimer(EndRallyHandle);
 }
 
@@ -364,7 +364,7 @@ void AUTRallyPoint::OnRallyChargingChanged()
 {
 	if (RallyPointState == RallyPointStates::Powered)
 	{
-		SetAmbientSound(PoweringUpSound, false);
+		SetAmbientSound(FullyPoweredSound, false);
 		ChangeAmbientSoundPitch(PoweringUpSound, 1.5f);
 		if (RallyEffectPSC == nullptr)
 		{
@@ -412,8 +412,11 @@ void AUTRallyPoint::OnRallyChargingChanged()
 		}
 		else
 		{
-			SetAmbientSound(PoweringUpSound, true);
-			UUTGameplayStatics::UTPlaySound(GetWorld(), RallyBrokenSound, this, SRT_All);
+			SetAmbientSound(nullptr, false);
+			if ((RallyReadyCountdown  < 2.f) || !TouchingFC || TouchingFC->IsDead())
+			{
+				UUTGameplayStatics::UTPlaySound(GetWorld(), RallyBrokenSound, this, SRT_All);
+			}
 		}
 	}
 	OnAvailableEffectChanged();
