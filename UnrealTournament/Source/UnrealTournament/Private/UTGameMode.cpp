@@ -1888,17 +1888,17 @@ void AUTGameMode::EndMatch()
 		return A > B;
 	});
 
-	UE_LOG(UT,Log,TEXT(""));
-	UE_LOG(UT,Log,TEXT("==================================================="));
-	UE_LOG(UT,Log,TEXT("Total Weapon Kills"));
-	UE_LOG(UT,Log,TEXT("==================================================="));
+	UE_LOG(LogUTGame,Log,TEXT(""));
+	UE_LOG(LogUTGame,Log,TEXT("==================================================="));
+	UE_LOG(LogUTGame,Log,TEXT("Total Weapon Kills"));
+	UE_LOG(LogUTGame,Log,TEXT("==================================================="));
 
 	for (auto& KillElement : EnemyKillsByDamageType)
 	{
 		UE_LOG(LogUTGame, Log, TEXT("%s -> %d"), *KillElement.Key->GetName(), KillElement.Value);
 	}
 
-	UE_LOG(UT,Log,TEXT("==================================================="));
+	UE_LOG(LogUTGame,Log,TEXT("==================================================="));
 
 	//Collect all the weapons
 	TArray<AUTWeapon *> StatsWeapons;
@@ -1926,35 +1926,35 @@ void AUTGameMode::EndMatch()
 				return A > B;
 			});
 
-			UE_LOG(UT,Log,TEXT(""));
-			UE_LOG(UT,Log,TEXT("==================================================="));
-			UE_LOG(UT,Log,TEXT("Weapon Stats for %s"), *UTPlayerState->PlayerName);
-			UE_LOG(UT,Log,TEXT("==================================================="));
+			UE_LOG(LogUTGame,Log,TEXT(""));
+			UE_LOG(LogUTGame,Log,TEXT("==================================================="));
+			UE_LOG(LogUTGame,Log,TEXT("Weapon Stats for %s"), *UTPlayerState->PlayerName);
+			UE_LOG(LogUTGame,Log,TEXT("==================================================="));
 
-			UE_LOG(UT,Log,TEXT(""));
-			UE_LOG(UT,Log,TEXT("---------------------------------------------------"));
-			UE_LOG(UT,Log,TEXT("Kills / Deaths"));
-			UE_LOG(UT,Log,TEXT("---------------------------------------------------"));
+			UE_LOG(LogUTGame,Log,TEXT(""));
+			UE_LOG(LogUTGame,Log,TEXT("---------------------------------------------------"));
+			UE_LOG(LogUTGame,Log,TEXT("Kills / Deaths"));
+			UE_LOG(LogUTGame,Log,TEXT("---------------------------------------------------"));
 
 			for (AUTWeapon* Weapon : StatsWeapons)
 			{
 				int32 Kills = Weapon->GetWeaponKillStats(UTPlayerState);
 				int32 Deaths = Weapon->GetWeaponDeathStats(UTPlayerState);
 
-				UE_LOG(UT,Log,TEXT("%s - %i / %i"), *Weapon->DisplayName.ToString(), Kills, Deaths);
+				UE_LOG(LogUTGame,Log,TEXT("%s - %i / %i"), *Weapon->DisplayName.ToString(), Kills, Deaths);
 
 			}
 
-			UE_LOG(UT,Log,TEXT(""));
-			UE_LOG(UT,Log,TEXT("---------------------------------------------------"));
-			UE_LOG(UT,Log,TEXT("Damage Dealt"));
-			UE_LOG(UT,Log,TEXT("---------------------------------------------------"));
+			UE_LOG(LogUTGame,Log,TEXT(""));
+			UE_LOG(LogUTGame,Log,TEXT("---------------------------------------------------"));
+			UE_LOG(LogUTGame,Log,TEXT("Damage Dealt"));
+			UE_LOG(LogUTGame,Log,TEXT("---------------------------------------------------"));
 
 			for (auto& Stat : UTPlayerState->DamageDelt)	
 			{
-				UE_LOG(UT,Log,TEXT("%s : %d"), Stat.Key == nullptr ? TEXT("<none>") : *GetNameSafe(Stat.Key), Stat.Value);
+				UE_LOG(LogUTGame,Log,TEXT("%s : %d"), Stat.Key == nullptr ? TEXT("<none>") : *GetNameSafe(Stat.Key), Stat.Value);
 			}
-			UE_LOG(UT,Log,TEXT("==================================================="));
+			UE_LOG(LogUTGame,Log,TEXT("==================================================="));
 		}
 	}
 
