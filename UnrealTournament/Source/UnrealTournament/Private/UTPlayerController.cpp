@@ -2063,9 +2063,9 @@ void AUTPlayerController::ClientHearSound_Implementation(USoundBase* TheSound, A
 					}
 				}
 			}
-			if (!bAmplifyVolume && !bInstigatedSound && (bSkipIfOccluded || (bSkipIfTeammateOccluded && bSameTeam) || (CustomAmp.OccludedAttenuation != nullptr)))
+			if (!bAmplifyVolume && !bInstigatedSound && (bSkipIfOccluded || (bSkipIfTeammateOccluded && bSameTeam) || (CustomAmp.OccludedAttenuation != nullptr)) && (!SoundLocation.IsZero() || SoundPlayer))
 			{
-				// if further than half audible radius, skip if occluded
+				// if further than 0.65f audible radius, skip if occluded
 				float MaxAudibleDistance = TheSound->GetAttenuationSettingsToApply() ? TheSound->GetAttenuationSettingsToApply()->GetMaxDimension() : 4000.f;
 				if (bSameTeam)
 				{
@@ -2077,19 +2077,22 @@ void AUTPlayerController::ClientHearSound_Implementation(USoundBase* TheSound, A
 				static FName NAME_LineOfSight = FName(TEXT("LineOfSight"));
 				FCollisionQueryParams CollisionParms(NAME_LineOfSight, true, SoundPlayer);
 				CollisionParms.AddIgnoredActor(GetViewTarget());
-				bool bHit = GetWorld()->LineTraceTestByChannel(ViewPoint, SoundLocation, ECC_Visibility, CollisionParms);
+				if (SoundPlayer)
+				{
+					CollisionParms.AddIgnoredActor(SoundPlayer);
+				}
+
+				FVector PlaySoundLocation = SoundLocation.IsZero() ? SoundPlayer->GetActorLocation() : SoundLocation;
+				bool bHit = GetWorld()->LineTraceTestByChannel(ViewPoint, PlaySoundLocation, ECC_Visibility, CollisionParms);
 				if (bHit)
 				{
 					if (CustomAmp.OccludedAttenuation != nullptr)
 					{
 						AttenuationOverride = CustomAmp.OccludedAttenuation;
 					}
-					else
+					else if (0.65f * MaxAudibleDistance < (PlaySoundLocation - ViewPoint).Size())
 					{
-						if (0.75f * MaxAudibleDistance > (SoundLocation - ViewPoint).Size())
-						{
-							return;
-						}
+						return;
 					}
 				}
 			}

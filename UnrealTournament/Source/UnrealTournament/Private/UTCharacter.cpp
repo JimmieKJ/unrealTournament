@@ -3541,7 +3541,7 @@ USoundBase* AUTCharacter::GetFootstepSoundForSurfaceType(EPhysicalSurface Surfac
 
 void AUTCharacter::PlayFootstep(uint8 FootNum, bool bFirstPerson)
 {
-	if ((GetWorld()->TimeSeconds - LastFootstepTime < 0.1f) || bFeigningDeath || IsDead() || bIsCrouched)
+	if ((GetWorld()->TimeSeconds - LastFootstepTime < 0.1f) || bFeigningDeath || IsDead() || bIsCrouched || (GetNetMode() == NM_DedicatedServer))
 	{
 		return;
 	}
