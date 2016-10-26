@@ -34,7 +34,7 @@ namespace UnrealBuildTool.Rules
                 PublicLibraryPaths.Add("../../UnrealTournament/Plugins/CorsairRGB/Source/ThirdParty/CorsairRGB/lib/i386");
                 PublicAdditionalLibraries.Add("../../UnrealTournament/Plugins/CorsairRGB/Source/ThirdParty/CorsairRGB/lib/i386/CUESDK_2013.lib");
                 PublicDelayLoadDLLs.Add("../../UnrealTournament/Plugins/CorsairRGB/Binaries/Win32/CUESDK_2013.dll");
-                RuntimeDependencies.Add(new RuntimeDependency("../../UnrealTournament/Plugins/CorsairRGB/Win32/Win64/CUESDK_2013.dll"));
+                RuntimeDependencies.Add(new RuntimeDependency("../../UnrealTournament/Plugins/CorsairRGB/Win32/CUESDK_2013.dll"));
             }
         }
 	}
