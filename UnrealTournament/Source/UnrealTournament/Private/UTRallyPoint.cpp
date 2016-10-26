@@ -632,7 +632,7 @@ FVector AUTRallyPoint::GetRallyLocation(AUTCharacter* TestChar)
 {
 	if (TestChar != nullptr)
 	{
-		RallyOffset++;
+		RallyOffset += 3;
 		int32 OldRallyOffset = RallyOffset;
 		for (int32 i = 0; i < 8 - RallyOffset; i++)
 		{
