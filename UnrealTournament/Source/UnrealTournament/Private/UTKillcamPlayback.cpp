@@ -496,6 +496,14 @@ void UUTKillcamPlayback::HideKillcamFromUser()
 		It->Destroy();
 	}
 
+	for (FActorIterator It(KillcamWorld); It; ++It)
+	{
+		if (It->GetClass()->ImplementsInterface(UUTResetInterface::StaticClass()))
+		{
+			IUTResetInterface::Execute_Reset(*It);
+		}
+	}
+
 	UGameInstance* GameInstance = KillcamWorld->GetGameInstance();
 	if (GameInstance != nullptr)
 	{
