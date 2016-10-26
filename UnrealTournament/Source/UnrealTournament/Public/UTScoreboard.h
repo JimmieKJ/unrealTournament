@@ -77,6 +77,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
 	float CellWidth;
 
+	// padding between minimap and player scores
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
+		float MinimapPadding;
+
 	// width of outside edge
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
 		float EdgeWidth;

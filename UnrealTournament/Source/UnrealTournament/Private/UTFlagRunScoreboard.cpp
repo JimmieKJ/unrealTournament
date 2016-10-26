@@ -47,9 +47,8 @@ UUTFlagRunScoreboard::UUTFlagRunScoreboard(const FObjectInitializer& ObjectIniti
 	AttackLines.Add(NSLOCTEXT("UTScoreboard", "DefenseLine5", "* When the flag carrier is out of combat, teammates can"));
 	AttackLines.Add(NSLOCTEXT("UTScoreboard", "DefenseLine5b", "  teleport to him by pressing the rally button."));
 
-	static ConstructorHelpers::FObjectFinder<USoundBase> PressedSelect(TEXT("SoundCue'/Game/RestrictedAssets/UI/UT99UI_LittleSelect_Cue.UT99UI_LittleSelect_Cue'"));
+	static ConstructorHelpers::FObjectFinder<USoundBase> PressedSelect(TEXT("SoundCue'/Game/RestrictedAssets/Audio/UI/A_UI_BigSelect02_Cue.A_UI_BigSelect02_Cue'")); 
 	LineDisplaySound = PressedSelect.Object;
-
 }
 
 void UUTFlagRunScoreboard::DrawMinimap(float RenderDelta)

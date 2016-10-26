@@ -67,6 +67,7 @@ UUTScoreboard::UUTScoreboard(const class FObjectInitializer& ObjectInitializer) 
 	ReadyScale = 1.f;
 	bDrawMinimapInScoreboard = true;
 	bForceRealNames = false;
+	MinimapPadding = 12.f;
 }
 
 void UUTScoreboard::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas* InCanvas, FVector2D InCanvasCenter)
@@ -131,7 +132,7 @@ void UUTScoreboard::DrawMinimap(float RenderDelta)
 	if (bDrawMinimapInScoreboard && UTGameState && UTHUDOwner && !UTHUDOwner->IsPendingKillPending())
 	{
 		bool bToggledMinimap = !UTGameState->HasMatchStarted() && (!UTPlayerOwner || !UTPlayerOwner->UTPlayerState || !UTPlayerOwner->UTPlayerState->bIsWarmingUp);
-		const float MapSize = (UTGameState && UTGameState->bTeamGame) ? FMath::Min(Canvas->ClipX - 2.f*ScaledEdgeSize - 2.f*ScaledCellWidth, 0.9f*Canvas->ClipY - 120.f * RenderScale)
+		const float MapSize = (UTGameState && UTGameState->bTeamGame) ? FMath::Min(Canvas->ClipX - 2.f*ScaledEdgeSize - 2.f*ScaledCellWidth - MinimapPadding*RenderScale, 0.9f*Canvas->ClipY - 120.f * RenderScale)
 			: FMath::Min(0.5f*Canvas->ClipX, 0.9f*Canvas->ClipY - 120.f * RenderScale);
 		if (!bToggledMinimap || !UTHUDOwner->bShowScores)
 		{

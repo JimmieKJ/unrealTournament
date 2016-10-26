@@ -11,7 +11,7 @@ UUTTeamScoreboard::UUTTeamScoreboard(const class FObjectInitializer& ObjectIniti
 	RedTeamText = NSLOCTEXT("UTTeamScoreboard", "RedTeam", "RED");
 	BlueTeamText = NSLOCTEXT("UTTeamScoreboard", "BlueTeam", "BLUE");
 	CellWidth = 480.f;
-	EdgeWidth = 100.f;
+	EdgeWidth = 96.f;
 	MinimapCenter = FVector2D(0.5f, 0.525f);
 	bUseRoundKills = false;
 }
