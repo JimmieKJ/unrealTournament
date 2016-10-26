@@ -362,7 +362,7 @@ void FSlateRHIRenderer::UpdateFullscreenState( const TSharedRef<SWindow> Window,
 
 void FSlateRHIRenderer::RestoreSystemResolution(const TSharedRef<SWindow> InWindow)
 {
-	if (!GIsEditor)
+	if (!GIsEditor && InWindow->GetWindowMode() == EWindowMode::Fullscreen)
 	{
 		// Force the window system to resize the active viewport, even though nothing might have appeared to change.
 		// On windows, DXGI might change the window resolution behind our backs when we alt-tab out. This will make
