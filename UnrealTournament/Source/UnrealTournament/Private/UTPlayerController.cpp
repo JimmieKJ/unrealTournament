@@ -2052,6 +2052,16 @@ void AUTPlayerController::ClientHearSound_Implementation(USoundBase* TheSound, A
 					VolumeMultiplier = CustomAmp.TeammateVolumeMultiplier;
 					PitchMultiplier = CustomAmp.TeammatePitchMultiplier;
 				}
+				else if (AmpType == SAT_Footstep)
+				{
+					FVector ViewPoint;
+					FRotator ViewRotation;
+					GetActorEyesViewPoint(ViewPoint, ViewRotation);
+					if (SoundPlayer && ((ViewRotation.Vector() | (SoundPlayer->GetActorLocation() - ViewPoint).GetSafeNormal()) < 0.7f))
+					{
+						VolumeMultiplier = 2.f;
+					}
+				}
 			}
 			if (!bAmplifyVolume && !bInstigatedSound && (bSkipIfOccluded || (bSkipIfTeammateOccluded && bSameTeam) || (CustomAmp.OccludedAttenuation != nullptr)))
 			{
