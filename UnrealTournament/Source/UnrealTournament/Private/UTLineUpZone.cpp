@@ -9,7 +9,7 @@ AUTLineUpZone::AUTLineUpZone(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
 	bSnapToFloor = true;
-	SnapFloorOffset = 90.f;
+	SnapFloorOffset = 84.f;
 
 	SceneRoot = ObjectInitializer.CreateDefaultSubobject<USceneComponent>(this, TEXT("SceneComponent"));
 	RootComponent = SceneRoot;

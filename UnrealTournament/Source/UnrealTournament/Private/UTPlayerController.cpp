@@ -5303,6 +5303,8 @@ void AUTPlayerController::ClientSetLineUpCamera_Implementation(UWorld* World, Li
 		{
 			GetPawn()->TurnOff();
 		}
+
+		SetIgnoreLookInput(true);
 	}
 }
 

@@ -241,17 +241,29 @@ void UUTLineUpHelper::MovePreviewCharactersToLineUpSpawns(UWorld* World, LineUpT
 		{
 			if ((PreviewChar->GetTeamNum() == RedAndWinningTeamNumber) && (RedSpawns.Num() > RedIndex))
 			{
-				PreviewChar->TeleportTo(SpawnList->GetActorLocation() + RedSpawns[RedIndex].GetLocation(), SpawnList->GetActorRotation() + RedSpawns[RedIndex].Rotator());
+				FTransform SpawnTransform = SpawnList->GetActorTransform();
+				SpawnTransform = RedSpawns[RedIndex] * SpawnTransform;
+				
+				PreviewChar->TeleportTo(SpawnTransform.GetTranslation(), SpawnTransform.GetRotation().Rotator(),false, true);
+				PreviewChar->Controller->SetControlRotation(SpawnTransform.GetRotation().Rotator());
 				++RedIndex;
 			}
 			else if ((PreviewChar->GetTeamNum() == BlueAndLosingTeamNumber) && (BlueSpawns.Num() > BlueIndex))
 			{
-				PreviewChar->TeleportTo(SpawnList->GetActorLocation() + BlueSpawns[BlueIndex].GetLocation(), SpawnList->GetActorRotation() + BlueSpawns[BlueIndex].Rotator(),false,true);
+				FTransform SpawnTransform = SpawnList->GetActorTransform();
+				SpawnTransform = BlueSpawns[BlueIndex] * SpawnTransform;
+
+				PreviewChar->TeleportTo(SpawnTransform.GetTranslation(), SpawnTransform.GetRotation().Rotator(), false, true);
+				PreviewChar->Controller->SetControlRotation(SpawnTransform.GetRotation().Rotator());
 				++BlueIndex;
 			}
 			else if (FFASpawns.Num() > FFAIndex)
 			{
-				PreviewChar->TeleportTo(SpawnList->GetActorLocation() + FFASpawns[FFAIndex].GetLocation(), SpawnList->GetActorRotation() + FFASpawns[FFAIndex].Rotator(),false,true);
+				FTransform SpawnTransform = SpawnList->GetActorTransform();
+				SpawnTransform = FFASpawns[FFAIndex] * SpawnTransform;
+
+				PreviewChar->TeleportTo(SpawnTransform.GetTranslation(), SpawnTransform.GetRotation().Rotator(), false, true);
+				PreviewChar->Controller->SetControlRotation(SpawnTransform.GetRotation().Rotator());
 				++FFAIndex;
 			}
 			//If they are not part of the line up display... remove them
