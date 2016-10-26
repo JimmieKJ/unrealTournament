@@ -43,6 +43,7 @@
 #include "UTFlagRunGameState.h"
 #include "UTRallyPoint.h"
 #include "PhysicsEngine/ConstraintInstance.h"
+#include "Engine/DemoNetDriver.h"
 
 static FName NAME_HatSocket(TEXT("HatSocket"));
 
@@ -2501,6 +2502,11 @@ void AUTCharacter::ClearFiringInfo()
 }
 void AUTCharacter::FiringInfoReplicated()
 {
+	if (GetWorld()->DemoNetDriver && GetWorld()->DemoNetDriver->IsFastForwarding())
+	{
+		return;
+	}
+
 	// if we locally simulated this shot, ignore the replicated value
 	if (!bLocalFlashLoc)
 	{
@@ -2565,6 +2571,11 @@ void AUTCharacter::FiringInfoUpdated()
 }
 void AUTCharacter::FiringExtraUpdated()
 {
+	if (GetWorld()->DemoNetDriver && GetWorld()->DemoNetDriver->IsFastForwarding())
+	{
+		return;
+	}
+
 	AUTPlayerController* UTPC = Cast<AUTPlayerController>(Controller);
 	if (WeaponAttachment != NULL && (!IsLocallyControlled() || UTPC == NULL || UTPC->IsBehindView()))
 	{
