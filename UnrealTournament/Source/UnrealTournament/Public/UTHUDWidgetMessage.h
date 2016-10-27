@@ -8,128 +8,11 @@
  **/
 #include "UTAnnouncer.h"
 #include "UTUMGHudWidget.h"
+#include "UTATypes.h"
 #include "UTHUDWidgetMessage.generated.h"
 
 const int32 MESSAGE_QUEUE_LENGTH = 8;
 
-USTRUCT(BlueprintType)
-struct UNREALTOURNAMENT_API FLocalizedMessageData
-{
-	GENERATED_USTRUCT_BODY()
-
-	// These members are static and set only upon construction
-
-	// A cached reference to the class of this message.
-	UPROPERTY(BlueprintReadOnly, Category = HUD)
-	TSubclassOf<UUTLocalMessage> MessageClass;
-
-	// The index.
-	UPROPERTY(BlueprintReadOnly, Category = HUD)
-	int32 MessageIndex;
-
-	// The text of this message.  We build this once so we don't have to process the string each frame
-	UPROPERTY(BlueprintReadOnly, Category = HUD)
-	FText Text;
-	
-	// which section of text should have emphasis effects
-	UPROPERTY(BlueprintReadOnly, Category = HUD)
-		FText EmphasisText;
-
-	// which section of text should have emphasis effects
-	UPROPERTY(BlueprintReadOnly, Category = HUD)
-		FText PrefixText;
-
-	// which section of text should have emphasis effects
-	UPROPERTY(BlueprintReadOnly, Category = HUD)
-		FText PostfixText;
-
-	// How much time does this message have left
-	UPROPERTY(BlueprintReadOnly, Category = HUD)
-	float LifeLeft;
-
-	// How long total this message has in its life
-	UPROPERTY(BlueprintReadOnly, Category = HUD)
-	float LifeSpan;
-
-	// How long to scale in this message
-	UPROPERTY(BlueprintReadOnly, Category = HUD)
-	float ScaleInTime;
-
-	// Starting scale of message
-	UPROPERTY(BlueprintReadOnly, Category = HUD)
-	float ScaleInSize;
-
-	// The related playerstates from the localized message
-	UPROPERTY(BlueprintReadOnly, Category = HUD)
-	APlayerState* RelatedPlayerState_1;
-	UPROPERTY(BlueprintReadOnly, Category = HUD)
-	APlayerState* RelatedPlayerState_2;
-
-	// The optional object for this class.  
-	UPROPERTY(BlueprintReadOnly, Category = HUD)
-	UObject* OptionalObject;
-
-	// DrawColor will get set to the base color upon creation.  You can manually apply any 
-	// palette/alpha shifts safely during render.
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
-	FLinearColor DrawColor;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
-		FLinearColor EmphasisColor;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
-	UFont* DisplayFont;
-
-	// These members are setup at first render.
-	UPROPERTY(BlueprintReadOnly, Category = HUD)
-	float TextWidth;
-	
-	UPROPERTY(BlueprintReadOnly, Category = HUD)
-	float TextHeight;
-
-	UPROPERTY(BlueprintReadOnly, Category = HUD)
-	bool bHasBeenRendered;
-
-	// Count is tracked differently.  It's incremented when the same message arrives
-	UPROPERTY(BlueprintReadOnly, Category = HUD)
-	int32 MessageCount;
-
-	UPROPERTY(BlueprintReadOnly, Category = HUD)
-		int32 RequestedSlot;
-
-	UPROPERTY()
-		FVector2D ShadowDirection;
-
-	UPROPERTY()
-	TWeakObjectPtr<class UUTUMGHudWidget> UMGWidget;
-
-	UPROPERTY()
-		FAnnouncementInfo AnnouncementInfo;
-
-	virtual bool ShouldDraw_Implementation(bool bShowScores)
-	{
-		return bShowScores;
-	}
-
-	FLocalizedMessageData()
-		: MessageClass(NULL)
-		, MessageIndex(0)
-		, LifeLeft(0)
-		, LifeSpan(0)
-		, RelatedPlayerState_1(nullptr)
-		, RelatedPlayerState_2(nullptr)
-		, OptionalObject(NULL)
-		, DrawColor(ForceInit)
-		, DisplayFont(NULL)
-		, TextWidth(0)
-		, TextHeight(0)
-		, bHasBeenRendered(false)
-		, MessageCount(0)
-	{
-		UMGWidget.Reset();
-	}
-
-};
 
 UCLASS()
 class UNREALTOURNAMENT_API UUTHUDWidgetMessage : public UUTHUDWidget
@@ -177,6 +60,9 @@ public:
 
 	UPROPERTY()
 		FText CombinedEmphasisText;
+
+	UPROPERTY()
+		int32 CombinedMessageIndex;
 
 	virtual void PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas* InCanvas, FVector2D InCanvasCenter);
 	virtual void Draw_Implementation(float DeltaTime);

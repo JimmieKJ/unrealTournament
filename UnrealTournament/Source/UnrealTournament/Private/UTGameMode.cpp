@@ -1467,19 +1467,24 @@ void AUTGameMode::TrackKillAssists(AController* Killer, AController* Other, APaw
 		AUTCharacter* Char = Cast<AUTCharacter>(KilledPawn);
 		if (Char)
 		{
+			TArray<AUTPlayerState*> TrackedAssists;
 			for (int32 i = 0; i < Char->HealthRemovalAssists.Num(); i++)
 			{
 				if (Char->HealthRemovalAssists[i] && !Char->HealthRemovalAssists[i]->IsPendingKillPending() && (Char->HealthRemovalAssists[i] != KillerPlayerState))
 				{
-					Char->HealthRemovalAssists[i]->IncrementKillAssists(DamageType, true, OtherPlayerState);
+					TrackedAssists.AddUnique(Char->HealthRemovalAssists[i]);
 				}
 			}
 			for (int32 i = 0; i < Char->ArmorRemovalAssists.Num(); i++)
 			{
 				if (Char->ArmorRemovalAssists[i] && !Char->ArmorRemovalAssists[i]->IsPendingKillPending() && (Char->ArmorRemovalAssists[i] != KillerPlayerState))
 				{
-					Char->ArmorRemovalAssists[i]->IncrementKillAssists(DamageType, true, OtherPlayerState);
+					TrackedAssists.AddUnique(Char->ArmorRemovalAssists[i]);
 				}
+			}
+			for (int32 i = 0; i < TrackedAssists.Num(); i++)
+			{
+				TrackedAssists[i]->IncrementKillAssists(DamageType, true, OtherPlayerState);
 			}
 		}
 	}

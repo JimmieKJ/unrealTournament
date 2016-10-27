@@ -3,16 +3,17 @@
 #include "UnrealTournament.h"
 #include "UTLocalMessage.h"
 #include "UTKillerMessage.h"
+#include "UTATypes.h"
 
 UUTKillerMessage::UUTKillerMessage(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	Lifetime=3.0;
+	Lifetime = 3.0;
 	bIsUnique = true;
 	bCombineEmphasisText = true;
 	MessageArea = FName(TEXT("Announcements"));
 	MessageSlot = FName(TEXT("DeathMessage"));
-	YouKilledPrefixText = NSLOCTEXT("UTKillerMessage","YouKilledPrefixText","You killed ");
+	YouKilledPrefixText = NSLOCTEXT("UTKillerMessage", "YouKilledPrefixText", "You killed ");
 	YouKilledPostfixText = NSLOCTEXT("UTKillerMessage", "YouKilledPostfixText", "");
 	KillAssistedPrefixText = NSLOCTEXT("UTKillerMessage", "KillAssistedPrefixText", "Kill assist ");
 	KillAssistedPostfixText = NSLOCTEXT("UTKillerMessage", "KillAssisted", "");
@@ -44,3 +45,25 @@ FText UUTKillerMessage::GetText(int32 Switch,bool bTargetsPlayerState1,class APl
 	}
 	return BuildEmphasisText(Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
 }
+
+FText UUTKillerMessage::CombineEmphasisText(int32 CombinedMessageIndex, FText CombinedEmphasisText, FText OriginalEmphasisText) const
+{
+	FFormatNamedArguments Args;
+	Args.Add(TEXT("FirstText"), CombinedEmphasisText);
+	Args.Add(TEXT("SecondText"), OriginalEmphasisText);
+	return FText::Format(NSLOCTEXT("UTLocalMessage", "CombinedEmphasisText", "{FirstText} & {SecondText}"), Args);
+}
+
+FText UUTKillerMessage::CombinePrefixText(int32 CombinedMessageIndex, FText OriginalPrefixText) const
+{
+	return (CombinedMessageIndex != 2) ? YouKilledPrefixText : OriginalPrefixText;
+}
+
+FText UUTKillerMessage::CombineText(int32 CombinedMessageIndex, FText CombinedEmphasisText, FText OriginalCombinedText) const
+{
+	FFormatNamedArguments Args;
+	Args.Add(TEXT("FirstText"), CombinedEmphasisText);
+	Args.Add(TEXT("FullText"), OriginalCombinedText);
+	return FText::Format(NSLOCTEXT("UTLocalMessage", "CombinedFullText", "{FullText} & {FirstText}"), Args);
+}
+
