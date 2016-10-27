@@ -113,6 +113,9 @@ int32 UUTCharacterVoice::GetDestinationIndex(int32 MessageIndex) const
 
 FText UUTCharacterVoice::GetText(int32 Switch, bool bTargetsPlayerState1, class APlayerState* RelatedPlayerState_1, class APlayerState* RelatedPlayerState_2, class UObject* OptionalObject) const
 {
+	// @TOOD FIXMESTEVE option to turn these one
+	return FText::GetEmpty();
+
 	FFormatNamedArguments Args;
 	if (!RelatedPlayerState_1)
 	{
