@@ -583,7 +583,7 @@ void UUTGameInstance::BeginLevelLoading(const FString& LevelName)
 	AUTBaseGameMode* GM = GetWorld()->GetAuthGameMode<AUTBaseGameMode>();
 	if (GM)
 	{
-		GM->OnLoadingMovieEnd();
+		GM->OnLoadingMovieBegin();
 	}
 
 	// Grab just the map name, minus the path
