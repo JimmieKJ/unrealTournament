@@ -832,7 +832,8 @@ void AUTBot::Tick(float DeltaTime)
 				}
 				if (GetCharacter() != NULL && GetCharacter()->GetCharacterMovement()->MovementMode == MOVE_Falling && GetCharacter()->GetCharacterMovement()->AirControl > 0.0f && GetCharacter()->GetCharacterMovement()->MaxWalkSpeed > 0.0f)
 				{
-					if (!CurrentPath.Spec.IsValid() || !CurrentPath.Spec->OverrideAirControl(CurrentPath, GetPawn(), GetMoveBasedPosition(), MoveTarget))
+					// note: bRestrictedJump check last so reachspec can react to/override that flag if it knows better
+					if ((!CurrentPath.Spec.IsValid() || !CurrentPath.Spec->OverrideAirControl(CurrentPath, GetPawn(), GetMoveBasedPosition(), MoveTarget)) && !bRestrictedJump)
 					{
 						// figure out desired 2D velocity and set air control to achieve that
 						FVector DesiredVel2D;
@@ -1976,6 +1977,7 @@ void AUTBot::PostMovementUpdate(float DeltaTime, FVector OldLocation, FVector Ol
 
 void AUTBot::NotifyLanded(const FHitResult& Hit)
 {
+	bRestrictedJump = false;
 	bPlannedWallDodge = false;
 	if (UTChar != NULL)
 	{
@@ -1985,6 +1987,7 @@ void AUTBot::NotifyLanded(const FHitResult& Hit)
 
 void AUTBot::NotifyJumpApex()
 {
+	bRestrictedJump = false;
 	if (UTChar != NULL && UTChar->CanJump())
 	{
 		UUTReachSpec_HighJump* JumpSpec = Cast<UUTReachSpec_HighJump>(CurrentPath.Spec.Get());
@@ -2586,6 +2589,7 @@ void AUTBot::ExecuteWhatToDoNext()
 	{
 		GetCharacter()->GetCharacterMovement()->bWantsToCrouch = false;
 	}
+	bRestrictedJump = false;
 
 	if (GetCharacter() != NULL && GetCharacter()->GetCharacterMovement()->MovementMode == MOVE_Falling)
 	{

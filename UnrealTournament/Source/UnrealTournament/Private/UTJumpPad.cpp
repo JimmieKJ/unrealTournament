@@ -92,6 +92,7 @@ void AUTJumpPad::Launch_Implementation(AActor* Actor)
 		AUTRecastNavMesh* NavData = GetUTNavData(GetWorld());
 		if (B != NULL && NavData != NULL)
 		{
+			B->bRestrictedJump = bAIReducedAirControl;
 			const float MinMoveTimer = bJumpThroughWater ? (JumpTime + 1.0f) : JumpTime;
 			bool bRepathOnLand = false;
 			bool bExpectedJumpPad = B->GetMoveTarget().Actor == this || (B->GetMoveTarget().Node != NULL && B->GetMoveTarget().Node->POIs.Contains(this));

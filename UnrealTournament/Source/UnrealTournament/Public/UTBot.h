@@ -367,6 +367,9 @@ class UNREALTOURNAMENT_API AUTBot : public AAIController, public IUTTeamInterfac
 	 */
 	UPROPERTY()
 	bool bFinishRotation;
+	/** if set don't air control during upwards movement of current jump (used to avoid cases where air control causes the AI to get snagged on edges or outcroppings) */
+	UPROPERTY()
+	bool bRestrictedJump;
 
 	/** aggression value for most recent combat action after all personality/enemy strength/squad/weapon modifiers */
 	UPROPERTY()
