@@ -23,8 +23,8 @@ AUTProj_Redeemer::AUTProj_Redeemer(const class FObjectInitializer& ObjectInitial
 	}
 
 	// Movement
-	ProjectileMovement->InitialSpeed = 2000.f;
-	ProjectileMovement->MaxSpeed = 2000.f;
+	ProjectileMovement->InitialSpeed = 1700.f;
+	ProjectileMovement->MaxSpeed = 1700.f;
 	ProjectileMovement->ProjectileGravityScale = 0.0f;
 
 	ExplosionTimings[0] = 0.18f;
@@ -389,9 +389,11 @@ void AUTProj_Redeemer::Tick(float DeltaTime)
 			}
 			else
 			{
+				TInlineComponentArray<UMeshComponent*> Meshes(this);
+				UMeshComponent* Mesh = (Meshes.Num() > 0) ? Meshes[0] : nullptr;
 				for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
 				{
-					if (It->PlayerController != nullptr && GS->OnSameTeam(It->PlayerController, Instigator))
+					if (It->PlayerController != nullptr && (GS->OnSameTeam(It->PlayerController, Instigator) || (Mesh && (GetWorld()->GetTimeSeconds() - Mesh->LastRenderTime < 0.05f))) )
 					{
 						// note: does not handle splitscreen
 						bShowOutline = true;
@@ -409,6 +411,7 @@ void AUTProj_Redeemer::Tick(float DeltaTime)
 				{
 					CustomDepthMesh = CreateCustomDepthOutlineMesh(Meshes[0], this);
 					CustomDepthMesh->CustomDepthStencilValue = TeamOwner->GetTeamNum() + 1;
+					CustomDepthMesh->CustomDepthStencilValue |= 128;
 					CustomDepthMesh->RegisterComponent();
 				}
 			}

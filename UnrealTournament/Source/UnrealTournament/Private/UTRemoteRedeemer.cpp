@@ -40,8 +40,8 @@ AUTRemoteRedeemer::AUTRemoteRedeemer(const class FObjectInitializer& ObjectIniti
 	// Use a ProjectileMovementComponent to govern this projectile's movement
 	ProjectileMovement = ObjectInitializer.CreateDefaultSubobject<UUTProjectileMovementComponent>(this, TEXT("ProjectileComp"));
 	ProjectileMovement->UpdatedComponent = CollisionComp;
-	ProjectileMovement->InitialSpeed = 2000.f;
-	ProjectileMovement->MaxSpeed = 2000.f;
+	ProjectileMovement->InitialSpeed = 1700.f;
+	ProjectileMovement->MaxSpeed = 1700.f;
 	ProjectileMovement->ProjectileGravityScale = 0;
 	ProjectileMovement->bShouldBounce = false;
 	ProjectileMovement->OnProjectileStop.AddDynamic(this, &AUTRemoteRedeemer::OnStop);
@@ -49,7 +49,7 @@ AUTRemoteRedeemer::AUTRemoteRedeemer(const class FObjectInitializer& ObjectIniti
 	SetReplicates(true);
 	bNetTemporary = false;
 
-	AccelRate = 4000.f;
+	AccelRate = 3400.f;
 	RedeemerMouseSensitivity = 700.0f;
 	AccelerationBlend = 5.0f;
 	MaximumRoll = 25.0f;
@@ -703,9 +703,11 @@ void AUTRemoteRedeemer::Tick(float DeltaSeconds)
 			}
 			else
 			{
+				TInlineComponentArray<UMeshComponent*> Meshes(this);
+				UMeshComponent* Mesh = (Meshes.Num() > 0) ? Meshes[0] : nullptr;
 				for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
 				{
-					if (It->PlayerController != nullptr && GS->OnSameTeam(It->PlayerController, this))
+					if (It->PlayerController != nullptr && (GS->OnSameTeam(It->PlayerController, this) || (Mesh && (GetWorld()->GetTimeSeconds() - Mesh->LastRenderTime < 0.05f))))
 					{
 						// note: does not handle splitscreen
 						bShowOutline = true;
@@ -723,6 +725,7 @@ void AUTRemoteRedeemer::Tick(float DeltaSeconds)
 				{
 					CustomDepthMesh = CreateCustomDepthOutlineMesh(Meshes[0], this);
 					CustomDepthMesh->CustomDepthStencilValue = (GetTeamNum() == 255) ? 255 : GetTeamNum() + 1;
+					CustomDepthMesh->CustomDepthStencilValue |= 128;
 					CustomDepthMesh->RegisterComponent();
 				}
 			}
