@@ -833,7 +833,7 @@ void UUTScoreboard::DrawScoringStats(float DeltaTime, float& YPos)
 	FVector2D SavedRenderPosition = RenderPosition;
 	RenderPosition = FVector2D(0.f, 0.f);
 	float TopYPos = YPos;
-	float ScoreWidth = 1.2f*ScaledCellWidth;
+	float ScoreWidth = 1.15f*ScaledCellWidth;
 	float MaxHeight = FooterPosY + SavedRenderPosition.Y - YPos;
 	float PageBottom = TopYPos + MaxHeight;
 
