@@ -292,7 +292,7 @@ void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTi
 				&& (!UTPC->IsFrozen() || (UTPC->GetFrozenTime() > 0.25f)) && (GetWorld()->GetTimeSeconds() - UTPC->DeathCamTime < 3.f))
 			{
 				bool bZoomIn = ((GetWorld()->GetTimeSeconds() - UTPC->DeathCamFocus->GetLastRenderTime() < 0.2f) && (UTPC->GetFrozenTime() > 0.5f));
-				float ZoomFactor = FMath::Clamp(2.f*UTPC->GetFrozenTime() - 1.f, 0.f, 1.f);
+				float ZoomFactor = FMath::Clamp(1.5f*UTPC->GetFrozenTime() - 0.8f, 0.f, 1.f);
 				float DistanceScaling = bZoomIn ? 1.f - ZoomFactor : 1.f;
 				CameraOffset.Z = CameraOffset.Z * (1.f - ZoomFactor) + 90.f*ZoomFactor;
 				FVector Pos = Loc + FRotationMatrix(Rotator).TransformVector(CameraOffset) - Rotator.Vector() * CameraDistance * DistanceScaling;
@@ -313,7 +313,7 @@ void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTi
 				{
 					// zoom in
 					float ViewDist = (UTPC->DeathCamFocus->GetActorLocation() - OutVT.POV.Location).SizeSquared();
-					float ZoomedFOV = DefaultFOV * FMath::Clamp(360000.f/FMath::Max(1.f, ViewDist), 0.2f, 1.f);
+					float ZoomedFOV = DefaultFOV * FMath::Clamp(360000.f/FMath::Max(1.f, ViewDist), 0.3f, 1.f);
 					OutVT.POV.FOV = DefaultFOV * (1.f - ZoomFactor) + ZoomedFOV*ZoomFactor;
 					DesiredViewRotation.Pitch = FMath::UnwindDegrees(DesiredViewRotation.Pitch);
 				}
