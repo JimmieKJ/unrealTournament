@@ -267,7 +267,7 @@ void AUTBasePlayerController::ServerSay_Implementation(const FString& Message, b
 				if (!bTeamMessage || UTPC->GetTeamNum() == GetTeamNum())
 				{
 					TSharedPtr<const FUniqueNetId> Id = PlayerState->UniqueId.GetUniqueNetId();
-					bool bIsMuted =  UTPC->MuteList.VoiceMuteList.IndexOfByPredicate(FUniqueNetIdMatcher(*Id)) != INDEX_NONE;
+					bool bIsMuted =  Id.IsValid() && UTPC->MuteList.VoiceMuteList.IndexOfByPredicate(FUniqueNetIdMatcher(*Id)) != INDEX_NONE;
 
 					// Dont send spectator chat to players
 					if (UTPC->PlayerState != nullptr && (!bSpectatorMsg || UTPC->PlayerState->bOnlySpectator) && !bIsMuted)
