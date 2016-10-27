@@ -6,7 +6,7 @@
 
 const float MAX_HIT_INDICATOR_TIME = 1.5f;
 const float MAX_HIT_MOVEMENT = 100.0f;
-const float MAX_HIT_DAMAGE = 150.0f;
+const float MAX_HIT_DAMAGE = 125.0f;
 const float HIT_STRETCH_TIME=0.15f;
 const float FLASH_BLINK_TIME=0.5;
 
@@ -99,7 +99,7 @@ void UUTHUDWidget_WeaponCrosshair::Draw_Implementation(float DeltaTime)
 		if (FlashTime < Duration)
 		{
 			float DrawOpacity = 1.0f - FlashTime / Duration;
-			float Height = 16.0f + (128.0f * LastHitMagnitude * DrawOpacity) ;
+			float Height = 8.0f + (150.0f * LastHitMagnitude * DrawOpacity) ;
 
 			for (int32 i = 0; i < 4; i++)
 			{
