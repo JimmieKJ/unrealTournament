@@ -8,8 +8,8 @@ UUTHUDWidget_FlagRunStatus::UUTHUDWidget_FlagRunStatus(const FObjectInitializer&
 	: Super(ObjectInitializer)
 {
 	NormalLineBrightness = 0.025f;
-	LineGlow = 0.5f;
-	PulseLength = 3.f;
+	LineGlow = 0.4f;
+	PulseLength = 1.5f;
 	bAlwaysDrawFlagHolderName = false;
 }
 
@@ -240,7 +240,7 @@ void UUTHUDWidget_FlagRunStatus::DrawFlagWorld(AUTCTFGameState* GameState, FVect
 		float LineBrightness = NormalLineBrightness;
 		if (TimeSinceChange < 0.1f)
 		{
-			LineBrightness += LineGlow * TimeSinceChange * 10.f;
+			LineBrightness = LineGlow * TimeSinceChange * 10.f;
 		}
 		else if (TimeSinceChange < 0.1f + PulseLength)
 		{
