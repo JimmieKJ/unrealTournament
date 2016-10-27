@@ -277,7 +277,7 @@ void AUTJumpPad::AddSpecialPaths(class UUTPathNode* MyNode, class AUTRecastNavMe
 			// intentionally place start loc high up to avoid clipping the edges of any irrelevant geometry
 			MyLoc.Z += NavData->ScoutClass.GetDefaultObject()->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight() * 3.0f;
 
-			const float EffectiveRestrictedTime = bJumpThroughWater ? FMath::Max<float>(JumpTime * 0.5f, RestrictedJumpTime) : RestrictedJumpTime;
+			const float EffectiveRestrictedTime = (bJumpThroughWater || bAIReducedAirControl) ? FMath::Max<float>(JumpTime * 0.5f, RestrictedJumpTime) : RestrictedJumpTime;
 			const float AirControlPct = NavData->ScoutClass.GetDefaultObject()->GetCharacterMovement()->AirControl;
 			const float AirAccelRate = AirControlPct * NavData->ScoutClass.GetDefaultObject()->GetCharacterMovement()->MaxAcceleration;
 			const FCollisionShape ScoutShape = FCollisionShape::MakeCapsule(NavData->ScoutClass.GetDefaultObject()->GetCapsuleComponent()->GetUnscaledCapsuleRadius(), NavData->ScoutClass.GetDefaultObject()->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight());
