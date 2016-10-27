@@ -63,6 +63,7 @@ AUTRemoteRedeemer::AUTRemoteRedeemer(const class FObjectInitializer& ObjectIniti
 	ProjHealth = 50;
 	LockCount = 0;
 	CachedTeamNum = 255;
+	MaxFuelTime = 20.f;
 }
 
 FVector AUTRemoteRedeemer::GetVelocity() const
@@ -91,7 +92,6 @@ bool AUTRemoteRedeemer::DriverEnter(APawn* NewDriver)
 	{
 		return false;
 	}
-
 	if (Driver != nullptr)
 	{
 		DriverLeave(true);
@@ -99,6 +99,7 @@ bool AUTRemoteRedeemer::DriverEnter(APawn* NewDriver)
 
 	if (NewDriver != nullptr)
 	{
+		CurrentFuelTime = MaxFuelTime;
 		Driver = NewDriver;
 		AController* C = NewDriver->Controller;
 		if (C)
@@ -646,7 +647,16 @@ void AUTRemoteRedeemer::TornOff()
 void AUTRemoteRedeemer::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
-
+	CurrentFuelTime -= DeltaSeconds;
+	if ((Role == ROLE_Authority) && (CurrentFuelTime < 0.f))
+	{
+		BlowUp();
+		return;
+	}
+	else if ((CurrentFuelTime < 3.f) && (CurrentFuelTime + DeltaSeconds >= 3.f) && FuelWarningSound && Cast<AUTPlayerController>(GetController()))
+	{
+		Cast<AUTPlayerController>(GetController())->UTClientPlaySound(FuelWarningSound);
+	}
 	if (Role != ROLE_SimulatedProxy)
 	{
 		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
@@ -864,6 +874,38 @@ void AUTRemoteRedeemer::PostRender(AUTHUD* HUD, UCanvas* C)
 	LockCount = NewLockCount;
 
 	HUD->DrawKillSkulls();
+
+	bool bFuelCritical = (CurrentFuelTime < 3.f);
+	float Width = 150.f;
+	float Height = 21.f;
+	float WidthScale = C->ClipX / 1920.f;
+	float HeightScale = 1.5f * WidthScale;
+	WidthScale *= 1.5f;
+	FLinearColor ChargeColor = FLinearColor::White;
+	float ChargePct = FMath::Clamp(CurrentFuelTime / MaxFuelTime, 0.f, 1.f);
+	float XPos = 0.5f*C->ClipX;
+	float YPos = 0.95f * C->ClipY;
+	DrawTexture(C, HUD->HUDAtlas, XPos - 0.5f*WidthScale*Width, YPos, WidthScale*Width*ChargePct, HeightScale*Height, 127, 641, Width, Height, bFuelCritical ? 1.f : 0.7f, FLinearColor::White, FVector2D(0.f, 0.5f));
+
+	float XL, YL;
+	FText Fuel = NSLOCTEXT("Redeemer", "Fuel", "FUEL");
+	C->TextSize(HUD->SmallFont, Fuel.ToString(), XL, YL);
+	FFontRenderInfo TextRenderInfo;
+	TextRenderInfo.bEnableShadow = true;
+	C->SetDrawColor(FLinearColor::White.ToFColor(false));
+	C->DrawText(HUD->TinyFont, Fuel, XPos - 0.5f*WidthScale*Width - 1.1f*XL, YPos - 0.5f*YL, 1.f, 1.f, TextRenderInfo);
+	if (bFuelCritical)
+	{
+		float XL, YL;
+		FText FuelWarning = NSLOCTEXT("Redeemer", "FuelWarning", "WARNING");
+		C->TextSize(HUD->SmallFont, FuelWarning.ToString(), XL, YL);
+		FFontRenderInfo TextRenderInfo;
+		TextRenderInfo.bEnableShadow = true;
+		FLinearColor WarningColor = (FMath::Cos(2.f*PI*CurrentFuelTime) > 0.f) ? FLinearColor::Yellow : FLinearColor::Red;
+		C->SetDrawColor(WarningColor.ToFColor(false));
+		C->DrawText(HUD->TinyFont, FuelWarning, XPos - 0.5f*XL, YPos - 0.5f*YL, 1.f, 1.f, TextRenderInfo);
+	}
+	DrawTexture(C, HUD->HUDAtlas, XPos - 0.5f*WidthScale*Width, YPos, WidthScale*Width, HeightScale*Height, 127, 612, Width, Height, 1.f, FLinearColor::White, FVector2D(0.f, 0.5f));
 }
 
 void AUTRemoteRedeemer::PawnClientRestart()
@@ -871,4 +913,24 @@ void AUTRemoteRedeemer::PawnClientRestart()
 	Super::PawnClientRestart();
 
 	RedeemerRestarted(Controller);
+}
+
+void AUTRemoteRedeemer::DrawTexture(UCanvas* Canvas, UTexture* Texture, float X, float Y, float Width, float Height, float U, float V, float UL, float VL, float DrawOpacity, FLinearColor DrawColor, FVector2D RenderOffset, float Rotation, FVector2D RotPivot)
+{
+	if (Texture && Texture->Resource)
+	{
+		FVector2D RenderPos = FVector2D(X - (Width * RenderOffset.X), Y - (Height * RenderOffset.Y));
+
+		U = U / Texture->Resource->GetSizeX();
+		V = V / Texture->Resource->GetSizeY();
+		UL = U + (UL / Texture->Resource->GetSizeX());
+		VL = V + (VL / Texture->Resource->GetSizeY());
+		DrawColor.A = DrawOpacity;
+
+		FCanvasTileItem ImageItem(RenderPos, Texture->Resource, FVector2D(Width, Height), FVector2D(U, V), FVector2D(UL, VL), DrawColor);
+		ImageItem.Rotation = FRotator(0, Rotation, 0);
+		ImageItem.PivotPoint = RotPivot;
+		ImageItem.BlendMode = ESimpleElementBlendMode::SE_BLEND_Translucent;
+		Canvas->DrawItem(ImageItem);
+	}
 }
