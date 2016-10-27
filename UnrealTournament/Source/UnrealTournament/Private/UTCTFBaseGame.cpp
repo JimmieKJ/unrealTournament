@@ -198,25 +198,6 @@ void AUTCTFBaseGame::ScoreKill_Implementation(AController* Killer, AController* 
 			}
 			AUTPlayerState* OtherPlayerState = Other ? Cast<AUTPlayerState>(Other->PlayerState) : NULL;
 			AttackerPS->IncrementKills(DamageType, true, OtherPlayerState);
-			// FIXMESTEVE - should do this wherever IncrementKills is called, call it from the character
-			AUTCharacter* Char = Cast<AUTCharacter>(KilledPawn);
-			if (Char)
-			{
-				for (int32 i = 0; i < Char->HealthRemovalAssists.Num(); i++)
-				{
-					if (Char->HealthRemovalAssists[i] && !Char->HealthRemovalAssists[i]->IsPendingKillPending())
-					{
-						Char->HealthRemovalAssists[i]->IncrementKillAssists(DamageType, true, OtherPlayerState);
-					}
-				}
-				for (int32 i = 0; i < Char->ArmorRemovalAssists.Num(); i++)
-				{
-					if (Char->ArmorRemovalAssists[i] && !Char->ArmorRemovalAssists[i]->IsPendingKillPending())
-					{
-						Char->ArmorRemovalAssists[i]->IncrementKillAssists(DamageType, true, OtherPlayerState);
-					}
-				}
-			}
 		}
 	}
 	if (BaseMutator != NULL)

@@ -416,7 +416,6 @@ void AUTPlayerState::IncrementKillAssists(TSubclassOf<UDamageType> DamageType, b
 
 		//ClientReceiveLocalizedMessage( Message, Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject );
 		// new assist message to add
-		// also show assists on scoreboard
 	}
 }
 

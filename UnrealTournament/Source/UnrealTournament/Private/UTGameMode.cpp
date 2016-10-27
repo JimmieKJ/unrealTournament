@@ -151,6 +151,7 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	AntiCheatEngine = nullptr;
 	EndOfMatchMessageDelay = 1.f;
 	bAllowAllArmorPickups = true;
+	bTrackKillAssists = false;
 
 	bPlayersStartWithArmor = true;
 	StartingArmorObject = FStringAssetReference(TEXT("/Game/RestrictedAssets/Blueprints/Armor_Starting.Armor_Starting_C"));
@@ -1440,12 +1441,33 @@ void AUTGameMode::ScoreKill_Implementation(AController* Killer, AController* Oth
 			KillerPlayerState->AdjustScore(+1);
 			KillerPlayerState->IncrementKills(DamageType, true, OtherPlayerState);
 			CheckScore(KillerPlayerState);
-		}
 
-		if (!bFirstBloodOccurred)
-		{
-			BroadcastLocalized(this, UUTFirstBloodMessage::StaticClass(), 0, KillerPlayerState, NULL, NULL);
-			bFirstBloodOccurred = true;
+			if (!bFirstBloodOccurred)
+			{
+				BroadcastLocalized(this, UUTFirstBloodMessage::StaticClass(), 0, KillerPlayerState, NULL, NULL);
+				bFirstBloodOccurred = true;
+			}
+			if (bTrackKillAssists)
+			{
+				AUTCharacter* Char = Cast<AUTCharacter>(KilledPawn);
+				if (Char)
+				{
+					for (int32 i = 0; i < Char->HealthRemovalAssists.Num(); i++)
+					{
+						if (Char->HealthRemovalAssists[i] && !Char->HealthRemovalAssists[i]->IsPendingKillPending())
+						{
+							Char->HealthRemovalAssists[i]->IncrementKillAssists(DamageType, true, OtherPlayerState);
+						}
+					}
+					for (int32 i = 0; i < Char->ArmorRemovalAssists.Num(); i++)
+					{
+						if (Char->ArmorRemovalAssists[i] && !Char->ArmorRemovalAssists[i]->IsPendingKillPending())
+						{
+							Char->ArmorRemovalAssists[i]->IncrementKillAssists(DamageType, true, OtherPlayerState);
+						}
+					}
+				}
+			}
 		}
 	}
 
