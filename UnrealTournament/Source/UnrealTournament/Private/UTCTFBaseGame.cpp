@@ -198,6 +198,7 @@ void AUTCTFBaseGame::ScoreKill_Implementation(AController* Killer, AController* 
 			}
 			AUTPlayerState* OtherPlayerState = Other ? Cast<AUTPlayerState>(Other->PlayerState) : NULL;
 			AttackerPS->IncrementKills(DamageType, true, OtherPlayerState);
+			TrackKillAssists(Killer, Other, KilledPawn, DamageType, AttackerPS, OtherPlayerState);
 		}
 	}
 	if (BaseMutator != NULL)

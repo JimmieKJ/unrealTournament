@@ -488,6 +488,8 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Game)
 		bool bTrackKillAssists;
 
+	virtual void TrackKillAssists(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType, AUTPlayerState* KillerPlayerState, AUTPlayerState* OtherPlayerState);
+
 	TMap<TSubclassOf<UDamageType>, int32> EnemyKillsByDamageType;
 
 	/** Score teammate killing another teammate. */

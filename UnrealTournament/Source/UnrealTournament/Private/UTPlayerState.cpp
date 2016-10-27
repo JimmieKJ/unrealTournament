@@ -35,6 +35,7 @@
 #include "UTFlagRunGameState.h"
 #include "UTCTFMajorMessage.h"
 #include "Engine/DemoNetDriver.h"
+#include "UTDeathMessage.h"
 
 /** disables load warnings for dedicated server where invalid client input can cause unpreventable logspam, but enables on clients so developers can make sure their stuff is working */
 static inline ELoadFlags GetCosmeticLoadFlags()
@@ -414,8 +415,12 @@ void AUTPlayerState::IncrementKillAssists(TSubclassOf<UDamageType> DamageType, b
 		RoundKillAssists++;
 		ThisLifeKillAssists++;
 
-		//ClientReceiveLocalizedMessage( Message, Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject );
-		// new assist message to add
+		AUTPlayerController* PC = Cast<AUTPlayerController>(GetOwner());
+		if (PC)
+		{
+			UE_LOG(UT, Warning, TEXT("KillAssistBroadcast"));
+			PC->ClientReceiveLocalizedMessage(UUTDeathMessage::StaticClass(), 2, this, VictimPS, nullptr);
+		}
 	}
 }
 

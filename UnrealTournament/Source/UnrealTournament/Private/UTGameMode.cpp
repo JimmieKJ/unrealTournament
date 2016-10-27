@@ -1447,27 +1447,7 @@ void AUTGameMode::ScoreKill_Implementation(AController* Killer, AController* Oth
 				BroadcastLocalized(this, UUTFirstBloodMessage::StaticClass(), 0, KillerPlayerState, NULL, NULL);
 				bFirstBloodOccurred = true;
 			}
-			if (bTrackKillAssists)
-			{
-				AUTCharacter* Char = Cast<AUTCharacter>(KilledPawn);
-				if (Char)
-				{
-					for (int32 i = 0; i < Char->HealthRemovalAssists.Num(); i++)
-					{
-						if (Char->HealthRemovalAssists[i] && !Char->HealthRemovalAssists[i]->IsPendingKillPending())
-						{
-							Char->HealthRemovalAssists[i]->IncrementKillAssists(DamageType, true, OtherPlayerState);
-						}
-					}
-					for (int32 i = 0; i < Char->ArmorRemovalAssists.Num(); i++)
-					{
-						if (Char->ArmorRemovalAssists[i] && !Char->ArmorRemovalAssists[i]->IsPendingKillPending())
-						{
-							Char->ArmorRemovalAssists[i]->IncrementKillAssists(DamageType, true, OtherPlayerState);
-						}
-					}
-				}
-			}
+			TrackKillAssists(Killer, Other, KilledPawn, DamageType, KillerPlayerState, OtherPlayerState);
 		}
 	}
 
@@ -1478,6 +1458,31 @@ void AUTGameMode::ScoreKill_Implementation(AController* Killer, AController* Oth
 		BaseMutator->ScoreKill(Killer, Other, DamageType);
 	}
 	FindAndMarkHighScorer();
+}
+
+void AUTGameMode::TrackKillAssists(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType, AUTPlayerState* KillerPlayerState, AUTPlayerState* OtherPlayerState)
+{
+	if (bTrackKillAssists)
+	{
+		AUTCharacter* Char = Cast<AUTCharacter>(KilledPawn);
+		if (Char)
+		{
+			for (int32 i = 0; i < Char->HealthRemovalAssists.Num(); i++)
+			{
+				if (Char->HealthRemovalAssists[i] && !Char->HealthRemovalAssists[i]->IsPendingKillPending() && (Char->HealthRemovalAssists[i] != KillerPlayerState))
+				{
+					Char->HealthRemovalAssists[i]->IncrementKillAssists(DamageType, true, OtherPlayerState);
+				}
+			}
+			for (int32 i = 0; i < Char->ArmorRemovalAssists.Num(); i++)
+			{
+				if (Char->ArmorRemovalAssists[i] && !Char->ArmorRemovalAssists[i]->IsPendingKillPending() && (Char->ArmorRemovalAssists[i] != KillerPlayerState))
+				{
+					Char->ArmorRemovalAssists[i]->IncrementKillAssists(DamageType, true, OtherPlayerState);
+				}
+			}
+		}
+	}
 }
 
 void AUTGameMode::AddKillEventToReplay(AController* Killer, AController* Other, TSubclassOf<UDamageType> DamageType)

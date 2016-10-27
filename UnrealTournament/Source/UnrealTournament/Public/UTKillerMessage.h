@@ -16,6 +16,12 @@ class UNREALTOURNAMENT_API UUTKillerMessage : public UUTLocalMessage
 		FText YouKilledPostfixText;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Message")
+		FText KillAssistedPrefixText;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Message")
+		FText KillAssistedPostfixText;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Message")
 		FText SpecKilledText;
 
 	virtual FText GetText(int32 Switch,bool bTargetsPlayerState1,class APlayerState* RelatedPlayerState_1,class APlayerState* RelatedPlayerState_2,class UObject* OptionalObject) const;

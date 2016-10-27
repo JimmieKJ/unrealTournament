@@ -286,6 +286,7 @@ void UUTHUDWidgetMessage::AddMessage(int32 QueueIndex, TSubclassOf<class UUTLoca
 		MessageQueue[QueueIndex].EmphasisText = FText::Format(NSLOCTEXT("UTLocalMessage", "CombinedEmphasisText", "{FirstText} & {SecondText}"), Args);
 		Args.Add(TEXT("FullText"), MessageQueue[QueueIndex].Text);
 		MessageQueue[QueueIndex].Text = FText::Format(NSLOCTEXT("UTLocalMessage", "CombinedFullText", "{FullText} & {FirstText}"), Args);
+
 	}
 	MessageQueue[QueueIndex].LifeSpan = GetDefault<UUTLocalMessage>(MessageClass)->GetLifeTime(MessageIndex);
 	MessageQueue[QueueIndex].LifeLeft = MessageQueue[QueueIndex].LifeSpan;
