@@ -402,6 +402,8 @@ void UUTKillcamPlayback::OnKillcamReady(bool bWasSuccessful, FNetworkGUID InKill
 		// Weapon isn't replicated so first person view doesn't have a class to spawn for first person visuals
 		SpecController->bSpectateBehindView = true;
 		SpecController->BehindView(SpecController->bSpectateBehindView);
+		// Just in case we ever get moved off this view target guid
+		SpecController->SetQueuedViewTargetGuid(InKillcamViewTargetGuid.Value);
 		/*
 		UUTSpectatorCamComp_Chase* const SpectatorCameraComponent = KillcamActor->FindComponentByClass<UUTSpectatorCamComp_Chase>();
 		if (SpectatorCameraComponent != nullptr)

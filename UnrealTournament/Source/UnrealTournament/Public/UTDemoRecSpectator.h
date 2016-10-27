@@ -87,5 +87,7 @@ class UNREALTOURNAMENT_API AUTDemoRecSpectator : public AUTPlayerController
 	};
 #endif
 
+	UFUNCTION(Exec)
+	void DumpSpecInfo();
 
 };

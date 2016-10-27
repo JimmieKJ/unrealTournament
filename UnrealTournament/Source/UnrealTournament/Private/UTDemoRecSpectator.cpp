@@ -63,9 +63,17 @@ void AUTDemoRecSpectator::ViewQueuedGuid()
 	AActor* ActorForGuid = GetWorld()->DemoNetDriver->GetActorForGUID(QueuedViewTargetGuid);
 	if (ActorForGuid)
 	{
-		QueuedViewTargetGuid.Reset();
-		SetViewTarget(ActorForGuid);			
-		UE_LOG(LogUTDemoRecSpectator, Log, TEXT("Found queued guid!"));
+		APawn* KillcamPawn = Cast<APawn>(ActorForGuid);
+		if (KillcamPawn && GetViewTarget() != KillcamPawn)
+		{
+			// If we're kill cam, just try to view this guid forever
+			if (!IsKillcamSpectator())
+			{
+				QueuedViewTargetGuid.Reset();
+			}
+			ViewPawn(KillcamPawn);
+			UE_LOG(LogUTDemoRecSpectator, Log, TEXT("Found queued guid!"));
+		}
 	}
 }
 
@@ -467,4 +475,9 @@ void AUTDemoRecSpectator::ViewProjectile()
 	}
 
 	Super::ViewProjectile();
+}
+
+void AUTDemoRecSpectator::DumpSpecInfo()
+{
+
 }
