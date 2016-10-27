@@ -159,6 +159,7 @@ public:
 	TArray<class AUTPickup*> PerPlayerPickups;
 
 	virtual void PostLoad() override;
+	virtual void PostDuplicate(bool bDuplicateForPIE) override;
 	virtual void PostInitProperties() override;
 	virtual void PreSave(const class ITargetPlatform* TargetPlatform) override;
 
