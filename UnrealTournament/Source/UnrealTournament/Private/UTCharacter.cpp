@@ -907,7 +907,7 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 				{
 					AppliedDamage += Health;
 				}
-				else if (EventInstigator &&  Cast<AUTPlayerState>(EventInstigator->PlayerState) && (ResultDamage > 0) && (Role == ROLE_Authority))
+				else if (EventInstigator && Cast<AUTPlayerState>(EventInstigator->PlayerState) && (ResultDamage > 0) && (Role == ROLE_Authority) && (EventInstigator != GetController()))
 				{
 					if (HitArmor)
 					{
