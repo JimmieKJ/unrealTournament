@@ -75,7 +75,6 @@ void AUTProj_BioGrenade::StartFuse()
 	bBeginFuseWarning = true;
 	
 	ProjectileMovement->bRotationFollowsVelocity = false;
-	ProjectileMovement->ProjectileGravityScale *= 0.5f;
 	SetTimerUFunc(this, FName(TEXT("FuseExpired")), FuseTime, false);
 	PlayFuseBeep();
 	ClearTimerUFunc(this, FName(TEXT("StartFuseTimed")));
