@@ -418,10 +418,34 @@ void AUTPlayerState::IncrementKillAssists(TSubclassOf<UDamageType> DamageType, b
 		AUTPlayerController* PC = Cast<AUTPlayerController>(GetOwner());
 		if (PC)
 		{
-			UE_LOG(UT, Warning, TEXT("KillAssistBroadcast"));
 			PC->ClientReceiveLocalizedMessage(UUTDeathMessage::StaticClass(), 2, this, VictimPS, nullptr);
 		}
+
+		CheckForMultiKill();
+
+		LastKillTime = GetWorld()->TimeSeconds;
 	}
+}
+
+bool AUTPlayerState::CheckForMultiKill()
+{
+	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+	if (GS != NULL && GetWorld()->TimeSeconds - LastKillTime < GS->MultiKillDelay)
+	{
+		FName MKStat[4] = { NAME_MultiKillLevel0, NAME_MultiKillLevel1, NAME_MultiKillLevel2, NAME_MultiKillLevel3 };
+		ModifyStatsValue(MKStat[FMath::Min(MultiKillLevel, 3)], 1);
+		MultiKillLevel++;
+		AUTPlayerController* MyPC = Cast<AUTPlayerController>(GetOwner());
+		if (MyPC != NULL)
+		{
+			MyPC->SendPersonalMessage(GS->MultiKillMessageClass, MultiKillLevel - 1, this, NULL);
+		}
+
+		AddCoolFactorEvent(MultiKillLevel * 100.0f);
+		return true;
+	}
+	MultiKillLevel = 0;
+	return false;
 }
 
 void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bEnemyKill, AUTPlayerState* VictimPS)
@@ -439,27 +463,13 @@ void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bE
 		AUTPlayerController* MyPC = Cast<AUTPlayerController>(GetOwner());
 		TSubclassOf<UUTDamageType> UTDamage(*DamageType);
 
-		if (GS != NULL && GetWorld()->TimeSeconds - LastKillTime < GS->MultiKillDelay)
+		if (CheckForMultiKill())
 		{
-			FName MKStat[4] = { NAME_MultiKillLevel0, NAME_MultiKillLevel1, NAME_MultiKillLevel2, NAME_MultiKillLevel3 };
-			ModifyStatsValue(MKStat[FMath::Min(MultiKillLevel, 3)], 1);
-			MultiKillLevel++;
 			bShouldTauntKill = true;
-			if (MyPC != NULL)
-			{
-				MyPC->SendPersonalMessage(GS->MultiKillMessageClass, MultiKillLevel - 1, this, NULL);
-			}
-
-			AddCoolFactorEvent(MultiKillLevel * 100.0f);
-
 			if (GM)
 			{
 				GM->AddMultiKillEventToReplay(Controller, FMath::Min(MultiKillLevel - 1, 3));
 			}
-		}
-		else
-		{
-			MultiKillLevel = 0;
 		}
 
 		bAnnounceWeaponSpree = false;

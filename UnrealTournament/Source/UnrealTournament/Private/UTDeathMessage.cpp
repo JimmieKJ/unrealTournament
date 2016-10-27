@@ -91,7 +91,6 @@ void UUTDeathMessage::ClientReceive(const FClientReceiveData& ClientData) const
 			}
 			else if (ClientData.RelatedPlayerState_1 == LocalPlayerState)
 			{
-				UE_LOG(UT, Warning, TEXT("Resolve to KillerMessage"));
 				// Interdict and send the child message instead.
 				UTHUD->ReceiveLocalMessage(
 					UUTKillerMessage::StaticClass(),

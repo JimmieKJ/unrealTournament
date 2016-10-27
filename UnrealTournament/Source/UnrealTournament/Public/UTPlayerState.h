@@ -515,6 +515,8 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = PlayerState)
 	virtual void AdjustScore(int32 ScoreAdjustment);
 
+	virtual bool CheckForMultiKill();
+
 	virtual void Tick(float DeltaTime) override;
 
 	/** Return true if character is female. */
