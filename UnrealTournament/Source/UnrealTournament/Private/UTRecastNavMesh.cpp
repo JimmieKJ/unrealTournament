@@ -2486,7 +2486,7 @@ bool AUTRecastNavMesh::GetMovePoints(const FVector& OrigStartLoc, APawn* Asker, 
 		// we're off the navmesh, but FindBestPath() may have suggested a re-entry point to get us in here
 		// try moving directly to target, checking simple trace to make sure we don't have something completely invalid
 		FCollisionQueryParams Params(FName(TEXT("GetMovePointsFallback")), false, Asker);
-		if (!GetWorld()->SweepTestByChannel(OrigStartLoc + FVector(0.0f, 0.0f, AgentProps.AgentHeight), Target.GetLocation(Asker) + FVector(0.0f, 0.0f, AgentProps.AgentHeight), FQuat::Identity, ECC_Pawn, FCollisionShape::MakeBox(FVector(10.0f, 10.0f, 5.0f)), Params))
+		if (!GetWorld()->SweepTestByChannel(OrigStartLoc + FVector(0.0f, 0.0f, AgentProps.AgentHeight * 0.5f), Target.GetLocation(Asker) + FVector(0.0f, 0.0f, AgentProps.AgentHeight * 0.5f), FQuat::Identity, ECC_Pawn, FCollisionShape::MakeBox(FVector(10.0f, 10.0f, 5.0f)), Params))
 		{
 			MovePoints.Add(FComponentBasedPosition(Target.GetLocation(Asker)));
 			if (TotalDistance != NULL)
