@@ -154,11 +154,14 @@ void UUTFlagRunScoreboard::DrawPlayerScore(AUTPlayerState* PlayerState, float XO
 {
 	if (PlayerState)
 	{
+		FText TotalKills = FText::AsNumber(PlayerState->RoundKillAssists + PlayerState->RoundKills);
+		DrawText(TotalKills, XOffset + (Width * ColumnHeaderScoreX), YOffset + ColumnY, UTHUDOwner->SmallFont, RenderScale, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
+		float XL, YL;
+		Canvas->TextSize(UTHUDOwner->SmallFont, TotalKills.ToString(), XL, YL, RenderScale, RenderScale);
 		FFormatNamedArguments Args;
-		Args.Add("TotalKills", FText::AsNumber(PlayerState->RoundKillAssists+PlayerState->RoundKills));
 		Args.Add("Kills", FText::AsNumber(PlayerState->RoundKillAssists));
-		FText CurrentScoreText = FText::Format(NSLOCTEXT("UTFlagRun", "PlayerScoreText", "{TotalKills}({Kills})"), Args);
-		DrawText(CurrentScoreText, XOffset + (Width * ColumnHeaderScoreX), YOffset + ColumnY, UTHUDOwner->SmallFont, RenderScale, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
+		FText CurrentScoreText = FText::Format(NSLOCTEXT("UTFlagRun", "PlayerScoreText", "({Kills})"), Args);
+		DrawText(CurrentScoreText, XOffset + (Width * ColumnHeaderScoreX)+2.f*XL, YOffset + ColumnY, UTHUDOwner->TinyFont, RenderScale, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
 	}
 	AUTFlagRunGameState* CTFState = Cast<AUTFlagRunGameState>(UTGameState);
 	if (CTFState)
