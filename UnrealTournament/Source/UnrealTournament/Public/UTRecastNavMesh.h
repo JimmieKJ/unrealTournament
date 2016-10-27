@@ -412,6 +412,10 @@ class UNREALTOURNAMENT_API AUTRecastNavMesh : public ARecastNavMesh
 	virtual void AddToNavigation(AActor* NewPOI);
 	virtual void RemoveFromNavigation(AActor* OldPOI);
 
+#if WITH_EDITOR
+	virtual void CheckForErrors() override;
+#endif
+
 private:
 	
 	// Hopefully the only magic number needed for nav mesh versions, but being safe

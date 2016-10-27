@@ -20,6 +20,10 @@
 #include "UTMatineeActor.h"
 #if WITH_EDITOR
 #include "EditorBuildUtils.h"
+#include "MapErrors.h"
+#include "Classes/AI/Navigation/NavLinkProxy.h"
+#include "Classes/AI/Navigation/NavModifierVolume.h"
+#include "Classes/AI/Navigation/NavAreas/NavArea_LowHeight.h"
 #endif
 #if !UE_SERVER && WITH_EDITOR
 #include "SNotificationList.h"
@@ -2887,6 +2891,33 @@ void AUTRecastNavMesh::LoadMapLearningData()
 		}
 	}
 }
+
+#if WITH_EDITOR
+void AUTRecastNavMesh::CheckForErrors()
+{
+	Super::CheckForErrors();
+
+	for (TActorIterator<ANavLinkProxy> It(GetWorld()); It; ++It)
+	{
+		FFormatNamedArguments Arguments;
+		Arguments.Add(TEXT("ActorName"), FText::FromString(It->GetName()));
+		FMessageLog("MapCheck").Error()
+			->AddToken(FUObjectToken::Create(*It))
+			->AddToken(FTextToken::Create(FText::Format(NSLOCTEXT("UnrealTournament", "MapCheck_NavLinkProxy", "{ActorName} : NavLinks should not be used in UT."), Arguments)));
+	}
+	for (TActorIterator<ANavModifierVolume> It(GetWorld()); It; ++It)
+	{
+		if (It->GetAreaClass() == UNavArea_LowHeight::StaticClass())
+		{
+			FFormatNamedArguments Arguments;
+			Arguments.Add(TEXT("ActorName"), FText::FromString(It->GetName()));
+			FMessageLog("MapCheck").Error()
+				->AddToken(FUObjectToken::Create(*It))
+				->AddToken(FTextToken::Create(FText::Format(NSLOCTEXT("UnrealTournament", "MapCheck_NavLinkProxy", "{ActorName} : NavArea_LowHeight should not be used in UT; this is calculated automatically."), Arguments)));
+		}
+	}
+}
+#endif
 
 void AUTRecastNavMesh::AddToNavigation(AActor* NewPOI)
 {
