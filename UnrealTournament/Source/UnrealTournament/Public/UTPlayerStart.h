@@ -30,6 +30,6 @@ public:
 	class AUTPickup* AssociatedPickup;
 
 	/** In FlagRUn, will avoid using playerstarts from the same group twice in a row. */
-	UPROPERTY(BlueprintReadWrite, Category = PlayerStart)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	FName PlayerStartGroup;
 };
