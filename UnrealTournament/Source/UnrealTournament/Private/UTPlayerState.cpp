@@ -2673,7 +2673,7 @@ TSharedRef<SWidget> AUTPlayerState::BuildRankInfo()
 			.AutoWidth()
 			[
 				SNew(STextBlock)
-				.Text(FText::Format(NSLOCTEXT("AUTPlayerState", "ChallengeStarsFormat", ".          {0} "), FText::AsNumber(LP->GetRewardStars(NAME_REWARD_BlueStars))))
+				.Text(FText::Format(NSLOCTEXT("AUTPlayerState", "ChallengeStarsFormatBlue", ".          {0} "), FText::AsNumber(LP->GetRewardStars(NAME_REWARD_BlueStars))))
 					.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
 					.ColorAndOpacity(FLinearColor::Gray)
 			]
