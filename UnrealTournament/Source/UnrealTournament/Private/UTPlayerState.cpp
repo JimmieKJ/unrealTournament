@@ -51,9 +51,11 @@ AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer
 	bCaster = false;
 	LastKillTime = 0.0f;
 	Kills = 0;
+	KillAssists = 0;
 	DamageDone = 0;
 	RoundDamageDone = 0;
 	RoundKills = 0;
+	RoundKillAssists = 0;
 	bOutOfLives = false;
 	Deaths = 0;
 	bShouldAutoTaunt = false;
@@ -99,6 +101,8 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	DOREPLIFETIME(AUTPlayerState, RemainingLives);
 	DOREPLIFETIME(AUTPlayerState, Kills);
 	DOREPLIFETIME(AUTPlayerState, RoundKills);
+	DOREPLIFETIME(AUTPlayerState, KillAssists);
+	DOREPLIFETIME(AUTPlayerState, RoundKillAssists);
 	DOREPLIFETIME(AUTPlayerState, Deaths);
 	DOREPLIFETIME(AUTPlayerState, Team);
 	DOREPLIFETIME(AUTPlayerState, FlagCaptures);
@@ -398,6 +402,21 @@ void AUTPlayerState::NotifyTeamChanged_Implementation()
 				}
 			}
 		}
+	}
+}
+
+void AUTPlayerState::IncrementKillAssists(TSubclassOf<UDamageType> DamageType, bool bEnemyKill, AUTPlayerState* VictimPS)
+{
+	if (bEnemyKill)
+	{
+		// include sprees/weaponsprees/etc.?
+		KillAssists++;
+		RoundKillAssists++;
+		ThisLifeKillAssists++;
+
+		//ClientReceiveLocalizedMessage( Message, Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject );
+		// new assist message to add
+		// also show assists on scoreboard
 	}
 }
 

@@ -90,7 +90,10 @@ void AUTPickupHealth::GiveTo_Implementation(APawn* Target)
 	{
 		AUTPickup::GiveTo_Implementation(Target);
 		P->Health = FMath::Max<int32>(P->Health, FMath::Min<int32>(P->Health + HealAmount, GetHealMax(P)));
-
+		if (P->Health >= 100)
+		{
+			P->HealthRemovalAssists.Empty();
+		}
 		//Add to the stats pickup count
 		AUTPlayerState* PS = Cast<AUTPlayerState>(P->PlayerState);
 		if (PS != nullptr && StatsNameCount != NAME_None)

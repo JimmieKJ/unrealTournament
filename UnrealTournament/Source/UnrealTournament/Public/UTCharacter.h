@@ -414,6 +414,13 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	UFUNCTION()
 	bool IsThirdPersonTaunting() const;
 
+	UPROPERTY()
+		TArray<AUTPlayerState*> HealthRemovalAssists;
+
+	UPROPERTY()
+		TArray<AUTPlayerState*> ArmorRemovalAssists;
+
+
 	/** Stored past positions of this player.  Used for bot aim error model, and for server side hit resolution. */
 	UPROPERTY()
 	TArray<FSavedPosition> SavedPositions;	

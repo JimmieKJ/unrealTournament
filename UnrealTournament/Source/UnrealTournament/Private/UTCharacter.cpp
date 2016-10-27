@@ -907,6 +907,21 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 				{
 					AppliedDamage += Health;
 				}
+				else if (EventInstigator &&  Cast<AUTPlayerState>(EventInstigator->PlayerState) && (ResultDamage > 0) && (Role == ROLE_Authority))
+				{
+					if (HitArmor)
+					{
+						ArmorRemovalAssists.AddUnique((AUTPlayerState*)(EventInstigator->PlayerState));
+						if (ArmorAmount == 0)
+						{
+							HealthRemovalAssists.AddUnique((AUTPlayerState*)(EventInstigator->PlayerState));
+						}
+					}
+					else
+					{
+						HealthRemovalAssists.AddUnique((AUTPlayerState*)(EventInstigator->PlayerState));
+					}
+				}
 				if ((Health <= 0) && (ArmorAmount > 0))
 				{
 					ArmorAmount = 0;
@@ -5156,6 +5171,7 @@ void AUTCharacter::GiveArmor(AUTArmor* ArmorClass)
 
 	ArmorType = ArmorClass;
 	ArmorAmount = FMath::Max(FMath::Max(ArmorAmount, ArmorClass->ArmorAmount), FMath::Min(100, ArmorAmount + ArmorClass->ArmorAmount));
+	ArmorRemovalAssists.Empty();
 	UpdateArmorOverlay();
 }
 
