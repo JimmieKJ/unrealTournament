@@ -159,7 +159,7 @@ void UUTFlagRunScoreboard::DrawPlayerScore(AUTPlayerState* PlayerState, float XO
 		float XL, YL;
 		Canvas->TextSize(UTHUDOwner->SmallFont, TotalKills.ToString(), XL, YL, RenderScale, RenderScale);
 		FFormatNamedArguments Args;
-		Args.Add("Kills", FText::AsNumber(PlayerState->RoundKillAssists));
+		Args.Add("Kills", FText::AsNumber(PlayerState->RoundKills));
 		FText CurrentScoreText = FText::Format(NSLOCTEXT("UTFlagRun", "PlayerScoreText", "({Kills})"), Args);
 		DrawText(CurrentScoreText, XOffset + (Width * ColumnHeaderScoreX)+2.f*XL, YOffset + ColumnY, UTHUDOwner->TinyFont, RenderScale, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
 	}
@@ -548,7 +548,7 @@ void UUTFlagRunScoreboard::DrawScoringPlayInfo(const FCTFScoringPlay& Play, floa
 	}
 	float ScoringOffsetX, ScoringOffsetY;
 	Canvas->TextSize(UTHUDOwner->MediumFont, BonusString, ScoringOffsetX, ScoringOffsetY, RenderScale, RenderScale);
-	float ScoreX = XOffset + 0.99f*ScoreWidth - ScoringOffsetX;
+	float ScoreX = XOffset + ScoreWidth - ScoringOffsetX;
 
 	Canvas->SetLinearDrawColor(BonusColor);
 	Canvas->DrawText(UTHUDOwner->MediumFont, BonusString, ScoreX, YPos + 0.5f*CurrentScoreHeight - 0.6f*MedYL, RenderScale, RenderScale, TextRenderInfo);
