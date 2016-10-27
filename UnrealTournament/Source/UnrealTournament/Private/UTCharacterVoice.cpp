@@ -9,7 +9,7 @@ UUTCharacterVoice::UUTCharacterVoice(const FObjectInitializer& ObjectInitializer
 	MessageArea = FName(TEXT("ConsoleMessage"));
 	bIsStatusAnnouncement = false;
 	bOptionalSpoken = true;
-	FontSizeIndex = 1;
+	FontSizeIndex = 0;
 	Lifetime = 6.0f;
 	bPlayDuringIntermission = false;
 
