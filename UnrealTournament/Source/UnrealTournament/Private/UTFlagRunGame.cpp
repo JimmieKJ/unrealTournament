@@ -1090,3 +1090,8 @@ void AUTFlagRunGame::ScoreAlternateWin(int32 WinningTeamIndex, uint8 Reason /* =
 		FUTAnalytics::FireEvent_FlagRunRoundEnd(this, IsTeamOnDefense(WinningTeamIndex), (UTGameState->WinningTeam != nullptr));
 	}
 }
+
+bool AUTFlagRunGame::SupportsInstantReplay() const
+{
+	return true;
+}

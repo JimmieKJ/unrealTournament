@@ -713,5 +713,5 @@ void AUTBaseGameMode::CheckMapStatus(FString MapPackageName, bool& bIsEpicMap, b
 
 bool AUTBaseGameMode::SupportsInstantReplay() const
 {
-	return true;
+	return false;
 }

@@ -121,6 +121,8 @@ public:
 	virtual void ScoreObject_Implementation(AUTCarriedObject* GameObject, AUTCharacter* HolderPawn, AUTPlayerState* Holder, FName Reason) override;
 	virtual void ScoreAlternateWin(int32 WinningTeamIndex, uint8 Reason = 0);
 
+	virtual bool SupportsInstantReplay() const override;
+
 protected:
 
 	virtual void HandlePowerupUnlocks(APawn* Other, AController* Killer);
