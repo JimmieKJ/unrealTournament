@@ -422,8 +422,19 @@ void AUTPlayerState::IncrementKillAssists(TSubclassOf<UDamageType> DamageType, b
 		}
 
 		CheckForMultiKill();
-
 		LastKillTime = GetWorld()->TimeSeconds;
+
+		TSubclassOf<UUTDamageType> UTDamage(*DamageType);
+		int32 SpreeIndex = IncrementWeaponSpree(UTDamage);
+		if (SpreeIndex >= 0)
+		{
+			if (WeaponSprees[SpreeIndex].Kills == UTDamage.GetDefaultObject()->WeaponSpreeCount)
+			{
+				AnnounceWeaponSpree(UTDamage);
+			}
+			// more likely to kill again with same weapon, so shorten search through array by swapping
+			WeaponSprees.Swap(0, SpreeIndex);
+		}
 	}
 }
 
@@ -446,6 +457,34 @@ bool AUTPlayerState::CheckForMultiKill()
 	}
 	MultiKillLevel = 0;
 	return false;
+}
+
+int32 AUTPlayerState::IncrementWeaponSpree(TSubclassOf<UUTDamageType> UTDamage)
+{
+	if (UTDamage)
+	{
+		if (UTDamage.GetDefaultObject()->SpreeSoundName != NAME_None)
+		{
+			int32 SpreeIndex = -1;
+			for (int32 i = 0; i < WeaponSprees.Num(); i++)
+			{
+				if (WeaponSprees[i].SpreeSoundName == UTDamage.GetDefaultObject()->SpreeSoundName)
+				{
+					SpreeIndex = i;
+					break;
+				}
+			}
+			if (SpreeIndex == -1)
+			{
+				new(WeaponSprees)FWeaponSpree(UTDamage.GetDefaultObject()->SpreeSoundName);
+				SpreeIndex = WeaponSprees.Num() - 1;
+			}
+
+			WeaponSprees[SpreeIndex].Kills++;
+			return SpreeIndex;
+		}
+	}
+	return -1;
 }
 
 void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bEnemyKill, AUTPlayerState* VictimPS)
@@ -480,25 +519,10 @@ void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bE
 				// FIXMESTEVE - preset, not constructed FName
 				ModifyStatsValue(FName(*(UTDamage.GetDefaultObject()->StatsName + TEXT("Kills"))), 1);
 			}
-			if (UTDamage.GetDefaultObject()->SpreeSoundName != NAME_None)
+			
+			int32 SpreeIndex = IncrementWeaponSpree(UTDamage);
+			if (SpreeIndex >= 0)
 			{
-				int32 SpreeIndex = -1;
-				for (int32 i = 0; i < WeaponSprees.Num(); i++)
-				{
-					if (WeaponSprees[i].SpreeSoundName == UTDamage.GetDefaultObject()->SpreeSoundName)
-					{
-						SpreeIndex = i;
-						break;
-					}
-				}
-				if (SpreeIndex == -1)
-				{
-					new(WeaponSprees)FWeaponSpree(UTDamage.GetDefaultObject()->SpreeSoundName);
-					SpreeIndex = WeaponSprees.Num() - 1;
-				}
-
-				WeaponSprees[SpreeIndex].Kills++;
-
 				// delay actual announcement to keep multiple announcements in preferred order
 				bAnnounceWeaponSpree = (WeaponSprees[SpreeIndex].Kills == UTDamage.GetDefaultObject()->WeaponSpreeCount);
 				bShouldTauntKill = bShouldTauntKill || bAnnounceWeaponSpree;

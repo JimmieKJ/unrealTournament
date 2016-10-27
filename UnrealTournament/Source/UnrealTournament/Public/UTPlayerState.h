@@ -517,6 +517,8 @@ public:
 
 	virtual bool CheckForMultiKill();
 
+	virtual int32 IncrementWeaponSpree(TSubclassOf<UUTDamageType> UTDamage);
+
 	virtual void Tick(float DeltaTime) override;
 
 	/** Return true if character is female. */
