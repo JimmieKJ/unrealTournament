@@ -5470,6 +5470,9 @@ void AUTCharacter::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector
 			Canvas->TextSize(TinyFont, PlayerState->PlayerName, TextXL, YL, Scale, Scale);
 			float BarWidth, Y;
 			Canvas->TextSize(TinyFont, FString("AAAWWW"), BarWidth, Y, Scale, Scale);
+			float MaxBarWidth = 2.f*BarWidth;
+			float TextScaling = FMath::Min(1.f,  MaxBarWidth/TextXL); // FIXMESTEVE DO SAME FOR SKULLS
+			TextXL *= TextScaling;
 			float TransitionScaling = (BeaconTextScale - MinTextScale) / (1.f - MinTextScale);
 			float XL = TextXL + TransitionScaling * FMath::Max(BarWidth-TextXL, 0.f);
 			FVector ScreenPosition = Canvas->Project(WorldPosition);
@@ -5500,7 +5503,7 @@ void AUTCharacter::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector
 				FLinearColor BeaconTextColor = FLinearColor::White;
 				BeaconTextColor.A = 0.6f * CenterFade;
 				FUTCanvasTextItem TextItem(FVector2D(FMath::TruncToFloat(Canvas->OrgX + XPos + 0.5f*(XL - TextXL)), FMath::TruncToFloat(Canvas->OrgY + YPos - 1.2f*YL)), FText::FromString(PlayerState->PlayerName), TinyFont, BeaconTextColor, NULL);
-				TextItem.Scale = FVector2D(Scale, Scale);
+				TextItem.Scale = FVector2D(TextScaling*Scale, TextScaling*Scale);
 				TextItem.BlendMode = SE_BLEND_Translucent;
 				FLinearColor ShadowColor = FLinearColor::Black;
 				ShadowColor.A = BeaconTextColor.A;
