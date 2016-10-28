@@ -201,7 +201,7 @@ void AUTCarriedObject::ClientUpdateAttachment(bool bNowAttached)
 					for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
 					{
 						AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
-						TrailLength = (PC && GetTeamNum() == PC->GetTeamNum()) ? 1.f : 0.f;
+						TrailLength = (PC && GetTeamNum() == PC->GetTeamNum()) ? 0.5f : 0.f;
 						break;
 					}
 				}
