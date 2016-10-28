@@ -69,7 +69,7 @@ void UUTHUDWidget_FlagRunStatus::DrawFlagBaseWorld(AUTCTFGameState* GameState, F
 		bScaleByDesignedResolution = false;
 
 		float Dist = (FlagBase->GetActorLocation() - PlayerViewPoint).Size();
-		float WorldRenderScale = RenderScale * FMath::Clamp(MaxIconScale - (Dist - ScalingStartDist) / ScalingEndDist, MinIconScale, MaxIconScale);
+		float WorldRenderScale = RenderScale * MaxIconScale;
 
 		bool bSpectating = UTPlayerOwner->PlayerState && UTPlayerOwner->PlayerState->bOnlySpectator;
 		bool bDrawEdgeArrow = false;
@@ -81,7 +81,7 @@ void UUTHUDWidget_FlagRunStatus::DrawFlagBaseWorld(AUTCTFGameState* GameState, F
 		DrawScreenPosition = GetAdjustedScreenPosition(WorldPosition, PlayerViewPoint, ViewDir, Dist, Edge, bDrawEdgeArrow, TeamNum);
 
 		float PctFromCenter = (DrawScreenPosition - FVector(0.5f*GetCanvas()->ClipX, 0.5f*GetCanvas()->ClipY, 0.f)).Size() / GetCanvas()->ClipX;
-		CurrentWorldAlpha = InWorldAlpha * FMath::Min(5.f*PctFromCenter, 1.f);
+		CurrentWorldAlpha = InWorldAlpha * FMath::Min(8.f*PctFromCenter, 1.f);
 
 		DrawScreenPosition.X -= RenderPosition.X;
 		DrawScreenPosition.Y -= RenderPosition.Y;
@@ -130,7 +130,7 @@ void UUTHUDWidget_FlagRunStatus::DrawFlagWorld(AUTCTFGameState* GameState, FVect
 
 		// Draw the flag / flag base in the world
 		float Dist = (Flag->GetActorLocation() - PlayerViewPoint).Size();
-		float WorldRenderScale = RenderScale * FMath::Clamp(MaxIconScale - (Dist - ScalingStartDist) / ScalingEndDist, MinIconScale, MaxIconScale);
+		float WorldRenderScale = RenderScale * MaxIconScale;
 		bool bDrawEdgeArrow = false;
 		float OldFlagAlpha = FlagIconTemplate.RenderOpacity;
 		float CurrentWorldAlpha = InWorldAlpha;
@@ -159,7 +159,7 @@ void UUTHUDWidget_FlagRunStatus::DrawFlagWorld(AUTCTFGameState* GameState, FVect
 		}
 
 		float PctFromCenter = (DrawScreenPosition - FVector(0.5f*GetCanvas()->ClipX, 0.5f*GetCanvas()->ClipY, 0.f)).Size() / GetCanvas()->ClipX;
-		CurrentWorldAlpha = InWorldAlpha * FMath::Min(4.f*PctFromCenter, 1.f);
+		CurrentWorldAlpha = InWorldAlpha * FMath::Min(8.f*PctFromCenter, 1.f);
 		float ViewDist = (PlayerViewPoint - WorldPosition).Size();
 
 		// don't overlap player beacon
@@ -169,7 +169,7 @@ void UUTHUDWidget_FlagRunStatus::DrawFlagWorld(AUTCTFGameState* GameState, FVect
 		Canvas->TextSize(TinyFont, FString("+999   A999"), X, Y, Scale, Scale);
 		if (!bDrawEdgeArrow)
 		{
-			float MinDistSq = FMath::Square(0.08f*GetCanvas()->ClipX);
+			float MinDistSq = FMath::Square(0.06f*GetCanvas()->ClipX);
 			float ActualDistSq = FMath::Square(DrawScreenPosition.X - 0.5f*GetCanvas()->ClipX) + FMath::Square(DrawScreenPosition.Y - 0.5f*GetCanvas()->ClipY);
 			if (ActualDistSq > MinDistSq)
 			{
@@ -190,7 +190,7 @@ void UUTHUDWidget_FlagRunStatus::DrawFlagWorld(AUTCTFGameState* GameState, FVect
 		CircleTemplate.RenderOpacity = CurrentWorldAlpha;
 		CircleBorderTemplate.RenderOpacity = CurrentWorldAlpha;
 
-		float InWorldFlagScale = WorldRenderScale*StatusScale;
+		float InWorldFlagScale = WorldRenderScale * (StatusScale - 0.5f*(StatusScale - 1.f));
 		RenderObj_TextureAt(CircleTemplate, DrawScreenPosition.X, DrawScreenPosition.Y, CircleTemplate.GetWidth()* InWorldFlagScale, CircleTemplate.GetHeight()* InWorldFlagScale);
 		RenderObj_TextureAt(CircleBorderTemplate, DrawScreenPosition.X, DrawScreenPosition.Y, CircleBorderTemplate.GetWidth()* InWorldFlagScale, CircleBorderTemplate.GetHeight()* InWorldFlagScale);
 

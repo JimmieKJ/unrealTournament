@@ -18,11 +18,8 @@ UUTHUDWidget_CTFFlagStatus::UUTHUDWidget_CTFFlagStatus(const FObjectInitializer&
 	AnimationAlpha = 0.0f;
 	StatusScale = 1.f;
 	InWorldAlpha = 0.8f;
+	MaxIconScale = 0.75f;
 
-	ScalingStartDist = 4000.f;
-	ScalingEndDist = 15000.f;
-	MaxIconScale = 1.f;
-	MinIconScale = 0.75f;
 	bSuppressMessage = false;
 	bAlwaysDrawFlagHolderName = true;
 
@@ -154,7 +151,7 @@ void UUTHUDWidget_CTFFlagStatus::DrawFlagWorld(AUTCTFGameState* GameState, FVect
 
 		// Draw the flag / flag base in the world
 		float Dist = (Flag->GetActorLocation() - PlayerViewPoint).Size();
-		float WorldRenderScale = RenderScale * FMath::Clamp(MaxIconScale - (Dist - ScalingStartDist) / ScalingEndDist, MinIconScale, MaxIconScale);
+		float WorldRenderScale = RenderScale * MaxIconScale;
 
 		AUTCharacter* Holder = NULL;
 
@@ -213,7 +210,7 @@ void UUTHUDWidget_CTFFlagStatus::DrawFlagWorld(AUTCTFGameState* GameState, FVect
 		if (bDrawInWorld)
 		{
 			float PctFromCenter = (DrawScreenPosition - FVector(0.5f*GetCanvas()->ClipX, 0.5f*GetCanvas()->ClipY, 0.f)).Size() / GetCanvas()->ClipX;
-			CurrentWorldAlpha = InWorldAlpha * FMath::Min(5.f*PctFromCenter, 1.f);
+			CurrentWorldAlpha = InWorldAlpha * FMath::Min(6.f*PctFromCenter, 1.f);
 
 			float ViewDist = (PlayerViewPoint - WorldPosition).Size();
 
@@ -224,7 +221,7 @@ void UUTHUDWidget_CTFFlagStatus::DrawFlagWorld(AUTCTFGameState* GameState, FVect
 			Canvas->TextSize(TinyFont, FString("+999   A999"), X, Y, Scale, Scale);
 			if (!bDrawEdgeArrow)
 			{
-				float MinDistSq = FMath::Square(0.08f*GetCanvas()->ClipX);
+				float MinDistSq = FMath::Square(0.06f*GetCanvas()->ClipX);
 				float ActualDistSq = FMath::Square(DrawScreenPosition.X - 0.5f*GetCanvas()->ClipX) + FMath::Square(DrawScreenPosition.Y - 0.5f*GetCanvas()->ClipY);
 				if (ActualDistSq > MinDistSq)
 				{
@@ -309,7 +306,7 @@ void UUTHUDWidget_CTFFlagStatus::DrawFlagBaseWorld(AUTCTFGameState* GameState, F
 		FlagIconTemplate.RenderColor = TeamColor;
 
 		float Dist = (FlagBase->GetActorLocation() - PlayerViewPoint).Size();
-		float WorldRenderScale = RenderScale * FMath::Clamp(MaxIconScale - (Dist - ScalingStartDist) / ScalingEndDist, MinIconScale, MaxIconScale);
+		float WorldRenderScale = RenderScale * MaxIconScale;
 
 		bool bSpectating = UTPlayerOwner->PlayerState && UTPlayerOwner->PlayerState->bOnlySpectator;
 		bool bIsEnemyFlag = !GameState->OnSameTeam(FlagBase, UTPlayerOwner);
@@ -326,7 +323,7 @@ void UUTHUDWidget_CTFFlagStatus::DrawFlagBaseWorld(AUTCTFGameState* GameState, F
 		if (!bDrawEdgeArrow || (Flag && Flag->ObjectState == CarriedObjectState::Home) || !bIsEnemyFlag)
 		{
 			float PctFromCenter = (DrawScreenPosition - FVector(0.5f*GetCanvas()->ClipX, 0.5f*GetCanvas()->ClipY, 0.f)).Size() / GetCanvas()->ClipX;
-			CurrentWorldAlpha = InWorldAlpha * FMath::Min(5.f*PctFromCenter, 1.f);
+			CurrentWorldAlpha = InWorldAlpha * FMath::Min(6.f*PctFromCenter, 1.f);
 	
 			DrawScreenPosition.X -= RenderPosition.X;
 			DrawScreenPosition.Y -= RenderPosition.Y;
@@ -453,7 +450,7 @@ FVector UUTHUDWidget_CTFFlagStatus::GetAdjustedScreenPosition(const FVector& Wor
 		DrawScreenPosition.Z = 0.0f;
 
 		// keep out of center
-		float MinDistSq = FMath::Square(0.07f*GetCanvas()->ClipX);
+		float MinDistSq = FMath::Square(0.05f*GetCanvas()->ClipX);
 		float ActualDistSq = FMath::Square(DrawScreenPosition.X - 0.5f*GetCanvas()->ClipX) + FMath::Square(DrawScreenPosition.Y - 0.5f*GetCanvas()->ClipY);
 		if (ActualDistSq < MinDistSq)
 		{

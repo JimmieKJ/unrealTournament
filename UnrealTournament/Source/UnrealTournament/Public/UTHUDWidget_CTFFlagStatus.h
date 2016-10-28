@@ -81,21 +81,9 @@ class UNREALTOURNAMENT_API UUTHUDWidget_CTFFlagStatus : public UUTHUDWidget
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
 	bool bBlueWasLeft;
 
-	/** Distance to start scaling in world indicators. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
-	float ScalingStartDist;
-
-	/** Distance to stop scaling in world indicators. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
-	float ScalingEndDist;
-
 	/** Largest scaling for in world indicators. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
 	float MaxIconScale;
-
-	/** Smallest scaling for in world indicators. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
-	float MinIconScale;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
 	TArray<FVector2D> TeamPositions;
