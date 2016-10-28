@@ -63,4 +63,7 @@ protected:
 	virtual void DrawMinimap(float RenderDelta) override;
 
 	virtual bool ShouldShowPowerupForPlayer(AUTPlayerState* PlayerState);
+
+	virtual void DrawScoringSummary(float RenderDelta, float& YOffset, float XOffset, float ScoreWidth, float PageBottom);
+
 };

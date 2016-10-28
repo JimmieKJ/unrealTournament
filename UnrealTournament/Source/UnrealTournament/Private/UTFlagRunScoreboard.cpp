@@ -59,58 +59,85 @@ void UUTFlagRunScoreboard::DrawMinimap(float RenderDelta)
 		: FMath::Min(0.5f*Canvas->ClipX, 0.9f*Canvas->ClipY - 120.f * RenderScale);
 	float MapYPos = FMath::Max(120.f*RenderScale, MinimapCenter.Y*Canvas->ClipY - 0.5f*MapSize);
 	FVector2D LeftCorner = FVector2D(MinimapCenter.X*Canvas->ClipX - 0.5f*MapSize, MapYPos);
-	if (GS && (GS->GetMatchState() == MatchState::MatchIntermission) && (EndIntermissionTime < GetWorld()->GetTimeSeconds()) && (GS->IntermissionTime < 9.f) && (GS->IntermissionTime > 0.f))
+	if (GS && (GS->GetMatchState() == MatchState::MatchIntermission))
 	{
-		EndIntermissionTime = GetWorld()->GetTimeSeconds() + 9.f;
-		OldDisplayedParagraphs = 0;
-		bFullListPlayed = false;
-	}
-
-	if (GS && (GS->GetMatchState() == MatchState::MatchIntermission) && UTPS && UTPS->Team && (EndIntermissionTime > GetWorld()->GetTimeSeconds()) && UTHUDOwner && UTHUDOwner->UTPlayerOwner)
-	{
-		// draw round information
-		const bool bIsOnDefense = GS->IsTeamOnDefenseNextRound(UTPS->Team->TeamIndex);
-		int32 NumLines = bIsOnDefense ? DefendLines.Num() : AttackLines.Num();
-		float Height = RenderScale * (80.f + 32.f*NumLines);
-		DrawTexture(UTHUDOwner->ScoreboardAtlas, LeftCorner.X + 0.04f*MapSize, LeftCorner.Y, 0.92f*MapSize, Height, 149, 138, 32, 32, 0.75f, FLinearColor::Black);
-
-		FText Title = bIsOnDefense ? DefendTitle : AttackTitle;
-		float TextYPos = MinimapCenter.Y*Canvas->ClipY - 0.45f*MapSize;
-		DrawText(Title, MinimapCenter.X*Canvas->ClipX, TextYPos, UTHUDOwner->MediumFont, RenderScale, 1.0f, FLinearColor::White, ETextHorzPos::Center, ETextVertPos::Center);
-		float TextXPos = MinimapCenter.X*Canvas->ClipX - 0.45f*MapSize;
-		TextYPos += 48.f*RenderScale;
-
-		int32 DisplayedParagraphs = 9 - int32(EndIntermissionTime - GetWorld()->GetTimeSeconds());
-		int32 CountedParagraphs = 0;
-		int32 LastParStart = 0;
-		bool bFullList = true;
-		for (int32 LineIndex = 0; LineIndex < NumLines; LineIndex++)
+		if ((EndIntermissionTime < GetWorld()->GetTimeSeconds()) && (GS->IntermissionTime < 9.f) && (GS->IntermissionTime > 0.f))
 		{
-			FText NextLine = bIsOnDefense ? DefendLines[LineIndex] : AttackLines[LineIndex];
-			if (NextLine.IsEmpty())
+			EndIntermissionTime = GetWorld()->GetTimeSeconds() + 9.f;
+			OldDisplayedParagraphs = 0;
+			bFullListPlayed = false;
+		}
+
+		if (UTPS && UTPS->Team && (EndIntermissionTime > GetWorld()->GetTimeSeconds()) && UTHUDOwner && UTHUDOwner->UTPlayerOwner)
+		{
+			// draw round information
+			const bool bIsOnDefense = GS->IsTeamOnDefenseNextRound(UTPS->Team->TeamIndex);
+			int32 NumLines = bIsOnDefense ? DefendLines.Num() : AttackLines.Num();
+			float Height = RenderScale * (80.f + 32.f*NumLines);
+			DrawTexture(UTHUDOwner->ScoreboardAtlas, LeftCorner.X + 0.04f*MapSize, LeftCorner.Y, 0.92f*MapSize, Height, 149, 138, 32, 32, 0.75f, FLinearColor::Black);
+
+			FText Title = bIsOnDefense ? DefendTitle : AttackTitle;
+			float TextYPos = MinimapCenter.Y*Canvas->ClipY - 0.45f*MapSize;
+			DrawText(Title, MinimapCenter.X*Canvas->ClipX, TextYPos, UTHUDOwner->MediumFont, RenderScale, 1.0f, FLinearColor::White, ETextHorzPos::Center, ETextVertPos::Center);
+			float TextXPos = MinimapCenter.X*Canvas->ClipX - 0.45f*MapSize;
+			TextYPos += 48.f*RenderScale;
+
+			int32 DisplayedParagraphs = 9 - int32(EndIntermissionTime - GetWorld()->GetTimeSeconds());
+			int32 CountedParagraphs = 0;
+			int32 LastParStart = 0;
+			bool bFullList = true;
+			for (int32 LineIndex = 0; LineIndex < NumLines; LineIndex++)
 			{
-				CountedParagraphs++;
-				if (CountedParagraphs >= DisplayedParagraphs)
+				FText NextLine = bIsOnDefense ? DefendLines[LineIndex] : AttackLines[LineIndex];
+				if (NextLine.IsEmpty())
 				{
-					NumLines = LineIndex;
-					bFullList = false;
-					break;
+					CountedParagraphs++;
+					if (CountedParagraphs >= DisplayedParagraphs)
+					{
+						NumLines = LineIndex;
+						bFullList = false;
+						break;
+					}
+					LastParStart = NumLines;
 				}
-				LastParStart = NumLines;
+			}
+			if ((DisplayedParagraphs != OldDisplayedParagraphs) && !bFullListPlayed)
+			{
+				// play beep
+				UTHUDOwner->UTPlayerOwner->ClientPlaySound(LineDisplaySound);
+				bFullListPlayed = bFullList;
+			}
+			OldDisplayedParagraphs = DisplayedParagraphs;
+			for (int32 LineIndex = 0; LineIndex < NumLines; LineIndex++)
+			{
+				FText NextLine = bIsOnDefense ? DefendLines[LineIndex] : AttackLines[LineIndex];
+				DrawText(NextLine, TextXPos, TextYPos, UTHUDOwner->SmallFont, RenderScale, 1.f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
+				TextYPos += 32.f*RenderScale;
+			}
+
+			if (GS->GetScoringPlays().Num() > 0)
+			{
+				float ScoreWidth = 0.92f*MapSize;
+				float YPos = LeftCorner.Y + Height + 8.f*RenderScale;
+				float PageBottom = YPos + 0.1f*Canvas->ClipY;
+				DrawTexture(UTHUDOwner->ScoreboardAtlas, LeftCorner.X + 0.04f*MapSize, YPos, 0.92f*MapSize, 0.1f*Canvas->ClipY, 149, 138, 32, 32, 0.75f, FLinearColor::Black);
+				DrawScoringSummary(RenderDelta, YPos, LeftCorner.X + 0.04f*MapSize, 0.9f*ScoreWidth, PageBottom);
 			}
 		}
-		if ((DisplayedParagraphs != OldDisplayedParagraphs) && !bFullListPlayed)
+		else if (GS->GetScoringPlays().Num() > 0)
 		{
-			// play beep
-			UTHUDOwner->UTPlayerOwner->ClientPlaySound(LineDisplaySound);
-			bFullListPlayed = bFullList;
+			// draw scoring plays - FIXMESTEVE show summary always
+			float ScoreWidth = 0.92f*MapSize;
+			float PageBottom = LeftCorner.Y + 0.5f*Canvas->ClipY;
+			if (GS && (GS->CTFRound < 4))
+			{
+				PageBottom -= (GS->CTFRound < 2) ? 0.1f*Canvas->ClipY : 0.05f*Canvas->ClipY;
+			}
+			Super::DrawStatsLeft(RenderDelta, LeftCorner.Y, LeftCorner.X + 0.04f*MapSize, ScoreWidth, PageBottom);
 		}
-		OldDisplayedParagraphs = DisplayedParagraphs;
-		for (int32 LineIndex = 0; LineIndex < NumLines; LineIndex++)
+		else
 		{
-			FText NextLine = bIsOnDefense ? DefendLines[LineIndex] : AttackLines[LineIndex];
-			DrawText(NextLine, TextXPos, TextYPos, UTHUDOwner->SmallFont, RenderScale, 1.f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
-			TextYPos += 32.f*RenderScale;
+			Super::DrawMinimap(RenderDelta);
 		}
 	}
 	else 
@@ -338,18 +365,16 @@ void UUTFlagRunScoreboard::DrawStatsRight(float DeltaTime, float& YPos, float XO
 
 void UUTFlagRunScoreboard::DrawStatsLeft(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom)
 {
-	AUTFlagRunGameState* GS = GetWorld()->GetGameState<AUTFlagRunGameState>();
-	if (GS && (GS->CTFRound < 4))
-	{
-		YPos += 0.1f * Canvas->ClipY;
-		PageBottom -= (GS->CTFRound < 2) ? 0.1f*Canvas->ClipY : 0.05f*Canvas->ClipY;
-	}
-	Super::DrawStatsLeft(DeltaTime, YPos, XOffset, ScoreWidth, PageBottom);
 }
 
 void UUTFlagRunScoreboard::DrawScoringPlays(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float MaxHeight)
 {
 	Super::DrawScoringPlays(DeltaTime, YPos, XOffset, ScoreWidth, MaxHeight);
+	DrawScoringSummary(DeltaTime, YPos, XOffset, ScoreWidth, MaxHeight);
+}
+
+void UUTFlagRunScoreboard::DrawScoringSummary(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float MaxHeight)
+{
 
 	if (TimeLineOffset < 1.f)
 	{
