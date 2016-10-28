@@ -96,7 +96,7 @@ int32 UUTCTFGameMessage::GetFontSizeIndex(int32 MessageIndex) const
 	{
 		return 3;
 	}
-	if ((MessageIndex == 2) || (MessageIndex == 2) || (MessageIndex > 5))
+	if ((MessageIndex == 2) || (MessageIndex > 5))
 	{
 		return 2;
 	}
