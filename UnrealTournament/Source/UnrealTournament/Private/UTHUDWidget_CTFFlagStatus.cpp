@@ -17,7 +17,7 @@ UUTHUDWidget_CTFFlagStatus::UUTHUDWidget_CTFFlagStatus(const FObjectInitializer&
 	Origin = FVector2D(0.5f, 0.5f);
 	AnimationAlpha = 0.0f;
 	StatusScale = 1.f;
-	InWorldAlpha = 0.5f;
+	InWorldAlpha = 0.8f;
 
 	ScalingStartDist = 4000.f;
 	ScalingEndDist = 15000.f;
@@ -46,8 +46,8 @@ void UUTHUDWidget_CTFFlagStatus::Draw_Implementation(float DeltaTime)
 
 	if (bStatusDir)
 	{
-		StatusScale = FMath::Min(StatusScale+2.f*DeltaTime, 2.4f);
-		bStatusDir = (StatusScale < 2.2f);
+		StatusScale = FMath::Min(StatusScale+2.f*DeltaTime, 2.0f);
+		bStatusDir = (StatusScale < 1.8f);
 	}
 	else
 	{
@@ -215,8 +215,6 @@ void UUTHUDWidget_CTFFlagStatus::DrawFlagWorld(AUTCTFGameState* GameState, FVect
 			float PctFromCenter = (DrawScreenPosition - FVector(0.5f*GetCanvas()->ClipX, 0.5f*GetCanvas()->ClipY, 0.f)).Size() / GetCanvas()->ClipX;
 			CurrentWorldAlpha = InWorldAlpha * FMath::Min(5.f*PctFromCenter, 1.f);
 
-			DrawScreenPosition.X -= RenderPosition.X;
-			DrawScreenPosition.Y -= RenderPosition.Y;
 			float ViewDist = (PlayerViewPoint - WorldPosition).Size();
 
 			// don't overlap player beacon
@@ -226,15 +224,22 @@ void UUTHUDWidget_CTFFlagStatus::DrawFlagWorld(AUTCTFGameState* GameState, FVect
 			Canvas->TextSize(TinyFont, FString("+999   A999"), X, Y, Scale, Scale);
 			if (!bDrawEdgeArrow)
 			{
-				if (!Holder || (ViewDist < Holder->TeamPlayerIndicatorMaxDistance))
+				float MinDistSq = FMath::Square(0.08f*GetCanvas()->ClipX);
+				float ActualDistSq = FMath::Square(DrawScreenPosition.X - 0.5f*GetCanvas()->ClipX) + FMath::Square(DrawScreenPosition.Y - 0.5f*GetCanvas()->ClipY);
+				if (ActualDistSq > MinDistSq)
 				{
-					DrawScreenPosition.Y -= 3.5f*Y;
-				}
-				else
-				{
-					DrawScreenPosition.Y -= (ViewDist < Holder->SpectatorIndicatorMaxDistance) ? 2.5f*Y : 1.5f*Y;
+					if (!Holder || (ViewDist < Holder->TeamPlayerIndicatorMaxDistance))
+					{
+						DrawScreenPosition.Y -= 3.5f*Y;
+					}
+					else
+					{
+						DrawScreenPosition.Y -= (ViewDist < Holder->SpectatorIndicatorMaxDistance) ? 2.5f*Y : 1.5f*Y;
+					}
 				}
 			}
+			DrawScreenPosition.X -= RenderPosition.X;
+			DrawScreenPosition.Y -= RenderPosition.Y;
 
 			FlagIconTemplate.RenderOpacity = CurrentWorldAlpha;
 			CircleTemplate.RenderOpacity = CurrentWorldAlpha;
@@ -446,6 +451,16 @@ FVector UUTHUDWidget_CTFFlagStatus::GetAdjustedScreenPosition(const FVector& Wor
 		DrawScreenPosition.X = FMath::Clamp(DrawScreenPosition.X, Edge, GetCanvas()->ClipX - Edge);
 		DrawScreenPosition.Y = FMath::Clamp(DrawScreenPosition.Y, Edge, GetCanvas()->ClipY - Edge);
 		DrawScreenPosition.Z = 0.0f;
+
+		// keep out of center
+		float MinDistSq = FMath::Square(0.07f*GetCanvas()->ClipX);
+		float ActualDistSq = FMath::Square(DrawScreenPosition.X - 0.5f*GetCanvas()->ClipX) + FMath::Square(DrawScreenPosition.Y - 0.5f*GetCanvas()->ClipY);
+		if (ActualDistSq < MinDistSq)
+		{
+			float Scaling = FMath::Sqrt(MinDistSq / FMath::Max(ActualDistSq, 1.f));
+			DrawScreenPosition.X = 0.5f*GetCanvas()->ClipX + (DrawScreenPosition.X - 0.5f*GetCanvas()->ClipX)*Scaling;
+			DrawScreenPosition.Y = 0.5f*GetCanvas()->ClipY + (DrawScreenPosition.Y - 0.5f*GetCanvas()->ClipY)*Scaling;
+		}
 	}
 	return DrawScreenPosition;
 }

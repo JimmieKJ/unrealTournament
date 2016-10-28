@@ -159,9 +159,7 @@ void UUTHUDWidget_FlagRunStatus::DrawFlagWorld(AUTCTFGameState* GameState, FVect
 		}
 
 		float PctFromCenter = (DrawScreenPosition - FVector(0.5f*GetCanvas()->ClipX, 0.5f*GetCanvas()->ClipY, 0.f)).Size() / GetCanvas()->ClipX;
-		CurrentWorldAlpha = InWorldAlpha * FMath::Min(5.f*PctFromCenter, 1.f);
-		DrawScreenPosition.X -= RenderPosition.X;
-		DrawScreenPosition.Y -= RenderPosition.Y;
+		CurrentWorldAlpha = InWorldAlpha * FMath::Min(4.f*PctFromCenter, 1.f);
 		float ViewDist = (PlayerViewPoint - WorldPosition).Size();
 
 		// don't overlap player beacon
@@ -171,15 +169,22 @@ void UUTHUDWidget_FlagRunStatus::DrawFlagWorld(AUTCTFGameState* GameState, FVect
 		Canvas->TextSize(TinyFont, FString("+999   A999"), X, Y, Scale, Scale);
 		if (!bDrawEdgeArrow)
 		{
-			if (!Holder || (ViewDist < Holder->TeamPlayerIndicatorMaxDistance))
+			float MinDistSq = FMath::Square(0.08f*GetCanvas()->ClipX);
+			float ActualDistSq = FMath::Square(DrawScreenPosition.X - 0.5f*GetCanvas()->ClipX) + FMath::Square(DrawScreenPosition.Y - 0.5f*GetCanvas()->ClipY);
+			if (ActualDistSq > MinDistSq)
 			{
-				DrawScreenPosition.Y -= 3.5f*Y;
-			}
-			else
-			{
-				DrawScreenPosition.Y -= (ViewDist < Holder->SpectatorIndicatorMaxDistance) ? 2.5f*Y : 1.5f*Y;
+				if (!Holder || (ViewDist < Holder->TeamPlayerIndicatorMaxDistance))
+				{
+					DrawScreenPosition.Y -= 3.5f*Y;
+				}
+				else
+				{
+					DrawScreenPosition.Y -= (ViewDist < Holder->SpectatorIndicatorMaxDistance) ? 2.5f*Y : 1.5f*Y;
+				}
 			}
 		}
+		DrawScreenPosition.X -= RenderPosition.X;
+		DrawScreenPosition.Y -= RenderPosition.Y;
 
 		FlagIconTemplate.RenderOpacity = CurrentWorldAlpha;
 		CircleTemplate.RenderOpacity = CurrentWorldAlpha;
