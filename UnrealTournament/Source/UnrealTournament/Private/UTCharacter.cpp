@@ -5449,7 +5449,6 @@ void AUTCharacter::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector
 			float TextXL, YL;
 			bool bFarAway = (Dist > TeamPlayerIndicatorMaxDistance);
 			float ScaleTime = FMath::Min(1.f, 6.f * GetWorld()->DeltaTimeSeconds);
-			float MinTextScale = 0.75f;
 			BeaconTextScale = (1.f - ScaleTime) * BeaconTextScale + ScaleTime * ((bRecentlyRendered && !bFarAway) ? 1.f : 0.75f);
 			float Scale = BeaconTextScale * Canvas->ClipX / 1920.f;
 			if (bTacCom && !bFarAway && PC->PlayerCameraManager && !bIsViewTarget && (PC->GetViewTarget()->GetAttachmentReplication().AttachParent != this))
@@ -5471,19 +5470,31 @@ void AUTCharacter::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector
 			float BarWidth, Y;
 			Canvas->TextSize(TinyFont, FString("AAAWWW"), BarWidth, Y, Scale, Scale);
 			float MaxBarWidth = 2.f*BarWidth;
-			float TextScaling = FMath::Min(1.f,  MaxBarWidth/TextXL); // FIXMESTEVE DO SAME FOR SKULLS
+			float TextScaling = FMath::Min(1.f,  MaxBarWidth/TextXL);
 			TextXL *= TextScaling;
-			float TransitionScaling = (BeaconTextScale - MinTextScale) / (1.f - MinTextScale);
-			float XL = TextXL + TransitionScaling * FMath::Max(BarWidth-TextXL, 0.f);
+			float XL = TextXL;
 			FVector ScreenPosition = Canvas->Project(WorldPosition);
 			float XPos = ScreenPosition.X - 0.5f*XL;
-			float YPos = ScreenPosition.Y - TransitionScaling * YL;
+			float YPos = ScreenPosition.Y - YL; 
 			if (XPos < Canvas->ClipX || XPos + XL < 0.0f)
 			{
 				FLinearColor TeamColor = UTPS->Team ? UTPS->Team->TeamColor : FLinearColor::White;
 				float CenterFade = 1.f;
-				float PctFromCenter = (ScreenPosition - FVector(0.5f*Canvas->ClipX, 0.5f*Canvas->ClipY, 0.f)).Size() / Canvas->ClipX;
-				CenterFade = CenterFade * FMath::Clamp(10.f*PctFromCenter, 0.15f, 1.f);
+				float Height = 0.75*YL;
+				float Border = 2.f*Scale;
+				float XDistFromCenter = FMath::Abs(XPos - 0.5f*Canvas->ClipX + 0.5f*XL + Border);
+				float YDistFromCenter = FMath::Abs(YPos - 0.5f*Canvas->ClipY + 0.5f*Height + Border);
+				float MinBuffer = 0.01f*Canvas->ClipX;
+				if ((XDistFromCenter < 0.5*XL + Border + MinBuffer) && (YDistFromCenter < 0.5f*Height + Border + MinBuffer))
+				{
+					return;
+				}
+				float PctFromCenter = FVector2D(XDistFromCenter,YDistFromCenter).Size() / Canvas->ClipX;
+				CenterFade = CenterFade * FMath::Clamp(15.f*PctFromCenter - 0.1f, 0.f, 1.f);
+				if (CenterFade == 0.f)
+				{
+					return;
+				}
 				TeamColor.A = 0.2f * CenterFade;
 				UTexture* BarTexture = AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>()->HUDAtlas;
 				if (bIsInCombat)
@@ -5496,12 +5507,9 @@ void AUTCharacter::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector
 				}
 
 				Canvas->SetLinearDrawColor(TeamColor);
-				float Border = 2.f*Scale;
-				TransitionScaling = (BeaconTextScale - MinTextScale) / (1.f - MinTextScale);
-				float Height = 0.75*YL + 0.7f * YL * TransitionScaling;
 				Canvas->DrawTile(Canvas->DefaultTexture, XPos - Border, YPos - YL - Border, XL + 2.f*Border, Height + 2.f*Border, 0, 0, 1, 1);
 				FLinearColor BeaconTextColor = FLinearColor::White;
-				BeaconTextColor.A = 0.6f * CenterFade;
+				BeaconTextColor.A = 0.8f * CenterFade;
 				FUTCanvasTextItem TextItem(FVector2D(FMath::TruncToFloat(Canvas->OrgX + XPos + 0.5f*(XL - TextXL)), FMath::TruncToFloat(Canvas->OrgY + YPos - 1.2f*YL)), FText::FromString(PlayerState->PlayerName), TinyFont, BeaconTextColor, NULL);
 				TextItem.Scale = FVector2D(TextScaling*Scale, TextScaling*Scale);
 				TextItem.BlendMode = SE_BLEND_Translucent;
@@ -5511,37 +5519,30 @@ void AUTCharacter::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector
 				TextItem.FontRenderInfo = Canvas->CreateFontRenderInfo(true, false);
 				Canvas->DrawItem(TextItem);
 
-				if (TransitionScaling > 0.5f)
+				if (bRecentlyRendered && !bFarAway)
 				{
-					BarWidth -= 2.f*Border;
-					XPos += Border;
-					const float BarHeight = 6.f * TransitionScaling;
-					const float BarSpacing = 2.f * TransitionScaling;
-					FLinearColor BarColor = FLinearColor::Green;
-					BarColor.A = 0.5f * CenterFade;
+					BarWidth *= 0.005f;
+					float BackWidth = BarWidth * FMath::Max(100, Health + ArmorAmount);
+					XPos = ScreenPosition.X - 0.5f*BackWidth;
+					const float BarHeight = 6.f;
+
+					FLinearColor BarColor = FLinearColor::Black;
+					BarColor.A = 0.7f * CenterFade;
 					Canvas->SetLinearDrawColor(BarColor);
-					float HealthWidth = BarWidth * FMath::Min(HealthMax, Health) / FMath::Max(Health, HealthMax);
-					float BarY = YPos - YL + Height - 2.f*BarHeight - BarSpacing;
+					float BarY = YPos;
+					Canvas->DrawTile(BarTexture, XPos, BarY, BackWidth, BarHeight, 185.f, 400.f, 4.f, 4.f);
+
+					BarColor = FLinearColor::Green;
+					BarColor.A = 0.7f * CenterFade;
+					Canvas->SetLinearDrawColor(BarColor);
+					float HealthWidth = BarWidth * Health;
 					Canvas->DrawTile(BarTexture, XPos, BarY, HealthWidth, BarHeight, 185.f, 400.f, 4.f, 4.f);
-					if (Health != 100)
-					{
-						BarColor = (Health > 100) ? FLinearColor(0.4f, 0.6f, 2.f, 0.5f * CenterFade) : FLinearColor(0.f, 0.f, 0.f, 0.4f * CenterFade);
-						Canvas->SetLinearDrawColor(BarColor);
-						Canvas->DrawTile(BarTexture, XPos + HealthWidth, BarY, BarWidth - HealthWidth, BarHeight, 185.f, 400.f, 4.f, 4.f);
-					}
 					if (ArmorAmount > 0)
 					{
 						BarColor = FLinearColor::Yellow;
-						BarColor.A = 0.5f * CenterFade;
+						BarColor.A = 0.7f * CenterFade;
 						Canvas->SetLinearDrawColor(BarColor);
-						float ArmorWidth = BarWidth * ArmorAmount / FMath::Max(1.f, float(MaxStackedArmor));
-						Canvas->DrawTile(BarTexture, XPos, BarY + BarHeight + BarSpacing, ArmorWidth, BarHeight, 185.f, 400.f, 4.f, 4.f);
-						if (ArmorAmount < MaxStackedArmor)
-						{
-							BarColor = FLinearColor(0.f, 0.f, 0.f, 0.4f * CenterFade);
-							Canvas->SetLinearDrawColor(BarColor);
-							Canvas->DrawTile(BarTexture, XPos + ArmorWidth, BarY + BarHeight + BarSpacing, BarWidth - ArmorWidth, BarHeight, 185.f, 400.f, 4.f, 4.f);
-						}
+						Canvas->DrawTile(BarTexture, XPos+HealthWidth, BarY, BarWidth * ArmorAmount, BarHeight, 185.f, 400.f, 4.f, 4.f);
 					}
 				}
 			}
