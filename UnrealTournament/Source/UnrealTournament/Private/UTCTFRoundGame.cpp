@@ -577,12 +577,12 @@ void AUTCTFRoundGame::InitGameState()
 
 	CTFGameState->CTFRound = 1;
 	CTFGameState->NumRounds = NumRounds;
-	CTFGameState->HalftimeScoreDelay = 6.f;
 }
 
 void AUTCTFRoundGame::HandleExitingIntermission()
 {
 	CTFGameState->bStopGameClock = false;
+	CTFGameState->HalftimeScoreDelay = 3.f;
 	RemoveAllPawns();
 
 	if (bFirstRoundInitialized)
