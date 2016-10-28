@@ -6,6 +6,7 @@
 UUTFlagRunGameMessage::UUTFlagRunGameMessage(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+	KilledMessagePostfix = NSLOCTEXT("CTFGameMessage", "KilledMessage", " killed the flag carrier!");
 }
 
 FName UUTFlagRunGameMessage::GetTeamAnnouncement(int32 Switch, uint8 TeamNum, const UObject* OptionalObject, const class APlayerState* RelatedPlayerState_1, const class APlayerState* RelatedPlayerState_2) const
