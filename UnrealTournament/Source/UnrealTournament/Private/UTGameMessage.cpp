@@ -25,6 +25,7 @@ UUTGameMessage::UUTGameMessage(const class FObjectInitializer& ObjectInitializer
 	NotEnoughMoney = NSLOCTEXT("UTGameMessage", "NotEnoughMoney", "{Player1Name}, you lack the funds to buy it.");
 	PotentialSpeedHack = NSLOCTEXT("UTGameMessage", "Speedhack", "Server or network hitching.");
 	OnDeck = NSLOCTEXT("UTGameMessage", "MatchStarting", "The match is starting.");
+	WeaponLocked = NSLOCTEXT("UTGameMessage", "WeaponLocked", "Cannot unequip this weapon until it is fired.");
 	bIsStatusAnnouncement = true;
 }
 
@@ -35,7 +36,7 @@ int32 UUTGameMessage::GetFontSizeIndex(int32 MessageIndex) const
 
 float UUTGameMessage::GetScaleInSize_Implementation(int32 MessageIndex) const
 {
-	if ((MessageIndex >= 2) && (MessageIndex <= 6))
+	if (((MessageIndex >= 2) && (MessageIndex <= 6)) || (MessageIndex == 99))
 	{
 		return 1.f;
 	}
@@ -111,6 +112,8 @@ FText UUTGameMessage::GetText(int32 Switch = 0, bool bTargetsPlayerState1 = fals
 			return GetDefault<UUTGameMessage>(GetClass())->PotentialSpeedHack;
 		case 16:
 			return GetDefault<UUTGameMessage>(GetClass())->OnDeck;
+		case 99:
+			return GetDefault<UUTGameMessage>(GetClass())->WeaponLocked;
 		default:
 			return FText::GetEmpty();
 	}
