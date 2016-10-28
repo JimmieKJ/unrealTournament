@@ -55,12 +55,12 @@ void UUTFlagRunScoreboard::DrawMinimap(float RenderDelta)
 {
 	AUTFlagRunGameState* GS = GetWorld()->GetGameState<AUTFlagRunGameState>();
 	AUTPlayerState* UTPS = Cast<AUTPlayerState>(UTPlayerOwner->PlayerState);
-	const float MapSize = (UTGameState && UTGameState->bTeamGame) ? FMath::Min(Canvas->ClipX - 2.f*ScaledEdgeSize - 2.f*ScaledCellWidth, 0.9f*Canvas->ClipY - 120.f * RenderScale)
-		: FMath::Min(0.5f*Canvas->ClipX, 0.9f*Canvas->ClipY - 120.f * RenderScale);
-	float MapYPos = FMath::Max(120.f*RenderScale, MinimapCenter.Y*Canvas->ClipY - 0.5f*MapSize);
-	FVector2D LeftCorner = FVector2D(MinimapCenter.X*Canvas->ClipX - 0.5f*MapSize, MapYPos);
 	if (GS && (GS->GetMatchState() == MatchState::MatchIntermission))
 	{
+		const float MapSize = (UTGameState && UTGameState->bTeamGame) ? FMath::Min(Canvas->ClipX - 2.f*ScaledEdgeSize - 2.f*ScaledCellWidth, 0.9f*Canvas->ClipY - 120.f * RenderScale)
+			: FMath::Min(0.5f*Canvas->ClipX, 0.9f*Canvas->ClipY - 120.f * RenderScale);
+		float MapYPos = FMath::Max(LastScorePanelYOffset-2.f, MinimapCenter.Y*Canvas->ClipY - 0.5f*MapSize);
+		FVector2D LeftCorner = FVector2D(MinimapCenter.X*Canvas->ClipX - 0.5f*MapSize, MapYPos);
 		if ((EndIntermissionTime < GetWorld()->GetTimeSeconds()) && (GS->IntermissionTime < 9.f) && (GS->IntermissionTime > 0.f))
 		{
 			EndIntermissionTime = GetWorld()->GetTimeSeconds() + 9.f;
@@ -133,11 +133,14 @@ void UUTFlagRunScoreboard::DrawMinimap(float RenderDelta)
 			{
 				PageBottom -= (GS->CTFRound < 2) ? 0.1f*Canvas->ClipY : 0.05f*Canvas->ClipY;
 			}
-			Super::DrawStatsLeft(RenderDelta, LeftCorner.Y, LeftCorner.X + 0.04f*MapSize, ScoreWidth, PageBottom);
-		}
-		else
-		{
-			Super::DrawMinimap(RenderDelta);
+			float MaxHeight = 0.5f*Canvas->ClipY;
+			FLinearColor PageColor = FLinearColor::Black;
+			PageColor.A = 0.5f;
+			float XOffset = LeftCorner.X + 0.04f*MapSize;
+			float YPos = LeftCorner.Y;
+			DrawTexture(UTHUDOwner->ScoreboardAtlas, XOffset, YPos, ScoreWidth, MaxHeight, 149, 138, 32, 32, 0.5f, PageColor);
+			DrawScoringPlays(RenderDelta, YPos, XOffset, 0.9f*ScoreWidth, PageBottom);
+			DrawScoringSummary(RenderDelta, YPos, XOffset, ScoreWidth, MaxHeight);
 		}
 	}
 	else 
@@ -365,12 +368,6 @@ void UUTFlagRunScoreboard::DrawStatsRight(float DeltaTime, float& YPos, float XO
 
 void UUTFlagRunScoreboard::DrawStatsLeft(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom)
 {
-}
-
-void UUTFlagRunScoreboard::DrawScoringPlays(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float MaxHeight)
-{
-	Super::DrawScoringPlays(DeltaTime, YPos, XOffset, ScoreWidth, MaxHeight);
-	DrawScoringSummary(DeltaTime, YPos, XOffset, ScoreWidth, MaxHeight);
 }
 
 void UUTFlagRunScoreboard::DrawScoringSummary(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float MaxHeight)

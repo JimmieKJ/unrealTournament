@@ -108,6 +108,9 @@ public:
 	UPROPERTY()
 		float ScaledCellWidth;
 
+	UPROPERTY()
+		float LastScorePanelYOffset;
+
 	virtual void PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas* InCanvas, FVector2D InCanvasCenter);
 
 	virtual bool ShouldDrawScoringStats() { return false; };

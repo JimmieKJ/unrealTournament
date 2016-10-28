@@ -224,6 +224,7 @@ void UUTScoreboard::DrawScorePanel(float RenderDelta, float& YOffset)
 	{
 		SelectionStack.Empty();
 	}
+	LastScorePanelYOffset = YOffset;
 	if (UTGameState)
 	{
 		DrawScoreHeaders(RenderDelta, YOffset);
