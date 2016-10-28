@@ -111,6 +111,7 @@ AUTHUD::AUTHUD(const class FObjectInitializer& ObjectInitializer) : Super(Object
 	CachedProfileSettings = nullptr;
 	BuildText = NSLOCTEXT("UTHUD", "info", "PRE-ALPHA Build 0.1.6");
 	bShowVoiceDebug = false;
+	bDrawDamageNumbers = true;
 
 	static ConstructorHelpers::FObjectFinder<UMaterialInterface> DamageScreenMatObject(TEXT("/Game/RestrictedAssets/Blueprints/WIP/Nick/CameraAnims/HitScreenEffect.HitScreenEffect"));
 	DamageScreenMat = DamageScreenMatObject.Object;
@@ -1071,7 +1072,7 @@ void AUTHUD::CausedDamage(APawn* HitPawn, int32 Damage)
 			}
 		}
 		// save amount, scale , 2D location
-		float HalfHeight = Cast<ACharacter>(HitPawn) ? 1.1f * ((ACharacter *)(HitPawn))->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight() : 0.f;
+		float HalfHeight = Cast<ACharacter>(HitPawn) ? 1.15f * ((ACharacter *)(HitPawn))->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight() : 0.f;
 		DamageNumbers.Add(FEnemyDamageNumber(HitPawn, GetWorld()->GetTimeSeconds(), FMath::Min(Damage, 255), HitPawn->GetActorLocation() + FVector(0.f, 0.f, HalfHeight), 0.75f));
 	}
 }
@@ -1086,8 +1087,8 @@ void AUTHUD::DrawDamageNumbers()
 
 	for (int32 i = 0; i < DamageNumbers.Num(); i++)
 	{
-		DamageNumbers[i].Scale = DamageNumbers[i].Scale + 2.5f * GetWorld()->DeltaTimeSeconds;
-		if (DamageNumbers[i].Scale > 1.5f)
+		DamageNumbers[i].Scale = DamageNumbers[i].Scale + 2.3f * GetWorld()->DeltaTimeSeconds;
+		if (DamageNumbers[i].Scale > 1.7f)
 		{
 			DamageNumbers.RemoveAt(i, 1);
 			i--;
