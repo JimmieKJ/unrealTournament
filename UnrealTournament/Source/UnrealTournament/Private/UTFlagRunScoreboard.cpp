@@ -114,15 +114,6 @@ void UUTFlagRunScoreboard::DrawMinimap(float RenderDelta)
 				DrawText(NextLine, TextXPos, TextYPos, UTHUDOwner->SmallFont, RenderScale, 1.f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
 				TextYPos += 32.f*RenderScale;
 			}
-
-			if (GS->GetScoringPlays().Num() > 0)
-			{
-				float ScoreWidth = 0.92f*MapSize;
-				float YPos = LeftCorner.Y + Height + 8.f*RenderScale;
-				float PageBottom = YPos + 0.1f*Canvas->ClipY;
-				DrawTexture(UTHUDOwner->ScoreboardAtlas, LeftCorner.X + 0.04f*MapSize, YPos, 0.92f*MapSize, 0.1f*Canvas->ClipY, 149, 138, 32, 32, 0.75f, FLinearColor::Black);
-				DrawScoringSummary(RenderDelta, YPos, LeftCorner.X + 0.04f*MapSize, 0.9f*ScoreWidth, PageBottom);
-			}
 		}
 		else if (GS->GetScoringPlays().Num() > 0)
 		{
@@ -133,14 +124,22 @@ void UUTFlagRunScoreboard::DrawMinimap(float RenderDelta)
 			{
 				PageBottom -= (GS->CTFRound < 2) ? 0.1f*Canvas->ClipY : 0.05f*Canvas->ClipY;
 			}
-			float MaxHeight = 0.5f*Canvas->ClipY;
+			float MaxHeight = 0.45f*Canvas->ClipY;
 			FLinearColor PageColor = FLinearColor::Black;
 			PageColor.A = 0.5f;
 			float XOffset = LeftCorner.X + 0.04f*MapSize;
 			float YPos = LeftCorner.Y;
 			DrawTexture(UTHUDOwner->ScoreboardAtlas, XOffset, YPos, ScoreWidth, MaxHeight, 149, 138, 32, 32, 0.5f, PageColor);
 			DrawScoringPlays(RenderDelta, YPos, XOffset, 0.9f*ScoreWidth, PageBottom);
-			DrawScoringSummary(RenderDelta, YPos, XOffset, ScoreWidth, MaxHeight);
+		}
+		if (GS->GetScoringPlays().Num() > 0)
+		{
+			float Height = 0.5f*Canvas->ClipY;
+			float ScoreWidth = 0.92f*MapSize;
+			float YPos = LeftCorner.Y + Height + 8.f*RenderScale;
+			float PageBottom = YPos + 0.15f*Canvas->ClipY;
+			DrawTexture(UTHUDOwner->ScoreboardAtlas, LeftCorner.X + 0.04f*MapSize, YPos, 0.92f*MapSize, 0.1f*Canvas->ClipY, 149, 138, 32, 32, 0.75f, FLinearColor::Black);
+			DrawScoringSummary(RenderDelta, YPos, LeftCorner.X + 0.04f*MapSize, 0.9f*ScoreWidth, PageBottom);
 		}
 	}
 	else 
