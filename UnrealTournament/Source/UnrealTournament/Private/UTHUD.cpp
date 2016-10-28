@@ -1058,22 +1058,22 @@ void AUTHUD::CausedDamage(APawn* HitPawn, int32 Damage)
 		LastConfirmedHitTime = GetWorld()->TimeSeconds;
 		AUTCharacter* Char = Cast<AUTCharacter>(HitPawn);
 		LastConfirmedHitWasAKill = (Char && (Char->IsDead() || Char->Health <= 0));
-	}
 
-	if (bDrawDamageNumbers && (HitPawn != nullptr))
-	{
-		// add to current hit if there
-		for (int32 i = 0; i < DamageNumbers.Num(); i++)
+		if (bDrawDamageNumbers && (HitPawn != nullptr))
 		{
-			if ((DamageNumbers[i].DamagedPawn == HitPawn) && (GetWorld()->GetTimeSeconds() - DamageNumbers[i].DamageTime < 0.04f))
+			// add to current hit if there
+			for (int32 i = 0; i < DamageNumbers.Num(); i++)
 			{
-				DamageNumbers[i].DamageAmount = FMath::Min(255, Damage + int32(DamageNumbers[i].DamageAmount));
-				return;
+				if ((DamageNumbers[i].DamagedPawn == HitPawn) && (GetWorld()->GetTimeSeconds() - DamageNumbers[i].DamageTime < 0.04f))
+				{
+					DamageNumbers[i].DamageAmount = FMath::Min(255, Damage + int32(DamageNumbers[i].DamageAmount));
+					return;
+				}
 			}
+			// save amount, scale , 2D location
+			float HalfHeight = Cast<ACharacter>(HitPawn) ? 1.15f * ((ACharacter *)(HitPawn))->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight() : 0.f;
+			DamageNumbers.Add(FEnemyDamageNumber(HitPawn, GetWorld()->GetTimeSeconds(), FMath::Min(Damage, 255), HitPawn->GetActorLocation() + FVector(0.f, 0.f, HalfHeight), 0.75f));
 		}
-		// save amount, scale , 2D location
-		float HalfHeight = Cast<ACharacter>(HitPawn) ? 1.15f * ((ACharacter *)(HitPawn))->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight() : 0.f;
-		DamageNumbers.Add(FEnemyDamageNumber(HitPawn, GetWorld()->GetTimeSeconds(), FMath::Min(Damage, 255), HitPawn->GetActorLocation() + FVector(0.f, 0.f, HalfHeight), 0.75f));
 	}
 }
 
