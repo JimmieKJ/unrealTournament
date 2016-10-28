@@ -1046,7 +1046,7 @@ void AUTFlagRunGame::SendRestartNotifications(AUTPlayerState* PS, AUTPlayerContr
 	{
 		LastAttackerSpawnTime = GetWorld()->GetTimeSeconds();
 		AUTFlagRunGameState* FRGS = Cast<AUTFlagRunGameState>(CTFGameState);
-		if (FRGS && !FRGS->bAttackersCanRally && (GetWorld()->GetTimeSeconds() > PS->NextRallyTime) && FRGS->bHaveEstablishedFlagRunner)
+		if (FRGS && !FRGS->bAttackersCanRally && (GetWorld()->GetTimeSeconds() > PS->NextRallyTime) && FRGS->bHaveEstablishedFlagRunner && !FRGS->CurrentRallyPoint)
 		{
 			PS->AnnounceStatus(StatusMessage::NeedRally);
 		}
