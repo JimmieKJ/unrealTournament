@@ -899,11 +899,8 @@ void AUTRemoteRedeemer::PostRender(AUTHUD* HUD, UCanvas* C)
 	C->DrawText(HUD->TinyFont, Fuel, XPos - 0.5f*WidthScale*Width - 1.1f*XL, YPos - 0.5f*YL, 1.f, 1.f, TextRenderInfo);
 	if (bFuelCritical)
 	{
-		float XL, YL;
 		FText FuelWarning = NSLOCTEXT("Redeemer", "FuelWarning", "WARNING");
 		C->TextSize(HUD->SmallFont, FuelWarning.ToString(), XL, YL);
-		FFontRenderInfo TextRenderInfo;
-		TextRenderInfo.bEnableShadow = true;
 		FLinearColor WarningColor = (FMath::Cos(2.f*PI*CurrentFuelTime) > 0.f) ? FLinearColor::Yellow : FLinearColor::Red;
 		C->SetDrawColor(WarningColor.ToFColor(false));
 		C->DrawText(HUD->TinyFont, FuelWarning, XPos - 0.5f*XL, YPos - 0.5f*YL, 1.f, 1.f, TextRenderInfo);
