@@ -468,7 +468,7 @@ void UUTFlagRunScoreboard::DrawScoringSummary(float DeltaTime, float& YPos, floa
 	AUTFlagRunHUD* FRHUD = Cast<AUTFlagRunHUD>(UTHUDOwner);
 	if (FRHUD)
 	{
-		FRHUD->DrawWinConditions(UTHUDOwner->SmallFont, XOffset, YPos, ScoreWidth, RenderScale);
+		FRHUD->DrawWinConditions(UTHUDOwner->SmallFont, XOffset, YPos, ScoreWidth, RenderScale, true);
 	}
 }
 

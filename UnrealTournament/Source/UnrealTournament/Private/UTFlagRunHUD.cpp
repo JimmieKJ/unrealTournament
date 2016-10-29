@@ -149,7 +149,7 @@ void AUTFlagRunHUD::DrawHUD()
 	}
 }
 
-void AUTFlagRunHUD::DrawWinConditions(UFont* InFont, float XOffset, float YPos, float ScoreWidth, float RenderScale)
+void AUTFlagRunHUD::DrawWinConditions(UFont* InFont, float XOffset, float YPos, float ScoreWidth, float RenderScale, bool bCenterMessage)
 {
 	AUTFlagRunGameState* GS = GetWorld()->GetGameState<AUTFlagRunGameState>();
 	if (GS && GS->FlagRunMessageTeam != nullptr)
@@ -159,7 +159,6 @@ void AUTFlagRunHUD::DrawWinConditions(UFont* InFont, float XOffset, float YPos, 
 		TextRenderInfo.bClipText = true;
 		float ScoreX = XOffset;
 		FText PrefixText, EmphasisText, PostfixText;
-		FText SecondPostfixText = FText::GetEmpty();
 		FLinearColor EmphasisColor;
 		UUTFlagRunMessage::StaticClass()->GetDefaultObject<UUTFlagRunMessage>()->GetEmphasisText(PrefixText, EmphasisText, PostfixText, EmphasisColor, GS->FlagRunMessageSwitch, nullptr, nullptr, GS->FlagRunMessageTeam);
 
@@ -167,38 +166,23 @@ void AUTFlagRunHUD::DrawWinConditions(UFont* InFont, float XOffset, float YPos, 
 		Canvas->StrLen(InFont, PrefixText.ToString(), PreXL, YL);
 		Canvas->StrLen(InFont, EmphasisText.ToString(), EmphasisXL, YL);
 
-		ScoreMessageText = UUTFlagRunMessage::StaticClass()->GetDefaultObject<UUTFlagRunMessage>()->GetText(GS->FlagRunMessageSwitch, false, nullptr, nullptr, GS->FlagRunMessageTeam);
-		Canvas->StrLen(InFont, ScoreMessageText.ToString(), XL, YL);
-		if (XL > ScoreWidth)
+		if (bCenterMessage)
 		{
-			// get split postfix text, set offset considering first part
-			UUTFlagRunMessage::StaticClass()->GetDefaultObject<UUTFlagRunMessage>()->SplitPostfixText(PostfixText, SecondPostfixText, GS->FlagRunMessageSwitch, GS->FlagRunMessageTeam);
-			float PostXL;
-			Canvas->StrLen(InFont, PostfixText.ToString(), PostXL, YL);
-			ScoreX = XOffset + 0.5f* (ScoreWidth - RenderScale * (PreXL + EmphasisXL + PostXL));
-		}
-		else
-		{
+			ScoreMessageText = UUTFlagRunMessage::StaticClass()->GetDefaultObject<UUTFlagRunMessage>()->GetText(GS->FlagRunMessageSwitch, false, nullptr, nullptr, GS->FlagRunMessageTeam);
+			Canvas->StrLen(InFont, ScoreMessageText.ToString(), XL, YL);
 			ScoreX = XOffset + 0.5f * (ScoreWidth - RenderScale * XL);
 		}
+
 		Canvas->SetLinearDrawColor(FLinearColor::White);
 		Canvas->DrawText(InFont, PrefixText, ScoreX, YPos, RenderScale, RenderScale, TextRenderInfo);
 		ScoreX += PreXL*RenderScale;
 
 		Canvas->SetLinearDrawColor(GS->FlagRunMessageTeam->TeamIndex == 0 ? FLinearColor::Red : FLinearColor::Blue);
-		Canvas->DrawText(InFont, EmphasisText, ScoreX, YPos - 0.1f*YL*RenderScale, 1.1f*RenderScale, 1.1f*RenderScale, TextRenderInfo);
+		Canvas->DrawText(InFont, EmphasisText, ScoreX, YPos, RenderScale, RenderScale, TextRenderInfo);
 		ScoreX += 1.1f*EmphasisXL*RenderScale;
 
 		Canvas->SetLinearDrawColor(FLinearColor::White);
 		Canvas->DrawText(InFont, PostfixText, ScoreX, YPos, RenderScale, RenderScale, TextRenderInfo);
-
-		if (!SecondPostfixText.IsEmpty())
-		{
-			Canvas->StrLen(InFont, SecondPostfixText.ToString(), XL, YL);
-			ScoreX = XOffset + ScoreWidth - RenderScale * XL;
-			YPos += YL;
-			Canvas->DrawText(InFont, SecondPostfixText, ScoreX, YPos, RenderScale, RenderScale, TextRenderInfo);
-		}
 	}
 }
 
