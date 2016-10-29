@@ -23,4 +23,7 @@ class UNREALTOURNAMENT_API AUTFlagRunHUD : public AUTHUD_CTF
 	int32 BluePlayerCount;
 	float RedDeathTime;
 	float BlueDeathTime;
+
+	virtual void DrawWinConditions(UFont* InFont, float XPos, float YPos, float ScoreWidth, float RenderScale);
+
 };

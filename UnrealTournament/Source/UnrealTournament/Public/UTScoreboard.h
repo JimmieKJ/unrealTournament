@@ -136,9 +136,6 @@ public:
 		FText GameMessageText;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
-		FText ScoreMessageText;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
 		FText CH_PlayerName;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")

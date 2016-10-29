@@ -5,6 +5,7 @@
 #include "UTCTFScoring.h"
 #include "UTFlagRunMessage.h"
 #include "StatNames.h"
+#include "UTFlagRunHUD.h"
 
 UUTFlagRunScoreboard::UUTFlagRunScoreboard(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -137,8 +138,7 @@ void UUTFlagRunScoreboard::DrawMinimap(float RenderDelta)
 			float Height = 0.5f*Canvas->ClipY;
 			float ScoreWidth = 0.92f*MapSize;
 			float YPos = LeftCorner.Y + Height + 8.f*RenderScale;
-			float PageBottom = YPos + 0.15f*Canvas->ClipY;
-			DrawTexture(UTHUDOwner->ScoreboardAtlas, LeftCorner.X + 0.04f*MapSize, YPos, 0.92f*MapSize, 0.1f*Canvas->ClipY, 149, 138, 32, 32, 0.75f, FLinearColor::Black);
+			float PageBottom = YPos + 0.1f*Canvas->ClipY;
 			DrawScoringSummary(RenderDelta, YPos, LeftCorner.X + 0.04f*MapSize, 0.9f*ScoreWidth, PageBottom);
 		}
 	}
@@ -371,7 +371,6 @@ void UUTFlagRunScoreboard::DrawStatsLeft(float DeltaTime, float& YPos, float XOf
 
 void UUTFlagRunScoreboard::DrawScoringSummary(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float MaxHeight)
 {
-
 	if (TimeLineOffset < 1.f)
 	{
 		return;
@@ -381,8 +380,6 @@ void UUTFlagRunScoreboard::DrawScoringSummary(float DeltaTime, float& YPos, floa
 	{
 		return;
 	}
-
-	Canvas->SetLinearDrawColor(FLinearColor::White);
 	FFontRenderInfo TextRenderInfo;
 	TextRenderInfo.bEnableShadow = true;
 	TextRenderInfo.bClipText = true;
@@ -408,11 +405,15 @@ void UUTFlagRunScoreboard::DrawScoringSummary(float DeltaTime, float& YPos, floa
 
 	FLinearColor DrawColor = FLinearColor::White;
 	float CurrentScoreHeight = (GS->CTFRound >= GS->NumRounds - 2) ? 3.f*ScoringOffsetY : 2.f*ScoringOffsetY;
+	Canvas->SetLinearDrawColor(FLinearColor::Black);
+	float FrameWidth = 8.f * RenderScale;
+	DrawTexture(UTHUDOwner->ScoreboardAtlas, XOffset - FrameWidth, YPos - FrameWidth, 1.11f*ScoreWidth + 2.f*FrameWidth, CurrentScoreHeight+2.f*FrameWidth, 149, 138, 32, 32, 0.75f, FLinearColor::Black);
+	Canvas->SetLinearDrawColor(FLinearColor::White);
 	float BackAlpha = 0.3f;
 	DrawTexture(UTHUDOwner->ScoreboardAtlas, XOffset, YPos, 1.11f*ScoreWidth, CurrentScoreHeight, 149, 138, 32, 32, BackAlpha, DrawColor);
 
 	float SingleXL, SingleYL;
-	float ScoreX = XOffset + 0.99f*ScoreWidth - ScoringOffsetX;
+	float ScoreX = XOffset + 0.5f*(ScoreWidth - ScoringOffsetX);
 	FString PreambleString = ScorePreamble.ToString();
 	Canvas->TextSize(UTHUDOwner->MediumFont, PreambleString, SingleXL, SingleYL, RenderScale, RenderScale);
 	YPos -= 0.1f * SingleYL;
@@ -444,7 +445,7 @@ void UUTFlagRunScoreboard::DrawScoringSummary(float DeltaTime, float& YPos, floa
 	FText TiebreakBonusPattern = NSLOCTEXT("UTFlagRun", "TiebreakPattern", "{TBPre}{Team} +{Bonus}");
 	FText TiebreakBonusText = FText::Format(TiebreakBonusPattern, Args);
 	Canvas->TextSize(UTHUDOwner->SmallFont, TiebreakBonusText.ToString(), ScoringOffsetX, ScoringOffsetY, RenderScale, RenderScale);
-	ScoreX = XOffset + ScoreWidth - ScoringOffsetX;
+	ScoreX = XOffset + 0.5f*(ScoreWidth - ScoringOffsetX);
 
 	Canvas->SetLinearDrawColor(FLinearColor::White);
 	PreambleString = TiebreakPreamble.ToString();
@@ -463,50 +464,11 @@ void UUTFlagRunScoreboard::DrawScoringSummary(float DeltaTime, float& YPos, floa
 	Canvas->DrawText(UTHUDOwner->SmallFont, TiebreakValue, ScoreX, YPos, RenderScale, RenderScale, TextRenderInfo);
 
 	YPos += (GS->CTFRound == GS->NumRounds - 2) ? 0.9f*SingleYL : 0.8f*SingleYL;
-	if (GS->FlagRunMessageTeam != nullptr)
+
+	AUTFlagRunHUD* FRHUD = Cast<AUTFlagRunHUD>(UTHUDOwner);
+	if (FRHUD)
 	{
-		ScoreX = XOffset;
-		FText PrefixText, EmphasisText, PostfixText;
-		FText SecondPostfixText = FText::GetEmpty();
-		FLinearColor EmphasisColor;
-		UUTFlagRunMessage::StaticClass()->GetDefaultObject<UUTFlagRunMessage>()->GetEmphasisText(PrefixText, EmphasisText, PostfixText, EmphasisColor, GS->FlagRunMessageSwitch, nullptr, nullptr, GS->FlagRunMessageTeam);
-
-		float XL, YL, PreXL, EmphasisXL;
-		Canvas->StrLen(UTHUDOwner->SmallFont, PrefixText.ToString(), PreXL, YL);
-		Canvas->StrLen(UTHUDOwner->SmallFont, EmphasisText.ToString(), EmphasisXL, YL);
-
-		ScoreMessageText = UUTFlagRunMessage::StaticClass()->GetDefaultObject<UUTFlagRunMessage>()->GetText(GS->FlagRunMessageSwitch, false, nullptr, nullptr, GS->FlagRunMessageTeam);
-		Canvas->StrLen(UTHUDOwner->SmallFont, ScoreMessageText.ToString(), XL, YL);
-		if (XL > ScoreWidth)
-		{
-			// get split postfix text, set offset considering first part
-			UUTFlagRunMessage::StaticClass()->GetDefaultObject<UUTFlagRunMessage>()->SplitPostfixText(PostfixText, SecondPostfixText, GS->FlagRunMessageSwitch, GS->FlagRunMessageTeam);
-			float PostXL;
-			Canvas->StrLen(UTHUDOwner->SmallFont, PostfixText.ToString(), PostXL, YL);
-			ScoreX = XOffset + ScoreWidth - RenderScale * (PreXL + EmphasisXL + PostXL);
-		}
-		else
-		{
-			ScoreX = XOffset + ScoreWidth - RenderScale * XL;
-		}
-		Canvas->SetLinearDrawColor(FLinearColor::White);
-		Canvas->DrawText(UTHUDOwner->SmallFont, PrefixText, ScoreX, YPos, RenderScale, RenderScale, TextRenderInfo);
-		ScoreX += PreXL*RenderScale;
-
-		Canvas->SetLinearDrawColor(GS->FlagRunMessageTeam->TeamIndex == 0 ? FLinearColor::Red : FLinearColor::Blue);
-		Canvas->DrawText(UTHUDOwner->SmallFont, EmphasisText, ScoreX, YPos - 0.1f*YL*RenderScale, 1.1f*RenderScale, 1.1f*RenderScale, TextRenderInfo);
-		ScoreX += 1.1f*EmphasisXL*RenderScale;
-
-		Canvas->SetLinearDrawColor(FLinearColor::White);
-		Canvas->DrawText(UTHUDOwner->SmallFont, PostfixText, ScoreX, YPos, RenderScale, RenderScale, TextRenderInfo);
-		
-		if (!SecondPostfixText.IsEmpty())
-		{
-			Canvas->StrLen(UTHUDOwner->SmallFont, SecondPostfixText.ToString(), XL, YL);
-			ScoreX = XOffset + ScoreWidth - RenderScale * XL;
-			YPos += 0.9f*SingleYL;
-			Canvas->DrawText(UTHUDOwner->SmallFont, SecondPostfixText, ScoreX, YPos, RenderScale, RenderScale, TextRenderInfo);
-		}
+		FRHUD->DrawWinConditions(UTHUDOwner->SmallFont, XOffset, YPos, ScoreWidth, RenderScale);
 	}
 }
 
@@ -564,7 +526,7 @@ void UUTFlagRunScoreboard::DrawScoringPlayInfo(const FCTFScoringPlay& Play, floa
 		if (RoundBonus >= 60)
 		{
 			BonusString = (RoundBonus >= 120) ? TEXT("\u2605 \u2605 \u2605") : TEXT("\u2605 \u2605");
-			BonusColor = (RoundBonus >= 120) ? FLinearColor(1.f, 0.9f, 0.15f) : FLinearColor::White;
+			BonusColor = (RoundBonus >= 120) ? FLinearColor(1.f, 0.9f, 0.15f) : FLinearColor(0.7f, 0.7f, 0.75f);
 		}
 	}
 	float ScoringOffsetX, ScoringOffsetY;

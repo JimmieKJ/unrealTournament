@@ -174,7 +174,7 @@ void UUTScoreboard::DrawGamePanel(float RenderDelta, float& YOffset)
 			GameName = FText::FromString(DefaultGame->DisplayName.ToString().ToUpper());
 		}
 	}
-	if (ScoreMessageText.IsEmpty())
+	if (UTHUDOwner->ScoreMessageText.IsEmpty())
 	{ 
 		FFormatNamedArguments Args;
 		Args.Add("GameName", FText::AsCultureInvariant(GameName));
@@ -184,7 +184,7 @@ void UUTScoreboard::DrawGamePanel(float RenderDelta, float& YOffset)
 	}
 	else
 	{
-		DrawText(ScoreMessageText, 220.f*RenderScale, YOffset + 36.f*RenderScale, UTHUDOwner->MediumFont, RenderScale, 1.f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center); 
+		DrawText(UTHUDOwner->ScoreMessageText, 220.f*RenderScale, YOffset + 36.f*RenderScale, UTHUDOwner->MediumFont, RenderScale, 1.f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
 	}
 
 	DrawGameOptions(RenderDelta, YOffset);

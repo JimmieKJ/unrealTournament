@@ -4,7 +4,6 @@
 #include "UTLocalMessage.h"
 #include "UTVictoryMessage.h"
 #include "UTHUD.h"
-#include "UTScoreboard.h"
 #include "GameFramework/LocalMessage.h"
 
 
@@ -39,10 +38,9 @@ void UUTVictoryMessage::ClientReceive(const FClientReceiveData& ClientData) cons
 	if (!LocalMessageText.IsEmpty() && ClientData.LocalPC)
 	{
 		AUTHUD* MyHUD = Cast<AUTHUD>(ClientData.LocalPC->MyHUD);
-		UUTScoreboard* MyScoreboard = MyHUD ? MyHUD->GetScoreboard() : nullptr;
-		if (MyScoreboard != nullptr)
+		if (MyHUD != nullptr)
 		{
-			MyScoreboard->ScoreMessageText = LocalMessageText;
+			MyHUD->ScoreMessageText = LocalMessageText;
 		}
 		AUTPlayerController* PC = Cast<AUTPlayerController>(ClientData.LocalPC);
 		if (PC)

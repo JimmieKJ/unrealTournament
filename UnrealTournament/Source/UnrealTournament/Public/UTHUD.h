@@ -123,6 +123,9 @@ public:
 	/** Cache fonts this HUD will use */
 	virtual void CacheFonts();
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
+		FText ScoreMessageText;
+
 	// The Global Opacity for Hud Widgets
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
 	float WidgetOpacity;
