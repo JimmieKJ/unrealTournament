@@ -34,9 +34,6 @@ AUTFlagRunHUD::AUTFlagRunHUD(const FObjectInitializer& ObjectInitializer)
 	MustScoreText = NSLOCTEXT("UTTeamScoreboard", "MustScore", " must score ");
 	RedTeamText = NSLOCTEXT("UTTeamScoreboard", "RedTeam", "RED");
 	BlueTeamText = NSLOCTEXT("UTTeamScoreboard", "BlueTeam", "BLUE");
-	GoldBonusText = NSLOCTEXT("FlagRun", "GoldBonusText", "\u2605 \u2605 \u2605");
-	SilverBonusText = NSLOCTEXT("FlagRun", "SilverBonusText", "\u2605 \u2605");
-	BronzeBonusText = NSLOCTEXT("FlagRun", "BronzeBonusText", "\u2605");
 }
 
 void AUTFlagRunHUD::BeginPlay()
@@ -70,9 +67,6 @@ void AUTFlagRunHUD::DrawHUD()
 	Super::DrawHUD();
 
 	AUTFlagRunGameState* GS = GetWorld()->GetGameState<AUTFlagRunGameState>();
-//	GS->FlagRunMessageSwitch = 5309; // fixmesteve remove
-//	GS->FlagRunMessageTeam = GS->Teams[0];
-//	ScoreMessageText = MustScoreText; 
 	bShowScoresWhileDead = bShowScoresWhileDead && GS && GS->IsMatchInProgress() && !GS->IsMatchIntermission() && UTPlayerOwner && !UTPlayerOwner->GetPawn() && !UTPlayerOwner->IsInState(NAME_Spectating);
 	bool bScoreboardIsUp = bShowScores || bForceScores || bShowScoresWhileDead;
 	if (!bScoreboardIsUp && GS && GS->GetMatchState() == MatchState::InProgress)
@@ -192,8 +186,8 @@ void AUTFlagRunHUD::DrawWinConditions(UFont* InFont, float XOffset, float YPos, 
 		Canvas->StrLen(InFont, EmphasisText.ToString(), EmphasisXL, YL);
 		float BonusXL = 0.f;
 		float MustScoreXL = 0.f;
-		FText BonusType = BronzeBonusText;
-		FLinearColor BonusColor = FLinearColor(0.48f, 0.25f, 0.18f);
+		FText BonusType = GS->BronzeBonusText;
+		FLinearColor BonusColor = GS->BronzeBonusColor;
 
 		int32 Switch = GS->FlagRunMessageSwitch;
 		int32 TimeNeeded = 0;
@@ -207,14 +201,14 @@ void AUTFlagRunHUD::DrawWinConditions(UFont* InFont, float XOffset, float YPos, 
 		{
 		case 1: PostfixText = DefendersMustStop; break;
 		case 2: PostfixText = DefendersMustHold; break;
-		case 3: PostfixText = DefendersMustHold; BonusType = SilverBonusText; break;
+		case 3: PostfixText = DefendersMustHold; BonusType = GS->SilverBonusText; break;
 		case 4: PostfixText = (TimeNeeded > 0) ? AttackersMustScoreTime : AttackersMustScore; break;
-		case 5: PostfixText = (TimeNeeded > 0) ? AttackersMustScoreTime : AttackersMustScore; BonusType = SilverBonusText; BonusColor = FLinearColor(0.5f, 0.5f, 0.75f); break;
-		case 6: PostfixText = (TimeNeeded > 0) ? AttackersMustScoreTime : AttackersMustScore; BonusType = GoldBonusText; BonusColor = FLinearColor(1.f, 0.9f, 0.15f); break;
+		case 5: PostfixText = (TimeNeeded > 0) ? AttackersMustScoreTime : AttackersMustScore; BonusType = GS->SilverBonusText; BonusColor = GS->SilverBonusColor; break;
+		case 6: PostfixText = (TimeNeeded > 0) ? AttackersMustScoreTime : AttackersMustScore; BonusType = GS->GoldBonusText; BonusColor = GS->GoldBonusColor; break;
 		case 7: PostfixText = UnhandledCondition; break;
 		case 8: PostfixText = (TimeNeeded > 0) ? AttackersMustScoreTimeWin : AttackersMustScoreWin; break;
-		case 9: PostfixText = (TimeNeeded > 0) ? AttackersMustScoreTimeWin : AttackersMustScoreWin; BonusType = SilverBonusText; BonusColor = FLinearColor(0.5f, 0.5f, 0.75f); break;
-		case 10: PostfixText = (TimeNeeded > 0) ? AttackersMustScoreTimeWin : AttackersMustScoreWin; BonusType = GoldBonusText; BonusColor = FLinearColor(1.f, 0.9f, 0.15f); break;
+		case 9: PostfixText = (TimeNeeded > 0) ? AttackersMustScoreTimeWin : AttackersMustScoreWin; BonusType = GS->SilverBonusText; BonusColor = GS->SilverBonusColor; break;
+		case 10: PostfixText = (TimeNeeded > 0) ? AttackersMustScoreTimeWin : AttackersMustScoreWin; BonusType = GS->GoldBonusText; BonusColor = GS->GoldBonusColor; break;
 		}	
 
 		if (Switch > 1)

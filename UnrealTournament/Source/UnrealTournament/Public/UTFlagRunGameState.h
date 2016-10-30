@@ -34,6 +34,15 @@ class UNREALTOURNAMENT_API AUTFlagRunGameState : public AUTCTFRoundGameState
 	UPROPERTY()
 		FText SilverBonusTimedText;
 
+	UPROPERTY()
+		FLinearColor GoldBonusColor;
+
+	UPROPERTY()
+		FLinearColor SilverBonusColor;
+
+	UPROPERTY()
+		FLinearColor BronzeBonusColor;
+
 	UPROPERTY(Replicated)
 		bool bAttackersCanRally;
 
@@ -66,7 +75,6 @@ class UNREALTOURNAMENT_API AUTFlagRunGameState : public AUTCTFRoundGameState
 
 	UPROPERTY(Replicated)
 		class AUTTeamInfo* FlagRunMessageTeam;
-
 
 	UPROPERTY(BlueprintReadOnly, Replicated)
 		class AUTRallyPoint* CurrentRallyPoint;
@@ -104,6 +112,8 @@ class UNREALTOURNAMENT_API AUTFlagRunGameState : public AUTCTFRoundGameState
 	virtual void PrecacheAllPowerupAnnouncements(class UUTAnnouncer* Announcer) const;
 
 	virtual FText GetRoundStatusText(bool bForScoreboard) override;
+
+	virtual FLinearColor GetGameStatusColor() override;
 
 protected:
 	virtual void UpdateTimeMessage() override;

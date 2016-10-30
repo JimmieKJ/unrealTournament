@@ -1164,6 +1164,11 @@ void AUTGameState::ReceivedGameModeClass()
 	}
 }
 
+FLinearColor AUTGameState::GetGameStatusColor()
+{
+	return FLinearColor::White;
+}
+
 FText AUTGameState::GetGameStatusText(bool bForScoreboard)
 {
 	if (!IsMatchInProgress())

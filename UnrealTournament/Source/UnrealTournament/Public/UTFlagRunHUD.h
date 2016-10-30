@@ -44,15 +44,6 @@ class UNREALTOURNAMENT_API AUTFlagRunHUD : public AUTHUD_CTF
 		FText AttackersMustScoreTimeWin;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
-		FText BronzeBonusText;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
-		FText SilverBonusText;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
-		FText GoldBonusText;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
 		FText BlueTeamText;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)

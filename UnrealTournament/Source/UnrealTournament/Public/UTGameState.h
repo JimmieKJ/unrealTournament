@@ -358,6 +358,8 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 
 	virtual FText GetGameStatusText(bool bForScoreboard = false);
 
+	virtual FLinearColor GetGameStatusColor();
+
 	virtual void OnRep_MatchState() override;
 
 	virtual void AddPlayerState(class APlayerState* PlayerState) override;
