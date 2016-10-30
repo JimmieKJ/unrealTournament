@@ -1914,3 +1914,9 @@ UUTCrosshair* AUTHUD::GetCrosshairForWeapon(FName WeaponCustomizationTag, FWeapo
 	return nullptr;
 }
 
+void AUTHUD::DrawWinConditions(UFont* InFont, float XPos, float YPos, float ScoreWidth, float RenderScale, bool bCenterMessage)
+{
+	DrawText(ScoreMessageText.ToString(), FLinearColor::White, XPos, YPos, InFont, RenderScale, 1.f); 
+}
+
+

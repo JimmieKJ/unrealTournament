@@ -170,7 +170,13 @@ void AUTFlagRunHUD::DrawHUD()
 
 void AUTFlagRunHUD::DrawWinConditions(UFont* InFont, float XOffset, float YPos, float ScoreWidth, float RenderScale, bool bCenterMessage)
 {
+
 	AUTFlagRunGameState* GS = GetWorld()->GetGameState<AUTFlagRunGameState>();
+	if (GS && GS->HasMatchEnded())
+	{
+		Super::DrawWinConditions(InFont, XOffset, YPos, ScoreWidth, RenderScale, bCenterMessage);
+		return;
+	}
 	if (GS && GS->FlagRunMessageTeam != nullptr)
 	{
 		FFontRenderInfo TextRenderInfo;
