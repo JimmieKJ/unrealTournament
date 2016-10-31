@@ -250,6 +250,8 @@ class UNREALTOURNAMENT_API AUTWeap_RocketLauncher : public AUTWeapon
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Lock)
 	float 				LockAim;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Lock)
+		TSubclassOf<AUTProjectile> SeekingRocketClass;
 
 	/** Sound Effects to play when Locking */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Lock)

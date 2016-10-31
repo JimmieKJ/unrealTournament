@@ -28,7 +28,7 @@ AUTWeap_RocketLauncher::AUTWeap_RocketLauncher(const class FObjectInitializer& O
 	bLockedOnTarget = false;
 	LockCheckTime = 0.1f;
 	LockRange = 16000.0f;
-	LockAcquireTime = 1.1f;
+	LockAcquireTime = 0.5f;
 	LockTolerance = 0.2f;
 	LockedTarget = NULL;
 	PendingLockedTarget = NULL;
@@ -360,11 +360,6 @@ AUTProjectile* AUTWeap_RocketLauncher::FireProjectile()
 		}
 		AUTProjectile* SpawnedProjectile = SpawnNetPredictedProjectile(RocketFireModes[CurrentRocketFireMode].ProjClass, SpawnLocation, SpawnRotation);
 		AUTProj_Rocket* SpawnedRocket = Cast<AUTProj_Rocket>(SpawnedProjectile);
-		if (HasLockedTarget() && SpawnedRocket)
-		{
-			SpawnedRocket->TargetActor = LockedTarget;
-			TrackingRockets.Add(SpawnedRocket);
-		}
 		NumLoadedRockets = 0;
 		NumLoadedBarrels = 0;
 		return SpawnedProjectile;
@@ -436,7 +431,11 @@ AUTProjectile* AUTWeap_RocketLauncher::FireRocketProjectile()
 	checkSlow(RocketFireModes.IsValidIndex(CurrentRocketFireMode) && RocketFireModes[CurrentRocketFireMode].ProjClass != NULL);
 
 	TSubclassOf<AUTProjectile> RocketProjClass = nullptr;
-	if (bAllowGrenades)
+	if (HasLockedTarget() && SeekingRocketClass)
+	{
+		RocketProjClass = SeekingRocketClass;
+	}
+	else if (bAllowGrenades)
 	{
 		RocketProjClass = RocketFireModes.IsValidIndex(CurrentRocketFireMode) ? RocketFireModes[CurrentRocketFireMode].ProjClass : nullptr;
 	}
@@ -616,7 +615,7 @@ void AUTWeap_RocketLauncher::SetLockTarget(AActor* NewTarget)
 
 void AUTWeap_RocketLauncher::UpdateLock()
 {
-	if (UTOwner == NULL || UTOwner->Controller == NULL || UTOwner->IsFiringDisabled())
+	if (UTOwner == NULL || UTOwner->Controller == NULL || UTOwner->IsFiringDisabled() || (CurrentFireMode != 1))
 	{
 		SetLockTarget(NULL);
 		return;
