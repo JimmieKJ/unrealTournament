@@ -8,6 +8,9 @@
 #include "UTGameInstance.h"
 #include "UTParty.h"
 #include "UTPartyGameState.h"
+#include "BlueprintContextLibrary.h"
+#include "PartyContext.h"
+#include "UTLobbyMatchInfo.h"
 
 AUTLobbyPlayerState::AUTLobbyPlayerState(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)

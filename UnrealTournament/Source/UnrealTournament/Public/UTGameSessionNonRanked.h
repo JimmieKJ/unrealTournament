@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "UTGameEngine.h"
+
 #include "UTGameSessionNonRanked.generated.h"
 
 const float SERVER_REREGISTER_WAIT_TIME = 120.0;  // 2 minutes

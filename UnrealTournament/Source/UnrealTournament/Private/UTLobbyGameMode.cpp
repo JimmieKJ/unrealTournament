@@ -10,6 +10,7 @@
 #include "UTGameMessage.h"
 #include "UTAnalytics.h"
 #include "UTGameSessionNonRanked.h"
+#include "Menus/SUTLobbyMenu.h"
 
 
 
@@ -452,4 +453,9 @@ void AUTLobbyGameMode::MakeJsonReport(TSharedPtr<FJsonObject> JsonObject)
 bool AUTLobbyGameMode::SupportsInstantReplay() const
 {
 	return false;
+}
+
+TSharedRef<SUTMenuBase> AUTLobbyGameMode::GetGameMenu(UUTLocalPlayer* PlayerOwner) const
+{
+	return SNew(SUTLobbyMenu).PlayerOwner(PlayerOwner);
 }

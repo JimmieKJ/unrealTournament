@@ -9,6 +9,7 @@
 #include "OnlineSubsystemUtils.h"
 #include "UTLocalPlayer.h"
 #include "UTParty.h"
+#include "UTLobbyGameMode.h"
 
 #if WITH_SOCIAL
 #include "Social.h"
@@ -95,9 +96,21 @@ void UPartyContext::HandlePartyJoined(UPartyGameState* PartyState)
 
 		// If we're playing an offline game, quit back to main menu
 		UUTLocalPlayer* LocalPlayer = GetOwningPlayer<UUTLocalPlayer>();
-		if (LocalPlayer && !LocalPlayer->IsPartyLeader() && !LocalPlayer->IsMenuGame() && LocalPlayer->GetWorld()->GetNetMode() == NM_Standalone)
+		if (LocalPlayer && !LocalPlayer->IsPartyLeader())
 		{
-			LocalPlayer->ReturnToMainMenu();
+			if (!LocalPlayer->IsMenuGame())
+			{
+				if (LocalPlayer->GetWorld()->GetNetMode() == NM_Standalone)
+				{
+					LocalPlayer->ReturnToMainMenu();
+				}
+				else if (LocalPlayer->GetWorld()->GetGameState() && 
+					     LocalPlayer->GetWorld()->GetGameState()->GameModeClass &&
+						 LocalPlayer->GetWorld()->GetGameState()->GameModeClass->IsChildOf(AUTLobbyGameMode::StaticClass()))
+				{
+					LocalPlayer->ReturnToMainMenu();
+				}
+			}
 		}
 	}
 }
