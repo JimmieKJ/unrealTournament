@@ -109,6 +109,10 @@ class UNREALTOURNAMENT_API AUTProj_FlakShard : public AUTProjectile
 	UPROPERTY(BlueprintReadOnly, Category = Effects)
 		TArray<UStaticMeshComponent*> SatelliteShards;
 
+	/** satellite shard offsets. */
+	UPROPERTY()
+		TArray<FVector> ShardOffset;
+
 	/** Sound played when shard hits player */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Projectile)
 		USoundBase* FleshImpactSound;

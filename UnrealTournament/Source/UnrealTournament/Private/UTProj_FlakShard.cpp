@@ -77,16 +77,18 @@ void AUTProj_FlakShard::BeginPlay()
 		{
 			for (int32 i = 0; i < NumSatelliteShards; i++)
 			{
-				FVector ShardOffset = 1.5f*OverlapRadius * FVector(FMath::FRand() - 0.5f, FMath::FRand() - 0.5f, FMath::FRand() - 0.5f).GetSafeNormal();
+				FVector NewShardOffset = 1.5f*OverlapRadius * FVector(FMath::FRand() - 0.5f, FMath::FRand() - 0.5f, FMath::FRand() - 0.5f).GetSafeNormal();
 				UStaticMeshComponent* NewMesh = NewObject<UStaticMeshComponent>(this);
 				NewMesh->SetStaticMesh(ShardMesh->StaticMesh);
 				NewMesh->SetMaterial(0, ShardMesh->GetMaterial(0));
 				NewMesh->RegisterComponentWithWorld(GetWorld());
-				NewMesh->AttachToComponent(CollisionComp, FAttachmentTransformRules::KeepWorldTransform);
-				NewMesh->SetRelativeLocation(ShardOffset);
+				NewMesh->AttachToComponent(CollisionComp, FAttachmentTransformRules::KeepRelativeTransform);
+				NewMesh->SetRelativeRotation(ShardMesh->RelativeRotation);
+				NewMesh->SetRelativeLocation(NewShardOffset + InitialVisualOffset);
 				NewMesh->SetRelativeScale3D(ShardMesh->RelativeScale3D);
 				NewMesh->bGenerateOverlapEvents = false;
 				SatelliteShards.Add(NewMesh);
+				ShardOffset.Add(NewShardOffset);
 			}
 		}
 	}
@@ -211,6 +213,24 @@ void AUTProj_FlakShard::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
+	if (OffsetVisualComponent && SatelliteShards.Num() > 0)
+	{
+		float Pct = (GetWorld()->GetTimeSeconds() - CreationTime) / OffsetTime;
+		for (int32 i = 0; i < SatelliteShards.Num(); i++)
+		{
+			if (SatelliteShards[i])
+			{
+				if (Pct >= 1.f)
+				{
+					SatelliteShards[i]->RelativeLocation = ShardOffset[i];
+				}
+				else
+				{
+					SatelliteShards[i]->RelativeLocation = Pct*ShardOffset[i] + (1.f - Pct)*(ShardOffset[i]+InitialVisualOffset);
+				}
+			}
+		}
+	}
 	if (PawnOverlapSphere != NULL)
 	{
 		float CurrentRadius = PawnOverlapSphere->GetUnscaledSphereRadius();

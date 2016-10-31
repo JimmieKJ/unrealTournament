@@ -490,7 +490,7 @@ void AUTProjectile::TickActor(float DeltaTime, ELevelTick TickType, FActorTickFu
 			else
 			{
 				OffsetVisualComponent->RelativeLocation = Pct*FinalVisualOffset + (1.f - Pct)*InitialVisualOffset;
-		}
+			}
 		}
 		Super::TickActor(DeltaTime, TickType, ThisTickFunction);
 	}
