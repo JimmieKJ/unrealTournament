@@ -1,6 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealTournament.h"
+#include "Net/OnlineEngineInterface.h"
 #include "UTCharacterMovement.h"
 #include "ActiveSound.h"
 #include "AudioDevice.h"
@@ -5395,4 +5396,14 @@ void AUTPlayerController::RealNames()
 			}
 		}
 	}
+}
+
+void AUTPlayerController::UTDumpOnlineSessionState()
+{
+	UOnlineEngineInterface::Get()->DumpSessionState(GetWorld());
+}
+
+void AUTPlayerController::UTDumpPartyState()
+{
+	UOnlineEngineInterface::Get()->DumpPartyState(GetWorld());
 }

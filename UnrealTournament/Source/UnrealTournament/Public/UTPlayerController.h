@@ -1287,6 +1287,10 @@ protected:
 	UFUNCTION(exec)
 	void DumpMapVote();
 
+	UFUNCTION(exec)
+	void UTDumpOnlineSessionState();
+	UFUNCTION(exec)
+	void UTDumpPartyState();
 
 public:
 	// Will return true if this player can perform a rally
