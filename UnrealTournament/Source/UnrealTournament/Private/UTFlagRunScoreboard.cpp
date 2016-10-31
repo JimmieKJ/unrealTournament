@@ -501,16 +501,12 @@ void UUTFlagRunScoreboard::DrawScoringPlayInfo(const FCTFScoringPlay& Play, floa
 	else
 	{
 		ScoredByLine = Play.ScoredBy.GetPlayerName();
-		if (Play.ScoredByCaps > 1)
-		{
-			ScoredByLine += FString::Printf(TEXT(" (%i)"), Play.ScoredByCaps);
-		}
 	}
 
 	// time of game
 	FString TimeStampLine = UTHUDOwner->ConvertTime(FText::GetEmpty(), FText::GetEmpty(), Play.RemainingTime, false, true, false).ToString();
 	Canvas->SetLinearDrawColor(FLinearColor::White);
-	Canvas->DrawText(UTHUDOwner->SmallFont, TimeStampLine, XOffset + 0.01f*ScoreWidth, YPos + 0.5f*CurrentScoreHeight - 0.5f*SmallYL, RenderScale, RenderScale, TextRenderInfo);
+	Canvas->DrawText(UTHUDOwner->SmallFont, TimeStampLine, XOffset + 0.02f*ScoreWidth, YPos + 0.5f*CurrentScoreHeight - 0.5f*SmallYL, RenderScale, RenderScale, TextRenderInfo);
 
 	// scored by
 	Canvas->SetLinearDrawColor(Play.Team->TeamColor);
