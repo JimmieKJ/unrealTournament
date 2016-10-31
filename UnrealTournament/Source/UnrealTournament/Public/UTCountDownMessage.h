@@ -13,6 +13,9 @@ class UNREALTOURNAMENT_API UUTCountDownMessage : public UUTLocalMessage
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Message")
 	FText CountDownText;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Message")
+		FText EndingInText;
+
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
 		FText GoldBonusMessage;
 
