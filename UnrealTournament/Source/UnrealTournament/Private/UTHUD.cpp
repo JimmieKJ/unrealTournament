@@ -43,6 +43,9 @@ AUTHUD::AUTHUD(const class FObjectInitializer& ObjectInitializer) : Super(Object
 	static ConstructorHelpers::FObjectFinder<UTexture2D> CrosshairTexObj(TEXT("Texture2D'/Game/RestrictedAssets/Textures/crosshair.crosshair'"));
 	DefaultCrosshairTex = CrosshairTexObj.Object;
 
+	static ConstructorHelpers::FObjectFinder<UFont> ChFont(TEXT("Font'/Game/RestrictedAssets/UI/Fonts/fnt_Chat.fnt_Chat'"));
+	ChatFont = ChFont.Object;
+
 	static ConstructorHelpers::FObjectFinder<UFont> TFont(TEXT("Font'/Game/RestrictedAssets/UI/Fonts/fntScoreboard_Tiny.fntScoreboard_Tiny'"));
 	TinyFont = TFont.Object;
 
@@ -299,6 +302,7 @@ UFont* AUTHUD::GetFontFromSizeIndex(int32 FontSizeIndex) const
 {
 	switch (FontSizeIndex)
 	{
+	case -1: return ChatFont;
 	case 0: return TinyFont;
 	case 1: return SmallFont;
 	case 2: return MediumFont;

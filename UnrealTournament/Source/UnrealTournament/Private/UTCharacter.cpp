@@ -5449,8 +5449,7 @@ void AUTCharacter::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector
 			float TextXL, YL;
 			bool bFarAway = (Dist > TeamPlayerIndicatorMaxDistance);
 			float ScaleTime = FMath::Min(1.f, 6.f * GetWorld()->DeltaTimeSeconds);
-			BeaconTextScale = (1.f - ScaleTime) * BeaconTextScale + ScaleTime * ((bRecentlyRendered && !bFarAway) ? 1.f : 0.75f);
-			float Scale = BeaconTextScale * Canvas->ClipX / 1920.f;
+			float Scale = Canvas->ClipX / 1920.f;
 			if (bTacCom && !bFarAway && PC->PlayerCameraManager && !bIsViewTarget && (PC->GetViewTarget()->GetAttachmentReplication().AttachParent != this))
 			{
 				// need to do trace, since taccom guys always rendered
@@ -5465,10 +5464,10 @@ void AUTCharacter::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector
 					}
 				}
 			}
-			UFont* TinyFont = AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>()->TinyFont;
-			Canvas->TextSize(TinyFont, PlayerState->PlayerName, TextXL, YL, Scale, Scale);
+			UFont* ChatFont = AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>()->ChatFont;
+			Canvas->TextSize(ChatFont, PlayerState->PlayerName, TextXL, YL, Scale, Scale);
 			float BarWidth, Y;
-			Canvas->TextSize(TinyFont, FString("AAAWWW"), BarWidth, Y, Scale, Scale);
+			Canvas->TextSize(ChatFont, FString("AAAWWW"), BarWidth, Y, Scale, Scale);
 			float MaxBarWidth = 2.f*BarWidth;
 			float TextScaling = FMath::Min(1.f,  MaxBarWidth/TextXL);
 			TextXL *= TextScaling;
@@ -5510,7 +5509,7 @@ void AUTCharacter::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector
 				Canvas->DrawTile(Canvas->DefaultTexture, XPos - Border, YPos - YL - Border, XL + 2.f*Border, Height + 2.f*Border, 0, 0, 1, 1);
 				FLinearColor BeaconTextColor = FLinearColor::White;
 				BeaconTextColor.A = 0.8f * CenterFade;
-				FUTCanvasTextItem TextItem(FVector2D(FMath::TruncToFloat(Canvas->OrgX + XPos + 0.5f*(XL - TextXL)), FMath::TruncToFloat(Canvas->OrgY + YPos - 1.2f*YL)), FText::FromString(PlayerState->PlayerName), TinyFont, BeaconTextColor, NULL);
+				FUTCanvasTextItem TextItem(FVector2D(FMath::TruncToFloat(Canvas->OrgX + XPos + 0.5f*(XL - TextXL)), FMath::TruncToFloat(Canvas->OrgY + YPos - 1.2f*YL)), FText::FromString(PlayerState->PlayerName), ChatFont, BeaconTextColor, NULL);
 				TextItem.Scale = FVector2D(TextScaling*Scale, TextScaling*Scale);
 				TextItem.BlendMode = SE_BLEND_Translucent;
 				FLinearColor ShadowColor = FLinearColor::Black;

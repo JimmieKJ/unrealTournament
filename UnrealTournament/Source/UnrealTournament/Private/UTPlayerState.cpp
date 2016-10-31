@@ -3867,10 +3867,10 @@ void AUTPlayerState::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVect
 		float Dist = (CameraPosition - LastPostRenderedLocation).Size() * FMath::Tan(FMath::DegreesToRadians(PC->PlayerCameraManager->GetFOVAngle()*0.5f));
 		float TextXL, YL;
 		float Scale = Canvas->ClipX / 1920.f;
-		UFont* TinyFont = AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>()->TinyFont;
-		Canvas->TextSize(TinyFont, PlayerName, TextXL, YL, Scale, Scale);
+		UFont* ChatFont = AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>()->ChatFont;
+		Canvas->TextSize(ChatFont, PlayerName, TextXL, YL, Scale, Scale);
 		float BarWidth, Y;
-		Canvas->TextSize(TinyFont, FString("AAAWWW"), BarWidth, Y, Scale, Scale);
+		Canvas->TextSize(ChatFont, FString("AAAWWW"), BarWidth, Y, Scale, Scale);
 		float MaxBarWidth = 2.f*BarWidth;
 		float TextScaling = FMath::Min(1.f, MaxBarWidth / TextXL);
 		TextXL *= TextScaling;
@@ -3906,7 +3906,7 @@ void AUTPlayerState::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVect
 			Canvas->DrawTile(Canvas->DefaultTexture, XPos - Border, YPos - YL - Border, XL + 2.f*Border, Height + 2.f*Border, 0, 0, 1, 1);
 			FLinearColor BeaconTextColor = FLinearColor::White;
 			BeaconTextColor.A = 0.8f * CenterFade;
-			FUTCanvasTextItem TextItem(FVector2D(FMath::TruncToFloat(Canvas->OrgX + XPos + 0.5f*(XL - TextXL)), FMath::TruncToFloat(Canvas->OrgY + YPos - 1.2f*YL)), FText::FromString(PlayerName), TinyFont, BeaconTextColor, NULL);
+			FUTCanvasTextItem TextItem(FVector2D(FMath::TruncToFloat(Canvas->OrgX + XPos + 0.5f*(XL - TextXL)), FMath::TruncToFloat(Canvas->OrgY + YPos - 1.2f*YL)), FText::FromString(PlayerName), ChatFont, BeaconTextColor, NULL);
 			TextItem.Scale = FVector2D(TextScaling*Scale, TextScaling*Scale);
 			TextItem.BlendMode = SE_BLEND_Translucent;
 			FLinearColor ShadowColor = FLinearColor::Black;

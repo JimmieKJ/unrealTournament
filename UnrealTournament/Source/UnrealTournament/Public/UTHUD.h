@@ -92,6 +92,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
 	TArray<FString> HudWidgetClasses;
 
+	// The chat font to use
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
+		class UFont* ChatFont;
+
 	// The tiny font to use
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
 	class UFont* TinyFont;
