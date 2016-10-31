@@ -5397,13 +5397,3 @@ void AUTPlayerController::RealNames()
 		}
 	}
 }
-
-void AUTPlayerController::UTDumpOnlineSessionState()
-{
-	UOnlineEngineInterface::Get()->DumpSessionState(GetWorld());
-}
-
-void AUTPlayerController::UTDumpPartyState()
-{
-	UOnlineEngineInterface::Get()->DumpPartyState(GetWorld());
-}

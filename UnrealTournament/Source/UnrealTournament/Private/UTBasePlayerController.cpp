@@ -1204,3 +1204,13 @@ void AUTBasePlayerController::SetLoadingMovieToPlay(const FString& MoviePath)
 #endif
 	
 }
+
+void AUTBasePlayerController::UTDumpOnlineSessionState()
+{
+	UOnlineEngineInterface::Get()->DumpSessionState(GetWorld());
+}
+
+void AUTBasePlayerController::UTDumpPartyState()
+{
+	UOnlineEngineInterface::Get()->DumpPartyState(GetWorld());
+}

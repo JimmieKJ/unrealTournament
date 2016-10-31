@@ -302,6 +302,11 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Movie")
 	void SetLoadingMovieToPlay(const FString& MoviePath);
 
+	UFUNCTION(exec)
+	void UTDumpOnlineSessionState();
+	UFUNCTION(exec)
+	void UTDumpPartyState();
+
 protected:
 	// Sends a message directly to a user.  
 	virtual void DirectSay(const FString& Message);
