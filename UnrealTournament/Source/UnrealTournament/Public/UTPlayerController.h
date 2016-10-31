@@ -296,6 +296,9 @@ public:
 
 	virtual void BeginRallyTo(AUTRallyPoint* RallyTarget, const FVector& NewRallyLocation, float Delay);
 
+	// valid server side only
+	virtual bool IsCurrentlyRallying();
+
 	FTimerHandle RallyTimerHandle;
 
 	virtual void CompleteRally();

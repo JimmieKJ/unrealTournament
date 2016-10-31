@@ -646,6 +646,10 @@ int32 AUTFlagRunGame::GetComSwitch(FName CommandTag, AActor* ContextActor, AUTPl
 
 void AUTFlagRunGame::HandleRallyRequest(AUTPlayerController* RequestingPC)
 {
+	if ((RequestingPC == nullptr) || RequestingPC->IsCurrentlyRallying())
+	{
+		return;
+	}
 	AUTCharacter* UTCharacter = RequestingPC->GetUTCharacter();
 	AUTPlayerState* UTPlayerState = RequestingPC->UTPlayerState;
 

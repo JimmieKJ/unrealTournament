@@ -303,6 +303,12 @@ void AUTPlayerController::ServerMutate_Implementation(const FString& MutateStrin
 	}
 }
 
+bool AUTPlayerController::IsCurrentlyRallying()
+{
+	// note server side only
+	return GetWorldTimerManager().IsTimerActive(RallyTimerHandle);
+}
+
 void AUTPlayerController::BeginRallyTo(AUTRallyPoint* RallyTarget, const FVector& NewRallyLocation, float Delay)
 {
 	if (!GetWorldTimerManager().IsTimerActive(RallyTimerHandle))
