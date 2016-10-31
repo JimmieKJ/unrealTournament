@@ -970,10 +970,12 @@ TSharedRef<SWidget> SUTSystemSettingsDialog::BuildAudioTab()
 	+ AddGeneralSliderWithLabelWidget(SoundVolumes[EUTSoundClass::GameMusic], SoundVolumesLabels[EUTSoundClass::GameMusic], &SUTSystemSettingsDialog::OnSoundVolumeChangedGameMusic, NSLOCTEXT("SUTSystemSettingsDialog", "GameMusicVolume", "In Game Music Volume").ToString(), UserSettings->GetSoundClassVolume(EUTSoundClass::GameMusic),
 			NSLOCTEXT("SUTSystemSettingsDialog", "GameMusicSoundVolume_Tooltip", "Controls the volume of level music playing during gameplay.  Volume is relative to the base music volume."))
 		+ AddGeneralSliderWithLabelWidget(SoundVolumes[EUTSoundClass::Music_Stingers], SoundVolumesLabels[EUTSoundClass::Music_Stingers], &SUTSystemSettingsDialog::OnSoundVolumeChangedStingers, NSLOCTEXT("SUTSystemSettingsDialog", "StingerMusicVolume", "Stinger Volume").ToString(), UserSettings->GetSoundClassVolume(EUTSoundClass::Music_Stingers),
-			NSLOCTEXT("SUTSystemSettingsDialog", "StingerSoundVolume_Tooltip", "Controls the volume music stingers for important match events."))
-		+ AddGeneralSliderWithLabelWidget(SoundVolumes[EUTSoundClass::SFX], SoundVolumesLabels[EUTSoundClass::SFX], &SUTSystemSettingsDialog::OnSoundVolumeChangedSFX, NSLOCTEXT("SUTSystemSettingsDialog", "SFXVolume", "Effects Volume").ToString(), UserSettings->GetSoundClassVolume(EUTSoundClass::SFX))
-	+ AddGeneralSliderWithLabelWidget(SoundVolumes[EUTSoundClass::Voice], SoundVolumesLabels[EUTSoundClass::Voice], &SUTSystemSettingsDialog::OnSoundVolumeChangedVoice, NSLOCTEXT("SUTSystemSettingsDialog", "VoiceVolume", "Announcer Volume").ToString(), UserSettings->GetSoundClassVolume(EUTSoundClass::Voice))
-//	+ AddGeneralSliderWithLabelWidget(SoundVolumes[EUTSoundClass::VOIP], SoundVolumesLabels[EUTSoundClass::VOIP], &SUTSystemSettingsDialog::OnSoundVolumeChangedVOIP, NSLOCTEXT("SUTSystemSettingsDialog", "VOIPVolume", "Voice over IP Volume").ToString(), UserSettings->GetSoundClassVolume(EUTSoundClass::VOIP) * 0.5f)
+			NSLOCTEXT("SUTSystemSettingsDialog", "StingerSoundVolume_Tooltip", "Controls the volume of music stingers for important match events."))
+		+ AddGeneralSliderWithLabelWidget(SoundVolumes[EUTSoundClass::SFX], SoundVolumesLabels[EUTSoundClass::SFX], &SUTSystemSettingsDialog::OnSoundVolumeChangedSFX, NSLOCTEXT("SUTSystemSettingsDialog", "SFXVolume", "Effects Volume").ToString(), UserSettings->GetSoundClassVolume(EUTSoundClass::SFX),
+			NSLOCTEXT("SUTSystemSettingsDialog", "StingerSoundVolume_SFX", "Controls the volume of in game sound effects."))
+		+ AddGeneralSliderWithLabelWidget(SoundVolumes[EUTSoundClass::Voice], SoundVolumesLabels[EUTSoundClass::Voice], &SUTSystemSettingsDialog::OnSoundVolumeChangedVoice, NSLOCTEXT("SUTSystemSettingsDialog", "VoiceVolume", "Announcer Volume").ToString(), UserSettings->GetSoundClassVolume(EUTSoundClass::Voice),
+			NSLOCTEXT("SUTSystemSettingsDialog", "StingerSoundVolume_Voice", "Controls the volume of announcements for important match events."))
+		//	+ AddGeneralSliderWithLabelWidget(SoundVolumes[EUTSoundClass::VOIP], SoundVolumesLabels[EUTSoundClass::VOIP], &SUTSystemSettingsDialog::OnSoundVolumeChangedVOIP, NSLOCTEXT("SUTSystemSettingsDialog", "VOIPVolume", "Voice over IP Volume").ToString(), UserSettings->GetSoundClassVolume(EUTSoundClass::VOIP) * 0.5f)
 
 	+ SVerticalBox::Slot()
 	.AutoHeight()
