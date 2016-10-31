@@ -244,7 +244,7 @@ void UUTFlagRunScoreboard::DrawPlayerScore(AUTPlayerState* PlayerState, float XO
 			else
 			{
 				// draw skull here
-				DrawTexture(UTHUDOwner->HUDAtlas, XOffset + LivesXOffset - 0.5f*CellHeight*RenderScale, YOffset + ColumnY - 0.42f*CellHeight*RenderScale, 0.9f*CellHeight*RenderScale, 0.9f*CellHeight*RenderScale, 725, 0, 28, 36, 0.75f, FLinearColor::White);
+				DrawTexture(UTHUDOwner->HUDAtlas, XOffset + LivesXOffset - 0.5f*CellHeight*RenderScale, YOffset + ColumnY - 0.34f*CellHeight*RenderScale, 0.75f*CellHeight*RenderScale, 0.75f*CellHeight*RenderScale, 725, 0, 28, 36, 1.f, FLinearColor::White);
 			}
 		}
 	}
