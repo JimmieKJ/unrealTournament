@@ -353,7 +353,7 @@ bool AUTCarriedObject::CanBePickedUpBy(AUTCharacter* Character)
 		}
 		else
 		{
-			if (!bHidden)
+			if (!bHidden && !bGradualAutoReturn)
 			{
 				AUTPlayerController* PC = Character ? Cast < AUTPlayerController>(Character->GetController()) : NULL;
 				if (PC)
@@ -377,7 +377,7 @@ bool AUTCarriedObject::CanBePickedUpBy(AUTCharacter* Character)
 		}
 		else if (!bEnemyCanPickup)
 		{
-			if (!bHidden)
+			if (!bHidden && !bGradualAutoReturn)
 			{
 				AUTPlayerController* PC = Character ? Cast < AUTPlayerController>(Character->GetController()) : NULL;
 				if (PC)
