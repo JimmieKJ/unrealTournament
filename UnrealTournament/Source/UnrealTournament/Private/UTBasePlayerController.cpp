@@ -13,6 +13,7 @@
 #include "UTProfileSettings.h"
 #include "UTGameInstance.h"
 #include "UTParty.h"
+#include "Net/OnlineEngineInterface.h"
 #include "UnrealTournamentFullScreenMovie.h"
 
 AUTBasePlayerController::AUTBasePlayerController(const FObjectInitializer& ObjectInitializer)
