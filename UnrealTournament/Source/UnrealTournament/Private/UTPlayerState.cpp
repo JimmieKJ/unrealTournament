@@ -3443,6 +3443,12 @@ void AUTPlayerState::PlayTauntByIndex(int32 TauntIndex)
 
 void AUTPlayerState::OnRep_ActiveGroupTaunt()
 {
+	UDemoNetDriver* DemoDriver = GetWorld()->DemoNetDriver;
+	if (DemoDriver && DemoDriver->IsFastForwarding())
+	{
+		return;
+	}
+
 	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 	if (GS && GS->ScoringPlayerState == this && ActiveGroupTaunt != nullptr)
 	{
