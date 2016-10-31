@@ -379,6 +379,9 @@ void UUTKillcamPlayback::OnKillcamReady(bool bWasSuccessful, FNetworkGUID InKill
 		return;
 	}
 
+	SpecController->QueuedPlayerStateToView = nullptr;
+	SpecController->QueuedViewTargetGuid.Reset();
+	SpecController->QueuedViewTargetNetId = FUniqueNetIdRepl();
 	SpecController->bAutoCam = false;
 
 	AActor* KillcamActor = KillcamWorld->DemoNetDriver->GetActorForGUID(InKillcamViewTargetGuid);

@@ -479,5 +479,13 @@ void AUTDemoRecSpectator::ViewProjectile()
 
 void AUTDemoRecSpectator::DumpSpecInfo()
 {
+	AActor* CurrentViewTarget = GetViewTarget();
+	UE_LOG(LogUTDemoRecSpectator, Log, TEXT("KillCamSpecator: %s"), IsKillcamSpectator() ? TEXT("Yes") : TEXT("No"));
+	UE_LOG(LogUTDemoRecSpectator, Log, TEXT("ViewTarget: %s"), CurrentViewTarget != nullptr ? *CurrentViewTarget->GetName() : TEXT("No View Target"));
+	UE_LOG(LogUTDemoRecSpectator, Log, TEXT("bAutoCam: %s"), bAutoCam ? TEXT("Yes") : TEXT("No"));
+	UE_LOG(LogUTDemoRecSpectator, Log, TEXT("Camera Mode: %s"), PlayerCameraManager != nullptr ? *PlayerCameraManager->CameraStyle.ToString() : TEXT("No"));
 
+	UE_LOG(LogUTDemoRecSpectator, Log, TEXT("QueuedPlayerStateToView: %s"), QueuedPlayerStateToView != nullptr ? *QueuedPlayerStateToView->PlayerName : TEXT("No"));
+	UE_LOG(LogUTDemoRecSpectator, Log, TEXT("QueuedViewTargetGuid: %s"), QueuedViewTargetGuid.IsValid() ? *QueuedViewTargetGuid.ToString() : TEXT("No"));
+	UE_LOG(LogUTDemoRecSpectator, Log, TEXT("QueuedViewTargetNetId: %s"), QueuedViewTargetNetId.IsValid() ? *QueuedViewTargetNetId.ToString() : TEXT("No"));
 }
