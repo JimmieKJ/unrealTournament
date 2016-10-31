@@ -206,6 +206,7 @@ static TMap<FName, FString> HackedEntitlementTable = []()
 	Result.Add(TEXT("DM-Backspace"), TEXT("0d5e275ca99d4cf0b03c518a6b279e26"));
 	Result.Add(TEXT("DM-Salt"), TEXT("0d5e275ca99d4cf0b03c518a6b279e26"));
 	Result.Add(TEXT("CTF-Polaris"), TEXT("0d5e275ca99d4cf0b03c518a6b279e26"));
+	Result.Add(TEXT("DM-Unsaved"), TEXT("0d5e275ca99d4cf0b03c518a6b279e26"));
 	return Result;
 }();
 
