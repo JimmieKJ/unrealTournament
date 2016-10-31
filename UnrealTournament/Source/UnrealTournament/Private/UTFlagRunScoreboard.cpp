@@ -6,6 +6,7 @@
 #include "UTFlagRunMessage.h"
 #include "StatNames.h"
 #include "UTFlagRunHUD.h"
+#include "UTCTFRoleMessage.h"
 
 UUTFlagRunScoreboard::UUTFlagRunScoreboard(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -67,6 +68,8 @@ void UUTFlagRunScoreboard::DrawMinimap(float RenderDelta)
 			EndIntermissionTime = GetWorld()->GetTimeSeconds() + 9.f;
 			OldDisplayedParagraphs = 0;
 			bFullListPlayed = false;
+			bool bIsOnDefense = UTPS && UTPS->Team && GS->IsTeamOnDefenseNextRound(UTPS->Team->TeamIndex);
+			UTPlayerOwner->ClientReceiveLocalizedMessage(UUTCTFRoleMessage::StaticClass(), bIsOnDefense ? 2 : 1);
 		}
 
 		if (UTPS && UTPS->Team && (EndIntermissionTime > GetWorld()->GetTimeSeconds()) && UTHUDOwner && UTHUDOwner->UTPlayerOwner)
