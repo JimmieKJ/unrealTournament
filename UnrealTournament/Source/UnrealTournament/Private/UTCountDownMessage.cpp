@@ -96,7 +96,7 @@ void UUTCountDownMessage::GetEmphasisText(FText& PrefixText, FText& EmphasisText
 		Count -= 1000;
 	}
 	FFormatNamedArguments Args;
-	Args.Add(TEXT("Count"), FText::AsNumber(Switch));
+	Args.Add(TEXT("Count"), FText::AsNumber(Count));
 	EmphasisColor = FLinearColor::Yellow;
 
 	if (Switch > 3000)
