@@ -144,25 +144,17 @@ FText AUTFlagRunGameState::GetRoundStatusText(bool bForScoreboard)
 	{
 		if (BonusLevel == 3)
 		{
-			int32 RemainingBonus = FMath::Max(0, RemainingTime - GoldBonusThreshold);
-			if (RemainingBonus < 30)
-			{
-				FFormatNamedArguments Args;
-				Args.Add("BonusTime", FText::AsNumber(RemainingBonus));
-				return FText::Format(GoldBonusTimedText, Args);
-			}
-			return GoldBonusText;
+			int32 RemainingBonus = FMath::Clamp(RemainingTime - GoldBonusThreshold, 0, 60);
+			FFormatNamedArguments Args;
+			Args.Add("BonusTime", FText::AsNumber(RemainingBonus));
+			return FText::Format(GoldBonusTimedText, Args);
 		}
 		else if (BonusLevel == 2)
 		{
-			int32 RemainingBonus = FMath::Max(0, RemainingTime - SilverBonusThreshold);
-			if (RemainingBonus < 30)
-			{
-				FFormatNamedArguments Args;
-				Args.Add("BonusTime", FText::AsNumber(RemainingBonus));
-				return FText::Format(SilverBonusTimedText, Args);
-			}
-			return SilverBonusText;
+			int32 RemainingBonus = FMath::Clamp(RemainingTime - SilverBonusThreshold, 0, 59);
+			FFormatNamedArguments Args;
+			Args.Add("BonusTime", FText::AsNumber(RemainingBonus));
+			return FText::Format(SilverBonusTimedText, Args);
 		}
 		return BronzeBonusText;
 	}
