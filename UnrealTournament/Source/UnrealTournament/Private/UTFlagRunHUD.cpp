@@ -17,10 +17,10 @@ AUTFlagRunHUD::AUTFlagRunHUD(const FObjectInitializer& ObjectInitializer)
 	bDrawMinimap = false;
 
 	ConstructorHelpers::FObjectFinder<UTexture2D> PlayerStartTextureObject(TEXT("/Game/RestrictedAssets/UI/MiniMap/minimap_atlas.minimap_atlas"));
-	PlayerStartIcon.U = 128;
-	PlayerStartIcon.V = 192;
-	PlayerStartIcon.UL = 64;
-	PlayerStartIcon.VL = 64;
+	PlayerStartIcon.U = 128.f;
+	PlayerStartIcon.V = 192.f;
+	PlayerStartIcon.UL = 64.f;
+	PlayerStartIcon.VL = 64.f;
 	PlayerStartIcon.Texture = PlayerStartTextureObject.Object;
 
 	DefendersMustStop = NSLOCTEXT("UTFlagRun", "DefendersMustStop", " must hold on defense to have a chance.");
@@ -34,6 +34,19 @@ AUTFlagRunHUD::AUTFlagRunHUD(const FObjectInitializer& ObjectInitializer)
 	MustScoreText = NSLOCTEXT("UTTeamScoreboard", "MustScore", " must score ");
 	RedTeamText = NSLOCTEXT("UTTeamScoreboard", "RedTeam", "RED");
 	BlueTeamText = NSLOCTEXT("UTTeamScoreboard", "BlueTeam", "BLUE");
+
+	RedTeamIcon.U = 257.f;
+	RedTeamIcon.V = 940.f;
+	RedTeamIcon.UL = 72.f;
+	RedTeamIcon.VL = 72.f;
+	RedTeamIcon.Texture = HUDAtlas;
+
+	BlueTeamIcon.U = 333.f;
+	BlueTeamIcon.V = 940.f;
+	BlueTeamIcon.UL = 72.f;
+	BlueTeamIcon.VL = 72.f;
+	BlueTeamIcon.Texture = HUDAtlas;
+
 }
 
 void AUTFlagRunHUD::BeginPlay()
@@ -88,83 +101,68 @@ void AUTFlagRunHUD::DrawHUD()
 		int32 OldBlueCount = BluePlayerCount;
 		RedPlayerCount = 0;
 		BluePlayerCount = 0;
-		float BasePipSize = 0.025f * Canvas->ClipX * GetHUDWidgetScaleOverride();
-		XAdjust = 128.0f * GetHUDWidgetScaleOverride(); 
-		XOffsetRed = 0.5f * Canvas->ClipX - XAdjust - BasePipSize;
-		XOffsetBlue = 0.5f * Canvas->ClipX + XAdjust;
-		YOffset = 0.1f * Canvas->ClipY * GetHUDWidgetScaleOverride();
+		float BasePipSize = 0.035f * Canvas->ClipX * GetHUDWidgetScaleOverride();
+		XAdjust = 128.0f * GetHUDWidgetScaleOverride();
+		XOffsetRed = 0.4f * Canvas->ClipX - XAdjust - BasePipSize;
+		XOffsetBlue = 0.6f * Canvas->ClipX + XAdjust;
+		YOffset = 0.005f * Canvas->ClipY * GetHUDWidgetScaleOverride();
 		float XOffsetText = 0.f;
 		TArray<AUTPlayerState*> LivePlayers;
 		AUTPlayerState* HUDPS = GetScorerPlayerState();
 		for (APlayerState* PS : GS->PlayerArray)
 		{
 			AUTPlayerState* UTPS = Cast<AUTPlayerState>(PS);
-			if (UTPS != NULL && UTPS->Team != NULL && !UTPS->bOnlySpectator  && !UTPS->bIsInactive)
+			if (UTPS != NULL && UTPS->Team != NULL && !UTPS->bOnlySpectator && !UTPS->bIsInactive)
 			{
 				UTPS->SelectionOrder = (UTPS == HUDPS) ? 0 : 1;
 				LivePlayers.Add(UTPS);
 			}
 		}
 		LivePlayers.Sort([](AUTPlayerState& A, AUTPlayerState& B) { return A.SelectionOrder < B.SelectionOrder; });
+		float XL, YL;
+		Canvas->TextSize(TinyFont, "5", XL, YL);
 		for (AUTPlayerState* UTPS : LivePlayers)
 		{
-			bool bIsAttacker = (GS->bRedToCap == (UTPS->Team->TeamIndex == 0));
-			float OwnerPipScaling = (UTPS == GetScorerPlayerState()) ? 1.5f : 1.f;
-			float PipSize = BasePipSize * OwnerPipScaling;
-			float SkullPipSize = 0.6f * BasePipSize * OwnerPipScaling;
-			if (bIsAttacker ? GS->bAttackerLivesLimited : GS->bDefenderLivesLimited)
+			if (!UTPS->bOutOfLives)
 			{
-				if (!UTPS->bOutOfLives)
+				bool bIsAttacker = (GS->bRedToCap == (UTPS->Team->TeamIndex == 0));
+				float OwnerPipScaling = (UTPS == GetScorerPlayerState()) ? 1.5f : 1.f;
+				float PipSize = BasePipSize * OwnerPipScaling;
+				bool bLastLife = (UTPS->RemainingLives == 1);
+				float LiveScaling = ((UTPS->RespawnTime > 0.f) && (UTPS->RespawnWaitTime > 0.f)) ? 1.f - UTPS->RespawnTime / UTPS->RespawnWaitTime : 1.f;
+				if (UTPS->Team->TeamIndex == 0)
 				{
-					bool bLastLife = (UTPS->RemainingLives == 1);
-					if (UTPS->Team->TeamIndex == 0)
-					{
-						RedPlayerCount++;
-						Canvas->SetLinearDrawColor(bLastLife ? FLinearColor::White : FLinearColor::Red, 0.7f);
-						Canvas->DrawTile(PlayerStartIcon.Texture, XOffsetRed, YOffset, PipSize, PipSize, PlayerStartIcon.U, PlayerStartIcon.V, PlayerStartIcon.UL, PlayerStartIcon.VL, BLEND_Translucent);
-						XOffsetText = XOffsetRed;
-						XOffsetRed -= 1.1f*PipSize;
-					}
-					else
-					{
-						BluePlayerCount++;
-						Canvas->SetLinearDrawColor(bLastLife ? FLinearColor::White : FLinearColor::Blue, 0.7f);
-						Canvas->DrawTile(PlayerStartIcon.Texture, XOffsetBlue, YOffset, PipSize, PipSize, PlayerStartIcon.U, PlayerStartIcon.V, PlayerStartIcon.UL, PlayerStartIcon.VL, BLEND_Translucent);
-						XOffsetText = XOffsetBlue;
-						XOffsetBlue += 1.1f*PipSize;
-					}
-					if (!bLastLife)
-					{
-						Canvas->SetLinearDrawColor(FLinearColor::White, 1.f);
-						Canvas->DrawText(TinyFont, FText::AsNumber(UTPS->RemainingLives), XOffsetText + 0.4f*PipSize, YOffset + 0.2f*PipSize, 0.75f, 0.75f, TextRenderInfo);
-					}
+					RedPlayerCount++;
+					DrawPlayerIcon(RedTeamIcon, FLinearColor::Red, LiveScaling, XOffsetRed, YOffset, PipSize);
+					XOffsetText = XOffsetRed;
+					XOffsetRed -= 1.1f*PipSize;
+				}
+				else
+				{
+					BluePlayerCount++;
+					DrawPlayerIcon(BlueTeamIcon, FLinearColor::Blue, LiveScaling, XOffsetBlue, YOffset, PipSize);
+					XOffsetText = XOffsetBlue;
+					XOffsetBlue += 1.1f*PipSize;
+				}
+				if (bIsAttacker ? GS->bAttackerLivesLimited : GS->bDefenderLivesLimited)
+				{
+					Canvas->SetLinearDrawColor(bLastLife ? FLinearColor::White : FLinearColor::Yellow, 0.8f);
+					Canvas->SetLinearDrawColor(FLinearColor::White, 1.f);
+					Canvas->DrawText(TinyFont, FText::AsNumber(UTPS->RemainingLives), XOffsetText + 0.5f*(PipSize - XL), YOffset + 0.95f*PipSize - YL, 1.f, 1.f, TextRenderInfo);
 				}
 			}
 		}
-		if (OldRedCount > RedPlayerCount)
-		{
-			RedDeathTime = GetWorld()->GetTimeSeconds();
-		}
-		if (OldBlueCount > BluePlayerCount)
-		{
-			BlueDeathTime = GetWorld()->GetTimeSeconds();
-		}
+	}
+}
 
-		float TimeSinceRedDeath = GetWorld()->GetTimeSeconds() - RedDeathTime;
-		if (TimeSinceRedDeath < 0.5f)
-		{
-			Canvas->SetLinearDrawColor(FLinearColor::Red, 0.5f - TimeSinceRedDeath);
-			float ScaledSize = 1.f + 2.f*TimeSinceRedDeath;
-			Canvas->DrawTile(PlayerStartIcon.Texture, XOffsetRed - 0.5f*(ScaledSize - 1.f)*BasePipSize, YOffset - 0.5f*(ScaledSize - 1.f)*BasePipSize, BasePipSize, BasePipSize, PlayerStartIcon.U, PlayerStartIcon.V, PlayerStartIcon.UL, PlayerStartIcon.VL, BLEND_Translucent);
-		}
-
-		float TimeSinceBlueDeath = GetWorld()->GetTimeSeconds() - BlueDeathTime;
-		if (TimeSinceBlueDeath < 0.5f)
-		{
-			Canvas->SetLinearDrawColor(FLinearColor::Blue, 0.5f - TimeSinceBlueDeath);
-			float ScaledSize = 1.f + 2.f*TimeSinceBlueDeath;
-			Canvas->DrawTile(PlayerStartIcon.Texture, XOffsetBlue - 0.5f*(ScaledSize - 1.f)*BasePipSize, YOffset - 0.5f*(ScaledSize - 1.f)*BasePipSize, BasePipSize, BasePipSize, PlayerStartIcon.U, PlayerStartIcon.V, PlayerStartIcon.UL, PlayerStartIcon.VL, BLEND_Translucent);
-		}
+void AUTFlagRunHUD::DrawPlayerIcon(FCanvasIcon PlayerIcon, FLinearColor DrawColor, float LiveScaling, float XOffset, float YOffset, float PipSize)
+{
+	Canvas->SetLinearDrawColor(DrawColor);
+	Canvas->DrawTile(PlayerIcon.Texture, XOffset, YOffset, LiveScaling*PipSize, PipSize, PlayerIcon.U, PlayerIcon.V, PlayerIcon.UL*LiveScaling, PlayerIcon.VL, BLEND_Translucent);
+	if (LiveScaling < 1.f)
+	{
+		Canvas->SetLinearDrawColor(FLinearColor(0.2f, 0.2f, 0.2f, 1.f));
+		Canvas->DrawTile(PlayerIcon.Texture, XOffset + LiveScaling*PipSize, YOffset, PipSize - LiveScaling *PipSize, PipSize, PlayerIcon.U + PlayerIcon.UL*LiveScaling, PlayerIcon.V, PlayerIcon.UL * (1.f - LiveScaling), PlayerIcon.VL, BLEND_Translucent);
 	}
 }
 
