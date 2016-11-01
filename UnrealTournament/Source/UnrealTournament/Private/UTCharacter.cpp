@@ -5412,11 +5412,6 @@ void AUTCharacter::OnOverlapBegin(AActor* OverlappedActor, AActor* OtherActor)
 	}
 }
 
-/** @TODO FIXMESTEVE Chat bubble - need to replicate console/menu open
-	Canvas->SetLinearDrawColor(FLinearColor::White);
-	float ChatBubbleScale = Scale * FMath::Min(1.f, 2000.f / (1000.f + Dist));
-	Canvas->DrawTile(Cast<AUTHUD>(UTPC->MyHUD)->HUDAtlas, ScreenPosition.X + 0.6f*XL, ScreenPosition.Y - YL, 72.f*ChatBubbleScale, 72.f*ChatBubbleScale, 499, 940, 72, 72);
-*/
 void AUTCharacter::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector CameraPosition, FVector CameraDir)
 {
 	AUTPlayerState* UTPS = Cast<AUTPlayerState>(PlayerState);
@@ -5440,6 +5435,7 @@ void AUTCharacter::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector
 	FVector WorldPosition = GetMesh()->GetComponentLocation() + FVector(0.f, 0.f, GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight() * 2.25f);
 	UTPS->LastPostRenderedLocation = WorldPosition;
 	UTPS->bPawnWasPostRendered = true;
+	UTPS->PawnPostRenderedTime = GetWorld()->GetTimeSeconds();
 	if (UTPC != NULL && (bSpectating || (UTPC && UTPC->UTPlayerState && UTPC->UTPlayerState->bOutOfLives) || !bIsViewTarget) && (bRecentlyRendered || (bOnSameTeam && !bIsViewTarget)) &&
 		FVector::DotProduct(CameraDir, (GetActorLocation() - CameraPosition)) > 0.0f && GS != NULL && (UTPC->MyUTHUD == nullptr || !UTPC->MyUTHUD->bShowScores))
 	{

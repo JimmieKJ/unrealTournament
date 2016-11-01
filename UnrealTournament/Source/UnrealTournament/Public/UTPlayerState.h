@@ -1175,6 +1175,9 @@ public:
 	UPROPERTY(BlueprintReadWrite, Category = PlayerState)
 		bool bPawnWasPostRendered;
 
+	UPROPERTY(BlueprintReadWrite, Category = PlayerState)
+		float PawnPostRenderedTime;
+
 	virtual void PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector CameraPosition, FVector CameraDir) override;
 
 private:

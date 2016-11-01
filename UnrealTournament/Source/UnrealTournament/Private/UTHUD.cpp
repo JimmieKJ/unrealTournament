@@ -272,7 +272,7 @@ void AUTHUD::DrawActorOverlays(FVector Viewpoint, FRotator ViewRotation)
 		for (i = 0; i < UTGameState->PlayerArray.Num(); i++)
 		{
 			AUTPlayerState* PlayerState = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
-			if (PlayerState && !PlayerState->bOnlySpectator && !PlayerState->bPawnWasPostRendered && !PlayerState->LastPostRenderedLocation.IsZero())
+			if (PlayerState && !PlayerState->bOnlySpectator && !PlayerState->bPawnWasPostRendered && !PlayerState->LastPostRenderedLocation.IsZero() && (GetWorld()->GetTimeSeconds() - PlayerState->PawnPostRenderedTime < 5.f))
 			{
 				PlayerState->PostRenderFor(PlayerOwner, Canvas, Viewpoint, ViewDir);
 			}
