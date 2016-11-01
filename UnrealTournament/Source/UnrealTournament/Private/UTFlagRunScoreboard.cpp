@@ -194,7 +194,7 @@ void UUTFlagRunScoreboard::DrawPlayerScore(AUTPlayerState* PlayerState, float XO
 		FFormatNamedArguments Args;
 		Args.Add("Kills", FText::AsNumber(PlayerState->RoundKills));
 		FText CurrentScoreText = FText::Format(NSLOCTEXT("UTFlagRun", "PlayerScoreText", "({Kills})"), Args);
-		DrawText(CurrentScoreText, XOffset + (Width * ColumnHeaderScoreX)+2.f*XL, YOffset + ColumnY, UTHUDOwner->TinyFont, RenderScale, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
+		DrawText(CurrentScoreText, XOffset + (Width * ColumnHeaderScoreX) + XL + 8.f*RenderScale, YOffset + ColumnY, UTHUDOwner->TinyFont, RenderScale, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
 	}
 	AUTFlagRunGameState* CTFState = Cast<AUTFlagRunGameState>(UTGameState);
 	if (CTFState)
