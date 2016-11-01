@@ -99,7 +99,7 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	MinPlayersToStart = 2;
 	QuickPlayersToStart = 4;
 	MaxWaitForPlayers = 480;
-	MaxWaitForQuickMatch = 300;
+	MaxWaitForQuickMatch = 480;
 	EndScoreboardDelay = 4.f;
 	MainScoreboardDisplayTime = 5.f;
 	ScoringPlaysDisplayTime = 0.f; 
@@ -3154,7 +3154,8 @@ bool AUTGameMode::ReadyToStartMatch_Implementation()
 		}
 		else
 		{
-			UTGameState->PlayersNeeded = (GetWorld()->GetTimeSeconds() - StartPlayTime > (bIsQuickMatch ? MaxWaitForQuickMatch : 30.f)) ? FMath::Max(0, MinPlayersToStart - NumPlayers - NumBots) : FMath::Max(0, FMath::Min(GameSession->MaxPlayers, QuickPlayersToStart) - NumPlayers - NumBots);
+			UTGameState->PlayersNeeded = (GetWorld()->GetTimeSeconds() - StartPlayTime > (bIsQuickMatch ? MaxWaitForQuickMatch : 60.f)) ? FMath::Max(0, MinPlayersToStart - NumPlayers - NumBots) : FMath::Max(0, FMath::Min(GameSession->MaxPlayers, QuickPlayersToStart) - NumPlayers - NumBots);
+		//	UE_LOG(UT, Warning, TEXT("Elapsed %f wait %f minplayers %d numplayers %d numbots %d"), (GetWorld()->GetTimeSeconds() - StartPlayTime), (bIsQuickMatch ? MaxWaitForQuickMatch : 60.f), MinPlayersToStart, NumPlayers, NumSpectators);
 			if (((GetNetMode() == NM_Standalone) || bDevServer || (UTGameState->PlayersNeeded == 0)) && (NumPlayers + NumSpectators > 0))
 			{
 				// Count how many ready players we have
