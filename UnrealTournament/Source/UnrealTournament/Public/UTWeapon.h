@@ -514,18 +514,11 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 #endif
 
 	virtual void BeginPlay() override;
-	virtual void RegisterAllComponents() override
-	{
-		// don't register in game by default for perf, we'll manually call Super from AttachToOwner()
-		if (GetWorld()->WorldType == EWorldType::Editor || GetWorld()->WorldType == EWorldType::Preview)
-		{
-			Super::RegisterAllComponents();
-		}
-		else
-		{
-			RootComponent = NULL; // this was set for the editor view, but we don't want it
-		}
-	}
+
+	UPROPERTY()
+	bool bAttachingToOwner;
+
+	virtual void RegisterAllComponents() override;
 
 	virtual UMeshComponent* GetPickupMeshTemplate_Implementation(FVector& OverrideScale) const override;
 

@@ -884,7 +884,8 @@ void AUTWeapon::AttachToOwner_Implementation()
 		}
 	}
 	// register components now
-	Super::RegisterAllComponents();
+	bAttachingToOwner = true;
+	RegisterAllComponents();
 	RegisterAllActorTickFunctions(true, true); // 4.11 changed components to only get tick registered automatically if they're registered prior to BeginPlay()!
 	if (GetNetMode() != NM_DedicatedServer)
 	{
@@ -2922,4 +2923,17 @@ void AUTWeapon::OnZoomedOut_Implementation()
 bool AUTWeapon::CanSwitchTo()
 {
 	return HasAnyAmmo();
+}
+
+void AUTWeapon::RegisterAllComponents()
+{
+	TInlineComponentArray<USceneComponent*> AllSceneComponents;
+	GetComponents(AllSceneComponents);
+
+	for (USceneComponent* Child : AllSceneComponents)
+	{
+		Child->bAutoRegister = bAttachingToOwner;
+	}
+
+	Super::RegisterAllComponents();
 }
