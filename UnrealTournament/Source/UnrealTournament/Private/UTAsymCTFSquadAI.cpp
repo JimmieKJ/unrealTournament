@@ -117,24 +117,31 @@ bool AUTAsymCTFSquadAI::HuntEnemyFlag(AUTBot* B)
 		// if the enemy FC has never been seen, use the alternate path logic
 		// this prevents the AI from abandoning the alternate approach routes prematurely when the flag is picked up
 		const FBotEnemyInfo* CarrierInfo = B->GetEnemyInfo(Flag->HoldingPawn, true);
-		if ((CarrierInfo == nullptr || CarrierInfo->LastSeenTime <= 0.0f) && FollowAlternateRoute(B, Flag->HoldingPawn, SquadRoutes, true, true, "Continue prior route to flag carrier"))
+		if (CarrierInfo == nullptr || CarrierInfo->LastSeenTime <= 0.0f)
 		{
-			return true;
+			if ((B->GetPawn()->GetActorLocation() - Flag->HoldingPawn->GetActorLocation()).Size() < TotalFlagRunDistance * (0.33f - 0.1f * B->Personality.Aggressiveness))
+			{
+				B->GoalString = TEXT("Wait here for enemy assault to begin");
+				B->DoCamp();
+				return true;
+			}
+			else if (FollowAlternateRoute(B, Flag->HoldingPawn, SquadRoutes, true, true, "Continue prior route to flag carrier"))
+			{
+				return true;
+			}
+		}
+		
+		if (Flag->HoldingPawn == B->GetEnemy())
+		{
+			B->GoalString = "Fight flag carrier";
+			// fight enemy
+			return false;
 		}
 		else
 		{
-			if (Flag->HoldingPawn == B->GetEnemy())
-			{
-				B->GoalString = "Fight flag carrier";
-				// fight enemy
-				return false;
-			}
-			else
-			{
-				B->GoalString = "Hunt down enemy flag carrier";
-				B->DoHunt(Flag->HoldingPawn);
-				return true;
-			}
+			B->GoalString = "Hunt down enemy flag carrier";
+			B->DoHunt(Flag->HoldingPawn);
+			return true;
 		}
 	}
 	else if ((Flag->GetActorLocation() - B->GetPawn()->GetActorLocation()).Size() < FMath::Min<float>(3000.0f, (Flag->GetActorLocation() - Objective->GetActorLocation()).Size()) && B->UTLineOfSightTo(Flag))
