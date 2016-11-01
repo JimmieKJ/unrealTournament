@@ -587,6 +587,41 @@ void UUTKillcamPlayback::HandleKillcamToggleCommand(UWorld* InWorld)
 	}
 }
 
+static void HandleInstantReplayCommand(const TArray<FString>& Args, UWorld* InWorld)
+{
+	if (Args.Num() != 1)
+	{
+		return;
+	}
+
+	AUTPlayerController* UTPC = Cast<AUTPlayerController>(InWorld->GetFirstPlayerController());
+	if (UTPC)
+	{
+		UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(InWorld->GetFirstLocalPlayerFromController());
+		if (LocalPlayer != nullptr)
+		{
+			UUTKillcamPlayback* LocalKillcamPlayback = LocalPlayer->GetKillcamPlaybackManager();
+			UUTGameViewportClient* UTVC = Cast<UUTGameViewportClient>(InWorld->GetGameViewport());
+			if (LocalKillcamPlayback != nullptr && UTVC != nullptr)
+			{
+				FNetworkGUID FocusPawnGuid = InWorld->DemoNetDriver->GetGUIDForActor(UTPC->GetPawn());
+				FTimerHandle Timer1;
+				FTimerHandle Timer2;
+				InWorld->GetTimerManager().SetTimer(
+					Timer1,
+					FTimerDelegate::CreateUObject(UTPC, &AUTPlayerController::OnKillcamStart, FocusPawnGuid, FCString::Atof(*Args[0])),
+					0.5f,
+					false);
+				InWorld->GetTimerManager().SetTimer(
+					Timer2,
+					FTimerDelegate::CreateUObject(UTPC, &AUTPlayerController::ClientStopKillcam),
+					FCString::Atof(*Args[0]) + 0.5f + 0.5f,
+					false);
+			}
+		}
+	}
+}
+
 FAutoConsoleCommandWithWorldAndArgs KillcamPlayCommand(
 	TEXT("UT.KillcamPlay"),
 	TEXT("Plays the replay with the given name in the killcam playback world."),
@@ -596,3 +631,8 @@ FAutoConsoleCommandWithWorld KillcamToggleCommand(
 	TEXT("UT.KillcamToggle"),
 	TEXT("Switches the active world for the viewport to the killcam world"),
 	FConsoleCommandWithWorldDelegate::CreateStatic(UUTKillcamPlayback::HandleKillcamToggleCommand));
+
+FAutoConsoleCommandWithWorldAndArgs InstantReplayCommand(
+	TEXT("UT.ShowInstantReplay"),
+	TEXT("Shows instant replay from last X seconds of current player"),
+	FConsoleCommandWithWorldAndArgsDelegate::CreateStatic(HandleInstantReplayCommand));
