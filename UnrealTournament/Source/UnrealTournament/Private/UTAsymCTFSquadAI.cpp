@@ -320,21 +320,30 @@ bool AUTAsymCTFSquadAI::CheckSquadObjectives(AUTBot* B)
 			{
 				return HuntEnemyFlag(B);
 			}
-			else if (CurrentOrders == NAME_Attack)
+			else
 			{
-				if (CheckSuperPickups(B, 8000))
-				{
-					return true;
-				}
-				else
+				const FBotEnemyInfo* EnemyFCTeamData = (Flag->HoldingPawn != nullptr) ? Team->GetEnemyList().FindByPredicate([this](const FBotEnemyInfo& TestItem) { return TestItem.GetPawn() == Flag->HoldingPawn; }) : nullptr;
+				// prioritize finding FC if no eyes on it for a while
+				if (EnemyFCTeamData != nullptr && GetWorld()->TimeSeconds - EnemyFCTeamData->LastFullUpdateTime > 3.0f)
 				{
 					return HuntEnemyFlag(B);
 				}
-			}
-			else
-			{
-				// freelance, just fight whoever's around
-				return false;
+				else if (CurrentOrders == NAME_Attack)
+				{
+					if (CheckSuperPickups(B, 8000))
+					{
+						return true;
+					}
+					else
+					{
+						return HuntEnemyFlag(B);
+					}
+				}
+				else
+				{
+					// freelance, just fight whoever's around
+					return false;
+				}
 			}
 		}
 	}
