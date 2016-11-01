@@ -455,7 +455,9 @@ bool AUTLobbyGameMode::SupportsInstantReplay() const
 	return false;
 }
 
+#if !UE_SERVER
 TSharedRef<SUTMenuBase> AUTLobbyGameMode::GetGameMenu(UUTLocalPlayer* PlayerOwner) const
 {
 	return SNew(SUTLobbyMenu).PlayerOwner(PlayerOwner);
 }
+#endif
