@@ -843,7 +843,7 @@ void UUTScoreboard::DrawScoringStats(float DeltaTime, float& YPos)
 	DrawStatsLeft(DeltaTime, YPos, XOffset, ScoreWidth, PageBottom);
 
 	// draw right side
-	XOffset = Canvas->ClipX - XOffset;
+	XOffset = Canvas->ClipX - XOffset - ScoreWidth;
 	YPos = TopYPos;
 	DrawStatsRight(DeltaTime, YPos, XOffset, ScoreWidth, PageBottom);
 
