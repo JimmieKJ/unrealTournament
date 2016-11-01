@@ -61,8 +61,17 @@ void UUTFlagRunScoreboard::DrawMinimap(float RenderDelta)
 	{
 		const float MapSize = (UTGameState && UTGameState->bTeamGame) ? FMath::Min(Canvas->ClipX - 2.f*ScaledEdgeSize - 2.f*ScaledCellWidth, 0.9f*Canvas->ClipY - 120.f * RenderScale)
 			: FMath::Min(0.5f*Canvas->ClipX, 0.9f*Canvas->ClipY - 120.f * RenderScale);
-		float MapYPos = FMath::Max(LastScorePanelYOffset-2.f, MinimapCenter.Y*Canvas->ClipY - 0.5f*MapSize);
+		float MapYPos = FMath::Max(LastScorePanelYOffset - 2.f, MinimapCenter.Y*Canvas->ClipY - 0.5f*MapSize);
 		FVector2D LeftCorner = FVector2D(MinimapCenter.X*Canvas->ClipX - 0.5f*MapSize, MapYPos);
+		if (GS->GetScoringPlays().Num() > 0)
+		{
+			float Height = 0.5f*Canvas->ClipY;
+			float ScoreWidth = 0.92f*MapSize;
+			float YPos = LeftCorner.Y;
+			float PageBottom = YPos + 0.1f*Canvas->ClipY;
+			DrawScoringSummary(RenderDelta, YPos, LeftCorner.X + 0.04f*MapSize, 0.9f*ScoreWidth, PageBottom);
+			LeftCorner.Y += 0.15f*Canvas->ClipY;
+		}
 		if ((EndIntermissionTime < GetWorld()->GetTimeSeconds()) && (GS->IntermissionTime < 9.f) && (GS->IntermissionTime > 0.f))
 		{
 			EndIntermissionTime = GetWorld()->GetTimeSeconds() + 9.f;
@@ -81,7 +90,7 @@ void UUTFlagRunScoreboard::DrawMinimap(float RenderDelta)
 			DrawTexture(UTHUDOwner->ScoreboardAtlas, LeftCorner.X + 0.04f*MapSize, LeftCorner.Y, 0.92f*MapSize, Height, 149, 138, 32, 32, 0.75f, FLinearColor::Black);
 
 			FText Title = bIsOnDefense ? DefendTitle : AttackTitle;
-			float TextYPos = MinimapCenter.Y*Canvas->ClipY - 0.45f*MapSize;
+			float TextYPos = LeftCorner.Y + 16.f*RenderScale;
 			DrawText(Title, MinimapCenter.X*Canvas->ClipX, TextYPos, UTHUDOwner->MediumFont, RenderScale, 1.0f, FLinearColor::White, ETextHorzPos::Center, ETextVertPos::Center);
 			float TextXPos = MinimapCenter.X*Canvas->ClipX - 0.45f*MapSize;
 			TextYPos += 48.f*RenderScale;
@@ -135,14 +144,6 @@ void UUTFlagRunScoreboard::DrawMinimap(float RenderDelta)
 			float YPos = LeftCorner.Y;
 			DrawTexture(UTHUDOwner->ScoreboardAtlas, XOffset, YPos, ScoreWidth, MaxHeight, 149, 138, 32, 32, 0.5f, PageColor);
 			DrawScoringPlays(RenderDelta, YPos, XOffset, 0.9f*ScoreWidth, PageBottom);
-		}
-		if (GS->GetScoringPlays().Num() > 0)
-		{
-			float Height = 0.5f*Canvas->ClipY;
-			float ScoreWidth = 0.92f*MapSize;
-			float YPos = LeftCorner.Y + Height + 8.f*RenderScale;
-			float PageBottom = YPos + 0.1f*Canvas->ClipY;
-			DrawScoringSummary(RenderDelta, YPos, LeftCorner.X + 0.04f*MapSize, 0.9f*ScoreWidth, PageBottom);
 		}
 	}
 	else 
