@@ -585,8 +585,18 @@ void AUTHUD::NotifyMatchStateChange()
 		}
 		else if (GS->GetMatchState() == MatchState::PlayerIntro)
 		{
-			//if InGameIntro didn't start, use old method
-			if (!GS->LineUpHelper || !GS->LineUpHelper->bIsActive)
+			bool bShouldUseLineUp = false;
+			if (GS->LineUpHelper)
+			{
+				AUTLineUpZone* IntroZoneFound = AUTLineUpHelper::GetAppropriateSpawnList(GetWorld(), LineUpTypes::Intro);
+				if (IntroZoneFound)
+				{
+					bShouldUseLineUp = true;
+				}
+			}
+
+			//if we can't line up, use old method
+			if (!bShouldUseLineUp)
 			{
 				if (UTPlayerOwner->UTPlayerState && UTPlayerOwner->UTPlayerState->bIsWarmingUp)
 				{

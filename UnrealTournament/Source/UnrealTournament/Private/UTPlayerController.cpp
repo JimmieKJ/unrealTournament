@@ -5354,6 +5354,10 @@ void AUTPlayerController::ClientSetActiveLineUp_Implementation(bool bNewIsActive
 
 				SetIgnoreLookInput(true);
 			}
+			else
+			{
+				ClientRestart(nullptr);
+			}
 		}
 	}
 }
