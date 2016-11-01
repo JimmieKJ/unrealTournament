@@ -164,6 +164,12 @@ bool AUTAsymCTFSquadAI::HuntEnemyFlag(AUTBot* B)
 
 bool AUTAsymCTFSquadAI::CheckSquadObjectives(AUTBot* B)
 {
+	// make bot with the flag Leader if possible
+	if (B->GetUTChar() != nullptr && B->GetUTChar()->GetCarriedObject() != nullptr && Cast<APlayerController>(Leader) == nullptr)
+	{
+		SetLeader(B);
+	}
+
 	FName CurrentOrders = GetCurrentOrders(B);
 
 	if (Flag == NULL || Objective == NULL)
@@ -184,8 +190,17 @@ bool AUTAsymCTFSquadAI::CheckSquadObjectives(AUTBot* B)
 			B->StartWaitForMove();
 			return true;
 		}
-		else if (Flag->HoldingPawn == NULL) 
+		else if (Flag->HoldingPawn == NULL && (Flag->bFriendlyCanPickup || CurrentOrders == NAME_Defend)) 
 		{
+			// amortize generation of alternate routes during delay before flag can be picked up
+			if (!Flag->bFriendlyCanPickup && SquadRoutes.Num() < MaxSquadRoutes && (GetLeader() == B || Cast<APlayerController>(GetLeader()) != nullptr))
+			{
+				FollowAlternateRoute(B, Objective, SquadRoutes, false, false, TEXT(""));
+				// clear cached values since we're not actually following the route right now
+				B->UsingSquadRouteIndex = INDEX_NONE;
+				B->bDisableSquadRoutes = false;
+				CurrentSquadRouteIndex = INDEX_NONE;
+			}
 			return B->TryPathToward(Flag, true, false, "Get flag");
 		}
 		else if (CurrentOrders == NAME_Defend)
@@ -208,6 +223,13 @@ bool AUTAsymCTFSquadAI::CheckSquadObjectives(AUTBot* B)
 			}
 			else if (CheckSuperPickups(B, 10000))
 			{
+				return true;
+			}
+			else if (Team->GetEnemyList().Num() == 0 && B->FindInventoryGoal(0.0f))
+			{
+				B->GoalString = FString::Printf(TEXT("Initial rush: Head to inventory %s"), *GetNameSafe(B->RouteCache.Last().Actor.Get()));
+				B->SetMoveTarget(B->RouteCache[0]);
+				B->StartWaitForMove();
 				return true;
 			}
 			else

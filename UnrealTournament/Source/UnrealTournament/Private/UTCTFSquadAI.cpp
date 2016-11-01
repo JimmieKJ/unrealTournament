@@ -348,6 +348,12 @@ bool AUTCTFSquadAI::RecoverFriendlyFlag(AUTBot* B)
 
 bool AUTCTFSquadAI::CheckSquadObjectives(AUTBot* B)
 {
+	// make bot with the flag Leader if possible
+	if (B->GetUTChar() != nullptr && B->GetUTChar()->GetCarriedObject() != nullptr && Cast<APlayerController>(Leader) == nullptr)
+	{
+		SetLeader(B);
+	}
+
 	FName CurrentOrders = GetCurrentOrders(B);
 	
 	if (CurrentOrders == NAME_Defend)
