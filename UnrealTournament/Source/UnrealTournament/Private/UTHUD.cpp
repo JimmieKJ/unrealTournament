@@ -547,34 +547,6 @@ void AUTHUD::NotifyMatchStateChange()
 				}
 			}
 
-			/* 
-			Removed for now. Pending changes to End Game flow
-			
-			const int RedTeam = 0;
-			const int BlueTeam = 1;
-			if (GS->WinningTeam && (GS->WinningTeam->GetTeamNum() == RedTeam))
-			{
-				if (GS->ShouldUseInGameSummary(InGameIntroZoneTypes::Team_PostMatch_RedWin))
-				{
-					GS->InGameIntroHelper->HandleEndMatchSummary(GetWorld(), InGameIntroZoneTypes::Team_PostMatch_RedWin);
-				}
-				else if (GS->ShouldUseInGameSummary(InGameIntroZoneTypes::Team_PostMatch))
-				{
-					GS->InGameIntroHelper->HandleEndMatchSummary(GetWorld(), InGameIntroZoneTypes::Team_PostMatch);
-				}
-			}
-			else if (GS->WinningTeam && (GS->WinningTeam->GetTeamNum() == BlueTeam))
-			{
-				if (GS->ShouldUseInGameSummary(InGameIntroZoneTypes::Team_PostMatch_BlueWin))
-				{
-					GS->InGameIntroHelper->HandleEndMatchSummary(GetWorld(), InGameIntroZoneTypes::Team_PostMatch_BlueWin);
-				}
-				else if (GS->ShouldUseInGameSummary(InGameIntroZoneTypes::Team_PostMatch))
-				{
-					GS->InGameIntroHelper->HandleEndMatchSummary(GetWorld(), InGameIntroZoneTypes::Team_PostMatch);
-				}
-			}*/
-			
 			AUTGameMode* DefaultGame = Cast<AUTGameMode>(GS->GetDefaultGameMode());
 			float MatchSummaryDelay = DefaultGame ? DefaultGame->EndScoreboardDelay + DefaultGame->MainScoreboardDisplayTime + DefaultGame->ScoringPlaysDisplayTime : 10.f;
 			GetWorldTimerManager().SetTimer(MatchSummaryHandle, this, &AUTHUD::OpenMatchSummary, MatchSummaryDelay*GetActorTimeDilation(), false);
@@ -708,7 +680,7 @@ void AUTHUD::DrawHUD()
 		const FVector2D Center(Canvas->ClipX * 0.5f, Canvas->ClipY * 0.5f);
 
 		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-		bool bPreMatchScoreBoard = (GS && !GS->HasMatchStarted() && !GS->IsMatchInCountdown()) && (!UTPlayerOwner || !UTPlayerOwner->UTPlayerState || !UTPlayerOwner->UTPlayerState->bIsWarmingUp);
+		bool bPreMatchScoreBoard = (GS && !GS->HasMatchStarted() && !GS->IsMatchInCountdown()) && (!UTPlayerOwner || !UTPlayerOwner->UTPlayerState || !UTPlayerOwner->UTPlayerState->bIsWarmingUp) && ((!GS->LineUpHelper) || (!GS->LineUpHelper->bIsActive));
 		bShowScoresWhileDead = bShowScoresWhileDead && GS && GS->IsMatchInProgress() && !GS->IsMatchIntermission() && UTPlayerOwner && !UTPlayerOwner->GetPawn() && !UTPlayerOwner->IsInState(NAME_Spectating);
 		bool bScoreboardIsUp = bShowScores || bPreMatchScoreBoard || bForceScores || bShowScoresWhileDead;
 		if (!bFontsCached)

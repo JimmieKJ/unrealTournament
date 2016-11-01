@@ -5353,6 +5353,8 @@ void AUTPlayerController::ClientSetActiveLineUp_Implementation(bool bNewIsActive
 				}
 
 				SetIgnoreLookInput(true);
+
+				ToggleScoreboard(false);
 			}
 			else
 			{
