@@ -3281,12 +3281,9 @@ void AUTGameMode::SetMatchState(FName NewState)
 			UTGameState->LineUpHelper->CleanUp();
 		}
 		
-		if (PlayType != LineUpTypes::Invalid)
+		if (!UTGameState->LineUpHelper->bIsActive)
 		{
-			if (!UTGameState->LineUpHelper->bIsActive)
-			{
-				UTGameState->LineUpHelper->HandleLineUp(GetWorld(), PlayType);
-			}
+			UTGameState->LineUpHelper->HandleLineUp(GetWorld(), PlayType);
 		}
 	}
 }

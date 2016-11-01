@@ -10,14 +10,17 @@
 #include "UTCTFRoundGameState.h"
 #include "UTCTFRoundGame.h"
 
-UUTLineUpHelper::UUTLineUpHelper(const FObjectInitializer& ObjectInitializer)
+AUTLineUpHelper::AUTLineUpHelper(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
 	bIsPlacingPlayers = false;
+	bAlwaysRelevant = true;
 }
 
-void UUTLineUpHelper::HandleLineUp(UWorld* World, LineUpTypes ZoneType)
+void AUTLineUpHelper::HandleLineUp(UWorld* World, LineUpTypes ZoneType)
 {
+	LastActiveType = ZoneType;
+
 	if (ZoneType == LineUpTypes::Intro)
 	{
 		HandleIntro(World, ZoneType);
@@ -32,34 +35,41 @@ void UUTLineUpHelper::HandleLineUp(UWorld* World, LineUpTypes ZoneType)
 	}
 }
 
-void UUTLineUpHelper::HandleIntro(UWorld* World, LineUpTypes IntroType)
+void AUTLineUpHelper::HandleIntro(UWorld* World, LineUpTypes IntroType)
 {
 	bIsActive = true;
-	LastActiveType = IntroType;
-
 	MovePlayers(World, IntroType);
 }
 
-void UUTLineUpHelper::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const
+void AUTLineUpHelper::CleanUp()
 {
-	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-
-	DOREPLIFETIME_CONDITION(UUTLineUpHelper, bIsActive, COND_OwnerOnly);
-	DOREPLIFETIME_CONDITION(UUTLineUpHelper, LastActiveType, COND_OwnerOnly);
-}
-
-void UUTLineUpHelper::CleanUp()
-{
-	if (SelectedCharacter.IsValid())
+	if (bIsActive)
 	{
-		SelectedCharacter.Reset();
-	}
+		if (SelectedCharacter.IsValid())
+		{
+			SelectedCharacter.Reset();
+		}
 
-	bIsActive = false;
-	DestroySpawnedClones();
+		bIsActive = false;
+		LastActiveType = LineUpTypes::Invalid;
+		
+		if (GetWorld())
+		{
+			for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
+			{
+				AUTPlayerController* UTPC = Cast<AUTPlayerController>(*Iterator);
+				if (UTPC)
+				{
+					UTPC->ClientSetActiveLineUp(false, LineUpTypes::Invalid);
+				}
+			}
+		}
+
+		DestroySpawnedClones();
+	}
 }
 
-void UUTLineUpHelper::SpawnPlayerClones(UWorld* World, LineUpTypes LineUpType)
+void AUTLineUpHelper::SpawnPlayerClones(UWorld* World, LineUpTypes LineUpType)
 {
 	if (World != nullptr)
 	{
@@ -82,7 +92,7 @@ void UUTLineUpHelper::SpawnPlayerClones(UWorld* World, LineUpTypes LineUpType)
 }
 			
 
-void UUTLineUpHelper::DestroySpawnedClones()
+void AUTLineUpHelper::DestroySpawnedClones()
 {
 	if (PlayerPreviewCharacters.Num() > 0)
 	{
@@ -103,100 +113,74 @@ void UUTLineUpHelper::DestroySpawnedClones()
 	}
 }
 
-void UUTLineUpHelper::HandleIntermission(UWorld* World, LineUpTypes IntermissionType)
+void AUTLineUpHelper::HandleIntermission(UWorld* World, LineUpTypes IntermissionType)
 {
 	bIsActive = true;
-	LastActiveType = IntermissionType;
-
 	MovePlayers(World, IntermissionType);
 }
 
-void UUTLineUpHelper::MovePlayers(UWorld* World, LineUpTypes ZoneType)
-{
-	TArray<TArray<AController*>> PlayersToMove;
-
+void AUTLineUpHelper::MovePlayers(UWorld* World, LineUpTypes ZoneType)
+{	
 	bIsPlacingPlayers = true;
 
 	if (World && World->GetAuthGameMode())
 	{
-		AUTTeamGameMode* TeamGM = Cast<AUTTeamGameMode>(World->GetAuthGameMode());
 		AUTGameMode* UTGM = Cast<AUTGameMode>(World->GetAuthGameMode());
-
-		if (TeamGM && TeamGM->Teams.Num() > 1)
-		{
-			PlayersToMove.SetNum(TeamGM->Teams.Num());
-
-			for (int TeamIndex = 0; TeamIndex < TeamGM->Teams.Num(); ++TeamIndex)
-			{
-				const TArray<AController*> TeamMembers = TeamGM->Teams[TeamIndex]->GetTeamMembers();
-				for (int PlayerIndex = 0; PlayerIndex < TeamMembers.Num(); ++PlayerIndex)
-				{
-					PlayersToMove[TeamIndex].Add(TeamMembers[PlayerIndex]);
-				}
-			}
-		}
-		else if (UTGM)
-		{
-			//All players stored on 1 "team"
-			PlayersToMove.SetNum(1);
-
-			for (FConstControllerIterator Iterator = World->GetControllerIterator(); Iterator; ++Iterator)
-			{
-				AController* Controller = Cast<AController>(*Iterator);
-				if (Controller && PlayersToMove.Num() > 0)
-				{
-					PlayersToMove[0].Add(Controller);
-				}
-			}
-		}
-
-
-		for (int TeamIndex = 0; TeamIndex < PlayersToMove.Num(); ++TeamIndex)
-		{
-			// respawn dead pawns
-			for (int ControllerIndex = 0; ControllerIndex < PlayersToMove[TeamIndex].Num(); ++ControllerIndex)
-			{
-				AController* C = PlayersToMove[TeamIndex][ControllerIndex];
-				if (C)
-				{
-					AUTCharacter* UTChar = Cast<AUTCharacter>(C->GetPawn());
-					if (!UTChar || UTChar->IsDead() || UTChar->IsRagdoll())
-					{
-						if (C->GetPawn())
-						{
-							C->UnPossess();
-						}
-						UTGM->RestartPlayer(C);
-						if (C->GetPawn())
-						{
-							C->GetPawn()->TurnOff();
-							UTChar = Cast<AUTCharacter>(C->GetPawn());
-						}
-					}
-
-					if (UTChar && !UTChar->IsDead())
-					{
-						PlayerPreviewCharacters.Add(UTChar);
-					}
-
-					//Set camera to intermission cam
-					AUTPlayerController* UTPC = Cast<AUTPlayerController>(C);
-					if (UTPC)
-					{
-						UTPC->ClientSetLineUpCamera(World, ZoneType);
-					}
-				}
-			}
-		}
 		
+		//Go through all controllers and spawn/respawn pawns
+		for (FConstControllerIterator Iterator = World->GetControllerIterator(); Iterator; ++Iterator)
+		{
+			AController* C = Cast<AController>(*Iterator);
+			if (C)
+			{
+				AUTCharacter* UTChar = Cast<AUTCharacter>(C->GetPawn());
+				if (!UTChar || UTChar->IsDead() || UTChar->IsRagdoll())
+				{
+					if (C->GetPawn())
+					{
+						C->UnPossess();
+					}
+					UTGM->RestartPlayer(C);
+					if (C->GetPawn())
+					{
+						UTChar = Cast<AUTCharacter>(C->GetPawn());
+					}
+				}
+					
+				if (UTChar && !UTChar->IsDead())
+				{
+					PlayerPreviewCharacters.Add(UTChar);
+				}
+				
+				AUTPlayerController* UTPC = Cast<AUTPlayerController>(C);
+				if (UTPC)
+				{
+					UTPC->ClientSetActiveLineUp(true, ZoneType);
+				}
+			}
+		}
+	
 		SortPlayers();
 		MovePreviewCharactersToLineUpSpawns(World, ZoneType);
+
+		//Go back through characters now that they are moved and turn them off
+		for (AUTCharacter* UTChar : PlayerPreviewCharacters)
+		{
+			UTChar->TurnOff();
+			
+			//Want to still update the animations and bones even though we have turned off the Pawn, so re-enable those.
+			if (UTChar->GetMesh())
+			{
+				UTChar->GetMesh()->bPauseAnims = false;
+				//UTChar->GetMesh()->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones;
+			}
+		}
 	}
 
 	bIsPlacingPlayers = false;
 }
 
-void UUTLineUpHelper::MovePreviewCharactersToLineUpSpawns(UWorld* World, LineUpTypes LineUpType)
+void AUTLineUpHelper::MovePreviewCharactersToLineUpSpawns(UWorld* World, LineUpTypes LineUpType)
 {
  	AUTLineUpZone* SpawnList = GetAppropriateSpawnList(World, LineUpType);
 	if (SpawnList && World)
@@ -288,7 +272,7 @@ void UUTLineUpHelper::MovePreviewCharactersToLineUpSpawns(UWorld* World, LineUpT
 	}
 }
 
-LineUpTypes UUTLineUpHelper::GetLineUpTypeToPlay(UWorld* World)
+LineUpTypes AUTLineUpHelper::GetLineUpTypeToPlay(UWorld* World)
 {
 	LineUpTypes ReturnZoneType = LineUpTypes::Invalid;
 
@@ -331,7 +315,7 @@ LineUpTypes UUTLineUpHelper::GetLineUpTypeToPlay(UWorld* World)
 	return ReturnZoneType;
 }
 
-AUTLineUpZone* UUTLineUpHelper::GetAppropriateSpawnList(UWorld* World, LineUpTypes ZoneType)
+AUTLineUpZone* AUTLineUpHelper::GetAppropriateSpawnList(UWorld* World, LineUpTypes ZoneType)
 {
 	AUTLineUpZone* FoundPotentialMatch = nullptr;
 
@@ -363,9 +347,22 @@ AUTLineUpZone* UUTLineUpHelper::GetAppropriateSpawnList(UWorld* World, LineUpTyp
 	return FoundPotentialMatch;
 }
 
+AActor* AUTLineUpHelper::GetCameraActorForLineUp(UWorld* World, LineUpTypes ZoneType)
+{
+	AActor* FoundCamera = nullptr;
+
+	AUTLineUpZone* SpawnPointList = AUTLineUpHelper::GetAppropriateSpawnList(World, ZoneType);
+	if (SpawnPointList)
+	{
+		FoundCamera = SpawnPointList->Camera;
+	}
+
+	return FoundCamera;
+}
+
 static int32 WeaponIndex = 0;
 
-void UUTLineUpHelper::SpawnClone(UWorld* World, AUTPlayerState* PS, const FTransform& Location)
+void AUTLineUpHelper::SpawnClone(UWorld* World, AUTPlayerState* PS, const FTransform& Location)
 {
 	AUTWeaponAttachment* PreviewWeapon = nullptr;
 	UAnimationAsset* PlayerPreviewAnim = nullptr;
@@ -479,15 +476,13 @@ void UUTLineUpHelper::SpawnClone(UWorld* World, AUTPlayerState* PS, const FTrans
 	}
 }
 
-void UUTLineUpHelper::HandleEndMatchSummary(UWorld* World, LineUpTypes SummaryType)
+void AUTLineUpHelper::HandleEndMatchSummary(UWorld* World, LineUpTypes SummaryType)
 {
-	LastActiveType = SummaryType;
 	bIsActive = true;
-
 	MovePlayers(World, SummaryType);
 }
 
-void UUTLineUpHelper::SortPlayers()
+void AUTLineUpHelper::SortPlayers()
 {
 	bool(*SortFunc)(const AUTCharacter&, const AUTCharacter&);
 	SortFunc = [](const AUTCharacter& A, const AUTCharacter& B)
@@ -499,7 +494,7 @@ void UUTLineUpHelper::SortPlayers()
 	PlayerPreviewCharacters.Sort(SortFunc);
 }
 
-void UUTLineUpHelper::OnPlayerChange()
+void AUTLineUpHelper::OnPlayerChange()
 {
 	if (GetWorld())
 	{
@@ -514,6 +509,7 @@ void UUTLineUpHelper::OnPlayerChange()
 	}
 }
 
-void UUTLineUpHelper::ClientUpdatePlayerClones_Implementation()
+void AUTLineUpHelper::ClientUpdatePlayerClones()
 {
+
 }

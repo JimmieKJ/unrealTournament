@@ -694,7 +694,6 @@ void AUTPlayerController::ClientRestart_Implementation(APawn* NewPawn)
 	{
 		MyUTHUD->ClientRestart();
 	}
-
 }
 
 void AUTPlayerController::PawnPendingDestroy(APawn* InPawn)
@@ -2989,6 +2988,18 @@ void AUTPlayerController::SetViewTarget(class AActor* NewViewTarget, FViewTarget
 	{
 		NewViewTarget = FinalViewTarget;
 	}
+	
+	// Cancel this if we have an active line up, and go through the line up code to end up setting view target
+	if (GetWorld())
+	{
+		AUTGameState* UTGS = Cast<AUTGameState>(GetWorld()->GetGameState());
+		if (UTGS && UTGS->LineUpHelper && UTGS->LineUpHelper->bIsActive && (NewViewTarget != AUTLineUpHelper::GetCameraActorForLineUp(GetWorld(), UTGS->LineUpHelper->LastActiveType)))
+		{
+			ClientSetActiveLineUp(true, UTGS->LineUpHelper->LastActiveType);
+			return;
+		}
+	}
+	
 	AActor* OldViewTarget = GetViewTarget();
 	AUTViewPlaceholder *UTPlaceholder = Cast<AUTViewPlaceholder>(GetViewTarget());
 	Super::SetViewTarget(NewViewTarget, TransitionParams);
@@ -5306,24 +5317,44 @@ void AUTPlayerController::PlayTutorialAnnouncement(int32 Index, UObject* Optiona
 
 void AUTPlayerController::ClientSetLineUpCamera_Implementation(UWorld* World, LineUpTypes IntroType)
 {
-	AUTLineUpZone* SpawnPointList = UUTLineUpHelper::GetAppropriateSpawnList(World, IntroType);
-	if (SpawnPointList)
+	AActor* Camera = AUTLineUpHelper::GetCameraActorForLineUp(World, IntroType);
+	if (Camera)
 	{
 		FViewTargetTransitionParams TransitionParams;
 		TransitionParams.BlendFunction = EViewTargetBlendFunction::VTBlend_Linear;
 
 		if (World->GetGameState<AUTGameState>() && World->GetGameState<AUTGameState>()->GetMatchState() == MatchState::WaitingPostMatch)
 		{
-			FinalViewTarget = SpawnPointList->Camera;
-		}
-		SetViewTarget(SpawnPointList->Camera, TransitionParams);
-		
-		if (GetPawn())
-		{
-			GetPawn()->TurnOff();
+			FinalViewTarget = Camera;
 		}
 
-		SetIgnoreLookInput(true);
+		SetViewTarget(Camera, TransitionParams);
+	}
+}
+
+
+void AUTPlayerController::ClientSetActiveLineUp_Implementation(bool bNewIsActive, LineUpTypes LastType)
+{
+	if (GetWorld())
+	{
+		AUTGameState* UTGS = Cast<AUTGameState>(GetWorld()->GetGameState());
+		if (UTGS && UTGS->LineUpHelper)
+		{
+			UTGS->LineUpHelper->bIsActive = bNewIsActive;
+			UTGS->LineUpHelper->LastActiveType = LastType;
+
+			if (bNewIsActive)
+			{
+				ClientSetLineUpCamera(GetWorld(), LastType);
+
+				if (GetPawn())
+				{
+					GetPawn()->TurnOff();
+				}
+
+				SetIgnoreLookInput(true);
+			}
+		}
 	}
 }
 

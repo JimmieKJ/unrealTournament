@@ -585,20 +585,8 @@ void AUTHUD::NotifyMatchStateChange()
 		}
 		else if (GS->GetMatchState() == MatchState::PlayerIntro)
 		{
-			bool bStartedInWorldIntroTimer = false;
-
-			if (GS->LineUpHelper && !GS->LineUpHelper->bIsActive)
-			{
-				UUTLineUpHelper* HelperCapture = GS->LineUpHelper;
-				LineUpTypes TypeToPlay = HelperCapture->GetLineUpTypeToPlay(GetWorld());
-				if (TypeToPlay != LineUpTypes::Invalid)
-				{
-					bStartedInWorldIntroTimer = true;
-				}
-			}	
-			
 			//if InGameIntro didn't start, use old method
-			if (!bStartedInWorldIntroTimer)
+			if (!GS->LineUpHelper || !GS->LineUpHelper->bIsActive)
 			{
 				if (UTPlayerOwner->UTPlayerState && UTPlayerOwner->UTPlayerState->bIsWarmingUp)
 				{
@@ -616,11 +604,6 @@ void AUTHUD::NotifyMatchStateChange()
 			if (UTLP->HasChatText() && UTPlayerOwner && UTPlayerOwner->UTPlayerState)
 			{
 				UTLP->ShowQuickChat(UTPlayerOwner->UTPlayerState->ChatDestination);
-			}
-
-			if (GS->LineUpHelper)
-			{
-				GS->LineUpHelper->CleanUp();
 			}
 		}
 	}

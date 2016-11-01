@@ -336,18 +336,7 @@ void AUTCTFBaseGame::HandleMatchIntermission()
 	//UTGameState->UpdateMatchHighlights();
 	CTFGameState->ResetFlags();
 
-	bool bWasInGameSucessful = false;
-	if (CTFGameState->LineUpHelper)
-	{
-		LineUpTypes ZoneType = CTFGameState->LineUpHelper->GetLineUpTypeToPlay(GetWorld());
-		if (ZoneType != LineUpTypes::Invalid)
-		{
-			CTFGameState->LineUpHelper->HandleLineUp(GetWorld(), ZoneType);
-			bWasInGameSucessful = true;
-		}
-	}
-
-	if (!bWasInGameSucessful)
+	if (!CTFGameState->LineUpHelper || !CTFGameState->LineUpHelper->bIsActive)
 	{
 		// Init targets
 		for (int32 i = 0; i < Teams.Num(); i++)

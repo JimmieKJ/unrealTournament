@@ -294,6 +294,9 @@ public:
 	UFUNCTION(client,reliable)
 	virtual void ClientSetLineUpCamera(UWorld* World, LineUpTypes IntroType);
 
+	UFUNCTION(client, reliable)
+	virtual void ClientSetActiveLineUp(bool bNewIsActive, LineUpTypes LastType);
+
 	virtual void BeginRallyTo(AUTRallyPoint* RallyTarget, const FVector& NewRallyLocation, float Delay);
 
 	// valid server side only

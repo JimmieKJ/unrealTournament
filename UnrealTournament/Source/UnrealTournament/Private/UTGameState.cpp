@@ -349,7 +349,7 @@ void AUTGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLif
 
 	DOREPLIFETIME_CONDITION(AUTGameState, ServerInstanceGUID, COND_InitialOnly);
 
-
+	DOREPLIFETIME(AUTGameState, LineUpHelper);
 }
 
 void AUTGameState::PreReplication(IRepChangedPropertyTracker& ChangedPropertyTracker)
@@ -486,9 +486,13 @@ void AUTGameState::BeginPlay()
 	bIsAlreadyPendingUserQuery = false;
 	AddAllUsersToInfoQuery();
 
-	if (LineUpHelper == nullptr)
+	if ((GetNetMode() != NM_Client) && (LineUpHelper == nullptr))
 	{
-		LineUpHelper = NewObject<UUTLineUpHelper>();
+		FActorSpawnParameters Params;
+		Params.Owner = this;
+		LineUpHelper = GetWorld()->SpawnActor<AUTLineUpHelper>(Params);
+
+		LineUpHelper->SetReplicates(true);
 	}
 }
 

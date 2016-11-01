@@ -10,7 +10,7 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FTeamSideSwapDelegate, uint8, Offset
 
 class AUTGameMode;
 class AUTReplicatedMapInfo;
-class UUTLineUpHelper;
+class AUTLineUpHelper;
 
 enum class LineUpTypes : uint8;
 
@@ -686,8 +686,8 @@ public:
 	UPROPERTY(Replicated)
 	FGuid ServerInstanceGUID;
 
-	UPROPERTY()
-	UUTLineUpHelper* LineUpHelper;
+	UPROPERTY(Replicated)
+	AUTLineUpHelper* LineUpHelper;
 };
 
 

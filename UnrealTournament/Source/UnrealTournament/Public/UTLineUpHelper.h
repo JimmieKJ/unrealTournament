@@ -4,7 +4,7 @@
 #include "UTLineUpHelper.generated.h"
 
 UCLASS()
-class UNREALTOURNAMENT_API UUTLineUpHelper : public UObject
+class UNREALTOURNAMENT_API AUTLineUpHelper : public AActor
 {
 	GENERATED_UCLASS_BODY()
 
@@ -17,22 +17,23 @@ class UNREALTOURNAMENT_API UUTLineUpHelper : public UObject
 	UFUNCTION()
 	void CleanUp();
 
-	UPROPERTY(Replicated)
+	UPROPERTY()
 	bool bIsActive;
 
 	UPROPERTY()
-	bool bIsPlacingPlayers;
-
-	UPROPERTY(Replicated)
 	LineUpTypes LastActiveType;
+
+	UPROPERTY()
+	bool bIsPlacingPlayers;
 
 	static LineUpTypes GetLineUpTypeToPlay(UWorld* World);
 
 	static AUTLineUpZone* GetAppropriateSpawnList(UWorld* World, LineUpTypes ZoneType);
 
+	static AActor* GetCameraActorForLineUp(UWorld* World, LineUpTypes ZoneType);
+
 protected:
 
-	UFUNCTION(reliable, client)
 	void ClientUpdatePlayerClones();
 
 	UFUNCTION()
@@ -73,5 +74,4 @@ protected:
 	TArray<class AUTWeaponAttachment*> PreviewWeapons;
 
 	TArray<class UAnimationAsset*> PreviewAnimations;
-
 };
