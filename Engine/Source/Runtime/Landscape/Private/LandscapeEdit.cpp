@@ -237,6 +237,12 @@ void ULandscapeComponent::UpdateMaterialInstances()
 			FlushRenderingCommands();
 		}
 
+		// If using tessellation, we need a second material instance for LOD 1+ with it disabled.
+		const bool bTessellationEnabled = (CombinationMaterialInstance->GetMaterial()->D3D11TessellationMode != EMaterialTessellationMode::MTM_NoTessellation);
+		
+		// Size the MaterialInstances array appropriately
+		MaterialInstances.SetNumZeroed(bTessellationEnabled ? 2 : 1);
+
 		UMaterialInstanceConstant*& MaterialInstance = MaterialInstances[0];
 
 		// Create the instance for this component, that will use the layer combination instance.
@@ -286,11 +292,9 @@ void ULandscapeComponent::UpdateMaterialInstances()
 		}
 		MaterialInstance->PostEditChange();
 
-		// when using tessellation, we disable tessellation for LODs 1+
-		const bool bTessellationEnabled = (CombinationMaterialInstance->GetMaterial()->D3D11TessellationMode != EMaterialTessellationMode::MTM_NoTessellation);
+		// Setup material instance with disabled tessellation for LODs 1+
 		if (bTessellationEnabled)
 		{
-			MaterialInstances.SetNumZeroed(2);
 			ULandscapeMaterialInstanceConstant*& TessellationMaterialInstance = (ULandscapeMaterialInstanceConstant*&)MaterialInstances[1];
 			if (!TessellationMaterialInstance)
 			{
@@ -299,10 +303,6 @@ void ULandscapeComponent::UpdateMaterialInstances()
 			TessellationMaterialInstance->SetParentEditorOnly(MaterialInstance);
 			Context.AddMaterialInstance(TessellationMaterialInstance); // must be done after SetParent
 			TessellationMaterialInstance->bDisableTessellation = true;
-		}
-		else
-		{
-			MaterialInstances.SetNum(1);
 		}
 	}
 	else
