@@ -410,6 +410,16 @@ void AUTCTFFlag::Tick(float DeltaTime)
 			if (bWasPinged != bCurrentlyPinged)
 			{
 				Holder->ForceNetUpdate();
+
+				// 'pinged' means visible through walls so tell bots about my position
+				for (FConstControllerIterator It = GetWorld()->GetControllerIterator(); It; ++It)
+				{
+					AUTBot* B = Cast<AUTBot>(It->Get());
+					if (B != NULL && !B->IsTeammate(HoldingPawn))
+					{
+						B->UpdateEnemyInfo(HoldingPawn, EUT_HeardExact);
+					}
+				}
 			}
 			if (GetNetMode() != NM_DedicatedServer)
 			{
