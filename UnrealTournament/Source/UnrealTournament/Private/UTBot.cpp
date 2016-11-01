@@ -348,8 +348,7 @@ void AUTBot::InitializeSkill(float NewBaseSkill)
 	AdjustedMaxTrackingOffsetError = MaxTrackingOffsetError;
 
 	bLeadTarget = Skill >= 3.0f;
-	SetPeripheralVision();
-	HearingRadiusMult = FMath::Clamp<float>(Skill / 6.5f, 0.0f, 0.9f);
+	ResetPerceptionProperties();
 
 	if (Skill + Personality.ReactionTime >= 7.0f)
 	{
@@ -374,37 +373,35 @@ void AUTBot::InitializeSkill(float NewBaseSkill)
 	TranslocInterval = FMath::Max<float>(0.0f, 5.0f - 1.0f * (Skill + Personality.MovementAbility));
 }
 
-void AUTBot::SetPeripheralVision()
+void AUTBot::ResetPerceptionProperties()
 {
-	if (GetPawn() != NULL)
+	/*if (GetPawn() != NULL && (Pawn.bStationary || Pawn.Physics == PHYS_Flying))
 	{
-		/*if (Pawn.bStationary || (Pawn.Physics == PHYS_Flying))
+		bSlowerZAcquire = false;
+		Pawn.PeripheralVision = -0.7;
+	}
+	else
+	*/
+	{
+		if (Skill < 2.0f)
+		{
+			PeripheralVision = 0.7f;
+			bSlowerZAcquire = true;
+		}
+		else if (Skill > 6.0f)
 		{
 			bSlowerZAcquire = false;
-			Pawn.PeripheralVision = -0.7;
+			PeripheralVision = 0.0f;
 		}
 		else
-		*/
 		{
-			if (Skill < 2.0f)
-			{
-				PeripheralVision = 0.7f;
-				bSlowerZAcquire = true;
-			}
-			else if (Skill > 6.0f)
-			{
-				bSlowerZAcquire = false;
-				PeripheralVision = 0.0f;
-			}
-			else
-			{
-				PeripheralVision = 1.0f - 0.16f * Skill;
-				bSlowerZAcquire = (Skill < 5.f);
-			}
-
-			PeripheralVision = FMath::Min<float>(PeripheralVision - Personality.Alertness * 0.5f, 0.8f);
+			PeripheralVision = 1.0f - 0.16f * Skill;
+			bSlowerZAcquire = (Skill < 5.f);
 		}
+
+		PeripheralVision = FMath::Min<float>(PeripheralVision - Personality.Alertness * 0.25f, 0.8f);
 	}
+	HearingRadiusMult = FMath::Clamp<float>((Skill + Personality.Alertness) / 6.5f, 0.0f, 0.9f);
 }
 
 void AUTBot::SetPawn(APawn* InPawn)
@@ -431,7 +428,7 @@ void AUTBot::SetPawn(APawn* InPawn)
 		}
 	}
 
-	SetPeripheralVision();
+	ResetPerceptionProperties();
 }
 
 void AUTBot::Possess(APawn* InPawn)
@@ -4339,7 +4336,7 @@ bool AUTBot::IsImportantEnemyUpdate(APawn* TestEnemy, EAIEnemyUpdateType UpdateT
 	else
 	{
 		const FBotEnemyInfo* MyEnemyInfo = GetEnemyInfo(TestEnemy, false);
-		if (MyEnemyInfo == NULL || MyEnemyInfo->bLostEnemy)
+		if (MyEnemyInfo == NULL || MyEnemyInfo->bLostEnemy || CurrentAction == CampAction)
 		{
 			return true;
 		}

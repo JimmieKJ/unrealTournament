@@ -688,8 +688,8 @@ public:
 
 	/** sets base bot skill and all parameters derived from skill */
 	virtual void InitializeSkill(float NewBaseSkill);
-	/** set PeripheralVision based on skill and controlled Pawn */
-	virtual void SetPeripheralVision();
+	/** set PeripheralVision and HearingRadiusMult based on skill and controlled Pawn */
+	virtual void ResetPerceptionProperties();
 
 	virtual void SetPawn(APawn* InPawn) override;
 	virtual void Possess(APawn* InPawn) override;

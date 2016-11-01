@@ -20,6 +20,9 @@ class UNREALTOURNAMENT_API UUTAIAction_Camp : public UUTAIAction
 
 	virtual void Started() override
 	{
+		GetOuterAUTBot()->HearingRadiusMult *= 1.25f;
+		GetOuterAUTBot()->PeripheralVision -= 0.1f;
+
 		CampEndTime = GetWorld()->TimeSeconds + 3.0f;
 		// if camping pickup, set end time to re-evaluate right after it respawns
 		TArray<AActor*> Touching;
@@ -36,6 +39,13 @@ class UNREALTOURNAMENT_API UUTAIAction_Camp : public UUTAIAction
 				}
 			}
 		}
+	}
+
+	virtual void Ended(bool bAborted) override
+	{
+		Super::Ended(bAborted);
+
+		GetOuterAUTBot()->ResetPerceptionProperties();
 	}
 
 	virtual bool SetFocusForNoTarget()
