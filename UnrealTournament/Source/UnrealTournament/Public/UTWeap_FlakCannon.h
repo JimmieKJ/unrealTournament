@@ -56,4 +56,9 @@ class UNREALTOURNAMENT_API AUTWeap_FlakCannon : public AUTWeapon
 	FRotator GetFireRotationForMultiShot(int32 MultiShotIndex, const FVector& FireLocation, const FRotator& FireRotation);
 
 	virtual AUTProjectile* FireProjectile() override;
+
+	virtual float SuggestAttackStyle_Implementation() override;
+	virtual float SuggestDefenseStyle_Implementation() override;
+	virtual float GetAISelectRating_Implementation() override;
+	virtual bool CanAttack_Implementation(AActor* Target, const FVector& TargetLoc, bool bDirectOnly, bool bPreferCurrentMode, uint8& BestFireMode, FVector& OptimalTargetLoc) override;
 };

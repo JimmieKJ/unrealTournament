@@ -54,8 +54,47 @@ float AUTWeap_Minigun::GetAISelectRating_Implementation()
 
 bool AUTWeap_Minigun::CanAttack_Implementation(AActor* Target, const FVector& TargetLoc, bool bDirectOnly, bool bPreferCurrentMode, uint8& BestFireMode, FVector& OptimalTargetLoc)
 {
+	AUTBot* B = Cast<AUTBot>(UTOwner->Controller);
 	// prefer to keep current fire mode as there is a spindown cost associated with switching
-	return Super::CanAttack_Implementation(Target, TargetLoc, bDirectOnly, bPreferCurrentMode || (IsFiring() && FMath::FRand() < 0.9f), BestFireMode, OptimalTargetLoc);
+	bPreferCurrentMode = bPreferCurrentMode || (Cast<UUTWeaponStateFiringSpinUp>(CurrentState) != nullptr && FMath::FRand() < 0.9f);
+	if (Super::CanAttack_Implementation(Target, TargetLoc, bDirectOnly, bPreferCurrentMode, BestFireMode, OptimalTargetLoc))
+	{
+		if (!bPreferCurrentMode && B != nullptr)
+		{
+			if (UTOwner->DamageScaling * UTOwner->GetFireRateMultiplier() > 1.0f)
+			{
+				BestFireMode = 0;
+			}
+			else
+			{
+				const float TargetDist = (TargetLoc - B->GetPawn()->GetActorLocation()).Size();
+				if (TargetDist < 3000.0f)
+				{
+					BestFireMode = 0;
+				}
+				else if (TargetDist < 5000.0f)
+				{
+					BestFireMode = FMath::FRand() < TargetDist / 5000.0f ? 1 : 0;
+				}
+				else
+				{
+					BestFireMode = 1;
+				}
+			}
+		}
+		return true;
+	}
+	else if (B != nullptr && Target == B->GetEnemy() && GetWorld()->TimeSeconds - B->GetEnemyInfo(B->GetEnemy(), false)->LastSeenTime < 1.0f)
+	{
+		// alt fire radius might still hit
+		OptimalTargetLoc = B->GetEnemyInfo(B->GetEnemy(), false)->LastSeenLoc;
+		BestFireMode = 1;
+		return true;
+	}
+	else
+	{
+		return false;
+	}
 }
 
 bool AUTWeap_Minigun::HasAmmo(uint8 FireModeNum)

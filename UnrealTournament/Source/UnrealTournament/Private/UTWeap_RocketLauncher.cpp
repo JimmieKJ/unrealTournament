@@ -760,7 +760,7 @@ float AUTWeap_RocketLauncher::GetAISelectRating_Implementation()
 		float Rating = BaseAISelectRating;
 
 		// don't pick rocket launcher if enemy is too close
-		if (EnemyDist < 800.0f)
+		if (EnemyDist < 900.0f)
 		{
 			// don't switch away from rocket launcher unless really bad tactical situation
 			// TODO: also don't if OK with mutual death (high aggressiveness, high target priority, or grudge against target?)
@@ -770,7 +770,7 @@ float AUTWeap_RocketLauncher::GetAISelectRating_Implementation()
 			}
 			else
 			{
-				return 0.05f + EnemyDist * 0.0005;
+				return 0.05f + EnemyDist * 0.00045;
 			}
 		}
 
@@ -786,7 +786,7 @@ float AUTWeap_RocketLauncher::GetAISelectRating_Implementation()
 		}
 		else if (ZDiff > 175.0f)
 		{
-			Rating -= 0.05;
+			Rating -= 0.1;
 		}
 
 		// slightly higher chance to use against melee because high rocket momentum will keep enemy away
@@ -875,8 +875,10 @@ bool AUTWeap_RocketLauncher::CanAttack_Implementation(AActor* Target, const FVec
 			{
 				BestFireMode = (!B->LostContact(1.5f) && B->WeaponProficiencyCheck() && FMath::FRand() < 0.5f) ? 0 : 1;
 			}
+			const float MinDistance = 750.0f;
 
-			if (!PredicitiveTargetLoc.IsZero() && !GetWorld()->LineTraceTestByChannel(UTOwner->GetActorLocation(), PredicitiveTargetLoc, ECC_Visibility, FCollisionQueryParams(FName(TEXT("PredictiveRocket")), false, UTOwner), WorldResponseParams))
+			if ( !PredicitiveTargetLoc.IsZero() && (PredicitiveTargetLoc - UTOwner->GetActorLocation()).Size() >= MinDistance &&
+				!GetWorld()->LineTraceTestByChannel(UTOwner->GetActorLocation(), PredicitiveTargetLoc, ECC_Visibility, FCollisionQueryParams(FName(TEXT("PredictiveRocket")), false, UTOwner), WorldResponseParams) )
 			{
 				OptimalTargetLoc = PredicitiveTargetLoc;
 				return true;
@@ -891,7 +893,18 @@ bool AUTWeap_RocketLauncher::CanAttack_Implementation(AActor* Target, const FVec
 				}
 				else
 				{
-					PredicitiveTargetLoc = FoundPoints[FMath::RandHelper(FoundPoints.Num())];
+					// find point that's far enough way to not blow self up
+					int32 i = FMath::RandHelper(FoundPoints.Num());
+					int32 StartIndex = i;
+					do
+					{
+						i = (i + 1) % FoundPoints.Num();
+						if ((FoundPoints[i] - UTOwner->GetActorLocation()).Size() >= MinDistance)
+						{
+							PredicitiveTargetLoc = FoundPoints[i];
+							break;
+						}
+					} while (i != StartIndex);
 					OptimalTargetLoc = PredicitiveTargetLoc;
 					return true;
 				}

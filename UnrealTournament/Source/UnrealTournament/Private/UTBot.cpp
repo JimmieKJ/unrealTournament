@@ -3721,6 +3721,16 @@ void AUTBot::GuessAppearancePoints(AActor* InTarget, FVector TargetLoc, bool bDo
 			{
 				// TODO: do directional back and forward prediction to come up with more points (using enemy info)
 			}
+			// check if enemy goal point (objective, etc) is in our LOS and go for that
+			TArray<FPredictedGoal> Goals;
+			Squad->GetPossibleEnemyGoals(this, MyEnemyInfo, Goals);
+			for (const FPredictedGoal& PossibleGoal : Goals)
+			{
+				if (!GetWorld()->LineTraceTestByChannel(GetPawn()->GetActorLocation(), PossibleGoal.Location, ECC_Visibility, FCollisionQueryParams(FName(TEXT("AppearanceGoal")), false, GetPawn()), WorldResponseParams))
+				{
+					FoundPoints.Add(PossibleGoal.Location);
+				}
+			}
 		}
 		else if (bCheckForwardAndBack && !InTarget->GetVelocity().IsZero())
 		{
