@@ -278,23 +278,26 @@ TSharedRef<SWidget> SUTCreateGamePanel::BuildGamePanel(TSubclassOf<AUTGameMode> 
 			]
 
 			+SHorizontalBox::Slot()
-			.FillWidth(1.0)
+			.AutoWidth()
 			[
-				SNew(SVerticalBox)
-				+ SVerticalBox::Slot()
-				.AutoHeight()
-				.Padding(FMargin(20, 0, 20, 0))
+				SNew(SBox).WidthOverride(750)
 				[
-					SNew(SBox)
-					.HeightOverride(256)
+					SNew(SVerticalBox)
+					+ SVerticalBox::Slot()
+					.AutoHeight()
+					.Padding(FMargin(20, 0, 20, 0))
 					[
-						SNew(SScrollBox)
-						+ SScrollBox::Slot()
+						SNew(SBox)
+						.HeightOverride(256)
 						[
-							SAssignNew(MapDesc, STextBlock)
-							.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
-							.Text(FText())
-							.AutoWrapText(true)
+							SNew(SScrollBox)
+							+ SScrollBox::Slot()
+							[
+								SAssignNew(MapDesc, STextBlock)
+								.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
+								.Text(FText())
+								.AutoWrapText(true)
+							]
 						]
 					]
 				]

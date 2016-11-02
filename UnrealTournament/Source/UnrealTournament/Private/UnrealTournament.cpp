@@ -380,6 +380,11 @@ void GetAllAssetData(UClass* BaseClass, TArray<FAssetData>& AssetList, bool bReq
 	RootPaths.Add(TEXT("/Game/RestrictedAssets/Character/"));
 	RootPaths.Add(TEXT("/Game/RestrictedAssets/ProfileItems/"));
 	RootPaths.Add(TEXT("/Game/EpicInternal/Lea/"));
+	RootPaths.Add(TEXT("/Game/EpicInternal/Batrankus/"));
+	RootPaths.Add(TEXT("/Game/EpicInternal/Backspace/"));
+	RootPaths.Add(TEXT("/Game/EpicInternal/Polaris/"));
+	RootPaths.Add(TEXT("/Game/EpicInternal/Unsaved/"));
+	RootPaths.Add(TEXT("/Game/EpicInternal/Salt/"));
 	RootPaths.Add(TEXT("/Game/EpicInternal/Pistola/"));
 	RootPaths.Add(TEXT("/Game/EpicInternal/Stu/"));
 	RootPaths.Add(TEXT("/Game/EpicInternal/SR/"));
