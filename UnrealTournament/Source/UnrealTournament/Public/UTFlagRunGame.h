@@ -122,6 +122,7 @@ public:
 	virtual void ScoreAlternateWin(int32 WinningTeamIndex, uint8 Reason = 0);
 
 	virtual bool SupportsInstantReplay() const override;
+	virtual void FindAndMarkHighScorer() override;
 
 protected:
 
