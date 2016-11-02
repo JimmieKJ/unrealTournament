@@ -40,6 +40,21 @@ void AUTProj_Grenade_Sticky::ArmGrenade()
 	bArmed = true;
 }
 
+void AUTProj_Grenade_Sticky::ShutDown()
+{
+	Super::ShutDown();
+
+	if (Role == ROLE_Authority)
+	{
+		GetWorldTimerManager().ClearTimer(FLifeTimeHandle);
+
+		if (GrenadeLauncherOwner)
+		{
+			GrenadeLauncherOwner->UnregisterStickyGrenade(this);
+		}
+	}
+}
+
 void AUTProj_Grenade_Sticky::Destroyed()
 {
 	Super::Destroyed();
