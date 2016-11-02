@@ -103,8 +103,8 @@ void AUTFlagRunHUD::DrawHUD()
 		BluePlayerCount = 0;
 		float BasePipSize = 0.035f * Canvas->ClipX * GetHUDWidgetScaleOverride();
 		XAdjust = 128.0f * GetHUDWidgetScaleOverride();
-		XOffsetRed = 0.4f * Canvas->ClipX - XAdjust - BasePipSize;
-		XOffsetBlue = 0.6f * Canvas->ClipX + XAdjust;
+		XOffsetRed = 0.45f * Canvas->ClipX - XAdjust - BasePipSize;
+		XOffsetBlue = 0.55f * Canvas->ClipX + XAdjust;
 		YOffset = 0.005f * Canvas->ClipY * GetHUDWidgetScaleOverride();
 		float XOffsetText = 0.f;
 		TArray<AUTPlayerState*> LivePlayers;
@@ -129,7 +129,7 @@ void AUTFlagRunHUD::DrawHUD()
 				float OwnerPipScaling = (UTPS == GetScorerPlayerState()) ? 1.5f : 1.f;
 				float PipSize = BasePipSize * OwnerPipScaling;
 				bool bLastLife = (UTPS->RemainingLives == 1);
-				float LiveScaling = FMath::Clamp(((UTPS->RespawnTime > 0.f) && (UTPS->RespawnWaitTime > 0.f)) ? 1.f - UTPS->RespawnTime / UTPS->RespawnWaitTime : 1.f, 0.f ,1.f);
+				float LiveScaling = FMath::Clamp(((UTPS->RespawnTime > 0.f) && (UTPS->RespawnWaitTime > 0.f) && !UTPS->GetUTCharacter()) ? 1.f - UTPS->RespawnTime / UTPS->RespawnWaitTime : 1.f, 0.f ,1.f);
 				if (UTPS->Team->TeamIndex == 0)
 				{
 					RedPlayerCount++;
@@ -157,7 +157,7 @@ void AUTFlagRunHUD::DrawHUD()
 void AUTFlagRunHUD::DrawPlayerIcon(FCanvasIcon PlayerIcon, FLinearColor DrawColor, float LiveScaling, float XOffset, float YOffset, float PipSize)
 {
 	FLinearColor BackColor = FLinearColor::Black;
-	BackColor.A = 0.8f;
+	BackColor.A = 0.5f;
 	Canvas->SetLinearDrawColor(BackColor);
 	Canvas->DrawTile(Canvas->DefaultTexture, XOffset, YOffset, LiveScaling*PipSize, PipSize, 0, 0, 1, 1, BLEND_Translucent);
 
