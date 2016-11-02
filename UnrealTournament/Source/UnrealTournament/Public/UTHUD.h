@@ -149,6 +149,12 @@ public:
 	UPROPERTY(BlueprintReadOnly, Category = HUD)
 	class UUTHUDWidget_SpectatorSlideOut* SpectatorSlideOutWidget;
 
+	UPROPERTY(BlueprintReadOnly, Category = HUD)
+		class UUTHUDWidgetMessage_KillIconMessages* KillIconWidget;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = HUD)
+		FVector2D ScoreboardKillFeedPosition;
+
 	class UUTHUDWidget_SpectatorSlideOut* GetSpectatorSlideOut() { return SpectatorSlideOutWidget; }
 
 	/** Damage values caused by viewed player recently. */

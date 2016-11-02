@@ -12,6 +12,7 @@
 #include "UTHUDWidget_WeaponBar.h"
 #include "UTHUDWidget_SpectatorSlideOut.h"
 #include "UTHUDWidget_WeaponCrosshair.h"
+#include "UTHUDWidgetMessage_KillIconMessages.h"
 #include "UTScoreboard.h"
 #include "UTHUDWidget_Powerups.h"
 #include "Json.h"
@@ -118,6 +119,8 @@ AUTHUD::AUTHUD(const class FObjectInitializer& ObjectInitializer) : Super(Object
 
 	static ConstructorHelpers::FObjectFinder<UMaterialInterface> DamageScreenMatObject(TEXT("/Game/RestrictedAssets/Blueprints/WIP/Nick/CameraAnims/HitScreenEffect.HitScreenEffect"));
 	DamageScreenMat = DamageScreenMatObject.Object;
+
+	ScoreboardKillFeedPosition = FVector2D(0.f, 0.635f);
 }
 
 void AUTHUD::Destroyed()
@@ -465,6 +468,10 @@ UUTHUDWidget* AUTHUD::AddHudWidget(TSubclassOf<UUTHUDWidget> NewWidgetClass)
 	{
 		SpectatorSlideOutWidget = Cast<UUTHUDWidget_SpectatorSlideOut>(Widget);
 	}
+	if (KillIconWidget == nullptr)
+	{
+		KillIconWidget = Cast<UUTHUDWidgetMessage_KillIconMessages>(Widget);
+	}
 
 	return Widget;
 }
@@ -718,6 +725,10 @@ void AUTHUD::DrawHUD()
 		}
 
 		UpdateKeyMappings(false);
+		if (KillIconWidget)
+		{
+			KillIconWidget->ScreenPosition = bScoreboardIsUp ? ScoreboardKillFeedPosition : FVector2D(0.0f, 0.0f);
+		}
 		for (int32 WidgetIndex = 0; WidgetIndex < HudWidgets.Num(); WidgetIndex++)
 		{
 			// If we aren't hidden then set the canvas and render..
