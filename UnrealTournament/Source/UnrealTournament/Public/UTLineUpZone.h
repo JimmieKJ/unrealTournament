@@ -59,7 +59,7 @@ class AUTLineUpZone : public AActor
 	TArray<UMeshComponent*> RenderedPlayerStates;
 
 #if WITH_EDITORONLY_DATA
-	UPROPERTY(VisibleAnywhere, meta = (MakeEditWidget = ""))
+	UPROPERTY(Transient, VisibleAnywhere, meta = (MakeEditWidget = ""))
 	TArray<AUTLineUpZoneVisualizationCharacter*> MeshVisualizations;
 
 	UPROPERTY()
