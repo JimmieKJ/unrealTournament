@@ -164,6 +164,7 @@ void AUTWeap_RocketLauncher::ClearLoadedRockets()
 	CurrentRocketFireMode = 0;
 	NumLoadedBarrels = 0;
 	NumLoadedRockets = 0;
+	SetLockTarget(nullptr);
 	if (UTOwner != NULL)
 	{
 		UTOwner->SetFlashExtra(0, CurrentFireMode);
@@ -615,7 +616,7 @@ void AUTWeap_RocketLauncher::SetLockTarget(AActor* NewTarget)
 
 void AUTWeap_RocketLauncher::UpdateLock()
 {
-	if (UTOwner == NULL || UTOwner->Controller == NULL || UTOwner->IsFiringDisabled() || (CurrentFireMode != 1))
+	if (UTOwner == NULL || UTOwner->Controller == NULL || UTOwner->IsFiringDisabled() || (CurrentFireMode != 1) || !IsFiring())
 	{
 		SetLockTarget(NULL);
 		return;
