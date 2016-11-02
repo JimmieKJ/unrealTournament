@@ -259,12 +259,6 @@ void FXAudio2Device::UpdateHardware()
 {
 }
 
-void FXAudio2Device::CheckDeviceStateChange()
-{
-	// Update the audio clock time
-	AudioClock = DeviceProperties->GetAudioClockTime();
-}
-
 FAudioEffectsManager* FXAudio2Device::CreateEffectsManager()
 {
 	// Create the effects subsystem (reverb, EQ, etc.)
