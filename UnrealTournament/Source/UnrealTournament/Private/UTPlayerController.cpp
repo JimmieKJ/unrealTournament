@@ -53,6 +53,7 @@
 #include "UTTutorialAnnouncement.h"
 #include "UTLineUpHelper.h"
 #include "UTRallyPoint.h"
+#include "UTDemoRecSpectator.h"
 
 static TAutoConsoleVariable<float> CVarUTKillcamStartDelay(
 	TEXT("UT.KillcamStartDelay"),
@@ -5429,6 +5430,25 @@ void AUTPlayerController::RealNames()
 						PS->PlayerName = EpicAccountName.ToString();
 					}
 				}
+			}
+		}
+	}
+}
+
+void AUTPlayerController::ClientReceiveLocalizedMessage_Implementation(TSubclassOf<ULocalMessage> Message, int32 Switch, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject)
+{
+	Super::ClientReceiveLocalizedMessage_Implementation(Message, Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
+	
+	// Forward the local message over to the demo spectator
+	if (GetWorld()->IsRecordingClientReplay())
+	{
+		UDemoNetDriver* DemoDriver = GetWorld()->DemoNetDriver;
+		if (DemoDriver)
+		{
+			AUTDemoRecSpectator* DemoRecSpec = Cast<AUTDemoRecSpectator>(DemoDriver->SpectatorController);
+			if (DemoRecSpec)
+			{
+				DemoRecSpec->MulticastReceiveLocalizedMessage(Message, Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
 			}
 		}
 	}

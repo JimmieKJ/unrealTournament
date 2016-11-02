@@ -499,6 +499,8 @@ public:
 	UFUNCTION(BlueprintCallable, Category = Message)
 	void K2_ReceiveLocalizedMessage(TSubclassOf<ULocalMessage> Message, int32 Switch = 0, class APlayerState* RelatedPlayerState_1 = NULL, class APlayerState* RelatedPlayerState_2 = NULL, class UObject* OptionalObject = NULL);
 
+	virtual void ClientReceiveLocalizedMessage_Implementation(TSubclassOf<ULocalMessage> Message, int32 Switch, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject) override;
+	
 	/** Global scaling for weapon bob. */
 	UPROPERTY(EditAnywhere, GlobalConfig, Category = WeaponBob)
 	float WeaponBobGlobalScaling;

@@ -63,6 +63,9 @@ class UNREALTOURNAMENT_API AUTDemoRecSpectator : public AUTPlayerController
 	UFUNCTION(Client, UnReliable)
 	virtual void DemoNotifyCausedHit(APawn* InstigatorPawn, AUTCharacter* HitPawn, uint8 AppliedDamage, FVector Momentum, const FDamageEvent& DamageEvent);
 
+	UFUNCTION(NetMulticast, Reliable)
+	virtual void MulticastReceiveLocalizedMessage(TSubclassOf<ULocalMessage> Message, int32 Switch, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject);
+
 	UPROPERTY()
 	APlayerState* QueuedPlayerStateToView;
 	

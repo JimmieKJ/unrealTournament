@@ -489,3 +489,13 @@ void AUTDemoRecSpectator::DumpSpecInfo()
 	UE_LOG(LogUTDemoRecSpectator, Log, TEXT("QueuedViewTargetGuid: %s"), QueuedViewTargetGuid.IsValid() ? *QueuedViewTargetGuid.ToString() : TEXT("No"));
 	UE_LOG(LogUTDemoRecSpectator, Log, TEXT("QueuedViewTargetNetId: %s"), QueuedViewTargetNetId.IsValid() ? *QueuedViewTargetNetId.ToString() : TEXT("No"));
 }
+
+void AUTDemoRecSpectator::MulticastReceiveLocalizedMessage_Implementation(TSubclassOf<ULocalMessage> Message, int32 Switch, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject)
+{
+	if (!IsKillcamSpectator())
+	{
+		return;
+	}
+
+	ClientReceiveLocalizedMessage(Message, Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
+}
