@@ -101,10 +101,10 @@ void AUTFlagRunHUD::DrawHUD()
 		int32 OldBlueCount = BluePlayerCount;
 		RedPlayerCount = 0;
 		BluePlayerCount = 0;
-		float BasePipSize = 0.035f * Canvas->ClipX * GetHUDWidgetScaleOverride();
+		float BasePipSize = 0.03f * Canvas->ClipX * GetHUDWidgetScaleOverride();
 		XAdjust = 128.0f * GetHUDWidgetScaleOverride();
-		XOffsetRed = 0.45f * Canvas->ClipX - XAdjust - BasePipSize;
-		XOffsetBlue = 0.55f * Canvas->ClipX + XAdjust;
+		XOffsetRed = 0.47f * Canvas->ClipX - XAdjust - BasePipSize;
+		XOffsetBlue = 0.53f * Canvas->ClipX + XAdjust;
 		YOffset = 0.005f * Canvas->ClipY * GetHUDWidgetScaleOverride();
 		float XOffsetText = 0.f;
 		TArray<AUTPlayerState*> LivePlayers;
@@ -120,7 +120,7 @@ void AUTFlagRunHUD::DrawHUD()
 		}
 		LivePlayers.Sort([](AUTPlayerState& A, AUTPlayerState& B) { return A.SelectionOrder < B.SelectionOrder; });
 		float XL, YL;
-		Canvas->TextSize(TinyFont, "5", XL, YL);
+		Canvas->TextSize(SmallFont, "5", XL, YL);
 		for (AUTPlayerState* UTPS : LivePlayers)
 		{
 			if (!UTPS->bOutOfLives)
@@ -144,10 +144,10 @@ void AUTFlagRunHUD::DrawHUD()
 					XOffsetText = XOffsetBlue;
 					XOffsetBlue += 1.1f*PipSize;
 				}
-				if (bIsAttacker ? GS->bAttackerLivesLimited : GS->bDefenderLivesLimited)
+				if (!bIsAttacker)
 				{
 					Canvas->SetLinearDrawColor(bLastLife ? FLinearColor::Yellow : FLinearColor::White);
-					Canvas->DrawText(TinyFont, FText::AsNumber(UTPS->RemainingLives), XOffsetText + 0.5f*(PipSize - XL), YOffset + 0.95f*PipSize - YL, 1.f, 1.f, TextRenderInfo);
+					Canvas->DrawText(SmallFont, FText::AsNumber(UTPS->RemainingLives), XOffsetText + 0.5f*(PipSize - XL), YOffset + 0.95f*PipSize - YL, 1.f, 1.f, TextRenderInfo);
 				}
 			}
 		}
@@ -165,8 +165,9 @@ void AUTFlagRunHUD::DrawPlayerIcon(FCanvasIcon PlayerIcon, FLinearColor DrawColo
 	Canvas->DrawTile(PlayerIcon.Texture, XOffset, YOffset, LiveScaling*PipSize, PipSize, PlayerIcon.U, PlayerIcon.V, PlayerIcon.UL*LiveScaling, PlayerIcon.VL, BLEND_Translucent);
 	if (LiveScaling < 1.f)
 	{
-		Canvas->SetLinearDrawColor(FLinearColor(0.2f, 0.2f, 0.2f, 1.f));
+		Canvas->SetLinearDrawColor(FLinearColor(0.2f, 0.2f, 0.2f, 0.3f));
 		Canvas->DrawTile(Canvas->DefaultTexture, XOffset + LiveScaling*PipSize, YOffset, PipSize - LiveScaling *PipSize, PipSize, 0, 0, 1, 1, BLEND_Translucent);
+		Canvas->SetLinearDrawColor(FLinearColor(0.2f, 0.2f, 0.2f, 1.f));
 		Canvas->DrawTile(PlayerIcon.Texture, XOffset + LiveScaling*PipSize, YOffset, PipSize - LiveScaling *PipSize, PipSize, PlayerIcon.U + PlayerIcon.UL*LiveScaling, PlayerIcon.V, PlayerIcon.UL * (1.f - LiveScaling), PlayerIcon.VL, BLEND_Translucent);
 	}
 }
