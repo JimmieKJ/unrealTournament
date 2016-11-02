@@ -9,7 +9,7 @@ class UNREALTOURNAMENT_API AUTLineUpHelper : public AActor
 	GENERATED_UCLASS_BODY()
 
 	UFUNCTION()
-	void HandleLineUp(UWorld* World, LineUpTypes IntroType);
+	void HandleLineUp(LineUpTypes IntroType);
 
 	UFUNCTION()
 	void OnPlayerChange();
@@ -37,31 +37,31 @@ protected:
 	void ClientUpdatePlayerClones();
 
 	UFUNCTION()
-	void HandleIntro(UWorld* World, LineUpTypes ZoneType);
+	void HandleIntro(LineUpTypes ZoneType);
 
 	UFUNCTION()
-	void HandleIntermission(UWorld* World, LineUpTypes IntermissionType);
+	void HandleIntermission(LineUpTypes IntermissionType);
 
 	UFUNCTION()
-	void HandleEndMatchSummary(UWorld* World, LineUpTypes SummaryType);
+	void HandleEndMatchSummary(LineUpTypes SummaryType);
 
 	UFUNCTION()
 	void SortPlayers();
 
 	UFUNCTION()
-	void MovePlayers(UWorld* World, LineUpTypes ZoneType);
+	void MovePlayers(LineUpTypes ZoneType);
 
 	UFUNCTION()
-	void SpawnClone(UWorld* World, AUTPlayerState* PS, const FTransform& Location);
+	void SpawnClone(AUTPlayerState* PS, const FTransform& Location);
 	
 	UFUNCTION()
 	void DestroySpawnedClones();
 
 	UFUNCTION()
-	void SpawnPlayerClones(UWorld* World, LineUpTypes LineUpType);
+	void SpawnPlayerClones(LineUpTypes LineUpType);
 
 	UFUNCTION()
-	void MovePreviewCharactersToLineUpSpawns(UWorld* World, LineUpTypes LineUpType);
+	void MovePreviewCharactersToLineUpSpawns(LineUpTypes LineUpType);
 
 	TWeakPtr<AUTCharacter> SelectedCharacter;
 

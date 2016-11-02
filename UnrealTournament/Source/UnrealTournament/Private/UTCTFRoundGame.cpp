@@ -243,15 +243,6 @@ void AUTCTFRoundGame::HandleMatchIntermission()
 		for (AUTCTFFlagBase* Base : CTFGameState->FlagBases)
 		{
 			Base->ClearDefenseEffect();
-		}	
-
-		if (UTGameState->LineUpHelper)
-		{
-			LineUpTypes TypeToPlay = UTGameState->LineUpHelper->GetLineUpTypeToPlay(GetWorld());
-			if (TypeToPlay != LineUpTypes::Invalid)
-			{
-				UTGameState->LineUpHelper->HandleLineUp(GetWorld(), TypeToPlay);
-			}
 		}
 
 		if ((!UTGameState->LineUpHelper) || (!UTGameState->LineUpHelper->bIsActive))
@@ -454,16 +445,6 @@ void AUTCTFRoundGame::EndTeamGame(AUTTeamInfo* Winner, FName Reason)
 	GetWorldTimerManager().SetTimer(TempHandle4, this, &AUTCTFRoundGame::StopRCTFReplayRecording, EndReplayDelay);
 
 	SendEndOfGameStats(Reason);
-
-	//Show end game summary through in game system if possible
-	if ((UTGameState) && (UTGameState->LineUpHelper))
-	{
-		LineUpTypes PlayType = UTGameState->LineUpHelper->GetLineUpTypeToPlay(GetWorld());
-		if (PlayType != LineUpTypes::Invalid)
-		{
-			UTGameState->LineUpHelper->HandleLineUp(GetWorld(), PlayType);
-		}
-	}
 }
 
 void AUTCTFRoundGame::StopRCTFReplayRecording()

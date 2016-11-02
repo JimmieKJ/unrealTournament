@@ -43,6 +43,11 @@ AUTLineUpZone::AUTLineUpZone(const FObjectInitializer& ObjectInitializer)
 void AUTLineUpZone::OnConstruction(const FTransform& Transform)
 {
 	Super::OnConstruction(Transform);
+
+	if (GEngine && GEngine->IsEditor())
+	{
+		InitializeMeshVisualizations();
+	}
 }
 
 
@@ -198,11 +203,14 @@ void AUTLineUpZone::DeleteAllMeshVisualizations()
 #if WITH_EDITORONLY_DATA
 	for (int index = 0; index < MeshVisualizations.Num(); ++index)
 	{
-		//MeshVisualizations[index]->DestroyComponent();
-		MeshVisualizations[index]->DetachRootComponentFromParent(true);
-		MeshVisualizations[index]->Instigator = nullptr;
-		MeshVisualizations[index]->SetOwner(nullptr);
-		MeshVisualizations[index]->Destroy(true, true);
+		if (MeshVisualizations[index])
+		{
+			//MeshVisualizations[index]->DestroyComponent();
+			MeshVisualizations[index]->DetachRootComponentFromParent(true);
+			MeshVisualizations[index]->Instigator = nullptr;
+			MeshVisualizations[index]->SetOwner(nullptr);
+			MeshVisualizations[index]->Destroy(true, true);
+		}
 	}
 
 	MeshVisualizations.Empty();
@@ -407,17 +415,17 @@ void AUTLineUpZone::DefaultCreateForTeamIntro()
 	RedStartLocations.SetNum(5);
 	BlueStartLocations.SetNum(5);
 
-	RedStartLocations[0] = FVector(-150.f, 275.f, 113.f);
-	RedStartLocations[1] = FVector(-50.f, 250.f, 113.f);
-	RedStartLocations[2] = FVector(50.f, 200.f, 113.f);
-	RedStartLocations[3] = FVector(150.f, 150.f, 113.f);
-	RedStartLocations[4] = FVector(250.f, 100.f, 113.f);
+	BlueStartLocations[0] = FVector(-150.f, 275.f, 113.f);
+	BlueStartLocations[1] = FVector(-50.f, 250.f, 113.f);
+	BlueStartLocations[2] = FVector(50.f, 200.f, 113.f);
+	BlueStartLocations[3] = FVector(150.f, 150.f, 113.f);
+	BlueStartLocations[4] = FVector(250.f, 100.f, 113.f);
 	
-	BlueStartLocations[0] = FVector(-150.f, -275.f, 113.f);
-	BlueStartLocations[1] = FVector(-50.f, -250.f, 113.f);
-	BlueStartLocations[2] = FVector(50.f, -200.f, 113.f);
-	BlueStartLocations[3] = FVector(150.f, -150.f, 113.f);
-	BlueStartLocations[4] = FVector(250.f, -100.f, 113.f);
+	RedStartLocations[0] = FVector(-150.f, -275.f, 113.f);
+	RedStartLocations[1] = FVector(-50.f, -250.f, 113.f);
+	RedStartLocations[2] = FVector(50.f, -200.f, 113.f);
+	RedStartLocations[3] = FVector(150.f, -150.f, 113.f);
+	RedStartLocations[4] = FVector(250.f, -100.f, 113.f);
 
 
 	RedAndWinningTeamSpawnLocations.Empty();
@@ -427,15 +435,15 @@ void AUTLineUpZone::DefaultCreateForTeamIntro()
 	RedAndWinningTeamSpawnLocations.SetNum(5);
 	BlueAndLosingTeamSpawnLocations.SetNum(5);
 
-	FRotator RedWarpRotation;
-	RedWarpRotation.Pitch = 0.f;
-	RedWarpRotation.Roll = 0.f;
-	RedWarpRotation.Yaw = -135.f;
-
 	FRotator BlueWarpRotation;
 	BlueWarpRotation.Pitch = 0.f;
 	BlueWarpRotation.Roll = 0.f;
-	BlueWarpRotation.Yaw = 135.f;
+	BlueWarpRotation.Yaw = -135.f;
+
+	FRotator RedWarpRotation;
+	RedWarpRotation.Pitch = 0.f;
+	RedWarpRotation.Roll = 0.f;
+	RedWarpRotation.Yaw = 135.f;
 
 	for (int RedIndex = 0; RedIndex < 5; ++RedIndex)
 	{

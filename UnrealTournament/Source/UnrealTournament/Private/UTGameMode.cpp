@@ -3284,7 +3284,7 @@ void AUTGameMode::SetMatchState(FName NewState)
 		
 		if (!UTGameState->LineUpHelper->bIsActive)
 		{
-			UTGameState->LineUpHelper->HandleLineUp(GetWorld(), PlayType);
+			UTGameState->LineUpHelper->HandleLineUp(PlayType);
 		}
 	}
 }

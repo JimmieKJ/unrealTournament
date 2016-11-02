@@ -2,7 +2,7 @@
 
 #include "UTLineUpZoneVisualizationCharacter.generated.h"
 
-UCLASS()
+UCLASS(transient)
 class UNREALTOURNAMENT_API AUTLineUpZoneVisualizationCharacter : public AUTCharacter
 {
 	GENERATED_UCLASS_BODY()

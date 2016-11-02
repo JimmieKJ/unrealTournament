@@ -17,28 +17,28 @@ AUTLineUpHelper::AUTLineUpHelper(const FObjectInitializer& ObjectInitializer)
 	bAlwaysRelevant = true;
 }
 
-void AUTLineUpHelper::HandleLineUp(UWorld* World, LineUpTypes ZoneType)
+void AUTLineUpHelper::HandleLineUp(LineUpTypes ZoneType)
 {
 	LastActiveType = ZoneType;
 
 	if (ZoneType == LineUpTypes::Intro)
 	{
-		HandleIntro(World, ZoneType);
+		HandleIntro(ZoneType);
 	}
 	else if (ZoneType == LineUpTypes::Intermission)
 	{
-		HandleIntermission(World, ZoneType);
+		HandleIntermission(ZoneType);
 	}
 	else if (ZoneType == LineUpTypes::PostMatch)
 	{
-		HandleEndMatchSummary(World, ZoneType);
+		HandleEndMatchSummary(ZoneType);
 	}
 }
 
-void AUTLineUpHelper::HandleIntro(UWorld* World, LineUpTypes IntroType)
+void AUTLineUpHelper::HandleIntro(LineUpTypes IntroType)
 {
 	bIsActive = true;
-	MovePlayers(World, IntroType);
+	MovePlayers(IntroType);
 }
 
 void AUTLineUpHelper::CleanUp()
@@ -69,11 +69,11 @@ void AUTLineUpHelper::CleanUp()
 	}
 }
 
-void AUTLineUpHelper::SpawnPlayerClones(UWorld* World, LineUpTypes LineUpType)
+void AUTLineUpHelper::SpawnPlayerClones(LineUpTypes LineUpType)
 {
-	if (World != nullptr)
+	if (GetWorld())
 	{
-		AUTGameState* UTGS = Cast<AUTGameState>(World->GameState);
+		AUTGameState* UTGS = Cast<AUTGameState>(GetWorld()->GameState);
 		if ((UTGS != nullptr) && (UTGS->ShouldUseInGameSummary(LineUpType)))
 		{
 			for (int PlayerIndex = 0; PlayerIndex < UTGS->PlayerArray.Num(); ++PlayerIndex)
@@ -81,12 +81,12 @@ void AUTLineUpHelper::SpawnPlayerClones(UWorld* World, LineUpTypes LineUpType)
 				AUTPlayerState* UTPS = Cast<AUTPlayerState>(UTGS->PlayerArray[PlayerIndex]);
 				if (UTPS)
 				{
-					SpawnClone(World, UTPS, FTransform());
+					SpawnClone(UTPS, FTransform());
 				}
 			}
 
 			SortPlayers();
-			MovePreviewCharactersToLineUpSpawns(World, LineUpType);
+			MovePreviewCharactersToLineUpSpawns(LineUpType);
 		}
 	}
 }
@@ -113,22 +113,22 @@ void AUTLineUpHelper::DestroySpawnedClones()
 	}
 }
 
-void AUTLineUpHelper::HandleIntermission(UWorld* World, LineUpTypes IntermissionType)
+void AUTLineUpHelper::HandleIntermission(LineUpTypes IntermissionType)
 {
 	bIsActive = true;
-	MovePlayers(World, IntermissionType);
+	MovePlayers(IntermissionType);
 }
 
-void AUTLineUpHelper::MovePlayers(UWorld* World, LineUpTypes ZoneType)
+void AUTLineUpHelper::MovePlayers(LineUpTypes ZoneType)
 {	
 	bIsPlacingPlayers = true;
 
-	if (World && World->GetAuthGameMode())
+	if (GetWorld() && GetWorld()->GetAuthGameMode())
 	{
-		AUTGameMode* UTGM = Cast<AUTGameMode>(World->GetAuthGameMode());
+		AUTGameMode* UTGM = Cast<AUTGameMode>(GetWorld()->GetAuthGameMode());
 		
 		//Go through all controllers and spawn/respawn pawns
-		for (FConstControllerIterator Iterator = World->GetControllerIterator(); Iterator; ++Iterator)
+		for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
 		{
 			AController* C = Cast<AController>(*Iterator);
 			if (C)
@@ -161,7 +161,7 @@ void AUTLineUpHelper::MovePlayers(UWorld* World, LineUpTypes ZoneType)
 		}
 	
 		SortPlayers();
-		MovePreviewCharactersToLineUpSpawns(World, ZoneType);
+		MovePreviewCharactersToLineUpSpawns(ZoneType);
 
 		//Go back through characters now that they are moved and turn them off
 		for (AUTCharacter* UTChar : PlayerPreviewCharacters)
@@ -180,13 +180,13 @@ void AUTLineUpHelper::MovePlayers(UWorld* World, LineUpTypes ZoneType)
 	bIsPlacingPlayers = false;
 }
 
-void AUTLineUpHelper::MovePreviewCharactersToLineUpSpawns(UWorld* World, LineUpTypes LineUpType)
+void AUTLineUpHelper::MovePreviewCharactersToLineUpSpawns(LineUpTypes LineUpType)
 {
- 	AUTLineUpZone* SpawnList = GetAppropriateSpawnList(World, LineUpType);
-	if (SpawnList && World)
+ 	AUTLineUpZone* SpawnList = GetAppropriateSpawnList(GetWorld(), LineUpType);
+	if (SpawnList)
 	{
-		AUTTeamGameMode* TeamGM = Cast<AUTTeamGameMode>(World->GetAuthGameMode());
-		AUTCTFRoundGame* CTFGM = Cast<AUTCTFRoundGame>(World->GetAuthGameMode());
+		AUTTeamGameMode* TeamGM = Cast<AUTTeamGameMode>(GetWorld()->GetAuthGameMode());
+		AUTCTFRoundGame* CTFGM = Cast<AUTCTFRoundGame>(GetWorld()->GetAuthGameMode());
 
 		const TArray<FTransform>& RedSpawns = SpawnList->RedAndWinningTeamSpawnLocations;
 		const TArray<FTransform>& BlueSpawns = SpawnList->BlueAndLosingTeamSpawnLocations;
@@ -362,8 +362,13 @@ AActor* AUTLineUpHelper::GetCameraActorForLineUp(UWorld* World, LineUpTypes Zone
 
 static int32 WeaponIndex = 0;
 
-void AUTLineUpHelper::SpawnClone(UWorld* World, AUTPlayerState* PS, const FTransform& Location)
+void AUTLineUpHelper::SpawnClone(AUTPlayerState* PS, const FTransform& Location)
 {
+	if (!GetWorld())
+	{
+		return;
+	}
+
 	AUTWeaponAttachment* PreviewWeapon = nullptr;
 	UAnimationAsset* PlayerPreviewAnim = nullptr;
 
@@ -371,7 +376,7 @@ void AUTLineUpHelper::SpawnClone(UWorld* World, AUTPlayerState* PS, const FTrans
 	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 	TSubclassOf<class APawn> DefaultPawnClass = Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *GetDefault<AUTGameMode>()->PlayerPawnObject.ToStringReference().ToString(), NULL, LOAD_NoWarn));
 
-	AUTCharacter* PlayerPreviewMesh = World->SpawnActor<AUTCharacter>(DefaultPawnClass, Location.GetTranslation(), Location.Rotator(), SpawnParams);
+	AUTCharacter* PlayerPreviewMesh = GetWorld()->SpawnActor<AUTCharacter>(DefaultPawnClass, Location.GetTranslation(), Location.Rotator(), SpawnParams);
 
 	if (PlayerPreviewMesh)
 	{
@@ -413,7 +418,7 @@ void AUTLineUpHelper::SpawnClone(UWorld* World, AUTPlayerState* PS, const FTrans
 				WeaponSpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 				WeaponSpawnParams.bNoFail = true;
 			
-				PreviewWeapon = World->SpawnActor<AUTWeaponAttachment>(PreviewAttachmentType, FVector(0, 0, 0), FRotator(0, 0, 0), WeaponSpawnParams);
+				PreviewWeapon = GetWorld()->SpawnActor<AUTWeaponAttachment>(PreviewAttachmentType, FVector(0, 0, 0), FRotator(0, 0, 0), WeaponSpawnParams);
 			}
 		}
 		if (PreviewWeapon)
@@ -476,10 +481,10 @@ void AUTLineUpHelper::SpawnClone(UWorld* World, AUTPlayerState* PS, const FTrans
 	}
 }
 
-void AUTLineUpHelper::HandleEndMatchSummary(UWorld* World, LineUpTypes SummaryType)
+void AUTLineUpHelper::HandleEndMatchSummary(LineUpTypes SummaryType)
 {
 	bIsActive = true;
-	MovePlayers(World, SummaryType);
+	MovePlayers(SummaryType);
 }
 
 void AUTLineUpHelper::SortPlayers()
