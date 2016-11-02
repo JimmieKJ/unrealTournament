@@ -178,7 +178,7 @@ void AUTWeap_Sniper::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 		}
 		Hit.Actor->TakeDamage(Damage, FUTPointDamageEvent(Damage, Hit, FireDir, DamageType, FireDir * InstantHitInfo[CurrentFireMode].Momentum), UTOwner->Controller, this);
 
-		if (bIsHeadShot && C && (C->Health > 0))
+		if ((Role == ROLE_Authority) && bIsHeadShot && C && (C->Health > 0))
 		{
 			C->NotifyBlockedHeadShot(UTOwner);
 		}
