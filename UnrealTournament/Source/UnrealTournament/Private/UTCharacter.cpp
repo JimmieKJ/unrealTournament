@@ -1871,7 +1871,12 @@ void AUTCharacter::PlayDying()
 						AnimInstance->Montage_SetBlendingOutDelegate(EndDelegate);
 					}
 				}
-				if (bPlayedDeathAnim)
+				AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+				if (GS && GS->IsMatchIntermission() && !IsLocallyViewed())
+				{
+					Destroy();
+				}
+				else if (bPlayedDeathAnim)
 				{
 					GetCapsuleComponent()->SetCollisionResponseToChannel(ECC_Pawn, ECR_Ignore);
 					GetCapsuleComponent()->SetCollisionResponseToChannel(ECC_Vehicle, ECR_Ignore);
