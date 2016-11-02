@@ -450,6 +450,10 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Game")
 		bool bRemovePawnsAtStart;
 
+	/** Count of total kills during warm up. */
+	UPROPERTY(BlueprintReadOnly, Category = "Game")
+		int32 WarmupKills;
+
 	/** assign squad to player - note that humans can have a squad for bots to follow their lead
 	 * this method should always result in a valid squad being assigned
 	 */

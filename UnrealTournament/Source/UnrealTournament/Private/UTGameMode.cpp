@@ -152,6 +152,7 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	EndOfMatchMessageDelay = 1.f;
 	bAllowAllArmorPickups = true;
 	bTrackKillAssists = false;
+	WarmupKills = 0;
 
 	bPlayersStartWithArmor = true;
 	StartingArmorObject = FStringAssetReference(TEXT("/Game/RestrictedAssets/Blueprints/Armor_Starting.Armor_Starting_C"));
@@ -1336,6 +1337,10 @@ void AUTGameMode::Killed(AController* Killer, AController* KilledPlayer, APawn* 
 			}
 			else if (KilledPlayerState)
 			{
+				if (bEnemyKill)
+				{
+					WarmupKills++;
+				}
 				KilledPlayerState->RespawnWaitTime = 2.f;
 				KilledPlayerState->OnRespawnWaitReceived();
 			}

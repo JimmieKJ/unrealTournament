@@ -5,6 +5,7 @@
 #include "UnrealNetwork.h"
 #include "StatNames.h"
 #include "UTRewardMessage.h"
+#include "UTGameMode.h"
 
 AUTProj_ShockBall::AUTProj_ShockBall(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -184,6 +185,11 @@ void AUTProj_ShockBall::Explode_Implementation(const FVector& HitLocation, const
 		float ComboMovementScore = 0.f;
 		if (bPendingSpecialReward)
 		{
+			AUTGameMode* GS = GetWorld()->GetAuthGameMode<AUTGameMode>();
+			if (GS)
+			{
+				ComboKillCount += GS->WarmupKills;
+			}
 			ComboMovementScore = RateComboMovement(PC);
 			if (ComboMovementScore < 4.f)
 			{
@@ -234,6 +240,11 @@ float AUTProj_ShockBall::RateComboMovement(AUTPlayerController *PC)
 void AUTProj_ShockBall::RateShockCombo(AUTPlayerController *PC, AUTPlayerState* PS, int32 OldComboKillCount, float ComboScore)
 {
 	int32 KillCount = (PS->GetStatsValue(NAME_ShockComboKills) - OldComboKillCount);
+	AUTGameMode* GS = GetWorld()->GetAuthGameMode<AUTGameMode>();
+	if (GS)
+	{
+		KillCount += GS->WarmupKills;
+	}
 	ComboScore += 4.f * FMath::Min(KillCount, 3);
 
 	if ((ComboScore >= 8.f) && (KillCount > 0))
