@@ -146,7 +146,7 @@ void SUTStyle::SetFonts(TSharedRef<FSlateStyleSet> StyleRef)
 
 	Style.Set("UT.Font.NormalText.Tween", FTextBlockStyle().SetFont(TTF_FONT("/UTStyle/Fonts/Lato/Lato-Regular", FONT_SIZE_Tween)).SetColorAndOpacity(FLinearColor::White));
 	Style.Set("UT.Font.NormalText.Tween.Bold", FTextBlockStyle().SetFont(TTF_FONT("/UTStyle/Fonts/Lato/Lato-Bold", FONT_SIZE_Tween)).SetColorAndOpacity(FLinearColor::White));
-
+	Style.Set("UT.Font.NormalText.Tween.Bold.SkyBlue", FTextBlockStyle().SetFont(TTF_FONT("/UTStyle/Fonts/Lato/Lato-Bold", FONT_SIZE_Tween)).SetColorAndOpacity(FLinearColor(0.30f, 0.77f,0.94f,1.0f)));
 
 	Style.Set("UT.Font.NormalText.Medium", FTextBlockStyle().SetFont(TTF_FONT("/UTStyle/Fonts/Lato/Lato-Regular", FONT_SIZE_Medium)).SetColorAndOpacity(FLinearColor::White));
 	Style.Set("UT.Font.NormalText.Medium.Bold", FTextBlockStyle().SetFont(TTF_FONT("/UTStyle/Fonts/Lato/Lato-Bold", FONT_SIZE_Medium)).SetColorAndOpacity(FLinearColor::White));
@@ -397,13 +397,15 @@ void SUTStyle::SetCommonStyle(TSharedRef<FSlateStyleSet> StyleRef)
 	Style.Set("UT.Divider", new FSlateColorBrush(FColor(25, 25, 25, 255)));
 	Style.Set("UT.Divider.Black", new FSlateColorBrush(FColor(0, 0, 0, 255)));
 
-	Style.Set("UT.Star", new IMAGE_BRUSH( "Star24x24", FVector2D(24,24) ));
-	Style.Set("UT.Star.Outline", new IMAGE_BRUSH( "StarOutline24x24", FVector2D(24,24) ));
+	Style.Set("UT.Star", new IMAGE_BRUSH( "Star24x24", FVector2D(24.0f,24.0f) ));
+	Style.Set("UT.Star.Outline", new IMAGE_BRUSH( "StarOutline24x24", FVector2D(24.0f,24.0f) ));
 
-	Style.Set("UT.ScaryStar", new IMAGE_BRUSH( "/UTStyle/ChallengeBadges/PumpkinA", FVector2D(24,24) ));
-	Style.Set("UT.ScaryStar.Completed", new IMAGE_BRUSH( "/UTStyle/ChallengeBadges/PumpkinB", FVector2D(24,24) ));
+	Style.Set("UT.ScaryStar", new IMAGE_BRUSH( "/UTStyle/ChallengeBadges/PumpkinA", FVector2D(24.0f,24.0f) ));
+	Style.Set("UT.ScaryStar.Completed", new IMAGE_BRUSH( "/UTStyle/ChallengeBadges/PumpkinB", FVector2D(24.0f,24.0f) ));
 
 	Style.Set("UT.Logo.Small", new IMAGE_BRUSH( "/UTStyle/Logos/UT.Logo.Small", FVector2D(301,98) ));
+	Style.Set("UT.Logo.Loading", new IMAGE_BRUSH( "/UTStyle/Logos/UT.Logo.Loading", FVector2D(810.0f,290.0f) ));
+	Style.Set("UT.Logo.Community", new IMAGE_BRUSH( "/UTStyle/Logos/UT.Logo.Community", FVector2D(188.0f,124.0f) ));
 
 	Style.Set("UT.TabButton", FButtonStyle()
 		.SetNormal( FSlateColorBrush(Dark) )

@@ -109,6 +109,7 @@ FDefaultGameMoviePlayer::~FDefaultGameMoviePlayer()
 void FDefaultGameMoviePlayer::RegisterMovieStreamer(TSharedPtr<IMovieStreamer> InMovieStreamer)
 {
 	MovieStreamer = InMovieStreamer;
+	MovieStreamer->OnCurrentMovieClipFinished().AddRaw(this, &FDefaultGameMoviePlayer::BroadcastMovieClipFinished);
 }
 
 void FDefaultGameMoviePlayer::SetSlateRenderer(TSharedPtr<FSlateRenderer> InSlateRenderer)

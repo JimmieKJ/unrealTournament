@@ -616,8 +616,6 @@ void AUTBasePlayerController::ClientGenericInitialization_Implementation()
 	{
 		ServerReceiveStars(LP->GetTotalChallengeStars());
 	}
-
-	ClientWaitForMovieToFinish();
 }
 
 // FIXMESTEVE shouldn't receive this from client
@@ -1076,7 +1074,7 @@ void AUTBasePlayerController::ClientPlayMovie_Implementation(const FString& Movi
 	UUTGameInstance* UTGameInstance = Cast<UUTGameInstance>(GetGameInstance());
 	if (UTGameInstance)
 	{
-		UTGameInstance->PlayLoadingMovie(MovieName, false, false, EMoviePlaybackType::MT_Normal);
+		UTGameInstance->PlayMovie(MovieName, SNullWidget::NullWidget, false, false, EMoviePlaybackType::MT_Normal, false);
 	}
 #endif
 }
@@ -1089,17 +1087,6 @@ void AUTBasePlayerController::ClientStopMovie_Implementation()
 	if (UTGameInstance)
 	{
 		UTGameInstance->StopMovie();
-	}
-#endif
-}
-
-void AUTBasePlayerController::ClientWaitForMovieToFinish_Implementation()
-{
-#if !UE_SERVER
-	UUTGameInstance* UTGameInstance = Cast<UUTGameInstance>(GetGameInstance());
-	if (UTGameInstance)
-	{
-		UTGameInstance->WaitForMovieToFinish(true);
 	}
 #endif
 }

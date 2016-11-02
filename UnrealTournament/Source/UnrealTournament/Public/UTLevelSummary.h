@@ -47,6 +47,9 @@ class UNREALTOURNAMENT_API UUTLevelSummary : public UObject
 	UPROPERTY(AssetRegistrySearchable)
 	FString ScreenshotReference;
 
+	UPROPERTY(EditInstanceOnly, AssetRegistrySearchable, Category = LevelSummary)
+	TArray<FMapVignetteInfo> Vignettes;
+
 	virtual void PreSave(const class ITargetPlatform* TargetPlatform)
 	{
 		if (Screenshot)

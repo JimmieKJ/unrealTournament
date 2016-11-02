@@ -2032,3 +2032,31 @@ namespace ELoginPhase
 	};
 }
 
+USTRUCT()
+struct FMapVignetteInfo
+{
+	GENERATED_USTRUCT_BODY()
+
+public:
+	// The filename (relative to the Movie folder) of the movie file to play for this vignette
+	UPROPERTY(EditInstanceOnly, AssetRegistrySearchable, Category = LevelSummary)
+	FString MovieFilename;
+
+	UPROPERTY(EditInstanceOnly, AssetRegistrySearchable, Category = LevelSummary)
+	FText Description;
+
+	FMapVignetteInfo()
+		: MovieFilename(TEXT(""))
+		, Description(FText::GetEmpty())
+	{
+	}
+
+	FMapVignetteInfo(const FString& inMovieFilename, const FText& InDescription)
+		: MovieFilename(inMovieFilename)
+		, Description(InDescription)
+	{
+	}
+
+};
+
+static FName NAME_Vignettes(TEXT("Vignettes"));
