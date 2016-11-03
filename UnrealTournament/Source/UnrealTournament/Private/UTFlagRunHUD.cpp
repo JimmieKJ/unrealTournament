@@ -89,10 +89,6 @@ void AUTFlagRunHUD::DrawHUD()
 			DrawWinConditions(MediumFont, 0.f, 0.2f*Canvas->ClipY, Canvas->ClipX, 1.f, true);
 			WinConditionMessageTime -= GetWorld()->DeltaTimeSeconds;
 		}
-		float XAdjust = 0.05f * Canvas->ClipX * GetHUDWidgetScaleOverride();
-		float XOffsetRed = 0.5f * Canvas->ClipX - XAdjust;
-		float XOffsetBlue = 0.49f * Canvas->ClipX + XAdjust;
-		float YOffset = 0.03f * Canvas->ClipY * GetHUDWidgetScaleOverride();
 		FFontRenderInfo TextRenderInfo;
 
 		// draw pips for players alive on each team @TODO move to widget
@@ -102,10 +98,10 @@ void AUTFlagRunHUD::DrawHUD()
 		RedPlayerCount = 0;
 		BluePlayerCount = 0;
 		float BasePipSize = 0.03f * Canvas->ClipX * GetHUDWidgetScaleOverride();
-		XAdjust = 128.0f * GetHUDWidgetScaleOverride();
-		XOffsetRed = 0.47f * Canvas->ClipX - XAdjust - BasePipSize;
-		XOffsetBlue = 0.53f * Canvas->ClipX + XAdjust;
-		YOffset = 0.005f * Canvas->ClipY * GetHUDWidgetScaleOverride();
+		float XAdjust = 0.1f * Canvas->ClipX * GetHUDWidgetScaleOverride();
+		float XOffsetRed = 0.47f * Canvas->ClipX - XAdjust - BasePipSize;
+		float XOffsetBlue = 0.53f * Canvas->ClipX + XAdjust;
+		float YOffset = 0.005f * Canvas->ClipY * GetHUDWidgetScaleOverride();
 		float XOffsetText = 0.f;
 		TArray<AUTPlayerState*> LivePlayers;
 		AUTPlayerState* HUDPS = GetScorerPlayerState();

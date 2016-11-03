@@ -279,6 +279,10 @@ void AUTHUD::DrawActorOverlays(FVector Viewpoint, FRotator ViewRotation)
 			{
 				PlayerState->PostRenderFor(PlayerOwner, Canvas, Viewpoint, ViewDir);
 			}
+			else if (PlayerState)
+			{
+				PlayerState->bPawnWasPostRendered = true;
+			}
 		}
 	}
 }
