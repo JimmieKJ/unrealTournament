@@ -673,11 +673,15 @@ bool UGameEngine::NetworkRemapPath(UWorld* InWorld, FString& Str, bool bReading 
 
 	// If the prefixed path matches the world package name or the name of a streaming level,
 	// return the prefixed name.
-	const FString PrefixedName = UWorld::ConvertToPIEPackageName(Str, Context.PIEInstance);
+	const FString PackageNameOnly = FPackageName::PackageFromPath(*Str);
+
+	const FString PrefixedFullName = UWorld::ConvertToPIEPackageName(Str, Context.PIEInstance);
+	const FString PrefixedPackageName = UWorld::ConvertToPIEPackageName(PackageNameOnly, Context.PIEInstance);
 	const FString WorldPackageName = InWorld->GetOutermost()->GetName();
-	if (WorldPackageName == PrefixedName)
+
+	if (WorldPackageName == PrefixedPackageName)
 	{
-		Str = PrefixedName;
+		Str = PrefixedFullName;
 		return true;
 	}
 
@@ -686,9 +690,9 @@ bool UGameEngine::NetworkRemapPath(UWorld* InWorld, FString& Str, bool bReading 
 		if (StreamingLevel != nullptr)
 		{
 			const FString StreamingLevelName = StreamingLevel->GetWorldAsset().GetLongPackageName();
-			if (StreamingLevelName == PrefixedName)
+			if (StreamingLevelName == PrefixedPackageName)
 			{
-				Str = PrefixedName;
+				Str = PrefixedFullName;
 				return true;
 			}
 		}
