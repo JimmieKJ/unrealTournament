@@ -3284,12 +3284,14 @@ void UUTLocalPlayer::HandleFriendsActionNotification(TSharedRef<FFriendsAndChatM
 		FriendsAndChatMessage->GetMessageType() == EMessageType::FriendInvite ||
 		(FriendsAndChatMessage->GetMessageType() == EMessageType::ChatMessage && !bShowingFriendsMenu))
 	{
+		bShowSocialNotification = true;
 		ShowToast(FText::FromString(FriendsAndChatMessage->GetMessage()));
 	}
 
 	// SUTPartyInviteWidget will show the invite if we're in menu game
 	if (FriendsAndChatMessage->GetMessageType() == EMessageType::GameInvite && !IsMenuGame())
 	{
+		bShowSocialNotification = true;
 		ShowToast(FText::FromString(FriendsAndChatMessage->GetMessage()));
 	}
 #endif
