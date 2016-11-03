@@ -118,7 +118,7 @@
 	</Agent>
 	
 	<Agent Name="Make Windows Builds" Type="Win64">
-		<Node Name="Cook WindowsNoEditor" Requires="Compile UnrealTournamentEditor Win64;Compile Tools Windows">
+		<Node Name="Cook WindowsNoEditor" Requires="Compile UnrealTournamentEditor Win64;Compile Tools Windows" NotifyOnWarnings="false">
 			<Cook Project="$(ProjectFile)" Platform="WindowsNoEditor"/>
 		</Node>
 		<Node Name="Stage WindowsNoEditor" Requires="Compile UT Client Win32;Compile UT Client Win64;Cook WindowsNoEditor">
@@ -167,38 +167,10 @@
 			<SymStore Files="#Compile UT Client Win32" StoreDir="$(WindowsSymbolsDir)" Product="UnrealTournament" If="$(EnableSymStore)"/>
 			<SymStore Files="#Compile UT Client Win64" StoreDir="$(WindowsSymbolsDir)" Product="UnrealTournament" If="$(EnableSymStore)"/>
 		</Node>
-		<!--<Node Name="Chunk WindowsNoEditor Win32" Requires="Stage WindowsNoEditor Win32" Token="$(BuildDir)/WindowsNoEditor/WindowsNoEditor-Win32.token">
-			<Property Name="Win32Launch" Value="Engine/Binaries/Win32/UE4-Win32-Shipping.exe"/>
-			<Property Name="LaunchArgs" Value="UnrealTournament"/>
-			<Tag Files="$(LocalStagingDir)/WindowsNoEditor/..." Except="*.pdb" With="#FilesToChunk"/>
-			<Chunk AppName="$(AppName)" BuildVersion="$(BuildVersion)" Platform="Win32" InputDir="$(LocalStagingDir)/WindowsNoEditor" Files="#FilesToChunk" Launch="$(Win32Launch)" LaunchArgs="$(LaunchArgs)" CloudDir="$(CloudDir)" If="$(WithWindowsClients)"/>
-		</Node>
-		<Node Name="Post WindowsNoEditor Win32" Requires="Chunk WindowsNoEditor Win32">
-			<PostBuild AppName="$(AppName)" BuildVersion="$(BuildVersion)" Platform="Win32" CloudDir="$(CloudDir)" McpConfig="$(McpConfig)" If="$(WithWindowsClients)"/>
-			<LabelBuild AppName="$(AppName)" BuildVersion="$(BuildVersion)" Platform="Win32" Label="$(LabelName)" McpConfig="$(McpConfig)" If="$(WithWindowsClients)"/>
-		</Node>
-		<Node Name="Publish WindowsNoEditor Win32" Requires="Stage WindowsNoEditor Win32">
-			<Copy Files="..." FromDir="$(LocalStagingDir)/WindowsNoEditor" ToDir="$(BuildDir)/WindowsNoEditor"/>
-			<SymStore Files="#Compile UT Client Win32" StoreDir="$(WindowsSymbolsDir)" Product="UnrealTournament" If="$(EnableSymStore)"/>
-		</Node>
-		<Node Name="Chunk WindowsNoEditor Win64" Requires="Stage WindowsNoEditor Win64" Token="$(BuildDir)/WindowsNoEditor/WindowsNoEditor-Win64.token">
-			<Property Name="Win64Launch" Value="Engine/Binaries/Win64/UE4-Win64-Shipping.exe"/>
-			<Property Name="LaunchArgs" Value="UnrealTournament"/>
-			<Tag Files="$(LocalStagingDir)/WindowsNoEditor/..." Except="*.pdb" With="#FilesToChunk"/>
-			<Chunk AppName="$(AppName)" BuildVersion="$(BuildVersion)" Platform="Windows" InputDir="$(LocalStagingDir)/WindowsNoEditor" Files="#FilesToChunk" Launch="$(Win64Launch)" LaunchArgs="$(LaunchArgs)" CloudDir="$(CloudDir)" If="$(WithWindowsClients)"/>
-		</Node>
-		<Node Name="Post WindowsNoEditor Win64" Requires="Chunk WindowsNoEditor Win64">
-			<PostBuild AppName="$(AppName)" BuildVersion="$(BuildVersion)" Platform="Windows" CloudDir="$(CloudDir)" McpConfig="$(McpConfig)" If="$(WithWindowsClients)"/>
-			<LabelBuild AppName="$(AppName)" BuildVersion="$(BuildVersion)" Platform="Windows" Label="$(LabelName)" McpConfig="$(McpConfig)" If="$(WithWindowsClients)"/>
-		</Node>
-		<Node Name="Publish WindowsNoEditor Win64" Requires="Stage WindowsNoEditor Win64">
-			<Copy Files="..." FromDir="$(LocalStagingDir)/WindowsNoEditor" ToDir="$(BuildDir)/WindowsNoEditor"/>
-			<SymStore Files="#Compile UT Client Win64" StoreDir="$(WindowsSymbolsDir)" Product="UnrealTournament" If="$(EnableSymStore)"/>
-		</Node>-->
 	</Agent>
 	
 	<Agent Name="Make Windows Server Build" Type="Win64">
-		<Node Name="Cook WindowsServer" Requires="Compile UnrealTournamentEditor Win64;Compile Tools Windows">
+		<Node Name="Cook WindowsServer" Requires="Compile UnrealTournamentEditor Win64;Compile Tools Windows" NotifyOnWarnings="false">
 			<Cook Project="$(ProjectFile)" Platform="WindowsServer"/>
 		</Node>
 		<Node Name="Stage Windows Server Win64" Requires="Compile UT Server Win64;Cook WindowsServer">
@@ -259,7 +231,7 @@
 			<Tag Files="#TargetsToSign" Filter="*.exe;*.dll" With="#TargetsToSign_Trimmed"/>			
 			<Sign Files="#TargetsToSign_Trimmed" If="$(IsBuildMachine)"/>
 		</Node>
-		<Node Name="EditorDDC Win64" Requires="Copy Editor Win64">
+		<Node Name="EditorDDC Win64" Requires="Copy Editor Win64" NotifyOnWarnings="false">
 			<Copy Files="UE4Editor-DDCUtils.dll" FromDir="$(RootDir)/Engine/Binaries/Win64/NotForLicensees" ToDir="$(LocalStagingDir)/UT-Build/Win64/Engine/Binaries/Win64/NotForLicensees"/>
 			<Copy Files="EpicInternal.txt" FromDir="$(RootDir)/Engine/Build/NotForLicensees" ToDir="$(LocalStagingDir)/UT-Build/Win64/Engine/Build/NotForLicensees"/>
 			<Commandlet Name="DerivedDataCache" Project="$(LocalStagingDir)/UT-Build/Win64/UnrealTournament/UnrealTournament.uproject" EditorExe="$(LocalStagingDir)/UT-Build/Win64/Engine/Binaries/Win64/UE4Editor.exe" Arguments="-TargetPlatform=Windows -fill -DDC=CreateInstalledEnginePak -Map=Example_Map"/>
@@ -336,7 +308,7 @@
 	</Agent>
 
 	<Agent Name="Make Mac Build" Type="Mac">
-		<Node Name="Cook Mac" Requires="Compile UnrealTournamentEditor Mac;Compile Tools Mac">
+		<Node Name="Cook Mac" Requires="Compile UnrealTournamentEditor Mac;Compile Tools Mac" NotifyOnWarnings="false">
 			<Cook Project="$(ProjectFile)" Platform="MacNoEditor"/>
 		</Node>
 		<Node Name="Stage Mac" Requires="Compile UT Mac;Cook Mac">
@@ -422,7 +394,7 @@
 			<Tag Files="#ToSign" Filter="*.app;*.dylib" Except=".../NotForLicensees/...;.../Intermediate/...;.../Linux/...;.../Win32/...;.../Win64/...;.../PS4/...;.../IOS/...;.../Android/...;.../HTML5/...;.../Binaries/Win32/...;.../Binaries/Win64/...;.../Binaries/Linux/..." With="#ToSign_Trimmed"/>
 			<Sign Files="#ToSign_Trimmed" If="$(IsBuildMachine)"/>
 		</Node>
-		<Node Name="EditorDDC Mac" Requires="Copy Editor Mac">
+		<Node Name="EditorDDC Mac" Requires="Copy Editor Mac" NotifyOnWarnings="false">
 			<Commandlet Name="DerivedDataCache" Project="$(LocalStagingDir)/UT-Build/Mac/UnrealTournament/UnrealTournament.uproject" EditorExe="$(LocalStagingDir)/UT-Build/Mac/Engine/Binaries/Mac/UE4Editor.app/Contents/MacOS/UE4Editor" Arguments="-TargetPlatform=Mac -fill -DDC=CreateInstalledEnginePak -Map=Example_Map"/>
 		</Node>
 		<Node Name="Chunk Editor Mac" Requires="EditorDDC Mac" Token="$(BuildDir)/MacEditor/MacEditor.token">
@@ -475,7 +447,7 @@
 	</Agent>
 	
 	<Agent Name="Make Linux Client Build" Type="Win64">
-		<Node Name="Cook LinuxNoEditor" Requires="Compile UnrealTournamentEditor Win64;Compile Tools Windows;Compile Tools Linux">
+		<Node Name="Cook LinuxNoEditor" Requires="Compile UnrealTournamentEditor Win64;Compile Tools Windows;Compile Tools Linux" NotifyOnWarnings="false">
 			<Cook Project="$(ProjectFile)" Platform="LinuxNoEditor"/>
 		</Node>
 		<Node Name="Stage LinuxNoEditor" Requires="Compile UT Linux;Cook LinuxNoEditor">
@@ -487,7 +459,7 @@
 	</Agent>
 
 	<Agent Name="Make Linux Server Build" Type="Win64">
-		<Node Name="Cook LinuxServer" Requires="Compile UnrealTournamentEditor Win64;Compile Tools Windows;Compile Tools Linux" After="Publish LinuxNoEditor">
+		<Node Name="Cook LinuxServer" Requires="Compile UnrealTournamentEditor Win64;Compile Tools Windows;Compile Tools Linux" After="Publish LinuxNoEditor" NotifyOnWarnings="false">
 			<Cook Project="$(ProjectFile)" Platform="LinuxServer"/>
 		</Node>
 		<Node Name="Stage LinuxServer" Requires="Compile UT Linux Server;Cook LinuxServer">
