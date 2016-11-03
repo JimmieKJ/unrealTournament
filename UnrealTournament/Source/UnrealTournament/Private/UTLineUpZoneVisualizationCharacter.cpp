@@ -14,17 +14,6 @@
 AUTLineUpZoneVisualizationCharacter::AUTLineUpZoneVisualizationCharacter(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	//USelection::SelectObjectEvent.AddUObject(this, &AUTInGameIntroZoneVisualizationCharacter::OnObjectSelected);
-}
-
-void AUTLineUpZoneVisualizationCharacter::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector CameraPosition, FVector CameraDir)
-{
-	AUTPlayerState* UTPS = Cast<AUTPlayerState>(PlayerState);
-	if (UTPS)
-	{
-		UTPS->SetPlayerName("TestName12345");
-	}
-	AUTCharacter::PostRenderFor(PC, Canvas, CameraPosition, CameraDir);
 }
 
 void AUTLineUpZoneVisualizationCharacter::OnChangeTeamNum()
@@ -34,6 +23,11 @@ void AUTLineUpZoneVisualizationCharacter::OnChangeTeamNum()
 	DynMaterial->SetScalarParameterValue("TeamSelect", TeamNum);
 
 	GetMesh()->SetMaterial(0, DynMaterial);
+}
+
+uint8 AUTLineUpZoneVisualizationCharacter::GetTeamNum() const
+{
+	return TeamNum;
 }
 
 #if WITH_EDITORONLY_DATA
@@ -50,33 +44,4 @@ void AUTLineUpZoneVisualizationCharacter::PostEditMove(bool bFinished)
 	}
 }
 
-
-
-//void AUTInGameIntroZoneVisualizationCharacter::OnObjectSelected(UObject* Object)
-//{
-//	if (Object == this && GEditor)
-//	{
-//		/*FEditorModeTools& FEdTools = GLevelEditorModeTools();
-//		
-//		TArray<HHitProxy*> AllHitProxiesVisible;
-//
-//		FIntPoint ViewSize = GEditor->GetActiveViewport()->GetSizeXY();
-//		GEditor->GetActiveViewport()->GetHitProxyMap(FIntRect(0, 0, ViewSize.X, ViewSize.Y), AllHitProxiesVisible);
-//
-//		for (HHitProxy* HitProxy : AllHitProxiesVisible)
-//		{
-//			
-//		}*/
-//		//HPropertyWidgetProxy TempProxy(FString(TEXT("FFATeamSpawnLocations")), 0, true);
-//
-//		//FEdTools->HandleClick(nullptr, TempProxy, Click());
-//		
-//		//AUTInGameIntroZone* SpawnOwner = Cast<AUTInGameIntroZone>(GetAttachParentActor());
-//		//if (SpawnOwner)
-//		//{
-//		//	GEditor->SelectNone(true, true, false);
-//		//	GEditor->SelectActor(SpawnOwner, true, false, false, false);
-//		//}
-//	}
-//}
 #endif // WITH_EDITORONLY_DATA

@@ -3,11 +3,9 @@
 #include "UTLineUpZoneVisualizationCharacter.generated.h"
 
 UCLASS(transient)
-class UNREALTOURNAMENT_API AUTLineUpZoneVisualizationCharacter : public AUTCharacter
+class UNREALTOURNAMENT_API AUTLineUpZoneVisualizationCharacter : public ACharacter, public IUTTeamInterface
 {
 	GENERATED_UCLASS_BODY()
-
-	void PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector CameraPosition, FVector CameraDir) override;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	int TeamNum;
@@ -24,11 +22,16 @@ class UNREALTOURNAMENT_API AUTLineUpZoneVisualizationCharacter : public AUTChara
 	UPROPERTY(EditAnywhere)
 	UMaterialInterface* Material;
 	
-#if WITH_EDITORONLY_DATA
-	//HPropertyWidgetProxy* OwningFTransformProxy;
 
+	UFUNCTION(BlueprintCallable, Category = Team)
+	virtual uint8 GetTeamNum() const;
+	// not applicable
+	virtual void SetTeamForSideSwap_Implementation(uint8 NewTeamNum) override
+	{}
+
+#if WITH_EDITORONLY_DATA
+	
 	virtual void PostEditMove(bool bFinished) override;
-	//void OnObjectSelected(UObject* Object);
 
 #endif // WITH_EDITORONLY_DATA
 };

@@ -50,7 +50,7 @@ class AUTLineUpZone : public AActor
 	ACameraActor* Camera;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Team Spawn Point List")
-	TSubclassOf<AUTCharacter> EditorVisualizationCharacter;
+	TSubclassOf<AUTLineUpZoneVisualizationCharacter> EditorVisualizationCharacter;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	USceneComponent* SceneRoot;

@@ -9,7 +9,7 @@ AUTLineUpZone::AUTLineUpZone(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
 	bSnapToFloor = true;
-	SnapFloorOffset = 84.f;
+	SnapFloorOffset = 95.f;
 
 	SceneRoot = ObjectInitializer.CreateDefaultSubobject<USceneComponent>(this, TEXT("SceneComponent"));
 	RootComponent = SceneRoot;
@@ -239,11 +239,6 @@ void AUTLineUpZone::InitializeMeshVisualizations()
 			SpawnedActor->AttachToComponent(SceneRoot, FAttachmentTransformRules::KeepRelativeTransform);
 			SpawnedActor->TeamNum = 0;
 			SpawnedActor->OnChangeTeamNum();
-
-			if (SpawnedActor->CharacterCameraComponent)
-			{
-				SpawnedActor->CharacterCameraComponent->SetVisibility(false, true);
-			}
 		}
 	}
 
@@ -259,11 +254,6 @@ void AUTLineUpZone::InitializeMeshVisualizations()
 			SpawnedActor->AttachToComponent(SceneRoot, FAttachmentTransformRules::KeepRelativeTransform);
 			SpawnedActor->TeamNum = 1;
 			SpawnedActor->OnChangeTeamNum();
-
-			if (SpawnedActor->CharacterCameraComponent)
-			{
-				SpawnedActor->CharacterCameraComponent->SetVisibility(false, true);
-			}
 		}
 	}
 
@@ -279,11 +269,6 @@ void AUTLineUpZone::InitializeMeshVisualizations()
 			SpawnedActor->AttachToComponent(SceneRoot, FAttachmentTransformRules::KeepRelativeTransform);
 			SpawnedActor->TeamNum = 255;
 			SpawnedActor->OnChangeTeamNum();
-
-			if (SpawnedActor->CharacterCameraComponent)
-			{
-				SpawnedActor->CharacterCameraComponent->SetVisibility(false, true);
-			}
 		}
 	}
 #endif
