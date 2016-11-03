@@ -1130,7 +1130,7 @@ TSharedRef<SWidget> SUTMenuBase::BuildPlayerInfo()
 						+SHorizontalBox::Slot().AutoWidth().Padding(5.0f,3.0f,5.0f,0.0f)
 						[
 							SNew(STextBlock)
-							.Text(FText::Format(NSLOCTEXT("SUTMenuBase","LevelFormatB","({0})"),FText::AsNumber(PlayerXP)))
+							.Text(FText::Format(NSLOCTEXT("SUTMenuBase","LevelFormatB","({0}xp)"),FText::AsNumber(PlayerXP)))
 							.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Teenie")
 							.ColorAndOpacity(this, &SUTMenuBase::GetLabelColor)
 						]

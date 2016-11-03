@@ -4680,13 +4680,18 @@ void AUTGameMode::BecomeDedicatedInstance(FGuid HubGuid, int32 InstanceID)
 
 void AUTGameMode::HandleMapVote()
 {
+
 	// Force at least 20 seconds of map vote time.
+
 	MapVoteTime = FMath::Max(MapVoteTime, 20) * GetActorTimeDilation();
+
+	UTGameState->MapVoteListCount = UTGameState->MapVoteList.Num();
 	UTGameState->VoteTimer = MapVoteTime;
 	FTimerHandle TempHandle;
 	GetWorldTimerManager().SetTimer(TempHandle, this, &AUTGameMode::TallyMapVotes, MapVoteTime + GetActorTimeDilation());
 	FTimerHandle TempHandle2;
 	GetWorldTimerManager().SetTimer(TempHandle2, this, &AUTGameMode::CullMapVotes, MapVoteTime - 10 * GetActorTimeDilation());
+
 	for( FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator )
 	{
 		AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
@@ -4779,6 +4784,7 @@ void AUTGameMode::CullMapVotes()
 	{
 		UTGameState->MapVoteList.Add(Sorted[i]);
 	}
+	UTGameState->MapVoteListCount = UTGameState->MapVoteList.Num();
 
 	for (int32 i=0; i<DeleteList.Num(); i++)
 	{

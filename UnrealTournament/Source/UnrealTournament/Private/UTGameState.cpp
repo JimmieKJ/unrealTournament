@@ -292,6 +292,8 @@ AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 	UnplayableHitchThresholdInMs = 300;
 	MaxUnplayableHitchesToTolerate = 1;
 	bPlayStatusAnnouncements = false;
+
+	MapVoteListCount = -1;
 }
 
 void AUTGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLifetimeProps) const
@@ -330,6 +332,7 @@ void AUTGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLif
 	DOREPLIFETIME(AUTGameState, NumWinnersToShow);
 
 	DOREPLIFETIME(AUTGameState, MapVoteList);
+	DOREPLIFETIME(AUTGameState, MapVoteListCount);
 	DOREPLIFETIME(AUTGameState, VoteTimer);
 
 	DOREPLIFETIME_CONDITION(AUTGameState, bCasterControl, COND_InitialOnly);
@@ -1676,20 +1679,45 @@ void AUTGameState::CreateMapVoteInfo(const FString& MapPackage,const FString& Ma
 
 void AUTGameState::SortVotes()
 {
-	for (int32 i=0; i<MapVoteList.Num()-1; i++)
-	{
-		AUTReplicatedMapInfo* V1 = Cast<AUTReplicatedMapInfo>(MapVoteList[i]);
-		for (int32 j=i+1; j<MapVoteList.Num(); j++)
-		{
-			AUTReplicatedMapInfo* V2 = Cast<AUTReplicatedMapInfo>(MapVoteList[j]);
-			if( V2 && (!V1 || (V2->VoteCount > V1->VoteCount)) )
+
+	MapVoteList.Sort([&](AUTReplicatedMapInfo &A, const AUTReplicatedMapInfo &B)
 			{
-				MapVoteList[i] = V2;
-				MapVoteList[j] = V1;
-				V1 = V2;
+				bool bHasTitleA = !A.Title.IsEmpty();
+				bool bHasTitleB = !B.Title.IsEmpty();
+
+				if (bHasTitleA && !bHasTitleB)
+				{
+					return true;
+				}
+
+				if (A.bIsMeshedMap)
+				{
+					if (!B.bIsMeshedMap)
+					{
+						return true;
+					}
+					else if (A.bIsEpicMap && !B.bIsEpicMap)
+					{
+						return true;
+					}
+					else if (!A.bIsEpicMap && B.bIsEpicMap)
+					{
+						return false;
+					}
+				}
+				else if (B.bIsMeshedMap)
+				{
+					return false;
+				}
+				else if (A.bIsEpicMap && !B.bIsEpicMap)
+				{
+					return true;
+				}
+
+				return A.Title < B.Title;
+
 			}
-		}
-	}
+	);
 }
 
 bool AUTGameState::GetImportantPickups_Implementation(TArray<AUTPickup*>& PickupList)
@@ -2240,4 +2268,23 @@ bool AUTGameState::ShouldUseInGameSummary(LineUpTypes SummaryType)
 	}
 
 	return false;
+}
+
+bool AUTGameState::IsMapVoteListReplicationCompleted()
+{
+	bool bMapVoteListReplicationComplete = true;
+	if (MapVoteListCount > 0 && MapVoteList.Num() == MapVoteListCount)
+	{
+		for (int32 i=0; i < MapVoteList.Num(); i++)
+		{
+			if (MapVoteList[i] == nullptr)
+			{
+				bMapVoteListReplicationComplete = false;
+				break;
+			}
+		}
+	}
+
+	return bMapVoteListReplicationComplete;
+
 }

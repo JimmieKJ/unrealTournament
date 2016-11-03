@@ -404,7 +404,7 @@ void SUTGameSetupDialog::BuildMapList()
 
 	}
 
-	MapPlayList.StableSort(FCompareMapByName());
+	//MapPlayList.StableSort(FCompareMapByName());
 
 	// Build the first panel
 	BuildMapPanel();

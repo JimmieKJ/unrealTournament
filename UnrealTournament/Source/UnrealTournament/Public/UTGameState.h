@@ -517,6 +517,9 @@ public:
 	UPROPERTY(Replicated)
 	TArray<AUTReplicatedMapInfo*> MapVoteList;
 
+	UPROPERTY(Replicated)
+	int32 MapVoteListCount;
+
 	virtual void CreateMapVoteInfo(const FString& MapPackage,const FString& MapTitle, const FString& MapScreenshotReference);
 	void SortVotes();
 
@@ -688,6 +691,10 @@ public:
 
 	UPROPERTY(Replicated)
 	AUTLineUpHelper* LineUpHelper;
+
+	// Returns true if the replication of the MapVote list is completed
+	bool AUTGameState::IsMapVoteListReplicationCompleted();
+
 };
 
 
