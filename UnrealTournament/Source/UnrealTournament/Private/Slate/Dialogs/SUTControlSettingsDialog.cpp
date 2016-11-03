@@ -322,7 +322,7 @@ TSharedRef<SWidget> SUTControlSettingsDialog::BuildMouseTab()
 {
 	UUTProfileSettings* ProfileSettings = PlayerOwner->GetProfileSettings();
 
-	MouseSensitivityRange = FVector2D(0.0075f, 0.15f);
+	MouseSensitivityRange = FVector2D(0.001f, 0.15f);
 	MouseAccelerationRange = FVector2D(0.00001f, 0.0001f);
 	MouseAccelerationMaxRange = FVector2D(0.5f, 1.5f);
 		
