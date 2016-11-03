@@ -4085,12 +4085,6 @@ void AUTCharacter::UpdateCharOverlays()
 		{
 			OverlayMesh = DuplicateObject<USkeletalMeshComponent>(GetMesh(), this);
 			OverlayMesh->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform); // AttachParent gets copied but we don't want it to be
-			
-			{
-				// TODO: scary that these get copied, need an engine solution and/or safe way to duplicate objects during gameplay
-				OverlayMesh->PrimaryComponentTick = OverlayMesh->GetClass()->GetDefaultObject<USkeletalMeshComponent>()->PrimaryComponentTick;
-				OverlayMesh->PostPhysicsComponentTick = OverlayMesh->GetClass()->GetDefaultObject<USkeletalMeshComponent>()->PostPhysicsComponentTick;
-			}
 			OverlayMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision); // make sure because could be in ragdoll
 			OverlayMesh->SetSimulatePhysics(false);
 			OverlayMesh->SetCastShadow(false);
@@ -4275,6 +4269,10 @@ void AUTCharacter::UpdateOutline()
 		{
 			CustomDepthMesh->UnregisterComponent();
 		}
+	}
+	if (Weapon != NULL)
+	{
+		Weapon->UpdateOutline();
 	}
 	if (WeaponAttachment != NULL)
 	{

@@ -890,6 +890,7 @@ void AUTWeapon::AttachToOwner_Implementation()
 	if (GetNetMode() != NM_DedicatedServer)
 	{
 		UpdateOverlays();
+		UpdateOutline();
 		SetSkin(UTOwner->GetSkin());
 	}
 }
@@ -1036,6 +1037,11 @@ void AUTWeapon::DetachFromOwner_Implementation()
 		{
 			OverlayMesh->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered;
 		}
+	}
+	if (CustomDepthMesh != NULL)
+	{
+		CustomDepthMesh->DestroyComponent();
+		CustomDepthMesh = NULL;
 	}
 	// unregister components so they go away
 	UnregisterAllComponents();
@@ -2329,6 +2335,7 @@ TArray<UMeshComponent*> AUTWeapon::Get1PMeshes_Implementation() const
 	TArray<UMeshComponent*> Result;
 	Result.Add(Mesh);
 	Result.Add(OverlayMesh);
+	Result.Add(CustomDepthMesh);
 	return Result;
 }
 
@@ -2344,11 +2351,6 @@ void AUTWeapon::UpdateOverlaysShared(AActor* WeaponActor, AUTCharacter* InOwner,
 			{
 				InOverlayMesh = DuplicateObject<USkeletalMeshComponent>(InMesh, WeaponActor);
 				InOverlayMesh->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
-				{
-					// TODO: scary that these get copied, need an engine solution and/or safe way to duplicate objects during gameplay
-					InOverlayMesh->PrimaryComponentTick = InOverlayMesh->GetClass()->GetDefaultObject<USkeletalMeshComponent>()->PrimaryComponentTick;
-					InOverlayMesh->PostPhysicsComponentTick = InOverlayMesh->GetClass()->GetDefaultObject<USkeletalMeshComponent>()->PostPhysicsComponentTick;
-				}
 				InOverlayMesh->SetMasterPoseComponent(InMesh);
 			}
 			if (!InOverlayMesh->IsRegistered())
@@ -2444,6 +2446,74 @@ void AUTWeapon::UpdateOverlaysShared(AActor* WeaponActor, AUTCharacter* InOwner,
 void AUTWeapon::UpdateOverlays()
 {
 	UpdateOverlaysShared(this, GetUTOwner(), Mesh, OverlayEffectParams, OverlayMesh);
+}
+
+void AUTWeapon::UpdateOutline()
+{
+	if (UTOwner == nullptr)
+	{
+		if (CustomDepthMesh != nullptr && CustomDepthMesh->IsRegistered())
+		{
+			CustomDepthMesh->UnregisterComponent();
+		}
+	}
+	else
+	{
+		// show outline on weapon if ENEMIES have outline
+		bool bOutlined = false;
+		// this is a little hacky because the flag carrier outline replicates through PlayerState and isn't using UTCharacter's team mask
+		AUTPlayerState* PS = Cast<AUTPlayerState>(UTOwner->PlayerState);
+		if (PS != nullptr && PS->bSpecialPlayer)
+		{
+			bOutlined = true;
+		}
+		else if (!UTOwner->IsOutlined(255))
+		{
+			for (int32 i = 0; i <= 8; i++)
+			{
+				if (UTOwner->IsOutlined(i) && UTOwner->GetTeamNum() != i)
+				{
+					bOutlined = true;
+					break;
+				}
+			}
+		}
+		// 0 is a null value for the stencil so use team + 1
+		// last bit in stencil is a bitflag so empty team uses 127
+		uint8 NewStencilValue = (UTOwner->GetTeamNum() == 255) ? 127 : (UTOwner->GetTeamNum() + 1);
+		NewStencilValue |= 128; // always show when unoccluded
+		if (bOutlined)
+		{
+			if (CustomDepthMesh == NULL)
+			{
+				CustomDepthMesh = Cast<USkeletalMeshComponent>(CreateCustomDepthOutlineMesh(Mesh, this));
+				// we can't use the default material because we need to apply the panini shader
+				for (int32 i = 0; i < Mesh->GetNumMaterials(); i++)
+				{
+					CustomDepthMesh->SetMaterial(i, Mesh->GetMaterial(i));
+				}
+				CustomDepthMesh->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones;
+			}
+			if (CustomDepthMesh->CustomDepthStencilValue != NewStencilValue)
+			{
+				CustomDepthMesh->CustomDepthStencilValue = NewStencilValue;
+				CustomDepthMesh->MarkRenderStateDirty();
+			}
+			if (!CustomDepthMesh->IsRegistered())
+			{
+				CustomDepthMesh->RegisterComponent();
+				CustomDepthMesh->LastRenderTime = GetMesh()->LastRenderTime;
+				CustomDepthMesh->bRecentlyRendered = true;
+			}
+		}
+		else
+		{
+			if (CustomDepthMesh != NULL && CustomDepthMesh->IsRegistered())
+			{
+				CustomDepthMesh->UnregisterComponent();
+			}
+		}
+	}
 }
 
 void AUTWeapon::SetSkin(UMaterialInterface* NewSkin)

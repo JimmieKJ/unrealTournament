@@ -870,6 +870,8 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	/** read WeaponOverlayFlags from owner and apply the appropriate overlay material (if any) */
 	virtual void UpdateOverlays();
 
+	virtual void UpdateOutline();
+
 	/** set main skin override for the weapon, NULL to restore to default */
 	virtual void SetSkin(UMaterialInterface* NewSkin);
 
@@ -1021,6 +1023,9 @@ protected:
 	/** overlay mesh for overlay effects */
 	UPROPERTY()
 	USkeletalMeshComponent* OverlayMesh;
+	/** customdepth mesh for PP outline */
+	UPROPERTY()
+	USkeletalMeshComponent* CustomDepthMesh;
 
 public:
 	float WeaponBarScale;
