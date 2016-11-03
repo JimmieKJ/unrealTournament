@@ -728,15 +728,9 @@ void UUTGameInstance::BeginLevelLoading(const FString& LevelName)
 #endif
 }
 
-void UUTGameInstance::EndLevelLoading()
-{
-	bLevelIsLoading	 = false;
-	LevelLoadText = FText::GetEmpty();
-
 #if !UE_SERVER
-
-	StopMovie();
-
+void UUTGameInstance::OnMoviePlaybackFinished()
+{
 	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(GetFirstGamePlayer());
 	if (LocalPlayer)
 	{
@@ -754,6 +748,27 @@ void UUTGameInstance::EndLevelLoading()
 	if (GM)
 	{
 		GM->OnLoadingMovieEnd();
+	}
+}
+#endif
+
+void UUTGameInstance::EndLevelLoading()
+{
+	bLevelIsLoading	 = false;
+	LevelLoadText = FText::GetEmpty();
+
+#if !UE_SERVER
+
+	if ( GetMoviePlayer().IsValid() && GetMoviePlayer()->IsMovieCurrentlyPlaying() )
+	{
+		GetMoviePlayer()->OnMoviePlaybackFinished().Clear();
+		GetMoviePlayer()->OnMoviePlaybackFinished().AddUObject(this, &UUTGameInstance::OnMoviePlaybackFinished);
+
+		IUnrealTournamentFullScreenMovieModule* const FullScreenMovieModule = FModuleManager::LoadModulePtr<IUnrealTournamentFullScreenMovieModule>("UnrealTournamentFullScreenMovie");
+		if (FullScreenMovieModule != nullptr)
+		{
+			FullScreenMovieModule->WaitForMovieToFinished();
+		}
 	}
 #endif
 }

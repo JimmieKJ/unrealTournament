@@ -184,6 +184,7 @@ public:
 	int32 VignetteIndex;
 
 #if !UE_SERVER
+	void OnMoviePlaybackFinished();
 
 public:
 	// Play a loading movie.  This version will auto-create the "Press FIRE to continue" message and manage if it should be displayed
