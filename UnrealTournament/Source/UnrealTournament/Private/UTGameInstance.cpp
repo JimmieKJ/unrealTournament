@@ -580,6 +580,7 @@ void UUTGameInstance::BeginLevelLoading(const FString& LevelName)
 
 	bLevelIsLoading	 = true;
 
+#if !UE_SERVER
 	bool bIsEpicMap = false;
 	bool bIsMeshedMap = false;
 	bool bHasRights = false;
@@ -623,8 +624,6 @@ void UUTGameInstance::BeginLevelLoading(const FString& LevelName)
 	{
 		LevelLoadText = FText::Format(NSLOCTEXT("UTGameInstance","GenericMapLoading","Loading {0}"), FText::FromString(LoadingMapFriendlyName));
 	}
-
-#if !UE_SERVER
 
 	AUTBaseGameMode* GM = GetWorld()->GetAuthGameMode<AUTBaseGameMode>();
 	if (GM)
