@@ -188,6 +188,8 @@ void AUTLineUpHelper::MovePreviewCharactersToLineUpSpawns(LineUpTypes LineUpType
 		AUTTeamGameMode* TeamGM = Cast<AUTTeamGameMode>(GetWorld()->GetAuthGameMode());
 		AUTCTFRoundGame* CTFGM = Cast<AUTCTFRoundGame>(GetWorld()->GetAuthGameMode());
 
+		AUTCTFGameState* CTFGS = Cast<AUTCTFGameState>(GetWorld()->GetGameState());
+
 		const TArray<FTransform>& RedSpawns = SpawnList->RedAndWinningTeamSpawnLocations;
 		const TArray<FTransform>& BlueSpawns = SpawnList->BlueAndLosingTeamSpawnLocations;
 		const TArray<FTransform>& FFASpawns = SpawnList->FFATeamSpawnLocations;
@@ -202,7 +204,6 @@ void AUTLineUpHelper::MovePreviewCharactersToLineUpSpawns(LineUpTypes LineUpType
 		//Spawn using Winning / Losing teams instead of team color based teams. This means the red list = winning team and blue list = losing team.
 		if (TeamGM && TeamGM->UTGameState && (SpawnList->RedAndWinningTeamSpawnLocations.Num() > 0) && (LineUpType == LineUpTypes::PostMatch || LineUpType == LineUpTypes::Intermission))
 		{
-
 			if (TeamGM->UTGameState->WinningTeam)
 			{		
 				RedAndWinningTeamNumber = TeamGM->UTGameState->WinningTeam->GetTeamNum();
@@ -217,6 +218,17 @@ void AUTLineUpHelper::MovePreviewCharactersToLineUpSpawns(LineUpTypes LineUpType
 			{
 				RedAndWinningTeamNumber = CTFGM->FlagScorer->GetTeamNum();
 				BlueAndLosingTeamNumber = 1 - RedAndWinningTeamNumber;
+			}
+			else if (CTFGS && CTFGS->GetScoringPlays().Num() > 0)
+			{
+				const TArray<const FCTFScoringPlay>& ScoringPlays = CTFGS->GetScoringPlays();
+				const FCTFScoringPlay& WinningPlay = ScoringPlays.Last();
+
+				if (WinningPlay.Team)
+				{
+					RedAndWinningTeamNumber = WinningPlay.Team->GetTeamNum();
+					BlueAndLosingTeamNumber = 1 - RedAndWinningTeamNumber;
+				}
 			}
 		}
 
