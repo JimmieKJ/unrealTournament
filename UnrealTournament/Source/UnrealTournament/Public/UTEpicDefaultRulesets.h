@@ -83,6 +83,11 @@ public:
 			NewRuleset->EpicMaps = "/Game/RestrictedAssets/Maps/DM-Outpost23";
 			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/DM-Underland";
 			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/DM-Chill";
+			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/EpicInternal/Lea/DM-Lea";
+			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/EpicInternal/Unsaved/DM-Unsaved";
+			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/EpicInternal/Backspace/DM-Backspace";
+			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/EpicInternal/Salt/DM-Salt";
+			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/EpicInternal/Batrankus/DM-Batrankus";
 			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/DM-BioTower";
 			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/DM-Spacer";
 			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/DM-Cannon";
@@ -94,11 +99,6 @@ public:
 			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/DM-Decktest";
 			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/DM-ASDF";
 			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/DM-Sand";
-			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/EpicInternal/Lea/DM-Lea";
-			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/EpicInternal/Unsaved/DM-Unsaved";
-			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/EpicInternal/Backspace/DM-Backspace";
-			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/EpicInternal/Salt/DM-Salt";
-			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/EpicInternal/Batrankus/DM-Batrankus";
 
 
 			NewRuleset->DefaultMap = "/Game/RestrictedAssets/Maps/DM-Chill";

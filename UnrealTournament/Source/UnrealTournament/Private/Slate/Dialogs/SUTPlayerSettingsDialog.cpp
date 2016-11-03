@@ -1035,6 +1035,7 @@ FReply SUTPlayerSettingsDialog::OKClick()
 	UUTProfileSettings* ProfileSettings = GetPlayerOwner()->GetProfileSettings();
 
 	GetPlayerOwner()->SetNickname(PlayerName->GetText().ToString());
+	ProfileSettings->PlayerName = PlayerName->GetText().ToString();  
 
 	if (SelectedFlag.IsValid())
 	{
@@ -1075,6 +1076,14 @@ FReply SUTPlayerSettingsDialog::OKClick()
 		}
 
 		UTPlayerController->FOV(NewFOV);
+
+
+		AUTPlayerState* UTPlayerState = Cast<AUTPlayerState>(UTPlayerController->PlayerState);
+		if (UTPlayerState)
+		{
+			UTPlayerState->PlayerName = ProfileSettings->PlayerName;
+		}
+
 	}
 	else
 	{
