@@ -5359,6 +5359,8 @@ void AUTPlayerController::ClientSetActiveLineUp_Implementation(bool bNewIsActive
 			}
 			else
 			{
+				//Restart with pawn first to properly clean up the pawn, restart without pawn to pull correct data from server and reset everything
+				ClientRestart(GetPawn());
 				ClientRestart(nullptr);
 			}
 		}
