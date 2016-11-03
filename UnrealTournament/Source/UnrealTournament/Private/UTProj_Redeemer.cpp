@@ -52,6 +52,17 @@ AUTProj_Redeemer::AUTProj_Redeemer(const class FObjectInitializer& ObjectInitial
 	PrimaryActorTick.bStartWithTickEnabled = true;
 }
 
+void AUTProj_Redeemer::Destroyed()
+{
+	TArray<UAudioComponent*> AudioComponents;
+	GetComponents<UAudioComponent>(AudioComponents);
+	for (int32 i = 0; i < AudioComponents.Num(); i++)
+	{
+		AudioComponents[i]->Stop();
+	}
+	Super::Destroyed();
+}
+
 void AUTProj_Redeemer::RedeemerDenied(AController* InstigatedBy)
 {
 	AUTGameMode* GM = GetWorld()->GetAuthGameMode<AUTGameMode>();

@@ -205,12 +205,25 @@ void AUTRemoteRedeemer::Destroyed()
 	{
 		DriverLeave(true);
 	}
+	TArray<UAudioComponent*> AudioComponents;
+	GetComponents<UAudioComponent>(AudioComponents);
+	for (int32 i = 0; i < AudioComponents.Num(); i++)
+	{
+		AudioComponents[i]->Stop();
+	}
+	Super::Destroyed();
 }
 
 void AUTRemoteRedeemer::BlowUp(FVector HitNormal)
 {
 	if (!bExploded)
 	{
+		TArray<UAudioComponent*> AudioComponents;
+		GetComponents<UAudioComponent>(AudioComponents);
+		for (int32 i = 0; i < AudioComponents.Num(); i++)
+		{
+			AudioComponents[i]->Stop();
+		}
 		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 		if (!GS || GS->HasMatchEnded() || GS->IsMatchIntermission())
 		{
