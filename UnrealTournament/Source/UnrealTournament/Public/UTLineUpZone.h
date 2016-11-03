@@ -83,9 +83,9 @@ class AUTLineUpZone : public AActor
 	void DeleteAllMeshVisualizations();
 
 #if WITH_EDITOR
-	virtual void OnConstruction(const FTransform& Transform) override;
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 	virtual void PostEditMove(bool bFinished) override;
+	virtual void PostRegisterAllComponents() override;
 
 	void DefaultCreateForTeamIntro();
 	void DefaultCreateForTeamIntermission();

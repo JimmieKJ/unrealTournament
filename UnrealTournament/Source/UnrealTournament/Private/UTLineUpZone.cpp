@@ -40,16 +40,15 @@ AUTLineUpZone::AUTLineUpZone(const FObjectInitializer& ObjectInitializer)
 
 #if WITH_EDITOR
 
-void AUTLineUpZone::OnConstruction(const FTransform& Transform)
+void AUTLineUpZone::PostRegisterAllComponents()
 {
-	Super::OnConstruction(Transform);
+	Super::PostRegisterAllComponents();
 
-	if (GEngine && GEngine->IsEditor())
+	if (GetWorld() && GetWorld()->WorldType == EWorldType::Editor)
 	{
 		InitializeMeshVisualizations();
 	}
 }
-
 
 void AUTLineUpZone::PostEditMove(bool bFinished)
 {
@@ -243,7 +242,7 @@ void AUTLineUpZone::InitializeMeshVisualizations()
 
 			if (SpawnedActor->CharacterCameraComponent)
 			{
-				SpawnedActor->CharacterCameraComponent->DestroyComponent(false);
+				SpawnedActor->CharacterCameraComponent->SetVisibility(false, true);
 			}
 		}
 	}
@@ -263,7 +262,7 @@ void AUTLineUpZone::InitializeMeshVisualizations()
 
 			if (SpawnedActor->CharacterCameraComponent)
 			{
-				SpawnedActor->CharacterCameraComponent->DestroyComponent(false);
+				SpawnedActor->CharacterCameraComponent->SetVisibility(false, true);
 			}
 		}
 	}
@@ -283,7 +282,7 @@ void AUTLineUpZone::InitializeMeshVisualizations()
 
 			if (SpawnedActor->CharacterCameraComponent)
 			{
-				SpawnedActor->CharacterCameraComponent->DestroyComponent(false);
+				SpawnedActor->CharacterCameraComponent->SetVisibility(false, true);
 			}
 		}
 	}
