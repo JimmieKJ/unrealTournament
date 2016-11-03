@@ -38,7 +38,6 @@ public:
 
 	AUTWeap_GrenadeLauncher();
 
-	virtual void StartFire(uint8 FireModeNum) override;
 	virtual bool BeginFiringSequence(uint8 FireModeNum, bool bClientFired) override;
 	virtual void GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const override;
 
