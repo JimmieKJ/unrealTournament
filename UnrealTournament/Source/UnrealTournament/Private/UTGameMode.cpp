@@ -1839,23 +1839,24 @@ void AUTGameMode::RemoveAllPawns()
 			Pawn->Destroy();
 		}
 	}
+
+	// also get rid of projectiles left over
+	for (FActorIterator It(GetWorld()); It; ++It)
+	{
+		AActor* TestActor = *It;
+		if (TestActor && !TestActor->IsPendingKill() && TestActor->IsA<AUTProjectile>())
+		{
+			TestActor->Destroy();
+		}
+	}
 }
 
 void AUTGameMode::HandleMatchHasStarted()
 {
+	UE_LOG(UT, Warning, TEXT("HandleMatchHasStarted"));
 	if (bRemovePawnsAtStart && (GetNetMode() != NM_Standalone) && !GetWorld()->IsPlayInEditor())
 	{
 		RemoveAllPawns();
-
-		// also get rid of projectiles left over
-		for (FActorIterator It(GetWorld()); It; ++It)
-		{
-			AActor* TestActor = *It;
-			if (TestActor && !TestActor->IsPendingKill() && TestActor->IsA<AUTProjectile>())
-			{
-				TestActor->Destroy();
-			}
-		}
 	}
 
 	// reset things, relevant for any kind of warmup mode and to make sure placed Actors like pickups are in their initial state no matter how much time has passed in pregame
