@@ -41,6 +41,7 @@
 #include "UTFlagRunGameMessage.h"
 #include "UTAnalytics.h"
 #include "UTRallyPoint.h"
+#include "UTRemoteRedeemer.h"
 
 AUTFlagRunGame::AUTFlagRunGame(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -1071,12 +1072,40 @@ void AUTFlagRunGame::ScoreObject_Implementation(AUTCarriedObject* GameObject, AU
 		FUTAnalytics::FireEvent_FlagRunRoundEnd(this, false, (UTGameState->WinningTeam != nullptr));
 	}
 
+	TArray<APawn*> PawnsToDestroy;
+	for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
+	{
+		if (*It && Cast<AUTRemoteRedeemer>((*It).Get()))
+		{
+			PawnsToDestroy.Add(*It);
+		}
+	}
+
+	for (int32 i = 0; i<PawnsToDestroy.Num(); i++)
+	{
+		APawn* Pawn = PawnsToDestroy[i];
+		if (Pawn != NULL && !Pawn->IsPendingKill())
+		{
+			Pawn->Destroy();
+		}
+	}
+
+	// also get rid of projectiles left over
+	for (FActorIterator It(GetWorld()); It; ++It)
+	{
+		AActor* TestActor = *It;
+		if (TestActor && !TestActor->IsPendingKill() && TestActor->IsA<AUTProjectile>())
+		{
+			TestActor->Destroy();
+		}
+	}
+
 	for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
 	{
 		AUTPlayerController* UTPC = Cast<AUTPlayerController>(*Iterator);
 		if (UTPC)
 		{
-			UTPC->ClientPlayInstantReplay(HolderPawn, 10.0f);
+			UTPC->ClientPlayInstantReplay(HolderPawn, 10.0f, 2.5f);
 		}
 	}
 

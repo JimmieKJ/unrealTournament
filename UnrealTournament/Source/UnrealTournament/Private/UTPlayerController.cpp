@@ -5085,7 +5085,7 @@ void AUTPlayerController::ClientQueueCoolMoment_Implementation(FUniqueNetIdRepl 
 	}
 }
 
-void AUTPlayerController::ClientPlayInstantReplay_Implementation(APawn* PawnToFocus, float TimeToRewind)
+void AUTPlayerController::ClientPlayInstantReplay_Implementation(APawn* PawnToFocus, float TimeToRewind, float StartDelay)
 {
 	UE_LOG(UT, Log, TEXT("ClientPlayInstantReplay %f"), TimeToRewind);
 
@@ -5100,7 +5100,7 @@ void AUTPlayerController::ClientPlayInstantReplay_Implementation(APawn* PawnToFo
 		GetWorld()->GetTimerManager().SetTimer(
 			KillcamStopHandle,
 			FTimerDelegate::CreateUObject(this, &AUTPlayerController::ClientStopKillcam),
-			TimeToRewind + CVarUTKillcamStartDelay.GetValueOnGameThread() + 0.5f,
+			TimeToRewind + StartDelay,
 			false);
 	}
 }

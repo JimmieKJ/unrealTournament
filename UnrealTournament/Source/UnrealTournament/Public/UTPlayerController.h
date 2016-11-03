@@ -1242,7 +1242,7 @@ public:
 	void ClientQueueCoolMoment(FUniqueNetIdRepl NetId, float TimeToRewind);
 
 	UFUNCTION(Client, Reliable)
-	void ClientPlayInstantReplay(APawn* PawnToFocus, float TimeToRewind);
+	void ClientPlayInstantReplay(APawn* PawnToFocus, float TimeToRewind, float StartDelay);
 
 	/** Sent by the server when the possessed pawn is killed */
 	UFUNCTION(Client, Reliable)
