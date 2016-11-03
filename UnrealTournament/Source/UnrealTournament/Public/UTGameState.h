@@ -693,7 +693,7 @@ public:
 	AUTLineUpHelper* LineUpHelper;
 
 	// Returns true if the replication of the MapVote list is completed
-	bool AUTGameState::IsMapVoteListReplicationCompleted();
+	bool IsMapVoteListReplicationCompleted();
 
 };
 
