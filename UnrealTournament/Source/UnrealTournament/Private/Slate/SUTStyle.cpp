@@ -533,7 +533,7 @@ void SUTStyle::SetCommonStyle(TSharedRef<FSlateStyleSet> StyleRef)
 		Style.Set("UT.HomePanel.TutorialLogo", &T_TUT_ULogo_ShadowBrushAsset->Brush);
 	}
 
-	FStringAssetReference Background(TEXT("/Game/RestrictedAssets/SlateLargeImages/UIBackgroundHalloween2015_Brush.UIBackgroundHalloween2015_Brush"));
+	FStringAssetReference Background(TEXT("/Game/RestrictedAssets/SlateLargeImages/Background_Brush.Background_Brush"));
 	USlateBrushAsset* BackgroundBrushAsset = Cast<USlateBrushAsset>(Background.TryLoad());
 	if (BackgroundBrushAsset)
 	{
