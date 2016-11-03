@@ -53,6 +53,7 @@
 #include "UTArmor.h"
 #include "UTLineUpZone.h"
 #include "UTLineUpHelper.h"
+#include "UTRewardMessage.h"
 
 DEFINE_LOG_CATEGORY(LogUTGame);
 
@@ -1340,6 +1341,16 @@ void AUTGameMode::Killed(AController* Killer, AController* KilledPlayer, APawn* 
 				if (bEnemyKill)
 				{
 					WarmupKills++;
+				}
+				TSubclassOf<UUTDamageType> UTDamage(*DamageType);
+
+				if (KillerPlayerState && UTDamage && UTDamage.GetDefaultObject()->RewardAnnouncementClass)
+				{
+					AUTPlayerController* KillerPC = Cast<AUTPlayerController>(KillerPlayerState->GetOwner());
+					if (KillerPC != nullptr)
+					{
+						KillerPC->SendPersonalMessage(UTDamage.GetDefaultObject()->RewardAnnouncementClass, 0, KillerPlayerState, KilledPlayerState);
+					}
 				}
 				KilledPlayerState->RespawnWaitTime = 2.f;
 				KilledPlayerState->OnRespawnWaitReceived();
