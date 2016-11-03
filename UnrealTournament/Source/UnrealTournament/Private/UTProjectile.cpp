@@ -181,10 +181,19 @@ void AUTProjectile::OnRep_Instigator()
 		{
 			((AUTCharacter*)(Instigator))->LastFiredProjectile = this;
 		}
-		if (OffsetVisualComponent && Cast<AUTPlayerController>(InstigatorController) && ((AUTPlayerController*)(InstigatorController))->GetWeaponHand() == EWeaponHand::HAND_Left)
+		AUTPlayerController* PC = Cast<AUTPlayerController>(InstigatorController);
+		if (OffsetVisualComponent && PC)
 		{
-			InitialVisualOffset.Y *= -1.f;
-			OffsetVisualComponent->RelativeLocation.Y *= -1.f;
+			if (PC->GetWeaponHand() == EWeaponHand::HAND_Left)
+			{
+				InitialVisualOffset.Y *= -1.f;
+				OffsetVisualComponent->RelativeLocation.Y *= -1.f;
+			}
+			else if (PC->GetWeaponHand() == EWeaponHand::HAND_Hidden)
+			{
+				InitialVisualOffset.Y = FinalVisualOffset.Y;
+				OffsetVisualComponent->RelativeLocation.Y = FinalVisualOffset.Y;
+			}
 		}
 	}
 
@@ -481,7 +490,7 @@ void AUTProjectile::TickActor(float DeltaTime, ELevelTick TickType, FActorTickFu
 	{
 		if (OffsetVisualComponent)
 		{
-			float Pct = (GetWorld()->GetTimeSeconds() - CreationTime) / OffsetTime;
+			float Pct = FMath::Max((GetWorld()->GetTimeSeconds() - CreationTime) / OffsetTime, 0.f);
 			if (Pct >= 1.f)
 			{
 				OffsetVisualComponent->RelativeLocation = FinalVisualOffset;
