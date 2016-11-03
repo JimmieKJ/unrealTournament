@@ -137,7 +137,9 @@ void AUTCTFFlag::SendHome()
 
 bool AUTCTFFlag::IsNearTeammate(AUTCharacter* TeamChar)
 {
-	return TeamChar && TeamChar->GetController() && ((GetActorLocation() - TeamChar->GetActorLocation()).SizeSquared() < NearTeammateDist*NearTeammateDist) && (((GetActorLocation() - TeamChar->GetActorLocation()).SizeSquared() < 160000.f) || TeamChar->GetController()->LineOfSightTo(this));
+	// slightly smaller radius on client 
+	float Approx = (Role == ROLE_Authority) ? 1.f : 0.92f;
+	return TeamChar && TeamChar->GetController() && ((GetActorLocation() - TeamChar->GetActorLocation()).SizeSquared() < Approx*NearTeammateDist*NearTeammateDist) && (((GetActorLocation() - TeamChar->GetActorLocation()).SizeSquared() < Approx*160000.f) || TeamChar->GetController()->LineOfSightTo(this));
 }
 
 void AUTCTFFlag::SendHomeWithNotify()
