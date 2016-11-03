@@ -223,6 +223,7 @@
 			<!-- We need the onlinesubsystemmcp and social dlls out of notforlicensees-->
 			<Tag Files="$(RootDir)/UnrealTournament/Plugins/Online/NotForLicensees/OnlineSubsystemMcp/..." Filter="*.dll;*.uplugin" With="#FinalTrim"/>
 			<Tag Files="$(RootDir)/UnrealTournament/Plugins/NotForLicensees/Social/..." Filter="*.dll;*.uplugin" With="#FinalTrim"/>
+      <Tag Files="$(RootDir)/UnrealTournament/Plugins/NotForLicensees/OnlineGameplayFramework/..." Filter="*.dll;*.uplugin" With="#FinalTrim"/>
 			
 			<Copy Files="#FinalTrim" FromDir="" ToDir="$(LocalStagingDir)/UT-Build/Win64"/>
 			
@@ -379,6 +380,7 @@
 
 			<Tag Files="$(RootDir)/UnrealTournament/Plugins/Online/NotForLicensees/OnlineSubsystemMcp/..." Filter="*.dylib;*.uplugin" With="#FinalTrim"/>
 			<Tag Files="$(RootDir)/UnrealTournament/Plugins/NotForLicensees/Social/..." Filter="*.dylib;*.uplugin" With="#FinalTrim"/>
+      <Tag Files="$(RootDir)/UnrealTournament/Plugins/NotForLicensees/OnlineGameplayFramework/..." Filter="*.dylib;*.uplugin" With="#FinalTrim"/>
 
 			<Copy Files="#FinalTrim" FromDir="" ToDir="$(LocalStagingDir)/UT-Build/Mac"/>
             <Property Name="StagingDirUTBinaries" Value="$(LocalStagingDir)/UT-Build/Mac/UnrealTournament/Binaries/Mac"/>
