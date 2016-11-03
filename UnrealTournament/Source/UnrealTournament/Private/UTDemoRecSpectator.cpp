@@ -497,5 +497,11 @@ void AUTDemoRecSpectator::MulticastReceiveLocalizedMessage_Implementation(TSubcl
 		return;
 	}
 
+	UDemoNetDriver* DemoDriver = GetWorld()->DemoNetDriver;
+	if (DemoDriver && DemoDriver->IsFastForwarding())
+	{
+		return;
+	}
+
 	ClientReceiveLocalizedMessage(Message, Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
 }
