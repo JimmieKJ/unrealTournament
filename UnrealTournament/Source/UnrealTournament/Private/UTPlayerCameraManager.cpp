@@ -286,20 +286,26 @@ void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTi
 			CameraOffset = EndGameFreeCamOffset;
 		}
 		FRotator Rotator = (!UTPC || UTPC->bSpectatorMouseChangesView) ? PCOwner->GetControlRotation() : UTPC->GetSpectatingRotation(Loc, DeltaTime);
-		if (bUseDeathCam)
+		if (bUseDeathCam && UTPC)
 		{
-			if (UTPC && UTPC->IsInState(NAME_Inactive) && UTPC->DeathCamFocus && !UTPC->DeathCamFocus->IsPendingKillPending() && (UTPC->DeathCamFocus != TargetActor)
-				&& (!UTPC->IsFrozen() || (UTPC->GetFrozenTime() > 0.25f)) && (GetWorld()->GetTimeSeconds() - UTPC->DeathCamTime < 3.f))
+			float ZoomFactor = FMath::Clamp(1.5f*UTPC->GetFrozenTime() - 0.8f, 0.f, 1.f);
+			float DistanceScaling = 1.f - ZoomFactor;
+			CameraOffset.Z = DeathCamOffset.Z * (1.f - ZoomFactor) + 90.f*ZoomFactor;
+			FVector Pos = Loc + FRotationMatrix(Rotator).TransformVector(CameraOffset) - Rotator.Vector() * CameraDistance * DistanceScaling;
+			FHitResult Result;
+			CheckCameraSweep(Result, TargetActor, Loc, Pos);
+			OutVT.POV.Location = !Result.bBlockingHit ? Pos : Result.Location;
+			bool bZoomIn = (UTPC->GetFrozenTime() > 0.5f);
+			if (bZoomIn)
 			{
-				bool bZoomIn = ((GetWorld()->GetTimeSeconds() - UTPC->DeathCamFocus->GetLastRenderTime() < 0.2f) && (UTPC->GetFrozenTime() > 0.5f));
-				float ZoomFactor = FMath::Clamp(1.5f*UTPC->GetFrozenTime() - 0.8f, 0.f, 1.f);
-				float DistanceScaling = bZoomIn ? 1.f - ZoomFactor : 1.f;
-				CameraOffset.Z = CameraOffset.Z * (1.f - ZoomFactor) + 90.f*ZoomFactor;
-				FVector Pos = Loc + FRotationMatrix(Rotator).TransformVector(CameraOffset) - Rotator.Vector() * CameraDistance * DistanceScaling;
-
-				FHitResult Result;
-				CheckCameraSweep(Result, TargetActor, Loc, Pos);
-				OutVT.POV.Location = !Result.bBlockingHit ? Pos : Result.Location;
+				// zoom in
+				float ViewDist = (UTPC->DeathCamFocus->GetActorLocation() - OutVT.POV.Location).SizeSquared();
+				float ZoomedFOV = DefaultFOV * FMath::Clamp(360000.f / FMath::Max(1.f, ViewDist), 0.3f, 1.f);
+				OutVT.POV.FOV = DefaultFOV * (1.f - ZoomFactor) + ZoomedFOV*ZoomFactor;
+			}
+			if (UTPC->IsInState(NAME_Inactive) && UTPC->DeathCamFocus && !UTPC->DeathCamFocus->IsPendingKillPending() && (UTPC->DeathCamFocus != TargetActor)
+				&& (!UTPC->IsFrozen() || (UTPC->GetFrozenTime() > 0.25f)) && (GetWorld()->GetTimeSeconds() - UTPC->DeathCamTime < 3.f) && (GetWorld()->GetTimeSeconds() - UTPC->DeathCamFocus->GetLastRenderTime() < 0.1f))
+			{
 
 				// custom camera control for dead players
 				// still for a short while, then look at killer
@@ -309,18 +315,7 @@ void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTi
 				ViewRotation.Roll = 0.f;
 				FRotator DesiredViewRotation = (UTPC->DeathCamFocus->GetActorLocation() + FVector(0.f,0.f, 83.f) - OutVT.POV.Location).Rotation();
 				DesiredViewRotation.Yaw = FMath::UnwindDegrees(DesiredViewRotation.Yaw);
-				if (bZoomIn)
-				{
-					// zoom in
-					float ViewDist = (UTPC->DeathCamFocus->GetActorLocation() - OutVT.POV.Location).SizeSquared();
-					float ZoomedFOV = DefaultFOV * FMath::Clamp(360000.f/FMath::Max(1.f, ViewDist), 0.3f, 1.f);
-					OutVT.POV.FOV = DefaultFOV * (1.f - ZoomFactor) + ZoomedFOV*ZoomFactor;
-					DesiredViewRotation.Pitch = FMath::UnwindDegrees(DesiredViewRotation.Pitch);
-				}
-				else
-				{
-					DesiredViewRotation.Pitch = FMath::Clamp(FMath::UnwindDegrees(DesiredViewRotation.Pitch), -8.f, -5.f);
-				}
+				DesiredViewRotation.Pitch = bZoomIn ? FMath::UnwindDegrees(DesiredViewRotation.Pitch) : FMath::Clamp(FMath::UnwindDegrees(DesiredViewRotation.Pitch), -8.f, -5.f);
 				float DeltaYaw = FMath::RadiansToDegrees(FMath::FindDeltaAngleRadians(FMath::DegreesToRadians(ViewRotation.Yaw), FMath::DegreesToRadians(DesiredViewRotation.Yaw)));
 				ViewRotation.Yaw += 15.f*DeltaTime*DeltaYaw;
 				float DeltaPitch = FMath::RadiansToDegrees(FMath::FindDeltaAngleRadians(FMath::DegreesToRadians(ViewRotation.Pitch), FMath::DegreesToRadians(DesiredViewRotation.Pitch)));
