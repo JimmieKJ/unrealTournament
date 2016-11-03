@@ -286,7 +286,7 @@ void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTi
 			CameraOffset = EndGameFreeCamOffset;
 		}
 		FRotator Rotator = (!UTPC || UTPC->bSpectatorMouseChangesView) ? PCOwner->GetControlRotation() : UTPC->GetSpectatingRotation(Loc, DeltaTime);
-		if (bUseDeathCam && UTPC)
+		if (bUseDeathCam && UTPC && UTPC->DeathCamFocus)
 		{
 			float ZoomFactor = FMath::Clamp(1.5f*UTPC->GetFrozenTime() - 0.8f, 0.f, 1.f);
 			float DistanceScaling = 1.f - ZoomFactor;
