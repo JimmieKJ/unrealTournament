@@ -134,7 +134,7 @@ protected:
 	TSharedPtr<SCheckBox> SingleTapAfterJump;
 	TSharedPtr<SNumericEntryBox<float> > MaxDodgeClickTime;
 	TSharedPtr<SNumericEntryBox<float> > MaxDodgeTapTime;
-	TSharedPtr<SCheckBox> DisableDoubleTapDodge;
+	TSharedPtr<SCheckBox> EnableDoubleTapDodge;
 	TSharedPtr<SCheckBox> DeferFireInput;
 
 

@@ -685,7 +685,7 @@ TSharedRef<SWidget> SUTControlSettingsDialog::BuildMovementTab()
 			[
 				SNew(STextBlock)
 				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-				.Text(NSLOCTEXT("SUTControlSettingsDialog", "DisableDoubleTapDodge", "Disable Double Tap Dodge"))
+				.Text(NSLOCTEXT("SUTControlSettingsDialog", "EnableDoubleTapDodge", "Enable Double Tap Dodge"))
 			]
 		]
 		+ SHorizontalBox::Slot()
@@ -694,10 +694,10 @@ TSharedRef<SWidget> SUTControlSettingsDialog::BuildMovementTab()
 			SNew(SBox)
 			.WidthOverride(150)
 			[
-				SAssignNew(DisableDoubleTapDodge, SCheckBox)
+				SAssignNew(EnableDoubleTapDodge, SCheckBox)
 				.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
 				.ForegroundColor(FLinearColor::White)
-				.IsChecked(ProfileSettings->bDisableDoubleTapDodge ? ECheckBoxState::Checked : ECheckBoxState::Unchecked)
+				.IsChecked(ProfileSettings->bEnableDoubleTapDodge ? ECheckBoxState::Checked : ECheckBoxState::Unchecked)
 			]
 		]
 	]
@@ -800,7 +800,7 @@ FReply SUTControlSettingsDialog::OKClick()
 		ProfileSettings->bEnableMouseSmoothing = MouseSmoothing->IsChecked();
 
 		ProfileSettings->bAllowSlideFromRun = SlideFromRun->IsChecked();
-		ProfileSettings->bDisableDoubleTapDodge = DisableDoubleTapDodge->IsChecked();
+		ProfileSettings->bEnableDoubleTapDodge = EnableDoubleTapDodge->IsChecked();
 		ProfileSettings->MaxDodgeClickTimeValue = MaxDodgeClickTimeValue;
 		ProfileSettings->MaxDodgeTapTimeValue = MaxDodgeTapTimeValue;
 

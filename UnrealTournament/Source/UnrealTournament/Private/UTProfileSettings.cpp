@@ -94,7 +94,7 @@ void UUTProfileSettings::ResetProfile(EProfileResetType::Type SectionToReset)
 		MouseSensitivity = 0.07f;
 
 		MaxDodgeClickTimeValue = 0.25;
-		bDisableDoubleTapDodge = false;
+		bEnableDoubleTapDodge = true;
 		MaxDodgeTapTimeValue = 0.3;
 		bSingleTapWallDodge = true;
 		bSingleTapAfterJump = true;
@@ -614,6 +614,12 @@ bool UUTProfileSettings::VersionFixup()
 		GameActions.RemoveAt(SelectTransIndex);
 	}
 
+	//New setting, defaulting it to on
+	if (SettingsRevisionNum < ENABLE_DOUBLETAP_DODGE_FIXUP_VERSION)
+	{
+		bEnableDoubleTapDodge = true;
+	}
+
 	return ValidateGameActions();
 }
 
@@ -876,7 +882,7 @@ void UUTProfileSettings::ApplyInputSettings(UUTLocalPlayer* ProfilePlayer)
 		{
 			PlayerController->MyUTHUD->UpdateKeyMappings(true);
 		}
-		PlayerController->MaxDodgeClickTime = bDisableDoubleTapDodge ? 0.0f : MaxDodgeClickTimeValue;
+		PlayerController->MaxDodgeClickTime = bEnableDoubleTapDodge ? MaxDodgeClickTimeValue : 0.0f;
 		PlayerController->MaxDodgeTapTime = MaxDodgeTapTimeValue;
 		PlayerController->bSingleTapWallDodge = bSingleTapWallDodge;
 		PlayerController->bSingleTapAfterJump = bSingleTapAfterJump;

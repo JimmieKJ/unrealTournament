@@ -11,10 +11,12 @@
 #include "UTWeaponSkin.h"
 #include "UTProfileSettings.generated.h"
 
+
+static const uint32 CURRENT_PROFILESETTINGS_VERSION = 36;
 static const uint32 VALID_PROFILESETTINGS_VERSION = 32;
-static const uint32 CURRENT_PROFILESETTINGS_VERSION = 35;
 static const uint32 WEAPONBAR_FIXUP_VERSION = 33;
 static const uint32 COMMENU_FIXUP_VERSION = 34;
+static const uint32 ENABLE_DOUBLETAP_DODGE_FIXUP_VERSION = 35;
 
 class UUTLocalPlayer;
 
@@ -355,7 +357,7 @@ public:
 	float MaxDodgeClickTimeValue;
 
 	UPROPERTY(BlueprintReadWrite, Category = Input)
-	uint32 bDisableDoubleTapDodge : 1;
+	uint32 bEnableDoubleTapDodge : 1;
 
 	UPROPERTY(BlueprintReadOnly, Category = Input)
 	float MaxDodgeTapTimeValue;
