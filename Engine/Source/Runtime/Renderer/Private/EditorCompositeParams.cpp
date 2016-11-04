@@ -50,6 +50,7 @@ void FEditorCompositingParameters::SetParameters(
 					);
 			}
 
+			FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
 			SetShaderValue(RHICmdList, ShaderRHI, EditorCompositeDepthTestParameter, bEnableEditorPrimitveDepthTest);
 			SetShaderValue(RHICmdList, ShaderRHI, MSAASampleCount, SceneContext.EditorPrimitivesColor ? SceneContext.EditorPrimitivesColor->GetDesc().NumSamples : 0);
 		}
