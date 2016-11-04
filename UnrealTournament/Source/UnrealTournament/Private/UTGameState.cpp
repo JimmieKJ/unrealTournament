@@ -575,7 +575,7 @@ FText AUTGameState::GetEpicAccountNameForAccount(TSharedRef<const FUniqueNetId> 
 {
 	FText ReturnName = FText::GetEmpty();
 
-	if (UserId->IsValid())
+	if (UserId->IsValid() && OnlineUserInterface.IsValid())
 	{
 		TSharedPtr<FOnlineUser> UserInfo = OnlineUserInterface->GetUserInfo(0, *UserId);
 		if (UserInfo.IsValid())
