@@ -413,7 +413,8 @@ void AUTRallyPoint::OnRallyChargingChanged()
 		else
 		{
 			SetAmbientSound(nullptr, false);
-			if ((RallyReadyCountdown  < 2.f) || !TouchingFC || TouchingFC->IsDead())
+			UUTGameplayStatics::UTPlaySound(GetWorld(), RallyBrokenSound, this, SRT_All);
+			if ((Role == ROLE_Authority) && ((RallyReadyCountdown  < 2.f) || !TouchingFC || TouchingFC->IsDead()))
 			{
 				AUTFlagRunGameState* UTGS = GetWorld()->GetGameState<AUTFlagRunGameState>();
 				bool bNotifyAllPlayers = !TouchingFC || TouchingFC->IsDead() || (TouchingFC->GetCarriedObject() && TouchingFC->GetCarriedObject()->bCurrentlyPinged);
@@ -422,7 +423,7 @@ void AUTRallyPoint::OnRallyChargingChanged()
 					AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
 					if (PC && PC->UTPlayerState && PC->UTPlayerState->Team && (bNotifyAllPlayers || (UTGS->bRedToCap == (PC->UTPlayerState->Team->TeamIndex == 0))))
 					{
-						PC->UTClientPlaySound(FCTouchedSound);
+						PC->UTClientPlaySound(RallyBrokenSound);
 					}
 				}
 			}
