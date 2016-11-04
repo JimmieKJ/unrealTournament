@@ -351,7 +351,7 @@ void SUTMapVoteDialog::UpdateTopVotes()
 
 	for (int32 i=0; i < GameState->MapVoteList.Num(); i++)
 	{
-		if ( GameState->MapVoteList[i] && GameState->MapVoteList[i]->VoteCount > 0 )	
+		if ( GameState->MapVoteList[i] && (GameState->MapVoteList[i]->VoteCount > 0 || GameState->VoteTimer <= 10) )	
 		{
 			bool bAdd = true;
 			if (LeadingVotes.Num() > 0)
@@ -371,54 +371,59 @@ void SUTMapVoteDialog::UpdateTopVotes()
 		}
 	}
 
+	if (LeadingVotes.Num() == 0) return;
+
 	for (int32 i=0; i < LeadingVoteButtons.Num(); i++)
 	{
 		bool bClear = true;
 		if ( i < LeadingVotes.Num() && LeadingVotes[i] != nullptr )
 		{
 			TWeakObjectPtr<AUTReplicatedMapInfo> MapVoteInfo = LeadingVotes[i];
-
-			bClear = false;
-			if ( LeadingVoteButtons[i].MapVoteInfo.Get() != MapVoteInfo.Get() )
+			if (MapVoteInfo.IsValid())
 			{
-				LeadingVoteButtons[i].MapVoteInfo = MapVoteInfo;
-				FSlateDynamicImageBrush* MapBrush = DefaultLevelScreenshot;
 
-				if (MapVoteInfo->MapScreenshotReference != TEXT(""))
+				bClear = false;
+				if ( LeadingVoteButtons[i].MapVoteInfo.Get() != MapVoteInfo.Get() )
 				{
-					if (MapVoteInfo->MapBrush == nullptr)
+					LeadingVoteButtons[i].MapVoteInfo = MapVoteInfo;
+					FSlateDynamicImageBrush* MapBrush = DefaultLevelScreenshot;
+
+					if (MapVoteInfo->MapScreenshotReference != TEXT(""))
 					{
-						FString Package = MapVoteInfo->MapScreenshotReference;
-						const int32 Pos = Package.Find(TEXT("."), ESearchCase::CaseSensitive, ESearchDir::FromStart);
-						if ( Pos != INDEX_NONE )
+						if (MapVoteInfo->MapBrush == nullptr)
 						{
-							Package = Package.Left(Pos);
+							FString Package = MapVoteInfo->MapScreenshotReference;
+							const int32 Pos = Package.Find(TEXT("."), ESearchCase::CaseSensitive, ESearchDir::FromStart);
+							if ( Pos != INDEX_NONE )
+							{
+								Package = Package.Left(Pos);
+							}
+
+							LoadPackageAsync(Package, FLoadPackageAsyncDelegate::CreateSP(this, &SUTMapVoteDialog::LeaderTextureLoadComplete), 0);
+						}
+						else
+						{
+							LeadingVoteButtons[i].MapImage->SetImage(MapVoteInfo->MapBrush);
+							LeadingVoteButtons[i].MapImage->SetVisibility(EVisibility::Visible);
 						}
 
-						LoadPackageAsync(Package, FLoadPackageAsyncDelegate::CreateSP(this, &SUTMapVoteDialog::LeaderTextureLoadComplete), 0);
 					}
 					else
 					{
-						LeadingVoteButtons[i].MapImage->SetImage(MapVoteInfo->MapBrush);
-						LeadingVoteButtons[i].MapImage->SetVisibility(EVisibility::Visible);
+						LeadingVoteButtons[i].MapImage->SetImage(MapBrush);
 					}
 
+					LeadingVoteButtons[i].MapTitle->SetText(MapVoteInfo->Title);
+					LeadingVoteButtons[i].MapTitle->SetVisibility(EVisibility::Visible);
+
+					LeadingVoteButtons[i].VoteCountText->SetText(FText::AsNumber(MapVoteInfo->VoteCount));
+					LeadingVoteButtons[i].VoteCountText->SetVisibility(EVisibility::Visible);
+					LeadingVoteButtons[i].BorderWidget->SetVisibility(EVisibility::Visible);
 				}
-				else
+				else if (MapVoteInfo->bNeedsUpdate)
 				{
-					LeadingVoteButtons[i].MapImage->SetImage(MapBrush);
+					LeadingVoteButtons[i].VoteCountText->SetText(FText::AsNumber(MapVoteInfo->VoteCount));
 				}
-
-				LeadingVoteButtons[i].MapTitle->SetText(MapVoteInfo->Title);
-				LeadingVoteButtons[i].MapTitle->SetVisibility(EVisibility::Visible);
-
-				LeadingVoteButtons[i].VoteCountText->SetText(FText::AsNumber(MapVoteInfo->VoteCount));
-				LeadingVoteButtons[i].VoteCountText->SetVisibility(EVisibility::Visible);
-				LeadingVoteButtons[i].BorderWidget->SetVisibility(EVisibility::Visible);
-			}
-			else if (MapVoteInfo->bNeedsUpdate)
-			{
-				LeadingVoteButtons[i].VoteCountText->SetText(FText::AsNumber(MapVoteInfo->VoteCount));
 			}
 		}
 

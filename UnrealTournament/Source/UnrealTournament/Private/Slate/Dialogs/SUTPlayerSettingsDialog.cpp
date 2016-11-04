@@ -1076,20 +1076,23 @@ FReply SUTPlayerSettingsDialog::OKClick()
 		}
 
 		UTPlayerController->FOV(NewFOV);
-
-
-		AUTPlayerState* UTPlayerState = Cast<AUTPlayerState>(UTPlayerController->PlayerState);
-		if (UTPlayerState)
-		{
-			UTPlayerState->PlayerName = ProfileSettings->PlayerName;
-		}
-
 	}
 	else
 	{
 		AUTPlayerController::StaticClass()->GetDefaultObject<AUTPlayerController>()->ConfigDefaultFOV = NewFOV;
 		AUTPlayerController::StaticClass()->GetDefaultObject<AUTPlayerController>()->SaveConfig();
 	}
+
+	AUTBasePlayerController* BasePlayerController = Cast<AUTBasePlayerController>(GetPlayerOwner()->PlayerController);
+	if (BasePlayerController)
+	{
+		AUTPlayerState* UTPlayerState = Cast<AUTPlayerState>(BasePlayerController->PlayerState);
+		if (UTPlayerState)
+		{
+			UTPlayerState->PlayerName = ProfileSettings->PlayerName;
+		}
+	}
+
 
 	int32 Index = HatList.Find(HatComboBox->GetSelectedItem());
 	GetPlayerOwner()->SetHatPath(HatPathList.IsValidIndex(Index) ? HatPathList[Index] : FString());
