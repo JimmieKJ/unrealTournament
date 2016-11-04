@@ -248,7 +248,7 @@ void UUTHUDWidget_CTFFlagStatus::DrawFlagWorld(AUTCTFGameState* GameState, FVect
 			
 			if (bDrawEdgeArrow)
 			{
-				DrawEdgeArrow(DrawScreenPosition, CurrentWorldAlpha, WorldRenderScale, TeamNum);
+				DrawEdgeArrow(WorldPosition, DrawScreenPosition, CurrentWorldAlpha, WorldRenderScale, TeamNum);
 			}
 			else
 			{
@@ -338,7 +338,7 @@ void UUTHUDWidget_CTFFlagStatus::DrawFlagBaseWorld(AUTCTFGameState* GameState, F
 	
 			if (bDrawEdgeArrow)
 			{
-				DrawEdgeArrow(DrawScreenPosition, CurrentWorldAlpha, WorldRenderScale, TeamNum);
+				DrawEdgeArrow(WorldPosition, DrawScreenPosition, CurrentWorldAlpha, WorldRenderScale, TeamNum);
 			}
 			else
 			{
@@ -462,7 +462,7 @@ FVector UUTHUDWidget_CTFFlagStatus::GetAdjustedScreenPosition(const FVector& Wor
 	return DrawScreenPosition;
 }
 
-void UUTHUDWidget_CTFFlagStatus::DrawEdgeArrow(FVector InDrawScreenPosition, float CurrentWorldAlpha, float WorldRenderScale, int32 Team)
+void UUTHUDWidget_CTFFlagStatus::DrawEdgeArrow(FVector InWorldPosition, FVector InDrawScreenPosition, float CurrentWorldAlpha, float WorldRenderScale, int32 Team)
 {
 	bool bLeftOfScreen = (InDrawScreenPosition.X < 0.f);
 	float DroppedAlpha = DroppedIconTemplate.RenderOpacity;
@@ -474,6 +474,18 @@ void UUTHUDWidget_CTFFlagStatus::DrawEdgeArrow(FVector InDrawScreenPosition, flo
 	DroppedIconTemplate.Rotation = 0.f;
 	DroppedIconTemplate.RenderOpacity = DroppedAlpha;
 }
+/*
+	FVector OffScreenPosition = GetCanvas()->Project(InWorldPosition);
+
+	ArrowTemplate.Atlas = UTHUDOwner->HUDAtlas;
+	ArrowTemplate.UVs = FTextureUVs(100.f, 836.f, 72.f, 96.f);
+	ArrowTemplate.RenderOffset = FVector2D(0.5f, 0.625f);
+	ArrowTemplate.RotPivot =  FVector2D(0.5f, 0.625f);
+	ArrowTemplate.RenderScale = 1.05f;
+	FVector Dir = (OffScreenPosition - InWorldPosition).GetSafeNormal();
+	FRotator Rot = Dir.Rotation();
+	RenderObj_TextureAtWithRotation(ArrowTemplate, FVector2D(InDrawScreenPosition.X, InDrawScreenPosition.Y), Rot.Yaw);
+}*/
 
 FText UUTHUDWidget_CTFFlagStatus::GetFlagReturnTime(AUTCTFFlag* Flag)
 {

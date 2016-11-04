@@ -56,6 +56,9 @@ class UNREALTOURNAMENT_API UUTHUDWidget_CTFFlagStatus : public UUTHUDWidget
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
 	FHUDRenderObject_Text FlagStatusText;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+		FHUDRenderObject_Texture ArrowTemplate;
+
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Message")
 	float InWorldAlpha;
 
@@ -124,7 +127,7 @@ protected:
 	virtual void DrawFlagBaseWorld(AUTCTFGameState* GameState, FVector PlayerViewPoint, FRotator PlayerViewRotation, uint8 TeamNum, AUTCTFFlagBase* FlagBase, AUTCTFFlag* Flag, AUTPlayerState* FlagHolder);
 	virtual FText GetFlagReturnTime(AUTCTFFlag* Flag);
 	virtual FVector GetAdjustedScreenPosition(const FVector& WorldPosition, const FVector& ViewPoint, const FVector& ViewDir, float Dist, float Edge, bool& bDrawEdgeArrow, int32 Team);
-	virtual void DrawEdgeArrow(FVector ScreenPosition, float CurrentWorldAlpha, float WorldRenderScale, int32 Team);
+	virtual void DrawEdgeArrow(FVector InWorldPosition, FVector ScreenPosition, float CurrentWorldAlpha, float WorldRenderScale, int32 Team);
 	virtual FText GetBaseMessage(AUTCTFFlagBase* Base, AUTCTFFlag* Flag);
 	virtual bool ShouldDrawFlag(AUTCTFFlag* Flag, bool bIsEnemyFlag);
 };

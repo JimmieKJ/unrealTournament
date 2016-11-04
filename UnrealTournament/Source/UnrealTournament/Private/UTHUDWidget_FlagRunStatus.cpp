@@ -105,7 +105,7 @@ void UUTHUDWidget_FlagRunStatus::DrawFlagBaseWorld(AUTCTFGameState* GameState, F
 
 		if (bDrawEdgeArrow)
 		{
-			DrawEdgeArrow(DrawScreenPosition, CurrentWorldAlpha, WorldRenderScale, TeamNum);
+			DrawEdgeArrow(WorldPosition, DrawScreenPosition, CurrentWorldAlpha, WorldRenderScale, TeamNum);
 		}
 		if (Flag && Flag->ObjectState != CarriedObjectState::Home)
 		{
@@ -196,7 +196,7 @@ void UUTHUDWidget_FlagRunStatus::DrawFlagWorld(AUTCTFGameState* GameState, FVect
 
 		if (bDrawEdgeArrow)
 		{
-			DrawEdgeArrow(DrawScreenPosition, CurrentWorldAlpha, WorldRenderScale, TeamNum);
+			DrawEdgeArrow(WorldPosition, DrawScreenPosition, CurrentWorldAlpha, WorldRenderScale, TeamNum);
 		}
 		FText FlagStatusMessage = Flag->GetHUDStatusMessage(UTHUDOwner);
 		if (!FlagStatusMessage.IsEmpty())
