@@ -631,7 +631,11 @@ public:
 
 	FGPUSpriteVertexFactory()
 		: FParticleVertexFactoryBase(PVFT_MAX, ERHIFeatureLevel::Num)
+		, ParticleIndicesBuffer(nullptr)
 		, ParticleIndicesOffset(0)
+		, PositionTextureRHI(nullptr)
+		, VelocityTextureRHI(nullptr)
+		, AttributesTextureRHI(nullptr)
 	{}
 
 	/**
@@ -2446,10 +2450,12 @@ public:
 	/** Initialize RHI resources. */
 	virtual void InitRHI() override
 	{
-		if ( ParticleCount > 0 && RHISupportsGPUParticles() )
+		if ( RHISupportsGPUParticles() )
 		{
+			// Metal *requires* that a buffer be bound - you cannot protect access with a branch in the shader.
+			int32 Count = FMath::Max(ParticleCount, 1);
 			const int32 BufferStride = sizeof(FParticleIndex);
-			const int32 BufferSize = ParticleCount * BufferStride;
+			const int32 BufferSize = Count * BufferStride;
 			uint32 Flags = BUF_Static | /*BUF_KeepCPUAccessible | */BUF_ShaderResource;
 			FRHIResourceCreateInfo CreateInfo;
 			VertexBufferRHI = RHICreateVertexBuffer(BufferSize, Flags, CreateInfo);
@@ -4398,6 +4404,13 @@ void FFXSystem::SortGPUParticles(FRHICommandListImmediate& RHICmdList)
 			GParticleSortBuffers.GetSortedVertexBufferRHI(BufferIndex);
 		ParticleSimulationResources->SortedVertexBuffer.VertexBufferSRV =
 			GParticleSortBuffers.GetSortedVertexBufferSRV(BufferIndex);
+	}
+	else
+	{
+		ParticleSimulationResources->SortedVertexBuffer.VertexBufferRHI =
+		GParticleSortBuffers.GetSortedVertexBufferRHI(0);
+		ParticleSimulationResources->SortedVertexBuffer.VertexBufferSRV =
+		GParticleSortBuffers.GetSortedVertexBufferSRV(0);
 	}
 }
 
