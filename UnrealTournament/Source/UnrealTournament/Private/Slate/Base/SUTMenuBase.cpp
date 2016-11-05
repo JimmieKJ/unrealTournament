@@ -1080,7 +1080,6 @@ TSharedRef<SWidget> SUTMenuBase::BuildPlayerInfo()
 	int32 LevelXPRange = LevelXPEnd - LevelXPStart;
 
 	float LevelAlpha = (LevelXPRange > 0) ? (float)(PlayerXP - LevelXPStart) / (float)LevelXPRange : 0.0f;
-	UE_LOG(UT,Warning,TEXT("%f"), LevelAlpha);
 	TSharedPtr<SVerticalBox> Container;
 	SAssignNew(Container, SVerticalBox)
 	+SVerticalBox::Slot().VAlign(VAlign_Fill).Padding(0.0f,5.0f,0.0f,0.0f)
