@@ -165,7 +165,7 @@ void AUTProj_Redeemer::OnShotDown()
 		ProjectileMovement->MaxSpeed += 2000.0f; // make room for gravity
 		ProjectileMovement->bShouldBounce = true;
 		ProjectileMovement->Bounciness = 0.25f;
-		SetTimerUFunc(this, FName(TEXT("ExplodeTimed")), 1.5f, false);
+		SetTimerUFunc(this, FName(TEXT("ExplodeTimed")), 2.f, false);
 
 		if (GetNetMode() != NM_DedicatedServer)
 		{

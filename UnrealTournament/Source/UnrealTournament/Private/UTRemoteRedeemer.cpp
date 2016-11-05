@@ -165,7 +165,7 @@ bool AUTRemoteRedeemer::DriverLeave(bool bForceLeave)
 
 void AUTRemoteRedeemer::OnStop(const FHitResult& Hit)
 {
-	if (Role == ROLE_Authority)
+	if ((Role == ROLE_Authority) && !bShotDown)
 	{
 		BlowUp(Hit.ImpactNormal);
 	}
@@ -191,7 +191,7 @@ void AUTRemoteRedeemer::OnOverlapBegin(UPrimitiveComponent* OverlappedComponent,
 					Proj->DamageImpactedActor(this, CollisionComp, Proj->GetActorLocation(), (Proj->GetActorLocation() - GetActorLocation()).GetSafeNormal());
 				}
 			}
-			else
+			else if (!bShotDown)
 			{
 				BlowUp();
 			}
@@ -294,11 +294,12 @@ void AUTRemoteRedeemer::OnShotDown()
 		}
 
 		// fall to ground, explode after a delay
+		ProjectileMovement->SetActive(true);
 		ProjectileMovement->ProjectileGravityScale = 1.0f;
 		ProjectileMovement->MaxSpeed += 2000.0f; // make room for gravity
 		ProjectileMovement->bShouldBounce = true;
 		ProjectileMovement->Bounciness = 0.25f;
-		SetTimerUFunc(this, FName(TEXT("ExplodeTimed")), 1.5f, false);
+		SetTimerUFunc(this, FName(TEXT("ExplodeTimed")), 2.f, false);
 
 		if (GetNetMode() != NM_DedicatedServer)
 		{
@@ -454,7 +455,7 @@ bool AUTRemoteRedeemer::ServerBlowUp_Validate()
 void AUTRemoteRedeemer::ServerBlowUp_Implementation()
 {
 	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-	if (GS && GS->IsMatchInProgress() && !GS->IsMatchIntermission())
+	if (GS && GS->IsMatchInProgress() && !GS->IsMatchIntermission() && !bShotDown)
 	{
 		BlowUp();
 	}
@@ -661,7 +662,7 @@ void AUTRemoteRedeemer::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
 	CurrentFuelTime -= DeltaSeconds;
-	if ((Role == ROLE_Authority) && (CurrentFuelTime < 0.f))
+	if ((Role == ROLE_Authority) && (CurrentFuelTime < 0.f) && !bShotDown)
 	{
 		BlowUp();
 		return;
