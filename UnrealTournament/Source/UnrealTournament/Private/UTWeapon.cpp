@@ -1785,6 +1785,7 @@ void AUTWeapon::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 		{
 			PS->ModifyStatsValue(HitsStatsName, 1);
 		}
+		OnHitScanDamage(Hit, FireDir);
 		Hit.Actor->TakeDamage(InstantHitInfo[CurrentFireMode].Damage, FUTPointDamageEvent(InstantHitInfo[CurrentFireMode].Damage, Hit, FireDir, InstantHitInfo[CurrentFireMode].DamageType, FireDir * GetImpartedMomentumMag(Hit.Actor.Get())), UTOwner->Controller, this);
 	}
 	if (OutHit != NULL)

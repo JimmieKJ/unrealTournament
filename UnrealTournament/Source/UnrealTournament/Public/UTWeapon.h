@@ -663,11 +663,18 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	/** fires a shot and consumes ammo */
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
 	virtual void FireShot();
+
 	/** blueprint override for firing
 	 * NOTE: do an authority check before spawning projectiles, etc as this function is called on both sides
 	 */
-	UFUNCTION(BlueprintImplementableEvent)
-	bool FireShotOverride();
+	UFUNCTION(BlueprintImplementableEvent, Category = "Weapon")
+		bool FireShotOverride();
+
+	/** blueprint override for handling instant hit fire result (damage, etc.). 
+	@param Hit contains the hit result for the actor being damaged.
+	@param FireDir is the direction of the trace. */
+	UFUNCTION(BlueprintImplementableEvent, Category = "Weapon")
+		void OnHitScanDamage(const FHitResult& Hit, FVector FireDir);
 
 	/** plays an anim on the weapon and optionally hands
 	 * automatically handles fire rate modifiers by default, overridden if RateOverride is > 0.0
