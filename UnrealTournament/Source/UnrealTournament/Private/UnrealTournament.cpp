@@ -202,11 +202,11 @@ static TMap<FName, FString> HackedEntitlementTable = []()
 	Result.Add(TEXT("BP_Char_Oct2015_C"), TEXT("527E7E209F4142F8835BA696919E2BEC"));
 	Result.Add(TEXT("DM-Lea"), TEXT("0d5e275ca99d4cf0b03c518a6b279e26"));
 	Result.Add(TEXT("CTF-Pistola"), TEXT("48d281f487154bb29dd75bd7bb95ac8e"));
-	Result.Add(TEXT("DM-Batrankus"), TEXT("1c8727b528b34520bd75f08cc99e1426"));
-	Result.Add(TEXT("DM-Backspace"), TEXT("fe0f7b4e85fd4903823b24d16b80d88d"));
-	Result.Add(TEXT("DM-Salt"), TEXT("ea39b97dadf94b7fa6d8f1e597e71309"));
-	Result.Add(TEXT("CTF-Polaris"), TEXT("95a7e74fc02b4c668866762264e4b64a"));
-	Result.Add(TEXT("DM-Unsaved"), TEXT("ad626776f83d4bbfaee98234147a0e69"));
+	Result.Add(TEXT("DM-Batrankus"), TEXT("d8ac8a7ce06d44ab8e6b7284184e556e"));
+	Result.Add(TEXT("DM-Backspace"), TEXT("08af4962353443058766998d6b881707"));
+	Result.Add(TEXT("DM-Salt"), TEXT("27f36270a1ec44509e72687c4ba6845a"));
+	Result.Add(TEXT("CTF-Polaris"), TEXT("a99f379bfb9b41c69ddf0bfbc4a48860"));
+	Result.Add(TEXT("DM-Unsaved"), TEXT("65fb5029cddb4de7b5fa155b6992e6a3"));
 	return Result;
 }();
 

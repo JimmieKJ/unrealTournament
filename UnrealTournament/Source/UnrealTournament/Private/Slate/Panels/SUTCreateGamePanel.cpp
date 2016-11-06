@@ -525,12 +525,14 @@ void SUTCreateGamePanel::OnStoreDialogResult(TSharedPtr<SCompoundWidget> Widget,
 		FString Error = TEXT("");
 		FPlatformProcess::LaunchURL(*URL, *Command, &Error);
 		FPlatformMisc::RequestMinimize();
-
-		PlayerOwner->ShowMessage(
-			NSLOCTEXT("SUTGameSetupDialog", "ReturnFromStore", "Returned from store..."), 
-			NSLOCTEXT("SUT6GameSetupDialog", "StoreWait", "Click OK when ready."), 
-			UTDIALOG_BUTTON_OK, 
-			FDialogResultDelegate::CreateRaw(this, &SUTCreateGamePanel::OnStoreReturnResult), FVector2D(0.25f, 0.25f));								
+		if (PlayerOwner.IsValid())
+		{
+			PlayerOwner->ShowMessage(
+				NSLOCTEXT("SUTGameSetupDialog", "ReturnFromStore", "Returned from store..."), 
+				NSLOCTEXT("SUT6GameSetupDialog", "StoreWait", "Click OK when ready."), 
+				UTDIALOG_BUTTON_OK, 
+				FDialogResultDelegate::CreateRaw(this, &SUTCreateGamePanel::OnStoreReturnResult), FVector2D(0.25f, 0.25f));								
+		}
 	}
 	else if (MapList.IsValid() && AllMaps.Num() > 0)
 	{
