@@ -155,6 +155,7 @@ AUTPlayerController::AUTPlayerController(const class FObjectInitializer& ObjectI
 	LastComMessageSwitch = -1;
 	LastComMessageTime = 0.0f;
 	ReplicatedWeaponHand = EWeaponHand::HAND_Right;
+	MinNetUpdateFrequency = 100.0f;
 }
 
 void AUTPlayerController::BeginPlay()

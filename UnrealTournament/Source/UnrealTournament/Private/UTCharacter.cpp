@@ -189,6 +189,7 @@ AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 	FFAColor = 0;
 
 	MaxSpeedPctModifier = 1.0f;
+	MinNetUpdateFrequency = 100.0f;
 }
 
 float AUTCharacter::GetWeaponBobScaling()

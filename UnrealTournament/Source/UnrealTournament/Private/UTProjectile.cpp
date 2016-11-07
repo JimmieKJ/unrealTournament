@@ -91,6 +91,8 @@ AUTProjectile::AUTProjectile(const class FObjectInitializer& ObjectInitializer)
 
 	PrimaryActorTick.bCanEverTick = true;
 	PrimaryActorTick.bStartWithTickEnabled = true;
+	NetPriority = 2.f;
+	MinNetUpdateFrequency = 100.0f;
 }
 
 void AUTProjectile::PreInitializeComponents()
