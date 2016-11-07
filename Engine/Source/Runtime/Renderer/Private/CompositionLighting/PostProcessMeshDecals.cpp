@@ -475,7 +475,7 @@ private:
 		const FMaterialRenderProxy* MaterialRenderProxy = Mesh.MaterialRenderProxy;
 		const FMaterial* Material = MaterialRenderProxy->GetMaterialNoFallback(FeatureLevel);
 
-		if (Material->IsDeferredDecal())
+		if (Material != nullptr && Material->IsDeferredDecal())
 		{
 			// We have no special engine material for decals since we don't want to eat the compilation & memory cost, so just skip if it failed to compile
 			if (Material->GetRenderingThreadShaderMap())
