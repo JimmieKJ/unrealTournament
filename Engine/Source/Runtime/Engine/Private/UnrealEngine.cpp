@@ -1281,7 +1281,23 @@ void UEngine::UpdateTimeAndHandleMaxTickRate()
 
 			if (IsRunningDedicatedServer()) // We aren't so concerned about wall time with a server, lots of CPU is wasted spinning. I suspect there is more to do with sleeping and time on dedicated servers.
 			{
-				FPlatformProcess::SleepNoStats(WaitTime);
+				if (ServerSchedulerSlack > 0.f)
+				{
+					if (WaitTime > FMath::Max(ServerSchedulerMinSleep, ServerSchedulerSlack + 0.001f))
+					{
+						FPlatformProcess::SleepNoStats(WaitTime - ServerSchedulerSlack);
+					}
+
+					// Give up timeslice for remainder of wait time.
+					while (FPlatformTime::Seconds() < WaitEndTime)
+					{
+						FPlatformProcess::SleepNoStats(0);
+					}
+				}
+				else
+				{
+					FPlatformProcess::SleepNoStats(WaitTime);
+				}
 			}
 			else
 			{

@@ -507,6 +507,8 @@ UEngine::UEngine(const FObjectInitializer& ObjectInitializer)
 
 	bUseFixedFrameRate = false;
 	FixedFrameRate = 30.f;
+	ServerSchedulerSlack = 0.f;
+	ServerSchedulerMinSleep = 0.f;
 }
 
 void UGameEngine::Init(IEngineLoop* InEngineLoop)

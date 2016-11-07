@@ -1356,6 +1356,14 @@ public:
 	UPROPERTY(globalconfig)
 	uint32 bEnableVisualLogRecordingOnStart;
 
+	/** If > 0.f, remove this time (in seconds) from server sleep. */
+	UPROPERTY(globalconfig)
+		float ServerSchedulerSlack;
+
+	/** Min remaining time for server to give up thread. */
+	UPROPERTY(globalconfig)
+		float ServerSchedulerMinSleep;
+	
 private:
 
 	/** Whether the engine should be playing sounds.  If false at initialization time the AudioDevice will not be created */
