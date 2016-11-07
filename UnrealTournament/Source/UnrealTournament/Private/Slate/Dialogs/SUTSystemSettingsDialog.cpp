@@ -865,7 +865,6 @@ TSharedRef<SWidget> SUTSystemSettingsDialog::BuildGraphicsTab()
 			+ AddConsoleVarSliderWidget(MakeShareable(new SSlateConsoleVarDelegate(TEXT("r.Tonemapper.Quality"), FVector2D(0.0f, 1.0f))), NSLOCTEXT("SUTSystemSettingsDialog", "TonemapperQuality", "Tonemapper Quality"))
 			+ AddConsoleVarSliderWidget(MakeShareable(new SSlateConsoleVarDelegate(TEXT("r.LightShaftQuality"), FVector2D(0.0f, 1.0f))), NSLOCTEXT("SUTSystemSettingsDialog", "LightShaftQuality", "Light Shaft Quality"))
 			+ AddConsoleVarCheckboxWidget(MakeShareable(new SSlateConsoleVarDelegate(TEXT("r.SeparateTranslucency"))), NSLOCTEXT("SUTSystemSettingsDialog", "SeparateTranslucency", "Separate Translucency Pass"))
-			+ AddConsoleVarCheckboxWidget(MakeShareable(new SSlateConsoleVarDelegate(TEXT("r.TonemapperFilm"))), NSLOCTEXT("SUTSystemSettingsDialog", "TonemapperFilm", "Tonemapper Film"))
 		];
 	AdvancedWidgets.Add(ShadowAdvanced);
 	AdvancedWidgets.Add(EffectsAdvanced);
