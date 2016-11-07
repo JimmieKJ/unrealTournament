@@ -161,6 +161,7 @@ bool FChangeGraphicsQualityCommand::Update()
 	else
 	{
 		PlayerController->ConsoleCommand(TEXT("r.StaticMeshLODDistanceScale 100"));
+
 	}
 	return true;
 }
@@ -168,7 +169,7 @@ bool FChangeGraphicsQualityCommand::Update()
 bool FTravelToMapCommand::Update()
 {
 	AUTPlayerController* PlayerController = GetPlayerController();
-	PlayerController->ConsoleCommand(FString::Printf(TEXT("open %s"), *MapName));
+	PlayerController->ConsoleCommand(FString::Printf(TEXT("open %s?TimeLimit=0"), *MapName));
 	PlayerController->ConsoleCommand(TEXT("stat RHI"));
 	return true;
 }
@@ -203,8 +204,13 @@ bool FRecordTriangleNumbersCommand::Update()
 		PerfData->LowQualityTriangles = GetNumTrianglesInScene();
 		FileName = FString::Printf(TEXT("%s%d/%s/Low/%s"), *FPaths::ScreenShotDir(), FEngineVersion::Current().GetChangelist(), *PerfData->MapName, *FileName);
 		PerfData->LowQualityScreenshotLoc = FileName;
+		AUTPlayerController* PlayerController = GetPlayerController();
+		if (PlayerController)
+		{
+			PlayerController->ConsoleCommand(TEXT("ProfileGPU"));
+		}
 	}
-	AUTPlayerController* PlayerController = GetPlayerController();
+
 	FScreenshotRequest::RequestScreenshot(FileName, false, true);
 	return true;
 }
