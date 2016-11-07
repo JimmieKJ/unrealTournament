@@ -400,15 +400,7 @@ void SUTServerBrowserPanel::ConstructPanel(FVector2D ViewportSize)
 	InternetServerList->RequestListRefresh();
 	HUBServerList->RequestListRefresh();
 
-	if (PlayerOwner->IsLoggedIn())
-	{
-		SetBrowserState(EBrowserState::BrowserIdle);
-	}
-	else
-	{	
-		SetBrowserState(EBrowserState::NotLoggedIn);
-	}
-
+	SetBrowserState(EBrowserState::BrowserIdle);
 	OnRefreshClick();
 	
 	if (!PlayerOnlineStatusChangedDelegate.IsValid())
@@ -865,10 +857,6 @@ void SUTServerBrowserPanel::OwnerLoginStatusChanged(UUTLocalPlayer* LocalPlayerO
 			OnRefreshClick();
 		}
 	}
-	else
-	{
-		SetBrowserState(EBrowserState::NotLoggedIn);
-	}
 }
 
 
@@ -1101,15 +1089,7 @@ void SUTServerBrowserPanel::SetBrowserState(FName NewBrowserState)
 
 FReply SUTServerBrowserPanel::OnRefreshClick()
 {
-	if (PlayerOwner->IsLoggedIn())
-	{
-		RefreshServers();
-	}
-	else
-	{
-		bAutoRefresh = true;
-		PlayerOwner->LoginOnline(TEXT(""),TEXT(""),false);
-	}
+	RefreshServers();
 	return FReply::Handled();
 }
 
@@ -1139,7 +1119,6 @@ void SUTServerBrowserPanel::OnCancelComplete(bool bSuccessful)
 	if (PlayerOwner->IsLoggedIn() && OnlineSessionInterface.IsValid() && BrowserState == EBrowserState::BrowserIdle)
 	{
 		SetBrowserState(EBrowserState::RefreshInProgress);
-
 		bNeedsRefresh = false;
 		CleanupQoS();
 		SearchSettings = MakeShareable(new FUTOnlineGameSearchBase(false));
@@ -1158,8 +1137,11 @@ void SUTServerBrowserPanel::OnCancelComplete(bool bSuccessful)
 	}
 	else
 	{
-		SetBrowserState(EBrowserState::NotLoggedIn);	
+		SetBrowserState(EBrowserState::RefreshInProgress);
+		SearchForLanServers();
+		CleanupQoS();
 	}
+
 }
 
 void SUTServerBrowserPanel::FoundServer(FOnlineSessionSearchResult& Result)
@@ -1302,7 +1284,21 @@ void SUTServerBrowserPanel::OnFindSessionsComplete(bool bWasSuccessful)
 		UE_LOG(UT,Log,TEXT("Server List Request Failed!!!"));
 	}
 
+	SearchForLanServers();
+}
+void SUTServerBrowserPanel::SearchForLanServers()
+{
 	// Search for LAN Servers
+
+	IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
+	
+	IOnlineSessionPtr OnlineSessionInterface;
+	if (OnlineSubsystem) OnlineSessionInterface = OnlineSubsystem->GetSessionInterface();
+
+	if (OnlineSessionInterface.IsValid())
+	{
+		OnlineSessionInterface->ClearOnFindSessionsCompleteDelegate_Handle(OnFindSessionCompleteDelegate);
+	}
 
 	LanSearchSettings = MakeShareable(new FUTOnlineGameSearchBase(false));
 	LanSearchSettings->MaxSearchResults = 10000;

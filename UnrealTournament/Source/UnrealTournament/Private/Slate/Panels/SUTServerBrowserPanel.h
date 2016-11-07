@@ -870,6 +870,8 @@ protected:
 	void OnCancelComplete(bool bSuccessful);
 	FDelegateHandle OnCancelHandle;
 
+	void SearchForLanServers();
+
 };
 
 #endif

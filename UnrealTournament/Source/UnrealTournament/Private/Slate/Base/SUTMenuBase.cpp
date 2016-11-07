@@ -856,14 +856,6 @@ FReply SUTMenuBase::OnShowServerBrowser()
 
 FReply SUTMenuBase::OnShowServerBrowserPanel()
 {
-
-	if (!PlayerOwner->IsLoggedIn())
-	{
-		PlayerOwner->LoginOnline(TEXT(""), TEXT(""));
-		return FReply::Handled();
-	}
-	
-
 	TSharedPtr<class SUTServerBrowserPanel> Browser = PlayerOwner->GetServerBrowser();
 	if (Browser.IsValid())
 	{
