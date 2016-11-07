@@ -127,13 +127,16 @@ void FSlateLoadingSynchronizationMechanism::SlateThreadRunMainLoop()
 			TSharedPtr<FSlateRenderer> SlateRenderer = FSlateApplication::Get().GetRenderer();
 			FScopeLock ScopeLock(SlateRenderer->GetResourceCriticalSection());
 
-			// We can't pump messages because this is not the main thread
-			// and that does not work at least in Windows
-			// (HWNDs can only be pumped on the thread they're created on)
-			// Thus, this function does nothing on the Slate thread
-			//FSlateApplication::Get().PumpMessages();
-			FSlateApplication::Get().Tick();
-			SetSlateDrawPassEnqueued();
+			if (IsSlateMainLoopRunning())
+			{
+				// We can't pump messages because this is not the main thread
+				// and that does not work at least in Windows
+				// (HWNDs can only be pumped on the thread they're created on)
+				// Thus, this function does nothing on the Slate thread
+				//FSlateApplication::Get().PumpMessages();
+				FSlateApplication::Get().Tick();
+				SetSlateDrawPassEnqueued();
+			}
 		}
 
 		LastTime = CurrentTime;
@@ -142,6 +145,11 @@ void FSlateLoadingSynchronizationMechanism::SlateThreadRunMainLoop()
 	while (IsSlateDrawPassEnqueued())
 	{
 		FPlatformProcess::Sleep(0.1f);
+
+		if (!IsSlateMainLoopRunning())
+		{
+			break;
+		}
 	}
 	
 	MainLoop.Unlock();
