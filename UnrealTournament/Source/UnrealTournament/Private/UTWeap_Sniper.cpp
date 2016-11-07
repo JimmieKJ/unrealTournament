@@ -176,6 +176,7 @@ void AUTWeap_Sniper::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 				DamageType = HeadshotDamageType;
 			}
 		}
+		OnHitScanDamage(Hit, FireDir);
 		Hit.Actor->TakeDamage(Damage, FUTPointDamageEvent(Damage, Hit, FireDir, DamageType, FireDir * InstantHitInfo[CurrentFireMode].Momentum), UTOwner->Controller, this);
 
 		if ((Role == ROLE_Authority) && bIsHeadShot && C && (C->Health > 0))
