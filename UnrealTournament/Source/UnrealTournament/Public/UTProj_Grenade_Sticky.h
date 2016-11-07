@@ -37,4 +37,10 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = Projectile)
 	void ArmGrenade();
+
+protected:
+
+	UPROPERTY()
+	AUTProjectile* SavedFakeProjectile;
+
 };

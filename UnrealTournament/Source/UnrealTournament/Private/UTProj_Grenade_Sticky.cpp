@@ -53,6 +53,11 @@ void AUTProj_Grenade_Sticky::ShutDown()
 			GrenadeLauncherOwner->UnregisterStickyGrenade(this);
 		}
 	}
+
+	if (SavedFakeProjectile)
+	{
+		SavedFakeProjectile->ShutDown();
+	}
 }
 
 void AUTProj_Grenade_Sticky::Destroyed()
@@ -80,6 +85,10 @@ void AUTProj_Grenade_Sticky::Explode_Implementation(const FVector& HitLocation, 
 {
 	if (bArmed || Role != ROLE_Authority || bTearOff)
 	{
+		// If we still have a fake projectile, AUTProjectile::Explode may skip it
+		SavedFakeProjectile = MyFakeProjectile;
+		MyFakeProjectile = nullptr;
 		Super::Explode_Implementation(HitLocation, HitNormal, HitComp);
+		MyFakeProjectile = SavedFakeProjectile;
 	}
 }
