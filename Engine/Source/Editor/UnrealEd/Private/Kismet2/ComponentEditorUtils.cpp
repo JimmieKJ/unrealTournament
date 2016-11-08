@@ -8,6 +8,7 @@
 #include "Engine/SimpleConstructionScript.h"
 #include "ScopedTransaction.h"
 #include "BlueprintEditorUtils.h"
+#include "KismetEditorUtilities.h"
 #include "Factories.h"
 #include "UnrealExporter.h"
 #include "GenericCommands.h"
@@ -86,13 +87,18 @@ protected:
 
 	virtual bool CanCreateClass(UClass* ObjectClass, bool& bOmitSubObjs) const override
 	{
-		// Only allow actor component types to be created
+		// Allow actor component types to be created
 		bool bCanCreate = ObjectClass->IsChildOf(UActorComponent::StaticClass());
 
-		// Also allow actor types to pass, in order to enable proper creation of actor component types as subobjects. The actor instance will be discarded after processing.
 		if (!bCanCreate)
 		{
-			bCanCreate = ObjectClass->IsChildOf(AActor::StaticClass());
+			// Also allow Blueprint-able actor types to pass, in order to enable proper creation of actor component types as subobjects. The actor instance will be discarded after processing.
+			bCanCreate = ObjectClass->IsChildOf(AActor::StaticClass()) && FKismetEditorUtilities::CanCreateBlueprintOfClass(ObjectClass);
+		}
+		else
+		{
+			// Actor component classes should not be abstract and must also be tagged as BlueprintSpawnable
+			bCanCreate = !ObjectClass->HasAnyClassFlags(CLASS_Abstract) && ObjectClass->HasMetaData(FBlueprintMetadata::MD_BlueprintSpawnableComponent);
 		}
 
 		return bCanCreate;
