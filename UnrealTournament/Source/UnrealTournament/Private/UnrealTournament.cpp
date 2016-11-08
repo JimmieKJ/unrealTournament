@@ -11,6 +11,7 @@
 #include "UTBotCharacter.h"
 #include "StatNames.h"
 #include "Runtime/PakFile/Public/IPlatformFilePak.h"
+#include "Runtime/Launch/Resources/Version.h"
 
 #if WITH_PROFILE
 #include "OnlineSubsystemMcp.h"
@@ -31,7 +32,7 @@ DEFINE_LOG_CATEGORY(UTConnection);
 
 static uint32 UTGetNetworkVersion()
 {
-	return 3008046;
+	return BUILT_FROM_CHANGELIST;
 }
 
 const FString ITEM_STAT_PREFIX = TEXT("ITEM_");
