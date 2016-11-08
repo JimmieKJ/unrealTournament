@@ -222,6 +222,9 @@ FSlateDrawBuffer& FSlateRHIRenderer::GetDrawBuffer()
 			// this happens if the render thread becomes completely blocked by expensive tasks when the Slate thread is running
 			// in this case we cannot tick Slate.
 			FPlatformProcess::Sleep(0.001f);
+
+			// Check the next buffer
+			FreeBufferIndex = (FreeBufferIndex + 1) % NumDrawBuffers;
 		}
 		else
 		{
