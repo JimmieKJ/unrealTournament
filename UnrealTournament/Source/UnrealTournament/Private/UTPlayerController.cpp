@@ -306,27 +306,15 @@ void AUTPlayerController::ServerMutate_Implementation(const FString& MutateStrin
 	}
 }
 
-bool AUTPlayerController::IsCurrentlyRallying()
-{
-	// note server side only
-	return GetWorldTimerManager().IsTimerActive(RallyTimerHandle);
-}
-
-void AUTPlayerController::BeginRallyTo(AUTRallyPoint* RallyTarget, const FVector& NewRallyLocation, float Delay)
-{
-	if (!GetWorldTimerManager().IsTimerActive(RallyTimerHandle))
-	{
-		GetWorldTimerManager().SetTimer(RallyTimerHandle, this, &AUTPlayerController::CompleteRally, Delay, false);
-	}
-	ClientStartRally(RallyTarget, NewRallyLocation, Delay);
-}
-
 void AUTPlayerController::ClientStartRally_Implementation(AUTRallyPoint* RallyTarget, const FVector& NewRallyLocation, float Delay)
 {
 	if (RallyTarget)
 	{
 		// client side
-		RallyLocation = NewRallyLocation;
+		if (UTPlayerState != nullptr)
+		{
+			UTPlayerState->RallyLocation = NewRallyLocation;
+		}
 		EndRallyTime = GetWorld()->GetTimeSeconds() + Delay;
 		static FName NAME_RallyCam(TEXT("RallyCam"));
 		SetCameraMode(NAME_RallyCam);
@@ -335,17 +323,6 @@ void AUTPlayerController::ClientStartRally_Implementation(AUTRallyPoint* RallyTa
 		NewRotation.Pitch = 0.f;
 		NewRotation.Roll = 0.f;
 		SetControlRotation(NewRotation);
-	}
-}
-
-void AUTPlayerController::CompleteRally()
-{
-	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-	AUTGameMode* GameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
-	if (GameMode && GameMode->IsMatchInProgress() && GS && !GS->IsMatchIntermission())
-	{
-		GameMode->CompleteRallyRequest(this);
-		ClientCompleteRally();
 	}
 }
 

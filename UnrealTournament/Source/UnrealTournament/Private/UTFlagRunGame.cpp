@@ -646,14 +646,14 @@ int32 AUTFlagRunGame::GetComSwitch(FName CommandTag, AActor* ContextActor, AUTPl
 	return Super::GetComSwitch(CommandTag, ContextActor, InInstigator, World);
 }
 
-void AUTFlagRunGame::HandleRallyRequest(AUTPlayerController* RequestingPC)
+bool AUTFlagRunGame::HandleRallyRequest(AController* C)
 {
-	if ((RequestingPC == nullptr) || RequestingPC->IsCurrentlyRallying())
+	if (C == nullptr)
 	{
-		return;
+		return false;
 	}
-	AUTCharacter* UTCharacter = RequestingPC->GetUTCharacter();
-	AUTPlayerState* UTPlayerState = RequestingPC->UTPlayerState;
+	AUTCharacter* UTCharacter = Cast<AUTCharacter>(C->GetPawn());
+	AUTPlayerState* UTPlayerState = Cast<AUTPlayerState>(C->PlayerState);
 
 	// if can rally, teleport with transloc effect, set last rally time
 	AUTFlagRunGameState* GS = GetWorld()->GetGameState<AUTFlagRunGameState>();
@@ -670,26 +670,33 @@ void AUTFlagRunGame::HandleRallyRequest(AUTPlayerController* RequestingPC)
 		}
 		else if (GS->CurrentRallyPoint != nullptr)
 		{
-			RequestingPC->RallyLocation = GS->CurrentRallyPoint->GetRallyLocation(UTCharacter);
-			RequestingPC->RallyPoint = GS->CurrentRallyPoint;
+			UTPlayerState->RallyLocation = GS->CurrentRallyPoint->GetRallyLocation(UTCharacter);
+			UTPlayerState->RallyPoint = GS->CurrentRallyPoint;
 			UTCharacter->bTriggerRallyEffect = true;
 			UTCharacter->OnTriggerRallyEffect();
-			RequestingPC->BeginRallyTo(RequestingPC->RallyPoint, RequestingPC->RallyLocation, 1.2f);
-			UTCharacter->SpawnRallyDestinationEffectAt(RequestingPC->RallyLocation);  
+			UTPlayerState->BeginRallyTo(UTPlayerState->RallyPoint, UTPlayerState->RallyLocation, 1.2f);
+			UTCharacter->SpawnRallyDestinationEffectAt(UTPlayerState->RallyLocation);
 			if (UTCharacter->UTCharacterMovement)
 			{
 				UTCharacter->UTCharacterMovement->StopMovementImmediately();
 				UTCharacter->UTCharacterMovement->DisableMovement();
 				UTCharacter->DisallowWeaponFiring(true);
 			}
+			return true;
 		}
 	}
+	return false;
 }
 
-void AUTFlagRunGame::CompleteRallyRequest(AUTPlayerController* RequestingPC)
+void AUTFlagRunGame::CompleteRallyRequest(AController* C)
 {
-	AUTCharacter* UTCharacter = RequestingPC->GetUTCharacter();
-	AUTPlayerState* UTPlayerState = RequestingPC->UTPlayerState;
+	if (C == nullptr)
+	{
+		return;
+	}
+	AUTPlayerController* RequestingPC = Cast<AUTPlayerController>(C);
+	AUTCharacter* UTCharacter = Cast<AUTCharacter>(C->GetPawn());
+	AUTPlayerState* UTPlayerState = Cast<AUTPlayerState>(C->PlayerState);
 
 	// if can rally, teleport with transloc effect, set last rally time
 	AUTFlagRunGameState* GS = GetWorld()->GetGameState<AUTFlagRunGameState>();
@@ -706,30 +713,36 @@ void AUTFlagRunGame::CompleteRallyRequest(AUTPlayerController* RequestingPC)
 	UTCharacter->DisallowWeaponFiring(false);
 	if (!UTCharacter->bCanRally)
 	{
-		RequestingPC->ClientPlaySound(RallyFailedSound);
+		if (RequestingPC != nullptr)
+		{
+			RequestingPC->ClientPlaySound(RallyFailedSound);
+		}
 		return;
 	}
 
 	if (Team && ((Team->TeamIndex == 0) == GS->bRedToCap) && GS->FlagBases.IsValidIndex(Team->TeamIndex) && GS->FlagBases[Team->TeamIndex] != nullptr)
 	{
 		FVector WarpLocation = FVector::ZeroVector;
-		FRotator WarpRotation = RequestingPC->RallyPoint ? RequestingPC->RallyPoint->GetActorRotation() : UTCharacter->GetActorRotation();
+		FRotator WarpRotation = UTPlayerState->RallyPoint ? UTPlayerState->RallyPoint->GetActorRotation() : UTCharacter->GetActorRotation();
 		WarpRotation.Pitch = 0.f;
 		WarpRotation.Roll = 0.f;
 		ECollisionChannel SavedObjectType = UTCharacter->GetCapsuleComponent()->GetCollisionObjectType();
 		UTCharacter->GetCapsuleComponent()->SetCollisionObjectType(COLLISION_TELEPORTING_OBJECT);
 
-		if (GetWorld()->FindTeleportSpot(UTCharacter, RequestingPC->RallyLocation, WarpRotation))
+		if (GetWorld()->FindTeleportSpot(UTCharacter, UTPlayerState->RallyLocation, WarpRotation))
 		{
-			WarpLocation = RequestingPC->RallyLocation;
+			WarpLocation = UTPlayerState->RallyLocation;
 		}
-		else if (RequestingPC->RallyPoint)
+		else if (UTPlayerState->RallyPoint)
 		{
-			WarpLocation = RequestingPC->RallyPoint->GetRallyLocation(UTCharacter);
+			WarpLocation = UTPlayerState->RallyPoint->GetRallyLocation(UTCharacter);
 		}
 		else
 		{
-			RequestingPC->ClientPlaySound(RallyFailedSound);
+			if (RequestingPC != nullptr)
+			{
+				RequestingPC->ClientPlaySound(RallyFailedSound);
+			}
 			return;
 		}
 		UTCharacter->GetCapsuleComponent()->SetCollisionObjectType(SavedObjectType);
@@ -740,7 +753,10 @@ void AUTFlagRunGame::CompleteRallyRequest(AUTPlayerController* RequestingPC)
 		FTransform SavedPlayerTransform = UTCharacter->GetTransform();
 		if (UTCharacter->TeleportTo(WarpLocation, WarpRotation))
 		{
-			RequestingPC->UTClientSetRotation(WarpRotation);
+			if (RequestingPC != nullptr)
+			{
+				RequestingPC->UTClientSetRotation(WarpRotation);
+			}
 			UTPlayerState->NextRallyTime = GetWorld()->GetTimeSeconds() + RallyDelay;
 
 			if (TranslocatorClass)
@@ -774,7 +790,7 @@ void AUTFlagRunGame::CompleteRallyRequest(AUTPlayerController* RequestingPC)
 			}
 
 			// announce
-			AActor* RallySpot = RequestingPC->RallyPoint ? RequestingPC->RallyPoint->MyGameVolume : nullptr;
+			AActor* RallySpot = UTPlayerState->RallyPoint ? UTPlayerState->RallyPoint->MyGameVolume : nullptr;
 			if (RallySpot == nullptr)
 			{
 				UTCharacter->UTCharacterMovement->UpdatedComponent->UpdatePhysicsVolume(true);
@@ -793,7 +809,7 @@ void AUTFlagRunGame::CompleteRallyRequest(AUTPlayerController* RequestingPC)
 				AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
 				if (PC)
 				{
-					if (GS->OnSameTeam(RequestingPC, PC))
+					if (GS->OnSameTeam(UTPlayerState, PC))
 					{
 						PC->ClientReceiveLocalizedMessage(UUTCTFMajorMessage::StaticClass(), 27, UTPlayerState);
 						if (GetWorld()->GetTimeSeconds() - RallyRequestTime < 6.f)

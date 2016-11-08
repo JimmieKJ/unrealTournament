@@ -712,6 +712,42 @@ void AUTPlayerState::OnOutOfLives()
 	}
 }
 
+void AUTPlayerState::BeginRallyTo(AUTRallyPoint* RallyTarget, const FVector& NewRallyLocation, float Delay)
+{
+	if (!GetWorldTimerManager().IsTimerActive(RallyTimerHandle))
+	{
+		GetWorldTimerManager().SetTimer(RallyTimerHandle, this, &AUTPlayerState::CompleteRally, Delay, false);
+	}
+	AUTPlayerController* PC = Cast<AUTPlayerController>(GetOwner());
+	if (PC != nullptr)
+	{
+		PC->ClientStartRally(RallyTarget, NewRallyLocation, Delay);
+	}
+}
+
+void AUTPlayerState::CompleteRally()
+{
+	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+	AUTGameMode* GameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
+	if (GameMode && GameMode->IsMatchInProgress() && GS && !GS->IsMatchIntermission())
+	{
+		GameMode->CompleteRallyRequest(Cast<AController>(GetOwner()));
+		AUTPlayerController* PC = Cast<AUTPlayerController>(GetOwner());
+		if (PC != nullptr)
+		{
+			PC->ClientCompleteRally();
+		}
+		else
+		{
+			AUTBot* B = Cast<AUTBot>(GetOwner());
+			if (B != nullptr)
+			{
+				B->WhatToDoNext();
+			}
+		}
+	}
+}
+
 void AUTPlayerState::SetRemainingBoosts(uint8 NewRemainingBoosts)
 {
 	if (Role == ROLE_Authority)

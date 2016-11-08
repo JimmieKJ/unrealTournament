@@ -84,8 +84,8 @@ public:
 
 	virtual void InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage) override;
 	virtual float OverrideRespawnTime(TSubclassOf<AUTInventory> InventoryType) override;
-	virtual void HandleRallyRequest(AUTPlayerController* PC) override;
-	virtual void CompleteRallyRequest(AUTPlayerController* PC) override;
+	virtual bool HandleRallyRequest(AController* C) override;
+	virtual void CompleteRallyRequest(AController* C) override;
 	virtual bool CheckForWinner(AUTTeamInfo* ScoringTeam) override;
 	virtual int32 PickCheatWinTeam() override;
 	virtual bool AvoidPlayerStart(class AUTPlayerStart* P) override;

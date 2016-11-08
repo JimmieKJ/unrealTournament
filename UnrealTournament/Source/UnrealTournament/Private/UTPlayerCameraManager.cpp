@@ -194,9 +194,9 @@ void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTi
 		OutVT.POV.ProjectionMode = bIsOrthographic ? ECameraProjectionMode::Orthographic : ECameraProjectionMode::Perspective;
 		OutVT.POV.PostProcessBlendWeight = 1.0f;
 
-		if (UTPC)
+		if (UTPC && UTPC->UTPlayerState)
 		{
-			OutVT.POV.Location = UTPC->RallyLocation;
+			OutVT.POV.Location = UTPC->UTPlayerState->RallyLocation;
 			OutVT.POV.Rotation = UTPC->GetViewTarget()->GetActorRotation();
 		}
 		else

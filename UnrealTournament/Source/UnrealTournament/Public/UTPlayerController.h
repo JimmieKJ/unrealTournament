@@ -271,12 +271,6 @@ public:
 		virtual void RequestRally();
 
 	UPROPERTY()
-		FVector RallyLocation;
-
-	UPROPERTY()
-		class AUTRallyPoint* RallyPoint;
-
-	UPROPERTY()
 		float EndRallyTime;
 
 	UFUNCTION(server, reliable, withvalidation)
@@ -296,15 +290,6 @@ public:
 
 	UFUNCTION(client, reliable)
 	virtual void ClientSetActiveLineUp(bool bNewIsActive, LineUpTypes LastType);
-
-	virtual void BeginRallyTo(AUTRallyPoint* RallyTarget, const FVector& NewRallyLocation, float Delay);
-
-	// valid server side only
-	virtual bool IsCurrentlyRallying();
-
-	FTimerHandle RallyTimerHandle;
-
-	virtual void CompleteRally();
 
 	UFUNCTION(client, reliable)
 	virtual void ClientToggleScoreboard(bool bShow);

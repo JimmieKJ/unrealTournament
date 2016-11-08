@@ -2124,8 +2124,8 @@ void AUTCharacter::ServerFeignDeath_Implementation()
 		}
 		else if (GetMesh()->Bodies.Num() == 0 || GetMesh()->Bodies[0]->PhysicsBlendWeight <= 0.0f)
 		{
-			AUTPlayerController* UTPC = Cast<AUTPlayerController>(GetController());
-			if (UTPC && GetWorld()->GetTimerManager().IsTimerActive(UTPC->RallyTimerHandle))
+			AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
+			if (PS != nullptr && GetWorld()->GetTimerManager().IsTimerActive(PS->RallyTimerHandle))
 			{
 				// no feigning while in rally
 				return;

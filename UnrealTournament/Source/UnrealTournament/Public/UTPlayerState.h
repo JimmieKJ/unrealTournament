@@ -326,13 +326,30 @@ public:
 	AUTPlayerState* LastKillerPlayerState;
 
 	UPROPERTY(BlueprintReadOnly, Replicated, Category = PlayerController)
-		bool bCanRally;
+	bool bCanRally;
 
 	UPROPERTY(BlueprintReadOnly, Category = PlayerController)
-		float NextRallyTime;
+	float NextRallyTime;
 
 	UPROPERTY(BlueprintReadOnly, Replicated, Category = PlayerController)
-		uint8 RemainingRallyDelay;
+	uint8 RemainingRallyDelay;
+
+	UPROPERTY()
+	FVector RallyLocation;
+
+	UPROPERTY()
+	class AUTRallyPoint* RallyPoint;
+
+	virtual void BeginRallyTo(AUTRallyPoint* RallyTarget, const FVector& NewRallyLocation, float Delay);
+
+	FTimerHandle RallyTimerHandle;
+	// valid server side only
+	bool IsCurrentlyRallying()
+	{
+		return GetWorldTimerManager().IsTimerActive(RallyTimerHandle);
+	}
+
+	virtual void CompleteRally();
 
 	UPROPERTY(BlueprintReadOnly, Category = PlayerState, replicated)
 	bool bIsRconAdmin;
