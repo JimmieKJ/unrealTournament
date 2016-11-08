@@ -96,6 +96,7 @@ public:
 	void FaceRotation(FRotator NewControlRotation, float DeltaTime) override;
 	virtual void GetActorEyesViewPoint(FVector& out_Location, FRotator& out_Rotation) const override;
 	void PawnStartFire(uint8 FireModeNum) override;
+	virtual void BeginPlay() override;
 
 	/** material to draw over the player's view when zoomed
 	* the material can use the parameter 'TeamColor' to receive the player's team color in team games (won't be changed in FFA modes)

@@ -81,6 +81,17 @@ void AUTRemoteRedeemer::PostNetReceiveVelocity(const FVector& NewVelocity)
 	}
 }
 
+void AUTRemoteRedeemer::BeginPlay()
+{
+	if (IsPendingKillPending())
+	{
+		// engine bug that we need to do this
+		return;
+	}
+	Super::BeginPlay();
+	CurrentFuelTime = MaxFuelTime;
+}
+
 bool AUTRemoteRedeemer::TryToDrive(APawn* NewDriver)
 {
 	return DriverEnter(NewDriver);
