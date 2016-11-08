@@ -201,6 +201,27 @@ bool AUTAsymCTFSquadAI::CheckSquadObjectives(AUTBot* B)
 				B->bDisableSquadRoutes = false;
 				CurrentSquadRouteIndex = INDEX_NONE;
 			}
+			if (!Flag->bFriendlyCanPickup)
+			{
+				// don't go for flag if someone else already on it
+				for (AController* C : Team->GetTeamMembers())
+				{
+					if (C != B && C->GetPawn() != nullptr && C->GetPawn()->IsOverlappingActor(Flag))
+					{
+						if (B->FindInventoryGoal(0.0f))
+						{
+							B->GoalString = FString::Printf(TEXT("Initial rush: Head to inventory %s"), *GetNameSafe(B->RouteCache.Last().Actor.Get()));
+							B->SetMoveTarget(B->RouteCache[0]);
+							B->StartWaitForMove();
+							return true;
+						}
+						else
+						{
+							return false;
+						}
+					}
+				}
+			}
 			return B->TryPathToward(Flag, true, false, "Get flag");
 		}
 		else if (CurrentOrders == NAME_Defend)
