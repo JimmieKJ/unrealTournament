@@ -2581,6 +2581,10 @@ bool AUTRecastNavMesh::HasReachedTarget(APawn* Asker, const FNavAgentProperties&
 				// jump pad trigger will pop the route itself
 				return false;
 			}
+			else if (Target.Actor.IsValid() && Target.Actor->GetRootComponent() != nullptr && Target.Actor->GetRootComponent()->GetCollisionResponseToChannel(Asker->GetRootComponent()->GetCollisionObjectType()) == ECR_Overlap)
+			{
+				return Target.Actor->IsOverlappingActor(Asker);
+			}
 			else if (Target.IsDirectTarget() || !Target.Node.IsValid())
 			{
 				// if direct location with no nav data then require pawn box to touch target point

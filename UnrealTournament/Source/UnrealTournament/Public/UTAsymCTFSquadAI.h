@@ -21,6 +21,10 @@ public:
 	UPROPERTY()
 	const UUTPathNode* LastFlagNode;
 
+	/** set when flag carrier wants to rally (used to avoid decision oscillation when on the edge of various thresholds) */
+	UPROPERTY()
+	bool bWantRally;
+
 	/** whether we're on the attacking team currently
 	 * note: this has nothing to do with squad orders (can be on attacking team and have orders to 'defend' which in this context means the flag carrier)
 	 */
