@@ -819,11 +819,17 @@ void AUTBasePlayerController::Tick(float DeltaTime)
 
 void AUTBasePlayerController::UpdateInputMode()
 {
-	EInputMode::Type NewInputMode = EInputMode::EIM_None;
 
+	EInputMode::Type NewInputMode = EInputMode::EIM_None;
 	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(Player);
 	if (LocalPlayer)
 	{
+		UUTGameInstance* UTGameInstance = Cast<UUTGameInstance>(LocalPlayer->GetGameInstance());
+		if (UTGameInstance && UTGameInstance->bLevelIsLoading)
+		{
+			return;
+		}
+
 		//Menus default to UI
 		if (LocalPlayer->AreMenusOpen())
 		{

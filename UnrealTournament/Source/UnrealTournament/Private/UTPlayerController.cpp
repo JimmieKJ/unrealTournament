@@ -1,6 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealTournament.h"
+#include "UTGameInstance.h"
 #include "UTCharacterMovement.h"
 #include "ActiveSound.h"
 #include "AudioDevice.h"
@@ -747,10 +748,13 @@ void AUTPlayerController::SetSpectatorMouseChangesView(bool bNewValue)
 	{
 		bSpectatorMouseChangesView = bNewValue;
 		UE_LOG(UT,Log, TEXT("---- bSpectatorMouseChangesView = %s"), (bSpectatorMouseChangesView ? TEXT("true") : TEXT("false")));
+
+		UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(Player);
+		UUTGameInstance* UTGameInstance = LocalPlayer ? Cast<UUTGameInstance>(LocalPlayer->GetGameInstance()) : nullptr;
+
 		if (bSpectatorMouseChangesView)
 		{
-			UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(Player);
-			if (LocalPlayer)
+			if (LocalPlayer && UTGameInstance && !UTGameInstance->bLevelIsLoading)
 			{
 				FReply& SlateOps = LocalPlayer->GetSlateOperations();
 				SlateOps.UseHighPrecisionMouseMovement(LocalPlayer->ViewportClient->GetGameViewportWidget().ToSharedRef());
@@ -760,8 +764,7 @@ void AUTPlayerController::SetSpectatorMouseChangesView(bool bNewValue)
 		}
 		else
 		{
-			UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(Player);
-			if (LocalPlayer)
+			if (LocalPlayer && UTGameInstance && !UTGameInstance->bLevelIsLoading)
 			{
 				LocalPlayer->GetSlateOperations().ReleaseMouseCapture().SetMousePos(SavedMouseCursorLocation.IntPoint());
 				bShowMouseCursor = true;
