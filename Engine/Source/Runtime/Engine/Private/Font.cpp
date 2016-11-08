@@ -23,6 +23,7 @@ UFont::UFont(const FObjectInitializer& ObjectInitializer)
 	ScalingFactor = 1.0f;
 	LegacyFontSize = 9;
 
+	// Don't integrate this out of //UT/Main
 	if (!IsTemplate())
 	{
 		AddToRoot();
