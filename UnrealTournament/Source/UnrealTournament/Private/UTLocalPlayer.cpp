@@ -3406,7 +3406,7 @@ void UUTLocalPlayer::StartQuickMatch(FString QuickMatchType)
 {
 	if (IsLoggedIn() && OnlineSessionInterface.IsValid())
 	{
-		if (0) //QuickMatchType == EEpicDefaultRuleTags::CTF)
+		if (1)
 		{
 			// Use matchmaking for quickmatch
 			if (ServerBrowserWidget.IsValid() && ServerBrowserWidget->IsRefreshing())
