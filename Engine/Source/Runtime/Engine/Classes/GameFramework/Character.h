@@ -756,15 +756,15 @@ public:
 
 	UFUNCTION(reliable, client)
 	void ClientCheatWalk();
-	void ClientCheatWalk_Implementation();
+	virtual void ClientCheatWalk_Implementation();
 
 	UFUNCTION(reliable, client)
 	void ClientCheatFly();
-	void ClientCheatFly_Implementation();
+	virtual void ClientCheatFly_Implementation();
 
 	UFUNCTION(reliable, client)
 	void ClientCheatGhost();
-	void ClientCheatGhost_Implementation();
+	virtual void ClientCheatGhost_Implementation();
 
 	// Root Motion
 public:
