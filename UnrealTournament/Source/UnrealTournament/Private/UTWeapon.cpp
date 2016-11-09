@@ -294,15 +294,15 @@ void AUTWeapon::GivenTo(AUTCharacter* NewOwner, bool bAutoActivate)
 			break;
 		}
 	}
-}
 
-void AUTWeapon::ClientGivenTo_Internal(bool bAutoActivate)
-{
 	if (bMustBeHolstered && UTOwner && (HasAnyAmmo() || bCanRegenerateAmmo))
 	{
 		AttachToHolster();
 	}
+}
 
+void AUTWeapon::ClientGivenTo_Internal(bool bAutoActivate)
+{
 	// make sure we initialized our state; this can be triggered if the weapon is spawned at game startup, since BeginPlay() will be deferred
 	if (CurrentState == NULL)
 	{
