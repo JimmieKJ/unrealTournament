@@ -519,6 +519,10 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	UFUNCTION(BlueprintCallable, Category = Pawn)
 	virtual	void AllAmmo();
 
+	void ClientCheatWalk_Implementation() override;
+	void ClientCheatFly_Implementation() override;
+	void ClientCheatGhost_Implementation() override;
+
 	// use this to iterate inventory
 	template<typename> friend class TInventoryIterator;
 

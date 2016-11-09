@@ -6788,3 +6788,33 @@ AActor* AUTCharacter::GetCurrentAimContext()
 	
 	return BestPickup;
 }
+
+void AUTCharacter::ClientCheatWalk_Implementation()
+{
+	SetActorEnableCollision(true);
+	if (GetCharacterMovement())
+	{
+		GetCharacterMovement()->bCheatFlying = false;
+		GetCharacterMovement()->SetMovementMode(MOVE_Falling);
+	}
+}
+
+void AUTCharacter::ClientCheatFly_Implementation()
+{
+	SetActorEnableCollision(true);
+	if (GetCharacterMovement())
+	{
+		GetCharacterMovement()->bCheatFlying = true;
+		GetCharacterMovement()->SetMovementMode(MOVE_Flying);
+	}
+}
+
+void AUTCharacter::ClientCheatGhost_Implementation()
+{
+	SetActorEnableCollision(false);
+	if (GetCharacterMovement())
+	{
+		GetCharacterMovement()->bCheatFlying = true;
+		GetCharacterMovement()->SetMovementMode(MOVE_Flying);
+	}
+}
