@@ -164,7 +164,12 @@ void AUTWeap_RocketLauncher::ClearLoadedRockets()
 	CurrentRocketFireMode = 0;
 	NumLoadedBarrels = 0;
 	NumLoadedRockets = 0;
-	SetLockTarget(nullptr);
+	if (Role == ROLE_Authority)
+	{
+		SetLockTarget(nullptr);
+		PendingLockedTarget = nullptr;
+		PendingLockedTargetTime = 0.f;
+	}
 	if (UTOwner != NULL)
 	{
 		UTOwner->SetFlashExtra(0, CurrentFireMode);
@@ -267,7 +272,6 @@ void AUTWeap_RocketLauncher::FireShot()
 		if (NumLoadedRockets <= 0)
 		{
 			ClearLoadedRockets();
-			SetLockTarget(NULL);
 		}
 	}
 
@@ -478,7 +482,7 @@ AUTProjectile* AUTWeap_RocketLauncher::FireRocketProjectile()
 			if (HasLockedTarget() && SpawnedRocket)
 			{
 				SpawnedRocket->TargetActor = LockedTarget;
-				TrackingRockets.Add(SpawnedRocket);
+				TrackingRockets.AddUnique(SpawnedRocket);
 			}
 
 			break;
@@ -584,6 +588,10 @@ void AUTWeap_RocketLauncher::OnRep_PendingLockedTarget()
 	{
 		PendingLockedTargetTime = GetWorld()->GetTimeSeconds();
 	}
+	else
+	{
+		PendingLockedTargetTime = 0.f;
+	}
 }
 
 void AUTWeap_RocketLauncher::SetLockTarget(AActor* NewTarget)
@@ -616,7 +624,11 @@ void AUTWeap_RocketLauncher::SetLockTarget(AActor* NewTarget)
 
 void AUTWeap_RocketLauncher::UpdateLock()
 {
-	if (UTOwner == NULL || UTOwner->Controller == NULL || UTOwner->IsFiringDisabled() || (CurrentFireMode != 1) || !IsFiring())
+	if (Role != ROLE_Authority)
+	{
+		return;
+	}
+	if (UTOwner == NULL || UTOwner->Controller == NULL || UTOwner->IsFiringDisabled() || (CurrentFireMode != 1) || !IsFiring() || (NumLoadedRockets == 0))
 	{
 		SetLockTarget(NULL);
 		return;

@@ -2815,7 +2815,8 @@ void AUTCharacter::RemoveInventory(AUTInventory* InvToRemove)
 		}
 		if (!bFound)
 		{
-			UE_LOG(UT, Warning, TEXT("RemoveInventory (%s): Item %s was not in this character's inventory!"), *GetName(), *InvToRemove->GetName());
+			// this can happen during replays
+			//UE_LOG(UT, Warning, TEXT("RemoveInventory (%s): Item %s was not in this character's inventory!"), *GetName(), *InvToRemove->GetName());
 		}
 		else
 		{

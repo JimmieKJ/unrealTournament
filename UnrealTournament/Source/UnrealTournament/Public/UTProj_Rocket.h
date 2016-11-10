@@ -11,8 +11,11 @@ class UNREALTOURNAMENT_API AUTProj_Rocket : public AUTProjectile
 	GENERATED_UCLASS_BODY()
 
 	/** If set, rocket seeks this target. */
-	UPROPERTY(BlueprintReadOnly, Replicated, Category = RocketSeeking)
+	UPROPERTY(BlueprintReadOnly, ReplicatedUsing=OnRep_TargetActor, Category = RocketSeeking)
 	AActor* TargetActor;
+
+	UFUNCTION()
+		void OnRep_TargetActor();
 
 	/**The speed added to velocity in the direction of the target*/
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = RocketSeeking)

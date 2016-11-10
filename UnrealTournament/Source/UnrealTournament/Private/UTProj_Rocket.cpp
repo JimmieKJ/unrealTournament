@@ -5,6 +5,7 @@
 #include "UnrealNetwork.h"
 #include "UTRewardMessage.h"
 #include "StatNames.h"
+#include "UTWeap_RocketLauncher.h"
 
 AUTProj_Rocket::AUTProj_Rocket(const class FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -45,15 +46,28 @@ void AUTProj_Rocket::Tick(float DeltaTime)
 		{
 			TargetActor = NULL;
 		}
-		else if (MeshMI && (int32(5.f*GetWorld()->GetTimeSeconds()) != int32(5.f*(GetWorld()->GetTimeSeconds()-DeltaTime))))
+		else if ((GetNetMode() != NM_DedicatedServer) && (int32(8.f*GetWorld()->GetTimeSeconds()) != int32(8.f*(GetWorld()->GetTimeSeconds()-DeltaTime))))
 		{
 			AUTCharacter* UTChar = Cast<AUTCharacter>(Instigator);
-			if (UTChar && (UTChar->GetTeamColor() != FLinearColor::White))
+			if (UTChar)
 			{
-				static FName NAME_GunGlowsColor(TEXT("Gun_Glows_Color"));
-				FLinearColor NewColor = (int32(5.f*GetWorld()->GetTimeSeconds()) % 2 == 0) ? UTChar->GetTeamColor() : FLinearColor::White;
-				MeshMI->SetVectorParameterValue(NAME_GunGlowsColor, NewColor);
-				bRocketTeamSet = (NewColor != FLinearColor::White);
+				if (!MeshMI)
+				{
+					OnRep_Instigator();
+				}
+				if (MeshMI)
+				{
+					static FName NAME_GunGlowsColor(TEXT("Gun_Glows_Color"));
+					FLinearColor NewColor = FLinearColor::Black;
+					NewColor.A = 0.3f;
+					if ((int32(8.f*GetWorld()->GetTimeSeconds()) % 3) == 0)
+					{
+						NewColor = (UTChar->GetTeamColor() == FLinearColor::White) ? FLinearColor::Red : UTChar->GetTeamColor();
+						NewColor.A = 10.f;
+					}
+					MeshMI->SetVectorParameterValue(NAME_GunGlowsColor, NewColor);
+					bRocketTeamSet = (NewColor != FLinearColor::White);
+				}
 			}
 		}
 		else if (!bRocketTeamSet && Instigator)
@@ -61,14 +75,23 @@ void AUTProj_Rocket::Tick(float DeltaTime)
 			OnRep_Instigator();
 		}
 	}
+}
 
+void AUTProj_Rocket::OnRep_TargetActor()
+{
+	AUTCharacter* UTChar = Cast<AUTCharacter>(Instigator);
+	AUTWeap_RocketLauncher* RL = UTChar ? Cast<AUTWeap_RocketLauncher>(UTChar->GetWeapon()) : nullptr;
+	if (RL && UTChar->IsLocallyViewed())
+	{
+		RL->TrackingRockets.AddUnique(this);
+	}
 }
 
 void AUTProj_Rocket::OnRep_Instigator()
 {
 	Super::OnRep_Instigator();
 	AUTCharacter* UTChar = Cast<AUTCharacter>(Instigator);
-	if (UTChar && (UTChar->GetTeamColor() != FLinearColor::White))
+	if (UTChar && (GetNetMode() != NM_DedicatedServer))
 	{
 		bRocketTeamSet = true;
 		TArray<UStaticMeshComponent*> MeshComponents;
@@ -78,7 +101,15 @@ void AUTProj_Rocket::OnRep_Instigator()
 		MeshMI = GlowMesh ? GlowMesh->CreateAndSetMaterialInstanceDynamic(1) : nullptr;
 		if (MeshMI != nullptr)
 		{
-			MeshMI->SetVectorParameterValue(NAME_GunGlowsColor, UTChar->GetTeamColor());
+			FLinearColor NewColor = (UTChar->GetTeamColor() == FLinearColor::White) ? FLinearColor::Red : UTChar->GetTeamColor();
+			NewColor.R *= 0.3f;
+			NewColor.G *= 0.3f;
+			NewColor.B *= 0.3f;
+			MeshMI->SetVectorParameterValue(NAME_GunGlowsColor, NewColor);
+		}
+		if (TargetActor)
+		{
+			OnRep_TargetActor();
 		}
 	}
 }
