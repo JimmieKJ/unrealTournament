@@ -1951,19 +1951,28 @@ void AUTGameMode::EndMatch()
 
 	//Collect all the weapons
 	TArray<AUTWeapon *> StatsWeapons;
-	if (StatsWeapons.Num() == 0)
+	for (FActorIterator It(GetWorld()); It; ++It)
 	{
-		for (FActorIterator It(GetWorld()); It; ++It)
+		AUTPickupWeapon* Pickup = Cast<AUTPickupWeapon>(*It);
+		if (Pickup && Pickup->GetInventoryType())
 		{
-			AUTPickupWeapon* Pickup = Cast<AUTPickupWeapon>(*It);
-			if (Pickup && Pickup->GetInventoryType())
+			StatsWeapons.AddUnique(Pickup->GetInventoryType()->GetDefaultObject<AUTWeapon>());
+		}
+		else
+		{
+			AUTWeaponLocker* Locker = Cast<AUTWeaponLocker>(*It);
+			if (Locker)
 			{
-				StatsWeapons.AddUnique(Pickup->GetInventoryType()->GetDefaultObject<AUTWeapon>());
+				for (int32 i = 0; i < Locker->WeaponList.Num(); i++)
+				{
+					if (Locker->WeaponList[i].WeaponType)
+					{
+						StatsWeapons.AddUnique(Locker->WeaponList[i].WeaponType->GetDefaultObject<AUTWeapon>());
+					}
+				}
 			}
 		}
 	}
-
-
 
 	for (int i = 0; i < UTGameState->PlayerArray.Num();i++)
 	{
