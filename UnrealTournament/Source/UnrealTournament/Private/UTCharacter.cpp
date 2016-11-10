@@ -849,7 +849,7 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 			}
 			int32 AppliedDamage = ResultDamage;
 			AUTInventory* HitArmor = NULL;
-			bool bApplyDamageToCharacter = ((Game->bDamageHurtsHealth && bDamageHurtsHealth) || (!Cast<AUTPlayerController>(GetController()) && (!DrivenVehicle || !Cast<AUTPlayerController>(DrivenVehicle->GetController()))));
+			bool bApplyDamageToCharacter = ((Game && Game->bDamageHurtsHealth && bDamageHurtsHealth) || (!Cast<AUTPlayerController>(GetController()) && (!DrivenVehicle || !Cast<AUTPlayerController>(DrivenVehicle->GetController()))));
 			if (bApplyDamageToCharacter)
 			{
 				ModifyDamageTaken(AppliedDamage, ResultDamage, ResultMomentum, HitArmor, HitInfo, EventInstigator, DamageCauser, DamageEvent.DamageTypeClass);
@@ -930,18 +930,21 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 				}
 			}
 			UE_LOG(LogUTCharacter, Verbose, TEXT("%s took %d damage, %d health remaining"), *GetName(), ResultDamage, Health);
-			AUTPlayerState* EnemyPS = EventInstigator ? Cast<AUTPlayerState>(EventInstigator->PlayerState) : NULL;
-			Game->ScoreDamage(AppliedDamage, MyPS, EnemyPS);
-
-			if (EnemyPS != nullptr)
+			if (Game && Game->HasMatchStarted())
 			{
-				if (EnemyPS->DamageDelt.Contains(DamageEvent.DamageTypeClass))
+				AUTPlayerState* EnemyPS = EventInstigator ? Cast<AUTPlayerState>(EventInstigator->PlayerState) : NULL;
+				Game->ScoreDamage(AppliedDamage, MyPS, EnemyPS);
+
+				if (EnemyPS != nullptr)
 				{
-					EnemyPS->DamageDelt[DamageEvent.DamageTypeClass] += AppliedDamage;
-				}
-				else
-				{
-					EnemyPS->DamageDelt.Add(DamageEvent.DamageTypeClass, AppliedDamage);
+					if (EnemyPS->DamageDelt.Contains(DamageEvent.DamageTypeClass))
+					{
+						EnemyPS->DamageDelt[DamageEvent.DamageTypeClass] += AppliedDamage;
+					}
+					else
+					{
+						EnemyPS->DamageDelt.Add(DamageEvent.DamageTypeClass, AppliedDamage);
+					}
 				}
 			}
 
