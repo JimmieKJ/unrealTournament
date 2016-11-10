@@ -398,7 +398,7 @@ bool AUTFlagRunGame::CheckForWinner(AUTTeamInfo* ScoringTeam)
 					EndTeamGame(Teams[0], FName(TEXT("scorelimit")));
 					return true;
 				}
-				if ((Teams[1]->Score > Teams[0]->Score + DefenseScore) || ((Teams[1]->Score == Teams[0]->Score + DefenseScore) && (GS->TiebreakValue < -60)))
+				if ((Teams[1]->Score > Teams[0]->Score + DefenseScore) || ((Teams[1]->Score == Teams[0]->Score + DefenseScore) && (GS->TiebreakValue < 0)))
 				{
 					EndTeamGame(Teams[1], FName(TEXT("scorelimit")));
 					return true;
@@ -412,7 +412,7 @@ bool AUTFlagRunGame::CheckForWinner(AUTTeamInfo* ScoringTeam)
 					EndTeamGame(Teams[1], FName(TEXT("scorelimit")));
 					return true;
 				}
-				if ((Teams[0]->Score > Teams[1]->Score + DefenseScore) || ((Teams[0]->Score == Teams[1]->Score + DefenseScore) && (GS->TiebreakValue > 60)))
+				if ((Teams[0]->Score > Teams[1]->Score + DefenseScore) || ((Teams[0]->Score == Teams[1]->Score + DefenseScore) && (GS->TiebreakValue > 0)))
 				{
 					EndTeamGame(Teams[0], FName(TEXT("scorelimit")));
 					return true;
