@@ -513,7 +513,7 @@ void AUTCTFBaseGame::RestartPlayer(AController* aPlayer)
 
 void AUTCTFBaseGame::PlacePlayersAroundFlagBase(int32 TeamNum, int32 FlagTeamNum)
 {
-	if ((CTFGameState == NULL) || (FlagTeamNum >= CTFGameState->FlagBases.Num()) || (CTFGameState->FlagBases[FlagTeamNum] == NULL))
+	if ((CTFGameState == NULL) || (FlagTeamNum >= CTFGameState->FlagBases.Num()) || (CTFGameState->FlagBases[FlagTeamNum] == NULL) || (CTFGameState->LineUpHelper != NULL && CTFGameState->LineUpHelper->bIsActive))
 	{
 		return;
 	}

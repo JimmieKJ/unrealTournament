@@ -25,7 +25,7 @@ class UNREALTOURNAMENT_API AUTLineUpHelper : public AActor
 
 	UPROPERTY()
 	bool bIsPlacingPlayers;
-
+	
 	static LineUpTypes GetLineUpTypeToPlay(UWorld* World);
 
 	static AUTLineUpZone* GetAppropriateSpawnList(UWorld* World, LineUpTypes ZoneType);
@@ -65,6 +65,12 @@ protected:
 
 	TWeakPtr<AUTCharacter> SelectedCharacter;
 
+	float TimerDelayForIntro;
+	float TimerDelayForIntermission;
+	float TimerDelayForEndMatch;
+
+	FTimerHandle IntroHandle;
+	FTimerHandle IntermissionHandle;
 	FTimerHandle MatchSummaryHandle;
 
 	/** preview actors */

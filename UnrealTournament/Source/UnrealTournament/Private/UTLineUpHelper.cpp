@@ -15,23 +15,60 @@ AUTLineUpHelper::AUTLineUpHelper(const FObjectInitializer& ObjectInitializer)
 {
 	bIsPlacingPlayers = false;
 	bAlwaysRelevant = true;
+
+	TimerDelayForIntro = 0.f;
+	TimerDelayForIntermission = 5.f;
+	TimerDelayForEndMatch = 5.f;
 }
 
 void AUTLineUpHelper::HandleLineUp(LineUpTypes ZoneType)
 {
 	LastActiveType = ZoneType;
 
-	if (ZoneType == LineUpTypes::Intro)
+	if (GetWorld())
 	{
-		HandleIntro(ZoneType);
-	}
-	else if (ZoneType == LineUpTypes::Intermission)
-	{
-		HandleIntermission(ZoneType);
-	}
-	else if (ZoneType == LineUpTypes::PostMatch)
-	{
-		HandleEndMatchSummary(ZoneType);
+		if (ZoneType == LineUpTypes::Intro)
+		{
+			GetWorld()->GetTimerManager().ClearTimer(IntermissionHandle);
+			GetWorld()->GetTimerManager().ClearTimer(MatchSummaryHandle);
+
+			if (TimerDelayForIntro > SMALL_NUMBER)
+			{
+				GetWorld()->GetTimerManager().SetTimer(IntroHandle, FTimerDelegate::CreateUObject(this, &AUTLineUpHelper::HandleIntro, LineUpTypes::Intro), TimerDelayForIntro, false);
+			}
+			else
+			{
+				HandleIntro(ZoneType);
+			}
+		}
+		else if (ZoneType == LineUpTypes::Intermission)
+		{
+			GetWorld()->GetTimerManager().ClearTimer(IntroHandle);
+			GetWorld()->GetTimerManager().ClearTimer(MatchSummaryHandle);
+
+			if (TimerDelayForIntermission > SMALL_NUMBER)
+			{
+				GetWorld()->GetTimerManager().SetTimer(IntermissionHandle, FTimerDelegate::CreateUObject(this, &AUTLineUpHelper::HandleIntermission, LineUpTypes::Intermission), TimerDelayForIntermission, false);
+			}
+			else
+			{
+				HandleIntermission(ZoneType);
+			}
+		}
+		else if (ZoneType == LineUpTypes::PostMatch)
+		{
+			GetWorld()->GetTimerManager().ClearTimer(IntroHandle);
+			GetWorld()->GetTimerManager().ClearTimer(IntermissionHandle);
+			
+			if (TimerDelayForEndMatch > SMALL_NUMBER)
+			{
+				GetWorld()->GetTimerManager().SetTimer(MatchSummaryHandle, FTimerDelegate::CreateUObject(this, &AUTLineUpHelper::HandleEndMatchSummary, LineUpTypes::PostMatch), TimerDelayForEndMatch, false);
+			}
+			else
+			{
+				HandleEndMatchSummary(ZoneType);
+			}
+		}
 	}
 }
 
