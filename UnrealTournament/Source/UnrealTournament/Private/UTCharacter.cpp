@@ -5971,6 +5971,15 @@ void AUTCharacter::OnEmoteEnded(UAnimMontage* Montage, bool bInterrupted)
 		{
 			GetMesh()->MeshComponentUpdateFlag = GetClass()->GetDefaultObject<AUTCharacter>()->GetMesh()->MeshComponentUpdateFlag;
 		}
+
+		if (Role == ROLE_Authority)
+		{
+			AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
+			if (PS)
+			{
+				PS->EmoteReplicationInfo.EmoteCount = 0;
+			}
+		}
 	}
 }
 

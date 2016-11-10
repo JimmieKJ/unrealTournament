@@ -3455,7 +3455,10 @@ void AUTPlayerState::OnRepTaunt()
 		return;
 	}
 
-	PlayTauntByIndex(EmoteReplicationInfo.EmoteIndex);
+	if (EmoteReplicationInfo.EmoteCount > 0)
+	{
+		PlayTauntByIndex(EmoteReplicationInfo.EmoteIndex);
+	}
 }
 
 void AUTPlayerState::PlayTauntByIndex(int32 TauntIndex)
