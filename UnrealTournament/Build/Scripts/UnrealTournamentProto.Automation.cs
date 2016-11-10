@@ -415,8 +415,9 @@ namespace UnrealTournamentGame.Automation
 				// if we are running, we assume this is a local test and don't chunk
 				Run: Cmd.ParseParam("Run"),
                 TreatNonShippingBinariesAsDebugFiles: true,
-				StageDirectoryParam: (StageDirectory != null ? StageDirectory : UnrealTournamentBuild.GetArchiveDir())
-			);
+				StageDirectoryParam: (StageDirectory != null ? StageDirectory : UnrealTournamentBuild.GetArchiveDir()),
+                AppLocalDirectory: Cmd.ParseParamValue("AppLocalDirectory")
+            );
 			Params.ValidateAndLog();
 			return Params;
 		}

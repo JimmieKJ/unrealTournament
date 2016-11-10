@@ -122,7 +122,7 @@
 			<Cook Project="$(ProjectFile)" Platform="WindowsNoEditor"/>
 		</Node>
 		<Node Name="Stage WindowsNoEditor" Requires="Compile UT Client Win32;Compile UT Client Win64;Cook WindowsNoEditor">
-			<Command Name="UnrealTournamentProto_BasicBuild" Arguments="-SkipBuild -SkipCook -Chunk -clientconfig=Shipping -serverconfig=None -TargetPlatform=Win32+Win64 -StagingDir=&quot;$(LocalStagingDir)&quot;"/>
+			<Command Name="UnrealTournamentProto_BasicBuild" Arguments="-SkipBuild -SkipCook -Chunk -clientconfig=Shipping -serverconfig=None -TargetPlatform=Win32+Win64 -StagingDir=&quot;$(LocalStagingDir)&quot; -AppLocalDirectory=&quot;../Engine/Binaries/ThirdParty/AppLocalDependencies&quot;"/>
 			<TagReceipt Files="$(RootDir)/UnrealTournament/Binaries/Win32/UnrealTournament-Win32-Shipping.target" EngineDir="$(LocalStagingDir)/WindowsNoEditor/Engine" ProjectDir="$(LocalStagingDir)/WindowsNoEditor/UnrealTournament" BuildProducts="true" RuntimeDependencies="false" With="#ToSign"/>
 			<TagReceipt Files="$(RootDir)/Engine/Binaries/Win32/UnrealEngineLauncherProxy-Win32-Shipping.target" EngineDir="$(LocalStagingDir)/WindowsNoEditor/Engine" ProjectDir="$(LocalStagingDir)/WindowsNoEditor/UnrealTournament" BuildProducts="true" RuntimeDependencies="false" With="#ToSign"/>
 			<TagReceipt Files="$(RootDir)/Engine/Binaries/Win32/CrashReportClient-Win32-Shipping.target" EngineDir="$(LocalStagingDir)/WindowsNoEditor/Engine" ProjectDir="$(LocalStagingDir)/WindowsNoEditor/UnrealTournament" BuildProducts="true" RuntimeDependencies="false" With="#ToSign"/>
