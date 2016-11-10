@@ -1163,8 +1163,9 @@ void AUTBot::ConsiderTranslocation()
 void AUTBot::SetDefaultFocus()
 {
 	const bool bStrafeCheck = !MoveTarget.IsValid() || Skill + Personality.MovementAbility > 1.7f + FMath::FRand();
+	const bool bChargingFire = GetUTChar() != nullptr && GetUTChar()->GetWeapon() != nullptr && GetUTChar()->GetWeapon()->IsPreparingAttack();
 	const FVector MoveDir = (GetMovePoint() - GetPawn()->GetActorLocation()).GetSafeNormal();
-	if (GetTarget() != NULL && bLastCanAttackSuccess && (bStrafeCheck || ((GetTarget()->GetTargetLocation() - GetPawn()->GetActorLocation()).GetSafeNormal() | MoveDir) > 0.85f))
+	if (GetTarget() != NULL && bLastCanAttackSuccess && (bStrafeCheck || bChargingFire || ((GetTarget()->GetTargetLocation() - GetPawn()->GetActorLocation()).GetSafeNormal() | MoveDir) > 0.85f))
 	{
 		SetFocus(GetTarget());
 	}
@@ -3921,7 +3922,8 @@ void AUTBot::ReceiveInstantWarning(AUTCharacter* Shooter, const FVector& FireDir
 {
 	if (Shooter != NULL && Shooter->GetWeapon() != NULL && GetPawn() != NULL)
 	{
-		if (Skill >= 4.0f && (Enemy != NULL || FMath::FRand() < Personality.Alertness) && FMath::FRand() < 0.2f * (Skill + Personality.Tactics) - 0.33f) // TODO: if 1 on 1 (T)DM be more alert? maybe enemy will usually be set so doesn't matter
+		const bool bRepeaterWeapon = Shooter->GetWeapon()->bRecommendSuppressiveFire;
+		if (Skill >= (bRepeaterWeapon ? 3.0f : 4.0f) && (Enemy != NULL || FMath::FRand() < Personality.Alertness) && FMath::FRand() < 0.2f * (Skill + Personality.Tactics) - 0.33f) // TODO: if 1 on 1 (T)DM be more alert? maybe enemy will usually be set so doesn't matter
 		{
 			FVector EnemyDir = Shooter->GetActorLocation() - GetPawn()->GetActorLocation();
 			EnemyDir.Z = 0;
@@ -3937,8 +3939,15 @@ void AUTBot::ReceiveInstantWarning(AUTCharacter* Shooter, const FVector& FireDir
 
 				UpdateEnemyInfo(Shooter, EUT_TookDamage);
 
-				// TODO: what about repeater weapons? should still try to dodge sometimes, but this check will always fail
-				const float DodgeTime = Shooter->GetWeapon()->GetRefireTime(Shooter->GetWeapon()->GetCurrentFireMode()) - 0.15 - 0.1 * FMath::FRand(); // TODO: based on collision size 
+				float DodgeTime;
+				if (bRepeaterWeapon)
+				{
+					DodgeTime = 2.0f - (0.1f + 0.1f * FMath::FRand()) * (Skill + Personality.ReactionTime);
+				}
+				else
+				{
+					DodgeTime = Shooter->GetWeapon()->GetRefireTime(Shooter->GetWeapon()->GetCurrentFireMode()) - 0.15 - 0.1 * FMath::FRand(); // TODO: based on collision size 
+				}
 				if (DodgeTime > 0.0)
 				{
 					SetWarningTimer(NULL, Shooter, DodgeTime);
