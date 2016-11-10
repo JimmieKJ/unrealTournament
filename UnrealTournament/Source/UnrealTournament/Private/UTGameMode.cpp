@@ -1823,9 +1823,19 @@ void AUTGameMode::RemoveAllPawns()
 	{
 		// Detach all controllers from their pawns
 		AController* Controller = *Iterator;
-		if (Cast<AUTPlayerController>(Controller))
+		AUTPlayerController* PC = Cast<AUTPlayerController>(Controller);
+		if (PC)
 		{
-			((AUTPlayerController *)Controller)->UTPlayerState->bIsWarmingUp = false;
+			AUTPlayerState* NewPlayerState = PC->UTPlayerState;
+			NewPlayerState->bIsWarmingUp = false;
+			if (bHasRespawnChoices && !NewPlayerState->bIsSpectator)
+			{
+				NewPlayerState->RespawnChoiceA = nullptr;
+				NewPlayerState->RespawnChoiceB = nullptr;
+				NewPlayerState->RespawnChoiceA = Cast<APlayerStart>(ChoosePlayerStart(PC));
+				NewPlayerState->RespawnChoiceB = Cast<APlayerStart>(ChoosePlayerStart(PC));
+				NewPlayerState->bChosePrimaryRespawnChoice = true;
+			}
 		}
 		if (Controller->GetPawn() != NULL)
 		{
@@ -3181,7 +3191,7 @@ bool AUTGameMode::ReadyToStartMatch_Implementation()
 		else
 		{
 			UTGameState->PlayersNeeded = (GetWorld()->GetTimeSeconds() - StartPlayTime > (bIsQuickMatch ? MaxWaitForQuickMatch : 60.f)) ? FMath::Max(0, MinPlayersToStart - NumPlayers - NumBots) : FMath::Max(0, FMath::Min(GameSession->MaxPlayers, QuickPlayersToStart) - NumPlayers - NumBots);
-		//	UE_LOG(UT, Warning, TEXT("Elapsed %f wait %f minplayers %d numplayers %d numbots %d"), (GetWorld()->GetTimeSeconds() - StartPlayTime), (bIsQuickMatch ? MaxWaitForQuickMatch : 60.f), MinPlayersToStart, NumPlayers, NumSpectators);
+			//UE_LOG(UT, Warning, TEXT("Elapsed %f wait %f playersneeded %d minplayers %d numplayers %d numbots %d"), (GetWorld()->GetTimeSeconds() - StartPlayTime), (bIsQuickMatch ? MaxWaitForQuickMatch : 60.f), UTGameState->PlayersNeeded, MinPlayersToStart, NumPlayers, NumBots);
 			if (((GetNetMode() == NM_Standalone) || bDevServer || (UTGameState->PlayersNeeded == 0)) && (NumPlayers + NumSpectators > 0))
 			{
 				// Count how many ready players we have
