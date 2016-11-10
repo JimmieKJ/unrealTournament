@@ -113,10 +113,8 @@ void FSlateRHIRenderer::FViewportInfo::RecreateDepthBuffer_RenderThread()
 
 FSlateRHIRenderer::FSlateRHIRenderer( TSharedRef<FSlateFontServices> InSlateFontServices, TSharedRef<FSlateRHIResourceManager> InResourceManager )
 	: FSlateRenderer(InSlateFontServices)
-#if USE_MAX_DRAWBUFFERS
 	, EnqueuedWindowDrawBuffer(NULL)
-	, FreeBufferIndex(1)
-#endif
+	, FreeBufferIndex(0)
 {
 	ResourceManager = InResourceManager;
 
@@ -519,7 +517,14 @@ void FSlateRHIRenderer::DrawWindows( FSlateDrawBuffer& WindowDrawBuffer )
 {
 	if (IsInSlateThread())
 	{
-		EnqueuedWindowDrawBuffer = &WindowDrawBuffer;
+		if (EnqueuedWindowDrawBuffer == nullptr)
+		{
+			EnqueuedWindowDrawBuffer = &WindowDrawBuffer;
+		}
+		else
+		{
+			WindowDrawBuffer.Unlock();
+		}
 	}
 	else
 	{

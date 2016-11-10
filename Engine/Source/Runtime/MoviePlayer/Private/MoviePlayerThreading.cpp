@@ -142,16 +142,6 @@ void FSlateLoadingSynchronizationMechanism::SlateThreadRunMainLoop()
 		LastTime = CurrentTime;
 	}
 	
-	while (IsSlateDrawPassEnqueued())
-	{
-		FPlatformProcess::Sleep(0.1f);
-
-		if (!IsSlateMainLoopRunning())
-		{
-			break;
-		}
-	}
-	
 	MainLoop.Unlock();
 }
 
