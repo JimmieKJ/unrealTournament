@@ -430,7 +430,8 @@ void AUTPlayerState::IncrementKillAssists(TSubclassOf<UDamageType> DamageType, b
 		{
 			if (WeaponSprees[SpreeIndex].Kills == UTDamage.GetDefaultObject()->WeaponSpreeCount)
 			{
-				AnnounceWeaponSpree(UTDamage);
+				// only announce weapon spree on finishing kill with a weapon
+				WeaponSprees[SpreeIndex].Kills--;
 			}
 			// more likely to kill again with same weapon, so shorten search through array by swapping
 			WeaponSprees.Swap(0, SpreeIndex);
