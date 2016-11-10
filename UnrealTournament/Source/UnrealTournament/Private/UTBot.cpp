@@ -1268,7 +1268,13 @@ void AUTBot::ApplyWeaponAimAdjust(FVector TargetLoc, FVector& FocalPoint)
 			{
 				DefaultProj = MyWeap->ProjClass[NextFireMode].GetDefaultObject();
 				// handle leading
-				if (bLeadTarget && GetTarget() != NULL && GetTarget() == GetFocusActor())
+				bool bReallyLeadTarget = bLeadTarget;
+				// always lead critical enemies at low skill unless they're human as that better normalizes offense/defense effectiveness
+				if (!bReallyLeadTarget && GetTarget() == Enemy && Squad->MustKeepEnemy(Enemy))
+				{
+					bReallyLeadTarget = (Skill >= 2.0f || Cast<APlayerController>(Enemy->Controller) == nullptr);
+				}
+				if (bReallyLeadTarget && GetTarget() != NULL && GetTarget() == GetFocusActor())
 				{
 					FVector FireLocation = GetPawn()->GetActorLocation();
 					FireLocation.Z += GetPawn()->BaseEyeHeight;
@@ -2634,7 +2640,14 @@ void AUTBot::ExecuteWhatToDoNext()
 			}
 		}
 
-		if ((Squad == NULL || !Squad->CheckSquadObjectives(this)) && !ShouldDefendPosition())
+		// low skill bots have a chance to get distracted by nearby visible enemy and try to fight them off
+		// this helps minimize bots running away too effectively at low skill levels because their movement speed is higher than other bots' and newbie humans' ability to target them
+		bool bLowSkillEnemyFocus = false;
+		if (!bLeadTarget && Enemy != nullptr && IsEnemyVisible(Enemy) && (Enemy->GetActorLocation() - GetPawn()->GetActorLocation()).Size() < 2000.0f)
+		{
+			bLowSkillEnemyFocus = (UTChar != nullptr && UTChar->UTCharacterMovement->bIsSprinting) || FMath::FRand() < 0.3f - (Skill * 0.1f);
+		}
+		if ((bLowSkillEnemyFocus || Squad == NULL || !Squad->CheckSquadObjectives(this)) && !ShouldDefendPosition())
 		{
 			if (Enemy != NULL && !NeedsWeapon())
 			{
