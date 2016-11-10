@@ -2581,7 +2581,7 @@ bool AUTRecastNavMesh::HasReachedTarget(APawn* Asker, const FNavAgentProperties&
 				// jump pad trigger will pop the route itself
 				return false;
 			}
-			else if (Target.Actor.IsValid() && Target.Actor->GetRootComponent() != nullptr && Target.Actor->GetRootComponent()->GetCollisionResponseToChannel(Asker->GetRootComponent()->GetCollisionObjectType()) == ECR_Overlap)
+			else if (Target.Actor.IsValid() && Target.Actor->GetRootComponent() != nullptr && Target.Actor->GetRootComponent()->GetCollisionResponseToComponent(Asker->GetRootComponent()) == ECR_Overlap)
 			{
 				return Target.Actor->IsOverlappingActor(Asker);
 			}
