@@ -20,6 +20,7 @@ AUTFlagRunGameState::AUTFlagRunGameState(const FObjectInitializer& ObjectInitial
 	SilverBonusText = NSLOCTEXT("FlagRun", "SilverBonusText", "\u2605 \u2605");
 	GoldBonusTimedText = NSLOCTEXT("FlagRun", "GoldBonusTimeText", "\u2605 \u2605 \u2605 {BonusTime}");
 	SilverBonusTimedText = NSLOCTEXT("FlagRun", "SilverBonusTimeText", "\u2605 \u2605 {BonusTime}");
+	BronzeBonusTimedText = NSLOCTEXT("FlagRun", "BronzeBonusTimeText", "\u2605 {BonusTime}");
 	BronzeBonusText = NSLOCTEXT("FlagRun", "BronzeBonusText", "\u2605");
 	BonusLevel = 3;
 	bUsePrototypePowerupSelect = false;
@@ -142,21 +143,24 @@ FText AUTFlagRunGameState::GetRoundStatusText(bool bForScoreboard)
 	}
 	else
 	{
+		FText StatusText = BronzeBonusTimedText;
+		int32 RemainingBonus = FMath::Clamp(RemainingTime, 0, 59);
 		if (BonusLevel == 3)
 		{
-			int32 RemainingBonus = FMath::Clamp(RemainingTime - GoldBonusThreshold, 0, 60);
+			RemainingBonus = FMath::Clamp(RemainingTime - GoldBonusThreshold, 0, 60);
+			StatusText = GoldBonusTimedText;
 			FFormatNamedArguments Args;
 			Args.Add("BonusTime", FText::AsNumber(RemainingBonus));
 			return FText::Format(GoldBonusTimedText, Args);
 		}
 		else if (BonusLevel == 2)
 		{
-			int32 RemainingBonus = FMath::Clamp(RemainingTime - SilverBonusThreshold, 0, 59);
-			FFormatNamedArguments Args;
-			Args.Add("BonusTime", FText::AsNumber(RemainingBonus));
-			return FText::Format(SilverBonusTimedText, Args);
+			RemainingBonus = FMath::Clamp(RemainingTime - SilverBonusThreshold, 0, 59);
+			StatusText = SilverBonusTimedText;
 		}
-		return BronzeBonusText;
+		FFormatNamedArguments Args;
+		Args.Add("BonusTime", FText::AsNumber(RemainingBonus));
+		return FText::Format(StatusText, Args);
 	}
 }
 
