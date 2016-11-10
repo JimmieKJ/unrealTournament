@@ -688,11 +688,11 @@ void AUTProjectile::OnOverlapBegin(UPrimitiveComponent* OverlappedComponent, AAc
 		else if (CollisionComp != NULL)
 		{
 			USphereComponent* TestComp = (PawnOverlapSphere != NULL && PawnOverlapSphere->GetUnscaledSphereRadius() > CollisionComp->GetUnscaledSphereRadius()) ? PawnOverlapSphere : CollisionComp;
-			OtherComp->SweepComponent(Hit, GetActorLocation() - GetVelocity() * 10.0, GetActorLocation() + GetVelocity(), TestComp->GetCollisionShape(), TestComp->bTraceComplexOnMove);
+			OtherComp->SweepComponent(Hit, GetActorLocation() - GetVelocity() * 10.f, GetActorLocation() + GetVelocity(), TestComp->GetCollisionShape(), TestComp->bTraceComplexOnMove);
 		}
 		else
 		{
-			OtherComp->LineTraceComponent(Hit, GetActorLocation() - GetVelocity() * 10.0, GetActorLocation() + GetVelocity(), FCollisionQueryParams(GetClass()->GetFName(), false, this));
+			OtherComp->LineTraceComponent(Hit, GetActorLocation() - GetVelocity() * 10.f, GetActorLocation() + GetVelocity(), FCollisionQueryParams(GetClass()->GetFName(), false, this));
 		}
 
 		ProcessHit(OtherActor, OtherComp, Hit.Location, Hit.Normal);
@@ -739,6 +739,8 @@ void AUTProjectile::OnBounce(const struct FHitResult& ImpactResult, const FVecto
 	}
 	if ((MyFakeProjectile == NULL) && (Cast<AUTProjectile>(ImpactResult.Actor.Get()) == NULL || InteractsWithProj(Cast<AUTProjectile>(ImpactResult.Actor.Get()))))
 	{
+		InitialVisualOffset = FinalVisualOffset;
+
 		// Spawn bounce effect
 		if (GetNetMode() != NM_DedicatedServer)
 		{

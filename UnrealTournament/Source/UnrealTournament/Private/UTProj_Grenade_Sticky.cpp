@@ -38,6 +38,7 @@ void AUTProj_Grenade_Sticky::BeginPlay()
 void AUTProj_Grenade_Sticky::ArmGrenade()
 {
 	bArmed = true;
+	InitialVisualOffset = FinalVisualOffset;
 }
 
 void AUTProj_Grenade_Sticky::ShutDown()

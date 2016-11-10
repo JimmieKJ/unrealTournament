@@ -203,6 +203,7 @@ void AUTProj_BioShot::Landed(UPrimitiveComponent* HitComp, const FVector& HitLoc
 		bCanTrack = true;
 		bLanded = true;
 		bCanHitInstigator = true;
+		InitialVisualOffset = FinalVisualOffset;
 
 		//Change the collision so that weapons make it explode
 		CollisionComp->SetCollisionProfileName("ProjectileShootable");
