@@ -12,6 +12,9 @@ class UNREALTOURNAMENT_API AUTProj_Grenade_Sticky : public AUTProjectile
 	GENERATED_UCLASS_BODY()
 			
 public:
+	UFUNCTION(BlueprintCallable, Category = Projectile)
+	uint8 GetInstigatorTeamNum();
+
 	UPROPERTY(BlueprintReadOnly, Category = Projectile)
 	class AUTWeap_GrenadeLauncher* GrenadeLauncherOwner;
 

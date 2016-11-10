@@ -92,3 +92,23 @@ void AUTProj_Grenade_Sticky::Explode_Implementation(const FVector& HitLocation, 
 		MyFakeProjectile = SavedFakeProjectile;
 	}
 }
+
+uint8 AUTProj_Grenade_Sticky::GetInstigatorTeamNum()
+{
+	AController* Controller = GetInstigatorController();
+	
+	const IUTTeamInterface* TeamInterfaceController = Cast<IUTTeamInterface>(Controller);
+	if (TeamInterfaceController != NULL)
+	{
+		return TeamInterfaceController->GetTeamNum();
+	}
+
+	APawn* Pawn = GetInstigator();
+	const IUTTeamInterface* TeamInterfacePawn = Cast<IUTTeamInterface>(Pawn);
+	if (TeamInterfacePawn != NULL)
+	{
+		return TeamInterfacePawn->GetTeamNum();
+	}
+
+	return 0;
+}
