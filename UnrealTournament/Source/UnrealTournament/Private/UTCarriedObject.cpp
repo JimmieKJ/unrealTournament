@@ -711,9 +711,9 @@ void AUTCarriedObject::Drop(AController* Killer)
 	// Toss is out
 	TossObject(LastHoldingPawn);
 
-	if (bGradualAutoReturn && (PastPositions.Num() > 0) && (Holder == nullptr))
+	if (bGradualAutoReturn && (Holder == nullptr))
 	{
-		if ((GetActorLocation() - PastPositions[PastPositions.Num() - 1].Location).Size() < MinGradualReturnDist)
+		if ((PastPositions.Num() > 0) && ((GetActorLocation() - PastPositions[PastPositions.Num() - 1].Location).Size() < MinGradualReturnDist))
 		{
 			PastPositions.RemoveAt(PastPositions.Num() - 1);
 		}
@@ -721,6 +721,12 @@ void AUTCarriedObject::Drop(AController* Killer)
 		{
 			PutGhostFlagAt(PastPositions[PastPositions.Num() - 1]);
 			PastPositions.RemoveAt(PastPositions.Num() - 1);
+		}
+		else if (HomeBase)
+		{
+			FFlagTrailPos BasePosition;
+			BasePosition.Location = GetHomeLocation();
+			PutGhostFlagAt(BasePosition);
 		}
 	}
 }
@@ -816,10 +822,8 @@ void AUTCarriedObject::SendHome()
 			SetActorLocationAndRotation(PastPositions[PastPositions.Num() - 1].Location, GetActorRotation());
 			if (ObjectState != CarriedObjectState::Held)
 			{
-			PastPositions.RemoveAt(PastPositions.Num() - 1);
-			if (PastPositions.Num() > 0)
-			{
-				if ((GetActorLocation() - PastPositions[PastPositions.Num() - 1].Location).Size() < MinGradualReturnDist)
+				PastPositions.RemoveAt(PastPositions.Num() - 1);
+				if ((PastPositions.Num() > 0) && ((GetActorLocation() - PastPositions[PastPositions.Num() - 1].Location).Size() < MinGradualReturnDist))
 				{
 					PastPositions.RemoveAt(PastPositions.Num() - 1);
 				}
@@ -828,18 +832,24 @@ void AUTCarriedObject::SendHome()
 					PutGhostFlagAt(PastPositions[PastPositions.Num() - 1]);
 					bWantsGhostFlag = true;
 				}
-			}
-			if ((GetWorld()->GetTimeSeconds() - LastDroppedMessageTime > AutoReturnTime - 2.f) && GameState && !GameState->IsMatchIntermission() && !GameState->HasMatchEnded())
-			{
-				LastDroppedMessageTime = GetWorld()->GetTimeSeconds();
-				SendGameMessage((Team && (Team->TeamIndex == 0)) ? 0 : 1, NULL, NULL);
-				if (GetWorld()->GetTimeSeconds() - LastNeedFlagMessageTime > 15.f)
+				else if (HomeBase)
 				{
-					SendNeedFlagAnnouncement();
+					FFlagTrailPos BasePosition;
+					BasePosition.Location = GetHomeLocation();
+					PutGhostFlagAt(BasePosition);
+					bWantsGhostFlag = true;
 				}
-			}
-			OnObjectStateChanged();
-			ForceNetUpdate();
+				if ((GetWorld()->GetTimeSeconds() - LastDroppedMessageTime > AutoReturnTime - 2.f) && GameState && !GameState->IsMatchIntermission() && !GameState->HasMatchEnded())
+				{
+					LastDroppedMessageTime = GetWorld()->GetTimeSeconds();
+					SendGameMessage((Team && (Team->TeamIndex == 0)) ? 0 : 1, NULL, NULL);
+					if (GetWorld()->GetTimeSeconds() - LastNeedFlagMessageTime > 15.f)
+					{
+						SendNeedFlagAnnouncement();
+					}
+				}
+				OnObjectStateChanged();
+				ForceNetUpdate();
 			}
 			if (!bWantsGhostFlag)
 			{

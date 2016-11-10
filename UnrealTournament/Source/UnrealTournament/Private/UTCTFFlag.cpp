@@ -230,15 +230,21 @@ void AUTCTFFlag::Drop(AController* Killer)
 	// Toss is out
 	TossObject(LastHoldingPawn);
 
-	if (bGradualAutoReturn && (PastPositions.Num() > 0) && (Holder == nullptr))
+	if (bGradualAutoReturn && (Holder == nullptr))
 	{
-		if ((GetActorLocation() - PastPositions[PastPositions.Num() - 1].Location).Size() < MinGradualReturnDist)
+		if ((PastPositions.Num() > 0) && ((GetActorLocation() - PastPositions[PastPositions.Num() - 1].Location).Size() < MinGradualReturnDist))
 		{
 			PastPositions.RemoveAt(PastPositions.Num() - 1);
 		}
-		if (PastPositions.Num() > 0)// fimxesteve why?
+		if (PastPositions.Num() > 0)
 		{
 			PutGhostFlagAt(PastPositions[PastPositions.Num() - 1]);
+		}
+		else if (HomeBase)
+		{
+			FFlagTrailPos BasePosition;
+			BasePosition.Location = GetHomeLocation();
+			PutGhostFlagAt(BasePosition);
 		}
 	}
 }
