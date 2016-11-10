@@ -290,6 +290,7 @@ void AUTJumpPad::AddSpecialPaths(class UUTPathNode* MyNode, class AUTRecastNavMe
 			const FCollisionShape ScoutShape = FCollisionShape::MakeCapsule(NavData->ScoutClass.GetDefaultObject()->GetCapsuleComponent()->GetUnscaledCapsuleRadius(), NavData->ScoutClass.GetDefaultObject()->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight());
 			const FVector JumpVel = CalculateJumpVelocity(this);
 			const float XYSpeed = FMath::Max<float>(JumpVel.Size2D(), NavData->ScoutClass.GetDefaultObject()->GetCharacterMovement()->MaxWalkSpeed); // TODO: clamp contribution of MaxWalkSpeed based on size of jump / time available to apply air control?
+			const bool bHighHorizontalSpeed = XYSpeed > NavData->ScoutClass.GetDefaultObject()->GetCharacterMovement()->MaxWalkSpeed;
 			const float JumpZ = JumpVel.Z;
 			// if the jump pad primarily executes a "super-jump" (velocity almost entirely on Z axis, allows full air control) then a normal character jump test will give us good results
 			const bool bIsZOnlyJump = JumpTarget.Size2D() < 0.1f * JumpTarget.Size();
@@ -304,42 +305,46 @@ void AUTJumpPad::AddSpecialPaths(class UUTPathNode* MyNode, class AUTRecastNavMe
 					for (NavNodeRef TargetPoly : TargetNode->Polys)
 					{
 						FVector TargetLoc = NavData->GetPolyCenter(TargetPoly) + HeightAdjust;
-						const float Dist = (TargetLoc - MyLoc).Size();
-						bool bPossible = bIsZOnlyJump;
-						if (!bPossible)
+						// ignore points where walking would definitely be faster
+						if (bHighHorizontalSpeed || GetWorld()->LineTraceTestByChannel(MyLoc, TargetLoc, ECC_Pawn, FCollisionQueryParams(NAME_None, false, this), WorldResponseParams))
 						{
-							// time we have to air control
-							float AirControlTime = (JumpTime - EffectiveRestrictedTime) * (Dist / JumpTargetDist);
-							// extra distance acquirable via air control
-							float AirControlDist2D = FMath::Min<float>(XYSpeed * AirControlTime, 0.5f * AirAccelRate * FMath::Square<float>(AirControlTime));
-							// apply air control dist towards target, but remove any in jump direction as the jump pad generally exceeds the character's normal max speed (so air control in that dir would have no effect)
-							FVector AirControlAdjustment = (TargetLoc - JumpTargetWorld).GetSafeNormal2D() * AirControlDist2D;
-							FVector TowardsJumpDir = JumpDir2D * (JumpDir2D | AirControlAdjustment);
-							AirControlAdjustment -= TowardsJumpDir.GetSafeNormal() * FMath::Max<float>(0.0f, TowardsJumpDir.Size() - (XYSpeed - JumpVel.Size2D())); // allow some if jump 2D speed is less than default air speed
-							bPossible = (TargetLoc - JumpTargetWorld).Size() < AirControlAdjustment.Size();
-						}
-						if (bPossible && NavData->JumpTraceTest(MyLoc, TargetLoc, MyPoly, TargetPoly, ScoutShape, XYSpeed, GravityZ, JumpZ, JumpZ, NULL, NULL))
-						{
-							// TODO: account for MaxFallSpeed
-							bool bFound = false;
-							for (FUTPathLink& ExistingLink : MyNode->Paths)
+							const float Dist = (TargetLoc - MyLoc).Size();
+							bool bPossible = bIsZOnlyJump;
+							if (!bPossible)
 							{
-								if (ExistingLink.End == TargetNode && ExistingLink.StartEdgePoly == MyPoly)
-								{
-									ExistingLink.AdditionalEndPolys.Add(TargetPoly);
-									bFound = true;
-									break;
-								}
+								// time we have to air control
+								float AirControlTime = (JumpTime - EffectiveRestrictedTime) * (Dist / JumpTargetDist);
+								// extra distance acquirable via air control
+								float AirControlDist2D = FMath::Min<float>(XYSpeed * AirControlTime, 0.5f * AirAccelRate * FMath::Square<float>(AirControlTime));
+								// apply air control dist towards target, but remove any in jump direction as the jump pad generally exceeds the character's normal max speed (so air control in that dir would have no effect)
+								FVector AirControlAdjustment = (TargetLoc - JumpTargetWorld).GetSafeNormal2D() * AirControlDist2D;
+								FVector TowardsJumpDir = JumpDir2D * (JumpDir2D | AirControlAdjustment);
+								AirControlAdjustment -= TowardsJumpDir.GetSafeNormal() * FMath::Max<float>(0.0f, TowardsJumpDir.Size() - (XYSpeed - JumpVel.Size2D())); // allow some if jump 2D speed is less than default air speed
+								bPossible = (TargetLoc - JumpTargetWorld).Size() < AirControlAdjustment.Size();
 							}
-
-							if (!bFound)
+							if (bPossible && NavData->JumpTraceTest(MyLoc, TargetLoc, MyPoly, TargetPoly, ScoutShape, XYSpeed, GravityZ, JumpZ, JumpZ, NULL, NULL))
 							{
-								UUTReachSpec_JumpPad* JumpSpec = NewObject<UUTReachSpec_JumpPad>(MyNode);
-								JumpSpec->JumpPad = this;
-								FUTPathLink* NewLink = new(MyNode->Paths) FUTPathLink(MyNode, MyPoly, TargetNode, TargetPoly, JumpSpec, HumanSize.Radius, HumanSize.Height, ReachFlags);
-								for (NavNodeRef SrcPoly : MyNode->Polys)
+								// TODO: account for MaxFallSpeed
+								bool bFound = false;
+								for (FUTPathLink& ExistingLink : MyNode->Paths)
 								{
-									NewLink->Distances.Add(NavData->CalcPolyDistance(SrcPoly, MyPoly) + FMath::TruncToInt(1000.0f * JumpTime)); // TODO: maybe Z adjust cost if this target is higher/lower and the jump will end slightly faster/slower?
+									if (ExistingLink.End == TargetNode && ExistingLink.StartEdgePoly == MyPoly)
+									{
+										ExistingLink.AdditionalEndPolys.Add(TargetPoly);
+										bFound = true;
+										break;
+									}
+								}
+
+								if (!bFound)
+								{
+									UUTReachSpec_JumpPad* JumpSpec = NewObject<UUTReachSpec_JumpPad>(MyNode);
+									JumpSpec->JumpPad = this;
+									FUTPathLink* NewLink = new(MyNode->Paths) FUTPathLink(MyNode, MyPoly, TargetNode, TargetPoly, JumpSpec, HumanSize.Radius, HumanSize.Height, ReachFlags);
+									for (NavNodeRef SrcPoly : MyNode->Polys)
+									{
+										NewLink->Distances.Add(NavData->CalcPolyDistance(SrcPoly, MyPoly) + FMath::TruncToInt(1000.0f * JumpTime)); // TODO: maybe Z adjust cost if this target is higher/lower and the jump will end slightly faster/slower?
+									}
 								}
 							}
 						}
