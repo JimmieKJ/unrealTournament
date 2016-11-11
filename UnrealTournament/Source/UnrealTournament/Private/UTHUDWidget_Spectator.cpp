@@ -284,7 +284,7 @@ FText UUTHUDWidget_Spectator::GetSpectatorMessageText(FText& ShortMessage)
 					}
 					else
 					{
-						SpectatorMessage = (UTGameState->ForceRespawnTime > 0.3f) ? NSLOCTEXT("UUTHUDWidget_Spectator", "RespawnMessage", "Press [FIRE] to respawn...") : FText::GetEmpty();
+						SpectatorMessage = ((UTGameState->ForceRespawnTime > 0.3f) || (UTHUDOwner->UTPlayerOwner && UTHUDOwner->UTPlayerOwner->bPlayerIsWaiting)) ? NSLOCTEXT("UUTHUDWidget_Spectator", "RespawnMessage", "Press [FIRE] to respawn...") : FText::GetEmpty();
 					}
 				}
 			}
