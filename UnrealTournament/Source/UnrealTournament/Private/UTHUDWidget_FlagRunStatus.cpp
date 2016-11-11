@@ -167,22 +167,7 @@ void UUTHUDWidget_FlagRunStatus::DrawFlagWorld(AUTCTFGameState* GameState, FVect
 		float X, Y;
 		float Scale = Canvas->ClipX / 1920.f;
 		Canvas->TextSize(TinyFont, FString("+999   A999"), X, Y, Scale, Scale);
-		if (!bDrawEdgeArrow)
-		{
-			float MinDistSq = FMath::Square(0.06f*GetCanvas()->ClipX);
-			float ActualDistSq = FMath::Square(DrawScreenPosition.X - 0.5f*GetCanvas()->ClipX) + FMath::Square(DrawScreenPosition.Y - 0.5f*GetCanvas()->ClipY);
-			if (ActualDistSq > MinDistSq)
-			{
-				if (!Holder || (ViewDist < Holder->TeamPlayerIndicatorMaxDistance))
-				{
-					DrawScreenPosition.Y -= 3.5f*Y;
-				}
-				else
-				{
-					DrawScreenPosition.Y -= (ViewDist < Holder->SpectatorIndicatorMaxDistance) ? 2.5f*Y : 1.5f*Y;
-				}
-			}
-		}
+
 		DrawScreenPosition.X -= RenderPosition.X;
 		DrawScreenPosition.Y -= RenderPosition.Y;
 

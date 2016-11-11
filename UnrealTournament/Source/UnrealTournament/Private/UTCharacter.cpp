@@ -258,9 +258,9 @@ void AUTCharacter::BeginPlay()
 		Health = HealthMax;
 	}
 	CharacterCameraComponent->SetRelativeLocation(FVector(0.f, 0.f, DefaultBaseEyeHeight), false);
-	if (CharacterCameraComponent->RelativeLocation.Size2D() > 0.0f)
+	if (CharacterCameraComponent->RelativeLocation.SizeSquared2D() > 0.0f)
 	{
-		UE_LOG(UT, Warning, TEXT("%s: CameraComponent shouldn't have X/Y translation!"), *GetName());
+		UE_LOG(UT, Warning, TEXT("%s: CameraComponent shouldn't have X/Y translation! %f %f "), *GetName(), CharacterCameraComponent->RelativeLocation.X, CharacterCameraComponent->RelativeLocation.Y);
 	}
 	// adjust MaxSavedPositionAge for bot tracking purposes
 	for (FConstControllerIterator It = GetWorld()->GetControllerIterator(); It; ++It)
