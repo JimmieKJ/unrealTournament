@@ -979,10 +979,10 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 				if (GetNetMode() != NM_Standalone)
 				{
 					// intentionally always apply to root because that replicates better, and damp to prevent excessive team boost
-					// @TODO FIXMESTEVE - want to always apply to correct bone, and damp scaled based on mesh GetMass().
+					// @TODO FIXMESTEVE - want to always apply to correct bone
 					AUTGameState* GS = EventInstigator ? Cast<AUTGameState>(GetWorld()->GetGameState()) : NULL;
 					float PushScaling = (GS && GS->OnSameTeam(this, EventInstigator)) ? 0.5f : 1.f;
-					GetMesh()->AddImpulseAtLocation(PushScaling*ResultMomentum, GetMesh()->GetComponentLocation());
+					GetMesh()->AddImpulseAtLocation(PushScaling*ResultMomentum*GetMesh()->GetMass() *0.01f, GetMesh()->GetComponentLocation());
 				}
 				else
 				{
@@ -999,15 +999,19 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 							HitLocation = RadialEvent.ComponentHits[0].Location;
 						}
 					}
-					GetMesh()->AddImpulseAtLocation(ResultMomentum, HitLocation);
+					GetMesh()->AddImpulseAtLocation(ResultMomentum*GetMesh()->GetMass() *0.01f, HitLocation);
 				}
 			}
 			else if (UTCharacterMovement != NULL)
 			{
 				if ((UTCharacterMovement->bIsFloorSliding) && !ResultMomentum.IsZero()) //xxx
 				{
-					UTCharacterMovement->Velocity.X *= 0.5f;
-					UTCharacterMovement->Velocity.Y *= 0.5f;
+					AUTGameState* GS = EventInstigator ? Cast<AUTGameState>(GetWorld()->GetGameState()) : NULL;
+					if (GS && !GS->OnSameTeam(this, EventInstigator))
+					{
+						UTCharacterMovement->Velocity.X *= 0.5f;
+						UTCharacterMovement->Velocity.Y *= 0.5f;
+					}
 				}
 				UTCharacterMovement->AddDampedImpulse(ResultMomentum, bIsSelfDamage);
 				if (UTDamageTypeCDO != NULL && UTDamageTypeCDO->WalkMovementReductionDuration > 0.0f)
@@ -1053,7 +1057,7 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 			}
 			if (IsRagdoll())
 			{
-				GetMesh()->AddImpulseAtLocation(ResultMomentum, HitLocation);
+				GetMesh()->AddImpulseAtLocation(ResultMomentum*GetMesh()->GetMass() *0.01f, HitLocation);
 			}
 			if ((GetNetMode() != NM_DedicatedServer) && !IsPendingKillPending())
 			{
@@ -2120,7 +2124,7 @@ void AUTCharacter::ServerFeignDeath_Implementation()
 						// nudge body in random direction
 						FVector FeignNudge = FeignNudgeMag * FVector(FMath::FRand(), FMath::FRand(), 0.f).GetSafeNormal();
 						FeignNudge.Z = 0.4f*FeignNudgeMag;
-						GetMesh()->AddImpulseAtLocation(FeignNudge, GetMesh()->GetComponentLocation());
+						GetMesh()->AddImpulseAtLocation(FeignNudge*GetMesh()->GetMass() *0.01f, GetMesh()->GetComponentLocation());
 					}
 				}
 			}
