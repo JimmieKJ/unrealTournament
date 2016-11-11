@@ -27,8 +27,8 @@ AUTProj_FlakShard::AUTProj_FlakShard(const class FObjectInitializer& ObjectIniti
 	HotTrailColor = FLinearColor(2.0f, 1.65f, 0.65f, 1.0f);
 	ColdTrailColor = FLinearColor(0.165f, 0.135f, 0.097f, 0.0f);
 
-	ProjectileMovement->InitialSpeed = 5500.0f;
-	ProjectileMovement->MaxSpeed = 7000.0f;
+	ProjectileMovement->InitialSpeed = 6500.0f;
+	ProjectileMovement->MaxSpeed = 8000.0f;
 	ProjectileMovement->ProjectileGravityScale = 0.f;
 	ProjectileMovement->bShouldBounce = true;
 	ProjectileMovement->BounceVelocityStopSimulatingThreshold = 0.0f;
@@ -144,6 +144,7 @@ void AUTProj_FlakShard::OnBounce(const struct FHitResult& ImpactResult, const FV
 		ProcessHit(ImpactResult.Actor.Get(), ImpactResult.Component.Get(), ImpactResult.ImpactPoint, ImpactResult.ImpactNormal);
 		return;
 	}
+	InitialVisualOffset = FinalVisualOffset;
 	bGrowOverlap = false;
 	RemoveSatelliteShards();
 	if (GetWorld()->GetTimeSeconds() - CreationTime > 2.f * FullGravityDelay)
@@ -167,10 +168,13 @@ void AUTProj_FlakShard::OnBounce(const struct FHitResult& ImpactResult, const FV
 
 	// Set gravity on bounce
 	ProjectileMovement->ProjectileGravityScale = 1.f;
+	
+	// No longer impart momentum after bounce
+	Momentum = 0.f;
 
 	// Limit number of bounces
 	BouncesRemaining--;
-	if (BouncesRemaining == 0)
+	if (BouncesRemaining <= 0)
 	{
 		ProjectileMovement->bShouldBounce = false;
 	}
@@ -263,6 +267,7 @@ void AUTProj_FlakShard::Tick(float DeltaTime)
 	if (InitialLifeSpan - GetLifeSpan() > FullGravityDelay)
 	{
 		ProjectileMovement->ProjectileGravityScale = 1.f;
+		Momentum = 0.f;
 		RemoveSatelliteShards();
 	}
 

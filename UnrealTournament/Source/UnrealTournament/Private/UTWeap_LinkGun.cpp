@@ -37,7 +37,7 @@ AUTWeap_LinkGun::AUTWeap_LinkGun(const FObjectInitializer& OI)
 	BeamPulseInterval = 0.4f;
 	BeamPulseMomentum = -220000.0f;
 	BeamPulseAmmoCost = 4;
-	PullWarmupTime = 0.25f;
+	PullWarmupTime = 0.15f;
 	LinkPullDamage = 0;
 	ReadyToPullColor = FLinearColor::White;
 
