@@ -25,6 +25,9 @@ public:
 	UAnimMontage* TauntMontage;
 
 	UPROPERTY(EditDefaultsOnly)
+	USoundBase* BGMusic;
+
+	UPROPERTY(EditDefaultsOnly)
 	bool bCascading;
 
 	UPROPERTY(EditDefaultsOnly, AssetRegistrySearchable, Meta = (DisplayName = "Requires Online Item"))

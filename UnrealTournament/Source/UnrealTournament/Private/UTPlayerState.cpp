@@ -3510,6 +3510,11 @@ void AUTPlayerState::OnRep_ActiveGroupTaunt()
 				}
 			}
 		}
+
+		if (ActiveGroupTaunt->GetDefaultObject<AUTGroupTaunt>()->BGMusic != nullptr)
+		{
+			UGameplayStatics::PlaySound2D(GetWorld(), ActiveGroupTaunt->GetDefaultObject<AUTGroupTaunt>()->BGMusic);
+		}
 	}
 }
 
