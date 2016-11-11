@@ -69,6 +69,18 @@ void FCorsairRGB::Tick(float DeltaTime)
 		return;
 	}
 
+	UUTGameUserSettings* UserSettings = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
+	if (UserSettings && !UserSettings->IsKeyboardLightingEnabled())
+	{
+		if (bCorsairSDKEnabled)
+		{
+			CorsairReleaseControl(CAM_ExclusiveLightingControl);
+			bCorsairSDKEnabled = false;
+		}
+
+		return;
+	}
+
 	// Avoid double ticking
 	if (LastFrameCounter > 0 && LastFrameCounter == GFrameCounter)
 	{

@@ -777,8 +777,8 @@ TSharedRef<SWidget> SUTSystemSettingsDialog::BuildGeneralTab()
 			[
 				SNew(STextBlock)
 				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-				.Text(NSLOCTEXT("SUTSystemSettingsDialog", "KeyboardLighting", "Enable Keyboard Lighting (Razer Chroma)"))
-				.ToolTip(SUTUtils::CreateTooltip(NSLOCTEXT("SUTSystemSettingsDialog", "KeyboardLighting_Tooltip", "Keyboard lighting only supported on Razer Chroma at the moment.")))
+				.Text(NSLOCTEXT("SUTSystemSettingsDialog", "KeyboardLighting", "Enable Keyboard Lighting"))
+				.ToolTip(SUTUtils::CreateTooltip(NSLOCTEXT("SUTSystemSettingsDialog", "KeyboardLighting_Tooltip", "Keyboard lighting only supported on Razer Chroma and Corsair RGB at the moment.")))
 			]
 		]
 		+ SHorizontalBox::Slot()
