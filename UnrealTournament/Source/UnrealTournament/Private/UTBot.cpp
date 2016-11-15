@@ -991,7 +991,34 @@ void AUTBot::UpdateTrackingError(bool bNewEnemy)
 		TrackingPredictionError = MaxTrackingPredictionError * (2.f * FMath::FRand() - 1.f);
 		if (bNewEnemy)
 		{
-			AdjustedMaxTrackingOffsetError = MaxTrackingOffsetError;
+			// reduce target switch error if enemy was detected prior to target switch
+			float KnownEnemyReduction = 0.0f;
+			if (Enemy != NULL)
+			{
+				// TODO: would really like "time enemy has been constantly visible" here, so enemies that stay in bot's view are easier to switch to
+				if (IsEnemyVisible(Enemy))
+				{
+					KnownEnemyReduction += 0.01f;
+					if (UTLineOfSightTo(Enemy, FVector::ZeroVector, false, Enemy->GetTargetLocation(GetPawn()) + Enemy->GetVelocity()))
+					{
+						KnownEnemyReduction += 0.02f;
+						if (UTLineOfSightTo(Enemy, FVector::ZeroVector, false, Enemy->GetTargetLocation(GetPawn()) + Enemy->GetVelocity() * 3.0f))
+						{
+							KnownEnemyReduction += 0.03f;
+						}
+					}
+				}
+				else
+				{
+					const FBotEnemyInfo* Info = GetEnemyInfo(Enemy, true);
+					if (GetWorld()->TimeSeconds - Info->LastFullUpdateTime < 0.25f && Info->LastFullUpdateTime > GetEnemyInfo(Enemy, false)->LastFullUpdateTime)
+					{
+						// teammates told me enemy was here
+						KnownEnemyReduction += 0.02f;
+					}
+				}
+			}
+			AdjustedMaxTrackingOffsetError = MaxTrackingOffsetError * (1.0f - KnownEnemyReduction * (Skill + Personality.Alertness * 2.0f));
 		}
 		bool bStoppedEnemy = (Enemy == NULL || (TrackedVelocity.IsNearlyZero() && GetEnemyInfo(Enemy, true)->CanUseExactLocation(GetWorld()->TimeSeconds)));
 		bool bAmStopped = (GetPawn() != NULL && GetPawn()->GetVelocity().IsNearlyZero());
@@ -4645,18 +4672,17 @@ bool AUTBot::UTLineOfSightTo(const AActor* Other, FVector ViewPoint, bool bAlter
 		CollisionParams.AddIgnoredActor(Other);
 
 		bool bHit = GetWorld()->LineTraceTestByChannel(ViewPoint, TargetLocation, ECC_Visibility, CollisionParams);
-		if (bOtherIsRagdoll)
+		if (bOtherIsRagdoll && bHit)
 		{
 			// actor location will be near/in the ground for ragdolls, push up
 			TargetLocation.Z += Other->GetSimpleCollisionHalfHeight();
 			bHit = GetWorld()->LineTraceTestByChannel(ViewPoint, TargetLocation, ECC_Visibility, CollisionParams);
 		}
-		// TODO: suddenly we switch back to GetActorLocation() instead of TargetLocation? Seems incorrect...
 		if (Other == Enemy)
 		{
 			if (bHit)
 			{
-				bHit = GetWorld()->LineTraceTestByChannel(ViewPoint, Enemy->GetActorLocation() + FVector(0.0f, 0.0f, Enemy->BaseEyeHeight + (bOtherIsRagdoll ? Enemy->GetSimpleCollisionHalfHeight() : 0.0f)), ECC_Visibility, CollisionParams);
+				bHit = GetWorld()->LineTraceTestByChannel(ViewPoint, TargetLocation + FVector(0.0f, 0.0f, Enemy->BaseEyeHeight + (bOtherIsRagdoll ? Enemy->GetSimpleCollisionHalfHeight() : 0.0f)), ECC_Visibility, CollisionParams);
 			}
 			if (!bHit)
 			{
@@ -4706,7 +4732,7 @@ bool AUTBot::UTLineOfSightTo(const AActor* Other, FVector ViewPoint, bool bAlter
 
 		//try checking sides - look at dist to four side points, and cull furthest and closest
 		FVector Points[4];
-		const FVector OtherLoc = Other->GetActorLocation();
+		const FVector OtherLoc = TargetLocation;
 		const float OtherRadius = Other->GetSimpleCollisionRadius();
 		Points[0] = OtherLoc - FVector(OtherRadius, -1 * OtherRadius, 0);
 		Points[1] = OtherLoc + FVector(OtherRadius, OtherRadius, 0);
