@@ -847,7 +847,7 @@ bool AUTWeap_RocketLauncher::CanAttack_Implementation(AActor* Target, const FVec
 		if (!bPreferCurrentMode && B != NULL)
 		{
 			// prefer single rocket for visible enemy unless enemy is much stronger and want to try bursting
-			BestFireMode = (FMath::FRand() < 0.3f || B->GetTarget() != B->GetEnemy() || (!B->IsStopped() && B->RelativeStrength(B->GetEnemy()) <= 0.5f)) ? 0 : 1;
+			BestFireMode = (FMath::FRand() < 0.3f || B->GetTarget() != B->GetEnemy() || (B->IsStopped() && Target == B->GetEnemy() && B->IsEnemyVisible(B->GetEnemy())) || B->RelativeStrength(B->GetEnemy()) <= 0.0f) ? 0 : 1;
 		}
 		return true;
 	}
