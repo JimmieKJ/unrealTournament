@@ -15,7 +15,7 @@ UUTDeathMessage::UUTDeathMessage(const class FObjectInitializer& ObjectInitializ
 {
 	MessageArea = FName(TEXT("ConsoleMessage"));
 	Lifetime = 3.5f;
-	FontSizeIndex = 0;
+	FontSizeIndex = -1;
 }
 
 FLinearColor UUTDeathMessage::GetMessageColor_Implementation(int32 MessageIndex) const
@@ -34,15 +34,18 @@ void UUTDeathMessage::ClientReceive(const FClientReceiveData& ClientData) const
 	AUTHUD* UTHUD = Cast<AUTHUD>(ClientData.LocalPC->MyHUD);
 	if (UTHUD != nullptr && LocalPlayerState != nullptr)
 	{
-		//Add msg to the UUTHUDWidgetMessage_KillIconMessages
-		UTHUD->ReceiveLocalMessage(
-			UUTKillIconMessage::StaticClass(),
-			ClientData.RelatedPlayerState_1,
-			ClientData.RelatedPlayerState_2,
-			ClientData.MessageIndex,
-			FText::FromString(TEXT("Hax")), //need some text to route the msg
-			ClientData.OptionalObject);
-
+		// Index 2 is kill assist, don't show in kill feed
+		if (ClientData.MessageIndex != 2)
+		{
+			//Add msg to the UUTHUDWidgetMessage_KillIconMessages
+			UTHUD->ReceiveLocalMessage(
+				UUTKillIconMessage::StaticClass(),
+				ClientData.RelatedPlayerState_1,
+				ClientData.RelatedPlayerState_2,
+				ClientData.MessageIndex,
+				FText::FromString(TEXT("Hax")), //need some text to route the msg
+				ClientData.OptionalObject);
+		}
 		//Draw the big white kill text if the player wants
 		if (UTHUD->GetDrawCenteredKillMsg())
 		{
@@ -120,17 +123,21 @@ void UUTDeathMessage::ClientReceive(const FClientReceiveData& ClientData) const
 		UTHUD->NotifyKill(LocalPlayerState, ClientData.RelatedPlayerState_1, ClientData.RelatedPlayerState_2);
 	}
 
-	// add the message to the console's output history
-	ULocalPlayer* LP = Cast<ULocalPlayer>(ClientData.LocalPC->Player);
-	if (LP != NULL && LP->ViewportClient != NULL && LP->ViewportClient->ViewportConsole != NULL)
+	// Index 2 is kill assist, don't show in kill feed
+	if (ClientData.MessageIndex != 2)
 	{
-		LP->ViewportClient->ViewportConsole->OutputText(ResolveMessage(ClientData.MessageIndex, (ClientData.RelatedPlayerState_1 == ClientData.LocalPC->PlayerState), ClientData.RelatedPlayerState_1, ClientData.RelatedPlayerState_2, ClientData.OptionalObject).ToString());
-	}
+		// add the message to the console's output history
+		ULocalPlayer* LP = Cast<ULocalPlayer>(ClientData.LocalPC->Player);
+		if (LP != NULL && LP->ViewportClient != NULL && LP->ViewportClient->ViewportConsole != NULL)
+		{
+			LP->ViewportClient->ViewportConsole->OutputText(ResolveMessage(ClientData.MessageIndex, (ClientData.RelatedPlayerState_1 == ClientData.LocalPC->PlayerState), ClientData.RelatedPlayerState_1, ClientData.RelatedPlayerState_2, ClientData.OptionalObject).ToString());
+		}
 
-	// Also receive the console message side of this if the user wants.
-	if (UTHUD && UTHUD->GetDrawChatKillMsg())
-	{
-		Super::ClientReceive(ClientData);
+		// Also receive the console message side of this if the user wants.
+		if (UTHUD && UTHUD->GetDrawChatKillMsg())
+		{
+			Super::ClientReceive(ClientData);
+		}
 	}
 }
 

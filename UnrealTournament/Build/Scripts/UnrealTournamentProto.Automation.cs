@@ -249,165 +249,6 @@ namespace UnrealTournamentGame.Automation
 		}
 	}
 
-
-	[RequireP4]
-	class UnrealTournamentProto_ChunkBuild : BuildCommand
-	{
-		public override void ExecuteBuild()
-		{
-			Log("************************* UnrealTournamentProto_ChunkBuild");
-
-			string BranchName = "";
-			if (CommandUtils.P4Enabled)
-			{
-				BranchName = CommandUtils.P4Env.BuildRootP4;
-			}
-
-			if (ParseParam("mac"))
-			{
-				{
-					// verify the files we need exist first
-					string RawImagePathMac = CombinePaths(UnrealTournamentBuild.GetArchiveDir(), "MacNoEditor");
-					string RawImageManifestMac = CombinePaths(RawImagePathMac, "Manifest_NonUFSFiles_Mac.txt");
-
-					if (!FileExists(RawImageManifestMac))
-					{
-						throw new AutomationException("BUILD FAILED: build is missing or did not complete because this file is missing: {0}", RawImageManifestMac);
-					}
-
-					BuildPatchToolStagingInfo StagingInfo = UnrealTournamentBuild.GetUTBuildPatchToolStagingInfo(this, UnrealTargetPlatform.Mac, BranchName);
-
-					// run the patch tool
-					BuildPatchToolBase.Get().Execute(
-					new BuildPatchToolBase.PatchGenerationOptions
-					{
-						StagingInfo = StagingInfo,
-						BuildRoot = RawImagePathMac,
-						AppLaunchCmd = "./Engine/Binaries/Mac/UE4-Mac-Shipping.app",
-						AppLaunchCmdArgs = "UnrealTournament -opengl",
-						AppChunkType = BuildPatchToolBase.ChunkType.Chunk,
-					});
-
-					// post the Mac build to build info service on gamedev
-					string McpConfigName = "MainGameDevNet";
-					CommandUtils.Log("Posting Unreal Tournament for Mac to MCP.");
-					BuildInfoPublisherBase.Get().PostBuildInfo(StagingInfo);
-					CommandUtils.Log("Labeling new build as Live in MCP.");
-					string LabelName = BuildInfoPublisherBase.Get().GetLabelWithPlatform("Live", MCPPlatform.Mac);
-					BuildInfoPublisherBase.Get().LabelBuild(StagingInfo, LabelName, McpConfigName);
-
-					// Go ahead and post to Testing app in Launcher as well
-					UnrealTournamentBuild.UnrealTournamentAppName TestingApp = UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentDevTesting;
-					if (BranchName.Contains("Release"))
-					{
-						TestingApp = UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentReleaseTesting;
-					}
-					CommandUtils.Log("Also posting to app {0} based on branch {1} to automatically make a build available in gamedev launcher", TestingApp, BranchName);
-					// Reuse the same staginginfo but to the old app (need to hardcode the manifest to match it being created with the new app)
-					BuildPatchToolStagingInfo TestingAppStagingInfo = UnrealTournamentBuild.GetUTBuildPatchToolStagingInfo(this, StagingInfo.BuildVersion, StagingInfo.Platform, TestingApp, StagingInfo.ManifestFilename);
-					BuildInfoPublisherBase.Get().PostBuildInfo(TestingAppStagingInfo);
-					BuildInfoPublisherBase.Get().LabelBuild(TestingAppStagingInfo, LabelName, McpConfigName);
-				}
-			}
-			else
-			{
-				// GAME BUILD
-				{
-					// verify the files we need exist first
-					string RawImagePath = CombinePaths(UnrealTournamentBuild.GetArchiveDir(), "WindowsNoEditor");
-					string RawImageManifest = CombinePaths(RawImagePath, "Manifest_NonUFSFiles_Win64.txt");
-
-					if (!FileExists(RawImageManifest))
-					{
-						throw new AutomationException("BUILD FAILED: build is missing or did not complete because this file is missing: {0}", RawImageManifest);
-					}
-
-					BuildPatchToolStagingInfo StagingInfo = UnrealTournamentBuild.GetUTBuildPatchToolStagingInfo(this, UnrealTargetPlatform.Win64, BranchName);
-
-					// run the patch tool
-					BuildPatchToolBase.Get().Execute(
-					new BuildPatchToolBase.PatchGenerationOptions
-					{
-						StagingInfo = StagingInfo,
-						BuildRoot = RawImagePath,
-						FileIgnoreList = CommandUtils.CombinePaths(RawImagePath, "Manifest_DebugFiles_Win64.txt"),
-						AppLaunchCmd = @".\Engine\Binaries\Win64\UE4-Win64-Shipping.exe",
-						AppLaunchCmdArgs = "UnrealTournament",
-						AppChunkType = BuildPatchToolBase.ChunkType.Chunk,
-					});
-
-					// post the Windows build to build info service on gamedev
-					string McpConfigName = "MainGameDevNet";
-					CommandUtils.Log("Posting UnrealTournament for Windows to MCP.");
-					BuildInfoPublisherBase.Get().PostBuildInfo(StagingInfo);
-					CommandUtils.Log("Labeling new build as Live in MCP.");
-					string LabelName = BuildInfoPublisherBase.Get().GetLabelWithPlatform("Live", MCPPlatform.Windows);
-					BuildInfoPublisherBase.Get().LabelBuild(StagingInfo, LabelName, McpConfigName);
-
-					// Go ahead and post to Testing app in Launcher as well
-					UnrealTournamentBuild.UnrealTournamentAppName TestingApp = UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentDevTesting;
-					if (BranchName.Contains("Release"))
-					{
-						TestingApp = UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentReleaseTesting;
-					}
-					CommandUtils.Log("Also posting to app {0} based on branch {1} to automatically make a build available in gamedev launcher", TestingApp, BranchName);
-					// Reuse the same staginginfo but to the old app (need to hardcode the manifest to match it being created with the new app)
-					BuildPatchToolStagingInfo TestingAppStagingInfo = UnrealTournamentBuild.GetUTBuildPatchToolStagingInfo(this, StagingInfo.BuildVersion, StagingInfo.Platform, TestingApp, StagingInfo.ManifestFilename);
-					BuildInfoPublisherBase.Get().PostBuildInfo(TestingAppStagingInfo);
-					BuildInfoPublisherBase.Get().LabelBuild(TestingAppStagingInfo, LabelName, McpConfigName);
-				}
-
-				// Win32 GAME BUILD
-				{
-					// verify the files we need exist first
-					string RawImagePath = CombinePaths(UnrealTournamentBuild.GetArchiveDir(), "WindowsNoEditor");
-					string RawImageManifest = CombinePaths(RawImagePath, "Manifest_NonUFSFiles_Win32.txt");
-
-					if (!FileExists(RawImageManifest))
-					{
-						throw new AutomationException("BUILD FAILED: build is missing or did not complete because this file is missing: {0}", RawImageManifest);
-					}
-
-					BuildPatchToolStagingInfo StagingInfo = UnrealTournamentBuild.GetUTBuildPatchToolStagingInfo(this, UnrealTargetPlatform.Win32, BranchName);
-
-					// run the patch tool
-					BuildPatchToolBase.Get().Execute(
-					new BuildPatchToolBase.PatchGenerationOptions
-					{
-						StagingInfo = StagingInfo,
-						BuildRoot = RawImagePath,
-						FileIgnoreList = CommandUtils.CombinePaths(RawImagePath, "Manifest_DebugFiles_Win32.txt"),
-						AppLaunchCmd = @".\Engine\Binaries\Win32\UE4-Win32-Shipping.exe",
-						AppLaunchCmdArgs = "UnrealTournament",
-						AppChunkType = BuildPatchToolBase.ChunkType.Chunk,
-					});
-
-					// post the Windows build to build info service on gamedev
-					string McpConfigName = "MainGameDevNet";
-					CommandUtils.Log("Posting UnrealTournament for Windows to MCP.");
-					BuildInfoPublisherBase.Get().PostBuildInfo(StagingInfo);
-					CommandUtils.Log("Labeling new build as Live in MCP.");
-					string LabelName = BuildInfoPublisherBase.Get().GetLabelWithPlatform("Live", MCPPlatform.Win32);
-					BuildInfoPublisherBase.Get().LabelBuild(StagingInfo, LabelName, McpConfigName);
-
-					// Go ahead and post to Testing app in Launcher as well
-					UnrealTournamentBuild.UnrealTournamentAppName TestingApp = UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentDevTesting;
-					if (BranchName.Contains("Release"))
-					{
-						TestingApp = UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentReleaseTesting;
-					}
-					CommandUtils.Log("Also posting to app {0} based on branch {1} to automatically make a build available in gamedev launcher", TestingApp, BranchName);
-					// Reuse the same staginginfo but to the old app (need to hardcode the manifest to match it being created with the new app)
-					BuildPatchToolStagingInfo TestingAppStagingInfo = UnrealTournamentBuild.GetUTBuildPatchToolStagingInfo(this, StagingInfo.BuildVersion, StagingInfo.Platform, TestingApp, StagingInfo.ManifestFilename);
-					BuildInfoPublisherBase.Get().PostBuildInfo(TestingAppStagingInfo);
-					BuildInfoPublisherBase.Get().LabelBuild(TestingAppStagingInfo, LabelName, McpConfigName);
-				}
-			}
-
-			PrintRunTime();
-		}
-	}
-
 	[RequireP4]
 	class UnrealTournamentProto_BasicBuild : BuildCommand
 	{
@@ -574,8 +415,9 @@ namespace UnrealTournamentGame.Automation
 				// if we are running, we assume this is a local test and don't chunk
 				Run: Cmd.ParseParam("Run"),
                 TreatNonShippingBinariesAsDebugFiles: true,
-				StageDirectoryParam: (StageDirectory != null ? StageDirectory : UnrealTournamentBuild.GetArchiveDir())
-			);
+				StageDirectoryParam: (StageDirectory != null ? StageDirectory : UnrealTournamentBuild.GetArchiveDir()),
+                AppLocalDirectory: Cmd.ParseParamValue("AppLocalDirectory")
+            );
 			Params.ValidateAndLog();
 			return Params;
 		}
@@ -629,20 +471,27 @@ namespace UnrealTournamentGame.Automation
 				{
 					string ReleasePath = CombinePaths(CmdEnv.LocalRoot, "UnrealTournament", "Releases", Params.CreateReleaseVersion);
 
-					// add in the platforms we just made assetregistry files for.
-					List<string> Platforms = new List<string>();
-					if (Params.ClientTargetPlatforms.Contains(new TargetPlatformDescriptor(UnrealTargetPlatform.Win32)) || Params.ClientTargetPlatforms.Contains(new TargetPlatformDescriptor(UnrealTargetPlatform.Win64)))
-						Platforms.Add("WindowsNoEditor");
-					if (Params.ClientTargetPlatforms.Contains(new TargetPlatformDescriptor(UnrealTargetPlatform.Mac)))
-						Platforms.Add("MacNoEditor");
-					if (Params.ClientTargetPlatforms.Contains(new TargetPlatformDescriptor(UnrealTargetPlatform.Linux)))
-						Platforms.Add("LinuxNoEditor");
-					if (Params.ServerTargetPlatforms.Contains(new TargetPlatformDescriptor(UnrealTargetPlatform.Win32)) || Params.ServerTargetPlatforms.Contains(new TargetPlatformDescriptor(UnrealTargetPlatform.Win64)))
-						Platforms.Add("WindowsServer");
-					if (Params.ServerTargetPlatforms.Contains(new TargetPlatformDescriptor(UnrealTargetPlatform.Linux)))
-						Platforms.Add("LinuxServer");
+                    // add in the platforms we just made assetregistry files for.
+                    List<string> Platforms = new List<string>();
+                    if (Params.ClientConfigsToBuild.Count > 0)
+                    {
+                        if (Params.ClientTargetPlatforms.Contains(new TargetPlatformDescriptor(UnrealTargetPlatform.Win32)) || Params.ClientTargetPlatforms.Contains(new TargetPlatformDescriptor(UnrealTargetPlatform.Win64)))
+                            Platforms.Add("WindowsNoEditor");
+                        if (Params.ClientTargetPlatforms.Contains(new TargetPlatformDescriptor(UnrealTargetPlatform.Mac)))
+                            Platforms.Add("MacNoEditor");
+                        if (Params.ClientTargetPlatforms.Contains(new TargetPlatformDescriptor(UnrealTargetPlatform.Linux)))
+                            Platforms.Add("LinuxNoEditor");
+                    }
 
-					foreach (string Platform in Platforms)
+                    if (Params.ServerConfigsToBuild.Count > 0)
+                    {
+                        if (Params.ServerTargetPlatforms.Contains(new TargetPlatformDescriptor(UnrealTargetPlatform.Win32)) || Params.ServerTargetPlatforms.Contains(new TargetPlatformDescriptor(UnrealTargetPlatform.Win64)))
+                            Platforms.Add("WindowsServer");
+                        if (Params.ServerTargetPlatforms.Contains(new TargetPlatformDescriptor(UnrealTargetPlatform.Linux)))
+                            Platforms.Add("LinuxServer");
+                    }
+
+                    foreach (string Platform in Platforms)
 					{
 						string Filename = CombinePaths(ReleasePath, Platform, "AssetRegistry.bin");
 

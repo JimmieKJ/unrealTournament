@@ -195,6 +195,10 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
 		bool bCheckMovingHeadSphere;
 
+	/** Whether Hitscan hits should do extra check to ignore shockballs. (only works for traces, not sweeps) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
+		bool bIgnoreShockballs;
+
 	/** Custom Momentum scaling for friendly hitscanned pawns */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
 	float FriendlyMomentumScaling;
@@ -492,9 +496,13 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "WeaponBob")
 	float WeaponBobScaling;
 
-	/** Scaling for 1st person firing view kickback */
+	/**1st person firing view kickback in Z */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "WeaponBob")
 	float FiringViewKickback;
+
+	/**1st person firing view kickback to the side*/
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "WeaponBob")
+		float FiringViewKickbackY;
 
 	virtual void UpdateViewBob(float DeltaTime);
 
@@ -506,18 +514,11 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 #endif
 
 	virtual void BeginPlay() override;
-	virtual void RegisterAllComponents() override
-	{
-		// don't register in game by default for perf, we'll manually call Super from AttachToOwner()
-		if (GetWorld()->WorldType == EWorldType::Editor || GetWorld()->WorldType == EWorldType::Preview)
-		{
-			Super::RegisterAllComponents();
-		}
-		else
-		{
-			RootComponent = NULL; // this was set for the editor view, but we don't want it
-		}
-	}
+
+	UPROPERTY()
+	bool bAttachingToOwner;
+
+	virtual void RegisterAllComponents() override;
 
 	virtual UMeshComponent* GetPickupMeshTemplate_Implementation(FVector& OverrideScale) const override;
 
@@ -869,6 +870,8 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	/** read WeaponOverlayFlags from owner and apply the appropriate overlay material (if any) */
 	virtual void UpdateOverlays();
 
+	virtual void UpdateOutline();
+
 	/** set main skin override for the weapon, NULL to restore to default */
 	virtual void SetSkin(UMaterialInterface* NewSkin);
 
@@ -1020,6 +1023,9 @@ protected:
 	/** overlay mesh for overlay effects */
 	UPROPERTY()
 	USkeletalMeshComponent* OverlayMesh;
+	/** customdepth mesh for PP outline */
+	UPROPERTY()
+	USkeletalMeshComponent* CustomDepthMesh;
 
 public:
 	float WeaponBarScale;

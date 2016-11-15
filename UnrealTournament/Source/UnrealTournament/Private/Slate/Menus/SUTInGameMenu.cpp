@@ -16,6 +16,7 @@
 #include "../Dialogs/SUTInputBoxDialog.h"
 #include "../Dialogs/SUTMessageBoxDialog.h"
 #include "../Widgets/SUTScaleBox.h"
+#include "../Dialogs/SUTMessageBoxDialog.h"
 #include "UTGameEngine.h"
 #include "../Menus/SUTInGameMenu.h"
 #include "../Panels/SUTInGameHomePanel.h"
@@ -28,6 +29,7 @@
 #include "UTGameInstance.h"
 #include "UTParty.h"
 #include "UTGameMode.h"
+#include "SUTChatEditBox.h"
 
 #if !UE_SERVER
 
@@ -471,14 +473,14 @@ void SUTInGameMenu::ShowHomePanel()
 			}
 		}
 
-		PlayerOwner->OpenDialog(
-								SNew(SUTMessageBoxDialog)
-								.PlayerOwner(PlayerOwner)
-								.DialogTitle(NSLOCTEXT("SUTInGameMenu", "SUTInGameMenuBackTitle", "Confirmation"))
-								.OnDialogResult(this, &SUTInGameMenu::BackResult)
-								.MessageText( Msg )
-								.ButtonMask(UTDIALOG_BUTTON_YES | UTDIALOG_BUTTON_NO)
-								);
+		SAssignNew(MessageDialog, SUTMessageBoxDialog)
+			.PlayerOwner(PlayerOwner)
+			.DialogTitle(NSLOCTEXT("SUTInGameMenu", "SUTInGameMenuBackTitle", "Confirmation"))
+			.OnDialogResult(this, &SUTInGameMenu::BackResult)
+			.MessageText( Msg )
+			.ButtonMask(UTDIALOG_BUTTON_YES | UTDIALOG_BUTTON_NO);
+
+		PlayerOwner->OpenDialog(MessageDialog.ToSharedRef());
 	}
 	else
 	{
@@ -562,11 +564,40 @@ void SUTInGameMenu::OnMenuOpened(const FString& Parameters)
 	{
 		StaticCastSharedPtr<SUTInGameHomePanel>(HomePanel)->ShowMatchSummary(true);
 	}
+	else
+	{
+		PlayerOwner->FocusWidget(PlayerOwner->GetChatWidget());
+	}
+
 }
 
 bool SUTInGameMenu::SkipWorldRender()
 {
 	return GetMatchSummaryVisibility() == EVisibility::Visible;
+}
+
+FReply SUTInGameMenu::OnKeyUp( const FGeometry& MyGeometry, const FKeyEvent& InKeyboardEvent )
+{
+	if (InKeyboardEvent.GetKey() == EKeys::Escape)
+	{
+		TSharedPtr<SUTChatEditBox> ChatBox = PlayerOwner->GetChatWidget();
+		if (ChatBox.IsValid())
+		{
+			ChatBox->SetText(FText::GetEmpty());
+		}
+	}
+
+	return SUTMenuBase::OnKeyUp(MyGeometry, InKeyboardEvent);
+}
+
+void SUTInGameMenu::OnMenuClosed()
+{
+	if (MessageDialog.IsValid())
+	{
+		PlayerOwner->CloseDialog(MessageDialog.ToSharedRef());
+	}
+
+	SUTMenuBase::OnMenuClosed();
 }
 
 

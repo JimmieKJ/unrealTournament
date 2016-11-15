@@ -15,7 +15,7 @@ UUTCTFGameMessage::UUTCTFGameMessage(const FObjectInitializer& ObjectInitializer
 	DroppedMessage = NSLOCTEXT("CTFGameMessage","DroppedMessage","{Player1Name} dropped the {OptionalTeam} Flag!");
 	HasMessage = NSLOCTEXT("CTFGameMessage","HasMessage","{Player1Name} took the {OptionalTeam} Flag!");
 	YouHaveMessage = NSLOCTEXT("CTFGameMessage", "YouHaveMessage", "YOU HAVE THE FLAG!");
-	KilledMessage = NSLOCTEXT("CTFGameMessage","KilledMessage","{Player1Name} killed the {OptionalTeam} flag carrier!");
+	KilledMessagePostfix = NSLOCTEXT("CTFGameMessage","KilledMessage"," killed the {OptionalTeam} flag carrier!");
 	HasAdvantageMessage = NSLOCTEXT("CTFGameMessage", "HasAdvantage", "{OptionalTeam} Team has Advantage");
 	LosingAdvantageMessage = NSLOCTEXT("CTFGameMessage", "LostAdvantage", "{OptionalTeam} Team is losing advantage");
 	HalftimeMessage = NSLOCTEXT("CTFGameMessage", "Halftime", "");
@@ -42,10 +42,10 @@ FLinearColor UUTCTFGameMessage::GetMessageColor_Implementation(int32 MessageInde
 
 void UUTCTFGameMessage::GetEmphasisText(FText& PrefixText, FText& EmphasisText, FText& PostfixText, FLinearColor& EmphasisColor, int32 Switch, class APlayerState* RelatedPlayerState_1, class APlayerState* RelatedPlayerState_2, class UObject* OptionalObject) const
 {
-	if ((Switch == 2) || (Switch == 8) || (Switch == 9))
+	if ((Switch == 2) || (Switch == 5) || (Switch == 8) || (Switch == 9))
 	{
-		PrefixText = CaptureMessagePrefix;
-		PostfixText = CaptureMessagePostfix;
+		PrefixText = (Switch == 5) ? KilledMessagePrefix : CaptureMessagePrefix;
+		PostfixText = (Switch == 5) ? KilledMessagePostfix : CaptureMessagePostfix;
 		EmphasisText = RelatedPlayerState_1 ? FText::FromString(RelatedPlayerState_1->PlayerName) : FText::GetEmpty();
 		AUTPlayerState* PS = Cast<AUTPlayerState>(RelatedPlayerState_1);
 		EmphasisColor = (PS && PS->Team) ? PS->Team->TeamColor : FLinearColor::Red;
@@ -76,7 +76,7 @@ FText UUTCTFGameMessage::GetText(int32 Switch, bool bTargetsPlayerState1, APlaye
 				return YouHaveMessage; break;
 			}
 			return HasMessage; break;
-		case 5 : return KilledMessage; break;
+		case 5 : return BuildEmphasisText(Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject); break;
 		case 6 : return HasAdvantageMessage; break;
 		case 7 : return LosingAdvantageMessage; break;
 		case 8: return BuildEmphasisText(Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject); break;
@@ -96,7 +96,7 @@ int32 UUTCTFGameMessage::GetFontSizeIndex(int32 MessageIndex) const
 	{
 		return 3;
 	}
-	if ((MessageIndex == 2) || (MessageIndex == 2) || (MessageIndex > 5))
+	if ((MessageIndex == 2) || (MessageIndex > 5))
 	{
 		return 2;
 	}

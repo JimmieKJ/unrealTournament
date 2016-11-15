@@ -5,6 +5,8 @@
 
 #include "UTDemoRecSpectator.generated.h"
 
+UNREALTOURNAMENT_API DECLARE_LOG_CATEGORY_EXTERN(LogUTDemoRecSpectator, Log, All);
+
 UCLASS()
 class UNREALTOURNAMENT_API AUTDemoRecSpectator : public AUTPlayerController
 {
@@ -19,6 +21,11 @@ class UNREALTOURNAMENT_API AUTDemoRecSpectator : public AUTPlayerController
 	virtual void ViewPawn(APawn* PawnToView) override;
 	virtual void ServerViewProjectileShim() override;
 	virtual void SetPlayer(UPlayer* InPlayer) override;
+	virtual void ViewPlayerNum(int32 Index, uint8 TeamNum) override;
+	virtual void EnableAutoCam() override;
+	virtual void ChooseBestCamera() override;
+	virtual void OnAltFire() override;
+	virtual void ViewProjectile() override;
 
 	virtual void ViewAPlayer(int32 dir) override;
 	virtual APlayerState* GetNextViewablePlayer(int32 dir) override;
@@ -56,8 +63,34 @@ class UNREALTOURNAMENT_API AUTDemoRecSpectator : public AUTPlayerController
 	UFUNCTION(Client, UnReliable)
 	virtual void DemoNotifyCausedHit(APawn* InstigatorPawn, AUTCharacter* HitPawn, uint8 AppliedDamage, FVector Momentum, const FDamageEvent& DamageEvent);
 
+	UFUNCTION(NetMulticast, Reliable)
+	virtual void MulticastReceiveLocalizedMessage(TSubclassOf<ULocalMessage> Message, int32 Switch, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject);
+
 	UPROPERTY()
 	APlayerState* QueuedPlayerStateToView;
 	
 	virtual bool IsKillcamSpectator() const;
+
+	FNetworkGUID QueuedViewTargetGuid;
+	void SetQueuedViewTargetGuid(FNetworkGUID InViewTargetGuid) { QueuedViewTargetGuid = InViewTargetGuid; }
+	void ViewQueuedGuid();
+
+	FUniqueNetIdRepl QueuedViewTargetNetId;
+	void SetQueuedViewTargetNetId(FUniqueNetIdRepl InViewTargetNetId) { QueuedViewTargetNetId = InViewTargetNetId; }
+	void ViewQueuedNetId();
+
+#if !UE_SERVER
+	virtual void UpdateInputMode() override 
+	{
+		if (!IsKillcamSpectator())
+		{
+			Super::UpdateInputMode();
+		}
+	
+	};
+#endif
+
+	UFUNCTION(Exec)
+	void DumpSpecInfo();
+
 };

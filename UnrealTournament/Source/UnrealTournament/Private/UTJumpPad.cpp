@@ -92,6 +92,14 @@ void AUTJumpPad::Launch_Implementation(AActor* Actor)
 		AUTRecastNavMesh* NavData = GetUTNavData(GetWorld());
 		if (B != NULL && NavData != NULL)
 		{
+			if (bAIReducedAirControl)
+			{
+				B->bRestrictedJump = true;
+				if (Char->GetCharacterMovement() != nullptr)
+				{
+					Char->GetCharacterMovement()->bNotifyApex = true;
+				}
+			}
 			const float MinMoveTimer = bJumpThroughWater ? (JumpTime + 1.0f) : JumpTime;
 			bool bRepathOnLand = false;
 			bool bExpectedJumpPad = B->GetMoveTarget().Actor == this || (B->GetMoveTarget().Node != NULL && B->GetMoveTarget().Node->POIs.Contains(this));
@@ -276,7 +284,7 @@ void AUTJumpPad::AddSpecialPaths(class UUTPathNode* MyNode, class AUTRecastNavMe
 			// intentionally place start loc high up to avoid clipping the edges of any irrelevant geometry
 			MyLoc.Z += NavData->ScoutClass.GetDefaultObject()->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight() * 3.0f;
 
-			const float EffectiveRestrictedTime = bJumpThroughWater ? FMath::Max<float>(JumpTime * 0.5f, RestrictedJumpTime) : RestrictedJumpTime;
+			const float EffectiveRestrictedTime = (bJumpThroughWater || bAIReducedAirControl) ? FMath::Max<float>(JumpTime * 0.5f, RestrictedJumpTime) : RestrictedJumpTime;
 			const float AirControlPct = NavData->ScoutClass.GetDefaultObject()->GetCharacterMovement()->AirControl;
 			const float AirAccelRate = AirControlPct * NavData->ScoutClass.GetDefaultObject()->GetCharacterMovement()->MaxAcceleration;
 			const FCollisionShape ScoutShape = FCollisionShape::MakeCapsule(NavData->ScoutClass.GetDefaultObject()->GetCapsuleComponent()->GetUnscaledCapsuleRadius(), NavData->ScoutClass.GetDefaultObject()->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight());
@@ -301,12 +309,13 @@ void AUTJumpPad::AddSpecialPaths(class UUTPathNode* MyNode, class AUTRecastNavMe
 						if (!bPossible)
 						{
 							// time we have to air control
-							float AirControlTime = JumpTime * (Dist / JumpTargetDist) - EffectiveRestrictedTime;
+							float AirControlTime = (JumpTime - EffectiveRestrictedTime) * (Dist / JumpTargetDist);
 							// extra distance acquirable via air control
 							float AirControlDist2D = FMath::Min<float>(XYSpeed * AirControlTime, 0.5f * AirAccelRate * FMath::Square<float>(AirControlTime));
 							// apply air control dist towards target, but remove any in jump direction as the jump pad generally exceeds the character's normal max speed (so air control in that dir would have no effect)
 							FVector AirControlAdjustment = (TargetLoc - JumpTargetWorld).GetSafeNormal2D() * AirControlDist2D;
-							AirControlAdjustment -= JumpDir2D * (JumpDir2D | AirControlAdjustment);
+							FVector TowardsJumpDir = JumpDir2D * (JumpDir2D | AirControlAdjustment);
+							AirControlAdjustment -= TowardsJumpDir.GetSafeNormal() * FMath::Max<float>(0.0f, TowardsJumpDir.Size() - (XYSpeed - JumpVel.Size2D())); // allow some if jump 2D speed is less than default air speed
 							bPossible = (TargetLoc - JumpTargetWorld).Size() < AirControlAdjustment.Size();
 						}
 						if (bPossible && NavData->JumpTraceTest(MyLoc, TargetLoc, MyPoly, TargetPoly, ScoutShape, XYSpeed, GravityZ, JumpZ, JumpZ, NULL, NULL))
@@ -315,7 +324,7 @@ void AUTJumpPad::AddSpecialPaths(class UUTPathNode* MyNode, class AUTRecastNavMe
 							bool bFound = false;
 							for (FUTPathLink& ExistingLink : MyNode->Paths)
 							{
-								if (ExistingLink.End == TargetNode && ExistingLink.StartEdgePoly == TargetPoly)
+								if (ExistingLink.End == TargetNode && ExistingLink.StartEdgePoly == MyPoly)
 								{
 									ExistingLink.AdditionalEndPolys.Add(TargetPoly);
 									bFound = true;

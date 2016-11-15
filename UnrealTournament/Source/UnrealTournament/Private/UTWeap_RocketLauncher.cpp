@@ -28,7 +28,7 @@ AUTWeap_RocketLauncher::AUTWeap_RocketLauncher(const class FObjectInitializer& O
 	bLockedOnTarget = false;
 	LockCheckTime = 0.1f;
 	LockRange = 16000.0f;
-	LockAcquireTime = 1.1f;
+	LockAcquireTime = 0.5f;
 	LockTolerance = 0.2f;
 	LockedTarget = NULL;
 	PendingLockedTarget = NULL;
@@ -49,7 +49,7 @@ AUTWeap_RocketLauncher::AUTWeap_RocketLauncher(const class FObjectInitializer& O
 	BarrelRadius = 9.0f;
 
 	GracePeriod = 0.6f;
-	BurstInterval = 0.07f;
+	BurstInterval = 0.08f;
 	GrenadeBurstInterval = 0.1f;
 	FullLoadSpread = 9.f;
 	bAllowGrenades = false;
@@ -57,6 +57,7 @@ AUTWeap_RocketLauncher::AUTWeap_RocketLauncher(const class FObjectInitializer& O
 	BasePickupDesireability = 0.78f;
 	BaseAISelectRating = 0.78f;
 	FiringViewKickback = -50.f;
+	FiringViewKickbackY = 40.f;
 	bRecommendSplashDamage = true;
 
 	KillStatsName = NAME_RocketKills;
@@ -163,6 +164,7 @@ void AUTWeap_RocketLauncher::ClearLoadedRockets()
 	CurrentRocketFireMode = 0;
 	NumLoadedBarrels = 0;
 	NumLoadedRockets = 0;
+	SetLockTarget(nullptr);
 	if (UTOwner != NULL)
 	{
 		UTOwner->SetFlashExtra(0, CurrentFireMode);
@@ -357,12 +359,8 @@ AUTProjectile* AUTWeap_RocketLauncher::FireProjectile()
 				SpawnLocation = AdjustedSpawnLoc;
 			}
 		}
-
 		AUTProjectile* SpawnedProjectile = SpawnNetPredictedProjectile(RocketFireModes[CurrentRocketFireMode].ProjClass, SpawnLocation, SpawnRotation);
-		if (HasLockedTarget() &&  Cast<AUTProj_Rocket>(SpawnedProjectile))
-		{
-			Cast<AUTProj_Rocket>(SpawnedProjectile)->TargetActor = LockedTarget;
-		}
+		AUTProj_Rocket* SpawnedRocket = Cast<AUTProj_Rocket>(SpawnedProjectile);
 		NumLoadedRockets = 0;
 		NumLoadedBarrels = 0;
 		return SpawnedProjectile;
@@ -374,6 +372,7 @@ void AUTWeap_RocketLauncher::PlayFiringEffects()
 	if (CurrentFireMode == 1 && UTOwner != NULL)
 	{
 		UTOwner->TargetEyeOffset.X = FiringViewKickback;
+		UTOwner->TargetEyeOffset.Y = FiringViewKickbackY;
 
 		// try and play the sound if specified
 		if (RocketFireModes.IsValidIndex(CurrentRocketFireMode) && RocketFireModes[CurrentRocketFireMode].FireSound != NULL)
@@ -433,7 +432,11 @@ AUTProjectile* AUTWeap_RocketLauncher::FireRocketProjectile()
 	checkSlow(RocketFireModes.IsValidIndex(CurrentRocketFireMode) && RocketFireModes[CurrentRocketFireMode].ProjClass != NULL);
 
 	TSubclassOf<AUTProjectile> RocketProjClass = nullptr;
-	if (bAllowGrenades)
+	if (HasLockedTarget() && SeekingRocketClass)
+	{
+		RocketProjClass = SeekingRocketClass;
+	}
+	else if (bAllowGrenades)
 	{
 		RocketProjClass = RocketFireModes.IsValidIndex(CurrentRocketFireMode) ? RocketFireModes[CurrentRocketFireMode].ProjClass : nullptr;
 	}
@@ -461,20 +464,21 @@ AUTProjectile* AUTWeap_RocketLauncher::FireRocketProjectile()
 	{
 		case 0://rockets
 		{
-			float RotDegree = 360.0f / FMath::Max(1,NumLoadedRockets);
-			FVector SpreadLoc = SpawnLocation;
-			SpawnRotation.Roll = RotDegree * NumLoadedRockets;
 			if (ShouldFireLoad())
 			{
 				SpawnRotation.Yaw += FullLoadSpread*float(NumLoadedRockets-2.f);
 			}
 			NetSynchRandomSeed(); 
-			ResultProj = SpawnNetPredictedProjectile(RocketProjClass, SpawnLocation, SpawnRotation);
+			
+			FVector Offset = (FMath::Sin(NumLoadedRockets*PI*0.667f)*FRotationMatrix(SpawnRotation).GetUnitAxis(EAxis::Z) + FMath::Cos(NumLoadedRockets*PI*0.667f)*FRotationMatrix(SpawnRotation).GetUnitAxis(EAxis::X)) * BarrelRadius * 1.5f;
+			ResultProj = SpawnNetPredictedProjectile(RocketProjClass, SpawnLocation + Offset, SpawnRotation);
 
 			//Setup the seeking target
-			if (HasLockedTarget() && Cast<AUTProj_Rocket>(ResultProj))
+			AUTProj_Rocket* SpawnedRocket = Cast<AUTProj_Rocket>(ResultProj);
+			if (HasLockedTarget() && SpawnedRocket)
 			{
-				Cast<AUTProj_Rocket>(ResultProj)->TargetActor = LockedTarget;
+				SpawnedRocket->TargetActor = LockedTarget;
+				TrackingRockets.Add(SpawnedRocket);
 			}
 
 			break;
@@ -574,6 +578,14 @@ void AUTWeap_RocketLauncher::OnRep_LockedTarget()
 	SetLockTarget(LockedTarget);
 }
 
+void AUTWeap_RocketLauncher::OnRep_PendingLockedTarget()
+{
+	if (PendingLockedTarget != nullptr)
+	{
+		PendingLockedTargetTime = GetWorld()->GetTimeSeconds();
+	}
+}
+
 void AUTWeap_RocketLauncher::SetLockTarget(AActor* NewTarget)
 {
 	LockedTarget = NewTarget;
@@ -604,7 +616,7 @@ void AUTWeap_RocketLauncher::SetLockTarget(AActor* NewTarget)
 
 void AUTWeap_RocketLauncher::UpdateLock()
 {
-	if (UTOwner == NULL || UTOwner->Controller == NULL || UTOwner->IsFiringDisabled())
+	if (UTOwner == NULL || UTOwner->Controller == NULL || UTOwner->IsFiringDisabled() || (CurrentFireMode != 1) || !IsFiring())
 	{
 		SetLockTarget(NULL);
 		return;
@@ -647,7 +659,7 @@ void AUTWeap_RocketLauncher::UpdateLock()
 
 void AUTWeap_RocketLauncher::DrawWeaponCrosshair_Implementation(UUTHUDWidget* WeaponHudWidget, float RenderDelta)
 {
-	float ScaledPadding = 80.f * WeaponHudWidget->GetRenderScale();
+	float ScaledPadding = 50.f * WeaponHudWidget->GetRenderScale();
 	//Draw the Rocket Firemode Text
 	if (bDrawRocketModeString && RocketModeFont != NULL)
 	{
@@ -663,31 +675,62 @@ void AUTWeap_RocketLauncher::DrawWeaponCrosshair_Implementation(UUTHUDWidget* We
 	float Scale = GetCrosshairScale(WeaponHudWidget->UTHUDOwner);
 	if ((CurrentFireMode == 1) && (NumLoadedRockets > 0))
 	{
-		float DotSize = 16.f * Scale;
+		float DotSize = 12.f * Scale;
 		WeaponHudWidget->DrawTexture(WeaponHudWidget->UTHUDOwner->HUDAtlas, 0.f, ScaledPadding, DotSize, DotSize, 894.f, 38.f, 26.f, 26.f, 1.f, FLinearColor::White, FVector2D(0.5f, 0.5f));
 		if (NumLoadedRockets > 1)
 		{
-			WeaponHudWidget->DrawTexture(WeaponHudWidget->UTHUDOwner->HUDAtlas, 90.f*Scale, ScaledPadding, DotSize, DotSize, 894.f, 38.f, 26.f, 26.f, 1.f, FLinearColor::White, FVector2D(0.5f, 0.5f));
+			WeaponHudWidget->DrawTexture(WeaponHudWidget->UTHUDOwner->HUDAtlas, 50.f*Scale, ScaledPadding, DotSize, DotSize, 894.f, 38.f, 26.f, 26.f, 1.f, FLinearColor::White, FVector2D(0.5f, 0.5f));
 			if (NumLoadedRockets > 2)
 			{
-				WeaponHudWidget->DrawTexture(WeaponHudWidget->UTHUDOwner->HUDAtlas, -90.f*Scale, ScaledPadding, DotSize, DotSize, 894.f, 38.f, 26.f, 26.f, 1.f, FLinearColor::White, FVector2D(0.5f, 0.5f));
+				WeaponHudWidget->DrawTexture(WeaponHudWidget->UTHUDOwner->HUDAtlas, -50.f*Scale, ScaledPadding, DotSize, DotSize, 894.f, 38.f, 26.f, 26.f, 1.f, FLinearColor::White, FVector2D(0.5f, 0.5f));
 			}
 		}
 	}
 
 	//Draw the locked on crosshair
-	if (HasLockedTarget() && LockCrosshairTexture)
+	if (LockCrosshairTexture)
 	{
 		float W = LockCrosshairTexture->GetSurfaceWidth();
 		float H = LockCrosshairTexture->GetSurfaceHeight();
-
-		FVector ScreenTarget = WeaponHudWidget->GetCanvas()->Project(LockedTarget->GetActorLocation());
-		ScreenTarget.X -= WeaponHudWidget->GetCanvas()->SizeX*0.5f;
-		ScreenTarget.Y -= WeaponHudWidget->GetCanvas()->SizeY*0.5f;
-
 		float CrosshairRot = GetWorld()->TimeSeconds * 90.0f;
+		const float AcquireDisplayTime = 0.5f;
+		if (HasLockedTarget())
+		{
+			FVector ScreenTarget = WeaponHudWidget->GetCanvas()->Project(LockedTarget->GetActorLocation());
+			ScreenTarget.X -= WeaponHudWidget->GetCanvas()->SizeX*0.5f;
+			ScreenTarget.Y -= WeaponHudWidget->GetCanvas()->SizeY*0.5f;
+			WeaponHudWidget->DrawTexture(LockCrosshairTexture, ScreenTarget.X, ScreenTarget.Y, W, H, 0.f, 0.f, W, H, 1.f, FLinearColor::Yellow, FVector2D(0.5f, 0.5f), CrosshairRot);
+		}
+		else if (PendingLockedTarget && (GetWorld()->GetTimeSeconds() - PendingLockedTargetTime > LockAcquireTime- AcquireDisplayTime))
+		{
+			FVector ScreenTarget = WeaponHudWidget->GetCanvas()->Project(PendingLockedTarget->GetActorLocation());
+			ScreenTarget.X -= WeaponHudWidget->GetCanvas()->SizeX*0.5f;
+			ScreenTarget.Y -= WeaponHudWidget->GetCanvas()->SizeY*0.5f;
+			UTexture2D* PendingLockTexture = LockCrosshairTexture;
+			float Opacity = (GetWorld()->GetTimeSeconds() - PendingLockedTargetTime - LockAcquireTime + AcquireDisplayTime) / AcquireDisplayTime;
+			float PendingScale = 1.f + 5.f * (1.f - Opacity);
+			WeaponHudWidget->DrawTexture(PendingLockTexture, ScreenTarget.X, ScreenTarget.Y, W * PendingScale, H * PendingScale, 0.f, 0.f, W, H, 0.2f + 0.5f*Opacity, FLinearColor::White, FVector2D(0.5f, 0.5f), 2.5f*CrosshairRot);
+		}
 
-		WeaponHudWidget->DrawTexture(LockCrosshairTexture, ScreenTarget.X, ScreenTarget.Y, 2.f * W * Scale, 2.f * H * Scale, 0.f, 0.f, W, H, 1.f, FLinearColor::Red, FVector2D(0.5f, 0.5f), CrosshairRot);
+		for (int32 i = 0; i < TrackingRockets.Num(); i++)
+		{
+			if (TrackingRockets[i] && TrackingRockets[i]->MasterProjectile)
+			{
+				TrackingRockets[i] = Cast<AUTProj_Rocket>(TrackingRockets[i]->MasterProjectile);
+			}
+			if ((TrackingRockets[i] == nullptr) || TrackingRockets[i]->bExploded || TrackingRockets[i]->IsPendingKillPending() || (TrackingRockets[i]->TargetActor == nullptr) || TrackingRockets[i]->TargetActor->IsPendingKillPending())
+			{
+				TrackingRockets.RemoveAt(i, 1);
+				i--;
+			}
+			else
+			{
+				FVector ScreenTarget = WeaponHudWidget->GetCanvas()->Project(TrackingRockets[i]->TargetActor->GetActorLocation());
+				ScreenTarget.X -= WeaponHudWidget->GetCanvas()->SizeX*0.5f;
+				ScreenTarget.Y -= WeaponHudWidget->GetCanvas()->SizeY*0.5f;
+				WeaponHudWidget->DrawTexture(LockCrosshairTexture, ScreenTarget.X, ScreenTarget.Y, 2.f * W * Scale, 2.f * H * Scale, 0.f, 0.f, W, H, 1.f, FLinearColor::Red, FVector2D(0.5f, 0.5f), CrosshairRot);
+			}
+		}
 	}
 }
 
@@ -695,6 +738,7 @@ void AUTWeap_RocketLauncher::GetLifetimeReplicatedProps(TArray<class FLifetimePr
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME_CONDITION(AUTWeap_RocketLauncher, LockedTarget, COND_None);
+	DOREPLIFETIME_CONDITION(AUTWeap_RocketLauncher, PendingLockedTarget, COND_None);
 }
 
 float AUTWeap_RocketLauncher::GetAISelectRating_Implementation()
@@ -717,7 +761,7 @@ float AUTWeap_RocketLauncher::GetAISelectRating_Implementation()
 		float Rating = BaseAISelectRating;
 
 		// don't pick rocket launcher if enemy is too close
-		if (EnemyDist < 800.0f)
+		if (EnemyDist < 900.0f)
 		{
 			// don't switch away from rocket launcher unless really bad tactical situation
 			// TODO: also don't if OK with mutual death (high aggressiveness, high target priority, or grudge against target?)
@@ -727,7 +771,7 @@ float AUTWeap_RocketLauncher::GetAISelectRating_Implementation()
 			}
 			else
 			{
-				return 0.05f + EnemyDist * 0.0005;
+				return 0.05f + EnemyDist * 0.00045;
 			}
 		}
 
@@ -743,7 +787,7 @@ float AUTWeap_RocketLauncher::GetAISelectRating_Implementation()
 		}
 		else if (ZDiff > 175.0f)
 		{
-			Rating -= 0.05;
+			Rating -= 0.1;
 		}
 
 		// slightly higher chance to use against melee because high rocket momentum will keep enemy away
@@ -832,8 +876,10 @@ bool AUTWeap_RocketLauncher::CanAttack_Implementation(AActor* Target, const FVec
 			{
 				BestFireMode = (!B->LostContact(1.5f) && B->WeaponProficiencyCheck() && FMath::FRand() < 0.5f) ? 0 : 1;
 			}
+			const float MinDistance = 750.0f;
 
-			if (!PredicitiveTargetLoc.IsZero() && !GetWorld()->LineTraceTestByChannel(UTOwner->GetActorLocation(), PredicitiveTargetLoc, ECC_Visibility, FCollisionQueryParams(FName(TEXT("PredictiveRocket")), false, UTOwner), WorldResponseParams))
+			if ( !PredicitiveTargetLoc.IsZero() && (PredicitiveTargetLoc - UTOwner->GetActorLocation()).Size() >= MinDistance &&
+				!GetWorld()->LineTraceTestByChannel(UTOwner->GetActorLocation(), PredicitiveTargetLoc, ECC_Visibility, FCollisionQueryParams(FName(TEXT("PredictiveRocket")), false, UTOwner), WorldResponseParams) )
 			{
 				OptimalTargetLoc = PredicitiveTargetLoc;
 				return true;
@@ -848,7 +894,18 @@ bool AUTWeap_RocketLauncher::CanAttack_Implementation(AActor* Target, const FVec
 				}
 				else
 				{
-					PredicitiveTargetLoc = FoundPoints[FMath::RandHelper(FoundPoints.Num())];
+					// find point that's far enough way to not blow self up
+					int32 i = FMath::RandHelper(FoundPoints.Num());
+					int32 StartIndex = i;
+					do
+					{
+						i = (i + 1) % FoundPoints.Num();
+						if ((FoundPoints[i] - UTOwner->GetActorLocation()).Size() >= MinDistance)
+						{
+							PredicitiveTargetLoc = FoundPoints[i];
+							break;
+						}
+					} while (i != StartIndex);
 					OptimalTargetLoc = PredicitiveTargetLoc;
 					return true;
 				}

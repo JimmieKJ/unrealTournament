@@ -51,6 +51,8 @@ public:
 	// If there is an active UMG scene assoicated with the current crosshair, this will hold the reference
 	TWeakObjectPtr<UUTUMGHudWidget_Crosshair> ActiveUMG;
 
+	// This is the canvas icon that defines the crosshair.  NOTE: If a UMGClassname is included, then for now, this icon will only be used
+	// in the menus to display what the crosshair should look like.  The UMG file referenced by will be displayed in game.
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Crosshair)
 	FCanvasIcon CrosshairIcon;
 

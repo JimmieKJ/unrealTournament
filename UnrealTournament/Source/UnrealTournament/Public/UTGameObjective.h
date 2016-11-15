@@ -40,6 +40,9 @@ class UNREALTOURNAMENT_API AUTGameObjective : public AActor, public IUTPathBuild
 	 **/
 	virtual void InitializeObjective();
 
+	/** add some defense points for this objective in reasonable nearby locations */
+	virtual void GenerateDefensePoints();
+
 	/**	This is a server-side function that is called by CarriedObject when it's state is changed.*/
 	virtual void ObjectStateWasChanged(FName NewObjectState);
 

@@ -40,6 +40,12 @@ class UNREALTOURNAMENT_API AUTRemoteRedeemer : public APawn, public IUTTeamInter
 	UPROPERTY()
 		int32 KillCount;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Redeemer)
+		float MaxFuelTime;
+
+	UPROPERTY()
+		float CurrentFuelTime;
+
 	uint8 CachedTeamNum;
 
 protected:
@@ -90,6 +96,7 @@ public:
 	void FaceRotation(FRotator NewControlRotation, float DeltaTime) override;
 	virtual void GetActorEyesViewPoint(FVector& out_Location, FRotator& out_Rotation) const override;
 	void PawnStartFire(uint8 FireModeNum) override;
+	virtual void BeginPlay() override;
 
 	/** material to draw over the player's view when zoomed
 	* the material can use the parameter 'TeamColor' to receive the player's team color in team games (won't be changed in FFA modes)
@@ -125,6 +132,9 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Overlay)
 		UTexture2D* RedeemerDisplayOne;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Overlay)
+		USoundBase* FuelWarningSound;
 
 	virtual void PostRender(class AUTHUD* HUD, UCanvas* Canvas);
 
@@ -221,4 +231,6 @@ public:
 
 	UFUNCTION(BlueprintImplementableEvent, Category=Pawn)
 	void RedeemerRestarted(AController* NewController);
+
+	virtual void DrawTexture(UCanvas* Canvas, UTexture* Texture, float X, float Y, float Width, float Height, float U, float V, float UL, float VL, float DrawOpacity, FLinearColor DrawColor, FVector2D RenderOffset, float Rotation=0.f, FVector2D RotPivot=FVector2D(0.f,0.f));
 };

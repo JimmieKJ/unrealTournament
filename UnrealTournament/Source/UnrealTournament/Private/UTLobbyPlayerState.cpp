@@ -8,6 +8,9 @@
 #include "UTGameInstance.h"
 #include "UTParty.h"
 #include "UTPartyGameState.h"
+#include "BlueprintContextLibrary.h"
+#include "PartyContext.h"
+#include "UTLobbyMatchInfo.h"
 
 AUTLobbyPlayerState::AUTLobbyPlayerState(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -16,18 +19,6 @@ AUTLobbyPlayerState::AUTLobbyPlayerState(const class FObjectInitializer& ObjectI
 
 void AUTLobbyPlayerState::PreInitializeComponents()
 {
-}
-
-void AUTLobbyPlayerState::BeginPlay()
-{
-	Super::BeginPlay();
-	//UE_LOG(UT,Log,TEXT("[DataPush] - BeginPlay"));
-	// If we are a client, this means we have finished the initial actor replication and can start the data push
-	if (Role != ROLE_Authority)
-	{
-		//UE_LOG(UT,Log,TEXT("[DataPush] - Telling Server to Start"));
-		Server_ReadyToBeginDataPush();
-	}
 }
 
 void AUTLobbyPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const

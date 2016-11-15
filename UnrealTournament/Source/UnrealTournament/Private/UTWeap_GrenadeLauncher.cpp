@@ -17,25 +17,18 @@ AUTWeap_GrenadeLauncher::AUTWeap_GrenadeLauncher()
 	HitsStatsName = NAME_BioLauncherHits;
 }
 
-void AUTWeap_GrenadeLauncher::StartFire(uint8 FireModeNum)
+bool AUTWeap_GrenadeLauncher::BeginFiringSequence(uint8 FireModeNum, bool bClientFired)
 {
 	if (bHasLoadedStickyGrenades && FireModeNum == 1)
 	{
-		return;
+		return false;
 	}
-
 	// Don't fire until it's time
-	if (GetWorld()->TimeSeconds - LastGrenadeFireTime < DetonationAfterFireDelay)
+	else if (GetWorld()->TimeSeconds - LastGrenadeFireTime < DetonationAfterFireDelay)
 	{
-		return;
+		return false;
 	}
-
-	Super::StartFire(FireModeNum);
-}
-
-bool AUTWeap_GrenadeLauncher::BeginFiringSequence(uint8 FireModeNum, bool bClientFired)
-{
-	if (bHasStickyGrenades && FireModeNum == 1)
+	else if (bHasStickyGrenades && FireModeNum == 1)
 	{
 		if (Role == ROLE_Authority)
 		{
@@ -49,8 +42,10 @@ bool AUTWeap_GrenadeLauncher::BeginFiringSequence(uint8 FireModeNum, bool bClien
 
 		return true;
 	}
-
-	return Super::BeginFiringSequence(FireModeNum, bClientFired);
+	else
+	{
+		return Super::BeginFiringSequence(FireModeNum, bClientFired);
+	}
 }
 
 void AUTWeap_GrenadeLauncher::RegisterStickyGrenade(AUTProj_Grenade_Sticky* InGrenade)
@@ -128,8 +123,8 @@ void AUTWeap_GrenadeLauncher::OnRep_HasStickyGrenades()
 	{
 		HideDetonatorUI();
 	}
-	
-	if (NumLoadedRockets == 0)
+
+	if (!bHasStickyGrenades)
 	{
 		SwitchToBestWeaponIfNoAmmo();
 	}
@@ -208,4 +203,14 @@ void AUTWeap_GrenadeLauncher::OnRep_HasLoadedStickyGrenades()
 	{
 		LastGrenadeFireTime = GetWorld()->TimeSeconds;
 	}
+}
+
+void AUTWeap_GrenadeLauncher::FireShot()
+{
+	if (CurrentFireMode == 1)
+	{
+		ConsumeAmmo(CurrentFireMode);
+	}
+
+	Super::FireShot();
 }

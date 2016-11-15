@@ -147,6 +147,8 @@ protected:
 	virtual void Press() { };
 	virtual void Release() { };
 
+public:
+
 	FSlateColor GetLabelColor() const;
 
 

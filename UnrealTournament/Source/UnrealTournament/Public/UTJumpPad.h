@@ -45,6 +45,10 @@ class UNREALTOURNAMENT_API AUTJumpPad : public AActor, public IUTPathBuilderInte
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = JumpPad)
 	bool bMaintainVelocity;
 
+	/** if set AI using this jump pad will not air control while moving upwards - use in edge cases where the AI's attempt to help their jump makes them clip some edge or outcropping */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = AI, Meta = (DisplayName = "Reduce AI Air Control"))
+	bool bAIReducedAirControl;
+
 	/** cached AI flag for whether this jump pad boosts the user through water */
 	UPROPERTY(BlueprintReadOnly, Category = AI)
 	bool bJumpThroughWater;

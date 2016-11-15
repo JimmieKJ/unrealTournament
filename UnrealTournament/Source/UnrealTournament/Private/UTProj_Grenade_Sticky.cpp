@@ -10,6 +10,8 @@ AUTProj_Grenade_Sticky::AUTProj_Grenade_Sticky(const class FObjectInitializer& O
 {
 	LifeTime = 20.0f;
 	MinimumLifeTime = 0.2f;
+	bAlwaysShootable = true;
+	CollisionComp->SetCollisionProfileName(TEXT("ProjectileShootable"));
 }
 
 void AUTProj_Grenade_Sticky::BeginPlay()
@@ -38,6 +40,26 @@ void AUTProj_Grenade_Sticky::ArmGrenade()
 	bArmed = true;
 }
 
+void AUTProj_Grenade_Sticky::ShutDown()
+{
+	Super::ShutDown();
+
+	if (Role == ROLE_Authority)
+	{
+		GetWorldTimerManager().ClearTimer(FLifeTimeHandle);
+
+		if (GrenadeLauncherOwner)
+		{
+			GrenadeLauncherOwner->UnregisterStickyGrenade(this);
+		}
+	}
+
+	if (SavedFakeProjectile)
+	{
+		SavedFakeProjectile->ShutDown();
+	}
+}
+
 void AUTProj_Grenade_Sticky::Destroyed()
 {
 	Super::Destroyed();
@@ -63,6 +85,10 @@ void AUTProj_Grenade_Sticky::Explode_Implementation(const FVector& HitLocation, 
 {
 	if (bArmed || Role != ROLE_Authority || bTearOff)
 	{
+		// If we still have a fake projectile, AUTProjectile::Explode may skip it
+		SavedFakeProjectile = MyFakeProjectile;
+		MyFakeProjectile = nullptr;
 		Super::Explode_Implementation(HitLocation, HitNormal, HitComp);
+		MyFakeProjectile = SavedFakeProjectile;
 	}
 }

@@ -8,7 +8,7 @@
 void SUTAspectPanel::Construct(const SUTAspectPanel::FArguments& InArgs)
 {
 	CachedLayoutScale = 1.0f;
-
+	bCenterPanel = InArgs._bCenterPanel;
 	ChildSlot
 		[
 			SNew(SBox).WidthOverride(1920.0f).HeightOverride(1080.0f)
@@ -23,7 +23,7 @@ void SUTAspectPanel::OnArrangeChildren(const FGeometry& AllottedGeometry, FArran
 	const EVisibility ChildVisibility = ChildSlot.GetWidget()->GetVisibility();
 	if (ArrangedChildren.Accepts(ChildVisibility))
 	{
-		FVector2D OrigSize = ChildSlot.GetWidget()->GetDesiredSize(); 
+ 		FVector2D OrigSize = ChildSlot.GetWidget()->GetDesiredSize(); 
 		FVector2D DesiredDrawSize = OrigSize;
 		FVector2D ActualGeometrySize = AllottedGeometry.Size * AllottedGeometry.Scale;
 		FVector2D FinalOffset(0, 0);
@@ -42,7 +42,6 @@ void SUTAspectPanel::OnArrangeChildren(const FGeometry& AllottedGeometry, FArran
 
 				DesiredDrawSize.X = ActualGeometrySize.X;
 				DesiredDrawSize.Y = DesiredDrawSize.X * 0.5625;
-				DesiredDrawSize /= Scale;
 			}
 			else if (Aspect < 0.5625)	// Greater than 16:9
 			{
@@ -51,13 +50,17 @@ void SUTAspectPanel::OnArrangeChildren(const FGeometry& AllottedGeometry, FArran
 				DesiredDrawSize.Y = ActualGeometrySize.Y;
 				DesiredDrawSize.X = DesiredDrawSize.Y / 0.5625;
 				DesiredDrawSize /= AllottedGeometry.Scale;
-
-				DesiredDrawSize /= Scale;
 			}
 
 			FinalOffset /= AllottedGeometry.Scale;
 		}
 
+		if (bCenterPanel)
+		{
+			FinalOffset.Y = (AllottedGeometry.Size.Y - DesiredDrawSize.Y) * 0.5f / Scale;
+		}
+
+		DesiredDrawSize /= Scale;
 		CachedLayoutScale = Scale;
 
 		ArrangedChildren.AddWidget(ChildVisibility, AllottedGeometry.MakeChild( ChildSlot.GetWidget(), FinalOffset, DesiredDrawSize, Scale));

@@ -6,6 +6,8 @@
 #include "UTKillcamPlayback.h"
 #include "UTHUD_InstantReplay.h"
 
+DEFINE_LOG_CATEGORY(LogUTDemoRecSpectator);
+
 AUTDemoRecSpectator::AUTDemoRecSpectator(const FObjectInitializer& OI)
 	: Super(OI)
 {
@@ -20,6 +22,59 @@ void AUTDemoRecSpectator::PlayerTick(float DeltaTime)
 	{
 		ViewPlayerState(QueuedPlayerStateToView);
 	}
+
+	if (QueuedViewTargetGuid.IsValid())
+	{
+		ViewQueuedGuid();
+	}
+	if (QueuedViewTargetNetId.IsValid())
+	{
+		ViewQueuedNetId();
+	}
+}
+
+void AUTDemoRecSpectator::ViewQueuedNetId()
+{
+	if (GetWorld()->DemoNetDriver == nullptr)
+	{
+		return;
+	}
+
+	APlayerState* PS = nullptr;
+	for (int32 i = 0; i < GetWorld()->GameState->PlayerArray.Num(); i++)
+	{
+		if (GetWorld()->GameState->PlayerArray[i]->UniqueId == QueuedViewTargetNetId)
+		{
+			PS = GetWorld()->GameState->PlayerArray[i];
+			QueuedViewTargetNetId = FUniqueNetIdRepl();
+			ViewPlayerState(PS);
+			UE_LOG(LogUTDemoRecSpectator, Log, TEXT("Found queued net id!"));
+		}
+	}
+}
+
+void AUTDemoRecSpectator::ViewQueuedGuid()
+{
+	if (GetWorld()->DemoNetDriver == nullptr)
+	{
+		return;
+	}
+
+	AActor* ActorForGuid = GetWorld()->DemoNetDriver->GetActorForGUID(QueuedViewTargetGuid);
+	if (ActorForGuid)
+	{
+		APawn* KillcamPawn = Cast<APawn>(ActorForGuid);
+		if (KillcamPawn && GetViewTarget() != KillcamPawn)
+		{
+			// If we're kill cam, just try to view this guid forever
+			if (!IsKillcamSpectator())
+			{
+				QueuedViewTargetGuid.Reset();
+			}
+			ViewPawn(KillcamPawn);
+			UE_LOG(LogUTDemoRecSpectator, Log, TEXT("Found queued guid!"));
+		}
+	}
 }
 
 void AUTDemoRecSpectator::ViewPlayerState(APlayerState* PS)
@@ -29,8 +84,16 @@ void AUTDemoRecSpectator::ViewPlayerState(APlayerState* PS)
 	{
 		if (It->IsValid() && It->Get()->PlayerState == PS)
 		{
-			SetViewTarget(It->Get());
-			QueuedPlayerStateToView = nullptr;
+			if (GetViewTarget() != It->Get())
+			{
+				SetViewTarget(It->Get());
+				// If we're kill cam, just try to view this player state forever
+				if (!IsKillcamSpectator())
+				{
+					QueuedPlayerStateToView = nullptr;
+				}
+				UE_LOG(LogUTDemoRecSpectator, Log, TEXT("Found queued player state!"));
+			}
 			return;
 		}
 	}
@@ -362,4 +425,83 @@ bool AUTDemoRecSpectator::IsKillcamSpectator() const
 	}
 
 	return false;
+}
+
+void AUTDemoRecSpectator::ViewPlayerNum(int32 Index, uint8 TeamNum)
+{
+	if (IsKillcamSpectator())
+	{
+		return;
+	}
+
+	Super::ViewPlayerNum(Index, TeamNum);
+}
+
+void AUTDemoRecSpectator::EnableAutoCam()
+{
+	if (IsKillcamSpectator())
+	{
+		return;
+	}
+
+	Super::EnableAutoCam();
+}
+
+void AUTDemoRecSpectator::ChooseBestCamera()
+{
+	if (IsKillcamSpectator())
+	{
+		return;
+	}
+
+	Super::ChooseBestCamera();
+}
+
+void AUTDemoRecSpectator::OnAltFire()
+{
+	if (IsKillcamSpectator())
+	{
+		return;
+	}
+
+	Super::OnAltFire();
+}
+
+void AUTDemoRecSpectator::ViewProjectile()
+{
+	if (IsKillcamSpectator())
+	{
+		return;
+	}
+
+	Super::ViewProjectile();
+}
+
+void AUTDemoRecSpectator::DumpSpecInfo()
+{
+	AActor* CurrentViewTarget = GetViewTarget();
+	UE_LOG(LogUTDemoRecSpectator, Log, TEXT("KillCamSpecator: %s"), IsKillcamSpectator() ? TEXT("Yes") : TEXT("No"));
+	UE_LOG(LogUTDemoRecSpectator, Log, TEXT("ViewTarget: %s"), CurrentViewTarget != nullptr ? *CurrentViewTarget->GetName() : TEXT("No View Target"));
+	UE_LOG(LogUTDemoRecSpectator, Log, TEXT("bAutoCam: %s"), bAutoCam ? TEXT("Yes") : TEXT("No"));
+	UE_LOG(LogUTDemoRecSpectator, Log, TEXT("Camera Mode: %s"), PlayerCameraManager != nullptr ? *PlayerCameraManager->CameraStyle.ToString() : TEXT("No"));
+
+	UE_LOG(LogUTDemoRecSpectator, Log, TEXT("QueuedPlayerStateToView: %s"), QueuedPlayerStateToView != nullptr ? *QueuedPlayerStateToView->PlayerName : TEXT("No"));
+	UE_LOG(LogUTDemoRecSpectator, Log, TEXT("QueuedViewTargetGuid: %s"), QueuedViewTargetGuid.IsValid() ? *QueuedViewTargetGuid.ToString() : TEXT("No"));
+	UE_LOG(LogUTDemoRecSpectator, Log, TEXT("QueuedViewTargetNetId: %s"), QueuedViewTargetNetId.IsValid() ? *QueuedViewTargetNetId.ToString() : TEXT("No"));
+}
+
+void AUTDemoRecSpectator::MulticastReceiveLocalizedMessage_Implementation(TSubclassOf<ULocalMessage> Message, int32 Switch, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject)
+{
+	if (!IsKillcamSpectator())
+	{
+		return;
+	}
+
+	UDemoNetDriver* DemoDriver = GetWorld()->DemoNetDriver;
+	if (DemoDriver && DemoDriver->IsFastForwarding())
+	{
+		return;
+	}
+
+	ClientReceiveLocalizedMessage(Message, Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
 }

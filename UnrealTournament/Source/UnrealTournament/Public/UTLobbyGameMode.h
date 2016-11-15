@@ -5,7 +5,6 @@
 #include "UTGameState.h"
 #include "UTLobbyGameState.h"
 #include "UTLobbyPlayerState.h"
-#include "Menus/SUTLobbyMenu.h"
 #include "UTBaseGameMode.h"
 #include "UTServerBeaconLobbyHostListener.h"
 #include "UTServerBeaconLobbyHostObject.h"
@@ -82,10 +81,7 @@ public:
 	/**
 	 *	Returns the Menu to popup when the user requests a menu
 	 **/
-	virtual TSharedRef<SUTMenuBase> GetGameMenu(UUTLocalPlayer* PlayerOwner) const
-	{
-		return SNew(SUTLobbyMenu).PlayerOwner(PlayerOwner);
-	}
+	virtual TSharedRef<SUTMenuBase> GetGameMenu(UUTLocalPlayer* PlayerOwner) const;
 
 #endif
 	virtual FName GetNextChatDestination(AUTPlayerState* PlayerState, FName CurrentChatDestination);
@@ -119,4 +115,5 @@ public:
 	
 	virtual void MakeJsonReport(TSharedPtr<FJsonObject> JsonObject);
 
+	virtual bool SupportsInstantReplay() const override;
 };

@@ -23,16 +23,7 @@ public class UnrealCEFSubProcessTarget : TargetRules
 		OutPlatforms.Add(UnrealTargetPlatform.Linux);
 		return true;
 	}
-    
-	public override bool ConfigureToolchain(TargetInfo Target)
-    {
-        if (Target.Platform == UnrealTargetPlatform.Win32 || Target.Platform == UnrealTargetPlatform.Win64)
-        {
-            WindowsPlatform.Compiler = WindowsCompiler.VisualStudio2013;
-        }
-        return true;
-    }
-	
+
 	public override bool ShouldCompileMonolithic(UnrealTargetPlatform InPlatform, UnrealTargetConfiguration InConfiguration)
 	{
 		return true;

@@ -1058,7 +1058,20 @@ bool FMallocBinned::GetAllocationSize(void *Original, SIZE_T &SizeOut)
 	}
 	UPTRINT BasePtr;
 	FPoolInfo* Pool = Private::FindPoolInfo(*this, (UPTRINT)Original, BasePtr);
-	SizeOut = Pool->TableIndex < BinnedOSTableIndex ? MemSizeToPoolTable[Pool->TableIndex]->BlockSize : Pool->GetBytes();
+	if (Pool->TableIndex < BinnedOSTableIndex)
+	{
+		FPoolTable* Table = MemSizeToPoolTable[Pool->TableIndex];
+
+		PTRINT OffsetFromBase = (PTRINT)Original - (PTRINT)BasePtr;
+		check(OffsetFromBase >= 0);
+		uint32 AlignOffset = OffsetFromBase % Table->BlockSize;
+
+		SizeOut = Table->BlockSize - AlignOffset;
+	}
+	else
+	{
+		SizeOut = Pool->GetBytes();
+	}
 	return true;
 }
 

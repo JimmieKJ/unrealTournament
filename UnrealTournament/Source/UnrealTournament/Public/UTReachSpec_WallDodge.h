@@ -28,7 +28,7 @@ public:
 	UPROPERTY()
 	FVector WallNormal;
 
-	virtual int32 CostFor(int32 DefaultCost, const FUTPathLink& OwnerLink, APawn* Asker, const FNavAgentProperties& AgentProps, AController* RequestOwner, NavNodeRef StartPoly, const class AUTRecastNavMesh* NavMesh) override
+	virtual int32 CostFor(int32 DefaultCost, const FUTPathLink& OwnerLink, APawn* Asker, const FNavAgentProperties& AgentProps, const FUTReachParams& ReachParams, AController* RequestOwner, NavNodeRef StartPoly, const class AUTRecastNavMesh* NavMesh) override
 	{
 		// low skill bots avoid wall dodge unless required to get to an area at all
 		AUTBot* B = Cast<AUTBot>(RequestOwner);

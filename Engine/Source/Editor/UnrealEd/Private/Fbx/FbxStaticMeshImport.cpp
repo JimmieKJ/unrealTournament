@@ -195,8 +195,8 @@ struct FFBXUVs
 			}
 		}
 
-		// not found
-		return 0;
+		// not found so return the default lightmap index
+		return 1;
 	}
 	
 	// @param FaceCornerIndex usually TriangleIndex * 3 + CornerIndex but more complicated for mixed n-gons

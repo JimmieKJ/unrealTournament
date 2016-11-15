@@ -381,7 +381,22 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 
 	UFUNCTION()
 	void OnEmoteEnded(UAnimMontage* Montage, bool bInterrupted);
-		
+
+	UFUNCTION()
+	void PlayGroupTaunt(TSubclassOf<AUTGroupTaunt> TauntToPlay);
+
+	UFUNCTION()
+	void OnGroupTauntEnded(UAnimMontage* Montage, bool bInterrupted);
+
+	UFUNCTION()
+	void CascadeGroupTaunt();
+
+	UPROPERTY()
+	TSubclassOf<AUTGroupTaunt> CurrentGroupTauntClass;
+
+	UPROPERTY()
+	UAnimMontage* CurrentGroupTaunt;
+
 	UPROPERTY()
 	UAnimMontage* CurrentTaunt;
 
@@ -398,6 +413,13 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 
 	UFUNCTION()
 	bool IsThirdPersonTaunting() const;
+
+	UPROPERTY()
+		TArray<AUTPlayerState*> HealthRemovalAssists;
+
+	UPROPERTY()
+		TArray<AUTPlayerState*> ArmorRemovalAssists;
+
 
 	/** Stored past positions of this player.  Used for bot aim error model, and for server side hit resolution. */
 	UPROPERTY()
@@ -744,7 +766,23 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	UPROPERTY(BlueprintReadOnly, Category = Pawn)
 		float LastTargetedTime;
 
-	virtual void TargetedBy(AUTCharacter* Targeter, AUTPlayerState* PS);
+	/** Last time this character was seen by an enemy that just targeted me. */
+	UPROPERTY(BlueprintReadOnly, Category = Pawn)
+		float LastTargetSeenTime;
+
+	/** Last enemy to target or hit this character. */
+	UPROPERTY(BlueprintReadOnly, Category = Pawn)
+		AUTPlayerState* LastTargeter;
+
+	/** Last enemy targeted or hit by this character. */
+	UPROPERTY(BlueprintReadOnly, Category = Pawn)
+		AUTCharacter* LastTarget;
+
+	/** set true when target or keep eyes on enemy FC. */
+	UPROPERTY(BlueprintReadOnly, Category = Pawn)
+		bool bHaveTargetVisual;
+
+	virtual void TargetedBy(APawn* Targeter, AUTPlayerState* PS);
 
 	/** Last time this character targeted or hit  an enemy. */
 	UPROPERTY(BlueprintReadOnly, Replicated, Category = Pawn)
@@ -862,6 +900,12 @@ protected:
 	/** set during ragdoll recovery (still blending out physics, playing recover anim, etc) */
 	UPROPERTY(BlueprintReadOnly, Category = Pawn)
 	bool bInRagdollRecovery;
+
+	/** top root speed during ragdoll, used for falling damage
+	 * this is needed because the velocity will have changed by the time we get the physics notify so it's too late to work off that
+	 */
+	UPROPERTY(BlueprintReadOnly, Category = Pawn)
+	float TopRagdollSpeed;
 
 	/** Magnitude of impulse to push ragdoll around if fail to get up from feign. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Pawn)
@@ -1199,6 +1243,10 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Effects")
 		TArray< TSubclassOf<class AUTReplicatedEmitter> > RallyEffect;
 
+	/** particle component for rally destination */
+	UPROPERTY(EditAnywhere, Category = "Effects")
+		TArray< TSubclassOf<class AUTReplicatedEmitter> > RallyDestinationEffect;
+
 	UPROPERTY(EditAnywhere, Category = "Effects")
 		TSubclassOf<AUTTaunt>  RallyAnimation;
 
@@ -1209,6 +1257,8 @@ public:
 	virtual void OnTriggerRallyEffect();
 
 	virtual void SpawnRallyEffectAt(FVector EffectLocation);
+
+	virtual void SpawnRallyDestinationEffectAt(FVector EffectLocation);
 
 	/** particle component for normal ground footstep */
 	UPROPERTY(EditAnywhere, Category = "Effects")
@@ -1598,6 +1648,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = WeaponBob)
 	FVector EyeOffsetInterpRate;
 
+	/** Small linear eye offset change added to interpolated to speed up end of interp. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = WeaponBob)
+		FVector EyeOffsetDirectRate;
+
 	/** How fast CrouchEyeOffset interpolates to 0. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = WeaponBob)
 	float CrouchEyeOffsetInterpRate;
@@ -1662,15 +1716,8 @@ public:
 	UPROPERTY(BlueprintReadWrite, Category = HUD)
 		float BeaconTextScale;
 
-	/** Mark this pawn as belonging to the player with the highest score, intended for cosmetic usage only */
-	UPROPERTY(ReplicatedUsing=OnRep_HasHighScore, BlueprintReadOnly, Category=Pawn)
-	bool bHasHighScore;
-
-	UFUNCTION()
-	void OnRep_HasHighScore();
-
 	/** Mark this pawn as should wear leader hat */
-	UPROPERTY(ReplicatedUsing = OnRep_ShouldWearLeaderHat, BlueprintReadOnly, Category = Pawn)
+	UPROPERTY(BlueprintReadOnly, Category = Pawn)
 		bool bShouldWearLeaderHat;
 
 	UFUNCTION()

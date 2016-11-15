@@ -8,6 +8,7 @@
 #include "UTTeleporter.h"
 #include "UTFlagRunGameState.h"
 #include "UTCharacterVoice.h"
+#include "UTRallyPoint.h"
 
 AUTGameVolume::AUTGameVolume(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -260,10 +261,10 @@ void AUTGameVolume::ActorEnteredVolume(class AActor* Other)
 
 void AUTGameVolume::ActorLeavingVolume(class AActor* Other)
 {
-	if (Other && bIsTeamSafeVolume)
+	AUTCharacter* UTCharacter = Cast<AUTCharacter>(Other);
+	if (UTCharacter)
 	{
-		AUTCharacter* UTCharacter = Cast<AUTCharacter>(Other);
-		if (UTCharacter)
+		if (bIsTeamSafeVolume)
 		{
 			UTCharacter->bDamageHurtsHealth = true;
 			UTCharacter->bHasLeftSafeVolume = true;

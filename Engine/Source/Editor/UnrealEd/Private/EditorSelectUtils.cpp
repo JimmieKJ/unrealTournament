@@ -615,10 +615,7 @@ void UUnrealEdEngine::SelectActor(AActor* Actor, bool bInSelected, bool bNotify,
 					FComponentEditorUtils::BindComponentSelectionOverride(SceneComponent, true);
 				}
 			}
-
-			//A fast path to mark selection rather than reconnecting ALL components for ALL actors that have changed state
-			SetActorSelectionFlags (Actor);
-
+			
 			if( bNotify )
 			{
 				NoteSelectionChange();
@@ -638,6 +635,9 @@ void UUnrealEdEngine::SelectActor(AActor* Actor, bool bInSelected, bool bNotify,
 				UpdateFloatingPropertyWindows(bForceRefresh);
 			}
 		}
+
+		//A fast path to mark selection rather than reconnecting ALL components for ALL actors that have changed state
+		SetActorSelectionFlags(Actor);
 	}
 }
 

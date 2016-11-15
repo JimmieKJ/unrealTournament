@@ -399,7 +399,7 @@ void UUTHUDWidget::SetHidden(bool bIsHidden)
 
 bool UUTHUDWidget::ShouldDraw_Implementation(bool bShowScores)
 {
-	return UTGameState && (UTGameState->HasMatchStarted() || (UTHUDOwner && UTHUDOwner->UTPlayerOwner && UTHUDOwner->UTPlayerOwner->UTPlayerState && UTHUDOwner->UTPlayerOwner->UTPlayerState->bIsWarmingUp)) && (UTCharacterOwner && !UTCharacterOwner->IsDead()) && !bShowScores && (UTGameState->GetMatchState() != MatchState::MatchIntermission) && !UTGameState->HasMatchEnded();
+	return UTGameState && (UTGameState->HasMatchStarted() || (UTHUDOwner && UTHUDOwner->UTPlayerOwner && UTHUDOwner->UTPlayerOwner->UTPlayerState && UTHUDOwner->UTPlayerOwner->UTPlayerState->bIsWarmingUp)) && UTCharacterOwner && !UTCharacterOwner->IsDead() && !bShowScores && (UTGameState->GetMatchState() != MatchState::MatchIntermission) && !UTGameState->HasMatchEnded();
 }
 
 void UUTHUDWidget::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas* InCanvas, FVector2D InCanvasCenter)

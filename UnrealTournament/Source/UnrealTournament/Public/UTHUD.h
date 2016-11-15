@@ -92,6 +92,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
 	TArray<FString> HudWidgetClasses;
 
+	// The chat font to use
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
+		class UFont* ChatFont;
+
 	// The tiny font to use
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
 	class UFont* TinyFont;
@@ -123,6 +127,11 @@ public:
 	/** Cache fonts this HUD will use */
 	virtual void CacheFonts();
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
+		FText ScoreMessageText;
+
+	virtual void DrawWinConditions(UFont* InFont, float XPos, float YPos, float ScoreWidth, float RenderScale, bool bCenterMessage);
+
 	// The Global Opacity for Hud Widgets
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
 	float WidgetOpacity;
@@ -139,6 +148,12 @@ public:
 
 	UPROPERTY(BlueprintReadOnly, Category = HUD)
 	class UUTHUDWidget_SpectatorSlideOut* SpectatorSlideOutWidget;
+
+	UPROPERTY(BlueprintReadOnly, Category = HUD)
+		class UUTHUDWidgetMessage_KillIconMessages* KillIconWidget;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = HUD)
+		FVector2D ScoreboardKillFeedPosition;
 
 	class UUTHUDWidget_SpectatorSlideOut* GetSpectatorSlideOut() { return SpectatorSlideOutWidget; }
 
@@ -208,7 +223,6 @@ public:
 	/** if it was a kill,  this will be true */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
 	bool LastConfirmedHitWasAKill;
-
 
 	// Active Damage Indicators.  NOTE: if FadeTime == 0 then it's not in use
 	UPROPERTY()
@@ -420,14 +434,14 @@ public:
 
 	virtual bool ShouldDrawMinimap();
 
+	// The current Scoreboard
+	UPROPERTY()
+		class UUTScoreboard* MyUTScoreboard;
+
 protected:
 
 	// We cache the team color so we only have to look it up once at the start of the render pass
 	FLinearColor CachedTeamColor;
-
-	// The current Scoreboard
-	UPROPERTY()
-	class UUTScoreboard* MyUTScoreboard;
 
 
 public:
@@ -607,6 +621,8 @@ public:
 	UFUNCTION()
 	virtual void ClientRestart();
 
+	virtual void DrawKillSkulls();
+
 	bool VerifyProfileSettings();
 	virtual void Destroyed();
 
@@ -652,6 +668,8 @@ public:
 	 **/
 	UFUNCTION()
 	UUTCrosshair* GetCrosshairForWeapon(FName WeaponCustomizationTag, FWeaponCustomizationInfo& outWeaponCustomizationInfo);
+
+	virtual void DrawActorOverlays(FVector Viewpoint, FRotator ViewRotation) override;
 
 
 protected:

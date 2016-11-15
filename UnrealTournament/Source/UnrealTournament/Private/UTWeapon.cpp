@@ -23,6 +23,7 @@
 #include "UTCrosshair.h"
 #include "UTDroppedPickup.h"
 #include "UTAnnouncer.h"
+#include "UTProj_ShockBall.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogUTWeapon, Log, All);
 
@@ -48,6 +49,7 @@ AUTWeapon::AUTWeapon(const FObjectInitializer& ObjectInitializer)
 	RefirePutDownTimePercent = 1.0f;
 	WeaponBobScaling = 1.f;
 	FiringViewKickback = -20.f;
+	FiringViewKickbackY = 12.f;
 	bNetDelayedShot = false;
 
 	bFPFireFromCenter = true;
@@ -102,6 +104,7 @@ AUTWeapon::AUTWeapon(const FObjectInitializer& ObjectInitializer)
 
 	bCheckHeadSphere = false;
 	bCheckMovingHeadSphere = false;
+	bIgnoreShockballs = false;
 
 	WeightSpeedPctModifier = 1.0f;
 
@@ -881,11 +884,13 @@ void AUTWeapon::AttachToOwner_Implementation()
 		}
 	}
 	// register components now
-	Super::RegisterAllComponents();
+	bAttachingToOwner = true;
+	RegisterAllComponents();
 	RegisterAllActorTickFunctions(true, true); // 4.11 changed components to only get tick registered automatically if they're registered prior to BeginPlay()!
 	if (GetNetMode() != NM_DedicatedServer)
 	{
 		UpdateOverlays();
+		UpdateOutline();
 		SetSkin(UTOwner->GetSkin());
 	}
 }
@@ -1033,6 +1038,11 @@ void AUTWeapon::DetachFromOwner_Implementation()
 			OverlayMesh->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered;
 		}
 	}
+	if (CustomDepthMesh != NULL)
+	{
+		CustomDepthMesh->DestroyComponent();
+		CustomDepthMesh = NULL;
+	}
 	// unregister components so they go away
 	UnregisterAllComponents();
 
@@ -1133,6 +1143,7 @@ void AUTWeapon::PlayFiringEffects()
 		if (ShouldPlay1PVisuals() && GetWeaponHand() != EWeaponHand::HAND_Hidden)
 		{
 			UTOwner->TargetEyeOffset.X = FiringViewKickback;
+			UTOwner->TargetEyeOffset.Y = FiringViewKickbackY;
 			// try and play a firing animation if specified
 			PlayWeaponAnim(GetFiringAnim(EffectFiringMode, false), GetFiringAnim(EffectFiringMode, true));
 
@@ -1566,8 +1577,7 @@ void AUTWeapon::GuessPlayerTarget(const FVector& StartFireLoc, const FVector& Fi
 		}
 		if (TargetedCharacter)
 		{
-			UTOwner->LastTargetingTime = GetWorld()->GetTimeSeconds();
-			TargetedCharacter->TargetedBy(TargetedCharacter, PS);
+			TargetedCharacter->TargetedBy(UTOwner, PS);
 		}
 	}
 }
@@ -1590,6 +1600,28 @@ void AUTWeapon::HitScanTrace(const FVector& StartLocation, const FVector& EndTra
 		if (!GetWorld()->LineTraceSingleByChannel(Hit, StartLocation, EndTrace, TraceChannel, QueryParams))
 		{
 			Hit.Location = EndTrace;
+		}
+		else if (bIgnoreShockballs && Hit.Actor.IsValid() && Cast<AUTProj_ShockBall>(Hit.Actor.Get()))
+		{
+			int32 HitShockballCount = 3;
+			QueryParams.AddIgnoredActor(Hit.Actor.Get());
+			while (HitShockballCount > 0)
+			{
+				if (!GetWorld()->LineTraceSingleByChannel(Hit, StartLocation, EndTrace, TraceChannel, QueryParams))
+				{
+					Hit.Location = EndTrace;
+					HitShockballCount = 0;
+				}
+				else if (Hit.Actor.IsValid() && Cast<AUTProj_ShockBall>(Hit.Actor.Get()))
+				{
+					HitShockballCount--;
+					QueryParams.AddIgnoredActor(Hit.Actor.Get());
+				}
+				else
+				{
+					HitShockballCount = 0;
+				}
+			}
 		}
 	}
 	else
@@ -2303,6 +2335,7 @@ TArray<UMeshComponent*> AUTWeapon::Get1PMeshes_Implementation() const
 	TArray<UMeshComponent*> Result;
 	Result.Add(Mesh);
 	Result.Add(OverlayMesh);
+	Result.Add(CustomDepthMesh);
 	return Result;
 }
 
@@ -2318,11 +2351,6 @@ void AUTWeapon::UpdateOverlaysShared(AActor* WeaponActor, AUTCharacter* InOwner,
 			{
 				InOverlayMesh = DuplicateObject<USkeletalMeshComponent>(InMesh, WeaponActor);
 				InOverlayMesh->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
-				{
-					// TODO: scary that these get copied, need an engine solution and/or safe way to duplicate objects during gameplay
-					InOverlayMesh->PrimaryComponentTick = InOverlayMesh->GetClass()->GetDefaultObject<USkeletalMeshComponent>()->PrimaryComponentTick;
-					InOverlayMesh->PostPhysicsComponentTick = InOverlayMesh->GetClass()->GetDefaultObject<USkeletalMeshComponent>()->PostPhysicsComponentTick;
-				}
 				InOverlayMesh->SetMasterPoseComponent(InMesh);
 			}
 			if (!InOverlayMesh->IsRegistered())
@@ -2418,6 +2446,74 @@ void AUTWeapon::UpdateOverlaysShared(AActor* WeaponActor, AUTCharacter* InOwner,
 void AUTWeapon::UpdateOverlays()
 {
 	UpdateOverlaysShared(this, GetUTOwner(), Mesh, OverlayEffectParams, OverlayMesh);
+}
+
+void AUTWeapon::UpdateOutline()
+{
+	if (UTOwner == nullptr)
+	{
+		if (CustomDepthMesh != nullptr && CustomDepthMesh->IsRegistered())
+		{
+			CustomDepthMesh->UnregisterComponent();
+		}
+	}
+	else
+	{
+		// show outline on weapon if ENEMIES have outline
+		bool bOutlined = false;
+		// this is a little hacky because the flag carrier outline replicates through PlayerState and isn't using UTCharacter's team mask
+		AUTPlayerState* PS = Cast<AUTPlayerState>(UTOwner->PlayerState);
+		if (PS != nullptr && PS->bSpecialPlayer)
+		{
+			bOutlined = true;
+		}
+		else if (!UTOwner->IsOutlined(255))
+		{
+			for (int32 i = 0; i <= 8; i++)
+			{
+				if (UTOwner->IsOutlined(i) && UTOwner->GetTeamNum() != i)
+				{
+					bOutlined = true;
+					break;
+				}
+			}
+		}
+		// 0 is a null value for the stencil so use team + 1
+		// last bit in stencil is a bitflag so empty team uses 127
+		uint8 NewStencilValue = (UTOwner->GetTeamNum() == 255) ? 127 : (UTOwner->GetTeamNum() + 1);
+		NewStencilValue |= 128; // always show when unoccluded
+		if (bOutlined)
+		{
+			if (CustomDepthMesh == NULL)
+			{
+				CustomDepthMesh = Cast<USkeletalMeshComponent>(CreateCustomDepthOutlineMesh(Mesh, this));
+				// we can't use the default material because we need to apply the panini shader
+				for (int32 i = 0; i < Mesh->GetNumMaterials(); i++)
+				{
+					CustomDepthMesh->SetMaterial(i, Mesh->GetMaterial(i));
+				}
+				CustomDepthMesh->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones;
+			}
+			if (CustomDepthMesh->CustomDepthStencilValue != NewStencilValue)
+			{
+				CustomDepthMesh->CustomDepthStencilValue = NewStencilValue;
+				CustomDepthMesh->MarkRenderStateDirty();
+			}
+			if (!CustomDepthMesh->IsRegistered())
+			{
+				CustomDepthMesh->RegisterComponent();
+				CustomDepthMesh->LastRenderTime = GetMesh()->LastRenderTime;
+				CustomDepthMesh->bRecentlyRendered = true;
+			}
+		}
+		else
+		{
+			if (CustomDepthMesh != NULL && CustomDepthMesh->IsRegistered())
+			{
+				CustomDepthMesh->UnregisterComponent();
+			}
+		}
+	}
 }
 
 void AUTWeapon::SetSkin(UMaterialInterface* NewSkin)
@@ -2689,7 +2785,6 @@ void AUTWeapon::FiringInfoUpdated_Implementation(uint8 InFireMode, uint8 FlashCo
 	if (FlashCount > 0 || !InFlashLocation.IsZero())
 	{
 		CurrentFireMode = InFireMode;
-		UE_LOG(UT, Warning, TEXT("FiringInfoUpdated_Implementation"));
 		PlayFiringEffects();
 	}
 	else
@@ -2898,4 +2993,17 @@ void AUTWeapon::OnZoomedOut_Implementation()
 bool AUTWeapon::CanSwitchTo()
 {
 	return HasAnyAmmo();
+}
+
+void AUTWeapon::RegisterAllComponents()
+{
+	TInlineComponentArray<USceneComponent*> AllSceneComponents;
+	GetComponents(AllSceneComponents);
+
+	for (USceneComponent* Child : AllSceneComponents)
+	{
+		Child->bAutoRegister = bAttachingToOwner;
+	}
+
+	Super::RegisterAllComponents();
 }

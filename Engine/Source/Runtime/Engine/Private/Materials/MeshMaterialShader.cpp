@@ -201,10 +201,11 @@ uint32 FMeshMaterialShaderMap::BeginCompile(
 	}
 
 	// Now the pipeline jobs; if it's a shareable pipeline, do not add duplicate jobs
+	const bool bHasTessellation = Material->GetTessellationMode() != MTM_NoTessellation;
 	for (TLinkedList<FShaderPipelineType*>::TIterator ShaderPipelineIt(FShaderPipelineType::GetTypeList());ShaderPipelineIt;ShaderPipelineIt.Next())
 	{
 		const FShaderPipelineType* Pipeline = *ShaderPipelineIt;
-		if (Pipeline->IsMeshMaterialTypePipeline())
+		if (Pipeline->IsMeshMaterialTypePipeline() && Pipeline->HasTessellation() == bHasTessellation)
 		{
 			auto& StageTypes = Pipeline->GetStages();
 			int32 NumShaderStagesToCompile = 0;
@@ -314,10 +315,11 @@ bool FMeshMaterialShaderMap::IsComplete(
 	}
 
 	// Iterate over all pipeline types
+	const bool bHasTessellation = Material->GetTessellationMode() != MTM_NoTessellation;
 	for (TLinkedList<FShaderPipelineType*>::TIterator ShaderPipelineIt(FShaderPipelineType::GetTypeList());ShaderPipelineIt;ShaderPipelineIt.Next())
 	{
 		const FShaderPipelineType* ShaderPipelineType = *ShaderPipelineIt;
-		if (ShaderPipelineType->IsMeshMaterialTypePipeline())
+		if (ShaderPipelineType->IsMeshMaterialTypePipeline() && ShaderPipelineType->HasTessellation() == bHasTessellation)
 		{
 			auto& Stages = ShaderPipelineType->GetStages();
 
@@ -375,10 +377,11 @@ void FMeshMaterialShaderMap::LoadMissingShadersFromMemory(
 	}
 
 	// Try to find necessary FShaderPipelineTypes in memory
+	const bool bHasTessellation = Material->GetTessellationMode() != MTM_NoTessellation;
 	for (TLinkedList<FShaderPipelineType*>::TIterator ShaderPipelineIt(FShaderPipelineType::GetTypeList());ShaderPipelineIt;ShaderPipelineIt.Next())
 	{
 		const FShaderPipelineType* PipelineType = *ShaderPipelineIt;
-		if (PipelineType && PipelineType->IsMeshMaterialTypePipeline() && !HasShaderPipeline(PipelineType))
+		if (PipelineType && PipelineType->IsMeshMaterialTypePipeline() && !HasShaderPipeline(PipelineType) && PipelineType->HasTessellation() == bHasTessellation)
 		{
 			auto& Stages = PipelineType->GetStages();
 			int32 NumShaders = 0;

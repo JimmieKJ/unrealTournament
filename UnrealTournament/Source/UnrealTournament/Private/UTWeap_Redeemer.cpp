@@ -7,6 +7,8 @@
 #include "UTWeaponStateUnequipping.h"
 #include "StatNames.h"
 #include "UTRedeemerLaunchAnnounce.h"
+#include "UTFlagRunGameState.h"
+#include "UTGameMessage.h"
 
 AUTWeap_Redeemer::AUTWeap_Redeemer(const class FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -17,6 +19,7 @@ AUTWeap_Redeemer::AUTWeap_Redeemer(const class FObjectInitializer& ObjectInitial
 	Ammo = 1;
 	MaxAmmo = 1;
 	FiringViewKickback = -50.f;
+	FiringViewKickbackY = 60.f;
 	bMustBeHolstered = true;
 	BasePickupDesireability = 1.5f;
 	BaseAISelectRating = 1.5f;
@@ -170,6 +173,14 @@ void AUTWeap_Redeemer::BringUp(float OverflowTime)
 
 bool AUTWeap_Redeemer::PutDown()
 {
+/*	if ((Ammo > 0) && GetWorld()->GetGameState<AUTFlagRunGameState>())
+	{
+		if (UTOwner && Cast<AUTPlayerController>(UTOwner->GetController()))
+		{
+			Cast<AUTPlayerController>(UTOwner->GetController())->ClientReceiveLocalizedMessage(UUTGameMessage::StaticClass(), 99);
+		}
+		return false;
+	}*/
 	if (Super::PutDown())
 	{
 		UUTGameplayStatics::UTPlaySound(GetWorld(), GlobalPutDownSound, UTOwner, SRT_AllButOwner);

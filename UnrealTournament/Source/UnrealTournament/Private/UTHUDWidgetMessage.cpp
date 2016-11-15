@@ -219,6 +219,7 @@ void UUTHUDWidgetMessage::ReceiveLocalMessage(TSubclassOf<class UUTLocalMessage>
 				if (DefaultMessageObject->bCombineEmphasisText)
 				{
 					CombinedEmphasisText = MessageQueue[QueueIndex].EmphasisText;
+					CombinedMessageIndex = MessageQueue[QueueIndex].MessageIndex;
 				}
 				if (DefaultMessageObject->ShouldCountInstances(MessageIndex, OptionalObject) && MessageQueue[QueueIndex].Text.EqualTo(LocalMessageText))
 				{
@@ -280,12 +281,9 @@ void UUTHUDWidgetMessage::AddMessage(int32 QueueIndex, TSubclassOf<class UUTLoca
 	GetDefault<UUTLocalMessage>(MessageClass)->GetEmphasisText(MessageQueue[QueueIndex].PrefixText, MessageQueue[QueueIndex].EmphasisText, MessageQueue[QueueIndex].PostfixText, MessageQueue[QueueIndex].EmphasisColor, MessageIndex, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
 	if (GetDefault<UUTLocalMessage>(MessageClass)->bCombineEmphasisText && !CombinedEmphasisText.IsEmpty())
 	{
-		FFormatNamedArguments Args;
-		Args.Add(TEXT("FirstText"), CombinedEmphasisText);
-		Args.Add(TEXT("SecondText"), MessageQueue[QueueIndex].EmphasisText);
-		MessageQueue[QueueIndex].EmphasisText = FText::Format(NSLOCTEXT("UTLocalMessage", "CombinedEmphasisText", "{FirstText} & {SecondText}"), Args);
-		Args.Add(TEXT("FullText"), MessageQueue[QueueIndex].Text);
-		MessageQueue[QueueIndex].Text = FText::Format(NSLOCTEXT("UTLocalMessage", "CombinedFullText", "{FullText} & {FirstText}"), Args);
+		MessageQueue[QueueIndex].EmphasisText = GetDefault<UUTLocalMessage>(MessageClass)->CombineEmphasisText(CombinedMessageIndex, CombinedEmphasisText, MessageQueue[QueueIndex].EmphasisText);
+		MessageQueue[QueueIndex].PrefixText = GetDefault<UUTLocalMessage>(MessageClass)->CombinePrefixText(CombinedMessageIndex, MessageQueue[QueueIndex].PrefixText);
+		MessageQueue[QueueIndex].Text = GetDefault<UUTLocalMessage>(MessageClass)->CombineText(CombinedMessageIndex, MessageQueue[QueueIndex].EmphasisText, MessageQueue[QueueIndex].Text);
 	}
 	MessageQueue[QueueIndex].LifeSpan = GetDefault<UUTLocalMessage>(MessageClass)->GetLifeTime(MessageIndex);
 	MessageQueue[QueueIndex].LifeLeft = MessageQueue[QueueIndex].LifeSpan;

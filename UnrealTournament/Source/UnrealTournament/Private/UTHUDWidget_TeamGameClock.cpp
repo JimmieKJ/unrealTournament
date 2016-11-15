@@ -31,15 +31,22 @@ void UUTHUDWidget_TeamGameClock::Draw_Implementation(float DeltaTime)
 
 	if (!StatusText.IsEmpty())
 	{
-		GameStateBackground.bHidden = true; // @TODO FIXMESTEVE remove entirely, also clock background
 		GameStateText.bHidden = false;
 		GameStateText.Text = StatusText;
+		GameStateText.RenderColor = UTGameState->GetGameStatusColor();
 	}
 	else
 	{
-		GameStateBackground.bHidden = true;
 		GameStateText.bHidden = true;
 		GameStateText.Text = StatusText;
+	}
+
+	AUTCharacter* UTC = Cast<AUTCharacter>(UTHUDOwner->UTPlayerOwner->GetViewTarget());
+	AUTPlayerState* PS = UTC ? Cast<AUTPlayerState>(UTC->PlayerState) : NULL;
+	if (UTGameState && UTGameState->bTeamGame && PS && PS->Team)
+	{
+		TeamNameText.Text = PS->Team->TeamName;
+		TeamNameText.RenderColor = PS->Team->TeamColor;
 	}
 
 	TSharedPtr<GenericApplication> GenericApplication = FSlateApplication::Get().GetPlatformApplication();

@@ -22,9 +22,9 @@ void SUTPartyInviteWidget::Construct(const FArguments& InArgs, const FLocalPlaye
 	Ctx = InCtx;
 
 #if WITH_SOCIAL
-	if (!ISocialModule::Get().GetFriendsAndChatManager()->GetNotificationService()->OnSendNotification().IsBoundToObject(this))
+	if (!ISocialModule::Get().GetFriendsAndChatManager(TEXT(""), true)->GetNotificationService()->OnSendNotification().IsBoundToObject(this))
 	{
-		ISocialModule::Get().GetFriendsAndChatManager()->GetNotificationService()->OnSendNotification().AddSP(this, &SUTPartyInviteWidget::HandleFriendsActionNotification);
+		ISocialModule::Get().GetFriendsAndChatManager(TEXT(""), true)->GetNotificationService()->OnSendNotification().AddSP(this, &SUTPartyInviteWidget::HandleFriendsActionNotification);
 	}
 #endif
 
@@ -139,8 +139,8 @@ FReply SUTPartyInviteWidget::AcceptInvite()
 #if WITH_SOCIAL
 	if (!LastInviteUniqueID.IsEmpty())
 	{
-		TSharedPtr<IGameAndPartyService> GameAndPartyService = ISocialModule::Get().GetFriendsAndChatManager()->GetGameAndPartyService();
-		TSharedPtr<IFriendsService> FriendsService = ISocialModule::Get().GetFriendsAndChatManager()->GetFriendsService();
+		TSharedPtr<IGameAndPartyService> GameAndPartyService = ISocialModule::Get().GetFriendsAndChatManager(TEXT(""), true)->GetGameAndPartyService();
+		TSharedPtr<IFriendsService> FriendsService = ISocialModule::Get().GetFriendsAndChatManager(TEXT(""), true)->GetFriendsService();
 		if (GameAndPartyService.IsValid() && FriendsService.IsValid())
 		{
 			TSharedPtr< IFriendItem > User = FriendsService->FindUser(FUniqueNetIdString(LastInviteUniqueID));
@@ -180,8 +180,8 @@ FReply SUTPartyInviteWidget::RejectInvite()
 #if WITH_SOCIAL
 	if (!LastInviteUniqueID.IsEmpty())
 	{
-		TSharedPtr<IGameAndPartyService> GameAndPartyService = ISocialModule::Get().GetFriendsAndChatManager()->GetGameAndPartyService();
-		TSharedPtr<IFriendsService> FriendsService = ISocialModule::Get().GetFriendsAndChatManager()->GetFriendsService();
+		TSharedPtr<IGameAndPartyService> GameAndPartyService = ISocialModule::Get().GetFriendsAndChatManager(TEXT(""), true)->GetGameAndPartyService();
+		TSharedPtr<IFriendsService> FriendsService = ISocialModule::Get().GetFriendsAndChatManager(TEXT(""), true)->GetFriendsService();
 		if (GameAndPartyService.IsValid() && FriendsService.IsValid())
 		{
 			TSharedPtr< IFriendItem > User = FriendsService->FindUser(FUniqueNetIdString(LastInviteUniqueID));

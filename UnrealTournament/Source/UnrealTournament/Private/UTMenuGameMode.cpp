@@ -18,8 +18,7 @@ AUTMenuGameMode::AUTMenuGameMode(const class FObjectInitializer& ObjectInitializ
 
 	static ConstructorHelpers::FObjectFinder<USoundBase> DefaultMusicRef[] = 
 		{ 
-				TEXT("/Game/RestrictedAssets/Audio/Music/Music_HaveAnUnrealHalloween.Music_HaveAnUnrealHalloween"),
-//				TEXT("/Game/RestrictedAssets/Audio/Music/Music_UTMuenu_New01.Music_UTMuenu_New01"), 
+				TEXT("/Game/RestrictedAssets/Audio/Music/Music_UTMuenu_New01.Music_UTMuenu_New01"), 
 				TEXT("/Game/RestrictedAssets/Audio/Music/Music_FragCenterIntro.Music_FragCenterIntro") 
 		};
 	
@@ -76,7 +75,7 @@ void AUTMenuGameMode::OnLoadingMovieEnd()
 		UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(PC->Player);
 		if (LP != NULL)
 		{
-			if (LP->IsLoggedIn(true) || LP->LoginPhase == ELoginPhase::Offline)
+			if (LP->LoginPhase == ELoginPhase::Offline || LP->LoginPhase == ELoginPhase::LoggedIn)
 			{
 				ShowMenu(PC);
 			}

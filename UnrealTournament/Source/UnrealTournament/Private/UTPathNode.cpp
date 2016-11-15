@@ -5,7 +5,7 @@
 #include "UTRecastNavMesh.h"
 #include "UTPainVolume.h"
 
-int32 FUTPathLink::CostFor(APawn* Asker, const FNavAgentProperties& AgentProps, AController* RequestOwner, NavNodeRef StartPoly, const AUTRecastNavMesh* NavMesh) const
+int32 FUTPathLink::CostFor(APawn* Asker, const FNavAgentProperties& AgentProps, const FUTReachParams& ReachParams, AController* RequestOwner, NavNodeRef StartPoly, const AUTRecastNavMesh* NavMesh) const
 {
 	checkSlow(Start.IsValid());
 	checkSlow(Start->Polys.Find(StartPoly) != INDEX_NONE);
@@ -40,7 +40,7 @@ int32 FUTPathLink::CostFor(APawn* Asker, const FNavAgentProperties& AgentProps, 
 	{
 		Result += 100000;
 	}
-	return (Spec.IsValid() ? Spec->CostFor(Result, *this, Asker, AgentProps, RequestOwner, StartPoly, NavMesh) : Result);
+	return (Spec.IsValid() ? Spec->CostFor(Result, *this, Asker, AgentProps, ReachParams, RequestOwner, StartPoly, NavMesh) : Result);
 }
 
 bool FUTPathLink::GetMovePoints(const FVector& StartLoc, APawn* Asker, const FNavAgentProperties& AgentProps, const FRouteCacheItem& Target, const TArray<FRouteCacheItem>& FullRoute, const AUTRecastNavMesh* NavMesh, TArray<FComponentBasedPosition>& MovePoints) const
@@ -226,17 +226,15 @@ int32 UUTPathNode::GetBestLinkTo(NavNodeRef StartPoly, const struct FRouteCacheI
 	else
 	{
 		AController* RequestOwner = (Asker != NULL) ? Asker->Controller : NULL; // this function is used for actual movement so doesn't seem like we need this split here
-		int32 Radius, Height, MaxFallSpeed;
-		uint32 MoveFlags;
-		AUTRecastNavMesh::CalcReachParams(Asker, AgentProps, RequestOwner, Radius, Height, MaxFallSpeed, MoveFlags);
+		FUTReachParams ReachParams(Asker, AgentProps);
 
 		int32 BestDist = MAX_int32;
 		int32 BestIndex = INDEX_NONE;
 		for (int32 i = 0; i < Paths.Num(); i++)
 		{
-			if (Paths[i].End.IsValid() && Paths[i].End == Target.Node && Paths[i].EndPoly == Target.TargetPoly && Paths[i].Supports(Radius, Height, MoveFlags))
+			if (Paths[i].End.IsValid() && Paths[i].End == Target.Node && Paths[i].EndPoly == Target.TargetPoly && Paths[i].Supports(ReachParams.Radius, ReachParams.HalfHeight, ReachParams.MoveFlags))
 			{
-				int32 Dist = Paths[i].CostFor(Asker, AgentProps, RequestOwner, StartPoly, NavMesh);
+				int32 Dist = Paths[i].CostFor(Asker, AgentProps, ReachParams, RequestOwner, StartPoly, NavMesh);
 				if (Dist < BestDist)
 				{
 					BestIndex = i;

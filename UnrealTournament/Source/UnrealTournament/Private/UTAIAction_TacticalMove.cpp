@@ -247,7 +247,10 @@ bool UUTAIAction_TacticalMove::Update(float DeltaTime)
 		{
 			GetUTChar()->StopFiring();
 		}
-		SetTimerUFunc(this, TEXT("StartFinalMove"), 0.1f + 0.2f * FMath::FRand(), false);
+		if (GetOuterAUTBot()->GetCurrentAction() == this) // StopFiring could have resulted in suicide
+		{
+			SetTimerUFunc(this, TEXT("StartFinalMove"), 0.1f + 0.2f * FMath::FRand(), false);
+		}
 		return false;
 	}
 }

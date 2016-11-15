@@ -22,6 +22,7 @@ AUTProj_Rocket::AUTProj_Rocket(const class FObjectInitializer& ObjectInitializer
 	PrimaryActorTick.bCanEverTick = true;
 	AdjustmentSpeed = 5000.0f;
 	bLeadTarget = true;
+	bRocketTeamSet = false;
 }
 
 void AUTProj_Rocket::Tick(float DeltaTime)
@@ -44,7 +45,23 @@ void AUTProj_Rocket::Tick(float DeltaTime)
 		{
 			TargetActor = NULL;
 		}
+		else if (MeshMI && (int32(5.f*GetWorld()->GetTimeSeconds()) != int32(5.f*(GetWorld()->GetTimeSeconds()-DeltaTime))))
+		{
+			AUTCharacter* UTChar = Cast<AUTCharacter>(Instigator);
+			if (UTChar && (UTChar->GetTeamColor() != FLinearColor::White))
+			{
+				static FName NAME_GunGlowsColor(TEXT("Gun_Glows_Color"));
+				FLinearColor NewColor = (int32(5.f*GetWorld()->GetTimeSeconds()) % 2 == 0) ? UTChar->GetTeamColor() : FLinearColor::White;
+				MeshMI->SetVectorParameterValue(NAME_GunGlowsColor, NewColor);
+				bRocketTeamSet = (NewColor != FLinearColor::White);
+			}
+		}
+		else if (!bRocketTeamSet && Instigator)
+		{
+			OnRep_Instigator();
+		}
 	}
+
 }
 
 void AUTProj_Rocket::OnRep_Instigator()
@@ -53,10 +70,12 @@ void AUTProj_Rocket::OnRep_Instigator()
 	AUTCharacter* UTChar = Cast<AUTCharacter>(Instigator);
 	if (UTChar && (UTChar->GetTeamColor() != FLinearColor::White))
 	{
+		bRocketTeamSet = true;
 		TArray<UStaticMeshComponent*> MeshComponents;
 		GetComponents<UStaticMeshComponent>(MeshComponents);
 		static FName NAME_GunGlowsColor(TEXT("Gun_Glows_Color"));
-		UMaterialInstanceDynamic* MeshMI = MeshComponents[0] ? MeshComponents[0]->CreateAndSetMaterialInstanceDynamic(1) : nullptr;
+		UStaticMeshComponent* GlowMesh = (MeshComponents.Num() > 0) ? MeshComponents[0] : nullptr;
+		MeshMI = GlowMesh ? GlowMesh->CreateAndSetMaterialInstanceDynamic(1) : nullptr;
 		if (MeshMI != nullptr)
 		{
 			MeshMI->SetVectorParameterValue(NAME_GunGlowsColor, UTChar->GetTeamColor());
@@ -105,8 +124,7 @@ void AUTProj_Rocket::Explode_Implementation(const FVector& HitLocation, const FV
 			if (FollowerRockets[i] && !FollowerRockets[i]->IsPendingKillPending())
 			{
 				FollowerRockets[i]->TargetActor = HitCharacter;
-				AdjustmentSpeed = 24000.f;
-				bLeadTarget = true;
+				FollowerRockets[i]->AdjustmentSpeed = 24000.f;
 			}
 		}
 	}

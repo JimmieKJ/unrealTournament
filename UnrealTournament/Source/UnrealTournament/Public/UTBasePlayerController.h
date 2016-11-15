@@ -273,9 +273,6 @@ public:
 	UFUNCTION(BlueprintCallable, Client, Reliable, Category = "Movies")
 	virtual void ClientStopMovie();
 
-	UFUNCTION(BlueprintCallable, Client, Reliable, Category = "Movies")
-	virtual void ClientWaitForMovieToFinish();
-
 	virtual void ClientEnableNetworkVoice_Implementation(bool bEnable);
 
 	UFUNCTION(exec)
@@ -298,6 +295,14 @@ public:
 	void MarkTutorialAsCompleted(int32 TutorialMask);
 
 	bool SkipTutorialCheck();
+
+	UFUNCTION(BlueprintCallable, Category = "Movie")
+	void SetLoadingMovieToPlay(const FString& MoviePath);
+
+	UFUNCTION(exec)
+	void UTDumpOnlineSessionState();
+	UFUNCTION(exec)
+	void UTDumpPartyState();
 
 protected:
 	// Sends a message directly to a user.  

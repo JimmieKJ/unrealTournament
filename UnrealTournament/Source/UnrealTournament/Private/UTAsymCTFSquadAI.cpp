@@ -11,9 +11,13 @@ void AUTAsymCTFSquadAI::Initialize(AUTTeamInfo* InTeam, FName InOrders)
 	AUTFlagRunGameState* GS = GetWorld()->GetGameState<AUTFlagRunGameState>();
 	if (GS != NULL && GS->FlagBases.Num() >= 2 && GS->FlagBases[0] != NULL && GS->FlagBases[1] != NULL)
 	{
-		Objective = GS->FlagBases[GS->bRedToCap ? 1 : 0];
+		GameObjective = GS->FlagBases[GS->bRedToCap ? 1 : 0];
+		Objective = GameObjective;
 		Flag = GS->FlagBases[GS->bRedToCap ? 0 : 1]->GetCarriedObject();
+		TotalFlagRunDistance = (Objective->GetActorLocation() - Flag->GetActorLocation()).Size();
 	}
+	LastFlagNode = nullptr;
+	SquadRoutes.Empty();
 }
 
 bool AUTAsymCTFSquadAI::IsAttackingTeam() const
@@ -108,10 +112,26 @@ void AUTAsymCTFSquadAI::GetPossibleEnemyGoals(AUTBot* B, const FBotEnemyInfo* En
 
 bool AUTAsymCTFSquadAI::HuntEnemyFlag(AUTBot* B)
 {
-	AUTCharacter* EnemyCarrier = Flag->HoldingPawn;
-	if (EnemyCarrier != NULL)
+	if (Flag->HoldingPawn != nullptr)
 	{
-		if (EnemyCarrier == B->GetEnemy())
+		// if the enemy FC has never been seen, use the alternate path logic
+		// this prevents the AI from abandoning the alternate approach routes prematurely when the flag is picked up
+		const FBotEnemyInfo* CarrierInfo = B->GetEnemyInfo(Flag->HoldingPawn, true);
+		if (CarrierInfo == nullptr || CarrierInfo->LastSeenTime <= 0.0f)
+		{
+			if ((B->GetPawn()->GetActorLocation() - Flag->HoldingPawn->GetActorLocation()).Size() < TotalFlagRunDistance * (0.33f - 0.1f * B->Personality.Aggressiveness))
+			{
+				B->GoalString = TEXT("Wait here for enemy assault to begin");
+				B->DoCamp();
+				return true;
+			}
+			else if (FollowAlternateRoute(B, Flag->HoldingPawn, SquadRoutes, true, true, "Continue prior route to flag carrier"))
+			{
+				return true;
+			}
+		}
+		
+		if (Flag->HoldingPawn == B->GetEnemy())
 		{
 			B->GoalString = "Fight flag carrier";
 			// fight enemy
@@ -120,23 +140,36 @@ bool AUTAsymCTFSquadAI::HuntEnemyFlag(AUTBot* B)
 		else
 		{
 			B->GoalString = "Hunt down enemy flag carrier";
-			B->DoHunt(EnemyCarrier);
+			B->DoHunt(Flag->HoldingPawn);
 			return true;
 		}
 	}
-	else if ((Flag->GetActorLocation() - B->GetPawn()->GetActorLocation()).Size() < 3000.0f && B->UTLineOfSightTo(Flag))
+	else if ((Flag->GetActorLocation() - B->GetPawn()->GetActorLocation()).Size() < FMath::Min<float>(3000.0f, (Flag->GetActorLocation() - Objective->GetActorLocation()).Size()) && B->UTLineOfSightTo(Flag))
 	{
 		// fight/camp here
 		return false;
 	}
 	else
 	{
-		return B->TryPathToward(Flag, true, "Camp dropped flag");
+		// use alternate route to reach flag so that defenders approach from multiple angles
+		const UUTPathNode* FlagNode = NavData->FindNearestNode(Flag->GetActorLocation(), NavData->GetPOIExtent(Flag));
+		if (FlagNode != LastFlagNode)
+		{
+			SquadRoutes.Reset();
+			LastFlagNode = FlagNode;
+		}
+		return FollowAlternateRoute(B, Flag, SquadRoutes, true, true, "Camp dropped flag") || B->TryPathToward(Flag, true, true, "Camp dropped flag");
 	}
 }
 
 bool AUTAsymCTFSquadAI::CheckSquadObjectives(AUTBot* B)
 {
+	// make bot with the flag Leader if possible
+	if (B->GetUTChar() != nullptr && B->GetUTChar()->GetCarriedObject() != nullptr && Cast<APlayerController>(Leader) == nullptr)
+	{
+		SetLeader(B);
+	}
+
 	FName CurrentOrders = GetCurrentOrders(B);
 
 	if (Flag == NULL || Objective == NULL)
@@ -157,9 +190,18 @@ bool AUTAsymCTFSquadAI::CheckSquadObjectives(AUTBot* B)
 			B->StartWaitForMove();
 			return true;
 		}
-		else if (Flag->HoldingPawn == NULL) 
+		else if (Flag->HoldingPawn == NULL && (Flag->bFriendlyCanPickup || CurrentOrders == NAME_Defend)) 
 		{
-			return B->TryPathToward(Flag, true, "Get flag");
+			// amortize generation of alternate routes during delay before flag can be picked up
+			if (!Flag->bFriendlyCanPickup && SquadRoutes.Num() < MaxSquadRoutes && (GetLeader() == B || Cast<APlayerController>(GetLeader()) != nullptr))
+			{
+				FollowAlternateRoute(B, Objective, SquadRoutes, false, false, TEXT(""));
+				// clear cached values since we're not actually following the route right now
+				B->UsingSquadRouteIndex = INDEX_NONE;
+				B->bDisableSquadRoutes = false;
+				CurrentSquadRouteIndex = INDEX_NONE;
+			}
+			return B->TryPathToward(Flag, true, false, "Get flag");
 		}
 		else if (CurrentOrders == NAME_Defend)
 		{
@@ -169,7 +211,7 @@ bool AUTAsymCTFSquadAI::CheckSquadObjectives(AUTBot* B)
 			}
 			else
 			{
-				return B->TryPathToward(Flag->HoldingPawn, true, "Find flag carrier");
+				return B->TryPathToward(Flag->HoldingPawn, true, false, "Find flag carrier");
 			}
 		}
 		else
@@ -183,9 +225,16 @@ bool AUTAsymCTFSquadAI::CheckSquadObjectives(AUTBot* B)
 			{
 				return true;
 			}
+			else if (Team->GetEnemyList().Num() == 0 && B->FindInventoryGoal(0.0f))
+			{
+				B->GoalString = FString::Printf(TEXT("Initial rush: Head to inventory %s"), *GetNameSafe(B->RouteCache.Last().Actor.Get()));
+				B->SetMoveTarget(B->RouteCache[0]);
+				B->StartWaitForMove();
+				return true;
+			}
 			else
 			{
-				return B->TryPathToward(Flag->HoldingPawn, true, "Find flag carrier");
+				return B->TryPathToward(Flag->HoldingPawn, true, false, "Find flag carrier");
 			}
 		}
 	}
@@ -211,7 +260,13 @@ bool AUTAsymCTFSquadAI::CheckSquadObjectives(AUTBot* B)
 		{
 			if (B->GetEnemy() != NULL)
 			{
-				if (!B->LostContact(3.0f) || MustKeepEnemy(B->GetEnemy()))
+				// prioritize defense point if haven't actually encountered enemy since respawning
+				bool bPrioritizeEnemy = B->GetEnemy() != nullptr && (B->GetDefensePoint() == nullptr || B->GetEnemyInfo(B->GetEnemy(), false)->LastFullUpdateTime > B->LastRespawnTime);
+				if (bPrioritizeEnemy && B->GetEnemy() == Flag->HoldingPawn)
+				{
+					return HuntEnemyFlag(B);
+				}
+				else if (bPrioritizeEnemy && (!B->LostContact(3.0f) || MustKeepEnemy(B->GetEnemy())))
 				{
 					B->GoalString = "Fight attacker";
 					return false;
@@ -222,7 +277,7 @@ bool AUTAsymCTFSquadAI::CheckSquadObjectives(AUTBot* B)
 				}
 				else if (B->GetDefensePoint() != NULL)
 				{
-					return B->TryPathToward(B->GetDefensePoint(), true, "Go to defense point");
+					return B->TryPathToward(B->GetDefensePoint(), true, false, "Go to defense point");
 				}
 				else
 				{
@@ -243,11 +298,16 @@ bool AUTAsymCTFSquadAI::CheckSquadObjectives(AUTBot* B)
 			}
 			else if (B->GetDefensePoint() != NULL)
 			{
-				return B->TryPathToward(B->GetDefensePoint(), true, "Go to defense point");
+				return B->TryPathToward(B->GetDefensePoint(), true, false, "Go to defense point");
+			}
+			// TODO: decide between defending flag or defending goal based on situation
+			else if (Flag != NULL)
+			{
+				return HuntEnemyFlag(B);
 			}
 			else if (Objective != NULL)
 			{
-				return B->TryPathToward(Objective, true, "Defend objective");
+				return B->TryPathToward(Objective, true, true, "Defend objective");
 			}
 			else
 			{
@@ -260,23 +320,50 @@ bool AUTAsymCTFSquadAI::CheckSquadObjectives(AUTBot* B)
 			{
 				return HuntEnemyFlag(B);
 			}
-			else if (CurrentOrders == NAME_Attack)
+			else
 			{
-				if (CheckSuperPickups(B, 8000))
-				{
-					return true;
-				}
-				else
+				const FBotEnemyInfo* EnemyFCTeamData = (Flag->HoldingPawn != nullptr) ? Team->GetEnemyList().FindByPredicate([this](const FBotEnemyInfo& TestItem) { return TestItem.GetPawn() == Flag->HoldingPawn; }) : nullptr;
+				// prioritize finding FC if no eyes on it for a while
+				if (EnemyFCTeamData != nullptr && GetWorld()->TimeSeconds - EnemyFCTeamData->LastFullUpdateTime > 3.0f)
 				{
 					return HuntEnemyFlag(B);
 				}
-			}
-			else
-			{
-				// freelance, just fight whoever's around
-				return false;
+				else if (CurrentOrders == NAME_Attack)
+				{
+					if (CheckSuperPickups(B, 8000))
+					{
+						return true;
+					}
+					else
+					{
+						return HuntEnemyFlag(B);
+					}
+				}
+				else
+				{
+					// freelance, just fight whoever's around
+					return false;
+				}
 			}
 		}
+	}
+}
+
+int32 AUTAsymCTFSquadAI::GetDefensePointPriority(AUTBot* B, AUTDefensePoint* Point)
+{
+	// prioritize defense points closer to start of map
+	// but outright reject those that the enemy FC has passed
+	const float PointDist = (Point->GetActorLocation() - Objective->GetActorLocation()).Size();
+	const FVector FlagLoc = (Flag->HoldingPawn != nullptr) ? B->GetEnemyLocation(Flag->HoldingPawn, true) : Flag->GetActorLocation();
+	const float FlagDist = (FlagLoc - Objective->GetActorLocation()).Size();
+	// hard reject if flag has passed the point or it's too far away from the action
+	if ((FlagDist - 4000.0f > PointDist && !Point->bSniperSpot) || FlagDist + 2000.0f < PointDist || (FlagDist < PointDist && GetWorld()->LineTraceTestByChannel(Point->GetActorLocation(), FlagLoc, ECC_Visibility)))
+	{
+		return 0;
+	}
+	else
+	{
+		return Super::GetDefensePointPriority(B, Point) + FMath::Min<int32>(33, FMath::TruncToInt(33.0f * (PointDist / TotalFlagRunDistance)));
 	}
 }
 

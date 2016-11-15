@@ -15,6 +15,9 @@ AUTWeap_FlakCannon::AUTWeap_FlakCannon(const FObjectInitializer& ObjectInitializ
 
 	BringUpTime = 0.41f;
 
+	BaseAISelectRating = 0.75f;
+	BasePickupDesireability = 0.75f;
+
 	// Firing
 	ProjClass.SetNumZeroed(2);
 	FireInterval.SetNum(2);
@@ -30,6 +33,7 @@ AUTWeap_FlakCannon::AUTWeap_FlakCannon(const FObjectInitializer& ObjectInitializ
 
 	FireOffset = FVector(75.f, 18.f, -15.f);
 	FiringViewKickback = -50.f;
+	FiringViewKickbackY =  70.f;
 
 	// MultiShot
 	MultiShotLocationSpread.SetNum(1);
@@ -154,3 +158,112 @@ AUTProjectile* AUTWeap_FlakCannon::FireProjectile()
 	}
 }
 
+float AUTWeap_FlakCannon::SuggestAttackStyle_Implementation()
+{
+	AUTBot* B = Cast<AUTBot>(UTOwner->Controller);
+	return (B != nullptr && B->Skill < 3.0f) ? 0.4f : 0.8f;
+}
+float AUTWeap_FlakCannon::SuggestDefenseStyle_Implementation()
+{
+	return -0.4f;
+}
+float AUTWeap_FlakCannon::GetAISelectRating_Implementation()
+{
+	AUTBot* B = Cast<AUTBot>(UTOwner->Controller);
+	if (B == nullptr)
+	{
+		return BaseAISelectRating;
+	}
+	else
+	{
+		if (B->GetTarget() != nullptr && Cast<APawn>(B->GetTarget()) == nullptr)
+		{
+			float EnemyDist = (B->GetFocalPoint() - UTOwner->GetActorLocation()).Size();
+			if (EnemyDist < 2750.0f)
+			{
+				return 0.9f;
+			}
+			else
+			{
+				return BaseAISelectRating * 0.8f;
+			}
+		}
+		else if (B->GetEnemy() == nullptr)
+		{
+			return BaseAISelectRating;
+		}
+		else
+		{
+			const FVector EnemyDir = B->GetEnemyLocation(B->GetEnemy(), true) - UTOwner->GetActorLocation();
+			const float EnemyDist = EnemyDir.Size();
+			AUTCharacter* EnemyChar = Cast<AUTCharacter>(B->GetEnemy());
+			if (EnemyDist > 1650.0f)
+			{
+				if (EnemyDist > 4400.0f)
+				{
+					if (EnemyDist > 7700.0f)
+					{
+						return 0.2f;
+					}
+					else
+					{
+						return (BaseAISelectRating - 0.3f);
+					}
+				}
+				else if (EnemyDir.Z < -0.5f * EnemyDist)
+				{
+					return (BaseAISelectRating - 0.3f);
+				}
+			}
+			else if (EnemyChar != nullptr && EnemyChar->GetWeapon() != nullptr && EnemyChar->GetWeapon()->bMeleeWeapon)
+			{
+				return (BaseAISelectRating + 0.35f);
+			}
+			else if (EnemyDist < 880.0f)
+			{
+				return (BaseAISelectRating + 0.2f);
+			}
+			
+			return FMath::Max<float>(BaseAISelectRating + 0.2f - (EnemyDist - 880.0f) * 0.00035, 0.2f);
+		}
+	}
+}
+bool AUTWeap_FlakCannon::CanAttack_Implementation(AActor* Target, const FVector& TargetLoc, bool bDirectOnly, bool bPreferCurrentMode, uint8& BestFireMode, FVector& OptimalTargetLoc)
+{
+	AUTBot* B = Cast<AUTBot>(UTOwner->Controller);
+	if (Super::CanAttack_Implementation(Target, TargetLoc, bDirectOnly, bPreferCurrentMode, BestFireMode, OptimalTargetLoc))
+	{
+		if (!bPreferCurrentMode && B != nullptr)
+		{
+			const FVector EnemyDir = TargetLoc - UTOwner->GetActorLocation();
+			const float EnemyDist = EnemyDir.Size();
+			AUTCharacter* EnemyChar = Cast<AUTCharacter>(B->GetEnemy());
+			if (EnemyDist > 1650.0f)
+			{
+				BestFireMode = (EnemyDir.Z < -0.5 * EnemyDist) ? 1 : 0;
+			}
+			else if (EnemyChar != nullptr && EnemyChar->GetWeapon() != nullptr && EnemyChar->GetWeapon()->bMeleeWeapon)
+			{
+				BestFireMode = 0;
+			}
+			else if (EnemyDist < 880.0f || EnemyDir.Z > 60.0f)
+			{
+				BestFireMode = 0;
+			}
+			else
+			{
+				BestFireMode = (FMath::FRand() < 0.65f) ? 1 : 0;
+			}
+		}
+		return true;
+	}
+	else if (bDirectOnly || B == nullptr)
+	{
+		return false;
+	}
+	else
+	{
+		// TODO: check bounce off walls
+		return false;
+	}
+}

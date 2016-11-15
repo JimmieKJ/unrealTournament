@@ -15,6 +15,9 @@ public:
 	virtual void BecomeInteractive();
 	virtual void BecomeNonInteractive();
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+	FHUDRenderObject_Texture OutOfAmmoTemplate;
+
 protected:
 
 	UPROPERTY()
@@ -22,11 +25,14 @@ protected:
 
 	virtual void Execute();
 	virtual void DrawMenu(FVector2D ScreenCenter, float RenderDelta);
-
+	virtual void DrawCursor(FVector2D ScreenCenter, float RenderDelta);
+	
 	virtual bool ShouldDraw_Implementation(bool bShowScores)
 	{
 		return UTHUDOwner && UTHUDOwner->bShowWeaponWheel;
 	}
+
+	bool bActiveSlotOutOfAmmo;
 
 };
 

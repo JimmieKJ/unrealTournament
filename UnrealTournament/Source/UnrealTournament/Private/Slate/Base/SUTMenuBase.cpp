@@ -105,6 +105,11 @@ FReply SUTMenuBase::OnKeyUp( const FGeometry& MyGeometry, const FKeyEvent& InKey
 		{
 			CloseMenus();
 		}
+		else
+		{
+			ShowHomePanel();
+		}
+
 	}
 	else if (InKeyboardEvent.GetKey() == EKeys::F9)
 	{
@@ -745,29 +750,16 @@ TSharedRef<SWidget> SUTMenuBase::BuildOnlinePresence()
 			]
 			+SHorizontalBox::Slot()
 			.AutoWidth()
+			.Padding(10.0f, 0.0f, 20.0f, 0.0f)
 			[
-				SNew(SUTButton)
+				SAssignNew(PlayerButton,SUTButton)
 				.ButtonStyle(SUTStyle::Get(), "UT.Button.MenuBar")
-				.ContentPadding(FMargin(25.0,0.0,25.0,5.0))
+				.ContentPadding(FMargin(25.0,0.0,5.0,5.0))
 				.ToolTipText(NSLOCTEXT("ToolTips","TPMyPlayerCard","Show this player's player card."))
-				.Text(FText::FromString(PlayerOwner->GetOnlinePlayerNickname()))
-				.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.SmallTextStyle")
 				.OnClicked(this, &SUTMenuBase::OnShowPlayerCard)
 				.IsEnabled(this, &SUTMenuBase::IsPlayerCardDataLoaded)
 				[
-					SNew(SHorizontalBox)
-					+SHorizontalBox::Slot()
-					.AutoWidth()
-					.VAlign(VAlign_Center)
-					[
-						SNew(SBox)
-						.WidthOverride(48)
-						.HeightOverride(48)
-						[
-							SNew(SImage)
-							.Image(SUTStyle::Get().GetBrush("UT.Icon.PlayerCard"))
-						]
-					]
+					BuildPlayerInfo()
 				]
 			]
 
@@ -811,7 +803,6 @@ TSharedRef<SWidget> SUTMenuBase::BuildOnlinePresence()
 							]
 						]
 					]
-
 				]
 			];
 
@@ -865,14 +856,6 @@ FReply SUTMenuBase::OnShowServerBrowser()
 
 FReply SUTMenuBase::OnShowServerBrowserPanel()
 {
-
-	if (!PlayerOwner->IsLoggedIn())
-	{
-		PlayerOwner->LoginOnline(TEXT(""), TEXT(""));
-		return FReply::Handled();
-	}
-	
-
 	TSharedPtr<class SUTServerBrowserPanel> Browser = PlayerOwner->GetServerBrowser();
 	if (Browser.IsValid())
 	{
@@ -1071,6 +1054,126 @@ bool SUTMenuBase::SkipWorldRender()
 	return false;
 }
 
+TSharedRef<SWidget> SUTMenuBase::BuildPlayerInfo()
+{
+	float PlayerXP = 0.0f;
 
+#if WITH_PROFILE
+	// use profile if available, in case new data was received from MCP since the server set the replicated value
+	UUtMcpProfile* Profile = PlayerOwner->GetMcpProfileManager()->GetMcpProfileAs<UUtMcpProfile>(EUtMcpProfile::Profile);
+	if (Profile != NULL)
+	{
+		PlayerXP = Profile->GetXP();
+	}
+#endif
+	int32 Level = GetLevelForXP(PlayerXP);
+	int32 LevelXPStart = GetXPForLevel(Level);
+	int32 LevelXPEnd = GetXPForLevel(Level + 1);
+	int32 LevelXPRange = LevelXPEnd - LevelXPStart;
+
+	float LevelAlpha = (LevelXPRange > 0) ? (float)(PlayerXP - LevelXPStart) / (float)LevelXPRange : 0.0f;
+	TSharedPtr<SVerticalBox> Container;
+	SAssignNew(Container, SVerticalBox)
+	+SVerticalBox::Slot().VAlign(VAlign_Fill).Padding(0.0f,5.0f,0.0f,0.0f)
+	[
+		SNew(SHorizontalBox)	
+		+SHorizontalBox::Slot()
+		[
+			SNew(SHorizontalBox)
+			+SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)
+			[
+				SNew(SBox)
+				.MinDesiredHeight(120.0F)
+				.MinDesiredHeight(57.0f)
+				.MaxDesiredHeight(57.0f)
+				[
+					SNew(SVerticalBox)
+					+SVerticalBox::Slot().HAlign(HAlign_Right).AutoHeight()
+					[
+						SNew(STextBlock)
+						.Text(FText::FromString(PlayerOwner->GetOnlinePlayerNickname()))
+						.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Tween")
+						.ColorAndOpacity(this, &SUTMenuBase::GetLabelColor)
+					]
+					+SVerticalBox::Slot().HAlign(HAlign_Right).AutoHeight()
+					[
+						SNew(SHorizontalBox)
+						+SHorizontalBox::Slot().AutoWidth().Padding(5.0f,0.0f,5.0f,0.0f)
+						[
+							SNew(STextBlock)
+							.Text(FText::Format(NSLOCTEXT("SUTMenuBase","LevelFormat","lvl.{0}"),FText::AsNumber(Level)))
+							.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Tiny.Bold")
+							.ColorAndOpacity(this, &SUTMenuBase::GetLabelColor)
+						]
+						+SHorizontalBox::Slot().FillWidth(1.0f).VAlign(VAlign_Center)
+						[
+							SNew(SVerticalBox)
+							+SVerticalBox::Slot().AutoHeight().VAlign(VAlign_Center)
+							[
+								SNew(SBox).WidthOverride(75).HeightOverride(8)
+								[
+									SNew(SProgressBar)
+									.Style(SUTStyle::Get(),"UT.ProgressBar.XP")
+									.Percent(LevelAlpha)
+								]
+							]
+						]
+						+SHorizontalBox::Slot().AutoWidth().Padding(5.0f,3.0f,5.0f,0.0f)
+						[
+							SNew(STextBlock)
+							.Text(FText::Format(NSLOCTEXT("SUTMenuBase","LevelFormatB","({0}xp)"),FText::AsNumber(PlayerXP)))
+							.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Teenie")
+							.ColorAndOpacity(this, &SUTMenuBase::GetLabelColor)
+						]
+
+
+
+					]
+				]
+			]
+		]
+		+SHorizontalBox::Slot()
+		.AutoWidth().Padding(5.0f, 5.0f, 5.0f, 5.0f)
+		.VAlign(VAlign_Center)
+		[
+			// The Player's Avatar
+
+			SNew(SVerticalBox)
+			+SVerticalBox::Slot().FillHeight(1.0f)
+			[
+				SNew(SHorizontalBox)
+				+SHorizontalBox::Slot().AutoWidth()
+				[
+					SNew(SVerticalBox)
+					+SVerticalBox::Slot().AutoHeight()
+					[
+						SNew(SBox)
+						.WidthOverride(35.0f)
+						.HeightOverride(35.0f)
+						.MaxDesiredWidth(35.0f)
+						.MaxDesiredHeight(35.0f)
+						[
+							SNew(SImage)
+							.Image(this, &SUTMenuBase::GetAvatarImage)
+						]
+					]
+				]	
+			]
+		]
+	];
+
+	return Container.ToSharedRef();
+}
+
+const FSlateBrush* SUTMenuBase::GetAvatarImage() const
+{
+	FName AvatarName = PlayerOwner->GetAvatar();
+	return (AvatarName != NAME_None) ? SUTStyle::Get().GetBrush(AvatarName) : SUTStyle::Get().GetBrush("UT.Icon.PlayerCard");
+}
+
+FSlateColor SUTMenuBase::GetLabelColor() const
+{
+	return PlayerButton.IsValid() ? PlayerButton->GetLabelColor() : FSlateColor(FLinearColor::White);
+}
 
 #endif

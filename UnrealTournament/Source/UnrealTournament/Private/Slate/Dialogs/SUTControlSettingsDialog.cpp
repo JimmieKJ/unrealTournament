@@ -170,6 +170,7 @@ TSharedRef<SWidget> SUTControlSettingsDialog::BuildKeyboardTab()
 		.Padding(10.0f, 0.0f, 10.0f, 0.0f)
 		.VAlign(VAlign_Center)
 		.HAlign(HAlign_Center)
+		.FillWidth(0.4f)
 		[
 			SNew(STextBlock)
 			.TextStyle(SUWindowsStyle::Get(), "UT.Option.ColumnHeaders")
@@ -179,7 +180,7 @@ TSharedRef<SWidget> SUTControlSettingsDialog::BuildKeyboardTab()
 		.Padding(10.0f, 0.0f, 10.0f, 0.0f)
 		.VAlign(VAlign_Center)
 		.HAlign(HAlign_Center)
-		.FillWidth(1.2f)
+		.FillWidth(0.3f)
 		[
 			SNew(STextBlock)
 			.TextStyle(SUWindowsStyle::Get(), "UT.Option.ColumnHeaders")
@@ -189,7 +190,7 @@ TSharedRef<SWidget> SUTControlSettingsDialog::BuildKeyboardTab()
 		.Padding(10.0f, 0.0f, 10.0f, 0.0f)
 		.VAlign(VAlign_Center)
 		.HAlign(HAlign_Center)
-		.FillWidth(1.2f)
+		.FillWidth(0.3f)
 		[
 			SNew(STextBlock)
 			.TextStyle(SUWindowsStyle::Get(), "UT.Option.ColumnHeaders")
@@ -271,6 +272,7 @@ TSharedRef<SWidget> SUTControlSettingsDialog::BuildKeyboardTab()
 						.Padding(10.0f, 0.0f, 10.0f, 0.0f)
 						.VAlign(VAlign_Center)
 						.HAlign(HAlign_Left)
+						.FillWidth(0.4f)
 						[
 							SNew(STextBlock)
 							.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
@@ -278,6 +280,7 @@ TSharedRef<SWidget> SUTControlSettingsDialog::BuildKeyboardTab()
 						]
 						+ SHorizontalBox::Slot()
 						.Padding(10.0f, 4.0f, 10.0f, 4.0f)
+						.FillWidth(0.30f)
 						[
 							SAssignNew(Bind->PrimaryKeyBindWidget, SKeyBind)
 							.Key(MakeShareable(&Bind->KeyConfig->PrimaryKey))
@@ -288,6 +291,7 @@ TSharedRef<SWidget> SUTControlSettingsDialog::BuildKeyboardTab()
 						]
 						+ SHorizontalBox::Slot()
 						.Padding(10.0f, 4.0f, 10.0f, 4.0f)
+						.FillWidth(0.30f)
 						[
 							SAssignNew(Bind->SecondaryKeyBindWidget, SKeyBind)
 							.ContentPadding(FMargin(4.0f, 4.0f))
@@ -318,7 +322,7 @@ TSharedRef<SWidget> SUTControlSettingsDialog::BuildMouseTab()
 {
 	UUTProfileSettings* ProfileSettings = PlayerOwner->GetProfileSettings();
 
-	MouseSensitivityRange = FVector2D(0.0075f, 0.15f);
+	MouseSensitivityRange = FVector2D(0.001f, 0.15f);
 	MouseAccelerationRange = FVector2D(0.00001f, 0.0001f);
 	MouseAccelerationMaxRange = FVector2D(0.5f, 1.5f);
 		
@@ -681,7 +685,7 @@ TSharedRef<SWidget> SUTControlSettingsDialog::BuildMovementTab()
 			[
 				SNew(STextBlock)
 				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-				.Text(NSLOCTEXT("SUTControlSettingsDialog", "DisableDoubleTapDodge", "Disable Double Tap Dodge"))
+				.Text(NSLOCTEXT("SUTControlSettingsDialog", "EnableDoubleTapDodge", "Enable Double Tap Dodge"))
 			]
 		]
 		+ SHorizontalBox::Slot()
@@ -690,10 +694,10 @@ TSharedRef<SWidget> SUTControlSettingsDialog::BuildMovementTab()
 			SNew(SBox)
 			.WidthOverride(150)
 			[
-				SAssignNew(DisableDoubleTapDodge, SCheckBox)
+				SAssignNew(EnableDoubleTapDodge, SCheckBox)
 				.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
 				.ForegroundColor(FLinearColor::White)
-				.IsChecked(ProfileSettings->bDisableDoubleTapDodge ? ECheckBoxState::Checked : ECheckBoxState::Unchecked)
+				.IsChecked(ProfileSettings->bEnableDoubleTapDodge ? ECheckBoxState::Checked : ECheckBoxState::Unchecked)
 			]
 		]
 	]
@@ -796,7 +800,7 @@ FReply SUTControlSettingsDialog::OKClick()
 		ProfileSettings->bEnableMouseSmoothing = MouseSmoothing->IsChecked();
 
 		ProfileSettings->bAllowSlideFromRun = SlideFromRun->IsChecked();
-		ProfileSettings->bDisableDoubleTapDodge = DisableDoubleTapDodge->IsChecked();
+		ProfileSettings->bEnableDoubleTapDodge = EnableDoubleTapDodge->IsChecked();
 		ProfileSettings->MaxDodgeClickTimeValue = MaxDodgeClickTimeValue;
 		ProfileSettings->MaxDodgeTapTimeValue = MaxDodgeTapTimeValue;
 

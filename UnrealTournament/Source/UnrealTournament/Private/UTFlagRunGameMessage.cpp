@@ -6,6 +6,7 @@
 UUTFlagRunGameMessage::UUTFlagRunGameMessage(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+	KilledMessagePostfix = NSLOCTEXT("CTFGameMessage", "KilledMessage", " killed the flag carrier!");
 }
 
 FName UUTFlagRunGameMessage::GetTeamAnnouncement(int32 Switch, uint8 TeamNum, const UObject* OptionalObject, const class APlayerState* RelatedPlayerState_1, const class APlayerState* RelatedPlayerState_2) const
@@ -33,7 +34,7 @@ float UUTFlagRunGameMessage::GetAnnouncementSpacing_Implementation(int32 Switch,
 
 FText UUTFlagRunGameMessage::GetText(int32 Switch, bool bTargetsPlayerState1, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject) const
 {
-	if (Switch < 2)
+	if ((Switch < 2) || (Switch == 3) || ((Switch == 4) && (!RelatedPlayerState_1 || !Cast<AUTPlayerController>(RelatedPlayerState_1->GetOwner()))))
 	{
 		return FText::GetEmpty();
 	}

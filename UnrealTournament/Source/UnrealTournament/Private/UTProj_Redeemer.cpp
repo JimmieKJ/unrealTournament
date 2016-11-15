@@ -23,8 +23,8 @@ AUTProj_Redeemer::AUTProj_Redeemer(const class FObjectInitializer& ObjectInitial
 	}
 
 	// Movement
-	ProjectileMovement->InitialSpeed = 2000.f;
-	ProjectileMovement->MaxSpeed = 2000.f;
+	ProjectileMovement->InitialSpeed = 1700.f;
+	ProjectileMovement->MaxSpeed = 1700.f;
 	ProjectileMovement->ProjectileGravityScale = 0.0f;
 
 	ExplosionTimings[0] = 0.18f;
@@ -46,9 +46,21 @@ AUTProj_Redeemer::AUTProj_Redeemer(const class FObjectInitializer& ObjectInitial
 	bAlwaysShootable = true;
 	ProjHealth = 50;
 	KillCount = 0;
+	bCanHitTeammates = true;
 
 	PrimaryActorTick.bCanEverTick = true;
 	PrimaryActorTick.bStartWithTickEnabled = true;
+}
+
+void AUTProj_Redeemer::Destroyed()
+{
+	TArray<UAudioComponent*> AudioComponents;
+	GetComponents<UAudioComponent>(AudioComponents);
+	for (int32 i = 0; i < AudioComponents.Num(); i++)
+	{
+		AudioComponents[i]->Stop();
+	}
+	Super::Destroyed();
 }
 
 void AUTProj_Redeemer::RedeemerDenied(AController* InstigatedBy)
@@ -153,7 +165,7 @@ void AUTProj_Redeemer::OnShotDown()
 		ProjectileMovement->MaxSpeed += 2000.0f; // make room for gravity
 		ProjectileMovement->bShouldBounce = true;
 		ProjectileMovement->Bounciness = 0.25f;
-		SetTimerUFunc(this, FName(TEXT("ExplodeTimed")), 1.5f, false);
+		SetTimerUFunc(this, FName(TEXT("ExplodeTimed")), 2.f, false);
 
 		if (GetNetMode() != NM_DedicatedServer)
 		{
@@ -388,9 +400,11 @@ void AUTProj_Redeemer::Tick(float DeltaTime)
 			}
 			else
 			{
+				TInlineComponentArray<UMeshComponent*> Meshes(this);
+				UMeshComponent* Mesh = (Meshes.Num() > 0) ? Meshes[0] : nullptr;
 				for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
 				{
-					if (It->PlayerController != nullptr && GS->OnSameTeam(It->PlayerController, Instigator))
+					if (It->PlayerController != nullptr && (GS->OnSameTeam(It->PlayerController, Instigator) || (Mesh && (GetWorld()->GetTimeSeconds() - Mesh->LastRenderTime < 0.05f))) )
 					{
 						// note: does not handle splitscreen
 						bShowOutline = true;
@@ -408,6 +422,7 @@ void AUTProj_Redeemer::Tick(float DeltaTime)
 				{
 					CustomDepthMesh = CreateCustomDepthOutlineMesh(Meshes[0], this);
 					CustomDepthMesh->CustomDepthStencilValue = TeamOwner->GetTeamNum() + 1;
+					CustomDepthMesh->CustomDepthStencilValue |= 128;
 					CustomDepthMesh->RegisterComponent();
 				}
 			}

@@ -37,17 +37,32 @@ class UNREALTOURNAMENT_API UUTFlagRunScoreboard : public UUTCTFScoreboard
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
 		TArray<FText> AttackLines;
 
+	UPROPERTY()
+		float EndIntermissionTime;
+
+	UPROPERTY()
+		int32 OldDisplayedParagraphs;
+
+	UPROPERTY()
+		bool bFullListPlayed;
+
+	UPROPERTY()
+		USoundBase* LineDisplaySound;
+
 protected:
 	virtual void DrawScoreHeaders(float RenderDelta, float& YOffset);
 	virtual void DrawPlayerScore(AUTPlayerState* PlayerState, float XOffset, float YOffset, float Width, FLinearColor DrawColor) override;
 	virtual void DrawReadyText(AUTPlayerState* PlayerState, float XOffset, float YOffset, float Width);
 	virtual void DrawTeamStats(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float MaxHeight, const FStatsFontInfo& StatsFontInfo) override;
-	virtual void DrawScoringPlays(float RenderDelta, float& YOffset, float XOffset, float ScoreWidth, float PageBottom) override;
 	virtual void DrawScoringPlayInfo(const struct FCTFScoringPlay& Play, float CurrentScoreHeight, float SmallYL, float MedYL, float DeltaTime, float& YPos, float XOffset, float ScoreWidth, FFontRenderInfo TextRenderInfo, bool bIsSmallPlay) override;
 	virtual void DrawStatsRight(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom) override;
+	virtual void DrawStatsLeft(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom) override;
 	virtual int32 GetSmallPlaysCount(int32 NumPlays) const override;
 	virtual bool ShouldDrawScoringStats() override;
 	virtual void DrawMinimap(float RenderDelta) override;
 
 	virtual bool ShouldShowPowerupForPlayer(AUTPlayerState* PlayerState);
+
+	virtual void DrawScoringSummary(float RenderDelta, float& YOffset, float XOffset, float ScoreWidth, float PageBottom);
+
 };

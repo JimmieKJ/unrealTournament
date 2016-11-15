@@ -1524,14 +1524,24 @@ void UDemoNetDriver::TickDemoRecord( float DeltaSeconds )
 	{
 		check( !PendingCheckpointActors.Num() );		// We early out above, so this shouldn't be possible
 
-		const double CHECKPOINT_DELAY = CVarCheckpointUploadDelayInSeconds.GetValueOnGameThread();
-
-		if ( DemoCurrentTime - LastCheckpointTime > CHECKPOINT_DELAY )
+		if (ShouldSaveCheckpoint())
 		{
 			SaveCheckpoint();
 			LastCheckpointTime = DemoCurrentTime;
 		}
 	}
+}
+
+bool UDemoNetDriver::ShouldSaveCheckpoint()
+{
+	const double CHECKPOINT_DELAY = CVarCheckpointUploadDelayInSeconds.GetValueOnGameThread();
+
+	if (DemoCurrentTime - LastCheckpointTime > CHECKPOINT_DELAY)
+	{
+		return true;
+	}
+
+	return false;
 }
 
 void UDemoNetDriver::PauseChannels( const bool bPause )

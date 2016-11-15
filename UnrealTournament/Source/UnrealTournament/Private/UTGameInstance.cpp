@@ -12,11 +12,13 @@
 #include "UTPlaylistManager.h"
 #include "UnrealTournamentFullScreenMovie.h"
 #include "OnlineSubsystemUtils.h"
+#include "UTLevelSummary.h"
 
 #if !UE_SERVER
 #include "SUTStyle.h"
 #include "SlateBasics.h"
 #include "SlateExtras.h"
+#include "Widgets/SUTAspectPanel.h"
 #endif
 
 /* Delays for various timers during matchmaking */
@@ -570,12 +572,63 @@ bool UUTGameInstance::ClientTravelToSession(int32 ControllerId, FName InSessionN
 
 void UUTGameInstance::BeginLevelLoading(const FString& LevelName)
 {
+	if (bIgnoreLevelLoad)
+	{
+		bIgnoreLevelLoad = false;
+		return;
+	}
+
+	bLevelIsLoading	 = true;
+
 #if !UE_SERVER
+	bool bIsEpicMap = false;
+	bool bIsMeshedMap = false;
+	bool bHasRights = false;
+
+	bShowCommunityBadge = false;
+	AUTBaseGameMode* DefaultGameModeObject = AUTBaseGameMode::StaticClass()->GetDefaultObject<AUTBaseGameMode>();
+	if (DefaultGameModeObject)
+	{
+		DefaultGameModeObject->CheckMapStatus(LevelName, bIsEpicMap, bIsMeshedMap, bHasRights);
+		bShowCommunityBadge = !bIsEpicMap;
+	}
+
+	LoadingMapFriendlyName = TEXT("");
+
+	TArray<FAssetData> MapAssets;
+	GetAllAssetData(UWorld::StaticClass(), MapAssets);
+
+	for (const FAssetData& Asset : MapAssets)
+	{
+		if (Asset.PackageName.ToString() == LevelName)
+		{
+			const FString* Title = Asset.TagsAndValues.Find(NAME_MapInfo_Title);
+			if (Title != nullptr)
+			{
+				LoadingMapFriendlyName = *Title; 
+			}
+			break;
+		}
+	}
+
+	if (LoadingMapFriendlyName.IsEmpty())
+	{
+		int32 Pos = INDEX_NONE;
+		LevelName.FindLastChar('/', Pos);
+		LoadingMapFriendlyName = (Pos == INDEX_NONE) ? LevelName : LevelName.Right(LevelName.Len() - Pos -1);
+	}
+
+	// Find the map title 
+
+	if (LevelLoadText.IsEmpty())
+	{
+		LevelLoadText = FText::Format(NSLOCTEXT("UTGameInstance","GenericMapLoading","Loading {0}"), FText::FromString(LoadingMapFriendlyName));
+	}
 
 	AUTBaseGameMode* GM = GetWorld()->GetAuthGameMode<AUTBaseGameMode>();
 	if (GM)
 	{
-		GM->OnLoadingMovieEnd();
+		GM->OnLoadingMovieBegin();
 	}
 
 	// Grab just the map name, minus the path
@@ -591,56 +644,93 @@ void UUTGameInstance::BeginLevelLoading(const FString& LevelName)
 		bTransitioningToSameMap = GetWorldContext()->World()->GetName() == CleanLevelName;
 	}
 
-	if (CleanLevelName.ToLower() == TEXT("ut-entry") || bTransitioningToSameMap)
+	MovieVignettes.Empty();
+	VignetteIndex = 0;
+
+	IUnrealTournamentFullScreenMovieModule* const FullScreenMovieModule = FModuleManager::LoadModulePtr<IUnrealTournamentFullScreenMovieModule>("UnrealTournamentFullScreenMovie");
+	if (FullScreenMovieModule != nullptr)
 	{
-		MovieList = TEXT("load_generic_nosound");
-		PlayLoadingMovie(MovieList, true);	
+		FullScreenMovieModule->OnClipFinished().Clear();
+		FullScreenMovieModule->OnClipFinished().AddUObject(this, &UUTGameInstance::OnMovieClipFinished);
+	}
+
+	if ( FParse::Param( FCommandLine::Get(), TEXT( "nomovie" )) || CleanLevelName.Equals(TEXT("ut-entry"),ESearchCase::IgnoreCase) )
+	{
+		MovieVignettes.Add( FMapVignetteInfo(TEXT("load_generic_nosound"), FText::GetEmpty()));
+		PlayLoadingMovies(true);	
 		return;
 	}
 
-	TArray<FString> SkillMovies;
-	FString SearchMask = FPaths::GameContentDir() + TEXT("/Movies/SkillMovies/skill*.mp4");
-	IFileManager::Get().FindFiles(SkillMovies, *SearchMask, true, false);
-
-	TArray<FString> LevelMovies;
-	SearchMask = FPaths::GameContentDir() + TEXT("/Movies/LevelMovies/") + CleanLevelName + TEXT("*.mp4");
-	IFileManager::Get().FindFiles(LevelMovies, *SearchMask, true, false);
-
-	// 50/50 chance of either type of movie.
-	if ( ( LevelMovies.Num() <= 0 || FMath::FRand() > 0.5f) && SkillMovies.Num() > 0)
+	if (CleanLevelName.ToLower() == TEXT("tut-movementtraining") )
 	{
-		int32 Index = int32( FMath::FRand() * float(SkillMovies.Num()));
-		if (SkillMovies.IsValidIndex(Index) )
+
+		UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(GetFirstGamePlayer());
+		if (LocalPlayer && 
+				(LocalPlayer->LoginPhase == ELoginPhase::Offline || 
+						(LocalPlayer->LoginPhase == ELoginPhase::LoggedIn 
+							&& LocalPlayer->GetProfileSettings() != nullptr 
+							&& ((LocalPlayer->GetProfileSettings()->TutorialMask & TUTORIAL_Movement) != TUTORIAL_Movement) 
+						)
+				)
+			)
+
 		{
-			MovieList = TEXT("SkillMovies/") + FPaths::GetCleanFilename(SkillMovies[Index]).ToLower();
-			MovieList = MovieList.Replace(TEXT(".mp4"), TEXT(""));
-		}
-	}
-	else if (LevelMovies.Num() > 0)
-	{
-		int32 Index = int32( FMath::FRand() * float(LevelMovies.Num()));
-		if (LevelMovies.IsValidIndex(Index) )
-		{
-			MovieList = TEXT("LevelMovies/") + FPaths::GetCleanFilename(LevelMovies[Index]);
-			MovieList = MovieList.Replace(TEXT(".mp4"), TEXT(""));
+			MovieVignettes.Add( FMapVignetteInfo(TEXT("intro_full"), FText::GetEmpty()));
+			MovieVignettes.Add( FMapVignetteInfo(TEXT("load_generic_nosound"), FText::GetEmpty()));
+			PlayLoadingMovies(false);	
+			return;
 		}
 	}
 
-	MovieList += MovieList.IsEmpty() ? TEXT("load_generic_nosound") : TEXT(";load_generic_nosound");
-	// NOTE: In many cases, a movie will already be playing and this will be skipped.
-	PlayLoadingMovie(MovieList);
+	if ( !LoadingMovieToPlay.IsEmpty() )
+	{
+		MovieVignettes.Add( FMapVignetteInfo(LoadingMovieToPlay, FText::GetEmpty()));
+		MovieVignettes.Add( FMapVignetteInfo(TEXT("load_generic_nosound"), FText::GetEmpty()));
+		LoadingMovieToPlay = TEXT("");
+		PlayLoadingMovies(false);	
+		return;
+	}
+
+	// Now Try to find the map asset for this map.
+
+	for (const FAssetData& Asset : MapAssets)
+	{
+		if (Asset.PackageName.ToString() == LevelName)
+		{
+			const FString* VignetteArrayAsString = Asset.TagsAndValues.Find(NAME_Vignettes);
+			if (VignetteArrayAsString != nullptr)
+			{
+				FindField<UProperty>(UUTLevelSummary::StaticClass(), NAME_Vignettes)->ImportText(**VignetteArrayAsString, &MovieVignettes, 0, nullptr);
+			}
+		}
+	}
+
+	if (MovieVignettes.Num() == 0)
+	{
+		MovieVignettes.Add( FMapVignetteInfo(TEXT("load_generic_nosound"), FText::GetEmpty()));
+	}
+	else
+	{
+		// Make sure every vignette has a filename
+		for (auto Vignette : MovieVignettes)
+		{
+			if (Vignette.MovieFilename.IsEmpty())
+			{
+				Vignette.MovieFilename = TEXT("load_generic_nosound");
+			}
+		}
+	
+	}
+	VignetteIndex = int32(  FMath::FRand() * MovieVignettes.Num() );
+
+	PlayLoadingMovies(false);
 
 #endif
-
-	bLevelIsLoading	 = true;
 }
 
-void UUTGameInstance::EndLevelLoading()
-{
-	bLevelIsLoading	 = false;
 #if !UE_SERVER
-	StopMovie();
-
+void UUTGameInstance::OnMoviePlaybackFinished()
+{
 	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(GetFirstGamePlayer());
 	if (LocalPlayer)
 	{
@@ -659,86 +749,211 @@ void UUTGameInstance::EndLevelLoading()
 	{
 		GM->OnLoadingMovieEnd();
 	}
+}
+#endif
+
+void UUTGameInstance::EndLevelLoading()
+{
+	bLevelIsLoading	 = false;
+	LevelLoadText = FText::GetEmpty();
+
+#if !UE_SERVER
+
+	if ( GetMoviePlayer().IsValid() && GetMoviePlayer()->IsMovieCurrentlyPlaying() )
+	{
+		GetMoviePlayer()->OnMoviePlaybackFinished().Clear();
+		GetMoviePlayer()->OnMoviePlaybackFinished().AddUObject(this, &UUTGameInstance::OnMoviePlaybackFinished);
+
+		IUnrealTournamentFullScreenMovieModule* const FullScreenMovieModule = FModuleManager::LoadModulePtr<IUnrealTournamentFullScreenMovieModule>("UnrealTournamentFullScreenMovie");
+		if (FullScreenMovieModule != nullptr)
+		{
+			FullScreenMovieModule->WaitForMovieToFinished();
+		}
+	}
 #endif
 }
 
 #if !UE_SERVER
 
+FText UUTGameInstance::GetLevelLoadText() const
+{
+	if (bLevelIsLoading)
+	{
+		return LevelLoadText;
+	}
+	else if (GetMoviePlayer().IsValid() && GetMoviePlayer()->WillAutoCompleteWhenLoadFinishes())
+	{
+		return FText::GetEmpty();
+	}
+
+	return NSLOCTEXT("UTGameInstance","PressFireToSkip","Press FIRE to Skip");
+}
+
+FText UUTGameInstance::GetVignetteText() const
+{
+	if (MovieVignettes.Num() > 0 && MovieVignettes.IsValidIndex(VignetteIndex))
+	{
+		if (!MovieVignettes[VignetteIndex].Description.IsEmpty())	
+		{
+			return MovieVignettes[VignetteIndex].Description;
+		}
+	}
+
+	return NSLOCTEXT("Loading","LoadingWarning","This is an early version of the game, with a lot of placeholder content. Unreal Tournament is\na collaboration between gamers,  developers and Epic Games. There is still a lot to do!\nHead over to <UT.Font.NormalText.Tween.Bold.SkyBlue>UnrealTournament.com</> to see how you can make a difference.");
+}
+
+						
 EVisibility UUTGameInstance::GetLevelLoadThrobberVisibility() const
 {
 	return bLevelIsLoading ? EVisibility::Visible : EVisibility::Hidden;
 }
 
-EVisibility UUTGameInstance::GetLevelLoadAnyKeyVisibility() const
+EVisibility UUTGameInstance::GetLevelLoadTextVisibility() const
 {
-	return (bLevelIsLoading || (GetMoviePlayer().IsValid() && GetMoviePlayer()->WillAutoCompleteWhenLoadFinishes())) ? EVisibility::Hidden : EVisibility::Visible;
+	return EVisibility::Visible;
 }
 
-void UUTGameInstance::PlayLoadingMovie(const FString& MovieName, bool bStopWhenLoadingIsComnpleted, bool bForce) 
+void UUTGameInstance::CreateLoadingMovieOverlay()
 {
-	//VerifyMovieOverlay();
-	//if (MovieOverlay.IsValid())
-	//{						 // MovieOverlay
-		PlayMovie(MovieName, SNullWidget::NullWidget, true, bStopWhenLoadingIsComnpleted, EMoviePlaybackType::MT_LoadingLoop, bForce);
-	//}
-}
-
-void UUTGameInstance::VerifyMovieOverlay()
-{
-	if (!MovieOverlay.IsValid())
+	if (!LoadingMovieOverlay.IsValid())
 	{
-		SAssignNew(MovieOverlay, SOverlay)
+		TSharedPtr<SOverlay> InnerOverlay;
+		SAssignNew(LoadingMovieOverlay, SOverlay)
 		+SOverlay::Slot()
+		[
+			SNew(SUTAspectPanel)     
+			.bCenterPanel(true)
+			.Visibility(EVisibility::SelfHitTestInvisible)
+			[
+				SAssignNew(InnerOverlay, SOverlay)			
+			]
+		];
+
+		InnerOverlay->AddSlot()
 		.HAlign(HAlign_Fill)
 		.VAlign(VAlign_Fill)
 		[
 			SNew(SSafeZone)
-			.VAlign(VAlign_Bottom)
-			.HAlign(HAlign_Right)
+			.VAlign(VAlign_Top)
+			.HAlign(HAlign_Center)
 			.Padding(10.0f)
 			.IsTitleSafe(true)
 			[
 				SNew(SVerticalBox)
-				+SVerticalBox::Slot().HAlign(HAlign_Right).AutoHeight()
-				[
-					SNew(SThrobber)
-					.Visibility(TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateUObject(this, &UUTGameInstance::GetLevelLoadThrobberVisibility)))
-				]
 				+SVerticalBox::Slot().AutoHeight()
 				[
 					SNew(STextBlock)
 					.TextStyle(SUTStyle::Get(),"UT.Font.NormalText.Medium.Bold")
-					.Text(NSLOCTEXT("MovePlayer","PressAnyKeyToSkip","Press Fire To Skip..."))
-					.Visibility(TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateUObject(this, &UUTGameInstance::GetLevelLoadAnyKeyVisibility)))
+					.Text(TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateUObject(this, &UUTGameInstance::GetLevelLoadText)))
+					.Visibility(TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateUObject(this, &UUTGameInstance::GetLevelLoadTextVisibility)))
+				]
+				+SVerticalBox::Slot().HAlign(HAlign_Center).AutoHeight()
+				[
+					SNew(SThrobber)
+					.Visibility(TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateUObject(this, &UUTGameInstance::GetLevelLoadThrobberVisibility)))
+				]
+			]
+		];
+
+		InnerOverlay->AddSlot()
+		[
+			SNew(SSafeZone)
+			.VAlign(VAlign_Top)
+			.HAlign(HAlign_Center)
+			.Padding(FMargin(0.0f,100.0f,0.0f,0.0f))
+			.IsTitleSafe(true)
+			[
+				SNew(SVerticalBox)
+				+SVerticalBox::Slot().AutoHeight()
+				[
+					SNew(SHorizontalBox)
+					+SHorizontalBox::Slot().AutoWidth()
+					[
+						SNew(SBox).WidthOverride(188.0f).HeightOverride(124.0f)
+						[
+							SNew(SImage)
+							.Image(SUTStyle::Get().GetBrush("UT.Logo.Community"))
+							.Visibility(TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateUObject(this, &UUTGameInstance::GetCommunityVisibility)))
+						]
+					]
+				]
+			]
+		];
+
+		InnerOverlay->AddSlot()
+		[
+			SNew(SSafeZone)
+			.VAlign(VAlign_Bottom)
+			.HAlign(HAlign_Left)
+			.Padding(10.0f)
+			.IsTitleSafe(true)
+			[
+				SNew(SVerticalBox)
+				+SVerticalBox::Slot().AutoHeight()
+				[
+					SNew(SHorizontalBox)
+					+SHorizontalBox::Slot().AutoWidth()
+					[
+						SNew(SBox).WidthOverride(810.0f).HeightOverride(290.0f)
+						[
+							SNew(SImage)
+							.Image(SUTStyle::Get().GetBrush("UT.Logo.Loading"))
+						]
+					]
+				]
+			]
+		];
+
+		InnerOverlay->AddSlot()
+		[
+			SNew(SSafeZone)
+			.VAlign(VAlign_Bottom)
+			.HAlign(HAlign_Right)
+			.Padding(FMargin(10.0f,0.0f,25.0f,35.0f))
+			.IsTitleSafe(true)
+			[
+				SNew(SVerticalBox)
+				+SVerticalBox::Slot().AutoHeight()
+				[
+					SNew(SHorizontalBox)
+					+SHorizontalBox::Slot().HAlign(HAlign_Right)
+					[
+						SNew(SRichTextBlock)
+						.Text(TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateUObject(this, &UUTGameInstance::GetVignetteText)))
+						.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Tween.Bold")
+						.Justification(ETextJustify::Right)
+						.DecoratorStyleSet(&SUTStyle::Get())
+						.AutoWrapText(false)
+					]
 				]
 			]
 		];
 	}
 }
 
-// Plays a full screen movie
-void UUTGameInstance::PlayMovie(const FString& MovieName, TSharedPtr<SWidget> SlateOverlayWidget, bool bSkippable, bool bAutoComplete, TEnumAsByte<EMoviePlaybackType> PlaybackType, bool bForce)
+void UUTGameInstance::PlayLoadingMovies(bool bStopWhenLoadingIsComnpleted) 
 {
-	IUnrealTournamentFullScreenMovieModule* const FullScreenMovieModule = FModuleManager::LoadModulePtr<IUnrealTournamentFullScreenMovieModule>("UnrealTournamentFullScreenMovie");
-	if (FullScreenMovieModule != nullptr)
-	{
-		FullScreenMovieModule->PlayMovie(MovieName, SlateOverlayWidget.IsValid() ? SlateOverlayWidget : SNullWidget::NullWidget, bSkippable, bAutoComplete, PlaybackType, bForce);
+	CreateLoadingMovieOverlay();;
+	if (LoadingMovieOverlay.IsValid())
+	{						 
+		FString MovieName = TEXT("");
+		for (auto Vignette : MovieVignettes)
+		{
+			MovieName += MovieName.IsEmpty() ? Vignette.MovieFilename : TEXT(";") + Vignette.MovieFilename;
+		}
+
+		PlayMovie(MovieName, LoadingMovieOverlay, true, bStopWhenLoadingIsComnpleted, EMoviePlaybackType::MT_LoadingLoop, true);
 	}
 }
 
-void UUTGameInstance::WaitForMovieToFinish(bool bEnsureDefaultSlateOverlay)
-{
-	if (bEnsureDefaultSlateOverlay) VerifyMovieOverlay();
-	WaitForMovieToFinish(bEnsureDefaultSlateOverlay ? MovieOverlay : SNullWidget::NullWidget);
 
-}
-
-void UUTGameInstance::WaitForMovieToFinish(TSharedPtr<SWidget> SlateOverlayWidget)
+// Plays a full screen movie
+void UUTGameInstance::PlayMovie(const FString& MoviePlayList, TSharedPtr<SWidget> SlateOverlayWidget, bool bSkippable, bool bAutoComplete, TEnumAsByte<EMoviePlaybackType> PlaybackType, bool bForce)
 {
 	IUnrealTournamentFullScreenMovieModule* const FullScreenMovieModule = FModuleManager::LoadModulePtr<IUnrealTournamentFullScreenMovieModule>("UnrealTournamentFullScreenMovie");
 	if (FullScreenMovieModule != nullptr)
 	{
-		FullScreenMovieModule->SetSlateOverlayWidget(SlateOverlayWidget);
+		FullScreenMovieModule->PlayMovie(MoviePlayList, SlateOverlayWidget.IsValid() ? SlateOverlayWidget : SNullWidget::NullWidget, bSkippable, bAutoComplete, PlaybackType, bForce);
 	}
 }
 
@@ -749,7 +964,7 @@ void UUTGameInstance::StopMovie()
 	if (FullScreenMovieModule != nullptr)
 	{
 		FullScreenMovieModule->StopMovie();
-		FullScreenMovieModule->WaitForMovieToFinished(SNullWidget::NullWidget);
+		FullScreenMovieModule->WaitForMovieToFinished();
 	}
 }
 
@@ -765,6 +980,16 @@ bool UUTGameInstance::IsMoviePlaying()
 	return false;
 }
 
+
+void UUTGameInstance::OnMovieClipFinished(const FString& ClipName)
+{
+	VignetteIndex = (VignetteIndex + 1) % MovieVignettes.Num(); 
+}
+
+EVisibility UUTGameInstance::GetCommunityVisibility() const
+{
+	return bShowCommunityBadge ? EVisibility::Visible : EVisibility::Collapsed;
+}
 #endif
 
 int32 UUTGameInstance::GetBotSkillForTeamElo(int32 TeamElo)
@@ -780,5 +1005,4 @@ int32 UUTGameInstance::GetBotSkillForTeamElo(int32 TeamElo)
 
 	return 1;
 }
-
 

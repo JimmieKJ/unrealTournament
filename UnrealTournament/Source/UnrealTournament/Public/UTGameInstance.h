@@ -6,7 +6,7 @@
 #include "../../Engine/Source/Runtime/PerfCounters/Private/PerfCounters.h"
 #include "OnlineSessionInterface.h"
 #include "UTPlaylistManager.h"
-
+#include "UTATypes.h"
 #if !UE_SERVER
 #include "MoviePlayer.h"
 #endif
@@ -39,6 +39,15 @@ class UNREALTOURNAMENT_API UUTGameInstance : public UGameInstance
 
 	bool IsAutoDownloadingContent();
 
+	// If set, this movie will be the first movie to play in the loading sequence.  It will be cleared whenever it's used.
+	FString LoadingMovieToPlay;
+
+	// The text to display at the top of the screen during the loading process.  Leave empty for no text
+	FText LevelLoadText;
+
+	// If true, we will ingore the level load and not display anything.  This is to keep the loading screen from appearing with the killcam.
+	bool bIgnoreLevelLoad;
+
 	virtual bool DelayPendingNetGameTravel() override
 	{
 		return IsAutoDownloadingContent();
@@ -61,6 +70,8 @@ class UNREALTOURNAMENT_API UUTGameInstance : public UGameInstance
 	{
 		return LastTriedDemo;
 	}
+
+
 
 
 inline void InitPerfCounters()
@@ -168,11 +179,16 @@ public:
 
 	bool bLevelIsLoading;
 
+	UPROPERTY()
+	TArray<FMapVignetteInfo> MovieVignettes;
+	int32 VignetteIndex;
+
 #if !UE_SERVER
+	void OnMoviePlaybackFinished();
 
 public:
 	// Play a loading movie.  This version will auto-create the "Press FIRE to continue" message and manage if it should be displayed
-	virtual void PlayLoadingMovie(const FString& MovieName, bool bStopWhenLoadingIsComnpleted = false, bool bForce = false);
+	virtual void PlayLoadingMovies(bool bStopWhenLoadingIsComnpleted);
 
 	// Stops a movie from playing
 	virtual void StopMovie();
@@ -181,24 +197,32 @@ public:
 	virtual bool IsMoviePlaying();
 
 	// Plays a full screen movie  
-	virtual void PlayMovie(const FString& MovieName, TSharedPtr<SWidget> SlateOverlayWidget, bool bSkippable, bool bAutoComplete, TEnumAsByte<EMoviePlaybackType> PlaybackType, bool bForce);
-	virtual void WaitForMovieToFinish(bool bEnsureDefaultSlateOverlay);
-	virtual void WaitForMovieToFinish(TSharedPtr<SWidget> SlateOverlayWidget);
+	virtual void PlayMovie(const FString& MoviePlayList, TSharedPtr<SWidget> SlateOverlayWidget, bool bSkippable, bool bAutoComplete, TEnumAsByte<EMoviePlaybackType> PlaybackType, bool bForce);
 
 
 protected:
 
-	TSharedPtr<SWidget> MovieOverlay;
-	// Verify that the load movie overlay exists or create one if it doesnt.
-	virtual void VerifyMovieOverlay();
+	TSharedPtr<SOverlay> LoadingMovieOverlay;
 
+	// Will be true if we should show the community badge on this vignette
+	bool bShowCommunityBadge;
 
+	// Will hold the friendly name (if possible) of the map you are about to load
+	FString LoadingMapFriendlyName;
+	
+	// Create the loading movie overlay
+	virtual void CreateLoadingMovieOverlay();
 	virtual EVisibility GetLevelLoadThrobberVisibility() const;
-	virtual EVisibility GetLevelLoadAnyKeyVisibility() const;
+	virtual FText GetLevelLoadText() const;
+	virtual FText GetVignetteText() const;
+	virtual EVisibility GetLevelLoadTextVisibility() const;
+	virtual EVisibility GetCommunityVisibility() const;
 #endif
 
 	UPROPERTY()
 	bool bDisablePerformanceCounters;
+
+	void OnMovieClipFinished(const FString& ClipName);
 
 public:
 	virtual int32 GetBotSkillForTeamElo(int32 TeamElo);

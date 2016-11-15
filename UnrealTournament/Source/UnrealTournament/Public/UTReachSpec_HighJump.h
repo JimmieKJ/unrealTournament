@@ -29,6 +29,12 @@ class UNREALTOURNAMENT_API UUTReachSpec_HighJump : public UUTReachSpec
 	/** if capable of dodge jump, can get easier jump of RequiredJumpZ * DodgeJumpZMult */
 	UPROPERTY()
 	float DodgeJumpZMult;
+	/** center of jump source poly */
+	UPROPERTY()
+	FVector JumpStart;
+	/** center of jump target poly */
+	UPROPERTY()
+	FVector JumpEnd;
 	/** gravity at the time the path was generated (so we can adjust for lowgrav) */
 	UPROPERTY()
 	float OriginalGravityZ;
@@ -47,58 +53,31 @@ class UNREALTOURNAMENT_API UUTReachSpec_HighJump : public UUTReachSpec
 	UPROPERTY(transient)
 	bool bCachedTranslocatorResult;
 
-	/** calculates JumpZ available to Asker through standard jump moves (no weapon assist)
-	 * @param RepeatableJumpZ - JumpZ that the character can achieve limitlessly
-	 * @param BestJumpZ - JumpZ that the character can achieve one or more times (jump boots, etc)
-	 */
-	float CalcAvailableSimpleJumpZ(APawn* Asker, float* RepeatableJumpZ = NULL) const
+	virtual void PostLoad() override
 	{
-		AUTCharacter* UTC = Cast<AUTCharacter>(Asker);
-		if (UTC != NULL)
+		Super::PostLoad();
+
+		// backwards compatibility
+		if (JumpStart == FVector::ZeroVector)
 		{
-			// Repeatable: what we can do by default
-			if (RepeatableJumpZ != NULL)
+			bool bFound = false;
+			AUTRecastNavMesh* NavData = GetTypedOuter<AUTRecastNavMesh>();
+			for (const UUTPathNode* Node : NavData->GetAllNodes())
 			{
-				const UUTCharacterMovement* DefaultMovement = UTC->GetClass()->GetDefaultObject<AUTCharacter>()->UTCharacterMovement;
-				*RepeatableJumpZ = DefaultMovement->JumpZVelocity;
-				if (DefaultMovement->bAllowJumpMultijumps && DefaultMovement->MaxMultiJumpCount > 0)
+				for (const FUTPathLink& Link : Node->Paths)
 				{
-					for (int32 i = 0; i < DefaultMovement->MaxMultiJumpCount; i++)
+					if (Link.Spec == this)
 					{
-						*RepeatableJumpZ = (*RepeatableJumpZ) * ((*RepeatableJumpZ) / ((*RepeatableJumpZ) + DefaultMovement->MultiJumpImpulse)) + DefaultMovement->MultiJumpImpulse;
+						JumpStart = NavData->GetPolyCenter(Link.StartEdgePoly);
+						JumpEnd = NavData->GetPolyCenter(Link.EndPoly);
+						bFound = true;
+						break;
 					}
 				}
-			}
-
-			// Best: what we can do now
-			float BestJumpZ = UTC->GetCharacterMovement()->JumpZVelocity;
-			if (UTC->UTCharacterMovement->bAllowJumpMultijumps && UTC->UTCharacterMovement->MaxMultiJumpCount > 0)
-			{
-				for (int32 i = 0; i < UTC->UTCharacterMovement->MaxMultiJumpCount; i++)
+				if (bFound)
 				{
-					BestJumpZ = BestJumpZ * (BestJumpZ / (BestJumpZ + UTC->UTCharacterMovement->MultiJumpImpulse)) + UTC->UTCharacterMovement->MultiJumpImpulse;
+					break;
 				}
-			}
-			return BestJumpZ;
-		}
-		else
-		{
-			ACharacter* C = Cast<ACharacter>(Asker);
-			if (C == NULL || C->GetCharacterMovement() == NULL)
-			{
-				if (RepeatableJumpZ != NULL)
-				{
-					*RepeatableJumpZ = 0.0f;
-				}
-				return 0.0f;
-			}
-			else
-			{
-				if (RepeatableJumpZ != NULL)
-				{
-					*RepeatableJumpZ = C->GetClass()->GetDefaultObject<ACharacter>()->GetCharacterMovement()->JumpZVelocity;
-				}
-				return C->GetCharacterMovement()->JumpZVelocity;
 			}
 		}
 	}
@@ -115,7 +94,7 @@ class UNREALTOURNAMENT_API UUTReachSpec_HighJump : public UUTReachSpec
 	}
 
 	/** returns if specified projectile can reach from JumpStart to JumpEnd */
-	bool CheckTranslocatorArc(const FVector& JumpStart, const FVector& JumpEnd, const AUTProjectile* ProjTemplate, float GravityZ)
+	bool CheckTranslocatorArc(const AUTProjectile* ProjTemplate, float GravityZ)
 	{
 		if (ProjTemplate == NULL || ProjTemplate->ProjectileMovement == NULL)
 		{
@@ -154,7 +133,7 @@ class UNREALTOURNAMENT_API UUTReachSpec_HighJump : public UUTReachSpec
 		}
 	}
 
-	virtual int32 CostFor(int32 DefaultCost, const FUTPathLink& OwnerLink, APawn* Asker, const FNavAgentProperties& AgentProps, AController* RequestOwner, NavNodeRef StartPoly, const class AUTRecastNavMesh* NavMesh) override
+	virtual int32 CostFor(int32 DefaultCost, const FUTPathLink& OwnerLink, APawn* Asker, const FNavAgentProperties& AgentProps, const FUTReachParams& ReachParams, AController* RequestOwner, NavNodeRef StartPoly, const class AUTRecastNavMesh* NavMesh) override
 	{
 		if (Asker == NULL)
 		{
@@ -163,12 +142,10 @@ class UNREALTOURNAMENT_API UUTReachSpec_HighJump : public UUTReachSpec
 		else
 		{
 			float AdjustedRequiredJumpZ = CalcRequiredJumpZ(Asker);
-			float RepeatableJumpZ = 0.0f;
-			float BestJumpZ = CalcAvailableSimpleJumpZ(Asker, &RepeatableJumpZ);
-			if (BestJumpZ >= AdjustedRequiredJumpZ)
+			if (ReachParams.MaxSimpleJumpZ >= AdjustedRequiredJumpZ)
 			{
 				// extra cost if limited availability movement required
-				return DefaultCost + ((RepeatableJumpZ >= AdjustedRequiredJumpZ) ? 0 : 2000);
+				return DefaultCost + ((ReachParams.MaxSimpleRepeatableJumpZ >= AdjustedRequiredJumpZ) ? 0 : 2000);
 			}
 			// don't try to translocate or impact jump out of a water volume
 			else if (GravityVolume.IsValid() && GravityVolume->bWaterVolume)
@@ -184,10 +161,8 @@ class UNREALTOURNAMENT_API UUTReachSpec_HighJump : public UUTReachSpec
 				}
 				else
 				{
-					const FVector JumpEnd = NavMesh->GetPolyCenter(OwnerLink.EndPoly);
-					const FVector JumpStart = NavMesh->GetPolyCenter(OwnerLink.StartEdgePoly);
 					int32 JumpDist = FMath::TruncToInt((JumpEnd - JumpStart).Size());
-					if (B->AllowTranslocator() && CheckTranslocatorArc(JumpStart, JumpEnd, B->TransDiscTemplate, (GravityVolume != NULL) ? GravityVolume->GetGravityZ() : Asker->GetWorld()->GetGravityZ()))
+					if (B->AllowTranslocator() && CheckTranslocatorArc(B->TransDiscTemplate, (GravityVolume != NULL) ? GravityVolume->GetGravityZ() : Asker->GetWorld()->GetGravityZ()))
 					{
 						// the higher we need to throw the disc for a lower Z change, the more time the throw will take; adjust distance for that
 						return FMath::Max<int32>(450, FMath::TruncToInt((AdjustedRequiredJumpZ - (JumpEnd.Z - JumpStart.Z)) / 1.5f)) + (DefaultCost - JumpDist) + (JumpDist / 2);
@@ -199,9 +174,9 @@ class UNREALTOURNAMENT_API UUTReachSpec_HighJump : public UUTReachSpec
 						{
 							AdjustedRequiredJumpZ *= DodgeJumpZMult;
 						}
-						const float SpecialJumpZ = BestJumpZ - RepeatableJumpZ;
-						const float BaseImpactJumpZ = RepeatableJumpZ + B->ImpactJumpZ;
-						BestJumpZ = BaseImpactJumpZ * (BaseImpactJumpZ / (BaseImpactJumpZ + SpecialJumpZ)) + SpecialJumpZ;
+						const float SpecialJumpZ = ReachParams.MaxSimpleJumpZ - ReachParams.MaxSimpleRepeatableJumpZ;
+						const float BaseImpactJumpZ = ReachParams.MaxSimpleRepeatableJumpZ + B->ImpactJumpZ;
+						const float BestJumpZ = BaseImpactJumpZ * (BaseImpactJumpZ / (BaseImpactJumpZ + SpecialJumpZ)) + SpecialJumpZ;
 						if (BestJumpZ >= AdjustedRequiredJumpZ)
 						{
 							return DefaultCost + 5000; // TODO: reduce cost if in a rush or have high health?
@@ -229,7 +204,7 @@ class UNREALTOURNAMENT_API UUTReachSpec_HighJump : public UUTReachSpec
 		else
 		{
 			float AdjustedRequiredJumpZ = CalcRequiredJumpZ(Asker);
-			float BestJumpZ = CalcAvailableSimpleJumpZ(Asker);
+			float BestJumpZ = FUTReachParams::CalcAvailableSimpleJumpZ(Asker);
 			if (BestJumpZ >= AdjustedRequiredJumpZ)
 			{
 				if ((MovePos.Get() - Target.GetLocation(Asker)).IsNearlyZero() && (Asker->GetVelocity().IsZero() || (Asker->GetVelocity().GetSafeNormal2D() | (MovePos.Get() - Asker->GetActorLocation()).GetSafeNormal2D()) > 0.9f))
@@ -242,7 +217,7 @@ class UNREALTOURNAMENT_API UUTReachSpec_HighJump : public UUTReachSpec
 						if (NavData->RaycastWithZCheck(Asker->GetNavAgentLocation(), Target.GetLocation(NULL)))
 						{
 							NavNodeRef CurrentPoly = NavData->UTFindNearestPoly(Asker->GetNavAgentLocation(), Asker->GetSimpleCollisionCylinderExtent());
-							if (CurrentPoly != OwnerLink.StartEdgePoly && (MovePos.Get() - NavData->GetPolyCenter(CurrentPoly)).Size() < (MovePos.Get() - NavData->GetPolyCenter(OwnerLink.StartEdgePoly)).Size() * 0.9f)
+							if (CurrentPoly != OwnerLink.StartEdgePoly && (MovePos.Get() - NavData->GetPolyCenter(CurrentPoly)).Size() < (MovePos.Get() - JumpStart).Size() * 0.9f)
 							{
 								bJumpBeforeEdge = true;
 							}
@@ -322,7 +297,7 @@ class UNREALTOURNAMENT_API UUTReachSpec_HighJump : public UUTReachSpec
 	virtual bool GetMovePoints(const FUTPathLink& OwnerLink, const FVector& StartLoc, APawn* Asker, const FNavAgentProperties& AgentProps, const struct FRouteCacheItem& Target, const TArray<FRouteCacheItem>& FullRoute, const class AUTRecastNavMesh* NavMesh, TArray<FComponentBasedPosition>& MovePoints) const override
 	{
 		// start bot considering to switch to needed traversal weapon, if applicable
-		if (CalcAvailableSimpleJumpZ(Asker) < CalcRequiredJumpZ(Asker))
+		if (FUTReachParams::CalcAvailableSimpleJumpZ(Asker) < CalcRequiredJumpZ(Asker))
 		{
 			AUTBot* B = Cast<AUTBot>(Asker->Controller);
 			if (B != NULL)

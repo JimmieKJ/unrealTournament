@@ -25,9 +25,6 @@ public:
 		float LastEntryDefenseWarningTime;
 
 	UPROPERTY()
-		float LastEnemyRallyWarning;
-
-	UPROPERTY()
 		int32 GoldBonusTime;
 
 	UPROPERTY()
@@ -58,6 +55,8 @@ public:
 	UPROPERTY(BlueprintReadOnly, Category = CTF)
 		int DefenseKillsNeededForPowerUp;
 
+	UPROPERTY(BlueprintReadOnly, Category = CTF)
+		class AUTCarriedObject* ActiveFlag;
 
 	TAssetSubclassOf<class AUTInventory> ActivatedPowerupPlaceholderObject;
 	TAssetSubclassOf<class AUTInventory> RepulsorObject;
@@ -73,10 +72,13 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
 		USoundBase* RallyFailedSound;
 
-	FTimerHandle EnemyRallyWarningHandle;
+	UPROPERTY()
+		FName LastAttackerSpawnGroup;
 
-	virtual void WarnEnemyRally();
+	UPROPERTY()
+		FName LastDefenderSpawnGroup;
 
+	virtual class AActor* FindPlayerStart_Implementation(AController* Player, const FString& IncomingName = TEXT("")) override;
 	virtual void AnnounceWin(AUTTeamInfo* WinningTeam, uint8 Reason) override;
 	virtual void NotifyFirstPickup(AUTCarriedObject* Flag) override;
 
@@ -110,12 +112,17 @@ public:
 
 	virtual void UpdateSkillRating() override;
 
+	virtual float RatePlayerStart(APlayerStart* P, AController* Player) override;
+
 	virtual uint8 GetNumMatchesFor(AUTPlayerState* PS, bool bRankedSession) const override;
 	virtual int32 GetEloFor(AUTPlayerState* PS, bool bRankedSession) const override;
 	virtual void SetEloFor(AUTPlayerState* PS, bool bRankedSession, int32 NewELoValue, bool bIncrementMatchCount) override;
 
 	virtual void ScoreObject_Implementation(AUTCarriedObject* GameObject, AUTCharacter* HolderPawn, AUTPlayerState* Holder, FName Reason) override;
 	virtual void ScoreAlternateWin(int32 WinningTeamIndex, uint8 Reason = 0);
+
+	virtual bool SupportsInstantReplay() const override;
+	virtual void FindAndMarkHighScorer() override;
 
 protected:
 

@@ -297,7 +297,7 @@ void AUTWeaponLocker::GiveTo_Implementation(APawn* Target)
 
 			//Add to the stats pickup count
 			const AUTInventory* Inventory = Item.WeaponType.GetDefaultObject();
-			if (Inventory->StatsNameCount != NAME_None)
+			if (Inventory && Inventory->StatsNameCount != NAME_None)
 			{
 				AUTPlayerState* PS = Cast<AUTPlayerState>(P->PlayerState);
 				if (PS)

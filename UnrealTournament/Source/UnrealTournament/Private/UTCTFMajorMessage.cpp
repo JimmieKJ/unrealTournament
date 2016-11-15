@@ -12,19 +12,19 @@ UUTCTFMajorMessage::UUTCTFMajorMessage(const FObjectInitializer& ObjectInitializ
 	MessageSlot = FName(TEXT("MajorRewardMessage"));
 	HalftimeMessage = NSLOCTEXT("CTFGameMessage", "Halftime", "");
 	OvertimeMessage = NSLOCTEXT("CTFGameMessage", "Overtime", "OVERTIME!");
-	FlagReadyMessage = NSLOCTEXT("CTFGameMessage", "FlagReadyMessage", "Attacker flag can be picked up!");
+	FlagReadyMessage = NSLOCTEXT("CTFGameMessage", "FlagReadyMessage", "Attacker flag activated!");
 	FlagRallyMessage = NSLOCTEXT("CTFGameMessage", "FlagRallyMessage", "RALLY NOW!");
 	RallyReadyMessage = NSLOCTEXT("CTFGameMessage", "RallyReadyMessage", "Rally Available");
 	EnemyRallyMessage = NSLOCTEXT("CTFGameMessage", "EnemyRallyMessage", "Enemy Rally!");
 	EnemyRallyPrefix = NSLOCTEXT("CTFGameMessage", "EnemyRallyPrefix", "Enemy Rally in ");
 	EnemyRallyPostfix = NSLOCTEXT("CTFGameMessage", "EnemyRallyPostfix", "");
 	TeamRallyMessage = NSLOCTEXT("CTFGameMessage", "TeamRallyMessage", "");
-	FallBackToRallyMessage = NSLOCTEXT("CTFGameMessage", "FallBackToRallyMessage", "Fall back to Rally!");
 	RallyCompleteMessage = NSLOCTEXT("CTFGameMessage", "RallyCompleteMessage", "Rally Complete!");
 	bIsStatusAnnouncement = true;
 	bIsPartiallyUnique = true;
 	ScaleInSize = 3.f;
 	RallyCompleteName = TEXT("RallyComplete");
+	FontSizeIndex = 1;
 
 	static ConstructorHelpers::FObjectFinder<USoundBase> FlagWarningSoundFinder(TEXT("SoundWave'/Game/RestrictedAssets/Audio/Stingers/FlagUp_stereo.FlagUp_stereo'"));
 	FlagWarningSound = FlagWarningSoundFinder.Object;
@@ -60,9 +60,10 @@ void UUTCTFMajorMessage::ClientReceive(const FClientReceiveData& ClientData) con
 			PC->UTClientPlaySound(FlagRallySound);
 			PC->bNeedsRallyNotify = true;
 		}
-		else if (ClientData.MessageIndex == 23)
+		else if ((ClientData.MessageIndex == 23) || (ClientData.MessageIndex == 28))
 		{
 			PC->UTClientPlaySound(RallyReadySound);
+			PC->bNeedsRallyNotify = (ClientData.MessageIndex == 23);
 		}
 		else if (ClientData.MessageIndex == 24)
 		{
@@ -146,8 +147,8 @@ FText UUTCTFMajorMessage::GetText(int32 Switch, bool bTargetsPlayerState1, APlay
 	case 23: return RallyReadyMessage; break;
 	case 24: return BuildEmphasisText(Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject); break;
 	case 25: return RallyCompleteMessage; break;
-	case 26: return FallBackToRallyMessage; break;
 	case 27: return TeamRallyMessage; break;
+	case 28: return EnemyRallyMessage; break;
 	}
 	return FText::GetEmpty();
 }
@@ -198,7 +199,7 @@ FName UUTCTFMajorMessage::GetTeamAnnouncement(int32 Switch, uint8 TeamNum) const
 	case 11: return TEXT("HalfTime"); break;
 	case 12: return TEXT("OverTime"); break;
 	case 21: return TEXT("FlagCanBePickedUp"); break;
-	case 25: return RallyCompleteName; break;
+	//case 25: return RallyCompleteName; break;
 	}
 	return NAME_None;
 }

@@ -82,6 +82,13 @@ public:
 	virtual void Cleanup() = 0;
 
 	virtual ~IMovieStreamer() {}
+
+	DECLARE_EVENT_OneParam(IMovieStreamer, FOnCurrentMovieClipFinished, const FString&)
+	virtual FOnCurrentMovieClipFinished& OnCurrentMovieClipFinished() = 0;
+
+	void BroadcastCurrentMovieClipFinished(const FString& MovieClipThatFinished) { OnCurrentMovieClipFinished().Broadcast(MovieClipThatFinished); }
+
+
 };
 
 
@@ -185,11 +192,15 @@ public:
 
 	DECLARE_EVENT(IGameMoviePlayer, FOnMoviePlaybackFinished)
 	virtual FOnMoviePlaybackFinished& OnMoviePlaybackFinished() = 0;
-	
+
+	DECLARE_EVENT_OneParam(IGameMoviePlayer, FOnMovieClipFinished, const FString&)
+	virtual FOnMovieClipFinished& OnMovieClipFinished() = 0;
+
 	/** Allows for a slate overlay widget to be set after playback. */
 	virtual void SetSlateOverlayWidget(TSharedPtr<SWidget> NewOverlayWidget) = 0;
 
 	void BroadcastMoviePlaybackFinished() { OnMoviePlaybackFinished().Broadcast(); }
+	void BroadcastMovieClipFinished(const FString& MovieClipThatFinished) { OnMovieClipFinished().Broadcast(MovieClipThatFinished); }
 
 	/** This function shouild return true if the movie will auto-complete the sequence when background loading has finished */
 	virtual bool WillAutoCompleteWhenLoadFinishes() = 0;

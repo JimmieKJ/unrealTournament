@@ -20,7 +20,7 @@ UUTHUDWidgetMessage_ConsoleMessages::UUTHUDWidgetMessage_ConsoleMessages(const c
 // @TODO FIXMESTEVE temp - need smaller font
 float UUTHUDWidgetMessage_ConsoleMessages::GetDrawScaleOverride()
 {
-	return 0.75f * UTHUDOwner->GetHUDWidgetScaleOverride();
+	return UTHUDOwner->GetHUDWidgetScaleOverride();
 }
 
 void UUTHUDWidgetMessage_ConsoleMessages::DrawMessages(float DeltaTime)

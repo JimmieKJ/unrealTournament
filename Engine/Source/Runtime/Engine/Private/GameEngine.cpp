@@ -240,8 +240,8 @@ void UGameEngine::ConditionallyOverrideSettings(int32& ResolutionX, int32& Resol
 	// Optionally force the resolution by passing -ForceRes
 	const bool bForceRes = FParse::Param(FCommandLine::Get(), TEXT("ForceRes"));
 
-	//Dont allow a resolution bigger then the desktop found a convenient one
-	if (!bForceRes && !IsRunningDedicatedServer() && ((ResolutionX <= 0 || ResolutionX >= MaxResolutionX) || (ResolutionY <= 0 || ResolutionY >= MaxResolutionY)))
+	//Don't allow a resolution bigger then the desktop found a convenient one
+	if (!bForceRes && !IsRunningDedicatedServer() && ((ResolutionX <= 0 || ResolutionX > MaxResolutionX) || (ResolutionY <= 0 || ResolutionY > MaxResolutionY)))
 	{
 		ResolutionX = MaxResolutionX;
 		ResolutionY = MaxResolutionY;
@@ -507,6 +507,8 @@ UEngine::UEngine(const FObjectInitializer& ObjectInitializer)
 
 	bUseFixedFrameRate = false;
 	FixedFrameRate = 30.f;
+	ServerSchedulerSlack = 0.f;
+	ServerSchedulerMinSleep = 0.f;
 }
 
 void UGameEngine::Init(IEngineLoop* InEngineLoop)
@@ -673,11 +675,15 @@ bool UGameEngine::NetworkRemapPath(UWorld* InWorld, FString& Str, bool bReading 
 
 	// If the prefixed path matches the world package name or the name of a streaming level,
 	// return the prefixed name.
-	const FString PrefixedName = UWorld::ConvertToPIEPackageName(Str, Context.PIEInstance);
+	const FString PackageNameOnly = FPackageName::PackageFromPath(*Str);
+
+	const FString PrefixedFullName = UWorld::ConvertToPIEPackageName(Str, Context.PIEInstance);
+	const FString PrefixedPackageName = UWorld::ConvertToPIEPackageName(PackageNameOnly, Context.PIEInstance);
 	const FString WorldPackageName = InWorld->GetOutermost()->GetName();
-	if (WorldPackageName == PrefixedName)
+
+	if (WorldPackageName == PrefixedPackageName)
 	{
-		Str = PrefixedName;
+		Str = PrefixedFullName;
 		return true;
 	}
 
@@ -686,9 +692,9 @@ bool UGameEngine::NetworkRemapPath(UWorld* InWorld, FString& Str, bool bReading 
 		if (StreamingLevel != nullptr)
 		{
 			const FString StreamingLevelName = StreamingLevel->GetWorldAsset().GetLongPackageName();
-			if (StreamingLevelName == PrefixedName)
+			if (StreamingLevelName == PrefixedPackageName)
 			{
-				Str = PrefixedName;
+				Str = PrefixedFullName;
 				return true;
 			}
 		}

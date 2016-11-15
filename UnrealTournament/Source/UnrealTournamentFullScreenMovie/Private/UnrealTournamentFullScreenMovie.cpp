@@ -11,10 +11,12 @@ class FUnrealTournamentFullScreenMovieModule : public IUnrealTournamentFullScree
 {
 protected:
 	FSlateFontInfo LoadingFont;
-
+	int32 count;
 public:
+
 	virtual void StartupModule() override
 	{		
+		count = 0;
 #if !UE_SERVER
 		FLoadingScreenAttributes LoadingScreen;
 		LoadingScreen.bAutoCompleteWhenLoadingCompletes = false;
@@ -23,23 +25,33 @@ public:
 		LoadingScreen.WidgetLoadingScreen = SNullWidget::NullWidget;
 
 		LoadingScreen.MoviePaths.Empty();
-
-		//FString MovieName = ( FParse::Param( FCommandLine::Get(), TEXT( "nomovie" )) ) ? TEXT("load_generic_nosound") : TEXT("intro_full;intro_loop");
-		FString MovieName = TEXT("load_generic_nosound");
-		MovieName.ParseIntoArray(LoadingScreen.MoviePaths, TEXT(";"), true);
-		if (GetMoviePlayer().IsValid()) GetMoviePlayer()->SetupLoadingScreen(LoadingScreen);
+		LoadingScreen.MoviePaths.Add(TEXT("engine_startup"));
+		if (GetMoviePlayer().IsValid()) 
+		{
+			GetMoviePlayer()->SetupLoadingScreen(LoadingScreen);
+			GetMoviePlayer()->OnMovieClipFinished().AddRaw(this, &FUnrealTournamentFullScreenMovieModule::OnMovieClipFinished);
+		}
 #endif
 	}
-	
+
+
 	virtual bool IsGameModule() const override
 	{
 		return true;
 	}
 
 #if !UE_SERVER
-	virtual void PlayMovie(const FString& MovieName, TSharedPtr<SWidget> SlateOverlayWidget, bool bSkippable, bool bAutoComplete, TEnumAsByte<EMoviePlaybackType> PlaybackType, bool bForce) override
+
+	virtual FOnClipFinished& OnClipFinished() override { return OnClipFinishedDelegate; }
+
+	virtual void OnMovieClipFinished(const FString& ClipName)
 	{
-		if ( IsMoviePlayerEnabled() && !MovieName.IsEmpty() && (!GetMoviePlayer()->IsMovieCurrentlyPlaying() || bForce) )
+		OnClipFinished().Broadcast(ClipName);
+	}
+
+	virtual void PlayMovie(const FString& MoviePlayList, TSharedPtr<SWidget> SlateOverlayWidget, bool bSkippable, bool bAutoComplete, TEnumAsByte<EMoviePlaybackType> PlaybackType, bool bForce) override
+	{
+		if ( IsMoviePlayerEnabled() && !MoviePlayList.IsEmpty() && (!GetMoviePlayer()->IsMovieCurrentlyPlaying() || bForce) )
 		{
 			// If we are focing a move to play, stop any existing movie.		
 			if (bForce && GetMoviePlayer()->IsMovieCurrentlyPlaying())
@@ -52,13 +64,13 @@ public:
 			LoadingScreen.bMoviesAreSkippable = bSkippable;
 			LoadingScreen.MoviePaths.Empty();
 
-			if ( true ) // FParse::Param( FCommandLine::Get(), TEXT( "nomovie" )) )
+			if ( FParse::Param( FCommandLine::Get(), TEXT( "nomovie" )) )
 			{
 				LoadingScreen.MoviePaths.Add(TEXT("load_generic_nosound"));
 			}
 			else
 			{
-				MovieName.ParseIntoArray(LoadingScreen.MoviePaths, TEXT(";"), true);
+				MoviePlayList.ParseIntoArray(LoadingScreen.MoviePaths, TEXT(";"), true);
 			}
 
 			LoadingScreen.PlaybackType = PlaybackType;
@@ -77,12 +89,11 @@ public:
 		if (GetMoviePlayer().IsValid()) GetMoviePlayer()->StopMovie();
 	}
 
-	virtual void WaitForMovieToFinished(TSharedPtr<SWidget> SlateOverlayWidget) override
+	virtual void WaitForMovieToFinished() 
 	{
 		if (GetMoviePlayer().IsValid())
 		{
 			GetMoviePlayer()->WaitForMovieToFinish();
-			SetSlateOverlayWidget(SlateOverlayWidget);
 		}
 	}
 
@@ -96,7 +107,9 @@ public:
 	{
 		if (GetMoviePlayer().IsValid()) GetMoviePlayer()->SetSlateOverlayWidget(NewSlateOverlayWidget);
 	}
-	
+
+protected:
+	FOnClipFinished OnClipFinishedDelegate;
 
 #endif
 };

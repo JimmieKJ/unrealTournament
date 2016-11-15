@@ -77,6 +77,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
 	float CellWidth;
 
+	// padding between minimap and player scores
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
+		float MinimapPadding;
+
 	// width of outside edge
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
 		float EdgeWidth;
@@ -104,12 +108,18 @@ public:
 	UPROPERTY()
 		float ScaledCellWidth;
 
+	UPROPERTY()
+		float LastScorePanelYOffset;
+
 	virtual void PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas* InCanvas, FVector2D InCanvasCenter);
 
 	virtual bool ShouldDrawScoringStats() { return false; };
 
 	/** Show current 2 pages of scoring stats breakdowns. */
 	virtual void DrawScoringStats(float RenderDelta, float& YOffset);
+
+	/** Draw quickstats for current life. */
+	virtual void DrawCurrentLifeStats(float RenderDelta, float& YOffset);
 
 	virtual void DrawStatsLeft(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom);
 	virtual void DrawStatsRight(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom);
@@ -124,9 +134,6 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
 		FText GameMessageText;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
-		FText ScoreMessageText;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
 		FText CH_PlayerName;
@@ -184,6 +191,11 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
 		bool bDrawMinimapInScoreboard;
+
+	/** If true force Epic account names on scoreboard. */
+	UPROPERTY()
+		bool bForceRealNames;
+
 
 protected:
 	UPROPERTY(BlueprintReadOnly, Category = "Scoreboard")

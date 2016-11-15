@@ -131,9 +131,13 @@ class UNREALTOURNAMENT_API AUTCarriedObject : public AActor, public IUTTeamInter
 	UPROPERTY(BlueprintReadWrite, Category = GameObject)
 		float LastPingVerbalTime;
 
-	// How long a enemy ping is valid
+	// How long a non-enemy ping is valid
 	UPROPERTY(EditDefaultsOnly, Category = GameObject)
 		float PingedDuration;
+
+	// How long an enemy targeting ping is valid
+	UPROPERTY(EditDefaultsOnly, Category = GameObject)
+		float TargetPingedDuration;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = GameObject)
 		bool bShouldPingFlag;
@@ -245,7 +249,11 @@ public:
 	UPROPERTY()
 	float LastGameMessageTime;
 
-	/** sound played when the object is picked up */
+	/** sound played for holder when the object is picked up */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
+		USoundBase* HolderPickupSound;
+
+	/** sound played for other playerswhen the object is picked up */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
 	USoundBase* PickupSound;
 

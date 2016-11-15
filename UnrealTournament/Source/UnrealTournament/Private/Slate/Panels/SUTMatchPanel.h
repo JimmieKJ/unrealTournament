@@ -295,6 +295,16 @@ public:
 			return false;
 		}
 
+		if ( (Flags & MATCH_FLAG_Private) == MATCH_FLAG_Private)
+		{
+			// Look to see if this player has an invite in to this match
+			AUTLobbyPlayerState* LobbyPlayerState = Cast<AUTLobbyPlayerState>(PlayerOwner->PlayerController->PlayerState);
+			if (LobbyPlayerState && LobbyPlayerState->LastInvitedMatch != MatchInfo)
+			{
+				return false;
+			}
+		}
+
 		// If this is a ranked match, check the rank
 		if ((Flags & MATCH_FLAG_Ranked) == MATCH_FLAG_Ranked)
 		{

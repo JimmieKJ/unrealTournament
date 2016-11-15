@@ -10,9 +10,9 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FTeamSideSwapDelegate, uint8, Offset
 
 class AUTGameMode;
 class AUTReplicatedMapInfo;
-class UUTInGameIntroHelper;
+class AUTLineUpHelper;
 
-enum class InGameIntroZoneTypes : uint8;
+enum class LineUpTypes : uint8;
 
 struct FLoadoutInfo;
 
@@ -216,6 +216,10 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = GameState)
 	AUTTeamInfo* WinningTeam;
 
+	/** Identifies who capped the flag */
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = GameState)
+	AUTPlayerState* ScoringPlayerState;
+
 	UFUNCTION()
 	virtual void OnWinnerReceived();
 
@@ -353,6 +357,8 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 	virtual void ReceivedGameModeClass() override;
 
 	virtual FText GetGameStatusText(bool bForScoreboard = false);
+
+	virtual FLinearColor GetGameStatusColor();
 
 	virtual void OnRep_MatchState() override;
 
@@ -511,6 +517,9 @@ public:
 	UPROPERTY(Replicated)
 	TArray<AUTReplicatedMapInfo*> MapVoteList;
 
+	UPROPERTY(Replicated)
+	int32 MapVoteListCount;
+
 	virtual void CreateMapVoteInfo(const FString& MapPackage,const FString& MapTitle, const FString& MapScreenshotReference);
 	void SortVotes();
 
@@ -603,7 +612,7 @@ public:
 
 	virtual bool CanShowBoostMenu(AUTPlayerController* Target);
 	
-	virtual bool ShouldUseInGameSummary(InGameIntroZoneTypes SummaryType);
+	virtual bool ShouldUseInGameSummary(LineUpTypes SummaryType);
 
 	UPROPERTY(Replicated, GlobalConfig, EditAnywhere, BlueprintReadWrite, Category = GameState)
 	bool bOnlyTeamCanVoteKick;
@@ -680,8 +689,12 @@ public:
 	UPROPERTY(Replicated)
 	FGuid ServerInstanceGUID;
 
-	UPROPERTY()
-	UUTInGameIntroHelper* InGameIntroHelper;
+	UPROPERTY(Replicated)
+	AUTLineUpHelper* LineUpHelper;
+
+	// Returns true if the replication of the MapVote list is completed
+	bool IsMapVoteListReplicationCompleted();
+
 };
 
 

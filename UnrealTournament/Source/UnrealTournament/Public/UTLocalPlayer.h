@@ -339,6 +339,8 @@ public:
 	virtual void SetHatVariant(int32 NewVariant);
 	virtual int32 GetEyewearVariant() const;
 	virtual void SetEyewearVariant(int32 NewVariant);
+	virtual FString GetGroupTauntPath() const;
+	virtual void SetGroupTauntPath(const FString& NewGroupTauntPath);
 	virtual FString GetTauntPath() const;
 	virtual void SetTauntPath(const FString& NewTauntPath);
 	virtual FString GetTaunt2Path() const;
@@ -359,7 +361,7 @@ public:
 
 	// Returns true if this player is logged in to the UT Online Services.  If bIncludeProfile is true, then it will check to see
 	// if the initial read of the profile and progression has completed as well
-	virtual bool IsLoggedIn(bool bIncludeProfile = false) const;
+	virtual bool IsLoggedIn() const;
 
 	virtual FString GetOnlinePlayerNickname();
 
@@ -628,9 +630,16 @@ protected:
 	bool bDelayedJoinSession;
 	FOnlineSessionSearchResult PendingSession;
 
+public:
+
 	// Holds the session info of the last session this player tried to join.  If there is a join failure, or the reconnect command is used, this session info
 	// will be used to attempt the reconnection.
 	FOnlineSessionSearchResult LastSession;
+
+	// Will be true if the last session was a join as spectator
+	bool bLastSessionWasASpectator;
+
+protected:
 
 	// friend join functionality
 	virtual void JoinFriendSession(const FUniqueNetId& FriendId, const FUniqueNetId& SessionId);

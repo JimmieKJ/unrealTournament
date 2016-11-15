@@ -450,6 +450,10 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Game")
 		bool bRemovePawnsAtStart;
 
+	/** Count of total kills during warm up. */
+	UPROPERTY(BlueprintReadOnly, Category = "Game")
+		int32 WarmupKills;
+
 	/** assign squad to player - note that humans can have a squad for bots to follow their lead
 	 * this method should always result in a valid squad being assigned
 	 */
@@ -485,6 +489,11 @@ public:
 	UFUNCTION(BlueprintNativeEvent, BlueprintAuthorityOnly)
 	void ScoreKill(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType);
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Game)
+		bool bTrackKillAssists;
+
+	virtual void TrackKillAssists(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType, AUTPlayerState* KillerPlayerState, AUTPlayerState* OtherPlayerState);
+
 	TMap<TSubclassOf<UDamageType>, int32> EnemyKillsByDamageType;
 
 	/** Score teammate killing another teammate. */
@@ -498,9 +507,8 @@ public:
 	bool CheckScore(AUTPlayerState* Scorer);
 
 	virtual void FindAndMarkHighScorer();
-	virtual void AdjustLeaderHatFor(AUTCharacter* UTChar);
 	virtual void SetEndGameFocus(AUTPlayerState* Winner);	
-	virtual void PickMostCoolMoments(bool bClearCoolMoments = false, int32 CoolMomentsToShow = 3);
+	virtual void PickMostCoolMoments(bool bClearCoolMoments = false, int32 CoolMomentsToShow = 1);
 
 	UFUNCTION(BlueprintCallable, Category = UTGame)
 	virtual void EndGame(AUTPlayerState* Winner, FName Reason);

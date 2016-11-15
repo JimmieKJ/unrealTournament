@@ -34,6 +34,30 @@ struct FLine
 	}
 };
 
+/** addendum to FNavAgentProperties when pathfinding (FNavAgentProperties doesn't support polymorphism) */
+struct FUTReachParams
+{
+	// size as integer for quick path pass/fail
+	int32 Radius;
+	int32 HalfHeight;
+	// compared with path ReachFlags
+	uint32 MoveFlags;
+	// max allowed falling speed for fall capable paths
+	int32 MaxFallSpeed;
+	// JumpZ available to Asker through standard jump moves/input (no weapon assist)
+	float MaxSimpleJumpZ;
+	// JumpZ available to Asker through standard jump moves/input limitlessly (as default character capabilities, no items/powerups/cooldown required)
+	float MaxSimpleRepeatableJumpZ;
+
+	/** calculates JumpZ available to Asker through standard jump moves (no weapon assist)
+	* @param RepeatableJumpZ - JumpZ that the character can achieve limitlessly
+	* @return JumpZ that the character can achieve one or more times (jump boots, etc)
+	*/
+	static float CalcAvailableSimpleJumpZ(APawn* Asker, float* RepeatableJumpZ = NULL);
+
+	FUTReachParams(APawn* Asker, const FNavAgentProperties& AgentProps);
+};
+
 USTRUCT(BlueprintType)
 struct FRouteCacheItem
 {
@@ -124,7 +148,7 @@ struct UNREALTOURNAMENT_API FUTNodeEvaluator
 	 * use to cache node/poly locations for endpoints and such
 	 * @return whether pathing can continue (e.g. might return false if desired target(s) are off the mesh)
 	 */
-	virtual bool InitForPathfinding(APawn* Asker, const FNavAgentProperties& AgentProps, AUTRecastNavMesh* NavData)
+	virtual bool InitForPathfinding(APawn* Asker, const FNavAgentProperties& AgentProps, const FVector& StartLoc, AUTRecastNavMesh* NavData)
 	{
 		return true;
 	}
@@ -160,22 +184,33 @@ struct UNREALTOURNAMENT_API FSingleEndpointEval : public FUTNodeEvaluator
 {
 	AActor* GoalActor;
 	FVector GoalLoc;
+	bool bAllowPartial;
 	UUTPathNode* GoalNode;
+	// variables for partial goal calculation
+	float StartingDist;
+	bool bFoundGoalNode;
 
-	virtual bool InitForPathfinding(APawn* Asker, const FNavAgentProperties& AgentProps, AUTRecastNavMesh* NavData);
+	virtual bool InitForPathfinding(APawn* Asker, const FNavAgentProperties& AgentProps, const FVector& StartLoc, AUTRecastNavMesh* NavData);
 	virtual float Eval(APawn* Asker, const FNavAgentProperties& AgentProps, AController* RequestOwner, const UUTPathNode* Node, const FVector& EntryLoc, int32 TotalDistance);
 	virtual bool GetRouteGoal(AActor*& OutGoal, FVector& OutGoalLoc) const override
 	{
-		OutGoal = GoalActor;
-		OutGoalLoc = GoalLoc;
-		return true;
+		if (bFoundGoalNode)
+		{
+			OutGoal = GoalActor;
+			OutGoalLoc = GoalLoc;
+			return true;
+		}
+		else
+		{
+			return false;
+		}
 	}
 
-	explicit FSingleEndpointEval(AActor* InGoalActor)
-		: GoalActor(InGoalActor), GoalLoc(InGoalActor->GetActorLocation())
+	explicit FSingleEndpointEval(AActor* InGoalActor, bool bInAllowPartial = false)
+		: GoalActor(InGoalActor), GoalLoc(InGoalActor->GetActorLocation()), bAllowPartial(bInAllowPartial), GoalNode(nullptr), StartingDist(0.0f), bFoundGoalNode(false)
 	{}
-	explicit FSingleEndpointEval(const FVector& InGoalLoc)
-		: GoalActor(NULL), GoalLoc(InGoalLoc)
+	explicit FSingleEndpointEval(const FVector& InGoalLoc, bool bInAllowPartial = false)
+		: GoalActor(NULL), GoalLoc(InGoalLoc), bAllowPartial(bInAllowPartial), GoalNode(nullptr), StartingDist(0.0f), bFoundGoalNode(false)
 	{}
 };
 
@@ -189,11 +224,11 @@ struct UNREALTOURNAMENT_API FSingleEndpointEvalWeighted : public FSingleEndpoint
 		return ExtraCosts.FindRef(Link.End);
 	}
 
-	explicit FSingleEndpointEvalWeighted(AActor* InGoalActor)
-		: FSingleEndpointEval(InGoalActor)
+	explicit FSingleEndpointEvalWeighted(AActor* InGoalActor, bool bInAllowPartial = false)
+		: FSingleEndpointEval(InGoalActor, bInAllowPartial)
 	{}
-	explicit FSingleEndpointEvalWeighted(const FVector& InGoalLoc)
-		: FSingleEndpointEval(InGoalLoc)
+	explicit FSingleEndpointEvalWeighted(const FVector& InGoalLoc, bool bInAllowPartial = false)
+		: FSingleEndpointEval(InGoalLoc, bInAllowPartial)
 	{}
 };
 
@@ -227,7 +262,7 @@ struct UNREALTOURNAMENT_API FMultiPathNodeEval : public FUTNodeEvaluator
 	const UUTPathNode* GoalNode;
 	FVector GoalEntryLoc;
 
-	virtual bool InitForPathfinding(APawn* Asker, const FNavAgentProperties& AgentProps, AUTRecastNavMesh* NavData) override
+	virtual bool InitForPathfinding(APawn* Asker, const FNavAgentProperties& AgentProps, const FVector& StartLoc, AUTRecastNavMesh* NavData) override
 	{
 		return Goals.Num() > 0;
 	}
@@ -376,6 +411,10 @@ class UNREALTOURNAMENT_API AUTRecastNavMesh : public ARecastNavMesh
 	// some pathfinding functions (inventory searches, for example) use this list to efficiently find possible endpoints
 	virtual void AddToNavigation(AActor* NewPOI);
 	virtual void RemoveFromNavigation(AActor* OldPOI);
+
+#if WITH_EDITOR
+	virtual void CheckForErrors() override;
+#endif
 
 private:
 	
@@ -652,6 +691,15 @@ inline AUTRecastNavMesh* GetUTNavData(UWorld* World)
 	{
 		// workaround because engine doesn't want to create on clients by default
 		World->SetNavigationSystem(NewObject<UNavigationSystem>(World, GEngine->NavigationSystemClass));
+	}
+	if (World->GetNavigationSystem()->NavDataSet.Num() == 0 && !World->HasBegunPlay())
+	{
+		// needed during startup because of NavigationSystem's questionable latent registration
+		// since we handle path sizes ourselves there should only be one nav data so just look it up
+		for (TActorIterator<AUTRecastNavMesh> It(World); It; ++It)
+		{
+			return *It;
+		}
 	}
 	return Cast<AUTRecastNavMesh>(World->GetNavigationSystem()->GetMainNavData(FNavigationSystem::ECreateIfEmpty::DontCreate));
 }

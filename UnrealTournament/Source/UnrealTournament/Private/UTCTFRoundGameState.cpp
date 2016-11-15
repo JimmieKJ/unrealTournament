@@ -70,7 +70,7 @@ FText AUTCTFRoundGameState::GetGameStatusText(bool bForScoreboard)
 	{
 		return MapVoteStatus;
 	}
-	else if (CTFRound > 0)
+	else if ((CTFRound > 0) &&  IsMatchInProgress())
 	{
 		return GetRoundStatusText(bForScoreboard);
 	}

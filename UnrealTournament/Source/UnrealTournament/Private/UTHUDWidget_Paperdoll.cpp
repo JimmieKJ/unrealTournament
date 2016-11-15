@@ -6,7 +6,7 @@
 #include "UTHUDWidget_WeaponBar.h"
 #include "UTJumpBoots.h"
 #include "UTFlagRunGameState.h"
-
+#include "UTRallyPoint.h"
 #include "UTArmor.h"
 
 const int32 ALTERNATE_X_OFFSET = -64;
@@ -88,7 +88,10 @@ void UUTHUDWidget_Paperdoll::Draw_Implementation(float DeltaTime)
 
 	bool bPlayerCanRally = UTHUDOwner->UTPlayerOwner->CanPerformRally();
 	bool bShowTimer = !bPlayerCanRally && PS && PS->Team && GameState && GameState->bAttackersCanRally && ((PS->Team->TeamIndex == 0) == GameState->bRedToCap) && UTC && UTC->bCanRally && (PS->RemainingRallyDelay > 0);
-	bShowTimer = bShowTimer && (GameState->GetRemainingTime() < 270);
+	if (GameState && GameState->CurrentRallyPoint)
+	{
+		bShowTimer = bShowTimer || (GameState && !GameState->bAttackersCanRally && PS && PS->Team && ((PS->Team->TeamIndex == 0) == GameState->bRedToCap));
+	}
 
 	if (UTC != NULL && !UTC->IsDead())
 	{
@@ -209,8 +212,8 @@ void UUTHUDWidget_Paperdoll::Draw_Implementation(float DeltaTime)
 		FlagIcon.UVs = FlagHolderIconUVs;
 		FlagIcon.bUseTeamColors = false;
 		FlagIcon.RenderOpacity = 1.0f;
-		FlagIcon.RenderColor = FLinearColor::White;
-
+		FLinearColor TeamColor = (PS && PS->Team && PS->Team->TeamIndex == 1) ? FLinearColor::Blue : FLinearColor::Red;
+		FlagIcon.RenderColor = (bPlayerCanRally|| bShowTimer) ? FLinearColor::Yellow : TeamColor;
 		RenderObj_Texture(FlagIcon);
 
 		if (bPlayerCanRally)
@@ -220,7 +223,10 @@ void UUTHUDWidget_Paperdoll::Draw_Implementation(float DeltaTime)
 		}
 		else if (bShowTimer)
 		{
-			FlagText.Text = FText::AsNumber(int32(PS->RemainingRallyDelay));
+			int32 RemainingTime = PS->CarriedObject && GameState && GameState->CurrentRallyPoint
+				? 1 + GameState->CurrentRallyPoint->ReplicatedCountdown
+				: 1 + FMath::Max(int32(PS->RemainingRallyDelay), (GameState && GameState->CurrentRallyPoint) ? GameState->CurrentRallyPoint->ReplicatedCountdown : 0);
+			FlagText.Text = FText::AsNumber(RemainingTime);
 			RenderObj_Text(FlagText);
 		}
 

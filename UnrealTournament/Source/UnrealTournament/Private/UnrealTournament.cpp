@@ -27,10 +27,11 @@ IMPLEMENT_PRIMARY_GAME_MODULE(FUTModule, UnrealTournament, "UnrealTournament");
 DEFINE_LOG_CATEGORY(UT);
 DEFINE_LOG_CATEGORY(UTNet);
 DEFINE_LOG_CATEGORY(UTLoading);
+DEFINE_LOG_CATEGORY(UTConnection);
 
 static uint32 UTGetNetworkVersion()
 {
-	return 3008045;
+	return 3008046;
 }
 
 const FString ITEM_STAT_PREFIX = TEXT("ITEM_");
@@ -201,6 +202,11 @@ static TMap<FName, FString> HackedEntitlementTable = []()
 	Result.Add(TEXT("BP_Char_Oct2015_C"), TEXT("527E7E209F4142F8835BA696919E2BEC"));
 	Result.Add(TEXT("DM-Lea"), TEXT("0d5e275ca99d4cf0b03c518a6b279e26"));
 	Result.Add(TEXT("CTF-Pistola"), TEXT("48d281f487154bb29dd75bd7bb95ac8e"));
+	Result.Add(TEXT("DM-Batrankus"), TEXT("d8ac8a7ce06d44ab8e6b7284184e556e"));
+	Result.Add(TEXT("DM-Backspace"), TEXT("08af4962353443058766998d6b881707"));
+	Result.Add(TEXT("DM-Salt"), TEXT("27f36270a1ec44509e72687c4ba6845a"));
+	Result.Add(TEXT("CTF-Polaris"), TEXT("a99f379bfb9b41c69ddf0bfbc4a48860"));
+	Result.Add(TEXT("DM-Unsaved"), TEXT("65fb5029cddb4de7b5fa155b6992e6a3"));
 	return Result;
 }();
 
@@ -374,6 +380,11 @@ void GetAllAssetData(UClass* BaseClass, TArray<FAssetData>& AssetList, bool bReq
 	RootPaths.Add(TEXT("/Game/RestrictedAssets/Character/"));
 	RootPaths.Add(TEXT("/Game/RestrictedAssets/ProfileItems/"));
 	RootPaths.Add(TEXT("/Game/EpicInternal/Lea/"));
+	RootPaths.Add(TEXT("/Game/EpicInternal/Batrankus/"));
+	RootPaths.Add(TEXT("/Game/EpicInternal/Backspace/"));
+	RootPaths.Add(TEXT("/Game/EpicInternal/Polaris/"));
+	RootPaths.Add(TEXT("/Game/EpicInternal/Unsaved/"));
+	RootPaths.Add(TEXT("/Game/EpicInternal/Salt/"));
 	RootPaths.Add(TEXT("/Game/EpicInternal/Pistola/"));
 	RootPaths.Add(TEXT("/Game/EpicInternal/Stu/"));
 	RootPaths.Add(TEXT("/Game/EpicInternal/SR/"));

@@ -40,10 +40,13 @@
 #include "Animation/AnimInstance.h"
 #include "UTFlagRunGameMessage.h"
 #include "UTAnalytics.h"
+#include "UTRallyPoint.h"
+#include "UTRemoteRedeemer.h"
 
 AUTFlagRunGame::AUTFlagRunGame(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+	MinPlayersToStart = 10;
 	GoldBonusTime = 120;
 	SilverBonusTime = 60;
 	GoldScore = 3;
@@ -64,6 +67,7 @@ AUTFlagRunGame::AUTFlagRunGame(const FObjectInitializer& ObjectInitializer)
 	bNoFlagReturn = true;
 	bGameHasImpactHammer = false;
 	FlagPickupDelay = 15;
+	bTrackKillAssists = true;
 
 	ActivatedPowerupPlaceholderObject = FStringAssetReference(TEXT("/Game/RestrictedAssets/Pickups/Powerups/BP_ActivatedPowerup_UDamage.BP_ActivatedPowerup_UDamage_C"));
 	RepulsorObject = FStringAssetReference(TEXT("/Game/RestrictedAssets/Pickups/Powerups/BP_Repulsor.BP_Repulsor_C"));
@@ -93,9 +97,6 @@ void AUTFlagRunGame::InitGame(const FString& MapName, const FString& Options, FS
 
 	FString InOpt = UGameplayStatics::ParseOption(Options, TEXT("AllowPrototypePowerups"));
 	bAllowPrototypePowerups = EvalBoolOptions(InOpt, bAllowPrototypePowerups);
-
-	InOpt = UGameplayStatics::ParseOption(Options, TEXT("DelayRally"));
-	bDelayedRally = EvalBoolOptions(InOpt, bDelayedRally);
 
 	InOpt = UGameplayStatics::ParseOption(Options, TEXT("Boost"));
 	bAllowBoosts = EvalBoolOptions(InOpt, bAllowBoosts);
@@ -172,9 +173,57 @@ void AUTFlagRunGame::InitGameStateForRound()
 		FRGS->bIsOffenseAbleToGainPowerup = true;
 		FRGS->bIsDefenseAbleToGainPowerup = true;
 		FRGS->bRedToCap = !FRGS->bRedToCap;
+		FRGS->CurrentRallyPoint = nullptr;
+		FRGS->ScoringPlayerState = nullptr;
 	}
 }
 
+float AUTFlagRunGame::RatePlayerStart(APlayerStart* P, AController* Player)
+{
+	// @TODO FIXMESTEVE no need to check enemy traces, just overlaps
+	float Result = Super::RatePlayerStart(P, Player);
+	if ((Result > 0.f) && Cast<AUTPlayerStart>(P))
+	{
+		// try to spread out spawns between volumes
+		AUTPlayerStart* Start = (AUTPlayerStart*)P;
+		AUTPlayerState* PS = Player ? Cast<AUTPlayerState>(Player->PlayerState) : nullptr;
+		AUTFlagRunGameState* FRGS = Cast<AUTFlagRunGameState>(CTFGameState);
+		if (Start && PS && FRGS && PS->Team != NULL)
+		{
+			const bool bIsAttacker = (FRGS->bRedToCap == (PS->Team->TeamIndex == 0));
+			if (Start->PlayerStartGroup != (bIsAttacker ? LastAttackerSpawnGroup : LastDefenderSpawnGroup))
+			{
+				Result += 20.f;
+			}
+		}
+
+	}
+	return Result;
+}
+
+AActor* AUTFlagRunGame::FindPlayerStart_Implementation(AController* Player, const FString& IncomingName)
+{
+	AActor* const Best = Super::FindPlayerStart_Implementation(Player, IncomingName);
+	if (Best)
+	{
+		LastStartSpot = Best;
+		AUTPlayerStart* Start = (AUTPlayerStart*)Best;
+		AUTPlayerState* PS = Player ? Cast<AUTPlayerState>(Player->PlayerState) : nullptr;
+		AUTFlagRunGameState* FRGS = Cast<AUTFlagRunGameState>(CTFGameState);
+		if (Start && PS && FRGS && PS->Team != NULL)
+		{
+			if (FRGS->bRedToCap == (PS->Team->TeamIndex == 0))
+			{
+				LastAttackerSpawnGroup = Start->PlayerStartGroup;
+			}
+			else
+			{
+				LastDefenderSpawnGroup = Start->PlayerStartGroup;
+			}
+		}
+	}
+	return Best;
+}
 
 bool AUTFlagRunGame::AvoidPlayerStart(AUTPlayerStart* P)
 {
@@ -260,6 +309,7 @@ void AUTFlagRunGame::InitFlagForRound(AUTCarriedObject* Flag)
 			Flag->bEnemyPickupSendsHome = false;
 			Flag->bWaitingForFirstPickup = true;
 			GetWorldTimerManager().SetTimer(Flag->NeedFlagAnnouncementTimer, Flag, &AUTCarriedObject::SendNeedFlagAnnouncement, 5.f, false);
+			ActiveFlag = Flag;
 		}
 		else
 		{
@@ -458,7 +508,11 @@ float AUTFlagRunGame::OverrideRespawnTime(TSubclassOf<AUTInventory> InventoryTyp
 		return 0.f;
 	}
 	AUTWeapon* WeaponDefault = Cast<AUTWeapon>(InventoryType.GetDefaultObject());
-	return (WeaponDefault && !WeaponDefault->bMustBeHolstered) ? 20.f : InventoryType.GetDefaultObject()->RespawnTime;
+	if (WeaponDefault)
+	{
+		return WeaponDefault->bMustBeHolstered ? FMath::Max(0.5f*(TimeLimit+15.f), TimeLimit - 120.f) : 20.f;
+	}
+	return InventoryType.GetDefaultObject()->RespawnTime;
 }
 
 int32 AUTFlagRunGame::GetComSwitch(FName CommandTag, AActor* ContextActor, AUTPlayerController* InInstigator, UWorld* World)
@@ -594,6 +648,10 @@ int32 AUTFlagRunGame::GetComSwitch(FName CommandTag, AActor* ContextActor, AUTPl
 
 void AUTFlagRunGame::HandleRallyRequest(AUTPlayerController* RequestingPC)
 {
+	if ((RequestingPC == nullptr) || RequestingPC->IsCurrentlyRallying())
+	{
+		return;
+	}
 	AUTCharacter* UTCharacter = RequestingPC->GetUTCharacter();
 	AUTPlayerState* UTPlayerState = RequestingPC->UTPlayerState;
 
@@ -604,53 +662,25 @@ void AUTFlagRunGame::HandleRallyRequest(AUTPlayerController* RequestingPC)
 	{
 		if (UTCharacter->GetCarriedObject())
 		{
-			if (GetWorld()->GetTimeSeconds() - RallyRequestTime > 10.f)
+			if (GetWorld()->GetTimeSeconds() - RallyRequestTime > 2.5f)
 			{
-				// requesting rally
-				for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
-				{
-					AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
-					if (PC && GS->OnSameTeam(RequestingPC, PC) && PC->UTPlayerState && PC->UTPlayerState->bCanRally)
-					{
-						PC->ClientReceiveLocalizedMessage(UUTCTFMajorMessage::StaticClass(), 22, UTPlayerState);
-					}
-				}
 				UTPlayerState->AnnounceStatus(StatusMessage::NeedBackup);
 				RallyRequestTime = GetWorld()->GetTimeSeconds();
 			}
 		}
-		else
+		else if (GS->CurrentRallyPoint != nullptr)
 		{
-			// rally to flag carrier
-			AUTCTFFlag* Flag = Cast<AUTCTFFlag>(GS->FlagBases[GS->bRedToCap ? 0 : 1]->GetCarriedObject());
-			AUTCharacter* FlagCarrier = Flag ? Flag->HoldingPawn : nullptr;
-			if (FlagCarrier != nullptr)
+			RequestingPC->RallyLocation = GS->CurrentRallyPoint->GetRallyLocation(UTCharacter);
+			RequestingPC->RallyPoint = GS->CurrentRallyPoint;
+			UTCharacter->bTriggerRallyEffect = true;
+			UTCharacter->OnTriggerRallyEffect();
+			RequestingPC->BeginRallyTo(RequestingPC->RallyPoint, RequestingPC->RallyLocation, 1.2f);
+			UTCharacter->SpawnRallyDestinationEffectAt(RequestingPC->RallyLocation);  
+			if (UTCharacter->UTCharacterMovement)
 			{
-				FVector BestRecentPosition = Flag->RecentPosition[0];
-				float OneDist = (FlagCarrier->GetActorLocation() - Flag->RecentPosition[1]).Size();
-				if (OneDist < 400.f)
-				{
-					float ZeroDist = (FlagCarrier->GetActorLocation() - Flag->RecentPosition[0]).Size();
-					BestRecentPosition = (OneDist > ZeroDist) ? Flag->RecentPosition[1] : Flag->RecentPosition[0];
-				}
-				RequestingPC->RallyLocation = BestRecentPosition;
-				RequestingPC->RallyFlagCarrier = FlagCarrier;
-				if (bDelayedRally)
-				{
-					UTCharacter->bTriggerRallyEffect = true;
-					UTCharacter->OnTriggerRallyEffect();
-					RequestingPC->BeginRallyTo(FlagCarrier, RequestingPC->RallyLocation, 1.2f);
-					if (UTCharacter->UTCharacterMovement)
-					{
-						UTCharacter->UTCharacterMovement->StopMovementImmediately();
-						UTCharacter->UTCharacterMovement->DisableMovement();
-						UTCharacter->DisallowWeaponFiring(true);
-					}
-				}
-				else
-				{
-					CompleteRallyRequest(RequestingPC);
-				}
+				UTCharacter->UTCharacterMovement->StopMovementImmediately();
+				UTCharacter->UTCharacterMovement->DisableMovement();
+				UTCharacter->DisallowWeaponFiring(true);
 			}
 		}
 	}
@@ -683,79 +713,27 @@ void AUTFlagRunGame::CompleteRallyRequest(AUTPlayerController* RequestingPC)
 	if (Team && ((Team->TeamIndex == 0) == GS->bRedToCap) && GS->FlagBases.IsValidIndex(Team->TeamIndex) && GS->FlagBases[Team->TeamIndex] != nullptr)
 	{
 		FVector WarpLocation = FVector::ZeroVector;
-		FRotator WarpRotation(0.0f, UTCharacter->GetActorRotation().Yaw, 0.0f);
-		float HalfHeight = UTCharacter->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight();
-		float Radius = UTCharacter->GetCapsuleComponent()->GetUnscaledCapsuleRadius();
-		FCollisionShape PlayerCapsule = FCollisionShape::MakeCapsule(Radius, HalfHeight);
-		FHitResult Hit;
-		float SweepRadius = UTCharacter->GetCapsuleComponent()->GetUnscaledCapsuleRadius();
-		float RallyDelay = 10.f;
-		// rally to flag carrier
-		AUTCTFFlag* Flag = Cast<AUTCTFFlag>(GS->FlagBases[GS->bRedToCap ? 0 : 1]->GetCarriedObject());
-		AUTCharacter* FlagCarrier = Flag ? Flag->HoldingPawn : nullptr;
-		if ((FlagCarrier == nullptr) || (FlagCarrier != RequestingPC->RallyFlagCarrier))
-		{
-			RequestingPC->ClientPlaySound(RallyFailedSound);
-			return;
-		}
+		FRotator WarpRotation = RequestingPC->RallyPoint ? RequestingPC->RallyPoint->GetActorRotation() : UTCharacter->GetActorRotation();
+		WarpRotation.Pitch = 0.f;
+		WarpRotation.Roll = 0.f;
 		ECollisionChannel SavedObjectType = UTCharacter->GetCapsuleComponent()->GetCollisionObjectType();
 		UTCharacter->GetCapsuleComponent()->SetCollisionObjectType(COLLISION_TELEPORTING_OBJECT);
-		float Offset = 4.f * Radius;
-		bool bHitFloor = true;
 
 		if (GetWorld()->FindTeleportSpot(UTCharacter, RequestingPC->RallyLocation, WarpRotation))
 		{
 			WarpLocation = RequestingPC->RallyLocation;
 		}
-		else
+		else if (RequestingPC->RallyPoint)
 		{
-			float RecentPosDist = FlagCarrier ? (FlagCarrier->GetActorLocation() - Flag->RecentPosition[0]).Size() : 100.f;
-			if ((RecentPosDist < 400.f) && (RecentPosDist > 50.f) && GetWorld()->FindTeleportSpot(UTCharacter, Flag->RecentPosition[0], WarpRotation))
-			{
-				WarpLocation = Flag->RecentPosition[0];
-			}
-			else
-			{
-				FVector CarrierLocation = RequestingPC->RallyLocation;
-				WarpLocation = CarrierLocation + FVector(0.f, 0.f, HalfHeight);
-				if (FlagCarrier)
-				{
-					WarpLocation += 100.f*(FlagCarrier->GetVelocity().IsNearlyZero() ? FlagCarrier->GetActorRotation().Vector() : -1.f *  FlagCarrier->GetVelocity().GetSafeNormal());
-				}
-				if (GetWorld()->SweepSingleByChannel(Hit, CarrierLocation, WarpLocation, FQuat::Identity, UTCharacter->GetCapsuleComponent()->GetCollisionObjectType(), FCollisionShape::MakeCapsule(Radius, HalfHeight), FCollisionQueryParams(FName(TEXT("Translocation")), false, UTCharacter), UTCharacter->GetCapsuleComponent()->GetCollisionResponseToChannels()))
-				{
-					WarpLocation = Hit.Location;
-					bHitFloor = GetWorld()->SweepSingleByChannel(Hit, WarpLocation, WarpLocation - FVector(0.f, 0.f, 3.f* HalfHeight), FQuat::Identity, UTCharacter->GetCapsuleComponent()->GetCollisionObjectType(), FCollisionShape::MakeSphere(SweepRadius), FCollisionQueryParams(FName(TEXT("Translocation")), false, UTCharacter), UTCharacter->GetCapsuleComponent()->GetCollisionResponseToChannels());
-				}
-
-				// also move off of flag carrier so can watch
-				if (!GetWorld()->FindTeleportSpot(UTCharacter, WarpLocation, WarpRotation) || !bHitFloor)
-				{
-					for (int32 i = 0; i < 4; i++)
-					{
-						WarpLocation = CarrierLocation + FVector(Offset * ((i % 2 == 0) ? 1.f : -1.f), Offset * ((i > 1) ? 1.f : -1.f), HalfHeight);
-						if (GetWorld()->FindTeleportSpot(UTCharacter, WarpLocation, WarpRotation) && !GetWorld()->SweepSingleByChannel(Hit, CarrierLocation, WarpLocation, FQuat::Identity, UTCharacter->GetCapsuleComponent()->GetCollisionObjectType(), FCollisionShape::MakeCapsule(Radius, HalfHeight), FCollisionQueryParams(FName(TEXT("Translocation")), false, UTCharacter), UTCharacter->GetCapsuleComponent()->GetCollisionResponseToChannels()))
-						{
-							bHitFloor = GetWorld()->SweepSingleByChannel(Hit, WarpLocation, WarpLocation - FVector(0.f, 0.f, 3.f* HalfHeight), FQuat::Identity, UTCharacter->GetCapsuleComponent()->GetCollisionObjectType(), FCollisionShape::MakeSphere(SweepRadius), FCollisionQueryParams(FName(TEXT("Translocation")), false, UTCharacter), UTCharacter->GetCapsuleComponent()->GetCollisionResponseToChannels());
-							if (bHitFloor)
-							{
-								break;
-							}
-						}
-					}
-				}
-			}
-
+			WarpLocation = RequestingPC->RallyPoint->GetRallyLocation(UTCharacter);
 		}
-		if (!bHitFloor)
+		else
 		{
 			RequestingPC->ClientPlaySound(RallyFailedSound);
 			return;
 		}
 		UTCharacter->GetCapsuleComponent()->SetCollisionObjectType(SavedObjectType);
-		FRotator DesiredRotation = FlagCarrier ? (FlagCarrier->GetActorLocation() - WarpLocation).Rotation() : (Flag->GetActorLocation() - WarpLocation).Rotation();
-		WarpRotation.Yaw = DesiredRotation.Yaw;
-		RallyDelay = 15.f;
+		float RallyDelay = 15.f;
 
 		// teleport
 		UPrimitiveComponent* SavedPlayerBase = UTCharacter->GetMovementBase();
@@ -788,19 +766,26 @@ void AUTFlagRunGame::CompleteRallyRequest(AUTPlayerController* RequestingPC)
 				AUTWeaponRedirector* AfterImage = GetWorld()->SpawnActor<AUTWeaponRedirector>(AfterImageType, SavedPlayerTransform.GetLocation(), SavedPlayerTransform.GetRotation().Rotator(), SpawnParams);
 				if (AfterImage != NULL)
 				{
+					float HalfHeight = UTCharacter->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight();
+					float Radius = UTCharacter->GetCapsuleComponent()->GetUnscaledCapsuleRadius();
+					FCollisionShape PlayerCapsule = FCollisionShape::MakeCapsule(Radius, HalfHeight);
 					AfterImage->InitFor(UTCharacter, FRepCollisionShape(PlayerCapsule), SavedPlayerBase, UTCharacter->GetTransform());
 				}
 			}
 
 			// announce
-			UTCharacter->UTCharacterMovement->UpdatedComponent->UpdatePhysicsVolume(true);
-			AActor* RallySpot = UTCharacter->UTCharacterMovement ? UTCharacter->UTCharacterMovement->GetPhysicsVolume() : nullptr;
-			if ((RallySpot == nullptr) || (RallySpot == GetWorld()->GetDefaultPhysicsVolume()))
+			AActor* RallySpot = RequestingPC->RallyPoint ? RequestingPC->RallyPoint->MyGameVolume : nullptr;
+			if (RallySpot == nullptr)
 			{
-				AUTCTFFlag* CarriedFlag = Cast<AUTCTFFlag>(GS->FlagBases[GS->bRedToCap ? 0 : 1]->GetCarriedObject());
-				if (CarriedFlag)
+				UTCharacter->UTCharacterMovement->UpdatedComponent->UpdatePhysicsVolume(true);
+				RallySpot = UTCharacter->UTCharacterMovement ? UTCharacter->UTCharacterMovement->GetPhysicsVolume() : nullptr;
+				if ((RallySpot == nullptr) || (RallySpot == GetWorld()->GetDefaultPhysicsVolume()))
 				{
-					RallySpot = CarriedFlag;
+					AUTCTFFlag* CarriedFlag = Cast<AUTCTFFlag>(GS->FlagBases[GS->bRedToCap ? 0 : 1]->GetCarriedObject());
+					if (CarriedFlag)
+					{
+						RallySpot = CarriedFlag;
+					}
 				}
 			}
 			for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
@@ -818,31 +803,9 @@ void AUTFlagRunGame::CompleteRallyRequest(AUTPlayerController* RequestingPC)
 					}
 					else
 					{
-						PC->ClientReceiveLocalizedMessage(UUTCTFMajorMessage::StaticClass(), 24, UTPlayerState, nullptr, RallySpot);
+						PC->ClientReceiveLocalizedMessage(UUTCTFMajorMessage::StaticClass(), 24, UTPlayerState, nullptr, RallySpot); 
 					}
 				}
-			}
-			if (!GetWorldTimerManager().IsTimerActive(EnemyRallyWarningHandle) && (GetWorld()->GetTimeSeconds() - LastEnemyRallyWarning > 10.f))
-			{
-				GetWorldTimerManager().SetTimer(EnemyRallyWarningHandle, this, &AUTFlagRunGame::WarnEnemyRally, 1.5f, false);
-			}
-		}
-	}
-}
-
-void AUTFlagRunGame::WarnEnemyRally()
-{
-	AUTFlagRunGameState* GS = GetWorld()->GetGameState<AUTFlagRunGameState>();
-	if (GS->bAttackersCanRally)
-	{
-		LastEnemyRallyWarning = GetWorld()->GetTimeSeconds();
-		for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
-		{
-			AUTPlayerState* UTPS = Cast<AUTPlayerState>((*Iterator)->PlayerState);
-			if (UTPS && UTPS->Team && ((UTPS->Team->TeamIndex == 0) != GS->bRedToCap))
-			{
-				UTPS->AnnounceStatus(StatusMessage::EnemyRally);
-				break;
 			}
 		}
 	}
@@ -1089,7 +1052,7 @@ void AUTFlagRunGame::SendRestartNotifications(AUTPlayerState* PS, AUTPlayerContr
 	{
 		LastAttackerSpawnTime = GetWorld()->GetTimeSeconds();
 		AUTFlagRunGameState* FRGS = Cast<AUTFlagRunGameState>(CTFGameState);
-		if (FRGS && (FRGS->GetRemainingTime() < 240) && !FRGS->bAttackersCanRally && (GetWorld()->GetTimeSeconds() > PS->NextRallyTime) && FRGS->bHaveEstablishedFlagRunner)
+		if (FRGS && !FRGS->bAttackersCanRally && (GetWorld()->GetTimeSeconds() > PS->NextRallyTime) && FRGS->bHaveEstablishedFlagRunner && !FRGS->CurrentRallyPoint)
 		{
 			PS->AnnounceStatus(StatusMessage::NeedRally);
 		}
@@ -1108,6 +1071,48 @@ void AUTFlagRunGame::ScoreObject_Implementation(AUTCarriedObject* GameObject, AU
 	{
 		FUTAnalytics::FireEvent_FlagRunRoundEnd(this, false, (UTGameState->WinningTeam != nullptr));
 	}
+
+	TArray<APawn*> PawnsToDestroy;
+	for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
+	{
+		if (*It && Cast<AUTRemoteRedeemer>((*It).Get()))
+		{
+			PawnsToDestroy.Add(*It);
+		}
+	}
+
+	for (int32 i = 0; i<PawnsToDestroy.Num(); i++)
+	{
+		APawn* Pawn = PawnsToDestroy[i];
+		if (Pawn != NULL && !Pawn->IsPendingKill())
+		{
+			Pawn->Destroy();
+		}
+	}
+
+	// also get rid of projectiles left over
+	for (FActorIterator It(GetWorld()); It; ++It)
+	{
+		AActor* TestActor = *It;
+		if (TestActor && !TestActor->IsPendingKill() && TestActor->IsA<AUTProjectile>())
+		{
+			TestActor->Destroy();
+		}
+	}
+
+	for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
+	{
+		AUTPlayerController* UTPC = Cast<AUTPlayerController>(*Iterator);
+		if (UTPC)
+		{
+			UTPC->ClientPlayInstantReplay(HolderPawn, 10.0f, 2.5f);
+		}
+	}
+
+	if (UTGameState)
+	{
+		UTGameState->ScoringPlayerState = Cast<AUTPlayerState>(HolderPawn->PlayerState);
+	}
 }
 
 void AUTFlagRunGame::ScoreAlternateWin(int32 WinningTeamIndex, uint8 Reason /* = 0 */)
@@ -1117,5 +1122,51 @@ void AUTFlagRunGame::ScoreAlternateWin(int32 WinningTeamIndex, uint8 Reason /* =
 	if (FUTAnalytics::IsAvailable())
 	{
 		FUTAnalytics::FireEvent_FlagRunRoundEnd(this, IsTeamOnDefense(WinningTeamIndex), (UTGameState->WinningTeam != nullptr));
+	}
+}
+
+bool AUTFlagRunGame::SupportsInstantReplay() const
+{
+	return true;
+}
+
+void AUTFlagRunGame::FindAndMarkHighScorer()
+{
+	for (int32 i = 0; i < Teams.Num(); i++)
+	{
+		int32 BestScore = 0;
+
+		for (int32 PlayerIdx = 0; PlayerIdx < Teams[i]->GetTeamMembers().Num(); PlayerIdx++)
+		{
+			if (Teams[i]->GetTeamMembers()[PlayerIdx] != nullptr)
+			{
+				AUTPlayerState *PS = Cast<AUTPlayerState>(Teams[i]->GetTeamMembers()[PlayerIdx]->PlayerState);
+				if (PS != nullptr)
+				{
+					PS->Score = PS->RoundKillAssists + PS->RoundKills;
+					if (BestScore == 0 || PS->Score > BestScore)
+					{
+						BestScore = PS->Score;
+					}
+				}
+			}
+		}
+
+		for (int32 PlayerIdx = 0; PlayerIdx < Teams[i]->GetTeamMembers().Num(); PlayerIdx++)
+		{
+			if (Teams[i]->GetTeamMembers()[PlayerIdx] != nullptr)
+			{
+				AUTPlayerState *PS = Cast<AUTPlayerState>(Teams[i]->GetTeamMembers()[PlayerIdx]->PlayerState);
+				if (PS != nullptr)
+				{
+					bool bOldHighScorer = PS->bHasHighScore;
+					PS->bHasHighScore = (BestScore == PS->Score) && (BestScore > 0);
+					if ((bOldHighScorer != PS->bHasHighScore) && (GetNetMode() != NM_DedicatedServer))
+					{
+						PS->OnRep_HasHighScore();
+					}
+				}
+			}
+		}
 	}
 }

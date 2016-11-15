@@ -10,6 +10,8 @@
 #include "UTGameEngine.h"
 #include "Engine/Console.h"
 #include "UTLocalPlayer.h"
+#include "PartyContext.h"
+#include "BlueprintContextLibrary.h"
 
 UUTGameViewportClient::UUTGameViewportClient(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -633,6 +635,19 @@ void UUTGameViewportClient::NetworkFailureDialogResult(TSharedPtr<SCompoundWidge
 		UUTLocalPlayer* FirstPlayer = Cast<UUTLocalPlayer>(GEngine->GetLocalPlayerFromControllerId(this, 0));
 		FirstPlayer->PlayerController->ConsoleCommand(TEXT("Reconnect"));
 	}
+	else
+	{
+		UUTLocalPlayer* FirstPlayer = Cast<UUTLocalPlayer>(GEngine->GetLocalPlayerFromControllerId(this, 0));
+		if (!FirstPlayer->IsPartyLeader())
+		{
+			UPartyContext* PartyContext = Cast<UPartyContext>(UBlueprintContextLibrary::GetContext(GetWorld(), UPartyContext::StaticClass()));
+			if (PartyContext)
+			{
+				PartyContext->LeaveParty();
+			}
+		}
+	}
+
 	ReconnectDialog.Reset();
 }
 
@@ -1109,7 +1124,7 @@ void UUTGameViewportClient::SetActiveWorldOverride(UWorld* WorldOverride)
 
 void UUTGameViewportClient::ClearActiveWorldOverride()
 {
-	ActiveWorldOverride = nullptr;
+	ActiveWorldOverride.Reset();
 	SetActiveLocalPlayerControllers();
 }
 
@@ -1135,9 +1150,9 @@ void UUTGameViewportClient::SetActiveLocalPlayerControllers()
 
 UWorld* UUTGameViewportClient::GetWorld() const
 {
-	if (ActiveWorldOverride != nullptr)
+	if (ActiveWorldOverride.IsValid())
 	{
-		return ActiveWorldOverride;
+		return ActiveWorldOverride.Get();
 	}
 
 	return Super::GetWorld();

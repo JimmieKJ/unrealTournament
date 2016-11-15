@@ -40,8 +40,8 @@ AUTRemoteRedeemer::AUTRemoteRedeemer(const class FObjectInitializer& ObjectIniti
 	// Use a ProjectileMovementComponent to govern this projectile's movement
 	ProjectileMovement = ObjectInitializer.CreateDefaultSubobject<UUTProjectileMovementComponent>(this, TEXT("ProjectileComp"));
 	ProjectileMovement->UpdatedComponent = CollisionComp;
-	ProjectileMovement->InitialSpeed = 2000.f;
-	ProjectileMovement->MaxSpeed = 2000.f;
+	ProjectileMovement->InitialSpeed = 1700.f;
+	ProjectileMovement->MaxSpeed = 1700.f;
 	ProjectileMovement->ProjectileGravityScale = 0;
 	ProjectileMovement->bShouldBounce = false;
 	ProjectileMovement->OnProjectileStop.AddDynamic(this, &AUTRemoteRedeemer::OnStop);
@@ -49,7 +49,7 @@ AUTRemoteRedeemer::AUTRemoteRedeemer(const class FObjectInitializer& ObjectIniti
 	SetReplicates(true);
 	bNetTemporary = false;
 
-	AccelRate = 4000.f;
+	AccelRate = 3400.f;
 	RedeemerMouseSensitivity = 700.0f;
 	AccelerationBlend = 5.0f;
 	MaximumRoll = 25.0f;
@@ -63,6 +63,7 @@ AUTRemoteRedeemer::AUTRemoteRedeemer(const class FObjectInitializer& ObjectIniti
 	ProjHealth = 50;
 	LockCount = 0;
 	CachedTeamNum = 255;
+	MaxFuelTime = 20.f;
 }
 
 FVector AUTRemoteRedeemer::GetVelocity() const
@@ -80,6 +81,17 @@ void AUTRemoteRedeemer::PostNetReceiveVelocity(const FVector& NewVelocity)
 	}
 }
 
+void AUTRemoteRedeemer::BeginPlay()
+{
+	if (IsPendingKillPending())
+	{
+		// engine bug that we need to do this
+		return;
+	}
+	Super::BeginPlay();
+	CurrentFuelTime = MaxFuelTime;
+}
+
 bool AUTRemoteRedeemer::TryToDrive(APawn* NewDriver)
 {
 	return DriverEnter(NewDriver);
@@ -91,7 +103,6 @@ bool AUTRemoteRedeemer::DriverEnter(APawn* NewDriver)
 	{
 		return false;
 	}
-
 	if (Driver != nullptr)
 	{
 		DriverLeave(true);
@@ -99,6 +110,7 @@ bool AUTRemoteRedeemer::DriverEnter(APawn* NewDriver)
 
 	if (NewDriver != nullptr)
 	{
+		CurrentFuelTime = MaxFuelTime;
 		Driver = NewDriver;
 		AController* C = NewDriver->Controller;
 		if (C)
@@ -129,14 +141,18 @@ bool AUTRemoteRedeemer::DriverLeave(bool bForceLeave)
 	AController* C = Controller;
 	if (Driver && C)
 	{
-		if (C->PlayerState)
+		if (C->PlayerState) 
 		{
-			for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
+			AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+			if (GS && !GS->IsMatchIntermission() && !GS->HasMatchEnded())
 			{
-				AUTPlayerController* UTPC = Cast<AUTPlayerController>(It->PlayerController);
-				if (UTPC && UTPC->LastSpectatedPlayerState == C->PlayerState)
+				for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
 				{
-					UTPC->ViewPawn(Driver);
+					AUTPlayerController* UTPC = Cast<AUTPlayerController>(It->PlayerController);
+					if (UTPC && UTPC->LastSpectatedPlayerState == C->PlayerState)
+					{
+						UTPC->ViewPawn(Driver);
+					}
 				}
 			}
 		}
@@ -160,7 +176,7 @@ bool AUTRemoteRedeemer::DriverLeave(bool bForceLeave)
 
 void AUTRemoteRedeemer::OnStop(const FHitResult& Hit)
 {
-	if (Role == ROLE_Authority)
+	if ((Role == ROLE_Authority) && !bShotDown)
 	{
 		BlowUp(Hit.ImpactNormal);
 	}
@@ -186,7 +202,7 @@ void AUTRemoteRedeemer::OnOverlapBegin(UPrimitiveComponent* OverlappedComponent,
 					Proj->DamageImpactedActor(this, CollisionComp, Proj->GetActorLocation(), (Proj->GetActorLocation() - GetActorLocation()).GetSafeNormal());
 				}
 			}
-			else
+			else if (!bShotDown)
 			{
 				BlowUp();
 			}
@@ -200,12 +216,25 @@ void AUTRemoteRedeemer::Destroyed()
 	{
 		DriverLeave(true);
 	}
+	TArray<UAudioComponent*> AudioComponents;
+	GetComponents<UAudioComponent>(AudioComponents);
+	for (int32 i = 0; i < AudioComponents.Num(); i++)
+	{
+		AudioComponents[i]->Stop();
+	}
+	Super::Destroyed();
 }
 
 void AUTRemoteRedeemer::BlowUp(FVector HitNormal)
 {
 	if (!bExploded)
 	{
+		TArray<UAudioComponent*> AudioComponents;
+		GetComponents<UAudioComponent>(AudioComponents);
+		for (int32 i = 0; i < AudioComponents.Num(); i++)
+		{
+			AudioComponents[i]->Stop();
+		}
 		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 		if (!GS || GS->HasMatchEnded() || GS->IsMatchIntermission())
 		{
@@ -276,11 +305,12 @@ void AUTRemoteRedeemer::OnShotDown()
 		}
 
 		// fall to ground, explode after a delay
+		ProjectileMovement->SetActive(true);
 		ProjectileMovement->ProjectileGravityScale = 1.0f;
 		ProjectileMovement->MaxSpeed += 2000.0f; // make room for gravity
 		ProjectileMovement->bShouldBounce = true;
 		ProjectileMovement->Bounciness = 0.25f;
-		SetTimerUFunc(this, FName(TEXT("ExplodeTimed")), 1.5f, false);
+		SetTimerUFunc(this, FName(TEXT("ExplodeTimed")), 2.f, false);
 
 		if (GetNetMode() != NM_DedicatedServer)
 		{
@@ -436,7 +466,7 @@ bool AUTRemoteRedeemer::ServerBlowUp_Validate()
 void AUTRemoteRedeemer::ServerBlowUp_Implementation()
 {
 	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-	if (GS && GS->IsMatchInProgress() && !GS->IsMatchIntermission())
+	if (GS && GS->IsMatchInProgress() && !GS->IsMatchIntermission() && !bShotDown)
 	{
 		BlowUp();
 	}
@@ -449,12 +479,16 @@ void AUTRemoteRedeemer::OnRep_PlayerState()
 	{
 		CachedTeamNum = PS->GetTeamNum();
 	}
-	for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
+	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+	if (GS && !GS->IsMatchIntermission() && !GS->HasMatchEnded())
 	{
-		AUTPlayerController* UTPC = Cast<AUTPlayerController>(It->PlayerController);
-		if (UTPC && UTPC->LastSpectatedPlayerState == PlayerState)
+		for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
 		{
-			UTPC->ViewPawn(this);
+			AUTPlayerController* UTPC = Cast<AUTPlayerController>(It->PlayerController);
+			if (UTPC && UTPC->LastSpectatedPlayerState == PlayerState)
+			{
+				UTPC->ViewPawn(this);
+			}
 		}
 	}
 }
@@ -638,7 +672,16 @@ void AUTRemoteRedeemer::TornOff()
 void AUTRemoteRedeemer::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
-
+	CurrentFuelTime -= DeltaSeconds;
+	if ((Role == ROLE_Authority) && (CurrentFuelTime < 0.f) && !bShotDown)
+	{
+		BlowUp();
+		return;
+	}
+	else if ((CurrentFuelTime < 3.f) && (CurrentFuelTime + DeltaSeconds >= 3.f) && FuelWarningSound && Cast<AUTPlayerController>(GetController()))
+	{
+		Cast<AUTPlayerController>(GetController())->UTClientPlaySound(FuelWarningSound);
+	}
 	if (Role != ROLE_SimulatedProxy)
 	{
 		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
@@ -685,9 +728,11 @@ void AUTRemoteRedeemer::Tick(float DeltaSeconds)
 			}
 			else
 			{
+				TInlineComponentArray<UMeshComponent*> Meshes(this);
+				UMeshComponent* Mesh = (Meshes.Num() > 0) ? Meshes[0] : nullptr;
 				for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
 				{
-					if (It->PlayerController != nullptr && GS->OnSameTeam(It->PlayerController, this))
+					if (It->PlayerController != nullptr && (GS->OnSameTeam(It->PlayerController, this) || (Mesh && (GetWorld()->GetTimeSeconds() - Mesh->LastRenderTime < 0.05f))))
 					{
 						// note: does not handle splitscreen
 						bShowOutline = true;
@@ -705,6 +750,7 @@ void AUTRemoteRedeemer::Tick(float DeltaSeconds)
 				{
 					CustomDepthMesh = CreateCustomDepthOutlineMesh(Meshes[0], this);
 					CustomDepthMesh->CustomDepthStencilValue = (GetTeamNum() == 255) ? 255 : GetTeamNum() + 1;
+					CustomDepthMesh->CustomDepthStencilValue |= 128;
 					CustomDepthMesh->RegisterComponent();
 				}
 			}
@@ -854,6 +900,37 @@ void AUTRemoteRedeemer::PostRender(AUTHUD* HUD, UCanvas* C)
 	}
 
 	LockCount = NewLockCount;
+
+	HUD->DrawKillSkulls();
+
+	bool bFuelCritical = (CurrentFuelTime < 3.f);
+	float Width = 150.f;
+	float Height = 21.f;
+	float WidthScale = C->ClipX / 1920.f;
+	float HeightScale = 1.5f * WidthScale;
+	WidthScale *= 1.5f;
+	FLinearColor ChargeColor = FLinearColor::White;
+	float ChargePct = FMath::Clamp(CurrentFuelTime / MaxFuelTime, 0.f, 1.f);
+	float XPos = 0.5f*C->ClipX;
+	float YPos = 0.95f * C->ClipY;
+	DrawTexture(C, HUD->HUDAtlas, XPos - 0.5f*WidthScale*Width, YPos, WidthScale*Width*ChargePct, HeightScale*Height, 127, 641, Width, Height, bFuelCritical ? 1.f : 0.7f, FLinearColor::White, FVector2D(0.f, 0.5f));
+
+	float XL, YL;
+	FText Fuel = NSLOCTEXT("Redeemer", "Fuel", "FUEL");
+	C->TextSize(HUD->SmallFont, Fuel.ToString(), XL, YL);
+	FFontRenderInfo TextRenderInfo;
+	TextRenderInfo.bEnableShadow = true;
+	C->SetDrawColor(FLinearColor::White.ToFColor(false));
+	C->DrawText(HUD->TinyFont, Fuel, XPos - 0.5f*WidthScale*Width - 1.1f*XL, YPos - 0.5f*YL, 1.f, 1.f, TextRenderInfo);
+	if (bFuelCritical)
+	{
+		FText FuelWarning = NSLOCTEXT("Redeemer", "FuelWarning", "WARNING");
+		C->TextSize(HUD->SmallFont, FuelWarning.ToString(), XL, YL);
+		FLinearColor WarningColor = (FMath::Cos(2.f*PI*CurrentFuelTime) > 0.f) ? FLinearColor::Yellow : FLinearColor::Red;
+		C->SetDrawColor(WarningColor.ToFColor(false));
+		C->DrawText(HUD->TinyFont, FuelWarning, XPos - 0.5f*XL, YPos - 0.5f*YL, 1.f, 1.f, TextRenderInfo);
+	}
+	DrawTexture(C, HUD->HUDAtlas, XPos - 0.5f*WidthScale*Width, YPos, WidthScale*Width, HeightScale*Height, 127, 612, Width, Height, 1.f, FLinearColor::White, FVector2D(0.f, 0.5f));
 }
 
 void AUTRemoteRedeemer::PawnClientRestart()
@@ -861,4 +938,24 @@ void AUTRemoteRedeemer::PawnClientRestart()
 	Super::PawnClientRestart();
 
 	RedeemerRestarted(Controller);
+}
+
+void AUTRemoteRedeemer::DrawTexture(UCanvas* Canvas, UTexture* Texture, float X, float Y, float Width, float Height, float U, float V, float UL, float VL, float DrawOpacity, FLinearColor DrawColor, FVector2D RenderOffset, float Rotation, FVector2D RotPivot)
+{
+	if (Texture && Texture->Resource)
+	{
+		FVector2D RenderPos = FVector2D(X - (Width * RenderOffset.X), Y - (Height * RenderOffset.Y));
+
+		U = U / Texture->Resource->GetSizeX();
+		V = V / Texture->Resource->GetSizeY();
+		UL = U + (UL / Texture->Resource->GetSizeX());
+		VL = V + (VL / Texture->Resource->GetSizeY());
+		DrawColor.A = DrawOpacity;
+
+		FCanvasTileItem ImageItem(RenderPos, Texture->Resource, FVector2D(Width, Height), FVector2D(U, V), FVector2D(UL, VL), DrawColor);
+		ImageItem.Rotation = FRotator(0, Rotation, 0);
+		ImageItem.PivotPoint = RotPivot;
+		ImageItem.BlendMode = ESimpleElementBlendMode::SE_BLEND_Translucent;
+		Canvas->DrawItem(ImageItem);
+	}
 }

@@ -1064,7 +1064,6 @@ void SUTChallengePanel::WarningResult(TSharedPtr<SCompoundWidget> Widget, uint16
 */
 void SUTChallengePanel::StartChallenge(int32 Difficulty)
 {
-
 	if (ChallengeManager.IsValid() && ChallengeManager->Challenges.Contains(SelectedChallenge))
 	{
 		const FUTChallengeInfo Challenge = ChallengeManager->Challenges[SelectedChallenge];
@@ -1076,6 +1075,8 @@ void SUTChallengePanel::StartChallenge(int32 Difficulty)
 			PlayerOwner->DedicatedServerProcessHandle.Reset();
 		}
 
+		FString Options = FString::Printf(TEXT("%s%s?Challenge=%s?ChallengeDiff=%i"), *Challenge.Map, *Challenge.GameURL, *SelectedChallenge.ToString(), Difficulty);
+
 		if (FUTAnalytics::IsAvailable())
 		{
 			TArray<FAnalyticsEventAttribute> ParamArray;
@@ -1083,13 +1084,13 @@ void SUTChallengePanel::StartChallenge(int32 Difficulty)
 			ParamArray.Add(FAnalyticsEventAttribute(TEXT("Difficulty"), Difficulty));
 			FUTAnalytics::GetProvider().RecordEvent( TEXT("StartChallenge"), ParamArray );
 
-			FUTAnalytics::FireEvent_EnterMatch(Cast<AUTPlayerController>(PlayerOwner->PlayerController),"Challenge");
+			FUTAnalytics::FireEvent_EnterMatch("Challenge");
+
+			Options += FUTAnalytics::AnalyticsLoggedGameOptionTrue;
 		}
 
-		FString Options = FString::Printf(TEXT("%s%s?Challenge=%s?ChallengeDiff=%i"), *Challenge.Map, *Challenge.GameURL, *SelectedChallenge.ToString(), Difficulty);
 		ConsoleCommand(TEXT("Open ") + Options);
-	}
-		
+	}	
 }
 
 FReply SUTChallengePanel::CustomClicked()

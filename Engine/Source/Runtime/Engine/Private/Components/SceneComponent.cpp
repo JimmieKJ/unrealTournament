@@ -412,6 +412,10 @@ void USceneComponent::UpdateComponentToWorldWithParent(USceneComponent* Parent,F
 	}
 
 #if DO_CHECK
+	if (!NewTransform.IsValid())
+	{
+		UE_LOG(LogActorComponent, Warning, TEXT("%s new transform not valid Outer %s Parent %s IsPendingKill %d SocketName %s"), *GetName(), GetOuter() ? *GetOuter()->GetName() : TEXT("NONE"), Parent ? *Parent->GetName() : TEXT("NONE"), *SocketName.ToString());
+	}
 	ensure(NewTransform.IsValid());
 #endif
 

@@ -812,13 +812,13 @@ void UUTLocalPlayer::HideHUDSettings()
 				PlayerController->SetPause(false);
 			}
 		}
-	}
+	} 
 #endif
 }
 
-bool UUTLocalPlayer::IsLoggedIn(bool bIncludeProfile) const
+bool UUTLocalPlayer::IsLoggedIn() const
 { 
-	return OnlineIdentityInterface.IsValid() && OnlineIdentityInterface->GetLoginStatus(GetControllerId() && (!bIncludeProfile || LoginPhase == ELoginPhase::LoggedIn));
+	return OnlineIdentityInterface.IsValid() && OnlineIdentityInterface->GetLoginStatus(GetControllerId());
 }
 
 
@@ -923,7 +923,7 @@ void UUTLocalPlayer::Logout()
 	}
 
 #if WITH_SOCIAL
-	ISocialModule::Get().GetFriendsAndChatManager()->Logout();
+	ISocialModule::Get().GetFriendsAndChatManager(TEXT(""), true)->Logout();
 #endif
 }
 
@@ -1091,7 +1091,10 @@ void UUTLocalPlayer::ShowAuth()
 		LoginDialog->SetInitialFocus();
 	}
 
-	LoginPhase = ELoginPhase::InDialog;
+	if (LoginPhase == ELoginPhase::NotLoggedIn || LoginPhase == ELoginPhase::LoggedIn || LoginPhase == ELoginPhase::Offline)
+	{
+		LoginPhase = ELoginPhase::InDialog;
+	}
 #endif
 }
 
@@ -1473,9 +1476,8 @@ void UUTLocalPlayer::LoadProfileSettings()
 		return;
 	}
 
-	if (IsLoggedIn())
+	if ( IsLoggedIn() )
 	{
-
 		LoginPhase = ELoginPhase::GettingProfile;
 
 		TSharedPtr<const FUniqueNetId> UserID = OnlineIdentityInterface->GetUniquePlayerId(GetControllerId());
@@ -1730,6 +1732,7 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 						        NSLOCTEXT("UTLocalPlayer", "ProfileTooNew", "Your profile is from a newer version of Unreal Tournament, we could not load your progression data."), 
 								UTDIALOG_BUTTON_OK, FDialogResultDelegate(), FVector2D(0.4, 0.25));
 #endif
+					InitializeSocial();
 					LoginProcessComplete();
 					return;
 				}
@@ -2680,6 +2683,28 @@ void UUTLocalPlayer::SetCharacterPath(const FString& NewCharacterPath)
 	}
 }
 
+FString UUTLocalPlayer::GetGroupTauntPath() const
+{
+	return (CurrentProfileSettings != NULL) ? CurrentProfileSettings->GroupTauntPath : GetDefaultURLOption(TEXT("GroupTaunt"));
+}
+
+void UUTLocalPlayer::SetGroupTauntPath(const FString& NewGroupTauntPath)
+{
+	if (CurrentProfileSettings != NULL)
+	{
+		CurrentProfileSettings->GroupTauntPath = NewGroupTauntPath;
+	}
+	SetDefaultURLOption(TEXT("GroupTaunt"), NewGroupTauntPath);
+	if (PlayerController != NULL)
+	{
+		AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerController->PlayerState);
+		if (PS != NULL)
+		{
+			PS->ServerReceiveGroupTauntClass(NewGroupTauntPath);
+		}
+	}
+}
+
 FString UUTLocalPlayer::GetTauntPath() const
 {
 	return (CurrentProfileSettings != NULL) ? CurrentProfileSettings->TauntPath : GetDefaultURLOption(TEXT("Taunt"));
@@ -2905,6 +2930,14 @@ bool UUTLocalPlayer::JoinSession(const FOnlineSessionSearchResult& SearchResult,
 	UE_LOG(UT,Log, TEXT("Joining a New Session"));
 	UE_LOG(UT,Log, TEXT("##########################"));
 
+	UUTGameInstance* UTGameInstance = Cast<UUTGameInstance>(GetGameInstance());
+	if (UTGameInstance)
+	{
+		FString ServerName;
+		SearchResult.Session.SessionSettings.Get(SETTING_SERVERNAME,ServerName);
+		UTGameInstance->LevelLoadText = FText::Format(NSLOCTEXT("UTLocalPlayer","ConnectingText","Connecting to {0}..."), FText::FromString(ServerName));
+	}	
+
 	SearchResult.Session.SessionSettings.Get(SETTING_GAMEMODE,PendingGameMode);
 	PendingInstanceID = InstanceId;
 	bWantsToConnectAsSpectator = bSpectate;
@@ -3008,6 +3041,7 @@ void UUTLocalPlayer::OnJoinSessionComplete(FName SessionName, EOnJoinSessionComp
 
 		// Cache the last session.
 		LastSession = PendingSession;
+		bLastSessionWasASpectator = bWantsToConnectAsSpectator;
 
 		UUTGameInstance* GameInstance = CastChecked<UUTGameInstance>(GetGameInstance());
 		UUTParty* Party = GameInstance->GetParties();
@@ -3251,12 +3285,14 @@ void UUTLocalPlayer::HandleFriendsActionNotification(TSharedRef<FFriendsAndChatM
 		FriendsAndChatMessage->GetMessageType() == EMessageType::FriendInvite ||
 		(FriendsAndChatMessage->GetMessageType() == EMessageType::ChatMessage && !bShowingFriendsMenu))
 	{
+		bShowSocialNotification = true;
 		ShowToast(FText::FromString(FriendsAndChatMessage->GetMessage()));
 	}
 
 	// SUTPartyInviteWidget will show the invite if we're in menu game
 	if (FriendsAndChatMessage->GetMessageType() == EMessageType::GameInvite && !IsMenuGame())
 	{
+		bShowSocialNotification = true;
 		ShowToast(FText::FromString(FriendsAndChatMessage->GetMessage()));
 	}
 #endif
@@ -3405,7 +3441,7 @@ void UUTLocalPlayer::StartQuickMatch(FString QuickMatchType)
 
 				if (FUTAnalytics::IsAvailable())
 				{
-					FUTAnalytics::FireEvent_EnterMatch(Cast<AUTPlayerController>(PlayerController), FString::Printf(TEXT("QuickMatch - %s"), *QuickMatchType));
+					FUTAnalytics::FireEvent_EnterMatch(FString::Printf(TEXT("QuickMatch - %s"), *QuickMatchType));
 				}
 			}
 		}
@@ -3443,7 +3479,7 @@ void UUTLocalPlayer::StartQuickMatch(FString QuickMatchType)
 
 				if (FUTAnalytics::IsAvailable())
 				{
-					FUTAnalytics::FireEvent_EnterMatch(Cast<AUTPlayerController>(PlayerController), FString::Printf(TEXT("QuickMatch - %s"), *QuickMatchType));
+					FUTAnalytics::FireEvent_EnterMatch(FString::Printf(TEXT("QuickMatch - %s"), *QuickMatchType));
 				}
 			}
 		}
@@ -5304,7 +5340,7 @@ void UUTLocalPlayer::Reconnect(bool bSpectator)
 	if (LastSession.IsValid())
 	{
 		bAttemptingForceJoin = false;
-		JoinSession(LastSession, bSpectator);
+		JoinSession(LastSession, bLastSessionWasASpectator);
 	}
 	else
 	{
@@ -5890,28 +5926,28 @@ void UUTLocalPlayer::InitializeSocial()
 #if WITH_SOCIAL
 	// Init the Friends And Chat system
 	FFriendsAndChatLoginOptions LoginOptions(0, true);
-	ISocialModule::Get().GetFriendsAndChatManager()->Login(OnlineSubsystem, LoginOptions);
-	ISocialModule::Get().GetFriendsAndChatManager()->SetAnalyticsProvider(FUTAnalytics::GetProviderPtr());
+	ISocialModule::Get().GetFriendsAndChatManager(TEXT(""), true)->Login(OnlineSubsystem, LoginOptions);
+	ISocialModule::Get().GetFriendsAndChatManager(TEXT(""), true)->SetAnalyticsProvider(FUTAnalytics::GetProviderPtr());
 
-	if (!ISocialModule::Get().GetFriendsAndChatManager()->GetNotificationService()->OnJoinGame().IsBoundToObject(this))
+	if (!ISocialModule::Get().GetFriendsAndChatManager(TEXT(""), true)->GetNotificationService()->OnJoinGame().IsBoundToObject(this))
  	{
-		ISocialModule::Get().GetFriendsAndChatManager()->GetNotificationService()->OnJoinGame().AddUObject(this, &UUTLocalPlayer::HandleFriendsJoinGame);
+		ISocialModule::Get().GetFriendsAndChatManager(TEXT(""), true)->GetNotificationService()->OnJoinGame().AddUObject(this, &UUTLocalPlayer::HandleFriendsJoinGame);
  	}
 
 	// PLK - find replacement for this API
 	/*
-	if (!ISocialModule::Get().GetFriendsAndChatManager()->AllowFriendsJoinGame().IsBoundToObject(this))
+	if (!ISocialModule::Get().GetFriendsAndChatManager(TEXT(""), true)->AllowFriendsJoinGame().IsBoundToObject(this))
 	{
-		ISocialModule::Get().GetFriendsAndChatManager()->AllowFriendsJoinGame().BindUObject(this, &UUTLocalPlayer::AllowFriendsJoinGame);
+		ISocialModule::Get().GetFriendsAndChatManager(TEXT(""), true)->AllowFriendsJoinGame().BindUObject(this, &UUTLocalPlayer::AllowFriendsJoinGame);
 	}*/
 
-	if (!ISocialModule::Get().GetFriendsAndChatManager()->GetNotificationService()->OnNotificationsAvailable().IsBoundToObject(this))
+	if (!ISocialModule::Get().GetFriendsAndChatManager(TEXT(""), true)->GetNotificationService()->OnNotificationsAvailable().IsBoundToObject(this))
  	{
- 		ISocialModule::Get().GetFriendsAndChatManager()->GetNotificationService()->OnNotificationsAvailable().AddUObject(this, &UUTLocalPlayer::HandleFriendsNotificationAvail);
+ 		ISocialModule::Get().GetFriendsAndChatManager(TEXT(""), true)->GetNotificationService()->OnNotificationsAvailable().AddUObject(this, &UUTLocalPlayer::HandleFriendsNotificationAvail);
  	}
-	if (!ISocialModule::Get().GetFriendsAndChatManager()->GetNotificationService()->OnSendNotification().IsBoundToObject(this))
+	if (!ISocialModule::Get().GetFriendsAndChatManager(TEXT(""), true)->GetNotificationService()->OnSendNotification().IsBoundToObject(this))
  	{
-		ISocialModule::Get().GetFriendsAndChatManager()->GetNotificationService()->OnSendNotification().AddUObject(this, &UUTLocalPlayer::HandleFriendsActionNotification);
+		ISocialModule::Get().GetFriendsAndChatManager(TEXT(""), true)->GetNotificationService()->OnSendNotification().AddUObject(this, &UUTLocalPlayer::HandleFriendsActionNotification);
  	}
 				
 #endif

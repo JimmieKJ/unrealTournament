@@ -78,6 +78,10 @@ class UNREALTOURNAMENT_API AUTWeap_RocketLauncher : public AUTWeapon
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = RocketLauncher)
 	UTexture2D* LockCrosshairTexture;
 
+	/**The texture for locking on a target*/
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = RocketLauncher)
+		UTexture2D* PendingLockCrosshairTexture;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = RocketLauncher)
 	float CrosshairScale;
 
@@ -142,6 +146,9 @@ class UNREALTOURNAMENT_API AUTWeap_RocketLauncher : public AUTWeapon
 	/**Distance from the center of the launcher to where the rockets fire from*/
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = RocketLauncher)
 	float BarrelRadius;
+
+	UPROPERTY()
+		TArray<class AUTProj_Rocket*> TrackingRockets;
 
 	/** AI skill checks in firing are on an interval since firing is queried often when weapon is ready to fire */
 	float LastAttackSkillCheckTime;
@@ -222,8 +229,10 @@ class UNREALTOURNAMENT_API AUTWeap_RocketLauncher : public AUTWeapon
 	virtual void OnRep_LockedTarget();
 
 	/** What "target" is current pending to be locked on to */
-	UPROPERTY(BlueprintReadWrite, Category = Lock)
+	UPROPERTY(BlueprintReadWrite, ReplicatedUsing = OnRep_PendingLockedTarget, Category = Lock)
 	AActor*				PendingLockedTarget;
+	UFUNCTION()
+		virtual void OnRep_PendingLockedTarget();
 
 	/** How long since the Lock Target has been valid */
 	UPROPERTY(BlueprintReadWrite, Category = Lock)
@@ -241,6 +250,8 @@ class UNREALTOURNAMENT_API AUTWeap_RocketLauncher : public AUTWeapon
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Lock)
 	float 				LockAim;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Lock)
+		TSubclassOf<AUTProjectile> SeekingRocketClass;
 
 	/** Sound Effects to play when Locking */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Lock)

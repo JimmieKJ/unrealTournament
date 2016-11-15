@@ -51,8 +51,9 @@
 #include "UTCTFRoundGameState.h"
 #include "UTGameVolume.h"
 #include "UTArmor.h"
-#include "UTInGameIntroZone.h"
-#include "UTInGameIntroHelper.h"
+#include "UTLineUpZone.h"
+#include "UTLineUpHelper.h"
+#include "UTRewardMessage.h"
 
 DEFINE_LOG_CATEGORY(LogUTGame);
 
@@ -99,7 +100,7 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	MinPlayersToStart = 2;
 	QuickPlayersToStart = 4;
 	MaxWaitForPlayers = 480;
-	MaxWaitForQuickMatch = 300;
+	MaxWaitForQuickMatch = 480;
 	EndScoreboardDelay = 4.f;
 	MainScoreboardDisplayTime = 5.f;
 	ScoringPlaysDisplayTime = 0.f; 
@@ -151,6 +152,8 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	AntiCheatEngine = nullptr;
 	EndOfMatchMessageDelay = 1.f;
 	bAllowAllArmorPickups = true;
+	bTrackKillAssists = false;
+	WarmupKills = 0;
 
 	bPlayersStartWithArmor = true;
 	StartingArmorObject = FStringAssetReference(TEXT("/Game/RestrictedAssets/Blueprints/Armor_Starting.Armor_Starting_C"));
@@ -402,6 +405,12 @@ void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FStr
 	if (UGameplayStatics::HasOption(Options, TEXT("TutorialMask")))
 	{
 		TutorialMask = UGameplayStatics::GetIntOption(Options, TEXT("TutorialMask"), 0);
+	}
+
+	bool bHasAnalyticsLoggedGameStart = EvalBoolOptions(UGameplayStatics::ParseOption(Options, FUTAnalytics::AnalyticsLoggedGameOption), false);
+	if (!bHasAnalyticsLoggedGameStart && FUTAnalytics::IsAvailable())
+	{
+		FUTAnalytics::FireEvent_EnterMatch(FString("Console"));
 	}
 }
 
@@ -731,6 +740,11 @@ APlayerController* AUTGameMode::Login(UPlayer* NewPlayer, ENetRole InRemoteRole,
 			if (InOpt.Len() > 0)
 			{
 				PS->ServerReceiveEyewearClass(InOpt);
+			}
+			InOpt = UGameplayStatics::ParseOption(Options, TEXT("GroupTaunt"));
+			if (InOpt.Len() > 0)
+			{
+				PS->ServerReceiveGroupTauntClass(InOpt);
 			}
 			InOpt = UGameplayStatics::ParseOption(Options, TEXT("Taunt"));
 			if (InOpt.Len() > 0)
@@ -1324,6 +1338,20 @@ void AUTGameMode::Killed(AController* Killer, AController* KilledPlayer, APawn* 
 			}
 			else if (KilledPlayerState)
 			{
+				if (bEnemyKill)
+				{
+					WarmupKills++;
+				}
+				TSubclassOf<UUTDamageType> UTDamage(*DamageType);
+
+				if (KillerPlayerState && UTDamage && UTDamage.GetDefaultObject()->RewardAnnouncementClass)
+				{
+					AUTPlayerController* KillerPC = Cast<AUTPlayerController>(KillerPlayerState->GetOwner());
+					if (KillerPC != nullptr)
+					{
+						KillerPC->SendPersonalMessage(UTDamage.GetDefaultObject()->RewardAnnouncementClass, 0, KillerPlayerState, KilledPlayerState);
+					}
+				}
 				KilledPlayerState->RespawnWaitTime = 2.f;
 				KilledPlayerState->OnRespawnWaitReceived();
 			}
@@ -1429,12 +1457,13 @@ void AUTGameMode::ScoreKill_Implementation(AController* Killer, AController* Oth
 			KillerPlayerState->AdjustScore(+1);
 			KillerPlayerState->IncrementKills(DamageType, true, OtherPlayerState);
 			CheckScore(KillerPlayerState);
-		}
 
-		if (!bFirstBloodOccurred)
-		{
-			BroadcastLocalized(this, UUTFirstBloodMessage::StaticClass(), 0, KillerPlayerState, NULL, NULL);
-			bFirstBloodOccurred = true;
+			if (!bFirstBloodOccurred)
+			{
+				BroadcastLocalized(this, UUTFirstBloodMessage::StaticClass(), 0, KillerPlayerState, NULL, NULL);
+				bFirstBloodOccurred = true;
+			}
+			TrackKillAssists(Killer, Other, KilledPawn, DamageType, KillerPlayerState, OtherPlayerState);
 		}
 	}
 
@@ -1445,6 +1474,36 @@ void AUTGameMode::ScoreKill_Implementation(AController* Killer, AController* Oth
 		BaseMutator->ScoreKill(Killer, Other, DamageType);
 	}
 	FindAndMarkHighScorer();
+}
+
+void AUTGameMode::TrackKillAssists(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType, AUTPlayerState* KillerPlayerState, AUTPlayerState* OtherPlayerState)
+{
+	if (bTrackKillAssists)
+	{
+		AUTCharacter* Char = Cast<AUTCharacter>(KilledPawn);
+		if (Char)
+		{
+			TArray<AUTPlayerState*> TrackedAssists;
+			for (int32 i = 0; i < Char->HealthRemovalAssists.Num(); i++)
+			{
+				if (Char->HealthRemovalAssists[i] && !Char->HealthRemovalAssists[i]->IsPendingKillPending() && (Char->HealthRemovalAssists[i] != KillerPlayerState))
+				{
+					TrackedAssists.AddUnique(Char->HealthRemovalAssists[i]);
+				}
+			}
+			for (int32 i = 0; i < Char->ArmorRemovalAssists.Num(); i++)
+			{
+				if (Char->ArmorRemovalAssists[i] && !Char->ArmorRemovalAssists[i]->IsPendingKillPending() && (Char->ArmorRemovalAssists[i] != KillerPlayerState))
+				{
+					TrackedAssists.AddUnique(Char->ArmorRemovalAssists[i]);
+				}
+			}
+			for (int32 i = 0; i < TrackedAssists.Num(); i++)
+			{
+				TrackedAssists[i]->IncrementKillAssists(DamageType, true, OtherPlayerState);
+			}
+		}
+	}
 }
 
 void AUTGameMode::AddKillEventToReplay(AController* Killer, AController* Other, TSubclassOf<UDamageType> DamageType)
@@ -1626,25 +1685,16 @@ void AUTGameMode::FindAndMarkHighScorer()
 	for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
 	{
 		AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
-		AController* C = (PS != NULL) ? Cast<AController>(PS->GetOwner()) : NULL;
-		AUTCharacter *UTChar = (C != nullptr) ? Cast<AUTCharacter>(C->GetPawn()) : nullptr;
-		if (UTChar != nullptr)
+		if (PS != nullptr)
 		{
-			bool bOldHighScorer = UTChar->bHasHighScore;
-			UTChar->bHasHighScore = (PS != nullptr && PS->Score == BestScore);
-			if (bOldHighScorer != UTChar->bHasHighScore)
+			bool bOldHighScorer = PS->bHasHighScore;
+			PS->bHasHighScore = (BestScore == PS->Score);
+			if ((bOldHighScorer != PS->bHasHighScore) && (GetNetMode() != NM_DedicatedServer))
 			{
-				UTChar->HasHighScoreChanged();
-				AdjustLeaderHatFor(UTChar);
+				PS->OnRep_HasHighScore();
 			}
 		}
 	}
-}
-
-void AUTGameMode::AdjustLeaderHatFor(AUTCharacter* UTChar)
-{
-	UTChar->bShouldWearLeaderHat = UTChar->bHasHighScore;
-	UTChar->LeaderHatStatusChanged();
 }
 
 //Special markup for Analytics event so they show up properly in grafana. Should be eventually moved to UTAnalytics.
@@ -1800,10 +1850,21 @@ void AUTGameMode::RemoveAllPawns()
 			Pawn->Destroy();
 		}
 	}
+
+	// also get rid of projectiles left over
+	for (FActorIterator It(GetWorld()); It; ++It)
+	{
+		AActor* TestActor = *It;
+		if (TestActor && !TestActor->IsPendingKill() && TestActor->IsA<AUTProjectile>())
+		{
+			TestActor->Destroy();
+		}
+	}
 }
 
 void AUTGameMode::HandleMatchHasStarted()
 {
+	UE_LOG(UT, Warning, TEXT("HandleMatchHasStarted"));
 	if (bRemovePawnsAtStart && (GetNetMode() != NM_Standalone) && !GetWorld()->IsPlayInEditor())
 	{
 		RemoveAllPawns();
@@ -1876,17 +1937,17 @@ void AUTGameMode::EndMatch()
 		return A > B;
 	});
 
-	UE_LOG(UT,Log,TEXT(""));
-	UE_LOG(UT,Log,TEXT("==================================================="));
-	UE_LOG(UT,Log,TEXT("Total Weapon Kills"));
-	UE_LOG(UT,Log,TEXT("==================================================="));
+	UE_LOG(LogUTGame,Log,TEXT(""));
+	UE_LOG(LogUTGame,Log,TEXT("==================================================="));
+	UE_LOG(LogUTGame,Log,TEXT("Total Weapon Kills"));
+	UE_LOG(LogUTGame,Log,TEXT("==================================================="));
 
 	for (auto& KillElement : EnemyKillsByDamageType)
 	{
 		UE_LOG(LogUTGame, Log, TEXT("%s -> %d"), *KillElement.Key->GetName(), KillElement.Value);
 	}
 
-	UE_LOG(UT,Log,TEXT("==================================================="));
+	UE_LOG(LogUTGame,Log,TEXT("==================================================="));
 
 	//Collect all the weapons
 	TArray<AUTWeapon *> StatsWeapons;
@@ -1914,35 +1975,35 @@ void AUTGameMode::EndMatch()
 				return A > B;
 			});
 
-			UE_LOG(UT,Log,TEXT(""));
-			UE_LOG(UT,Log,TEXT("==================================================="));
-			UE_LOG(UT,Log,TEXT("Weapon Stats for %s"), *UTPlayerState->PlayerName);
-			UE_LOG(UT,Log,TEXT("==================================================="));
+			UE_LOG(LogUTGame,Log,TEXT(""));
+			UE_LOG(LogUTGame,Log,TEXT("==================================================="));
+			UE_LOG(LogUTGame,Log,TEXT("Weapon Stats for %s"), *UTPlayerState->PlayerName);
+			UE_LOG(LogUTGame,Log,TEXT("==================================================="));
 
-			UE_LOG(UT,Log,TEXT(""));
-			UE_LOG(UT,Log,TEXT("---------------------------------------------------"));
-			UE_LOG(UT,Log,TEXT("Kills / Deaths"));
-			UE_LOG(UT,Log,TEXT("---------------------------------------------------"));
+			UE_LOG(LogUTGame,Log,TEXT(""));
+			UE_LOG(LogUTGame,Log,TEXT("---------------------------------------------------"));
+			UE_LOG(LogUTGame,Log,TEXT("Kills / Deaths"));
+			UE_LOG(LogUTGame,Log,TEXT("---------------------------------------------------"));
 
 			for (AUTWeapon* Weapon : StatsWeapons)
 			{
 				int32 Kills = Weapon->GetWeaponKillStats(UTPlayerState);
 				int32 Deaths = Weapon->GetWeaponDeathStats(UTPlayerState);
 
-				UE_LOG(UT,Log,TEXT("%s - %i / %i"), *Weapon->DisplayName.ToString(), Kills, Deaths);
+				UE_LOG(LogUTGame,Log,TEXT("%s - %i / %i"), *Weapon->DisplayName.ToString(), Kills, Deaths);
 
 			}
 
-			UE_LOG(UT,Log,TEXT(""));
-			UE_LOG(UT,Log,TEXT("---------------------------------------------------"));
-			UE_LOG(UT,Log,TEXT("Damage Dealt"));
-			UE_LOG(UT,Log,TEXT("---------------------------------------------------"));
+			UE_LOG(LogUTGame,Log,TEXT(""));
+			UE_LOG(LogUTGame,Log,TEXT("---------------------------------------------------"));
+			UE_LOG(LogUTGame,Log,TEXT("Damage Dealt"));
+			UE_LOG(LogUTGame,Log,TEXT("---------------------------------------------------"));
 
 			for (auto& Stat : UTPlayerState->DamageDelt)	
 			{
-				UE_LOG(UT,Log,TEXT("%s : %d"), Stat.Key == nullptr ? TEXT("<none>") : *GetNameSafe(Stat.Key), Stat.Value);
+				UE_LOG(LogUTGame,Log,TEXT("%s : %d"), Stat.Key == nullptr ? TEXT("<none>") : *GetNameSafe(Stat.Key), Stat.Value);
 			}
-			UE_LOG(UT,Log,TEXT("==================================================="));
+			UE_LOG(LogUTGame,Log,TEXT("==================================================="));
 		}
 	}
 
@@ -2206,7 +2267,7 @@ void AUTGameMode::EndGame(AUTPlayerState* Winner, FName Reason )
 	UnlockSession();
 	EndMatch();
 
-	PickMostCoolMoments();
+	//PickMostCoolMoments();
 
 	// This should happen after EndMatch()
 	SetEndGameFocus(Winner);
@@ -2676,12 +2737,20 @@ void AUTGameMode::RestartPlayer(AController* aPlayer)
 		UTPC->ClientStopKillcam();
 	}
 
-	// clear spawn choices
-	Cast<AUTPlayerState>(aPlayer->PlayerState)->RespawnChoiceA = nullptr;
-	Cast<AUTPlayerState>(aPlayer->PlayerState)->RespawnChoiceB = nullptr;
+	AUTPlayerState* UTPS = Cast<AUTPlayerState>(aPlayer->PlayerState);
+	if (UTPS)
+	{
+		// clear spawn choices
+		UTPS->RespawnChoiceA = nullptr;
+		UTPS->RespawnChoiceB = nullptr;
 
-	// clear multikill in progress
-	Cast<AUTPlayerState>(aPlayer->PlayerState)->LastKillTime = -100.f;
+		// clear multikill in progress
+		UTPS->LastKillTime = -100.f;
+
+		// clear in life stats
+		UTPS->ThisLifeDamageDone = 0;
+		UTPS->ThisLifeKills = 0;
+	}
 }
 
 void AUTGameMode::GiveDefaultInventory(APawn* PlayerPawn)
@@ -3102,7 +3171,8 @@ bool AUTGameMode::ReadyToStartMatch_Implementation()
 		}
 		else
 		{
-			UTGameState->PlayersNeeded = (!bIsQuickMatch || GetWorld()->GetTimeSeconds() - StartPlayTime > MaxWaitForQuickMatch) ? FMath::Max(0, MinPlayersToStart - NumPlayers - NumBots) : FMath::Max(0, FMath::Min(GameSession->MaxPlayers, QuickPlayersToStart) - NumPlayers - NumBots);
+			UTGameState->PlayersNeeded = (GetWorld()->GetTimeSeconds() - StartPlayTime > (bIsQuickMatch ? MaxWaitForQuickMatch : 60.f)) ? FMath::Max(0, MinPlayersToStart - NumPlayers - NumBots) : FMath::Max(0, FMath::Min(GameSession->MaxPlayers, QuickPlayersToStart) - NumPlayers - NumBots);
+		//	UE_LOG(UT, Warning, TEXT("Elapsed %f wait %f minplayers %d numplayers %d numbots %d"), (GetWorld()->GetTimeSeconds() - StartPlayTime), (bIsQuickMatch ? MaxWaitForQuickMatch : 60.f), MinPlayersToStart, NumPlayers, NumSpectators);
 			if (((GetNetMode() == NM_Standalone) || bDevServer || (UTGameState->PlayersNeeded == 0)) && (NumPlayers + NumSpectators > 0))
 			{
 				// Count how many ready players we have
@@ -3220,12 +3290,18 @@ void AUTGameMode::SetMatchState(FName NewState)
 		BaseMutator->NotifyMatchStateChange(MatchState);
 	}
 
-	if ((NewState == MatchState::WaitingPostMatch) && (UTGameState) && (UTGameState->InGameIntroHelper))
+	if (UTGameState && UTGameState->LineUpHelper)
 	{
-		InGameIntroZoneTypes PlayType = UTGameState->InGameIntroHelper->GetIntroTypeToPlay(GetWorld());
-		if (PlayType != InGameIntroZoneTypes::Invalid)
+		LineUpTypes PlayType = UTGameState->LineUpHelper->GetLineUpTypeToPlay(GetWorld());
+		
+		if (PlayType != UTGameState->LineUpHelper->LastActiveType)
 		{
-			UTGameState->InGameIntroHelper->HandleEndMatchSummary(GetWorld(), PlayType);
+			UTGameState->LineUpHelper->CleanUp();
+		}
+		
+		if (!UTGameState->LineUpHelper->bIsActive)
+		{
+			UTGameState->LineUpHelper->HandleLineUp(PlayType);
 		}
 	}
 }
@@ -3309,7 +3385,7 @@ void AUTGameMode::HandlePlayerIntro()
 
 void AUTGameMode::EndPlayerIntro()
 {
-	if (!UTGameState || !UTGameState->InGameIntroHelper || !UTGameState->InGameIntroHelper->bIsActive)
+	if (!UTGameState || !UTGameState->LineUpHelper || !UTGameState->LineUpHelper->bIsActive)
 	{
 		for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
 		{
@@ -3494,6 +3570,11 @@ void AUTGameMode::PostLogin( APlayerController* NewPlayer )
 	{
 		GetWorldTimerManager().ClearTimer(ServerRestartTimerHandle);
 	}
+
+	if (UTGameState && UTGameState->LineUpHelper)
+	{
+		UTGameState->LineUpHelper->OnPlayerChange();
+	}
 }
 
 void AUTGameMode::SwitchToCastingGuide(AUTPlayerController* NewCaster)
@@ -3604,6 +3685,11 @@ void AUTGameMode::Logout(AController* Exiting)
 	{
 		AUTGameSession* UTGameSession = Cast<AUTGameSession>(GameSession);
 		GetWorldTimerManager().SetTimer(ServerRestartTimerHandle, UTGameSession, &AUTGameSession::CheckForPossibleRestart, 60.0f, true);
+	}
+
+	if (UTGameState && UTGameState->LineUpHelper)
+	{
+		UTGameState->LineUpHelper->OnPlayerChange();
 	}
 }
 
@@ -4605,13 +4691,18 @@ void AUTGameMode::BecomeDedicatedInstance(FGuid HubGuid, int32 InstanceID)
 
 void AUTGameMode::HandleMapVote()
 {
+
 	// Force at least 20 seconds of map vote time.
+
 	MapVoteTime = FMath::Max(MapVoteTime, 20) * GetActorTimeDilation();
+
+	UTGameState->MapVoteListCount = UTGameState->MapVoteList.Num();
 	UTGameState->VoteTimer = MapVoteTime;
 	FTimerHandle TempHandle;
 	GetWorldTimerManager().SetTimer(TempHandle, this, &AUTGameMode::TallyMapVotes, MapVoteTime + GetActorTimeDilation());
 	FTimerHandle TempHandle2;
 	GetWorldTimerManager().SetTimer(TempHandle2, this, &AUTGameMode::CullMapVotes, MapVoteTime - 10 * GetActorTimeDilation());
+
 	for( FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator )
 	{
 		AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
@@ -4704,6 +4795,7 @@ void AUTGameMode::CullMapVotes()
 	{
 		UTGameState->MapVoteList.Add(Sorted[i]);
 	}
+	UTGameState->MapVoteListCount = UTGameState->MapVoteList.Num();
 
 	for (int32 i=0; i<DeleteList.Num(); i++)
 	{

@@ -27,7 +27,7 @@ static TAutoConsoleVariable<int32> CVarGlobalClipPlane(
 // Changing this causes a full shader recompile
 static TAutoConsoleVariable<int32> CVarVertexFoggingForOpaque(
 	TEXT("r.VertexFoggingForOpaque"),
-	0,
+	1,
 	TEXT("Causes opaque materials to use per-vertex fogging, which costs less and integrates properly with MSAA.  Only supported with forward shading."),
 	ECVF_ReadOnly | ECVF_RenderThreadSafe);
 

@@ -17,7 +17,7 @@ UUTChatMessage::UUTChatMessage(const class FObjectInitializer& ObjectInitializer
 	bIsConsoleMessage = true;
 
 	Lifetime = 6.0f;
-	FontSizeIndex = 0;
+	FontSizeIndex = -1;
 }
 
 FLinearColor UUTChatMessage::GetMessageColor_Implementation(int32 MessageIndex) const

@@ -8,9 +8,15 @@ UCLASS(Abstract, meta = (ChildCanTick))
 class UNREALTOURNAMENT_API AUTProj_Redeemer : public AUTProjectile
 {
 	GENERATED_UCLASS_BODY()
-		
+
+	virtual bool InteractsWithProj(AUTProjectile* OtherProj) override
+	{
+		// this prevents the Redeemer from blowing up prematurely. The other projectile will return true here and still deal damage for purposes of denial.
+		return false;
+	}
 	virtual float TakeDamage(float Damage, const FDamageEvent& DamageEvent, AController* EventInstigator, AActor* DamageCauser) override;
 	virtual void NotifyClientSideHit(AUTPlayerController* InstigatedBy, FVector HitLocation, AActor* DamageCauser, int32 Damage) override;
+	virtual void Destroyed() override;
 
 	virtual void ApplyDamage(float Damage, AController* EventInstigator);
 

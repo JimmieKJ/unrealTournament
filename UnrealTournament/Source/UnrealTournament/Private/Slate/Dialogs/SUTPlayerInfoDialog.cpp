@@ -288,6 +288,16 @@ void SUTPlayerInfoDialog::RecreatePlayerPreview()
 			PlayerPreviewMesh->SetHatVariant(TargetPlayerState->HatVariant);
 			PlayerPreviewMesh->SetEyewearClass(TargetPlayerState->EyewearClass);
 			PlayerPreviewMesh->SetEyewearVariant(TargetPlayerState->EyewearVariant);
+						
+			if (TargetPlayerState->Team != NULL)
+			{
+				float SkinSelect = TargetPlayerState->Team->TeamIndex;
+				
+				for (UMaterialInstanceDynamic* MI : PlayerPreviewMesh->GetBodyMIs())
+				{
+					MI->SetScalarParameterValue(TEXT("TeamSelect"), SkinSelect);
+				}
+			}
 
 			PlayerPreviewMesh->GetMesh()->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones;
 			if (TargetPlayerState.IsValid() && TargetPlayerState->IsFemale())

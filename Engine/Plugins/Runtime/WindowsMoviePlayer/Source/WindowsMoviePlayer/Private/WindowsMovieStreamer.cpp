@@ -170,6 +170,8 @@ void FMediaFoundationMovieStreamer::OpenNextMovie()
 
 void FMediaFoundationMovieStreamer::CloseMovie()
 {
+	BroadcastCurrentMovieClipFinished(GetMovieName());
+
 	if (Texture.IsValid())
 	{
 		TextureFreeList.Add(Texture);

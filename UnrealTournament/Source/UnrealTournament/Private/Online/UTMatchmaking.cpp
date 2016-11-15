@@ -458,6 +458,7 @@ void UUTMatchmaking::RetryFindGatheringSession()
 		NewParams.SessionIdToSkip = CachedSearchResult.Session.SessionInfo->GetSessionId().ToString();
 	}
 
+	// This disconnect is async so this is unsafe and should get rewritten
 	DisconnectFromLobby();
 
 	FindGatheringSession(NewParams);

@@ -34,6 +34,9 @@ DEFINE_LOG_CATEGORY(LogUTAnalytics);
 
 TArray<FString> FUTAnalytics::GenericParamNames;
 
+const FString FUTAnalytics::AnalyticsLoggedGameOption = "AnalyticsLogged";
+const FString FUTAnalytics::AnalyticsLoggedGameOptionTrue = "?AnalyticsLogged=true";
+
 bool FUTAnalytics::bIsInitialized = false;
 TSharedPtr<IAnalyticsProviderET> FUTAnalytics::Analytics = NULL;
 // initialize to a dummy value to ensure the first time we set the AccountID it detects it as a change.
@@ -786,7 +789,7 @@ void FUTAnalytics::FireEvent_FlagRunRoundEnd(AUTFlagRunGame* UTGame, bool bIsDef
 *
 * @Comments
 */
-void FUTAnalytics::FireEvent_EnterMatch(AUTPlayerController* UTPC, FString EnterMethod)
+void FUTAnalytics::FireEvent_EnterMatch(FString EnterMethod)
 {
 	const TSharedPtr<IAnalyticsProvider>& AnalyticsProvider = GetProviderPtr();
 	if (AnalyticsProvider.IsValid())

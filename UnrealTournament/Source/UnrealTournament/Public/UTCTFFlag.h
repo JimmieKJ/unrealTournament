@@ -57,6 +57,9 @@ class UNREALTOURNAMENT_API AUTCTFFlag : public AUTCarriedObject
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Flag)
 	FVector HeldOffset;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Flag)
+		float NearTeammateDist;
+
 	/** duplicate of Mesh used temporarily as part of return effect */
 	UPROPERTY()
 	USkeletalMeshComponent* ReturningMesh;
@@ -113,4 +116,8 @@ public:
 	virtual void DelayedDropMessage();
 
 	virtual void PostInitializeComponents() override;
+
+	/** Return true if is near enough to teammate to prevent gradual autoreturn. */
+	virtual bool IsNearTeammate(AUTCharacter* TeamChar);
+
 };

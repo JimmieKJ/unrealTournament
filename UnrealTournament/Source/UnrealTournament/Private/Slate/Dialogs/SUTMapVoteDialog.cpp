@@ -19,6 +19,7 @@ void SUTMapVoteDialog::Construct(const FArguments& InArgs)
 {
 	DefaultLevelScreenshot = new FSlateDynamicImageBrush(Cast<UUTGameEngine>(GEngine)->DefaultLevelScreenshot, FVector2D(256.0, 128.0), NAME_None);
 	GameState = InArgs._GameState;
+
 	SUTDialogBase::Construct(SUTDialogBase::FArguments()
 							.PlayerOwner(InArgs._PlayerOwner)
 							.DialogTitle(InArgs._DialogTitle)
@@ -170,58 +171,79 @@ void SUTMapVoteDialog::BuildMapList()
 {
 	if (MapBox.IsValid() && GameState.IsValid() && GameState->VoteTimer > 0)
 	{
-		GameState->SortVotes();
-
-		// Store the current # of votes so we can check later to see if additional maps have been replicated or removed.
-		NumMapInfos = GameState->MapVoteList.Num();
-
-		MapBox->ClearChildren();
-		if ( GameState->VoteTimer > 0 && GameState->VoteTimer <= 10 )
+		if (GameState->IsMapVoteListReplicationCompleted())
 		{
+			GameState->SortVotes();
+			// Store the current # of votes so we can check later to see if additional maps have been replicated or removed.
+			NumMapInfos = GameState->MapVoteList.Num();
+
+			MapBox->ClearChildren();
+			if ( GameState->VoteTimer > 0 && GameState->VoteTimer <= 10 )
+			{
+				MapBox->AddSlot()
+				[
+					SNew(SVerticalBox)
+					+SVerticalBox::Slot().HAlign(HAlign_Center)
+					[
+						SNew(STextBlock)
+						.Text(NSLOCTEXT("SUTMapVoteDialog","Finalists","Choose from the finalists:"))
+						.TextStyle(SUWindowsStyle::Get(),"UT.Dialog.BodyTextStyle")
+					]
+				];
+			}
+			else
+			{
+				MapBox->AddSlot()
+				[
+					SNew(SVerticalBox)
+					+SVerticalBox::Slot().HAlign(HAlign_Center)
+					[
+						SNew(STextBlock)
+						.Text(NSLOCTEXT("SUTMapVoteDialog","Lead","Maps with the most votes:"))
+						.TextStyle(SUWindowsStyle::Get(),"UT.Dialog.BodyTextStyle")
+					]
+				];
+			}
+
 			MapBox->AddSlot()
 			[
 				SNew(SVerticalBox)
-				+SVerticalBox::Slot().HAlign(HAlign_Center)
+				+SVerticalBox::Slot()
+				.AutoHeight()
+				.Padding(0.0,0.0,0.0,60.0)
 				[
-					SNew(STextBlock)
-					.Text(NSLOCTEXT("SUTMapVoteDialog","Finalists","Choose from the finalists:"))
-					.TextStyle(SUWindowsStyle::Get(),"UT.Dialog.BodyTextStyle")
+					SAssignNew(TopPanel, SGridPanel)
+				]
+				+SVerticalBox::Slot()
+				.Padding(0.0,0.0,0.0,10.0)
+				[
+					SAssignNew(MapPanel, SGridPanel)
 				]
 			];
+
+			BuildTopVotes();
+			BuildAllVotes();
 		}
 		else
 		{
-			MapBox->AddSlot()
-			[
-				SNew(SVerticalBox)
-				+SVerticalBox::Slot().HAlign(HAlign_Center)
+			MapBox->ClearChildren();
+			if ( GameState->VoteTimer > 0 && GameState->VoteTimer <= 10 )
+			{
+				MapBox->AddSlot()
 				[
-					SNew(STextBlock)
-					.Text(NSLOCTEXT("SUTMapVoteDialog","Lead","Maps with the most votes:"))
-					.TextStyle(SUWindowsStyle::Get(),"UT.Dialog.BodyTextStyle")
-				]
-			];
+					SNew(SVerticalBox)
+					+SVerticalBox::Slot().HAlign(HAlign_Center)
+					[
+						SNew(STextBlock)
+						.Text(NSLOCTEXT("SUTMapVoteDialog","ReceivingMapList","Receiving Map List From Server..."))
+						.TextStyle(SUWindowsStyle::Get(),"UT.Dialog.BodyTextStyle")
+					]
+				];
+			}
+		
 		}
-
-		MapBox->AddSlot()
-		[
-			SNew(SVerticalBox)
-			+SVerticalBox::Slot()
-			.AutoHeight()
-			.Padding(0.0,0.0,0.0,60.0)
-			[
-				SAssignNew(TopPanel, SGridPanel)
-			]
-			+SVerticalBox::Slot()
-			.Padding(0.0,0.0,0.0,10.0)
-			[
-				SAssignNew(MapPanel, SGridPanel)
-			]
-		];
-
-		BuildTopVotes();
-		BuildAllVotes();
 	}
+
 }
 
 void SUTMapVoteDialog::BuildTopVotes()
@@ -242,7 +264,6 @@ void SUTMapVoteDialog::BuildTopVotes()
 		TSharedPtr<STextBlock> MapTitle;
 		TSharedPtr<SBorder> BorderWidget;
 		TSharedPtr<SUTButton> VoteButton;
-
 
 		TopPanel->AddSlot(i, 0).Padding(5.0,5.0,5.0,5.0)
 		[
@@ -325,60 +346,84 @@ void SUTMapVoteDialog::BuildTopVotes()
 
 void SUTMapVoteDialog::UpdateTopVotes()
 {
-	GameState->SortVotes();
+
+	TArray<AUTReplicatedMapInfo*> LeadingVotes;
+
+	for (int32 i=0; i < GameState->MapVoteList.Num(); i++)
+	{
+		if ( GameState->MapVoteList[i] && (GameState->MapVoteList[i]->VoteCount > 0 || GameState->VoteTimer <= 10) )	
+		{
+			bool bAdd = true;
+			if (LeadingVotes.Num() > 0)
+			{
+				for (int32 j = 0; j < LeadingVotes.Num();j ++)
+				{
+					if (GameState->MapVoteList[i]->VoteCount > LeadingVotes[j]->VoteCount)
+					{
+						LeadingVotes.Insert(GameState->MapVoteList[i],j);
+						bAdd = false;
+						break;
+					}
+				}
+			}
+
+			if (bAdd) LeadingVotes.Add(GameState->MapVoteList[i]);
+		}
+	}
+
+	if (LeadingVotes.Num() == 0) return;
+
 	for (int32 i=0; i < LeadingVoteButtons.Num(); i++)
 	{
 		bool bClear = true;
-
-		TWeakObjectPtr<AUTReplicatedMapInfo> MapVoteInfo;
-		if (i >=0 && i < GameState->MapVoteList.Num() && GameState->MapVoteList[i] && (GameState->MapVoteList[i]->VoteCount > 0 || GameState->VoteTimer <= 10))
+		if ( i < LeadingVotes.Num() && LeadingVotes[i] != nullptr )
 		{
-			MapVoteInfo = GameState->MapVoteList[i];
-		}
-
-		if ( MapVoteInfo.IsValid() )
-		{
-			bClear = false;
-			if ( LeadingVoteButtons[i].MapVoteInfo.Get() != MapVoteInfo.Get() )
+			TWeakObjectPtr<AUTReplicatedMapInfo> MapVoteInfo = LeadingVotes[i];
+			if (MapVoteInfo.IsValid())
 			{
-				LeadingVoteButtons[i].MapVoteInfo = MapVoteInfo;
-				FSlateDynamicImageBrush* MapBrush = DefaultLevelScreenshot;
 
-				if (MapVoteInfo->MapScreenshotReference != TEXT(""))
+				bClear = false;
+				if ( LeadingVoteButtons[i].MapVoteInfo.Get() != MapVoteInfo.Get() )
 				{
-					if (MapVoteInfo->MapBrush == nullptr)
+					LeadingVoteButtons[i].MapVoteInfo = MapVoteInfo;
+					FSlateDynamicImageBrush* MapBrush = DefaultLevelScreenshot;
+
+					if (MapVoteInfo->MapScreenshotReference != TEXT(""))
 					{
-						FString Package = MapVoteInfo->MapScreenshotReference;
-						const int32 Pos = Package.Find(TEXT("."), ESearchCase::CaseSensitive, ESearchDir::FromStart);
-						if ( Pos != INDEX_NONE )
+						if (MapVoteInfo->MapBrush == nullptr)
 						{
-							Package = Package.Left(Pos);
+							FString Package = MapVoteInfo->MapScreenshotReference;
+							const int32 Pos = Package.Find(TEXT("."), ESearchCase::CaseSensitive, ESearchDir::FromStart);
+							if ( Pos != INDEX_NONE )
+							{
+								Package = Package.Left(Pos);
+							}
+
+							LoadPackageAsync(Package, FLoadPackageAsyncDelegate::CreateSP(this, &SUTMapVoteDialog::LeaderTextureLoadComplete), 0);
+						}
+						else
+						{
+							LeadingVoteButtons[i].MapImage->SetImage(MapVoteInfo->MapBrush);
+							LeadingVoteButtons[i].MapImage->SetVisibility(EVisibility::Visible);
 						}
 
-						LoadPackageAsync(Package, FLoadPackageAsyncDelegate::CreateSP(this, &SUTMapVoteDialog::LeaderTextureLoadComplete), 0);
 					}
 					else
 					{
-						LeadingVoteButtons[i].MapImage->SetImage(MapVoteInfo->MapBrush);
-						LeadingVoteButtons[i].MapImage->SetVisibility(EVisibility::Visible);
+						LeadingVoteButtons[i].MapImage->SetImage(MapBrush);
 					}
 
+					LeadingVoteButtons[i].MapTitle->SetText(MapVoteInfo->Title);
+					LeadingVoteButtons[i].MapTitle->SetVisibility(EVisibility::Visible);
+
+					LeadingVoteButtons[i].VoteCountText->SetText(FText::AsNumber(MapVoteInfo->VoteCount));
+					LeadingVoteButtons[i].VoteCountText->SetVisibility(EVisibility::Visible);
+					LeadingVoteButtons[i].BorderWidget->SetVisibility(EVisibility::Visible);
 				}
-				else
+				else if (MapVoteInfo->bNeedsUpdate)
 				{
-					LeadingVoteButtons[i].MapImage->SetImage(MapBrush);
+					LeadingVoteButtons[i].VoteCountText->SetText(FText::AsNumber(MapVoteInfo->VoteCount));
 				}
-
-				LeadingVoteButtons[i].MapTitle->SetText(MapVoteInfo->Title);
-				LeadingVoteButtons[i].MapTitle->SetVisibility(EVisibility::Visible);
-
-				LeadingVoteButtons[i].VoteCountText->SetText(FText::AsNumber(MapVoteInfo->VoteCount));
-				LeadingVoteButtons[i].VoteCountText->SetVisibility(EVisibility::Visible);
-				LeadingVoteButtons[i].BorderWidget->SetVisibility(EVisibility::Visible);
-			}
-			else if (MapVoteInfo->bNeedsUpdate)
-			{
-				LeadingVoteButtons[i].VoteCountText->SetText(FText::AsNumber(MapVoteInfo->VoteCount));
 			}
 		}
 
@@ -395,31 +440,38 @@ void SUTMapVoteDialog::UpdateTopVotes()
 
 bool SUTMapVoteDialog::MapVoteSortCompare(AUTReplicatedMapInfo* A, AUTReplicatedMapInfo* B)
 {
+	bool bHasTitleA = !A->Title.IsEmpty();
+	bool bHasTitleB = !B->Title.IsEmpty();
 
-	if (A->bIsEpicMap)
+	if (bHasTitleA && !bHasTitleB)
 	{
-		if (!B->bIsEpicMap) 
+		return true;
+	}
+
+	if (A->bIsMeshedMap)
+	{
+		if (!B->bIsMeshedMap)
 		{
 			return true;
 		}
-		else if (A->bIsMeshedMap && !B->bIsMeshedMap) 
+		else if (A->bIsEpicMap && !B->bIsEpicMap)
 		{
 			return true;
 		}
-		else if (!A->bIsMeshedMap && B->bIsMeshedMap)
+		else if (!A->bIsEpicMap && B->bIsEpicMap)
 		{
 			return false;
 		}
 	}
-
-	else if (B->bIsEpicMap)
+	else if (B->bIsMeshedMap)
 	{
 		return false;
 	}
-	else if (A->bIsMeshedMap && !B->bIsMeshedMap) 
+	else if (A->bIsEpicMap && !B->bIsEpicMap)
 	{
 		return true;
 	}
+
 	return A->Title < B->Title;
 }
 

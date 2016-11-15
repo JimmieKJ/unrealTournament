@@ -147,6 +147,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = LevelSettings)
 	bool bUseCapsuleDirectShadowsForCharacter;
 
+	/** Default time for round length in seconds (300 seconds = 5 minutes). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = LevelSettings)
+		int32 DefaultRoundLength;
+
 	UPROPERTY()
 	UAudioComponent* MusicComp;
 
@@ -155,6 +159,7 @@ public:
 	TArray<class AUTPickup*> PerPlayerPickups;
 
 	virtual void PostLoad() override;
+	virtual void PostDuplicate(bool bDuplicateForPIE) override;
 	virtual void PostInitProperties() override;
 	virtual void PreSave(const class ITargetPlatform* TargetPlatform) override;
 

@@ -37,19 +37,19 @@ protected:
 	FHUDRenderObject_Texture BlueTeamBanner;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
-	FHUDRenderObject_Texture ClockBackground;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
 	FHUDRenderObject_Text RedScoreText;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
 	FHUDRenderObject_Text BlueScoreText;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
-	FHUDRenderObject_Text ClockText;
+	FHUDRenderObject_Text RoleText;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
-	FHUDRenderObject_Texture GameStateBackground;
+	FHUDRenderObject_Text TeamNameText;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+		FHUDRenderObject_Text ClockText;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
 	FHUDRenderObject_Text GameStateText;
@@ -57,7 +57,6 @@ protected:
 	// The scale factor to use on the clock when it has to show hours
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
 	float AltClockScale;
-
 
 	UFUNCTION(BlueprintNativeEvent, Category = "RenderObject")
 	FText GetRedScoreText();

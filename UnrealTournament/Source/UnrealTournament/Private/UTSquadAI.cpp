@@ -118,11 +118,16 @@ bool AUTSquadAI::LostEnemy(AUTBot* B)
 	}
 }
 
+int32 AUTSquadAI::GetDefensePointPriority(AUTBot* B, AUTDefensePoint* Point)
+{
+	return Point->GetPriorityFor(B);
+}
+
 void AUTSquadAI::SetDefensePointFor(AUTBot* B)
 {
 	if (GameObjective != NULL)
 	{
-		if ( B->GetDefensePoint() == NULL || GameObjective != B->GetDefensePoint()->Objective/* || (B.DefensePoint.bOnlyOnFoot && Vehicle(B.Pawn) != None)*/ ||
+		if ( B->GetDefensePoint() == NULL || GameObjective != B->GetDefensePoint()->Objective || GetDefensePointPriority(B, B->GetDefensePoint()) <= 0 /* || (B.DefensePoint.bOnlyOnFoot && Vehicle(B.Pawn) != None)*/ ||
 			// don't change defensepoints if fighting, recently fought, or if haven't reached it yet
 			(B->GetEnemy() == NULL && GetWorld()->TimeSeconds - B->GetLastAnyEnemySeenTime() >= 5.0 && NavData != NULL && NavData->HasReachedTarget(B->GetPawn(), B->GetPawn()->GetNavAgentPropertiesRef(), FRouteCacheItem(B->GetDefensePoint()))) )
 		{ 
@@ -147,7 +152,7 @@ void AUTSquadAI::SetDefensePointFor(AUTBot* B)
 				int32 TotalPriority = 0;
 				for (AUTDefensePoint* Point : DefensePoints)
 				{
-					int32 Priority = Point->GetPriorityFor(B);
+					int32 Priority = FMath::Max<int32>(0, GetDefensePointPriority(B, Point));
 					Priorities.Add(Priority);
 					TotalPriority += Priority;
 				}
@@ -336,7 +341,7 @@ bool AUTSquadAI::CheckSquadObjectives(AUTBot* B)
 	}
 }
 
-bool AUTSquadAI::FollowAlternateRoute(AUTBot* B, AActor* Goal, TArray<FAlternateRoute>& Routes, bool bAllowDetours, const FString& SuccessGoalString)
+bool AUTSquadAI::FollowAlternateRoute(AUTBot* B, AActor* Goal, TArray<FAlternateRoute>& Routes, bool bAllowDetours, bool bAllowPartial, const FString& SuccessGoalString)
 {
 	if (Goal == NULL || B->bDisableSquadRoutes)
 	{
@@ -345,12 +350,13 @@ bool AUTSquadAI::FollowAlternateRoute(AUTBot* B, AActor* Goal, TArray<FAlternate
 
 	if (!Routes.IsValidIndex(B->UsingSquadRouteIndex))
 	{
-		if (B == Leader || Cast<APlayerController>(Leader) != NULL)
+		// initially allow squadmates to go on separate routes in the name of quickly calculating multiple routes
+		if (B == Leader || Cast<APlayerController>(Leader) != NULL || Routes.Num() < FMath::Min<int32>(MaxSquadRoutes, 2))
 		{
 			if (Routes.Num() < MaxSquadRoutes)
 			{
 				// generate new route
-				FSingleEndpointEvalWeighted NodeEval(Goal);
+				FSingleEndpointEvalWeighted NodeEval(Goal, bAllowPartial);
 				for (const FAlternateRoute& Route : Routes)
 				{
 					int32 RouteLength = Route.RouteCache.Num();
@@ -416,7 +422,10 @@ bool AUTSquadAI::FollowAlternateRoute(AUTBot* B, AActor* Goal, TArray<FAlternate
 			FMultiPathNodeEval NodeEval;
 			for (int32 i = SquadRouteGoalIndex; i < AlternatePath.RouteCache.Num(); i++)
 			{
-				NodeEval.Goals.Add(AlternatePath.RouteCache[i]);
+				if (AlternatePath.RouteCache[i].Node == nullptr || !AlternatePath.RouteCache[i].Node->bDestinationOnly)
+				{
+					NodeEval.Goals.Add(AlternatePath.RouteCache[i]);
+				}
 			}
 			// sanity check the goal is in there
 			{
@@ -427,7 +436,8 @@ bool AUTSquadAI::FollowAlternateRoute(AUTBot* B, AActor* Goal, TArray<FAlternate
 			if (NavData->FindBestPath(B->GetPawn(), B->GetPawn()->GetNavAgentPropertiesRef(), B, NodeEval, B->GetPawn()->GetNavAgentLocation(), Weight, bAllowDetours, B->RouteCache))
 			{
 				// set SquadRouteGoal to the endpoint we actually found
-				B->SquadRouteGoal = B->RouteCache.Last();
+				// note: there might be an extra route item at the end to reach the exact location of the squad route point, but we just want to match the PathNode
+				B->SquadRouteGoal = (B->RouteCache.Last().Actor == nullptr && B->RouteCache.Last().Node == nullptr && B->RouteCache.Num() >= 2) ? B->RouteCache[B->RouteCache.Num() - 2] : B->RouteCache.Last();
 				// fill bot route with the rest of the squad route for e.g. translocator planning
 				for (int32 i = SquadRouteGoalIndex; i < AlternatePath.RouteCache.Num() - 1; i++)
 				{
@@ -460,13 +470,13 @@ bool AUTSquadAI::FollowAlternateRoute(AUTBot* B, AActor* Goal, TArray<FAlternate
 bool AUTSquadAI::TryPathTowardObjective(AUTBot* B, AActor* Goal, bool bAllowDetours, const FString& SuccessGoalString)
 {
 	// if not the squad's objective, then don't do any alternate paths
-	if (Goal == Objective && FollowAlternateRoute(B, Goal, SquadRoutes, bAllowDetours, SuccessGoalString))
+	if (Goal == Objective && FollowAlternateRoute(B, Goal, SquadRoutes, bAllowDetours, false, SuccessGoalString))
 	{
 		return true;
 	}
 	else
 	{
-		return B->TryPathToward(Goal, bAllowDetours, SuccessGoalString);
+		return B->TryPathToward(Goal, bAllowDetours, false, SuccessGoalString);
 	}
 }
 

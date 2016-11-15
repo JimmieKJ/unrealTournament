@@ -41,8 +41,10 @@ AUTCTFFlag::AUTCTFFlag(const FObjectInitializer& ObjectInitializer)
 	ClothBlendHome = 0.f;
 	ClothBlendHeld = 0.5f;
 	bEnemyCanPickup = true;
-	PingedDuration = 2.f;
+	PingedDuration = 2.f; 
+	TargetPingedDuration = 0.5f;
 	bShouldPingFlag = false;
+	NearTeammateDist = 1200.f;
 
 	AuraSphere = ObjectInitializer.CreateOptionalDefaultSubobject<UStaticMeshComponent>(this, TEXT("AuraSphere"));
 	AuraSphere->SetupAttachment(RootComponent);
@@ -133,6 +135,13 @@ void AUTCTFFlag::SendHome()
 	Super::SendHome();
 }
 
+bool AUTCTFFlag::IsNearTeammate(AUTCharacter* TeamChar)
+{
+	// slightly smaller radius on client 
+	float Approx = (Role == ROLE_Authority) ? 1.f : 0.92f;
+	return TeamChar && TeamChar->GetController() && ((GetActorLocation() - TeamChar->GetActorLocation()).SizeSquared() < Approx*NearTeammateDist*NearTeammateDist) && (((GetActorLocation() - TeamChar->GetActorLocation()).SizeSquared() < Approx*160000.f) || TeamChar->GetController()->LineOfSightTo(this));
+}
+
 void AUTCTFFlag::SendHomeWithNotify()
 {
 	if (bGradualAutoReturn)
@@ -144,8 +153,7 @@ void AUTCTFFlag::SendHomeWithNotify()
 			for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
 			{
 				AUTCharacter* TeamChar = Cast<AUTCharacter>(*It);
-				if (TeamChar && !TeamChar->IsDead() && ((GetActorLocation() - TeamChar->GetActorLocation()).SizeSquared() < 810000.f) && GameState && GameState->OnSameTeam(TeamChar, this) 
-					&& TeamChar->GetController() && (TeamChar->GetController()->LineOfSightTo(this) || ((GetActorLocation() - TeamChar->GetActorLocation()).SizeSquared() < 160000.f)))
+				if (TeamChar && !TeamChar->IsDead() && GameState && GameState->OnSameTeam(TeamChar, this) && IsNearTeammate(TeamChar))
 				{
 					GetWorldTimerManager().SetTimer(SendHomeWithNotifyHandle, this, &AUTCTFFlag::SendHomeWithNotify, 0.2f, false);
 					return;
@@ -358,41 +366,63 @@ void AUTCTFFlag::Tick(float DeltaTime)
 	}
 	if (Role == ROLE_Authority)
 	{
+		bool bWasPinged = bCurrentlyPinged;
+		bCurrentlyPinged = false;
 		AUTGameVolume* GV = HoldingPawn && HoldingPawn->UTCharacterMovement ? Cast<AUTGameVolume>(HoldingPawn->UTCharacterMovement->GetPhysicsVolume()) : nullptr;
 		if (Holder)
 		{
 			//Update currently pinged
-			bCurrentlyPinged = (bShouldPingFlag && (GetWorld()->GetTimeSeconds() - LastPingedTime < PingedDuration));
-			if (bShouldPingFlag && !bCurrentlyPinged && GV && GV->bIsNoRallyZone)
+			if (bShouldPingFlag)
 			{
-				if (GetWorld()->GetTimeSeconds() - EnteredEnemyBaseTime < PingedDuration)
+				bCurrentlyPinged = (GetWorld()->GetTimeSeconds() - LastPingedTime < PingedDuration);
+				if (!bCurrentlyPinged && GV && GV->bIsNoRallyZone)
 				{
-					bCurrentlyPinged = true;
-				}
-				else if (HoldingPawn->GetController())
-				{
-					// ping if has LOS to flag base
-					AUTCTFGameState* GameState = GetWorld()->GetGameState<AUTCTFGameState>();
-					if (GameState)
+					if (GetWorld()->GetTimeSeconds() - EnteredEnemyBaseTime < PingedDuration)
 					{
-						AUTCTFFlagBase* OtherBase = GameState->FlagBases[1 - GetTeamNum()];
-						if (OtherBase)
+						bCurrentlyPinged = true;
+					}
+					else if (HoldingPawn->GetController())
+					{
+						// ping if has LOS to flag base
+						AUTCTFGameState* GameState = GetWorld()->GetGameState<AUTCTFGameState>();
+						if (GameState)
 						{
-							FVector StartLocation = HoldingPawn->GetActorLocation() + FVector(0.f, 0.f, HoldingPawn->BaseEyeHeight);
-							FVector BaseLoc = OtherBase->GetActorLocation();
-							ECollisionChannel TraceChannel = ECC_Visibility;
-							FCollisionQueryParams QueryParams(GetClass()->GetFName(), true, HoldingPawn);
-							FHitResult Hit;
-							if (!GetWorld()->LineTraceSingleByChannel(Hit, StartLocation, BaseLoc, TraceChannel, QueryParams) || !GetWorld()->LineTraceSingleByChannel(Hit, StartLocation, BaseLoc + FVector(0.f,0.f, 100.f), TraceChannel, QueryParams))
+							AUTCTFFlagBase* OtherBase = GameState->FlagBases[1 - GetTeamNum()];
+							if (OtherBase)
 							{
-								bCurrentlyPinged = true;;
+								FVector StartLocation = HoldingPawn->GetActorLocation() + FVector(0.f, 0.f, HoldingPawn->BaseEyeHeight);
+								FVector BaseLoc = OtherBase->GetActorLocation();
+								ECollisionChannel TraceChannel = ECC_Visibility;
+								FCollisionQueryParams QueryParams(GetClass()->GetFName(), true, HoldingPawn);
+								FHitResult Hit;
+								if (!GetWorld()->LineTraceSingleByChannel(Hit, StartLocation, BaseLoc, TraceChannel, QueryParams) || !GetWorld()->LineTraceSingleByChannel(Hit, StartLocation, BaseLoc + FVector(0.f, 0.f, 100.f), TraceChannel, QueryParams))
+								{
+									bCurrentlyPinged = true;;
+								}
 							}
 						}
 					}
 				}
+				if (!bCurrentlyPinged && HoldingPawn && (GetWorld()->GetTimeSeconds() - HoldingPawn->LastTargetSeenTime < TargetPingedDuration))
+				{
+					bCurrentlyPinged = true;
+				}
 			}
-
 			Holder->bSpecialPlayer = bCurrentlyPinged;
+			if (bWasPinged != bCurrentlyPinged)
+			{
+				Holder->ForceNetUpdate();
+
+				// 'pinged' means visible through walls so tell bots about my position
+				for (FConstControllerIterator It = GetWorld()->GetControllerIterator(); It; ++It)
+				{
+					AUTBot* B = Cast<AUTBot>(It->Get());
+					if (B != NULL && !B->IsTeammate(HoldingPawn))
+					{
+						B->UpdateEnemyInfo(HoldingPawn, EUT_HeardExact);
+					}
+				}
+			}
 			if (GetNetMode() != NM_DedicatedServer)
 			{
 				Holder->OnRepSpecialPlayer();

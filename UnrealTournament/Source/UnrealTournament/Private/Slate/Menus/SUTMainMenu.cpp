@@ -214,7 +214,7 @@ TSharedRef<SWidget> SUTMainMenu::AddPlayNow()
 	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTMenuBase", "MenuBar_QuickMatch_PlayTSD", "QuickPlay Showdown"), FOnClicked::CreateSP(this, &SUTMainMenu::OnPlayQuickMatch, EEpicDefaultRuleTags::TEAMSHOWDOWN));
 	DropDownButton->AddSpacer();
 	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTMenuBase", "MenuBar_ChallengesGame", "Challenges"), FOnClicked::CreateSP(this, &SUTMainMenu::OnShowGamePanel));
-	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTMenuBase", "MenuBar_CreateGame", "Create a Match"), FOnClicked::CreateSP(this, &SUTMainMenu::OnShowCustomGamePanel));
+	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTMenuBase", "MenuBar_CreateGame", "Create Offline Match"), FOnClicked::CreateSP(this, &SUTMainMenu::OnShowCustomGamePanel));
 
 	DropDownButton->AddSpacer();
 	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTMenuBase", "MenuBar_QuickMatch_FindGame", "Find a Match..."), FOnClicked::CreateSP(this, &SUTMenuBase::OnShowServerBrowserPanel),true);
@@ -692,9 +692,10 @@ void SUTMainMenu::StartGame(bool bLanGame)
 
 		if (FUTAnalytics::IsAvailable())
 		{
-			if (PlayerOwner.IsValid() && FUTAnalytics::IsAvailable())
+			if (FUTAnalytics::IsAvailable())
 			{
-				FUTAnalytics::FireEvent_EnterMatch(Cast<AUTPlayerController>(PlayerOwner->PlayerController), FString("MainMenu - Custom Game"));
+				GameOptions += FUTAnalytics::AnalyticsLoggedGameOptionTrue;
+				FUTAnalytics::FireEvent_EnterMatch(FString::Printf(TEXT("MainMenu - Custom Game - %s"),*GameMode));
 			}
 		}
 	}
@@ -719,9 +720,10 @@ void SUTMainMenu::StartGame(bool bLanGame)
 			GameOptions += TEXT("?BotFill=0");
 		}
 
-		if (PlayerOwner.IsValid() && FUTAnalytics::IsAvailable())
+		if (PlayerOwner.IsValid() && FUTAnalytics::IsAvailable() && CurrentRule)
 		{
-			FUTAnalytics::FireEvent_EnterMatch(Cast<AUTPlayerController>(PlayerOwner->PlayerController), FString("MainMenu - Predefined Game Type"));
+			GameOptions += FUTAnalytics::AnalyticsLoggedGameOptionTrue;
+			FUTAnalytics::FireEvent_EnterMatch(FString::Printf(TEXT("MainMenu - Predefined Game Type - %s"), *CurrentRule->GameMode));
 		}
 	}
 

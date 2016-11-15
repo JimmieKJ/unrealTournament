@@ -4,6 +4,7 @@
 #include "UTLocalMessage.h"
 #include "UTCountDownMessage.h"
 #include "GameFramework/LocalMessage.h"
+#include "UTFlagRunGameState.h"
 
 UUTCountDownMessage::UUTCountDownMessage(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -15,8 +16,9 @@ UUTCountDownMessage::UUTCountDownMessage(const class FObjectInitializer& ObjectI
 	MessageSlot = FName(TEXT("CountDownMessages"));
 	bIsStatusAnnouncement = true;
 	CountDownText = NSLOCTEXT("UTTimerMessage","MatBeginCountdown","{Count}");
-	GoldBonusMessage = NSLOCTEXT("CTFGameMessage", "GoldBonusMessage", "\u2605 \u2605 \u2605 ends in ");
-	SilverBonusMessage = NSLOCTEXT("CTFGameMessage", "SilverBonusMessage", "\u2605 \u2605 ends in ");
+	EndingInText = NSLOCTEXT("UTTimerMessage", "EndingInText", " ends in {Count}");
+	GoldBonusMessage = NSLOCTEXT("CTFGameMessage", "GoldBonusMessage", "\u2605 \u2605 \u2605 ");
+	SilverBonusMessage = NSLOCTEXT("CTFGameMessage", "SilverBonusMessage", "\u2605 \u2605 ");
 	RoundPrefix = NSLOCTEXT("CTFGameMessage", "RoundPrefix", "Round ");
 	RoundPostfix = FText::GetEmpty();
 	GoldBonusName = TEXT("ThreeStarsEnding");
@@ -88,29 +90,32 @@ void UUTCountDownMessage::GetEmphasisText(FText& PrefixText, FText& EmphasisText
 		Super::GetEmphasisText(PrefixText, EmphasisText, PostfixText, EmphasisColor, Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
 		return;
 	}
-	if (Switch > 4000)
+	int32 Count = Switch;
+	while (Count >= 1000)
 	{
-		PrefixText = GoldBonusMessage;
-		PostfixText = FText::GetEmpty();
+		Count -= 1000;
 	}
-	else if (Switch > 3000)
+	FFormatNamedArguments Args;
+	Args.Add(TEXT("Count"), FText::AsNumber(Count));
+	EmphasisColor = FLinearColor::Yellow;
+
+	if (Switch > 3000)
 	{
-		PrefixText = SilverBonusMessage;
-		PostfixText = FText::GetEmpty();
+		PrefixText = FText::GetEmpty();
+		PostfixText = FText::Format(EndingInText, Args);
+		EmphasisText = (Switch > 4000) ? GoldBonusMessage : SilverBonusMessage;
+		AUTFlagRunGameState* GS = AUTFlagRunGameState::StaticClass()->GetDefaultObject<AUTFlagRunGameState>();
+		if (GS)
+		{
+			EmphasisColor = (Switch > 4000) ? GS->GoldBonusColor : GS->SilverBonusColor;
+		}
 	}
-	else if (Switch > 2000)
+	else
 	{
 		PrefixText = RoundPrefix;
 		PostfixText = RoundPostfix;
+		EmphasisText = FText::Format(CountDownText, Args);
 	}
-	while (Switch >= 1000)
-	{
-		Switch -= 1000;
-	}
-	FFormatNamedArguments Args;
-	Args.Add(TEXT("Count"), FText::AsNumber(Switch));
-	EmphasisText = FText::Format(CountDownText, Args);;
-	EmphasisColor = FLinearColor::Yellow;
 }
 
 FText UUTCountDownMessage::GetText(int32 Switch, bool bTargetsPlayerState1,class APlayerState* RelatedPlayerState_1,class APlayerState* RelatedPlayerState_2,class UObject* OptionalObject) const

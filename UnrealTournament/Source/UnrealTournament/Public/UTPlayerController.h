@@ -4,7 +4,7 @@
 #include "UTBasePlayerController.h"
 #include "UTPickupWeapon.h"
 #include "UTGameplayStatics.h"
-#include "UTInGameIntroZone.h"
+#include "UTLineUpZone.h"
 
 #if WITH_PROFILE
 #include "UTMcpProfile.h"
@@ -195,12 +195,6 @@ public:
 	UPROPERTY()
 	bool bNeedsBoostNotify;
 
-	UPROPERTY()
-		float LastRallyRequestTime;
-
-	UPROPERTY()
-		AUTCharacter* RallyFlagCarrier;
-
 	UFUNCTION(reliable, client, BlueprintCallable, Category = PlayerController)
 	void UTClientSetRotation(FRotator NewRotation);
 
@@ -243,6 +237,10 @@ public:
 	UFUNCTION(Client, Reliable)
 	virtual void ClientGotWeaponStayPickup(AUTPickupWeapon* Pickup, APawn* TouchedBy);
 
+	/** Force real names (Epic account names) on scoreboard. */
+	UFUNCTION(exec)
+		virtual void RealNames();
+
 	UFUNCTION(exec)
 	virtual void NP();
 
@@ -276,13 +274,16 @@ public:
 		FVector RallyLocation;
 
 	UPROPERTY()
+		class AUTRallyPoint* RallyPoint;
+
+	UPROPERTY()
 		float EndRallyTime;
 
 	UFUNCTION(server, reliable, withvalidation)
 		virtual void ServerRequestRally();
 
 	UFUNCTION(client, reliable)
-		virtual void ClientStartRally(AUTCharacter* RallyTarget, const FVector& NewRallyLocation, float Delay);
+		virtual void ClientStartRally(AUTRallyPoint* RallyTarget, const FVector& NewRallyLocation, float Delay);
 
 	UFUNCTION(client, reliable)
 		virtual void ClientCompleteRally();
@@ -291,9 +292,15 @@ public:
 	virtual void ToggleScoreboard(bool bShow);
 
 	UFUNCTION(client,reliable)
-	virtual void ClientSetIntroCamera(UWorld* World, InGameIntroZoneTypes IntroType);
+	virtual void ClientSetLineUpCamera(UWorld* World, LineUpTypes IntroType);
 
-	virtual void BeginRallyTo(AUTCharacter* RallyTarget, const FVector& NewRallyLocation, float Delay);
+	UFUNCTION(client, reliable)
+	virtual void ClientSetActiveLineUp(bool bNewIsActive, LineUpTypes LastType);
+
+	virtual void BeginRallyTo(AUTRallyPoint* RallyTarget, const FVector& NewRallyLocation, float Delay);
+
+	// valid server side only
+	virtual bool IsCurrentlyRallying();
 
 	FTimerHandle RallyTimerHandle;
 
@@ -492,6 +499,8 @@ public:
 	UFUNCTION(BlueprintCallable, Category = Message)
 	void K2_ReceiveLocalizedMessage(TSubclassOf<ULocalMessage> Message, int32 Switch = 0, class APlayerState* RelatedPlayerState_1 = NULL, class APlayerState* RelatedPlayerState_2 = NULL, class UObject* OptionalObject = NULL);
 
+	virtual void ClientReceiveLocalizedMessage_Implementation(TSubclassOf<ULocalMessage> Message, int32 Switch, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject) override;
+	
 	/** Global scaling for weapon bob. */
 	UPROPERTY(EditAnywhere, GlobalConfig, Category = WeaponBob)
 	float WeaponBobGlobalScaling;
@@ -633,6 +642,12 @@ public:
 
 	UFUNCTION()
 	virtual void PlayTaunt2();
+
+	UFUNCTION()
+	virtual void PlayGroupTaunt();
+
+	UFUNCTION(reliable, server, WithValidation)
+	virtual void ServerPlayGroupTaunt();
 
 	UFUNCTION(Exec)
 	virtual void SetMouseSensitivityUT(float NewSensitivity);
@@ -1227,7 +1242,7 @@ public:
 	void ClientQueueCoolMoment(FUniqueNetIdRepl NetId, float TimeToRewind);
 
 	UFUNCTION(Client, Reliable)
-	void ClientPlayInstantReplay(APawn* PawnToFocus, float TimeToRewind);
+	void ClientPlayInstantReplay(APawn* PawnToFocus, float TimeToRewind, float StartDelay);
 
 	/** Sent by the server when the possessed pawn is killed */
 	UFUNCTION(Client, Reliable)
@@ -1235,6 +1250,9 @@ public:
 
 	UPROPERTY()
 		AActor* DeathCamFocus;
+
+	UPROPERTY()
+		float DeathCamTime;
 
 	virtual float GetFrozenTime();
 
@@ -1273,8 +1291,7 @@ protected:
 
 	UFUNCTION(exec)
 	void DumpMapVote();
-
-
+	
 public:
 	// Will return true if this player can perform a rally
 	bool CanPerformRally() const;

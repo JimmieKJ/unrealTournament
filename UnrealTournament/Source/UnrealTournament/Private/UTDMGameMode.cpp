@@ -14,6 +14,7 @@ AUTDMGameMode::AUTDMGameMode(const class FObjectInitializer& ObjectInitializer)
 	DisplayName = NSLOCTEXT("UTGameMode", "DM", "Deathmatch");
 	XPMultiplier = 3.0f;
 	bGameHasImpactHammer = false;
+	bPlayersStartWithArmor = false;
 }
 
 

@@ -9,7 +9,7 @@ UUTCharacterVoice::UUTCharacterVoice(const FObjectInitializer& ObjectInitializer
 	MessageArea = FName(TEXT("ConsoleMessage"));
 	bIsStatusAnnouncement = false;
 	bOptionalSpoken = true;
-	FontSizeIndex = 1;
+	FontSizeIndex = -1;
 	Lifetime = 6.0f;
 	bPlayDuringIntermission = false;
 
@@ -113,6 +113,9 @@ int32 UUTCharacterVoice::GetDestinationIndex(int32 MessageIndex) const
 
 FText UUTCharacterVoice::GetText(int32 Switch, bool bTargetsPlayerState1, class APlayerState* RelatedPlayerState_1, class APlayerState* RelatedPlayerState_2, class UObject* OptionalObject) const
 {
+	// @TOOD FIXMESTEVE option to turn these one
+	return FText::GetEmpty();
+
 	FFormatNamedArguments Args;
 	if (!RelatedPlayerState_1)
 	{

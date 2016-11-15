@@ -11,7 +11,7 @@ class UNREALTOURNAMENT_API UUTUMGHudWidget : public UUserWidget
 	GENERATED_UCLASS_BODY()
 
 	/** Associated this UMG widget with a HUD. */
-	virtual void AssociateHUD(AUTHUD* NewHUDAnchor);
+	virtual void AssociateHUD(class AUTHUD* NewHUDAnchor);
 
 	/** Give this widget a set lifespan.  Once it expires it will automatically be removed from the hud */
 	UFUNCTION(BlueprintCallable, Category = Hud)
@@ -33,7 +33,7 @@ protected:
 
 
 	/** This is the UTHUD that anchors this UMG widget */
-	TWeakObjectPtr<AUTHUD> HUDAnchor;
+	TWeakObjectPtr<class AUTHUD> HUDAnchor;
 
 	/** Allow these widgets to get their visibility from the hud */
 	UFUNCTION()

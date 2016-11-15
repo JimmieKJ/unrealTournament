@@ -33,6 +33,7 @@ public:
 	virtual void SetupLoadingScreenFromIni() override {}
 	virtual FOnPrepareLoadingScreen& OnPrepareLoadingScreen() override { return OnPrepareLoadingScreenDelegate; }
 	virtual FOnMoviePlaybackFinished& OnMoviePlaybackFinished() override { return OnMoviePlaybackFinishedDelegate; }
+	virtual FOnMovieClipFinished& OnMovieClipFinished() override { return OnMovieClipFinishedDelegate; }
 	virtual void SetSlateOverlayWidget(TSharedPtr<SWidget> NewOverlayWidget) override { }
 	virtual bool WillAutoCompleteWhenLoadFinishes() override { return false; }
 	virtual FString GetMovieName() override { return TEXT(""); }
@@ -50,4 +51,6 @@ private:
 	FOnPrepareLoadingScreen OnPrepareLoadingScreenDelegate;
 
 	FOnMoviePlaybackFinished OnMoviePlaybackFinishedDelegate;
+	FOnMovieClipFinished OnMovieClipFinishedDelegate;
+
 };

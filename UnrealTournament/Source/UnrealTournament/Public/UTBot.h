@@ -367,6 +367,9 @@ class UNREALTOURNAMENT_API AUTBot : public AAIController, public IUTTeamInterfac
 	 */
 	UPROPERTY()
 	bool bFinishRotation;
+	/** if set don't air control during upwards movement of current jump (used to avoid cases where air control causes the AI to get snagged on edges or outcroppings) */
+	UPROPERTY()
+	bool bRestrictedJump;
 
 	/** aggression value for most recent combat action after all personality/enemy strength/squad/weapon modifiers */
 	UPROPERTY()
@@ -685,8 +688,8 @@ public:
 
 	/** sets base bot skill and all parameters derived from skill */
 	virtual void InitializeSkill(float NewBaseSkill);
-	/** set PeripheralVision based on skill and controlled Pawn */
-	virtual void SetPeripheralVision();
+	/** set PeripheralVision and HearingRadiusMult based on skill and controlled Pawn */
+	virtual void ResetPerceptionProperties();
 
 	virtual void SetPawn(APawn* InPawn) override;
 	virtual void Possess(APawn* InPawn) override;
@@ -776,7 +779,7 @@ public:
 	/** attempt to path to Goal as a single target and if successful set MoveTarget and start WaitForMove action
 	 * (basically a shortcut for the simple case of "I want to go here"; if this function succeeds the decision logic can end as the bot has a valid action)
 	 */
-	virtual bool TryPathToward(AActor* Goal, bool bAllowDetours, const FString& SuccessGoalString = FString());
+	virtual bool TryPathToward(AActor* Goal, bool bAllowDetours, bool bAllowPartial, const FString& SuccessGoalString = FString());
 
 	/** tries to perform an evasive action in the indicated direction, most commonly a dodge but if dodge is not available or low skill, possibly strafe that way instead
 	 * this function may interrupt the bot's current action

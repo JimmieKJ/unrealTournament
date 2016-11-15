@@ -161,6 +161,11 @@ void UUTGameEngine::Init(IEngineLoop* InEngineLoop)
 	ChallengeManager->AddToRoot();
 #endif
 
+	IConsoleVariable* TonemapperFilm = IConsoleManager::Get().FindConsoleVariable(TEXT("r.TonemapperFilm"));
+	if (TonemapperFilm != NULL)
+	{
+		TonemapperFilm->Set(0, ECVF_SetByCode);
+	}
 
 }
 

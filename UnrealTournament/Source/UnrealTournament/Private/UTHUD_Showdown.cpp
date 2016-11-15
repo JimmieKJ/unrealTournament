@@ -58,6 +58,7 @@ AUTHUD_Showdown::AUTHUD_Showdown(const FObjectInitializer& OI)
 	TeamVictimSound = OtherSpreeEndedSoundFinder.Object;
 //	static ConstructorHelpers::FObjectFinder<USoundBase> LMSVictimSoundFinder(TEXT("SoundWave'/Game/RestrictedAssets/Audio/Showdown/A_TeammateKilled_LMS.A_TeammateKilled_LMS'"));
 //	TeamLMSVictimSound = LMSVictimSoundFinder.Object;
+	ScoreboardKillFeedPosition = FVector2D(0.52f, 0.635f);
 }
 
 void AUTHUD_Showdown::BeginPlay()
@@ -108,21 +109,16 @@ void AUTHUD_Showdown::PlayTeamVictimNotification()
 	UTPlayerOwner->UTClientPlaySound(TeamVictimSound);
 }
 
-UUTHUDWidget* AUTHUD_Showdown::AddHudWidget(TSubclassOf<UUTHUDWidget> NewWidgetClass)
-{
-	UUTHUDWidget* Widget = Super::AddHudWidget(NewWidgetClass);
-	if (KillIconWidget == nullptr)
-	{
-		KillIconWidget = Cast<UUTHUDWidgetMessage_KillIconMessages>(Widget);
-	}
-	return Widget;
-}
-
 void AUTHUD_Showdown::DrawMinimap(const FColor& DrawColor, float MapSize, FVector2D DrawPos)
 {
 	AUTShowdownGameState* GS = GetWorld()->GetGameState<AUTShowdownGameState>();
 
 	Super::DrawMinimap(DrawColor, MapSize, DrawPos);
+
+	if (Canvas == nullptr)
+	{
+		return;
+	}
 
 	const float RenderScale = float(Canvas->SizeY) / 1080.0f;
 	if (!GS || !GS->IsMatchInProgress() || GS->IsMatchIntermission())
@@ -185,14 +181,11 @@ void AUTHUD_Showdown::DrawHUD()
 	bool bRealShowScores = bShowScores;
 	bShowScores = (GS != NULL && GS->GetMatchState() == MatchState::MatchIntermission) ? !GS->bStartedSpawnSelection : bShowScores;
 	bool bDrewSpawnMap = false;
-	if (KillIconWidget)
+	if (KillIconWidget && GS && GS->bFinalIntermissionDelay)
 	{
-		KillIconWidget->ScreenPosition = bShowScores ? FVector2D(0.52f, 0.635f) : FVector2D(0.0f, 0.0f);
-		if (GS && GS->bFinalIntermissionDelay)
-		{
-			KillIconWidget->ClearMessages();
-		}
+		KillIconWidget->ClearMessages();
 	}
+
 	if (!bShowScores)
 	{
 		if (GS != NULL && GS->GetMatchState() == MatchState::MatchIntermission && GS->bStartedSpawnSelection)

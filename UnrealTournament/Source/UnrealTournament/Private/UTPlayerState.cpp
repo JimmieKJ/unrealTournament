@@ -32,6 +32,10 @@
 #include "UTHUDWidget_NetInfo.h"
 #include "UTMcpUtils.h"
 #include "UTCTFRoundGame.h"
+#include "UTFlagRunGameState.h"
+#include "UTCTFMajorMessage.h"
+#include "Engine/DemoNetDriver.h"
+#include "UTDeathMessage.h"
 
 /** disables load warnings for dedicated server where invalid client input can cause unpreventable logspam, but enables on clients so developers can make sure their stuff is working */
 static inline ELoadFlags GetCosmeticLoadFlags()
@@ -48,9 +52,11 @@ AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer
 	bCaster = false;
 	LastKillTime = 0.0f;
 	Kills = 0;
+	KillAssists = 0;
 	DamageDone = 0;
 	RoundDamageDone = 0;
 	RoundKills = 0;
+	RoundKillAssists = 0;
 	bOutOfLives = false;
 	Deaths = 0;
 	bShouldAutoTaunt = false;
@@ -96,6 +102,8 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	DOREPLIFETIME(AUTPlayerState, RemainingLives);
 	DOREPLIFETIME(AUTPlayerState, Kills);
 	DOREPLIFETIME(AUTPlayerState, RoundKills);
+	DOREPLIFETIME(AUTPlayerState, KillAssists);
+	DOREPLIFETIME(AUTPlayerState, RoundKillAssists);
 	DOREPLIFETIME(AUTPlayerState, Deaths);
 	DOREPLIFETIME(AUTPlayerState, Team);
 	DOREPLIFETIME(AUTPlayerState, FlagCaptures);
@@ -120,6 +128,9 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	DOREPLIFETIME(AUTPlayerState, SelectedCharacter);
 	DOREPLIFETIME(AUTPlayerState, TauntClass);
 	DOREPLIFETIME(AUTPlayerState, Taunt2Class);
+	DOREPLIFETIME(AUTPlayerState, GroupTauntClass);
+	DOREPLIFETIME(AUTPlayerState, ActiveGroupTaunt);
+	DOREPLIFETIME(AUTPlayerState, bHasHighScore);
 	DOREPLIFETIME(AUTPlayerState, HatClass);
 	DOREPLIFETIME(AUTPlayerState, LeaderHatClass);
 	DOREPLIFETIME(AUTPlayerState, EyewearClass);
@@ -190,6 +201,7 @@ void AUTPlayerState::IncrementDamageDone(int32 AddedDamage)
 {
 	DamageDone += AddedDamage;
 	RoundDamageDone += AddedDamage;
+	ThisLifeDamageDone += AddedDamage;
 }
 
 bool AUTPlayerState::IsFemale()
@@ -209,6 +221,15 @@ void AUTPlayerState::SetPlayerName(const FString& S)
 	}
 	ForceNetUpdate();
 	bHasValidClampedName = false;
+}
+
+void AUTPlayerState::OnRep_HasHighScore()
+{
+	AUTCharacter* UTChar = GetUTCharacter();
+	if (UTChar)
+	{
+		UTChar->HasHighScoreChanged();
+	}
 }
 
 void AUTPlayerState::UpdatePing(float InPing)
@@ -351,13 +372,10 @@ bool AUTPlayerState::ShouldBroadCastWelcomeMessage(bool bExiting)
 
 void AUTPlayerState::NotifyTeamChanged_Implementation()
 {
-	for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
+	AUTCharacter* P = GetUTCharacter();
+	if (P != NULL && !P->bTearOff)
 	{
-		AUTCharacter* P = Cast<AUTCharacter>(*It);
-		if (P != NULL && P->PlayerState == this && !P->bTearOff)
-		{
-			P->NotifyTeamChanged();
-		}
+		P->NotifyTeamChanged();
 	}
 	// HACK: remember last team player got on the URL for travelling purposes
 	if (Team != NULL)
@@ -388,6 +406,87 @@ void AUTPlayerState::NotifyTeamChanged_Implementation()
 	}
 }
 
+void AUTPlayerState::IncrementKillAssists(TSubclassOf<UDamageType> DamageType, bool bEnemyKill, AUTPlayerState* VictimPS)
+{
+	if (bEnemyKill)
+	{
+		// include sprees/weaponsprees/etc.?
+		KillAssists++;
+		RoundKillAssists++;
+		ThisLifeKillAssists++;
+
+		AUTPlayerController* PC = Cast<AUTPlayerController>(GetOwner());
+		if (PC)
+		{
+			PC->ClientReceiveLocalizedMessage(UUTDeathMessage::StaticClass(), 2, this, VictimPS, nullptr);
+		}
+
+		CheckForMultiKill();
+		LastKillTime = GetWorld()->TimeSeconds;
+
+		TSubclassOf<UUTDamageType> UTDamage(*DamageType);
+		int32 SpreeIndex = IncrementWeaponSpree(UTDamage);
+		if (SpreeIndex >= 0)
+		{
+			if (WeaponSprees[SpreeIndex].Kills == UTDamage.GetDefaultObject()->WeaponSpreeCount)
+			{
+				AnnounceWeaponSpree(UTDamage);
+			}
+			// more likely to kill again with same weapon, so shorten search through array by swapping
+			WeaponSprees.Swap(0, SpreeIndex);
+		}
+	}
+}
+
+bool AUTPlayerState::CheckForMultiKill()
+{
+	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+	if (GS != NULL && GetWorld()->TimeSeconds - LastKillTime < GS->MultiKillDelay)
+	{
+		FName MKStat[4] = { NAME_MultiKillLevel0, NAME_MultiKillLevel1, NAME_MultiKillLevel2, NAME_MultiKillLevel3 };
+		ModifyStatsValue(MKStat[FMath::Min(MultiKillLevel, 3)], 1);
+		MultiKillLevel++;
+		AUTPlayerController* MyPC = Cast<AUTPlayerController>(GetOwner());
+		if (MyPC != NULL)
+		{
+			MyPC->SendPersonalMessage(GS->MultiKillMessageClass, MultiKillLevel - 1, this, NULL);
+		}
+
+		AddCoolFactorEvent(MultiKillLevel * 100.0f);
+		return true;
+	}
+	MultiKillLevel = 0;
+	return false;
+}
+
+int32 AUTPlayerState::IncrementWeaponSpree(TSubclassOf<UUTDamageType> UTDamage)
+{
+	if (UTDamage)
+	{
+		if (UTDamage.GetDefaultObject()->SpreeSoundName != NAME_None)
+		{
+			int32 SpreeIndex = -1;
+			for (int32 i = 0; i < WeaponSprees.Num(); i++)
+			{
+				if (WeaponSprees[i].SpreeSoundName == UTDamage.GetDefaultObject()->SpreeSoundName)
+				{
+					SpreeIndex = i;
+					break;
+				}
+			}
+			if (SpreeIndex == -1)
+			{
+				new(WeaponSprees)FWeaponSpree(UTDamage.GetDefaultObject()->SpreeSoundName);
+				SpreeIndex = WeaponSprees.Num() - 1;
+			}
+
+			WeaponSprees[SpreeIndex].Kills++;
+			return SpreeIndex;
+		}
+	}
+	return -1;
+}
+
 void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bEnemyKill, AUTPlayerState* VictimPS)
 {
 	if (bEnemyKill)
@@ -397,38 +496,19 @@ void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bE
 		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 		AUTGameMode* GM = GetWorld()->GetAuthGameMode<AUTGameMode>();
 		AController* Controller = Cast<AController>(GetOwner());
-		APawn* Pawn = nullptr;
-		AUTCharacter* UTChar = nullptr;
+		AUTCharacter* UTChar = GetUTCharacter();
+		APawn* Pawn = UTChar ? UTChar : (Controller ? Controller->GetPawn() : nullptr);
 		bool bShouldTauntKill = false;
-		if (Controller)
-		{
-			Pawn = Controller->GetPawn();
-			UTChar = Cast<AUTCharacter>(Pawn);
-		}
 		AUTPlayerController* MyPC = Cast<AUTPlayerController>(GetOwner());
 		TSubclassOf<UUTDamageType> UTDamage(*DamageType);
 
-		if (GS != NULL && GetWorld()->TimeSeconds - LastKillTime < GS->MultiKillDelay)
+		if (CheckForMultiKill())
 		{
-			FName MKStat[4] = { NAME_MultiKillLevel0, NAME_MultiKillLevel1, NAME_MultiKillLevel2, NAME_MultiKillLevel3 };
-			ModifyStatsValue(MKStat[FMath::Min(MultiKillLevel, 3)], 1);
-			MultiKillLevel++;
 			bShouldTauntKill = true;
-			if (MyPC != NULL)
-			{
-				MyPC->SendPersonalMessage(GS->MultiKillMessageClass, MultiKillLevel - 1, this, NULL);
-			}
-
-			AddCoolFactorEvent(MultiKillLevel * 100.0f);
-
 			if (GM)
 			{
 				GM->AddMultiKillEventToReplay(Controller, FMath::Min(MultiKillLevel - 1, 3));
 			}
-		}
-		else
-		{
-			MultiKillLevel = 0;
 		}
 
 		bAnnounceWeaponSpree = false;
@@ -439,25 +519,10 @@ void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bE
 				// FIXMESTEVE - preset, not constructed FName
 				ModifyStatsValue(FName(*(UTDamage.GetDefaultObject()->StatsName + TEXT("Kills"))), 1);
 			}
-			if (UTDamage.GetDefaultObject()->SpreeSoundName != NAME_None)
+			
+			int32 SpreeIndex = IncrementWeaponSpree(UTDamage);
+			if (SpreeIndex >= 0)
 			{
-				int32 SpreeIndex = -1;
-				for (int32 i = 0; i < WeaponSprees.Num(); i++)
-				{
-					if (WeaponSprees[i].SpreeSoundName == UTDamage.GetDefaultObject()->SpreeSoundName)
-					{
-						SpreeIndex = i;
-						break;
-					}
-				}
-				if (SpreeIndex == -1)
-				{
-					new(WeaponSprees)FWeaponSpree(UTDamage.GetDefaultObject()->SpreeSoundName);
-					SpreeIndex = WeaponSprees.Num() - 1;
-				}
-
-				WeaponSprees[SpreeIndex].Kills++;
-
 				// delay actual announcement to keep multiple announcements in preferred order
 				bAnnounceWeaponSpree = (WeaponSprees[SpreeIndex].Kills == UTDamage.GetDefaultObject()->WeaponSpreeCount);
 				bShouldTauntKill = bShouldTauntKill || bAnnounceWeaponSpree;
@@ -513,6 +578,7 @@ void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bE
 		LastKillTime = GetWorld()->TimeSeconds;
 		Kills++;
 		RoundKills++;
+		ThisLifeKills++;
 
 		if (bAnnounceWeaponSpree)
 		{
@@ -621,6 +687,7 @@ void AUTPlayerState::OnDeathsReceived()
 void AUTPlayerState::SetOutOfLives(bool bNewValue)
 {
 	bOutOfLives = bNewValue;
+	ForceNetUpdate();
 	OnOutOfLives();
 }
 
@@ -672,9 +739,19 @@ void AUTPlayerState::Tick(float DeltaTime)
 	if (Role == ROLE_Authority)
 	{
 		AUTCharacter* UTChar = GetUTCharacter();
+		bool bOldCanRally = bCanRally;
 		bCanRally = (GetWorld()->GetTimeSeconds() > NextRallyTime) && UTChar && (UTChar->bCanRally || UTChar->GetCarriedObject());
 		RemainingRallyDelay = (NextRallyTime > GetWorld()->GetTimeSeconds()) ? FMath::Clamp(int32(NextRallyTime - GetWorld()->GetTimeSeconds()), 0, 255) : 0;
-
+		if (!bOldCanRally && bCanRally && !UTChar->GetCarriedObject())
+		{
+			// notify of transition if rally is available
+			AUTFlagRunGameState* GS = GetWorld()->GetGameState<AUTFlagRunGameState>();
+			AUTPlayerController* MyPC = Cast<AUTPlayerController>(GetOwner());
+			if (GS && GS->bAttackersCanRally && MyPC && Team && (GS->bRedToCap == (Team->TeamIndex == 0)))
+			{
+				MyPC->ClientReceiveLocalizedMessage(UUTCTFMajorMessage::StaticClass(), 23, nullptr);
+			}
+		}
 		if (!StatsID.IsEmpty() && !RequestedName.IsEmpty() && Cast<AController>(GetOwner()))
 		{
 			AUTGameState* UTGameState = GetWorld()->GetGameState<AUTGameState>();
@@ -986,6 +1063,23 @@ bool AUTPlayerState::ServerReceiveEyewearClass_Validate(const FString& NewEyewea
 	return true;
 }
 
+void AUTPlayerState::ServerReceiveGroupTauntClass_Implementation(const FString& NewGroupTauntClass)
+{
+	if (!bOnlySpectator)
+	{
+		GroupTauntClass = LoadClass<AUTGroupTaunt>(NULL, *NewGroupTauntClass, NULL, GetCosmeticLoadFlags(), NULL);
+		if (GroupTauntClass != NULL)
+		{
+			ValidateEntitlements();
+		}
+	}
+}
+
+bool AUTPlayerState::ServerReceiveGroupTauntClass_Validate(const FString& NewEyewearClass)
+{
+	return true;
+}
+
 void AUTPlayerState::ServerReceiveTauntClass_Implementation(const FString& NewTauntClass)
 {
 	if (!bOnlySpectator)
@@ -998,7 +1092,7 @@ void AUTPlayerState::ServerReceiveTauntClass_Implementation(const FString& NewTa
 	}
 }
 
-bool AUTPlayerState::ServerReceiveTauntClass_Validate(const FString& NewEyewearClass)
+bool AUTPlayerState::ServerReceiveTauntClass_Validate(const FString& NewTauntClass)
 {
 	return true;
 }
@@ -1015,14 +1109,14 @@ void AUTPlayerState::ServerReceiveTaunt2Class_Implementation(const FString& NewT
 	}
 }
 
-bool AUTPlayerState::ServerReceiveTaunt2Class_Validate(const FString& NewEyewearClass)
+bool AUTPlayerState::ServerReceiveTaunt2Class_Validate(const FString& NewTauntClass)
 {
 	return true;
 }
 
 void AUTPlayerState::HandleTeamChanged(AController* Controller)
 {
-	AUTCharacter* Pawn = Cast<AUTCharacter>(Controller->GetPawn());
+	AUTCharacter* Pawn = GetUTCharacter();
 	if (Pawn != NULL)
 	{
 		Pawn->PlayerChangedTeam();
@@ -1783,6 +1877,10 @@ void AUTPlayerState::ValidateEntitlements()
 				if (!HasRightsFor(EyewearClass))
 				{
 					ServerReceiveEyewearClass(FString());
+				}
+				if (!HasRightsFor(GroupTauntClass))
+				{
+					ServerReceiveGroupTauntClass(FString());
 				}
 				if (!HasRightsFor(TauntClass))
 				{
@@ -2575,7 +2673,7 @@ TSharedRef<SWidget> AUTPlayerState::BuildRankInfo()
 			.AutoWidth()
 			[
 				SNew(STextBlock)
-				.Text(FText::Format(NSLOCTEXT("AUTPlayerState", "ChallengeStarsFormat", ".          {0} "), FText::AsNumber(LP->GetRewardStars(NAME_REWARD_BlueStars))))
+				.Text(FText::Format(NSLOCTEXT("AUTPlayerState", "ChallengeStarsFormatBlue", ".          {0} "), FText::AsNumber(LP->GetRewardStars(NAME_REWARD_BlueStars))))
 					.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
 					.ColorAndOpacity(FLinearColor::Gray)
 			]
@@ -3165,26 +3263,20 @@ int32 AUTPlayerState::CountBanVotes()
 void AUTPlayerState::OnRepSpecialPlayer()
 {
 	AUTPlayerController* UTPC = Cast<AUTPlayerController>(GetWorld()->GetFirstPlayerController());
-	for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
+	AUTCharacter* Character = GetUTCharacter();
+	if (Character != NULL && !Character->bTearOff)
 	{
-		AUTCharacter* Character = Cast<AUTCharacter>(*It);
-		if (Character != NULL && Character->PlayerState == this && !Character->bTearOff)
-		{
-			UpdateSpecialTacComFor(Character, UTPC);
-		}
+		UpdateSpecialTacComFor(Character, UTPC);
 	}
 }
 
 void AUTPlayerState::OnRepSpecialTeamPlayer()
 {
 	AUTPlayerController* UTPC = Cast<AUTPlayerController>(GetWorld()->GetFirstPlayerController());
-	for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
+	AUTCharacter* Character = GetUTCharacter();
+	if (Character != NULL && !Character->bTearOff)
 	{
-		AUTCharacter* Character = Cast<AUTCharacter>(*It);
-		if (Character != NULL && Character->PlayerState == this && !Character->bTearOff)
-		{
-			UpdateSpecialTacComFor(Character, UTPC);
-		}
+		UpdateSpecialTacComFor(Character, UTPC);
 	}
 }
 
@@ -3320,6 +3412,12 @@ void AUTPlayerState::OnRepEmoteSpeed()
 
 void AUTPlayerState::OnRepTaunt()
 {
+	UDemoNetDriver* DemoDriver = GetWorld()->DemoNetDriver;
+	if (DemoDriver && DemoDriver->IsFastForwarding())
+	{
+		return;
+	}
+
 	PlayTauntByIndex(EmoteReplicationInfo.EmoteIndex);
 }
 
@@ -3341,6 +3439,50 @@ void AUTPlayerState::PlayTauntByIndex(int32 TauntIndex)
 		EmoteReplicationInfo.EmoteIndex = TauntIndex;
 		PlayTauntByClass(Taunt2Class);
 	}
+}
+
+void AUTPlayerState::OnRep_ActiveGroupTaunt()
+{
+	UDemoNetDriver* DemoDriver = GetWorld()->DemoNetDriver;
+	if (DemoDriver && DemoDriver->IsFastForwarding())
+	{
+		return;
+	}
+
+	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+	if (GS && GS->ScoringPlayerState == this && ActiveGroupTaunt != nullptr)
+	{
+		for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
+		{
+			AUTCharacter *UTChar = Cast<AUTCharacter>(*It);
+			if (UTChar != NULL)
+			{
+				if (ActiveGroupTaunt->GetDefaultObject<AUTGroupTaunt>()->bCascading)
+				{
+					if (UTChar->PlayerState == this)
+					{
+						UTChar->PlayGroupTaunt(ActiveGroupTaunt);
+					}
+				}
+				else
+				{
+					UTChar->PlayGroupTaunt(ActiveGroupTaunt);
+				}
+			}
+		}
+	}
+}
+
+void AUTPlayerState::PlayGroupTaunt()
+{
+	// SetEmoteSpeed here to make sure that it gets unfrozen if freezing isn't allowed
+	if (Role == ROLE_Authority)
+	{
+		ServerSetEmoteSpeed(EmoteSpeed);
+	}
+
+	ActiveGroupTaunt = GroupTauntClass;
+	OnRep_ActiveGroupTaunt();
 }
 
 void AUTPlayerState::PlayTauntByClass(TSubclassOf<AUTTaunt> TauntToPlay)
@@ -3712,6 +3854,72 @@ void AUTPlayerState::ForceUpdatePlayerInfo()
 					UTGS->AddUserInfoQuery(UserId);
 				}
 			}
+		}
+	}
+}
+
+void AUTPlayerState::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector CameraPosition, FVector CameraDir)
+{
+	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+	AUTPlayerController* UTPC = Cast<AUTPlayerController>(PC);
+	const bool bSpectating = PC && PC->PlayerState && PC->PlayerState->bOnlySpectator;
+	const bool bTacCom = bSpectating && UTPC && UTPC->bTacComView;
+	const bool bOnSameTeam = GS != NULL && GS->OnSameTeam(PC, this);
+	const bool bRecentlyRendered = (GetWorld()->TimeSeconds - GetLastRenderTime() < 0.5f);
+	const bool bIsViewTarget = (PC->GetViewTarget() == this);
+
+	if (UTPC != NULL && FVector::DotProduct(CameraDir, (LastPostRenderedLocation - CameraPosition)) > 0.0f && GS != NULL)
+	{
+		float Dist = (CameraPosition - LastPostRenderedLocation).Size() * FMath::Tan(FMath::DegreesToRadians(PC->PlayerCameraManager->GetFOVAngle()*0.5f));
+		float TextXL, YL;
+		float Scale = Canvas->ClipX / 1920.f;
+		UFont* ChatFont = AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>()->ChatFont;
+		Canvas->TextSize(ChatFont, PlayerName, TextXL, YL, Scale, Scale);
+		float BarWidth, Y;
+		Canvas->TextSize(ChatFont, FString("AAAWWW"), BarWidth, Y, Scale, Scale);
+		float MaxBarWidth = 2.f*BarWidth;
+		float TextScaling = FMath::Min(1.f, MaxBarWidth / TextXL);
+		TextXL *= TextScaling;
+		float XL = TextXL + FMath::Max(BarWidth - TextXL, 0.f);
+		FVector ScreenPosition = Canvas->Project(LastPostRenderedLocation);
+		float XPos = ScreenPosition.X - 0.5f*XL;
+		float YPos = ScreenPosition.Y - YL;
+		if (XPos < Canvas->ClipX || XPos + XL < 0.0f)
+		{
+			FLinearColor TeamColor = Team ? Team->TeamColor : FLinearColor::White;
+			float Height = 0.75*YL;
+			float Border = 2.f*Scale;
+			float XDistFromCenter = FMath::Abs(XPos - 0.5f*Canvas->ClipX + 0.5f*XL + Border);
+			float YDistFromCenter = FMath::Abs(YPos - 0.5f*Canvas->ClipY + 0.5f*Height + Border);
+			float MinBuffer = 0.01f*Canvas->ClipX;
+			if ((XDistFromCenter < 0.5*XL + Border + MinBuffer) && (YDistFromCenter < 0.5f*Height + Border + MinBuffer))
+			{
+				return;
+			}
+			float PctFromCenter = FVector2D(XDistFromCenter, YDistFromCenter).Size() / Canvas->ClipX;
+			float CenterFade = FMath::Clamp(15.f*PctFromCenter - 0.1f, 0.f, 1.f);
+			if (CenterFade == 0.f)
+			{
+				return;
+			}
+			TeamColor.A = 0.2f * CenterFade;
+			UTexture* BarTexture = AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>()->HUDAtlas;
+			float SkullHeight = 0.3f*BarWidth;
+			Canvas->SetLinearDrawColor(FLinearColor::White);
+			Canvas->DrawTile(BarTexture, ScreenPosition.X - 0.5f*SkullHeight, YPos - YL - SkullHeight, SkullHeight, SkullHeight, 725, 0, 28, 36);
+
+			Canvas->SetLinearDrawColor(TeamColor);
+			Canvas->DrawTile(Canvas->DefaultTexture, XPos - Border, YPos - YL - Border, XL + 2.f*Border, Height + 2.f*Border, 0, 0, 1, 1);
+			FLinearColor BeaconTextColor = FLinearColor::White;
+			BeaconTextColor.A = 0.8f * CenterFade;
+			FUTCanvasTextItem TextItem(FVector2D(FMath::TruncToFloat(Canvas->OrgX + XPos + 0.5f*(XL - TextXL)), FMath::TruncToFloat(Canvas->OrgY + YPos - 1.2f*YL)), FText::FromString(PlayerName), ChatFont, BeaconTextColor, NULL);
+			TextItem.Scale = FVector2D(TextScaling*Scale, TextScaling*Scale);
+			TextItem.BlendMode = SE_BLEND_Translucent;
+			FLinearColor ShadowColor = FLinearColor::Black;
+			ShadowColor.A = BeaconTextColor.A;
+			TextItem.EnableShadow(ShadowColor);
+			TextItem.FontRenderInfo = Canvas->CreateFontRenderInfo(true, false);
+			Canvas->DrawItem(TextItem);
 		}
 	}
 }

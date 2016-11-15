@@ -25,8 +25,8 @@
 #include "UTKillcamPlayback.h"
 #include "UTAnalytics.h"
 #include "ContentStreaming.h"
-#include "UTInGameIntroZone.h"
-#include "UTInGameIntroHelper.h"
+#include "UTLineUpZone.h"
+#include "UTLineUpHelper.h"
 #include "Runtime/Analytics/Analytics/Public/AnalyticsEventAttribute.h"
 
 AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
@@ -292,6 +292,8 @@ AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 	UnplayableHitchThresholdInMs = 300;
 	MaxUnplayableHitchesToTolerate = 1;
 	bPlayStatusAnnouncements = false;
+
+	MapVoteListCount = -1;
 }
 
 void AUTGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLifetimeProps) const
@@ -299,6 +301,7 @@ void AUTGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLif
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME(AUTGameState, ReplicatedRemainingTime);
+	DOREPLIFETIME(AUTGameState, ScoringPlayerState);
 	DOREPLIFETIME(AUTGameState, WinnerPlayerState);
 	DOREPLIFETIME(AUTGameState, WinningTeam);
 	DOREPLIFETIME(AUTGameState, bStopGameClock);
@@ -329,6 +332,7 @@ void AUTGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLif
 	DOREPLIFETIME(AUTGameState, NumWinnersToShow);
 
 	DOREPLIFETIME(AUTGameState, MapVoteList);
+	DOREPLIFETIME(AUTGameState, MapVoteListCount);
 	DOREPLIFETIME(AUTGameState, VoteTimer);
 
 	DOREPLIFETIME_CONDITION(AUTGameState, bCasterControl, COND_InitialOnly);
@@ -348,7 +352,7 @@ void AUTGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLif
 
 	DOREPLIFETIME_CONDITION(AUTGameState, ServerInstanceGUID, COND_InitialOnly);
 
-
+	DOREPLIFETIME(AUTGameState, LineUpHelper);
 }
 
 void AUTGameState::PreReplication(IRepChangedPropertyTracker& ChangedPropertyTracker)
@@ -484,6 +488,15 @@ void AUTGameState::BeginPlay()
 
 	bIsAlreadyPendingUserQuery = false;
 	AddAllUsersToInfoQuery();
+
+	if ((GetNetMode() != NM_Client) && (LineUpHelper == nullptr))
+	{
+		FActorSpawnParameters Params;
+		Params.Owner = this;
+		LineUpHelper = GetWorld()->SpawnActor<AUTLineUpHelper>(Params);
+
+		LineUpHelper->SetReplicates(true);
+	}
 }
 
 void AUTGameState::AddUserInfoQuery(TSharedRef<const FUniqueNetId> UserId)
@@ -562,7 +575,7 @@ FText AUTGameState::GetEpicAccountNameForAccount(TSharedRef<const FUniqueNetId> 
 {
 	FText ReturnName = FText::GetEmpty();
 
-	if (UserId->IsValid())
+	if (UserId->IsValid() && OnlineUserInterface.IsValid())
 	{
 		TSharedPtr<FOnlineUser> UserInfo = OnlineUserInterface->GetUserInfo(0, *UserId);
 		if (UserInfo.IsValid())
@@ -1102,6 +1115,7 @@ void AUTGameState::ReceivedGameModeClass()
 	Super::ReceivedGameModeClass();
 
 	TSubclassOf<AUTGameMode> UTGameClass(*GameModeClass);
+	bool bGameModeSupportsInstantReplay = false;
 	if (UTGameClass != NULL)
 	{
 		// precache announcements
@@ -1113,6 +1127,7 @@ void AUTGameState::ReceivedGameModeClass()
 				UTGameClass.GetDefaultObject()->PrecacheAnnouncements(UTPC->Announcer);
 			}
 		}
+		bGameModeSupportsInstantReplay = UTGameClass.GetDefaultObject()->SupportsInstantReplay();
 	}
 
 	UWorld* const World = GetWorld();
@@ -1121,7 +1136,7 @@ void AUTGameState::ReceivedGameModeClass()
 	// Don't record for killcam if this world is already playing back a replay.
 	const UDemoNetDriver* const DemoDriver = World ? World->DemoNetDriver : nullptr;
 	const bool bIsPlayingReplay = DemoDriver ? DemoDriver->IsPlaying() : false;
-	if (!bIsPlayingReplay && GameInstance != nullptr && World->GetNetMode() == NM_Client && CVarUTEnableKillcam->GetInt() == 1)
+	if (!bIsPlayingReplay && GameInstance != nullptr && World->GetNetMode() == NM_Client && CVarUTEnableInstantReplay->GetInt() == 1 && bGameModeSupportsInstantReplay)
 	{
 		// Since the killcam world will also have ReceivedGameModeClass() called in it, detect that and
 		// don't try to start recording again. Killcam world contexts will have a valid PIEInstance for now.
@@ -1154,6 +1169,11 @@ void AUTGameState::ReceivedGameModeClass()
 			}
 		}
 	}
+}
+
+FLinearColor AUTGameState::GetGameStatusColor()
+{
+	return FLinearColor::White;
 }
 
 FText AUTGameState::GetGameStatusText(bool bForScoreboard)
@@ -1190,11 +1210,6 @@ FText AUTGameState::GetGameStatusText(bool bForScoreboard)
 void AUTGameState::OnRep_MatchState()
 {
 	Super::OnRep_MatchState();
-
-	if (!InGameIntroHelper)
-	{
-		InGameIntroHelper = NewObject <UUTInGameIntroHelper>();
-	}
 
 	for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
 	{
@@ -1664,20 +1679,45 @@ void AUTGameState::CreateMapVoteInfo(const FString& MapPackage,const FString& Ma
 
 void AUTGameState::SortVotes()
 {
-	for (int32 i=0; i<MapVoteList.Num()-1; i++)
-	{
-		AUTReplicatedMapInfo* V1 = Cast<AUTReplicatedMapInfo>(MapVoteList[i]);
-		for (int32 j=i+1; j<MapVoteList.Num(); j++)
-		{
-			AUTReplicatedMapInfo* V2 = Cast<AUTReplicatedMapInfo>(MapVoteList[j]);
-			if( V2 && (!V1 || (V2->VoteCount > V1->VoteCount)) )
+
+	MapVoteList.Sort([&](AUTReplicatedMapInfo &A, const AUTReplicatedMapInfo &B)
 			{
-				MapVoteList[i] = V2;
-				MapVoteList[j] = V1;
-				V1 = V2;
+				bool bHasTitleA = !A.Title.IsEmpty();
+				bool bHasTitleB = !B.Title.IsEmpty();
+
+				if (bHasTitleA && !bHasTitleB)
+				{
+					return true;
+				}
+
+				if (A.bIsMeshedMap)
+				{
+					if (!B.bIsMeshedMap)
+					{
+						return true;
+					}
+					else if (A.bIsEpicMap && !B.bIsEpicMap)
+					{
+						return true;
+					}
+					else if (!A.bIsEpicMap && B.bIsEpicMap)
+					{
+						return false;
+					}
+				}
+				else if (B.bIsMeshedMap)
+				{
+					return false;
+				}
+				else if (A.bIsEpicMap && !B.bIsEpicMap)
+				{
+					return true;
+				}
+
+				return A.Title < B.Title;
+
 			}
-		}
-	}
+	);
 }
 
 bool AUTGameState::GetImportantPickups_Implementation(TArray<AUTPickup*>& PickupList)
@@ -2211,51 +2251,40 @@ bool AUTGameState::CanShowBoostMenu(AUTPlayerController* Target)
 	return IsMatchIntermission() || !HasMatchStarted();
 }
 
-bool AUTGameState::ShouldUseInGameSummary(InGameIntroZoneTypes SummaryType)
+bool AUTGameState::ShouldUseInGameSummary(LineUpTypes SummaryType)
 {
-	if ((GetWorld() == nullptr) || (SummaryType == InGameIntroZoneTypes::Invalid))
+	if ((GetWorld() == nullptr) || (SummaryType == LineUpTypes::Invalid))
 	{
 		return false;
 	}
 
-	for (TActorIterator<AUTInGameIntroZone> It(GetWorld()); It; ++It)
+	//find matching ZoneType to SummaryType
+	for (TActorIterator<AUTLineUpZone> It(GetWorld()); It; ++It)
 	{
 		if (It->ZoneType == SummaryType)
 		{
-			int RedTeamPlayerCount = 0;
-			int BlueTeamPlayerCount = 0;
-			int OtherTeamPlayerCount = 0;
-
-			const int RedTeam = 0;
-			const int BlueTeam = 1;
-
-			for (int index = 0; index < PlayerArray.Num(); ++index)
-			{
-				AUTPlayerState* UTPS = Cast<AUTPlayerState>(PlayerArray[index]);
-				if (UTPS)
-				{
-					if (UTPS->GetTeamNum() == RedTeam)
-					{
-						++RedTeamPlayerCount;
-					}
-					else if (UTPS->GetTeamNum() == BlueTeam)
-					{
-						++BlueTeamPlayerCount;
-					}
-					else
-					{
-						++OtherTeamPlayerCount;
-					}
-				}
-			}
-
-			bool bIsRedTeamSizeLimitMet = RedTeamPlayerCount > 0 ? It->RedTeamSpawnLocations.Num() >= RedTeamPlayerCount : true;
-			bool bIsBlueTeamSizeLimitMet = BlueTeamPlayerCount > 0 ? It->BlueTeamSpawnLocations.Num() >= BlueTeamPlayerCount : true;
-			bool bIsOtherTeamPlayerCountMet = OtherTeamPlayerCount > 0 ? It->FFATeamSpawnLocations.Num() >= OtherTeamPlayerCount :  true;
-
-			return bIsRedTeamSizeLimitMet && bIsBlueTeamSizeLimitMet && bIsOtherTeamPlayerCountMet;
+			return true;
 		}
 	}
 
 	return false;
+}
+
+bool AUTGameState::IsMapVoteListReplicationCompleted()
+{
+	bool bMapVoteListReplicationComplete = true;
+	if (MapVoteListCount > 0 && MapVoteList.Num() == MapVoteListCount)
+	{
+		for (int32 i=0; i < MapVoteList.Num(); i++)
+		{
+			if (MapVoteList[i] == nullptr)
+			{
+				bMapVoteListReplicationComplete = false;
+				break;
+			}
+		}
+	}
+
+	return bMapVoteListReplicationComplete;
+
 }

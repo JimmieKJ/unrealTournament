@@ -14,6 +14,12 @@ public:
 	// the single flag that must be capped
 	UPROPERTY()
 	AUTCarriedObject* Flag;
+	// cached distance from flag start point to capture point
+	UPROPERTY()
+	float TotalFlagRunDistance;
+	// cached PathNode that the flag was most recently at, used for defender flag approach pathing
+	UPROPERTY()
+	const UUTPathNode* LastFlagNode;
 
 	/** whether we're on the attacking team currently
 	 * note: this has nothing to do with squad orders (can be on attacking team and have orders to 'defend' which in this context means the flag carrier)
@@ -25,6 +31,7 @@ public:
 	virtual bool ShouldUseTranslocator(AUTBot* B) override;
 	virtual float ModifyEnemyRating(float CurrentRating, const FBotEnemyInfo& EnemyInfo, AUTBot* B) override;
 	virtual bool CheckSquadObjectives(AUTBot* B) override;
+	virtual int32 GetDefensePointPriority(AUTBot* B, class AUTDefensePoint* Point);
 
 	/** return action for flag carrier to take */
 	virtual bool SetFlagCarrierAction(AUTBot* B);

@@ -98,10 +98,7 @@ void SUTTextChatPanel::Construct(const FArguments& InArgs)
 			]
 		]
 	];
-}
 
-void SUTTextChatPanel::OnShowPanel()
-{
 	TSharedPtr<SUTChatEditBox>ChatWidget = PlayerOwner->GetChatWidget();
 	if (ChatWidget.IsValid() && ChatSlot.IsValid())
 	{
@@ -114,6 +111,10 @@ void SUTTextChatPanel::OnShowPanel()
 
 		ChatWidget->SetCommittedDelegate(FOnTextCommitted::CreateSP(this,&SUTTextChatPanel::ChatTextCommited));
 	}
+}
+
+void SUTTextChatPanel::OnShowPanel()
+{
 }
 void SUTTextChatPanel::OnHidePanel()
 {

@@ -14,7 +14,7 @@ AUTWeap_Sniper::AUTWeap_Sniper(const FObjectInitializer& ObjectInitializer)
 	DefaultGroup = 9;
 	BringUpTime = 0.45f;
 	PutDownTime = 0.4f;
-	StoppedHeadshotScale = 1.8f;
+	StoppedHeadshotScale = 1.4f;
 	SlowHeadshotScale = 1.4f;
 	AimedHeadshotScale = 1.f;
 	RunningHeadshotScale = 1.0f;
@@ -26,6 +26,7 @@ AUTWeap_Sniper::AUTWeap_Sniper(const FObjectInitializer& ObjectInitializer)
 	BaseAISelectRating = 0.7f;
 	BasePickupDesireability = 0.63f;
 	FiringViewKickback = -50.f;
+	FiringViewKickbackY = 30.f;
 	BlockedHeadshotDamage = 45;
 
 	KillStatsName = NAME_SniperKills;
@@ -36,6 +37,7 @@ AUTWeap_Sniper::AUTWeap_Sniper(const FObjectInitializer& ObjectInitializer)
 	ShotsStatsName = NAME_SniperShots;
 	bCheckHeadSphere = true;
 	bCheckMovingHeadSphere = true;
+	bIgnoreShockballs = true;
 
 	WeaponCustomizationTag = EpicWeaponCustomizationTags::Sniper;
 	WeaponSkinCustomizationTag = EpicWeaponSkinCustomizationTags::Sniper;
@@ -176,7 +178,7 @@ void AUTWeap_Sniper::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 		}
 		Hit.Actor->TakeDamage(Damage, FUTPointDamageEvent(Damage, Hit, FireDir, DamageType, FireDir * InstantHitInfo[CurrentFireMode].Momentum), UTOwner->Controller, this);
 
-		if (bIsHeadShot && C && (C->Health > 0))
+		if ((Role == ROLE_Authority) && bIsHeadShot && C && (C->Health > 0))
 		{
 			C->NotifyBlockedHeadShot(UTOwner);
 		}

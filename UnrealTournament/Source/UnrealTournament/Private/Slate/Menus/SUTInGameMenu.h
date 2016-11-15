@@ -7,6 +7,9 @@
 #include "../Widgets/SUTComboButton.h"
 
 #if !UE_SERVER
+
+class SUTMessageBoxDialog;
+
 class UNREALTOURNAMENT_API SUTInGameMenu : public SUTMenuBase
 {
 public:
@@ -14,13 +17,15 @@ public:
 	virtual FReply OnReturnToMainMenu();
 
 	virtual void OnMenuOpened(const FString& Parameters);
-
+	virtual FReply OnKeyUp( const FGeometry& MyGeometry, const FKeyEvent& InKeyboardEvent ) override;
 protected:
 
 	virtual void BuildLeftMenuBar();
 	virtual void BuildExitMenu(TSharedPtr <SUTComboButton> ExitButton);
 
 	virtual FReply OnCloseMenu();
+	virtual void OnMenuClosed();
+
 
 	virtual FReply OnTeamChangeClick();
 	virtual FReply OnReadyChangeClick();
@@ -44,6 +49,8 @@ protected:
 	EVisibility GetMatchSummaryButtonVisibility() const;
 
 	FReply ShowSummary();
+
+	TSharedPtr<SUTMessageBoxDialog> MessageDialog;
 
 public:
 	virtual bool SkipWorldRender();

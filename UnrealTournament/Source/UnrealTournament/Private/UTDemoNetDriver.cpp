@@ -16,7 +16,7 @@ void UUTDemoNetDriver::WriteGameSpecificDemoHeader(TArray<FString>& GameSpecific
 		}
 	}
 }
-/*
+
 bool UUTDemoNetDriver::ShouldSaveCheckpoint()
 {
 #if UE_SERVER
@@ -25,19 +25,26 @@ bool UUTDemoNetDriver::ShouldSaveCheckpoint()
 
 	const double TimeElapsed = DemoCurrentTime - LastCheckpointTime;
 
-	if (TimeElapsed > 500.0)
+	if (TimeElapsed > 600.0)
 	{
 		return true;
 	}
 
-	if (TimeElapsed > 60)
+	if (TimeElapsed > 120.0)
 	{
+		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+		if (GS && GS->IsMatchIntermission())
+		{
+			return Super::ShouldSaveCheckpoint();
+		}
+
 		// If playercontroller has no pawn, probably dead and ok to checkpoint
 		APlayerController* PC = UGameplayStatics::GetPlayerController(GetWorld(), 0);
 		if (PC)
 		{
 			AUTCharacter* Char = Cast<AUTCharacter>(PC->GetPawn());
-			if (Char == nullptr || Char->IsDead())
+			if ((Char == nullptr && !PC->GetPawn()) || 
+				(Char != nullptr && Char->IsDead()))
 			{
 				return true;
 			}
@@ -50,7 +57,6 @@ bool UUTDemoNetDriver::ShouldSaveCheckpoint()
 
 	return false;
 }
-*/
 
 bool UUTDemoNetDriver::ProcessGameSpecificDemoHeader(const TArray<FString>& GameSpecificData, FString& Error)
 {

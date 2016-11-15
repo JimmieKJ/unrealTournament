@@ -43,7 +43,7 @@ class UNREALTOURNAMENT_API SUTControlSettingsDialog : public SUTDialogBase
 public:
 
 	SLATE_BEGIN_ARGS(SUTControlSettingsDialog)
-	: _DialogSize(FVector2D(1300,900))
+	: _DialogSize(FVector2D(1500,900))
 	, _bDialogSizeIsRelative(false)
 	, _DialogPosition(FVector2D(0.5f,0.5f))
 	, _DialogAnchorPoint(FVector2D(0.5f,0.5f))
@@ -134,7 +134,7 @@ protected:
 	TSharedPtr<SCheckBox> SingleTapAfterJump;
 	TSharedPtr<SNumericEntryBox<float> > MaxDodgeClickTime;
 	TSharedPtr<SNumericEntryBox<float> > MaxDodgeTapTime;
-	TSharedPtr<SCheckBox> DisableDoubleTapDodge;
+	TSharedPtr<SCheckBox> EnableDoubleTapDodge;
 	TSharedPtr<SCheckBox> DeferFireInput;
 
 

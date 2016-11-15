@@ -1,6 +1,7 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealTournament.h"
+#include "UTGameInstance.h"
 #include "UTCharacterMovement.h"
 #include "ActiveSound.h"
 #include "AudioDevice.h"
@@ -51,7 +52,9 @@
 #include "UTKillerTarget.h"
 #include "UTGauntletFlag.h"
 #include "UTTutorialAnnouncement.h"
-#include "UTInGameIntroHelper.h"
+#include "UTLineUpHelper.h"
+#include "UTRallyPoint.h"
+#include "UTDemoRecSpectator.h"
 
 static TAutoConsoleVariable<float> CVarUTKillcamStartDelay(
 	TEXT("UT.KillcamStartDelay"),
@@ -153,6 +156,7 @@ AUTPlayerController::AUTPlayerController(const class FObjectInitializer& ObjectI
 	LastComMessageSwitch = -1;
 	LastComMessageTime = 0.0f;
 	ReplicatedWeaponHand = EWeaponHand::HAND_Right;
+	MinNetUpdateFrequency = 100.0f;
 }
 
 void AUTPlayerController::BeginPlay()
@@ -302,7 +306,13 @@ void AUTPlayerController::ServerMutate_Implementation(const FString& MutateStrin
 	}
 }
 
-void AUTPlayerController::BeginRallyTo(AUTCharacter* RallyTarget, const FVector& NewRallyLocation, float Delay)
+bool AUTPlayerController::IsCurrentlyRallying()
+{
+	// note server side only
+	return GetWorldTimerManager().IsTimerActive(RallyTimerHandle);
+}
+
+void AUTPlayerController::BeginRallyTo(AUTRallyPoint* RallyTarget, const FVector& NewRallyLocation, float Delay)
 {
 	if (!GetWorldTimerManager().IsTimerActive(RallyTimerHandle))
 	{
@@ -311,7 +321,7 @@ void AUTPlayerController::BeginRallyTo(AUTCharacter* RallyTarget, const FVector&
 	ClientStartRally(RallyTarget, NewRallyLocation, Delay);
 }
 
-void AUTPlayerController::ClientStartRally_Implementation(AUTCharacter* RallyTarget, const FVector& NewRallyLocation, float Delay)
+void AUTPlayerController::ClientStartRally_Implementation(AUTRallyPoint* RallyTarget, const FVector& NewRallyLocation, float Delay)
 {
 	if (RallyTarget)
 	{
@@ -321,12 +331,10 @@ void AUTPlayerController::ClientStartRally_Implementation(AUTCharacter* RallyTar
 		static FName NAME_RallyCam(TEXT("RallyCam"));
 		SetCameraMode(NAME_RallyCam);
 		SetViewTarget(RallyTarget);
-
-		// effect at rally destination
-		if (UTCharacter)
-		{
-			UTCharacter->SpawnRallyEffectAt(NewRallyLocation);
-		}
+		FRotator NewRotation = RallyTarget->GetActorRotation();
+		NewRotation.Pitch = 0.f;
+		NewRotation.Roll = 0.f;
+		SetControlRotation(NewRotation);
 	}
 }
 
@@ -355,7 +363,6 @@ void AUTPlayerController::RequestRally()
 {
 	if (UTPlayerState && UTPlayerState->bCanRally)
 	{
-		LastRallyRequestTime = GetWorld()->GetTimeSeconds();
 		ServerRequestRally();
 	}
 }
@@ -500,6 +507,7 @@ void AUTPlayerController::SetupInputComponent()
 	InputComponent->BindAction("SlowerEmote", IE_Pressed, this, &AUTPlayerController::SlowerEmote);
 	InputComponent->BindAction("PlayTaunt", IE_Pressed, this, &AUTPlayerController::PlayTaunt);
 	InputComponent->BindAction("PlayTaunt2", IE_Pressed, this, &AUTPlayerController::PlayTaunt2);
+	InputComponent->BindAction("PlayGroupTaunt", IE_Pressed, this, &AUTPlayerController::PlayGroupTaunt);
 
 	InputComponent->BindAction("ShowBuyMenu", IE_Pressed, this, &AUTPlayerController::ShowBuyMenu);
 
@@ -666,6 +674,7 @@ void AUTPlayerController::ClientRestart_Implementation(APawn* NewPawn)
 	}
 
 	SetCameraMode("Default");
+	DeathCamFocus = nullptr;
 
 	//There is an out of order chance during the initial connection that:
 	// The new players character will be spawned and possessed. Replicating the characters PlayerState.
@@ -688,7 +697,6 @@ void AUTPlayerController::ClientRestart_Implementation(APawn* NewPawn)
 	{
 		MyUTHUD->ClientRestart();
 	}
-
 }
 
 void AUTPlayerController::PawnPendingDestroy(APawn* InPawn)
@@ -740,10 +748,13 @@ void AUTPlayerController::SetSpectatorMouseChangesView(bool bNewValue)
 	{
 		bSpectatorMouseChangesView = bNewValue;
 		UE_LOG(UT,Log, TEXT("---- bSpectatorMouseChangesView = %s"), (bSpectatorMouseChangesView ? TEXT("true") : TEXT("false")));
+
+		UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(Player);
+		UUTGameInstance* UTGameInstance = LocalPlayer ? Cast<UUTGameInstance>(LocalPlayer->GetGameInstance()) : nullptr;
+
 		if (bSpectatorMouseChangesView)
 		{
-			UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(Player);
-			if (LocalPlayer)
+			if (LocalPlayer && UTGameInstance && !UTGameInstance->bLevelIsLoading)
 			{
 				FReply& SlateOps = LocalPlayer->GetSlateOperations();
 				SlateOps.UseHighPrecisionMouseMovement(LocalPlayer->ViewportClient->GetGameViewportWidget().ToSharedRef());
@@ -753,8 +764,7 @@ void AUTPlayerController::SetSpectatorMouseChangesView(bool bNewValue)
 		}
 		else
 		{
-			UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(Player);
-			if (LocalPlayer)
+			if (LocalPlayer && UTGameInstance && !UTGameInstance->bLevelIsLoading)
 			{
 				LocalPlayer->GetSlateOperations().ReleaseMouseCapture().SetMousePos(SavedMouseCursorLocation.IntPoint());
 				bShowMouseCursor = true;
@@ -1960,6 +1970,13 @@ void AUTPlayerController::HearSound(USoundBase* InSoundCue, AActor* SoundPlayer,
 
 void AUTPlayerController::ClientHearSound_Implementation(USoundBase* TheSound, AActor* SoundPlayer, FVector_NetQuantize SoundLocation, bool bStopWhenOwnerDestroyed, bool bAmplifyVolume, ESoundAmplificationType AmpType)
 {
+	// Don't play RPC sounds during fast forward
+	UDemoNetDriver* DemoDriver = GetWorld()->DemoNetDriver;
+	if (DemoDriver && DemoDriver->IsFastForwarding())
+	{
+		return;
+	}
+
 	if (TheSound != NULL && (SoundPlayer != NULL || !SoundLocation.IsZero()))
 	{
 		FAudioDevice* AudioDevice = GetWorld()->GetAudioDevice();
@@ -2045,10 +2062,20 @@ void AUTPlayerController::ClientHearSound_Implementation(USoundBase* TheSound, A
 					VolumeMultiplier = CustomAmp.TeammateVolumeMultiplier;
 					PitchMultiplier = CustomAmp.TeammatePitchMultiplier;
 				}
+				else if (AmpType == SAT_Footstep)
+				{
+					FVector ViewPoint;
+					FRotator ViewRotation;
+					GetActorEyesViewPoint(ViewPoint, ViewRotation);
+					if (SoundPlayer && ((ViewRotation.Vector() | (SoundPlayer->GetActorLocation() - ViewPoint).GetSafeNormal()) < 0.7f))
+					{
+						VolumeMultiplier = 2.f;
+					}
+				}
 			}
-			if (!bAmplifyVolume && !bInstigatedSound && (bSkipIfOccluded || (bSkipIfTeammateOccluded && bSameTeam) || (CustomAmp.OccludedAttenuation != nullptr)))
+			if (!bAmplifyVolume && !bInstigatedSound && (bSkipIfOccluded || (bSkipIfTeammateOccluded && bSameTeam) || (CustomAmp.OccludedAttenuation != nullptr)) && (!SoundLocation.IsZero() || SoundPlayer))
 			{
-				// if further than half audible radius, skip if occluded
+				// if further than 0.65f audible radius, skip if occluded
 				float MaxAudibleDistance = TheSound->GetAttenuationSettingsToApply() ? TheSound->GetAttenuationSettingsToApply()->GetMaxDimension() : 4000.f;
 				if (bSameTeam)
 				{
@@ -2060,19 +2087,22 @@ void AUTPlayerController::ClientHearSound_Implementation(USoundBase* TheSound, A
 				static FName NAME_LineOfSight = FName(TEXT("LineOfSight"));
 				FCollisionQueryParams CollisionParms(NAME_LineOfSight, true, SoundPlayer);
 				CollisionParms.AddIgnoredActor(GetViewTarget());
-				bool bHit = GetWorld()->LineTraceTestByChannel(ViewPoint, SoundLocation, ECC_Visibility, CollisionParms);
+				if (SoundPlayer)
+				{
+					CollisionParms.AddIgnoredActor(SoundPlayer);
+				}
+
+				FVector PlaySoundLocation = SoundLocation.IsZero() ? SoundPlayer->GetActorLocation() : SoundLocation;
+				bool bHit = GetWorld()->LineTraceTestByChannel(ViewPoint, PlaySoundLocation, ECC_Visibility, CollisionParms);
 				if (bHit)
 				{
 					if (CustomAmp.OccludedAttenuation != nullptr)
 					{
 						AttenuationOverride = CustomAmp.OccludedAttenuation;
 					}
-					else
+					else if (0.65f * MaxAudibleDistance < (PlaySoundLocation - ViewPoint).Size())
 					{
-						if (0.75f * MaxAudibleDistance > (SoundLocation - ViewPoint).Size())
-						{
-							return;
-						}
+						return;
 					}
 				}
 			}
@@ -2096,7 +2126,7 @@ void AUTPlayerController::ClientHearSound_Implementation(USoundBase* TheSound, A
 
 void AUTPlayerController::ClientWarnEnemyBehind_Implementation(AUTPlayerState* TeamPS, AUTCharacter* Targeter)
 {
-	if ((GetWorld()->GetTimeSeconds() - Targeter->GetLastRenderTime() > 5.f) && TeamPS && TeamPS->CharacterVoice)
+	if (Targeter && (GetWorld()->GetTimeSeconds() - Targeter->GetLastRenderTime() > 5.f) && TeamPS && TeamPS->CharacterVoice)
 	{
 		int32 Switch = TeamPS->CharacterVoice.GetDefaultObject()->GetStatusIndex(StatusMessage::BehindYou);
 		if (Switch < 0)
@@ -2113,7 +2143,7 @@ void AUTPlayerController::ClientWarnEnemyBehind_Implementation(AUTPlayerState* T
 void AUTPlayerController::CheckDodge(float LastTapTime, float MaxClickTime, bool bForward, bool bBack, bool bLeft, bool bRight)
 {
 	UUTCharacterMovement* MyCharMovement = UTCharacter ? UTCharacter->UTCharacterMovement : NULL;
-	if (MyCharMovement != NULL && !IsMoveInputIgnored() && (bIsHoldingDodge || (GetWorld()->GetTimeSeconds() - LastTapTime < MaxClickTime)))
+	if (MyCharMovement != NULL && !IsMoveInputIgnored() && (bIsHoldingDodge || (GetWorld()->GetRealTimeSeconds() - LastTapTime < MaxClickTime)))
 	{
 		MyCharMovement->bPressedDodgeForward = bForward;
 		MyCharMovement->bPressedDodgeBack = bBack;
@@ -2215,7 +2245,7 @@ void AUTPlayerController::OnTapForward()
 	LastTapRightTime = -10.f;
 	LastTapLeftTime = -10.f;
 	CheckDodge(LastTapForwardTime, MaxDodgeClickTime, true, false, false, false);
-	LastTapForwardTime = GetWorld()->GetTimeSeconds();
+	LastTapForwardTime = GetWorld()->GetRealTimeSeconds();
 }
 
 void AUTPlayerController::OnTapBack()
@@ -2224,7 +2254,7 @@ void AUTPlayerController::OnTapBack()
 	LastTapRightTime = -10.f;
 	LastTapLeftTime = -10.f;
 	CheckDodge(LastTapBackTime, MaxDodgeClickTime, false, true, false, false);
-	LastTapBackTime = GetWorld()->GetTimeSeconds();
+	LastTapBackTime = GetWorld()->GetRealTimeSeconds();
 }
 
 void AUTPlayerController::OnTapLeft()
@@ -2233,7 +2263,7 @@ void AUTPlayerController::OnTapLeft()
 	LastTapBackTime = -10.f;
 	LastTapForwardTime = -10.f;
 	CheckDodge(LastTapLeftTime, MaxDodgeClickTime, false, false, true, false);
-	LastTapLeftTime = GetWorld()->GetTimeSeconds();
+	LastTapLeftTime = GetWorld()->GetRealTimeSeconds();
 }
 
 void AUTPlayerController::OnTapRight()
@@ -2242,7 +2272,7 @@ void AUTPlayerController::OnTapRight()
 	LastTapBackTime = -10.f;
 	LastTapForwardTime = -10.f;
 	CheckDodge(LastTapRightTime, MaxDodgeClickTime, false, false, false, true);
-	LastTapRightTime = GetWorld()->GetTimeSeconds();
+	LastTapRightTime = GetWorld()->GetRealTimeSeconds();
 }
 
 void AUTPlayerController::OnTapForwardRelease()
@@ -2487,7 +2517,10 @@ void AUTPlayerController::OnShowScores()
 	else
 	{
 		// toggles on and off during intermissions
-		ToggleScoreboard(!MyUTHUD->bShowScores);
+		if (MyUTHUD)
+		{
+			ToggleScoreboard(!MyUTHUD->bShowScores);
+		}
 	}
 }
 
@@ -2519,6 +2552,7 @@ void AUTPlayerController::ServerToggleWarmup_Implementation()
 		return;
 	}
 	UTPlayerState->bIsWarmingUp = !UTPlayerState->bIsWarmingUp;
+	UTPlayerState->ForceNetUpdate();
 	if (UTPlayerState->bIsWarmingUp)
 	{
 		if (!IsFrozen())
@@ -2571,7 +2605,7 @@ void AUTPlayerController::ServerRestartPlayer_Implementation()
 				UTPlayerState->ForceNetUpdate();
 			}
 		}
-		else
+		else if ((UTGM->GetMatchState() != MatchState::CountdownToBegin) && (UTGM->GetMatchState() != MatchState::PlayerIntro))
 		{
 			UTPlayerState->SetReadyToPlay(!UTPlayerState->bReadyToPlay);
 			UTPlayerState->bPendingTeamSwitch = false;
@@ -2852,8 +2886,27 @@ void AUTPlayerController::SetStylizedPP(int32 NewPP)
 
 void AUTPlayerController::ClientGameEnded_Implementation(AActor* EndGameFocus, bool bIsWinner)
 {
-	ChangeState(FName(TEXT("GameOver")));
-	FinalViewTarget = EndGameFocus;
+	static const FName NAME_GameOver = FName(TEXT("GameOver"));
+	ChangeState(NAME_GameOver);
+
+	bool bIsInGameIntroHandlingEndGameSummary = false;
+	if (GetWorld() && GetWorld()->GameState)
+	{
+		AUTGameState* UTGS = Cast<AUTGameState>(GetWorld()->GameState);
+		if (UTGS)
+		{
+			if (UTGS->LineUpHelper && UTGS->LineUpHelper->bIsActive)
+			{
+				bIsInGameIntroHandlingEndGameSummary = UTGS->LineUpHelper->bIsActive;
+			}
+		}
+	}
+
+	if (!bIsInGameIntroHandlingEndGameSummary)
+	{
+		FinalViewTarget = EndGameFocus;
+	}
+
 	BehindView(true);
 	FTimerHandle TimerHandle;
 	GetWorldTimerManager().SetTimer(TimerHandle, this, &AUTPlayerController::ShowEndGameScoreboard, 10.f, false);
@@ -2940,6 +2993,18 @@ void AUTPlayerController::SetViewTarget(class AActor* NewViewTarget, FViewTarget
 	{
 		NewViewTarget = FinalViewTarget;
 	}
+	
+	// Cancel this if we have an active line up, and go through the line up code to end up setting view target
+	if (GetWorld())
+	{
+		AUTGameState* UTGS = Cast<AUTGameState>(GetWorld()->GetGameState());
+		if (UTGS && UTGS->LineUpHelper && UTGS->LineUpHelper->bIsActive && (NewViewTarget != AUTLineUpHelper::GetCameraActorForLineUp(GetWorld(), UTGS->LineUpHelper->LastActiveType)))
+		{
+			ClientSetActiveLineUp(true, UTGS->LineUpHelper->LastActiveType);
+			return;
+		}
+	}
+	
 	AActor* OldViewTarget = GetViewTarget();
 	AUTViewPlaceholder *UTPlaceholder = Cast<AUTViewPlaceholder>(GetViewTarget());
 	Super::SetViewTarget(NewViewTarget, TransitionParams);
@@ -2980,6 +3045,10 @@ void AUTPlayerController::SetViewTarget(class AActor* NewViewTarget, FViewTarget
 	if (MyUTHUD && (UpdatedViewTarget != OldViewTarget))
 	{
 		MyUTHUD->ClearIndicators();
+		if (StateName == NAME_Spectating)
+		{
+			MyUTHUD->LastKillTime = -100.f;
+		}
 	}
 }
 
@@ -3185,12 +3254,20 @@ void AUTPlayerController::ClientViewSpectatorPawn_Implementation(FViewTargetTran
 
 void AUTPlayerController::ClientHalftime_Implementation()
 {
-	// Freeze all of the pawns
+	// Freeze all of the pawns, destroy torn off ones
 	for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
 	{
-		if (*It && !Cast<ASpectatorPawn>((*It).Get()))
+		APawn* TestPawn = *It;
+		if (TestPawn && !Cast<ASpectatorPawn>(TestPawn))
 		{
-			(*It)->TurnOff();
+			if (TestPawn->bTearOff)
+			{
+				TestPawn->Destroy();
+			}
+			else
+			{
+				TestPawn->TurnOff();
+			}
 		}
 	}
 	if (UTCharacter)
@@ -3277,14 +3354,19 @@ void AUTPlayerController::PlayerTick( float DeltaTime )
 {
 	FRotator CurrentRotation = GetControlRotation();
 	Super::PlayerTick(DeltaTime);
-	if (StateName == FName(TEXT("GameOver")))
+	static const FName NAME_GameOver = FName(TEXT("GameOver"));
+	if (StateName == NAME_GameOver)
 	{
 		UpdateRotation(DeltaTime);
 	}
 	else if (IsInState(NAME_Inactive))
 	{
-		// revert any rotation changes
-		SetControlRotation(CurrentRotation);
+		AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
+		if (GameState && !GameState->HasMatchEnded() && !GameState->IsMatchIntermission())
+		{
+			// revert any rotation changes
+			SetControlRotation(CurrentRotation);
+		}
 	}
 
 	// if we have no UTCharacterMovement, we need to apply firing here since it won't happen from the component
@@ -3662,6 +3744,32 @@ void AUTPlayerController::ServerEmote_Implementation(int32 EmoteIndex)
 	else if (UTPlayerState != nullptr)
 	{
 		UTPlayerState->PlayTauntByIndex(EmoteIndex);
+	}
+}
+
+void AUTPlayerController::PlayGroupTaunt()
+{
+	if (GetWorld()->GetRealTimeSeconds() - LastEmoteTime > EmoteCooldownTime)
+	{
+		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+		if (GS && GS->ScoringPlayerState == PlayerState && (GS->IsMatchIntermission() || GS->HasMatchEnded()))
+		{
+			ServerPlayGroupTaunt();
+			LastEmoteTime = GetWorld()->GetRealTimeSeconds();
+		}
+	}
+}
+
+bool AUTPlayerController::ServerPlayGroupTaunt_Validate()
+{
+	return true;
+}
+
+void AUTPlayerController::ServerPlayGroupTaunt_Implementation()
+{
+	if (UTPlayerState != nullptr)
+	{
+		UTPlayerState->PlayGroupTaunt();
 	}
 }
 
@@ -4951,7 +5059,7 @@ void AUTPlayerController::ProcessVoiceDebug(const FString& Command)
 
 void AUTPlayerController::ClientQueueCoolMoment_Implementation(FUniqueNetIdRepl NetId, float TimeToRewind)
 {
-	if (CVarUTEnableKillcam.GetValueOnGameThread() == 0)
+	if (CVarUTEnableInstantReplay.GetValueOnGameThread() == 0)
 	{
 		return;
 	}
@@ -4981,7 +5089,7 @@ void AUTPlayerController::ClientQueueCoolMoment_Implementation(FUniqueNetIdRepl 
 	}
 }
 
-void AUTPlayerController::ClientPlayInstantReplay_Implementation(APawn* PawnToFocus, float TimeToRewind)
+void AUTPlayerController::ClientPlayInstantReplay_Implementation(APawn* PawnToFocus, float TimeToRewind, float StartDelay)
 {
 	UE_LOG(UT, Log, TEXT("ClientPlayInstantReplay %f"), TimeToRewind);
 
@@ -4996,7 +5104,7 @@ void AUTPlayerController::ClientPlayInstantReplay_Implementation(APawn* PawnToFo
 		GetWorld()->GetTimerManager().SetTimer(
 			KillcamStopHandle,
 			FTimerDelegate::CreateUObject(this, &AUTPlayerController::ClientStopKillcam),
-			TimeToRewind + CVarUTKillcamStartDelay.GetValueOnGameThread() + 0.5f,
+			TimeToRewind + StartDelay,
 			false);
 	}
 }
@@ -5004,33 +5112,26 @@ void AUTPlayerController::ClientPlayInstantReplay_Implementation(APawn* PawnToFo
 void AUTPlayerController::ClientPlayKillcam_Implementation(AController* KillingController, APawn* PawnToFocus, FVector_NetQuantize FocusLoc)
 {
 //	UE_LOG(UT, Log, TEXT("ClientPlayKillcam %d"), (GetWorld()->DemoNetDriver && IsLocalController()));
-	if (GetWorld()->DemoNetDriver && IsLocalController() && PawnToFocus)
+	if (Cast<AUTCharacter>(PawnToFocus) != nullptr)
 	{
-		FNetworkGUID FocusPawnGuid = GetWorld()->DemoNetDriver->GetGUIDForActor(PawnToFocus);
-		GetWorld()->GetTimerManager().SetTimer(
-			KillcamStartHandle,
-			FTimerDelegate::CreateUObject(this, &AUTPlayerController::OnKillcamStart, FocusPawnGuid, CVarUTKillcamRewindTime.GetValueOnGameThread()),
-			CVarUTKillcamStartDelay.GetValueOnGameThread(),
-			false);
-		GetWorld()->GetTimerManager().SetTimer(
-			KillcamStopHandle,
-			FTimerDelegate::CreateUObject(this, &AUTPlayerController::ClientStopKillcam),
-			CVarUTKillcamRewindTime.GetValueOnGameThread() + CVarUTKillcamStartDelay.GetValueOnGameThread() + 0.5f,
-			false);
-	}
-	else if (Cast<AUTCharacter>(PawnToFocus) != nullptr)
-	{
-/*		FActorSpawnParameters Params;
-		Params.Instigator = PawnToFocus;
-		Params.Owner = PawnToFocus;
-		Params.bNoFail = true;
-		AUTKillerTarget* KillerTarget = GetWorld()->SpawnActor<AUTKillerTarget>(AUTKillerTarget::StaticClass(), FocusLoc, PawnToFocus->GetActorRotation(), Params);
-		if (KillerTarget != nullptr)
+		DeathCamTime = GetWorld()->GetTimeSeconds();
+		if (LineOfSightTo(PawnToFocus))
 		{
-			KillerTarget->InitFor(Cast<AUTCharacter>(PawnToFocus), this);
+			DeathCamFocus = PawnToFocus;
 		}
-		DeathCamFocus = KillerTarget;*/
-		DeathCamFocus = PawnToFocus;
+		else
+		{
+			FActorSpawnParameters Params;
+			Params.Instigator = PawnToFocus;
+			Params.Owner = PawnToFocus;
+			Params.bNoFail = true;
+			AUTKillerTarget* KillerTarget = GetWorld()->SpawnActor<AUTKillerTarget>(AUTKillerTarget::StaticClass(), FocusLoc, PawnToFocus->GetActorRotation(), Params);
+			if (KillerTarget != nullptr)
+			{
+				KillerTarget->InitFor(Cast<AUTCharacter>(PawnToFocus), this);
+			}
+			DeathCamFocus = KillerTarget;
+		}
 	}
 	else
 	{
@@ -5065,6 +5166,9 @@ void AUTPlayerController::OnCoolMomentReplayStart(const FUniqueNetIdRepl NetId, 
 	// Show killcam
 	if (IsLocalController())
 	{
+		// If the player unpresses any keys while inside the other world, they will still be pressed in this one
+		FlushPressedKeys();
+
 		UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(GetLocalPlayer());
 		if (LocalPlayer != nullptr && LocalPlayer->GetKillcamPlaybackManager() != nullptr)
 		{
@@ -5089,6 +5193,9 @@ void AUTPlayerController::OnKillcamStart(const FNetworkGUID InFocusActorGUID, fl
 	// Show killcam
 	if (IsLocalController())
 	{
+		// If the player unpresses any keys while inside the other world, they will still be pressed in this one
+		FlushPressedKeys();
+
 		//if (IsInState(NAME_Spectating) || IsInState(NAME_Inactive))
 		UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(GetLocalPlayer());
 		if (LocalPlayer != nullptr && LocalPlayer->GetKillcamPlaybackManager() != nullptr)
@@ -5157,16 +5264,7 @@ void AUTPlayerController::DumpMapVote()
 bool AUTPlayerController::CanPerformRally() const
 {
 	AUTFlagRunGameState* GameState = GetWorld()->GetGameState<AUTFlagRunGameState>();
-
-	if (GameState && UTPlayerState)
-	{
-		if ( UTPlayerState->bCanRally && UTPlayerState->Team && GameState->bAttackersCanRally && ((UTPlayerState->Team->TeamIndex == 0) == GameState->bRedToCap))
-		{
-			return (UTPlayerState->CarriedObject == nullptr || (GetWorld()->GetTimeSeconds() - LastRallyRequestTime >= 10.5f));
-		}
-	}
-
-	return false;
+	return (GameState && UTPlayerState && UTPlayerState->bCanRally && UTPlayerState->Team && GameState->bAttackersCanRally && ((UTPlayerState->Team->TeamIndex == 0) == GameState->bRedToCap));
 }
 
 void AUTPlayerController::InitializeHeartbeatManager()
@@ -5222,19 +5320,57 @@ void AUTPlayerController::PlayTutorialAnnouncement(int32 Index, UObject* Optiona
 	}
 }
 
-void AUTPlayerController::ClientSetIntroCamera_Implementation(UWorld* World, InGameIntroZoneTypes IntroType)
+void AUTPlayerController::ClientSetLineUpCamera_Implementation(UWorld* World, LineUpTypes IntroType)
 {
-	AUTInGameIntroZone* SpawnPointList = UUTInGameIntroHelper::GetAppropriateSpawnList(World, IntroType);
-	if (SpawnPointList)
+	AActor* Camera = AUTLineUpHelper::GetCameraActorForLineUp(World, IntroType);
+	if (Camera)
 	{
 		FViewTargetTransitionParams TransitionParams;
 		TransitionParams.BlendFunction = EViewTargetBlendFunction::VTBlend_Linear;
 
 		if (World->GetGameState<AUTGameState>() && World->GetGameState<AUTGameState>()->GetMatchState() == MatchState::WaitingPostMatch)
 		{
-			FinalViewTarget = SpawnPointList->TeamCamera;
+			FinalViewTarget = Camera;
 		}
-		SetViewTarget(SpawnPointList->TeamCamera, TransitionParams);
+
+		SetViewTarget(Camera, TransitionParams);
+	}
+}
+
+
+void AUTPlayerController::ClientSetActiveLineUp_Implementation(bool bNewIsActive, LineUpTypes LastType)
+{
+	if (GetWorld())
+	{
+		AUTGameState* UTGS = Cast<AUTGameState>(GetWorld()->GetGameState());
+		if (UTGS && UTGS->LineUpHelper)
+		{
+			UTGS->LineUpHelper->bIsActive = bNewIsActive;
+			UTGS->LineUpHelper->LastActiveType = LastType;
+
+			if (bNewIsActive)
+			{
+				ClientSetLineUpCamera(GetWorld(), LastType);
+
+				if (GetPawn())
+				{
+					GetPawn()->TurnOff();
+				}
+
+				SetIgnoreLookInput(true);
+
+				ToggleScoreboard(false);
+			}
+			else
+			{
+				//Need to kill local pawn and then restart, so that we sync back up with the server
+				if (GetPawn())
+				{
+					GetPawn()->Destroy();
+				}
+				ClientRestart(nullptr);
+			}
+		}
 	}
 }
 
@@ -5280,5 +5416,49 @@ bool AUTPlayerController::LineOfSightTo(const class AActor* Other, FVector ViewP
 			bHit = GetWorld()->LineTraceTestByChannel(ViewPoint, CharacterTarget->GetActorLocation() + FVector(0.0f, 0.0f, CharacterTarget->BaseEyeHeight + (bOtherIsRagdoll ? CharacterTarget->GetSimpleCollisionHalfHeight() : 0.0f)), ECC_Visibility, CollisionParams);
 		}
 		return !bHit;
+	}
+}
+
+void AUTPlayerController::RealNames()
+{
+	if (MyUTHUD && MyUTHUD->MyUTScoreboard)
+	{
+		MyUTHUD->MyUTScoreboard->bForceRealNames = true;
+		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+		if (GS)
+		{
+			for (int32 i = 0; i < GS->PlayerArray.Num(); i++)
+			{
+				AUTPlayerState* PS = Cast<AUTPlayerState>(GS->PlayerArray[i]);
+				if (PS)
+				{
+					TSharedRef<const FUniqueNetId> UserId = MakeShareable(new FUniqueNetIdString(*PS->StatsID));
+					FText EpicAccountName = GS->GetEpicAccountNameForAccount(UserId);
+					if (!EpicAccountName.IsEmpty())
+					{
+						PS->PlayerName = EpicAccountName.ToString();
+					}
+				}
+			}
+		}
+	}
+}
+
+void AUTPlayerController::ClientReceiveLocalizedMessage_Implementation(TSubclassOf<ULocalMessage> Message, int32 Switch, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject)
+{
+	Super::ClientReceiveLocalizedMessage_Implementation(Message, Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
+	
+	// Forward the local message over to the demo spectator
+	if (GetWorld()->IsRecordingClientReplay())
+	{
+		UDemoNetDriver* DemoDriver = GetWorld()->DemoNetDriver;
+		if (DemoDriver)
+		{
+			AUTDemoRecSpectator* DemoRecSpec = Cast<AUTDemoRecSpectator>(DemoDriver->SpectatorController);
+			if (DemoRecSpec)
+			{
+				DemoRecSpec->MulticastReceiveLocalizedMessage(Message, Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
+			}
+		}
 	}
 }

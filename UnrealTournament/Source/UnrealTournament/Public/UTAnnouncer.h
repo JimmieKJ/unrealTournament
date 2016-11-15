@@ -1,33 +1,8 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "UTATypes.h"
 #include "UTAnnouncer.generated.h"
-
-USTRUCT(BlueprintType)
-struct FAnnouncementInfo
-{
-	GENERATED_USTRUCT_BODY()
-
-	UPROPERTY(BlueprintReadWrite, Category = Announcement)
-	TSubclassOf<class UUTLocalMessage> MessageClass;
-	UPROPERTY(BlueprintReadWrite, Category = Announcement)
-	int32 Switch;
-	UPROPERTY(BlueprintReadWrite, Category = Announcement)
-	const class APlayerState* RelatedPlayerState_1;
-	UPROPERTY(BlueprintReadWrite, Category = Announcement)
-	const class APlayerState* RelatedPlayerState_2;
-	UPROPERTY(BlueprintReadWrite, Category = Announcement)
-	const UObject* OptionalObject;
-	UPROPERTY(BlueprintReadWrite, Category = Announcement)
-		float QueueTime;
-
-	FAnnouncementInfo()
-		: MessageClass(NULL), Switch(0), RelatedPlayerState_1(NULL), RelatedPlayerState_2(NULL), OptionalObject(NULL), QueueTime(0.f)
-	{}
-	FAnnouncementInfo(TSubclassOf<UUTLocalMessage> InMessageClass, int32 InSwitch, const class APlayerState* InRelatedPlayerState_1, const class APlayerState* InRelatedPlayerState_2, const UObject* InOptionalObject, float InQueueTime)
-		: MessageClass(InMessageClass), Switch(InSwitch), RelatedPlayerState_1(InRelatedPlayerState_1), RelatedPlayerState_2(InRelatedPlayerState_2), OptionalObject(InOptionalObject), QueueTime(InQueueTime)
-	{}
-};
 
 USTRUCT(BlueprintType)
 struct FAnnouncerSound

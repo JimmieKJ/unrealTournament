@@ -10,6 +10,7 @@
 #include "UTCountDownMessage.h"
 #include "UTAnnouncer.h"
 #include "UTCTFMajorMessage.h"
+#include "UTRallyPoint.h"
 
 AUTFlagRunGameState::AUTFlagRunGameState(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -27,6 +28,9 @@ AUTFlagRunGameState::AUTFlagRunGameState(const FObjectInitializer& ObjectInitial
 	FlagRunMessageSwitch = 0;
 	FlagRunMessageTeam = nullptr;
 	bPlayStatusAnnouncements = true;
+	GoldBonusColor = FLinearColor(1.f, 0.9f, 0.15f);
+	SilverBonusColor = FLinearColor(0.5f, 0.5f, 0.75f);
+	BronzeBonusColor = FLinearColor(0.48f, 0.25f, 0.18f);
 }
 
 void AUTFlagRunGameState::BeginPlay()
@@ -49,6 +53,7 @@ void AUTFlagRunGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty >
 
 	DOREPLIFETIME(AUTFlagRunGameState, bRedToCap);
 	DOREPLIFETIME(AUTFlagRunGameState, BonusLevel);
+	DOREPLIFETIME(AUTFlagRunGameState, CurrentRallyPoint);
 	DOREPLIFETIME(AUTFlagRunGameState, FlagRunMessageSwitch);
 	DOREPLIFETIME(AUTFlagRunGameState, FlagRunMessageTeam);
 	DOREPLIFETIME(AUTFlagRunGameState, bAttackersCanRally);
@@ -111,6 +116,21 @@ void AUTFlagRunGameState::UpdateTimeMessage()
 	}
 }
 
+FLinearColor AUTFlagRunGameState::GetGameStatusColor()
+{
+	if (CTFRound > 0)
+	{
+		switch(BonusLevel)
+		{
+			case 1: return BronzeBonusColor; break;
+			case 2: return SilverBonusColor; break;
+			case 3: return GoldBonusColor; break;
+		}
+	}
+	UE_LOG(UT, Warning, TEXT("WHITE"));
+	return FLinearColor::White;
+}
+
 FText AUTFlagRunGameState::GetRoundStatusText(bool bForScoreboard)
 {
 	if (bForScoreboard)
@@ -124,25 +144,17 @@ FText AUTFlagRunGameState::GetRoundStatusText(bool bForScoreboard)
 	{
 		if (BonusLevel == 3)
 		{
-			int32 RemainingBonus = FMath::Max(0, RemainingTime - GoldBonusThreshold);
-			if (RemainingBonus < 30)
-			{
-				FFormatNamedArguments Args;
-				Args.Add("BonusTime", FText::AsNumber(RemainingBonus));
-				return FText::Format(GoldBonusTimedText, Args);
-			}
-			return GoldBonusText;
+			int32 RemainingBonus = FMath::Clamp(RemainingTime - GoldBonusThreshold, 0, 60);
+			FFormatNamedArguments Args;
+			Args.Add("BonusTime", FText::AsNumber(RemainingBonus));
+			return FText::Format(GoldBonusTimedText, Args);
 		}
 		else if (BonusLevel == 2)
 		{
-			int32 RemainingBonus = FMath::Max(0, RemainingTime - SilverBonusThreshold);
-			if (RemainingBonus < 30)
-			{
-				FFormatNamedArguments Args;
-				Args.Add("BonusTime", FText::AsNumber(RemainingBonus));
-				return FText::Format(SilverBonusTimedText, Args);
-			}
-			return SilverBonusText;
+			int32 RemainingBonus = FMath::Clamp(RemainingTime - SilverBonusThreshold, 0, 59);
+			FFormatNamedArguments Args;
+			Args.Add("BonusTime", FText::AsNumber(RemainingBonus));
+			return FText::Format(SilverBonusTimedText, Args);
 		}
 		return BronzeBonusText;
 	}
@@ -306,55 +318,16 @@ int AUTFlagRunGameState::GetKillsNeededForPowerup(int32 TeamNumber) const
 void AUTFlagRunGameState::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-	if (bAllowRallies && (Role == ROLE_Authority))
+	if (Role == ROLE_Authority)
 	{
 		uint8 OffensiveTeam = bRedToCap ? 0 : 1;
 		if (FlagBases.IsValidIndex(OffensiveTeam) && FlagBases[OffensiveTeam] != nullptr)
 		{
 			AUTCTFFlag* Flag = Cast<AUTCTFFlag>(FlagBases[OffensiveTeam]->GetCarriedObject());
+			bAttackersCanRally = (CurrentRallyPoint != nullptr) && (CurrentRallyPoint->RallyPointState == RallyPointStates::Powered);
 			AUTGameVolume* GV = Flag && Flag->HoldingPawn && Flag->HoldingPawn->UTCharacterMovement ? Cast<AUTGameVolume>(Flag->HoldingPawn->UTCharacterMovement->GetPhysicsVolume()) : nullptr;
 			bool bInFlagRoom = GV && (GV->bIsNoRallyZone || GV->bIsTeamSafeVolume);
-			bHaveEstablishedFlagRunner = (!bInFlagRoom && Flag && Flag->Holder && Flag->HoldingPawn && (GetWorld()->GetTimeSeconds() - Flag->PickedUpTime > 3.f));
-			bool bFlagCarrierPinged = Flag && Flag->HoldingPawn && Flag->HoldingPawn->bIsInCombat;
-			bAttackersCanRally = bHaveEstablishedFlagRunner;
-			if (bAttackersCanRally && (!bFlagCarrierPinged || (GetWorld()->GetTimeSeconds() - LastOffenseRallyTime < 0.4f)))
-			{
-				if ((GetWorld()->GetTimeSeconds() - LastRallyCompleteTime > 20.f) && (GetWorld()->GetTimeSeconds() - FMath::Max(Flag->PickedUpTime, LastNoRallyTime) > 12.f) && Cast<AUTPlayerController>(Flag->HoldingPawn->GetController()))
-				{
-					// check for rally complete
-					int32 RemainingToRally = 0;
-					int32 AlreadyRallied = 0;
-					for (int32 i = 0; i < PlayerArray.Num() - 1; i++)
-					{
-						AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerArray[i]);
-						if (PS && (PS != Flag->Holder) && (PS->Team == Flag->Holder->Team))
-						{
-							if (PS->NextRallyTime > GetWorld()->GetTimeSeconds() + 12.f)
-							{
-								AlreadyRallied++;
-							}
-							else if ((PS->NextRallyTime < GetWorld()->GetTimeSeconds() + 4.f) && (!PS->GetUTCharacter() || (PS->GetUTCharacter()->bCanRally && ((PS->GetUTCharacter()->GetActorLocation() - Flag->HoldingPawn->GetActorLocation()).Size() > 3500.f))))
-							{
-								RemainingToRally++;
-							}
-						}
-					}
-					if ((RemainingToRally == 0) && (AlreadyRallied > 0))
-					{
-						LastRallyCompleteTime = GetWorld()->GetTimeSeconds();
-						Cast<AUTPlayerController>(Flag->HoldingPawn->GetController())->ClientReceiveLocalizedMessage(UUTCTFMajorMessage::StaticClass(), 25);
-					}
-				}
-				if (!bFlagCarrierPinged)
-				{
-					LastOffenseRallyTime = GetWorld()->GetTimeSeconds();
-				}
-			}
-			else
-			{
-				bAttackersCanRally = false;
-				LastNoRallyTime = GetWorld()->GetTimeSeconds();
-			}
+			bHaveEstablishedFlagRunner = (!bInFlagRoom && Flag && Flag->Holder && Flag->HoldingPawn && (GetWorld()->GetTimeSeconds() - Flag->PickedUpTime > 2.f));
 		}
 	}
 }

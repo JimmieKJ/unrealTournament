@@ -114,18 +114,39 @@ private:
 	{
 		FORCEINLINE bool operator()( const FMapPlayListInfo& A, const FMapPlayListInfo& B ) const 
 		{
-			if ( !A.MapInfo.IsValid() || !B.MapInfo.IsValid()) return false;
-			if (A.MapInfo->bIsEpicMap != B.MapInfo->bIsEpicMap)
+			bool bHasTitleA = !A.MapInfo->Title.IsEmpty();
+			bool bHasTitleB = !B.MapInfo->Title.IsEmpty();
+
+			if (bHasTitleA && !bHasTitleB)
 			{
-				return A.MapInfo->bIsEpicMap;
+				return true;
 			}
 
-			if (A.MapInfo->bIsMeshedMap != B.MapInfo->bIsMeshedMap)
+			if (A.MapInfo->bIsMeshedMap)
 			{
-				return A.MapInfo->bIsMeshedMap;
+				if (!B.MapInfo->bIsMeshedMap)
+				{
+					return true;
+				}
+				else if (A.MapInfo->bIsEpicMap && !B.MapInfo->bIsEpicMap)
+				{
+					return true;
+				}
+				else if (!A.MapInfo->bIsEpicMap && B.MapInfo->bIsEpicMap)
+				{
+					return false;
+				}
+			}
+			else if (B.MapInfo->bIsMeshedMap)
+			{
+				return false;
+			}
+			else if (A.MapInfo->bIsEpicMap && !B.MapInfo->bIsEpicMap)
+			{
+				return true;
 			}
 
-			return ( A.MapInfo->Title < B.MapInfo->Title);
+			return A.MapInfo->Title < B.MapInfo->Title;
 		}
 	};
 

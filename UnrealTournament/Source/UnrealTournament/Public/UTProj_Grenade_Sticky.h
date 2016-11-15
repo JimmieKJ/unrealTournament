@@ -28,6 +28,7 @@ public:
 	FTimerHandle FArmedHandle;
 
 	virtual void BeginPlay() override;
+	virtual void ShutDown() override;
 	virtual void Destroyed() override;
 	virtual	void Explode_Implementation(const FVector& HitLocation, const FVector& HitNormal, UPrimitiveComponent* HitComp) override;
 
@@ -36,4 +37,10 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = Projectile)
 	void ArmGrenade();
+
+protected:
+
+	UPROPERTY()
+	AUTProjectile* SavedFakeProjectile;
+
 };

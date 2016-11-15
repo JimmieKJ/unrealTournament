@@ -348,8 +348,7 @@ void AUTBot::InitializeSkill(float NewBaseSkill)
 	AdjustedMaxTrackingOffsetError = MaxTrackingOffsetError;
 
 	bLeadTarget = Skill >= 3.0f;
-	SetPeripheralVision();
-	HearingRadiusMult = FMath::Clamp<float>(Skill / 6.5f, 0.0f, 0.9f);
+	ResetPerceptionProperties();
 
 	if (Skill + Personality.ReactionTime >= 7.0f)
 	{
@@ -374,37 +373,35 @@ void AUTBot::InitializeSkill(float NewBaseSkill)
 	TranslocInterval = FMath::Max<float>(0.0f, 5.0f - 1.0f * (Skill + Personality.MovementAbility));
 }
 
-void AUTBot::SetPeripheralVision()
+void AUTBot::ResetPerceptionProperties()
 {
-	if (GetPawn() != NULL)
+	/*if (GetPawn() != NULL && (Pawn.bStationary || Pawn.Physics == PHYS_Flying))
 	{
-		/*if (Pawn.bStationary || (Pawn.Physics == PHYS_Flying))
+		bSlowerZAcquire = false;
+		Pawn.PeripheralVision = -0.7;
+	}
+	else
+	*/
+	{
+		if (Skill < 2.0f)
+		{
+			PeripheralVision = 0.7f;
+			bSlowerZAcquire = true;
+		}
+		else if (Skill > 6.0f)
 		{
 			bSlowerZAcquire = false;
-			Pawn.PeripheralVision = -0.7;
+			PeripheralVision = 0.0f;
 		}
 		else
-		*/
 		{
-			if (Skill < 2.0f)
-			{
-				PeripheralVision = 0.7f;
-				bSlowerZAcquire = true;
-			}
-			else if (Skill > 6.0f)
-			{
-				bSlowerZAcquire = false;
-				PeripheralVision = 0.0f;
-			}
-			else
-			{
-				PeripheralVision = 1.0f - 0.16f * Skill;
-				bSlowerZAcquire = (Skill < 5.f);
-			}
-
-			PeripheralVision = FMath::Min<float>(PeripheralVision - Personality.Alertness * 0.5f, 0.8f);
+			PeripheralVision = 1.0f - 0.16f * Skill;
+			bSlowerZAcquire = (Skill < 5.f);
 		}
+
+		PeripheralVision = FMath::Min<float>(PeripheralVision - Personality.Alertness * 0.25f, 0.8f);
 	}
+	HearingRadiusMult = FMath::Clamp<float>((Skill + Personality.Alertness) / 6.5f, 0.0f, 0.9f);
 }
 
 void AUTBot::SetPawn(APawn* InPawn)
@@ -431,7 +428,7 @@ void AUTBot::SetPawn(APawn* InPawn)
 		}
 	}
 
-	SetPeripheralVision();
+	ResetPerceptionProperties();
 }
 
 void AUTBot::Possess(APawn* InPawn)
@@ -832,7 +829,8 @@ void AUTBot::Tick(float DeltaTime)
 				}
 				if (GetCharacter() != NULL && GetCharacter()->GetCharacterMovement()->MovementMode == MOVE_Falling && GetCharacter()->GetCharacterMovement()->AirControl > 0.0f && GetCharacter()->GetCharacterMovement()->MaxWalkSpeed > 0.0f)
 				{
-					if (!CurrentPath.Spec.IsValid() || !CurrentPath.Spec->OverrideAirControl(CurrentPath, GetPawn(), GetMoveBasedPosition(), MoveTarget))
+					// note: bRestrictedJump check last so reachspec can react to/override that flag if it knows better
+					if ((!CurrentPath.Spec.IsValid() || !CurrentPath.Spec->OverrideAirControl(CurrentPath, GetPawn(), GetMoveBasedPosition(), MoveTarget)) && !bRestrictedJump)
 					{
 						// figure out desired 2D velocity and set air control to achieve that
 						FVector DesiredVel2D;
@@ -1432,8 +1430,6 @@ void AUTBot::ApplyWeaponAimAdjust(FVector TargetLoc, FVector& FocalPoint)
 				{
 					FCollisionQueryParams Params(FName(TEXT("ApplyWeaponAimAdjust")), true, GetPawn());
 					Params.AddIgnoredActor(GetFocusActor());
-					FCollisionObjectQueryParams ResultParams(ECC_WorldStatic);
-					ResultParams.AddObjectTypesToQuery(ECC_WorldDynamic);
 
 					const float TargetHeight = (GetFocusActor() != NULL) ? GetFocusActor()->GetSimpleCollisionHalfHeight() : 0.0f;
 					AUTCharacter* EnemyChar = Cast<AUTCharacter>(GetFocusActor());
@@ -1446,15 +1442,15 @@ void AUTBot::ApplyWeaponAimAdjust(FVector TargetLoc, FVector& FocalPoint)
 							|| (GetPawn()->GetActorLocation().Z + 40.0f >= FocalPoint.Z && (bDefendMelee || Skill > 6.5f * FMath::FRand() - 0.5f)) ) )
 					{
 						FHitResult Hit;
-						bClean = !GetWorld()->LineTraceSingleByObjectType(Hit, TargetLoc, TargetLoc - FVector(0.0f, 0.0f, TargetHeight + 13.0f), ResultParams, Params);
+						bClean = !GetWorld()->LineTraceSingleByChannel(Hit, TargetLoc, TargetLoc - FVector(0.0f, 0.0f, TargetHeight + 13.0f), COLLISION_TRACE_WEAPONNOCHARACTER, Params);
 						if (!bClean)
 						{
 							TargetLoc = Hit.Location + FVector(0.0f, 0.0f, 6.0f);
-							bClean = !GetWorld()->LineTraceTestByObjectType(FireStart, TargetLoc, ResultParams, Params);
+							bClean = !GetWorld()->LineTraceTestByChannel(FireStart, TargetLoc, COLLISION_TRACE_WEAPONNOCHARACTER, Params);
 						}
 						else
 						{
-							bClean = (EnemyChar->GetCharacterMovement()->MovementMode == MOVE_Falling && !GetWorld()->LineTraceTestByObjectType(FireStart, TargetLoc, ResultParams, Params));
+							bClean = (EnemyChar->GetCharacterMovement()->MovementMode == MOVE_Falling && !GetWorld()->LineTraceTestByChannel(FireStart, TargetLoc, COLLISION_TRACE_WEAPONNOCHARACTER, Params));
 						}
 					}
 					bool bCheckedHead = false;
@@ -1478,7 +1474,7 @@ void AUTBot::ApplyWeaponAimAdjust(FVector TargetLoc, FVector& FocalPoint)
 						{
 							// try head
 							TargetLoc.Z = FocalPoint.Z + 0.9f * TargetHeight;
-							bClean = !GetWorld()->LineTraceTestByObjectType(FireStart, TargetLoc, ResultParams, Params);
+							bClean = !GetWorld()->LineTraceTestByChannel(FireStart, TargetLoc, COLLISION_TRACE_WEAPONNOCHARACTER, Params);
 							bCheckedHead = true;
 							bHeadClean = bClean;
 						}
@@ -1488,14 +1484,14 @@ void AUTBot::ApplyWeaponAimAdjust(FVector TargetLoc, FVector& FocalPoint)
 					{
 						// try middle
 						TargetLoc.Z = FocalPoint.Z;
-						bClean = !GetWorld()->LineTraceTestByObjectType(FireStart, TargetLoc, ResultParams, Params);
+						bClean = !GetWorld()->LineTraceTestByChannel(FireStart, TargetLoc, COLLISION_TRACE_WEAPONNOCHARACTER, Params);
 					}
 
 					if (!bClean)
 					{
 						// try head
 						TargetLoc.Z = FocalPoint.Z + 0.9f * TargetHeight;
-						bClean = bCheckedHead ? bHeadClean : !GetWorld()->LineTraceTestByObjectType(FireStart, TargetLoc, ResultParams, Params);
+						bClean = bCheckedHead ? bHeadClean : !GetWorld()->LineTraceTestByChannel(FireStart, TargetLoc, COLLISION_TRACE_WEAPONNOCHARACTER, Params);
 					}
 					if (!bClean && Enemy != NULL && GetFocusActor() == Enemy)
 					{
@@ -1508,10 +1504,10 @@ void AUTBot::ApplyWeaponAimAdjust(FVector TargetLoc, FVector& FocalPoint)
 								TargetLoc.Z -= 0.4f * TargetHeight;
 							}
 							FHitResult Hit;
-							if (GetWorld()->LineTraceSingleByObjectType(Hit, FireStart, TargetLoc, ResultParams, Params))
+							if (GetWorld()->LineTraceSingleByChannel(Hit, FireStart, TargetLoc, COLLISION_TRACE_WEAPONNOCHARACTER, Params))
 							{
 								TargetLoc = EnemyInfo->LastSeenLoc + 2.0f * TargetHeight * Hit.Normal;
-								if (MyWeap != NULL && MyWeap->GetDamageRadius(NextFireMode) > 0.0f && Skill >= 4.0f && GetWorld()->LineTraceSingleByObjectType(Hit, FireStart, TargetLoc, ResultParams, Params))
+								if (MyWeap != NULL && MyWeap->GetDamageRadius(NextFireMode) > 0.0f && Skill >= 4.0f && GetWorld()->LineTraceSingleByChannel(Hit, FireStart, TargetLoc, COLLISION_TRACE_WEAPONNOCHARACTER, Params))
 								{
 									TargetLoc += 2.0f * TargetHeight * Hit.Normal;
 								}
@@ -1567,8 +1563,16 @@ void AUTBot::UpdateControlRotation(float DeltaTime, bool bUpdatePawn)
 							TrackingTimeStamp = GetWorld()->GetTimeSeconds();
 							TrackedVelocity = (1.f - VelInterpTime)*TrackedVelocity + VelInterpTime*NewTrackedVelocity;
 							TrackedVelocity.Z = NewTrackedVelocity.Z; // check it doesn't disappear, check vs dodging, adad, faster catch up when stop
-							// fixme more shoot at feet with rocket
 							bLargeTrackedVelocityChange = EnemyUTC && !SavedPositions[i - 1].Velocity.IsNearlyZero() && !SavedPositions[i].Velocity.IsNearlyZero() && (SavedPositions[i - 1].Velocity.Z == 0.f) && (SavedPositions[i].Velocity.Z != 0.f) && (SavedPositions[i].Velocity.Size2D() > 1.2f*EnemyUTC->GetCharacterMovement()->MaxWalkSpeed);
+							// handle the case where the predicted velocity puts the target right through us (e.g. close range enemy is charging)
+							// in that case clamp the prediction to collide with us so that the bot doesn't target the opposite direction
+							if ( FMath::PointDistToSegment(GetPawn()->GetActorLocation(), TargetLoc, TargetLoc + TrackedVelocity * (TrackingReactionTime + TrackingPredictionError)) < GetPawn()->GetSimpleCollisionRadius() &&
+								((Enemy->GetActorLocation() - GetPawn()->GetActorLocation()).GetSafeNormal2D() | (TargetLoc - GetPawn()->GetActorLocation()).GetSafeNormal2D()) > 0.2f )
+							{
+								float SavedZ = TrackedVelocity.Z;
+								TrackedVelocity = TrackedVelocity.GetSafeNormal2D() * (((TargetLoc - GetPawn()->GetActorLocation()).Size() - GetPawn()->GetSimpleCollisionRadius()) / (TrackingReactionTime + TrackingPredictionError));
+								TrackedVelocity.Z = SavedZ;
+							}
 							FVector SideDir = ((TargetLoc - P->GetActorLocation()) ^ FVector(0.f, 0.f, 1.f)).GetSafeNormal();
 							//DrawDebugSphere(GetWorld(), TargetLoc + NewTrackedVelocity*TrackingReactionTime, 40.f, 8, FColor::White, false);
 							//DrawDebugSphere(GetWorld(), TargetLoc + TrackedVelocity*TrackingReactionTime, 40.f, 8, FColor::Yellow, false);
@@ -1771,9 +1775,9 @@ void AUTBot::NotifyMoveBlocked(const FHitResult& Impact)
 			}
 			// crouch if path says we should
 			// FIXME: what if going for detour in the middle of crouch path? (dropped pickup, etc)
-			else if (CurrentPath.IsSet() && CurrentPath.CollisionHeight < FMath::TruncToInt(GetCharacter()->GetSimpleCollisionHalfHeight()))
+			else if ((CurrentPath.IsSet() && CurrentPath.CollisionHeight < FMath::TruncToInt(GetCharacter()->GetSimpleCollisionHalfHeight())) || (MoveTarget.Node != nullptr && MoveTarget.Node->MinPolyEdgeSize.Height < FMath::TruncToInt(GetCharacter()->GetSimpleCollisionHalfHeight())))
 			{
-				if (CurrentPath.CollisionHeight < FMath::TruncToInt(GetCharacter()->GetCharacterMovement()->CrouchedHalfHeight))
+				if ((CurrentPath.IsSet() ? CurrentPath.CollisionHeight : MoveTarget.Node->MinPolyEdgeSize.Height) < FMath::TruncToInt(GetCharacter()->GetCharacterMovement()->CrouchedHalfHeight))
 				{
 					// capabilities changed since path was found
 					MoveTimer = -1.0f;
@@ -1970,6 +1974,7 @@ void AUTBot::PostMovementUpdate(float DeltaTime, FVector OldLocation, FVector Ol
 
 void AUTBot::NotifyLanded(const FHitResult& Hit)
 {
+	bRestrictedJump = false;
 	bPlannedWallDodge = false;
 	if (UTChar != NULL)
 	{
@@ -1979,6 +1984,7 @@ void AUTBot::NotifyLanded(const FHitResult& Hit)
 
 void AUTBot::NotifyJumpApex()
 {
+	bRestrictedJump = false;
 	if (UTChar != NULL && UTChar->CanJump())
 	{
 		UUTReachSpec_HighJump* JumpSpec = Cast<UUTReachSpec_HighJump>(CurrentPath.Spec.Get());
@@ -2221,7 +2227,20 @@ bool AUTBot::NeedToTurn(const FVector& TargetLoc, bool bForcePrecise)
 		// we're intentionally disregarding the weapon's start position here, since it may change based on its firing offset, nearby geometry if that offset is outside the cylinder, etc
 		// we'll correct for the discrepancy in GetAdjustedAim() while firing
 		const FVector StartLoc = GetPawn()->GetActorLocation();
-		return ((TargetLoc - StartLoc).GetSafeNormal() | GetControlRotation().Vector()) < (bForcePrecise ? 0.997f : (0.92f + 0.01f * FMath::Clamp<float>(Skill + Personality.Accuracy, 0.0f, 7.0f)));
+
+		float Threshold;
+		if (bForcePrecise)
+		{
+			Threshold = 0.997f;
+		}
+		else
+		{
+			Threshold = 0.92f + 0.01f * FMath::Clamp<float>(Skill + Personality.Accuracy, 0.0f, 7.0f);
+			// be more lenient if close range, since will probably hit anyway
+			Threshold *= 0.75f + (0.25f * FMath::Min<float>(1.0f, (TargetLoc - StartLoc).Size() / 512.0f));
+		}
+
+		return ((TargetLoc - StartLoc).GetSafeNormal() | GetControlRotation().Vector()) < Threshold;
 	}
 }
 
@@ -2318,7 +2337,7 @@ bool AUTBot::FindInventoryGoal(float MinWeight)
 	}
 }
 
-bool AUTBot::TryPathToward(AActor* Goal, bool bAllowDetours, const FString& SuccessGoalString)
+bool AUTBot::TryPathToward(AActor* Goal, bool bAllowDetours, bool bAllowPartial, const FString& SuccessGoalString)
 {
 	if (Goal == NULL)
 	{
@@ -2336,7 +2355,7 @@ bool AUTBot::TryPathToward(AActor* Goal, bool bAllowDetours, const FString& Succ
 		{
 			bAllowDetours = false;
 		}
-		FSingleEndpointEval NodeEval(Goal);
+		FSingleEndpointEval NodeEval(Goal, bAllowPartial);
 		float Weight = 0.0f;
 		if (NavData->FindBestPath(GetPawn(), GetPawn()->GetNavAgentPropertiesRef(), this, NodeEval, GetPawn()->GetNavAgentLocation(), Weight, bAllowDetours, RouteCache))
 		{
@@ -2557,12 +2576,17 @@ void AUTBot::WhatToDoNext()
 
 void AUTBot::ExecuteWhatToDoNext()
 {
+	DECLARE_CYCLE_STAT(TEXT("Bot decision time"), STAT_AI_ExecuteWhatToDoNext, STATGROUP_AI);
+
+	SCOPE_CYCLE_COUNTER(STAT_AI_ExecuteWhatToDoNext);
+
 	Target = NULL;
 	TranslocTarget = FVector::ZeroVector;
 	if (GetCharacter() != NULL)
 	{
 		GetCharacter()->GetCharacterMovement()->bWantsToCrouch = false;
 	}
+	bRestrictedJump = false;
 
 	if (GetCharacter() != NULL && GetCharacter()->GetCharacterMovement()->MovementMode == MOVE_Falling)
 	{
@@ -3165,7 +3189,7 @@ void AUTBot::DoHunt(APawn* NewHuntTarget)
 			{
 				// calculate minimum amount of time enemy will have progressed from our starting point before we could possibly catch up
 				// note: this is an optimization, more correct would be to evaluate in the below pathfinding step
-				const float MoveSpeed = FMath::Max<float>(1.0f, GetPawn()->GetMovementComponent()->GetMaxSpeed());
+				const float MoveSpeed = FMath::Max<float>(1.0f, GetPawn()->GetMovementComponent() ? GetPawn()->GetMovementComponent()->GetMaxSpeed() : 0);
 				float SkipTime = FMath::Max<float>(GetWorld()->TimeSeconds - EnemyInfo->LastFullUpdateTime, (GetPawn()->GetActorLocation() - EnemyInfo->LastKnownLoc).Size() / MoveSpeed);
 
 				TArray<FRouteCacheItem> PathPredictionGoals;
@@ -3666,7 +3690,7 @@ public:
 		TestedPolys.Reserve(100);
 	}
 
-	virtual bool InitForPathfinding(APawn* Asker, const FNavAgentProperties& AgentProps, AUTRecastNavMesh* InNavData) override
+	virtual bool InitForPathfinding(APawn* Asker, const FNavAgentProperties& AgentProps, const FVector& StartLoc, AUTRecastNavMesh* InNavData) override
 	{
 		NavData = InNavData;
 		AskerAnchor = NavData->GetNodeFromPoly(InNavData->FindAnchorPoly(Asker->GetNavAgentLocation(), Asker, AgentProps));
@@ -3696,6 +3720,16 @@ void AUTBot::GuessAppearancePoints(AActor* InTarget, FVector TargetLoc, bool bDo
 			if (bCheckForwardAndBack)
 			{
 				// TODO: do directional back and forward prediction to come up with more points (using enemy info)
+			}
+			// check if enemy goal point (objective, etc) is in our LOS and go for that
+			TArray<FPredictedGoal> Goals;
+			Squad->GetPossibleEnemyGoals(this, MyEnemyInfo, Goals);
+			for (const FPredictedGoal& PossibleGoal : Goals)
+			{
+				if (!GetWorld()->LineTraceTestByChannel(GetPawn()->GetActorLocation(), PossibleGoal.Location, ECC_Visibility, FCollisionQueryParams(FName(TEXT("AppearanceGoal")), false, GetPawn()), WorldResponseParams))
+				{
+					FoundPoints.Add(PossibleGoal.Location);
+				}
 			}
 		}
 		else if (bCheckForwardAndBack && !InTarget->GetVelocity().IsZero())
@@ -4153,6 +4187,7 @@ int32 AUTBot::GetRouteDist() const
 			AnchorPoly = RouteCache[0].TargetPoly;
 			Dist = FMath::TruncToInt((RouteCache[0].GetLocation(GetPawn()) - GetPawn()->GetActorLocation()).Size());
 		}
+		FUTReachParams ReachParams(GetPawn(), GetPawn()->GetNavAgentPropertiesRef());
 		for (int32 i = RouteStartIdx; i < RouteCache.Num() && Anchor != NULL; i++)
 		{
 			int32 LinkIndex = Anchor->GetBestLinkTo(AnchorPoly, RouteCache[i], GetPawn(), GetPawn()->GetNavAgentPropertiesRef(), NavData);
@@ -4162,7 +4197,7 @@ int32 AUTBot::GetRouteDist() const
 				return Dist;
 			}
 			const FUTPathLink& Link = Anchor->Paths[LinkIndex];
-			Dist += Link.CostFor(GetPawn(), GetPawn()->GetNavAgentPropertiesRef(), GetPawn()->Controller, AnchorPoly, NavData);
+			Dist += Link.CostFor(GetPawn(), GetPawn()->GetNavAgentPropertiesRef(), ReachParams, GetPawn()->Controller, AnchorPoly, NavData);
 			Anchor = Link.End.Get();
 			AnchorPoly = Link.EndPoly;
 		}
@@ -4311,7 +4346,7 @@ bool AUTBot::IsImportantEnemyUpdate(APawn* TestEnemy, EAIEnemyUpdateType UpdateT
 	else
 	{
 		const FBotEnemyInfo* MyEnemyInfo = GetEnemyInfo(TestEnemy, false);
-		if (MyEnemyInfo == NULL || MyEnemyInfo->bLostEnemy)
+		if (MyEnemyInfo == NULL || MyEnemyInfo->bLostEnemy || CurrentAction == CampAction)
 		{
 			return true;
 		}

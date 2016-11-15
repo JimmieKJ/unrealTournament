@@ -2,6 +2,7 @@
 
 #include "UnrealTournament.h"
 #include "UTKillcamPlayback.h"
+#include "UTGameInstance.h"
 #include "Components/ModelComponent.h"
 #include "NetworkReplayStreaming.h"
 #include "UnrealNetwork.h"
@@ -9,11 +10,13 @@
 #include "UTGameViewportClient.h"
 #include "UTDemoRecSpectator.h"
 #include "UTDemoNetDriver.h"
+#include "UTProj_Redeemer.h"
+#include "UTRemoteRedeemer.h"
 
-TAutoConsoleVariable<int32> CVarUTEnableKillcam(
-	TEXT("UT.EnableKillcam"),
+TAutoConsoleVariable<int32> CVarUTEnableInstantReplay(
+	TEXT("UT.EnableInstantReplay"),
 	0,
-	TEXT("Enables creation of a separate world for killcam playback.\n"));
+	TEXT("Enables creation of a separate world for instant replay playback.\n"));
 
 TAutoConsoleVariable<float> CVarUTKillcamRewindTime(
 	TEXT("UT.KillcamRewindTime"),
@@ -55,7 +58,7 @@ void UUTKillcamPlayback::BeginDestroy()
 
 void UUTKillcamPlayback::CreateKillcamWorld(const FURL& InURL, const FWorldContext& SourceWorldContext)
 {
-	if (CVarUTEnableKillcam.GetValueOnGameThread() == 0)
+	if (CVarUTEnableInstantReplay.GetValueOnGameThread() == 0)
 	{
 		return;
 	}
@@ -81,6 +84,11 @@ void UUTKillcamPlayback::CreateKillcamWorld(const FURL& InURL, const FWorldConte
 	// Create WorldContext and World for killcam.
 	if (SourceWorldContext.OwningGameInstance != nullptr)
 	{
+		UUTGameInstance* UTGameInstance = Cast<UUTGameInstance>(SourceWorldContext.OwningGameInstance);
+		if (UTGameInstance)
+		{
+			UTGameInstance->bIgnoreLevelLoad = true;
+		}
 		SourceWorld = SourceWorldContext.World();
 
 		// Creates the world context. This should be the only WorldContext that ever gets created for this GameInstance.
@@ -101,7 +109,7 @@ void UUTKillcamPlayback::CreateKillcamWorld(const FURL& InURL, const FWorldConte
 
 void UUTKillcamPlayback::PlayKillcamReplay(const FString& ReplayUniqueName)
 {
-	if (CVarUTEnableKillcam.GetValueOnGameThread() == 0)
+	if (CVarUTEnableInstantReplay.GetValueOnGameThread() == 0)
 	{
 		return;
 	}
@@ -363,34 +371,49 @@ void UUTKillcamPlayback::OnKillcamReady(bool bWasSuccessful, FNetworkGUID InKill
 		return;
 	}
 
-	AActor* KillcamActor = KillcamWorld->DemoNetDriver->GetActorForGUID(InKillcamViewTargetGuid);
 	AUTDemoRecSpectator* SpecController = Cast<AUTDemoRecSpectator>(GetKillcamSpectatorController());
-	if (KillcamActor == nullptr || SpecController == nullptr )
+	if (SpecController == nullptr)
 	{
-		UE_LOG(LogUTKillcam, Warning, TEXT("Couldn't find killcam actor for NetGUID %d"), InKillcamViewTargetGuid.Value);
+		UE_LOG(LogUTKillcam, Warning, TEXT("Couldn't find spectator controller"));
 		KillcamStop();
 		return;
 	}
 
-	// Killcam started and we found the actor we want to follow!
-
-//	SpecController->SetSpectatorCameraType(ESpectatorCameraType::Chase);
-	APawn* KillcamPawn = Cast<APawn>(KillcamActor);
-	if (KillcamPawn && KillcamPawn->PlayerState)
-	{
-		UE_LOG(LogUTKillcam, Log, TEXT("Killcam viewing %s"), *KillcamPawn->PlayerState->PlayerName);
-	}
+	SpecController->QueuedPlayerStateToView = nullptr;
+	SpecController->QueuedViewTargetGuid.Reset();
+	SpecController->QueuedViewTargetNetId = FUniqueNetIdRepl();
 	SpecController->bAutoCam = false;
-	SpecController->ViewPawn(KillcamPawn);
-	// Weapon isn't replicated so first person view doesn't have a class to spawn for first person visuals
-	SpecController->bSpectateBehindView = true;
-	SpecController->BehindView(SpecController->bSpectateBehindView);
-	/*
-	UUTSpectatorCamComp_Chase* const SpectatorCameraComponent = KillcamActor->FindComponentByClass<UUTSpectatorCamComp_Chase>();
-	if (SpectatorCameraComponent != nullptr)
+
+	AActor* KillcamActor = KillcamWorld->DemoNetDriver->GetActorForGUID(InKillcamViewTargetGuid);
+	if (KillcamActor == nullptr)
 	{
-		SpectatorCameraComponent->SetAutoFollow(true);
-	}*/
+		UE_LOG(LogUTKillcam, Warning, TEXT("Couldn't find killcam actor for NetGUID %d"), InKillcamViewTargetGuid.Value);
+		SpecController->SetQueuedViewTargetGuid(InKillcamViewTargetGuid.Value);
+	}
+	else
+	{
+
+		// Killcam started and we found the actor we want to follow!
+
+	//	SpecController->SetSpectatorCameraType(ESpectatorCameraType::Chase);
+		APawn* KillcamPawn = Cast<APawn>(KillcamActor);
+		if (KillcamPawn && KillcamPawn->PlayerState)
+		{
+			UE_LOG(LogUTKillcam, Log, TEXT("Killcam viewing %s"), *KillcamPawn->PlayerState->PlayerName);
+		}
+		SpecController->ViewPawn(KillcamPawn);
+		// Weapon isn't replicated so first person view doesn't have a class to spawn for first person visuals
+		SpecController->bSpectateBehindView = true;
+		SpecController->BehindView(SpecController->bSpectateBehindView);
+		// Just in case we ever get moved off this view target guid
+		SpecController->SetQueuedViewTargetGuid(InKillcamViewTargetGuid.Value);
+		/*
+		UUTSpectatorCamComp_Chase* const SpectatorCameraComponent = KillcamActor->FindComponentByClass<UUTSpectatorCamComp_Chase>();
+		if (SpectatorCameraComponent != nullptr)
+		{
+			SpectatorCameraComponent->SetAutoFollow(true);
+		}*/
+	}
 }
 
 void UUTKillcamPlayback::OnCoolMomentCamReady(bool bWasSuccessful, FUniqueNetIdRepl InCoolMomentViewTargetNetId)
@@ -425,18 +448,20 @@ void UUTKillcamPlayback::OnCoolMomentCamReady(bool bWasSuccessful, FUniqueNetIdR
 		}
 	}
 
+	SpecController->bAutoCam = false;
+
 	if (PS == nullptr)
 	{
 		UE_LOG(LogUTKillcam, Warning, TEXT("Couldn't find player to view"));
-		KillcamStop();
-		return;
+		SpecController->SetQueuedViewTargetNetId(InCoolMomentViewTargetNetId);
 	}
-
-	SpecController->bAutoCam = false;
-	SpecController->ViewPlayerState(PS);
-	// Weapon isn't replicated so first person view doesn't have a class to spawn for first person visuals
-	SpecController->bSpectateBehindView = true;
-	SpecController->BehindView(SpecController->bSpectateBehindView);
+	else
+	{
+		SpecController->ViewPlayerState(PS);
+		// Weapon isn't replicated so first person view doesn't have a class to spawn for first person visuals
+		SpecController->bSpectateBehindView = true;
+		SpecController->BehindView(SpecController->bSpectateBehindView);
+	}
 }
 
 void UUTKillcamPlayback::ShowKillcamToUser()
@@ -462,6 +487,26 @@ void UUTKillcamPlayback::HideKillcamFromUser()
 	if (KillcamWorld == nullptr)
 	{
 		return;
+	}
+
+	// Clean up actors that have looping sounds
+	for (TActorIterator<AUTProjectile> It(KillcamWorld); It; ++It)
+	{
+		It->Destroy();
+	}
+
+	// Clean up actors that have looping sounds
+	for (TActorIterator<AUTRemoteRedeemer> It(KillcamWorld); It; ++It)
+	{
+		It->Destroy();
+	}
+
+	for (FActorIterator It(KillcamWorld); It; ++It)
+	{
+		if (It->GetClass()->ImplementsInterface(UUTResetInterface::StaticClass()))
+		{
+			IUTResetInterface::Execute_Reset(*It);
+		}
 	}
 
 	UGameInstance* GameInstance = KillcamWorld->GetGameInstance();
@@ -542,6 +587,41 @@ void UUTKillcamPlayback::HandleKillcamToggleCommand(UWorld* InWorld)
 	}
 }
 
+static void HandleInstantReplayCommand(const TArray<FString>& Args, UWorld* InWorld)
+{
+	if (Args.Num() != 1)
+	{
+		return;
+	}
+
+	AUTPlayerController* UTPC = Cast<AUTPlayerController>(InWorld->GetFirstPlayerController());
+	if (UTPC)
+	{
+		UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(InWorld->GetFirstLocalPlayerFromController());
+		if (LocalPlayer != nullptr)
+		{
+			UUTKillcamPlayback* LocalKillcamPlayback = LocalPlayer->GetKillcamPlaybackManager();
+			UUTGameViewportClient* UTVC = Cast<UUTGameViewportClient>(InWorld->GetGameViewport());
+			if (LocalKillcamPlayback != nullptr && UTVC != nullptr)
+			{
+				FNetworkGUID FocusPawnGuid = InWorld->DemoNetDriver->GetGUIDForActor(UTPC->GetPawn());
+				FTimerHandle Timer1;
+				FTimerHandle Timer2;
+				InWorld->GetTimerManager().SetTimer(
+					Timer1,
+					FTimerDelegate::CreateUObject(UTPC, &AUTPlayerController::OnKillcamStart, FocusPawnGuid, FCString::Atof(*Args[0])),
+					0.5f,
+					false);
+				InWorld->GetTimerManager().SetTimer(
+					Timer2,
+					FTimerDelegate::CreateUObject(UTPC, &AUTPlayerController::ClientStopKillcam),
+					FCString::Atof(*Args[0]) + 0.5f + 0.5f,
+					false);
+			}
+		}
+	}
+}
+
 FAutoConsoleCommandWithWorldAndArgs KillcamPlayCommand(
 	TEXT("UT.KillcamPlay"),
 	TEXT("Plays the replay with the given name in the killcam playback world."),
@@ -551,3 +631,8 @@ FAutoConsoleCommandWithWorld KillcamToggleCommand(
 	TEXT("UT.KillcamToggle"),
 	TEXT("Switches the active world for the viewport to the killcam world"),
 	FConsoleCommandWithWorldDelegate::CreateStatic(UUTKillcamPlayback::HandleKillcamToggleCommand));
+
+FAutoConsoleCommandWithWorldAndArgs InstantReplayCommand(
+	TEXT("UT.ShowInstantReplay"),
+	TEXT("Shows instant replay from last X seconds of current player"),
+	FConsoleCommandWithWorldAndArgsDelegate::CreateStatic(HandleInstantReplayCommand));

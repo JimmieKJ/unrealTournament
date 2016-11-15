@@ -470,7 +470,7 @@ void UNavigationSystem::PostInitProperties()
 		FCoreUObjectDelegates::PostLoadMap.AddUObject(this, &UNavigationSystem::OnPostLoadMap);
 		UNavigationSystem::NavigationDirtyEvent.AddUObject(this, &UNavigationSystem::OnNavigationDirtied);
 
-#if WITH_HOT_RELOAD
+#if WITH_HOT_RELOAD && !UE_SERVER
 		IHotReloadInterface& HotReloadSupport = FModuleManager::LoadModuleChecked<IHotReloadInterface>("HotReload");
 		HotReloadDelegateHandle = HotReloadSupport.OnHotReload().AddUObject(this, &UNavigationSystem::OnHotReload);
 #endif
@@ -2334,7 +2334,7 @@ void UNavigationSystem::AddElementToNavOctree(const FNavigationDirtyElement& Dir
 	}
 
 	UObject* ElementOwner = DirtyElement.Owner.Get();
-	if (ElementOwner == NULL || ElementOwner->IsPendingKill())
+	if (ElementOwner == NULL || ElementOwner->IsPendingKill() || DirtyElement.NavInterface == NULL)
 	{
 		return;
 	}

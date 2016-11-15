@@ -28,4 +28,8 @@ public:
 	/** pickup associated with this start. If it's a WeaponLocker, the contents will be given to players upon spawning. Otherwise, it can be used as a UI hint for spawn selection */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	class AUTPickup* AssociatedPickup;
+
+	/** In FlagRUn, will avoid using playerstarts from the same group twice in a row. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FName PlayerStartGroup;
 };

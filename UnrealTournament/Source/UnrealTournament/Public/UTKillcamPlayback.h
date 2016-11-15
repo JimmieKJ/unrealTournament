@@ -16,7 +16,7 @@ struct FNetworkReplayStreamInfo;
 struct FURL;
 struct FWorldContext;
 
-extern TAutoConsoleVariable<int32> CVarUTEnableKillcam;
+extern TAutoConsoleVariable<int32> CVarUTEnableInstantReplay;
 extern TAutoConsoleVariable<float> CVarUTKillcamRewindTime;
 extern TAutoConsoleVariable<float> CVarUTCoolMomentRewindTime;
 

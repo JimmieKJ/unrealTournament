@@ -13,6 +13,7 @@
 #include "UTProfileSettings.h"
 #include "UTGameInstance.h"
 #include "UTParty.h"
+#include "Net/OnlineEngineInterface.h"
 #include "UnrealTournamentFullScreenMovie.h"
 
 AUTBasePlayerController::AUTBasePlayerController(const FObjectInitializer& ObjectInitializer)
@@ -246,10 +247,13 @@ void AUTBasePlayerController::ServerSay_Implementation(const FString& Message, b
 	{
 		// Look to see if this message is a direct message to a given player.
 
-		if (Message.Left(1) == TEXT("@"))
+		FString TrimmedMessage = Message;
+		TrimmedMessage = TrimmedMessage.Trim();
+
+		if (TrimmedMessage.Left(1) == TEXT("@"))
 		{
 			// Remove the @
-			FString TrimmedMessage = Message.Right(Message.Len()-1);
+			TrimmedMessage = TrimmedMessage.Right(TrimmedMessage.Len()-1);
 			DirectSay(TrimmedMessage);
 			return;
 		}
@@ -264,12 +268,12 @@ void AUTBasePlayerController::ServerSay_Implementation(const FString& Message, b
 				if (!bTeamMessage || UTPC->GetTeamNum() == GetTeamNum())
 				{
 					TSharedPtr<const FUniqueNetId> Id = PlayerState->UniqueId.GetUniqueNetId();
-					bool bIsMuted =  UTPC->MuteList.VoiceMuteList.IndexOfByPredicate(FUniqueNetIdMatcher(*Id)) != INDEX_NONE;
+					bool bIsMuted =  Id.IsValid() && UTPC->MuteList.VoiceMuteList.IndexOfByPredicate(FUniqueNetIdMatcher(*Id)) != INDEX_NONE;
 
 					// Dont send spectator chat to players
 					if (UTPC->PlayerState != nullptr && (!bSpectatorMsg || UTPC->PlayerState->bOnlySpectator) && !bIsMuted)
 					{
-						UTPC->ClientSay(UTPlayerState, Message, (bTeamMessage ? ChatDestinations::Team : ChatDestinations::Local));
+						UTPC->ClientSay(UTPlayerState, TrimmedMessage, (bTeamMessage ? ChatDestinations::Team : ChatDestinations::Local));
 					}
 				}
 			}
@@ -549,6 +553,10 @@ void AUTBasePlayerController::OnFindSessionsComplete(bool bWasSuccessful)
 				UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
 				if (LP)
 				{
+
+					LP->LastSession = Result;
+					LP->bLastSessionWasASpectator = GUIDJoinWantsToSpectate;
+
 					// Clear the Quickmatch wait timer.
 					LP->QuickMatchLimitTime = 0.0;
 					if (LP->JoinSession(Result, GUIDJoinWantsToSpectate, GUIDJoinDesiredTeam))
@@ -608,8 +616,6 @@ void AUTBasePlayerController::ClientGenericInitialization_Implementation()
 	{
 		ServerReceiveStars(LP->GetTotalChallengeStars());
 	}
-
-	ClientWaitForMovieToFinish();
 }
 
 // FIXMESTEVE shouldn't receive this from client
@@ -813,11 +819,17 @@ void AUTBasePlayerController::Tick(float DeltaTime)
 
 void AUTBasePlayerController::UpdateInputMode()
 {
-	EInputMode::Type NewInputMode = EInputMode::EIM_None;
 
+	EInputMode::Type NewInputMode = EInputMode::EIM_None;
 	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(Player);
 	if (LocalPlayer)
 	{
+		UUTGameInstance* UTGameInstance = Cast<UUTGameInstance>(LocalPlayer->GetGameInstance());
+		if (UTGameInstance && UTGameInstance->bLevelIsLoading)
+		{
+			return;
+		}
+
 		//Menus default to UI
 		if (LocalPlayer->AreMenusOpen())
 		{
@@ -1068,7 +1080,7 @@ void AUTBasePlayerController::ClientPlayMovie_Implementation(const FString& Movi
 	UUTGameInstance* UTGameInstance = Cast<UUTGameInstance>(GetGameInstance());
 	if (UTGameInstance)
 	{
-		UTGameInstance->PlayLoadingMovie(MovieName);
+		UTGameInstance->PlayMovie(MovieName, SNullWidget::NullWidget, false, false, EMoviePlaybackType::MT_Normal, false);
 	}
 #endif
 }
@@ -1081,17 +1093,6 @@ void AUTBasePlayerController::ClientStopMovie_Implementation()
 	if (UTGameInstance)
 	{
 		UTGameInstance->StopMovie();
-	}
-#endif
-}
-
-void AUTBasePlayerController::ClientWaitForMovieToFinish_Implementation()
-{
-#if !UE_SERVER
-	UUTGameInstance* UTGameInstance = Cast<UUTGameInstance>(GetGameInstance());
-	if (UTGameInstance)
-	{
-		UTGameInstance->WaitForMovieToFinish(true);
 	}
 #endif
 }
@@ -1184,4 +1185,26 @@ bool AUTBasePlayerController::SkipTutorialCheck()
 	}
 
 	return false;
+}
+
+void AUTBasePlayerController::SetLoadingMovieToPlay(const FString& MoviePath)
+{
+#if !UE_SERVER
+	UUTGameInstance* UTGameInstance = Cast<UUTGameInstance>(GetGameInstance());
+	if (!MoviePath.IsEmpty() && UTGameInstance)
+	{
+		UTGameInstance->LoadingMovieToPlay = MoviePath;
+	}
+#endif
+	
+}
+
+void AUTBasePlayerController::UTDumpOnlineSessionState()
+{
+	UOnlineEngineInterface::Get()->DumpSessionState(GetWorld());
+}
+
+void AUTBasePlayerController::UTDumpPartyState()
+{
+	UOnlineEngineInterface::Get()->DumpPartyState(GetWorld());
 }

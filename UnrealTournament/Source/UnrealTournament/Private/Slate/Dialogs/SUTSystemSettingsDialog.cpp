@@ -865,7 +865,6 @@ TSharedRef<SWidget> SUTSystemSettingsDialog::BuildGraphicsTab()
 			+ AddConsoleVarSliderWidget(MakeShareable(new SSlateConsoleVarDelegate(TEXT("r.Tonemapper.Quality"), FVector2D(0.0f, 1.0f))), NSLOCTEXT("SUTSystemSettingsDialog", "TonemapperQuality", "Tonemapper Quality"))
 			+ AddConsoleVarSliderWidget(MakeShareable(new SSlateConsoleVarDelegate(TEXT("r.LightShaftQuality"), FVector2D(0.0f, 1.0f))), NSLOCTEXT("SUTSystemSettingsDialog", "LightShaftQuality", "Light Shaft Quality"))
 			+ AddConsoleVarCheckboxWidget(MakeShareable(new SSlateConsoleVarDelegate(TEXT("r.SeparateTranslucency"))), NSLOCTEXT("SUTSystemSettingsDialog", "SeparateTranslucency", "Separate Translucency Pass"))
-			+ AddConsoleVarCheckboxWidget(MakeShareable(new SSlateConsoleVarDelegate(TEXT("r.TonemapperFilm"))), NSLOCTEXT("SUTSystemSettingsDialog", "TonemapperFilm", "Tonemapper Film"))
 		];
 	AdvancedWidgets.Add(ShadowAdvanced);
 	AdvancedWidgets.Add(EffectsAdvanced);
@@ -965,15 +964,17 @@ TSharedRef<SWidget> SUTSystemSettingsDialog::BuildAudioTab()
 
 	+ AddGeneralSliderWithLabelWidget(SoundVolumes[EUTSoundClass::Master], SoundVolumesLabels[EUTSoundClass::Master], &SUTSystemSettingsDialog::OnSoundVolumeChangedMaster, NSLOCTEXT("SUTSystemSettingsDialog", "MasterSoundVolume", "Master Sound Volume").ToString(), UserSettings->GetSoundClassVolume(EUTSoundClass::Master),
 		NSLOCTEXT("SUTSystemSettingsDialog", "MasterSoundVolume_Tooltip", "Controls the volume of all audio, this setting in conjuction with the settings below will determine the volume of a particular piece of audio."))
-	+ AddGeneralSliderWithLabelWidget(SoundVolumes[EUTSoundClass::Music], SoundVolumesLabels[EUTSoundClass::Music], &SUTSystemSettingsDialog::OnSoundVolumeChangedMusic, NSLOCTEXT("SUTSystemSettingsDialog", "MusicVolume", "Music Volume").ToString(), UserSettings->GetSoundClassVolume(EUTSoundClass::Music),
-		NSLOCTEXT("SUTSystemSettingsDialog", "MusicSoundVolume_Tooltip", "Controls the volume of music playing in UI.  Music stingers and level music played during gameplay are not affected by this setting."))
+	+ AddGeneralSliderWithLabelWidget(SoundVolumes[EUTSoundClass::Music], SoundVolumesLabels[EUTSoundClass::Music], &SUTSystemSettingsDialog::OnSoundVolumeChangedMusic, NSLOCTEXT("SUTSystemSettingsDialog", "MusicVolume", "Master Music Volume").ToString(), UserSettings->GetSoundClassVolume(EUTSoundClass::Music),
+		NSLOCTEXT("SUTSystemSettingsDialog", "MusicSoundVolume_Tooltip", "Controls the volume of of all music."))
 	+ AddGeneralSliderWithLabelWidget(SoundVolumes[EUTSoundClass::GameMusic], SoundVolumesLabels[EUTSoundClass::GameMusic], &SUTSystemSettingsDialog::OnSoundVolumeChangedGameMusic, NSLOCTEXT("SUTSystemSettingsDialog", "GameMusicVolume", "In Game Music Volume").ToString(), UserSettings->GetSoundClassVolume(EUTSoundClass::GameMusic),
-			NSLOCTEXT("SUTSystemSettingsDialog", "GameMusicSoundVolume_Tooltip", "Controls the volume of level music playing during gameplay.  Volume is relative to the base music volume."))
+			NSLOCTEXT("SUTSystemSettingsDialog", "GameMusicSoundVolume_Tooltip", "Controls the volume of level music playing during gameplay.  Volume is relative to the master music volume."))
 		+ AddGeneralSliderWithLabelWidget(SoundVolumes[EUTSoundClass::Music_Stingers], SoundVolumesLabels[EUTSoundClass::Music_Stingers], &SUTSystemSettingsDialog::OnSoundVolumeChangedStingers, NSLOCTEXT("SUTSystemSettingsDialog", "StingerMusicVolume", "Stinger Volume").ToString(), UserSettings->GetSoundClassVolume(EUTSoundClass::Music_Stingers),
-			NSLOCTEXT("SUTSystemSettingsDialog", "StingerSoundVolume_Tooltip", "Controls the volume music stingers for important match events."))
-		+ AddGeneralSliderWithLabelWidget(SoundVolumes[EUTSoundClass::SFX], SoundVolumesLabels[EUTSoundClass::SFX], &SUTSystemSettingsDialog::OnSoundVolumeChangedSFX, NSLOCTEXT("SUTSystemSettingsDialog", "SFXVolume", "Effects Volume").ToString(), UserSettings->GetSoundClassVolume(EUTSoundClass::SFX))
-	+ AddGeneralSliderWithLabelWidget(SoundVolumes[EUTSoundClass::Voice], SoundVolumesLabels[EUTSoundClass::Voice], &SUTSystemSettingsDialog::OnSoundVolumeChangedVoice, NSLOCTEXT("SUTSystemSettingsDialog", "VoiceVolume", "Announcer Volume").ToString(), UserSettings->GetSoundClassVolume(EUTSoundClass::Voice))
-//	+ AddGeneralSliderWithLabelWidget(SoundVolumes[EUTSoundClass::VOIP], SoundVolumesLabels[EUTSoundClass::VOIP], &SUTSystemSettingsDialog::OnSoundVolumeChangedVOIP, NSLOCTEXT("SUTSystemSettingsDialog", "VOIPVolume", "Voice over IP Volume").ToString(), UserSettings->GetSoundClassVolume(EUTSoundClass::VOIP) * 0.5f)
+			NSLOCTEXT("SUTSystemSettingsDialog", "StingerSoundVolume_Tooltip", "Controls the volume of music stingers for important match events."))
+		+ AddGeneralSliderWithLabelWidget(SoundVolumes[EUTSoundClass::SFX], SoundVolumesLabels[EUTSoundClass::SFX], &SUTSystemSettingsDialog::OnSoundVolumeChangedSFX, NSLOCTEXT("SUTSystemSettingsDialog", "SFXVolume", "Effects Volume").ToString(), UserSettings->GetSoundClassVolume(EUTSoundClass::SFX),
+			NSLOCTEXT("SUTSystemSettingsDialog", "StingerSoundVolume_SFX", "Controls the volume of in game sound effects."))
+		+ AddGeneralSliderWithLabelWidget(SoundVolumes[EUTSoundClass::Voice], SoundVolumesLabels[EUTSoundClass::Voice], &SUTSystemSettingsDialog::OnSoundVolumeChangedVoice, NSLOCTEXT("SUTSystemSettingsDialog", "VoiceVolume", "Announcer Volume").ToString(), UserSettings->GetSoundClassVolume(EUTSoundClass::Voice),
+			NSLOCTEXT("SUTSystemSettingsDialog", "StingerSoundVolume_Voice", "Controls the volume of announcements for important match events."))
+		//	+ AddGeneralSliderWithLabelWidget(SoundVolumes[EUTSoundClass::VOIP], SoundVolumesLabels[EUTSoundClass::VOIP], &SUTSystemSettingsDialog::OnSoundVolumeChangedVOIP, NSLOCTEXT("SUTSystemSettingsDialog", "VOIPVolume", "Voice over IP Volume").ToString(), UserSettings->GetSoundClassVolume(EUTSoundClass::VOIP) * 0.5f)
 
 	+ SVerticalBox::Slot()
 	.AutoHeight()
@@ -1204,7 +1205,7 @@ FString SUTSystemSettingsDialog::GetDecalLifetimeLabelText(float SliderValue)
 	}
 	
 	int32 NewDecalLifetime = FMath::TruncToInt(SliderValue * (DecalLifetimeRange.Y - DecalLifetimeRange.X) + DecalLifetimeRange.X);
-	return FText::Format(NSLOCTEXT("SUTPlayerSettingsDialog", "DecalLifetime", "Decal Lifetime ({Value} seconds)"), FText::FromString(FString::Printf(TEXT("%i"), NewDecalLifetime))).ToString();
+	return FText::Format(NSLOCTEXT("SUTPlayerSettingsDialog", "DecalLifetime", "Decal Lifetime ({0} seconds)"), FText::FromString(FString::Printf(TEXT("%i"), NewDecalLifetime))).ToString();
 }
 
 void SUTSystemSettingsDialog::OnDecalLifetimeChange(float NewValue)
@@ -1280,13 +1281,6 @@ FReply SUTSystemSettingsDialog::OKClick()
 		GConfig->SetString(TEXT("ConsoleVariables"), CVar->GetVarName(), *CVar->GetString(), GEngineIni);
 	}
 	GConfig->Flush(false, GEngineIni);
-	// resolution
-	int32 NewDisplayMode = DisplayModeList.Find(DisplayModeComboBox->GetSelectedItem());
-	TArray<FString> Suffixes;
-	Suffixes.Add(FString("f"));
-	Suffixes.Add(FString("wf"));
-	Suffixes.Add(FString("w"));
-	GetPlayerOwner()->ViewportClient->ConsoleCommand(*FString::Printf(TEXT("setres %s%s"), *SelectedRes->GetText().ToString(), *Suffixes[NewDisplayMode]));
 
 	UserSettings->SetBotSpeech(EBotSpeechOption(FMath::Max<int32>(0, BotSpeechList.Find(BotSpeechCombo->GetSelectedItem()))));
 	UserSettings->SetHRTFEnabled(HRTFCheckBox->IsChecked());
@@ -1301,9 +1295,11 @@ FReply SUTSystemSettingsDialog::OKClick()
 	const TCHAR* CmdTemp = FCString::Strchr(Cmd,'x') ? FCString::Strchr(Cmd,'x')+1 : FCString::Strchr(Cmd,'X') ? FCString::Strchr(Cmd,'X')+1 : TEXT("");
 	int32 Y=FCString::Atoi(CmdTemp);
 	UserSettings->SetScreenResolution(FIntPoint(X, Y));
+	int32 NewDisplayMode = DisplayModeList.Find(DisplayModeComboBox->GetSelectedItem());
 	UserSettings->SetFullscreenMode(EWindowMode::ConvertIntToWindowMode(NewDisplayMode));
 	UserSettings->SetVSyncEnabled(VSync->IsChecked());
 	UserSettings->SetKeyboardLightingEnabled(KeyboardLightingCheckbox->IsChecked());
+	UserSettings->RequestResolutionChange(X, Y, EWindowMode::ConvertIntToWindowMode(NewDisplayMode));
 	UserSettings->SaveConfig();
 
 	// Immediately change the vsync, UserSettings would do it, but it's in a function that we don't typically call
@@ -1324,7 +1320,7 @@ FReply SUTSystemSettingsDialog::OKClick()
 	UTEngine->SaveConfig();
 
 	// impact effect lifetime - note that 1.0 on the slider is infinite lifetime
-	float NewDecalLifetime = (DecalLifetime->GetValue() * (DecalLifetimeRange.Y - DecalLifetimeRange.X) + DecalLifetimeRange.X);
+	float NewDecalLifetime = (DecalLifetime->GetValue() >= 1.0f) ? 0.0f : (DecalLifetime->GetValue() * (DecalLifetimeRange.Y - DecalLifetimeRange.X) + DecalLifetimeRange.X);
 	AUTWorldSettings* DefaultWS = AUTWorldSettings::StaticClass()->GetDefaultObject<AUTWorldSettings>();
 	DefaultWS->MaxImpactEffectVisibleLifetime = NewDecalLifetime;
 	DefaultWS->MaxImpactEffectInvisibleLifetime = NewDecalLifetime * 0.5f;

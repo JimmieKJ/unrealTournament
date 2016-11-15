@@ -18,8 +18,9 @@
 #include "Engine/DemoNetDriver.h"
 #include "UTCTFScoreboard.h"
 #include "UTAssistMessage.h"
-#include "UTInGameIntroHelper.h"
-#include "UTInGameIntroZone.h"
+#include "UTLineUpHelper.h"
+#include "UTLineUpZone.h"
+#include "UTCharacter.h"
 
 AUTCTFBaseGame::AUTCTFBaseGame(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -197,6 +198,7 @@ void AUTCTFBaseGame::ScoreKill_Implementation(AController* Killer, AController* 
 			}
 			AUTPlayerState* OtherPlayerState = Other ? Cast<AUTPlayerState>(Other->PlayerState) : NULL;
 			AttackerPS->IncrementKills(DamageType, true, OtherPlayerState);
+			TrackKillAssists(Killer, Other, KilledPawn, DamageType, AttackerPS, OtherPlayerState);
 		}
 	}
 	if (BaseMutator != NULL)
@@ -334,18 +336,7 @@ void AUTCTFBaseGame::HandleMatchIntermission()
 	//UTGameState->UpdateMatchHighlights();
 	CTFGameState->ResetFlags();
 
-	bool bWasInGameSucessful = false;
-	if (CTFGameState->InGameIntroHelper)
-	{
-		InGameIntroZoneTypes ZoneType = CTFGameState->InGameIntroHelper->GetIntroTypeToPlay(GetWorld());
-		if (ZoneType != InGameIntroZoneTypes::Invalid)
-		{
-			CTFGameState->InGameIntroHelper->HandleIntermission(GetWorld(), ZoneType);
-			bWasInGameSucessful = true;
-		}
-	}
-
-	if (!bWasInGameSucessful)
+	if (!CTFGameState->LineUpHelper || !CTFGameState->LineUpHelper->bIsActive)
 	{
 		// Init targets
 		for (int32 i = 0; i < Teams.Num(); i++)
@@ -394,6 +385,15 @@ int32 AUTCTFBaseGame::IntermissionTeamToView(AUTPlayerController* PC)
 void AUTCTFBaseGame::HandleExitingIntermission()
 {
 	RemoveAllPawns();
+
+	for (FActorIterator It(GetWorld()); It; ++It)
+	{
+		AActor* TestActor = *It;
+		if (TestActor && !TestActor->IsPendingKill() && TestActor->IsA<AUTProjectile>())
+		{
+			TestActor->Destroy();
+		}
+	}
 
 	// swap sides, if desired
 	AUTWorldSettings* Settings = Cast<AUTWorldSettings>(GetWorld()->GetWorldSettings());
@@ -528,7 +528,8 @@ void AUTCTFBaseGame::PlacePlayersAroundFlagBase(int32 TeamNum, int32 FlagTeamNum
 	// respawn dead pawns
 	for (AController* C : Members)
 	{
-		if (C)
+		AUTPlayerState* PS = C ? Cast<AUTPlayerState>(C->PlayerState) : nullptr;
+		if (PS && PS->Team && (PS->Team->TeamIndex == TeamNum))
 		{
 			AUTCharacter* UTChar = Cast<AUTCharacter>(C->GetPawn());
 			if (!UTChar || UTChar->IsDead() || UTChar->IsRagdoll())

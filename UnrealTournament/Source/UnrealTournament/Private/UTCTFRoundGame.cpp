@@ -33,8 +33,9 @@
 #include "UTAnalytics.h"
 #include "Runtime/Analytics/Analytics/Public/Analytics.h"
 #include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
-#include "UTInGameIntroHelper.h"
-#include "UTInGameIntroZone.h"
+#include "UTLineUpHelper.h"
+#include "UTLineUpZone.h"
+#include "UTProjectile.h"
 
 AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -75,9 +76,9 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 
 	bSitOutDuringRound = false;
 	bSlowFlagCarrier = false;
-	bDelayedRally = true;
 	EndOfMatchMessageDelay = 2.5f;
 	bHaveAnnouncedRound = false;
+	bUseLevelTiming = true;
 }
 
 void AUTCTFRoundGame::PostLogin(APlayerController* NewPlayer)
@@ -100,6 +101,12 @@ void AUTCTFRoundGame::InitGame(const FString& MapName, const FString& Options, F
 {
 	Super::InitGame(MapName, Options, ErrorMessage);
 
+	if (!UGameplayStatics::HasOption(Options, TEXT("TimeLimit")))
+	{
+		AUTWorldSettings* WorldSettings = bUseLevelTiming ? Cast<AUTWorldSettings>(GetWorldSettings()) : nullptr;
+		TimeLimit = WorldSettings ? WorldSettings->DefaultRoundLength : TimeLimit;
+	}
+
 	// key options are ?RoundLives=xx?Dash=xx?Asymm=xx?PerPlayerLives=xx?OffKillsForPowerup=xx?DefKillsForPowerup=xx?AllowPrototypePowerups=xx?DelayRally=xxx?Boost=xx
 	RoundLives = FMath::Max(1, UGameplayStatics::GetIntOption(Options, TEXT("RoundLives"), RoundLives));
 
@@ -118,22 +125,6 @@ void AUTCTFRoundGame::InitGame(const FString& MapName, const FString& Options, F
 	bSlowFlagCarrier = EvalBoolOptions(InOpt, bSlowFlagCarrier);
 }
 
-void AUTCTFRoundGame::GiveDefaultInventory(APawn* PlayerPawn)
-{
-	Super::GiveDefaultInventory(PlayerPawn);
-	AUTCharacter* UTCharacter = Cast<AUTCharacter>(PlayerPawn);
-	if (UTCharacter != NULL)
-	{
-		AUTPlayerState* UTPlayerState = Cast<AUTPlayerState>(UTCharacter->PlayerState);
-		bool bOnLastLife = (UTPlayerState && (UTPlayerState->RemainingLives == 0) && UTPlayerState->bHasLifeLimit);
-		if (bOnLastLife)
-		{
-			UTCharacter->bShouldWearLeaderHat = true;
-			UTCharacter->LeaderHatStatusChanged();
-		}
-	}
-}
-
 bool AUTCTFRoundGame::SkipPlacement(AUTCharacter* UTChar)
 {
 	return false; // (UTChar && FlagScorer && (UTChar->PlayerState == FlagScorer));
@@ -141,33 +132,43 @@ bool AUTCTFRoundGame::SkipPlacement(AUTCharacter* UTChar)
 
 void AUTCTFRoundGame::RemoveLosers(int32 LoserTeam, int32 FlagTeam)
 {
-	// place losing team around attacker base, away from camera
-	if ((Teams.Num() > LoserTeam) && (CTFGameState->FlagBases.Num() > FlagTeam) && (CTFGameState->FlagBases[FlagTeam] != nullptr) && (Teams[LoserTeam] != nullptr))
+	// remove all dead or loser pawns
+	for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
 	{
-		TArray<AController*> Members = Teams[LoserTeam]->GetTeamMembers();
-		FVector PlacementOffset = FVector(200.f, 0.f, 0.f);
-		float StartAngle = 0.f;
-		FVector FlagLoc = CTFGameState->FlagBases[FlagTeam]->GetActorLocation();
-		float AngleSlices = 360.0f / 8;
-		int32 PlacementCounter = 0;
-		for (AController* C : Members)
+		// Detach all controllers from their pawns
+		AController* Controller = *Iterator;
+		AUTPlayerState* PS = Controller ? Cast<AUTPlayerState>(Controller->PlayerState) : nullptr;
+		if (Controller && Controller->GetPawn() && (!PS || !PS->Team || (PS->Team->TeamIndex == LoserTeam)))
 		{
-			AUTCharacter* UTChar = C ? Cast<AUTCharacter>(C->GetPawn()) : NULL;
-			if (UTChar && !UTChar->IsDead() && !SkipPlacement(UTChar))
-			{
-				AUTPlayerState* PS = Cast<AUTPlayerState>(UTChar->PlayerState);
-				if (PS && PS->CarriedObject && PS->CarriedObject->HolderTrail)
-				{
-					PS->CarriedObject->HolderTrail->DetachFromComponent(FDetachmentTransformRules::KeepWorldTransform);
-				}
-				FRotator AdjustmentAngle(0, StartAngle + AngleSlices * PlacementCounter, 0);
-				FVector PlacementLoc = FlagLoc + AdjustmentAngle.RotateVector(PlacementOffset);
-				PlacementLoc.Z += UTChar->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight() * 1.1f;
-				PlacementCounter++;
-				UTChar->bIsTranslocating = true; // hack to get rid of teleport effect
-				UTChar->TeleportTo(PlacementLoc, UTChar->GetActorRotation(), false, true);
-				UTChar->bIsTranslocating = false;
-			}
+			Controller->UnPossess();
+		}
+	}
+
+	TArray<APawn*> PawnsToDestroy;
+	for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
+	{
+		APawn* Pawn = *It;
+		if (Pawn && !Pawn->GetController())
+		{
+			PawnsToDestroy.Add(Pawn);
+		}
+	}
+
+	for (int32 i = 0; i<PawnsToDestroy.Num(); i++)
+	{
+		APawn* Pawn = PawnsToDestroy[i];
+		if (Pawn != NULL && !Pawn->IsPendingKill())
+		{
+			Pawn->Destroy();
+		}
+	}
+
+	for (FActorIterator It(GetWorld()); It; ++It)
+	{
+		AActor* TestActor = *It;
+		if (TestActor && !TestActor->IsPendingKill() && TestActor->IsA<AUTProjectile>())
+		{
+			TestActor->Destroy();
 		}
 	}
 }
@@ -185,6 +186,10 @@ void AUTCTFRoundGame::BeginGame()
 			Cast<AUTPlayerState>(TestActor)->StartTime = 0;
 			Cast<AUTPlayerState>(TestActor)->bSentLogoutAnalytics = false;
 		}
+		else if (TestActor && !TestActor->IsPendingKill() && TestActor->IsA<AUTProjectile>())
+		{
+			TestActor->Destroy();
+		}
 	}
 	GameState->ElapsedTime = 0;
 
@@ -197,7 +202,6 @@ void AUTCTFRoundGame::BeginGame()
 	{
 		CTFGameState->CTFRound = 1;
 		CTFGameState->NumRounds = NumRounds;
-		CTFGameState->bAllowRallies = true;
 		CTFGameState->HalftimeScoreDelay = 0.5f;
 	}
 	float RealIntermissionDuration = IntermissionDuration;
@@ -205,7 +209,7 @@ void AUTCTFRoundGame::BeginGame()
 	SetMatchState(MatchState::MatchIntermission);
 	IntermissionDuration = RealIntermissionDuration;
 	
-	if ((!GetWorld() || !GetWorld()->GetGameState<AUTGameState>() || !GetWorld()->GetGameState<AUTGameState>()->InGameIntroHelper || !GetWorld()->GetGameState<AUTGameState>()->InGameIntroHelper->bIsActive))
+	if ((!GetWorld() || !GetWorld()->GetGameState<AUTGameState>() || !GetWorld()->GetGameState<AUTGameState>()->LineUpHelper || !GetWorld()->GetGameState<AUTGameState>()->LineUpHelper->bIsActive))
 	{
 		for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
 		{
@@ -239,18 +243,9 @@ void AUTCTFRoundGame::HandleMatchIntermission()
 		for (AUTCTFFlagBase* Base : CTFGameState->FlagBases)
 		{
 			Base->ClearDefenseEffect();
-		}	
-
-		if (UTGameState->InGameIntroHelper)
-		{
-			InGameIntroZoneTypes TypeToPlay = UTGameState->InGameIntroHelper->GetIntroTypeToPlay(GetWorld());
-			if (TypeToPlay != InGameIntroZoneTypes::Invalid)
-			{
-				UTGameState->InGameIntroHelper->HandleIntermission(GetWorld(), TypeToPlay);
-			}
 		}
 
-		if ((!UTGameState->InGameIntroHelper) || (!UTGameState->InGameIntroHelper->bIsActive))
+		if ((!UTGameState->LineUpHelper) || (!UTGameState->LineUpHelper->bIsActive))
 		{
 			AActor* IntermissionFocus = SetIntermissionCameras(TeamToWatch);
 			// Tell the controllers to look at defender base
@@ -450,16 +445,6 @@ void AUTCTFRoundGame::EndTeamGame(AUTTeamInfo* Winner, FName Reason)
 	GetWorldTimerManager().SetTimer(TempHandle4, this, &AUTCTFRoundGame::StopRCTFReplayRecording, EndReplayDelay);
 
 	SendEndOfGameStats(Reason);
-
-	//Show end game summary through in game system if possible
-	if ((UTGameState) && (UTGameState->InGameIntroHelper))
-	{
-		InGameIntroZoneTypes PlayType = UTGameState->InGameIntroHelper->GetIntroTypeToPlay(GetWorld());
-		if (PlayType != InGameIntroZoneTypes::Invalid)
-		{
-			UTGameState->InGameIntroHelper->HandleEndMatchSummary(GetWorld(), PlayType);
-		}
-	}
 }
 
 void AUTCTFRoundGame::StopRCTFReplayRecording()
@@ -531,7 +516,6 @@ void AUTCTFRoundGame::HandleFlagCapture(AUTCharacter* HolderPawn, AUTPlayerState
 	if (UTGameState && UTGameState->IsMatchInProgress())
 	{
 		Holder->AddCoolFactorEvent(400.0f);
-		PickMostCoolMoments(true);
 
 		SetMatchState(MatchState::MatchIntermission);
 	}
@@ -574,13 +558,12 @@ void AUTCTFRoundGame::InitGameState()
 
 	CTFGameState->CTFRound = 1;
 	CTFGameState->NumRounds = NumRounds;
-	CTFGameState->bAllowRallies = true;
-	CTFGameState->HalftimeScoreDelay = 6.f;
 }
 
 void AUTCTFRoundGame::HandleExitingIntermission()
 {
 	CTFGameState->bStopGameClock = false;
+	CTFGameState->HalftimeScoreDelay = 3.f;
 	RemoveAllPawns();
 
 	if (bFirstRoundInitialized)
@@ -609,6 +592,13 @@ void AUTCTFRoundGame::HandleExitingIntermission()
 		if (Controller->PlayerState != NULL && !Controller->PlayerState->bOnlySpectator)
 		{
 			RestartPlayer(Controller);
+
+			// Reset group taunt
+			AUTPlayerState* PS = Cast<AUTPlayerState>(Controller->PlayerState);
+			if (PS)
+			{
+				PS->ActiveGroupTaunt = nullptr;
+			}
 		}
 	}
 
@@ -831,6 +821,7 @@ void AUTCTFRoundGame::InitPlayerForRound(AUTPlayerState* PS)
 	{
 		PS->bHasLifeLimit = bPerPlayerLives;
 		PS->RoundKills = 0;
+		PS->RoundKillAssists = 0;
 		PS->NextRallyTime = GetWorld()->GetTimeSeconds() + 30.f;
 		PS->RespawnWaitTime = IsPlayerOnLifeLimitedTeam(PS) ? LimitedRespawnWaitTime : UnlimitedRespawnWaitTime;
 		PS->SetRemainingBoosts(InitialBoostCount);
@@ -852,6 +843,7 @@ void AUTCTFRoundGame::InitPlayerForRound(AUTPlayerState* PS)
 			PS->bHasLifeLimit = IsPlayerOnLifeLimitedTeam(PS);
 			PS->SetOutOfLives(false);
 		}
+		PS->ForceNetUpdate();
 	}
 }
 
@@ -920,10 +912,10 @@ void AUTCTFRoundGame::SendRestartNotifications(AUTPlayerState* PS, AUTPlayerCont
 
 void AUTCTFRoundGame::RestartPlayer(AController* aPlayer)
 {
-	if ((!IsMatchInProgress() && bPlacingPlayersAtIntermission) || (GetMatchState() == MatchState::MatchIntermission))
+	if ((!IsMatchInProgress() && bPlacingPlayersAtIntermission) || (GetMatchState() == MatchState::MatchIntermission) || (UTGameState && UTGameState->LineUpHelper && UTGameState->LineUpHelper->bIsActive && UTGameState->LineUpHelper->bIsPlacingPlayers))
 	{
 		// placing players during intermission
-		if (bPlacingPlayersAtIntermission)
+		if (bPlacingPlayersAtIntermission || (UTGameState && UTGameState->LineUpHelper && UTGameState->LineUpHelper->bIsActive && UTGameState->LineUpHelper->bIsPlacingPlayers))
 		{
 			AGameMode::RestartPlayer(aPlayer);
 		}
@@ -968,6 +960,7 @@ void AUTCTFRoundGame::RestartPlayer(AController* aPlayer)
 					}
 					PS->AnnounceStatus(StatusMessage::LastLife, 0, true);
 					PS->RespawnWaitTime = 0.5f;
+					PS->ForceNetUpdate();
 					PS->OnRespawnWaitReceived();
 				}
 				else if (PC)
@@ -1054,6 +1047,7 @@ void AUTCTFRoundGame::ScoreKill_Implementation(AController* Killer, AController*
 				}
 			}
 		}
+		OtherPS->ForceNetUpdate();
 		OtherPS->OnRespawnWaitReceived();
 	}
 	if (OtherPS && IsPlayerOnLifeLimitedTeam(OtherPS) && (OtherPS->RemainingLives > 0))
@@ -1160,14 +1154,10 @@ void AUTCTFRoundGame::ScoreKill_Implementation(AController* Killer, AController*
 			{
 				OtherPS->RespawnWaitTime = FMath::Min(OtherPS->RespawnWaitTime, 2.f);
 			}
+			OtherPS->ForceNetUpdate();
 			OtherPS->OnRespawnWaitReceived();
 		}
 	}
-}
-
-void AUTCTFRoundGame::AdjustLeaderHatFor(AUTCharacter* UTChar)
-{
-// no leader hat for high score, only for last life
 }
 
 void AUTCTFRoundGame::ScoreRedAlternateWin()
@@ -1246,7 +1236,6 @@ void AUTCTFRoundGame::ScoreAlternateWin(int32 WinningTeamIndex, uint8 Reason)
 		CheckForWinner(LastTeamToScore);
 		if (UTGameState->IsMatchInProgress())
 		{
-			PickMostCoolMoments(true);
 			SetMatchState(MatchState::MatchIntermission);
 		}
 

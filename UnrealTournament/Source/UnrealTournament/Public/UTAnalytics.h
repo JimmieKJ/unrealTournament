@@ -35,6 +35,9 @@ public:
 	 */
 	static void LoginStatusChanged(FString NewAccountID);
 
+	const static FString AnalyticsLoggedGameOption;
+	const static FString AnalyticsLoggedGameOptionTrue;
+
 /** Analytics events*/
 public:
 	/* Server metrics */
@@ -52,7 +55,7 @@ public:
 
 	/* Client metrics */
 	static void FireEvent_UTFPSCharts(AUTPlayerController* UTPC, TArray<FAnalyticsEventAttribute>& InParamArray);
-	static void FireEvent_EnterMatch(AUTPlayerController* UTPC, FString EnterMethod);
+	static void FireEvent_EnterMatch(FString EnterMethod);
 
 	static void FireEvent_UTTutorialPickupToken(FString TokenID);
 	static void FireEvent_UTTutorialPlayInstruction(int32 InstructionID, FString OptionalObjectName = FString());

@@ -166,6 +166,11 @@ int32 AUTBaseGameMode::GetNumMatches()
 
 void AUTBaseGameMode::PreLogin(const FString& Options, const FString& Address, const FUniqueNetIdRepl& UniqueId, FString& ErrorMessage)
 {
+	if ( !Options.IsEmpty() )
+	{
+		UE_LOG(UTConnection, Verbose, TEXT("PreLogin: %s"), *Options);
+	}
+
 	Super::PreLogin(Options, Address, UniqueId, ErrorMessage);
 
 	// Allow our game session to validate that a player can play
@@ -198,6 +203,11 @@ void AUTBaseGameMode::PreLogin(const FString& Options, const FString& Address, c
 
 APlayerController* AUTBaseGameMode::Login(class UPlayer* NewPlayer, ENetRole InRemoteRole, const FString& Portal, const FString& Options, const FUniqueNetIdRepl& UniqueId, FString& ErrorMessage)
 {
+	if ( !Options.IsEmpty() )
+	{
+		UE_LOG(UTConnection, Verbose, TEXT("Login: %s"), *Options);
+	}
+
 	// local players don't go through PreLogin()
 	if (UniqueId.IsValid() && Cast<ULocalPlayer>(NewPlayer) != NULL && IOnlineSubsystem::Get() != NULL)
 	{
@@ -251,6 +261,12 @@ void AUTBaseGameMode::PostLogin(APlayerController* NewPlayer)
 		}
 		PC->ClientRequireContentItemListComplete();
 	}
+
+	if ( NewPlayer && NewPlayer->PlayerState && !NewPlayer->PlayerState->PlayerName.IsEmpty() )
+	{
+		UE_LOG(UTConnection, Verbose, TEXT("PostLogin: %s (%s) Login Completed."), *NewPlayer->PlayerState->PlayerName, *NewPlayer->PlayerState->UniqueId.ToString() );
+	}
+
 }
 
 void AUTBaseGameMode::GenericPlayerInitialization(AController* C)
@@ -695,3 +711,7 @@ void AUTBaseGameMode::CheckMapStatus(FString MapPackageName, bool& bIsEpicMap, b
 	}
 }
 
+bool AUTBaseGameMode::SupportsInstantReplay() const
+{
+	return false;
+}

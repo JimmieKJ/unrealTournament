@@ -2,6 +2,7 @@
 #pragma once
 
 #include "UTAnnouncer.h"
+#include "UTATypes.h"
 #include "UTLocalMessage.generated.h"
 
 UCLASS(Blueprintable, Abstract, NotPlaceable, meta = (ShowWorldContextPin))
@@ -68,6 +69,21 @@ class UNREALTOURNAMENT_API UUTLocalMessage : public ULocalMessage
 	UPROPERTY(EditDefaultsOnly, Category = Message)
 		uint32 bCombineEmphasisText : 1;	
 
+	virtual FText CombineEmphasisText(int32 CombinedMessageIndex, FText CombinedEmphasisText, FText OriginalEmphasisText) const
+	{
+		return OriginalEmphasisText;
+	};
+
+	virtual FText CombinePrefixText(int32 CombinedMessageIndex,FText OriginalPrefixText) const
+	{
+		return OriginalPrefixText;
+	};
+
+	virtual FText CombineText(int32 CombinedMessageIndex, FText CombinedEmphasisText, FText OriginalCombinedText) const
+	{
+		return OriginalCombinedText;
+	};
+
 	// # of seconds to stay in HUD message queue.
 	UPROPERTY(EditDefaultsOnly, Category = Message)
 	float Lifetime;    
@@ -90,6 +106,11 @@ class UNREALTOURNAMENT_API UUTLocalMessage : public ULocalMessage
 	virtual int32 GetDestinationIndex(int32 MessageIndex) const
 	{
 		return 0;
+	}
+
+	virtual bool EnableAnnouncerLogging() const
+	{
+		return false;
 	}
 
 	virtual bool IsOptionalSpoken(int32 MessageIndex) const;

@@ -27,9 +27,9 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 	UPROPERTY(BlueprintReadOnly, Category = CTF)
 		bool bSlowFlagCarrier;
 
-	/*  If true, delay rally teleport */
+	/*  If true, use world settings round times */
 	UPROPERTY(BlueprintReadOnly, Category = CTF)
-		bool bDelayedRally;
+		bool bUseLevelTiming;
 
 	/** Respawn wait time for team with no life limit. */
 	UPROPERTY(BlueprintReadOnly, Category = CTF)
@@ -132,7 +132,6 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 	virtual void HandleMatchIntermission() override;
 	virtual void ScoreKill_Implementation(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType) override;
 	virtual float AdjustNearbyPlayerStartScore(const AController* Player, const AController* OtherController, const ACharacter* OtherCharacter, const FVector& StartLoc, const APlayerStart* P) override;
-	virtual void AdjustLeaderHatFor(AUTCharacter* UTChar) override;
 	virtual bool SkipPlacement(AUTCharacter* UTChar) override;
 	virtual void EndPlayerIntro() override;
 	virtual void InitGameState() override;
@@ -154,8 +153,6 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 
 	/** Initialize a player for the new round. */
 	virtual void InitPlayerForRound(AUTPlayerState* PS);
-
-	virtual void GiveDefaultInventory(APawn* PlayerPawn) override;
 
 	virtual void PostLogin(APlayerController* NewPlayer) override;
 

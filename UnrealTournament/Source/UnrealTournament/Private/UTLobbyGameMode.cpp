@@ -10,6 +10,7 @@
 #include "UTGameMessage.h"
 #include "UTAnalytics.h"
 #include "UTGameSessionNonRanked.h"
+#include "Menus/SUTLobbyMenu.h"
 
 
 
@@ -448,3 +449,15 @@ void AUTLobbyGameMode::MakeJsonReport(TSharedPtr<FJsonObject> JsonObject)
 	Super::MakeJsonReport(JsonObject);
 	JsonObject->SetNumberField(TEXT("TimeUntilRestart"),((ServerRefreshCheckpoint * 60 * 60) - GetWorld()->GetTimeSeconds()));
 }
+
+bool AUTLobbyGameMode::SupportsInstantReplay() const
+{
+	return false;
+}
+
+#if !UE_SERVER
+TSharedRef<SUTMenuBase> AUTLobbyGameMode::GetGameMenu(UUTLocalPlayer* PlayerOwner) const
+{
+	return SNew(SUTLobbyMenu).PlayerOwner(PlayerOwner);
+}
+#endif

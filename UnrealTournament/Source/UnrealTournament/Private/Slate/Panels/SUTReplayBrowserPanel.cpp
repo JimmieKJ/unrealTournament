@@ -128,7 +128,7 @@ void SUTReplayBrowserPanel::FriendsListUpdated()
 
 SUTReplayBrowserPanel::~SUTReplayBrowserPanel()
 {
-	//ISocialModule::Get().GetFriendsAndChatManager()->OnFriendsListUpdated().Remove(FriendsListUpdatedDelegateHandle);
+	//ISocialModule::Get().GetFriendsAndChatManager(TEXT(""), true)->OnFriendsListUpdated().Remove(FriendsListUpdatedDelegateHandle);
 }
 
 void SUTReplayBrowserPanel::ConstructPanel(FVector2D ViewportSize)
@@ -141,7 +141,7 @@ void SUTReplayBrowserPanel::ConstructPanel(FVector2D ViewportSize)
 	
 	FriendsListUpdated();
 	
-//	FriendsListUpdatedDelegateHandle = ISocialModule::Get().GetFriendsAndChatManager()->OnFriendsListUpdated().AddSP(this, &SUTReplayBrowserPanel::FriendsListUpdated);
+//	FriendsListUpdatedDelegateHandle = ISocialModule::Get().GetFriendsAndChatManager(TEXT(""), true)->OnFriendsListUpdated().AddSP(this, &SUTReplayBrowserPanel::FriendsListUpdated);
 
 	this->ChildSlot
 	[

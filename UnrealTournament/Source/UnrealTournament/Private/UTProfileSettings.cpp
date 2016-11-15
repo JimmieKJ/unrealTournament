@@ -30,6 +30,7 @@ void UUTProfileSettings::ResetProfile(EProfileResetType::Type SectionToReset)
 		HatVariant = 0;
 		EyewearPath = TEXT("");
 		EyewearVariant = 0;
+		GroupTauntPath = TEXT("");
 		TauntPath = TEXT("/Game/RestrictedAssets/Blueprints/Taunts/Taunt_Boom.Taunt_Boom_C");
 		Taunt2Path = TEXT("/Game/RestrictedAssets/Blueprints/Taunts/Taunt_Bow.Taunt_Bow_C");
 		CharacterPath = TEXT("");
@@ -93,7 +94,7 @@ void UUTProfileSettings::ResetProfile(EProfileResetType::Type SectionToReset)
 		MouseSensitivity = 0.07f;
 
 		MaxDodgeClickTimeValue = 0.25;
-		bDisableDoubleTapDodge = false;
+		bEnableDoubleTapDodge = true;
 		MaxDodgeTapTimeValue = 0.3;
 		bSingleTapWallDodge = true;
 		bSingleTapAfterJump = true;
@@ -320,6 +321,10 @@ void UUTProfileSettings::GetDefaultGameActions(TArray<FKeyConfigurationInfo>& ou
 	Key.AddActionMapping("PlayTaunt2");
 	outGameActions.Add(Key);
 
+	Key = FKeyConfigurationInfo("GroupTaunt", EControlCategory::Taunts, EKeys::L, EKeys::Invalid, EKeys::Gamepad_DPad_Down, NSLOCTEXT("Keybinds", "GroupTaunt", "Group Taunt"));
+	Key.AddActionMapping("PlayGroupTaunt");
+	outGameActions.Add(Key);
+
 	// UI
 
 	Key = FKeyConfigurationInfo("ShowMenu", EControlCategory::UI, EKeys::Escape, EKeys::Invalid, EKeys::Gamepad_Special_Right, NSLOCTEXT("Keybinds", "ShowMenu", "Show Menu"));
@@ -347,7 +352,7 @@ void UUTProfileSettings::GetDefaultGameActions(TArray<FKeyConfigurationInfo>& ou
 	outGameActions.Add(Key);
 
 	Key = FKeyConfigurationInfo("ComsMenu", EControlCategory::UI, EKeys::F, EKeys::Invalid, EKeys::Gamepad_FaceButton_Right, NSLOCTEXT("Keybinds", "ShowComsMenu", "Show Coms Menu"));
-	Key.AddCustomBinding("ToggleComMenu");
+	Key.AddActionMapping("ToggleComMenu");
 	outGameActions.Add(Key);
 
 	// Misc
@@ -609,6 +614,12 @@ bool UUTProfileSettings::VersionFixup()
 		GameActions.RemoveAt(SelectTransIndex);
 	}
 
+	//New setting, defaulting it to on
+	if (SettingsRevisionNum < ENABLE_DOUBLETAP_DODGE_FIXUP_VERSION)
+	{
+		bEnableDoubleTapDodge = true;
+	}
+
 	return ValidateGameActions();
 }
 
@@ -620,6 +631,7 @@ void UUTProfileSettings::ApplyAllSettings(UUTLocalPlayer* ProfilePlayer)
 	ProfilePlayer->SetHatPath(HatPath);
 	ProfilePlayer->SetLeaderHatPath(LeaderHatPath);
 	ProfilePlayer->SetEyewearPath(EyewearPath);
+	ProfilePlayer->SetGroupTauntPath(GroupTauntPath);
 	ProfilePlayer->SetTauntPath(TauntPath);
 	ProfilePlayer->SetTaunt2Path(Taunt2Path);
 	ProfilePlayer->SetHatVariant(HatVariant);
@@ -870,7 +882,7 @@ void UUTProfileSettings::ApplyInputSettings(UUTLocalPlayer* ProfilePlayer)
 		{
 			PlayerController->MyUTHUD->UpdateKeyMappings(true);
 		}
-		PlayerController->MaxDodgeClickTime = bDisableDoubleTapDodge ? 0.0f : MaxDodgeClickTimeValue;
+		PlayerController->MaxDodgeClickTime = bEnableDoubleTapDodge ? MaxDodgeClickTimeValue : 0.0f;
 		PlayerController->MaxDodgeTapTime = MaxDodgeTapTimeValue;
 		PlayerController->bSingleTapWallDodge = bSingleTapWallDodge;
 		PlayerController->bSingleTapAfterJump = bSingleTapAfterJump;

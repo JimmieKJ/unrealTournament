@@ -5,6 +5,7 @@
 #include "Particles/ParticleSystemComponent.h"
 #include "UTGameEngine.h"
 #include "UTLevelSummary.h"
+#include "UTKillcamPlayback.h"
 
 AUTWorldSettings::AUTWorldSettings(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -15,7 +16,7 @@ AUTWorldSettings::AUTWorldSettings(const FObjectInitializer& ObjectInitializer)
 	MaxImpactEffectInvisibleLifetime = 15.0f;
 	ImpactEffectFadeSpeed = 0.5f;
 	ImpactEffectFadeTime=1.0f;
-
+	DefaultRoundLength = 300;
 	PrimaryActorTick.bCanEverTick = true;
 	PrimaryActorTick.bStartWithTickEnabled = true;
 }
@@ -26,10 +27,20 @@ AUTWorldSettings* AUTWorldSettings::GetWorldSettings(UObject* WorldContextObject
 	return (World != NULL) ? Cast<AUTWorldSettings>(World->GetWorldSettings()) : NULL;
 }
 
+// we need the object name to be reliable so we can pull it out by itself in the menus without loading the whole map
+static FName NAME_LevelSummary(TEXT("LevelSummary"));
 void AUTWorldSettings::PostLoad()
 {
 	Super::PostLoad();
 	CreateLevelSummary();
+}
+void AUTWorldSettings::PostDuplicate(bool bDuplicateForPIE)
+{
+	Super::PostDuplicate(bDuplicateForPIE);
+	if (LevelSummary != nullptr && !LevelSummary->IsIn(GetOutermost()))
+	{
+		LevelSummary = DuplicateObject<UUTLevelSummary>(LevelSummary, GetOutermost(), NAME_LevelSummary);
+	}
 }
 void AUTWorldSettings::PostInitProperties()
 {
@@ -48,13 +59,10 @@ void AUTWorldSettings::PreSave(const class ITargetPlatform* TargetPlatform)
 		CreateLevelSummary();
 	}
 }
-
 void AUTWorldSettings::CreateLevelSummary()
 {
 	if (!IsTemplate())
 	{
-		// we need the object name to be reliable so we can pull it out by itself in the menus without loading the whole map
-		static FName NAME_LevelSummary(TEXT("LevelSummary"));
 		if (LevelSummary == NULL)
 		{
 			LevelSummary = FindObject<UUTLevelSummary>(GetOutermost(), *NAME_LevelSummary.ToString());
@@ -105,11 +113,22 @@ void AUTWorldSettings::BeginPlay()
 {
 	if (Music != NULL && GetNetMode() != NM_DedicatedServer)
 	{
-		MusicComp = NewObject<UAudioComponent>(this);
-		MusicComp->bAllowSpatialization = false;
-		MusicComp->bShouldRemainActiveIfDropped = true;
-		MusicComp->SetSound(Music);
-		MusicComp->Play();
+		bool bPlayMusic = true;
+
+		UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(GEngine->GetFirstGamePlayer(GetWorld()));
+		if (LP && LP->GetKillcamPlaybackManager() && LP->GetKillcamPlaybackManager()->GetKillcamWorld() == GetWorld())
+		{
+			bPlayMusic = false;
+		}
+
+		if (bPlayMusic)
+		{
+			MusicComp = NewObject<UAudioComponent>(this);
+			MusicComp->bAllowSpatialization = false;
+			MusicComp->bShouldRemainActiveIfDropped = true;
+			MusicComp->SetSound(Music);
+			MusicComp->Play();
+		}
 	}
 
 	Super::BeginPlay();

@@ -360,7 +360,7 @@ float AUTWeap_ImpactHammer::GetAISelectRating_Implementation()
 	{
 		// super desireable for bot waiting to impact jump
 		UUTReachSpec_HighJump* JumpSpec = Cast<UUTReachSpec_HighJump>(B->GetCurrentPath().Spec.Get());
-		if (JumpSpec != NULL && !B->AllowTranslocator() && JumpSpec->CalcAvailableSimpleJumpZ(UTOwner) < JumpSpec->CalcRequiredJumpZ(UTOwner))
+		if (JumpSpec != NULL && !B->AllowTranslocator() && FUTReachParams::CalcAvailableSimpleJumpZ(UTOwner) < JumpSpec->CalcRequiredJumpZ(UTOwner))
 		{
 			return 9.f;
 		}

@@ -22,6 +22,11 @@ UFont::UFont(const FObjectInitializer& ObjectInitializer)
 {
 	ScalingFactor = 1.0f;
 	LegacyFontSize = 9;
+
+	if (!IsTemplate())
+	{
+		AddToRoot();
+	}
 }
 
 UFont::~UFont()

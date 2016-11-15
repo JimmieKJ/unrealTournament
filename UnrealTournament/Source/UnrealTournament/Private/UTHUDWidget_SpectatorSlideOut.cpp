@@ -200,18 +200,18 @@ void UUTHUDWidget_SpectatorSlideOut::Draw_Implementation(float DeltaTime)
 
 		AUTCTFGameState * CTFGameState = Cast<AUTCTFGameState>(UTGameState);
 		bool bOnlySpectator = UTHUDOwner->UTPlayerOwner->PlayerState->bOnlySpectator;
-		if (CTFGameState && (CTFGameState->FlagBases.Num() > 1))
+		if (CTFGameState)
 		{
 			// show flag binds
-			AUTCarriedObject* RedFlag = CTFGameState->FlagBases[0] ? CTFGameState->FlagBases[0]->MyFlag : nullptr;
-			if (RedFlag && !RedFlag->IsPendingKillPending() && (bOnlySpectator || UTGameState->OnSameTeam(UTHUDOwner->UTPlayerOwner, RedFlag)))
+			float FlagBindXOffset = XOffset + CamTypeButtonStart*Size.X;
+			for (int32 i = 0; i < CTFGameState->FlagBases.Num(); i++)
 			{
-				DrawFlag("ViewFlag 0", "Red", RedFlag, DeltaTime, XOffset + CamTypeButtonStart*Size.X, DrawOffset);
-			}
-			AUTCarriedObject* BlueFlag = CTFGameState->FlagBases[1] ? CTFGameState->FlagBases[1]->MyFlag : nullptr;
-			if (BlueFlag && !BlueFlag->IsPendingKillPending() && (bOnlySpectator || UTGameState->OnSameTeam(UTHUDOwner->UTPlayerOwner, BlueFlag)))
-			{
-				DrawFlag("ViewFlag 1", "Blue", BlueFlag, DeltaTime, XOffset + CamTypeButtonStart*Size.X + 0.37f * Size.X, DrawOffset);
+				AUTCarriedObject* Flag = CTFGameState->FlagBases[i] ? CTFGameState->FlagBases[i]->MyFlag : nullptr;
+				if (Flag && !Flag->IsPendingKillPending() && !Flag->IsPendingKill() && Flag->Team && (bOnlySpectator || UTGameState->OnSameTeam(UTHUDOwner->UTPlayerOwner, Flag)))
+				{
+					DrawFlag("ViewFlag "+FString::FromInt(i), Flag->Team->TeamName.ToString(), Flag, DeltaTime, FlagBindXOffset, DrawOffset);
+					FlagBindXOffset += 0.37f * Size.X;
+				}
 			}
 			DrawOffset += 1.2f*CellHeight;
 		}
@@ -663,7 +663,7 @@ void UUTHUDWidget_SpectatorSlideOut::DrawPlayer(int32 Index, AUTPlayerState* Pla
 
 int32 UUTHUDWidget_SpectatorSlideOut::MouseHitTest(FVector2D InPosition)
 {
-	if (bIsInteractive && UTHUDOwner->UTPlayerOwner && UTHUDOwner->UTPlayerOwner->bShowMouseCursor)
+	if (bIsInteractive && UTHUDOwner && UTHUDOwner->UTPlayerOwner && UTHUDOwner->UTPlayerOwner->bShowMouseCursor)
 	{
 		for (int32 i = 0; i < ClickElementStack.Num(); i++)
 		{

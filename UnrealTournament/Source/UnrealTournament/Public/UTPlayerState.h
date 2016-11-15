@@ -10,6 +10,7 @@
 #include "UTHatLeader.h"
 #include "UTEyewear.h"
 #include "UTTaunt.h"
+#include "UTGroupTaunt.h"
 #include "Http.h"
 #include "UTProfileItem.h"
 #include "SHyperlink.h"
@@ -134,6 +135,13 @@ public:
 	/** Called on client using the roundtrip time for servermove/ack. */
 	virtual void CalculatePing(float NewPing);
 
+	/** Mark this pawn as belonging to the player with the highest score, intended for cosmetic usage only */
+	UPROPERTY(ReplicatedUsing = OnRep_HasHighScore, BlueprintReadOnly, Category = PlayerState)
+		bool bHasHighScore;
+
+	UFUNCTION()
+		void OnRep_HasHighScore();
+
 	/** ID that can be used to consistently identify this player for spectating commands
 	 * IDs are reused when players leave and new ones join, but a given player's ID remains stable and unique
 	 * as long as that player is in the game
@@ -246,6 +254,10 @@ public:
 	UPROPERTY(BlueprintReadWrite, replicated, Category = PlayerState)
 	int32 Kills;
 
+	/** Kills by this player.  */
+	UPROPERTY(BlueprintReadWrite, replicated, Category = PlayerState)
+		int32 KillAssists;
+
 	/** Damage done by this player.  Not replicated. */
 	UPROPERTY(BlueprintReadWrite, Category = PlayerState)
 		int32 DamageDone;
@@ -257,6 +269,22 @@ public:
 	/** Enemy kills by this player this round. */
 	UPROPERTY(BlueprintReadWrite, replicated, Category = PlayerState)
 		int32 RoundKills;
+
+	/** Enemy kills by this player this round. */
+	UPROPERTY(BlueprintReadWrite, replicated, Category = PlayerState)
+		int32 RoundKillAssists;
+
+	/** Damage done by this player this life.  Not replicated. */
+	UPROPERTY(BlueprintReadWrite, Category = PlayerState)
+		int32 ThisLifeDamageDone;
+
+	/** Enemy kills by this player this life. */
+	UPROPERTY(BlueprintReadWrite, replicated, Category = PlayerState)
+		int32 ThisLifeKills;
+
+	/** Enemy kills by this player this life. */
+	UPROPERTY(BlueprintReadWrite, replicated, Category = PlayerState)
+		int32 ThisLifeKillAssists;
 
 	/** If limited lives, remaining lives for this player. */
 	/** Enemy kills by this player this round.  Not replicated. */
@@ -479,10 +507,17 @@ public:
 	virtual void IncrementKills(TSubclassOf<UDamageType> DamageType, bool bEnemyKill, AUTPlayerState* VictimPS=NULL);
 
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = PlayerState)
+		virtual void IncrementKillAssists(TSubclassOf<UDamageType> DamageType, bool bEnemyKill, AUTPlayerState* VictimPS = NULL);
+
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = PlayerState)
 	virtual void IncrementDeaths(TSubclassOf<UDamageType> DamageType, AUTPlayerState* KillerPlayerState);
 
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = PlayerState)
 	virtual void AdjustScore(int32 ScoreAdjustment);
+
+	virtual bool CheckForMultiKill();
+
+	virtual int32 IncrementWeaponSpree(TSubclassOf<UUTDamageType> UTDamage);
 
 	virtual void Tick(float DeltaTime) override;
 
@@ -560,6 +595,12 @@ public:
 
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerReceiveTaunt2Class(const FString& NewTauntClass);
+
+	UPROPERTY(replicated)
+	TSubclassOf<AUTGroupTaunt> GroupTauntClass;
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	virtual void ServerReceiveGroupTauntClass(const FString& NewGroupTauntClass);
 
 	virtual void CopyProperties(APlayerState* PlayerState) override;
 	virtual void OverrideWith(APlayerState* PlayerState) override;
@@ -1020,6 +1061,12 @@ public:
 
 	virtual void OnRep_bIsInactive() override;
 
+	UPROPERTY(replicatedUsing = OnRep_ActiveGroupTaunt)
+	TSubclassOf<AUTGroupTaunt> ActiveGroupTaunt;
+
+	UFUNCTION()
+	virtual void OnRep_ActiveGroupTaunt();
+
 	UPROPERTY(replicatedUsing = OnRepTaunt)
 	FEmoteRepInfo EmoteReplicationInfo;
 
@@ -1037,6 +1084,9 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = Taunt)
 	void PlayTauntByClass(TSubclassOf<AUTTaunt> TauntToPlay);
+
+	UFUNCTION(BlueprintCallable, Category = Taunt)
+	void PlayGroupTaunt();
 
 	/** whether the player is allowed to freeze a taunt anim; i.e. set its playrate to zero */
 	virtual bool AllowFreezingTaunts() const;
@@ -1118,6 +1168,17 @@ public:
 	TMap< UClass*, int32> DamageDelt;
 
 	virtual void SetUniqueId(const TSharedPtr<const FUniqueNetId>& InUniqueId) override;
+
+	UPROPERTY(BlueprintReadWrite, Category = PlayerState)
+		FVector LastPostRenderedLocation;
+
+	UPROPERTY(BlueprintReadWrite, Category = PlayerState)
+		bool bPawnWasPostRendered;
+
+	UPROPERTY(BlueprintReadWrite, Category = PlayerState)
+		float PawnPostRenderedTime;
+
+	virtual void PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector CameraPosition, FVector CameraDir) override;
 
 private:
 	virtual void ForceUpdatePlayerInfo();

@@ -8,6 +8,7 @@
 #include "UTTimedPowerup.h"
 #include "UTFlagRunGameState.h"
 #include "UTCTFMajorMessage.h"
+#include "UTRallyPoint.h"
 
 const float BOUNCE_SCALE = 1.6f;			
 const float BOUNCE_TIME = 1.2f;		// SHould be (BOUNCE_SCALE - 1.0) * # of seconds
@@ -336,7 +337,10 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 		bool bPlayerCanRally = UTHUDOwner->UTPlayerOwner->CanPerformRally();
 		AUTFlagRunGameState* GameState = GetWorld()->GetGameState<AUTFlagRunGameState>();
 		bool bShowTimer = !bPlayerCanRally && !UTPlayerState->CarriedObject && UTPlayerState->Team && GameState && GameState->bAttackersCanRally && ((UTPlayerState->Team->TeamIndex == 0) == GameState->bRedToCap) && (UTPlayerState->CarriedObject == nullptr) && CharOwner && CharOwner->bCanRally && (UTPlayerState->RemainingRallyDelay > 0);
-		bShowTimer = bShowTimer && (GameState->GetRemainingTime() < 270);
+		if (GameState && GameState->CurrentRallyPoint)
+		{
+			bShowTimer = bShowTimer || (GameState && !GameState->bAttackersCanRally && UTPlayerState->Team && ((UTPlayerState->Team->TeamIndex == 0) == GameState->bRedToCap));
+		}
 		if (UTPlayerState->CarriedObject != nullptr || bPlayerCanRally || bShowTimer)
 		{
 			FlagInfo.bCustomIconUnderlay = false;
@@ -363,21 +367,12 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 			if (bPlayerCanRally)
 			{
 				FlagInfo.bCustomIconUnderlay = true;
-				if (UTPlayerState->CarriedObject)
-				{
-					if (InUTHUDOwner && InUTHUDOwner->UTPlayerOwner && (GetWorld()->GetTimeSeconds() - InUTHUDOwner->UTPlayerOwner->LastRallyRequestTime < 10.5f))
-					{
-						FlagInfo.Label = FText::GetEmpty();
-						bWantsPulse = false;
-					}
-				}
 
 				if (UTHUDOwner->UTPlayerOwner->bNeedsRallyNotify)
 				{
 					if (bWantsPulse)
 					{
 						FlagInfo.Animate(StatAnimTypes::Scale, 2.0f, 10.f, 1.0f, true);
-						UTHUDOwner->UTPlayerOwner->ClientReceiveLocalizedMessage(UUTCTFMajorMessage::StaticClass(), 23);
 					}
 					UTHUDOwner->UTPlayerOwner->bNeedsRallyNotify = false;
 				}
@@ -388,7 +383,10 @@ void UUTHUDWidget_QuickStats::PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCa
 			}
 			else if (bShowTimer)
 			{
-				FlagInfo.Label = FText::AsNumber(int32(UTPlayerState->RemainingRallyDelay));
+				int32 RemainingTime = UTPlayerState->CarriedObject && GameState && GameState->CurrentRallyPoint
+											? 1 + GameState->CurrentRallyPoint->ReplicatedCountdown
+											: 1 + FMath::Max(int32(UTPlayerState->RemainingRallyDelay), (GameState && GameState->CurrentRallyPoint) ? GameState->CurrentRallyPoint->ReplicatedCountdown : 0);
+				FlagInfo.Label = FText::AsNumber(RemainingTime);
 			}
 
 			if (UTPlayerState->CarriedObject != nullptr)

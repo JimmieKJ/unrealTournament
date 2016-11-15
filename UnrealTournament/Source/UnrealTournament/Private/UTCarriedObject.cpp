@@ -14,6 +14,7 @@
 #include "UTGameVolume.h"
 #include "UTCTFRoundGameState.h"
 #include "UTCTFRoundGame.h"
+#include "UTRallyPoint.h"
 
 AUTCarriedObject::AUTCarriedObject(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -200,7 +201,7 @@ void AUTCarriedObject::ClientUpdateAttachment(bool bNowAttached)
 					for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
 					{
 						AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
-						TrailLength = (PC && GetTeamNum() == PC->GetTeamNum()) ? 1.f : 0.f;
+						TrailLength = (PC && GetTeamNum() == PC->GetTeamNum()) ? 0.5f : 0.f;
 						break;
 					}
 				}
@@ -352,7 +353,7 @@ bool AUTCarriedObject::CanBePickedUpBy(AUTCharacter* Character)
 		}
 		else
 		{
-			if (!bHidden)
+			if (!bHidden && !bGradualAutoReturn)
 			{
 				AUTPlayerController* PC = Character ? Cast < AUTPlayerController>(Character->GetController()) : NULL;
 				if (PC)
@@ -376,7 +377,7 @@ bool AUTCarriedObject::CanBePickedUpBy(AUTCharacter* Character)
 		}
 		else if (!bEnemyCanPickup)
 		{
-			if (!bHidden)
+			if (!bHidden && !bGradualAutoReturn)
 			{
 				AUTPlayerController* PC = Character ? Cast < AUTPlayerController>(Character->GetController()) : NULL;
 				if (PC)
@@ -420,7 +421,7 @@ void AUTCarriedObject::SetHolder(AUTCharacter* NewHolder)
 	}
 	bool bWasHome = (ObjectState == CarriedObjectState::Home);
 	ChangeState(CarriedObjectState::Held);
-
+	
 	// Tell the base it's been picked up
 	HomeBase->ObjectWasPickedUp(NewHolder, bWasHome);
 
@@ -435,7 +436,7 @@ void AUTCarriedObject::SetHolder(AUTCharacter* NewHolder)
 		OnHolderChanged();
 		if (Holder && bWasHome)
 		{
-			LastPingedTime = GetWorld()->GetTimeSeconds() + 1.5f;
+			LastPingedTime = GetWorld()->GetTimeSeconds();
 			Holder->ModifyStatsValue(NAME_FlagGrabs, 1);
 			if (Holder->Team)
 			{
@@ -475,13 +476,34 @@ void AUTCarriedObject::SetHolder(AUTCharacter* NewHolder)
 	{
 		Holder->OnRepSpecialTeamPlayer();
 	}
-	UUTGameplayStatics::UTPlaySound(GetWorld(), PickupSound, HoldingPawn);
+	UUTGameplayStatics::UTPlaySound(GetWorld(), PickupSound, HoldingPawn, SRT_AllButOwner);
+	AUTPlayerController* PC = Cast <AUTPlayerController>(HoldingPawn->GetController());
+	if (PC)
+	{
+		PC->UTClientPlaySound(HolderPickupSound);
+	}
 
 	SendGameMessage(4, Holder, NULL);
 
 	if (Role == ROLE_Authority)
 	{
-		if (bWasHome && MessageClass != NULL)
+		// go to either off or start charging again depending on if FC is touching
+		TSet<AActor*> Touching;
+		HoldingPawn->GetCapsuleComponent()->GetOverlappingActors(Touching);
+		for (AActor* TouchingActor : Touching)
+		{
+			AUTRallyPoint* RallyPoint = Cast<AUTRallyPoint>(TouchingActor);
+			if (RallyPoint)
+			{
+				RallyPoint->StartRallyCharging();
+				break;
+			}
+		}
+
+		// TODO: currently sending this AI notify even when not home as we do not currently track AI knowledge of dropped flag location
+		//		when that changes, this check should be restored
+		// note: notify for dropped flags here should match conditions for through-walls outline/beacon, see UpdateOutline()
+		if (/*(bWasHome || bGradualAutoReturn) && */MessageClass != NULL)
 		{
 			// the "X flag taken" announcement from home implies the new holder's current location, so update enemy bots
 			for (FConstControllerIterator It = GetWorld()->GetControllerIterator(); It; ++It)
@@ -510,6 +532,20 @@ void AUTCarriedObject::NoLongerHeld(AController* InstigatedBy)
 	// Have the holding pawn drop the object
 	if (HoldingPawn != NULL)
 	{
+		if (Role == ROLE_Authority)
+		{
+			TSet<AActor*> Touching;
+			HoldingPawn->GetCapsuleComponent()->GetOverlappingActors(Touching);
+			for (AActor* TouchingActor : Touching)
+			{
+				AUTRallyPoint* RallyPoint = Cast<AUTRallyPoint>(TouchingActor);
+				if (RallyPoint)
+				{
+					RallyPoint->EndRallyCharging();
+					break;
+				}
+			}
+		}
 		DetachFrom(HoldingPawn->GetMesh());
 	}
 	LastHolder = Holder;
@@ -523,6 +559,7 @@ void AUTCarriedObject::NoLongerHeld(AController* InstigatedBy)
 			Holder->OnRepSpecialTeamPlayer();
 		}
 		Holder->ClearCarriedObject(this);
+		Holder->ForceNetUpdate();
 	}
 
 	LastHoldingPawn = HoldingPawn;

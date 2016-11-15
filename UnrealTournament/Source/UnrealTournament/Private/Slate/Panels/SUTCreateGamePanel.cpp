@@ -278,23 +278,26 @@ TSharedRef<SWidget> SUTCreateGamePanel::BuildGamePanel(TSubclassOf<AUTGameMode> 
 			]
 
 			+SHorizontalBox::Slot()
-			.FillWidth(1.0)
+			.AutoWidth()
 			[
-				SNew(SVerticalBox)
-				+ SVerticalBox::Slot()
-				.AutoHeight()
-				.Padding(FMargin(20, 0, 20, 0))
+				SNew(SBox).WidthOverride(750)
 				[
-					SNew(SBox)
-					.HeightOverride(256)
+					SNew(SVerticalBox)
+					+ SVerticalBox::Slot()
+					.AutoHeight()
+					.Padding(FMargin(20, 0, 20, 0))
 					[
-						SNew(SScrollBox)
-						+ SScrollBox::Slot()
+						SNew(SBox)
+						.HeightOverride(256)
 						[
-							SAssignNew(MapDesc, STextBlock)
-							.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
-							.Text(FText())
-							.AutoWrapText(true)
+							SNew(SScrollBox)
+							+ SScrollBox::Slot()
+							[
+								SAssignNew(MapDesc, STextBlock)
+								.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
+								.Text(FText())
+								.AutoWrapText(true)
+							]
 						]
 					]
 				]
@@ -522,12 +525,14 @@ void SUTCreateGamePanel::OnStoreDialogResult(TSharedPtr<SCompoundWidget> Widget,
 		FString Error = TEXT("");
 		FPlatformProcess::LaunchURL(*URL, *Command, &Error);
 		FPlatformMisc::RequestMinimize();
-
-		PlayerOwner->ShowMessage(
-			NSLOCTEXT("SUTGameSetupDialog", "ReturnFromStore", "Returned from store..."), 
-			NSLOCTEXT("SUT6GameSetupDialog", "StoreWait", "Click OK when ready."), 
-			UTDIALOG_BUTTON_OK, 
-			FDialogResultDelegate::CreateRaw(this, &SUTCreateGamePanel::OnStoreReturnResult), FVector2D(0.25f, 0.25f));								
+		if (PlayerOwner.IsValid())
+		{
+			PlayerOwner->ShowMessage(
+				NSLOCTEXT("SUTGameSetupDialog", "ReturnFromStore", "Returned from store..."), 
+				NSLOCTEXT("SUT6GameSetupDialog", "StoreWait", "Click OK when ready."), 
+				UTDIALOG_BUTTON_OK, 
+				FDialogResultDelegate::CreateRaw(this, &SUTCreateGamePanel::OnStoreReturnResult), FVector2D(0.25f, 0.25f));								
+		}
 	}
 	else if (MapList.IsValid() && AllMaps.Num() > 0)
 	{
@@ -639,35 +644,36 @@ void SUTCreateGamePanel::OnGameSelected(UClass* NewSelection, ESelectInfo::Type 
 					{
 						bool bHasTitleA = !A->Title.IsEmpty();
 						bool bHasTitleB = !B->Title.IsEmpty();
+
 						if (bHasTitleA && !bHasTitleB)
 						{
 							return true;
 						}
 
-						if (A->bIsEpicMap)
+						if (A->bIsMeshedMap)
 						{
-							if (!B->bIsEpicMap) 
+							if (!B->bIsMeshedMap)
 							{
 								return true;
 							}
-							else if (A->bIsMeshedMap && !B->bIsMeshedMap) 
+							else if (A->bIsEpicMap && !B->bIsEpicMap)
 							{
 								return true;
 							}
-							else if (!A->bIsMeshedMap && B->bIsMeshedMap)
+							else if (!A->bIsEpicMap && B->bIsEpicMap)
 							{
 								return false;
 							}
 						}
-
-						else if (B->bIsEpicMap)
+						else if (B->bIsMeshedMap)
 						{
 							return false;
 						}
-						else if (A->bIsMeshedMap && !B->bIsMeshedMap) 
+						else if (A->bIsEpicMap && !B->bIsEpicMap)
 						{
 							return true;
 						}
+
 						return A->Title < B->Title;
 
 					});

@@ -113,10 +113,8 @@ void FSlateRHIRenderer::FViewportInfo::RecreateDepthBuffer_RenderThread()
 
 FSlateRHIRenderer::FSlateRHIRenderer( TSharedRef<FSlateFontServices> InSlateFontServices, TSharedRef<FSlateRHIResourceManager> InResourceManager )
 	: FSlateRenderer(InSlateFontServices)
-#if USE_MAX_DRAWBUFFERS
 	, EnqueuedWindowDrawBuffer(NULL)
-	, FreeBufferIndex(1)
-#endif
+	, FreeBufferIndex(0)
 {
 	ResourceManager = InResourceManager;
 
@@ -222,6 +220,9 @@ FSlateDrawBuffer& FSlateRHIRenderer::GetDrawBuffer()
 			// this happens if the render thread becomes completely blocked by expensive tasks when the Slate thread is running
 			// in this case we cannot tick Slate.
 			FPlatformProcess::Sleep(0.001f);
+
+			// Check the next buffer
+			FreeBufferIndex = (FreeBufferIndex + 1) % NumDrawBuffers;
 		}
 		else
 		{
@@ -362,7 +363,7 @@ void FSlateRHIRenderer::UpdateFullscreenState( const TSharedRef<SWindow> Window,
 
 void FSlateRHIRenderer::RestoreSystemResolution(const TSharedRef<SWindow> InWindow)
 {
-	if (!GIsEditor)
+	if (!GIsEditor && InWindow->GetWindowMode() == EWindowMode::Fullscreen)
 	{
 		// Force the window system to resize the active viewport, even though nothing might have appeared to change.
 		// On windows, DXGI might change the window resolution behind our backs when we alt-tab out. This will make
@@ -516,7 +517,14 @@ void FSlateRHIRenderer::DrawWindows( FSlateDrawBuffer& WindowDrawBuffer )
 {
 	if (IsInSlateThread())
 	{
-		EnqueuedWindowDrawBuffer = &WindowDrawBuffer;
+		if (EnqueuedWindowDrawBuffer == nullptr)
+		{
+			EnqueuedWindowDrawBuffer = &WindowDrawBuffer;
+		}
+		else
+		{
+			WindowDrawBuffer.Unlock();
+		}
 	}
 	else
 	{
