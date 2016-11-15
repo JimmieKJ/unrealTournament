@@ -466,7 +466,7 @@ bool AUTRemoteRedeemer::ServerBlowUp_Validate()
 void AUTRemoteRedeemer::ServerBlowUp_Implementation()
 {
 	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-	if (GS && GS->IsMatchInProgress() && !GS->IsMatchIntermission() && !bShotDown)
+	if (GS && !GS->HasMatchEnded() && !GS->IsMatchIntermission() && !bShotDown)
 	{
 		BlowUp();
 	}
