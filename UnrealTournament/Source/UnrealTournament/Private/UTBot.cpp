@@ -1782,7 +1782,7 @@ void AUTBot::NotifyMoveBlocked(const FHitResult& Impact)
 			}
 			// crouch if path says we should
 			// FIXME: what if going for detour in the middle of crouch path? (dropped pickup, etc)
-			else if ((CurrentPath.IsSet() && CurrentPath.CollisionHeight < FMath::TruncToInt(GetCharacter()->GetSimpleCollisionHalfHeight())) || (MoveTarget.Node != nullptr && MoveTarget.Node->MinPolyEdgeSize.Height < FMath::TruncToInt(GetCharacter()->GetSimpleCollisionHalfHeight())))
+			else if ((CurrentPath.IsSet() && CurrentPath.CollisionHeight < FMath::TruncToInt(GetCharacter()->GetSimpleCollisionHalfHeight())) || (!CurrentPath.IsSet() && MoveTarget.Node != nullptr && MoveTarget.Node->MinPolyEdgeSize.Height < FMath::TruncToInt(GetCharacter()->GetSimpleCollisionHalfHeight())))
 			{
 				if ((CurrentPath.IsSet() ? CurrentPath.CollisionHeight : MoveTarget.Node->MinPolyEdgeSize.Height) < FMath::TruncToInt(GetCharacter()->GetCharacterMovement()->CrouchedHalfHeight))
 				{
