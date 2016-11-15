@@ -516,11 +516,18 @@ void AUTCTFSquadAI::NotifyObjectiveEvent(AActor* InObjective, AController* Insti
 		}
 		SetLeader(InstigatedBy);
 	}
+	const bool bResetAlternateRoutes = (EventName == FName(TEXT("FlagCap")) && InObjective == Objective); // reset path selection when our team capped as the enemy flag is now back in the base
 	for (AController* C : Members)
 	{
 		AUTBot* B = Cast<AUTBot>(C);
 		if (B != NULL)
 		{
+			if (bResetAlternateRoutes)
+			{
+				B->bDisableSquadRoutes = false;
+				B->SquadRouteGoal.Clear();
+				B->UsingSquadRouteIndex = INDEX_NONE;
+			}
 			if (B->GetUTChar() != NULL && B->GetUTChar()->GetCarriedObject() != NULL)
 			{
 				// retask flag carrier immediately

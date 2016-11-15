@@ -268,6 +268,18 @@ void AUTCTFBaseGame::ScoreObject_Implementation(AUTCarriedObject* GameObject, AU
 				}
 			}
 			HandleFlagCapture(HolderPawn, Holder);
+			if (IsMatchInProgress())
+			{
+				// tell bots about the cap
+				AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+				if (GS != NULL)
+				{
+					for (AUTTeamInfo* TeamIter : GS->Teams)
+					{
+						TeamIter->NotifyObjectiveEvent(GameObject->HomeBase, HolderPawn->Controller, FName(TEXT("FlagCap")));
+					}
+				}
+			}
 		}
 	}
 }
