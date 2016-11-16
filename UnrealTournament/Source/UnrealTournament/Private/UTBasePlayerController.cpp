@@ -1150,11 +1150,10 @@ void AUTBasePlayerController::ImportKeyBinds()
 
 void AUTBasePlayerController::MarkTutorialAsCompleted(int32 TutorialMask)
 {
-	UUTProfileSettings* ProfileSettings = GetProfileSettings();
-	if (TutorialMask > 0 && ProfileSettings != nullptr)
+	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(Player);
+	if (LocalPlayer)
 	{
-		ProfileSettings->TutorialMask |= TutorialMask;
-		SaveProfileSettings();
+		LocalPlayer->SetTutorialFinished(TutorialMask);
 	}
 }
 
@@ -1207,4 +1206,42 @@ void AUTBasePlayerController::UTDumpOnlineSessionState()
 void AUTBasePlayerController::UTDumpPartyState()
 {
 	UOnlineEngineInterface::Get()->DumpPartyState(GetWorld());
+}
+
+void AUTBasePlayerController::LaunchTutorial(FName TutorialName)
+{
+	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(Player);
+	if (LocalPlayer)
+	{
+		LocalPlayer->LaunchTutorial(TutorialName);
+	}
+}
+
+void AUTBasePlayerController::NextTutorial()
+{
+	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(Player);
+	if (LocalPlayer)
+	{
+		LocalPlayer->LaunchTutorial(ETutorialTags::TUTTAG_Progress);
+	}
+}
+
+void AUTBasePlayerController::RepeatTutorial()
+{
+	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(Player);
+	if (LocalPlayer)
+	{
+		LocalPlayer->RestartTutorial();
+	}
+}
+
+FText AUTBasePlayerController::GetTutorialSectionText(TEnumAsByte<ETutorialSections::Type> Section) const
+{
+	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(Player);
+	if (LocalPlayer)
+	{
+		return LocalPlayer->GetTutorialSectionText(Section);
+	}
+
+	return FText::GetEmpty();
 }

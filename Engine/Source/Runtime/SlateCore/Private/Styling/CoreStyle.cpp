@@ -525,7 +525,7 @@ TSharedRef<ISlateStyle> FCoreStyle::Create( const FName& InStyleSetName )
 
 	// SToolTip defaults...
 	{
-		Style->Set("ToolTip.Font", TTF_FONT("Fonts/Roboto-Regular", 8));
+		Style->Set("ToolTip.Font", TTF_FONT("../../../UnrealTournament/Content/RestrictedAssets/Slate/UTStyle/Fonts/Lato/Lato-Regular", 14));
 		Style->Set("ToolTip.Background", new BOX_BRUSH("Old/ToolTip_Background", FMargin(8.0f / 64.0f)));
 
 		Style->Set("ToolTip.LargerFont", TTF_FONT("Fonts/Roboto-Regular", 9));

@@ -31,9 +31,13 @@ void SUTGameLayerManager::Construct(const FArguments& InArgs)
 
 		+ SOverlay::Slot()
 		[
-			SNew(SPopup)
+			SNew(SUTAspectPanel)
+			.Visibility(EVisibility::SelfHitTestInvisible)
 			[
-				SAssignNew(TooltipPresenter, STooltipPresenter)
+				SNew(SPopup)
+				[
+					SAssignNew(TooltipPresenter, STooltipPresenter)
+				]
 			]
 		]
 	];
@@ -42,7 +46,6 @@ void SUTGameLayerManager::Construct(const FArguments& InArgs)
 bool SUTGameLayerManager::OnVisualizeTooltip(const TSharedPtr<SWidget>& TooltipContent)
 {
 	TooltipPresenter->SetContent(TooltipContent.IsValid() ? TooltipContent.ToSharedRef() : SNullWidget::NullWidget);
-
 	return true;
 }
 

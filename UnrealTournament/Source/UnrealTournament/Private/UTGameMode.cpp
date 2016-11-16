@@ -2218,9 +2218,17 @@ void AUTGameMode::EndGame(AUTPlayerState* Winner, FName Reason )
 		{
 			AController* Controller = *Iterator;
 			AUTPlayerState* CPS = Cast<AUTPlayerState>(Controller->PlayerState);
-			if ( CPS && !CPS->bOnlySpectator && ((Winner == NULL) || (CPS->Score >= Winner->Score)) )
+			if ( CPS && !CPS->bOnlySpectator )
 			{
-				Winner = CPS;
+				if ((Winner == NULL) || (CPS->Score >= Winner->Score))
+				{
+					Winner = CPS;
+				}
+
+				if (TutorialMask > 0)
+				{
+					CPS->ClientTutorialFinished(TutorialMask);
+				}
 			}
 		}
 	}
@@ -2235,13 +2243,6 @@ void AUTGameMode::EndGame(AUTPlayerState* Winner, FName Reason )
 		{
 			LP->ChallengeCompleted(ChallengeTag, ChallengeDifficulty + 1);
 		}
-
-
-		if (TutorialMask != 0 && GetWorld()->GetNetMode() == NM_Standalone)
-		{
-			LP->SetTutorialFinished(TutorialMask);
-		}
-
 	}
 
 	UTGameState->SetWinner(Winner);
@@ -2445,6 +2446,38 @@ void AUTGameMode::InstanceNextMap(const FString& NextMap)
  **/
 void AUTGameMode::TravelToNextMap_Implementation()
 {
+
+	if (GetWorld()->GetNetMode() == NM_Standalone)
+	{
+		// Look to see if we need to launch a quick match first
+		APlayerController* LocalPC = GEngine->GetFirstLocalPlayerController(GetWorld());
+		UUTLocalPlayer* LP = LocalPC ? Cast<UUTLocalPlayer>(LocalPC->Player) : NULL;
+		if (LP)
+		{
+			if ( LP->LaunchPendingQuickmatch() )
+			{
+				return;
+			}
+			else if (TutorialMask > 0)
+			{
+
+				UClass* UMGWidgetClass = LoadClass<UUserWidget>(NULL, TEXT("/Game/RestrictedAssets/Tutorials/Blueprints/TutFinishScreenWidget.TutFinishScreenWidget_C"), NULL, LOAD_NoWarn | LOAD_Quiet, NULL);
+				if (UMGWidgetClass)
+				{
+					UUserWidget* UMGWidget = CreateWidget<UUserWidget>(GetWorld(), UMGWidgetClass);
+					if (UMGWidget)
+					{
+						UMGWidget->AddToViewport(1000);
+						return;
+					}
+				}
+			}
+		}	
+
+
+	}
+
+
 	FString CurrentMapName = GetWorld()->GetMapName();
 	if (bOfflineChallenge)
 	{

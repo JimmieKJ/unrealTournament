@@ -268,7 +268,7 @@ void SUTMatchmakingDialog::Tick(const FGeometry & AllottedGeometry, const double
 	SUTDialogBase::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
 
 	// Failsafe in case we join a server
-	if (PlayerOwner.IsValid() && !PlayerOwner->IsMenuGame())
+	if (PlayerOwner.IsValid() && PlayerOwner->GetWorld()->GetNetMode() == NM_Client)
 	{
 		GetPlayerOwner()->CloseDialog(SharedThis(this));
 	}

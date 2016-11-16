@@ -27,6 +27,8 @@ const uint16 TUTORIAL_TDM = 0x0010;
 const uint16 TUTORIAL_CTF = 0x0020;
 const uint16 TUTORIAL_Duel = 0x0040;
 const uint16 TUTORIAL_FlagRun = 0x0080;
+const uint16 TUTORIAL_SkillMoves = 0x0007;
+const uint16 TUTORIAL_Gameplay = 0x0028;
 
 const int32 DEFAULT_RANK_CHECK = 0;
 const int32 NEW_USER_ELO = 1000;
@@ -2060,3 +2062,72 @@ public:
 };
 
 static FName NAME_Vignettes(TEXT("Vignettes"));
+
+namespace EMenuCommand
+{
+	const FName MC_QuickPlayDM = FName(TEXT("MenuOption_QuickPlayDM"));
+	const FName MC_QuickPlayCTF = FName(TEXT("MenuOption_QuickPlayCTF"));
+	const FName MC_QuickPlayShowdown = FName(TEXT("MenuOption_QuickPlayShowdown"));
+	const FName MC_Challenges = FName(TEXT("MenuOption_QuickPlayChallenges"));
+	const FName MC_FindAMatch = FName(TEXT("MenuOption_FindAMatch"));
+}
+
+namespace ETutorialTags
+{
+	const FName TUTTAG_Movement = FName(TEXT("MovementTutorial"));
+	const FName TUTTAG_Weapons = FName(TEXT("WeaponsTutorial"));
+	const FName TUTTAG_Pickups = FName(TEXT("PickupTutorial"));
+	const FName TUTTAG_DM = FName(TEXT("DMTutorial"));
+	const FName TUTTAG_TDM = FName(TEXT("TDMTutorial"));
+	const FName TUTTAG_CTF = FName(TEXT("CTFTutorial"));
+	const FName TUTTAG_Duel = FName(TEXT("DuelTutorial"));
+
+	// This tag is used to force the game to play the next tutorial in the progression based on what the
+	// player has already played.  See UUTLocalPlayer::LaunchTutorial
+	const FName TUTTAG_Progress = FName(TEXT("NextTutorialProgression"));
+}
+
+UENUM()
+namespace ETutorialSections
+{
+	enum Type
+	{
+		SkillMoves,
+		Gameplay,
+		Hardcore,
+		MAX,
+	};
+}
+
+
+USTRUCT()
+struct FTutorialData
+{
+	GENERATED_USTRUCT_BODY()
+
+public:
+	UPROPERTY(Config)
+	FName Tag;
+
+	UPROPERTY(Config)
+	uint16 Mask;
+
+	UPROPERTY(Config)
+	FString Map;
+
+	UPROPERTY(Config)
+	FString LaunchArgs;
+
+	UPROPERTY(Config)
+	FString LoadingMovie;
+
+	FTutorialData()
+		: Tag(NAME_None)
+		, Mask(0x00)
+		, Map(TEXT(""))
+		, LaunchArgs(TEXT(""))
+		, LoadingMovie(TEXT(""))
+	{
+	}
+
+};

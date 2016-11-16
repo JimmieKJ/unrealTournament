@@ -3968,3 +3968,16 @@ void AUTPlayerState::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVect
 		}
 	}
 }
+
+void AUTPlayerState::ClientTutorialFinished_Implementation(uint16 TutorialMask)
+{
+	AUTPlayerController* PC = Cast<AUTPlayerController>(GetOwner());
+	if (PC != NULL)
+	{
+		UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(PC->Player);
+		if (LP != NULL)
+		{
+			LP->SetTutorialFinished(TutorialMask);
+		}
+	}
+}

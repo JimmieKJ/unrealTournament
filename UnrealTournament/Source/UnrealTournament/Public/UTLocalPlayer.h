@@ -212,7 +212,7 @@ public:
 	virtual void ShowMenu(const FString& Parameters);
 	virtual void HideMenu();
 	virtual void OpenTutorialMenu();
-	virtual void ShowToast(FText ToastText);	// NOTE: Need to add a type/etc so that they can be skinned better.
+	virtual void ShowToast(FText ToastText, float Lifetime=3.0f);	// NOTE: Need to add a type/etc so that they can be skinned better.
 	virtual void ShowAdminMessage(FString Message);
 
 	virtual void MessageBox(FText MessageTitle, FText MessageText);
@@ -1104,6 +1104,7 @@ public:
 	virtual bool HasChatText();
 
 protected:
+
 	// Loads the local profile from disk.  This happens immediately upon creation and again when a logout occurs.  
 	virtual void LoadLocalProfileSettings();
 
@@ -1155,6 +1156,36 @@ public:
 	// Returns true if this local player is currently in a party
 	bool IsInAnActiveParty();
 
+	virtual bool IsMenuOptionLocked(FName MenuCommand) const;
+	virtual	EVisibility IsMenuOptionLockVisible(FName MenuCommand) const;
+	virtual	bool IsMenuOptionEnabled(FName MenuCommand) const;
+
+	virtual FText GetMenuCommandTooltipText(FName MenuCommand) const;
+
+	UPROPERTY(config)
+	TArray<FTutorialData> TutorialData;
+
+	UFUNCTION(BlueprintCallable, Category="Tutorial")
+	virtual void LaunchTutorial(FName TutorialName, const FString& DesiredQuickmatchType = TEXT(""));
+
+	UFUNCTION(BlueprintCallable, Category="Tutorial")
+	virtual bool LaunchPendingQuickmatch();
+
+	UFUNCTION(BlueprintCallable, Category="Tutorial")
+	virtual void RestartTutorial();
+
+	UFUNCTION(BlueprintCallable, Category="Tutorial")
+	virtual FText GetTutorialSectionText(TEnumAsByte<ETutorialSections::Type> Section) const;
+
+protected:
+	UPROPERTY()
+	bool bQuickmatchOnLevelChange;
+	
+	UPROPERTY()
+	FString PendingQuickmatchType;
+
+	UPROPERTY()
+	FName LastTutorial;
 
 };
 

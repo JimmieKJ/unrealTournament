@@ -687,12 +687,13 @@ void UUTGameInstance::BeginLevelLoading(const FString& LevelName)
 		MovieVignettes.Add( FMapVignetteInfo(LoadingMovieToPlay, FText::GetEmpty()));
 		MovieVignettes.Add( FMapVignetteInfo(TEXT("load_generic_nosound"), FText::GetEmpty()));
 		LoadingMovieToPlay = TEXT("");
-		PlayLoadingMovies(false);	
+		PlayLoadingMovies(true);	
 		return;
 	}
 
 	// Now Try to find the map asset for this map.
 
+	TArray<FMapVignetteInfo> MapVignettes;
 	for (const FAssetData& Asset : MapAssets)
 	{
 		if (Asset.PackageName.ToString() == LevelName)
@@ -700,30 +701,28 @@ void UUTGameInstance::BeginLevelLoading(const FString& LevelName)
 			const FString* VignetteArrayAsString = Asset.TagsAndValues.Find(NAME_Vignettes);
 			if (VignetteArrayAsString != nullptr)
 			{
-				FindField<UProperty>(UUTLevelSummary::StaticClass(), NAME_Vignettes)->ImportText(**VignetteArrayAsString, &MovieVignettes, 0, nullptr);
+				FindField<UProperty>(UUTLevelSummary::StaticClass(), NAME_Vignettes)->ImportText(**VignetteArrayAsString, &MapVignettes, 0, nullptr);
 			}
 		}
+	}
+
+	while (MapVignettes.Num() > 0)
+	{
+		int32 Next = int32( float(MapVignettes.Num()) * FMath::FRand());
+		if (!MapVignettes[Next].MovieFilename.IsEmpty())
+		{
+			MovieVignettes.Add(MapVignettes[Next]);
+		}
+		MapVignettes.RemoveAt(Next);	
 	}
 
 	if (MovieVignettes.Num() == 0)
 	{
 		MovieVignettes.Add( FMapVignetteInfo(TEXT("load_generic_nosound"), FText::GetEmpty()));
 	}
-	else
-	{
-		// Make sure every vignette has a filename
-		for (auto Vignette : MovieVignettes)
-		{
-			if (Vignette.MovieFilename.IsEmpty())
-			{
-				Vignette.MovieFilename = TEXT("load_generic_nosound");
-			}
-		}
-	
-	}
-	VignetteIndex = int32(  FMath::FRand() * MovieVignettes.Num() );
 
-	PlayLoadingMovies(false);
+	VignetteIndex = 0;
+	PlayLoadingMovies(true);
 
 #endif
 }
@@ -933,7 +932,7 @@ void UUTGameInstance::CreateLoadingMovieOverlay()
 
 void UUTGameInstance::PlayLoadingMovies(bool bStopWhenLoadingIsComnpleted) 
 {
-	CreateLoadingMovieOverlay();;
+	CreateLoadingMovieOverlay();
 	if (LoadingMovieOverlay.IsValid())
 	{						 
 		FString MovieName = TEXT("");

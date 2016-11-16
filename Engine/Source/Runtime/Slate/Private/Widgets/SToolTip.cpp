@@ -5,7 +5,7 @@
 
 static TAutoConsoleVariable<float> StaticToolTipWrapWidth(
 	TEXT( "Slate.ToolTipWrapWidth" ),
-	1000.0f,
+	500.0f,
 	TEXT( "Width of Slate tool-tips before we wrap the tool-tip text" ) );
 
 

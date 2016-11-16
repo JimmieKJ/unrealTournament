@@ -117,6 +117,8 @@ UUTLocalPlayer::UUTLocalPlayer(const class FObjectInitializer& ObjectInitializer
 	KillcamPlayback = ObjectInitializer.CreateDefaultSubobject<UUTKillcamPlayback>(this, TEXT("KillcamPlayback"));
 	LoginPhase = ELoginPhase::NotLoggedIn;
 	bSuppressDownloadDialog = false;
+
+	bQuickmatchOnLevelChange = false;
 }
 
 UUTLocalPlayer::~UUTLocalPlayer()
@@ -1410,7 +1412,7 @@ void UUTLocalPlayer::ShowAdminMessage(FString Message)
 
 }
 
-void UUTLocalPlayer::ShowToast(FText ToastText)
+void UUTLocalPlayer::ShowToast(FText ToastText, float Lifetime)
 {
 #if !UE_SERVER
 
@@ -1421,6 +1423,7 @@ void UUTLocalPlayer::ShowToast(FText ToastText)
 	TSharedPtr<SUTToastBase> Toast;
 	SAssignNew(Toast, SUTToastBase)
 		.PlayerOwner(this)
+		.Lifetime(Lifetime)
 		.ToastText(ToastText);
 
 	if (Toast.IsValid())
@@ -1681,12 +1684,8 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 		}
 		else 
 		{
-			if (CurrentProfileSettings == NULL) // Create a new profile settings object
-			{
-				CurrentProfileSettings = NewObject<UUTProfileSettings>(GetTransientPackage(),UUTProfileSettings::StaticClass());
-				CurrentProfileSettings->ResetProfile(EProfileResetType::All);
-			}
-
+			CurrentProfileSettings = NewObject<UUTProfileSettings>(GetTransientPackage(),UUTProfileSettings::StaticClass());
+			CurrentProfileSettings->ResetProfile(EProfileResetType::All);
 			ReadMMRFromBackend();
 		}
 
@@ -1776,7 +1775,7 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 			if (CurrentProgression->GetBestTime(FName(TEXT("pickuptraining_timingsection")), BestTime) ) CurrentProfileSettings->TutorialMask |= TUTORIAL_Pickups;
 			if (CurrentProgression->GetBestTime(FName(TEXT("deathmatch_timingsection")), BestTime) ) CurrentProfileSettings->TutorialMask |= TUTORIAL_DM;
 			if (CurrentProgression->GetBestTime(FName(TEXT("teamdeathmatch_timingsection")), BestTime) ) CurrentProfileSettings->TutorialMask |= TUTORIAL_TDM;
-			if (CurrentProgression->GetBestTime(FName(TEXT("capturetheflag_timingsection")), BestTime) ) CurrentProfileSettings->TutorialMask |= TUTORIAL_CTF;
+			//if (CurrentProgression->GetBestTime(FName(TEXT("capturetheflag_timingsection")), BestTime) ) CurrentProfileSettings->TutorialMask |= TUTORIAL_CTF;
 			if (CurrentProgression->GetBestTime(FName(TEXT("duel_timingsection")), BestTime) ) CurrentProfileSettings->TutorialMask |= TUTORIAL_Duel;
 		}
 
@@ -3404,6 +3403,9 @@ void UUTLocalPlayer::SetAvatar(FName NewAvatar, bool bSave)
 #if !UE_SERVER
 void UUTLocalPlayer::StartQuickMatch(FString QuickMatchType)
 {
+	bQuickmatchOnLevelChange = false;
+	PendingQuickmatchType = TEXT("");
+
 	if (IsLoggedIn() && OnlineSessionInterface.IsValid())
 	{
 		if (1)
@@ -5906,7 +5908,34 @@ void UUTLocalPlayer::SetTutorialFinished(int32 TutorialMask)
 {
 	if (CurrentProfileSettings != nullptr)
 	{
-		CurrentProfileSettings->TutorialMask |= TutorialMask;
+		if ((CurrentProfileSettings->TutorialMask & TutorialMask) != TutorialMask)
+		{
+			CurrentProfileSettings->TutorialMask |= TutorialMask;
+
+			// Look to see if it's time to give a toast.  We need a better type of achievement toast.  Maybe play UMG here or something
+
+			if (TutorialMask == 0x01)	// We have completed the first tutorial...
+			{
+				ShowToast(NSLOCTEXT("Unlocks","FirstTimer","Achievenment: No Longer a Noob!"),6.0f);			
+			}
+			else if (TutorialMask <= TUTORIAL_Pickups && ((CurrentProfileSettings->TutorialMask & TUTORIAL_SkillMoves) == TUTORIAL_SkillMoves) )
+			{
+				ShowToast(NSLOCTEXT("Unlocks","OfflineChallengesUnlocked","Achievement: Got the Skills\nOffline Challenges Unlocked!"),6.0f);			
+			}
+
+			if (TutorialMask > TUTORIAL_Pickups)
+			{
+				if (TutorialMask == TUTORIAL_DM)
+				{
+					ShowToast(NSLOCTEXT("Unlocks","DMQuickMatchUnlocked","Achievement: Frag'er\nDeathmatch Quickmatch Unlocked!"),6.0f);			
+				}
+				if (TutorialMask == TUTORIAL_CTF)
+				{
+					ShowToast(NSLOCTEXT("Unlocks","CTFQuickMatchUnlocked","Achievemeent: Flag Runner\nCapture the Flag Quickmatch Unlocked!"),6.0f);			
+				}
+			}
+		}
+
 		SaveProfileSettings();
 	}
 }
@@ -6012,4 +6041,161 @@ bool UUTLocalPlayer::IsInAnActiveParty()
 	}
 	
 	return false;
+}
+
+bool UUTLocalPlayer::IsMenuOptionLocked(FName MenuCommand) const
+{
+
+	if (CurrentProfileSettings != nullptr)
+	{
+		if (MenuCommand == EMenuCommand::MC_QuickPlayDM)			
+		{
+			return !(CurrentProfileSettings &&  ((CurrentProfileSettings->TutorialMask & TUTORIAL_DM) == TUTORIAL_DM));
+		}
+		else if (MenuCommand == EMenuCommand::MC_QuickPlayCTF)		
+		{
+			return !(CurrentProfileSettings &&  ((CurrentProfileSettings->TutorialMask & TUTORIAL_CTF) == TUTORIAL_CTF));
+		}
+		else if (MenuCommand == EMenuCommand::MC_QuickPlayShowdown)	
+		{
+			return !(CurrentProfileSettings &&  ((CurrentProfileSettings->TutorialMask & TUTORIAL_Duel) == TUTORIAL_Duel));
+		}
+		else if (MenuCommand == EMenuCommand::MC_Challenges)		
+		{
+			return !(CurrentProfileSettings && ((CurrentProfileSettings->TutorialMask & TUTORIAL_SkillMoves) == TUTORIAL_SkillMoves));
+		}
+		else if (MenuCommand == EMenuCommand::MC_FindAMatch)		
+		{
+			return !(CurrentProfileSettings && CurrentProfileSettings->TutorialMask > TUTORIAL_SkillMoves && ((CurrentProfileSettings->TutorialMask & TUTORIAL_SkillMoves) == TUTORIAL_SkillMoves));
+		}
+	}
+
+	return false;
+}
+
+EVisibility UUTLocalPlayer::IsMenuOptionLockVisible(FName MenuCommand) const
+{
+	return IsMenuOptionLocked(MenuCommand) ? EVisibility::Visible : EVisibility::Collapsed;
+}
+
+bool UUTLocalPlayer::IsMenuOptionEnabled(FName MenuCommand) const
+{
+	return IsMenuOptionLocked(MenuCommand);
+
+}
+
+FText UUTLocalPlayer::GetMenuCommandTooltipText(FName MenuCommand) const 
+{
+	if ( IsMenuOptionLocked(MenuCommand) )
+	{
+		if (MenuCommand == EMenuCommand::MC_QuickPlayDM)			return NSLOCTEXT("SUTHomePanel", "QuickPlayDMLocked","Before you can play deathmatch online, you need to complete the DM tutorial in basic training.");
+		else if (MenuCommand == EMenuCommand::MC_QuickPlayCTF)		return NSLOCTEXT("SUTHomePanel", "QuickPlayCTFLocked","Before you can play capture the flag online, you need to complete the CTF tutorial in basic training.");
+		else if (MenuCommand == EMenuCommand::MC_QuickPlayShowdown)	return NSLOCTEXT("SUTHomePanel", "QuickPlayShowdownLocked","Before you can play showdown online, you need to complete the showdown tutorial in basic training.");
+		else if (MenuCommand == EMenuCommand::MC_Challenges)		return NSLOCTEXT("SUTHomePanel", "QuickPlayChallengesLocked","All challenges are currently unavailable.  Please complete the movement and weapons tutorial in basic training.");
+		else if (MenuCommand == EMenuCommand::MC_FindAMatch)		return NSLOCTEXT("SUTHomePanel", "QuickPlayFindAMatchLocked","Online play is unavailable until you complete the all of the basic tutorials and at least one game play tutorial.");
+	}
+	else
+	{
+		if (MenuCommand == EMenuCommand::MC_QuickPlayDM)			return NSLOCTEXT("SUTHomePanel", "QuickPlayDM","Looking for a frag fesst?  Quickly find and join an online deathmatch game against players close to your skill level.");
+		else if (MenuCommand == EMenuCommand::MC_QuickPlayCTF)		return NSLOCTEXT("SUTHomePanel", "QuickPlayCTF","Cap a flag or defend the carrier.  Click here to find and join an online capture the flag game against players close to your skill level");
+		else if (MenuCommand == EMenuCommand::MC_QuickPlayShowdown)	return NSLOCTEXT("SUTHomePanel", "QuickPlayShowdown","Go mano-e-mano online in showdown and see who is the better player.");
+		else if (MenuCommand == EMenuCommand::MC_Challenges)		return NSLOCTEXT("SUTHomePanel", "QuickPlayChallenges","Test your skills offline against our world class AI.");
+		else if (MenuCommand == EMenuCommand::MC_FindAMatch)		return NSLOCTEXT("SUTHomePanel", "QuickPlayFindAMatch","Head online and find games to play.");
+	}
+	return FText::GetEmpty();
+}
+
+void UUTLocalPlayer::LaunchTutorial(FName TutorialName, const FString& DesiredQuickmatchType)
+{
+	LastTutorial = TutorialName;
+	if (!DesiredQuickmatchType.IsEmpty())
+	{
+		PendingQuickmatchType = DesiredQuickmatchType;
+		bQuickmatchOnLevelChange = true;
+	}
+
+	if (TutorialName == ETutorialTags::TUTTAG_Progress)
+	{
+		// Look to see where the player is in the tutorial progression and pick the next tutorial.
+
+		if (CurrentProfileSettings)
+		{
+			if ((CurrentProfileSettings->TutorialMask & TUTOIRAL_Weapon) != TUTOIRAL_Weapon) TutorialName = ETutorialTags::TUTTAG_Weapons;
+			else if ((CurrentProfileSettings->TutorialMask & TUTORIAL_Pickups) != TUTORIAL_Pickups) TutorialName = ETutorialTags::TUTTAG_Pickups;
+			else if ((CurrentProfileSettings->TutorialMask & TUTORIAL_DM) != TUTORIAL_DM) TutorialName = ETutorialTags::TUTTAG_DM;
+			else if ((CurrentProfileSettings->TutorialMask & TUTORIAL_CTF) != TUTORIAL_CTF) TutorialName = ETutorialTags::TUTTAG_CTF;
+			else if ((CurrentProfileSettings->TutorialMask & TUTORIAL_Duel) != TUTORIAL_Duel) TutorialName = ETutorialTags::TUTTAG_Duel;
+			else TutorialName = ETutorialTags::TUTTAG_Movement;
+		}
+		else
+		{
+			TutorialName = ETutorialTags::TUTTAG_Movement;
+		}
+	}
+
+
+	for (int32 i = 0; i < TutorialData.Num(); i++)
+	{
+		if (TutorialData[i].Tag == TutorialName)
+		{
+
+			UUTGameInstance* GI = Cast<UUTGameInstance>(GetGameInstance());
+			if (GI)
+			{
+				GI->LoadingMovieToPlay = TutorialData[i].LoadingMovie;
+			}
+
+			FString URL = TutorialData[i].Map + TutorialData[i].LaunchArgs + FString::Printf(TEXT("?TutorialMask=%i"),TutorialData[i].Mask);
+			GetWorld()->ServerTravel(URL,true,false);
+			return;
+		}
+	}
+}
+
+bool UUTLocalPlayer::LaunchPendingQuickmatch()
+{
+	if (bQuickmatchOnLevelChange)
+	{
+		StartQuickMatch(PendingQuickmatchType);
+		return true;
+	}
+	return false;
+}
+
+void UUTLocalPlayer::RestartTutorial()
+{
+	if (LastTutorial != NAME_None)
+	{
+		LaunchTutorial(LastTutorial);
+	}
+}
+
+FText UUTLocalPlayer::GetTutorialSectionText(TEnumAsByte<ETutorialSections::Type> Section) const
+{
+	if (Section == ETutorialSections::SkillMoves)
+	{
+		if ( CurrentProfileSettings && ((CurrentProfileSettings->TutorialMask & TUTORIAL_SkillMoves) == TUTORIAL_SkillMoves) )
+		{
+			return NSLOCTEXT("TutorialText","Completed","!! COMPLETED !!");
+		}
+		
+		return NSLOCTEXT("TutorialText","SkillMoves","Learn the basic skills needed to compete in the tournament.");
+	}
+
+	if (Section == ETutorialSections::Gameplay)
+	{
+		if ( CurrentProfileSettings && ((CurrentProfileSettings->TutorialMask & TUTORIAL_Gameplay) == TUTORIAL_Gameplay) )
+		{
+			return NSLOCTEXT("TutorialText","Completed","!! COMPLETED !!");
+		}
+		
+		return NSLOCTEXT("TutorialText","Gameplay","Tactial training is an important part of the game.  Learn how to play the most popular game modes before you can play online.");
+	}
+
+	if (Section == ETutorialSections::Hardcore)
+	{
+		return NSLOCTEXT("TutorialText","Hardcore","There are lots of way to play.");
+	}
+
+	return FText::GetEmpty();
 }

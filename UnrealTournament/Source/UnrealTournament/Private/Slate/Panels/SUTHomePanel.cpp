@@ -371,6 +371,8 @@ TSharedRef<SWidget> SUTHomePanel::BuildHomePanel()
 									SNew(SButton)
 									.ButtonStyle(SUTStyle::Get(), "UT.HomePanel.Button")
 									.OnClicked(this, &SUTHomePanel::QuickMatch_DM_Click)
+									.ToolTipText( TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateUObject(PlayerOwner.Get(), &UUTLocalPlayer::GetMenuCommandTooltipText, EMenuCommand::MC_QuickPlayDM) ) )
+
 								]
 
 							]
@@ -426,6 +428,7 @@ TSharedRef<SWidget> SUTHomePanel::BuildHomePanel()
 									SNew(SButton)
 									.ButtonStyle(SUTStyle::Get(), "UT.HomePanel.Button")
 									.OnClicked(this, &SUTHomePanel::QuickMatch_CTF_Click)
+									.ToolTipText( TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateUObject(PlayerOwner.Get(), &UUTLocalPlayer::GetMenuCommandTooltipText, EMenuCommand::MC_QuickPlayCTF) ) )
 								]
 							]
 						]
@@ -479,6 +482,7 @@ TSharedRef<SWidget> SUTHomePanel::BuildHomePanel()
 									SNew(SButton)
 									.ButtonStyle(SUTStyle::Get(), "UT.HomePanel.Button")
 									.OnClicked(this, &SUTHomePanel::QuickMatch_TeamShowdown_Click)
+									.ToolTipText( TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateUObject(PlayerOwner.Get(), &UUTLocalPlayer::GetMenuCommandTooltipText, EMenuCommand::MC_QuickPlayShowdown) ) )
 								]
 							]
 						]
@@ -543,11 +547,36 @@ TSharedRef<SWidget> SUTHomePanel::BuildHomePanel()
 									]
 									
 								]
+								+ SOverlay::Slot().VAlign(VAlign_Fill).HAlign(HAlign_Fill)
+								[
+									SNew(SUTBorder)
+									.BorderImage(SUTStyle::Get().GetBrush("UT.HeaderBackground.Shaded"))
+									.HAlign(HAlign_Center).VAlign(VAlign_Center)
+									.Visibility(TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateUObject(PlayerOwner.Get(), &UUTLocalPlayer::IsMenuOptionLockVisible, EMenuCommand::MC_Challenges) ) )
+									[
+										SNew(SHorizontalBox)
+										+SHorizontalBox::Slot().AutoWidth()
+										[
+											SNew(SVerticalBox)
+											+SVerticalBox::Slot().AutoHeight()
+											[
+												SNew(SBox).WidthOverride(128).HeightOverride(128)
+												[
+													SNew(SImage)
+													.Image(SUTStyle::Get().GetBrush("UT.Icon.LockedContent"))
+												]
+											]
+										]
+									]
+								]
+
 								+ SOverlay::Slot()
 								[
 									SNew(SButton)
 									.ButtonStyle(SUTStyle::Get(), "UT.HomePanel.Button")
 									.OnClicked(this, &SUTHomePanel::OfflineAction_Click)
+									.ToolTipText( TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateUObject(PlayerOwner.Get(), &UUTLocalPlayer::GetMenuCommandTooltipText, EMenuCommand::MC_Challenges) ) )
+
 								]
 							]
 						]
@@ -587,11 +616,35 @@ TSharedRef<SWidget> SUTHomePanel::BuildHomePanel()
 									]
 									
 								]
+								+ SOverlay::Slot().VAlign(VAlign_Fill).HAlign(HAlign_Fill)
+								[
+									SNew(SUTBorder)
+									.BorderImage(SUTStyle::Get().GetBrush("UT.HeaderBackground.Shaded"))
+									.HAlign(HAlign_Center).VAlign(VAlign_Center)
+									.Visibility(TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateUObject(PlayerOwner.Get(), &UUTLocalPlayer::IsMenuOptionLockVisible, EMenuCommand::MC_FindAMatch) ) )
+									[
+										SNew(SHorizontalBox)
+										+SHorizontalBox::Slot().AutoWidth()
+										[
+											SNew(SVerticalBox)
+											+SVerticalBox::Slot().AutoHeight()
+											[
+												SNew(SBox).WidthOverride(128).HeightOverride(128)
+												[
+													SNew(SImage)
+													.Image(SUTStyle::Get().GetBrush("UT.Icon.LockedContent"))
+												]
+											]
+										]
+									]
+								]
+
 								+ SOverlay::Slot()
 								[
 									SNew(SButton)
 									.ButtonStyle(SUTStyle::Get(), "UT.HomePanel.Button")
 									.OnClicked(this, &SUTHomePanel::FindAMatch_Click)
+									.ToolTipText( TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateUObject(PlayerOwner.Get(), &UUTLocalPlayer::GetMenuCommandTooltipText, EMenuCommand::MC_FindAMatch) ) )
 								]
 							]
 						]
@@ -836,21 +889,51 @@ FReply SUTHomePanel::BasicTraining_Click()
 FReply SUTHomePanel::QuickMatch_DM_Click()
 {
 	TSharedPtr<SUTMainMenu> MainMenu = StaticCastSharedPtr<SUTMainMenu>(GetParentWindow());
-	if (MainMenu.IsValid()) MainMenu->QuickPlay(EEpicDefaultRuleTags::Deathmatch);
+	if (MainMenu.IsValid())
+	{
+		if (PlayerOwner->IsMenuOptionLocked(EMenuCommand::MC_QuickPlayDM))
+		{
+			PlayerOwner->LaunchTutorial(ETutorialTags::TUTTAG_DM, EEpicDefaultRuleTags::Deathmatch);
+		}
+		else
+		{
+			MainMenu->QuickPlay(EEpicDefaultRuleTags::Deathmatch);
+		}
+	}
 	return FReply::Handled();
 }
 
 FReply SUTHomePanel::QuickMatch_CTF_Click()
 {
 	TSharedPtr<SUTMainMenu> MainMenu = StaticCastSharedPtr<SUTMainMenu>(GetParentWindow());
-	if (MainMenu.IsValid()) MainMenu->QuickPlay(EEpicDefaultRuleTags::CTF);
+	if (MainMenu.IsValid())
+	{
+		if (PlayerOwner->IsMenuOptionLocked(EMenuCommand::MC_QuickPlayCTF))
+		{
+			PlayerOwner->LaunchTutorial(ETutorialTags::TUTTAG_CTF, EEpicDefaultRuleTags::CTF);
+		}
+		else
+		{
+			MainMenu->QuickPlay(EEpicDefaultRuleTags::CTF);
+		}
+	}
 	return FReply::Handled();
 }
 
 FReply SUTHomePanel::QuickMatch_TeamShowdown_Click()
 {
 	TSharedPtr<SUTMainMenu> MainMenu = StaticCastSharedPtr<SUTMainMenu>(GetParentWindow());
-	if (MainMenu.IsValid()) MainMenu->QuickPlay(EEpicDefaultRuleTags::TEAMSHOWDOWN);
+	if (MainMenu.IsValid())
+	{
+		if (PlayerOwner->IsMenuOptionLocked(EMenuCommand::MC_QuickPlayShowdown))
+		{
+			PlayerOwner->LaunchTutorial(ETutorialTags::TUTTAG_Duel, EEpicDefaultRuleTags::DUEL);
+		}
+		else
+		{
+			MainMenu->QuickPlay(EEpicDefaultRuleTags::TEAMSHOWDOWN);
+		}
+	}
 	return FReply::Handled();
 }
 
@@ -858,14 +941,34 @@ FReply SUTHomePanel::QuickMatch_TeamShowdown_Click()
 FReply SUTHomePanel::OfflineAction_Click()
 {
 	TSharedPtr<SUTMainMenu> MainMenu = StaticCastSharedPtr<SUTMainMenu>(GetParentWindow());
-	if (MainMenu.IsValid()) MainMenu->ShowGamePanel();
+	if (MainMenu.IsValid())
+	{
+		if (PlayerOwner->IsMenuOptionLocked(EMenuCommand::MC_Challenges))
+		{
+			PlayerOwner->LaunchTutorial(ETutorialTags::TUTTAG_Progress);
+		}
+		else
+		{
+			MainMenu->ShowGamePanel();
+		}
+	}
 	return FReply::Handled();
 }
 
 FReply SUTHomePanel::FindAMatch_Click()
 {
 	TSharedPtr<SUTMainMenu> MainMenu = StaticCastSharedPtr<SUTMainMenu>(GetParentWindow());
-	if (MainMenu.IsValid()) MainMenu->OnShowServerBrowserPanel();
+	if (MainMenu.IsValid())
+	{
+		if (PlayerOwner->IsMenuOptionLocked(EMenuCommand::MC_FindAMatch))
+		{
+			PlayerOwner->LaunchTutorial(ETutorialTags::TUTTAG_Progress);
+		}
+		else
+		{
+			MainMenu->OnShowServerBrowserPanel();
+		}
+	}
 	return FReply::Handled();
 }
 

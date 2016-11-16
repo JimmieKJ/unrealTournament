@@ -62,7 +62,6 @@ protected:
 	TSharedPtr<SUTBorder> AnimWidget;
 
 	virtual void AnimEnd();
-
 };
 
 #endif

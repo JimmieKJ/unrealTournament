@@ -381,7 +381,6 @@ void SUTStyle::SetCommonStyle(TSharedRef<FSlateStyleSet> StyleRef)
 	Style.Set("UT.HeaderBackground.SuperDark.ListA", new FSlateColorBrush(SuperDarkListA));
 	Style.Set("UT.HeaderBackground.SuperDark.ListB", new FSlateColorBrush(SuperDarkListB));
 
-
 	Style.Set("UT.HeaderBackground.Dark", new FSlateColorBrush(Dark));
 	Style.Set("UT.HeaderBackground.Navy", new FSlateColorBrush(Navy));
 	Style.Set("UT.HeaderBackground.DeepRed", new FSlateColorBrush(DeepRed));
