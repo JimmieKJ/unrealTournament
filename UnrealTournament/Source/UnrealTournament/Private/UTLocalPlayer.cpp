@@ -6156,7 +6156,9 @@ bool UUTLocalPlayer::LaunchPendingQuickmatch()
 {
 	if (bQuickmatchOnLevelChange)
 	{
+#if !UE_SERVER
 		StartQuickMatch(PendingQuickmatchType);
+#endif
 		return true;
 	}
 	return false;
