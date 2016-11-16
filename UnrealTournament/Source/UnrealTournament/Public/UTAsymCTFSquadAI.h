@@ -31,7 +31,8 @@ public:
 	bool IsAttackingTeam() const;
 
 	virtual void Initialize(AUTTeamInfo* InTeam, FName InOrders) override;
-	virtual bool MustKeepEnemy(APawn* TheEnemy) override;
+	virtual bool MustKeepEnemy(AUTBot* B, APawn* TheEnemy) override;
+	virtual void ModifyAggression(AUTBot* B, float& Aggressiveness) override;
 	virtual bool ShouldUseTranslocator(AUTBot* B) override;
 	virtual float ModifyEnemyRating(float CurrentRating, const FBotEnemyInfo& EnemyInfo, AUTBot* B) override;
 	virtual bool CheckSquadObjectives(AUTBot* B) override;

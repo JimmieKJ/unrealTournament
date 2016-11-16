@@ -1298,7 +1298,7 @@ void AUTBot::ApplyWeaponAimAdjust(FVector TargetLoc, FVector& FocalPoint)
 				// handle leading
 				bool bReallyLeadTarget = bLeadTarget;
 				// always lead critical enemies at low skill unless they're human as that better normalizes offense/defense effectiveness
-				if (!bReallyLeadTarget && GetTarget() == Enemy && Squad->MustKeepEnemy(Enemy))
+				if (!bReallyLeadTarget && GetTarget() == Enemy && Squad->MustKeepEnemy(this, Enemy))
 				{
 					bReallyLeadTarget = (Skill >= 2.0f || Cast<APlayerController>(Enemy->Controller) == nullptr);
 				}
@@ -2651,7 +2651,7 @@ void AUTBot::ExecuteWhatToDoNext()
 		else
 		{
 			// maybe lose enemy if haven't had any contact and isn't a high priority
-			if (!Squad->MustKeepEnemy(Enemy) && !IsEnemyVisible(Enemy))
+			if (!Squad->MustKeepEnemy(this, Enemy) && !IsEnemyVisible(Enemy))
 			{
 				// decide if should lose enemy
 				if (Squad->IsDefending(this))
@@ -2799,7 +2799,7 @@ void AUTBot::ChooseAttackMode()
 	else
 	*/
 	{
-		if (/*!bFrustrated && */!Squad->MustKeepEnemy(Enemy))
+		if (/*!bFrustrated && */!Squad->MustKeepEnemy(this, Enemy))
 		{
 			float RetreatThreshold = Personality.Aggressiveness;
 			if (!NeedsWeapon())
@@ -2944,7 +2944,7 @@ void AUTBot::FightEnemy(bool bCanCharge, float EnemyStrength)
 		}
 		if (!bCanAttack)
 		{
-			if (Squad->MustKeepEnemy(Enemy))
+			if (Squad->MustKeepEnemy(this, Enemy))
 			{
 				GoalString = "Hunt priority enemy";
 				DoHunt(Enemy);
@@ -2961,7 +2961,7 @@ void AUTBot::FightEnemy(bool bCanCharge, float EnemyStrength)
 				//DoStakeOut();
 				DoRangedAttackOn(Enemy); // FIXME temp replacement
 			}
-			else if (((CurrentAggression < 1.0f && !LostContact(3.0f + 2.0f * FMath::FRand())) || IsSniping())/* && CanStakeOut()*/)
+			else if (((CurrentAggression < 1.0f && !LostContact(3.0f + 2.0f * FMath::FRand())) || IsSniping()) && GetWorld()->TimeSeconds - GetEnemyInfo(Enemy, false)->LastSeenTime < 2.5f + FMath::Max<float>(-1.0f, 3.0f * (FMath::FRand() + 2.0f * (EnemyStrength - CurrentAggression))))
 			{
 				GoalString = "Stake Out2";
 				//DoStakeOut();
@@ -3539,7 +3539,7 @@ EBotMonitoringStatus AUTBot::ShouldTriggerTranslocation(const FVector& CurrentDe
 		}
 	}
 	// if it gets us closer to enemy we are charging or chasing (and won't hit him outright for telefrag)
-	else if (Enemy != NULL && GetFocusActor() == Enemy && (IsCharging() || Squad->MustKeepEnemy(Enemy)))
+	else if (Enemy != NULL && GetFocusActor() == Enemy && (IsCharging() || Squad->MustKeepEnemy(this, Enemy)))
 	{
 		const FVector EnemyLoc = GetEnemyLocation(Enemy, true);
 		if ( (EnemyLoc - CurrentDest).Size() < (EnemyLoc - GetPawn()->GetActorLocation()).Size() - 500.0f &&
@@ -4256,7 +4256,7 @@ int32 AUTBot::GetRouteDist() const
 
 void AUTBot::PickNewEnemy()
 {
-	if ((Enemy == NULL || Enemy->Controller == NULL || !Squad->MustKeepEnemy(Enemy) || !CanAttack(Enemy, GetEnemyLocation(Enemy, true), false)) && GetPawn() != NULL)
+	if ((Enemy == NULL || Enemy->Controller == NULL || !Squad->MustKeepEnemy(this, Enemy) || !CanAttack(Enemy, GetEnemyLocation(Enemy, true), false)) && GetPawn() != NULL)
 	{
 		LastPickEnemyTime = GetWorld()->TimeSeconds;
 
@@ -4283,7 +4283,7 @@ void AUTBot::PickNewEnemy()
 						}
 					}
 				}
-				if (!bLostEnemy || Squad->MustKeepEnemy(EnemyInfo.GetPawn()))
+				if (!bLostEnemy || Squad->MustKeepEnemy(this, EnemyInfo.GetPawn()))
 				{
 					float Rating = RateEnemy(EnemyInfo);
 					// enemy rating may call weapon script, anything could happen
@@ -4387,10 +4387,15 @@ float AUTBot::RateEnemy(const FBotEnemyInfo& EnemyInfo)
 
 bool AUTBot::IsImportantEnemyUpdate(APawn* TestEnemy, EAIEnemyUpdateType UpdateType)
 {
-	if (UpdateType == EUT_HealthUpdate || UpdateType == EUT_HeardApprox || UpdateType == EUT_DealtDamage)
+	if (GetPawn() == nullptr || UpdateType == EUT_HealthUpdate || UpdateType == EUT_HeardApprox || UpdateType == EUT_DealtDamage)
 	{
 		// updates that don't give us a fix on their position and movement aren't worth re-evaluating for
 		return false;
+	}
+	// always re-evaluate if important enemy status changed and not currently targeted
+	else if (TestEnemy != Enemy && Squad->MustKeepEnemy(this, TestEnemy))
+	{
+		return true;
 	}
 	else
 	{
@@ -4537,7 +4542,7 @@ void AUTBot::SetEnemy(APawn* NewEnemy)
 			}
 		}
 		// don't interrupt in progress translocation
-		else if (TranslocTarget.IsZero() || UTChar == NULL || UTChar->GetWeapon() == NULL || UTChar->GetWeapon()->BaseAISelectRating >= 0.5f || (Enemy != NULL && Squad->MustKeepEnemy(Enemy)))
+		else if (TranslocTarget.IsZero() || UTChar == NULL || UTChar->GetWeapon() == NULL || UTChar->GetWeapon()->BaseAISelectRating >= 0.5f || (Enemy != NULL && Squad->MustKeepEnemy(this, Enemy)))
 		{
 			WhatToDoNext();
 		}

@@ -53,7 +53,7 @@ void UUTAIAction_TacticalMove::PickDestination()
 		bool bFollowingPlayer = (Cast<APlayerController>(GetSquad()->GetLeader()) != NULL && GetSquad()->GetLeader()->GetPawn() != NULL && (GetPawn()->GetActorLocation() - GetSquad()->GetLeader()->GetPawn()->GetActorLocation()).Size() < 3500.0f);
 
 		float StrafeSize = FMath::Clamp<float>(((2.0f * GetOuterAUTBot()->CurrentAggression + 1.0f) * FMath::FRand() - 0.65f), -0.7f, 0.7f);
-		if (GetSquad()->MustKeepEnemy(GetEnemy()))
+		if (GetSquad()->MustKeepEnemy(GetOuterAUTBot(), GetEnemy()))
 		{
 			StrafeSize = FMath::Max<float>(0.4f * FMath::FRand() - 0.2f, StrafeSize);
 		}

@@ -35,7 +35,7 @@ void AUTCTFSquadAI::Initialize(AUTTeamInfo* InTeam, FName InOrders)
 	}
 }
 
-bool AUTCTFSquadAI::MustKeepEnemy(APawn* TheEnemy)
+bool AUTCTFSquadAI::MustKeepEnemy(AUTBot* B, APawn* TheEnemy)
 {
 	// must keep enemy flag holder
 	AUTCharacter* UTC = Cast<AUTCharacter>(TheEnemy);
@@ -385,7 +385,7 @@ bool AUTCTFSquadAI::CheckSquadObjectives(AUTBot* B)
 		}
 		else if (B->GetEnemy() != NULL)
 		{
-			if (!B->LostContact(3.0f) || MustKeepEnemy(B->GetEnemy()))
+			if (!B->LostContact(3.0f) || MustKeepEnemy(B, B->GetEnemy()))
 			{
 				B->GoalString = "Fight attacker";
 				return false;

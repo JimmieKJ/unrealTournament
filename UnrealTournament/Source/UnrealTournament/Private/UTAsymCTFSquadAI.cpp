@@ -29,11 +29,25 @@ bool AUTAsymCTFSquadAI::IsAttackingTeam() const
 	return (GS != NULL && GetTeamNum() == (GS->bRedToCap ? 0 : 1));
 }
 
-bool AUTAsymCTFSquadAI::MustKeepEnemy(APawn* TheEnemy)
+bool AUTAsymCTFSquadAI::MustKeepEnemy(AUTBot* B, APawn* TheEnemy)
 {
-	// must keep enemy flag holder
+	// generally must keep enemy flag holder
+	// but allow losing them in cases where they are farther from objective and not in sight, since they have to come to us to win
 	AUTCharacter* UTC = Cast<AUTCharacter>(TheEnemy);
-	return (UTC != NULL && UTC->GetCarriedObject() != NULL);
+	return (UTC != NULL && UTC->GetCarriedObject() != NULL && (B->IsEnemyVisible(TheEnemy) || (B->GetPawn()->GetActorLocation() - B->GetEnemyLocation(TheEnemy, true)).Size() < 3000.0f + (B->GetPawn()->GetActorLocation() - Objective->GetActorLocation()).Size()));
+}
+
+void AUTAsymCTFSquadAI::ModifyAggression(AUTBot* B, float& Aggressiveness)
+{
+	// reduce aggression against enemies that are much farther away from objective, no need to pursue as they need to come to us
+	if ((B->GetEnemyLocation(B->GetEnemy(), true) - B->GetPawn()->GetActorLocation()).Size() > 4000.0f + (B->GetPawn()->GetActorLocation() - Objective->GetActorLocation()).Size())
+	{
+		Aggressiveness -= 0.5f;
+	}
+	else
+	{
+		Super::ModifyAggression(B, Aggressiveness);
+	}
 }
 
 bool AUTAsymCTFSquadAI::ShouldUseTranslocator(AUTBot* B)
@@ -387,11 +401,11 @@ bool AUTAsymCTFSquadAI::CheckSquadObjectives(AUTBot* B)
 			{
 				// prioritize defense point if haven't actually encountered enemy since respawning
 				bool bPrioritizeEnemy = B->GetEnemy() != nullptr && (B->GetDefensePoint() == nullptr || B->GetEnemyInfo(B->GetEnemy(), false)->LastFullUpdateTime > B->LastRespawnTime);
-				if (bPrioritizeEnemy && B->GetEnemy() == Flag->HoldingPawn)
+				if (bPrioritizeEnemy && B->GetEnemy() == Flag->HoldingPawn && (B->GetDefensePoint() == nullptr || !B->GetDefensePoint()->bSniperSpot || (!B->IsEnemyVisible(B->GetEnemy()) && MustKeepEnemy(B, B->GetEnemy()))))
 				{
 					return HuntEnemyFlag(B);
 				}
-				else if (bPrioritizeEnemy && (!B->LostContact(3.0f) || MustKeepEnemy(B->GetEnemy())))
+				else if (bPrioritizeEnemy && (!B->LostContact(3.0f) || MustKeepEnemy(B, B->GetEnemy())))
 				{
 					B->GoalString = "Fight attacker";
 					return false;
@@ -441,7 +455,7 @@ bool AUTAsymCTFSquadAI::CheckSquadObjectives(AUTBot* B)
 		}
 		else
 		{
-			if (B->GetEnemy() != NULL && MustKeepEnemy(B->GetEnemy()) && !B->LostContact(2.0f))
+			if (B->GetEnemy() != NULL && MustKeepEnemy(B, B->GetEnemy()) && !B->LostContact(2.0f))
 			{
 				return HuntEnemyFlag(B);
 			}
@@ -518,5 +532,5 @@ void AUTAsymCTFSquadAI::NotifyObjectiveEvent(AActor* InObjective, AController* I
 
 bool AUTAsymCTFSquadAI::HasHighPriorityObjective(AUTBot* B)
 {
-	return ((B->GetUTChar() != NULL && B->GetUTChar()->GetCarriedObject() != NULL) || (B->GetEnemy() != NULL && MustKeepEnemy(B->GetEnemy())));
+	return ((B->GetUTChar() != NULL && B->GetUTChar()->GetCarriedObject() != NULL) || (B->GetEnemy() != NULL && MustKeepEnemy(B, B->GetEnemy())));
 }

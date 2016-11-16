@@ -235,7 +235,7 @@ float AUTWeap_Redeemer::GetAISelectRating_Implementation()
 			ExplosionRadius = ProjClass[0].GetDefaultObject()->DamageParams.OuterRadius;
 		}
 		// avoid switching to at suicide range unless it will kill more enemies/high priority enemy and bot thinks it can get away with the long switch time
-		if (B->GetEnemy() == NULL || (UTOwner->GetWeapon() != this && !B->GetSquad()->MustKeepEnemy(B->GetEnemy()) && (B->GetEnemyLocation(B->GetEnemy(), false) - UTOwner->GetActorLocation()).Size() < ExplosionRadius * 1.1f))
+		if (B->GetEnemy() == NULL || (UTOwner->GetWeapon() != this && !B->GetSquad()->MustKeepEnemy(B, B->GetEnemy()) && (B->GetEnemyLocation(B->GetEnemy(), false) - UTOwner->GetActorLocation()).Size() < ExplosionRadius * 1.1f))
 		{
 			if (B->IsEnemyVisible(B->GetEnemy()) && B->Skill + B->Personality.Tactics < 3.0f + 1.5f * FMath::FRand() && (B->Personality.Aggressiveness <= 0.0f || FMath::FRand() > B->Personality.Aggressiveness))
 			{
@@ -252,7 +252,7 @@ float AUTWeap_Redeemer::GetAISelectRating_Implementation()
 				{
 					for (APawn* TestEnemy : Enemies)
 					{
-						if (B->GetSquad()->MustKeepEnemy(TestEnemy))
+						if (B->GetSquad()->MustKeepEnemy(B, TestEnemy))
 						{
 							return BaseAISelectRating;
 						}

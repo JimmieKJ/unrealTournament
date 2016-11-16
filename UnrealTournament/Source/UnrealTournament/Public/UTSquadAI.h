@@ -185,7 +185,7 @@ public:
 	virtual bool TryPathTowardObjective(AUTBot* B, AActor* Goal, bool bAllowDetours, const FString& SuccessGoalString);
 
 	/** @return if enemy is important to track for as long as possible (e.g. threatening game objective) */
-	virtual bool MustKeepEnemy(APawn* TheEnemy)
+	virtual bool MustKeepEnemy(AUTBot* B, APawn* TheEnemy)
 	{
 		return false;
 	}
@@ -216,7 +216,7 @@ public:
 	/** modify the bot's attack aggressiveness, generally in response to its target's relevance to game objectives */
 	virtual void ModifyAggression(AUTBot* B, float& Aggressiveness)
 	{
-		if (MustKeepEnemy(B->GetEnemy()))
+		if (MustKeepEnemy(B, B->GetEnemy()))
 		{
 			Aggressiveness += 0.5f;
 			const FBotEnemyInfo* Info = B->GetEnemyInfo(B->GetEnemy(), true);

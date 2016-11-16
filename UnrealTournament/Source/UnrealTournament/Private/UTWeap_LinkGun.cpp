@@ -383,7 +383,7 @@ void AUTWeap_LinkGun::CheckBotPulseFire()
 	{
 		AUTBot* B = Cast<AUTBot>(UTOwner->Controller);
 		if ( B != NULL && B->WeaponProficiencyCheck() && B->GetEnemy() != NULL && B->GetTarget() == B->GetEnemy() &&
-			(B->IsCharging() || B->GetSquad()->MustKeepEnemy(B->GetEnemy()) || B->RelativeStrength(B->GetEnemy()) < 0.0f) )
+			(B->IsCharging() || B->GetSquad()->MustKeepEnemy(B, B->GetEnemy()) || B->RelativeStrength(B->GetEnemy()) < 0.0f) )
 		{
 			bool bTryPulse = FMath::FRand() < (B->IsFavoriteWeapon(GetClass()) ? 0.1f : 0.05f);
 			if (bTryPulse)

@@ -91,7 +91,7 @@ bool AUTSquadAI::LostEnemy(AUTBot* B)
 		B->PickNewEnemy();
 		return true;
 	}
-	else if (MustKeepEnemy(B->GetEnemy()))
+	else if (MustKeepEnemy(B, B->GetEnemy()))
 	{
 		return false;
 	}
@@ -513,7 +513,7 @@ bool AUTSquadAI::PickRetreatDestination(AUTBot* B)
 bool AUTSquadAI::ShouldUseTranslocator(AUTBot* B)
 {
 	// use only if no enemy to shoot at
-	return (B->GetTarget() == NULL || !B->CanAttack(B->GetTarget(), (B->GetTarget() == B->GetEnemy()) ? B->GetEnemyLocation(B->GetEnemy(), true) : B->GetTarget()->GetActorLocation(), B->GetEnemy() == NULL || MustKeepEnemy(B->GetEnemy())));
+	return (B->GetTarget() == NULL || !B->CanAttack(B->GetTarget(), (B->GetTarget() == B->GetEnemy()) ? B->GetEnemyLocation(B->GetEnemy(), true) : B->GetTarget()->GetActorLocation(), B->GetEnemy() == NULL || MustKeepEnemy(B, B->GetEnemy())));
 }
 
 void AUTSquadAI::GetPossibleEnemyGoals(AUTBot* B, const FBotEnemyInfo* EnemyInfo, TArray<FPredictedGoal>& Goals)
