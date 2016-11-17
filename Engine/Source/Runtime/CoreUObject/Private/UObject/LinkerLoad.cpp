@@ -4069,6 +4069,13 @@ UObject* FLinkerLoad::CreateExport( int32 Index )
 			}
 			else
 			{
+				// load blueprint class config
+				// this happens in RegenerateBlueprintClass() in the uncooked case
+				if (bIsBlueprintCDO && LoadClass->bCooked && LoadClass->HasAnyClassFlags(CLASS_Config))
+				{
+					Export.Object->LoadConfig(LoadClass);
+				}
+
 				// we created the object, but the data stored on disk for this object has not yet been loaded,
 				// so add the object to the list of objects that need to be loaded, which will be processed
 				// in EndLoad()
