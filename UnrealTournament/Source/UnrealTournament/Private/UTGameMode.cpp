@@ -13,7 +13,8 @@
 #include "UTScoreboard.h"
 #include "SlateBasics.h"
 #include "UTAnalytics.h"
-#include "UTBot.h"
+#include "UTBotPlayer.h"
+#include "UTMonsterAI.h"
 #include "UTSquadAI.h"
 #include "Panels/SUTLobbyMatchSetupPanel.h"
 #include "Dialogs/SUTPlayerInfoDialog.h"
@@ -87,7 +88,7 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	EngineMessageClass = UUTEngineMessage::StaticClass();
 
 	PlayerControllerClass = AUTPlayerController::StaticClass();
-	BotClass = AUTBot::StaticClass();
+	BotClass = AUTBotPlayer::StaticClass();
 
 	TimeLimit = 15;
 	bUseSeamlessTravel = false;
@@ -836,9 +837,9 @@ UUTBotCharacter* AUTGameMode::ChooseRandomCharacter(uint8 TeamNum)
 	return ChosenCharacter;
 }
 
-AUTBot* AUTGameMode::AddBot(uint8 TeamNum)
+AUTBotPlayer* AUTGameMode::AddBot(uint8 TeamNum)
 {
-	AUTBot* NewBot = GetWorld()->SpawnActor<AUTBot>(BotClass);
+	AUTBotPlayer* NewBot = GetWorld()->SpawnActor<AUTBotPlayer>(BotClass);
 	if (NewBot != NULL)
 	{
 		if (BotAssets.Num() == 0)
@@ -916,7 +917,7 @@ AUTBot* AUTGameMode::AddBot(uint8 TeamNum)
 	return NewBot;
 }
 
-AUTBot* AUTGameMode::AddNamedBot(const FString& BotName, uint8 TeamNum)
+AUTBotPlayer* AUTGameMode::AddNamedBot(const FString& BotName, uint8 TeamNum)
 {
 	if (BotAssets.Num() == 0)
 	{
@@ -943,7 +944,7 @@ AUTBot* AUTGameMode::AddNamedBot(const FString& BotName, uint8 TeamNum)
 	}
 	else
 	{
-		AUTBot* NewBot = GetWorld()->SpawnActor<AUTBot>(BotClass);
+		AUTBotPlayer* NewBot = GetWorld()->SpawnActor<AUTBotPlayer>(BotClass);
 		if (NewBot != NULL)
 		{
 			NewBot->InitializeCharacter(BotData);
@@ -956,13 +957,13 @@ AUTBot* AUTGameMode::AddNamedBot(const FString& BotName, uint8 TeamNum)
 	}
 }
 
-AUTBot* AUTGameMode::AddAssetBot(const FStringAssetReference& BotAssetPath, uint8 TeamNum)
+AUTBotPlayer* AUTGameMode::AddAssetBot(const FStringAssetReference& BotAssetPath, uint8 TeamNum)
 {
 	UUTBotCharacter* BotData = Cast<UUTBotCharacter>(BotAssetPath.TryLoad());
-	AUTBot* NewBot = NULL;
+	AUTBotPlayer* NewBot = NULL;
 	if (BotData != NULL)
 	{
-		NewBot = GetWorld()->SpawnActor<AUTBot>(BotClass);
+		NewBot = GetWorld()->SpawnActor<AUTBotPlayer>(BotClass);
 		if (NewBot != NULL)
 		{
 			NewBot->InitializeCharacter(BotData);
@@ -975,7 +976,7 @@ AUTBot* AUTGameMode::AddAssetBot(const FStringAssetReference& BotAssetPath, uint
 	return NewBot;
 }
 
-void AUTGameMode::SetUniqueBotName(AUTBot* B, const UUTBotCharacter* BotData)
+void AUTGameMode::SetUniqueBotName(AUTBotPlayer* B, const UUTBotCharacter* BotData)
 {
 	TArray<FString> PossibleNames;
 	PossibleNames.Add(BotData->GetName());
@@ -1004,7 +1005,7 @@ void AUTGameMode::SetUniqueBotName(AUTBot* B, const UUTBotCharacter* BotData)
 	}
 }
 
-AUTBot* AUTGameMode::ForceAddBot(uint8 TeamNum)
+AUTBotPlayer* AUTGameMode::ForceAddBot(uint8 TeamNum)
 {
 	if (bOfflineChallenge)
 	{
@@ -1013,7 +1014,7 @@ AUTBot* AUTGameMode::ForceAddBot(uint8 TeamNum)
 	BotFillCount = FMath::Max<int32>(BotFillCount, NumPlayers + NumBots + 1);
 	return AddBot(TeamNum);
 }
-AUTBot* AUTGameMode::ForceAddNamedBot(const FString& BotName, uint8 TeamNum)
+AUTBotPlayer* AUTGameMode::ForceAddNamedBot(const FString& BotName, uint8 TeamNum)
 {
 	if (bOfflineChallenge)
 	{
@@ -1049,7 +1050,7 @@ void AUTGameMode::KillBots()
 	BotFillCount = 0;
 	for (FConstControllerIterator It = GetWorld()->GetControllerIterator(); It; ++It)
 	{
-		AUTBot* B = Cast<AUTBot>(It->Get());
+		AUTBotPlayer* B = Cast<AUTBotPlayer>(It->Get());
 		if (B != NULL)
 		{
 			B->Destroy();
@@ -1058,7 +1059,7 @@ void AUTGameMode::KillBots()
 	}
 }
 
-bool AUTGameMode::AllowRemovingBot(AUTBot* B)
+bool AUTGameMode::AllowRemovingBot(AUTBotPlayer* B)
 {
 	if (bOfflineChallenge)
 	{
@@ -1102,7 +1103,7 @@ void AUTGameMode::CheckBotCount()
 	{
 		for (FConstControllerIterator It = GetWorld()->GetControllerIterator(); It; ++It)
 		{
-			AUTBot* B = Cast<AUTBot>(It->Get());
+			AUTBotPlayer* B = Cast<AUTBotPlayer>(It->Get());
 			if (B != NULL && AllowRemovingBot(B))
 			{
 				B->Destroy();
@@ -3162,6 +3163,12 @@ void AUTGameMode::StartNewPlayer(APlayerController* NewPlayer)
 	}
 }
 
+UClass* AUTGameMode::GetDefaultPawnClassForController_Implementation(AController* InController)
+{
+	AUTMonsterAI* MonsterAI = Cast<AUTMonsterAI>(InController);
+	return (MonsterAI != nullptr && MonsterAI->PawnClass != nullptr) ? MonsterAI->PawnClass : Super::GetDefaultPawnClassForController_Implementation(InController);
+}
+
 bool AUTGameMode::ReadyToStartMatch_Implementation()
 {
 	if (GetWorld()->IsPlayInEditor() || !bDelayedStart)
@@ -3703,7 +3710,7 @@ void AUTGameMode::Logout(AController* Exiting)
 		AntiCheatEngine->OnPlayerLogout(Cast<APlayerController>(Exiting));
 	}
 
-	if (Cast<AUTBot>(Exiting) != NULL)
+	if (Cast<AUTBotPlayer>(Exiting) != NULL)
 	{
 		NumBots--;
 	}

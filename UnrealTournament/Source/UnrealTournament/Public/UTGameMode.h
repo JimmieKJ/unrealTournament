@@ -5,6 +5,7 @@
 #include "UTServerBeaconLobbyClient.h"
 #include "UTReplicatedLoadoutInfo.h"
 #include "UTAntiCheatModularFeature.h"
+#include "UTBotPlayer.h"
 #include "UTGameMode.generated.h"
 
 UNREALTOURNAMENT_API DECLARE_LOG_CATEGORY_EXTERN(LogUTGame, Log, All);
@@ -390,7 +391,7 @@ public:
 
 	/** class used for AI bots */
 	UPROPERTY(EditAnywhere, NoClear, BlueprintReadWrite, Category = Classes)
-	TSubclassOf<class AUTBot> BotClass;
+	TSubclassOf<class AUTBotPlayer> BotClass;
 
 	/** cached list of UTBotCharacter assets from the asset registry, so we don't need to query the registry every time we add a bot */
 	TArray<FAssetData> BotAssets;
@@ -548,6 +549,7 @@ public:
 	virtual AActor* ChoosePlayerStart_Implementation(AController* Player) override;
 	virtual float RatePlayerStart(APlayerStart* P, AController* Player);
 	virtual float AdjustNearbyPlayerStartScore(const AController* Player, const AController* OtherController, const ACharacter* OtherCharacter, const FVector& StartLoc, const APlayerStart* P);
+	virtual UClass* GetDefaultPawnClassForController_Implementation(AController* InController) override;
 
 	virtual bool ReadyToStartMatch_Implementation() override;
 
@@ -608,25 +610,25 @@ protected:
 	virtual UUTBotCharacter* ChooseRandomCharacter(uint8 TeamNum);
 
 	/** Adds a bot to the game */
-	virtual class AUTBot* AddBot(uint8 TeamNum = 255);
+	virtual class AUTBotPlayer* AddBot(uint8 TeamNum = 255);
 
-	virtual class AUTBot* AddNamedBot(const FString& BotName, uint8 TeamNum = 255);
-	virtual class AUTBot* AddAssetBot(const FStringAssetReference& BotAssetPath, uint8 TeamNum = 255);
+	virtual class AUTBotPlayer* AddNamedBot(const FString& BotName, uint8 TeamNum = 255);
+	virtual class AUTBotPlayer* AddAssetBot(const FStringAssetReference& BotAssetPath, uint8 TeamNum = 255);
 	/** check for adding/removing bots to satisfy BotFillCount */
 	virtual void CheckBotCount();
 	/** returns whether we should allow removing the given bot to satisfy the desired player/bot count settings
 	 * generally used to defer destruction of bots that currently are important to the current game state, like flag carriers
 	 */
-	virtual bool AllowRemovingBot(AUTBot* B);
+	virtual bool AllowRemovingBot(AUTBotPlayer* B);
 
 	/** give bot a unique name based on the possible names in the given BotData */
-	virtual void SetUniqueBotName(AUTBot* B, const class UUTBotCharacter* BotData);
+	virtual void SetUniqueBotName(AUTBotPlayer* B, const class UUTBotCharacter* BotData);
 public:
 	/** adds a bot to the game, ignoring game settings */
 	UFUNCTION(Exec, BlueprintCallable, Category = AI)
-	virtual class AUTBot* ForceAddBot(uint8 TeamNum = 255);
+	virtual class AUTBotPlayer* ForceAddBot(uint8 TeamNum = 255);
 	UFUNCTION(Exec, BlueprintCallable, Category = AI)
-	virtual class AUTBot* ForceAddNamedBot(const FString& BotName, uint8 TeamNum = 255);
+	virtual class AUTBotPlayer* ForceAddNamedBot(const FString& BotName, uint8 TeamNum = 255);
 	/** sets bot count, ignoring startup settings */
 	UFUNCTION(Exec, BlueprintCallable, Category = AI)
 	virtual void SetBotCount(uint8 NewCount);

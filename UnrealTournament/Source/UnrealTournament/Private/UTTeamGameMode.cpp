@@ -572,7 +572,7 @@ void AUTTeamGameMode::CheckBotCount()
 			TArray<AController*> Members = Team->GetTeamMembers();
 			for (AController* C : Members)
 			{
-				AUTBot* B = Cast<AUTBot>(C);
+				AUTBotPlayer* B = Cast<AUTBotPlayer>(C);
 				if (B != NULL)
 				{
 					if (AllowRemovingBot(B))
