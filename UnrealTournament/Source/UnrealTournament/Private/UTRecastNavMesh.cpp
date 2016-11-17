@@ -248,8 +248,9 @@ void AUTRecastNavMesh::SetNodeSize(UUTPathNode* Node)
 	}
 	if (bFirstEdge)
 	{
-		// node consists of a single, disconnected poly - use min size
-		Node->MinPolyEdgeSize = FCapsuleSize(FMath::TruncToInt(AgentRadius), FMath::TruncToInt(AgentHeight * 0.5f));
+		// node consists of a single, disconnected poly - use default size
+		// TODO: maybe point check poly center?
+		Node->MinPolyEdgeSize = GetHumanPathSize();
 	}
 }
 
