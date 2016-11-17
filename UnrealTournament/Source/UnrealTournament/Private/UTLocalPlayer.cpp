@@ -5916,7 +5916,7 @@ void UUTLocalPlayer::SetTutorialFinished(int32 TutorialMask)
 
 			if (TutorialMask == 0x01)	// We have completed the first tutorial...
 			{
-				ShowToast(NSLOCTEXT("Unlocks","FirstTimer","Achievenment: No Longer a Noob!"),6.0f);			
+				ShowToast(NSLOCTEXT("Unlocks","FirstTimer","Achievement: No Longer a Noob!"),6.0f);			
 			}
 			else if (TutorialMask <= TUTORIAL_Pickups && ((CurrentProfileSettings->TutorialMask & TUTORIAL_SkillMoves) == TUTORIAL_SkillMoves) )
 			{
