@@ -3166,7 +3166,7 @@ void AUTGameMode::StartNewPlayer(APlayerController* NewPlayer)
 UClass* AUTGameMode::GetDefaultPawnClassForController_Implementation(AController* InController)
 {
 	AUTMonsterAI* MonsterAI = Cast<AUTMonsterAI>(InController);
-	return (MonsterAI != nullptr && MonsterAI->PawnClass != nullptr) ? MonsterAI->PawnClass : Super::GetDefaultPawnClassForController_Implementation(InController);
+	return (MonsterAI != nullptr && MonsterAI->PawnClass != nullptr) ? *MonsterAI->PawnClass : Super::GetDefaultPawnClassForController_Implementation(InController);
 }
 
 bool AUTGameMode::ReadyToStartMatch_Implementation()
