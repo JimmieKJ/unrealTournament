@@ -2718,7 +2718,7 @@ void AUTGameMode::BroadcastDeathMessage(AController* Killer, AController* Other,
 
 void AUTGameMode::PlayEndOfMatchMessage()
 {
-	if (!UTGameState || !UTGameState->WinnerPlayerState)
+	if (!UTGameState || !UTGameState->WinnerPlayerState || (bBasicTrainingGame && !bDamageHurtsHealth && (GetNetMode() == NM_Standalone)))
 	{
 		return;
 	}
