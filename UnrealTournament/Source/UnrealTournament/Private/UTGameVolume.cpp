@@ -127,7 +127,7 @@ void AUTGameVolume::ActorEnteredVolume(class AActor* Other)
 			}
 			else if (P->GetCarriedObject())
 			{
-				/*				if (VoiceLinesSet != NAME_None)
+								if (VoiceLinesSet != NAME_None)
 								{
 									UE_LOG(UT, Warning, TEXT("VoiceLineSet %s for %s location %s"), *VoiceLinesSet.ToString(), *GetName(), *VolumeName.ToString());
 									((AUTPlayerState *)(P->PlayerState))->AnnounceStatus(VoiceLinesSet, 1);
@@ -136,8 +136,8 @@ void AUTGameVolume::ActorEnteredVolume(class AActor* Other)
 								{
 									UE_LOG(UT, Warning, TEXT("No VoiceLineSet for %s location %s"), *GetName(), *VolumeName.ToString());
 								}
-								return;*/
-				if (bIsNoRallyZone && !P->GetCarriedObject()->bWasInEnemyBase)
+								return;
+				if (bIsNoRallyZone && !bIsTeamSafeVolume && !P->GetCarriedObject()->bWasInEnemyBase)
 				{
 					if (GetWorld()->GetTimeSeconds() - P->GetCarriedObject()->EnteredEnemyBaseTime > 10.f)
 					{
@@ -148,7 +148,7 @@ void AUTGameVolume::ActorEnteredVolume(class AActor* Other)
 				}
 
 				// possibly announce flag carrier changed zones
-				if (bIsNoRallyZone && !P->GetCarriedObject()->bWasInEnemyBase && (GetWorld()->GetTimeSeconds() - FMath::Max(GS->LastEnemyEnteringBaseTime, GS->LastEnteringEnemyBaseTime) > 10.f))
+				if (bIsNoRallyZone && !bIsTeamSafeVolume && !P->GetCarriedObject()->bWasInEnemyBase && (GetWorld()->GetTimeSeconds() - FMath::Max(GS->LastEnemyEnteringBaseTime, GS->LastEnteringEnemyBaseTime) > 10.f))
 				{
 					if ((GetWorld()->GetTimeSeconds() - GS->LastEnteringEnemyBaseTime > 6.f) && Cast<AUTPlayerState>(P->PlayerState))
 					{
@@ -185,7 +185,7 @@ void AUTGameVolume::ActorEnteredVolume(class AActor* Other)
 						}
 					}
 				}
-				else if ((GetWorld()->GetTimeSeconds() - FMath::Max(GS->LastFriendlyLocationReportTime, GS->LastEnemyLocationReportTime) > 3.f) || bIsWarningZone)
+				else if ((GetWorld()->GetTimeSeconds() - FMath::Max(GS->LastFriendlyLocationReportTime, GS->LastEnemyLocationReportTime) > 3.f) || bIsWarningZone) // FIXMESTEVE - always on first entry, and always if not one of last two zones, flag loc notifications interrupt themselves
 				{
 					if ((VoiceLinesSet != NAME_None) && (GetWorld()->GetTimeSeconds() - GS->LastFriendlyLocationReportTime > 3.f) && Cast<AUTPlayerState>(P->PlayerState) && (GS->LastFriendlyLocationName != VoiceLinesSet))
 					{
@@ -229,7 +229,7 @@ void AUTGameVolume::ActorEnteredVolume(class AActor* Other)
 					}
 				}
 				P->bWasInWarningZone = bIsWarningZone;
-				P->GetCarriedObject()->bWasInEnemyBase = bIsNoRallyZone;
+				P->GetCarriedObject()->bWasInEnemyBase = bIsNoRallyZone && !bIsTeamSafeVolume;
 			}
 			else if (!bHasBeenEntered && bReportDefenseStatus && (VoiceLinesSet != NAME_None))
 			{
