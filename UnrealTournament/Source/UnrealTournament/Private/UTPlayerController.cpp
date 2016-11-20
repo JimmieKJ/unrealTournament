@@ -709,7 +709,13 @@ void AUTPlayerController::FOV(float NewFOV)
 		ConfigDefaultFOV = FMath::Clamp<float>(NewFOV, FOV_CONFIG_MIN, FOV_CONFIG_MAX);
 		if (PlayerCameraManager != NULL)
 		{
-			PlayerCameraManager->DefaultFOV = ConfigDefaultFOV;
+			bool bAllowAnyFOV = false;
+			if (GetNetMode() == NM_Standalone)
+			{
+				AUTGameMode* Game = GetWorld()->GetAuthGameMode<AUTGameMode>();
+				bAllowAnyFOV = (Game && !Game->bOfflineChallenge && !Game->bBasicTrainingGame);
+			}
+			PlayerCameraManager->DefaultFOV = bAllowAnyFOV ? NewFOV : ConfigDefaultFOV;
 		}
 		if (GetPawn() != NULL && GetNetMode() != NM_Standalone)
 		{
