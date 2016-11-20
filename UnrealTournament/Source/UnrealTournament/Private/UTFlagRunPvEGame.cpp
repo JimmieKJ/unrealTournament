@@ -145,7 +145,7 @@ void AUTFlagRunPvEGame::EscalateMonsters()
 bool AUTFlagRunPvEGame::ModifyDamage_Implementation(int32& Damage, FVector& Momentum, APawn* Injured, AController* InstigatedBy, const FHitResult& HitInfo, AActor* DamageCauser, TSubclassOf<UDamageType> DamageType)
 {
 	// reduce monster damage to players if on low difficulty
-	if (GameDifficulty < 5.0f && (Cast<APlayerController>(Injured->Controller) != nullptr || Cast<AUTBotPlayer>(Injured->Controller) != nullptr && Cast<AUTMonsterAI>(InstigatedBy) != nullptr))
+	if (GameDifficulty < 5.0f && (Cast<APlayerController>(Injured->Controller) != nullptr || Cast<AUTBotPlayer>(Injured->Controller) != nullptr) && Cast<AUTMonsterAI>(InstigatedBy) != nullptr)
 	{
 		Damage *= 0.4f + GameDifficulty * 0.12f;
 	}

@@ -857,7 +857,7 @@ void AUTCTFRoundGame::HandleTeamChange(AUTPlayerState* PS, AUTTeamInfo* OldTeam)
 	{
 		PS->RemainingLives = 0;
 	}
-	if (PS->RemainingLives == 0)
+	if (PS->RemainingLives == 0 && IsPlayerOnLifeLimitedTeam(PS))
 	{
 		PS->SetOutOfLives(true);
 		PS->ForceRespawnTime = 1.f;
