@@ -293,7 +293,10 @@ public:
 
 	UFUNCTION(client, reliable)
 	virtual void ClientToggleScoreboard(bool bShow);
-	
+
+	UFUNCTION(client, reliable)
+		virtual void ClientDrawLine(FVector Start, FVector End) const;
+
 	UPROPERTY()
 		float ScoreboardDelayOnDeath;
 

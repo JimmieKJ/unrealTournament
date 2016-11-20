@@ -5364,7 +5364,7 @@ bool AUTPlayerController::LineOfSightTo(const class AActor* Other, FVector ViewP
 
 		if (ViewPoint.IsZero())
 		{
-			AActor*	ViewTarg = GetViewTarget();
+			AActor*	ViewTarg = GetPawn() ? GetPawn() : GetViewTarget();
 			ViewPoint = ViewTarg->GetActorLocation();
 			if (ViewTarg == GetPawn())
 			{
@@ -5376,8 +5376,8 @@ bool AUTPlayerController::LineOfSightTo(const class AActor* Other, FVector ViewP
 		FVector TargetLocation = Other->GetTargetLocation(GetPawn());
 		FCollisionQueryParams CollisionParams(NAME_LineOfSight, true, GetPawn());
 		CollisionParams.AddIgnoredActor(Other);
-
-		bool bHit = GetWorld()->LineTraceTestByChannel(ViewPoint, TargetLocation, ECC_Visibility, CollisionParams);
+		FHitResult Hit;
+		bool bHit = GetWorld()->LineTraceSingleByChannel(Hit, ViewPoint, TargetLocation, ECC_Visibility, CollisionParams);
 		if (bHit && bOtherIsRagdoll)
 		{
 			// actor location will be near/in the ground for ragdolls, push up
@@ -5394,6 +5394,11 @@ bool AUTPlayerController::LineOfSightTo(const class AActor* Other, FVector ViewP
 		}
 		return !bHit;
 	}
+}
+
+void AUTPlayerController::ClientDrawLine_Implementation(FVector Start, FVector End) const
+{
+	DrawDebugLine(GetWorld(), Start, End, FColor::Yellow, true);
 }
 
 void AUTPlayerController::RealNames()
