@@ -16,7 +16,7 @@ UUTTutorialAnnouncement::UUTTutorialAnnouncement(const FObjectInitializer& Objec
 
 void UUTTutorialAnnouncement::PrecacheAnnouncements_Implementation(UUTAnnouncer* Announcer) const
 {
-	for (int32 i = 0; i <= 12; i++)
+	for (int32 i = 0; i <= 18; i++)
 	{
 		Announcer->PrecacheAnnouncement(GetAnnouncementName(i, NULL, NULL, NULL));
 	}
