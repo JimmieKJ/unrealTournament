@@ -849,11 +849,12 @@ void AUTCTFRoundGame::InitPlayerForRound(AUTPlayerState* PS)
 
 void AUTCTFRoundGame::HandleTeamChange(AUTPlayerState* PS, AUTTeamInfo* OldTeam)
 {
-	if ((GetWorld()->WorldType == EWorldType::PIE) || bDevServer)
+	if ((GetWorld()->WorldType == EWorldType::PIE) || bDevServer || !PS)
 	{
 		return;
 	}
-	if (PS && bSitOutDuringRound)
+	PS->bHasLifeLimit = IsPlayerOnLifeLimitedTeam(PS);
+	if (bSitOutDuringRound)
 	{
 		PS->RemainingLives = 0;
 	}
