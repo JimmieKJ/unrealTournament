@@ -60,18 +60,21 @@ void UUTWeaponStateFiringLinkBeam::FireShot()
 
 void UUTWeaponStateFiringLinkBeam::EndFiringSequence(uint8 FireModeNum)
 {
-	AUTWeap_LinkGun* LinkGun = Cast<AUTWeap_LinkGun>(GetOuterAUTWeapon());
-	if (!LinkGun || (!LinkGun->bReadyToPull && !LinkGun->IsLinkPulsing()))
+	if (FireModeNum == GetFireMode())
 	{
-		Super::EndFiringSequence(FireModeNum);
-		if (FireModeNum == GetOuterAUTWeapon()->GetCurrentFireMode())
+		AUTWeap_LinkGun* LinkGun = Cast<AUTWeap_LinkGun>(GetOuterAUTWeapon());
+		if (!LinkGun || (!LinkGun->bReadyToPull && !LinkGun->IsLinkPulsing()))
 		{
-			GetOuterAUTWeapon()->GotoActiveState();
+			Super::EndFiringSequence(FireModeNum);
+		if (FireModeNum == GetOuterAUTWeapon()->GetCurrentFireMode())
+			{
+				GetOuterAUTWeapon()->GotoActiveState();
+			}
 		}
-	}
-	else
-	{
-		bPendingEndFire = true;
+		else
+		{
+			bPendingEndFire = true;
+		}
 	}
 }
 
