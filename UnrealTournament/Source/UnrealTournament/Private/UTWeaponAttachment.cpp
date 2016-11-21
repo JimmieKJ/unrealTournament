@@ -346,13 +346,3 @@ void AUTWeaponAttachment::StopFiringEffects_Implementation(bool bIgnoreCurrentMo
 		}
 	}
 }
-
-AUTWeapon* AUTWeaponAttachment::GetOwnerWeapon()
-{
-	if (UTOwner)
-	{
-		return UTOwner->GetWeapon();
-	}
-
-	return nullptr;
-}
