@@ -36,6 +36,7 @@
 #include "UTLineUpHelper.h"
 #include "UTLineUpZone.h"
 #include "UTProjectile.h"
+#include "UTRemoteRedeemer.h"
 
 AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -1237,6 +1238,7 @@ void AUTCTFRoundGame::ScoreAlternateWin(int32 WinningTeamIndex, uint8 Reason)
 		CheckForWinner(LastTeamToScore);
 		if (UTGameState->IsMatchInProgress())
 		{
+			PrepareForIntermission();
 			SetMatchState(MatchState::MatchIntermission);
 		}
 
@@ -1248,6 +1250,38 @@ void AUTCTFRoundGame::ScoreAlternateWin(int32 WinningTeamIndex, uint8 Reason)
 				ParamArray.Add(FAnalyticsEventAttribute(TEXT("FlagCapScore"), 0));
 				FUTAnalytics::GetProvider().RecordEvent(TEXT("RCTFRoundResult"), ParamArray);
 			}
+		}
+	}
+}
+
+void AUTCTFRoundGame::PrepareForIntermission()
+{
+	// FIXMESTEVE maybe should just call RemoveAllPawns(), and call from start intermission?
+	TArray<APawn*> PawnsToDestroy;
+	for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
+	{
+		if (*It && Cast<AUTRemoteRedeemer>((*It).Get()))
+		{
+			PawnsToDestroy.Add(*It);
+		}
+	}
+
+	for (int32 i = 0; i<PawnsToDestroy.Num(); i++)
+	{
+		APawn* Pawn = PawnsToDestroy[i];
+		if (Pawn != NULL && !Pawn->IsPendingKill())
+		{
+			Pawn->Destroy();
+		}
+	}
+
+	// also get rid of projectiles left over
+	for (FActorIterator It(GetWorld()); It; ++It)
+	{
+		AActor* TestActor = *It;
+		if (TestActor && !TestActor->IsPendingKill() && TestActor->IsA<AUTProjectile>())
+		{
+			TestActor->Destroy();
 		}
 	}
 }

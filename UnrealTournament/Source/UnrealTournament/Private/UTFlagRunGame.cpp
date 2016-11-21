@@ -1088,34 +1088,7 @@ void AUTFlagRunGame::ScoreObject_Implementation(AUTCarriedObject* GameObject, AU
 	{
 		FUTAnalytics::FireEvent_FlagRunRoundEnd(this, false, (UTGameState->WinningTeam != nullptr));
 	}
-
-	TArray<APawn*> PawnsToDestroy;
-	for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
-	{
-		if (*It && Cast<AUTRemoteRedeemer>((*It).Get()))
-		{
-			PawnsToDestroy.Add(*It);
-		}
-	}
-
-	for (int32 i = 0; i<PawnsToDestroy.Num(); i++)
-	{
-		APawn* Pawn = PawnsToDestroy[i];
-		if (Pawn != NULL && !Pawn->IsPendingKill())
-		{
-			Pawn->Destroy();
-		}
-	}
-
-	// also get rid of projectiles left over
-	for (FActorIterator It(GetWorld()); It; ++It)
-	{
-		AActor* TestActor = *It;
-		if (TestActor && !TestActor->IsPendingKill() && TestActor->IsA<AUTProjectile>())
-		{
-			TestActor->Destroy();
-		}
-	}
+	PrepareForIntermission();
 
 	for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
 	{
