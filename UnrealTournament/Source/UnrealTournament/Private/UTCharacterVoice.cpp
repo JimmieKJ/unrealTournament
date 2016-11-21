@@ -65,6 +65,8 @@ UUTCharacterVoice::UUTCharacterVoice(const FObjectInitializer& ObjectInitializer
 	StatusOffsets.Add(GameVolumeSpeechType::GV_Ruins, KEY_CALLOUTS + 3300);
 	StatusOffsets.Add(GameVolumeSpeechType::GV_SniperTower, KEY_CALLOUTS + 3400);
 	StatusOffsets.Add(GameVolumeSpeechType::GV_Flak, KEY_CALLOUTS + 3500);
+	StatusOffsets.Add(GameVolumeSpeechType::GV_Waterfall, KEY_CALLOUTS + 3600);
+	// only game volume speech before LASTGAMEVOLUMESPEECH = KEY_CALLOUTS + 5000 
 
 	StatusOffsets.Add(StatusMessage::EnemyRally, KEY_CALLOUTS + 5000);
 	StatusOffsets.Add(StatusMessage::FindFC, KEY_CALLOUTS + 5001);
@@ -424,6 +426,10 @@ FCharacterSpeech UUTCharacterVoice::GetCharacterSpeech(int32 Switch) const
 			{
 				return GetGVLine(FlakLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_Flak));
 			}
+			else if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_Waterfall) / 100)
+			{
+				return GetGVLine(WaterfallLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_Waterfall));
+			}
 			else if (Switch / 100 == GetStatusIndex(PickupSpeechType::UDamagePickup) / 100)
 			{
 				return (Switch - GetStatusIndex(PickupSpeechType::UDamagePickup) == 0) ? UDamageAvailableLine : UDamagePickupLine;
@@ -533,7 +539,18 @@ bool UUTCharacterVoice::ShouldPlayAnnouncement(const FClientReceiveData& ClientD
 
 bool UUTCharacterVoice::InterruptAnnouncement(const FAnnouncementInfo AnnouncementInfo, const FAnnouncementInfo OtherAnnouncementInfo) const
 {
-	return (AnnouncementInfo.MessageClass == OtherAnnouncementInfo.MessageClass) && (AnnouncementInfo.Switch >= KEY_CALLOUTS) && (OtherAnnouncementInfo.Switch < KEY_CALLOUTS);
+	if ((AnnouncementInfo.MessageClass == OtherAnnouncementInfo.MessageClass) && (AnnouncementInfo.Switch >= KEY_CALLOUTS))
+	{
+		if (OtherAnnouncementInfo.Switch < KEY_CALLOUTS)
+		{
+			return true;
+		}
+		if ((OtherAnnouncementInfo.Switch < LASTGAMEVOLUMESPEECH) && (AnnouncementInfo.Switch < LASTGAMEVOLUMESPEECH) && (OtherAnnouncementInfo.Switch % 10 < 2) && (AnnouncementInfo.Switch % 10 < 2))
+		{
+			return true;
+		}
+	}
+	return false;
 }
 
 bool UUTCharacterVoice::CancelByAnnouncement_Implementation(int32 Switch, const UObject* OptionalObject, TSubclassOf<UUTLocalMessage> OtherMessageClass, int32 OtherSwitch, const UObject* OtherOptionalObject) const

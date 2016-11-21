@@ -70,6 +70,9 @@ class UNREALTOURNAMENT_API AUTGameVolume : public APhysicsVolume, public IUTTeam
 	UPROPERTY(BlueprintReadWrite, Category = "Gameplay")
 		bool bHasBeenEntered;
 
+	UPROPERTY(BlueprintReadWrite, Category = "Gameplay")
+		bool bHasFCEntry;
+
 	/** Used to identify unique routes/entries to enemy base.  Default -1, inner base 0, entries each have own value. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Gameplay")
 		int32 RouteID;

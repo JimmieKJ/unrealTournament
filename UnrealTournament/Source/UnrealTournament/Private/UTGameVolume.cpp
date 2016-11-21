@@ -22,6 +22,7 @@ AUTGameVolume::AUTGameVolume(const FObjectInitializer& ObjectInitializer)
 	RouteID = -1;
 	bReportDefenseStatus = false;
 	bHasBeenEntered = false;
+	bHasFCEntry = false;
 
 	static ConstructorHelpers::FObjectFinder<USoundBase> AlarmSoundFinder(TEXT("SoundCue'/Game/RestrictedAssets/Audio/Gameplay/A_FlagRunBaseAlarm.A_FlagRunBaseAlarm'"));
 	AlarmSound = AlarmSoundFinder.Object;
@@ -33,6 +34,7 @@ AUTGameVolume::AUTGameVolume(const FObjectInitializer& ObjectInitializer)
 void AUTGameVolume::Reset_Implementation()
 {
 	bHasBeenEntered = false;
+	bHasFCEntry = false;
 }
 
 void AUTGameVolume::PostInitializeComponents()
@@ -127,16 +129,15 @@ void AUTGameVolume::ActorEnteredVolume(class AActor* Other)
 			}
 			else if (P->GetCarriedObject())
 			{
-								if (VoiceLinesSet != NAME_None)
-								{
-									UE_LOG(UT, Warning, TEXT("VoiceLineSet %s for %s location %s"), *VoiceLinesSet.ToString(), *GetName(), *VolumeName.ToString());
-									((AUTPlayerState *)(P->PlayerState))->AnnounceStatus(VoiceLinesSet, 1);
-								}
-								else
-								{
-									UE_LOG(UT, Warning, TEXT("No VoiceLineSet for %s location %s"), *GetName(), *VolumeName.ToString());
-								}
-								return;
+				/*if (VoiceLinesSet != NAME_None)
+				{
+					UE_LOG(UT, Warning, TEXT("VoiceLineSet %s for %s location %s"), *VoiceLinesSet.ToString(), *GetName(), *VolumeName.ToString());
+					//((AUTPlayerState *)(P->PlayerState))->AnnounceStatus(VoiceLinesSet, 1);
+				}
+				else
+				{
+					UE_LOG(UT, Warning, TEXT("No VoiceLineSet for %s location %s"), *GetName(), *VolumeName.ToString());
+				}*/
 				if (bIsNoRallyZone && !bIsTeamSafeVolume && !P->GetCarriedObject()->bWasInEnemyBase)
 				{
 					if (GetWorld()->GetTimeSeconds() - P->GetCarriedObject()->EnteredEnemyBaseTime > 10.f)
@@ -148,7 +149,7 @@ void AUTGameVolume::ActorEnteredVolume(class AActor* Other)
 				}
 
 				// possibly announce flag carrier changed zones
-				if (bIsNoRallyZone && !bIsTeamSafeVolume && !P->GetCarriedObject()->bWasInEnemyBase && (GetWorld()->GetTimeSeconds() - FMath::Max(GS->LastEnemyEnteringBaseTime, GS->LastEnteringEnemyBaseTime) > 10.f))
+				if (bIsNoRallyZone && !bIsTeamSafeVolume && !P->GetCarriedObject()->bWasInEnemyBase && (GetWorld()->GetTimeSeconds() - FMath::Max(GS->LastEnemyEnteringBaseTime, GS->LastEnteringEnemyBaseTime) > 6.f))
 				{
 					if ((GetWorld()->GetTimeSeconds() - GS->LastEnteringEnemyBaseTime > 6.f) && Cast<AUTPlayerState>(P->PlayerState))
 					{
@@ -159,7 +160,7 @@ void AUTGameVolume::ActorEnteredVolume(class AActor* Other)
 						((AUTPlayerState *)(P->PlayerState))->AnnounceStatus(StatusMessage::ImGoingIn);
 						GS->LastEnteringEnemyBaseTime = GetWorld()->GetTimeSeconds();
 					}
-					if (GetWorld()->GetTimeSeconds() - GS->LastEnemyEnteringBaseTime > 10.f)
+					if (GetWorld()->GetTimeSeconds() - GS->LastEnemyEnteringBaseTime > 6.f)
 					{
 						AUTPlayerState* PS = P->GetCarriedObject()->LastPinger;
 						if (!PS)
@@ -185,15 +186,15 @@ void AUTGameVolume::ActorEnteredVolume(class AActor* Other)
 						}
 					}
 				}
-				else if ((GetWorld()->GetTimeSeconds() - FMath::Max(GS->LastFriendlyLocationReportTime, GS->LastEnemyLocationReportTime) > 3.f) || bIsWarningZone) // FIXMESTEVE - always on first entry, and always if not one of last two zones, flag loc notifications interrupt themselves
+				else if ((GetWorld()->GetTimeSeconds() - FMath::Max(GS->LastFriendlyLocationReportTime, GS->LastEnemyLocationReportTime) > 1.f) || bIsWarningZone || !bHasFCEntry)
 				{
-					if ((VoiceLinesSet != NAME_None) && (GetWorld()->GetTimeSeconds() - GS->LastFriendlyLocationReportTime > 3.f) && Cast<AUTPlayerState>(P->PlayerState) && (GS->LastFriendlyLocationName != VoiceLinesSet))
+					if ((VoiceLinesSet != NAME_None) && ((GetWorld()->GetTimeSeconds() - GS->LastFriendlyLocationReportTime > 1.f) || !bHasFCEntry) && Cast<AUTPlayerState>(P->PlayerState) && (GS->LastFriendlyLocationName != VoiceLinesSet))
 					{
 						((AUTPlayerState *)(P->PlayerState))->AnnounceStatus(VoiceLinesSet, 1);
 						GS->LastFriendlyLocationReportTime = GetWorld()->GetTimeSeconds();
 						GS->LastFriendlyLocationName = VoiceLinesSet;
 					}
-					if ((VoiceLinesSet != NAME_None) && P->GetCarriedObject()->bCurrentlyPinged && P->GetCarriedObject()->LastPinger && (GetWorld()->GetTimeSeconds() - GS->LastEnemyLocationReportTime > 3.f) && (GS->LastEnemyLocationName != VoiceLinesSet))
+					if ((VoiceLinesSet != NAME_None) && P->GetCarriedObject()->bCurrentlyPinged && P->GetCarriedObject()->LastPinger && ((GetWorld()->GetTimeSeconds() - GS->LastEnemyLocationReportTime > 1.f) || !bHasFCEntry) && (GS->LastEnemyLocationName != VoiceLinesSet))
 					{
 						P->GetCarriedObject()->LastPinger->AnnounceStatus(VoiceLinesSet, 0);
 						GS->LastEnemyLocationReportTime = GetWorld()->GetTimeSeconds();
@@ -201,7 +202,7 @@ void AUTGameVolume::ActorEnteredVolume(class AActor* Other)
 					}
 					else if (bIsWarningZone && !P->bWasInWarningZone && !bIsNoRallyZone)
 					{
-						// force ping if important zone, wasn't already in important zone, report only if 3 seconds since last report
+						// force ping if important zone, wasn't already in important zone
 						// also do if no pinger if important zone
 						P->GetCarriedObject()->LastPingedTime = FMath::Max(P->GetCarriedObject()->LastPingedTime, GetWorld()->GetTimeSeconds() - P->GetCarriedObject()->PingedDuration + 1.f);
 						if (VoiceLinesSet != NAME_None)
@@ -219,7 +220,7 @@ void AUTGameVolume::ActorEnteredVolume(class AActor* Other)
 									}
 								}
 							}
-							if (Warner && (GetWorld()->GetTimeSeconds() - GS->LastEnemyLocationReportTime > 3.f))
+							if (Warner && ((GetWorld()->GetTimeSeconds() - GS->LastEnemyLocationReportTime > 1.f) || !bHasFCEntry))
 							{
 								Warner->AnnounceStatus(VoiceLinesSet, 0);
 								GS->LastEnemyLocationReportTime = GetWorld()->GetTimeSeconds();
@@ -230,6 +231,7 @@ void AUTGameVolume::ActorEnteredVolume(class AActor* Other)
 				}
 				P->bWasInWarningZone = bIsWarningZone;
 				P->GetCarriedObject()->bWasInEnemyBase = bIsNoRallyZone && !bIsTeamSafeVolume;
+				bHasFCEntry = true;
 			}
 			else if (!bHasBeenEntered && bReportDefenseStatus && (VoiceLinesSet != NAME_None))
 			{
