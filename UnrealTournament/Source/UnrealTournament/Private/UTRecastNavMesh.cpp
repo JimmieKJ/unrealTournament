@@ -452,7 +452,7 @@ bool AUTRecastNavMesh::OnlyJumpReachable(APawn* Scout, FVector Start, const FVec
 			while (!GetWorld()->SweepSingleByChannel(Hit, Start, Start + FVector(0.0f, 0.0f, AgentMaxStepHeight), FQuat::Identity, ECC_Pawn, ScoutShape, FCollisionQueryParams()) &&
 					!GetWorld()->SweepSingleByChannel(Hit, Start + FVector(0.0f, 0.0f, AgentMaxStepHeight), Start + MoveSlice + FVector(0.0f, 0.0f, AgentMaxStepHeight), FQuat::Identity, ECC_Pawn, ScoutShape, FCollisionQueryParams()) &&
 					GetWorld()->SweepSingleByChannel(Hit, Start + MoveSlice + FVector(0.0f, 0.0f, AgentMaxStepHeight), Start + MoveSlice - FVector(0.0f, 0.0f, 50.0f), FQuat::Identity, ECC_Pawn, ScoutShape, FCollisionQueryParams()) &&
-					!Hit.bStartPenetrating )
+					Hit.Normal.Z >= Char->GetCharacterMovement()->GetWalkableFloorZ() && !Hit.bStartPenetrating )
 			{
 				bAnyHit = true;
 				Start = Hit.Location + Hit.Normal;
