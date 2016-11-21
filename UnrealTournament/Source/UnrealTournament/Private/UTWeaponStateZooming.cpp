@@ -89,7 +89,8 @@ bool UUTWeaponStateZooming::DrawHUD(UUTHUDWidget* WeaponHudWidget)
 				for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
 				{
 					AUTCharacter* EnemyChar = Cast<AUTCharacter>(*It);
-					if (EnemyChar != NULL && !EnemyChar->IsDead() && !EnemyChar->IsInvisible() && !EnemyChar->IsFeigningDeath() && (EnemyChar->GetMesh()->LastRenderTime > WorldTime - 0.25f) && EnemyChar != GetUTOwner() && (GS == NULL || !GS->OnSameTeam(EnemyChar, GetUTOwner())))
+					if (EnemyChar != NULL && !EnemyChar->IsDead() && !EnemyChar->IsInvisible() && !EnemyChar->IsFeigningDeath() && (EnemyChar->GetMesh()->LastRenderTime > WorldTime - 0.25f) && EnemyChar != GetUTOwner() && (GS == NULL || !GS->OnSameTeam(EnemyChar, GetUTOwner()))
+						&& (!EnemyChar->UTCharacterMovement || !EnemyChar->UTCharacterMovement->bIsFloorSliding))
 					{
 						FVector HeadLoc = EnemyChar->GetHeadLocation();
 						static FName NAME_SniperZoom(TEXT("SniperZoom"));
@@ -118,8 +119,8 @@ bool UUTWeaponStateZooming::DrawHUD(UUTHUDWidget* WeaponHudWidget)
 									float SizeY = FMath::Max<float>(MidY - UpperLeft.Y, (BottomRight.X - UpperLeft.X) * 0.5f);
 									UpperLeft.Y = MidY - SizeY;
 									BottomRight.Y = MidY + SizeY;
-									FLinearColor TargetColor = FLinearColor(1.0f, 0.0f, 0.0f, 1.0f);
-									FCanvasTileItem HeadCircleItem(UpperLeft, TargetIndicator->Resource, BottomRight - UpperLeft, (i == 0) ? TargetColor : FLinearColor(0.7f, 0.7f, 0.7f, 0.9f));
+									FLinearColor TargetColor = FLinearColor(1.0f, 0.0f, 0.0f, 0.5f);
+									FCanvasTileItem HeadCircleItem(UpperLeft, TargetIndicator->Resource, BottomRight - UpperLeft, (i == 0) ? TargetColor : FLinearColor(0.7f, 0.7f, 0.7f, 0.5f));
 									HeadCircleItem.BlendMode = SE_BLEND_Translucent;
 									C->DrawItem(HeadCircleItem);
 								}
