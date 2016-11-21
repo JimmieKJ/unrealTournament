@@ -302,7 +302,7 @@ bool AUTAsymCTFSquadAI::CheckSquadObjectives(AUTBot* B)
 			return true;
 		}
 		else if ( Game != nullptr && GS != nullptr && GS->CurrentRallyPoint != nullptr &&
-				(GS->CurrentRallyPoint->GetActorLocation() - Objective->GetActorLocation()).Size() - 1500.0f > (B->GetPawn()->GetActorLocation() - Objective->GetActorLocation()).Size() &&
+				(GS->CurrentRallyPoint->GetActorLocation() - Objective->GetActorLocation()).Size() < (B->GetPawn()->GetActorLocation() - Objective->GetActorLocation()).Size() - 1500.0f &&
 				(B->GetEnemy() == nullptr || !B->IsEnemyVisible(B->GetEnemy())) && Game->HandleRallyRequest(B) )
 		{
 			B->DoCamp();
