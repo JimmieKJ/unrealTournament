@@ -10,6 +10,7 @@ AUTPickupAmmo::AUTPickupAmmo(const FObjectInitializer& ObjectInitializer)
 	Ammo.Amount = 10;
 	BaseDesireability = 0.2f;
 	PickupMessageString = NSLOCTEXT("PickupMessage", "AmmoPickedUp", "Ammo");
+	Collision->InitCapsuleSize(60.f, 60.f);
 }
 
 bool AUTPickupAmmo::AllowPickupBy_Implementation(APawn* Other, bool bDefaultAllowPickup)
