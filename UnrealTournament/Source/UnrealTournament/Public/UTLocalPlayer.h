@@ -674,14 +674,10 @@ protected:
 
 public:
 	virtual FName GetCountryFlag();
-	virtual void SetCountryFlag(FName NewFlag, bool bSave=false);
-
-	// If the player switches profiles and is in a session, we have to delay the switch until we can leave the current session
-	// and exit back to the main menu.  To do this, we store the Pending info here and when the main menu sees that the player has left a session
-	// THEN we perform the login.
-
 	virtual FName GetAvatar();
-	virtual void SetAvatar(FName NewAvatar, bool bSave=false);
+
+	// Combined and moved to the MCPPRofile so the backend has access to this information
+	virtual void SetCountryFlagAndAvatar(FName NewFlag, FName NewAvatar);
 
 
 protected:

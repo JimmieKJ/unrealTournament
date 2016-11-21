@@ -1037,14 +1037,7 @@ FReply SUTPlayerSettingsDialog::OKClick()
 	GetPlayerOwner()->SetNickname(PlayerName->GetText().ToString());
 	ProfileSettings->PlayerName = PlayerName->GetText().ToString();  
 
-	if (SelectedFlag.IsValid())
-	{
-		GetPlayerOwner()->SetCountryFlag(SelectedFlag->GetFName(), false);
-		if (ProfileSettings) ProfileSettings->CountryFlag = SelectedFlag->GetFName();
-	}
-
-	GetPlayerOwner()->SetAvatar(SelectedAvatar);
-	if (ProfileSettings) ProfileSettings->Avatar = SelectedAvatar;
+	GetPlayerOwner()->SetCountryFlagAndAvatar(SelectedFlag.IsValid() ? SelectedFlag->GetFName() : GetPlayerOwner()->GetCountryFlag(), SelectedAvatar);
 
 	// FOV
 	float NewFOV = FMath::TruncToFloat(FOV->GetValue() * (FOV_CONFIG_MAX - FOV_CONFIG_MIN) + FOV_CONFIG_MIN);

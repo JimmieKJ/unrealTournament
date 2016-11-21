@@ -1668,7 +1668,6 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 					SaveProfileSettings();
 				}
 
-				EpicFlagCheck();
 				return;
 			}
 			else
@@ -1688,8 +1687,6 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 			CurrentProfileSettings->ResetProfile(EProfileResetType::All);
 			ReadMMRFromBackend();
 		}
-
-		EpicFlagCheck();
 
 		PlayerNickname = GetAccountDisplayName().ToString();
 		SaveConfig();
@@ -2398,6 +2395,7 @@ void UUTLocalPlayer::ReadMMRFromBackend()
 		// This will be bad if the local player goes away here.
 		if (WeakLocalPlayer.IsValid()) 
 		{
+			WeakLocalPlayer->EpicFlagCheck();
 			WeakLocalPlayer->LoadProgression();
 		}
 
@@ -3334,10 +3332,12 @@ void UUTLocalPlayer::OnFindFriendSessionComplete(int32 LocalUserNum, bool bWasSu
 
 FName UUTLocalPlayer::GetCountryFlag()
 {
-	if (CurrentProfileSettings)
+	UUtMcpProfile* McpProfile = GetMcpProfileManager()->GetMcpProfileAs<UUtMcpProfile>(EUtMcpProfile::Profile);
+	if (McpProfile)
 	{
-		return CurrentProfileSettings->CountryFlag;
+		return McpProfile->GetCountryFlag();
 	}
+
 	if (PlayerController)
 	{
 		AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerController->PlayerState);
@@ -3349,29 +3349,12 @@ FName UUTLocalPlayer::GetCountryFlag()
 	return NAME_None;
 }
 
-void UUTLocalPlayer::SetCountryFlag(FName NewFlag, bool bSave)
-{
-	if (CurrentProfileSettings)
-	{
-		CurrentProfileSettings->CountryFlag = NewFlag;
-		if (bSave)
-		{
-			SaveProfileSettings();
-		}
-	}
-
-	AUTPlayerController* PC = Cast<AUTPlayerController>(PlayerController);
-	if (PC != NULL)
-	{
-		PC->ServerReceiveCountryFlag(NewFlag);
-	}
-}
-
 FName UUTLocalPlayer::GetAvatar()
 {
-	if (CurrentProfileSettings)
+	UUtMcpProfile* McpProfile = GetMcpProfileManager()->GetMcpProfileAs<UUtMcpProfile>(EUtMcpProfile::Profile);
+	if (McpProfile)
 	{
-		return CurrentProfileSettings->Avatar;
+		return McpProfile->GetAvatar();
 	}
 
 	if (PlayerController)
@@ -3382,21 +3365,24 @@ FName UUTLocalPlayer::GetAvatar()
 	return NAME_None;
 }
 
-void UUTLocalPlayer::SetAvatar(FName NewAvatar, bool bSave)
+void UUTLocalPlayer::SetCountryFlagAndAvatar(FName NewFlag, FName NewAvatar)
 {
-	if (CurrentProfileSettings)
+	UUtMcpProfile* McpProfile = GetMcpProfileManager()->GetMcpProfileAs<UUtMcpProfile>(EUtMcpProfile::Profile);
+	if (McpProfile)
 	{
-		CurrentProfileSettings->Avatar = NewAvatar;
-		if (bSave)
-		{
-			SaveProfileSettings();
-		}
+		McpProfile->SetAvatarAndFlag(NewAvatar.ToString(), NewFlag.ToString());
+	}
+
+	AUTPlayerController* PC = Cast<AUTPlayerController>(PlayerController);
+	if (PC != NULL)
+	{
+		PC->ServerReceiveCountryFlag(NewFlag);
 	}
 
 	AUTBasePlayerController * BasePC = Cast<AUTBasePlayerController>(PlayerController);
 	if (BasePC != NULL)
 	{
-		BasePC->ServerSetAvatar(NewAvatar);
+		PC->ServerSetAvatar(NewAvatar);
 	}
 }
 
