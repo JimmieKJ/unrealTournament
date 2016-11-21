@@ -1364,7 +1364,7 @@ void AUTCharacter::TargetedBy(APawn* Targeter, AUTPlayerState* PS)
 		Flag->LastPinger = PS ? PS : Flag->LastPinger;
 	}
 
-	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+	AUTFlagRunGameState* GS = GetWorld()->GetGameState<AUTFlagRunGameState>();
 	if (TargeterChar && GS && GS->bPlayStatusAnnouncements && Cast<AUTPlayerController>(GetController()))
 	{
 		AUTPlayerState* UTPlayerState = Cast<AUTPlayerState>(PlayerState);
@@ -1375,12 +1375,23 @@ void AUTCharacter::TargetedBy(APawn* Targeter, AUTPlayerState* PS)
 			FVector EnemyDir = (Targeter->GetActorLocation() - GetActorLocation()).GetSafeNormal();
 			if ((ViewDir | EnemyDir) < 0.5f)
 			{
+				bool bBaseWarning = false;
+				// always do behind you in defender base if defender
+				if ((UTPlayerState->Team->TeamIndex == 1) == GS->bRedToCap)
+				{
+					AUTGameVolume* EnemyVolume = Cast<AUTGameVolume>(Targeter->GetPawnPhysicsVolume());
+					if (EnemyVolume && EnemyVolume->bIsNoRallyZone && !EnemyVolume->bIsTeamSafeVolume)
+					{
+						bBaseWarning = true;
+					}
+				}
+
 				// if teammate nearby, have them announce - send replicated function so client can verify last rendered time
 				for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
 				{
 					AController* C = *Iterator;
 					AUTPlayerState* TeamPS = C ? Cast<AUTPlayerState>(C->PlayerState) : nullptr;
-					if (TeamPS && (TeamPS != UTPlayerState) && C->GetPawn() && GS->OnSameTeam(this, C) && C->LineOfSightTo(this))
+					if (TeamPS && (TeamPS != UTPlayerState) && C->GetPawn() && GS->OnSameTeam(this, C) && (bBaseWarning || C->LineOfSightTo(this)))
 					{
 						Cast<AUTPlayerController>(GetController())->ClientWarnEnemyBehind(TeamPS, TargeterChar);
 						UTPlayerState->LastBehindYouTime = GetWorld()->GetTimeSeconds();
