@@ -27,6 +27,7 @@ AUTInventory::AUTInventory(const FObjectInitializer& ObjectInitializer)
 	InitialFlashScale = 5.f;
 	InitialFlashColor = FLinearColor::White;
 	bShowPowerupTimer = true;
+	bFixedRespawnInterval = true;
 
 	MenuDescription = NSLOCTEXT("UTWeapon","DefaultDescription","This space let intentionally blank");
 	IconColor = FLinearColor::White;
