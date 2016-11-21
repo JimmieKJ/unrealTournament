@@ -10,7 +10,7 @@
  * jump pad for launching characters
  */
 UCLASS(Blueprintable)
-class UNREALTOURNAMENT_API AUTJumpPad : public AActor, public IUTPathBuilderInterface
+class UNREALTOURNAMENT_API AUTJumpPad : public AActor, public IUTPathBuilderInterface, public INavRelevantInterface
 {
 	GENERATED_UCLASS_BODY()
 
@@ -138,5 +138,11 @@ public:
 	virtual bool IsDestinationOnly() const override
 	{
 		return !bTemporaryActivation;
+	}
+
+	virtual void GetNavigationData(FNavigationRelevantData& Data) const override;
+	virtual FBox GetNavigationBounds() const override
+	{
+		return (TriggerBox != nullptr) ? TriggerBox->Bounds.GetBox() : FBox(0);
 	}
 };
