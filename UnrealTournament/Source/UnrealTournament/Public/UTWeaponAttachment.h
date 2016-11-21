@@ -167,10 +167,4 @@ public:
 	/** blueprint hook to modify team color materials */
 	UFUNCTION(BlueprintImplementableEvent, Category = "Weapon")
 	void NotifyTeamChanged();
-
-	/** returns a refernce to the owner's actual weapon */
-	UFUNCTION(BlueprintCallable, Category = "Weapon")
-	virtual AUTWeapon* GetOwnerWeapon();
-
-
 };
