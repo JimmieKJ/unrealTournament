@@ -33,6 +33,8 @@
 #include "UTGameMessage.h"
 #include "UTLineUpZone.h"
 #include "UTLineUpHelper.h"
+#include "UTRallyPoint.h"
+#include "UTFlagRunGameState.h"
 
 static FName NAME_Intensity(TEXT("Intensity"));
 
@@ -121,6 +123,9 @@ AUTHUD::AUTHUD(const class FObjectInitializer& ObjectInitializer) : Super(Object
 	DamageScreenMat = DamageScreenMatObject.Object;
 
 	ScoreboardKillFeedPosition = FVector2D(0.f, 0.635f);
+
+	MiniMapIconAlpha = 1.f;
+	MiniMapIconMuting = 0.8f;
 }
 
 void AUTHUD::Destroyed()
@@ -241,7 +246,7 @@ void AUTHUD::PostInitializeComponents()
 void AUTHUD::DrawActorOverlays(FVector Viewpoint, FRotator ViewRotation)
 {
 	AUTGameState* UTGameState = GetWorld()->GetGameState<AUTGameState>();
-	bool bShouldShowSkulls = !bShowScores && UTGameState && UTGameState->bTeamGame && ((UTGameState->IsMatchInProgress() && !UTGameState->IsMatchIntermission()) || (UTGameState->GetMatchState() == MatchState::WaitingToStart));
+	bool bShouldShowSkulls = UTGameState && UTGameState->bTeamGame && ((UTGameState->IsMatchInProgress() && !UTGameState->IsMatchIntermission()) || (UTGameState->GetMatchState() == MatchState::WaitingToStart));
 	if (bShouldShowSkulls)
 	{
 		for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
@@ -1457,8 +1462,8 @@ void AUTHUD::DrawMinimapSpectatorIcons()
 		{
 			FVector2D Pos(WorldToMapToScreen(It->GetActorLocation()));
 			const float Ratio = Icon.UL / Icon.VL;
-			FLinearColor MutedColor = (LastHoveredActor == *It) ? It->IconColor: It->IconColor * 0.6f;
-			MutedColor.A = (LastHoveredActor == *It) ? 1.f : 0.7f;
+			FLinearColor MutedColor = (LastHoveredActor == *It) ? It->IconColor: It->IconColor * MiniMapIconMuting;
+			MutedColor.A = (LastHoveredActor == *It) ? 1.f : MiniMapIconAlpha;
 			float IconSize = (LastHoveredActor == *It) ? (48.0f * RenderScale * FMath::InterpEaseOut<float>(1.0f, 1.25f, FMath::Min<float>(0.2f, GetWorld()->RealTimeSeconds - LastHoveredActorChangeTime) * 5.0f, 2.0f)) : (32.0f * RenderScale);
 			if (It->FlashOnMinimap())
 			{
@@ -1476,6 +1481,37 @@ void AUTHUD::DrawMinimapSpectatorIcons()
 			{
 				NamedPickup = *It;
 				NamedPickupPos = Pos;
+			}
+		}
+	}
+
+	// draw Rally Points  FIXMESTEVE move to FlagRun HUD
+	if (UTPlayerOwner && UTPlayerOwner->UTPlayerState && (UTPlayerOwner->UTPlayerState->Team || UTPlayerOwner->UTPlayerState->bOnlySpectator))
+	{
+		AUTFlagRunGameState* GS = GetWorld()->GetGameState<AUTFlagRunGameState>();
+		for (TActorIterator<AUTRallyPoint> It(GetWorld()); It; ++It)
+		{
+			AUTRallyPoint* RP = *It;
+			if (RP)
+			{
+				FVector2D Pos(WorldToMapToScreen(RP->GetActorLocation()));
+				FLinearColor RallyColor = FLinearColor::Gray;
+				float IconSizeX = 48.f*RenderScale;
+				float IconSizeY = 36.f*RenderScale;
+				if (GS && (GS->CurrentRallyPoint == RP) && (GS->bRedToCap == (UTPlayerOwner->UTPlayerState->Team->TeamIndex == 0)))
+				{
+					RallyColor = GS->bRedToCap ? FLinearColor::Red : FLinearColor::Blue;
+					float Speed = 2.f;
+					float ScaleTime = Speed*GetWorld()->GetTimeSeconds() - int32(Speed*GetWorld()->GetTimeSeconds());
+					float Scaling = (ScaleTime < 0.5f)
+						? ScaleTime
+						: 1.f - ScaleTime;
+					RallyColor = RallyColor * (0.5f + Scaling);
+					IconSizeX = IconSizeX * (1.f + Scaling);
+					IconSizeY = IconSizeY * (1.f + Scaling);
+				}
+				Canvas->DrawColor = RallyColor.ToFColor(false);
+				Canvas->DrawTile(HUDAtlas, Pos.X - 0.5f * IconSizeX, Pos.Y - 0.5f * IconSizeY, IconSizeX, IconSizeY, 832.f, 0.f, 64.f, 48.f);
 			}
 		}
 	}

@@ -364,6 +364,12 @@ public:
 	UPROPERTY()
 	bool bHUDWeaponBarSettingChanged;
 
+	UPROPERTY()
+		float MiniMapIconAlpha;
+
+	UPROPERTY()
+		float MiniMapIconMuting;
+
 	// Allows the user to override the scaling factor for their hud.
 	UFUNCTION(BlueprintCallable, Category=HUD)
 	float GetHUDWidgetScaleOverride();
