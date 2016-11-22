@@ -14,12 +14,12 @@ UUTCTFMajorMessage::UUTCTFMajorMessage(const FObjectInitializer& ObjectInitializ
 	OvertimeMessage = NSLOCTEXT("CTFGameMessage", "Overtime", "OVERTIME!");
 	FlagReadyMessage = NSLOCTEXT("CTFGameMessage", "FlagReadyMessage", "Attacker flag activated!");
 	FlagRallyMessage = NSLOCTEXT("CTFGameMessage", "FlagRallyMessage", "RALLY NOW!");
-	RallyReadyMessage = NSLOCTEXT("CTFGameMessage", "RallyReadyMessage", "Rally Available");
+	RallyReadyMessage = NSLOCTEXT("CTFGameMessage", "RallyReadyMessage", "Rally Started!");
 	EnemyRallyMessage = NSLOCTEXT("CTFGameMessage", "EnemyRallyMessage", "Enemy Rally!");
 	EnemyRallyPrefix = NSLOCTEXT("CTFGameMessage", "EnemyRallyPrefix", "Enemy Rally in ");
 	EnemyRallyPostfix = NSLOCTEXT("CTFGameMessage", "EnemyRallyPostfix", "");
 	TeamRallyMessage = NSLOCTEXT("CTFGameMessage", "TeamRallyMessage", "");
-	RallyCompleteMessage = NSLOCTEXT("CTFGameMessage", "RallyCompleteMessage", "Rally Complete!");
+	RallyCompleteMessage = NSLOCTEXT("CTFGameMessage", "RallyCompleteMessage", "Rally Ended!");
 	bIsStatusAnnouncement = true;
 	bIsPartiallyUnique = true;
 	ScaleInSize = 3.f;
