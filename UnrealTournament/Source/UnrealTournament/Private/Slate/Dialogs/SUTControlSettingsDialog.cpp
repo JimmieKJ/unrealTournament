@@ -4,6 +4,7 @@
 #include "SUTControlSettingsDialog.h"
 #include "../SUWindowsStyle.h"
 #include "../SKeyBind.h"
+#include "SScrollBox.h"
 
 #if !UE_SERVER
 
@@ -206,7 +207,7 @@ TSharedRef<SWidget> SUTControlSettingsDialog::BuildKeyboardTab()
 	[
 		SNew(SBox).HeightOverride(700)
 		[
-			SNew(SScrollBox)
+			SAssignNew(ScrollBox, SScrollBox)
 			.Orientation(Orient_Vertical)
 			+SScrollBox::Slot().Padding(0.0f,5.0f,0.0f,0.0f)
 			[
@@ -277,6 +278,7 @@ TSharedRef<SWidget> SUTControlSettingsDialog::BuildKeyboardTab()
 							SNew(STextBlock)
 							.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
 							.Text(Bind->KeyConfig->MenuText)
+							.ColorAndOpacity(TAttribute<FSlateColor>::Create(TAttribute<FSlateColor>::FGetter::CreateSP(this, &SUTControlSettingsDialog::GetLabelColorAndOpacity, Bind)))
 						]
 						+ SHorizontalBox::Slot()
 						.Padding(10.0f, 4.0f, 10.0f, 4.0f)
@@ -317,6 +319,20 @@ TSharedRef<SWidget> SUTControlSettingsDialog::BuildKeyboardTab()
 	}
 	return KeyboardBox.ToSharedRef();
 }
+
+FSlateColor SUTControlSettingsDialog::GetLabelColorAndOpacity(TSharedPtr<FKeyBindTracker> Tracker) const
+{
+	if (Tracker.IsValid())
+	{
+		if (Tracker->PrimaryKeyBindWidget.IsValid() && Tracker->PrimaryKeyBindWidget->GetKey() == EKeys::Invalid &&
+			Tracker->SecondaryKeyBindWidget.IsValid() && Tracker->SecondaryKeyBindWidget->GetKey() == EKeys::Invalid)
+		{
+			return FSlateColor(FLinearColor::Yellow);
+		}
+	}
+	return FSlateColor(FLinearColor::White);
+}
+
 
 TSharedRef<SWidget> SUTControlSettingsDialog::BuildMouseTab()
 {
@@ -757,6 +773,12 @@ FReply SUTControlSettingsDialog::OKClick()
 		if (BindList[i]->PrimaryKeyBindWidget->GetKey() == EKeys::Invalid &&
 			BindList[i]->SecondaryKeyBindWidget->GetKey() == EKeys::Invalid)
 		{
+
+			if (ScrollBox.IsValid())
+			{
+				ScrollBox->ScrollDescendantIntoView(BindList[i]->PrimaryKeyBindWidget, false, EDescendantScrollDestination::Middle);
+			}
+
 			GetPlayerOwner()->ShowMessage
 					(
 						NSLOCTEXT("SUTControlSettingsDialog", "EmptyBindingTitle", "Missing Key"),

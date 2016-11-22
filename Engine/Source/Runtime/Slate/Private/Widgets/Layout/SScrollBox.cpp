@@ -408,6 +408,15 @@ bool SScrollBox::ScrollDescendantIntoView(const FGeometry& MyGeometry, const TSh
 			const float MyPosition = GetScrollComponentFromVector(MyGeometry.AbsolutePosition);
 			ScrollOffset = WidgetPosition - MyPosition;
 		}
+		else if (InDestination == EDescendantScrollDestination::Middle)
+		{
+			const float WidgetPosition = GetScrollComponentFromVector(WidgetGeometry->Geometry.AbsolutePosition);
+			const float MyPosition = GetScrollComponentFromVector(MyGeometry.AbsolutePosition);
+			const float Size = GetScrollComponentFromVector(MyGeometry.GetLocalSize());
+
+			ScrollOffset = WidgetPosition - (MyPosition + (Size * 0.5f));
+		}
+
 		else
 		{
 			// If the scale is 0, we can't really calculate things properly.

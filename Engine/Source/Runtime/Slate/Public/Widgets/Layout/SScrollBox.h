@@ -5,6 +5,20 @@
 #include "InertialScrollManager.h"
 #include "Overscroll.h"
 
+/** Where to scroll the descendant to */
+enum EDescendantScrollDestination
+{
+	/** Scroll the widget into view */
+	IntoView,
+
+	/** Always scroll the widget so it appears at the top/Left of the scrollable area */
+	TopOrLeft,
+
+	/** Attempt to scroll the widget to the middle of the scrollable area */
+	Middle,
+};
+
+
 /** SScrollBox can scroll through an arbitrary number of widgets. */
 class SLATE_API SScrollBox : public SCompoundWidget
 {
@@ -107,16 +121,6 @@ public:
 	void ScrollToStart();
 
 	void ScrollToEnd();
-
-	/** Where to scroll the descendant to */
-	enum EDescendantScrollDestination
-	{
-		/** Scroll the widget into view */
-		IntoView,
-
-		/** Always scroll the widget so it appears at the top/Left of the scrollable area */
-		TopOrLeft,
-	};
 
 	/** 
 	 * Attempt to scroll a widget into view, will safely handle non-descendant widgets 

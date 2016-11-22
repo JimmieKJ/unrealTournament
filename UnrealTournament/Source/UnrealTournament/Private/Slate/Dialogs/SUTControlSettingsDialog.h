@@ -169,6 +169,8 @@ protected:
 	TSharedRef<SWidget> BuildKeyboardTab();
 	TSharedRef<SWidget> BuildMouseTab();
 	TSharedRef<SWidget> BuildMovementTab();
+
+	FSlateColor GetLabelColorAndOpacity(TSharedPtr<FKeyBindTracker> Tracker) const;
 };
 
 #endif
