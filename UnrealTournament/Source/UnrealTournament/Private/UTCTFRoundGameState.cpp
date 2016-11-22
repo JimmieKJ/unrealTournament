@@ -96,18 +96,18 @@ bool AUTCTFRoundGameState::InOrder(AUTPlayerState* P1, AUTPlayerState* P2)
 	}
 
 	// sort by Score
-	if (P1->Kills < P2->Kills)
+	if (P1->Score < P2->Score)
 	{
 		return false;
 	}
-	if (P1->Kills == P2->Kills)
+	if (P1->Score == P2->Score)
 	{
-		// if score tied, use deaths to sort
-		if (P1->Deaths > P2->Deaths)
+		// if score tied, use round kills to sort
+		if (P1->RoundKills > P2->RoundKills)
 			return false;
 
 		// keep local player highest on list
-		if ((P1->Deaths == P2->Deaths) && (Cast<APlayerController>(P2->GetOwner()) != NULL))
+		if ((P1->RoundKills == P2->RoundKills) && (Cast<APlayerController>(P2->GetOwner()) != NULL))
 		{
 			ULocalPlayer* LP2 = Cast<ULocalPlayer>(Cast<APlayerController>(P2->GetOwner())->Player);
 			if (LP2 != NULL)
