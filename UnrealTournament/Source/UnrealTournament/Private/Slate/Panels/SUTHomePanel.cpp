@@ -925,9 +925,10 @@ FReply SUTHomePanel::QuickMatch_TeamShowdown_Click()
 	TSharedPtr<SUTMainMenu> MainMenu = StaticCastSharedPtr<SUTMainMenu>(GetParentWindow());
 	if (MainMenu.IsValid())
 	{
-		if (PlayerOwner->IsMenuOptionLocked(EMenuCommand::MC_QuickPlayShowdown))
+		// NOTE: We don't have a showdown tutorial yet, so if they haven't played DM or CTF then force them through the DM tutorial first.
+		if (PlayerOwner->IsMenuOptionLocked(EMenuCommand::MC_QuickPlayDM) && PlayerOwner->IsMenuOptionLocked(EMenuCommand::MC_QuickPlayCTF) )	
 		{
-			PlayerOwner->LaunchTutorial(ETutorialTags::TUTTAG_Duel, EEpicDefaultRuleTags::DUEL);
+			PlayerOwner->LaunchTutorial(ETutorialTags::TUTTAG_DM, EEpicDefaultRuleTags::TEAMSHOWDOWN);
 		}
 		else
 		{

@@ -112,11 +112,12 @@ void UUTGameViewportClient::PeekTravelFailureMessages(UWorld* InWorld, enum ETra
 			bool bAlreadyDownloaded = false;
 			int32 SpaceIndex;
 			FString URL;
+			FString Checksum = TEXT("");
 			if (ErrorString.FindChar(TEXT(' '), SpaceIndex))
 			{
 				URL = ErrorString.Left(SpaceIndex);
 
-				FString Checksum = ErrorString.RightChop(SpaceIndex + 1);
+				Checksum = ErrorString.RightChop(SpaceIndex + 1);
 				FString BaseFilename = FPaths::GetBaseFilename(URL);
 
 				// If it already exists with the correct checksum, just mount it again
@@ -156,7 +157,7 @@ void UUTGameViewportClient::PeekTravelFailureMessages(UWorld* InWorld, enum ETra
 			}
 			else if (FPaths::GetExtension(URL) == FString(TEXT("pak")))
 			{
-				DownloadRedirect(URL);
+				DownloadRedirect(URL,TEXT(""), Checksum);
 				return;
 			}
 		}
@@ -942,7 +943,7 @@ void UUTGameViewportClient::DownloadRedirect(FPackageRedirectReference Redirect)
 			}
 		}
 
-		PendingDownloads.Add(FPendingRedirect(Redirect.ToString()));
+		PendingDownloads.Add(FPendingRedirect(Redirect.ToString(), Redirect.PackageChecksum));
 
 		UUTLocalPlayer* FirstPlayer = Cast<UUTLocalPlayer>(GEngine->GetLocalPlayerFromControllerId(this, 0));	
 		if (FirstPlayer && FirstPlayer->RequiresDLCWarning() && !FirstPlayer->IsShowingDLCWarning())
@@ -1031,20 +1032,36 @@ void UUTGameViewportClient::HttpRequestComplete(FHttpRequestPtr HttpRequest, FHt
 
 			FString FileURL = PendingDownloads[0].FileURL;
 			FString FullFilePath = FPaths::Combine(*Path, *FPaths::GetCleanFilename(FileURL));
-			bSucceeded = FFileHelper::SaveArrayToFile(HttpResponse->GetContent(), *FullFilePath);
 
 			UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
 			if (UTEngine)
 			{
-				FString MD5 = UTEngine->MD5Sum(HttpResponse->GetContent());
-				FString BaseFilename = FPaths::GetBaseFilename(FileURL);
-				UTEngine->DownloadedContentChecksums.Add(BaseFilename, MD5);
-
-				if (FCoreDelegates::OnMountPak.IsBound())
+				FString ActualMD5 = UTEngine->MD5Sum(HttpResponse->GetContent());
+				if (PendingDownloads.Num() > 0 && ActualMD5 == PendingDownloads[0].RequiredMD5 )
 				{
-					FCoreDelegates::OnMountPak.Execute(FullFilePath, 0, nullptr);
-					UTEngine->MountedDownloadedContentChecksums.Add(BaseFilename, MD5);
-					UTEngine->AddAssetRegistry(BaseFilename);
+					bSucceeded = FFileHelper::SaveArrayToFile(HttpResponse->GetContent(), *FullFilePath);
+					if (bSucceeded)
+					{
+						FString BaseFilename = FPaths::GetBaseFilename(FileURL);
+						UTEngine->DownloadedContentChecksums.Add(BaseFilename, ActualMD5);
+
+						if (FCoreDelegates::OnMountPak.IsBound())
+						{
+							FCoreDelegates::OnMountPak.Execute(FullFilePath, 0, nullptr);
+							UTEngine->MountedDownloadedContentChecksums.Add(BaseFilename, ActualMD5);
+							UTEngine->AddAssetRegistry(BaseFilename);
+						}
+					}
+					else
+					{
+						UE_LOG(UT, Warning, TEXT("Downloaded file could not be saved."));
+
+					}
+				}
+				else
+				{
+					UE_LOG(UT, Warning, TEXT("Downloaded file %s failed MD5 check (%s != %s)"), *FullFilePath, *ActualMD5, *PendingDownloads[0].RequiredMD5 );
+					bSucceeded = false;
 				}
 			}
 		}

@@ -19,15 +19,21 @@ struct FPendingRedirect
 
 	FHttpRequestPtr HttpRequest;
 
+	// If set, the download's MD5 must match this MD5 or it will be rejected.
+	UPROPERTY()
+	FString RequiredMD5;
+
 	FPendingRedirect()
 		: FileURL(TEXT(""))
+		, RequiredMD5(TEXT(""))
 	{
 	}
 	
-	FPendingRedirect(FString inFileURL)
+	FPendingRedirect(FString inFileURL, FString inRequiredMD5 = TEXT(""))
 	{
 		FileURL = inFileURL;
 		Status = ERedirectStatus::Pending;
+		RequiredMD5 = inRequiredMD5;
 	}
 };
 
