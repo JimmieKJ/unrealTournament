@@ -59,7 +59,8 @@ void UUTFlagRunScoreboard::DrawScorePanel(float RenderDelta, float& YOffset)
 {
 	AUTFlagRunGameState* GS = GetWorld()->GetGameState<AUTFlagRunGameState>();
 	AUTFlagRunGame* DefaultGame = GS && GS->GameModeClass ? GS->GameModeClass->GetDefaultObject<AUTFlagRunGame>() : nullptr;
-	if (DefaultGame && (GS->IntermissionTime > DefaultGame->IntermissionDuration - GS->HalftimeScoreDelay))
+	if (DefaultGame && ((GS->IntermissionTime > DefaultGame->IntermissionDuration - GS->HalftimeScoreDelay) || (GS->GetMatchState() == MatchState::CountdownToBegin) || (GS->GetMatchState() == MatchState::PlayerIntro) 
+		|| (GS->Teams.Num() < 2) || (GS->Teams[0] && GS->Teams[1] && (GS->Teams[0]->Score == 0) && (GS->Teams[1]->Score == 0))))
 	{
 		if (UTHUDOwner && UTHUDOwner->AnnouncementWidget)
 		{
@@ -91,7 +92,7 @@ void UUTFlagRunScoreboard::DrawMinimap(float RenderDelta)
 		FVector2D LeftCorner = FVector2D(MinimapCenter.X*Canvas->ClipX - 0.5f*MapSize, MapYPos);
 		if (GS->GetScoringPlays().Num() > 0)
 		{
-			if (DefaultGame && (GS->IntermissionTime > DefaultGame->IntermissionDuration - GS->HalftimeScoreDelay))
+			if (DefaultGame && (GS->IntermissionTime > 5))
 			{
 				float Height = 0.5f*Canvas->ClipY;
 				float ScoreWidth = 0.92f*MapSize;
@@ -121,8 +122,8 @@ void UUTFlagRunScoreboard::DrawMinimap(float RenderDelta)
 			FText Title = bIsOnDefense ? DefendTitle : AttackTitle;
 			float TextYPos = LeftCorner.Y + 16.f*RenderScale;
 			FFormatNamedArguments Args;
-			Args.Add("RoundNum", FText::AsNumber(int32(GS->CTFRound)));
-			Args.Add("NumRounds", FText::AsNumber(int32(GS->NumRounds)));
+			Args.Add("RoundNum", FText::AsNumber(GS->HasMatchStarted() ? GS->CTFRound+1 : 1));
+			Args.Add("NumRounds", FText::AsNumber(GS->NumRounds));
 			FText FormattedTitle = FText::Format(Title, Args);
 			DrawText(FormattedTitle, MinimapCenter.X*Canvas->ClipX, TextYPos, UTHUDOwner->MediumFont, RenderScale, 1.0f, FLinearColor::White, ETextHorzPos::Center, ETextVertPos::Center);
 			float TextXPos = MinimapCenter.X*Canvas->ClipX - 0.45f*MapSize;
