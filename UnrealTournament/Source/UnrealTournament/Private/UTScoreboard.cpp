@@ -106,7 +106,7 @@ void UUTScoreboard::Draw_Implementation(float RenderDelta)
 	Super::Draw_Implementation(RenderDelta);
 
 	bHaveWarmup = false;
-	float YOffset = 16.f*RenderScale;
+	float YOffset = 8.f*RenderScale;
 	DrawGamePanel(RenderDelta, YOffset);
 	DrawTeamPanel(RenderDelta, YOffset);
 	DrawScorePanel(RenderDelta, YOffset);

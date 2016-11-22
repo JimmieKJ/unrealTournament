@@ -18,8 +18,8 @@ UUTFlagRunScoreboard::UUTFlagRunScoreboard(const FObjectInitializer& ObjectIniti
 	bGroupRoundPairs = true;
 	bUseRoundKills = true;
 
-	DefendTitle = NSLOCTEXT("UTScoreboard", "Defending", "DEFENDING");
-	AttackTitle = NSLOCTEXT("UTScoreboard", "Attacking", "ATTACKING");
+	DefendTitle = NSLOCTEXT("UTScoreboard", "Defending", "Round {RoundNum} of {NumRounds} - DEFENDING");
+	AttackTitle = NSLOCTEXT("UTScoreboard", "Attacking", "Round {RoundNum} of {NumRounds} - ATTACKING");
 
 	DefendLines.Add(NSLOCTEXT("UTScoreboard", "DefenseLine1", "* You are defending.  Your goal is to keep the enemy from"));
 	DefendLines.Add(NSLOCTEXT("UTScoreboard", "DefenseLine1b", "  bringing the flag to your base, and not run out of lives."));
@@ -57,7 +57,7 @@ void UUTFlagRunScoreboard::DrawMinimap(float RenderDelta)
 {
 	AUTFlagRunGameState* GS = GetWorld()->GetGameState<AUTFlagRunGameState>();
 	AUTPlayerState* UTPS = Cast<AUTPlayerState>(UTPlayerOwner->PlayerState);
-	if (GS && (GS->GetMatchState() == MatchState::MatchIntermission))
+	if (GS && ((GS->GetMatchState() == MatchState::MatchIntermission) || GS->HasMatchEnded()))
 	{
 		const float MapSize = (UTGameState && UTGameState->bTeamGame) ? FMath::Min(Canvas->ClipX - 2.f*ScaledEdgeSize - 2.f*ScaledCellWidth, 0.9f*Canvas->ClipY - 120.f * RenderScale)
 			: FMath::Min(0.5f*Canvas->ClipX, 0.9f*Canvas->ClipY - 120.f * RenderScale);
@@ -91,41 +91,48 @@ void UUTFlagRunScoreboard::DrawMinimap(float RenderDelta)
 
 			FText Title = bIsOnDefense ? DefendTitle : AttackTitle;
 			float TextYPos = LeftCorner.Y + 16.f*RenderScale;
-			DrawText(Title, MinimapCenter.X*Canvas->ClipX, TextYPos, UTHUDOwner->MediumFont, RenderScale, 1.0f, FLinearColor::White, ETextHorzPos::Center, ETextVertPos::Center);
+			FFormatNamedArguments Args;
+			Args.Add("RoundNum", FText::AsNumber(int32(GS->CTFRound)));
+			Args.Add("NumRounds", FText::AsNumber(int32(GS->NumRounds)));
+			FText FormattedTitle = FText::Format(Title, Args);
+			DrawText(FormattedTitle, MinimapCenter.X*Canvas->ClipX, TextYPos, UTHUDOwner->MediumFont, RenderScale, 1.0f, FLinearColor::White, ETextHorzPos::Center, ETextVertPos::Center);
 			float TextXPos = MinimapCenter.X*Canvas->ClipX - 0.45f*MapSize;
 			TextYPos += 48.f*RenderScale;
 
-			int32 DisplayedParagraphs = 9 - int32(EndIntermissionTime - GetWorld()->GetTimeSeconds());
-			int32 CountedParagraphs = 0;
-			int32 LastParStart = 0;
-			bool bFullList = true;
-			for (int32 LineIndex = 0; LineIndex < NumLines; LineIndex++)
+			if (GS->CTFRound < 2)
 			{
-				FText NextLine = bIsOnDefense ? DefendLines[LineIndex] : AttackLines[LineIndex];
-				if (NextLine.IsEmpty())
+				int32 DisplayedParagraphs = 9 - int32(EndIntermissionTime - GetWorld()->GetTimeSeconds());
+				int32 CountedParagraphs = 0;
+				int32 LastParStart = 0;
+				bool bFullList = true;
+				for (int32 LineIndex = 0; LineIndex < NumLines; LineIndex++)
 				{
-					CountedParagraphs++;
-					if (CountedParagraphs >= DisplayedParagraphs)
+					FText NextLine = bIsOnDefense ? DefendLines[LineIndex] : AttackLines[LineIndex];
+					if (NextLine.IsEmpty())
 					{
-						NumLines = LineIndex;
-						bFullList = false;
-						break;
+						CountedParagraphs++;
+						if (CountedParagraphs >= DisplayedParagraphs)
+						{
+							NumLines = LineIndex;
+							bFullList = false;
+							break;
+						}
+						LastParStart = NumLines;
 					}
-					LastParStart = NumLines;
 				}
-			}
-			if ((DisplayedParagraphs != OldDisplayedParagraphs) && !bFullListPlayed)
-			{
-				// play beep
-				UTHUDOwner->UTPlayerOwner->ClientPlaySound(LineDisplaySound);
-				bFullListPlayed = bFullList;
-			}
-			OldDisplayedParagraphs = DisplayedParagraphs;
-			for (int32 LineIndex = 0; LineIndex < NumLines; LineIndex++)
-			{
-				FText NextLine = bIsOnDefense ? DefendLines[LineIndex] : AttackLines[LineIndex];
-				DrawText(NextLine, TextXPos, TextYPos, UTHUDOwner->SmallFont, RenderScale, 1.f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
-				TextYPos += 32.f*RenderScale;
+				if ((DisplayedParagraphs != OldDisplayedParagraphs) && !bFullListPlayed)
+				{
+					// play beep
+					UTHUDOwner->UTPlayerOwner->ClientPlaySound(LineDisplaySound);
+					bFullListPlayed = bFullList;
+				}
+				OldDisplayedParagraphs = DisplayedParagraphs;
+				for (int32 LineIndex = 0; LineIndex < NumLines; LineIndex++)
+				{
+					FText NextLine = bIsOnDefense ? DefendLines[LineIndex] : AttackLines[LineIndex];
+					DrawText(NextLine, TextXPos, TextYPos, UTHUDOwner->SmallFont, RenderScale, 1.f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
+					TextYPos += 32.f*RenderScale;
+				}
 			}
 		}
 		else if (GS->GetScoringPlays().Num() > 0)
@@ -149,6 +156,19 @@ void UUTFlagRunScoreboard::DrawMinimap(float RenderDelta)
 	else 
 	{
 		Super::DrawMinimap(RenderDelta);
+	}
+}
+
+void UUTFlagRunScoreboard::DrawGamePanel(float RenderDelta, float& YOffset)
+{
+	AUTFlagRunGameState* GS = GetWorld()->GetGameState<AUTFlagRunGameState>();
+	if (!GS || (GS->GetMatchState() != MatchState::MatchIntermission))
+	{
+		Super::DrawGamePanel(RenderDelta, YOffset);
+	}
+	else
+	{
+		YOffset -= 8.f*RenderScale;
 	}
 }
 
