@@ -7,6 +7,8 @@
 #include "StatNames.h"
 #include "UTFlagRunHUD.h"
 #include "UTCTFRoleMessage.h"
+#include "UTFlagRunGame.h"
+#include "UTHUDWidgetAnnouncements.h"
 
 UUTFlagRunScoreboard::UUTFlagRunScoreboard(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -53,24 +55,51 @@ UUTFlagRunScoreboard::UUTFlagRunScoreboard(const FObjectInitializer& ObjectIniti
 	LineDisplaySound = PressedSelect.Object;
 }
 
+void UUTFlagRunScoreboard::DrawScorePanel(float RenderDelta, float& YOffset)
+{
+	AUTFlagRunGameState* GS = GetWorld()->GetGameState<AUTFlagRunGameState>();
+	AUTFlagRunGame* DefaultGame = GS && GS->GameModeClass ? GS->GameModeClass->GetDefaultObject<AUTFlagRunGame>() : nullptr;
+	if (DefaultGame && (GS->IntermissionTime > DefaultGame->IntermissionDuration - GS->HalftimeScoreDelay))
+	{
+		if (UTHUDOwner && UTHUDOwner->AnnouncementWidget)
+		{
+			UTHUDOwner->AnnouncementWidget->PreDraw(0.f, UTHUDOwner, Canvas, CanvasCenter);
+			UTHUDOwner->AnnouncementWidget->Draw(RenderDelta);
+			UTHUDOwner->AnnouncementWidget->PostDraw(0.f);
+		}
+	}
+	else
+	{
+		Super::DrawScorePanel(RenderDelta, YOffset);
+	}
+}
+
 void UUTFlagRunScoreboard::DrawMinimap(float RenderDelta)
 {
 	AUTFlagRunGameState* GS = GetWorld()->GetGameState<AUTFlagRunGameState>();
 	AUTPlayerState* UTPS = Cast<AUTPlayerState>(UTPlayerOwner->PlayerState);
+	AUTFlagRunGame* DefaultGame = GS && GS->GameModeClass ? GS->GameModeClass->GetDefaultObject<AUTFlagRunGame>() : nullptr;
 	if (GS && ((GS->GetMatchState() == MatchState::MatchIntermission) || GS->HasMatchEnded()))
 	{
+		if (DefaultGame && (GS->IntermissionTime > DefaultGame->IntermissionDuration - GS->HalftimeScoreDelay))
+		{
+			return;
+		}
 		const float MapSize = (UTGameState && UTGameState->bTeamGame) ? FMath::Min(Canvas->ClipX - 2.f*ScaledEdgeSize - 2.f*ScaledCellWidth, 0.9f*Canvas->ClipY - 120.f * RenderScale)
 			: FMath::Min(0.5f*Canvas->ClipX, 0.9f*Canvas->ClipY - 120.f * RenderScale);
-		float MapYPos = FMath::Max(LastScorePanelYOffset - 2.f, MinimapCenter.Y*Canvas->ClipY - 0.5f*MapSize);
+		float MapYPos = LastScorePanelYOffset - 2.f;
 		FVector2D LeftCorner = FVector2D(MinimapCenter.X*Canvas->ClipX - 0.5f*MapSize, MapYPos);
 		if (GS->GetScoringPlays().Num() > 0)
 		{
-			float Height = 0.5f*Canvas->ClipY;
-			float ScoreWidth = 0.92f*MapSize;
-			float YPos = LeftCorner.Y;
-			float PageBottom = YPos + 0.1f*Canvas->ClipY;
-			DrawScoringSummary(RenderDelta, YPos, LeftCorner.X + 0.04f*MapSize, 0.9f*ScoreWidth, PageBottom);
-			LeftCorner.Y += 0.15f*Canvas->ClipY;
+			if (DefaultGame && (GS->IntermissionTime > DefaultGame->IntermissionDuration - GS->HalftimeScoreDelay))
+			{
+				float Height = 0.5f*Canvas->ClipY;
+				float ScoreWidth = 0.92f*MapSize;
+				float YPos = LeftCorner.Y;
+				float PageBottom = YPos + 0.1f*Canvas->ClipY;
+				DrawScoringSummary(RenderDelta, YPos, LeftCorner.X + 0.04f*MapSize, 0.9f*ScoreWidth, PageBottom);
+				LeftCorner.Y += 0.15f*Canvas->ClipY;
+			}
 		}
 		if ((EndIntermissionTime < GetWorld()->GetTimeSeconds()) && (GS->IntermissionTime < 9.f) && (GS->IntermissionTime > 0.f))
 		{
@@ -162,7 +191,7 @@ void UUTFlagRunScoreboard::DrawMinimap(float RenderDelta)
 void UUTFlagRunScoreboard::DrawGamePanel(float RenderDelta, float& YOffset)
 {
 	AUTFlagRunGameState* GS = GetWorld()->GetGameState<AUTFlagRunGameState>();
-	if (!GS || (GS->GetMatchState() != MatchState::MatchIntermission))
+	if (!GS || ((GS->GetMatchState() != MatchState::MatchIntermission) && !GS->HasMatchEnded()))
 	{
 		Super::DrawGamePanel(RenderDelta, YOffset);
 	}

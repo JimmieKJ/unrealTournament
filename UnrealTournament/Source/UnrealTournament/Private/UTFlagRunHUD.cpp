@@ -75,13 +75,18 @@ void AUTFlagRunHUD::NotifyMatchStateChange()
 	Super::NotifyMatchStateChange();
 }
 
+bool AUTFlagRunHUD::ScoreboardIsUp()
+{
+	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+	return  GS->IsMatchIntermission() || GS->HasMatchEnded() || Super::ScoreboardIsUp();
+}
+
 void AUTFlagRunHUD::DrawHUD()
 {
 	Super::DrawHUD();
 
-	AUTFlagRunGameState* GS = GetWorld()->GetGameState<AUTFlagRunGameState>();
-	bShowScoresWhileDead = bShowScoresWhileDead && GS && GS->IsMatchInProgress() && !GS->IsMatchIntermission() && UTPlayerOwner && !UTPlayerOwner->GetPawn() && !UTPlayerOwner->IsInState(NAME_Spectating);
-	bool bScoreboardIsUp = bShowScores || bForceScores || bShowScoresWhileDead;
+	AUTFlagRunGameState* GS = Cast<AUTFlagRunGameState>(GetWorld()->GetGameState());
+	bool bScoreboardIsUp = ScoreboardIsUp();
 	if (!bScoreboardIsUp && GS && GS->GetMatchState() == MatchState::InProgress)
 	{
 		if (GS->FlagRunMessageTeam && UTPlayerOwner && (WinConditionMessageTime > 0.f))

@@ -152,6 +152,9 @@ public:
 	UPROPERTY(BlueprintReadOnly, Category = HUD)
 		class UUTHUDWidgetMessage_KillIconMessages* KillIconWidget;
 
+	UPROPERTY(BlueprintReadOnly, Category = HUD)
+		class UUTHUDWidgetAnnouncements* AnnouncementWidget;
+
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = HUD)
 		FVector2D ScoreboardKillFeedPosition;
 
@@ -262,6 +265,9 @@ public:
 
 	// We override PostRender so that we can cache bunch of vars that need caching.
 	virtual void PostRender();
+
+	/** Whether scoreboard should be displayed this tick. */
+	virtual bool ScoreboardIsUp();
 
 	/** Primary draw call for the HUD */
 	virtual void DrawHUD() override;

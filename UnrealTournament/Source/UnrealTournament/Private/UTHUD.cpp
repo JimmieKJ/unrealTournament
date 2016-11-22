@@ -35,6 +35,7 @@
 #include "UTLineUpHelper.h"
 #include "UTRallyPoint.h"
 #include "UTFlagRunGameState.h"
+#include "UTHUDWidgetAnnouncements.h"
 
 static FName NAME_Intensity(TEXT("Intensity"));
 
@@ -292,7 +293,6 @@ void AUTHUD::DrawActorOverlays(FVector Viewpoint, FRotator ViewRotation)
 	}
 }
 
-
 void AUTHUD::ShowDebugInfo(float& YL, float& YPos)
 {
 	if (!DebugDisplay.Contains(TEXT("Bones")))
@@ -476,6 +476,10 @@ UUTHUDWidget* AUTHUD::AddHudWidget(TSubclassOf<UUTHUDWidget> NewWidgetClass)
 	if (Cast<UUTHUDWidget_SpectatorSlideOut>(Widget))
 	{
 		SpectatorSlideOutWidget = Cast<UUTHUDWidget_SpectatorSlideOut>(Widget);
+	}
+	if (Cast<UUTHUDWidgetAnnouncements>(Widget))
+	{
+		AnnouncementWidget = Cast<UUTHUDWidgetAnnouncements>(Widget);
 	}
 	if (KillIconWidget == nullptr)
 	{
@@ -680,6 +684,14 @@ void AUTHUD::ShowHUD()
 	//Super::ShowHUD();
 }
 
+bool AUTHUD::ScoreboardIsUp()
+{
+	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+	bool bPreMatchScoreBoard = (GS && !GS->HasMatchStarted() && !GS->IsMatchInCountdown()) && (!UTPlayerOwner || !UTPlayerOwner->UTPlayerState || !UTPlayerOwner->UTPlayerState->bIsWarmingUp) && ((!GS->LineUpHelper) || (!GS->LineUpHelper->bIsActive));
+	bShowScoresWhileDead = bShowScoresWhileDead && GS && GS->IsMatchInProgress() && !GS->IsMatchIntermission() && UTPlayerOwner && !UTPlayerOwner->GetPawn() && !UTPlayerOwner->IsInState(NAME_Spectating);
+	return bShowScores || bPreMatchScoreBoard || bForceScores || bShowScoresWhileDead;
+}
+
 void AUTHUD::DrawHUD()
 {
 	// FIXMESTEVE - once bShowHUD is not config, can just use it without bShowUTHUD and bCinematicMode
@@ -695,10 +707,7 @@ void AUTHUD::DrawHUD()
 		// find center of the Canvas
 		const FVector2D Center(Canvas->ClipX * 0.5f, Canvas->ClipY * 0.5f);
 
-		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-		bool bPreMatchScoreBoard = (GS && !GS->HasMatchStarted() && !GS->IsMatchInCountdown()) && (!UTPlayerOwner || !UTPlayerOwner->UTPlayerState || !UTPlayerOwner->UTPlayerState->bIsWarmingUp) && ((!GS->LineUpHelper) || (!GS->LineUpHelper->bIsActive));
-		bShowScoresWhileDead = bShowScoresWhileDead && GS && GS->IsMatchInProgress() && !GS->IsMatchIntermission() && UTPlayerOwner && !UTPlayerOwner->GetPawn() && !UTPlayerOwner->IsInState(NAME_Spectating);
-		bool bScoreboardIsUp = bShowScores || bPreMatchScoreBoard || bForceScores || bShowScoresWhileDead;
+		bool bScoreboardIsUp = ScoreboardIsUp();
 		if (!bFontsCached)
 		{
 			CacheFonts();
