@@ -78,7 +78,7 @@ void AUTFlagRunHUD::NotifyMatchStateChange()
 bool AUTFlagRunHUD::ScoreboardIsUp()
 {
 	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-	return  GS->IsMatchIntermission() || GS->HasMatchEnded() || Super::ScoreboardIsUp();
+	return  (GS && (GS->IsMatchIntermission() || GS->HasMatchEnded())) || Super::ScoreboardIsUp();
 }
 
 void AUTFlagRunHUD::DrawHUD()
