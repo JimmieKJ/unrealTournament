@@ -67,4 +67,6 @@ protected:
 
 	virtual void DrawScoringSummary(float RenderDelta, float& YOffset, float XOffset, float ScoreWidth, float PageBottom);
 
+	virtual bool IsBeforeFirstRound();
+
 };

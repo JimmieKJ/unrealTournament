@@ -55,12 +55,18 @@ UUTFlagRunScoreboard::UUTFlagRunScoreboard(const FObjectInitializer& ObjectIniti
 	LineDisplaySound = PressedSelect.Object;
 }
 
+bool UUTFlagRunScoreboard::IsBeforeFirstRound()
+{
+	AUTFlagRunGameState* GS = GetWorld()->GetGameState<AUTFlagRunGameState>();
+	return !GS || (GS->GetScoringPlays().Num() == 0);
+}
+
 void UUTFlagRunScoreboard::DrawScorePanel(float RenderDelta, float& YOffset)
 {
 	AUTFlagRunGameState* GS = GetWorld()->GetGameState<AUTFlagRunGameState>();
 	AUTFlagRunGame* DefaultGame = GS && GS->GameModeClass ? GS->GameModeClass->GetDefaultObject<AUTFlagRunGame>() : nullptr;
-	if (DefaultGame && ((GS->IntermissionTime > DefaultGame->IntermissionDuration - GS->HalftimeScoreDelay) || (GS->GetMatchState() == MatchState::CountdownToBegin) || (GS->GetMatchState() == MatchState::PlayerIntro)))
-//		|| (GS->Teams.Num() < 2) || (GS->Teams[0] && GS->Teams[1] && (GS->Teams[0]->Score == 0) && (GS->Teams[1]->Score == 0))))
+	if (DefaultGame && (GS->IsMatchIntermission() && ((GS->IntermissionTime > DefaultGame->IntermissionDuration - GS->HalftimeScoreDelay) || IsBeforeFirstRound()) 
+		|| (GS->GetMatchState() == MatchState::CountdownToBegin) || (GS->GetMatchState() == MatchState::PlayerIntro)))
 	{
 		LastScorePanelYOffset = 0.f;
 		if (UTHUDOwner && UTHUDOwner->AnnouncementWidget)
@@ -105,7 +111,7 @@ void UUTFlagRunScoreboard::DrawMinimap(float RenderDelta)
 		}
 		if ((EndIntermissionTime < GetWorld()->GetTimeSeconds()) && (GS->IntermissionTime < 9.f) && (GS->IntermissionTime > 0.f))
 		{
-			EndIntermissionTime = GetWorld()->GetTimeSeconds() + 9.f;
+			EndIntermissionTime = GetWorld()->GetTimeSeconds() + 9.1f;
 			OldDisplayedParagraphs = 0;
 			bFullListPlayed = false;
 			bool bIsOnDefense = UTPS && UTPS->Team && GS->IsTeamOnDefenseNextRound(UTPS->Team->TeamIndex);
@@ -117,7 +123,7 @@ void UUTFlagRunScoreboard::DrawMinimap(float RenderDelta)
 			// draw round information
 			const bool bIsOnDefense = GS->IsTeamOnDefenseNextRound(UTPS->Team->TeamIndex);
 			int32 NumLines = bIsOnDefense ? DefendLines.Num() : AttackLines.Num();
-			bool bIsAfterFirstRound = (GS->Teams.Num() > 1) && GS->Teams[0] && GS->Teams[1] && ((GS->Teams[0]->Score > 0) || (GS->Teams[1]->Score > 0));
+			bool bIsAfterFirstRound = !IsBeforeFirstRound();
 			float Height = bIsAfterFirstRound ? RenderScale * 80.f : RenderScale * (80.f + 32.f*NumLines);
 			DrawTexture(UTHUDOwner->ScoreboardAtlas, LeftCorner.X + 0.04f*MapSize, LeftCorner.Y, 0.92f*MapSize, Height, 149, 138, 32, 32, 0.75f, FLinearColor::Black);
 
