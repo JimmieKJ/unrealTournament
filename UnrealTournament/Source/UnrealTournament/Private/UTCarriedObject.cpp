@@ -809,10 +809,6 @@ void AUTCarriedObject::SendHome()
 			// don't gradual return during intermissions
 			return;
 		}
-		if ((GetActorLocation() - PastPositions[PastPositions.Num() - 1].Location).Size() < MinGradualReturnDist)
-		{
-			PastPositions.RemoveAt(PastPositions.Num() - 1);
-		}
 		if (PastPositions.Num() > 0)
 		{
 			bool bWantsGhostFlag = false;
