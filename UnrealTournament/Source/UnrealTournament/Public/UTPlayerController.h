@@ -168,7 +168,7 @@ public:
 	virtual void BeginInactiveState() override;
 	virtual FRotator GetControlRotation() const override;
 	virtual void SetPlayer(UPlayer* InPlayer) override;
-
+	virtual AActor* GetViewTarget() const override;
 
 	virtual void ViewStartSpot();
 

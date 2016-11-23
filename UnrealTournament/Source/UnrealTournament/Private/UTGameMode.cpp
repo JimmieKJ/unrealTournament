@@ -1875,7 +1875,6 @@ void AUTGameMode::RemoveAllPawns()
 
 void AUTGameMode::HandleMatchHasStarted()
 {
-	UE_LOG(UT, Warning, TEXT("HandleMatchHasStarted"));
 	if (bRemovePawnsAtStart && (GetNetMode() != NM_Standalone) && !GetWorld()->IsPlayInEditor())
 	{
 		RemoveAllPawns();
@@ -3341,6 +3340,15 @@ void AUTGameMode::SetMatchState(FName NewState)
 		GameState->SetMatchState(NewState);
 	}
 
+	if (UTGameState && UTGameState->LineUpHelper)
+	{
+		LineUpTypes PlayType = UTGameState->LineUpHelper->GetLineUpTypeToPlay(GetWorld());
+
+		if (PlayType != UTGameState->LineUpHelper->LastActiveType)
+		{
+			UTGameState->LineUpHelper->CleanUp();
+		}
+	}
 	CallMatchStateChangeNotify();
 	K2_OnSetMatchState(NewState);
 
@@ -3351,15 +3359,9 @@ void AUTGameMode::SetMatchState(FName NewState)
 
 	if (UTGameState && UTGameState->LineUpHelper)
 	{
-		LineUpTypes PlayType = UTGameState->LineUpHelper->GetLineUpTypeToPlay(GetWorld());
-		
-		if (PlayType != UTGameState->LineUpHelper->LastActiveType)
-		{
-			UTGameState->LineUpHelper->CleanUp();
-		}
-		
 		if (!UTGameState->LineUpHelper->bIsActive)
 		{
+			LineUpTypes PlayType = UTGameState->LineUpHelper->GetLineUpTypeToPlay(GetWorld());
 			UTGameState->LineUpHelper->HandleLineUp(PlayType);
 		}
 	}

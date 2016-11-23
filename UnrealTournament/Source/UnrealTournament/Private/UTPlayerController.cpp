@@ -415,6 +415,12 @@ void AUTPlayerController::SetWeaponBobScaling(float NewScaling)
 	WeaponBobGlobalScaling = NewScaling;
 }
 
+AActor* AUTPlayerController::GetViewTarget() const
+{
+	AActor* CameraViewTarget = PlayerCameraManager ? PlayerCameraManager->GetViewTarget() : nullptr;
+	return (CameraViewTarget && ((CameraViewTarget != this) || !GetPawn())) ? CameraViewTarget : GetPawn();
+}
+
 FVector AUTPlayerController::GetFocalLocation() const
 {
 	if (GetPawnOrSpectator())
