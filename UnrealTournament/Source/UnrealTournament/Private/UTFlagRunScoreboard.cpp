@@ -65,8 +65,8 @@ void UUTFlagRunScoreboard::DrawScorePanel(float RenderDelta, float& YOffset)
 {
 	AUTFlagRunGameState* GS = GetWorld()->GetGameState<AUTFlagRunGameState>();
 	AUTFlagRunGame* DefaultGame = GS && GS->GameModeClass ? GS->GameModeClass->GetDefaultObject<AUTFlagRunGame>() : nullptr;
-	if (DefaultGame && (GS->IsMatchIntermission() && ((GS->IntermissionTime > DefaultGame->IntermissionDuration - GS->HalftimeScoreDelay) || IsBeforeFirstRound()) 
-		|| (GS->GetMatchState() == MatchState::CountdownToBegin) || (GS->GetMatchState() == MatchState::PlayerIntro)))
+	if (DefaultGame && (GS->IsMatchIntermission() && ((GS->IntermissionTime > DefaultGame->IntermissionDuration - GS->HalftimeScoreDelay) || IsBeforeFirstRound())) 
+		|| (GS->GetMatchState() == MatchState::CountdownToBegin) || (GS->GetMatchState() == MatchState::PlayerIntro))
 	{
 		LastScorePanelYOffset = 0.f;
 		if (UTHUDOwner && UTHUDOwner->AnnouncementWidget)
