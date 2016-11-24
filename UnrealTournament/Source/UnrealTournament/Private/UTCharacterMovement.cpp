@@ -2180,6 +2180,10 @@ void UUTCharacterMovement::PhysFalling(float deltaTime, int32 Iterations)
 			Velocity = Velocity.GetClampedToMaxSize(GetPhysicsVolume()->TerminalVelocity);
 		}
 		//UE_LOG(UT, Warning, TEXT("FINAL VELOCITY at %f vel %f %f %f"), GetCurrentSynchTime(), Velocity.X, Velocity.Y, Velocity.Z);
+		if (bDrawJumps)
+		{
+			DrawDebugLine(GetWorld(), OldLocation, CharacterOwner->GetActorLocation(), FColor::Green, true);// , 0.f, 0, 8.f);
+		}
 	}
 }
 

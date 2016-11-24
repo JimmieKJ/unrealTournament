@@ -899,7 +899,10 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 					}
 				}
 			}
-
+			if (UTCharacterMovement && UTCharacterMovement->bDrawJumps)
+			{
+				DrawDebugString(GetWorld(), GetActorLocation(), FString::FromInt(ResultDamage), nullptr, FColor::Red, -1.f, true);
+			}
 			if (bApplyDamageToCharacter)
 			{
 				Health -= ResultDamage;
@@ -6844,5 +6847,13 @@ void AUTCharacter::ClientCheatGhost_Implementation()
 	{
 		GetCharacterMovement()->bCheatFlying = true;
 		GetCharacterMovement()->SetMovementMode(MOVE_Flying);
+	}
+}
+
+void AUTCharacter::JumpVis()
+{
+	if (UTCharacterMovement)
+	{
+		UTCharacterMovement->bDrawJumps = !UTCharacterMovement->bDrawJumps;
 	}
 }

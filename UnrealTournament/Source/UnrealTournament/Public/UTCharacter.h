@@ -985,6 +985,9 @@ public:
 	UFUNCTION(exec)
 		void OVV(FName InName, FVector value);
 
+	UFUNCTION(exec)
+		void JumpVis();
+	
 	UFUNCTION(BlueprintCallable, Category = Pawn)
 	void SetHeadScale(float NewHeadScale);
 

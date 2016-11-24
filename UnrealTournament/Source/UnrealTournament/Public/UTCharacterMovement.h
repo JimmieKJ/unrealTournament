@@ -66,6 +66,10 @@ public:
 	UPROPERTY()
 		bool bLargeCorrection;
 
+	/** Debugging jump visualization. */
+	UPROPERTY()
+		bool bDrawJumps;
+
 	/** Position error considered a large correction for client adjustment. */
 	UPROPERTY()
 		float LargeCorrectionThreshold;
