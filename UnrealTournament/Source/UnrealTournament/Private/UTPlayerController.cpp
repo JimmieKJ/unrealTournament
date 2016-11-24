@@ -2090,7 +2090,7 @@ void AUTPlayerController::ClientHearSound_Implementation(USoundBase* TheSound, A
 					{
 						AttenuationOverride = CustomAmp.OccludedAttenuation;
 					}
-					else if (0.65f * MaxAudibleDistance < (PlaySoundLocation - ViewPoint).Size())
+					else if (0.5f * MaxAudibleDistance < (PlaySoundLocation - ViewPoint).Size())
 					{
 						return;
 					}
