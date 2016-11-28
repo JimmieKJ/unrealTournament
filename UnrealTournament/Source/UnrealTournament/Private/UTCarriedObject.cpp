@@ -10,7 +10,6 @@
 #include "UTLift.h"
 #include "UTFlagReturnTrail.h"
 #include "UTGhostFlag.h"
-#include "UTSecurityCameraComponent.h"
 #include "UTGameVolume.h"
 #include "UTCTFRoundGameState.h"
 #include "UTCTFRoundGame.h"
@@ -68,11 +67,6 @@ void AUTCarriedObject::Destroyed()
 	}
 
 	ClearGhostFlags();
-}
-
-UUTSecurityCameraComponent* AUTCarriedObject::GetDetectingCamera()
-{
-	return DetectingCamera;
 }
 
 void AUTCarriedObject::GetActorEyesViewPoint(FVector& OutLocation, FRotator& OutRotation) const
@@ -729,17 +723,6 @@ void AUTCarriedObject::Drop(AController* Killer)
 			PutGhostFlagAt(BasePosition);
 		}
 	}
-}
-
-bool AUTCarriedObject::SetDetectingCamera(class UUTSecurityCameraComponent* NewDetectingCamera)
-{
-	if (DetectingCamera && NewDetectingCamera && ((GetActorLocation() - DetectingCamera->K2_GetComponentLocation()).SizeSquared() < (GetActorLocation() - NewDetectingCamera->K2_GetComponentLocation()).SizeSquared()))
-	{
-		// change only if new one is closer
-		return false;
-	}
-	DetectingCamera = NewDetectingCamera;
-	return true;
 }
 
 void AUTCarriedObject::Use()

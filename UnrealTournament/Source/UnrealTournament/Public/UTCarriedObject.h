@@ -6,7 +6,6 @@
 #include "UTCarriedObjectMessage.h"
 #include "UTTeamInterface.h"
 #include "UTProjectileMovementComponent.h"
-#include "UTSecurityCameraComponent.h"
 #include "UTCarriedObject.generated.h"
 
 class AUTCarriedObject;
@@ -159,13 +158,6 @@ class UNREALTOURNAMENT_API AUTCarriedObject : public AActor, public IUTTeamInter
 	
 	UPROPERTY(BlueprintReadOnly, Category = GameObject)
 		float EnteredEnemyBaseTime;
-
-	virtual bool SetDetectingCamera(class UUTSecurityCameraComponent* NewDetectingCamera);
-
-	virtual class UUTSecurityCameraComponent* GetDetectingCamera();
-protected:
-	UPROPERTY(BlueprintReadOnly, Category = GameObject)
-	class UUTSecurityCameraComponent* DetectingCamera;
 
 private:
 	UPROPERTY()

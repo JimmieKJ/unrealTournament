@@ -2,7 +2,6 @@
 #include "UnrealTournament.h"
 #include "UTHUDWidget_CTFFlagStatus.h"
 #include "UTCTFGameState.h"
-#include "UTSecurityCameraComponent.h"
 
 UUTHUDWidget_CTFFlagStatus::UUTHUDWidget_CTFFlagStatus(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
