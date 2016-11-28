@@ -555,5 +555,5 @@
 	
 	<Aggregate Name="Nightly Maintenance" Requires="Purge Old Symbols;Clean Temp Storage"/>
 	
-	<Notify Targets="Standard Build" Users="chad.garyet@epicgames.com;peter.knepley@epicgames.com;david.deyoung@epicgames.com;jaymee.stanford@epicgames.com" Submitters=".../Build/...;.../Source/..."/>
+	<Notify Targets="Standard Build" Users="chad.garyet@epicgames.com;peter.knepley@epicgames.com;david.deyoung@epicgames.com;jaymee.stanford@epicgames.com;utqa@epicgames.com" Submitters=".../Build/...;.../Source/..."/>
 </BuildGraph>
