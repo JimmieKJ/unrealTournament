@@ -196,7 +196,7 @@ void UUTFlagRunScoreboard::DrawMinimap(float RenderDelta)
 			DrawScoringPlays(RenderDelta, YPos, XOffset, 0.9f*ScoreWidth, PageBottom);
 		}
 	}
-	else 
+	else if ((GS->GetMatchState() != MatchState::CountdownToBegin) && (GS->GetMatchState() != MatchState::PlayerIntro))
 	{
 		Super::DrawMinimap(RenderDelta);
 	}
