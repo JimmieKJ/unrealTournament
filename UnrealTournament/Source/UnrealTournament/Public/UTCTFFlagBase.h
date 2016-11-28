@@ -92,7 +92,7 @@ protected:
 public:
 
 	// If true, this flag base will be considered a scoring point.  
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameObject)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Objective)
 	bool bScoreOnlyBase;
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, Category = Game)

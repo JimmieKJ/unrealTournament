@@ -38,6 +38,7 @@ void AUTCTFFlagBase::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 void AUTCTFFlagBase::ClearDefenseEffect()
 {
 	ShowDefenseEffect = 0;
+	Mesh->SetHiddenInGame(false);
 	if (DefensePSC)
 	{
 		DefensePSC->ActivateSystem(false);
@@ -49,6 +50,7 @@ void AUTCTFFlagBase::ClearDefenseEffect()
 void AUTCTFFlagBase::SpawnDefenseEffect()
 {
 	ClearDefenseEffect();
+	Mesh->SetHiddenInGame(true);
 	if (GetNetMode() != NM_DedicatedServer)
 	{
 		UParticleSystem* DesiredEffect = (TeamNum == 0) ? RedDefenseEffect : BlueDefenseEffect;
@@ -90,7 +92,11 @@ void AUTCTFFlagBase::OnOverlapBegin(UPrimitiveComponent* OverlappedComponent, AA
 
 void AUTCTFFlagBase::CreateCarriedObject()
 {
-	if (!bScoreOnlyBase)
+	if (bScoreOnlyBase)
+	{
+		SpawnDefenseEffect();
+	}
+	else
 	{
 		if (TeamFlagTypes.IsValidIndex(TeamNum) && TeamFlagTypes[TeamNum] != NULL)
 		{

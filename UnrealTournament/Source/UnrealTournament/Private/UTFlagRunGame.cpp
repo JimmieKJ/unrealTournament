@@ -196,7 +196,6 @@ float AUTFlagRunGame::RatePlayerStart(APlayerStart* P, AController* Player)
 				Result += 20.f;
 			}
 		}
-
 	}
 	return Result;
 }
