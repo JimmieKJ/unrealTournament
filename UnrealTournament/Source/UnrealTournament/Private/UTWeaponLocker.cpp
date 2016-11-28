@@ -292,7 +292,7 @@ void AUTWeaponLocker::GiveTo_Implementation(APawn* Target)
 			}
 			if (Item.ExtraAmmo != 0)
 			{
-				P->AddAmmo(FStoredAmmo{Item.WeaponType, Item.ExtraAmmo});
+				//P->AddAmmo(FStoredAmmo{Item.WeaponType, Item.ExtraAmmo});
 			}
 
 			//Add to the stats pickup count

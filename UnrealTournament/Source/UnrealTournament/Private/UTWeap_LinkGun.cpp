@@ -27,7 +27,7 @@ AUTWeap_LinkGun::AUTWeap_LinkGun(const FObjectInitializer& OI)
 	AmmoCost[0] = 1;
 	AmmoCost[1] = 1;
 	FOVOffset = FVector(0.6f, 1.f, 1.f);
-	Ammo = 70;
+	Ammo = 60;
 	MaxAmmo = 200;
 	AmmoWarningAmount = 25;
 	AmmoDangerAmount = 10;
