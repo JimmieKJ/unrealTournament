@@ -406,6 +406,11 @@ void AUTBot::ResetPerceptionProperties()
 
 void AUTBot::SetPawn(APawn* InPawn)
 {
+	if (InPawn == NULL)
+	{
+		StartNewAction(NULL);
+	}
+
 	if (GetPawn() != NULL)
 	{
 		GetPawn()->OnActorHit.RemoveDynamic(this, &AUTBot::NotifyBump);
