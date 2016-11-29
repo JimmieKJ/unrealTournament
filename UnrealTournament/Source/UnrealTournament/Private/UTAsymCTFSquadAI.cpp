@@ -17,7 +17,7 @@ void AUTAsymCTFSquadAI::Initialize(AUTTeamInfo* InTeam, FName InOrders)
 		GameObjective = GS->FlagBases[GS->bRedToCap ? 1 : 0];
 		Objective = GameObjective;
 		Flag = GS->FlagBases[GS->bRedToCap ? 0 : 1]->GetCarriedObject();
-		TotalFlagRunDistance = (Objective->GetActorLocation() - Flag->GetActorLocation()).Size();
+		TotalFlagRunDistance = (Flag == nullptr) ? FLT_MAX : (Objective->GetActorLocation() - Flag->GetActorLocation()).Size();
 	}
 	LastFlagNode = nullptr;
 	SquadRoutes.Empty();
