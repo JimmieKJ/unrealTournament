@@ -60,5 +60,7 @@ public:
 
 	bool GetPlaylistName(int32 PlaylistId, FString& OutPlaylistName);
 
+	bool GetGameModeForPlaylist(int32 PlaylistId, FString& GameMode);
+
 	bool IsPlaylistRanked(int32 PlaylistId);
 };

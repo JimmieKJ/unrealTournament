@@ -144,7 +144,7 @@ public:
 	 *
 	 * @param PlaylistId Sets playlist id setting always
 	 */
-	virtual void ApplyGameSessionSettings(FOnlineSessionSettings* SessionSettings, int32 PlaylistId, int32 TeamElo) const;
+	virtual void ApplyGameSessionSettings(FOnlineSessionSettings* SessionSettings, int32 PlaylistId, int32 TeamElo, const FString& GameMode) const;
 	virtual bool GetGameSessionSettings(const FOnlineSessionSettings* SessionSettings, int32& OutPlaylistId) const;
 
 	virtual void InitHostBeacon(FOnlineSessionSettings* SessionSettings);

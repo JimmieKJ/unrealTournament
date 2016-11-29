@@ -61,6 +61,20 @@ bool UUTPlaylistManager::GetTeamEloRatingForPlaylist(int32 PlaylistId, FString& 
 	return false;
 }
 
+bool UUTPlaylistManager::GetGameModeForPlaylist(int32 PlaylistId, FString& GameMode)
+{
+	for (const FPlaylistItem& PlaylistEntry : Playlist)
+	{
+		if (PlaylistEntry.PlaylistId == PlaylistId)
+		{
+			GameMode = PlaylistEntry.GameMode;
+			return true;
+		}
+	}
+
+	return false;
+}
+
 bool UUTPlaylistManager::GetURLForPlaylist(int32 PlaylistId, FString& URL)
 {
 	for (const FPlaylistItem& PlaylistEntry : Playlist)
