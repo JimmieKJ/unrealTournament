@@ -103,18 +103,6 @@ void UUTFlagRunScoreboard::DrawMinimap(float RenderDelta)
 			: FMath::Min(0.5f*Canvas->ClipX, 0.9f*Canvas->ClipY - 120.f * RenderScale);
 		float MapYPos = (LastScorePanelYOffset > 0.f) ? LastScorePanelYOffset - 2.f : 0.25f*Canvas->ClipY;
 		FVector2D LeftCorner = FVector2D(MinimapCenter.X*Canvas->ClipX - 0.5f*MapSize, MapYPos);
-		if (GS->GetScoringPlays().Num() > 0)
-		{
-			if (DefaultGame)
-			{
-				float Height = 0.5f*Canvas->ClipY;
-				float ScoreWidth = 0.92f*MapSize;
-				float YPos = LeftCorner.Y;
-				float PageBottom = YPos + 0.1f*Canvas->ClipY;
-				DrawScoringSummary(RenderDelta, YPos, LeftCorner.X + 0.04f*MapSize, 0.9f*ScoreWidth, PageBottom);
-				LeftCorner.Y += 0.15f*Canvas->ClipY;
-			}
-		}
 		if ((EndIntermissionTime < GetWorld()->GetTimeSeconds()) && (GS->IntermissionTime < 9.f) && (GS->IntermissionTime > 0.f))
 		{
 			EndIntermissionTime = GetWorld()->GetTimeSeconds() + 9.1f;
@@ -128,25 +116,24 @@ void UUTFlagRunScoreboard::DrawMinimap(float RenderDelta)
 
 		if (UTPS && UTPS->Team && (EndIntermissionTime > GetWorld()->GetTimeSeconds()) && UTHUDOwner && UTHUDOwner->UTPlayerOwner)
 		{
-			// draw round information
-			const bool bIsOnDefense = GS->IsTeamOnDefenseNextRound(UTPS->Team->TeamIndex);
-			int32 NumLines = bIsOnDefense ? DefendLines.Num() : AttackLines.Num();
-			bool bIsAfterFirstRound = !IsBeforeFirstRound();
-			float Height = bIsAfterFirstRound ? RenderScale * 80.f : RenderScale * (80.f + 32.f*NumLines);
-			DrawTexture(UTHUDOwner->ScoreboardAtlas, LeftCorner.X + 0.04f*MapSize, LeftCorner.Y, 0.92f*MapSize, Height, 149, 138, 32, 32, 0.75f, FLinearColor::Black);
-
-			FText Title = bIsOnDefense ? DefendTitle : AttackTitle;
-			float TextYPos = LeftCorner.Y + 16.f*RenderScale;
-			FFormatNamedArguments Args;
-			Args.Add("RoundNum", FText::AsNumber(bIsAfterFirstRound ? GS->CTFRound+1 : 1));
-			Args.Add("NumRounds", FText::AsNumber(GS->NumRounds));
-			FText FormattedTitle = FText::Format(Title, Args);
-			DrawText(FormattedTitle, MinimapCenter.X*Canvas->ClipX, TextYPos, UTHUDOwner->MediumFont, RenderScale, 1.0f, FLinearColor::White, ETextHorzPos::Center, ETextVertPos::Center);
-			float TextXPos = MinimapCenter.X*Canvas->ClipX - 0.45f*MapSize;
-			TextYPos += 48.f*RenderScale;
-
-			if (!bIsAfterFirstRound)
+			if (IsBeforeFirstRound())
 			{
+				// draw round information
+				const bool bIsOnDefense = GS->IsTeamOnDefenseNextRound(UTPS->Team->TeamIndex);
+				int32 NumLines = bIsOnDefense ? DefendLines.Num() : AttackLines.Num();
+				float Height = RenderScale * (80.f + 32.f*NumLines);
+				DrawTexture(UTHUDOwner->ScoreboardAtlas, LeftCorner.X + 0.04f*MapSize, LeftCorner.Y, 0.92f*MapSize, Height, 149, 138, 32, 32, 0.75f, FLinearColor::Black);
+
+				FText Title = bIsOnDefense ? DefendTitle : AttackTitle;
+				float TextYPos = LeftCorner.Y + 16.f*RenderScale;
+				FFormatNamedArguments Args;
+				Args.Add("RoundNum", FText::AsNumber(1));
+				Args.Add("NumRounds", FText::AsNumber(GS->NumRounds));
+				FText FormattedTitle = FText::Format(Title, Args);
+				DrawText(FormattedTitle, MinimapCenter.X*Canvas->ClipX, TextYPos, UTHUDOwner->MediumFont, RenderScale, 1.0f, FLinearColor::White, ETextHorzPos::Center, ETextVertPos::Center);
+				float TextXPos = MinimapCenter.X*Canvas->ClipX - 0.45f*MapSize;
+				TextYPos += 48.f*RenderScale;
+
 				int32 DisplayedParagraphs = 9 - int32(EndIntermissionTime - GetWorld()->GetTimeSeconds());
 				int32 CountedParagraphs = 0;
 				int32 LastParStart = 0;
@@ -180,10 +167,19 @@ void UUTFlagRunScoreboard::DrawMinimap(float RenderDelta)
 					TextYPos += 32.f*RenderScale;
 				}
 			}
+			else if (DefaultGame && (GS->GetScoringPlays().Num() > 0))
+			{
+				float Height = 0.5f*Canvas->ClipY;
+				float ScoreWidth = 0.92f*MapSize;
+				float YPos = LeftCorner.Y;
+				float PageBottom = YPos + 0.1f*Canvas->ClipY;
+				DrawScoringSummary(RenderDelta, YPos, LeftCorner.X + 0.04f*MapSize, 0.9f*ScoreWidth, PageBottom);
+				LeftCorner.Y += 0.15f*Canvas->ClipY;
+			}
 		}
 		else if (GS->GetScoringPlays().Num() > 0)
 		{
-			// draw scoring plays - FIXMESTEVE show summary always
+			// draw scoring plays
 			float ScoreWidth = 0.92f*MapSize;
 			float PageBottom = LeftCorner.Y + 0.5f*Canvas->ClipY;
 			if (GS && (GS->CTFRound < 4))
@@ -450,6 +446,7 @@ void UUTFlagRunScoreboard::DrawScoringSummary(float DeltaTime, float& YPos, floa
 	{
 		return;
 	}
+
 	FFontRenderInfo TextRenderInfo;
 	TextRenderInfo.bEnableShadow = true;
 	TextRenderInfo.bClipText = true;
@@ -474,13 +471,24 @@ void UUTFlagRunScoreboard::DrawScoringSummary(float DeltaTime, float& YPos, floa
 	Canvas->TextSize(UTHUDOwner->MediumFont, CurrentScoreText.ToString(), ScoringOffsetX, ScoringOffsetY, RenderScale, RenderScale);
 
 	FLinearColor DrawColor = FLinearColor::White;
-	float CurrentScoreHeight = (GS->CTFRound >= GS->NumRounds - 2) ? 3.f*ScoringOffsetY : 2.f*ScoringOffsetY;
+	float CurrentScoreHeight = (GS->CTFRound >= GS->NumRounds - 2) ? 4.f*ScoringOffsetY : 3.f*ScoringOffsetY;
 	Canvas->SetLinearDrawColor(FLinearColor::Black);
 	float FrameWidth = 8.f * RenderScale;
 	DrawTexture(UTHUDOwner->ScoreboardAtlas, XOffset - FrameWidth, YPos - FrameWidth, 1.11f*ScoreWidth + 2.f*FrameWidth, CurrentScoreHeight+2.f*FrameWidth, 149, 138, 32, 32, 0.75f, FLinearColor::Black);
 	Canvas->SetLinearDrawColor(FLinearColor::White);
 	float BackAlpha = 0.3f;
 	DrawTexture(UTHUDOwner->ScoreboardAtlas, XOffset, YPos, 1.11f*ScoreWidth, CurrentScoreHeight, 149, 138, 32, 32, BackAlpha, DrawColor);
+
+	// draw round information
+	AUTPlayerState* UTPS = Cast<AUTPlayerState>(UTPlayerOwner->PlayerState);
+	FText Title = GS->IsTeamOnDefenseNextRound(UTPS->Team->TeamIndex) ? DefendTitle : AttackTitle;
+	Args.Add("RoundNum", FText::AsNumber(IsBeforeFirstRound() ? 1 : GS->CTFRound + 1));
+	Args.Add("NumRounds", FText::AsNumber(GS->NumRounds));
+	FText FormattedTitle = FText::Format(Title, Args);
+	float TitleX, TitleY;
+	Canvas->TextSize(UTHUDOwner->MediumFont, FormattedTitle.ToString(), TitleX, TitleY, RenderScale, RenderScale);
+	Canvas->DrawText(UTHUDOwner->MediumFont, FormattedTitle, XOffset + 0.5f*(ScoreWidth - TitleX), YPos, RenderScale, RenderScale, TextRenderInfo);
+	YPos += TitleY;
 
 	float SingleXL, SingleYL;
 	float ScoreX = XOffset + 0.5f*(ScoreWidth - ScoringOffsetX);
