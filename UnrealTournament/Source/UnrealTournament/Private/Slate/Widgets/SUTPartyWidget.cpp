@@ -114,72 +114,71 @@ void SUTPartyWidget::AddRankedPlaylistButtons()
 			int32 NumPlaylists = UTGameInstance->GetPlaylistManager()->GetNumPlaylists();
 			for (int32 i = 0; i < NumPlaylists; i++)
 			{
-				if (UTLP->IsRankedMatchmakingEnabled(i))
+				FString PlaylistName;
+				int32 MaxTeamCount, MaxTeamSize, MaxPartySize, PlaylistId;
+
+				if (UTGameInstance->GetPlaylistManager()->GetPlaylistId(i, PlaylistId) &&
+					UTLP->IsRankedMatchmakingEnabled(PlaylistId) &&
+					UTGameInstance->GetPlaylistManager()->GetPlaylistName(PlaylistId, PlaylistName) &&
+					UTGameInstance->GetPlaylistManager()->GetMaxTeamInfoForPlaylist(PlaylistId, MaxTeamCount, MaxTeamSize, MaxPartySize))
 				{
-					FString PlaylistName;
-					int32 MaxTeamCount, MaxTeamSize, MaxPartySize;
+					FString PlaylistPlayerCount = FString::Printf(TEXT("%dv%d"), MaxTeamSize, MaxTeamSize);
 
-					if (UTGameInstance->GetPlaylistManager()->GetPlaylistName(i, PlaylistName) &&
-						UTGameInstance->GetPlaylistManager()->GetMaxTeamInfoForPlaylist(i, MaxTeamCount, MaxTeamSize, MaxPartySize))
-					{
-						FString PlaylistPlayerCount = FString::Printf(TEXT("%dv%d"), MaxTeamSize, MaxTeamSize);
-
-						PartyMemberBox->AddSlot()
-						.Padding(FMargin(2.0f, 0.0f))
+					PartyMemberBox->AddSlot()
+					.Padding(FMargin(2.0f, 0.0f))
+					[
+						SNew(SUTButton)
+						.ButtonStyle(SUTStyle::Get(), "UT.Button.MenuBar")
+						.OnClicked(FOnClicked::CreateSP(this, &SUTPartyWidget::OnStartRankedPlaylist, PlaylistId))
 						[
-							SNew(SUTButton)
-							.ButtonStyle(SUTStyle::Get(), "UT.Button.MenuBar")
-							.OnClicked(FOnClicked::CreateSP(this, &SUTPartyWidget::OnStartRankedPlaylist, i))
+							SNew(SOverlay)
+							+ SOverlay::Slot()
 							[
-								SNew(SOverlay)
-								+ SOverlay::Slot()
+								SNew(SBox)
+								.WidthOverride(128)
+								.HeightOverride(128)
 								[
-									SNew(SBox)
-									.WidthOverride(128)
-									.HeightOverride(128)
-									[
-										SNew(SImage)
-										.Image(SUTStyle::Get().GetBrush("UT.HeaderBackground.Dark"))
-									]
+									SNew(SImage)
+									.Image(SUTStyle::Get().GetBrush("UT.HeaderBackground.Dark"))
 								]
-								+ SOverlay::Slot()
+							]
+							+ SOverlay::Slot()
+							[
+								SNew(SBox)
+								.WidthOverride(128)
+								.HeightOverride(128)
 								[
-									SNew(SBox)
-									.WidthOverride(128)
-									.HeightOverride(128)
+									SNew(SVerticalBox)
+									+SVerticalBox::Slot()
+									.HAlign(HAlign_Center)
+									.VAlign(VAlign_Center)
 									[
-										SNew(SVerticalBox)
-										+SVerticalBox::Slot()
-										.HAlign(HAlign_Center)
-										.VAlign(VAlign_Center)
-										[
-											SNew(STextBlock)
-											.Text(FText::FromString(TEXT("Ranked")))
-											.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small.Bold")
-										]
-										+SVerticalBox::Slot()
-										.HAlign(HAlign_Center)
-										.VAlign(VAlign_Center)
-										.Padding(0, 0)
-										[
-											SNew(STextBlock)
-											.Text(FText::FromString(PlaylistName))
-											.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small.Bold")
-										]
-										+SVerticalBox::Slot()
-										.HAlign(HAlign_Center)
-										.VAlign(VAlign_Center)
-										.Padding(0, 10)
-										[
-											SNew(STextBlock)
-											.Text(FText::FromString(PlaylistPlayerCount))
-											.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium.Bold")
-										]
+										SNew(STextBlock)
+										.Text(FText::FromString(TEXT("Ranked")))
+										.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small.Bold")
+									]
+									+SVerticalBox::Slot()
+									.HAlign(HAlign_Center)
+									.VAlign(VAlign_Center)
+									.Padding(0, 0)
+									[
+										SNew(STextBlock)
+										.Text(FText::FromString(PlaylistName))
+										.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small.Bold")
+									]
+									+SVerticalBox::Slot()
+									.HAlign(HAlign_Center)
+									.VAlign(VAlign_Center)
+									.Padding(0, 10)
+									[
+										SNew(STextBlock)
+										.Text(FText::FromString(PlaylistPlayerCount))
+										.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium.Bold")
 									]
 								]
 							]
-						];
-					}
+						]
+					];					
 				}
 			}
 		}

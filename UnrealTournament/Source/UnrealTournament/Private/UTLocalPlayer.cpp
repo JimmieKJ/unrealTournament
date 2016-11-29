@@ -3406,15 +3406,15 @@ void UUTLocalPlayer::StartQuickMatch(FString QuickMatchType)
 			int32 NewPlaylistId = 0;
 			if (QuickMatchType == EEpicDefaultRuleTags::Deathmatch)
 			{
-				NewPlaylistId = 4;
+				NewPlaylistId = 5;
 			}
 			else if (QuickMatchType == EEpicDefaultRuleTags::CTF)
 			{
-				NewPlaylistId = 3;
+				NewPlaylistId = 4;
 			}
 			else if (QuickMatchType == EEpicDefaultRuleTags::TEAMSHOWDOWN)
 			{
-				NewPlaylistId = 5;
+				NewPlaylistId = 6;
 			}
 			else
 			{

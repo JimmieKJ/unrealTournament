@@ -58,6 +58,8 @@ public:
 
 	int32 GetNumPlaylists() { return Playlist.Num(); }
 
+	bool GetPlaylistId(int32 PlaylistIndex, int32& PlaylistId);
+
 	bool GetPlaylistName(int32 PlaylistId, FString& OutPlaylistName);
 
 	bool GetGameModeForPlaylist(int32 PlaylistId, FString& GameMode);
