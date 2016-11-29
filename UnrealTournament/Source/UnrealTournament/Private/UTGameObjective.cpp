@@ -77,7 +77,7 @@ void AUTGameObjective::GenerateDefensePoints()
 		for (const UUTPathNode* Node : AllNodes)
 		{
 			bool bGotChoice = false;
-			if (Node != MyNode)
+			if (Node != MyNode && !Node->bDestinationOnly)
 			{
 				for (NavNodeRef TestPoly : Node->Polys)
 				{
