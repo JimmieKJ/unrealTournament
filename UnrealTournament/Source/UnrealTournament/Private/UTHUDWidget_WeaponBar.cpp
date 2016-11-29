@@ -82,7 +82,11 @@ void UUTHUDWidget_WeaponBar::UpdateGroups(AUTHUD* Hud)
 	KnownWeaponMap.Empty();
 	KnownWeaponMap.SetNumZeroed(11);
 
-	AUTGameMode* DefaultGameModeObject = UTGameState ? UTGameState->GetGameModeClass()->GetDefaultObject<AUTGameMode>() : nullptr;
+	AUTGameMode* DefaultGameModeObject = nullptr;
+	if (UTGameState && UTGameState->GetGameModeClass())
+	{
+		UTGameState->GetGameModeClass()->GetDefaultObject<AUTGameMode>();
+	}
 
 	// grant all weapons that are in memory
 	for (TObjectIterator<UClass> It; It; ++It)
