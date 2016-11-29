@@ -390,7 +390,7 @@ struct UNREALTOURNAMENT_API FLocalizedMessageData
 	UPROPERTY()
 		FAnnouncementInfo AnnouncementInfo;
 
-	virtual bool ShouldDraw_Implementation(bool bShowScores)
+	bool ShouldDraw_Implementation(bool bShowScores)
 	{
 		return bShowScores;
 	}
@@ -412,7 +412,6 @@ struct UNREALTOURNAMENT_API FLocalizedMessageData
 	{
 		UMGWidget.Reset();
 	}
-
 };
 
 USTRUCT(BlueprintType)
