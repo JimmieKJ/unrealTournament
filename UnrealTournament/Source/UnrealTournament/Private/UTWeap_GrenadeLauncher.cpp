@@ -117,7 +117,10 @@ void AUTWeap_GrenadeLauncher::OnRep_HasStickyGrenades()
 {
 	if (bHasStickyGrenades)
 	{
-		ShowDetonatorUI();
+		if (CurrentState != InactiveState)
+		{
+			ShowDetonatorUI();
+		}
 	}
 	else
 	{
