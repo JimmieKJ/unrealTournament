@@ -1227,7 +1227,7 @@ void AUTBot::DisplayDebug(UCanvas* Canvas, const FDebugDisplayInfo& DebugDisplay
 	Super::DisplayDebug(Canvas, DebugDisplay, YL, YPos);
 
 	Canvas->SetDrawColor(0, 255, 0);
-	Canvas->DrawText(GEngine->GetSmallFont(), FString::Printf(TEXT("ORDERS: %s"), *Squad->GetCurrentOrders(this).ToString()), 4.0f, YPos);
+	Canvas->DrawText(GEngine->GetSmallFont(), FString::Printf(TEXT("ORDERS: %s"), (Squad != nullptr) ? *Squad->GetCurrentOrders(this).ToString() : TEXT("NO SQUAD")), 4.0f, YPos);
 	YPos += YL;
 	Canvas->DrawText(GEngine->GetSmallFont(), GoalString, 4.0f, YPos);
 	YPos += YL;
