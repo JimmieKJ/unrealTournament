@@ -122,8 +122,11 @@ void UUTFlagRunScoreboard::DrawMinimap(float RenderDelta)
 			int32 MessageIndex = IsBeforeFirstRound() ? 2001 : GS->CTFRound + 2001;
 			UTPlayerOwner->ClientReceiveLocalizedMessage(UUTCountDownMessage::StaticClass(), MessageIndex);
 			UTPlayerOwner->ClientReceiveLocalizedMessage(UUTCTFRoleMessage::StaticClass(), bIsOnDefense ? 2 : 1);
+			if (GS->FlagRunMessageTeam)
+			{
+				UTPlayerOwner->ClientReceiveLocalizedMessage(UUTFlagRunMessage::StaticClass(), GS->FlagRunMessageSwitch, nullptr, nullptr, GS->FlagRunMessageTeam);
+			}
 		}
-
 		if (UTPS && UTPS->Team && (EndIntermissionTime > GetWorld()->GetTimeSeconds()) && UTHUDOwner && UTHUDOwner->UTPlayerOwner)
 		{
 			if (IsBeforeFirstRound())
@@ -556,7 +559,7 @@ void UUTFlagRunScoreboard::DrawScoringSummary(float DeltaTime, float& YPos, floa
 	AUTFlagRunHUD* FRHUD = Cast<AUTFlagRunHUD>(UTHUDOwner);
 	if (FRHUD)
 	{
-		FRHUD->DrawWinConditions(UTHUDOwner->SmallFont, XOffset, YPos, ScoreWidth, RenderScale, true);
+		FRHUD->DrawWinConditions(UTHUDOwner->MediumFont, XOffset, YPos, ScoreWidth, RenderScale, true);
 	}
 }
 

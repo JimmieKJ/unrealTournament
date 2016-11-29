@@ -67,7 +67,6 @@ void AUTFlagRunHUD::NotifyMatchStateChange()
 	AUTFlagRunGameState* GS = Cast<AUTFlagRunGameState>(GetWorld()->GetGameState());
 	if (GS && GS->GetMatchState() == MatchState::InProgress && GS->FlagRunMessageTeam && UTPlayerOwner)
 	{
-		UTPlayerOwner->ClientReceiveLocalizedMessage(UUTFlagRunMessage::StaticClass(), GS->FlagRunMessageSwitch, nullptr, nullptr, GS->FlagRunMessageTeam);
 		WinConditionMessageTime = 5.f;
 		ScoreMessageText = MustScoreText;
 	}
