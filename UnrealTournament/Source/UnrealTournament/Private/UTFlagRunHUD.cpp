@@ -46,7 +46,6 @@ AUTFlagRunHUD::AUTFlagRunHUD(const FObjectInitializer& ObjectInitializer)
 	BlueTeamIcon.UL = 72.f;
 	BlueTeamIcon.VL = 72.f;
 	BlueTeamIcon.Texture = HUDAtlas;
-
 }
 
 void AUTFlagRunHUD::BeginPlay()
@@ -119,7 +118,7 @@ void AUTFlagRunHUD::DrawHUD()
 				LivePlayers.Add(UTPS);
 			}
 		}
-		LivePlayers.Sort([](AUTPlayerState& A, AUTPlayerState& B) { return A.SelectionOrder < B.SelectionOrder; });
+		LivePlayers.Sort([](AUTPlayerState& A, AUTPlayerState& B) { return A.SelectionOrder > B.SelectionOrder; });
 		float XL, YL;
 		Canvas->TextSize(SmallFont, "5", XL, YL);
 		for (AUTPlayerState* UTPS : LivePlayers)
