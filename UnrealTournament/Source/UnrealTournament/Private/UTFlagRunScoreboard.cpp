@@ -10,6 +10,7 @@
 #include "UTFlagRunGame.h"
 #include "UTHUDWidgetAnnouncements.h"
 #include "UTCountDownMessage.h"
+#include "Engine/DemoNetDriver.h"
 
 UUTFlagRunScoreboard::UUTFlagRunScoreboard(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -107,8 +108,25 @@ void UUTFlagRunScoreboard::DrawMinimap(float RenderDelta)
 	{
 		if (DefaultGame && (GS->IntermissionTime > DefaultGame->IntermissionDuration - GS->HalftimeScoreDelay))
 		{
+			bNeedReplay = !IsBeforeFirstRound();
 			return;
 		}
+		if (bNeedReplay && GS->ScoringPlayerState)
+		{
+			bNeedReplay = false;
+			if (GetWorld()->DemoNetDriver)
+			{
+				AUTCharacter* PawnToFocus = GS->ScoringPlayerState->GetUTCharacter();
+				FNetworkGUID FocusPawnGuid = GetWorld()->DemoNetDriver->GetGUIDForActor(PawnToFocus);
+				UTPlayerOwner->OnKillcamStart(FocusPawnGuid, 10.0f);
+				GetWorld()->GetTimerManager().SetTimer(
+					UTPlayerOwner->KillcamStopHandle,
+					FTimerDelegate::CreateUObject(UTPlayerOwner, &AUTPlayerController::ClientStopKillcam),
+					10.5f - GS->HalftimeScoreDelay,
+					false);
+			}
+		}
+
 		const float MapSize = (UTGameState && UTGameState->bTeamGame) ? FMath::Min(Canvas->ClipX - 2.f*ScaledEdgeSize - 2.f*ScaledCellWidth, 0.9f*Canvas->ClipY - 120.f * RenderScale)
 			: FMath::Min(0.5f*Canvas->ClipX, 0.9f*Canvas->ClipY - 120.f * RenderScale);
 		float MapYPos = (LastScorePanelYOffset > 0.f) ? LastScorePanelYOffset - 2.f : 0.25f*Canvas->ClipY;

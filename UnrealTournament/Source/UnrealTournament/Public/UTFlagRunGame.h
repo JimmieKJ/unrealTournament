@@ -79,7 +79,7 @@ public:
 		FName LastDefenderSpawnGroup;
 
 	virtual class AActor* FindPlayerStart_Implementation(AController* Player, const FString& IncomingName = TEXT("")) override;
-	virtual void AnnounceWin(AUTTeamInfo* WinningTeam, uint8 Reason) override;
+	virtual void AnnounceWin(AUTTeamInfo* WinningTeam, APlayerState* ScoringPlayer, uint8 Reason) override;
 	virtual void NotifyFirstPickup(AUTCarriedObject* Flag) override;
 
 	virtual void InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage) override;

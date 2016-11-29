@@ -1184,7 +1184,7 @@ void AUTCTFRoundGame::ScoreBlueAlternateWin()
 * @Comments
 */
 
-void AUTCTFRoundGame::AnnounceWin(AUTTeamInfo* WinningTeam, uint8 Reason)
+void AUTCTFRoundGame::AnnounceWin(AUTTeamInfo* WinningTeam, APlayerState* ScoringPlayer, uint8 Reason)
 {
 	BroadcastLocalized(NULL, UUTShowdownGameMessage::StaticClass(), 3 + WinningTeam->TeamIndex);
 }
@@ -1231,7 +1231,7 @@ void AUTCTFRoundGame::ScoreAlternateWin(int32 WinningTeamIndex, uint8 Reason)
 
 		WinningTeam->ForceNetUpdate();
 		LastTeamToScore = WinningTeam;
-		AnnounceWin(WinningTeam, Reason);
+		AnnounceWin(WinningTeam, nullptr, Reason);
 		CheckForWinner(LastTeamToScore);
 		if (UTGameState->IsMatchInProgress())
 		{

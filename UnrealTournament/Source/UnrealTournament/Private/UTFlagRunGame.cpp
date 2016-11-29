@@ -121,7 +121,7 @@ int32 AUTFlagRunGame::GetFlagCapScore()
 	return BronzeScore;
 }
 
-void AUTFlagRunGame::AnnounceWin(AUTTeamInfo* WinningTeam, uint8 Reason)
+void AUTFlagRunGame::AnnounceWin(AUTTeamInfo* WinningTeam, APlayerState* ScoringPlayer, uint8 Reason)
 {
 	if (Reason == 0)
 	{
@@ -135,28 +135,18 @@ void AUTFlagRunGame::AnnounceWin(AUTTeamInfo* WinningTeam, uint8 Reason)
 			BonusType = 200 + SilverScore;
 		}
 		BroadcastLocalized(this, UUTCTFRewardMessage::StaticClass(), BonusType, nullptr, nullptr, WinningTeam);
+		BroadcastLocalized(this, UUTCTFGameMessage::StaticClass(), 2, ScoringPlayer, NULL, WinningTeam);
 	}
 	else
 	{
 		BroadcastLocalized(this, UUTCTFRewardMessage::StaticClass(), 400, nullptr, nullptr, WinningTeam);
+		BroadcastLocalized(NULL, UUTShowdownGameMessage::StaticClass(), 3 + WinningTeam->TeamIndex);
 	}
-	BroadcastLocalized(NULL, UUTShowdownGameMessage::StaticClass(), 3 + WinningTeam->TeamIndex);
 }
 
 void AUTFlagRunGame::BroadcastCTFScore(APlayerState* ScoringPlayer, AUTTeamInfo* ScoringTeam, int32 OldScore)
 {
-	int32 BonusType = 100 + BronzeScore;
-	if (ScoringTeam->RoundBonus >= GoldBonusTime)
-	{
-		BonusType = 300 + GoldScore;
-	}
-	else if (ScoringTeam->RoundBonus >= SilverBonusTime)
-	{
-		BonusType = 200 + SilverScore;
-	}
-
-	BroadcastLocalized(this, UUTCTFRewardMessage::StaticClass(), BonusType, ScoringPlayer, NULL, ScoringTeam);
-	BroadcastLocalized(this, UUTCTFGameMessage::StaticClass(), 2, ScoringPlayer, NULL, ScoringTeam);
+	AnnounceWin(ScoringTeam, ScoringPlayer, OldScore);
 }
 
 void AUTFlagRunGame::InitGameStateForRound()
@@ -1087,15 +1077,6 @@ void AUTFlagRunGame::ScoreObject_Implementation(AUTCarriedObject* GameObject, AU
 		FUTAnalytics::FireEvent_FlagRunRoundEnd(this, false, (UTGameState->WinningTeam != nullptr));
 	}
 	PrepareForIntermission();
-
-	for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
-	{
-		AUTPlayerController* UTPC = Cast<AUTPlayerController>(*Iterator);
-		if (UTPC)
-		{
-			UTPC->ClientPlayInstantReplay(HolderPawn, 10.0f, 2.5f);
-		}
-	}
 
 	if (UTGameState)
 	{

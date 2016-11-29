@@ -47,6 +47,9 @@ class UNREALTOURNAMENT_API UUTFlagRunScoreboard : public UUTCTFScoreboard
 		bool bFullListPlayed;
 
 	UPROPERTY()
+		bool bNeedReplay;
+
+	UPROPERTY()
 		USoundBase* LineDisplaySound;
 
 protected:

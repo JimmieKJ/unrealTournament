@@ -100,7 +100,7 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 
 	virtual void RemoveLosers(int32 LoserTeam, int32 FlagTeam);
 
-	virtual void AnnounceWin(AUTTeamInfo* WinningTeam, uint8 Reason);
+	virtual void AnnounceWin(AUTTeamInfo* WinningTeam, APlayerState* ScoringPlayer, uint8 Reason);
 
 	virtual void CheckRoundTimeVictory();
 
