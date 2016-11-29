@@ -9,6 +9,7 @@
 #include "UTCTFRoleMessage.h"
 #include "UTFlagRunGame.h"
 #include "UTHUDWidgetAnnouncements.h"
+#include "UTCountDownMessage.h"
 
 UUTFlagRunScoreboard::UUTFlagRunScoreboard(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -70,11 +71,11 @@ void UUTFlagRunScoreboard::DrawScorePanel(float RenderDelta, float& YOffset)
 		return;
 	}
 	bool bMatchAboutToStart = (GS->GetMatchState() == MatchState::CountdownToBegin) || (GS->GetMatchState() == MatchState::PlayerIntro);
-	bool bLateIntermission = GS->IsMatchIntermission() && ((GS->IntermissionTime > DefaultGame->IntermissionDuration - GS->HalftimeScoreDelay) || IsBeforeFirstRound());
-	if (bLateIntermission || bMatchAboutToStart)
+	bool bShowScoringInfo = GS->IsMatchIntermission() && (GS->IntermissionTime > DefaultGame->IntermissionDuration - GS->HalftimeScoreDelay);
+	if (bShowScoringInfo || bMatchAboutToStart)
 	{
 		LastScorePanelYOffset = 0.f;
-		if (UTHUDOwner && UTHUDOwner->AnnouncementWidget)
+		if (bShowScoringInfo && UTHUDOwner && UTHUDOwner->AnnouncementWidget)
 		{
 			UTHUDOwner->AnnouncementWidget->PreDraw(0.f, UTHUDOwner, Canvas, CanvasCenter);
 			UTHUDOwner->AnnouncementWidget->Draw(RenderDelta);
@@ -120,6 +121,8 @@ void UUTFlagRunScoreboard::DrawMinimap(float RenderDelta)
 			OldDisplayedParagraphs = 0;
 			bFullListPlayed = false;
 			bool bIsOnDefense = UTPS && UTPS->Team && GS->IsTeamOnDefenseNextRound(UTPS->Team->TeamIndex);
+			int32 MessageIndex = IsBeforeFirstRound() ? 2001 : GS->CTFRound + 2001;
+			UTPlayerOwner->ClientReceiveLocalizedMessage(UUTCountDownMessage::StaticClass(), MessageIndex);
 			UTPlayerOwner->ClientReceiveLocalizedMessage(UUTCTFRoleMessage::StaticClass(), bIsOnDefense ? 2 : 1);
 		}
 

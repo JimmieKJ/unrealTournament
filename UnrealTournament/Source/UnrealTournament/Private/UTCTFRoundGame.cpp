@@ -8,7 +8,6 @@
 #include "UTCTFRewardMessage.h"
 #include "UTCTFMajorMessage.h"
 #include "UTFirstBloodMessage.h"
-#include "UTCountDownMessage.h"
 #include "UTPickup.h"
 #include "UTGameMessage.h"
 #include "UTMutator.h"
@@ -78,7 +77,6 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 	bSitOutDuringRound = false;
 	bSlowFlagCarrier = false;
 	EndOfMatchMessageDelay = 2.5f;
-	bHaveAnnouncedRound = false;
 	bUseLevelTiming = true;
 }
 
@@ -704,7 +702,6 @@ void AUTCTFRoundGame::InitRound()
 {
 	FlagScorer = nullptr;
 	bFirstBloodOccurred = false;
-	bHaveAnnouncedRound = false;
 	bLastManOccurred = false;
 	bNeedFiveKillsMessage = true;
 	InitGameStateForRound();
@@ -1300,12 +1297,6 @@ void AUTCTFRoundGame::CheckGameTime()
 	AUTCTFRoundGameState* RCTFGameState = Cast<AUTCTFRoundGameState>(CTFGameState);
 	if (CTFGameState->IsMatchIntermission())
 	{
-		if (RCTFGameState && !bHaveAnnouncedRound && (RCTFGameState->IntermissionTime == 3))
-		{
-			int32 MessageIndex = bFirstRoundInitialized ? RCTFGameState->CTFRound + 2001 : 2001;
-			BroadcastLocalized(this, UUTCountDownMessage::StaticClass(), MessageIndex, NULL, NULL, NULL);
-			bHaveAnnouncedRound = true;
-		}
 		if (RCTFGameState && (RCTFGameState->IntermissionTime <= 0))
 		{
 			SetMatchState(MatchState::MatchExitingIntermission);

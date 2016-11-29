@@ -8,7 +8,6 @@
 #include "UTCTFRewardMessage.h"
 #include "UTCTFMajorMessage.h"
 #include "UTFirstBloodMessage.h"
-#include "UTCountDownMessage.h"
 #include "UTPickup.h"
 #include "UTGameMessage.h"
 #include "UTMutator.h"
