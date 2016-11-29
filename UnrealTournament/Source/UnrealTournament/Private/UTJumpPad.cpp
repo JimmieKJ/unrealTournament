@@ -5,7 +5,6 @@
 #include "MessageLog.h"
 #include "UObjectToken.h"
 #include "MapErrors.h"
-#include "AI/Navigation/NavAreas/NavArea_Default.h"
 #include "AI/NavigationSystemHelpers.h"
 #include "AI/NavigationOctree.h"
 #include "UTReachSpec_JumpPad.h"
@@ -411,5 +410,7 @@ void AUTJumpPad::CheckForErrors()
 void AUTJumpPad::GetNavigationData(FNavigationRelevantData& Data) const
 {
 	// the modifier doesn't actually affect costs or reachability but simply causes the poly generation to split around the jump pad's bounds, so it has its own nav mesh region we can put a PathNode on without affecting adjacent areas
-	Data.Modifiers.Add(FAreaNavModifier(GetNavigationBounds().GetExtent(), ActorToWorld(), UUTNavArea_Default::StaticClass()));
+	FTransform ModTransform = ActorToWorld();
+	ModTransform.RemoveScaling();
+	Data.Modifiers.Add(FAreaNavModifier(GetNavigationBounds().GetExtent(), ModTransform, UUTNavArea_Default::StaticClass()));
 }

@@ -7,7 +7,7 @@
 #include "UTTeamPathBlocker.generated.h"
 
 UCLASS(Abstract, Blueprintable)
-class UNREALTOURNAMENT_API AUTTeamPathBlocker : public AActor, public IUTPathBuilderInterface
+class UNREALTOURNAMENT_API AUTTeamPathBlocker : public AActor, public IUTPathBuilderInterface, public INavRelevantInterface
 {
 	GENERATED_BODY()
 public:
@@ -40,5 +40,12 @@ public:
 	virtual bool IsDestinationOnly() const
 	{
 		return true;
+	}
+
+	virtual void GetNavigationData(FNavigationRelevantData& Data) const override;
+	virtual FBox GetNavigationBounds() const override
+	{
+		FVector Extent = GetSimpleCollisionCylinderExtent();
+		return FBox(GetActorLocation() - Extent, GetActorLocation() + Extent);
 	}
 };

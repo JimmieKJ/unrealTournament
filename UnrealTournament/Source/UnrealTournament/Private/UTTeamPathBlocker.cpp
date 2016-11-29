@@ -3,6 +3,9 @@
 #include "UTRecastNavMesh.h"
 #include "UTReachSpec_Team.h"
 #include "UObjectToken.h"
+#include "AI/NavigationSystemHelpers.h"
+#include "AI/NavigationOctree.h"
+#include "UTNavArea_Default.h"
 
 void AUTTeamPathBlocker::AddSpecialPaths(class UUTPathNode* MyNode, class AUTRecastNavMesh* NavData)
 {
@@ -59,4 +62,12 @@ bool AUTTeamPathBlocker::IsAllowedThrough_Implementation(uint8 TeamNum)
 USceneComponent* AUTTeamPathBlocker::GetBlockingComponent_Implementation() const
 {
 	return nullptr;
+}
+
+void AUTTeamPathBlocker::GetNavigationData(FNavigationRelevantData& Data) const
+{
+	// the modifier doesn't actually affect costs or reachability but simply causes the poly generation to split around the jump pad's bounds, so it has its own nav mesh region we can put a PathNode on without affecting adjacent areas
+	FTransform ModTransform = ActorToWorld();
+	ModTransform.RemoveScaling();
+	Data.Modifiers.Add(FAreaNavModifier(GetNavigationBounds().GetExtent(), ModTransform, UUTNavArea_Default::StaticClass()));
 }
