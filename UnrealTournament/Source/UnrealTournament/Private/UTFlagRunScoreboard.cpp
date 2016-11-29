@@ -59,22 +59,32 @@ UUTFlagRunScoreboard::UUTFlagRunScoreboard(const FObjectInitializer& ObjectIniti
 bool UUTFlagRunScoreboard::IsBeforeFirstRound()
 {
 	AUTFlagRunGameState* GS = GetWorld()->GetGameState<AUTFlagRunGameState>();
-	return !GS || (GS->GetScoringPlays().Num() == 0);
+	return !GS || ((GS->GetScoringPlays().Num() == 0) && !GS->HasMatchStarted());
+}
+
+bool UUTFlagRunScoreboard::ShowScorePanel()
+{
+	AUTFlagRunGameState* GS = GetWorld()->GetGameState<AUTFlagRunGameState>();
+	AUTFlagRunGame* DefaultGame = GS && GS->GameModeClass ? GS->GameModeClass->GetDefaultObject<AUTFlagRunGame>() : nullptr;
+	if (!DefaultGame || (GS->GetMatchState() == MatchState::CountdownToBegin) || (GS->GetMatchState() == MatchState::PlayerIntro))
+	{
+		return false;
+	}
+	return GS->IsMatchIntermission() ? (!IsBeforeFirstRound() && (GS->IntermissionTime < DefaultGame->IntermissionDuration - GS->HalftimeScoreDelay) && (EndIntermissionTime < GetWorld()->GetTimeSeconds())) : true;
 }
 
 void UUTFlagRunScoreboard::DrawScorePanel(float RenderDelta, float& YOffset)
 {
-	AUTFlagRunGameState* GS = GetWorld()->GetGameState<AUTFlagRunGameState>();
-	AUTFlagRunGame* DefaultGame = GS && GS->GameModeClass ? GS->GameModeClass->GetDefaultObject<AUTFlagRunGame>() : nullptr;
-	if (!DefaultGame)
+	if (!ShowScorePanel())
 	{
-		return;
-	}
-	bool bMatchAboutToStart = (GS->GetMatchState() == MatchState::CountdownToBegin) || (GS->GetMatchState() == MatchState::PlayerIntro);
-	bool bShowScoringInfo = GS->IsMatchIntermission() && (GS->IntermissionTime > DefaultGame->IntermissionDuration - GS->HalftimeScoreDelay);
-	if (bShowScoringInfo || bMatchAboutToStart)
-	{
-		LastScorePanelYOffset = 0.f;
+		LastScorePanelYOffset = YOffset;
+		AUTFlagRunGameState* GS = GetWorld()->GetGameState<AUTFlagRunGameState>();
+		AUTFlagRunGame* DefaultGame = GS && GS->GameModeClass ? GS->GameModeClass->GetDefaultObject<AUTFlagRunGame>() : nullptr;
+		if (!DefaultGame)
+		{
+			return;
+		}
+		bool bShowScoringInfo = GS->IsMatchIntermission() && !IsBeforeFirstRound() && (GS->IntermissionTime > DefaultGame->IntermissionDuration - GS->HalftimeScoreDelay);
 		if (bShowScoringInfo && UTHUDOwner && UTHUDOwner->AnnouncementWidget)
 		{
 			UTHUDOwner->AnnouncementWidget->PreDraw(0.f, UTHUDOwner, Canvas, CanvasCenter);
@@ -181,12 +191,8 @@ void UUTFlagRunScoreboard::DrawMinimap(float RenderDelta)
 		{
 			// draw scoring plays
 			float ScoreWidth = 0.92f*MapSize;
-			float PageBottom = LeftCorner.Y + 0.5f*Canvas->ClipY;
-			if (GS && (GS->CTFRound < 4))
-			{
-				PageBottom -= (GS->CTFRound < 2) ? 0.1f*Canvas->ClipY : 0.05f*Canvas->ClipY;
-			}
-			float MaxHeight = 0.45f*Canvas->ClipY;
+			float MaxHeight = GS->CTFRound * 0.08f * Canvas->ClipY;
+			float PageBottom = LeftCorner.Y + MaxHeight;
 			FLinearColor PageColor = FLinearColor::Black;
 			PageColor.A = 0.5f;
 			float XOffset = LeftCorner.X + 0.04f*MapSize;
@@ -216,6 +222,10 @@ void UUTFlagRunScoreboard::DrawGamePanel(float RenderDelta, float& YOffset)
 
 void UUTFlagRunScoreboard::DrawScoreHeaders(float RenderDelta, float& YOffset)
 {
+	if (!ShowScorePanel())
+	{
+		return;
+	}
 	float XOffset = ScaledEdgeSize;
 	float Height = 23.f*RenderScale;
 
@@ -632,4 +642,5 @@ void UUTFlagRunScoreboard::DrawScoringPlayInfo(const FCTFScoringPlay& Play, floa
 		Canvas->DrawText(UTHUDOwner->TinyFont, BonusLine, ScoreX, YPos, 0.75f*RenderScale, RenderScale, TextRenderInfo);
 	}
 }
+
 
