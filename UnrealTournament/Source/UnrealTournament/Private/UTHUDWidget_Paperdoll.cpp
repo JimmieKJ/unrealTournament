@@ -197,7 +197,7 @@ void UUTHUDWidget_Paperdoll::Draw_Implementation(float DeltaTime)
 		RenderObj_Texture(FlagBackground);
 		if (bPlayerCanRally)
 		{
-			DrawRallyIcon(DeltaTime);		
+			DrawRallyIcon(DeltaTime, GameState ? GameState->CurrentRallyPoint : nullptr);		
 		}
 
 		if (bPlayerCanRally || bShowFlagInfo)
@@ -244,14 +244,15 @@ void UUTHUDWidget_Paperdoll::Draw_Implementation(float DeltaTime)
 	}
 }
 
-void UUTHUDWidget_Paperdoll::DrawRallyIcon(float DeltaTime)
+void UUTHUDWidget_Paperdoll::DrawRallyIcon(float DeltaTime, AUTRallyPoint* RallyPoint)
 {
 	FlagIcon.UVs = RallyIconUVs;
-	FlagIcon.bUseTeamColors = true;
 	FlagIcon.RenderScale = 1.0f;
-
+	float TimeScale = 10.f / (RallyAnimTimers.Num() + 1);
 	for (int32 i = 0; i < RallyAnimTimers.Num(); i++)
 	{
+		FlagIcon.bUseTeamColors = !RallyPoint || (RallyPoint->RallyTimeRemaining > TimeScale * float(RallyAnimTimers.Num()-i));
+
 		RallyAnimTimers[i] += DeltaTime;
 		if (RallyAnimTimers[i] > RALLY_ANIMATION_TIME) RallyAnimTimers[i] = 0;
 		float DrawPosition = (RallyAnimTimers[i] / RALLY_ANIMATION_TIME);

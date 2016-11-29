@@ -680,11 +680,14 @@ void UUTHUDWidget_QuickStats::PingBoostWidget()
 
 void UUTHUDWidget_QuickStats::DrawIconUnderlay(FVector2D StatOffset)
 {
-	RallyFlagIcon.bUseTeamColors = true;
+	AUTFlagRunGameState* GameState = UTHUDOwner->GetWorld()->GetGameState<AUTFlagRunGameState>();
+	AUTRallyPoint* RallyPoint = GameState ? GameState->CurrentRallyPoint : nullptr;
+	float TimeScale = 10.f / (RallyAnimTimers.Num() + 1);
 	RallyFlagIcon.RenderScale = 1.0f;
 
 	for (int32 i = 0; i < RallyAnimTimers.Num(); i++)
 	{
+		RallyFlagIcon.bUseTeamColors = !RallyPoint || (RallyPoint->RallyTimeRemaining > TimeScale * float(RallyAnimTimers.Num() - i));
 		RallyAnimTimers[i] += RenderDelta;
 		if (RallyAnimTimers[i] > RALLY_ANIMATION_TIME) RallyAnimTimers[i] = 0;
 		float DrawPosition = (RallyAnimTimers[i] / RALLY_ANIMATION_TIME);

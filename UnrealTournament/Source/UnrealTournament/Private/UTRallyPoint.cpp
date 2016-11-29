@@ -65,6 +65,7 @@ void AUTRallyPoint::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Out
 	DOREPLIFETIME(AUTRallyPoint, RallyPointState);
 	DOREPLIFETIME(AUTRallyPoint, AmbientSound);
 	DOREPLIFETIME(AUTRallyPoint, ReplicatedCountdown);
+	DOREPLIFETIME(AUTRallyPoint, RallyTimeRemaining);
 }
 
 void AUTRallyPoint::BeginPlay()
@@ -142,10 +143,6 @@ void AUTRallyPoint::GenerateDefensePoints()
 				EnemyBase->DefensePoints.Add(NewPoint);
 			}
 		}
-	}
-	else
-	{
-		UE_LOG(UT, Warning, TEXT("Rally point couldn't find flag base!"))
 	}
 }
 
@@ -523,6 +520,7 @@ void AUTRallyPoint::Tick(float DeltaTime)
 						UUTGameplayStatics::UTPlaySound(GetWorld(), ReadyToRallySound, this, SRT_All);
 						SetRallyPointState(RallyPointStates::Powered);
 						RallyStartTime = GetWorld()->GetTimeSeconds();
+						RallyTimeRemaining = MinimumRallyTime;
 						GetWorldTimerManager().SetTimer(EndRallyHandle, this, &AUTRallyPoint::RallyPoweredComplete, MinimumRallyTime, false);
 						if (GetNetMode() != NM_DedicatedServer)
 						{
@@ -535,6 +533,10 @@ void AUTRallyPoint::Tick(float DeltaTime)
 						ChangeAmbientSoundPitch(PoweringUpSound, 1.5f - RallyReadyCountdown / RallyReadyDelay);
 					}
 				}
+			}
+			else if (RallyPointState == RallyPointStates::Powered)
+			{
+				RallyTimeRemaining = MinimumRallyTime - (GetWorld()->GetTimeSeconds() - RallyStartTime);
 			}
 		}
 		else if (!bHaveGameState)
@@ -778,7 +780,15 @@ void AUTRallyPoint::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVecto
 			Canvas->SetLinearDrawColor(TeamColor);
 			float Border = 2.f*Scale;
 			float Height = 0.75*YL + 0.7f * YL;
-			Canvas->DrawTile(Canvas->DefaultTexture, XPos - Border, YPos - YL - Border, TextXL + 2.f*Border, Height + 2.f*Border, 0, 0, 1, 1);
+			float Width = TextXL + 2.f*Border;
+			float PartialFill = (RallyPointState == RallyPointStates::Powered) ? 0.1f * RallyTimeRemaining : 1.f;
+			Canvas->DrawTile(Canvas->DefaultTexture, XPos - Border, YPos - YL - Border, Width * PartialFill, Height + 2.f*Border, 0, 0, 1, 1);
+			if (PartialFill < 1.f)
+			{
+				Canvas->SetLinearDrawColor(FLinearColor(0.3f, 0.3f, 0.3f, TeamColor.A));
+				Canvas->DrawTile(Canvas->DefaultTexture, XPos - Border + Width*PartialFill, YPos - YL - Border, Width * (1.f -PartialFill), Height + 2.f*Border, 0, 0, 1, 1);
+			}
+
 			FLinearColor BeaconTextColor = FLinearColor::White;
 			BeaconTextColor.A = 0.6f * CenterFade;
 			FUTCanvasTextItem TextItem(FVector2D(FMath::TruncToFloat(Canvas->OrgX + XPos), FMath::TruncToFloat(Canvas->OrgY + YPos - 1.2f*YL)), RallyText, SmallFont, BeaconTextColor, NULL);

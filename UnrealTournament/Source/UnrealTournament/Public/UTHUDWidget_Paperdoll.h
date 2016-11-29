@@ -83,7 +83,7 @@ protected:
 	FVector2D DrawOffset;
 	float DrawOffsetTransitionTime;
 
-	void DrawRallyIcon(float DeltaTime);
+	void DrawRallyIcon(float DeltaTime, class AUTRallyPoint* RallyPoint);
 
 	TArray<float> RallyAnimTimers;
 

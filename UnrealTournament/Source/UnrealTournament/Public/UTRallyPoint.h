@@ -39,6 +39,9 @@ class UNREALTOURNAMENT_API AUTRallyPoint : public AUTGameObjective, public IUTRe
 	UPROPERTY(BlueprintReadOnly, Replicated, Category = RallyPoint)
 		int32 ReplicatedCountdown;
 
+	UPROPERTY(BlueprintReadOnly, Replicated, Category = RallyPoint)
+		float RallyTimeRemaining;
+
 	UPROPERTY(ReplicatedUsing = OnAvailableEffectChanged, BlueprintReadOnly)
 		bool bShowAvailableEffect;
 
