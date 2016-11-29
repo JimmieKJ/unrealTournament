@@ -6,6 +6,8 @@
 #include "UTFlagRunGameState.h"
 #include "UTRallyPoint.h"
 #include "UTFlagRunGameState.h"
+#include "UTPickup.h"
+#include "UTDroppedPickup.h"
 
 void AUTAsymCTFSquadAI::Initialize(AUTTeamInfo* InTeam, FName InOrders)
 {
@@ -252,7 +254,8 @@ bool AUTAsymCTFSquadAI::HuntEnemyFlag(AUTBot* B)
 			return true;
 		}
 	}
-	else if ((Flag->GetActorLocation() - B->GetPawn()->GetActorLocation()).Size() < FMath::Min<float>(3000.0f, (Flag->GetActorLocation() - Objective->GetActorLocation()).Size()) && B->UTLineOfSightTo(Flag))
+	else if ( (B->RouteCache.Num() > 0 && (Cast<AUTPickup>(B->RouteCache.Last().Actor.Get()) != nullptr || Cast<AUTDroppedPickup>(B->RouteCache.Last().Actor.Get()) != nullptr) && !NavData->HasReachedTarget(B->GetPawn(), B->GetPawn()->GetNavAgentPropertiesRef(), B->RouteCache.Last())) ||
+				((Flag->GetActorLocation() - B->GetPawn()->GetActorLocation()).Size() < FMath::Min<float>(3000.0f, (Flag->GetActorLocation() - Objective->GetActorLocation()).Size()) && B->UTLineOfSightTo(Flag)) )
 	{
 		// fight/camp here
 		return false;
