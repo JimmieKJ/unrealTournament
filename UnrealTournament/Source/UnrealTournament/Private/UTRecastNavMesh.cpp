@@ -518,9 +518,6 @@ int32 AUTRecastNavMesh::CalcPolyDistance(NavNodeRef StartPoly, NavNodeRef EndPol
 	else
 	{
 		// use pathing distance instead
-		int32 MaxNodes = 100;
-		NavNodeRef* Path = (NavNodeRef*)FMemory_Alloca(MaxNodes * sizeof(NavNodeRef));
-		int32 NodeCount = 0;
 		dtQueryResult PathData;
 		dtStatus PathResult = InternalQuery.findPath(StartPoly, EndPoly, RecastStart, RecastEnd, GetDefaultDetourFilter(), PathData, &Distance);
 		if (!dtStatusSucceed(PathResult) || PathResult & DT_PARTIAL_RESULT)
@@ -900,6 +897,7 @@ void AUTRecastNavMesh::BuildNodeNetwork()
 			}
 		}
 		// search for islands and add a node, then repeat the expansion/linking
+		TArray<NavNodeRef> IslandPolys;
 		for (int32 i = InternalMesh->getMaxTiles() - 1; i >= 0; i--)
 		{
 			const dtMeshTile* TileData = InternalMesh->getTile(i);
@@ -910,30 +908,43 @@ void AUTRecastNavMesh::BuildNodeNetwork()
 					NavNodeRef PolyRef = InternalMesh->encodePolyId(TileData->salt, i, j);
 					if (!PolyToNode.Contains(PolyRef) && !BlockedPolys.Contains(PolyRef))
 					{
-						// Recast will generate polys on the inside of solid geometry
-						// attempt to detect this and skip pathnode generation to improve performance
-						FCollisionResponseParams StaticOnly(ECR_Ignore);
-						StaticOnly.CollisionResponse.WorldStatic = ECR_Block;
-						if (GetWorld()->OverlapBlockingTestByChannel(GetPolySurfaceCenter(PolyRef) + FVector(0.0f, 0.0f, AgentHeight * 0.25f), FQuat::Identity, ECC_Pawn, FCollisionShape::MakeSphere(0.0f), FCollisionQueryParams::DefaultQueryParam, StaticOnly))
+						// check if this poly is connected to one that we've already handled in a prior iteration of the loop
+						bool bAlreadyProcessed = false;
+						for (NavNodeRef OtherIslandPoly : IslandPolys)
 						{
-							BlockedPolys.Add(PolyRef);
+							const FVector RecastStart = Unreal2RecastPoint(GetPolyCenter(PolyRef));
+							const FVector RecastEnd = Unreal2RecastPoint(GetPolyCenter(OtherIslandPoly));
+							dtQueryResult PathData;
+							dtStatus PathResult = InternalQuery.findPath(PolyRef, OtherIslandPoly, (float*)&RecastStart, (float*)&RecastEnd, GetDefaultDetourFilter(), PathData, nullptr);
+							if (dtStatusSucceed(PathResult) && !(PathResult & DT_PARTIAL_RESULT))
+							{
+								bAlreadyProcessed = true;
+								break;
+							}
 						}
-						else
+						if (!bAlreadyProcessed)
 						{
-							UUTPathNode* Node = NewObject<UUTPathNode>(this);
-							PathNodes.Add(Node);
-							PolyToNode.Add(PolyRef, Node);
-							Node->PhysicsVolume = FindPhysicsVolume(GetWorld(), GetPolyCenter(PolyRef) + FVector(0.0f, 0.0f, AgentCapsule.GetCapsuleHalfHeight()), AgentCapsule);
-							Node->Polys.Add(PolyRef);
-							SetNodeSize(Node);
-							bNodesAdded = true;
-							break; // TODO: not a good plan, way too slow
+							// Recast will generate polys on the inside of solid geometry
+							// attempt to detect this and skip pathnode generation to improve performance
+							FCollisionResponseParams StaticOnly(ECR_Ignore);
+							StaticOnly.CollisionResponse.WorldStatic = ECR_Block;
+							if (GetWorld()->OverlapBlockingTestByChannel(GetPolySurfaceCenter(PolyRef) + FVector(0.0f, 0.0f, AgentHeight * 0.25f), FQuat::Identity, ECC_Pawn, FCollisionShape::MakeSphere(0.0f), FCollisionQueryParams::DefaultQueryParam, StaticOnly))
+							{
+								BlockedPolys.Add(PolyRef);
+							}
+							else
+							{
+								UUTPathNode* Node = NewObject<UUTPathNode>(this);
+								PathNodes.Add(Node);
+								PolyToNode.Add(PolyRef, Node);
+								Node->PhysicsVolume = FindPhysicsVolume(GetWorld(), GetPolyCenter(PolyRef) + FVector(0.0f, 0.0f, AgentCapsule.GetCapsuleHalfHeight()), AgentCapsule);
+								Node->Polys.Add(PolyRef);
+								SetNodeSize(Node);
+								IslandPolys.Add(PolyRef);
+								bNodesAdded = true;
+							}
 						}
 					}
-				}
-				if (bNodesAdded)
-				{
-					break; // TODO: not a good plan, way too slow
 				}
 			}
 		}
