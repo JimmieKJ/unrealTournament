@@ -126,4 +126,6 @@ protected:
 	virtual bool ShowScorePanel();
 
 	virtual void DrawScoreAnnouncement(float DeltaTime);
+
+	virtual void DrawFramedBackground(float XOffset, float YOffset, float Width, float Height);
 };
