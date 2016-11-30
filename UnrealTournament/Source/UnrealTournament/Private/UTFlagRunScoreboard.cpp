@@ -65,14 +65,11 @@ UUTFlagRunScoreboard::UUTFlagRunScoreboard(const FObjectInitializer& ObjectIniti
 	static ConstructorHelpers::FObjectFinder<USoundBase> StarWoosh(TEXT("SoundCue'/Game/RestrictedAssets/Audio/UI/StarWoosh_Cue.StarWoosh_Cue'"));
 	StarWooshSound = StarWoosh.Object;
 
-	static ConstructorHelpers::FObjectFinder<USoundBase> StarEaten(TEXT("SoundCue'/Game/RestrictedAssets/Audio/UI/StarEaten_Cue.StarEaten_Cue'"));
-	StarEatenSound = StarEaten.Object;
-
 	BlueTeamName = NSLOCTEXT("CTFRewardMessage", "BlueTeamName", "BLUE TEAM");
 	RedTeamName = NSLOCTEXT("CTFRewardMessage", "RedTeamName", "RED TEAM");
 	TeamScorePrefix = NSLOCTEXT("CTFRewardMessage", "TeamScorePrefix", "");
 	TeamScorePostfix = NSLOCTEXT("CTFRewardMessage", "TeamScorePostfix", " Scores!");
-	StarText = NSLOCTEXT("CTFRewardMessage", "StarText", " \u2605");
+	StarText = NSLOCTEXT("CTFRewardMessage", "StarText", "\u2605");
 	DefenseScorePrefix = NSLOCTEXT("CTFRewardMessage", "DefenseScoreBonusPrefix", "");
 	DefenseScorePostfix = NSLOCTEXT("CTFRewardMessage", "DefenseScoreBonusPostfix", " Successfully Defends!");
 
@@ -231,7 +228,14 @@ void UUTFlagRunScoreboard::DrawScoreAnnouncement(float DeltaTime)
 				else if ((CurrentTime >= WooshStart + i*WooshInterval + WooshTime) && (CurrentTime - DeltaTime < WooshStart + i*WooshInterval + WooshTime))
 				{
 					PendingScore--;
-					UTHUDOwner->UTPlayerOwner->ClientPlaySound(StarEatenSound);
+					if (WinningTeam->TeamIndex == 0)
+					{
+						RedScoreScaling = 1.5f;
+					}
+					else
+					{
+						BlueScoreScaling = 1.5f;
+					}
 				}
 				float WooshPct = FMath::Clamp((CurrentTime - (WooshStart + i*WooshInterval)) / WooshTime, 0.f, 1.f);
 				float XOffset = (WinningTeam->TeamIndex == 0) ? 0.33f * Canvas->ClipX : 0.67f * Canvas->ClipX;
@@ -240,6 +244,22 @@ void UUTFlagRunScoreboard::DrawScoreAnnouncement(float DeltaTime)
 			}
 			if (StarYPos > 0.05f*Canvas->ClipY)
 			{
+				float EffectDuration = PoundInterval;
+				float StarEffectEndTime = PoundStart + i*PoundInterval + EffectDuration;
+				if (CurrentTime < StarEffectEndTime)
+				{
+					TextRenderInfo.bEnableShadow = false;
+					float StarEffectScale = 1.05f + 4.f*(EffectDuration - StarEffectEndTime + CurrentTime);
+					BonusColor.A = 0.25f + StarEffectEndTime - CurrentTime;
+					Canvas->SetLinearDrawColor(BonusColor);
+					Canvas->DrawText(StarFont, StarText, StarXPos - 0.5f*RenderScale*(StarEffectScale - 1.f) * StarXL, StarYPos - 0.5f*RenderScale*(StarEffectScale - 0.5f) * StarYL, StarEffectScale*RenderScale, StarEffectScale*RenderScale, TextRenderInfo);
+				}
+				else
+				{
+					TextRenderInfo.bEnableShadow = true;
+				}
+				BonusColor.A = 1.f;
+				Canvas->SetLinearDrawColor(BonusColor);
 				Canvas->DrawText(StarFont, StarText, StarXPos, StarYPos, RenderScale, RenderScale, TextRenderInfo);
 			}
 			ScoreX += 1.5f*StarXL;

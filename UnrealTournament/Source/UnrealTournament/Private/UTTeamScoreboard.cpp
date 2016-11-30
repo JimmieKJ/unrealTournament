@@ -14,6 +14,8 @@ UUTTeamScoreboard::UUTTeamScoreboard(const class FObjectInitializer& ObjectIniti
 	EdgeWidth = 96.f;
 	MinimapCenter = FVector2D(0.5f, 0.525f);
 	bUseRoundKills = false;
+	RedScoreScaling = 1.f;
+	BlueScoreScaling = 1.f;
 }
 
 void UUTTeamScoreboard::DrawTeamPanel(float RenderDelta, float& YOffset)
@@ -38,7 +40,7 @@ void UUTTeamScoreboard::DrawTeamPanel(float RenderDelta, float& YOffset)
 	DrawTexture(UTHUDOwner->ScoreboardAtlas, TeamEdgeSize + FrontSize + MiddleSize, BackgroundY, EndSize, BackgroundHeight, 39,188,64,65, 1.0, FLinearColor::Red);
 
 	DrawText(RedTeamText, NamePosition, TeamTextY, UTHUDOwner->HugeFont, RenderScale, 1.f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
-	DrawText(FText::AsNumber(UTGameState->Teams[0]->Score), TeamEdgeSize + FrontSize + MiddleSize - EndSize, TeamScoreY, UTHUDOwner->HugeFont, false, FVector2D(0, 0), FLinearColor::Black, true, FLinearColor::Black, 1.5f*RenderScale, 1.f, FLinearColor::White, FLinearColor(0.0f,0.0f,0.0f,0.0f), ETextHorzPos::Right, ETextVertPos::Center);
+	DrawText(FText::AsNumber(UTGameState->Teams[0]->Score), TeamEdgeSize + FrontSize + MiddleSize - EndSize, TeamScoreY, UTHUDOwner->HugeFont, false, FVector2D(0, 0), FLinearColor::Black, true, FLinearColor::Black, 1.5f*RenderScale*RedScoreScaling, 1.f, FLinearColor::White, FLinearColor(0.0f,0.0f,0.0f,0.0f), ETextHorzPos::Right, ETextVertPos::Center);
 
 	float LeftEdge = Canvas->ClipX - TeamEdgeSize - FrontSize - MiddleSize - EndSize;
 
@@ -47,8 +49,11 @@ void UUTTeamScoreboard::DrawTeamPanel(float RenderDelta, float& YOffset)
 	DrawTexture(UTHUDOwner->ScoreboardAtlas, LeftEdge, BackgroundY, EndSize, BackgroundHeight, 117, 188, 16, 65, 1.f, FLinearColor::Blue);
 
 	DrawText(BlueTeamText, Canvas->ClipX - NamePosition, TeamTextY, UTHUDOwner->HugeFont, RenderScale, 1.f, FLinearColor::White, ETextHorzPos::Right, ETextVertPos::Center);
-	DrawText(FText::AsNumber(UTGameState->Teams[1]->Score), LeftEdge + 2.f*EndSize, TeamScoreY, UTHUDOwner->HugeFont, false, FVector2D(0.f, 0.f), FLinearColor::Black, true, FLinearColor::Black, 1.5f*RenderScale, 1.f, FLinearColor::White, FLinearColor(0.0f,0.0f,0.0f,0.0f), ETextHorzPos::Left, ETextVertPos::Center);
+	DrawText(FText::AsNumber(UTGameState->Teams[1]->Score), LeftEdge + 2.f*EndSize, TeamScoreY, UTHUDOwner->HugeFont, false, FVector2D(0.f, 0.f), FLinearColor::Black, true, FLinearColor::Black, 1.5f*RenderScale*BlueScoreScaling, 1.f, FLinearColor::White, FLinearColor(0.0f,0.0f,0.0f,0.0f), ETextHorzPos::Left, ETextVertPos::Center);
 	YOffset += 119.f * RenderScale;
+
+	BlueScoreScaling = FMath::Max(BlueScoreScaling - RenderDelta, 1.f);
+	RedScoreScaling = FMath::Max(RedScoreScaling - RenderDelta, 1.f);
 }
 
 void UUTTeamScoreboard::DrawPlayerScores(float RenderDelta, float& YOffset)

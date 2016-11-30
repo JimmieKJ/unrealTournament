@@ -80,9 +80,6 @@ class UNREALTOURNAMENT_API UUTFlagRunScoreboard : public UUTCTFScoreboard
 		USoundBase* StarWooshSound;
 
 	UPROPERTY()
-		USoundBase* StarEatenSound;
-
-	UPROPERTY()
 		AUTTeamInfo* WinningTeam;
 	
 	UPROPERTY()

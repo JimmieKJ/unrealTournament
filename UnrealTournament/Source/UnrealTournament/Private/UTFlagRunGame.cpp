@@ -105,6 +105,11 @@ void AUTFlagRunGame::InitGame(const FString& MapName, const FString& Options, FS
 		DefenseKillsNeededForPowerUp = 1000;
 	}
 	GameSession->MaxPlayers = 10;
+
+	if (bDevServer)
+	{
+		FlagPickupDelay = 3.f;
+	}
 }
 
 int32 AUTFlagRunGame::GetFlagCapScore()
