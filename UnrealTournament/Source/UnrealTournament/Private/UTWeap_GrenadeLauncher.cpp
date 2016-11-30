@@ -98,6 +98,7 @@ void AUTWeap_GrenadeLauncher::BringUp(float OverflowTime)
 
 	if (bHasStickyGrenades)
 	{
+		UE_LOG(UT, Verbose, TEXT("%s AUTWeap_GrenadeLauncher::BringUp ShowDetonatorUI()"), *GetName());
 		ShowDetonatorUI();
 	}
 }
@@ -106,6 +107,7 @@ bool AUTWeap_GrenadeLauncher::PutDown()
 {
 	if (Super::PutDown())
 	{
+		UE_LOG(UT, Verbose, TEXT("%s AUTWeap_GrenadeLauncher::PutDown HideDetonatorUI()"), *GetName());
 		HideDetonatorUI();
 		return true;
 	}
@@ -117,13 +119,15 @@ void AUTWeap_GrenadeLauncher::OnRep_HasStickyGrenades()
 {
 	if (bHasStickyGrenades)
 	{
-		if (CurrentState != InactiveState)
+		if (CurrentState != InactiveState && GetOwner() != nullptr)
 		{
+			UE_LOG(UT, Verbose, TEXT("%s AUTWeap_GrenadeLauncher::OnRep_HasStickyGrenades ShowDetonatorUI()"), *GetName());
 			ShowDetonatorUI();
 		}
 	}
 	else
 	{
+		UE_LOG(UT, Verbose, TEXT("%s AUTWeap_GrenadeLauncher::OnRep_HasStickyGrenades HideDetonatorUI()"), *GetName());
 		HideDetonatorUI();
 	}
 
@@ -137,11 +141,13 @@ void AUTWeap_GrenadeLauncher::Destroyed()
 {
 	Super::Destroyed();
 
+	UE_LOG(UT, Verbose, TEXT("%s AUTWeap_GrenadeLauncher::Destroyed HideDetonatorUI()"), *GetName());
 	HideDetonatorUI();
 }
 
 void AUTWeap_GrenadeLauncher::DetachFromOwner_Implementation()
 {
+	UE_LOG(UT, Verbose, TEXT("%s AUTWeap_GrenadeLauncher::DetachFromOwner_Implementation HideDetonatorUI()"), *GetName());
 	HideDetonatorUI();
 
 	Super::DetachFromOwner_Implementation();
