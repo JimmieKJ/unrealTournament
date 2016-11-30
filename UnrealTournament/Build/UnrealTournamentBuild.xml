@@ -207,6 +207,8 @@
 			<Tag Files="$(RootDir)/Engine/Config/Windows/..." With="#TrimmedTargets"/>
 			
 			<Tag Files="$(RootDir)/Engine/Content/..." With="#TrimmedTargets"/>
+			<Tag Files="$(RootDir)/Engine/Plugins/.../Content/..." Except=".../NotForLicensees/...;.../EpicInternal/...;.../NoRedist/..." With="#TrimmedTargets"/>
+			<Tag Files="$(RootDir)/Engine/Plugins/Editor/PluginBrowser/Resources/..." With="#TrimmedTargets"/>
 			<Tag Files="$(RootDir)/Engine/Documentation/Source/Shared/..." With="#TrimmedTargets"/>
 			<Tag Files="$(RootDir)/Engine/Programs/..." Except=".../BuildPatchTool/...;.../UnrealBuildTool/...;.../UnrealGameSync/...;.../UnrealPak/...;.../UnrealFrontEnd/Profiles/...;.../UnrealHeaderTool/Saved/..." With="#TrimmedTargets"/>
 			<Tag Files="$(RootDir)/Engine/Shaders/..." With="#TrimmedTargets"/>
@@ -365,6 +367,8 @@
 			<Tag Files="$(RootDir)/Engine/Config/Mac/..." With="#TrimmedTargets"/>
 
 			<Tag Files="$(RootDir)/Engine/Content/..." With="#TrimmedTargets"/>
+			<Tag Files="$(RootDir)/Engine/Plugins/.../Content/..." Except=".../NotForLicensees/...;.../EpicInternal/...;.../NoRedist/..." With="#TrimmedTargets"/>
+			<Tag Files="$(RootDir)/Engine/Plugins/Editor/PluginBrowser/Resources/..." With="#TrimmedTargets"/>
 			<Tag Files="$(RootDir)/Engine/Documentation/Source/Shared/..." With="#TrimmedTargets"/>
 			<Tag Files="$(RootDir)/Engine/Programs/..." Except=".../BuildPatchTool/...;.../UnrealBuildTool/...;.../UnrealGameSync/...;.../UnrealPak/...;.../UnrealFrontEnd/Profiles/...;.../UnrealHeaderTool/Saved/..." With="#TrimmedTargets"/>
 			<Tag Files="$(RootDir)/Engine/Shaders/..." With="#TrimmedTargets"/>
