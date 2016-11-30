@@ -56,6 +56,7 @@ void SUTPlayerSettingsDialog::Construct(const FArguments& InArgs)
 	PreviewWeapon = nullptr;
 	bSpinPlayer = true;
 	bLeaderHatSelectedLast = false;
+	bSkipPlayingGroupTauntBGMusic = false;
 
 	bSkipWorldRender = true;
 
@@ -878,14 +879,18 @@ void SUTPlayerSettingsDialog::Construct(const FArguments& InArgs)
 		{
 			if (GroupTauntPathList[i] == GetPlayerOwner()->GetGroupTauntPath())
 			{
+				bSkipPlayingGroupTauntBGMusic = true;
 				GroupTauntComboBox->SetSelectedItem(GroupTauntList[i]);
+				bSkipPlayingGroupTauntBGMusic = false;
 				bFoundSelectedGroupTaunt = true;
 				break;
 			}
 		}
 		if (!bFoundSelectedGroupTaunt && TauntPathList.Num() > 0)
 		{
+			bSkipPlayingGroupTauntBGMusic = true;
 			GroupTauntComboBox->SetSelectedItem(GroupTauntList[0]);
+			bSkipPlayingGroupTauntBGMusic = false;
 		}
 
 		bool bFoundSelectedTaunt = false;
@@ -1280,6 +1285,21 @@ void SUTPlayerSettingsDialog::OnGroupTauntSelected(TSharedPtr<FString> NewSelect
 	if (NewSelection.IsValid())
 	{
 		SelectedGroupTaunt->SetText(*NewSelection.Get());
+
+		if (PlayerPreviewMesh != nullptr)
+		{
+			int32 TauntIndex = GroupTauntList.Find(NewSelection);
+			UClass* TauntClass = LoadObject<UClass>(NULL, *GroupTauntPathList[TauntIndex]);
+			if (TauntClass)
+			{
+				PlayerPreviewMesh->PlayGroupTaunt(TSubclassOf<AUTGroupTaunt>(TauntClass));
+				if (!bSkipPlayingGroupTauntBGMusic && TauntClass->GetDefaultObject<AUTGroupTaunt>()->BGMusic)
+				{
+					UGameplayStatics::PlaySound2D(PlayerPreviewMesh->GetWorld(), TauntClass->GetDefaultObject<AUTGroupTaunt>()->BGMusic);
+				}
+				//PlayerPreviewMesh->GetMesh()->PlayAnimation(TauntClass->GetDefaultObject<AUTGroupTaunt>()->TauntMontage, true);
+			}
+		}
 	}
 }
 

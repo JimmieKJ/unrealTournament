@@ -106,6 +106,7 @@ protected:
 	void OnEyewearVariantSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
 	void PopulateEyewearVariants();
 
+	bool bSkipPlayingGroupTauntBGMusic;
 	TArray<TSharedPtr<FString>> GroupTauntList;
 	TArray<FString> GroupTauntPathList;
 	TSharedPtr< SComboBox< TSharedPtr<FString> > > GroupTauntComboBox;
