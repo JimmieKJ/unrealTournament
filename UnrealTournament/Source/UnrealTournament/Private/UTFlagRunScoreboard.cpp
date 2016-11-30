@@ -73,7 +73,8 @@ UUTFlagRunScoreboard::UUTFlagRunScoreboard(const FObjectInitializer& ObjectIniti
 	DefenseScorePrefix = NSLOCTEXT("CTFRewardMessage", "DefenseScoreBonusPrefix", "");
 	DefenseScorePostfix = NSLOCTEXT("CTFRewardMessage", "DefenseScoreBonusPostfix", " Successfully Defends!");
 
-	ScoreInfoDuration = 8.f;
+	ScoreInfoDuration = 10.f;
+	PendingTiebreak = 0;
 }
 
 bool UUTFlagRunScoreboard::IsBeforeFirstRound()
@@ -116,8 +117,9 @@ void UUTFlagRunScoreboard::DrawTeamPanel(float RenderDelta, float& YOffset)
 		float Width = 0.125f*Canvas->ClipX;
 		float Height = Width * 21.f / 150.f;
 		float BackgroundY = YOffset - 2.f*Height;
-		float ChargePct = Width*FMath::Clamp(GS->TiebreakValue, -100, 100) / 200.f;
-		FLinearColor TiebreakColor = (GS->TiebreakValue > 0) ? GS->Teams[0]->TeamColor : GS->Teams[1]->TeamColor;
+		int32 CurrentTiebreakValue = GS->TiebreakValue - PendingTiebreak;
+		float ChargePct = Width*FMath::Clamp(CurrentTiebreakValue, -100, 100) / 200.f;
+		FLinearColor TiebreakColor = (CurrentTiebreakValue > 0) ? GS->Teams[0]->TeamColor : GS->Teams[1]->TeamColor;
 		DrawTexture(UTHUDOwner->HUDAtlas, 0.5f*Canvas->ClipX - 0.5f*ChargePct, BackgroundY, ChargePct, Height, 127, 641, Width, Height, 1.f, TiebreakColor, FVector2D(0.5f, 0.5f));
 
 		DrawTexture(UTHUDOwner->HUDAtlas, 0.5f*Canvas->ClipX, BackgroundY, Width, Height, 127, 612, 150, 21, 1.f, FLinearColor::White, FVector2D(0.5f, 0.5f));
@@ -125,8 +127,8 @@ void UUTFlagRunScoreboard::DrawTeamPanel(float RenderDelta, float& YOffset)
 		DrawText(NSLOCTEXT("FlagRun", "Tiebreak", "TIEBREAKER"), 0.5f*Canvas->ClipX, BackgroundY + Height, UTHUDOwner->TinyFont, FVector2D(1.f,1.f), FLinearColor::Black, FLinearColor::Black, 1.f, 1.f, FLinearColor::White, ETextHorzPos::Center, ETextVertPos::Center);
 
 		FFormatNamedArguments Args;
-		FText Title = (GS->TiebreakValue > 0) ? NSLOCTEXT("FlagRun", "RedTiebreak", "RED +{Score}") : NSLOCTEXT("FlagRun", "BlueTiebreak", "BLUE +{Score}");
-		Args.Add("Score", FText::AsNumber(FMath::Abs(GS->TiebreakValue)));
+		FText Title = (CurrentTiebreakValue > 0) ? NSLOCTEXT("FlagRun", "RedTiebreak", "RED +{Score}") : NSLOCTEXT("FlagRun", "BlueTiebreak", "BLUE +{Score}");
+		Args.Add("Score", FText::AsNumber(FMath::Abs(CurrentTiebreakValue)));
 		FText FormattedTitle = FText::Format(Title, Args);
 		DrawText(FormattedTitle, 0.5f*Canvas->ClipX, BackgroundY - Height - 2.f*RenderScale, UTHUDOwner->TinyFont, FVector2D(1.f, 1.f), FLinearColor::Black, FLinearColor::Black, 1.f, 1.f, TiebreakColor, ETextHorzPos::Center, ETextVertPos::Center);
 	}
@@ -142,15 +144,22 @@ void UUTFlagRunScoreboard::AnnounceRoundScore(AUTTeamInfo* InWinningTeam, APlaye
 	AUTFlagRunGameState* GS = GetWorld()->GetGameState<AUTFlagRunGameState>();
 	AUTFlagRunGame* DefaultGame = GS && GS->GameModeClass ? GS->GameModeClass->GetDefaultObject<AUTFlagRunGame>() : nullptr;
 	PendingScore = 1;
+	PendingTiebreak = 0;
 	if (DefaultGame && WinningTeam)
 	{
 		if (RoundBonus >= DefaultGame->GoldBonusTime)
 		{
 			PendingScore = 3;
+			PendingTiebreak = FMath::Min(RoundBonus - DefaultGame->GoldBonusTime, 60);
 		}
 		else if (RoundBonus >= DefaultGame->SilverBonusTime)
 		{
 			PendingScore = 2;
+			PendingTiebreak = FMath::Min(RoundBonus - DefaultGame->SilverBonusTime, 59);
+		}
+		else if (RoundBonus > 0)
+		{
+			PendingTiebreak = FMath::Min(int32(RoundBonus), 59);
 		}
 	}
 	if (UTPlayerOwner)
@@ -286,6 +295,34 @@ void UUTFlagRunScoreboard::DrawScoreAnnouncement(float DeltaTime)
 			}
 			ScoreX += 1.5f*StarXL;
 		}
+	}
+
+	if (WinningTeam && (CurrentTime >= PoundStart + (NumStars + 1)*PoundInterval) && (PendingTiebreak > 0))
+	{
+		float BonusXL, BonusYL;
+		UFont* BonusFont = UTHUDOwner->LargeFont;
+		FFormatNamedArguments Args;
+		Args.Add("Bonus", FText::AsNumber(FMath::Abs(PendingTiebreak)));
+		FText BonusText = FText::Format(NSLOCTEXT("FlagRun", "BonusTime", "Bonus Time +{Bonus}"), Args);
+		Canvas->StrLen(BonusFont, BonusText.ToString(), BonusXL, BonusYL);
+		if (CurrentTime >= WooshStart + NumStars*WooshInterval + WooshTime)
+		{
+			float Interval = FMath::Max(float(PendingTiebreak), 20.f);
+			if (int32(Interval*(CurrentTime - DeltaTime)) != int32(Interval*CurrentTime))
+			{
+				PendingTiebreak--;
+			}
+			FVector LineEndPoint(0.5f*Canvas->ClipX, 0.1f*Canvas->ClipY, 0.f);
+			FVector LineStartPoint(0.52f*Canvas->ClipX, YPos + 1.25f*BonusYL, 0.f);
+			FLinearColor LineColor = WinningTeam->TeamColor;
+			LineColor.A = 0.2f;
+			FBatchedElements* BatchedElements = Canvas->Canvas->GetBatchedElements(FCanvas::ET_Line);
+			FHitProxyId HitProxyId = Canvas->Canvas->GetHitProxyId();
+			BatchedElements->AddTranslucentLine(LineEndPoint, LineStartPoint, LineColor, HitProxyId, 16.f);
+		}
+		Canvas->SetLinearDrawColor(FLinearColor::White);
+		TextRenderInfo.bEnableShadow = true;
+		Canvas->DrawText(BonusFont, BonusText, 0.5f*(Canvas->ClipX - RenderScale*BonusXL), YPos + 1.25f*BonusYL, RenderScale, RenderScale, TextRenderInfo);
 	}
 }
 

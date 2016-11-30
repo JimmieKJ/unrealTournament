@@ -71,6 +71,9 @@ class UNREALTOURNAMENT_API UUTFlagRunScoreboard : public UUTCTFScoreboard
 		bool bNeedReplay;
 
 	UPROPERTY()
+		int32 PendingTiebreak;
+
+	UPROPERTY()
 		USoundBase* LineDisplaySound;
 
 	UPROPERTY()
