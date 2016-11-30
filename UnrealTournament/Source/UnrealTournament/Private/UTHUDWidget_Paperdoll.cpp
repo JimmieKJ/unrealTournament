@@ -248,10 +248,26 @@ void UUTHUDWidget_Paperdoll::DrawRallyIcon(float DeltaTime, AUTRallyPoint* Rally
 {
 	FlagIcon.UVs = RallyIconUVs;
 	FlagIcon.RenderScale = 1.0f;
-	float TimeScale = 10.f / (RallyAnimTimers.Num() + 1);
+	FlagIcon.bUseTeamColors = true;
+	if (RallyPoint && (RallyPoint->RallyTimeRemaining > 0.f))
+	{
+		FLinearColor RealColor = FlagBackground.RenderColor;
+		FlagBackground.RenderColor = FLinearColor::Gray;
+		float RealWidth = FlagBackground.Size.X;
+		FlagBackground.Size.X *= 0.1f*RallyPoint->RallyTimeRemaining;
+		float RealUVUL = FlagBackground.UVs.UL;
+		FlagBackground.UVs.UL *= 0.1f*RallyPoint->RallyTimeRemaining;
+		float RealPosX = FlagBackground.Position.X;
+		FlagBackground.Position.X -= 0.5f*(RealWidth - FlagBackground.Size.X);
+		RenderObj_Texture(FlagBackground);
+		FlagBackground.RenderColor = RealColor;
+		FlagBackground.Size.X = RealWidth;
+		FlagBackground.UVs.UL = RealUVUL;
+		FlagBackground.Position.X = RealPosX;
+
+	}
 	for (int32 i = 0; i < RallyAnimTimers.Num(); i++)
 	{
-		FlagIcon.bUseTeamColors = !RallyPoint || (RallyPoint->RallyTimeRemaining > TimeScale * float(RallyAnimTimers.Num()-i));
 
 		RallyAnimTimers[i] += DeltaTime;
 		if (RallyAnimTimers[i] > RALLY_ANIMATION_TIME) RallyAnimTimers[i] = 0;
