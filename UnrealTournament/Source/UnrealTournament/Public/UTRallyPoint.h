@@ -39,8 +39,11 @@ class UNREALTOURNAMENT_API AUTRallyPoint : public AUTGameObjective, public IUTRe
 	UPROPERTY(BlueprintReadOnly, Replicated, Category = RallyPoint)
 		int32 ReplicatedCountdown;
 
-	UPROPERTY(BlueprintReadOnly, Replicated, Category = RallyPoint)
+	UPROPERTY(BlueprintReadOnly, Category = RallyPoint)
 		float RallyTimeRemaining;
+
+	UPROPERTY(BlueprintReadOnly, ReplicatedUsing=OnRallyTimeRemaining, Category = RallyPoint)
+		float ReplicatedRallyTimeRemaining;
 
 	UPROPERTY(ReplicatedUsing = OnAvailableEffectChanged, BlueprintReadOnly)
 		bool bShowAvailableEffect;
@@ -154,6 +157,9 @@ class UNREALTOURNAMENT_API AUTRallyPoint : public AUTGameObjective, public IUTRe
 	// increment to give different rally spots to each arriving player
 	UPROPERTY()
 		int32 RallyOffset;
+
+	UFUNCTION()
+		void OnRallyTimeRemaining();
 
 	UFUNCTION()
 	void OnAvailableEffectChanged();

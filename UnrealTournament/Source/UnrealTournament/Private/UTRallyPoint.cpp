@@ -65,7 +65,7 @@ void AUTRallyPoint::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Out
 	DOREPLIFETIME(AUTRallyPoint, RallyPointState);
 	DOREPLIFETIME(AUTRallyPoint, AmbientSound);
 	DOREPLIFETIME(AUTRallyPoint, ReplicatedCountdown);
-	DOREPLIFETIME(AUTRallyPoint, RallyTimeRemaining);
+	DOREPLIFETIME(AUTRallyPoint, ReplicatedRallyTimeRemaining);
 }
 
 void AUTRallyPoint::BeginPlay()
@@ -463,6 +463,11 @@ void AUTRallyPoint::OnAvailableEffectChanged()
 	}
 }
 
+void AUTRallyPoint::OnRallyTimeRemaining()
+{
+	RallyTimeRemaining = ReplicatedRallyTimeRemaining;
+}
+
 // flag run game has pointer to active flag, use this to determine distance. base on flag, not carrier
 void AUTRallyPoint::Tick(float DeltaTime)
 {
@@ -521,6 +526,7 @@ void AUTRallyPoint::Tick(float DeltaTime)
 						SetRallyPointState(RallyPointStates::Powered);
 						RallyStartTime = GetWorld()->GetTimeSeconds();
 						RallyTimeRemaining = MinimumRallyTime;
+						ReplicatedRallyTimeRemaining = MinimumRallyTime;
 						GetWorldTimerManager().SetTimer(EndRallyHandle, this, &AUTRallyPoint::RallyPoweredComplete, MinimumRallyTime, false);
 						if (GetNetMode() != NM_DedicatedServer)
 						{
@@ -537,6 +543,10 @@ void AUTRallyPoint::Tick(float DeltaTime)
 			else if (RallyPointState == RallyPointStates::Powered)
 			{
 				RallyTimeRemaining = MinimumRallyTime - (GetWorld()->GetTimeSeconds() - RallyStartTime);
+				if (int32(RallyTimeRemaining) != int32(RallyTimeRemaining + DeltaTime))
+				{
+					ReplicatedRallyTimeRemaining = RallyTimeRemaining;
+				}
 			}
 		}
 		else if (!bHaveGameState)
@@ -559,7 +569,11 @@ void AUTRallyPoint::Tick(float DeltaTime)
 		}
 		else if (RallyPointState == RallyPointStates::Charging)
 		{
-			ChangeAmbientSoundPitch(PoweringUpSound, AmbientSoundPitch + DeltaTime/RallyReadyDelay);
+			ChangeAmbientSoundPitch(PoweringUpSound, AmbientSoundPitch + DeltaTime / RallyReadyDelay);
+		}
+		else if (RallyPointState == RallyPointStates::Powered)
+		{
+			RallyTimeRemaining -= DeltaTime;
 		}
 	}
 }
