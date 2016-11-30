@@ -11,6 +11,7 @@
 #include "UTConsole.h"
 #include "UTFlagInfo.h"
 #include "UTLobbyGameMode.h"
+#include "UTMenuGameMode.h"
 #include "UTGameInstance.h"
 #include "IAnalyticsProvider.h"
 #if !UE_SERVER
@@ -508,6 +509,12 @@ float UUTGameEngine::GetMaxTickRate(float DeltaTime, bool bAllowFrameRateSmoothi
 				MaxTickRate = MaxTickRate > 0 ? FMath::Min(MaxTickRate, NetRateClamp) : NetRateClamp;
 			}
 		}
+	}
+
+	AUTMenuGameMode* MenuGame = Cast<AUTMenuGameMode>(World->GetAuthGameMode());
+	if (MenuGame)
+	{
+		MaxTickRate = FMath::Min(160.0f, MaxTickRate);
 	}
 
 	// Hard cap at frame rate cap
