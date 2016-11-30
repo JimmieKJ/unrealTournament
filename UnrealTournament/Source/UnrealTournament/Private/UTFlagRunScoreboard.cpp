@@ -108,6 +108,28 @@ void UUTFlagRunScoreboard::DrawTeamPanel(float RenderDelta, float& YOffset)
 	{
 		WinningTeam->Score = RealScore;
 	}
+
+	// Tiebreak display
+	AUTFlagRunGameState* GS = GetWorld()->GetGameState<AUTFlagRunGameState>();
+	if (GS && (GS->Teams.Num() >1) && GS->Teams[0] && GS->Teams[1] && (GS->TiebreakValue != 0))
+	{
+		float Width = 0.125f*Canvas->ClipX;
+		float Height = Width * 21.f / 150.f;
+		float BackgroundY = YOffset - 2.f*Height;
+		float ChargePct = Width*FMath::Clamp(GS->TiebreakValue, -100, 100) / 200.f;
+		FLinearColor TiebreakColor = (GS->TiebreakValue > 0) ? GS->Teams[0]->TeamColor : GS->Teams[1]->TeamColor;
+		DrawTexture(UTHUDOwner->HUDAtlas, 0.5f*Canvas->ClipX - 0.5f*ChargePct, BackgroundY, ChargePct, Height, 127, 641, Width, Height, 1.f, TiebreakColor, FVector2D(0.5f, 0.5f));
+
+		DrawTexture(UTHUDOwner->HUDAtlas, 0.5f*Canvas->ClipX, BackgroundY, Width, Height, 127, 612, 150, 21, 1.f, FLinearColor::White, FVector2D(0.5f, 0.5f));
+
+		DrawText(NSLOCTEXT("FlagRun", "Tiebreak", "TIEBREAKER"), 0.5f*Canvas->ClipX, BackgroundY + Height, UTHUDOwner->TinyFont, FVector2D(1.f,1.f), FLinearColor::Black, FLinearColor::Black, 1.f, 1.f, FLinearColor::White, ETextHorzPos::Center, ETextVertPos::Center);
+
+		FFormatNamedArguments Args;
+		FText Title = (GS->TiebreakValue > 0) ? NSLOCTEXT("FlagRun", "RedTiebreak", "RED +{Score}") : NSLOCTEXT("FlagRun", "BlueTiebreak", "BLUE +{Score}");
+		Args.Add("Score", FText::AsNumber(FMath::Abs(GS->TiebreakValue)));
+		FText FormattedTitle = FText::Format(Title, Args);
+		DrawText(FormattedTitle, 0.5f*Canvas->ClipX, BackgroundY - Height - 2.f*RenderScale, UTHUDOwner->TinyFont, FVector2D(1.f, 1.f), FLinearColor::Black, FLinearColor::Black, 1.f, 1.f, TiebreakColor, ETextHorzPos::Center, ETextVertPos::Center);
+	}
 }
 
 void UUTFlagRunScoreboard::AnnounceRoundScore(AUTTeamInfo* InWinningTeam, APlayerState* InScoringPlayer, uint8 InRoundBonus, uint8 InReason)
