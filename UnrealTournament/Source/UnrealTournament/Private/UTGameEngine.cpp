@@ -514,7 +514,15 @@ float UUTGameEngine::GetMaxTickRate(float DeltaTime, bool bAllowFrameRateSmoothi
 	AUTMenuGameMode* MenuGame = Cast<AUTMenuGameMode>(World->GetAuthGameMode());
 	if (MenuGame)
 	{
-		MaxTickRate = FMath::Min(160.0f, MaxTickRate);
+		const float MaxMenuTickRate = 160.0f;
+		if (MaxTickRate > 0)
+		{
+			MaxTickRate = FMath::Min(MaxMenuTickRate, MaxTickRate);
+		}
+		else
+		{
+			MaxTickRate = MaxMenuTickRate;
+		}
 	}
 
 	// Hard cap at frame rate cap
