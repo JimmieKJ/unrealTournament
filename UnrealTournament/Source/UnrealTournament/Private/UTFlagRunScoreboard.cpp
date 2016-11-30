@@ -73,7 +73,7 @@ UUTFlagRunScoreboard::UUTFlagRunScoreboard(const FObjectInitializer& ObjectIniti
 	DefenseScorePrefix = NSLOCTEXT("CTFRewardMessage", "DefenseScoreBonusPrefix", "");
 	DefenseScorePostfix = NSLOCTEXT("CTFRewardMessage", "DefenseScoreBonusPostfix", " Successfully Defends!");
 
-	ScoreInfoDuration = 9.f;
+	ScoreInfoDuration = 8.f;
 	PendingTiebreak = 0;
 }
 
@@ -194,7 +194,7 @@ void UUTFlagRunScoreboard::DrawScoreAnnouncement(float DeltaTime)
 		return;
 	}
 
-	float YPos = 0.2f * Canvas->ClipY;
+	float YPos = 0.16f * Canvas->ClipY;
 	float StarXL, StarYL;
 	UFont* StarFont = UTHUDOwner->HugeFont;
 	Canvas->StrLen(StarFont, StarText.ToString(), StarXL, StarYL);
@@ -750,93 +750,22 @@ void UUTFlagRunScoreboard::DrawScoringSummary(float DeltaTime, float& YPos, floa
 	FFontRenderInfo TextRenderInfo;
 	TextRenderInfo.bEnableShadow = true;
 	TextRenderInfo.bClipText = true;
-	bool bDrawBlueFirst = false;
-	FText ScorePreamble = NSLOCTEXT("UTFlagRun", "ScoreTied", "Score Tied ");
-	if (GS->Teams[0]->Score > GS->Teams[1]->Score)
-	{
-		ScorePreamble = NSLOCTEXT("UTFlagRun", "RedLeads", "Red Team leads  ");
-	}
-	else if (GS->Teams[1]->Score > GS->Teams[0]->Score)
-	{
-		ScorePreamble = NSLOCTEXT("UTFlagRun", "BlueLeads", "Blue Team leads  ");
-		bDrawBlueFirst = true;
-	}
-	FFormatNamedArguments Args;
-	Args.Add("Preamble", ScorePreamble);
-	Args.Add("RedScore", FText::AsNumber(GS->Teams[0]->Score));
-	Args.Add("BlueScore", FText::AsNumber(GS->Teams[1]->Score));
-
-	FText CurrentScoreText = FText::Format(NSLOCTEXT("UTFlagRun", "ScoreText", "{Preamble} {RedScore} - {BlueScore}"), Args);
-	float ScoringOffsetX, ScoringOffsetY;
-	Canvas->TextSize(UTHUDOwner->MediumFont, CurrentScoreText.ToString(), ScoringOffsetX, ScoringOffsetY, RenderScale, RenderScale);
-
-	FLinearColor DrawColor = FLinearColor::White;
-	float CurrentScoreHeight = (GS->CTFRound >= GS->NumRounds - 2) ? 4.f*ScoringOffsetY : 3.f*ScoringOffsetY;
-	DrawFramedBackground(XOffset, YPos, 1.1f*ScoreWidth, CurrentScoreHeight);
-
-	// draw round information
 	AUTPlayerState* UTPS = Cast<AUTPlayerState>(UTPlayerOwner->PlayerState);
 	FText Title = GS->IsTeamOnDefenseNextRound(UTPS->Team->TeamIndex) ? DefendTitle : AttackTitle;
+	FFormatNamedArguments Args;
 	Args.Add("RoundNum", FText::AsNumber(IsBeforeFirstRound() ? 1 : GS->CTFRound + 1));
 	Args.Add("NumRounds", FText::AsNumber(GS->NumRounds));
 	FText FormattedTitle = FText::Format(Title, Args);
 	float TitleX, TitleY;
 	Canvas->TextSize(UTHUDOwner->MediumFont, FormattedTitle.ToString(), TitleX, TitleY, RenderScale, RenderScale);
+
+	FLinearColor DrawColor = FLinearColor::White;
+	float CurrentScoreHeight = (GS->CTFRound >= GS->NumRounds - 2) ? 2.f*TitleY : TitleY;
+	DrawFramedBackground(0.5f*(Canvas->ClipX - TitleX), YPos, TitleX, CurrentScoreHeight);
+
+	// draw round information
 	Canvas->DrawText(UTHUDOwner->MediumFont, FormattedTitle, XOffset + 0.5f*(ScoreWidth - TitleX), YPos, RenderScale, RenderScale, TextRenderInfo);
 	YPos += TitleY;
-
-	float SingleXL, SingleYL;
-	float ScoreX = XOffset + 0.5f*(ScoreWidth - ScoringOffsetX);
-	FString PreambleString = ScorePreamble.ToString();
-	Canvas->TextSize(UTHUDOwner->MediumFont, PreambleString, SingleXL, SingleYL, RenderScale, RenderScale);
-	YPos -= 0.1f * SingleYL;
-	Canvas->DrawText(UTHUDOwner->MediumFont, PreambleString, ScoreX, YPos, RenderScale, RenderScale, TextRenderInfo);
-	Canvas->SetLinearDrawColor(FLinearColor::White);
-	ScoreX += SingleXL;
-
-	int32 TeamIndex = bDrawBlueFirst ? 1 : 0;
-	Canvas->SetLinearDrawColor(GS->Teams[TeamIndex]->TeamColor);
-	FString SingleScorePart = FString::Printf(TEXT("%i"), GS->Teams[TeamIndex]->Score);
-	Canvas->TextSize(UTHUDOwner->MediumFont, SingleScorePart, SingleXL, SingleYL, RenderScale, RenderScale);
-	Canvas->DrawText(UTHUDOwner->MediumFont, SingleScorePart, ScoreX, YPos, RenderScale, RenderScale, TextRenderInfo);
-	Canvas->SetLinearDrawColor(FLinearColor::White);
-	ScoreX += SingleXL;
-	Canvas->TextSize(UTHUDOwner->MediumFont, " - ", SingleXL, SingleYL, RenderScale, RenderScale);
-	Canvas->DrawText(UTHUDOwner->MediumFont, " - ", ScoreX, YPos, RenderScale, RenderScale, TextRenderInfo);
-	ScoreX += SingleXL;
-	TeamIndex = bDrawBlueFirst ? 0 : 1;
-	Canvas->SetLinearDrawColor(GS->Teams[TeamIndex]->TeamColor);
-	SingleScorePart = FString::Printf(TEXT("%i"), GS->Teams[TeamIndex]->Score);
-	Canvas->DrawText(UTHUDOwner->MediumFont, SingleScorePart, ScoreX, YPos, RenderScale, RenderScale, TextRenderInfo);
-	YPos += (GS->CTFRound == GS->NumRounds - 2) ? 0.9f*SingleYL : 0.8f*SingleYL;
-
-	bool bRedLeadsTiebreak = (GS->TiebreakValue > 0);
-	FText TiebreakPreamble = NSLOCTEXT("UTFlagRun", "TiebreakPreamble", "Tiebreak ");
-	Args.Add("TBPre", TiebreakPreamble);
-	Args.Add("Bonus", FText::AsNumber(FMath::Abs(GS->TiebreakValue)));
-	Args.Add("Team", bRedLeadsTiebreak ? RedTeamText : BlueTeamText);
-	FText TiebreakBonusPattern = NSLOCTEXT("UTFlagRun", "TiebreakPattern", "{TBPre}{Team} +{Bonus}");
-	FText TiebreakBonusText = FText::Format(TiebreakBonusPattern, Args);
-	Canvas->TextSize(UTHUDOwner->SmallFont, TiebreakBonusText.ToString(), ScoringOffsetX, ScoringOffsetY, RenderScale, RenderScale);
-	ScoreX = XOffset + 0.5f*(ScoreWidth - ScoringOffsetX);
-
-	Canvas->SetLinearDrawColor(FLinearColor::White);
-	PreambleString = TiebreakPreamble.ToString();
-	Canvas->TextSize(UTHUDOwner->SmallFont, PreambleString, SingleXL, SingleYL, RenderScale, RenderScale);
-	Canvas->DrawText(UTHUDOwner->SmallFont, PreambleString, ScoreX, YPos, RenderScale, RenderScale, TextRenderInfo);
-	ScoreX += SingleXL;
-
-	Canvas->SetLinearDrawColor(bRedLeadsTiebreak ? GS->Teams[0]->TeamColor : GS->Teams[1]->TeamColor);
-	FString TeamString = bRedLeadsTiebreak ? RedTeamText.ToString() : BlueTeamText.ToString();
-	Canvas->TextSize(UTHUDOwner->SmallFont, TeamString, SingleXL, SingleYL, RenderScale, RenderScale);
-	Canvas->DrawText(UTHUDOwner->SmallFont, TeamString, ScoreX, YPos, RenderScale, RenderScale, TextRenderInfo);
-	ScoreX += SingleXL;
-
-	Canvas->SetLinearDrawColor(FLinearColor::White);
-	FText TiebreakValue = FText::Format(NSLOCTEXT("UTFlagRun", "TiebreakValue", " +{Bonus}"), Args);
-	Canvas->DrawText(UTHUDOwner->SmallFont, TiebreakValue, ScoreX, YPos, RenderScale, RenderScale, TextRenderInfo);
-
-	YPos += (GS->CTFRound == GS->NumRounds - 2) ? 0.9f*SingleYL : 0.8f*SingleYL;
 
 	AUTFlagRunHUD* FRHUD = Cast<AUTFlagRunHUD>(UTHUDOwner);
 	if (FRHUD)
