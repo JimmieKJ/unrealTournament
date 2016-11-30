@@ -140,7 +140,7 @@ void AUTFlagRunGame::AnnounceWin(AUTTeamInfo* WinningTeam, APlayerState* Scoring
 
 void AUTFlagRunGame::BroadcastCTFScore(APlayerState* ScoringPlayer, AUTTeamInfo* ScoringTeam, int32 OldScore)
 {
-	AnnounceWin(ScoringTeam, ScoringPlayer, OldScore);
+	AnnounceWin(ScoringTeam, ScoringPlayer, 0);
 }
 
 void AUTFlagRunGame::InitGameStateForRound()

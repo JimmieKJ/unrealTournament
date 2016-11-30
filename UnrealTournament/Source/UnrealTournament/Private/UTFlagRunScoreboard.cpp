@@ -112,7 +112,7 @@ void UUTFlagRunScoreboard::DrawTeamPanel(float RenderDelta, float& YOffset)
 
 	// Tiebreak display
 	AUTFlagRunGameState* GS = GetWorld()->GetGameState<AUTFlagRunGameState>();
-	if (GS && (GS->Teams.Num() >1) && GS->Teams[0] && GS->Teams[1] && (GS->TiebreakValue != 0))
+	if (GS && (GS->Teams.Num() >1) && GS->Teams[0] && GS->Teams[1] && ((GS->TiebreakValue != 0) || (PendingTiebreak != 0)))
 	{
 		float Width = 0.125f*Canvas->ClipX;
 		float Height = Width * 21.f / 150.f;
@@ -183,6 +183,28 @@ void UUTFlagRunScoreboard::DrawScoreAnnouncement(float DeltaTime)
 	{
 		return;
 	}
+
+	float StarXL, StarYL;
+	UFont* StarFont = UTHUDOwner->HugeFont;
+	Canvas->StrLen(StarFont, StarText.ToString(), StarXL, StarYL);
+	float YPos = 0.2f * Canvas->ClipY;
+
+	UFont* InFont = UTHUDOwner->LargeFont;
+	FText EmphasisText = (WinningTeam && (WinningTeam->TeamIndex == 0)) ? RedTeamName : BlueTeamName;
+	float YL, EmphasisXL;
+	Canvas->StrLen(InFont, EmphasisText.ToString(), EmphasisXL, YL);
+
+	FLinearColor DrawColor = FLinearColor::White;
+	float CurrentScoreHeight = StarYL + 1.6f*YL;
+	Canvas->SetLinearDrawColor(FLinearColor::Black);
+	float FrameWidth = 8.f * RenderScale;
+	float ScoreWidth = FMath::Max(4.5f*StarXL, EmphasisXL);
+	float XOffset = 0.5*(Canvas->ClipX - ScoreWidth);
+	DrawTexture(UTHUDOwner->ScoreboardAtlas, XOffset - FrameWidth, YPos - FrameWidth, 1.11f*ScoreWidth + 2.f*FrameWidth, CurrentScoreHeight + 2.f*FrameWidth, 149, 138, 32, 32, 0.75f, FLinearColor::Black);
+	Canvas->SetLinearDrawColor(FLinearColor::White);
+	float BackAlpha = 0.3f;
+	DrawTexture(UTHUDOwner->ScoreboardAtlas, XOffset, YPos, 1.11f*ScoreWidth, CurrentScoreHeight, 149, 138, 32, 32, BackAlpha, DrawColor);
+
 	FText ScorePrefix = (Reason == 0) ? TeamScorePrefix : DefenseScorePrefix;
 	FText ScorePostfix = (Reason == 0) ? TeamScorePostfix : DefenseScorePostfix;
 	int32 NumStars = 1;
@@ -201,21 +223,14 @@ void UUTFlagRunScoreboard::DrawScoreAnnouncement(float DeltaTime)
 		}
 	}
 
-	float YPos = 0.25f * Canvas->ClipY;
-	UFont* InFont = UTHUDOwner->LargeFont;
 	FFontRenderInfo TextRenderInfo;
 	TextRenderInfo.bEnableShadow = true;
 	TextRenderInfo.bClipText = true;
 
-	FText EmphasisText = (WinningTeam && (WinningTeam->TeamIndex == 0)) ? RedTeamName : BlueTeamName;
 	FLinearColor EmphasisColor = (WinningTeam && (WinningTeam->TeamIndex == 0)) ? FLinearColor::Red : FLinearColor::Blue;
-
-	float YL, EmphasisXL;
-	Canvas->StrLen(InFont, EmphasisText.ToString(), EmphasisXL, YL);
 
 	float PostXL;
 	Canvas->StrLen(InFont, ScorePostfix.ToString(), PostXL, YL);
-
 	float ScoreX = 0.5f * (Canvas->ClipX - RenderScale * (EmphasisXL + PostXL));
 
 	Canvas->SetLinearDrawColor(WinningTeam->TeamColor);
@@ -225,18 +240,14 @@ void UUTFlagRunScoreboard::DrawScoreAnnouncement(float DeltaTime)
 	Canvas->SetLinearDrawColor(FLinearColor::White);
 	Canvas->DrawText(InFont, ScorePostfix, ScoreX, YPos, RenderScale, RenderScale, TextRenderInfo);
 
-	YPos += YL;
-
-	float StarXL, StarYL;
-	UFont* StarFont = UTHUDOwner->HugeFont;
-	Canvas->StrLen(StarFont, StarText.ToString(), StarXL, StarYL);
+	YPos += 0.9f*YL;
 
 	ScoreX = 0.5f * (Canvas->ClipX - 2.f * RenderScale * StarXL * NumStars);
 	Canvas->SetLinearDrawColor(BonusColor);
 
-	float PoundStart = 2.f;
+	float PoundStart = 1.6f;
 	float PoundInterval = 0.5f;
-	float WooshStart = 4.f;
+	float WooshStart = 3.6f;
 	float WooshTime = 0.3f;
 	float WooshInterval = 0.5f;
 	float CurrentTime = GetWorld()->GetTimeSeconds() - ScoreReceivedTime;
@@ -314,7 +325,7 @@ void UUTFlagRunScoreboard::DrawScoreAnnouncement(float DeltaTime)
 				PendingTiebreak--;
 			}
 			FVector LineEndPoint(0.5f*Canvas->ClipX, 0.1f*Canvas->ClipY, 0.f);
-			FVector LineStartPoint(0.52f*Canvas->ClipX, YPos + 1.25f*BonusYL, 0.f);
+			FVector LineStartPoint(0.52f*Canvas->ClipX, YPos + BonusYL, 0.f);
 			FLinearColor LineColor = WinningTeam->TeamColor;
 			LineColor.A = 0.2f;
 			FBatchedElements* BatchedElements = Canvas->Canvas->GetBatchedElements(FCanvas::ET_Line);
@@ -323,7 +334,7 @@ void UUTFlagRunScoreboard::DrawScoreAnnouncement(float DeltaTime)
 		}
 		Canvas->SetLinearDrawColor(FLinearColor::White);
 		TextRenderInfo.bEnableShadow = true;
-		Canvas->DrawText(BonusFont, BonusText, 0.5f*(Canvas->ClipX - RenderScale*BonusXL), YPos + 1.25f*BonusYL, RenderScale, RenderScale, TextRenderInfo);
+		Canvas->DrawText(BonusFont, BonusText, 0.5f*(Canvas->ClipX - RenderScale*BonusXL), YPos + BonusYL, RenderScale, RenderScale, TextRenderInfo);
 	}
 }
 
