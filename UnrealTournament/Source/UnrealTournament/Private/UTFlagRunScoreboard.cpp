@@ -310,6 +310,7 @@ void UUTFlagRunScoreboard::DrawScoreAnnouncement(float DeltaTime)
 			float Interval = FMath::Max(float(PendingTiebreak), 20.f);
 			if (int32(Interval*(CurrentTime - DeltaTime)) != int32(Interval*CurrentTime))
 			{
+				UTHUDOwner->UTPlayerOwner->ClientPlaySound(LineDisplaySound);
 				PendingTiebreak--;
 			}
 			FVector LineEndPoint(0.5f*Canvas->ClipX, 0.1f*Canvas->ClipY, 0.f);
