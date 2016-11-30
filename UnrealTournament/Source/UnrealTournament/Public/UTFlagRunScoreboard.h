@@ -37,6 +37,27 @@ class UNREALTOURNAMENT_API UUTFlagRunScoreboard : public UUTCTFScoreboard
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
 		TArray<FText> AttackLines;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
+		FText BlueTeamName;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
+		FText RedTeamName;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
+		FText TeamScorePrefix;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
+		FText TeamScorePostfix;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
+		FText StarText;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
+		FText DefenseScorePrefix;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
+		FText DefenseScorePostfix;
+
 	UPROPERTY()
 		float EndIntermissionTime;
 
@@ -52,6 +73,35 @@ class UNREALTOURNAMENT_API UUTFlagRunScoreboard : public UUTCTFScoreboard
 	UPROPERTY()
 		USoundBase* LineDisplaySound;
 
+	UPROPERTY()
+		USoundBase* StarPoundSound;
+
+	UPROPERTY()
+		USoundBase* StarWooshSound;
+
+	UPROPERTY()
+		USoundBase* StarEatenSound;
+
+	UPROPERTY()
+		AUTTeamInfo* WinningTeam;
+	
+	UPROPERTY()
+		APlayerState* ScoringPlayer;
+	
+	UPROPERTY()
+		uint8 RoundBonus;
+	
+	UPROPERTY()
+		uint8 Reason;
+
+	UPROPERTY()
+		float ScoreReceivedTime;
+	
+	UPROPERTY()
+		float ScoreInfoDuration;
+
+	virtual void AnnounceRoundScore(AUTTeamInfo* InWinningTeam, APlayerState* InScoringPlayer, uint8 InRoundBonus, uint8 InReason);
+
 protected:
 	virtual void DrawScoreHeaders(float RenderDelta, float& YOffset);
 	virtual void DrawGamePanel(float RenderDelta, float& YOffset) override;
@@ -65,6 +115,7 @@ protected:
 	virtual int32 GetSmallPlaysCount(int32 NumPlays) const override;
 	virtual bool ShouldDrawScoringStats() override;
 	virtual void DrawMinimap(float RenderDelta) override;
+	virtual void DrawTeamPanel(float RenderDelta, float& YOffset) override;
 
 	virtual bool ShouldShowPowerupForPlayer(AUTPlayerState* PlayerState);
 
@@ -73,4 +124,6 @@ protected:
 	virtual bool IsBeforeFirstRound();
 	
 	virtual bool ShowScorePanel();
+
+	virtual void DrawScoreAnnouncement(float DeltaTime);
 };

@@ -17,8 +17,8 @@ AUTLineUpHelper::AUTLineUpHelper(const FObjectInitializer& ObjectInitializer)
 	bAlwaysRelevant = true;
 
 	TimerDelayForIntro = 0.f;
-	TimerDelayForIntermission = 5.f;
-	TimerDelayForEndMatch = 5.f;
+	TimerDelayForIntermission = 9.f;
+	TimerDelayForEndMatch = 9.f;
 }
 
 void AUTLineUpHelper::HandleLineUp(LineUpTypes ZoneType)

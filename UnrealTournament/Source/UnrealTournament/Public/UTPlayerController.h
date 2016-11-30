@@ -183,6 +183,9 @@ public:
 	UFUNCTION(Unreliable, Client)
 		void ClientWarnEnemyBehind(AUTPlayerState* TeamPS, AUTCharacter* Targeter);
 
+	UFUNCTION(Reliable, client)
+		void ClientAnnounceRoundScore(AUTTeamInfo* WinningTeam, APlayerState* ScoringPlayer, uint8 RoundBonus, uint8 Reason);
+
 	UPROPERTY(GlobalConfig)
 	bool bHearsTaunts;
 

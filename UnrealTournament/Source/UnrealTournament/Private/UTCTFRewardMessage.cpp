@@ -19,14 +19,6 @@ UUTCTFRewardMessage::UUTCTFRewardMessage(const class FObjectInitializer& ObjectI
 	RedTeamName = NSLOCTEXT("CTFRewardMessage", "RedTeamName", "RED TEAM");
 	TeamScorePrefix = NSLOCTEXT("CTFRewardMessage", "TeamScorePrefix", "");
 	TeamScorePostfix = NSLOCTEXT("CTFRewardMessage", "TeamScorePostfix", " Scores!");
-	GoldScoreBonusPrefix = NSLOCTEXT("CTFRewardMessage", "GoldScoreBonusPrefix", "");
-	GoldScoreBonusPostfix = NSLOCTEXT("CTFRewardMessage", "GoldScoreBonusPostfix", " Scores!  \u2605 \u2605 \u2605");
-	SilverScoreBonusPrefix = NSLOCTEXT("CTFRewardMessage", "SilverScoreBonusPrefix", "");
-	SilverScoreBonusPostfix = NSLOCTEXT("CTFRewardMessage", "SilverScoreBonusPostfix", " Scores!  \u2605 \u2605");
-	BronzeScoreBonusPrefix = NSLOCTEXT("CTFRewardMessage", "BronzeScoreBonusPrefix", "");
-	BronzeScoreBonusPostfix = NSLOCTEXT("CTFRewardMessage", "BronzeScoreBonusPostfix", " Scores!  \u2605");
-	DefenseScoreBonusPrefix = NSLOCTEXT("CTFRewardMessage", "DefenseScoreBonusPrefix", "");
-	DefenseScoreBonusPostfix = NSLOCTEXT("CTFRewardMessage", "DefenseScoreBonusPostfix", " successfully defends!  \u2605");
 	EarnedSpecialPrefix = NSLOCTEXT("CTFGameMessage", "EarnedSpecialPrefix", "");
 	EarnedSpecialPostfix = NSLOCTEXT("CTFGameMessage", "EarnedSpecialPostfix", " earned a power up for your team!");
 	ExclamationPostfix = NSLOCTEXT("CTFGameMessage", "ExclamationPostfix", "!");
@@ -144,39 +136,6 @@ void UUTCTFRewardMessage::GetEmphasisText(FText& PrefixText, FText& EmphasisText
 		EmphasisColor = FLinearColor::Yellow;
 		return;
 	}
-	if (Switch >= 100)
-	{
-		FText TeamScoreBonusPrefix = BronzeScoreBonusPrefix;
-		FText TeamScoreBonusPostfix = BronzeScoreBonusPostfix;
-		if (Switch >= 400)
-		{
-			TeamScoreBonusPrefix = DefenseScoreBonusPrefix;
-			TeamScoreBonusPostfix = DefenseScoreBonusPostfix;
-		}
-		else if (Switch >= 300)
-		{
-			TeamScoreBonusPrefix = GoldScoreBonusPrefix;
-			TeamScoreBonusPostfix = GoldScoreBonusPostfix;
-		}
-		else if (Switch >= 200)
-		{
-			TeamScoreBonusPrefix = SilverScoreBonusPrefix;
-			TeamScoreBonusPostfix = SilverScoreBonusPostfix;
-		}
-
-		while (Switch >= 100)
-		{
-			Switch -= 100;
-		}
-		FFormatNamedArguments Args;
-		Args.Add("BonusAmount", FText::AsNumber(Switch));
-		PrefixText = FText::Format(TeamScoreBonusPrefix, Args);
-		PostfixText = FText::Format(TeamScoreBonusPostfix, Args);
-		AUTTeamInfo* EmphasisTeam = Cast<AUTTeamInfo>(OptionalObject);
-		EmphasisText = (EmphasisTeam && EmphasisTeam->TeamIndex == 1) ? BlueTeamName : RedTeamName;
-		EmphasisColor = (EmphasisTeam && EmphasisTeam->TeamIndex == 1) ? FLinearColor::Blue : FLinearColor::Red;
-		return;
-	}
 	Super::GetEmphasisText(PrefixText, EmphasisText, PostfixText, EmphasisColor, Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
 }
 
@@ -189,10 +148,6 @@ FText UUTCTFRewardMessage::GetText(int32 Switch, bool bTargetsPlayerState1, APla
 	case 4: return BuildEmphasisText(Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject); break;
 	case 6: return BuildEmphasisText(Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject); break;
 	case 7: return BuildEmphasisText(Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject); break;
-	}
-	if (Switch > 100)
-	{
-		return BuildEmphasisText(Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
 	}
 
 	return FText::GetEmpty();

@@ -55,6 +55,7 @@
 #include "UTLineUpHelper.h"
 #include "UTRallyPoint.h"
 #include "UTDemoRecSpectator.h"
+#include "UTFlagRunScoreboard.h"
 
 static TAutoConsoleVariable<float> CVarUTKillcamStartDelay(
 	TEXT("UT.KillcamStartDelay"),
@@ -5455,5 +5456,14 @@ void AUTPlayerController::ClientReceiveLocalizedMessage_Implementation(TSubclass
 				DemoRecSpec->MulticastReceiveLocalizedMessage(Message, Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
 			}
 		}
+	}
+}
+
+void AUTPlayerController::ClientAnnounceRoundScore_Implementation(AUTTeamInfo* WinningTeam, APlayerState* ScoringPlayer, uint8 RoundBonus, uint8 Reason)
+{
+	UUTFlagRunScoreboard *Scoreboard = MyUTHUD ? Cast<UUTFlagRunScoreboard>(MyUTHUD->MyUTScoreboard) : nullptr;
+	if (Scoreboard)
+	{
+		Scoreboard->AnnounceRoundScore(WinningTeam, ScoringPlayer, RoundBonus, Reason);
 	}
 }

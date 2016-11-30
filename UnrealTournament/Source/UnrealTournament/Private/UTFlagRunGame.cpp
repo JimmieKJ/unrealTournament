@@ -123,24 +123,13 @@ int32 AUTFlagRunGame::GetFlagCapScore()
 
 void AUTFlagRunGame::AnnounceWin(AUTTeamInfo* WinningTeam, APlayerState* ScoringPlayer, uint8 Reason)
 {
-	if (Reason == 0)
+	for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
 	{
-		int32 BonusType = 100 + BronzeScore;
-		if (WinningTeam->RoundBonus >= GoldBonusTime)
+		AUTPlayerController* UTPC = Cast<AUTPlayerController>(*Iterator);
+		if (UTPC)
 		{
-			BonusType = 300 + GoldScore;
+			UTPC->ClientAnnounceRoundScore(WinningTeam, ScoringPlayer, WinningTeam->RoundBonus, Reason);
 		}
-		else if (WinningTeam->RoundBonus >= SilverBonusTime)
-		{
-			BonusType = 200 + SilverScore;
-		}
-		BroadcastLocalized(this, UUTCTFRewardMessage::StaticClass(), BonusType, nullptr, nullptr, WinningTeam);
-		BroadcastLocalized(this, UUTCTFGameMessage::StaticClass(), 2, ScoringPlayer, NULL, WinningTeam);
-	}
-	else
-	{
-		BroadcastLocalized(this, UUTCTFRewardMessage::StaticClass(), 400, nullptr, nullptr, WinningTeam);
-		BroadcastLocalized(NULL, UUTShowdownGameMessage::StaticClass(), 3 + WinningTeam->TeamIndex);
 	}
 }
 
