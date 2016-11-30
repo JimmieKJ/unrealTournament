@@ -176,7 +176,7 @@ void UUTProfileSettings::GetDefaultGameActions(TArray<FKeyConfigurationInfo>& ou
 
 	// Move
 
-	Key = FKeyConfigurationInfo("MoveForward", EControlCategory::Movement, EKeys::W, EKeys::Up, EKeys::Invalid, NSLOCTEXT("Keybinds","MoveForward","Move Forward"));
+	Key = FKeyConfigurationInfo("MoveForward", EControlCategory::Movement, EKeys::W, EKeys::Up, EKeys::Gamepad_LeftY, NSLOCTEXT("Keybinds","MoveForward","Move Forward"));
 	Key.AddAxisMapping("MoveForward", 1.0f);
 	Key.AddActionMapping("TapForward");
 	outGameActions.Add(Key);
