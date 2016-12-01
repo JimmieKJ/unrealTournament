@@ -1030,10 +1030,6 @@ AActor* AUTFlagRunGame::SetIntermissionCameras(uint32 TeamToWatch)
 	AUTFlagRunGameState* FRGS = Cast<AUTFlagRunGameState>(CTFGameState);
 	if (FRGS)
 	{
-		RemoveLosers(1 - TeamToWatch, (FRGS && FRGS->bRedToCap) ? 0 : 1);
-
-		// place winners around defender base
-		PlacePlayersAroundFlagBase(TeamToWatch, (FRGS && FRGS->bRedToCap) ? 1 : 0);
 		return FRGS->FlagBases[(FRGS && FRGS->bRedToCap) ? 1 : 0];
 	}
 	return nullptr;
