@@ -120,9 +120,10 @@ void UUTFlagRunScoreboard::DrawTeamPanel(float RenderDelta, float& YOffset)
 		int32 CurrentTiebreakValue = GS->TiebreakValue - PendingTiebreak;
 		float ChargePct = Width*FMath::Clamp(CurrentTiebreakValue, -100, 100) / 200.f;
 		FLinearColor TiebreakColor = (CurrentTiebreakValue > 0) ? GS->Teams[0]->TeamColor : FLinearColor::Blue; 
-		DrawTexture(UTHUDOwner->HUDAtlas, 0.5f*Canvas->ClipX - 0.5f*ChargePct, BackgroundY, ChargePct, Height, 127, 641, Width, Height, 1.f, TiebreakColor, FVector2D(0.5f, 0.5f));
+		float ChargeOffset = (ChargePct < 0.f) ? 0.f : ChargePct;
+		DrawTexture(UTHUDOwner->HUDAtlas, 0.5f*Canvas->ClipX - ChargeOffset, BackgroundY, FMath::Abs(ChargePct), Height, 127.f, 641, 150.f, 21.f, 1.f, TiebreakColor, FVector2D(0.f, 0.5f));
 
-		DrawTexture(UTHUDOwner->HUDAtlas, 0.5f*Canvas->ClipX, BackgroundY, Width, Height, 127, 612, 150, 21, 1.f, FLinearColor::White, FVector2D(0.5f, 0.5f));
+		DrawTexture(UTHUDOwner->HUDAtlas, 0.5f*Canvas->ClipX, BackgroundY, Width, Height, 127, 612, 150, 21.f, 1.f, FLinearColor::White, FVector2D(0.5f, 0.5f));
 
 		DrawText(NSLOCTEXT("FlagRun", "Tiebreak", "TIEBREAKER"), 0.5f*Canvas->ClipX, BackgroundY + Height, UTHUDOwner->TinyFont, FVector2D(1.f,1.f), FLinearColor::Black, FLinearColor::Black, RenderScale, 1.f, FLinearColor::White, ETextHorzPos::Center, ETextVertPos::Center);
 
@@ -761,10 +762,10 @@ void UUTFlagRunScoreboard::DrawScoringSummary(float DeltaTime, float& YPos, floa
 
 	FLinearColor DrawColor = FLinearColor::White;
 	float CurrentScoreHeight = (GS->CTFRound >= GS->NumRounds - 2) ? 2.f*TitleY : TitleY;
-	DrawFramedBackground(0.5f*(Canvas->ClipX - RenderScale*TitleX), YPos, RenderScale*TitleX, RenderScale*CurrentScoreHeight);
+	DrawFramedBackground(0.5f*(Canvas->ClipX - 1.1f*RenderScale*TitleX), YPos, 1.1f*RenderScale*TitleX, RenderScale*CurrentScoreHeight);
 
 	// draw round information
-	Canvas->DrawText(UTHUDOwner->MediumFont, FormattedTitle, XOffset + 0.5f*(ScoreWidth - RenderScale*TitleX), YPos, RenderScale, RenderScale, TextRenderInfo);
+	Canvas->DrawText(UTHUDOwner->MediumFont, FormattedTitle, 0.5f*(Canvas->ClipX - RenderScale*TitleX), YPos, RenderScale, RenderScale, TextRenderInfo);
 	YPos += RenderScale*TitleY;
 
 	AUTFlagRunHUD* FRHUD = Cast<AUTFlagRunHUD>(UTHUDOwner);
