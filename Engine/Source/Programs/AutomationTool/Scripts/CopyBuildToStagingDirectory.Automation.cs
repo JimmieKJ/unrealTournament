@@ -990,7 +990,8 @@ public partial class Project : CommandUtils
 			}
 		}
 
-
+        // UT doesn't need the pak file backed up this way and it fills up build machine harddrives
+        /*
         if (Params.HasCreateReleaseVersion)
         {
             // copy the created pak to the release version directory we might need this later if we want to generate patches
@@ -1000,6 +1001,7 @@ public partial class Project : CommandUtils
 			InternalUtils.SafeCreateDirectory(Path.GetDirectoryName(ReleaseVersionPath));
 			InternalUtils.SafeCopyFile(OutputLocation, ReleaseVersionPath);
         }
+        */
 
 		if (Params.CreateChunkInstall)
 		{
