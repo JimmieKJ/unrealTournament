@@ -278,8 +278,6 @@ AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 	bWeightedCharacter = false;
 
 	BoostRechargeMaxCharges = 1;
-	BoostRechargeRateAlive = 1.0f;
-	BoostRechargeRateDead = 2.0f;
 	BoostRechargeTime = 0.0f; // off by default
 	MusicVolume = 1.f;
 
@@ -344,8 +342,6 @@ void AUTGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLif
 
 	DOREPLIFETIME_CONDITION(AUTGameState, BoostRechargeTime, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTGameState, BoostRechargeMaxCharges, COND_InitialOnly);
-	DOREPLIFETIME_CONDITION(AUTGameState, BoostRechargeRateAlive, COND_InitialOnly);
-	DOREPLIFETIME_CONDITION(AUTGameState, BoostRechargeRateDead, COND_InitialOnly);
 
 	DOREPLIFETIME(AUTGameState, bRestrictPartyJoin);
 	DOREPLIFETIME(AUTGameState, bTeamProjHits);

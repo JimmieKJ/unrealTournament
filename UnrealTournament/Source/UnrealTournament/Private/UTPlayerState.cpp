@@ -115,7 +115,7 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	DOREPLIFETIME(AUTPlayerState, Avatar);
 	DOREPLIFETIME(AUTPlayerState, RemainingBoosts);
 	DOREPLIFETIME(AUTPlayerState, BoostClass);
-	DOREPLIFETIME(AUTPlayerState, BoostRechargeTimeRemaining);
+	DOREPLIFETIME(AUTPlayerState, BoostRechargePct);
 	DOREPLIFETIME(AUTPlayerState, ShowdownRank);
 	DOREPLIFETIME(AUTPlayerState, RankedShowdownRank);
 	DOREPLIFETIME(AUTPlayerState, DuelRank);
@@ -755,16 +755,9 @@ void AUTPlayerState::SetRemainingBoosts(uint8 NewRemainingBoosts)
 	{
 		RemainingBoosts = NewRemainingBoosts;
 		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-		if (GS != NULL && RemainingBoosts < GS->BoostRechargeMaxCharges)
+		if (GS == nullptr || RemainingBoosts >= GS->BoostRechargeMaxCharges)
 		{
-			if (BoostRechargeTimeRemaining <= 0.0f)
-			{
-				BoostRechargeTimeRemaining = GS->BoostRechargeTime;
-			}
-		}
-		else
-		{
-			BoostRechargeTimeRemaining = 0.0f;
+			BoostRechargePct = 0.0f;
 		}
 	}
 }
@@ -808,27 +801,14 @@ void AUTPlayerState::Tick(float DeltaTime)
 	RespawnTime -= DeltaTime;
 	ForceRespawnTime -= DeltaTime;
 
-	if (BoostRechargeTimeRemaining > 0.0f)
+	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+	if (GS != NULL && GS->IsMatchInProgress() && GS->BoostRechargeTime > 0.0f && RemainingBoosts < GS->BoostRechargeMaxCharges)
 	{
-		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-		if (GS != NULL && GS->IsMatchInProgress())
+		BoostRechargePct += DeltaTime / GS->BoostRechargeTime;
+		if (BoostRechargePct >= 1.0f)
 		{
-			bool bIsDead = false;
-			if (Cast<AController>(GetOwner()) != NULL)
-			{
-				bIsDead = ((AController*)GetOwner())->GetPawn() == NULL;
-			}
-			else
-			{
-				bIsDead = GetUTCharacter() == NULL;
-			}
-
-			BoostRechargeTimeRemaining -= DeltaTime * (bIsDead ? GS->BoostRechargeRateDead : GS->BoostRechargeRateAlive);
-			if (BoostRechargeTimeRemaining <= 0.0f)
-			{
-				BoostRechargeTimeRemaining += GS->BoostRechargeTime;
-				SetRemainingBoosts(RemainingBoosts + 1); // note: will set BoostRechargeTimeRemaining to zero if we're no longer allowed to recharge
-			}
+			BoostRechargePct -= 1.0f;
+			SetRemainingBoosts(RemainingBoosts + 1); // note: will set BoostRechargeTimeRemaining to zero if we're no longer allowed to recharge
 		}
 	}
 
@@ -1231,7 +1211,7 @@ void AUTPlayerState::CopyProperties(APlayerState* PlayerState)
 		PS->RemainingBoosts = RemainingBoosts;
 		PS->RemainingLives = RemainingLives;
 		PS->bOutOfLives = bOutOfLives;
-		PS->BoostRechargeTimeRemaining = BoostRechargeTimeRemaining;
+		PS->BoostRechargePct = BoostRechargePct;
 		if (PS->StatManager)
 		{
 			PS->StatManager->InitializeManager(PS);

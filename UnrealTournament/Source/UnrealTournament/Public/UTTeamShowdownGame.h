@@ -22,8 +22,6 @@ public:
 	}
 
 	virtual void InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage) override;
-	virtual void InitGameState() override;
-	virtual void GenericPlayerInitialization(AController* C) override;
 	virtual void RestartPlayer(AController* aPlayer) override;
 	virtual void ScoreKill_Implementation(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType) override;
 	virtual AInfo* GetTiebreakWinner(FName* WinReason = NULL) const override;
@@ -39,12 +37,6 @@ public:
 	}
 
 	virtual bool ModifyDamage_Implementation(int32& Damage, FVector& Momentum, APawn* Injured, AController* InstigatedBy, const FHitResult& HitInfo, AActor* DamageCauser, TSubclassOf<UDamageType> DamageType) override;
-
-	// TODO: move this up a level if we're going to have it in multiple gametypes
-	TAssetSubclassOf<class AUTInventory> ActivatedPowerupPlaceholderObject;
-	UPROPERTY()
-	TSubclassOf<class AUTInventory> ActivatedPowerupPlaceholderClass;
-	virtual TSubclassOf<class AUTInventory> GetActivatedPowerupPlaceholderClass() { return ActivatedPowerupPlaceholderClass; };
 
 	virtual void GetGameURLOptions(const TArray<TSharedPtr<TAttributePropertyBase>>& MenuProps, TArray<FString>& OptionsList, int32& DesiredPlayerCount) override;
 	virtual void CreateGameURLOptions(TArray<TSharedPtr<TAttributePropertyBase>>& MenuProps) override;

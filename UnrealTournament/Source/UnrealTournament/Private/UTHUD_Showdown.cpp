@@ -5,7 +5,6 @@
 #include "UTShowdownGameMessage.h"
 #include "UTPlayerStart.h"
 #include "UTHUDWidgetMessage_KillIconMessages.h"
-#include "SUTPowerupSelectWindow.h"
 #include "UTTeamShowdownGame.h"
 #include "UTPickupAmmo.h"
 

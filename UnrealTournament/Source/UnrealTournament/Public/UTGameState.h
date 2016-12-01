@@ -599,12 +599,6 @@ public:
 	/** maximum number of boost charges that can be recharged through the timer */
 	UPROPERTY(BlueprintReadWrite, Replicated)
 	int32 BoostRechargeMaxCharges;
-	/** boost recharge rate while alive */
-	UPROPERTY(BlueprintReadWrite, Replicated)
-	float BoostRechargeRateAlive;
-	/** boost recharge rate while dead */
-	UPROPERTY(BlueprintReadWrite, Replicated)
-	float BoostRechargeRateDead;
 
 	// Flags that this match no longer allows for a party join
 	UPROPERTY(BlueprintReadOnly, Replicated)

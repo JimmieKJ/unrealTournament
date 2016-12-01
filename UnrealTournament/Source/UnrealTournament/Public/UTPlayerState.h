@@ -663,9 +663,9 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = PlayerState)
 	void SetRemainingBoosts(uint8 NewRemainingBoosts);
 
-	/** if gametype supports a boost recharge/cooldown timer, the time that needs to pass for RemainingBoosts to be incremented */
+	/** if gametype supports a boost recharge/cooldown timer, progress to a new boost charge */
 	UPROPERTY(Replicated, BlueprintReadWrite, Category = PlayerState)
-	float BoostRechargeTimeRemaining;
+	float BoostRechargePct;
 
 	UPROPERTY()
 	TArray<class AUTInventory*> PreservedKeepOnDeathInventoryList;
