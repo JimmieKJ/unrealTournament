@@ -246,7 +246,7 @@ void UUTFlagRunScoreboard::DrawScoreAnnouncement(float DeltaTime)
 
 	YPos += YL*RenderScale;
 
-	ScoreX = 0.5f * (Canvas->ClipX - 1.5f * RenderScale * StarXL * NumStars);
+	ScoreX = 0.5f * (Canvas->ClipX - 1.5f * RenderScale * StarXL * (float(NumStars) - 0.5f));
 	Canvas->SetLinearDrawColor(BonusColor);
 
 	float PoundStart = 1.6f;
@@ -762,7 +762,7 @@ void UUTFlagRunScoreboard::DrawScoringSummary(float DeltaTime, float& YPos, floa
 
 	FLinearColor DrawColor = FLinearColor::White;
 	float CurrentScoreHeight = (GS->CTFRound >= GS->NumRounds - 2) ? 2.f*TitleY : TitleY;
-	DrawFramedBackground(0.5f*(Canvas->ClipX - 1.1f*RenderScale*TitleX), YPos, 1.1f*RenderScale*TitleX, RenderScale*CurrentScoreHeight);
+	DrawFramedBackground(0.5f*(Canvas->ClipX - 1.2f*RenderScale*TitleX), YPos, 1.2f*RenderScale*TitleX, 1.2f*RenderScale*CurrentScoreHeight);
 
 	// draw round information
 	Canvas->DrawText(UTHUDOwner->MediumFont, FormattedTitle, 0.5f*(Canvas->ClipX - RenderScale*TitleX), YPos, RenderScale, RenderScale, TextRenderInfo);
