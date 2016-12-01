@@ -375,6 +375,7 @@ public:
 class FServerData;
 
 DECLARE_DELEGATE_TwoParams(FMatchPanelJoinMatchDelegate, const FString& , bool );
+DECLARE_DELEGATE(FMatchPanelStartMatchDelegate);
 
 class UNREALTOURNAMENT_API SUTMatchPanel : public SCompoundWidget
 {
@@ -383,6 +384,7 @@ class UNREALTOURNAMENT_API SUTMatchPanel : public SCompoundWidget
 	{}
 		SLATE_ARGUMENT( TWeakObjectPtr<UUTLocalPlayer>, PlayerOwner )
 		SLATE_EVENT(FMatchPanelJoinMatchDelegate, OnJoinMatchDelegate )
+		SLATE_EVENT(FMatchPanelStartMatchDelegate, OnStartMatchDelegate )
 		SLATE_ARGUMENT( bool, bExpectLiveData)
 
 	SLATE_END_ARGS()
@@ -439,13 +441,13 @@ protected:
 	FReply DownloadAllButtonClicked();
 
 	FMatchPanelJoinMatchDelegate OnJoinMatchDelegate;
-	
+	FMatchPanelStartMatchDelegate OnStartMatchDelegate;
+
 	TSharedPtr<SUTButton> DownloadContentButton;
 	TSharedPtr<SUTPopOverAnchor> CurrentAnchor;
 	bool bSuspendPopups;
 
 	EVisibility GetMatchButtonVis() const;
-
 };
 
 #endif

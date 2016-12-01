@@ -414,7 +414,7 @@ TSharedRef<SWidget> SUTHomePanel::BuildHomePanel()
 											.AutoHeight()
 											[
 												SNew(STextBlock)
-												.Text(FText::FromString(TEXT("CAPTURE THE FLAG")))
+												.Text(FText::FromString(TEXT("FLAG RUN")))
 												.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small.Bold")
 												.ColorAndOpacity(FLinearColor(1.0f, 0.412f, 0.027f, 1.0f))
 											]
@@ -547,29 +547,6 @@ TSharedRef<SWidget> SUTHomePanel::BuildHomePanel()
 									]
 									
 								]
-								+ SOverlay::Slot().VAlign(VAlign_Fill).HAlign(HAlign_Fill)
-								[
-									SNew(SUTBorder)
-									.BorderImage(SUTStyle::Get().GetBrush("UT.HeaderBackground.Shaded"))
-									.HAlign(HAlign_Center).VAlign(VAlign_Center)
-									.Visibility(TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateUObject(PlayerOwner.Get(), &UUTLocalPlayer::IsMenuOptionLockVisible, EMenuCommand::MC_Challenges) ) )
-									[
-										SNew(SHorizontalBox)
-										+SHorizontalBox::Slot().AutoWidth()
-										[
-											SNew(SVerticalBox)
-											+SVerticalBox::Slot().AutoHeight()
-											[
-												SNew(SBox).WidthOverride(128).HeightOverride(128)
-												[
-													SNew(SImage)
-													.Image(SUTStyle::Get().GetBrush("UT.Icon.LockedContent"))
-												]
-											]
-										]
-									]
-								]
-
 								+ SOverlay::Slot()
 								[
 									SNew(SButton)
@@ -908,14 +885,7 @@ FReply SUTHomePanel::QuickMatch_CTF_Click()
 	TSharedPtr<SUTMainMenu> MainMenu = StaticCastSharedPtr<SUTMainMenu>(GetParentWindow());
 	if (MainMenu.IsValid())
 	{
-		if (PlayerOwner->IsMenuOptionLocked(EMenuCommand::MC_QuickPlayCTF))
-		{
-			PlayerOwner->LaunchTutorial(ETutorialTags::TUTTAG_CTF, EEpicDefaultRuleTags::CTF);
-		}
-		else
-		{
-			MainMenu->QuickPlay(EEpicDefaultRuleTags::CTF);
-		}
+		MainMenu->QuickPlay(EEpicDefaultRuleTags::FlagRun);
 	}
 	return FReply::Handled();
 }
@@ -944,14 +914,7 @@ FReply SUTHomePanel::OfflineAction_Click()
 	TSharedPtr<SUTMainMenu> MainMenu = StaticCastSharedPtr<SUTMainMenu>(GetParentWindow());
 	if (MainMenu.IsValid())
 	{
-		if (PlayerOwner->IsMenuOptionLocked(EMenuCommand::MC_Challenges))
-		{
-			PlayerOwner->LaunchTutorial(ETutorialTags::TUTTAG_Progress);
-		}
-		else
-		{
-			MainMenu->ShowGamePanel();
-		}
+		MainMenu->ShowGamePanel();
 	}
 	return FReply::Handled();
 }

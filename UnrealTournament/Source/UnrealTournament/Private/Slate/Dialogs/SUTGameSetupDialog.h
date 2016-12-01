@@ -153,8 +153,8 @@ private:
 
 public:
 	SLATE_BEGIN_ARGS(SUTGameSetupDialog)
-	: _DialogTitle(NSLOCTEXT("SUTGameSetupDialog", "Title", "GAME SETTINGS"))
-	, _DialogSize(FVector2D(1700, 1040))
+	: _DialogTitle(NSLOCTEXT("SUTGameSetupDialog", "Title", "CREATE A MATCH"))
+	, _DialogSize(FVector2D(1920, 1080))
 	, _bDialogSizeIsRelative(false)
 	, _DialogPosition(FVector2D(0.5f,0.5f))
 	, _DialogAnchorPoint(FVector2D(0.5f,0.5f))
@@ -214,9 +214,11 @@ protected:
 	TSharedPtr<SButton> MapsButton;
 
 	TSharedPtr<SVerticalBox> MapBox;
+	TSharedPtr<SVerticalBox> RulesInfoBox;
 	TSharedPtr<SVerticalBox> HideBox;
 
 	TSharedPtr<SUTCreateGamePanel> CustomPanel;
+	TSharedPtr<SVerticalBox> CustomBox;
 
 	FText GetMatchRulesTitle() const;
 	FText GetMatchRulesDescription() const;
@@ -232,12 +234,6 @@ protected:
 	void BuildMapPanel();
 
 	void OnSubMenuSelect(int32 MenuCmdId, TSharedPtr<SUTComboButton> Sender);
-
-	TSharedPtr<SUTComboButton> BotSkillButton;
-	virtual TSharedRef<class SWidget> BuildCustomButtonBar();
-	FText GetBotSkillText() const;
-	void OnBotMenuSelect(int32 MenuCmdId, TSharedPtr<SUTComboButton> Sender);
-
 	void TextureLoadComplete(const FName& InPackageName, UPackage* LoadedPackage, EAsyncLoadingResult::Type Result);
 
 	// Will be true if this dialog was opened while connected to a hub.
@@ -262,10 +258,21 @@ protected:
 
 	int32 DesiredMapIndex;
 
+	TSharedRef<SWidget> BuildBotSkill();
+	FReply OnBotSkillClick(int32 NewSkill);
+	TArray<TSharedPtr<SUTTabButton>> BotSkillButtons;
+
+	virtual void AddButtonsToLeftOfButtonBar(uint32& ButtonCount);
+	
+	TSharedPtr<SCheckBox> cbRankLocked;
+	TSharedPtr<SCheckBox> cbSpectatable;
+	TSharedPtr<SCheckBox> cbPrivateMatch;
+
+
 public:
 	FString GetSelectedMap();
 
-
+	void ConfigureMatchInfo(TWeakObjectPtr<AUTLobbyMatchInfo> MatchInfo);
 
 };
 

@@ -28,6 +28,7 @@ void SUTMatchPanel::Construct(const FArguments& InArgs)
 	PlayerOwner = InArgs._PlayerOwner;
 	bShowingNoMatches = false;
 	OnJoinMatchDelegate = InArgs._OnJoinMatchDelegate;
+	OnStartMatchDelegate = InArgs._OnStartMatchDelegate;
 	bSuspendPopups = false;
 	bExpectLiveData = InArgs._bExpectLiveData;
 
@@ -581,30 +582,12 @@ void SUTMatchPanel::Tick( const FGeometry& AllottedGeometry, const double InCurr
 		}
 	}
 }
- 
 
 FReply SUTMatchPanel::StartNewMatch()
 {
-	AUTLobbyGameState* GameState = PlayerOwner->GetWorld()->GetGameState<AUTLobbyGameState>();
-	if (GameState && PlayerOwner->PlayerController && PlayerOwner->PlayerController->PlayerState)
+	if (OnStartMatchDelegate.IsBound())
 	{
-		AUTLobbyPlayerState* LobbyPlayerState = Cast<AUTLobbyPlayerState>(PlayerOwner->PlayerController->PlayerState);
-		if (LobbyPlayerState)
-		{
-			bool bIsInParty = false;
-			UPartyContext* PartyContext = Cast<UPartyContext>(UBlueprintContextLibrary::GetContext(PlayerOwner->GetWorld(), UPartyContext::StaticClass()));
-			if (PartyContext)
-			{
-				bIsInParty = PartyContext->GetPartySize() > 1;
-			}
-
-			if (FUTAnalytics::IsAvailable())
-			{
-				FUTAnalytics::FireEvent_EnterMatch(FString("HUB - Created Match"));
-			}
-
-			LobbyPlayerState->ServerCreateMatch(bIsInParty);
-		}
+		OnStartMatchDelegate.Execute();
 	}
 	return FReply::Handled();
 }	

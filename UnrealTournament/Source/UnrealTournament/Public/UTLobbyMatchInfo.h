@@ -278,13 +278,13 @@ public:
 	virtual void SetRules(TWeakObjectPtr<AUTReplicatedGameRuleset> NewRuleset, const FString& StartingMap);
 
 	UFUNCTION(Server, Reliable, WithValidation)
-	virtual void ServerSetRules(const FString& RulesetTag, const FString& StartingMap, int32 NewBotSkillLevel, bool bIsInParty);
+	virtual void ServerSetRules(const FString& RulesetTag, const FString& StartingMap, int32 NewBotSkillLevel, bool bIsInParty, bool _bRankLocked = true, bool _bSpectatable = true, bool _bPrivateMatch = false);
 
 	// Processing an update to the match coming from an instance
 	virtual void ProcessMatchUpdate(const FMatchUpdate& NewMatchUpdate);
 
 	UFUNCTION(Server, Reliable, WithValidation)
-	void ServerCreateCustomRule(const FString& GameMode, const FString& StartingMap, const FString& Description, const TArray<FString>& GameOptions, int32 DesiredSkillLevel, int32 DesiredPlayerCount, bool bTeamGame);
+	void ServerCreateCustomRule(const FString& GameMode, const FString& StartingMap, const FString& Description, const TArray<FString>& GameOptions, int32 DesiredSkillLevel, int32 DesiredPlayerCount, bool bTeamGame, bool _bRankLocked = true, bool _bSpectatable = true, bool _bPrivateMatch = false);
 
 	bool IsBanned(FUniqueNetIdRepl Who);
 	void GetMapInformation();

@@ -12,7 +12,8 @@
 #include "UTLobbyPC.h"
 #include "Engine/UserInterfaceSettings.h"
 #include "UTLobbyHUD.h"
-
+#include "../Dialogs/SUTGameSetupDialog.h"
+#include "../UIWindows/SUTStartMatchWindow.h"
 
 
 #if !UE_SERVER
@@ -131,56 +132,6 @@ void SUTLobbyInfoPanel::BuildChatAndPlayerList()
 		{
 			TextChatPanel->RemoveDestination(ChatDestinations::Match);
 		}
-/*
-		RightPanel->AddSlot()
-		.FillHeight(1.0)
-		.HAlign(HAlign_Left)
-		[
-			SNew(SVerticalBox)
-			+SVerticalBox::Slot()
-			.AutoHeight()
-			[
-				SNew(SHorizontalBox)
-				+SHorizontalBox::Slot()
-				.AutoWidth()
-				[
-					SNew(SBox).WidthOverride(826).HeightOverride(195)
-					[
-						SNew(SImage)
-						.Image(SUTStyle::Get().GetBrush("UT.HeaderBackground.SuperDark"))
-					]
-				]
-			]
-			+SVerticalBox::Slot()
-			.FillHeight(1.0)
-			.Padding(FMargin(0.0f,12.0f,0.0f,0.0f))
-			[
-				SNew(SHorizontalBox)
-				+SHorizontalBox::Slot()
-				.AutoWidth()
-				[
-					SNew(SBox).WidthOverride(826)
-					[
-						SNew(SHorizontalBox)
-						+SHorizontalBox::Slot()
-						.FillWidth(1.0)
-						[
-							TextChatPanel.ToSharedRef()
-						]
-
-						+SHorizontalBox::Slot()
-						.AutoWidth()
-						[
-							SNew(SBox).WidthOverride(208)
-							[
-								PlayerListPanel.ToSharedRef()
-							]
-						]
-					]
-				]
-			]
-		];
-*/
 	}
 	else
 	{
@@ -224,32 +175,6 @@ void SUTLobbyInfoPanel::BuildChatAndPlayerList()
 			]
 		]
 	];
-}
-
-
-void SUTLobbyInfoPanel::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
-{
-	AUTLobbyPlayerState* PlayerState = Cast<AUTLobbyPlayerState>(GetOwnerPlayerState());
-	if (!PlayerState) return;	// Quick out if we don't have an owner player.
-
-	if (bShowingMatchBrowser)
-	{
-		// Look to see if we have been waiting for a valid GameModeData to replicate.  If we have, open the right panel.
-		if (PlayerState && PlayerState->CurrentMatch && PlayerState->CurrentMatch->MatchIsReadyToJoin(PlayerState))
-		{
-			ShowMatchSetupPanel();
-		}
-	}
-	else
-	{
-		// We are showing the Match Setup panel.. see if we should still be showing it...
-		
-		if (PlayerState->CurrentMatch == NULL || !PlayerState->CurrentMatch->MatchIsReadyToJoin(PlayerState) )
-		{
-			ShowMatchBrowser();
-		}
-	}
-	
 }
 
 
@@ -308,6 +233,7 @@ void SUTLobbyInfoPanel::ShowMatchBrowser()
 			SAssignNew(MatchBrowser, SUTMatchPanel)
 			.bExpectLiveData(true)
 			.PlayerOwner(PlayerOwner)
+			.OnStartMatchDelegate(this, &SUTLobbyInfoPanel::StartMatch)
 		];
 
 		BuildChatAndPlayerList();
@@ -349,5 +275,83 @@ void SUTLobbyInfoPanel::OnHidePanel()
 	if (TextChatPanel.IsValid()) TextChatPanel->OnHidePanel();
 }
 
+
+void SUTLobbyInfoPanel::StartMatch()
+{
+	AUTLobbyGameState* LobbyGameState = GWorld->GetGameState<AUTLobbyGameState>();
+	if (PlayerOwner.IsValid() && !SetupDialog.IsValid() && LobbyGameState && LobbyGameState->AvailableGameRulesets.Num() > 0 )
+	{
+		SAssignNew(SetupDialog, SUTGameSetupDialog)
+			.PlayerOwner(PlayerOwner)
+			.GameRuleSets(LobbyGameState->AvailableGameRulesets)
+			.OnDialogResult(this, &SUTLobbyInfoPanel::OnGameChangeDialogResult);
+
+		if ( SetupDialog.IsValid() )
+		{
+			PlayerOwner->OpenDialog(SetupDialog.ToSharedRef(), 100);
+		}
+	}
+}
+
+void SUTLobbyInfoPanel::OnGameChangeDialogResult(TSharedPtr<SCompoundWidget> Dialog, uint16 ButtonPressed)
+{
+	if (ButtonPressed == UTDIALOG_BUTTON_OK)
+	{
+		// Looking to start a match...
+
+		bool bIsInParty = false;
+		UPartyContext* PartyContext = Cast<UPartyContext>(UBlueprintContextLibrary::GetContext(PlayerOwner->GetWorld(), UPartyContext::StaticClass()));
+		if (PartyContext)
+		{
+			bIsInParty = PartyContext->GetPartySize() > 1;
+		}
+
+		AUTLobbyPlayerState* PlayerState = Cast<AUTLobbyPlayerState>(PlayerOwner->PlayerController->PlayerState);
+		if (PlayerState)
+		{
+			PlayerState->ServerCreateMatch(bIsInParty);
+		}
+
+		SAssignNew(StartMatchWindow, SUTStartMatchWindow, PlayerOwner)
+			.bIsHost(true);
+		 
+		if (StartMatchWindow.IsValid())
+		{
+			StartMatchWindow->ParentPanel = SharedThis(this);
+		}
+
+		PlayerOwner->OpenWindow(StartMatchWindow);
+	}
+	else
+	{
+		SetupDialog.Reset();
+	}
+}
+
+void SUTLobbyInfoPanel::CancelInstance()
+{
+	AUTLobbyPlayerState* LobbyPlayerState = Cast<AUTLobbyPlayerState>(PlayerOwner->PlayerController->PlayerState);
+	if (LobbyPlayerState)
+	{	
+		LobbyPlayerState->ServerDestroyOrLeaveMatch();
+	}
+
+	if (StartMatchWindow.IsValid())
+	{
+		PlayerOwner->CloseWindow(StartMatchWindow);
+	}
+	StartMatchWindow.Reset();
+}
+
+void SUTLobbyInfoPanel::ApplySetup(TWeakObjectPtr<AUTLobbyMatchInfo> MatchInfo)
+{
+	if (SetupDialog.IsValid() && MatchInfo.IsValid())
+	{
+		SetupDialog->ConfigureMatchInfo(MatchInfo);
+		MatchInfo->ServerStartMatch();	
+		PlayerOwner->CloseDialog(SetupDialog.ToSharedRef());
+		SetupDialog.Reset();
+	}
+}
 
 #endif

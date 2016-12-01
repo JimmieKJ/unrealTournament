@@ -42,31 +42,30 @@ public:
 	
 	static void GetEpicRulesets(TArray<FString>& Rules)
 	{
-		Rules.Add(EEpicDefaultRuleTags::TEAMSHOWDOWN);
+		Rules.Add(EEpicDefaultRuleTags::FlagRun);
+		Rules.Add(EEpicDefaultRuleTags::Deathmatch);
 		Rules.Add(EEpicDefaultRuleTags::CTF);
+		Rules.Add(EEpicDefaultRuleTags::TDM);
 		Rules.Add(EEpicDefaultRuleTags::BIGCTF);
 		Rules.Add(EEpicDefaultRuleTags::COMPCTF);
-		Rules.Add(EEpicDefaultRuleTags::TDM);
-		Rules.Add(EEpicDefaultRuleTags::Deathmatch);
+		Rules.Add(EEpicDefaultRuleTags::SHOWDOWN);
+		Rules.Add(EEpicDefaultRuleTags::TEAMSHOWDOWN);
 		Rules.Add(EEpicDefaultRuleTags::BigDM);
 		Rules.Add(EEpicDefaultRuleTags::DUEL);
-		Rules.Add(EEpicDefaultRuleTags::SHOWDOWN);
 		Rules.Add(EEpicDefaultRuleTags::iDM);
 		Rules.Add(EEpicDefaultRuleTags::iTDM);
 		Rules.Add(EEpicDefaultRuleTags::iCTF);
 		Rules.Add(EEpicDefaultRuleTags::iCTFT);
-//		Rules.Add(EEpicDefaultRuleTags::FlagRun);
 	}
 
 	static void InsureEpicDefaults(UUTGameRuleset* NewRuleset)
 	{
 		// TODO: This should pull from a file that is pushed from the MCP if the MCP is available
 
-
 		if (NewRuleset->UniqueTag.Equals(EEpicDefaultRuleTags::Deathmatch, ESearchCase::IgnoreCase))
 		{
 			NewRuleset->Categories.Empty(); 
-			NewRuleset->Categories.Add(TEXT("Deathmatch"));
+			NewRuleset->Categories.Add(TEXT("Featured"));
 
 			NewRuleset->Title = TEXT("Deathmatch");
 			NewRuleset->Tooltip = TEXT("Standard free-for-all Deathmatch.");
@@ -108,7 +107,7 @@ public:
 		else if (NewRuleset->UniqueTag.Equals(EEpicDefaultRuleTags::BigDM, ESearchCase::IgnoreCase))
 		{
 			NewRuleset->Categories.Empty(); 
-			NewRuleset->Categories.Add(TEXT("Deathmatch"));
+			NewRuleset->Categories.Add(TEXT("Classic"));
 
 			NewRuleset->Title = TEXT("Big Deathmatch");
 			NewRuleset->Tooltip = TEXT("Deathmatch with large player counts on big maps.");
@@ -138,7 +137,7 @@ public:
 		else if (NewRuleset->UniqueTag.Equals(EEpicDefaultRuleTags::TDM, ESearchCase::IgnoreCase))
 		{
 			NewRuleset->Categories.Empty(); 
-			NewRuleset->Categories.Add(TEXT("TeamPlay"));
+			NewRuleset->Categories.Add(TEXT("Classic"));
 
 			NewRuleset->Title = TEXT("Team Deathmatch");
 			NewRuleset->Tooltip = TEXT("Red versus blue team deathmatch.");
@@ -177,7 +176,7 @@ public:
 		else if (NewRuleset->UniqueTag.Equals(EEpicDefaultRuleTags::TEAMSHOWDOWN, ESearchCase::IgnoreCase))
 		{
 			NewRuleset->Categories.Empty();
-			NewRuleset->Categories.Add(TEXT("TeamPlay"));
+			NewRuleset->Categories.Add(TEXT("Featured"));
 
 			NewRuleset->Title = TEXT("Showdown");
 			NewRuleset->Tooltip = TEXT("Red versus blue team showdown.");
@@ -212,7 +211,7 @@ public:
 		else if (NewRuleset->UniqueTag.Equals(EEpicDefaultRuleTags::DUEL, ESearchCase::IgnoreCase))
 		{
 			NewRuleset->Categories.Empty(); 
-			NewRuleset->Categories.Add(TEXT("Deathmatch"));
+			NewRuleset->Categories.Add(TEXT("Competitive"));
 
 			NewRuleset->Title = TEXT("Duel");
 			NewRuleset->Tooltip = TEXT("One vs one test of deathmatch skill.");
@@ -240,9 +239,9 @@ public:
 		else if (NewRuleset->UniqueTag.Equals(EEpicDefaultRuleTags::SHOWDOWN, ESearchCase::IgnoreCase))
 		{
 			NewRuleset->Categories.Empty(); 
-			NewRuleset->Categories.Add(TEXT("Deathmatch"));
+			NewRuleset->Categories.Add(TEXT("Competitive"));
 
-			NewRuleset->Title = TEXT("Duel Showdown");
+			NewRuleset->Title = TEXT("1v1 Showdown");
 			NewRuleset->Tooltip = TEXT("New School one vs one test of deathmatch skill.");
 			NewRuleset->Description = TEXT("New School one vs one test of deathmatch skill.\n\n<UT.Hub.RulesText_Small>TimeLimit : %timelimit% minute rounds</>\n<UT.Hub.RulesText_Small>Maximum players : %maxplayers%</>");
 			NewRuleset->MinPlayersToStart = 2;
@@ -269,7 +268,7 @@ public:
 		else if (NewRuleset->UniqueTag.Equals(EEpicDefaultRuleTags::CTF, ESearchCase::IgnoreCase))
 		{
 			NewRuleset->Categories.Empty(); 
-			NewRuleset->Categories.Add(TEXT("TeamPlay"));
+			NewRuleset->Categories.Add(TEXT("Classic"));
 
 			NewRuleset->Title = TEXT("Capture the Flag");
 			NewRuleset->Tooltip = TEXT("Capture the Flag.");
@@ -299,7 +298,7 @@ public:
 		else if (NewRuleset->UniqueTag.Equals(EEpicDefaultRuleTags::BIGCTF, ESearchCase::IgnoreCase))
 		{
 			NewRuleset->Categories.Empty(); 
-			NewRuleset->Categories.Add(TEXT("TeamPlay"));
+			NewRuleset->Categories.Add(TEXT("Classic"));
 
 			NewRuleset->Title = TEXT("Big CTF");
 			NewRuleset->Tooltip = TEXT("Capture the Flag with large teams.");
@@ -323,7 +322,7 @@ public:
 		else if (NewRuleset->UniqueTag.Equals(EEpicDefaultRuleTags::COMPCTF, ESearchCase::IgnoreCase))
 		{
 			NewRuleset->Categories.Empty();
-			NewRuleset->Categories.Add(TEXT("TeamPlay"));
+			NewRuleset->Categories.Add(TEXT("Competitive"));
 
 			NewRuleset->Title = TEXT("Competitive CTF");
 			NewRuleset->Tooltip = TEXT("Capture the Flag with competition rules.");
@@ -484,7 +483,8 @@ public:
 		else if (NewRuleset->UniqueTag.Equals(EEpicDefaultRuleTags::FlagRun, ESearchCase::IgnoreCase))
 		{
 			NewRuleset->Categories.Empty();
-			NewRuleset->Categories.Add(TEXT("TeamPlay"));
+			NewRuleset->Categories.Add(TEXT("Featured"));
+			NewRuleset->Categories.Add(TEXT("Competitive"));
 
 			NewRuleset->Title = TEXT("Flag Run");
 			NewRuleset->Tooltip = TEXT("Attackers must deliver their flag to the enemy base.");
@@ -498,6 +498,12 @@ public:
 			NewRuleset->MaxMapsInList = 16;
 
 			NewRuleset->EpicMaps = "/Game/RestrictedAssets/Maps/WIP/FR-BlackStone";
+			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/FR-Fort";
+			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/FR-HighRoad";
+			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/FR-Heist";
+			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/FR-Loh";
+			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/FR-MeltDown";
+
 			NewRuleset->DefaultMap = "/Game/RestrictedAssets/Maps/WIP/FR-BlackStone";
 			NewRuleset->QuickPlayMaps.Add(TEXT("/Game/RestrictedAssets/Maps/WIP/FR-BlackStone"));
 		}

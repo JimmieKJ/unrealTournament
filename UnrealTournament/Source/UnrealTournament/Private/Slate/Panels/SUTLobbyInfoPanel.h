@@ -13,8 +13,9 @@
 
 #if !UE_SERVER
 
+class SUTStartMatchWindow;
 
-class UNREALTOURNAMENT_API SUTLobbyInfoPanel : public SUTPanelBase
+class UNREALTOURNAMENT_API SUTLobbyInfoPanel : public SUTPanelBase 
 {
 public:
 	virtual void ConstructPanel(FVector2D ViewportSize);
@@ -38,8 +39,6 @@ protected:
 
 	// Holds the last match state if the player owner has a current match.  It's used to detect state changes and rebuild the menu as needed.
 	FName LastMatchState;
-	
-	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime );
 
 	/**
 	 *	Builds the chat window and player list
@@ -59,6 +58,15 @@ protected:
 
 	virtual void OnShowPanel(TSharedPtr<SUTMenuBase> inParentWindow);
 	virtual void OnHidePanel();
+
+	TSharedPtr<SUTGameSetupDialog> SetupDialog;
+	TSharedPtr<SUTStartMatchWindow> StartMatchWindow;
+
+public:
+	void ApplySetup(TWeakObjectPtr<AUTLobbyMatchInfo> MatchInfo);
+	void StartMatch();
+	void OnGameChangeDialogResult(TSharedPtr<SCompoundWidget> Dialog, uint16 ButtonPressed);
+	void CancelInstance();
 
 };
 

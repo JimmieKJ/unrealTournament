@@ -798,6 +798,7 @@ ECheckBoxState SUTLobbyMatchSetupPanel::GetFriendsOnlyState() const
 
 void SUTLobbyMatchSetupPanel::OnGameChangeDialogResult(TSharedPtr<SCompoundWidget> Dialog, uint16 ButtonPressed)
 {
+	bool bLaunch = false;
 	if (ButtonPressed == UTDIALOG_BUTTON_OK && MatchInfo.IsValid() && SetupDialog.IsValid() )
 	{
 		if (SetupDialog->IsCustomSettings())
@@ -824,6 +825,7 @@ void SUTLobbyMatchSetupPanel::OnGameChangeDialogResult(TSharedPtr<SCompoundWidge
 
 			FString StartingMap = SetupDialog->GetSelectedMap();
 			MatchInfo->ServerSetRules(SetupDialog->SelectedRuleset->UniqueTag, StartingMap, SetupDialog->BotSkillLevel, bIsInParty);
+			bLaunch = true;
 		}
 	}
 	else if (ButtonPressed == UTDIALOG_BUTTON_CANCEL)
@@ -839,6 +841,9 @@ void SUTLobbyMatchSetupPanel::OnGameChangeDialogResult(TSharedPtr<SCompoundWidge
 	}
 
 	SetupDialog.Reset();
+
+	if (bLaunch) StartMatchClicked();
+
 }
 
 const FSlateBrush* SUTLobbyMatchSetupPanel::GetGameModeBadge() const

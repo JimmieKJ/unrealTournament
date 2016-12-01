@@ -73,6 +73,8 @@ const FColor Disabled(189,189,189,255);
 const FColor Shaded(4,4,4,200);
 
 
+const FColor SelectedColor(64,62,48,255);
+
 const FColor TestRed(128,0,0,255);
 const FColor TestBlue(0,0,128,255);
 const FColor TestGreen(0,128,0,255);
@@ -408,8 +410,17 @@ void SUTStyle::SetCommonStyle(TSharedRef<FSlateStyleSet> StyleRef)
 
 	Style.Set("UT.TabButton", FButtonStyle()
 		.SetNormal( FSlateColorBrush(Dark) )
-		.SetHovered( FSlateColorBrush(Hovered) )
+		.SetHovered( FSlateColorBrush(SuperDarkListA) )
 		.SetPressed( FSlateColorBrush(TabSelected) )
+		.SetDisabled( FSlateColorBrush(Disabled) )
+		.SetHoveredSound(ButtonHoverSound)
+		.SetPressedSound(ButtonPressSound) 
+		);
+
+	Style.Set("UT.OptionButton", FButtonStyle()
+		.SetNormal( FSlateColorBrush(Dark) )
+		.SetHovered( FSlateColorBrush(SuperDarkListA) )
+		.SetPressed( FSlateColorBrush(SelectedColor) )
 		.SetDisabled( FSlateColorBrush(Disabled) )
 		.SetHoveredSound(ButtonHoverSound)
 		.SetPressedSound(ButtonPressSound) 

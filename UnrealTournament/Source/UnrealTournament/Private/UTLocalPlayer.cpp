@@ -3382,7 +3382,7 @@ void UUTLocalPlayer::SetCountryFlagAndAvatar(FName NewFlag, FName NewAvatar)
 	AUTBasePlayerController * BasePC = Cast<AUTBasePlayerController>(PlayerController);
 	if (BasePC != NULL)
 	{
-		PC->ServerSetAvatar(NewAvatar);
+		BasePC->ServerSetAvatar(NewAvatar);
 	}
 }
 
@@ -3415,6 +3415,10 @@ void UUTLocalPlayer::StartQuickMatch(FString QuickMatchType)
 			else if (QuickMatchType == EEpicDefaultRuleTags::TEAMSHOWDOWN)
 			{
 				NewPlaylistId = 6;
+			}
+			else if (QuickMatchType == EEpicDefaultRuleTags::FlagRun)
+			{
+				NewPlaylistId = 7;
 			}
 			else
 			{
