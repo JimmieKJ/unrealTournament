@@ -311,43 +311,43 @@ bool AUTAsymCTFSquadAI::CheckSquadObjectives(AUTBot* B)
 			B->DoCamp();
 			return true;
 		}
-		else if (Flag->HoldingPawn == NULL && (Flag->bFriendlyCanPickup || CurrentOrders == NAME_Defend)) 
+		else if (CurrentOrders == NAME_Defend)
 		{
-			// amortize generation of alternate routes during delay before flag can be picked up
-			if (!Flag->bFriendlyCanPickup && SquadRoutes.Num() < MaxSquadRoutes && (GetLeader() == B || Cast<APlayerController>(GetLeader()) != nullptr))
+			if (Flag->HoldingPawn == NULL)
 			{
-				FollowAlternateRoute(B, Objective, SquadRoutes, false, false, TEXT(""));
-				// clear cached values since we're not actually following the route right now
-				B->UsingSquadRouteIndex = INDEX_NONE;
-				B->bDisableSquadRoutes = false;
-				CurrentSquadRouteIndex = INDEX_NONE;
-			}
-			if (!Flag->bFriendlyCanPickup)
-			{
-				// don't go for flag if someone else already on it
-				for (AController* C : Team->GetTeamMembers())
+				// amortize generation of alternate routes during delay before flag can be picked up
+				if (!Flag->bFriendlyCanPickup && SquadRoutes.Num() < MaxSquadRoutes && (GetLeader() == B || Cast<APlayerController>(GetLeader()) != nullptr))
 				{
-					if (C != B && C->GetPawn() != nullptr && C->GetPawn()->IsOverlappingActor(Flag))
+					FollowAlternateRoute(B, Objective, SquadRoutes, false, false, TEXT(""));
+					// clear cached values since we're not actually following the route right now
+					B->UsingSquadRouteIndex = INDEX_NONE;
+					B->bDisableSquadRoutes = false;
+					CurrentSquadRouteIndex = INDEX_NONE;
+				}
+				if (!Flag->bFriendlyCanPickup)
+				{
+					// don't go for flag if someone else already on it
+					for (AController* C : Team->GetTeamMembers())
 					{
-						if (B->FindInventoryGoal(0.0f))
+						if (C != B && C->GetPawn() != nullptr && C->GetPawn()->IsOverlappingActor(Flag))
 						{
-							B->GoalString = FString::Printf(TEXT("Initial rush: Head to inventory %s"), *GetNameSafe(B->RouteCache.Last().Actor.Get()));
-							B->SetMoveTarget(B->RouteCache[0]);
-							B->StartWaitForMove();
-							return true;
-						}
-						else
-						{
-							return false;
+							if (B->FindInventoryGoal(0.0f))
+							{
+								B->GoalString = FString::Printf(TEXT("Initial rush: Head to inventory %s"), *GetNameSafe(B->RouteCache.Last().Actor.Get()));
+								B->SetMoveTarget(B->RouteCache[0]);
+								B->StartWaitForMove();
+								return true;
+							}
+							else
+							{
+								return false;
+							}
 						}
 					}
 				}
+				return B->TryPathToward(Flag, true, false, "Get flag");
 			}
-			return B->TryPathToward(Flag, true, false, "Get flag");
-		}
-		else if (CurrentOrders == NAME_Defend)
-		{
-			if ((B->GetPawn()->GetActorLocation() - Flag->HoldingPawn->GetActorLocation()).Size() < 2000.0f)
+			else if ((B->GetPawn()->GetActorLocation() - Flag->HoldingPawn->GetActorLocation()).Size() < 2000.0f)
 			{
 				return false; // fight enemies around FC
 			}
@@ -374,9 +374,21 @@ bool AUTAsymCTFSquadAI::CheckSquadObjectives(AUTBot* B)
 				B->StartWaitForMove();
 				return true;
 			}
+			else if (Flag->HoldingPawn == nullptr && (B->UTLineOfSightTo(Flag) || (Flag->GetActorLocation() - B->GetPawn()->GetActorLocation()).Size() < 2500.0f))
+			{
+				return B->TryPathToward(Flag, true, false, "Get flag because near");
+			}
+			else if (!B->bDisableSquadRoutes)
+			{
+				return TryPathTowardObjective(B, Objective, true, TEXT("Attack enemy base"));
+			}
+			else if (Flag->HoldingPawn == nullptr)
+			{
+				return B->TryPathToward(Flag, true, false, "Get flag because nothing else to do");
+			}
 			else
 			{
-				return B->TryPathToward(Flag->HoldingPawn, true, false, "Find flag carrier");
+				return B->TryPathToward(Flag->HoldingPawn, true, false, TEXT("Find flag carrier"));
 			}
 		}
 	}
