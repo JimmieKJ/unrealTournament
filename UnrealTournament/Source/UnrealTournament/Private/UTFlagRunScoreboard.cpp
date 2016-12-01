@@ -162,6 +162,10 @@ void UUTFlagRunScoreboard::AnnounceRoundScore(AUTTeamInfo* InWinningTeam, APlaye
 		{
 			PendingTiebreak = FMath::Min(int32(RoundBonus), 59);
 		}
+		if (WinningTeam->TeamIndex == 1)
+		{
+			PendingTiebreak *= -1;
+		}
 	}
 	if (UTPlayerOwner)
 	{
@@ -312,7 +316,7 @@ void UUTFlagRunScoreboard::DrawScoreAnnouncement(float DeltaTime)
 		}
 	}
 
-	if (WinningTeam && (CurrentTime >= PoundStart + (NumStars + 1)*PoundInterval) && (PendingTiebreak > 0))
+	if (WinningTeam && (CurrentTime >= PoundStart + (NumStars + 1)*PoundInterval) && (PendingTiebreak != 0))
 	{
 		float BonusXL, BonusYL;
 		UFont* BonusFont = UTHUDOwner->LargeFont;
@@ -322,7 +326,7 @@ void UUTFlagRunScoreboard::DrawScoreAnnouncement(float DeltaTime)
 		Canvas->StrLen(BonusFont, BonusText.ToString(), BonusXL, BonusYL);
 		if (CurrentTime >= WooshStart + NumStars*WooshInterval + WooshTime)
 		{
-			float Interval = FMath::Max(float(PendingTiebreak), 20.f);
+			float Interval = FMath::Max(float(FMath::Abs(PendingTiebreak)), 20.f);
 			if (int32(Interval*(CurrentTime - DeltaTime)) != int32(Interval*CurrentTime))
 			{
 				UTHUDOwner->UTPlayerOwner->ClientPlaySound(LineDisplaySound);
