@@ -60,6 +60,9 @@ class UNREALTOURNAMENT_API UUTLocalMessage : public ULocalMessage
 	UPROPERTY(EditDefaultsOnly, Category = Message)
 		uint32 bPlayDuringIntermission : 1;
 
+	UPROPERTY(EditDefaultsOnly, Category = Message)
+		uint32 bPlayDuringInstantReplay : 1;
+	
 	virtual bool ShouldPlayDuringIntermission(int32 MessageIndex) const
 	{
 		return bPlayDuringIntermission;

@@ -24,6 +24,7 @@ UUTLocalMessage::UUTLocalMessage(const class FObjectInitializer& ObjectInitializ
 	FontSizeIndex = 2;
 	bPlayDuringIntermission = true;
 	bCombineEmphasisText = false;
+	bPlayDuringInstantReplay = true;
 }
 
 bool UUTLocalMessage::IsOptionalSpoken(int32 MessageIndex) const

@@ -26,6 +26,7 @@ public:
 		NewRoundIn = FName(TEXT("NewRoundIn"));
 		FinalRound = FName(TEXT("FinalRound"));
 		FiveKillsLeft = FName(TEXT("DM_Kills5"));
+		bPlayDuringInstantReplay = false;
 	}
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)

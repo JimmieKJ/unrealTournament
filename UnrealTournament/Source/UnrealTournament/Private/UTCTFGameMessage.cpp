@@ -28,6 +28,7 @@ UUTCTFGameMessage::UUTCTFGameMessage(const FObjectInitializer& ObjectInitializer
 
 	bIsStatusAnnouncement = true;
 	bIsPartiallyUnique = true;
+	bPlayDuringInstantReplay = false;
 }
 
 bool UUTCTFGameMessage::ShouldPlayDuringIntermission(int32 MessageIndex) const

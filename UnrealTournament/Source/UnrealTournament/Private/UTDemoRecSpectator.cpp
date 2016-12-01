@@ -5,6 +5,7 @@
 #include "UTDemoNetDriver.h"
 #include "UTKillcamPlayback.h"
 #include "UTHUD_InstantReplay.h"
+#include "UTLocalMessage.h"
 
 DEFINE_LOG_CATEGORY(LogUTDemoRecSpectator);
 
@@ -504,4 +505,15 @@ void AUTDemoRecSpectator::MulticastReceiveLocalizedMessage_Implementation(TSubcl
 	}
 
 	ClientReceiveLocalizedMessage(Message, Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
+}
+
+void AUTDemoRecSpectator::ClientReceiveLocalizedMessage_Implementation(TSubclassOf<ULocalMessage> Message, int32 Switch, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject)
+{
+	TSubclassOf<UUTLocalMessage> UTMessage(*Message);
+	if (UTMessage && !UTMessage.GetDefaultObject()->bPlayDuringInstantReplay && IsKillcamSpectator())
+	{
+		return;
+	}
+
+	Super::ClientReceiveLocalizedMessage_Implementation(Message, Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
 }

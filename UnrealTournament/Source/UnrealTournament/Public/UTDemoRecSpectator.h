@@ -33,6 +33,7 @@ class UNREALTOURNAMENT_API AUTDemoRecSpectator : public AUTPlayerController
 	virtual bool CallRemoteFunction(UFunction* Function, void* Parameters, FOutParmRec* OutParms, FFrame* Stack) override;
 
 	virtual void ClientTravelInternal_Implementation(const FString& URL, ETravelType TravelType, bool bSeamless, FGuid MapPackageGuid) override;
+	virtual void ClientReceiveLocalizedMessage_Implementation(TSubclassOf<ULocalMessage> Message, int32 Switch, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject) override;
 
 	virtual void ClientToggleScoreboard_Implementation(bool bShow) override;
 	virtual void ShowEndGameScoreboard() override;
