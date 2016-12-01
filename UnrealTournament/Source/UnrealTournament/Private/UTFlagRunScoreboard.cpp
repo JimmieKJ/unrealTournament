@@ -14,6 +14,7 @@
 #include "UTCTFRewardMessage.h"
 #include "UTCTFGameMessage.h"
 #include "UTShowdownGameMessage.h"
+#include "UTDemoRecSpectator.h"
 
 UUTFlagRunScoreboard::UUTFlagRunScoreboard(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -127,11 +128,14 @@ void UUTFlagRunScoreboard::DrawTeamPanel(float RenderDelta, float& YOffset)
 
 		DrawText(NSLOCTEXT("FlagRun", "Tiebreak", "TIEBREAKER"), 0.5f*Canvas->ClipX, BackgroundY + Height, UTHUDOwner->TinyFont, FVector2D(1.f,1.f), FLinearColor::Black, FLinearColor::Black, RenderScale, 1.f, FLinearColor::White, ETextHorzPos::Center, ETextVertPos::Center);
 
-		FFormatNamedArguments Args;
-		FText Title = (CurrentTiebreakValue > 0) ? NSLOCTEXT("FlagRun", "RedTiebreak", "RED +{Score}") : NSLOCTEXT("FlagRun", "BlueTiebreak", "BLUE +{Score}");
-		Args.Add("Score", FText::AsNumber(FMath::Abs(CurrentTiebreakValue)));
-		FText FormattedTitle = FText::Format(Title, Args);
-		DrawText(FormattedTitle, 0.5f*Canvas->ClipX, BackgroundY - Height - 2.f*RenderScale, UTHUDOwner->TinyFont, FVector2D(1.f, 1.f), FLinearColor::Black, FLinearColor::Black, RenderScale, 1.f, TiebreakColor, ETextHorzPos::Center, ETextVertPos::Center);
+		if (CurrentTiebreakValue != 0)
+		{
+			FFormatNamedArguments Args;
+			FText Title = (CurrentTiebreakValue > 0) ? NSLOCTEXT("FlagRun", "RedTiebreak", "RED +{Score}") : NSLOCTEXT("FlagRun", "BlueTiebreak", "BLUE +{Score}");
+			Args.Add("Score", FText::AsNumber(FMath::Abs(CurrentTiebreakValue)));
+			FText FormattedTitle = FText::Format(Title, Args);
+			DrawText(FormattedTitle, 0.5f*Canvas->ClipX, BackgroundY - Height - 2.f*RenderScale, UTHUDOwner->TinyFont, FVector2D(1.f, 1.f), FLinearColor::Black, FLinearColor::Black, RenderScale, 1.f, TiebreakColor, ETextHorzPos::Center, ETextVertPos::Center);
+		}
 	}
 }
 
@@ -169,6 +173,10 @@ void UUTFlagRunScoreboard::AnnounceRoundScore(AUTTeamInfo* InWinningTeam, APlaye
 	}
 	if (UTPlayerOwner)
 	{
+		if (UTHUDOwner && UTHUDOwner->AnnouncementWidget)
+		{
+			UTHUDOwner->AnnouncementWidget->AgeMessages(1000.f);
+		}
 		if (Reason == 0)
 		{
 			UTPlayerOwner->ClientReceiveLocalizedMessage(UUTCTFGameMessage::StaticClass(), 2, ScoringPlayer, nullptr, WinningTeam);
@@ -330,7 +338,14 @@ void UUTFlagRunScoreboard::DrawScoreAnnouncement(float DeltaTime)
 			if (int32(Interval*(CurrentTime - DeltaTime)) != int32(Interval*CurrentTime))
 			{
 				UTHUDOwner->UTPlayerOwner->ClientPlaySound(LineDisplaySound);
-				PendingTiebreak--;
+				if (PendingTiebreak > 0)
+				{
+					PendingTiebreak--;
+				}
+				else if (PendingTiebreak < 0)
+				{
+					PendingTiebreak++;
+				}
 			}
 			FVector LineEndPoint(0.5f*Canvas->ClipX, 0.1f*Canvas->ClipY, 0.f);
 			FVector LineStartPoint(0.55f*Canvas->ClipX, YPos + BonusYL, 0.f);
@@ -357,8 +372,8 @@ void UUTFlagRunScoreboard::DrawScorePanel(float RenderDelta, float& YOffset)
 		{
 			return;
 		}
-		bool bShowScoringInfo = GS->IsMatchIntermission() && !IsBeforeFirstRound() && (GetWorld()->GetTimeSeconds() - ScoreReceivedTime < ScoreInfoDuration);
-		if (bShowScoringInfo && UTHUDOwner && UTHUDOwner->AnnouncementWidget)
+		bool bShowScoringInfo = (GS->IsMatchIntermission() || GS->HasMatchEnded()) && !IsBeforeFirstRound() && (GetWorld()->GetTimeSeconds() - ScoreReceivedTime < ScoreInfoDuration);
+		if (bShowScoringInfo && UTHUDOwner && UTHUDOwner->AnnouncementWidget && (!Cast<AUTDemoRecSpectator>(UTHUDOwner->UTPlayerOwner) || !((AUTDemoRecSpectator *)(UTHUDOwner->UTPlayerOwner))->IsKillcamSpectator()))
 		{
 			DrawScoreAnnouncement(RenderDelta);
 			UTHUDOwner->AnnouncementWidget->PreDraw(0.f, UTHUDOwner, Canvas, CanvasCenter);
