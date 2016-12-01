@@ -83,7 +83,7 @@ FName AUTPlayerCameraManager::GetCameraStyleWithOverrides() const
 	{
 		return ((CurrentViewTarget == PCOwner->GetPawn()) || (CurrentViewTarget == PCOwner->GetSpectatorPawn())) ? NAME_FirstPerson : NAME_FreeCam;
 	}
-	else if (UTCharacter->IsDead() || UTCharacter->IsRagdoll() || UTCharacter->IsThirdPersonTaunting())
+	else if (UTCharacter->IsDead() || UTCharacter->IsRagdoll() || UTCharacter->IsThirdPersonTaunting() || (Cast<AUTDemoRecSpectator>(PCOwner) && ((AUTDemoRecSpectator *)(PCOwner))->IsKillcamSpectator()))
 	{
 		// force third person if target is dead, ragdoll or emoting
 		return NAME_FreeCam;
