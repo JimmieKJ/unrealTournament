@@ -50,6 +50,12 @@ class UNREALTOURNAMENT_API UUTFlagRunScoreboard : public UUTCTFScoreboard
 		FText TeamScorePostfix;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
+		FText TeamWinsPrefix;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
+		FText TeamWinsPostfix;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
 		FText StarText;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
@@ -58,6 +64,9 @@ class UNREALTOURNAMENT_API UUTFlagRunScoreboard : public UUTCTFScoreboard
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
 		FText DefenseScorePostfix;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
+		FText DeliveredPrefix;
+	
 	UPROPERTY()
 		float EndIntermissionTime;
 
