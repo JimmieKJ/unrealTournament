@@ -348,7 +348,7 @@ void AUTPickupInventory::InventoryTypeUpdated_Implementation()
 	MinimapIcon = (InventoryType != NULL) ? InventoryType.GetDefaultObject()->MinimapIcon : FCanvasIcon();
 	TakenSound = (InventoryType != NULL) ? TakenSound = InventoryType.GetDefaultObject()->PickupSound : GetClass()->GetDefaultObject<AUTPickupInventory>()->TakenSound;
 
-	if ((GetWorld()->GetNetMode() != NM_DedicatedServer) && InventoryType.GetDefaultObject()->PickupSpawnAnnouncement)
+	if ((GetWorld()->GetNetMode() != NM_DedicatedServer) && InventoryType && InventoryType.GetDefaultObject()->PickupSpawnAnnouncement)
 	{
 		APlayerController* PC = GEngine->GetFirstLocalPlayerController(GetWorld());
 		if (PC != NULL && PC->MyHUD != NULL)
