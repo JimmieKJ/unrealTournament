@@ -5410,9 +5410,9 @@ bool AUTPlayerController::LineOfSightTo(const class AActor* Other, FVector ViewP
 	}
 }
 
-void AUTPlayerController::ClientDrawLine_Implementation(FVector Start, FVector End) const
+void AUTPlayerController::ClientDrawLine_Implementation(FVector Start, FVector End, FColor Color, float Duration) const
 {
-	DrawDebugLine(GetWorld(), Start, End, FColor::Yellow, true);
+	DrawDebugLine(GetWorld(), Start, End, Color, (Duration != 0.f), Duration);
 }
 
 void AUTPlayerController::RealNames()
