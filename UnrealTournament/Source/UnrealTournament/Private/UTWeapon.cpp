@@ -2998,6 +2998,13 @@ bool AUTWeapon::CanSwitchTo()
 
 void AUTWeapon::RegisterAllComponents()
 {
+	// in editor and preview, just register all the components right now
+	if (GetWorld()->WorldType == EWorldType::Editor || GetWorld()->WorldType == EWorldType::Preview)
+	{
+		Super::RegisterAllComponents();
+		return;
+	}
+
 	TInlineComponentArray<USceneComponent*> AllSceneComponents;
 	GetComponents(AllSceneComponents);
 
