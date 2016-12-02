@@ -475,6 +475,16 @@ void AUTCarriedObject::SetHolder(AUTCharacter* NewHolder)
 	if (PC)
 	{
 		PC->UTClientPlaySound(HolderPickupSound);
+		AUTGameVolume* GV = Cast<AUTGameVolume>(HoldingPawn->GetPawnPhysicsVolume());
+		if (GV && GV->bIsNoRallyZone && !GV->bIsTeamSafeVolume)
+		{
+			// play alarm
+			if (GetWorld()->GetTimeSeconds() - EnteredEnemyBaseTime > 2.f)
+			{
+				UUTGameplayStatics::UTPlaySound(GetWorld(), GV->AlarmSound, HoldingPawn, SRT_All, false, FVector::ZeroVector, NULL, NULL, false);
+			}
+			EnteredEnemyBaseTime = GetWorld()->GetTimeSeconds();
+		}
 	}
 
 	SendGameMessage(4, Holder, NULL);
