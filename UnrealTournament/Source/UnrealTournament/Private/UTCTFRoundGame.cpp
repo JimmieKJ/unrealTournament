@@ -56,7 +56,7 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 	HUDClass = AUTFlagRunHUD::StaticClass();
 	GameStateClass = AUTCTFRoundGameState::StaticClass();
 	SquadType = AUTAsymCTFSquadAI::StaticClass();
-	NumRounds = 2;
+	NumRounds = 6;
 	bHideInUI = true;
 
 	InitialBoostCount = 0;
