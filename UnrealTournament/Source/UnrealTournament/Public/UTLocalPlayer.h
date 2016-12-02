@@ -653,10 +653,13 @@ protected:
 	FString PendingFriendInviteFriendId;
 	bool bShowSocialNotification;
 
+public:
 	virtual void SetShowingFriendsPopup(bool bShowing);
 	bool bShowingFriendsMenu;
 
 #if !UE_SERVER
+
+protected:
 
 	 TSharedPtr<SOverlay> ContentLoadingMessage;
 
