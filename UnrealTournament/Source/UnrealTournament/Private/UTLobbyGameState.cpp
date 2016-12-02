@@ -15,12 +15,21 @@ AUTLobbyGameState::AUTLobbyGameState(const class FObjectInitializer& ObjectIniti
 {
 	AllMapsOnServerCount = -1;
 	AvailabelGameRulesetCount = -1;
+
+	static ConstructorHelpers::FObjectFinder<USoundBase> MenuMusicObj(TEXT("/Game/RestrictedAssets/Audio/Music/Music_UTMuenu_New01.Music_UTMuenu_New01")); 
+	LobbyMusic = MenuMusicObj.Object;
 }
 
 void AUTLobbyGameState::BeginPlay()
 {
 	Super::BeginPlay();
 	ServerMOTD = ServerMOTD.Replace(TEXT("\\n"), TEXT("\n"), ESearchCase::IgnoreCase);
+
+	if (GetWorld()->GetNetMode() != NM_DedicatedServer && LobbyMusic != nullptr)
+	{
+		UGameplayStatics::SpawnSoundAtLocation( this, LobbyMusic, FVector(0,0,0), FRotator::ZeroRotator, 1.0, 1.0 );		
+	}
+
 }
 
 void AUTLobbyGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const

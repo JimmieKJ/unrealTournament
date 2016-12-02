@@ -678,6 +678,9 @@ protected:
 	/** Array holding net ids to query*/
 	TArray<TSharedRef<const FUniqueNetId>> CurrentUsersToQuery;
 
+	/** Allows the game to change the client's music volume based on the state of the game */
+	void ManageMusicVolume(float DeltaTime);
+
 public:
 	// This is the GUID if the current servers.  See UTBaseGameMode for more information
 	UPROPERTY(Replicated)

@@ -404,6 +404,11 @@ void AUTGameState::OnRep_OverlayEffects()
 
 void AUTGameState::Tick(float DeltaTime)
 {
+	ManageMusicVolume(DeltaTime);
+}
+
+void AUTGameState::ManageMusicVolume(float DeltaTime)
+{
 	AUTWorldSettings* Settings = Cast<AUTWorldSettings>(GetWorldSettings());
 	if (Settings && Settings->MusicComp)
 	{

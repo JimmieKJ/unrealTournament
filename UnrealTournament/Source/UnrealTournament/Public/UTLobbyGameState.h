@@ -270,6 +270,9 @@ public:
 	 **/
 	bool IsClientFullyInformed();
 
+protected:
+	void ManageMusicVolume(float DeltaTime) { }
+	USoundBase* LobbyMusic;
 };
 
 
