@@ -825,7 +825,6 @@ FReply SUTGameSetupDialog::OnBotSkillClick(int32 NewSkill)
 	BotSkillLevel = NewSkill - 1;
 	for (int32 i=0; i < BotSkillButtons.Num(); i++)
 	{
-		UE_LOG(UT,Warning,TEXT("BotSkill %i vs %i"), i, NewSkill);
 		if (i == NewSkill)
 		{
 			BotSkillButtons[i]->BePressed();
