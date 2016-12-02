@@ -559,6 +559,8 @@ public:
 
 	virtual void OnTeleported() override;
 
+	virtual void OnLineUp();
+
 	virtual bool DoJump(bool bReplayingMoves) override;
 
 	/** Perform a multijump */

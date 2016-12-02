@@ -2989,7 +2989,7 @@ void AUTPlayerController::SetViewTarget(class AActor* NewViewTarget, FViewTarget
 	if (GetWorld())
 	{
 		AUTGameState* UTGS = Cast<AUTGameState>(GetWorld()->GetGameState());
-		if (UTGS && UTGS->LineUpHelper && UTGS->LineUpHelper->bIsActive && (NewViewTarget != AUTLineUpHelper::GetCameraActorForLineUp(GetWorld(), UTGS->LineUpHelper->LastActiveType)))
+		if (UTGS && UTGS->LineUpHelper && UTGS->LineUpHelper->bIsActive && (UTGS->GetMatchState() != MatchState::WaitingPostMatch) && (NewViewTarget != AUTLineUpHelper::GetCameraActorForLineUp(GetWorld(), UTGS->LineUpHelper->LastActiveType)))
 		{
 			ClientSetActiveLineUp(true, UTGS->LineUpHelper->LastActiveType);
 			return;
@@ -5328,6 +5328,24 @@ void AUTPlayerController::ClientSetLineUpCamera_Implementation(UWorld* World, Li
 	}
 }
 
+void AUTPlayerController::ClientPrepareForLineUp_Implementation()
+{
+	FlushPressedKeys();
+	
+	if (GetWorld())
+	{
+		AUTGameState* UTGS = Cast<AUTGameState>(GetWorld()->GetGameState());
+		if (UTGS && UTGS->LineUpHelper)
+		{
+			AUTCharacter* UTChar = GetUTCharacter();
+			if (UTChar)
+			{
+				UTChar->TurnOff();
+				UTGS->LineUpHelper->ForceCharacterAnimResetForLineUp(UTChar);
+			}
+		}
+	}
+}
 
 void AUTPlayerController::ClientSetActiveLineUp_Implementation(bool bNewIsActive, LineUpTypes LastType)
 {
@@ -5343,14 +5361,27 @@ void AUTPlayerController::ClientSetActiveLineUp_Implementation(bool bNewIsActive
 			{
 				ClientSetLineUpCamera(GetWorld(), LastType);
 
-				if (GetPawn())
-				{
-					GetPawn()->TurnOff();
-				}
-
 				SetIgnoreLookInput(true);
-
 				ToggleScoreboard(false);
+
+				for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
+				{
+					const AUTPlayerController* UTPC = Cast<AUTPlayerController>(*Iterator);
+					if (UTPC)
+					{
+						AUTCharacter* UTChar = Cast<AUTCharacter>(UTPC->GetCharacter());
+						if (UTChar)
+						{
+							UTGS->LineUpHelper->ForceCharacterAnimResetForLineUp(UTChar);
+
+							UUTCharacterMovement* UTCM = Cast<UUTCharacterMovement>(UTChar->GetMovementComponent());
+							if (UTCM)
+							{
+								UTCM->OnLineUp();
+							}
+						}
+					}
+				}
 			}
 			else
 			{

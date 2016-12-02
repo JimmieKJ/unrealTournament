@@ -1350,6 +1350,22 @@ void UUTCharacterMovement::OnTeleported()
 	}
 }
 
+void UUTCharacterMovement::OnLineUp()
+{
+	if (CharacterOwner->Role == ROLE_SimulatedProxy)
+	{
+		FNetworkPredictionData_Client_Character* ClientData = GetPredictionData_Client_Character();
+		if (ClientData)
+		{
+			ClientData->MeshTranslationOffset.Z = 0.0f;
+		}
+	}
+	else
+	{
+		//UpdatedComponent->SetRelativeLocationAndRotation(FVector(ForceInitToZero), FRotator(ForceInitToZero));
+	}
+}
+
 void UUTCharacterMovement::ProcessLanded(const FHitResult& Hit, float remainingTime, int32 Iterations)
 {
 	bIsAgainstWall = false;

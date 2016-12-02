@@ -3348,22 +3348,19 @@ void AUTGameMode::SetMatchState(FName NewState)
 		{
 			UTGameState->LineUpHelper->CleanUp();
 		}
+
+		if (!UTGameState->LineUpHelper->bIsActive)
+		{
+			UTGameState->LineUpHelper->HandleLineUp(PlayType);
+		}
 	}
+
 	CallMatchStateChangeNotify();
 	K2_OnSetMatchState(NewState);
 
 	if (BaseMutator != NULL)
 	{
 		BaseMutator->NotifyMatchStateChange(MatchState);
-	}
-
-	if (UTGameState && UTGameState->LineUpHelper)
-	{
-		if (!UTGameState->LineUpHelper->bIsActive)
-		{
-			LineUpTypes PlayType = UTGameState->LineUpHelper->GetLineUpTypeToPlay(GetWorld());
-			UTGameState->LineUpHelper->HandleLineUp(PlayType);
-		}
 	}
 }
 
@@ -3438,7 +3435,10 @@ void AUTGameMode::HandleMatchInOvertime()
 
 void AUTGameMode::HandlePlayerIntro()
 {
-	RemoveAllPawns();
+	if (!UTGameState || !UTGameState->LineUpHelper || !UTGameState->LineUpHelper->bIsActive)
+	{
+		RemoveAllPawns();
+	}
 
 	FTimerHandle TempHandle;
 	GetWorldTimerManager().SetTimer(TempHandle, this, &AUTGameMode::EndPlayerIntro, 7.5f*GetActorTimeDilation(), false);

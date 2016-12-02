@@ -29,45 +29,15 @@ void AUTLineUpHelper::HandleLineUp(LineUpTypes ZoneType)
 	{
 		if (ZoneType == LineUpTypes::Intro)
 		{
-			GetWorld()->GetTimerManager().ClearTimer(IntermissionHandle);
-			GetWorld()->GetTimerManager().ClearTimer(MatchSummaryHandle);
-
-			if (TimerDelayForIntro > SMALL_NUMBER)
-			{
-				GetWorld()->GetTimerManager().SetTimer(IntroHandle, FTimerDelegate::CreateUObject(this, &AUTLineUpHelper::HandleIntro, LineUpTypes::Intro), TimerDelayForIntro, false);
-			}
-			else
-			{
-				HandleIntro(ZoneType);
-			}
+			HandleIntro(ZoneType);
 		}
 		else if (ZoneType == LineUpTypes::Intermission)
 		{
-			GetWorld()->GetTimerManager().ClearTimer(IntroHandle);
-			GetWorld()->GetTimerManager().ClearTimer(MatchSummaryHandle);
-
-			if (TimerDelayForIntermission > SMALL_NUMBER)
-			{
-				GetWorld()->GetTimerManager().SetTimer(IntermissionHandle, FTimerDelegate::CreateUObject(this, &AUTLineUpHelper::HandleIntermission, LineUpTypes::Intermission), TimerDelayForIntermission, false);
-			}
-			else
-			{
-				HandleIntermission(ZoneType);
-			}
+			HandleIntermission(ZoneType);
 		}
 		else if (ZoneType == LineUpTypes::PostMatch)
 		{
-			GetWorld()->GetTimerManager().ClearTimer(IntroHandle);
-			GetWorld()->GetTimerManager().ClearTimer(IntermissionHandle);
-			
-			if (TimerDelayForEndMatch > SMALL_NUMBER)
-			{
-				GetWorld()->GetTimerManager().SetTimer(MatchSummaryHandle, FTimerDelegate::CreateUObject(this, &AUTLineUpHelper::HandleEndMatchSummary, LineUpTypes::PostMatch), TimerDelayForEndMatch, false);
-			}
-			else
-			{
-				HandleEndMatchSummary(ZoneType);
-			}
+			HandleEndMatchSummary(ZoneType);
 		}
 	}
 }
@@ -75,7 +45,7 @@ void AUTLineUpHelper::HandleLineUp(LineUpTypes ZoneType)
 void AUTLineUpHelper::HandleIntro(LineUpTypes IntroType)
 {
 	bIsActive = true;
-	MovePlayers(IntroType);
+	MovePlayersDelayed(IntroType, IntroHandle, TimerDelayForIntro);
 }
 
 void AUTLineUpHelper::CleanUp()
@@ -135,7 +105,10 @@ void AUTLineUpHelper::DestroySpawnedClones()
 	{
 		for (int index = 0; index < PlayerPreviewCharacters.Num(); ++index)
 		{
-			PlayerPreviewCharacters[index]->Destroy();
+			if (PlayerPreviewCharacters[index])
+			{
+				PlayerPreviewCharacters[index]->Destroy();
+			}
 		}
 		PlayerPreviewCharacters.Empty();
 	}
@@ -144,7 +117,10 @@ void AUTLineUpHelper::DestroySpawnedClones()
 	{
 		for (int index = 0; index < PreviewWeapons.Num(); ++index)
 		{
-			PreviewWeapons[index]->Destroy();
+			if (PreviewWeapons[index])
+			{
+				PreviewWeapons[index]->Destroy();
+			}
 		}
 		PreviewWeapons.Empty();
 	}
@@ -153,17 +129,63 @@ void AUTLineUpHelper::DestroySpawnedClones()
 void AUTLineUpHelper::HandleIntermission(LineUpTypes IntermissionType)
 {
 	bIsActive = true;
-	MovePlayers(IntermissionType);
+	MovePlayersDelayed(IntermissionType, IntermissionHandle, TimerDelayForIntermission);
+}
+
+void AUTLineUpHelper::MovePlayersDelayed(LineUpTypes ZoneType, FTimerHandle& TimerHandleToStart, float TimeDelay)
+{
+	GetWorld()->GetTimerManager().ClearTimer(IntroHandle);
+	GetWorld()->GetTimerManager().ClearTimer(IntermissionHandle);
+	GetWorld()->GetTimerManager().ClearTimer(MatchSummaryHandle);
+	
+	AUTGameMode* UTGM = Cast<AUTGameMode>(GetWorld()->GetAuthGameMode());
+
+	if ((TimeDelay > SMALL_NUMBER))
+	{
+		SetupDelayedLineUp();
+		GetWorld()->GetTimerManager().SetTimer(TimerHandleToStart, FTimerDelegate::CreateUObject(this, &AUTLineUpHelper::MovePlayers, ZoneType), TimeDelay, false);
+	}
+	else
+	{
+		MovePlayers(ZoneType);
+	}
+}
+
+void AUTLineUpHelper::SetupDelayedLineUp()
+{
+	for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
+	{
+		AUTPlayerController* UTPC = Cast<AUTPlayerController>(*Iterator);
+		if (UTPC)
+		{
+			AUTCharacter* UTChar = Cast<AUTCharacter>(UTPC->GetPawn());
+			if (UTChar)
+			{
+				UTChar->TurnOff();
+				ForceCharacterAnimResetForLineUp(UTChar);
+			}
+
+			UTPC->FlushPressedKeys();	
+
+			UTPC->ClientPrepareForLineUp();
+		}
+	}
 }
 
 void AUTLineUpHelper::MovePlayers(LineUpTypes ZoneType)
 {	
+	static const FName NAME_LineUpCam = FName(TEXT("LineUpCam"));
 	bIsPlacingPlayers = true;
-
+	
 	if (GetWorld() && GetWorld()->GetAuthGameMode())
 	{
 		AUTGameMode* UTGM = Cast<AUTGameMode>(GetWorld()->GetAuthGameMode());
 		
+		if (UTGM)
+		{
+			UTGM->RemoveAllPawns();
+		}
+
 		//Go through all controllers and spawn/respawn pawns
 		for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
 		{
@@ -192,11 +214,12 @@ void AUTLineUpHelper::MovePlayers(LineUpTypes ZoneType)
 				AUTPlayerController* UTPC = Cast<AUTPlayerController>(C);
 				if (UTPC)
 				{
+					UTPC->SetCameraMode(NAME_LineUpCam);
 					UTPC->ClientSetActiveLineUp(true, ZoneType);
 				}
 			}
 		}
-	
+
 		SortPlayers();
 		MovePreviewCharactersToLineUpSpawns(ZoneType);
 
@@ -204,17 +227,21 @@ void AUTLineUpHelper::MovePlayers(LineUpTypes ZoneType)
 		for (AUTCharacter* UTChar : PlayerPreviewCharacters)
 		{
 			UTChar->TurnOff();
-			
-			//Want to still update the animations and bones even though we have turned off the Pawn, so re-enable those.
-			if (UTChar->GetMesh())
-			{
-				UTChar->GetMesh()->bPauseAnims = false;
-				//UTChar->GetMesh()->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones;
-			}
+			ForceCharacterAnimResetForLineUp(UTChar);
 		}
 	}
 
 	bIsPlacingPlayers = false;
+}
+
+void AUTLineUpHelper::ForceCharacterAnimResetForLineUp(AUTCharacter* UTChar)
+{
+	if (UTChar && UTChar->GetMesh())
+	{
+		//Want to still update the animations and bones even though we have turned off the Pawn, so re-enable those.
+		UTChar->GetMesh()->bPauseAnims = false;
+		UTChar->GetMesh()->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones;
+	}
 }
 
 void AUTLineUpHelper::MovePreviewCharactersToLineUpSpawns(LineUpTypes LineUpType)
@@ -272,31 +299,21 @@ void AUTLineUpHelper::MovePreviewCharactersToLineUpSpawns(LineUpTypes LineUpType
 		TArray<AUTCharacter*> PreviewsMarkedForDestroy;
 		for (AUTCharacter* PreviewChar : PlayerPreviewCharacters)
 		{
+			FTransform SpawnTransform = SpawnList->GetActorTransform();
+
 			if ((PreviewChar->GetTeamNum() == RedAndWinningTeamNumber) && (RedSpawns.Num() > RedIndex))
 			{
-				FTransform SpawnTransform = SpawnList->GetActorTransform();
 				SpawnTransform = RedSpawns[RedIndex] * SpawnTransform;
-				
-				PreviewChar->TeleportTo(SpawnTransform.GetTranslation(), SpawnTransform.GetRotation().Rotator(),false, true);
-				PreviewChar->Controller->SetControlRotation(SpawnTransform.GetRotation().Rotator());
 				++RedIndex;
 			}
 			else if ((PreviewChar->GetTeamNum() == BlueAndLosingTeamNumber) && (BlueSpawns.Num() > BlueIndex))
 			{
-				FTransform SpawnTransform = SpawnList->GetActorTransform();
 				SpawnTransform = BlueSpawns[BlueIndex] * SpawnTransform;
-
-				PreviewChar->TeleportTo(SpawnTransform.GetTranslation(), SpawnTransform.GetRotation().Rotator(), false, true);
-				PreviewChar->Controller->SetControlRotation(SpawnTransform.GetRotation().Rotator());
 				++BlueIndex;
 			}
 			else if (FFASpawns.Num() > FFAIndex)
 			{
-				FTransform SpawnTransform = SpawnList->GetActorTransform();
 				SpawnTransform = FFASpawns[FFAIndex] * SpawnTransform;
-
-				PreviewChar->TeleportTo(SpawnTransform.GetTranslation(), SpawnTransform.GetRotation().Rotator(), false, true);
-				PreviewChar->Controller->SetControlRotation(SpawnTransform.GetRotation().Rotator());
 				++FFAIndex;
 			}
 			//If they are not part of the line up display... remove them
@@ -304,6 +321,14 @@ void AUTLineUpHelper::MovePreviewCharactersToLineUpSpawns(LineUpTypes LineUpType
 			{
 				PreviewsMarkedForDestroy.Add(PreviewChar);
 			}
+
+			PreviewChar->bIsTranslocating = true; // Hack to get rid of teleport effect
+
+			PreviewChar->TeleportTo(SpawnTransform.GetTranslation(), SpawnTransform.GetRotation().Rotator(), false, true);
+			PreviewChar->Controller->SetControlRotation(SpawnTransform.GetRotation().Rotator());
+			PreviewChar->ClientSetRotation(SpawnTransform.GetRotation().Rotator());
+
+			PreviewChar->bIsTranslocating = false;
 		}
 
 		for (AUTCharacter* DestroyCharacter : PreviewsMarkedForDestroy)
@@ -337,7 +362,7 @@ LineUpTypes AUTLineUpHelper::GetLineUpTypeToPlay(UWorld* World)
 	AUTCTFRoundGame* CTFGM = Cast<AUTCTFRoundGame>(World->GetAuthGameMode());
 
 	//The first intermission of CTF Round Game is actually an intro
-	if ((UTGS->GetMatchState() == MatchState::PlayerIntro) || ((UTGS->GetMatchState() == MatchState::MatchIntermission) && UTCTFRoundGameGS && (UTCTFRoundGameGS->CTFRound == 1) && (!CTFGM || CTFGM->FlagScorer == nullptr)))
+	if ((UTGS->GetMatchState() == MatchState::PlayerIntro) || ((UTGS->GetMatchState() == MatchState::MatchIntermission) && UTCTFRoundGameGS && (UTCTFRoundGameGS->CTFRound == 1) && (!UTCTFRoundGameGS || UTCTFRoundGameGS->GetScoringPlays().Num() == 0)))
 	{
 		if (UTGS->ShouldUseInGameSummary(LineUpTypes::Intro))
 		{
@@ -533,7 +558,7 @@ void AUTLineUpHelper::SpawnClone(AUTPlayerState* PS, const FTransform& Location)
 void AUTLineUpHelper::HandleEndMatchSummary(LineUpTypes SummaryType)
 {
 	bIsActive = true;
-	MovePlayers(SummaryType);
+	MovePlayersDelayed(SummaryType, MatchSummaryHandle, TimerDelayForEndMatch);
 }
 
 void AUTLineUpHelper::SortPlayers()
@@ -543,7 +568,19 @@ void AUTLineUpHelper::SortPlayers()
 	{
 		AUTPlayerState* PSA = Cast<AUTPlayerState>(A.PlayerState);
 		AUTPlayerState* PSB = Cast<AUTPlayerState>(B.PlayerState);
-		return !PSB || (PSA && (PSA->Score > PSB->Score));
+
+		AUTCTFFlag* AUTFlagA = nullptr;
+		AUTCTFFlag* AUTFlagB = nullptr;
+		if (PSA)
+		{
+			AUTFlagA = Cast<AUTCTFFlag>(PSA->CarriedObject);
+		}
+		if (PSB)
+		{
+			AUTFlagB = Cast<AUTCTFFlag>(PSB->CarriedObject);
+		}
+
+		return !PSB || (AUTFlagA) || (PSA && (PSA->Score > PSB->Score) && !AUTFlagB);
 	};
 	PlayerPreviewCharacters.Sort(SortFunc);
 }

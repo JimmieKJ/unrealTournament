@@ -17,6 +17,10 @@ class UNREALTOURNAMENT_API AUTLineUpHelper : public AActor
 	UFUNCTION()
 	void CleanUp();
 
+	void ForceCharacterAnimResetForLineUp(AUTCharacter* UTChar);
+
+	void SetupDelayedLineUp();
+
 	UPROPERTY()
 	bool bIsActive;
 
@@ -50,6 +54,9 @@ protected:
 
 	UFUNCTION()
 	void MovePlayers(LineUpTypes ZoneType);
+
+	UFUNCTION()
+	void MovePlayersDelayed(LineUpTypes ZoneType, FTimerHandle& TimerHandleToStart, float TimeDelay);
 
 	UFUNCTION()
 	void SpawnClone(AUTPlayerState* PS, const FTransform& Location);

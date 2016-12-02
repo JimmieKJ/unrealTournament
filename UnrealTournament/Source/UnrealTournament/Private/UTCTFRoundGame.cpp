@@ -56,7 +56,7 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 	HUDClass = AUTFlagRunHUD::StaticClass();
 	GameStateClass = AUTCTFRoundGameState::StaticClass();
 	SquadType = AUTAsymCTFSquadAI::StaticClass();
-	NumRounds = 6;
+	NumRounds = 2;
 	bHideInUI = true;
 
 	InitialBoostCount = 0;
@@ -275,6 +275,11 @@ void AUTCTFRoundGame::HandleMatchIntermission()
 		if (*It && !Cast<ASpectatorPawn>((*It).Get()))
 		{
 			(*It)->TurnOff();
+
+			if ((UTGameState->LineUpHelper) && (UTGameState->LineUpHelper->bIsActive))
+			{
+				UTGameState->LineUpHelper->ForceCharacterAnimResetForLineUp(Cast<AUTCharacter>(*It));
+			}
 		}
 	}
 
@@ -428,7 +433,14 @@ void AUTCTFRoundGame::EndTeamGame(AUTTeamInfo* Winner, FName Reason)
 
 			if (BaseToView)
 			{
-				Controller->GameHasEnded(BaseToView, (Controller->UTPlayerState->Team && (Controller->UTPlayerState->Team->TeamIndex == Winner->TeamIndex)));
+				if (UTGameState->LineUpHelper && UTGameState->LineUpHelper->bIsActive)
+				{
+					Controller->GameHasEnded(Controller->GetPawn(), (Controller->UTPlayerState->Team && (Controller->UTPlayerState->Team->TeamIndex == Winner->TeamIndex)));
+				}
+				else
+				{
+					Controller->GameHasEnded(BaseToView, (Controller->UTPlayerState->Team && (Controller->UTPlayerState->Team->TeamIndex == Winner->TeamIndex)));
+				}
 			}
 		}
 	}

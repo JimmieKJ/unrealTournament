@@ -292,6 +292,9 @@ public:
 	virtual void ClientSetLineUpCamera(UWorld* World, LineUpTypes IntroType);
 
 	UFUNCTION(client, reliable)
+	virtual void ClientPrepareForLineUp();
+
+	UFUNCTION(client, reliable)
 	virtual void ClientSetActiveLineUp(bool bNewIsActive, LineUpTypes LastType);
 
 	UFUNCTION(client, reliable)

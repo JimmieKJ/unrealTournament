@@ -7,6 +7,7 @@
 #include "UTNoCameraVolume.h"
 #include "UTRemoteRedeemer.h"
 #include "UTDemoRecSpectator.h"
+#include "UTLineUpHelper.h"
 
 AUTPlayerCameraManager::AUTPlayerCameraManager(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -164,6 +165,7 @@ void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTi
 	static const FName NAME_FreeCam = FName(TEXT("FreeCam"));
 	static const FName NAME_RallyCam = FName(TEXT("RallyCam"));
 	static const FName NAME_GameOver = FName(TEXT("GameOver"));
+	static const FName NAME_LineUpCam = FName(TEXT("LineUpCam"));
 
 	FName SavedCameraStyle = CameraStyle;
 	CameraStyle = (CameraStyle == NAME_RallyCam) ? NAME_RallyCam : GetCameraStyleWithOverrides();
@@ -198,6 +200,32 @@ void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTi
 		{
 			OutVT.POV.Location = UTPC->UTPlayerState->RallyLocation;
 			OutVT.POV.Rotation = UTPC->GetViewTarget()->GetActorRotation();
+		}
+		else
+		{
+			OutVT.POV.Location = PCOwner->GetFocalLocation();
+			OutVT.POV.Rotation = PCOwner->GetControlRotation();
+		}
+		ApplyCameraModifiers(DeltaTime, OutVT.POV);
+
+		// Synchronize the actor with the view target results
+		SetActorLocationAndRotation(OutVT.POV.Location, OutVT.POV.Rotation, false);
+	}
+	else if (CameraStyle == NAME_LineUpCam)
+	{
+		AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
+		
+		OutVT.POV.FOV = DefaultFOV;
+		OutVT.POV.OrthoWidth = DefaultOrthoWidth;
+		OutVT.POV.bConstrainAspectRatio = false;
+		OutVT.POV.ProjectionMode = bIsOrthographic ? ECameraProjectionMode::Orthographic : ECameraProjectionMode::Perspective;
+		OutVT.POV.PostProcessBlendWeight = 1.0f;
+
+		if (GameState && GameState->LineUpHelper)
+		{
+			AActor* LineUpCam = GameState->LineUpHelper->GetCameraActorForLineUp(GetWorld(), GameState->LineUpHelper->GetLineUpTypeToPlay(GetWorld()));
+			OutVT.POV.Location = LineUpCam->GetActorLocation();
+			OutVT.POV.Rotation = LineUpCam->GetActorRotation();
 		}
 		else
 		{

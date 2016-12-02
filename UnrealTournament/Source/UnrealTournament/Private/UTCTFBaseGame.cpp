@@ -365,16 +365,22 @@ void AUTCTFBaseGame::HandleMatchIntermission()
 				PC->ClientHalftime();
 				int32 TeamToWatch = IntermissionTeamToView(PC);
 				PC->SetViewTarget(CTFGameState->FlagBases[TeamToWatch]);
+				PC->FlushPressedKeys();
 			}
 		}
 	}
-
+		
 	// Freeze all of the pawns
 	for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
 	{
 		if (*It && !Cast<ASpectatorPawn>((*It).Get()))
 		{
 			(*It)->TurnOff();
+			
+			if (CTFGameState->LineUpHelper && CTFGameState->LineUpHelper->bIsActive)
+			{
+				CTFGameState->LineUpHelper->ForceCharacterAnimResetForLineUp(Cast<AUTCharacter>(*It));
+			}
 		}
 	}
 	
