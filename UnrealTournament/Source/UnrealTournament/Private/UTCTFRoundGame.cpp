@@ -151,6 +151,15 @@ void AUTCTFRoundGame::RemoveLosers(int32 LoserTeam, int32 FlagTeam)
 		{
 			PawnsToDestroy.Add(Pawn);
 		}
+		else
+		{
+			AUTCharacter* Char = Cast<AUTCharacter>(*It);
+			if (Char)
+			{
+				Char->SetAmbientSound(NULL);
+				Char->SetLocalAmbientSound(NULL);
+			}
+		}
 	}
 
 	for (int32 i = 0; i<PawnsToDestroy.Num(); i++)
@@ -1259,6 +1268,15 @@ void AUTCTFRoundGame::PrepareForIntermission()
 		if (*It && Cast<AUTRemoteRedeemer>((*It).Get()))
 		{
 			PawnsToDestroy.Add(*It);
+		}
+		else
+		{
+			AUTCharacter* Char = Cast<AUTCharacter>(*It);
+			if (Char)
+			{
+				Char->SetAmbientSound(NULL);
+				Char->SetLocalAmbientSound(NULL);
+			}
 		}
 	}
 
