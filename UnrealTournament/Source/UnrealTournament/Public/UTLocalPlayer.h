@@ -653,6 +653,9 @@ protected:
 	FString PendingFriendInviteFriendId;
 	bool bShowSocialNotification;
 
+	virtual void SetShowingFriendsPopup(bool bShowing);
+	bool bShowingFriendsMenu;
+
 #if !UE_SERVER
 
 	 TSharedPtr<SOverlay> ContentLoadingMessage;
@@ -662,8 +665,6 @@ public:
 	virtual void HideContentLoadingMessage();
 
 	virtual TSharedPtr<SUTFriendsPopupWindow> GetFriendsPopup();
-	virtual void SetShowingFriendsPopup(bool bShowing);
-	bool bShowingFriendsMenu;
 
 protected:
 	TSharedPtr<SUTFriendsPopupWindow> FriendsMenu;

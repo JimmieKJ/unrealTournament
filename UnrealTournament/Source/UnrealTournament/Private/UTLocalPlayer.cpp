@@ -2879,11 +2879,12 @@ TSharedPtr<SUTFriendsPopupWindow> UUTLocalPlayer::GetFriendsPopup()
 	return FriendsMenu;
 }
 
+#endif
+
 void UUTLocalPlayer::SetShowingFriendsPopup(bool bShowing)
 {
 	bShowingFriendsMenu = bShowing;
 }
-#endif
 
 void UUTLocalPlayer::ReturnToMainMenu()
 {
@@ -6209,6 +6210,7 @@ FReply UUTLocalPlayer::ToggleFriendsAndChat()
 	// Need launcher so this doesn't work on linux right now
 	return FReply::Handled();
 #endif
+#if !UE_SERVER
 	if (bShowingFriendsMenu)
 	{
 		TSharedPtr<SUTFriendsPopupWindow> Popup = GetFriendsPopup();
@@ -6227,5 +6229,6 @@ FReply UUTLocalPlayer::ToggleFriendsAndChat()
 			SetShowingFriendsPopup(true);
 		}
 	}
+#endif
 	return FReply::Handled();
 }
