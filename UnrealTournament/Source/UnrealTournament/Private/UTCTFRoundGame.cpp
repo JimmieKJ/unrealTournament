@@ -1253,7 +1253,6 @@ void AUTCTFRoundGame::ScoreAlternateWin(int32 WinningTeamIndex, uint8 Reason)
 
 void AUTCTFRoundGame::PrepareForIntermission()
 {
-	// FIXMESTEVE maybe should just call RemoveAllPawns(), and call from start intermission?
 	TArray<APawn*> PawnsToDestroy;
 	for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
 	{

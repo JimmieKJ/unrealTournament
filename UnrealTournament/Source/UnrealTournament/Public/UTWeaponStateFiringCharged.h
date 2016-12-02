@@ -93,7 +93,11 @@ class UNREALTOURNAMENT_API UUTWeaponStateFiringCharged : public UUTWeaponStateFi
 		if (bCharging && FireModeNum == GetFireMode())
 		{
 			ToggleLoopingEffects(false);
-			FireShot();
+			AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
+			if (!GameState  || (!GameState->HasMatchEnded() && !GameState->IsMatchIntermission()))
+			{
+				FireShot();
+			}
 			bCharging = false;
 			ChargeTime = 0.0f;
 			if (GetOuterAUTWeapon()->GetCurrentState() == this)

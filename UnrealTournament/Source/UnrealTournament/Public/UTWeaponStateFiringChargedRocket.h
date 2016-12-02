@@ -136,14 +136,28 @@ class UNREALTOURNAMENT_API UUTWeaponStateFiringChargedRocket : public UUTWeaponS
 			bCharging = false;
 			if (RocketLauncher->NumLoadedRockets > 0)
 			{
-				RocketLauncher->SetLeadRocket();
-				FireLoadedRocket();
+				AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
+				if (GameState && (GameState->HasMatchEnded() || GameState->IsMatchIntermission()))
+				{
+					RocketLauncher->NumLoadedRockets = 0;
+				}
+				else
+				{
+					RocketLauncher->SetLeadRocket();
+					FireLoadedRocket();
+				}
 			}
 		}
 	}
 
 	virtual void FireLoadedRocket()
 	{
+		AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
+		if (GameState && (GameState->HasMatchEnded() || GameState->IsMatchIntermission()))
+		{
+			RocketLauncher->NumLoadedRockets = 0;
+
+		}
 		if (RocketLauncher->NumLoadedRockets > 0)
 		{
 			FireShot();

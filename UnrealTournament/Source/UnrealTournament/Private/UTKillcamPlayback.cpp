@@ -12,6 +12,8 @@
 #include "UTDemoNetDriver.h"
 #include "UTProj_Redeemer.h"
 #include "UTRemoteRedeemer.h"
+#include "UTCharacter.h"
+#include "UTRallyPoint.h"
 
 TAutoConsoleVariable<int32> CVarUTEnableInstantReplay(
 	TEXT("UT.EnableInstantReplay"),
@@ -499,6 +501,12 @@ void UUTKillcamPlayback::HideKillcamFromUser()
 	for (TActorIterator<AUTRemoteRedeemer> It(KillcamWorld); It; ++It)
 	{
 		It->Destroy();
+	}
+
+	for (TActorIterator<AUTCharacter> It(KillcamWorld); It; ++It)
+	{
+		It->SetAmbientSound(NULL);
+		It->SetLocalAmbientSound(NULL);
 	}
 
 	for (FActorIterator It(KillcamWorld); It; ++It)
