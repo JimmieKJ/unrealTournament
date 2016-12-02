@@ -150,6 +150,20 @@ void UUTAnnouncer::AnnouncementFinished()
 	StartNextAnnouncement(true);
 }
 
+void UUTAnnouncer::ClearAnnouncements()
+{
+	if (AnnouncementComp->IsPlaying())
+	{
+		//UE_LOG(UT, Warning, TEXT("%s Interrupt announcement %s"), *GetName(), *AnnouncementComp->Sound->GetName());
+		// disable the delegate while interrupting to avoid recursion
+		AnnouncementComp->OnAudioFinished.RemoveDynamic(this, &UUTAnnouncer::AnnouncementFinished);
+		AnnouncementComp->Stop();
+		AnnouncementComp->OnAudioFinished.AddDynamic(this, &UUTAnnouncer::AnnouncementFinished);
+	}
+	GetWorld()->GetTimerManager().ClearTimer(PlayNextAnnouncementHandle);
+	QueuedAnnouncements.Empty();
+}
+
 void UUTAnnouncer::StartNextAnnouncement(bool bUseSpacing)
 {
 	float AnnouncementDelay = 0.f;

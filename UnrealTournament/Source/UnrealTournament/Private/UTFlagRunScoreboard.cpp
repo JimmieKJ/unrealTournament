@@ -15,6 +15,7 @@
 #include "UTCTFGameMessage.h"
 #include "UTShowdownGameMessage.h"
 #include "UTDemoRecSpectator.h"
+#include "UTAnnouncer.h"
 
 UUTFlagRunScoreboard::UUTFlagRunScoreboard(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -178,6 +179,10 @@ void UUTFlagRunScoreboard::AnnounceRoundScore(AUTTeamInfo* InWinningTeam, APlaye
 		if (UTHUDOwner && UTHUDOwner->AnnouncementWidget)
 		{
 			UTHUDOwner->AnnouncementWidget->AgeMessages(1000.f);
+		}
+		if (UTPlayerOwner->Announcer)
+		{
+			UTPlayerOwner->Announcer->ClearAnnouncements();
 		}
 		if (Reason == 0)
 		{

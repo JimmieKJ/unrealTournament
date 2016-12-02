@@ -85,6 +85,9 @@ class UNREALTOURNAMENT_API UUTAnnouncer : public UObject
 	/** Find best bot to provide reaction. */
 	virtual void RequestReaction();
 
+	/** Clear playing and pending announcements. */
+	virtual void ClearAnnouncements();
+
 	/** component used to control the audio */
 	UPROPERTY()
 	UAudioComponent* AnnouncementComp;
