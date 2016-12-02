@@ -29,6 +29,7 @@ public:
 
 		static ConstructorHelpers::FObjectFinder<USoundBase> EarnedSoundFinder(TEXT("SoundWave'/Game/RestrictedAssets/Audio/Stingers/EnemyBoostAvailable.EnemyBoostAvailable'"));
 		EnemyEarnedBoostSound = EarnedSoundFinder.Object;
+		bPlayDuringInstantReplay = false;
 	}
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)

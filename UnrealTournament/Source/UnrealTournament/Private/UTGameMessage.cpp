@@ -27,6 +27,7 @@ UUTGameMessage::UUTGameMessage(const class FObjectInitializer& ObjectInitializer
 	OnDeck = NSLOCTEXT("UTGameMessage", "MatchStarting", "The match is starting.");
 	WeaponLocked = NSLOCTEXT("UTGameMessage", "WeaponLocked", "Cannot unequip this weapon until it is fired.");
 	bIsStatusAnnouncement = true;
+	bPlayDuringInstantReplay = false;
 }
 
 int32 UUTGameMessage::GetFontSizeIndex(int32 MessageIndex) const

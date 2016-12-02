@@ -34,6 +34,7 @@ UUTCountDownMessage::UUTCountDownMessage(const class FObjectInitializer& ObjectI
 
 	static ConstructorHelpers::FObjectFinder<USoundBase> TimeEndingSoundFinder(TEXT("SoundWave'/Game/RestrictedAssets/Audio/Gameplay/A_Powerup_Invulnerability_End.A_Powerup_Invulnerability_End'"));
 	TimeEndingSound = TimeEndingSoundFinder.Object;
+	bPlayDuringInstantReplay = false;
 }
 
 bool UUTCountDownMessage::IsOptionalSpoken(int32 MessageIndex) const
