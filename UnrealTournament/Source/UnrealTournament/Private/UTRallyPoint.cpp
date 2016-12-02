@@ -52,6 +52,7 @@ AUTRallyPoint::AUTRallyPoint(const FObjectInitializer& ObjectInitializer)
 	RallyOffset = 0;
 	RallyPointState = RallyPointStates::Off;
 	RallyAvailableDistance = 4000.f;
+	bReplicateMovement = false;
 }
 
 #if WITH_EDITORONLY_DATA
