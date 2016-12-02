@@ -663,10 +663,11 @@ public:
 
 	virtual TSharedPtr<SUTFriendsPopupWindow> GetFriendsPopup();
 	virtual void SetShowingFriendsPopup(bool bShowing);
+	bool bShowingFriendsMenu;
+
 protected:
 	TSharedPtr<SUTFriendsPopupWindow> FriendsMenu;
 #endif
-	bool bShowingFriendsMenu;
 
 	// If the player is not logged in, then this string will hold the last attempted presence update
 	FString LastPresenceUpdate;
@@ -1182,6 +1183,11 @@ protected:
 
 	UPROPERTY()
 	FName LastTutorial;
+
+public:
+	/** Hides/Shows the friends and chat panel */
+	virtual FReply ToggleFriendsAndChat();
+
 
 };
 

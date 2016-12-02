@@ -14,6 +14,7 @@ void SUTFriendsPopupWindow::Construct(const FArguments& InArgs)
 	PlayerOwner = InArgs._PlayerOwner;
 	checkSlow(PlayerOwner != NULL);
 	ChildSlot
+		.Padding(0.0f,36.0f,0.0f,0.0f)
 		.VAlign(VAlign_Fill)
 		.HAlign(HAlign_Fill)
 		[

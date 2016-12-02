@@ -136,7 +136,6 @@ private:
 protected:
 	bool bNeedsPlayerOptions;
 	bool bNeedsWeaponOptions;
-	bool bShowingFriends;
 
 	int32 TickCountDown;
 	virtual void OpenDelayedMenu();

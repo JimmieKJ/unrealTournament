@@ -1119,6 +1119,12 @@ void UUTLocalPlayer::OnLoginStatusChanged(int32 LocalUserNum, ELoginStatus::Type
 		
 		OnPlayerLoggedOut().Broadcast();
 
+		// Close the friends panel if it's showing.
+		if (bShowingFriendsMenu)
+		{
+			ToggleFriendsAndChat();
+		}
+
 		if (bPendingLoginCreds)
 		{
 			bPendingLoginCreds = false;
@@ -2864,6 +2870,11 @@ TSharedPtr<SUTFriendsPopupWindow> UUTLocalPlayer::GetFriendsPopup()
 	{
 		SAssignNew(FriendsMenu, SUTFriendsPopupWindow)
 			.PlayerOwner(this);
+
+		if (FriendsMenu.IsValid())
+		{
+			FriendsMenu->SetOnCloseClicked(FOnClicked::CreateUObject(this, &UUTLocalPlayer::ToggleFriendsAndChat));
+		}
 	}
 	return FriendsMenu;
 }
@@ -6190,4 +6201,31 @@ FText UUTLocalPlayer::GetTutorialSectionText(TEnumAsByte<ETutorialSections::Type
 	}
 
 	return FText::GetEmpty();
+}
+
+FReply UUTLocalPlayer::ToggleFriendsAndChat()
+{
+#if PLATFORM_LINUX
+	// Need launcher so this doesn't work on linux right now
+	return FReply::Handled();
+#endif
+	if (bShowingFriendsMenu)
+	{
+		TSharedPtr<SUTFriendsPopupWindow> Popup = GetFriendsPopup();
+		if (Popup.IsValid())
+		{
+			GEngine->GameViewport->RemoveViewportWidgetContent(Popup.ToSharedRef());
+			SetShowingFriendsPopup(false);
+		}
+	}
+	else
+	{
+		TSharedPtr<SUTFriendsPopupWindow> Popup = GetFriendsPopup();
+		if (Popup.IsValid())
+		{
+			GEngine->GameViewport->AddViewportWidgetContent(Popup.ToSharedRef(), 6000);
+			SetShowingFriendsPopup(true);
+		}
+	}
+	return FReply::Handled();
 }

@@ -97,9 +97,9 @@ FReply SUTMenuBase::OnKeyUp( const FGeometry& MyGeometry, const FKeyEvent& InKey
 {
 	if (InKeyboardEvent.GetKey() == EKeys::Escape)
 	{
-		if (bShowingFriends)
+		if (PlayerOwner->bShowingFriendsMenu)
 		{
-			ToggleFriendsAndChat();
+			PlayerOwner->ToggleFriendsAndChat();
 		}
 		else if (GWorld->GetWorld()->GetMapName().ToLower() != TEXT("ut-entry"))
 		{
@@ -219,7 +219,6 @@ void SUTMenuBase::CreateDesktop()
 {
 	bNeedsPlayerOptions = false;
 	bNeedsWeaponOptions = false;
-	bShowingFriends = false;
 	TickCountDown = 0;
 	
 	LeftMenuBar = NULL;
@@ -867,34 +866,7 @@ FReply SUTMenuBase::OnShowServerBrowserPanel()
 
 FReply SUTMenuBase::ToggleFriendsAndChat()
 {
-#if PLATFORM_LINUX
-	// Need launcher so this doesn't work on linux right now
-	return FReply::Handled();
-#endif
-
-	if (bShowingFriends)
-	{
-		Desktop->RemoveSlot(6000);
-		bShowingFriends = false;
-		PlayerOwner->SetShowingFriendsPopup(bShowingFriends);
-	}
-	else
-	{
-		TSharedPtr<SUTFriendsPopupWindow> Popup = PlayerOwner->GetFriendsPopup();
-		Popup->SetOnCloseClicked(FOnClicked::CreateSP(this, &SUTMenuBase::ToggleFriendsAndChat));
-
-		if (Popup.IsValid())
-		{
-			Desktop->AddSlot(6000)
-				[
-					Popup.ToSharedRef()
-				];
-			bShowingFriends = true;
-			PlayerOwner->SetShowingFriendsPopup(bShowingFriends);
-		}
-	}
-
-
+	if (PlayerOwner != nullptr) PlayerOwner->ToggleFriendsAndChat();
 	return FReply::Handled();
 }
 
