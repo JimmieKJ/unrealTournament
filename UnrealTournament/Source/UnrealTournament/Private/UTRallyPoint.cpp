@@ -9,6 +9,8 @@
 #include "UTRallyPoint.h"
 #include "UTCTFMajorMessage.h"
 #include "UTDefensePoint.h"
+#include "UTCTFGameMessage.h"
+#include "UTFlagRunGameMessage.h"
 
 AUTRallyPoint::AUTRallyPoint(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -159,16 +161,29 @@ void AUTRallyPoint::OnOverlapBegin(UPrimitiveComponent* OverlappedComponent, AAc
 {
 	if ((Role == ROLE_Authority) && bIsEnabled)
 	{
-		AUTCTFFlag* CharFlag = Cast<AUTCharacter>(OtherActor) ? Cast<AUTCTFFlag>(((AUTCharacter*)OtherActor)->GetCarriedObject()) : nullptr;
+		AUTCharacter* TouchingCharacter = Cast<AUTCharacter>(OtherActor);
+		AUTCTFFlag* CharFlag = TouchingCharacter ? Cast<AUTCTFFlag>(TouchingCharacter->GetCarriedObject()) : nullptr;
 		if (CharFlag != NULL)
 		{
 			AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 			if (GS == NULL || (GS->IsMatchInProgress() && !GS->IsMatchIntermission() && !GS->HasMatchEnded()))
 			{
-				TouchingFC = Cast<AUTCharacter>(OtherActor);
+				TouchingFC = TouchingCharacter;
 				StartRallyCharging();
 			}
 		}
+		else if ((RallyPointState == RallyPointStates::Off) && Cast<AUTPlayerController>(TouchingCharacter->GetController()))
+		{
+			GetWorldTimerManager().SetTimer(WarnNoFlagHandle, FTimerDelegate::CreateUObject(this, &AUTRallyPoint::WarnNoFlag, TouchingCharacter), 1.f, false);
+		}
+	}
+}
+
+void AUTRallyPoint::WarnNoFlag(AUTCharacter* TouchingCharacter)
+{
+	if (TouchingCharacter && !TouchingCharacter->IsPendingKillPending() && Cast<AUTPlayerController>(TouchingCharacter->GetController()))
+	{
+		Cast<AUTPlayerController>(TouchingCharacter->GetController())->ClientReceiveLocalizedMessage(UUTFlagRunGameMessage::StaticClass(), 30);
 	}
 }
 

@@ -29,6 +29,10 @@ class UNREALTOURNAMENT_API AUTRallyPoint : public AUTGameObjective, public IUTRe
 
 	FTimerHandle EndRallyHandle;
 
+	FTimerHandle WarnNoFlagHandle;
+
+	virtual void WarnNoFlag(AUTCharacter* Toucher);
+
 	/** Minimum powered up time */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = RallyPoint)
 		float MinimumRallyTime;

@@ -7,6 +7,7 @@ UUTFlagRunGameMessage::UUTFlagRunGameMessage(const FObjectInitializer& ObjectIni
 	: Super(ObjectInitializer)
 {
 	KilledMessagePostfix = NSLOCTEXT("CTFGameMessage", "KilledMessage", " killed the flag carrier!");
+	NoPowerRallyMessage = NSLOCTEXT("FlagRunGameMessage", "NoPowerRally", "You need the flag to power a rally point.");
 }
 
 FName UUTFlagRunGameMessage::GetTeamAnnouncement(int32 Switch, uint8 TeamNum, const UObject* OptionalObject, const class APlayerState* RelatedPlayerState_1, const class APlayerState* RelatedPlayerState_2) const
@@ -37,6 +38,10 @@ FText UUTFlagRunGameMessage::GetText(int32 Switch, bool bTargetsPlayerState1, AP
 	if ((Switch < 2) || (Switch == 3) || ((Switch == 4) && (!RelatedPlayerState_1 || !Cast<AUTPlayerController>(RelatedPlayerState_1->GetOwner()))))
 	{
 		return FText::GetEmpty();
+	}
+	if (Switch == 30)
+	{
+		return NoPowerRallyMessage;
 	}
 	return Super::GetText(Switch, bTargetsPlayerState1, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
 }
