@@ -1943,9 +1943,13 @@ UUTCrosshair* AUTHUD::GetCrosshairForWeapon(FName WeaponCustomizationTag, FWeapo
 	return nullptr;
 }
 
-void AUTHUD::DrawWinConditions(UFont* InFont, float XPos, float YPos, float ScoreWidth, float RenderScale, bool bCenterMessage)
+float AUTHUD::DrawWinConditions(UFont* InFont, float XPos, float YPos, float ScoreWidth, float RenderScale, bool bCenterMessage, bool bSkipDrawing)
 {
-	DrawText(ScoreMessageText.ToString(), FLinearColor::White, XPos, YPos, InFont, RenderScale, 1.f); 
+	if (!bSkipDrawing)
+	{
+		DrawText(ScoreMessageText.ToString(), FLinearColor::White, XPos, YPos, InFont, RenderScale, 1.f);
+	}
+	return 0.f;
 }
 
 

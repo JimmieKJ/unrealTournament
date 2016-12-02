@@ -90,7 +90,7 @@ void UUTHUDWidgetMessage::AgeMessages_Implementation(float DeltaTime)
 
 		// Age out the message.
 		MessageQueue[QueueIndex].LifeLeft -= DeltaTime;
-		if (MessageQueue[QueueIndex].LifeLeft <= 0.0)
+		if (MessageQueue[QueueIndex].LifeLeft <= 0.f)
 		{
 			// If this queue message has an UMG widget, clear it too
 			if (MessageQueue[QueueIndex].UMGWidget.IsValid())

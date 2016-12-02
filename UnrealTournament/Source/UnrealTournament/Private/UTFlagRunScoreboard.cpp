@@ -92,7 +92,7 @@ bool UUTFlagRunScoreboard::ShowScorePanel()
 	{
 		return false;
 	}
-	return GS->IsMatchIntermission() ? (!IsBeforeFirstRound() && (GetWorld()->GetTimeSeconds() - ScoreReceivedTime > ScoreInfoDuration) && (EndIntermissionTime < GetWorld()->GetTimeSeconds())) : true;
+	return (GS->IsMatchIntermission() || GS->HasMatchEnded()) ? (!IsBeforeFirstRound() && (GetWorld()->GetTimeSeconds() - ScoreReceivedTime > ScoreInfoDuration) && (EndIntermissionTime < GetWorld()->GetTimeSeconds())) : true;
 }
 
 void UUTFlagRunScoreboard::DrawTeamPanel(float RenderDelta, float& YOffset)
@@ -296,13 +296,13 @@ void UUTFlagRunScoreboard::DrawScoreAnnouncement(float DeltaTime)
 					}
 				}
 				float WooshPct = FMath::Clamp((CurrentTime - (WooshStart + i*WooshInterval)) / WooshTime, 0.f, 1.f);
-				float XOffsetDest = (WinningTeam->TeamIndex == 0) ? 0.33f * Canvas->ClipX : 0.67f * Canvas->ClipX;
+				float XOffsetDest = (WinningTeam->TeamIndex == 0) ? 0.37f * Canvas->ClipX : 0.60f * Canvas->ClipX;
 				StarXPos = StarXPos + FMath::Min(1.1f*WooshPct, 1.f)*(XOffsetDest - StarXPos);
 				StarYPos = YPos * (1.f - WooshPct);
 			}
 			if (StarYPos > 0.05f*Canvas->ClipY)
 			{
-				float EffectDuration = PoundInterval;
+				float EffectDuration = 0.5f*PoundInterval;
 				float StarEffectEndTime = PoundStart + i*PoundInterval + EffectDuration;
 				if (CurrentTime < StarEffectEndTime)
 				{
@@ -310,7 +310,7 @@ void UUTFlagRunScoreboard::DrawScoreAnnouncement(float DeltaTime)
 					float StarEffectScale = 1.05f + 4.f*(EffectDuration - StarEffectEndTime + CurrentTime);
 					BonusColor.A = 0.25f + StarEffectEndTime - CurrentTime;
 					Canvas->SetLinearDrawColor(BonusColor);
-					Canvas->DrawText(StarFont, StarText, StarXPos - 0.5f*RenderScale*(StarEffectScale - 1.f) * StarXL, StarYPos - 0.5f*RenderScale*(StarEffectScale - 0.5f) * StarYL, StarEffectScale*RenderScale, StarEffectScale*RenderScale, TextRenderInfo);
+					Canvas->DrawText(StarFont, StarText, StarXPos - 0.5f*RenderScale*(StarEffectScale - 1.f) * StarXL, StarYPos + 16.f*RenderScale - 0.5f*RenderScale*(StarEffectScale - 0.5f) * StarYL, StarEffectScale*RenderScale, StarEffectScale*RenderScale, TextRenderInfo);
 				}
 				else
 				{
@@ -348,7 +348,7 @@ void UUTFlagRunScoreboard::DrawScoreAnnouncement(float DeltaTime)
 				}
 			}
 			FVector LineEndPoint(0.5f*Canvas->ClipX, 0.1f*Canvas->ClipY, 0.f);
-			FVector LineStartPoint(0.55f*Canvas->ClipX, YPos + BonusYL, 0.f);
+			FVector LineStartPoint(0.56f*Canvas->ClipX, YPos + BonusYL, 0.f);
 			FLinearColor LineColor = WinningTeam->TeamColor;
 			LineColor.A = 0.2f;
 			FBatchedElements* BatchedElements = Canvas->Canvas->GetBatchedElements(FCanvas::ET_Line);
@@ -779,18 +779,21 @@ void UUTFlagRunScoreboard::DrawScoringSummary(float DeltaTime, float& YPos, floa
 	float TitleX, TitleY;
 	Canvas->StrLen(UTHUDOwner->MediumFont, FormattedTitle.ToString(), TitleX, TitleY);
 
+	AUTFlagRunHUD* FRHUD = Cast<AUTFlagRunHUD>(UTHUDOwner);
+	float WinConditionWidth = FRHUD ? FRHUD->DrawWinConditions(UTHUDOwner->MediumFont, 0.f, YPos, Canvas->ClipX, RenderScale, true, true) : 0.f;
+
 	FLinearColor DrawColor = FLinearColor::White;
 	float CurrentScoreHeight = (GS->CTFRound >= GS->NumRounds - 2) ? 2.f*TitleY : TitleY;
-	DrawFramedBackground(0.5f*(Canvas->ClipX - 1.2f*RenderScale*TitleX), YPos, 1.2f*RenderScale*TitleX, 1.2f*RenderScale*CurrentScoreHeight);
+	float FrameWidth = FMath::Max(1.1f*WinConditionWidth, 1.2f*RenderScale*TitleX);
+	DrawFramedBackground(0.5f*(Canvas->ClipX - FrameWidth), YPos, FrameWidth, 1.2f*RenderScale*CurrentScoreHeight);
 
 	// draw round information
 	Canvas->DrawText(UTHUDOwner->MediumFont, FormattedTitle, 0.5f*(Canvas->ClipX - RenderScale*TitleX), YPos, RenderScale, RenderScale, TextRenderInfo);
 	YPos += RenderScale*TitleY;
 
-	AUTFlagRunHUD* FRHUD = Cast<AUTFlagRunHUD>(UTHUDOwner);
 	if (FRHUD)
 	{
-		FRHUD->DrawWinConditions(UTHUDOwner->MediumFont, XOffset, YPos, ScoreWidth, RenderScale, true);
+		FRHUD->DrawWinConditions(UTHUDOwner->MediumFont, 0.f, YPos, Canvas->ClipX, RenderScale, true);
 	}
 }
 

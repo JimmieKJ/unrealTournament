@@ -171,14 +171,13 @@ void AUTFlagRunHUD::DrawPlayerIcon(FCanvasIcon PlayerIcon, FLinearColor DrawColo
 	}
 }
 
-void AUTFlagRunHUD::DrawWinConditions(UFont* InFont, float XOffset, float YPos, float ScoreWidth, float RenderScale, bool bCenterMessage)
+float AUTFlagRunHUD::DrawWinConditions(UFont* InFont, float XOffset, float YPos, float ScoreWidth, float RenderScale, bool bCenterMessage, bool bSkipDrawing)
 {
 
 	AUTFlagRunGameState* GS = GetWorld()->GetGameState<AUTFlagRunGameState>();
 	if (GS && GS->HasMatchEnded())
 	{
-		Super::DrawWinConditions(InFont, XOffset, YPos, ScoreWidth, RenderScale, bCenterMessage);
-		return;
+		return Super::DrawWinConditions(InFont, XOffset, YPos, ScoreWidth, RenderScale, bCenterMessage);
 	}
 	if (GS && GS->FlagRunMessageTeam != nullptr)
 	{
@@ -210,7 +209,7 @@ void AUTFlagRunHUD::DrawWinConditions(UFont* InFont, float XOffset, float YPos, 
 		{
 		case 1: PostfixText = DefendersMustStop; break;
 		case 2: PostfixText = DefendersMustHold; break;
-		case 3: PostfixText = DefendersMustHold; BonusType = GS->SilverBonusText; break;
+		case 3: PostfixText = DefendersMustHold; BonusType = GS->SilverBonusText;  BonusColor = GS->SilverBonusColor; break;
 		case 4: PostfixText = (TimeNeeded > 0) ? AttackersMustScoreTime : AttackersMustScore; break;
 		case 5: PostfixText = (TimeNeeded > 0) ? AttackersMustScoreTime : AttackersMustScore; BonusType = GS->SilverBonusText; BonusColor = GS->SilverBonusColor; break;
 		case 6: PostfixText = (TimeNeeded > 0) ? AttackersMustScoreTime : AttackersMustScore; BonusType = GS->GoldBonusText; BonusColor = GS->GoldBonusColor; break;
@@ -238,32 +237,36 @@ void AUTFlagRunHUD::DrawWinConditions(UFont* InFont, float XOffset, float YPos, 
 		{
 			ScoreX = XOffset + 0.5f * (ScoreWidth - RenderScale * (EmphasisXL + PostXL + MustScoreXL + BonusXL));
 		}
-
-		Canvas->SetLinearDrawColor(GS->FlagRunMessageTeam->TeamIndex == 0 ? FLinearColor::Red : FLinearColor::Blue);
-		Canvas->DrawText(InFont, EmphasisText, ScoreX, YPos, RenderScale, RenderScale, TextRenderInfo);
-		ScoreX += EmphasisXL*RenderScale;
-
-		if (Switch > 1)
+		if (!bSkipDrawing)
 		{
-			if (Switch < 4)
+			Canvas->SetLinearDrawColor(GS->FlagRunMessageTeam->TeamIndex == 0 ? FLinearColor::Red : FLinearColor::Blue);
+			Canvas->DrawText(InFont, EmphasisText, ScoreX, YPos, RenderScale, RenderScale, TextRenderInfo);
+			ScoreX += EmphasisXL*RenderScale;
+
+			if (Switch > 1)
 			{
-				Canvas->SetLinearDrawColor(FLinearColor::White);
-				Canvas->DrawText(InFont, PostfixText, ScoreX, YPos, RenderScale, RenderScale, TextRenderInfo);
-				ScoreX += PostXL*RenderScale;
-				PostfixText = FText::GetEmpty();
+				if (Switch < 4)
+				{
+					Canvas->SetLinearDrawColor(FLinearColor::White);
+					Canvas->DrawText(InFont, PostfixText, ScoreX, YPos, RenderScale, RenderScale, TextRenderInfo);
+					ScoreX += PostXL*RenderScale;
+					PostfixText = FText::GetEmpty();
+				}
+				else
+				{
+					Canvas->SetLinearDrawColor(FLinearColor::White);
+					Canvas->DrawText(InFont, MustScoreText, ScoreX, YPos, RenderScale, RenderScale, TextRenderInfo);
+					ScoreX += MustScoreXL*RenderScale;
+				}
+				Canvas->SetLinearDrawColor(BonusColor);
+				Canvas->DrawText(InFont, BonusType, ScoreX, YPos, RenderScale, RenderScale, TextRenderInfo);
+				ScoreX += BonusXL*RenderScale;
 			}
-			else
-			{
-				Canvas->SetLinearDrawColor(FLinearColor::White);
-				Canvas->DrawText(InFont, MustScoreText, ScoreX, YPos, RenderScale, RenderScale, TextRenderInfo);
-				ScoreX += MustScoreXL*RenderScale;
-			}
-			Canvas->SetLinearDrawColor(BonusColor);
-			Canvas->DrawText(InFont, BonusType, ScoreX, YPos, RenderScale, RenderScale, TextRenderInfo);
-			ScoreX += BonusXL*RenderScale;
+			Canvas->SetLinearDrawColor(FLinearColor::White);
+			Canvas->DrawText(InFont, PostfixText, ScoreX, YPos, RenderScale, RenderScale, TextRenderInfo);
 		}
-		Canvas->SetLinearDrawColor(FLinearColor::White);
-		Canvas->DrawText(InFont, PostfixText, ScoreX, YPos, RenderScale, RenderScale, TextRenderInfo);
+		return RenderScale * (EmphasisXL + PostXL + MustScoreXL + BonusXL);
 	}
+	return 0.f;
 }
 
