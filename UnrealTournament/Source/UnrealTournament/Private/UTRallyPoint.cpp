@@ -705,7 +705,6 @@ FVector AUTRallyPoint::GetRallyLocation(AUTCharacter* TestChar)
 	return GetActorLocation();
 }
 
-
 FVector AUTRallyPoint::GetAdjustedScreenPosition(UCanvas* Canvas, const FVector& WorldPosition, const FVector& ViewPoint, const FVector& ViewDir, float Dist, float Edge, bool& bDrawEdgeArrow)
 {
 	FVector Cross = (ViewDir ^ FVector(0.f, 0.f, 1.f)).GetSafeNormal();
@@ -744,7 +743,6 @@ FVector AUTRallyPoint::GetAdjustedScreenPosition(UCanvas* Canvas, const FVector&
 	return DrawScreenPosition;
 }
 
-
 void AUTRallyPoint::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector CameraPosition, FVector CameraDir)
 {
 	AUTPlayerState* ViewerPS = PC ? Cast <AUTPlayerState>(PC->PlayerState) : nullptr;
@@ -770,17 +768,13 @@ void AUTRallyPoint::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVecto
 		return;
 	}
 
-	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 	AUTPlayerController* UTPC = Cast<AUTPlayerController>(PC);
 	const bool bIsViewTarget = (PC->GetViewTarget() == this);
 	FVector WorldPosition = GetActorLocation();
-	if (UTPC != NULL && GS && !GS->IsMatchIntermission() && !GS->HasMatchEnded() && ((FVector::DotProduct(CameraDir, (WorldPosition - CameraPosition)) > 0.0f) || !ViewerPS->CarriedObject)
+	if (UTPC != NULL && !UTGS->IsMatchIntermission() && !UTGS->HasMatchEnded() && ((FVector::DotProduct(CameraDir, (WorldPosition - CameraPosition)) > 0.0f) || !ViewerPS->CarriedObject)
 		 && (UTPC->MyUTHUD == nullptr || !UTPC->MyUTHUD->bShowScores))
 	{
 		float TextXL, YL;
-		float ScaleTime = FMath::Min(1.f, 6.f * GetWorld()->DeltaTimeSeconds);
-		float MinTextScale = 0.75f;
-		// BeaconTextScale = (1.f - ScaleTime) * BeaconTextScale + ScaleTime * ((bRecentlyRendered && !bFarAway) ? 1.f : 0.75f);
 		float Scale = Canvas->ClipX / 1920.f;
 		UFont* SmallFont = AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>()->SmallFont;
 		FText RallyText =NSLOCTEXT("UTRallyPoint", "RallyHere", " RALLY HERE! ");

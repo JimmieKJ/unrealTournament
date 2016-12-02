@@ -347,6 +347,15 @@ void AUTPickupInventory::InventoryTypeUpdated_Implementation()
 	HUDIcon = (InventoryType != NULL) ? InventoryType.GetDefaultObject()->HUDIcon : FCanvasIcon();
 	MinimapIcon = (InventoryType != NULL) ? InventoryType.GetDefaultObject()->MinimapIcon : FCanvasIcon();
 	TakenSound = (InventoryType != NULL) ? TakenSound = InventoryType.GetDefaultObject()->PickupSound : GetClass()->GetDefaultObject<AUTPickupInventory>()->TakenSound;
+
+	if ((GetWorld()->GetNetMode() != NM_DedicatedServer) && InventoryType.GetDefaultObject()->PickupSpawnAnnouncement)
+	{
+		APlayerController* PC = GEngine->GetFirstLocalPlayerController(GetWorld());
+		if (PC != NULL && PC->MyHUD != NULL)
+		{
+			PC->MyHUD->AddPostRenderedActor(this);
+		}
+	}
 }
 
 void AUTPickupInventory::Reset_Implementation()
@@ -599,4 +608,114 @@ void AUTPickupInventory::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & 
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME_CONDITION(AUTPickupInventory, InventoryType, COND_None);
+}
+
+void AUTPickupInventory::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector CameraPosition, FVector CameraDir)
+{
+	if (!InventoryType || !InventoryType.GetDefaultObject()->PickupSpawnAnnouncement || !State.bActive)
+	{
+		return;
+	}
+	AUTPlayerState* ViewerPS = PC ? Cast <AUTPlayerState>(PC->PlayerState) : nullptr;
+	AUTFlagRunGameState* UTGS = GetWorld()->GetGameState<AUTFlagRunGameState>();
+	AUTPlayerController* UTPC = Cast<AUTPlayerController>(PC);
+	if (!ViewerPS || !UTGS || !ViewerPS->Team || !UTPC || UTGS->IsMatchIntermission() || UTGS->HasMatchEnded() || (UTPC->MyUTHUD == nullptr) || UTPC->MyUTHUD->bShowScores)
+	{
+		return;
+	}
+	bool bViewerOnOffense = (UTGS->bRedToCap == (ViewerPS->Team->TeamIndex == 0));
+	if (bViewerOnOffense ? !bNotifySpawnForOffense : !bNotifySpawnForDefense)
+	{
+		return;
+	}
+
+	const bool bIsViewTarget = (PC->GetViewTarget() == this);
+	FVector WorldPosition = GetActorLocation();
+	float TextXL, YL;
+	float Scale = Canvas->ClipX / 1920.f;
+	UFont* SmallFont = AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>()->SmallFont;
+	FText RedeemerText = NSLOCTEXT("Redeemer", "Redeemer", " Redeemer");
+	Canvas->TextSize(SmallFont, RedeemerText.ToString(), TextXL, YL, Scale, Scale);
+	FVector ViewDir = UTPC->GetControlRotation().Vector();
+	float Dist = (CameraPosition - GetActorLocation()).Size();
+	bool bDrawEdgeArrow = false;
+	FVector ScreenPosition = GetAdjustedScreenPosition(Canvas, WorldPosition, CameraPosition, ViewDir, Dist, 20.f, bDrawEdgeArrow);
+	float XPos = ScreenPosition.X - 0.5f*TextXL;
+	float YPos = ScreenPosition.Y - YL;
+	if (XPos < Canvas->ClipX || XPos + TextXL < 0.0f)
+	{
+		FLinearColor TeamColor = FLinearColor::Yellow;
+		float CenterFade = 1.f;
+		float PctFromCenter = (ScreenPosition - FVector(0.5f*Canvas->ClipX, 0.5f*Canvas->ClipY, 0.f)).Size() / Canvas->ClipX;
+		CenterFade = CenterFade * FMath::Clamp(10.f*PctFromCenter, 0.15f, 1.f);
+		TeamColor.A = 0.2f * CenterFade;
+		UTexture* BarTexture = AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>()->HUDAtlas;
+
+		Canvas->SetLinearDrawColor(TeamColor);
+		float Border = 2.f*Scale;
+		float Height = 0.75*YL + 0.7f * YL;
+		float Width = TextXL + 2.f*Border;
+		Canvas->DrawTile(Canvas->DefaultTexture, XPos - Border, YPos - YL - Border, Width, Height + 2.f*Border, 0, 0, 1, 1);
+
+		FLinearColor BeaconTextColor = FLinearColor::White;
+		BeaconTextColor.A = 0.6f * CenterFade;
+		FUTCanvasTextItem TextItem(FVector2D(FMath::TruncToFloat(Canvas->OrgX + XPos), FMath::TruncToFloat(Canvas->OrgY + YPos - 1.2f*YL)), RedeemerText, SmallFont, BeaconTextColor, NULL);
+		TextItem.Scale = FVector2D(Scale, Scale);
+		TextItem.BlendMode = SE_BLEND_Translucent;
+		FLinearColor ShadowColor = FLinearColor::Black;
+		ShadowColor.A = BeaconTextColor.A;
+		TextItem.EnableShadow(ShadowColor);
+		TextItem.FontRenderInfo = Canvas->CreateFontRenderInfo(true, false);
+		Canvas->DrawItem(TextItem);
+
+		FFormatNamedArguments Args;
+		FText NumberText = FText::AsNumber(int32(0.01f*Dist));
+		UFont* TinyFont = AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>()->TinyFont;
+		Canvas->TextSize(TinyFont, TEXT("XX meters"), TextXL, YL, Scale, Scale);
+		Args.Add("Dist", NumberText);
+		FText DistText = NSLOCTEXT("UTRallyPoint", "DistanceText", "{Dist} meters");
+		TextItem.Font = TinyFont;
+		TextItem.Text = FText::Format(DistText, Args);
+		TextItem.Position.X = ScreenPosition.X - 0.5f*TextXL;
+		TextItem.Position.Y += 0.9f*YL;
+		Canvas->DrawItem(TextItem);
+	}
+}
+
+FVector AUTPickupInventory::GetAdjustedScreenPosition(UCanvas* Canvas, const FVector& WorldPosition, const FVector& ViewPoint, const FVector& ViewDir, float Dist, float Edge, bool& bDrawEdgeArrow)
+{
+	FVector Cross = (ViewDir ^ FVector(0.f, 0.f, 1.f)).GetSafeNormal();
+	FVector DrawScreenPosition;
+	float ExtraPadding = 0.065f * Canvas->ClipX;
+	DrawScreenPosition = Canvas->Project(WorldPosition);
+	FVector FlagDir = WorldPosition - ViewPoint;
+	if ((ViewDir | FlagDir) < 0.f)
+	{
+		bool bWasLeft = bBeaconWasLeft;
+		bDrawEdgeArrow = true;
+		DrawScreenPosition.X = bWasLeft ? Edge + ExtraPadding : Canvas->ClipX - Edge - ExtraPadding;
+		DrawScreenPosition.Y = 0.5f*Canvas->ClipY;
+		DrawScreenPosition.Z = 0.0f;
+		return DrawScreenPosition;
+	}
+	else if ((DrawScreenPosition.X < 0.f) || (DrawScreenPosition.X > Canvas->ClipX))
+	{
+		bool bLeftOfScreen = (DrawScreenPosition.X < 0.f);
+		float OffScreenDistance = bLeftOfScreen ? -1.f*DrawScreenPosition.X : DrawScreenPosition.X - Canvas->ClipX;
+		bDrawEdgeArrow = true;
+		DrawScreenPosition.X = bLeftOfScreen ? Edge + ExtraPadding : Canvas->ClipX - Edge - ExtraPadding;
+		//Y approaches 0.5*Canvas->ClipY as further off screen
+		float MaxOffscreenDistance = Canvas->ClipX;
+		DrawScreenPosition.Y = 0.4f*Canvas->ClipY + FMath::Clamp((MaxOffscreenDistance - OffScreenDistance) / MaxOffscreenDistance, 0.f, 1.f) * (DrawScreenPosition.Y - 0.6f*Canvas->ClipY);
+		DrawScreenPosition.Y = FMath::Clamp(DrawScreenPosition.Y, 0.25f*Canvas->ClipY, 0.75f*Canvas->ClipY);
+		bBeaconWasLeft = bLeftOfScreen;
+	}
+	else
+	{
+		bBeaconWasLeft = false;
+		DrawScreenPosition.X = FMath::Clamp(DrawScreenPosition.X, Edge, Canvas->ClipX - Edge);
+		DrawScreenPosition.Y = FMath::Clamp(DrawScreenPosition.Y, Edge, Canvas->ClipY - Edge);
+		DrawScreenPosition.Z = 0.0f;
+	}
+	return DrawScreenPosition;
 }

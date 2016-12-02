@@ -91,6 +91,12 @@ public:
 	virtual void Reset_Implementation() override;
 	virtual void PlayTakenEffects(bool bReplicate) override;
 	virtual bool FlashOnMinimap_Implementation() override;
+	virtual void PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector CameraPosition, FVector CameraDir) override;
+
+	virtual FVector GetAdjustedScreenPosition(UCanvas* Canvas, const FVector& WorldPosition, const FVector& ViewPoint, const FVector& ViewDir, float Dist, float Edge, bool& bDrawEdgeArrow);
+
+	UPROPERTY()
+		bool bBeaconWasLeft;
 
 	virtual void AddHiddenComponents(bool bTaken, TSet<FPrimitiveComponentId>& HiddenComponents) override
 	{
