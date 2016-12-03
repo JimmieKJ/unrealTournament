@@ -268,7 +268,9 @@ protected:
 	TSharedPtr<SCheckBox> cbSpectatable;
 	TSharedPtr<SCheckBox> cbPrivateMatch;
 
-
+	bool bBeginnerMatch;
+	bool bUserTurnedOffRankCheck;
+	void SUTGameSetupDialog::RankCheckChanged(ECheckBoxState NewState);
 public:
 	FString GetSelectedMap();
 

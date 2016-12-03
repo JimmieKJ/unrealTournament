@@ -17,6 +17,8 @@
 
 void SUTGameSetupDialog::Construct(const FArguments& InArgs)
 {
+	bBeginnerMatch = false;
+	bUserTurnedOffRankCheck = false;
 	bHubMenu = InArgs._PlayerOwner->GetWorld()->GetGameState<AUTLobbyGameState>() != NULL;
 	SUTDialogBase::Construct(SUTDialogBase::FArguments()
 							.PlayerOwner(InArgs._PlayerOwner)
@@ -328,6 +330,23 @@ FReply SUTGameSetupDialog::OnRuleClick(int32 RuleIndex)
 
 
 		SelectedRuleset = RuleSubset[RuleIndex].Ruleset;
+
+		TWeakObjectPtr<AUTLobbyPlayerState> MatchOwner = Cast<AUTLobbyPlayerState>(PlayerOwner->PlayerController->PlayerState);
+		if (MatchOwner.IsValid() && MatchOwner->IsABeginner(SelectedRuleset.IsValid() ? SelectedRuleset->GetDefaultGameModeObject() : NULL))
+		{
+			bBeginnerMatch = true;
+
+			// We are a beginner....
+			if (!bUserTurnedOffRankCheck)
+			{
+				cbRankLocked->SetIsChecked(ECheckBoxState::Checked);
+				MatchOwner->NotifyBeginnerAutoLock();
+			}
+		}
+		else
+		{
+			bBeginnerMatch = false;
+		}
 
 		BuildMapList();
 	}
@@ -838,19 +857,18 @@ FReply SUTGameSetupDialog::OnBotSkillClick(int32 NewSkill)
 	return FReply::Handled();
 }
 
-
 void SUTGameSetupDialog::AddButtonsToLeftOfButtonBar(uint32& ButtonCount)
 {
-	
 	if (!bHubMenu) return;
 
 	ButtonBar->AddSlot(ButtonCount++, 0)
 	.VAlign(VAlign_Center)
 	[
 		SAssignNew(cbRankLocked, SCheckBox)
-		.IsChecked(ECheckBoxState::Checked)
+		.IsChecked(ECheckBoxState::Unchecked)
 		.Style(SUTStyle::Get(), "UT.CheckBox")
 		.ToolTip(SUTUtils::CreateTooltip(NSLOCTEXT("SUTGameSetupDialog","LimitRankTT","If checked, then this match will be limited to people at your rank or lower")))
+		.OnCheckStateChanged(this, &SUTGameSetupDialog::RankCheckChanged)
 		.Content()
 		[
 			SNew(STextBlock)
@@ -908,7 +926,7 @@ void SUTGameSetupDialog::ConfigureMatchInfo(TWeakObjectPtr<AUTLobbyMatchInfo> Ma
 		int32 DesiredPlayerCount = 0;
 		int32 bTeamGame = 0;
 		GetCustomGameSettings(GameMode, StartingMap, Description, GameOptions, DesiredPlayerCount, bTeamGame);
-		MatchInfo->ServerCreateCustomRule(GameMode, StartingMap, Description, GameOptions, BotSkillLevel, DesiredPlayerCount, bTeamGame != 0, bRankLocked, bSpectatable, bPrivateMatch);
+		MatchInfo->ServerCreateCustomRule(GameMode, StartingMap, Description, GameOptions, BotSkillLevel, DesiredPlayerCount, bTeamGame != 0, bRankLocked, bSpectatable, bPrivateMatch, bBeginnerMatch);
 	}
 
 	else if (SelectedRuleset.IsValid())
@@ -921,10 +939,14 @@ void SUTGameSetupDialog::ConfigureMatchInfo(TWeakObjectPtr<AUTLobbyMatchInfo> Ma
 		}
 
 		FString StartingMap = GetSelectedMap();
-		MatchInfo->ServerSetRules(SelectedRuleset->UniqueTag, StartingMap, BotSkillLevel, bIsInParty, bRankLocked, bSpectatable, bPrivateMatch);
+		MatchInfo->ServerSetRules(SelectedRuleset->UniqueTag, StartingMap, BotSkillLevel, bIsInParty, bRankLocked, bSpectatable, bPrivateMatch, bBeginnerMatch);
 	}
 
 }
 
+void SUTGameSetupDialog::RankCheckChanged(ECheckBoxState NewState)
+{
+	if (NewState == ECheckBoxState::Unchecked) bUserTurnedOffRankCheck = true;
+}
 
 #endif

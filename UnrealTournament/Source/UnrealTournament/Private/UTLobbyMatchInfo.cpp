@@ -298,19 +298,6 @@ void AUTLobbyMatchInfo::SetSettings(AUTLobbyGameState* GameState,  AUTLobbyPlaye
 		BotSkillLevel = MatchToCopy->BotSkillLevel;
 	}
 
-	if (!bIsInParty && MatchOwner && MatchOwner->IsABeginner(CurrentRuleset.IsValid() ? CurrentRuleset->GetDefaultGameModeObject() : NULL))
-	{
-		bRankLocked = true;
-		bBeginnerMatch = true;
-
-		// Tell the host to display a warning
-
-		if (CurrentRuleset.IsValid())
-		{
-			MatchOwner->NotifyBeginnerAutoLock();
-		}
-	}
-
 	SetLobbyMatchState(ELobbyMatchState::Setup);
 }
 
@@ -728,9 +715,10 @@ void AUTLobbyMatchInfo::SetRules(TWeakObjectPtr<AUTReplicatedGameRuleset> NewRul
 	bMapChanged = true;
 }
 
-bool AUTLobbyMatchInfo::ServerSetRules_Validate(const FString& RulesetTag, const FString& StartingMap,int32 NewBotSkillLevel, bool bIsInParty, bool _bRankLocked, bool _bSpectatable, bool _bPrivateMatch) { return true; }
-void AUTLobbyMatchInfo::ServerSetRules_Implementation(const FString&RulesetTag, const FString& StartingMap,int32 NewBotSkillLevel, bool bIsInParty, bool _bRankLocked, bool _bSpectatable, bool _bPrivateMatch)
+bool AUTLobbyMatchInfo::ServerSetRules_Validate(const FString& RulesetTag, const FString& StartingMap,int32 NewBotSkillLevel, bool bIsInParty, bool _bRankLocked, bool _bSpectatable, bool _bPrivateMatch, bool _bBeginnerMatch) { return true; }
+void AUTLobbyMatchInfo::ServerSetRules_Implementation(const FString&RulesetTag, const FString& StartingMap,int32 NewBotSkillLevel, bool bIsInParty, bool _bRankLocked, bool _bSpectatable, bool _bPrivateMatch, bool _bBeginnerMatch)
 {
+	bBeginnerMatch = _bBeginnerMatch;
 	if ( CheckLobbyGameState() )
 	{
 		bRankLocked = _bRankLocked;
@@ -752,21 +740,6 @@ void AUTLobbyMatchInfo::ServerSetRules_Implementation(const FString&RulesetTag, 
 			AUTBaseGameMode* DefaultGameMode = CurrentRuleset->GetDefaultGameModeObject();
 			if (DefaultGameMode == nullptr) DefaultGameMode = AUTBaseGameMode::StaticClass()->GetDefaultObject<AUTBaseGameMode>();
 			RankCheck = OwnerPlayerState->GetRankCheck(DefaultGameMode);
-
-			TWeakObjectPtr<AUTLobbyPlayerState> MatchOwner = GetOwnerPlayerState();
-			if (!bIsInParty && MatchOwner.IsValid() && MatchOwner->IsABeginner(CurrentRuleset.IsValid() ? CurrentRuleset->GetDefaultGameModeObject() : NULL))
-			{
-				bRankLocked = true;
-				bBeginnerMatch = true;
-
-				// Tell the host to display a warning
-
-				if (CurrentRuleset.IsValid())
-				{
-					MatchOwner->NotifyBeginnerAutoLock();
-				}
-			}
-
 		}
 	}
 }
@@ -782,11 +755,12 @@ void AUTLobbyMatchInfo::OnRep_MatchUpdate()
 {
 }
 
-bool AUTLobbyMatchInfo::ServerCreateCustomRule_Validate(const FString& GameMode, const FString& StartingMap, const FString& Description, const TArray<FString>& GameOptions, int32 DesiredSkillLevel, int32 DesiredPlayerCount, bool bTeamGame, bool _bRankLocked, bool _bSpectatable, bool _bPrivateMatch) { return true; }
-void AUTLobbyMatchInfo::ServerCreateCustomRule_Implementation(const FString& GameMode, const FString& StartingMap, const FString& Description, const TArray<FString>& GameOptions, int32 DesiredSkillLevel, int32 DesiredPlayerCount, bool bTeamGame, bool _bRankLocked, bool _bSpectatable, bool _bPrivateMatch)
+bool AUTLobbyMatchInfo::ServerCreateCustomRule_Validate(const FString& GameMode, const FString& StartingMap, const FString& Description, const TArray<FString>& GameOptions, int32 DesiredSkillLevel, int32 DesiredPlayerCount, bool bTeamGame, bool _bRankLocked, bool _bSpectatable, bool _bPrivateMatch, bool _bBeginnerMatch) { return true; }
+void AUTLobbyMatchInfo::ServerCreateCustomRule_Implementation(const FString& GameMode, const FString& StartingMap, const FString& Description, const TArray<FString>& GameOptions, int32 DesiredSkillLevel, int32 DesiredPlayerCount, bool bTeamGame, bool _bRankLocked, bool _bSpectatable, bool _bPrivateMatch, bool _bBeginnerMatch)
 {
 	bool bOldTeamGame = CurrentRuleset.IsValid() ? CurrentRuleset->bTeamGame : false;
 
+	bBeginnerMatch = _bBeginnerMatch;
 	bRankLocked = _bRankLocked;
 	bSpectatable = _bSpectatable;
 	bPrivateMatch = _bPrivateMatch;
@@ -888,23 +862,6 @@ void AUTLobbyMatchInfo::ServerCreateCustomRule_Implementation(const FString& Gam
 		if (OwnerPlayerState.IsValid())
 		{
 			RankCheck = OwnerPlayerState->GetRankCheck(DefaultGameMode);
-			
-			TWeakObjectPtr<AUTLobbyPlayerState> MatchOwner = GetOwnerPlayerState();
-			if (MatchOwner.IsValid() && MatchOwner->IsABeginner(CurrentRuleset.IsValid() ? CurrentRuleset->GetDefaultGameModeObject() : NULL))
-			{
-				bRankLocked = true;
-				bBeginnerMatch = true;
-
-				// Tell the host to display a warning
-
-				if (CurrentRuleset.IsValid())
-				{
-					MatchOwner->NotifyBeginnerAutoLock();
-				}
-			}
-
-
-
 		}
 	}
 }
