@@ -105,7 +105,7 @@ FName UUTCharacterVoice::GetFallbackLines(FName InName) const
 
 bool UUTCharacterVoice::IsOptionalSpoken(int32 MessageIndex) const
 {
-	return bOptionalSpoken && (MessageIndex < KEY_CALLOUTS);
+	return bOptionalSpoken && (MessageIndex < StatusBaseIndex+KEY_CALLOUTS);
 }
 
 int32 UUTCharacterVoice::GetDestinationIndex(int32 MessageIndex) const
@@ -197,7 +197,7 @@ FCharacterSpeech UUTCharacterVoice::GetCharacterSpeech(int32 Switch) const
 	}
 	else if (Switch >= StatusBaseIndex)
 	{
-		if (Switch < KEY_CALLOUTS)
+		if (Switch < StatusBaseIndex + KEY_CALLOUTS)
 		{
 			if (Switch == GetStatusIndex(StatusMessage::NeedBackup))
 			{
@@ -539,13 +539,13 @@ bool UUTCharacterVoice::ShouldPlayAnnouncement(const FClientReceiveData& ClientD
 
 bool UUTCharacterVoice::InterruptAnnouncement(const FAnnouncementInfo AnnouncementInfo, const FAnnouncementInfo OtherAnnouncementInfo) const
 {
-	if ((AnnouncementInfo.MessageClass == OtherAnnouncementInfo.MessageClass) && (AnnouncementInfo.Switch >= KEY_CALLOUTS))
+	if ((AnnouncementInfo.MessageClass == OtherAnnouncementInfo.MessageClass) && (AnnouncementInfo.Switch >= StatusBaseIndex + KEY_CALLOUTS))
 	{
-		if (OtherAnnouncementInfo.Switch < KEY_CALLOUTS)
+		if (OtherAnnouncementInfo.Switch < StatusBaseIndex + KEY_CALLOUTS)
 		{
 			return true;
 		}
-		if ((OtherAnnouncementInfo.Switch < LASTGAMEVOLUMESPEECH) && (AnnouncementInfo.Switch < LASTGAMEVOLUMESPEECH) && (OtherAnnouncementInfo.Switch % 10 < 2) && (AnnouncementInfo.Switch % 10 < 2))
+		if ((OtherAnnouncementInfo.Switch < StatusBaseIndex + LASTGAMEVOLUMESPEECH) && (AnnouncementInfo.Switch < StatusBaseIndex + LASTGAMEVOLUMESPEECH) && (OtherAnnouncementInfo.Switch % 10 < 2) && (AnnouncementInfo.Switch % 10 < 2))
 		{
 			return true;
 		}
@@ -557,17 +557,25 @@ bool UUTCharacterVoice::CancelByAnnouncement_Implementation(int32 Switch, const 
 {
 	if (GetClass() == OtherMessageClass)
 	{
-		return (Switch < KEY_CALLOUTS) && (OtherSwitch >= KEY_CALLOUTS);
+		if (Switch < StatusBaseIndex + KEY_CALLOUTS)
+		{
+			return (OtherSwitch >= StatusBaseIndex + KEY_CALLOUTS);
+		}
+		if ((OtherSwitch >= StatusBaseIndex + KEY_CALLOUTS) && (OtherSwitch < StatusBaseIndex + LASTGAMEVOLUMESPEECH) && (Switch < StatusBaseIndex + LASTGAMEVOLUMESPEECH) && (OtherSwitch % 10 < 2) && (Switch % 10 < 2))
+		{
+			return true;
+		}
+		return false;
 	}
 	else
 	{
-		return (Switch < KEY_CALLOUTS);
+		return (Switch < StatusBaseIndex + KEY_CALLOUTS);
 	}
 }
 
 float UUTCharacterVoice::GetAnnouncementPriority(const FAnnouncementInfo AnnouncementInfo) const
 {
-	return (AnnouncementInfo.Switch >= KEY_CALLOUTS) ? 0.5f : 0.1f;
+	return (AnnouncementInfo.Switch >= StatusBaseIndex + KEY_CALLOUTS) ? 0.5f : 0.1f;
 }
 
 int32 UUTCharacterVoice::GetStatusIndex(FName NewStatus) const
