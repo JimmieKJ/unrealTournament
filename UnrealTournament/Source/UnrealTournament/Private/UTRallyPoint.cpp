@@ -749,12 +749,15 @@ void AUTRallyPoint::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVecto
 {
 	AUTPlayerState* ViewerPS = PC ? Cast <AUTPlayerState>(PC->PlayerState) : nullptr;
 	AUTFlagRunGameState* UTGS = GetWorld()->GetGameState<AUTFlagRunGameState>();
-	bool bViewerIsAttacking = (UTGS->bRedToCap == (ViewerPS->Team->TeamIndex == 0));
-	if (!ViewerPS || !UTGS || !ViewerPS->Team || (!UTGS->bEnemyRallyPointIdentified && !bViewerIsAttacking))
+	if (!ViewerPS || !UTGS || !ViewerPS->Team)
 	{
 		return;
 	}
-
+	bool bViewerIsAttacking = (UTGS->bRedToCap == (ViewerPS->Team->TeamIndex == 0));
+	if (!UTGS->bEnemyRallyPointIdentified && !bViewerIsAttacking)
+	{
+		return;
+	}
 	if (ViewerPS->CarriedObject)
 	{
 		if (!bShowAvailableEffect)
