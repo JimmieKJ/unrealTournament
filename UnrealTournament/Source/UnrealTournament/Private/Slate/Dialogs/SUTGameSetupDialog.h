@@ -270,7 +270,7 @@ protected:
 
 	bool bBeginnerMatch;
 	bool bUserTurnedOffRankCheck;
-	void SUTGameSetupDialog::RankCheckChanged(ECheckBoxState NewState);
+	void RankCheckChanged(ECheckBoxState NewState);
 public:
 	FString GetSelectedMap();
 
