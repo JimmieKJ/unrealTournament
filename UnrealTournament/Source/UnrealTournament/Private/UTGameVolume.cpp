@@ -41,11 +41,7 @@ void AUTGameVolume::PostInitializeComponents()
 {
 	Super::PostInitializeComponents();
 
-	if (bIsTeamSafeVolume && (Role == ROLE_Authority))
-	{
-		//GetWorldTimerManager().SetTimer(HealthTimerHandle, this, &AUTGameVolume::HealthTimer, 1.f, true);
-	}
-	else if ((VoiceLinesSet == NAME_None) && !VolumeName.IsEmpty() && !bIsTeleportZone)
+	if ((VoiceLinesSet == NAME_None) && !VolumeName.IsEmpty() && !bIsTeleportZone && !bIsTeamSafeVolume)
 	{
 		VoiceLinesSet = UUTCharacterVoice::StaticClass()->GetDefaultObject<UUTCharacterVoice>()->GetFallbackLines(FName(*VolumeName.ToString()));
 		if (VoiceLinesSet == NAME_None)
@@ -149,18 +145,18 @@ void AUTGameVolume::ActorEnteredVolume(class AActor* Other)
 				}
 
 				// possibly announce flag carrier changed zones
-				if (bIsNoRallyZone && !bIsTeamSafeVolume && !P->GetCarriedObject()->bWasInEnemyBase && (GetWorld()->GetTimeSeconds() - FMath::Max(GS->LastEnemyEnteringBaseTime, GS->LastEnteringEnemyBaseTime) > 6.f))
+				if (bIsNoRallyZone && !bIsTeamSafeVolume && !P->GetCarriedObject()->bWasInEnemyBase && (GetWorld()->GetTimeSeconds() - FMath::Max(GS->LastEnemyEnteringBaseTime, GS->LastEnteringEnemyBaseTime) > 3.f))
 				{
-					if ((GetWorld()->GetTimeSeconds() - GS->LastEnteringEnemyBaseTime > 6.f) && Cast<AUTPlayerState>(P->PlayerState))
+					if ((GetWorld()->GetTimeSeconds() - GS->LastEnteringEnemyBaseTime > 3.f) && Cast<AUTPlayerState>(P->PlayerState))
 					{
+						((AUTPlayerState *)(P->PlayerState))->AnnounceStatus(StatusMessage::ImGoingIn);
 						if (VoiceLinesSet != NAME_None)
 						{
 							((AUTPlayerState *)(P->PlayerState))->AnnounceStatus(VoiceLinesSet, 1);
 						}
-						((AUTPlayerState *)(P->PlayerState))->AnnounceStatus(StatusMessage::ImGoingIn);
 						GS->LastEnteringEnemyBaseTime = GetWorld()->GetTimeSeconds();
 					}
-					if (GetWorld()->GetTimeSeconds() - GS->LastEnemyEnteringBaseTime > 6.f)
+					if (GetWorld()->GetTimeSeconds() - GS->LastEnemyEnteringBaseTime > 3.f)
 					{
 						AUTPlayerState* PS = P->GetCarriedObject()->LastPinger;
 						if (!PS)
@@ -177,11 +173,11 @@ void AUTGameVolume::ActorEnteredVolume(class AActor* Other)
 						}
 						if (PS)
 						{
+							PS->AnnounceStatus(StatusMessage::BaseUnderAttack);
 							if (VoiceLinesSet != NAME_None)
 							{
 								PS->AnnounceStatus(VoiceLinesSet, 0);
 							}
-							PS->AnnounceStatus(StatusMessage::BaseUnderAttack);
 							GS->LastEnemyEnteringBaseTime = GetWorld()->GetTimeSeconds();
 						}
 					}
