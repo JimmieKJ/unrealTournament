@@ -32,6 +32,7 @@ AUTFlagRunGameState::AUTFlagRunGameState(const FObjectInitializer& ObjectInitial
 	GoldBonusColor = FLinearColor(1.f, 0.9f, 0.15f);
 	SilverBonusColor = FLinearColor(0.5f, 0.5f, 0.75f);
 	BronzeBonusColor = FLinearColor(0.48f, 0.25f, 0.18f);
+	bEnemyRallyPointIdentified = false;
 }
 
 void AUTFlagRunGameState::BeginPlay()
@@ -55,6 +56,7 @@ void AUTFlagRunGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty >
 	DOREPLIFETIME(AUTFlagRunGameState, bRedToCap);
 	DOREPLIFETIME(AUTFlagRunGameState, BonusLevel);
 	DOREPLIFETIME(AUTFlagRunGameState, CurrentRallyPoint);
+	DOREPLIFETIME(AUTFlagRunGameState, bEnemyRallyPointIdentified);
 	DOREPLIFETIME(AUTFlagRunGameState, FlagRunMessageSwitch);
 	DOREPLIFETIME(AUTFlagRunGameState, FlagRunMessageTeam);
 	DOREPLIFETIME(AUTFlagRunGameState, bAttackersCanRally);

@@ -157,6 +157,7 @@ void AUTFlagRunGame::InitGameStateForRound()
 		FRGS->bIsDefenseAbleToGainPowerup = true;
 		FRGS->bRedToCap = !FRGS->bRedToCap;
 		FRGS->CurrentRallyPoint = nullptr;
+		FRGS->bEnemyRallyPointIdentified = false;
 		FRGS->ScoringPlayerState = nullptr;
 	}
 }
@@ -787,6 +788,11 @@ void AUTFlagRunGame::CompleteRallyRequest(AController* C)
 					}
 				}
 			}
+			if (UTPlayerState->RallyPoint && GS->CurrentRallyPoint == UTPlayerState->RallyPoint)
+			{
+				GS->bEnemyRallyPointIdentified = true;
+			}
+			
 			for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
 			{
 				AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);

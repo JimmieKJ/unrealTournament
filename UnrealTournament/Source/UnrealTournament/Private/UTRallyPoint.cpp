@@ -212,6 +212,7 @@ void AUTRallyPoint::SetRallyPointState(FName NewState)
 			if ((RallyPointState != RallyPointStates::Powered) && (RallyPointState != RallyPointStates::Charging))
 			{
 				GameState->CurrentRallyPoint = nullptr;
+				GameState->bEnemyRallyPointIdentified = false;
 			}
 		}
 		else if (GameState && ((RallyPointState == RallyPointStates::Powered) || (RallyPointState == RallyPointStates::Charging)))
@@ -748,7 +749,8 @@ void AUTRallyPoint::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVecto
 {
 	AUTPlayerState* ViewerPS = PC ? Cast <AUTPlayerState>(PC->PlayerState) : nullptr;
 	AUTFlagRunGameState* UTGS = GetWorld()->GetGameState<AUTFlagRunGameState>();
-	if (!ViewerPS || !UTGS || !ViewerPS->Team || (UTGS->bRedToCap != (ViewerPS->Team->TeamIndex == 0)))
+	bool bViewerIsAttacking = (UTGS->bRedToCap == (ViewerPS->Team->TeamIndex == 0));
+	if (!ViewerPS || !UTGS || !ViewerPS->Team || (!UTGS->bEnemyRallyPointIdentified && !bViewerIsAttacking))
 	{
 		return;
 	}
@@ -778,12 +780,12 @@ void AUTRallyPoint::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVecto
 		float TextXL, YL;
 		float Scale = Canvas->ClipX / 1920.f;
 		UFont* SmallFont = AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>()->SmallFont;
-		FText RallyText =NSLOCTEXT("UTRallyPoint", "RallyHere", " RALLY HERE! ");
+		FText RallyText = NSLOCTEXT("UTRallyPoint", "RallyHere", " RALLY HERE! ");
 		if ((RallyPointState == RallyPointStates::Powered) && MyGameVolume)
 		{
 			FFormatNamedArguments Args;
 			Args.Add("RallyLoc", MyGameVolume->VolumeName);
-			RallyText = FText::Format(NSLOCTEXT("UTRallyPoint", "RallyAtLoc", " RALLY at {RallyLoc} "), Args);
+			RallyText = bViewerIsAttacking ? FText::Format(NSLOCTEXT("UTRallyPoint", "RallyAtLoc", " RALLY at {RallyLoc} "), Args) : FText::Format(NSLOCTEXT("UTRallyPoint", "EnemyRallyAtLoc", " ENEMY RALLY at {RallyLoc} "), Args);
 		}
 		Canvas->TextSize(SmallFont, RallyText.ToString(), TextXL, YL, Scale, Scale);
 		FVector ViewDir = UTPC->GetControlRotation().Vector();
