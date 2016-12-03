@@ -6243,16 +6243,14 @@ bool AUTCharacter::GatherUTMovement()
 				AttachmentReplication.LocationOffset = RootComponent->RelativeLocation;
 				AttachmentReplication.RotationOffset = RootComponent->RelativeRotation;
 				*/
-			
-
-			return false;}
+				return false;
+			}
 		}
 		else
 		{
-			// @TODO FIXMESTEVE make sure not replicated to owning client!!!
 			UTReplicatedMovement.Location = RootComponent->GetComponentLocation();
 			UTReplicatedMovement.Rotation = RootComponent->GetComponentRotation();
-			UTReplicatedMovement.Rotation.Pitch = GetControlRotation().Pitch;
+			UTReplicatedMovement.Rotation.Pitch = GetController() ? GetControlRotation().Pitch : float(RemoteViewPitch) * 360.f / 255.f;;
 			UTReplicatedMovement.LinearVelocity = GetVelocity();
 
 			FVector AccelDir = GetCharacterMovement()->GetCurrentAcceleration();
