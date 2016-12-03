@@ -556,7 +556,12 @@ void AUTHUD::NotifyMatchStateChange()
 	AUTGameState* GS = Cast<AUTGameState>(GetWorld()->GetGameState());
 	if (UTLP && GS && !GS->IsPendingKillPending())
 	{
-		if (GS->GetMatchState() == MatchState::WaitingPostMatch)
+		if (GS->GetMatchState() == MatchState::InProgress)
+		{
+			bShowScores = false;
+			bForceScores = false;
+		}
+		else if (GS->GetMatchState() == MatchState::WaitingPostMatch)
 		{
 			if (GS->GameModeClass != nullptr)
 			{
@@ -597,7 +602,6 @@ void AUTHUD::NotifyMatchStateChange()
 				GetWorldTimerManager().SetTimer(MatchSummaryHandle, this, &AUTHUD::OpenMatchSummary, 1.7f, false);
 			}
 		}
-
 		else if (GS->GetMatchState() != MatchState::MapVoteHappening)
 		{
 			ToggleScoreboard(false);
@@ -861,9 +865,7 @@ void AUTHUD::DrawHUD()
 		}
 	}
 
-
 	CachedProfileSettings = nullptr;
-
 	DrawWatermark();
 }
 
