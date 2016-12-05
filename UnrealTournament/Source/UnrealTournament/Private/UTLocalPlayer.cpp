@@ -6064,7 +6064,7 @@ bool UUTLocalPlayer::IsMenuOptionLocked(FName MenuCommand) const
 		}
 		else if (MenuCommand == EMenuCommand::MC_Challenges)		
 		{
-			return !(CurrentProfileSettings && ((CurrentProfileSettings->TutorialMask & TUTORIAL_SkillMoves) == TUTORIAL_SkillMoves));
+			return false;
 		}
 		else if (MenuCommand == EMenuCommand::MC_FindAMatch)		
 		{
@@ -6093,7 +6093,7 @@ FText UUTLocalPlayer::GetMenuCommandTooltipText(FName MenuCommand) const
 		if (MenuCommand == EMenuCommand::MC_QuickPlayDM)			return NSLOCTEXT("SUTHomePanel", "QuickPlayDMLocked","Before you can play Deathmatch online, you need to complete the Deathmatch training in Basic Training.");
 		else if (MenuCommand == EMenuCommand::MC_QuickPlayCTF)		return NSLOCTEXT("SUTHomePanel", "QuickPlayCTFLocked","Before you can play Capture the Flag online, you need to complete the CTF training in Basic Training.");
 		else if (MenuCommand == EMenuCommand::MC_QuickPlayShowdown)	return NSLOCTEXT("SUTHomePanel", "QuickPlayShowdownLocked","Before you can play Showdown online, you need to complete the Showdown training in Basic Training.");
-		else if (MenuCommand == EMenuCommand::MC_Challenges)		return NSLOCTEXT("SUTHomePanel", "QuickPlayChallengesLocked","All challenges are currently unavailable.  Please complete the movement, weapons and pickup training in Basic Training.");
+		else if (MenuCommand == EMenuCommand::MC_Challenges)		return NSLOCTEXT("SUTHomePanel", "QuickPlayChallengesLocked","Challenges are not yet available.  Please complete the movement, weapons and pickup training in Basic Training.");
 		else if (MenuCommand == EMenuCommand::MC_FindAMatch)		return NSLOCTEXT("SUTHomePanel", "QuickPlayFindAMatchLocked","Online play is unavailable until you complete the movement, weapons and pickup and one game mode training in Basic Training.");
 	}
 	else
