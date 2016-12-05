@@ -128,7 +128,6 @@ void AUTLineUpHelper::DestroySpawnedClones()
 
 void AUTLineUpHelper::HandleIntermission(LineUpTypes IntermissionType)
 {
-	bIsActive = true;
 	MovePlayersDelayed(IntermissionType, IntermissionHandle, TimerDelayForIntermission);
 }
 
@@ -176,11 +175,27 @@ void AUTLineUpHelper::MovePlayers(LineUpTypes ZoneType)
 {	
 	static const FName NAME_LineUpCam = FName(TEXT("LineUpCam"));
 	bIsPlacingPlayers = true;
-	
+	bIsActive = true;
+
 	if (GetWorld() && GetWorld()->GetAuthGameMode())
 	{
 		AUTGameMode* UTGM = Cast<AUTGameMode>(GetWorld()->GetAuthGameMode());
 		
+		//Go through controllers and save current equipped wepaon as the FavoriteWeapon. Doing this before removing all pawns.
+		for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
+		{
+			AUTPlayerController* UTPC = Cast<AUTPlayerController>(*Iterator);
+			if (UTPC)
+			{
+				AUTPlayerState* UTPS = Cast<AUTPlayerState>(UTPC->PlayerState);
+				AUTCharacter* UTChar = Cast<AUTCharacter>(UTPC->GetPawn());
+				if (UTPS && UTChar)
+				{
+					UTPS->FavoriteWeapon = UTChar->GetWeaponClass();
+				}
+			}
+		}
+
 		if (UTGM)
 		{
 			UTGM->RemoveAllPawns();
@@ -214,7 +229,7 @@ void AUTLineUpHelper::MovePlayers(LineUpTypes ZoneType)
 				AUTPlayerController* UTPC = Cast<AUTPlayerController>(C);
 				if (UTPC)
 				{
-					UTPC->SetCameraMode(NAME_LineUpCam);
+					//UTPC->SetCameraMode(NAME_LineUpCam);
 					UTPC->ClientSetActiveLineUp(true, ZoneType);
 				}
 			}
@@ -228,11 +243,54 @@ void AUTLineUpHelper::MovePlayers(LineUpTypes ZoneType)
 		{
 			UTChar->TurnOff();
 			ForceCharacterAnimResetForLineUp(UTChar);
+			SpawnPlayerWeapon(UTChar);
 		}
 	}
 
 	bIsPlacingPlayers = false;
 }
+
+void AUTLineUpHelper::SpawnPlayerWeapon(AUTCharacter* UTChar)
+{
+	//If we already have a weapon attachment, keep that
+	if (UTChar && !UTChar->GetWeaponAttachment())
+	{
+		AUTPlayerState* UTPS = Cast<AUTPlayerState>(UTChar->PlayerState);
+		UClass* WeaponAttachmentType = NULL;
+
+		if (UTPS)
+		{
+			WeaponAttachmentType = UTPS->FavoriteWeapon ? UTPS->FavoriteWeapon->GetDefaultObject<AUTWeapon>()->AttachmentType : NULL;
+		}
+
+		//Default to Link Gun
+		if (!WeaponAttachmentType)
+		{
+			WeaponAttachmentType = LoadClass<AUTWeaponAttachment>(NULL, TEXT("/Game/RestrictedAssets/Weapons/LinkGun/BP_LinkGun_Attach.BP_LinkGun_Attach_C"), NULL, LOAD_None, NULL);
+		}
+		
+		UTChar->SetWeaponAttachmentClass(WeaponAttachmentType);
+		//UTChar->UpdateWeaponAttachment();
+
+		/*FActorSpawnParameters WeaponSpawnParams;
+		WeaponSpawnParams.Instigator = UTChar;
+		WeaponSpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+		WeaponSpawnParams.bNoFail = true;
+
+		AUTWeaponAttachment* PreviewWeapon = GetWorld()->SpawnActor<AUTWeaponAttachment>(WeaponAttachmentType, FVector(0, 0, 0), FRotator(0, 0, 0), WeaponSpawnParams);
+		if (PreviewWeapon)
+		{
+			PreviewWeapon->bAlwaysRelevant = true;
+			PreviewWeapon->SetReplicates(true);
+			if (PreviewWeapon->HasActorBegunPlay())
+			{
+				PreviewWeapon->AttachToOwner();
+			}
+			PreviewWeapons.Add(PreviewWeapon);
+		}*/
+	}
+}
+
 
 void AUTLineUpHelper::ForceCharacterAnimResetForLineUp(AUTCharacter* UTChar)
 {
@@ -557,7 +615,6 @@ void AUTLineUpHelper::SpawnClone(AUTPlayerState* PS, const FTransform& Location)
 
 void AUTLineUpHelper::HandleEndMatchSummary(LineUpTypes SummaryType)
 {
-	bIsActive = true;
 	MovePlayersDelayed(SummaryType, MatchSummaryHandle, TimerDelayForEndMatch);
 }
 

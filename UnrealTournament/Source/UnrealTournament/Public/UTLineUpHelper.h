@@ -23,7 +23,7 @@ class UNREALTOURNAMENT_API AUTLineUpHelper : public AActor
 
 	UPROPERTY()
 	bool bIsActive;
-
+	
 	UPROPERTY()
 	LineUpTypes LastActiveType;
 
@@ -57,6 +57,9 @@ protected:
 
 	UFUNCTION()
 	void MovePlayersDelayed(LineUpTypes ZoneType, FTimerHandle& TimerHandleToStart, float TimeDelay);
+
+	UFUNCTION()
+	void SpawnPlayerWeapon(AUTCharacter* UTChar);
 
 	UFUNCTION()
 	void SpawnClone(AUTPlayerState* PS, const FTransform& Location);
