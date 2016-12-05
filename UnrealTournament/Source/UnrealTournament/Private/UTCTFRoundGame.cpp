@@ -139,6 +139,7 @@ void AUTCTFRoundGame::RemoveLosers(int32 LoserTeam, int32 FlagTeam)
 		AUTPlayerState* PS = Controller ? Cast<AUTPlayerState>(Controller->PlayerState) : nullptr;
 		if (Controller && Controller->GetPawn() && (!PS || !PS->Team || (PS->Team->TeamIndex == LoserTeam)))
 		{
+			Controller->PawnPendingDestroy(Controller->GetPawn());
 			Controller->UnPossess();
 		}
 	}
@@ -823,7 +824,6 @@ void AUTCTFRoundGame::ResetFlags()
 	}
 }
 
-
 void AUTCTFRoundGame::SetPlayerStateInactive(APlayerState* NewPlayerState)
 {
 	Super::SetPlayerStateInactive(NewPlayerState);
@@ -868,7 +868,7 @@ void AUTCTFRoundGame::InitPlayerForRound(AUTPlayerState* PS)
 
 void AUTCTFRoundGame::HandleTeamChange(AUTPlayerState* PS, AUTTeamInfo* OldTeam)
 {
-	if ((GetWorld()->WorldType == EWorldType::PIE) || bDevServer || !PS)
+	if ((GetWorld()->WorldType == EWorldType::PIE) || bDevServer || !PS || !UTGameState || (UTGameState->GetMatchState() != MatchState::InProgress))
 	{
 		return;
 	}
@@ -882,35 +882,33 @@ void AUTCTFRoundGame::HandleTeamChange(AUTPlayerState* PS, AUTTeamInfo* OldTeam)
 		PS->SetOutOfLives(true);
 		PS->ForceRespawnTime = 1.f;
 	}
-	if (UTGameState)
+
+	// verify that OldTeam and New team still have live players
+	AUTTeamInfo* NewTeam = PS->Team;
+	bool bOldTeamHasPlayers = false;
+	bool bNewTeamHasPlayers = false;
+	for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
 	{
-		// verify that OldTeam and New team still have live players
-		AUTTeamInfo* NewTeam = PS->Team;
-		bool bOldTeamHasPlayers = false;
-		bool bNewTeamHasPlayers = false;
-		for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
+		AUTPlayerState* OtherPS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
+		if (OtherPS && !OtherPS->bOutOfLives && !OtherPS->bIsInactive)
 		{
-			AUTPlayerState* OtherPS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
-			if (OtherPS && !OtherPS->bOutOfLives && !OtherPS->bIsInactive)
+			if (OldTeam && (OtherPS->Team == OldTeam))
 			{
-				if (OldTeam && (OtherPS->Team == OldTeam))
-				{
-					bOldTeamHasPlayers = true;
-				}
-				if (NewTeam && (OtherPS->Team == NewTeam))
-				{
-					bNewTeamHasPlayers = true;
-				}
+				bOldTeamHasPlayers = true;
+			}
+			if (NewTeam && (OtherPS->Team == NewTeam))
+			{
+				bNewTeamHasPlayers = true;
 			}
 		}
-		if (!bOldTeamHasPlayers && OldTeam)
-		{
-			ScoreAlternateWin((OldTeam->TeamIndex == 0) ? 1 : 0);
-		}
-		else if (!bNewTeamHasPlayers && NewTeam)
-		{
-			ScoreAlternateWin((NewTeam->TeamIndex == 0) ? 1 : 0);
-		}
+	}
+	if (!bOldTeamHasPlayers && OldTeam)
+	{
+		ScoreAlternateWin((OldTeam->TeamIndex == 0) ? 1 : 0);
+	}
+	else if (!bNewTeamHasPlayers && NewTeam)
+	{
+		ScoreAlternateWin((NewTeam->TeamIndex == 0) ? 1 : 0);
 	}
 }
 
@@ -945,7 +943,7 @@ void AUTCTFRoundGame::RestartPlayer(AController* aPlayer)
 	AUTPlayerController* PC = Cast<AUTPlayerController>(aPlayer);
 	if (bPerPlayerLives && PS && PS->Team && HasMatchStarted())
 	{
-		if (IsPlayerOnLifeLimitedTeam(PS) && (PS->RemainingLives == 0))
+		if (IsPlayerOnLifeLimitedTeam(PS) && (PS->RemainingLives == 0) && (GetMatchState() == MatchState::InProgress))
 		{
 			// failsafe for player that leaves match before RemainingLives are set and then rejoins
 			PS->SetOutOfLives(true);

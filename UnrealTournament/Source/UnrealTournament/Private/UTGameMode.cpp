@@ -1840,6 +1840,7 @@ void AUTGameMode::RemoveAllPawns()
 		}
 		if (Controller->GetPawn() != NULL)
 		{
+			Controller->PawnPendingDestroy(Controller->GetPawn());
 			Controller->UnPossess();
 		}
 	}
