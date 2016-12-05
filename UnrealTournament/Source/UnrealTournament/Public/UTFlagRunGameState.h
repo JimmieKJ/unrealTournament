@@ -96,6 +96,8 @@ class UNREALTOURNAMENT_API AUTFlagRunGameState : public AUTCTFRoundGameState
 	virtual bool IsTeamOnOffense(int32 TeamNumber) const override;
 	virtual bool IsTeamOnDefense(int32 TeamNumber) const override;
 
+	virtual void OnIntermissionChanged() override;
+
 	UFUNCTION(BlueprintCallable, Category = Team)
 		virtual bool IsTeamOnDefenseNextRound(int32 TeamNumber) const;
 

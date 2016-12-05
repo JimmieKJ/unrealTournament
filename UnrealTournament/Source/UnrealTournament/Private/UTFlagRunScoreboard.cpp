@@ -89,6 +89,10 @@ bool UUTFlagRunScoreboard::IsBeforeFirstRound()
 
 bool UUTFlagRunScoreboard::ShowScorePanel()
 {
+	if (UTHUDOwner && UTHUDOwner->bShowScores)
+	{
+		return true;
+	}
 	AUTFlagRunGameState* GS = GetWorld()->GetGameState<AUTFlagRunGameState>();
 	AUTFlagRunGame* DefaultGame = GS && GS->GameModeClass ? GS->GameModeClass->GetDefaultObject<AUTFlagRunGame>() : nullptr;
 	if (!DefaultGame || (GS->GetMatchState() == MatchState::CountdownToBegin) || (GS->GetMatchState() == MatchState::PlayerIntro))
@@ -96,6 +100,17 @@ bool UUTFlagRunScoreboard::ShowScorePanel()
 		return false;
 	}
 	return (GS->IsMatchIntermission() || GS->HasMatchEnded()) ? (!IsBeforeFirstRound() && (GetWorld()->GetTimeSeconds() - ScoreReceivedTime > ScoreInfoDuration) && (EndIntermissionTime < GetWorld()->GetTimeSeconds())) : true;
+}
+
+bool UUTFlagRunScoreboard::ShowScoringInfo()
+{
+	AUTFlagRunGameState* GS = GetWorld()->GetGameState<AUTFlagRunGameState>();
+	AUTFlagRunGame* DefaultGame = GS && GS->GameModeClass ? GS->GameModeClass->GetDefaultObject<AUTFlagRunGame>() : nullptr;
+	if (!DefaultGame)
+	{
+		return false;
+	}
+	return (GS->IsMatchIntermission() || GS->HasMatchEnded()) && !IsBeforeFirstRound() && (GetWorld()->GetTimeSeconds() - ScoreReceivedTime < ScoreInfoDuration);
 }
 
 void UUTFlagRunScoreboard::DrawTeamPanel(float RenderDelta, float& YOffset)
@@ -389,22 +404,12 @@ void UUTFlagRunScoreboard::DrawScoreAnnouncement(float DeltaTime)
 
 void UUTFlagRunScoreboard::DrawScorePanel(float RenderDelta, float& YOffset)
 {
-	if (!ShowScorePanel())
+	LastScorePanelYOffset = YOffset;
+	if (ShowScoringInfo() && (!Cast<AUTDemoRecSpectator>(UTHUDOwner->UTPlayerOwner) || !((AUTDemoRecSpectator *)(UTHUDOwner->UTPlayerOwner))->IsKillcamSpectator()))
 	{
-		LastScorePanelYOffset = YOffset;
-		AUTFlagRunGameState* GS = GetWorld()->GetGameState<AUTFlagRunGameState>();
-		AUTFlagRunGame* DefaultGame = GS && GS->GameModeClass ? GS->GameModeClass->GetDefaultObject<AUTFlagRunGame>() : nullptr;
-		if (!DefaultGame)
-		{
-			return;
-		}
-		bool bShowScoringInfo = (GS->IsMatchIntermission() || GS->HasMatchEnded()) && !IsBeforeFirstRound() && (GetWorld()->GetTimeSeconds() - ScoreReceivedTime < ScoreInfoDuration);
-		if (bShowScoringInfo && UTHUDOwner && UTHUDOwner->AnnouncementWidget && (!Cast<AUTDemoRecSpectator>(UTHUDOwner->UTPlayerOwner) || !((AUTDemoRecSpectator *)(UTHUDOwner->UTPlayerOwner))->IsKillcamSpectator()))
-		{
-			DrawScoreAnnouncement(RenderDelta);
-		}
+		DrawScoreAnnouncement(RenderDelta);
 	}
-	else
+	if (ShowScorePanel())
 	{
 		Super::DrawScorePanel(RenderDelta, YOffset);
 	}

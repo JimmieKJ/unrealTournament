@@ -167,13 +167,13 @@ void AUTRallyPoint::OnOverlapBegin(UPrimitiveComponent* OverlappedComponent, AAc
 		if (CharFlag != NULL)
 		{
 			AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-			if (GS == NULL || (GS->IsMatchInProgress() && !GS->IsMatchIntermission() && !GS->HasMatchEnded()))
+			if ((GS == NULL) || (GS->IsMatchInProgress() && !GS->IsMatchIntermission() && !GS->HasMatchEnded()))
 			{
 				TouchingFC = TouchingCharacter;
 				StartRallyCharging();
 			}
 		}
-		else if ((RallyPointState == RallyPointStates::Off) && Cast<AUTPlayerController>(TouchingCharacter->GetController()))
+		else if ((RallyPointState == RallyPointStates::Off) && TouchingCharacter && Cast<AUTPlayerController>(TouchingCharacter->GetController()))
 		{
 			GetWorldTimerManager().SetTimer(WarnNoFlagHandle, FTimerDelegate::CreateUObject(this, &AUTRallyPoint::WarnNoFlag, TouchingCharacter), 1.f, false);
 		}

@@ -70,6 +70,11 @@ void AUTFlagRunGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty >
 	DOREPLIFETIME(AUTFlagRunGameState, bIsOffenseAbleToGainPowerup);
 }
 
+void AUTFlagRunGameState::OnIntermissionChanged()
+{
+	// FIXMESTEVE don't need this or super once clean up CTF intermission.
+}
+
 void AUTFlagRunGameState::OnBonusLevelChanged()
 {
 	if (BonusLevel < 3)
