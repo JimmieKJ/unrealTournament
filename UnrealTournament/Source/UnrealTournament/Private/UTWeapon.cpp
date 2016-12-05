@@ -427,34 +427,41 @@ bool AUTWeapon::FollowsInList(AUTWeapon* OtherWeapon)
 
 void AUTWeapon::StartFire(uint8 FireModeNum)
 {
-	if (!UTOwner || !UTOwner->IsFiringDisabled())
+	if (UTOwner || UTOwner->IsFiringDisabled())
 	{
-		bool bClientFired = BeginFiringSequence(FireModeNum, false);
-		if (Role < ROLE_Authority)
-		{
-			UUTWeaponStateFiring* CurrentFiringState = FiringState.IsValidIndex(FireModeNum) ? FiringState[FireModeNum] : nullptr;
-			if (CurrentFiringState)
-			{
-				FireEventIndex++;
-				if (FireEventIndex == 255)
-				{
-					FireEventIndex = 0;
-				}
-			}
-			if (UTOwner)
-			{
-				float ZOffset = uint8(FMath::Clamp(UTOwner->GetPawnViewLocation().Z - UTOwner->GetActorLocation().Z + 127.5f, 0.f, 255.f));
-				if (ZOffset != uint8(FMath::Clamp(UTOwner->BaseEyeHeight + 127.5f, 0.f, 255.f)))
-				{
-					ServerStartFireOffset(FireModeNum, FireEventIndex, ZOffset, bClientFired);
-					QueueResendFire(true, FireModeNum, FireEventIndex, ZOffset, bClientFired);
-					return;
-				}
-			}
-			ServerStartFire(FireModeNum, FireEventIndex, bClientFired);
-			QueueResendFire(true, FireModeNum, FireEventIndex, 0, bClientFired);
-		}
+		return;
 	}
+	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+	if (GS && (GS->IsMatchIntermission() || GS->HasMatchEnded()))
+	{
+		return;
+	}
+	bool bClientFired = BeginFiringSequence(FireModeNum, false);
+	if (Role < ROLE_Authority)
+	{
+		UUTWeaponStateFiring* CurrentFiringState = FiringState.IsValidIndex(FireModeNum) ? FiringState[FireModeNum] : nullptr;
+		if (CurrentFiringState)
+		{
+			FireEventIndex++;
+			if (FireEventIndex == 255)
+			{
+				FireEventIndex = 0;
+			}
+		}
+		if (UTOwner)
+		{
+			float ZOffset = uint8(FMath::Clamp(UTOwner->GetPawnViewLocation().Z - UTOwner->GetActorLocation().Z + 127.5f, 0.f, 255.f));
+			if (ZOffset != uint8(FMath::Clamp(UTOwner->BaseEyeHeight + 127.5f, 0.f, 255.f)))
+			{
+				ServerStartFireOffset(FireModeNum, FireEventIndex, ZOffset, bClientFired);
+				QueueResendFire(true, FireModeNum, FireEventIndex, ZOffset, bClientFired);
+				return;
+			}
+		}
+		ServerStartFire(FireModeNum, FireEventIndex, bClientFired);
+		QueueResendFire(true, FireModeNum, FireEventIndex, 0, bClientFired);
+	}
+
 }
 
 void AUTWeapon::ResendNextFireEvent()
