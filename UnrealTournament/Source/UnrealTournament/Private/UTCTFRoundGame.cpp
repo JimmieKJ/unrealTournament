@@ -254,18 +254,15 @@ void AUTCTFRoundGame::HandleMatchIntermission()
 			Base->ClearDefenseEffect();
 		}
 
-		if ((!UTGameState->LineUpHelper) || (!UTGameState->LineUpHelper->bIsActive))
+		AActor* IntermissionFocus = SetIntermissionCameras(TeamToWatch);
+		// Tell the controllers to look at defender base
+		for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
 		{
-			AActor* IntermissionFocus = SetIntermissionCameras(TeamToWatch);
-			// Tell the controllers to look at defender base
-			for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
+			AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
+			if (PC != NULL)
 			{
-				AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
-				if (PC != NULL)
-				{
-					PC->ClientHalftime();
-					PC->SetViewTarget(IntermissionFocus);
-				}
+				PC->ClientHalftime();
+				PC->SetViewTarget(IntermissionFocus);
 			}
 		}
 	}
