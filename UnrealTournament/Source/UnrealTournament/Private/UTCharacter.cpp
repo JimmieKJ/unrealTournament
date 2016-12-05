@@ -4689,7 +4689,7 @@ void AUTCharacter::Tick(float DeltaTime)
 		GetWeaponBobOffset(DeltaTime, NULL);
 	}
 	AUTPlayerController* MyPC = GetLocalViewer();
-	if (GS && GS->IsMatchIntermission())
+	if (GS && (GS->IsMatchIntermission() || GS->HasMatchEnded()))
 	{
 		SetStatusAmbientSound(NULL);
 		SetLocalAmbientSound(NULL);
