@@ -580,7 +580,7 @@ namespace UnrealTournamentGame.Automation
 					P4.Submit(WorkingCL, out SubmittedCL, true, true);
 				}
 
-				P4.MakeDownstreamLabel(P4Env, "UnrealTournamentBuild");
+				//P4.MakeDownstreamLabel(P4Env, "UnrealTournamentBuild");
 			}
 
 		}
