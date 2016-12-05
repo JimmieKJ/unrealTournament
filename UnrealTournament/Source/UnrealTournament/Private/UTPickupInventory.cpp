@@ -619,7 +619,7 @@ void AUTPickupInventory::PostRenderFor(APlayerController* PC, UCanvas* Canvas, F
 	AUTPlayerState* ViewerPS = PC ? Cast <AUTPlayerState>(PC->PlayerState) : nullptr;
 	AUTFlagRunGameState* UTGS = GetWorld()->GetGameState<AUTFlagRunGameState>();
 	AUTPlayerController* UTPC = Cast<AUTPlayerController>(PC);
-	if (!ViewerPS || !UTGS || !ViewerPS->Team || !UTPC || UTGS->IsMatchIntermission() || UTGS->HasMatchEnded() || (UTPC->MyUTHUD == nullptr) || UTPC->MyUTHUD->bShowScores)
+	if (!ViewerPS || !UTGS || !ViewerPS->Team || !UTPC || UTGS->IsMatchIntermission() || UTGS->HasMatchEnded() || !UTGS->HasMatchStarted() || (UTPC->MyUTHUD == nullptr) || UTPC->MyUTHUD->bShowScores)
 	{
 		return;
 	}
@@ -630,7 +630,7 @@ void AUTPickupInventory::PostRenderFor(APlayerController* PC, UCanvas* Canvas, F
 	}
 
 	const bool bIsViewTarget = (PC->GetViewTarget() == this);
-	FVector WorldPosition = GetActorLocation();
+	FVector WorldPosition = GetActorLocation() + FVector(0.f, 0.f, 100.f);
 	float TextXL, YL;
 	float Scale = Canvas->ClipX / 1920.f;
 	UFont* SmallFont = AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>()->SmallFont;
@@ -641,7 +641,7 @@ void AUTPickupInventory::PostRenderFor(APlayerController* PC, UCanvas* Canvas, F
 	bool bDrawEdgeArrow = false;
 	FVector ScreenPosition = GetAdjustedScreenPosition(Canvas, WorldPosition, CameraPosition, ViewDir, Dist, 20.f, bDrawEdgeArrow);
 	float XPos = ScreenPosition.X - 0.5f*TextXL;
-	float YPos = ScreenPosition.Y - YL;
+	float YPos = ScreenPosition.Y - YL - 16.f*Scale;
 	if (XPos < Canvas->ClipX || XPos + TextXL < 0.0f)
 	{
 		FLinearColor TeamColor = FLinearColor::Yellow;
