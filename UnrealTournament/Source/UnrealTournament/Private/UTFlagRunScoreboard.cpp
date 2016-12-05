@@ -16,6 +16,7 @@
 #include "UTShowdownGameMessage.h"
 #include "UTDemoRecSpectator.h"
 #include "UTAnnouncer.h"
+#include "UTLineupHelper.h"
 
 UUTFlagRunScoreboard::UUTFlagRunScoreboard(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -548,7 +549,7 @@ void UUTFlagRunScoreboard::DrawMinimap(float RenderDelta)
 void UUTFlagRunScoreboard::DrawGamePanel(float RenderDelta, float& YOffset)
 {
 	AUTFlagRunGameState* GS = GetWorld()->GetGameState<AUTFlagRunGameState>();
-	if (!GS || ((GS->GetMatchState() != MatchState::MatchIntermission) && !GS->HasMatchEnded()))
+	if (!GS || ((GS->GetMatchState() != MatchState::MatchIntermission) && !GS->HasMatchEnded() && (!GS->LineUpHelper || !GS->LineUpHelper->bIsActive)))
 	{
 		Super::DrawGamePanel(RenderDelta, YOffset);
 	}
