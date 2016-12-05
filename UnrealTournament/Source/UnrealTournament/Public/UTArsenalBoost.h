@@ -10,11 +10,11 @@ UCLASS()
 class AUTArsenalBoost : public AUTInventory
 {
 	GENERATED_BODY()
-
+public:
 	UPROPERTY(EditDefaultsOnly)
 	TArray<TSubclassOf<AUTInventory>> GrantedItems;
 
-	virtual void GivenTo(AUTCharacter* NewOwner, bool bAutoActivate)
+	virtual bool HandleGivenTo_Implementation(AUTCharacter* NewOwner) override
 	{
 		Instigator = NewOwner;
 		SetOwner(NewOwner);
@@ -27,6 +27,6 @@ class AUTArsenalBoost : public AUTInventory
 				UTOwner->CreateInventory(It);
 			}
 		}
-		Destroy();
+		return true;
 	}
 };

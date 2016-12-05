@@ -904,8 +904,10 @@ protected:
 	void PrevWeapon();
 	void NextWeapon();
 
-	UFUNCTION(exec)
+	UFUNCTION()
 	void ActivateSpecial();
+	UFUNCTION()
+	void ReleaseSpecial();
 
 	void ToggleTranslocator();
 
@@ -1001,10 +1003,11 @@ protected:
 	 */
 	TArray< FDeferredFireInput, TInlineAllocator<2> > DeferredFireInputs;
 
+public:
 	UFUNCTION(Reliable, Server, WithValidation)
 	void ServerActivatePowerUpPress();
-	
-	void TeamNotifiyOfPowerupUse();
+protected:
+	void TeamNotifyOfPowerupUse();
 
 public:
 

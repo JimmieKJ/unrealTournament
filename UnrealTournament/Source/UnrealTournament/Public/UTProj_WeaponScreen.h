@@ -9,6 +9,18 @@ class UNREALTOURNAMENT_API AUTProj_WeaponScreen : public AUTProjectile
 {
 	GENERATED_UCLASS_BODY()
 
+	/** if set, friendly projectiles are ignored */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = WeaponScreen)
+	bool bOnlyAffectEnemies;
+
+	/** whether this projectile dies on blocking collision */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = WeaponScreen)
+	bool bExplodeOnStop;
+
+	/** if set, slow projectiles down instead of blowing them up */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = WeaponScreen)
+	bool bSlowProjectiles;
+
 	/** if set, apply momentum to pawns touched by the projectile */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = WeaponScreen)
 	bool bCauseMomentumToPawns;

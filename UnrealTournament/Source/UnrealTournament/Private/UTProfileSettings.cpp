@@ -255,7 +255,7 @@ void UUTProfileSettings::GetDefaultGameActions(TArray<FKeyConfigurationInfo>& ou
 	outGameActions.Add(Key);
 
 	Key = FKeyConfigurationInfo("ActivateSpecial", EControlCategory::Combat, EKeys::Q, EKeys::Invalid, EKeys::Invalid, NSLOCTEXT("Keybinds", "ActivateSepcial", "Activate Powerup / Toggle Translocator"));
-	Key.AddCustomBinding("ActivateSpecial");
+	Key.AddActionMapping("ActivateSpecial");
 	outGameActions.Add(Key);
 
 /*
@@ -513,6 +513,11 @@ bool UUTProfileSettings::ValidateGameActions()
 		{
 			if (DefaultGameActions[i].GameActionTag == GameActions[j].GameActionTag)
 			{
+				// copy the mappings so that this handles the case of changing how an action works without changing the name
+				// (e.g. switch from an exec function to an input component delegate)
+				GameActions[j].ActionMappings = DefaultGameActions[i].ActionMappings;
+				GameActions[j].CustomBindings = DefaultGameActions[i].CustomBindings;
+				GameActions[j].SpectatorBindings = DefaultGameActions[i].SpectatorBindings;
 				bFound = true;
 				break;
 			}

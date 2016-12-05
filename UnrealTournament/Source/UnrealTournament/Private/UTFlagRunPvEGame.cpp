@@ -1,6 +1,9 @@
 // Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #include "UnrealTournament.h"
 #include "UTFlagRunPvEGame.h"
+#include "UTFlagRunGameState.h"
+#include "UTFlagRunPvEHUD.h"
+#include "UTPickupHealth.h"
 
 AUTFlagRunPvEGame::AUTFlagRunPvEGame(const FObjectInitializer& OI)
 	: Super(OI)
@@ -10,19 +13,26 @@ AUTFlagRunPvEGame::AUTFlagRunPvEGame(const FObjectInitializer& OI)
 	QuickPlayersToStart = 5;
 	NumRounds = 1;
 	GoalScore = 1;
-	UnlimitedRespawnWaitTime = 10.0f;
-	RollingAttackerRespawnDelay = 10.0f;
+	UnlimitedRespawnWaitTime = 8.0f;
+	RollingAttackerRespawnDelay = 8.0f;
 	bRollingAttackerSpawns = false;
 	RoundLives = 9;
 	TimeLimit = 10;
 	MonsterCostLimit = 5;
 	bUseLevelTiming = false;
+	HUDClass = AUTFlagRunPvEHUD::StaticClass();
 	DisplayName = NSLOCTEXT("UTGameMode", "FRPVE", "Flag Invasion");
 
 	EditableMonsterTypes.Add(FStringClassReference(TEXT("/Game/RestrictedAssets/Monsters/BronzeTaye.BronzeTaye_C")));
 	EditableMonsterTypes.Add(FStringClassReference(TEXT("/Game/RestrictedAssets/Monsters/BronzeTayeBio.BronzeTayeBio_C")));
 	EditableMonsterTypes.Add(FStringClassReference(TEXT("/Game/RestrictedAssets/Monsters/SilverSkaarj.SilverSkaarj_C")));
 	EditableMonsterTypes.Add(FStringClassReference(TEXT("/Game/RestrictedAssets/Monsters/SilverSkaarjBoots.SilverSkaarjBoots_C")));
+
+	BoostPowerupTypes.Add(FStringClassReference(TEXT("/Game/RestrictedAssets/Pickups/Powerups/BP_Recall.BP_Recall_C")));
+	BoostPowerupTypes.Add(FStringClassReference(TEXT("/Game/RestrictedAssets/Pickups/Powerups/Boost_RocketSalvo.Boost_RocketSalvo_C")));
+	BoostPowerupTypes.Add(FStringClassReference(TEXT("/Game/RestrictedAssets/Pickups/Powerups/Boost_ShieldBubble.Boost_ShieldBubble_C")));
+
+	VialReplacement = FStringClassReference(TEXT("/Game/RestrictedAssets/Pickups/Energy_Small.Energy_Small_C"));
 }
 
 void AUTFlagRunPvEGame::InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage)
@@ -37,6 +47,53 @@ void AUTFlagRunPvEGame::InitGame(const FString& MapName, const FString& Options,
 	}
 
 	Super::InitGame(MapName, Options, ErrorMessage);
+}
+
+bool AUTFlagRunPvEGame::CheckRelevance_Implementation(AActor* Other)
+{
+	AUTPickupHealth* Health = Cast<AUTPickupHealth>(Other);
+	if (Health != nullptr && Health->bSuperHeal && Health->HealAmount <= 5)
+	{
+		TSubclassOf<AUTPickup> NewItemType = VialReplacement.TryLoadClass<AUTPickup>();
+		if (NewItemType != nullptr)
+		{
+			GetWorld()->SpawnActor<AUTPickup>(NewItemType, Health->GetActorTransform());
+			return false;
+		}
+		else
+		{
+			return Super::CheckRelevance_Implementation(Other);
+		}
+	}
+	else
+	{
+		return Super::CheckRelevance_Implementation(Other);
+	}
+}
+
+void AUTFlagRunPvEGame::StartMatch()
+{
+	Super::StartMatch();
+
+	if (BoostPowerupTypes.Num() > 0)
+	{
+		AUTFlagRunGameState* GS = Cast<AUTFlagRunGameState>(GameState);
+		bAllowBoosts = true;
+		GS->bAllowBoosts = true;
+		GS->BoostRechargeTime = 180.0f;
+		GS->OffenseKillsNeededForPowerup = 1000000; // i.e. never
+		GS->DefenseKillsNeededForPowerup = 1000000;
+		TArray<TSubclassOf<AUTInventory>> BoostList;
+		for (const FStringClassReference& Item : BoostPowerupTypes)
+		{
+			TSubclassOf<AUTInventory> InvClass = Item.TryLoadClass<AUTInventory>();
+			if (InvClass != nullptr)
+			{
+				BoostList.Add(InvClass);
+			}
+		}
+		GS->SetSelectablePowerups(TArray<TSubclassOf<AUTInventory>>(), BoostList);
+	}
 }
 
 bool AUTFlagRunPvEGame::ChangeTeam(AController* Player, uint8 NewTeam, bool bBroadcast)
@@ -149,5 +206,14 @@ bool AUTFlagRunPvEGame::ModifyDamage_Implementation(int32& Damage, FVector& Mome
 	{
 		Damage *= 0.4f + GameDifficulty * 0.12f;
 	}
-	return Super::ModifyDamage_Implementation(Damage, Momentum, Injured, InstigatedBy, HitInfo, DamageCauser, DamageType);
+	Super::ModifyDamage_Implementation(Damage, Momentum, Injured, InstigatedBy, HitInfo, DamageCauser, DamageType);
+	if (Damage > 0 && InstigatedBy != nullptr && !UTGameState->OnSameTeam(InstigatedBy, Injured))
+	{
+		AUTPlayerState* PS = Cast<AUTPlayerState>(InstigatedBy->PlayerState);
+		if (PS != nullptr)
+		{
+			PS->BoostRechargePct += float(Damage) * 0.00005f;
+		}
+	}
+	return true;
 }

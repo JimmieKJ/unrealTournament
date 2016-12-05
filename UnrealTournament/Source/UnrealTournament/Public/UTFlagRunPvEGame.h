@@ -19,6 +19,10 @@ public:
 	UPROPERTY(BlueprintReadWrite)
 	TArray<TSubclassOf<AUTMonster>> MonsterTypes;
 
+	// temp vial replacement for energy pickups
+	UPROPERTY()
+	FStringClassReference VialReplacement;
+
 	/** amount of points available to spawn monsters */
 	UPROPERTY(BlueprintReadWrite)
 	int32 MonsterPointsRemaining;
@@ -26,7 +30,12 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite)
 	int32 MonsterCostLimit;
 
+	UPROPERTY(EditDefaultsOnly, Meta = (MetaClass = "UTInventory"))
+	TArray<FStringClassReference> BoostPowerupTypes;
+
 	virtual void InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage) override;
+	virtual bool CheckRelevance_Implementation(AActor* Other) override;
+	virtual void StartMatch() override;
 
 	virtual void HandleMatchHasStarted() override;
 	virtual void HandleMatchHasEnded() override;

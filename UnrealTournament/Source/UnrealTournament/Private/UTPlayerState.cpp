@@ -802,7 +802,7 @@ void AUTPlayerState::Tick(float DeltaTime)
 	ForceRespawnTime -= DeltaTime;
 
 	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-	if (GS != NULL && GS->IsMatchInProgress() && GS->BoostRechargeTime > 0.0f && RemainingBoosts < GS->BoostRechargeMaxCharges)
+	if (GS != NULL && GS->IsMatchInProgress() && !GS->IsMatchIntermission() && !GS->IsMatchInCountdown() && GS->BoostRechargeTime > 0.0f && RemainingBoosts < GS->BoostRechargeMaxCharges)
 	{
 		BoostRechargePct += DeltaTime / GS->BoostRechargeTime;
 		if (BoostRechargePct >= 1.0f)

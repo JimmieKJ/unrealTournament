@@ -30,6 +30,8 @@ AUTProj_WeaponScreen::AUTProj_WeaponScreen(const FObjectInitializer& ObjectIniti
 	ProjectileMovement->MaxSpeed = 5000.0f;
 	ProjectileMovement->ProjectileGravityScale = 0.0f;
 	ScaleRate = FVector(0.0f, 10.0f, 10.0f);
+	bExplodeOnStop = true;
+	bSlowProjectiles = true;
 
 	DamageParams.BaseDamage = 0;
 	Momentum = 0.0f;
@@ -47,25 +49,40 @@ float AUTProj_WeaponScreen::TakeDamage(float DamageAmount, FDamageEvent const& D
 
 void AUTProj_WeaponScreen::ProcessHit_Implementation(AActor* OtherActor, UPrimitiveComponent* OtherComp, const FVector& HitLocation, const FVector& HitNormal)
 {
+	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 	AUTProjectile* OtherProj = Cast<AUTProjectile>(OtherActor);
 	if (OtherProj != NULL)
 	{
-		OtherProj->ImpactedActor = this;
-		if (Cast<AUTProj_TransDisk>(OtherProj))
+		// TODO: this doesn't work properly if the shooter has died
+		if (!bOnlyAffectEnemies || OtherProj->Instigator == nullptr || Instigator == nullptr || GS == nullptr || !GS->OnSameTeam(OtherProj->Instigator, Instigator))
 		{
-			if (((AUTProj_TransDisk *)(OtherProj))->bCanShieldBounce)
+			OtherProj->ImpactedActor = this;
+			if (bSlowProjectiles)
 			{
-				((AUTProj_TransDisk *)(OtherProj))->bCanShieldBounce = false;
-				OtherProj->ProjectileMovement->Velocity = OtherProj->ProjectileMovement->Velocity - 2.f * (OtherProj->ProjectileMovement->Velocity | HitNormal) * HitNormal;
+				if (Cast<AUTProj_TransDisk>(OtherProj))
+				{
+					if (((AUTProj_TransDisk *)(OtherProj))->bCanShieldBounce)
+					{
+						((AUTProj_TransDisk *)(OtherProj))->bCanShieldBounce = false;
+						OtherProj->ProjectileMovement->Velocity = OtherProj->ProjectileMovement->Velocity - 2.f * (OtherProj->ProjectileMovement->Velocity | HitNormal) * HitNormal;
+					}
+				}
+				else
+				{
+					OtherProj->Slomo = 0.2f; 
+					OtherProj->OnRep_Slomo();
+				}
+			}
+			else
+			{
+				OtherProj->FFInstigatorController = InstigatorController;
+				OtherProj->FFDamageType = BlockedProjDamageType;
+				// TODO: trace against shield, find real hit location
+				OtherProj->Explode(OtherProj->GetActorLocation(), -HitNormal);
 			}
 		}
-		else
-		{
-			OtherProj->Slomo = 0.2f; 
-			OtherProj->OnRep_Slomo();
-		}
 	}
-	else if (bCauseMomentumToPawns && Cast<APawn>(OtherActor) != NULL && OtherActor != Instigator && !HitPawns.Contains((APawn*)OtherActor))
+	else if (bCauseMomentumToPawns && Cast<APawn>(OtherActor) != NULL && OtherActor != Instigator && !HitPawns.Contains((APawn*)OtherActor) && (!bOnlyAffectEnemies || GS == nullptr || !GS->OnSameTeam(OtherActor, Instigator)))
 	{
 		FCollisionQueryParams Params(FName(TEXT("WeaponScreenOverlap")), false, this);
 		Params.AddIgnoredActor(OtherActor);
@@ -97,16 +114,19 @@ void AUTProj_WeaponScreen::OnStop(const FHitResult& Hit)
 {
 	Super::OnStop(Hit);
 
-	if (Role == ROLE_Authority)
+	if (bExplodeOnStop)
 	{
-		bTearOff = true;
-		bReplicateUTMovement = true; // so position of explosion is accurate even if flight path was a little off
+		if (Role == ROLE_Authority)
+		{
+			bTearOff = true;
+			bReplicateUTMovement = true; // so position of explosion is accurate even if flight path was a little off
+		}
+		if (ExplosionEffects != NULL)
+		{
+			ExplosionEffects.GetDefaultObject()->SpawnEffect(GetWorld(), FTransform(Hit.Normal.Rotation(), Hit.Location), Hit.Component.Get(), this, InstigatorController);
+		}
+		ShutDown();
 	}
-	if (ExplosionEffects != NULL)
-	{
-		ExplosionEffects.GetDefaultObject()->SpawnEffect(GetWorld(), FTransform(Hit.Normal.Rotation(), Hit.Location), Hit.Component.Get(), this, InstigatorController);
-	}
-	ShutDown();
 }
 
 void AUTProj_WeaponScreen::TornOff()

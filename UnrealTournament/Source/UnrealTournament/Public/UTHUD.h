@@ -651,8 +651,11 @@ public:
 
 protected:
 
+	UPROPERTY()
 	TArray<UUTRadialMenu*> RadialMenus;
+	UPROPERTY()
 	UUTRadialMenu_Coms* ComsMenu;
+	UPROPERTY()
 	UUTRadialMenu_WeaponWheel* WeaponWheel;
 
 public:

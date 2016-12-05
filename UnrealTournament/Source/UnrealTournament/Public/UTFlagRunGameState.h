@@ -133,4 +133,7 @@ protected:
 
 	UPROPERTY()
 		TArray<TSubclassOf<class AUTInventory>> OffenseSelectablePowerups;
+
+public:
+	virtual void SetSelectablePowerups(const TArray<TSubclassOf<AUTInventory>>& OffenseList, const TArray<TSubclassOf<AUTInventory>>& DefenseList);
 };

@@ -56,6 +56,7 @@
 #include "UTRallyPoint.h"
 #include "UTDemoRecSpectator.h"
 #include "UTFlagRunScoreboard.h"
+#include "UTFlagRunPvEHUD.h"
 
 static TAutoConsoleVariable<float> CVarUTKillcamStartDelay(
 	TEXT("UT.KillcamStartDelay"),
@@ -504,6 +505,9 @@ void AUTPlayerController::SetupInputComponent()
 	InputComponent->BindAction("ToggleWeaponWheel", IE_Pressed, this, &AUTPlayerController::ShowWeaponWheel);
 	InputComponent->BindAction("ToggleWeaponWheel", IE_Released, this, &AUTPlayerController::HideWeaponWheel);
 
+	InputComponent->BindAction("ActivateSpecial", IE_Pressed, this, &AUTPlayerController::ActivateSpecial);
+	InputComponent->BindAction("ActivateSpecial", IE_Released, this, &AUTPlayerController::ReleaseSpecial);
+
 	InputComponent->BindAction("PushToTalk", IE_Pressed, this, &AUTPlayerController::StartVOIPTalking);
 	InputComponent->BindAction("PushToTalk", IE_Released, this, &AUTPlayerController::StopVOIPTalking);
 
@@ -913,7 +917,7 @@ void AUTPlayerController::TriggerBoost()
 				AUTInventory* Powerup = UTPlayerState->BoostClass->GetDefaultObject<AUTInventory>();
 				if (Powerup && Powerup->bNotifyTeamOnPowerupUse && GameMode->UTGameState && UTPlayerState->Team)
 				{
-					TeamNotifiyOfPowerupUse();
+					TeamNotifyOfPowerupUse();
 				}
 
 				AUTPlaceablePowerup* FoundPlaceablePowerup = UTCharacter->FindInventoryType<AUTPlaceablePowerup>(AUTPlaceablePowerup::StaticClass(), false);
@@ -945,7 +949,7 @@ void AUTPlayerController::TriggerBoost()
 }
 
 
-void AUTPlayerController::TeamNotifiyOfPowerupUse()
+void AUTPlayerController::TeamNotifyOfPowerupUse()
 {
 	AUTGameMode* GameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
 	if (GameMode && UTPlayerState)
@@ -981,13 +985,26 @@ void AUTPlayerController::TeamNotifiyOfPowerupUse()
 
 void AUTPlayerController::ActivateSpecial()
 {
-	if (UTPlayerState && UTPlayerState->BoostClass)
+	AUTFlagRunPvEHUD* PvEHUD = Cast<AUTFlagRunPvEHUD>(MyHUD);
+	if (PvEHUD != nullptr)
+	{
+		PvEHUD->ToggleBoostWheel(true);
+	}
+	else if (UTPlayerState && UTPlayerState->BoostClass)
 	{
 		ServerActivatePowerUpPress();
 	}
 	else
 	{
 		ToggleTranslocator();
+	}
+}
+void AUTPlayerController::ReleaseSpecial()
+{
+	AUTFlagRunPvEHUD* PvEHUD = Cast<AUTFlagRunPvEHUD>(MyHUD);
+	if (PvEHUD != nullptr)
+	{
+		PvEHUD->ToggleBoostWheel(false);
 	}
 }
 

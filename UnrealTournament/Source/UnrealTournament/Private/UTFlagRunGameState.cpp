@@ -209,6 +209,20 @@ void AUTFlagRunGameState::UpdateSelectablePowerups()
 	}
 }
 
+void AUTFlagRunGameState::SetSelectablePowerups(const TArray<TSubclassOf<AUTInventory>>& OffenseList, const TArray<TSubclassOf<AUTInventory>>& DefenseList)
+{
+	OffenseSelectablePowerups = OffenseList;
+	DefenseSelectablePowerups = DefenseList;
+	for (int32 i = 0; i < PlayerArray.Num(); i++)
+	{
+		AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerArray[i]);
+		if (PS != nullptr && PS->BoostClass != nullptr && !OffenseList.Contains(PS->BoostClass) && !DefenseList.Contains(PS->BoostClass))
+		{
+			PS->ServerSetBoostItem(0);
+		}
+	}
+}
+
 FString AUTFlagRunGameState::GetPowerupSelectWidgetPath(int32 TeamNumber)
 {
 	if (!bAllowBoosts)
@@ -261,7 +275,7 @@ void AUTFlagRunGameState::AddModeSpecificOverlays()
 
 TSubclassOf<class AUTInventory> AUTFlagRunGameState::GetSelectableBoostByIndex(AUTPlayerState* PlayerState, int Index) const
 {
-	if (PlayerState && IsTeamOnDefenseNextRound(PlayerState->GetTeamNum()))
+	if (PlayerState != nullptr && (IsMatchInProgress() ? IsTeamOnDefense(PlayerState->GetTeamNum()) : IsTeamOnDefenseNextRound(PlayerState->GetTeamNum())))
 	{
 		if ((DefenseSelectablePowerups.Num() > 0) && (Index < DefenseSelectablePowerups.Num()))
 		{
