@@ -541,7 +541,7 @@ void AUTProjectile::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& 
 
 void AUTProjectile::PreReplication(IRepChangedPropertyTracker & ChangedPropertyTracker)
 {
-	if (bForceNextRepMovement || bReplicateUTMovement)
+	if ((bForceNextRepMovement || bReplicateUTMovement) && (Role == ROLE_Authority))
 	{
 		GatherCurrentMovement();
 		bForceNextRepMovement = false;
@@ -627,7 +627,7 @@ void AUTProjectile::PostNetReceiveLocationAndRotation()
 		MyFakeProjectile->ReplicatedMovement.Rotation = GetActorRotation();
 		MyFakeProjectile->PostNetReceiveLocationAndRotation();
 	}
-	else
+	else if (Role != ROLE_Authority)
 	{
 		// tick particle systems for e.g. SpawnPerUnit trails
 		if (!bTearOff && !bExploded) // if torn off ShutDown() will do this

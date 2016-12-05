@@ -6069,7 +6069,7 @@ void AUTCharacter::UTUpdateSimulatedPosition(const FVector & NewLocation, const 
 {
 	if (UTCharacterMovement)
 	{
-		UTCharacterMovement->SimulatedVelocity = NewVelocity;
+			UTCharacterMovement->SimulatedVelocity = NewVelocity;
 	
 		// Always consider Location as changed if we were spawned this tick as in that case our replicated Location was set as part of spawning, before PreNetReceive()
 		if ((NewLocation != GetActorLocation()) || (CreationTime == GetWorld()->TimeSeconds))
@@ -6225,12 +6225,19 @@ bool AUTCharacter::GatherUTMovement()
 	UPrimitiveComponent* RootPrimComp = Cast<UPrimitiveComponent>(GetRootComponent());
 	if (RootPrimComp && RootPrimComp->IsSimulatingPhysics())
 	{
-		FRigidBodyState RBState;
-		RootPrimComp->GetRigidBodyState(RBState);
-		ReplicatedMovement.FillFrom(RBState);
+		if (Role == ROLE_Authority)
+		{
+			FRigidBodyState RBState;
+			RootPrimComp->GetRigidBodyState(RBState);
+			ReplicatedMovement.FillFrom(RBState);
+		}
 	}
 	else if (RootComponent != NULL)
 	{
+		if (Role == ROLE_SimulatedProxy)
+		{
+			return (RootComponent->GetAttachParent() == NULL);
+		}
 		// If we are attached, don't replicate absolute position
 		if (RootComponent->GetAttachParent() != NULL)
 		{
