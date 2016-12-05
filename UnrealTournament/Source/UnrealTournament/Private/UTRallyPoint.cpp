@@ -495,7 +495,8 @@ void AUTRallyPoint::Tick(float DeltaTime)
 		if (FlagRunGame && FlagRunGame->ActiveFlag && (RallyPointState != RallyPointStates::Powered))
 		{
 			FVector FlagLocation = FlagRunGame->ActiveFlag->HoldingPawn ? FlagRunGame->ActiveFlag->HoldingPawn->GetActorLocation() : FlagRunGame->ActiveFlag->GetActorLocation();
-			bool bFlagIsClose = ((FlagLocation - GetActorLocation()).Size() < RallyAvailableDistance);
+			AUTFlagRunGameState* UTGS = GetWorld()->GetGameState<AUTFlagRunGameState>();
+			bool bFlagIsClose = ((FlagLocation - GetActorLocation()).Size() < RallyAvailableDistance) && UTGS && (UTGS->RemainingPickupDelay <= 0);
 			if (bShowAvailableEffect != bFlagIsClose)
 			{
 				FlagNearbyChanged(bFlagIsClose);
