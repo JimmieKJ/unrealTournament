@@ -124,7 +124,7 @@ void SUTGameSetupDialog::BuildCategories()
 				.Text(FText::FromString(DefaultRules->RuleCategories[i].CategoryButtonText))
 				.ButtonStyle(SUTStyle::Get(), "UT.TabButton")
 				.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
-				.ClickMethod(EButtonClickMethod::MouseDown)
+				.IsToggleButton(true)
 				.OnClicked(this, &SUTGameSetupDialog::OnTabButtonClick, i)
 			];
 			Tabs.Add(FTabButtonInfo(Button, DefaultRules->RuleCategories[i].CategoryName));
@@ -144,7 +144,7 @@ void SUTGameSetupDialog::BuildCategories()
 		.Text(NSLOCTEXT("SUTGameSetupDialog","CustomGameButtonText","Custom Game"))
 		.ButtonStyle(SUTStyle::Get(), "UT.TabButton")
 		.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
-		.ClickMethod(EButtonClickMethod::MouseDown)
+		.IsToggleButton(true)
 		.OnClicked(this, &SUTGameSetupDialog::OnTabButtonClick, Categories.Num() -1)
 	];
 	Tabs.Add(FTabButtonInfo(Button, CustomCategory));

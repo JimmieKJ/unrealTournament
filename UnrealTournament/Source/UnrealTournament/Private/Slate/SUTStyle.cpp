@@ -894,10 +894,17 @@ const ISlateStyle& SUTStyle::Get()
 
 const FSlateColor SUTStyle::GetSlateColor( const FName PropertyName, const ANSICHAR* Specifier)
 {
-	if (PropertyName == FName(TEXT("FocusTextColor"))) return FSlateColor(FLinearColor(1.0,1.0,1.0,1.0));
+	if (PropertyName == FName(TEXT("NormalTextColor"))) return FSlateColor(FLinearColor(1.0,1.0,1.0,1.0));
+	else if (PropertyName == FName(TEXT("FocusTextColor"))) return FSlateColor(FLinearColor(1.0,1.0,1.0,1.0));
 	else if (PropertyName == FName(TEXT("HoverTextColor"))) return FSlateColor(FLinearColor(0.0,0.0,0.0,1.0));
 	else if (PropertyName == FName(TEXT("PressedTextColor"))) return FSlateColor(FLinearColor(0.0,0.0,0.0,1.0));
 	else if (PropertyName == FName(TEXT("DisabledTextColor"))) return FSlateColor(FLinearColor(0.0,0.0,0.0,1.0));
+
+	else if (PropertyName == FName(TEXT("TabNormalTextColor"))) return FSlateColor(FLinearColor(1.0,1.0,1.0,1.0));
+	else if (PropertyName == FName(TEXT("TabFocusTextColor"))) return FSlateColor(FLinearColor(1.0,1.0,1.0,1.0));
+	else if (PropertyName == FName(TEXT("TabHoverTextColor"))) return FSlateColor(FLinearColor(1.0,1.0,1.0,1.0));
+	else if (PropertyName == FName(TEXT("TabPressedTextColor"))) return FSlateColor(FLinearColor(0.0,0.0,0.0,1.0));
+	else if (PropertyName == FName(TEXT("TabDisabledTextColor"))) return FSlateColor(FLinearColor(0.0,0.0,0.0,1.0));
 	
 	return FSlateColor(FLinearColor(0.6,0.6,0.6,1.0));
 }

@@ -345,14 +345,14 @@ void SUTSystemSettingsDialog::Construct(const FArguments& InArgs)
 				.AutoHeight()
 				[
 					SNew(SBox)
-					.HeightOverride(46)
+					.HeightOverride(55)
 					[
 						SNew(SHorizontalBox)
 						+ SHorizontalBox::Slot()
 						.FillWidth(1.0f)
 						[
 							SNew(SImage)
-							.Image(SUWindowsStyle::Get().GetBrush("UT.TopMenu.MidFill"))
+							.Image(SUTStyle::Get().GetBrush("UT.HeaderBackground.Dark"))
 						]
 					]
 				]
@@ -365,7 +365,7 @@ void SUTSystemSettingsDialog::Construct(const FArguments& InArgs)
 				.AutoHeight()
 				[
 					SNew(SBox)
-					.HeightOverride(46)
+					.HeightOverride(55)
 					[
 						SNew(SHorizontalBox)
 						+ SHorizontalBox::Slot()
@@ -374,10 +374,10 @@ void SUTSystemSettingsDialog::Construct(const FArguments& InArgs)
 						[
 							SAssignNew(GeneralSettingsTabButton, SUTTabButton)
 							.ContentPadding(FMargin(15.0f, 10.0f, 70.0f, 0.0f))
-							.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.OptionTabButton")
-							.ClickMethod(EButtonClickMethod::MouseDown)
+							.ButtonStyle(SUTStyle::Get(), "UT.TabButton")
+							.IsToggleButton(true)
+							.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
 							.Text(NSLOCTEXT("SUTSystemSettingsDialog", "ControlTabGeneral", "General"))
-							.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.SmallTextStyle")
 							.OnClicked(this, &SUTSystemSettingsDialog::OnTabClickGeneral)
 						]
 
@@ -387,9 +387,9 @@ void SUTSystemSettingsDialog::Construct(const FArguments& InArgs)
 						[
 							SAssignNew(GraphicsSettingsTabButton, SUTTabButton)
 							.ContentPadding(FMargin(15.0f, 10.0f, 70.0f, 0.0f))
-							.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.OptionTabButton")
-							.ClickMethod(EButtonClickMethod::MouseDown)
-							.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.SmallTextStyle")
+							.ButtonStyle(SUTStyle::Get(), "UT.TabButton")
+							.IsToggleButton(true)
+							.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
 							.Text(NSLOCTEXT("SUTSystemSettingsDialog", "ControlTabGraphics", "Graphics"))
 							.OnClicked(this, &SUTSystemSettingsDialog::OnTabClickGraphics)
 						]
@@ -400,9 +400,9 @@ void SUTSystemSettingsDialog::Construct(const FArguments& InArgs)
 						[
 							SAssignNew(AudioSettingsTabButton, SUTTabButton)
 							.ContentPadding(FMargin(15.0f, 10.0f, 70.0f, 0.0f))
-							.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.OptionTabButton")
-							.ClickMethod(EButtonClickMethod::MouseDown)
-							.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.SmallTextStyle")
+							.ButtonStyle(SUTStyle::Get(), "UT.TabButton")
+							.IsToggleButton(true)
+							.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
 							.Text(NSLOCTEXT("SUTSystemSettingsDialog", "ControlTabAudio", "Audio"))
 							.OnClicked(this, &SUTSystemSettingsDialog::OnTabClickAudio)
 						]
@@ -492,6 +492,7 @@ TSharedRef<class SWidget> SUTSystemSettingsDialog::BuildCustomButtonBar()
 			]
 			+ SHorizontalBox::Slot()
 			.FillWidth(0.1f)
+			.Padding(10.0f,0.0f,0.0f,0.0f)
 			.HAlign(HAlign_Right)
 			[
 				SNew(SCheckBox)

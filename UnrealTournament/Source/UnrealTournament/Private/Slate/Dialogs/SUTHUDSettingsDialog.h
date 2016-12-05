@@ -7,7 +7,7 @@
 #include "SCheckBox.h"
 #include "SEditableTextBox.h"
 #include "../Base/SUTDialogBase.h"
-#include "../Widgets/SUTButton.h"
+#include "../Widgets/SUTTabButton.h"
 #include "UTAudioSettings.h"
 
 #if !UE_SERVER
@@ -195,10 +195,10 @@ protected:
 	TMap<FName, TSharedPtr<SHUDSettingInfo>> SettingsInfos;
 
 	TSharedPtr<SWidgetSwitcher> TabWidget;
-	TSharedPtr<SUTButton> GeneralSettingsTabButton;
-	TSharedPtr<SUTButton> WeaponBarSettingsTabButton;
-	TSharedPtr<SUTButton> NotificationsSettingsTabButton;
-	TSharedPtr<SUTButton> QuickStatsSettingsTabButton;
+	TSharedPtr<SUTTabButton> GeneralSettingsTabButton;
+	TSharedPtr<SUTTabButton> WeaponBarSettingsTabButton;
+	TSharedPtr<SUTTabButton> NotificationsSettingsTabButton;
+	TSharedPtr<SUTTabButton> QuickStatsSettingsTabButton;
 
 	TSharedRef<SWidget> BuildGeneralTab();
 	TSharedRef<SWidget> BuildWeaponBarTab();

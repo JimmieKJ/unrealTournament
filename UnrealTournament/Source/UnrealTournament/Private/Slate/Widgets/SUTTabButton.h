@@ -2,10 +2,11 @@
 
 #pragma once
 #include "SlateBasics.h"
+#include "SUTButton.h"
 
 #if !UE_SERVER
 
-class UNREALTOURNAMENT_API SUTTabButton : public SButton
+class UNREALTOURNAMENT_API SUTTabButton : public SUTButton
 {
 	SLATE_BEGIN_ARGS(SUTTabButton)
 		: _Content()
@@ -20,8 +21,17 @@ class UNREALTOURNAMENT_API SUTTabButton : public SButton
 		, _DesiredSizeScale( FVector2D(1,1) )
 		, _ContentScale( FVector2D(1,1) )
 		, _ButtonColorAndOpacity(FLinearColor::White)
-		, _ForegroundColor( FCoreStyle::Get().GetSlateColor( "InvertedForeground" ) )
+		, _ForegroundColor(FCoreStyle::Get().GetSlateColor("InvertedForeground"))
+		, _TextNormalColor(SUTStyle::GetSlateColor("TabNormalTextColor"))
+		, _TextHoverColor(SUTStyle::GetSlateColor("TabHoverTextColor"))
+		, _TextFocusColor(SUTStyle::GetSlateColor("TabFocusTextColor"))
+		, _TextPressedColor(SUTStyle::GetSlateColor("TabPressedTextColor"))
+		, _TextDisabledColor(SUTStyle::GetSlateColor("TabDisabledTextColor"))
 		, _IsFocusable( true )
+		, _IsToggleButton(false)
+		, _WidgetTag(0)
+		, _CaptionHAlign( HAlign_Left )
+
 		{}
 
 		/** Slot for this button's content (optional) */
@@ -46,7 +56,7 @@ class UNREALTOURNAMENT_API SUTTabButton : public SButton
 		SLATE_ATTRIBUTE(FText, Text)
 	
 		/** Called when the button is clicked */
-		SLATE_EVENT( FOnClicked, OnClicked )
+		SLATE_EVENT( FUTButtonClick, UTOnButtonClicked )
 
 		/** Sets the rules to use for determining whether the button was clicked.  This is an advanced setting and generally should be left as the default. */
 		SLATE_ARGUMENT( EButtonClickMethod::Type, ClickMethod )
@@ -62,6 +72,17 @@ class UNREALTOURNAMENT_API SUTTabButton : public SButton
 
 		SLATE_ATTRIBUTE( FSlateColor, ForegroundColor )
 
+		SLATE_ATTRIBUTE( FSlateColor, TextNormalColor)
+
+		SLATE_ATTRIBUTE( FSlateColor, TextHoverColor )
+
+		SLATE_ATTRIBUTE( FSlateColor, TextFocusColor )
+
+		SLATE_ATTRIBUTE( FSlateColor, TextPressedColor )
+
+		SLATE_ATTRIBUTE( FSlateColor, TextDisabledColor )
+
+
 		/** Sometimes a button should only be mouse-clickable and never keyboard focusable. */
 		SLATE_ARGUMENT( bool, IsFocusable )
 
@@ -70,26 +91,23 @@ class UNREALTOURNAMENT_API SUTTabButton : public SButton
 
 		/** The sound to play when the button is hovered */
 		SLATE_ARGUMENT( TOptional<FSlateSound>, HoveredSoundOverride )
+
+		/** Determines if this is a toggle button or not. */
+		SLATE_ARGUMENT( bool, IsToggleButton )
+
+		SLATE_ARGUMENT(int32, WidgetTag)
+
+		SLATE_EVENT( FUTMouseOver, UTOnMouseOver)
+
+		SLATE_EVENT( FOnClicked, OnClicked )
+
+		/** Horizontal alignment */
+		SLATE_ARGUMENT( EHorizontalAlignment, CaptionHAlign )
+
 	SLATE_END_ARGS()
 
 	void Construct(const FArguments& InArgs);
 
-	virtual FReply OnKeyDown( const FGeometry& MyGeometry, const FKeyEvent& InKeyboardEvent ) override;
-	virtual FReply OnKeyUp( const FGeometry& MyGeometry, const FKeyEvent& InKeyboardEvent ) override;
-	virtual FReply OnMouseButtonDown( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override;
-	virtual FReply OnMouseButtonDoubleClick( const FGeometry& InMyGeometry, const FPointerEvent& InMouseEvent ) override;
-	virtual FReply OnMouseButtonUp( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override;
-
-	virtual void OnFocusLost( const FFocusEvent& InFocusEvent ) override;
-	virtual void OnMouseLeave( const FPointerEvent& MouseEvent ) override;
-
-	virtual void UnPressed();
-	virtual void BePressed();
-	
-protected:
-
-	virtual FReply Pressed(int32 MouseButtonIndex);
-	virtual FReply Released(int32 MouseButtonIndex, bool bIsUnderCusor);
 };
 
 #endif

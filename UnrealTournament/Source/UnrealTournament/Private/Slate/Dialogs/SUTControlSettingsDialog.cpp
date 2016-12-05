@@ -38,14 +38,14 @@ void SUTControlSettingsDialog::Construct(const FArguments& InArgs)
 				.AutoHeight()
 				[
 					SNew(SBox)
-					.HeightOverride(46)
+					.HeightOverride(55)
 					[
 						SNew(SHorizontalBox)
 						+ SHorizontalBox::Slot()
 						.FillWidth(1.0f)
 						[
 							SNew(SImage)
-							.Image(SUWindowsStyle::Get().GetBrush("UT.TopMenu.MidFill"))
+							.Image(SUTStyle::Get().GetBrush("UT.HeaderBackground.Dark"))
 						]
 					]
 				]
@@ -58,7 +58,7 @@ void SUTControlSettingsDialog::Construct(const FArguments& InArgs)
 				.AutoHeight()
 				[
 					SNew(SBox)
-					.HeightOverride(46)
+					.HeightOverride(55)
 					[
 						SNew(SHorizontalBox)
 		
@@ -68,10 +68,10 @@ void SUTControlSettingsDialog::Construct(const FArguments& InArgs)
 						[
 							SAssignNew(KeyboardSettingsTabButton, SUTTabButton)
 							.ContentPadding(FMargin(15.0f, 10.0f, 70.0f, 0.0f))
-							.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.OptionTabButton")
-							.ClickMethod(EButtonClickMethod::MouseDown)
+							.ButtonStyle(SUTStyle::Get(), "UT.TabButton")
+							.IsToggleButton(true)
+							.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
 							.Text(NSLOCTEXT("SUTControlSettingsDialog", "ControlTabKeyboard", "Keyboard"))
-							.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.SmallTextStyle")
 							.OnClicked(this, &SUTControlSettingsDialog::OnTabClickKeyboard)
 						]
 
@@ -80,9 +80,9 @@ void SUTControlSettingsDialog::Construct(const FArguments& InArgs)
 						[
 							SAssignNew(MouseSettingsTabButton, SUTTabButton)
 							.ContentPadding(FMargin(15.0f, 10.0f, 70.0f, 0.0f))
-							.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.OptionTabButton")
-							.ClickMethod(EButtonClickMethod::MouseDown)
-							.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.SmallTextStyle")
+							.ButtonStyle(SUTStyle::Get(), "UT.TabButton")
+							.IsToggleButton(true)
+							.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
 							.Text(NSLOCTEXT("SUTControlSettingsDialog", "ControlTabMouse", "Mouse"))
 							.OnClicked(this, &SUTControlSettingsDialog::OnTabClickMouse)
 						]
@@ -92,9 +92,9 @@ void SUTControlSettingsDialog::Construct(const FArguments& InArgs)
 						[
 							SAssignNew(MovementSettingsTabButton, SUTTabButton)
 							.ContentPadding(FMargin(15.0f, 10.0f, 70.0f, 0.0f))
-							.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.OptionTabButton")
-							.ClickMethod(EButtonClickMethod::MouseDown)
-							.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.SmallTextStyle")
+							.ButtonStyle(SUTStyle::Get(), "UT.TabButton")
+							.IsToggleButton(true)
+							.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
 							.Text(NSLOCTEXT("SUTControlSettingsDialog", "ControlTabMovement", "Movement"))
 							.OnClicked(this, &SUTControlSettingsDialog::OnTabClickMovement)
 						]
