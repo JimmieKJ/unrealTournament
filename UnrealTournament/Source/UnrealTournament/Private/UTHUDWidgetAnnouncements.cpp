@@ -14,8 +14,8 @@ UUTHUDWidgetAnnouncements::UUTHUDWidgetAnnouncements(const class FObjectInitiali
 	Slots.Add(FAnnouncementSlot(FName(TEXT("Multikill")), 0.36f));
 	Slots.Add(FAnnouncementSlot(FName(TEXT("VictimMessage")), 0.43f));
 	Slots.Add(FAnnouncementSlot(FName(TEXT("PickupMessage")), 0.64f));
-	Slots.Add(FAnnouncementSlot(FName(TEXT("GameMessages")), 0.7f));
-	Slots.Add(FAnnouncementSlot(FName(TEXT("CountDownMessages")), 0.77f));
+	Slots.Add(FAnnouncementSlot(FName(TEXT("GameMessages")), 0.68f));
+	Slots.Add(FAnnouncementSlot(FName(TEXT("CountDownMessages")), 0.72f));
 	Position = FVector2D(0.0f, 0.0f);
 	ScreenPosition = FVector2D(0.5f, 0.f);
 	Size = FVector2D(0.0f, 0.0f);
@@ -49,13 +49,6 @@ void UUTHUDWidgetAnnouncements::DrawMessages(float DeltaTime)
 			DrawMessage(QueueIndex, 0.0f, Slots[RequestedSlot].SlotYPosition * Canvas->ClipY);
 			Slots[RequestedSlot].bHasBeenRendered = true;
 		}
-/*		else
-		{
-			if ((RequestedSlot >= 0) && (RequestedSlot < Slots.Num()))
-			{
-				UE_LOG(UT, Warning, TEXT("COULD NOT RENDER %s"), *MessageQueue[QueueIndex].Text.ToString());
-			}
-		}*/
 	}
 }
 
