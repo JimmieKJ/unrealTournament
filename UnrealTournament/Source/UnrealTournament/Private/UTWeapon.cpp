@@ -427,7 +427,7 @@ bool AUTWeapon::FollowsInList(AUTWeapon* OtherWeapon)
 
 void AUTWeapon::StartFire(uint8 FireModeNum)
 {
-	if (UTOwner || UTOwner->IsFiringDisabled())
+	if (!UTOwner || UTOwner->IsFiringDisabled())
 	{
 		return;
 	}

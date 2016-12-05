@@ -355,18 +355,18 @@ void AUTCTFBaseGame::HandleMatchIntermission()
 		{
 			PlacePlayersAroundFlagBase(i, i);
 		}
-
-		// Tell the controllers to look at own team flag
-		for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
+	}
+	
+	// Tell the controllers to look at own team flag
+	for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
+	{
+		AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
+		if (PC != NULL)
 		{
-			AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
-			if (PC != NULL)
-			{
-				PC->ClientHalftime();
-				int32 TeamToWatch = IntermissionTeamToView(PC);
-				PC->SetViewTarget(CTFGameState->FlagBases[TeamToWatch]);
-				PC->FlushPressedKeys();
-			}
+			PC->ClientHalftime();
+			int32 TeamToWatch = IntermissionTeamToView(PC);
+			PC->SetViewTarget(CTFGameState->FlagBases[TeamToWatch]);
+			PC->FlushPressedKeys();
 		}
 	}
 		
