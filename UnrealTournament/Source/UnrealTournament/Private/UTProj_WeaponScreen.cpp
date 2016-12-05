@@ -97,7 +97,6 @@ void AUTProj_WeaponScreen::ProcessHit_Implementation(AActor* OtherActor, UPrimit
 			const float Radius = FMath::Max<float>(1.0f, CollisionBox->Bounds.SphereRadius);
 			const float OtherDist = FMath::PointDistToLine(OtherComp->GetComponentLocation(), GetVelocity().GetSafeNormal(), GetActorLocation() - GetVelocity());
 			float MomentumScale = (Momentum * (1.0f - FMath::Clamp<float>(OtherDist / Radius, 0.0f, 0.8f)));
-			AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 			if (GS != NULL && GS->OnSameTeam(OtherActor, InstigatorController))
 			{
 				MomentumScale *= FriendlyMomentumScaling;
