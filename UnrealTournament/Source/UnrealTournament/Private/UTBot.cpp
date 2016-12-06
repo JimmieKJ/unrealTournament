@@ -1790,11 +1790,8 @@ void AUTBot::NotifyMoveBlocked(const FHitResult& Impact)
 			// adjust around friendly or inactive Pawns
 			if (HitPawn != NULL && (HitPawn->GetController() == NULL || IsTeammate(HitPawn)))
 			{
-				FVector VelDir = (MoveTarget.GetLocation(GetPawn()) - GetPawn()->GetActorLocation()).GetSafeNormal();
-				VelDir.Z = 0;
-				FVector OtherDir = HitPawn->GetActorLocation() - GetPawn()->GetActorLocation();
-				OtherDir.Z = 0;
-				OtherDir = OtherDir.GetSafeNormal();
+				FVector VelDir = (MoveTarget.GetLocation(GetPawn()) - GetPawn()->GetActorLocation()).GetSafeNormal2D();
+				FVector OtherDir = (HitPawn->GetActorLocation() - GetPawn()->GetActorLocation()).GetSafeNormal2D();
 				if ((VelDir | OtherDir) > 0.8f)
 				{
 					FVector SideDir(VelDir.Y, -1.0f * VelDir.X, 0.0f);
