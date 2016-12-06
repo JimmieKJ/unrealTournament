@@ -2132,11 +2132,11 @@ void AUTPlayerController::ClientHearSound_Implementation(USoundBase* TheSound, A
 	}
 }
 
-void AUTPlayerController::ClientWarnEnemyBehind_Implementation(AUTPlayerState* TeamPS, AUTCharacter* Targeter)
+void AUTPlayerController::ClientWarnEnemyBehind_Implementation(AUTPlayerState* TeamPS, AUTCharacter* Targeter, TSubclassOf<UUTCharacterVoice> TeammateVoice)
 {
-	if (Targeter && (GetWorld()->GetTimeSeconds() - Targeter->GetLastRenderTime() > 5.f) && TeamPS && TeamPS->CharacterVoice)
+	if (Targeter && (GetWorld()->GetTimeSeconds() - Targeter->GetLastRenderTime() > 5.f) && TeamPS && TeammateVoice)
 	{
-		int32 Switch = TeamPS->CharacterVoice.GetDefaultObject()->GetStatusIndex(StatusMessage::BehindYou);
+		int32 Switch = TeammateVoice.GetDefaultObject()->GetStatusIndex(StatusMessage::BehindYou);
 		if (Switch < 0)
 		{
 			UE_LOG(UT, Warning, TEXT("No valid index found for BEHIND YOU"));
@@ -2144,7 +2144,7 @@ void AUTPlayerController::ClientWarnEnemyBehind_Implementation(AUTPlayerState* T
 			return;
 		}
 
-		ClientReceiveLocalizedMessage(TeamPS->CharacterVoice, Switch, TeamPS, PlayerState, NULL);
+		ClientReceiveLocalizedMessage(TeammateVoice, Switch, TeamPS, PlayerState, NULL);
 	}
 }
 

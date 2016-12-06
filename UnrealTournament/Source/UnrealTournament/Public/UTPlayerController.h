@@ -181,7 +181,7 @@ public:
 	virtual void CheckAutoWeaponSwitch(class AUTWeapon* TestWeapon);
 
 	UFUNCTION(Unreliable, Client)
-		void ClientWarnEnemyBehind(AUTPlayerState* TeamPS, AUTCharacter* Targeter);
+		void ClientWarnEnemyBehind(AUTPlayerState* TeamPS, AUTCharacter* Targeter, TSubclassOf<UUTCharacterVoice> TeammateVoice);
 
 	UFUNCTION(Reliable, client)
 		void ClientAnnounceRoundScore(AUTTeamInfo* WinningTeam, APlayerState* ScoringPlayer, uint8 RoundBonus, uint8 Reason);

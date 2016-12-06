@@ -1371,7 +1371,7 @@ void AUTCharacter::TargetedBy(APawn* Targeter, AUTPlayerState* PS)
 	if (TargeterChar && GS && GS->bPlayStatusAnnouncements && Cast<AUTPlayerController>(GetController()))
 	{
 		AUTPlayerState* UTPlayerState = Cast<AUTPlayerState>(PlayerState);
-		if (UTPlayerState && UTPlayerState->Team && (GetWorld()->GetTimeSeconds() - UTPlayerState->LastBehindYouTime > 12.f))
+		if (UTPlayerState && UTPlayerState->Team && (GetWorld()->GetTimeSeconds() - UTPlayerState->LastBehindYouTime > 10.f))
 		{
 			// announce behind you if attacker is behind this player && teammate can see it
 			FVector ViewDir = GetActorRotation().Vector();
@@ -1396,7 +1396,7 @@ void AUTCharacter::TargetedBy(APawn* Targeter, AUTPlayerState* PS)
 					AUTPlayerState* TeamPS = C ? Cast<AUTPlayerState>(C->PlayerState) : nullptr;
 					if (TeamPS && (TeamPS != UTPlayerState) && C->GetPawn() && GS->OnSameTeam(this, C) && (bBaseWarning || C->LineOfSightTo(this)))
 					{
-						Cast<AUTPlayerController>(GetController())->ClientWarnEnemyBehind(TeamPS, TargeterChar);
+						Cast<AUTPlayerController>(GetController())->ClientWarnEnemyBehind(TeamPS, TargeterChar, TeamPS->GetCharacterVoiceClass());
 						UTPlayerState->LastBehindYouTime = GetWorld()->GetTimeSeconds();
 						break;
 					}
