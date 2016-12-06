@@ -226,3 +226,41 @@ bool AUTFlagRunPvEGame::ModifyDamage_Implementation(int32& Damage, FVector& Mome
 	}
 	return true;
 }
+
+void AUTFlagRunPvEGame::FindAndMarkHighScorer()
+{
+	int32 BestScore = 0;
+
+	for (int32 PlayerIdx = 0; PlayerIdx < Teams[1]->GetTeamMembers().Num(); PlayerIdx++)
+	{
+		if (Teams[1]->GetTeamMembers()[PlayerIdx] != nullptr)
+		{
+			AUTPlayerState *PS = Cast<AUTPlayerState>(Teams[1]->GetTeamMembers()[PlayerIdx]->PlayerState);
+			if (PS != nullptr)
+			{
+				PS->Score = PS->RoundKillAssists + PS->RoundKills;
+				if (BestScore == 0 || PS->Score > BestScore)
+				{
+					BestScore = PS->Score;
+				}
+			}
+		}
+	}
+
+	for (int32 PlayerIdx = 0; PlayerIdx < Teams[1]->GetTeamMembers().Num(); PlayerIdx++)
+	{
+		if (Teams[1]->GetTeamMembers()[PlayerIdx] != nullptr)
+		{
+			AUTPlayerState *PS = Cast<AUTPlayerState>(Teams[1]->GetTeamMembers()[PlayerIdx]->PlayerState);
+			if (PS != nullptr)
+			{
+				bool bOldHighScorer = PS->bHasHighScore;
+				PS->bHasHighScore = (BestScore == PS->Score) && (BestScore > 0);
+				if ((bOldHighScorer != PS->bHasHighScore) && (GetNetMode() != NM_DedicatedServer))
+				{
+					PS->OnRep_HasHighScore();
+				}
+			}
+		}
+	}
+}

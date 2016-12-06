@@ -53,4 +53,5 @@ public:
 	bool ModifyDamage_Implementation(int32& Damage, FVector& Momentum, APawn* Injured, AController* InstigatedBy, const FHitResult& HitInfo, AActor* DamageCauser, TSubclassOf<UDamageType> DamageType) override;
 	virtual void NotifyFirstPickup(AUTCarriedObject* Flag) override
 	{}
+	virtual void FindAndMarkHighScorer() override;
 };
