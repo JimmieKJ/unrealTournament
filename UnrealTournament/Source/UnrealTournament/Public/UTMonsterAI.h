@@ -13,4 +13,6 @@ public:
 	/** class of monster to use, set when the monster can respawn so the controller is left around */
 	UPROPERTY()
 	TSubclassOf<AUTCharacter> PawnClass;
+
+	virtual void CheckWeaponFiring(bool bFromWeapon = true) override;
 };
