@@ -66,6 +66,8 @@ DEFINE_LATENT_AUTOMATION_COMMAND_ONE_PARAMETER(FChangeGraphicsQualityCommand, bo
 // Record perf
 DEFINE_LATENT_AUTOMATION_COMMAND_ONE_PARAMETER(FRecordTriangleNumbersCommand, MapBugItGoLocationData*, PerfData);
 
+DEFINE_LATENT_AUTOMATION_COMMAND_ONE_PARAMETER(FProfileGPUCommand, MapBugItGoLocationData*, PerfData);
+
 // Spew results
 DEFINE_LATENT_AUTOMATION_COMMAND_ONE_PARAMETER(FOutputTestResultsCommand, TArray<MapBugItGoLocationData*>, PerfData);
 
@@ -204,14 +206,20 @@ bool FRecordTriangleNumbersCommand::Update()
 		PerfData->LowQualityTriangles = GetNumTrianglesInScene();
 		FileName = FString::Printf(TEXT("%s%d/%s/Low/%s"), *FPaths::ScreenShotDir(), FEngineVersion::Current().GetChangelist(), *PerfData->MapName, *FileName);
 		PerfData->LowQualityScreenshotLoc = FileName;
-		AUTPlayerController* PlayerController = GetPlayerController();
-		if (PlayerController)
-		{
-			PlayerController->ConsoleCommand(TEXT("ProfileGPU"));
-		}
 	}
 
 	FScreenshotRequest::RequestScreenshot(FileName, false, true);
+	return true;
+}
+
+bool FProfileGPUCommand::Update()
+{
+	AUTPlayerController* PlayerController = GetPlayerController();
+	if (PlayerController)
+	{
+		PlayerController->ConsoleCommand(TEXT("ProfileGPU"));
+	}
+
 	return true;
 }
 
@@ -434,10 +442,15 @@ bool FCtfTitanTriangleCountTest::RunTest(const FString& Parameters)
 	for (int i = 0; i < BugItGoLocs.Num(); i++)
 	{
 		ADD_LATENT_AUTOMATION_COMMAND(FRunBugItGoCommand(BugItGoLocs[i]))
-			// Switch to high
-			ADD_LATENT_AUTOMATION_COMMAND(FChangeGraphicsQualityCommand(true));
+		
+		// Switch to high
+		ADD_LATENT_AUTOMATION_COMMAND(FChangeGraphicsQualityCommand(true));
+		ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(5.f));
+		ADD_LATENT_AUTOMATION_COMMAND(FProfileGPUCommand(BugItGoLocs[i]));
+
 		ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(5.f));
 		ADD_LATENT_AUTOMATION_COMMAND(FRecordTriangleNumbersCommand(BugItGoLocs[i]));
+
 		// Switch to low
 		ADD_LATENT_AUTOMATION_COMMAND(FChangeGraphicsQualityCommand(false));
 		ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(5.f));
@@ -467,10 +480,15 @@ bool FCtfFaceTriangleCountTest::RunTest(const FString& Parameters)
 	for (int i = 0; i < BugItGoLocs.Num(); i++)
 	{
 		ADD_LATENT_AUTOMATION_COMMAND(FRunBugItGoCommand(BugItGoLocs[i]))
-			// Switch to high
-			ADD_LATENT_AUTOMATION_COMMAND(FChangeGraphicsQualityCommand(true));
-		ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(5.f));;
+		
+		// Switch to high
+		ADD_LATENT_AUTOMATION_COMMAND(FChangeGraphicsQualityCommand(true));
+		ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(5.f));
+		ADD_LATENT_AUTOMATION_COMMAND(FProfileGPUCommand(BugItGoLocs[i]));
+
+		ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(5.f));
 		ADD_LATENT_AUTOMATION_COMMAND(FRecordTriangleNumbersCommand(BugItGoLocs[i]));
+
 		// Switch to low
 		ADD_LATENT_AUTOMATION_COMMAND(FChangeGraphicsQualityCommand(false));
 		ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(5.f));
@@ -500,10 +518,15 @@ bool FDmChillTriangleCountTest::RunTest(const FString& Parameters)
 	for (int i = 0; i < BugItGoLocs.Num(); i++)
 	{
 		ADD_LATENT_AUTOMATION_COMMAND(FRunBugItGoCommand(BugItGoLocs[i]))
-			// Switch to high
-			ADD_LATENT_AUTOMATION_COMMAND(FChangeGraphicsQualityCommand(true));
-		ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(5.f));;
+		
+		// Switch to high
+		ADD_LATENT_AUTOMATION_COMMAND(FChangeGraphicsQualityCommand(true));
+		ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(5.f));
+		ADD_LATENT_AUTOMATION_COMMAND(FProfileGPUCommand(BugItGoLocs[i]));
+
+		ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(5.f));
 		ADD_LATENT_AUTOMATION_COMMAND(FRecordTriangleNumbersCommand(BugItGoLocs[i]));
+
 		// Switch to low
 		ADD_LATENT_AUTOMATION_COMMAND(FChangeGraphicsQualityCommand(false));
 		ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(5.f));
@@ -534,10 +557,15 @@ bool FDmOutpostTriangleCountTest::RunTest(const FString& Parameters)
 	for (int i = 0; i < BugItGoLocs.Num(); i++)
 	{
 		ADD_LATENT_AUTOMATION_COMMAND(FRunBugItGoCommand(BugItGoLocs[i]))
-			// Switch to high
-			ADD_LATENT_AUTOMATION_COMMAND(FChangeGraphicsQualityCommand(true));
-		ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(5.f));;
+		
+		// Switch to high
+		ADD_LATENT_AUTOMATION_COMMAND(FChangeGraphicsQualityCommand(true));
+		ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(5.f));
+		ADD_LATENT_AUTOMATION_COMMAND(FProfileGPUCommand(BugItGoLocs[i]));
+
+		ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(5.f));
 		ADD_LATENT_AUTOMATION_COMMAND(FRecordTriangleNumbersCommand(BugItGoLocs[i]));
+
 		// Switch to low
 		ADD_LATENT_AUTOMATION_COMMAND(FChangeGraphicsQualityCommand(false));
 		ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(5.f));
@@ -567,10 +595,15 @@ bool FDmUnderlandTriangleCountTest::RunTest(const FString& Parameters)
 	for (int i = 0; i < BugItGoLocs.Num(); i++)
 	{
 		ADD_LATENT_AUTOMATION_COMMAND(FRunBugItGoCommand(BugItGoLocs[i]))
-			// Switch to high
-			ADD_LATENT_AUTOMATION_COMMAND(FChangeGraphicsQualityCommand(true));
-		ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(5.f));;
+		
+		// Switch to high
+		ADD_LATENT_AUTOMATION_COMMAND(FChangeGraphicsQualityCommand(true));
+		ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(5.f));
+		ADD_LATENT_AUTOMATION_COMMAND(FProfileGPUCommand(BugItGoLocs[i]));
+
+		ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(5.f));
 		ADD_LATENT_AUTOMATION_COMMAND(FRecordTriangleNumbersCommand(BugItGoLocs[i]));
+
 		// Switch to low
 		ADD_LATENT_AUTOMATION_COMMAND(FChangeGraphicsQualityCommand(false));
 		ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(5.f));
@@ -600,10 +633,15 @@ bool FDmLeaTriangleCountTest::RunTest(const FString& Parameters)
 	for (int i = 0; i < BugItGoLocs.Num(); i++)
 	{
 		ADD_LATENT_AUTOMATION_COMMAND(FRunBugItGoCommand(BugItGoLocs[i]))
-			// Switch to high
-			ADD_LATENT_AUTOMATION_COMMAND(FChangeGraphicsQualityCommand(true));
-		ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(5.f));;
+		
+		// Switch to high
+		ADD_LATENT_AUTOMATION_COMMAND(FChangeGraphicsQualityCommand(true));
+		ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(5.f));
+		ADD_LATENT_AUTOMATION_COMMAND(FProfileGPUCommand(BugItGoLocs[i]));
+
+		ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(5.f));
 		ADD_LATENT_AUTOMATION_COMMAND(FRecordTriangleNumbersCommand(BugItGoLocs[i]));
+
 		// Switch to low
 		ADD_LATENT_AUTOMATION_COMMAND(FChangeGraphicsQualityCommand(false));
 		ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(5.f));
@@ -633,10 +671,15 @@ bool FCtfPistolaTriangleCountTest::RunTest(const FString& Parameters)
 	for (int i = 0; i < BugItGoLocs.Num(); i++)
 	{
 		ADD_LATENT_AUTOMATION_COMMAND(FRunBugItGoCommand(BugItGoLocs[i]))
-			// Switch to high
-			ADD_LATENT_AUTOMATION_COMMAND(FChangeGraphicsQualityCommand(true));
-		ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(5.f));;
+		
+		// Switch to high
+		ADD_LATENT_AUTOMATION_COMMAND(FChangeGraphicsQualityCommand(true));
+		ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(5.f));
+		ADD_LATENT_AUTOMATION_COMMAND(FProfileGPUCommand(BugItGoLocs[i]));
+
+		ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(5.f));
 		ADD_LATENT_AUTOMATION_COMMAND(FRecordTriangleNumbersCommand(BugItGoLocs[i]));
+
 		// Switch to low
 		ADD_LATENT_AUTOMATION_COMMAND(FChangeGraphicsQualityCommand(false));
 		ADD_LATENT_AUTOMATION_COMMAND(FWaitLatentCommand(5.f));
