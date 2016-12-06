@@ -1805,6 +1805,11 @@ bool AUTGameState::IsAllowedSpawnPoint_Implementation(AUTPlayerState* Chooser, A
 	return true;
 }
 
+bool AUTGameState::PreventWeaponFire()
+{
+	return (IsMatchIntermission() || HasMatchEnded() || (LineUpHelper && LineUpHelper->bIsActive));
+}
+
 void AUTGameState::ClearHighlights()
 {
 	for (int32 i = 0; i < PlayerArray.Num() - 1; i++)

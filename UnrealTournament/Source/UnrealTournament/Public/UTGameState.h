@@ -477,6 +477,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Game")
 		virtual void ClearHighlights();
 
+	UFUNCTION(BlueprintCallable, Category = "Game")
+		virtual bool PreventWeaponFire();
+
 	virtual void UpdateMatchHighlights();
 
 	/** On server side - generate a list of highlights for each player.  Every UTPlayerStates' MatchHighlights array will have been cleared when this is called. */

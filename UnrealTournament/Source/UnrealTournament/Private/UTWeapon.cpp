@@ -432,7 +432,7 @@ void AUTWeapon::StartFire(uint8 FireModeNum)
 		return;
 	}
 	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-	if (GS && (GS->IsMatchIntermission() || GS->HasMatchEnded()))
+	if (GS && GS->PreventWeaponFire())
 	{
 		return;
 	}
