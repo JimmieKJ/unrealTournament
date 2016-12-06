@@ -297,7 +297,7 @@ public:
 	bool SkipTutorialCheck();
 
 	UFUNCTION(BlueprintCallable, Category = "Movie")
-	void SetLoadingMovieToPlay(const FString& MoviePath);
+	void SetLoadingMovieToPlay(const FString& MoviePath, bool bSuppressLoadingText=false);
 
 	UFUNCTION(exec)
 	void UTDumpOnlineSessionState();

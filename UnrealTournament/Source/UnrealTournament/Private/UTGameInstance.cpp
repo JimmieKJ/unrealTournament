@@ -687,7 +687,7 @@ void UUTGameInstance::BeginLevelLoading(const FString& LevelName)
 		MovieVignettes.Add( FMapVignetteInfo(LoadingMovieToPlay, FText::GetEmpty()));
 		MovieVignettes.Add( FMapVignetteInfo(TEXT("load_generic_nosound"), FText::GetEmpty()));
 		LoadingMovieToPlay = TEXT("");
-		PlayLoadingMovies(true);	
+		PlayLoadingMovies(!bSuppressLoadingText);	
 		return;
 	}
 
@@ -730,6 +730,9 @@ void UUTGameInstance::BeginLevelLoading(const FString& LevelName)
 #if !UE_SERVER
 void UUTGameInstance::OnMoviePlaybackFinished()
 {
+
+	bSuppressLoadingText = false;
+
 	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(GetFirstGamePlayer());
 	if (LocalPlayer)
 	{
@@ -810,6 +813,16 @@ EVisibility UUTGameInstance::GetLevelLoadThrobberVisibility() const
 EVisibility UUTGameInstance::GetLevelLoadTextVisibility() const
 {
 	return EVisibility::Visible;
+}
+
+EVisibility UUTGameInstance::GetEpicLogoVisibility() const
+{
+	return bSuppressLoadingText ? EVisibility::Collapsed : EVisibility::Visible;
+}
+
+EVisibility UUTGameInstance::GetVignetteVisibility() const
+{
+	return bSuppressLoadingText ? EVisibility::Collapsed : EVisibility::Visible;
 }
 
 void UUTGameInstance::CreateLoadingMovieOverlay()
@@ -897,6 +910,7 @@ void UUTGameInstance::CreateLoadingMovieOverlay()
 						[
 							SNew(SImage)
 							.Image(SUTStyle::Get().GetBrush("UT.Logo.Loading"))
+							.Visibility(TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateUObject(this, &UUTGameInstance::GetEpicLogoVisibility)))
 						]
 					]
 				]
@@ -923,6 +937,7 @@ void UUTGameInstance::CreateLoadingMovieOverlay()
 						.Justification(ETextJustify::Right)
 						.DecoratorStyleSet(&SUTStyle::Get())
 						.AutoWrapText(false)
+						.Visibility(TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateUObject(this, &UUTGameInstance::GetVignetteVisibility)))
 					]
 				]
 			]

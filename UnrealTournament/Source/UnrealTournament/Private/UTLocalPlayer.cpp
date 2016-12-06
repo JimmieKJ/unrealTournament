@@ -6145,6 +6145,7 @@ void UUTLocalPlayer::LaunchTutorial(FName TutorialName, const FString& DesiredQu
 			if (GI)
 			{
 				GI->LoadingMovieToPlay = TutorialData[i].LoadingMovie;
+				GI->bSuppressLoadingText = true;
 			}
 
 			FString URL = TutorialData[i].Map + TutorialData[i].LaunchArgs + FString::Printf(TEXT("?TutorialMask=%i"),TutorialData[i].Mask);
@@ -6232,3 +6233,5 @@ FReply UUTLocalPlayer::ToggleFriendsAndChat()
 #endif
 	return FReply::Handled();
 }
+
+

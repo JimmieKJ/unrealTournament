@@ -1186,13 +1186,14 @@ bool AUTBasePlayerController::SkipTutorialCheck()
 	return false;
 }
 
-void AUTBasePlayerController::SetLoadingMovieToPlay(const FString& MoviePath)
+void AUTBasePlayerController::SetLoadingMovieToPlay(const FString& MoviePath, bool bSuppressLoadingText)
 {
 #if !UE_SERVER
 	UUTGameInstance* UTGameInstance = Cast<UUTGameInstance>(GetGameInstance());
 	if (!MoviePath.IsEmpty() && UTGameInstance)
 	{
 		UTGameInstance->LoadingMovieToPlay = MoviePath;
+		UTGameInstance->bSuppressLoadingText =  bSuppressLoadingText;
 	}
 #endif
 	
