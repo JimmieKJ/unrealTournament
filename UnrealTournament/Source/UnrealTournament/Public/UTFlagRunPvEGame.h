@@ -43,6 +43,7 @@ public:
 	{
 		return false;
 	}
+	virtual bool CheckForWinner(AUTTeamInfo* ScoringTeam) override;
 	virtual AUTBotPlayer* AddBot(uint8 TeamNum) override;
 	virtual bool ChangeTeam(AController* Player, uint8 NewTeam, bool bBroadcast) override;
 	virtual void GiveDefaultInventory(APawn* PlayerPawn) override;

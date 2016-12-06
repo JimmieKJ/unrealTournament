@@ -107,6 +107,12 @@ bool AUTFlagRunPvEGame::ChangeTeam(AController* Player, uint8 NewTeam, bool bBro
 	return Super::ChangeTeam(Player, NewTeam, bBroadcast);
 }
 
+bool AUTFlagRunPvEGame::CheckForWinner(AUTTeamInfo* ScoringTeam)
+{
+	EndTeamGame(ScoringTeam, FName(TEXT("scorelimit")));
+	return true;
+}
+
 AUTBotPlayer* AUTFlagRunPvEGame::AddBot(uint8 TeamNum)
 {
 	// player-bots are always difficulty 6 (GameDifficulty used for monsters)
