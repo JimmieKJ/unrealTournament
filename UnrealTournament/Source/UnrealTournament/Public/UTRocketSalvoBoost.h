@@ -47,12 +47,16 @@ public:
 		const FVector SpawnLoc = UTOwner->GetActorLocation() + FVector(0.0f, 0.0f, UTOwner->GetSimpleCollisionHalfHeight() * 1.2f);
 		for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
 		{
-			if (It->IsValid() && *It != UTOwner && !It->Get()->bTearOff && (It->Get()->GetActorLocation() - UTOwner->GetActorLocation()).Size() < TargetingRange && (GS == nullptr || !GS->OnSameTeam(*It, UTOwner)))
+			if (It->IsValid() && 
+				It->Get() != UTOwner && 
+				!It->Get()->bTearOff && 
+				(It->Get()->GetActorLocation() - UTOwner->GetActorLocation()).Size() < TargetingRange && 
+				(GS == nullptr || !GS->OnSameTeam(It->Get(), UTOwner)))
 			{
 				AUTProj_Rocket* Rocket = GetWorld()->SpawnActor<AUTProj_Rocket>(ProjClass, SpawnLoc, FRotator(90.0f, 0.0f, 0.0f), Params);
 				if (Rocket != nullptr)
 				{
-					Rocket->TargetActor = *It;
+					Rocket->TargetActor = It->Get();
 				}
 			}
 		}
