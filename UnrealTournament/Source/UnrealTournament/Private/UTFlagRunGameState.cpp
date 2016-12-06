@@ -68,6 +68,8 @@ void AUTFlagRunGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty >
 	DOREPLIFETIME(AUTFlagRunGameState, DefenseKillsNeededForPowerup);
 	DOREPLIFETIME(AUTFlagRunGameState, bIsDefenseAbleToGainPowerup);
 	DOREPLIFETIME(AUTFlagRunGameState, bIsOffenseAbleToGainPowerup);
+	DOREPLIFETIME(AUTFlagRunGameState, OffenseSelectablePowerups);
+	DOREPLIFETIME(AUTFlagRunGameState, DefenseSelectablePowerups);
 }
 
 void AUTFlagRunGameState::OnIntermissionChanged()

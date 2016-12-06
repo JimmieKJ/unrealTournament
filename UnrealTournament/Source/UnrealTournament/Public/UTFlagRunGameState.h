@@ -130,11 +130,11 @@ protected:
 
 	virtual void AddModeSpecificOverlays();
 
-	UPROPERTY()
-		TArray<TSubclassOf<class AUTInventory>> DefenseSelectablePowerups;
-
-	UPROPERTY()
-		TArray<TSubclassOf<class AUTInventory>> OffenseSelectablePowerups;
+	// FIXME: Replication is temp
+	UPROPERTY(Replicated)
+	TArray<TSubclassOf<class AUTInventory>> DefenseSelectablePowerups;
+	UPROPERTY(Replicated)
+	TArray<TSubclassOf<class AUTInventory>> OffenseSelectablePowerups;
 
 public:
 	virtual void SetSelectablePowerups(const TArray<TSubclassOf<AUTInventory>>& OffenseList, const TArray<TSubclassOf<AUTInventory>>& DefenseList);
