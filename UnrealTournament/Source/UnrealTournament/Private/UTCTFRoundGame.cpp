@@ -1062,6 +1062,7 @@ void AUTCTFRoundGame::ScoreKill_Implementation(AController* Killer, AController*
 				}
 			}
 		}
+		OtherPS->RespawnWaitTime += 0.01f * FMath::FRand();
 		OtherPS->ForceNetUpdate();
 		OtherPS->OnRespawnWaitReceived();
 	}
@@ -1169,6 +1170,7 @@ void AUTCTFRoundGame::ScoreKill_Implementation(AController* Killer, AController*
 			{
 				OtherPS->RespawnWaitTime = FMath::Min(OtherPS->RespawnWaitTime, 2.f);
 			}
+			OtherPS->RespawnWaitTime += 0.01f * FMath::FRand();
 			OtherPS->ForceNetUpdate();
 			OtherPS->OnRespawnWaitReceived();
 		}
