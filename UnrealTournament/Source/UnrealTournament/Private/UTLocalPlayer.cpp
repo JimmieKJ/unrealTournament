@@ -6193,12 +6193,12 @@ FText UUTLocalPlayer::GetTutorialSectionText(TEnumAsByte<ETutorialSections::Type
 			return NSLOCTEXT("TutorialText","Completed","!! COMPLETED !!");
 		}
 		
-		return NSLOCTEXT("TutorialText","Gameplay","Tactial training is an important part of the game.  Learn how to play the most popular game modes before you can play online.");
+		return NSLOCTEXT("TutorialText","Gameplay","Learn how to play the most popular game modes before you play online.");
 	}
 
 	if (Section == ETutorialSections::Hardcore)
 	{
-		return NSLOCTEXT("TutorialText","Hardcore","There are lots of way to play.");
+		return NSLOCTEXT("TutorialText","Classic","Classic game modes that have stood the test of time.");
 	}
 
 	return FText::GetEmpty();
