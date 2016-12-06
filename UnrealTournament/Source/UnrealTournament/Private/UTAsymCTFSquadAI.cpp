@@ -107,63 +107,72 @@ bool AUTAsymCTFSquadAI::TryPathTowardObjective(AUTBot* B, AActor* Goal, bool bAl
 	return bResult;
 }
 
+bool AUTAsymCTFSquadAI::ShouldStartRally(AUTBot* B)
+{
+	AUTFlagRunGameState* GS = GetWorld()->GetGameState<AUTFlagRunGameState>();
+	if (GS != nullptr && (B->GetEnemy() == nullptr || GetWorld()->TimeSeconds - B->GetEnemyInfo(B->GetEnemy(), false)->LastFullUpdateTime > 2.0f) && GetWorld()->TimeSeconds - LastRallyTime > 15.0f)
+	{
+		float ClosestAllyDist = FLT_MAX;
+		for (AController* C : Team->GetTeamMembers())
+		{
+			if (C != B && C->GetPawn() != nullptr)
+			{
+				ClosestAllyDist = FMath::Min<float>(ClosestAllyDist, (C->GetPawn()->GetActorLocation() - B->GetPawn()->GetActorLocation()).Size());
+			}
+		}
+		if (ClosestAllyDist > 2500.0f)
+		{
+			// check if we beat the defense and shouldn't hold up
+			if (B->Skill + B->Personality.Tactics >= 4.0f)
+			{
+				const TArray<const FBotEnemyInfo>& EnemyList = Team->GetEnemyList();
+				for (const FBotEnemyInfo& TestEnemy : EnemyList)
+				{
+					if ((TestEnemy.LastKnownLoc - Objective->GetActorLocation()).Size() < (B->GetPawn()->GetActorLocation() - Objective->GetActorLocation()).Size())
+					{
+						return true;
+					}
+				}
+				// check if there are unknown respawned enemies
+				// this isn't cheating because the HUD shows respawn times
+				AUTTeamInfo* EnemyTeam = GS->Teams[Team->TeamIndex == 0 ? 1 : 0];
+				if (EnemyList.Num() < EnemyTeam->GetTeamMembers().Num())
+				{
+					for (AController* C : EnemyTeam->GetTeamMembers())
+					{
+						if (C->GetPawn() != nullptr && !EnemyList.ContainsByPredicate([C](const FBotEnemyInfo& TestItem) { return TestItem.GetPawn() == C->GetPawn(); }))
+						{
+							return true;
+						}
+					}
+				}
+			}
+			else
+			{
+				return true;
+			}
+		}
+	}
+	return false;
+}
+
 bool AUTAsymCTFSquadAI::SetFlagCarrierAction(AUTBot* B)
 {
 	AUTFlagRunGameState* GS = GetWorld()->GetGameState<AUTFlagRunGameState>();
 	if (GS != nullptr && GS->CurrentRallyPoint != nullptr && GS->CurrentRallyPoint->RallyPointState == RallyPointStates::Powered)
 	{
+		// if not aggressive bot, maybe wait here for allies to rally
+		if (GS->CurrentRallyPoint->RallyTimeRemaining >= 3.0f && FMath::FRand() < 0.5f - 0.5f * B->Personality.Aggressiveness)
+		{
+			B->DoCamp();
+			return true;
+		}
 		bWantRally = false;
+		LastRallyTime = GetWorld()->TimeSeconds;
 	}
 	else
 	{
-		if (!bWantRally && (B->GetEnemy() == nullptr || GetWorld()->TimeSeconds - B->GetEnemyInfo(B->GetEnemy(), false)->LastFullUpdateTime > 2.0f))
-		{
-			float ClosestAllyDist = FLT_MAX;
-			for (AController* C : Team->GetTeamMembers())
-			{
-				if (C != B && C->GetPawn() != nullptr)
-				{
-					ClosestAllyDist = FMath::Min<float>(ClosestAllyDist, (C->GetPawn()->GetActorLocation() - B->GetPawn()->GetActorLocation()).Size());
-				}
-			}
-			if (ClosestAllyDist > 2500.0f)
-			{
-				// check if we beat the defense and shouldn't hold up
-				if (B->Skill + B->Personality.Tactics >= 4.0f)
-				{
-					const TArray<const FBotEnemyInfo>& EnemyList = Team->GetEnemyList();
-					for (const FBotEnemyInfo& TestEnemy : EnemyList)
-					{
-						if ((TestEnemy.LastKnownLoc - Objective->GetActorLocation()).Size() < (B->GetPawn()->GetActorLocation() - Objective->GetActorLocation()).Size())
-						{
-							bWantRally = true;
-							break;
-						}
-					}
-					if (!bWantRally)
-					{
-						// check if there are unknown respawned enemies
-						// this isn't cheating because the HUD shows respawn times
-						AUTTeamInfo* EnemyTeam = GS->Teams[Team->TeamIndex == 0 ? 1 : 0];
-						if (EnemyList.Num() < EnemyTeam->GetTeamMembers().Num())
-						{
-							for (AController* C : EnemyTeam->GetTeamMembers())
-							{
-								if (C->GetPawn() != nullptr && !EnemyList.ContainsByPredicate([C](const FBotEnemyInfo& TestItem) { return TestItem.GetPawn() == C->GetPawn(); }))
-								{
-									bWantRally = true;
-									break;
-								}
-							}
-						}
-					}
-				}
-				else
-				{
-					bWantRally = true;
-				}
-			}
-		}
+		bWantRally = bWantRally || ShouldStartRally(B);
 		if (bWantRally)
 		{
 			// path looking for rally points and the goal (so head to closest one or ignore and go for the win if objective is closer)

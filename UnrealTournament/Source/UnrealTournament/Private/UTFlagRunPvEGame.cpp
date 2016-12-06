@@ -4,6 +4,7 @@
 #include "UTFlagRunGameState.h"
 #include "UTFlagRunPvEHUD.h"
 #include "UTPickupHealth.h"
+#include "UTFlagRunPvESquadAI.h"
 
 AUTFlagRunPvEGame::AUTFlagRunPvEGame(const FObjectInitializer& OI)
 	: Super(OI)
@@ -21,6 +22,7 @@ AUTFlagRunPvEGame::AUTFlagRunPvEGame(const FObjectInitializer& OI)
 	MonsterCostLimit = 5;
 	bUseLevelTiming = false;
 	HUDClass = AUTFlagRunPvEHUD::StaticClass();
+	SquadType = AUTFlagRunPvESquadAI::StaticClass();
 	DisplayName = NSLOCTEXT("UTGameMode", "FRPVE", "Flag Invasion");
 
 	EditableMonsterTypes.Add(FStringClassReference(TEXT("/Game/RestrictedAssets/Monsters/BronzeTaye.BronzeTaye_C")));
