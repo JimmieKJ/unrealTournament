@@ -113,7 +113,7 @@ void AUTFlagRunHUD::DrawHUD()
 			AUTPlayerState* UTPS = Cast<AUTPlayerState>(PS);
 			if (UTPS != NULL && UTPS->Team != NULL && !UTPS->bOnlySpectator && !UTPS->bIsInactive)
 			{
-				UTPS->SelectionOrder = (UTPS == HUDPS) ? -1 : UTPS->PlayerId;
+				UTPS->SelectionOrder = (UTPS == HUDPS) ? -1 : UTPS->SpectatingIDTeam;
 				LivePlayers.Add(UTPS);
 			}
 		}
