@@ -160,7 +160,7 @@ void AUTGameVolume::ActorEnteredVolume(class AActor* Other)
 					}
 					if (GetWorld()->GetTimeSeconds() - GS->LastEnemyFCEnteringBaseTime > 3.f)
 					{
-						AUTPlayerState* PS = P->GetCarriedObject()->LastPinger;
+						AUTPlayerState* PS = (P->LastTargeter && !GS->OnSameTeam(P, P->LastTargeter)) ? P->LastTargeter : nullptr;
 						if (!PS)
 						{
 							for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
