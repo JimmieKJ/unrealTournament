@@ -167,6 +167,26 @@ void AUTCarriedObject::DetachFrom(USkeletalMeshComponent* AttachToMesh)
 	}
 }
 
+void AUTCarriedObject::UpdateHolderTrailTeam()
+{
+	if (!HolderTrail)
+	{
+		return;
+	}
+	float TrailLength = 0.f;
+	if (Team)
+	{
+		HolderTrail->SetColorParameter(FName(TEXT("Color")), Team->TeamColor);
+		for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
+		{
+			AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
+			TrailLength = (PC && GetTeamNum() == PC->GetTeamNum()) ? 0.5f : 0.f;
+			break;
+		}
+	}
+	HolderTrail->SetFloatParameter(FName(TEXT("Lifespan")), TrailLength);
+}
+
 void AUTCarriedObject::ClientUpdateAttachment(bool bNowAttached)
 {
 	if (HolderTrail)
@@ -188,18 +208,7 @@ void AUTCarriedObject::ClientUpdateAttachment(bool bNowAttached)
 				HolderTrail->RegisterComponent();
 
 				HolderTrail->AttachToComponent(RootComponent->GetAttachParent(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, Holder3PSocketName);
-				float TrailLength = 0.f;
-				if (Team)
-				{
-					HolderTrail->SetColorParameter(FName(TEXT("Color")), Team->TeamColor);
-					for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
-					{
-						AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
-						TrailLength = (PC && GetTeamNum() == PC->GetTeamNum()) ? 0.5f : 0.f;
-						break;
-					}
-				}
-				HolderTrail->SetFloatParameter(FName(TEXT("Lifespan")), TrailLength);
+				UpdateHolderTrailTeam();
 			}
 		}
 	}
