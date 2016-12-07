@@ -238,19 +238,18 @@ void AUTGameVolume::ActorEnteredVolume(class AActor* Other)
 				// warn base is under attack
 				if (GetWorld()->GetTimeSeconds() - GS->LastEnemyEnteringBaseTime > 10.f)
 				{
-					AUTPlayerState* PS = P->GetCarriedObject()->LastPinger;
-					if (!PS)
+					AUTPlayerState* PS = nullptr;
+
+					for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
 					{
-						for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
+						AController* C = *Iterator;
+						if (C && !GS->OnSameTeam(P, C) && Cast<AUTPlayerState>(C->PlayerState))
 						{
-							AController* C = *Iterator;
-							if (C && !GS->OnSameTeam(P, C) && Cast<AUTPlayerState>(C->PlayerState))
-							{
-								PS = ((AUTPlayerState*)(C->PlayerState));
-								break;
-							}
+							PS = ((AUTPlayerState*)(C->PlayerState));
+							break;
 						}
 					}
+
 					if (PS)
 					{
 						PS->AnnounceStatus(StatusMessage::Incoming);
