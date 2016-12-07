@@ -71,9 +71,15 @@ void AUTLineUpHelper::CleanUp()
 					UTPC->ClientSetActiveLineUp(false, LineUpTypes::Invalid);
 				}
 			}
-		}
 
-		DestroySpawnedClones();
+			//If we are in the end game / map vote we don't need to destroy our spawned clones and should 
+			//let them stick around and look fancy while voting / stats are being displayed
+			AUTGameState* UTGS = Cast<AUTGameState>(GetWorld()->GetGameState());
+			if (UTGS && (UTGS->GetMatchState() != MatchState::WaitingPostMatch) && (UTGS->GetMatchState() != MatchState::MapVoteHappening))
+			{
+				DestroySpawnedClones();
+			}
+		}
 	}
 }
 		
