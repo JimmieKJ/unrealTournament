@@ -186,9 +186,8 @@ float AUTFlagRunHUD::DrawWinConditions(UFont* InFont, float XOffset, float YPos,
 		TextRenderInfo.bClipText = true;
 		float ScoreX = XOffset;
 
-		AUTTeamInfo* SubjectTeam = GS->FlagRunMessageTeam;
-		FText EmphasisText = (SubjectTeam && (SubjectTeam->TeamIndex == 0)) ? RedTeamText : BlueTeamText;
-		FLinearColor EmphasisColor = (SubjectTeam && (SubjectTeam->TeamIndex == 0)) ? FLinearColor::Red : FLinearColor::Blue;
+		FText EmphasisText = (GS->FlagRunMessageTeam->TeamIndex == 0) ? RedTeamText : BlueTeamText;
+		FLinearColor EmphasisColor = (GS->FlagRunMessageTeam->TeamIndex == 0) ? FLinearColor::Red : FLinearColor::Blue;
 
 		float YL, EmphasisXL;
 		Canvas->StrLen(InFont, EmphasisText.ToString(), EmphasisXL, YL);
@@ -239,7 +238,7 @@ float AUTFlagRunHUD::DrawWinConditions(UFont* InFont, float XOffset, float YPos,
 		}
 		if (!bSkipDrawing)
 		{
-			Canvas->SetLinearDrawColor(GS->FlagRunMessageTeam->TeamIndex == 0 ? FLinearColor::Red : FLinearColor::Blue);
+			Canvas->SetLinearDrawColor(EmphasisColor);
 			Canvas->DrawText(InFont, EmphasisText, ScoreX, YPos, RenderScale, RenderScale, TextRenderInfo);
 			ScoreX += EmphasisXL*RenderScale;
 
