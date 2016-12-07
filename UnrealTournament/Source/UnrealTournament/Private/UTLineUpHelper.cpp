@@ -9,6 +9,7 @@
 #include "UTCTFGameState.h"
 #include "UTCTFRoundGameState.h"
 #include "UTCTFRoundGame.h"
+#include "UTCTFGameMode.h"
 
 AUTLineUpHelper::AUTLineUpHelper(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -208,6 +209,17 @@ void AUTLineUpHelper::MovePlayers(LineUpTypes ZoneType)
 				{
 					//UTPC->SetCameraMode(NAME_LineUpCam);
 					UTPC->ClientSetActiveLineUp(true, ZoneType);
+				
+					//Since we respawned, the flag might be in a bad state. Re-attach the flag if this player is holding it.
+					AUTPlayerState* UTPS = Cast<AUTPlayerState>(UTPC->PlayerState);
+					if (UTPS)
+					{
+						AUTCTFFlag* CTFFlag = Cast<AUTCTFFlag>(UTPS->CarriedObject);
+						if (CTFFlag)
+						{
+							CTFFlag->SetHolder(UTChar);
+						}
+					}
 				}
 			}
 		}
