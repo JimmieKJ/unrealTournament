@@ -26,6 +26,12 @@ class UNREALTOURNAMENT_API AUTFlagRunHUD : public AUTHUD_CTF
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, NoClear)
 		FCanvasIcon BlueTeamIcon;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, NoClear)
+	FCanvasIcon RedTeamOverlay;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, NoClear)
+	FCanvasIcon BlueTeamOverlay;
+
 	UPROPERTY()
 		float WinConditionMessageTime;
 
@@ -64,5 +70,5 @@ class UNREALTOURNAMENT_API AUTFlagRunHUD : public AUTHUD_CTF
 
 	virtual float DrawWinConditions(UFont* InFont, float XPos, float YPos, float ScoreWidth, float RenderScale, bool bCenterMessage, bool bSkipDrawing=false) override;
 
-	virtual void DrawPlayerIcon(FCanvasIcon PlayerIcon, FLinearColor DrawColor, float LiveScaling, float XOffset, float YOffset, float IconSize);
+	virtual void DrawPlayerIcon(AUTPlayerState* PlayerState, float LiveScaling, float XOffset, float YOffset, float IconSize, bool bDrawLives);
 };

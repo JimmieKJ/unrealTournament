@@ -686,6 +686,9 @@ public:
 
 	virtual void DrawActorOverlays(FVector Viewpoint, FRotator ViewRotation) override;
 
+	/** Holds the atlats that make up the base character portraits*/
+	UPROPERTY()
+	UTexture2D* CharacterPortraitAtlas;
 
 protected:
 	TArray<TWeakObjectPtr<UUTUMGHudWidget>> UMGHudWidgetStack;

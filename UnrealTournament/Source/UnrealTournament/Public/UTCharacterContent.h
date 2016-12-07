@@ -144,6 +144,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
 	USoundBase* WaterExitSound;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = UI)
+	FCanvasIcon DefaultCharacterPortrait;
+
 protected:
 	UPROPERTY(BlueprintReadOnly, VisibleDefaultsOnly)
 	USkeletalMeshComponent* Mesh;

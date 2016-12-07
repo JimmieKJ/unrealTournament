@@ -72,11 +72,14 @@ AUTHUD::AUTHUD(const class FObjectInitializer& ObjectInitializer) : Super(Object
 	static ConstructorHelpers::FObjectFinder<UTexture2D> OldDamageIndicatorObj(TEXT("Texture2D'/Game/RestrictedAssets/Proto/UI/HUD/Elements/UI_HUD_DamageDir.UI_HUD_DamageDir'"));
 	DamageIndicatorTexture = OldDamageIndicatorObj.Object;
 
-	static ConstructorHelpers::FObjectFinder<UTexture2D> HUDTex(TEXT("Texture'/Game/RestrictedAssets/UI/HUDAtlas01.HUDAtlas01'"));
+	static ConstructorHelpers::FObjectFinder<UTexture2D> HUDTex(TEXT("Texture2D'/Game/RestrictedAssets/UI/HUDAtlas01.HUDAtlas01'"));
 	HUDAtlas = HUDTex.Object;
 
 	static ConstructorHelpers::FObjectFinder<UTexture2D> HUDTex3(TEXT("Texture2D'/Game/RestrictedAssets/UI/HUDAtlas03.HUDAtlas03'"));
 	HUDAtlas3 = HUDTex3.Object;
+
+	static ConstructorHelpers::FObjectFinder<UTexture2D> CharacterPortraitTex1(TEXT("Texture2D'/Game/RestrictedAssets/UI/CharacterPortraits/CharacterPortraitAtlas1.CharacterPortraitAtlas1'"));
+	CharacterPortraitAtlas = CharacterPortraitTex1.Object;
 
 	static ConstructorHelpers::FObjectFinder<UTexture2D> PlayerDirectionTextureObject(TEXT("/Game/RestrictedAssets/UI/MiniMap/Minimap_PS_BG.Minimap_PS_BG"));
 	PlayerMinimapTexture = PlayerDirectionTextureObject.Object;
