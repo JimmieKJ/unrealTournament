@@ -19,12 +19,8 @@ AUTWeap_GrenadeLauncher::AUTWeap_GrenadeLauncher()
 
 bool AUTWeap_GrenadeLauncher::BeginFiringSequence(uint8 FireModeNum, bool bClientFired)
 {
-	if (bHasLoadedStickyGrenades && FireModeNum == 1)
-	{
-		return false;
-	}
 	// Don't fire until it's time
-	else if (GetWorld()->TimeSeconds - LastGrenadeFireTime < DetonationAfterFireDelay)
+	if (GetWorld()->TimeSeconds - LastGrenadeFireTime < DetonationAfterFireDelay)
 	{
 		return false;
 	}
@@ -88,7 +84,6 @@ void AUTWeap_GrenadeLauncher::GetLifetimeReplicatedProps(TArray<class FLifetimeP
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME(AUTWeap_GrenadeLauncher, bHasStickyGrenades);
-	DOREPLIFETIME(AUTWeap_GrenadeLauncher, bHasLoadedStickyGrenades);	
 	DOREPLIFETIME(AUTWeap_GrenadeLauncher, ActiveStickyGrenadeCount);
 }
 
@@ -119,6 +114,8 @@ void AUTWeap_GrenadeLauncher::OnRep_HasStickyGrenades()
 {
 	if (bHasStickyGrenades)
 	{
+		LastGrenadeFireTime = GetWorld()->TimeSeconds;
+
 		if (CurrentState != InactiveState && GetOwner() != nullptr)
 		{
 			UE_LOG(UT, Verbose, TEXT("%s AUTWeap_GrenadeLauncher::OnRep_HasStickyGrenades ShowDetonatorUI()"), *GetName());
@@ -160,31 +157,27 @@ void AUTWeap_GrenadeLauncher::DropFrom(const FVector& StartLocation, const FVect
 	Super::DropFrom(StartLocation, TossVelocity);
 }
 
+void AUTWeap_GrenadeLauncher::ConsumeAmmo(uint8 FireModeNum)
+{
+	if (FireModeNum == 1)
+	{
+		bFiringStickyGrenade = true;
+	}
+
+	Super::ConsumeAmmo(FireModeNum);
+
+	bFiringStickyGrenade = false;
+}
+
 void AUTWeap_GrenadeLauncher::OnRep_Ammo()
 {
 	// Skip auto weapon switch if there's sticky grenades out
-	if (bHasStickyGrenades || bHasLoadedStickyGrenades)
+	if (bHasStickyGrenades || bFiringStickyGrenade)
 	{
 		return;
 	}
 
 	Super::OnRep_Ammo();
-}
-
-void AUTWeap_GrenadeLauncher::ConsumeAmmo(uint8 FireModeNum)
-{
-	if (FireModeNum == 1)
-	{
-		bHasLoadedStickyGrenades = true;
-	}
-
-	Super::ConsumeAmmo(FireModeNum);
-}
-
-void AUTWeap_GrenadeLauncher::FiringInfoUpdated_Implementation(uint8 InFireMode, uint8 FlashCount, FVector InFlashLocation)
-{
-	Super::FiringInfoUpdated_Implementation(InFireMode, FlashCount, InFlashLocation);
-	bHasLoadedStickyGrenades = false;
 }
 
 bool AUTWeap_GrenadeLauncher::CanSwitchTo()
@@ -195,29 +188,4 @@ bool AUTWeap_GrenadeLauncher::CanSwitchTo()
 	}
 
 	return Super::CanSwitchTo();
-}
-
-void AUTWeap_GrenadeLauncher::ClearLoadedRockets()
-{
-	Super::ClearLoadedRockets();
-	bHasLoadedStickyGrenades = false;
-	OnRep_HasLoadedStickyGrenades();
-}
-
-void AUTWeap_GrenadeLauncher::OnRep_HasLoadedStickyGrenades()
-{
-	if (!bHasLoadedStickyGrenades)
-	{
-		LastGrenadeFireTime = GetWorld()->TimeSeconds;
-	}
-}
-
-void AUTWeap_GrenadeLauncher::FireShot()
-{
-	if (CurrentFireMode == 1)
-	{
-		ConsumeAmmo(CurrentFireMode);
-	}
-
-	Super::FireShot();
 }

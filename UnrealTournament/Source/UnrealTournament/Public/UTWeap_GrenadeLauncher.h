@@ -7,7 +7,7 @@
 #include "UTWeap_GrenadeLauncher.generated.h"
 
 UCLASS(abstract)
-class UNREALTOURNAMENT_API AUTWeap_GrenadeLauncher : public AUTWeap_RocketLauncher
+class UNREALTOURNAMENT_API AUTWeap_GrenadeLauncher : public AUTWeapon
 {
 	GENERATED_BODY()
 
@@ -24,12 +24,9 @@ private:
 
 	UPROPERTY(replicatedUsing=OnRep_HasStickyGrenades)
 	bool bHasStickyGrenades;
-
-	UFUNCTION()
-	void OnRep_HasLoadedStickyGrenades();
-
-	UPROPERTY(replicatedUsing=OnRep_HasLoadedStickyGrenades)
-	bool bHasLoadedStickyGrenades;
+	
+	UPROPERTY()
+	bool bFiringStickyGrenade;
 
 public:
 	
@@ -40,22 +37,13 @@ public:
 
 	virtual bool BeginFiringSequence(uint8 FireModeNum, bool bClientFired) override;
 	virtual void GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& OutLifetimeProps) const override;
-
-	virtual void FireShot() override;
+	virtual void ConsumeAmmo(uint8 FireModeNum) override;
 
 	void RegisterStickyGrenade(AUTProj_Grenade_Sticky* InGrenade);
 	void UnregisterStickyGrenade(AUTProj_Grenade_Sticky* InGrenade);
 
 	void DetonateStickyGrenades();
-
-	// Can be removed when we don't parent from rocket launcher anymore
-	bool CanLockTarget(AActor *Target)
-	{
-		return false;
-	}
-	void UpdateLock() {}
-	void SetLockTarget(AActor* NewTarget) {}
-	
+		
 	UFUNCTION(BlueprintImplementableEvent, Category=GrenadeLauncher)
 	void PlayDetonationEffects();
 
@@ -75,8 +63,5 @@ public:
 
 	void DropFrom(const FVector& StartLocation, const FVector& TossVelocity) override;
 	void OnRep_Ammo() override;
-	void ConsumeAmmo(uint8 FireModeNum) override;
-	void FiringInfoUpdated_Implementation(uint8 InFireMode, uint8 FlashCount, FVector InFlashLocation) override;
-	void ClearLoadedRockets() override;
 	bool CanSwitchTo() override;
 };
