@@ -245,7 +245,7 @@ void UUTFlagRunScoreboard::DrawScoreAnnouncement(float DeltaTime)
 	Canvas->StrLen(InFont, ScorePostfix.ToString(), PostXL, YL);
 
 	float ScoreWidth = RenderScale * FMath::Max(6.f*StarXL, 1.2f*(PostXL+EmphasisXL));
-	float ScoreHeight = ScoringPlayer ? StarYL + 3.f*YL : StarYL + 2.f*YL;
+	float ScoreHeight = ScoringPlayer ? StarYL + 3.f*YL : StarYL + YL;
 	float XOffset = 0.5f*(Canvas->ClipX - ScoreWidth);
 	DrawFramedBackground(XOffset, YPos, ScoreWidth, RenderScale * ScoreHeight);
 
