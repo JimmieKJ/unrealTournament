@@ -1028,6 +1028,37 @@ void AUTCTFRoundGame::RestartPlayer(AController* aPlayer)
 	}
 }
 
+void AUTCTFRoundGame::HandleRollingAttackerRespawn(AUTPlayerState* OtherPS)
+{
+	if (GetWorld()->GetTimeSeconds() - LastAttackerSpawnTime < 1.f)
+	{
+		OtherPS->RespawnWaitTime = 1.f;
+	}
+	else
+	{
+		if (GetWorld()->GetTimeSeconds() - RollingSpawnStartTime < RollingAttackerRespawnDelay)
+		{
+			OtherPS->RespawnWaitTime = RollingAttackerRespawnDelay - GetWorld()->GetTimeSeconds() + RollingSpawnStartTime;
+		}
+		else
+		{
+			RollingSpawnStartTime = GetWorld()->GetTimeSeconds();
+			OtherPS->RespawnWaitTime = RollingAttackerRespawnDelay;
+		}
+		// if friendly hanging near flag base, respawn right away
+		AUTCTFFlagBase* TeamBase = CTFGameState->FlagBases[OtherPS->Team->TeamIndex];
+		for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
+		{
+			AUTCharacter* Teammate = Cast<AUTCharacter>(*It);
+			if (Teammate && !Teammate->IsDead() && CTFGameState && CTFGameState->OnSameTeam(OtherPS, Teammate) && ((Teammate->GetActorLocation() - TeamBase->GetActorLocation()).SizeSquared() < 4000000.f))
+			{
+				OtherPS->RespawnWaitTime = 1.f;
+				break;
+			}
+		}
+	}
+}
+
 void AUTCTFRoundGame::ScoreKill_Implementation(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType)
 {
 	Super::ScoreKill_Implementation(Killer, Other, KilledPawn, DamageType);
@@ -1035,33 +1066,7 @@ void AUTCTFRoundGame::ScoreKill_Implementation(AController* Killer, AController*
 	AUTPlayerState* OtherPS = Other ? Cast<AUTPlayerState>(Other->PlayerState) : nullptr;
 	if (OtherPS && OtherPS->Team && IsTeamOnOffense(OtherPS->Team->TeamIndex) && bRollingAttackerSpawns)
 	{
-		if (GetWorld()->GetTimeSeconds() - LastAttackerSpawnTime < 1.f)
-		{
-			OtherPS->RespawnWaitTime = 1.f;
-		}
-		else
-		{
-			if (GetWorld()->GetTimeSeconds() - RollingSpawnStartTime < RollingAttackerRespawnDelay)
-			{
-				OtherPS->RespawnWaitTime = RollingAttackerRespawnDelay - GetWorld()->GetTimeSeconds() + RollingSpawnStartTime;
-			}
-			else
-			{
-				RollingSpawnStartTime = GetWorld()->GetTimeSeconds();
-				OtherPS->RespawnWaitTime = RollingAttackerRespawnDelay;
-			}
-			// if friendly hanging near flag base, respawn right away
-			AUTCTFFlagBase* TeamBase = CTFGameState->FlagBases[OtherPS->Team->TeamIndex];
-			for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
-			{
-				AUTCharacter* Teammate = Cast<AUTCharacter>(*It);
-				if (Teammate && !Teammate->IsDead() && CTFGameState && CTFGameState->OnSameTeam(OtherPS, Teammate) && ((Teammate->GetActorLocation() - TeamBase->GetActorLocation()).SizeSquared() < 4000000.f))
-				{
-					OtherPS->RespawnWaitTime = 1.f;
-					break;
-				}
-			}
-		}
+		HandleRollingAttackerRespawn(OtherPS);
 		OtherPS->RespawnWaitTime += 0.01f * FMath::FRand();
 		OtherPS->ForceNetUpdate();
 		OtherPS->OnRespawnWaitReceived();

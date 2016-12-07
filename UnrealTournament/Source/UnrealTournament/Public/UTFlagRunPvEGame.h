@@ -54,4 +54,5 @@ public:
 	virtual void NotifyFirstPickup(AUTCarriedObject* Flag) override
 	{}
 	virtual void FindAndMarkHighScorer() override;
+	virtual void HandleRollingAttackerRespawn(AUTPlayerState* OtherPS) override;
 };

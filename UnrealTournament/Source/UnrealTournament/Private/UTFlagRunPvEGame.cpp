@@ -14,9 +14,9 @@ AUTFlagRunPvEGame::AUTFlagRunPvEGame(const FObjectInitializer& OI)
 	QuickPlayersToStart = 5;
 	NumRounds = 1;
 	GoalScore = 1;
-	UnlimitedRespawnWaitTime = 8.0f;
-	RollingAttackerRespawnDelay = 8.0f;
-	bRollingAttackerSpawns = false;
+	UnlimitedRespawnWaitTime = 10.0f;
+	RollingAttackerRespawnDelay = 10.0f;
+	bRollingAttackerSpawns = true;
 	RoundLives = 9;
 	TimeLimit = 10;
 	MonsterCostLimit = 5;
@@ -125,10 +125,10 @@ void AUTFlagRunPvEGame::HandleMatchHasStarted()
 {
 	Super::HandleMatchHasStarted();
 
-	MonsterPointsRemaining = MonsterCostLimit * 5;
-	AddMonsters(5);
+	MonsterPointsRemaining = MonsterCostLimit * 8;
+	AddMonsters(8);
 
-	SetTimerUFunc(this, FName(TEXT("EscalateMonsters")), 30.0f, true);
+	SetTimerUFunc(this, FName(TEXT("EscalateMonsters")), 45.0f, true);
 }
 
 void AUTFlagRunPvEGame::HandleMatchHasEnded()
@@ -192,10 +192,10 @@ void AUTFlagRunPvEGame::AddMonsters(int32 MaxNum)
 			if (PS != NULL)
 			{
 				PS->bReadyToPlay = true;
-				PS->RespawnWaitTime = UnlimitedRespawnWaitTime;
+				HandleRollingAttackerRespawn(PS);
+				PS->OnRespawnWaitReceived();
 			}
 			ChangeTeam(NewAI, 0, false);
-			RestartPlayer(NewAI);
 			MonsterPointsRemaining -= Choice.GetDefaultObject()->Cost;
 		}
 	}
@@ -203,7 +203,7 @@ void AUTFlagRunPvEGame::AddMonsters(int32 MaxNum)
 
 void AUTFlagRunPvEGame::EscalateMonsters()
 {
-	MonsterCostLimit += 1 + int32(GameDifficulty) / 3;
+	MonsterCostLimit += 2 + int32(GameDifficulty) / 3;
 	MonsterPointsRemaining += MonsterCostLimit;
 	AddMonsters(MonsterPointsRemaining / GetClass()->GetDefaultObject<AUTFlagRunPvEGame>()->MonsterCostLimit);
 }
@@ -262,5 +262,18 @@ void AUTFlagRunPvEGame::FindAndMarkHighScorer()
 				}
 			}
 		}
+	}
+}
+
+void AUTFlagRunPvEGame::HandleRollingAttackerRespawn(AUTPlayerState* OtherPS)
+{
+	if (GetWorld()->GetTimeSeconds() - RollingSpawnStartTime < RollingAttackerRespawnDelay)
+	{
+		OtherPS->RespawnWaitTime = RollingAttackerRespawnDelay - GetWorld()->GetTimeSeconds() + RollingSpawnStartTime;
+	}
+	else
+	{
+		RollingSpawnStartTime = GetWorld()->GetTimeSeconds();
+		OtherPS->RespawnWaitTime = RollingAttackerRespawnDelay;
 	}
 }

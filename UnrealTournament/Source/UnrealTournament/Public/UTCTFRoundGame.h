@@ -129,6 +129,7 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 	virtual void CheckGameTime() override;
 	virtual void HandleMatchIntermission() override;
 	virtual void ScoreKill_Implementation(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType) override;
+	virtual void HandleRollingAttackerRespawn(AUTPlayerState* OtherPS);
 	virtual float AdjustNearbyPlayerStartScore(const AController* Player, const AController* OtherController, const ACharacter* OtherCharacter, const FVector& StartLoc, const APlayerStart* P) override;
 	virtual bool SkipPlacement(AUTCharacter* UTChar) override;
 	virtual void EndPlayerIntro() override;
