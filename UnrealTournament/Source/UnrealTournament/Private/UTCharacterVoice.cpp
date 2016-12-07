@@ -33,6 +33,8 @@ UUTCharacterVoice::UUTCharacterVoice(const FObjectInitializer& ObjectInitializer
 
 	StatusOffsets.Add(StatusMessage::ImGoingIn, KEY_CALLOUTS + 100);
 	StatusOffsets.Add(StatusMessage::BaseUnderAttack, KEY_CALLOUTS + 200);
+	StatusOffsets.Add(StatusMessage::Incoming, KEY_CALLOUTS + 250);
+	// only game volume speech after FIRSTGAMEVOLUMESPEECH = KEY_CALLOUTS + 299 
 	StatusOffsets.Add(GameVolumeSpeechType::GV_Bridge, KEY_CALLOUTS + 300);
 	StatusOffsets.Add(GameVolumeSpeechType::GV_River, KEY_CALLOUTS + 400);
 	StatusOffsets.Add(GameVolumeSpeechType::GV_Antechamber, KEY_CALLOUTS + 500);
@@ -298,6 +300,14 @@ FCharacterSpeech UUTCharacterVoice::GetCharacterSpeech(int32 Switch) const
 				}
 				return BaseUnderAttackMessages[FMath::RandRange(0, BaseUnderAttackMessages.Num() - 1)];
 			}
+			else if (Switch == GetStatusIndex(StatusMessage::Incoming))
+			{
+				if (IncomingMessages.Num() == 0)
+				{
+					return EmptySpeech;
+				}
+				return IncomingMessages[FMath::RandRange(0, IncomingMessages.Num() - 1)];
+			}
 			else if (Switch / 100 == GetStatusIndex(GameVolumeSpeechType::GV_Bridge) / 100)
 			{
 				return GetGVLine(BridgeLines, Switch - GetStatusIndex(GameVolumeSpeechType::GV_Bridge));
@@ -545,6 +555,10 @@ bool UUTCharacterVoice::InterruptAnnouncement(const FAnnouncementInfo Announceme
 		{
 			return true;
 		}
+		if ((OtherAnnouncementInfo.Switch < StatusBaseIndex + FIRSTGAMEVOLUMESPEECH) || (AnnouncementInfo.Switch < StatusBaseIndex + FIRSTGAMEVOLUMESPEECH))
+		{
+			return false;
+		}
 		if ((OtherAnnouncementInfo.Switch < StatusBaseIndex + LASTGAMEVOLUMESPEECH) && (AnnouncementInfo.Switch < StatusBaseIndex + LASTGAMEVOLUMESPEECH) && (OtherAnnouncementInfo.Switch % 10 < 2) && (AnnouncementInfo.Switch % 10 < 2))
 		{
 			return true;
@@ -560,6 +574,10 @@ bool UUTCharacterVoice::CancelByAnnouncement_Implementation(int32 Switch, const 
 		if (Switch < StatusBaseIndex + KEY_CALLOUTS)
 		{
 			return (OtherSwitch >= StatusBaseIndex + KEY_CALLOUTS);
+		}
+		if ((OtherSwitch < StatusBaseIndex + FIRSTGAMEVOLUMESPEECH) || (Switch < StatusBaseIndex + FIRSTGAMEVOLUMESPEECH))
+		{
+			return false;
 		}
 		if ((OtherSwitch >= StatusBaseIndex + KEY_CALLOUTS) && (OtherSwitch < StatusBaseIndex + LASTGAMEVOLUMESPEECH) && (Switch < StatusBaseIndex + LASTGAMEVOLUMESPEECH) && (OtherSwitch % 10 < 2) && (Switch % 10 < 2))
 		{

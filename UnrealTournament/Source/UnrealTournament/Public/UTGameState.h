@@ -143,6 +143,10 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 	UPROPERTY()
 		float LastEnemyEnteringBaseTime;
 
+	/** Used to limit frequency of enemy FC entering base messages. */
+	UPROPERTY()
+		float LastEnemyFCEnteringBaseTime;
+
 	/** Used to limit frequency of entering enemy base messages. */
 	UPROPERTY()
 		float LastEnteringEnemyBaseTime;

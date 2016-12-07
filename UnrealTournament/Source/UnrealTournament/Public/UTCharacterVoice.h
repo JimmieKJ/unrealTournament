@@ -52,6 +52,7 @@ const int32 ON_OFFENSE_SWITCH_INDEX = 10900;
 const int32 SPREAD_OUT_SWITCH_INDEX = 11000;
 const int32 BASE_UNDER_ATTACK_SWITCH_INDEX = 11100;
 const int32 KEY_CALLOUTS = 100000;
+const int32 FIRSTGAMEVOLUMESPEECH = KEY_CALLOUTS + 299;
 const int32 LASTGAMEVOLUMESPEECH = KEY_CALLOUTS + 4999;
 
 UCLASS()
@@ -103,6 +104,9 @@ class UNREALTOURNAMENT_API UUTCharacterVoice : public UUTLocalMessage
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
 		TArray<FCharacterSpeech> BaseUnderAttackMessages;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
+		TArray<FCharacterSpeech> IncomingMessages;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Voice)
 		TArray<FCharacterSpeech> SpreadOutMessages;

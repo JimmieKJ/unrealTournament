@@ -164,6 +164,7 @@ namespace StatusMessage
 	const FName ImOnOffense = FName(TEXT("ImOnOffense"));
 	const FName SpreadOut = FName(TEXT("SpreadOut"));
 	const FName BaseUnderAttack = FName(TEXT("BaseUnderAttack"));
+	const FName Incoming = FName(TEXT("Incoming"));
 	const FName Affirmative = FName(TEXT("Affirmative"));
 	const FName Negative = FName(TEXT("Negative"));
 	const FName EnemyRally = FName(TEXT("EnemyRally"));

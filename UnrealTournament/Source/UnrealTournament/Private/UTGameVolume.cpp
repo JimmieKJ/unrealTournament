@@ -84,7 +84,7 @@ void AUTGameVolume::ActorEnteredVolume(class AActor* Other)
 	{
 		AUTCharacter* P = ((AUTCharacter*)(Other));
 		P->LastGameVolume = this;
-		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+		AUTFlagRunGameState* GS = GetWorld()->GetGameState<AUTFlagRunGameState>();
 		if (GS != nullptr && P->PlayerState != nullptr && !GS->IsMatchIntermission() && GS->IsMatchInProgress())
 		{
 			if (bIsTeamSafeVolume)
@@ -145,7 +145,7 @@ void AUTGameVolume::ActorEnteredVolume(class AActor* Other)
 				}
 
 				// possibly announce flag carrier changed zones
-				if (bIsNoRallyZone && !bIsTeamSafeVolume && !P->GetCarriedObject()->bWasInEnemyBase && (GetWorld()->GetTimeSeconds() - FMath::Max(GS->LastEnemyEnteringBaseTime, GS->LastEnteringEnemyBaseTime) > 3.f))
+				if (bIsNoRallyZone && !bIsTeamSafeVolume && !P->GetCarriedObject()->bWasInEnemyBase && (GetWorld()->GetTimeSeconds() - FMath::Max(GS->LastEnemyFCEnteringBaseTime, GS->LastEnteringEnemyBaseTime) > 3.f))
 				{
 					if ((GetWorld()->GetTimeSeconds() - GS->LastEnteringEnemyBaseTime > 3.f) && Cast<AUTPlayerState>(P->PlayerState))
 					{
@@ -153,10 +153,12 @@ void AUTGameVolume::ActorEnteredVolume(class AActor* Other)
 						if (VoiceLinesSet != NAME_None)
 						{
 							((AUTPlayerState *)(P->PlayerState))->AnnounceStatus(VoiceLinesSet, 1);
+							GS->LastFriendlyLocationReportTime = GetWorld()->GetTimeSeconds();
+							GS->LastFriendlyLocationName = VoiceLinesSet;
 						}
 						GS->LastEnteringEnemyBaseTime = GetWorld()->GetTimeSeconds();
 					}
-					if (GetWorld()->GetTimeSeconds() - GS->LastEnemyEnteringBaseTime > 3.f)
+					if (GetWorld()->GetTimeSeconds() - GS->LastEnemyFCEnteringBaseTime > 3.f)
 					{
 						AUTPlayerState* PS = P->GetCarriedObject()->LastPinger;
 						if (!PS)
@@ -173,12 +175,14 @@ void AUTGameVolume::ActorEnteredVolume(class AActor* Other)
 						}
 						if (PS)
 						{
-							PS->AnnounceStatus(StatusMessage::BaseUnderAttack);
+							PS->AnnounceStatus(StatusMessage::Incoming);
 							if (VoiceLinesSet != NAME_None)
 							{
 								PS->AnnounceStatus(VoiceLinesSet, 0);
+								GS->LastEnemyLocationReportTime = GetWorld()->GetTimeSeconds();
+								GS->LastEnemyLocationName = VoiceLinesSet;
 							}
-							GS->LastEnemyEnteringBaseTime = GetWorld()->GetTimeSeconds();
+							GS->LastEnemyFCEnteringBaseTime = GetWorld()->GetTimeSeconds();
 						}
 					}
 				}
@@ -228,6 +232,31 @@ void AUTGameVolume::ActorEnteredVolume(class AActor* Other)
 				P->bWasInWarningZone = bIsWarningZone;
 				P->GetCarriedObject()->bWasInEnemyBase = bIsNoRallyZone && !bIsTeamSafeVolume;
 				bHasFCEntry = true;
+			}
+			else if (bIsNoRallyZone && !bIsTeamSafeVolume && Cast<AUTPlayerState>(P->PlayerState) && ((AUTPlayerState*)(P->PlayerState))->Team && (GS->bRedToCap == (((AUTPlayerState*)(P->PlayerState))->Team->TeamIndex == 0)))
+			{
+				// warn base is under attack
+				if (GetWorld()->GetTimeSeconds() - GS->LastEnemyEnteringBaseTime > 10.f)
+				{
+					AUTPlayerState* PS = P->GetCarriedObject()->LastPinger;
+					if (!PS)
+					{
+						for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
+						{
+							AController* C = *Iterator;
+							if (C && !GS->OnSameTeam(P, C) && Cast<AUTPlayerState>(C->PlayerState))
+							{
+								PS = ((AUTPlayerState*)(C->PlayerState));
+								break;
+							}
+						}
+					}
+					if (PS)
+					{
+						PS->AnnounceStatus(StatusMessage::Incoming);
+						GS->LastEnemyEnteringBaseTime = GetWorld()->GetTimeSeconds();
+					}
+				}
 			}
 			else if (!bHasBeenEntered && bReportDefenseStatus && (VoiceLinesSet != NAME_None))
 			{
