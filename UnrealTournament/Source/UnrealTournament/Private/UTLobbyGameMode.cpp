@@ -69,7 +69,12 @@ void AUTLobbyGameMode::InitGame( const FString& MapName, const FString& Options,
 	{
 		UE_LOG(UT,Log,TEXT("  Maximum Allowed ELO Rank is: %i"), MaxAllowedRank)
 	}
+
+	MaxInstances = FMath::Max(0, UGameplayStatics::GetIntOption(Options, TEXT("MaxInstances"), MaxInstances));
 }
+
+
+
 
 
 void AUTLobbyGameMode::InitGameState()
