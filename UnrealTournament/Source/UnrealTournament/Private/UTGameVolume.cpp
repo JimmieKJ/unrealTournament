@@ -160,7 +160,7 @@ void AUTGameVolume::ActorEnteredVolume(class AActor* Other)
 					}
 					if (GetWorld()->GetTimeSeconds() - GS->LastEnemyFCEnteringBaseTime > 3.f)
 					{
-						AUTPlayerState* PS = (P->LastTargeter && !GS->OnSameTeam(P, P->LastTargeter)) ? P->LastTargeter : nullptr;
+						AUTPlayerState* PS = P->GetCarriedObject()->LastPinger;
 						if (!PS)
 						{
 							for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
@@ -238,18 +238,19 @@ void AUTGameVolume::ActorEnteredVolume(class AActor* Other)
 				// warn base is under attack
 				if (GetWorld()->GetTimeSeconds() - GS->LastEnemyEnteringBaseTime > 10.f)
 				{
-					AUTPlayerState* PS = nullptr;
-
-					for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
+					AUTPlayerState* PS = (P->LastTargeter && !GS->OnSameTeam(P, P->LastTargeter)) ? P->LastTargeter : nullptr;
+					if (!PS)
 					{
-						AController* C = *Iterator;
-						if (C && !GS->OnSameTeam(P, C) && Cast<AUTPlayerState>(C->PlayerState))
+						for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
 						{
-							PS = ((AUTPlayerState*)(C->PlayerState));
-							break;
+							AController* C = *Iterator;
+							if (C && !GS->OnSameTeam(P, C) && Cast<AUTPlayerState>(C->PlayerState))
+							{
+								PS = ((AUTPlayerState*)(C->PlayerState));
+								break;
+							}
 						}
 					}
-
 					if (PS)
 					{
 						PS->AnnounceStatus(StatusMessage::Incoming);
