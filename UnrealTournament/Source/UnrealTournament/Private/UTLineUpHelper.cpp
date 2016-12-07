@@ -75,30 +75,7 @@ void AUTLineUpHelper::CleanUp()
 		DestroySpawnedClones();
 	}
 }
-
-void AUTLineUpHelper::SpawnPlayerClones(LineUpTypes LineUpType)
-{
-	if (GetWorld())
-	{
-		AUTGameState* UTGS = Cast<AUTGameState>(GetWorld()->GameState);
-		if ((UTGS != nullptr) && (UTGS->ShouldUseInGameSummary(LineUpType)))
-		{
-			for (int PlayerIndex = 0; PlayerIndex < UTGS->PlayerArray.Num(); ++PlayerIndex)
-			{
-				AUTPlayerState* UTPS = Cast<AUTPlayerState>(UTGS->PlayerArray[PlayerIndex]);
-				if (UTPS)
-				{
-					SpawnClone(UTPS, FTransform());
-				}
-			}
-
-			SortPlayers();
-			MovePreviewCharactersToLineUpSpawns(LineUpType);
-		}
-	}
-}
-			
-
+		
 void AUTLineUpHelper::DestroySpawnedClones()
 {
 	if (PlayerPreviewCharacters.Num() > 0)
@@ -253,41 +230,46 @@ void AUTLineUpHelper::MovePlayers(LineUpTypes ZoneType)
 void AUTLineUpHelper::SpawnPlayerWeapon(AUTCharacter* UTChar)
 {
 	//If we already have a weapon attachment, keep that
-	if (UTChar && !UTChar->GetWeaponAttachment())
+	if (UTChar)
 	{
 		AUTPlayerState* UTPS = Cast<AUTPlayerState>(UTChar->PlayerState);
-		UClass* WeaponAttachmentType = NULL;
+		TSubclassOf<AUTWeapon> WeaponClass = NULL;
 
 		if (UTPS)
 		{
-			WeaponAttachmentType = UTPS->FavoriteWeapon ? UTPS->FavoriteWeapon->GetDefaultObject<AUTWeapon>()->AttachmentType : NULL;
+			WeaponClass = UTPS->FavoriteWeapon ? UTPS->FavoriteWeapon->GetDefaultObject<AUTWeapon>()->GetClass() : NULL;
 		}
 
 		//Default to Link Gun
-		if (!WeaponAttachmentType)
+		if (!WeaponClass)
 		{
-			WeaponAttachmentType = LoadClass<AUTWeaponAttachment>(NULL, TEXT("/Game/RestrictedAssets/Weapons/LinkGun/BP_LinkGun_Attach.BP_LinkGun_Attach_C"), NULL, LOAD_None, NULL);
+			WeaponClass = LoadClass<AUTWeapon>(NULL, TEXT("/Game/RestrictedAssets/Weapons/LinkGun/BP_LinkGun.BP_LinkGun_C"), NULL, LOAD_None, NULL);
 		}
 		
-		UTChar->SetWeaponAttachmentClass(WeaponAttachmentType);
-		//UTChar->UpdateWeaponAttachment();
-
-		/*FActorSpawnParameters WeaponSpawnParams;
+		//Remove all inventory so that when we add this weapon in, it is equipped.
+		UTChar->DiscardAllInventory();
+		
+		FActorSpawnParameters WeaponSpawnParams;
 		WeaponSpawnParams.Instigator = UTChar;
 		WeaponSpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 		WeaponSpawnParams.bNoFail = true;
 
-		AUTWeaponAttachment* PreviewWeapon = GetWorld()->SpawnActor<AUTWeaponAttachment>(WeaponAttachmentType, FVector(0, 0, 0), FRotator(0, 0, 0), WeaponSpawnParams);
+		AUTWeapon* PreviewWeapon = GetWorld()->SpawnActor<AUTWeapon>(WeaponClass, FVector(0, 0, 0), FRotator(0, 0, 0), WeaponSpawnParams);
 		if (PreviewWeapon)
 		{
+			PreviewWeapons.Add(PreviewWeapon);
+			
 			PreviewWeapon->bAlwaysRelevant = true;
 			PreviewWeapon->SetReplicates(true);
-			if (PreviewWeapon->HasActorBegunPlay())
+			UTChar->AddInventory(PreviewWeapon, true);
+			
+			//Bots will not auto-switch to new weapon
+			AUTBot* BotController = Cast<AUTBot>(UTChar->Controller);
+			if (BotController)
 			{
-				PreviewWeapon->AttachToOwner();
+				BotController->SwitchToBestWeapon();
 			}
-			PreviewWeapons.Add(PreviewWeapon);
-		}*/
+		}
 	}
 }
 
@@ -493,125 +475,6 @@ AActor* AUTLineUpHelper::GetCameraActorForLineUp(UWorld* World, LineUpTypes Zone
 }
 
 static int32 WeaponIndex = 0;
-
-void AUTLineUpHelper::SpawnClone(AUTPlayerState* PS, const FTransform& Location)
-{
-	if (!GetWorld())
-	{
-		return;
-	}
-
-	AUTWeaponAttachment* PreviewWeapon = nullptr;
-	UAnimationAsset* PlayerPreviewAnim = nullptr;
-
-	FActorSpawnParameters SpawnParams;
-	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-	TSubclassOf<class APawn> DefaultPawnClass = Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *GetDefault<AUTGameMode>()->PlayerPawnObject.ToStringReference().ToString(), NULL, LOAD_NoWarn));
-
-	AUTCharacter* PlayerPreviewMesh = GetWorld()->SpawnActor<AUTCharacter>(DefaultPawnClass, Location.GetTranslation(), Location.Rotator(), SpawnParams);
-
-	if (PlayerPreviewMesh)
-	{
-		// We need to get our tick functions registered, this seemed like best way to do it
-		PlayerPreviewMesh->RegisterAllActorTickFunctions(true, true);
-
-		PlayerPreviewMesh->PlayerState = PS; //PS needed for team colors
-		PlayerPreviewMesh->DeactivateSpawnProtection();
-
-		PlayerPreviewMesh->ApplyCharacterData(PS->GetSelectedCharacter());
-		PlayerPreviewMesh->NotifyTeamChanged();
-
-		PlayerPreviewMesh->SetHatClass(PS->HatClass);
-		PlayerPreviewMesh->SetHatVariant(PS->HatVariant);
-		PlayerPreviewMesh->SetEyewearClass(PS->EyewearClass);
-		PlayerPreviewMesh->SetEyewearVariant(PS->EyewearVariant);
-
-		int32 WeaponIndexToSpawn = 0;
-		if (!PreviewWeapon)
-		{
-			UClass* PreviewAttachmentType = PS->FavoriteWeapon ? PS->FavoriteWeapon->GetDefaultObject<AUTWeapon>()->AttachmentType : NULL;
-			if (!PreviewAttachmentType)
-			{
-				UClass* PreviewAttachments[6];
-				PreviewAttachments[0] = LoadClass<AUTWeaponAttachment>(NULL, TEXT("/Game/RestrictedAssets/Weapons/LinkGun/BP_LinkGun_Attach.BP_LinkGun_Attach_C"), NULL, LOAD_None, NULL);
-				PreviewAttachments[1] = LoadClass<AUTWeaponAttachment>(NULL, TEXT("/Game/RestrictedAssets/Weapons/Sniper/BP_Sniper_Attach.BP_Sniper_Attach_C"), NULL, LOAD_None, NULL);
-				PreviewAttachments[2] = LoadClass<AUTWeaponAttachment>(NULL, TEXT("/Game/RestrictedAssets/Weapons/RocketLauncher/BP_Rocket_Attachment.BP_Rocket_Attachment_C"), NULL, LOAD_None, NULL);
-				PreviewAttachments[3] = LoadClass<AUTWeaponAttachment>(NULL, TEXT("/Game/RestrictedAssets/Weapons/ShockRifle/ShockAttachment.ShockAttachment_C"), NULL, LOAD_None, NULL);
-				PreviewAttachments[4] = LoadClass<AUTWeaponAttachment>(NULL, TEXT("/Game/RestrictedAssets/Weapons/Flak/BP_Flak_Attach.BP_Flak_Attach_C"), NULL, LOAD_None, NULL);
-				PreviewAttachments[5] = PreviewAttachments[3];
-				WeaponIndexToSpawn = WeaponIndex % 6;
-				PreviewAttachmentType = PreviewAttachments[WeaponIndexToSpawn];
-				WeaponIndex++;
-			}
-			if (PreviewAttachmentType != NULL)
-			{
-				FActorSpawnParameters WeaponSpawnParams;
-				WeaponSpawnParams.Instigator = PlayerPreviewMesh;
-				WeaponSpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-				WeaponSpawnParams.bNoFail = true;
-			
-				PreviewWeapon = GetWorld()->SpawnActor<AUTWeaponAttachment>(PreviewAttachmentType, FVector(0, 0, 0), FRotator(0, 0, 0), WeaponSpawnParams);
-			}
-		}
-		if (PreviewWeapon)
-		{
-			if (PreviewWeapon->HasActorBegunPlay())
-			{
-				PreviewWeapon->AttachToOwner();
-			}
-
-			PreviewWeapons.Add(PreviewWeapon);
-		}
-
-		if (PS->IsFemale())
-		{
-			switch (WeaponIndexToSpawn)
-			{
-			case 1:
-				PlayerPreviewAnim = LoadObject<UAnimationAsset>(NULL, TEXT("/Game/RestrictedAssets/Animations/Universal/Misc_Poses/MatchPoseFemale_Sniper.MatchPoseFemale_Sniper"));
-				break;
-			case 2:
-				PlayerPreviewAnim = LoadObject<UAnimationAsset>(NULL, TEXT("/Game/RestrictedAssets/Animations/Universal/Misc_Poses/MatchPoseFemale_Flak_B.MatchPoseFemale_Flak_B"));
-				break;
-			case 4:
-				PlayerPreviewAnim = LoadObject<UAnimationAsset>(NULL, TEXT("/Game/RestrictedAssets/Animations/Universal/Misc_Poses/MatchPoseFemale_Flak.MatchPoseFemale_Flak"));
-				break;
-			case 0:
-			case 3:
-			case 5:
-			default:
-				PlayerPreviewAnim = LoadObject<UAnimationAsset>(NULL, TEXT("/Game/RestrictedAssets/Animations/Universal/Misc_Poses/MatchPoseFemale_ShockRifle.MatchPoseFemale_ShockRifle"));
-			}
-		}
-		else
-		{
-			switch (WeaponIndexToSpawn)
-			{
-			case 1:
-				PlayerPreviewAnim = LoadObject<UAnimationAsset>(NULL, TEXT("/Game/RestrictedAssets/Animations/Universal/Misc_Poses/MatchPose_Sniper.MatchPose_Sniper"));
-				break;
-			case 2:
-				PlayerPreviewAnim = LoadObject<UAnimationAsset>(NULL, TEXT("/Game/RestrictedAssets/Animations/Universal/Misc_Poses/MatchPose_Flak_B.MatchPose_Flak_B"));
-				break;
-			case 4:
-				PlayerPreviewAnim = LoadObject<UAnimationAsset>(NULL, TEXT("/Game/RestrictedAssets/Animations/Universal/Misc_Poses/MatchPose_Flak.MatchPose_Flak"));
-				break;
-			case 0:
-			case 3:
-			case 5:
-			default:
-				PlayerPreviewAnim = LoadObject<UAnimationAsset>(NULL, TEXT("/Game/RestrictedAssets/Animations/Universal/Misc_Poses/MatchPose_ShockRifle.MatchPose_ShockRifle"));
-			}
-		}
-
-		PreviewAnimations.AddUnique(PlayerPreviewAnim);
-
-		PlayerPreviewMesh->GetMesh()->PlayAnimation(PlayerPreviewAnim, true);
-		PlayerPreviewMesh->GetMesh()->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones;
-
-		PlayerPreviewCharacters.Add(PlayerPreviewMesh);
-	}
-}
 
 void AUTLineUpHelper::HandleEndMatchSummary(LineUpTypes SummaryType)
 {

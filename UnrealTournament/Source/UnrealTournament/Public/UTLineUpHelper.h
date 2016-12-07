@@ -62,14 +62,8 @@ protected:
 	void SpawnPlayerWeapon(AUTCharacter* UTChar);
 
 	UFUNCTION()
-	void SpawnClone(AUTPlayerState* PS, const FTransform& Location);
-	
-	UFUNCTION()
 	void DestroySpawnedClones();
-
-	UFUNCTION()
-	void SpawnPlayerClones(LineUpTypes LineUpType);
-
+	
 	UFUNCTION()
 	void MovePreviewCharactersToLineUpSpawns(LineUpTypes LineUpType);
 
@@ -87,7 +81,7 @@ protected:
 	TArray<class AUTCharacter*> PlayerPreviewCharacters;
 
 	/** preview weapon */
-	TArray<class AUTWeaponAttachment*> PreviewWeapons;
+	TArray<class AUTWeapon*> PreviewWeapons;
 
 	TArray<class UAnimationAsset*> PreviewAnimations;
 };
