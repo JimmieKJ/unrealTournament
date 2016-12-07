@@ -506,7 +506,7 @@ void SUTAdminDialog::Tick( const FGeometry& AllottedGeometry, const double InCur
 			bool bFound = false;
 			for (int32 j=0; j < SortedMatchList.Num(); j++)
 			{
-				if (SortedMatchList[j]->MatchInfo.Get() == LobbyGameState->AvailableMatches[i])
+				if (SortedMatchList[j].IsValid() && LobbyGameState->AvailableMatches[i] && SortedMatchList[j]->MatchInfo.Get() == LobbyGameState->AvailableMatches[i])
 				{
 					bFound = true;
 					SortedMatchList[j]->bPendingDelete = false;
@@ -523,7 +523,7 @@ void SUTAdminDialog::Tick( const FGeometry& AllottedGeometry, const double InCur
 
 		for (int32 i = SortedMatchList.Num()-1; i >= 0 ; i--)
 		{
-			if (SortedMatchList[i]->bPendingDelete)
+			if (SortedMatchList[i].IsValid() && SortedMatchList[i]->bPendingDelete)
 			{
 				SortedMatchList.RemoveAt(i,1);
 				bNeedsMatchUpdate = true;
