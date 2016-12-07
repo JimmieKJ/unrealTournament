@@ -647,6 +647,11 @@ void UUTGameInstance::BeginLevelLoading(const FString& LevelName)
 	MovieVignettes.Empty();
 	VignetteIndex = 0;
 
+	if (LevelLoadText.ToString().Contains(TEXT("UT-Entry")))
+	{
+		LevelLoadText = NSLOCTEXT("UTGameInstance","MainMenu","Returning to Main Menu");
+	}
+
 	IUnrealTournamentFullScreenMovieModule* const FullScreenMovieModule = FModuleManager::LoadModulePtr<IUnrealTournamentFullScreenMovieModule>("UnrealTournamentFullScreenMovie");
 	if (FullScreenMovieModule != nullptr)
 	{
