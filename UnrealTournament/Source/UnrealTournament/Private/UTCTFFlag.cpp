@@ -232,10 +232,7 @@ void AUTCTFFlag::Drop(AController* Killer)
 
 	if (bGradualAutoReturn && (Holder == nullptr))
 	{
-		if ((PastPositions.Num() > 0) && ((GetActorLocation() - PastPositions[PastPositions.Num() - 1].Location).Size() < MinGradualReturnDist))
-		{
-			PastPositions.RemoveAt(PastPositions.Num() - 1);
-		}
+		RemoveInvalidPastPositions();
 		if (PastPositions.Num() > 0)
 		{
 			PutGhostFlagAt(PastPositions[PastPositions.Num() - 1]);

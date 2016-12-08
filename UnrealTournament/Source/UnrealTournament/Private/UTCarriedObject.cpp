@@ -726,10 +726,7 @@ void AUTCarriedObject::Drop(AController* Killer)
 
 	if (bGradualAutoReturn && (Holder == nullptr))
 	{
-		if ((PastPositions.Num() > 0) && ((GetActorLocation() - PastPositions[PastPositions.Num() - 1].Location).Size() < MinGradualReturnDist))
-		{
-			PastPositions.RemoveAt(PastPositions.Num() - 1);
-		}
+		RemoveInvalidPastPositions();
 		if (PastPositions.Num() > 0)
 		{
 			PutGhostFlagAt(PastPositions[PastPositions.Num() - 1]);
@@ -740,6 +737,27 @@ void AUTCarriedObject::Drop(AController* Killer)
 			FFlagTrailPos BasePosition;
 			BasePosition.Location = GetHomeLocation();
 			PutGhostFlagAt(BasePosition);
+		}
+	}
+}
+
+void AUTCarriedObject::RemoveInvalidPastPositions()
+{
+	AUTGameVolume* GV = Cast<AUTGameVolume>(Collision->GetPhysicsVolume());
+	bool bInNoRallyZone = GV && GV->bIsNoRallyZone;
+	bool bRemovingPositions = true;
+	while ((PastPositions.Num() > 0) && bRemovingPositions)
+	{
+		bRemovingPositions = false;
+		if ((GetActorLocation() - PastPositions[PastPositions.Num() - 1].Location).Size() < MinGradualReturnDist)
+		{
+			PastPositions.RemoveAt(PastPositions.Num() - 1);
+			bRemovingPositions = true;
+		}
+		else if (!bInNoRallyZone && PastPositions[PastPositions.Num() - 1].bIsInNoRallyZone)
+		{
+			PastPositions.RemoveAt(PastPositions.Num() - 1);
+			bRemovingPositions = true;
 		}
 	}
 }
@@ -821,10 +839,7 @@ void AUTCarriedObject::SendHome()
 			if (ObjectState != CarriedObjectState::Held)
 			{
 				PastPositions.RemoveAt(PastPositions.Num() - 1);
-				if ((PastPositions.Num() > 0) && ((GetActorLocation() - PastPositions[PastPositions.Num() - 1].Location).Size() < MinGradualReturnDist))
-				{
-					PastPositions.RemoveAt(PastPositions.Num() - 1);
-				}
+				RemoveInvalidPastPositions();
 				if (PastPositions.Num() > 0)
 				{
 					PutGhostFlagAt(PastPositions[PastPositions.Num() - 1]);

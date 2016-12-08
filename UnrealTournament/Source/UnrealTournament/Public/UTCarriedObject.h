@@ -406,6 +406,8 @@ public:
 
 	virtual void SendNeedFlagAnnouncement();
 
+	virtual void RemoveInvalidPastPositions();
+
 protected:
 	// Server Side - Holds a reference to the pawn that is holding this object
 	UPROPERTY(BlueprintReadOnly, Category = GameObject)
