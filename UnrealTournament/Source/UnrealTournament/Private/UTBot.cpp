@@ -3157,9 +3157,9 @@ void AUTBot::DoHunt(APawn* NewHuntTarget)
 			HuntingInterceptNode = NULL;
 			HuntInterceptFailedTime = -100000.0f;
 		}
-		const FBotEnemyInfo* EnemyInfo = GetEnemyInfo(NewHuntTarget, true);
+		const FBotEnemyInfo EnemyInfo = *GetEnemyInfo(NewHuntTarget, true);
 		TArray<FPredictedGoal> CheckSpots;
-		Squad->GetPossibleEnemyGoals(this, EnemyInfo, CheckSpots);
+		Squad->GetPossibleEnemyGoals(this, &EnemyInfo, CheckSpots);
 		// eliminate spots we've checked already or have visibility to now
 		TArray<FPredictedGoal> RemainingSpots = CheckSpots;
 		for (int32 i = RemainingSpots.Num() - 1; i >= 0; i--)
@@ -3183,23 +3183,23 @@ void AUTBot::DoHunt(APawn* NewHuntTarget)
 			}
 		}
 		TArray<FRouteCacheItem> HuntEndpoints;
-		if (RemainingSpots.Num() == 0 && GetWorld()->TimeSeconds - EnemyInfo->LastFullUpdateTime < 2.0f && (EnemyInfo->LastKnownLoc - GetPawn()->GetActorLocation()).Size() > GetPawn()->GetSimpleCollisionRadius() * 4.0f)
+		if (RemainingSpots.Num() == 0 && GetWorld()->TimeSeconds - EnemyInfo.LastFullUpdateTime < 2.0f && (EnemyInfo.LastKnownLoc - GetPawn()->GetActorLocation()).Size() > GetPawn()->GetSimpleCollisionRadius() * 4.0f)
 		{
 			// we know where the enemy is or was recently, just go with that for now
-			NavNodeRef Poly = NavData->FindAnchorPoly(EnemyInfo->LastKnownLoc, EnemyInfo->GetPawn(), EnemyInfo->GetPawn()->GetNavAgentPropertiesRef());
+			NavNodeRef Poly = NavData->FindAnchorPoly(EnemyInfo.LastKnownLoc, EnemyInfo.GetPawn(), EnemyInfo.GetPawn()->GetNavAgentPropertiesRef());
 			if (Poly == INVALID_NAVNODEREF)
 			{
 				// enemy may be jumping, etc so try tracing to ground
 				// note: navmesh raycasts are sadly 2D only so we can't trace against the mesh, have to use world geo first
 				FHitResult Hit;
-				if (GetWorld()->LineTraceSingleByChannel(Hit, EnemyInfo->LastKnownLoc, EnemyInfo->LastKnownLoc - FVector(0.0f, 0.0f, 10000.0f), ECC_Pawn, FCollisionQueryParams(), WorldResponseParams))
+				if (GetWorld()->LineTraceSingleByChannel(Hit, EnemyInfo.LastKnownLoc, EnemyInfo.LastKnownLoc - FVector(0.0f, 0.0f, 10000.0f), ECC_Pawn, FCollisionQueryParams(), WorldResponseParams))
 				{
-					Poly = NavData->FindAnchorPoly(Hit.Location, EnemyInfo->GetPawn(), EnemyInfo->GetPawn()->GetNavAgentPropertiesRef());
+					Poly = NavData->FindAnchorPoly(Hit.Location, EnemyInfo.GetPawn(), EnemyInfo.GetPawn()->GetNavAgentPropertiesRef());
 				}
 			}
 			if (Poly != INVALID_NAVNODEREF)
 			{
-				new(HuntEndpoints) FRouteCacheItem(NavData->GetNodeFromPoly(Poly), EnemyInfo->LastKnownLoc, Poly);
+				new(HuntEndpoints) FRouteCacheItem(NavData->GetNodeFromPoly(Poly), EnemyInfo.LastKnownLoc, Poly);
 			}
 		}
 		else
@@ -3228,23 +3228,23 @@ void AUTBot::DoHunt(APawn* NewHuntTarget)
 					}
 				}
 			}
-			else if (EnemyInfo->LastFullUpdateTime > HuntInterceptFailedTime)
+			else if (EnemyInfo.LastFullUpdateTime > HuntInterceptFailedTime)
 			{
 				// calculate minimum amount of time enemy will have progressed from our starting point before we could possibly catch up
 				// note: this is an optimization, more correct would be to evaluate in the below pathfinding step
 				const float MoveSpeed = FMath::Max<float>(1.0f, GetPawn()->GetMovementComponent() ? GetPawn()->GetMovementComponent()->GetMaxSpeed() : 0);
-				float SkipTime = FMath::Max<float>(GetWorld()->TimeSeconds - EnemyInfo->LastFullUpdateTime, (GetPawn()->GetActorLocation() - EnemyInfo->LastKnownLoc).Size() / MoveSpeed);
+				float SkipTime = FMath::Max<float>(GetWorld()->TimeSeconds - EnemyInfo.LastFullUpdateTime, (GetPawn()->GetActorLocation() - EnemyInfo.LastKnownLoc).Size() / MoveSpeed);
 
 				TArray<FRouteCacheItem> PathPredictionGoals;
 				for (const FPredictedGoal& TestSpot : CheckSpots)
 				{
-					NavNodeRef Poly = NavData->UTFindNearestPoly(TestSpot.Location, NavData->GetPOIExtent(EnemyInfo->GetPawn()));
+					NavNodeRef Poly = NavData->UTFindNearestPoly(TestSpot.Location, NavData->GetPOIExtent(EnemyInfo.GetPawn()));
 					if (Poly != INVALID_NAVNODEREF)
 					{
 						FRouteCacheItem NewItem(NavData->GetNodeFromPoly(Poly), TestSpot.Location, Poly);
 						// for enemy path prediction include any point that we could prevent them from reaching (using straight line distance for simplicity and performance)
 						// or that are critical so we have to try even if it's probably hopeless
-						if (TestSpot.bCritical || (TestSpot.Location - EnemyInfo->LastKnownLoc).Size() > MoveSpeed * SkipTime)
+						if (TestSpot.bCritical || (TestSpot.Location - EnemyInfo.LastKnownLoc).Size() > MoveSpeed * SkipTime)
 						{
 							PathPredictionGoals.Add(NewItem);
 						}
@@ -3261,7 +3261,7 @@ void AUTBot::DoHunt(APawn* NewHuntTarget)
 				float Weight = 0.0f;
 				TArray<FRouteCacheItem> EnemyRouteCache;
 				TArray<int32> EnemyRouteCosts;
-				if (NavData->FindBestPath(EnemyInfo->GetPawn(), EnemyInfo->GetPawn()->GetNavAgentPropertiesRef(), this, NodeEval, EnemyInfo->LastKnownLoc, Weight, false, EnemyRouteCache, &EnemyRouteCosts))
+				if (NavData->FindBestPath(EnemyInfo.GetPawn(), EnemyInfo.GetPawn()->GetNavAgentPropertiesRef(), this, NodeEval, EnemyInfo.LastKnownLoc, Weight, false, EnemyRouteCache, &EnemyRouteCosts))
 				{
 					// remove those points that the enemy is predicted to have or will have passed by the time we could get there
 					
