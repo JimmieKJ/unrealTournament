@@ -27,7 +27,7 @@ void UUTWeaponStateFiring::EndState()
 
 void UUTWeaponStateFiring::ToggleLoopingEffects(bool bNowOn)
 {
-	if (GetOuterAUTWeapon()->FireLoopingSound.IsValidIndex(GetFireMode()) && GetOuterAUTWeapon()->FireLoopingSound[GetFireMode()] != NULL)
+	if (GetUTOwner() && GetOuterAUTWeapon()->FireLoopingSound.IsValidIndex(GetFireMode()) && GetOuterAUTWeapon()->FireLoopingSound[GetFireMode()] != NULL)
 	{
 		GetUTOwner()->SetAmbientSound(GetOuterAUTWeapon()->FireLoopingSound[GetFireMode()], !bNowOn);
 	}
