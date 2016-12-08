@@ -145,9 +145,9 @@ void AUTGameVolume::ActorEnteredVolume(class AActor* Other)
 				}
 
 				// possibly announce flag carrier changed zones
-				if (bIsNoRallyZone && !bIsTeamSafeVolume && !P->GetCarriedObject()->bWasInEnemyBase && (GetWorld()->GetTimeSeconds() - FMath::Max(GS->LastEnemyFCEnteringBaseTime, GS->LastEnteringEnemyBaseTime) > 3.f))
+				if (bIsNoRallyZone && !bIsTeamSafeVolume && !P->GetCarriedObject()->bWasInEnemyBase && (GetWorld()->GetTimeSeconds() - FMath::Min(GS->LastEnemyFCEnteringBaseTime, GS->LastEnteringEnemyBaseTime) > 2.f))
 				{
-					if ((GetWorld()->GetTimeSeconds() - GS->LastEnteringEnemyBaseTime > 3.f) && Cast<AUTPlayerState>(P->PlayerState))
+					if ((GetWorld()->GetTimeSeconds() - GS->LastEnteringEnemyBaseTime > 2.f) && Cast<AUTPlayerState>(P->PlayerState))
 					{
 						((AUTPlayerState *)(P->PlayerState))->AnnounceStatus(StatusMessage::ImGoingIn);
 						if (VoiceLinesSet != NAME_None)
@@ -158,7 +158,7 @@ void AUTGameVolume::ActorEnteredVolume(class AActor* Other)
 						}
 						GS->LastEnteringEnemyBaseTime = GetWorld()->GetTimeSeconds();
 					}
-					if (GetWorld()->GetTimeSeconds() - GS->LastEnemyFCEnteringBaseTime > 3.f)
+					if (GetWorld()->GetTimeSeconds() - GS->LastEnemyFCEnteringBaseTime > 2.f)
 					{
 						AUTPlayerState* PS = P->GetCarriedObject()->LastPinger;
 						if (!PS)
@@ -186,7 +186,7 @@ void AUTGameVolume::ActorEnteredVolume(class AActor* Other)
 						}
 					}
 				}
-				else if ((GetWorld()->GetTimeSeconds() - FMath::Max(GS->LastFriendlyLocationReportTime, GS->LastEnemyLocationReportTime) > 1.f) || bIsWarningZone || !bHasFCEntry)
+				else if ((GetWorld()->GetTimeSeconds() - FMath::Min(GS->LastFriendlyLocationReportTime, GS->LastEnemyLocationReportTime) > 1.f) || bIsWarningZone || !bHasFCEntry)
 				{
 					if ((VoiceLinesSet != NAME_None) && ((GetWorld()->GetTimeSeconds() - GS->LastFriendlyLocationReportTime > 1.f) || !bHasFCEntry) && Cast<AUTPlayerState>(P->PlayerState) && (GS->LastFriendlyLocationName != VoiceLinesSet))
 					{
@@ -253,7 +253,7 @@ void AUTGameVolume::ActorEnteredVolume(class AActor* Other)
 					}
 					if (PS)
 					{
-						PS->AnnounceStatus(StatusMessage::Incoming);
+						PS->AnnounceStatus(StatusMessage::BaseUnderAttack);
 						GS->LastEnemyEnteringBaseTime = GetWorld()->GetTimeSeconds();
 					}
 				}
