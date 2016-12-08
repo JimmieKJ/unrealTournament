@@ -804,51 +804,60 @@ void AUTProjectile::ProcessHit_Implementation(AActor* OtherActor, UPrimitiveComp
 	UE_LOG(UT, Verbose, TEXT("%s::ProcessHit fake %d has master %d has fake %d OtherActor:%s"), *GetName(), bFakeClientProjectile, (MasterProjectile != NULL), (MyFakeProjectile != NULL), OtherActor ? *OtherActor->GetName() : TEXT("NULL"));
 
 	// note: on clients we assume spawn time impact is invalid since in such a case the projectile would generally have not survived to be replicated at all
-	if ( OtherActor != this && (OtherActor != Instigator || Instigator == NULL || bCanHitInstigator) && OtherComp != NULL && !bExploded  && (Role == ROLE_Authority || bHasSpawnedFully)
-		 && !ShouldIgnoreHit(OtherActor, OtherComp) )
+	if (OtherActor != this && (OtherActor != Instigator || Instigator == NULL || bCanHitInstigator) && OtherComp != NULL && !bExploded && (Role == ROLE_Authority || bHasSpawnedFully))
 	{
-		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-		if (!bCanHitTeammates && GS && !GS->bTeamProjHits && Cast<AUTCharacter>(OtherActor) && Instigator && (Instigator != OtherActor) && GS->OnSameTeam(OtherActor, Instigator))
+		if (ShouldIgnoreHit(OtherActor, OtherComp))
 		{
-			// ignore team hits
-			return;
+			if ((Role != ROLE_Authority) && OtherActor && OtherActor->bTearOff)
+			{ 
+				DamageImpactedActor(OtherActor, OtherComp, HitLocation, HitNormal);
+			}
 		}
-		if (MyFakeProjectile && !MyFakeProjectile->IsPendingKillPending())
+		else
 		{
-			MyFakeProjectile->ProcessHit_Implementation(OtherActor, OtherComp, HitLocation, HitNormal);
-			Destroy();
-			return;
-		}
-		if (OtherActor != NULL)
-		{
-			DamageImpactedActor(OtherActor, OtherComp, HitLocation, HitNormal);
-		}
-
-		ImpactedActor = OtherActor;
-		Explode(HitLocation, HitNormal, OtherComp);
-		ImpactedActor = NULL;
-
-		if (Cast<AUTProjectile>(OtherActor) != NULL)
-		{
-			// since we'll probably be destroyed or lose collision here, make sure we trigger the other projectile so shootable projectiles colliding is consistent (both explode)
-
-			UPrimitiveComponent* MyCollider = CollisionComp;
-			if (CollisionComp == NULL || CollisionComp->GetCollisionObjectType() != COLLISION_PROJECTILE_SHOOTABLE)
+			AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+			if (!bCanHitTeammates && GS && !GS->bTeamProjHits && Cast<AUTCharacter>(OtherActor) && Instigator && (Instigator != OtherActor) && GS->OnSameTeam(OtherActor, Instigator))
 			{
-				// our primary collision component isn't the shootable one; try to find one that is
-				TArray<UPrimitiveComponent*> Components;
-				GetComponents<UPrimitiveComponent>(Components);
-				for (int32 i = 0; i < Components.Num(); i++)
-				{
-					if (Components[i]->GetCollisionObjectType() == COLLISION_PROJECTILE_SHOOTABLE)
-					{
-						MyCollider = Components[i];
-						break;
-					}
-				}
+				// ignore team hits
+				return;
+			}
+			if (MyFakeProjectile && !MyFakeProjectile->IsPendingKillPending())
+			{
+				MyFakeProjectile->ProcessHit_Implementation(OtherActor, OtherComp, HitLocation, HitNormal);
+				Destroy();
+				return;
+			}
+			if (OtherActor != NULL)
+			{
+				DamageImpactedActor(OtherActor, OtherComp, HitLocation, HitNormal);
 			}
 
-			((AUTProjectile*)OtherActor)->ProcessHit(this, MyCollider, HitLocation, -HitNormal);
+			ImpactedActor = OtherActor;
+			Explode(HitLocation, HitNormal, OtherComp);
+			ImpactedActor = NULL;
+
+			if (Cast<AUTProjectile>(OtherActor) != NULL)
+			{
+				// since we'll probably be destroyed or lose collision here, make sure we trigger the other projectile so shootable projectiles colliding is consistent (both explode)
+
+				UPrimitiveComponent* MyCollider = CollisionComp;
+				if (CollisionComp == NULL || CollisionComp->GetCollisionObjectType() != COLLISION_PROJECTILE_SHOOTABLE)
+				{
+					// our primary collision component isn't the shootable one; try to find one that is
+					TArray<UPrimitiveComponent*> Components;
+					GetComponents<UPrimitiveComponent>(Components);
+					for (int32 i = 0; i < Components.Num(); i++)
+					{
+						if (Components[i]->GetCollisionObjectType() == COLLISION_PROJECTILE_SHOOTABLE)
+						{
+							MyCollider = Components[i];
+							break;
+						}
+					}
+				}
+
+				((AUTProjectile*)OtherActor)->ProcessHit(this, MyCollider, HitLocation, -HitNormal);
+			}
 		}
 	}
 }

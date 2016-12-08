@@ -4,7 +4,7 @@
 #include "UTTeamInterface.h"
 #include "UTTeamDeco.generated.h"
 
-UCLASS(Blueprintable, meta = (ChildCanTick))
+UCLASS(Blueprintable)
 class UNREALTOURNAMENT_API AUTTeamDeco : public AActor, public IUTTeamInterface
 {
 	GENERATED_UCLASS_BODY()
