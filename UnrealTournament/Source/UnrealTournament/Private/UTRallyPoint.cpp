@@ -175,7 +175,7 @@ void AUTRallyPoint::OnOverlapBegin(UPrimitiveComponent* OverlappedComponent, AAc
 		}
 		else if ((RallyPointState == RallyPointStates::Off) && TouchingCharacter && Cast<AUTPlayerController>(TouchingCharacter->GetController()))
 		{
-			GetWorldTimerManager().SetTimer(WarnNoFlagHandle, FTimerDelegate::CreateUObject(this, &AUTRallyPoint::WarnNoFlag, TouchingCharacter), 1.f, false);
+			GetWorldTimerManager().SetTimer(WarnNoFlagHandle, FTimerDelegate::CreateUObject(this, &AUTRallyPoint::WarnNoFlag, TouchingCharacter), 1.5f, false);
 		}
 	}
 }
@@ -192,11 +192,16 @@ void AUTRallyPoint::OnOverlapEnd(UPrimitiveComponent* OverlappedComponent, AActo
 {
 	if ((Role == ROLE_Authority) && bIsEnabled)
 	{
-		AUTCTFFlag* CharFlag = Cast<AUTCharacter>(OtherActor) ? Cast<AUTCTFFlag>(((AUTCharacter*)OtherActor)->GetCarriedObject()) : nullptr;
-		if (CharFlag != NULL)
+		AUTCharacter* TouchingCharacter = Cast<AUTCharacter>(OtherActor);
+		if (TouchingCharacter != nullptr)
 		{
-			EndRallyCharging();
-			TouchingFC = nullptr;
+			AUTCTFFlag* CharFlag = Cast<AUTCTFFlag>(TouchingCharacter->GetCarriedObject());
+			if (CharFlag != nullptr)
+			{
+				EndRallyCharging();
+				TouchingFC = nullptr;
+			}
+			GetWorldTimerManager().ClearTimer(WarnNoFlagHandle);
 		}
 	}
 }
