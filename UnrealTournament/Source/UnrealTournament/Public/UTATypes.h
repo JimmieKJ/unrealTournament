@@ -22,12 +22,14 @@ const uint16 UTDIALOG_BUTTON_APPLY = 0x2000;
 const uint16 TUTORIAL_Movement = 0x0001;
 const uint16 TUTOIRAL_Weapon = 0x0002;
 const uint16 TUTORIAL_Pickups = 0x0004;
+const uint16 TUTORIAL_SkillMoves = TUTORIAL_Movement | TUTOIRAL_Weapon | TUTORIAL_Pickups;
+
 const uint16 TUTORIAL_DM = 0x0008;
 const uint16 TUTORIAL_TDM = 0x0010;
 const uint16 TUTORIAL_CTF = 0x0020;
 const uint16 TUTORIAL_Duel = 0x0040;
 const uint16 TUTORIAL_FlagRun = 0x0080;
-const uint16 TUTORIAL_SkillMoves = 0x0007;
+const uint16 TUTORIAL_Showdown = 0x0100;
 const uint16 TUTORIAL_Gameplay = 0x0028;
 
 const int32 DEFAULT_RANK_CHECK = 0;
