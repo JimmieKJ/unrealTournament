@@ -116,6 +116,9 @@ class UNREALTOURNAMENT_API AUTFlagRunGameState : public AUTCTFRoundGameState
 	UFUNCTION(BlueprintCallable, Category = Team)
 		virtual bool IsTeamAbleToEarnPowerup(int32 TeamNumber) const;
 
+	UFUNCTION(BlueprintCallable, Category = Team)
+		virtual AUTCTFFlag* GetOffenseFlag();
+
 	//Handles precaching all game announcement sounds for the local player
 	virtual void PrecacheAllPowerupAnnouncements(class UUTAnnouncer* Announcer) const;
 

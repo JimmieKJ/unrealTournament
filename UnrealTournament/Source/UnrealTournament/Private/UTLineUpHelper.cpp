@@ -10,6 +10,7 @@
 #include "UTCTFRoundGameState.h"
 #include "UTCTFRoundGame.h"
 #include "UTCTFGameMode.h"
+#include "UTFlagRunGameState.h"
 
 AUTLineUpHelper::AUTLineUpHelper(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -215,21 +216,11 @@ void AUTLineUpHelper::MovePlayers(LineUpTypes ZoneType)
 				{
 					//UTPC->SetCameraMode(NAME_LineUpCam);
 					UTPC->ClientSetActiveLineUp(true, ZoneType);
-				
-					//Since we respawned, the flag might be in a bad state. Re-attach the flag if this player is holding it.
-					AUTPlayerState* UTPS = Cast<AUTPlayerState>(UTPC->PlayerState);
-					if (UTPS)
-					{
-						AUTCTFFlag* CTFFlag = Cast<AUTCTFFlag>(UTPS->CarriedObject);
-						if (CTFFlag)
-						{
-							CTFFlag->SetHolder(UTChar);
-						}
-					}
 				}
 			}
 		}
 
+		FlagFixUp();
 		SortPlayers();
 		MovePreviewCharactersToLineUpSpawns(ZoneType);
 
@@ -243,6 +234,64 @@ void AUTLineUpHelper::MovePlayers(LineUpTypes ZoneType)
 	}
 
 	bIsPlacingPlayers = false;
+}
+
+void AUTLineUpHelper::FlagFixUp()
+{
+	if (GetWorld() && GetWorld()->GetAuthGameMode())
+	{
+		AUTGameMode* UTGM = Cast<AUTGameMode>(GetWorld()->GetAuthGameMode());
+		if (UTGM)
+		{
+			AUTCTFFlag* OffenseFlag = nullptr;
+			AUTFlagRunGameState* UTFRGS = UTGM->GetGameState<AUTFlagRunGameState>();
+			if (UTFRGS)
+			{
+				OffenseFlag = UTFRGS->GetOffenseFlag();
+			}
+
+			if (OffenseFlag)
+			{
+				AUTPlayerController* UTPC = nullptr;
+				AUTBot* UTBotController = nullptr;
+
+				if (OffenseFlag->Holder)
+				{
+					UTPC = Cast<AUTPlayerController>(OffenseFlag->Holder->GetOwner());
+					UTBotController = Cast<AUTBot>(OffenseFlag->Holder->GetOwner());
+				}
+				else if (OffenseFlag->LastHolder)
+				{
+					UTPC = Cast<AUTPlayerController>(OffenseFlag->LastHolder->GetOwner());
+					UTBotController = Cast<AUTBot>(OffenseFlag->Holder->GetOwner());
+				}
+
+				if (UTPC)
+				{
+					if (UTPC->GetPawn())
+					{
+						OffenseFlag->SetHolder(Cast<AUTCharacter>(UTPC->GetPawn()));
+					}
+					else
+					{
+						OffenseFlag->Destroy();
+					}
+				}
+
+				if (UTBotController)
+				{
+					if (UTPC->GetPawn())
+					{
+						OffenseFlag->SetHolder(Cast<AUTCharacter>(UTBotController->GetPawn()));
+					}
+					else
+					{
+						OffenseFlag->Destroy();
+					}
+				}
+			}
+		}
+	}
 }
 
 void AUTLineUpHelper::SpawnPlayerWeapon(AUTCharacter* UTChar)

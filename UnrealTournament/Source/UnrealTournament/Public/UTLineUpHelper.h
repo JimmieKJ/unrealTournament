@@ -67,6 +67,10 @@ protected:
 	UFUNCTION()
 	void MovePreviewCharactersToLineUpSpawns(LineUpTypes LineUpType);
 
+	/*Flag can be in a bad state since we recreate pawns during Line Up. This function re-assigns the flag to the correct player pawn*/
+	UFUNCTION()
+	void FlagFixUp();
+
 	TWeakPtr<AUTCharacter> SelectedCharacter;
 
 	float TimerDelayForIntro;
