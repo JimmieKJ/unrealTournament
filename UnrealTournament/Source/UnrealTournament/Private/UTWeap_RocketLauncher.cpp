@@ -565,7 +565,7 @@ bool AUTWeap_RocketLauncher::WithinLockAim(AActor *Target)
 {
 	if (CanLockTarget(Target))
 	{
-		const FVector FireLoc = GetFireStartLoc();
+		const FVector FireLoc = UTOwner->GetPawnViewLocation();
 		const FVector Dir = GetBaseFireRotation().Vector();
 		const FVector TargetDir = (Target->GetActorLocation() - UTOwner->GetActorLocation()).GetSafeNormal();
 		// note that we're not tracing to retain existing target; allows locking through walls to a limited extent
@@ -634,7 +634,7 @@ void AUTWeap_RocketLauncher::UpdateLock()
 		return;
 	}
 
-	const FVector FireLoc = GetFireStartLoc();
+	const FVector FireLoc = UTOwner->GetPawnViewLocation();
 	AActor* NewTarget = UUTGameplayStatics::ChooseBestAimTarget(UTOwner->Controller, FireLoc, GetBaseFireRotation().Vector(), LockAim, LockRange, LockOffset,AUTCharacter::StaticClass());
 
 	//Have a target. Update the target lock
