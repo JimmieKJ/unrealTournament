@@ -10,9 +10,7 @@
 
 AUTPickupToken::AUTPickupToken(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
-	// This was the only way I could make clientside actors that I could destroy
-	bReplicates = true;
-	bNetTemporary = true;
+	bNetLoadOnClient = true;
 }
 
 void AUTPickupToken::PostLoad()
