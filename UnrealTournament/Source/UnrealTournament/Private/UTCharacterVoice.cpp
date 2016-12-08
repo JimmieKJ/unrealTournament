@@ -81,10 +81,14 @@ UUTCharacterVoice::UUTCharacterVoice(const FObjectInitializer& ObjectInitializer
 	StatusOffsets.Add(StatusMessage::RedeemerSpotted, KEY_CALLOUTS + 5009);
 	StatusOffsets.Add(StatusMessage::GetTheFlag, KEY_CALLOUTS + 5010);
 
+	//FIRSTPICKUPSPEECH = KEY_CALLOUTS + 5099;
 	StatusOffsets.Add(PickupSpeechType::RedeemerPickup, KEY_CALLOUTS + 5100);
 	StatusOffsets.Add(PickupSpeechType::UDamagePickup, KEY_CALLOUTS + 5200);
 	StatusOffsets.Add(PickupSpeechType::ShieldbeltPickup, KEY_CALLOUTS + 5300);
-	StatusOffsets.Add(StatusMessage::RedeemerKills, KEY_CALLOUTS + 5400);	
+	// LASTPICKUPSPEECH = KEY_CALLOUTS + 9999;
+
+
+	StatusOffsets.Add(StatusMessage::RedeemerKills, KEY_CALLOUTS + 10000);	
 
 	TauntText = NSLOCTEXT("UTCharacterVoice", "Taunt", ": {TauntMessage}");
 	StatusTextFormat = NSLOCTEXT("UTCharacterVoice", "StatusFormat", " at {LastKnownLocation}: {TauntMessage}");
@@ -547,19 +551,29 @@ bool UUTCharacterVoice::ShouldPlayAnnouncement(const FClientReceiveData& ClientD
 	}
 }
 
+bool UUTCharacterVoice::IsFlagLocationUpdate(int32 Switch) const
+{
+	return (Switch > StatusBaseIndex + FIRSTGAMEVOLUMESPEECH) && (Switch < StatusBaseIndex + LASTGAMEVOLUMESPEECH) && (Switch % 10 < 2);
+}
+
+bool UUTCharacterVoice::IsPickupUpdate(int32 Switch) const
+{
+	return (Switch > StatusBaseIndex + FIRSTPICKUPSPEECH) && (Switch < StatusBaseIndex + LASTPICKUPSPEECH);
+}
+
 bool UUTCharacterVoice::InterruptAnnouncement(const FAnnouncementInfo AnnouncementInfo, const FAnnouncementInfo OtherAnnouncementInfo) const
 {
+	if (AnnouncementInfo.Switch == GetStatusIndex(StatusMessage::Incoming))
+	{
+		return (AnnouncementInfo.MessageClass == OtherAnnouncementInfo.MessageClass)
+			|| OtherAnnouncementInfo.MessageClass->GetDefaultObject<UUTLocalMessage>()->IsOptionalSpoken(OtherAnnouncementInfo.Switch)
+			|| (OtherAnnouncementInfo.MessageClass->GetDefaultObject<UUTLocalMessage>()->GetAnnouncementPriority(OtherAnnouncementInfo) < 1.f);
+	}
 	if ((AnnouncementInfo.MessageClass == OtherAnnouncementInfo.MessageClass) && (AnnouncementInfo.Switch >= StatusBaseIndex + KEY_CALLOUTS))
 	{
-		if (OtherAnnouncementInfo.Switch < StatusBaseIndex + KEY_CALLOUTS)
-		{
-			return true;
-		}
-		if ((OtherAnnouncementInfo.Switch < StatusBaseIndex + FIRSTGAMEVOLUMESPEECH) || (AnnouncementInfo.Switch < StatusBaseIndex + FIRSTGAMEVOLUMESPEECH))
-		{
-			return false;
-		}
-		if ((OtherAnnouncementInfo.Switch < StatusBaseIndex + LASTGAMEVOLUMESPEECH) && (AnnouncementInfo.Switch < StatusBaseIndex + LASTGAMEVOLUMESPEECH) && (OtherAnnouncementInfo.Switch % 10 < 2) && (AnnouncementInfo.Switch % 10 < 2))
+		bool bNewIsFlagLocUpdate = IsFlagLocationUpdate(AnnouncementInfo.Switch);
+		bool bOldIsFlagLocUpdate = IsFlagLocationUpdate(OtherAnnouncementInfo.Switch);
+		if ((OtherAnnouncementInfo.Switch < StatusBaseIndex + KEY_CALLOUTS) || (bNewIsFlagLocUpdate && (bOldIsFlagLocUpdate || IsPickupUpdate(OtherAnnouncementInfo.Switch))))
 		{
 			return true;
 		}
@@ -593,6 +607,14 @@ bool UUTCharacterVoice::CancelByAnnouncement_Implementation(int32 Switch, const 
 
 float UUTCharacterVoice::GetAnnouncementPriority(const FAnnouncementInfo AnnouncementInfo) const
 {
+	if (AnnouncementInfo.Switch == GetStatusIndex(StatusMessage::Incoming))
+	{
+		return 1.1f;
+	}
+	if (IsFlagLocationUpdate(AnnouncementInfo.Switch))
+	{
+		return 0.7f;
+	}
 	return (AnnouncementInfo.Switch >= StatusBaseIndex + KEY_CALLOUTS) ? 0.5f : 0.1f;
 }
 
