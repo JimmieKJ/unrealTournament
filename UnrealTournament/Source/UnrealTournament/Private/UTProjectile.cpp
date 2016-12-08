@@ -787,10 +787,10 @@ bool AUTProjectile::ShouldIgnoreHit_Implementation(AActor* OtherActor, UPrimitiv
 	// ignore client-side actors if will bounce
 	// special case not blowing up on Repulsor bubble so that we can reflect / absorb projectiles
 	AUTTeamDeco* Deco = Cast<AUTTeamDeco>(OtherActor);
-	if (Deco && !Deco->bBlockTeamProjectiles && InstigatorController)
+	if (Deco && !Deco->bBlockTeamProjectiles && Instigator)
 	{
 		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-		return GS && GS->OnSameTeam(InstigatorController, Deco);
+		return GS && GS->OnSameTeam(Instigator, Deco);
 	}
 	return (((Cast<AUTTeleporter>(OtherActor) != NULL || Cast<AVolume>(OtherActor) != NULL) && !GetVelocity().IsZero())
 		|| (Cast<AUTRepulsorBubble>(OtherActor) != NULL)
