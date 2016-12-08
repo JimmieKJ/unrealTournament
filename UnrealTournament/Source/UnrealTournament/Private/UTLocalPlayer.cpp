@@ -3344,12 +3344,13 @@ void UUTLocalPlayer::OnFindFriendSessionComplete(int32 LocalUserNum, bool bWasSu
 
 FName UUTLocalPlayer::GetCountryFlag()
 {
+#if WITH_PROFILE
 	UUtMcpProfile* McpProfile = GetMcpProfileManager()->GetMcpProfileAs<UUtMcpProfile>(EUtMcpProfile::Profile);
 	if (McpProfile)
 	{
 		return McpProfile->GetCountryFlag();
 	}
-
+#endif
 	if (PlayerController)
 	{
 		AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerController->PlayerState);
@@ -3363,11 +3364,13 @@ FName UUTLocalPlayer::GetCountryFlag()
 
 FName UUTLocalPlayer::GetAvatar()
 {
+#if WITH_PROFILE
 	UUtMcpProfile* McpProfile = GetMcpProfileManager()->GetMcpProfileAs<UUtMcpProfile>(EUtMcpProfile::Profile);
 	if (McpProfile)
 	{
 		return McpProfile->GetAvatar();
 	}
+#endif
 
 	if (PlayerController)
 	{
@@ -3379,11 +3382,13 @@ FName UUTLocalPlayer::GetAvatar()
 
 void UUTLocalPlayer::SetCountryFlagAndAvatar(FName NewFlag, FName NewAvatar)
 {
+#if WITH_PROFILE
 	UUtMcpProfile* McpProfile = GetMcpProfileManager()->GetMcpProfileAs<UUtMcpProfile>(EUtMcpProfile::Profile);
 	if (McpProfile)
 	{
 		McpProfile->SetAvatarAndFlag(NewAvatar.ToString(), NewFlag.ToString());
 	}
+#endif
 
 	AUTPlayerController* PC = Cast<AUTPlayerController>(PlayerController);
 	if (PC != NULL)
