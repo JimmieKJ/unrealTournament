@@ -1340,15 +1340,16 @@ void AUTCharacter::TargetedBy(APawn* Targeter, AUTPlayerState* PS)
 	AUTCarriedObject* Flag = GetCarriedObject();
 	if (Flag && Flag->bShouldPingFlag)
 	{
-		if (PS && (GetWorld()->GetTimeSeconds() - Flag->LastPingVerbalTime > 12.f) && !Flag->bCurrentlyPinged)
+		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+		AUTGameVolume* GV = UTCharacterMovement ? Cast<AUTGameVolume>(UTCharacterMovement->GetPhysicsVolume()) : nullptr;
+		float MinTimeForVerbal = (GV && GS && (GV->VoiceLinesSet != GS->LastEnemyLocationName)) ? 0.f : 6.f;
+
+		if (PS && (GetWorld()->GetTimeSeconds() - GS->LastEnemyLocationReportTime > MinTimeForVerbal) && !Flag->bCurrentlyPinged)
 		{
-			Flag->LastPingVerbalTime = GetWorld()->GetTimeSeconds();
-			AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 			if (GS)
 			{
 				GS->LastEnemyLocationReportTime = GetWorld()->GetTimeSeconds();
 			}
-			AUTGameVolume* GV = UTCharacterMovement ? Cast<AUTGameVolume>(UTCharacterMovement->GetPhysicsVolume()) : nullptr;
 			if (GV && (GV->VoiceLinesSet != NAME_None))
 			{
 				PS->AnnounceStatus(GV->VoiceLinesSet, 0);
