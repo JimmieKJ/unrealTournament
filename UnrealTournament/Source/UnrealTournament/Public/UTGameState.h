@@ -621,6 +621,7 @@ public:
 	UPROPERTY(Replicated, GlobalConfig, EditAnywhere, BlueprintReadWrite, Category = GameState)
 	bool bDisableVoteKick;
 
+	virtual void PrepareForIntermission();
 
 	//User Info Query for all players in the match
 public:

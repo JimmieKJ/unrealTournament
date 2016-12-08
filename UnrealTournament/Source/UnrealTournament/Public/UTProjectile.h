@@ -204,7 +204,9 @@ class UNREALTOURNAMENT_API AUTProjectile : public AActor, public IUTResetInterfa
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Projectile)
 		float OffsetTime;
 
-		/** this is used with SendInitialReplication() to force projectiles to be initially replicated prior to initial physics,
+	virtual void PrepareForIntermission();
+
+	/** this is used with SendInitialReplication() to force projectiles to be initially replicated prior to initial physics,
 	 * which fixes most cases of projectiles never appearing on clients (because they got blown up before ever being sent)
 	 * we use a special tick function instead of BeginPlay() so that COND_Initial replication conditions continue to work as expected
 	 */

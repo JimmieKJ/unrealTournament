@@ -368,7 +368,7 @@ public:
 
 	/**	Client replicated function that get's called when it's half-time. */
 	UFUNCTION(client, reliable)
-	void ClientHalftime();
+	void ClientPrepareForIntermission();
 
 	/** Switch to best current camera while spectating. */
 	virtual void ChooseBestCamera();

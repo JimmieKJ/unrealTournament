@@ -1372,7 +1372,7 @@ void AUTCharacter::TargetedBy(APawn* Targeter, AUTPlayerState* PS)
 	if (TargeterChar && GS && GS->bPlayStatusAnnouncements && Cast<AUTPlayerController>(GetController()))
 	{
 		AUTPlayerState* UTPlayerState = Cast<AUTPlayerState>(PlayerState);
-		if (UTPlayerState && UTPlayerState->Team && (GetWorld()->GetTimeSeconds() - UTPlayerState->LastBehindYouTime > 10.f))
+		if (UTPlayerState && UTPlayerState->Team && (GetWorld()->GetTimeSeconds() - UTPlayerState->LastBehindYouTime > 8.f))
 		{
 			// announce behind you if attacker is behind this player && teammate can see it
 			FVector ViewDir = GetActorRotation().Vector();
@@ -6862,4 +6862,12 @@ void AUTCharacter::JumpVis()
 	{
 		UTCharacterMovement->bDrawJumps = !UTCharacterMovement->bDrawJumps;
 	}
+}
+
+void AUTCharacter::PrepareForIntermission()
+{
+	SetAmbientSound(NULL);
+	SetLocalAmbientSound(NULL);
+	SetStatusAmbientSound(NULL);
+	TurnOff();
 }

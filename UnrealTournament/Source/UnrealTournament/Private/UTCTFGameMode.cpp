@@ -10,7 +10,6 @@
 #include "UTCountDownMessage.h"
 #include "UTPickup.h"
 #include "UTGameMessage.h"
-#include "UTIntermissionBeginInterface.h"
 #include "UTMutator.h"
 #include "UTCTFSquadAI.h"
 #include "UTWorldSettings.h"
@@ -269,15 +268,6 @@ void AUTCTFGameMode::HandleMatchIntermission()
 		}
 		CTFGameState->bStopGameClock = true;
 		CTFGameState->SetTimeLimit(10);
-	}
-
-	// inform actors of intermission start
-	for (FActorIterator It(GetWorld()); It; ++It)
-	{
-		if (It->GetClass()->ImplementsInterface(UUTIntermissionBeginInterface::StaticClass()))
-		{
-			IUTIntermissionBeginInterface::Execute_IntermissionBegin(*It);
-		}
 	}
 
 	BroadcastLocalized(this, UUTCTFMajorMessage::StaticClass(), 11, NULL, NULL, NULL);

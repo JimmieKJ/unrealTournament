@@ -1072,7 +1072,6 @@ void AUTFlagRunGame::ScoreObject_Implementation(AUTCarriedObject* GameObject, AU
 	{
 		FUTAnalytics::FireEvent_FlagRunRoundEnd(this, false, (UTGameState->WinningTeam != nullptr));
 	}
-	PrepareForIntermission();
 
 	if (UTGameState)
 	{

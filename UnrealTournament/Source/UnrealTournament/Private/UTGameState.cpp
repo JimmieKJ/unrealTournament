@@ -28,6 +28,7 @@
 #include "UTLineUpZone.h"
 #include "UTLineUpHelper.h"
 #include "Runtime/Analytics/Analytics/Public/AnalyticsEventAttribute.h"
+#include "UTIntermissionBeginInterface.h"
 
 AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -2292,5 +2293,63 @@ bool AUTGameState::IsMapVoteListReplicationCompleted()
 	}
 
 	return bMapVoteListReplicationComplete;
+
+}
+
+void AUTGameState::PrepareForIntermission()
+{
+	for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
+	{
+		if (*It && Cast<AUTRemoteRedeemer>((*It).Get()))
+		{
+			TArray<USceneComponent*> Components;
+			(*It)->GetComponents<USceneComponent>(Components);
+			for (int32 i = 0; i < Components.Num(); i++)
+			{
+				UAudioComponent* Audio = Cast<UAudioComponent>(Components[i]);
+				if (Audio != NULL)
+				{
+					Audio->Stop();
+				}
+/*				else
+				{
+					UParticleSystemComponent* PSC = Cast<UParticleSystemComponent>(Components[i]);
+					if (PSC != NULL && IsLoopingParticleSystem(PSC->Template))
+					{
+						PSC->DeactivateSystem();
+					}
+				}*/
+			}
+		}
+		else
+		{
+			AUTCharacter* Char = Cast<AUTCharacter>(*It);
+			if (Char)
+			{
+				Char->PrepareForIntermission();
+			}
+		}
+	}
+
+	// also freeze projectiles left over
+	for (FActorIterator It(GetWorld()); It; ++It)
+	{
+		AUTProjectile* TestProj = Cast<AUTProjectile>(*It);
+		if (TestProj && !TestProj->IsPendingKill())
+		{
+			TestProj->PrepareForIntermission();
+		}
+	}
+
+	//freeze effects
+
+	// inform actors of intermission start
+	for (FActorIterator It(GetWorld()); It; ++It)
+	{
+		if (It->GetClass()->ImplementsInterface(UUTIntermissionBeginInterface::StaticClass()))
+		{
+			IUTIntermissionBeginInterface::Execute_IntermissionBegin(*It);
+		}
+	}
 
 }

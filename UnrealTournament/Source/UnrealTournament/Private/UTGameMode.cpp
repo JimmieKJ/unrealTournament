@@ -1941,24 +1941,24 @@ void AUTGameMode::BeginGame()
 void AUTGameMode::EndMatch()
 {
 	Super::EndMatch();
-	
+
 #if !(UE_BUILD_SHIPPING)
-	EnemyKillsByDamageType.ValueSort([](int32 A, int32 B) 
+	EnemyKillsByDamageType.ValueSort([](int32 A, int32 B)
 	{
 		return A > B;
 	});
 
-	UE_LOG(LogUTGame,Log,TEXT(""));
-	UE_LOG(LogUTGame,Log,TEXT("==================================================="));
-	UE_LOG(LogUTGame,Log,TEXT("Total Weapon Kills"));
-	UE_LOG(LogUTGame,Log,TEXT("==================================================="));
+	UE_LOG(LogUTGame, Log, TEXT(""));
+	UE_LOG(LogUTGame, Log, TEXT("==================================================="));
+	UE_LOG(LogUTGame, Log, TEXT("Total Weapon Kills"));
+	UE_LOG(LogUTGame, Log, TEXT("==================================================="));
 
 	for (auto& KillElement : EnemyKillsByDamageType)
 	{
 		UE_LOG(LogUTGame, Log, TEXT("%s -> %d"), *KillElement.Key->GetName(), KillElement.Value);
 	}
 
-	UE_LOG(LogUTGame,Log,TEXT("==================================================="));
+	UE_LOG(LogUTGame, Log, TEXT("==================================================="));
 
 	//Collect all the weapons
 	TArray<AUTWeapon *> StatsWeapons;
@@ -1985,7 +1985,7 @@ void AUTGameMode::EndMatch()
 		}
 	}
 
-	for (int i = 0; i < UTGameState->PlayerArray.Num();i++)
+	for (int i = 0; i < UTGameState->PlayerArray.Num(); i++)
 	{
 		AUTPlayerState* UTPlayerState = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
 		if (UTPlayerState)
@@ -1995,41 +1995,41 @@ void AUTGameMode::EndMatch()
 				return A > B;
 			});
 
-			UE_LOG(LogUTGame,Log,TEXT(""));
-			UE_LOG(LogUTGame,Log,TEXT("==================================================="));
-			UE_LOG(LogUTGame,Log,TEXT("Weapon Stats for %s"), *UTPlayerState->PlayerName);
-			UE_LOG(LogUTGame,Log,TEXT("==================================================="));
+			UE_LOG(LogUTGame, Log, TEXT(""));
+			UE_LOG(LogUTGame, Log, TEXT("==================================================="));
+			UE_LOG(LogUTGame, Log, TEXT("Weapon Stats for %s"), *UTPlayerState->PlayerName);
+			UE_LOG(LogUTGame, Log, TEXT("==================================================="));
 
-			UE_LOG(LogUTGame,Log,TEXT(""));
-			UE_LOG(LogUTGame,Log,TEXT("---------------------------------------------------"));
-			UE_LOG(LogUTGame,Log,TEXT("Kills / Deaths"));
-			UE_LOG(LogUTGame,Log,TEXT("---------------------------------------------------"));
+			UE_LOG(LogUTGame, Log, TEXT(""));
+			UE_LOG(LogUTGame, Log, TEXT("---------------------------------------------------"));
+			UE_LOG(LogUTGame, Log, TEXT("Kills / Deaths"));
+			UE_LOG(LogUTGame, Log, TEXT("---------------------------------------------------"));
 
 			for (AUTWeapon* Weapon : StatsWeapons)
 			{
 				int32 Kills = Weapon->GetWeaponKillStats(UTPlayerState);
 				int32 Deaths = Weapon->GetWeaponDeathStats(UTPlayerState);
 
-				UE_LOG(LogUTGame,Log,TEXT("%s - %i / %i"), *Weapon->DisplayName.ToString(), Kills, Deaths);
+				UE_LOG(LogUTGame, Log, TEXT("%s - %i / %i"), *Weapon->DisplayName.ToString(), Kills, Deaths);
 
 			}
 
-			UE_LOG(LogUTGame,Log,TEXT(""));
-			UE_LOG(LogUTGame,Log,TEXT("---------------------------------------------------"));
-			UE_LOG(LogUTGame,Log,TEXT("Damage Dealt"));
-			UE_LOG(LogUTGame,Log,TEXT("---------------------------------------------------"));
+			UE_LOG(LogUTGame, Log, TEXT(""));
+			UE_LOG(LogUTGame, Log, TEXT("---------------------------------------------------"));
+			UE_LOG(LogUTGame, Log, TEXT("Damage Dealt"));
+			UE_LOG(LogUTGame, Log, TEXT("---------------------------------------------------"));
 
-			for (auto& Stat : UTPlayerState->DamageDelt)	
+			for (auto& Stat : UTPlayerState->DamageDelt)
 			{
-				UE_LOG(LogUTGame,Log,TEXT("%s : %d"), Stat.Key == nullptr ? TEXT("<none>") : *GetNameSafe(Stat.Key), Stat.Value);
+				UE_LOG(LogUTGame, Log, TEXT("%s : %d"), Stat.Key == nullptr ? TEXT("<none>") : *GetNameSafe(Stat.Key), Stat.Value);
 			}
-			UE_LOG(LogUTGame,Log,TEXT("==================================================="));
+			UE_LOG(LogUTGame, Log, TEXT("==================================================="));
 		}
 	}
 
 
 #endif
-	
+
 	//Log weapon kills in analytics
 	FUTAnalytics::FireEvent_UTServerWeaponKills(this, &EnemyKillsByDamageType);
 
@@ -2038,13 +2038,15 @@ void AUTGameMode::EndMatch()
 	FTimerHandle TempHandle;
 	GetWorldTimerManager().SetTimer(TempHandle, this, &AUTGameMode::PlayEndOfMatchMessage, EndOfMatchMessageDelay * GetActorTimeDilation());
 
-	for (FConstPawnIterator Iterator = GetWorld()->GetPawnIterator(); Iterator; ++Iterator )
+	UTGameState->PrepareForIntermission();
+
+	// Tell the controllers to look at own team flag
+	for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
 	{
-		// If a pawn is marked pending kill, *Iterator will be NULL
-		APawn* Pawn = *Iterator;
-		if (Pawn && !Cast<ASpectatorPawn>(Pawn))
+		AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
+		if (PC != NULL)
 		{
-			Pawn->TurnOff();
+			PC->ClientPrepareForIntermission();
 		}
 	}
 }

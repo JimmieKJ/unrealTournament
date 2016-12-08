@@ -26,7 +26,6 @@
 #include "UTPlayerState.h"
 #include "UTFlagRunHUD.h"
 #include "UTGhostFlag.h"
-#include "UTIntermissionBeginInterface.h"
 #include "UTCTFRoundGameState.h"
 #include "UTAsymCTFSquadAI.h"
 #include "UTAnalytics.h"
@@ -242,17 +241,14 @@ void AUTCTFRoundGame::HandleMatchIntermission()
 	if (bFirstRoundInitialized)
 	{
 		// view defender base, with last team to score around it
-
 		int32 TeamToWatch = IntermissionTeamToView(nullptr);
 
 		if ((CTFGameState == NULL) || (TeamToWatch >= CTFGameState->FlagBases.Num()) || (CTFGameState->FlagBases[TeamToWatch] == NULL))
 		{
 			return;
 		}
-		for (AUTCTFFlagBase* Base : CTFGameState->FlagBases)
-		{
-			Base->ClearDefenseEffect();
-		}
+
+		UTGameState->PrepareForIntermission();
 
 		AActor* IntermissionFocus = SetIntermissionCameras(TeamToWatch);
 		// Tell the controllers to look at defender base
@@ -261,32 +257,9 @@ void AUTCTFRoundGame::HandleMatchIntermission()
 			AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
 			if (PC != NULL)
 			{
-				PC->ClientHalftime();
+				PC->ClientPrepareForIntermission();
 				PC->SetViewTarget(IntermissionFocus);
 			}
-		}
-	}
-
-	// Freeze all of the pawns
-	for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
-	{
-		if (*It && !Cast<ASpectatorPawn>((*It).Get()))
-		{
-			(*It)->TurnOff();
-
-			if ((UTGameState->LineUpHelper) && (UTGameState->LineUpHelper->bIsActive))
-			{
-				UTGameState->LineUpHelper->ForceCharacterAnimResetForLineUp(Cast<AUTCharacter>(*It));
-			}
-		}
-	}
-
-	// inform actors of intermission start
-	for (FActorIterator It(GetWorld()); It; ++It)
-	{
-		if (It->GetClass()->ImplementsInterface(UUTIntermissionBeginInterface::StaticClass()))
-		{
-			IUTIntermissionBeginInterface::Execute_IntermissionBegin(*It);
 		}
 	}
 
@@ -1258,7 +1231,6 @@ void AUTCTFRoundGame::ScoreAlternateWin(int32 WinningTeamIndex, uint8 Reason)
 		CheckForWinner(LastTeamToScore);
 		if (UTGameState->IsMatchInProgress())
 		{
-			PrepareForIntermission();
 			SetMatchState(MatchState::MatchIntermission);
 		}
 
@@ -1270,46 +1242,6 @@ void AUTCTFRoundGame::ScoreAlternateWin(int32 WinningTeamIndex, uint8 Reason)
 				ParamArray.Add(FAnalyticsEventAttribute(TEXT("FlagCapScore"), 0));
 				FUTAnalytics::GetProvider().RecordEvent(TEXT("RCTFRoundResult"), ParamArray);
 			}
-		}
-	}
-}
-
-void AUTCTFRoundGame::PrepareForIntermission()
-{
-	TArray<APawn*> PawnsToDestroy;
-	for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
-	{
-		if (*It && Cast<AUTRemoteRedeemer>((*It).Get()))
-		{
-			PawnsToDestroy.Add(*It);
-		}
-		else
-		{
-			AUTCharacter* Char = Cast<AUTCharacter>(*It);
-			if (Char)
-			{
-				Char->SetAmbientSound(NULL);
-				Char->SetLocalAmbientSound(NULL);
-			}
-		}
-	}
-
-	for (int32 i = 0; i<PawnsToDestroy.Num(); i++)
-	{
-		APawn* Pawn = PawnsToDestroy[i];
-		if (Pawn != NULL && !Pawn->IsPendingKill())
-		{
-			Pawn->Destroy();
-		}
-	}
-
-	// also get rid of projectiles left over
-	for (FActorIterator It(GetWorld()); It; ++It)
-	{
-		AActor* TestActor = *It;
-		if (TestActor && !TestActor->IsPendingKill() && TestActor->IsA<AUTProjectile>())
-		{
-			TestActor->Destroy();
 		}
 	}
 }

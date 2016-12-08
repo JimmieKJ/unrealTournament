@@ -1102,4 +1102,23 @@ float AUTProjectile::GetMaxDamageRadius_Implementation() const
 	return DamageParams.OuterRadius;
 }
 
+void AUTProjectile::PrepareForIntermission()
+{
+	if (ProjectileMovement != nullptr)
+	{
+		ProjectileMovement->StopMovementImmediately();
+	}
+
+	TArray<USceneComponent*> Components;
+	GetComponents<USceneComponent>(Components);
+	for (int32 i = 0; i < Components.Num(); i++)
+	{
+		UAudioComponent* Audio = Cast<UAudioComponent>(Components[i]);
+		if (Audio != NULL)
+		{
+			Audio->Stop();
+		}
+	}
+}
+
 

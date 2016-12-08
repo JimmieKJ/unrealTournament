@@ -3244,29 +3244,12 @@ void AUTPlayerController::ClientViewSpectatorPawn_Implementation(FViewTargetTran
 	}
 }
 
-void AUTPlayerController::ClientHalftime_Implementation()
+void AUTPlayerController::ClientPrepareForIntermission_Implementation()
 {
-	// Freeze all of the pawns, destroy torn off ones
-	for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
+	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+	if (GS)
 	{
-		APawn* TestPawn = *It;
-		if (TestPawn && !Cast<ASpectatorPawn>(TestPawn))
-		{
-			if (TestPawn->bTearOff)
-			{
-				TestPawn->Destroy();
-			}
-			else
-			{
-				TestPawn->TurnOff();
-			}
-		}
-	}
-	if (UTCharacter)
-	{
-		UTCharacter->SetAmbientSound(NULL);
-		UTCharacter->SetLocalAmbientSound(NULL);
-		UTCharacter->SetStatusAmbientSound(NULL);
+		GS->PrepareForIntermission();
 	}
 }
 
@@ -5343,6 +5326,14 @@ void AUTPlayerController::ClientPrepareForLineUp_Implementation()
 			{
 				UTChar->TurnOff();
 				UTGS->LineUpHelper->ForceCharacterAnimResetForLineUp(UTChar);
+			}
+		}
+		for (FActorIterator It(GetWorld()); It; ++It)
+		{
+			AActor* TestActor = *It;
+			if (TestActor && !TestActor->IsPendingKill() && TestActor->IsA<AUTProjectile>())
+			{
+				TestActor->Destroy();
 			}
 		}
 	}

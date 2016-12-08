@@ -357,33 +357,20 @@ void AUTCTFBaseGame::HandleMatchIntermission()
 		}
 	}
 	
+	UTGameState->PrepareForIntermission();
+
 	// Tell the controllers to look at own team flag
 	for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
 	{
 		AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
 		if (PC != NULL)
 		{
-			PC->ClientHalftime();
+			PC->ClientPrepareForIntermission();
 			int32 TeamToWatch = IntermissionTeamToView(PC);
 			PC->SetViewTarget(CTFGameState->FlagBases[TeamToWatch]);
 			PC->FlushPressedKeys();
 		}
 	}
-		
-	// Freeze all of the pawns
-	for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
-	{
-		if (*It && !Cast<ASpectatorPawn>((*It).Get()))
-		{
-			(*It)->TurnOff();
-			
-			if (CTFGameState->LineUpHelper && CTFGameState->LineUpHelper->bIsActive)
-			{
-				CTFGameState->LineUpHelper->ForceCharacterAnimResetForLineUp(Cast<AUTCharacter>(*It));
-			}
-		}
-	}
-	
 
 	CTFGameState->bIsAtIntermission = true;
 	CTFGameState->OnIntermissionChanged();
