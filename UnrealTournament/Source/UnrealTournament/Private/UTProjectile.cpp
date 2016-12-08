@@ -12,6 +12,7 @@
 #include "UTWeaponRedirector.h"
 #include "UTProj_WeaponScreen.h"
 #include "UTRepulsorBubble.h"
+#include "UTTeamDeco.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogUTProjectile, Log, All);
 
@@ -785,11 +786,17 @@ bool AUTProjectile::ShouldIgnoreHit_Implementation(AActor* OtherActor, UPrimitiv
 	// don't blow up from our side on weapon shields; let the shield do that so it can change damage/kill credit
 	// ignore client-side actors if will bounce
 	// special case not blowing up on Repulsor bubble so that we can reflect / absorb projectiles
-	return ( ((Cast<AUTTeleporter>(OtherActor) != NULL || Cast<AVolume>(OtherActor) != NULL) && !GetVelocity().IsZero())
-			|| (Cast<AUTRepulsorBubble>(OtherActor) != NULL)
-			|| (Cast<AUTProjectile>(OtherActor) != NULL && !InteractsWithProj(Cast<AUTProjectile>(OtherActor)))
-			|| Cast<AUTProj_WeaponScreen>(OtherActor) != NULL )
-			|| (ProjectileMovement->bShouldBounce && (Role != ROLE_Authority) && OtherActor && OtherActor->bTearOff);
+	AUTTeamDeco* Deco = Cast<AUTTeamDeco>(OtherActor);
+	if (Deco && !Deco->bBlockTeamProjectiles && InstigatorController)
+	{
+		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+		return GS && GS->OnSameTeam(InstigatorController, Deco);
+	}
+	return (((Cast<AUTTeleporter>(OtherActor) != NULL || Cast<AVolume>(OtherActor) != NULL) && !GetVelocity().IsZero())
+		|| (Cast<AUTRepulsorBubble>(OtherActor) != NULL)
+		|| (Cast<AUTProjectile>(OtherActor) != NULL && !InteractsWithProj(Cast<AUTProjectile>(OtherActor)))
+		|| Cast<AUTProj_WeaponScreen>(OtherActor) != NULL)
+		|| (ProjectileMovement->bShouldBounce && (Role != ROLE_Authority) && OtherActor && OtherActor->bTearOff);
 }
 
 void AUTProjectile::ProcessHit_Implementation(AActor* OtherActor, UPrimitiveComponent* OtherComp, const FVector& HitLocation, const FVector& HitNormal)
