@@ -1243,7 +1243,7 @@ public:
 
 	/** Sent by the server when the possessed pawn is killed */
 	UFUNCTION(Client, Reliable)
-	void ClientPlayKillcam(AController* KillingController, APawn* PawnToFocus, FVector_NetQuantize FocusLoc);
+	void ClientPlayKillcam(AController* KillingController, APawn* PawnToFocus, FVector_NetQuantize FocusLoc, int32 FocusYaw);
 
 	UPROPERTY()
 		AActor* DeathCamFocus;

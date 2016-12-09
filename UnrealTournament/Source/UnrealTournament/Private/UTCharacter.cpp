@@ -1614,7 +1614,8 @@ bool AUTCharacter::Died(AController* EventInstigator, const FDamageEvent& Damage
 			{
 				APawn* KillcamFocus = EventInstigator ? EventInstigator->GetPawn() : nullptr;
 				FVector FocusLoc = Cast<AUTProjectile>(DamageCauser) ? ((AUTProjectile *)DamageCauser)->ShooterLocation : (KillcamFocus ? KillcamFocus->GetActorLocation() : FVector::ZeroVector);
-				DyingGameController->ClientPlayKillcam(EventInstigator, KillcamFocus, FocusLoc);
+				FRotator FocusRot = Cast<AUTProjectile>(DamageCauser) ? ((AUTProjectile *)DamageCauser)->ShooterRotation : (KillcamFocus ? KillcamFocus->GetActorRotation() : FRotator::ZeroRotator);
+				DyingGameController->ClientPlayKillcam(EventInstigator, KillcamFocus, FocusLoc, FocusRot.Yaw);
 			}
 
 			return true;

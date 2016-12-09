@@ -5084,7 +5084,7 @@ void AUTPlayerController::ClientPlayInstantReplay_Implementation(APawn* PawnToFo
 	}
 }
 
-void AUTPlayerController::ClientPlayKillcam_Implementation(AController* KillingController, APawn* PawnToFocus, FVector_NetQuantize FocusLoc)
+void AUTPlayerController::ClientPlayKillcam_Implementation(AController* KillingController, APawn* PawnToFocus, FVector_NetQuantize FocusLoc, int32 FocusYaw)
 {
 //	UE_LOG(UT, Log, TEXT("ClientPlayKillcam %d"), (GetWorld()->DemoNetDriver && IsLocalController()));
 	if (Cast<AUTCharacter>(PawnToFocus) != nullptr)
@@ -5100,7 +5100,9 @@ void AUTPlayerController::ClientPlayKillcam_Implementation(AController* KillingC
 			Params.Instigator = PawnToFocus;
 			Params.Owner = PawnToFocus;
 			Params.bNoFail = true;
-			AUTKillerTarget* KillerTarget = GetWorld()->SpawnActor<AUTKillerTarget>(AUTKillerTarget::StaticClass(), FocusLoc, PawnToFocus->GetActorRotation(), Params);
+			FRotator FocusRot(0.f);
+			FocusRot.Yaw = (FocusYaw != 0) ? float(FocusYaw) : PawnToFocus->GetActorRotation().Yaw;
+			AUTKillerTarget* KillerTarget = GetWorld()->SpawnActor<AUTKillerTarget>(AUTKillerTarget::StaticClass(), FocusLoc, FocusRot, Params);
 			if (KillerTarget != nullptr)
 			{
 				KillerTarget->InitFor(Cast<AUTCharacter>(PawnToFocus), this);

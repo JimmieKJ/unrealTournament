@@ -362,6 +362,9 @@ class UNREALTOURNAMENT_API AUTProjectile : public AActor, public IUTResetInterfa
 	UPROPERTY()
 		FVector ShooterLocation;
 
+	UPROPERTY()
+		FRotator ShooterRotation;
+
 	/** Projectile size for hitting pawns
 	 * if set to zero, the extra component used for this feature will not be attached (perf improvement) but means you can't go from 0 at spawn -> 1+ after spawn
 	 */

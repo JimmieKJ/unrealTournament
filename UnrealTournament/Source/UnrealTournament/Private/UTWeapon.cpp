@@ -1952,6 +1952,7 @@ AUTProjectile* AUTWeapon::SpawnNetPredictedProjectile(TSubclassOf<AUTProjectile>
 		{
 			UTOwner->LastFiredProjectile = NewProjectile;
 			NewProjectile->ShooterLocation = UTOwner->GetActorLocation();
+			NewProjectile->ShooterRotation = UTOwner->GetActorRotation();
 		}
 		if (Role == ROLE_Authority)
 		{
